@@ -82,7 +82,7 @@ static inline bool rb_bvset_member(rb_bvset_t *set, uint32_t x) {
 
 /*
  * Check whether the set is full (i.e., all elements in [0 ... set->max_val]
- * are stored in the set. 
+ * are stored in the set.
  * - we can't have more than MAX_RBTREE_SIZE nodes in red-black trees.
  * - so full sets are possible only if max_val < MAX_RBTREE_SIZE,
  *   i.e., bitsize is 28 or less.

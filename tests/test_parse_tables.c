@@ -21,7 +21,7 @@ static action_t get_action(state_t s, token_t tk) {
 static const char* state2string[] = {
   "r0", "c0", "c1", "c2", "c3", "c6", "c7", "c9", "c10", "c11", "c12", "c13", "c14",
   "td0", "td1", "td2", "td3", "t0", "t1", "t4", "t6",
-  "e0", "e1", "e3", "e5", "e7", "e10", "e11", "e12", 
+  "e0", "e1", "e3", "e5", "e7", "e10", "e11", "e12",
   "e14", "e15", "e16", "e17", "e19", "e20",
 };
 
@@ -142,7 +142,7 @@ static const char* action2string[] = {
   "bv_slt_next_push_e3_goto_e0",
   "bv_shl_next_push_e3_goto_e0",
   "bv_lshr_next_push_e3_goto_e0",
-  "bv_ashr_next_push_e3_goto_e0",  
+  "bv_ashr_next_push_e3_goto_e0",
   "bv_div_next_push_e3_goto_e0",
   "bv_rem_next_push_e3_goto_e0",
   "bv_sdiv_next_push_e3_goto_e0",
@@ -178,7 +178,7 @@ static const char* action2string[] = {
   "error_rpar_expected",
   "error",
 };
- 
+
 
 int main() {
   state_t s;

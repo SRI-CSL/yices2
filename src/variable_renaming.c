@@ -77,7 +77,7 @@ void reset_renaming(renaming_t *s) {
 /*
  * Make the renaming array larger.
  * - if current size is 0, this allocates an array of default size
- * - otherwise, the size if increased by 50% 
+ * - otherwise, the size if increased by 50%
  */
 static void extend_renaming(renaming_t *s) {
   int32_t **tmp;
@@ -169,7 +169,7 @@ term_t get_var_renaming(renaming_t *s, term_t x) {
   term_t y;
   uint32_t i;
   int32_t k;
-  
+
   assert(term_kind(s->terms, x) == VARIABLE);
 
   i = get_renaming_array(s, x);

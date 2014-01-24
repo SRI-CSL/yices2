@@ -5,7 +5,7 @@
 
 /*
  * This representation supports logical operations such as
- * bvand, bvor, bvxor, etc. and structural operations such as 
+ * bvand, bvor, bvxor, etc. and structural operations such as
  * shift, rotate, concat, bvextract, etc.
  *
  * Each bit is represented as a node in an OR/XOR DAG (cf. bit_expr).
@@ -73,7 +73,7 @@ typedef struct bvlogic_buffer_s {
 extern void init_bvlogic_buffer(bvlogic_buffer_t *b, node_table_t *nodes);
 
 /*
- * Delete buffer b. 
+ * Delete buffer b.
  *
  * NOTE: call bvlogic_buffer_clear first if the node table keeps
  * being used after b is deleted.
@@ -82,7 +82,7 @@ extern void delete_bvlogic_buffer(bvlogic_buffer_t *b);
 
 
 /*
- * Clear b: set it to the empty vector (also decrement b's 
+ * Clear b: set it to the empty vector (also decrement b's
  * node table reference counter if b->bitsize was positive).
  */
 extern void bvlogic_buffer_clear(bvlogic_buffer_t *b);
@@ -158,7 +158,7 @@ extern bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, bit_t bit);
  * - n = number of bits in the operand (n must be positive).
  *
  * set_constant64: copy the n lower order bits of an unsigned 64bit integer c
- * set_constant: copy the n lower order bits of a constant stored in an array 
+ * set_constant: copy the n lower order bits of a constant stored in an array
  *               of 32bit words (cf. bv_constant)
  * set_bitarray: copy a[0] ... a[n-1] into b
  * set_allbits: set all bits of b equal to bit
@@ -226,7 +226,7 @@ extern void bvlogic_buffer_not(bvlogic_buffer_t *b);
 
 /*
  * Binary operations:
- * - n = number of bits in the operands. n must be positive and equal to 
+ * - n = number of bits in the operands. n must be positive and equal to
  *   b's current bitsize.
  */
 extern void bvlogic_buffer_and_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
@@ -258,7 +258,7 @@ extern void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, te
 
 /*
  * Left/right refer to b written in big-endian form: (b[n-1] ... b[0])
- * if v = v[m-1] ... v[0] is added to b, then 
+ * if v = v[m-1] ... v[0] is added to b, then
  * - concat_left: v[m-1]...v[0] is added to the left of  b[n-1]
  * - concat_right: v[m-1]...v[0] is added to the right of  b[0]
  */
@@ -296,7 +296,7 @@ extern void bvlogic_buffer_sign_extend(bvlogic_buffer_t *b, uint32_t n);
 
 
 /*
- * Zero-extend: extend b to an n-bit vector by padding high-order bits with 0 
+ * Zero-extend: extend b to an n-bit vector by padding high-order bits with 0
  * - b must have positive bitsize (p > 0)
  * - we must have p <= n
  */
@@ -352,14 +352,14 @@ extern void bvlogic_buffer_ashift_right(bvlogic_buffer_t *b, uint32_t k);
 
 
 /*
- * Left rotation by k bits. 
+ * Left rotation by k bits.
  * - k must be between 0 and b->bitsize - 1
  */
 extern void bvlogic_buffer_rotate_left(bvlogic_buffer_t *b, uint32_t k);
 
 
 /*
- * Rotation to the right by k bits. 
+ * Rotation to the right by k bits.
  * - k must be between 0 and b->bitsize - 1
  */
 extern void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k);
@@ -386,7 +386,7 @@ extern void bvlogic_buffer_lshr_constant(bvlogic_buffer_t *b, uint32_t n, uint32
  * - the shift amount is given by bitvector constant c of n bits
  * - b must not be empty
  * - c is converted to an integer k
- * - if k is larger than b's bitsize then the sign bit of b is copied 
+ * - if k is larger than b's bitsize then the sign bit of b is copied
  *   in all bits of b.
  */
 extern void bvlogic_buffer_ashr_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
@@ -401,7 +401,7 @@ extern void bvlogic_buffer_ashr_constant(bvlogic_buffer_t *b, uint32_t n, uint32
  */
 
 /*
- * replace b[0...n-1] by b[start ... end]. 
+ * replace b[0...n-1] by b[start ... end].
  * require 0 <= start <= end <= n-1
  */
 extern void bvlogic_buffer_extract_subvector(bvlogic_buffer_t *b, uint32_t start, uint32_t end);
@@ -416,7 +416,7 @@ extern void bvlogic_buffer_extract_subvector(bvlogic_buffer_t *b, uint32_t start
  * All functions compute a bitvector of size 1 from their arguments
  * - redand b: compute (and b[0] ... b[n-1]) and store it into b[0]
  * - redor b:  compute (or b[0] ... b[n-1]) and store that into b[0]
- * - comp b a: compute (and (bit-eq a[0] b[0]) ... (bit-eq a[n-1] b[n-1])) 
+ * - comp b a: compute (and (bit-eq a[0] b[0]) ... (bit-eq a[n-1] b[n-1]))
  *             and store that into b[0]
  *
  * So we get (redand b) == 0b1 iff all bits of b are true
@@ -445,7 +445,7 @@ extern void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, t
  ***************/
 
 /*
- * All operations that take an bitarray argument have a variant that 
+ * All operations that take an bitarray argument have a variant that
  * use a buffer b2.
  */
 static inline void bvlogic_buffer_set_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {

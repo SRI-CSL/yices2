@@ -180,7 +180,7 @@ static void int_htbl_extend(int_htbl_t *table) {
 void int_htbl_erase_record(int_htbl_t *table, uint32_t k, int32_t v) {
   uint32_t mask, j;
   int_hrec_t *r;
-  
+
   // table must not be full, otherwise the function loops
   assert(table->size > table->nelems + table->ndeleted);
 
@@ -262,7 +262,7 @@ int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o) {
 
 
 /*
- * Allocate an index for o (by calling build) then store this index and k in 
+ * Allocate an index for o (by calling build) then store this index and k in
  * record r. k must be the hash code of o.
  */
 static int32_t int_htbl_store_new_obj(int_htbl_t *table, int_hrec_t *r, uint32_t k, int_hobj_t *o) {
@@ -305,7 +305,7 @@ int32_t int_htbl_get_obj(int_htbl_t *table, int_hobj_t *o) {
   for (;;) {
     r = table->records + j;
     v = r->value;
-    if (v == NULL_VALUE) return int_htbl_store_new_obj(table, r, k, o);      
+    if (v == NULL_VALUE) return int_htbl_store_new_obj(table, r, k, o);
     if (v == DELETED_VALUE) break;
     if (r->key == k && o->eq(o, v)) return v;
     j ++;

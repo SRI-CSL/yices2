@@ -11,9 +11,9 @@
 /*
  * Print model:
  * - for every term in the models' internal map:
- *   print (= <term name> <value>) 
+ *   print (= <term name> <value>)
  *   where value is in the SMT2 syntax
- * - if any <value> is an uninterpreted function 
+ * - if any <value> is an uninterpreted function
  *   or array, this is followed by the function
  *   definition.
  * This version ignores the alias map (if any).

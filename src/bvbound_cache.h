@@ -1,20 +1,20 @@
 /*
  * Hash-table to cache the lower and upper bounds on a variable x.
  *
- * Each value stored in the cache is a record that stores a lower 
+ * Each value stored in the cache is a record that stores a lower
  * and upper bound on a variable x. There are two possible records
  * depending on whether x is interpreted as a signed (2's complement)
- * or unsigned integer. 
+ * or unsigned integer.
  *
  * Each record contains:
  * - header: encodes variable x + one bit to indicate whether it's
  *   signed or unsigned
  * - bitsize = number of bits in x
- * - data = an array of 2*w 32bit words that stores the lower 
+ * - data = an array of 2*w 32bit words that stores the lower
  *          and upper bounds
  *   w is equal to ceil(bitsize/32)
  *   data[0 .. w-1]    = lower bound (little endian)
- *   data[w .. 2w - 1] = upper bound 
+ *   data[w .. 2w - 1] = upper bound
  */
 
 #ifndef __BVBOUND_CACHE_H
@@ -48,7 +48,7 @@ typedef enum bvbound_tag {
  * Header format:
  * - low-order bit = 0: unsigned bound
  *   low-order bit = 1: signed
- * - bit 31 to 1 store the variable 
+ * - bit 31 to 1 store the variable
  */
 static inline uint32_t bvbound_header(int32_t x, bvbound_tag_t tag) {
   assert(x >= 0 && (((uint32_t) tag) & ~((uint32_t) 1)) == 0);
@@ -194,7 +194,7 @@ extern bvbound_t *cache_bvbound(bvbound_cache_t *cache, bvbound_tag_t tag, int32
 
 
 /*
- * Delete all records that contain variable x (no change if there's 
+ * Delete all records that contain variable x (no change if there's
  * no record with x in the table).
  */
 extern void erase_bvbounds(bvbound_cache_t *cache, int32_t x);

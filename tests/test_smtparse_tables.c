@@ -18,10 +18,10 @@ static char* state2string[] = {
   "an0", "an1",
   "bt0", "bt1", "bt2", "bt3",
   "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8",
-  "f0", "f1", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", 
+  "f0", "f1", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11",
   "f14", "f15", "f16", "f17", "f19", "f20", "f21", "f23", "f24", "f25", "f26", "f27",
   "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "b10",
-  "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19", 
+  "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19",
   "b20", "b21", "b22", "b24", "b25", "b27",
 };
 
@@ -65,7 +65,7 @@ static char* action2string[] = {
   "distinct_next_push_f3_goto_f0",
   "eq_next_push_f3_goto_f0",
   "not_next_push_f3_goto_f0",
-  "implies_next_push_f3_goto_f0",  
+  "implies_next_push_f3_goto_f0",
   "if_then_else_next_push_f3_goto_f0",
   "and_next_push_f3_goto_f0",
   "or_next_push_f3_goto_f0",
@@ -222,8 +222,8 @@ int main() {
    *    (aka 'enum state_s') is always true.
    *
    * It gives no warning for tk<NUM_SMT_TOKENS.
-   * 
-   * I've changed the declaration of s: it used to be 'state_t s' 
+   *
+   * I've changed the declaration of s: it used to be 'state_t s'
    * instead of 'int32_t s'
    */
   for (s=0; s<NSTATES; s++) {

@@ -1,5 +1,5 @@
 /*
- * Stack-based memory allocation 
+ * Stack-based memory allocation
  */
 
 #include <assert.h>
@@ -97,7 +97,7 @@ void init_arena(arena_t *a) {
   a->index = 0;
   a->free_block = NULL;
   a->top_mark = NULL;
-} 
+}
 
 /*
  * Delete a: free all blocks

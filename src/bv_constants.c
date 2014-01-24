@@ -46,7 +46,7 @@ typedef struct {
  */
 #define MAX_NUM_STORES ((uint32_t) (1 + (MAX_OBJ_SIZE/(2 * sizeof(uint32_t)))))
 
- 
+
 /*
  * Block size for each object store = number of bitvectors
  * in each block of the store.
@@ -98,7 +98,7 @@ static uint32_t *alloc_vector(bvconst_allocator_t *s, uint32_t k) {
   uint32_t i;
 
   assert(0 < k && k <= (UINT32_MAX/sizeof(uint32_t)));
-  
+
   i = ((k + 1) >> 1); // store index for size k
   if (i < MAX_NUM_STORES) {
     if (i >= s->nstores) {
@@ -321,7 +321,7 @@ void bvconst_set_bit(uint32_t *bv, uint32_t i) {
 
   j = i >> 5;
   mask = 1 << (i & 0x1f);
-  bv[j] |= mask;  
+  bv[j] |= mask;
 }
 
 void bvconst_clr_bit(uint32_t *bv, uint32_t i) {
@@ -329,7 +329,7 @@ void bvconst_clr_bit(uint32_t *bv, uint32_t i) {
 
   j = i >> 5;
   mask = 1 << (i & 0x1f);
-  bv[j] &= ~mask;  
+  bv[j] &= ~mask;
 }
 
 void bvconst_flip_bit(uint32_t *bv, uint32_t i) {
@@ -337,7 +337,7 @@ void bvconst_flip_bit(uint32_t *bv, uint32_t i) {
 
   j = i >> 5;
   mask = 1 << (i & 0x1f);
-  bv[j] ^= mask;  
+  bv[j] ^= mask;
 }
 
 void bvconst_assign_bit_old(uint32_t *bv, uint32_t i, bool bit) {
@@ -354,7 +354,7 @@ void bvconst_assign_bit_old(uint32_t *bv, uint32_t i, bool bit) {
 
 void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit) {
   uint32_t j, mask, x;
-  
+
   j = i >> 5;
   mask = 1 << (i & 0x1f);
   x = ((uint32_t) bit) << (i & 0x1f);
@@ -478,7 +478,7 @@ void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z) {
   }
 }
 
-// conversion from bv to mpz_t 
+// conversion from bv to mpz_t
 void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z) {
   assert(k > 0);
 
@@ -530,8 +530,8 @@ void bvconst_set_min_signed(uint32_t *bv, uint32_t n) {
 void bvconst_set_max_signed(uint32_t *bv, uint32_t n) {
   assert(n > 0);
   bvconst_set_minus_one(bv, (n + 31) >> 5);
-  bvconst_clr_bit(bv, n-1);  
-  bvconst_normalize(bv, n); 
+  bvconst_clr_bit(bv, n-1);
+  bvconst_normalize(bv, n);
 }
 
 
@@ -548,7 +548,7 @@ static void bvconst_set_p0(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, ui
     *bv ++ = * a++;
     d --;
   }
-  if (r > 0) { 
+  if (r > 0) {
     *bv ++ = (*a) & ((1<<r) - 1);
   }
   k -= d + 1;
@@ -598,7 +598,7 @@ void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32
 
   if (n == m) {
     bvconst_set(bv, k, a);
-    return;    
+    return;
   }
 
   d = m >> 5;
@@ -618,7 +618,7 @@ void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32
 
 /*
  * Assignment from array a of n elements
- * - bit i of bv = 0 iff a[i] = 0 
+ * - bit i of bv = 0 iff a[i] = 0
  */
 void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n) {
   uint32_t i;
@@ -658,11 +658,11 @@ void bvconst_print(FILE *f, uint32_t *bv, uint32_t n) {
 
 /*
  * Convert a string of '0' and '1's to a bitvector constant.
- * - n = number of bits 
+ * - n = number of bits
  * - s must be at least n character long
- * 
+ *
  * Reads the n first characters of s. All must be '0' or '1'
- * - the string is assumed in big-endian format: the 
+ * - the string is assumed in big-endian format: the
  *   first character is the high-order bit.
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
@@ -693,10 +693,10 @@ int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, const char *s) {
  * Convert a string, interpreted as hexadecimal digits to a bitvector constant.
  * - n = number of characters, must be positive.
  * - s must be at least n character long
- * 
- * Reads the n first characters of s. 
+ *
+ * Reads the n first characters of s.
  * All must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
- * - the string is assumed in big-endian format: the 
+ * - the string is assumed in big-endian format: the
  *   first character defines the high-order 4 bits.
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
@@ -715,7 +715,7 @@ static uint32_t hextoint(char c) {
 int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, const char *s) {
   char c;
   uint32_t hex;
-  
+
   assert(n > 0);
 
   n <<= 2; // n * 4
@@ -788,7 +788,7 @@ void bvconst_or(uint32_t *bv, uint32_t k, uint32_t *a) {
   do {
     *bv ++ |= *a ++;
     k --;
-  } while (k > 0); 
+  } while (k > 0);
 }
 
 void bvconst_xor(uint32_t *bv, uint32_t k, uint32_t *a) {
@@ -1012,13 +1012,13 @@ static uint32_t bvshift_amount(uint32_t *c, uint32_t n) {
   uint32_t k, i, s;
 
   assert(n > 0);
-  
+
   k = (n + 31) >> 5;     // number of words in c
   s = bvconst_get32(c);  // s = lower order word of c
-  
+
   // check that the high order words are zero
   for (i=1; i<k; i++) {
-    if (c[i] != 0) return n; 
+    if (c[i] != 0) return n;
   }
 
   return (s < n) ? s : n;
@@ -1111,7 +1111,7 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
  * Concat(a, b): (a | (b << n))
  * - a has n bits
  * - b has m bits
- * - result is stored in bv 
+ * - result is stored in bv
  * - bv must be large enough for n + m bits.
  * - low-order bits = a
  * - high-order bits = b
@@ -1194,7 +1194,7 @@ void bvconst_negate2(uint32_t *bv, uint32_t k, uint32_t *a) {
   } while (k > 0);
 }
 
-// bv := bv + a 
+// bv := bv + a
 void bvconst_add(uint32_t *bv, uint32_t k, uint32_t *a) {
   uint64_t aux;
 
@@ -1308,7 +1308,7 @@ void bvconst_addmul(uint32_t *bv, uint32_t k, uint32_t *a1, uint32_t *a2) {
     }
     bv ++;
     a1 ++;
-    k --;      
+    k --;
   } while (k > 0);
 }
 
@@ -1329,7 +1329,7 @@ void bvconst_submul(uint32_t *bv, uint32_t k, uint32_t *a1, uint32_t *a2) {
    */
   bvconst_complement(bv, k);
   bvconst_addmul(bv, k, a1, a2);
-  bvconst_complement(bv, k); 
+  bvconst_complement(bv, k);
 }
 
 // bv := a1 * a2
@@ -1425,7 +1425,7 @@ bool bvconst_is_one(uint32_t *bv, uint32_t k) {
 
 
 /*
- * Check whether bv is equal to -1 (i.e., 0b11...1) 
+ * Check whether bv is equal to -1 (i.e., 0b11...1)
  * - n = number of bits in bv
  * - bv must be normalized
  */
@@ -1458,7 +1458,7 @@ bool bvconst_is_min_signed(uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   assert(n > 0);
-  k = (n + 31) >> 5;  // number of 32bit words 
+  k = (n + 31) >> 5;  // number of 32bit words
   r = n & 31;         // n rem 31
   if (r == 0) {
     r = 32;
@@ -1472,7 +1472,7 @@ bool bvconst_is_min_signed(uint32_t *bv, uint32_t n) {
     bv ++;
     k --;
   }
-  
+
   // the high-order word must be 0b10000000 >> (32 - r)
   assert(0 <= 32 - r && 32 - r <= 31);
   return *bv == ((uint32_t) INT32_MIN) >> (32 - r);
@@ -1488,7 +1488,7 @@ bool bvconst_is_max_signed(uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   assert(n > 0);
-  k = (n + 31) >> 5;  // number of 32bit words 
+  k = (n + 31) >> 5;  // number of 32bit words
   r = n & 31;         // n rem 31
   if (r == 0) {
     r = 32;
@@ -1502,7 +1502,7 @@ bool bvconst_is_max_signed(uint32_t *bv, uint32_t n) {
     bv ++;
     k --;
   }
-  
+
   // the high-order word must be 0b011111111 >> (32 - r)
   assert(0 <= 32 - r && 32 - r <= 31);
   return *bv == ((uint32_t) INT32_MAX) >> (32 - r);
@@ -1560,8 +1560,8 @@ int32_t bvconst_is_power_of_two(uint32_t *bv, uint32_t k) {
 
 /*
  * Check whether a and b are equal, both must be of size k.
- * 
- * Both a and b must be normalized (modulo 2^n) if n = bitsize 
+ *
+ * Both a and b must be normalized (modulo 2^n) if n = bitsize
  * of a and b, and n != 32 k
  */
 bool bvconst_eq(uint32_t *a, uint32_t *b, uint32_t k) {
@@ -1677,7 +1677,7 @@ static void signed_bv2mpz(mpz_t z, uint32_t n, uint32_t *a) {
 
 /*
  * Copy z into a (like set_mpz but don't use an auxiliary mpz)
- * - n = number of bits 
+ * - n = number of bits
  * FIX THIS: THE SIGN OF Z IS IGNORED
  */
 static void mpz2bv(uint32_t *a, uint32_t n, mpz_t z) {
@@ -1706,7 +1706,7 @@ static void mpz2bv(uint32_t *a, uint32_t n, mpz_t z) {
  * - a1 and a2 must be normalized
  * - n = number of bits in a1 and a2 (also in bv)
  * - a2 must be nonzero
- * - udiv2: bv := a1/a2 
+ * - udiv2: bv := a1/a2
  */
 // unsigned division
 void bvconst_udiv2(uint32_t *bv, uint32_t n, uint32_t *a1, uint32_t *a2) {
@@ -1826,7 +1826,7 @@ void bvconst_srem2z(uint32_t *bv, uint32_t n, uint32_t *a1, uint32_t *a2) {
 
   k = (n + 31) >> 5;
   if (bvconst_is_zero(a2, k)) {
-    bvconst_set(bv, k, a1); 
+    bvconst_set(bv, k, a1);
   } else {
     bvconst_srem2(bv, n, a1, a2);
   }

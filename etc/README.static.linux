@@ -57,7 +57,7 @@ Alternatively, you can install Yices in /usr/local as follows:
 This will copy the binaries  /usr/local/bin, the header files in
 /usr/local/include, and the libraries in /usr/local/lib.
 
-To install Yices in another location, give the installation directory 
+To install Yices in another location, give the installation directory
 as argument to the shell script:
 
   ./install-yices <dir>

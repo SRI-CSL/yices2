@@ -21,7 +21,7 @@
  * - for a variable index i:
  *   def[i] = NULL if i has no expanded form
  *   otherwise def[i] is a list of bitvector monomials.
- * - depending on the variable's bitsize, def[i] is either 
+ * - depending on the variable's bitsize, def[i] is either
  *   a bvmlist_t pointer (more than 64bits) or a bvmlist64_t pointer
  *   (1 to 64bits).
  * - nvars = number of variables present (nvars <= size)
@@ -167,7 +167,7 @@ extern void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly
  * Expanded form for a product c * p
  * - c is a normalized bitvector constant
  * - p is a power product stored in a pp_buffer object
- * - n = bitsize of p 
+ * - n = bitsize of p
  * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
  * - the result is normalized
  */

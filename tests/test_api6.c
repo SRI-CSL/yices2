@@ -122,7 +122,7 @@ int main(void) {
   test_parse_type("(bitvector 178447/43)");
   test_parse_type("(bitvector 31.4e1)");
   test_parse_type("(bitvector 31.4e-3)");
-  
+
   test_parse_term("true");
   test_parse_term("false");
   test_parse_term("0b30043");

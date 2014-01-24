@@ -16,7 +16,7 @@
 
 SHELL=/bin/sh
 
-ifeq (,$(YICES_TOP_DIR)) 
+ifeq (,$(YICES_TOP_DIR))
  $(error "YICES_TOP_DIR is undefined")
 endif
 
@@ -68,13 +68,13 @@ static_libyices := $(static_libdir)/libyices.a
 
 #
 # OS-dependent compilation flags
-# -fPIC: default on Darwin/Cygwin/Mingw (and causes 
+# -fPIC: default on Darwin/Cygwin/Mingw (and causes
 #  compilation warning if present)
-# -static: not supported by Darwin and our Solaris2.10 
+# -static: not supported by Darwin and our Solaris2.10
 # matchine
 #
 # All tests are linked with libyices.a
-# so we don't want any dllimport/export in yices.h 
+# so we don't want any dllimport/export in yices.h
 # So we use -DNOYICES_DLL on cygwin and mingw
 #
 ifeq ($(POSIXOS),cygwin)
@@ -131,10 +131,10 @@ endif
 CFLAGS += -Wall -Winline -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   #	
+   #
    # compilation on mingw using the -mno-cygwin flag
    # We disable -Wformat because mingw uses non-standard
-   # formats in printf/fprintf that do not seem to be 
+   # formats in printf/fprintf that do not seem to be
    # understood by gcc and cause useless warnings.
    #
    CFLAGS += -Wno-format
@@ -145,11 +145,11 @@ endif
 #
 # Compilation flags dependent on MODE
 #
-ifeq ($(YICES_MODE),release) 
+ifeq ($(YICES_MODE),release)
   CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-else 
-ifeq ($(YICES_MODE),devel) 
+else
+ifeq ($(YICES_MODE),devel)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
@@ -208,7 +208,7 @@ else
 endif
 
 #
-# These are not needed for the tests -DNOYICES_DLL is already 
+# These are not needed for the tests -DNOYICES_DLL is already
 # in CPPFLAGS
 #
 # ifeq ($(POSIXOS),cygwin)
@@ -272,7 +272,7 @@ $(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
 %.h:
 	@ echo
 	@ echo "$@ missing"
-	@ echo 
+	@ echo
 
 %.c:
 	@ echo
@@ -288,7 +288,7 @@ $(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
 	@ echo "*** src/Mafefile ***"
 	@ echo
 	@ echo "target is $@"
-	@ echo 
+	@ echo
 	@ echo "ARCH is $(ARCH)"
 	@ echo "POSIXOS is $(POSIXOS)"
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"

@@ -1,6 +1,6 @@
 /*
  * PUBLIC TYPES
- * 
+ *
  * All types that are part of the API must be defined here.
  */
 
@@ -70,12 +70,12 @@ typedef enum smt_status {
 
 
 /*****************
- *  ERROR CODES  * 
+ *  ERROR CODES  *
  ****************/
 
 /*
  * Error reports
- * - the API function return a default value if there's an error 
+ * - the API function return a default value if there's an error
  *   (e.g., term constructors return NULL_TERM, type constructors return NULL_TYPE).
  * - details about the cause of the error are stored in an error_report structure
  *   defined below.
@@ -113,7 +113,7 @@ typedef enum error_code {
   ARITHTERM_REQUIRED,
   BITVECTOR_REQUIRED,
   SCALAR_TERM_REQUIRED,
-  WRONG_NUMBER_OF_ARGUMENTS,  
+  WRONG_NUMBER_OF_ARGUMENTS,
   TYPE_MISMATCH,
   INCOMPATIBLE_TYPES,
   DUPLICATE_VARIABLE,
@@ -200,8 +200,8 @@ typedef enum error_code {
   EVAL_QUANTIFIER,
   EVAL_LAMBDA,
   EVAL_OVERFLOW,
-  EVAL_FAILED,  
-  
+  EVAL_FAILED,
+
   /*
    * Input/output and system errors
    */
@@ -269,9 +269,9 @@ typedef enum error_code {
  *  BAD_TERM_DECREF            term1
  *  BAD_TYPE_DECREF            type1
  *
- * The following error codes are used only by the parsing functions. 
+ * The following error codes are used only by the parsing functions.
  * No field other than line/column is set.
- * 
+ *
  *  INVALID_TOKEN
  *  SYNTAX_ERROR
  *  UNDEFINED_TERM_NAME
@@ -293,7 +293,7 @@ typedef enum error_code {
  *  BVARITH_ERROR
  *
  * The following error codes are triggered by invalid operations
- * on a context. For these errors, no fields of error_report (other 
+ * on a context. For these errors, no fields of error_report (other
  * than the code) is meaningful.
  *
  *  CTX_FREE_VAR_IN_FORMULA
@@ -331,7 +331,7 @@ typedef enum error_code {
  *  EVAL_FAILED
  *
  *
- * Other error codes. No field is meaningful in the error_report, 
+ * Other error codes. No field is meaningful in the error_report,
  * except the error code:
  *
  *  OUTPUT_ERROR

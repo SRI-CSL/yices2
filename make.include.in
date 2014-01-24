@@ -34,7 +34,7 @@ MKDIR_P=@MKDIR_P@
 INSTALL=@INSTALL@
 EGREP=@EGREP@
 
-# compilation 
+# compilation
 CC=@CC@
 CFLAGS=@CFLAGS@
 CPPFLAGS=@CPPFLAGS@

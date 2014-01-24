@@ -12,7 +12,7 @@ static const char * const bval2string[] = {
 };
 
 static const char * const status2string[] = {
-  "idle", "searching", "unknown", "sat", "unsat", "interrupted", 
+  "idle", "searching", "unknown", "sat", "unsat", "interrupted",
   "<invalid status>",
 };
 
@@ -68,7 +68,7 @@ void print_literal(FILE *f, literal_t l) {
       fprintf(f, "LIT%"PRId32, l);
     }
   } else if (l == true_literal) {
-    fputs("tt", f);      
+    fputs("tt", f);
   } else if (l == false_literal) {
     fputs("ff", f);
   } else {
@@ -178,7 +178,7 @@ void print_binary_clauses(FILE *f, smt_core_t *core) {
   literal_t l1, l2;
   literal_t *bin;
 
-  n = core->nlits;  
+  n = core->nlits;
   for (l1=0; l1<n; l1++) {
     bin = core->bin[l1];
     if (bin != NULL) {
@@ -224,14 +224,14 @@ void print_clauses(FILE *f, smt_core_t *core) {
 void print_all_clauses(FILE *f, smt_core_t *core) {
   print_binary_clauses(f, core);
   fputc('\n', f);
-  print_problem_clauses(f, core);  
+  print_problem_clauses(f, core);
   fputc('\n', f);
   print_learned_clauses(f, core);
   fputc('\n', f);
 }
 
-/* 
- * Find the length of a lemma a: 
+/*
+ * Find the length of a lemma a:
  * - a must be terminated by null_literal (or any negative end marker)
  */
 static uint32_t lemma_length(literal_t *a) {
@@ -245,7 +245,7 @@ static uint32_t lemma_length(literal_t *a) {
   return n;
 }
 
- 
+
 /*
  * Print all lemmas
  */
@@ -302,7 +302,7 @@ void print_conflict(FILE *f, smt_core_t *core) {
     if (l < 0) {
       fputs("Conflict: empty clause\n", f);
     } else {
-      fputs("Conflict:", f);    
+      fputs("Conflict:", f);
       while (l >= 0) {
         fputc(' ', f);
         print_literal(f, l);

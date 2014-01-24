@@ -19,7 +19,7 @@ static void isort_ptr_array(void **a, uint32_t n) {
     j = 0;
     while (a[j] < x) j ++;
     while (j < i) {
-      y = a[j]; 
+      y = a[j];
       a[j] = x;
       x = y;
       j++;

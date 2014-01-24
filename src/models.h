@@ -2,7 +2,7 @@
  * MODELS
  */
 
-/* 
+/*
  * A model is a (partial) map from terms to concrete values.
  *
  * The terms in this map's domain should be uninterpreted constant,

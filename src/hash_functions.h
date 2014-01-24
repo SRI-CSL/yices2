@@ -19,7 +19,7 @@ extern uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed);
 
 
 /*
- * Hash of an array of n integers 
+ * Hash of an array of n integers
  */
 extern uint32_t jenkins_hash_array(const uint32_t *d, uint32_t n, uint32_t seed);
 

@@ -126,13 +126,13 @@ int main() {
   for (i=0; i<100; i++) {
     x = random() % 300;
     rx = partition_find(&partition, x);
-    if (rx < 0) { 
+    if (rx < 0) {
       partition_add(&partition, x);
       rx = x;
     }
     y = random() % 300;
     ry = partition_find(&partition, y);
-    if (ry < 0) { 
+    if (ry < 0) {
       partition_add(&partition, y);
       ry = y;
     }

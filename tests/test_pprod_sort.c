@@ -72,10 +72,10 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   // test i <= j in second loop is required for termination
   // if all elements are smaller than the pivot.
   do { j--; } while (a[j].var > pivot);
-  do { i++; } while (i <= j && a[i].var < pivot); 
+  do { i++; } while (i <= j && a[i].var < pivot);
 
   while (i < j) {
-    aux = a[i]; a[i] = a[j]; a[j] = aux;    
+    aux = a[i]; a[i] = a[j]; a[j] = aux;
 
     do { j--; } while (a[j].var > pivot);
     do { i++; } while (a[i].var < pivot);
@@ -83,7 +83,7 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
 
   // swap pivot = a[0] and a[j]
   aux = a[0]; a[0] = a[j]; a[j] = aux;
-   
+
   // sort a[0 ... j-1] and a[j+1 ... n-1]
   sort_varexp_array(a, j);
   j ++;
@@ -112,7 +112,7 @@ static int32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
     if (a[i].var == v) {
       d += a[i].exp;
     } else {
-      if (d != 0) {	
+      if (d != 0) {
 	a[j].var = v;
 	a[j].exp = d;
 	j ++;
@@ -143,7 +143,7 @@ static void show_array(uint32_t n) {
   l = 10;
   for (i=0; i<n; i++) {
     if (l == 0) { l = 10; printf("\n"); };
-    l --; 
+    l --;
     printf(" (%3"PRId32",%3"PRIu32")", a[i].var, a[i].exp);
   }
   printf("\n");
@@ -152,7 +152,7 @@ static void show_array(uint32_t n) {
 static void normalize_array(uint32_t n) {
   printf("--- original ---\n");
   show_array(n);
-  printf("--- normalized ---\n");  
+  printf("--- normalized ---\n");
   n = normalize_varexp_array(a, n);
   show_array(n);
   printf("---\n\n");
@@ -191,7 +191,7 @@ int main() {
   a[1].var = 10;
   normalize_array(2);
 
-  a[0].var = 10;  
+  a[0].var = 10;
   a[1].var = 0;
   normalize_array(2);
 

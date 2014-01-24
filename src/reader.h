@@ -13,7 +13,7 @@
 /*
  * - current = current character
  * - pos, line, column = position in input stream
- * - for file reader, stream = input 
+ * - for file reader, stream = input
  *   for string reader, data = null terminated string.
  * - name = filename or whatever else is given at initialization.
  * - read = read function: get next character
@@ -40,7 +40,7 @@ struct reader_s {
 
 /*
  * Initializations:
- * - before anything is read, 
+ * - before anything is read,
  *    current_char is set to '\n' (or to EOF if fopen fails)
  *    pos is 0
  *    line is 0
@@ -54,12 +54,12 @@ struct reader_s {
  * - line, column, and position stop being updated
  *   when EOF is reached.
  */
- 
+
 /*
  * Initialize reader for file of the given name
  * - return -1 if the file could not be open
  *   or 0 otherwise
- * - if the file was not open, any subsequent attempt 
+ * - if the file was not open, any subsequent attempt
  *   to read will return EOF
  */
 extern int32_t init_file_reader(reader_t *reader, const char *filename);
@@ -67,7 +67,7 @@ extern int32_t init_file_reader(reader_t *reader, const char *filename);
 /*
  * Initialize reader for an already opened stream
  * - set filename to whatever is given as name
- */ 
+ */
 extern void init_stream_reader(reader_t *reader, FILE *f, const char *name);
 
 /*

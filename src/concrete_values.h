@@ -15,14 +15,14 @@
  * We attempt to ensure that different objects in the table actually
  * represent different values. But this is hard to ensure for
  * functions. So we attach a "canonical flag" to each object:
- * - if the bit is 1 for object i then i is in a canonical representation. 
+ * - if the bit is 1 for object i then i is in a canonical representation.
  *   An object j with a different descriptor cannot be equal to i.
  * - if the bit is 0, then i is not in a canonical form.
  *
  *
  * For printing/pretty printing, we keep track of function objects
  * whose map must be printed. We store them in a queue + add a mark.
- */ 
+ */
 
 #ifndef __CONCRETE_VALUES_H
 #define __CONCRETE_VALUES_H
@@ -86,11 +86,11 @@ enum {
 typedef enum {
   UNKNOWN_VALUE,
   BOOLEAN_VALUE,
-  RATIONAL_VALUE, 
+  RATIONAL_VALUE,
   BITVECTOR_VALUE,
   TUPLE_VALUE,
   UNINTERPRETED_VALUE,
-  FUNCTION_VALUE,  
+  FUNCTION_VALUE,
   MAP_VALUE,
   UPDATE_VALUE,
 } value_kind_t;
@@ -142,7 +142,7 @@ typedef struct value_fun_s {
   char *name;
   type_t type;        // function type
   uint32_t arity;     // number of parameters
-  value_t def;        // default value  
+  value_t def;        // default value
   uint32_t map_size;  // size of array map
   value_t map[0];     // array of mapping object of size = map_size
 } value_fun_t;
@@ -151,8 +151,8 @@ typedef struct value_fun_s {
 // function update = (update fun map)
 typedef struct value_update_s {
   uint32_t arity;
-  value_t fun; // function 
-  value_t map; // mapping 
+  value_t fun; // function
+  value_t map; // mapping
 } value_update_t;
 
 
@@ -163,8 +163,8 @@ typedef struct value_update_s {
 
 
 /*
- * To accelerate function evaluation, we store pairs 
- * <function, map> into an auxiliary hash table. 
+ * To accelerate function evaluation, we store pairs
+ * <function, map> into an auxiliary hash table.
  * - function is a function object (not an update)
  * - maps must be a mapping object that belongs to function
  */
@@ -177,7 +177,7 @@ typedef struct map_htbl_s {
   map_pair_t *data;  // hash table proper
   uint32_t size;     // its size (must be a power of 2)
   uint32_t nelems;
-  uint32_t resize_threshold; 
+  uint32_t resize_threshold;
 } map_htbl_t;
 
 
@@ -197,7 +197,7 @@ typedef struct map_htbl_s {
 /*
  * Hash set used to compute the normal form of update objects
  * - a function is represented as a finite set of mapping objects
- * - normalizing an update object converts it to a finite set of 
+ * - normalizing an update object converts it to a finite set of
  *   mappings.
  * This set is represented as a hash-set
  */
@@ -246,7 +246,7 @@ typedef struct vtbl_queue_s {
  * Optional function to name uninterpreted constants
  * - the table contains a pointer to a function 'unint_namer'
  *   + an opaque pointer aux_namer.
- * - when an uninterpreted value is printed, the value's name 
+ * - when an uninterpreted value is printed, the value's name
  *   (stored in the value_unint_t descriptor d) is used.
  * - if d->name is NULL and name_of_unint is non NULL, then
  *      unint_namer(aux, d) is called
@@ -271,12 +271,12 @@ typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
  *   buffer for building bitvector constants
  *   auxiliary vector
  *   mtbl = hash table of pairs (fun, map)
- *   hset1, hset2 = hash sets allocated on demand (used in 
+ *   hset1, hset2 = hash sets allocated on demand (used in
  *      hash consing of update objects)
  * - unknown_value = index of the unknown value
  * - true_value, false_value = indices of true/false values
  *
- * - first_tmp = index of the first temporary object 
+ * - first_tmp = index of the first temporary object
  *   if first_tmp = -1 then all objects are permanent.
  *   if first_tmp >= 0, then objects in [0 .. first_tmp -1] are permanent
  *   and objects in [first_tmp .. nobjects - 1] are temporary.
@@ -353,7 +353,7 @@ static inline void value_table_set_namer(value_table_t *table, void *aux, unint_
 
 /*
  * Undefined value
- */ 
+ */
 extern value_t vtbl_mk_unknown(value_table_t *table);
 
 /*
@@ -444,7 +444,7 @@ extern value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name);
  * - name = optional name (NULL if no name is given)
  * - id = index (must be non-negative)
  *
- * If the constant already exists and has a name, it keeps 
+ * If the constant already exists and has a name, it keeps
  * its current name. Otherwise, if name != NULL, then the constant
  * is given that name.
  */
@@ -461,7 +461,7 @@ extern value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t
 /*
  * Function defined by the array a[0...n] and default value def
  * - tau = its type
- * - a = array of n mapping objects. 
+ * - a = array of n mapping objects.
  *   The array must not contain conflicting mappings and all elements in a
  *   must have the right arity (same as defined by type tau). It's allowed
  *   to have duplicate elements in a.
@@ -524,7 +524,7 @@ extern value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id);
 // tuple e[0] ... e[n-1]
 extern value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e);
 
-// bitvector defined by a[0 ... n-1] 
+// bitvector defined by a[0 ... n-1]
 extern value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a);
 
 // bitvector defined by c. n = number of bits (must be <= 64)
@@ -589,7 +589,7 @@ static inline bool vtbl_test_function(value_table_t *table, type_t tau, uint32_t
  */
 
 /*
- * If tau is a finite type, then we can enumerate its elements from 
+ * If tau is a finite type, then we can enumerate its elements from
  * 0 to card(tau) - 1. The following function constructs an element
  * of finite type tau given an enumeration index i.
  * - tau must be finite
@@ -611,7 +611,7 @@ extern void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau,
  * Same thing for a finite function type tau:
  * - the domain must be finite
  * - let D = cardinality of tau's domain and R = cardinality of tau's range
- * - a function of type tau is defined by D values a[0 ... D-1] where each a[k] is an 
+ * - a function of type tau is defined by D values a[0 ... D-1] where each a[k] is an
  *   object of tau's range.
  * - this function builds a[0 ... D-1] given an index i between 0 and R^D.
  * - a must be large enough to store D elements
@@ -671,11 +671,11 @@ extern void vtbl_set_constant_name(value_table_t *table, value_t c, char *name);
  */
 
 /*
- * Switch to temporary mode: 
- * - all objects currently in the table are considered permanent. 
+ * Switch to temporary mode:
+ * - all objects currently in the table are considered permanent.
  * - all terms created after this function is called are temporary.
  * - the table must not be in temporary mode already.
- * 
+ *
  * Side effect: creates the unknown, true, and false values if they
  * don't exist already. These are always permanent terms.
  *

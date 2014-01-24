@@ -129,8 +129,8 @@ static literal_t read_literal(FILE *f, int32_t nv) {
 
   if (!isdigit(d)) {
     return BAD_INPUT;
-  } 
-  
+  }
+
   do {
     var = 10 * var + (d - '0');
     d = getc(f);
@@ -147,7 +147,7 @@ static literal_t read_literal(FILE *f, int32_t nv) {
 
 
 /*
- * Read DIMACS instance from filename and construct a solver 
+ * Read DIMACS instance from filename and construct a solver
  * returns 0 if no error occurred.
  * -1 means file could not be opened.
  * -2 means bad format in the input file.
@@ -222,7 +222,7 @@ static int build_instance(char *filename) {
     sat_solver_simplify_and_add_clause(&solver, l_idx, clause);
     c_idx ++;
   }
-  
+
   fclose(f);
   return 0;
 }
@@ -271,7 +271,7 @@ static option_desc_t options[NUM_OPTIONS] = {
  * Version and help
  */
 static void print_version(FILE *f) {
-  fprintf(f, 
+  fprintf(f,
           "Yices %s. Copyright SRI International.\n"
           "Build date: %s\n"
           "Platform: %s (%s)\n",
@@ -300,7 +300,7 @@ static void print_help(char *progname) {
  */
 static void yices_usage(char *progname) {
   fprintf(stderr, "Usage: %s [options] filename\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 
@@ -408,7 +408,7 @@ static void print_results(void) {
   double mem_used;
 
   search_time = get_cpu_time() - construction_time;
-  
+
   stat = &solver.stats;
   resu = solver.status;
 
@@ -452,7 +452,7 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
 /*
  * Print the solution if the problem is satisfiable.
  * Print the list of true literals terminated by 0
- * 
+ *
  * For variable v = 0 to nvars - 1
  *   if val[v] == true then print +(v + 1) (positive literal)
  *   if val[v] == false then print -(v + 1) (negative literal)
@@ -468,7 +468,7 @@ static void print_model(void) {
       val = get_variable_assignment(&solver, v);
       switch (val) {
       case val_false:
-        printf("%d ", - (v + 1)); 
+        printf("%d ", - (v + 1));
         break;
       case val_true:
         printf("%d ", (v + 1));
@@ -519,7 +519,7 @@ int main(int argc, char* argv[]) {
   alloc_buffer(200);
   resu = build_instance(input_filename);
   delete_buffer();
-  
+
   if (resu == OPEN_ERROR) {
     return YICES_EXIT_FILE_NOT_FOUND;
   } else if (resu == FORMAT_ERROR) {

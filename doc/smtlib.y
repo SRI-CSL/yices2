@@ -2,14 +2,14 @@
 /*****************************************************************************/
 /*!
  * \file smtlib.y
- * 
+ *
  * Author: Sergey Berezin, Clark Barrett
- * 
+ *
  * Created: Apr 30 2005
  *
  * <hr>
  * Copyright (C) 2004 by the Board of Trustees of Leland Stanford
- * Junior University and by New York University. 
+ * Junior University and by New York University.
  *
  * License to use, copy, modify, sell and/or distribute this software
  * and its documentation for any purpose is hereby granted without
@@ -21,12 +21,12 @@
  *
  * - THE SOFTWARE IS PROVIDED "AS-IS", WITHOUT ANY WARRANTIES,
  * EXPRESSED OR IMPLIED.  USE IT AT YOUR OWN RISK.
- * 
+ *
  * <hr>
- * 
+ *
  */
 /*****************************************************************************/
-/* 
+/*
    This file contains the bison code for the parser that reads in CVC
    commands in SMT-LIB language.
 */
@@ -46,7 +46,7 @@
 
 %start cmd
 
-/* strings are for better error messages.  
+/* strings are for better error messages.
    "_TOK" is so macros don't conflict with kind names */
 
 %type <vec> bench_attributes sort_symbs fun_symb_decls pred_symb_decls
@@ -131,9 +131,9 @@ bench_attributes:
 
 bench_attribute:
     COLON_TOK ASSUMPTION_TOK an_formula
-  | COLON_TOK FORMULA_TOK an_formula 
-  | COLON_TOK STATUS_TOK status 
-  | COLON_TOK LOGIC_TOK logic_name 
+  | COLON_TOK FORMULA_TOK an_formula
+  | COLON_TOK STATUS_TOK status
+  | COLON_TOK LOGIC_TOK logic_name
   | COLON_TOK EXTRASORTS_TOK LPAREN_TOK sort_symbs RPAREN_TOK
   | COLON_TOK EXTRAFUNS_TOK LPAREN_TOK fun_symb_decls RPAREN_TOK
   | COLON_TOK EXTRAPREDS_TOK LPAREN_TOK pred_symb_decls RPAREN_TOK
@@ -154,7 +154,7 @@ status:
 ;
 
 sort_symbs:
-    sort_symb 
+    sort_symb
   | sort_symbs sort_symb
 ;
 
@@ -209,7 +209,7 @@ quant_vars:
   | quant_vars quant_var
 ;
 
-quant_var: 
+quant_var:
     LPAREN_TOK var sort_symb RPAREN_TOK
 ;
 
@@ -229,8 +229,8 @@ connective:
 ;
 
 an_atom:
-    prop_atom 
-  | LPAREN_TOK prop_atom annotations RPAREN_TOK 
+    prop_atom
+  | LPAREN_TOK prop_atom annotations RPAREN_TOK
   | LPAREN_TOK pred_symb an_terms annotations RPAREN_TOK
   | LPAREN_TOK pred_symb an_terms RPAREN_TOK
   | LPAREN_TOK DISTINCT_TOK an_terms annotations RPAREN_TOK
@@ -241,8 +241,8 @@ prop_atom:
     TRUE_TOK
   | FALSE_TOK
   | fvar
-  | pred_symb 
-;  
+  | pred_symb
+;
 
 an_terms:
     an_term
@@ -250,8 +250,8 @@ an_terms:
 ;
 
 an_term:
-    basic_term 
-  | LPAREN_TOK basic_term annotations RPAREN_TOK 
+    basic_term
+  | LPAREN_TOK basic_term annotations RPAREN_TOK
   | LPAREN_TOK fun_symb an_terms annotations RPAREN_TOK
   | LPAREN_TOK fun_symb an_terms RPAREN_TOK
   | LPAREN_TOK ITE_TOK an_formula an_term an_term annotations RPAREN_TOK
@@ -260,17 +260,17 @@ an_term:
 
 basic_term:
     var
-  | fun_symb 
+  | fun_symb
 ;
 
 annotations:
     annotation
   | annotations annotation
   ;
-  
+
 annotation:
-    attribute 
-  | attribute user_value 
+    attribute
+  | attribute user_value
 ;
 
 user_value:
@@ -279,7 +279,7 @@ user_value:
 
 sort_symb:
     SYM_TOK LBRACKET_TOK NUMERAL_TOK RBRACKET_TOK
-  | SYM_TOK 
+  | SYM_TOK
 ;
 
 pred_symb:
@@ -287,10 +287,10 @@ pred_symb:
   | AR_SYMB // arithmetic comparisons
 ;
 
-fun_symb: 
+fun_symb:
     SYM_TOK LBRACKET_TOK NUMERAL_TOK COLON_TOK NUMERAL_TOK RBRACKET_TOK  // extract
   | SYM_TOK  // other built-in and primitive synbols
-  | AR_SYMB  // arithmetic 
+  | AR_SYMB  // arithmetic
   | NUMERAL_TOK
 ;
 

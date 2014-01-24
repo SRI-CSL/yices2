@@ -23,7 +23,7 @@ static tstack_t stack;
 static smt_benchmark_t bench;
 
 static char *status2string[] = {
-  "none", "unsat", "sat", "unknown",  
+  "none", "unsat", "sat", "unknown",
 };
 
 #if 0
@@ -89,7 +89,7 @@ static void dump_benchmark(FILE *f, smt_benchmark_t *bench) {
   fprintf(f, "\n");
 
   fprintf(f, "\n---- All types ----\n");
-  print_type_table(f, __yices_globals.types);  
+  print_type_table(f, __yices_globals.types);
 
   fprintf(f, "\n\n---- All terms ----\n");
   print_term_table(f, __yices_globals.terms);

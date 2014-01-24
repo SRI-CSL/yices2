@@ -5,17 +5,17 @@
 /*
  * Version 2: pure bit-blasting/no subsolver. All bit-blasting
  * is done directly in the core.
- * 
+ *
  * For each variable x, we store
  * - bit_size[x] = number of bits in x
  * - kind[x] = tag so that we know how to interpret def[x]
- * - def[x] = definition of x 
+ * - def[x] = definition of x
  * - eterm[x] = attached egraph term (optional)
  * - map[x] = array of literals (bit blasting)
  *
  * Bit vector atoms are of three kinds:
  * - bveq x y
- * - bvge x y: x <= y, where x and y are interpreted 
+ * - bvge x y: x <= y, where x and y are interpreted
  *   as unsigned integers
  * - bvsge x y: x <= y, where x and y are as signed
  *   integers
@@ -59,7 +59,7 @@
  * A bound on a variable 'x' is an atom (x >= a) where a is a constant,
  * and the atom is either true or false at the top-level.
  * - the bounds on x are stored in a queue
- * - each element in the queue is an atom index 
+ * - each element in the queue is an atom index
  * - the start of the list is stored in queue->bounds[x]
  * - we also store disequalities (x != 0) in the list
  */
@@ -81,10 +81,10 @@ typedef struct bv_bound_s {
  * - size = total size of the array
  * To store the lists:
  * - bound = array of indices
- * - bsize = size of this array 
- * For a variable 0 <= x < vtbl->nvars 
- * - if x < bsize then bound[x] = index of the last 
- *   bound asserted on x. 
+ * - bsize = size of this array
+ * For a variable 0 <= x < vtbl->nvars
+ * - if x < bsize then bound[x] = index of the last
+ *   bound asserted on x.
  *   If bound[x] = k then data[k].atom_id is the bound
  *   and data[k].pre = previous bound on x.
  *   The list is terminated by -1.
@@ -117,7 +117,7 @@ typedef struct bv_bound_queue_s {
  * we may need a stack of bv_intervals and a bv_aux_buffer structure.
  * These are stored in the following structure.
  *
- * Initially, this is set to: 
+ * Initially, this is set to:
  * - data = NULL
  * - buffers = NULL
  * - size = 0
@@ -148,17 +148,17 @@ typedef struct bv_interval_stack_s {
  * of variables that require special processing on pop.
  *
  * One queue stores the variables x for which the context
- * called bv_solver_select_bit or bv_solver_set_bit, and 
+ * called bv_solver_select_bit or bv_solver_set_bit, and
  * that are not bit-vector constants or bit-arrays.
  * For such an x,  a literal l = (select x i) was
  * returned to the context, so 'x' must be considered
- * a top-level variable when bit-blasting. Also, this 
+ * a top-level variable when bit-blasting. Also, this
  * means that x has a pseudo map attached, and this pseudo
  * map must be preserved by bv_solver_pop.
  *
  * Another queue stores the variables 'x' that were created at some level
  * k but were bit-blasted at a later stage (at level k' > k).
- * When we backtrack from level k', we must cleanup the array of literals 
+ * When we backtrack from level k', we must cleanup the array of literals
  * attached to x in the variable table, unless 'x' is also in the
  * select queue for this level.
  */
@@ -180,7 +180,7 @@ typedef struct bv_queue_s {
 
 /*
  * For every push, we keep track of the number of variables and atoms
- * on entry to the new base level, the size of the bound queue, and 
+ * on entry to the new base level, the size of the bound queue, and
  * the size of the queue of select vars and delayed bitblasting + the
  * number of bitblasted atoms.
  */
@@ -223,7 +223,7 @@ typedef struct bv_trail_stack_s {
  * the pair (x1, x2) in a cache, with the tag BVEQUIV_LEMMA.
  *
  * Other tags:
- * in egraph_types.h: 
+ * in egraph_types.h:
  *   DISTINCT_LEMMA = 0
  *   ACKERMANN_LEMMA = 1
  * in simplex_types.h
@@ -257,7 +257,7 @@ typedef struct bv_stats_s {
 
 
 /************
- *  SOLVER  * 
+ *  SOLVER  *
  ***********/
 
 typedef struct bv_solver_s {

@@ -41,7 +41,7 @@ static type_t base[NUM_BASE_TYPES];
 static void init_base_types(void) {
   base[0] = bool_type(&types);             // bool
   base[1] = bv_type(&types, 5);            // bv5
-  base[2] = new_scalar_type(&types, 3);    // scalar3 
+  base[2] = new_scalar_type(&types, 3);    // scalar3
   base[3] = new_scalar_type(&types, 1);    // scalar1
   base[4] = pair_type(base[0], base[2]);   // bool x scalar3
   base[5] = pair_type(base[3], base[0]);   // scalar1 x bool
@@ -64,7 +64,7 @@ static void init_val(void) {
 
   for (i=0; i<NVALS; i++) {
     val[i] = vtbl_mk_int32(&vtbl, i);
-  }  
+  }
 }
 
 
@@ -90,7 +90,7 @@ static value_t make_mapping(type_t *tau, uint32_t n, uint32_t i, value_t v) {
   vtbl_gen_object_tuple(&vtbl, n, tau, i, aux);
   return vtbl_mk_map(&vtbl, n, aux, v);
 }
- 
+
 /*
  * Build the function defined by tau, n, range, rsize, default
  * - n = arity
@@ -101,7 +101,7 @@ static value_t make_mapping(type_t *tau, uint32_t n, uint32_t i, value_t v) {
  *
  * The function maps element of index i in domain to range[i].
  */
-static value_t make_function(type_t *tau, uint32_t n, 
+static value_t make_function(type_t *tau, uint32_t n,
 			     value_t *range, uint32_t rsize, value_t def) {
   value_t *map;
   value_t v;
@@ -147,7 +147,7 @@ static void test_function(type_t *tau, uint32_t n, value_t *range) {
   print_type(stdout, &types, ftype);
   printf(" ===\n");
 
-  for (i=0; i<NVALS; i++) {    
+  for (i=0; i<NVALS; i++) {
     f[i] = make_function(tau, n, range, dsize, val[i]);
     printf("using default: ");
     vtbl_print_object(stdout, &vtbl, val[i]);

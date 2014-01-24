@@ -2,12 +2,12 @@
  * XOR/OR/NOT graph used to represent intermediate bit-vector expressions.
  *
  * We need a new representation to replace BDDs. The BDDs blow
- * up on several benchmarks. 
+ * up on several benchmarks.
  *
  * Update: January 29, 2009.
  * - Tests show that flattening the nodes is dangerous. It can consume
  *   a lot of memory and the node table blows up on one QF_BV benchmark.
- * - Since flattening does not work, it makes sense to simplify the 
+ * - Since flattening does not work, it makes sense to simplify the
  *   data structures. All OR and XOR nodes are now binary nodes.
  *
  * February 09, 2009:
@@ -44,16 +44,16 @@
  *   - the constant node: 0
  *   - variable node: (term-idx i) where i is an integer
  *   - select node: (select k i) where k and i are integers
- *   - OR nodes: (OR a b) 
- *   - XOR nodes: (XOR a b) 
+ *   - OR nodes: (OR a b)
+ *   - XOR nodes: (XOR a b)
  *   where a and b are node occurrences
  *
- * (term-idx i) is intended to denote a boolean term of index i 
+ * (term-idx i) is intended to denote a boolean term of index i
  * in the term table
  *
- * (select k i) is intended to be bit k of term i where i 
+ * (select k i) is intended to be bit k of term i where i
  * is a bitvector term in the term table.
- * 
+ *
  * The constant, variable, and select nodes are the leaf nodes
  * in the DAG. The OR and XOR nodes are non-leaf nodes.
  */
@@ -64,7 +64,7 @@
 typedef enum {
   UNUSED_NODE,    // deleted node
   CONSTANT_NODE,  // 0 = true
-  VARIABLE_NODE, 
+  VARIABLE_NODE,
   SELECT_NODE,
   OR_NODE,
   XOR_NODE,
@@ -132,7 +132,7 @@ enum {
   constant_node = 0,
 
   null_bit = -1,
-  true_bit = 0, 
+  true_bit = 0,
   false_bit = 1,
 };
 
@@ -183,7 +183,7 @@ typedef union node_desc_u {
  */
 typedef struct node_table_s {
   uint8_t *kind;
-  node_desc_t *desc;  
+  node_desc_t *desc;
   int32_t *map;
   uint32_t size;
   uint32_t nelems;
@@ -241,8 +241,8 @@ extern bit_t node_table_alloc_var(node_table_t *table, int32_t p);
 
 
 /*
- * Create a select node: 
- * - k = index 
+ * Create a select node:
+ * - k = index
  * - p = external term
  */
 extern bit_t node_table_alloc_select(node_table_t *table, uint32_t k, int32_t p);
@@ -256,7 +256,7 @@ static inline bit_t bit_not(bit_t b) {
 }
 
 /*
- * Create a constant bit of value equal to tt 
+ * Create a constant bit of value equal to tt
  */
 static inline bit_t bit_constant(bool tt) {
   return false_bit - ((uint32_t) tt);
@@ -436,7 +436,7 @@ static inline uint32_t index_of_select_node(node_table_t *table, node_t x) {
 
 /*
  * Children of node x = array of 2 bits
- * - x must be a non-leaf node 
+ * - x must be a non-leaf node
  */
 static inline bit_t *children_of_node(node_table_t *table, node_t x) {
   assert(is_nonleaf_node(table, x));

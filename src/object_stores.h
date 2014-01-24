@@ -31,7 +31,7 @@ struct object_bank_s {
 
 /*
  * Store = a list of blocks
- * - allocations are performed via a free list, 
+ * - allocations are performed via a free list,
  * - or in the first block of the bank list,
  * - or by adding a new block.
  */
@@ -71,7 +71,7 @@ extern void reset_objstore(object_store_t *s);
 
 
 /*
- * Delete with finalizer: apply function f to all 
+ * Delete with finalizer: apply function f to all
  * objects in the store before freeing the banks.
  */
 extern void objstore_delete_finalize(object_store_t *s, void (*f)(void *));
@@ -88,7 +88,7 @@ extern void *objstore_alloc(object_store_t *s);
 static inline void objstore_free(object_store_t *s, void *object) {
   /*
    * BUG: This violates the strict aliasing rules and causes
-   * errors when optimizations are enabled? 
+   * errors when optimizations are enabled?
    */
   //  * ((void **) object) = s->free_list;
   // Try this instead.

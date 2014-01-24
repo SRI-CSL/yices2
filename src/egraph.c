@@ -356,7 +356,7 @@ static ltag_desc_t *new_ltag_desc(uint32_t n, type_t *dom) {
      */
     out_of_memory();
   }
-  
+
   tmp = (ltag_desc_t *) safe_malloc(sizeof(ltag_desc_t) + n * sizeof(type_t));
   tmp->arity = n;
   for (i=0; i<n; i++) {
@@ -432,7 +432,7 @@ static void extend_ltag_table(ltag_table_t *tbl) {
 
     tbl->data = (ltag_desc_t **) safe_malloc(n * sizeof(ltag_desc_t *));
     tbl->size = n;
-    
+
   } else {
     // increase size by 50%
     n ++;
@@ -627,7 +627,7 @@ static void delete_egraph_stack(egraph_stack_t *stack) {
   safe_free(stack->eq);
   safe_free(stack->etag);
   safe_free(stack->edata);
-  safe_free(stack->level_index); 
+  safe_free(stack->level_index);
   delete_bitvector(stack->mark);
 
   stack->eq = NULL;
@@ -725,7 +725,7 @@ static inline uint32_t undo_stack_get_top(undo_stack_t *stack) {
 
 
 /*
- * Save t and its class label l, just before the class of t is merged 
+ * Save t and its class label l, just before the class of t is merged
  * with another class. This happens when an equality (t == u) is processed,
  */
 static void undo_stack_push_merge(undo_stack_t *stack, occ_t t, elabel_t l) {
@@ -756,12 +756,12 @@ static void undo_stack_push_ptr(undo_stack_t *stack, void *p, undo_tag_t tag) {
 
   i = undo_stack_get_top(stack);
   stack->tag[i] = tag;
-  stack->data[i].ptr = p;  
+  stack->data[i].ptr = p;
 }
 
 /*
  * UNDO_SIMPLIFY means that cmp was simplified and removed from the congruence
- * table and use vectors (outside of a merge-class operation). On backtracking, 
+ * table and use vectors (outside of a merge-class operation). On backtracking,
  * we need to put cmp back into both tables.
  */
 static inline void undo_stack_push_composite(undo_stack_t *stack, composite_t *cmp) {
@@ -942,7 +942,7 @@ static void init_egraph_model(egraph_model_t *mdl) {
  * Delete mdl: free all the memory it uses
  */
 static void delete_egraph_model(egraph_model_t *mdl) {
-  safe_free(mdl->value);  
+  safe_free(mdl->value);
   mdl->value = NULL;
   if (mdl->pstore != NULL) {
     delete_pstore(mdl->pstore);
@@ -991,7 +991,7 @@ static void reset_egraph_model(egraph_model_t *mdl) {
 
 /*
  * Create atom <v, t> and add it to the core
- * - v must be a boolean variable in egraph->core, with no atom attached 
+ * - v must be a boolean variable in egraph->core, with no atom attached
  * - t must be a boolean term in egraph
  */
 static void create_egraph_atom(egraph_t *egraph, bvar_t v, eterm_t t) {
@@ -1021,7 +1021,7 @@ static void create_egraph_atom(egraph_t *egraph, bvar_t v, eterm_t t) {
 static inline void swap_next_atoms(atom_t *atom1, atom_t *atom2) {
   atom_t *aux;
 
-  aux = atom1->next; 
+  aux = atom1->next;
   atom1->next = atom2->next;
   atom2->next = aux;
 }
@@ -1106,7 +1106,7 @@ static atom_t *get_egraph_atom_for_bvar(egraph_t *egraph, bvar_t v) {
   if (a != NULL && atom_tag(a) == EGRAPH_ATM_TAG) {
     return (atom_t *)a;
   }
-  return NULL;  
+  return NULL;
 }
 
 
@@ -1197,7 +1197,7 @@ typedef struct {
   egraph_t *egraph;
   uint32_t n;
   occ_t *a;
-} composite_hobj_t; 
+} composite_hobj_t;
 
 typedef struct {
   int_hobj_t m;
@@ -1263,7 +1263,7 @@ static bool equal_apply_obj(apply_hobj_t *p, eterm_t i) {
 
   c = p->egraph->terms.body[i];
   assert(composite_body(c));
-  
+
   return equal_apply(c, p->f, p->n, p->a);
 }
 
@@ -1372,7 +1372,7 @@ static eterm_t build_lambda_obj(lambda_hobj_t *p) {
  * type coercion are necessary to stop GCC warnings
  */
 static apply_hobj_t apply_hobj = {
-  { (hobj_hash_t) hash_apply_obj, (hobj_eq_t) equal_apply_obj, (hobj_build_t) build_apply_obj },  
+  { (hobj_hash_t) hash_apply_obj, (hobj_eq_t) equal_apply_obj, (hobj_build_t) build_apply_obj },
   NULL,
   0, 0, NULL,
 };
@@ -1471,7 +1471,7 @@ static eterm_t egraph_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t t3) {
 
 static eterm_t egraph_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   assert(n >= 3);
-  
+
   distinct_hobj.egraph = egraph;
   distinct_hobj.n = n;
   distinct_hobj.a = a;
@@ -1484,7 +1484,7 @@ static eterm_t egraph_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   or_hobj.n = n;
   or_hobj.a = a;
 
-  return int_htbl_get_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);  
+  return int_htbl_get_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);
 }
 
 static eterm_t egraph_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
@@ -1547,7 +1547,7 @@ static eterm_t egraph_find_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t 
 
 static eterm_t egraph_find_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   assert(n >= 3);
-  
+
   distinct_hobj.egraph = egraph;
   distinct_hobj.n = n;
   distinct_hobj.a = a;
@@ -1560,7 +1560,7 @@ static eterm_t egraph_find_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   or_hobj.n = n;
   or_hobj.a = a;
 
-  return int_htbl_find_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);  
+  return int_htbl_find_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);
 }
 
 static eterm_t egraph_find_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
@@ -1677,7 +1677,7 @@ static void egraph_delete_constant(egraph_t *egraph, eterm_t t) {
   type_t tau;
   int32_t id;
   uint32_t h;
-  
+
   assert(egraph_term_is_constant(egraph, t) && egraph->const_htbl != NULL);
 
   tau = egraph_term_real_type(egraph, t);
@@ -1696,9 +1696,9 @@ static void egraph_delete_constant(egraph_t *egraph, eterm_t t) {
 
 /*
  * All analyze_xxx functions check whether a composite p simplifies or
- * is congruent to another composite q. 
+ * is congruent to another composite q.
  * - if so, they add an equality to the propagation queue and return true
- * - otherwise they store p in the congruence table and use vectors, 
+ * - otherwise they store p in the congruence table and use vectors,
  *   and return false
  */
 
@@ -1735,7 +1735,7 @@ static inline void add_eq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
  * dmsk must be dmask[class(t1)] & dmask[class(t2)]
  * The implied equality is always (p->id == false), where p is an equality term.
  */
-static inline void add_diseq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
+static inline void add_diseq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x,
                                         occ_t t1, occ_t t2, uint32_t dmsk) {
   int32_t k;
   uint32_t i;
@@ -1765,7 +1765,7 @@ static inline void add_diseq_implies_eq(egraph_t *egraph, composite_t *p, occ_t 
 
 
 /*
- * Basic terms: update/apply/tuple. 
+ * Basic terms: update/apply/tuple.
  * - no simplification rule is applied
  * - compute signature and look for a congruent term
  */
@@ -1797,7 +1797,7 @@ static bool analyze_basic(egraph_t *egraph, composite_t *p) {
     printf("\n");
 #endif
     return true;
-  } 
+  }
 
   return false;
 }
@@ -1806,7 +1806,7 @@ static bool analyze_basic(egraph_t *egraph, composite_t *p) {
 /*
  * p is (eq t1 t2)
  *
- * TODO? 
+ * TODO?
  * add more simplifications for boolean equality:
  *   t1 == true  implies (eq t1 t2) == t2
  *   t1 == false implies (eq t1 t2) == (not t2)
@@ -1879,9 +1879,9 @@ static bool analyze_eq(egraph_t *egraph, composite_t *p) {
     printf("\n");
 #endif
     return true;
-  } 
+  }
 
-  return false;  
+  return false;
 }
 
 
@@ -2151,7 +2151,7 @@ static bool analyze_lambda(egraph_t *egraph, composite_t *p) {
     printf("\n");
 #endif
     return true;
-  } 
+  }
 
   return false;
 }
@@ -2202,7 +2202,7 @@ static inline bool egraph_term_is_fresh(egraph_t *egraph, eterm_t t) {
 /*
  * Add composite d to the congruence table and use vectors
  * - if d is created at decision_level > 0 push d
- *   on the undo stack to be reanalyzed after backtracking. 
+ *   on the undo stack to be reanalyzed after backtracking.
  * - check whether t is equal to another term u and if so
  *   push the equality (t == u)
  */
@@ -2225,7 +2225,7 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
   }
 
   /*
-   * If decision_level > base_level, we'll have to reanalyze d 
+   * If decision_level > base_level, we'll have to reanalyze d
    * after backtracking.
    *
    * If decision_level == base_level and base_level > 0, we'll also
@@ -2266,7 +2266,7 @@ static bool constant_theory_var(egraph_t *egraph, etype_t tau, thvar_t x) {
  *
  * HACK: don't do a full activation for (distinct ...) terms
  * - it's enough to just add them to a singleton class.
- * - maintaining them into the congruence table and parent vectors 
+ * - maintaining them into the congruence table and parent vectors
  *   is usually a waste of time.
  */
 static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar_t x) {
@@ -2305,7 +2305,7 @@ static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar
  * Returns true in the following cases:
  * 1) t1 and (not t2) are equal
  * 2) there are distinct constants a1 and a2 with t1 == a1 and t2 == a2
- * 3) there's a term v = (eq u1 u2), such that v == false, and 
+ * 3) there's a term v = (eq u1 u2), such that v == false, and
  *     t1 == u1, t2 == u2 or t1 == u2, t2 == u1
  * 4) there's a term v = (distinct u_1 ... u_n) such that v == true,
  *    and t1 == u_i and t2 == u_j with i /= j
@@ -2328,7 +2328,7 @@ bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   if ((dmask[c1] & dmask[c2]) != 0) {
     return true;
   }
-  
+
   eq = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
   return eq != NULL_COMPOSITE && egraph_occ_is_false(egraph, pos_occ(eq->id));
 }
@@ -2352,10 +2352,10 @@ bool egraph_check_theory_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   case ETYPE_FUNCTION:
     x1 = egraph_term_base_thvar(egraph, term_of_occ(t1));
     x2 = egraph_term_base_thvar(egraph, term_of_occ(t2));
-    return x1 != null_thvar && x2 != null_thvar && 
-      egraph->eg[i] != NULL && 
+    return x1 != null_thvar && x2 != null_thvar &&
+      egraph->eg[i] != NULL &&
       egraph->eg[i]->check_diseq(egraph->th[i], x1, x2);
-    
+
   default:
     return false;
   }
@@ -2384,7 +2384,7 @@ bool egraph_check_distinct_false(egraph_t *egraph, composite_t *d) {
     t = d->child[i];
     x = egraph_label(egraph, t);
     p = int_hmap_get(imap, x);
-    if (p->val >= 0) { 
+    if (p->val >= 0) {
       result = true;
       break;
     }
@@ -2472,10 +2472,10 @@ static bool egraph_term_asserted_false(egraph_t *egraph, eterm_t t) {
   n = egraph->stack.top;
   for (i=egraph->stack.prop_ptr; i<n; i++) {
     e = egraph->stack.eq + i;
-    if ((e->lhs == u && e->rhs == false_occ) || 
+    if ((e->lhs == u && e->rhs == false_occ) ||
         (e->lhs == false_occ && e->rhs == u)) {
       return true;
-    }      
+    }
   }
 
   return false;
@@ -2488,7 +2488,7 @@ static bool egraph_term_asserted_false(egraph_t *egraph, eterm_t t) {
  * Atoms (type = BOOL, theory variable = a fresh boolean variable)
  * - all return pos_occ(theory_variable)
  * - make_pred build an uninterpreted predicate (f a[0] ... a[n])
- * - make_distinct rewrites (distinct a[0] ... a[n-1]) to a conjunction of 
+ * - make_distinct rewrites (distinct a[0] ... a[n-1]) to a conjunction of
  *   disequalities if the distinct limit is reached.
  */
 static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
@@ -2513,13 +2513,13 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
     v = egraph->terms.thvar[t];
     if (v == null_thvar) {
       /*
-       * This assertion is wrong: the equality t == false may no 
-       * be processed yet (i.e., still in the queue). If that's the 
+       * This assertion is wrong: the equality t == false may no
+       * be processed yet (i.e., still in the queue). If that's the
        * case, egraph_term_is_false(egraph, t) will return false and
        * the assertion will fail.
        */
       // assert(egraph_term_is_eq(egraph, t) && egraph_term_is_false(egraph, t));
-      assert(egraph_term_is_eq(egraph, t)); 
+      assert(egraph_term_is_eq(egraph, t));
       assert(egraph_term_is_false(egraph, t) || egraph_term_asserted_false(egraph, t));
 
       return false_literal;
@@ -2543,7 +2543,7 @@ literal_t egraph_make_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   occ_t aux;
   eterm_t t;
 
-  // simplify 
+  // simplify
   if (t1 == t2) return true_literal;
 
   if (egraph->base_level == egraph->decision_level) {
@@ -2579,7 +2579,7 @@ static occ_t egraph_make_eq_term(egraph_t *egraph, occ_t t1, occ_t t2) {
   occ_t aux;
   eterm_t t;
 
-  // simplify 
+  // simplify
   if (t1 == t2) return true_occ;
 
   if (egraph->base_level == egraph->decision_level) {
@@ -2625,7 +2625,7 @@ static void expand_distinct(egraph_t *egraph, uint32_t n, occ_t *a, ivector_t *v
 }
 
 /*
- * Create a fresh boolean variable x and assert clauses equivalent to 
+ * Create a fresh boolean variable x and assert clauses equivalent to
  * - not(x) == (distinct a[0] ... a[n-1])
  */
 static literal_t assert_distinct_def_clauses(egraph_t *egraph, uint32_t n, occ_t *a) {
@@ -2657,9 +2657,9 @@ literal_t egraph_make_distinct(egraph_t *egraph, uint32_t n, occ_t *a) {
 
   /*
    * TODO: check this:
-   * 1) normalize the term t? 
+   * 1) normalize the term t?
    * 2) always expand small distinct terms?
-   */  
+   */
   t = egraph_distinct_term(egraph, n, a);
   if (t == null_eterm) {
     return assert_distinct_def_clauses(egraph, n, a);
@@ -2887,7 +2887,7 @@ static void auto_activate(egraph_t *egraph, eterm_t u, type_t type) {
     break;
 
   case ETYPE_REAL:
-    if (egraph->arith_smt != NULL) {      
+    if (egraph->arith_smt != NULL) {
       x = egraph->arith_eg->create_arith_var(egraph->th[ETYPE_REAL], false);
     }
     break;
@@ -2934,7 +2934,7 @@ static void auto_activate(egraph_t *egraph, eterm_t u, type_t type) {
   if (tau <= ETYPE_FUNCTION && egraph->eg[tau] != NULL) {
     egraph->eg[tau]->attach_eterm(egraph->th[tau], x, u);
   }
-  
+
 }
 
 
@@ -2982,10 +2982,10 @@ eterm_t egraph_make_update(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_
   eterm_t t;
 
   assert(is_pos_occ(f));
-  
+
   /*
    * simplification: remove double updates at the same indices:
-   * rewrite (update (update f x a) x b) to (update f x b) 
+   * rewrite (update (update f x a) x b) to (update f x b)
    */
   cmp = egraph_term_body(egraph, term_of_occ(f));
   if (composite_body(cmp) && composite_kind(cmp) == COMPOSITE_UPDATE &&
@@ -2998,12 +2998,12 @@ eterm_t egraph_make_update(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_
    * Simplification 2: (update f x (f x)) is f
    */
   cmp = egraph_term_body(egraph, term_of_occ(v));
-  if (is_pos_occ(v) && composite_body(cmp) && 
-      composite_kind(cmp) == COMPOSITE_APPLY && 
+  if (is_pos_occ(v) && composite_body(cmp) &&
+      composite_kind(cmp) == COMPOSITE_APPLY &&
       cmp->child[0] == f &&  egraph_check_eq_arrays(egraph, n, cmp->child + 1, a)) {
     return term_of_occ(f);
   }
-      
+
   t = egraph_update_term(egraph, f, n, a, v);
   if (egraph_term_is_fresh(egraph, t)) {
     auto_activate(egraph, t, tau);
@@ -3032,7 +3032,7 @@ eterm_t egraph_make_tuple(egraph_t *egraph, uint32_t n, occ_t *a, type_t tau) {
  * - tau must be a function type
  * - attach a theory variable in the array solver (if present)
  */
-eterm_t egraph_make_lambda(egraph_t *egraph, occ_t c, type_t tau) {  
+eterm_t egraph_make_lambda(egraph_t *egraph, occ_t c, type_t tau) {
   eterm_t t;
   int32_t tag;
 
@@ -3068,7 +3068,7 @@ static void egraph_add_scalar_axiom(egraph_t *egraph, occ_t t, type_t tau) {
   }
   assert(v->size == n);
 
-  add_clause(egraph->core, n, v->data);  
+  add_clause(egraph->core, n, v->data);
 }
 
 
@@ -3231,7 +3231,7 @@ eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
   bvar_t aux;
   eterm_t t;
   smt_core_t *core;
- 
+
   core = egraph->core;
   assert(core != NULL);
 
@@ -3249,7 +3249,7 @@ eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
   }
 
   // create fresh t + new atom  <t, v>
-  t = new_eterm(&egraph->terms, VARIABLE_BODY);  
+  t = new_eterm(&egraph->terms, VARIABLE_BODY);
   create_egraph_atom(egraph, v, t);
   egraph_set_term_real_type(egraph, t, bool_type(egraph->types));
   egraph_activate_term(egraph, t, ETYPE_BOOL, v);
@@ -3310,8 +3310,8 @@ static void egraph_init_constant(egraph_t *egraph) {
 /*
  * Auxiliary equalities are created when adding ackermann lemmas.
  * To prevent blow up, we put a limit on the number of auxiliary
- * equalities created. When the limit is reached, creation of 
- * new auxiliary fails. Only lemmas that are built from existing 
+ * equalities created. When the limit is reached, creation of
+ * new auxiliary fails. Only lemmas that are built from existing
  * equalities can be added at that point.
  * - the quota is stored in egraph->aux_eq_quota
  * - the number of auxiliary equalities created is in egraph->stats.aux_eqs
@@ -3437,7 +3437,7 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
   literal_t l;
   eterm_t b1, b2;
   thvar_t x1, x2;
-  
+
   assert(composite_kind(c1) == composite_kind(c2) && composite_arity(c1) == composite_arity(c2));
 
   b1 = c1->id;
@@ -3448,7 +3448,7 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 
     if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
         egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
-      
+
       /*
        * (f t_1 ... t_n) and (f u_1 ... u_n) are boolean.
        * Find boolean variables
@@ -3482,27 +3482,27 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
             i = v->size;
             // add x1 ==> x2
             ivector_push(v, neg_lit(x1));
-            ivector_push(v, pos_lit(x2));       
+            ivector_push(v, pos_lit(x2));
             add_clause(egraph->core, v->size, v->data);
             // add x2 ==> x1
             v->data[i] = neg_lit(x2);
             v->data[i+1] = pos_lit(x1);
-            add_clause(egraph->core, v->size, v->data); 
-        
+            add_clause(egraph->core, v->size, v->data);
+
             egraph->stats.boolack_lemmas ++;
           }
         }
       }
     }
 
-  } else { 
+  } else {
 
     if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
         egraph->stats.ack_lemmas < egraph->max_ackermann) {
-    
+
       /*
-       * Non-boolean case: add the clause 
-       * (t_1 == u_1 and ... and t_n == u_n) ==> 
+       * Non-boolean case: add the clause
+       * (t_1 == u_1 and ... and t_n == u_n) ==>
        *                (f t_1 .. t_n) == (f u_1 ... u_n)
        *
        * Generate the lemma if the number of hits for (b1, b2)
@@ -3594,7 +3594,7 @@ static void propagate_satellite_disequality(egraph_t *egraph, etype_t i, thvar_t
  * Propagate (distinct a[0] ... a[n-1]) to satellite solver i
  * - each a[k] is a theory variable in that solver
  * - hint is a composite term that implies (distinct a[0] ... a[n-1]):
- *   hint is (distinct t_0 ... t_p-1) asserted true, 
+ *   hint is (distinct t_0 ... t_p-1) asserted true,
  *   and each a[i] is a theory variable attached to the class of some term t_j
  */
 static void propagate_satellite_distinct(egraph_t *egraph, etype_t i, uint32_t n, thvar_t *a, composite_t *hint) {
@@ -3668,7 +3668,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
        * atm->eterm is either true or false
        * assign the same value to atm->boolvar, with NULL as antecedent
        */
-      assert(egraph_term_is_true(egraph, atm->eterm) || 
+      assert(egraph_term_is_true(egraph, atm->eterm) ||
              egraph_term_is_false(egraph, atm->eterm));
 
       if (bvar_is_unassigned(core, atm->boolvar)) {
@@ -3678,7 +3678,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
       }
 
       atm = atm->next;
-      
+
     } while (atm != atm2);
   }
 
@@ -3699,7 +3699,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
 static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
   etype_t i;
 
-  assert(v1 != null_thvar && v2 != null_thvar && 
+  assert(v1 != null_thvar && v2 != null_thvar &&
          v1 == egraph_class_thvar(egraph, c1) &&
          v2 == egraph_class_thvar(egraph, c2));
 
@@ -3730,12 +3730,12 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
  * Remove equality between two theory variables v1 and v2
  * - this is used only for boolean variables
  * - satellite solvers remove equalities or disequalities by backtracking
- * - for tuple equalities, there's nothing to undo 
+ * - for tuple equalities, there's nothing to undo
  */
 static void undo_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
   smt_core_t *core;
 
-  assert(v1 != null_thvar && v2 != null_thvar && 
+  assert(v1 != null_thvar && v2 != null_thvar &&
          v1 == egraph_class_thvar(egraph, c1) &&
          v2 == egraph_class_thvar(egraph, c2));
 
@@ -3782,12 +3782,12 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
       print_occurrence(stdout, t2);
       printf(" implied by ");
       print_composite(stdout, atom);
-      printf(" == true\n");     
+      printf(" == true\n");
 #endif
     }
 
-  } else { 
-    
+  } else {
+
     assert(egraph_occ_is_false(egraph, t));
 
     t1 = atom->child[0];
@@ -3803,9 +3803,9 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
       c2 = egraph_class(egraph, t2);
       v2 = egraph->classes.thvar[c2];
       if (v1 != null_thvar && v2 != null_thvar) {
-        propagate_satellite_disequality(egraph, i, v1, v2, atom);       
+        propagate_satellite_disequality(egraph, i, v1, v2, atom);
       }
-      
+
     } else if (i == ETYPE_BOOL) {
       assert(egraph_type(egraph, t2) == ETYPE_BOOL);
       /*
@@ -3823,7 +3823,7 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
         print_occurrence(stdout, opposite_occ(t2));
         printf(" implied by ");
         print_composite(stdout, atom);
-        printf(" == false\n");     
+        printf(" == false\n");
 #endif
       }
     }
@@ -3832,7 +3832,7 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
 
 
 /*
- * Check whether the assertion (distinct t_1 ... t_n) can 
+ * Check whether the assertion (distinct t_1 ... t_n) can
  * be propagated to a satellite theory.
  * - atom = (distinct t_1 ... t_n)
  * - tau = the type of t_1
@@ -3933,7 +3933,7 @@ static void assert_distinct(egraph_t *egraph, composite_t *atom) {
           detach_composite(p, egraph->terms.label, egraph->classes.parents);
           assert(empty_entry(v->data[j]));
           // save p  to restore it on backtracking
-          undo_stack_push_composite(&egraph->undo, p); 
+          undo_stack_push_composite(&egraph->undo, p);
         }
 
       }
@@ -3960,7 +3960,7 @@ static bool check_distinct_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
   assert(t == pos_occ(atom->id) && composite_kind(atom) == COMPOSITE_DISTINCT);
 
   if (egraph_occ_is_true(egraph, t)) {
-    // It's redundant to check for a conflict if atom is 
+    // It's redundant to check for a conflict if atom is
     // in the congruence table, but we don't know for sure.
     if (egraph_inconsistent_distinct(egraph, atom, &egraph->expl_vector)) {
       return false;
@@ -3973,7 +3973,7 @@ static bool check_distinct_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
     assert(egraph_occ_is_false(egraph, t));
 
     // important: egraph_inconsistent_not_distinct must be called
-    // after egraph_check_distinct_false. 
+    // after egraph_check_distinct_false.
     if (egraph_check_distinct_false(egraph, atom)) {
       return true;
     }
@@ -4000,7 +4000,7 @@ static bool check_atom_propagation(egraph_t *egraph, occ_t t) {
 
   assert(egraph_class(egraph, t) == bool_constant_class);
 
-  atom = egraph_term_body(egraph, term_of_occ(t));  
+  atom = egraph_term_body(egraph, term_of_occ(t));
   if (composite_body(atom)) {
     assert(atom != NULL);
     switch (composite_kind(atom)) {
@@ -4017,7 +4017,7 @@ static bool check_atom_propagation(egraph_t *egraph, occ_t t) {
     }
   }
 
-  return true;  
+  return true;
 }
 
 
@@ -4087,7 +4087,7 @@ static void check_false_eq(egraph_t *egraph, pvector_t *v) {
     t2 = p->child[1];
     c1 = egraph_class(egraph, t1);
     c2 = egraph_class(egraph, t2);
-    msk = dmask[c1] & dmask[c2]; 
+    msk = dmask[c1] & dmask[c2];
     if (msk != 0) {
       // t1 != t2 implies (eq t1 t2) == false
       add_diseq_implies_eq(egraph, p, false_occ, t1, t2, msk);
@@ -4096,7 +4096,7 @@ static void check_false_eq(egraph_t *egraph, pvector_t *v) {
       // save p so it can be restored on backtracking
       undo_stack_push_composite(&egraph->undo, p);
     }
-  }  
+  }
 }
 
 /*
@@ -4114,7 +4114,7 @@ static bool eq_is_from_satellite(egraph_t *egraph, int32_t i) {
  * Process equality (t1 == t2): i = corresponding edge id
  * - egraph->stack.eq[i] is (t1 == t2)
  * - egraph->stack.etag[i] + egraph->stack.edata[i] == antecedent/explanation
- * 
+ *
  * - returned value: true means no inconsistency detected
  * - false means that a conflict was detected. The conflict literals are stored
  *   in egraph->expl_vector.
@@ -4162,7 +4162,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 #endif
 
     if (egraph->stack.etag[i] == EXPL_BASIC_CONGRUENCE) {
-      // store t1 t2 for local Ackermann generation 
+      // store t1 t2 for local Ackermann generation
       egraph->ack_left = t1;
       egraph->ack_right = t2;
     }
@@ -4189,7 +4189,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   // swap if necessary: we want c1 := union(c1, c2)
   // and we want to keep bool_constant_class as the root class
-  if (c2 == bool_constant_class || 
+  if (c2 == bool_constant_class ||
       (c1 != bool_constant_class && egraph_class_nparents(egraph, c2) > egraph_class_nparents(egraph, c1))) {
     aux = t1; t1 = t2; t2 = aux;
     aux = c1; c1 = c2; c2 = aux;
@@ -4247,7 +4247,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * into egraph->cmp_vector.
    */
   if (egraph->classes.dmask[c1] != dmask) {
-    collect_eqterms(egraph->classes.parents + c1, &egraph->cmp_vector);    
+    collect_eqterms(egraph->classes.parents + c1, &egraph->cmp_vector);
   }
 
   /*
@@ -4255,7 +4255,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    *
    * For backtracking, we keep all these composites in v
    * - if p remains a congruence root, it's kept as is in v
-   * - if p is no longer a congruence root, it's kept as a marked 
+   * - if p is no longer a congruence root, it's kept as a marked
    *   pointer in v.
    */
   for (j=0; j<n; j++) {
@@ -4296,7 +4296,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
         // conflict
         return false;
       }
-    } while (t != t2);    
+    } while (t != t2);
   }
 
   /*
@@ -4310,7 +4310,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * NOTE: this is also how we propagate tuple/boolean equalities
    *
    * TODO:
-   * - extend this to deal with equalities between lambda terms 
+   * - extend this to deal with equalities between lambda terms
    *     (lambda t x) == (lambda t y) ==> (x == y) since t does not occur in x or y
    *   this requires removing the satellite solver for array/function theory
    *   and move support for these theories here (cf. update_graph)
@@ -4362,7 +4362,7 @@ void egraph_start_search(egraph_t *egraph) {
   uint32_t i;
 
 #if TRACE
-  fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
+  fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
           egraph->decision_level, egraph->core->stats.decisions);
   fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
   print_egraph_terms(stdout, egraph);
@@ -4405,7 +4405,7 @@ static void egraph_open_decision_level(egraph_t *egraph) {
   k = egraph->decision_level + 1;
   egraph->decision_level = k;
   if (egraph->stack.nlevels <= k) {
-    increase_egraph_stack_levels(&egraph->stack);    
+    increase_egraph_stack_levels(&egraph->stack);
   }
   egraph->stack.level_index[k] = egraph->stack.top;
 
@@ -4433,7 +4433,7 @@ void egraph_increase_decision_level(egraph_t *egraph) {
   assert(egraph->stack.prop_ptr == egraph->stack.top);
 
   egraph_open_decision_level(egraph);
-  
+
   // forward to satellite solvers
   for (i=0; i<NUM_SATELLITES; i++) {
     if (egraph->ctrl[i] != NULL) {
@@ -4468,7 +4468,7 @@ void egraph_push(egraph_t *egraph) {
 
   // increase base level and decision level
   egraph->base_level ++;
-  egraph_open_decision_level(egraph);  
+  egraph_open_decision_level(egraph);
 
 #if 0
   printf("\n*** EGRAPH PUSH EXIT ****\n");
@@ -4560,7 +4560,7 @@ static void undo_distinct(egraph_t *egraph) {
   k = egraph->dtable.npreds - 1;
   d = egraph->dtable.distinct[k];
   egraph->dtable.npreds = k;
-  
+
   // clear bit k in dmasks
   dmask = egraph->classes.dmask;
   msk = ~(((uint32_t) 1) << k);
@@ -4581,7 +4581,7 @@ static void undo_distinct(egraph_t *egraph) {
  */
 static void restore_composite(egraph_t *egraph, composite_t *cmp) {
 #ifndef NDEBUG
-  // cmp->hash should be valid 
+  // cmp->hash should be valid
   signature_composite(cmp, egraph->terms.label, &egraph->sgn);
   assert(cmp->hash == hash_signature(&egraph->sgn));
 #endif
@@ -4683,9 +4683,9 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
    * does any extra processing needed.
    *
    * Exception: if c1 == bool_constant_class, it may happen that
-   * thvar[c1] == thvar[2] == const_bvar: but we don't want to 
+   * thvar[c1] == thvar[2] == const_bvar: but we don't want to
    * set thvar[c1] to null_thvar.
-   */ 
+   */
   if (egraph->classes.thvar[c2] != null_thvar) {
     assert(egraph->classes.thvar[c1] != null_thvar);
     if (egraph->classes.thvar[c1] == egraph->classes.thvar[c2])  {
@@ -4697,7 +4697,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
     }
   }
 
-} 
+}
 
 
 /*
@@ -4717,7 +4717,7 @@ static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
 #ifndef NDEBUG
   t = p->id;
   c = egraph_term_class(egraph, t);
-  
+
   // check that p->hash is valid
   signature_composite(p, label, &egraph->sgn);
   assert(p->hash == hash_signature(&egraph->sgn));
@@ -4758,7 +4758,7 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
   uint32_t n;
 
   assert(egraph->base_level <= back_level && back_level < egraph->decision_level);
-  
+
 #if TRACE
   printf("---> EGRAPH:   Backtracking to level %"PRIu32"\n\n", back_level);
 #endif
@@ -4767,7 +4767,7 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
   /*
    * Generate ackermann lemmas if enabled: this must be done first
    */
-  if (egraph->ack_left != null_occurrence && 
+  if (egraph->ack_left != null_occurrence &&
       egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN)) {
     assert(egraph->ack_right != null_occurrence);
     egraph_gen_ackermann_lemma(egraph, egraph->ack_left, egraph->ack_right);
@@ -4811,7 +4811,7 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
     }
   }
   assert(i == k);
-  egraph->undo.top = k;  
+  egraph->undo.top = k;
 
   // Cleanup the propagation stack
   k = egraph->stack.level_index[back_level + 1];
@@ -4824,7 +4824,7 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
     arena_pop(&egraph->arena);
     n --;
   } while (n > back_level);
-  
+
   egraph->decision_level = back_level;
 }
 
@@ -4889,7 +4889,7 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
   thvar_t x;
   atom_t *atom;
 
-  t = egraph->terms.nterms;  
+  t = egraph->terms.nterms;
   assert(t >= n);
 
   while (t > n) {
@@ -4902,7 +4902,7 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
     }
 
     x = egraph_term_thvar(egraph, t);
-    assert(x == egraph_term_base_thvar(egraph, t) || 
+    assert(x == egraph_term_base_thvar(egraph, t) ||
 	   (x == null_thvar && egraph_term_base_thvar(egraph, t) == const_bvar)); // special case: cf. assert_pred_axiom
 
     if (x != null_thvar && egraph_term_type(egraph, t) == ETYPE_BOOL) {
@@ -4914,7 +4914,7 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
     }
   }
 
-  egraph->terms.nterms = n;  
+  egraph->terms.nterms = n;
 }
 
 
@@ -4958,8 +4958,8 @@ void egraph_pop(egraph_t *egraph) {
 
   // clear the high-order flag
   egraph->is_high_order = false;
-  
-  // all dynamic terms will be deleted 
+
+  // all dynamic terms will be deleted
   // so we must empty reanalyze vector
   pvector_reset(&egraph->reanalyze_vector);
 
@@ -4982,7 +4982,7 @@ void egraph_pop(egraph_t *egraph) {
     if (egraph->ctrl[i] != NULL) {
       egraph->ctrl[i]->pop(egraph->th[i]);
     }
-  }  
+  }
 
 #if 0
   printf("\n*** EGRAPH POP: EXIT ****\n");
@@ -5058,7 +5058,7 @@ bool egraph_propagate(egraph_t *egraph) {
   ivector_t *conflict;
 
 #if TRACE
-  printf("---> EGRAPH PROPAGATE [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
+  printf("---> EGRAPH PROPAGATE [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
          egraph->decision_level, egraph->core->stats.decisions);
 #endif
 
@@ -5086,7 +5086,7 @@ bool egraph_propagate(egraph_t *egraph) {
     // To detect equalities propagated from the theroy solvers (i.e., the simplex
     // solver for now).
     k = egraph->stack.top;
-  
+
     // go through all the satellite solvers
     for (i=0; i<NUM_SATELLITES; i++) {
       if (egraph->ctrl[i] != NULL) {
@@ -5099,7 +5099,7 @@ bool egraph_propagate(egraph_t *egraph) {
 
   } while (egraph->stack.top > k);
 
-  
+
   return true;
 }
 
@@ -5110,7 +5110,7 @@ bool egraph_propagate(egraph_t *egraph) {
  **************************/
 
 /*
- * Simpler version of make_eq: does not check whether 
+ * Simpler version of make_eq: does not check whether
  * t1 and t2 are known to be equal or distinct.
  *
  * In particular, this function does not call the theory's check_diseq
@@ -5128,14 +5128,14 @@ literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   }
 
   t = egraph_eq_term(egraph, t1, t2);
-  return egraph_term2literal(egraph, t);  
+  return egraph_term2literal(egraph, t);
 }
 
 
 
 /*
  * Check whether (eq t1 t2) exists and if it does return the
- * corresponding literal.  
+ * corresponding literal.
  * - return null_literal if (eq t1 t2) does not exist (or if it's not
  *   attached to a Boolean variable).
  */
@@ -5155,7 +5155,7 @@ literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
     assert(egraph_term_type(egraph, eq) == ETYPE_BOOL);
     v = egraph->terms.thvar[eq];
     // null_thvar is possible if (eq t1 t2) is false at the top level
-    if (v != null_thvar) { 
+    if (v != null_thvar) {
       l = pos_lit(v);
     }
   }
@@ -5271,7 +5271,7 @@ static void egraph_prepare_models(egraph_t *egraph) {
   if (egraph->ctrl[ETYPE_BV] != NULL) {
     assert(egraph->eg[ETYPE_BV] != NULL);
     egraph->eg[ETYPE_BV]->prepare_model(egraph->th[ETYPE_BV]);
-  }    
+  }
 }
 
 
@@ -5304,7 +5304,7 @@ static void check_interface_duplicates(ivector_t *v) {
     t1 = v->data[i];
     t2 = v->data[i+1];
     for (j=i+2; j<n; j += 2) {
-      if ((v->data[j] == t1 && v->data[j+1] == t2) 
+      if ((v->data[j] == t1 && v->data[j+1] == t2)
           || (v->data[j] == t2 && v->data[j+1] == t1)) {
         printf("---> EGRAPH: interface lemma duplicate: "
                "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32"); "
@@ -5360,7 +5360,7 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
       satellite = egraph->th[ETYPE_BV];
       interface = egraph->eg[ETYPE_BV];
       break;
-      
+
     default:
       assert(false);
       abort();
@@ -5403,7 +5403,7 @@ static bool diseq_in_model(egraph_t *egraph, etype_t i, thvar_t x1, thvar_t x2) 
 
   case ETYPE_BOOL:
     return  !bool_var_equal_in_model(egraph, x1, x2);;
-    
+
   default:
     return false;
   }
@@ -5413,7 +5413,7 @@ static bool diseq_in_model(egraph_t *egraph, etype_t i, thvar_t x1, thvar_t x2) 
 /*
  * Check whether the classes of t1 and t2 can be merged
  * - c1 must be the class of t1 and c2 must be the class of t2
- * - if c1 and c2 have theory variables, then they can be merged if the 
+ * - if c1 and c2 have theory variables, then they can be merged if the
  *   variables have equal values in the theory model
  */
 static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, class_t c2) {
@@ -5439,8 +5439,8 @@ static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, 
 
   x1 = egraph_class_thvar(egraph, c1);
   x2 = egraph_class_thvar(egraph, c2);
- 
-  if (x1 != null_thvar && x2 != null_thvar && 
+
+  if (x1 != null_thvar && x2 != null_thvar &&
       diseq_in_model(egraph, egraph_class_type(egraph, c1), x1, x2)) {
     return false;
   }
@@ -5525,11 +5525,11 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   // save t2 and its label for backtracking
   undo_stack_push_merge(&egraph->undo, t2, egraph_label(egraph, t2));
-  
+
   // update the explanation tree
   invert_branch(egraph, t2);
   assert(egraph->terms.edge[term_of_occ(t2)] == null_edge);
-  egraph->terms.edge[term_of_occ(t2)] = i; 
+  egraph->terms.edge[term_of_occ(t2)] = i;
 
   // remove c2's parents from the congruence table
   v = egraph->classes.parents + c2;
@@ -5562,7 +5562,7 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   egraph_set_next(egraph, t2, egraph_next(egraph, t1));
   egraph_set_next(egraph, t1, t);
 
-  // reprocess all the composites in v 
+  // reprocess all the composites in v
   for (j=0; j<n; j++) {
     p = v->data[j];
     if (valid_entry(p)) {
@@ -5577,7 +5577,7 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   }
 
   /*
-   * deal with the theory variables of c1 and c2: 
+   * deal with the theory variables of c1 and c2:
    */
   v2 = egraph->classes.thvar[c2];
   v1 = egraph->classes.thvar[c1];
@@ -5622,7 +5622,7 @@ static void egraph_undo_reconcile_attempt(egraph_t *egraph, uint32_t k) {
       assert(false); // should not happen
       undo_distinct(egraph);
       break;
-      
+
     // store terms to reanalyze into reanalyze_vector
     case REANALYZE_CONGRUENCE_ROOT:
       deactivate_congruence_root(egraph, udata[i].ptr);
@@ -5882,7 +5882,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
     // reconcile for arithmetic solver
     assert(egraph->eg[ETYPE_REAL] != NULL);
-    i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
+    i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);
   }
 
   if (i < max_eq && egraph->ctrl[ETYPE_BV] != NULL) {
@@ -5915,7 +5915,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   }
 
   egraph->stats.interface_eqs += i;
-  
+
   tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
 
   c = FCHECK_SAT; // default value
@@ -5923,7 +5923,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     c = FCHECK_CONTINUE;
   }
 
-  return c;   
+  return c;
 }
 
 
@@ -5935,7 +5935,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   uint32_t i, max_eqs;
 
 #if TRACE_FCHECK
-  printf("---> EGRAPH: final check (experimental)\n");  
+  printf("---> EGRAPH: final check (experimental)\n");
   fflush(stdout);
 #endif
 
@@ -5995,7 +5995,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
      * bv/arith models are consistent with the egraph:
      * deal with the array solver
      */
-    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);    
+    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);
     if (c == FCHECK_SAT) {
       if (egraph_is_high_order(egraph)) {
         i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
@@ -6019,7 +6019,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
       egraph_reconciliation_restore(egraph);
     }
   }
-  
+
   egraph_release_models(egraph);
 
   return c;
@@ -6192,13 +6192,13 @@ void egraph_assert_eq_axiom(egraph_t *egraph, occ_t t1, occ_t t2) {
 
 /*
  * Assert (t1 != t2) as an axiom
- * - create equality atom l --> (eq t1 t2) then assert not(l) 
+ * - create equality atom l --> (eq t1 t2) then assert not(l)
  *   in the core
  */
 void egraph_assert_diseq_axiom(egraph_t *egraph, occ_t t1, occ_t t2) {
 #if CONSERVATIVE_DISEQ_AXIOMS
   literal_t l;
-#else 
+#else
   occ_t eq;
   int32_t k;
 #endif
@@ -6222,7 +6222,7 @@ void egraph_assert_diseq_axiom(egraph_t *egraph, occ_t t1, occ_t t2) {
   eq = egraph_make_eq_term(egraph, t1, t2);
   k = egraph_stack_push_eq(&egraph->stack, eq, false_occ);
   egraph->stack.etag[k] = EXPL_AXIOM;
-#endif  
+#endif
 }
 
 
@@ -6333,13 +6333,13 @@ void egraph_assert_notpred_axiom(egraph_t *egraph, occ_t f, uint32_t n, occ_t *t
 void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_tag_t id, void *expl) {
   int32_t k;
 
-  assert((id == EXPL_ARITH_PROPAGATION && egraph_term_is_arith(egraph, t1) && 
+  assert((id == EXPL_ARITH_PROPAGATION && egraph_term_is_arith(egraph, t1) &&
           egraph_term_is_arith(egraph, t2)) ||
          (id == EXPL_BV_PROPAGATION && egraph_term_is_bv(egraph, t1) && egraph_term_is_bv(egraph, t2)) ||
-         (id == EXPL_FUN_PROPAGATION && egraph_term_is_function(egraph, t1) && 
+         (id == EXPL_FUN_PROPAGATION && egraph_term_is_function(egraph, t1) &&
           egraph_term_is_function(egraph, t2)));
 
-  if (egraph_equal_occ(egraph, pos_occ(t1), pos_occ(t2))) { 
+  if (egraph_equal_occ(egraph, pos_occ(t1), pos_occ(t2))) {
     // redundant
     return;
   }
@@ -6403,7 +6403,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
 /*
  * For an equality atom c = (eq t1 t2) and l attached to that atom
  * select whether to branch on l or (not l)
- * - if t1 and t2 are attached to theory variables, the decision is 
+ * - if t1 and t2 are attached to theory variables, the decision is
  *   made by the satellite solver
  * - otherwise, return l
  */
@@ -6436,7 +6436,7 @@ static literal_t egraph_select_eq_polarity(egraph_t *egraph, composite_t *c, lit
 /*
  * Select whether to branch on l or (not l)
  * - atom = the atom attached to var_of(l)
- * - forward to the appropriate subsolver 
+ * - forward to the appropriate subsolver
  */
 static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t l) {
   atom_t *a;
@@ -6553,7 +6553,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   // auxiliary buffers and data structures
   egraph->const_htbl = NULL;
   init_int_htbl(&egraph->htbl, 0);
-  init_objstore(&egraph->atom_store, sizeof(atom_t), ATOM_BANK_SIZE); 
+  init_objstore(&egraph->atom_store, sizeof(atom_t), ATOM_BANK_SIZE);
   init_cache(&egraph->cache);
 
   egraph->imap = NULL;
@@ -6705,7 +6705,7 @@ void delete_egraph(egraph_t *egraph) {
   egraph_free_const_htbl(egraph);
   delete_egraph_trail(&egraph->trail_stack);
   delete_ltag_table(&egraph->tag_table);
-  delete_congruence_table(&egraph->ctable);  
+  delete_congruence_table(&egraph->ctable);
   delete_undo_stack(&egraph->undo);
   delete_egraph_stack(&egraph->stack);
   delete_eterm_table(&egraph->terms);
@@ -6760,7 +6760,7 @@ void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *v) {
 
 /*
  * Return a term congruent to (apply g i_1 ... i_n) or NULL_COMPOSITE if there isn't one
- * - c = composite of the form (apply f i_1 ... i_n) 
+ * - c = composite of the form (apply f i_1 ... i_n)
  */
 composite_t *egraph_find_modified_application(egraph_t *egraph, eterm_t g, composite_t *c) {
   signature_t *sgn;
@@ -6958,8 +6958,8 @@ void egraph_build_arg_partition(egraph_t *egraph) {
   while (n > 0) {
     n --;
     cmp = egraph_term_body(egraph, n);
-    if (composite_body(cmp) && 
-        composite_kind(cmp) == COMPOSITE_APPLY && 
+    if (composite_body(cmp) &&
+        composite_kind(cmp) == COMPOSITE_APPLY &&
         congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
       ptr_partition_add(pp, cmp);
     }
@@ -6997,8 +6997,8 @@ value_t egraph_get_value(egraph_t *egraph, value_table_t *vtbl, occ_t t) {
 
 /*
  * Get the type of class c: check the root term's type
- * - if that type is TUPLE/FUNCTION/REAL, the root type may not be 
- *   precise enough, so we check the other elements in the class 
+ * - if that type is TUPLE/FUNCTION/REAL, the root type may not be
+ *   precise enough, so we check the other elements in the class
  * - otherwise, return the root type
  */
 static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
@@ -7017,7 +7017,7 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
     do {
       // check whether there's an integer object in the class
       u = egraph_next(egraph, u);
-      assert(term_of_occ(t) != term_of_occ(u) || t == u);      
+      assert(term_of_occ(t) != term_of_occ(u) || t == u);
       tau = egraph_term_real_type(egraph, term_of_occ(u));
       assert(is_arithmetic_type(tau));
     } while (t != u && is_real_type(tau));
@@ -7030,7 +7030,7 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
       // refine the type tau
       // TODO: we could optimize this to avoid creating the
       // intermediate subtypes??
-      assert(term_of_occ(t) != term_of_occ(u));      
+      assert(term_of_occ(t) != term_of_occ(u));
       sigma = egraph_term_real_type(egraph, term_of_occ(u));
       tau = inf_type(types, tau, sigma);
       assert(tau != NULL_TYPE);
@@ -7140,7 +7140,7 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
       v = egraph_concretize_value(egraph, vtbl, map->data[i].value);
       all_maps[i] = vtbl_mk_map(vtbl, n, aux, v);
     }
-    
+
     free_istack_array(&egraph->istack, aux);
   }
 
@@ -7184,7 +7184,7 @@ static value_t egraph_value_of_arith_class(egraph_t *egraph, value_table_t *vtbl
     } else {
       v = vtbl_mk_unknown(vtbl);
     }
-  } 
+  }
   return v;
 }
 
@@ -7292,11 +7292,11 @@ static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, com
   // value of f
   v = egraph_get_value(egraph, vtbl, pos_occ(p->id));
 
-  // build the mapping object [aux[0] ... aux[n-1] -> v] 
+  // build the mapping object [aux[0] ... aux[n-1] -> v]
   v = vtbl_mk_map(vtbl, n, aux, v);
 
   free_istack_array(&egraph->istack, aux);
-  
+
   return v;
 }
 
@@ -7385,8 +7385,8 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
   eterm_t t;
   type_t tau;
   value_t v;
-  
-  /* 
+
+  /*
    * Search for a constant t in the class. If there's none
    * create an anonymous uninterpreted constant/
    */
@@ -7407,7 +7407,7 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
     v = vtbl_mk_const(vtbl, tau, constant_body_id(egraph_term_body(egraph, t)), NULL);
 
   } else {
-    // fresh anonymous constant 
+    // fresh anonymous constant
     v = make_fresh_const(egraph->mdl.fval_maker, tau);
   }
 
@@ -7420,7 +7420,7 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
  */
 static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, class_t c) {
   value_t v;
-  
+
   switch (egraph_class_type(egraph, c)) {
   case ETYPE_INT:
   case ETYPE_REAL:
@@ -7479,7 +7479,7 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
   n = v->size;
   for (i=0; i<n; i++) {
     c = v->data[i];
-    assert(egraph->mdl.value[c] == null_value && 
+    assert(egraph->mdl.value[c] == null_value &&
 	   egraph_class_is_root_class(egraph, c));
     egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
   }
@@ -7516,7 +7516,7 @@ static void egraph_increment_rank_counter(ivector_t *ctr, uint32_t k) {
     }
     ctr->size = k+1;
   }
-  ctr->data[k] ++;  
+  ctr->data[k] ++;
 }
 
 
@@ -7551,7 +7551,7 @@ static void egraph_collect_root_classes(egraph_t *egraph) {
 
   /*
    * s = total number of root classes
-   * store the classes in increasing 
+   * store the classes in increasing
    * rank order in egraph->mdl.root_classes;
    */
   v = &egraph->mdl.root_classes;
@@ -7571,7 +7571,7 @@ static void egraph_collect_root_classes(egraph_t *egraph) {
 
 
 /*
- * Build a model: the model maps egraph classes to objects built in vtbl 
+ * Build a model: the model maps egraph classes to objects built in vtbl
  */
 void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   uint32_t i, n;

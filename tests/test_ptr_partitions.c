@@ -32,7 +32,7 @@ static bool match(void *aux, pair_t *p1, pair_t *p2) {
 
 
 /*
- * Array of pairs used for testing 
+ * Array of pairs used for testing
  */
 #define NOBJ 100
 

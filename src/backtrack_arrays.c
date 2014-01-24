@@ -236,7 +236,7 @@ void reset_int32_array(int32_array_t *a) {
 /*
  * Push: start a new level.
  */
-void int32_array_push(int32_array_t *a) {  
+void int32_array_push(int32_array_t *a) {
   array_trail_push(&a->trail, a->undo.top);
 }
 
@@ -277,7 +277,7 @@ static void int32_array_resize(int32_array_t *a, uint32_t i) {
     if (n >= MAX_INT32_ARRAY_SIZE) {
       out_of_memory();
     }
-    
+
     a->map = (int32_t *) safe_realloc(a->map, n * sizeof(int32_t));
     a->size = n;
   }
@@ -308,7 +308,7 @@ void ai32_write(int32_array_t *a, int32_t i, int32_t x) {
   if (i >= a->top) {
     int32_array_resize(a, i);
     int32_array_set_default(a, i, a->def);
-    a->top = i+1;    
+    a->top = i+1;
   }
 
   assert(i < a->size);
@@ -374,7 +374,7 @@ void reset_uint8_array(uint8_array_t *a) {
 /*
  * Push: start a new level.
  */
-void uint8_array_push(uint8_array_t *a) {  
+void uint8_array_push(uint8_array_t *a) {
   array_trail_push(&a->trail, a->undo.top);
 }
 
@@ -416,7 +416,7 @@ static void uint8_array_resize(uint8_array_t *a, uint32_t i) {
     if (n >= MAX_UINT8_ARRAY_SIZE) {
       out_of_memory();
     }
-    
+
     a->map = (uint8_t *) safe_realloc(a->map, n * sizeof(uint8_t));
     a->size = n;
   }

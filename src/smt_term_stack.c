@@ -53,7 +53,7 @@ static void smt_eval_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     t = yices_and(n, arg);
   }
   check_term(stack, t);
-  
+
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
@@ -158,7 +158,7 @@ static void smt_eval_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
   // check for overflow or for i <= 0
   if (! yices_check_bvrepeat(b, i)) {
-    report_yices_error(stack);    
+    report_yices_error(stack);
   }
   bvlogic_buffer_repeat_concat(b, i);
   tstack_pop_frame(stack);
@@ -193,7 +193,7 @@ static void smt_eval_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_
 static void smt_check_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BV_ZERO_EXTEND);
   check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);  
+  check_tag(stack, f, TAG_RATIONAL);
 }
 
 static void smt_eval_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {

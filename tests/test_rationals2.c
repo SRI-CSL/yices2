@@ -52,20 +52,20 @@ static void test_equal(rational_t *r, mpz_t z) {
   //  printf("  q = "); mpq_out_str(stdout, 10, q); printf("\n");
   //  fflush(stdout);
   mpq_set_z(q0, z);
-  q_check_equal(r, q0);  
+  q_check_equal(r, q0);
 }
 
 
 /*
  * Non-zero integers to use for testing
  */
-static int32_t num[48] = { 
-  1, -1, -23, 23, 112, -112, 126, -126, 
+static int32_t num[48] = {
+  1, -1, -23, 23, 112, -112, 126, -126,
   INT32_MAX, INT32_MIN, INT32_MAX-1, INT32_MIN + 1,
-  MAX_NUMERATOR, MIN_NUMERATOR, 
-  MAX_NUMERATOR - 1, MIN_NUMERATOR + 1, MAX_NUMERATOR + 1, 
+  MAX_NUMERATOR, MIN_NUMERATOR,
+  MAX_NUMERATOR - 1, MIN_NUMERATOR + 1, MAX_NUMERATOR + 1,
   MIN_NUMERATOR - 1, MAX_NUMERATOR + 2, MIN_NUMERATOR - 2,
-  6, 12, 15, 30, 60, 90, 150, 270, 300, 432, 500, 
+  6, 12, 15, 30, 60, 90, 150, 270, 300, 432, 500,
   -6, -12, -15, -30, -60, -90, -150, -270, -300, -432, -500,
   7, -49, 343, -6517, 148877, -148877,
 };
@@ -391,7 +391,7 @@ int main() {
   test_gcd();
   test_lcm();
   test_divides();
-  
+
   cleanup_rationals();
   mpq_clear(q0);
   mpz_clear(z0);

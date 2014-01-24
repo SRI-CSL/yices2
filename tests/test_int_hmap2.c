@@ -62,7 +62,7 @@ static pair_t data[MAXP];
  */
 static int32_t random_key(void) {
   int32_t x;
-  
+
   x = random();
   assert(x >= 0);
   return (x % 100);
@@ -94,7 +94,7 @@ static void test1(int_hmap2_t *hmap, pair_t *a, uint32_t n) {
   bool new;
 
   // first pass: find + get
-  for (i=0; i<n; i++) {    
+  for (i=0; i<n; i++) {
     k0 = a[i].k0;
     k1 = a[i].k1;
     printf("Testing: k0 = %"PRId32", k1 = %"PRId32"\n", k0, k1);
@@ -102,7 +102,7 @@ static void test1(int_hmap2_t *hmap, pair_t *a, uint32_t n) {
     new = false;
     get = int_hmap2_get(hmap, k0, k1, &new);
     if (find != NULL) {
-      assert(!new && get == find && find->k0 == k0 && 
+      assert(!new && get == find && find->k0 == k0 &&
 	     find->k1 == k1 && find->val == (k0+k1));
 
       printf("Found record: [k0 = %"PRId32", k1 = %"PRId32", val = %"PRId32"]\n",
@@ -122,7 +122,7 @@ static void test1(int_hmap2_t *hmap, pair_t *a, uint32_t n) {
     printf("Checking: k0 = %"PRId32", k1 = %"PRId32"...", k0, k1);
     find = int_hmap2_find(hmap, k0, k1);
     get = int_hmap2_get(hmap, k0, k1, &new);
-    if (!new &&  find != NULL && find == get && 
+    if (!new &&  find != NULL && find == get &&
 	find->k0 == k0 && find->k1 == k1 && find->val == k0+k1) {
       printf("ok\n");
     } else {
@@ -147,7 +147,7 @@ static void test_gc(int_hmap2_t *hmap) {
 	 "*  GC TEST  *\n"
 	 "*************\n"
 	 "\n");
-  
+
   printf("Before\n");
   print_map(hmap);
   int_hmap2_gc(hmap, NULL, keep_alive);
@@ -187,7 +187,7 @@ int main() {
   test1(&hmap, data, 50);
   printf("*** Content ***\n");
   print_map(&hmap);
-  reset_int_hmap2(&hmap);  
+  reset_int_hmap2(&hmap);
   printf("*** After reset ***\n");
   print_map(&hmap);
 
@@ -200,14 +200,14 @@ int main() {
 
   // gc test twice
   test_gc(&hmap);
-  test_gc(&hmap);  
-  
+  test_gc(&hmap);
+
   // add after GC: 200 pairs
   random_pairs(data, 200);
   test1(&hmap, data, 200);
-  printf("*** Content ***\n");  
+  printf("*** Content ***\n");
   print_map(&hmap);
-  
+
   // reset then delete
   reset_int_hmap2(&hmap);
   printf("*** Final reset ***\n");

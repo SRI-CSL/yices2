@@ -20,8 +20,8 @@
  * - the tag is in the two low-order bits
  *    if tag = 00, data[i] = a pointer to some object
  *    if tag = 01, data[i] = pointer with a special mark
- *    if tag = 11, data[i] is empty, and data[i]>>2 is 
- *    an index in the data array used to maintain a free list 
+ *    if tag = 11, data[i] is empty, and data[i]>>2 is
+ *    an index in the data array used to maintain a free list
  */
 typedef struct use_vector_s {
   void **data;     // array of pointers

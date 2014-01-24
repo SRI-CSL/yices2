@@ -30,7 +30,7 @@ Yices Language Syntax
    typedef :    `type`
            : | ( scalar <symbol> ... <symbol> )
            :
-   type    :   <symbol> 
+   type    :   <symbol>
            : | ( tuple `type` ... `type` )
            : | ( -> `type` ... `type` `type` )
            : | ( bitvector <rational> )

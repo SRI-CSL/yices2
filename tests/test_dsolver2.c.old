@@ -41,7 +41,7 @@ typedef struct triple_vector_s {
  * System of linear equations = array of rows
  * - nrows = number of rows stored
  * - size = size of array rows
- * - row[i] = vector 
+ * - row[i] = vector
  */
 typedef struct dsystem_s {
   uint32_t size;
@@ -90,7 +90,7 @@ static void delete_dsystem(dsystem_t *s) {
  * - the row is empty and of default row size
  * - return its index
  */
-static int32_t dsystem_alloc_row(dsystem_t *s) { 
+static int32_t dsystem_alloc_row(dsystem_t *s) {
   uint32_t i, n;
 
   i = s->nrows;
@@ -119,7 +119,7 @@ static int32_t dsystem_alloc_row(dsystem_t *s) {
  * Add triple (num, den, var) at the end of row i
  * - i must be an existing row
  */
-static void dsystem_add_triple(dsystem_t *s, uint32_t i, 
+static void dsystem_add_triple(dsystem_t *s, uint32_t i,
 			       int32_t num, uint32_t den, int32_t var) {
   triple_vector_t *v;
   uint32_t j, n;
@@ -263,7 +263,7 @@ static void assert_row(dsolver_t *solver, triple_t *row, uint32_t n, int32_t id)
       dsolver_row_add_constant(solver, &coeff);
     }
   }
-  
+
   printf("Adding row %"PRId32"\n", id);
   dsolver_print_active_row(stdout, solver);
   ok = dsolver_row_close(solver);
@@ -323,8 +323,8 @@ static void assert_system(dsolver_t *solver, dsystem_t *s) {
     dsolver_print_status(stdout, solver);
     printf("\n");
 
-    // solve the equations and print the solutions    
-    feasible = dsolver_is_feasible(solver); 
+    // solve the equations and print the solutions
+    feasible = dsolver_is_feasible(solver);
     printf("\n*** Solved system ***\n");
     dsolver_print_main_rows(stdout, solver);
     dsolver_print_sol_rows(stdout, solver);
@@ -354,9 +354,9 @@ static void assert_system(dsolver_t *solver, dsystem_t *s) {
       mini_simplex_set_eq(&splx, n, np, dsolver_get_gen_sol(solver));
       printf("\n*** Mini simplex: initial tableau ***\n");
       dsolver_print_tableau(stdout, &splx.matrix, n);
-      printf("\n");      
+      printf("\n");
       delete_mini_simplex(&splx);
-      
+
     } else {
       // UNSAT: print the explanation
       dsolver_unsat_rows(solver, &expl);

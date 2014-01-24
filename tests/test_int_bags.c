@@ -82,7 +82,7 @@ int main() {
   bag = NULL;
   printf("*** Initial bag ***\n");
   print_bag(bag);
-  
+
 
   for (i=0; i<NUMTESTS; i += 2) {
     k = ibag_add(&bag, data[i]);
@@ -120,7 +120,7 @@ int main() {
       ibag_clear_elem(bag, k);
       print_bag(bag);
       index[i] = -1;
-    }    
+    }
   }
 
   printf("**** Reset ****\n");

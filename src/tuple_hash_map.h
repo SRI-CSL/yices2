@@ -39,9 +39,9 @@ typedef struct tuple_hmap_rec_s {
  * Hash table
  */
 typedef struct tuple_hmap_s {
-  tuple_hmap_rec_t **data; 
+  tuple_hmap_rec_t **data;
   uint32_t size;               // size of data array, must be a power of two
-  uint32_t nelems;             // number of elements stored 
+  uint32_t nelems;             // number of elements stored
   uint32_t ndeleted;           // number of records marked as deleted
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;

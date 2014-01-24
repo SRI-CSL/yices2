@@ -6,7 +6,7 @@
 # Usage
 # -----
 #     ./install-yices [OPTIONS] <location>
-# 
+#
 # This script must be called from the toplevel Yices directory.
 #
 # If <location> is a directory, then Yices is installed as follows:
@@ -36,11 +36,11 @@ This copies binaries, libraries, and header files as follows:
 
 If the <directory> is not given, this script will attempt to install
 Yices in the default location, that is, in /usr/local. To use this
-option, you typically need 
- 
+option, you typically need
+
    sudo $0
 
-The second form install yices locally. The script will just create symbolic 
+The second form install yices locally. The script will just create symbolic
 links in the ./lib directory.
 
 
@@ -69,7 +69,7 @@ location=
 
 while test -n "$1"; do
   case $1 in
-    -h | --help) 
+    -h | --help)
         echo "$usage"
         exit 0;;
 
@@ -128,19 +128,19 @@ install_dir="/usr/local"
 if test -n "$location" ; then
   case $location in
 
-    here) 
+    here)
       local_install="yes"
       install_dir="$local_dir"
       break;;
 
-    /*) 
+    /*)
       install_dir="$location"
-      if test "$location" -ef "$local_dir" ; then 
+      if test "$location" -ef "$local_dir" ; then
          local_install="yes"
       fi
       break;;
 
-    *) 
+    *)
       echo "The directory must be givan as an absolute path"
       exit 1;;
 
@@ -157,11 +157,11 @@ if test "$local_install" = "no" ; then
 fi
 
 if test "$install_dir" != "/usr/local" ; then
-  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } || 
+  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } ||
   { echo "$failure" ; echo "Can't find $install_name_tool" ; echo "" ; exit 1 ; }
 fi
 
-{ test -f "$link" -a -x "$link"; } || 
+{ test -f "$link" -a -x "$link"; } ||
   { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
 
 
@@ -174,7 +174,7 @@ includedir="$install_dir/include"
 
 
 #
-# For non-local install: 
+# For non-local install:
 # create the install directories then copy the files
 #
 if test "$local_install" = "no" ; then
@@ -182,7 +182,7 @@ if test "$local_install" = "no" ; then
   { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
     && $install -m 0644 ./include/*.h "$includedir" \
     && $install ./bin/* "$bindir" \
-    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null || 
+    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create install directories or copy files"
     echo "Check that you have the right permissions"
@@ -200,8 +200,8 @@ if test "$install_dir" != "/usr/local" ; then
    full_path_dylib="$libdir/$dylib_file"
   { "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; }  ||
    { echo "$failure"
-     echo "Could not fix the install name" 
-     echo "" 
+     echo "Could not fix the install name"
+     echo ""
      exit 1 ; }
 fi
 
@@ -212,7 +212,7 @@ fi
 # this gives xwrx_rx_r to the symbolic link.
 #
 umask 22
-{ "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; } || 
+{ "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; } ||
   { echo "$failure"
     echo "Could not create symbolic link libyices.dylib"
     echo ""

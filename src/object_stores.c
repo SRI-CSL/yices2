@@ -31,7 +31,7 @@ static bool offset_is_aligned(void *p, void *q) {
 
 
 /*
- * Initialize s: 
+ * Initialize s:
  * - objsize = size of all objects in s
  * - n = number of objects per block
  */
@@ -124,7 +124,7 @@ void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
     next = b->h.next;
     for (i=k; i<s->blocksize; i += s->objsize) {
       obj = (void *) (b->block + i);
-      f(obj);      
+      f(obj);
     }
     safe_free(b);
     k = 0;

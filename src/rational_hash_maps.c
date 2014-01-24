@@ -22,7 +22,7 @@ static bool is_power_of_two(uint32_t n) {
 /*
  * Initialization
  * - n = initial size of the table
- * - if n = 0, the default size is used. Otherwise n must be 
+ * - if n = 0, the default size is used. Otherwise n must be
  *   a power of 2
  */
 void init_xq_hmap(xq_hmap_t *hmap, uint32_t n) {
@@ -116,7 +116,7 @@ static uint32_t hash_xq(xrational_t *q) {
  * - mask = size of a - 1 (where size of a is a power of 2)
  * - there must be room for the new record in array a
  * - r must be a non-null record (i.e., r->value > 0)
- * - WARNING: this makes a shallow copy of r->key, 
+ * - WARNING: this makes a shallow copy of r->key,
  *   so don't call xq_clear(&r->key)
  */
 static void xq_hmap_clean_copy(xq_hmap_rec_t *a, xq_hmap_rec_t *r, uint32_t mask) {
@@ -174,7 +174,7 @@ static void xq_hmap_cleanup(xq_hmap_t *hmap) {
 
 
 /*
- * Make the table twice as large. 
+ * Make the table twice as large.
  * Remove the deleted records.
  */
 static void xq_hmap_extend(xq_hmap_t *hmap) {
@@ -285,7 +285,7 @@ void xq_hmap_add_entry(xq_hmap_t *hmap, xrational_t *q) {
     }
   }
 
- add: 
+ add:
   // add a new record in r
   r->value = 1;
   xq_set(&r->key, q);
@@ -321,7 +321,7 @@ void xq_hmap_remove_entry(xq_hmap_t *hmap, xrational_t *q) {
 
   assert(xq_eq(&r->key, q) && r->value > 0 && r->value != UINT32_MAX && hmap->nentries > 0);
   hmap->nentries --;
-  r->value --; 
+  r->value --;
   if (r->value == 0) {
     r->value = UINT32_MAX;
     xq_clear(&r->key);
@@ -330,7 +330,7 @@ void xq_hmap_remove_entry(xq_hmap_t *hmap, xrational_t *q) {
     if (hmap->ndeleted >= hmap->cleanup_threshold) {
       xq_hmap_cleanup(hmap);
     }
-  }  
+  }
 }
 
 
@@ -371,7 +371,7 @@ void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2) {
     reset_xq_hmap(hmap1);
   }
 
-  assert(hmap1->nentries == 0 && hmap1->nelems == 0 && 
+  assert(hmap1->nentries == 0 && hmap1->nelems == 0 &&
          hmap1->ndeleted == 0);
 
 
@@ -448,7 +448,7 @@ void xq_hmap_addmul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, ration
   xq_clear(&aux);
 }
 
- 
+
 /*
  * Variant: shift entry q by - a * delta
  */
@@ -464,4 +464,4 @@ void xq_hmap_submul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, ration
   xq_clear(&aux);
 }
 
- 
+

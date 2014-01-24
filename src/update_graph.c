@@ -104,7 +104,7 @@ static inline void ugraph_queue_push_root(ugraph_queue_t *queue, int32_t x) {
 }
 
 /*
- * Add node y 
+ * Add node y
  * - y must be a successor of the node stored in queue->data[ptr]
  * - u = edge from the current node to y
  */
@@ -293,7 +293,7 @@ static inline void lpair_set_add_ftype(lpair_set_t *set, int32_t tag, type_t tau
 /*
  * Hash and match function required for the partition table:
  * - the table store composites of the form (apply f t_1 ... t_n)
- * - two composites c and d match each other if their arguments t_1 ... t_n 
+ * - two composites c and d match each other if their arguments t_1 ... t_n
  *   and u_1 ... u_n are equal in the Egraph
  */
 static uint32_t ugraph_hash_arg(egraph_t *egraph, composite_t *c) {
@@ -381,7 +381,7 @@ static void extend_ugraph_nodes(update_graph_t *ugraph) {
     ugraph->mark = allocate_bitvector(n);
 
     ugraph->size = n;
-    
+
   } else {
     // increase the size by 50%
     n += ((n + 1) >> 1);
@@ -399,7 +399,7 @@ static void extend_ugraph_nodes(update_graph_t *ugraph) {
 }
 
 
-/* 
+/*
  * Extend the class2node array to size large enough to store n classes
  * - do nothing if the array is large enough already
  * - extend the current array otherwise and initialize class2node[i] to -1 for all new i
@@ -456,8 +456,8 @@ void reset_ugraph(update_graph_t *ugraph) {
   for (i=0; i<n; i++) {
     reset_ptr_vector(ugraph->edges[i]);
   }
-  ugraph->nodes = 0;  
-  
+  ugraph->nodes = 0;
+
   n = ugraph->nclasses;
   for (i=0; i<n; i++) {
     ugraph->class2node[i] = -1;
@@ -574,7 +574,7 @@ static void ugraph_add_edges_for_update(update_graph_t *ugraph, composite_t *cmp
   int32_t source, target;
 
   assert(composite_kind(cmp) == COMPOSITE_UPDATE);
-  source = node_of_term(ugraph, cmp->child[0]); 
+  source = node_of_term(ugraph, cmp->child[0]);
   target = node_of_term(ugraph, cmp->id);
   ugraph_add_edge(ugraph, source, target, cmp);
 }
@@ -583,8 +583,8 @@ static void ugraph_add_edges_for_update(update_graph_t *ugraph, composite_t *cmp
 /*
  * Build ugraph based on the current egraph partition
  * - one node is created for each egraph class that has function type
- * - for each update term b = (update a ... ) that's in the congruence 
- *   table (congruence root),  we create two edges: 
+ * - for each update term b = (update a ... ) that's in the congruence
+ *   table (congruence root),  we create two edges:
  *   a direct edge from node[class[a]] to node[class[b]]
  *   a reverse edge from node[class[b]] to node[class[a]]
  */
@@ -594,7 +594,7 @@ void build_ugraph(update_graph_t *ugraph) {
   type_t tau;
   composite_t *cmp;
 
-  assert(ugraph->nodes == 0 && 
+  assert(ugraph->nodes == 0 &&
          ptr_partition_is_empty(&ugraph->partition) &&
          lpair_set_is_empty(&ugraph->lpair_set));
 
@@ -674,7 +674,7 @@ void build_ugraph(update_graph_t *ugraph) {
  * such that:
  *   1) t1 == u1 ... t_n == u_n
  *   2) a and b are in distinct egraph classes
- *   3) there's a path from node(f) to node(g) that contains no edge 
+ *   3) there's a path from node(f) to node(g) that contains no edge
  *      opaque for a
  *
  * For g = (lamdba .. b ..), we add an instance of path => (apply f t1 ... tn) = b
@@ -778,7 +778,7 @@ static composite_t *find_modified_application(update_graph_t *ugraph, int32_t y,
  *
  * TODO: for this to work, we must change egraph.c so that the theory
  * variable attached to a function class is the representative lambda
- * term for that class. 
+ * term for that class.
  */
 static composite_t *find_lambda_term(update_graph_t *ugraph, int32_t y) {
   egraph_t *egraph;
@@ -873,7 +873,7 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
         u = untag_ptr(u);
         y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
-      
+
       assert(0 <= y && y < ugraph->nodes);
 
       if (ugraph_node_is_unmarked(ugraph, y) && transparent_edge(ugraph->egraph, u, c)) {
@@ -890,7 +890,7 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
  * - c must be of the form (apply f t_1 ... t_n)
  * - x should be the node for class of f
  *
- * Whenever we find a term d = (apply g t_1 ... t_n) then 
+ * Whenever we find a term d = (apply g t_1 ... t_n) then
  * we add the constraint d == c to the egraph (as a toplevel axiom).
  * - return the number of equalities propagated
  */
@@ -909,7 +909,7 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
   ugraph_mark_node(ugraph, x);
   ugraph_push_transparent_successors(ugraph, queue, x, c);
   ugraph_queue_pop(queue);
-  
+
   while (! empty_ugraph_queue(queue)) {
     y = ugraph_queue_current_node(queue);
 
@@ -925,7 +925,7 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
        * If d and c are equal, there's no point propagating c to y's neighbors
        * (the propagations we miss now were or will be done when we propagate d) .
        */
-      
+
     } else {
       d = find_lambda_term(ugraph, y);
       if (d != NULL && !egraph_equal_occ(ugraph->egraph, pos_occ(c->id), d->child[0])) {
@@ -933,7 +933,7 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
         ugraph->stats.num_lambda_props ++;
         neqs ++;
       }
- 
+
       ugraph_push_transparent_successors(ugraph, queue, y, c);
       ugraph_queue_pop(queue);
     }
@@ -963,8 +963,8 @@ uint32_t ugraph_base_propagate(update_graph_t *ugraph) {
   n = egraph->terms.nterms;
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
-    if (composite_body(c) && 
-        composite_kind(c) == COMPOSITE_APPLY && 
+    if (composite_body(c) &&
+        composite_kind(c) == COMPOSITE_APPLY &&
         congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
       // c is of the form (apply f ... ) is a congruence root
       x = node_of_term(ugraph, term_of_occ(c->child[0])); // x := node of f
@@ -1007,7 +1007,7 @@ static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue
         // reverse egde: f := (update g ...) for f in class[x]
         y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
-      
+
       assert(0 <= y && y < ugraph->nodes);
 
       if (ugraph_node_is_unmarked(ugraph, y) && !opaque_edge(ugraph->egraph, v, c)) {
@@ -1019,7 +1019,7 @@ static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue
 
 
 /*
- * Propagate c through non-opaque edges and search for instances 
+ * Propagate c through non-opaque edges and search for instances
  * the update/lambda axioms.
  * - c must be of the form (apply f t_1 ... t_n)
  * - x should be the node for class of f
@@ -1039,7 +1039,7 @@ static uint32_t ugraph_propagate_application(update_graph_t *ugraph, int32_t x, 
   ugraph_mark_node(ugraph, x);
   ugraph_push_successors(ugraph, queue, x, c);
   ugraph_queue_pop(queue);
-  
+
   while (! empty_ugraph_queue(queue)) {
     y = ugraph_queue_current_node(queue);
 
@@ -1084,8 +1084,8 @@ uint32_t ugraph_propagate(update_graph_t *ugraph) {
   n = egraph->terms.nterms;
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
-    if (composite_body(c) && 
-        composite_kind(c) == COMPOSITE_APPLY && 
+    if (composite_body(c) &&
+        composite_kind(c) == COMPOSITE_APPLY &&
         congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
       // c is of the form (apply f ... ) and is a congruence root
       x = node_of_term(ugraph, term_of_occ(c->child[0])); // x := node of f

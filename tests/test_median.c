@@ -65,7 +65,7 @@ static int32_t median(int32_t *a, uint32_t n) {
      * - a[j] = pivot
      * - a[j+1 ... n-1] >= pivot
      * low < j < high and low < half < high
-     */    
+     */
     if (j < half) {
       low = j+1;
     } else {
@@ -84,8 +84,8 @@ static void constant_array(int32_t *a, int32_t n) {
   int32_t i, v;
 
   v = (int32_t) (random() % 100);
-  for (i=0; i<n; i++) { 
-    a[i] = v; 
+  for (i=0; i<n; i++) {
+    a[i] = v;
   }
 }
 
@@ -125,7 +125,7 @@ static void print_array(int32_t *a, int32_t n) {
   for (i=0; i<n; i++) {
     if (l == 0) {
       printf("\n\t");
-      l = 20;      
+      l = 20;
     }
     l --;
     printf(" %4"PRId32, a[i]);
@@ -138,7 +138,7 @@ static void print_array(int32_t *a, int32_t n) {
  * Check whether x is a possible median for a
  */
 static void check_median(int32_t x, int32_t *a, uint32_t n) {
-  uint32_t b, u, e, i;  
+  uint32_t b, u, e, i;
 
   b = 0;
   u = 0;
@@ -166,7 +166,7 @@ static void check_median(int32_t x, int32_t *a, uint32_t n) {
     i = (n/2) + 1;
     if (b >= i || u >= i) {
       printf("BUG: incorrect median (odd size)\n\n");
-    } 
+    }
   } else {
     i = n/2;
     if (b > i || u > i) {
@@ -217,8 +217,8 @@ int main() {
     random_array(test, size);
     run_test(test, size);
     run_test(test, size);
-  }    
-      
+  }
+
 
   size = ASIZE;
   test[size] = INT32_MAX;
@@ -227,17 +227,17 @@ int main() {
     constant_array(test, size);
     run_test(test, size);
   }
-  
+
   for (i=0; i<20; i++) {
     increasing_array(test, size);
     run_test(test, size);
   }
-  
+
   for (i=0; i<20; i++) {
     decreasing_array(test, size);
     run_test(test, size);
   }
-    
+
   for (i=0; i<200; i++) {
     random_array(test, size);
     run_test(test, size);
@@ -251,17 +251,17 @@ int main() {
     constant_array(test, size);
     run_test(test, size);
   }
-  
+
   for (i=0; i<20; i++) {
     increasing_array(test, size);
     run_test(test, size);
   }
-  
+
   for (i=0; i<20; i++) {
     decreasing_array(test, size);
     run_test(test, size);
   }
-    
+
   for (i=0; i<200; i++) {
     random_array(test, size);
     run_test(test, size);

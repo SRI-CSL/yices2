@@ -47,9 +47,9 @@ static void finish_sort2(int32_t *a, int32_t n) {
 
   for (i=1; i<n; i++) {
     p = a[i];
-    if (p < a[i-1]) { 
-      a[i] = a[i-1]; 
-      a[i-1] = p; 
+    if (p < a[i-1]) {
+      a[i] = a[i-1];
+      a[i-1] = p;
     }
   }
 }
@@ -98,7 +98,7 @@ static void quick_sort2(int32_t *a, int32_t low, int32_t high) {
   do { i++; } while (i <= j && a[i] < p);
 
   while (i < j) {
-    aux = a[i]; a[i] = a[j]; a[j] = aux;    
+    aux = a[i]; a[i] = a[j]; a[j] = aux;
 
     do { j--; } while (a[j] > p);
     do { i++; } while (a[i] < p);
@@ -129,7 +129,7 @@ static void quick_sort3(int32_t *a, int32_t low, int32_t high) {
 
   while (i <= j) {
     if (a[i] < p) {
-      i ++; 
+      i ++;
     } else {
       aux = a[i]; a[i] = a[j]; a[j] = aux;
       j --;
@@ -138,7 +138,7 @@ static void quick_sort3(int32_t *a, int32_t low, int32_t high) {
 
   a[low] = a[j];
   a[j] = p;
-  
+
   quick_sort3(a, low, j);
   quick_sort3(a, j+1, high);
 }
@@ -250,8 +250,8 @@ static void constant_array(int32_t *a, int32_t n) {
   int32_t i, v;
 
   v = (int32_t) (random() % 100);
-  for (i=0; i<n; i++) { 
-    a[i] = v; 
+  for (i=0; i<n; i++) {
+    a[i] = v;
   }
 }
 
@@ -296,7 +296,7 @@ static void print_array(int32_t *a, int32_t n) {
   for (i=0; i<n; i++) {
     if (l == 0) {
       printf("\n\t");
-      l = 20;      
+      l = 20;
     }
     l --;
     printf(" %4"PRId32, a[i]);
@@ -326,7 +326,7 @@ static void compare(int32_t *a, int32_t n) {
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    insertion_sort(b, n);    
+    insertion_sort(b, n);
   }
   runtime = get_cpu_time() - runtime;
   //    printf("isort: %.3f s\n", runtime);
@@ -335,54 +335,54 @@ static void compare(int32_t *a, int32_t n) {
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    sort(b, n);    
+    sort(b, n);
   }
   runtime = get_cpu_time() - runtime;
   //  printf("sort1: %.3f s\n", runtime);
   time1 += runtime;
-  
+
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
     sort2(b, n);
   }
-  runtime = get_cpu_time() - runtime;  
+  runtime = get_cpu_time() - runtime;
   //  printf("sort2: %.3f s\n", runtime);
   time2 += runtime;
 
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    sort3(b, n);    
+    sort3(b, n);
   }
-  runtime = get_cpu_time() - runtime;  
+  runtime = get_cpu_time() - runtime;
   //  printf("sort3: %.3f s\n", runtime);
   time3 += runtime;
 
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    sort4(b, n);    
+    sort4(b, n);
   }
-  runtime = get_cpu_time() - runtime;  
+  runtime = get_cpu_time() - runtime;
   //  printf("sort4: %.3f s\n\n", runtime);
   time4 += runtime;
 
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    sort4var(b, n);    
+    sort4var(b, n);
   }
-  runtime = get_cpu_time() - runtime;  
+  runtime = get_cpu_time() - runtime;
   //  printf("sort4var: %.3f s\n\n", runtime);
   time4var += runtime;
 
   runtime = get_cpu_time();
   for (i=0; i<5000; i++) {
     copy_array(b, a, n);
-    sort4var2(b, n);    
+    sort4var2(b, n);
   }
-  runtime = get_cpu_time() - runtime;  
+  runtime = get_cpu_time() - runtime;
   //  printf("sort4var2: %.3f s\n\n", runtime);
   time4var2 += runtime;
 
@@ -411,7 +411,7 @@ int main() {
   printf("isort:  ");
   print_array(a, 20);
   printf("\n");
-  
+
   decreasing_array(a, 20);
   printf("input:  ");
   print_array(a, 20);

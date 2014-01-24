@@ -22,7 +22,7 @@ static inline long int random(void) {
  * Test arrays:
  * - each array is randomly constructed
  * - size[i] = its length
- * - array[i] = the array proper 
+ * - array[i] = the array proper
  *   each element in array i is a pair (index, value)
  */
 typedef struct test_elem_s {
@@ -68,7 +68,7 @@ static void delete_arrays(uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    safe_free(array[i]);    
+    safe_free(array[i]);
   }
 }
 
@@ -167,7 +167,7 @@ static void print_test_array(test_elem_t *a, uint32_t n) {
 
   for (i=0; i<n; i++) {
     printf(" a[%"PRId32"] := %"PRIu8"\n", a[i].index, a[i].value);
-  }  
+  }
 }
 
 
@@ -244,7 +244,7 @@ static void test_arrays(uint8_array_t *b, uint32_t n, uint32_t m) {
       printf("BUG\n\n");
       abort();
     }
-    safe_free(check);    
+    safe_free(check);
 
     uint8_array_push(b);
   }
@@ -296,7 +296,7 @@ static void test_arrays(uint8_array_t *b, uint32_t n, uint32_t m) {
       printf("BUG\n\n");
       abort();
     }
-    safe_free(check);    
+    safe_free(check);
 
     uint8_array_push(b);
     i ++;
@@ -325,7 +325,7 @@ static void test_arrays(uint8_array_t *b, uint32_t n, uint32_t m) {
       abort();
     }
     safe_free(check);
-  }  
+  }
 
   delete_arrays(n);
 }

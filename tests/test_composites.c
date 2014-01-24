@@ -20,7 +20,7 @@
  * class[1] = { c+, d- }
  * class[2] = { e+, f+, g+ }
  * class[3] = { h+, i+, j+ }
- * 
+ *
  * with classes 2 and 3 distinct
  */
 
@@ -215,7 +215,7 @@ static void test_equalities(uint32_t n) {
     }
     arena_pop(&m);
   }
-  delete_arena(&m);  
+  delete_arena(&m);
 }
 
 
@@ -232,7 +232,7 @@ static void test_or3(arena_t *m, occ_t t1, occ_t t2, occ_t t3) {
   print_composite(stdout, tmp);
   printf("\t---> signature = ");
   print_signature(stdout, &sgn);
-  printf("\n");  
+  printf("\n");
 }
 
 static void test_disjunctions(uint32_t n) {
@@ -300,7 +300,7 @@ static void test_congruences(uint32_t n) {
 
     printf("\n");
     fflush(stdout);
-  }    
+  }
 
   for (k=0; k<nroots; k++) {
     tmp = roots[k];

@@ -132,7 +132,7 @@ static bool check_type_name(type_t tau, const char *name) {
 
 
 /*
- * Check whether tau is NULL_TYPE and whether the 
+ * Check whether tau is NULL_TYPE and whether the
  * error report is what's expected.
  */
 static bool check_pos_int_required(type_t tau) {
@@ -146,7 +146,7 @@ static bool check_max_bvsize_exceeded(type_t tau, int64_t size) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return tau == NULL_TYPE && yices_error_code() == MAX_BVSIZE_EXCEEDED && 
+  return tau == NULL_TYPE && yices_error_code() == MAX_BVSIZE_EXCEEDED &&
     rep->badval == size && size > (int64_t) YICES_MAX_BVSIZE;
 }
 
@@ -154,7 +154,7 @@ static bool check_too_many_arguments(type_t tau, int64_t n) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return tau == NULL_TYPE && yices_error_code() == TOO_MANY_ARGUMENTS && 
+  return tau == NULL_TYPE && yices_error_code() == TOO_MANY_ARGUMENTS &&
     rep->badval == n && n > (int64_t) YICES_MAX_ARITY;
 }
 
@@ -178,13 +178,13 @@ static type_t U1, U2;
 
 // tuple and function types
 static type_t pair_T1_T2, mono_U1, triple_U1_U1_U2, pair_bool, pair_pair_bool;
-static type_t fun_bool_bool, fun_int_bv54, fun_S3_S10_bool, fun_real_U1, fun_real_U2;  
+static type_t fun_bool_bool, fun_int_bv54, fun_S3_S10_bool, fun_real_U1, fun_real_U2;
 static type_t pair_unit_fun, fun_T1_T2_fun_real_U1;
 
 
-static void test_base_types(void) { 
+static void test_base_types(void) {
   int32_t code;
-  
+
   boolean = yices_bool_type();
   assert(check_bool_type(boolean));
 
@@ -214,13 +214,13 @@ static void test_base_types(void) {
 
   T2 = yices_new_uninterpreted_type();
   assert(check_uninterpreted_type(T1));
-  
+
   S3 = yices_new_scalar_type(3);
   assert(check_scalar_type(S3, 3));
 
   S10 = yices_new_scalar_type(10);
   assert(check_scalar_type(S10, 10));
-	 
+
   U1 = yices_new_scalar_type(1);
   assert(check_scalar_type(U1, 1));
 
@@ -314,7 +314,7 @@ static void test_composite_types(void) {
   aux[1] = fun_real_U2;
   pair_unit_fun = yices_tuple_type(2, aux);
   assert(check_tuple_type(pair_unit_fun, 2, aux));
-  
+
   aux[0] = T1;
   aux[1] = T2;
   fun_T1_T2_fun_real_U1 = yices_function_type(2, aux, fun_real_U1);
@@ -380,14 +380,14 @@ static void test_type_errors(void) {
  * Check that a term descriptor matches what's expected
  */
 static bool check_constant_term(term_t t, type_t tau, int32_t idx) {
-  return t >= 0 && is_pos_term(t) && 
+  return t >= 0 && is_pos_term(t) &&
     term_kind(__yices_globals.terms, t) == CONSTANT_TERM &&
-    term_type(__yices_globals.terms, t) == tau && 
+    term_type(__yices_globals.terms, t) == tau &&
     constant_term_index(__yices_globals.terms, t) == idx;
 }
 
 static bool check_uninterpreted_term(term_t t, type_t tau) {
-  return t >= 0 && is_pos_term(t) && 
+  return t >= 0 && is_pos_term(t) &&
     term_kind(__yices_globals.terms, t) == UNINTERPRETED_TERM &&
     term_type(__yices_globals.terms, t) == tau;
 }
@@ -404,7 +404,7 @@ static bool check_unit_tuple(term_t t, type_t tau) {
   composite_term_t *c;
   uint32_t i, n;
 
-  if (t < 0 || is_neg_term(t) || 
+  if (t < 0 || is_neg_term(t) ||
       term_kind(__yices_globals.terms, t) != TUPLE_TERM ||
       term_type(__yices_globals.terms, t) != tau) {
     return false;
@@ -434,7 +434,7 @@ static bool check_unit_rep(term_t t, type_t tau) {
   } else {
     assert(is_tuple_type(__yices_globals.types, tau));
     return check_unit_tuple(t, tau);
-  }  
+  }
 }
 
 
@@ -613,17 +613,17 @@ static void test_constant_errors(void) {
 /*
  * ARITHMETIC CONSTANTS
  */
-static bool check_arith_constant(term_t t, rational_t *q) {  
+static bool check_arith_constant(term_t t, rational_t *q) {
   type_t tau;
 
-  if (t < 0 || is_neg_term(t) || 
+  if (t < 0 || is_neg_term(t) ||
       term_kind(__yices_globals.terms, t) != ARITH_CONSTANT ||
       q_neq(rational_term_desc(__yices_globals.terms, t), q)) {
     return false;
   }
 
   tau = term_type(__yices_globals.terms, t);
-  return q_is_integer(q) ? is_integer_type(tau) : is_real_type(tau);  
+  return q_is_integer(q) ? is_integer_type(tau) : is_real_type(tau);
 }
 
 static void test_arith_constants(void) {
@@ -642,7 +642,7 @@ static void test_arith_constants(void) {
   assert(x == y);
   y = yices_int64(0);
   assert(x == y);
-  
+
   y = yices_rational32(0, 1);
   assert(y == x);
   y = yices_rational64(0, 1);
@@ -715,13 +715,13 @@ static void test_arith_constants(void) {
 
   x = yices_parse_float("not a float");
   assert(x == NULL_TERM && yices_error_code() == INVALID_FLOAT_FORMAT);
-  
+
 
   // cleanup
   q_clear(&q);
   mpq_clear(mpq);
   mpz_clear(mpz);
-  
+
   printf("PASS: %s\n", __func__);
   fflush(stdout);
 }
@@ -730,7 +730,7 @@ static void test_arith_constants(void) {
 /*
  * BIT-VECTOR CONSTANTS
  */
-static bool check_bv64_constant(term_t t, uint64_t v, uint32_t n) {  
+static bool check_bv64_constant(term_t t, uint64_t v, uint32_t n) {
   bvconst64_term_t *c;
   type_t tau;
 
@@ -862,7 +862,7 @@ static void test_bv_constants(void) {
   assert(x == NULL_TERM && yices_error_code() == INVALID_BVHEX_FORMAT);
 
   mpz_clear(mpz);
-  
+
   printf("PASS: %s\n", __func__);
   fflush(stdout);
 }
@@ -881,7 +881,7 @@ int main(void) {
 
   // term constructors
   test_uninterpreted_all();
-  test_constants_all();  
+  test_constants_all();
   test_constant_errors();
 
   test_arith_constants();

@@ -55,7 +55,7 @@ static void assert_ordef_clauses(smt_core_t *s, literal_t l, ivector_t *v) {
 
 /*
  * Construct OR based on the content of vector v
- * - v should not contain false literals (or true literals) 
+ * - v should not contain false literals (or true literals)
  * - tbl = gate table
  * - s = smt core
  */
@@ -121,7 +121,7 @@ literal_t mk_or_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
   s = m->core;
   v = &m->buffer;
   ivector_reset(v);
-  
+
   /*
    * Remove false literals/check for true literals
    * - copy unassigned literals in the buffer
@@ -129,14 +129,14 @@ literal_t mk_or_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
   for (i = 0; i<n; i++) {
     l = a[i];
     switch (literal_base_value(s, l)) {
-    case VAL_FALSE: 
+    case VAL_FALSE:
       break;
     case VAL_UNDEF_FALSE:
     case VAL_UNDEF_TRUE:
       ivector_push(v, l);
       break;
     case VAL_TRUE:
-      return true_literal;      
+      return true_literal;
     }
   }
 
@@ -176,7 +176,7 @@ literal_t mk_and_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
   s = m->core;
   v = &m->buffer;
   ivector_reset(v);
-  
+
   /*
    * Remove true literals/check for false literals
    * - copy negation of unassigned literals in the buffer
@@ -184,7 +184,7 @@ literal_t mk_and_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
   for (i = 0; i<n; i++) {
     l = a[i];
     switch (literal_base_value(s, l)) {
-    case VAL_FALSE: 
+    case VAL_FALSE:
       return false_literal;
     case VAL_UNDEF_FALSE:
     case VAL_UNDEF_TRUE:
@@ -256,7 +256,7 @@ static literal_t assert_xordef_clauses(smt_core_t *s, ivector_t *v) {
   literal_t l;
 
   n = v->size;
-  a = v->data;  
+  a = v->data;
 
   assert(n > 0);
 
@@ -273,9 +273,9 @@ static literal_t assert_xordef_clauses(smt_core_t *s, ivector_t *v) {
  * - the returned value is either 0 or 1
  * - if it's 0 the result is (XOR v[0] ... v[p-1])
  * - if it's 1 the result is not (XOR v[0] ... v[p-1])
- * 
+ *
  * HACK: the simplifications use bit-tricks that are dependent
- * on the literal representation, namely, 
+ * on the literal representation, namely,
  * low-order bit = 0 for positive literals
  * low-order bit = 1 for negative literals
  */
@@ -294,7 +294,7 @@ static uint32_t simplify_xor(smt_core_t *s, uint32_t n, literal_t *a, ivector_t 
       break;
     case VAL_UNDEF_FALSE:
     case VAL_UNDEF_TRUE:
-      sgn ^= sign_of_lit(l);  // flip sgn if l is negative 
+      sgn ^= sign_of_lit(l);  // flip sgn if l is negative
       l &= ~1;                // remove sign = low-order bit
       ivector_push(v, l);
       break;
@@ -347,7 +347,7 @@ literal_t mk_xor_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
 
   a = v->data;
   n = v->size;
-  
+
   if (n == 0) return false_literal ^ sgn;
   if (n == 1) return a[0] ^ sgn;
 
@@ -414,7 +414,7 @@ void assert_xor(gate_manager_t *m, uint32_t n, literal_t *a, bool val) {
 
   s = m->core;
   v = &m->buffer;
-  sgn = simplify_xor(s, n, a, v);  
+  sgn = simplify_xor(s, n, a, v);
   a = v->data;
   n = v->size;
 
@@ -498,7 +498,7 @@ static literal_t mk_ite_aux(gate_manager_t *m, literal_t c, literal_t l1, litera
      * (not l1 and not l2 ==> not l)
      */
 #if 0
-    add_ternary_clause(s, not(l1), not(l2), l); 
+    add_ternary_clause(s, not(l1), not(l2), l);
     add_ternary_clause(s, l1, l2, not(l));
 #endif
   }
@@ -534,11 +534,11 @@ static literal_t mk_ite_aux2(gate_manager_t *m, literal_t c, literal_t l1, liter
 literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2) {
   smt_core_t *s;
   bval_t v1, v2;
- 
+
   s = m->core;
 
   switch (literal_base_value(s, c)) {
-  case VAL_FALSE: 
+  case VAL_FALSE:
     return l2;
   case VAL_UNDEF_FALSE:
   case VAL_UNDEF_TRUE:
@@ -551,7 +551,7 @@ literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2
      * (ite c (not c) l2) == (ite c false l2) == (and (not c) l2)
      * (ite c l1 (not c)) == (ite c l1 true) == (or (not c) l1)
      */
-    if (l1 == l2) return l1;  
+    if (l1 == l2) return l1;
     if (opposite(l1, l2)) return mk_iff_gate(m, c, l1);
 
     v1 = literal_base_value(s, l1);
@@ -562,7 +562,7 @@ literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2
     if (c == not(l2) || v2 == VAL_TRUE)  return mk_or_gate2(m, not(c), l1);
 
     return mk_ite_aux2(m, c, l1, l2);
-    
+
   case VAL_TRUE:
   default: // prevents compilation warning
     return l1;
@@ -577,7 +577,7 @@ literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2
 void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool val) {
   smt_core_t *s;
   bval_t v1, v2;
- 
+
   if (! val) {
     l1 = not(l1);
     l2 = not(l2);
@@ -590,7 +590,7 @@ void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool
   } else {
     /*
      * We need two clauses: (or (not c) l1) and (or c l2)
-     * It's marginally better to simplify them here than let 
+     * It's marginally better to simplify them here than let
      * smt_core do it (because we avoid unit propagation).
      */
     switch (literal_base_value(s, c)) {
@@ -628,7 +628,7 @@ void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool
       add_binary_clause(s, l1, l2);
 #endif
       break;
-    
+
     case VAL_TRUE:
       add_unit_clause(s, l1);
       break;

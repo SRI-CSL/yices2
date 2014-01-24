@@ -66,14 +66,14 @@ typedef enum {
  * More bit masks for enabling/disabling simplification
  * - VARELIM eliminate variables (via substitution)
  * - FLATTENOR rewrites (or ... (or ...) ...) into a single (or ....)
- * - FLATTENDISEQ rewrite arithmetic disequality 
+ * - FLATTENDISEQ rewrite arithmetic disequality
  *      (not (p == 0)) into (or (not (p >= 0)) (not (-p >= 0)))
  *   FLATTENDISEQ requires FLATTENOR to be enabled
  * - EQABSTRACT enables the abstraction-based equality learning heuristic
  * - ARITHELIM enables variable elimination in arithmetic
  * - KEEP_ITE: keep if-then-else terms in the egraph
  * - BREAKSYM: enables symmetry breaking
- * - PSEUDO_INVERSE: enables elimination of unconstrained terms using 
+ * - PSEUDO_INVERSE: enables elimination of unconstrained terms using
  *   pseudo-inverse tricks.
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
@@ -214,23 +214,23 @@ enum {
  *
  * 1) thvar_t create_var(void *solver, bool is_int)
  *    - this must return the index of a new arithmetic variable (no eterm attached)
- *    - if is_int is true, that variable must have integer type, otherwise, it must 
+ *    - if is_int is true, that variable must have integer type, otherwise, it must
  *      be a real.
  *
  * 2) thvar_t create_const(void *solver, rational_t *q)
  *    - this must create a theory variable equal to q and return it (no eterm attached)
  *
  * 3) thvar_t create_poly(void *solver, polynomial_t *p, thvar_t *map)
- *    - this must return a theory variable equal to p with variable renamed as 
+ *    - this must return a theory variable equal to p with variable renamed as
  *      defined by map
- *    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n, 
+ *    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n,
  *       where t_0 is either the special marker const_idx (= 0) or an arithmetic term
  *         and t_1 ... t_n are arithmetic terms
  *    - map is an array of n+1 theory variables:
  *      map[i] = the theory variable x_i mapped to t_i (with the convention that const_idx
  *               is always mapped to null_thvar)
  *    - the solver must return a theory variable y equal to a_0 x_0 + ... + a_n x_n
- * 
+ *
  * 4) thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
  *    - must return a theory variable equal to r with variables defined by map
  *    - r if of the form t_0^d_0 x ... x t_n^d_n where t_0 ... t_n are arithmetic
@@ -277,14 +277,14 @@ enum {
  *
  * 13) void assert_poly_ge_axiom(void *solver, polynomial_t *p, thvar_t *map, bool tt)
  *     - if tt assert (p >= 0) otherwise assert (p < 0)
- *     - p and map are as in create_poly     
+ *     - p and map are as in create_poly
  *
  * 14) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  *     - if tt assert x == y, otherwise assert x != y
  *
  * 15) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
  *     - assert (c implies x == y) as an axiom
- *     - this is used to convert if-then-else equalities: 
+ *     - this is used to convert if-then-else equalities:
  *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
  *
  * Egraph connection
@@ -306,7 +306,7 @@ enum {
  * ------------------
  *
  * The following functions are used when the solver reaches SAT (or UNKNOWN).
- * First, build_model is called. The solver must construct an assignment M from variables to 
+ * First, build_model is called. The solver must construct an assignment M from variables to
  * rationals at that point. Then, the context can query for the value of a variable x in M.
  * If the solver cannot assign a rational value to x, it can signal this when value_in_model
  * is called. M must not be changed until the context calls free_model.
@@ -327,8 +327,8 @@ enum {
  * Exception mechanism
  * -------------------
  * When the solver is created and initialized it's given a pointer b to a jmp_buf internal to
- * the context. If the solver fails in some way during internalization, it can call 
- * longjmp(*b, error_code) to interrupt the internalization and return control to the 
+ * the context. If the solver fails in some way during internalization, it can call
+ * longjmp(*b, error_code) to interrupt the internalization and return control to the
  * context. For arithmetic solvers, the following error codes should be used:
  *
  *   FORMULA_NOT_IDL         (the solver supports only integer difference logic)
@@ -408,14 +408,14 @@ typedef struct arith_interface_s {
  *
  * 3a) thvar_t create_poly(void *solver, bvpoly_t *p, thvar_t *map)
  * 3b) thvar_t create_poly64(void *solver, bvpoly64_t *p, thvar_t *map)
- *    - must return a theory variable that represents p with variables renamed as 
- *      defined by map: 
+ *    - must return a theory variable that represents p with variables renamed as
+ *      defined by map:
  *      p is a_0 t_0 + ... + a_n t_n and map[i] = variable x_i mapped to t_i
  *      with the exception that map[0] = null_thvar if x_0 is const_idx
  *
  * 4) thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
  *    - return a theory variable to represent the product (t_0 ^ d_0 ... t_n ^ d_n)
- *    - map is an array of n+1 theory variables x_0 ... x_n such that 
+ *    - map is an array of n+1 theory variables x_0 ... x_n such that
  *      x_i is mapped to t_i in the internalization table.
  *
  * 5) thvar_t create_bvarray(void *solver, literal_t *a, uint32_t n)
@@ -423,12 +423,12 @@ typedef struct arith_interface_s {
  *    - a[0 ... n-1] are all literals in the core
  *    - a[0] is the low order bit, a[n-1] is the high order bit
  *
- * 6) thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y) 
+ * 6) thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y)
  *    - create (ite c x y): x and y are two theory variables in solver,
  *      and c is a literal in the core.
  *
  * 7) binary operators
- *    thvar_t create_bvdiv(void *solver, thvar_t x, thvar_t y)   
+ *    thvar_t create_bvdiv(void *solver, thvar_t x, thvar_t y)
  *    thvar_t create_bvrem(void *solver, thvar_t x, thvar_t y)
  *    thvar_t create_bvsdiv(void *solver, thvar_t x, thvar_t y)
  *    thvar_t create_bvsrem(void *solver, thvar_t x, thvar_t y)
@@ -453,7 +453,7 @@ typedef struct arith_interface_s {
  * 12) void assert_eq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  * 13) void assert_ge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  * 14) void assert_sge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
- * 
+ *
  * 15) void set_bit(void *solver, thvar_t x, uint32_t i, bool tt)
  *   - assign bit i of x to true or false (depending on tt)
  *
@@ -477,7 +477,7 @@ typedef struct arith_interface_s {
  *     - notify the solver that the model is no longer needed
  *
  * 20) bool value_in_model(void *solver, thvar_t x, bvconstant_t *v):
- *     - copy the value of x into v and return true. 
+ *     - copy the value of x into v and return true.
  *     - if model construction is not supported or the value is not available, return false.
  */
 typedef thvar_t (*create_bv_var_fun_t)(void *solver, uint32_t nbits);
@@ -539,10 +539,10 @@ typedef struct bv_interface_s {
 
 /*
  * For difference logic, we can use either the simplex solver
- * or a specialized Floyd-Warshall solver. The decision is 
+ * or a specialized Floyd-Warshall solver. The decision is
  * based on the following parameters:
  * - density = number of atoms / number of variables
- * - sum_const = sum of the absolute values of all constants in the 
+ * - sum_const = sum of the absolute values of all constants in the
  *   difference logic atoms
  * - num_eqs = number of equalities (among all atoms)
  * dl_data stores the relevant data
@@ -589,7 +589,7 @@ struct context_s {
   bv_interface_t bv;
 
   // input are all from the following tables (from yices_globals.h)
-  type_table_t *types; 
+  type_table_t *types;
   term_table_t *terms;
 
   // hash table for Boolean gates
@@ -603,7 +603,7 @@ struct context_s {
   ivector_t top_atoms;
   ivector_t top_formulas;
   ivector_t top_interns;
-  
+
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
   ivector_t aux_eqs;
@@ -617,7 +617,7 @@ struct context_s {
   int_bvset_t *cache;
   int_hset_t *small_cache;
   pmap2_t *eq_cache;
-  
+
   // buffer to store difference-logic data
   dl_data_t *dl_profile;
 
@@ -755,18 +755,18 @@ extern void context_pop(context_t *ctx);
 
 /*
  * There are two internal caches for visiting terms.
- * - the 'cache' uses a bitvector implementation and should be 
+ * - the 'cache' uses a bitvector implementation and should be
  *   better for operations that visit many terms.
  * - the 'small_cache' uses a hash table and should be better
  *   for operations that visit a small number of terms.
  *
  * There are three buffers for internal construction of polynomials
- * - arith_buffer is more expensive (requires more memory) but 
+ * - arith_buffer is more expensive (requires more memory) but
  *   it supports more operations (e.g., term constructors in yices_api.c
  *   take arith_buffers as arguments).
- * - poly_buffer is a cheaper data structure, but it does not support 
+ * - poly_buffer is a cheaper data structure, but it does not support
  *   all the operations
- * - aux_poly is even cheaper, but it's for direct construction only 
+ * - aux_poly is even cheaper, but it's for direct construction only
  */
 
 /*
@@ -890,7 +890,7 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
 /*
  * Flattening of disjunctions
  * - rewrite nested OR terms to flat OR terms
- * - if option FLATTENDISEQ is enabled, also replace arithmetic 
+ * - if option FLATTENDISEQ is enabled, also replace arithmetic
  *   disequalities by disjunctions of strict inequalities:
  *    (i.e., rewrite x!= 0 to (or (< x 0) (> x 0))
  *
@@ -898,7 +898,7 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
  * - or must be of the form (or t1 .... tn)
  * - v must be empty
  * - flattening is applied recursively to t1 ... t_n
- * - the result is stored in v: it 's an array of Boolean terms 
+ * - the result is stored in v: it 's an array of Boolean terms
  *   u_1 .... u_m such that (or t1 ... t_n)  is equivalent to (or u_1 ... u_m).
  *
  * Side effect: use ctx's small_cache then reset it
@@ -926,22 +926,22 @@ extern term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_
 
 
 /*
- * Simplify and flatten assertion f. 
+ * Simplify and flatten assertion f.
  *
  * This function performs top-down Boolean propagation and collects
- * all subterms of f that can't be flattened into four vectors: 
+ * all subterms of f that can't be flattened into four vectors:
  *
  * 1) ctx->top_eqs = top-level equalities.
- *    Every t in top_eqs is (eq t1 * t2) (or a variant) asserted true.  
+ *    Every t in top_eqs is (eq t1 * t2) (or a variant) asserted true.
  *    t is mapped to true in the internalization table.
  *
  * 2) ctx->top_atoms = top-level atoms.
- *    Every t in top_atoms is an atom or the negation of an atom (that 
+ *    Every t in top_atoms is an atom or the negation of an atom (that
  *    can't go into top_eqs).
  *    t is mapped to true in the internalization table.
  *
  * 3) ctx->top_formulas = non-atomic terms.
- *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...) 
+ *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...)
  *    or the negation of such a term.
  *    t is mapped to true in the internalization table.
  *
@@ -950,13 +950,13 @@ extern term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_
  *    and is mapped to a literal l or an egraph occurrence g in
  *    the internalization table.
  *    l or g must be asserted true in later stages.
- * 
+ *
  *
  * If variable elimination is enabled, then equalities of the form (= x t)
  * where x is a variable are converted to substitutions if possible:
  *
  * 1) if t is a constant or variable: then [x := t] is added as a substitution
- *    to ctx->intern_tbl (if possible) 
+ *    to ctx->intern_tbl (if possible)
  *
  * 2) other equalities of the form (= x t) are added to ctx->subst_eqs. to
  *    be processed later by process_candidate_subst
@@ -989,12 +989,12 @@ extern void process_aux_eqs(context_t *ctx);
 
 
 /*
- * Process all candidate substitutions after flattening and processing of 
+ * Process all candidate substitutions after flattening and processing of
  * auxiliary equalities.
  * - the candidate substitutions are in ctx->subst_eqs
  * - all elemenst of subst_eqs must be equality terms asserted true
  *   and of the form (= x t) for some variable x.
- * - converts these equalities into substitutions, as long as this 
+ * - converts these equalities into substitutions, as long as this
  *   can be done without creating substitution cycles.
  * - candidate substitution  that can't be converted are moved to
  *   ctx->top_eqs.
@@ -1042,7 +1042,7 @@ static inline bool in_real_class(context_t *ctx, term_t t) {
  */
 
 /*
- * Attempt to learn global equalities implied 
+ * Attempt to learn global equalities implied
  * by the formulas stored in ctx->top_formulas.
  * Any such equality is added to ctx->aux_eqs
  */
@@ -1052,14 +1052,14 @@ extern void analyze_uf(context_t *ctx);
 /*
  * Check difference logic after flattening:
  * - check whether all formulas in top_eqs, top_atoms, and top_formulas
- *   are in the difference logic fragment. If so, compute the benchmark 
+ *   are in the difference logic fragment. If so, compute the benchmark
  *   profile (i.e., statistics on number of variables + atoms)
- * - if idl is true, all variables must be integer (i.e., the formula is 
- *   in the IDL fragment), otherwise all variables must be real (i.e., the 
+ * - if idl is true, all variables must be integer (i.e., the formula is
+ *   in the IDL fragment), otherwise all variables must be real (i.e., the
  *   formula is in the RDL fragment).
  *
  * - if all assertions are in IDL or RDL.
- *   the statistics are stored in ctx->dl_profile. 
+ *   the statistics are stored in ctx->dl_profile.
  * - raise an exception 'LOGIC_NOT_SUPPORTED' otherwise.
  *
  * This function is used to decide whether to use simplex or a
@@ -1076,7 +1076,7 @@ extern void analyze_diff_logic(context_t *ctx, bool idl);
  *
  *   David Delharbe, Pascal Fontaine, Stephan Merz, and Bruno Woltzenlogel Paleo
  *   Exploiting Summetry in SMT Problems, CADE 2011
- * 
+ *
  * Summary:
  * - search for clauses of the form (or (= t c0) ... (= t c_n))
  *   where c0 ... c_n are uninterpreted constants
@@ -1119,9 +1119,9 @@ extern void context_free_dl_profile(context_t *ctx);
  * Return code:
  * - TRIVIALLY_UNSAT means that an inconsistency is detected
  *   (in that case the context status is set to UNSAT)
- * - CTX_NO_ERROR means no internalization error and status not 
+ * - CTX_NO_ERROR means no internalization error and status not
  *   determined
- * - otherwise, the code is negative. The assertion could 
+ * - otherwise, the code is negative. The assertion could
  *   not be processed.
  */
 extern int32_t assert_formula(context_t *ctx, term_t f);
@@ -1146,7 +1146,7 @@ extern int32_t context_internalize(context_t *ctx, term_t t);
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
  * - this collects all decision literals in the current truth assignment
- *   (say l_1, ..., l_k) then clears the current assignment and adds the 
+ *   (say l_1, ..., l_k) then clears the current assignment and adds the
  *  clause ((not l_1) \/ ... \/ (not l_k)).
  *
  * Return code:
@@ -1163,7 +1163,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * - parameters = search and heuristic parameters to use
  * - if parameters is NULL, the default values are used
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN, 
+ * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
  * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
@@ -1172,7 +1172,7 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 /*
  * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
  * - model must be initialized (and empty)
- * - the model maps a value to every uninterpreted terms present in ctx's 
+ * - the model maps a value to every uninterpreted terms present in ctx's
  *   internalization tables
  * - if model->has_alias is true, the term substitution defined by ctx->intern_tbl
  *   is copied into the model
@@ -1185,7 +1185,7 @@ extern void context_build_model(model_t *model, context_t *ctx);
  * - this can be called after check_context from a signal handler
  * - this interrupts the current search
  * - if clean_interrupt is enabled, calling context_cleanup will
- *   restore the solver to a good state, equivalent to the state 
+ *   restore the solver to a good state, equivalent to the state
  *   before the call to check_context
  * - otherwise, the solver is in a bad state from which new assertions
  *   can't be processed. Cleanup is possible via pop (if push/pop is supported)
@@ -1206,8 +1206,8 @@ extern void context_cleanup(context_t *ctx);
  * Clear boolean assignment and return to the IDLE state.
  * - this can be called after check returns UNKNOWN or SEARCHING
  *   provided the context's mode isn't ONECHECK
- * - after this call, additional formulas can be asserted and 
- *   another call to check_context is allowed. Model construction 
+ * - after this call, additional formulas can be asserted and
+ *   another call to check_context is allowed. Model construction
  *   is no longer possible until the next call to check_context.
  */
 extern void context_clear(context_t *ctx);
@@ -1524,7 +1524,7 @@ static inline context_mode_t context_get_mode(context_t *ctx) {
  **************/
 
 /*
- * Read the status: returns one of 
+ * Read the status: returns one of
  *  STATUS_IDLE        (before check_context)
  *  STATUS_SEARCHING   (during check_context)
  *  STATUS_UNKNOWN
@@ -1562,7 +1562,7 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
  */
 
 /*
- * Mark all terms present in ctx (to make sure they survive the 
+ * Mark all terms present in ctx (to make sure they survive the
  * next call to term_table_gc).
  */
 extern void context_gc_mark(context_t *ctx);

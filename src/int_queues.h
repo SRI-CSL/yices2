@@ -17,7 +17,7 @@
  * The queue is managed as a circular array:
  * - if head = tail, the queue is empty
  * - if head < tail, the queue content is data[head ... tail-1]
- * - if head > tail, the queue content is 
+ * - if head > tail, the queue content is
  *     data[head...size-1] + data[0 ... tail-1]
  */
 typedef struct int_queue_s {
@@ -41,7 +41,7 @@ typedef struct int_queue_s {
 
 
 /*
- * Initialize a queue of size n. 
+ * Initialize a queue of size n.
  * If n = 0 then DEFAULT_QUEUE_INITIAL_SIZE is used.
  */
 extern void init_int_queue(int_queue_t *q, uint32_t n);
@@ -74,7 +74,7 @@ static inline bool int_queue_is_empty(int_queue_t *q) {
 
 /*
  * Return the first element and remove it from q.
- * - q must be non-empty. 
+ * - q must be non-empty.
  */
 extern int32_t int_queue_pop(int_queue_t *q);
 

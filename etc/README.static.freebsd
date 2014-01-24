@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International
 =============================================
 
-This file is part of the Yices __YICES__ binary distribution for FreeBSD. 
+This file is part of the Yices __YICES__ binary distribution for FreeBSD.
 Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
@@ -56,7 +56,7 @@ Alternatively, you can install Yices in /usr/local as follows:
 This will copy the binaries  /usr/local/bin, the header files in
 /usr/local/include, and the libraries in /usr/local/lib.
 
-To install Yices in another location, give the installation directory 
+To install Yices in another location, give the installation directory
 as argument to the shell script:
 
   ./install-yices <dir>

@@ -94,7 +94,7 @@ static void init_test_data_constant(uint32_t n) {
 
 
 /*
- * Run a single test: n = size 
+ * Run a single test: n = size
  * - add test data to the heap
  * - extract all elements from the heap and print them
  */
@@ -163,7 +163,7 @@ int main() {
   }
 
 
-  delete_ptr_heap(&heap);  
+  delete_ptr_heap(&heap);
 
   return 0;
 }

@@ -77,7 +77,7 @@ static tuple_hmap_rec_t **alloc_rec_array(uint32_t n) {
   for (i=0; i<n; i++) {
     tmp[i] = NULL;
   }
- 
+
   return tmp;
 }
 
@@ -166,7 +166,7 @@ void reset_tuple_hmap(tuple_hmap_t *hmap) {
   }
 
   hmap->nelems = 0;
-  hmap->ndeleted = 0; 
+  hmap->ndeleted = 0;
 }
 
 
@@ -200,7 +200,7 @@ static void tuple_hmap_cleanup(tuple_hmap_t *hmap) {
   uint32_t i, n, mask;
 
   n = hmap->size;
-  tmp = alloc_rec_array(n);  
+  tmp = alloc_rec_array(n);
   mask = n - 1;
   for (i=0; i<n; i++) {
     r = hmap->data[i];
@@ -208,10 +208,10 @@ static void tuple_hmap_cleanup(tuple_hmap_t *hmap) {
       tuple_hmap_clean_copy(tmp, r, mask);
     }
   }
-  
+
   safe_free(hmap->data);
   hmap->data = tmp;
-  hmap->ndeleted = 0;  
+  hmap->ndeleted = 0;
 }
 
 
@@ -262,7 +262,7 @@ tuple_hmap_rec_t *tuple_hmap_find(tuple_hmap_t *hmap, uint32_t n, int32_t key[])
   tuple_hmap_rec_t *r;
   uint32_t i, h, mask;
 
-  assert(n <= TUPLE_HMAP_MAX_ARITY && hmap->nelems < hmap->size 
+  assert(n <= TUPLE_HMAP_MAX_ARITY && hmap->nelems < hmap->size
          && is_power_of_two(hmap->size));
 
   h = hash_tuple_key(n, key);
@@ -271,12 +271,12 @@ tuple_hmap_rec_t *tuple_hmap_find(tuple_hmap_t *hmap, uint32_t n, int32_t key[])
 
   for (;;) {
     r = hmap->data[i];
-    if (r == NULL || 
+    if (r == NULL ||
         (r != TUPLE_HMAP_DELETED && r->hash == h && r->arity == n && equal_tuples(n, key, r->key))) {
       return r;
     }
     i ++;
-    i &= mask;    
+    i &= mask;
   }
 }
 
@@ -322,7 +322,7 @@ tuple_hmap_rec_t *tuple_hmap_get(tuple_hmap_t *hmap, uint32_t n, int32_t key[], 
     }
     if (r != TUPLE_HMAP_DELETED && r->hash == h && r->arity == n && equal_tuples(n, key, r->key)) {
       goto found;
-    }   
+    }
   }
 
  add:
@@ -400,7 +400,7 @@ void tuple_hmap_erase(tuple_hmap_t *hmap, tuple_hmap_rec_t *r) {
   hmap->ndeleted ++;
   if (hmap->ndeleted > hmap->cleanup_threshold) {
     tuple_hmap_cleanup(hmap);
-  }  
+  }
 }
 
 
@@ -425,7 +425,7 @@ void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]) {
   for (;;) {
     r = hmap->data[i];
     if (r == NULL) return;
-    if (r != TUPLE_HMAP_DELETED && r->hash == h && 
+    if (r != TUPLE_HMAP_DELETED && r->hash == h &&
         r->arity == n && equal_tuples(n, key, r->key)) break;
     i ++;
     i &= mask;

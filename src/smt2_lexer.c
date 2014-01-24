@@ -209,7 +209,7 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
  *   QF_NRA         Reals    (added July 2011)
  *   QF_RDL         Reals
  *   QF_UF          Empty
- *   QF_UFIDL       Ints 
+ *   QF_UFIDL       Ints
  *   QF_UFBV        Fixed_Size_BitVectors             BitVec
  *   QF_UFLIA       Ints
  *   QF_UFLRA       Reals
@@ -459,7 +459,7 @@ const char *smt2_keyword_to_string(smt2_keyword_t kw) {
 /*
  * Read a string literal
  * - current char is "
- * - read all characters until the closing " or any non-printable 
+ * - read all characters until the closing " or any non-printable
  *   character
  * - replace escape sequences \" by " and \\ by \
  *
@@ -467,7 +467,7 @@ const char *smt2_keyword_to_string(smt2_keyword_t kw) {
  * without the delimiting quotes.
  * - return code:
  *   SMT2_TK_STRING if the string is valid
- *   SMT2_TK_INVALID_STRING if the string is terminated by 
+ *   SMT2_TK_INVALID_STRING if the string is terminated by
  *   a non-printable character
  *
  * NOTE: this is not strictly compliant with the SMT-LIB 2.0
@@ -526,12 +526,12 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
  * Read a binary literal
  * - the buffer must contain '#'
  * - current char must be 'b'
- * - add 'b' and the sequence of '0' and '1' that follows 
+ * - add 'b' and the sequence of '0' and '1' that follows
  *   to the buffer
  * - stop on the first character that's not '0' or '1'
  *
  * The resulting token is stored in buffer
- * - return code: 
+ * - return code:
  *   SMT2_TK_BINARY if the sequence is non-empty
  *   SMT2_TK_INVALID_BINARY if the sequence is empty
  */
@@ -545,7 +545,7 @@ static smt2_token_t smt2_read_binary(lexer_t *lex) {
   buffer = lex->buffer;
   c = reader_current_char(rd);
 
-  assert(string_buffer_length(buffer) == 1 && 
+  assert(string_buffer_length(buffer) == 1 &&
          buffer->data[0] == '#' && c == 'b');
 
   do {
@@ -567,12 +567,12 @@ static smt2_token_t smt2_read_binary(lexer_t *lex) {
  * Read an hexadecimal literal
  * - the buffer must contain '#'
  * - current_char must be 'x'
- * - add 'x' and the sequence of hexadecimal digits that 
+ * - add 'x' and the sequence of hexadecimal digits that
  *   follows to the buffer
  * - stop on the first character that's not hexadecimal
  *
  * The resulting token is stored in buffer
- * - return code: 
+ * - return code:
  *   SMT2_TK_HEXADECIMAL if the sequence is non-empty
  *   SMT2_TK_INVALID_HEXADECIMAL if the sequence is empty
  */
@@ -586,7 +586,7 @@ static smt2_token_t smt2_read_hexa(lexer_t *lex) {
   buffer = lex->buffer;
   c = reader_current_char(rd);
 
-  assert(string_buffer_length(buffer) == 1 && 
+  assert(string_buffer_length(buffer) == 1 &&
          buffer->data[0] == '#' && c == 'x');
 
   do {
@@ -617,7 +617,7 @@ static smt2_token_t smt2_read_hexa(lexer_t *lex) {
  */
 static smt2_token_t smt2_read_number(lexer_t *lex) {
   reader_t *rd;
-  string_buffer_t *buffer;  
+  string_buffer_t *buffer;
   int c;
   smt2_token_t tk;
   uint32_t i;
@@ -675,7 +675,7 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
 
   // add '0'
   string_buffer_append_char(buffer, c);
-  
+
   c = reader_next_char(rd);
   tk = SMT2_TK_NUMERAL;
 
@@ -706,7 +706,7 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
   }
 
   string_buffer_close(buffer);
-  
+
   return tk;
 }
 
@@ -716,7 +716,7 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
  * - digits + letters + ~ ! @ $ % ^ & * _ - + = < > . ? /
  *
  * NOTE: again, we don't really follow the standard (we can
- * accept non-ASCII characters, depending on the locale and 
+ * accept non-ASCII characters, depending on the locale and
  * how isalnum(c) decides).
  */
 static bool issimple(int c) {
@@ -776,13 +776,13 @@ static smt2_token_t smt2_read_keyword(lexer_t *lex) {
     c = reader_next_char(rd);
   } while (issimple(c));
   string_buffer_close(buffer);
-  
+
   tk = SMT2_TK_KEYWORD;
   if (string_buffer_length(buffer) <= 1) {
     tk = SMT2_TK_INVALID_KEYWORD;
   }
 
-  return tk;    
+  return tk;
 }
 
 
@@ -819,7 +819,7 @@ static smt2_token_t smt2_read_symbol(lexer_t *lex) {
   kw = in_smt2_tk(buffer->data, buffer->index);
   if (kw != NULL) {
     tk = kw->tk;
-  } 
+  }
 
   return tk;
 }
@@ -851,12 +851,12 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
 
   for (;;) {
     c = reader_next_char(rd);
-    if (c == '|' || c == '\\' || 
+    if (c == '|' || c == '\\' ||
         (!isprint(c) && !isspace(c))) {
       // either the terminator '|' or a character not allowed in quoted symbols
       break;
     }
-    string_buffer_append_char(buffer, c);    
+    string_buffer_append_char(buffer, c);
   }
   string_buffer_close(buffer);
 
@@ -866,7 +866,7 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
     reader_next_char(rd);
     tk = SMT2_TK_QSYMBOL;
   }
-  
+
   return tk;
 }
 
@@ -930,7 +930,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
       tk = smt2_read_hexa(lex);
     } else {
       tk = SMT2_TK_ERROR;
-      string_buffer_close(buffer);      
+      string_buffer_close(buffer);
     }
     goto done;
 
@@ -941,7 +941,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
   case '1':
   case '2':
   case '3':
-  case '4': 
+  case '4':
   case '5':
   case '6':
   case '7':
@@ -965,7 +965,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
     } else {
       tk = SMT2_TK_ERROR;
       /*
-       * copy the bad character in buffer for 
+       * copy the bad character in buffer for
        * better error reporting
        */
       string_buffer_append_char(buffer, c);
@@ -1014,9 +1014,9 @@ bool smt2_symbol_is_active(smt2_symbol_t sym) {
 
 
 /*
- * Check whether s is of the form 'bv<digits>' 
+ * Check whether s is of the form 'bv<digits>'
  * - n = length of s
- * - return code: 
+ * - return code:
  *   SMT2_SYM_BV_CONSTANT if s is of the form 'bv<numeral>'
  *   SMT2_SYM_INVALID_BV_CONSTANT if s is of the from 'bv0<digits>'
  *   SMT2_SYM_UNKNOWN otherwise (not a bvconstant)
@@ -1052,7 +1052,7 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
  *
  * Special treatment for bitvector constants, when the bit-vector
  * theory is active:
- * - if the string is of the form 'bv<numeral>' then the 
+ * - if the string is of the form 'bv<numeral>' then the
  *   returned id is SMT2_SYM_BV_CONSTANT
  * - if the string starts with 'bv' but the rest is not <numeral>, then
  *   the returned if is SMT2_SYM_INVALID_BV_CONSTANT

@@ -123,7 +123,7 @@ static void delete_buffer() {
 
 static literal_t read_literal(FILE *f, int nv) {
   int d, var, delta;
-  
+
   do {
     d = getc(f);
   } while (isspace(d));
@@ -150,8 +150,8 @@ static literal_t read_literal(FILE *f, int nv) {
 
   if (!isdigit(d)) {
     return BAD_INPUT;
-  } 
-  
+  }
+
   do {
     var = 10 * var + (d - '0');
     d = getc(f);
@@ -243,7 +243,7 @@ static int build_instance(char *filename) {
     bit_solver_simplify_and_add_clause(&solver, l_idx, clause);
     c_idx ++;
   }
-  
+
   fclose(f);
   return 0;
 }
@@ -278,7 +278,7 @@ static void print_results() {
   double mem_used, simplified_percent;
 
   search_time = get_cpu_time() - construction_time;
-  
+
   stat = &solver.stats;
   resu = solver.status;
 
@@ -394,5 +394,5 @@ int main(int argc, char* argv[]) {
 
     delete_bit_solver(&solver);
     exit(0);
-  }  
+  }
 }

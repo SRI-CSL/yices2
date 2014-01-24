@@ -27,7 +27,7 @@ typedef struct diseq_s {
 /*
  * Asserted disequalities are stored in data[0 ... top-1]
  * - level_index[i] = value top when decision level i was entered
- * - if i < current decision level, disequalities asserted at level i 
+ * - if i < current decision level, disequalities asserted at level i
  *   are in data[k ... p-1] where k = level_index[i] and p = level_index[i+1]
  * - disequalities asserted at the current decision level i are in
  *   data[k ... top-1] where k = level_index[i]

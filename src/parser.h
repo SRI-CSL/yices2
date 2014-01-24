@@ -53,14 +53,14 @@ typedef struct parser_s {
 
 /*
  * Initialization:
- * - use lex and tstack for lexer and term stack (they must be initialized 
+ * - use lex and tstack for lexer and term stack (they must be initialized
  *   outside this function).
  */
 extern void init_parser(parser_t *parser, lexer_t *lex, tstack_t *tstack);
 
 
 /*
- * Delete: frees the state stack. 
+ * Delete: frees the state stack.
  * - lex and tstack must be deleted outside this function.
  */
 extern void delete_parser(parser_t *parser);

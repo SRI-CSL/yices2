@@ -92,7 +92,7 @@ static void init_variables(void) {
     set_type_name(&types, var[i], clone_string(name));
     name[0] ++;
   }
-}  
+}
 
 
 /*
@@ -154,7 +154,7 @@ static void init_base_types(void) {
   set_type_name(&types, base[12], clone_string("T2"));
   base[13] = new_scalar_type(&types, 1);
   set_type_name(&types, base[13], clone_string("S1"));
-  base[14] = new_scalar_type(&types, 100);  
+  base[14] = new_scalar_type(&types, 100);
   set_type_name(&types, base[14], clone_string("S2"));
 
   base[15] = pair_type(var[5], var[5]);
@@ -296,7 +296,7 @@ static void show_matching(type_matcher_t *matcher) {
     print_type(stdout, &types, x);
     printf(" := ");
     print_type(stdout, &types, matcher->map[i]);
-    printf("\n");    
+    printf("\n");
   }
 }
 
@@ -311,7 +311,7 @@ static void check_exact_matching(type_matcher_t *matcher, type_t pattern, type_t
   if (test != target) {
     fprintf(stderr, "BUG: incorrect matching (expected exact matching)\n");
     exit(1);
-  }  
+  }
 }
 
 static void check_submatching(type_matcher_t *matcher, type_t pattern, type_t target) {
@@ -502,7 +502,7 @@ int main(void) {
   type_matcher_t matcher;
   uint32_t i, j;
   type_t pattern;
-  
+
   init_type_table(&types, 0);
   init_variables();
   init_constructors();

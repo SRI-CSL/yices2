@@ -33,7 +33,7 @@ The binaries and library require the GNU Multiprecision library (GMP)
 version __GMP__ or compatible. GMP is copyright Free Software Foundation
 (see NOTICES).
 
-GMP must be installed as a dynamic library in /usr/local/lib for 
+GMP must be installed as a dynamic library in /usr/local/lib for
 Yices to find it.
 
 
@@ -42,8 +42,8 @@ Installation
 ------------
 
 The library's install name is '/usr/local/lib/__DYLIB__', so
-__DYLIB__ must be copied into /usr/local/lib.  
-This distribution includes a shell script for this purpose. 
+__DYLIB__ must be copied into /usr/local/lib.
+This distribution includes a shell script for this purpose.
 Just type
 
    sudo ./install-yices

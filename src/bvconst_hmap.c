@@ -89,7 +89,7 @@ void reset_bvconst_hmap(bvconst_hmap_t *hmap) {
         bvconst_free(tmp->val.p, k);
       }
       tmp->key = BVCONST_HMAP_EMPTY_KEY;
-    }    
+    }
     tmp ++;
   }
   hmap->nelems = 0;
@@ -180,7 +180,7 @@ bvconst_hmap_rec_t *bvconst_hmap_find(bvconst_hmap_t *hmap, int32_t k) {
   assert(k >= 0 && hmap->size > hmap->nelems);
 
   mask = hmap->size - 1;
-  j = hash_key(k) & mask;  
+  j = hash_key(k) & mask;
   for (;;) {
     d = hmap->data + j;
     if (d->key == k) return d;
@@ -251,7 +251,7 @@ void bvconst_hmap_set_val64(bvconst_hmap_t *hmap, int32_t x, uint64_t c, uint32_
       bvconst_free(r->val.p, old_k);
     }
     r->nbits = n;
-    r->val.c = norm64(c, n);    
+    r->val.c = norm64(c, n);
   }
 }
 
@@ -287,5 +287,5 @@ void bvconst_hmap_set_val(bvconst_hmap_t *hmap, int32_t x, uint32_t *c, uint32_t
     r->nbits = n;
     bvconst_set(r->val.p, k, c);
     bvconst_normalize(r->val.p, n);
-  }  
+  }
 }

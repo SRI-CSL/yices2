@@ -1,7 +1,7 @@
 /*
  * Global variables.
  *
- * Several global tables and data structures are maintained by 
+ * Several global tables and data structures are maintained by
  * module term_api.c. If other modules need to access these internal
  * data structures, they can use the following table of pointers.
  *

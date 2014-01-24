@@ -50,7 +50,7 @@ epartition_t *basic_epartition(term_t x, term_t y) {
  * Initialize manager m
  */
 void init_epartition_manager(epartition_manager_t *m) {
-  uint32_t i, n; 
+  uint32_t i, n;
 
   n = EQABS_DEF_ESIZE;
   assert(n < EQABS_MAX_ESIZE);
@@ -76,7 +76,7 @@ void init_epartition_manager(epartition_manager_t *m) {
   assert(n < EQABS_MAX_SCSIZE);
   m->sc_size = n;
   m->subclass = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  
+
   // subclass[i] must be -1 for all i
   for (i=0; i<n; i++) {
     m->subclass[i] = -1;
@@ -111,7 +111,7 @@ void delete_epartition_manager(epartition_manager_t *m) {
 static int32_t get_class_index(epartition_manager_t *m) {
   int32_t i;
   uint32_t n;
-  
+
   i = m->nclasses;
   n = m->c_size;
   if (i == n) {
@@ -179,7 +179,7 @@ static void resize_subclass_array(epartition_manager_t *m, uint32_t n) {
     for (i=m->sc_size; i<k; i++) {
       m->subclass[i] = -1;
     }
-    m->sc_size = k;    
+    m->sc_size = k;
   }
   assert(n <= m->sc_size);
 }
@@ -206,7 +206,7 @@ static epartition_t *get_epartition(epartition_manager_t *m) {
   if (m->order == 0) {
     // empty partition
     assert(m->nterms == 0);
-    tmp = m->empty; 
+    tmp = m->empty;
   } else {
     // build a partition object
     tmp = alloc_epartition(m->order, m->nterms);
@@ -350,7 +350,7 @@ static void epartition_merge_classes(epartition_manager_t *m, int32_t i, int32_t
   term_t t, r, s;
 
   assert(i != j && epartition_good_class(m, i) && epartition_good_class(m, j));
-  
+
   // fix the labels
   r = m->root[j];
   t = r;
@@ -378,7 +378,7 @@ void epartition_init_for_meet(epartition_manager_t *m, epartition_t *p) {
   term_t *q, t;
   uint32_t i, n;
   int32_t c;
-  
+
   assert(m->nclasses == 0 && m->nterms == 0 && m->order == 0);
   q = p->data;
   n = p->nclasses;
@@ -452,7 +452,7 @@ epartition_t *epartition_get_meet(epartition_manager_t *m) {
 
 /*
  * Split/join operations construct a partition in m by splitting classes of m
- * into smaller subclasses. In this mode, terms are not labeled by their 
+ * into smaller subclasses. In this mode, terms are not labeled by their
  * class id, but the label array is used internally by epartition_join
  */
 
@@ -557,7 +557,7 @@ static void refine_class(epartition_manager_t *m, term_t r) {
     j = m->label[t];
     nxt = m->next[t];
     if (j < 0) {
-      m->nterms --; 
+      m->nterms --;
     } else {
       epartition_add_to_subclass(m, t, j);
     }
@@ -584,7 +584,7 @@ static void epartition_remove_singletons(epartition_manager_t *m) {
 
   n = m->nclasses;
   for (i=0; i<n; i++) {
-    r = m->root[i]; 
+    r = m->root[i];
     if (r >= 0 && m->next[r] == r) {
       assert(m->nterms > 0 && m->order > 0);
       m->root[i] = NULL_TERM;
@@ -622,7 +622,7 @@ void epartition_init_for_join(epartition_manager_t *m, epartition_t *p) {
 
 /*
  * Refine the partition stored in m:
- * - (t == u) are in the same class in the result 
+ * - (t == u) are in the same class in the result
  *   iff they are in the same class in m and in p
  */
 void epartition_join(epartition_manager_t *m, epartition_t *p) {
@@ -646,7 +646,7 @@ void epartition_join(epartition_manager_t *m, epartition_t *p) {
   m->nclasses = 0;
   m->order = 0;
 
-  // refine all classes in the buffer 
+  // refine all classes in the buffer
   n = v->size;
   for (i=0; i<n; i++) {
     refine_class(m, v->data[i]);

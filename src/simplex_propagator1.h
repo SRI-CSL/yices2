@@ -14,11 +14,11 @@
  *    called in start search after simplify_matrix but before the tableau is constructed
  *    and checked for feasibility
  * 2) simplex_start_propagator
- *    called in start_search after the tableau is constructed, feasible, and all initial 
+ *    called in start_search after the tableau is constructed, feasible, and all initial
  *    bounds  are known
  * 3) simplex_reset_propagator: called in simplex_reset and simplex_reset_tableau
- * 4) simplex_delete_propagator: called in delete_simplex_solver 
- * 5) simplex_do_propagation: called in simplex_propagate if the tableau is feasible 
+ * 4) simplex_delete_propagator: called in delete_simplex_solver
+ * 5) simplex_do_propagation: called in simplex_propagate if the tableau is feasible
  */
 
 
@@ -99,7 +99,7 @@ const char * const simplex_prop_level = "prop level ??";
 
 
 /*
- * Check whether x has unassigned atoms 
+ * Check whether x has unassigned atoms
  */
 static bool var_has_unassigned_atoms(simplex_solver_t *solver, thvar_t x) {
   arith_atomtable_t *atbl;
@@ -174,7 +174,7 @@ static bool lb_can_propagate_literals(simplex_solver_t *solver, thvar_t x, xrati
            * (x >= b) implies (not (x <= c)) if b > c
            */
           assert(atom_is_le(atom));
-          if (xq_gt_q(b, bound_of_atom(atom))) return true;       
+          if (xq_gt_q(b, bound_of_atom(atom))) return true;
         }
       }
     }
@@ -216,7 +216,7 @@ static bool ub_can_propagate_literals(simplex_solver_t *solver, thvar_t x, xrati
            * (x <= b) implies (x <= c) if b <= c
            */
           assert(atom_is_le(atom));
-          if (xq_le_q(b, bound_of_atom(atom))) return true;       
+          if (xq_le_q(b, bound_of_atom(atom))) return true;
         }
       }
     }
@@ -287,7 +287,7 @@ static inline bool good_ub_antecedent(simplex_solver_t *solver, thvar_t x) {
   return k >= 0 && ! is_derived_bound(solver, k);
 }
 
-  
+
 #endif
 
 
@@ -355,7 +355,7 @@ static void explain_lower_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
       assert(k >= 0);
       ivector_push(v, k);
     }
-  }  
+  }
 }
 
 
@@ -392,7 +392,7 @@ static bool try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
   bound = solver->bstack.bound;
   vtbl = &solver->vtbl;
-  sum = &solver->bound;  
+  sum = &solver->bound;
 
   // initialize c to avoid GCC warning
   c = NULL;
@@ -466,7 +466,7 @@ static bool try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
       assert(v->size == 0);
       explain_upper_bounds(solver, y, p, v);
       ok = simplex_add_derived_upper_bound(solver, y, sum, v);
-      ivector_reset(v);      
+      ivector_reset(v);
 
 #if TRACE_THEORY
       trace_simplex_implied_ub(p, y, sum);
@@ -507,7 +507,7 @@ static bool try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
   bound = solver->bstack.bound;
   vtbl = &solver->vtbl;
-  sum = &solver->bound;  
+  sum = &solver->bound;
 
   // initialize c to avoid GCC warning
   c = NULL;
@@ -557,7 +557,7 @@ static bool try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
       assert(v->size == 0);
       explain_lower_bounds(solver, y, p, v);
       ok = simplex_add_derived_upper_bound(solver, y, sum, v);
-      ivector_reset(v);      
+      ivector_reset(v);
 
 #if TRACE_THEORY
       trace_simplex_implied_ub(p, y, sum);
@@ -580,7 +580,7 @@ static bool try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
       assert(v->size == 0);
       explain_lower_bounds(solver, y, p, v);
       ok = simplex_add_derived_lower_bound(solver, y, sum, v);
-      ivector_reset(v);          
+      ivector_reset(v);
 
 #if TRACE_THEORY
       trace_simplex_implied_lb(p, y, sum);
@@ -640,7 +640,7 @@ static void add_upper_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
  * Add the lower bounds of all monomials in p
  * - all monomials must have an upper bound
  * - the result is stored in b
- */ 
+ */
 static void add_lower_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b) {
   row_elem_t *a;
   xrational_t *bound;
@@ -718,7 +718,7 @@ static bool full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
      * bounds are  a.x <= u, a_1 x_1 <= u_1, ..., a_n x_n <= u_n,
      * and sum is - (u + u_1 + ... + u_n).
      * - implied bound on a x: a.x >= - (u_1 + ... + u_n) = sum + u
-     * - if a>0, then u = a.(upper_bound on x), 
+     * - if a>0, then u = a.(upper_bound on x),
      *   implied bound on x: x >= sum/a + u/a = sum/a + (upper_bound on x)
      * - if a<0, then u = a.(lower_bound on x),
      *   implied bound on x: x <= sum/a + u/a = sum/a + (lower_bound on x)
@@ -746,7 +746,7 @@ static bool full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
           assert(v->size == 0);
           explain_upper_bounds(solver, x, p, v);
           ok = simplex_add_derived_lower_bound(solver, x, aux, v);
-          ivector_reset(v);       
+          ivector_reset(v);
 
 #if TRACE_THEORY
           trace_simplex_implied_lb(p, x, aux);
@@ -834,7 +834,7 @@ static bool full_lower_bound_propagation(simplex_solver_t *solver, row_t *p) {
      * bounds are  a.x >= l, a_1 x_1 >= l_1, ..., a_n x_n >= u_n,
      * and sum is - (l + l_1 + ... + l_n).
      * - implied bound on a x: a.x <= - (l_1 + ... + l_n) = sum + l
-     * - if a>0, then l = a.(lower_bound on x), 
+     * - if a>0, then l = a.(lower_bound on x),
      *   implied bound on x: x <= sum/a + l/a = sum/a + (lower_bound on x)
      * - if a<0, then l = a.(upper_bound on x),
      *   implied bound on x: x >= sum/a + l/a = sum/a + (upper_bound on x)
@@ -977,7 +977,7 @@ static bool check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     a ++;
     n --;
   } while (n > 0);
-  
+
   if (y < 0) {
     ok = full_upper_bound_propagation(solver, p);
   } else if (var_has_unassigned_atoms(solver, y)) {
@@ -998,7 +998,7 @@ static bool check_row_propagation(simplex_solver_t *solver, row_t *p)  {
 
 /*
  * 1) Function collect relevant_prop_rows must be defined if the row-selection
- *    mode is either last-conflict row or affected rows. If stores the 
+ *    mode is either last-conflict row or affected rows. If stores the
  *    rows to visit into the row_to_process_vector.
  */
 
@@ -1034,7 +1034,7 @@ static void collect_prop_rows_for_variable(simplex_solver_t *solver, column_t *c
   ivector_t *to_process;
   uint32_t i, n;
   int32_t r;
-  
+
   assert(column != NULL);
 
   to_process = &solver->rows_to_process;
@@ -1244,7 +1244,7 @@ static bool simplex_do_propagation(simplex_solver_t *solver) {
 #if VISIT_LAST_CONFLICT_ROW || VISIT_AFFECTED_ROWS
   collect_relevant_prop_rows(solver);
 #endif
-  return visit_candidate_rows(solver);  
+  return visit_candidate_rows(solver);
 }
 
 

@@ -167,12 +167,12 @@ bool arith_buffer_is_nonzero(arith_buffer_t *b) {
  * - b must be normalized
  */
 bool arith_buffer_is_pos(arith_buffer_t *b) {
-  return b->nterms == 1 && b->list->prod == empty_pp && 
+  return b->nterms == 1 && b->list->prod == empty_pp &&
     q_is_pos(&b->list->coeff);
 }
 
 bool arith_buffer_is_neg(arith_buffer_t *b) {
-  return b->nterms == 1 && b->list->prod == empty_pp && 
+  return b->nterms == 1 && b->list->prod == empty_pp &&
     q_is_neg(&b->list->coeff);
 }
 
@@ -389,13 +389,13 @@ bool arith_buffer_equal(arith_buffer_t *b1, arith_buffer_t *b2) {
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
+ * The power product r must be defined in b's internal
  * power-product table: either r is empty_pp, or r is
  * a tagged variable, or r occurs in b->ptbl.
  *
  * Some operations use another buffer b1. In such cases,
  * b and b1 must have the same power-product table.
- * Unless otherwise indicated, the operations work correctly 
+ * Unless otherwise indicated, the operations work correctly
  * if b1 is equal to b (but this use is not recommended).
  */
 
@@ -492,7 +492,7 @@ void arith_buffer_mul_pp(arith_buffer_t *b, pprod_t *r) {
   pprod_table_t *tbl;
   mlist_t *p;
 
-  /* 
+  /*
    * We use the fact that the monomial ordering
    * is compatible with multiplication, that is
    *    r1 < r2 => r * r1 < r * r2
@@ -540,7 +540,7 @@ void arith_buffer_mul_mono(arith_buffer_t *b, rational_t *a, pprod_t *r) {
     q_mul(&p->coeff, a);
     p = p->next;
   }
-  
+
 }
 
 
@@ -613,7 +613,7 @@ void arith_buffer_sub_mono(arith_buffer_t *b, rational_t *a, pprod_t *r) {
 
     *q = aux;
     b->nterms ++;
-  }  
+  }
 }
 
 
@@ -812,7 +812,7 @@ void arith_buffer_add_const_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, 
       // aux->coeff is initialized to 0 in alloc_list_elem
       aux = alloc_list_elem(b->store);
       aux->next = p;
-      q_addmul(&aux->coeff, &p1->coeff, a); 
+      q_addmul(&aux->coeff, &p1->coeff, a);
       aux->prod = r1;
 
       *q = aux;
@@ -853,7 +853,7 @@ void arith_buffer_sub_const_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, 
       // aux->coeff is initialized to 0 in alloc_list_elem
       aux = alloc_list_elem(b->store);
       aux->next = p;
-      q_submul(&aux->coeff, &p1->coeff, a); 
+      q_submul(&aux->coeff, &p1->coeff, a);
       aux->prod = r1;
 
       *q = aux;
@@ -895,7 +895,7 @@ void arith_buffer_add_pp_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, ppr
 
       aux = alloc_list_elem(b->store);
       aux->next = p;
-      q_set(&aux->coeff, &p1->coeff); 
+      q_set(&aux->coeff, &p1->coeff);
       aux->prod = r1;
 
       //      q->next = aux;
@@ -938,7 +938,7 @@ void arith_buffer_sub_pp_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, ppr
 
       aux = alloc_list_elem(b->store);
       aux->next = p;
-      q_set_neg(&aux->coeff, &p1->coeff); 
+      q_set_neg(&aux->coeff, &p1->coeff);
       aux->prod = r1;
 
       *q = aux;
@@ -1132,7 +1132,7 @@ void arith_buffer_sub_buffer_times_buffer(arith_buffer_t *b, arith_buffer_t *b1,
     assert(p1->prod != end_pp);
     arith_buffer_sub_mono_times_buffer(b, b2, &p1->coeff, p1->prod);
     p1 = p1->next;
-  }  
+  }
 }
 
 
@@ -1150,10 +1150,10 @@ void arith_buffer_sub_buffer_times_buffer(arith_buffer_t *b, arith_buffer_t *b1,
  * - p is an array of monomials
  * - q is an array of power products of the same size as p
  *   if p[i] is a monomial a_i x_i then q[i] must be the conversion
- *   of x_i to a power product 
+ *   of x_i to a power product
  *
  * All operations are in place operations on the first argument b
- * (i.e., all modify the buffer). There are two requirements 
+ * (i.e., all modify the buffer). There are two requirements
  * on p and q:
  * - p must be terminated by and end-marker (var = max_idx).
  * - q must be sorted in the deg-lex ordering.
@@ -1178,7 +1178,7 @@ static bool good_pprod_array(monomial_t *poly, pprod_t **pp) {
       r = *pp;
       pp ++;
       poly ++;
-    }    
+    }
   }
 
   return true;
@@ -1208,7 +1208,7 @@ void arith_buffer_add_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q is either &b->list or &p0->next where p0 is the predecessor
     // of p in the list
@@ -1232,7 +1232,7 @@ void arith_buffer_add_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp
     // move to the next monomial of poly
     poly ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1255,7 +1255,7 @@ void arith_buffer_sub_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q is either &b->list or &p0->next where p0 is the predecessor
     // of p in the list
@@ -1304,7 +1304,7 @@ void arith_buffer_add_const_times_monarray(arith_buffer_t *b, monomial_t *poly, 
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1352,7 +1352,7 @@ void arith_buffer_sub_const_times_monarray(arith_buffer_t *b, monomial_t *poly, 
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1394,13 +1394,13 @@ void arith_buffer_add_mono_times_monarray(arith_buffer_t *b, monomial_t *poly, p
 
   while (poly->var < max_idx) {
     // poly points to a pair (coeff, x_i)
-    // r1 = r * power product for x_i 
+    // r1 = r * power product for x_i
     r1 = pprod_mul(b->ptbl, *pp, r);
     while (pprod_precedes(p->prod, r1)) {
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1448,7 +1448,7 @@ void arith_buffer_sub_mono_times_monarray(arith_buffer_t *b, monomial_t *poly, p
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1543,7 +1543,7 @@ void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *p, pprod_t *
     arith_buffer_add_monarray(aux, p, pp); // aux := p
     for (;;) {
       /*
-       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * loop invariant: b0 * p^d0 == b * aux^ d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -1557,7 +1557,7 @@ void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *p, pprod_t *
       arith_buffer_square(aux);          // aux := aux^2
       arith_buffer_normalize(aux);
     }
-  }  
+  }
 }
 
 
@@ -1583,7 +1583,7 @@ void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *p, pprod_t *
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_polynomial defined in polynomials.c:
  * If P(b, v) = p0 then hash_arith_buffer(b, v) = hash_polynomial(p0).
  */
@@ -1594,7 +1594,7 @@ uint32_t hash_arith_buffer(arith_buffer_t *b, int32_t *v) {
   h = HASH_POLY_SEED + b->nterms;
   q = b->list;
   while (q->next != NULL) {
-    // monomial (a_i * x_i) where 
+    // monomial (a_i * x_i) where
     // a_i is q->coeff and x_i is *v
     q_hash_decompose(&q->coeff, &num, &den);
     h = jenkins_hash_triple(*v, num, den, h);
@@ -1646,11 +1646,11 @@ polynomial_t *arith_buffer_get_poly(arith_buffer_t *b, int32_t *v) {
   polynomial_t *tmp;
   mlist_t *q, *next;
   uint32_t n, i;
-  
+
   n = b->nterms;
   tmp = alloc_raw_polynomial(n);
 
-  q = b->list;  
+  q = b->list;
   for (i=0; i<n; i++) {
     assert(q->prod != end_pp && v[i] < max_idx);
     // monomial i: coeff = q->coeff, var = v[i]

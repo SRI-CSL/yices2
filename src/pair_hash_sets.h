@@ -3,7 +3,7 @@
  */
 
 #ifndef __PAIR_HASH_SETS_H
-#define __PAIR_HASH_SETS_H 
+#define __PAIR_HASH_SETS_H
 
 #include <stdint.h>
 #include <stdbool.h>

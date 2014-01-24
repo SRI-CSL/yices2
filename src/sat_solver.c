@@ -65,7 +65,7 @@ static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
 }
 
 /*
- * Get pointer to learned_clause in which clause cl is embedded. 
+ * Get pointer to learned_clause in which clause cl is embedded.
  */
 static inline learned_clause_t *learned(const clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
@@ -137,7 +137,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
   clause_t *result;
   uint32_t i;
 
-  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) + 
+  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) +
                                     len * sizeof(literal_t));
 
   for (i=0; i<len; i++) {
@@ -160,7 +160,7 @@ static inline void delete_clause(clause_t *cl) {
  * Allocate and initialize a new learned clause
  * \param len = number of literals
  * \param lit = array of len literals
- * The watched pointers are not initialized. 
+ * The watched pointers are not initialized.
  * The activity is initialized to 0.0
  */
 static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
@@ -168,7 +168,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   clause_t *result;
   uint32_t i;
 
-  tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
+  tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) +
                                          len * sizeof(literal_t));
   tmp->activity = 0.0;
   result = &(tmp->clause);
@@ -193,8 +193,8 @@ static inline void delete_learned_clause(clause_t *cl) {
 
 /*
  * Ordering function for clause deletion:
- * - c1 and c2 are two learned clauses 
- * - the function must return true if we prefer to keep c2 
+ * - c1 and c2 are two learned clauses
+ * - the function must return true if we prefer to keep c2
  *   rather than c1 (i.e., c1's score is worse than c2's score).
  */
 static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
@@ -228,7 +228,7 @@ static inline uint32_t get_cv_capacity(clause_t **v) {
 
 
 /*
- * Create a clause vector of capacity n. 
+ * Create a clause vector of capacity n.
  */
 static clause_t **new_clause_vector(uint32_t n) {
   clause_vector_t *tmp;
@@ -252,7 +252,7 @@ static void delete_clause_vector(clause_t **v) {
  */
 static void add_clause_to_vector(clause_t ***v, clause_t *cl) {
   clause_vector_t *vector;
-  clause_t **d;  
+  clause_t **d;
   uint32_t i, n;
 
   d = *v;
@@ -261,7 +261,7 @@ static void add_clause_to_vector(clause_t ***v, clause_t *cl) {
   if (i == vector->capacity) {
     n = i + 1;
     n += (n >> 1); // n = new capacity
-    vector = (clause_vector_t *) 
+    vector = (clause_vector_t *)
       safe_realloc(vector, sizeof(clause_vector_t) + n * sizeof(clause_t *));
     vector->capacity = n;
     d = vector->data;
@@ -274,7 +274,7 @@ static void add_clause_to_vector(clause_t ***v, clause_t *cl) {
 
 /*
  * Shrink clause vector *v: attempt to resize *v so that size = capacity.
- * We don't use safe_realloc here since we can keep going and hope for the best 
+ * We don't use safe_realloc here since we can keep going and hope for the best
  * if realloc fails.
  */
 static void shrink_clause_vector(clause_t ***v) {
@@ -284,7 +284,7 @@ static void shrink_clause_vector(clause_t ***v) {
   vector = cv_header(*v);
   n = vector->size;
   if (n < vector->capacity) {
-    vector = realloc(vector, sizeof(clause_vector_t) + n * sizeof(clause_t *));    
+    vector = realloc(vector, sizeof(clause_vector_t) + n * sizeof(clause_t *));
     // if vector == NULL, realloc has failed but v is still usable.
     if (vector != NULL) {
       vector->capacity = n;
@@ -304,7 +304,7 @@ static void shrink_clause_vector(clause_t ***v) {
  * NULL.  Memory is allocated on the first addition and literal
  * vectors are terminated by -1.
  *
- * For a vector v of size i, the literals are stored 
+ * For a vector v of size i, the literals are stored
  * in v[0],...,v[i-1], and v[i] = -1
  */
 
@@ -355,7 +355,7 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
     if (i >= n - 1) {
       n ++;
       n += n>>1; // new cap = 50% more than old capacity
-      vector = (literal_vector_t *) 
+      vector = (literal_vector_t *)
         safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
       vector->capacity = n;
       d = vector->data;
@@ -364,7 +364,7 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
   }
 
   assert(i + 1 < vector->capacity);
-  
+
   d[i] = l;
   d[i+1] = null_literal;
   vector->size = i+1;
@@ -421,7 +421,7 @@ static void increase_stack_levels(sol_stack_t *s) {
 }
 
 /*
- * Free memory used by stack s 
+ * Free memory used by stack s
  */
 static void delete_stack(sol_stack_t *s) {
   free(s->lit);
@@ -448,7 +448,7 @@ static void push_literal(sol_stack_t *s, literal_t l) {
 /*
  * Initialize heap for n variables
  * - heap is initially empty: heap_last = 0
- * - heap[0] = -1 is a marker, with activity[-1] higher 
+ * - heap[0] = -1 is a marker, with activity[-1] higher
  *   than any variable activity.
  * - we also use -2 as a marker with negative activity
  * - activity increment and threshold are set to their
@@ -533,7 +533,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
     j = i >> 1;    // parent of i
     y = h[j];      // variable at position j in the heap
 
-    // The loop terminates since act[h[0]] = DBL_MAX 
+    // The loop terminates since act[h[0]] = DBL_MAX
     if (act[y] >= ax) break;
 
     // move y down, into position i
@@ -546,13 +546,13 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
 
   // i is the new position for variable x
   h[i] = x;
-  index[x] = i;  
+  index[x] = i;
 }
 
 
 /*
  * Remove root of the heap (i.e., heap->heap[1]):
- * - move the variable currently in heap->heap[last] 
+ * - move the variable currently in heap->heap[last]
  *   into a new position.
  * - decrement last.
  */
@@ -568,7 +568,7 @@ static void update_down(var_heap_t *heap) {
   heap->heap_last = last - 1;
   if (last <= 1 ) { // empty heap.
     assert(heap->heap_last == 0);
-    return; 
+    return;
   }
 
   h = heap->heap;
@@ -578,11 +578,11 @@ static void update_down(var_heap_t *heap) {
   z = h[last];   // last element
   h[last] = -2;  // set end marker: act[-2] is negative
   az = act[z];   // activity of the last element
- 
-  i = 1;      // root  
+
+  i = 1;      // root
   j = 2;      // left child of i
   while (j < last) {
-    /* 
+    /*
      * find child of i with highest activity.
      * Since h[last] = -2, we don't check j+1 < last
      */
@@ -591,7 +591,7 @@ static void update_down(var_heap_t *heap) {
     ax = act[x];
     ay = act[y];
     if (ay > ax) {
-      j++; 
+      j++;
       x = y;
       ax = ay;
     }
@@ -618,7 +618,7 @@ static void update_down(var_heap_t *heap) {
 /*
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
- * - x must be between 0 and nvars - 1 
+ * - x must be between 0 and nvars - 1
  */
 static void heap_insert(var_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
@@ -641,7 +641,7 @@ static inline bool heap_is_empty(var_heap_t *heap) {
  * Get and remove top element
  * - the heap must not be empty
  */
-static bvar_t heap_get_top(var_heap_t *heap) {  
+static bvar_t heap_get_top(var_heap_t *heap) {
   bvar_t top;
 
   assert(heap->heap_last > 0);
@@ -769,8 +769,8 @@ static void flush_stat_buffer(void) {
   f = stat_buffer.file;
   n = stat_buffer.nrecords;
   for (i=0; i<n; i++) {
-    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
-	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos, 
+    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n",
+	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos,
 	    d->base_glue, d->min_glue, d->glue);
     d ++;
   }
@@ -817,7 +817,7 @@ void flush_learned_clauses_stats(void) {
  * of distinct levels in level[l1], ...., level[l_n].
  *
  * NOTE: we use solver->level[var_of(l)] even if l is not currently
- * assigned. Since level[x] is not reset when we backtrack, 
+ * assigned. Since level[x] is not reset when we backtrack,
  * it keeps the last decision level at which x was assigned.
  */
 static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
@@ -853,7 +853,7 @@ static void learned_clause_created(sat_solver_t *solver, clause_t *cl) {
   learned_clause_t *tmp;
   uint32_t n;
 
-  n = solver->stats.conflicts; 
+  n = solver->stats.conflicts;
 
   tmp = learned(cl);
   tmp->stat.creation = n;
@@ -920,7 +920,7 @@ static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
 /*
  * Snapshot: collect data about the current set of learned clauses
  * then export that.
- * - HACK: we call learned_clause_deletion. 
+ * - HACK: we call learned_clause_deletion.
  */
 static void snapshot(sat_solver_t *solver) {
   clause_t **cl;
@@ -1002,7 +1002,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
 
   // Variable-indexed arrays: not initialized
-  solver->antecedent = (antecedent_t *) safe_malloc(size * sizeof(antecedent_t)); 
+  solver->antecedent = (antecedent_t *) safe_malloc(size * sizeof(antecedent_t));
   solver->level = (uint32_t *) safe_malloc(size * sizeof(uint32_t));
   solver->mark = allocate_bitvector(size);
 
@@ -1053,11 +1053,11 @@ void delete_sat_solver(sat_solver_t *solver) {
   n = get_cv_size(cl);
   for (i=0; i<n; i++) {
     delete_clause(cl[i]);
-  }  
+  }
   delete_clause_vector(cl);
-  
+
   cl = solver->learned_clauses;
-  n = get_cv_size(cl);  
+  n = get_cv_size(cl);
   for (i=0; i<n; i++) {
 #if INSTRUMENT_CLAUSES
     learned_clause_deletion(solver, cl[i]);
@@ -1066,7 +1066,7 @@ void delete_sat_solver(sat_solver_t *solver) {
   }
   delete_clause_vector(cl);
 
-  
+
   // var-indexed arrays
   safe_free(solver->antecedent);
   safe_free(solver->level);
@@ -1083,7 +1083,7 @@ void delete_sat_solver(sat_solver_t *solver) {
 
   delete_heap(&solver->heap);
   delete_stack(&solver->stack);
-  
+
   delete_ivector(&solver->buffer);
   delete_ivector(&solver->buffer2);
 
@@ -1196,7 +1196,7 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
   solver->antecedent[i] = mk_literal_antecedent(null_literal);
   l0 = pos_lit(i);
   l1 = neg_lit(i);
-  
+
   // preferred polarity = false
   solver->value[l0] = val_undef_false;
   solver->value[l1] = val_undef_true;
@@ -1320,7 +1320,7 @@ static void add_clause_core(sat_solver_t *solver, uint32_t n, literal_t *lit) {
 }
 
 /*
- * Add three-literal clause {l0, l1, l2} 
+ * Add three-literal clause {l0, l1, l2}
  */
 void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, literal_t l2) {
   literal_t lit[3];
@@ -1350,7 +1350,7 @@ void sat_solver_add_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
 
 
 /*
- * More careful version: simplify a clause and add it to solver. 
+ * More careful version: simplify a clause and add it to solver.
  * No effect if sol is already unsat.
  */
 void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
@@ -1392,8 +1392,8 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
     switch (lit_val(solver, l)) {
     case val_false:
       break;
-    case val_undef_false : 
-    case val_undef_true : 
+    case val_undef_false :
+    case val_undef_true :
       lit[j] = l;
       j++;
       break;
@@ -1509,7 +1509,7 @@ static void sort_learned_clauses(sat_solver_t *solver) {
 
 
 /*
- * Auxiliary function: follow clause list 
+ * Auxiliary function: follow clause list
  * Remove all clauses marked for deletion
  */
 static void cleanup_watch_list(link_t *list) {
@@ -1548,10 +1548,10 @@ static bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
 
   l0 = get_first_watch(cl);
   l1 = get_second_watch(cl);
-  
-  return (lit_is_assigned(solver, l0) && 
+
+  return (lit_is_assigned(solver, l0) &&
           solver->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
-    || (lit_is_assigned(solver, l1) && 
+    || (lit_is_assigned(solver, l1) &&
           solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
 }
 
@@ -1590,7 +1590,7 @@ static void delete_learned_clauses(sat_solver_t *solver) {
   set_cv_size(solver->learned_clauses, j);
   solver->nb_clauses -= (n - j);
 
-  solver->stats.learned_clauses_deleted += (n - j);  
+  solver->stats.learned_clauses_deleted += (n - j);
 }
 
 
@@ -1643,9 +1643,9 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
 
 /*
  * Simplify clause cl, given the current literal assignment
- * - mark cl for deletion if it's true 
+ * - mark cl for deletion if it's true
  * - otherwise remove the false literals
- * The watched literals are unchanged. 
+ * The watched literals are unchanged.
  */
 static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
   uint32_t i, j;
@@ -1756,7 +1756,7 @@ static void cleanup_binary_clause_vector(sat_solver_t *solver, literal_t *v) {
     l = v[i++];
     if (lit_is_unassigned(solver, l)) { //keep l
       v[j ++] = l;
-    }    
+    }
   } while (l >= 0); // end-marker is copied too
 
   solver->stats.aux_literals += i - j;
@@ -1880,7 +1880,7 @@ static void decide_variable(sat_solver_t *solver, bvar_t x) {
 
 #if TRACE
   printf("---> Decision: literal %d, decision level = %u\n", l, solver->decision_level);
-#endif 
+#endif
 }
 
 
@@ -1916,8 +1916,8 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
  *************************/
 
 /*
- * Conflict clauses: 
- * - for a general clause cl: record literal array cl->cl 
+ * Conflict clauses:
+ * - for a general clause cl: record literal array cl->cl
  *   into sol->conflict and cl itself in sol->false_clause.
  * - for binary or ternary clauses, fake a generic clause:
  *   store literals in short_buffer, add terminator -1, and
@@ -1933,7 +1933,7 @@ static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t
 #endif
 
   solver->short_buffer[0] = l0;
-  solver->short_buffer[1] = l1; 
+  solver->short_buffer[1] = l1;
   solver->short_buffer[2] = end_clause;
   solver->conflict = solver->short_buffer;
 }
@@ -1969,7 +1969,7 @@ static void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
  * - val = literal value array (must be sol->value)
  * - l0 = literal (must be false in the current assignment)
  * - v = array of literals terminated by -1 (must be sol->bin[l])
- * v must be != NULL 
+ * v must be != NULL
  * Code returned is either no_conflict or binary_conflict
  */
 static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, literal_t l0, literal_t *v) {
@@ -2038,7 +2038,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
     } else {
       /*
        * Search for a new watched literal in cl.
-       * The loop terminates since cl->cl terminates with an end marked 
+       * The loop terminates since cl->cl terminates with an end marked
        * and val[end_marker] == val_undef.
        */
       k = 1;
@@ -2047,7 +2047,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
         k ++;
         l = b[k];
       } while (val[l] == val_false);
-      
+
       if (l >= 0) {
         /*
          * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
@@ -2100,7 +2100,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
  * Full propagation: until either the propagation queue is empty,
  * or a conflict is found
  *
- * Variant: do propagation via only the binary vectors before a 
+ * Variant: do propagation via only the binary vectors before a
  * full propagation via the watched lists. (2007/07/07)
  * Variant gave bad experimental results. Reverted to previous method.
  */
@@ -2117,13 +2117,13 @@ static int32_t propagation(sat_solver_t *sol) {
     bin = sol->bin[l];
     if (bin != NULL) {
       code = propagation_via_bin_vector(sol, sol->value, l, bin);
-      if (code != no_conflict) { 
-	return code; 
-      } 
+      if (code != no_conflict) {
+	return code;
+      }
     }
-    
+
     code = propagation_via_watched_list(sol, sol->value, sol->watch + l);
-    if (code != no_conflict) { 
+    if (code != no_conflict) {
       return code;
     }
   }
@@ -2184,9 +2184,9 @@ static void prepare_to_backtrack(sat_solver_t *sol) {
   d = d_level(sol, l);
   for (i=2; i<n; i++) {
     x = d_level(sol, b[i]);
-    if (x > d) { 
-      d = x; 
-      j = i; 
+    if (x > d) {
+      d = x;
+      j = i;
     }
   }
 
@@ -2226,7 +2226,7 @@ static inline void clear_lit_mark(sat_solver_t *sol, literal_t l) {
 
 
 /*
- * Auxiliary function to accelerate clause simplification (cf. Minisat). 
+ * Auxiliary function to accelerate clause simplification (cf. Minisat).
  * This builds a hash of the decision levels in a literal array.
  * b = array of literals
  * n = number of literals
@@ -2253,7 +2253,7 @@ static inline bool check_level(sat_solver_t *sol, literal_t l, uint32_t sgn) {
  * Analyze literal antecedents of l to check whether l is subsumed.
  * - sgn = signature of the learned clause
  * level of l must match sgn (i.e., check_level(sol, l, sgn) is not 0).
- * 
+ *
  * - returns false if l is not subsumed: either because l has no antecedent
  *   or if an antecedent of l has a decision level that does not match sgn.
  * - returns true otherwise.
@@ -2310,7 +2310,7 @@ static bool analyze_antecedents(sat_solver_t *sol, literal_t l, uint32_t sgn) {
       ivector_push(b, l1);
     }
     break;
-    
+
   case generic_tag:
     assert(false);
   }
@@ -2361,7 +2361,7 @@ static void simplify_learned_clause(sat_solver_t *sol) {
   literal_t l;
   uint32_t i, j, n;
 
-  
+
   b = sol->buffer.data;
   n = sol->buffer.size;
   hash = signature(sol, b+1, n-1); // skip b[0]. It cannot be subsumed.
@@ -2372,9 +2372,9 @@ static void simplify_learned_clause(sat_solver_t *sol) {
   j = 1;
   for (i=1; i<n; i++) {
     l = b[i];
-    if (subsumed(sol, l, hash)) { 
+    if (subsumed(sol, l, hash)) {
       // Hack: move l to buffer2 to clear its mark later
-      ivector_push(&sol->buffer2, l); 
+      ivector_push(&sol->buffer2, l);
     } else {
       // keep l in buffer
       b[j] = l;
@@ -2427,7 +2427,7 @@ static inline void set_var_mark(sat_solver_t *sol, bvar_t x) {
  * Process literal l during conflict resolution:
  * - if l is already marked, do nothing
  * - otherwise: mark it + if l has level < conflict level
- *   add l at the end of bufffer 
+ *   add l at the end of bufffer
  * - return 1 if l is to be resolved (l was not marked and has level == conflict level)
  * - return 0 otherwise
  */
@@ -2449,7 +2449,7 @@ static uint32_t process_literal(sat_solver_t *sol, literal_t l, uint32_t conflic
 /*
  * Search for first UIP and build the learned clause
  * sol = solver state
- *   sol->cl stores a conflict clause (i.e., an array of literals 
+ *   sol->cl stores a conflict clause (i.e., an array of literals
  *   terminated by -1 with all literals in sol->cl false).
  * result:
  * - the learned clause is stored in sol->buffer as an array of literals
@@ -2488,7 +2488,7 @@ static void analyze_conflict(sat_solver_t *sol) {
 
   // reserve space for the UIP literal
   ivector_reset(buffer);
-  ivector_push(buffer, null_literal); 
+  ivector_push(buffer, null_literal);
 
   /*
    * scan the conflict clause
@@ -2626,7 +2626,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
   }
 #endif
 
-  /* 
+  /*
    * Select unassigned variable x with highest activity
    */
   while (! heap_is_empty(&solver->heap)) {
@@ -2636,7 +2636,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
       check_top_var(solver, x);
 #endif
       solver->stats.decisions ++;
-      return x;      
+      return x;
     }
   }
 
@@ -2716,16 +2716,16 @@ static bool level_has_lower_activity(sat_solver_t *sol, double ax, uint32_t k) {
   sol_stack_t *stack;
   uint32_t i, n;
   bvar_t x;
-  
+
   assert(k <= sol->decision_level);
   stack = &sol->stack;
 
   // i := start of level k
   // n := end of level k
-  i = stack->level_index[k]; 
+  i = stack->level_index[k];
   n = stack->top;
   if (k < sol->decision_level) {
-    n = stack->level_index[k+1]; 
+    n = stack->level_index[k+1];
   }
 
   while (i < n) {
@@ -2744,11 +2744,11 @@ static bool level_has_lower_activity(sat_solver_t *sol, double ax, uint32_t k) {
 /*
  * RESTARTS: THREE VARIANTS
  * - full restart: backtrack(sol, 0)
- * - partial restart: lazier version: backtrack(sol, k) for some 
+ * - partial restart: lazier version: backtrack(sol, k) for some
  *   level k >= 0 determined by variable activities:
  * - partial_restart_var: even lazier version: if partial restart
  *   would backtrack to level k then partial_restart_var backtracks
- *   to k' >= k. 
+ *   to k' >= k.
  * - benchmarking shows that partial_restart_var seems to work best.
  */
 
@@ -2772,13 +2772,13 @@ static void partial_restart(sat_solver_t *sol) {
     x = sol->heap.heap[1]; // top variable
     assert(x >= 0 && var_is_unassigned(sol, x));
     ax = sol->heap.activity[x];
-    
+
     n = sol->decision_level;
     for (i=1; i<=n; i++) {
       k = sol->stack.level_index[i];
       x = var_of(sol->stack.lit[k]);  // decision variable for level i
-      assert(var_is_assigned(sol, x) && 
-	     sol->level[x] == i && 
+      assert(var_is_assigned(sol, x) &&
+	     sol->level[x] == i &&
 	     sol->antecedent[x] == mk_literal_antecedent(null_literal));
       if (sol->heap.activity[x] < ax) {
 	backtrack(sol, i - 1);
@@ -2831,7 +2831,7 @@ static uint32_t next_snapshot;
 /*
  * Search until the given number of conflict is reached.
  * - sol: solver
- * - conflict_bound: number of conflict 
+ * - conflict_bound: number of conflict
  * output: status_sat, status_unsolved, or status_unsat
  */
 solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
@@ -2865,14 +2865,14 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (sol->decision_level == 0) {
 	mark_level0_literals(sol);
 
-	if (sol->stack.top > sol->simplify_bottom && 
+	if (sol->stack.top > sol->simplify_bottom &&
 	    sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
 
 #if TRACE
 	  printf("---> Simplify\n");
 	  printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
 	  printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
-#endif 
+#endif
 
 	  simplify_clause_database(sol);
 	  sol->simplify_bottom = sol->stack.top;
@@ -2908,7 +2908,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       // then push the corresponding literal in the queue
       decide_variable(sol, x);
 
-    } else {      
+    } else {
       sol->stats.conflicts ++;
       nb_conflicts ++;
 
@@ -2976,7 +2976,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 #endif
 
   code = propagation(sol);
-  
+
   if (code != no_conflict) {
     sol->status = status_unsat;
     return status_unsat;
@@ -3028,8 +3028,8 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
     fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
     fprintf(stderr, "---------------------------------------------------------------------------------\n");
-    
-    fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
+
+    fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
 	    //	    d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,              // PICO
 	    threshold, sol->reduce_threshold, sol->nb_bin_clauses,  // LUBY
             get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
@@ -3059,7 +3059,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     }
     threshold = v * LUBY_INTERVAL;
     if (verbose) {
-      fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
+      fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
 	      threshold, sol->reduce_threshold, sol->nb_bin_clauses,
 	      get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
 	      get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
@@ -3075,7 +3075,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
       c_threshold = INITIAL_RESTART_THRESHOLD;
       d_threshold = (uint32_t)(d_threshold * RESTART_FACTOR);
       if (verbose) {
-        fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
+        fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
                 d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
                 get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
                 get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
@@ -3087,8 +3087,8 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
       }
     }
 #endif
-    
- 
+
+
   } while (code == status_unsolved);
 
   if (verbose) {
@@ -3154,7 +3154,7 @@ static void check_top_var(sat_solver_t *solver, bvar_t x) {
   uint32_t i, n;
   bvar_t y;
   var_heap_t *heap;
-  
+
   heap = &solver->heap;
   n = heap->heap_last;
   for (i=1; i<n; i++) {
@@ -3181,9 +3181,9 @@ static void check_literal_vector(literal_t *v) {
     } else {
       for (i=0; i<n; i++) {
         if (v[i] < 0) {
-          printf("ERROR: negative literal %d in vector %p at index %u (size = %u)\n", 
+          printf("ERROR: negative literal %d in vector %p at index %u (size = %u)\n",
                  v[i], v, i, n);
-        }       
+        }
       }
       if (v[i] != null_literal) {
         printf("ERROR: missing terminator in vector %p (size = %u)\n", v, n);
@@ -3334,7 +3334,7 @@ static void check_marks(sat_solver_t *sol) {
   for (i=0; i<n; i++) {
     l = sol->stack.lit[i];
     if (is_lit_unmarked(sol, l)) {
-      printf("Warning: literal %d assigned at level %d but not marked\n", 
+      printf("Warning: literal %d assigned at level %d but not marked\n",
              l, d_level(sol, l));
       fflush(stdout);
     }

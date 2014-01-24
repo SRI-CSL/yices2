@@ -5,7 +5,7 @@
 /*
  * Bit vector atoms are of three kinds:
  * - bveq x y
- * - bvge x y: x <= y, where x and y are interpreted 
+ * - bvge x y: x <= y, where x and y are interpreted
  *   as unsigned integers
  * - bvsge x y: x <= y, where x and y are as signed
  *   integers
@@ -26,7 +26,7 @@
  * Tags for atom types
  * - each atom maps an external boolean variable (in the core)
  *   to a constraint on two variables x and y.
- * - there are three kinds of atoms: eq, ge, sge 
+ * - there are three kinds of atoms: eq, ge, sge
  */
 typedef enum bvatm_tag {
   BVEQ_ATM,     // (x == y)
@@ -46,7 +46,7 @@ typedef enum bvatm_tag {
  * - lit is a literal in the core.
  *   if lit == true_literal, the atom is true at the toplevel
  *   if lit == false_literal, the atom is false at the toplevel
- *   otherwise the atom is attached to a boolean variable v 
+ *   otherwise the atom is attached to a boolean variable v
  *   in the core and lit is pos_lit(v).
  * - left/right are x and y
  */
@@ -100,7 +100,7 @@ static inline bvar_t bvatm_bvar(bvatm_t *atm) {
 
 /*
  * Conversions between void* pointers and atom indices
- * - an atom index is packed into a void * pointer, with a two-bit tag 
+ * - an atom index is packed into a void * pointer, with a two-bit tag
  *   to indicate that it's an bitvector atom (cf. egraph_base_types.h)
  * - there's no loss of data even if pointers are 32 bits (because
  *   the tag is 2bits and i is less than MAX_BVATOMTABLE_SIZE (i.e., 2^32/16)
@@ -122,7 +122,7 @@ static inline int32_t bvatom_tagged_ptr2idx(void *p) {
 
 /*
  * Atom descriptors are stored in array data
- * - natoms = number of atoms 
+ * - natoms = number of atoms
  * - size = size of the data array
  */
 typedef struct bv_atomtable_s {

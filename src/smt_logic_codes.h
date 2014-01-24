@@ -41,7 +41,7 @@ typedef enum smt_logic {
 } smt_logic_t;
 
 // number of known SMT logics
-#define NUM_SMT_LOGICS SMT_UNKNOWN 
+#define NUM_SMT_LOGICS SMT_UNKNOWN
 
 
 /*

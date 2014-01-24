@@ -2,8 +2,8 @@
  * Operations on rational numbers
  * - rationals are represented as pairs of 32bit integers
  * or if they are too large as gmp rationals.
- * - the representation used is coded via the 
- * denominator. If denominator > 0 then the 
+ * - the representation used is coded via the
+ * denominator. If denominator > 0 then the
  * the rational is num/den, otherwise, numerator
  * is used as an index in the global table of
  * gmp rationals (mpq_t).
@@ -49,7 +49,7 @@ static uint32_t bank_size = 0;
 
 
 /*
- * Maximal size. 
+ * Maximal size.
  */
 #define MAX_BANK_SIZE (UINT32_MAX/sizeof(mpq_t))
 
@@ -123,7 +123,7 @@ static inline int32_t free_list_next(int32_t i) {
 
 static inline void free_list_insert(int32_t i) {
   assert(0 <= i && i < bank_capacity);
-  assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity); 
+  assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity);
   mpz_set_si(mpq_numref(bank_q[i]), bank_free);
   bank_free = i;
 }
@@ -144,7 +144,7 @@ static int32_t alloc_mpq() {
       resize_bank(2 * n);
     }
     bank_size = n + 1;
-    assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity); 
+    assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity);
   }
   return n;
 }
@@ -187,7 +187,7 @@ static uint32_t string_buffer_length;
 
 #define INITIAL_BANK_CAPACITY 1024
 
-void init_rationals() {  
+void init_rationals() {
   init_mpq_aux();
   init_bank(INITIAL_BANK_CAPACITY);
   string_buffer = NULL;
@@ -229,10 +229,10 @@ static void division_by_zero() {
  *
  * otherwise a/b must be stored as a gmp rational.
  *
- * The bounds are such that 
- * - (a/1)+(b/1), (a/1) - (b/1) can be computed using 
+ * The bounds are such that
+ * - (a/1)+(b/1), (a/1) - (b/1) can be computed using
  *   32bit arithmetic without overflow.
- * - a/b stored as a pair implies -a/b and b/a can be stored 
+ * - a/b stored as a pair implies -a/b and b/a can be stored
  *   as pairs too.
  */
 #define MAX_NUMERATOR (INT32_MAX>>1)
@@ -242,7 +242,7 @@ static void division_by_zero() {
 
 
 /*
- * Normalization: construct rational a/b when 
+ * Normalization: construct rational a/b when
  * a and b are two 64bit numbers.
  * - b must be non-zero
  */
@@ -291,7 +291,7 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
     uint64_t a_1 = abs_a;
     uint64_t b_1 = b;
 
-    // compute gcd of abs_a and b 
+    // compute gcd of abs_a and b
     // loop invariant: abs_a is odd or b is odd (or both)
     for (;;) {
       if ((a_1 & 1) == 0) {
@@ -384,7 +384,7 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
     uint32_t a_1 = abs_a;
     uint32_t b_1 = b;
 
-    // compute gcd of abs_a and b 
+    // compute gcd of abs_a and b
     // loop invariant: abs_a is odd or b is odd (or both)
     for (;;) {
       if ((a_1 & 1) == 0) {
@@ -475,7 +475,7 @@ void q_set32(rational_t *r, int32_t a) {
 
 
 /*
- * Convert r to a gmp number. 
+ * Convert r to a gmp number.
  * r->num and r->den must have no common factor
  * and r->den must be non-zero.
  */
@@ -512,7 +512,7 @@ static void set_to_gmp64(rational_t *r, int64_t a) {
 /*
  * Convert mpq to a pair of integers if possible.
  */
-void q_normalize(rational_t *r) {  
+void q_normalize(rational_t *r) {
   mpq_ptr q;
   unsigned long den;
   long num;
@@ -630,7 +630,7 @@ void q_get_num(rational_t *r1, rational_t *r2) {
         r1->num = num;
         r1->den = 1;
         return;
-      } 
+      }
     }
     // BUG:    q_set_mpz(r1, mpq_numref(q));
     q_prepare(r1);
@@ -764,7 +764,7 @@ int q_set_from_string(rational_t *r, const char *s) {
  * Conversion from a string using the given base.
  * Base is interpreted as in gmp: either 0 or an integer from 2 to 36.
  * If base = 0, then the base is determined independently for the
- * numerator and denominator from the first characters. 
+ * numerator and denominator from the first characters.
  * Prefixes  0x or 0b or 0 indicate base 16, 2, or 8,
  * otherwise, the base is 10.
  */
@@ -854,7 +854,7 @@ int q_set_from_float_string(rational_t *r, const char *s) {
   if (mpz_set_str(mpq_numref(q0), string_buffer, 10) < 0) {
     return -1;
   }
-  if (sign < 0) { 
+  if (sign < 0) {
     mpq_neg(q0, q0);
   }
 
@@ -1102,7 +1102,7 @@ void q_submul(rational_t *r1, rational_t *r2, rational_t *r3) {
  * Increment: add one to r1
  */
 void q_add_one(rational_t *r1) {
-  int32_t n;  
+  int32_t n;
   if (r1->den == 0) {
     n = r1->num;
     mpz_add(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
@@ -1118,7 +1118,7 @@ void q_add_one(rational_t *r1) {
  * Decrement: subtract one from r1
  */
 void q_sub_one(rational_t *r1) {
-  int32_t n;  
+  int32_t n;
   if (r1->den == 0) {
     n = r1->num;
     mpz_sub(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
@@ -1189,7 +1189,7 @@ void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n) {
   if (n <= 3) {
     // small exponent:
     switch (n) {
-    case 3: q_mul(r1, r2);      
+    case 3: q_mul(r1, r2);
     case 2: q_mul(r1, r2);
     case 1: q_mul(r1, r2);
     case 0: break; // do nothing
@@ -1209,7 +1209,7 @@ void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n) {
       if (n == 0) break;
       q_mul(&aux, &aux); // this should work
     }
-    
+
     q_clear(&aux);
   }
 }
@@ -1281,7 +1281,7 @@ void q_gcd(rational_t *r1, rational_t *r2) {
       // r1 is gmp, r2 is a small integer
       b = abs32(r2->num);
       d = mpz_gcd_ui(NULL, mpq_numref(bank_q[r1->num]), b);
-      free_mpq(r1->num);      
+      free_mpq(r1->num);
     }
     assert(d <= MAX_NUMERATOR);
     r1->num = d;
@@ -1347,7 +1347,7 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
       }
     } else {
       // both r1 and r2 are gmp rationals
-      mpz_fdiv_q(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), 
+      mpz_fdiv_q(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]),
                  mpq_numref(bank_q[r2->num]));
       assert(mpq_is_integer(bank_q[r1->num]));
     }
@@ -1357,7 +1357,7 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
 /*
  * Assign the remainder of r1 divided by r2 to r1
  * - both r1 and r2 must be integer
- * - r2 must be positive 
+ * - r2 must be positive
  */
 void q_integer_rem(rational_t *r1, rational_t *r2) {
   int32_t n;
@@ -1367,9 +1367,9 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
   if (r2->den != 0) {
     assert(r2->den == 1 && r2->num > 0);
     if (r1->den != 0) {
-      /* 
+      /*
        * both r1 and r2 are small integers
-       * Note: the result of (r1->num % r2->num) has the same sign as r1->num 
+       * Note: the result of (r1->num % r2->num) has the same sign as r1->num
        */
       n = r1->num % r2->num;
       if (n < 0) {
@@ -1391,7 +1391,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
       /*
        * r1 is a small integer, r2 is a gmp rational
        * since r2 is normalized and positive, we have r2 > abs(r1)
-       * so r1 mod r2 = r1 if r1 >= 0 
+       * so r1 mod r2 = r1 if r1 >= 0
        * or r1 mod r2 = (r2 + r1) if r1 < 0
        */
       assert(r1->den == 1);
@@ -1406,7 +1406,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
 
     } else {
       // both r1 and r2 are gmp rationals
-      mpz_fdiv_r(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), 
+      mpz_fdiv_r(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]),
                  mpq_numref(bank_q[r2->num]));
       assert(mpq_is_integer(bank_q[r1->num]));
     }
@@ -1415,7 +1415,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
 
 
 /*
- * Check whether r1 divides r2 
+ * Check whether r1 divides r2
  *
  * Both r1 and r2 must be integers and r1 must be non-zero
  */
@@ -1453,7 +1453,7 @@ bool q_divides(rational_t *r1, rational_t *r2) {
   bool divides;
 
   if (r1->den == 1 && (r1->num == 1 || r1->num == -1)) {
-    // r1 is +1 or -1 
+    // r1 is +1 or -1
     return true;
   }
 
@@ -1491,12 +1491,12 @@ void q_generalized_lcm(rational_t *r1, rational_t *r2) {
     q_get_num(&a1, r1);
     q_init(&b1);
     q_get_den(&b1, r1);
-    
+
     q_init(&a2);
     q_get_num(&a2, r2);
     q_init(&b2);
     q_get_den(&b2, r2);
-    
+
     q_lcm(&a1, &a2); // a1 := lcm(a1, a2)
     q_gcd(&b1, &b2); // b1 := gcd(b1, b2)
 
@@ -1546,7 +1546,7 @@ int q_cmp(rational_t *r1, rational_t *r2) {
   }
 }
 
-  
+
 /*
  * Compare r1 and num/den
  */
@@ -1565,7 +1565,7 @@ int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den) {
   mpq_set_int64(q0, num, den);
   mpq_canonicalize(q0);
   if (r1->den == 0) {
-    return mpq_cmp(bank_q[r1->num], q0); 
+    return mpq_cmp(bank_q[r1->num], q0);
   } else {
     return - mpq_cmp_si(q0, r1->num, r1->den);
   }
@@ -1600,7 +1600,7 @@ bool q_opposite(rational_t *r1, rational_t *r2) {
  **********************************************/
 
 /*
- * Convert r to a 32bit signed integer 
+ * Convert r to a 32bit signed integer
  * - return false if r is not an integer or does not fit in 32 bits
  */
 bool q_get32(rational_t *r, int32_t *v) {
@@ -1609,10 +1609,10 @@ bool q_get32(rational_t *r, int32_t *v) {
   if (r->den == 1) {
     *v = r->num;
     return true;
-  } else if (r->den == 0 && mpq_fits_int32(bank_q[r->num])) {    
+  } else if (r->den == 0 && mpq_fits_int32(bank_q[r->num])) {
     mpq_get_int32(bank_q[r->num], v, &d);
     return d == 1;
-  } else {    
+  } else {
     return false;
   }
 }
@@ -1674,7 +1674,7 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
 
 
 /*
- * Check whether r can be converted to a 32bit integer, 
+ * Check whether r can be converted to a 32bit integer,
  * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
  */
 bool q_is_int32(rational_t *r) {
@@ -1769,7 +1769,7 @@ void q_print_abs(FILE *f, rational_t *r) {
       mpq_neg(q, q);
     } else {
       mpq_out_str(f, 10, bank_q[r->num]);
-    }    
+    }
   } else {
     abs_num = r->num;
     if (abs_num < 0) abs_num = - abs_num;
@@ -1792,9 +1792,9 @@ void q_print_abs(FILE *f, rational_t *r) {
 #define HASH_MODULUS 4294967291UL
 
 /*
- *  we have  HASH_MODULUS > - MIN_NUMERATOR 
+ *  we have  HASH_MODULUS > - MIN_NUMERATOR
  *   and HASH_MODULUS > MAX_NUMERATOR
- * 
+ *
  * if MIN_NUMERATOR <= r->num <= MAX_NUMERATOR then
  * 1) if r->num >= 0 then r_num mod HASH_MODULUS = r_nun
  * 2) if r->num < 0 then r_num mod HASH_MODULUS = r_num + HASH_MODULUS

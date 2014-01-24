@@ -76,7 +76,7 @@ static void extend_large_bvset_fvals(large_bvset_t *s) {
 
   n = s->fsize + 1;
   n += n>>1;
-  
+
   if (n >= BVSET_MAX_FSIZE) {
     out_of_memory();
   }
@@ -104,7 +104,7 @@ static void large_bvset_store_fval(large_bvset_t *s, uint32_t x) {
 
 
 /*
- * Add value x to set s 
+ * Add value x to set s
  */
 void large_bvset_add(large_bvset_t *s, uint32_t x) {
   uint32_t i, mask;

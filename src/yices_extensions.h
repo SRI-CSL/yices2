@@ -296,10 +296,10 @@ extern bool yices_check_boolean_term(term_t t);
  * - if not set the internal error report:
  *
  * If t is not a valid term:
- *   code = INVALID_TERM 
+ *   code = INVALID_TERM
  *   term1 = t
  *   index = -1
- * If t is not an arithmetic term; 
+ * If t is not an arithmetic term;
  *   code = ARITHTERM_REQUIRED
  *   term1 = t
  */
@@ -307,7 +307,7 @@ extern bool yices_check_arith_term(term_t t);
 
 
 /*
- * Check for degree overflow in the product (b * t) 
+ * Check for degree overflow in the product (b * t)
  * - b must be a buffer obtained via yices_new_arith_buffer().
  * - t must be a valid arithmetic term.
  *
@@ -349,10 +349,10 @@ extern bool yices_check_bvsize(uint32_t n);
  * - if not set the internal error report.
  *
  * If t is not a valid term:
- *   code = INVALID_TERM 
+ *   code = INVALID_TERM
  *   term1 = t
  *   index = -1
- * If t is not an arithmetic term; 
+ * If t is not an arithmetic term;
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
@@ -441,7 +441,7 @@ extern harray_t *yices_free_vars_of_term(term_t t);
 
 /*
  * Return a new context for the given arch, mode, iflag, and qflag.
- * This doesn't use the configuration object, unlike the official 
+ * This doesn't use the configuration object, unlike the official
  * yices_new_context declared in yices.h.
  * - logic = logic code (can be SMT_UNKNOWN)
  * - arch = architecture to use
@@ -460,7 +460,7 @@ extern context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, c
 
 
 /*
- * Set default search parameters for ctx (based on architecture and theories) 
+ * Set default search parameters for ctx (based on architecture and theories)
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
 extern void yices_set_default_params(context_t *ctx, param_t *params);

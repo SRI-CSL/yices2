@@ -24,7 +24,7 @@
 
 /*
  * Mask for normalizing an n-bit constant where 0 < n <= 64
- * - x & mask64(n) is the normalization of x 
+ * - x & mask64(n) is the normalization of x
  *   (i.e., high-order bits are 0)
  * - warning: shift by 64 is undefined in C
  */
@@ -122,7 +122,7 @@ static inline uint64_t min_signed64(uint32_t n) {
  */
 
 /*
- * Shift left: (a << b), padding with 0. 
+ * Shift left: (a << b), padding with 0.
  * - n = number of bits in a and b
  * - if b is more than n, this returns 0b00000
  * - the result is normalized
@@ -188,11 +188,11 @@ static inline bool signed64_lt(uint64_t a, uint64_t b, uint32_t n) {
  * DIVISIONS
  *
  * These are the quotient and remainder operations defined in the SMT-LIB notation.
- * They are identical to the usual division and remainder operation, except that a 
+ * They are identical to the usual division and remainder operation, except that a
  * zero divider is allowed.
- * 
+ *
  * All operations compute the quotient or remainder in the division of x by y.
- * Both x and y must be normalized modulo 2^n, and the result is also normalized 
+ * Both x and y must be normalized modulo 2^n, and the result is also normalized
  * modulo 2^n,
  *
  * Unsigned division: x and y are interpreted as unsigned n-bit numbers
@@ -217,12 +217,12 @@ static inline bool signed64_lt(uint64_t a, uint64_t b, uint32_t n) {
  *   (smod a1 a2) has the same sign as a2
  *
  * For division by 0, we use the following rules:
- *   (udiv a 0) = 0b11...1 
+ *   (udiv a 0) = 0b11...1
  *   (urem a 0) = a
  *   (sdiv a 0) = 0b111..1 if a >= 0
  *   (sdiv a 0) = 0b00..01 if a < 0
  *   (srem a 0) = a
- *   (smod a 0) = a 
+ *   (smod a 0) = a
  */
 extern uint64_t bvconst64_udiv2z(uint64_t x, uint64_t y, uint32_t n);
 extern uint64_t bvconst64_urem2z(uint64_t x, uint64_t y, uint32_t n);
@@ -264,7 +264,7 @@ extern int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s);
 
 
 /*
- * Convert the n low-order bits of a rational q to a bitvector 
+ * Convert the n low-order bits of a rational q to a bitvector
  * constant of n-bits
  * - q must be an integer
  */

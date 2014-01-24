@@ -46,7 +46,7 @@ static void test_atoms(void) {
   pp_bv64(&printer, 0, 55);
   pp_bv64(&printer, UINT64_MAX, 55);
   pp_bv(&printer, bv, 120);
-  pp_string(&printer, 
+  pp_string(&printer,
 	    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
@@ -92,12 +92,12 @@ static void test_list2(void) {
   pp_uint32(&printer, 2193944);
   pp_close_block(&printer, true);
   pp_close_block(&printer, true);
- 
+
   flush_yices_pp(&printer);
 }
 
 
-int main() {  
+int main() {
   init_rationals();
   mpz_init(z0);
   mpz_set_str(z0, "12345678900987654321", 10);
@@ -105,7 +105,7 @@ int main() {
   mpq_set_str(q0, "1111111111111/431567892334", 10);
   q_init(&r0);
   q_set_int32(&r0, 123, 98765);
-  
+
   init_yices_pp_tables();
 
 

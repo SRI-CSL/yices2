@@ -30,7 +30,7 @@ typedef struct int_heap_s {
   uint32_t nelems;
   uint32_t size;
   // index array and its size
-  int32_t *idx;  
+  int32_t *idx;
   uint32_t idx_size;
 } int_heap_t;
 

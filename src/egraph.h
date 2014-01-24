@@ -31,10 +31,10 @@ extern void init_egraph(egraph_t *egraph, type_table_t *ttbl);
 
 /*
  * Attach an arithmetic solver
- * - solver = pointer to the solver object 
+ * - solver = pointer to the solver object
  * - ctrl, smt, eg, arith_eg = interface descriptors
  */
-extern void egraph_attach_arithsolver(egraph_t *egraph, 
+extern void egraph_attach_arithsolver(egraph_t *egraph,
                                       void *solver,
                                       th_ctrl_interface_t *ctrl,
                                       th_smt_interface_t *smt,
@@ -43,10 +43,10 @@ extern void egraph_attach_arithsolver(egraph_t *egraph,
 
 /*
  * Attach a bitvector solver
- * - solver = pointer to the solver object 
+ * - solver = pointer to the solver object
  * - ctrl, smt, eg, bv_eg = interface descriptors
  */
-extern void egraph_attach_bvsolver(egraph_t *egraph, 
+extern void egraph_attach_bvsolver(egraph_t *egraph,
                                    void *solver,
                                    th_ctrl_interface_t *ctrl,
                                    th_smt_interface_t *smt,
@@ -76,7 +76,7 @@ extern th_smt_interface_t *egraph_smt_interface(egraph_t *egraph);
  * Attach a core solver:
  * - the core must be initialized with the egraph, and the interface
  *   descriptors returned by the two functions above
- * - until the core is attached, the egraph can't be used 
+ * - until the core is attached, the egraph can't be used
  * - the internal egraph boolean constant is constructed at this point
  */
 extern void egraph_attach_core(egraph_t *egraph, smt_core_t *core);
@@ -94,13 +94,13 @@ extern void delete_egraph(egraph_t *egraph);
 
 /*
  * Non-boolean and non-tuple terms
- * ------------------------------- 
- * All term constructors take a type parameter that must be a type 
+ * -------------------------------
+ * All term constructors take a type parameter that must be a type
  * defined in the type table attached to the egraph. Hash consing
- * is used for composite terms. A theory variable is created and 
+ * is used for composite terms. A theory variable is created and
  * attached to new terms depending on their type and on whether the
  * relevant satellite solver is present.
- * 
+ *
  * It's also possible to create a fresh variable in the egraph and
  * attach it to an existing theory variable in the bitvector, arithmetic,
  * or array solver.
@@ -136,7 +136,7 @@ extern eterm_t egraph_make_tuple(egraph_t *egraph, uint32_t n, occ_t *a, type_t 
  * Atoms (type = BOOL, etype = BOOL,  theory variable = a fresh boolean variable)
  * - all return pos_occ(theory_variable)
  * - make_pred builds an uninterpreted predicate (f a[0] ... a[n])
- * - make_distinct rewrites (distinct a[0] ... a[n-1]) to a conjunction of 
+ * - make_distinct rewrites (distinct a[0] ... a[n-1]) to a conjunction of
  *   disequalities if the distinct limit is reached.
  */
 extern literal_t egraph_make_pred(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a);
@@ -188,7 +188,7 @@ extern literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2);
  *
  * Additional processing for make_variable and make_apply:
  * - if tau is a scalar type, then an instance of the scalar axiom is
- *   created (i.e., the clause (or (= t const!0) ... (= t const!k)) where 
+ *   created (i.e., the clause (or (= t const!0) ... (= t const!k)) where
  *   k+1 = cardinality of tau.
  *
  * - if tau is a tuple type, then an instance of the skolemization axiom
@@ -272,7 +272,7 @@ static inline occ_t egraph_literal2occ(egraph_t *egraph, literal_t l) {
 
 /*
  * Convert a term occurrence t to a literal
- * - t must have a boolean variable v attached 
+ * - t must have a boolean variable v attached
  */
 static inline literal_t egraph_occ2literal(egraph_t *egraph, occ_t t) {
   assert(egraph_occ_is_bool(egraph, t));
@@ -313,12 +313,12 @@ static inline bool egraph_check_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
  * Returns true in the following cases:
  * 1) t1 and (not t2) are equal
  * 2) there are distinct constants a1 and a2 with t1 == a1 and t2 == a2
- * 3) there's a term v = (eq u1 u2), such that v == false, and 
+ * 3) there's a term v = (eq u1 u2), such that v == false, and
  *     t1 == u1, t2 == u2 or t1 == u2, t2 == u1
  * 4) there's a term v = (distinct u_1 ... u_n) such that v == true,
  *    and t1 == u_i and t2 == u_j with i /= j
  */
-extern bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2);  
+extern bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2);
 
 
 /*
@@ -344,7 +344,7 @@ extern bool egraph_check_distinct_true(egraph_t *egraph, composite_t *d);
 
 /*
  * Check whether d = (distinct u_1 ... u_n) is true.
- * Incomplete but cheap version: 
+ * Incomplete but cheap version:
  * - return true if u_1 ... u_n are equal to n distinct constants
  * or if an asserted predicate (distinct t_1 ... t_m) implies d
  */
@@ -481,7 +481,7 @@ extern void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *
 
 
 /*
- * Given a composite term c = (apply f i_1 ... i_n), search for a term 
+ * Given a composite term c = (apply f i_1 ... i_n), search for a term
  * congruent to c with the function f replaced by g.
  * - return the composite congruent to (apply g i_1 ... i_n) if the term exists
  * - return NULL_COMPOSITE otherwise
@@ -528,7 +528,7 @@ extern uint32_t egraph_num_classes_of_type(egraph_t *egraph, type_t tau);
  *   are in the same partition if their arguments are equal in the egraph
  *   (i.e., if n = m and t_1 == u_1 and ... and t_n == u_m)
  * The resulting partition is stored in the egraph's internal ppar_t structure.
- * The classes that contain at least 2 elements are stored in pp->classes 
+ * The classes that contain at least 2 elements are stored in pp->classes
  * (cf. ptr_partitions.h).
  */
 extern void egraph_build_arg_partition(egraph_t *egraph);
@@ -570,7 +570,7 @@ extern void egraph_build_model(egraph_t *egraph, value_table_t *vtbl);
 
 /*
  * Return the value of term occurrence t in the egraph model
- * - vtbl = table where concrete values must be constructed (that's the 
+ * - vtbl = table where concrete values must be constructed (that's the
  *   same table as is passed to the egraph_build_model function).
  */
 extern value_t egraph_get_value(egraph_t *egraph, value_table_t *vtbl, occ_t t);

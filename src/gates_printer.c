@@ -49,7 +49,7 @@ void print_boolgate(FILE *f, boolgate_t *g) {
   op = tag_combinator(tag);
 
   switch (op) {
-  case XOR_GATE:    
+  case XOR_GATE:
   case OR_GATE:
   case ITE_GATE:
   case CMP_GATE:
@@ -81,7 +81,7 @@ void print_boolgate(FILE *f, boolgate_t *g) {
       if (i > 0) fputc(' ', f);
       print_literal(f, g->lit[i]);
     }
-    fputs(")\n",f);    
+    fputs(")\n",f);
     break;
 
   case FULLADD_GATE:
@@ -100,10 +100,10 @@ void print_boolgate(FILE *f, boolgate_t *g) {
       if (i > 0) fputc(' ', f);
       print_literal(f, g->lit[i]);
     }
-    fputs(")\n",f);    
+    fputs(")\n",f);
     break;
   }
-  
+
 }
 
 
@@ -116,7 +116,7 @@ void print_boolgate_list(FILE *f, lnkgate_t *list) {
     print_boolgate(f, &list->gate);
     fputc('\n', f);
     list = list->next;
-  }  
+  }
 }
 
 
@@ -139,7 +139,7 @@ void print_gate_table_stack(FILE *f, gate_table_t *tbl) {
   stack = &tbl->stack;
   fprintf(f, "Trail stack for gate table %p\n", tbl);
   fprintf(f, "  current level = %"PRIu32"\n", stack->current_level);
-  fprintf(f, "  top level = %"PRIu32"\n", stack->top_level);  
+  fprintf(f, "  top level = %"PRIu32"\n", stack->top_level);
   for (i=0; i<stack->nlists; i++) {
     print_boolgate_levlist(f, stack->data + i);
   }

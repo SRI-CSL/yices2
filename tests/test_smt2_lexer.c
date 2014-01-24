@@ -17,7 +17,7 @@ static void print_token(smt2_token_t tk) {
   char *s;
 
   printf("---> Token %s (%"PRId32")\n", smt2_token_to_string(tk), tk);
-  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n", 
+  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n",
 	 lexer.tk_pos, lexer.tk_line, lexer.tk_column);
   n = current_token_length(&lexer);
   s = current_token_value(&lexer);
@@ -112,7 +112,7 @@ static void process_command_line(int argc, char *argv[]) {
 	  if (logic_code == SMT_UNKNOWN) {
 	    fprintf(stderr, "%s: unkknown logic %s\n", parser.command_name, logic_name);
 	    goto bad_usage;
-	  } 
+	  }
 	} else if (strcmp(logic_name, elem.s_value) != 0) {
 	  fprintf(stderr, "%s: only one logic can be speicifed\n", parser.command_name);
 	  goto bad_usage;

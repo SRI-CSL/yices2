@@ -56,18 +56,18 @@ static void print_subst_eq(FILE *f, context_t *ctx, term_t e) {
     t = r1 ^ polarity_of(r2);
   }
 
-  assert(is_pos_term(v) && 
+  assert(is_pos_term(v) &&
          term_kind(terms, v) == UNINTERPRETED_TERM);
 
   print_term_desc(f, terms, v);
   fputs(" := ", f);
-  print_term_desc(f, terms, t); 
+  print_term_desc(f, terms, t);
   fputs("\n         by assertion ", f);
   print_term_desc(f, terms, e);
 }
 
 
-/* 
+/*
  * Print all substitution candidates
  */
 void print_context_subst_eqs(FILE *f, context_t *ctx) {
@@ -80,7 +80,7 @@ void print_context_subst_eqs(FILE *f, context_t *ctx) {
     fprintf(f, "subst[%"PRIu32"]: ", i);
     print_subst_eq(f, ctx, v->data[i]);
     fputs("\n\n", f);
-  } 
+  }
 }
 
 

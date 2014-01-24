@@ -35,7 +35,7 @@ void init_bvexp_table(bvexp_table_t *table, bv_vartable_t *vtbl) {
  * Make the table large enough to store def[n]
  */
 static void resize_bvexp_table(bvexp_table_t *table, uint32_t n) {
-  uint32_t size;  
+  uint32_t size;
 
   size = table->size;
   if (n >= size) {
@@ -130,7 +130,7 @@ static void bvexp_table_remove_var(bvexp_table_t *table, thvar_t x) {
       h = hash_bvmlist(p, n);
       free_bvmlist(p, &table->store, n);
     } else {
-      h = hash_bvmlist64(p, n);      
+      h = hash_bvmlist64(p, n);
       free_bvmlist64(p, &table->store64);
     }
     int_htbl_erase_record(&table->htbl, h, x);
@@ -162,7 +162,7 @@ void reset_bvexp_table(bvexp_table_t *table) {
   // aux buffers must be reset before the stores
   bvarith_buffer_prepare(&table->aux, 100);
   bvarith64_buffer_prepare(&table->aux64, 32);
-  pp_buffer_reset(&table->pp);  
+  pp_buffer_reset(&table->pp);
 
   reset_objstore(&table->store);
   reset_objstore(&table->store64);
@@ -202,7 +202,7 @@ void delete_bvexp_table(bvexp_table_t *table) {
       b = bvvar_bitsize(table->vtbl, i);
       if (b > 64) {
         delete_bvmlist_coeffs(p, b);
-      }      
+      }
     }
   }
 
@@ -217,7 +217,7 @@ void delete_bvexp_table(bvexp_table_t *table) {
   delete_bvmlist_store(&table->store);
   delete_bvmlist64_store(&table->store64);
   delete_pprod_table(&table->pprods);
-  delete_int_htbl(&table->htbl);  
+  delete_int_htbl(&table->htbl);
 }
 
 
@@ -333,7 +333,7 @@ void expand_bvpoly64(bvexp_table_t *table, bvarith64_buffer_t *buffer, bvpoly_bu
 
   assert(buffer->store == &table->store64 && buffer->ptbl == &table->pprods);
 
-  bvarith64_buffer_prepare(buffer, bvpoly_buffer_bitsize(p)); 
+  bvarith64_buffer_prepare(buffer, bvpoly_buffer_bitsize(p));
 
   n = bvpoly_buffer_num_terms(p);
   if (n > 0) {
@@ -349,7 +349,7 @@ void expand_bvpoly64(bvexp_table_t *table, bvarith64_buffer_t *buffer, bvpoly_bu
     /*
      * non-constant terms of p are of the form a * x
      * we replace x by its value if x has tag BVTAG_CONST64
-     * we replace x by its definition if x has a definition in table 
+     * we replace x by its definition if x has a definition in table
      * otherwise, we keep x as is
      */
     while (i < n) {
@@ -389,7 +389,7 @@ void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly_buffer
   if (n > 0) {
     vtbl = table->vtbl;
     i = 0;
-    
+
     // constant term of p
     if (bvpoly_buffer_var(p, 0) == const_idx) {
       bvarith_buffer_add_const(buffer, bvpoly_buffer_coeff(p, 0));
@@ -423,11 +423,11 @@ void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly_buffer
  * HEURISTICS FOR POWER-PRODUCT EXPANSION
  */
 
-/* 
+/*
  * Given a product x_1 ^ d_1 * ... * x_n ^ d_n, we don't want to blow
  * up when replacing x_i by a polynomial q_i. Before replacing x_i by
  * q_i, we check whether q_i is short and has low total degree, and
- * whether d_i is small. We also make sure the total degree of 
+ * whether d_i is small. We also make sure the total degree of
  * (q_1 ^ d_1) * ... * (q_n ^ d_n) is small before expanding any x_i.
  *
  * We use the following constants:
@@ -484,7 +484,7 @@ static bool mlist_is_short(bvmlist_t *q, uint32_t *d) {
     n --;
   }
 
-  return false;  
+  return false;
 }
 
 
@@ -493,7 +493,7 @@ static bool mlist_is_short(bvmlist_t *q, uint32_t *d) {
  * Total degree check on p: check whether the full degree after
  * expansion is not more than TOTAL_LIMIT
  */
-static bool total_degree_test64(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {  
+static bool total_degree_test64(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {
   bvmlist64_t *q;
   uint32_t i, n, e, d, total;
   thvar_t x;
@@ -522,7 +522,7 @@ static bool total_degree_test64(bvexp_table_t *table, bv_vartable_t *vtbl, pp_bu
 }
 
 
-static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {  
+static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {
   bvmlist_t *q;
   uint32_t i, n, e, d, total;
   thvar_t x;
@@ -530,7 +530,7 @@ static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buff
   assert(vtbl == table->vtbl);
 
   total = 0;
-  n = p->len;  
+  n = p->len;
   for (i=0; i<n; i++) {
     x = p->prod[i].var;
     d = p->prod[i].exp;
@@ -557,7 +557,7 @@ static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buff
  * Expanded form for a product c * p
  * - c is a normalized bitvector constant
  * - p is a power product stored in a pp_buffer object
- * - n = bitsize of p 
+ * - n = bitsize of p
  * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
  * - the result is normalized
  */
@@ -609,7 +609,7 @@ void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffe
 
     c = norm64(c, n);
     pp_buffer_normalize(aux);
-  } 
+  }
 
   /*
    * The result is c * aux * buffer
@@ -642,7 +642,7 @@ void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t 
   if (total_degree_test(table, vtbl, p)) {
     aux = &table->pp;
     pp_buffer_reset(aux);
-    
+
     // make a copy of c in the internal bvconst buffer
     bvconstant_copy(&table->bvconst, n, c);
     c = table->bvconst.data;

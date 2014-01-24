@@ -7,7 +7,7 @@
 
 /*
  * In compact representation, polynomials are represented
- * as arrays of monomials. Each monomial is a pair 
+ * as arrays of monomials. Each monomial is a pair
  * (coefficient, variable indices), where coefficients are rationals
  * or bitvector constants.
  *
@@ -27,9 +27,9 @@ enum {
  * Type of user-provided comparison functions.  This can be used to
  * normalize polynomials using a different ordering than the default.
  *
- * A comparison function cmp is called with three parameters: 
- * - aux is a generic pointer provided to the sort function 
- * - x and y are two distinct variable indices 
+ * A comparison function cmp is called with three parameters:
+ * - aux is a generic pointer provided to the sort function
+ * - x and y are two distinct variable indices
  * - cmp(aux, x, y) must return true if x < y.
  *
  * The ordering must satisfy the following constraints:

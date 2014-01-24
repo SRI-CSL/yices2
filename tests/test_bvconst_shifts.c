@@ -144,6 +144,6 @@ int main(void) {
   test_shift(x, y, 64);
   y[1] = 2;
   test_shift(x, y, 64);
-  
+
   return 0;
 }

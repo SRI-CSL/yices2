@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <inttypes.h> 
+#include <inttypes.h>
 
 #include "poly_buffer.h"
 #include "rationals.h"
@@ -105,12 +105,12 @@ static poly_buffer_t buffer;
 #define MIN_NUMERATOR (INT32_MIN>>1)
 #define MAX_DENOMINATOR MAX_NUMERATOR
 
-static int32_t num[12] = { 
-  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR 
+static int32_t num[12] = {
+  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR
 };
 
 static uint32_t den[12] = {
-  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2 
+  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2
 };
 
 
@@ -144,7 +144,7 @@ int main() {
 
   normalize_poly_buffer(&buffer);
   printf("--- Normalize ---\n");
-  print_poly_buffer_details(&buffer);  
+  print_poly_buffer_details(&buffer);
 
   reset_poly_buffer(&buffer);
   printf("--- Reset ---\n");
@@ -154,7 +154,7 @@ int main() {
   poly_buffer_add_monomial(&buffer, 2, &alpha);
   printf("--- Add monomial x!2 * alpha ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   poly_buffer_add_const(&buffer, &alpha);
   printf("--- Add constant alpha ---\n");
   print_poly_buffer_details(&buffer);
@@ -166,10 +166,10 @@ int main() {
   poly_buffer_sub_monomial(&buffer, 2, &alpha);
   printf("--- Sub monomial x!2 * alpha ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   normalize_poly_buffer(&buffer);
   printf("--- Normalize ---\n");
-  print_poly_buffer_details(&buffer);  
+  print_poly_buffer_details(&buffer);
 
   reset_poly_buffer(&buffer);
   printf("--- Reset ---\n");
@@ -179,7 +179,7 @@ int main() {
   poly_buffer_sub_monomial(&buffer, 2, &alpha);
   printf("--- Sub monomial x!2 * alpha ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   poly_buffer_sub_const(&buffer, &alpha);
   printf("--- Sub constant alpha ---\n");
   print_poly_buffer_details(&buffer);
@@ -191,22 +191,22 @@ int main() {
   poly_buffer_sub_monomial(&buffer, 2, &alpha);
   printf("--- Sub monomial x!2 * alpha ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   poly_buffer_add_const(&buffer, &alpha);
   printf("--- Add constant alpha ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   poly_buffer_add_var(&buffer, 3);
   printf("--- Add var x!3 ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   poly_buffer_sub_var(&buffer, 3);
   printf("--- Sub var x!3 ---\n");
   print_poly_buffer_details(&buffer);
-  
+
   normalize_poly_buffer(&buffer);
   printf("--- Normalize ---\n");
-  print_poly_buffer_details(&buffer);  
+  print_poly_buffer_details(&buffer);
 
   reset_poly_buffer(&buffer);
   for (n=0; n<400; n++) {
@@ -219,8 +219,8 @@ int main() {
 
   normalize_poly_buffer(&buffer);
   printf("--- Normalize ---\n");
-  print_poly_buffer_details(&buffer);  
-  
+  print_poly_buffer_details(&buffer);
+
 
   delete_poly_buffer(&buffer);
   q_clear(&alpha);

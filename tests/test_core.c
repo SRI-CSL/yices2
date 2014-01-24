@@ -75,7 +75,7 @@ static void null_backtrack(void *t, uint32_t back_level) {
   empty_theory_t *th;
 
   th = t;
-  printf("%s->backtrack: old level = %"PRIu32", new level = %"PRIu32"\n", th->name, 
+  printf("%s->backtrack: old level = %"PRIu32", new level = %"PRIu32"\n", th->name,
 	 th->d_level, back_level);
   th->d_level = back_level;
   fflush(stdout);
@@ -179,18 +179,18 @@ int main() {
   printf("\n---- Push ----\n");
   smt_push(&core);
   print_smt_core(stdout, &core);
-  
+
   printf("\n---- Push ----\n");
   smt_push(&core);
   print_smt_core(stdout, &core);
-  
+
   printf("\n---- Start search ---\n");
   start_search(&core);
   print_smt_core(stdout, &core);
   printf("\n---- Process ----\n");
   smt_process(&core);
   print_smt_core(stdout, &core);
-  
+
   printf("\n---- Select literal ----\n");
   l = select_unassigned_literal(&core);
   if (l == null_literal) {
@@ -218,7 +218,7 @@ int main() {
   //  printf("\n---- Pop ----\n");
   //  smt_pop(&core);
   //  print_smt_core(stdout, &core);
-  
+
   delete_smt_core(&core);
 
   return 0;

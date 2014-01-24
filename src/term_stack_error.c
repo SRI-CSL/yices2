@@ -317,7 +317,7 @@ static const char * const *opcode2string;
 /*
  * BUG in Yices: Print an error message then exit
  */
-void report_bug(const char *s) {  
+void report_bug(const char *s) {
   fprintf(stderr, "\n*************************************************************\n");
   fprintf(stderr, "FATAL ERROR: %s\n\n", s);
   fprintf(stderr, "Please report this bug to yices-bugs@csl.sri.com.\n");
@@ -368,11 +368,11 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
 
   if (name == NULL) {
     fprintf(f, "Error: %s ", code2string[exception]);
-  } else { 
+  } else {
     fprintf(f, "%s: %s ", name, code2string[exception]);
   }
 
-  switch (exception) {    
+  switch (exception) {
   case TSTACK_INTERNAL_ERROR:
   case TSTACK_INVALID_OP:
   case TSTACK_NOT_A_SYMBOL:
@@ -517,14 +517,14 @@ static inline bool fatal_smt_error(error_code_t error) {
 
 /*
  * Print an error message on stream f for the given exception.
- * - if name is non- NULL, the error message is 
+ * - if name is non- NULL, the error message is
  *   'name: message ...'
- * - if name is NULL the error message is 
+ * - if name is NULL the error message is
  *   'Error: message ...'
  * The term-stack location, top-operator, etc. are used to help locate the error.
  *
- * Abort and print a request for a bug report if the error is 
- * internal to Yices. 
+ * Abort and print a request for a bug report if the error is
+ * internal to Yices.
  */
 void term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
   opcode2string = opcode2yices_string;

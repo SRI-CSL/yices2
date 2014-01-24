@@ -4,15 +4,15 @@
 
 /*
  * Optimization in final check:
- * - We consider the following equivalence relation between composite terms 
+ * - We consider the following equivalence relation between composite terms
  *   in the egraph:
  *     (apply f t_1 ... t_n) may conflict with (apply g u_1 ... u_n)
  *   if t_1 == u_1 ... t_n == u_n (in the egraph)
- *   and (apply f t_1 ... t_n) is not in the same class as 
+ *   and (apply f t_1 ... t_n) is not in the same class as
  *   (apply g u_1 ... u_n) in the egraph.
- * 
- * - When we check for conflict or extensionality instances, we 
- *   don't need to consider (apply f t_1 ... t_n)  if there's 
+ *
+ * - When we check for conflict or extensionality instances, we
+ *   don't need to consider (apply f t_1 ... t_n)  if there's
  *   no composite that may conflict with it.
  */
 
@@ -62,7 +62,7 @@ static inline fun_edge_t *new_edge(uint32_t n) {
 /*
  * Create the edge for an update composite u
  * - x = source variable
- * - y = target variable 
+ * - y = target variable
  * - u = update composite
  */
 static fun_edge_t *make_edge(thvar_t x, thvar_t y, composite_t *u) {
@@ -166,7 +166,7 @@ static int32_t edge_table_alloc(fun_edgetable_t *table) {
   }
   assert(i < table->size);
   table->nedges = i+1;
-  
+
   return i;
 }
 
@@ -603,7 +603,7 @@ static void fun_solver_init_base_maps(fun_solver_t *solver, uint32_t n) {
     tmp[i] = NULL;
   }
   solver->base_map = tmp;
-  solver->base_map_size = n;  
+  solver->base_map_size = n;
 }
 
 
@@ -704,7 +704,7 @@ static inline thvar_t adjacent_root(fun_solver_t *solver, thvar_t x, int32_t i) 
 /*
  * Predecessor of x
  * - get the root var y that precedes root var x via edge i
- * - i = vtbl->pre[x] must be the edge id for an edge u <---> t with 
+ * - i = vtbl->pre[x] must be the edge id for an edge u <---> t with
  *   t in class of x  and u in class of y
  */
 static thvar_t previous_root(fun_solver_t *solver, thvar_t x, int32_t i) {
@@ -800,12 +800,12 @@ static void fun_solver_update_axiom1(fun_solver_t *solver, eterm_t t, composite_
  * Instances are created from two terms (f i_1 ... i_n) and (g j_1 ... j_n) and
  * a path in the graph from a source x to a target variable y. The path is formed
  * of a list of edges (x_1 --> y_1) ... (x_t --> y_t) with the following property:
- * - y_k is in the class of x_{k+1} for k= 1,.., t-1 
+ * - y_k is in the class of x_{k+1} for k= 1,.., t-1
  * - f is in the class of variable x_1 = class of x
  * - g is in the class of variable y_t = class of y
- * 
+ *
  * Let [k_11 ... k_1n], ..., [k_t1 ... k_tn] be the labels on the successive edges,
- * and let u_i = eterm[x_i] and v_i = eterm[y_i] then the instance derived from 
+ * and let u_i = eterm[x_i] and v_i = eterm[y_i] then the instance derived from
  * (f i_1 ... i_n) and (g j_1 ... j_n) is of the form:
  *
  *       (f = u_1 and v_1 = u_2 ... v_{t-1} = u_t and v_t = g and i_1 = j_1 ... i_n = j_n)
@@ -850,7 +850,7 @@ static void collect_equal_arg_atoms(fun_solver_t *solver, composite_t *c, compos
 /*
  * Given
  * - c = (apply f i_1 ... i_n)
- * - x = a root variable 
+ * - x = a root variable
  * - k = an edge index
  * add the atom (f = u) to vector v,  where u = term attached to the extremity of k
  * that's in the same class as x.
@@ -923,7 +923,7 @@ static literal_t apply_edge_equal_args(fun_solver_t *solver, composite_t *c, fun
   uint32_t i, n;
   literal_t l;
 
-  assert(composite_kind(c) == COMPOSITE_APPLY && 
+  assert(composite_kind(c) == COMPOSITE_APPLY &&
          composite_arity(c) == 1 + solver->vtbl.arity[e->source]);
 
   egraph = solver->egraph;
@@ -1005,7 +1005,7 @@ static void fun_solver_skolem_domain(fun_solver_t *solver, type_t tau, ivector_t
   d = function_type_desc(solver->types, tau);
   n = d->ndom;
   for (i=0; i<n; i++) {
-    t = egraph_make_variable(egraph, d->domain[i]); 
+    t = egraph_make_variable(egraph, d->domain[i]);
     ivector_push(v, pos_occ(t));
   }
 }
@@ -1069,7 +1069,7 @@ static void fun_solver_extensionality_axiom(fun_solver_t *solver, thvar_t x, thv
   print_literal(stdout, not(l1));
   printf(" ");
   print_literal(stdout, l2);
-  printf(")\n\n");  
+  printf(")\n\n");
 #endif
 
   add_binary_clause(solver->core, not(l1), l2);
@@ -1132,7 +1132,7 @@ static void fun_solver_build_classes(fun_solver_t *solver) {
       vtbl->next[x] = i;
     }
   }
- 
+
 }
 
 
@@ -1250,12 +1250,12 @@ static void fun_solver_cleanup(fun_solver_t *solver) {
 /*
  * For each root variable x, we store a set of apply terms in app[x].
  * This set encodes what is known about x as a partial mapping.
- * If (f i_1 ... i_n) has egraph label C and  belongs to app[x]  
- * then x maps the tuple (L(i_1) ... L(i_n)) to C, where 
+ * If (f i_1 ... i_n) has egraph label C and  belongs to app[x]
+ * then x maps the tuple (L(i_1) ... L(i_n)) to C, where
  *  L(i_k) is the label of i_k in the egraph.
  *
  * To normalize app[x], we sort the set using the order:
- *  (f i_1 ... i_n) <= (g j_1 ... j_n) if 
+ *  (f i_1 ... i_n) <= (g j_1 ... j_n) if
  * [L(i_1), ... ,L(i_n)] <= [L(j_1), ..., L(j_n)] in lexicographic order.
  *
  * Two apply terms (f i_1 ... i_n) and (g j_1 ... j_n) are equivalent if
@@ -1305,7 +1305,7 @@ static int32_t app_cmp(egraph_t *egraph, composite_t *c, composite_t *d) {
 
   return 0;
 }
- 
+
 
 /*
  * Test whether c precedes d in the order (strictly)
@@ -1392,7 +1392,7 @@ static void fun_solver_normalize_apps(fun_solver_t *solver) {
  * i_1 ... i_n) that's in a different equivalence class than c in
  * the egraph.
  *
- * If a conflict is found, we add instances of axiom2 to the core. 
+ * If a conflict is found, we add instances of axiom2 to the core.
  * Otherwise, we add c to app[root[z]] for all z found along the way.
  */
 
@@ -1460,7 +1460,7 @@ static uint32_t path_length(fun_solver_t *solver, thvar_t x, thvar_t z) {
   n = 0;
   y = z;
   do {
-    n ++; 
+    n ++;
     i = vtbl->pre[y];
     y = previous_root(solver, y, i);
   } while (y != x);
@@ -1472,7 +1472,7 @@ static uint32_t path_length(fun_solver_t *solver, thvar_t x, thvar_t z) {
 
 
 /*
- * Add instance of the update2 axiom corresponding to the non-masking 
+ * Add instance of the update2 axiom corresponding to the non-masking
  * path from x to z encoded in the vtbl->pre fields.
  * - x = source node
  * - z = end node
@@ -1480,7 +1480,7 @@ static uint32_t path_length(fun_solver_t *solver, thvar_t x, thvar_t z) {
  * - d = composite of the from (apply g j_1 ... j_n) with g in class of z
  * - c and d are in distinct classes in the egraph
  * - i_1 == j_1 .... i_n == j_n hold in the egraph
- * Since there's path from x to z and the path is non-masking, we should 
+ * Since there's path from x to z and the path is non-masking, we should
  * have c == d. We add the axiom that states this.
  */
 static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, composite_t *c, composite_t *d) {
@@ -1496,7 +1496,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   printf("\n--- Update conflict ---\n");
 #if 0
   printf("Classes:\n");
-  print_fsolver_classes(stdout, solver);      
+  print_fsolver_classes(stdout, solver);
   printf("Disequalities:\n");
   print_fsolver_diseqs(stdout, solver);
   printf("Applications:\n");
@@ -1513,7 +1513,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   printf("Target app: ");
   print_eterm_def(stdout, solver->egraph, d->id);
   printf("Path length: %"PRIu32"\n", path_length(solver, x, z));
-         
+
 #if 0
   printf("Path:\n");
   y = z;
@@ -1574,7 +1574,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
     }
     y = previous_root(solver, y, i);
   } while (y != x);
-  
+
 
   // add the consequent: (c == d)
   l = equal_applies(solver, c, d);
@@ -1596,7 +1596,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   print_egraph_atom_of_literal(stdout, solver->egraph, l);
   printf("\n\n");
 #endif
-  
+
   add_clause(solver->core, lemma->size, lemma->data);
 
 #if TRACE
@@ -1628,7 +1628,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
  *
  * Result:
  * - return true if there's a conflict, false otherwise
- * - if there's no conflict, c is added to vtbl->app[z] for all root variables z 
+ * - if there's no conflict, c is added to vtbl->app[z] for all root variables z
  * - if there's a conflict, c may be added to vtbl->app[z] for some z's
  * - if a conflict is found, then an instance of the generalized update axiom 2
  *   is added to the core.
@@ -1709,14 +1709,14 @@ static bool update_conflict_for_application(fun_solver_t *solver, thvar_t x, com
   }
   reset_fun_queue(queue);
 
-  return result;  
+  return result;
 }
 
 
 /*
  * Get the root variable for f in c = (apply f ....)
  */
-static thvar_t root_app_var(egraph_t *egraph, composite_t *c) {  
+static thvar_t root_app_var(egraph_t *egraph, composite_t *c) {
   eterm_t f;
 
   assert(composite_kind(c) == COMPOSITE_APPLY);
@@ -1735,7 +1735,7 @@ static bool update_conflicts(fun_solver_t *solver) {
   ppart_t *pp;
   void **v;
   composite_t *c;
-  uint32_t i, j, n, m; 
+  uint32_t i, j, n, m;
   thvar_t x;
   bool result;
   uint32_t num_updates;
@@ -1776,7 +1776,7 @@ static bool update_conflicts(fun_solver_t *solver) {
 #if 0
   // EXPERIMENT
   pp = egraph_app_partition(egraph);
-  n = egraph->terms.nterms;  
+  n = egraph->terms.nterms;
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
     if (composite_body(c) &&
@@ -1803,7 +1803,7 @@ static bool update_conflicts(fun_solver_t *solver) {
 #endif
   }
 
-  // cleanup  
+  // cleanup
   egraph_reset_app_partition(egraph);
 
   return result;
@@ -1913,7 +1913,7 @@ void fun_solver_reset(fun_solver_t *solver) {
   reset_edge_table(&solver->etbl);
   reset_fun_queue(&solver->queue);
   reset_diseq_stack(&solver->dstack);
-  reset_fun_trail_stack(&solver->trail_stack);  
+  reset_fun_trail_stack(&solver->trail_stack);
 
   ivector_reset(&solver->aux_vector);
   ivector_reset(&solver->lemma_vector);
@@ -1953,7 +1953,7 @@ void fun_solver_increase_decision_level(fun_solver_t *solver) {
   k = solver->decision_level + 1;
   solver->decision_level = k;
   diseq_stack_increase_dlevel(&solver->dstack, k);
-} 
+}
 
 
 /*
@@ -1994,7 +1994,7 @@ void fun_solver_pop(fun_solver_t *solver) {
   fun_edge_t *e;
   uint32_t i, n;
   thvar_t x;
-  
+
   assert(solver->base_level > 0 && solver->base_level == solver->decision_level);
   top = fun_trail_stack_top(&solver->trail_stack);
   vtbl = &solver->vtbl;
@@ -2036,12 +2036,12 @@ void fun_solver_start_internalization(fun_solver_t *solver) {
 /*
  * Start search
  */
-void fun_solver_start_search(fun_solver_t *solver) {  
+void fun_solver_start_search(fun_solver_t *solver) {
   solver->stats.num_init_vars = solver->vtbl.nvars;
   solver->stats.num_init_edges = solver->etbl.nedges;
   solver->reconciled = false;
 
-#if TRACE  
+#if TRACE
   printf("\n=== START SEARCH ===\n");
   print_fsolver_vars(stdout, solver);
   printf("\n");
@@ -2075,8 +2075,8 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
 
 #if TRACE
   printf("\n**** FUNSOLVER: FINAL CHECK ***\n\n");
-#endif 
-  
+#endif
+
 #if TRACE
   print_egraph_terms(stdout, solver->egraph);
   printf("\n\n");
@@ -2118,8 +2118,8 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
  * - fdom[x] = 1 if tau has finite domain or 0 otherwise
  * - eterm[x] = null_eterm
  * - edges[x] = NULL
- * 
- * - pre[x] = null_edge 
+ *
+ * - pre[x] = null_edge
  * - app[x] = NULL
  * - base[x] = -1;
  * - mark[x] = 0
@@ -2180,7 +2180,7 @@ void fun_solver_attach_eterm(fun_solver_t *solver, thvar_t x, eterm_t t) {
   composite_t *cmp;
   occ_t f;
   thvar_t y;
-  
+
   assert(0 <= x && x < solver->vtbl.nvars && solver->vtbl.eterm[x] == null_eterm);
 
   solver->vtbl.eterm[x] = t;
@@ -2195,7 +2195,7 @@ void fun_solver_attach_eterm(fun_solver_t *solver, thvar_t x, eterm_t t) {
     // create the edge y ---> x
     fun_solver_add_edge(solver, y, x, cmp);
 
-    // add the axiom ((update f i_1 ... i_n v) i_1 ... i_n) = v 
+    // add the axiom ((update f i_1 ... i_n v) i_1 ... i_n) = v
     fun_solver_update_axiom1(solver, t, cmp, solver->vtbl.type[x]);
 
     // NOTE: adding the axiom may create a new array variable and recursively
@@ -2233,7 +2233,7 @@ void fun_solver_assert_var_eq(fun_solver_t *solver, thvar_t x1, thvar_t x2) {
  */
 void fun_solver_assert_var_diseq(fun_solver_t *solver, thvar_t x1, thvar_t x2, composite_t *hint) {
   assert(0 <= x1 && x1 < solver->vtbl.nvars && 0 <= x2 && x2 < solver->vtbl.nvars);
-  diseq_stack_push(&solver->dstack, x1, x2);  
+  diseq_stack_push(&solver->dstack, x1, x2);
 }
 
 
@@ -2245,7 +2245,7 @@ void fun_solver_assert_var_diseq(fun_solver_t *solver, thvar_t x1, thvar_t x2, c
 void fun_solver_assert_var_distinct(fun_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
   thvar_t x, y;
   uint32_t i, j;
-  
+
   for (i=0; i<n; i++) {
     x = a[i];
     assert(0 <= x && x < solver->vtbl.nvars);
@@ -2261,7 +2261,7 @@ void fun_solver_assert_var_distinct(fun_solver_t *solver, uint32_t n, thvar_t *a
 /*
  * Check whether x1 and x2 are distinct at the base level
  * - do nothing for now. Always return false.
- */ 
+ */
 bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(0 <= x1 && x1 < solver->vtbl.nvars && 0 <= x2 && x2 < solver->vtbl.nvars);
   return false;
@@ -2269,7 +2269,7 @@ bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar_t x2) 
 
 
 /*
- * Check whether x is a constant 
+ * Check whether x is a constant
  */
 bool fun_solver_var_is_constant(fun_solver_t *solver, thvar_t x) {
   return false;
@@ -2305,7 +2305,7 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
   thvar_t y, z;
   uint32_t n, i;
   int32_t k;
-  
+
   vtbl = &solver->vtbl;
   queue = &solver->queue;
   assert(queue->top == 0 && queue->ptr == 0);
@@ -2318,7 +2318,7 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
     z = fun_queue_pop(queue);
     assert(vtbl->root[z] == z && tst_bit(vtbl->mark, z));
 
-#ifndef NDEBUG    
+#ifndef NDEBUG
     // there should be no update conflict when this function is called
     egraph = solver->egraph;
     d = egraph_find_modified_application(egraph, vtbl->eterm[z], c);
@@ -2411,7 +2411,7 @@ static void fun_solver_build_apps(fun_solver_t *solver) {
 
 /*
  * Assign a base_value to each connected component i
- * - we want to ensure 
+ * - we want to ensure
  *   base_value[i] != base_value[j] ==> it's possible to assign
  *   different default values to components i and j
  * - base_value[i] < 0 means that we can assign a fresh object (not in the egraph)
@@ -2419,7 +2419,7 @@ static void fun_solver_build_apps(fun_solver_t *solver) {
  *
  * We use the following rules:
  * - if component i has an infinite range type, then base_value[i] = -(i+1)
- * - if component i has finite range type, then we count the number of 
+ * - if component i has finite range type, then we count the number of
  *   egraph class with the same type and use them as base values
  * - if that's smaller than the cardinality of the range type,
  *   then we assign negative base_values to as many components as possible.
@@ -2475,10 +2475,10 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
   vtbl = &solver->vtbl;
   v = &solver->aux_vector;
   assert(v->size == 0);
-  
+
   /*
    * buffer is used only if we have functions
-   * with finite ranges. init_ivector with size 0 
+   * with finite ranges. init_ivector with size 0
    * does not allocate anything.
    */
   init_ivector(&buffer, 0);
@@ -2523,7 +2523,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 
     assert(m < i && i <= n);
 
-    /* 
+    /*
      * v->data[m ... i-1] = components of type tau (one variable per component)
      */
     sigma = function_type_range(types, tau);
@@ -2558,11 +2558,11 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	buffer.data[h] = k;
 	k --;
 	h ++;
-      }	
+      }
 
       /*
        * Assign base_values taken form buffer.data[0 .. p-1]
-       */      
+       */
       h = 0;
       for (j=m; j<i; j++) {
 	x = v->data[j];
@@ -2575,7 +2575,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	h ++;
 	if (h >= p) h = 0;
       }
-      
+
     } else {
       /*
        * Infinite range: all base values are fresh
@@ -2587,14 +2587,14 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
         solver->base_value[k] = - (k+1); // encoding for 'fresh value'
       }
     }
-    
+
     m = i;
   }
 
-  // cleanup  
+  // cleanup
   delete_ivector(&buffer);
   ivector_reset(v);
-  
+
 }
 
 
@@ -2733,7 +2733,7 @@ static bool fun_solver_var_equal_in_model(fun_solver_t *solver, thvar_t x1, thva
 
   } else {
     // x1 and x2 have incompatible types so they're distinct
-    return false;    
+    return false;
   }
 }
 
@@ -2743,7 +2743,7 @@ static bool fun_solver_var_equal_in_model(fun_solver_t *solver, thvar_t x1, thva
  *
  * For every variable x, we know the following
  * - its domain (sigma_1 x ... x sigma_n)
- * - its connected component index k = base[x] 
+ * - its connected component index k = base[x]
  * - the default value for component k = default[x]
  * - the application map = array of composites = app[x]
  * - the size of app = app_size[x]
@@ -2754,18 +2754,18 @@ static bool fun_solver_var_equal_in_model(fun_solver_t *solver, thvar_t x1, thva
  *
  * Properties we use:
  * 1) if x == y then domain[x] = domain[y] (call it D)
- * 2) if x == y and D is infinite then 
+ * 2) if x == y and D is infinite then
  *        base[x] = base[y]
  *    and  app[x] = app[y]
- * 3) if x == y and D is finite and default[x] is fresh 
- *    and relevant for x, then 
+ * 3) if x == y and D is finite and default[x] is fresh
+ *    and relevant for x, then
  *        default[y] = default[x]
  *    and default[y] is relevant for y
  *    and app[x] = app[y]
- * 
+ *
  * We associate the following signature with x:
  *   sgn(x) = (n, sigma_1, b(x), d(x), m(x))
- * where 
+ * where
  *   n = arity
  *   sigma_1 = first domain component
  *   b(x) = base[x] if domain[x] is infinite
@@ -2790,7 +2790,7 @@ static uint32_t fun_solver_model_hash(fun_solver_t *solver, thvar_t x) {
   fun_vartable_t *vtbl;
   void **v;
   int32_t b, d, app_size;
-  int32_t sgn[5];  
+  int32_t sgn[5];
 
   vtbl = &solver->vtbl;
   assert(0 <= x && x < vtbl->nvars);
@@ -2844,7 +2844,7 @@ static void fun_solver_release_model(fun_solver_t *solver) {
  * Add instance of the extensionality axiom for the conflicts that remain.
  * - max_eq is ignored (we use max_extensionality instead)
  * - return the number of extensionality instances created
- * - set the reconciled_flag to true if no extensionality instances were 
+ * - set the reconciled_flag to true if no extensionality instances were
  *   created (and to false otherwise).
  *
  * NOTE: this is not called if the egraph has no higher-order terms (i.e., function
@@ -2880,7 +2880,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   printf("Egraph:\n");
   print_egraph_terms(stdout, solver->egraph);
   printf("\nClasses:\n");
-  print_fsolver_classes(stdout, solver);      
+  print_fsolver_classes(stdout, solver);
   printf("\nMaps:\n");
   print_fsolver_maps(stdout, solver);
   printf("\nBase values\n");
@@ -2912,7 +2912,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
     }
   }
 
-  /* 
+  /*
    * If the first pass has created more variables.  we can't trust the
    * current model. So we skip the second pass.
    */
@@ -2928,7 +2928,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
     if (vtbl->root[i] == i) {
       x = int_hclass_get_rep(&hclass, i);
       if (x != i) {
-        fun_solver_extensionality_axiom(solver, x, i); 
+        fun_solver_extensionality_axiom(solver, x, i);
         neq ++;
         if (neq == max_eq) break;
       }
@@ -2968,7 +2968,7 @@ static void fun_solver_prepare_model(fun_solver_t *solver) {
 /*
  * Generate the lemma l => x1 != x2
  * - we instantiate the extensionality axiom here:
- *   (i.e., we generate the clause (not l) or (x1 t) /= (x2 t) for a 
+ *   (i.e., we generate the clause (not l) or (x1 t) /= (x2 t) for a
  *    fresh Skolem constant t).
  */
 static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
@@ -3018,14 +3018,14 @@ static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, th
   print_literal(stdout, not(l));
   printf(" ");
   print_literal(stdout, not(eq));
-  printf(")\n\n");  
+  printf(")\n\n");
 #endif
 
   add_binary_clause(solver->core, not(l), not(eq));
 
   ivector_reset(v);
 
-  solver->stats.num_extensionality_axiom ++;  
+  solver->stats.num_extensionality_axiom ++;
 }
 
 
@@ -3092,7 +3092,7 @@ static particle_t fun_solver_fresh_particle(fun_solver_t *solver, int32_t k, typ
 
 
 /*
- * Convert a unary application c = (apply g i) to a pair [idx -> val] 
+ * Convert a unary application c = (apply g i) to a pair [idx -> val]
  * - f = type descriptor for the function g
  * - idx is defined by the egraph label of i
  * - val is defined by the egraph label of c
@@ -3104,7 +3104,7 @@ static void convert_composite_to_map1(egraph_t *egraph, function_type_t *f, map_
 
   assert(composite_kind(c) == COMPOSITE_APPLY && composite_arity(c) == 2 && f->ndom == 1);
 
-  l_idx = egraph_label(egraph, composite_child(c, 1));    // label of i 
+  l_idx = egraph_label(egraph, composite_child(c, 1));    // label of i
   l_val = egraph_term_label(egraph, c->id);               // label of c
   idx = pstore_labeled_particle(store, l_idx, f->domain[0]);
   val = pstore_labeled_particle(store, l_val, f->range);
@@ -3119,13 +3119,13 @@ static void convert_composite_to_map1(egraph_t *egraph, function_type_t *f, map_
  * - val is defined by the label of c in egraph
  * - add the pair [idx -> val] to map
  */
-static void convert_composite_to_map(egraph_t *egraph, function_type_t *f, map_t *map, composite_t *c, pstore_t *store) {  
+static void convert_composite_to_map(egraph_t *egraph, function_type_t *f, map_t *map, composite_t *c, pstore_t *store) {
   particle_t *a;
   uint32_t i, n;
   elabel_t l;
   particle_t idx, val;
-  particle_t aux[10];  
-  
+  particle_t aux[10];
+
   assert(composite_kind(c) == COMPOSITE_APPLY && composite_arity(c) == f->ndom + 1 && f->ndom > 1);
 
   n = f->ndom;
@@ -3175,7 +3175,7 @@ static map_t *build_map_for_var(fun_solver_t *solver, function_type_t *f, thvar_
   map = new_map(n);
 
   egraph = solver->egraph;
-  
+
 
   /*
    * Convert each element of app into a pair [idx->value]
@@ -3334,7 +3334,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
     }
   }
 
- 
+
   /*
    * Build the initial map for each element of v
    * and check whether the maps are distinct.
@@ -3344,7 +3344,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
     x = v[i];
     assert(solver->vtbl.root[x] == x && solver->value[x] == NULL);
     map = build_map_for_var(solver, f, x, store);
-    solver->value[x] = map;    
+    solver->value[x] = map;
     if (solver->reconciled) {
       // we must force all variables to have distinct values
       // in the model
@@ -3354,7 +3354,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
 
   if (collision) {
     // this should not happen unless f has finite range and infinite domain
-    assert(solver->reconciled && is_finite_type(solver->types, sigma) && 
+    assert(solver->reconciled && is_finite_type(solver->types, sigma) &&
            !type_has_finite_domain(solver->types, tau));
 
     // update the base maps to make them all distinct
@@ -3379,7 +3379,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
  * - tree = function tree used to ensure distinct connected components (i.e., bases)
  *          have different base maps
  * - store = particle store to use
- */ 
+ */
 static void fun_solver_build_maps(fun_solver_t *solver, ivector_t *v, fun_tree_t *tree, pstore_t *store) {
   fun_vartable_t *vtbl;
   thvar_t *a;
@@ -3422,7 +3422,7 @@ static void fun_solver_build_maps(fun_solver_t *solver, ivector_t *v, fun_tree_t
  */
 void fun_solver_build_model(fun_solver_t *solver, pstore_t *store) {
   ivector_t root_vector;
-  fun_tree_t fun_tree;  
+  fun_tree_t fun_tree;
 
   assert(!solver->bases_ready && !solver->apps_ready);
 
@@ -3449,7 +3449,7 @@ void fun_solver_build_model(fun_solver_t *solver, pstore_t *store) {
 #if TRACE
     printf("\n--- Build model ---\n");
     printf("Classes:\n");
-    print_fsolver_classes(stdout, solver);      
+    print_fsolver_classes(stdout, solver);
     printf("\nDisequalities:\n");
     print_fsolver_diseqs(stdout, solver);
     printf("\nMaps:\n");
@@ -3559,7 +3559,7 @@ static th_egraph_interface_t fsolver_egraph = {
   (check_diseq_fun_t) fun_solver_check_disequality,
   (is_constant_fun_t) fun_solver_var_is_constant,
   NULL, // no need for expand_th_explanation
-  (reconcile_model_fun_t) fun_solver_reconcile_model, 
+  (reconcile_model_fun_t) fun_solver_reconcile_model,
   (prepare_model_fun_t) fun_solver_prepare_model,
   (equal_in_model_fun_t) fun_solver_var_equal_in_model,
   (gen_inter_lemma_fun_t) fun_solver_gen_interface_lemma, // gen_interface_lemma

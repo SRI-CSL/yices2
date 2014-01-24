@@ -86,7 +86,7 @@ int main() {
       printf("*** yices_bool_type() = %"PRId32"\n", yices_bool_type());
     }
 
-    
+
     loc.line ++;
     loc.column = 0;
     printf("\ntest: (define-type bv5 (bitvector 5))\n");

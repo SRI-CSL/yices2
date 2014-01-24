@@ -3,8 +3,8 @@
  */
 
 /*
- * The code for displaying a model used to be in model.c 
- * but it couldn't print the value of "x" if "x" is in the model's 
+ * The code for displaying a model used to be in model.c
+ * but it couldn't print the value of "x" if "x" is in the model's
  * alias table.
  *
  * This is a more general version: it can print the value assigned
@@ -43,7 +43,7 @@ extern void model_print_term_value(FILE *f, model_t *model, term_t t);
  * Also print the map of all functions that occur in any <value>.
  *
  * Example:
- * - if term "x" is mapped to tuple of functions then we may 
+ * - if term "x" is mapped to tuple of functions then we may
  * see something like:
  *   (= x (tuple fun!1 fun!2))
  *
@@ -57,7 +57,7 @@ extern void model_print(FILE *f, model_t *model);
  * - one line per term as above
  * - if model->has_alias is true, then the value of all terms in
  *   the alias table is displayed
- * - if model->has_alias is false, then this is the same as model_print 
+ * - if model->has_alias is false, then this is the same as model_print
  */
 extern void model_print_full(FILE *f, model_t *model);
 

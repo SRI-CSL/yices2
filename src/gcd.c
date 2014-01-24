@@ -7,7 +7,7 @@
 
 
 /*
- * gcd of two 32bit unsigned positive numbers. 
+ * gcd of two 32bit unsigned positive numbers.
  */
 uint32_t gcd32(uint32_t a, uint32_t b) {
   uint32_t x;
@@ -25,7 +25,7 @@ uint32_t gcd32(uint32_t a, uint32_t b) {
   }
 
   do {
-    if ((a & 1) == 0) { 
+    if ((a & 1) == 0) {
       a >>= 1;
     } else if ((b & 1) == 0) {
       b >>= 1;
@@ -58,7 +58,7 @@ uint64_t gcd64(uint64_t a, uint64_t b) {
   }
 
   do {
-    if ((a & 1) == 0) { 
+    if ((a & 1) == 0) {
       a >>= 1;
     } else if ((b & 1) == 0) {
       b >>= 1;

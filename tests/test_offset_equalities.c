@@ -42,7 +42,7 @@ static int32_t term[NPOLYS] = {
 
 
 /*
- * Build a polynomial: 
+ * Build a polynomial:
  * - a = coefficient array
  * - x = variable array
  * - n = number of coefficients
@@ -248,13 +248,13 @@ static void print_normal_form(offset_table_t *table, polynomial_t *p) {
       assert(0 <= x && x < table->var2offset_var.size);
       j = table->var2offset_var.data[x];
       assert(0 < j && j < table->nvars);
-      
+
       d = table->desc + j;
       poly_buffer_addmul_monomial(&aux, const_idx, &p->mono[i].coeff, &d->offset);
       if (d->root > 0) {
 	poly_buffer_add_monomial(&aux, d->root, &p->mono[i].coeff);
       }
-    }    
+    }
   }
 
   normalize_poly_buffer(&aux);
@@ -341,7 +341,7 @@ static void print_dep(dep_t *v) {
   } else {
     first = true;
     printf("{");
-    n = v->nelems;    
+    n = v->nelems;
     for (i=0; i<n; i++) {
       k = v->data[i];
       if (k >= 0) {
@@ -459,7 +459,7 @@ static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
       printf(" ****\n");
     }
   }
-    
+
   q_init(&q);
   q_set32(&q, offset);
   assert_offset_equality(&mngr, x, y, &q, id);
@@ -491,7 +491,7 @@ int main(void) {
   print_ptable(&mngr);
   print_vtable(&mngr);
 
-  
+
   ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
@@ -518,7 +518,7 @@ int main(void) {
   ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
-  print_vtable(&mngr);  
+  print_vtable(&mngr);
   assert_true(ok);
 
   offset_manager_backtrack(&mngr, 0);
@@ -566,21 +566,21 @@ int main(void) {
   print_ptable(&mngr);
   print_vtable(&mngr);
   assert_true(ok);
-  
+
   offset_manager_pop(&mngr);
   printf("\n*** After pop ****\n");
   print_var2poly(&mngr);
   print_var2offset_var(&mngr);
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+
   test_equality(var[4], var[3], 10, 111);
   ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
   assert_true(ok);
-  
+
   /*
    * THIRD TEST
    */
@@ -633,7 +633,7 @@ int main(void) {
   print_var2offset_var(&mngr);
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+
   ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);

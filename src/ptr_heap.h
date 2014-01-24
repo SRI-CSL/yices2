@@ -73,7 +73,7 @@ static inline void reset_ptr_heap(ptr_heap_t *heap) {
  * Add element x
  * - x must be non-NULL
  * - the object pointed to by x should not be modified as long
- *   as x is in the heap (at least not in a way that changes 
+ *   as x is in the heap (at least not in a way that changes
  *   the order).
  */
 extern void ptr_heap_add(ptr_heap_t *heap, void *x);

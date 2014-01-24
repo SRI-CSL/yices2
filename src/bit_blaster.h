@@ -17,20 +17,20 @@
 
 /*
  * CLAUSE-SET BUFFER
- * 
+ *
  * Each gate/elementary component is encoded as a small set
  * of clauses (with no more than four variables).
  * A clause buffer is used to build and simplify this set.
  *
  * Main components:
  * - var[0 .. 3] = boolean variables occurring in the set
- *   if there are fewer than 4 variables, then var is 
+ *   if there are fewer than 4 variables, then var is
  *   padded with null_bvar
  * - nclauses = number of clauses in the set
  * - each clause is identified by an index between 0 and nclauses-1
- * - data = two-dimensional array. 
+ * - data = two-dimensional array.
  *   For clause i and var[j] = x, data[i][j] indicates whether x
- *   occurs in clause i, and if so, with which polarity. 
+ *   occurs in clause i, and if so, with which polarity.
  *   This is encoded as follows:
  *      data[i][j] =  0 --> x does not occur in clause i
  *      data[i][j] = +1 --> clause i contains the literal pos_lit(x)
@@ -54,7 +54,7 @@ typedef struct cbuffer_s {
   uint32_t nclauses;
   uint32_t mask;
   bool is_unsat;
-  bvar_t var[CBUFFER_NVARS];  
+  bvar_t var[CBUFFER_NVARS];
   uint8_t signature[CBUFFER_NCLAUSES];
   int8_t data[CBUFFER_NCLAUSES][CBUFFER_NVARS];
 } cbuffer_t;
@@ -64,7 +64,7 @@ typedef struct cbuffer_s {
 /*
  * BIT-BLASTER:
  *
- * This is the main structure for encoding boolean gates and 
+ * This is the main structure for encoding boolean gates and
  * bit-vector constraints into clauses.
  *
  * Components:
@@ -94,7 +94,7 @@ typedef struct bit_blaster_s {
  * hash consing is used only if n <= BIT_BLASTER_MAX_HASHCONS_SIZE.
  *
  * The bound must be no more than MAX_INDEGREE (defined in gates_hash_table.h).
- * It should be at least 3, since or/xor with 2 or 3 arguments are always 
+ * It should be at least 3, since or/xor with 2 or 3 arguments are always
  * hash-consed.
  */
 #define BIT_BLASTER_MAX_HASHCONS_SIZE 20
@@ -114,7 +114,7 @@ extern void init_bit_blaster(bit_blaster_t *blaster, smt_core_t *solver, remap_t
 
 
 /*
- * Deletion: don't delete the solver, just the hash table 
+ * Deletion: don't delete the solver, just the hash table
  */
 extern void delete_bit_blaster(bit_blaster_t *blaster);
 
@@ -152,7 +152,7 @@ static inline void bit_blaster_set_level(bit_blaster_t *blaster, uint32_t n) {
  *  ELEMENTARY GATES  *
  *********************/
 
-/* 
+/*
  * The basic gates are listed in gates_hash_table.h.  All functions
  * below add clauses that encode the definition of a specific
  * gate. The clauses are simplified as much as possible. If the
@@ -236,8 +236,8 @@ extern void bit_blaster_half_adder(bit_blaster_t *blaster, literal_t a, literal_
 
 /*
  * Constraint: (x, y) = full-adder(a, b, c) where x = sum, y = carry
- * This is encoded as 
- *    x = (xor a b c) 
+ * This is encoded as
+ *    x = (xor a b c)
  *    y = (majority a b c)
  */
 extern void bit_blaster_full_adder(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c,
@@ -253,7 +253,7 @@ extern void bit_blaster_full_adder(bit_blaster_t *blaster, literal_t a, literal_
  ****************/
 
 /*
- * All functions below attempt to reduce an expression to a literal. 
+ * All functions below attempt to reduce an expression to a literal.
  * They return null_literal when they fail.
  * They take into account the base-value of all literals.
  */
@@ -359,7 +359,7 @@ static inline literal_t bit_blaster_fresh_literal(bit_blaster_t *blaster) {
  * All functions below return a literal l = (op a b ..) for some
  * primitive operator op. They use the following steps:
  * 1) Try to simplify (op a b ...) to l
- * 2) If that fails, search for the the gate (op a b ..) 
+ * 2) If that fails, search for the the gate (op a b ..)
  *    in the hash table.
  * 3) If that fails create a fresh literal l, assert
  *    the constraints l = (op a b ...) and add the gate to
@@ -432,7 +432,7 @@ static inline literal_t bit_blaster_make_and2(bit_blaster_t *blaster, literal_t 
  * (bvuge a b)  --> (a >= b) with both interpreted as n-bit unsigned integers
  * (bvsge a b)  --> (a >= b) with both interpreted as n-bit signed integers.
  *
- * For bveq and bvuge, n may be zero. 
+ * For bveq and bvuge, n may be zero.
  * For bvsge, n must be positive.
  */
 extern literal_t bit_blaster_make_bveq(bit_blaster_t *blaster, literal_t *a, literal_t *b, uint32_t n);
@@ -464,7 +464,7 @@ extern void bit_blaster_make_bvsge2(bit_blaster_t *blaster, literal_t *a, litera
  * (bvsge a b): assert a >= b (signed, n must be positive)
  * (bvslt a b): assert a < b  (signed, n must be positive)
  *
- * If the constraint is inconsistent, then a conflict is recorded 
+ * If the constraint is inconsistent, then a conflict is recorded
  * in the bit_solver (by adding the empty clause).
  */
 extern void bit_blaster_assert_bveq(bit_blaster_t *blaster, literal_t *a, literal_t *b, uint32_t n);
@@ -478,18 +478,18 @@ extern void bit_blaster_assert_bvslt(bit_blaster_t *blaster, literal_t *a, liter
 
 
 /*
- * The following functions encode a bit-vector circuit with arrays of literals 
+ * The following functions encode a bit-vector circuit with arrays of literals
  * as input and an array u of pseudo-literal as output.
  * - all elements in arrays a and b must be valid literals in the bit_solver
  * - all elements of u must be non-null pseudo literals in the remap table
- * - if pseudo-literal u[i] is not mapped to a real literal, then the 
- *   circuit constructions assign a real literal to u[i] 
+ * - if pseudo-literal u[i] is not mapped to a real literal, then the
+ *   circuit constructions assign a real literal to u[i]
  *   (and all elements of its class)
  * - if pseudo-literal u[i] is mapped to a real literal l, then the functions
- *   add clauses to encode the equality between l and the circuit output 
+ *   add clauses to encode the equality between l and the circuit output
  *   (e.g., for the adder circuit: assert l = bit[i] in sum of a and b).
  *
- * If the constraint is inconsistent, then a conflict is recorded 
+ * If the constraint is inconsistent, then a conflict is recorded
  * in the bit_solver (by adding the empty clause).
  */
 
@@ -529,7 +529,7 @@ extern void bit_blaster_make_bvmul2(bit_blaster_t *blaster, literal_t *a, litera
  * - r = either NULL of an array of n pseudo literals
  *
  * If both r and q are non-null, the function asserts
- *   q = (bvudiv a b): quotient 
+ *   q = (bvudiv a b): quotient
  *   r = (bvurem a b): remainder
  * If r is NULL only the first part is asserted.
  * If q is NULL only the second equality is asserted.
@@ -538,12 +538,12 @@ extern void bit_blaster_make_bvmul2(bit_blaster_t *blaster, literal_t *a, litera
  *
  * For division by zero: q is 0b111...1 and r = a.
  */
-extern void bit_blaster_make_udivision(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
+extern void bit_blaster_make_udivision(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                        literal_t *q, literal_t *r, uint32_t n);
 
 
 // Variant implementation
-extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
+extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                         literal_t *q, literal_t *r, uint32_t n);
 
 
@@ -556,7 +556,7 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  * - r = either NULL of an array of n pseudo literals
  *
  * If both r and q are non-null, the function asserts
- *   q = (bvsdiv a b): quotient 
+ *   q = (bvsdiv a b): quotient
  *   r = (bvsrem a b): remainder
  * If r is NULL only the first part is asserted.
  * If q is NULL only the secont equality is asserted.
@@ -573,12 +573,12 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  *  (a < 0,  b = 0 ==>  r = a, q = +1)
  *
  */
-extern void bit_blaster_make_sdivision(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
+extern void bit_blaster_make_sdivision(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                        literal_t *q, literal_t *r, uint32_t n);
 
 
 // Variant implementation
-extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
+extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                         literal_t *q, literal_t *r, uint32_t n);
 
 
@@ -594,7 +594,7 @@ extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, li
  * - if b is zero, then bsvmod(a, b) = a
  * - otherwise, bvsmod(a, b) = a - b * floor(a/b)
  *
- * This is similar to fdiv in GMP: division with 
+ * This is similar to fdiv in GMP: division with
  * rounding toward minus infinity.
  *
  * For b > 0, we have 0 <= r <  b
@@ -606,13 +606,13 @@ extern void bit_blaster_make_smod(bit_blaster_t *blaster, literal_t *a, literal_
 /*
  * SHIFT LEFT
  * - a = vector to be shifted
- * - b = shift amount 
+ * - b = shift amount
  * Both a and b must be arrays of n non-null literals
  * - u = result: array of n pseudo literals
  *
  * The function asserts u == (bvshl a b)
  *
- * The SMT-LIB semantics for logical shift is that (bvshl a b) is equivalent 
+ * The SMT-LIB semantics for logical shift is that (bvshl a b) is equivalent
  * to multiplying a by 2^b. So if b's value is larger than n the result is 0b00..000.
  */
 extern void bit_blaster_make_shift_left(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n);
@@ -622,7 +622,7 @@ extern void bit_blaster_make_shift_left(bit_blaster_t *blaster, literal_t *a, li
 /*
  * LOGICAL SHIFT RIGHT
  * - a = vector to be shifted
- * - b = shift amount 
+ * - b = shift amount
  * Both a and b must be arrays of n non-null literals
  * - u = result: array of n pseudo literals
  *
@@ -636,7 +636,7 @@ extern void bit_blaster_make_lshift_right(bit_blaster_t *blaster, literal_t *a, 
 /*
  * LOGICAL SHIFT RIGHT
  * - a = vector to be shifted
- * - b = shift amount 
+ * - b = shift amount
  * Both a and b must be arrays of n non-null literals
  * - u = result: array of n pseudo literals
  *

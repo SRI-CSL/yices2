@@ -40,7 +40,7 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t, ui
     if (n > 0 && d->arity == 2) {
       b1 = convert_term_to_bit(table, nodes, d->arg[0], n-1);
       b2 = convert_term_to_bit(table, nodes, d->arg[1], n-1);
-      x = bit_or2(nodes, b1, b2);      
+      x = bit_or2(nodes, b1, b2);
     } else {
       x = node_table_alloc_var(nodes, pos_term(i));
     }
@@ -156,7 +156,7 @@ static term_t map_node_to_term(term_table_t *terms, node_table_t *nodes, node_t 
     case OR_NODE:
       t = make_or2(terms, nodes, children_of_node(nodes, x));
       break;
-                     
+
     case XOR_NODE:
       t = make_xor2(terms, nodes, children_of_node(nodes, x));
       break;
@@ -168,7 +168,7 @@ static term_t map_node_to_term(term_table_t *terms, node_table_t *nodes, node_t 
     }
 
     assert(is_boolean_term(terms, t));
-    set_map_of_node(nodes, x, t);    
+    set_map_of_node(nodes, x, t);
   }
 
   return t;
@@ -183,7 +183,7 @@ static term_t map_node_to_term(term_table_t *terms, node_table_t *nodes, node_t 
  * The subgraph rooted at b is explored and all nodes reachable from b
  * are converted to boolean terms. No simplification or flattening is
  * applied.
- * 
+ *
  * Side effect: the mapping is stored in nodes->map.
  */
 term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, bit_t b) {

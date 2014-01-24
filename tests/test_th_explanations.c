@@ -64,7 +64,7 @@ static void show_th_explanation(th_explanation_t *e) {
   atm = e->atoms;
   if (atm == NULL) {
     na = 0;
-    printf(" none\n"); 
+    printf(" none\n");
   } else {
     na = get_av_size(atm);
     show_atoms(av_header(atm));
@@ -254,23 +254,23 @@ int main(void) {
   for (i=0; i<20; i++) {
     random_test(&test, 0, 20);
   }
-  delete_th_explanation(&test);  
-  
+  delete_th_explanation(&test);
+
   init_th_explanation(&test);
   printf("==== Initialized ====\n");
   show_th_explanation(&test);
   for (i=0; i<30; i++) {
     random_test(&test, 30, 30);
   }
-  delete_th_explanation(&test);  
-  
+  delete_th_explanation(&test);
+
   init_th_explanation(&test);
   printf("==== Initialized ====\n");
   show_th_explanation(&test);
   for (i=0; i<40; i++) {
     random_test(&test, 40, 40);
   }
-  delete_th_explanation(&test);  
-  
+  delete_th_explanation(&test);
+
   return 0;
 }

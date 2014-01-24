@@ -13,7 +13,7 @@
 
 /*
  * Structure:
- * - data = bitvector 
+ * - data = bitvector
  * - size = number of bits in mask
  * - nbits = number of meaningful bits (i.e. initialized)
  */

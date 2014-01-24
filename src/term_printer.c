@@ -110,7 +110,7 @@ static void print_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
       fprintf(f, "*");
     }
     print_term_id(f, x);
-  }  
+  }
 }
 
 
@@ -176,9 +176,9 @@ static void print_rba_tree(FILE *f, rba_buffer_t *b, uint32_t x, bool first) {
     j = b->child[x][1];
     print_rba_tree(f, b, i, first);
     first &= (i == 0);
-    print_arith_monomial(f, &b->mono[x].coeff, b->mono[x].prod, first);    
+    print_arith_monomial(f, &b->mono[x].coeff, b->mono[x].prod, first);
     print_rba_tree(f, b, j, false);
-  }		   
+  }
 }
 
 void print_arith_buffer(FILE *f, rba_buffer_t *b) {
@@ -193,7 +193,7 @@ void print_arith_buffer(FILE *f, rba_buffer_t *b) {
 /*
  * Bit-vector polynomial
  */
-static void print_bvmono(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {  
+static void print_bvmono(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {
   uint32_t w;
 
   w = (n + 31) >> 5; // number of words in coeff
@@ -255,7 +255,7 @@ static void print_bvarith_mono(FILE *f, uint32_t *coeff, pprod_t *r, uint32_t n,
     fprintf(f, "- ");
     print_pprod(f, r);
 
-  } else { 
+  } else {
     if (! first) fprintf(f, " + ");
     bvconst_print(f, coeff, n);
     fprintf(f, " ");
@@ -340,7 +340,7 @@ void print_bvpoly64(FILE *f, bvpoly64_t *p) {
  * Print buffer b
  */
 static void print_bvarith64_mono(FILE *f, uint64_t coeff, pprod_t *r, uint32_t n, bool first) {
-  if (pp_is_empty(r)) { 
+  if (pp_is_empty(r)) {
     if (! first) fprintf(f, " + ");
     print_bvconst64(f, coeff, n);
 
@@ -459,7 +459,7 @@ static const char * const tag2string[] = {
   "or",
   "xor",
   "arith-bineq",
-  "bv-array",  
+  "bv-array",
   "bvdiv",
   "bvrem",
   "bvsdiv",
@@ -555,7 +555,7 @@ static void print_mono_recur(FILE *f, term_table_t *tbl, rational_t *coeff, int3
       fprintf(f, "*");
     }
     print_term_recur(f, tbl, x, level);
-  }  
+  }
 }
 
 static void print_polynomial_term(FILE *f, term_table_t *tbl, polynomial_t *p, int32_t level) {
@@ -785,7 +785,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
-    // i's descriptor is a composite term 
+    // i's descriptor is a composite term
     if (name != NULL && level <= 0) {
       fputs(name, f);
     } else {
@@ -825,7 +825,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
       print_bvpoly64_term(f, tbl, tbl->desc[i].ptr, level - 1);
     }
     break;
-        
+
   case BV_POLY:
     if (name != NULL && level <= 0) {
       fputs(name, f);
@@ -852,7 +852,7 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
     if (is_neg_term(t)) {
       fputs("(not ", f);
       print_term_idx_recur(f, tbl, i, level - 1);
-      fputc(')', f);    
+      fputc(')', f);
     } else {
       print_term_idx_recur(f, tbl, i, level);
     }
@@ -912,17 +912,17 @@ static void print_name_or_constant(FILE *f, term_table_t *tbl, term_t t) {
     assert(is_pos_term(t));
     q_print(f, rational_term_desc(tbl, t));
     break;
-    
+
   case BV64_CONSTANT:
     assert(is_pos_term(t));
     print_bvconst64_term(f, bvconst64_term_desc(tbl, t));
     break;
-    
+
   case BV_CONSTANT:
     assert(is_pos_term(t));
     print_bvconst_term(f, bvconst_term_desc(tbl, t));
     break;
-    
+
   default:
     if (t <= false_term) {
       fputs(term2string[t], f);
@@ -949,7 +949,7 @@ static uint32_t max_term_name_length(term_table_t *tbl) {
 
   max = 0;
   n = tbl->nelems;
-  for (i=0; i<n; i++) {    
+  for (i=0; i<n; i++) {
     if (tbl->kind[i] != UNUSED_TERM) {
       name = term_name(tbl, pos_term(i));
       if (name != NULL) {
@@ -1100,7 +1100,7 @@ static void print_named_monomial(FILE *f, term_table_t *tbl, rational_t *coeff, 
       fprintf(f, "*");
     }
     print_name_or_constant(f, tbl, x);
-  }  
+  }
 }
 
 static void print_named_polynomial(FILE *f, term_table_t *tbl, polynomial_t *p) {
@@ -1120,12 +1120,12 @@ static void print_named_polynomial(FILE *f, term_table_t *tbl, polynomial_t *p) 
 }
 
 // bitvector polynomials
-static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff, 
+static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff,
                                int32_t x, uint32_t n, bool first) {
   uint32_t w;
 
   w = (n + 31) >> 5;
-  if (x == const_idx) { 
+  if (x == const_idx) {
     if (! first) fputs(" + ", f);
     bvconst_print(f, coeff, n);
 
@@ -1164,7 +1164,7 @@ static void print_named_bvpoly(FILE *f, term_table_t *tbl, bvpoly_t *p) {
 }
 
 // bitvector polynomials with small coefficients
-static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff, 
+static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff,
                                  int32_t x, uint32_t n, bool first) {
   if (x == const_idx) {
     if (! first) fputs(" + ", f);
@@ -1306,7 +1306,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
       case BV_SGE_ATOM:
-        // i's descriptor is a composite term 
+        // i's descriptor is a composite term
         print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
         break;
 
@@ -1357,7 +1357,7 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
     fprintf(f, "bad-term%"PRId32, i);
     break;
 
-  case CONSTANT_TERM:    
+  case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
   case VARIABLE:
     print_term_name(f, tbl, pos_term(i));
@@ -1380,7 +1380,7 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
     print_name_or_constant(f, tbl, tbl->desc[i].integer);
     fputs(" 0)", f);
     break;
-    
+
   case ARITH_GE_ATOM:
     fputs("(arith-ge ", f);
     print_name_or_constant(f, tbl, tbl->desc[i].integer);
@@ -1414,15 +1414,15 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
-    // i's descriptor is a composite term 
+    // i's descriptor is a composite term
     print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
     break;
-    
+
   case SELECT_TERM:
   case BIT_TERM:
     print_select(f, tbl, tbl->kind[i], &tbl->desc[i].select);
     break;
-    
+
   case POWER_PRODUCT:
     print_named_pprod(f, tbl, tbl->desc[i].ptr);
     break;
@@ -1571,7 +1571,7 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
     pp_term_recur(printer, tbl, d->arg[i], level, true);
   }
   pp_close_block(printer, true);
-}  
+}
 
 
 /*
@@ -1642,7 +1642,7 @@ static void pp_lambda_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
   n = d->arity;
   assert(n >= 2);
   pp_open_block(printer, PP_OPEN_PAR);
-  pp_open_block(printer, PP_OPEN_LAMBDA); 
+  pp_open_block(printer, PP_OPEN_LAMBDA);
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
     //    pp_term_recur(printer, tbl, d->arg[i], level, true);
@@ -1672,9 +1672,9 @@ static void pp_binary_atom(yices_pp_t *printer, term_table_t *tbl, pp_open_type_
 
 /*
  * Heuristic to estimate (crudely) whether it's nicer to print t in a
- * positive context or a negative context. 
- * - high positive score means --> better to print t than (not t) 
- * - high negative score means --> better to print (not t) than t 
+ * positive context or a negative context.
+ * - high positive score means --> better to print t than (not t)
+ * - high negative score means --> better to print (not t) than t
  */
 static double p_score(term_table_t *tbl, term_t t) {
   composite_term_t *d;
@@ -1714,7 +1714,7 @@ static double p_score(term_table_t *tbl, term_t t) {
  * - if polarity is false, we print (AND (not p1) ... (not p_n))
  * - if polarity is true and arity n = 2
  *   we try to print as (IMPLY p1 p2) if one of the child has positive polarity and the other one has negative polarity
- */ 
+ */
 static void pp_or_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level, bool polarity) {
   uint32_t i, n;
   pp_open_type_t op;
@@ -1991,7 +1991,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     } else if (neg_name != NULL) {
       pp_open_block(printer, PP_OPEN_NOT);
       pp_string(printer, neg_name);
-      pp_close_block(printer, true);      
+      pp_close_block(printer, true);
     } else if (polarity) {
       pp_id(printer, "t!", i);
     } else {
@@ -2052,7 +2052,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
     break;
-                  
+
   case BV_GE_ATOM:
     op = polarity ? PP_OPEN_BV_GE : PP_OPEN_BV_LT;
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
@@ -2079,7 +2079,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case BV_SHL:
   case BV_LSHR:
   case BV_ASHR:
-    // i's descriptor is a composite term 
+    // i's descriptor is a composite term
     if (! polarity) pp_open_block(printer, PP_OPEN_NOT);
     pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
     if (! polarity) pp_close_block(printer, true);
@@ -2106,7 +2106,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     assert(polarity);
     pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
-        
+
   case BV_POLY:
     assert(polarity);
     pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
@@ -2159,7 +2159,7 @@ static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int3
 
 
 /*
- * Expand top-level names 
+ * Expand top-level names
  */
 void pp_term_exp(yices_pp_t *printer, term_table_t *tbl, term_t t) {
   pp_term_recur(printer, tbl, t, 1, true);
@@ -2175,7 +2175,7 @@ void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t) {
 
 
 /*
- * Expand everything 
+ * Expand everything
  */
 void pp_term_full(yices_pp_t *printer, term_table_t *tbl, term_t t) {
   pp_term_recur(printer, tbl, t, INT32_MAX, true);
@@ -2200,7 +2200,7 @@ void pp_term_def(yices_pp_t *printer, term_table_t *tbl, term_t t) {
       pp_type(printer, tbl->types, term_type(tbl, t));
       pp_close_block(printer, true);
       break;
-      
+
     case UNINTERPRETED_TERM:
       pp_open_block(printer, PP_OPEN_UNINT_DEF);
       pp_string(printer, "of");

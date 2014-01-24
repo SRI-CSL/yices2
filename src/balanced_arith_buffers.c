@@ -19,7 +19,7 @@
  *    for (i=1; i<b->num_nodes; i++) {
  *      f(b->mono + i)
  *    }
- * 
+ *
  * or we can traverse the tree using a recursive function.
  *
  * Linear scan has a cost linear in num_nodes.
@@ -199,7 +199,7 @@ static void fix_parent(rba_buffer_t *b, uint32_t p, uint32_t q) {
  * - p = new node just added (must be red)
  * - q = parent of p
  * - b->stack must contains [rba_null, root, ..., r],
- *   which describes a path form the root to r where r = parent of q. 
+ *   which describes a path form the root to r where r = parent of q.
  * - the root must be black
  */
 static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
@@ -219,7 +219,7 @@ static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
       mark_black(b, q);
       // if r is the root, we're done
       if (r == b->root) break;
-      // otherwise, we color r red 
+      // otherwise, we color r red
       // and move up to p := r, q := parent of r
       mark_red(b, r);
       p = r;
@@ -236,7 +236,7 @@ static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
          * q becomes a child of p
          * p becomes a child of r
          */
-        assert(q != 0 && p != 0 && r != 0 && 
+        assert(q != 0 && p != 0 && r != 0 &&
                b->child[r][i] == q && b->child[q][j] == p);
         b->child[r][i] = p;
         b->child[q][j] = b->child[p][i];
@@ -259,7 +259,7 @@ static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
 
       break;
     }
-  }    
+  }
 }
 
 
@@ -298,7 +298,7 @@ static void rba_balance_after_delete(rba_buffer_t *b, uint32_t p, uint32_t q) {
       r = b->child[q][1 - i];
     }
 
-    assert(is_black(b, r) && is_black(b, p) && 
+    assert(is_black(b, r) && is_black(b, p) &&
 	   p == b->child[q][i] && r == b->child[q][1 - i]);
 
     // three subcases depending on r's children
@@ -333,7 +333,7 @@ static void rba_balance_after_delete(rba_buffer_t *b, uint32_t p, uint32_t q) {
 	s = b->child[r][i];
       }
 
-      assert(is_black(b, p) && is_black(b, r) && is_red(b, t) && 
+      assert(is_black(b, p) && is_black(b, r) && is_red(b, t) &&
 	     p == b->child[q][i] && r == b->child[q][1 - i] &&
 	     s == b->child[r][i] && t == b->child[r][1 - i]);
 
@@ -387,7 +387,7 @@ void init_rba_buffer(rba_buffer_t *b, pprod_table_t *ptbl) {
   init_ivector(&b->stack, 20);
 
   assert(n > 0 && rba_null == 0);
-  
+
   // initialize the null node
   b->mono[0].prod = NULL;
   q_init(&b->mono[0].coeff);
@@ -469,7 +469,7 @@ static void cleanup_tree(rba_buffer_t *b, uint32_t i) {
     clear_rba_mono(b->mono + i);
     cleanup_tree(b, b->child[i][0]);
     cleanup_tree(b, b->child[i][1]);
-  }		     
+  }
 }
 
 static void rba_cleanup(rba_buffer_t *b) {
@@ -525,13 +525,13 @@ void reset_rba_buffer(rba_buffer_t *b) {
  * - if there isn't one, create a new node (with coeff = 0 and prod = r)
  *   and set new_node to true.
  *
- * Side effects: 
+ * Side effects:
  * - if a new node is created, num_terms is incremented
  * - if new_node is false, the path from the root to the returned
  *   node p is stored in b->stack in the form
  *     [rba_null, root, ...., q] where q is p's parent
  */
-//static 
+//static
 uint32_t rba_get_node(rba_buffer_t *b, pprod_t *r, bool *new_node) {
   uint32_t k, i, p;
 
@@ -812,7 +812,7 @@ static uint32_t tree_var_degree(rba_buffer_t *b, int32_t x, uint32_t i, uint32_t
     }
     d = tree_var_degree(b, x, b->child[i][0], d);
     d = tree_var_degree(b, x, b->child[i][1], d);
-  } 
+  }
   return d;
 }
 
@@ -849,7 +849,7 @@ void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]) {
   x = b->root;
   i = b->child[x][0];
   j = b->child[x][1];
-  
+
   if (i == rba_null) {
     m[0] = b->mono + x;
     m[1] = b->mono + j;
@@ -857,7 +857,7 @@ void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]) {
     assert(j == rba_null);
     m[0] = b->mono + i;
     m[1] = b->mono + x;
-  }  
+  }
 }
 
 
@@ -946,7 +946,7 @@ static bool rba_buffer_eq(rba_buffer_t *b1, rba_buffer_t *b2) {
   if (rba_tree_is_small(b1)) {
     return tree_eq(b1, b2, b1->root);
   }
-   
+
   p = b1->mono;
   n = b1->num_nodes - 1;
   while (n > 0) {
@@ -1050,7 +1050,7 @@ void rba_buffer_mul_const(rba_buffer_t *b, rational_t *a) {
   } else {
     n = b->num_nodes;
     for (i=1; i<n; i++) {
-      // Skip zero coeff? 
+      // Skip zero coeff?
       q_mul(&b->mono[i].coeff, a);
     }
   }
@@ -1083,7 +1083,7 @@ void rba_buffer_div_const(rba_buffer_t *b, rational_t *a) {
 
 
 /*
- * Multiply by a power product r 
+ * Multiply by a power product r
  * - the monomial ordering is compatible with product:
  *   p1 < p2 => r * p1 < r * p2
  */
@@ -1231,7 +1231,7 @@ static void rba_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
 
 
 /*
- * Add or subtract a * c * r 
+ * Add or subtract a * c * r
  * - a and c must be non-zero
  */
 static void rba_addmul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod_t *r) {
@@ -1572,7 +1572,7 @@ void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rationa
   mono_t *p;
   pprod_t *q;
   uint32_t n;
-  
+
   assert(b->ptbl == b1->ptbl && b != b1);
 
   if (q_is_nonzero(a)) {
@@ -1696,7 +1696,7 @@ void rba_buffer_sub_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rba_b
   mono_t *p;
   uint32_t n;
 
-  assert(b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && b != b1 && b != b2);  
+  assert(b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && b != b1 && b != b2);
 
   if (rba_tree_is_small(b2)) {
     rba_submul_buffer_tree(b, b1, b2, b2->root);
@@ -1880,7 +1880,7 @@ void rba_buffer_mul_monarray_power(rba_buffer_t *b, monomial_t *poly, pprod_t **
     rba_buffer_add_monarray(aux, poly, pp); // aux := poly
     for (;;) {
       /*
-       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * loop invariant: b0 * p^d0 == b * aux^ d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -1962,7 +1962,7 @@ polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v) {
  * Debugging enabled
  */
 
-// check that all monomials are cleared 
+// check that all monomials are cleared
 static bool rba_buffer_is_clean(rba_buffer_t *b) {
   uint32_t i, n;
 
@@ -2029,13 +2029,13 @@ static uint32_t rba_hash_tree(rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t
 
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_polynomial defined in polynomials.c:
  * If P(b, v) = p0 then hash_rba_buffer(b, v) = hash_polynomial(p0).
  */
 uint32_t hash_rba_buffer(rba_buffer_t *b, int32_t *v) {
   uint32_t h, n;
-  
+
   n = 0;
   h = rba_hash_tree(b, v, &n, HASH_POLY_SEED + b->nterms, b->root);
   assert(n == b->nterms);
@@ -2045,7 +2045,7 @@ uint32_t hash_rba_buffer(rba_buffer_t *b, int32_t *v) {
 
 
 /*
- * Check that the subtree rooted at x is equal to a segment of p 
+ * Check that the subtree rooted at x is equal to a segment of p
  * that start at *i:
  * - if the subtree rooted at x has n nodes then this returns true
  *   if the subtree is equal to p[j ... j+n-1] where j = *i
@@ -2071,9 +2071,9 @@ static bool rba_equal_node(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_
 
 static bool rba_equal_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
   assert(x < b->num_nodes);
-  return (x == rba_null) || 
-    (rba_equal_tree(p, b, v, i, b->child[x][0]) && 
-     rba_equal_node(p, b, v, i, x) && 
+  return (x == rba_null) ||
+    (rba_equal_tree(p, b, v, i, b->child[x][0]) &&
+     rba_equal_node(p, b, v, i, x) &&
      rba_equal_tree(p, b, v, i, b->child[x][1]));
 }
 
@@ -2126,7 +2126,7 @@ static bool monomial_is_int(mono_t *m, void *aux, var_type_fun_t var_is_int) {
   p = m->prod;
   if (pp_is_empty(p)) {
     return true;
-  } 
+  }
 
   if (pp_is_var(p)) {
     return var_is_int(aux, var_of_pp(p));
@@ -2147,16 +2147,16 @@ static bool monomial_is_int(mono_t *m, void *aux, var_type_fun_t var_is_int) {
  * Check whether all monomials in x's subtree are integral
  */
 static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t var_is_int) {
-  return x == rba_null || 
+  return x == rba_null ||
     (monomial_is_int(b->mono + x, aux, var_is_int) &&
-     tree_is_int(b, b->child[x][0], aux, var_is_int) && 
+     tree_is_int(b, b->child[x][0], aux, var_is_int) &&
      tree_is_int(b, b->child[x][1], aux, var_is_int));
 }
 
 
 
 /*
- * Check whether b is an integral polynomial 
+ * Check whether b is an integral polynomial
  */
 bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
   uint32_t i, n;

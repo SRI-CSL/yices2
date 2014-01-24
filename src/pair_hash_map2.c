@@ -167,7 +167,7 @@ static void push_alloc_mark(pmap2_stack_t *stack, uint32_t b, uint32_t p) {
   if (i == n) {
     // allocate data array or make it larger by 50%
     if (n < PMAP2_DEF_STACK_SIZE) {
-      n = PMAP2_DEF_STACK_SIZE; 
+      n = PMAP2_DEF_STACK_SIZE;
       assert(n < PMAP2_MAX_STACK_SIZE);
     } else {
       n += n>>1;
@@ -228,7 +228,7 @@ static bool is_power_of_two(uint32_t n) {
 static void init_pmap2_htbl(pmap2_htbl_t *table) {
   pmap2_rec_t **tmp;
   uint32_t i, n;
-  
+
   n = PMAP2_DEF_HTBL_SIZE;
   assert(is_power_of_two(n) && n < PMAP2_MAX_HTBL_SIZE);
 
@@ -375,7 +375,7 @@ static void pmap2_htbl_extend(pmap2_htbl_t *table) {
   pmap2_rec_t *e;
   uint32_t i, n, new_size, mask;
 
-  n = table->size;  
+  n = table->size;
   new_size = 2 * n;
   if (new_size >= PMAP2_MAX_HTBL_SIZE) {
     out_of_memory();
@@ -449,7 +449,7 @@ void init_pmap2(pmap2_t *pmap) {
 void delete_pmap2(pmap2_t *pmap) {
   delete_pmap2_htbl(&pmap->htbl);
   delete_pmap2_stack(&pmap->stack);
-  delete_pmap2_bank(&pmap->bank);  
+  delete_pmap2_bank(&pmap->bank);
 }
 
 
@@ -489,7 +489,7 @@ static void remove_level(pmap2_bank_t *bank, pmap2_htbl_t *htbl, uint32_t b, uin
 
   /*
    * Records to remove:
-   * - in block b-1: all records from i to BLOCK_SIZE -1 
+   * - in block b-1: all records from i to BLOCK_SIZE -1
    * - in blocks b to n-2: all records (from 0 to BLOCK_SIZE - 1)
    * - in block n-1: all records from 0 to p-1
    */
@@ -631,7 +631,7 @@ pmap2_rec_t *pmap2_get(pmap2_t *pmap, int32_t k0, int32_t k1) {
    * Create a new record and store it in htbl->data[i].
    */
   push_alloc_mark_if_needed(&pmap->stack, &pmap->bank);
-  
+
   e = alloc_pmap2_record(&pmap->bank);
   e->k0 = k0;
   e->k1 = k1;
@@ -653,7 +653,7 @@ pmap2_rec_t *pmap2_get(pmap2_t *pmap, int32_t k0, int32_t k1) {
 
 /*
  * ITERATOR
- * - call f(aux, p) for every p in the table 
+ * - call f(aux, p) for every p in the table
  */
 void pmap2_iterate(pmap2_t *pmap, void *aux, pmap2_iterator_t f) {
   pmap2_htbl_t *htbl;

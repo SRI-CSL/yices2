@@ -48,7 +48,7 @@ extern void reset_renaming_ctx(renaming_ctx_t *ctx);
 
 
 /*
- * Extend the renaming: 
+ * Extend the renaming:
  * - replace variables in v[0 ... n-1] by n fresh variables.
  * - the variables are processed in order from v[0] to v[n-1]
  * - v should not contain duplicates

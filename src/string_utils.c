@@ -94,7 +94,7 @@ boolean_parse_code_t parse_as_boolean(const char *s, bool *val) {
 
 
 /*
- * Parse s as a decimal number in the format 
+ * Parse s as a decimal number in the format
  *  <optional_signs><digits>
  * and store the corresponding number into val
  *

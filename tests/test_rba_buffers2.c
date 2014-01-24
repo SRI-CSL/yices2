@@ -57,7 +57,7 @@ static void print_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool first) {
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "- ");
     } else {
       fprintf(f, " - ");
     }
@@ -90,9 +90,9 @@ static void print_rba_tree(FILE *f, rba_buffer_t *b, uint32_t x, bool first) {
     j = b->child[x][1];
     print_rba_tree(f, b, i, first);
     first &= (i == 0);
-    print_monomial(f, &b->mono[x].coeff, b->mono[x].prod, first);    
+    print_monomial(f, &b->mono[x].coeff, b->mono[x].prod, first);
     print_rba_tree(f, b, j, false);
-  }		   
+  }
 }
 
 static void print_rba_buffer(FILE *f, rba_buffer_t *b) {
@@ -148,7 +148,7 @@ static void test_buffer(rba_buffer_t *b) {
   }
 
   for (x=0; x<5; x++) {
-    printf("  degree in x_%"PRId32": %"PRIu32"\n", 
+    printf("  degree in x_%"PRId32": %"PRIu32"\n",
 	   x, rba_buffer_var_degree(b, x));
   }
   printf("---\n");
@@ -210,7 +210,7 @@ static void test1(void) {
   rba_buffer_add_var(&buffer, 2);
   rba_buffer_sub_var(&buffer, 0);
   rba_buffer_add_var(&buffer, 1);
-  rba_buffer_add_var(&buffer, 0);  
+  rba_buffer_add_var(&buffer, 0);
   test_buffer(&buffer);
 
   printf("Adding 3\n");
@@ -230,7 +230,7 @@ static void test1(void) {
   q_set32(&q0, 2);
   rba_buffer_mul_varmono(&buffer, &q0, 4);
   test_buffer(&buffer);
-  
+
   printf("Multiplying by x_1^2\n");
   rba_buffer_mul_var(&buffer, 1);
   rba_buffer_mul_var(&buffer, 1);
@@ -252,15 +252,15 @@ static void test1(void) {
   printf("Squaring\n");
   rba_buffer_square(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   rba_buffer_square(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   rba_buffer_square(&buffer);
   test_buffer(&buffer);
-  
+
   q_clear(&q0);
   delete_rba_buffer(&buffer);
 }
@@ -287,7 +287,7 @@ static void init_test2(void) {
   for (i=0; i<8; i++) {
     init_rba_buffer(aux + i, &prod_table);
   }
-  
+
   rba_buffer_add_var(&aux[0], 3); // x_3
 
   q_set32(&q0, 2);
@@ -346,7 +346,7 @@ static void test_ops(rba_buffer_t *b1, rba_buffer_t *b2) {
   }
 
   init_rba_buffer(&b, &prod_table);
-  
+
   reset_rba_buffer(&b);
   rba_buffer_add_buffer(&b, b1);
   rba_buffer_add_buffer(&b, b2);

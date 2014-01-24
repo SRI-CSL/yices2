@@ -15,13 +15,13 @@
 /*
  * For each i between 0 and nelems - 1, data[i] stores the
  * power product of index i.
- * - data[i] is valid if its tag bit is 0. 
+ * - data[i] is valid if its tag bit is 0.
  *   Then data[i] is a pointer to a valid  pprod_t structure of degree >= 2.
  *   There's a corresponding record (with index i) in the htbl.
  * - data[i] is a deleted product if its tag bit is 1.
  *   In that case, data[i] encodes the next element in a global free list.
  * - mark[i] is used during garbage collection.
- * 
+ *
  * Other components:
  * - size = size of array data and bitvector mark
  * - nelems = number of array elements used
@@ -118,11 +118,11 @@ extern pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d);
 
 /*
  * Remove p from the table and free the corresponding pprod_t object.
- * - p must be present in the table (and must be distinct from end_pp, 
+ * - p must be present in the table (and must be distinct from end_pp,
  *   empty_pp, or any tagged variable).
  */
 extern void delete_pprod(pprod_table_t *table, pprod_t *p);
- 
+
 /*
  * Mark p to prevent its deletion during garbage collection
  * - p must be present in the table

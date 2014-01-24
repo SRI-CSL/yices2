@@ -53,7 +53,7 @@ static void extend_bv_vartable(bv_vartable_t *table) {
   if (n >= MAX_BVVARTABLE_SIZE) {
     out_of_memory();
   }
-  
+
   table->bit_size = (uint32_t *) safe_realloc(table->bit_size, n * sizeof(uint32_t));
   table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
   table->def = (bvvar_desc_t *) safe_realloc(table->def, n * sizeof(bvvar_desc_t));
@@ -138,7 +138,7 @@ void reset_bv_vartable(bv_vartable_t *table) {
 
   table->nvars = 1;
 
-  reset_int_htbl(&table->htbl);  
+  reset_int_htbl(&table->htbl);
 }
 
 
@@ -198,7 +198,7 @@ void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms) {
  * For bvpoly and bvpoly64 we use
  * hash_bvpoly   (in bv_polynomials)
  * hash_bvpoly64 (in bv64_polynomials)
- * 
+ *
  */
 // n = number of bits
 static inline uint32_t hash_bvconst64(uint64_t c, uint32_t n) {
@@ -424,7 +424,7 @@ static thvar_t bv_vartable_alloc_id(bv_vartable_t *table, uint32_t n) {
 
 
 /*
- * Constructors: 
+ * Constructors:
  * - all constructors create a new theory variable with the given definition
  * - when present n = bitsize of the new variable
  */
@@ -458,7 +458,7 @@ static thvar_t make_bvconst(bv_vartable_t *table, uint32_t n, uint32_t *val) {
   tmp = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
   bvconst_set(tmp, w, val);
   bvconst_normalize(tmp, n);
- 
+
   x = bv_vartable_alloc_id(table, n);
   table->kind[x] = BVTAG_CONST;
   table->def[x].ptr = tmp;
@@ -692,7 +692,7 @@ static bool eq_bvconst64_hobj(bvconst64_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_CONST64 && 
+  return bvvar_tag(table, i) == BVTAG_CONST64 &&
     table->bit_size[i] == p->nbits && table->def[i].val == p->val;
 }
 
@@ -712,7 +712,7 @@ static bool eq_bvpoly64_hobj(bvpoly_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_POLY64 && 
+  return bvvar_tag(table, i) == BVTAG_POLY64 &&
     bvpoly_buffer_equal_poly64(p->buffer, table->def[i].ptr);
 }
 
@@ -720,7 +720,7 @@ static bool eq_bvpoly_hobj(bvpoly_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_POLY && 
+  return bvvar_tag(table, i) == BVTAG_POLY &&
     bvpoly_buffer_equal_poly(p->buffer, table->def[i].ptr);
 }
 
@@ -737,7 +737,7 @@ static bool eq_bvpprod_hobj(bvpprod_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_PPROD && 
+  return bvvar_tag(table, i) == BVTAG_PPROD &&
     pp_buffer_eq_pprod(p->buffer, table->def[i].ptr);
 }
 

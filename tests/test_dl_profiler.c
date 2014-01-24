@@ -32,7 +32,7 @@ static context_t context;
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error", 
+  "no error",
   "internal error",
   "type error",
   "formula contains free variables",
@@ -60,7 +60,7 @@ static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     printf("Internalization OK\n");
-    printf("Assertions simplify to false\n\n"); 
+    printf("Assertions simplify to false\n\n");
     printf("unsat\n");
   } else if (code == CTX_NO_ERROR) {
     printf("Internalization OK\n\n");
@@ -70,7 +70,7 @@ static void print_internalization_code(int32_t code) {
     code = - code;
     printf("unknown\n");
     printf("Internalization error: %s\n\n", code2error[code]);
-  }    
+  }
 
   fflush(stdout);
 }
@@ -126,17 +126,17 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
 
 /*
  * Temporary test. Check whether the assertions are trivially true
- * after internalization and variable elimination (i.e., vectors 
+ * after internalization and variable elimination (i.e., vectors
  * top_eqs, top_formulas, top_atoms, top_interns are all empty).
  */
 static bool context_is_empty(context_t *ctx) {
-  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 && 
+  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 &&
     ctx->top_formulas.size == 0 && ctx->top_interns.size == 0;
 }
 
 
 /*
- * Test the context internalization functions + difference logic profiling 
+ * Test the context internalization functions + difference logic profiling
  */
 static int32_t test_dl_profiling(smt_benchmark_t *bench) {
   dl_data_t *profile;
@@ -178,11 +178,11 @@ static int32_t test_dl_profiling(smt_benchmark_t *bench) {
   printf("term table: %"PRIu32" elements\n", context.terms->nelems);
 
   profile = context.dl_profile;
-  if (profile != NULL) {    
+  if (profile != NULL) {
     printf("profile:\n");
     printf("  %"PRIu32" variables\n", profile->num_vars);
     printf("  %"PRIu32" atoms\n", profile->num_atoms);
-    printf("  %"PRIu32" equalities\n", profile->num_eqs);    
+    printf("  %"PRIu32" equalities\n", profile->num_eqs);
     printf("  sum const = ");
     q_print(stdout, &profile->sum_const);
     printf("\n");

@@ -49,7 +49,7 @@ int main() {
   clr_bit(bv, 0);
   clr_bit(bv, 13);
   printf("clearing bits 0, 10, 13:\n");
-  display_bitvector(bv, 32);  
+  display_bitvector(bv, 32);
 
   clear_bitvector(bv, 32);
   printf("clearing all bits:\n");
@@ -69,15 +69,15 @@ int main() {
   assign_bit(bv, 1, tst_bit(bv, 0));
   printf("copied bit[0] to bit[1]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit(bv, 5, tst_bit(bv, 4));
   printf("copied bit[4] to bit[5]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit(bv, 6, tst_bit(bv, 7));
   printf("copied bit[7] to bit[6]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit(bv, 30, tst_bit(bv, 27));
   printf("copied bit[27] to bit[30]:\n");
   display_bitvector(bv, 32);
@@ -96,19 +96,19 @@ int main() {
   assign_bit_old(bv, 1, tst_bit(bv, 0));
   printf("copied bit[0] to bit[1]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit_old(bv, 5, tst_bit(bv, 4));
   printf("copied bit[4] to bit[5]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit_old(bv, 6, tst_bit(bv, 7));
   printf("copied bit[7] to bit[6]:\n");
   display_bitvector(bv, 32);
-  
+
   assign_bit_old(bv, 30, tst_bit(bv, 27));
   printf("copied bit[27] to bit[30]:\n");
   display_bitvector(bv, 32);
-  
+
 
   delete_bitvector(bv);
 

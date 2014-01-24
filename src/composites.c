@@ -174,7 +174,7 @@ composite_t *new_eq_composite(occ_t t1, occ_t t2) {
 
   tmp = alloc_composite(2);
   init_eq(tmp, t1, t2);
-  return tmp;  
+  return tmp;
 }
 
 composite_t *new_distinct_composite(uint32_t n, occ_t *a) {
@@ -242,7 +242,7 @@ composite_t *arena_eq_composite(arena_t *m, occ_t t1, occ_t t2) {
 
   tmp = arena_alloc_composite(m, 2);
   init_eq(tmp, t1, t2);
-  return tmp;  
+  return tmp;
 }
 
 composite_t *arena_distinct_composite(arena_t *m, uint32_t n, occ_t *a) {
@@ -320,7 +320,7 @@ composite_t *new_or_composite_var(uint32_t n, occ_t *a) {
  *************************/
 
 /*
- * Syntactic equality: 
+ * Syntactic equality:
  * check whether  c == (apply f a[0] ... a[n-1]) etc.
  */
 static inline bool equal_children(int32_t *ch, uint32_t n, occ_t *a) {
@@ -334,7 +334,7 @@ static inline bool equal_children(int32_t *ch, uint32_t n, occ_t *a) {
 
 
 bool equal_apply(composite_t *c, occ_t f, uint32_t n, occ_t *a) {
-  return c->tag == mk_apply_tag(n + 1) && c->child[0] == f && 
+  return c->tag == mk_apply_tag(n + 1) && c->child[0] == f &&
     equal_children(c->child + 1, n, a);
 }
 
@@ -352,7 +352,7 @@ bool equal_eq(composite_t *c, occ_t t1, occ_t t2) {
 }
 
 bool equal_ite(composite_t *c, occ_t t1, occ_t t2, occ_t t3) {
-  return c->tag == mk_ite_tag() && c->child[0] == t1 && 
+  return c->tag == mk_ite_tag() && c->child[0] == t1 &&
     c->child[1] == t2 && c->child[2] == t3;
 }
 
@@ -422,7 +422,7 @@ static uint32_t hash_aux(uint32_t n, int32_t *a, uint32_t x, uint32_t y, uint32_
   }
 
   switch (n) {
-  case 3: z += a[2];    
+  case 3: z += a[2];
   case 2: y += a[1];
   case 1: x += a[0];
     final(x, y, z);
@@ -498,7 +498,7 @@ uint32_t hash_composite(composite_t *c) {
   switch (tag_kind(tag)) {
   case COMPOSITE_APPLY:
     return hash_apply(c->child[0], n - 1, c->child + 1);
-  case COMPOSITE_UPDATE:    
+  case COMPOSITE_UPDATE:
     return hash_update(c->child[0], n - 2, c->child + 1, c->child[n - 1]);
   case COMPOSITE_TUPLE:
     return hash_tuple(n, c->child);
@@ -541,7 +541,7 @@ static inline elabel_t get_label(elabel_t *label, occ_t t) {
 }
 
 /*
- * Check whether c0 = class of child[i] is a duplicate, i.e., 
+ * Check whether c0 = class of child[i] is a duplicate, i.e.,
  * whether there's a j<i such that get_class(child[j]) == c0
  */
 static bool duplicate_class(occ_t *child, elabel_t *label, class_t c0, uint32_t i) {
@@ -646,9 +646,9 @@ void unhook_composite(composite_t *c, elabel_t *label, class_t r0) {
  * Hook composite c to class r0
  * - search for the first child in that class
  * - if its hook is negative, attach cmp to class r0
- * - if its hook is non-negative, there's nothing to do, c is already 
+ * - if its hook is non-negative, there's nothing to do, c is already
  * in r0's use vector.
- */ 
+ */
 void hook_composite(composite_t *c, elabel_t *label, use_vector_t *u, class_t r0) {
   uint32_t i, n;
   int32_t *h;
@@ -691,7 +691,7 @@ void hide_composite(composite_t *c, elabel_t *label, use_vector_t *u) {
       c0 = get_class(label, c->child[i]);
       mark_use_vector_entry(u + c0, k);
     }
-  }  
+  }
 }
 
 
@@ -713,7 +713,7 @@ void reveal_composite(composite_t *c, elabel_t *label, use_vector_t *u) {
       c0 = get_class(label, c->child[i]);
       unmark_use_vector_entry(u + c0, k);
     }
-  }  
+  }
 }
 
 
@@ -754,7 +754,7 @@ void delete_sign_buffer(signature_t *s) {
 
 
 /*
- * Normalize the signature for an equality term (eq t0 t1) 
+ * Normalize the signature for an equality term (eq t0 t1)
  * - s[0] and s[1] must the labels of t0 and t1
  * - ensure lhs has positive polarity and lhs < rhs
  */
@@ -763,7 +763,7 @@ static void normalize_sigma_eq(elabel_t *s) {
   uint32_t sgn;
 
   if (s[1] < s[0]) {
-    l = s[0]; s[0] = s[1]; s[1] = l;    
+    l = s[0]; s[0] = s[1]; s[1] = l;
   }
   sgn = sign_of(s[0]);
   s[0] ^= sgn;
@@ -791,7 +791,7 @@ void signature_basic(composite_t *c, elabel_t *label, signature_t *s) {
 /*
  * equality term
  */
-void signature_eq(composite_t *c, elabel_t *label, signature_t *s) {  
+void signature_eq(composite_t *c, elabel_t *label, signature_t *s) {
   assert(c->tag == mk_eq_tag());
   s->tag = mk_eq_tag();
   s->sigma[0] = get_label(label, c->child[0]);
@@ -810,7 +810,7 @@ void signature_ite(composite_t *c, elabel_t *label, signature_t *s) {
   l0 = get_label(label, c->child[0]);
   l1 = get_label(label, c->child[1]);
   l2 = get_label(label, c->child[2]);
- 
+
   s->tag = mk_ite_tag();
   if (is_pos_label(l0)) {
     s->sigma[0] = l0;
@@ -855,7 +855,7 @@ void signature_or(composite_t *c, elabel_t *label, signature_t *s) {
   n = composite_arity(c);
   a = s->sigma;
   t = c->child;
-  
+
   resize_sign_buffer(s, n);
 
   // copy labels of t[0] ... t[n-1]
@@ -872,7 +872,7 @@ void signature_or(composite_t *c, elabel_t *label, signature_t *s) {
 
   if (n > 1) {
     // sort and remove duplicates
-    int_array_sort(a, n);  
+    int_array_sort(a, n);
 
     l = a[0];
     j = 1;
@@ -891,7 +891,7 @@ void signature_or(composite_t *c, elabel_t *label, signature_t *s) {
 
 
 /*
- * For a lambda: 
+ * For a lambda:
  * - the signature depends on label[c->child[0]] and on c->child[2] (lambda tag)
  */
 void signature_lambda(composite_t *c, elabel_t *label, signature_t *s) {
@@ -899,7 +899,7 @@ void signature_lambda(composite_t *c, elabel_t *label, signature_t *s) {
 
   s->tag = mk_lambda_tag();
   s->sigma[0] = get_label(label, c->child[0]);
-  s->sigma[1] = c->child[2]; 
+  s->sigma[1] = c->child[2];
 }
 
 
@@ -943,7 +943,7 @@ void signature_composite(composite_t *c, elabel_t *label, signature_t *s) {
  */
 uint32_t hash_signature(signature_t *s) {
   uint32_t n;
-  
+
   n = tag_arity(s->tag);
   return hash_aux(n, s->sigma, s->tag, 0xdeadbeef, 0xdeadbeef);
 }
@@ -955,7 +955,7 @@ uint32_t hash_signature(signature_t *s) {
  */
 bool equal_signatures(signature_t *s1, signature_t *s2) {
   uint32_t tag, i, n;
-  
+
   tag = s1->tag;
   if (tag != s2->tag) return false;
 
@@ -1002,7 +1002,7 @@ bool signature_matches(composite_t *c, signature_t *s, signature_t *aux, elabel_
     l[0] = get_label(label, c->child[0]);
     l[1] = get_label(label, c->child[1]);
     l[2] = get_label(label, c->child[2]);
-    return (s->sigma[0] == l[0] && s->sigma[1] == l[1] && s->sigma[2] == l[2]) 
+    return (s->sigma[0] == l[0] && s->sigma[1] == l[1] && s->sigma[2] == l[2])
       || (s->sigma[0] == opposite_label(l[0]) && s->sigma[1] == l[2] && s->sigma[2] == l[1]);
 
   case COMPOSITE_DISTINCT:
@@ -1014,8 +1014,8 @@ bool signature_matches(composite_t *c, signature_t *s, signature_t *aux, elabel_
     return equal_signatures(s, aux);
 
   case COMPOSITE_LAMBDA:
-    return s->sigma[0] == get_label(label, c->child[0]) && s->sigma[1] == c->child[2]; 
-  }  
+    return s->sigma[0] == get_label(label, c->child[0]) && s->sigma[1] == c->child[2];
+  }
 
   // prevents a GCC warning
   assert(false);
@@ -1064,7 +1064,7 @@ void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t *label,
 
 /*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)
- * - c must be of the form (apply f i_1 ... i_n) 
+ * - c must be of the form (apply f i_1 ... i_n)
  *   d must be of the form (apply g j_i ... j_m)
  * - return true if n == m and label[i_1] = label[j_1], ..., label[i_n] = label[j_m]
  */
@@ -1092,7 +1092,7 @@ bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label) {
  * Compute a hash code of c's argument tuple
  * - c must be of the form (apply f i_1 ... i_n)
  * - return a hash computed based one n and label[i_1], ..., label[i_n]
- * - so if same_arg_signature(c, d, label) is true then 
+ * - so if same_arg_signature(c, d, label) is true then
  *   hash_arg_signature(c, label) = hash_arg_signature(d, label).
  */
 uint32_t hash_arg_signature(composite_t *c, elabel_t *label) {
@@ -1208,7 +1208,7 @@ void delete_congruence_table(congruence_table_t *tbl) {
 
 /*
  * Store composite d in a clean data array
- * - mask = size of data - 1 
+ * - mask = size of data - 1
  * - d->hash is the hash code of d
  * data must not contain any deleted_eterms and must have at least one empty slot
  */
@@ -1264,7 +1264,7 @@ static void congruence_table_cleanup(congruence_table_t *tbl) {
  */
 static void congruence_table_extend(congruence_table_t *tbl) {
   composite_t **tmp;
-  uint32_t n, n2, j, mask;  
+  uint32_t n, n2, j, mask;
   composite_t *d;
 
   n = tbl->size;
@@ -1394,7 +1394,7 @@ composite_t  *congruence_table_find(congruence_table_t *tbl, signature_t *s, ela
   j = h & mask;
   for (;;) {
     c = tbl->data[j];
-    if (c == NULL_COMPOSITE || 
+    if (c == NULL_COMPOSITE ||
         (c != DELETED_COMPOSITE && c->hash == h && signature_matches(c, s, &tbl->buffer, label))) {
       return c;
     }
@@ -1426,7 +1426,7 @@ static inline bool matches_sigma_eq(composite_t *c, elabel_t *sigma, elabel_t *l
 /*
  * Search for a composite congruent to (eq t1 t2)
  * - return NULL_COMPOSITE if there's none
- */ 
+ */
 composite_t *congruence_table_find_eq(congruence_table_t *tbl, occ_t t1, occ_t t2, elabel_t *label) {
   uint32_t mask, j, h;
   composite_t *c;
@@ -1436,20 +1436,20 @@ composite_t *congruence_table_find_eq(congruence_table_t *tbl, occ_t t1, occ_t t
   s[1] = get_label(label, t2);
   normalize_sigma_eq(s);
   h = hash_sigma_eq(s);
-  
+
   mask = tbl->size - 1;
   j = h & mask;
   for (;;) {
     c = tbl->data[j];
     if (c == NULL_COMPOSITE ||
-        (c != DELETED_COMPOSITE && 
+        (c != DELETED_COMPOSITE &&
          c->tag == mk_eq_tag() && c->hash == h && matches_sigma_eq(c, s, label))) {
       return c;
     }
     j ++;
     j &= mask;
   }
-  
+
 }
 
 
@@ -1476,7 +1476,7 @@ composite_t  *congruence_table_get(congruence_table_t *tbl, composite_t *c, sign
     j ++;
     j &= mask;
   }
- 
+
   // j is where addition will happen if necessary
   k = j;
   for (;;) {
@@ -1487,7 +1487,7 @@ composite_t  *congruence_table_get(congruence_table_t *tbl, composite_t *c, sign
       tbl->ndeleted --;
       goto add;
     }
-    if (aux != DELETED_COMPOSITE && 
+    if (aux != DELETED_COMPOSITE &&
         aux->hash == h && signature_matches(aux, s, &tbl->buffer, label)) goto found;
   }
 
@@ -1530,7 +1530,7 @@ bool congruence_table_is_root(congruence_table_t *tbl, composite_t *c, elabel_t 
     if (aux == NULL_COMPOSITE) return false;
     j ++;
     j &= mask;
-  }  
+  }
 }
 
 

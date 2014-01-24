@@ -13,14 +13,14 @@
 #   ARCH = architecture (e.g, i686-pc-linux-gnu)
 #   POSIXOS = OS (e.g., linux)
 #   BUILD = target build director (normally build/$(ARCH)-$(YICES_MODE))
-#   
+#
 # Config variables are imported by including the file
 #   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 
 SHELL=/bin/sh
 
-ifeq (,$(YICES_TOP_DIR)) 
+ifeq (,$(YICES_TOP_DIR))
  $(error "YICES_TOP_DIR is undefined")
 endif
 
@@ -58,7 +58,7 @@ static_bindir := $(BUILD)/static_bin
 #
 # Distribution subdirectory: tarfiles are constructed
 # via make binary-distribution or make smt-distribution
-# 
+#
 # In this makefile, we just copy what needs to be included
 # in the distribution tarfiles in $(BUILD)/dist or $(BUILD)/static_dist
 #
@@ -127,7 +127,7 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               yices_lexer.c yices_pp.c yices_parser.c
 
 #
-# Other source files for libyices.a 
+# Other source files for libyices.a
 # That's all the code needed by the main binaries
 # + experimental/unfinished modules
 # + functions for printing/debugging
@@ -217,7 +217,7 @@ endif
 libyices_soname := libyices.so.$(MAJOR).$(MINOR)
 
 
-# 
+#
 # Darwin
 # library name: libyices.2.dylib
 # version and compatibility numbers for Darwin
@@ -256,12 +256,12 @@ libyices_def=libyices.def
 #    libyices_dynamic = dynamic library for make lib
 #    static_libyices_dynamic = dynamic library for make static-lib
 #
-# -fPIC: PIC is the default on Darwin/Cygwin/Mingw (and causes 
+# -fPIC: PIC is the default on Darwin/Cygwin/Mingw (and causes
 #  compilation warning on the latter two if present)
 #
 # -static: is not supported by Darwin or our Solaris2.10 machine
 #
-# BIN_LDFLAGS: LDFLAGS used when building executables 
+# BIN_LDFLAGS: LDFLAGS used when building executables
 #  this is used to increase the stack size on cygwin/mingw (to 8Mbytes)
 #
 ifeq ($(POSIXOS),cygwin)
@@ -302,7 +302,7 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden 
+  CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -311,7 +311,7 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden 
+  CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -365,19 +365,19 @@ endif
 # Option -fno-stack-protector is useful on Ubuntu (and probably other
 # Linux distributions). On these distributions, gcc has
 # -fstack-protector enabled by default. This can cause link-time
-# errors on the user's systems: 
+# errors on the user's systems:
 #    undefined reference to '__stack_chk_fail'.
 # However this option is not supported by older versions of GCC (before gcc-4.1?)
 #
 # Update: 02/16/2012: we check whether -fno-stack-protector is supported
-# in the configure script. The script sets variable $(NO_STACK_PROTECTOR) 
+# in the configure script. The script sets variable $(NO_STACK_PROTECTOR)
 # properly.
 #
-ifeq ($(YICES_MODE),release) 
+ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-ifeq ($(YICES_MODE),devel) 
+ifeq ($(YICES_MODE),devel)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
@@ -584,7 +584,7 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 # NOTE: by passing flag --no-undefined to ld, we should
 # get an error if something is missing in the base_obj
 # list.  This flag causes problems on our Solaris 2.10
-# machine, unless we also give -lc. 
+# machine, unless we also give -lc.
 #
 $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
@@ -673,7 +673,7 @@ $(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(LIBS) 
+	$(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) -x $@
 
 $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
@@ -715,7 +715,7 @@ static-lib: $(static_libyices) $(static_libyices_dynamic)
 # OS-dependent flags for strip
 # TODO: adjust this depending on OS
 #
-STRIPFLAGS= 
+STRIPFLAGS=
 
 #
 # Just copy the required binaries, libraries, include files into

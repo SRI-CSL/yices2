@@ -49,7 +49,7 @@ int main() {
   int_queue_push(&q, 1);
   int_queue_push(&q, 2);
   print_queue(&q);
-  
+
   printf("\nremoving elements\n");
   while (! int_queue_is_empty(&q)) {
     x = int_queue_pop(&q);
@@ -67,7 +67,7 @@ int main() {
 
   printf("\n");
   print_queue(&q);
-  
+
   printf("\nremoving elements\n");
   while (! int_queue_is_empty(&q)) {
     x = int_queue_pop(&q);
@@ -78,6 +78,6 @@ int main() {
   print_queue(&q);
 
   delete_int_queue(&q);
-  
+
   return 0;
 }

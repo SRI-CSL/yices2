@@ -15,7 +15,7 @@
 void init_fvar_collector(fvar_collector_t *collect, term_table_t *ttbl) {
   collect->terms = ttbl;
   init_ptr_hmap(&collect->map, 0);         // default size
-  init_int_array_hset(&collect->store, 0); // default size 
+  init_int_array_hset(&collect->store, 0); // default size
   init_pstack(&collect->stack);
   init_ivector(&collect->buffer, 20);      // initial size = 20
   init_int_hset(&collect->aux, 0);         // default size
@@ -82,7 +82,7 @@ static inline harray_t *empty_fvar_set(fvar_collector_t *collect) {
  * Singleton set: x = unique element
  */
 static inline harray_t *singleton_fvar_set(fvar_collector_t *collect, term_t x) {
-  return int_array_hset_get(&collect->store, 1, &x);  
+  return int_array_hset_get(&collect->store, 1, &x);
 }
 
 
@@ -124,7 +124,7 @@ static harray_t *merge_two_fvar_sets(fvar_collector_t *collect, harray_t *a, har
 
     ivector_reset(v);
     int_hset_reset(aux);
-  } 
+  }
 
   return a;
 }
@@ -165,7 +165,7 @@ static harray_t *merge_fvar_sets(fvar_collector_t *collect, harray_t **a, uint32
 
     /*
      * b is a[i], for some i and elements of b have not been
-     * processed yet. If i = 0, then all elements of a are 
+     * processed yet. If i = 0, then all elements of a are
      * equal to b so the result is b.
      */
     if (b != a[0]) {
@@ -406,7 +406,7 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
     break;
 
   case VARIABLE:
-    // we use pos_term(i) rather than t since t could be a negative term 
+    // we use pos_term(i) rather than t since t could be a negative term
     // (i.e., neg_term(i) that represents (not v) for some Boolean variable v)
     result = singleton_fvar_set(collect, pos_term(i));
     break;

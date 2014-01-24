@@ -33,7 +33,7 @@
  *   followed by a single call to (check_sat).
  * - interactive: if this flag is true, print a prompt before
  *   parsing commands. Also set the option :print-success to true.
- *   
+ *
  * - filename = name of the input file (NULL means read stdin)
  */
 static lexer_t lexer;
@@ -85,7 +85,7 @@ static void print_version(void) {
 	 "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
          "Platform: %s (%s)\n",
-         yices_version, gmp_version, 
+         yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode);
   fflush(stdout);
 }
@@ -111,7 +111,7 @@ static void print_help(const char *progname) {
  */
 static void print_usage(const char *progname) {
   fprintf(stderr, "Usage: %s [options] filename\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 
@@ -195,7 +195,7 @@ static void parse_command_line(int argc, char *argv[]) {
   if (filename != NULL) {
     interactive = false;
   }
-  return; 
+  return;
 }
 
 
@@ -233,13 +233,13 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer); 
+	flush_lexer(&lexer);
       } else {
 	break; // exit
       }
     }
   }
-  
+
   if (show_stats) {
     smt2_show_stats();
   }

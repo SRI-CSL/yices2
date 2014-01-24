@@ -12,7 +12,7 @@
  *   (cf. bv_constants.h).
  *
  * In normal form, polynomials have the following properties:
- * - the coefficients are all reduced modulo 2^n 
+ * - the coefficients are all reduced modulo 2^n
  *   and are all non zero
  * - the monomials are stored in deg-lex order: lower degree
  *   monomials appear first; monomials of equal degree are
@@ -63,7 +63,7 @@ typedef struct bvarith_buffer_s {
   uint32_t nterms;        // length of the list (excluding the end marker)
   uint32_t bitsize;
   uint32_t width;
-  bvmlist_t *list;        // start of the list 
+  bvmlist_t *list;        // start of the list
   object_store_t *store;  // for allocation of list elements
   pprod_table_t *ptbl;    // for creation of power products
 } bvarith_buffer_t;
@@ -110,7 +110,7 @@ extern void delete_bvarith_buffer(bvarith_buffer_t *b);
 /*
  * Prepare b for a polynomial of n bits
  * - n must be positive and no more than YICES_MAX_BVSIZE
- * - this clears the current content of b  and 
+ * - this clears the current content of b  and
  *   sets b to the 0 polynomial of n bits
  */
 extern void bvarith_buffer_prepare(bvarith_buffer_t *b, uint32_t n);
@@ -232,8 +232,8 @@ extern bool bvarith_buffer_equal(bvarith_buffer_t *b1, bvarith_buffer_t *b2);
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
- * power-product table (i.e., either r is empty_pp, or 
+ * The power product r must be defined in b's internal
+ * power-product table (i.e., either r is empty_pp, or
  * r is a tagged variable, or r occurs in b->ptbl).
  *
  * For operations that have a bitvector constant a as an argument,
@@ -353,8 +353,8 @@ extern void bvarith_buffer_square(bvarith_buffer_t *b);
  ***********************************/
 
 /*
- * In all operations, p1 and p2 must be lists of monomials built using the 
- * same pprod_table as b. The coefficients in p1 and p2 must have the 
+ * In all operations, p1 and p2 must be lists of monomials built using the
+ * same pprod_table as b. The coefficients in p1 and p2 must have the
  * same bitsize as in b. The monomial lists must be sorted and terminated
  * by the end marker.
  */
@@ -575,7 +575,7 @@ static inline void bvarith_buffer_mul_buffer_power(bvarith_buffer_t *b, bvarith_
  * - b1 and b2 must be disjoint from b (but b1 may be equal to b2)
  */
 static inline void bvarith_buffer_add_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
-  assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && 
+  assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl &&
          b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
   bvarith_buffer_add_mlist_times_mlist(b, b1->list, b2->list);
 }
@@ -601,9 +601,9 @@ static inline void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, b
  ******************************************/
 
 /*
- * A bit-vector polynomial is an array of monomials of the form 
- * (coeff, index) where indices are signed integers. Operations 
- * between buffers and polynomials require a conversion of 
+ * A bit-vector polynomial is an array of monomials of the form
+ * (coeff, index) where indices are signed integers. Operations
+ * between buffers and polynomials require a conversion of
  * the integer indices used by monomials to power products used by buffers.
  *
  * All operations below take three arguments:
@@ -614,7 +614,7 @@ static inline void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, b
  *   of x_i to a power product.
  *
  * All operations are in place operations on the first argument b
- * (i.e., all modify the buffer). There are two requirements 
+ * (i.e., all modify the buffer). There are two requirements
  * on mono and pp:
  * - poly must be terminated by and end-marker (var = max_idx).
  * - pp must be sorted in the deg-lex ordering and have at least
@@ -696,7 +696,7 @@ extern void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly,
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_bvpoly defined in bv_polynomials.c.
  * If P(b, v) = p0 then hash_bvarith_buffer(b, v) = hash_bvpoly(p0).
  */
@@ -803,7 +803,7 @@ static inline void bvarith_buffer_sub_var_times_buffer(bvarith_buffer_t *b, bvar
 /*
  * Add a * x * b1 to b
  */
-static inline void 
+static inline void
 bvarith_buffer_add_varmono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, int32_t x) {
   bvarith_buffer_add_mono_times_buffer(b, b1, a, var_pp(x));
 }
@@ -820,7 +820,7 @@ bvarith_buffer_sub_varmono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
 /*
  * Add a * x * poly to b
  */
-static inline void 
+static inline void
 bvarith_buffer_add_varmono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, int32_t x) {
   bvarith_buffer_add_mono_times_bvpoly(b, poly, pp, a, var_pp(x));
 }

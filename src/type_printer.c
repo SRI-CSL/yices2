@@ -89,7 +89,7 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
         fprintf(f, "(enum!%"PRId32" %"PRIu32")", tau, scalar_type_cardinal(tbl, tau));
         break;
       case UNINTERPRETED_TYPE:
-        fprintf(f, "unint!%"PRId32, tau);       
+        fprintf(f, "unint!%"PRId32, tau);
         break;
       case VARIABLE_TYPE:
         fprintf(f, "var!%"PRIu32, type_variable_id(tbl, tau));
@@ -119,7 +119,7 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
         n = instance_type_arity(tbl, tau);
         for (i=0; i<n; i++) {
           fputc(' ', f);
-          print_type_recur(f, tbl, instance_type_param(tbl, tau, i), level - 1);          
+          print_type_recur(f, tbl, instance_type_param(tbl, tau, i), level - 1);
         }
         fputc(')', f);
         break;
@@ -304,7 +304,7 @@ void print_type_table(FILE *f, type_table_t *tbl) {
       // name + one space
       print_padded_string(f, type_name(tbl, i), name_size);
 
-      // definition      
+      // definition
       switch (type_kind(tbl, i)) {
       case BOOL_TYPE:
       case INT_TYPE:
@@ -354,7 +354,7 @@ void print_type_table(FILE *f, type_table_t *tbl) {
         fputs(")\n", f);
         break;
       default:
-        fputs("invalid type code\n", f);        
+        fputs("invalid type code\n", f);
         break;
       }
     }
@@ -486,7 +486,7 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 
 
 /*
- * Expand top-level names 
+ * Expand top-level names
  */
 void pp_type_exp(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
   pp_type_recur(printer, tbl, tau, 1);

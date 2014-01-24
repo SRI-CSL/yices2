@@ -1,7 +1,7 @@
 /*
  * Test of assert_true function:
  * - in assert_true(test_function("aaaa'))
- *   we want test_function to be called whether or not assertions are enabled 
+ *   we want test_function to be called whether or not assertions are enabled
  *   (i.e., NDEBUG defined or not)
  */
 

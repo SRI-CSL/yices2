@@ -31,12 +31,12 @@ static arith_var_t v[11];
 #define MIN_NUMERATOR (INT32_MIN>>1)
 #define MAX_DENOMINATOR MAX_NUMERATOR
 
-static int32_t num[12] = { 
-  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR 
+static int32_t num[12] = {
+  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR
 };
 
 static uint32_t den[12] = {
-  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2 
+  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2
 };
 
 
@@ -110,7 +110,7 @@ static void print_mono_array_detail(FILE *f, monomial_t *a, int32_t n, arithvar_
   fprintf(f, "    m[%"PRId32"]: {idx: %"PRId32"}\n", i, a[i].var);
 }
 
-static void print_arith_buffer(FILE *f, arith_buffer_t *b, uint32_t level) {  
+static void print_arith_buffer(FILE *f, arith_buffer_t *b, uint32_t level) {
   mlist_t *r;
   arith_var_t v;
 
@@ -175,7 +175,7 @@ static void random_integer(rational_t *a) {
 static void random_multiple_of_four(rational_t *a) {
   int32_t x;
 
-  x = (random() % 17) - 8;  
+  x = (random() % 17) - 8;
   q_set32(a, 4 * x);
 }
 
@@ -200,7 +200,7 @@ int main() {
 
   printf("--- Four declared variables ---\n");
   for (i=0; i<4; i++) {
-    printf("v[%"PRId32"]: idx = %"PRId32", name = x_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));    
+    printf("v[%"PRId32"]: idx = %"PRId32", name = x_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));
   }
 
   printf("\n--- Products ---\n");
@@ -214,11 +214,11 @@ int main() {
   printf("v[4] = %s * %s: idx = %"PRId32", term = ", name[0], name[0], v[4]);
   print_arith_var(stdout, v[4], &manager);
   printf("\n");
-  
+
   printf("v[5] = %s * %s: idx = %"PRId32", term = ", name[0], name[1], v[5]);
   print_arith_var(stdout, v[5], &manager);
   printf("\n");
-  
+
   printf("v[6] = %s * 1: idx = %"PRId32", term = ", name[2], v[6]);
   print_arith_var(stdout, v[6], &manager);
   printf("\n");
@@ -226,11 +226,11 @@ int main() {
   printf("v[7] = v[5] * %s: idx = %"PRId32", term = ", name[1], v[7]);
   print_arith_var(stdout, v[7], &manager);
   printf("\n");
-  
+
   printf("v[8] = %s * v[4]: idx = %"PRId32", term = ", name[0], v[8]);
   print_arith_var(stdout, v[8], &manager);
   printf("\n\n");
-  
+
 
   printf("\n--- Empty buffer ---\n");
   print_arith_buffer(stdout, &buffer, 10);
@@ -257,7 +257,7 @@ int main() {
     printf("--- Poly hash code = %"PRIu32" ---\n", hash_monarray(poly[n]->mono));
     printf("--- Buffer ---\n");
     print_arith_buffer(stdout, &buffer, 0);
-    printf("\n\n");    
+    printf("\n\n");
   }
 
   printf("Adding poly[10] to poly[8]\n");
@@ -271,7 +271,7 @@ int main() {
   print_arith_buffer(stdout, &buffer, 0);
   //  print_arith_buffer(stdout, &buffer, 10);
   printf("\n\n");
-  
+
   printf("Adding poly[8] - 2 x^2 to poly[10] \n");
   arith_buffer_reset(&buffer);
   arith_buffer_add_monarray(&buffer, poly[8]->mono);
@@ -305,8 +305,8 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
+
+
   printf("Computing poly[8] - poly[10]\n");
   arith_buffer_reset(&buffer);
   arith_buffer_add_monarray(&buffer, poly[8]->mono);
@@ -321,8 +321,8 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
+
+
   printf("Computing - poly[10] + poly[8]\n");
   arith_buffer_reset(&buffer);
   arith_buffer_sub_monarray(&buffer, poly[10]->mono);
@@ -337,9 +337,9 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
-  
+
+
+
   printf("Computing  poly[1] * poly[2]\n");
   arith_buffer_reset(&buffer);
   arith_buffer_add_monarray_times_monarray(&buffer, poly[1]->mono, poly[2]->mono);
@@ -353,8 +353,8 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
+
+
   printf("Computing  poly[1] * poly[2]\n");
   printf("poly[1]: ");
   print_polynomial(stdout, poly[1], &manager, 0);
@@ -371,8 +371,8 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
+
+
   printf("Computing  poly[2] * poly[1]\n");
   arith_buffer_reset(&buffer);
   arith_buffer_add_monarray_times_monarray(&buffer, poly[2]->mono, poly[1]->mono);
@@ -386,8 +386,8 @@ int main() {
   arith_buffer_normalize(&buffer);
   print_arith_buffer(stdout, &buffer, 0);
   printf("\n\n");
-  
-  
+
+
 
   arith_buffer_reset(&buffer);
   arith_buffer_add_var(&buffer, v[0]);
@@ -450,10 +450,10 @@ int main() {
       printf("\n\n");
 
       free_polynomial(p1);
-      free_polynomial(p2);      
+      free_polynomial(p2);
     }
   }
-    
+
   print_arith_buffer(stdout, &buffer, 10);
   printf("\n");
 

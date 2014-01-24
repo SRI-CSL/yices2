@@ -21,7 +21,7 @@
  * - match = equivalence predicate
  * These two function take an auxiliary pointer as first argument:
  * - hash(aux, ptr) must return the hash code for ptr
- * - match(aux, ptr1, ptr2) must return true if ptr1 and ptr2 are in 
+ * - match(aux, ptr1, ptr2) must return true if ptr1 and ptr2 are in
  *   the same class
  */
 typedef uint32_t (*pclass_hash_fun_t)(void *aux, void *ptr);
@@ -56,9 +56,9 @@ typedef struct ptr_hclass_s {
  * Initialize table
  * - n = initial table size
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  */
-extern void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux, 
+extern void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux,
                             pclass_hash_fun_t hash_fn, pclass_match_fun_t match_fn);
 
 

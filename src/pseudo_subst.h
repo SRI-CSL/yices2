@@ -5,19 +5,19 @@
 /*
  * If variable elimination is enabled, the context attempts to
  * eliminate variable X in equalities of the form (X == term).
- * 
+ *
  * On large benchmarks, it's too expensive to check every time whether
  * X occurs in term. Instead, variable elimination is done in three
  * phases:
  *
  * 1) do the cheap substitutions: (X == Y) or (X == constant)
- *    record all other possible substitutions (X == term) into 
+ *    record all other possible substitutions (X == term) into
  *    a subst_eq vector.
  *
  * 2) process the subst_eq vector: if equality (X == term) in that
  *    vector is still a possible substitution (i.e., X is still free)
  *    then record the substitution [X := term] as a candidate.
- * 
+ *
  * 3) apply a global cycle detection algorithm and remove all
  *    candidate substitutions that cause cycles.
  *
@@ -65,7 +65,7 @@ typedef struct st_block_s {
 typedef struct st_bank_s {
   st_block_t *tail;  // last block (or NULL)
   st_block_t *head;  // first block (or NULL)
-  uint32_t free_idx; // index of the first free block in tail 
+  uint32_t free_idx; // index of the first free block in tail
                      // (ST_BANK_SIZE if the last block is full or NULL)
 } st_bank_t;
 
@@ -73,14 +73,14 @@ typedef struct st_bank_s {
 
 /*
  * Pseudo substitution:
- * - a hash table that maps a variable X to the 
+ * - a hash table that maps a variable X to the
  *   triple s such that s->var == X
  * - a bank for allocating triples
  */
 typedef struct pseudo_subst_s {
   subst_triple_t **data;
   uint32_t size;   // must be a power of 2
-  uint32_t nelems;        
+  uint32_t nelems;
   uint32_t resize_threshold;
 
   st_bank_t bank;
@@ -138,7 +138,7 @@ extern subst_triple_t *pseudo_subst_find(pseudo_subst_t *subst, term_t x);
  * Search for a triple with variable x in subst. If such a triple
  * is found, return it. Otherwise create a fresh record, add it
  * to the table, and return it.
- * - the fresh record is initialized with var = x, map = NULL_TERM, 
+ * - the fresh record is initialized with var = x, map = NULL_TERM,
  *   and eq = NULL_TERM.
  */
 extern subst_triple_t *pseudo_subst_get(pseudo_subst_t *subst, term_t x);

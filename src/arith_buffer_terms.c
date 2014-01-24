@@ -40,7 +40,7 @@ void arith_buffer_add_term(arith_buffer_t *b, term_table_t *table, term_t t) {
   default:
     arith_buffer_add_var(b, t);
     break;
-  }  
+  }
 }
 
 
@@ -77,7 +77,7 @@ void arith_buffer_sub_term(arith_buffer_t *b, term_table_t *table, term_t t) {
   default:
     arith_buffer_sub_var(b, t);
     break;
-  }  
+  }
 }
 
 
@@ -114,7 +114,7 @@ void arith_buffer_mul_term(arith_buffer_t *b, term_table_t *table, term_t t) {
   default:
     arith_buffer_mul_var(b, t);
     break;
-  }  
+  }
 }
 
 
@@ -156,7 +156,7 @@ void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, r
   default:
     arith_buffer_add_varmono(b, a, t);
     break;
-  }  
+  }
 }
 
 

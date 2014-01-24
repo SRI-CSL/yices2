@@ -10,16 +10,16 @@ SMT-LIB LANGUAGE (as done in Yices)
 
   <strings> are delimited by " and may contain \"
 
-  <user values> start by { and end by } any occurrence of { or } inside 
+  <user values> start by { and end by } any occurrence of { or } inside
     the user value must be preceded by \
 
 
   delimiters are spaces EOF " { } ( ) [ ] ; : ? $ \ ,
 
-  <var> start by ?,  followed by a nonempty sequence of characters, 
+  <var> start by ?,  followed by a nonempty sequence of characters,
         until a delimiter is read
 
-  <fvar> start by $ followed by nonempty sequence of characters, 
+  <fvar> start by $ followed by nonempty sequence of characters,
         until a delimiter is read
 
   <float> are of the form <digits>.<digits>
@@ -36,13 +36,13 @@ SMT-LIB LANGUAGE (as done in Yices)
   <attributes> start by ':' followed by a letter, followed by a sequence of chars until
         a delimiter is read
 
-  a <symbol> is anything that's not a <bv/bvbin/bvhex constant> and that starts by a 
+  a <symbol> is anything that's not a <bv/bvbin/bvhex constant> and that starts by a
        letter (more exactly, anything that's not a delimiter, or a digit, or . or ')
-       followed by a sequence of characters until a delimiter is read 
- 
+       followed by a sequence of characters until a delimiter is read
 
 
- Keywords 
+
+ Keywords
  --------
 
 	distinct	ite	=	true	false	not	implies

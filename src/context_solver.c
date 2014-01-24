@@ -25,11 +25,11 @@
  * Basic statistics
  */
 static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
-  tprintf(core->trace, level, 
+  tprintf(core->trace, level,
 	  "(%-10s %8"PRIu32" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %7.1f)\n",
 	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), 
+	  num_learned_clauses(core), num_learned_literals(core),
 	  (double) num_learned_literals(core)/num_learned_clauses(core));
 }
 
@@ -109,7 +109,7 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
     if (l == null_literal) {
       // all variables assigned: Call final_check
       smt_final_check(core);
-    } else { 
+    } else {
       decide_literal(core, l);
       smt_process(core);
     }
@@ -133,7 +133,7 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
  * - r_factor = increment factor for reduce_threshold
  * - use the branching heuristic implemented by branch
  */
-static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, 
+static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold,
                            double r_factor, branching_fun_t branch) {
   uint64_t max_conflicts;
   uint32_t r_threshold;
@@ -156,7 +156,7 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
     l = select_unassigned_literal(core);
     if (l == null_literal) {
       // all variables assigned: call final check
-      smt_final_check(core); 
+      smt_final_check(core);
     } else {
       // apply the branching heuristic
       l = branch(core, l);
@@ -174,7 +174,7 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
 
 
 /*
- * SUPPORTED BRANCHING 
+ * SUPPORTED BRANCHING
  */
 
 /*
@@ -310,7 +310,7 @@ static void solve(smt_core_t *core, const param_t *params) {
 /*
  * Initialize search parameters then call solve
  * - if ctx->status is not IDLE, return the status.
- */ 
+ */
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
   smt_core_t *core;
@@ -339,7 +339,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
     set_var_decay_factor(core, params->var_decay);
     set_clause_decay_factor(core, params->clause_decay);
     if (params->cache_tclauses) {
-      enable_theory_cache(core, params->tclause_size);      
+      enable_theory_cache(core, params->tclause_size);
     } else {
       disable_theory_cache(core);
     }
@@ -405,7 +405,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
     solve(core, params);
     stat = smt_status(core);
   }
- 
+
   return stat;
 }
 
@@ -483,10 +483,10 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
 /*
  * Get a value for term t in the solvers or egraph
  * - attach the mapping from t to that value in model
- * - if we don't have a concrete object for t but t is 
- *   mapped to a term u and the model->has_alias is true, 
- *   then we store the mapping [t --> u] in the model's 
- *   alias map. 
+ * - if we don't have a concrete object for t but t is
+ *   mapped to a term u and the model->has_alias is true,
+ *   then we store the mapping [t --> u] in the model's
+ *   alias map.
  */
 static void build_term_value(context_t *ctx, model_t *model, term_t t) {
   value_table_t *vtbl;
@@ -543,11 +543,11 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
       default:
         /*
-         * This should never happen: 
+         * This should never happen:
          * scalar, uninterpreted, tuple, function terms
          * are mapped to egraph terms.
          */
-        assert(false); 
+        assert(false);
         v = vtbl_mk_unknown(vtbl); // prevent GCC warning
         break;
       }
@@ -598,7 +598,7 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 /*
  * Build a model for the current context
  * - the context status must be SAT (or UNKNOWN)
- * - if model->has_alias is true, we store the term substitution 
+ * - if model->has_alias is true, we store the term substitution
  *   defined by ctx->intern_tbl into the model
  */
 void context_build_model(model_t *model, context_t *ctx) {
@@ -607,7 +607,7 @@ void context_build_model(model_t *model, context_t *ctx) {
   term_t t;
 
   assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN);
-  
+
   /*
    * First build assignments in the satellite solvers
    * and get the val_in_model functions for the egraph
@@ -685,7 +685,7 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
       }
     } else {
       // x refers to a literal in the smt core
-      v = literal_value(ctx->core, code2literal(x));      
+      v = literal_value(ctx->core, code2literal(x));
     }
 
     // negate v if polarity is 1 (cf. smt_core_base_types.h)

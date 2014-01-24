@@ -6,8 +6,8 @@
  * The atoms can be of the form (x >= k) or (x <= k) or (x == k),
  * where x is a variable in the arithmetic solver and k is a rational
  * constant. Each atom is identified by an index in the table.
- * The table uses hash consing and it supports removal of atoms for push/pop 
- * operations. 
+ * The table uses hash consing and it supports removal of atoms for push/pop
+ * operations.
  *
  * The components of an atom are:
  * - a 2bit tag to specify the atom type (>=, <=, or ==)
@@ -124,8 +124,8 @@ static int32_t new_arith_atom(arith_atomtable_t *table, uint32_t header, rationa
 
 
 /*
- * Reset the table: 
- * - free all rationals 
+ * Reset the table:
+ * - free all rationals
  * - reset the hash table
  */
 void reset_arith_atomtable(arith_atomtable_t *table) {
@@ -135,7 +135,7 @@ void reset_arith_atomtable(arith_atomtable_t *table) {
   for (i=0; i<n; i++) {
     q_clear(&table->atoms[i].bound);
   }
-  
+
   table->natoms = 0;
   reset_int_htbl(&table->htbl);
   q_clear(&table->aux);
@@ -152,7 +152,7 @@ void delete_arith_atomtable(arith_atomtable_t *table) {
   for (i=0; i<n; i++) {
     q_clear(&table->atoms[i].bound);
   }
-  
+
   safe_free(table->atoms);
   delete_bitvector(table->mark);
 
@@ -239,7 +239,7 @@ typedef struct arith_atom_hobj_s {
   int_hobj_t m;
   arith_atomtable_t *table;
   rational_t *bound;
-  uint32_t header; // encodes var + tag 
+  uint32_t header; // encodes var + tag
 } arith_atom_hobj_t;
 
 

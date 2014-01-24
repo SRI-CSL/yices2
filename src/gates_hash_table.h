@@ -59,7 +59,7 @@ typedef enum gate_op {
 /*
  * Gate descriptor:
  * - 32bit tag encodes operator + indegree + outdegree
- * - if indegree is k and outdegree is j, then 
+ * - if indegree is k and outdegree is j, then
  *      lit[0 ... k-1] are the input literals
  *      lit[k ... k+j-1] are the output literals
  * - each descriptor also includes a hash code = hash of tag + input literals
@@ -156,16 +156,16 @@ struct lnkgate_s {
 /*
  * Stack of lists for push/pop
  * - objects created at level k>0 are stored in a linked list
- * - on exit from level k (pop operation), all elements 
+ * - on exit from level k (pop operation), all elements
  *   created in that level must be removed.
  * - for push/pop, we maintain a stack of list descriptors;
  *   each descriptor is a pair <level, list> (i.e., the list
  *   of objects created at that level).
- * - the descriptors are in data[0 ... nlists-1] with 
+ * - the descriptors are in data[0 ... nlists-1] with
  *      data[i].level < data[i+1].level
  *      data[i].list is not empty
  *      data[i].level <= current_level
- * - top_level is 0 if the stack is empty 
+ * - top_level is 0 if the stack is empty
  *   otherwise top_level = data[nlist-1].level
  * - nlist = the top of the list
  * - size = size of the data array
@@ -255,7 +255,7 @@ static inline void gate_table_push(gate_table_t *table) {
 }
 
 /*
- * Pop: delete all objects created at the current level 
+ * Pop: delete all objects created at the current level
  * then decrement current_level. Should not be called at level 0.
  */
 extern void gate_table_pop(gate_table_t *table);

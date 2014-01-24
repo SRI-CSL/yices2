@@ -80,7 +80,7 @@ static bool is_power_of_two(uint32_t n) {
  * Initialize pp
  * - n = hash table size:
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  * - the table is empty, classes is not allocated yet (NULL).
  */
 void init_ptr_partition(ppart_t *pp, uint32_t n, void *aux, ppart_hash_fun_t hash_fn, ppart_match_fun_t match_fn) {
@@ -154,7 +154,7 @@ void reset_ptr_partition(ppart_t *pp) {
   for (i=0; i<n; i++) {
     pp->records[i].data = NULL;
   }
-  pp->nelems = 0;  
+  pp->nelems = 0;
 }
 
 
@@ -218,7 +218,7 @@ static void resize_ptr_partition(ppart_t *pp) {
 
 /*
  * Allocate a new class: return it's id
- * - the new class vector is pp->classes[i]. It's initialized to NULL 
+ * - the new class vector is pp->classes[i]. It's initialized to NULL
  */
 static uint32_t allocate_class(ppart_t *pp) {
   uint32_t i, n;
@@ -254,7 +254,7 @@ static uint32_t allocate_class(ppart_t *pp) {
  * Add ptr to the table:
  * - if there's a pointer p in the table that matches ptr
  *   then ptr is added to p's class. If p has no class attached
- *   yet, then a new class vector is allocated and both p and 
+ *   yet, then a new class vector is allocated and both p and
  *   ptr are added to that class.
  */
 void ptr_partition_add(ppart_t *pp, void *ptr) {
@@ -297,7 +297,7 @@ void ptr_partition_add(ppart_t *pp, void *ptr) {
     j ++;
     j &= mask;
   }
-  
+
 }
 
 

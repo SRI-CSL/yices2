@@ -8,7 +8,7 @@ static lexer_t lexer;
 
 static void print_token(token_t tk) {
   printf("---> Token %s\n", yices_token_to_string(tk));
-  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n", 
+  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n",
 	 lexer.tk_pos, lexer.tk_line, lexer.tk_column);
   if (tk != TK_LP && tk != TK_RP && tk != TK_EOS && tk != TK_COLON_COLON && tk != TK_ERROR) {
     printf("     value: %s\n", current_token_value(&lexer));

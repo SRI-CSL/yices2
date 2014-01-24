@@ -12,7 +12,7 @@
  *   directly in the Egraph.
  *
  * To do this, we add to the egraph an optional new component
- * called the update graph. Vertices in this graph are 
+ * called the update graph. Vertices in this graph are
  * equivalence classes of function terms (extracted from the egraph)
  * and edges correspond to update terms. If a = (update b t1 .. tn v)
  * then there's an edge from Class(a) to Class(b) labeled by a.
@@ -53,7 +53,7 @@
  *   explored yet.
  *
  * - let x be data[ptr].node
- * - if edge u of x leads to node y, then we add 
+ * - if edge u of x leads to node y, then we add
  *   a new record at the end of the queue
  *     data[top].node = y
  *     data[top].pre  = ptr
@@ -81,7 +81,7 @@ typedef struct ugraph_queue_s {
  * If a  lambda term has type [tau_1 x ... x tau_n -> sigma]
  * then we add the pair (tag, sigma) where tag is the lambda-tag for
  * tau_1 x ... x tau_n.
- * 
+ *
  * For now, we just store the pairs in an array (since there shouldn't
  * be many pairs). We keep a pointer to the type table.
  */
@@ -121,7 +121,7 @@ typedef struct ugraph_stats_s {
  *   class[x] = the corresponding egraph
  *   egdes[x] = vector of outgoing edges from that node
  *     tag[x] = the lambda tag (as defined in the egraph ltag_table)
- *    mark[x] = one bit: 1 means x has been visited 
+ *    mark[x] = one bit: 1 means x has been visited
  * - the set of edges is stored in a pointer vector (cf. pointer_vectors.h)
  *
  * For every class c, we store
@@ -144,7 +144,7 @@ struct update_graph_s {
   byte_t *mark;   // mark[i] = one bit
 
   uint32_t nclasses;    // size of array class2node
-  int32_t *class2node;  // class2node[c] = node for class c (-1 if none)  
+  int32_t *class2node;  // class2node[c] = node for class c (-1 if none)
 
   ugraph_queue_t queue;   // for exploration
   ppart_t partition;      // partition of apply terms
@@ -152,7 +152,7 @@ struct update_graph_s {
 
   ugraph_stats_t stats;
 
-  ivector_t aux_vector; 
+  ivector_t aux_vector;
   ivector_t lemma_vector;
 };
 
@@ -188,8 +188,8 @@ extern void delete_ugraph(update_graph_t *ugraph);
  * Build ugraph based on the current egraph partition
  * - ugraph must be initialized and empty
  * - one node is created for each egraph class that has function type
- * - for each update term b = (update a ... ) that's in the congruence 
- *   table (congruence root),  we create two egdes: 
+ * - for each update term b = (update a ... ) that's in the congruence
+ *   table (congruence root),  we create two egdes:
  *   a direct edge from node[class[a]] to node[class[b]]
  *   a reverse edge from node[class[b]] to node[class[a]]
  */
@@ -224,12 +224,12 @@ static inline bool ugraph_node_is_unmarked(update_graph_t *ugraph, int32_t i) {
 
 static inline void ugraph_mark_node(update_graph_t *ugraph, int32_t i) {
   assert(0 <= i && i < ugraph->nodes);
-  set_bit(ugraph->mark, i);  
+  set_bit(ugraph->mark, i);
 }
 
 static inline void clear_ugraph_node_mark(update_graph_t *ugraph, int32_t i) {
   assert(0 <= i && i < ugraph->nodes);
-  clr_bit(ugraph->mark, i);  
+  clr_bit(ugraph->mark, i);
 }
 
 

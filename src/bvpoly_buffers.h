@@ -22,7 +22,7 @@
  *   size (i.e., number of bits).
  * - if size is small (64 bits or less), the coefficients
  *   are stored as uint64_t integers c[0 ... nterms-1]
- * - if size if more than 64 bits, the coefficients are 
+ * - if size if more than 64 bits, the coefficients are
  *   stored in arrays of 32bit words (cf. bv_constants.h).
  *   The array pointers are p[0...nterms-1]
  *
@@ -35,7 +35,7 @@
  * Other components:
  * - nterms = number of terms in the polynomial
  * - bitsize = number of bits in each coefficient
- * - width = ceil (bitsize /32) = number of words needed to 
+ * - width = ceil (bitsize /32) = number of words needed to
  *   store the coefficients
  * - i_size = size of the index array
  * - m_size = size of the vars and coefficient arrays
@@ -82,7 +82,7 @@ typedef struct bvpoly_buffer_s {
 extern void init_bvpoly_buffer(bvpoly_buffer_t *buffer);
 
 /*
- * Reset and prepare to construct a polynomial with 
+ * Reset and prepare to construct a polynomial with
  * the given bitsize
  * - bitsize must be positive
  */
@@ -112,12 +112,12 @@ extern void delete_bvpoly_buffer(bvpoly_buffer_t *buffer);
  * - add_var:         add        1 * x
  * - sub_var:         subtract   1 * x
  *
- * The word-size and bit size are taken from the buffer's internal 
+ * The word-size and bit size are taken from the buffer's internal
  * width and bitsize. That must be set before all operations by
  * calling reset_bvpoly_buffer.
  *
- * In all cases, x must be an integer between 0 and max_idx-1 
- * 
+ * In all cases, x must be an integer between 0 and max_idx-1
+ *
  */
 // small coefficients (no more than 64 bits)
 extern void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a);
@@ -314,7 +314,7 @@ extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
 
 
 /*
- * Same thing for a bvpoly 
+ * Same thing for a bvpoly
  * - b must be normalized
  */
 extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
@@ -324,7 +324,7 @@ extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
 /*
  * Hash function1
  * - b must be normalized and have bitsize <= 64
- * - if b is equal to a bvpoly64 p then 
+ * - if b is equal to a bvpoly64 p then
  *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
  */
 extern uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b);

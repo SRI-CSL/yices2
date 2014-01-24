@@ -50,12 +50,12 @@ static void init_constructors(void) {
   add_type_constructor(&types, clone_string("Set"), 1);
   constructor[0] = get_type_macro_by_name(&types, "Set");
   add_type_constructor(&types, clone_string("List"), 1);
-  constructor[0] = get_type_macro_by_name(&types, "List");  
+  constructor[0] = get_type_macro_by_name(&types, "List");
 }
 
 
 /*
- * Patterns: 
+ * Patterns:
  * + the variabless
  * + apply the constructors to all variables
  * + tuple types with X Y Z
@@ -135,7 +135,7 @@ static void init_patterns(void) {
     }
   }
 }
-  
+
 
 /*
  * Ground types used in tests
@@ -198,7 +198,7 @@ static void show_matching(type_matcher_t *matcher) {
     print_type(stdout, &types, x);
     printf(" := ");
     print_type(stdout, &types, matcher->map[i]);
-    printf("\n");    
+    printf("\n");
   }
 }
 
@@ -257,8 +257,8 @@ static void test_multi_matching(type_matcher_t *matcher, type_t *pattern, type_t
  */
 static bool match_possible(type_t tau, type_t sigma) {
   type_kind_t ktau, ksigma;
-  
-  ktau = type_kind(&types, tau);  
+
+  ktau = type_kind(&types, tau);
   ksigma = type_kind(&types, sigma);
   switch (ktau) {
   case VARIABLE_TYPE:
@@ -269,7 +269,7 @@ static bool match_possible(type_t tau, type_t sigma) {
     return ksigma == INT_TYPE || ksigma == REAL_TYPE;
 
   default:
-    return ktau == ksigma; 
+    return ktau == ksigma;
   }
 }
 

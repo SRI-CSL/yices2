@@ -18,7 +18,7 @@
  * - the function is called as cmp(user_data, x, y)
  *   where x and y are distinct elements in the heap
  * - it must return true for x < y, false otherwise
- * - user_data is a generic void * pointer 
+ * - user_data is a generic void * pointer
  */
 typedef bool (* heap_cmp_fun_t)(void *data, int32_t x, int32_t y);
 

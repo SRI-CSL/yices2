@@ -6,7 +6,7 @@
  *
  * March 24, 2007. Removed mandatory name for uninterpreted
  * and scalar types. Replaced by functions to create new
- * uninterpreted/scalar types with no names. If names are 
+ * uninterpreted/scalar types with no names. If names are
  * needed they can be added as for any other types.
  *
  * Also removed built-in names "int" "bool"
@@ -14,12 +14,12 @@
  *
  *
  * March 08, 2010. Updates to the data structures:
- * - store the pseudo cardinality in the type table (rather 
- *   than computing it on demand) 
- * - added flags for each type tau to indicate 
- *   - whether tau is finite 
+ * - store the pseudo cardinality in the type table (rather
+ *   than computing it on demand)
+ * - added flags for each type tau to indicate
+ *   - whether tau is finite
  *   - whether tau is a unit type (finite type with cardinality 1)
- *   - whether card[tau] is exact. (If card[tau] is exact, then 
+ *   - whether card[tau] is exact. (If card[tau] is exact, then
  *     it's the cardinality of tau. Otherwise, card[tau] is set to
  *      UINT32_MAX.)
  * - added hash_maps to use as caches to make sure recursive
@@ -58,7 +58,7 @@
 
 /*
  * Different kinds of types:
- * - primitive types are BOOL, INT, REAL, 
+ * - primitive types are BOOL, INT, REAL,
  *   BITVECTOR[n] for any n (0 < n <= MAX_BVSIZE)
  * - declared types can be either scalar or uninterpreted
  * - constructed types: tuple types and function types
@@ -66,10 +66,10 @@
  * New kinds to support polynorphism
  * - type variables
  * - instance of an abstract type constructor (e.g., if we have
- *   a constructor list[T] then we can create list[int], 
+ *   a constructor list[T] then we can create list[int],
  *   list[list[U]])
- * 
- * The enumeration order is important. The atomic type kinds 
+ *
+ * The enumeration order is important. The atomic type kinds
  * must be smaller than non-atomic kinds TUPLE and FUNCTION.
  */
 typedef enum {
@@ -156,7 +156,7 @@ typedef union {
  * and (define-sort <name> (<list-of-names>) <sort>)
  *
  * With these constructs, we create a macro descriptor
- * that consists of a name, an arity, a body, and a finite 
+ * that consists of a name, an arity, a body, and a finite
  * array of type variables.
  * - for (declare-sort <name> <arity> )
  *   the macro descriptor is as follows:
@@ -200,17 +200,17 @@ typedef struct type_macro_s {
 
 /*
  * Table of macros
- * - macros are identified by an index 
+ * - macros are identified by an index
  * - the table maps the index to a macro descriptor
  * - it also includes a symbol table that maps a macro name
  *   to its id, and a hash table that stores macro instances
  * - deleted descriptors are stored in a free list.
  *
- * For an index id between 0 and table->nelems, 
+ * For an index id between 0 and table->nelems,
  * table->data[id] is a tagged pointer.
  * - if the lower bit is 0, then id is a live macro index,
  *   and table->data[id] is a pointer to the macro descriptor.
- * - if the lower bit is 1, then id is the index of a deleted 
+ * - if the lower bit is 1, then id is the index of a deleted
  *   macro and table->data[id] stores a 31bit integer. This
  *   integer is the successor of id in the free list (or -1
  *   if id is last in the free list).
@@ -248,15 +248,15 @@ typedef struct type_mtbl_s {
  *    bit 0 of flag[i] is 1 if i is finite
  *    bit 1 of flag[i] is 1 if i is a unit type
  *    bit 2 of flag[i] is 1 if card[i] is exact
- *    bit 3 of flag[i] is 1 if i has no strict supertype 
+ *    bit 3 of flag[i] is 1 if i has no strict supertype
  *    bit 4 of flag[i] is 1 if i has no strict subtype
  *
- *    bit 5 of flag[i] is 1 if i is a ground type (i.e., no variables 
+ *    bit 5 of flag[i] is 1 if i is a ground type (i.e., no variables
  *    occur in i). If this bit is '0', then bits 0 to 4 are not used,
  *    but they must all be set to '0' too.
  *
  *    bit 7 is used as a mark during garbage collection
- * 
+ *
  * Other components:
  * - size = size of all arrays above
  * - nelems = number of elements in the array
@@ -272,13 +272,13 @@ typedef struct type_mtbl_s {
  *   There may be other strings that refer to i (aliases).
  *
  * Hash tables allocated on demand:
- * - sup_tbl = maps pairs (tau_1, tau_2) to the smallest common 
- *   supertype of tau_1 and tau_2 (or to NULL_TYPE if 
+ * - sup_tbl = maps pairs (tau_1, tau_2) to the smallest common
+ *   supertype of tau_1 and tau_2 (or to NULL_TYPE if
  *   tau_1 and tau_2 are not compatible).
- * - inf_tbl = maps pairs (tau_1, tau_2) to the largest common 
+ * - inf_tbl = maps pairs (tau_1, tau_2) to the largest common
  *   subtype of tau_1 and tau_2 (or to NULL_TYPE if
  *   tau_1 and tau_2 are not compatible).
- * - max_tbl = map tau to its maximal super type 
+ * - max_tbl = map tau to its maximal super type
  *
  * Macro table: also allocated on demand
  */
@@ -354,12 +354,12 @@ typedef struct type_table_s {
 
 /*
  * Given a polymorphic function f of type [tau_1 ... tau_n -> sigma]
- * where tau_1 ... tau_n contain variables X, Y, Z we want to 
+ * where tau_1 ... tau_n contain variables X, Y, Z we want to
  * compute the type of (f a_1 ... a_n) where a_1, ..., a_n have
  * fixed types.
  *
  * This means finding  a type substitution for X, Y, and Z
- * that satisfies a set of type contraints of the form 
+ * that satisfies a set of type contraints of the form
  *    sigma_1 subtype of tau_1[X, Y, Z]
  *     ...
  *    sigma_2 subtype of tau_n[X, Y, Z]
@@ -374,7 +374,7 @@ typedef struct type_table_s {
  *   We store it as a 32bit integer in tc[tau]:
  *     tc[tau] = -1: no constraints on tau
  *     tc[tau] = 2 * sigma + 1: equality constraint: tau = sigma
- *     tc[tau] = 2 * sigma + 0: subtype constraint:  tau must be a 
+ *     tc[tau] = 2 * sigma + 0: subtype constraint:  tau must be a
  *                                                   supertype of sigma
  *   (i.e., the lower order bit of tc[tau] is used as a flag).
  *
@@ -384,12 +384,12 @@ typedef struct type_table_s {
  * - map = array of types
  * - nvars = number of variables = number of elements in map
  * - varsize = size of arrays var and map
- * Arrays var, map are intended to store the solution to the current set of 
+ * Arrays var, map are intended to store the solution to the current set of
  * constraints: var[i] is a type variable, map[i] is what's map to var[i]
  * in the solution.
  *
  * NOTE: 2 * sigma + 0 and 2 * sigma + 1 fit in a signed 32bit integer
- * (because sigma < YICES_MAX_TYPE). 
+ * (because sigma < YICES_MAX_TYPE).
  */
 typedef struct type_matcher_s {
   type_table_t *types;
@@ -505,7 +505,7 @@ extern type_t type_variable(type_table_t *table, uint32_t id);
  * Apply a type substitution:
  *   v[0 ... n-1] = distinct type variables
  *   s[0 ... n-1] = types
- * the function replaces v[i] by s[i] in tau and returns 
+ * the function replaces v[i] by s[i] in tau and returns
  * the result.
  */
 extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]);
@@ -524,9 +524,9 @@ extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, typ
  *
  * - Parameter "name" in set_type_name must be constructed via the
  *   clone_string function.
- *   For the other functions (e.g., get_type_by_name and 
+ *   For the other functions (e.g., get_type_by_name and
  *   remove_type_name) "name" must be a '\0' terminated string.
- * - When name is added to the symbol table, its reference counter 
+ * - When name is added to the symbol table, its reference counter
  *   is increased by 1 or 2
  * - When remove_type_name is called, the reference counter is decremented
  * - When the table is deleted (via delete_type_table), the
@@ -535,7 +535,7 @@ extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, typ
  */
 
 /*
- * Assign a name to type i. The first name assigned to i is considered the 
+ * Assign a name to type i. The first name assigned to i is considered the
  * default name (stored in name[i]). Otherwise, name is an alias and can
  * be used to refer to type i by calling get_type_by_name.
  *
@@ -559,7 +559,7 @@ extern type_t get_type_by_name(type_table_t *table, const char *name);
  * element from the list of types attached to name.
  *
  * If name is not in the symbol table, the function does nothing.
- * 
+ *
  * If name is the default type name for some type tau, then it will
  * still be kept as name[tau] for pretty printing.
  */
@@ -584,15 +584,15 @@ extern void clear_type_name(type_table_t *table, type_t t);
 /*
  * NOTES
  *
- * 1) macro names have the same scoping mechanism as 
- *    term and type names. If a macro of a given name is 
+ * 1) macro names have the same scoping mechanism as
+ *    term and type names. If a macro of a given name is
  *    added to the table, and name refers to an existing
  *    macro then the current mapping is hidden. It will be
  *    restored after a call to remove_type_macro_name.
  *
  * 2) the implementation uses character strings with reference
  *    counting (cf. refcount_strings.h). The parameter 'name'
- *    in add_type_macro and add_type_constructor must be 
+ *    in add_type_macro and add_type_constructor must be
  *    the result of 'clone_string'.
  */
 
@@ -655,14 +655,14 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
  * - id = macro id
  * - n = number of actuals
  * - actual = array of n types (actual parameters)
- * - each parameter must be a valid type 
+ * - each parameter must be a valid type
  * - n must be equal to the macro arity.
  *
  * This first check whether this instance already exists in table->hmap.
  * If so, the instance is returned.
  *
  * Otherwise:
- * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
+ * - if the macro is a type constructor (i.e., body = NULL_TYPE)
  *   then a new type instance is constructed.
  * - if the macro is a normal macro (body != NULL_TYPE), then
  *   the instance is constructed by substituting the actuals
@@ -805,7 +805,7 @@ static inline bool is_scalar_type(type_table_t *tbl, type_t i) {
 
 static inline uint32_t scalar_type_cardinal(type_table_t *tbl, type_t i) {
   assert(is_scalar_type(tbl, i));
-  return tbl->desc[i].integer;  
+  return tbl->desc[i].integer;
 }
 
 
@@ -908,7 +908,7 @@ static inline type_t instance_type_param(type_table_t *tbl, type_t i, int32_t j)
  *    EXACT_CARD  --> 1 if type_card(tbl, t) is exact, 0 otherwise
  *
  * There are four valid combinations for these flags:
- *    0b111 --> t has cardinality 1 
+ *    0b111 --> t has cardinality 1
  *    0b101 --> t is finite, 2 <= size t <= UINT32_MAX (exact card)
  *    0b001 --> t is finite, UINT32_MAX < size t
  *    0b000 --> t is infinite
@@ -940,7 +940,7 @@ extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *ta
 
 /*
  * Approximate cardinality of the domain and range of a function type tau
- * - both function return a 32bit unsigned number (which is a lower bound 
+ * - both function return a 32bit unsigned number (which is a lower bound
  *   on the actual domain or range size).
  * - the result is exact if it's less than UINT32_MAX.
  */
@@ -967,11 +967,11 @@ extern bool type_has_finite_range(type_table_t *table, type_t tau);
  * 2) tau <= tau
  * 3) if tau_1 <= sigma_1 ... tau_n <= sigma_n then
  *    [tau_1 ... tau_n] <= [sigma_1 ... sigma_n]
- * 4) if sigma_1 <= sigma_2 then 
+ * 4) if sigma_1 <= sigma_2 then
  *    [tau_1 ... tau_n -> sigma_1] <= [tau_1 ... tau_n -> sigma_2]
  *
  * Two types are compatible if they have a common supertype.
- * 
+ *
  * Consequences:
  * 1) if tau1 and tau2 are compatible, then they have a smallest
  *    common supertype sup(tau1, tau2).
@@ -1001,7 +1001,7 @@ static inline bool is_mintype(type_table_t *tbl, type_t i) {
 
 /*
  * Compute the sup of tau1 and tau2
- * - return the smallest type tau such that tau1 <= tau and 
+ * - return the smallest type tau such that tau1 <= tau and
  *   tau2 <= tau if there is one
  * - return NULL_TYPE otherwise (i.e., if tau1 and tau2 are not compatible)
  */
@@ -1035,7 +1035,7 @@ extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
 /*
  * Check whether tau1 and tau2 are compatible.
  *
- * Side effect: use the super_type function. So this may create new 
+ * Side effect: use the super_type function. So this may create new
  * types in the table.
  */
 extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
@@ -1056,7 +1056,7 @@ extern void init_type_matcher(type_matcher_t *matcher, type_table_t *types);
 
 /*
  * Reset to the empty set of constraints
- * - also clears the internal substitution if any 
+ * - also clears the internal substitution if any
  */
 extern void reset_type_matcher(type_matcher_t *matcher);
 
@@ -1071,7 +1071,7 @@ extern void delete_type_matcher(type_matcher_t *matcher);
  * Add a type constraint:
  * - both tau and sigma must be valid types defined in matcher->types
  *   (and tau should contain type variables)
- * - if eq is true the constraint is "tau = sigma" 
+ * - if eq is true the constraint is "tau = sigma"
  *   otherwise it's "tau is a supertype of sigma"
  * - return false if the set of constraints is inconsistent
  * - return true otherwise and update the solution
@@ -1080,14 +1080,14 @@ extern bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, typ
 
 
 /*
- * If all calls to type_matcher_add_constraint succeed, call 
+ * If all calls to type_matcher_add_constraint succeed, call
  * this function to construct the solution.
  * - the solution is stored in arrays matcher->var and matcher->map
  * - for all i in 0 and matcher->nvars - 1,
  *   matcher->var[i] is a type variable X
  *   matcher->map[i] is the mapping of X in the substitution
  *
- * Important: this function should not be called after a call to 
+ * Important: this function should not be called after a call to
  * type_matcher_add_constraints that returns false.
  */
 extern void type_matcher_build_subst(type_matcher_t *matcher);
@@ -1109,7 +1109,7 @@ extern type_t apply_type_matching(type_matcher_t *matcher, type_t tau);
 /*
  * We use a simple mark-and-sweep mechanism:
  * - Nothing gets deleted until an explicit call to type_table_gc.
- * - type_table_gc marks every type reachable from a set of 
+ * - type_table_gc marks every type reachable from a set of
  *   root types, then deletes every type that's not marked.
  * The root types include:
  * - the three predefined types: bool, int, and real
@@ -1147,9 +1147,9 @@ static inline bool type_is_marked(type_table_t *tbl, type_t i) {
 
 /*
  * Call the garbage collector:
- * - delete every type not reachable from a root 
+ * - delete every type not reachable from a root
  * - if keep_named is true, all named types (reachable from the symbol table)
- *   are preserved. Otherwise, all references to dead types are removed 
+ *   are preserved. Otherwise, all references to dead types are removed
  *   from the symbol table.
  * - then clear all marks
  */

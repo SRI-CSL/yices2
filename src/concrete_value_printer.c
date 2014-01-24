@@ -37,7 +37,7 @@ static inline void vtbl_print_bitvector(FILE *f, value_bv_t *b) {
  * -
  * We print a default name if there's no name given.
  */
-static void vtbl_print_unint_name(FILE *f, value_table_t *table, value_t c, value_unint_t *v) {    
+static void vtbl_print_unint_name(FILE *f, value_table_t *table, value_t c, value_unint_t *v) {
   const char *s;
 
   s = v->name;
@@ -129,7 +129,7 @@ static void vtbl_print_update(FILE *f, value_table_t *table, value_update_t *u) 
  * Print object c on stream f
  * - if c is a function also add it to the internal queue
  */
-void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {  
+void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
   assert(0 <= c && c < table->nobjects);
   switch (table->kind[c]) {
   case UNKNOWN_VALUE:
@@ -142,7 +142,7 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     vtbl_print_rational(f, &table->desc[c].rational);
     break;
   case BITVECTOR_VALUE:
-    vtbl_print_bitvector(f, table->desc[c].ptr); 
+    vtbl_print_bitvector(f, table->desc[c].ptr);
     break;
   case TUPLE_VALUE:
     vtbl_print_tuple(f, table, table->desc[c].ptr);
@@ -185,7 +185,7 @@ static void vtbl_print_function_header(FILE *f, value_table_t *table, value_t c,
   print_type(f, table->type_table, tau);
   fprintf(f, ")");
 }
- 
+
 
 /*
  * Print the function c
@@ -216,7 +216,7 @@ void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_def
     }
     fputs(") ", f);
     vtbl_print_object(f, table, mp->val);
-    fputc(')', f);    
+    fputc(')', f);
   }
 
   if (show_default && !is_unknown(table, fun->def)) {
@@ -319,7 +319,7 @@ static inline void vtbl_pp_bitvector(yices_pp_t *printer, value_bv_t *b) {
  * -
  * We print a default name if there's no name given.
  */
-static void vtbl_pp_unint_name(yices_pp_t *printer, value_table_t *table, value_t c, value_unint_t *v) {    
+static void vtbl_pp_unint_name(yices_pp_t *printer, value_table_t *table, value_t c, value_unint_t *v) {
   const char *s;
 
   s = v->name;
@@ -406,10 +406,10 @@ static void vtbl_pp_update(yices_pp_t *printer, value_table_t *table, value_upda
 
 
 /*
- * Print object c 
+ * Print object c
  * - if c is a function, add it to the internal queue
  */
-void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {  
+void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
   assert(0 <= c && c < table->nobjects);
 
   switch (table->kind[c]) {
@@ -423,7 +423,7 @@ void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     pp_rational(printer, &table->desc[c].rational);
     break;
   case BITVECTOR_VALUE:
-    vtbl_pp_bitvector(printer, table->desc[c].ptr); 
+    vtbl_pp_bitvector(printer, table->desc[c].ptr);
     break;
   case TUPLE_VALUE:
     vtbl_pp_tuple(printer, table, table->desc[c].ptr);
@@ -466,7 +466,7 @@ static void vtbl_pp_function_header(yices_pp_t *printer, value_table_t *table, v
   pp_type(printer, table->type_table, tau);
   pp_close_block(printer, true);
 }
- 
+
 
 /*
  * Print the function c
@@ -553,7 +553,7 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, con
     }
     pp_close_block(printer, true); // close (name arg[0] ... arg[m-1])
     vtbl_pp_object(printer, table, mp->val);
-    pp_close_block(printer, true); // close (= 
+    pp_close_block(printer, true); // close (=
   }
 
   if (show_default && !is_unknown(table, def)) {

@@ -82,7 +82,7 @@ static void print_bvpoly_buffer(bvpoly_buffer_t *buffer, bool use_signs) {
   } else {
     if (use_signs && tst_bit(buffer->sign, 0)) {
       printf("- ");
-    }    
+    }
     print_monomial(buffer->p[0], buffer->var[0], b);
     for (i=1; i<n; i++) {
       if (use_signs && tst_bit(buffer->sign, i)) {
@@ -126,7 +126,7 @@ static void test1(bvpoly_buffer_t *buffer) {
   normalize_bvpoly_buffer(buffer);
   printf("---> normalized\n");
   print_bvpoly_buffer(buffer, true);
-  printf("\n\n");  
+  printf("\n\n");
 
   reset_bvpoly_buffer(buffer, 10);
   printf("---> reset: size 10\n");
@@ -258,7 +258,7 @@ static void test2(bvpoly_buffer_t *buffer) {
   normalize_bvpoly_buffer(buffer);
   printf("---> normalized\n");
   print_bvpoly_buffer(buffer, true);
-  printf("\n\n");  
+  printf("\n\n");
 
   reset_bvpoly_buffer(buffer, 100);
   printf("---> reset: size 100\n");

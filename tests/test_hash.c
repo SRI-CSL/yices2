@@ -13,9 +13,9 @@
 static char *test[] = {
   "abchbj",
   "hjnd2qb367",
-  "x10", "x11", "x12", "x13", "x14", 
+  "x10", "x11", "x12", "x13", "x14",
   "x15", "x16", "x17", "x18", "x19",
-  "alpha", "beta", "gamma", "delta", "epsilon", "eta", "phi", "iota", 
+  "alpha", "beta", "gamma", "delta", "epsilon", "eta", "phi", "iota",
   "kappa", "psi", "mu", "nu", "omega", "omicron", "theta",
   "January", "February", "March", "April", "May", "June", "July",
   "August", "September", "October", "November", "December",
@@ -96,11 +96,11 @@ static uint32_t jenkins_hash_byte_ori(char *k, uint32_t len, uint32_t initval) {
   case 3 : a+=((uint32_t)k[2]<<16);
   case 2 : a+=((uint32_t)k[1]<<8);
   case 1 : a+=k[0];
-    /* case 0: nothing left to add */    
+    /* case 0: nothing left to add */
   }
   mix(a, b, c);
 
-  return c;  
+  return c;
 }
 
 

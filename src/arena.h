@@ -13,7 +13,7 @@
  * header includes: pointer to the next block and size
  *
  * The offset  (block->data - block) should be a multiple of 8,
- * on both 32 and 64bit machines. Just in case, I've added 
+ * on both 32 and 64bit machines. Just in case, I've added
  * a padding array to the header. It can be fixed if necessary.
  */
 typedef struct block_s block_t;
@@ -43,7 +43,7 @@ struct arena_mark_s {
 };
 
 /*
- * Default and max block size 
+ * Default and max block size
  */
 #define DEFAULT_BLOCK_SIZE (4096-sizeof(block_t))
 #define MAX_BLOCK_SIZE (SIZE_MAX/2)
@@ -51,9 +51,9 @@ struct arena_mark_s {
 /*
  * Arena:
  * 1) list of active blocks
- * - current_block = head of that list = block where memory is allocated 
+ * - current_block = head of that list = block where memory is allocated
  * - index = allocation index in the current_block
- * 2) list of free blocks 
+ * 2) list of free blocks
  * 3) top mark (or null)
  */
 typedef struct {

@@ -18,7 +18,7 @@
 
 static int32_t num[24] = {
   0, 1, -1, -23, 23,
-  112, -112, 126, -126, INT32_MAX, 
+  112, -112, 126, -126, INT32_MAX,
   INT32_MIN, MAX_NUMERATOR, MIN_NUMERATOR, MAX_NUMERATOR - 1, MIN_NUMERATOR + 1,
   MAX_NUMERATOR + 1, MIN_NUMERATOR - 1, MAX_NUMERATOR + 2, MIN_NUMERATOR - 2,
   INT32_MAX-1, INT32_MIN + 1, 100, 1000, 10000,
@@ -31,20 +31,20 @@ static uint32_t den[16] = {
 };
 
 static char* test_strings[12] = {
-  "1/10", "+1/10", "-1/10", 
-  "1889139832988/137873278932897", "8eeee/8792183jeebag", 
-  "00001893821/000031278781238", "", 
+  "1/10", "+1/10", "-1/10",
+  "1889139832988/137873278932897", "8eeee/8792183jeebag",
+  "00001893821/000031278781238", "",
   "+11398990", "-1893983982", "819230982139",
   "46878952/46878952", "-46878952/46878952",
 };
 
 static char* test_strings2[22] = {
-  "1.10", "+1.10", "-1.10", 
-  "100e0", "100e-2", "100e+2", 
-  "10.6e0", "10.6e-2", "10.6e+2", 
-  "+10.6e0", "+10.6e-2", "+10.6e+2", 
-  "-10.6e0", "-10.6e-2", "-10.6e+2", 
-  "1889139832988.137873278932897e-4", "8.eee", 
+  "1.10", "+1.10", "-1.10",
+  "100e0", "100e-2", "100e+2",
+  "10.6e0", "10.6e-2", "10.6e+2",
+  "+10.6e0", "+10.6e-2", "+10.6e+2",
+  "-10.6e0", "-10.6e-2", "-10.6e+2",
+  "1889139832988.137873278932897e-4", "8.eee",
   "00001893821/000031278781238", "",
   "46878952/46878952", "+46878952/46878952", "-46878952/46878952",
 };
@@ -89,7 +89,7 @@ static void test_equal(rational_t *r, mpq_t q) {
   //  printf("  r = "); q_print(stdout, r); printf("\n");
   //  printf("  q = "); mpq_out_str(stdout, 10, q); printf("\n");
   //  fflush(stdout);
-  q_check_equal(r, q);  
+  q_check_equal(r, q);
 }
 
 // set r0 = num/den
@@ -398,7 +398,7 @@ int main() {
   int32_t i;
 
   init_rationals();
-  printf("GMP %s (bits per limb = %"PRId32")\n", gmp_version, GMP_LIMB_BITS);  
+  printf("GMP %s (bits per limb = %"PRId32")\n", gmp_version, GMP_LIMB_BITS);
   printf("MAX_NUM = %d\n", MAX_NUMERATOR);
   printf("MIN_NUM = %d\n", MIN_NUMERATOR);
   printf("MAX_DEN = %d\n", MAX_DENOMINATOR);
@@ -448,7 +448,7 @@ int main() {
     }
     printf("\n\n");
   }
-  
+
   printf("\n");
   for (i=0; i<22; i++) {
     printf("set_from_float_string <%s>\n", test_strings2[i]);
@@ -462,7 +462,7 @@ int main() {
     }
     printf("\n\n");
   }
-  
+
   cleanup_rationals();
   mpq_clear(q0);
   mpq_clear(q1);

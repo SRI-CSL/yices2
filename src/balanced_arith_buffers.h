@@ -26,14 +26,14 @@
 
 /*
  * Buffer = tree of monomials.
- * 
+ *
  * Each node in the tree is identified by an index (uint32_t)
  * - index 0 = null_node)is a marker for leaves
  * - other nodes have an index between 1 and nterms
  *
  * The tree is represented using three arrasy:
  * - mono[i] = monomial for node i
- * - child[i] = pair of children: 
+ * - child[i] = pair of children:
  *   child[i][0] = left child, child[i][1] = right child
  *   (if i is a leaf node then left and right children are 0)
  * - isred[i] = one bit: 1 means red node, 0 means black node
@@ -51,7 +51,7 @@
  * - index i between 0 and num_nodes - 1: initialized nodes
  * - the null node has index 0 it's always in the tree (and it has coefficient 0)
  * - any other node with coefficient 0, is not in the tree, it's in the free list.
- * - nterms = number of nodes in the tree = number of non-zero monomials  
+ * - nterms = number of nodes in the tree = number of non-zero monomials
  *          = num_nodes - (size of the free list + 1).
  *
  * The free list is maintained by using child[i][0] as a link (null_node
@@ -134,7 +134,7 @@ extern uint32_t rba_find_node(rba_buffer_t *b, pprod_t *r);
  * - if there isn't one, create a new node (with coeff = 0 and prod = r)
  *   and set new_node to true.
  *
- * Side effects: 
+ * Side effects:
  * - if a new node is created, num_terms is incremented
  * - if new_node is false, the path from the root to the returned
  *   node p is stored in b->stack in the form
@@ -292,14 +292,14 @@ extern bool rba_buffer_equal(rba_buffer_t *b1, rba_buffer_t *b2);
  * All operations update the first argument b.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
- * power-product table (i.e., either r is empty_pp, or 
+ * The power product r must be defined in b's internal
+ * power-product table (i.e., either r is empty_pp, or
  * r is a tagged variable, or r occurs in b->ptbl).
  *
  * Some operations use one or two other buffers b1 and b2.  In such
  * cases, b, b1, and b2 must all have the same power-product table
  * and the modified buffer b must be distinct from b1 and b2.
- */ 
+ */
 
 /*
  * Set b to the constant 1
@@ -484,7 +484,7 @@ extern void rba_buffer_sub_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1
  *   of x_i to a power product.
  *
  * All operations are in place operations on the first argument b
- * (i.e., all modify the buffer). There are two requirements 
+ * (i.e., all modify the buffer). There are two requirements
  * on mono and pp:
  * - poly must be terminated by and end-marker (var = max_idx).
  * - pp must be sorted in the deg-lex ordering and have at least
@@ -566,7 +566,7 @@ extern void rba_buffer_mul_monarray_power(rba_buffer_t *b, monomial_t *poly, ppr
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_polynomial defined in polynomials.c:
  * If P(b, v) = p0 then hash_rba_buffer(b, v) = hash_polynomial(p0).
  */
@@ -587,7 +587,7 @@ extern polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v);
 
 
 /*
- * Check whether b is an integral polynomial 
+ * Check whether b is an integral polynomial
  * (i.e., all variables and coefficients are integer)
  * - this uses a function poihter var_is_int to check the type of all
  *   variables:
@@ -687,7 +687,7 @@ static inline void rba_buffer_sub_var_times_buffer(rba_buffer_t *b, rba_buffer_t
 /*
  * Add a * x * b1 to b
  */
-static inline void 
+static inline void
 rba_buffer_add_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, int32_t x) {
   rba_buffer_add_mono_times_buffer(b, b1, a, var_pp(x));
 }

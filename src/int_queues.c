@@ -26,7 +26,7 @@ void init_int_queue(int_queue_t *q, uint32_t n) {
 
 
 /*
- * Delete: free data array 
+ * Delete: free data array
  */
 void delete_int_queue(int_queue_t *q) {
   safe_free(q->data);
@@ -36,7 +36,7 @@ void delete_int_queue(int_queue_t *q) {
 
 /*
  * Resize the queue. make data array 50% larger.
- * content of data array is unchanged 
+ * content of data array is unchanged
  */
 static void resize_queue(int_queue_t *q) {
   uint32_t n;
@@ -67,8 +67,8 @@ void int_queue_push(int_queue_t *q, int32_t x) {
 
   if (i == q->size) {
     if (q->head == 0) {
-      /* 
-       * full queue, stored in data[0...size-1], 
+      /*
+       * full queue, stored in data[0...size-1],
        * just increase the size
        */
       resize_queue(q);
@@ -146,5 +146,5 @@ int32_t int_queue_last(int_queue_t *q) {
     i = q->size;
   }
   assert(i > 0);
-  return q->data[i-1];  
+  return q->data[i-1];
 }

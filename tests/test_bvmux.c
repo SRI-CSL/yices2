@@ -61,7 +61,7 @@ static th_smt_interface_t null_theory_smt = {
   NULL,            // expand explanation
   NULL,            // select polarity
   NULL,            // delete_atom
-  NULL,            // end_deletion 
+  NULL,            // end_deletion
 };
 
 
@@ -389,7 +389,7 @@ static void test_size1(void (*f)(uint32_t, literal_t c, literal_t *, literal_t *
   c = fresh_lit();
   a[0] = fresh_lit();
   b[0] = fresh_lit();
-  f(1, c, a, b);  
+  f(1, c, a, b);
 
   printf("\n");
 }
@@ -532,7 +532,7 @@ static void all_bvmux_tests(void) {
 	 "*****************\n"
 	 "*  BVMUX TESTS  *\n"
 	 "*****************\n\n");
-  
+
   init();
   test_size1(test_mux);
   truth_table_test4(test_mux);

@@ -41,7 +41,7 @@ static void delete_lemma_queue(lemma_queue_t *queue) {
 static void increase_lemma_queue_capacity(lemma_queue_t *queue) {
   uint32_t  n;
 
-  n = 2 * queue->capacity; // new capacity 
+  n = 2 * queue->capacity; // new capacity
   if (n == 0) {
     n = DEF_LEMMA_BLOCKS;
   }
@@ -96,7 +96,7 @@ static lemma_block_t *find_block_for_lemma(lemma_queue_t *queue, uint32_t n) {
     // try the current block
     tmp = queue->block[i-1];
     assert(tmp != NULL && tmp->ptr > 0);
-    if (tmp->size - tmp->ptr >= n) return tmp;    
+    if (tmp->size - tmp->ptr >= n) return tmp;
   }
 
   // current block does not exist or it's full.
@@ -131,7 +131,7 @@ static lemma_block_t *find_block_for_lemma(lemma_queue_t *queue, uint32_t n) {
   queue->free_block ++;
   queue->nblocks ++;
 
-  return tmp;  
+  return tmp;
 }
 
 
@@ -144,7 +144,7 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
   literal_t *b;
 
   blk = find_block_for_lemma(queue, n+1);
-  assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1] 
+  assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1]
 	 && blk->ptr + n < blk->size);
 
   b = blk->data + blk->ptr;
@@ -153,7 +153,7 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
   }
   b[i] = null_literal; // end-marker;
   i++;
-  blk->ptr += i;  
+  blk->ptr += i;
 }
 
 
@@ -209,7 +209,7 @@ static void print_lemmas(lemma_queue_t *queue) {
 
   for (i=0; i<queue->free_block; i++) {
     tmp = queue->block[i];
-    n = tmp->ptr; // last used element    
+    n = tmp->ptr; // last used element
     j = 0;
     do {
       printf("{");
@@ -225,7 +225,7 @@ static void print_lemmas(lemma_queue_t *queue) {
 
 int main() {
   uint32_t i;
-  
+
   // initialize lemma c
   for (i=0; i<2000; i++) {
     c[i] = 1000 + i;

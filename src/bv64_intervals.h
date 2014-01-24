@@ -4,7 +4,7 @@
 
 /*
  * For simplifying bitvector constraints: we compute the lower/upper bounds
- * on bitvector variables. A pair lower/upper bounds is stored in an 
+ * on bitvector variables. A pair lower/upper bounds is stored in an
  * interval record. This module provides operations on intervals
  * intended for bitvectors of no more than 64bits.
  */
@@ -20,7 +20,7 @@
 
 
 /*
- * Interval structure: 
+ * Interval structure:
  * - low, high = two bounds
  * - nbits = number of bits in low and high (nbits must be between 1 and 64)
  * - if bitsize = n then both low and high are normalized modulo 2^n
@@ -49,7 +49,7 @@ static inline void bv64_point_interval(bv64_interval_t *intv, uint64_t x, uint32
 
 /*
  * Initialize to the interval [0, 0]
- */ 
+ */
 static inline void bv64_zero_interval(bv64_interval_t *intv, uint32_t n) {
   assert(1 <= n && n <= 64);
   intv->low = 0;
@@ -112,7 +112,7 @@ static inline void bv64_triv_interval_s(bv64_interval_t *intv, uint32_t n) {
  * Check whether the bounds are normalized
  */
 static inline bool bv64_interval_is_normalized(bv64_interval_t *intv) {
-  return intv->low == norm64(intv->low, intv->nbits) 
+  return intv->low == norm64(intv->low, intv->nbits)
     && intv->high == norm64(intv->high, intv->nbits);
 }
 
@@ -138,11 +138,11 @@ static inline bool bv64_interval_is_triv_s(bv64_interval_t *intv) {
  * - a and b must have the same bitsize and be normalized
  * - the result is stored in a
  *
- * For the unsigned version, there's loss of precision if 
+ * For the unsigned version, there's loss of precision if
  *   (a.low + b.low < 2^n <= a.high + b.high).
  * In this case, the result is set to [0, 2^n-1]
  *
- * For the signed version, there's loss of precision if either 
+ * For the signed version, there's loss of precision if either
  *     a.low + b.low underflows but not a.high + b.high
  * or  a.low + b.low does not overflow, but a.high + b.high does
  * In either case, the result is set to [0b10000, 0b01111] (trivial interval)
@@ -155,7 +155,7 @@ extern void bv64_interval_add_s(bv64_interval_t *a, bv64_interval_t *b);
  * Same thing for [a.low - b.high, a.high - b.low] modulo 2^n
  * - a and b must have the same bit size and be normalized
  * - the result is stored in a
- * - the functions detect overflow/underflow and set a to the 
+ * - the functions detect overflow/underflow and set a to the
  *   trivial interval if necessary
  */
 extern void bv64_interval_sub_u(bv64_interval_t *a, bv64_interval_t *b);

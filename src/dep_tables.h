@@ -4,7 +4,7 @@
 
 /*
  * This is a data structure to store dependencies between integer indices.
- * Given n integers, the table stores an array dep[i] for all 
+ * Given n integers, the table stores an array dep[i] for all
  * i between 0 and n, where dep[i] is a vector of integers.
  *
  * This is intended to store a dependency graph: in dep[i] are
@@ -71,7 +71,7 @@ extern void add_dependent(dep_table_t *table, int32_t i, int32_t j);
 /*
  * Return the vector of dependents for i
  * - i must be non-negative
- * - the result is NULL if i has no dependents 
+ * - the result is NULL if i has no dependents
  * - otherwise, the result is an index vector so all operations
  *   defined in index_vector.h can be used to examine its content.
  */

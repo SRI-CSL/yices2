@@ -55,7 +55,7 @@ int main() {
     y = x >> 1;
     if (y == x) break;
     x = y;
-  } 
+  }
 
   x = INT32_MAX;
   for (;;) {
@@ -77,7 +77,7 @@ int main() {
     b = a >> 1;
     if (b == a) break;
     a = b;
-  } 
+  }
 
   mpz_init(z0);
   mpz_init(z1);
@@ -87,15 +87,15 @@ int main() {
   string_buffer_reset(s);
   string_buffer_append_mpz(s, z0);
   show_test("mpz: 111102222033330123456789", s);
-  
+
   mpz_set_str(z0, "-111102222033330123456789", 10);
   string_buffer_reset(s);
   string_buffer_append_mpz(s, z0);
   show_test("mpz: -111102222033330123456789", s);
-	    
+
   string_buffer_reset(s);
   string_buffer_append_mpz(s, z1);
-  show_test("mpz: 0", s);	    
+  show_test("mpz: 0", s);
 
   mpq_set_str(q0, "-98765432109876543210", 10);
   string_buffer_reset(s);
@@ -117,22 +117,22 @@ int main() {
   q_set_int32(&r0, -12, 73);
   string_buffer_reset(s);
   string_buffer_append_rational(s, &r0);
-  show_test("rational: -12/73", s);  
+  show_test("rational: -12/73", s);
 
   q_set_mpq(&r0, q0);
   string_buffer_reset(s);
   string_buffer_append_rational(s, &r0);
-  show_test("rational: -98765432109876543210/38192839777", s);  
+  show_test("rational: -98765432109876543210/38192839777", s);
 
   q_set_mpz(&r0, z0);
   string_buffer_reset(s);
   string_buffer_append_rational(s, &r0);
-  show_test("rational: -111102222033330123456789", s);  
+  show_test("rational: -111102222033330123456789", s);
 
 
   printf("\nBit Vectors\n");
   init_bvconstants();
-  bv0 = bvconst_alloc(1);  
+  bv0 = bvconst_alloc(1);
   bvconst_clear(bv0, 1);
   for (n=1; n<= 32; n++) {
     string_buffer_reset(s);
@@ -150,13 +150,13 @@ int main() {
     show_test(aux, s);
   }
 
-  
+
   bvconst_free(bv0, 1);
 
   cleanup_bvconstants();
 
   cleanup_rationals();
-  
+
   mpz_clear(z0);
   mpz_clear(z1);
   mpq_clear(q0);

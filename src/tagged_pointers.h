@@ -6,7 +6,7 @@
 
 
 /*
- * First version: 2bit tags are stored in the two low-order bits 
+ * First version: 2bit tags are stored in the two low-order bits
  * of (void *) pointers.
  */
 #define PTR_TAG_MASK ((size_t) 0x3)
@@ -29,7 +29,7 @@ static inline void *tag_ptr(void *p, uint32_t tag) {
 
 
 /*
- * Second version: void *p stores either a pointer 
+ * Second version: void *p stores either a pointer
  * or a 31 bit integer. The tag is the low-order bit
  * - for an integer, the tag is 1
  * - for a pointer, the tag is 0
@@ -47,7 +47,7 @@ static inline int32_t untag_i32(void *p) {
   return ((int32_t) ((size_t) p)) >> 1;
 }
 
-// extract an unsigned integer from p 
+// extract an unsigned integer from p
 static inline uint32_t untag_u32(void *p) {
   assert(has_int_tag(p));
   return ((uint32_t)((size_t) p)) >> 1;

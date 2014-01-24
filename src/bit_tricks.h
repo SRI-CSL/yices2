@@ -3,8 +3,8 @@
  * -------------------------------------
  *
  * uint32_t ctz(uint32_t x): number of trailing zeros
- * - return the index (between 0 and 31) of the lowest-order bit 
- *   of x that's not 0 
+ * - return the index (between 0 and 31) of the lowest-order bit
+ *   of x that's not 0
  * - x must be nonzero
  *
  * uint32_t ctz64(uint64_t x):
@@ -12,14 +12,14 @@
  *   of x that's not 0
  * - x must be nonzero
  *
- * uint32_t binlog(uint32_t x): return the smallest k such that 
- * - x <= 2^k 
+ * uint32_t binlog(uint32_t x): return the smallest k such that
+ * - x <= 2^k
  *
  * uint32_t popcount32(uint32_t x):
  * uint32_t popcount64(uint64_t x):
  * - return the number of 1-bits in x
  *
- * GCC defines these functions. For other compilers we give a 
+ * GCC defines these functions. For other compilers we give a
  * default (naive) implementation.
  *
  */
@@ -53,7 +53,7 @@
 #include <limits.h>
 
 /*
- * The C standard requires that 
+ * The C standard requires that
  *     (unsigned int) is at least 16bits
  *     (unsigned long) is at least 32bits
  * and (unsigned long long) is at least 64bits
@@ -77,10 +77,10 @@ static inline uint32_t clz(uint32_t x) {
 }
 
 static inline uint32_t popcount32(uint32_t x) {
-  return __builtin_popcountl(x);  
+  return __builtin_popcountl(x);
 }
 
-#else 
+#else
 //#warning "ctz: uint32_t is (unsigned int)"
 
 static inline uint32_t ctz(uint32_t x) {
@@ -94,7 +94,7 @@ static inline uint32_t clz(uint32_t x) {
 }
 
 static inline uint32_t popcount32(uint32_t x) {
-  return __builtin_popcount(x);  
+  return __builtin_popcount(x);
 }
 
 #endif
@@ -120,7 +120,7 @@ static inline uint32_t popcount64(uint64_t x) {
   return __builtin_popcountll(x);
 }
 
-#else 
+#else
 // #warning "bit_tricks: uint64_t is (unsigned long)
 
 static inline uint32_t ctz64(uint64_t x) {
@@ -140,7 +140,7 @@ static inline uint32_t popcount64(uint64_t x) {
 #endif // 64bit versions
 
 
-#else 
+#else
 
 /*
  * Not GCC
@@ -209,7 +209,7 @@ static inline uint32_t popcount64(uint64_t x) {
   return c;
 }
 
-#endif 
+#endif
 
 
 static inline uint32_t binlog(uint32_t x) {

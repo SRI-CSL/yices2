@@ -89,7 +89,7 @@ static inline uint32_t iv_len(int32_t *v) {
 
 
 /*
- * Empty vector v 
+ * Empty vector v
  */
 static inline void reset_index_vector(int32_t *v) {
   if (v != NULL) {

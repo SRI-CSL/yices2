@@ -6,8 +6,8 @@
  * The atoms can be of the form (x >= k) or (x <= k) or (x == k),
  * where x is a variable in the arithmetic solver and k is a rational
  * constant. Each atom is identified by an index in the table.
- * The table uses hash consing and it supports removal of atoms for push/pop 
- * operations. 
+ * The table uses hash consing and it supports removal of atoms for push/pop
+ * operations.
  *
  * The components of an atom are:
  * - a 2bit tag to specify the atom type  (>=, <=, or ==)
@@ -101,7 +101,7 @@ static inline uint32_t arithatom_mk_header(int32_t x, arithatm_tag_t tag) {
 
 /*
  * Conversions between void* pointers and atom indices
- * - an atom index is packed into a void * pointer, with a two-bit tag 
+ * - an atom index is packed into a void * pointer, with a two-bit tag
  *   to indicate that this is  an arithmetic atom (cf. egraph_types.h)
  * - there's no loss of data even if pointers are 32 bits (because
  *   the tag is 2bits and i is less than MAX_ARITHATOMTABLE_SIZE (i.e., 2^32/16)
@@ -251,7 +251,7 @@ static inline void mark_arith_atom(arith_atomtable_t *table, int32_t i) {
 
 /*
  * Put atom i back into the free list and clear its mark
- * IMPORTANT: i must be the last marked atom 
+ * IMPORTANT: i must be the last marked atom
  * (marking/unmarking must be done in LIFO order)
  */
 static inline void unmark_arith_atom(arith_atomtable_t *table, int32_t i) {
@@ -274,10 +274,10 @@ extern int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag
 /*
  * Search for atom (x op k)
  * - create a new atom if it's not in the table
- * - return the atom index 
+ * - return the atom index
  * - set new_atom to true if the result is a new atom, to false otherwise
  *
- * If a new atom is created, it's attached to the core and it's assigned to 
+ * If a new atom is created, it's attached to the core and it's assigned to
  * a fresh boolean variable.
  */
 extern int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom);

@@ -19,7 +19,7 @@
  *
  * A binary tree is represented using three arrays:
  * - data[i] = value of node i
- * - node[i] = pair of children: 
+ * - node[i] = pair of children:
  *   node[i][0] = left child, node[i][1] = right child
  * - isred[i] = one bit per node: 1 means red node, 0 means black node
  *
@@ -45,7 +45,7 @@ typedef struct rbtree_s {
   uint32_t size;
   uint32_t nbnodes;
   uint32_t root;
-} rbtree_t; 
+} rbtree_t;
 
 
 /*

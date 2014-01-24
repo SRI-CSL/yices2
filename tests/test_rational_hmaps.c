@@ -29,7 +29,7 @@ static void print_hmap(xq_hmap_t *map) {
     }
     r ++;
   }
-  printf("\n");  
+  printf("\n");
 }
 
 
@@ -49,7 +49,7 @@ static rr_t base[NUM_PAIRS] = {
   { -1, 2}, { 1, 2},
   { -2, 3}, { 2, 3},
   { -1, 1}, { 1, 1},
-  { -2, 1}, { 2, 1}, 
+  { -2, 1}, { 2, 1},
   { -3, 1}, { 3, 1},
 };
 
@@ -62,7 +62,7 @@ static void init_test_array(xrational_t *q, uint32_t n) {
 
   j = 0;
   k = 0;
-  for (i=0; i<n; i++) {    
+  for (i=0; i<n; i++) {
     assert(j < NUM_PAIRS && k < NUM_PAIRS);
 
     xq_init(q);
@@ -92,7 +92,7 @@ static void free_test_array(xrational_t *q, uint32_t n) {
     xq_clear(q + i);
   }
 
-  safe_free(q);  
+  safe_free(q);
 }
 
 
@@ -129,7 +129,7 @@ static void test_add(xq_hmap_t *map, xrational_t *q) {
     fflush(stdout);
     exit(1);
   }
-  
+
   printf(" ok\n");
 }
 
@@ -183,7 +183,7 @@ static void test1(xq_hmap_t *map, xrational_t *q, uint32_t n) {
   printf("Test1: start map\n");
   print_hmap(map);
   printf("\n");
-  
+
   for (i=0; i<n; i++) {
     test_add(map, q + i);
   }
@@ -223,14 +223,14 @@ int main(void) {
   print_hmap(&map);
 
 
-  test1(&map, a, 150);  
- 
+  test1(&map, a, 150);
+
   printf("Reset\n");
   reset_xq_hmap(&map);
   print_hmap(&map);
 
-  test1(&map, a, 150);  
- 
+  test1(&map, a, 150);
+
   delete_xq_hmap(&map);
 
   free_test_array(a, 150);

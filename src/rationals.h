@@ -123,11 +123,11 @@ static inline void q_set_minus_one(rational_t *r) {
 
 /*
  * Assignment operations: all set the value of the first argument (r or r1).
- * - in q_set_int32 and q_set_int64, num/den is normalized first 
+ * - in q_set_int32 and q_set_int64, num/den is normalized first
  *   (common factors are removed) and den must be non-zero
  * - in q_set_mpq, q must be canonicalized first
  *   (a copy of q is made)
- * - q_set copies r2 into r1 (if r2 is a gmp number, 
+ * - q_set copies r2 into r1 (if r2 is a gmp number,
  *   then a new gmp number is allocated with the same value
  *   and assigned to r1)
  * - q_set_neg assigns the opposite of r2 to r1
@@ -190,12 +190,12 @@ extern void q_get_den(rational_t *r1, rational_t *r2);
  *       <optional_sign> <number>
  *
  * - set_from_string_base uses the GMP format with base b
- * 
+ *
  * - set_from_float_string uses a floating point format:
  *   <optional sign> <integer part> . <fractional part>
  *   <optional sign> <integer part> <exp> <optional sign> <integer>
  *   <optional sign> <integer part> . <fractional part> <exp> <optional sign> <integer>
- * 
+ *
  * where <optional sign> is + or - or nothing
  *       <exp> is either 'e' or 'E'
  *
@@ -232,7 +232,7 @@ extern int q_set_from_float_string(rational_t *r, const char *s);
  *    q_lcm: store lcm(r1, r2) into r1
  *    q_gcd: store gcd(r1, r2) into r1 (r1 and r2 must not be zero)
  * - floor and ceiling are also in-place operations:
- *    q_floor: store largest integer <= r into r 
+ *    q_floor: store largest integer <= r into r
  *    q_ceil: store smaller integer >= r into r
  */
 
@@ -272,7 +272,7 @@ extern void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n);
  * q_integer_rem(r1, r2) stores the remainder into r1
  *
  * This implements the usual definition of division (unlike C).
- * If r = remainder and q = quotient then we have  
+ * If r = remainder and q = quotient then we have
  *    0 <= r < r2 and  r1 = q * r2 + r
  */
 extern void q_integer_div(rational_t *r1, rational_t *r2);
@@ -380,12 +380,12 @@ static inline bool q_is_nonzero(rational_t *r) {
 }
 
 static inline bool q_is_one(rational_t *r) {
-  return (r->den == 1 && r->num == 1) || 
+  return (r->den == 1 && r->num == 1) ||
     (r->den == 0 && mpq_is_one(bank_q[r->num]));
 }
 
 static inline bool q_is_minus_one(rational_t *r) {
-  return (r->den == 1 && r->num == -1) || 
+  return (r->den == 1 && r->num == -1) ||
     (r->den == 0 && mpq_is_minus_one(bank_q[r->num]));
 }
 
@@ -456,8 +456,8 @@ static inline int32_t q_get_smallint(rational_t *r) {
 
 /*
  * Conversions: all functions attempt to convert r into an integer or
- * a pair of integers (num/den). If the conversion is not possible 
- * the functions return false. Otherwise, the result is true and the 
+ * a pair of integers (num/den). If the conversion is not possible
+ * the functions return false. Otherwise, the result is true and the
  * value is returned in v or num/den.
  */
 extern bool q_get32(rational_t *r, int32_t *v);
@@ -506,7 +506,7 @@ extern double q_get_double(rational_t *r);
  */
 
 /*
- * Print r on stream f. 
+ * Print r on stream f.
  * q_print_abs prints the absolute value
  */
 extern void q_print(FILE *f, rational_t *r);

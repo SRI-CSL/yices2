@@ -1,5 +1,5 @@
 /*
- * TREES USED TO BUILD MODELS IN THE FUNCTION/ARRAY SOLVER. 
+ * TREES USED TO BUILD MODELS IN THE FUNCTION/ARRAY SOLVER.
  */
 
 #include <stdint.h>
@@ -180,8 +180,8 @@ static bool split_leaf(fun_tree_t *tree, fun_node_t *n, map_t *m2, ivector_t *v)
   map_t *m1;
   function_type_t *f;
   fun_node_t *left, *right;
-  particle_t idx, a, b;  
-  
+  particle_t idx, a, b;
+
   assert(n->index == null_particle);  // n must be a leaf
   m1 = n->u.map;
 
@@ -203,7 +203,7 @@ static bool split_leaf(fun_tree_t *tree, fun_node_t *n, map_t *m2, ivector_t *v)
       // get an idx not used on the path to n or in the domain of m1 or m2
       collect_map_indices(m1, v);
       collect_map_indices(m2, v);
-      
+
       f = tree->ftype;
       if (f->ndom == 1) {
         idx = get_distinct_particle(tree->pstore, f->domain[0], v->size, v->data);
@@ -239,7 +239,7 @@ static bool split_leaf(fun_tree_t *tree, fun_node_t *n, map_t *m2, ivector_t *v)
     left = fun_tree_make_leaf(tree, m2, b);
     right = fun_tree_make_leaf(tree, m1, a);
   }
-  
+
   // convert n to a non-leaf node of index idx
   // add left and right as its children
   n->index = idx;
@@ -305,7 +305,7 @@ bool fun_tree_add_map(fun_tree_t *tree, map_t *m) {
   /*
    * Size update: if m is added successfully as a leaf N, the size counter
    * of all nodes from root to N (excluding N) must be incremented.
-   * We do increment the counter on all nodes visited and fix it if the 
+   * We do increment the counter on all nodes visited and fix it if the
    * addition fails.
    */
   n->size ++;

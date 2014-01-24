@@ -29,7 +29,7 @@ static void print_triple(subst_triple_t *triple) {
 static void print_subst(pseudo_subst_t *subst) {
   subst_triple_t *s;
   uint32_t i, n;
-  
+
   printf("subst %p\n", subst);
   printf("  size = %"PRIu32"\n", subst->size);
   printf("  nelems = %"PRIu32"\n", subst->nelems);
@@ -84,7 +84,7 @@ static void print_bank(st_bank_t *bank) {
   for (i=0; i<n; i++) {
     printf("  ");
     print_triple(b->data + i);
-    printf("\n");      
+    printf("\n");
   }
   printf("\n");
 }
@@ -93,7 +93,7 @@ static void print_bank(st_bank_t *bank) {
 
 
 /*
- * Test: search for x 
+ * Test: search for x
  */
 static void test_var(pseudo_subst_t *subst, term_t x) {
   subst_triple_t *s, *r;
@@ -171,7 +171,7 @@ int main() {
   printf("=== AFTER RESET ===\n");
   print_subst(&subst);
   print_bank(&subst.bank);
-  
+
   random_tests(&subst, 1000);
   printf("=== AFTER 1000 RANDOM TESTS ===\n");
   print_subst(&subst);

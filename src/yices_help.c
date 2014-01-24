@@ -22,11 +22,11 @@
  *   - summary description
  *   - detailed description
  *   - examples
- *  
+ *
  * All descriptors are stored in a global array 'help_data'
  *
  * Some commands exist in two variants. Each variant is described by its
- * own record. The two variants must appear one after the other in the 
+ * own record. The two variants must appear one after the other in the
  * help array.
  *
  * Example for define-type:
@@ -40,7 +40,7 @@
  *
  * Help index
  * ----------
- * - for each help topic, we use a record that describes how to 
+ * - for each help topic, we use a record that describes how to
  *   display the corresponding help message.
  * - the record includes:
  *   - key = topic name (string)
@@ -48,7 +48,7 @@
  *   - idx = an integer index
  *   - proc = a function pointer
  *
- * - proc has signature: 
+ * - proc has signature:
  *     void proc(FILE *f, const char *key, const char *aux, int32_t idx)
  *
  * - when processing "help(f, topic):
@@ -116,11 +116,11 @@ static const help_record_t help_data[] = {
   // define-type: index 0
   { HCOMMAND,
     "(define-type [name])",
-    "Declare a new uninterpreted type", 
+    "Declare a new uninterpreted type",
     "   [name] must be a fresh name\n",
     "(define-type T)\n" },
 
-  { HCOMMAND, 
+  { HCOMMAND,
     "(define-type [name] [typedef])",
     "Define a new type",
     "   [name] must be a fresh name\n"
@@ -133,15 +133,15 @@ static const help_record_t help_data[] = {
     "(define-type color (scalar red black white))\n" },
 
   // define: index 2
-  { HCOMMAND, 
+  { HCOMMAND,
     "(define [name] :: [type])",
     "Declare a new uninterpreted constant",
     "   [name] must be fresh\n",
     "(define x :: int)\n"
     "(define f :: (-> T bool)\n" },
-  
 
-  { HCOMMAND, 
+
+  { HCOMMAND,
     "(define [name] :: [type] [expr])",
     "Define a new constant",
     "   [name] must be fresh\n"
@@ -156,15 +156,15 @@ static const help_record_t help_data[] = {
     "(assert (or (= a (f 10)) (/= x (g (g a)))))\n" },
 
   // check: index 5
-  { HCOMMAND, 
+  { HCOMMAND,
     "(check)",
     "Check whether the logical context is satisfiable",
     NULL,
     NULL  },
 
   // push: index 6
-  { HCOMMAND, 
-    "(push)", 
+  { HCOMMAND,
+    "(push)",
     "Start a new assertion scope",
     "All assertions added after '(push)' can be later retracted by '(pop)'\n"
     "\n"
@@ -183,8 +183,8 @@ static const help_record_t help_data[] = {
     NULL },
 
   // reset: index 8
-  { HCOMMAND, 
-    "(reset)", 
+  { HCOMMAND,
+    "(reset)",
     "Reset the logical context (to the empty context)",
     "All assertions are removed, Type and term declarations are kept.\n",
     NULL },
@@ -198,7 +198,7 @@ static const help_record_t help_data[] = {
     NULL },
 
   // eval: index 10
-  { HCOMMAND, 
+  { HCOMMAND,
     "(eval [expr])",
     "Evaluate an expression in the current model",
     "This may be used after a call to (check) that returns 'sat' or 'unknown'.\n",
@@ -219,7 +219,7 @@ static const help_record_t help_data[] = {
     NULL },
 
   // set-param: index 13
-  { HCOMMAND, 
+  { HCOMMAND,
     "(set-param [name] [value])",
     "Set a parameter",
     "   [name] must be a parameter name\n"
@@ -242,28 +242,28 @@ static const help_record_t help_data[] = {
     "(show-param random-seed)\n" },
 
   // show-params: index 15
-  { HCOMMAND, 
+  { HCOMMAND,
     "(show-params)",
     "Show all parameters and their current value",
     NULL,
     NULL },
 
   // show-stats: index 16
-  { HCOMMAND, 
+  { HCOMMAND,
     "(show-stats)",
     "Show statistics",
     "Display various counters and statistics about '(check)'\n",
     NULL},
 
   // reset-stats: index 17
-  { HCOMMAND, 
+  { HCOMMAND,
     "(reset-stats)",
     "Reset the statistics counters",
     NULL,
     NULL },
 
   // set-timeout: index 18
-  { HCOMMAND, 
+  { HCOMMAND,
     "(set-timeout [value])",
     "Give a timeout",
     "   [value] must be a non-negative integer (timeout expressed in seconds)\n"
@@ -277,20 +277,20 @@ static const help_record_t help_data[] = {
   },
 
   // show-timeout: index 19
-  { HCOMMAND, 
+  { HCOMMAND,
     "(show-timeout)",
     "Show the timeout value",
     NULL,
     NULL },
 
   // help: index 20
-  { HCOMMAND, 
+  { HCOMMAND,
     "(help)",
     "Show a summary of the main commands",
     NULL,
     NULL },
 
-  { HCOMMAND, 
+  { HCOMMAND,
     "(help [topic])",
     "Show help on a specific topic",
     "    [topic] can be\n"
@@ -319,7 +319,7 @@ static const help_record_t help_data[] = {
   { HTYPE, "real", "Real type", NULL, NULL },
 
   // bitvector: index 26
-  { HTYPE, 
+  { HTYPE,
     "(bitvector [k])",
     "Bitvectors of [k] bits",
     "   [k] must be positive\n",
@@ -447,7 +447,7 @@ static const help_record_t help_data[] = {
     "Conjunction",
     "   [expr_1] ... [expr_n] must be Boolean expressions\n",
     NULL },
-    
+
   // not: index 43
   { HBOOLEAN,
     "(not [expr])",
@@ -482,7 +482,7 @@ static const help_record_t help_data[] = {
 
   // +: index 47
   { HARITHMETIC,
-    "(+ [expr_1] ... [expr_n])", 
+    "(+ [expr_1] ... [expr_n])",
     "Addition",
     "   [expr_1] ... [expr_n] must be arithmetic expressions\n",
     NULL },
@@ -641,7 +641,7 @@ static const help_record_t help_data[] = {
     "\n"
     "   (bv-nand x y) is the same as (bv-not (bv-and x y))\n",
     NULL },
-  
+
   // bv-nor: index 68
   { HBITVECTOR,
     "(bv-nor [expr1] [expr2])",
@@ -805,7 +805,7 @@ static const help_record_t help_data[] = {
     "(bv-zero-extend 0b011010 3) is equal to 0b000011010\n"
     "(bv-zero-extend 0b111010 3) is equal to 0b000011010\n"
     "(bv-zero-extend 0b111010 0) is equal to 0b111010\n" },
-  
+
   // bv-div: index 85
   { HBITVECTOR,
     "(bv-div [expr1] [expr2])",
@@ -853,7 +853,7 @@ static const help_record_t help_data[] = {
     "\n"
     "If y is 0b0...0 then the result is x\n",
     NULL },
-    
+
   // bv-smod: index 89
   { HBITVECTOR,
     "(bv-smod [expr1] [expr2])",
@@ -865,7 +865,7 @@ static const help_record_t help_data[] = {
     "\n"
     "If y is 0b0...0 then the result is x\n",
     NULL },
- 
+
   // bv-redand: index 90
   { HBITVECTOR,
     "(bv-redand [expr])",
@@ -1072,7 +1072,7 @@ static const help_record_t help_data[] = {
     "\n"
     "Sketch of the algorithm:\n"
     "- Initially, set r := max(r-threshold, r-fraction * N)\n"
-    "  where N = total number of clauses in the problem.\n"    
+    "  where N = total number of clauses in the problem.\n"
     "- When the number of learned clauses reaches r, call the clause\n"
     "  reduction procedure, then update r to r = r-factor * r.\n",
     NULL },
@@ -1103,7 +1103,7 @@ static const help_record_t help_data[] = {
     "\n"
     "Boolean variables have an activity score that's used by the decision\n"
     "heuristic. After each conflict, variables that were not involved in\n"
-    "the conflict see their activity reduced by the var-decay factor:\n"    
+    "the conflict see their activity reduced by the var-decay factor:\n"
     "- If 'x' is not involved in the conflict then\n"
     "     activity[x] := var-decay * activity[x]\n",
     NULL },
@@ -1201,7 +1201,7 @@ static const help_record_t help_data[] = {
     "\n"
     "Parameters aux-eq-quota and aux-eq-ratio limit the number\n"
     "of equality atoms created when generating Ackermann lemmas.\n"
-    "\n"    
+    "\n"
     "The bound is  max(aux-eq-quota, aux-eq-ratio * num-terms)\n"
     "where num-terms is the total number of terms in the Egraph.\n"
     "\n"
@@ -1235,7 +1235,7 @@ static const help_record_t help_data[] = {
     "A lower value makes Ackermann-lemma generation more aggressive\n"
     "(i.e., Ackermann lemmas are generated more eagerly).\n",
     NULL },
-  
+
   // max-interface-eqs: index 129
   { HPARAM,
     "(set-param max-interface-eqs [integer])",
@@ -1640,7 +1640,7 @@ static void help_variant(FILE *f, const char *topic, const char *aux, int32_t id
 
   if (r1->example != NULL || r2->example != NULL) {
     fputs("Example", f);
-    if ((r1->example != NULL && r2->example != NULL) 
+    if ((r1->example != NULL && r2->example != NULL)
         || (r1->example != NULL && multiple_lines(r1->example))
         || (r2->example != NULL && multiple_lines(r2->example))) {
       fputc('s', f);
@@ -1667,9 +1667,9 @@ static void help_for_category(FILE *f, const char *topic, const char *aux, int32
   if (aux != NULL) {
     fputc('\n', f);
     fputs(aux, f);
-    fputc('\n', f); 
+    fputc('\n', f);
   }
-  fputc('\n', f); 
+  fputc('\n', f);
   display_summary(f, &v);
   fputc('\n', f);
 
@@ -1714,7 +1714,7 @@ static const help_index_t help_index[] = {
   { "bool", NULL, 23, help_basic },
   { "booleans", "Boolean Operators", HBOOLEAN, help_for_category },
   { "branching", NULL, 117, help_basic },
-  { "bv-add", NULL, 58, help_basic },  
+  { "bv-add", NULL, 58, help_basic },
   { "bv-and", NULL, 64, help_basic },
   { "bv-ashift-right", NULL, 74, help_basic },
   { "bv-ashr", NULL, 79, help_basic },
@@ -1727,7 +1727,7 @@ static const help_index_t help_index[] = {
   { "bv-le", NULL, 95, help_basic },
   { "bv-lt", NULL, 96, help_basic },
   { "bv-lshr", NULL, 78, help_basic },
-  { "bv-mul", NULL, 60, help_basic },  
+  { "bv-mul", NULL, 60, help_basic },
   { "bv-nand", NULL, 67, help_basic },
   { "bv-neg", NULL, 61, help_basic },
   { "bv-nor", NULL, 68, help_basic },
@@ -1753,7 +1753,7 @@ static const help_index_t help_index[] = {
   { "bv-slt", NULL, 100, help_basic },
   { "bv-smod", NULL, 89, help_basic },
   { "bv-srem", NULL, 88, help_basic },
-  { "bv-sub", NULL, 59, help_basic }, 
+  { "bv-sub", NULL, 59, help_basic },
   { "bv-xnor", NULL, 69, help_basic },
   { "bv-xor", NULL, 66, help_basic },
   { "bv-zero-extend", NULL, 84, help_basic },
@@ -1809,7 +1809,7 @@ static const help_index_t help_index[] = {
   { "r-fraction", NULL, 112, help_basic },
   { "r-threshold", NULL, 111, help_basic },
   { "random-seed", NULL, 116, help_basic },
-  { "randomness", NULL, 115, help_basic },  
+  { "randomness", NULL, 115, help_basic },
   { "real", NULL, 25, help_basic },
   { "reset", NULL, 8, help_basic },
   { "reset-stats", NULL, 17, help_basic },
@@ -1867,7 +1867,7 @@ void show_help(FILE *f, const char *topic) {
 
   if (topic == NULL) {
     help_for_category(f, NULL, "Command Summary", HCOMMAND);
-    fputs("For a list of all help topics: type '(help index)'.\n", f);    
+    fputs("For a list of all help topics: type '(help index)'.\n", f);
   } else {
     index = help_for_topic(topic);
     if (index != NULL) {

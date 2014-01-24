@@ -27,7 +27,7 @@
  * (ite t1 t2 t3)
  * (or a[0] ... a[n-1])
  * (lambda t tag)
- * 
+ *
  * For lambda terms: tag is an integer that's used to distinguish lambda terms
  * with different domains.
  *
@@ -76,7 +76,7 @@ extern composite_t *new_or_composite_var(uint32_t n, occ_t *a);
  *************************/
 
 /*
- * Syntactic equality: 
+ * Syntactic equality:
  * check whether  c == (apply f a[0] ... a[n-1]) etc.
  */
 extern bool equal_apply(composite_t *c, occ_t f, uint32_t n, occ_t *a);
@@ -198,11 +198,11 @@ extern uint32_t hash_signature(signature_t *s);
 /*
  * Check whether s1 and s2 are equal
  */
-extern bool equal_signatures(signature_t *s1, signature_t *s2);  
+extern bool equal_signatures(signature_t *s1, signature_t *s2);
 
 /*
  * Check whether s is equal to c's signature.
- * - aux must be distinct from s and initialized. 
+ * - aux must be distinct from s and initialized.
  * - it's used as an auxiliary buffer if c is (or ...) or (distinct ...)
  */
 extern bool signature_matches(composite_t *c, signature_t *s, signature_t *aux, elabel_t *label);
@@ -232,7 +232,7 @@ extern void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t 
 
 /*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)
- * - c must be of the form (apply f i_1 ... i_n) 
+ * - c must be of the form (apply f i_1 ... i_n)
  *   d must be of fhe form (apply g j_i ... j_m)
  * - return true if n == m and label[i_1] = label[j_1], ..., label[i_n] = label[j_m]
  */
@@ -243,7 +243,7 @@ extern bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label);
  * Compute a hash code of c's argument tuple
  * - c must be of the form (apply f i_1 ... i_n)
  * - return a hash computed based on n and label[i_1], ..., label[i_n]
- * - so if same_arg_signature(c, d, label) is true then 
+ * - so if same_arg_signature(c, d, label) is true then
  *   hash_arg_signature(c, label) = hash_arg_signature(d, label).
  */
 extern uint32_t hash_arg_signature(composite_t *c, elabel_t *label);
@@ -285,7 +285,7 @@ extern void congruence_table_remove(congruence_table_t *tbl, composite_t *c);
  * Remove c from tbl if it's present (no change otherwise)
  * - tbl must not be full
  * - c->hash must be equal to the hash of its signature
- * returned value: 
+ * returned value:
  * - true if c was present (and has been removed)
  * - false if c was not present
  */

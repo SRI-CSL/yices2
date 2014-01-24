@@ -48,7 +48,7 @@ static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
   error = __yices_globals.error;
   rd = &lex->reader;
   tk = current_token(lex);
-  switch (tk) {    
+  switch (tk) {
   case TK_OPEN_STRING:
     error->code = INVALID_TOKEN;
     error->line = rd->line;
@@ -176,32 +176,32 @@ static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
 
   switch (tk) {
   case TK_OPEN_STRING:
-    fprintf(err, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "missing string terminator \" (line %"PRId32", column %"PRId32")\n",
             rd->line, rd->column);
     break;
 
   case TK_EMPTY_BVCONST:
-    fprintf(err, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_EMPTY_HEXCONST:
-    fprintf(err, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_INVALID_NUM:
-    fprintf(err, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid number %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ZERO_DIVISOR:
-    fprintf(err, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ERROR:
-    fprintf(err, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid token %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
@@ -211,11 +211,11 @@ static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
               lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
     } else {
-      fprintf(err, "syntax error (line %"PRId32", column %"PRId32")\n", 
+      fprintf(err, "syntax error (line %"PRId32", column %"PRId32")\n",
               lex->tk_line, lex->tk_column);
     }
     break;
-  } 
+  }
 }
 
 /*
@@ -261,13 +261,13 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
   tstack = parser->tstack;
 
   assert(parser_stack_is_empty(stack));
-  assert(tstack_is_empty(tstack) || 
+  assert(tstack_is_empty(tstack) ||
          tstack->top_op == BUILD_TYPE ||
          tstack->top_op == BUILD_TERM);
 
   // prepare to catch exceptions in term stack operations
   exception = setjmp(tstack->env);
-  if (exception == 0) {    
+  if (exception == 0) {
 
     parser_push_state(stack, done);
     state = start;
@@ -311,12 +311,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_push_op(tstack, POP_CMD, &loc);
       state = r0;
       goto loop;
-      
+
     case reset_next_goto_r0:
       tstack_push_op(tstack, RESET_CMD, &loc);
       state = r0;
       goto loop;
-      
+
     case dump_context_next_goto_r0:
       tstack_push_op(tstack, DUMP_CMD, &loc);
       state = r0;
@@ -337,7 +337,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       parser_push_state(stack, r0);
       state = e0;
       goto loop;
-      
+
     case deftype_next_goto_c2:
       tstack_push_op(tstack, DEF_YICES_TYPE, &loc);
       state = c2;
@@ -443,7 +443,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case symbol_next_goto_r0:
-      // symbol in (show-param <symbol>) or (help <symbol>) 
+      // symbol in (show-param <symbol>) or (help <symbol>)
       // or (set-param ... <symbol>)
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = r0;
@@ -477,7 +477,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-      
+
     case real_return:
       tstack_push_real_type(tstack, &loc);
       assert(! parser_stack_is_empty(stack));
@@ -486,7 +486,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-      
+
     case bool_return:
       tstack_push_bool_type(tstack, &loc);
       assert(! parser_stack_is_empty(stack));
@@ -495,7 +495,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-      
+
     case typesymbol_return:
       // TK_SYMBOL bound to a type
       tstack_push_type_by_name(tstack, tkval(lex), &loc);
@@ -505,7 +505,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-      
+
     case next_goto_td1:
       state = td1;
       goto loop;
@@ -561,7 +561,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-            
+
     case false_return:
       tstack_push_false(tstack, &loc);
       assert(! parser_stack_is_empty(stack));
@@ -590,7 +590,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case bvbin_return:
-      // skip prefix 0b 
+      // skip prefix 0b
       assert(tklen(lex) > 2);
       tstack_push_bvbin(tstack, tkval(lex) + 2, tklen(lex) - 2, &loc);
       state = parser_pop_state(stack);
@@ -618,7 +618,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
         goto the_end;
       }
       goto loop;
-      
+
     case next_goto_e1:
       state = e1;
       goto loop;
@@ -1031,7 +1031,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_push_op(tstack, MK_FORALL, &loc);
       state = e10;
       goto loop;
-      
+
     case exists_next_goto_e10:
       tstack_push_op(tstack, MK_EXISTS, &loc);
       state = e10;
@@ -1137,7 +1137,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       syntax_error(lex, err, TK_SYMBOL);
       goto cleanup;
 
-    case error_string_expected: 
+    case error_string_expected:
       syntax_error(lex, err, TK_STRING);
       goto cleanup;
 
@@ -1202,7 +1202,7 @@ extern term_t parse_yices_term(parser_t *parser, FILE *err) {
   assert(parser->tstack->top_op == BUILD_TERM);
   tstack_eval(parser->tstack);
 
-  assert(parser_stack_is_empty(&parser->pstack) && 
+  assert(parser_stack_is_empty(&parser->pstack) &&
          tstack_is_empty(parser->tstack));
 
   return tstack_get_term(parser->tstack);
@@ -1226,7 +1226,7 @@ type_t parse_yices_type(parser_t *parser, FILE *err) {
   assert(parser->tstack->top_op == BUILD_TYPE);
   tstack_eval(parser->tstack);
 
-  assert(parser_stack_is_empty(&parser->pstack) && 
+  assert(parser_stack_is_empty(&parser->pstack) &&
          tstack_is_empty(parser->tstack));
 
   return tstack_get_type(parser->tstack);

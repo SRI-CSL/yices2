@@ -38,7 +38,7 @@
 
 /*
  * Queue of variable
- * - each element in this queue is a variable index i 
+ * - each element in this queue is a variable index i
  * - the variables are sorted in topological order
  *   (i.e., if i is (BVADD j k) and j is (BVAD ...) then
  *   j occurs before i in the queue).
@@ -127,7 +127,7 @@ extern thvar_t bvvar_compiles_to(bvc_t *c, thvar_t x);
 /*
  * Add variable x to the compilation queue
  * - x must be a valid variable in c->vtbl
- * - x's definition must be a polynomial (i.e., x must have 
+ * - x's definition must be a polynomial (i.e., x must have
  *   tag BVTAG_POLY, BVTAG_POLY64, or BVTAG_PPROD).
  */
 extern void bv_compiler_push_var(bvc_t *c, thvar_t x);

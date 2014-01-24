@@ -49,7 +49,7 @@ static th_smt_interface_t null_theory_smt = {
   NULL,            // expand explanation
   NULL,            // select polarity
   NULL,            // delete_atom
-  NULL,            // end_deletion 
+  NULL,            // end_deletion
 };
 
 
@@ -70,7 +70,7 @@ static void quick_solve(smt_core_t *core) {
   literal_t l;
 
   /*
-   * Hackish: if the empty clause was added, 
+   * Hackish: if the empty clause was added,
    * we must return now. Adding the empty clause just
    * sets core->inconsistent to true, but start_search clears
    * this flag.
@@ -95,7 +95,7 @@ static void quick_solve(smt_core_t *core) {
 
 
 /*
- * Print current model 
+ * Print current model
  */
 static void print_var_value(smt_core_t *core, bvar_t x) {
   bval_t v;
@@ -128,7 +128,7 @@ static void print_assignment(smt_core_t *core) {
 
 
 /*
- * Print decision literals 
+ * Print decision literals
  */
 static void print_decision_literals(smt_core_t *core) {
   ivector_t v;
@@ -140,7 +140,7 @@ static void print_decision_literals(smt_core_t *core) {
 
   n = v.size;
   k = 0;
-  printf("  %"PRIu32" decision literals:", n);  
+  printf("  %"PRIu32" decision literals:", n);
   for (i=0; i<n; i++) {
     printf(" ");
     print_literal(stdout, v.data[i]);
@@ -238,7 +238,7 @@ static void display_boolexpr2(char *op, literal_t l1, literal_t l2) {
 
   a[0] = l1;
   a[1] = l2;
-  display_boolexpr(op, 2, a);  
+  display_boolexpr(op, 2, a);
 }
 
 static void display_def2(literal_t l, char *op, literal_t l1, literal_t l2) {
@@ -246,7 +246,7 @@ static void display_def2(literal_t l, char *op, literal_t l1, literal_t l2) {
 
   a[0] = l1;
   a[1] = l2;
-  display_def(l, op, 2, a);  
+  display_def(l, op, 2, a);
 }
 
 static void display_boolexpr3(char *op, literal_t l1, literal_t l2, literal_t l3) {
@@ -255,7 +255,7 @@ static void display_boolexpr3(char *op, literal_t l1, literal_t l2, literal_t l3
   a[0] = l1;
   a[1] = l2;
   a[2] = l3;
-  display_boolexpr(op, 3, a);  
+  display_boolexpr(op, 3, a);
 }
 
 static void display_def3(literal_t l, char *op, literal_t l1, literal_t l2, literal_t l3) {
@@ -264,7 +264,7 @@ static void display_def3(literal_t l, char *op, literal_t l1, literal_t l2, lite
   a[0] = l1;
   a[1] = l2;
   a[2] = l3;
-  display_def(l, op, 3, a);  
+  display_def(l, op, 3, a);
 }
 
 
@@ -344,7 +344,7 @@ static literal_t eval_ite(literal_t c, literal_t l1, literal_t l2) {
  *  CHECK GATES WITH CONSTANT INPUT *
  ***********************************/
 
-// both l1 and l2 must be constant 
+// both l1 and l2 must be constant
 static void check_and_aux(gate_manager_t *m, literal_t l1, literal_t l2) {
   literal_t l;
 
@@ -361,7 +361,7 @@ static void check_and(gate_manager_t *m) {
   check_and_aux(m, false_literal, false_literal);
   check_and_aux(m, false_literal, true_literal);
   check_and_aux(m, true_literal, false_literal);
-  check_and_aux(m, true_literal, true_literal);  
+  check_and_aux(m, true_literal, true_literal);
 }
 
 
@@ -381,7 +381,7 @@ static void check_or(gate_manager_t *m) {
   check_or_aux(m, false_literal, false_literal);
   check_or_aux(m, false_literal, true_literal);
   check_or_aux(m, true_literal, false_literal);
-  check_or_aux(m, true_literal, true_literal);  
+  check_or_aux(m, true_literal, true_literal);
 }
 
 
@@ -402,7 +402,7 @@ static void check_implies(gate_manager_t *m) {
   check_implies_aux(m, false_literal, false_literal);
   check_implies_aux(m, false_literal, true_literal);
   check_implies_aux(m, true_literal, false_literal);
-  check_implies_aux(m, true_literal, true_literal);  
+  check_implies_aux(m, true_literal, true_literal);
 }
 
 
@@ -422,7 +422,7 @@ static void check_xor(gate_manager_t *m) {
   check_xor_aux(m, false_literal, false_literal);
   check_xor_aux(m, false_literal, true_literal);
   check_xor_aux(m, true_literal, false_literal);
-  check_xor_aux(m, true_literal, true_literal);  
+  check_xor_aux(m, true_literal, true_literal);
 }
 
 
@@ -518,26 +518,26 @@ static void test2(gate_manager_t *m) {
   printf("\n");
   printf("Clauses\n");
   print_clauses(stdout, core);
-  
+
   printf("\n**** OR TEST ****\n");
   a[0] = not(a[0]);
   a[1] = not(a[1]);
   a[2] = not(a[2]);
   l = mk_or_gate(m, 3, a);
-  display_def(l, "OR", 3, a);  
+  display_def(l, "OR", 3, a);
   printf("\n");
   l0 = mk_or_gate(m, 3, a);
   display_def(l0, "OR", 3, a);
   printf("\n");
   printf("Clauses\n");
   print_clauses(stdout, core);
-  
+
   printf("\n**** XOR TEST ****\n");
   a[0] = not(a[0]);
   a[1] = not(a[1]);
   a[2] = not(a[2]);
   l = mk_xor_gate(m, 3, a);
-  display_def(l, "XOR", 3, a);  
+  display_def(l, "XOR", 3, a);
   printf("\n");
   l0 = mk_xor_gate(m, 3, a);
   display_def(l0, "XOR", 3, a);
@@ -547,27 +547,27 @@ static void test2(gate_manager_t *m) {
 
   a[0] = not(a[0]);
   l = mk_xor_gate(m, 3, a);
-  display_def(l, "XOR", 3, a);  
+  display_def(l, "XOR", 3, a);
   printf("\n");
   l0 = mk_xor_gate(m, 3, a);
   display_def(l0, "XOR", 3, a);
   printf("\n");
   printf("Clauses\n");
   print_clauses(stdout, core);
-  
+
   a[1] = not(a[1]);
   l = mk_xor_gate(m, 3, a);
-  display_def(l, "XOR", 3, a);  
+  display_def(l, "XOR", 3, a);
   printf("\n");
   l0 = mk_xor_gate(m, 3, a);
   display_def(l0, "XOR", 3, a);
   printf("\n");
   printf("Clauses\n");
   print_clauses(stdout, core);
-  
+
   a[2] = not(a[2]);
   l = mk_xor_gate(m, 3, a);
-  display_def(l, "XOR", 3, a);  
+  display_def(l, "XOR", 3, a);
   printf("\n");
   l0 = mk_xor_gate(m, 3, a);
   display_def(l0, "XOR", 3, a);
@@ -585,7 +585,7 @@ static void test2(gate_manager_t *m) {
 
 
 /*
- * More tests on XOR 
+ * More tests on XOR
  */
 static void test3(gate_manager_t *m) {
   smt_core_t *core;
@@ -610,7 +610,7 @@ static void test3(gate_manager_t *m) {
     l = mk_xor_gate(m, i, a);
     display_def(l, "XOR", i, a);
     printf("\n");
-  }  
+  }
   printf("\n");
 
   a[0] = true_literal;
@@ -621,7 +621,7 @@ static void test3(gate_manager_t *m) {
     l = mk_xor_gate(m, i, a);
     display_def(l, "XOR", i, a);
     printf("\n");
-  }  
+  }
   printf("\n");
 
   a[4] = not(l1);
@@ -632,12 +632,12 @@ static void test3(gate_manager_t *m) {
     l = mk_xor_gate(m, i, a);
     display_def(l, "XOR", i, a);
     printf("\n");
-  }  
+  }
   printf("\n");
 
   printf("*** GATES ***\n");
   print_gate_table(stdout, &m->htbl);
-  printf("\n\n");  
+  printf("\n\n");
 }
 
 
@@ -664,7 +664,7 @@ static void check_xor_models(gate_manager_t *m) {
   print_gate_table(stdout, &m->htbl);
   printf("\n");
 
-  all_sat(core);  
+  all_sat(core);
 }
 
 
@@ -689,7 +689,7 @@ static void check_iff_models(gate_manager_t *m) {
   print_gate_table(stdout, &m->htbl);
   printf("\n");
 
-  all_sat(core);  
+  all_sat(core);
 }
 
 
@@ -795,7 +795,7 @@ static void check_xor2_assertion(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -817,7 +817,7 @@ static void check_xor3_assertion(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -842,7 +842,7 @@ static void check_xor5_assertion(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -863,7 +863,7 @@ static void check_iff_assertion(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -884,7 +884,7 @@ static void check_iff_assertion2(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -905,7 +905,7 @@ static void check_iff_assertion3(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -926,7 +926,7 @@ static void check_iff_assertion4(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -947,7 +947,7 @@ static void check_iff_assertion5(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 
@@ -970,7 +970,7 @@ static void check_ite_assertion(gate_manager_t *m) {
   printf(" == true\n");
   print_gate_table(stdout, &m->htbl);
   printf("\n");
-  
+
   all_sat(core);
 }
 

@@ -48,14 +48,14 @@ static void test_type_subst(type_table_t *table, type_t tau, type_t v[], type_t 
   sigma = type_substitution(table, tau, n, v, u);
   printf("result: ");
   print_type(stdout, table, sigma);
-  fputc('\n', stdout);  
+  fputc('\n', stdout);
 }
 
 
 /*
  * Global variables:
  * var[NVARS] = all variables
- * tests[NTESTS] 
+ * tests[NTESTS]
  */
 static type_table_t types;
 
@@ -224,7 +224,7 @@ int main(void) {
   for (i=0; i<NTESTS; i++) {
     test_random_subst(tests[i], 5);
   }
-  
+
   delete_type_table(&types);
 
   return 0;

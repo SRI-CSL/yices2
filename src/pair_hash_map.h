@@ -18,7 +18,7 @@ typedef struct pmap_rec_s {
   int32_t k0;
   int32_t k1;
   void *val;
-} pmap_rec_t; 
+} pmap_rec_t;
 
 /*
  * Marker for deleted records

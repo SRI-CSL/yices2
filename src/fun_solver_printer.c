@@ -190,12 +190,12 @@ void print_fsolver_maps(FILE *f, fun_solver_t *solver) {
       if (p != NULL) {
         m = pv_size((void **) p);
         for (j=0; j<m; j++) {
-          print_map(f, egraph, p[j]);     
+          print_map(f, egraph, p[j]);
         }
       }
     }
   }
-  
+
 }
 
 
@@ -319,7 +319,7 @@ void print_fsolver_values(FILE *f, fun_solver_t *solver) {
       map = solver->value[i];
       if (map != NULL) {
         for (j=0; j<map->nelems; j++) {
-          print_map_elem(f, egraph, map->data[j].index, map->data[j].value);      
+          print_map_elem(f, egraph, map->data[j].index, map->data[j].value);
         }
         if (map->def != null_particle) {
           fputs("[else -> ", f);
@@ -329,7 +329,7 @@ void print_fsolver_values(FILE *f, fun_solver_t *solver) {
       }
     }
   }
-  
+
 }
 
 
@@ -343,9 +343,9 @@ void print_fsolver_diseqs(FILE *f, fun_solver_t *solver) {
   dstack = &solver->dstack;
   n = dstack->top;
   for (i=0; i<n; i++) {
-    fprintf(f, "diseq[%"PRIu32"]: f!%"PRIu32" != f%"PRIu32"\n", i, dstack->data[i].left, dstack->data[i].right);    
+    fprintf(f, "diseq[%"PRIu32"]: f!%"PRIu32" != f%"PRIu32"\n", i, dstack->data[i].left, dstack->data[i].right);
   }
-  
+
 }
 
 

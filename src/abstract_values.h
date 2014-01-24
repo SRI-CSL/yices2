@@ -1,7 +1,7 @@
 /*
  * Abstract objects used by the array solver to construct models.
  * - an array variable is modeled as a mapping from [tau1 ... tau_n -> sigma]
- * - tau_1 ... tau_n and sigma are types defined in the global type table 
+ * - tau_1 ... tau_n and sigma are types defined in the global type table
  *
  * An array A is specified via a finite number of mappings
  *        [x_11 ... x_1n -> y_1]
@@ -13,9 +13,9 @@
  *     A[x_i1 ... x_in] = y_i for (i=1, ..., m)
  *     A[i_1, ..., i_n] = y_0 for all other input
  *
- * This module provides support for building the objects x_ij and y_k, 
- * and for representing the arrays and mappings. 
- * - Each atomic element x_ij or y_k is either an egraph label 
+ * This module provides support for building the objects x_ij and y_k,
+ * and for representing the arrays and mappings.
+ * - Each atomic element x_ij or y_k is either an egraph label
  *   or a fresh constant of some type tau created by the solver.
  * - The egraph can later convert the abstract values into concrete objects.
  */
@@ -37,14 +37,14 @@
 /*
  * Abstract values are called particles. They are identified by an
  * integer index in a global table. We use hash consing. There are
- * three kinds of abstract values: 
+ * three kinds of abstract values:
  *  LABEL (egraph label)
  *  FRESH (fresh constant)
  *  TUPLE
  *
  * We use TUPLE to represent n-ary maps. Rather than writing
  *  [x_i1, ..., x_in -> y_i]
- * we construct t = [x_i1, ..., x_in] and store [t -> y_i] in the 
+ * we construct t = [x_i1, ..., x_in] and store [t -> y_i] in the
  * array descriptor.
  */
 
@@ -94,12 +94,12 @@ typedef struct particle_tuple_s {
 /*
  * Particle table
  * - valid objects have indices between 0 and nobjects - 1
- * - for each object i: 
+ * - for each object i:
  *     kind[i] = its kind
  *     desc[i] = its descriptor
  *     concrete[i] = its concretization
  *     mark[i] = general purpose mark bit
- * - other components: 
+ * - other components:
  *     htbl = hash table for hash consing
  */
 typedef struct particle_table_s {
@@ -121,7 +121,7 @@ typedef struct particle_table_s {
 
 /*
  * Descriptor for a set of particles of a tuple of types [tau_0,..., tau_n-1]
- * - arity = number of types 
+ * - arity = number of types
  * - type[0,.,,n-1] = tau_0 to tau_n-1
  * For a simple type tau, we use n=1 and type[0] = tau
  * - data = vector that contains all particles of that type
@@ -143,11 +143,11 @@ typedef struct particle_set_s {
 
 /*
  * Table of these descriptors
- * - pset[0 ... n-1] = all sets 
+ * - pset[0 ... n-1] = all sets
  * - size = size of the set array
- * - nsets = n 
+ * - nsets = n
  * - there shouldn't be too many different types so we just use
- *   sequential search to find the pset for a given type 
+ *   sequential search to find the pset for a given type
  *   (or tuple of types).
  */
 typedef struct pset_table_s {
@@ -173,7 +173,7 @@ typedef struct pset_table_s {
  *   iff set[tau]->data[i] = x
  * - rank_size = size of the rank array
  * - card array: card[k] = number of elements in tau[k]
- * - aux array: must have size n 
+ * - aux array: must have size n
  */
 typedef struct pstore_s {
   type_table_t *types;
@@ -267,7 +267,7 @@ extern particle_t get_distinct_particle(pstore_t *store, type_t tau, uint32_t p,
 
 /*
  * Return a (fresh) particle of that tau that's distinct from all
- * other particles of that type. 
+ * other particles of that type.
  * - return null_particle if that's not possible.
  */
 extern particle_t get_new_particle(pstore_t *store, type_t tau);

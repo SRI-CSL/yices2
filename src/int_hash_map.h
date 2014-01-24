@@ -17,7 +17,7 @@
 typedef struct int_hmap_pair_s {
   int32_t key;
   int32_t val;
-} int_hmap_pair_t; 
+} int_hmap_pair_t;
 
 /*
  * Markers for empty/deleted pairs
@@ -79,7 +79,7 @@ extern int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k);
 
 
 /*
- * Add record [k -> v] 
+ * Add record [k -> v]
  * - there must not be a record with the same key
  */
 extern void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v);

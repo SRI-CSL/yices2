@@ -3,8 +3,8 @@
  * by an equivalence relation and it's intended to construct the
  * classes that contain at least two objects.  Objects are identified
  * by a non-negative integer id.
- * - equivalence classes are defined by a match predicates 
- * - a hash function must map two objects of the same class to 
+ * - equivalence classes are defined by a match predicates
+ * - a hash function must map two objects of the same class to
  *   the same hash code.
  */
 
@@ -35,7 +35,7 @@ typedef struct ipart_rec_s {
  * - match = equivalence predicate
  * These two function take an auxiliary pointer as first argument:
  * - hash(aux, i) must return the hash code for object i
- * - match(aux, i1, i2) must return true if i1 and i2 are in 
+ * - match(aux, i1, i2) must return true if i1 and i2 are in
  *   the same class
  */
 typedef uint32_t (*ipart_hash_fun_t)(void *aux, int32_t i);
@@ -108,10 +108,10 @@ enum {
  * Initialize pp
  * - n = hash table size:
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  * - the table is empty, classes is not allocated yet (NULL).
  */
-extern void init_int_partition(ipart_t *pp, uint32_t n, void *aux, 
+extern void init_int_partition(ipart_t *pp, uint32_t n, void *aux,
                                ipart_hash_fun_t hash_fn, ipart_match_fun_t match_fn);
 
 
@@ -132,7 +132,7 @@ extern void reset_int_partition(ipart_t *pp);
  * Add i to the table:
  * - if there's a index j in the table that matches i
  *   then j is added to i's class. If i has no class attached
- *   yet, then a new class vector is allocated and both i and 
+ *   yet, then a new class vector is allocated and both i and
  *   j are added to that class.
  */
 extern void int_partition_add(ipart_t *pp, int32_t i);

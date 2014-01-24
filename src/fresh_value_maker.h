@@ -13,11 +13,11 @@
 
 /*
  * Data structure to keep track of the number of elements of a finite
- * type tau[0] x ... x tau[n-1] 
- * - arity = n 
+ * type tau[0] x ... x tau[n-1]
+ * - arity = n
  * - card = cardinal of the product type
- * - count = enumeration index: it's known that all tuples of index 
- *   in [0 ... count-1] exist in the value table 
+ * - count = enumeration index: it's known that all tuples of index
+ *   in [0 ... count-1] exist in the value table
  * - tau[0 ... n-1] = actual type indices
  *
  * We also use this for scalar types (then arity = 1)
@@ -47,7 +47,7 @@ typedef struct tup_counter_vector_s {
 
 /*
  * Counters for bitvector constants
- * - bsize = number of bits 
+ * - bsize = number of bits
  * - count = enumeration index
  * - every constant of bsize bits and value < count are known
  *   to be present in vtbl.
@@ -106,7 +106,7 @@ extern void delete_fresh_val_maker(fresh_val_maker_t *maker);
 
 
 /*
- * Return a fresh integer: 
+ * Return a fresh integer:
  * - this value is different from any other integer already present
  */
 extern value_t make_fresh_integer(fresh_val_maker_t *maker);

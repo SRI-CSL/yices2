@@ -56,7 +56,7 @@ static type_t fun_type2(type_t a, type_t b, type_t c) {
 static void init_base_types(void) {
   base[0] = bool_type(&types);             // bool
   base[1] = bv_type(&types, 5);            // bv5
-  base[2] = new_scalar_type(&types, 3);    // scalar3 
+  base[2] = new_scalar_type(&types, 3);    // scalar3
   base[3] = new_scalar_type(&types, 1);    // scalar1
   base[4] = pair_type(base[0], base[2]);   // bool x scalar3
   base[5] = pair_type(base[3], base[0]);   // scalar1 x bool
@@ -209,10 +209,10 @@ static void test_deep_type(void) {
   type_t b, tau;
 
   b = bool_type(&types);
-  tau = fun_type1(b, b);  // (-> bool bool)     
+  tau = fun_type1(b, b);  // (-> bool bool)
   tau = fun_type1(tau, b);   // (-> (-> bool bool) bool)
   tau = fun_type1(tau, b);   // (-> (-> (-> bool bool) bool) bool)
-  
+
   printf("*****************************\n"
 	 "*   NESTED FUNCTION TYPE    *\n"
 	 "*****************************\n"

@@ -270,7 +270,7 @@ static void qsort_eq_array(th_eq_t *a, uint32_t n) {
     y = a[i]; a[i] = a[j]; a[j] = y;
 
     do { j--; } while (eq_precedes(&x, &a[j])); // while x < a[j]
-    do { i++; } while (eq_precedes(&a[i], &x)); // while a[i] < x    
+    do { i++; } while (eq_precedes(&a[i], &x)); // while a[i] < x
   }
 
   // move pivot into a[j]
@@ -286,7 +286,7 @@ static void qsort_eq_array(th_eq_t *a, uint32_t n) {
 // top-level sort
 static void sort_eq_array(th_eq_t *a, uint32_t n) {
   if (n < 10) {
-    isort_eq_array(a, n); 
+    isort_eq_array(a, n);
   } else {
     qsort_eq_array(a, n);
   }
@@ -296,7 +296,7 @@ static void sort_eq_array(th_eq_t *a, uint32_t n) {
 void th_explanation_remove_duplicate_eqs(th_explanation_t *e) {
   eq_vector_t *eqv;
   uint32_t i, j, n;
-  
+
   if (e->eqs != NULL) {
     eqv = eqv_header(e->eqs);
     n = eqv->size;

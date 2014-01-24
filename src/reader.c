@@ -21,7 +21,7 @@ extern int getc_unlocked(FILE *);
 
 /*
  * Read and return the next char from a stream reader
- * - update pos, line, column 
+ * - update pos, line, column
  */
 static int file_reader_next_char(reader_t *reader) {
   assert(reader->is_stream);
@@ -51,7 +51,7 @@ static int file_reader_next_char(reader_t *reader) {
 
 /*
  * Read and return the next char from a string reader
- * - update pos, line, column 
+ * - update pos, line, column
  */
 static int string_reader_next_char(reader_t *reader) {
   char c;
@@ -114,7 +114,7 @@ int32_t init_file_reader(reader_t *reader, const char *filename) {
 /*
  * Initialize reader for an already opened stream
  * - set filename to name
- */ 
+ */
 void init_stream_reader(reader_t *reader, FILE *f, const char *name) {
   reader->current = '\n';
   reader->input.stream = f;
@@ -138,7 +138,7 @@ void init_string_reader(reader_t *reader, const char *data, const char *name) {
   reader->column = 1;
   reader->is_stream = false;
   reader->read = string_reader_next_char;
-  reader->name = name;  
+  reader->name = name;
 }
 
 

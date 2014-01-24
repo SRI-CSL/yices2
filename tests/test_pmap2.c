@@ -27,7 +27,7 @@ static void print_map(FILE *f, pmap2_t *map) {
   uint32_t i, n;
 
   htbl = &map->htbl;
-  fprintf(f, "map: %"PRIu32" records, %"PRIu32" deletions, size = %"PRIu32"\n", 
+  fprintf(f, "map: %"PRIu32" records, %"PRIu32" deletions, size = %"PRIu32"\n",
 	  htbl->nelems, htbl->ndeleted, htbl->size);
 
   n = htbl->size;
@@ -129,7 +129,7 @@ static void test_elem(int32_t k0, int32_t k1) {
     printf("*** BUG in hash table ***\n");
   }
 
-  
+
   e0 = pmap2_find(&map, k0, k1);
   if (e0 == NULL) {
     printf("find: returned NULL\n");
@@ -205,7 +205,7 @@ static void test1(void) {
   print_stack(stdout, &map);
   print_bank(stdout, &map);
 
-  
+
   i = map.stack.current_level;
   while (i > 20) {
     printf("\n--- Pop ---\n");
@@ -226,11 +226,11 @@ static void test1(void) {
     if (i % 4 == 0) {
       printf("\n--- Push ---\n");
       pmap2_push(&map);
-      print_stack(stdout, &map);      
+      print_stack(stdout, &map);
     }
   }
 
-  
+
   i = map.stack.current_level;
   while (i > 0) {
     printf("\n--- Pop ---\n");
@@ -240,7 +240,7 @@ static void test1(void) {
     print_bank(stdout, &map);
     i --;
   }
-  
+
 
   delete_pmap2(&map);
 }

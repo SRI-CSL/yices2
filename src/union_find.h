@@ -17,7 +17,7 @@
  * - rank[i] = 8bit
  * If x is not present in any set, we set
  * - parent[i] = -1
- * For a root term i, we have parent[i] == i, and rank[i] is 
+ * For a root term i, we have parent[i] == i, and rank[i] is
  * close to the log of the size of its class. Since each class
  * has size >= 2^rank[root], 8bits are more than enough.
  *

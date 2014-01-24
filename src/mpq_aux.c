@@ -31,7 +31,7 @@ static inline void check_result(mpq_t q) {
   }
 }
 
-#else 
+#else
 
 static inline void check_result(mpq_t q) {}
 
@@ -40,7 +40,7 @@ static inline void check_result(mpq_t q) {}
 
 
 /*
- * Initialization: allocate and initialize the 
+ * Initialization: allocate and initialize the
  * global variables.
  */
 void init_mpq_aux() {
@@ -124,7 +124,7 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
 
     check_result(q);
     return;
-  } 
+  }
 
   gcd = mpz_gcd_ui(NULL, den_q, den);
   //  printf("gcd = %lu\n", gcd);
@@ -228,7 +228,7 @@ void mpq_div_si(mpq_t q, long num, unsigned long den) {
   abs_num = (unsigned long) labs(num);
 
   if (abs_num != 1) {
-    gcd = mpz_gcd_ui(NULL, num_q, abs_num);    
+    gcd = mpz_gcd_ui(NULL, num_q, abs_num);
     abs_num /= gcd;
     mpz_divexact_ui(num_q, num_q, gcd);
   }
@@ -274,7 +274,7 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
    *  (- num) = - (2^63) (because of overflow)
    * but when interpreted as an unsigned number,
    *  (uint64_t) (- num) = 2^63, which is correct.
-   */   
+   */
   absnum = (num >= 0) ? (uint64_t) num : (uint64_t) (- num);
 
   //  printf("- num = %lld, absnum = %llu\n", - num, absnum);
@@ -298,7 +298,7 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
  * - num = 64bit signed integer
  * - den = 64bit unsigned integer
  */
-void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {  
+void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
   unsigned long a, b;
   uint64_t aux;
 

@@ -20,8 +20,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
    - newline cannot occur inside the string, unless preceded by '\'
 
 - <rationals> are numbers in the format
-      
-        <optional_sign><digits>/<digits> 
+
+        <optional_sign><digits>/<digits>
      or <optional_sign><digits>
 
 - <floats> also denote numbers in a floating-point format
@@ -32,15 +32,15 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
    where <exp> is 'e' or 'E'
 
- 
+
 - <binary bvs> are bitvector constants in binary format 0b<binary-digits>
 
 - <hexa bvs> are bitvector constants in hexadecimal format 0x<hexa-digits>
 
 
-- <symbols> 
+- <symbols>
 
-    symbols start by anything that's not a digit, a space, or one of the 
+    symbols start by anything that's not a digit, a space, or one of the
     characters ( ) ;  : "  if the first char is + or -, it must not be followed by a digit
 
     symbols end by a space of one of ( ) ; : "
@@ -48,22 +48,22 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
   keywords
-  --------  
+  --------
 
-	bool	int	real	bitvector	scalar	tuple	-> 
+	bool	int	real	bitvector	scalar	tuple	->
 
 	true	false	if	ite	=	/=	distinct
 	or	and 	not	xor	<=>	=>	mk-tuple
 	select	tuple-update	update 	forall	exists	lambda
 	let
 
-	+	-	*	/	^ 
+	+	-	*	/	^
 	<	<=	>	>=
 
 	mk-bv	bv-add	bv-sub	bv-mul	bv-neg  bv-pow
 	bv-not	bv-and	bv-or	bv-xor	bv-nand	bv-nor	bv-xnor
 	bv-shift-left0 	bv-shift-left1	bv-shift-right0	bv-shift-right1
-	bv-ashift-right	bv-rotate-left	bv-rotate-right	
+	bv-ashift-right	bv-rotate-left	bv-rotate-right
 	bv-extract	bv-concat	bv-repeat
 	bv-sign-extend	bv-zero-extend	bv-ge 	bv-gt	bv-le	bv-lt
 	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr
@@ -81,7 +81,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 2) Syntax
    ------
 
-   <command>  ::= 
+   <command>  ::=
  	      ( define-type <symbol> )
             | ( define-type <symbol> <typedef> )
             | ( define <symbol> :: <type> )
@@ -108,15 +108,15 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( help <symbol> )
             | ( help <string> )
             | EOS
-  
 
-   <typedef> ::= 
+
+   <typedef> ::=
               <type>
             | ( scalar <symbol> ... <symbol> )
 
 
-   <type> ::= 
-              <symbol> 
+   <type> ::=
+              <symbol>
             | ( tuple <type> ... <type> )
             | ( -> <type> ... <type> <type> )
             | ( bitvector <rational> )
@@ -125,7 +125,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | real
 
 
-   <expression> ::= 
+   <expression> ::=
 	      true
 	    | false
             | <symbol>
@@ -152,13 +152,13 @@ This is a summary of the commands and input language of the Yices 2 solver.
    <binding> ::= ( <symbol> <expression> )
 
 
-   <immediate-value> ::= 
+   <immediate-value> ::=
               true
             | false
             | <number>
             | <symbol>
 
-   <number> ::= 
+   <number> ::=
               <rational>
             | <float>
 
@@ -166,14 +166,14 @@ This is a summary of the commands and input language of the Yices 2 solver.
 3) Types
    -----
 
-3.1) The primitive types are: bool, int, real, and (bitvector k) where k is 
+3.1) The primitive types are: bool, int, real, and (bitvector k) where k is
      a positive integer.
 
 
 3.2) A new uninterpreted type T can be declared using
 
          (define-type T)
-   
+
      provided T is a fresh name (i.e., not already mapped to a type).
 
 
@@ -192,20 +192,20 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
 3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
-    
+
 3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
-     and sigma are types. This is the typed of functions of domain 
+     and sigma are types. This is the typed of functions of domain
      tau_1 x ... x tau_n and range sigma.
 
      There's no distinct array type constructor. Arrays are functions.
-    
+
 
 
 
 4) Built-in constants and functions
    --------------------------------
 
-4.1) ite is the if-then-else construct. 
+4.1) ite is the if-then-else construct.
      if is a synonym for ite
 
      distinct takes are least 2 arguments.
@@ -213,27 +213,27 @@ This is a summary of the commands and input language of the Yices 2 solver.
      =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than two arguments).
 
 
-4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and 
+4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and
      functions.
-     
+
      or, and, xor can take any number of arguments (provided there's at least one).
 
      <=> and => are binary operators.
 
 
-4.3) the usual arithmetic operators are available. For example the 
+4.3) the usual arithmetic operators are available. For example the
      linear expression 3x + y + 2 can be written (+ (* 3 x) y 2).
 
      The +, *, - operators can take any number of arguments (at least one),
 
-     For the minus sign, Yices 2 (unlike Yices 1) follows the usual 
+     For the minus sign, Yices 2 (unlike Yices 1) follows the usual
      convention:
 
        (- x) means opposite of x
 
-       (- x y z)  means x - y - z, and could be written equivalently 
+       (- x y z)  means x - y - z, and could be written equivalently
        as (- x (+ y z))
-   
+
 
      Yices also includes division and exponentiation operators. Only
      division by constants is supported (provided the divisor is nonzero).
@@ -242,27 +242,27 @@ This is a summary of the commands and input language of the Yices 2 solver.
        (/ x 0) is an error
        (/ 1 x) is an error
 
-     Exponentiation is written 
- 
+     Exponentiation is written
+
        (^ <term> <exponent>)
 
      the <exponent> must be a non-negative integer constant.
 
      Arithmetic constraints include the usual inequality operators:
- 
+
           <=   <   >=   >
- 
+
      (and the generic = and /= operations).
-     
+
 
 
 4.4) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
 
      projection: (select <tuple> i) is the i-th component of term
-          <tuple> must have type (tuple tau_1 ... tau_n) 
+          <tuple> must have type (tuple tau_1 ... tau_n)
       and i must be between 1 and n
- 
-     tuple update: (tuple-update <tuple> i <term>) is <tuple> with 
+
+     tuple update: (tuple-update <tuple> i <term>) is <tuple> with
      the i-th component replaced by <term>
 
 
@@ -275,13 +275,13 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
         (mk-bv <size> <value>)
 
-        Note: value must be a non-negative integer and 
+        Note: value must be a non-negative integer and
         size must be a positive integer.
 
 
      b) bitvector arithmetic
 
-        bv-add, bv-sub, bv-mul take one or more arguments, all arguments must 
+        bv-add, bv-sub, bv-mul take one or more arguments, all arguments must
 	have the same size
 
         (bv-neg x) = opposite of x in 2's complement arithmetic
@@ -310,7 +310,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
         (bv-rotate-left x k):  rotate x by k bits to the left
         (bv-rotate-right x k): rotate x by k bits to the right
 
-        In all these shift/rotate operations, k must an integer be between 0 
+        In all these shift/rotate operations, k must an integer be between 0
 	and the size of x.
 
 
@@ -318,13 +318,13 @@ This is a summary of the commands and input language of the Yices 2 solver.
        x and y must be bitvectors of the same size (n bits)
 
         (bv-shl x y): shift x by k bits to the left, padding with 0
-                      where k = value of bitvector y 
+                      where k = value of bitvector y
 
-        (bv-lshr x y): logical shift: shift x by k bits to the right 
+        (bv-lshr x y): logical shift: shift x by k bits to the right
                        (padding with 0) where k = value of bitvector y
 
         (bv-ashr x y): arithmetic shift: shift x by k bits to the right,
-		       padding with x's sign bit, where k = value of 
+		       padding with x's sign bit, where k = value of
                        bitvector y.
 
      e) subvector extraction:
@@ -339,9 +339,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
      g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
 
      h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
-        (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)	
+        (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)
 
-   
+
      i) unsigned bit-vector comparisons:
 
         (bv-ge x y): x >= y
@@ -351,7 +351,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
         x and y are interpreted as non-negative integers (both must have the same size)
 
-     j) signed bit-vector comparisons 
+     j) signed bit-vector comparisons
 
         (bv-sge x y): x >= y
         (bv-sgt x y): x > y
@@ -363,7 +363,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
      k) (bv-div x y):  quotient in the unsigned division of x by y
-        (bv-rem x y):  remainder in the unsigned division of x by y       
+        (bv-rem x y):  remainder in the unsigned division of x by y
 
          x and y must have the same size (n bits)
 
@@ -386,7 +386,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
            (bv-sdiv x 0) = 0b11111...11 if x >= 0
 
 
-        (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus 
+        (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus
                         infinity
 
          if y = 0, (bv-smod x 0) = x.
@@ -405,7 +405,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 5) Commands
    --------
-  
+
    (define-type name):  create a new uninterpreted type called 'name'
 
    (define-type name <type-definition>) : create a new type called 'name' equal
@@ -434,7 +434,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (show-model): display the current model (if any)
                  a model is available after (check) provided (check) return sat or unknown
                  it is deleted on the next call to (assert) or (push) or (reset) or (pop)
-   
+
    (eval <term>): show the value of <term> in the current model
 
    (echo <string>):  prints <string> on stdout
@@ -443,7 +443,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
    	    		this reads and execute all the commands in that file
 
    (set-param <parameter-name> <parameter-value>):
-                 assign a value to one parameter (parameters control simplification 
+                 assign a value to one parameter (parameters control simplification
                  and search heuristics)
 
    (show-param <parameter-name>): show the current value of a parameter
@@ -485,7 +485,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
    var-elim      Boolean        If var-elim is true then variable elimination is enabled.
 
                                 Example: assertion (and (= x (g a)) (P y (f x))) is simplified
-				to (P y (f (g a))) 
+				to (P y (f (g a)))
 
    arith-elim    Boolean        If arith-elim is true then arithmetic variables are eliminated
                                 using Gaussian elimination.
@@ -498,7 +498,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
    learn-eq      Boolean        If learn-eq is true, then a heuristic that attempts to learn
    				equalities across disjunction is enabled.
-                                Example: from assertion 
+                                Example: from assertion
                                   (or (and (= a b) (= b c) (= c d)) (and (= d e) (= e a)))
 				yices can learn (= a d) because it's implied by both disjunct.
 
@@ -508,8 +508,8 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
                                    t = (ite c a b)   iff  c => (t = a)  AND  NOT c => (t = b)
 
-                                This parameter is relevant only for the QF_UF logic 
-                                (uninterpreted functions) and for logics that combine UF 
+                                This parameter is relevant only for the QF_UF logic
+                                (uninterpreted functions) and for logics that combine UF
                                 with other theories.
 
 
@@ -538,7 +538,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 
 
-   If fast-restart is false, the following procedure is used 
+   If fast-restart is false, the following procedure is used
    (restart with a geometric progression):
 
       c := c-threshold
@@ -554,7 +554,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
      d := d-threshold
      c := c-threshold
      while not solved
-        dpll search 
+        dpll search
 	when number of conflicts == c:
 	   restart the search
 	   c := c_factor * c
@@ -581,8 +581,8 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 
 
-   To control clause deletion, Yices uses the following strategy (same as Minisat 
-   and other SAT solvers). 
+   To control clause deletion, Yices uses the following strategy (same as Minisat
+   and other SAT solvers).
 
    Clause activity:
 
@@ -598,7 +598,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
      reduction-bound = max(r-threshold, r-fraction * number of clauses in initial problem)
 
-   During the search: 
+   During the search:
 
       when the number of learned clauses >= reduction bound
       delete low-activity clauses
@@ -633,12 +633,12 @@ The following parameters can be set using (set-param ...) and examined using (sh
    Once a decision variable 'x' is selected, the branching mode
    determines whether 'x' is set to true or false. The following modes
    are defined:
-   
+
    default:	default heuristic (as in RSAT)
    		This use a cache to remember the last value of each variable (i.e., true or false).
 		When 'x' is picked as a decision variable, then it is assigned the cached value
 		(i.e., the same value as what was last assigned to 'x')
-		
+
    negative:    always set 'x' to false
 
    positive:	always set 'x' to true
@@ -657,7 +657,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
    the Egraph and by the Simplex solver.
 
    Example: if 'x' is attached to arithmetic atom (<= n 4),  then the Simplex solver
-   examines the value of 'n' in its current variable assignment.  If this value 
+   examines the value of 'n' in its current variable assignment.  If this value
    is more than 4, branch 'x := false', otherwise, branch 'x := true'.
 
 
@@ -681,21 +681,21 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 
   2) Simplex lemmas; If the Simplex solver contains atoms (<= n 4) and
-     (<= n 3) then a valid theory lemma is that (<= n 3) implies (<= n 4). 
+     (<= n 3) then a valid theory lemma is that (<= n 3) implies (<= n 4).
 
      So we can add the following clause:
 
        (or (not (<= n 3)) (<= n 4))
 
 
-  3) Ackermann Lemmas: If the Egraph contains terms (F x y) and 
+  3) Ackermann Lemmas: If the Egraph contains terms (F x y) and
      (F x z) then we can add the following lemma
-  
+
          y = z  implies (F x y) = (F x z)
- 
+
      This is a known as Ackermann's lemma for the terms (F x y) and (F x z).
 
- 
+
      Yices uses a variant of this lemmas for predicates. If the Egraph
      contains (P x) and (P y) where P is an uninterpreted predicate
      (i.e., (P x) and (P y) are Boolean), then the corresponding Ackermann
@@ -705,29 +705,29 @@ The following parameters can be set using (set-param ...) and examined using (sh
         x = y and (P y) implies (P x)
 
 
-     Generating Ackermann lemmas may require creating new equality atoms. 
+     Generating Ackermann lemmas may require creating new equality atoms.
      For example in
 
          y = z implies (F x y) = (F x z):
 
      Yices may have to create as many as two atoms: the atom (y = z) and
      the atom ((F x y) = (F x z)).  Too many of these can overwhelm the
-     Egraph. So Yices provides parameters to control the number of 
+     Egraph. So Yices provides parameters to control the number of
      new equality atoms generated by the Ackermann lemmas heuristics.
 
 
 
    Parameters that control theory lemma generation
    -----------------------------------------------
-  
+
    cache-tclauses          Boolean         enables/disables the generation of generic lemmas
 
    tclause-size            Integer         bound on the size of generic lemmas.
    			   		   If cache-tclauses is true, then only small theory
- 					   explanations (that contains no more than tclause-size 
+ 					   explanations (that contains no more than tclause-size
                                            literals) are converted to clauses.
 
-   
+
 
    dyn-ack	           Boolean         enables/disable the generation of Ackermann lemmas
    			   		   for non-Boolean terms
@@ -740,7 +740,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
    dyn-bool-ack            Boolean         enables/disable the generation of Ackermann lemmas
    			   		   for Boolean terms
-   
+
    max-bool-ack	           Integer         bound on the number of Boolean Ackermann lemmas
    			   		   generated
 
@@ -750,8 +750,8 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
    To bound the number of new equality atoms by the Ackermann and Boolean Ackermann heuristics,
    Yices uses two parameters:
-   
-   aux-eq-quota		   Integer 
+
+   aux-eq-quota		   Integer
    aux-eq-ratio		   Float
 
 
@@ -764,17 +764,17 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 
 
-6.4) Simplex Parameters   
+6.4) Simplex Parameters
 
    eager-lemmas	      	   Boolean	   enable/disable the generation of lemmas in the Simplex
    			   		   solver. If this parameter is true, then the Simplex
 					   solver will generate lemmas of the form
 
-					   	  (x >= a) => (x >= b) 
+					   	  (x >= a) => (x >= b)
 
                                            where a and b are constants, and a > b.
 
-   
+
    simplex-prop		   Boolean	   enable/disable theory propagation in the Simplex solver
 
    prop-threshold	   Integer	   bound on the number of variables in rows of the simplex
@@ -787,10 +787,10 @@ The following parameters can be set using (set-param ...) and examined using (sh
    			   		   pivoting rule
 
    icheck		   Boolean 	   enable periodic checking for integer feasibility
-   			   		   If this flag is false, checking for integer feasibility 
+   			   		   If this flag is false, checking for integer feasibility
 					   is done only at the end of the search.
 
-   icheck-period           Integer	   if icheck is true, this parameter specifies how often the 
+   icheck-period           Integer	   if icheck is true, this parameter specifies how often the
    			   		   integer-feasibility check is called.
 
 
@@ -798,7 +798,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 6.5) Array-solver Parameters
 
     max-update-conflicts   Integer	   Bound on the number of 'update axioms' instantiated per
-    			   		   call to the array solver's final   
+    			   		   call to the array solver's final
 
     max-extensionality	   Integer         Bound on the number of extensionality axioms instantiated
     			   		   per call to the arrays solver's final check.
@@ -823,11 +823,11 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
           'x == y' in the theory solver implies (eq x y) is true in the Egraph
 
-     For example, if x and y are shared between the Egraph and the Simplex solver, 
+     For example, if x and y are shared between the Egraph and the Simplex solver,
      Yices will generate the lemma
 
          ((eq x y) or (< x y) or (< y x))
- 
+
      where (eq x y) is an Equality atom in the Egraph and (< x y) and
      (< y x) are arithmetic atoms in the Simplex solver.
 
@@ -835,4 +835,4 @@ The following parameters can be set using (set-param ...) and examined using (sh
      At most max-interface-eqs lemmas are created for each call to the model
      reconciliation procedure.
 
-  
+

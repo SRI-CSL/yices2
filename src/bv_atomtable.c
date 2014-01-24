@@ -135,7 +135,7 @@ static bool eq_bvatm_hobj(bvatm_hobj_t *p, int32_t i) {
   bv_atomtable_t *table;
 
   table = p->tbl;
-  return bvatm_tag(table->data + i) == p->op && table->data[i].left == p->left 
+  return bvatm_tag(table->data + i) == p->op && table->data[i].left == p->left
     && table->data[i].right == p->right;
 }
 

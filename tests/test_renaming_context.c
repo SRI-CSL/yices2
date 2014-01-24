@@ -147,7 +147,7 @@ int main(void) {
     test_remove(5);
   }
 
- 
+
   delete();
 
   return 0;

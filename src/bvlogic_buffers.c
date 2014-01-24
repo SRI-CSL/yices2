@@ -98,7 +98,7 @@ static bool check_select_bit(node_table_t *nodes, bit_t b, uint32_t i, int32_t x
   int32_t p;
 
   p = node_of_bit(b);
-  return bit_is_pos(b) && is_select_node(nodes, p) && 
+  return bit_is_pos(b) && is_select_node(nodes, p) &&
     index_of_select_node(nodes, p) == i && var_of_select_node(nodes, p) == x;
 }
 
@@ -141,7 +141,7 @@ int32_t bvlogic_buffer_get_var(bvlogic_buffer_t *b) {
           break;
         }
       }
-    }    
+    }
   }
 
   return x;
@@ -160,7 +160,7 @@ uint64_t bvlogic_buffer_get_constant64(bvlogic_buffer_t *b) {
   c = 0;
   n = b->bitsize;
   while (n > 0) {
-    n --; 
+    n --;
     assert(bit_is_const(b->bit[n]));
     c = (c << 1) | bit_const_value(b->bit[n]);
   }
@@ -328,7 +328,7 @@ void bvlogic_buffer_set_slice_constant64(bvlogic_buffer_t *b, uint32_t i, uint32
     k ++;
     i ++;
   } while (i <= j);
-} 
+}
 
 void bvlogic_buffer_set_slice_constant(bvlogic_buffer_t *b, uint32_t i, uint32_t j, uint32_t *c) {
   uint32_t k;
@@ -341,7 +341,7 @@ void bvlogic_buffer_set_slice_constant(bvlogic_buffer_t *b, uint32_t i, uint32_t
   do {
     b->bit[k] = bit_constant(bvconst_tst_bit(c, i));
     k ++;
-    i ++;    
+    i ++;
   } while (i <= j);
 }
 
@@ -373,7 +373,7 @@ static void bvlogic_buffer_set_slice_bv(bvlogic_buffer_t *b, uint32_t i, uint32_
     b->bit[k] = node_table_alloc_select(b->nodes, i, v);
     k ++;
     i ++;
-  } while (i <= j);  
+  } while (i <= j);
 }
 
 
@@ -388,7 +388,7 @@ void bvlogic_buffer_set_slice_term_array(bvlogic_buffer_t *b, term_table_t *tabl
   k = 0;
   do {
     b->bit[k] = convert_term_to_bit(table, b->nodes, a[i], 1);
-    k ++; 
+    k ++;
     i ++;
   } while (i <= j);
 }
@@ -513,7 +513,7 @@ void bvlogic_buffer_and_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
 
   for (i=0; i<n; i++) {
     bit[i] = bit_and2simplify(nodes, bit[i], a[i]);
-  }  
+  }
 }
 
 void bvlogic_buffer_or_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
@@ -527,7 +527,7 @@ void bvlogic_buffer_or_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
 
   for (i=0; i<n; i++) {
     bit[i] = bit_or2simplify(nodes, bit[i], a[i]);
-  }  
+  }
 }
 
 void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
@@ -541,7 +541,7 @@ void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
 
   for (i=0; i<n; i++) {
     bit[i] = bit_xor2simplify(nodes, bit[i], a[i]);
-  }  
+  }
 }
 
 
@@ -562,7 +562,7 @@ static void bvlogic_buffer_and_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   for (i=0; i<n; i++) {
     x = node_table_alloc_select(nodes, i, v);
     bit[i] = bit_and2simplify(nodes, bit[i], x);
-  }  
+  }
 }
 
 static void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
@@ -578,7 +578,7 @@ static void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   for (i=0; i<n; i++) {
     x = node_table_alloc_select(nodes, i, v);
     bit[i] = bit_or2simplify(nodes, bit[i], x);
-  }  
+  }
 }
 
 static void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
@@ -594,7 +594,7 @@ static void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   for (i=0; i<n; i++) {
     x = node_table_alloc_select(nodes, i, v);
     bit[i] = bit_xor2simplify(nodes, bit[i], x);
-  }  
+  }
 }
 
 
@@ -660,7 +660,7 @@ static void bvlogic_buffer_xor_term_array(bvlogic_buffer_t *b, term_table_t *tab
  * CONCATENATION
  *
  * left/right refer to b written in big-endian form: (b[n-1] ... b[0])
- * if v = v[m-1] ... v[0] is the added to b, then 
+ * if v = v[m-1] ... v[0] is the added to b, then
  * - concat_left: v[m-1]...v[0] is added to the left of  b[n-1]
  * - concat_right: v[m-1]...v[0] is added to the right of  b[0]
  */
@@ -849,7 +849,7 @@ void bvlogic_buffer_repeat_concat(bvlogic_buffer_t *b, uint32_t n) {
     for (j=0; j<p; j++) {
       bit[j + q] = bit[j];
     }
-  }  
+  }
 }
 
 
@@ -982,7 +982,7 @@ static void reverse_subarray(bit_t *b, uint32_t i, uint32_t j) {
 
 
 /*
- * Left rotation by k bits. 
+ * Left rotation by k bits.
  * - k must be between 0 and b->bitsize - 1
  */
 void bvlogic_buffer_rotate_left(bvlogic_buffer_t *b, uint32_t k) {
@@ -1026,7 +1026,7 @@ void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k) {
  */
 
 /*
- * Convert bitvector constant c into a shift amount valid for 
+ * Convert bitvector constant c into a shift amount valid for
  * a bitvector of m bits.
  * - c is interpreted as an unsigned integer.
  * - if c's value is larger than m, return m
@@ -1034,7 +1034,7 @@ void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k) {
  * (so the result is always between 0 and m)
  */
 static inline uint32_t shift_amount64(uint64_t c, uint32_t m) {
-  return (c >= (uint64_t) m) ? m : (uint32_t) c;  
+  return (c >= (uint64_t) m) ? m : (uint32_t) c;
 }
 
 // here n = bitsize of c
@@ -1151,7 +1151,7 @@ void bvlogic_buffer_extract_subvector(bvlogic_buffer_t *b, uint32_t start, uint3
  * AND reduction:
  * - compute (and b[0] ... b[n-1]) and store that into b[0]
  */
-void bvlogic_buffer_redand(bvlogic_buffer_t *b) {  
+void bvlogic_buffer_redand(bvlogic_buffer_t *b) {
   assert(0 < b->bitsize);
   b->bit[0] = bit_and(b->nodes, b->bit, b->bitsize);
   b->bitsize = 1;
@@ -1192,7 +1192,7 @@ void bvlogic_buffer_comp_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c)
 
   /*
    * Compute the conjunction
-   */  
+   */
   resize_bvlogic_buffer(b, 1);
   b->bit[0] = bit_and(b->nodes, b->bit, n);
 }
@@ -1312,7 +1312,7 @@ static void bvlogic_buffer_comp_term_array(bvlogic_buffer_t *b, term_table_t *ta
  * Copy t into buffer b
  * - t must be a bitvector term in table
  */
-void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {  
+void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
   bvconst64_term_t *c64;
   bvconst_term_t *c;
   composite_term_t *d;
@@ -1342,7 +1342,7 @@ void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     n = bitsize_for_idx(table, i);
     bvlogic_buffer_set_bv(b, n, t);
     break;
-  }  
+  }
 }
 
 
@@ -1398,7 +1398,7 @@ void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
   uint32_t n;
   int32_t i;
 
-  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
@@ -1422,7 +1422,7 @@ void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     n = bitsize_for_idx(table, i);
     bvlogic_buffer_and_bv(b, n, t);
     break;
-  }  
+  }
 }
 
 
@@ -1433,7 +1433,7 @@ void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) 
   uint32_t n;
   int32_t i;
 
-  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
@@ -1457,7 +1457,7 @@ void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) 
     n = bitsize_for_idx(table, i);
     bvlogic_buffer_or_bv(b, n, t);
     break;
-  }  
+  }
 }
 
 
@@ -1468,7 +1468,7 @@ void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
   uint32_t n;
   int32_t i;
 
-  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
@@ -1492,7 +1492,7 @@ void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     n = bitsize_for_idx(table, i);
     bvlogic_buffer_xor_bv(b, n, t);
     break;
-  }  
+  }
 }
 
 
@@ -1506,7 +1506,7 @@ void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t
   uint32_t n;
   int32_t i;
 
-  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);

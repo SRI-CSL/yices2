@@ -22,7 +22,7 @@
 /*
  * Convert boolean term t to a bit expression
  * - t must be a valid boolean term in table 'terms'
- * - nodes = table where the bit expression is 
+ * - nodes = table where the bit expression is
  *   constructed
  * - n = bound on recursive depth
  *
@@ -41,7 +41,7 @@ extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_
  * The subgraph rooted at b is explored and all nodes reachable from b
  * are converted to boolean terms. No simplification or flattening is
  * applied.
- * 
+ *
  * Side effect: the mapping is stored in nodes->map.
  */
 extern term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, bit_t b);

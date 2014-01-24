@@ -141,7 +141,7 @@ void free_pstack_array(ptr_stack_t *stack, void **a) {
  * Reset: empty the stack
  */
 void reset_pstack(ptr_stack_t *stack) {
-  pblock_t *b, *next;  
+  pblock_t *b, *next;
 
   b = stack->current;
   while (b->size > 0) {

@@ -15,7 +15,7 @@ static void print_token(token_t tk) {
   int32_t code;
 
   printf("---> Token %s\n", smt_token_to_string(tk));
-  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n", 
+  printf("     pos = %"PRIu64", line = %"PRIu32", column = %"PRIu32"\n",
 	 lexer.tk_pos, lexer.tk_line, lexer.tk_column);
   n = current_token_length(&lexer);
   s = current_token_value(&lexer);
@@ -27,35 +27,35 @@ static void print_token(token_t tk) {
   switch (tk) {
   case SMT_TK_BV_BINCONSTANT:
     if (n < 5) {
-      printf("***** ERROR ******\n"); 
+      printf("***** ERROR ******\n");
     } else {
       n = n - 5; // remove bvbin prefix
-      if (n < 100) {	
+      if (n < 100) {
 	code = bvconst_set_from_string(bitvector, n, s + 5);
 	if (code < 0) {
-	  printf("***** ERROR ******\n"); 
+	  printf("***** ERROR ******\n");
 	} else {
 	  printf("     val: ");
 	  bvconst_print(stdout, bitvector, n);
 	  printf("\n\n");
-	}       
+	}
       }
     }
     break;
   case SMT_TK_BV_HEXCONSTANT:
     if (n < 5) {
-      printf("***** ERROR ******\n"); 
+      printf("***** ERROR ******\n");
     } else {
       n = n - 5; // remove bvhex prefix and null terminator
-      if (n < 100) {	
+      if (n < 100) {
 	code = bvconst_set_from_hexa_string(bitvector, n, s + 5);
 	if (code < 0) {
-	  printf("***** ERROR ******\n"); 
+	  printf("***** ERROR ******\n");
 	} else {
 	  printf("     val: ");
 	  bvconst_print(stdout, bitvector, 4 * n);
 	  printf("\n\n");
-	}       
+	}
       }
     }
     break;

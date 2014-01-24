@@ -126,8 +126,8 @@ extern particle_t eval_map(map_t *map, particle_t k);
 
 /*
  * Check whether map1 and map2 are equal
- * - the maps are considered equal if they have the same 
- *   default value (or both have no default)   
+ * - the maps are considered equal if they have the same
+ *   default value (or both have no default)
  *   and the same set of pairs [idx->value]
  * - both maps must be normalized
  */
@@ -137,7 +137,7 @@ extern bool equal_maps(map_t *map1, map_t *map2);
 /*
  * Search for a point where map1 and map2 disagree.
  * - both maps must be normalized
- * - search for k in the domain of map1 and map2 such that 
+ * - search for k in the domain of map1 and map2 such that
  *   eval_map(map1, k) != eval_map(map2, k)
  * - return k if it's found or null_particle otherwise
  */
@@ -145,7 +145,7 @@ extern particle_t disagreement_point(map_t *map1, map_t *map2);
 
 
 /*
- * Search for a point that's in domain of map1 or map2 
+ * Search for a point that's in domain of map1 or map2
  * but not in both.
  * - both maps must be normalized
  * - return null_particle if map1 and map2 have the same domain
@@ -170,13 +170,13 @@ extern bool index_in_map_domain(map_t *map, particle_t k);
 
 
 /*
- * Force maps map[0 ... n-1] to be all distinct by updating them. 
+ * Force maps map[0 ... n-1] to be all distinct by updating them.
  * - pstore = particle store to create fresh indices
  * - f = type descriptor for all the maps in the array
  *
  * Technique used:
  * - create fresh indices i_1,..,i_k in the domain of f
- * - create c values a_1,..., a_c in the range of f 
+ * - create c values a_1,..., a_c in the range of f
  * such that (c ^ k) >= n.
  * Update map[t] by adding [i_1 -> a_t1, ..., i_k -> a_tk]
  * in such a way that (t1, ...., tk) differ from (u1, ..., uk) when u/=t.

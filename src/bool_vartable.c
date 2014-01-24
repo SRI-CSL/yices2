@@ -130,7 +130,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
       } else if (new_size < n) {
         new_size = n;
       }
-      
+
       assert(new_size <= MAX_ORDATA_ARRAY_SIZE && n <= new_size);
       a->data = (uint32_t *) safe_realloc(a->data, new_size * sizeof(int32_t));
       a->size = new_size;
@@ -142,7 +142,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
 /*
  * Copy array b into a
  * - n = number of elements in b
- * - return the index k in a->data where b is copied 
+ * - return the index k in a->data where b is copied
  */
 static uint32_t store_ordata(ordata_array_t *a, literal_t *b, uint32_t n) {
   uint32_t *aux;
@@ -274,13 +274,13 @@ static void lvector_add_clause(lvector_t *v, uint32_t k, literal_t *a) {
   assert(i + k + 1 <= v->size);
 
   d = v->data + i;
-  d[0] = k;  // size is stored first 
-  d ++; 
+  d[0] = k;  // size is stored first
+  d ++;
   for (j=0; j<k; j++) {
     d[j] = a[j];
   }
 
-  v->nelems = i + k + 1;  
+  v->nelems = i + k + 1;
 }
 
 
@@ -381,7 +381,7 @@ static inline void reset_equiv_queue(equiv_queue_t *queue) {
 
 static void extend_equiv_queue(equiv_queue_t *queue) {
   uint32_t n;
-  
+
   n = queue->size;
   if (n == 0) {
     n = DEF_EQUIV_QUEUE_SIZE;
@@ -395,7 +395,7 @@ static void extend_equiv_queue(equiv_queue_t *queue) {
     }
     queue->data = safe_realloc(queue->data, n * sizeof(equiv_t));
     queue->size = n;
-  }  
+  }
 }
 
 
@@ -423,7 +423,7 @@ static void push_equiv(equiv_queue_t *queue, literal_t l1, literal_t l2) {
  * HASH FUNCTIONS
  */
 static uint32_t hash_bgate(bgate_t *g) {
-  return jenkins_hash_quad(g->ttbl, g->var[0], g->var[1], g->var[2], 0xae01781a); 
+  return jenkins_hash_quad(g->ttbl, g->var[0], g->var[1], g->var[2], 0xae01781a);
 }
 
 static uint32_t hash_orgate(uint32_t n, literal_t *a) {
@@ -471,7 +471,7 @@ void init_bool_vartable(bool_vartable_t *table) {
 
 
 /*
- * Make the table 50% larger 
+ * Make the table 50% larger
  */
 static void extend_bool_vartable(bool_vartable_t *table) {
   uint32_t n;
@@ -512,7 +512,7 @@ void delete_bool_vartable(bool_vartable_t *table) {
 
 
 /*
- * Reset: empty the table. All variables and descriptors are 
+ * Reset: empty the table. All variables and descriptors are
  * removed except variable 0.
  */
 void reset_bool_vartable(bool_vartable_t *table) {
@@ -544,7 +544,7 @@ static bvar_t bool_vartable_new_var(bool_vartable_t *table, uint8_t tag, uint32_
   table->map[i] = null_literal;
   set_bit(table->root, i);
 
-  table->nvars = i+1;  
+  table->nvars = i+1;
 
   return i;
 }
@@ -621,7 +621,7 @@ void bool_vartable_simplify_and_add_clause(bool_vartable_t *table, uint32_t n, l
     }
   }
 
-  bool_vartable_add_clause(table, p, a);  
+  bool_vartable_add_clause(table, p, a);
 }
 
 
@@ -702,12 +702,12 @@ static void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t 
     // swap l1 and l2
     aux = l1; l1 = l2; l2 = aux;
   }
-  
+
   /*
    * If l1 is positive: store l2 in map[var_of(l1)]
    * If l1 is negative: store not(l2) in map[var_of(l1)]
    */
-  x1 = var_of(l1);  
+  x1 = var_of(l1);
   assert(table->map[x1] == null_literal);
   table->map[x1] = l2 ^ sign_of_lit(l1);
   clr_bit(table->root, x1);  // x1 is not a root anymore
@@ -817,7 +817,7 @@ static uint32_t hash_orgate_hobj(orgate_hobj_t *o) {
 
 
 static bool equal_gates(bgate_t *g1, bgate_t *g2) {
-  return g1->ttbl == g2->ttbl && g1->var[0] == g2->var[0] && 
+  return g1->ttbl == g2->ttbl && g1->var[0] == g2->var[0] &&
     g1->var[1] == g2->var[1] && g1->var[2] == g2->var[2];
 }
 
@@ -902,7 +902,7 @@ static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
 
 /*
  * We use the following operations to normalize a truth table:
- * - negate a column: if column i is labeled by (not x), then replace the 
+ * - negate a column: if column i is labeled by (not x), then replace the
  *                    label by x and fix the bit mask (permutation)
  * - swap two adjacent columns
  * - remove irrelevant columns
@@ -972,7 +972,7 @@ static inline uint8_t merge01(uint8_t b) {
 
 /*
  * merge column 1 and 2 (equal labels)
- *   input: b7 b6 b5 b4 b3 b2 b1 b0 
+ *   input: b7 b6 b5 b4 b3 b2 b1 b0
  *  output: b7 b7 b4 b4 b3 b3 b0 b0
  */
 static inline uint8_t merge12(uint8_t b) {
@@ -1031,7 +1031,7 @@ static inline uint8_t remove2(uint8_t b) {
 static bool normal_truth_table(ttbl_t *tt) {
   switch (tt->nvars) {
   case 0:
-    return tt->label[0] == null_bvar && tt->label[1] == null_bvar && 
+    return tt->label[0] == null_bvar && tt->label[1] == null_bvar &&
       tt->label[2] == null_bvar && (tt->mask == 0x00 || tt->mask == 0xff);
 
   case 1:
@@ -1040,17 +1040,17 @@ static bool normal_truth_table(ttbl_t *tt) {
 
   case 2:
     return tt->label[0] > const_bvar && tt->label[1] > tt->label[0] &&
-      tt->label[2] == null_bvar && !irrelevant0(tt->mask) && 
+      tt->label[2] == null_bvar && !irrelevant0(tt->mask) &&
       !irrelevant1(tt->mask) && irrelevant2(tt->mask);
 
   case 3:
     return tt->label[0] > const_bvar && tt->label[1] > tt->label[0] &&
-      tt->label[2] > tt->label[1] && !irrelevant0(tt->mask) && 
+      tt->label[2] > tt->label[1] && !irrelevant0(tt->mask) &&
       !irrelevant1(tt->mask) && !irrelevant2(tt->mask);
 
   default:
     return false;
-  } 
+  }
 }
 
 #endif
@@ -1123,7 +1123,7 @@ static void normalize_truth_table3(ttbl_t *tt) {
     tt->mask = merge01(tt->mask);
   }
 
-  // remove column 0 if it's true 
+  // remove column 0 if it's true
   if (tt->label[0] == const_bvar) {
     tt->nvars --;
     tt->label[0] = tt->label[1];
@@ -1138,7 +1138,7 @@ static void normalize_truth_table3(ttbl_t *tt) {
     tt->label[2] = null_bvar;
     tt->mask = remove2(tt->mask);
   }
-  
+
   if (tt->nvars > 1 && irrelevant1(tt->mask)) {
     tt->nvars --;
     tt->label[1] = tt->label[2];
@@ -1346,7 +1346,7 @@ static bvar_t direct_or2_gate(bool_vartable_t *table, literal_t l1, literal_t l2
   if (is_neg(l1)) m1 = 0x0f;
   m2 = 0xcc;
   if (is_neg(l2)) m2 = 0x33;
-  
+
   g.ttbl = (m1 | m2);
   g.var[0] = var_of(l1);
   g.var[1] = var_of(l2);
@@ -1385,13 +1385,13 @@ static bvar_t direct_xor2_gate(bool_vartable_t *table, literal_t l1, literal_t l
   bgate_t g;
 
   assert(is_pos(l1) && is_pos(l2) && l1 < l2 && false_literal < l1);
-  
+
   g.ttbl = 0x3c;
   g.var[0] = var_of(l1);
   g.var[1] = var_of(l2);
   g.var[2] = null_bvar;
 
-  return get_bgate(table, &g);  
+  return get_bgate(table, &g);
 }
 
 

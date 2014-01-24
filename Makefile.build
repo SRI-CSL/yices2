@@ -2,7 +2,7 @@
 
 #
 # Build Makefile
-# 
+#
 # Must be invoked with the following variables set
 #
 #   YICES_TOP_DIR = top-level directory of Yices
@@ -25,7 +25,7 @@
 
 SHELL=/bin/sh
 
-ifeq (,$(YICES_TOP_DIR)) 
+ifeq (,$(YICES_TOP_DIR))
  $(error "YICES_TOP_DIR is undefined")
 endif
 
@@ -117,7 +117,7 @@ bindist_dir = yices-$(YICES_VERSION)
 ifeq ($(YICES_MODE),debug)
   bindist_tarfile = $(bindist_dir)-$(ARCH)-dbg.tar.gz
   static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp-dbg.tar.gz
-else 
+else
   bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
   static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
 endif
@@ -134,7 +134,7 @@ static_smtdist_tarfile = $(smtdist_dir)-$(ARCH)-static-gmp.tar.gz
 $(build_dir):
 	$(MKDIR_P) $(build_dir)
 
-$(dyn_objdir): 
+$(dyn_objdir):
 	$(MKDIR_P) $(dyn_objdir)
 
 $(dyn_libdir):
@@ -270,7 +270,7 @@ static-smt2: build_subdirs version
 #
 # Binary distribution:
 #
-# On mingw, there's a manual step involved. So build the 
+# On mingw, there's a manual step involved. So build the
 # distribution as follows:
 # 1) make dist (or make static-dist)
 # 2) from a Visual Studio console,
@@ -428,7 +428,7 @@ static-smt-tarfile: $(distributions)
 #
 # Note: bindir, libdir, includedir are set by the configure script,
 # and are imported from $(YICES_MAKE_INCLUDE)
-# 
+#
 # The reason we don't want to force compilation in 'make install' is
 # that we typically need to do 'sudo make install' but we don't want
 # to compile with 'sudo make binary-distribution'.  That can easily
@@ -513,7 +513,7 @@ source-distribution: $(distributions)
 	$(MKDIR_P) $(srcdist_dir)/doc
 	$(MKDIR_P) $(srcdist_dir)/utils
 	$(MKDIR_P) $(srcdist_dir)/etc
-	$(MKDIR_P) $(srcdist_dir)/examples	
+	$(MKDIR_P) $(srcdist_dir)/examples
 	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
 	cp README Makefile Makefile.build make.include.in $(srcdist_dir)
 	cp autoconf/* $(srcdist_dir)/autoconf
@@ -589,7 +589,7 @@ recheck:
 	@ echo "YICES_VERSION is $(YICES_VERSION)"
 	@ echo "MAJOR is $(MAJOR)"
 	@ echo "MINOR is $(MINOR)"
-	@ echo "PATCH_LEVEL is $(PATCH_LEVEL)"	
+	@ echo "PATCH_LEVEL is $(PATCH_LEVEL)"
 	@ echo
 	@ echo "Configuration"
 	@ echo "  EXEEXT   = $(EXEEXT)"
@@ -608,7 +608,7 @@ recheck:
 	@ echo "  STRIP    = $(STRIP)"
 	@ echo
 	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
-	@ echo 
+	@ echo
 	@ echo "  STATIC_GMP = $(STATIC_GMP)"
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo

@@ -138,7 +138,7 @@ static void int_hmap2_extend(int_hmap2_t *hmap) {
   r = hmap->data;
   for (i=0; i<n; i++) {
     if (r->k0 >= 0) { // valid record
-      int_hmap2_clean_copy(tmp, r, mask);      
+      int_hmap2_clean_copy(tmp, r, mask);
     }
     r ++;
   }
@@ -201,7 +201,7 @@ static int_hmap2_rec_t *get_clean(int_hmap2_t *hmap, int32_t k0, int32_t k1) {
 /*
  * Get record with key (k0, k1).
  * - if one is in the table return it and set *new to false.
- * - otherwise, create a fresh record with key (k0, k1), and 
+ * - otherwise, create a fresh record with key (k0, k1), and
  *   set *new to false.
  * If a new record is created, val is not initialized.
  * - k0 and k2 must be non-negative.
@@ -209,12 +209,12 @@ static int_hmap2_rec_t *get_clean(int_hmap2_t *hmap, int32_t k0, int32_t k1) {
 int_hmap2_rec_t *int_hmap2_get(int_hmap2_t *hmap, int32_t k0, int32_t k1, bool *new) {
   int_hmap2_rec_t *r;
   uint32_t i, mask;
-  
+
   assert(k0 >= 0 && k1 >= 0 && hmap->nelems < hmap->size);
 
   *new = false;
   mask = hmap->size - 1;
-  i = hash_pair(k0, k1) & mask;  
+  i = hash_pair(k0, k1) & mask;
   for (;;) {
     r = hmap->data + i;
     if (r->k0 < 0) break;
@@ -304,7 +304,7 @@ void reset_int_hmap2(int_hmap2_t *hmap) {
 void int_hmap2_gc(int_hmap2_t *hmap, void *aux, keep_alive_fun_t f) {
   int_hmap2_rec_t *tmp, *r;
   uint32_t i, n, nelems, mask;
-  
+
   n = hmap->size;
   tmp = (int_hmap2_rec_t *) safe_malloc(n * sizeof(int_hmap2_rec_t));
   for (i=0; i<n; i++) {
@@ -313,7 +313,7 @@ void int_hmap2_gc(int_hmap2_t *hmap, void *aux, keep_alive_fun_t f) {
 
   nelems = 0;    // number of elements kept
   mask = n - 1;
-  r = hmap->data;  
+  r = hmap->data;
   for (i=0; i<n; i++) {
     if (r->k0 >= 0 && f(aux, r)) {
       // keep r

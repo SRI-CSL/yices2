@@ -25,7 +25,7 @@ static inline int random(void) {
 
 
 /*
- * Tags for testing 
+ * Tags for testing
  */
 enum {
   A, B, C, D,
@@ -43,8 +43,8 @@ static const char * const tag2string[NUMTAGS] = {
  */
 static void print_cache_elem(FILE *f, cache_elem_t *e) {
   assert(e->tag < NUMTAGS);
-  fprintf(f, "[%s %2"PRId32" %2"PRId32"]   (flag = %2"PRIu16")", 
-	  tag2string[e->tag], e->data[0], e->data[1], e->flag);  
+  fprintf(f, "[%s %2"PRId32" %2"PRId32"]   (flag = %2"PRIu16")",
+	  tag2string[e->tag], e->data[0], e->data[1], e->flag);
 }
 
 /*
@@ -56,7 +56,7 @@ static void print_all_cache(FILE *f, cache_t *cache) {
   cache_elem_t *e;
 
   htbl = &cache->htbl;
-  fprintf(f, "Cache: %"PRIu32" elements, size = %"PRIu32"\n", 
+  fprintf(f, "Cache: %"PRIu32" elements, size = %"PRIu32"\n",
 	  htbl->nelems, htbl->size);
   n = htbl->size;
   for (i=0; i<n; i++) {
@@ -89,7 +89,7 @@ static void print_cache_stack(FILE *f, cache_t *cache) {
     fprintf(f, "  no marks\n");
   } else {
     for (i=0; i<n; i++) {
-      fprintf(f, "  mark[%"PRIu32"]: level = %"PRIu32", blk_id = %"PRIu32", index = %"PRIu32"\n", 
+      fprintf(f, "  mark[%"PRIu32"]: level = %"PRIu32", blk_id = %"PRIu32", index = %"PRIu32"\n",
 	      i, stack->data[i].level, stack->data[i].blk_id, stack->data[i].index);
     }
   }
@@ -182,9 +182,9 @@ static void test1(void) {
   init_cache(&cache);
   printf("\n--- Initial cache ---\n");
   print_all_cache(stdout, &cache);
-  
+
   test_elem(A, 1, 1);
-  test_elem(A, 1, 1);  
+  test_elem(A, 1, 1);
 
   printf("\n--- After addition ---\n");
   print_all_cache(stdout, &cache);
@@ -199,7 +199,7 @@ static void test1(void) {
   cache_push(&cache);
   printf("\n--- Push: level 2 ---\n");
   print_all_cache(stdout, &cache);
-  
+
   test_elem(A, 0, 1);
   test_elem(A, 0, 1);
 
@@ -216,11 +216,11 @@ static void test1(void) {
   cache_pop(&cache);
   printf("\n--- Pop: level 2 ---\n");
   print_all_cache(stdout, &cache);
-  
+
   cache_pop(&cache);
   printf("\n--- Pop: level 1 ---\n");
   print_all_cache(stdout, &cache);
-  
+
   cache_pop(&cache);
   printf("\n--- Pop: level 0 ---\n");
   print_all_cache(stdout, &cache);
@@ -273,7 +273,7 @@ static void test2(void) {
       printf("\n");
       printf("  get:  returned %p: ", e1);
       print_cache_elem(stdout, e1);
-      printf("\n");      
+      printf("\n");
     }
 
     if (e1->flag == NEW_CACHE_ELEM) {
@@ -293,7 +293,7 @@ static void test2(void) {
   print_all_cache(stdout, &cache);
   print_cache_stack(stdout, &cache);
   print_cache_bank(stdout, &cache);
-  
+
   while (level > 1) {
     level --;
     printf("\n--- Pop to level %"PRIu32" ---\n", level);
@@ -301,14 +301,14 @@ static void test2(void) {
     print_all_cache(stdout, &cache);
     print_cache_stack(stdout, &cache);
     print_cache_bank(stdout, &cache);
-  }  
- 
+  }
+
   printf("\n--- After reset ---\n");
   reset_cache(&cache);
   print_all_cache(stdout, &cache);
   print_cache_stack(stdout, &cache);
   print_cache_bank(stdout, &cache);
-  
+
   delete_cache(&cache);
 }
 

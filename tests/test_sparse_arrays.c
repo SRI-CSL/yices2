@@ -27,7 +27,7 @@ typedef struct ref_pairs_s {
 /*
  * Binary search in a[0 ... n-1]
  * - a[0 ... n-1] must be sorted
- * - return i such that 
+ * - return i such that
  *   all elements in a[0 ... i-1] are less than x (strictly)
  *   all elements in a[i ... n-1] are more than or equal to x
  * - in particular:
@@ -102,7 +102,7 @@ static void init_samples(ref_pair_t *a, uint32_t n, uint32_t max_idx) {
  */
 static void check_samples(ref_pair_t *a, uint32_t n, uint32_t max_idx) {
   uint32_t i, x;
-  
+
   assert(n > 0);
   x = a[0].idx;
   if (x >= max_idx) {
@@ -256,6 +256,6 @@ int main(void) {
   }
 
   delete_sparse_array(&array);
-  
+
   return 0;
 }

@@ -80,7 +80,7 @@ static void print_pprod_table(FILE *f, pprod_table_t *table) {
       l = untag_i32(table->data[l]);
     } while (l >= 0);
     fprintf(f, "\n");
-  }  
+  }
 }
 
 
@@ -123,7 +123,7 @@ static void check_product(pprod_t *q) {
     printf("--> stored as p[%"PRIu32"]\n", k);
     p[k] = q;
     num_prods ++;
-  }  
+  }
 }
 
 
@@ -169,7 +169,7 @@ int main(void) {
       printf("\n");
     }
   }
-  
+
   for (i=0; i<num_prods; i++) {
     pp_buffer_set_pprod(&buffer, p[i]);
     printf("p[%"PRIu32"] = %p = ", i, p[i]);
@@ -263,7 +263,7 @@ int main(void) {
 
   delete_pp_buffer(&buffer);
   delete_pprod_table(&ptbl);
-  
+
 
   return 0;
 }

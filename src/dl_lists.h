@@ -31,7 +31,7 @@ static inline void clear_list(dl_list_t *l) {
  * Check emptiness
  */
 static inline bool empty_list(dl_list_t *l) {
-  assert(l->next != l || l->pre == l); 
+  assert(l->next != l || l->pre == l);
   return l->next == l;
 }
 

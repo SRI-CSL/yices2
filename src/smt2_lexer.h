@@ -1,6 +1,6 @@
 /*
  * Lexer for the SMT-LIB2 Language
- * 
+ *
  * This should be enough to parse scripts in the SMT-LIB 2.0
  * language. We do not support the theory declaration and
  * the logic declaration parts of the language.
@@ -242,7 +242,7 @@ typedef enum smt2_symbol smt2_symbol_t;
 
 /*
  * NOTE: The following are indexed symbols
- * 
+ *
  * BitVec:  (_ BitVec n): bitvectors of n bits, n >= 1
  *
  * extract: (_ extract i j): (_ BitVec m) -> (_ BitVec n)
@@ -262,7 +262,7 @@ typedef enum smt2_symbol smt2_symbol_t;
  *
  * divisible: (_ divisible n) for integer n > 0
  */
- 
+
 /*
  * Lexer initialization:
  * - init_smt2_file_lexer returns -1 if the file can't be opened
@@ -284,7 +284,7 @@ extern void init_smt2_string_lexer(lexer_t *lex, char *data, char *name);
  * - update lex->token (set it to tk)
  * - update lex->tk_pos, tk_line, tk_pos (to the start of token
  *   in the input stream)
- * - for any token other than '(', ')', EOF, or SMT2_TK_ERROR, the 
+ * - for any token other than '(', ')', EOF, or SMT2_TK_ERROR, the
  *   token value is stored in lex->buffer (as a character string).
  */
 extern smt2_token_t next_smt2_token(lexer_t *lex);
@@ -337,7 +337,7 @@ extern bool smt2_symbol_is_active(smt2_symbol_t sym);
  *
  * Special treatment for bitvector constants, when the bit-vector
  * theory is active:
- * - if the string is of the form 'bv<numeral>' then the 
+ * - if the string is of the form 'bv<numeral>' then the
  *   returned id is SMT2_SYM_BV_CONSTANT
  * - if the string starts with 'bv0<digits>' then
  *   the returned id is SMT2_SYM_INVALID_BV_CONSTANT

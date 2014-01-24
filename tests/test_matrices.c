@@ -34,12 +34,12 @@ static inline int random(void) {
 #define MIN_NUMERATOR (INT32_MIN>>1)
 #define MAX_DENOMINATOR MAX_NUMERATOR
 
-static int32_t num[12] = { 
-  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR 
+static int32_t num[12] = {
+  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR
 };
 
 static uint32_t den[12] = {
-  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2 
+  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2
 };
 
 #endif
@@ -113,7 +113,7 @@ static void print_monomial(FILE *f, rational_t *c, int32_t v, bool first) {
     if (! abs_one) {
       q_print_abs(f, c);
       fprintf(f, " * ");
-    } 
+    }
     print_arith_var(f, v);
   }
 }
@@ -257,7 +257,7 @@ static uint32_t make_random_poly(uint32_t m, uint32_t d) {
 
 
 /*
- * Matrix test1: 
+ * Matrix test1:
  *  x + 2 y + 3 z = 0
  *  x - 2 y - z = 0
  *  -x + t = 0
@@ -270,7 +270,7 @@ static void init_matrix1(matrix_t *m) {
   matrix_add_columns(m, NUMVARS);
 
 
-  // x + 2y + 3 z 
+  // x + 2y + 3 z
   for (i=0; i<NUMVARS; i++) {
     coeffs[i] = 0;
   }
@@ -280,7 +280,7 @@ static void init_matrix1(matrix_t *m) {
   n = make_poly();
   matrix_add_row(m, monarray, n);
 
-  // x - 2y - z 
+  // x - 2y - z
   for (i=0; i<NUMVARS; i++) {
     coeffs[i] = 0;
   }
@@ -290,7 +290,7 @@ static void init_matrix1(matrix_t *m) {
   n = make_poly();
   matrix_add_row(m, monarray, n);
 
-  // - x + t 
+  // - x + t
   for (i=0; i<NUMVARS; i++) {
     coeffs[i] = 0;
   }
@@ -306,7 +306,7 @@ static void init_matrix1(matrix_t *m) {
   coeffs[1] = 4;
   coeffs[5] = -1;
   n = make_poly();
-  matrix_add_row(m, monarray, n);    
+  matrix_add_row(m, monarray, n);
 }
 
 
@@ -341,7 +341,7 @@ static void random_pivot(matrix_t *matrix) {
   r = (uint32_t) (random() % matrix->nrows);
   row = matrix->row[r];
   assert(row != NULL);
-    
+
   k = (uint32_t) (random() % row->nelems);
   n = row->size;
   j = 0;
@@ -374,10 +374,10 @@ int main() {
   print_matrix(stdout, &matrix);
 
   // pivot: x basic in row 2
-  matrix_pivot(&matrix, 2, 0);  
+  matrix_pivot(&matrix, 2, 0);
   printf("\n==== PIVOT ====\n");
   print_matrix(stdout, &matrix);
-  
+
   // pivot: y basic in row 1
   matrix_pivot(&matrix, 1, 1);
   printf("\n==== PIVOT ====\n");

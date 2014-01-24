@@ -109,13 +109,13 @@ static inline uint32_t pp_stack_top_indent(pp_stack_t *stack) {
 /*
  * Line width for a given indentation:
  * - in stretch mode, the line width is always equal to the area's width
- * - otherwise we want to preserve the invariant 
+ * - otherwise we want to preserve the invariant
  *     line_width + indent == offset + area width.
  * - if this can't be done (i.e., indent is too large) then we return 0.
  */
 static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
   uint32_t width;
-  
+
   width = area->width;
   if (! area->stretch) {
     width += area->offset;
@@ -127,7 +127,7 @@ static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
   }
 
   return width;
-} 
+}
 
 
 
@@ -250,7 +250,7 @@ static void delete_printer(printer_t *p) {
   for (i=0; i<n; i++) {
     free_token(p, v->data[i]);
   }
-  delete_pvector(v);  
+  delete_pvector(v);
 }
 
 
@@ -374,7 +374,7 @@ static void pp_newline(printer_t *p) {
 static void print_blank(printer_t *p) {
   if (!p->no_space) {
     pp_space(p);
-  } 
+  }
 }
 
 /*
@@ -389,7 +389,7 @@ static void print_atomic(printer_t *p, pp_atomic_token_t *tk) {
 }
 
 /*
- * Print atomic token tk truncated to fit in what's left of the 
+ * Print atomic token tk truncated to fit in what's left of the
  * current line. Then print ellipsis.
  */
 static void print_atomic_truncated(printer_t *p, pp_atomic_token_t *tk) {
@@ -530,7 +530,7 @@ static void print_pending_truncated(printer_t *p) {
     print_atomic_truncated(p, untag_separator(tk));
     break;
   }
-  
+
   for (i=1; i<n; i++) {
     free_token(p, v->data[i]);
   }
@@ -540,15 +540,15 @@ static void print_pending_truncated(printer_t *p) {
 
 /*
  * Printer invariants:
- * 
+ *
  * In truncate mode, the following invariants hold:
- * - if col + 4 <= margin then 
+ * - if col + 4 <= margin then
  *      the pending vector is empty
  *      full_line is false
  * - if col + 4 > margin and full_line is false then
  *      col <= margin
  *      there are pending tokens
- * - if full_line is true then 
+ * - if full_line is true then
  *      col + 4 > margin
  *      the pending vector is empty
  *   (nothing can be printed)
@@ -575,7 +575,7 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
         // tk fits and there's room for ' ...' after it
         print_atomic(p, tk);
       } else if (new_col <= p->margin) {
-        // we can't tell whether tk fits fully yet 
+        // we can't tell whether tk fits fully yet
         // because we may need ellipsis after tk.
         p->pending_col = p->col;
         p->col = new_col;
@@ -587,7 +587,7 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
       }
 
     } else if (!p->full_line) {
-      /* 
+      /*
        * truncate mode, line not full, tokens pending
        */
       assert(p->col <= p->margin && p->pending_tokens.size > 0);
@@ -609,7 +609,7 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
       /*
        * truncate mode, line full, nothing pending
        */
-      assert(p->pending_tokens.size == 0); 
+      assert(p->pending_tokens.size == 0);
       free_atomic_token(p, tk);
     }
 
@@ -677,7 +677,7 @@ static void print_open_token(printer_t *p, pp_open_token_t *tk) {
       /*
        * truncate mode, line full, nothing pending
        */
-      assert(p->pending_tokens.size == 0); 
+      assert(p->pending_tokens.size == 0);
       free_open_token(p, tk);
     }
 
@@ -712,7 +712,7 @@ static void print_close_token(printer_t *p, pp_close_token_t *tk) {
         // pending tokens, line not full
         assert(p->pending_tokens.size > 0);
         if (p->col < p->margin) {
-          // enough space for one more ')' 
+          // enough space for one more ')'
           p->col ++;
           pvector_push(&p->pending_tokens, tag_close(tk));
         } else  {
@@ -743,7 +743,7 @@ static void print_newline(printer_t *p) {
   if (p->pending_tokens.size > 0) {
     print_pending(p);
   }
-  
+
   pp_newline(p);
   assert(!p->area.truncate || p->margin >= 4);
   p->no_space = true;   // prevent space after the new line
@@ -756,8 +756,8 @@ static void print_newline(printer_t *p) {
  * - n = size of the next token
  */
 static void check_newline(printer_t *p, uint32_t n) {
-  if (p->no_break || 
-      p->line + 1 == p->area.height || 
+  if (p->no_break ||
+      p->line + 1 == p->area.height ||
       p->overfull_count > 0) {
     // a line break is not allowed
     return;
@@ -766,11 +766,11 @@ static void check_newline(printer_t *p, uint32_t n) {
   switch (p->mode) {
   case PP_HMODE:
     break; // do nothing
-    
+
   case PP_VMODE:
     print_newline(p);
     break;
-      
+
   case PP_HVMODE:
     if (p->col + n + (!p->no_space) > p->margin) {
       // the next token doesn't fit on this line
@@ -806,9 +806,9 @@ static bool block_fits_horizontally(printer_t *p, pp_open_token_t *tk) {
  * - tk->fsize must be the block size of the next token
  *
  * This checks whether the M or V layouts are possible for tk.
- * - the first atom or block after the label must be printed on 
+ * - the first atom or block after the label must be printed on
  *   the current line.
- * - all other blocks must be printed in H layout on a new line 
+ * - all other blocks must be printed in H layout on a new line
  *   (adjusted for tk's indent).
  * - the new width must be at least 4.
  */
@@ -816,7 +816,7 @@ static bool subblocks_fit_horizontally(printer_t *p, pp_open_token_t *tk) {
   uint32_t new_width;
 
   new_width = line_width_for_indent(&p->area, p->indent + tk->indent);
-  return new_width >= 4 && tk->csize <= new_width && 
+  return new_width >= 4 && tk->csize <= new_width &&
     p->col + tk->fsize + (!tk_sep_allowed(tk)) <= p->margin;
 }
 
@@ -825,16 +825,16 @@ static bool subblocks_fit_horizontally(printer_t *p, pp_open_token_t *tk) {
  * Push the print state specified by open token tk onto
  * the stack.
  * - tk->formats specify the next print mode
- * - tk->indent or tk->short_indent is added to the current 
+ * - tk->indent or tk->short_indent is added to the current
  *   indentation
- * - if tk->sep is 0 (no separator) then no_space and no_break 
+ * - if tk->sep is 0 (no separator) then no_space and no_break
  *   are set true
  *
- * The new mode and indentation are chosen according to the 
+ * The new mode and indentation are chosen according to the
  * following rules (applied in this order).
  *
- * 1) If p->line is the last available line or 
- *       p->mode is HMODE or 
+ * 1) If p->line is the last available line or
+ *       p->mode is HMODE or
  *       p->mode is HVMODE
  *    then new state := (HMODE, 0).
  *
@@ -846,7 +846,7 @@ static bool subblocks_fit_horizontally(printer_t *p, pp_open_token_t *tk) {
  *      VLAYOUT --> new state = (VMODE, tk->indent)
  *      TLAYOUT --> new state = (VMODE, tk->short indent)
  *
- * 3) If HLAYOUT is in tk->formats and the full block fits on the 
+ * 3) If HLAYOUT is in tk->formats and the full block fits on the
  *    current line (based on tk->bsize) then new state = (HMODE, 0)
  *
  * 4) If MLAYOUT is in tk->formats and all the sub-blocks fit on one
@@ -864,7 +864,7 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
   uint32_t indent_delta, new_width;
   pp_print_mode_t new_mode;
 
-  assert(p->mode == pp_stack_top_mode(&p->stack) && 
+  assert(p->mode == pp_stack_top_mode(&p->stack) &&
          p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
          (!p->area.truncate || p->margin >= 4) &&
          p->line < p->area.height);
@@ -885,7 +885,7 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
    * be changed in TLAYOUT if selected.
    */
   p->no_space = !tk_sep_allowed(tk);
-  p->no_break = true; 
+  p->no_break = true;
 
   /*
    * Select new mode and indentation increment
@@ -895,7 +895,7 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
     new_mode = PP_HMODE;
     indent_delta = 0;
 
-  } else { 
+  } else {
     switch (tk->formats) {
     case PP_H_LAYOUT:
       new_mode = PP_HMODE;
@@ -932,13 +932,13 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
       } else {
         new_mode = PP_VMODE;
         indent_delta = tk->short_indent;
-        p->no_break = p->no_space;       
+        p->no_break = p->no_space;
       }
       break;
     }
   }
 
-    
+
   /*
    * Width of the next line
    */
@@ -955,11 +955,11 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
     new_width = line_width_for_indent(&p->area, p->indent);
     assert(new_width >= 4);
   }
-  
+
   // new mode and indentation are accepted
   pp_stack_push(&p->stack, new_mode, indent_delta);
   p->mode = new_mode;
-  p->indent += indent_delta;  
+  p->indent += indent_delta;
   p->next_margin = new_width;
 }
 
@@ -979,14 +979,14 @@ static void printer_pop_state(printer_t *p) {
   indent_delta = pp_stack_top_indent(&p->stack);
   pp_stack_pop(&p->stack);
 
-  // restore the previous indentation 
+  // restore the previous indentation
   assert(indent_delta <= p->indent);
   p->indent -= indent_delta;
 
   // restore the top mode from the stack
   p->mode = pp_stack_top_mode(&p->stack);
 
-  // adjust the next line width 
+  // adjust the next line width
   p->next_margin = line_width_for_indent(&p->area, p->indent);
 }
 
@@ -1115,7 +1115,7 @@ static void extend_block_queue(pp_block_queue_t *q) {
  * - col = column start for that block
  * - nsub is initialized to 0
  */
-static void block_queue_push(pp_block_queue_t *q, 
+static void block_queue_push(pp_block_queue_t *q,
                              pp_open_token_t *tk, uint32_t col) {
   uint32_t i, n, j;
 
@@ -1134,11 +1134,11 @@ static void block_queue_push(pp_block_queue_t *q,
     } else {
       // wrap around
       q->tail = 0;
-    }    
+    }
   } else if (i == q->head) {
     /*
      * full queue stored in data[0 .. i-1] + data[head .. size -1]
-     * make the array larger and shift data[head ... size-1] to 
+     * make the array larger and shift data[head ... size-1] to
      * the end of the new array
      */
     assert(i < q->size);
@@ -1298,9 +1298,9 @@ static void delete_formatter(formatter_t *f) {
  *
  * If the closed blocks are B_k ... B_n with k > 0
  * - the bsizes of B_{k+1} ... B_n and of the last atom are set.
- * - the csize and fsize fields of B_n are updated based on the 
+ * - the csize and fsize fields of B_n are updated based on the
  *   last atom's bsize.
- * - the csize and fsize fields of B_i are updated based on 
+ * - the csize and fsize fields of B_i are updated based on
  *   B{i+1} bsize (for i=n-1 to k-1).
  *
  * If k=0 then we also update the lead token based on B_0's bsize.
@@ -1398,7 +1398,7 @@ static void flush_tokens(formatter_t *f, void *tk) {
   p = f->printer;
   while (ptr_queue_first(&f->token_queue) != tk) {
     x = ptr_queue_pop(&f->token_queue);
-    print_token(p, x);    
+    print_token(p, x);
   }
 }
 
@@ -1436,8 +1436,8 @@ static void flush_head_block(formatter_t *f) {
 
 
 /*
- * For any block B_i in the queue, we know that the bsize for 
- * that block is at least (f->length - B_i->col). 
+ * For any block B_i in the queue, we know that the bsize for
+ * that block is at least (f->length - B_i->col).
  *
  * If (f->length - B_0->col > f->max_width) then we can set B_0's
  * bsize to infinity (PP_MAX_BSIZE), update the csize of the head
@@ -1454,7 +1454,7 @@ static void flush_wide_blocks(formatter_t *f) {
     assert(b->col <= f->length);
     if (f->length - b->col <= f->max_width) break;
     /*
-     * b has bsize > max_width: set its bsize to MAX 
+     * b has bsize > max_width: set its bsize to MAX
      * then remove it from the block queue
      */
     tk = b->token;
@@ -1719,7 +1719,7 @@ bool pp_is_full(pp_t *pp) {
 void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t flags,
                       uint16_t lsize, uint16_t indent, uint16_t short_indent,
                       uint32_t user_tag) {
-  // formats must fit in the lower 4 bits 
+  // formats must fit in the lower 4 bits
   // and at least one of these bits must be set
   assert((formats & ~((uint32_t) 15)) == 0 && formats != 0);
 

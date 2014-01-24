@@ -13,7 +13,7 @@
 
 /*
  * Learner object:
- * - terms = term table 
+ * - terms = term table
  * - manager = partition manager
  * - cache = hash_map
  */

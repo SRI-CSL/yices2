@@ -39,7 +39,7 @@ void print_idl_vertex_value(FILE *f, idl_solver_t *idl, int32_t v) {
   if (z == null_idl_vertex) {
     z = 0;
   }
-  
+
   if (m != NULL && z < m->dim && v < m->dim) {
     cell = m->data + z * m->dim + v;
     if (cell->id >= 0) {
@@ -102,7 +102,7 @@ void print_idl_triple(FILE *f, dl_triple_t *triple) {
   }
 
   if (! space) {
-    q_print(f, &triple->constant); 
+    q_print(f, &triple->constant);
   } else if (q_is_pos(&triple->constant)) {
     fprintf(f, " + ");
     q_print(f, &triple->constant);
@@ -125,7 +125,7 @@ void print_idl_var_name(FILE *f, thvar_t u) {
   } else {
     fprintf(f, "<IDL-var%"PRId32">", u);
   }
-} 
+}
 
 
 /*
@@ -194,7 +194,7 @@ static void print_idl_edge(FILE *f, idl_solver_t *solver, uint32_t i) {
   y = e->target;
   d = idl_dist(m, x, y);
 
-  fprintf(f, "edge[%"PRIu32"]: n!%"PRId32" - n!%"PRId32" <= %"PRId32, i, x, y, d);  
+  fprintf(f, "edge[%"PRIu32"]: n!%"PRId32" - n!%"PRId32" <= %"PRId32, i, x, y, d);
 }
 
 

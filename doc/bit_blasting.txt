@@ -51,7 +51,7 @@ CLAUSAL ENCODING
    (~a1  a2  a3  x)
 
    Variant: introduce y = (xor a1 a2) then x = (xor x a3) ?
-   
+
 
 4) Constraint (x = y) equivalent to (xor x y) = 0
 
@@ -61,7 +61,7 @@ CLAUSAL ENCODING
    ( y ~x)
 
 
-5) Constraint x = (ite c a1 a2) 
+5) Constraint x = (ite c a1 a2)
 
    Clauses:
 
@@ -77,7 +77,7 @@ CLAUSAL ENCODING
    or equivalently, "x = (a1 > a2) or ((a1 = a2) and c)"
 
 
-   Truth table                        
+   Truth table
 
     a1    a2     c     x
 

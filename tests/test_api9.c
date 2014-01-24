@@ -76,7 +76,7 @@ static void test_pp_term(FILE *f, term_t t, int32_t k, int32_t error) {
   code = yices_pp_term(f, t, 100, 60, 0);
   if (code >= 0) {
     printf("ok\n");
-  } else { 
+  } else {
     ecode = yices_error_code();
     if (ecode == OUTPUT_ERROR) {
       saved_errno = errno;
@@ -145,7 +145,7 @@ static void init_types(void) {
 }
 
 
-static void init_terms(void) {  
+static void init_terms(void) {
   term_t a, b, c;
   type_t tau;
 
@@ -162,7 +162,7 @@ static void init_terms(void) {
   c = yices_bvpower(b, 5);
   term[3] = yices_bveq_atom(c, term[1]);
 
-  term[4] = yices_bvxor(a, c);  
+  term[4] = yices_bvxor(a, c);
   term[5] = yices_bvor(term[4], term[2]);
 }
 
@@ -180,7 +180,7 @@ static void test_pp_types(void) {
   }
   test_pp_type(stdout, 1389841, -1, INVALID_TYPE);
   printf("\n\n");
-  
+
   // use /tmp/yices.a, open for writing
   printf("File = /tmp/yices.a\n");
   f = fopen("/tmp/yices.a", "w");
@@ -230,7 +230,7 @@ static void test_pp_terms(void) {
   }
   test_pp_term(stdout, 1389841, -1, INVALID_TERM);
   printf("\n\n");
-  
+
   // use /tmp/yices.c, open for writing
   printf("File = /tmp/yices.c\n");
   f = fopen("/tmp/yices.c", "w");
@@ -255,7 +255,7 @@ static void test_pp_terms(void) {
     fclose(f);
   }
 
-  // use it read-only 
+  // use it read-only
   f = fopen("/tmp/yices.d", "r");
   if (f == NULL) {
     perror("/tmp/yices.d");

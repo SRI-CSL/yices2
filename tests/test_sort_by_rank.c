@@ -13,7 +13,7 @@ typedef uint32_t bddvar_t;
  * - n = size of that array
  *
  * - isort: uses insertion sort (for small n)
- * - qsort: quick sort 
+ * - qsort: quick sort
  */
 static void sort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank);
 
@@ -51,7 +51,7 @@ static void qsort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
 
   i = 0;
   j = n;
-  
+
   do { j--; } while (rank[a[j]] > r);
   do { i++; } while (i <= j && rank[a[i]] < r);
 
@@ -63,7 +63,7 @@ static void qsort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
   }
 
   // the pivot goes into a[j]
-  a[0] = a[j]; 
+  a[0] = a[j];
   a[j] = x;
 
   sort_by_rank(a, j, rank);
@@ -95,7 +95,7 @@ static void print_vars(bddvar_t *a, uint32_t n, uint32_t *rank) {
 
 
 /*
- * Check that array a is sorted 
+ * Check that array a is sorted
  */
 static void check_sorted_array(bddvar_t *a, uint32_t n, uint32_t *rank) {
   uint32_t i;

@@ -41,7 +41,7 @@ static term_t forall2(term_t var1, term_t var2, term_t body) {
 }
 
 
-static void init_terms(void) {  
+static void init_terms(void) {
   type_t btype, rtype, utype, ftype1, ftype2;
   type_t aux[2];
   term_t x, y, z, a, b, f, g, p, q;
@@ -119,7 +119,7 @@ static void init_terms(void) {
   ivector_push(&all, bin_app(g, z, x));
   ivector_push(&all, bin_app(g, z, y));
   ivector_push(&all, bin_app(g, z, z));
-  
+
   ivector_push(&all, bin_app(p, a, b));
   ivector_push(&all, bin_app(p, bin_app(f, x, y), bin_app(g, y, x)));
   ivector_push(&all, bin_app(q, bin_app(g, x, x), a));
@@ -137,7 +137,7 @@ static void init_terms(void) {
   ivector_push(&all, forall1(a, yices_not(bin_app(q, a, a))));
   ivector_push(&all, forall1(b, yices_not(bin_app(q, a, a))));
   ivector_push(&all, forall2(x, y, yices_not(bin_app(q, a, a))));
-  ivector_push(&all, forall2(x, y, yices_and2(yices_arith_eq_atom(x, y), 
+  ivector_push(&all, forall2(x, y, yices_and2(yices_arith_eq_atom(x, y),
 					      forall1(x, yices_arith_geq_atom(x, y)))));
   ivector_push(&all, yices_and2(forall2(x, y, bin_app(p, bin_app(f, x, y), bin_app(g, y, x))),
 				forall2(y, x, bin_app(q, bin_app(g, x, x), bin_app(f, y, y)))));

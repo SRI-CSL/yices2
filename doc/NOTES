@@ -10,7 +10,7 @@ GUIDE TO THE SOURCE CODE
 arena.h:                region-based allocator with push/pop functions
 arena.c                 (pop frees all objects allocated since the previous push)
 
-int_stack.h:            stack for allocating integer arrays (freed in reverse order 
+int_stack.h:            stack for allocating integer arrays (freed in reverse order
 int_stack.c             of allocation).
 
 ptr_stack.h:            stack for allocating pointer arrays (same as int_stack
@@ -29,7 +29,7 @@ object_stores.c
 
 assert_utils.h:		Wrappers around assert to avoid compilation warnings
 
-bit_tricks.h:           Low-level bit-mask operations (via GCC's __builtins or replacement 
+bit_tricks.h:           Low-level bit-mask operations (via GCC's __builtins or replacement
                         if they're not present).
 
 cputime.h:              For measuring computing time
@@ -82,7 +82,7 @@ ptr_array_sort2.c
      -----------------------
 
 bitvectors.h:           bit-vectors
-     
+
 dl_lists.h:             doubly-linked lists
 
 
@@ -91,7 +91,7 @@ dl_lists.h:             doubly-linked lists
 backtrack_arrays.h:     arrays of integers with support for update, push/pop
 backtrack_arrays.c
 
-dep_tables.h:           dependency tables (map integer indices to arrays of 
+dep_tables.h:           dependency tables (map integer indices to arrays of
 dep_tables.c            integer indices. Similar to use_vectors).
 
 int_vectors.h:          vectors of signed 32bit integers
@@ -170,7 +170,7 @@ ptr_partitions.h:       similar to int_partitions but for object represented by 
 ptr_partitions.c        rather than integers.
 
 union_find.h:           a union-find data structure for 32bit non-negative integers
-union_find.c            
+union_find.c
 
 
 1.4.f  Character strings
@@ -200,7 +200,7 @@ int_hash_map.h:         maps int32 to int32, implemented as hash tables.
 int_hash_map.c
 
 int_hash_map2.h:        maps pairs of int32 to int32, implemented as hash tables.
-int_hash_map2,c 
+int_hash_map2,c
 
 int_hash_sets.h:        sets of unsigned integers (hash sets)
 int_hash_sets.c
@@ -211,7 +211,7 @@ int_hash_tables.c       more general than int_hash_map.h
 pair_hash_map.h:        maps pairs of int32 to (void *) pointers (hash table)
 pair_hash_map.c
 
-pair_hash_map2.h:       maps pairs of int32 to int32  (more operations are supported than in 
+pair_hash_map2.h:       maps pairs of int32 to int32  (more operations are supported than in
 pair_hash_map2.c        int_hash_map2)
 
 pair_hash_sets.h:       sets of pairs of integers (implemented as a hash table)
@@ -286,7 +286,7 @@ rational_hash_maps.c    (implemented using hash tables)
 
 
 
-3) Arithmetic and polynomials 
+3) Arithmetic and polynomials
    --------------------------
 
 Arithmetic terms are represented as polynomials in fully-expanded form
@@ -294,7 +294,7 @@ Arithmetic terms are represented as polynomials in fully-expanded form
 index) and the monomials are sorted in increasing index order. There's
 an end-marker  monomial whose  coefficient is uninitialized  and whose
 index is INT32_MAX.
-   
+
 There  are   three  types  of   polynomials,  depending  on   how  the
 coefficients are represented:
 
@@ -325,7 +325,7 @@ term table (as above).
 There's a hard-coded  limit of 2^30-1 on the  degree of polynomials we
 can represent/manipulate (this is a theoretical limit, most polynomial
 construction will blow up well before that).
-   
+
 Many  arithmetic operations  require an  intermediate  object (buffer)
 that  stores a  polynomial  as a  linked  list. Arithmetic  operations
 modify the buffer, and the  final result can be extracted/converted to
@@ -353,7 +353,7 @@ polynomials.c
 arith_buffers.h:                Buffers for constructing rational polynomials
 arith_buffers.c                 (Obsolete: the linked list representation was too
                                 inefficient on some benchmarks that have long
-                                sums of terms. Replaced by balanced_arith_buffers). 
+                                sums of terms. Replaced by balanced_arith_buffers).
 
 balanced_arith_buffers.h:       Buffers for constructing rational polynomials.
 balanced_arith_buffers.c        The implementation is based on red-black trees.
@@ -388,7 +388,7 @@ bit_expr.c                with nodes for XOR/OR and inverters) (variant of AIG).
 
 bvlogic_buffers.h:        Buffers for constructing the bitwise operation on bitvectors
 bvlogic_buffers.c         (e.g., bit masking, shifts, sign/zero extension). The buffer
-                          stores the result of such operations as an array of n 
+                          stores the result of such operations as an array of n
                           bit expressions.
 
 
@@ -514,7 +514,7 @@ term_substitution.c      context + free variable collector (also implement
 term_stack2.h:           Stack-based term builder. New implementation of term_stack
 term_stack2.c             (removed the commands that were specific to Yices).
 
-term_stack_error.h:      Error messages and diagnosis when the 
+term_stack_error.h:      Error messages and diagnosis when the
 term_stack_error.c       term stack module raises an exception.
 
 tstack_internals.h:      Term-stack operations for specializing/extending the default
@@ -559,7 +559,7 @@ smt_core.c
 smt_core_base_types.h:	Type definitions (boolean variables, literals, truth values)
 
 smt_core_exporter.h:    Export the smt_core content to a file (dimacs format)
-smt_core_exporter.c     (this takes only the Boolean part into account) 
+smt_core_exporter.c     (this takes only the Boolean part into account)
 
 smt_core_printer.h:     Print functions for the core
 smt_core_printer.c
@@ -587,8 +587,8 @@ egraph_base_types.h:        Types used by the egraph.
 
 egraph_types.h:             Datatypes shared by all the egraph-related modules:
                             - egraph_utils.h/egraph_utils.c
-                            - composites.h/composites.c                 
-                            - egraph_explanations.h/egraph_explanations.c 
+                            - composites.h/composites.c
+                            - egraph_explanations.h/egraph_explanations.c
                             - egraph.h/egraph.c
 
 egraph_utils.h:             Utilities to access the egraph_t structure
@@ -631,13 +631,13 @@ dl_vartable.h:          Table that stores variable descriptors for difference lo
 dl_vartable.c           - each variable is mapped to a triple [x, y, c] (which denotes
                           the term x - y + c)
 
-idl_floydwarshall.h:    Solver for integer difference logic problems, implemented using an 
+idl_floydwarshall.h:    Solver for integer difference logic problems, implemented using an
 idl_floydwarshall.c     incremental form of the Floyd-Warshall algorithm (for dense problems)
 
 idl_fw_printer.h:       Print functions for the idl_floydwarshall solver
 idl_fw_printer.c
 
-rdl_floydwarshall.h:    Solver for real difference logic problems, implemented using an 
+rdl_floydwarshall.h:    Solver for real difference logic problems, implemented using an
 rdl_floydwarshall.c     incremental form of the Floyd-Warshall algorithm (for dense problems)
 
 rdl_fw_printer.h:       Print functions for the rdl_floydwarshall solver
@@ -648,7 +648,7 @@ rdl_fw_printer.c
 7.3.b  Simplex Solver
 
 arith_vartable.h:       Table of arithmetic variables: maps variables to a definition
-arith_vartable.c        - uses hash-consing, has support for push/pop/reset, supports non-linear polynomials as 
+arith_vartable.c        - uses hash-consing, has support for push/pop/reset, supports non-linear polynomials as
                         definitions
 
 arith_atomtable.h:      Table of arithmetic atoms: supported atoms are (x >= c), (x <= c) or (x == c)
@@ -700,7 +700,7 @@ fun_solver_printer.c
 merge_table.h:          Table for representing equivalence classes of variables
 merge_table.c           (union-find with support for push/pop)
 
-remap_table.h:          Support for building equivalence classes of pseudo literals 
+remap_table.h:          Support for building equivalence classes of pseudo literals
 remap_table.c           and for mapping these to real literals in the SAT solver
 
 bit_blaster.h:          Conversion of bit-vector operations to CNF
@@ -731,10 +731,10 @@ bv_intervals.c          with more than 64bits. (Used by bvsolver for simplificat
 bvpoly_buffer.h:        Buffer for construction of bit-vector polynomials
 bvpoly_buffer.c         (simpler/more efficient than bvarith_buffer and bvarith64_buffer)
 
-bvpoly_compiler.h:      Support for converting bit-vector polynomials to more elementary 
+bvpoly_compiler.h:      Support for converting bit-vector polynomials to more elementary
 bvpoly_compiler.c       terms built using binary add, binary product, etc.
 
-bvpoly_dag.h:           DAG of elementary bit-vector arithmetic operation (used 
+bvpoly_dag.h:           DAG of elementary bit-vector arithmetic operation (used
 bvpoly_dag.c            by bvpoly_compiler)
 
 bvsolver_types.h:       Data types used by the bitvector solver
@@ -750,29 +750,29 @@ bvsolver_printer.c
 7.6) Model construction
      -------------------
 
-abstract_values.h:      Intermediate objects used by the function/array solver to 
+abstract_values.h:      Intermediate objects used by the function/array solver to
 abstract_values.c       construct models. The egraph converts these abstract values
                         to constants (concrete values) of appropriate types.
 
-fun_maps.h:             Maps built by the array solver using abstract values. A map 
-fun_maps.c              has a default value + a finite list of pair (element -> val) 
+fun_maps.h:             Maps built by the array solver using abstract values. A map
+fun_maps.c              has a default value + a finite list of pair (element -> val)
 
-fun_trees.h:            Tree structure used to force maps with infinite domain 
+fun_trees.h:            Tree structure used to force maps with infinite domain
 fun_trees.c             to be all distinct (cf. fun_solver.c).
 
 concrete_values.h:      Hash-consing + tagging of constants used in models.
-concrete_values.c       - concrete values include booleans, rationals, bitvectors, tuples, 
+concrete_values.c       - concrete values include booleans, rationals, bitvectors, tuples,
                           functions and function updates
 
 small_bvsets.h:         Set of bit-vector constants. Used by the bvsolver to create
 small_bvsets.c          fresh values when requested by the egraph. Compact representation
                         that works for small bit-vector width.
 
-large_bvsets.h:         Variant representation for larger bit width (not used). 
+large_bvsets.h:         Variant representation for larger bit width (not used).
 large_bvsets.c          - sets are stored in an inexact form using Bloom filter ideas
 
 rb_bvsets.h:            Another variant representation. Sets of bit-vector constants
-rb_bvsets.c             are stored in red-black trees. (That's what's currently used 
+rb_bvsets.c             are stored in red-black trees. (That's what's currently used
                         in bv_solver)
 
 models.h:               Model representation: map terms to concrete values
@@ -797,7 +797,7 @@ model_eval.c
 A context stores  a set of assertions and one or  more solvers to deal
 with  these assertions. Processing  formulas requires  converting them
 from  the term representation  used in  the term  table into  the term
-representation used by the  solvers (we call that internalization). 
+representation used by the  solvers (we call that internalization).
 
 Also the context performs formula simplification and supports push/pop,
 and implements the toplevel solver and model construction procedures.
@@ -820,7 +820,7 @@ internalization_printer.h:    Print functions to display the internalization tab
 internalization_printer.c
 
 
-pseudo_subst.h:               Store a candidate variable substitution. 
+pseudo_subst.h:               Store a candidate variable substitution.
 pseudo_subst.c                This is a mapping from uninterpreted term to other terms.
                               It can be turned into a real substitution after substitution
                               cycles are removed.
@@ -839,7 +839,7 @@ symmetry_breaking.c
 context_simplifier.c:         Simplification and preprocessing procedures used by context.c
                               - implements simplifications that are independent of the solvers
 
-context.h:                    Top-level context module, intended to provide assert/push/pop/reset 
+context.h:                    Top-level context module, intended to provide assert/push/pop/reset
 context.c                     - implements the translation of yices terms (as provided by yices.h API)
                                 into the egraph and solver(s) data structures
 
@@ -886,7 +886,7 @@ yices_iterators.h:          Functions to iterate over all contexts, models, etc.
 
 yices_version_template.txt:
 yices_version.c             Version number + compilation + architecture.
-                            yices_version.c is generated from yices_version_template.txt 
+                            yices_version.c is generated from yices_version_template.txt
                             when compiling (cf. src/Makefile).
 
 
@@ -914,10 +914,10 @@ yices_keywords.txt          Input for gperf (to construct a perfect hash for the
 yices_hash_keywords.h       Perfect hash function for the Yices keywords. Generated by
                             gperf from yices_keywords.txt
 
-yices_lexer.h:              Yices lexing functions 
+yices_lexer.h:              Yices lexing functions
 yices_lexer.c
 
-yices_parse_tables.h:       Tables used for parsing the Yices language 
+yices_parse_tables.h:       Tables used for parsing the Yices language
                             (see utils/yices_parser.txt and utils/table_builder.c)
 
 yices_parser.h:             Parser for the Yices language
@@ -968,7 +968,7 @@ yices_smtcomp.c:           Solver for problems in the SMT-LIB notation
 9.4) SMT-LIB 2 solver
      ----------------
 
-smt2_tokens.txt:           All tokens + reserved symbols used in SMT-LIB 2.0 (including 
+smt2_tokens.txt:           All tokens + reserved symbols used in SMT-LIB 2.0 (including
                            command names).
 
 smt2_hash_tokens.h:        Perfect hash function, generated by gperf from smt2_tokens.txt

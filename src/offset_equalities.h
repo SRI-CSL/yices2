@@ -22,7 +22,7 @@
  * To support this, we keep the polynomials p1 and p2 normalized
  * modulo a set of offset equalities. We use data structures similar
  * to the Egraph.
- * 
+ *
  * We keep variables stored into equivalence classes: the class
  * contains a root variable r, all other variables in the class are
  * equal to r + a constant.  When a new offset equality is asserted,
@@ -67,7 +67,7 @@ typedef struct {
 /*
  * Dependency records
  * ------------------
- * Given a polynomial index i, we keep track of the offset variables that 
+ * Given a polynomial index i, we keep track of the offset variables that
  * occur with a non-zero coefficient in poly[i]'s normal form.
  *
  * Conversely, given an offset variable x, we keep in dep[x] the index
@@ -146,7 +146,7 @@ static inline int32_t decode_idx(int32_t i) {
  *   - p is the definition of x
  *       there are two cases:
  *       if x is a free variable in the arithmetic solver, then p is 1.x
- *       otherwise, x denotes a polynomial q in the arithmetic solver then 
+ *       otherwise, x denotes a polynomial q in the arithmetic solver then
  *       p is the same as q
  *
  * The variables of p are variables defined in the arithmetic solver.
@@ -171,7 +171,7 @@ static inline int32_t decode_idx(int32_t i) {
  *
  * If i must be processed, then it's stored in the 'to_process' vector.
  * - mark[i] keeps track of this (mark[i] == 1 iff i is in the to_process vector)
- * 
+ *
  * For each index i in 0 to npolys - 1, we store:
  * - eterm[i] = egraph term that i represents (i.e., t)
  * - def[i] = polynomial p
@@ -196,7 +196,7 @@ typedef struct offset_poly_table_s {
   byte_t *active;
   byte_t *mark;
   remap_array_t var2poly;   // mapping from variable to poly id
-  object_store_t pstore;    // store for polynomial construction  
+  object_store_t pstore;    // store for polynomial construction
 } offset_poly_table_t;
 
 #define DEF_OFFSET_POLY_TABLE_SIZE 40
@@ -207,11 +207,11 @@ typedef struct offset_poly_table_s {
  * Offset variable table
  * ---------------------
  * - offset variables are indexed from 0 to nvars - 1
- * - index 0 has a special interpretation. It denotes 'zero'. 
+ * - index 0 has a special interpretation. It denotes 'zero'.
  *   This is used to process equalities of the form x == constant
  *   (we turn this into the offset equality x = zero + constant).
  *
- * - variables are grouped into equivalence classes: x and y 
+ * - variables are grouped into equivalence classes: x and y
  *   are in the same class if (x - y) is a constant. To represent
  *   these classes: we pick a root variable 'r' in each class,
  *   then for every variable x, we store the root of x's class and
@@ -222,12 +222,12 @@ typedef struct offset_poly_table_s {
  *   - edges in the merge tree are indices in the offset equality queue.
  *   - equality x := y + k forms an edge from x to y, labeled by k.
  *   - we store in edge[x] the edge that goes from x to its parent in
- *     the merge tree. 
+ *     the merge tree.
  *   - the root 'r' of x's class is also the root of x's merge tree,
  *     and it has edge[r] = -1.
  *
  * - for each variable we store
- *     desc[x] = descriptor of x 
+ *     desc[x] = descriptor of x
  *     edge[x] = index of the equality from x to its parent in the merge tree
  *     dep[x] = vector of polynomial indices (see index_vectors.h)
  *
@@ -236,7 +236,7 @@ typedef struct offset_poly_table_s {
  *     desc[x].offset = 0
  *     edge[x] = -1
  *
- * - if x is not a root 
+ * - if x is not a root
  *     desc[x].root = r
  *     desc[x].offset = k
  *     edge[x] = index of an equality in the equality queue
@@ -251,7 +251,7 @@ typedef struct offset_desc_s {
 
 typedef struct offset_table_s {
   uint32_t nvars;
-  uint32_t size; 
+  uint32_t size;
   offset_desc_t *desc;
   int32_t *edge;
   dep_t **dep;
@@ -298,7 +298,7 @@ typedef struct offset_hash_table_s {
  * An offset equality is of the form x := y + c where x and y are both
  * in the offset_table and c is a constant. Each equality also has
  * an integer 'id' that's used to build explanations. When an equality
- * is asserted, it must be given a unique id. 
+ * is asserted, it must be given a unique id.
  *
  * - eq[i] is an asserted equality (for 0 <= i < top)
  *   id[i] = corresponding id
@@ -400,17 +400,17 @@ typedef struct offset_level_stack_s {
  * - this equality will be reported first at level k (first call to propagate after
  *   i is added) but it may be true at levels < k.
  * - to deal with this, we store all polynomials added during the search to
- *   the following recheck structure. When we backtrack to decision level <= k, we 
+ *   the following recheck structure. When we backtrack to decision level <= k, we
  *   move all polynomials added at levels > k to the process queue.
  *
- * Each element in the recheck queue stores a polynomial id + the decision level at 
+ * Each element in the recheck queue stores a polynomial id + the decision level at
  * which this polynomial was added.
  */
 typedef struct recheck_elem_s {
   int32_t id;
   uint32_t level;
 } recheck_elem_t;
- 
+
 typedef struct recheck_queue_s {
   recheck_elem_t *data;
   uint32_t top;  // top of the queue
@@ -423,7 +423,7 @@ typedef struct recheck_queue_s {
 
 /*
  * Trail stack for push/pop
- * - for each base-level we record 
+ * - for each base-level we record
  *   the number of polys in ptable
  *   the number of variables in vtable
  *   the current propagation pointer
@@ -455,7 +455,7 @@ typedef void (*eq_notifier_t)(void *aux, eterm_t t1, eterm_t t2);
 
 /*
  * Full offset-equality solver
- * - when a polynomial is created or its normal form needs to 
+ * - when a polynomial is created or its normal form needs to
  *   be recomputed, we store in in vector 'to_process' and we mark it
  * - conflict_eq = index of the first equality in queue that caused a conflict
  *               (or -1 if there's no conflict).
@@ -479,7 +479,7 @@ typedef struct offset_manager_s {
 
   recheck_queue_t recheck;
   ivector_t to_process;
-  
+
   poly_buffer_t buffer1;
   poly_buffer_t buffer2;
   rational_t aux;
@@ -514,7 +514,7 @@ extern void offset_manager_pop(offset_manager_t *m);
 
 /*
  * Record the triple (t, x, p) as a polynomial to monitor
- * - t = egraph term 
+ * - t = egraph term
  * - x = arithmetic variable (must be the theory variable of t)
  * - p = either x's definition or NULL
  *
@@ -553,7 +553,7 @@ extern void offset_manager_explain_conflict(offset_manager_t *m, ivector_t *v);
 
 /*
  * Build an explanation for (x == y)
- * - x and y must be present in the internal poly table 
+ * - x and y must be present in the internal poly table
  *   and they must have equal normal form
  * - this function collect the ids of equalities that imply x == y into vector v
  *   (v is not reset)

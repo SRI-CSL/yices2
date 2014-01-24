@@ -104,11 +104,11 @@ static void poly_buffer_resize_index(poly_buffer_t *buffer, int32_t x) {
 
 
 /*
- * Increase the size of the monomial array by 50% 
+ * Increase the size of the monomial array by 50%
  */
 static void poly_buffer_resize_mono(poly_buffer_t *buffer) {
   int32_t n;
-  
+
   n = buffer->m_size + 1;
   n += n >> 1;
   assert(n > buffer->m_size);
@@ -136,13 +136,13 @@ static int32_t poly_buffer_alloc_mono(poly_buffer_t *buffer) {
   }
   assert(i < buffer->m_size);
   buffer->nterms = i+1;
-  
+
   return i;
 }
 
 
 /*
- * Get buffer->index[x] 
+ * Get buffer->index[x]
  * - if i_size is too small, make the index array large enough
  */
 static inline int32_t poly_buffer_get_index(poly_buffer_t *buffer, int32_t x) {
@@ -382,7 +382,7 @@ void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, int32_t x)
       return;
     }
   }
-  q_clear(a);  
+  q_clear(a);
 }
 
 
@@ -405,14 +405,14 @@ static void poly_buffer_add_end_marker(poly_buffer_t *buffer) {
     poly_buffer_resize_mono(buffer);
   }
   assert(i < buffer->m_size);
-  buffer->mono[i].var = max_idx; 
+  buffer->mono[i].var = max_idx;
 }
 
 
 
 /*
  * Normalization:
- * - first clears all the indices 
+ * - first clears all the indices
  * - then sort the monomials and remove all monomials with zero coefficient
  */
 void normalize_poly_buffer(poly_buffer_t *buffer) {
@@ -471,21 +471,21 @@ void poly_buffer_rescale(poly_buffer_t *buffer, rational_t *a) {
   n = buffer->nterms;
   for (i=0; i<n; i++) {
     q_mul(&buffer->mono[i].coeff, a);
-  }  
+  }
 }
 
 
 
 /*
- * Multiply by the inverse of the main coefficient: this makes the 
+ * Multiply by the inverse of the main coefficient: this makes the
  * main coefficient equal to one.
- * - return true is this the main coefficient was negative 
+ * - return true is this the main coefficient was negative
  * - return false otherwise
  * The buffer must be non-zero
  */
 bool poly_buffer_make_monic(poly_buffer_t *buffer) {
   monomial_t *a;
-  rational_t *main_coeff;  
+  rational_t *main_coeff;
   uint32_t i, n;
   bool negated;
 
@@ -517,7 +517,7 @@ bool poly_buffer_make_monic(poly_buffer_t *buffer) {
 
 
 /*
- * Remove all common factors from a[0] to a[n-1] (i.e., 
+ * Remove all common factors from a[0] to a[n-1] (i.e.,
  * divide them by d = gcd(a[0], ..., a[n-1])
  * - if b is non NULL, divide it by d too
  * - a[0] to a[n-1] must all be integers
@@ -531,7 +531,7 @@ static void reduce_integer_coeffs(monomial_t *a, uint32_t n, rational_t *b) {
   q_init(&gcd);
   q_set_abs(&gcd, &a[0].coeff);
   for (i=1; i<n; i++) {
-    q_gcd(&gcd, &a[i].coeff);    
+    q_gcd(&gcd, &a[i].coeff);
   }
 
   if (! q_is_one(&gcd)) {
@@ -548,7 +548,7 @@ static void reduce_integer_coeffs(monomial_t *a, uint32_t n, rational_t *b) {
 
 
 /*
- * Make all coefficients in a[0] to a[n-1] integral and make the main 
+ * Make all coefficients in a[0] to a[n-1] integral and make the main
  * coefficient positive by multiplying them by L = +/- lcm (den(a[0]), ..., den(a[n-1]))
  * Then remove common factors (i.e., divide a[0], ..., a[n-1] by D = gcd(a[0],..., a[n-1]))
  * - if b is non NULL multiply it by L/D too
@@ -584,7 +584,7 @@ static bool scale_coeffs_to_integers(monomial_t *a, uint32_t n, rational_t *b) {
         q_neg(b);
       }
     }
-    
+
   } else {
 
     // multiply by LCM
@@ -605,7 +605,7 @@ static bool scale_coeffs_to_integers(monomial_t *a, uint32_t n, rational_t *b) {
 
 #ifndef NDEBUG
   for (i=0; i<n; i++) {
-    assert(q_is_integer(&a[i].coeff));    
+    assert(q_is_integer(&a[i].coeff));
   }
   assert(q_is_pos(&a[n-1].coeff));
 #endif
@@ -629,7 +629,7 @@ bool poly_buffer_make_integral(poly_buffer_t *buffer) {
 
 
 /*
- * Make all coefficients integral, except possibly the constant term. 
+ * Make all coefficients integral, except possibly the constant term.
  * Make the main coefficient positive.
  */
 bool poly_buffer_make_nonconstant_integral(poly_buffer_t *buffer) {
@@ -699,7 +699,7 @@ static void poly_buffer_add_row(poly_buffer_t *buffer, row_t *row) {
     if (x >= 0) {
       poly_buffer_add_monomial(buffer, x, &row->data[i].coeff);
     }
-  }  
+  }
 }
 
 
@@ -735,12 +735,12 @@ void poly_buffer_substitution(poly_buffer_t *buffer, matrix_t *matrix) {
 
   // First collect all the indices
   n = buffer->nterms;
-  
+
   for (i=0; i<n; i++) {
     /*
      * Operations inside this loop change mono but they
      * don't change mono[0].var ... mono[n-1].var.
-     */ 
+     */
     y = buffer->mono[i].var;
     r = matrix_basic_row(matrix, y);
     if (r >= 0) {
@@ -847,7 +847,7 @@ void poly_buffer_get_den_lcm(poly_buffer_t *buffer, rational_t *a) {
 
 
 /*
- * Check whether the non-constant part of buffer is reduced to a single variable 
+ * Check whether the non-constant part of buffer is reduced to a single variable
  * or equal to 0 (i.e., the buffer is either a + x or x, where a
  * is a constant).
  * - if so return x, otherwise return null_idx = -1
@@ -893,8 +893,8 @@ int32_t poly_buffer_convert_to_vareq(poly_buffer_t *buffer, rational_t *a) {
       return null_idx;
 
     } else {
-      /* 
-       * p is b.x for some non-zero b 
+      /*
+       * p is b.x for some non-zero b
        * so p == 0 is equivalent to x == 0
        */
       assert(q_is_nonzero(&buffer->mono[0].coeff));

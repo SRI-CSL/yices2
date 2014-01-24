@@ -547,7 +547,7 @@ static void report_success(void) {
 
 /*
  * Error prefix/suffix
- * - SMT2 wants errors to be printed as 
+ * - SMT2 wants errors to be printed as
  *        (error "explanation")
  *   on the current output channel
  * - start_error(l, c) prints '(error "at line x, column y: '
@@ -586,10 +586,10 @@ static void print_error(const char *format, ...) {
 
 /*
  * Syntax error (reported by tstack)
- * - lex = lexer 
+ * - lex = lexer
  * - expected_token = either an smt2_token or -1
  *
- * lex is as follows: 
+ * lex is as follows:
  * - current_token(lex) = token that caused the error
  * - current_token_value(lex) = corresponding string
  * - current_token_length(lex) = length of that string
@@ -641,7 +641,7 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
   case SMT2_TK_ERROR:
     print_out("invalid token %s", tkval(lex));
     break;
-    
+
   default:
     if (expected_token >= 0) {
       print_out("syntax error: %s expected", smt2_token_to_string(expected_token));
@@ -691,7 +691,7 @@ static void print_yices_error(bool full) {
     print_out("maximal polynomial degree exceeded");
     break;
   case DIVISION_BY_ZERO:
-    print_out("division by zero");    
+    print_out("division by zero");
     break;
   case POS_INT_REQUIRED:
     print_out("integer argument must be positive");
@@ -811,7 +811,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   NULL,                                 // TSTACK_NEGATIVE_EXPONENT
   "integer required",                   // TSTACK_NOT_AN_INTEGER
   "string required",                    // TSTACK_NOT_A_STRING
-  "symbol required",                    // TSTACK_NOT_A_SYMBOL 
+  "symbol required",                    // TSTACK_NOT_A_SYMBOL
   "numeral required",                   // TSTACK_NOT_A_RATIONAL
   "sort required",                      // TSTACK_NOT_A_TYPE
   "error in arithmetic operation",      // TSTACK_ARITH_ERROR
@@ -937,7 +937,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "bvslt",                // MK_BV_SLT
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
-  // 
+  //
   "exit",                 // SMT2_EXIT
   "end of file",          // SMT2_SILENT_EXIT
   "get-assertions",       // SMT2_GET_ASSERTIONS
@@ -1013,7 +1013,7 @@ static bool symbol_needs_quotes(const char *s) {
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
  *
- * Error location in the input file is given by 
+ * Error location in the input file is given by
  * - tstack->error_loc.line
  * - tstack->error_loc.column
  *
@@ -1028,7 +1028,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_OP_NOT_IMPLEMENTED:
     print_out("operation %s not implemented", opcode_string[tstack->error_op]);
     break;
-    
+
   case TSTACK_UNDEF_TERM:
   case TSTACK_UNDEF_TYPE:
   case TSTACK_UNDEF_MACRO:
@@ -1041,9 +1041,9 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case SMT2_SYMBOL_NOT_IDX_SORT:
   case SMT2_SYMBOL_NOT_SORT_OP:
   case SMT2_SYMBOL_NOT_IDX_SORT_OP:
-  case SMT2_SYMBOL_NOT_TERM: 
+  case SMT2_SYMBOL_NOT_TERM:
   case SMT2_SYMBOL_NOT_IDX_TERM:
-  case SMT2_SYMBOL_NOT_FUNCTION: 
+  case SMT2_SYMBOL_NOT_FUNCTION:
   case SMT2_SYMBOL_NOT_IDX_FUNCTION:
   case SMT2_UNDEF_IDX_SORT:
   case SMT2_UNDEF_IDX_SORT_OP:
@@ -1092,7 +1092,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_STRINGS_ARE_NOT_TERMS:
     print_out("%s: \"%s\"", exception_string[exception], tstack->error_string);
     break;
-	      
+
   case TSTACK_YICES_ERROR:
     // TODO: extract mode information from yices_error_report();
     print_out("in %s: ", opcode_string[tstack->error_op]);
@@ -1191,7 +1191,7 @@ static void show_simplex_stats(simplex_solver_t *solver) {
   print_out(" :simplex-pivots %"PRIu32"\n", simplex_num_pivots(solver));
   print_out(" :simplex-conflicts %"PRIu32"\n", simplex_num_conflicts(solver));
   print_out(" :simplex-interface-lemmas %"PRIu32"\n", simplex_num_interface_lemmas(solver));
-  if (simplex_num_make_integer_feasible(solver) > 0 || 
+  if (simplex_num_make_integer_feasible(solver) > 0 ||
       simplex_num_dioph_checks(solver) > 0) {
     print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
     print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
@@ -1365,7 +1365,7 @@ static void update_trace_verbosity(smt2_globals_t *g) {
 
 /*
  * Initialize pretty printer object to use the output channel
- */ 
+ */
 static void init_pretty_printer(yices_pp_t *printer, smt2_globals_t *g) {
   init_yices_pp(printer, g->out, &g->pp_area, PP_VMODE, 0);
 }
@@ -1419,7 +1419,7 @@ static void delete_info_table(smt2_globals_t *g) {
 
 
 /*
- * Add info: 
+ * Add info:
  * - name = keyword
  * - val = attribute value (in g->avtbl)
  * - if there's info for name already, we overwrite it
@@ -1469,7 +1469,7 @@ static bool has_info(smt2_globals_t *g, const char *name, aval_t *val) {
  */
 
 /*
- * Check whether v is a boolean. 
+ * Check whether v is a boolean.
  * If so copy its value in *result, otherwise leave result unchanged
  */
 static bool aval_is_boolean(attr_vtbl_t *avtbl, aval_t v, bool *result) {
@@ -1534,10 +1534,10 @@ static void set_uint32_option(smt2_globals_t *g, const char *name, aval_t value,
   if (aval_is_rational(g->avtbl, value, &aux) && q_is_integer(&aux)) {
     if (q_is_neg(&aux)) {
       print_error("option %s must be non-negative", name);
-    } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX){ 
+    } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX){
       assert(x >= 0);
       *result = (uint32_t) x;
-      report_success();      
+      report_success();
     } else {
       print_error("integer overflow: value must be at most %"PRIu32, UINT32_MAX);
     }
@@ -1565,7 +1565,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
       if (f == NULL) {
 	print_error("can't open file %s", file_name);
 	return;
-      } 
+      }
     }
     close_output_file(g);
     // change out_name
@@ -1577,7 +1577,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
     report_success();
   } else {
     print_error("option %s requires a string value", name);
-  }  
+  }
 }
 
 
@@ -1598,7 +1598,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
       if (f == NULL) {
 	print_error("can't open file %s", file_name);
 	return;
-      } 
+      }
     }
     close_error_file(g);
     // change name
@@ -1611,7 +1611,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
     report_success();
   } else {
     print_error("option %s requires a string value", name);
-  }  
+  }
 }
 
 
@@ -1652,10 +1652,10 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
  */
 
 /*
- * Print pair (keyword, value) 
+ * Print pair (keyword, value)
  */
 static void print_kw_string_pair(const char *keyword, const char *value) {
-  print_out("(%s \"%s\")\n", keyword, value);  
+  print_out("(%s \"%s\")\n", keyword, value);
 }
 
 static void print_kw_symbol_pair(const char *keyword, const char *value) {
@@ -1676,7 +1676,7 @@ static void print_kw_uint32_pair(const char *keyword, uint32_t value) {
 /*
  * Print attribute values
  */
-static void print_aval(smt2_globals_t *g, aval_t val); 
+static void print_aval(smt2_globals_t *g, aval_t val);
 
 static void print_aval_list(smt2_globals_t *g, attr_list_t *d) {
   uint32_t i, n;
@@ -1739,7 +1739,7 @@ static void print_aval(smt2_globals_t *g, aval_t val) {
 
   case ATTR_DELETED:
     report_bug(g->err);
-    break;    
+    break;
   }
 }
 
@@ -1910,7 +1910,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   qflag = logic2qflag[g->logic_code];
 
   if (! g->benchmark_mode) {
-    // change mode and arch 
+    // change mode and arch
     // to support push/pop, we can't use the Floyd-Warshall solvers
     mode = CTX_MODE_PUSHPOP;
     if (arch == CTX_ARCH_AUTO_RDL || arch == CTX_ARCH_AUTO_IDL) {
@@ -2154,10 +2154,10 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     print_out("sat\n");
   } else {
     /*
-     * check for mislabeled benchmarks: some benchmarks 
+     * check for mislabeled benchmarks: some benchmarks
      * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
      */
-    if (g->benchmark_mode && g->logic_code == QF_UFIDL && 
+    if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
 	!has_uf(g->assertions.data, g->assertions.size)) {
       fprintf(g->err, "Warning: switching logic to QF_IDL\n");
       g->logic_code = QF_IDL;
@@ -2176,7 +2176,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     if (g->random_seed != 0) {
       parameters.random_seed = g->random_seed;
     }
-    
+
     status = check_context(g->ctx, &parameters);
     switch (status) {
     case STATUS_UNKNOWN:
@@ -2285,7 +2285,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
  */
 static void ctx_check_sat(smt2_globals_t *g) {
   smt_status_t stat;
-  
+
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
   stat = context_status(g->ctx);
@@ -2400,7 +2400,7 @@ static void ctx_pop(smt2_globals_t *g) {
  * Try to construct the model of the current set of assertions
  * - return NULL and print an error if the context status is neither
  *   SAT nor UNKNOWN
- * 
+ *
  * In non-interactive mode: there may not be a context at this point.
  */
 static model_t *get_model(smt2_globals_t *g) {
@@ -2475,7 +2475,7 @@ static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue
  *   where expr[i] is an valid start index in token_queue
  * - the corresponding values as in v[0 ... n-1]
  */
-static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, 
+static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue,
 				  int32_t *expr, value_t *v, uint32_t n) {
   uint32_t i;
   value_t x, u;
@@ -2615,14 +2615,14 @@ static void show_assignment(smt2_globals_t *g) {
       print_trivial_assignment(&printer, &g->named_bools);
       delete_yices_pp(&printer, true);
     }
-    
+
   } else {
     switch (context_status(g->ctx)) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
       init_pretty_printer(&printer, g);
       print_assignment(&printer, g->ctx, &g->named_bools);
-      delete_yices_pp(&printer, true);      
+      delete_yices_pp(&printer, true);
       break;
 
     case STATUS_UNSAT:
@@ -2632,13 +2632,13 @@ static void show_assignment(smt2_globals_t *g) {
     case STATUS_IDLE:
       print_error("can't build the assignment. Call (check-sat) first");
       break;
-      
+
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
     default:
       print_out("BUG: unexpected context status");
       report_bug(__smt2_globals.err);
-      break;      
+      break;
     }
   }
 }
@@ -2692,9 +2692,9 @@ static void check_stack(smt2_globals_t *g) {
   if (g->ctx != NULL) {
     stack = &g->stack;
     // check that stack->levels is correct
-    sum = 0; 
+    sum = 0;
     for (i=0; i<stack->top; i++) {
-      sum += stack->data[i].multiplicity;      
+      sum += stack->data[i].multiplicity;
     }
     if (sum != stack->levels) {
       print_error("Invalid stack: levels don't match");
@@ -2760,7 +2760,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
       case STATUS_UNSAT:
 	print_error("the context is unsatisfiable");
 	break;
-	
+
       case STATUS_IDLE:
 	print_error("can't tell until you call (check-sat)");
 	break;
@@ -2821,7 +2821,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_etk_queue(&g->token_queue);
   init_ivector(&g->token_slices, 0);
   init_ivector(&g->val_vector, 0);
-  
+
   // print area for get-value
   //  g->pp_area.width = 120;
   g->pp_area.width = 160;
@@ -2880,7 +2880,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
  * Initialize all internal structures
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
  *   (i.e., a set of assertions followed by a single call to check-sat)
- *   In this mode, 
+ *   In this mode,
  *   - destructive simplifications are allowed.
  *   - push/pop are not supported
  *   - assert can't be used after (check-sat)
@@ -2971,16 +2971,16 @@ void smt2_get_assertions(void) {
 
 
 /*
- * Show the truth value of named Boolean terms 
+ * Show the truth value of named Boolean terms
  * (i.e., those that have a :named attribute)
- * 
+ *
  * Note: the standard says that we should report an error if
  * :produce-assignments is false. We ignore this requirement.
  */
 void smt2_get_assignment(void) {
   __smt2_globals.stats.num_get_assignment ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12, 
+  tprintf(__smt2_globals.tracer, 12,
 	  "\n(get-assignment: %"PRIu32" calls)\n", __smt2_globals.stats.num_get_assignment);
 
   if (check_logic()) {
@@ -2993,7 +2993,7 @@ void smt2_get_assignment(void) {
  * Show a proof when context is unsat
  */
 void smt2_get_proof(void) {
-  if (check_logic()) { 
+  if (check_logic()) {
     print_error("get-proof is not supported");
   }
 }
@@ -3034,7 +3034,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
     // make sure we have a model
     mdl = get_model(&__smt2_globals);
     if (mdl == NULL) return;
-    
+
     // evaluate all terms: store the values in values->data[0 ... n-1]
     values = &__smt2_globals.val_vector;
     evaluate_term_values(mdl, a, n, values);
@@ -3047,7 +3047,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
     assert(slices->size == n);
 
     init_pretty_printer(&printer, &__smt2_globals);
-    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);    
+    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
     delete_yices_pp(&printer, true);
     vtbl_empty_queue(&mdl->vtbl); // cleanup the internal queue
     ivector_reset(slices);
@@ -3094,8 +3094,8 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRINT_SUCCESS:
     print_kw_boolean_pair(name, g->print_success);
     break;
-    
-  case SMT2_KW_PRODUCE_MODELS: 
+
+  case SMT2_KW_PRODUCE_MODELS:
     print_kw_boolean_pair(name, g->produce_models);
     break;
 
@@ -3139,7 +3139,7 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRODUCE_UNSAT_CORES:
   default:
     unsupported_option();
-    break;   
+    break;
   }
 
   flush_out();
@@ -3330,13 +3330,13 @@ void smt2_set_logic(const char *name) {
   string_incref(__smt2_globals.logic_name);
 
   /*
-   * In incremental mode: initialize the context   
+   * In incremental mode: initialize the context
    */
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
   }
-  
+
   report_success();
 }
 
@@ -3344,7 +3344,7 @@ void smt2_set_logic(const char *name) {
 
 
 /*
- * Push 
+ * Push
  * - n = number of scopes to push
  * - if n = 0, nothing should be done
  */
@@ -3353,7 +3353,7 @@ void smt2_push(uint32_t n) {
 
   __smt2_globals.stats.num_push ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12, 
+  tprintf(__smt2_globals.tracer, 12,
 	  "\n(push: %"PRIu32" calls)\n", __smt2_globals.stats.num_push);
 
   if (check_logic()) {
@@ -3400,7 +3400,7 @@ void smt2_pop(uint32_t n) {
       print_error("pop is not allowed in non-incremental mode");
     } else if (n == 0) {
       // do nothing
-      report_success(); 
+      report_success();
     } else {
       g = &__smt2_globals;
       if (n > g->stack.levels) {
@@ -3425,7 +3425,7 @@ void smt2_pop(uint32_t n) {
 	  // remove the named booleans and named assertions
 	  pop_named_terms(&g->named_bools, r->named_bools);
 	  pop_named_terms(&g->named_asserts, r->named_asserts);
-	  
+
 	  // pop on g->ctx
 	  ctx_pop(g);
 	  smt2_stack_pop(&g->stack);
@@ -3491,11 +3491,11 @@ void smt2_check_sat(void) {
   __smt2_globals.stats.num_commands ++;
   tprintf(__smt2_globals.tracer, 8,
 	  "\n(check-sat: %"PRIu32" calls)\n", __smt2_globals.stats.num_check_sat);
-  
+
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");	
+	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
 	// PROVISIONAL
 	//	show_delayed_assertions(&__smt2_globals);
@@ -3564,7 +3564,7 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
     if (n == 0) {
       yices_set_type_name(body, name);
       save_type_name(&__smt2_globals, name);
-      report_success();      
+      report_success();
     } else {
       macro = yices_type_macro(name, n, var, body);
       if (macro < 0) {
@@ -3585,8 +3585,8 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
  * - tau = array of n types
  *
  * If n = 1, this creates an uninterpreted constant of type tau[0]
- * Otherwise, this creates an uninterpreted function of type 
- * tau[0] x ... x tau[n-1] to tau[n] 
+ * Otherwise, this creates an uninterpreted function of type
+ * tau[0] x ... x tau[n-1] to tau[n]
  */
 void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
   term_t t;
@@ -3644,7 +3644,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
     }
 
     /*
-     * because of the annoying :named annotation 
+     * because of the annoying :named annotation
      * the name could be assigned now (even though
      * it was not when (define name ...)) was processed
      */
@@ -3693,7 +3693,7 @@ void smt2_get_model(void) {
     init_pretty_printer(&printer, &__smt2_globals);
     smt2_pp_full_model(&printer, mdl);
     delete_yices_pp(&printer, true);
-  }		       
+  }
 }
 
 
@@ -3752,7 +3752,7 @@ void smt2_reset(void) {
 
       // build a fresh empty context
       init_smt2_context(g);
-      
+
       report_success();
     }
   }
@@ -3773,7 +3773,7 @@ void smt2_reset(void) {
 void smt2_add_name(int32_t op, term_t t, const char *name) {
   char *clone;
 
-  // add the mapping name --> t 
+  // add the mapping name --> t
   yices_set_term_name(t, name);
   save_term_name(&__smt2_globals, name);
 

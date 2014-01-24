@@ -21,7 +21,7 @@
  * - rational   (for  <numeral> or  <decimal>)
  * - a bitvector constant (<hexadecimal> or <binary>)
  * - a string (for <string>, <symbol>, and <keyword>)
- * - a non-empty list of attribute values. 
+ * - a non-empty list of attribute values.
  *
  * We store them in a table, and use integer indices
  * to refer to them. Index -1  denotes nil.
@@ -69,7 +69,7 @@ typedef union {
  * Table:
  * - array of tags + descriptors + ref counter
  * - deleted elements are marked with ATTR_DELETED
- *   then the descriptor is used as an index = successor 
+ *   then the descriptor is used as an index = successor
  *   in the free list
  */
 typedef struct attr_vtbl_s {

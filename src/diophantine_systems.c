@@ -130,7 +130,7 @@ static void reset_column(dcolumn_t *c) {
 
 /*
  * Search for an element with r_idx == i in the column
- * - return the index k of that element if it's found 
+ * - return the index k of that element if it's found
  * - return -1 otherwise
  */
 static int32_t find_row(dcolumn_t *c, int32_t i) {
@@ -192,7 +192,7 @@ static inline rational_t *active_coeff(dcolumn_t *c) {
  * modifying the last element. This is done using the following operations.
  */
 
-/* 
+/*
  * Add coefficient c[i] := a at the end of the column and make i the active row
  * - i must be larger than all other row indices in c
  * - return the updated column
@@ -221,7 +221,7 @@ static dcolumn_t *column_new_row_elem(dcolumn_t *c, rational_t *a, int32_t i) {
 
 /*
  * Add constant a to c[i]: create c[i] if there's no such row in the column
- * otherwise add a to c[i] 
+ * otherwise add a to c[i]
  * - c must have an active element with r_idx == i
  * - return the updated column
  */
@@ -277,7 +277,7 @@ static void column_mul_row_elem(dcolumn_t *c, rational_t *a) {
 
 /*
  * Remove the active coefficient
- * - the active coefficient must be zero and must be 
+ * - the active coefficient must be zero and must be
  *   the last element in the column
  * - this removes the last element of the column
  * - it also resets the active index to -1
@@ -316,7 +316,7 @@ static dcolumn_t *column_add_unit(dcolumn_t *c, int32_t i, int32_t k) {
   c->data[n].r_idx = i;
   c->data[n].r_ptr = k;
   q_set_one(&c->data[n].coeff);
-  
+
   n ++;
   c->data[n].r_idx = max_idx;
   c->nelems = n;
@@ -337,7 +337,7 @@ static void column_reduce_factor(rational_t *a, dcolumn_t *c1, dcolumn_t *c2) {
 
 #if 0
   printf("---> column_reduce_factor: (row = %"PRIu32")\n", active_row(c1));
-  printf("   act[c1] = "); 
+  printf("   act[c1] = ");
   q_print(stdout, active_coeff(c1));
   printf("\n");
   printf("   act[c2] = ");
@@ -372,9 +372,9 @@ static void negate_column(dcolumn_t *c) {
 
 /*
  * Compute d := c1 - a * c2
- * - d must be empty 
+ * - d must be empty
  * - a must be non-zero (and should be an integer)
- * - if c1 has an active row i and that row does not cancel out, then 
+ * - if c1 has an active row i and that row does not cancel out, then
  *   i is also set as active row in d
  * - d's variable is copied from c1's variable
  * - return the updated d
@@ -415,8 +415,8 @@ static dcolumn_t *column_submul(dcolumn_t *d, dcolumn_t *c1, rational_t *a, dcol
       e2 ++;
       i1 = e1->r_idx;
       i2 = e2->r_idx;
-      if (q_is_zero(&d->data[k].coeff)) continue; 
-       
+      if (q_is_zero(&d->data[k].coeff)) continue;
+
     } else if (i1 < i2) {
       // d[k] := [row i1, e1->coeff]
       d->data[k].r_idx = i1;
@@ -447,11 +447,11 @@ static dcolumn_t *column_submul(dcolumn_t *d, dcolumn_t *c1, rational_t *a, dcol
   return d;
 }
 
- 
+
 /*
  * Special case: compute d := c1 - c2
- * - d must be empty 
- * - if c1 has an active row i and that row does not cancel out, then 
+ * - d must be empty
+ * - if c1 has an active row i and that row does not cancel out, then
  *   it's also set as active row in d
  * - c1's variable is copied into d's variable
  * - return the updated d
@@ -492,8 +492,8 @@ static dcolumn_t *column_sub(dcolumn_t *d, dcolumn_t *c1, dcolumn_t *c2) {
       e2 ++;
       i1 = e1->r_idx;
       i2 = e2->r_idx;
-      if (q_is_zero(&d->data[k].coeff)) continue; 
-       
+      if (q_is_zero(&d->data[k].coeff)) continue;
+
     } else if (i1 < i2) {
       // d[k] := [row i1, e1->coeff]
       d->data[k].r_idx = i1;
@@ -655,7 +655,7 @@ static bool active_columns_compare(dcolumn_t *c1, dcolumn_t *c2) {
  *   (i.e., row i has fewer non-zero elements than row j)
  */
 static bool active_rows_compare(dsolver_t *solver, int32_t i, int32_t j) {
-  assert(0 <= i && i < solver->nrows && 0 <= j && j < solver->nrows && 
+  assert(0 <= i && i < solver->nrows && 0 <= j && j < solver->nrows &&
          solver->row[i] != NULL && solver->row[j] != NULL);
   return ibag_nelems(solver->row[i]) < ibag_nelems(solver->row[j]);
 }
@@ -708,7 +708,7 @@ void init_dsolver(dsolver_t *solver, uint32_t n, uint32_t m, uint32_t p) {
   // auxiliary structures
   init_elim_vector(&solver->elim, 0);
   solver->solved_columns = NULL;
-  init_ptr_heap(&solver->active_columns, 0, (ptr_heap_cmp_fun_t) active_columns_compare); 
+  init_ptr_heap(&solver->active_columns, 0, (ptr_heap_cmp_fun_t) active_columns_compare);
   init_generic_heap(&solver->rows_to_process, 0, 0, (heap_cmp_fun_t) active_rows_compare, solver);
 
   q_init(&solver->reduce_factor);
@@ -738,7 +738,7 @@ static void flush_column_heap(ptr_heap_t *heap) {
 
   while (! ptr_heap_is_empty(heap)) {
     c = ptr_heap_get_elem(heap);
-    delete_column(c);    
+    delete_column(c);
   }
 }
 
@@ -824,7 +824,7 @@ void reset_dsolver(dsolver_t *solver) {
   }
 
   if (solver->aux_heap != NULL) {
-    reset_int_heap2(solver->aux_heap);    
+    reset_int_heap2(solver->aux_heap);
   }
 
 
@@ -929,7 +929,7 @@ void delete_dsolver(dsolver_t *solver) {
   }
 
   if (solver->aux_heap != NULL) {
-    delete_int_heap2(solver->aux_heap);    
+    delete_int_heap2(solver->aux_heap);
     safe_free(solver->aux_heap);
     solver->aux_heap = NULL;
   }
@@ -963,7 +963,7 @@ static void dsolver_increase_row_size(dsolver_t *solver) {
   if (n >= MAX_DSOLVER_RSIZE) {
     out_of_memory();
   }
-  
+
   solver->rsize = n;
   solver->row_id = (int32_t *) safe_realloc(solver->row_id, n * sizeof(int32_t));
   solver->row = (int32_t **) safe_realloc(solver->row, n * sizeof(int32_t *));
@@ -1125,7 +1125,7 @@ void dsolver_row_add_mono(dsolver_t *solver, rational_t *a, int32_t x) {
 
     // add c_idx in aux_vector
     ivector_push(&solver->aux_vector, c_idx);
-    
+
   } else {
     assert(c_idx < solver->ncolumns);
     c = solver->column[c_idx];
@@ -1135,7 +1135,7 @@ void dsolver_row_add_mono(dsolver_t *solver, rational_t *a, int32_t x) {
     }
     solver->column[c_idx] = column_add_row_elem(c, a, i);;
   }
-  
+
 }
 
 
@@ -1177,7 +1177,7 @@ static void dsolver_remove_zeros(dsolver_t *solver) {
   dcolumn_t *c;
   uint32_t i, j, n;
   int32_t c_idx;
-  
+
   assert(solver->active_row >= 0 && solver->active_row == solver->nrows - 1);
 
   v = &solver->aux_vector;
@@ -1233,7 +1233,7 @@ static void dsolver_scale_new_row(dsolver_t *solver, rational_t *d) {
  * Add the active row to the matrix. If i is the active row index,
  * then row[i] is initialized here by copying the aux_vector content.
  * - set the r_ptr indices in each column's active element
- * - reset the active pointers 
+ * - reset the active pointers
  */
 static void dsolver_store_new_row(dsolver_t *solver) {
   ivector_t *v;
@@ -1263,17 +1263,17 @@ static void dsolver_store_new_row(dsolver_t *solver) {
     assert(active_row(c) == solver->active_row && q_is_nonzero(active_coeff(c)));
     c->active = -1;
   }
-  
+
   ivector_reset(v);
   solver->active_row = -1;
 }
 
 
 /*
- * Normalize the new row: 
+ * Normalize the new row:
  * - the row is a[0]/b[0] x_0 + ... + a[n]/b[n] x_n + b = 0
  * - a[0] ... a[n] must be non-zero
- * - compute L = lcm(b[0], ..., b[n]) and D = gcd(a[0],...,a[n]) 
+ * - compute L = lcm(b[0], ..., b[n]) and D = gcd(a[0],...,a[n])
  * - then multiply everything by L/D, including b
  */
 static void dsolver_normalize_new_row(dsolver_t *solver) {
@@ -1286,15 +1286,15 @@ static void dsolver_normalize_new_row(dsolver_t *solver) {
   assert(solver->active_row >= 0 && solver->status < DSOLVER_SIMPLIFIED);
 
   // v = all columns present in the new row
-  v = &solver->aux_vector; 
+  v = &solver->aux_vector;
   n = v->size;
   assert(n > 0);
-  
+
   // first column
   c_idx = v->data[0];
   c = solver->column[c_idx];
   assert(q_is_nonzero(active_coeff(c)));
-  
+
   l = &solver->lcm;
   d = &solver->gcd;
   aux = &solver->reduce_factor;
@@ -1309,7 +1309,7 @@ static void dsolver_normalize_new_row(dsolver_t *solver) {
       assert(q_is_nonzero(active_coeff(c)));
       q_get_num(aux, active_coeff(c));
       q_gcd(d, aux);
-    }    
+    }
 
   } else {
 
@@ -1326,7 +1326,7 @@ static void dsolver_normalize_new_row(dsolver_t *solver) {
     }
   }
 
-  // multiply the whole row by (L/D) 
+  // multiply the whole row by (L/D)
   // both l and d are positive
   q_div(l, d);
   if (! q_is_one(l)) {
@@ -1338,7 +1338,7 @@ static void dsolver_normalize_new_row(dsolver_t *solver) {
 
 
 /*
- * Close: 
+ * Close:
  * - normalize then add the new row
  * - apply the GCD test
  */
@@ -1413,7 +1413,7 @@ bool dsolver_row_close(dsolver_t *solver) {
 /*
  * During simplification, we clear individual coefficients in a column.
  * After all simplifications are done, we cleanup the columns by removing
- * the zero elements. 
+ * the zero elements.
  *
  * HACK: during simplification, we use c->active as a counter to store
  * the number of non-zero coefficient in column c.
@@ -1434,7 +1434,7 @@ static void remove_cleared_elements(dcolumn_t *c) {
     for (j=0; j<n; j++) {
       if (q_is_nonzero(&e[j].coeff)) {
         if (k < j) {
-          // copy c->data[j] into c->data[k]    
+          // copy c->data[j] into c->data[k]
           q_copy_and_clear(&e[k].coeff, &e[j].coeff);
           e[k].r_idx = e[j].r_idx;
           e[k].r_ptr = e[j].r_ptr;
@@ -1464,7 +1464,7 @@ static bool column_can_be_eliminated(dcolumn_t *c) {
 
   if (c->active == 1) {
     i = 0;
-    while (q_is_zero(&c->data[i].coeff)) { 
+    while (q_is_zero(&c->data[i].coeff)) {
       i ++;
       assert(i < c->nelems);
     }
@@ -1478,7 +1478,7 @@ static bool column_can_be_eliminated(dcolumn_t *c) {
 
 /*
  * Eliminate column c and a row r
- * - add to the queue all columns that can be eliminated as a result of 
+ * - add to the queue all columns that can be eliminated as a result of
  *   removing row r.
  * - build an elimination record [x := p] for the eliminated variable x == c->var
  */
@@ -1518,7 +1518,7 @@ static void eliminate_column(dsolver_t *solver, dcolumn_t *c, ptr_queue_t *queue
 
     r = c->data[j].r_idx; // row to eliminate
     j = c->data[j].r_ptr; // row[r][j] = column index for c
-    row = solver->row[r];  
+    row = solver->row[r];
     assert(row != NULL && 0 <= j && j < ibag_size(row));
 
     /*
@@ -1540,13 +1540,13 @@ static void eliminate_column(dsolver_t *solver, dcolumn_t *c, ptr_queue_t *queue
       // copy the constant in p and remove it from the constant column
       p = alloc_raw_polynomial(n);
       p->mono[0].var = const_idx;
-      q_copy_and_clear(&p->mono[0].coeff, &d->data[k].coeff);      
+      q_copy_and_clear(&p->mono[0].coeff, &d->data[k].coeff);
       d->active --;
       t = 1;
     } else {
       // no constant part in the p
-      p = alloc_raw_polynomial(n - 1); // to keep the substitution 
-      t = 0; 
+      p = alloc_raw_polynomial(n - 1); // to keep the substitution
+      t = 0;
     }
 
     // scan the row, copy its content into p->mono[t ... p->nterms - 1]
@@ -1616,10 +1616,10 @@ static void eliminate_column(dsolver_t *solver, dcolumn_t *c, ptr_queue_t *queue
  * - nrows, nvars, ncolumns are unchanged
  * - if column i is removed then solver->column[i] is replaced by NULL
  * - if row j is removed then solver->row[j] is replaced by NULL
- * - there may be other rows with solver->row[j] = NULL (if the user adds 
+ * - there may be other rows with solver->row[j] = NULL (if the user adds
  *   empty rows to the matrix)
- * - an elim record is constructed for each eliminated variable x (i.e., 
- *   eliminated column) and solver->sol_row[x] = the index of that 
+ * - an elim record is constructed for each eliminated variable x (i.e.,
+ *   eliminated column) and solver->sol_row[x] = the index of that
  *   elimination record.
  */
 void dsolver_simplify(dsolver_t *solver) {
@@ -1631,7 +1631,7 @@ void dsolver_simplify(dsolver_t *solver) {
 
   init_ptr_queue(&queue, 0);
 
-  /* 
+  /*
    * Collect the columns to eliminate
    */
   n = solver->ncolumns;
@@ -1647,7 +1647,7 @@ void dsolver_simplify(dsolver_t *solver) {
   c->active = c->nelems; // use c->active as a counter
 
 
-  /* 
+  /*
    * process the queue
    */
   while (! ptr_queue_is_empty(&queue)) {
@@ -1656,7 +1656,7 @@ void dsolver_simplify(dsolver_t *solver) {
   }
 
 
-  /* 
+  /*
    * Cleanup the columns that are left.
    * NOTE: some columns may be zero but we keep them.
    * They represent unconstrained variables.
@@ -1667,7 +1667,7 @@ void dsolver_simplify(dsolver_t *solver) {
       remove_cleared_elements(c);
     }
   }
-  
+
   /*
    * Cleanup the constant column
    */
@@ -1705,14 +1705,14 @@ static void dsolver_rosser_init(dsolver_t *solver) {
   n = solver->nrows;
 
   // initialize the counters (we must do this before adding the identity matrix)
-  solver->main_rows = n; 
-  solver->nsolved = 0;   
+  solver->main_rows = n;
+  solver->nsolved = 0;
 
   // collect the rows to process
   for (i=0; i<n; i++) {
     row = solver->row[i];
-    /* 
-     * Invariant we expect here: if the row is NULL then it does not 
+    /*
+     * Invariant we expect here: if the row is NULL then it does not
      * occur in the constant vector. Otherwise, the solver status should
      * be trivially unsat.
      */
@@ -1939,7 +1939,7 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
 
 /*
  * Process row r
- * - return true if the constant for row r can be reduced to 0 
+ * - return true if the constant for row r can be reduced to 0
  * - return false otherwise (means the whole system is unsat)
  */
 static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
@@ -1954,7 +1954,7 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
 #endif
 
   row = solver->row[r];
-  assert(row != NULL && ptr_heap_is_empty(&solver->active_columns) && 
+  assert(row != NULL && ptr_heap_is_empty(&solver->active_columns) &&
          solver->aux_vector.size == 0);
 
   solver->num_process_rows ++;
@@ -1991,7 +1991,7 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
 #endif
 
 
-  /* 
+  /*
    * Check whether the constant is zero after reduction
    */
   c = solver->constant_column;
@@ -2011,7 +2011,7 @@ bool dsolver_is_feasible(dsolver_t *solver) {
   generic_heap_t *to_process;
   int32_t i;
   uint32_t loops;
-  
+
   assert(solver->status == DSOLVER_READY || solver->status == DSOLVER_SIMPLIFIED);
   dsolver_rosser_init(solver);
 
@@ -2024,7 +2024,7 @@ bool dsolver_is_feasible(dsolver_t *solver) {
   dsolver_print_status(stdout, solver);
   printf("nvars = %"PRIu32"\n", solver->nvars);
   printf("ncolumns = %"PRIu32"\n", solver->ncolumns);
-  printf("number of eliminated rows = %"PRIu32"\n", solver->elim.nelems);  
+  printf("number of eliminated rows = %"PRIu32"\n", solver->elim.nelems);
 #endif
 
   solver->num_process_rows = 0;
@@ -2076,7 +2076,7 @@ bool dsolver_is_feasible(dsolver_t *solver) {
  */
 static void alloc_base_solutions(dsolver_t *solver) {
   rational_t *a;
-  uint32_t i, n;  
+  uint32_t i, n;
 
   assert(solver->base_sol == NULL);
 
@@ -2093,7 +2093,7 @@ static void alloc_base_solutions(dsolver_t *solver) {
 
 
 /*
- * Set the base solution for all non-eliminated variables 
+ * Set the base solution for all non-eliminated variables
  */
 static void dsolver_build_base_sol_row(dsolver_t *solver) {
   dcolumn_t *c;
@@ -2190,7 +2190,7 @@ static void alloc_general_solutions(dsolver_t *solver) {
 
 
 /*
- * Allocate the param_id array and assign a parameter index to 
+ * Allocate the param_id array and assign a parameter index to
  * each non NULL column. Also set num_params.
  */
 static void init_parameter_indices(dsolver_t *solver) {
@@ -2231,7 +2231,7 @@ static polynomial_t *dsolver_gen_sol_row(dsolver_t *solver, int32_t r) {
   row = solver->row[r];
   n = ibag_nelems(row);
 
-  /* 
+  /*
    * check whether the constant for row r is nonzero
    * and allocate a polynomial of the right size
    */
@@ -2325,7 +2325,7 @@ static void dsolver_build_gen_sol_elim(dsolver_t *solver) {
       x = v->data[n].var;
       solver->gen_sol[x] = dsolver_subst_gen_sol(solver, v->data[n].poly, &buffer);
     } while (n > 0);
-    delete_poly_buffer(&buffer);    
+    delete_poly_buffer(&buffer);
   }
 }
 
@@ -2353,9 +2353,9 @@ void dsolver_build_general_solution(dsolver_t *solver) {
 
 /*
  * The solved part of the matrix (defined by nsolved and array solved_columns)
- * is in echelon form. The algorithm essentially builds (then solve) a 
+ * is in echelon form. The algorithm essentially builds (then solve) a
  * triangular system of equations:
- * 
+ *
  *   a_11 x_1 + b_1 = 0
  *   a_21 x_1 + a_22 x_2 + b_2 = 0
  *    ...
@@ -2367,26 +2367,26 @@ void dsolver_build_general_solution(dsolver_t *solver) {
  *    ....
  *   x_k := - b_k/a_kk - a_k1/a_kk x_1 - a_k2/a_kk x_2 ....
  *
- * Rosser's algorithm applies these substitutions in the forward order from 
- * row 1 to row (k-1).  Row k is unsat because the right-hand side expression in the 
+ * Rosser's algorithm applies these substitutions in the forward order from
+ * row 1 to row (k-1).  Row k is unsat because the right-hand side expression in the
  * last row reduces to a non-integer constant after the substitutions are applied.
  *
  * To generate a minimal explanation, we search for a subset of the substitutions
- * that are enough to reduce  
+ * that are enough to reduce
  *    - b_k/a_kk - a_k1/a_kk x_1 - a_k2/a_kk x_2 ... - a_k{k-1}/a_kk x_{k-1}
- * to a constant. For example, the first substitution may be ignored if 
- * x_1 cancels out after applying other substitutions. 
+ * to a constant. For example, the first substitution may be ignored if
+ * x_1 cancels out after applying other substitutions.
  *
- * All this is equivalent to finding a set of substitutions that reduce 
+ * All this is equivalent to finding a set of substitutions that reduce
  *      a_k1 x_1 + a_k2 x_2 + ... + a_k{k-1} x_{k-1}
  * to a constant, i.e., b_k and a_kk can be ignored.
- * We do this by applying the substitutions backward as needed, 
+ * We do this by applying the substitutions backward as needed,
  * from row (k-1) to row 1:
  * - start with E_0 = a_k1 x_1 + ... + a_k{k-1} x_{k-1}.
- * - if a_k{k-1} is non-zero, 
+ * - if a_k{k-1} is non-zero,
  *     row (k-1) must be  part of the explanation
- *     we replace x_{k-1} by the right hand-side of row k-1, 
- *     this gives a new expression E_1 in variables x_1, ..., x_{k-2}. 
+ *     we replace x_{k-1} by the right hand-side of row k-1,
+ *     this gives a new expression E_1 in variables x_1, ..., x_{k-2}.
  * - if a_k{k-1} is zero,
  *     row (k-1) is not part of the explanation
  *     we set E_1 = E_0
@@ -2396,7 +2396,7 @@ void dsolver_build_general_solution(dsolver_t *solver) {
  * Other trick: the exact values of the constant b_1, ..., b_{k-1} are not relevant,
  * which is good because they are not available in the solver when the explanation
  * is generated.
- */ 
+ */
 
 
 /*
@@ -2422,7 +2422,7 @@ static bool solved_column_compare(void *data, int32_t i, int32_t j) {
  * Allocate and initialize the aux_heap and aux_buffer
  * - do nothing if they already exist
  */
-static void dsolver_prepare_for_explanation(dsolver_t *solver) {  
+static void dsolver_prepare_for_explanation(dsolver_t *solver) {
   if (solver->aux_buffer == NULL) {
     solver->aux_buffer = (poly_buffer_t *) safe_malloc(sizeof(poly_buffer_t));
     init_poly_buffer(solver->aux_buffer);
@@ -2476,8 +2476,8 @@ static void dsolver_expl_store_unsat_row(dsolver_t *solver) {
 
 /*
  * Apply the substitution induced by solved column j to aux_buffer
- * - column has an active element (a, i) 
- * - then row i is of the form 
+ * - column has an active element (a, i)
+ * - then row i is of the form
  *      a_1 x_1 + ... + a_n x_n
  *   and x_n does not occur in rows i-1, i-2, ..., 0.
  * - the corresponding substitution is
@@ -2501,17 +2501,17 @@ static int32_t dsolver_expl_apply_row_subst(dsolver_t *solver, int32_t j) {
   heap = solver->aux_heap;
   factor = &solver->reduce_factor;
 
-  poly_buffer_copy_var_coeff(buffer, factor, j); // coeff of x_n in buffer 
+  poly_buffer_copy_var_coeff(buffer, factor, j); // coeff of x_n in buffer
   q_div(factor, active_coeff(c));               // factor = (c/a_n)
 
   poly_buffer_clear_monomial(buffer, j);   // clear coeff of x_n in buffer
 
 
   /*
-   * TODO: check whether factor is 1 or -1 and use cheaper operations  
+   * TODO: check whether factor is 1 or -1 and use cheaper operations
    */
 
-  // rest of row i = elements of index i in solved columns 0 ... j-1 
+  // rest of row i = elements of index i in solved columns 0 ... j-1
   for (l=0; l<j; l++) {
     c = solver->solved_columns[l];
     k = find_row(c, i);
@@ -2543,10 +2543,10 @@ static void dsolver_build_unsat_set(dsolver_t *solver, ivector_t *v) {
     // this should not happen, but it's safe to check anyway
     return;
   }
-  
+
   dsolver_prepare_for_explanation(solver);
   heap = solver->aux_heap;
-  int_heap2_reset_order(heap, solved_column_compare, NULL);  
+  int_heap2_reset_order(heap, solved_column_compare, NULL);
   dsolver_expl_store_unsat_row(solver);
   buffer = solver->aux_buffer;
 
@@ -2612,12 +2612,12 @@ static inline void ivector_push_elim_row(dsolver_t *solver, ivector_t *v, int32_
 /*
  * To apply the substitutions defined by the elimination records, we
  * use aux_buffer and aux_heap, but we use a different ordering for
- * aux_heap: 
+ * aux_heap:
  * - x is before y in this ordering if sol_row[x] < sol_row[y]
  */
 static bool elim_var_compare(dsolver_t *solver, int32_t x, int32_t y) {
-  assert(0 <= x && x < solver->nvars && 0 <= y && y < solver->nvars 
-         && 0 <= solver->sol_row[x] && solver->sol_row[x] < solver->main_rows 
+  assert(0 <= x && x < solver->nvars && 0 <= y && y < solver->nvars
+         && 0 <= solver->sol_row[x] && solver->sol_row[x] < solver->main_rows
          && 0 <= solver->sol_row[y] && solver->sol_row[y] < solver->main_rows);
   return solver->sol_row[x] < solver->sol_row[y];
 }
@@ -2709,8 +2709,8 @@ static int32_t dsolver_expl_eliminate_variable(dsolver_t *solver, int32_t x) {
  * First phase of explanation for variables that have been eliminated
  * during simplification. Construct a polynomial from elimination
  * record i, then apply substitution until that polynomial does not
- * contain any variable that can be eliminated.  
- * - i = index of the original elimination record 
+ * contain any variable that can be eliminated.
+ * - i = index of the original elimination record
  * - the resulting polynomial is stored in solver->aux_buffer2
  *   and solver->aux_buffer2 is normalized.
  * - the row id of every substitution applied is added to vector v
@@ -2767,7 +2767,7 @@ static void dsolver_expl_addmul_row(dsolver_t *solver, rational_t *a, int32_t i)
 
 
 /*
- * Second phase of explanation: collect eliminated columns 
+ * Second phase of explanation: collect eliminated columns
  * - aux_buffer2 must be normalized and contain a polynomial in variables x_1, ..., x_n
  * - a substitution for x_j is defined by sol_row[x_j] = one row of the unimodular matrix U
  * - that row is of the form a_1 c_1 + ... + a_n c_n where c_1, ..., c_n are column indices
@@ -2797,7 +2797,7 @@ static void dsolver_expl_collect_solved_columns(dsolver_t *solver) {
 
 /*
  * Store the eliminated columns of row i into aux_buffer
- * - row is interpreted as a linear expression in variables i_1 ... i_m 
+ * - row is interpreted as a linear expression in variables i_1 ... i_m
  *   (same as the column indices)
  * - every variable i_j is added to solver->aux_heap
  */

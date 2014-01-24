@@ -1,5 +1,5 @@
 /*
- * Test of object construction 
+ * Test of object construction
  */
 
 #include <stdint.h>
@@ -19,7 +19,7 @@ static value_table_t vtbl;
 /*
  * Base types
  */
-static type_t bools; 
+static type_t bools;
 static type_t reals;
 static type_t bv5;
 static type_t bv100;
@@ -50,7 +50,7 @@ static void init_tables(void) {
   aux[0] = bools;
   aux[1] = bools;
   bool_funs = function_type(&types, bools, 2, aux);
-  
+
 }
 
 

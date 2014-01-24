@@ -305,7 +305,7 @@ harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, int32_t *a) {
   }
 
  found:
-  return p;  
+  return p;
 }
 
 

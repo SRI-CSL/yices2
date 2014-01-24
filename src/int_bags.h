@@ -14,7 +14,7 @@
 
 
 /*
- * Header: 
+ * Header:
  * - cap = size of the array data
  * - size = elements in the array that are used
  * - nelems = number of elements in the array
@@ -24,7 +24,7 @@
  * - the free list is implemented using negative integers:
  * - if free = -1 then the free list is empty
  *   otherwise let k = free with sign bit cleared then
- *   k = index of the first list element in data and 
+ *   k = index of the first list element in data and
  *   data[k] encodes the next index in the same way
  */
 typedef struct int_bag_s {
@@ -86,7 +86,7 @@ static inline void ibag_delete(int32_t *v) {
 
 
 /*
- * Empty vector v 
+ * Empty vector v
  */
 extern void ibag_reset(int32_t *v);
 

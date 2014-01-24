@@ -69,7 +69,7 @@ extern void delete_trace(tracer_t *tracer);
 /*
  * Output functions:
  * - if tracer is NULL, they do nothing
- * - otherwise, they print stuff to tracer->file provided 
+ * - otherwise, they print stuff to tracer->file provided
  *   tracer->vlevel >= level
  * - both tprintf and tputs call fflush
  *
@@ -101,7 +101,7 @@ extern void tnewline(tracer_t *trace, uint32_t level);
 
 /*
  * Pretty printing:
- * - the tracer->pp object is created and initialized on the 
+ * - the tracer->pp object is created and initialized on the
  *   first call to one of these functions (provided tracer->vlevle >= level)
  */
 

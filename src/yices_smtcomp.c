@@ -99,7 +99,7 @@ static double start_search_time, search_time;
  * Conversion of status code in the benchmark header
  */
 static const char * const status2string[] = {
-  "none", "unsat", "sat", "unknown",  
+  "none", "unsat", "sat", "unknown",
 };
 
 
@@ -107,7 +107,7 @@ static const char * const status2string[] = {
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error", 
+  "no error",
   "internal error",
   "type error",
   "formula contains free variables",
@@ -266,7 +266,7 @@ static char *filename;
 typedef enum optid {
   show_version_opt,           // print version and exit
   print_help_opt,             // print help and exit
-  simple_model_opt,           // print the model if SAT  
+  simple_model_opt,           // print the model if SAT
   full_model_opt,             // full model
   verbose_opt,                // output during search
 #if SHOW_STATISTICS
@@ -304,7 +304,7 @@ static void print_version(void) {
 	 "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
          "Platform: %s (%s)\n",
-         yices_version, gmp_version, 
+         yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode);
   fflush(stdout);
 }
@@ -331,7 +331,7 @@ static void yices_help(char *progname) {
  */
 static void yices_usage(char *progname) {
   fprintf(stderr, "Usage: %s [options] filename\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 /*
@@ -566,20 +566,20 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "Egraph: ");
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       if (params.use_dyn_ack) {
-        fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32, 
+        fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32,
                 params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
       }
       if (params.use_bool_dyn_ack) {
-        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32, 
+        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32,
                 params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
       }
-      fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio); 
+      fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio);
     }
     fprintf(f, " --max-interface-eqs=%"PRIu32"\n", params.max_interface_eqs);
   }
 
   if (context_has_fun_solver(ctx)) {
-    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n", 
+    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n",
             params.max_update_conflicts, params.max_extensionality);
   }
 
@@ -635,7 +635,7 @@ static void show_stats(dpll_stats_t *stat) {
   fprintf(stderr, " reduce db               : %"PRIu32"\n", stat->reduce_calls);
   fprintf(stderr, " decisions               : %"PRIu64"\n", stat->decisions);
   fprintf(stderr, " random decisions        : %"PRIu64"\n", stat->random_decisions);
-  fprintf(stderr, " propagations            : %"PRIu64"\n", stat->propagations);  
+  fprintf(stderr, " propagations            : %"PRIu64"\n", stat->propagations);
   fprintf(stderr, " conflicts               : %"PRIu64"\n", stat->conflicts);
   fprintf(stderr, " theory propagations     : %"PRIu32"\n", stat->th_props);
   fprintf(stderr, " propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
@@ -648,7 +648,7 @@ static void show_stats(dpll_stats_t *stat) {
   fprintf(stderr, " subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   fprintf(stderr, " deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   fprintf(stderr, " deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  fprintf(stderr, " deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
+  fprintf(stderr, " deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
 
@@ -690,7 +690,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
   fprintf(stderr, " init. variables         : %"PRIu32"\n", stat->num_init_vars);
   fprintf(stderr, " init. rows              : %"PRIu32"\n", stat->num_init_rows);
   fprintf(stderr, " init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  fprintf(stderr, " end atoms               : %"PRIu32"\n", stat->num_end_atoms);  
+  fprintf(stderr, " end atoms               : %"PRIu32"\n", stat->num_end_atoms);
   fprintf(stderr, " elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
   fprintf(stderr, " elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
   fprintf(stderr, " fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
@@ -764,7 +764,7 @@ static void print_results() {
     show_stats(&core->stats);
     fprintf(stderr, " boolean variables       : %"PRIu32"\n", core->nvars);
     fprintf(stderr, " atoms                   : %"PRIu32"\n", core->atoms.natoms);
-  
+
     egraph = context.egraph;
     if (egraph != NULL) {
       show_egraph_stats(&egraph->stats);
@@ -852,7 +852,7 @@ static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     printf("unsat\n");
-    //    printf("Assertions simplify to false\n\n"); 
+    //    printf("Assertions simplify to false\n\n");
   } else if (code < 0) {
     printf("unknown\n");
     code = - code;
@@ -951,7 +951,7 @@ static void clear_handler(void) {
   signal(SIGABRT, SIG_IGN);
 #ifndef MINGW
   signal(SIGXCPU, SIG_IGN);
-#endif  
+#endif
 }
 
 
@@ -1004,11 +1004,11 @@ static int process_benchmark(void) {
   // no command line option so read from stdin
   init_smt_stdin_lexer(&lexer);
 #endif
-  
+
   // initialize the signal handler
   context_exists = false;
   init_handler();
-  
+
   /*
    * Parse and build the formula
    */
@@ -1098,7 +1098,7 @@ static int process_benchmark(void) {
     params.tclause_size = 12;
     break;
 
-  case CTX_ARCH_SPLX: 
+  case CTX_ARCH_SPLX:
     // options: --flatten --theory-branching --cache-tclauses --arith-elim --var-elim
     enable_variable_elimination(&context);
     enable_arith_elimination(&context);
@@ -1123,19 +1123,19 @@ static int process_benchmark(void) {
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;
-    params.c_factor = 1.1;  
-    params.d_factor = 1.1; 
+    params.c_factor = 1.1;
+    params.d_factor = 1.1;
     params.randomness = 0.0;
     // EXPERIMENT: faster restarts
     params.c_factor = 1.05;
     params.d_factor = 1.05;
     break;
 
-  case CTX_ARCH_EGFUN:        // egraph+array/function theory 
+  case CTX_ARCH_EGFUN:        // egraph+array/function theory
     enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
     break;
-    
+
   case CTX_ARCH_EGSPLX:       // egraph+simplex
   case CTX_ARCH_EGFUNSPLX:    // egraph+fun+simplex
     enable_variable_elimination(&context);
@@ -1171,7 +1171,7 @@ static int process_benchmark(void) {
     enable_bvarith_elimination(&context);
     params.fast_restart = true;
     params.c_factor = 1.1;
-    params.d_factor = 1.1; 
+    params.d_factor = 1.1;
     params.randomness = 0.0;
     params.max_interface_eqs = 15;
     // TESTING: 2012/09/13
@@ -1294,7 +1294,7 @@ static int process_benchmark(void) {
       }
       printf("\n");
 #if CHECK_MODEL
-      check_model(stdout, &bench, model);      
+      check_model(stdout, &bench, model);
 #endif
       delete_model(model);
       safe_free(model);
@@ -1302,10 +1302,10 @@ static int process_benchmark(void) {
 
 #else
     /*
-     * no command-line options: 
+     * no command-line options:
      */
 #if SHOW_STATISTICS
-    start_search_time = get_cpu_time();    
+    start_search_time = get_cpu_time();
 #endif
     code = check_context(&context, &params);
     clear_handler();

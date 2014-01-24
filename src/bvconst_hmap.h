@@ -2,7 +2,7 @@
  * Hash map to store the bitvector constant value
  * mapped to bitvector variables.
  * - keys are non-negative 32bit integers
- * - values are either 64bit unsigned integers or pointers to 
+ * - values are either 64bit unsigned integers or pointers to
  *   arrays of uint32_t words
  * - there's no support for deleting records (except full reset)
  *
@@ -86,8 +86,8 @@ extern void reset_bvconst_hmap(bvconst_hmap_t *hmap);
  * - n = number of bits (must be between 1 and 64)
  * - c is normalized then copied as value of x
  *
- * If x has a pointer value before (i.e., more than 64bits), 
- * that valued is freed. 
+ * If x has a pointer value before (i.e., more than 64bits),
+ * that valued is freed.
  */
 extern void bvconst_hmap_set_val64(bvconst_hmap_t *hmap, int32_t x, uint64_t c, uint32_t n);
 

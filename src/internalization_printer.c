@@ -21,11 +21,11 @@ static void print_intern_code(FILE *f, int32_t x, type_table_t *types, type_t ta
   if (! code_is_valid(x)) {
     fprintf(f, "code %"PRId32, x);
   } else if (code_is_eterm(x)) {
-    print_occurrence(f, code2occ(x));    
+    print_occurrence(f, code2occ(x));
   } else {
     assert(code_is_var(x));
     if (is_boolean_type(tau)) {
-      print_literal(f, code2literal(x));      
+      print_literal(f, code2literal(x));
     } else if (is_integer_type(tau)) {
       fprintf(f, "i!%"PRId32, code2thvar(x));
     } else if (is_real_type(tau)) {

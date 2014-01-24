@@ -18,7 +18,7 @@
 double get_cpu_time(void) {
   static struct rusage ru_buffer;
   getrusage(RUSAGE_SELF, &ru_buffer);
-  return ru_buffer.ru_utime.tv_sec + ru_buffer.ru_stime.tv_sec 
+  return ru_buffer.ru_utime.tv_sec + ru_buffer.ru_stime.tv_sec
     + (ru_buffer.ru_utime.tv_usec + ru_buffer.ru_stime.tv_usec) * 1e-6;
 }
 

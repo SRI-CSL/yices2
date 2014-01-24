@@ -83,7 +83,7 @@ extern strmap_rec_t *strmap_find(strmap_t *hmap, const char *key);
 
 /*
  * Find or create a record with the given key
- * - if the table contains a record with that key, 
+ * - if the table contains a record with that key,
  *   it's returned and is_new is set to  false.
  * - otherwise, a new record is added with the given key
  *   and value = 0. (A copy of the string key is made)

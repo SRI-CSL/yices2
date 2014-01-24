@@ -33,7 +33,7 @@
 #endif
 
 
-#if DUMP 
+#if DUMP
 
 static void bv_solver_dump_state(bv_solver_t *solver, const char *filename);
 
@@ -51,7 +51,7 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename);
 static void init_bv_bound_queue(bv_bound_queue_t *queue) {
   queue->data = NULL;
   queue->top = 0;
-  queue->size = 0;  
+  queue->size = 0;
   queue->bound = NULL;
   queue->bsize = 0;
 }
@@ -342,7 +342,7 @@ static void bv_queue_extend(bv_queue_t *queue) {
     n = DEF_BV_QUEUE_SIZE;
     assert(n > 0 && n <= MAX_BV_QUEUE_SIZE && queue->data == NULL);
   } else {
-    n += (n >> 1); // 50% large   
+    n += (n >> 1); // 50% large
     assert(n > queue->size);
     if (n > MAX_BV_QUEUE_SIZE) {
       out_of_memory();
@@ -418,7 +418,7 @@ static void init_bv_trail(bv_trail_stack_t *stack) {
  * - nd = number of delayed variables
  * - bb = bitblast pointer
  */
-static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb, 
+static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb,
                           uint32_t ns, uint32_t nd, uint32_t bb) {
   uint32_t i, n;
 
@@ -520,7 +520,7 @@ static inline void reset_bv_stats(bv_stats_t *s) {
  * - the top-level marked variables include:
  *   all variables that occur in atoms
  *   all variables (x, y) such that x := y in the merge table
- *   all variables x that occur in (bit-select x i) 
+ *   all variables x that occur in (bit-select x i)
  */
 static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x);
 
@@ -701,11 +701,11 @@ static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
  */
 static literal_t bvconst64_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
   literal_t l;
-  
+
   l = false_literal;
   if (tst_bit64(bvvar_val64(vtbl, x), i)) {
     l= true_literal;
-  } 
+  }
 
   return l;
 }
@@ -740,7 +740,7 @@ static literal_t bvarray_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
 
 
 /*
- * Extract bit i of variable x: 
+ * Extract bit i of variable x:
  * - get it from the pseudo literal array mapped to x
  * - also add x to solver->select_queue
  */
@@ -752,7 +752,7 @@ static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
   map = select_bvvar_get_pseudo_map(solver, x);
 
   rmap = solver->remap;
-  r = remap_table_find_root(rmap, map[i]); // r := root of map[i] 
+  r = remap_table_find_root(rmap, map[i]); // r := root of map[i]
   l = remap_table_find(rmap, r);           // l := real literal for r
   if (l == null_literal) {
     // nothing attached to r: create a new literal and attach it to r
@@ -940,7 +940,7 @@ static literal_t *bvconst64_get_pseudo_map(uint64_t c, uint32_t n) {
   return a;
 }
 
-static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {  
+static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {
   literal_t *a;
   uint32_t i;
 
@@ -955,7 +955,7 @@ static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {
 
 
 /*
- * Pseudo-literal array mapped to an array of literals a 
+ * Pseudo-literal array mapped to an array of literals a
  * - n = number of literals in a
  */
 static literal_t *bvarray_get_pseudo_map(remap_table_t *rmap, literal_t *a, uint32_t n) {
@@ -1014,7 +1014,7 @@ static literal_t *bvvar_simple_pseudo_map(bv_solver_t *solver, thvar_t x) {
 /*
  * Assert that pseudo literals s1 and s2 are equal
  * - attempt to merge their equivalence classes in the remap table first
- * - if that's not possible, assert (l1 == l2) in the core 
+ * - if that's not possible, assert (l1 == l2) in the core
  *   where l1 = literal mapped to s1
  *     and l2 = literal mapped to s2
  * - return false if s1 == not s2
@@ -1074,7 +1074,7 @@ static bool merge_pseudo_maps2(bv_solver_t *solver, thvar_t x, thvar_t y) {
   literal_t *mx, *my;
   uint32_t n;
 
-  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y) 
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y)
          && x != y && solver->remap != NULL && solver->blaster != NULL);
 
   mx = bvvar_simple_pseudo_map(solver, x);
@@ -1099,7 +1099,7 @@ static bool merge_pseudo_maps2(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
 
   return true;
-} 
+}
 
 
 // merge the maps of x, y, and z
@@ -1224,7 +1224,7 @@ static bool bv_solver_make_shared_pseudo_maps(bv_solver_t *solver) {
 
 
 /*
- * Return the pseudo-map of x 
+ * Return the pseudo-map of x
  * - replace x by its root in the merge table
  * - allocated a fresh pseudo map if x doesn't have one already
  */
@@ -1233,7 +1233,7 @@ static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
   literal_t *tmp;
 
   assert(solver->remap != NULL);
-  
+
   vtbl = &solver->vtbl;
 
   x = mtbl_get_root(&solver->mtbl, x);
@@ -1256,7 +1256,7 @@ static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
     case BVTAG_POLY64:
     case BVTAG_POLY:
     case BVTAG_PPROD:
-      x = bvvar_compiles_to(solver->compiler, x); 
+      x = bvvar_compiles_to(solver->compiler, x);
       assert(x != null_thvar); // fall-through intended
     default:
       tmp = remap_table_fresh_array(solver->remap, bvvar_bitsize(vtbl, x));
@@ -1275,7 +1275,7 @@ static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
  * - a, b must be fully-defined arrays of n literals
  * - u must be an array of n pseudo literals
  */
-static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, literal_t *a, literal_t *b, 
+static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, literal_t *a, literal_t *b,
                                   literal_t *u, uint32_t n) {
   switch (op) {
   case BVTAG_ADD:
@@ -1299,7 +1299,7 @@ static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, litera
   case BVTAG_ASHR:
     bit_blaster_make_ashift_right(blaster, a, b, u, n);
     break;
- 
+
   default:
     assert(false);
   }
@@ -1317,7 +1317,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
                                      literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
   bv_vartable_t *vtbl;
   literal_t *v;
-  thvar_t z;  
+  thvar_t z;
 
   vtbl = &solver->vtbl;
   v = NULL;
@@ -1336,7 +1336,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
     if (z != null_thvar) {
       v = bvvar_pseudo_map(solver, z);
     }
-    bit_blaster_make_udivision(solver->blaster, a, b, v, u, n);    
+    bit_blaster_make_udivision(solver->blaster, a, b, v, u, n);
     break;
 
   case BVTAG_SDIV:
@@ -1472,11 +1472,11 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       case BVTAG_BIT_ARRAY:
         // nothing to do: u is complete
         break;
-        
+
       case BVTAG_POLY64:
       case BVTAG_POLY:
       case BVTAG_PPROD:
-        // replace x 
+        // replace x
         y = bvvar_compiles_to(solver->compiler, x);
         assert(y != null_thvar);
         bv_solver_bitblast_variable(solver, y);
@@ -1587,7 +1587,7 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
     y = atbl->data[i].right;
 
     /*
-     * NOTE: checking for redundant disequalities here 
+     * NOTE: checking for redundant disequalities here
      * (using bounds_imply_diseq) does not help
      */
 
@@ -1662,18 +1662,18 @@ static void bv_solver_bitblast_variables(bv_solver_t *solver) {
   bv_queue_t *squeue;
   uint32_t i, n;
   thvar_t x;
-      
+
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
   for (i=1; i<n; i++) {
     x = mtbl_get_root(&solver->mtbl, i);
     if (x != i) {
       bv_solver_bitblast_variable(solver, x);
-      bv_solver_bitblast_variable(solver, i);      
+      bv_solver_bitblast_variable(solver, i);
     } else if (bvvar_has_eterm(vtbl, i)) {
       bv_solver_bitblast_variable(solver, i);
     }
-  }  
+  }
 
   squeue = &solver->select_queue;
   n = squeue->top;
@@ -1796,7 +1796,7 @@ static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) 
  */
 static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
-  
+
   a = bvatom_desc(&solver->atbl, i);
   return is_constant(&solver->vtbl, a->left) || is_constant(&solver->vtbl, a->right);
 }
@@ -1808,7 +1808,7 @@ static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
 static thvar_t bound_atom_var(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
   thvar_t x;
-  
+
   a = bvatom_desc(&solver->atbl, i);
   x = a->left;
   if (is_constant(&solver->vtbl, x)) {
@@ -1866,7 +1866,7 @@ static void push_bvsge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 /*
- * Same thing for (eq x y) 
+ * Same thing for (eq x y)
  */
 static void push_bvdiseq_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
   int32_t i;
@@ -1935,7 +1935,7 @@ static bool bound_is_ub(bv_solver_t *solver, thvar_t x, int32_t i) {
   assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
   a = bvatom_desc(&solver->atbl, i);
   if (bvatm_is_ge(a)) {
-    // either (bvge x c) or (bvge c x) 
+    // either (bvge x c) or (bvge c x)
     return (x == a->left && lit_is_false(solver->core, a->lit)) // (bvge x c) is false so x <= c-1
       || (x == a->right && lit_is_true(solver->core, a->lit));  // (bvge c x) is true so  x <= c
   }
@@ -1950,7 +1950,7 @@ static bool bound_is_lb(bv_solver_t *solver, thvar_t x, int32_t i) {
   assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
   a = bvatom_desc(&solver->atbl, i);
   if (bvatm_is_ge(a)) {
-    // either (bvge x c) or (bvge c x) 
+    // either (bvge x c) or (bvge c x)
     return (x == a->left && lit_is_true(solver->core, a->lit))  // (bvge x c) is true so x >= c
       || (x == a->right && lit_is_false(solver->core, a->lit)); // (bvge c x) is false so x >= c+1
   }
@@ -1965,7 +1965,7 @@ static bool bound_is_signed_ub(bv_solver_t *solver, thvar_t x, int32_t i) {
   assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
   a = bvatom_desc(&solver->atbl, i);
   if (bvatm_is_sge(a)) {
-    // either (bvsge x c) or (bvsge c x) 
+    // either (bvsge x c) or (bvsge c x)
     return (x == a->left && lit_is_false(solver->core, a->lit)) // (bvge x c) is false so x <= c-1
       || (x == a->right && lit_is_true(solver->core, a->lit));  // (bvge c x) is true so  x <= c
   }
@@ -1980,7 +1980,7 @@ static bool bound_is_signed_lb(bv_solver_t *solver, thvar_t x, int32_t i) {
   assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
   a = bvatom_desc(&solver->atbl, i);
   if (bvatm_is_sge(a)) {
-    // either (bvsge x c) or (bvsge c x) 
+    // either (bvsge x c) or (bvsge c x)
     return (x == a->left && lit_is_true(solver->core, a->lit))  // (bvsge x c) is true so x >= c
       || (x == a->right && lit_is_false(solver->core, a->lit)); // (bvsge c x) is false so x >= c+1
   }
@@ -2036,7 +2036,7 @@ static uint64_t get_lower_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
   a = bvatom_desc(&solver->atbl, i);
   if (x == a->left) {
     //(bvge x c) true: x >= c
-    c = bvvar_val64(&solver->vtbl, a->right); 
+    c = bvvar_val64(&solver->vtbl, a->right);
   } else {
     // (bvge c x) false: x >= c+1
     assert(x == a->right);
@@ -2433,7 +2433,7 @@ static thvar_t bvvar_root_if_const(bv_solver_t *solver, thvar_t x) {
 /*
  * Check whether x is equal to 0b0000...
  */
-static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {  
+static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {
   uint32_t n, k;
 
   switch (bvvar_tag(vtbl, x)) {
@@ -2454,7 +2454,7 @@ static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {
 /*
  * Check whether x is equal to 0b1111...
  */
-static bool bvvar_is_minus_one(bv_vartable_t *vtbl, thvar_t x) {  
+static bool bvvar_is_minus_one(bv_vartable_t *vtbl, thvar_t x) {
   uint32_t n;
 
   switch (bvvar_tag(vtbl, x)) {
@@ -2567,7 +2567,7 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
   vtbl = &solver->vtbl;
 
   *a0 = 0; // otherwise GCC gives a bogus warning
-  
+
   n = p->nterms;
   nbits = p->bitsize;
   u = null_thvar;
@@ -2598,7 +2598,7 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
       // p has more than one non-constant term
       return false;
     }
-    i ++;    
+    i ++;
   }
 
   // store the result
@@ -2737,7 +2737,7 @@ static void simplify_buffer_eq(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t 
     x = bvpoly_buffer_var(b, 0);
     y = bvpoly_buffer_var(b, 1);
     if (x == const_idx) {
-      if (bvconst_is_one(a1, w)) { 
+      if (bvconst_is_one(a1, w)) {
         // p is a0 + y
         *vx = y;
         *vy = get_opp_bvconst(solver, a0, nbits);
@@ -3124,7 +3124,7 @@ static void bvpoly64_bounds_u(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv
     x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
     bvvar_bounds_u64(solver, x, nbits, d, &aux);
     bv64_interval_addmul_u(intv, &aux, p->mono[i].coeff);
-    if (bv64_interval_is_triv_u(intv)) break;      
+    if (bv64_interval_is_triv_u(intv)) break;
     i ++;
   }
 }
@@ -3151,7 +3151,7 @@ static void bvpoly64_bounds_s(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv
     x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
     bvvar_bounds_s64(solver, x, nbits, d, &aux);
     bv64_interval_addmul_s(intv, &aux, p->mono[i].coeff);
-    if (bv64_interval_is_triv_s(intv)) break;      
+    if (bv64_interval_is_triv_s(intv)) break;
     i ++;
   }
 }
@@ -3175,7 +3175,7 @@ static void bvpoly_bounds_u(bv_solver_t *solver, bvpoly_t *p, uint32_t d, bv_int
   aux = get_bv_interval(&solver->intv_stack);
   if (aux == NULL) {
     // no buffer available: return [0b000.., 0b11...]
-    bv_triv_interval_u(intv, n);    
+    bv_triv_interval_u(intv, n);
   } else {
 
     buffers = get_bv_aux_buffers(&solver->intv_stack);
@@ -3214,7 +3214,7 @@ static void bvpoly_bounds_s(bv_solver_t *solver, bvpoly_t *p, uint32_t d, bv_int
   aux = get_bv_interval(&solver->intv_stack);
   if (aux == NULL) {
     // no buffer available: return [0b100.., 0b011...]
-    bv_triv_interval_s(intv, n);    
+    bv_triv_interval_s(intv, n);
   } else {
 
     buffers = get_bv_aux_buffers(&solver->intv_stack);
@@ -3265,7 +3265,7 @@ static void bvurem64_bounds_u(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv
       // 0 <= (bvurem x y) <= b-1
       intv->high = norm64(b-1, n);
     }
-  }  
+  }
 }
 
 static void bvurem_bounds_u(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_interval_t *intv) {
@@ -3396,7 +3396,7 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
 
 
   /*
-   * Check for better bounds in the bound queue 
+   * Check for better bounds in the bound queue
    *
    * Note: if an asserted lower bound on c is greater than intv->high
    * then the constraints are unsat (but this will be detected later).
@@ -3424,12 +3424,12 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 1 <= n && n <= 64);
 
-  tag_x = bvvar_tag(vtbl, x);  
+  tag_x = bvvar_tag(vtbl, x);
 
   if (tag_x == BVTAG_CONST64) {
     bv64_point_interval(intv, bvvar_val64(vtbl, x), n);
     return;
-  } 
+  }
 
   if (tag_x == BVTAG_BIT_ARRAY) {
     bitarray_bounds_signed64(bvvar_bvarray_def(vtbl, x), n, intv);
@@ -3441,11 +3441,11 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
     // default bounds
     bv64_triv_interval_s(intv, n);
   }
-  
+
   /*
    * Check for better bounds in the queue
    */
-  if (bvvar_has_signed_lower_bound64(solver, x, &c) && signed64_gt(c, intv->low, n) && 
+  if (bvvar_has_signed_lower_bound64(solver, x, &c) && signed64_gt(c, intv->low, n) &&
       signed64_le(c, intv->high, n)) {
     intv->low = c;
   }
@@ -3495,7 +3495,7 @@ static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
    */
   c = &solver->aux1;
 
-  if (bvvar_has_lower_bound(solver, x, n, c) && 
+  if (bvvar_has_lower_bound(solver, x, n, c) &&
       bvconst_gt(c->data, intv->low, n) &&
       bvconst_le(c->data, intv->high, n)) {
     // c: lower bound on x with c <= intv->high and c > intv->low
@@ -3548,7 +3548,7 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
    */
   c = &solver->aux1;
 
-  if (bvvar_has_signed_lower_bound(solver, x, n, c) && 
+  if (bvvar_has_signed_lower_bound(solver, x, n, c) &&
       bvconst_sgt(c->data, intv->low, n) &&
       bvconst_sle(c->data, intv->high, n)) {
     // c: lower bound on x with c <= intv->high and c > intv->low
@@ -3668,7 +3668,7 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (n <= 64) {
     code = check_bvuge64_core(solver, x, y, n);
-    
+
   } else {
     code = check_bvuge_core(solver, x, y, n);
   }
@@ -3752,7 +3752,7 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
 
   if (x == y) return BVTEST_TRUE;
-  
+
   n = bvvar_bitsize(&solver->vtbl, x);
 
   if (n <= 64) {
@@ -3774,7 +3774,7 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
  * Check whether two bitarrays a and b are distinct
  * - n = size of both arrays
  * - return true if a and b can't be equal, false if we don't know
- * - for now, this returns true if there's an 
+ * - for now, this returns true if there's an
  *   index i such that a[i] = not b[i]
  */
 static bool diseq_bitarrays(literal_t *a, literal_t *b, uint32_t n) {
@@ -3804,7 +3804,7 @@ static bool diseq_bitarray_const64(literal_t *a, uint64_t c, uint32_t n) {
    * So (bit i of c) == a[i] implies a != c
    */
   assert(true_literal == 0 && false_literal == 1);
-  
+
   for (i=0; i<n; i++) {
     if (((int32_t) (c & 1)) == a[i]) {
       return true;
@@ -3812,7 +3812,7 @@ static bool diseq_bitarray_const64(literal_t *a, uint64_t c, uint32_t n) {
     c >>= 1;
   }
 
-  return false;  
+  return false;
 }
 
 
@@ -3857,7 +3857,7 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
 
   while (d > 0) {
     /*
-     * In this loop, we rewrite (x != c) to 
+     * In this loop, we rewrite (x != c) to
      * true or false, or to an equivalent disequality (x' != c')
      */
 
@@ -3881,7 +3881,7 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
           // x is equal to c0
           return (c0 != c);
         } else if (a0 == 1) {
-          // x is equal to c0 + t 
+          // x is equal to c0 + t
           // so (x != c) is equivalent to (t != c - c0);
           x = t;
           c = norm64(c - c0, n);
@@ -3925,7 +3925,7 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
 
   while (d > 0) {
     /*
-     * In this loop, we rewrite (x != c) to 
+     * In this loop, we rewrite (x != c) to
      * true or false, or to an equivalent disequality (x' != c')
      */
 
@@ -3952,12 +3952,12 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
           // x is equal to c0
           return bvconst_neq(c0->data, c->data, c->width);
         } else if (bvconstant_is_one(a0)) {
-          // x is equal to c0 + t 
+          // x is equal to c0 + t
           // so (x != c) is equivalent to (t != c - c0);
           x = t;
           // compute c := c - c0
           bvconst_sub(c->data, c->width, c0->data);
-          bvconstant_normalize(c);  
+          bvconstant_normalize(c);
           continue;
         } else if (bvconstant_is_minus_one(a0)) {
           // x is equal to c0 - t
@@ -3968,7 +3968,7 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
           bvconst_negate(c->data, c->width);
           bvconstant_normalize(c);
           continue;
-        }         
+        }
       }
 
       /*
@@ -4020,9 +4020,9 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
 
     if (tag_x == BVTAG_POLY64 && tag_y == BVTAG_POLY64) {
-      return disequal_bvpoly64(bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y));      
+      return disequal_bvpoly64(bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y));
     }
-    
+
     if (tag_x == BVTAG_BIT_ARRAY && tag_y == BVTAG_BIT_ARRAY) {
       return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
     }
@@ -4034,19 +4034,19 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
     if (tag_y == BVTAG_POLY64 && tag_x != BVTAG_CONST64) {
       return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, y), x);
     }
-    
+
   } else {
 
     // More than 64bits
     if (tag_x == BVTAG_CONST) {
       c = &solver->aux1;
-      bvconstant_copy(c, n, bvvar_val(vtbl, x)); 
+      bvconstant_copy(c, n, bvvar_val(vtbl, x));
       return diseq_bvvar_const(solver, y, c, n, MAX_DISEQ_RECUR_DEPTH);
     }
 
     if (tag_y == BVTAG_CONST) {
       c = &solver->aux1;
-      bvconstant_copy(c, n, bvvar_val(vtbl, y)); 
+      bvconstant_copy(c, n, bvvar_val(vtbl, y));
       return diseq_bvvar_const(solver, x, c, n, MAX_DISEQ_RECUR_DEPTH);
     }
 
@@ -4065,9 +4065,9 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
     if (tag_y == BVTAG_POLY && tag_x != BVTAG_CONST) {
       return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, y), x);
     }
-      
+
   }
-  
+
   return false;
 }
 
@@ -4081,11 +4081,11 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
  * Check disequalities using asserted bounds
  * - x and y are variables
  * - n = number of bits
- * - return true if x and y 
+ * - return true if x and y
  */
 static bool diseq_bvvar_by_bounds64(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
   bv64_interval_t intv_x, intv_y;
-  
+
   assert(1 <= n && n <= 64);
 
   bvvar_bounds_u64(solver, x, n, MAX_RECUR_DEPTH, &intv_x);  // intv_x.low <= x <= intv_x.high
@@ -4133,7 +4133,7 @@ static bool diseq_bvvar_by_bounds(bv_solver_t *solver, thvar_t x, thvar_t y, uin
 
   release_all_bv_intervals(&solver->intv_stack);
 
-  return result;  
+  return result;
 }
 
 
@@ -4148,7 +4148,7 @@ static bool bounds_imply_diseq(bv_solver_t *solver, thvar_t x, thvar_t y) {
     return diseq_bvvar_by_bounds64(solver, x, y, n);
   } else {
     return diseq_bvvar_by_bounds(solver, x, y, n);
-  } 
+  }
 }
 
 
@@ -4193,7 +4193,7 @@ static void bvbuffer_add_mono(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x
 
 
 /*
- * Check whether a polynomial (after expansion) is equal to a constant or 
+ * Check whether a polynomial (after expansion) is equal to a constant or
  * an existing variable.
  * - the expanded poly is stored in *b (as a list of monomials)
  * - b must be normalized
@@ -4281,10 +4281,10 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
   nbits = bvpoly_buffer_bitsize(b);
 
   /*
-   * Check whether p is a constant or of the form 1. x 
+   * Check whether p is a constant or of the form 1. x
    */
   if (n == 0) {
-    // return the constant 0b000...0 
+    // return the constant 0b000...0
     bvconstant_set_all_zero(&solver->aux1, nbits);
     x = get_bvconst(vtbl, nbits, solver->aux1.data);
     return x;
@@ -4293,7 +4293,7 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
   if (n == 1) {
     x = bvpoly_buffer_var(b, 0);
     if (x == const_idx) {
-      // p is a constant 
+      // p is a constant
       x = get_bvconst(vtbl, nbits, bvpoly_buffer_coeff(b, 0));
       return x;
     }
@@ -4344,7 +4344,7 @@ static thvar_t map_bvpoly64(bv_solver_t *solver, bvpoly_buffer_t *b) {
 
   n = bvpoly_buffer_num_terms(b);
   nbits = bvpoly_buffer_bitsize(b);
-    
+
   if (n == 0) {
     // return the constant 0b000 ..0
     x = get_bvconst64(vtbl, nbits, 0);
@@ -4369,7 +4369,7 @@ static thvar_t map_bvpoly64(bv_solver_t *solver, bvpoly_buffer_t *b) {
   eb = &solver->exp64_buffer;
   expand_bvpoly64(etbl, eb, b);
 
-  // check whether the expanded form simplifies to a constant 
+  // check whether the expanded form simplifies to a constant
   // or a single variable
   x = simplify_expanded_poly64(solver, eb);
 
@@ -4856,7 +4856,7 @@ thvar_t bv_solver_create_ite(bv_solver_t *solver, literal_t c, thvar_t x, thvar_
   }
 
   assert(c != false_literal);
-    
+
   if (c == true_literal || x == y) {
     return x;
   } else {
@@ -4960,7 +4960,7 @@ thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (equal_bvvar(solver, x, y)) {
     // (bvrem x x) == 0 (this holds even if x = 0)
-    r = get_zero(solver, n); 
+    r = get_zero(solver, n);
   } else {
     // no simplification
     r = get_bvrem(&solver->vtbl, n, x, y);
@@ -4988,7 +4988,7 @@ thvar_t bv_solver_create_bvsdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   n = bvvar_bitsize(vtbl, x);
   assert(n == bvvar_bitsize(vtbl, y));
-  
+
   xtag = bvvar_tag(vtbl, x);
   ytag = bvvar_tag(vtbl, y);
 
@@ -5035,7 +5035,7 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   n = bvvar_bitsize(vtbl, x);
   assert(n == bvvar_bitsize(vtbl, y));
-  
+
   xtag = bvvar_tag(vtbl, x);
   ytag = bvvar_tag(vtbl, y);
 
@@ -5061,7 +5061,7 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (equal_bvvar(solver, x, y)) {
     // (bvsrem x x) == 0 (this holds even if x = 0)
-    r = get_zero(solver, n); 
+    r = get_zero(solver, n);
   } else {
     // no simplification
     r = get_bvsrem(&solver->vtbl, n, x, y);
@@ -5116,14 +5116,14 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (equal_bvvar(solver, x, y)) {
     // (bvsmod x x) == 0 (this holds even if x = 0)
-    r = get_zero(solver, n); 
+    r = get_zero(solver, n);
   } else {
     // no simplification
     r = get_bvsmod(&solver->vtbl, n, x, y);
     assert_srem_bounds(solver, r, y);
   }
 
-  return r; 
+  return r;
 }
 
 
@@ -5133,7 +5133,7 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
 thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
   bvconstant_t *aux;
-  bvvar_tag_t xtag, ytag; 
+  bvvar_tag_t xtag, ytag;
   uint32_t n;
   uint64_t c;
 
@@ -5156,7 +5156,7 @@ thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
       c = bvconst64_lshl(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
       return get_bvconst64(vtbl, n, c);
     }
-    
+
     if (xtag == BVTAG_CONST) {
       assert(n > 64);
       aux = &solver->aux1;
@@ -5170,7 +5170,7 @@ thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
     // 0b000..0 unchanged by logical shift
     return x;
   }
-  
+
   return get_bvshl(vtbl, n, x, y);
 }
 
@@ -5181,7 +5181,7 @@ thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
 thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
   bvconstant_t *aux;
-  bvvar_tag_t xtag, ytag; 
+  bvvar_tag_t xtag, ytag;
   uint32_t n;
   uint64_t c;
 
@@ -5205,7 +5205,7 @@ thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
       c = bvconst64_lshr(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
       return get_bvconst64(vtbl, n, c);
     }
-   
+
     if (xtag == BVTAG_CONST) {
       assert(n > 64);
       aux = &solver->aux1;
@@ -5219,7 +5219,7 @@ thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
     // 0b000..0 unchanged by logical shift
     return x;
   }
-  
+
   return get_bvlshr(vtbl, n, x, y);
 }
 
@@ -5230,7 +5230,7 @@ thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
 thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
   bvconstant_t *aux;
-  bvvar_tag_t xtag, ytag; 
+  bvvar_tag_t xtag, ytag;
   uint32_t n;
   uint64_t c;
 
@@ -5267,7 +5267,7 @@ thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y) {
     // 0b000..0 and 0b11...1 are unchanged by any arithmetic shift
     return x;
   }
-  
+
   return get_bvashr(vtbl, n, x, y);
 }
 
@@ -5312,7 +5312,7 @@ literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
  */
 
 /*
- * Atom (eq x y): no simplification 
+ * Atom (eq x y): no simplification
  */
 static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
@@ -5335,7 +5335,7 @@ static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t 
     solver->stats.eq_atoms ++;
   }
 
-  return l;  
+  return l;
 }
 
 
@@ -5391,7 +5391,7 @@ static literal_t bv_solver_make_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t 
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
     solver->stats.ge_atoms ++;
   }
- 
+
   return l;
 }
 
@@ -5420,7 +5420,7 @@ literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
    * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
    * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
    */
-  if (bvvar_is_zero(&solver->vtbl, x) || 
+  if (bvvar_is_zero(&solver->vtbl, x) ||
       bvvar_is_minus_one(&solver->vtbl, y)) {
     return bv_solver_create_eq_atom(solver, x, y);
   }
@@ -5465,7 +5465,7 @@ static literal_t bv_solver_make_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
     solver->stats.sge_atoms ++;
   }
- 
+
   return l;
 }
 
@@ -5488,13 +5488,13 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
-  
+
   /*
    * Rewrite rules:
    * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
    * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
    */
-  if (bvvar_is_min_signed(&solver->vtbl, x) || 
+  if (bvvar_is_min_signed(&solver->vtbl, x) ||
       bvvar_is_max_signed(&solver->vtbl, y)) {
     return bv_solver_create_eq_atom(solver, x, y);
   }
@@ -5527,7 +5527,7 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
  * - this special case is handled separately since we want to add the
  *   constraint (x != y) to the bound queue (unless it's already there).
  */
-static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {  
+static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
   int32_t i;
   literal_t l;
@@ -5564,7 +5564,7 @@ static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
-  
+
 #if TRACE
   if (bvvar_bitsize(&solver->vtbl, x) == 1) {
     printf("---> assert (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
@@ -5605,7 +5605,7 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
   }
 
 
-  /* 
+  /*
    * No contradiction detected
    */
   if (tt) {
@@ -5613,7 +5613,7 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     bv_solver_merge_vars(solver, x, y);
   } else if (bvvar_is_zero(&solver->vtbl, x)) {
     // y != 0
-    bv_solver_assert_neq0(solver, y, x); 
+    bv_solver_assert_neq0(solver, y, x);
   } else if (bvvar_is_zero(&solver->vtbl, y)) {
     // x != 0
     bv_solver_assert_neq0(solver, x, y);
@@ -5650,7 +5650,7 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
    * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
    * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
    */
-  if (bvvar_is_zero(&solver->vtbl, x) || 
+  if (bvvar_is_zero(&solver->vtbl, x) ||
       bvvar_is_minus_one(&solver->vtbl, y)) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
@@ -5702,7 +5702,7 @@ void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool 
    * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
    * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
    */
-  if (bvvar_is_min_signed(&solver->vtbl, x) || 
+  if (bvvar_is_min_signed(&solver->vtbl, x) ||
       bvvar_is_max_signed(&solver->vtbl, y)) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
@@ -5867,7 +5867,7 @@ static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
 
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
-      
+
   }
 
   return l;
@@ -5884,7 +5884,7 @@ static cache_t *bv_solver_get_cache(bv_solver_t *solver) {
   c = solver->cache;
   if (c == NULL) {
     c = (cache_t *) safe_malloc(sizeof(cache_t));
-    // initialize then synchronize the cache with 
+    // initialize then synchronize the cache with
     // the current push/pop level
     init_cache(c);
     cache_set_level(c, solver->base_level);
@@ -5945,7 +5945,7 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
     case VAL_FALSE:
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (atom set to false)\n", x1, y1);
       fflush(stdout);
-      return;      
+      return;
 
     case VAL_TRUE:
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (atom set to true)\n", x1, y1);
@@ -5958,8 +5958,8 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
     }
   }
 
-  if (solver->bitblasted && 
-      bvvar_is_bitblasted(&solver->vtbl, x) && 
+  if (solver->bitblasted &&
+      bvvar_is_bitblasted(&solver->vtbl, x) &&
       bvvar_is_bitblasted(&solver->vtbl, y)) {
 
     a = &solver->a_vector;
@@ -6035,7 +6035,7 @@ static void bv_solver_half_equiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t 
   v = &solver->aux_vector;
   ivector_reset(v);
   egraph_explain_term_eq(solver->egraph, t1, t2, v); // v contains p1 /\ ... /\ p_n
-  
+
   n = v->size;
   for (i=0; i<n; i++) {
     v->data[i] = not(v->data[i]);
@@ -6062,7 +6062,7 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 
   vtbl = &solver->vtbl;
 
-  assert(solver->egraph != NULL && x1 != x2 && 
+  assert(solver->egraph != NULL && x1 != x2 &&
          bvvar_is_bitblasted(vtbl, x1) && bvvar_is_bitblasted(vtbl, x2));
 
   if (bv_solver_bvequiv_redundant(solver, x1, x2)) {
@@ -6073,8 +6073,8 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   if (x2 < x1) {
     aux = x1, x1 = x2; x2 = aux;
   }
-  
-  
+
+
 #if TRACE
   t1 = bvvar_get_eterm(vtbl, x1);
   t2 = bvvar_get_eterm(vtbl, x2);
@@ -6090,7 +6090,7 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   print_eterm_id(stdout, t2);
   printf("\n");
 #endif
-  
+
   cache = bv_solver_get_cache(solver);
   e = cache_get(cache, BVEQUIV_LEMMA, x1, x2);
   if (e->flag == NEW_CACHE_ELEM) {
@@ -6169,7 +6169,7 @@ static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t
 
 
 /*
- * Convert an explanation (l1 and ... and ln ==> false) 
+ * Convert an explanation (l1 and ... and ln ==> false)
  * into the clause ((not l1) or  .... (not ln))
  * then add the clause as a theory conflict in the core.
  * - v contains the literals l1 ... ln
@@ -6216,7 +6216,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
 
   if (simplify_eq(solver, &y1, &y2) && diseq_bvvar(solver, y1, y2)) {
     bv_solver_explain_egraph_eq(solver, x1, x2, v);
-    goto conflict;    
+    goto conflict;
   }
 
   atbl = &solver->atbl;
@@ -6237,7 +6237,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   if (solver->bitblasted &&
       bvvar_is_bitblasted(&solver->vtbl, y1) &&
       bvvar_is_bitblasted(&solver->vtbl, y2)) {
-   
+
     a = &solver->a_vector;
     b = &solver->b_vector;
     collect_bvvar_literals(solver, y1, a);
@@ -6260,10 +6260,10 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
         ivector_push(v, l1);
         ivector_push(v, not(l2));
         goto conflict;
-      }      
+      }
     }
   }
-  
+
 
   return false; // no conflict found
 
@@ -6271,16 +6271,16 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   solver->stats.equiv_conflicts ++;
   bv_solver_add_conflict(solver, v);
 
-  return true;    
+  return true;
 }
 
 
 
 /*
  * Process all assertions in the egraph queue
- * - we do nothing for disequalities or distinct 
+ * - we do nothing for disequalities or distinct
  * - disequalities are handled lazily in reconcile_model
- * - for all equalities (x == y) in the queue, we create the 
+ * - for all equalities (x == y) in the queue, we create the
  *   lemma (bveq x1 x2) <=> (t1 == t2)
  * - return false if a conflict is detected (and record a theory conflict in the core)
  */
@@ -6420,7 +6420,7 @@ void bv_solver_backtrack(bv_solver_t *solver, uint32_t backlevel) {
  * - if l is negative (i.e., neg_lit(v)), assert its negation
  * Return false if that causes a conflict, true otherwise.
  *
- * Do nothing (although we could try more simplification if 
+ * Do nothing (although we could try more simplification if
  * this is called before start_search).
  */
 bool bv_solver_assert_atom(bv_solver_t *solver, void *a, literal_t l) {
@@ -6582,7 +6582,7 @@ void delete_bv_solver(bv_solver_t *solver) {
 void bv_solver_push(bv_solver_t *solver) {
   uint32_t na, nv, nb, ns, nd, bb;
 
-  assert(solver->decision_level == solver->base_level && 
+  assert(solver->decision_level == solver->base_level &&
          all_bvvars_unmarked(solver));
 
   nv = solver->vtbl.nvars;
@@ -6592,7 +6592,7 @@ void bv_solver_push(bv_solver_t *solver) {
   nd = solver->delayed_queue.top;
   bb = solver->bbptr;
 
-  //  printf("---> BVSOLVER: push at level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms,  ptr = %"PRIu32")\n", 
+  //  printf("---> BVSOLVER: push at level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms,  ptr = %"PRIu32")\n",
   //     solver->base_level, nv, na, bb);
 
   bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd, bb);
@@ -6605,10 +6605,10 @@ void bv_solver_push(bv_solver_t *solver) {
 
   if (solver->remap != NULL) {
     remap_table_push(solver->remap);
-  }  
+  }
 
   if (solver->cache != NULL) {
-    cache_push(solver->cache);    
+    cache_push(solver->cache);
   }
 
   solver->base_level ++;
@@ -6768,7 +6768,7 @@ void bv_solver_pop(bv_solver_t *solver) {
 
 
   /*
-   * remove the dead maps: 
+   * remove the dead maps:
    * 1) first mark all variables in the select queue
    *    they must be marked as non-bitblasted but their pseudo map must be kept
    * 2) clear the 'bitblasted' flag of all variables in the delayed queue
@@ -7001,7 +7001,7 @@ bool bv_solver_var_is_constant(bv_solver_t *solver, thvar_t x) {
  ********************/
 
 /*
- * Check whether x1 and x2 are equal in the model 
+ * Check whether x1 and x2 are equal in the model
  * - return false if x1 and x2 have different bitsize
  * - otherwise, check the literal values in the core
  */
@@ -7011,7 +7011,7 @@ static bool bv_solver_var_equal_in_model(bv_solver_t *solver, thvar_t x1, thvar_
   smt_core_t *core;
   literal_t *m1, *m2;
   literal_t s1, s2;
-  literal_t l1, l2;  
+  literal_t l1, l2;
   bval_t v1, v2;
   uint32_t i, n;
 
@@ -7124,7 +7124,7 @@ static uint32_t bvsolver_word_value_in_model(bv_solver_t *solver, thvar_t x, uin
 static uint32_t bvsolver_model_hash(bv_solver_t *solver, thvar_t x) {
   uint32_t k, n;
   uint32_t a, b, c;
-  
+
   n = bvvar_bitsize(&solver->vtbl, x);
   k = 0;
 
@@ -7168,7 +7168,7 @@ static inline bool is_root_var(bv_solver_t *solver, thvar_t x) {
 
   t = bvvar_get_eterm(&solver->vtbl, x);
   egraph = solver->egraph;
-  return (t != null_eterm) && 
+  return (t != null_eterm) &&
     (egraph_class_thvar(egraph, egraph_term_class(egraph, t)) == x);
 }
 
@@ -7255,9 +7255,9 @@ static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
 /*
  * Search for inconsistencies between the egraph and the bitvector model
  * - An inconsistency is a pair of bit-vector variables x and y
- *   such that x and y have the same value in the solver but 
+ *   such that x and y have the same value in the solver but
  *   term_of(x) and term_of(y) are in different classes in the egraph.
- * - To resolve inconsistencies we add the lemma 
+ * - To resolve inconsistencies we add the lemma
  *     (bveq x y) <=> (eq term_of(x) term_of(y))
  * - max_eq = bound on the number of lemma instances
  * - Return the number of instances created
@@ -7277,9 +7277,9 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 
   /*
    * Build partitions:
-   * - two variables x and y are in the same class if both are root 
+   * - two variables x and y are in the same class if both are root
    *   variables and they have the same value in the bit assignment.
-   * - i.e., the egraph model says that x != y but the 
+   * - i.e., the egraph model says that x != y but the
    *   bitvector model says that x = y
    */
   init_int_partition(&partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash,
@@ -7303,7 +7303,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 #endif
 
   /*
-   * Process the classes: generate the 'best' conflict pairs 
+   * Process the classes: generate the 'best' conflict pairs
    * in each class?
    */
   neq = 0;
@@ -7390,7 +7390,7 @@ static ipart_t *bv_solver_build_model_partition(bv_solver_t *solver) {
   uint32_t i, n;
 
   partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
-  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash, 
+  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash,
                      (ipart_match_fun_t) bv_solver_var_equal_in_model);
 
   n = solver->vtbl.nvars;
@@ -7399,7 +7399,7 @@ static ipart_t *bv_solver_build_model_partition(bv_solver_t *solver) {
       int_partition_add(partition, i);
     }
   }
-  
+
   return partition;
 }
 
@@ -7525,7 +7525,7 @@ static bool get_bvarray_value(bv_solver_t *solver, literal_t *a, uint32_t n, uin
 
 
 /*
- * Copy a 64bit constant into word array c 
+ * Copy a 64bit constant into word array c
  * - c is large enough for n bits
  */
 static void copy_constant64(uint32_t *c, uint64_t a, uint32_t n) {
@@ -7608,7 +7608,7 @@ static bool bv_solver_neg_value(bv_solver_t *solver, thvar_t x, uint32_t n, uint
     bvconst_negate2(c, k, a);
     bvconst_normalize(c, n);
   }
-  
+
   if (k > 4) {
     safe_free(a);
   }
@@ -7638,7 +7638,7 @@ static bool bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x
     a2 = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
   }
 
-  found = bv_solver_get_variable_value(solver, x[0], a1) 
+  found = bv_solver_get_variable_value(solver, x[0], a1)
     && bv_solver_get_variable_value(solver, x[1], a2);
 
   if (found) {
@@ -7708,7 +7708,7 @@ static bool bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x
 
 /*
  * Evaluate polynomial p
- * - store the result in c 
+ * - store the result in c
  * - n = number of bits
  */
 static bool bv_solver_poly64_value(bv_solver_t *solver, bvpoly64_t *p, uint32_t n, uint32_t *c) {
@@ -7736,8 +7736,8 @@ static bool bv_solver_poly64_value(bv_solver_t *solver, bvpoly64_t *p, uint32_t 
   while (i < nterms) {
     found = bv_solver_get_variable_value(solver, p->mono[i].var, aux);
     if (!found) goto done;
-    assert(bvconst_is_normalized(aux, n));         
-    b = convert_to64(aux, n);     
+    assert(bvconst_is_normalized(aux, n));
+    b = convert_to64(aux, n);
     a += p->mono[i].coeff * b;
     i ++;
   }
@@ -7756,7 +7756,7 @@ static bool bv_solver_poly64_value(bv_solver_t *solver, bvpoly64_t *p, uint32_t 
 
 static bool bv_solver_poly_value(bv_solver_t *solver, bvpoly_t *p, uint32_t n, uint32_t *c) {
   uint32_t aux[4];
-  uint32_t *a;  
+  uint32_t *a;
   uint32_t k, i, nterms;
   bool found;
 
@@ -7789,12 +7789,12 @@ static bool bv_solver_poly_value(bv_solver_t *solver, bvpoly_t *p, uint32_t n, u
 
   assert(found);
   bvconst_normalize(c, n);
-  
+
  done:
   if (k > 4) {
     safe_free(a);
   }
- 
+
   return found;
 }
 
@@ -7805,10 +7805,10 @@ static bool bv_solver_poly_value(bv_solver_t *solver, bvpoly_t *p, uint32_t n, u
  */
 static bool bv_solver_pprod_value(bv_solver_t *solver, pprod_t *p, uint32_t n, uint32_t *c) {
   uint32_t aux[4];
-  uint32_t *a;  
+  uint32_t *a;
   uint32_t k, i, nterms;
   bool found;
-  
+
   nterms = p->len;
 
   k = (n + 31) >> 5;
@@ -7973,7 +7973,7 @@ bool bv_solver_value_in_model(bv_solver_t *solver, thvar_t x, bvconstant_t *c) {
   bvconstant_set_bitsize(c, n);
   found = bv_solver_get_variable_value(solver, x, c->data);
   assert(!found || bvconst_is_normalized(c->data, n));
-  
+
   return found;
 }
 
@@ -8018,9 +8018,9 @@ static bv_interface_t bv_solver_context = {
   (create_bv_binop_fun_t) bv_solver_create_bvashr,
 
   (select_bit_fun_t) bv_solver_select_bit,
-  (create_bv_atom_fun_t) bv_solver_create_eq_atom, 
-  (create_bv_atom_fun_t) bv_solver_create_ge_atom, 
-  (create_bv_atom_fun_t) bv_solver_create_sge_atom, 
+  (create_bv_atom_fun_t) bv_solver_create_eq_atom,
+  (create_bv_atom_fun_t) bv_solver_create_ge_atom,
+  (create_bv_atom_fun_t) bv_solver_create_sge_atom,
 
   (assert_bv_axiom_fun_t) bv_solver_assert_eq_axiom,
   (assert_bv_axiom_fun_t) bv_solver_assert_ge_axiom,

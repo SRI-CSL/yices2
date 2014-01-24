@@ -73,7 +73,7 @@ static void clear_words() {
   uint32_t j;
 
   for (j=0; j<n_words; j++) free(words[j]);
-  free(words);  
+  free(words);
 }
 
 
@@ -106,9 +106,9 @@ int main(int argc, char *argv[]) {
   words_from_file(argv[1]);
 
   init_stbl(&sym_table, 0);
-  
+
   printf("\n*** Initial table ***\n");
-  print_stbl_records(&sym_table);  
+  print_stbl_records(&sym_table);
 
   val = (int32_t *) malloc(n_words * sizeof(int32_t));
   if (val == NULL) {
@@ -137,14 +137,14 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\n*** Added %"PRIu32" words from %s ***\n", n_words, argv[1]);
-  print_stbl_records(&sym_table);  
+  print_stbl_records(&sym_table);
 
 
   // test reset
   reset_stbl(&sym_table);
 
   printf("\n*** After reset ***\n");
-  print_stbl_records(&sym_table);  
+  print_stbl_records(&sym_table);
 
   //  printf("\n--- checking ---\n");
   for (i=0; i<n_words; i++) {
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
   }
 
 
-  // rebuild 
+  // rebuild
   for (i=0; i<n_words; i++) {
     x = stbl_find(&sym_table, words[i]);
     if (x < 0) {
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
       val[i] = x;
     }
   }
-  
+
   x = stbl_find(&sym_table, "");
   if (x >= 0) {
     printf("*** Error: <empty string>, val = %"PRId32", should be -1\n", x);
@@ -190,8 +190,8 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\n*** After rebuild ***\n");
-  print_stbl_records(&sym_table);  
-    
+  print_stbl_records(&sym_table);
+
 
   printf("\n--- overwriting ---\n");
   for (i=10; i<n_words/5; i ++) {
@@ -200,12 +200,12 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\n*** After overwriting ***\n");
-  print_stbl_records(&sym_table);  
-    
+  print_stbl_records(&sym_table);
+
   printf("\n--- checking ---\n");
   for (i=0; i<n_words; i++) {
     printf("checking %s: val = %"PRId32"\n", words[i], stbl_find(&sym_table, words[i]));
-  }  
+  }
 
   printf("\n--- removing ---\n");
   for (i=0; i<n_words; i++) {
@@ -213,12 +213,12 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\n*** After removing ***\n");
-  print_stbl_records(&sym_table);  
-    
+  print_stbl_records(&sym_table);
+
   printf("\n--- checking ---\n");
   for (i=0; i<n_words; i++) {
     printf("checking %s: val = %"PRId32"\n", words[i], stbl_find(&sym_table, words[i]));
-  }  
+  }
 
   printf("\n--- removing all ---\n");
   for (i=0; i<n_words; i++) {
@@ -226,12 +226,12 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\n*** After removing all ***\n");
-  print_stbl_records(&sym_table);  
-    
+  print_stbl_records(&sym_table);
+
   printf("\n--- checking ---\n");
   for (i=0; i<n_words; i++) {
     printf("checking %s: val = %"PRId32"\n", words[i], stbl_find(&sym_table, words[i]));
-  }  
+  }
 
   for (i=0; i<n_words; i++) {
     printf("adding %s: val = %"PRIu32"\n", words[i], i);
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
   runtime = get_cpu_time() - runtime;
   printf("Reading %"PRIu32" words\n", (uint32_t) 100000 * n_words);
   printf("Runtime: %.4f s\n", runtime);
-  printf("Table size: %"PRIu32" (nelems = %"PRIu32", ndeleted = %"PRIu32")\n", 
+  printf("Table size: %"PRIu32" (nelems = %"PRIu32", ndeleted = %"PRIu32")\n",
 	sym_table.size, sym_table.nelems, sym_table.ndeleted);
 
   clear_words();

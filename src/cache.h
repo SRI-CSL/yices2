@@ -5,7 +5,7 @@
 /*
  * Each element in the cache is a triple <tag, x, y>
  * where x and y are 32bit signed integers and tag is 16 bit.
- * - this is enough for the egraph lemma generation 
+ * - this is enough for the egraph lemma generation
  *   (ackermann trick + expansion of non-distinct)
  * - the cache implements push and pop operations
  */
@@ -35,12 +35,12 @@ typedef struct cache_elem_s {
 /*
  * Structure for allocation of records:
  * - block is an array of size 'capacity'
- * - for 0 <= i < nblocks: 
- *   block[i] is a pointer to an allocated block (an array of 
+ * - for 0 <= i < nblocks:
+ *   block[i] is a pointer to an allocated block (an array of
  *     CACHE_BLOCK_SIZE records)
  * - for nblocks <= i < capacity: block[i] is not initialized
  * - for 0 <= i < free_block: block[i] contains data
- * - for free_block <= i < nblocks, block[i] is empty 
+ * - for free_block <= i < nblocks, block[i] is empty
  * If the bank is empty, then free_blocks = 0
  * Otherwise, free_block > 0 and records are allocated in block[free_block-1]
  * - alloc_ptr = index of the first available slot in block[free_block-1]
@@ -62,7 +62,7 @@ typedef struct cache_bank_s {
 
 /*
  * Stack of allocation marks for push/pop operations
- * - each element in the stack has a level k>0 
+ * - each element in the stack has a level k>0
  *   and keeps a pointer to the first record allocated at that level
  *   the pointer consists of a pair <block id, index in block>
  * - the stack elements are in data[0 ... nmarks-1]
@@ -108,7 +108,7 @@ typedef struct cache_htbl_s {
 
 /*
  * DEF_CACHE_HTBL_SIZE must be a power of 2, smaller than MAX_CACHE_HTBL_SIZE
- */ 
+ */
 #define DEF_CACHE_HTBL_SIZE 32
 #define MAX_CACHE_HTBL_SIZE (UINT32_MAX/sizeof(cache_elem_t*))
 #define CACHE_HTBL_RESIZE_RATIO  0.6
@@ -155,7 +155,7 @@ static inline void cache_push(cache_t *cache) {
 }
 
 /*
- * Pop: delete all objects created at the current level 
+ * Pop: delete all objects created at the current level
  * then decrement current_level. Should not be called at level 0.
  */
 extern void cache_pop(cache_t *cache);
@@ -164,7 +164,7 @@ extern void cache_pop(cache_t *cache);
 /*
  * Set level: same effect as calling push n times from the initial state.
  * - this is used to ensure consistency between cache->current_level
- *   and solver->base_level (solver may be the simplex solver) if the cache 
+ *   and solver->base_level (solver may be the simplex solver) if the cache
  *   is created when the solver has non-zero base_level
  */
 static inline void cache_set_level(cache_t *cache, uint32_t n) {

@@ -94,7 +94,7 @@ static void test1(void) {
 
   printf("add 10 --> 1\n");
   mark_vector_add_mark(&vector, 10, 1);
-  printf("add 20 --> 2\n");  
+  printf("add 20 --> 2\n");
   mark_vector_add_mark(&vector, 20, 2);
   printf("add 39 --> 3\n");
   mark_vector_add_mark(&vector, 39, 3);
@@ -137,7 +137,7 @@ static void test2(uint32_t n) {
     assert(mark_vector_get_mark(&vector, j) == x);
   }
 
-  print_mark_vector(&vector);  
+  print_mark_vector(&vector);
 
   delete_mark_vector(&vector);
 }
@@ -146,6 +146,6 @@ int main() {
   test1();
   test2(20);
   test2(10000);
-  
+
   return 0;
 }

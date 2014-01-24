@@ -38,7 +38,7 @@ The following types are defined in :file:`yices_types.h`
 .. c:type:: param_t
 
 .. c:type:: error_report_t
-   
+
 
 Macros
 ------
@@ -49,7 +49,7 @@ The following macros are defined in :file:`yices.h`
 .. c:macro:: __YICES_VERSION_MAJOR
 .. c:macro:: __YICES_VERSION_PATCHLEVEL
 
-These three macros define the Yices release. For example, for 
+These three macros define the Yices release. For example, for
 Yice 2.1.1, the macros are defined as follows::
 
   #define __YICES_VERSION            2
@@ -58,7 +58,7 @@ Yice 2.1.1, the macros are defined as follows::
 
 The version is also available as a constant string
 
-  
+
 
 Functions
 ---------
@@ -76,5 +76,5 @@ Functions
 .. c:function:: void yices_reset(void)
 
    Full reset: delete all terms and types, and reset the symbol tables.
-   Delete all contexts, modesl, configuration descriptors, and 
+   Delete all contexts, modesl, configuration descriptors, and
    parameter records.

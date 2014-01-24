@@ -12,10 +12,10 @@
 
 /*
  * Functions declared in yices_extensions.h
- * We can't use #include "yices_externsions.h" 
+ * We can't use #include "yices_externsions.h"
  & here because of a conflict in type definition
  * (value_t) is defined twice.
- */ 
+ */
 extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);
 extern void pp_context(FILE *f, context_t *ctx);
@@ -136,7 +136,7 @@ command : '(' SET_LOGIC SYMBOL ')'
 	    { declare_fun($3, $5.size, $5.data, $7);
 	      VECTOR_free($5); }
 	| '(' DEFINE_FUN SYMBOL '(' vars
-	    { VECTOR_init($<terms>$); 
+	    { VECTOR_init($<terms>$);
 	      declare_var_names(&$<terms>$, $5.size, $5.data); }
 	  ')' sort term ')'
 	    { define_fun($3, $5.size, $<terms>6.data, $8, $9);
@@ -191,7 +191,7 @@ sort	: SYMBOL
 	    { $$ = indexed_type($3, $4.size, $4.data);
 	      VECTOR_free($4); }
 	;
-    
+
 vars	: /*empty*/	{ VECTOR_init($$); }
 	| vars var	{ VECTOR_add($1, $2); $$ = $1; }
 	| vars error	{ $$ = $1; }
@@ -221,14 +221,14 @@ term	: NUMERAL	{ $$.tag = vtTERM; $$.v.term = $1.term; }
 	| '(' qual_identifier terms ')'
 	    { $$ = eval_sexpr($2, $3.size, $3.data);
 	      VECTOR_free($3); }
-	| '(' LET '(' binds 
+	| '(' LET '(' binds
 	    { declare_bind_names($4.size, $4.data); }
 	  ')' term ')'
 	    { undeclare_bind_names($4.size, $4.data);
 	      $$ = $7;
 	      VECTOR_free($4); }
 	| '(' FORALL '(' vars
-	    { VECTOR_init($<terms>$); 
+	    { VECTOR_init($<terms>$);
 	      declare_var_names(&$<terms>$, $4.size, $4.data); }
 	  ')' term ')'
 	    { $$.tag = vtTERM;
@@ -238,7 +238,7 @@ term	: NUMERAL	{ $$.tag = vtTERM; $$.v.term = $1.term; }
 	      VECTOR_free($4);
 	      VECTOR_free($<terms>5); }
 	| '(' EXISTS '(' vars
-	    { VECTOR_init($<terms>$); 
+	    { VECTOR_init($<terms>$);
 	      declare_var_names(&$<terms>$, $4.size, $4.data); }
 	  ')' term ')'
 	    { $$.tag = vtTERM;
@@ -342,7 +342,7 @@ int main(int ac, char **av)
   code = yyparse();
 
   VECTOR_free(assertions);
-  
+
   return code;
 }
 
@@ -362,15 +362,15 @@ void set_logic(const char *name)
     config = yices_new_config();
     if (yices_default_config_for_logic(config, name)) {
       yyerror("Unknown/unsupported logic %s", name);
-      exit(3); 
+      exit(3);
     }
   }
 
   if (config) {
-    // special case for QF_IDL and QF_RDL: use AUTO 
+    // special case for QF_IDL and QF_RDL: use AUTO
     if (strcmp(name, "QF_IDL") == 0 || strcmp(name, "QF_RDL") == 0) {
       yices_set_config(config, "arith-solver", "auto");
-    } 
+    }
     yices_set_config(config, "mode", "one-shot");
     context = yices_new_context(config);
     yices_context_enable_option(context, "flatten");    // BD: Force flattening
@@ -380,12 +380,12 @@ void set_logic(const char *name)
       yices_context_enable_option(context, "break-symmetries");
       yices_context_enable_option(context, "learn-eq");
     }
-  }  
+  }
 
   if (yices_error_code()) {
     yyerror("yices error:");
     yices_print_error(stderr);
-    yices_clear_error(); 
+    yices_clear_error();
   }
 }
 
@@ -525,12 +525,12 @@ void do_assert(value_t t)
     if (yices_assert_formula(context, t.v.term)) {
       fprintf(stderr, "%d:FIXME -- failed assert: ", lineno);
       print_value(stderr, t);
-      fprintf(stderr, "\n"); 
+      fprintf(stderr, "\n");
     }
     if (yices_error_code()) {
       yyerror("yices error:");
       yices_print_error(stderr);
-      yices_clear_error(); 
+      yices_clear_error();
     }
 #endif
   }
@@ -590,14 +590,14 @@ void check_sat()
   case STATUS_ERROR:
     printf("error\n");
     break;
-  default: 
-    printf("unknown code %d\n", rv); 
+  default:
+    printf("unknown code %d\n", rv);
     break;
   }
   if (yices_error_code()) {
     yyerror("yices error:");
     yices_print_error(stderr);
-    yices_clear_error(); 
+    yices_clear_error();
   }
 }
 

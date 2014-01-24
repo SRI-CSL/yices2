@@ -17,7 +17,7 @@ static inline long int random(void) {
  * - the ordering is defined by p <= q iff p->key <= q->key
  * - idx is use to check that the ordering is table:
  *   if p is stored at index k in the array to be sorted
- *   then p->idx = k 
+ *   then p->idx = k
  */
 typedef struct pair_s {
   uint32_t key;
@@ -360,7 +360,7 @@ static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {
 
   increasing_array(tmp, n);
   test_sort2("increasing array", sorter, tmp, n);
-  
+
   strictly_decreasing_array(tmp, n);
   test_sort2("strictly decreasing array", sorter, tmp, n);
 

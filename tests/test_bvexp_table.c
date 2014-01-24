@@ -17,7 +17,7 @@ static void print_def(FILE *f, bvexp_table_t *table, thvar_t x) {
   vtbl = table->vtbl;
   n = bvvar_bitsize(vtbl, x);
   def = bvexp_get_def(table, x);
-  
+
   print_bv_solver_var(f, NULL, x);
   fputs(" = ", f);
   if (def == NULL) {
@@ -75,7 +75,7 @@ static void test_buffer64(bvexp_table_t *table, bvarith64_buffer_t *b) {
     x = make_bvvar(table->vtbl, n);
     bvexp_table_add64(table, x, b, h);
     printf("adding variable: ");
-    print_def(stdout, table, x);    
+    print_def(stdout, table, x);
   } else {
     printf("found matching variable: ");
     print_def(stdout, table, x);
@@ -110,7 +110,7 @@ static void test_buffer(bvexp_table_t *table, bvarith_buffer_t *b) {
     x = make_bvvar(table->vtbl, n);
     bvexp_table_add(table, x, b, h);
     printf("adding variable: ");
-    print_def(stdout, table, x);    
+    print_def(stdout, table, x);
   } else {
     printf("found matching variable: ");
     print_def(stdout, table, x);
@@ -148,7 +148,7 @@ int main() {
   printf("=== Initial table ===\n");
   print_bvexp_table(stdout, &table);
   printf("\n");
-  
+
   x = make_bvvar(&vtbl, 10);
   y = make_bvvar(&vtbl, 10);
   z = make_bvvar(&vtbl, 10);
@@ -270,7 +270,7 @@ int main() {
   print_bvexp_table(stdout, &table);
   printf("\n");
 
-  
+
   // remove two variables
   bvexp_table_remove_vars(&table, 11);
   printf("=== After removing two variables ===\n");
@@ -305,12 +305,12 @@ int main() {
   bvarith_buffer_mul_buffer(&c1, &c2);
   bvarith_buffer_normalize(&c1);
   test_buffer(&table, &c1);
-  
+
   printf("=== Final table ===\n");
   print_bvexp_table(stdout, &table);
   printf("\n");
 
-  
+
 
   // cleanup
   delete_bvarith64_buffer(&b1);

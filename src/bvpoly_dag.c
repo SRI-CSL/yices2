@@ -187,7 +187,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_list(dag->list, -3);
   init_list(dag->list, -2);
   init_list(dag->list, -1);
-  init_list(dag->list, 0);  
+  init_list(dag->list, 0);
 
   dag->nelems = 0;
   dag->size = n;
@@ -355,7 +355,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   init_list(dag->list, -3);
   init_list(dag->list, -2);
   init_list(dag->list, -1);
-  init_list(dag->list, 0);  
+  init_list(dag->list, 0);
 
   reset_int_htbl(&dag->htbl);
   reset_int_bvset(&dag->vset);
@@ -529,7 +529,7 @@ static bool prod_node_is_elementary(bvc_dag_t *dag, bvc_prod_t *d) {
       bvc_dag_occ_is_leaf(dag, d->prod[1].var);
   } else {
     return false;
-  }    
+  }
 }
 
 static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
@@ -611,13 +611,13 @@ static inline void bvc_dag_add_dependency(bvc_dag_t *dag, bvnode_t n, bvnode_t i
 
 
 /*
- * Bit hash: 
+ * Bit hash:
  * - for a node index n, the bit_hash is a 32bit word
  *   equal to (1 << (n & 31)): i.e., bit i is set if (n % 32 == i).
  * - for a set of node indices, the bit hash is the bitwise or
  *   of the bit_hash of each element
  *
- * This gives a quick filter to test inclusion between sets of 
+ * This gives a quick filter to test inclusion between sets of
  * nodes: if bit_hash(A) & bit_hash(B) != bit_hash(A) then
  * A can't be a subset of B.
  */
@@ -806,7 +806,7 @@ static bvnode_t bvc_dag_mk_prod(bvc_dag_t *dag, varexp_t *a, uint32_t n, uint32_
   for (i=0; i<n; i++) {
     bvc_dag_add_dependency(dag, node_of_occ(a[i].var), q);
   }
-  
+
   k = BVC_DAG_DEFAULT_LIST;
   if (prod_node_is_elementary(dag, d)) {
     k = BVC_DAG_ELEM_LIST;
@@ -886,7 +886,7 @@ typedef struct bvc_hobj_s {
 typedef struct bvc_prod_hobj_s {
   int_hobj_t m;
   bvc_dag_t *dag;
-  varexp_t *pp;  
+  varexp_t *pp;
   uint32_t bitsize;
   uint32_t len;
 } bvc_prod_hobj_t;
@@ -993,7 +993,7 @@ static bool eq_bvc_mono64_hobj(bvc64_hobj_t *p, bvnode_t i) {
   d = p->dag->desc[i];
   if (d->tag != BVC_MONO && d->bitsize != p->bitsize) {
     return false;
-  } 
+  }
   o = mono_node(d);
   return o->nocc == p->nocc && o->coeff.c == p->c;
 }
@@ -1098,43 +1098,43 @@ static bvnode_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
  * Hash-consing objects
  */
 static bvc_leaf_hobj_t bvc_leaf_hobj = {
-  { (hobj_hash_t) hash_bvc_leaf_hobj, (hobj_eq_t) eq_bvc_leaf_hobj, 
+  { (hobj_hash_t) hash_bvc_leaf_hobj, (hobj_eq_t) eq_bvc_leaf_hobj,
     (hobj_build_t) build_bvc_leaf_hobj },
   NULL, 0, 0
 };
 
 static bvc64_hobj_t bvc_offset64_hobj = {
-  { (hobj_hash_t) hash_bvc_offset64_hobj, (hobj_eq_t) eq_bvc_offset64_hobj, 
+  { (hobj_hash_t) hash_bvc_offset64_hobj, (hobj_eq_t) eq_bvc_offset64_hobj,
     (hobj_build_t) build_bvc_offset64_hobj },
   NULL, 0, 0, 0
 };
 
 static bvc_hobj_t bvc_offset_hobj = {
-  { (hobj_hash_t) hash_bvc_offset_hobj, (hobj_eq_t) eq_bvc_offset_hobj, 
+  { (hobj_hash_t) hash_bvc_offset_hobj, (hobj_eq_t) eq_bvc_offset_hobj,
     (hobj_build_t) build_bvc_offset_hobj },
-  NULL, NULL, 0, 0  
+  NULL, NULL, 0, 0
 };
 
 static bvc64_hobj_t bvc_mono64_hobj = {
-  { (hobj_hash_t) hash_bvc_mono64_hobj, (hobj_eq_t) eq_bvc_mono64_hobj, 
+  { (hobj_hash_t) hash_bvc_mono64_hobj, (hobj_eq_t) eq_bvc_mono64_hobj,
     (hobj_build_t) build_bvc_mono64_hobj },
-  NULL, 0, 0, 0  
+  NULL, 0, 0, 0
 };
 
 static bvc_hobj_t bvc_mono_hobj = {
-  { (hobj_hash_t) hash_bvc_mono_hobj, (hobj_eq_t) eq_bvc_mono_hobj, 
+  { (hobj_hash_t) hash_bvc_mono_hobj, (hobj_eq_t) eq_bvc_mono_hobj,
     (hobj_build_t) build_bvc_mono_hobj },
-  NULL, NULL, 0, 0  
+  NULL, NULL, 0, 0
 };
 
 static bvc_prod_hobj_t bvc_prod_hobj = {
-  { (hobj_hash_t) hash_bvc_prod_hobj, (hobj_eq_t) eq_bvc_prod_hobj, 
+  { (hobj_hash_t) hash_bvc_prod_hobj, (hobj_eq_t) eq_bvc_prod_hobj,
     (hobj_build_t) build_bvc_prod_hobj },
   NULL, NULL, 0, 0,
 };
 
 static bvc_sum_hobj_t bvc_sum_hobj = {
-  { (hobj_hash_t) hash_bvc_sum_hobj, (hobj_eq_t) eq_bvc_sum_hobj, 
+  { (hobj_hash_t) hash_bvc_sum_hobj, (hobj_eq_t) eq_bvc_sum_hobj,
     (hobj_build_t) build_bvc_sum_hobj },
   NULL, NULL, 0, 0,
 };
@@ -1301,9 +1301,9 @@ node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bi
  * - could use a signed digit representation for the constant a
  * - if there are several monomials (a_0 x) ... (a_t x), then
  *   there are optimizations used in digital filter circuits:
- * 
- * Reference: 
- *  Dempster & McLeod, Constant integer multiplication using minimum adders, 
+ *
+ * Reference:
+ *  Dempster & McLeod, Constant integer multiplication using minimum adders,
  *  IEE Proceedings, Cicuits, Devices & Systems, vol. 141, Issue 5, pp. 407-413,
  *  October 1994
  */
@@ -1316,12 +1316,12 @@ node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bit
 
   if (a == 1) return n;
   if (a == mask64(bitsize)) return negate_occ(n);
-    
+
   sign = sign_of_occ(n);
   n = unsigned_occ(n);
 
   /*
-   * normalization: 
+   * normalization:
    * - is popcount(a)  < popcount(-a) then build [mono a n]
    * - if popcount(-a) < popcount(a)  then build [mono (-a) n]
    * - if there's a tie, we build [mono (-a) n] if -a is positive
@@ -1440,7 +1440,7 @@ node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bit
   for (i=0; i<n; i++) {
     pp_buffer_mul_varexp(buffer, a[i], p->prod[i].exp);
   }
-  
+
   return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize));
 }
 
@@ -1465,14 +1465,14 @@ node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t
 /*
  * Convert a polynomial p to a DAG node q and return q
  * - q is defined by the coefficients in p and the node indices
- *   in array a: if p is b_0 x_0 + b_1 x_1 + ... + b_k x_k 
+ *   in array a: if p is b_0 x_0 + b_1 x_1 + ... + b_k x_k
  *   then a must have k+1 elements a[0] ... a[k]
  *   and q is built for (b_0 * a[0] + b_1 a[1] + ... + b_k a[k])
  *
- * - if x_0 is const_idx, then a[0] is ignored and 
+ * - if x_0 is const_idx, then a[0] is ignored and
  *       q is built for (b_0 + b_1 a[1] + ... + b_k a[k]).
  *
- * The DAG for p = (b0 + b_1 a[1] + .... + b_k a[k]) is 
+ * The DAG for p = (b0 + b_1 a[1] + .... + b_k a[k]) is
  *    [offset b0 [sum [mono b_1 a[1]] ... [mono b_k a[k]]]].
  */
 node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
@@ -1542,7 +1542,7 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
     r = bvc_dag_offset(dag, p->mono[0].coeff, r, bitsize);
   }
 
-  return r;  
+  return r;
 }
 
 
@@ -1570,7 +1570,7 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
       r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(b, i), a[i], nbits);
       ivector_push(v, r);
       i ++;
-    } 
+    }
     r = bvc_dag_sum(dag, v->data, v->size, nbits);
     if (bvpoly_buffer_var(b, 0) == const_idx) {
       r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(b, 0), r, nbits);
@@ -1582,7 +1582,7 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
       r = bvc_dag_mono(dag, bvpoly_buffer_coeff(b, i), a[i], nbits);
       ivector_push(v, r);
       i ++;
-    } 
+    }
     r = bvc_dag_sum(dag, v->data, v->size, nbits);
     if (bvpoly_buffer_var(b, 0) == const_idx) {
       r = bvc_dag_offset(dag, bvpoly_buffer_coeff(b, 0), r, nbits);
@@ -1733,7 +1733,7 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
   bvc_header_t *d;
   bvc_leaf_t *o;
   uint32_t bitsize;
-  
+
 
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
@@ -1764,7 +1764,7 @@ static inline void replace_node_in_offset(bvc_offset_t *d, bvnode_t i, node_occ_
   // if d->nocc == bvp(i) then d->nocc := n
   // if d->nocc == bvn(i) then d->noce := negate_off(n);
   assert(node_of_occ(d->nocc) == i);
-  d->nocc = n ^ sign_of_occ(d->nocc); 
+  d->nocc = n ^ sign_of_occ(d->nocc);
 }
 
 static inline void replace_node_in_mono(bvc_mono_t *d, bvnode_t i, node_occ_t n) {
@@ -2019,7 +2019,7 @@ void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t 
     }
     ivector_reset(v);
   }
-  
+
 }
 
 
@@ -2057,19 +2057,19 @@ static bool check_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t 
 
       if (k1 >= 0 && k2 >= 0) {
         // could use more xor tricks here?
-        return (p->sum[k1] == n1 && p->sum[k2] == n2) || 
+        return (p->sum[k1] == n1 && p->sum[k2] == n2) ||
           (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2));
       }
     }
   }
-  
+
   return false;
 }
 
 
 /*
  * Check whether there is a sum node that can be reduced by n1 + n2 or -n1 -n2
- * - n1 and n2 must be distinct 
+ * - n1 and n2 must be distinct
  */
 bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
   int32_t *l1, *l2;
@@ -2216,7 +2216,7 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
             bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
           }
         } else {
-          bvc_dag_remove_dependent(dag, node_of_occ(n2), i); 
+          bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
           p->prod[k1].exp -= e2;
           p->prod[k2].exp = 0;
           k1 = k2;
@@ -2235,7 +2235,7 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
           p->prod[k1].exp = e1;
         }
 
-        cleanup_prod(p);            
+        cleanup_prod(p);
         if (prod_node_is_elementary(dag, p)) {
           bvc_dag_move_to_elementary_list(dag, i);
         }
@@ -2274,7 +2274,7 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
          */
         if ((e & 1) == 0) {
           p->prod[k1].exp = 0;
-          bvc_dag_remove_dependent(dag, node_of_occ(n1), i);      
+          bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
         } else {
           p->prod[k1].exp = 1;
         }
@@ -2355,7 +2355,7 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
 
     ivector_reset(v);
   }
-  
+
 }
 
 
@@ -2449,7 +2449,7 @@ bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
         }
       }
     }
-  } 
+  }
 
   return false;
 }
@@ -2622,7 +2622,7 @@ static uint32_t affinity_score_square(bvc_dag_t *dag, bvnode_t r) {
 
   l = dag->use[r];
   assert(l != NULL);
-  
+
   n = iv_size(l);
   for (i=0; i<n; i++) {
     x = l[i];
@@ -2700,7 +2700,7 @@ static void prod_get_leaves(bvc_dag_t *dag, bvc_prod_t *p, ivector_t *v) {
 typedef struct bvc_pair_s {
   uint32_t score;
   bvnode_t n1;
-  bvnode_t n2;  
+  bvnode_t n2;
 } bvc_pair_t;
 
 
@@ -2715,7 +2715,7 @@ static void search_sum_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_
   uint32_t score[2];
   uint32_t i;
   bvnode_t s;
-  
+
   for (i=0; i<n; i++) {
     s = a[i];
     assert(s != r);
@@ -2759,7 +2759,7 @@ static void search_prod_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32
 
 
 /*
- * Find the pair of elements of a with maximal affinity and store it in b if 
+ * Find the pair of elements of a with maximal affinity and store it in b if
  * its score is better than b->score
  * - a = array of n distinct nodes
  */

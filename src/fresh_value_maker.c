@@ -123,7 +123,7 @@ static void extend_tup_counter_vector(tup_counter_vector_t *v) {
     n <<= 1;
     if (n > TUPLE_COUNTER_VECTOR_MAX_SIZE) {
       out_of_memory();
-    } 
+    }
     v->data = (tuple_counter_t **) safe_realloc(v->data, n * sizeof(tuple_counter_t*));
     v->size = n;
   }
@@ -177,7 +177,7 @@ static tuple_counter_t *counter_for_type(tup_counter_vector_t *v, type_t tau) {
     }
   }
 
-  return NULL;  
+  return NULL;
 }
 
 
@@ -304,7 +304,7 @@ static tuple_counter_t *get_tuple_counter(fresh_val_maker_t *maker, uint32_t n, 
   r = counter_for_tuple(&maker->tuples, n, tau);
   if (r == NULL) {
     r = new_tuple_counter(maker->types, n, tau);
-    add_tuple_counter(&maker->tuples, r);    
+    add_tuple_counter(&maker->tuples, r);
   }
 
   return r;
@@ -374,7 +374,7 @@ value_t make_fresh_const(fresh_val_maker_t *maker, type_t tau) {
   uint32_t i, n;
   value_t v;
 
-  assert(is_uninterpreted_type(maker->types, tau) || 
+  assert(is_uninterpreted_type(maker->types, tau) ||
 	 is_scalar_type(maker->types, tau));
 
   /*
@@ -442,7 +442,7 @@ value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n) {
   } else {
     // large bitsize: can't use test_bv64
     x = maker->bvs.data[i].count;
-    while (x < max) {      
+    while (x < max) {
       bvconstant_copy64(&maker->aux, n, (uint64_t) x);
       if (vtbl_test_bvconstant(maker->vtbl, &maker->aux)) break;
       x ++;
@@ -512,7 +512,7 @@ static bool gen_fresh_tuple(fresh_val_maker_t *maker, uint32_t n, type_t *tau, v
     v = make_fresh_value(maker, tau[j]);
     if (v != null_value) break;
   }
-  
+
   if (j < n) {
     // we have a fresh v of type tau[j]
     fill_tuple(vtbl, n, tau, a, j);
@@ -530,10 +530,10 @@ static bool gen_fresh_tuple(fresh_val_maker_t *maker, uint32_t n, type_t *tau, v
     vtbl_gen_object_tuple(vtbl, n, tau, j, a);
     ctr->count = j+1;
     return true;
-  } 
+  }
 
   // failed
-  ctr->count = j;  
+  ctr->count = j;
   return false;
 }
 
@@ -580,7 +580,7 @@ value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau) {
   function_type_t *d;
   tuple_counter_t *ctr;
   type_t sigma;
-  value_t v;  
+  value_t v;
   uint32_t i, n;
 
   types = maker->types;
@@ -599,7 +599,7 @@ value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau) {
   }
 
   // try to get a fresh value of type sigma
-  // if this works create a new constant function  
+  // if this works create a new constant function
   v = make_fresh_value(maker, sigma);
   if (v != null_value) {
     v = vtbl_mk_function(vtbl, tau, 0, NULL, v);
@@ -622,7 +622,7 @@ value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau) {
        * We have a fresh tuple aux[0 ... n-1].
        * We get two objects a[0] and a[1] of type sigma
        * and return the function f that maps every thing to a[0]
-       * except aux[0 .. n-1] that's mapped a[1]. 
+       * except aux[0 .. n-1] that's mapped a[1].
        * This f must be fresh.
        *
        * Take another g of type tau. Since aux is fresh,
@@ -633,10 +633,10 @@ value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau) {
        * - otherwise,
        *   - the default for g is a[1]
        *   - for any other x in the domain g(x) /= a[1]
-       *   - by construction, the default value for g is 
+       *   - by construction, the default value for g is
        *     one that occurs most often in the range of g
        *     so g(x) /= g(y) whenever x /= y.
-       *   - since the domain has cardinality > 2, there's 
+       *   - since the domain has cardinality > 2, there's
        *     a y such that g(y) /= a[0] and g(y) /= a[1] so g /= f
        *     in that case too.
        */

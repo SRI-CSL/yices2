@@ -33,7 +33,7 @@
  * - each record stores the terms [c1 ... c_n]
  *   + a set of terms t_1 .... t_m  and a set of indices i_1 .... i_m
  * - for each index i_j in { i_1 ,.... i_m } we have
- *   assertion ctx->top_formula[i_j] is a range constraint 
+ *   assertion ctx->top_formula[i_j] is a range constraint
  *   equivalent to (or (= t_j c1) .... (= t_j c_n))
  * - every c_i and every t_j is a root term in ctx->intern
  *
@@ -45,7 +45,7 @@
 
 /*
  * Range-constraint record:
- * - cst[0 ... nc - 1] = the constants 
+ * - cst[0 ... nc - 1] = the constants
  * - trm[0 ... nt - 1] = the terms
  *   idx[0 ... nt - 1] = the corresponding indices
  * - num_constants = nc number of constants
@@ -57,7 +57,7 @@
 typedef struct rng_record_s {
   term_t *cst;
   term_t *trm;
-  uint32_t *idx;  
+  uint32_t *idx;
   uint32_t num_constants;
   uint32_t hash;
   uint32_t num_terms;
@@ -124,7 +124,7 @@ typedef struct ctx_subst_s {
 
 /*
  * Arrays used during symmetry breaking
- * 
+ *
  * Given a fixed set of constants C0 (obtained from a rng_record_t),
  * we keep three subsets of C0:
  * - available = constants that don't occur in any symmetry breaking clause
@@ -137,7 +137,7 @@ typedef struct ctx_subst_s {
  * - num_constants = size of this array
  * - available = set of indices in [0 ... num_constants - 1] (as a cset)
  * - removed = set of indices in [0 ... num_constants - 1] (as a cset too)
- * - used = array of constants 
+ * - used = array of constants
  * - num_used = number of elements in this array
  *
  * Initially:
@@ -145,9 +145,9 @@ typedef struct ctx_subst_s {
  * - removed := empty set
  * - used := empty array
  *
- * At each iteration: we select a term t and generate a symmetry breaking 
+ * At each iteration: we select a term t and generate a symmetry breaking
  * clause for t. The sets are updated as follows:
- * - removed := available \inter constants of t 
+ * - removed := available \inter constants of t
  *         a := a constant of available that's not in removed
  * - used := used \union removed
  * - available := available \minus removed
@@ -162,7 +162,7 @@ typedef struct ctx_subst_s {
  * - cost[i] is the size of the set of constants of candidates[i]
  *   that also occur in 'available'. If term t = candidates[i] is
  *   selected then we'll remove cost[i]+1 constants from 'available' and
- *   move them to 'used'. 
+ *   move them to 'used'.
  *
  * - hash[i] is a 32bit hash of the set of constants occurring in
  *   candidates[i] and in 'available'. In each iteration, we check
@@ -199,7 +199,7 @@ typedef struct sym_breaker_sets_s {
 /*
  * Symmetry breaker
  * - pointers to the relevant context + term table
- * - vector of range constraint descriptors 
+ * - vector of range constraint descriptors
  * - substitution
  * - auxiliary structures to explore terms
  */
@@ -251,7 +251,7 @@ extern void collect_range_constraints(sym_breaker_t *breaker);
 
 
 /*
- * Check whether the assertions are invariant by permutation of 
+ * Check whether the assertions are invariant by permutation of
  * constants in record r.
  */
 extern bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r);

@@ -50,7 +50,7 @@ static inline void string_incref(char *s) {
 }
 
 /*
- * Decrement ref counter for s and free the string if the 
+ * Decrement ref counter for s and free the string if the
  * counter is zero
  */
 extern void string_decref(char *s);

@@ -84,7 +84,7 @@ void ivector_add(ivector_t *v, int32_t *a, uint32_t n) {
 
 
 /*
- * Swap v1 and v2 
+ * Swap v1 and v2
  */
 void ivector_swap(ivector_t *v1, ivector_t *v2) {
   ivector_t aux;
@@ -114,7 +114,7 @@ void ivector_remove_duplicates(ivector_t *v) {
       if (x != y) {
         a[j] = y;
         x = y;
-        j ++;   
+        j ++;
       }
     }
     v->size = j;

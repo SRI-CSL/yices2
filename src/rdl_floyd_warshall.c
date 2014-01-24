@@ -27,7 +27,7 @@
  ***************/
 
 /*
- * Initialize c to 0. 
+ * Initialize c to 0.
  * This must be called before any other operation on c.
  */
 static inline void init_rdl_const(rdl_const_t *c) {
@@ -44,7 +44,7 @@ static inline void reset_rdl_const(rdl_const_t *c) {
 }
 
 /*
- * Clear c: must be called before deleting c 
+ * Clear c: must be called before deleting c
  * to prevent memory leaks.
  */
 static inline void clear_rdl_const(rdl_const_t *c) {
@@ -272,7 +272,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
   uint32_t i, j, d, old_size;
   rdl_cell_t *src, *dst;
 
-  
+
   // d = current dimension, n = new dimension
   d = matrix->dim;
   if (d == n) return;
@@ -288,7 +288,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
 
     // initialize the new cells: id = null_rdl_edge, dist = 0;
     src = (rdl_cell_t *) safe_realloc(matrix->data, new_size * sizeof(rdl_cell_t));
-    old_size = matrix->size * matrix->size;    
+    old_size = matrix->size * matrix->size;
     for (i=old_size; i<new_size; i++) {
       src[i].id = null_rdl_edge;
       init_rdl_const(&src[i].dist);
@@ -322,7 +322,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
       }
       dst += n;
     }
-    
+
     // initialize cells [0 ... n-1] in rows d to n-1
     while (i<n) {
       for (j=0; j<n; j++) {
@@ -351,7 +351,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
         copy_rdl_cell(dst+j, src+j);
       }
     }
-  }  
+  }
 }
 
 
@@ -625,7 +625,7 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
   ivector_t *v;
   rdl_matrix_t *m;
   int32_t *aux;
-  uint32_t i, n;  
+  uint32_t i, n;
 
   m = &graph->matrix;
   d = &graph->c0;
@@ -638,7 +638,7 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
    * collect relevant vertices in vector v:
    * vertex z is relevant if there's a path from y to z and
    *    c + dist(y, z) < dist(x, z)
-   * if z is not relevant then, for any vertex w, the new edge 
+   * if z is not relevant then, for any vertex w, the new edge
    * cannot reduce dist(w, z)
    */
   v = &graph->buffer;
@@ -676,7 +676,7 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
           rdl_const_add(d, rdl_dist(m, y, z));
           // we have r[z] == cell[w, z]
           if (r[z].id < 0 || rdl_const_lt(d, &r[z].dist)) {
-            // path w ---> x --> y ---> z is shorter than 
+            // path w ---> x --> y ---> z is shorter than
             // the current path from w to z.
             // save then update cell[w, z]
             if (r[z].id < k) {
@@ -755,9 +755,9 @@ static void rdl_graph_explain_path(rdl_graph_t *graph, int32_t x, int32_t y, ive
  * - cell[x, x].id must be zero and cell[x, x].val must be 0
  * For all x != y:
  * - cell[x, y].id must be -1 or between 1 and number of egdes -1
- * - if cell[x, y].id == i and i != 1 then 
+ * - if cell[x, y].id == i and i != 1 then
  *   let u = source of edge i and v = target of edge i
- *   we must have 
+ *   we must have
  *      cell[x, u].id != 1 and cell[x, u].id < i
  *      cell[v, y].id != 1 and cell[v, y].id < i
  *      cell[x, y].dist = cell[x, u].dist + cost of edge i + cell[v, y].dist
@@ -767,7 +767,7 @@ static bool valid_rdl_graph(rdl_graph_t *graph) {
   rdl_edge_t *e;
   int32_t x, y, i;
   int32_t u, v;
-  rdl_const_t d;  
+  rdl_const_t d;
 
   init_rdl_const(&d);
 
@@ -1055,7 +1055,7 @@ static void restore_rdl_atbl(rdl_atbl_t *table, uint32_t n) {
       rdlatom_remove(table->free_list, i);
     }
   }
-  table->natoms = n;  
+  table->natoms = n;
 }
 
 
@@ -1126,7 +1126,7 @@ static void extend_rdl_astack(rdl_astack_t *stack) {
 
 /*
  * Usual encoding: atom id + sign bit are packed into a 32 bit integer index
- * - the sign is 0 for positive, 1 for negative 
+ * - the sign is 0 for positive, 1 for negative
  * - pos_index(i) in the queue means that atom i is true
  * - neg_index(i) in the queue means that atom i is false
  */
@@ -1207,7 +1207,7 @@ static inline void delete_rdl_astack(rdl_astack_t *stack) {
  *   level was entered
  * - natoms = number of atoms in the propagation queue when the
  *   decision level was entered.
- * 
+ *
  * The records are stored in stack->data[0 ... top-1] so top should
  * always be equal to decision_level + 1.
  *
@@ -1319,7 +1319,7 @@ static void rdl_trail_stack_save(rdl_trail_stack_t *stack, uint32_t nv, uint32_t
     if (n == 0) {
       n = DEFAULT_RDL_TRAIL_SIZE;
     } else {
-      n += n>>1; // 50% larger 
+      n += n>>1; // 50% larger
       if (n >= MAX_RDL_TRAIL_SIZE) {
         out_of_memory();
       }
@@ -1447,7 +1447,7 @@ static uint32_t hash_atom(rdlatom_hobj_t *p) {
 
 static bool equal_atom(rdlatom_hobj_t *p, int32_t id) {
   rdl_atom_t *atm;
-  
+
   atm = get_rdl_atom(p->atbl, id);
   return atm->source == p->source && atm->target == p->target && q_eq(&atm->cost, p->cost);
 }
@@ -1484,7 +1484,7 @@ static bvar_t bvar_for_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational
   atm = get_rdl_atom(&solver->atoms, id);
   v = atm->boolvar;
   if (v == null_bvar) {
-    v = create_boolean_variable(solver->core);    
+    v = create_boolean_variable(solver->core);
     atm->boolvar = v;
     attach_atom_to_bvar(solver->core, v, rdl_index2atom(id));
   }
@@ -1516,7 +1516,7 @@ literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *
     if (cell->id >= 0 && rdl_const_le(&cell->dist, d)){
       // dist[x, y] <= c so new atom is true
       return true_literal;
-    }    
+    }
 
     cell = rdl_cell(&solver->graph.matrix, y, x);
     if (cell->id >= 0) {
@@ -1565,7 +1565,7 @@ static void rdl_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const
   // check whether the new axiom is redundant
   cell = rdl_cell(&solver->graph.matrix, x, y);
   if (cell->id >= 0 && rdl_const_le(&cell->dist, d)) {
-    // d[x, y] <= c 
+    // d[x, y] <= c
     return;
   }
 
@@ -1582,14 +1582,14 @@ static void rdl_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const
   }
 
   /*
-   * save limit for add_edge: 
+   * save limit for add_edge:
    * k = top edge id stored in the top record of the undo stack
    * if base level == 0, k = -1, so nothing will be saved
    */
   assert(solver->stack.top == solver->decision_level + 1);
   k = rdl_undo_stack_top(&solver->stack)->edge_id;
 
-  // add the edge  
+  // add the edge
   rdl_graph_add_edge(&solver->graph, x, y, d, true_literal, k);
 }
 
@@ -1618,7 +1618,7 @@ void rdl_add_axiom_eq(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d)
   rdl_const_t *aux;
 
   aux = &solver->c1;
-  rdl_const_set_rational(aux, d);  
+  rdl_const_set_rational(aux, d);
   rdl_axiom_edge(solver, x, y, aux);
   rdl_const_negate(aux);
   rdl_axiom_edge(solver, y, x, aux);
@@ -1653,7 +1653,7 @@ static bool rdl_add_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t
       ivector_reset(v);
       rdl_graph_explain_path(&solver->graph, y, x, v);
       ivector_push(v, l);
-      /* 
+      /*
        * the conflict is not (v[0] ... v[n-1])
        * we need to convert it to a clause and add the end marker
        */
@@ -1775,7 +1775,7 @@ static void rdl_atom_propagation(rdl_solver_t *solver) {
   for (i=first_unassigned_atom(tbl); i >= 0; i = next_unassigned_atom(tbl, i)) {
     check_atom_for_propagation(solver, i);
   }
-  
+
   // update prop_ptr to skip all implied atoms in the next
   // call to rdl_propagate.
   solver->astack.prop_ptr = solver->astack.top;
@@ -1807,7 +1807,7 @@ void rdl_start_search(rdl_solver_t *solver) {
 
 /*
  * Start a new decision level:
- * - save the current number of edges and saved cells, 
+ * - save the current number of edges and saved cells,
  *   and the size of the atom queue
  */
 void rdl_increase_decision_level(rdl_solver_t *solver) {
@@ -1871,7 +1871,7 @@ bool rdl_propagate(rdl_solver_t *solver) {
   for (i=solver->astack.prop_ptr; i<n; i++) {
     k = a[i];
     atom = get_rdl_atom(&solver->atoms, atom_of_index(k));
-    // turn atom or its negation into (x - y <= d) 
+    // turn atom or its negation into (x - y <= d)
     if (is_pos_index(k)) {
       x = atom->source;
       y = atom->target;
@@ -1941,10 +1941,10 @@ void rdl_backtrack(rdl_solver_t *solver, uint32_t back_level) {
    * stack->data[back_level+1] = undo record created on entry to back_level + 1
    */
   assert(back_level + 1 < solver->stack.top);
-  undo = solver->stack.data + back_level + 1; 
+  undo = solver->stack.data + back_level + 1;
   // remove all edges of level >= back_level + 1
   rdl_graph_remove_edges(&solver->graph, undo->edge_id, undo->nsaved);
-  
+
   /*
    * all atoms assigned at levels > back_level must be put back into the free list
    * this must be done in reverse order of atom processing
@@ -1983,7 +1983,7 @@ void rdl_backtrack(rdl_solver_t *solver, uint32_t back_level) {
 
 
 /*
- * Push: 
+ * Push:
  * - store current number of vertices and atoms on the trail_stack
  * - increment both decision level and base level
  */
@@ -2059,7 +2059,7 @@ void rdl_reset(rdl_solver_t *solver) {
   reset_rdl_trail_stack(&solver->trail_stack);
 
   reset_int_htbl(&solver->htbl);
-  arena_reset(&solver->arena);  
+  arena_reset(&solver->arena);
   ivector_reset(&solver->expl_buffer);
   reset_rdl_const(&solver->c1);
   q_clear(&solver->q);
@@ -2217,7 +2217,7 @@ static literal_t rdl_eq_from_triple(rdl_solver_t *solver, dl_triple_t *d) {
     } else {
       return false_literal;
     }
-  } 
+  }
 
   // a nil_vertex in triples denote 'zero'
   if (x < 0) {
@@ -2382,7 +2382,7 @@ thvar_t rdl_create_var(rdl_solver_t *solver, bool is_int) {
  */
 thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q) {
   dl_triple_t *triple;
-  
+
   triple = &solver->triple;
   triple->target = nil_vertex;
   triple->source = nil_vertex;
@@ -2396,11 +2396,11 @@ thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q) {
  * Create a variable for a polynomial p, with variables defined by map:
  * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
  *   are arithmetic terms.
- * - map[i] is the theory variable x_i for t_i 
+ * - map[i] is the theory variable x_i for t_i
  *   (with map[0] = null_thvar if t_0 is const_idx)
  * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
  *
- * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial 
+ * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial
  *   (i.e., not of the form x - y + c)
  */
 thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
@@ -2420,7 +2420,7 @@ thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
     rdl_exception(solver, FORMULA_NOT_RDL);
   }
 
-  return get_dl_var(&solver->vtbl, triple);    
+  return get_dl_var(&solver->vtbl, triple);
 }
 
 
@@ -2499,12 +2499,12 @@ literal_t rdl_create_poly_ge_atom(rdl_solver_t *solver, polynomial_t *p, thvar_t
 /*
  * Create the atom (v = w)
  */
-literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t v, thvar_t w) {  
+literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t v, thvar_t w) {
   dl_triple_t *triple;
 
   triple = &solver->triple;
   if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
-    // v - w is not expressible as (target - source + c) 
+    // v - w is not expressible as (target - source + c)
     rdl_exception(solver, FORMULA_NOT_RDL);
   }
 
@@ -2623,7 +2623,7 @@ void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t v, t
     return;
   }
 
-  
+
   if (x < 0) {
     x = rdl_get_zero_vertex(solver);
   } else if (y < 0) {
@@ -2660,10 +2660,10 @@ void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t v, t
  * For any circuit x --> y ---> x
  *    d[x, y] = a + b delta
  *    d[y, x] = a' + b' delta
- * So d[x, y] + d[y, x] >= 0 over the extended rationals, means 
- * either (a + a') > 0 or (a + a') = 0 and (b + b') > 0. 
+ * So d[x, y] + d[y, x] >= 0 over the extended rationals, means
+ * either (a + a') > 0 or (a + a') = 0 and (b + b') > 0.
  *
- * We want to find a positive rational epsilon for which the inequality 
+ * We want to find a positive rational epsilon for which the inequality
  * d[x, y] + d[y, x] >= 0 holds in the rationals. If (b + b') < 0, we must
  * take  epsilon <= - (a + a')/(b + b'). If (b + b') >= 0, any epsilon > 0 works.
  */
@@ -2677,9 +2677,9 @@ static void rdl_adjust_epsilon(rdl_solver_t *solver, int32_t x, int32_t y) {
   rational_t *aux, *factor;
   int32_t b;
 
-  assert(x != y);  
+  assert(x != y);
   cell_xy = rdl_cell(&solver->graph.matrix, x, y);
-  cell_yx = rdl_cell(&solver->graph.matrix, y, x);  
+  cell_yx = rdl_cell(&solver->graph.matrix, y, x);
   assert(cell_xy->id > 0);
   if (cell_yx->id > 0) {
     // a circuit x --> y --> x exists
@@ -2703,12 +2703,12 @@ static void rdl_compute_model_epsilon(rdl_solver_t *solver) {
   rdl_edge_t *edges;
   uint32_t i, n;
 
-  q_set_one(&solver->epsilon); // any positive value as default  
+  q_set_one(&solver->epsilon); // any positive value as default
 
   // scan all the edges in the graph
   edges = solver->graph.edges.data;
   n = solver->graph.edges.top; // number of edges
-  for (i=1; i<n; i++) {  // skip edge 0 = marker 
+  for (i=1; i<n; i++) {  // skip edge 0 = marker
     rdl_adjust_epsilon(solver, edges[i].source, edges[i].target);
   }
 }
@@ -2748,7 +2748,7 @@ static void rdl_sub_rational_distance(rdl_solver_t *solver, rational_t *v, rdl_c
 
 
 /*
- * Assign value v to vertex x, then extend the model to predecessors of x 
+ * Assign value v to vertex x, then extend the model to predecessors of x
  * that are not marked. If y is not marked and there's a path from y to x,
  *  val[y] is set to v + d[x, y] (as computed using solver->epsilon).
  */
@@ -2911,7 +2911,7 @@ void rdl_build_model(rdl_solver_t *solver) {
       rdl_set_reference_point(solver, x, aux, mark);
     }
   }
-  
+
 
   delete_bitvector(mark);
 
@@ -3030,7 +3030,7 @@ static arith_interface_t rdl_intern = {
  ****************/
 
 /*
- * Initialize solver: 
+ * Initialize solver:
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */

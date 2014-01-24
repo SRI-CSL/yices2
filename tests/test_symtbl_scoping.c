@@ -25,7 +25,7 @@ static inline long int random(void) {
 #define NSYMBOLS 10
 
 static const char *name[NSYMBOLS] = {
-  "a", "b", "c", "d", "e", 
+  "a", "b", "c", "d", "e",
   "f", "g", "h", "i", "j",
 };
 
@@ -123,7 +123,7 @@ static void random_test(void) {
 
   r = ((uint32_t) random()) % ( 2 * NSYMBOLS);
   if (r >= NSYMBOLS) {
-    // add 
+    // add
     i = r - NSYMBOLS;
     printf("map %s\n", name[i]);
     map(i);

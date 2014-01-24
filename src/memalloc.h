@@ -19,7 +19,7 @@ extern void out_of_memory(void) __attribute__ ((noreturn));
 /*
  * Wrappers for malloc/realloc.
  */
-extern void *safe_malloc(size_t size) __attribute__ ((malloc)); 
+extern void *safe_malloc(size_t size) __attribute__ ((malloc));
 extern void *safe_realloc(void *ptr, size_t size) __attribute__ ((malloc));
 
 

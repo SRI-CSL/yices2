@@ -34,7 +34,7 @@ void init_rb_bvset(rb_bvset_t *set, uint32_t n) {
 /*
  * Check whether set is full: all elements in [0 ... max_val]
  * are present in the set.
- * - we use the fact that the number of nodes in a tree is 
+ * - we use the fact that the number of nodes in a tree is
  *   less than MAX_RBTREE_SIZE, which is less than 2^32.
  */
 bool rb_bvset_full(rb_bvset_t *set) {
@@ -45,7 +45,7 @@ bool rb_bvset_full(rb_bvset_t *set) {
 
 /*
  * Return a fresh x not in the set then add x to set
- * - the set must not be full 
+ * - the set must not be full
  */
 uint32_t rb_bvset_get_fresh(rb_bvset_t *set) {
   uint32_t x;

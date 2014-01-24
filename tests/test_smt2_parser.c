@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer); 
+	flush_lexer(&lexer);
       } else {
 	break; // exit
       }

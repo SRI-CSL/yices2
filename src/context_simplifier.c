@@ -111,7 +111,7 @@ void context_free_marks(context_t *ctx) {
  * CACHES
  *
  * There are two internal caches for visiting formulas/terms.
- * - the 'cache' uses a bitvector implementation and should be 
+ * - the 'cache' uses a bitvector implementation and should be
  *   better for operations that visit many terms.
  * - the 'small_cache' uses a hash table and should be better
  *   for operations that visit a small number of terms.
@@ -197,12 +197,12 @@ void context_free_cache(context_t *ctx) {
  * ARITHMETIC BUFFERS
  *
  * There are three buffers for internal construction of polynomials
- * - arith_buffer is more expensive (requires more memory) but 
+ * - arith_buffer is more expensive (requires more memory) but
  *   it supports more operations (e.g., term constructors in yices_api.c
  *   take arith_buffers as arguments).
- * - poly_buffer is a cheaper data structure, but it does not support 
+ * - poly_buffer is a cheaper data structure, but it does not support
  *   all the operations
- * - aux_poly is even cheaper, but it's for direct construction only 
+ * - aux_poly is even cheaper, but it's for direct construction only
  */
 
 /*
@@ -217,7 +217,7 @@ rba_buffer_t *context_get_arith_buffer(context_t *ctx) {
     init_rba_buffer(tmp, ctx->terms->pprods);
     ctx->arith_buffer = tmp;
   }
-  
+
   return tmp;
 }
 
@@ -306,7 +306,7 @@ polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n) {
   }
 
   assert(p != NULL && ctx->aux_poly_size >= n);
-  
+
   return p;
 }
 
@@ -316,7 +316,7 @@ polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n) {
  */
 void context_free_aux_poly(context_t *ctx) {
   polynomial_t *p;
-  
+
   p = ctx->aux_poly;
   if (p != NULL) {
     free_polynomial(p);
@@ -454,7 +454,7 @@ void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l) {
  */
 
 /*
- * Difference-logic profile: 
+ * Difference-logic profile:
  * - allocate and initialize the structure if it does not exist
  */
 static dl_data_t *context_get_dl_profile(context_t *ctx) {
@@ -507,8 +507,8 @@ void context_free_dl_profile(context_t *ctx) {
   assert(intern_tbl_is_root(&ctx->intern, t));
   tt = is_pos_term(t);
   t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+
+  return intern_tbl_root_is_mapped(&ctx->intern, t) &&
     intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
 }
 
@@ -518,8 +518,8 @@ bool term_is_false(context_t *ctx, term_t t) {
   assert(intern_tbl_is_root(&ctx->intern, t));
   tt = is_pos_term(t);
   t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+
+  return intern_tbl_root_is_mapped(&ctx->intern, t) &&
     intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
 }
 
@@ -534,7 +534,7 @@ static term_t simplify_select(context_t *ctx, term_t r) {
   composite_term_t *tuple;
   term_t t;
 
-  sel = select_term_desc(ctx->terms, r);  
+  sel = select_term_desc(ctx->terms, r);
   t = intern_tbl_get_root(&ctx->intern, sel->arg);
   if (term_kind(ctx->terms, t) == TUPLE_TERM) {
     // select i (tuple ... t_i ...) --> t_i
@@ -571,12 +571,12 @@ static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
-    if (arith_term_is_nonneg(terms, x) && 
+    if (arith_term_is_nonneg(terms, x) &&
         arith_term_is_negative(terms, y)) {
       return d->arg[0];
     }
 
-    if (arith_term_is_negative(terms, x) && 
+    if (arith_term_is_negative(terms, x) &&
         arith_term_is_nonneg(terms, y)) {
       return opposite_term(d->arg[0]);
     }
@@ -627,7 +627,7 @@ static term_t simplify_ite(context_t *ctx, term_t c, term_t t1, term_t t2) {
 
   return NULL_TERM;
 }
-                                                                                
+
 
 
 /*
@@ -675,7 +675,7 @@ static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
 
     if (y == t1 && disequal_arith_terms(terms, x, t1)) {
       return opposite_term(d->arg[0]);
-    }    
+    }
   }
 
   return NULL_TERM;
@@ -710,7 +710,7 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
     t = simplify_bveq(terms, t1, t2);
   }
 
-  return t;  
+  return t;
 }
 
 
@@ -727,7 +727,7 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
  * 1) Cheap substitutions (X := constant or X := variable) are performed first.
  *    Other possible substitutions (X := <term>) are stored into vector subst_eqs.
  *
- * 2) After flattening, the terms in subst_eqs are scanned and converted to 
+ * 2) After flattening, the terms in subst_eqs are scanned and converted to
  *    potential substitutions [X --> <term>] whenever possible. Terms in subst_eqs
  *    that are no longer possible substitutions are copied into top_eqs.
  *
@@ -804,7 +804,7 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
       intern_tbl_merge_classes(intern, t1, t2);
       return;
     }
-    
+
     if (free1) {
       process_candidate_subst(ctx, t1, t2, e);
       return;
@@ -822,7 +822,7 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
 
 
 /*
- * Attempt to turn (eq t1 t2) into a variable substitution 
+ * Attempt to turn (eq t1 t2) into a variable substitution
  * - both t1 and t2 are boolean root terms in the internalization table
  * - e is a term equivalent to (eq t1 t2)
  * - neither t1 nor t2 are constant
@@ -855,7 +855,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
       return;
     }
   }
-  
+
   // no substitution
   ivector_push(&ctx->top_eqs, e);
 }
@@ -866,7 +866,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
  * VARIABLE ELIMINATION: PHASE 2
  */
 
-/*  
+/*
  * Check whether x is already mapped in the candidate substitution
  * - if not, store [x := t] as a candidate
  * - otherwise, add e to the top_eqs vector
@@ -894,11 +894,11 @@ static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, te
     printf("\n");
     fflush(stdout);
 #endif
-    
+
   } else {
     ivector_push(&ctx->top_eqs, e);
   }
-} 
+}
 
 /*
  * Check whether (eq t1 t2) can still be turned into a substitution (X := term)
@@ -966,7 +966,7 @@ static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
     switch (term_kind(terms, e)) {
     case EQ_TERM:
     case ARITH_BINEQ_ATOM:
-    case BV_EQ_ATOM:      
+    case BV_EQ_ATOM:
       eq = composite_term_desc(terms, e);
       assert(eq->arity == 2);
       t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
@@ -1006,12 +1006,12 @@ static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
 /*
  * We use a depth-first search in the dependency graph:
  * - vertices are terms,
- * - edges are of two forms: 
+ * - edges are of two forms:
  *    t --> u if u is a child subterm of t
  *    x := t  if x is a variable and t is the substitution candidate for x
  *
- * By construction, the graph restricted to edges t --> u (without the 
- * substitution edges) is a DAG. So we can remove cycles by removing some 
+ * By construction, the graph restricted to edges t --> u (without the
+ * substitution edges) is a DAG. So we can remove cycles by removing some
  * substitution edges x := t.
  */
 
@@ -1070,7 +1070,7 @@ static bool visit_composite(context_t *ctx, composite_term_t *c) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -1311,7 +1311,7 @@ static void remove_subst_cycles(context_t *ctx) {
 
 /*
  * Iterator for finalize subst:
- * - s is a triple [x, t, e] 
+ * - s is a triple [x, t, e]
  * - if t is NULL_TERM, that's no longer a good substitution: add e to top_eqs
  * - otherwise add x := t as a substitution in the internalization table
  */
@@ -1330,7 +1330,7 @@ static void finalize_subst_triple(context_t *ctx, subst_triple_t *s) {
  * Finalize all candidate substitutions
  */
 static void finalize_subst_candidates(context_t *ctx) {
-  pseudo_subst_iterate(ctx->subst, ctx, (pseudo_subst_iterator_t) finalize_subst_triple);  
+  pseudo_subst_iterate(ctx->subst, ctx, (pseudo_subst_iterator_t) finalize_subst_triple);
 }
 
 
@@ -1352,12 +1352,12 @@ static void finalize_subst_candidates(context_t *ctx) {
  *    t is mapped to true in the internalization table.
  *
  * 2) ctx->top_atoms = top-level atoms.
- *    Every t in top_atoms is an atom or the negation of an atom (that 
+ *    Every t in top_atoms is an atom or the negation of an atom (that
  *    can't go into top_eqs).
  *    t is mapped to true in the internalization table.
  *
  * 3) ctx->top_formulas = non-atomic terms.
- *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...) 
+ *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...)
  *    or the negation of such a term.
  *    t is mapped to true in the internalization table.
  *
@@ -1366,7 +1366,7 @@ static void finalize_subst_candidates(context_t *ctx) {
  *    and is mapped to a literal l or an egraph occurrence g in
  *    the internalization table.
  *    l or g must be asserted true in later stages.
- * 
+ *
  * Flattening is done breadth-first:
  * - the subterms to process are stored into ctx->queue.
  * - each subterm in that queue is a boolean term that's asserted true
@@ -1402,7 +1402,7 @@ static void flatten_distinct(context_t *ctx, term_t r, bool tt) {
   if (tt) {
     ivector_push(&ctx->top_atoms, r);
   } else {
-    // not (distinct ...) expands to an or 
+    // not (distinct ...) expands to an or
     ivector_push(&ctx->top_formulas, not(r));
   }
 }
@@ -1415,7 +1415,7 @@ static void flatten_select(context_t *ctx, term_t r, bool tt) {
   if (t != NULL_TERM) {
     int_queue_push(&ctx->queue, signed_term(t, tt));
   } else {
-    ivector_push(&ctx->top_atoms, signed_term(r, tt));    
+    ivector_push(&ctx->top_atoms, signed_term(r, tt));
   }
 }
 
@@ -1576,7 +1576,7 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     } else if (t != true_term) {
       int_queue_push(&ctx->queue, t);
-    } 
+    }
 
   } else if (tt) {
     /*
@@ -1689,7 +1689,7 @@ static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
 
 /*
  * Simplify and flatten assertion f.
- * 
+ *
  * Raise an exception via longjmp if there's an error or if a
  * contradiction is detected.
  */
@@ -1726,7 +1726,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
     if (intern_tbl_root_is_mapped(intern, r)) {
       /*
        * r already mapped to something
-       * check for trivial unsat 
+       * check for trivial unsat
        * then add r or (not r) to top_intern
        */
       x = intern_tbl_map_of_root(intern, r);
@@ -1754,7 +1754,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
          */
         exception = INTERNAL_ERROR;
         goto abort;
-        
+
       case ARITH_CONSTANT:
       case BV64_CONSTANT:
       case BV_CONSTANT:
@@ -1867,7 +1867,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
         break;
       }
     }
-    
+
   } while (! int_queue_is_empty(queue));
 
   return;
@@ -1883,7 +1883,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
 /*
  * Process all candidate substitutions after flattening
  * - the candidate substitutions are in ctx->subst_eqs
- * - each element in ctx->subst_eqs is a boolean term e 
+ * - each element in ctx->subst_eqs is a boolean term e
  *   such that e is true or false (by flattening)
  *         and e is equivalent to an equality (t1 == t2)
  *   where one of t1 and t2 is a variable.
@@ -1926,7 +1926,7 @@ void add_aux_eq(context_t *ctx, term_t x, term_t y) {
     /*
      * Build/get term (eq x y)
      */
-    terms = ctx->terms;  
+    terms = ctx->terms;
     if (x > y) {
       eq = eq_term(terms, y, x);
     } else {
@@ -1949,7 +1949,7 @@ static void process_aux_eq(context_t *ctx, term_t eq) {
   int32_t code;
 
   assert(intern_tbl_is_root(&ctx->intern, eq));
-  
+
   if (intern_tbl_root_is_mapped(&ctx->intern, eq)) {
     // eq is already internalized
     code = intern_tbl_map_of_root(&ctx->intern, eq);
@@ -2038,7 +2038,7 @@ static term_t gt0_atom(context_t *ctx, term_t t) {
   assert(b != NULL && rba_buffer_is_zero(b));
 
   rba_buffer_add_term(b, ctx->terms, t);
-  return mk_direct_arith_gt0(ctx->terms, b);  
+  return mk_direct_arith_gt0(ctx->terms, b);
 }
 
 
@@ -2055,7 +2055,7 @@ static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
   b = ctx->arith_buffer;
   assert(b != NULL && rba_buffer_is_zero(b));
   rba_buffer_add_term(b, ctx->terms, t);
-  rba_buffer_sub_term(b, ctx->terms, u); 
+  rba_buffer_sub_term(b, ctx->terms, u);
   return mk_direct_arith_lt0(ctx->terms, b);
 }
 
@@ -2098,7 +2098,7 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
      */
     if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
       // t is already internalized, keep it as is
-      ivector_push(v, t); 
+      ivector_push(v, t);
     } else {
       terms = ctx->terms;
       kind = term_kind(terms, t);
@@ -2133,7 +2133,7 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
 	   * Exception 1: if x or y is an if-then-else term, then it's
 	   * better to keep (eq x y) because the if-lifting
 	   * simplifications are more likely to work on
-	   *    (ite c a b) = y 
+	   *    (ite c a b) = y
 	   * than (ite c a b) >= y AND (ite c a b) <= y
 	   *
 	   * Exception 2: if there's an egraph, then it's better
@@ -2221,7 +2221,7 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
     /*
      * Build/get term (eq x y)
      */
-    terms = ctx->terms;  
+    terms = ctx->terms;
     if (x > y) {
       eq = eq_term(terms, y, x);
     } else {
@@ -2234,14 +2234,14 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
     printf("---> learned equality: ");
     print_term_def(stdout, ctx->terms, eq);
     printf("\n");
-#endif 
+#endif
 
     if (intern_tbl_root_is_mapped(&ctx->intern, eq)) {
       // eq is already internalized
       code = intern_tbl_map_of_root(&ctx->intern, eq);
       if (code == bool2code(false)) {
         return TRIVIALLY_UNSAT;
-      } 
+      }
 
       if (code != bool2code(true)) {
         ivector_push(&ctx->top_interns, eq);
@@ -2251,7 +2251,7 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
       // map e to true and add it to top_eqs
       intern_tbl_map_root(&ctx->intern, eq, bool2code(true));
       ivector_push(&ctx->top_eqs, eq);
-    }    
+    }
 
   }
 
@@ -2266,7 +2266,7 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
 static void add_implied_equalities(context_t *ctx, epartition_t *p) {
   uint32_t i, n;
   term_t *q, x, y;
-  
+
   n = p->nclasses;
   q = p->data;
   for (i=0; i<n; i++) {
@@ -2282,7 +2282,7 @@ static void add_implied_equalities(context_t *ctx, epartition_t *p) {
 
 
 /*
- * Attempt to learn global equalities implied 
+ * Attempt to learn global equalities implied
  * by the formulas stored in ctx->top_formulas.
  * Any such equality is added to ctx->aux_eqs
  */
@@ -2364,12 +2364,12 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
     /*
      * stats->sum_const is intended to be an upper bound on the
      * longest path in the difference-logic graph.
-     * 
+     *
      * for idl, we add max( |a|, |-a -1|) to sum_const
      * for rdl, we add |a| to sum_const
      */
     if (a != NULL) {
-      if (q_is_neg(a)) {        
+      if (q_is_neg(a)) {
         // a < 0  so max(|a|, |-a - 1|) is - a
         q_sub(&stats->sum_const, a);
       } else {
@@ -2382,7 +2382,7 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
       q_add_one(&stats->sum_const);
     }
   }
-  
+
   stats->num_atoms ++;
 
   return true;
@@ -2390,7 +2390,7 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
 
 
 /*
- * Check whether aux contains a difference logic term, i.e., 
+ * Check whether aux contains a difference logic term, i.e.,
  * a term of the form (a + x - y) or (a + x) or (a - y) or (x - y) or +x or -y or a,
  * where a is a constant and x and y are two arithmetic variables.
  *
@@ -2412,7 +2412,7 @@ static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t
   if (q[0].var == const_idx) {
     a = &q[0].coeff;
     q ++;
-    n --; 
+    n --;
   }
 
   // deal with the non-constant terms
@@ -2421,7 +2421,7 @@ static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t
       // a_0 + x_1 - x_2 >= 0  <--> (x_2 - x_1 <= a_0)
       return check_dl_atom(ctx, stats, q[1].var, q[0].var, a, idl);
     }
-      
+
     if (q_is_one(&q[1].coeff)) {
       // a_0 - x_1 + x_2 >= 0  <--> (x_1 - x_2 <= a_0)
       return check_dl_atom(ctx, stats, q[0].var, q[1].var, a, idl);
@@ -2462,13 +2462,13 @@ static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t
   mono = p->mono;
 
   /*
-   * p is of the form a0 + a_1 t_1 + ... + a_n t_n 
+   * p is of the form a0 + a_1 t_1 + ... + a_n t_n
    * We replace t_i by its root in S(t_i) in the intern table.
    * The result a0 + a_1 S(t_1) + ... + a_n S(t_n) is stored in buffer aux..
    * Then we check whether aux is a difference logic polynomial.
    */
-  assert(n > 0); // because zero polynomial is converted to 0 constant 
-  
+  assert(n > 0); // because zero polynomial is converted to 0 constant
+
   // deal with the constant first
   if (mono[0].var == const_idx) {
     poly_buffer_add_const(aux, &mono[0].coeff);
@@ -2505,7 +2505,7 @@ static bool check_diff_logic_eq(context_t *ctx, dl_data_t *stats, term_t x, term
   // build polynomial (x - y) after applying substitutions
   terms = ctx->terms;
   poly_buffer_add_term(terms, aux, intern_tbl_get_root(&ctx->intern, x));
-  poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, y));    
+  poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, y));
   normalize_poly_buffer(aux);
 
   return check_dl_poly_buffer(ctx, stats, aux, idl);
@@ -2541,7 +2541,7 @@ static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bo
   // apply substitution
   t = intern_tbl_get_root(&ctx->intern, t);
 
-  assert(is_arithmetic_term(terms, t) && is_pos_term(t) 
+  assert(is_arithmetic_term(terms, t) && is_pos_term(t)
          && intern_tbl_is_root(&ctx->intern, t));
 
   switch (term_kind(terms, t)) {
@@ -2595,7 +2595,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
         analyze_dl(ctx, stats, r, idl);
       }
       break;
-      
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case OR_TERM:
@@ -2650,10 +2650,10 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
 
   return;
 
- abort:  
+ abort:
   longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
 }
-  
+
 
 /*
  * Check all terms in vector v
@@ -2671,14 +2671,14 @@ static void analyze_diff_logic_vector(context_t *ctx, dl_data_t *stats, ivector_
 /*
  * Check difference logic after flattening:
  * - check whether all formulas in top_eqs, top_atoms, and top_formulas
- *   are in the difference logic fragment. If so, compute the benchmark 
+ *   are in the difference logic fragment. If so, compute the benchmark
  *   profile (i.e., statistics on number of variables + atoms)
- * - if idl is true, all variables must be integer (i.e., the formula is 
- *   in the IDL fragment), otherwise all variables must be real (i.e., the 
+ * - if idl is true, all variables must be integer (i.e., the formula is
+ *   in the IDL fragment), otherwise all variables must be real (i.e., the
  *   formula is in the RDL fragment).
  *
  * - if all assertions are in IDL or RDL.
- *   the statistics are stored in ctx->dl_profile. 
+ *   the statistics are stored in ctx->dl_profile.
  * - raise an exception 'LOGIC_NOT_SUPPORTED' otherwise.
  *
  * This function is used to decide whether to use simplex or a
@@ -2791,7 +2791,7 @@ static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t 
   for (i=0; i<n; i++) {
     pp_term(pp, terms, r->cst[i]);
   }
-  pp_close_block(pp, false);  
+  pp_close_block(pp, false);
 }
 
 static void pp_constraints(yices_pp_t *pp, sym_breaker_t *breaker, rng_record_t *r) {
@@ -2889,7 +2889,7 @@ void break_uf_symmetries(context_t *ctx) {
     // test of symmetry breaking
     sets = &breaker.sets;
     for (i=0; i<n; i++) {
-      if (check_assertion_invariance(&breaker, v[i])) {	
+      if (check_assertion_invariance(&breaker, v[i])) {
 #if TRACE_SYM_BREAKING
 	printf("Breaking symmetries using set[%"PRIu32"]:", i);
 	print_constant_set(&breaker, v[i]);
@@ -2919,7 +2919,7 @@ void break_uf_symmetries(context_t *ctx) {
 #endif
       }
     }
-    
+
   } else {
 #if TRACE_SYM_BREAKING
     printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");

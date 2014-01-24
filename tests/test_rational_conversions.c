@@ -43,7 +43,7 @@ static void convert_int32_test(rational_t *r1) {
       fflush(stdout);
       exit(1);
     }
-  }  
+  }
 }
 
 
@@ -78,7 +78,7 @@ static void convert_int64_test(rational_t *r1) {
       fflush(stdout);
       exit(1);
     }
-  }  
+  }
 }
 
 

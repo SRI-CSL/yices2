@@ -5,7 +5,7 @@
 /*
  * Each row is an equation a_1 x_1 + ... + a_n x_n = 0
  * - rows are added on the fly
- * - each row has an activity, similar to the activity of learned clauses 
+ * - each row has an activity, similar to the activity of learned clauses
  *   in smt_core.
  *
  * For row deletion:
@@ -13,10 +13,10 @@
  *   (the lock for is the first implied literal in the smt_core's queue).
  *   if the lock is null_literal, then the row is not used as an explanation.
  *
- * Two propagation rules are associated with this equality: 
+ * Two propagation rules are associated with this equality:
  *
  * 1) Implied lower bound:
- *    let u_1, ..., u_n be constants and U = u_1 + ... + u_n then 
+ *    let u_1, ..., u_n be constants and U = u_1 + ... + u_n then
  *    a_1 x_1 <= u_1, ..., a_n x_n <= u_n implies a_i x_i >= U - u_i
  *
  * 2) Implied upper bound:
@@ -55,7 +55,7 @@ typedef struct prop_row_s {
 
 
 /*
- * Propagation table = array of prop rows 
+ * Propagation table = array of prop rows
  * - for each variable x, we keep track of the rows where x occurs
  * - nrows = total number of rows (includes NULL rows)
  * - nvars = number of variables
@@ -63,7 +63,7 @@ typedef struct prop_row_s {
  * - var_size = size of the column array
  * - row[i] = propagation row
  * - mark = bitvector for marking rows
- * - col[x] = column = array of indices of rows where x occurs 
+ * - col[x] = column = array of indices of rows where x occurs
  *   (col[x] is an index_vector object so its size is stored in a hidden header)
  *
  * When row i is deleted, we set row[i] = NULL and we store i into a vector
@@ -111,7 +111,7 @@ typedef struct prop_table_s {
 
 /*
  * Encoding of rows in the col[x] array:
- * - every integer d in col[x] encodes a row index k 
+ * - every integer d in col[x] encodes a row index k
  *  + the sign of the coefficient of x in that row
  * - the sign is stored in the low-order bit of d
  *   (0 means positive, 1 means negative)

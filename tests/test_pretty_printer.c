@@ -18,7 +18,7 @@ static pp_close_token_t closes[NCLOSES];
 /*
  * names of the atomic tokens
  */
-static char *atom_strings[NATOMS] = { 
+static char *atom_strings[NATOMS] = {
   "aaa", "bbb", "ccc", "ddd", "eee", "fff",
   "g", "h", "iii", "jjj", "kkk", "lll",
 };
@@ -55,7 +55,7 @@ static void init_tokens(void) {
     opens[i].indent = opens[i].label_size + 1;
     opens[i].short_indent = 1;
     opens[i].user_tag = i;
-    if (i >= 5){ 
+    if (i >= 5){
       opens[i].flags = PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK;
       opens[i].indent ++;
     }
@@ -87,7 +87,7 @@ static char *get_truncated(void *aux, pp_atomic_token_t *tk, uint32_t n) {
   return atom_strings[tk->user_tag];
 }
 
-static void free_token(void *aux, void *tk) {  
+static void free_token(void *aux, void *tk) {
 }
 
 static pp_token_converter_t converter = {
@@ -116,7 +116,7 @@ static pp_area_t display = {
 static void test1(pp_t *pp) {
   pp_push_token(pp, tag_open(opens + 0)); // f0
   pp_push_token(pp, tag_atomic(atoms + 0)); // aaa
-  pp_push_token(pp, tag_open(opens + 9));   // h50000 
+  pp_push_token(pp, tag_open(opens + 9));   // h50000
   pp_push_token(pp, tag_open(opens + 2));   // f2
   pp_push_token(pp, tag_atomic(atoms + 1)); // bbb
   pp_push_token(pp, tag_atomic(atoms + 2)); // ccc
@@ -187,7 +187,7 @@ int main() {
 
   init_tokens();
 
-  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
+  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n",
 	 display.height, display.width);
   init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
   test1(&pp);
@@ -199,7 +199,7 @@ int main() {
   display.truncate = true;
   for (w = 20; w<50; w++) {
     display.width = w;
-    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
+    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n",
 	 display.height, display.width);
     init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
     test1(&pp);
@@ -216,7 +216,7 @@ int main() {
 
   display.width = 20;
   display.truncate = false;
-  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
+  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n",
 	 display.height, display.width);
   init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
   test1(&pp);
@@ -228,7 +228,7 @@ int main() {
   display.truncate = true;
   for (w = 4; w<50; w++) {
     display.width = w;
-    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
+    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n",
 	 display.height, display.width);
     init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
     test1(&pp);
@@ -242,7 +242,7 @@ int main() {
   display.truncate = false;
   for (w = 4; w<50; w++) {
     display.width = w;
-    printf("\n\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
+    printf("\n\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n",
 	 display.height, display.width);
     init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
     test1(&pp);

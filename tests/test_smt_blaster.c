@@ -38,7 +38,7 @@ static context_t context;
  * Parameters:
  * - filename = name of the input file (in SMT format)
  *   if filenemae is NULL, we read stdin
- * - out_file = name of the output file 
+ * - out_file = name of the output file
  *   if out_file is NULL, we use 'yices2bblast.cnf' as default.
  */
 static char *filename;
@@ -135,7 +135,7 @@ static void process_command_line(int argc, char *argv[]) {
     fprintf(stderr, "%s: can't use '%s' for both input and dump file\n", parser.command_name, out_file);
     goto bad_usage;
   }
-  
+
   return;
 
  quick_exit:
@@ -178,7 +178,7 @@ static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     printf("Internalization OK\n");
-    printf("Assertions simplify to false\n\n"); 
+    printf("Assertions simplify to false\n\n");
     printf("unsat\n");
   } else if (code == CTX_NO_ERROR) {
     printf("Internalization OK\n\n");
@@ -188,7 +188,7 @@ static void print_internalization_code(int32_t code) {
     code = - code;
     printf("Internalization error: %s\n\n", code2error[code]);
     printf("unknown\n");
-  }    
+  }
 
   fflush(stdout);
 }
@@ -219,11 +219,11 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
 
 /*
  * Temporary test. Check whether the assertions are trivially true
- * after internalization and variable elimination (i.e., vectors 
+ * after internalization and variable elimination (i.e., vectors
  * top_eqs, top_formulas, top_atoms, top_interns are all empty).
  */
 static bool context_is_empty(context_t *ctx) {
-  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 && 
+  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 &&
     ctx->top_formulas.size == 0 && ctx->top_interns.size == 0;
 }
 
@@ -240,12 +240,12 @@ static void test_blaster(smt_benchmark_t *bench) {
    */
   if (bench->logic_name == NULL) {
     printf("No logic specified\n\nunknown\n");
-    return;    
-  } 
+    return;
+  }
 
   logic = smt_logic_code(bench->logic_name);
   assert(AUFLIA <= logic && logic <= SMT_UNKNOWN);
-  if (logic != QF_BV && logic != QF_UFBV) {    
+  if (logic != QF_BV && logic != QF_UFBV) {
     printf("Input is not a bit-vector problem (logic= %s)\n", bench->logic_name);
     return;
   }
@@ -254,23 +254,23 @@ static void test_blaster(smt_benchmark_t *bench) {
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
-  enable_bvarith_elimination(&context);  
+  enable_bvarith_elimination(&context);
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   if (code != CTX_NO_ERROR) {
-    print_internalization_code(code);    
+    print_internalization_code(code);
   } else if (context_is_empty(&context)) {
     printf("Reduced to the empty context\n\nsat\n");
   } else {
     assert(context_has_bv_solver(&context));
-    // test bit-blasting 
+    // test bit-blasting
     if (bv_solver_bitblast(context.bv_solver)) {
       printf("Bitblasting OK\n");
-      fflush(stdout);    
+      fflush(stdout);
       print_internalization_code(code);
-      fflush(stdout);    
+      fflush(stdout);
       // one round of smt_process to handle the lemmas
-      smt_process(context.core);      
+      smt_process(context.core);
 
       if (out_file == NULL) {
 	out_file = "yices2bblast.cnf";
@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
     if (init_smt_file_lexer(&lexer, filename) < 0) {
       perror(filename);
       exit(YICES_EXIT_FILE_NOT_FOUND);
-    } 
+    }
   } else {
     // read from stdin
     init_smt_stdin_lexer(&lexer);
@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
   if (code == 0) {
     printf("No syntax error found\n");
     printf("term table: %"PRIu32" elements\n", __yices_globals.terms->nelems);
-    fflush(stdout);    
+    fflush(stdout);
   } else {
     exit(YICES_EXIT_SYNTAX_ERROR);
   }

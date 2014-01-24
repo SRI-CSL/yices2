@@ -7,8 +7,8 @@ GCC as all versions of GCC I've seen follow the C99 standard (more or
 less) and they all include <stdint.h>.
 
 Unfortunately, Microsoft Visual Studio does not even try to
-approximate C99, and some versions of Visual Studio do not have 
-<stdint.h> 
+approximate C99, and some versions of Visual Studio do not have
+<stdint.h>
 
 The simplest workaround for using 'yices.h' on a system that does not
 have <stdint.h> is to get an open-source replacement:
@@ -31,7 +31,7 @@ as a DLL. For proper compilation and link with this DLL, all functions
 and variables in 'yices.h' must be declared with '__declspec(dllimport)'.
 
 
-But when we build the library and compile yices itself, all the 
+But when we build the library and compile yices itself, all the
 functions must be exported (i.e., declared with '__declsepc(dllexport)').
 
 Solution for now:
@@ -39,8 +39,8 @@ Solution for now:
 - by default 'yices.h' defines __YICES_DLLSPEC__ to __declspec(dllimport)
 - but 'yices.h' leaves __YICES_DLLSPEC__ unchanged if it's already defined
 
-All code that includes 'yices.h' in the source tree must make sure 
-to define __YICES_DLLSPEC__ to '__declspec(dllexport)' before 
+All code that includes 'yices.h' in the source tree must make sure
+to define __YICES_DLLSPEC__ to '__declspec(dllexport)' before
 the line #include "yices.h"
 
 Also, to make it possible to link with 'libyices.a' on Windows, we

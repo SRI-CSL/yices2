@@ -1,6 +1,6 @@
 /*
  * Heap of 32bit signed integers with customizable ordering
- * This module is similar to ptr_heap for integers. It's 
+ * This module is similar to ptr_heap for integers. It's
  * simpler than generic heap and can contain several times
  * the same integer.
  */
@@ -14,10 +14,10 @@
 
 /*
  * Comparison function:
- * - the function is called as cmp(user_data, x, y) where 
+ * - the function is called as cmp(user_data, x, y) where
  *   x and y are two integers in the heap
  * - it must return true if (x <= y), false otherwise
- * - user_data is a generic void* pointer set up when the heap is 
+ * - user_data is a generic void* pointer set up when the heap is
  *   initialized
  * Heap property:
  * - h[i] has two children h[2i] and h[2i+1] such that

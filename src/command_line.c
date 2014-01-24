@@ -46,7 +46,7 @@ void init_cmdline_parser(cmdline_parser_t *p,
                          char **argv, uint32_t argc) {
   p->options = options;
   p->noptions = noptions;
-  p->argv = argv;  
+  p->argv = argv;
   p->argc = argc;
 
   if (argc > 0) {
@@ -109,7 +109,7 @@ static option_desc_t *find_by_name(option_desc_t *options, uint32_t n, char *s, 
   uint32_t i;
   option_desc_t *p;
   char *q;
-  
+
   p = options;
   for (i=0; i<n; i++) {
     q = check_prefix(p->name, s);
@@ -297,7 +297,7 @@ static void check_string(cmdline_elem_t *e) {
 
 
 /*
- * Check whether the next component of the command line is 
+ * Check whether the next component of the command line is
  * a valid string parameter (not empty and does not start with '-')
  * If so, store it as the s_value for e.
  */
@@ -311,7 +311,7 @@ static void parse_optional_string(cmdline_parser_t *p, cmdline_elem_t *e) {
     s = p->argv[i];
     if (s[0] != '\0' && s[0] != '-') {
       p->scan_index = i + 1;
-      e->s_value = s;      
+      e->s_value = s;
     }
   }
   e->status = cmdline_option;
@@ -437,7 +437,7 @@ static void parse_short_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) 
       e->key = d->key;
       e->s_value = NULL;
       check_option_parameter(p, e, d);
-    }    
+    }
 
   } else {
     e->status = cmdline_error;
@@ -517,13 +517,13 @@ void cmdline_parse_element(cmdline_parser_t *p, cmdline_elem_t *e) {
     a ++;
     if (*a == '-') {
       a ++;
-      parse_long_option(p, e, a);     
+      parse_long_option(p, e, a);
     } else {
       parse_short_option(p, e, a);
     }
   } else {
     e->status = cmdline_argument;
-  }  
+  }
 }
 
 
@@ -565,7 +565,7 @@ void cmdline_print_error(cmdline_parser_t *p, cmdline_elem_t *e) {
     print_option_name(stderr, e);
     fputs(" takes no parameter\n", stderr);
     break;
-    
+
   case cmdline_val_missing:
     fputs("option ", stderr);
     print_option_name(stderr, e);
@@ -607,7 +607,7 @@ void cmdline_print_error(cmdline_parser_t *p, cmdline_elem_t *e) {
       fprintf(stderr, "floating-point over/underflow: %s %s\n", e->arg, e->s_value);
     }
     break;
-    
+
   case cmdline_arg_missing:
     fputs("missing argument after '--'\n", stderr);
     break;

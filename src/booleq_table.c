@@ -1,5 +1,5 @@
 /*
- * EXPERIMENTAL: TABLE OF BOOLEAN EQUALITIES 
+ * EXPERIMENTAL: TABLE OF BOOLEAN EQUALITIES
  */
 
 #include <assert.h>
@@ -160,7 +160,7 @@ bool boolvar_is_eq(booleq_table_t *table, bvar_t x) {
 /*
  * Get the equality equivalent to l
  * - return false if there's no such equality in table
- * - return true otherwise and set *a and *b 
+ * - return true otherwise and set *a and *b
  * If the result is true then the equivalence l <=> (eq *a *b) holds
  */
 bool get_booleq(booleq_table_t *table, literal_t l, literal_t *a, literal_t *b) {

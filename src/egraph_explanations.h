@@ -33,7 +33,7 @@ extern void gen_distinct_simpl_antecedent(egraph_t *egraph, composite_t *c, elab
 extern void gen_distinct_congruence_antecedent(egraph_t *egraph, composite_t *c1, composite_t *c2, int32_t k);
 
 /*
- * Construct an antecedent for (or t_1 ... t_n) == (or u_1 ... u_m), 
+ * Construct an antecedent for (or t_1 ... t_n) == (or u_1 ... u_m),
  * when these two terms are congruent.
  * - c1 = composite term = (or t_1 ... t_n)
  * - c2 = composite term = (or u_1 ... u_m)
@@ -134,7 +134,7 @@ static inline void egraph_explain_term_eq(egraph_t *egraph, eterm_t t1, eterm_t 
 
 
 /*
- * Build an explanation for (t1 != t2) 
+ * Build an explanation for (t1 != t2)
  * - t1 and t2 must be terms attached to theory variables x1 and x2 in a satellite solver
  * - the disequality x1 != x2 must have been propagated to the satellite solver
  *   via a call to the satellite's assert_disequality or assert_distinct.
@@ -150,7 +150,7 @@ extern void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, 
  * uses this disequality as antecedent in further propagation. The
  * explanation for (x1 != x2) can be constructed in two steps:
  *
- * 1) eager step: call egraph_store_diseq_pre_expl 
+ * 1) eager step: call egraph_store_diseq_pre_expl
  *    This must be done when (x1 != x2) is received from the egraph
  *    to store sufficient data into a diseq_pre_expl_t object.
  *
@@ -196,7 +196,7 @@ extern bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32
 /*
  * Check whether asserting d = (distinct t1 ... t_m) is inconsistent,
  * i.e., whether two subterms t_i and t_j are equal
- * - if so construct an explanation for the conflict and store it in v 
+ * - if so construct an explanation for the conflict and store it in v
  * - if there's a conflict, v is reset first.
  */
 extern bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivector_t *v);
@@ -204,7 +204,7 @@ extern bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivect
 
 /*
  * Check whether assertion not d, where d is (distinct t_1 ... t_m) causes a conflict,
- * i.e., whether (t_i != t_j) holds for all i < j. 
+ * i.e., whether (t_i != t_j) holds for all i < j.
  * - if so construct an explanation and store it in v (reset v first)
  * Warning: can be expensive if n is large
  */

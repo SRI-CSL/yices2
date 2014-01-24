@@ -10,17 +10,17 @@
 /*
  * Special treatment of function and sort symbols
  * - the following function take a symbol argument
- * - they check whether the symbol is a built-in SMT2 symbol for 
+ * - they check whether the symbol is a built-in SMT2 symbol for
  *   the current logic
  * - if so they convert the symbol to a built-in operation
  * - if the symbol is not built-in, then a generic form of the
  *   operation is pushed on the stack
  *
  * Example;
- * - tstack_push_smt2_op(tstack, "OR", 2, loc) is treated as 
+ * - tstack_push_smt2_op(tstack, "OR", 2, loc) is treated as
  *      push_op(mk_or, ...)
- * - tstack_push_smt2_op(tstack, "f", 1, loc) is treated as 
- *      push_op(mk_apply, ...); 
+ * - tstack_push_smt2_op(tstack, "f", 1, loc) is treated as
+ *      push_op(mk_apply, ...);
  *      push_term_by_name("f",,,,)
  */
 
@@ -57,7 +57,7 @@ extern void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *lo
  *  SORTED_APPLY:         ((as <symbol> <sort>) <arg> ... <arg> )
  *  SORTED_INDEXED_APPLY  ((as (_ <symbol> <idx> ... <idx>) <sort> ) <arg> .... <arg>)
  *
- * In these expressions, we check whether <symbol> is defined and maps to 
+ * In these expressions, we check whether <symbol> is defined and maps to
  * one operation. If so, we push the operation's opcode onto the stack.
  */
 

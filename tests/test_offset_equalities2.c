@@ -42,7 +42,7 @@ typedef struct poly_table_s {
 
   uint32_t vsize;    // size of the var arrey
   uint32_t nvars;     // number of variabels stored in vars
-  int32_t *var;  
+  int32_t *var;
 } poly_table_t;
 
 #define MAX_PSIZE (UINT32_MAX/sizeof(polynomial_t *))
@@ -60,7 +60,7 @@ static void init_poly_table(poly_table_t *table, uint32_t np, uint32_t nv) {
   table->npolys = 1;
   table->poly = (polynomial_t **) safe_malloc(np * sizeof(polynomial_t *));
   table->poly[0] = NULL; // not used
-    
+
   table->vsize = nv;
   table->nvars = 0;
   table->var = (int32_t *) safe_malloc(nv * sizeof(int32_t));
@@ -160,7 +160,7 @@ static void delete_poly_table(poly_table_t *table) {
 
 /*
  * - coeff[0 .. NCOEFF] define the coefficients and their distribution
- * - nterms[0 .. NTERMS] define the number of terms 
+ * - nterms[0 .. NTERMS] define the number of terms
  * - constant[0 .. NCONST]: constant parts
  * - we favor small polynomials with coefficients +1/-1
  */
@@ -170,8 +170,8 @@ static void delete_poly_table(poly_table_t *table) {
 #define NCONST 40
 
 static const int32_t coeff[NCOEFF] = {
-  1, 1, 1, 1, 
-  -1, -1, -1, -1, 
+  1, 1, 1, 1,
+  -1, -1, -1, -1,
   2, 2, -2, -2,
   3, 4, 7, 8,
   -3, -4, -7, -8,
@@ -232,7 +232,7 @@ static polynomial_t *random_poly(poly_buffer_t *b, poly_table_t *table) {
   a = random_constant();
   q_set32(&q, a);
   poly_buffer_add_const(b, &q);
-  
+
   n = random_nterms();
   for (i=0; i<n; i++) {
     a = random_coeff();
@@ -388,7 +388,7 @@ static void subst_var(substitution_t *s, offset_pair_t *d) {
   int32_t k;
 
   n = s->size; // to detect circularities
-  
+
   x = d->var;
   k = d->delta;
 
@@ -397,7 +397,7 @@ static void subst_var(substitution_t *s, offset_pair_t *d) {
     k += s->delta[x];
     x = s->var[x];
     n --;
-    if (n == 0) goto bug;      
+    if (n == 0) goto bug;
     assert(x < (int32_t) s->size);
   }
 
@@ -443,7 +443,7 @@ static void subst_poly(substitution_t *s, poly_buffer_t *b, monomial_t *mono) {
   int32_t x;
 
   q_init(&q);
-  reset_poly_buffer(b);  
+  reset_poly_buffer(b);
 
   x = mono->var;
   while (x != max_idx) {
@@ -474,10 +474,10 @@ static void subst_poly(substitution_t *s, poly_buffer_t *b, monomial_t *mono) {
  * Apply s to poly[i]
  * - store the result in buffer b
  */
-static void subst_poly_idx(substitution_t *s, poly_table_t *table, poly_buffer_t *b, int32_t i) {  
+static void subst_poly_idx(substitution_t *s, poly_table_t *table, poly_buffer_t *b, int32_t i) {
   monomial_t aux[2];
   polynomial_t *p;
-  
+
   assert(0 < i && i < table->npolys);
   p = table->poly[i];
   if (p == NULL) {
@@ -515,7 +515,7 @@ typedef struct normal_form_s {
 } normal_form_t;
 
 
-/* 
+/*
  * allocate a normal_form buffer with n monomials + one end marker
  * - the rational coefficients in mono[0 ... n-1] are all initialized
  * - mono[n] is allocated but not initialized
@@ -702,7 +702,7 @@ static void push_equality(equality_queue_t *queue, int32_t x, int32_t y) {
   queue->data[i].root_lhs = rx;
   queue->data[i].root_rhs = ry;
 
-  queue->top = i+1;  
+  queue->top = i+1;
 
   // update the parents: we always do lhs := rhs (so ry stays root)
   // this is a no-op if rx = ry (as we want).
@@ -744,7 +744,7 @@ static void equality_queue_backtrack(equality_queue_t *queue) {
     if (queue->data[i].lhs < 0) break; // marker
     // restore parent
     rx = queue->data[i].root_lhs;
-    assert(0 <= rx && rx < queue->nvars && 
+    assert(0 <= rx && rx < queue->nvars &&
 	   queue->parent[rx] == queue->data[i].root_rhs);
     queue->parent[rx] = rx;
   }
@@ -869,7 +869,7 @@ static void add_active_poly(active_poly_table_t *table, poly_table_t *ptbl, int3
   p = ptbl->poly[i];
   n = (p == NULL) ? 2 : (p->nterms + 1);
   q = new_normal_form(n);
-  
+
   k = table->npolys;
   assert(k < table->size);
   table->id[k] = i;
@@ -971,7 +971,7 @@ static inline void subst_queue_push_mark(subst_queue_t *queue) {
  *   performed (except push and backtrack)
  * - desciptors for each operation:
  *   record_poly(i): activate polynomial of index i
- *  
+ *
  */
 typedef enum operations {
   RECORD_POLY,
@@ -1165,7 +1165,7 @@ static void test_bench_undo_subst(test_bench_t *bench) {
 
 /*
  * Undo acivations
- * - remove all active polynomials and pop the op stack 
+ * - remove all active polynomials and pop the op stack
  *   until the top-most PUSH operation
  */
 static void test_bench_undo_activations(test_bench_t *bench) {
@@ -1182,7 +1182,7 @@ static void test_bench_undo_activations(test_bench_t *bench) {
     case RECORD_POLY:
       remove_active_poly(&bench->act);
       break;
-    
+
     case ASSERT_EQ:
     case PROPAGATE:
     case INCREASE_DLEVEL:
@@ -1456,14 +1456,14 @@ static void print_buffer(poly_buffer_t *b) {
       print_mono("x", &mono[i].coeff, mono[i].var, first);
       first = false;
     }
-  }  
+  }
 }
 
 
 static void print_normal_form(normal_form_t *f) {
   uint32_t i, n;
   bool first;
-  
+
   n = f->nterms;
   if (n == 0) {
     printf("0");
@@ -1539,7 +1539,7 @@ static void print_normal_forms(test_bench_t *bench) {
 }
 
 static void print_offset_eq(offset_equality_t *eq) {
-  if (eq->lhs < 0) { 
+  if (eq->lhs < 0) {
     printf("0");
   } else {
     printf("x%"PRId32, eq->lhs);
@@ -1554,7 +1554,7 @@ static void print_offset_eq(offset_equality_t *eq) {
     } else if (eq->offset < 0) {
       printf(" - %"PRId32, -eq->offset);
     }
-  }  
+  }
 }
 
 static void print_all_equalities(test_bench_t *bench) {
@@ -1607,7 +1607,7 @@ static void print_active_class(active_poly_table_t *table, int32_t *v) {
   uint32_t i, n, k;
 
   n = iv_size(v);
-  assert(n >= 2);  
+  assert(n >= 2);
 
   k = v[0];
   assert(0 <= k && k < table->npolys);
@@ -1664,7 +1664,7 @@ static void check_conflict(test_bench_t *bench, ivector_t *expl) {
   op_stack_t *stack;
   offset_equality_t e;
   int32_t id;
-  
+
   stack = &bench->stack;
   subst = subst_from_explanation(bench, expl);
   if (expl->size == 1) {
@@ -1691,8 +1691,8 @@ static void check_conflict(test_bench_t *bench, ivector_t *expl) {
 }
 
 
-static bool equal_poly_buffers(poly_buffer_t *bx, poly_buffer_t *by) { 
-  return poly_buffer_nterms(bx) == poly_buffer_nterms(by) && 
+static bool equal_poly_buffers(poly_buffer_t *bx, poly_buffer_t *by) {
+  return poly_buffer_nterms(bx) == poly_buffer_nterms(by) &&
     equal_monarrays(poly_buffer_mono(bx), poly_buffer_mono(by));
 }
 
@@ -1733,7 +1733,7 @@ static void check_equality(test_bench_t *bench, int32_t x, int32_t y, ivector_t 
     printf("  subst for x%"PRId32" --> ", y);
     print_buffer(&by);
     printf("\n");
-    
+
     fflush(stdout);
     exit(1);
   }
@@ -1758,7 +1758,7 @@ static void check_propagation(test_bench_t *bench) {
     y = queue->data[i].rhs;
     if (x >= 0) {
       assert(y >= 0);
-      
+
       offset_manager_explain_equality(&bench->manager, x, y, &expl);
       check_equality(bench, x, y, &expl);
       if (bench->show_details) {
@@ -1771,12 +1771,12 @@ static void check_propagation(test_bench_t *bench) {
       ivector_reset(&expl);
     }
   }
-  
+
   delete_ivector(&expl);
 }
 
 // all elements of v should be in the same class: check wether that's true
-// in the equality queue 
+// in the equality queue
 static void check_good_class(test_bench_t *bench, int32_t *v) {
   active_poly_table_t *table;
   equality_queue_t *queue;
@@ -1812,7 +1812,7 @@ static void check_good_class(test_bench_t *bench, int32_t *v) {
       if (p != NULL) {
 	printf(" = ");
 	print_poly(p);
-      }      
+      }
       printf("\n\n");
       print_all_equalities(bench);
       printf("  norm(x%"PRId32") = ", x);
@@ -1862,7 +1862,7 @@ static void test_activate(test_bench_t *bench, int32_t id) {
 
   ctr ++;
 }
- 
+
 static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t offset) {
   offset_equality_t e;
   rational_t q;
@@ -1899,7 +1899,7 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
       bench->conflict_eq = id;
     }
   }
-  
+
   // forward to the offset manager
   q_init(&q);
   q_set32(&q, offset);
@@ -1946,10 +1946,10 @@ static void test_propagate(test_bench_t *bench) {
 
   } else {
     bench->mngr_conflict = true;
-    printf("Conflict\n");    
+    printf("Conflict\n");
     init_ivector(&expl, 10);
     offset_manager_explain_conflict(&bench->manager, &expl);
-    print_explanation(bench, &expl);  
+    print_explanation(bench, &expl);
     check_conflict(bench, &expl);
     delete_ivector(&expl);
 
@@ -2083,7 +2083,7 @@ static int32_t random_inactive_poly(test_bench_t *bench) {
     k ++;
     if (k >= n) {
       k = 0;
-    }    
+    }
   }
 
   if (max_iter == 0) {
@@ -2183,7 +2183,7 @@ static void random_op(test_bench_t *bench) {
       test_backtrack(bench);
     } else if (bench->base_level > 0) {
       test_pop(bench);
-    } 
+    }
   } else {
     r = random_index(15);
     switch (r) {
@@ -2208,7 +2208,7 @@ static void random_op(test_bench_t *bench) {
     case 9:
       random_activate(bench, 1);
       break;
-      
+
     case 10:
     case 11:
       // increase decision level: force propagate first
@@ -2217,7 +2217,7 @@ static void random_op(test_bench_t *bench) {
 	test_increase_dlevel(bench);
       }
       break;
-      
+
     case 12:
       // push
       if (bench->decision_level == bench->base_level) {
@@ -2289,7 +2289,7 @@ static void base_test(void) {
   test_backtrack(&bench);
   test_propagate(&bench);
   test_pop(&bench);
-  test_propagate(&bench);  
+  test_propagate(&bench);
   delete_test_bench(&bench);
 }
 
@@ -2316,7 +2316,7 @@ static void random_test(uint32_t n, uint32_t p) {
   if (! bench.mngr_conflict) {
     test_propagate(&bench);
   }
-  
+
   delete_test_bench(&bench);
 }
 
@@ -2334,7 +2334,7 @@ int main(void) {
 
   base_test();
   random_test(1000, 40);
-  
+
   n = 1000;
   while (n > 0) {
     random_test(4000, 200);
@@ -2349,6 +2349,6 @@ int main(void) {
 
   delete_poly_table(&poly_table);
   cleanup_rationals();
-  
+
   return 0;
 }

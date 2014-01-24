@@ -50,7 +50,7 @@ static subst_triple_t *alloc_triple(st_bank_t *bnk) {
   n = bnk->free_idx;
   b = bnk->tail;
   if (n == ST_BANK_SIZE) {
-    // add a block    
+    // add a block
     b = (st_block_t *) safe_malloc(sizeof(st_block_t));
     b->next = NULL;
     n = 0;
@@ -238,7 +238,7 @@ subst_triple_t *pseudo_subst_find(pseudo_subst_t *subst, term_t x) {
  * Search for a triple with variable x in subst. If such a triple
  * is found, return it. Otherwise create a fresh record, add it
  * to the table, and return it.
- * - the fresh record is initialized with var = x, map = NULL_TERM, 
+ * - the fresh record is initialized with var = x, map = NULL_TERM,
  *   and eq = NULL_TERM.
  */
 subst_triple_t *pseudo_subst_get(pseudo_subst_t *subst, term_t x) {

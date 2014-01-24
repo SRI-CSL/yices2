@@ -1,5 +1,5 @@
 /*
- * Power products: x_1^d_1 ... x_n^d_n 
+ * Power products: x_1^d_1 ... x_n^d_n
  * - each x_i is a 32bit integer
  * - each exponent d_i is a positive integer
  *
@@ -56,7 +56,7 @@ typedef struct {
  * Maximal number of pairs <variable, exponent> in a product
  * - this is to ensure we can compute len * sizeof(varexp_t)
  *   on 32bits without overflow
- */ 
+ */
 #define PPROD_MAX_LENGTH ((UINT32_MAX-sizeof(pprod_t))/sizeof(varexp_t))
 
 
@@ -77,14 +77,14 @@ typedef struct {
  * Power product are part of the polynomial representation. But in many
  * cases, the polynomials are linear expressions (i.e., each power product
  * is either the empty product or a single variable with exponent 1). To
- * compactly encode the common case, we use tagged pointers and the 
+ * compactly encode the common case, we use tagged pointers and the
  * following conventions.
  * - the empty power product is the NULL pointer
  * - a single variable x is packed in a pprod_t pointer with tag bit set to 1
  *   (this gives a compact representation for x^1)
  * - otherwise, the product p is a pointer to an actual pprod_t object
  *
- * We also use a special end-marker in polynomial representations. 
+ * We also use a special end-marker in polynomial representations.
  * The end marker is larger than any other power product in the deglex ordering.
  */
 
@@ -229,7 +229,7 @@ extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
 /*
  * Convert b's content to a power-product object.
  * - b must be normalized.
- * - if b is empty or is of the form x^1 then the result is 
+ * - if b is empty or is of the form x^1 then the result is
  *   the appropriate tagged pointer.
  */
 extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
@@ -244,7 +244,7 @@ extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
  * All the operations assume p follows the tagged pointer
  * conventions.
  * - p = NULL denotes the empty product
- * - a tagged pointer x denotes the product (x^1) 
+ * - a tagged pointer x denotes the product (x^1)
  * - other wise, p is a pointer to an actual pprod_t structure
  *   that must be normalized
  */
@@ -289,7 +289,7 @@ extern int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2);
 
 /*
  * Degree then lex ordering. This ordering is defined by
- *  p1 < p2 if degree(p1) < degree(p2) 
+ *  p1 < p2 if degree(p1) < degree(p2)
  *          or degree(p1) = degree(p2) and (p1 < p2 in lex ordering)
  *
  * That's the ordering we use for normalizing polynomials.
@@ -300,9 +300,9 @@ extern int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2);
  *     pprod_precedes(p1, p2) is false for any p2
  * - if p1 != end_pp and p2 = end_pp then
  *     pprod_precedes(p1, p2) is true
- * - otherwise, 
- *     pprod_precedes(p1, p2) is true 
- *        iff p1 < p2 in the deglex ordering 
+ * - otherwise,
+ *     pprod_precedes(p1, p2) is true
+ *        iff p1 < p2 in the deglex ordering
  */
 extern bool pprod_precedes(pprod_t *p1, pprod_t *p2);
 

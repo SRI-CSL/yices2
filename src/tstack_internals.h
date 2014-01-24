@@ -4,7 +4,7 @@
 
 /*
  * Low-level functions that manipulate internal tstack structures
- * are declared here and implemented in term_stack.c. 
+ * are declared here and implemented in term_stack.c.
  *
  * They should be used only for defining new term stack operations or
  * modifung existing term stack operations.
@@ -13,7 +13,7 @@
  * - void check_some_op(tstack_t *stack, stack_elem_t *e, uint32_t n)
  * - void eval_some_op((tstack_t *stack, stack_elem_t *e, uint32_t n)
  *
- * then install both in stack using 
+ * then install both in stack using
  *   tstack_add_op(stack, opcode, flag, eval_new_op, check_new_op);
  *
  * - opcode should be an integer constant (cf. term_stack.h)
@@ -31,11 +31,11 @@
  * Raise an exception when processing element e
  * - stack->error_pos is set to e->pos
  * - stack->error_op is set to stack->top_op
- * - stack->error_string is set to e's string field if e is a symbol or a binding, 
+ * - stack->error_string is set to e's string field if e is a symbol or a binding,
  *   or to NULL otherwise.
  * code is returned to the enclosing exception handler by longjmp
  *
- * NOTE: It's possible to raise exceptions that are not defined in tstack_error_t 
+ * NOTE: It's possible to raise exceptions that are not defined in tstack_error_t
  * by using an integer code > TSTACK_YICES_ERROR. This requires that the interrupt
  * handler knows how to deal with such codes.
  */
@@ -69,7 +69,7 @@ extern void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg);
 
 
 /*
- * Check whether cond is true (cond should be a constraint on the number of elements 
+ * Check whether cond is true (cond should be a constraint on the number of elements
  * on the top frame). If cond is fasle, raise execption INVALID_FRAME.
  */
 extern void check_size(tstack_t *stack, bool cond);
@@ -86,7 +86,7 @@ extern void check_op(tstack_t *stack, int32_t op);
  * Check whether all elements from e to end have tag tg
  * - if not raise an exception
  *
- * This is equivalent to 
+ * This is equivalent to
  *   for (t = e; t<end; t++) {
  *     check_tag(stack, t, tg);
  *   }
@@ -121,7 +121,7 @@ extern void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, 
  * To implement term annotations/attributes, we need to know the context
  * (i.e., the enclosing operator of an annotated term).
  *
- * For example: (assert (! <term> :named xxx)) must be treated as 
+ * For example: (assert (! <term> :named xxx)) must be treated as
  * a named assertion rather than the assertion of a named term.
  * To deal with this, we allow term-stack functions to query the term stack
  * to examine the current top and the enclosing operator:
@@ -132,7 +132,7 @@ extern void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, 
  * Examples:
  * 1) in (assert (! <term> :named xxx)), the stack will
  *    have two operators: [ASSERT [ADD_ATTRIBUTES <term> ...]].
- *    When we process ADD_ATTRIBUTES: 
+ *    When we process ADD_ATTRIBUTES:
  *      top_op = ADD_ATTRIBUTES
  *      enclosing_op = ASSERT
  *
@@ -269,7 +269,7 @@ extern void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e);
 
 
 
-/* 
+/*
  * POP_FRAME AND STORE RESULTS
  */
 
@@ -316,7 +316,7 @@ extern void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v);
 
 /*
  * Call the function check[op] or eval[op] on f[0] .... f[n-1]
- * - call_tstack_eval removes the top frame and stores the result of 
+ * - call_tstack_eval removes the top frame and stores the result of
  *   (op f[0] ... f[n-1]) on top of the stack.
  */
 extern void call_tstack_check(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n);
@@ -334,7 +334,7 @@ extern void call_tstack_eval(tstack_t *stack, int32_t op, stack_elem_t *f, uint3
  * in the opposite order.
  */
 
-/* 
+/*
  * Build bitvector constant defined by val and size:
  * - size = number of bits
  * - val = value
@@ -351,7 +351,7 @@ extern void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rat
  * - idx = stack element expected to contain an integer
  *
  * These should be used for MK_BV_SIGN_EXTEND and MK_BV_ZERO_EXTEND,
- * which require a stack frame with two arguments. One of them 
+ * which require a stack frame with two arguments. One of them
  * should be bv the other one should be idx.
  *
  * These functions check the arguments bv and idx then push the

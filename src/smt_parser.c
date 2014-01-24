@@ -63,23 +63,23 @@ static void syntax_error(lexer_t *lex, int32_t expected_token) {
 
   switch (tk) {
   case SMT_TK_OPEN_STRING:
-    fprintf(stderr, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
+    fprintf(stderr, "missing string terminator \" (line %"PRId32", column %"PRId32")\n",
             rd->line, rd->column);
     return;
   case SMT_TK_OPEN_USER_VAL:
-    fprintf(stderr, "missing user-value terminator } (line %"PRId32", column %"PRId32")\n", 
+    fprintf(stderr, "missing user-value terminator } (line %"PRId32", column %"PRId32")\n",
             rd->line, rd->column);
     return;
   case SMT_TK_INVALID_NUMBER:
-    fprintf(stderr, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(stderr, "invalid number %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     return;
   case SMT_TK_ZERO_DIVISOR:
-    fprintf(stderr, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(stderr, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     return;
   case SMT_TK_ERROR:
-    fprintf(stderr, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(stderr, "invalid token %s (line %"PRId32", column %"PRId32")\n",
             tkval(lex), lex->tk_line, lex->tk_column);
     return;
 
@@ -110,11 +110,11 @@ static void syntax_error(lexer_t *lex, int32_t expected_token) {
       break;
 
     default:
-      fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32")\n", 
+      fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32")\n",
               lex->tk_line, lex->tk_column);
       break;
     }
-  } 
+  }
 }
 
 
@@ -129,7 +129,7 @@ static void syntax_error(lexer_t *lex, int32_t expected_token) {
  *
  * In smt2008, the keyword "Array" may denote either arrays of type [int -> int]
  * or arrays of type [index -> element], depending on the theory.
- * HACK: to deal with this, we assign the built-in type array to either int_array or 
+ * HACK: to deal with this, we assign the built-in type array to either int_array or
  * ax_array, depending on the logic.
  */
 typedef struct builtins_s {
@@ -143,7 +143,7 @@ typedef struct builtins_s {
 
   // types for QF_AUFIDL/QF_AUFLIA
   type_t int_array;  // [int -> int]
-  type_t array1; // [int -> real] 
+  type_t array1; // [int -> real]
   type_t array2; // [int -> array1]
 
   // the array type, dependent on the logic
@@ -364,7 +364,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
   // prepare to catch exceptions in term stack operations
   exception = setjmp(tstack->env);
-  if (exception == 0) {    
+  if (exception == 0) {
 
     parser_push_state(stack, done);
     state = start;
@@ -492,7 +492,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
       /*
-       * U is no longer a keyword: removed 
+       * U is no longer a keyword: removed
        */
       //case u_next_return:
       //      tstack_push_type(tstack, builtins.utype, &loc);
@@ -536,7 +536,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
     case next_goto_s2:  // [
       state = s2;
       goto loop;
-      
+
     case next_goto_s3:  // size of bitvector
       tstack_push_rational(tstack, tkval(lex), &loc);
       state = s3;
@@ -548,7 +548,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case array_return:
       // old-style array: [int -> int]
-      tstack_push_type(tstack, builtins.array, &loc);      
+      tstack_push_type(tstack, builtins.array, &loc);
       state = parser_pop_state(stack);
       goto skip_token;
 
@@ -573,7 +573,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case bvarray_next_return: // build the array type
       tstack_eval(tstack);
-      state = parser_pop_state(stack);      
+      state = parser_pop_state(stack);
       goto loop;
 
     case termsymbol_next_return:
@@ -607,7 +607,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       state = f0;
       goto loop;
 
-    case implies_next_push_f3_goto_f0:  
+    case implies_next_push_f3_goto_f0:
       tstack_push_op(tstack, MK_IMPLIES, &loc);
       parser_push_state(stack, f3);
       state = f0;
@@ -930,7 +930,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       /*
        * make a copy of the symbol. We don't know yet whether it's a
        * function application or an annotated symbol. This gets
-       * determined by the next token, which leads either to 
+       * determined by the next token, which leads either to
        * next_push_f27_goto_an1 or applyfun_push_f3_goto_f0
        */
       string_buffer_reset(&saved_symbol);
@@ -1010,7 +1010,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
     case applyfun_push_f3_goto_f0:
       // function application with saved symbol as uninterpreted function
       tstack_push_op(tstack, MK_APPLY, &saved_loc);
-      tstack_push_term_by_name(tstack, saved_symbol.data, &saved_loc);      
+      tstack_push_term_by_name(tstack, saved_symbol.data, &saved_loc);
       parser_push_state(stack, f3);
       state = f0;
       goto skip_token;
@@ -1149,7 +1149,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       add_assertion(bench, tstack_get_term(tstack));
       state = b3;
       goto skip_token;
-      
+
     case logic_next_goto_b7:
       state = b7;
       goto loop;
@@ -1276,7 +1276,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case push_b17_goto_s0:
       /*
-       * This is talen in :extrapreds ((P T1 ... Tn)) 
+       * This is talen in :extrapreds ((P T1 ... Tn))
        * but not in :extrapreds ((P))
        * so it indicates predicates with arity > 0.
        */
@@ -1284,7 +1284,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       parser_push_state(stack, b17);
       state = s0;
       goto skip_token;
-     
+
     case next_goto_b21:
       state = b21;
       goto loop;
@@ -1317,10 +1317,10 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case push_b24_goto_s0:
       /*
-       * This transition is taken in 
+       * This transition is taken in
        *   :extrafuns ((name T1 T2 ... Tn))
-       * but not in 
-       *   :extrafuns  ((name T1)) 
+       * but not in
+       *   :extrafuns  ((name T1))
        * so it indicates functions with arity > 0.
        */
       bench->has_uf = true;

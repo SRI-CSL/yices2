@@ -90,7 +90,7 @@ void delete_strmap(strmap_t *hmap) {
 void reset_strmap(strmap_t *hmap) {
   uint32_t i, n;
   char *key;
-  
+
   n = hmap->size;
   for (i=0; i<n; i++) {
     key = hmap->data[i].key;
@@ -276,7 +276,7 @@ strmap_rec_t *strmap_get(strmap_t *hmap, const char *key, bool *is_new) {
     // resize: we can't use the current aux
     strmap_extend(hmap);
     aux = strmap_get_clean(hmap, h);
-  } 
+  }
   aux->key = clone;
   aux->hash = h;
   aux->val = 0;
