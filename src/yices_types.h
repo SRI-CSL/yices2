@@ -201,6 +201,7 @@ typedef enum error_code {
   EVAL_LAMBDA,
   EVAL_OVERFLOW,
   EVAL_FAILED,
+  EVAL_CONVERSION_FAILED,
 
   /*
    * Input/output and system errors

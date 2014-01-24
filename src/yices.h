@@ -2472,7 +2472,8 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  * functions do that for different term types.
  *
  * The evaluation functions return -1 if the value of t is unknown
- * or can't be computed in the model. Otherwise, they return 0.
+ * or can't be computed in the model. Otherwise, they return 0 (except
+ * function yices_get_value_as_term).
  *
  * Possible error codes:
  * If t is not valid:
@@ -2566,6 +2567,38 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
  *   term1 = t
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
+
+
+
+/*
+ * Value of term t converted to a constant term val.
+ *
+ * For primitive types, this is the same as extracing the value
+ * then converting it to a constant term:
+ * - if t is a Boolean term, then val is either true or false (as
+ *   returned by functions yices_true() or yices_false()).
+ * - if t is an arithmetic term, then val is a rational or integer constant
+ *   (as built by functions yices_mpq or yices_mpz).
+ * - if t has uninterpreted or scalar type, then val is a constant term
+ *   of that type (as built by function yices_constant).
+ * - if t has a bitvector type, then val is a bitvector constant term
+ *   (as in yices_bvconst_from_array)
+ *
+ * Conversion of function values is not supported currently. So the
+ * function fails and returns NULL_TERM if t has a function type.
+ *
+ * If t has tuple type tau, then val is a tuple of constants (provided
+ * tau does not contain any function type).
+ *
+ * The function returns val, or NULL_TERM if there's an error.
+ *
+ * Error report
+ *   code =   EVAL_CONVERSION_FAILED,
+ *   if the conversion to term fails (because it would require
+ *   converting a function to a term).
+ *
+ */
+__YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
 
 
 #ifdef __cplusplus
