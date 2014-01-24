@@ -20,8 +20,6 @@ void init_evaluator(evaluator_t *eval, model_t *model) {
   init_int_hmap(&eval->cache, 0); // use the default hmap size
   init_istack(&eval->stack);
   // eval->env is not initialized
-
-  value_table_start_tmp(eval->vtbl);
 }
 
 
@@ -29,7 +27,6 @@ void init_evaluator(evaluator_t *eval, model_t *model) {
  * Delete caches and stack
  */
 void delete_evaluator(evaluator_t *eval) {
-  value_table_end_tmp(eval->vtbl);
   eval->model = NULL;
   eval->terms = NULL;
   eval->vtbl = NULL;
@@ -40,11 +37,9 @@ void delete_evaluator(evaluator_t *eval) {
 
 
 /*
- * Reset: empty the caches and delete all temporary objects
- * created in vtbl.
+ * Reset: empty the caches
  */
 void reset_evaluator(evaluator_t *eval) {
-  value_table_end_tmp(eval->vtbl);
   int_hmap_reset(&eval->cache);
   reset_istack(&eval->stack);
   value_table_start_tmp(eval->vtbl);
@@ -1163,8 +1158,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
  * - otherwise, return the id of a concrete object of eval->model.vtbl
  *
  * Evaluation may create new objects. All these new objects are
- * marked as temporary objects and can be deleted by calling
- * reset_evaluator.
+ * permananet in eval->vtbl.
  */
 value_t eval_in_model(evaluator_t *eval, term_t t) {
   value_t v;

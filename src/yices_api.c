@@ -43,6 +43,7 @@
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
+#include "val_to_term.h"
 #include "context_config.h"
 #include "search_parameters.h"
 
@@ -1346,7 +1347,7 @@ static bool check_good_term(term_manager_t *mngr, term_t t) {
 }
 
 // Check that terms in a[0 ... n-1] are valid
-static bool check_good_terms(term_manager_t *mngr, uint32_t n, term_t *a) {
+static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -6937,6 +6938,159 @@ EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 
   uv = vtbl_unint(vtbl, v);
   *val = uv->index;
+
+  return 0;
+}
+
+
+/*
+ * Value of term t converted to a constant term val.
+ */
+EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
+  evaluator_t evaluator;
+  val_converter_t convert;
+  value_table_t *vtbl;
+  value_t v;
+  term_t a;
+
+  if (! check_good_term(&manager, t)) {
+    return NULL_TERM;
+  }
+
+  /*
+   * Evaluation
+   */
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return NULL_TERM;
+  }
+
+
+  /*
+   * Try to convert v to a term:
+   * - try cheap conversion first
+   * - if cheap conversion return NOT_PRIMITIVE
+   *   use a converter object
+   */
+  vtbl = model_get_vtbl(mdl);
+  a = convert_simple_value(&terms, vtbl, v);
+  if (a == CONVERT_NOT_PRIMITIVE) {
+    init_val_converter(&convert, vtbl, &terms);
+    a = convert_value(&convert, v);
+    delete_val_converter(&convert);
+  }
+
+  if (a < 0) {
+    error.code = EVAL_CONVERSION_FAILED;
+    return NULL_TERM;
+  }
+
+  return a;
+}
+
+
+
+/*
+ * ARRAYS
+ */
+
+/*
+ * Compute the values of a[0 ... n-1] in mdl
+ * - store the result in b[0 ... n-1]
+ * - return false if this fails for some a[i] and sets the error report
+ * - return true otherwise
+ */
+static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t b[]) {
+  evaluator_t evaluator;
+  uint32_t i, k;
+  value_t v;
+
+  /*
+   * First pass: simple eval of all terms.
+   * - k = number of terms, for which this fails
+   * - simple eval fails for a[i], we have b[i] = null_value
+   */
+  k = 0;
+  for (i=0; i<n; i++) {
+    v = model_find_term_value(mdl, a[i]);
+    if (v < 0) {
+      assert(v == null_value);
+      k ++;
+    }
+    b[i] = v;
+  }
+
+  /*
+   * Second pass: if k > 0, use the evaluator to complete array b
+   */
+  if (k > 0) {
+    init_evaluator(&evaluator, mdl);
+    for (i=0; i<n; i++) {
+      if (b[i] < 0) {
+	v = eval_in_model(&evaluator, a[i]);
+	if (v < 0) break;
+      }
+    }
+    delete_evaluator(&evaluator);
+
+    if (v < 0) {
+      // failed to evaluate a[i]
+      error.code = yices_eval_error(v);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * In-plave conversion of values b[0 ... n-1] to constant terms
+ * - return false if there's an error and sets the error report
+ * - return true otherwise
+ */
+static int32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b) {
+  val_converter_t convert;
+  uint32_t i;
+  term_t t;
+
+  init_val_converter(&convert, vtbl, terms);
+  for (i=0; i<n; i++) {
+    t = convert_value(&convert, b[i]);
+    if (t < 0) break;
+    b[i] = t;
+  }
+  delete_val_converter(&convert);
+
+  if (t < 0) {
+    error.code = EVAL_CONVERSION_FAILED;
+    return false;
+  }
+
+  return true;
+}
+
+
+
+
+
+
+/*
+ * Values of terms a[0 ... n-1] all converted to terms
+ */
+EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
+  if (! check_good_terms(&manager, n, a) ||
+      ! eval_term_array(mdl, n, a, b) ||
+      ! convert_value_array(&terms, model_get_vtbl(mdl), n, b)) {
+    return -1;
+  }
 
   return 0;
 }

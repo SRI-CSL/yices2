@@ -2603,15 +2603,16 @@ __YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
 /*
  * Get the values of terms a[0 .. n-1] in mdl and convert the values to terms.
  * - a must be an array of n terms
- * - on entry: a[i] = a term t whose value is to be determined
- * - on exit:  a[i] = value mapped to t in mdl, converted to a constant term
- * - this function has the same behavior and limitations as yices_get_value_as_term
+ * - b must be large enough to store n terms
  *
- * The function returns 0 if there's no error, -1 otherwise.
+ * This function has the same behavior and limitations as yices_get_value_as_term.
+ * If there's no error, the function returns 0 and store the values in array b:
+ * - b[i] = value of a[i] in mdl, converted to a term
  *
+ * Otherwise, the function returns -1 and sets the error report.
  * The error codes are the same as for yices_get_value_as_term.
  */
-__YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, term_t a[]);
+__YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
 
 
 #ifdef __cplusplus

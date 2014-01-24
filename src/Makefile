@@ -123,8 +123,8 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               term_stack_error.c term_substitution.c term_utils.c	\
               theory_explanations.c tracer.c tuple_hash_map.c types.c	\
               type_printer.c uint_rbtrees.c use_vectors.c		\
-              variable_renaming.c yices_api.c yices_error.c		\
-              yices_lexer.c yices_pp.c yices_parser.c
+              val_to_term.c variable_renaming.c yices_api.c             \
+              yices_error.c yices_lexer.c yices_pp.c yices_parser.c
 
 #
 # Other source files for libyices.a
