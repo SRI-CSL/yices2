@@ -127,7 +127,7 @@ static uint32_t bvset_min_unsigned(uint64_t s) {
   assert(s != 0);
 
   for (i=0; i<64; i++) {
-    if (tst_bit64(s, i)) break;      
+    if (tst_bit64(s, i)) break;
   }
 
   return i;
@@ -201,7 +201,7 @@ static uint64_t bvset_sum(uint64_t s1, uint64_t s2) {
     if (tst_bit64(s1, i)) {
       for (j=0; j<64; j++) {
 	if (tst_bit64(s2, j)) {
-	  k = (i + j) & 63; // i+j mod 2^6      
+	  k = (i + j) & 63; // i+j mod 2^6
 	  sum = set_bit64(sum, k);
 	}
       }
@@ -224,13 +224,13 @@ static uint64_t bvset_diff(uint64_t s1, uint64_t s2) {
     if (tst_bit64(s1, i)) {
       for (j=0; j<64; j++) {
 	if (tst_bit64(s2, j)) {
-	  k = (i - j) & 63; // i+j mod 2^6      
+	  k = (i - j) & 63; // i+j mod 2^6
 	  diff = set_bit64(diff, k);
 	}
       }
     }
   }
-  
+
   return diff;
 }
 
@@ -247,7 +247,7 @@ static uint64_t bvset_addmul(uint64_t s1, uint64_t s2, uint32_t a) {
     if (tst_bit64(s1, i)) {
       for (j=0; j<64; j++) {
 	if (tst_bit64(s2, j)) {
-	  k = (i + a * j) & 63; // i+ a * j mod 2^6      
+	  k = (i + a * j) & 63; // i+ a * j mod 2^6
 	  sum = set_bit64(sum, k);
 	}
       }
@@ -276,7 +276,7 @@ static uint64_t unsigned_intv_to_bvset(bv64_interval_t *intv) {
   }
 
   return s;
-} 
+}
 
 static uint64_t signed_intv_to_bvset(bv64_interval_t *intv) {
   uint64_t s;
@@ -303,7 +303,7 @@ static uint64_t signed_intv_to_bvset(bv64_interval_t *intv) {
   }
 
   return s;
-} 
+}
 
 
 /*
@@ -403,7 +403,7 @@ static void test_sum6_signed(bv64_interval_t *a, bv64_interval_t *b) {
   bv64_interval_add_s(a, b);
   printf("sum interval: ");
   show_interval_signed(stdout, a);
-  printf("\n\n");  
+  printf("\n\n");
 
   assert(a->low == bvset_min_signed(sc) && a->high == bvset_max_signed(sc));
 }
@@ -496,7 +496,7 @@ static void test_diff6_signed(bv64_interval_t *a, bv64_interval_t *b) {
   bv64_interval_sub_s(a, b);
   printf("difference interval: ");
   show_interval_signed(stdout, a);
-  printf("\n\n");  
+  printf("\n\n");
 
   assert(a->low == bvset_min_signed(sc) && a->high == bvset_max_signed(sc));
 }
@@ -759,7 +759,7 @@ static void test6u_random(void) {
   addmul_test6u(x, y, s, t, 62); // c = -2
   addmul_test6u(x, y, s, t, 61); // c = -3
   addmul_test6u(x, y, s, t, 60); // c = -4
-  
+
   aux = (uint32_t) (random() & 63);
   addmul_test6u(x, y, s, t, aux);
 
@@ -795,7 +795,7 @@ static void test6s_random(void) {
   addmul_test6s(x, y, s, t, 62); // c = -2
   addmul_test6s(x, y, s, t, 61); // c = -3
   addmul_test6s(x, y, s, t, 60); // c = -4
-  
+
   aux = (uint32_t) (random() & 63);
   addmul_test6s(x, y, s, t, aux);
 
@@ -804,7 +804,7 @@ static void test6s_random(void) {
 }
 
 
-static void tests6(void) { 
+static void tests6(void) {
   uint32_t n;
 
   addmul_test6s(32, 7, 36, 37, 32);
@@ -825,17 +825,17 @@ static void tests6(void) {
   sum_test6s(63, 63, 1, 1);
   sum_test6u(63, 63, 31, 31);
   sum_test6s(63, 63, 31, 31);
-  
+
   sum_test6u(0, 31, 0, 31);
   sum_test6s(0, 31, 0, 31);
 
   sum_test6u(0, 63, 0, 5);
-  sum_test6s(63, 0, 0, 5);  
-  
+  sum_test6s(63, 0, 0, 5);
+
   sum_test6u(40, 50, 0, 20);
   sum_test6u(0, 20, 40, 50);
 
-  sum_test6s(40, 10, 0, 25);  
+  sum_test6s(40, 10, 0, 25);
   sum_test6s(0, 25, 40, 10);
 
   sum_test6s(40, 10, 0, 21);
@@ -866,17 +866,17 @@ static void tests6(void) {
   diff_test6s(63, 63, 1, 1);
   diff_test6u(63, 63, 31, 31);
   diff_test6s(63, 63, 31, 31);
-  
+
   diff_test6u(0, 31, 0, 31);
   diff_test6s(0, 31, 0, 31);
 
   diff_test6u(0, 63, 0, 5);
-  diff_test6s(63, 0, 0, 5);  
-  
+  diff_test6s(63, 0, 0, 5);
+
   diff_test6u(40, 50, 0, 20);
   diff_test6u(0, 20, 40, 50);
 
-  diff_test6s(40, 10, 0, 25);  
+  diff_test6s(40, 10, 0, 25);
   diff_test6s(0, 25, 40, 10);
 
   diff_test6s(40, 10, 0, 21);
@@ -904,7 +904,7 @@ static void tests6(void) {
  * Random 64bit unsigned integer
  */
 static uint64_t random_uint64(void) {
-  return (((uint64_t) (random() & 0xFFFFFF)) << 40) | (((uint64_t) (random() & 0xFFFFFF)) << 16) 
+  return (((uint64_t) (random() & 0xFFFFFF)) << 40) | (((uint64_t) (random() & 0xFFFFFF)) << 16)
     | (uint64_t) (random() & 0xFFFF);
 }
 
@@ -923,7 +923,7 @@ static void random_unsigned_intv(bv64_interval_t *a, uint32_t n) {
 
   a->low = x;
   a->high = y;
-  a->nbits = n;  
+  a->nbits = n;
 }
 
 static void random_signed_intv(bv64_interval_t *a, uint32_t n) {
@@ -938,7 +938,7 @@ static void random_signed_intv(bv64_interval_t *a, uint32_t n) {
 
   a->low = x;
   a->high = y;
-  a->nbits = n;  
+  a->nbits = n;
 }
 
 
@@ -1175,7 +1175,7 @@ static void random_tests_unsigned(uint32_t n, uint32_t nt) {
   while (k > 0) {
     k --;
     random_unsigned_intv(&a, n);
-    random_unsigned_intv(&b, n);    
+    random_unsigned_intv(&b, n);
     test_sum(&a, &b);
   }
 
@@ -1183,7 +1183,7 @@ static void random_tests_unsigned(uint32_t n, uint32_t nt) {
   while (k > 0) {
     k --;
     random_unsigned_intv(&a, n);
-    random_unsigned_intv(&b, n);    
+    random_unsigned_intv(&b, n);
     test_diff(&a, &b);
   }
 
@@ -1206,7 +1206,7 @@ static void random_tests_unsigned(uint32_t n, uint32_t nt) {
     c = random() & 0xFF;
     if (tst_bit64(c, 7)) c = -c;
     c = norm64(c, n);
-    
+
     test_addmul(&a, &b, c);
   }
 }
@@ -1221,7 +1221,7 @@ static void random_tests_signed(uint32_t n, uint32_t nt) {
   while (k > 0) {
     k --;
     random_signed_intv(&a, n);
-    random_signed_intv(&b, n);    
+    random_signed_intv(&b, n);
     test_sum_signed(&a, &b);
   }
 
@@ -1229,7 +1229,7 @@ static void random_tests_signed(uint32_t n, uint32_t nt) {
   while (k > 0) {
     k --;
     random_signed_intv(&a, n);
-    random_signed_intv(&b, n);    
+    random_signed_intv(&b, n);
     test_diff_signed(&a, &b);
   }
 
@@ -1262,7 +1262,7 @@ int main(void) {
   random_tests_signed(33, 1000);
 
   tests6();
-  
+
   random_tests_unsigned(31, 1000);
   random_tests_signed(31, 1000);
 

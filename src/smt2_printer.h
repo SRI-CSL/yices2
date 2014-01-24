@@ -29,7 +29,7 @@
  * - c must be a valid object in table
  * - functions are printed as abstract objects and are stored into the table's
  *   internal queue.
- * - the map of all queued functions can then printed later by calling 
+ * - the map of all queued functions can then printed later by calling
  *   smt2_pp_queued_functions
  */
 extern void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
@@ -47,7 +47,7 @@ extern void smt2_pp_function(yices_pp_t *printer, value_table_t *table, value_t 
  * - name = function name to use
  * - if show_default is true, also print the default value
  */
-extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
+extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name,
 					 value_t c, bool show_default);
 
 /*

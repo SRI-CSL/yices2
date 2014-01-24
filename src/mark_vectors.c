@@ -82,6 +82,6 @@ void mark_vector_add_mark(mark_vector_t *v, int32_t i, uint32_t x) {
   if (i < v->start_map) {
     v->start_map = i;
   }
-  v->map[i] = x;  
+  v->map[i] = x;
 }
 

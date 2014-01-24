@@ -60,7 +60,7 @@ typedef struct pp_nonstandard_block_s {
   uint8_t flags;
   uint16_t indent;
   uint16_t short_indent;
-} pp_nonstandard_block_t; 
+} pp_nonstandard_block_t;
 
 
 
@@ -159,7 +159,7 @@ void init_yices_pp_tables(void) {
     id = standard_block[i].id;
     label = standard_block[i].label;
     n = strlen(label);
-    
+
     assert(0 <= id && id < NUM_PP_OPENS && n+2 <= UINT16_MAX);
 
     open_desc[id].label = label;
@@ -416,7 +416,7 @@ static void free_open_token(yices_pp_t *printer, pp_open_token_t *tk) {
  */
 static void free_atomic_token(yices_pp_t *printer, pp_atomic_token_t *tk) {
   pp_atom_t *atm;
-  
+
   atm = (pp_atom_t *) tk;
   if (tk->user_tag == PP_RATIONAL_ATOM) {
     q_clear(&atm->data.rat);
@@ -487,7 +487,7 @@ void flush_yices_pp(yices_pp_t *printer) {
  * Flush then delete a pretty printer
  * - if flush is true, print everything pending + a newline
  * - then free all memory used
- */ 
+ */
 void delete_yices_pp(yices_pp_t *printer, bool flush) {
   if (flush) {
     flush_pp(&printer->pp);
@@ -709,7 +709,7 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   q_init(&atom->data.rat);
   q_set(&atom->data.rat, q);
 
-  pp_push_token(&printer->pp, tk);  
+  pp_push_token(&printer->pp, tk);
 }
 
 
@@ -719,7 +719,7 @@ void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
 
   assert(0 < n && n <= 64);
   atom = new_atom(printer);
-  // bitvector constants are printed as 0bxxx... so 
+  // bitvector constants are printed as 0bxxx... so
   // the length is n+2
   tk = init_atomic_token(&atom->tk, n+2, PP_BV64_ATOM);
   atom->data.bv64.bv = bv;
@@ -738,13 +738,13 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
   assert(0 < n);
   atom = new_atom(printer);
-  // bitvector constants are printed as 0bxxx... so 
+  // bitvector constants are printed as 0bxxx... so
   // the length is n+2
   tk = init_atomic_token(&atom->tk, n+2, PP_BV_ATOM);
   atom->data.bv.bv = bv;
   atom->data.bv.nbits = n;
 
-  pp_push_token(&printer->pp, tk);  
+  pp_push_token(&printer->pp, tk);
 }
 
 
@@ -786,7 +786,7 @@ void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const ch
   atom->data.qstr.quote[0] = open_quote;
   atom->data.qstr.quote[1] = close_quote;
 
-  pp_push_token(&printer->pp, tk);  
+  pp_push_token(&printer->pp, tk);
 }
 
 
@@ -799,7 +799,7 @@ void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
 
   assert(0 < n && n <= 64);
   atom = new_atom(printer);
-  // bitvector constants are printed as #bxxx... so 
+  // bitvector constants are printed as #bxxx... so
   // the length is n+2
   tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV64_ATOM);
   atom->data.bv64.bv = bv;
@@ -814,13 +814,13 @@ void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
   assert(0 < n);
   atom = new_atom(printer);
-  // bitvector constants are printed as #bxxx... so 
+  // bitvector constants are printed as #bxxx... so
   // the length is n+2
   tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV_ATOM);
   atom->data.bv.bv = bv;
   atom->data.bv.nbits = n;
 
-  pp_push_token(&printer->pp, tk);  
+  pp_push_token(&printer->pp, tk);
 }
 
 
@@ -849,7 +849,7 @@ void pp_open_block(yices_pp_t *printer, pp_open_type_t id) {
   desc = open_desc + id;
   open = new_open_token(printer);
   tk = init_open_token(open,
-                       desc->formats, desc->flags, desc->label_size, 
+                       desc->formats, desc->flags, desc->label_size,
                        desc->indent, desc->short_indent, id);
 
   pp_push_token(&printer->pp, tk);

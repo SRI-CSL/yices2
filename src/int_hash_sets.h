@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 
-/* 
+/*
  * - data: array of 2^n elements (hash table)
  * - z_flag: boolean flag, true if 0 has been
  *   added to the set (0 is used as a marker
@@ -19,7 +19,7 @@
  *   = number of non-zero elements in the set
  * - size = 2^n = size of array data
  *
- * - resize threshold: the table is extended 
+ * - resize threshold: the table is extended
  *   when nelems > resize_threshold
  */
 typedef struct int_hset_s {
@@ -50,7 +50,7 @@ typedef struct int_hset_s {
 
 
 /*
- * Shrink size: when reset is called, the array is 
+ * Shrink size: when reset is called, the array is
  * resized to the default size
  */
 #define INT_HSET_SHRINK_SIZE 2048
@@ -91,7 +91,7 @@ extern bool int_hset_member(int_hset_t *set, uint32_t x);
 /*
  * Add element x to set
  * - return true if x is not already in s
- * - return false if x is already in s 
+ * - return false if x is already in s
  */
 extern bool int_hset_add(int_hset_t *set, uint32_t x);
 

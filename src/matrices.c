@@ -6,7 +6,7 @@
  * A matrix is represented as an array of rows
  * - row i is a sparse representation of (a_i1, ..., a_in)
  *   (where only the non-zero elements are stored)
- * - for each column j, we keep track of all the rows where 
+ * - for each column j, we keep track of all the rows where
  *   a_ij is non-zero in a column vector
  *
  * Equivalently, each row can be seen as a linear equation
@@ -384,7 +384,7 @@ void reset_matrix(matrix_t *matrix) {
   n = matrix->nrows;
   for (i=0; i<n; i++) {
     delete_row(matrix->row[i]);
-    matrix->row[i] = NULL;  // this is redundant but it helps debugging 
+    matrix->row[i] = NULL;  // this is redundant but it helps debugging
   }
 
   n = matrix->ncolumns;
@@ -466,7 +466,7 @@ static uint32_t add_column_elem(matrix_t *matrix, uint32_t j, uint32_t r_idx, ui
  * Add a row element in row i, and set it to <c_idx, c_ptr, coeff>
  * - return the element index in row i
  */
-static uint32_t add_row_elem(matrix_t *matrix, uint32_t i, uint32_t c_idx, uint32_t c_ptr, 
+static uint32_t add_row_elem(matrix_t *matrix, uint32_t i, uint32_t c_idx, uint32_t c_ptr,
                              rational_t *coeff) {
   uint32_t k;
   row_elem_t *e;
@@ -496,7 +496,7 @@ static void remove_row_elem(matrix_t *matrix, uint32_t i, uint32_t k) {
 
 
 #if 0
-// Not used 
+// Not used
 /*
  * Create a new a[i, j] for row i and column j with value = a
  * - this adds a new element in row i and in column j, so there
@@ -552,7 +552,7 @@ static polynomial_t *convert_row_to_poly(row_t *row) {
   assert(j == row->nelems);
   p->mono[j].var = max_idx;
   q_init(&p->mono[j].coeff);
-  
+
   return p;
 }
 
@@ -563,7 +563,7 @@ static polynomial_t *convert_row_to_poly(row_t *row) {
  */
 
 /*
- * Increase the column capacity by 50% or to m, 
+ * Increase the column capacity by 50% or to m,
  * depending on which is larger
  * - so after this, there's room for at least m columns
  */
@@ -618,7 +618,7 @@ void matrix_add_columns(matrix_t *matrix, uint32_t m) {
   uint32_t i, n;
 
   n = matrix->ncolumns + m;
-  if (n >= matrix->column_cap) {   
+  if (n >= matrix->column_cap) {
     matrix_increase_column_capacity(matrix, n);
   }
   assert(n <= matrix->column_cap);
@@ -628,7 +628,7 @@ void matrix_add_columns(matrix_t *matrix, uint32_t m) {
     matrix->base_row[i] = -1;
     matrix->index[i] = -1;
   }
-  matrix->ncolumns = n;  
+  matrix->ncolumns = n;
 }
 
 
@@ -676,7 +676,7 @@ static void matrix_compact_column(matrix_t *matrix, uint32_t c) {
  */
 
 /*
- * Increase the row capacity by 50% 
+ * Increase the row capacity by 50%
  */
 static void matrix_increase_row_capacity(matrix_t *matrix) {
   uint32_t n;
@@ -697,7 +697,7 @@ static void matrix_increase_row_capacity(matrix_t *matrix) {
  * Add a new row of the form p == 0
  * - p is defined by the array of monomials a
  * - n = size of that array
- * - there must be an existing column in the matrix for 
+ * - there must be an existing column in the matrix for
  *   all the variables in p (i.e., a[0].var, ...., a[n-1].var)
  *   (i.e., a[i].var < matrix->ncolumns for i=0, ..., n-1)
  * - p must be normalized (all monomials must have different variables,
@@ -832,7 +832,7 @@ void matrix_add_eq(matrix_t *matrix, int32_t x, monomial_t *a, uint32_t n) {
 static void check_tableau_eq(matrix_t *matrix, int32_t x, monomial_t *a, uint32_t n) {
   uint32_t i;
   int32_t y;
-  
+
   // x must not occur in the tableau
   assert(0 <= x && x < matrix->ncolumns && matrix->base_row[x] < 0);
   assert(matrix->column[x] == NULL || matrix->column[x]->nelems == 0);
@@ -929,7 +929,7 @@ static void matrix_detach_row(matrix_t *matrix, row_t *row) {
 
 
 /*
- * Change the index of row to r 
+ * Change the index of row to r
  */
 static void matrix_change_row_index(matrix_t *matrix, row_t *row, uint32_t r) {
   uint32_t i, n;
@@ -1002,7 +1002,7 @@ static void matrix_remove_rows(matrix_t *matrix, uint32_t n) {
 
   p = matrix->nrows;
   for (i=n; i<p; i++) {
-    row = matrix->row[i];    
+    row = matrix->row[i];
     matrix_detach_row(matrix, row);
     delete_row(row);
     matrix->row[i] = NULL;
@@ -1036,7 +1036,7 @@ static void matrix_remove_columns(matrix_t *matrix, uint32_t n) {
 
 
 /*
- * Reduce the matrix to dimension n x m 
+ * Reduce the matrix to dimension n x m
  * - n = number of rows to keep
  * - m = number of columns to keep
  */
@@ -1170,7 +1170,7 @@ void matrix_cleanup_constants(matrix_t *matrix) {
         free_row_elem(matrix->row[i], r_ptr);
       }
     }
-  }  
+  }
 
   safe_free(matrix->constant);
   matrix->constant = NULL;
@@ -1310,7 +1310,7 @@ static void markowitz_init_singleton_row(markowitz_t *d, matrix_t *matrix, row_t
   while (x < 0) {
     i ++;
     assert(i < row->size);
-    x = row->data[i].c_idx;    
+    x = row->data[i].c_idx;
   }
 
   markowitz_add_record(d, r, 0, x, i);
@@ -1318,9 +1318,9 @@ static void markowitz_init_singleton_row(markowitz_t *d, matrix_t *matrix, row_t
 
 
 /*
- * Initialize the record for a row r with two monomials 
+ * Initialize the record for a row r with two monomials
  * - row must be equal matrix->row[r]
- * - a new record is created if the row is of the form 
+ * - a new record is created if the row is of the form
  *   a.x + b == 0 or if it's a.x + b.y == 0
  *   and x or y is marked for elimination
  */
@@ -1404,7 +1404,7 @@ static void markowitz_init_row(markowitz_t *d, matrix_t *matrix, row_t *row, uin
   best_x = -1;
   best_i = 0;
   best_c = UINT32_MAX;
-  
+
   // find best column for the row
   for (i=0; i<n; i++) {
     x = row->data[i].c_idx;
@@ -1519,7 +1519,7 @@ static void markowitz_update_singleton_row(markowitz_t *d, matrix_t *matrix, row
 
 
 /*
- * Update the record for a row r with two monomials 
+ * Update the record for a row r with two monomials
  * - row must be equal matrix->row[r]
  */
 static void markowitz_update_simple_row(markowitz_t *d, matrix_t *matrix, row_t *row, uint32_t r) {
@@ -1540,7 +1540,7 @@ static void markowitz_update_simple_row(markowitz_t *d, matrix_t *matrix, row_t 
     while (x < 0) {
       i ++;
       assert(i < row->size);
-      x = row->data[i].c_idx;    
+      x = row->data[i].c_idx;
     }
     j = i;
     do {
@@ -1601,7 +1601,7 @@ static void markowitz_update_row(markowitz_t *d, matrix_t *matrix, row_t *row, u
   best_x = -1;
   best_i = 0;
   best_c = UINT32_MAX;
-  
+
   // find best column for the row
   for (i=0; i<n; i++) {
     x = row->data[i].c_idx;
@@ -1627,7 +1627,7 @@ static void markowitz_update_row(markowitz_t *d, matrix_t *matrix, row_t *row, u
  * Update record after row r has changed
  * - if r is non-empty and  does not have a record then a new one is created
  *   and added to the heap.
- * - during tableau construction, r may be a previously visited row that 
+ * - during tableau construction, r may be a previously visited row that
  *   already has a basic variable. Since r is put back into the heap,
  *   it will be revisited again and possibly get simplified more.
  */
@@ -1754,10 +1754,10 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
           // x does not occur in row r: create a new element
           j = alloc_row_elem(&row);
           row->data[j].c_idx = x;
-          row->data[j].c_ptr = add_column_elem(matrix, x, r, j); 
+          row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
           q_set_neg(&row->data[j].coeff, &row0->data[i].coeff);
         } else {
-          // x occurs in row 
+          // x occurs in row
           q_sub(&row->data[j].coeff, &row0->data[i].coeff);
         }
       }
@@ -1776,9 +1776,9 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
           j = alloc_row_elem(&row);
           row->data[j].c_idx = x;
           row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
-          q_set(&row->data[j].coeff, &row0->data[i].coeff);       
+          q_set(&row->data[j].coeff, &row0->data[i].coeff);
         } else {
-          // x occurs in row 
+          // x occurs in row
           q_add(&row->data[j].coeff, &row0->data[i].coeff);
         }
       }
@@ -1803,7 +1803,7 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
           // x occurs in element j of row r
           q_submul(&row->data[j].coeff, a, &row0->data[i].coeff);
         }
-      } 
+      }
     }
   }
 
@@ -1842,7 +1842,7 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
 
 /*
  * Pivoting step: make x basic in r0
- * - k identifies the variable: k must be the index of the element where 
+ * - k identifies the variable: k must be the index of the element where
  * x occurs in row r0
  */
 void matrix_pivot(matrix_t *matrix, uint32_t r0, uint32_t k) {
@@ -1887,7 +1887,7 @@ void matrix_pivot(matrix_t *matrix, uint32_t r0, uint32_t k) {
   col->data[0].r_ptr = k;
 
   row0->data[k].c_ptr = 0;
-  
+
   // update base_row and base_var
   j = matrix->base_var[r0];
   if (j >= 0) {
@@ -1941,7 +1941,7 @@ static void matrix_eliminate_zero_variable(matrix_t *matrix, markowitz_t *d, int
 
   // delete column[x]
   delete_column(col);
-  matrix->column[x] = NULL;  
+  matrix->column[x] = NULL;
 }
 
 
@@ -1949,7 +1949,7 @@ static void matrix_eliminate_zero_variable(matrix_t *matrix, markowitz_t *d, int
 
 
 /*
- * Special form of submul for variable substitution: replace a variable 
+ * Special form of submul for variable substitution: replace a variable
  * in row r by the monomial - b.y
  * - r = row index
  * - k = index in row r of an element a.x where x is the variable to eliminate
@@ -1990,14 +1990,14 @@ static void matrix_submul_simple_row(matrix_t *matrix, uint32_t r, uint32_t k, r
     q_neg(&e[k].coeff);
     q_mul(&e[k].coeff, &e0->coeff);
     assert(q_is_nonzero(&e[k].coeff));
-  }  
+  }
 
 }
 
 
 
 /*
- * Perform the substitution x := -e = - b.y 
+ * Perform the substitution x := -e = - b.y
  * - if d != NULL, the markowitz record of all modified rows is updated
  * - e must not occur in the rows that are being modified
  *   and the variable in e must be distinct from x
@@ -2075,7 +2075,7 @@ static void matrix_pivot_and_update(matrix_t *matrix, markowitz_t *d, uint32_t r
   col->data[0].r_idx = r0;
   col->data[0].r_ptr = k;
   row0->data[k].c_ptr = 0;
-  
+
   // update base_row and base_var
   j = matrix->base_var[r0];
   if (j >= 0) {
@@ -2083,7 +2083,7 @@ static void matrix_pivot_and_update(matrix_t *matrix, markowitz_t *d, uint32_t r
   }
   matrix->base_var[r0] = x;
   matrix->base_row[x] = r0;
-  
+
 }
 
 
@@ -2103,11 +2103,11 @@ static void matrix_pivot_and_update(matrix_t *matrix, markowitz_t *d, uint32_t r
  * Rows that are removed from a matrix during Gaussian elimination are
  * stored into two separate data structures:
  * - a fixed variable vectors stores variable assignments: x == a.
- *   each assignment is the elimination of a singleton row (x == 0) or 
+ *   each assignment is the elimination of a singleton row (x == 0) or
  *   a simple row (x + a == 0)
  * - an elimination matrix stores an upper triangular matrix
  *   each row in the matrix is a polynomial a_1 x_1 + ... + a_n x_n ==0
- *   with one variable x_i as diagonal element (base_var), with 
+ *   with one variable x_i as diagonal element (base_var), with
  *   coefficient a_i = 1
  */
 
@@ -2266,7 +2266,7 @@ static uint32_t fvar_vector_alloc(fvar_vector_t *v) {
   n = v->size;
   if (i == n) {
     if (n == 0) {
-      n = DEF_FVAR_VECTOR_SIZE;      
+      n = DEF_FVAR_VECTOR_SIZE;
     } else {
       n ++;
       n += n>>1;
@@ -2354,14 +2354,14 @@ static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_fl
 
   // row0->data[i] == monomial b.y
   if (y == const_idx) {
-    /* 
-     * Apply the substitution x := -b 
-     * This may be inconsistent if x is integer and b is not, but the simplex 
+    /*
+     * Apply the substitution x := -b
+     * This may be inconsistent if x is integer and b is not, but the simplex
      * solver will detect this when scanning the fvar vector.
-     */    
+     */
     fvar_vector_add_neg(fvars, x, &row0->data[i].coeff);
     goto substitute;
-  } 
+  }
 
 
   if (tst_bit(i_flag, x)) {
@@ -2371,10 +2371,10 @@ static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_fl
       // b.y is an integer
       goto save_and_substitute;
     }
-    
+
     /*
      * Try the substitution y := -1/b.x if it's allowed
-     * Old test was: 
+     * Old test was:
      *  if (tst_bit(d->elim_flag, y) && matrix->column[y]->nelems <= matrix->column[x]->nelems) {
      * but replacing y by -1/b x is fine even if y occurs more often than x in the matrix.
      */
@@ -2388,10 +2388,10 @@ static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_fl
       }
     }
 
-    // failed substitution: keep row0 
-    return; 
+    // failed substitution: keep row0
+    return;
   }
-  
+
  save_and_substitute:
   if (elim != NULL) {
     elim_matrix_add_row(elim, x, row0);
@@ -2402,11 +2402,11 @@ static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_fl
    * Perform the substitution x := - b.y where b.y is row0->data[i]
    */
   matrix_detach_row(matrix, row0);
-  matrix_substitute_variable(matrix, d, x, row0->data + i);    
+  matrix_substitute_variable(matrix, d, x, row0->data + i);
   delete_row(row0);
   matrix->row[r0] = NULL;
 }
- 
+
 
 
 /*
@@ -2448,7 +2448,7 @@ static void gauss_elim_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
   column_t *col;
   uint32_t i, n;
   int32_t x, r, j;
-  
+
   assert(row0 == matrix->row[r0] && row0 != NULL && k < row0->size);
 
   x = row0->data[k].c_idx;    // variable to eliminate
@@ -2458,7 +2458,7 @@ static void gauss_elim_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
 
   if (tst_bit(i_flag, x) && ! all_integer_row(row0, i_flag)) {
     /*
-     * Can't use the row to eliminate x: just keep the row for now. 
+     * Can't use the row to eliminate x: just keep the row for now.
      * We could also try another variable in the same row?
      */
     return;
@@ -2481,7 +2481,7 @@ static void gauss_elim_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
       markowitz_update(d, matrix, r);
     }
   }
-  
+
   // delete column x and row r0
   delete_column(col);
   matrix->column[x] = NULL;
@@ -2548,7 +2548,7 @@ static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_fla
       gauss_elim_row(matrix, d, i_flag, row0, r0, k, elim);
       break;
     }
-    
+
   }
 }
 
@@ -2558,20 +2558,20 @@ static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_fla
  * - mark the rows and variables to eliminate then apply Gaussian elimination
  * - pivoting steps are applied in the order defined by the Markowitz heuristic
  *
- * Parameters: 
+ * Parameters:
  * - matrix = input matrix
- * - elim_candidates = array of variables that may be eliminated   
+ * - elim_candidates = array of variables that may be eliminated
  *   n = size of that array. There must not be duplicates in the array.
  * - i_flag = bitvector that indicates which variables are integer:
  *   i_flag[x] = 1 means x is an integer variable,
  *   i_flag[x] = 0 means x is not an integer variable
- * - elim = elimination matrix where the eliminated rows will be stored 
+ * - elim = elimination matrix where the eliminated rows will be stored
  *   (if elim is NULL nothing is stored)
  * - fvars = vectors to record the eliminated fixed variables
  *
  * The result is stored in matrix, elim, and fvars:
  * - matrix = simplified matrix
- * - fvars = variable assignments of the form x == b where x is a variable id and 
+ * - fvars = variable assignments of the form x == b where x is a variable id and
  *   b is a rational constant (the assignments result from the elimination of
  *   singleton or simple rows)
  * - elim (if non-NULL) = other eliminated rows/triangular matrix
@@ -2579,7 +2579,7 @@ static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_fla
  * NOTE: the variable assignments in fvars may be inconsistent
  * - there can be two types of inconsistencies:
  *   (x == 0) where x = const_idx = 1 if a row a == 0 is generated with a!=0
- *   (x == b) where x is an integer variable and b is not an integer 
+ *   (x == b) where x is an integer variable and b is not an integer
  * - the caller must check for this
  */
 void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, byte_t *i_flag,
@@ -2589,10 +2589,10 @@ void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, byt
   init_markowitz(&d, matrix->nrows, matrix->ncolumns);
   markowitz_init_columns(&d, elim_candidates, n);
   markowitz_init_rows(&d, matrix);
-  
+
   gaussian_elimination(matrix, &d, i_flag, elim, fvars);
   compact_matrix(matrix);
-  
+
   delete_markowitz(&d);
 }
 
@@ -2622,10 +2622,10 @@ void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, byt
  *
  * If row0 is a constant row then the assignment const_idx = 0 is added to fvars.
  * This is an invalid assignment and there's no solution to the equations. We add
- * the equation anyway so that the caller can check for feasibility by scanning 
+ * the equation anyway so that the caller can check for feasibility by scanning
  * the assignments in fvars.
  */
-static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d, 
+static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d,
                                          row_t *row0, uint32_t r0, fvar_vector_t *fvars) {
   uint32_t i;
   int32_t x;
@@ -2659,7 +2659,7 @@ static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d,
 
 
 /*
- * Eliminate row r0 by replacing x by the constant in element e 
+ * Eliminate row r0 by replacing x by the constant in element e
  * - if d != NULL, update the Markowitz records of all rows modified
  * - row0 must be equal to matrix->row[r0]
  * - x must have coefficient 1 in the row
@@ -2681,7 +2681,7 @@ static void tableau_remove_simple_row(matrix_t *matrix, markowitz_t *d,
   matrix_detach_row(matrix, row0);
   matrix_substitute_variable(matrix, d, x, e);
 
-  // remove row0 
+  // remove row0
   delete_row(row0);
   matrix->row[r0] = NULL;
 
@@ -2727,7 +2727,7 @@ static void tableau_process_simple_row(matrix_t *matrix, row_t *row0, uint32_t r
     tableau_remove_simple_row(matrix, NULL, row0, r0, y, row0->data + i, fvars);
 
   } else if (y == const_idx) {
-    // substitute x by the constant in row->data[j]    
+    // substitute x by the constant in row->data[j]
     matrix_scale_row(row0, i);  // make coefficient of x == 1
     tableau_remove_simple_row(matrix, NULL, row0, r0, x, row0->data + j, fvars);
 
@@ -2760,7 +2760,7 @@ static void tableau_process_row(matrix_t *matrix, row_t *row0, uint32_t r0) {
 
   assert(matrix->row[r0] == row0);
 
-#ifndef NDEBUG  
+#ifndef NDEBUG
   best_x = -1;
 #endif
   best_i = 0;
@@ -2810,7 +2810,7 @@ void simple_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
     switch (row->nelems) {
     case 0:
       delete_row(row);
-      matrix->row[i] = NULL;      
+      matrix->row[i] = NULL;
       need_compact = true;
       break;
     case 1:
@@ -2826,7 +2826,7 @@ void simple_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
       break;
     }
   }
-  
+
   if (need_compact) {
     compact_matrix(matrix);
   }
@@ -2902,7 +2902,7 @@ static void markowitz_tableau_revisit_simple_row(matrix_t *matrix, row_t *row0, 
      * where a = rational coeff in data[i].
      * Since x is basic, it occurs only in r0 so there's no substitution to propagate
      */
-    assert(matrix->base_var[r0] == x && matrix->column[x] != NULL && 
+    assert(matrix->base_var[r0] == x && matrix->column[x] != NULL &&
            matrix->column[x]->nelems == 1);
 
     fvar_vector_add_neg(fvars, x, &row0->data[i].coeff);
@@ -2914,7 +2914,7 @@ static void markowitz_tableau_revisit_simple_row(matrix_t *matrix, row_t *row0, 
     matrix->column[x] = NULL;
     matrix->base_row[x] = -1;
   }
-  
+
 }
 
 
@@ -2938,7 +2938,7 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
     if (r0 < 0) break;
 
     /*
-     * See notes in markowitz_update: r0 may be visited several 
+     * See notes in markowitz_update: r0 may be visited several
      * times.
      */
     row0 = matrix->row[r0];
@@ -2982,7 +2982,7 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
         matrix->row[r0] = NULL;
         delete_column(matrix->column[x]);
         matrix->column[x] = NULL;
-        
+
         // x is no longer basic
         matrix->base_row[x] = -1;
 
@@ -2991,7 +2991,7 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
       }
 
     }
-  } 
+  }
 
   compact_matrix(matrix);
   delete_markowitz(&d);
@@ -3029,7 +3029,7 @@ static int32_t get_var_in_row(row_t *row, int32_t x) {
 
 
 /*
- * Consistency properties for base_var: 
+ * Consistency properties for base_var:
  * - base_row[base_var[r]] == r for all rows
  * - base_var[r] != const_idx
  * - base_var[r] < ncolumns
@@ -3061,7 +3061,7 @@ static bool good_base_var(matrix_t *matrix) {
 /*
  * Consistency properties for base_row
  * - base_var[base_row[x]] == x for all basic variables
- * - base_var[r] < nrows 
+ * - base_var[r] < nrows
  */
 static bool good_base_row(matrix_t *matrix) {
   uint32_t i, n;
@@ -3111,7 +3111,7 @@ static bool good_row(matrix_t *matrix, uint32_t r) {
       }
       e = column_elem(matrix, x, k);
       if (e->r_idx != r || e->r_ptr != i) return false;
-      j ++;      
+      j ++;
     }
   }
 
@@ -3186,7 +3186,7 @@ bool good_matrix(matrix_t *matrix) {
 
   } else {
     return false;
-  }  
+  }
 }
 
 

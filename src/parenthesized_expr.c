@@ -49,13 +49,13 @@ void delete_etk_queue(etk_queue_t *queue) {
  * Remove all tokens and delete all blocks except the current
  * queue->mem.
  */
-void reset_etk_queue(etk_queue_t *queue) {  
+void reset_etk_queue(etk_queue_t *queue) {
   cblock_t *p;
 
   queue->top = 0;
   queue->last_open = -1;
   p = queue->mem;
-  if (p != NULL) {  
+  if (p != NULL) {
     queue->free = DEF_CBLOCK_SIZE;
     free_cblocks(p->h.pre);
     p->h.pre = NULL;
@@ -145,7 +145,7 @@ static void insert_cblock(etk_queue_t *queue, cblock_t *blk) {
 /*
  * Return a pointer to an array of n char
  * - if free counter is updated, we clear its three low-order bits
- * - this ensures that all allocated pointers are aligned on an address that's a 
+ * - this ensures that all allocated pointers are aligned on an address that's a
  *   multiple of eight.
  */
 static char *cblock_alloc(etk_queue_t *queue, uint32_t n) {
@@ -160,7 +160,7 @@ static char *cblock_alloc(etk_queue_t *queue, uint32_t n) {
     p = blk->data + (DEF_CBLOCK_SIZE - queue->free);
     assert(blk->data <= p && p + n <= blk->data + DEF_CBLOCK_SIZE);
     queue->free -= n;
-    queue->free &= ~(uint32_t)7; 
+    queue->free &= ~(uint32_t)7;
   } else if (n <= DEF_CBLOCK_SIZE) {
     /*
      * Add a bew block

@@ -50,7 +50,7 @@ static inline eterm_t term_of_occ(occ_t x) {
 
 static inline uint32_t polarity_of_occ(occ_t x) {
   return ((uint32_t) x) & 1;
-} 
+}
 
 static inline bool is_pos_occ(occ_t x) {
   return polarity_of_occ(x) == 0;
@@ -166,7 +166,7 @@ typedef enum composite_kind {
 
 /*
  * Composite structures:
- * - tag = arity + kind 
+ * - tag = arity + kind
  * - hash = 32bit hash code used for congruence closure
  * - id = term t: c->id = t iff body[t] = c
  * - array of children
@@ -184,7 +184,7 @@ typedef enum composite_kind {
  * - this makes it easy and cheap to remove cmp from its parents
  *
  * A lambda composite cmp is of the form (lambda t) where t is a term
- * occurrence 
+ * occurrence
  * - cmp has arity one but the array child has three elements:
  *   cmp->child[0] = t
  *   cmp->child[1] = hook as above
@@ -206,8 +206,8 @@ enum {
 };
 
 /*
- * 32 bit tags: 
- * 3 low-order bits encode the type, 
+ * 32 bit tags:
+ * 3 low-order bits encode the type,
  * 29 high-order bits encode the arity.
  */
 #define CTAG_BITS 3
@@ -435,7 +435,7 @@ typedef enum atm_tag {
   BV_ATM_TAG     = 2,
 } atm_tag_t;
 
-#define ATM_TAG_MASK ((size_t) 0x3) 
+#define ATM_TAG_MASK ((size_t) 0x3)
 
 /*
  * Get the tag of atm

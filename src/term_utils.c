@@ -58,7 +58,7 @@ static void add_domain(int_hset_t *cache, ivector_t *v, finite_domain_t *dom) {
 
 /*
  * Recursively collect all constant terms reachable from t
- * - add all terms visited to hset 
+ * - add all terms visited to hset
  * - add all constants to vector v
  */
 static void collect_finite_domain(term_table_t *tbl, int_hset_t *cache, ivector_t *v, term_t t) {
@@ -95,7 +95,7 @@ static finite_domain_t *build_ite_finite_domain(term_table_t *tbl, composite_ter
   finite_domain_t *dom;
 
   assert(d->arity == 3);
-  
+
   init_int_hset(&cache, 32);
   init_ivector(&buffer, 20);
 
@@ -103,11 +103,11 @@ static finite_domain_t *build_ite_finite_domain(term_table_t *tbl, composite_ter
   collect_finite_domain(tbl, &cache, &buffer, d->arg[2]);  // else part
 
   int_array_sort(buffer.data, buffer.size);
-  dom = make_finite_domain(buffer.data, buffer.size); 
+  dom = make_finite_domain(buffer.data, buffer.size);
 
   delete_ivector(&buffer);
   delete_int_hset(&cache);
-  
+
   return dom;
 }
 
@@ -128,7 +128,7 @@ finite_domain_t *special_ite_get_finite_domain(term_table_t *tbl, term_t t) {
 
 
 /*
- * Check whether u belongs to the finite domain of term t 
+ * Check whether u belongs to the finite domain of term t
  * - t must be a special if-then-else
  */
 bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u) {
@@ -323,10 +323,10 @@ static void bitarray_lower_bound_unsigned(composite_term_t *a, bvconstant_t *c) 
 /*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
  *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[n-1]
- * upper bound: 
- *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0 
+ * upper bound:
+ *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0
  *   replace the sign bit a[n-1] by 0 unless a[n-1] = 1.
- * lower bound: 
+ * lower bound:
  *   for i=0 to n-2, replace a[i] by 0 if a[i] != 1
  *   replace the sign bit a[n-1] by 1 unless a[n-1] = 0.
  */
@@ -406,7 +406,7 @@ static uint64_t bitarray_lower_bound_unsigned64(composite_term_t *a) {
   uint32_t i, n;
 
   assert(0 < a->arity && a->arity <= 64);
-  
+
   n = a->arity;
   c = 0;
   for (i=0; i<n; i++) {
@@ -424,10 +424,10 @@ static uint64_t bitarray_lower_bound_unsigned64(composite_term_t *a) {
 /*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
  *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[n-1]
- * upper bound: 
- *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0 
+ * upper bound:
+ *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0
  *   replace the sign bit a[n-1] by 0 unless a[n-1] = 1.
- * lower bound: 
+ * lower bound:
  *   for i=0 to n-2, replace a[i] by 0 if a[i] != 1
  *   replace the sign bit a[n-1] by 1 unless a[n-1] = 0.
  */
@@ -589,7 +589,7 @@ static bool is_non_integer_term(term_table_t *tbl, term_t x) {
  *
  * We deal with simple cases:
  * - x is integer and y is not (or conversely)
- * - both x and y are constant 
+ * - both x and y are constant
  * - both x and y are polynomials
  * - x is a polynomial and y is not a constant (i.e., y may occur as a variable in x)
  * - y is a polynomial and x is not a constant
@@ -613,7 +613,7 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
   if (kx == ARITH_CONSTANT && ky == ARITH_CONSTANT) {
     return x != y; // because of hash consing.
   }
-  
+
   if (kx == ARITH_CONSTANT && ky == ITE_SPECIAL) {
     return ! term_is_in_finite_domain(tbl, y, x);
   }
@@ -636,7 +636,7 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
 
   if (ky == ARITH_POLY && kx != ARITH_CONSTANT) {
     return polynomial_is_const_plus_var(poly_term_desc(tbl, y), x);
-  } 
+  }
 
   return false;
 }
@@ -671,7 +671,7 @@ static bool disequal_bv64_terms(term_table_t *tbl, term_t x, term_t y) {
     }
 
   } else {
-   
+
     if (kx == BV64_CONSTANT && ky == BV_ARRAY) {
       return disequal_bitarray_bvconst64(bvarray_term_desc(tbl, y), bvconst64_term_desc(tbl, x));
     }
@@ -729,7 +729,7 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
     }
 
   } else {
-   
+
     if (kx == BV_CONSTANT && ky == BV_ARRAY) {
       return disequal_bitarray_bvconst(bvarray_term_desc(tbl, y), bvconst_term_desc(tbl, x));
     }
@@ -766,7 +766,7 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
 bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
   assert(is_bitvector_term(tbl, x) && is_bitvector_term(tbl, y) &&
          term_bitsize(tbl, x) == term_bitsize(tbl, y));
-  
+
   if (term_bitsize(tbl, x) <= 64) {
     return disequal_bv64_terms(tbl, x, y);
   } else {
@@ -776,7 +776,7 @@ bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
 
 
 /*
- * Tuple terms x and y are trivially distinct if they have components 
+ * Tuple terms x and y are trivially distinct if they have components
  * x_i and y_i that are trivially distinct.
  */
 static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
@@ -895,8 +895,8 @@ bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a) {
  *******************************/
 
 /*
- * Check whether t is non-negative. This is incomplete and 
- * deals only with simple cases. 
+ * Check whether t is non-negative. This is incomplete and
+ * deals only with simple cases.
  * - return true if the checks can determine that t >= 0
  * - return false otherwise
  */
@@ -914,7 +914,7 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
     return polynomial_is_nonneg(poly_term_desc(tbl, t));
 
   default:
-    return false;    
+    return false;
   }
 }
 
@@ -938,7 +938,7 @@ bool arith_term_is_negative(term_table_t *tbl, term_t t) {
     return polynomial_is_neg(poly_term_desc(tbl, t));
 
   default:
-    return false;    
+    return false;
   }
 }
 
@@ -962,7 +962,7 @@ bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
     return polynomial_is_nonzero(poly_term_desc(tbl, t));
 
   default:
-    return false;    
+    return false;
   }
 }
 
@@ -1016,7 +1016,7 @@ void upper_bound_unsigned(term_table_t *tbl, term_t t, bvconstant_t *c) {
     n = term_bitsize(tbl, t);
     bvconstant_set_all_one(c, n);
     break;
-  }  
+  }
 }
 
 
@@ -1047,7 +1047,7 @@ void lower_bound_unsigned(term_table_t *tbl, term_t t, bvconstant_t *c) {
     n = term_bitsize(tbl, t);
     bvconstant_set_all_zero(c, n);
     break;
-  }  
+  }
 }
 
 
@@ -1079,7 +1079,7 @@ void upper_bound_signed(term_table_t *tbl, term_t t, bvconstant_t *c) {
     bvconstant_set_all_one(c, n);
     bvconst_clr_bit(c->data, n-1); // clear the sign bit
     break;
-  }  
+  }
 }
 
 
@@ -1111,7 +1111,7 @@ void lower_bound_signed(term_table_t *tbl, term_t t, bvconstant_t *c) {
     bvconstant_set_all_zero(c, n);
     bvconst_set_bit(c->data, n-1); // set the sign bit
     break;
-  }  
+  }
 }
 
 
@@ -1178,7 +1178,7 @@ uint64_t lower_bound_unsigned64(term_table_t *tbl, term_t t) {
 
 /*
  * Upper bound on t, interpreted as a signed integer
- */ 
+ */
 uint64_t upper_bound_signed64(term_table_t *tbl, term_t t) {
   uint64_t c;
   uint32_t n;
@@ -1270,7 +1270,7 @@ bool bvterm_is_minus_one(term_table_t *tbl, term_t t) {
 
   default:
     return false;
-  }  
+  }
 }
 
 bool bvterm_is_min_signed(term_table_t *tbl, term_t t) {
@@ -1289,7 +1289,7 @@ bool bvterm_is_min_signed(term_table_t *tbl, term_t t) {
 
   default:
     return false;
-  }  
+  }
 }
 
 bool bvterm_is_max_signed(term_table_t *tbl, term_t t) {
@@ -1308,7 +1308,7 @@ bool bvterm_is_max_signed(term_table_t *tbl, term_t t) {
 
   default:
     return false;
-  }  
+  }
 }
 
 
@@ -1327,7 +1327,7 @@ bool bvterm_is_max_signed(term_table_t *tbl, term_t t) {
  */
 term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i) {
   uint32_t *d;
-  uint64_t c;  
+  uint64_t c;
   term_t bit;
 
   assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) > i);
@@ -1490,9 +1490,9 @@ static term_t check_eq_bvarray(composite_term_t *u, composite_term_t *v) {
 
 /*
  * Try to simplify (bv-eq t1 t2) to a boolean term
- * - if t1 and t2 can be rewritten as arrays of bits 
+ * - if t1 and t2 can be rewritten as arrays of bits
  *   [b0 .. b_n] and [c_0 ... c_n], respectively,
- *   then the function checks whether 
+ *   then the function checks whether
  *      (and (b0 == c0) ... (b_n == c_n))
  *   simplifies to a single boolean term.
  * - return NULL_TERM if no simplification is found
@@ -1501,7 +1501,7 @@ term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2) {
   term_kind_t k1, k2;
   term_t aux;
 
-  assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) && 
+  assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) &&
          term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
 
   k1 = term_kind(tbl, t1);
@@ -1612,7 +1612,7 @@ static bool flatten_eq_bvarray(composite_term_t *u, composite_term_t *v, ivector
  * Try to simplify (bv-eq t1 t2) to a conjunction of terms
  * - if t1 and t2 can be rewritten as arrays of bits
  *   [b_0 ... b_n] and [c_0 ... c_n], respectively,
- *   then the function checks whether each 
+ *   then the function checks whether each
  *   equality (b_i == c_i)  simplifies to a single Boolean term e_i
  * - if all of them do, then the function
  *   returns true and adds e_0, ... e_n to vector v
@@ -1718,7 +1718,7 @@ term_t get_unit_type_rep(term_table_t *table, type_t tau) {
   term_t t;
 
   assert(is_unit_type(table->types, tau));
-  
+
   t = unit_type_rep(table, tau);
   if (t == NULL_TERM) {
     types = table->types;

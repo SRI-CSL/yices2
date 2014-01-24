@@ -35,7 +35,7 @@ void init_generic_heap(generic_heap_t *heap, uint32_t n, uint32_t m, heap_cmp_fu
   heap->heap[0] = -1; // marker
   heap->nelems = 0;
   heap->size = n;
-  
+
   // index array: initialized to -1 everywhere
   tmp = (int32_t *) safe_malloc(m * sizeof(int32_t));
   for (i=0; i<m; i++) {
@@ -78,7 +78,7 @@ static void resize_generic_heap_idx(generic_heap_t *heap, int32_t x) {
   n = heap->idx_size + 1;
   n += n >> 1;
   if (n <= x) {
-    n = x+1; 
+    n = x+1;
   }
 
   if (n >= MAX_GENERIC_HEAP_IDX_SIZE) {
@@ -129,7 +129,7 @@ void reset_generic_heap(generic_heap_t *heap) {
 
 
 /*
- * Ordering function 
+ * Ordering function
  */
 static inline bool heap_lt(generic_heap_t *heap, int32_t x, int32_t y) {
   assert(x >= 0 && y >= 0 && x != y);
@@ -152,7 +152,7 @@ static void heap_update_up(generic_heap_t *heap, int32_t x, uint32_t i) {
   h = heap->heap;
   idx = heap->idx;
 
-  j = i>>1; // parent of i 
+  j = i>>1; // parent of i
   y = h[j];
 
   // this loop terminates since h[0] = -1
@@ -209,13 +209,13 @@ static void heap_update_down(generic_heap_t *heap, int32_t x, uint32_t i) {
       return;
     }
 
-    // move y up into position i 
+    // move y up into position i
     h[i] = y;
     idx[y] = i;
 
     // move to node j
     i = j;
-    j <<= 1;    
+    j <<= 1;
   }
 
   // final step: j+1 > n
@@ -232,7 +232,7 @@ static void heap_update_down(generic_heap_t *heap, int32_t x, uint32_t i) {
     } else {
       h[i] = x;
       idx[x] = i;
-    }    
+    }
   } else {
     // no child of i is in the heap
     h[i] = x;

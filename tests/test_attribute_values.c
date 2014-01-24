@@ -60,10 +60,10 @@ static void test_bv64_attr(attr_vtbl_t *table, uint32_t nbits, uint64_t c) {
   }
 
   d = table->desc[i].ptr;
-  if (d->nbits != nbits || d->data[0] != (uint32_t) c || 
+  if (d->nbits != nbits || d->data[0] != (uint32_t) c ||
       (nbits> 32 && d->data[1] != (uint32_t) (c >> 32))) {
     fprintf(stderr, "BUG in bv64 constructor (wrong value)\n");
-    exit(1);    
+    exit(1);
   }
 }
 
@@ -247,7 +247,7 @@ static void test_strings(attr_vtbl_t *table) {
   test_symbol_attr(table, "north");
   test_symbol_attr(table, "south");
   test_symbol_attr(table, "east");
-  test_symbol_attr(table, "west");  
+  test_symbol_attr(table, "west");
 }
 
 static void test_random_list(attr_vtbl_t *table) {
@@ -344,7 +344,7 @@ static void print_aval(attr_vtbl_t *table, int32_t i) {
     break;
 
   case ATTR_RATIONAL:
-    q_print(stdout, &table->desc[i].rational);    
+    q_print(stdout, &table->desc[i].rational);
     break;
 
   case ATTR_BV:
@@ -377,7 +377,7 @@ static void print_attr_vtbl(attr_vtbl_t *table) {
   printf("  size = %"PRIu32"\n", table->size);
   printf("  nelems = %"PRIu32"\n", table->nelems);
   printf("  free_idx = %"PRId32"\n", table->free_idx);
-  
+
   n = table->nelems;
   for (i=0; i<n; i++) {
     print_aval(table, i);

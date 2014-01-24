@@ -169,7 +169,7 @@ static polynomial_t *make_simple_poly(object_store_t *s, int32_t x) {
   q_init(&p->mono[0].coeff);
   q_set_one(&p->mono[0].coeff);
   // end marker
-  p->mono[1].var = max_idx;  
+  p->mono[1].var = max_idx;
 
   return p;
 }
@@ -649,14 +649,14 @@ static void reset_offset_table(offset_table_t *table) {
   table->nvars = 1;
   table->desc[0].next = 0;
 
-  assert(table->edge[0] < 0 && table->dep[0] == NULL && 
+  assert(table->edge[0] < 0 && table->dep[0] == NULL &&
          table->desc[0].root == 0  && q_is_zero(&table->desc[0].offset));
 }
 
 
 
 /*
- * Make the table larger 
+ * Make the table larger
  */
 static void extend_offset_table(offset_table_t *table) {
   uint32_t n;
@@ -1111,7 +1111,7 @@ static void extend_offset_undo_stack(offset_undo_stack_t *stack) {
     out_of_memory();
   }
   stack->data = (offset_undo_t *) safe_realloc(stack->data, n * sizeof(offset_undo_t));
-  stack->size = n;  
+  stack->size = n;
 }
 
 
@@ -1143,7 +1143,7 @@ static void delete_offset_undo_stack(offset_undo_stack_t *stack) {
 
 static inline void reset_offset_undo_stack(offset_undo_stack_t *stack) {
   stack->top = 0;
-  
+
 }
 
 
@@ -1316,7 +1316,7 @@ static void extend_offset_trail_stack(offset_trail_stack_t *stack) {
     out_of_memory();
   }
   stack->size = n;
-  stack->data = (offset_trail_t *) safe_realloc(stack->data, n * sizeof(offset_trail_t)); 
+  stack->data = (offset_trail_t *) safe_realloc(stack->data, n * sizeof(offset_trail_t));
 }
 
 
@@ -1479,7 +1479,7 @@ static void reset_offset_equeue(offset_equeue_t *queue) {
 
 /*
  * Initialize:
- * - ext = pointer to an external object 
+ * - ext = pointer to an external object
  * - f: callback called when an equality is detected
  */
 void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f) {
@@ -1536,7 +1536,7 @@ void reset_offset_manager(offset_manager_t *m) {
   m->base_level = 0;
   m->decision_level = 0;
   m->conflict_eq = -1;
-  
+
   reset_offset_poly_table(&m->ptable);
   reset_offset_table(&m->vtable);
   reset_offset_hash_table(&m->htbl);
@@ -1545,8 +1545,8 @@ void reset_offset_manager(offset_manager_t *m) {
   reset_inactive_poly_queue(&m->inactives);
   reset_offset_trail_stack(&m->tstack);
 
-  assert(m->stack.size > 0 && 
-         m->stack.data[0].eq_ptr == 0 && 
+  assert(m->stack.size > 0 &&
+         m->stack.data[0].eq_ptr == 0 &&
          m->stack.data[0].undo_ptr == 0 &&
          m->stack.data[0].inactive_ptr == 0);
 
@@ -1585,8 +1585,8 @@ static bool matching_poly(offset_manager_t *m, poly_buffer_t *b, int32_t k) {
  * Search for a polynomial equal to i in htbl
  * - b must contain the normal form of i
  * - h must be the hash code of b
- * 
- * - if a matching polynomial is found, return its index 
+ *
+ * - if a matching polynomial is found, return its index
  * - otherwise, add a new record [i, h] in m->htbl and return i
  */
 static int32_t get_equal_poly(offset_manager_t *m, int32_t i, uint32_t h, poly_buffer_t *b) {
@@ -1648,7 +1648,7 @@ static void offset_poly_init_vars(offset_manager_t *m, int32_t i) {
 
   assert(0 <= i && i < m->ptable.npolys);
 
-  vars = m->ptable.vars[i];  
+  vars = m->ptable.vars[i];
 
   if (vars != NULL) {
     p = m->ptable.def[i];
@@ -1688,7 +1688,7 @@ static void attach_offset_poly(offset_manager_t *m, int32_t i) {
 
   assert(0 <= i && i < m->ptable.npolys);
 
-  vars = m->ptable.vars[i];  
+  vars = m->ptable.vars[i];
   if (vars != NULL) {
     n = vars->size;
     for (j=0; j<n; j++) {
@@ -1703,7 +1703,7 @@ static void attach_offset_poly(offset_manager_t *m, int32_t i) {
 
 /*
  * Remove poly i from the dependency vectors
- * - vars[i] contains pairs [x, k] where x an offset variable 
+ * - vars[i] contains pairs [x, k] where x an offset variable
  *   and k is an index in dep[x] such that dep[x]->data[k] = i
  * - to remove i from the dependency vectors:
  *   we set dep[x]->data[k] = -1 and we replace k by -1 in vars[i]
@@ -1791,7 +1791,7 @@ static void process_poly(offset_manager_t *m, int32_t i) {
 
 /*
  * Record the triple (t, x, p) as a polynomial to monitor
- * - t = egraph term 
+ * - t = egraph term
  * - x = arithmetic variable (must be the theory variable of t)
  * - p = either x's definition or NULL
  *
@@ -1808,7 +1808,7 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   //  attach_offset_poly(m, i);
   offset_poly_init_vars(m, i);
 
-  assert(offset_poly_is_inactive(&m->ptable, i) && 
+  assert(offset_poly_is_inactive(&m->ptable, i) &&
          !offset_poly_is_marked(&m->ptable, i));
 
   // add i to the to_process vector and to the recheck queue if needed
@@ -1884,7 +1884,7 @@ static void offset_invert_branch(offset_manager_t *m, int32_t x) {
     if (j < 0) break; // root found
     x = offset_eq_other_var(eq + j, x);
     i = j;
-  }  
+  }
 }
 
 
@@ -2074,7 +2074,7 @@ void offset_manager_explain_conflict(offset_manager_t *m, ivector_t *v) {
 
 /*
  * Explanation for (x == y)
- * - x and y must be present in the internal poly table 
+ * - x and y must be present in the internal poly table
  *   and they must have equal normal form
  * - this function collect the ids of equalities that imply x == y into vector v
  *   (v is not reset)
@@ -2123,7 +2123,7 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
   vtbl = &m->vtable;
 
   assert(0 <= x && x < vtbl->nvars && 0 <= y && y < vtbl->nvars && i >= 0);
-  
+
   /*
    * x is [root1 + delta1]
    * y is [root2 + delta2]
@@ -2131,7 +2131,7 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
    */
   dx = vtbl->desc + x;
   dy = vtbl->desc + y;
-  
+
   rx = dx->root;   // root1
   ry = dy->root;   // root2
   delta = &m->aux;
@@ -2148,7 +2148,7 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
      * Swap rx and ry: we want to force lhs /= 0
      * Otherwise, we take as lhs the variable with smallest dep vector
      */
-    if (rx == 0 || 
+    if (rx == 0 ||
         (ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
       z = rx; rx = ry; ry = z;
       // z = x; x = y; y = z;
@@ -2158,9 +2158,9 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
 
     assert(rx != 0);
 
-    // save (x, rx) 
+    // save (x, rx)
     offset_undo_push(&m->undo, x, rx);
-    
+
     // Update the explanation tree: make x root then add an edge from x to y (labeled by i)
     assert(offset_explanation_root(m, x) == rx);
     offset_invert_branch(m, x);
@@ -2242,7 +2242,7 @@ static void reprocess_polys(offset_manager_t *m) {
 
 
 /*
- * Propagate: 
+ * Propagate:
  * - process all equalities in the queue
  * - compute normal form of all polynomials in the to_process queue
  */
@@ -2286,7 +2286,7 @@ void offset_manager_increase_decision_level(offset_manager_t *m) {
     extend_offset_level_stack(&m->stack);
   }
   assert(k < m->stack.size);
-  m->stack.data[k].eq_ptr = m->queue.top;  
+  m->stack.data[k].eq_ptr = m->queue.top;
   m->stack.data[k].undo_ptr = m->undo.top;
   m->stack.data[k].inactive_ptr = m->inactives.top;
 }
@@ -2299,12 +2299,12 @@ void offset_manager_increase_decision_level(offset_manager_t *m) {
 
 /*
  * Undo equality
- * - d = undo record for this equality: 
+ * - d = undo record for this equality:
  *   d->saved_var = variable x that was eliminated
  *   d->saved_root = root of x before the equality was processed
  */
 static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
-  offset_table_t *vtbl;  
+  offset_table_t *vtbl;
   offset_desc_t *dz;
   int32_t x, rx, ry, z;
 
@@ -2318,7 +2318,7 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   assert(0 <= ry && ry < vtbl->nvars);
   assert(vtbl->desc[ry].root == ry && vtbl->desc[rx].root == ry);
 
-  /* 
+  /*
    * The current descriptor of rx must be of the form ry + delta.
    * To undo the merge, we need delta.
    */
@@ -2507,17 +2507,17 @@ void offset_manager_pop(offset_manager_t *m) {
   offset_trail_t *trail;
 
   assert(m->base_level > 0 && m->base_level == m->decision_level);
-  
+
   m->base_level --;
   offset_manager_backtrack(m, m->base_level);
   trail = offset_trail_top(&m->tstack);
 
-  remove_offset_polys(m, trail->npolys);  
+  remove_offset_polys(m, trail->npolys);
   cleanup_process_vector(m, trail->npolys);
   remove_offset_vars(&m->vtable, trail->nvars);
   m->queue.prop_ptr = trail->prop_ptr;
 
-  offset_trail_pop(&m->tstack);  
+  offset_trail_pop(&m->tstack);
 
   assert(m->conflict_eq == -1);
 }

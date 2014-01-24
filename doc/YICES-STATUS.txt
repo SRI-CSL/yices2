@@ -1,13 +1,13 @@
 What Yices should be
 ====================
 
-A system such as Yices (or any SMT solver) should consist 
+A system such as Yices (or any SMT solver) should consist
 of two main components:
 
 1) A standalone solver (in the form of a binary executable) that
    take input specifications in the YICES language. This should
-   be usable via a textual interface or using files (e.g., as a 
-   backend of other tools such as SAL or Why).   
+   be usable via a textual interface or using files (e.g., as a
+   backend of other tools such as SAL or Why).
 
    Its essential functionalities should include:
    - checking satisfiability
@@ -16,19 +16,19 @@ of two main components:
 
    Optional features (useful but not necessary):
    - unsat cores
-   - proof generation 
-   - interpolants  
+   - proof generation
+   - interpolants
 
 
 2) A library that can be embedded in other tools.
 
-   The library and corresponding API should provide the same 
-   functionalities as the standalone solver (and possibly more).   
+   The library and corresponding API should provide the same
+   functionalities as the standalone solver (and possibly more).
 
 
 In addition, it's good to have another component.
 
-3) A standalone solver that supports the SMT-LIB notation. 
+3) A standalone solver that supports the SMT-LIB notation.
 
    The SMT-LIB language is improving and is becoming quite usable
    beside the competition. It's still a moving target and it sitll has
@@ -46,7 +46,7 @@ In addition, it's good to have another component.
 Status as of June 3, 2010
 =========================
 
-a) SMT-LIB solver: Yices 2 solver that entered SMT-COMP 2009. 
+a) SMT-LIB solver: Yices 2 solver that entered SMT-COMP 2009.
 
    This is fully functional, in the sense that it supports all the
    features required for SMT COMP. It reads specifications written
@@ -54,7 +54,7 @@ a) SMT-LIB solver: Yices 2 solver that entered SMT-COMP 2009.
    produce models (although that's not required for SMT-COMP).
 
    It can deal with all SMT-LIB logics that do not involve quantifiers
-   or non-linear arithmetic. We currently distribute this solver for 
+   or non-linear arithmetic. We currently distribute this solver for
    Linux/Windows/Mac OS.
 
 
@@ -68,10 +68,10 @@ b) Yices 2 standalone solver:
 
 c) Library and API:
 
-   It's not complete. The API currently has support for building 
+   It's not complete. The API currently has support for building
    formulas/terms/types. Support for checking formula satisfiability.
-   building models, push/pop, etc. is not avaible in this API, 
-   
+   building models, push/pop, etc. is not avaible in this API,
+
 
 
 
@@ -80,7 +80,7 @@ c) Library and API:
 What's missing before we can release
 ====================================
 
-To release a baseline version of Yices~2 that's usable, we 
+To release a baseline version of Yices~2 that's usable, we
 need to do three things as a minimum:
 
 1) add support for PUSH and POP.
@@ -104,7 +104,7 @@ the API should be straightforward.
 Other useful things that would be worth doing before a release
 ==============================================================
 
-1) Add support for the new SMT-LIB language. 
+1) Add support for the new SMT-LIB language.
 
    Yices 2 currently supports SMT-LIB 1.2, which is becoming
    obsolete. A more recent SMT-LIB 2 was released earlier this
@@ -112,7 +112,7 @@ Other useful things that would be worth doing before a release
 
    Supporting SMT-LIB 2 requires much more than what we've seen so far
    from the SMT-LIB people. SMT-LIB 2 has a command language The
-   previous SMT-LIB versions were only about writing formulas. 
+   previous SMT-LIB versions were only about writing formulas.
 
    SMT-LIB 2 requires model generation and PUSH/POP. So this
    can't be done until we have PUSH/POP in Yices 2.
@@ -121,8 +121,8 @@ Other useful things that would be worth doing before a release
 2) Fix the most glaring performance issues.
 
    In last year's competition, Yices~2 had miserable performance on
-   several families of SMT-LIB benchmarks. In one family, we were 
-   way behind all the other solvers, including CVC3. The reason is 
+   several families of SMT-LIB benchmarks. In one family, we were
+   way behind all the other solvers, including CVC3. The reason is
    that we're missing a simplification trick that everybody else
    knows.
 
@@ -142,9 +142,9 @@ Other things that could be considered
 
    Issues are:
    - the solver is heuristic and highly incomplete
-   - it cannot generate models (or even determine that a formula is 
+   - it cannot generate models (or even determine that a formula is
      satisfiable).
-   - it's a mix of Allegro Common LISP and C code. So there is additional 
+   - it's a mix of Allegro Common LISP and C code. So there is additional
      hassle in maintaining and releasing it.
 
 

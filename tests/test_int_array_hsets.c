@@ -43,7 +43,7 @@ static void print_harray_set(int_array_hset_t *table) {
   printf("  nelems = %"PRIu32"\n", table->nelems);
   printf("  ndeleted = %"PRIu32"\n", table->ndeleted);
   printf("  content:\n");
- 
+
   for (i=0; i<table->size; i++) {
     d = table->data[i];
     if (d != NULL && d != DELETED_HARRAY) {
@@ -119,7 +119,7 @@ int main(void) {
   for (j=0; j<20; j++) {
     aux[j] = j;
   }
-  
+
   for (i=0; i<9; i++) {
     test_get(&table, i, aux);
     test_find(&table, i, aux);

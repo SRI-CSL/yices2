@@ -14,7 +14,7 @@
  * (block size = 64 for now) and we use one bit per block to record whether
  * the block is used or not.
  * - a block marked as dirty, is not initialized and its content shouldn't be read
- * - if a block is clean then all elements in the block have a valid value 
+ * - if a block is clean then all elements in the block have a valid value
  * - a block is initialized (all elements set to 0) on the first write into
  *   that block
  *
@@ -40,7 +40,7 @@
 /*
  * Data structure:
  * - data = the array proper
- * - clean = bit vector for marks: 
+ * - clean = bit vector for marks:
  *   block i is dirty if clean[i] is 0
  *   block i is clean if clean[i] is 1
  * - nblocks = number of blocks

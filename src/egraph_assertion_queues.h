@@ -3,10 +3,10 @@
  * Solvers must process these assertions when propagate is called.
  *
  * The assertions are of the following forms:
- *   v1 == v2 
+ *   v1 == v2
  *   v1 != v2 with a hint
  *   distinct v[0] ... v[n-1] with a hint
- * where v1, v2, etc. are theory variable. The hint is a composite_t 
+ * where v1, v2, etc. are theory variable. The hint is a composite_t
  * object that the egraph requires to generate explanations.
  *
  * Each assertion is stored as the following data
@@ -89,7 +89,7 @@ static inline uint32_t eassertion_tag_arity(uint32_t tag) {
  * - on 64bit machines, we round the size up to a multiple of 8
  */
 static inline size_t align_size(size_t d) {
-#if (ULONG_MAX == 4294967295UL) 
+#if (ULONG_MAX == 4294967295UL)
   return (d + 3) & ~((size_t) 3); // 32 bits
 #elif (ULONG_MAX == 18446744073709551615UL)
   return (d + 7) & ~((size_t) 7);  // 64 bits
@@ -124,7 +124,7 @@ static inline size_t eassertion_get_size(eassertion_t *a) {
 
 
 /*
- * Assertion queue: resizable byte array where 
+ * Assertion queue: resizable byte array where
  * the descriptors are copied
  * - data[0 ... top-1] = where existing assertions are copied
  * the full array has size bytes

@@ -141,7 +141,7 @@ void free_istack_array(int_stack_t *stack, int32_t *a) {
  * Reset: empty the stack
  */
 void reset_istack(int_stack_t *stack) {
-  iblock_t *b, *next;  
+  iblock_t *b, *next;
 
   b = stack->current;
   while (b->size > 0) {

@@ -59,7 +59,7 @@ int main() {
   printf("\n*** Map ***\n");
   print_map(&map);
 
-  // search 
+  // search
   for (i=0; i<20; i++) {
     printf("searching: key = %"PRId32": ", i);
     fflush(stdout);
@@ -79,13 +79,13 @@ int main() {
       ptr_hmap_erase(&map, d);
     } else {
       printf("*** BUG ***\n");
-    }    
+    }
   }
 
   printf("\n*** Map after deletion ***\n");
   print_map(&map);
 
-  // search 
+  // search
   for (i=0; i<9; i++) {
     printf("searching: key = %"PRId32": ", i);
     fflush(stdout);
@@ -98,11 +98,11 @@ int main() {
   }
 
   ptr_hmap_reset(&map);
-  
+
   printf("\n*** Map after reset ***\n");
   print_map(&map);
 
   delete_ptr_hmap(&map);
-  
+
   return 0;
 }

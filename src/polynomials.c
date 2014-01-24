@@ -124,7 +124,7 @@ static void quick_sort_monarray(monomial_t *a, uint32_t low, uint32_t high) {
 
 
 /*
- * Top-level call to simple sort: 
+ * Top-level call to simple sort:
  * - n = size of a minus the end-marker
  * - we must have a[n].var = max_idx
  */
@@ -155,9 +155,9 @@ void sort_monarray(monomial_t *a, uint32_t n) {
  * - preconditions: high - low > 1
  * - a[high] exists and is at least as large as all elements in a[low ... high-1].
  * - sorting cannot cause memory leaks so we don't use the assignment or swap functions
- *   from rationals.h 
+ *   from rationals.h
  */
-static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp, 
+static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp,
                                  uint32_t low, uint32_t high) {
   uint32_t i, j, p;
   monomial_t pivot, aux;
@@ -173,7 +173,7 @@ static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp,
   // swap pivot and a[low]
   a[i] = a[low];
   a[low] = pivot;
-  
+
   i = low;
   j = high;
   for (;;) {
@@ -195,8 +195,8 @@ static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp,
 
 
 /*
- * Top-level sort function: n = size of a. 
- * a must be terminated by the end marker, i.e., a[n].var = max_idx. 
+ * Top-level sort function: n = size of a.
+ * a must be terminated by the end marker, i.e., a[n].var = max_idx.
  */
 void sort_monarray2(monomial_t *a, uint32_t n, void *data, var_cmp_fun_t cmp) {
   if (n <= 1) return;
@@ -212,7 +212,7 @@ void sort_monarray2(monomial_t *a, uint32_t n, void *data, var_cmp_fun_t cmp) {
 /*
  * Normalize an array of monomials a or size n:
  * 1) merge monomials with identical variables:
- *     (c * v + d * v) --> (c + d) * v 
+ *     (c * v + d * v) --> (c + d) * v
  * 2) remove monomials with zero coefficients
  * 3) add end marker.
  * - a must be sorted.
@@ -420,7 +420,7 @@ void monarray_period_and_phase(monomial_t *p, rational_t *period, rational_t *ph
   }
 
   if (v < max_idx) {
-    /* 
+    /*
      * p is not a constant: compute D and L
      * we use period for D and phase for L
      */
@@ -468,12 +468,12 @@ void monarray_period_and_phase(monomial_t *p, rational_t *period, rational_t *ph
      */
     q_clear(period);
     if (c == NULL) {
-      q_clear(phase); 
+      q_clear(phase);
     } else {
       q_set(phase, &c->coeff);
     }
   }
-  
+
 }
 
 
@@ -531,7 +531,7 @@ void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v) {
   int32_t x, y;
 
   x = p->var;
-  y = q->var;    
+  y = q->var;
   while (x < max_idx && y < max_idx) {
     if (x < y) {
       p ++;
@@ -573,7 +573,7 @@ static void aux_gcd(rational_t *a, rational_t *b) {
  * - p and q must be normalized and have integer coefficients
  * - compute the GCD of all coefficients in p and q that are not
  *   in the common part.
- * - the result is returned in factor. 
+ * - the result is returned in factor.
  * - if p = q, then the result is 0
  */
 void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *factor) {
@@ -740,29 +740,29 @@ bool polynomial_is_nonzero(polynomial_t *p) {
 
 
 /*
- * Check whether p is constant and positive, negative, etc.  
- * These checks are incomplete (but cheap). They always return 
+ * Check whether p is constant and positive, negative, etc.
+ * These checks are incomplete (but cheap). They always return
  * false if p is non-constant.
  */
 bool polynomial_is_pos(polynomial_t *p) {
-  return p->nterms == 1 && p->mono[0].var == const_idx 
+  return p->nterms == 1 && p->mono[0].var == const_idx
     && q_is_pos(&p->mono[0].coeff);
 }
 
 bool polynomial_is_neg(polynomial_t *p) {
-  return p->nterms == 1 && p->mono[0].var == const_idx 
+  return p->nterms == 1 && p->mono[0].var == const_idx
     && q_is_neg(&p->mono[0].coeff);
 }
 
 bool polynomial_is_nonneg(polynomial_t *p) {
-  return p->nterms == 0 || 
-    (p->nterms == 1 && p->mono[0].var == const_idx 
+  return p->nterms == 0 ||
+    (p->nterms == 1 && p->mono[0].var == const_idx
      && q_is_pos(&p->mono[0].coeff));
 }
 
 bool polynomial_is_nonpos(polynomial_t *p) {
-  return p->nterms == 0 || 
-    (p->nterms == 1 && p->mono[0].var == const_idx 
+  return p->nterms == 0 ||
+    (p->nterms == 1 && p->mono[0].var == const_idx
      && q_is_neg(&p->mono[0].coeff));
 }
 
@@ -771,7 +771,7 @@ bool polynomial_is_nonpos(polynomial_t *p) {
  * Check whether p == k + x for non-zero k and variable x
  */
 bool polynomial_is_const_plus_var(polynomial_t *p, int32_t x) {
-  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].var == x 
+  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].var == x
     && q_is_one(&p->mono[1].coeff);
 }
 

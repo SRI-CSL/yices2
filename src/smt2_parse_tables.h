@@ -15,10 +15,10 @@ typedef enum state_s {
   c10, c10a, c10b, c11, c11a, c11b, c11d, c11f, c12, c12b, c13,
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
-  t0, t1, t2, t2a, t2b, t2d, t2e, 
-  t3, t3a, t3b, t3d, t3e, 
+  t0, t1, t2, t2a, t2b, t2d, t2e,
+  t3, t3a, t3b, t3d, t3e,
   t4a, t4b, t4c, t4d, t4e, t4g,
-  t5, t5a, t5b, t5c, t5d, 
+  t5, t5a, t5b, t5c, t5d,
   t6, t6a, t6b, t6c, t6d, t6e, t6g, t6h, t6i, t6j,
   t7, t7a, t7b, t8a,
   r0,
@@ -58,7 +58,7 @@ typedef enum actions {
   // arguments to the commands
   numeral_next_goto_r0,
   keyword_next_goto_r0,
-  symbol_next_goto_r0,  
+  symbol_next_goto_r0,
   keyword_next_goto_c6a,
   next_return,
   push_r0_goto_a0,
@@ -109,10 +109,10 @@ typedef enum actions {
   // terms
   term_symbol_next_return,
   next_goto_t1,
-  next_goto_t2,           // (let 
+  next_goto_t2,           // (let
   forall_next_goto_t3,    // (forall
   exists_next_goto_t3,    // (exists
-  next_push_t4a_goto_t0,  // (! 
+  next_push_t4a_goto_t0,  // (!
   next_goto_t5,           // (as
   next_goto_t6,           // ((
   next_goto_t7,           // (_
@@ -164,11 +164,11 @@ typedef enum actions {
   // ((_ ...
   symbol_next_goto_t6i,
   numeral_next_goto_t6j,
-  
+
   // (_ ...
   symbol_next_goto_t7a,
   numeral_next_goto_t7b,
-  
+
   // after <term> in a function application
   push_t8a_goto_t0,
 

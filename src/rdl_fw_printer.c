@@ -80,7 +80,7 @@ void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t v) {
   m = &rdl->graph.matrix;
   z = rdl->zero_vertex;
   if (z == null_rdl_vertex) z = 0;
-  
+
   if (m != NULL && z < m->dim && v < m->dim) {
     cell = m->data + z * m->dim + v;
     if (cell->id >= 0) {
@@ -146,7 +146,7 @@ void print_rdl_triple(FILE *f, dl_triple_t *triple) {
   }
 
   if (! space) {
-    q_print(f, &triple->constant); 
+    q_print(f, &triple->constant);
   } else if (q_is_pos(&triple->constant)) {
     fprintf(f, " + ");
     q_print(f, &triple->constant);
@@ -169,7 +169,7 @@ void print_rdl_var_name(FILE *f, thvar_t u) {
   } else {
     fprintf(f, "<RDL-var%"PRId32">", u);
   }
-} 
+}
 
 
 /*

@@ -9,14 +9,14 @@
  * track of variable renamings using the 'subst_context' structure.
  *
  * A substitution cache stores the result of a substitution S applied
- * to a term t in a subst_context ctx. 
+ * to a term t in a subst_context ctx.
  *
- * The cache is implemented as a pair of hash tables: 
+ * The cache is implemented as a pair of hash tables:
  * - A main hash table is used for the empty context (ctx = NULL).
  *   This table maps terms to terms.
  * - A secondary table maps pairs (term, context) to terms.
  *   In this table, context is just a void* pointer. This is enough
- *   since 'subst_context' uses hash-consing. 
+ *   since 'subst_context' uses hash-consing.
  *
  * All term/variable indices must be non-negative.
  */

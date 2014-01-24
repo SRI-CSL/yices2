@@ -12,7 +12,7 @@
  *   (cf. bv_constants.h).
  *
  * In normal form, polynomials have the following properties:
- * - the coefficients are all reduced modulo 2^n 
+ * - the coefficients are all reduced modulo 2^n
  *   and are all non zero
  * - the monomials are stored in deg-lex order: lower degree
  *   monomials appear first; monomials of equal degree are
@@ -83,7 +83,7 @@ static void bvarith_buffer_clear(bvarith_buffer_t *b) {
 
   if (b->nterms == 0) return;
 
-  k = b->width;  
+  k = b->width;
   p = b->list;
   q = p->next;
   while (q != NULL) {
@@ -211,7 +211,7 @@ uint64_t bvarith_buffer_get_constant64(bvarith_buffer_t *b) {
 /*
  * Copy constant stored in b into c
  * - b must be normalized
- * - the returned constant has bitsize equal to b->bitsize 
+ * - the returned constant has bitsize equal to b->bitsize
  */
 void bvarith_buffer_copy_constant(bvarith_buffer_t *b, bvconstant_t *c) {
   bvmlist_t *p;
@@ -301,7 +301,7 @@ bool bvarith_buffer_equal(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
   k = b1->width;
   p1 = b1->list;
   p2 = b2->list;
-  
+
   while (p1->prod == p2->prod) {
     if (p1->prod == end_pp) return true;
     if (bvconst_neq(p1->coeff, p2->coeff, k)) return false;
@@ -323,13 +323,13 @@ bool bvarith_buffer_equal(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
+ * The power product r must be defined in b's internal
  * power-product table: either r is empty_pp, or r is
  * a tagged variable, or r occurs in b->ptbl.
  *
  * Some operations use another buffer b1. In such cases,
  * b and b1 must have the same power-product table.
- * Unless otherwise indicated, the operations work correctly 
+ * Unless otherwise indicated, the operations work correctly
  * if b1 is equal to b (but this use is not recommended).
  */
 
@@ -440,7 +440,7 @@ void bvarith_buffer_mul_pp(bvarith_buffer_t *b, pprod_t *r) {
 
   assert(b->bitsize > 0);
 
-  /* 
+  /*
    * We use the fact that the monomial ordering
    * is compatible with multiplication, that is
    *    r1 < r2 => r * r1 < r * r2
@@ -496,7 +496,7 @@ void bvarith_buffer_mul_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
     bvconst_mul(p->coeff, k, a);
     p = p->next;
   }
-  
+
 }
 
 
@@ -577,7 +577,7 @@ void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
 
     *q = aux;
     b->nterms ++;
-  }  
+  }
 }
 
 
@@ -635,8 +635,8 @@ void bvarith_buffer_add_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint3
 
     *q = aux;
     b->nterms ++;
-  }  
-  
+  }
+
 }
 
 
@@ -677,7 +677,7 @@ void bvarith_buffer_sub_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint3
 
     *q = aux;
     b->nterms ++;
-  }  
+  }
 }
 
 
@@ -898,7 +898,7 @@ void bvarith_buffer_add_const_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, ui
       aux = (bvmlist_t *) objstore_alloc(b->store);
       aux->next = p;
       aux->coeff = bvconst_alloc(k);
-      bvconst_mul2(aux->coeff, k, p1->coeff, a); 
+      bvconst_mul2(aux->coeff, k, p1->coeff, a);
       aux->prod = r1;
 
       *q = aux;
@@ -943,7 +943,7 @@ void bvarith_buffer_sub_const_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, ui
       aux->next = p;
       aux->coeff = bvconst_alloc(k);
       bvconst_clear(aux->coeff, k);
-      bvconst_submul(aux->coeff, k, p1->coeff, a); 
+      bvconst_submul(aux->coeff, k, p1->coeff, a);
       aux->prod = r1;
 
       *q = aux;
@@ -987,7 +987,7 @@ void bvarith_buffer_add_pp_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, pprod
       aux = (bvmlist_t *) objstore_alloc(b->store);
       aux->next = p;
       aux->coeff = bvconst_alloc(k);
-      bvconst_set(aux->coeff, k, p1->coeff); 
+      bvconst_set(aux->coeff, k, p1->coeff);
       aux->prod = r1;
 
       *q = aux;
@@ -1032,7 +1032,7 @@ void bvarith_buffer_sub_pp_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, pprod
       aux = (bvmlist_t *) objstore_alloc(b->store);
       aux->next = p;
       aux->coeff = bvconst_alloc(k);
-      bvconst_negate2(aux->coeff, k, p1->coeff); 
+      bvconst_negate2(aux->coeff, k, p1->coeff);
       aux->prod = r1;
 
       *q = aux;
@@ -1223,7 +1223,7 @@ void bvarith_buffer_sub_mlist_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, bv
     assert(p1->prod != end_pp);
     bvarith_buffer_sub_mono_times_mlist(b, p2, p1->coeff, p1->prod);
     p1 = p1->next;
-  }  
+  }
 }
 
 
@@ -1250,7 +1250,7 @@ void bvarith_buffer_mul_mlist_power(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t
     bvarith_buffer_add_mlist(aux, p1); // aux := p1
     for (;;) {
       /*
-       * loop invariant: b0 * p1^d0 == b * aux^d 
+       * loop invariant: b0 * p1^d0 == b * aux^d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -1276,7 +1276,7 @@ bvmlist_t *bvarith_buffer_get_mlist(bvarith_buffer_t *b) {
   bvmlist_t *r, *q;
 
   r = b->list;
-  
+
   // reset b to the end-marker only
   q = (bvmlist_t *) objstore_alloc(b->store);
   q->next = NULL;
@@ -1395,7 +1395,7 @@ static bool good_pprod_array(bvmono_t *poly, pprod_t **pp) {
       r = *pp;
       pp ++;
       poly ++;
-    }    
+    }
   }
 
   return true;
@@ -1429,7 +1429,7 @@ void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1453,7 +1453,7 @@ void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
     // move to the next monomial
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1482,7 +1482,7 @@ void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1505,7 +1505,7 @@ void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
 
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1534,7 +1534,7 @@ void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1588,7 +1588,7 @@ void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1614,7 +1614,7 @@ void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
     // move to the next monomial
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1643,7 +1643,7 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1667,7 +1667,7 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
     // move to the next monomial
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1696,7 +1696,7 @@ void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
       q = &p->next;
       p = *q;
     }
-    
+
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
@@ -1721,7 +1721,7 @@ void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
     // move to the next monomial
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1798,7 +1798,7 @@ void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_
     bvarith_buffer_add_bvpoly(aux, poly, pp); // aux := p
     for (;;) {
       /*
-       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * loop invariant: b0 * p^d0 == b * aux^ d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -1812,7 +1812,7 @@ void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_
       bvarith_buffer_square(aux);        // aux := aux^2
       bvarith_buffer_normalize(aux);
     }
-  }  
+  }
 }
 
 
@@ -1837,7 +1837,7 @@ void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_bvpoly defined in bv_polynomials.c.
  * If P(b, v) = p0 then hash_bvarith_buffer(b, v) = hash_bvpolynomial(p0).
  */
@@ -1871,7 +1871,7 @@ bool bvarith_buffer_equal_bvpoly(bvarith_buffer_t *b, int32_t *v, bvpoly_t *p) {
   bvmono_t *mono;
   uint32_t k;
   int32_t x1, x2;
-  
+
   if (b->nterms == p->nterms && b->bitsize == p->bitsize) {
     k = b->width;
     q = b->list;

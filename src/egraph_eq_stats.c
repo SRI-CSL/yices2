@@ -73,7 +73,7 @@ static void extend_egeq_bank(egeq_bank_t *bank) {
  */
 static void allocate_egeq_block(egeq_bank_t *bank) {
   uint32_t i, n;
-  
+
   i = bank->nblocks;
   n = bank->capacity;
   assert(i <= n);
@@ -219,7 +219,7 @@ static void init_egeq_htbl(egeq_htbl_t *table) {
   uint32_t i, n;
   egeq_elem_t **tmp;
 
-  n = DEF_EGEQ_HTBL_SIZE;  
+  n = DEF_EGEQ_HTBL_SIZE;
   assert(n < MAX_EGEQ_HTBL_SIZE);
 
   tmp = (egeq_elem_t **) safe_malloc(n * sizeof(egeq_elem_t *));
@@ -281,8 +281,8 @@ static void egeq_htbl_clean_copy(egeq_elem_t **data, egeq_elem_t *e, uint32_t ma
 
 /*
  * Check whether pointer e is not NULL or DELETED_EG_ELEM
- * - HACK: we rely on ((size_t) NULL) == 0 and 
- *  ((size_t) DELETED_EG_ELEM) == 1 
+ * - HACK: we rely on ((size_t) NULL) == 0 and
+ *  ((size_t) DELETED_EG_ELEM) == 1
  */
 static inline bool live_element(egeq_elem_t *e) {
   return (((size_t) e) >> 1) != 0;
@@ -415,7 +415,7 @@ void reset_egeq(egeq_t *egeq) {
 
 
 /*
- * Remove from htbl all objects in the bank 
+ * Remove from htbl all objects in the bank
  * allocated after the mark <b, i>
  * - b = free_block at the time push_egeq_mark was called
  * - i = alloc_ptr at the time push_egeq_mark was called
@@ -428,7 +428,7 @@ static void remove_level(egeq_bank_t *bank, egeq_htbl_t *htbl, uint32_t b, uint3
    * n = current free_block
    * p = current alloc_ptr in block[n-1]
    */
-  n = bank->free_block;  
+  n = bank->free_block;
   p = bank->alloc_ptr;
 
   /*
@@ -467,7 +467,7 @@ static void remove_level(egeq_bank_t *bank, egeq_htbl_t *htbl, uint32_t b, uint3
   while (i<p) {
     egeq_htbl_remove(htbl, blk+i);
     i ++;
-  }   
+  }
 }
 
 
@@ -477,7 +477,7 @@ static void remove_level(egeq_bank_t *bank, egeq_htbl_t *htbl, uint32_t b, uint3
 void egeq_pop(egeq_t *egeq) {
   egeq_levstack_t *stack;
   uint32_t i;
-  
+
   stack = &egeq->stack;
   assert(stack->current_level > 0);
 
@@ -539,7 +539,7 @@ egeq_elem_t *egeq_find(egeq_t *egeq, int32_t x, int32_t y) {
   egeq_elem_t *e;
 
   htbl = &egeq->htbl;
-  assert(htbl->nelems + htbl->ndeleted < htbl->size); 
+  assert(htbl->nelems + htbl->ndeleted < htbl->size);
 
   mask = htbl->size - 1;
   h = hash_key(x, y);
@@ -632,7 +632,7 @@ egeq_elem_t *egeq_get(egeq_t *egeq, int32_t x, int32_t y) {
  * Print the table
  */
 static void print_egeq_record(FILE *f, egeq_elem_t *e) {
-  fprintf(f, "[i!%"PRId32", i!%"PRId32"]: %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
+  fprintf(f, "[i!%"PRId32", i!%"PRId32"]: %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n",
           e->x[0], e->x[1], e->ctr[0], e->ctr[1], e->ctr[2], e->ctr[3], e->ctr[4]);
 }
 

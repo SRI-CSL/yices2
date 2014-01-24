@@ -32,7 +32,7 @@ void init_int_heap(int_heap_t *heap, uint32_t n, uint32_t m) {
   heap->heap[0] = -1; // marker
   heap->nelems = 0;
   heap->size = n;
-  
+
   // index array: initialized to -1 everywhere
   tmp = (int32_t *) safe_malloc(m * sizeof(int32_t));
   for (i=0; i<m; i++) {
@@ -71,7 +71,7 @@ static void resize_int_heap_idx(int_heap_t *heap, int32_t x) {
   n = heap->idx_size + 1;
   n += n >> 1;
   if (n <= x) {
-    n = x+1; 
+    n = x+1;
   }
 
   if (n >= MAX_INT_HEAP_IDX_SIZE) {
@@ -136,7 +136,7 @@ static void heap_update_up(int_heap_t *heap, int32_t x, uint32_t i) {
   h = heap->heap;
   idx = heap->idx;
 
-  j = i>>1; // parent of i 
+  j = i>>1; // parent of i
   y = h[j];
 
   // this loop terminates since h[0] = -1 < x
@@ -193,13 +193,13 @@ static void heap_update_down(int_heap_t *heap, uint32_t i) {
       return;
     }
 
-    // move x up into position i 
+    // move x up into position i
     h[i] = x;
     idx[x] = i;
 
     // move to node j
     i = j;
-    j <<= 1;    
+    j <<= 1;
   }
 
   // final step: j+1 >= n
@@ -215,7 +215,7 @@ static void heap_update_down(int_heap_t *heap, uint32_t i) {
     } else {
       h[i] = z;
       idx[z] = i;
-    }    
+    }
   } else {
     h[i] = z;
     idx[z] = i;

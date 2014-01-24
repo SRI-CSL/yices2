@@ -35,7 +35,7 @@ void model_print_term_value(FILE *f, model_t *model, term_t t) {
     /*
      * ??) is a C trigraph so "???)" can't be written as is.
      */
-    fputs("???"")", f); 
+    fputs("???"")", f);
   } else {
     vtbl_print_object(f, &model->vtbl, v);
     fputc(')', f);
@@ -47,7 +47,7 @@ void model_print_term_value(FILE *f, model_t *model, term_t t) {
  * Print the assignment for all boolean terms in array a
  * - n = size of the array
  */
-static void model_print_bool_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {  
+static void model_print_bool_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -67,7 +67,7 @@ static void model_print_bool_assignments(FILE *f, model_t *model, term_t *a, uin
  * Print the assignment for all arithmetic terms in array a
  * - n = size of the array
  */
-static void model_print_arithmetic_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {  
+static void model_print_arithmetic_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -87,7 +87,7 @@ static void model_print_arithmetic_assignments(FILE *f, model_t *model, term_t *
  * Print the assignment for all bitvector terms in array a
  * - n = size of the array
  */
-static void model_print_bitvector_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {  
+static void model_print_bitvector_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -139,7 +139,7 @@ static void model_print_constant_assignments(FILE *f, model_t *model, term_t *a,
  * Print the assignment for all tuple terms in array a
  * - n = size of the array
  */
-static void model_print_tuple_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {  
+static void model_print_tuple_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -159,7 +159,7 @@ static void model_print_tuple_assignments(FILE *f, model_t *model, term_t *a, ui
  * Print the function terms in array a
  * - n = size of the array
  */
-static void model_print_function_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {  
+static void model_print_function_assignments(FILE *f, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
@@ -173,7 +173,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
     if (is_function_term(terms, t)) {
       /*
        * t is mapped to a function object fun
-       * if t and fun have different names, we print 
+       * if t and fun have different names, we print
        * (= <t's name> <fun 's name>) otherwise we print nothing
        * and push fun in value_table's queue
        */
@@ -240,7 +240,7 @@ void model_print(FILE *f, model_t *model) {
   model_print_bitvector_assignments(f, model, a, n);
   model_print_constant_assignments(f, model, a, n);
   model_print_tuple_assignments(f, model, a, n);
-  model_print_function_assignments(f, model, a, n);    
+  model_print_function_assignments(f, model, a, n);
   vtbl_print_queued_functions(f, &model->vtbl, true);
   delete_ivector(&v);
 }
@@ -296,14 +296,14 @@ static void eval_print_bool_assignments(FILE *f, evaluator_t *eval, term_t *a, u
       fputc('\n', f);
     }
   }
-  
+
 }
 
 /*
  * Print the assignment for all arithmetic terms in array a
  * - n = size of the array
  */
-static void eval_print_arithmetic_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_print_arithmetic_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -324,7 +324,7 @@ static void eval_print_arithmetic_assignments(FILE *f, evaluator_t *eval, term_t
  * Print the assignment for all bitvector terms in array a
  * - n = size of the array
  */
-static void eval_print_bitvector_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_print_bitvector_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -345,7 +345,7 @@ static void eval_print_bitvector_assignments(FILE *f, evaluator_t *eval, term_t 
  * Print the assignment for all tuple terms in array a
  * - n = size of the array
  */
-static void eval_print_tuple_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_print_tuple_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -400,7 +400,7 @@ static void eval_print_constant_assignments(FILE *f, evaluator_t *eval, term_t *
  * Print the function terms in array a
  * - n = size of the array
  */
-static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *a, uint32_t n) {
   model_t *model;
   term_table_t *terms;
   value_fun_t *fun;
@@ -418,7 +418,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
     if (is_function_term(terms, t)) {
       /*
        * t is mapped to a function object fun
-       * if t and fun have different names, we print 
+       * if t and fun have different names, we print
        * (= <t's name> <fun 's name>) otherwise we print nothing
        * and store fun in the vtbl's internal queue
        */
@@ -458,7 +458,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
 
 /*
  * Print model, including the aliased terms
- * - one line per term 
+ * - one line per term
  * - if model->has_alias is true, then the value of all terms in
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
@@ -530,7 +530,7 @@ void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
  * Print the assignment for all boolean terms in array a
  * - n = size of the array
  */
-static void model_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {  
+static void model_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -549,7 +549,7 @@ static void model_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_
  * Print the assignment for all arithmetic terms in array a
  * - n = size of the array
  */
-static void model_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {  
+static void model_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -568,7 +568,7 @@ static void model_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model,
  * Print the assignment for all bitvector terms in array a
  * - n = size of the array
  */
-static void model_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {  
+static void model_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -621,7 +621,7 @@ static void model_pp_constant_assignments(yices_pp_t *printer, model_t *model, t
  * Print the assignment for all tuple terms in array a
  * - n = size of the array
  */
-static void model_pp_tuple_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {  
+static void model_pp_tuple_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -640,7 +640,7 @@ static void model_pp_tuple_assignments(yices_pp_t *printer, model_t *model, term
  * Print the function terms in array a
  * - n = size of the array
  */
-static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {  
+static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
@@ -654,7 +654,7 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
     if (is_function_term(terms, t)) {
       /*
        * t is mapped to a function object fun
-       * if t and fun have different names, we print 
+       * if t and fun have different names, we print
        * (= <t's name> <fun 's name>) otherwise we print nothing
        * and push fun in vtbl's internal queue.
        */
@@ -711,7 +711,7 @@ void model_pp(yices_pp_t *printer, model_t *model) {
   model_pp_bitvector_assignments(printer, model, a, n);
   model_pp_constant_assignments(printer, model, a, n);
   model_pp_tuple_assignments(printer, model, a, n);
-  model_pp_function_assignments(printer, model, a, n);    
+  model_pp_function_assignments(printer, model, a, n);
   vtbl_pp_queued_functions(printer, &model->vtbl, true);
   delete_ivector(&v);
 }
@@ -734,7 +734,7 @@ static void eval_pp_term_value(yices_pp_t *printer, evaluator_t *eval, term_t t)
   assert(term_kind(eval->model->terms, t) == UNINTERPRETED_TERM);
   model = eval->model;
 
-  v = eval_in_model(eval, t);  
+  v = eval_in_model(eval, t);
   if (v >= 0) {
     // v = good value for t
     pp_open_block(printer, PP_OPEN_EQ);
@@ -766,14 +766,14 @@ static void eval_pp_bool_assignments(yices_pp_t *printer, evaluator_t *eval, ter
       eval_pp_term_value(printer, eval, t);
     }
   }
-  
+
 }
 
 /*
  * Print the assignment for all arithmetic terms in array a
  * - n = size of the array
  */
-static void eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -793,7 +793,7 @@ static void eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t *eva
  * Print the assignment for all bitvector terms in array a
  * - n = size of the array
  */
-static void eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -813,7 +813,7 @@ static void eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t *eval
  * Print the assignment for all tuple terms in array a
  * - n = size of the array
  */
-static void eval_pp_tuple_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_pp_tuple_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -868,7 +868,7 @@ static void eval_pp_constant_assignments(yices_pp_t *printer, evaluator_t *eval,
  * Print the function terms in array a
  * - n = size of the array
  */
-static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {  
+static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   model_t *model;
   term_table_t *terms;
   value_fun_t *fun;
@@ -926,7 +926,7 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
 
 /*
  * Print model, including the aliased terms
- * - one line per term 
+ * - one line per term
  * - if model->has_alias is true, then the value of all terms in
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print

@@ -29,21 +29,21 @@ static bool term_is_var(term_table_t *terms, term_t t) {
 
 /*
  * Check whether arrays v and t define a valid substitution:
- * - v and t must be arrays of n terms 
+ * - v and t must be arrays of n terms
  * - this returns true if forall i, v[i] is a variable
  *   and the type of t[i] is a subtype of v[i]'s type.
  */
 bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t) {
   type_table_t *types;
   uint32_t i;
-  term_t x, u;  
+  term_t x, u;
 
   types = terms->types;
   for (i=0; i<n; i++) {
     x = v[i];
     u = t[i];
     assert(good_term(terms, x) && good_term(terms, u));
-    if (is_neg_term(x) || !term_is_var(terms, x) || 
+    if (is_neg_term(x) || !term_is_var(terms, x) ||
         !is_subtype(types, term_type(terms, u), term_type(terms, x))) {
       return false;
     }
@@ -69,7 +69,7 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term
   init_subst_cache(&subst->cache);
   init_istack(&subst->stack);
   subst->rctx = NULL;
-  
+
   for (i=0; i<n; i++) {
     x = v[i];
     assert(is_pos_term(x) && term_is_var(subst->terms, x) &&
@@ -115,7 +115,7 @@ void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bo
 	   good_term(subst->terms, t[i]));
     p = int_hmap_get(&subst->map, x);
     assert(p->val < 0);
-    p->val = t[i];    
+    p->val = t[i];
   }
 
   if (reset) {
@@ -141,7 +141,7 @@ bool term_subst_var_in_domain(term_subst_t *subst, term_t v) {
 term_t term_subst_var_mapping(term_subst_t *subst, term_t v) {
   int_hmap_pair_t *p;
   term_t t;
-  
+
   assert(term_is_var(subst->terms, v));
 
   t = NULL_TERM;
@@ -157,7 +157,7 @@ term_t term_subst_var_mapping(term_subst_t *subst, term_t v) {
 
 /*
  * Iterator for collecting variables in the substitution's domain
- * - d = vector 
+ * - d = vector
  */
 static void add_var_to_domain(void *d, const int_hmap_pair_t *p) {
   ivector_push(d, p->key);
@@ -279,7 +279,7 @@ static term_t get_cached_subst(term_subst_t *subst, term_t t) {
   }
 
   return subst_cache_lookup(&subst->cache, hashed_ctx, t);
-} 
+}
 
 
 /*
@@ -404,7 +404,7 @@ static term_t arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *
   rba_buffer_set_one(b); // b := 1
   for (i=0; i<n; i++) {
     // b := b * a[i]^e[i]
-    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp); 
+    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
   }
 
   return mk_arith_term(mngr, b);
@@ -427,12 +427,12 @@ static term_t bvarith64_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term
 
   tbl = term_manager_get_terms(mngr);
   b = term_manager_get_bvarith64_buffer(mngr);
-  
+
   bvarith64_buffer_prepare(b, nbits);
   bvarith64_buffer_set_one(b); // b := 1
   for (i=0; i<n; i++) {
     // b := b * a[i]^e[i]
-    bvarith64_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp); 
+    bvarith64_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
   }
 
   return mk_bvarith64_term(mngr, b);
@@ -455,12 +455,12 @@ static term_t bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t
 
   tbl = term_manager_get_terms(mngr);
   b = term_manager_get_bvarith_buffer(mngr);
-  
+
   bvarith_buffer_prepare(b, nbits);
   bvarith_buffer_set_one(b); // b := 1
   for (i=0; i<n; i++) {
     // b := b * a[i]^e[i]
-    bvarith_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp); 
+    bvarith_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
   }
 
   return mk_bvarith_term(mngr, b);
@@ -471,7 +471,7 @@ static term_t bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t
  * Polynomial:
  * - p is a polynomial c_0 t_0 + c_1 t_1 + ... + c_{n-1} t_{n-1}
  * - a is an array of n terms: a[i] = subst of t_i
- *   except that a[0] = const_idx if t_0 = const_idx 
+ *   except that a[0] = const_idx if t_0 = const_idx
  * - construct the term c_0 a[0] + c_1 a[1] + ... + c_{n-1} a[n-1]
  *   (or c_0 + c_1 a[1] + ... + c_{n-1} a[n-1] if a[0] = const_idx)
  */
@@ -620,7 +620,7 @@ static term_t apply_beta_rule(term_manager_t *mngr, composite_term_t *lambda, te
 
 /*
  * Apply beta-reduction to t
- * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then 
+ * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then
  *   it's returned unchanged
  * - otherwise, apply the substitution [x_1 := t_1, ... x_n := t_n] to u and return
  *   the result
@@ -660,7 +660,7 @@ term_t beta_reduce(term_manager_t *mngr, term_t t) {
 /*
  * Main recursive function
  * - apply 'subst' to 't': return the result
- * 
+ *
  * Error codes returned:
  * - if the substitution creates a term of degree > YICES_MAX_DEGREE
  *   abort by calling longjmp(subst->env): return -1 (NULL_TERM)
@@ -684,22 +684,22 @@ static term_t subst_forall(term_subst_t *subst, composite_term_t *d) {
   assert(d->arity >= 2);
 
   n = d->arity - 1;
-  
+
   // add renaming for variables x1 ... x_n to x'1 ... x'n
-  subst_push_renaming(subst, n, d->arg); 
+  subst_push_renaming(subst, n, d->arg);
   assert(subst->rctx != NULL);
 
   // store the new variables x'1 ... x'k in array a
-  a = alloc_istack_array(&subst->stack, n); 
+  a = alloc_istack_array(&subst->stack, n);
   renaming_ctx_collect_new_vars(subst->rctx, n, a);
 
   // build (FORALL x'1 ... x'k: subst(body))
   result = get_subst(subst, d->arg[n]);
-  result = mk_forall(subst->mngr, n, a, result); 
+  result = mk_forall(subst->mngr, n, a, result);
 
   // cleanup
   free_istack_array(&subst->stack, a);
-  subst_pop_renaming(subst, n); 
+  subst_pop_renaming(subst, n);
 
   return result;
 }
@@ -719,22 +719,22 @@ static term_t subst_lambda(term_subst_t *subst, composite_term_t *d) {
   assert(d->arity >= 2);
 
   n = d->arity - 1;
-  
+
   // add renaming for variables x1 ... x_n to x'1 ... x'n
-  subst_push_renaming(subst, n, d->arg); 
+  subst_push_renaming(subst, n, d->arg);
   assert(subst->rctx != NULL);
 
   // store the new variables x'1 ... x'k in array a
-  a = alloc_istack_array(&subst->stack, n); 
+  a = alloc_istack_array(&subst->stack, n);
   renaming_ctx_collect_new_vars(subst->rctx, n, a);
 
   // build (LAMBDA x'1 ... x'k: subst(body))
   result = get_subst(subst, d->arg[n]);
-  result = mk_lambda(subst->mngr, n, a, result); 
+  result = mk_lambda(subst->mngr, n, a, result);
 
   // cleanup
   free_istack_array(&subst->stack, a);
-  subst_pop_renaming(subst, n); 
+  subst_pop_renaming(subst, n);
 
   return result;
 }
@@ -768,7 +768,7 @@ static term_t *subst_children(term_subst_t *subst, composite_term_t *d) {
 static term_t subst_arith_eq(term_subst_t *subst, term_t t) {
   term_t u;
 
-  u = get_subst(subst, t);  
+  u = get_subst(subst, t);
   return mk_arith_term_eq0(subst->mngr, u);
 }
 
@@ -776,7 +776,7 @@ static term_t subst_arith_eq(term_subst_t *subst, term_t t) {
 static term_t subst_arith_ge(term_subst_t *subst, term_t t) {
   term_t u;
 
-  u = get_subst(subst, t);  
+  u = get_subst(subst, t);
   return mk_arith_term_geq0(subst->mngr, u);
 }
 
@@ -791,11 +791,11 @@ static term_t subst_ite(term_subst_t *subst, composite_term_t *d) {
 
   c = get_subst(subst, d->arg[0]); // condition
   if (c == true_term) {
-    result = get_subst(subst, d->arg[1]); 
+    result = get_subst(subst, d->arg[1]);
   } else if (c == false_term) {
     result = get_subst(subst, d->arg[2]);
   } else {
-    t1 = get_subst(subst, d->arg[1]); 
+    t1 = get_subst(subst, d->arg[1]);
     t2 = get_subst(subst, d->arg[2]);
 
     tbl = subst->terms;
@@ -913,7 +913,7 @@ static term_t subst_xor(term_subst_t *subst, composite_term_t *d) {
   return result;
 }
 
-// (eq t1 t2): arithmetic 
+// (eq t1 t2): arithmetic
 static term_t subst_arith_bineq(term_subst_t *subst, composite_term_t *d) {
   term_t t1, t2;
 
@@ -1126,7 +1126,7 @@ static term_t subst_poly(term_subst_t *subst, polynomial_t *p) {
 
   n = p->nterms;
   a = alloc_istack_array(&subst->stack, n);
-  
+
   // skip the constant term if any
   i = 0;
   if (p->mono[0].var == const_idx) {
@@ -1159,7 +1159,7 @@ static term_t subst_bvpoly64(term_subst_t *subst, bvpoly64_t *p) {
 
   n = p->nterms;
   a = alloc_istack_array(&subst->stack, n);
-  
+
   // skip the constant term if any
   i = 0;
   if (p->mono[0].var == const_idx) {
@@ -1192,7 +1192,7 @@ static term_t subst_bvpoly(term_subst_t *subst, bvpoly_t *p) {
 
   n = p->nterms;
   a = alloc_istack_array(&subst->stack, n);
-  
+
   // skip the constant term if any
   i = 0;
   if (p->mono[0].var == const_idx) {
@@ -1242,7 +1242,7 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
   case ITE_SPECIAL:
     result = subst_ite(subst, ite_term_desc(terms, t));
     break;
-                       
+
   case APP_TERM:
     result = subst_app(subst, app_term_desc(terms, t));
     break;
@@ -1264,11 +1264,11 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
     break;
 
   case FORALL_TERM:
-    result = subst_forall(subst, forall_term_desc(terms, t)); 
+    result = subst_forall(subst, forall_term_desc(terms, t));
     break;
 
   case LAMBDA_TERM:
-    result = subst_lambda(subst, lambda_term_desc(terms, t)); 
+    result = subst_lambda(subst, lambda_term_desc(terms, t));
     break;
 
   case OR_TERM:
@@ -1422,12 +1422,12 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
 
 
 /*
- * Apply the substitution to term t 
+ * Apply the substitution to term t
  * - t must be a valid term in the subst's term manager
  * - return the resulting term
  *
  * Error codes:
- * - return -1 if the result can't be constructed 
+ * - return -1 if the result can't be constructed
  *   (because of a degree overflow).
  * - return -2 if something else goes wrong
  */
@@ -1439,7 +1439,7 @@ term_t apply_term_subst(term_subst_t *subst, term_t t) {
   if (code == 0) {
     result = get_subst(subst, t);
   } else {
-    // Error code 
+    // Error code
     assert(code == -1 || code == -2);
     result = (term_t) code;
 

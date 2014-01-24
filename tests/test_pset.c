@@ -90,7 +90,7 @@ int main() {
   pair_hset_reset(&hset);
   print_hset(&hset);
 
-  
+
   // random additions
   for (i=0; i<100000; i++) {
     a = random() % 100;
@@ -98,8 +98,8 @@ int main() {
     pair_hset_add(&hset, a, b);
   }
 
-  
-  
+
+
 
   delete_pair_hset(&hset);
   return 0;

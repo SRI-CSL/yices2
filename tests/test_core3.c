@@ -54,7 +54,7 @@ static th_smt_interface_t null_theory_smt = {
   NULL,            // expand explanation
   NULL,            // select polarity
   NULL,            // delete_atom
-  NULL,            // end_deletion 
+  NULL,            // end_deletion
 };
 
 
@@ -66,7 +66,7 @@ typedef struct core_param_s {
    * Restart heuristic: similar to PICOSAT or MINISAT
    *
    * If fast_restart is true:  PICOSAT-style
-   * - inner restarts based on c_threshold 
+   * - inner restarts based on c_threshold
    * - outer restarts based on d_threshold
    *
    * If fast_restart: MINISAT style restarts
@@ -95,7 +95,7 @@ typedef struct core_param_s {
    */
   float    randomness;      // probability of a random pick in select_unassigned_literal
   double   var_decay;       // decay factor for variable activity
-  
+
 } core_param_t;
 
 
@@ -178,7 +178,7 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *redu
 /*
  * Print some statistic data + header if requested (on stdout)
  */
-static void show_progress(smt_core_t *core, 
+static void show_progress(smt_core_t *core,
 			  uint32_t restart_threshold, uint32_t reduce_threshold, bool show_header) {
 
   if (show_header) {
@@ -188,15 +188,15 @@ static void show_progress(smt_core_t *core,
     printf("---------------------------------------------------------------------------------\n");
   }
 
-  printf("| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
-	 restart_threshold, reduce_threshold, 
-	 num_binary_clauses(core), 
+  printf("| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
+	 restart_threshold, reduce_threshold,
+	 num_binary_clauses(core),
 	 num_prob_clauses(core), num_prob_literals(core),
-	 num_learned_clauses(core), num_learned_literals(core), 
+	 num_learned_clauses(core), num_learned_literals(core),
 	 ((double) num_learned_literals(core)/num_learned_clauses(core)));
-  fflush(stdout);  
+  fflush(stdout);
 }
-			  
+
 
 /*
  * Full solver:
@@ -291,7 +291,7 @@ static void validate_assignment(smt_core_t *core) {
 
 /*
  * Read a literal in DIMACS encoding from file f with nv variables
- * convert it to the Yices format. 
+ * convert it to the Yices format.
  * - returns BAD_INPUT if an error occurs
  *   returns END_OF_CLAUSE if the dimacs integer read is 0.
  * - return a literal l between 2 and 2nv + 1 otherwise.
@@ -301,7 +301,7 @@ static void validate_assignment(smt_core_t *core) {
 
 static literal_t read_literal(FILE *f, int nv) {
   int d, var, delta;
-  
+
   do {
     d = getc(f);
   } while (isspace(d));
@@ -324,8 +324,8 @@ static literal_t read_literal(FILE *f, int nv) {
 
   if (!isdigit(d)) {
     return BAD_INPUT;
-  } 
-  
+  }
+
   do {
     var = 10 * var + (d - '0');
     d = getc(f);
@@ -343,7 +343,7 @@ static literal_t read_literal(FILE *f, int nv) {
 
 /*
  * Read a DIMACS formula from filename and initialize core accordingly
- * returns 0 if no error occurred                  
+ * returns 0 if no error occurred
  * -1 means file could not be opened
  * -2 means bad format in the input file
  */
@@ -422,7 +422,7 @@ static int build_instance(char *filename, smt_core_t *core) {
     c_idx ++;
     ivector_reset(&buffer);
   }
-  
+
   delete_ivector(&buffer);
   fclose(f);
 
@@ -506,7 +506,7 @@ static void show_stats(dpll_stats_t *stat) {
 
 
 static const char * const status2string[] = {
-  "idle", "searching", "unknown", "sat", "unsat", "interrupted", 
+  "idle", "searching", "unknown", "sat", "unsat", "interrupted",
   "<invalid status>",
 };
 
@@ -522,7 +522,7 @@ static void print_results(smt_core_t *core, double construction_time, double sea
   dpll_stats_t *stat;
   double mem_used, simplified_percent;
 
-  stat = &core->stats;  
+  stat = &core->stats;
   show_stats(stat);
   printf("Search time             : %.4f s\n", search_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -558,7 +558,7 @@ static void print_results(smt_core_t *core, double construction_time, double sea
 
 
 
-/*********************** 
+/***********************
  *  INTERRUPT HANDLER  *
  **********************/
 
@@ -606,7 +606,7 @@ int main(int argc, char *argv[]) {
   }
 
   resu = build_instance(argv[1], &solver);
-  if (resu < 0) { 
+  if (resu < 0) {
     exit(2);
   }
 

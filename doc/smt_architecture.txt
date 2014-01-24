@@ -19,13 +19,13 @@ creating clauses, and mapping variables to atoms. It also implements
 DPLL search functions for solving an SMT problem.
 
 The types of Boolean variables and literals are bvar_t and
-literal_t, respectively. These are just aliases for int32_t, so both 
+literal_t, respectively. These are just aliases for int32_t, so both
 Boolean variables and literals are represented by signed 32bit integers.
 For a Boolean variable x, there are two literals pos_lit(x) = 2*x,
 and neg_lit(x) = 2*x+1
 
 
-The following functions are defined in smt_core.c for creating variables 
+The following functions are defined in smt_core.c for creating variables
 and clauses, and for attaching atoms to Boolean variables. All are explained
 in smt_core.h
 
@@ -67,14 +67,14 @@ smt_core.c and smt_core.h)
 
 This asserts that l is implied by the theory. The parameter expl must
 be a pointer to an "explanation object", which can be any thing
-the solver needs to build an explanation for l. The core treats expl as 
+the solver needs to build an explanation for l. The core treats expl as
 an abstract (void*) pointer.
 
 If l is involved in a conflict, the smt_core may request that the
 explanation be expanded.  At this point, the solver must return a set
 of literals l_1,...,l_n such that
 
-   (l_1 and l_2 ... and l_n) implies l 
+   (l_1 and l_2 ... and l_n) implies l
 
 holds in the theory.
 
@@ -88,14 +88,14 @@ attached to the core for problems that involve uninterpreted functions
 only. It can also be used in combination with other "satellite"
 solvers. Currently, the egraph can support at most three satellite
 solvers: an arithmetic solver, a bitvector solver, and a solver for the
-array/function theory. The combination egraph+satellite solvers is seen 
-by the core as a single solver (for the combined theories). 
+array/function theory. The combination egraph+satellite solvers is seen
+by the core as a single solver (for the combined theories).
 
 
 The data structures used by the egraph are defined in egraph_types.h.
 The egraph maintains a congruence closed equivalence relation between
 terms. Each egraph term is represented by a 32bit integer (of type
-eterm_t). 
+eterm_t).
 
 When uninterpreted functions are mixed with other theories some terms
 have a dual internal representation. They are present as eterm_t
@@ -175,7 +175,7 @@ literals, egraph terms, and theory variables.
 1) Arithmetic internalization interface:
 
    thvar_t create_var(void *solver, bool is_int)
-   thvar_t create_const(void *solver, rational_t *q)   
+   thvar_t create_const(void *solver, rational_t *q)
    thvar_t create_poly(void *solver, polynomial_t *p, thvar_t *map)
    thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
 
@@ -205,8 +205,8 @@ literals, egraph terms, and theory variables.
    thvar_t create_poly64(void *solver, bvpoly64_t *p, thvar_t *map)
    thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
    thvar_t create_bvarray(void *solver, literal_t *a, uint32_t n)
-   thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y) 
-   thvar_t create_bvdiv(void *solver, thvar_t x, thvar_t y)   
+   thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y)
+   thvar_t create_bvdiv(void *solver, thvar_t x, thvar_t y)
    thvar_t create_bvrem(void *solver, thvar_t x, thvar_t y)
    thvar_t create_bvsdiv(void *solver, thvar_t x, thvar_t y)
    thvar_t create_bvsrem(void *solver, thvar_t x, thvar_t y)
@@ -236,7 +236,7 @@ literals, egraph terms, and theory variables.
 3) Function-theory internalization interface
 
    thvar_t create_var(void *solver, type_t tau)
-   void attach_eterm(void *solver, thvar_t v, eterm_t t)   
+   void attach_eterm(void *solver, thvar_t v, eterm_t t)
    eterm_t eterm_of_var(void *solver, thvar_t v)
 
    void build_model(void *solver)
@@ -250,7 +250,7 @@ MORE DETAILS FOR ARITHMETIC SOLVERS
 
 1) INITIALIZATION/DELETION
 
-A typical solver will be a data structure stored into a C struct (or 
+A typical solver will be a data structure stored into a C struct (or
 whatever is necessary). For example, let's say the full solver is
 defined by something like:
 
@@ -266,7 +266,7 @@ arguments to init.
 
   1) init_solver(mysolver_t *solver, smt_core_t *core, ...)
 
-     this should initialize the solver structure. core is a 
+     this should initialize the solver structure. core is a
      pointer to the SMT core object that will use this solver.
 
 
@@ -300,23 +300,23 @@ A term in the arithmetic solver is identified by an integer index (arithmetic va
 
  1) thvar_t create_var(mysolver_t *solver, bool is_int)
    - this must return the index of a new arithmetic variable (no eterm attached)
-   - if is_int is true, that variable must have integer type, otherwise, it must 
+   - if is_int is true, that variable must have integer type, otherwise, it must
      be a real.
 
  2) thvar_t create_const(mysolver_t *solver, rational_t *q)
     - this must create a theory variable equal to q and return it (no eterm attached)
 
  3) thvar_t create_poly(mysolver_t *solver, polynomial_t *p, thvar_t *map)
-    - this must return a theory variable equal to p with variable renamed as 
+    - this must return a theory variable equal to p with variable renamed as
       defined by map
-    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n, 
+    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n,
        where t_0 is either the special marker const_idx (= 0) or an arithmetic term
          and t_1 ... t_n are arithmetic terms
     - map is an array of n+1 theory variables:
       map[i] = the theory variable x_i mapped to t_i (with the convention that const_idx
                is always mapped to null_thvar)
     - the solver must return a theory variable y equal to a_0 x_0 + ... + a_n x_n
- 
+
  4) thvar_t create_pprod(mysolver_t *solver, pprod_t *r, thvar_t *map)
     - must return a theory variable equal to r with variables defined by map
     - r if of the form t_0^d_0 x ... x t_n^d_n where t_0 ... t_n are arithmetic
@@ -363,14 +363,14 @@ Assertion of top-level axioms
 
  13) void assert_poly_ge_axiom(mysolver_t *solver, polynomial_t *p, thvar_t *map, bool tt)
      - if tt assert (p >= 0) otherwise assert (p < 0)
-     - p and map are as in create_poly     
+     - p and map are as in create_poly
 
  14) void assert_vareq_axiom(mysolver_t *solver, thvar_t x, thvar_t y, bool tt)
      - if tt assert x == y, otherwise assert x != y
 
  15) void assert_cond_vareq_axiom(mysolver_t *solver, literal_t c, thvar_t x, thvar_t y)
      - assert (c implies x == y) as an axiom
-     - this is used to convert if-then-else equalities: 
+     - this is used to convert if-then-else equalities:
         (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
 
 Egraph connection
@@ -392,7 +392,7 @@ Model construction
 ------------------
 
 The following functions are used when the solver reaches SAT (or UNKNOWN).
-First, build_model is called. The solver must construct an assignment M from variables to 
+First, build_model is called. The solver must construct an assignment M from variables to
 rationals at that point. Then, the context can query for the value of a variable x in M.
 If the solver cannot assign a rational value to x, it can signal this when value_in_model
 is called. M must not be changed until the context calls free_model.
@@ -403,7 +403,7 @@ is called. M must not be changed until the context calls free_model.
 
  19) bool value_in_model(mysolver_t *solver, thvar_t x, rational_t *v)
      - must return true and copy the value of x in M into v if that value is available.
-     - return false otherwise (e.g., if model construction is not supported by the 
+     - return false otherwise (e.g., if model construction is not supported by the
        solver or x's value is not available).
 
  20) void free_model(mysolver_t *solver)
@@ -412,9 +412,9 @@ is called. M must not be changed until the context calls free_model.
 
 Exception mechanism
 -------------------
-When a theory solver is created and initialized it's given a pointer b to a jmp_buf 
-internal to the context. If the solver fails in some way during internalization, it can call 
-longjmp(*b, error_code) to interrupt the internalization and return control to the 
+When a theory solver is created and initialized it's given a pointer b to a jmp_buf
+internal to the context. If the solver fails in some way during internalization, it can call
+longjmp(*b, error_code) to interrupt the internalization and return control to the
 context. For arithmetic solvers, the following error codes should be used:
 
    FORMULA_NOT_IDL         (the solver supports only integer difference logic)
@@ -428,7 +428,7 @@ context. For arithmetic solvers, the following error codes should be used:
 These are constants defined in context.h
 
 
-All these functions use the Yices internal representation of rationals, polynomials, and 
+All these functions use the Yices internal representation of rationals, polynomials, and
 power products:
 
 - a rational is a pair of integers (num/den) with a special encoding
@@ -439,11 +439,11 @@ power products:
 
 - a polynomial is an array of monomials: each monomial is a pair (rational, variable)
   where the variable is a 32bit integer. The special variable 0 is used to denote
-  the constant part of a polynomial. The monomials are stored in increasing variable 
+  the constant part of a polynomial. The monomials are stored in increasing variable
   order, and all coefficients are non-zero.
 
-- a power product is an array of pairs (variable, exponent). Each variable 
-  is an integer as above and the array is sorted in increasing variable order. 
+- a power product is an array of pairs (variable, exponent). Each variable
+  is an integer as above and the array is sorted in increasing variable order.
 
 
 Internally, Yices represent terms by 32bit integers, which are indices
@@ -455,11 +455,11 @@ product are integer indices that refer to other terms in the global table.
 
 For example, the polynomial (x^2 * y + 2) will be stored as two terms:
 
-- some index q will refer to (x^2 * y) 
+- some index q will refer to (x^2 * y)
 
   the descriptor for q will be a pointer to a pprod_t object that stores [x^2 * y^1]
 
-- some index p will refer to (x^2 * y + 2) 
+- some index p will refer to (x^2 * y + 2)
 
   the descriptor for p will be a pointer to a polynomial_t object that stores [2 + q]
 
@@ -469,7 +469,7 @@ For example, the polynomial (x^2 * y + 2) will be stored as two terms:
 
 3) SOLVER OPERATIONS
 
-The following functions must be provided. They are called by the smt_core during 
+The following functions must be provided. They are called by the smt_core during
 the search (they must be present even if they do nothing and just return).
 
   void start_search(mysolver_t *solver):
@@ -499,15 +499,15 @@ the search (they must be present even if they do nothing and just return).
   - if l is pos_lit(v) then the atom is true
     if l is neg_lit(v) then the atom if false
   - the function must return 'false' if it detects a conflict
-    then if must also produce a conflict explanation in the core 
-    (using record_theory_conflict) 
+    then if must also produce a conflict explanation in the core
+    (using record_theory_conflict)
   - otherwise, the function returns true.
 
 
-  bool propagate(mysolver_t *solver) 
-  - this function is called repeatedly during the search (to support 
+  bool propagate(mysolver_t *solver)
+  - this function is called repeatedly during the search (to support
     incremental processing of the constraints).
-  - the solver can do nothing and return true (then all the work 
+  - the solver can do nothing and return true (then all the work
     is done in 'final_check')
   - or it can check whether the atoms asserted so far are consistent
     if they are the function should return true.
@@ -515,9 +515,9 @@ the search (they must be present even if they do nothing and just return).
     a theory conflict using 'record_theory_conflict'
   - this function does not have to be complete (i.e., it's OK
     to return true if the atoms are inconsistent)
- 
+
   fcheck_code_t final_check(mysolver_t *solver)
-  - this function is called when the SMT core reaches a full 
+  - this function is called when the SMT core reaches a full
     branch in the search tree (i.e., all Boolean variables in
     the SMT core have a value).
   - the solver must check whether the set of all atoms asserted
@@ -529,24 +529,24 @@ the search (they must be present even if they do nothing and just return).
       FCHECK_CONTINUE:  means that more search is required
                         or that a conflict is detected
 
-      FCHECK_SAT: means that the conjunction of all atoms 
+      FCHECK_SAT: means that the conjunction of all atoms
                   is satisfiable
 
       FCHECK_UNKNOWN: means that the solver doesn't know
-        (i.e., the solver is not complete, and it's not 
+        (i.e., the solver is not complete, and it's not
          found a conflict).
 
 
-    If the function returns FCHECK_SAT or FCHECK_UNKNOWN, the 
+    If the function returns FCHECK_SAT or FCHECK_UNKNOWN, the
     search stops here.
- 
+
     If the function returns FCHECK_CONTINUE, then the SMT core
-    will continue the search. For this to work, the solver 
+    will continue the search. For this to work, the solver
     must have done one of the following things:
     - record a conflict in the SMT core (via 'record_theory_conflict')
       then the SMT core will backtrack and try another branch
-    - or add new clauses or atoms in the core 
-   
+    - or add new clauses or atoms in the core
+
 
 There are other functions but they are optional.
 
@@ -570,8 +570,8 @@ The general idea is then as follows:
    set of atoms is satisfiable when 'final_check' is called.
    If they are not, the solver must produce an explanation
    for the conflict, that is, it must find a subset of atoms
-   that are inconsistent, convert that to a clause and 
-   send the clause to the SMT core. The smaller this subset 
+   that are inconsistent, convert that to a clause and
+   send the clause to the SMT core. The smaller this subset
    the better.
 
    An incremental solver can do more work in 'propagate' to

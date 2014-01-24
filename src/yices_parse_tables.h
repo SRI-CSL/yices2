@@ -1,5 +1,5 @@
 /*
- * Tables of actions for parsing the Yices language 
+ * Tables of actions for parsing the Yices language
  *
  * These tables are explained in utils/yices_parser.txt.
  * They are built by utils/table_builder using input file utils/yices_parser_tables.h
@@ -17,7 +17,7 @@
 typedef enum state_s {
   r0, c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14, c15,
   td0, td1, td2, td3, t0, t1, t4, t6,
-  e0, e1, e3, e5, e7, e10, e11, e12, 
+  e0, e1, e3, e5, e7, e10, e11, e12,
   e14, e15, e16, e17, e19, e20,
 } state_t;
 
@@ -145,7 +145,7 @@ typedef enum actions {
   bv_slt_next_push_e3_goto_e0,
   bv_shl_next_push_e3_goto_e0,
   bv_lshr_next_push_e3_goto_e0,
-  bv_ashr_next_push_e3_goto_e0,  
+  bv_ashr_next_push_e3_goto_e0,
   bv_div_next_push_e3_goto_e0,
   bv_rem_next_push_e3_goto_e0,
   bv_sdiv_next_push_e3_goto_e0,
@@ -174,7 +174,7 @@ typedef enum actions {
 
   next_goto_e16,
   next_goto_e17,
-  termname_next_push_e19_goto_e0,  // name in binding 
+  termname_next_push_e19_goto_e0,  // name in binding
   next_goto_e20,
 
   error_lpar_expected,

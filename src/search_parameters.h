@@ -62,15 +62,15 @@ struct param_s {
    *   the default branching mode uses the cached polarity in smt_core.
    * - clause_decay influence clause deletion
    * - random seed
-   * 
+   *
    * SMT Core caching of theory lemmas:
-   * - if cache_tclauses is true, then the core internally turns 
+   * - if cache_tclauses is true, then the core internally turns
    *   some theory lemmas into learned clauses
    * - for the core, a theory lemma is either a conflict reported by
    *   the theory solver or a theory implication
    * - a theory implication is considered for caching if it's involved
    *   in a conflict resolution
-   * - parmeter tclause_size controls the lemma size: only theory lemmas 
+   * - parmeter tclause_size controls the lemma size: only theory lemmas
    *   of size <= tclause_size are turned into learned clauses
    */
   double   var_decay;       // decay factor for variable activity
@@ -85,7 +85,7 @@ struct param_s {
    * EGRAPH PARAMETERS
    *
    * Control of the Ackermann lemmas
-   * - use_dyn_ack: if true, the dynamic ackermann heuristic is enabled for 
+   * - use_dyn_ack: if true, the dynamic ackermann heuristic is enabled for
    *   non-boolean terms
    * - use_bool_dyn_ack: if true, the dynamic ackermann heuristic is enabled
    *   for boolean terms
@@ -123,7 +123,7 @@ struct param_s {
   /*
    * SIMPLEX PARAMETERS
    * - simplex_prop: if true enable propagation via propagation table
-   * - adjust_simplex_model: if true, enable adjustment in 
+   * - adjust_simplex_model: if true, enable adjustment in
    *   reconciliation of the egraph and simplex models
    * - integer_check: if true, periodically call the integer solver
    * - max_prop_row_size: limit on the size of the propagation rows
@@ -141,7 +141,7 @@ struct param_s {
    * ARRAY SOLVER PARAMETERS
    * - max_update_conflicts: limit on the number of update axioms generated
    *   per call to final_check
-   * - max_extensionality: limit on the number of extensionality axioms 
+   * - max_extensionality: limit on the number of extensionality axioms
    *   generated per call to reconcile_model
    */
   uint32_t max_update_conflicts;

@@ -36,7 +36,7 @@ The language grammar is shown below
    typedef : `type`
            : | ( scalar <symbol> ... <symbol> )
            :
-   type    : <symbol> 
+   type    : <symbol>
            : | ( tuple `type` ... `type` )
            : | ( -> `type` ... `type` `type` )
            : | ( bitvector <rational> )

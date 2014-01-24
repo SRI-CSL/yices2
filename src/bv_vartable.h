@@ -6,7 +6,7 @@
  * For each variable x, we store
  * - bit_size[x] = number of bits in x
  * - kind[x] = tag so that we know how to interpret def[x]
- * - def[x] = definition of x 
+ * - def[x] = definition of x
  * - eterm[x] = attached egraph term (optional)
  * - map[x] = array of literals (bit blasting)
  *
@@ -53,9 +53,9 @@
 typedef enum bvvar_tag {
   BVTAG_VAR,           // uninterpreted bitvector
   BVTAG_CONST64,       // constant represented as a 64bit unsigned integer
-  BVTAG_CONST,         // constant represented as an array of 32bit words 
+  BVTAG_CONST,         // constant represented as an array of 32bit words
   BVTAG_POLY64,        // polynomial with small coefficients
-  BVTAG_POLY,          // polynomial with large coefficients 
+  BVTAG_POLY,          // polynomial with large coefficients
   BVTAG_PPROD,         // power product
   BVTAG_BIT_ARRAY,     // array of literals
   BVTAG_ITE,           // if-then-else (mux)
@@ -94,7 +94,7 @@ typedef struct bv_ite_s {
 typedef union bvvar_desc_u {
   uint64_t val;     // for const64
   thvar_t op[2];    // two variable operands
-  void *ptr;        // pointer to polynomial/pprod/ite  
+  void *ptr;        // pointer to polynomial/pprod/ite
 } bvvar_desc_t;
 
 
@@ -102,7 +102,7 @@ typedef union bvvar_desc_u {
 /*
  * Variable table
  * - nvars = number of variables
- * - size = size of arrays bit_size, kind, def, map 
+ * - size = size of arrays bit_size, kind, def, map
  *        = size of eterm if eterm isn't NULL
  * - kind[x] is used both to store the tag for x and to mark x
  *   marking is done by setting the high-order bit of kind[x] to 1
@@ -188,7 +188,7 @@ static inline bool bvvar_has_eterm(bv_vartable_t *table, thvar_t x) {
 
 
 /*
- * Get the eterm attached to x or null_eterm 
+ * Get the eterm attached to x or null_eterm
  */
 static inline eterm_t bvvar_get_eterm(bv_vartable_t *table, thvar_t x) {
   eterm_t t;
@@ -232,7 +232,7 @@ extern void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv);
 extern thvar_t make_bvvar(bv_vartable_t *table, uint32_t n);
 
 
-/* 
+/*
  * Constants: n = number of bits, val = constant value
  * - val must be normalized modulo 2^n
  */
@@ -275,7 +275,7 @@ extern thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y);
 
 
 /*
- * Auxiliary arithmetic nodes: 
+ * Auxiliary arithmetic nodes:
  * - n = number of bits
  * - x (and y is present) = operands
  */
@@ -293,7 +293,7 @@ extern thvar_t find_bvneg(bv_vartable_t *table, thvar_t x);
 
 /*
  * Extract the tag out of kind[x]
- * - kind[x] stores 
+ * - kind[x] stores
  *   bit 7: mark bit
  *   bit 6: bitblasted bit
  *   bit 5--0: tag

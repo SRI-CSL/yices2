@@ -15,7 +15,7 @@ static inline double drand(double *seed) {
   q = (int)(x / 2147483647);
   x -= (double)q * 2147483647;
   *seed = x;
-  return x / 2147483647; 
+  return x / 2147483647;
 }
 
 // Returns a random integer 0 <= x < size. Seed must not be 0.

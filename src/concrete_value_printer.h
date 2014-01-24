@@ -62,7 +62,7 @@ extern void vtbl_print_queued_functions(FILE *f, value_table_t *table, bool show
  */
 extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
 extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
-extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name, 
+extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name,
                                          value_t c, bool show_default);
 extern void vtbl_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 

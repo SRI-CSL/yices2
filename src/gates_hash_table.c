@@ -19,7 +19,7 @@
 
 /*
  * Allocate a descriptor or linked descriptor for n literals
- * - n = indegree + outdegree 
+ * - n = indegree + outdegree
  */
 static inline boolgate_t *alloc_descriptor(uint32_t n) {
   return (boolgate_t *) safe_malloc(sizeof(boolgate_t) + n * sizeof(literal_t));
@@ -41,7 +41,7 @@ static inline lnkgate_t *get_lnk(boolgate_t *d) {
 }
 
 
-/* 
+/*
  * Allocate and initialize a gate descriptor
  * - tag = encoding of opcode + indegree + outdegree
  * - a = array of input literals (its size must be equal to indegree(tag))
@@ -58,7 +58,7 @@ static boolgate_t *new_descriptor(uint32_t tag, literal_t *a, uint32_t level) {
 
   d = tag_indegree(tag);
   n = d + tag_outdegree(tag);
-  
+
   if (level > 0) {
     tmp = alloc_linked_descriptor(n);
   } else {
@@ -174,7 +174,7 @@ static levlist_t *top_list(levlist_stack_t *stack) {
     assert(i < n);
     stack->data[i].level = k;
     stack->data[i].list = NULL;
-    stack->nlists = i+1;    
+    stack->nlists = i+1;
     stack->top_level = k;
 
     return stack->data + i;
@@ -182,12 +182,12 @@ static levlist_t *top_list(levlist_stack_t *stack) {
   }
 
   assert(i>0);
-  return stack->data + (i - 1);  
+  return stack->data + (i - 1);
 }
 
 
 /*
- * Add a newly allocated linked descriptor into the current-level's list. 
+ * Add a newly allocated linked descriptor into the current-level's list.
  * Allocate stack and lists if required
  * - current level must be positive
  * - g must be allocated via alloc_linked_descriptor
@@ -219,7 +219,7 @@ static void remove_top_list(levlist_stack_t *stack) {
   if (i == 0) {
     // last list removed
     stack->top_level = 0;
-  } else {    
+  } else {
     stack->top_level = stack->data[i-1].level;
   }
 }
@@ -277,7 +277,7 @@ static void delete_gate_htbl(gate_htbl_t *tbl) {
 
 
 /*
- * Reset tbl: remove all descriptors 
+ * Reset tbl: remove all descriptors
  * - all linked descriptors must be removed first
  */
 static void reset_gate_htbl(gate_htbl_t *tbl) {
@@ -390,7 +390,7 @@ static void gate_htbl_extend(gate_htbl_t *tbl) {
 }
 
 
-/*  
+/*
  * Remove d from the table. d must be present and d->hash must be set
  */
 static void gate_htbl_remove(gate_htbl_t *tbl, boolgate_t *d) {
@@ -491,7 +491,7 @@ void gate_table_pop(gate_table_t *table) {
     gate_htbl_cleanup_if_needed(&table->htbl);
     remove_top_list(stack);
   }
-  
+
   stack->current_level --;
 }
 
@@ -584,7 +584,7 @@ boolgate_t *gate_table_get(gate_table_t *table, uint32_t tag, literal_t *a) {
  */
 boolgate_t *gate_table_find2(gate_table_t *table, uint32_t tag, literal_t a, literal_t b) {
   literal_t aux[2];
-  
+
   assert(tag_indegree(tag) == 2);
 
   aux[0] = a;

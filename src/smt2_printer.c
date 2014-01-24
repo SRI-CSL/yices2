@@ -43,7 +43,7 @@ static void smt2_pp_rational(yices_pp_t *printer, rational_t *q) {
   q_get_den(&den, q); // denominator
 
   assert(q_is_pos(&den) && q_is_integer(&den));
-      
+
   if (q_is_one(&den)) {
     smt2_pp_integer(printer, &num);
   } else {
@@ -52,7 +52,7 @@ static void smt2_pp_rational(yices_pp_t *printer, rational_t *q) {
     pp_rational(printer, &den);
     pp_close_block(printer, true);
   }
-  
+
   q_clear(&num);
   q_clear(&den);
 }
@@ -61,7 +61,7 @@ static void smt2_pp_rational(yices_pp_t *printer, rational_t *q) {
 /*
  * For uninterpreted constants: always print an abstract name
  */
-static void smt2_pp_unint_name(yices_pp_t *printer, value_t c) {    
+static void smt2_pp_unint_name(yices_pp_t *printer, value_t c) {
   pp_id(printer, "@const_", c);
 }
 
@@ -80,7 +80,7 @@ static void smt2_pp_fun_name(yices_pp_t *printer, value_t c) {
  *
  * There's no support for tuples or mappings in SMT2. They should never occur here.
  */
-void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {  
+void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
   assert(0 <= c && c < table->nobjects);
 
   switch (table->kind[c]) {
@@ -94,7 +94,7 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     smt2_pp_rational(printer, &table->desc[c].rational);
     break;
   case BITVECTOR_VALUE:
-    smt2_pp_bitvector(printer, table->desc[c].ptr); 
+    smt2_pp_bitvector(printer, table->desc[c].ptr);
     break;
   case UNINTERPRETED_VALUE:
     smt2_pp_unint_name(printer, c);
@@ -104,7 +104,7 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     smt2_pp_fun_name(printer, c);
     vtbl_push_object(table, c);
     break;
-    
+
 
   case MAP_VALUE:
   case TUPLE_VALUE:
@@ -130,7 +130,7 @@ static void smt2_pp_function_header(yices_pp_t *printer, value_table_t *table, v
   pp_type(printer, table->type_table, tau);
   pp_close_block(printer, true);
 }
- 
+
 
 /*
  * Print the function c
@@ -198,7 +198,7 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
   }
 
   smt2_pp_function_header(printer, table, c, tau, name);
-  
+
   /*
    * hset->data contains an array of mapping objects
    * hset->nelems = number of elements in hset->data
@@ -217,7 +217,7 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
     }
     pp_close_block(printer, true); // close (name arg[0] ... arg[m-1])
     smt2_pp_object(printer, table, mp->val);
-    pp_close_block(printer, true); // close (= 
+    pp_close_block(printer, true); // close (=
   }
 
   if (show_default && !is_unknown(table, def)) {
@@ -225,7 +225,7 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
     smt2_pp_object(printer, table, def);
     pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);  // close the (function ... 
+  pp_close_block(printer, true);  // close the (function ...
 }
 
 

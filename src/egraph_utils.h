@@ -132,7 +132,7 @@ static inline use_vector_t *egraph_class_parents(egraph_t *egraph, class_t c) {
 
 // number of parents
 static inline uint32_t egraph_class_nparents(egraph_t *egraph, class_t c) {
-  return egraph_class_parents(egraph, c)->nelems;  
+  return egraph_class_parents(egraph, c)->nelems;
 }
 
 static inline etype_t egraph_class_type(egraph_t *egraph, class_t c) {
@@ -159,11 +159,11 @@ static inline bool egraph_class_is_bool(egraph_t *egraph, class_t c) {
 }
 
 static inline bool egraph_class_is_int(egraph_t *egraph, class_t c) {
-  return egraph_class_type(egraph, c) == ETYPE_INT;  
+  return egraph_class_type(egraph, c) == ETYPE_INT;
 }
 
 static inline bool egraph_class_is_real(egraph_t *egraph, class_t c) {
-  return egraph_class_type(egraph, c) == ETYPE_REAL;  
+  return egraph_class_type(egraph, c) == ETYPE_REAL;
 }
 
 static inline bool egraph_class_is_arith(egraph_t *egraph, class_t c) {
@@ -410,7 +410,7 @@ static inline bool egraph_class_is_root_class(egraph_t *egraph, class_t c) {
 
 /*
  * Successor term of t in edge eq
- * - eq->lhs or eq->rhs must be either t+ or t- 
+ * - eq->lhs or eq->rhs must be either t+ or t-
  */
 static inline eterm_t edge_next(equeue_elem_t *eq, eterm_t t) {
   assert(term_of_occ(eq->lhs) == t || term_of_occ(eq->rhs) == t);
@@ -422,11 +422,11 @@ static inline eterm_t edge_next(equeue_elem_t *eq, eterm_t t) {
  * - eq is either (u == v) or ((not u) == v)
  * - since (not x) is (x ^ 0x1), xor does the trick:
  *   - if eq is (u == v) then u ^ v ^ u == v
- *   - if eq is ((not u) == v) then 
+ *   - if eq is ((not u) == v) then
  *   (not u) ^ v ^ u == (u ^ 0x1) ^ v ^ u == v ^ 0x1 == (not v)
  */
 static inline occ_t edge_next_occ(equeue_elem_t *eq, occ_t u) {
-  assert(term_of_occ(eq->lhs) == term_of_occ(u) || 
+  assert(term_of_occ(eq->lhs) == term_of_occ(u) ||
          term_of_occ(eq->rhs) == term_of_occ(u));
   return eq->lhs ^ eq->rhs ^ u;
 }
@@ -440,7 +440,7 @@ static inline occ_t edge_next_occ(equeue_elem_t *eq, occ_t u) {
 
 /*
  * Check whether option(s) defined by x is (or are) enabled.
- * x must be a bit mask. 
+ * x must be a bit mask.
  */
 static inline bool egraph_option_enabled(egraph_t *egraph, uint32_t x) {
   return (egraph->options & x) != 0;

@@ -1,15 +1,15 @@
 /*
  * DPLL(T) SOLVER
- * 
+ *
  * An smt_core structure is parameterized by a theory-solver
  * object. Operations that the theory solver must implement are
  * accessed via function pointers.
  *
  * Atoms, explanations, and theory solver are treated abstractly by the smt_core.
- * They are represented by generic (void *) pointers. The two lower-order bits 
+ * They are represented by generic (void *) pointers. The two lower-order bits
  * of an explanation pointer must be 00 (aligned to a multiple of 4bytes).
- * 
- * The core has support for 
+ *
+ * The core has support for
  * - creation of boolean variables
  * - attaching atoms to boolean variables
  * - addition of clauses
@@ -56,7 +56,7 @@
  *   (a negative number).
  * - the first two literals stored in cl[0] and cl[1]
  *   are the watched literals.
- * Learned clauses have the same components as a clause 
+ * Learned clauses have the same components as a clause
  * and an activity, i.e., a float used by the clause-deletion
  * heuristic. (Because of alignment and padding, this wastes 32bits
  * on a 64bit machine....)
@@ -69,14 +69,14 @@
  *
  * SPECIAL CODING: to distinguish between learned clauses and problem
  * clauses, the end marker is different.
- * - for problem clauses, end_marker = -1 
+ * - for problem clauses, end_marker = -1
  * - for learned clauses, end_marker = -2
  *
- * These two end_markers always have an UNDEF_VALYE: 
+ * These two end_markers always have an UNDEF_VALYE:
  * - value[-1] = VAL_UNDEF_FALSE
  *   value[-2] = VAL_UNDEF_FALSE
  *
- * CLAUSE DELETION AND SIMPLIFICATION: 
+ * CLAUSE DELETION AND SIMPLIFICATION:
  * - to mark a clause for deletion or to removed it from the watched lists,
  *   both cl[0] and cl[1] are replaced by their opposite (turned into negative numbers).
  */
@@ -268,7 +268,7 @@ typedef struct {
 /*
  * Antecedent = reason for an implied literal.
  * It's either a clause or a literal or a generic explanation.
- * Antecedents are represented as tagged pointers with tag in the 
+ * Antecedents are represented as tagged pointers with tag in the
  * two low-order bits
  * - tag = 00: clause with implied literal as cl[0]
  * - tag = 01: clause with implied literal as cl[1]
@@ -347,7 +347,7 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
  *   or heap_index[x] = -1 if x is not in the heap
  * - heap: array of nvars + 1 variables
  * - heap_last: index of last element in the heap
- *   heap[0] = -1, 
+ *   heap[0] = -1,
  *   for i=1 to heap_last, heap[i] = x for some variable x
  * - act_inc: variable activity increment
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
@@ -371,14 +371,14 @@ typedef struct var_heap_s {
 
 /*
  * Push/pop stack:
- * - for each base_level: we keep the number of variables and unit-clauses 
+ * - for each base_level: we keep the number of variables and unit-clauses
  * + the size of vectors binary_clauses and problem_clauses on entry to that level,
  * + the propagation pointers at that point.
  * - we store prop_ptr to support sequences such as
- *     assert unit clause l1; 
- *     push; 
+ *     assert unit clause l1;
+ *     push;
  *     assert unit clause l2;
- *     search; 
+ *     search;
  *     pop;
  *     assert more clauses;
  *     search
@@ -450,20 +450,20 @@ typedef struct atom_table_s {
  *      be added at the base level
  *    - assert_atom/propagate may be called after this and before
  *      start_search to perform base-level simplifications.
- *   
+ *
  * 2) void start_search(void *solver)
  *    - this is called when the search starts to enable solver to perform
  *      initializations and simplifications. If solver detects an inconsistency
- *      at this point, it must record it using record_theory_conflict (possibly 
+ *      at this point, it must record it using record_theory_conflict (possibly
  *      with an empty conflict).
- *   
+ *
  * 3) bool assert_atom(void *solver, void *atom, literal_t l)
  *    - this is called when literal l is assigned and var_of(l) has an atom attached.
  *      if l has positive sign, then atom is true
  *      if l has negative sign, then atom is false
- *    - the function must return false if a conflict is detected and 
+ *    - the function must return false if a conflict is detected and
  *      record the conflict (as a conjunction of false literals) by
- *      calling record_theory_conflict 
+ *      calling record_theory_conflict
  *    - it must return true if no conflict is detected
  *
  * 4) bool propagate(void *solver)
@@ -480,7 +480,7 @@ typedef struct atom_table_s {
  *       FCHECK_SAT: if the solver agrees that the problem is SAT
  *       FCHECK_UNKNOWN: if the solver is incomplete and cannot determine
  *         whether the problem is SAT
- *    - if the solver returns FCHECK_CONTINUE, it must have done one of 
+ *    - if the solver returns FCHECK_CONTINUE, it must have done one of
  *      the following things:
  *      - record a conflict (by calling record_theory_conflict)
  *      - create lemmas or atoms in the core
@@ -493,8 +493,8 @@ typedef struct atom_table_s {
  *    - solver can propagate literals by calling propagate_literal(core, l, expl)
  *      where l is a literal, expl is an abstract explanation object (void *)
  *    - if l is involved in conflict resolution later on, then expl must be expanded
- *      into a conjunction of literals l_1 ... l_n such that 
- *          (l_1 and .... and l_n) implies l 
+ *      into a conjunction of literals l_1 ... l_n such that
+ *          (l_1 and .... and l_n) implies l
  *      holds in the theory.
  *    - function expand_explanation(solver, l, expl, v) must perform the expansion
  *      l is an implied literal, with expl as generic antecedent.
@@ -504,7 +504,7 @@ typedef struct atom_table_s {
  * 7) void increase_decision_level(void *solver)
  *    - this is called whenever a new decision level is entered, i.e., within
  *      any call to decide_literal(core, l)
- *    - the theory solver must keep track of this so that it can backtrack to the 
+ *    - the theory solver must keep track of this so that it can backtrack to the
  *      right point later on
  *
  * 8) void backtrack(void *solver, uint32_t back_level)
@@ -518,7 +518,7 @@ typedef struct atom_table_s {
  *    - it must return either l  (set l := true) or (not l)  (set l := false)
  *
  * 10) void delete_atom(void *solver, void *atom)
- *    - this is called to inform solver that the core has removed a variable v 
+ *    - this is called to inform solver that the core has removed a variable v
  *      with atom attached from its set of variables. This is intended to
  *      support a minimal form of garbage collection (stack based).
  *    - removal of variables occurs if a checkpoint has been set at a decision level k,
@@ -538,7 +538,7 @@ typedef struct atom_table_s {
  * that require them are never used (i.e., "fire-and-forget" mode of
  * operation, and no calls to checkpoint).
  *
- * The theory solver can propagate literal assignments to the core, and 
+ * The theory solver can propagate literal assignments to the core, and
  * add clauses, atoms, and literals on the fly.
  * - literal propagation is performed by calling propagate_literal(core, ...)
  *   this function can be called only from
@@ -622,7 +622,7 @@ typedef struct th_smt_interface_s {
  * lemmas to the clause database but we copy them into an auxiliary queue, for
  * processing when the theory solver returns.
  *
- * Each block in the queue is an array of literals. The content of this array 
+ * Each block in the queue is an array of literals. The content of this array
  * is a set of lemmas separated by end markers (null_literal).
  * - for a block b:
  *   b->data is an array of b->size literals
@@ -643,8 +643,8 @@ typedef struct lemma_block_s {
 } lemma_block_t;
 
 typedef struct lemma_queue_s {
-  uint32_t capacity;   // size of block array 
-  uint32_t nblocks;    // number of non-null blocks 
+  uint32_t capacity;   // size of block array
+  uint32_t nblocks;    // number of non-null blocks
   uint32_t free_block;  // start of the free block segment
   lemma_block_t **block;
 } lemma_queue_t;
@@ -690,7 +690,7 @@ typedef struct lemma_queue_s {
  * more atoms created at levels > d is now assigned at a level <= d,
  * which may happen during conflict resolution. In such a case, the
  * checkpoint is kept and deletion will be tried again later.
- * 
+ *
  * This can be used as follows:
  * - set a checkpoint before calling decide (current decision_level = d,
  *   current number of variables  = n)
@@ -726,7 +726,7 @@ typedef struct checkpoint_stack_s {
  **********************/
 
 /*
- * Search statistics 
+ * Search statistics
  */
 typedef struct dpll_stats_s {
   uint32_t restarts;         // number of restarts
@@ -768,11 +768,11 @@ typedef struct dpll_stats_s {
  *   otherwise it remains idle until search starts.
  * - status is switched to searching when search starts
  * - the search can be interrupted, or it completes with
- *   status = SAT or UNSAT or UNKNOWN (unknown may be returned 
+ *   status = SAT or UNSAT or UNKNOWN (unknown may be returned
  *   if the solver is incomplete and does not find an inconsistency)
  * - if status is INTERRUPTED, SAT, or UNKNOWN, then push or clause
  *   addition returns status to idle.
- * - if status is UNSAT, reset or pop must be called before any 
+ * - if status is UNSAT, reset or pop must be called before any
  *   other operation. This also restores the state to idle.
  */
 #if 0
@@ -821,19 +821,19 @@ typedef enum smt_mode {
  *  - a vector of learned clauses
  * unit and binary clauses are stored implicitly:
  * - unit clauses are just literals in the assignment stack
- * - binary clauses are stored in the binary watch vectors 
+ * - binary clauses are stored in the binary watch vectors
  *
- * To support push/pop, we keep a copy of all binary clauses added at base_level>0. 
+ * To support push/pop, we keep a copy of all binary clauses added at base_level>0.
  *
  * Propagation structures: for every literal l
  * - bin[l] = literal vector for binary clauses
- * - watch[l] = list of clauses where l is a watched literal 
+ * - watch[l] = list of clauses where l is a watched literal
  *   (i.e., clauses where l occurs in position 0 or 1)
  * - optional: end_watch[l] = pointer to the last element in the watch list of l
  *   end_watch is used if USE_END_WATCH is set a compilation time
  *
- * For every variable x between 0 and nb_vars - 1 
- * - antecedent[x]: antecedent type and value 
+ * For every variable x between 0 and nb_vars - 1
+ * - antecedent[x]: antecedent type and value
  * - level[x]: decision level (only meaningful if x is assigned)
  * - mark[x]: 1 bit used in UIP computation
  * - value[x] = current assignment
@@ -849,11 +849,11 @@ typedef enum smt_mode {
  * - there are three types of conflicts:
  *   - a binary clause { l1, l2 } is false in the current assignment
  *   - a non-binary clause cl = { l1, ..., l_n } is false
- *   - the theory solver reports a conflict a = { l1, ..., l_n} 
- * - in all three cases, conflict points to an array of false literals, 
+ *   - the theory solver reports a conflict a = { l1, ..., l_n}
+ * - in all three cases, conflict points to an array of false literals,
  *   terminated by either end_clause/null_literal or end_learned.
  * - false_clause and theory_conflict are set to indicate the conflict type.
- * - for a binary clause: 
+ * - for a binary clause:
  *      l1, l2, end_clause are copied into the auxiliary array conflict_buffer
  *      conflict points to conflict_buffer
  *      theory_conflict is false
@@ -921,7 +921,7 @@ typedef struct smt_core_s {
 
   /* Theory cache parameters */
   bool th_cache_enabled;      // true means caching enabled
-  uint32_t th_cache_cl_size;  // max. size of cached clauses  
+  uint32_t th_cache_cl_size;  // max. size of cached clauses
 
   /* Conflict data */
   bool inconsistent;
@@ -968,7 +968,7 @@ typedef struct smt_core_s {
 
   /* Atom table */
   atom_table_t atoms;
-  
+
   /* Push/pop stack */
   trail_stack_t trail_stack;
 
@@ -995,7 +995,7 @@ typedef struct smt_core_s {
  * Default values for the clause/variable activity increment
  * - before smt_process returns, all activities are multiplied
  *   by the decay factor
- * - when a variable or clause activity increases above the 
+ * - when a variable or clause activity increases above the
  *   activity threshold, then all activities are rescaled to
  *   prevent overflow
  */
@@ -1054,7 +1054,7 @@ typedef struct smt_core_s {
  * The clause and variable activity increments, and the randomness
  * parameters are set to their default values
  */
-extern void init_smt_core(smt_core_t *s, uint32_t n, void *th, 
+extern void init_smt_core(smt_core_t *s, uint32_t n, void *th,
                           th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
                           smt_mode_t mode);
 
@@ -1071,7 +1071,7 @@ static inline void smt_core_set_bool_only(smt_core_t *s) {
  * Replace the theory solver and interface descriptors
  * - this can used provided no atom/clause has been added yet
  */
-extern void smt_core_reset_thsolver(smt_core_t *s, void *th, th_ctrl_interface_t *ctrl, 
+extern void smt_core_reset_thsolver(smt_core_t *s, void *th, th_ctrl_interface_t *ctrl,
 				    th_smt_interface_t *smt);
 
 
@@ -1127,7 +1127,7 @@ extern void smt_push(smt_core_t *s);
  * - remove all learned_clauses
  * - remove all clauses, variable, and atoms created at the current base_level
  * - reset status to IDLE
- * - must not be called if the trail_stack is empty (no push) or if 
+ * - must not be called if the trail_stack is empty (no push) or if
  *   status is SEARCHING or INTERRUPTED
  */
 extern void smt_pop(smt_core_t *s);
@@ -1287,7 +1287,7 @@ static inline uint64_t num_learned_literals(smt_core_t *s) {
 
 // all clauses
 static inline uint32_t num_clauses(smt_core_t *s) {
-  return num_unit_clauses(s) + num_binary_clauses(s) + 
+  return num_unit_clauses(s) + num_binary_clauses(s) +
     num_prob_clauses(s) + num_learned_clauses(s);
 }
 
@@ -1316,7 +1316,7 @@ extern bvar_t create_boolean_variable(smt_core_t *s);
 
 /*
  * Add n fresh boolean variables: the new indices are allocated starting
- * from s->nvars (i.e., if s->nvars == v before the call, the 
+ * from s->nvars (i.e., if s->nvars == v before the call, the
  * new variables have indices v, v+1, ... v+n-1).
  */
 extern void add_boolean_variables(smt_core_t *s, uint32_t n);
@@ -1412,7 +1412,7 @@ static inline bval_t bvar_value(smt_core_t *s, bvar_t x) {
 
 /*
  * Read the value assigned to a variable x at the base level
- * - if x is not assigned at the base level, this returns the 
+ * - if x is not assigned at the base level, this returns the
  *   preferred value (either VAL_UNDEF_FALSE or VAL_UNDEF_TRUE)
  */
 static inline bval_t bvar_base_value(smt_core_t *s, bvar_t x) {
@@ -1439,7 +1439,7 @@ static inline uint32_t bvar_polarity(smt_core_t *s, bvar_t x) {
 
 /*
  * Read the value assigned to literal l at the current decision level
- * - let x var_of(l) then 
+ * - let x var_of(l) then
  * - if sign_of(l) = 0, val(l) = val(x)
  *   if sign_of(l) = 1, val(l) = opposite of val(x)
  * - returns VAL_UNDEF_TRUE or VAL_UNDEF_FALSE if no value is assigned.
@@ -1491,7 +1491,7 @@ extern void collect_decision_literals(smt_core_t *s, ivector_t *v);
  * Special forms are provided for unit, binary, and ternary clauses (also
  * for the empty clause).
  *
- * Clauses can be added before the search, when s->status is STATUS_IDLE 
+ * Clauses can be added before the search, when s->status is STATUS_IDLE
  * or on-the-fly, when s->status is STATUS_SEARCHING.
  *
  * If s->status is SEARCHING and s->decision_level > s->base_level,
@@ -1525,7 +1525,7 @@ extern void internalization_start(smt_core_t *s);
  * Propagation at the base-level:
  * - the current status must be IDLE
  * - this performs one round of propagation
- * Return true if no conflict is detected, false otherwise. 
+ * Return true if no conflict is detected, false otherwise.
  * The status is updated to UNSAT if there's a conflict.
  * It remains IDLE otherwise.
  *
@@ -1536,10 +1536,10 @@ extern bool base_propagate(smt_core_t *s);
 
 /*
  * Prepare for the search:
- * - initialize variable heap 
+ * - initialize variable heap
  * - set status to SEARCHING
  * - reset the search statistics counters
- * - if clean_interrupt is enabled, save the current state to 
+ * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
  * The current status must be IDLE.
  */
@@ -1561,7 +1561,7 @@ extern void stop_search(smt_core_t *s);
  * Perform a (branching) decision: assign l to true
  * - s->status must be SEARCHING
  * - l must be an unassigned literal
- * - the decision level is incremented and l is pushed on the 
+ * - the decision level is incremented and l is pushed on the
  *   propagation stack with empty antecedent.
  */
 extern void decide_literal(smt_core_t *s, literal_t l);
@@ -1584,7 +1584,7 @@ extern void smt_partial_restart(smt_core_t *s);
 
 /*
  * Another variant of retart: attempt to reuse the assignment trail
- * - find the unassigned variable x of highest activity 
+ * - find the unassigned variable x of highest activity
  * - keep all current decision levels that have at least one
  *   variable with a higher activity than x
  */
@@ -1606,7 +1606,7 @@ extern void remove_irrelevant_learned_clauses(smt_core_t *s);
 
 
 /*
- * Set a checkpoint: this records the current decision_level and 
+ * Set a checkpoint: this records the current decision_level and
  * number of variables.
  * - if the solver backtracks to this or a smaller decision level,
  *   then all variables (and atoms) created after this checkpoints
@@ -1640,7 +1640,7 @@ extern void smt_checkpoint(smt_core_t *s);
  *     do the garbage collection
  *   elsif lemmas are present then
  *     integrate them to the clause database
- *   else 
+ *   else
  *     perform boolean and theory propagation
  *     if propagation finds no conflict and doesn't add lemmas
  *       if decision_level == base_level
@@ -1660,7 +1660,7 @@ extern void smt_process(smt_core_t *s);
  * - call the final_check function of the theory solver
  * - if the theory solver creates new variables or lemmas or report a conflict
  *   then smt_process is called
- * - otherwise the core status is updated to SAT or UNKNOWN and the search 
+ * - otherwise the core status is updated to SAT or UNKNOWN and the search
  *   is done.
  */
 extern void smt_final_check(smt_core_t *s);
@@ -1680,7 +1680,7 @@ extern void propagate_literal(smt_core_t *s, literal_t l, void *expl);
  * - a must be an array of literals terminated by end_clause (which is
  *   the same as null_literal).
  * - all literals in a must be false at the current decision level
- * 
+ *
  * Warning: no copy is made. Array a should not be modified by the theory solver,
  * until the conflict is resolved.
  */
@@ -1714,7 +1714,7 @@ static inline void end_search_unknown(smt_core_t *s) {
  * restores s to what it was at the start of the search.
  * - remove all learned clauses and all the lemmas, variables, and atoms created
  *   during the search.
- * - reset s->status to IDLE 
+ * - reset s->status to IDLE
  * - this must not be called if clean_interrupt is disabled.
  */
 extern void smt_cleanup(smt_core_t *s);
@@ -1723,7 +1723,7 @@ extern void smt_cleanup(smt_core_t *s);
 /*
  * Clear assignment and enable addition of new clauses after a search.
  * - this can be called if s->status is UNKNOWN or SAT
- * - s->status is reset to STATUS_IDLE and the current boolean 
+ * - s->status is reset to STATUS_IDLE and the current boolean
  *   assignment is cleared (i.e., we backtrack to the current base_level)
  */
 extern void smt_clear(smt_core_t *s);
@@ -1749,7 +1749,7 @@ extern void smt_clear_unsat(smt_core_t *s);
 /*
  * The default heuristic is based on variable activities +
  * randomization + the preferred polarity vector (picosat-style).
- * 
+ *
  * The select...bvar functions can be used to implement other
  * heuristics.
  */

@@ -167,7 +167,7 @@ extern void bv_solver_attach_eterm(bv_solver_t *solver, thvar_t x, eterm_t t);
 
 
 /*
- * Get the egraph term attached to x 
+ * Get the egraph term attached to x
  * - return null_eterm if x has no term attached
  */
 extern eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x);
@@ -258,7 +258,7 @@ static inline uint32_t bv_solver_interface_lemmas(bv_solver_t *solver) {
 
 /*
  * Build model: assign a concrete bitvector value to all variables
- * - when this is called, the context has determined that the 
+ * - when this is called, the context has determined that the
  *   constraints are SAT (so a model does exist)
  */
 extern void bv_solver_build_model(bv_solver_t *solver);
@@ -302,7 +302,7 @@ extern void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 extern void bv_solver_assert_var_diseq(bv_solver_t *solver, thvar_t x1, thvar_t x2, composite_t *hint);
 
 /*
- * Assert that a[0,...n-1] are all distinct 
+ * Assert that a[0,...n-1] are all distinct
  * - hint = hint for egraph explanation
  * - this gets converted into n * (n-1) pairwise disequalities
  */

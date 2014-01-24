@@ -99,14 +99,14 @@ static void resize_sparse_array(sparse_array_t *a, uint32_t nb) {
     out_of_memory();
   }
 
-  n = a->nblocks;    
+  n = a->nblocks;
   nblocks = n;
   nblocks += nblocks>>1; // try 50% larger
   if (nb > nblocks) {
     nblocks = nb;
   } else if (nblocks > MAX_NBLOCKS) {
     nblocks = MAX_NBLOCKS;
-  } 
+  }
 
   // n = current size, nblocks = new size
   // we avoid realloc here (to save the cost of copying the full array)

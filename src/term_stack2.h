@@ -5,13 +5,13 @@
  * The stack contains a nested sequence of frames.  Each frame
  * consists of an operator (term or type constructor) and a sequence
  * of arguments. The arguments are string (that may denote symbols),
- * bindings, rationals or bitvector constants, buffers, terms, or types. 
+ * bindings, rationals or bitvector constants, buffers, terms, or types.
  *
  * Bindings are pairs <name, term>. They record temporary bindings from
  * names to terms (for let, forall, exists). The binding of name to term
  * is erased when the binding is deleted.
  *
- * Added May 27, 2013: to support the (as ...) construct in SMTLIB2, we 
+ * Added May 27, 2013: to support the (as ...) construct in SMTLIB2, we
  * can also store op codes as arguments.
  *
  * To help reporting errors, each element on the stack has location
@@ -26,13 +26,13 @@
  * f is the start of a frame in stack->elem
  * n = the size of the frame = number of arguments
  *
- * For example, if the stack contains a frame with operator code MK_AND 
+ * For example, if the stack contains a frame with operator code MK_AND
  * and 4 arguments, then the top frame is [MK_AND <arg1> ... <arg4>]
  *
  * tstack_eval will invoke eval_mk_and(stack, f, n)
  * with f pointing to array [<arg1> .... <arg4>] and n = 4
  *
- * The check function must raise an exception if the arguments or 
+ * The check function must raise an exception if the arguments or
  * frame are incorrect. The eval function must replace the frame
  * by the result of the operation.
  *
@@ -93,7 +93,7 @@ typedef struct opval_s {
   uint32_t prev;
 } opval_t;
 
-// binding 
+// binding
 typedef struct binding_s {
   term_t term;
   char *symbol;
@@ -107,7 +107,7 @@ typedef struct type_binding_s {
 
 // location: line + column number
 typedef struct loc_s {
-  uint32_t line; 
+  uint32_t line;
   uint32_t column;
 } loc_t;
 
@@ -119,7 +119,7 @@ typedef struct bv64_s {
   uint64_t value;   // value (padded to 64 bits)
 } bv64_t;
 
-typedef struct bv_s { 
+typedef struct bv_s {
   uint32_t bitsize; // size in bits
   uint32_t *data;   // value as an array of 32bit words
 } bv_t;
@@ -197,8 +197,8 @@ typedef struct op_table_s {
  *   (for refcounts).
  *
  * - diagnosis data for error reporting is stored in
- *   error_loc = loc[i] if error occurred on element i 
- *   error_op = operator being evaluated when the error occurred 
+ *   error_loc = loc[i] if error occurred on element i
+ *   error_op = operator being evaluated when the error occurred
  *          (or NO_OP if the error occurred on a push operation)
  *   error_string = null-terminated string value if the erroneous
  *          argument is a string (or NULL).
@@ -228,7 +228,7 @@ struct tstack_s {
   rba_buffer_t *abuffer;
   bvarith64_buffer_t *bva64buffer;
   bvarith_buffer_t *bvabuffer;
-  bvlogic_buffer_t *bvlbuffer;  
+  bvlogic_buffer_t *bvlbuffer;
 
   // counter for type-variable creation
   uint32_t tvar_id;
@@ -271,12 +271,12 @@ struct tstack_s {
  * via longjmp(stack->env, error_code).
  *
  * When an exception is raised, the stack may be in an inconsistent
- * state. Do not do any operations on the stack without calling 
+ * state. Do not do any operations on the stack without calling
  * tstack_reset first.
  */
 
 /*
- * Error codes (for Yices and SMT-LIB 1.2) 
+ * Error codes (for Yices and SMT-LIB 1.2)
  * SMT-LIB 2 adds more exception codes.
  */
 typedef enum tstack_error_s {
@@ -302,7 +302,7 @@ typedef enum tstack_error_s {
   TSTACK_NEGATIVE_EXPONENT,
   TSTACK_NOT_AN_INTEGER,
   TSTACK_NOT_A_STRING,
-  TSTACK_NOT_A_SYMBOL,  
+  TSTACK_NOT_A_SYMBOL,
   TSTACK_NOT_A_RATIONAL,
   TSTACK_NOT_A_TYPE,
   TSTACK_ARITH_ERROR,
@@ -333,7 +333,7 @@ enum base_opcodes {
 
   // bindings
   BIND,               // [bind <symbol> <term> ]
-  DECLARE_VAR,        // [declare-var <symbol> <type> ] 
+  DECLARE_VAR,        // [declare-var <symbol> <type> ]
   DECLARE_TYPE_VAR,   // [declare-type-var <symbol> ]
   LET,                // [let <binding> ... <binding> <term> ]
 
@@ -388,7 +388,7 @@ enum base_opcodes {
   MK_BV_SDIV,         // [mk-bv-sdiv <bv> <bv> ]
   MK_BV_SREM,         // [mk-bv-srem <bv> <bv> ]
   MK_BV_SMOD,         // [mk-bv-smod <bv> <bv> ]
-  
+
   MK_BV_NOT,          // [mk-bv-not <bv> ]
   MK_BV_AND,          // [mk-bv-and <bv> ... <bv> ]
   MK_BV_OR,           // [mk-bv-or <bv> ... <bv> ]
@@ -458,7 +458,7 @@ static inline void tstack_set_avtbl(tstack_t *stack, attr_vtbl_t *table) {
 
 /*
  * Add or replace an operator
- * - op = operator code 
+ * - op = operator code
  * - asssoc = whether op is associative or not
  * - eval. check = evaluator and checker functions
  * - op must be non-negative and less than the operator's table size
@@ -466,7 +466,7 @@ static inline void tstack_set_avtbl(tstack_t *stack, attr_vtbl_t *table) {
  *
  * If op is between 0 and stack->op_table.num_ops then the
  * current values for op are replaced. If op is larger than
- * num_ops, then a new operation is added. 
+ * num_ops, then a new operation is added.
  */
 extern void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, eval_fun_t eval, check_fun_t check);
 
@@ -493,7 +493,7 @@ extern void delete_tstack(tstack_t *stack);
  *
  * This starts a new frame.
  *
- * In DEBUG mode: raise exception TSTACK_INVALID_OP if op is invalid and set 
+ * In DEBUG mode: raise exception TSTACK_INVALID_OP if op is invalid and set
  *  stack->error_loc = loc
  *  stack->error_op = op
  *  stack->error_string = NULL
@@ -543,7 +543,7 @@ extern void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32
 /*
  * Find the term or type of name s and push that term or type on the stack
  *
- * raise exception TSTACK_UNDEF_TERM, TSTACK_UNDEF_TYPE, or TSTACK_UNDEF_MACRO 
+ * raise exception TSTACK_UNDEF_TERM, TSTACK_UNDEF_TYPE, or TSTACK_UNDEF_MACRO
  * if the name is not mapped to a term, type, or macro.
  */
 extern void tstack_push_type_by_name(tstack_t *stack, char *s, loc_t *loc);
@@ -555,7 +555,7 @@ extern void tstack_push_macro_by_name(tstack_t *stack, char *s, loc_t *loc);
  * - s must be null-terminated and of rational or floating point formats
  *  (cf. rational.h, yices.h)
  *
- * raise exception TSTACK_FORMAT_... if the string s does not have 
+ * raise exception TSTACK_FORMAT_... if the string s does not have
  * the right format, and set
  *   stack->error_loc = loc
  *   stack->error_op = NO_OP
@@ -569,7 +569,7 @@ extern void tstack_push_float(tstack_t *stack, char *s, loc_t *loc);
  * - n = length of the string
  * - s must be a string of binary or hexadecimal digits (no prefix)
  *
- * raise exception TSTACK_FORMAT_... if the string s does not have 
+ * raise exception TSTACK_FORMAT_... if the string s does not have
  * the right format, and set
  *   stack->error_loc = loc
  *   stack->error_op = NO_OP
@@ -621,14 +621,14 @@ static inline bool tstack_is_empty(tstack_t *stack) {
 }
 
 /*
- * Read result. 
+ * Read result.
  *
  * Call sequence to use these functions:
  * 1) tstack_push_op(stack, BUILD_TERM, xxx)
  * 2) sequence of push/eval to build the term
  * 3) when tstack_eval evaluates the BUILD_TERM command,
  *    stack->result.term is available.
- * 
+ *
  * Same thing for types, but replace by BUILD_TYPE.
  */
 static inline term_t tstack_get_term(tstack_t *stack) {

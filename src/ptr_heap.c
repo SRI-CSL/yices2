@@ -109,7 +109,7 @@ static void ptr_heap_update_down(ptr_heap_t *heap, void *x) {
   void *y, *z;
   uint32_t i, j, n;
 
-  assert(x != NULL && heap->nelems >= 1);  
+  assert(x != NULL && heap->nelems >= 1);
 
   n = heap->nelems;
   h = heap->heap;

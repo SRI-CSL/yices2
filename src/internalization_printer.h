@@ -9,7 +9,7 @@
 
 #include "internalization_table.h"
 
- 
+
 /*
  * Print internalization data for term t:
  * - print t's root in the substitution tree

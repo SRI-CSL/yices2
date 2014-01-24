@@ -1,5 +1,5 @@
 /*
- * TREES USED TO BUILD MODELS IN THE FUNCTION/ARRAY SOLVER. 
+ * TREES USED TO BUILD MODELS IN THE FUNCTION/ARRAY SOLVER.
  */
 
 /*
@@ -16,24 +16,24 @@
  * 2) find two objects a and b of R such that a != b
  * 3) add the mapping [i --> a] to f1
  *    add the mapping [i --> b] to f2
- * 
+ *
  * This should always be feasible if the function solver is sound.
- * 
+ *
  * To support the construction, we store maps in a tree:
  * - an internal node N is labeled by an index i of D
  * - the n children of N have distinct values v_1, ..., v_n of R
  * - each leaf node contains a unique map object f
  * - all maps in the tree have the same domain D and range R.
  *
- * Let N_0 be the root and N_k be a node of the tree. On the path 
+ * Let N_0 be the root and N_k be a node of the tree. On the path
  * N_0 --> N_2 --> .... N_{k-1} --> N_k from the root to N_k, let
- * i_t = index of N_t and v_t = value of N_t. By construction, the 
- * indices i_0, ..., i_{k-1} are all distinct; the path defines a 
+ * i_t = index of N_t and v_t = value of N_t. By construction, the
+ * indices i_0, ..., i_{k-1} are all distinct; the path defines a
  * partial map h: [i_0 -> v_1, i_1 -> v_2, ..., i_{k-1} -> v_k].
- * Then a map object f is stored in the subtree rooted at N_k iff 
- * if agrees with h at i_0, ..., i_{k-1} 
+ * Then a map object f is stored in the subtree rooted at N_k iff
+ * if agrees with h at i_0, ..., i_{k-1}
  * (i.e., f(i_0) = v_1, f(i_1) = v2, ..., f(i_{k-1}) = v_k).
- * 
+ *
  */
 
 #ifndef __FUN_TREES_H
@@ -77,7 +77,7 @@ struct fun_node_s {
 
 
 /*
- * Tree: 
+ * Tree:
  * - root node (NULL if the tree is empty)
  * - pstore: store for creating new particles
  * - ftype: type descriptor = the type of all maps in the tree
@@ -87,7 +87,7 @@ struct fun_node_s {
 typedef struct fun_tree_s {
   fun_node_t *root;
   pstore_t *pstore;
-  function_type_t *ftype;  
+  function_type_t *ftype;
   object_store_t store;
   ivector_t path_indices;
   ivector_t buffer;
@@ -123,7 +123,7 @@ extern void delete_fun_tree(fun_tree_t *tree);
 
 
 /*
- * Empty the tree: 
+ * Empty the tree:
  * - root and ftype are reset to NULL
  * - all nodes and leaves are deleted
  */

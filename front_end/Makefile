@@ -16,7 +16,7 @@
 
 SHELL=/bin/sh
 
-ifeq (,$(YICES_TOP_DIR)) 
+ifeq (,$(YICES_TOP_DIR))
  $(error "YICES_TOP_DIR is undefined")
 endif
 
@@ -69,9 +69,9 @@ static_binaries := $(static_bindir)/smt2_solver$(EXEEXT)
 
 #
 # OS-dependent compilation flags
-# -fPIC: default on Darwin/Cygwin/Mingw (and causes 
+# -fPIC: default on Darwin/Cygwin/Mingw (and causes
 #  compilation warning if present)
-# -static: not supported by Darwin and our Solaris2.10 
+# -static: not supported by Darwin and our Solaris2.10
 # matchine
 #
 ifeq ($(POSIXOS),cygwin)
@@ -141,11 +141,11 @@ endif
 # Compilation flags depending on MODE
 #
 #
-ifeq ($(YICES_MODE),release) 
+ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-else 
-ifeq ($(YICES_MODE),devel) 
+else
+ifeq ($(YICES_MODE),devel)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
@@ -234,7 +234,7 @@ endif
 # Note: $< must be last to work on FreeBSD
 #
 smt2-parse.c: smt2-parse.y smt2-lex.c
-	$(YACC) -o smt2-parse.c $< 
+	$(YACC) -o smt2-parse.c $<
 
 smt2-lex.c: smt2-lex.l
 	$(LEX) $< && mv lex.yy.c $@

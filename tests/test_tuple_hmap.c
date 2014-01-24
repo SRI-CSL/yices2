@@ -52,7 +52,7 @@ static void print_tuple_hmap(tuple_hmap_t *table) {
   printf("  nelems = %"PRIu32"\n", table->nelems);
   printf("  ndeleted = %"PRIu32"\n", table->ndeleted);
   printf("  content:\n");
- 
+
   for (i=0; i<table->size; i++) {
     d = table->data[i];
     if (d != NULL && d != TUPLE_HMAP_DELETED) {
@@ -212,7 +212,7 @@ int main(void) {
   for (j=0; j<20; j++) {
     aux[j] = j;
   }
-  
+
   for (i=0; i<9; i++) {
     test_add(&table, i, aux, 100+i);
     test_get(&table, i, aux);

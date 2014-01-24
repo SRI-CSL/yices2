@@ -12,7 +12,7 @@
  *   (cf. bv_constants.h).
  *
  * In normal form, polynomials have the following properties:
- * - the coefficients are all reduced modulo 2^n 
+ * - the coefficients are all reduced modulo 2^n
  *   and are all non zero
  * - the monomials are stored in deg-lex order: lower degree
  *   monomials appear first; monomials of equal degree are
@@ -257,7 +257,7 @@ bool bvarith64_buffer_equal(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
 
   p1 = b1->list;
   p2 = b2->list;
-  
+
   while (p1->prod == p2->prod) {
     if (p1->prod == end_pp) return true;
     if (p1->coeff != p2->coeff) return false;
@@ -279,13 +279,13 @@ bool bvarith64_buffer_equal(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
+ * The power product r must be defined in b's internal
  * power-product table: either r is empty_pp, or r is
  * a tagged variable, or r occurs in b->ptbl.
  *
  * Some operations use another buffer b1. In such cases,
  * b and b1 must have the same power-product table.
- * Unless otherwise indicated, the operations work correctly 
+ * Unless otherwise indicated, the operations work correctly
  * if b1 is equal to b (but this use is not recommended).
  */
 
@@ -384,7 +384,7 @@ void bvarith64_buffer_mul_pp(bvarith64_buffer_t *b, pprod_t *r) {
 
   assert(b->bitsize > 0);
 
-  /* 
+  /*
    * We use the fact that the monomial ordering
    * is compatible with multiplication, that is
    *    r1 < r2 => r * r1 < r * r2
@@ -436,7 +436,7 @@ void bvarith64_buffer_mul_mono(bvarith64_buffer_t *b, uint64_t a, pprod_t *r) {
     p->coeff *= a;
     p = p->next;
   }
-  
+
 }
 
 
@@ -918,7 +918,7 @@ void bvarith64_buffer_sub_mlist_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *
     assert(p1->prod != end_pp);
     bvarith64_buffer_sub_mono_times_mlist(b, p2, p1->coeff, p1->prod);
     p1 = p1->next;
-  }  
+  }
 }
 
 
@@ -944,7 +944,7 @@ void bvarith64_buffer_mul_mlist_power(bvarith64_buffer_t *b, bvmlist64_t *p1, ui
     bvarith64_buffer_add_mlist(aux, p1); // aux := p1
     for (;;) {
       /*
-       * loop invariant: b0 * p1^d0 == b * aux^d 
+       * loop invariant: b0 * p1^d0 == b * aux^d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -970,7 +970,7 @@ bvmlist64_t *bvarith64_buffer_get_mlist(bvarith64_buffer_t *b) {
   bvmlist64_t *r, *q;
 
   r = b->list;
-  
+
   // reset b to the end-marker only
   q = (bvmlist64_t *) objstore_alloc(b->store);
   q->next = NULL;
@@ -1017,7 +1017,7 @@ bool equal_bvmlists64(bvmlist64_t *p1, bvmlist64_t *p2) {
     p1 = p1->next;
     p2 = p2->next;
   }
-  
+
   return false;
 }
 
@@ -1075,7 +1075,7 @@ static bool good_pprod_array(bvmono64_t *poly, pprod_t **pp) {
       r = *pp;
       pp ++;
       poly ++;
-    }    
+    }
   }
 
   return true;
@@ -1231,7 +1231,7 @@ void bvarith64_buffer_add_const_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *
 
     m ++;
     pp ++;
-  }  
+  }
 }
 
 
@@ -1289,7 +1289,7 @@ void bvarith64_buffer_add_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *p
 
     m ++;
     pp ++;
-  }  
+  }
 
 }
 
@@ -1342,7 +1342,7 @@ void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_
     objstore_free(b->store, q);
     q = p;
   }
-  
+
 }
 
 
@@ -1350,7 +1350,7 @@ void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_
  * Multiply b by poly ^ d
  * - use aux as an auxiliary buffer (aux must be distinct from b)
  */
-void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, 
+void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp,
                                        uint32_t d, bvarith64_buffer_t *aux) {
   uint32_t i;
 
@@ -1368,7 +1368,7 @@ void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, 
     bvarith64_buffer_add_bvpoly(aux, poly, pp); // aux := p
     for (;;) {
       /*
-       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * loop invariant: b0 * p^d0 == b * aux^ d
        * with b0 = b on entry to the function
        *      d0 = d on entry to the function
        */
@@ -1409,7 +1409,7 @@ void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, 
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_bvpoly defined in bv_polynomials.c.
  * If P(b, v) = p0 then hash_bvarith_buffer(b, v) = hash_bvpolynomial(p0).
  */
@@ -1441,7 +1441,7 @@ bool bvarith64_buffer_equal_bvpoly(bvarith64_buffer_t *b, int32_t *v, bvpoly64_t
   bvmlist64_t *q;
   bvmono64_t *mono;
   int32_t x1, x2;
-  
+
   if (b->nterms == p->nterms && b->bitsize == p->bitsize) {
     q = b->list;
     mono = p->mono;

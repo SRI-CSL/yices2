@@ -179,7 +179,7 @@ void delete_prop_table(prop_table_t *table) {
     if (p != NULL) {
       delete_prop_row(p);
     }
-  }  
+  }
   safe_free(table->row);
   delete_bitvector(table->mark);
 
@@ -194,7 +194,7 @@ void delete_prop_table(prop_table_t *table) {
 
   table->row = NULL;
   table->mark = NULL;
-  table->col = NULL;  
+  table->col = NULL;
 }
 
 
@@ -215,7 +215,7 @@ void reset_prop_table(prop_table_t *table) {
     if (p != NULL) {
       delete_prop_row(p);
     }
-  }  
+  }
 
   // free all the columns
   n = table->nvars;
@@ -253,7 +253,7 @@ static void attach_row(prop_table_t *table, prop_row_t *p, uint32_t i) {
       idx = neg_row_idx(i);
     }
     add_index_to_vector(table->col + x, idx);
-  } 
+  }
 }
 
 
@@ -393,14 +393,14 @@ static float median(float *a, uint32_t n) {
      * - a[j] = pivot
      * - a[j+1 ... n-1] >= pivot
      * low <= j < high and low <= half < high
-     */    
+     */
     if (j < half) {
-      low = j+1; 
+      low = j+1;
     } else {
       high = j;
     }
   } while (j != half);
-  
+
   return a[half];
 }
 
@@ -416,7 +416,7 @@ void prop_table_reduce(prop_table_t *table) {
   float threshold;
   uint32_t i, j, n;
 
-  
+
   n = num_prop_rows(table);
   if (n == 0) return;
 

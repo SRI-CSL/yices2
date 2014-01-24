@@ -174,7 +174,7 @@ int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k) {
   assert(k >= 0);
 
   mask = hmap->size - 1;
-  j = hash_key(k) & mask;  
+  j = hash_key(k) & mask;
   for (;;) {
     d = hmap->data + j;
     if (d->key == k) return d;
@@ -268,7 +268,7 @@ void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v) {
     i ++;
     i &= mask;
   }
-  
+
   // store the new record in data[i]
   hmap->data[i].key = k;
   hmap->data[i].val = v;

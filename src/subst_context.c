@@ -210,11 +210,11 @@ static void subst_ctx_sort_array(int32_t *a, uint32_t n) {
   if (n > 2) {
     // random pivot
     i = random_uint(n) & ~1;
-    assert((i & 1) == 0); 
+    assert((i & 1) == 0);
 
     /*
-     * i is an even number: 
-     * a[i] is a variable x, 
+     * i is an even number:
+     * a[i] is a variable x,
      * a[i+1] is the binding for x
      */
     x = a[i];
@@ -224,7 +224,7 @@ static void subst_ctx_sort_array(int32_t *a, uint32_t n) {
      * swap the pivot pair (a[i], a[i+1]) and (a[0], a[1])
      */
     a[i] = a[0]; a[0] = x;
-    a[i + 1] = a[1]; 
+    a[i + 1] = a[1];
     a[1] = t; // could be removed?
 
     i = 0;
@@ -262,7 +262,7 @@ static void subst_ctx_sort_array(int32_t *a, uint32_t n) {
 #ifndef NDEBUG
 static bool subst_ctx_array_is_sorted(int32_t *a, uint32_t n) {
   uint32_t i;
-  
+
   assert((n % 1) == 0);
 
   i = 2;
@@ -276,11 +276,11 @@ static bool subst_ctx_array_is_sorted(int32_t *a, uint32_t n) {
 
 
 /*
- * Hash consing: stores the current context (ignoring the 
+ * Hash consing: stores the current context (ignoring the
  * masked bindings) into an integer array, then return a copy
  * of this array (using hash-consing).
- * - the array is constructed by storing the bindings as 
- *   pairs [variable, term], sorted in order of 
+ * - the array is constructed by storing the bindings as
+ *   pairs [variable, term], sorted in order of
  *   increasing variable index.
  * - two equivalent contexts then have the same representation
  *
@@ -296,13 +296,13 @@ harray_t *subst_ctx_hash(subst_ctx_t *ctx) {
   uint32_t i;
   int32_t x;
 
-  
+
   vset = subst_ctx_get_vset(ctx);
   reset_int_bvset(vset);
 
   buffer = &ctx->buffer;
   ivector_reset(buffer);
-    
+
   i = ctx->nelems;
   while (i > 0) {
     i --;

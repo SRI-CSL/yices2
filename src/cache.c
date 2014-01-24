@@ -5,7 +5,7 @@
 /*
  * Each element in the cache is a triple <tag, x, y>
  * where x and y are 32bit signed integers and tag is 16 bit.
- * - this is enough for the egraph lemma generation 
+ * - this is enough for the egraph lemma generation
  *   (ackermann trick + expansion of non-distinct)
  * - the cache implements push and pop operations
  */
@@ -79,7 +79,7 @@ static void extend_cache_bank(cache_bank_t *bank) {
  */
 static void allocate_cache_block(cache_bank_t *bank) {
   uint32_t i, n;
-  
+
   i = bank->nblocks;
   n = bank->capacity;
   assert(i <= n);
@@ -225,7 +225,7 @@ static void init_cache_htbl(cache_htbl_t *table) {
   uint32_t i, n;
   cache_elem_t **tmp;
 
-  n = DEF_CACHE_HTBL_SIZE;  
+  n = DEF_CACHE_HTBL_SIZE;
   assert(n < MAX_CACHE_HTBL_SIZE);
 
   tmp = (cache_elem_t **) safe_malloc(n * sizeof(cache_elem_t *));
@@ -287,8 +287,8 @@ static void cache_htbl_clean_copy(cache_elem_t **data, cache_elem_t *e, uint32_t
 
 /*
  * Check whether pointer e is not NULL or DELETED_ELEM
- * - HACK: we rely on ((size_t) NULL) == 0 and 
- *  ((size_t) DELETED_ELEM) == 1 
+ * - HACK: we rely on ((size_t) NULL) == 0 and
+ *  ((size_t) DELETED_ELEM) == 1
  */
 static inline bool live_element(cache_elem_t *e) {
   return (((size_t) e) >> 1) != 0;
@@ -421,7 +421,7 @@ void reset_cache(cache_t *cache) {
 
 
 /*
- * Remove from htbl all objects in the bank 
+ * Remove from htbl all objects in the bank
  * allocated after the mark <b, i>
  * - b = free_block at the time push_cache_mark was called
  * - i = alloc_ptr at the time push_cache_mark was called
@@ -434,7 +434,7 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
    * n = current free_block
    * p = current alloc_ptr in block[n-1]
    */
-  n = bank->free_block;  
+  n = bank->free_block;
   p = bank->alloc_ptr;
 
   /*
@@ -473,7 +473,7 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
   while (i<p) {
     cache_htbl_remove(htbl, blk+i);
     i ++;
-  }   
+  }
 }
 
 
@@ -483,7 +483,7 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
 void cache_pop(cache_t *cache) {
   cache_levstack_t *stack;
   uint32_t i;
-  
+
   stack = &cache->stack;
   assert(stack->current_level > 0);
 
@@ -545,7 +545,7 @@ cache_elem_t *cache_find(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
   cache_elem_t *e;
 
   htbl = &cache->htbl;
-  assert(htbl->nelems + htbl->ndeleted < htbl->size); 
+  assert(htbl->nelems + htbl->ndeleted < htbl->size);
 
   mask = htbl->size - 1;
   h = hash_key(tag, x, y);

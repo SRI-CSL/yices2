@@ -13,7 +13,7 @@
 #include "context.h"
 
 /*
- * Every iteration function takes an auxiliary pointer aux 
+ * Every iteration function takes an auxiliary pointer aux
  * and a function f and call f(aux, x) for all global
  * objects x of a specified type.
  */

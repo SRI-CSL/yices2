@@ -118,7 +118,7 @@ int main() {
   aux[2] = tup1;
   tau = tuple_type(&table, 3, aux);
   test(tau, "(scal4 -> scal4) x (bool x scal23) x (bool x scal23)");
-  
+
   aux[0] = fun3;
   aux[1] = tup1;
   aux[2] = b;

@@ -21,7 +21,7 @@
  */
 
 /*
- * Each atomic tokens stores a basic object to be printed as 
+ * Each atomic tokens stores a basic object to be printed as
  * a single string. It consists of a pp_atomic_token prefix +
  * extra data that describes the actual object to be printed.
  * The user_tag field in the prefix stores the object type.
@@ -165,10 +165,10 @@ typedef enum {
   PP_OPEN_BV_SLT,
 
   // blocks used in pp_model
-  PP_OPEN_FUNCTION,   // (function ...) 
-  PP_OPEN_TYPE,       // (type ..) 
+  PP_OPEN_FUNCTION,   // (function ...)
+  PP_OPEN_TYPE,       // (type ..)
   PP_OPEN_DEFAULT,    // (default x)
-  
+
   PP_OPEN_CONST_DEF,  // (constant i of <type>)
   PP_OPEN_UNINT_DEF,  // (unint i of <type>)
   PP_OPEN_VAR_DEF,    // (var i of <type>)
@@ -239,7 +239,7 @@ extern void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
 /*
  * Variant: use default mode and indent
  */
-static inline void init_default_yices_pp(yices_pp_t *printer, 
+static inline void init_default_yices_pp(yices_pp_t *printer,
                                          FILE *file, pp_area_t *area) {
   init_yices_pp(printer, file, area, PP_VMODE, 0);
 }
@@ -256,7 +256,7 @@ extern void flush_yices_pp(yices_pp_t *printer);
  * Delete a pretty printer
  * - if flush is true, print everything pending + a newline
  * - then free all memory used
- */ 
+ */
 extern void delete_yices_pp(yices_pp_t *printer, bool flush);
 
 

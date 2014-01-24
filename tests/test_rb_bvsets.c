@@ -40,7 +40,7 @@ static void print_bvset(rb_bvset_t *s) {
 
 /*
  * Add n random elements to set s
- * - mask = 2^k - 1 where k = bitsize considered 
+ * - mask = 2^k - 1 where k = bitsize considered
  *   (i.e., elements are in the interval [0, 2^k-1]
  */
 static void add_random(rb_bvset_t *s, uint32_t n, uint32_t mask) {
@@ -62,7 +62,7 @@ static void init_test_set(rb_bvset_t *s, uint32_t n, uint32_t m) {
   uint32_t mask;
 
   init_rb_bvset(s, n);
-  if (n < 32) { 
+  if (n < 32) {
     mask = (1<<n) - 1;
   } else {
     mask = UINT32_MAX;
@@ -90,7 +90,7 @@ static void test1(void) {
 	 "=================\n\n");
 
   // 50 initial elements
-  init_test_set(&set, 6, 50); 
+  init_test_set(&set, 6, 50);
   printf("=== Initial set: 50 additions ===\n");
   print_bvset(&set);
   printf("\n");
@@ -157,7 +157,7 @@ static void test2(void) {
 	 "=================\n\n");
 
   // 200 initial additions
-  init_test_set(&set, 8, 200); 
+  init_test_set(&set, 8, 200);
   printf("=== Initial set: 200 additions ===\n");
   print_bvset(&set);
   printf("\n");
@@ -224,7 +224,7 @@ static void test3(void) {
 	 "=================\n\n");
 
   // 1000 initial additions
-  init_test_set(&set, 40, 1000); 
+  init_test_set(&set, 40, 1000);
   printf("=== Initial set: 1000 additions ===\n");
   print_bvset(&set);
   printf("\n");
@@ -277,7 +277,7 @@ static void test3(void) {
     x = rb_bvset_get_fresh(&set);
     printf("get fresh: %"PRIu32", nelems = %"PRIu32"\n", x, rbtree_card(&set.tree));
     n --;
-  } while (n > 0); 
+  } while (n > 0);
 
   printf("\n=== Final set ===\n");
   print_bvset(&set);

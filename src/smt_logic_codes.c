@@ -43,7 +43,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
 
 /*
  * Code table: smt_code[i] = code for smt_logic_name[i]
- * - for now, this is not very useful, but it may help later if 
+ * - for now, this is not very useful, but it may help later if
  *   different names correspond to the same logic
  */
 static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {

@@ -234,7 +234,7 @@ static void test_eval_eq(literal_t a, literal_t b) {
   printf(" ");
   print_literal(stdout, b);
   printf(")");
-  x = bit_blaster_eval_eq(&blaster, a, b);  
+  x = bit_blaster_eval_eq(&blaster, a, b);
   if (x == null_literal) {
     printf(" --> nothing\n");
   } else {
@@ -252,7 +252,7 @@ static void test_eval_xor2(literal_t a, literal_t b) {
   printf(" ");
   print_literal(stdout, b);
   printf(")");
-  x = bit_blaster_eval_xor2(&blaster, a, b);  
+  x = bit_blaster_eval_xor2(&blaster, a, b);
   if (x == null_literal) {
     printf(" --> nothing\n");
   } else {
@@ -290,7 +290,7 @@ static void test_eval_or2(literal_t a, literal_t b) {
   printf(" ");
   print_literal(stdout, b);
   printf(")");
-  x = bit_blaster_eval_or2(&blaster, a, b);  
+  x = bit_blaster_eval_or2(&blaster, a, b);
   if (x == null_literal) {
     printf(" --> nothing\n");
   } else {
@@ -599,7 +599,7 @@ static void print_litarray_as_uint32(uint32_t n, literal_t *a) {
     }
   }
 
-  printf("%"PRIu32, x);  
+  printf("%"PRIu32, x);
 }
 
 
@@ -820,21 +820,21 @@ static void random_tests8var(uint32_t n, void (*f)(uint32_t, literal_t *, litera
     f(8, a, x);
     refresh_random(24);
     n --;
-  }  
+  }
 }
 
 
 
 
 /*
- * TESTS 
+ * TESTS
  */
 static void all_eq_tests(void) {
   printf("\n"
 	 "******************\n"
 	 "*    EQ TESTS    *\n"
 	 "******************\n\n");
-  
+
   init();
   truth_table_test2(test_eq);
   output_test2(test_eq);
@@ -866,7 +866,7 @@ static void all_xor3_tests(void) {
   output_test4(test_xor3);
   input_test4(test_xor3);
   random_tests4(100, test_xor3);
-  cleanup();  
+  cleanup();
 }
 
 static void all_or2_tests(void) {
@@ -892,7 +892,7 @@ static void all_or3_tests(void) {
   output_test4(test_or3);
   input_test4(test_or3);
   random_tests4(100, test_or3);
-  cleanup();  
+  cleanup();
 }
 
 static void all_mux_tests(void) {
@@ -905,7 +905,7 @@ static void all_mux_tests(void) {
   output_test4(test_mux);
   input_test4(test_mux);
   random_tests4(100, test_mux);
-  cleanup();  
+  cleanup();
 }
 
 static void all_cmp_tests(void) {
@@ -918,7 +918,7 @@ static void all_cmp_tests(void) {
   output_test4(test_cmp);
   input_test4(test_cmp);
   random_tests4(100, test_cmp);
-  cleanup();  
+  cleanup();
 }
 
 static void all_maj_tests(void) {
@@ -931,7 +931,7 @@ static void all_maj_tests(void) {
   output_test4(test_maj3);
   input_test4(test_maj3);
   random_tests4(100, test_maj3);
-  cleanup();  
+  cleanup();
 }
 
 
@@ -970,7 +970,7 @@ static void all_eval_eq_tests(void) {
 	 "*******************\n"
 	 "*  EVAL EQ TESTS  *\n"
 	 "*******************\n\n");
-  
+
   init();
   truth_table_test2(test_eval_eq);
   random_tests2(100, test_eval_eq);
@@ -996,7 +996,7 @@ static void all_eval_xor3_tests(void) {
   init();
   truth_table_test3(test_eval_xor3);
   random_tests3(100, test_eval_xor3);
-  cleanup();  
+  cleanup();
 }
 
 static void all_eval_or2_tests(void) {
@@ -1018,7 +1018,7 @@ static void all_eval_or3_tests(void) {
   init();
   truth_table_test3(test_eval_or3);
   random_tests3(100, test_eval_or3);
-  cleanup();  
+  cleanup();
 }
 
 static void all_eval_mux_tests(void) {
@@ -1029,7 +1029,7 @@ static void all_eval_mux_tests(void) {
   init();
   truth_table_test3(test_eval_mux);
   random_tests3(100, test_eval_mux);
-  cleanup();  
+  cleanup();
 }
 
 static void all_eval_cmp_tests(void) {
@@ -1040,7 +1040,7 @@ static void all_eval_cmp_tests(void) {
   init();
   truth_table_test3(test_eval_cmp);
   random_tests3(100, test_eval_cmp);
-  cleanup();  
+  cleanup();
 }
 
 static void all_eval_maj_tests(void) {
@@ -1051,7 +1051,7 @@ static void all_eval_maj_tests(void) {
   init();
   truth_table_test3(test_eval_maj3);
   random_tests3(100, test_eval_maj3);
-  cleanup();  
+  cleanup();
 }
 
 

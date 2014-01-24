@@ -63,7 +63,7 @@ static th_smt_interface_t null_theory_smt = {
   NULL,            // expand explanation
   NULL,            // select polarity
   NULL,            // delete_atom
-  NULL,            // end_deletion 
+  NULL,            // end_deletion
 };
 
 
@@ -143,7 +143,7 @@ static void print_litarray_as_uint32(uint32_t n, literal_t *a) {
     }
   }
 
-  printf("%"PRIu32, x);  
+  printf("%"PRIu32, x);
 }
 
 
@@ -399,7 +399,7 @@ static void test_bvshl_const(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n\n");
 
   remap_table_free_array(u);
-  
+
 }
 
 
@@ -474,7 +474,7 @@ static void test_bvlshr_const(uint32_t n, literal_t *a, literal_t *b) {
   print_pseudo_vector_as_uint32(n, u);
   printf("\n\n");
 
-  remap_table_free_array(u);  
+  remap_table_free_array(u);
 }
 
 
@@ -550,7 +550,7 @@ static void test_bvashr_const(uint32_t n, literal_t *a, literal_t *b) {
   print_pseudo_vector_as_int32(n, u);
   printf("\n\n");
 
-  remap_table_free_array(u);  
+  remap_table_free_array(u);
 }
 
 
@@ -577,7 +577,7 @@ static void base_test4(void (*f)(uint32_t, literal_t *, literal_t *)) {
     b[i] = false_literal;
   }
   f(4, a, b);
-  
+
   for (i=0; i<4; i++) {
     a[i] = true_literal;
     b[i] = fresh_lit();
@@ -594,7 +594,7 @@ static void base_test4(void (*f)(uint32_t, literal_t *, literal_t *)) {
     a[i] = fresh_lit();
     b[i] = a[i];
   }
-  f(4, a, b); 
+  f(4, a, b);
 
   for (i=0; i<4; i++) {
     a[i] = false_literal;

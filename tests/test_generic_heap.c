@@ -35,7 +35,7 @@ static void add_random(generic_heap_t *heap, uint32_t n) {
   k = 0;
   for (i=0; i<n; i++) {
     x = random() % 100;
-    generic_heap_add(heap, x);    
+    generic_heap_add(heap, x);
     printf(" %2"PRId32, x);
     k ++;
     if (k >= 20) {
@@ -59,7 +59,7 @@ static void remove_random(generic_heap_t *heap, uint32_t n) {
   k = 0;
   for (i=0; i<n; i++) {
     x = random() % 100;
-    generic_heap_remove(heap, x);    
+    generic_heap_remove(heap, x);
     printf(" %2"PRId32, x);
     k ++;
     if (k >= 20) {

@@ -29,7 +29,7 @@ void init_pprod_table(pprod_table_t *table, uint32_t n) {
   table->free_idx = -1;
 
   init_int_htbl(&table->htbl, 0); // default size
-  init_pp_buffer(&table->buffer, 10);  
+  init_pp_buffer(&table->buffer, 10);
 }
 
 
@@ -165,7 +165,7 @@ static bool eq_pprod(pprod_hobj_t *o, int32_t i) {
   pprod_t *p;
   uint32_t n;
 
-  table = o->tbl; 
+  table = o->tbl;
   assert(0 <= i && i < table->nelems && !has_int_tag(table->data[i]));
 
   p = table->data[i];
@@ -277,7 +277,7 @@ pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d) {
   pp_buffer_set_varexp(b, x, d);
   pp_buffer_normalize(b);
 
-  return pprod_from_array(table, b->prod, b->len);  
+  return pprod_from_array(table, b->prod, b->len);
 }
 
 
@@ -298,8 +298,8 @@ static int32_t find_pprod_id(pprod_table_t *table, pprod_t *p) {
 
 /*
  * Remove p from the table and free the corresponding pprod_t object.
- * - p must be present in the table (and must be distinct from end_pp, 
- *   empty_pp, or any tagged variable). 
+ * - p must be present in the table (and must be distinct from end_pp,
+ *   empty_pp, or any tagged variable).
  */
 void delete_pprod(pprod_table_t *table, pprod_t *p) {
   int32_t i;
@@ -329,8 +329,8 @@ void delete_pprod(pprod_table_t *table, pprod_t *p) {
 
 /*
  * Set the garbage collection mark for p
- * - p must be present in the table (and must be distinct from end_pp, 
- *   empty_pp, or any tagged variable). 
+ * - p must be present in the table (and must be distinct from end_pp,
+ *   empty_pp, or any tagged variable).
  * - once p is marked it will not be deleted on the next call to pprod_table_gc
  */
 void pprod_table_set_gc_mark(pprod_table_t *table, pprod_t *p) {
@@ -352,7 +352,7 @@ void pprod_table_gc(pprod_table_t *table) {
 
   n = table->nelems;
   for (i=0; i<n; i++) {
-    if (! tst_bit(table->mark, i)) { 
+    if (! tst_bit(table->mark, i)) {
       // i is not marked
       p = table->data[i];
       if (!has_int_tag(p)) {

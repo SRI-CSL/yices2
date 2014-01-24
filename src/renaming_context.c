@@ -50,7 +50,7 @@ void renaming_ctx_push_vars(renaming_ctx_t *ctx, uint32_t n, term_t *v) {
   for (i=0; i<n; i++) {
     x = v[i];
     y = get_var_renaming(&ctx->rename, x); // x is now renamed to y
-    subst_ctx_push_binding(&ctx->subst, x, y); 
+    subst_ctx_push_binding(&ctx->subst, x, y);
   }
 
   ctx->hash = NULL;

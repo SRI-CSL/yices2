@@ -262,7 +262,7 @@ int main(void) {
     fflush(stdout);
     abort();
   }
-  
+
   mtbl_pop(&merge);
   printf("\n=== Back to level 0 ===\n");
   show_roots(&merge, RANGE);

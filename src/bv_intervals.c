@@ -1,5 +1,5 @@
 /*
- * INTERVALS OF BIT-VECTOR VALUES 
+ * INTERVALS OF BIT-VECTOR VALUES
  */
 
 #include "memalloc.h"
@@ -87,7 +87,7 @@ static void bv_aux_addmul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uin
 
 
 /*
- * Same thing for a - b * c 
+ * Same thing for a - b * c
  */
 static void bv_aux_submul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t n) {
   uint32_t n2, w;
@@ -209,12 +209,12 @@ void delete_bv_interval(bv_interval_t *intv) {
  * Make sure array low/high are large enough to store n words
  * - n must be no more than BV_INTERVAL_MAX_SIZE
  */
-static void bv_interval_set_size(bv_interval_t *intv, uint32_t n) {  
+static void bv_interval_set_size(bv_interval_t *intv, uint32_t n) {
   if (intv->size < n) {
     if (n < BV_INTERVAL_DEF_SIZE) {
       n = BV_INTERVAL_DEF_SIZE;
     }
-    assert(n <= BV_INTERVAL_MAX_SIZE); 
+    assert(n <= BV_INTERVAL_MAX_SIZE);
     intv->low = (uint32_t *) safe_realloc(intv->low, n * sizeof(uint32_t));
     intv->high = (uint32_t *) safe_realloc(intv->high, n * sizeof(uint32_t));
     intv->size = n;
@@ -234,7 +234,7 @@ void resize_bv_interval(bv_interval_t *intv, uint32_t n) {
   intv->nbits = n;
   intv->width = w;
 }
- 
+
 
 /*
  * Initialize intv to [x, x]
@@ -266,7 +266,7 @@ void bv_zero_interval(bv_interval_t *intv, uint32_t n) {
 /*
  * Initialize to the interval [x, y] (unsigned)
  * - n must be positive
- * - x and y must be normalized modulo 2^n  
+ * - x and y must be normalized modulo 2^n
  * - x <= y must hold
  * - the arrays are resized if necessary
  */
@@ -283,12 +283,12 @@ void bv_interval_set_u(bv_interval_t *intv, uint32_t *x, uint32_t *y, uint32_t n
 /*
  * Initialize to the interval [x, y] (signed)
  * - n must be positive
- * - x and y must be normalized modulo 2^n  
+ * - x and y must be normalized modulo 2^n
  * - x <= y must hold (2s'complement comparison)
  * - the arrays are resized if necessary
  */
 void bv_interval_set_s(bv_interval_t *intv, uint32_t *x, uint32_t *y, uint32_t n) {
-  assert(n > 0 && bvconst_is_normalized(x, n) && bvconst_is_normalized(y, n) && 
+  assert(n > 0 && bvconst_is_normalized(x, n) && bvconst_is_normalized(y, n) &&
          bvconst_sle(x, y, n));
 
   resize_bv_interval(intv, n);
@@ -330,7 +330,7 @@ void bv_triv_interval_s(bv_interval_t *intv, uint32_t n) {
 
 /*
  * Compute the interval that encloses the set S = [a.low, a.high] + [l, u]
- * - n = bitsize 
+ * - n = bitsize
  * - l and u must be normalized modulo 2^n
  * - a must also be normalized and have nbits = n
  */
@@ -407,13 +407,13 @@ static void bv_interval_add_s_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
   bvconst_add(a->high, w, u);
   bvconst_normalize(a->low, n);
   bvconst_normalize(a->high, n);
-  
+
   if ((add_underflow(a->low, l, s_low, n) && !add_underflow(a->high, u, s_high, n))
       || (add_overflow(a->high, u, s_high, n) && !add_overflow(a->low, l, s_low, n))) {
     bvconst_set_min_signed(a->low, n);
     bvconst_set_max_signed(a->high, n);
   }
-  
+
   assert(bv_interval_is_normalized(a) && bvconst_sle(a->low, a->high, n));
 }
 
@@ -500,12 +500,12 @@ static void bv_interval_sub_s_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
   bvconst_normalize(a->low, n);
   bvconst_normalize(a->high, n);
 
-  if ((sub_underflow(a->low, u, s_low, n) && !sub_underflow(a->high, l, s_high, n)) 
+  if ((sub_underflow(a->low, u, s_low, n) && !sub_underflow(a->high, l, s_high, n))
       || (sub_overflow(a->high, l, s_high, n) && !sub_overflow(a->low, u, s_low, n))) {
     bvconst_set_min_signed(a->low, n);
     bvconst_set_max_signed(a->high, n);
   }
-  
+
   assert(bv_interval_is_normalized(a) && bvconst_sle(a->low, a->high, n));
 }
 
@@ -558,13 +558,13 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_u_core(a, b_low, b_high, n);
   } else {
-    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough    
+    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough
 
     if (!bvconst_tst_bit(c, n-1)) {
       // c is less than 2^(n-1)
       bv_aux_addmul_u(aux, a->high, b_high, c, n);
       bv_aux_swap_ab(aux);
-      bv_aux_addmul_u(aux, a->low, b_low, c, n); 
+      bv_aux_addmul_u(aux, a->low, b_low, c, n);
       bv_aux_shift_a_to_c(aux, n);
       bv_aux_shift_b_to_d(aux, n);
 
@@ -654,7 +654,7 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_s_core(a, b_low, b_high, n);
   } else {
-    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough    
+    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough
 
     if (!bvconst_tst_bit(c, n-1)) {
       // c is non-negative
@@ -665,7 +665,7 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
       bv_aux_shift_b_to_d(aux, n);
 
       /*
-       * Here we have: 
+       * Here we have:
        * remainder of (a->low + c * b->low) divided by 2^n in buffer_a
        * remainder of (a->high + c * b->high) divided by 2^n in buffer_b
        * quotient of (a->low + c * b->low) divided by 2^n in buffer_c
@@ -694,7 +694,7 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
       bvconst_set(a->high, w, aux->buffer_b);
     } else {
       bvconst_add_one(aux->buffer_c, w);
-      if (bvconst_eq(aux->buffer_c, aux->buffer_d, w) && 
+      if (bvconst_eq(aux->buffer_c, aux->buffer_d, w) &&
           bvconst_tst_bit(aux->buffer_a, n-1)  && !bvconst_tst_bit(aux->buffer_b, n-1)) {
         // quotient for low = quotient for high -1
         // remainder for low is negative

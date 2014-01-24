@@ -40,7 +40,7 @@
 /*
  * New exception codes
  * - in SMT2, we distinguish between eight types of symbols
- * 
+ *
  *   sort name (e.g., Real)
  *   indexed sort name (e.g.,  BitVec)
  *   sort constructor (e.g., Array)
@@ -51,7 +51,7 @@
  *   function name (e.g., distinct)
  *   indexed function name (e.g., sign-extend in ((_ sign-extend 3) x)
  *
- * - we raise different exceptions when a built-in symbol is misused and 
+ * - we raise different exceptions when a built-in symbol is misused and
  *   when a symbol is undefined.
  *
  * Other exceptions:
@@ -85,7 +85,7 @@ enum smt2_errors {
   SMT2_INVALID_IDX_BV,                     // raised by (_ bv0xxx ...)
 
   SMT2_NAMED_TERM_NOT_GROUND,              // bad term in (! t :named xxxx)
-  SMT2_NAMED_SYMBOL_REUSED,                // bad name in (! t :named xxxx)  
+  SMT2_NAMED_SYMBOL_REUSED,                // bad name in (! t :named xxxx)
 };
 
 
@@ -95,7 +95,7 @@ enum smt2_errors {
 /*
  * New opcodes:
  * - all top-level commands for SMT-LIB 2
- * - special constructors for indexed sort symbols, 
+ * - special constructors for indexed sort symbols,
  *   indexed term symbols, and terms with sorts
  * - constructor for attribute list
  * - array theory sort and functions
@@ -142,7 +142,7 @@ enum smt2_opcodes {
   SMT2_SORTED_INDEXED_TERM,             // [sorted-indexed-term <symbol> <numeral> ... <numeral> <sort> ]
   SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
   SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
-  SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]  
+  SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
   // not implemented yet
   SMT2_MK_DIV,
   SMT2_MK_MOD,
@@ -175,7 +175,7 @@ typedef struct named_term_s {
 typedef struct named_term_stack_s {
   named_term_t *data;
   uint32_t top;
-  uint32_t size;  
+  uint32_t size;
 } named_term_stack_t;
 
 #define DEF_NAMED_TERM_STACK_SIZE 256
@@ -184,7 +184,7 @@ typedef struct named_term_stack_s {
 
 /*
  * Stack to deal with push and pop.
- * SMT2 push/pop is complicated 
+ * SMT2 push/pop is complicated
  * - push and pop take a numerical argument. In theory,
  *   one can write stuff like:
  *     (push 102898)
@@ -197,16 +197,16 @@ typedef struct named_term_stack_s {
  *   enable declarations to have global scope).
  *
  * To support these features:
- * - we use a stack that keeps tracks of (push n) and of 
+ * - we use a stack that keeps tracks of (push n) and of
  *   term/type/macro names.
- * - we convert (push n) when n > 1 to (n-1) no ops followed by a single 
+ * - we convert (push n) when n > 1 to (n-1) no ops followed by a single
  *   real (push) on the context.
  *
  * We use three name_stacks to store symbols (for terms, types, and macros).
  * For each (push n): we store
  * - multiplicity = n
  * - term_dcls = number of term declarations so far
- * - type_dcls = number of type declarations 
+ * - type_dcls = number of type declarations
  * - macro_dcls = number of type macro declarations
  * - named_bools = number of named Booleans
  * - named_asserts = number of named assertions
@@ -285,7 +285,7 @@ typedef struct smt2_cmd_stats_s {
  *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
  * The solver is initialized in incremental node by calling init_smt2(false, ..).
- * In this mode, push/pop are supported. Some preprocessing is disabled 
+ * In this mode, push/pop are supported. Some preprocessing is disabled
  * (e.g., symmetry breaking).
  *
  * In incremental mode, we must accept commands such as (assert) and
@@ -294,7 +294,7 @@ typedef struct smt2_cmd_stats_s {
  * (i.e., silently ignore them). Except that to correctly match the (push)
  * and (pop), we keep track of the number of calls to (push) after unsat.
  * This is kept in the push_after_unsat counter.
- * 
+ *
  * NOTE: all solvers I've tried use :print-success false by default
  * (even though the standard says otherwise).
  *
@@ -306,10 +306,10 @@ typedef struct smt2_cmd_stats_s {
  *  ( get-value ( <term_1> ... <term_n> ))
  * so that it can pretty print <term_1> to <term_n>.
  * To ensure this, the parser must feed the smt2 tokens to the queue
- * as soon as it sees the 'get-value' command. 
+ * as soon as it sees the 'get-value' command.
  */
 typedef struct smt2_globals_s {
-  // logic: initially SMT_UNKNOWN 
+  // logic: initially SMT_UNKNOWN
   smt_logic_t logic_code;
   bool benchmark_mode;
   bool global_decls;
@@ -323,7 +323,7 @@ typedef struct smt2_globals_s {
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
-  
+
   // names of the output/diagnostic channels
   char *out_name;             // default = NULL (means "stdout")
   char *err_name;             // default = NULL (means "stderr")
@@ -373,11 +373,11 @@ typedef struct smt2_globals_s {
    * Support for delayed assertions
    * - assertions = a set of assertions
    * - trivially_unsat: true if one of the assertions simplifies to false
-   * - frozen: set to true after the first call to check_sat if 
+   * - frozen: set to true after the first call to check_sat if
    *   benchmark_mode is true
    */
   ivector_t assertions;
-  bool trivially_unsat; 
+  bool trivially_unsat;
   bool frozen;
 } smt2_globals_t;
 
@@ -406,7 +406,7 @@ extern void smt2_set_verbosity(uint32_t k);
 
 
 /*
- * Show all statistics on the 
+ * Show all statistics on the
  * - same effect as (get-info :all-statistics)
  * - must be called after init_smt2
  */
@@ -461,7 +461,7 @@ extern void smt2_get_assertions(void);
 
 
 /*
- * Show the truth value of named Boolean terms 
+ * Show the truth value of named Boolean terms
  * (i.e., those that have a :named attribute)
  */
 extern void smt2_get_assignment(void);
@@ -527,7 +527,7 @@ extern void smt2_set_logic(const char *name);
 
 
 /*
- * Push 
+ * Push
  * - n = number of scopes to push
  * - if n = 0, nothing should be done
  */
@@ -585,7 +585,7 @@ extern void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t b
  * - tau = array of n types
  *
  * If n = 1, this creates an uninterpreted constant of type tau[0]
- * Otherwise, this creates an uninterpreted function of type tau[0] x ... x tau[n-1] to tau[n] 
+ * Otherwise, this creates an uninterpreted function of type tau[0] x ... x tau[n-1] to tau[n]
  */
 extern void smt2_declare_fun(const char *name, uint32_t n, type_t *tau);
 
@@ -655,10 +655,10 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
 
 /*
  * Syntax error
- * - lex = lexer 
+ * - lex = lexer
  * - expected_token = either an smt2_token or -1 or -2
  *
- * lex is as follows: 
+ * lex is as follows:
  * - current_token(lex) = token that caused the error
  * - current_token_value(lex) = corresponding string
  * - current_token_length(lex) = length of that string
@@ -675,7 +675,7 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
  *
- * Error location in the input file is given by 
+ * Error location in the input file is given by
  * - tstack->error_loc.line
  * - tstack->error_loc.column
  *

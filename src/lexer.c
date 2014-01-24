@@ -32,15 +32,15 @@ static void init_lexer(lexer_t *lex) {
  *
  * Return -1 if the file can't be opened, 0 otherwise.
  * (lex cannot be used if the result is -1)
- * 
+ *
  * If result = 0,
- * - string buffer is allocated, 
+ * - string buffer is allocated,
  * - the reader is initialized
  * - token is set to -1
  */
 int32_t init_file_lexer(lexer_t *lex, const char *filename) {
   int32_t code;
-  
+
   code = init_file_reader(&lex->reader, filename);
   if (code >= 0) {
     init_lexer(lex);
@@ -76,7 +76,7 @@ void reset_string_lexer(lexer_t *lex, const char *data) {
   lex->token = -1;
   lex->tk_pos = 0;
   lex->tk_line = 0;
-  lex->tk_column = 0;  
+  lex->tk_column = 0;
   string_buffer_reset(lex->buffer);
 }
 
@@ -101,7 +101,7 @@ int32_t init_nested_lexer(lexer_t *lex, const char *filename, lexer_t *parent) {
     lex->buffer = NULL;
     lex->next = NULL;
     return code;
-  } 
+  }
 
   string_buffer_reset(parent->buffer);
   lex->buffer = parent->buffer;
@@ -154,7 +154,7 @@ void close_lexer_only(lexer_t *lex) {
       delete_string_buffer(lex->buffer);
       safe_free(lex->buffer);
     }
-  }  
+  }
 }
 
 

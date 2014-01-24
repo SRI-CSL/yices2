@@ -138,7 +138,7 @@ static void test_config_for_logic(ctx_config_t *config, const char *name, int32_
   code = yices_default_config_for_logic(config, name);
   if (code >= 0) {
     printf("ok\n");
-    show_config(config);    
+    show_config(config);
   } else {
     printf("error\n");
     yices_print_error(stdout);
@@ -157,7 +157,7 @@ static void test_config_for_logic(ctx_config_t *config, const char *name, int32_
       fflush(stdout);
       exit(1);
     }
-  }  
+  }
 
   printf("\n");
   fflush(stdout);
@@ -284,7 +284,7 @@ int main(void) {
 
   yices_free_config(c2);
   yices_free_config(c1);
-  
+
   yices_exit();
 
   return 0;

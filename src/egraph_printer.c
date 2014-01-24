@@ -23,7 +23,7 @@
 
 /*
  * The name table can be setup for a single context, after internalization.
- * The table keeps track of the mappings from solver objects to the name 
+ * The table keeps track of the mappings from solver objects to the name
  * of the corresponding term in the global term table.
  */
 static uint32_t name_size = 0;
@@ -36,7 +36,7 @@ static const char * const etype2string[] = {
 };
 
 static const char * const etype2theory[] = {
-  "arith", "ariht", "bv", "fun", "bool", "tuple", "none", "<invalid etype>",  
+  "arith", "ariht", "bv", "fun", "bool", "tuple", "none", "<invalid etype>",
 };
 
 static const char * const cmpkind2string[] = {
@@ -67,7 +67,7 @@ void print_theory_id(FILE *f, etype_t tau) {
   if ((int) tau < 0 || tau > NUM_ETYPES) {
     tau = NUM_ETYPES;
   }
-  fputs(etype2theory[tau], f);  
+  fputs(etype2theory[tau], f);
 }
 
 
@@ -216,7 +216,7 @@ void print_composite(FILE *f, composite_t *c) {
   case COMPOSITE_LAMBDA:
     print_kind(f, COMPOSITE_LAMBDA);
     fprintf(f, "[%"PRId32"] ", c->child[2]); // print the lambda tag
-    print_occurrence(f, c->child[0]);    
+    print_occurrence(f, c->child[0]);
     break;
 
   default:
@@ -283,7 +283,7 @@ void print_parents_details(FILE *f, use_vector_t *v) {
       fputc('\n', f);
     } else if (marked_entry(p)) {
       fputs("  ", f);
-      print_composite(f, unmark_entry(p));      
+      print_composite(f, unmark_entry(p));
       fputs(" [hidden]\n", f);
     }
   }
@@ -347,7 +347,7 @@ static void print_th_diseq_array(FILE *f, diseq_pre_expl_t *a, uint32_t n) {
     i ++;
     if (i >= n) break;
     fputc(' ', f);
-  }  
+  }
 }
 
 void print_theory_explanation(FILE *f, th_explanation_t *e) {
@@ -424,7 +424,7 @@ void print_eterm_def(FILE *f, egraph_t *egraph, eterm_t t) {
 #if 0
   x = egraph_term_base_thvar(egraph, t);
   if (x != null_thvar) {
-    fputs("   thvar: ", f);    
+    fputs("   thvar: ", f);
     print_thvar(f, x);
     tau = egraph_term_type(egraph, t);
     fputs(", ", f);
@@ -499,7 +499,7 @@ void print_class_details(FILE *f, egraph_t *egraph, class_t c) {
   fputs("dmask: ", f);
   print_dmask(f, egraph_class_dmask(egraph, c));
   fputc('\n', f);
-  
+
   fputs("type: ", f);
   print_etype(f, egraph_class_type(egraph, c));
   fputc('\n', f);
@@ -558,7 +558,7 @@ void print_parents_of_term(FILE *f, egraph_t *egraph, eterm_t t) {
 
 
 /*
- * Egraph atom 
+ * Egraph atom
  */
 void print_egraph_atom(FILE *f, egraph_t *egraph, atom_t *atom) {
   fputc('[', f);
@@ -843,14 +843,14 @@ void print_egraph_congruence_roots(FILE *f, egraph_t *egraph) {
   collect_congruence_roots(&egraph->ctable, &v);
   n = v.size;
   if (n > 0) {
-    fputs("--- Congruence roots ---\n", f);    
+    fputs("--- Congruence roots ---\n", f);
     for (i=0; i<n; i++) {
       print_congruence_root(f, v.data[i]);
     }
   } else {
     fputs("--- Empty congruence table ---\n", f);
   }
-  
+
   delete_pvector(&v);
 }
 

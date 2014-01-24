@@ -174,7 +174,7 @@ ptr_hmap_pair_t *ptr_hmap_find(ptr_hmap_t *hmap, int32_t k) {
   assert(k >= 0);
 
   mask = hmap->size - 1;
-  j = hash_key(k) & mask;  
+  j = hash_key(k) & mask;
   for (;;) {
     d = hmap->data + j;
     if (d->key == k) return d;

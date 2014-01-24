@@ -149,7 +149,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       tstack_push_op(tstack, SMT2_POP, &loc);
       state = c3;
       goto loop;
-      
+
     case get_option_next_goto_c4:
       tstack_push_op(tstack, SMT2_GET_OPTION, &loc);
       state = c4;
@@ -230,7 +230,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = r0;
       goto loop;
 
-    case numeral_next_goto_r0: 
+    case numeral_next_goto_r0:
       tstack_push_rational(tstack, tkval(lex), &loc);
       state = r0;
       goto loop;
@@ -255,7 +255,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
         goto the_end;
       }
       goto loop;
-     
+
     case push_r0_goto_a0:
       parser_push_state(stack, r0);
       state = a0;
@@ -376,7 +376,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
         goto the_end;
       }
       goto loop;
-      
+
     case hexadecimal_next_return:
       // skip the prefix '#x'
       assert(tklen(lex) > 2);
@@ -386,7 +386,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
         goto the_end;
       }
       goto loop;
-     
+
     case binary_next_return:
       // skip the prefix '#b'
       assert(tklen(lex) > 2);
@@ -450,21 +450,21 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case next_goto_s2:
       state = s2;
       goto loop;
-     
+
     case next_goto_s5:
       state = s5;
       goto loop;
-     
+
     case symbol_next_push_s10_goto_s0:
       // sort constructor in ( <symbol> <sort> ... <sort> )
       tstack_push_sort_constructor(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, s10);
       state = s0;
       goto loop;
-     
+
     case symbol_next_goto_s3:
       // indexed sort in (_ <symbol> <idx> .. <idx> )
-      tstack_push_idx_sort(tstack, tkval(lex), tklen(lex), &loc);      
+      tstack_push_idx_sort(tstack, tkval(lex), tklen(lex), &loc);
       state = s3;
       goto loop;
 
@@ -580,7 +580,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case next_goto_t2e:
       tstack_eval(tstack); // eval the BIND
-      state = t2e;      
+      state = t2e;
       goto loop;
 
     case next_push_r0_goto_t0:
@@ -610,7 +610,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case check_keyword_then_branch:
-      // in (! <term> .. <keyword> <attribute-value> ...) 
+      // in (! <term> .. <keyword> <attribute-value> ...)
       kw = smt2_string_to_keyword(tkval(lex), tklen(lex));
       if (kw == SMT2_KW_NAMED) {
 	tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
@@ -623,14 +623,14 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
         state = t4b;
       }
       goto loop;
-      
+
     case push_t4c_goto_a0:
       parser_push_state(stack, t4c);
       state = a0;
       goto skip_token;
-     
+
     case symbol_next_goto_t4c:
-      // <symbol> as :named attribute 
+      // <symbol> as :named attribute
       // in (! <term> ... :named <symbol> ...)
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = t4c;
@@ -680,7 +680,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case next_goto_t6a:
-      // ((as 
+      // ((as
       saved_loc = loc;
       state = t6a;
       goto loop;
@@ -721,7 +721,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       parser_push_state(stack, t6g);
       state = s0;
       goto loop;
-      
+
     case next_push_t8a_goto_t0:
       parser_push_state(stack, t8a);
       state = t0;
@@ -790,7 +790,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       smt2_syntax_error(lex, -1);
       goto cleanup;
     }
-   
+
   } else {
     // exception from term_stack
     smt2_tstack_error(tstack, exception);

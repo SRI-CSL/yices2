@@ -11,7 +11,7 @@
  * - coefficients are stored in 64bit unsigned integers
  *
  * In normal form, polynomials have the following properties:
- * - the coefficients are all reduced modulo 2^n 
+ * - the coefficients are all reduced modulo 2^n
  *   and are all non zero
  * - the monomials are stored in deg-lex order: lower degree
  *   monomials appear first; monomials of equal degree are
@@ -57,7 +57,7 @@ typedef struct bvmlist64_s {
 typedef struct bvarith64_buffer_s {
   uint32_t nterms;        // length of the list (excluding the end marker)
   uint32_t bitsize;
-  bvmlist64_t *list;      // start of the list 
+  bvmlist64_t *list;      // start of the list
   object_store_t *store;  // for allocation of list elements
   pprod_table_t *ptbl;    // for creation of power products
 } bvarith64_buffer_t;
@@ -103,7 +103,7 @@ extern void delete_bvarith64_buffer(bvarith64_buffer_t *b);
 /*
  * Prepare b for a polynomial of n bits
  * - n must be positive and less than 65
- * - this clears the current content of b and 
+ * - this clears the current content of b and
  *   sets b to the 0 polynomial of n bits
  */
 extern void bvarith64_buffer_prepare(bvarith64_buffer_t *b, uint32_t n);
@@ -209,13 +209,13 @@ extern bool bvarith64_buffer_equal(bvarith64_buffer_t *b1, bvarith64_buffer_t *b
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
- * power-product table (i.e., either r is empty_pp, or 
+ * The power product r must be defined in b's internal
+ * power-product table (i.e., either r is empty_pp, or
  * r is a tagged variable, or r occurs in b->ptbl).
  *
  * For operations that have a bitvector constant a as an argument,
  * the constant a must have the same bitsize as b.
- * 
+ *
  * Some operations use one or two other buffers b1 and b2.  In such
  * cases, b, b1, and b2 must all have the same power-product table
  * and must all have the same bitsize.
@@ -545,9 +545,9 @@ static inline void bvarith64_buffer_sub_buffer_times_buffer(bvarith64_buffer_t *
  ************************************/
 
 /*
- * A bit-vector polynomial is an array of monomials of the form 
- * (coeff, index) where indices are signed integers. Operations 
- * between buffers and polynomials require a conversion of 
+ * A bit-vector polynomial is an array of monomials of the form
+ * (coeff, index) where indices are signed integers. Operations
+ * between buffers and polynomials require a conversion of
  * the integer indices used by monomials to power products used by buffers.
  *
  * All operations below take three arguments:
@@ -558,7 +558,7 @@ static inline void bvarith64_buffer_sub_buffer_times_buffer(bvarith64_buffer_t *
  *   of x_i to a power product.
  *
  * All operations are in place operations on the first argument b
- * (i.e., all modify the buffer). There are two requirements 
+ * (i.e., all modify the buffer). There are two requirements
  * on mono and pp:
  * - poly must be terminated by and end-marker (var = max_idx).
  * - pp must be sorted in the deg-lex ordering and have at least
@@ -595,7 +595,7 @@ extern void bvarith64_buffer_sub_const_times_bvpoly(bvarith64_buffer_t *b, bvpol
 /*
  * Add a * r * poly to b
  */
-extern void bvarith64_buffer_add_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, 
+extern void bvarith64_buffer_add_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly,
                                                    pprod_t **pp, uint64_t a, pprod_t *r);
 
 
@@ -616,7 +616,7 @@ extern void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly,
  * Multiply b by poly ^ d
  * - use aux as an auxiliary buffer (aux must be distinct from b)
  */
-extern void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, 
+extern void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp,
                                               uint32_t d, bvarith64_buffer_t *aux);
 
 
@@ -642,7 +642,7 @@ extern void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t 
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_bvpoly64 defined in bv64_polynomials.c.
  * If P(b, v) = p0 then hash_bvarith64_buffer(b, v) = hash_bvpoly64(p0).
  */
@@ -748,7 +748,7 @@ static inline void bvarith64_buffer_sub_var_times_buffer(bvarith64_buffer_t *b, 
 /*
  * Add a * x * b1 to b
  */
-static inline void 
+static inline void
 bvarith64_buffer_add_varmono_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, uint64_t a, int32_t x) {
   bvarith64_buffer_add_mono_times_buffer(b, b1, a, var_pp(x));
 }

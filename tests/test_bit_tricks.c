@@ -9,7 +9,7 @@
 
 /*
  * Get number of trailing 0-bits in x for non-zero x
- */ 
+ */
 static inline uint32_t naive_ctz(uint32_t x) {
   uint32_t m, i;
 
@@ -142,7 +142,7 @@ int main() {
   for (i=1; i<32; i++) {
     n = 1<<i;
     printf("binlog(%"PRIu32") = %"PRIu32"\n", n, binlog(n));
-    printf("binlog(%"PRIu32") = %"PRIu32"\n", n+1, binlog(n+1));    
+    printf("binlog(%"PRIu32") = %"PRIu32"\n", n+1, binlog(n+1));
   }
   printf("\n");
 
@@ -153,7 +153,7 @@ int main() {
     n *= 3;
   }
   printf("\n");
-  
+
   x = 5;
   for (i=0; i<100; i++) {
     printf("naive_popcount(%"PRIu64") = %"PRIu32"\n", x, naive_popcount64(x));
@@ -182,7 +182,7 @@ int main() {
   }
   printf("\n");
   fflush(stdout);
-  
+
   i = 0;
   c = get_cpu_time();
   for (n=0; n<N; n++) {

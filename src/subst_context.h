@@ -124,11 +124,11 @@ extern int32_t subst_ctx_lookup(subst_ctx_t *ctx, int32_t x);
 
 
 /*
- * Hash consing: stores the current context (ignoring the 
+ * Hash consing: stores the current context (ignoring the
  * masked bindings) into an integer array, then return a copy
  * of this array (using hash-consing).
- * - the array is constructed by storing the bindings as 
- *   pairs [variable, term], sorted in order of 
+ * - the array is constructed by storing the bindings as
+ *   pairs [variable, term], sorted in order of
  *   increasing variable index.
  * - two equivalent contexts then have the same representation
  *

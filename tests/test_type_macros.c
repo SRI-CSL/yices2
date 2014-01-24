@@ -70,7 +70,7 @@ static void print_macro_instance(FILE *f, type_table_t *types, tuple_hmap_rec_t 
 /*
  * Display all instances of macro id
  */
-static void show_macro_instances(FILE *f, type_table_t *types, int32_t id) {  
+static void show_macro_instances(FILE *f, type_table_t *types, int32_t id) {
   type_mtbl_t *mtbl;
   char *name;
   tuple_hmap_t *cache;
@@ -315,7 +315,7 @@ int main(void) {
   tau = int_type(&types);
   tau = binary_ftype(tau, tau, var[7]);
   test_macro("matrix", 1, var+7, tau);
-  
+
   printf("\n====== TYPES ========\n");
   print_type_table(stdout, &types);
   printf("\n===== MACROS ========\n");

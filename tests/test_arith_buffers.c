@@ -58,7 +58,7 @@ static void print_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool first) {
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "- ");
     } else {
       fprintf(f, " - ");
     }
@@ -144,7 +144,7 @@ static void test_buffer(arith_buffer_t *b) {
   }
 
   for (x=0; x<5; x++) {
-    printf("  degree in x_%"PRId32": %"PRIu32"\n", 
+    printf("  degree in x_%"PRId32": %"PRIu32"\n",
 	   x, arith_buffer_var_degree(b, x));
   }
   printf("---\n");
@@ -211,7 +211,7 @@ static void test1(void) {
   arith_buffer_add_var(&buffer, 2);
   arith_buffer_sub_var(&buffer, 0);
   arith_buffer_add_var(&buffer, 1);
-  arith_buffer_add_var(&buffer, 0);  
+  arith_buffer_add_var(&buffer, 0);
   arith_buffer_normalize(&buffer);
   test_buffer(&buffer);
 
@@ -236,7 +236,7 @@ static void test1(void) {
   arith_buffer_mul_varmono(&buffer, &q0, 4);
   arith_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Multiplying by x_1^2\n");
   arith_buffer_mul_var(&buffer, 1);
   arith_buffer_mul_var(&buffer, 1);
@@ -262,17 +262,17 @@ static void test1(void) {
   arith_buffer_square(&buffer);
   arith_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   arith_buffer_square(&buffer);
   arith_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   arith_buffer_square(&buffer);
   arith_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   q_clear(&q0);
   delete_arith_buffer(&buffer);
 }
@@ -299,7 +299,7 @@ static void init_test2(void) {
   for (i=0; i<8; i++) {
     init_arith_buffer(aux + i, &prod_table, &store);
   }
-  
+
   arith_buffer_add_var(&aux[0], 3); // x_3
 
   q_set32(&q0, 2);
@@ -361,7 +361,7 @@ static void test_ops(arith_buffer_t *b1, arith_buffer_t *b2) {
   }
 
   init_arith_buffer(&b, &prod_table, &store);
-  
+
   arith_buffer_reset(&b);
   arith_buffer_add_buffer(&b, b1);
   arith_buffer_add_buffer(&b, b2);

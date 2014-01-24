@@ -97,7 +97,7 @@ static int32_t eval_lit(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t
 /*
  * Evaluate gate g: return -1 if one of the variables is undefined
  */
-static int32_t eval_bgate(bool_vartable_t *table, int8_t *v, uint32_t n, bgate_t *g) {  
+static int32_t eval_bgate(bool_vartable_t *table, int8_t *v, uint32_t n, bgate_t *g) {
   int32_t aux[3];
   uint32_t i;
 
@@ -109,12 +109,12 @@ static int32_t eval_bgate(bool_vartable_t *table, int8_t *v, uint32_t n, bgate_t
   }
 
   if (aux[0] < 0 || aux[1] < 0 || aux[2] < 0) {
-    return -1; 
+    return -1;
   }
 
   i = (aux[0] << 2) | (aux[1] << 1) | aux[2];
   assert(0 <= i && i < 8);
-  
+
   return (g->ttbl >> i) & 0x01;
 }
 
@@ -159,7 +159,7 @@ static int32_t eval_literal(bool_vartable_t *table, int8_t *v, uint32_t n, liter
 
     case BVAR:
       break;
-      
+
     case BGATE:
       val = eval_bgate(table, v, n, boolvar_gate_desc(table, x));
       break;
@@ -198,7 +198,7 @@ static int32_t eval_or2(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t
   return val1 | val2;
 }
 
-static int32_t eval_or3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+static int32_t eval_or3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1,
 			literal_t l2, literal_t l3) {
   int32_t val1, val2, val3;
 
@@ -226,7 +226,7 @@ static int32_t eval_xor2(bool_vartable_t *table, int8_t *v, uint32_t n, literal_
   return val1 ^ val2;
 }
 
-static int32_t eval_xor3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+static int32_t eval_xor3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1,
 			 literal_t l2, literal_t l3) {
   int32_t val1, val2, val3;
 
@@ -241,7 +241,7 @@ static int32_t eval_xor3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_
   return val1 ^ val2 ^ val3;
 }
 
-static int32_t eval_maj3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+static int32_t eval_maj3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1,
 			 literal_t l2, literal_t l3) {
   int32_t val1, val2, val3;
 
@@ -256,7 +256,7 @@ static int32_t eval_maj3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_
   return (val1 & val2) | (val1 & val3) | (val2 & val3);
 }
 
-static int32_t eval_ite(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+static int32_t eval_ite(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1,
 			literal_t l2, literal_t l3) {
   int32_t val1, val2, val3;
 
@@ -285,7 +285,7 @@ static int32_t eval_and2(bool_vartable_t *table, int8_t *v, uint32_t n, literal_
   return val1 & val2;
 }
 
-static int32_t eval_and3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+static int32_t eval_and3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1,
 			literal_t l2, literal_t l3) {
   int32_t val1, val2, val3;
 
@@ -332,7 +332,7 @@ static void set_lit_val(literal_t l, int32_t v) {
 /*
  * Build assignment defined by l1, l2, and i
  * - i must be between 0 and 3: bit 0 = value of l2, bit 1 = value of l1
- * - special cases: 
+ * - special cases:
  *   if l1 = true or false: bit 1 is ignored
  *   if l2 = true or false: bit 0 is ignored
  *   if l1 = l2 or l1 = not(l2): bit 0 is ignored
@@ -927,7 +927,7 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_or3(table, neg_lit(x), pos_lit(y), pos_lit(z));
 	test_or3(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_or3(table, neg_lit(x), neg_lit(y), pos_lit(z));
-	test_or3(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+	test_or3(table, neg_lit(x), neg_lit(y), neg_lit(z));
 
 	test_xor3(table, pos_lit(x), pos_lit(y), pos_lit(z));
 	test_xor3(table, pos_lit(x), pos_lit(y), neg_lit(z));
@@ -936,7 +936,7 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_xor3(table, neg_lit(x), pos_lit(y), pos_lit(z));
 	test_xor3(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_xor3(table, neg_lit(x), neg_lit(y), pos_lit(z));
-	test_xor3(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+	test_xor3(table, neg_lit(x), neg_lit(y), neg_lit(z));
 
 	test_maj3(table, pos_lit(x), pos_lit(y), pos_lit(z));
 	test_maj3(table, pos_lit(x), pos_lit(y), neg_lit(z));
@@ -945,7 +945,7 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_maj3(table, neg_lit(x), pos_lit(y), pos_lit(z));
 	test_maj3(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_maj3(table, neg_lit(x), neg_lit(y), pos_lit(z));
-	test_maj3(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+	test_maj3(table, neg_lit(x), neg_lit(y), neg_lit(z));
 
 	test_ite(table, pos_lit(x), pos_lit(y), pos_lit(z));
 	test_ite(table, pos_lit(x), pos_lit(y), neg_lit(z));
@@ -954,7 +954,7 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_ite(table, neg_lit(x), pos_lit(y), pos_lit(z));
 	test_ite(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_ite(table, neg_lit(x), neg_lit(y), pos_lit(z));
-	test_ite(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+	test_ite(table, neg_lit(x), neg_lit(y), neg_lit(z));
 
 	test_and3(table, pos_lit(x), pos_lit(y), pos_lit(z));
 	test_and3(table, pos_lit(x), pos_lit(y), neg_lit(z));
@@ -963,13 +963,13 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_and3(table, neg_lit(x), pos_lit(y), pos_lit(z));
 	test_and3(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_and3(table, neg_lit(x), neg_lit(y), pos_lit(z));
-	test_and3(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+	test_and3(table, neg_lit(x), neg_lit(y), neg_lit(z));
 
 	printf("---\n");
       }
     }
   }
-  
+
 }
 
 

@@ -17,23 +17,23 @@
  * - edge 0 is not really an edge. It's used as a mark.
  *
  * Matrix:
- * - for each pair of vertices (x, y), we maintain the distance from x to y and 
+ * - for each pair of vertices (x, y), we maintain the distance from x to y and
  *   edge index M[x,y].id
  * - for each vertex x, M[x, x].id = 0 and M[x, x].dist = 0
  * - if there's no path from x to y, we set M[x, y] = null_edge (-1)
  * - if there's a path from x to y then M[x, y].id is an index between 1 and n-1
  * Invariant: a
- * - if M[x, y].id = i and edge i is from u to v then 
- *   0 <= M[x, u].id < i and 0 <= M[u, y].id < i 
- *          
+ * - if M[x, y].id = i and edge i is from u to v then
+ *   0 <= M[x, u].id < i and 0 <= M[u, y].id < i
+ *
  * - Based on this, we can define the path from x to y represented by M
- *     path(x, y) = 
- *       if x = y then empty-path 
+ *     path(x, y) =
+ *       if x = y then empty-path
  *       else (concat path(x, u)  i path(v, y))
  *    where i = M[x, y].id and that edge is from u to v.
- *  
+ *
  *   this recursion is well-founded by the Main invariant,
- * 
+ *
  *   Then the length of path(x, y) can also be computed recursively:
  *     len(x, y) = if x = y then 0 else len(x, u) + c(i) + len(v, y)
  *   where i = M[x, y].m_edge_id and edge i has cost c(i) and goes from u to v.
@@ -78,7 +78,7 @@
  * The edges in the graph are labeled by a rational
  * constant a/b + an optional infinitesimal delta.
  * The delta is used for strict inequalities:
- * - the constraint x - y <= a/b is encoded by an 
+ * - the constraint x - y <= a/b is encoded by an
  *   edge x ---> y with label a/b
  * - the constraint x - y < a/b is encoded by an
  *   edge x ---> y with label a/b - delta.
@@ -246,7 +246,7 @@ typedef struct rdl_listelem_s {
 
 /*
  * Atom table: current set of atoms have indices between 0 and natoms-1
- * For theory propagation, we maintain a list of free atoms 
+ * For theory propagation, we maintain a list of free atoms
  * (all atoms not assigned a truth value yet)
  * - size = size of the atoms and next array
  * - mark = one bit per atom
@@ -266,12 +266,12 @@ typedef struct rdl_atbl_s {
 /*
  * Atom stack & propagation queue:
  * - for all assigned atom, the queue contains its index + a sign bit
- * - this follows our usual encoding of index+sign in 32bit: 
+ * - this follows our usual encoding of index+sign in 32bit:
  *     sign bit = lowest order bit of data[k]
  *     if sign bit = 0, then atom k is true
  *     if sign bit = 1, then atom k is false
  * - every atom in the stack has its mark bit set to 1 in the atom table
- * - the propagation queue consists of the atoms in 
+ * - the propagation queue consists of the atoms in
  *   data[prop_ptr ... top -1]
  */
 typedef struct rdl_astack_s {
@@ -389,7 +389,7 @@ typedef struct rdl_solver_s {
   uint32_t nvertices;  // number of vertices
   int32_t zero_vertex; // index of the zero vertex (or null)
   rdl_graph_t graph;
-  
+
   /*
    * Atom table and stack
    */
@@ -404,7 +404,7 @@ typedef struct rdl_solver_s {
   /*
    * Push/pop stack
    */
-  rdl_trail_stack_t trail_stack;  
+  rdl_trail_stack_t trail_stack;
 
   /*
    * Auxiliary buffers and data structures
@@ -521,7 +521,7 @@ extern literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, ratio
  * - strict true means  assert (x - y < c)
  *   strict false means assert (x - y <= c)
  *
- * - this adds an edge from x to y with cost c to the graph 
+ * - this adds an edge from x to y with cost c to the graph
  * - if the edge causes a conflict, then solver->unsat_before_search is set to true
  */
 extern void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *c, bool strict);
@@ -568,11 +568,11 @@ extern thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q);
  * Create a variable for a polynomial p, with variables defined by map:
  * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
  *   are arithmetic terms.
- * - map[i] is the theory variable x_i for t_i 
+ * - map[i] is the theory variable x_i for t_i
  *   (with map[0] = null_thvar if t_0 is const_idx)
  * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
  *
- * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial 
+ * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial
  *   (i.e., not of the form x - y + c)
  */
 extern thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map);
@@ -713,7 +713,7 @@ extern bool rdl_assert_atom(rdl_solver_t *solver, void *atom, literal_t l);
 
 /*
  * Propagate: process the assertion queue
- * - return false if a conflict is detected 
+ * - return false if a conflict is detected
  * - return true otherwise.
  */
 extern bool rdl_propagate(rdl_solver_t *solver);
@@ -738,7 +738,7 @@ extern fcheck_code_t rdl_final_check(rdl_solver_t *solver);
 /*
  * Explain why literal l is true.
  * - l is a literal set true by solver in the core (via implied_literal)
- * - expl is the explanation object given to implied_literal, 
+ * - expl is the explanation object given to implied_literal,
  *   (expl is an array of literals terminated by null_literal).
  * - expl must be expanded into a conjunction of literals l_0 ... l_k
  *   such that (l_0 and ... and l_k) implies l

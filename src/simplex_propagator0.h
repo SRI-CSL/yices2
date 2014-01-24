@@ -13,12 +13,12 @@
  *    called in start search after simplify_matrix but before the tableau is constructed
  *    and checked for feasibility
  * 2) simplex_start_propagator
- *    called in start_search after tableau is constructed, feasible, and all initial bounds 
+ *    called in start_search after tableau is constructed, feasible, and all initial bounds
  *    are known
  * 3) simplex_reset_propagator: called in simplex_reset and simplex_reset_tableau
- * 4) simplex_delete_propagator: called in delete_simplex_solver 
- * 5) simplex_do_propagation: called in simplex_propagate if tableau is feasible 
- * 6) simplex_explain_propagation: called in simplex_expand_explanation 
+ * 4) simplex_delete_propagator: called in delete_simplex_solver
+ * 5) simplex_do_propagation: called in simplex_propagate if tableau is feasible
+ * 6) simplex_explain_propagation: called in simplex_expand_explanation
  */
 
 
@@ -64,7 +64,7 @@ static void collect_prop_rows_for_variable(simplex_solver_t *solver, column_t *c
   ivector_t *to_process;
   uint32_t i, n;
   int32_t r;
-  
+
   assert(column != NULL);
 
   to_process = &solver->rows_to_process;
@@ -129,7 +129,7 @@ static void collect_relevant_prop_rows(simplex_solver_t *solver) {
 
 
 /*
- * Check whether x has unassigned atoms 
+ * Check whether x has unassigned atoms
  */
 static bool var_has_unassigned_atoms(simplex_solver_t *solver, thvar_t x) {
   arith_atomtable_t *atbl;
@@ -224,7 +224,7 @@ static void explain_lower_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
       assert(k >= 0);
       ivector_push(v, k);
     }
-  }  
+  }
 }
 
 
@@ -282,7 +282,7 @@ static bool useful_lower_bound(simplex_solver_t *solver, thvar_t x, xrational_t 
 
 /*
  * Check whether b is larger than the current upper bound on x
- * If so find an unassigned atom that's implied by (x <= b) 
+ * If so find an unassigned atom that's implied by (x <= b)
  * - x = variable
  * - b = computed lower bound
  */
@@ -329,7 +329,7 @@ static int32_t assertion_implied_by_lb(simplex_solver_t *solver, thvar_t x, xrat
   rational_t *best, *c;
   uint32_t i, n;
   int32_t k, cmp, a;
-  
+
   atbl = &solver->atbl;
   atom_vector = arith_var_atom_vector(&solver->vtbl, x);
   assert(atom_vector != NULL);
@@ -390,7 +390,7 @@ static int32_t assertion_implied_by_ub(simplex_solver_t *solver, thvar_t x, xrat
   rational_t *best, *c;
   uint32_t i, n;
   int32_t k, cmp, a;
-  
+
   atbl = &solver->atbl;
   atom_vector = arith_var_atom_vector(&solver->vtbl, x);
   assert(atom_vector != NULL);
@@ -502,7 +502,7 @@ static void theory_prop_from_upper_bounds(simplex_solver_t *solver, int32_t a, t
   l = literal_of_assertion(solver, a);
   assert(v->size == 0);
   explain_upper_bounds(solver, x, p, v);
-  
+
 #if TRACE_THEORY
   trace_simplex_implied_literal(p, v, l);
 #endif
@@ -521,7 +521,7 @@ static void theory_prop_from_upper_bounds(simplex_solver_t *solver, int32_t a, t
   printf("\n     ");
   print_simplex_atomdef(stdout, solver, var_of(l));
 #endif
-  
+
   ivector_reset(v);
 }
 
@@ -540,7 +540,7 @@ static void theory_prop_from_lower_bounds(simplex_solver_t *solver, int32_t a, t
   l = literal_of_assertion(solver, a);
   assert(v->size == 0);
   explain_lower_bounds(solver, x, p, v);
-  
+
 #if TRACE_THEORY
   trace_simplex_implied_literal(p, v, l);
 #endif
@@ -558,7 +558,7 @@ static void theory_prop_from_lower_bounds(simplex_solver_t *solver, int32_t a, t
   printf("\n     ");
   print_simplex_atomdef(stdout, solver, var_of(l));
 #endif
-  
+
   ivector_reset(v);
 }
 
@@ -607,7 +607,7 @@ static void all_assertions_implied_by_lb(simplex_solver_t *solver, thvar_t x, xr
           // b > c so (not k) (i.e., x > c) is implied by (x >= b)
           ivector_push(v, mk_false_assertion(k));
         }
-      }      
+      }
     }
   }
 }
@@ -652,7 +652,7 @@ static void all_assertions_implied_by_ub(simplex_solver_t *solver, thvar_t x, xr
           // b <= c so k is implied by (x <= b)
           ivector_push(v, mk_true_assertion(k));
         }
-      }      
+      }
     }
   }
 }
@@ -663,7 +663,7 @@ static void all_assertions_implied_by_ub(simplex_solver_t *solver, thvar_t x, xr
 /*
  * Multiple propagations with explanations in vector w
  * - w is a vector of literals (interpreted as a conjunction of literals)
- * - all elements of vector v encode assertions implied by w 
+ * - all elements of vector v encode assertions implied by w
  * - vector w is modified
  */
 static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivector_t *w) {
@@ -676,7 +676,7 @@ static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivecto
   n = v->size;
 
   if (m < solver->small_prop_threshold) {
-    // Prepare to create lemmas (w ==> l) as clauses 
+    // Prepare to create lemmas (w ==> l) as clauses
     convert_expl_to_clause(w);
     ivector_push(w, null_literal); // make room for l
     assert(w->size == m + 1);
@@ -712,7 +712,7 @@ static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivecto
       k = v->data[i];
       assert(arith_atom_is_unmarked(&solver->atbl, atom_of_assertion(k)));
       l = literal_of_assertion(solver, k);
- 
+
       // propagate l with expl as antecedent
       // BUG FIX: we check whether l is already applied (via an other row)
       assert(literal_value(solver->core, l) != VAL_FALSE);
@@ -729,7 +729,7 @@ static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivecto
 
     solver->stats.num_props += n;
   }
-  
+
 }
 
 
@@ -820,7 +820,7 @@ static void try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
   bound = solver->bstack.bound;
   vtbl = &solver->vtbl;
-  sum = &solver->bound;  
+  sum = &solver->bound;
 
   // initialize c to avoid GCC warning
   c = NULL;
@@ -903,7 +903,7 @@ static void try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
         if (k >= 0) {
           theory_prop_from_upper_bounds(solver, k, y, p);
         }
-      }      
+      }
     }
   }
 }
@@ -933,7 +933,7 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
   bound = solver->bstack.bound;
   vtbl = &solver->vtbl;
-  sum = &solver->bound;  
+  sum = &solver->bound;
 
   // initialize c to avoid GCC warning
   c = NULL;
@@ -990,7 +990,7 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
           theory_prop_from_lower_bounds(solver, k, y, p);
         }
       }
-    
+
     }
 
   } else {
@@ -1016,7 +1016,7 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
           theory_prop_from_lower_bounds(solver, k, y, p);
         }
       }
-    
+
     }
 
   }
@@ -1071,7 +1071,7 @@ static void add_upper_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
  * Add the lower bounds of all monomials in p
  * - all monomials must have an upper bound
  * - the result is stored in b
- */ 
+ */
 static void add_lower_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b) {
   row_elem_t *a;
   xrational_t *bound;
@@ -1145,7 +1145,7 @@ static void full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
      * bounds are  a.x <= u, a_1 x_1 <= u_1, ..., a_n x_n <= u_n,
      * and sum is - (u + u_1 + ... + u_n).
      * - implied bound on a x: a.x >= - (u_1 + ... + u_n) = sum + u
-     * - if a>0, then u = a.(upper_bound on x), 
+     * - if a>0, then u = a.(upper_bound on x),
      *   implied bound on x: x >= sum/a + u/a = sum/a + (upper_bound on x)
      * - if a<0, then u = a.(lower_bound on x),
      *   implied bound on x: x <= sum/a + u/a = sum/a + (lower_bound on x)
@@ -1180,7 +1180,7 @@ static void full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
               theory_prop_from_upper_bounds(solver, k, x, p);
             }
           }
-    
+
         }
 
       } else {
@@ -1208,7 +1208,7 @@ static void full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
             if (k >= 0) {
               theory_prop_from_upper_bounds(solver, k, x, p);
             }
-          }       
+          }
         }
       }
 
@@ -1261,7 +1261,7 @@ static void full_lower_bound_propagation(simplex_solver_t *solver, row_t *p) {
      * bounds are  a.x >= l, a_1 x_1 >= l_1, ..., a_n x_n >= u_n,
      * and sum is - (l + l_1 + ... + l_n).
      * - implied bound on a x: a.x <= - (l_1 + ... + l_n) = sum + l
-     * - if a>0, then l = a.(lower_bound on x), 
+     * - if a>0, then l = a.(lower_bound on x),
      *   implied bound on x: x <= sum/a + l/a = sum/a + (lower_bound on x)
      * - if a<0, then l = a.(upper_bound on x),
      *   implied bound on x: x >= sum/a + l/a = sum/a + (upper_bound on x)
@@ -1296,7 +1296,7 @@ static void full_lower_bound_propagation(simplex_solver_t *solver, row_t *p) {
               theory_prop_from_lower_bounds(solver, k, x, p);
             }
           }
-    
+
         }
 
       } else {
@@ -1397,7 +1397,7 @@ static void check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     a ++;
     n --;
   } while (n > 0);
-  
+
   if (y < 0) {
     full_upper_bound_propagation(solver, p);
   } else if (var_has_unassigned_atoms(solver, y)) {
@@ -1508,7 +1508,7 @@ static inline void simplex_delete_propagator(simplex_solver_t *solver) {
  */
 static void simplex_start_propagator(simplex_solver_t *solver) {
 #if 0
-  printf("---> after base_level_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n", 
+  printf("---> after base_level_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n",
          solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
   fflush(stdout);
 #endif
@@ -1517,7 +1517,7 @@ static void simplex_start_propagator(simplex_solver_t *solver) {
   all_rows_propagation(solver);
 
 #if 0
-  printf("---> after all_rows_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n", 
+  printf("---> after all_rows_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n",
          solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
   fflush(stdout);
 #endif
@@ -1529,15 +1529,15 @@ static void simplex_start_propagator(simplex_solver_t *solver) {
  */
 static void simplex_do_propagation(simplex_solver_t *solver) {
   collect_relevant_prop_rows(solver);
-  check_all_propagation_rows(solver);  
+  check_all_propagation_rows(solver);
 }
 
 
 /*
  * explain_propagation: called in simplex_expand_explanation
  */
-static void simplex_explain_propagation(simplex_solver_t *solver, literal_t l, 
-                                        literal_t *expl, ivector_t *v) {  
+static void simplex_explain_propagation(simplex_solver_t *solver, literal_t l,
+                                        literal_t *expl, ivector_t *v) {
   literal_t l0;
 
   l0 = *expl ++;

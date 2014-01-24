@@ -18,7 +18,7 @@
 typedef struct ptr_hmap_pair_s {
   int32_t key;
   void *val;
-} ptr_hmap_pair_t; 
+} ptr_hmap_pair_t;
 
 /*
  * Markers for empty/deleted pairs

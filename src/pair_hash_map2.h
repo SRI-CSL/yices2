@@ -7,11 +7,11 @@
 
 /*
  * When we apply the lift-if rules during internalization,
- * we must map pairs of terms to literals. 
+ * we must map pairs of terms to literals.
  *
  * Example: lifting if-then-else in equalities rewrites
  *  (eq t1 (ite c t2 t3)) to (ite c (eq t1 t2) (eq t1 t3)).
- * When the right hand side is processed, then (eq t1 t2) and 
+ * When the right hand side is processed, then (eq t1 t2) and
  * (eq t1 t3) are mapped to two literals l1 and l2. We keep
  * the mappings <t1, t2> --> l1 and <t1, t3> --> l2 in
  * a hash table.
@@ -41,7 +41,7 @@ typedef struct pmap2_rec_s {
  * - free_block = index of the first empty block
  *   we always have 0 <= free_block <= nblocks <= capacity
  *
- * - for 0 <= i < nblocks: 
+ * - for 0 <= i < nblocks:
  *   block[i] = pointer to an array of PMAP2_BLOCK_SIZE records
  * - for nblocks <= i < capacity:
  *   block[i] = uninitialized pointer
@@ -72,16 +72,16 @@ typedef struct pmap2_bank_s {
 
 /*
  * Stack of allocation marks for push and pop;
- * - each element in the stack has a level k>0 and 
- *   an allocation mark = a pair <block id, index in that block> 
- * - if the mark for level k is <i, p> then the first record 
+ * - each element in the stack has a level k>0 and
+ *   an allocation mark = a pair <block id, index in that block>
+ * - if the mark for level k is <i, p> then the first record
  *   allocated at level k was block[i][p].
  * - nmarks = number of elements stored in the stack:
  *   the stack elements are in data[0 ... nmarks - 1]
  * - size = size of array data
  * - current_level = current allocation level
  * - top_level = maximal allocation level in the stack:
- *   top_level = 0 if the stack is empty or 
+ *   top_level = 0 if the stack is empty or
  *   top_level = data[nmarks-1].level otherwise
  */
 typedef struct pmap2_mark_s {
@@ -104,7 +104,7 @@ typedef struct pmap2_stack_s {
 
 
 /*
- * Hash table: 
+ * Hash table:
  * - stores pointers to triples <k0, k1, value>
  *   data[h] = NULL means slot h is empty
  *   data[h] = DELETED_REC means slot h is deleted
@@ -184,7 +184,7 @@ static inline void pmap2_push(pmap2_t *pmap) {
 
 
 /*
- * Pop: delete all objects created at the current level 
+ * Pop: delete all objects created at the current level
  * then decrement current_level. Should not be called at level 0.
  */
 extern void pmap2_pop(pmap2_t *pmap);
@@ -193,7 +193,7 @@ extern void pmap2_pop(pmap2_t *pmap);
 /*
  * Set level: same effect as calling push n times from the initial state.
  * - this is used to ensure consistency between pmap2->current_level
- *   and context->base_level if the pmap2 is created when the context 
+ *   and context->base_level if the pmap2 is created when the context
  *   has non-zero base_level
  */
 static inline void pmap2_set_level(pmap2_t *pmap, uint32_t n) {

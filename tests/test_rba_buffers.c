@@ -32,7 +32,7 @@ static bool is_ordered(rba_buffer_t *b, uint32_t x) {
   r = b->mono[x].prod;
   s = b->mono[i].prod;
   t = b->mono[j].prod;
- 
+
   // the expected order is s < r < t
   if (i != 0 && !pprod_precedes(s, r)) {
     printf("tree not ordered at node %"PRIu32" (for left child %"PRIu32")\n", x, i);
@@ -122,8 +122,8 @@ static bool is_balanced(rba_buffer_t *b, uint32_t x, uint32_t *h) {
     assert(is_black(b, x));
     *h = 1;
     return true;
-  } 
-    
+  }
+
   i = b->child[x][0]; // left child
   j = b->child[x][1]; // right child
   if (is_balanced(b, i, &hi) && is_balanced(b, j, &hj)) {
@@ -139,7 +139,7 @@ static bool is_balanced(rba_buffer_t *b, uint32_t x, uint32_t *h) {
       printf("   left child = %"PRIu32",  black height = %"PRIu32"\n", i, hi);
       printf("  right child = %"PRIu32",  black height = %"PRIu32"\n", j, hj);
       fflush(stdout);
-    }      
+    }
   }
   return false;
 }
@@ -160,8 +160,8 @@ static bool tree_is_balanced(rba_buffer_t *b) {
 static uint32_t subtree_size(rba_buffer_t *b, uint32_t x) {
   uint32_t i, j;
 
-  if (x == 0) return 0; 
-  
+  if (x == 0) return 0;
+
   i = b->child[x][0];
   j = b->child[x][1];
   return 1 + subtree_size(b, i) + subtree_size(b, j);
@@ -189,7 +189,7 @@ static uint32_t free_list_size(rba_buffer_t *b) {
 // check
 static bool check_sizes(rba_buffer_t *b) {
   uint32_t s;
- 
+
   s = tree_size(b);
   if (s != b->nterms) {
     printf("invalid tree: size = %"PRIu32", nterms = %"PRIu32"\n", s, b->nterms);
@@ -213,10 +213,10 @@ static bool check_sizes(rba_buffer_t *b) {
  * All checks
  */
 static void check_tree(rba_buffer_t *b) {
-  if (!tree_is_ordered(b) || !tree_is_well_colored(b) || 
-      !tree_is_balanced(b) || !check_sizes(b)) {    
+  if (!tree_is_ordered(b) || !tree_is_well_colored(b) ||
+      !tree_is_balanced(b) || !check_sizes(b)) {
     exit(1);
-  }  
+  }
 }
 
 
@@ -227,7 +227,7 @@ static uint32_t node_height(rba_buffer_t *b, uint32_t x) {
   uint32_t i, j, hi, hj;
 
   if (x == 0) return 0;
-  
+
   i = b->child[x][0];
   j = b->child[x][1];
   hi = node_height(b, i);
@@ -255,7 +255,7 @@ static void test_add(rba_buffer_t *b, pprod_t *p) {
   } else {
     printf("test add: x%"PRId32"\n", var_of_pp(p));
   }
-  
+
   i = rba_find_node(b, p);
   j = rba_get_node(b, p, &new_node);
   k = rba_find_node(b, p);
@@ -270,14 +270,14 @@ static void test_add(rba_buffer_t *b, pprod_t *p) {
     printf("Error in test_add: expected a new node\n");
     fflush(stdout);
     exit(1);
-  } 
+  }
 
   if (i != 0) {
     if (new_node) {
       printf("Error in test_add: not expecting a new node\n");
       fflush(stdout);
       exit(1);
-    } 
+    }
 
     if (j != i) {
       printf("Error in test_add: get returned an unexpected node\n");
@@ -322,7 +322,7 @@ static void test_remove(rba_buffer_t *b, pprod_t *p) {
     }
 
     check_tree(b);
-  }  
+  }
 }
 
 /*
@@ -360,7 +360,7 @@ static void init_tests(void) {
 static void run_tests(rba_buffer_t *b) {
   uint32_t i, h, n;
 
-  check_tree(b); 
+  check_tree(b);
   init_tests();
 
   // add all power products
@@ -451,7 +451,7 @@ static void run_tests(rba_buffer_t *b) {
     printf("   not balanced\n");
   }
 
-  
+
 
   fflush(stdout);
 }
@@ -466,7 +466,7 @@ int main(void) {
   init_pprod_table(&ptable, 0);
   init_rba_buffer(&buffer, &ptable);
 
-  run_tests(&buffer);  
+  run_tests(&buffer);
 
   delete_rba_buffer(&buffer);
   delete_pprod_table(&ptable);

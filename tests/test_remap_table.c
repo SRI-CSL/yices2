@@ -246,7 +246,7 @@ static void random_merges(remap_table_t *table, literal_t *v, uint32_t n, uint32
     if (! remap_table_is_root(table, l2)) {
       l2 = remap_table_find_root(table, l2);
     }
-    
+
     test_merge(table, l1, l2);
   }
 }
@@ -351,7 +351,7 @@ int main(void) {
   show_remap(&map);
   printf("----\n");
   extract_remap(&map, save + 1);
-  
+
   remap_table_push(&map);
 
   printf("--- Level 2: allocating 40 more literals ---\n");
@@ -407,7 +407,7 @@ int main(void) {
   remap_table_pop(&map);
   printf("--- Back to level 0 ---\n");
   show_remap(&map);
-  printf("----\n");    
+  printf("----\n");
   if (! check_remap_content(&map, save + 0)) {
     printf("*** BUG: Pop error ***\n");
     abort();

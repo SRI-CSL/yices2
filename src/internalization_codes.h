@@ -26,13 +26,13 @@
  * otherwise the code is of the form [0 b30 .... b2 b1 b0].
  *
  * If b0 == 0, the code denotes the term occurrence [0 0 b30 ... b1].
- * The term occurrence is the concatenation of an eterm id [0 0 0 b30 ... b2] 
+ * The term occurrence is the concatenation of an eterm id [0 0 0 b30 ... b2]
  * and the polarity bit b1. For a non-boolean term, b1 is always 0.
  *
- * If b0 == 1,  the code is a theory variable or a literal, depending on 
+ * If b0 == 1,  the code is a theory variable or a literal, depending on
  * the type of t.
- * - type = BOOL: 
- *   the code denotes literal [0 0 b30 ... b2 b1] 
+ * - type = BOOL:
+ *   the code denotes literal [0 0 b30 ... b2 b1]
  *   (i.e., boolean variable [0 0 0 b30 ...b2] + polarity bit b1).
  * - type = INT or REAL:
  *   t is mapped to the variable [0 0 b30 ... b1] in the arithmetic solver

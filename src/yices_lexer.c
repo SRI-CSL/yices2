@@ -3,11 +3,11 @@
  * - separators are ( ) : spaces, EOF, ; and "
  *
  * - strings are delimited by " with escaped char \n, \t, etc. allowed
- * 
+ *
  * - two kinds of numeric literals are recognized
  *     TK_NUM_RATIONAL:  <optional_sign><digits>/<digits>
  *                    or <optional_sign><digits>
- *     TK_NUM_FLOAT: 
+ *     TK_NUM_FLOAT:
  *       <optional_sign> <digits> . <digits>
  *       <optional_sign> <digits> <exp> <optional_sign> <digits>
  *       <optional_sign> <digits> . <digits> <exp> <optional_sign> <digits>
@@ -15,8 +15,8 @@
  *   (the two formats recognized by string-to-rational conversions in rational.c)
  *
  * - bit-vector literals are written 0b<binary digits> (cf. bv_constants.c)
- *   (added 5/10/07) can also be written 0x<hexa digits> 
- * 
+ *   (added 5/10/07) can also be written 0x<hexa digits>
+ *
  * - comments start with ; and extend to the end of the line
  */
 
@@ -52,12 +52,12 @@ static keyword_t yices_keywords[] = {
   { "=", TK_EQ },
   { "/=", TK_DISEQ },
   { "distinct", TK_DISTINCT },
- 
+
   { "or", TK_OR },
   { "and", TK_AND },
   { "not", TK_NOT },
   { "xor", TK_XOR },
-  { "<=>", TK_IFF }, 
+  { "<=>", TK_IFF },
   { "=>", TK_IMPLIES },
   { "mk-tuple", TK_MK_TUPLE },
   { "select", TK_SELECT },
@@ -73,7 +73,7 @@ static keyword_t yices_keywords[] = {
   { "*", TK_MUL },
   { "/", TK_DIV },
   { "^", TK_POW },
-  { "<", TK_LT }, 
+  { "<", TK_LT },
   { "<=", TK_LE },
   { ">", TK_GT },
   { ">=", TK_GE },
@@ -233,7 +233,7 @@ static bool is_yices_sep(int c) {
 
 
 /*
- * Read a string literal: 
+ * Read a string literal:
  * - lex->current_char == '"' and lex->buffer is empty
  */
 static yices_token_t read_string(lexer_t *lex) {
@@ -252,11 +252,11 @@ static yices_token_t read_string(lexer_t *lex) {
     if (c == '"') { // end of string
       // consume the closing quote
       reader_next_char(rd);
-      tk = TK_STRING; 
+      tk = TK_STRING;
       break;
     }
     if (c == '\n' || c == EOF) { // missing quotes
-      tk = TK_OPEN_STRING; 
+      tk = TK_OPEN_STRING;
       break;
     }
     if (c == '\\') {
@@ -301,7 +301,7 @@ static yices_token_t read_string(lexer_t *lex) {
 static yices_token_t read_bv_constant(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
-  int c;  
+  int c;
 
   rd = &lex->reader;
   c = reader_current_char(rd);
@@ -316,7 +316,7 @@ static yices_token_t read_bv_constant(lexer_t *lex) {
   if (string_buffer_length(buffer) <= 2) {
     return TK_EMPTY_BVCONST; // empty constant
   } else {
-    return TK_BV_CONSTANT;    
+    return TK_BV_CONSTANT;
   }
 }
 
@@ -327,7 +327,7 @@ static yices_token_t read_bv_constant(lexer_t *lex) {
 static yices_token_t read_hex_constant(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
-  int c;  
+  int c;
 
   rd = &lex->reader;
   c = reader_current_char(rd);
@@ -342,7 +342,7 @@ static yices_token_t read_hex_constant(lexer_t *lex) {
   if (string_buffer_length(buffer) <= 2) {
     return TK_EMPTY_HEXCONST; // empty constant
   } else {
-    return TK_HEX_CONSTANT;    
+    return TK_HEX_CONSTANT;
   }
 }
 
@@ -392,7 +392,7 @@ static yices_token_t read_number(lexer_t *lex) {
   rd = &lex->reader;
   c = reader_current_char(rd);
   buffer = lex->buffer;
-  tk = TK_NUM_RATIONAL; // default 
+  tk = TK_NUM_RATIONAL; // default
 
   while (isdigit(c)) {
     string_buffer_append_char(buffer, c);
@@ -460,7 +460,7 @@ static yices_token_t read_number(lexer_t *lex) {
 
 /*
  * Read next token and return its type tk
- * - set lex->token to tk 
+ * - set lex->token to tk
  * - set lex->tk_pos, etc.
  * - if token is TK_STRING, TK_NUM_RATIONAL, TK_NUM_FLOAT, TK_BV_CONSTANT, TK_SYMBOL, TK_ERROR,
  *   the token value is stored in lex->buffer (as a string).
@@ -469,7 +469,7 @@ yices_token_t next_yices_token(lexer_t *lex) {
   yices_token_t tk;
   reader_t *rd;
   string_buffer_t *buffer;
-  int c;  
+  int c;
 
   rd = &lex->reader;
   c = reader_current_char(rd);
@@ -484,17 +484,17 @@ yices_token_t next_yices_token(lexer_t *lex) {
       c = reader_next_char(rd);
     } while (c != '\n' && c != EOF);
   }
-  
+
   // record token position (start of token)
   lex->tk_pos = rd->pos;
   lex->tk_line = rd->line;
   lex->tk_column = rd->column;
-  
+
   switch (c) {
-  case '(': 
+  case '(':
     tk = TK_LP;
     goto next_then_return;
-  case ')': 
+  case ')':
     tk = TK_RP;
     goto next_then_return;
   case EOF:
@@ -503,7 +503,7 @@ yices_token_t next_yices_token(lexer_t *lex) {
   case ':':
     c = reader_next_char(rd);
     if (c == ':') {
-      tk = TK_COLON_COLON; 
+      tk = TK_COLON_COLON;
       goto next_then_return;
     } else {
       // store ':' in the buffer since that may be used for reporting errors
@@ -515,7 +515,7 @@ yices_token_t next_yices_token(lexer_t *lex) {
   case '"':
     tk = read_string(lex);
     goto done;
-  case '+':    
+  case '+':
   case '-':
     string_buffer_append_char(buffer, c);
     c = reader_next_char(rd);
@@ -527,7 +527,7 @@ yices_token_t next_yices_token(lexer_t *lex) {
       tk = read_symbol(lex);
     }
     goto done;
-    
+
   case '0':
     string_buffer_append_char(buffer, c);
     c = reader_next_char(rd);
@@ -538,12 +538,12 @@ yices_token_t next_yices_token(lexer_t *lex) {
     } else {
       tk = read_number(lex);
     }
-    goto done;      
+    goto done;
 
   case '1':
   case '2':
   case '3':
-  case '4': 
+  case '4':
   case '5':
   case '6':
   case '7':
@@ -553,14 +553,14 @@ yices_token_t next_yices_token(lexer_t *lex) {
     reader_next_char(rd);
     tk = read_number(lex);
     goto done;
-    
+
   default: // symbol or keyword
     string_buffer_append_char(buffer, c);
     reader_next_char(rd);
     tk = read_symbol(lex);
     goto done;
   }
-  
+
   /*
    * read next character and exit
    */

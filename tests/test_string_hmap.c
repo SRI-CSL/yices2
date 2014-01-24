@@ -101,14 +101,14 @@ int main(void) {
   if (d != NULL) {
     printf("BUG: find returned a record\n");
     fflush(stdout);
-    exit(1);    
+    exit(1);
   }
   printf("test find key twenty\n");
   d = strmap_find(&map, "twenty");
   if (d != NULL) {
     printf("BUG: find returned a record\n");
     fflush(stdout);
-    exit(1);    
+    exit(1);
   }
 
   printf("\n*** Testing erase ***\n");

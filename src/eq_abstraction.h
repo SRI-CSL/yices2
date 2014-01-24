@@ -3,12 +3,12 @@
  */
 
 /*
- * This module provides support for computing the equalities implied by a 
+ * This module provides support for computing the equalities implied by a
  * formula F. This uses abstract interpretation ideas:
  * - the abstraction of a formula F is the set of equalities (t_1 == t_2)
  *   implied by F
  * - to compute abs(F) we represent the set of equalities as a term partition
- * - this module implements the computation of 'meets' and 'joins' in the 
+ * - this module implements the computation of 'meets' and 'joins' in the
  *   abstract domain.
  *
  * TODO? improve the implementation to take advantage of the new term
@@ -20,8 +20,8 @@
 
 #include <stdint.h>
 
-#include "int_vectors.h" 
-#include "terms.h" 
+#include "int_vectors.h"
+#include "terms.h"
 
 
 /*
@@ -33,13 +33,13 @@
  */
 typedef struct epartition_s {
   uint32_t nclasses;
-  uint32_t size;   // size of the array data = nterms + nclasses 
+  uint32_t size;   // size of the array data = nterms + nclasses
   term_t data[0];
 } epartition_t;
 
 
 /*
- * Maximal size of a partition 
+ * Maximal size of a partition
  */
 #define EPARTITION_MAX_SIZE ((UINT32_MAX-sizeof(epartition_t))/4)
 
@@ -156,7 +156,7 @@ extern void epartition_init_for_meet(epartition_manager_t *m, epartition_t *p);
 extern void epartition_meet(epartition_manager_t *m, epartition_t *p);
 
 /*
- * Convert the partition in m into an epartition object 
+ * Convert the partition in m into an epartition object
  * - also reset m to the empty partition
  */
 extern epartition_t *epartition_get_meet(epartition_manager_t *m);
@@ -182,7 +182,7 @@ extern void epartition_init_for_join(epartition_manager_t *m, epartition_t *p);
 extern void epartition_join(epartition_manager_t *m, epartition_t *p);
 
 /*
- * Convert the partition in m into an epartition object 
+ * Convert the partition in m into an epartition object
  * - also reset m to the empty partition
  */
 extern epartition_t *epartition_get_join(epartition_manager_t *m);

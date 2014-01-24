@@ -51,7 +51,7 @@ extern void print_type_table(FILE *f, type_table_t *tbl);
 /*
  * Pretty printing
  * - print type expression
- * - print type name 
+ * - print type name
  * - print type (name or expression)
  */
 extern void pp_type_exp(yices_pp_t *printer, type_table_t *tbl, type_t tau);

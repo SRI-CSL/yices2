@@ -18,7 +18,7 @@
  * The queue is managed as a circular array:
  * - if head = tail, the queue is empty
  * - if head < tail, queue content is data[head ... tail-1]
- * - if head > tail, queue content is 
+ * - if head > tail, queue content is
  *     data[head...size-1] + data[0 ... tail-1]
  */
 typedef struct ptr_queue_s {
@@ -34,7 +34,7 @@ typedef struct ptr_queue_s {
 
 
 /*
- * Initialize a queue of size n. 
+ * Initialize a queue of size n.
  * If n = 0 then the default size is used
  */
 extern void init_ptr_queue(ptr_queue_t *q, uint32_t n);
@@ -61,7 +61,7 @@ static inline bool ptr_queue_is_empty(ptr_queue_t *q) {
 
 /*
  * Return the first element and remove it from q.
- * - q must be non-empty. 
+ * - q must be non-empty.
  */
 extern void *ptr_queue_pop(ptr_queue_t *q);
 

@@ -19,7 +19,7 @@
  * Default settings:
  * - no row saving, no jump buffer (exceptions cause abort)
  */
-extern void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, 
+extern void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core,
                                 gate_manager_t *gates, egraph_t *egraph);
 
 
@@ -182,7 +182,7 @@ extern void simplex_disable_eqprop(simplex_solver_t *solver);
  ******************************/
 
 /*
- * These functions are used by the context to create atoms and 
+ * These functions are used by the context to create atoms and
  * variables in the solver. We export them for testing, but the
  * context calls them via the arith_interface_t descriptor.
  */
@@ -206,8 +206,8 @@ extern thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q);
  *   p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n are arithmetic terms
  *   map[i] is the simplex variable that's the internalization of t_i
  *   (except that map[0] = null_thvar if t_0 is const_idx)
- * - the function creates a simplex variable y that represents 
- *   a_0 map[0] + ... + a_n map[n] 
+ * - the function creates a simplex variable y that represents
+ *   a_0 map[0] + ... + a_n map[n]
  */
 extern thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *map);
 
@@ -311,7 +311,7 @@ static inline void simplex_stop_search(simplex_solver_t *solver) {
  * - atom is the arithmetic atom attached to a boolean variable v = var_of(l)
  * - if l is positive (i.e., pos_lit(v)), assert the atom
  * - if l is negative (i.e., neg_lit(v)), assert its negation
- * If the atom is redundant, nothing is done, otherwise a new bound 
+ * If the atom is redundant, nothing is done, otherwise a new bound
  * with explanation l is pushed into the propagation queue
  * (for equality atom, two new bounds).
  * Always return true.
@@ -522,7 +522,7 @@ extern uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_e
  * Select polarity when branching on decision literal l
  * - l is attached to an egraph equality atom (eq u1 u2)
  * - x1 and x2 are the theory variables attached to u1 and u2, respectively
- * - return l is x1 and x2 have the same value in the current tableau 
+ * - return l is x1 and x2 have the same value in the current tableau
  *   return (not l) otherwise
  */
 extern literal_t simplex_select_eq_polarity(simplex_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l);

@@ -10,7 +10,7 @@
  * Initialization:
  * - n = initial size
  */
-void init_dep_table(dep_table_t *table, uint32_t n) { 
+void init_dep_table(dep_table_t *table, uint32_t n) {
   int32_t **tmp;
 
   if (n >= DEP_TABLE_MAX_SIZE) {
@@ -77,7 +77,7 @@ static void dep_table_resize(dep_table_t *table, int32_t i) {
   if (n <= i) {
     n = i+1;
   }
-  
+
   if (n >= DEP_TABLE_MAX_SIZE) {
     out_of_memory();
   }

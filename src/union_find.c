@@ -60,7 +60,7 @@ static void resize_partition(partition_t *p, int32_t x) {
     } else {
       n += n>>1; // try to increase by 50%
     }
-    if (n <= x) { 
+    if (n <= x) {
       n = x+1;
     }
     if (n >= MAX_PARTITION_SIZE) {
@@ -84,7 +84,7 @@ static void resize_partition(partition_t *p, int32_t x) {
 
 /*
  * Add x to the partition in a singleton class
- * - x must be non-negative and not present 
+ * - x must be non-negative and not present
  */
 void partition_add(partition_t *p, int32_t x) {
   if (x >= p->nelems) {
@@ -99,7 +99,7 @@ void partition_add(partition_t *p, int32_t x) {
 /*
  * Add x to the partition in a singleton class and make
  * sure x will remain root of its class
- * - x must be non-negative and not present 
+ * - x must be non-negative and not present
  */
 void partition_add_root(partition_t *p, int32_t x) {
   if (x >= p->nelems) {

@@ -53,7 +53,7 @@ static keyword_t smt_keywords[] = {
   { ":extrapreds", SMT_TK_EXTRAPREDS },
   { ":notes", SMT_TK_NOTES },
 
-  // defined sorts 
+  // defined sorts
   { "Array", SMT_TK_ARRAY },
   // { "U", SMT_TK_U }, // U cannot be used as a keyword. Some benchmarks use it as an identifier!
   { "Int", SMT_TK_INT },
@@ -126,7 +126,7 @@ static keyword_t smt_keywords[] = {
   { "bvule", SMT_TK_BVULE },
   { "bvugt", SMT_TK_BVUGT },
   { "bvuge", SMT_TK_BVUGE },
-  { "bvsle", SMT_TK_BVSLE }, 
+  { "bvsle", SMT_TK_BVSLE },
   { "bvsge", SMT_TK_BVSGE },
 
   // end marker
@@ -178,7 +178,7 @@ static void init_smttoken2string(void) {
   smt_token_string[SMT_TK_OPEN_USER_VAL] = "<bad-user-val>";
   smt_token_string[SMT_TK_ZERO_DIVISOR] = "<zero-divisor-in-rational>";
   smt_token_string[SMT_TK_INVALID_NUMBER] = "<bad-numeral>";
-  smt_token_string[SMT_TK_ERROR] = "<error>";  
+  smt_token_string[SMT_TK_ERROR] = "<error>";
 }
 
 
@@ -210,7 +210,7 @@ static void init_smttoken2string(void) {
  *   QF_NRA         Reals    (added July 2011)
  *   QF_RDL         Reals
  *   QF_UF          Empty
- *   QF_UFIDL       Ints 
+ *   QF_UFIDL       Ints
  *   QF_UFBV        Fixed_Size_BitVectors             BitVec
  *   QF_UFLIA       Ints
  *   QF_UFLRA       Reals
@@ -317,7 +317,7 @@ static void activate_old_bv_tokens(void) {
   smt_token_active[SMT_TK_SHIFT_RIGHT0] = true;
   smt_token_active[SMT_TK_SHIFT_RIGHT1] = true;
   smt_token_active[SMT_TK_BIT0] = true;
-  smt_token_active[SMT_TK_BIT1] = true;  
+  smt_token_active[SMT_TK_BIT1] = true;
 }
 
 
@@ -357,7 +357,7 @@ static void activate_new_bv_tokens(void) {
   smt_token_active[SMT_TK_EXTRACT] = true;
   smt_token_active[SMT_TK_SIGN_EXTEND] = true;
   smt_token_active[SMT_TK_BIT0] = true;
-  smt_token_active[SMT_TK_BIT1] = true;  
+  smt_token_active[SMT_TK_BIT1] = true;
 
   smt_token_active[SMT_TK_BVULT] = true;
   smt_token_active[SMT_TK_BVULE] = true;
@@ -476,7 +476,7 @@ char *smt_token_to_string(smt_token_t tk) {
  *
  * Buffer contains the string literal without the doublequotes
  */
-static smt_token_t smt_read_string(lexer_t *lex) {  
+static smt_token_t smt_read_string(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
   int c;
@@ -508,7 +508,7 @@ static smt_token_t smt_read_string(lexer_t *lex) {
 }
 
 /*
- * Read a user value: 
+ * Read a user value:
  * - current char is '{'
  * - read until the terminating '}' or EOF
  * - escape sequences: \{ and \}
@@ -516,7 +516,7 @@ static smt_token_t smt_read_string(lexer_t *lex) {
  * On exit: buffer contains what was between '{' and '}'
  * as a null-terminated string.
  */
-static smt_token_t smt_read_user_val(lexer_t *lex) {  
+static smt_token_t smt_read_user_val(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
   int c;
@@ -558,7 +558,7 @@ static smt_token_t smt_read_user_val(lexer_t *lex) {
  * arith symbol = nonempty sequence of the characters
  *     =, <, >, &, @, #, +, -, *, /, %, |, ~
  *
- * But we ignore that. 
+ * But we ignore that.
  * We read until space, EOF, ", {, }, (, ), [, ], ; , :, ?, $, \ or ','
  */
 static bool is_end_delimitor(int c) {
@@ -653,10 +653,10 @@ static smt_token_t smt_read_number(lexer_t *lex) {
   buffer = lex->buffer;
   c = reader_current_char(rd);
   tk = SMT_TK_RATIONAL;
-  assert(isdigit(c));  
+  assert(isdigit(c));
   do {
     string_buffer_append_char(buffer, c);
-    c = reader_next_char(rd);    
+    c = reader_next_char(rd);
   } while (isdigit(c));
 
   if (c == '.') {
@@ -668,11 +668,11 @@ static smt_token_t smt_read_number(lexer_t *lex) {
     }
     do {
       string_buffer_append_char(buffer, c);
-      c = reader_next_char(rd);    
+      c = reader_next_char(rd);
     } while (isdigit(c));
     tk = SMT_TK_FLOAT;
     goto done;
-  } 
+  }
 
   if (c == '/') {
     string_buffer_append_char(buffer, c);
@@ -685,12 +685,12 @@ static smt_token_t smt_read_number(lexer_t *lex) {
     do {
       if (c != '0') all_zeros = false;
       string_buffer_append_char(buffer, c);
-      c = reader_next_char(rd);    
+      c = reader_next_char(rd);
     } while (isdigit(c));
     if (all_zeros) tk = SMT_TK_ZERO_DIVISOR;
-    // else tk = SMT_TK_RATIONAL    
+    // else tk = SMT_TK_RATIONAL
   }
-    
+
  done:
   string_buffer_close(buffer);
   return tk;
@@ -698,7 +698,7 @@ static smt_token_t smt_read_number(lexer_t *lex) {
 
 
 /*
- * Read symbols, with special treatment for 
+ * Read symbols, with special treatment for
  *  bit vector constants "bv<digits>"
  *  or "bvbin<binary bits>"
  *  or "bvhex<hexadecimal digits>"
@@ -721,7 +721,7 @@ static smt_token_t symbol_type(string_buffer_t *buffer) {
         }
       }
       return SMT_TK_BV_BINCONSTANT;
-      
+
     } else if (n > 5 && s[2] == 'h' && s[3] == 'e' && s[4] == 'x') {
       // bvhex prefix
       for (i=5; i<n; i++) {
@@ -748,7 +748,7 @@ static smt_token_t smt_read_symbol(lexer_t *lex) {
   smt_token_t tk;
   string_buffer_t *buffer;
   const keyword_t *kw;
-  
+
   smt_read_identifier(lex);
   buffer = lex->buffer;
   kw = in_smt_kw(buffer->data, buffer->index);
@@ -782,7 +782,7 @@ smt_token_t next_smt_token(lexer_t *lex) {
     if (c != ';') break;
     do {
       c = reader_next_char(rd);
-    } while (c != '\n' && c != EOF);    
+    } while (c != '\n' && c != EOF);
   }
 
   // record start of token
@@ -839,7 +839,7 @@ smt_token_t next_smt_token(lexer_t *lex) {
   case '$':
     tk = SMT_TK_FVAR;
     smt_read_identifier(lex);
-    goto done;    
+    goto done;
   case '0':
   case '1':
   case '2':
@@ -854,13 +854,13 @@ smt_token_t next_smt_token(lexer_t *lex) {
     goto done;
   default:
     tk = smt_read_symbol(lex);
-    goto done;    
+    goto done;
   }
 
   // advance to next input char then return
  next_then_return:
   reader_next_char(rd);
  done:
-  lex->token = tk;  
+  lex->token = tk;
   return tk;
 }

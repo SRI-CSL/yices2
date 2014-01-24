@@ -297,7 +297,7 @@ uint32_t cset_card(cset_t *s) {
 bool cset_member(cset_t *s, uint32_t i) {
   assert(i < s->dsize);
   return (s->dsize <= 32) ? (s->hash & (((uint32_t) 1) << i)) : word_array_tst_bit(s->data, i);
-} 
+}
 
 
 /*

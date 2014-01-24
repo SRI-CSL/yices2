@@ -32,7 +32,7 @@ enum {
 
 /*
  * Evaluator structure:
- * - pointer to a model + term_table + value_table 
+ * - pointer to a model + term_table + value_table
  *   (term table and value table are extracted from
  *    model when the evaluator is initialized)
  * - cache: keeps track of the value of evaluated terms

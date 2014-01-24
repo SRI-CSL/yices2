@@ -11,7 +11,7 @@
  * distinguished root element. All elements other than the root are
  * uninterpreted term indices (i.e., variables).
  *
- * - For a root r we store: 
+ * - For a root r we store:
  *      map[r] = object mapped to the class (or NULL)
  *     type[r] = type of the class
  *     rank[r] = an 8bit value for balancing the union-find structure
@@ -26,7 +26,7 @@
  *   2^rank[r] and all elements in the class are uninterpreted. It's
  *   possible to merge the class of r with another class.
  *
- * - a non-root i must be an uninterpreted term index and map[i] is the 
+ * - a non-root i must be an uninterpreted term index and map[i] is the
  *   parent of i in the union-find tree.
  *
  * To distinguish between roots and non-roots, we use the sign bit:
@@ -109,18 +109,18 @@ void reset_intern_tbl(intern_tbl_t *tbl) {
 void intern_tbl_push(intern_tbl_t *tbl) {
   int32_array_push(&tbl->map);
   int32_array_push(&tbl->type);
-  uint8_array_push(&tbl->rank);  
+  uint8_array_push(&tbl->rank);
 }
 
 void intern_tbl_pop(intern_tbl_t *tbl) {
   int32_array_pop(&tbl->map);
   int32_array_pop(&tbl->type);
-  uint8_array_pop(&tbl->rank);  
+  uint8_array_pop(&tbl->rank);
 }
 
 
 /*
- * Get the internal cache. 
+ * Get the internal cache.
  * Allocate and initialize it if needed.
  */
 static int_hset_t *intern_tbl_get_cache(intern_tbl_t *tbl) {
@@ -234,7 +234,7 @@ term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t) {
 
 /*
  * Add t to the union-find structure:
- * - t must be uninterpreted 
+ * - t must be uninterpreted
  * - this creates a new singleton class with t as root
  *   and rank[t] is 0.
  */
@@ -266,7 +266,7 @@ static void partition_add_frozen(intern_tbl_t *tbl, term_t t) {
 /*
  * Check whether r is a free root:
  * - r must be a root
- * - it's free if rank[r] < 255 (not frozen) or if r 
+ * - it's free if rank[r] < 255 (not frozen) or if r
  *   is not in the table and is uninterpreted.
  */
 bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r) {
@@ -374,7 +374,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   // add the mapping
   ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
 
-  assert(intern_tbl_map_of_root(tbl, r) == x && 
+  assert(intern_tbl_map_of_root(tbl, r) == x &&
          intern_tbl_is_root(tbl, r) && !intern_tbl_root_is_free(tbl, r));
 }
 
@@ -385,7 +385,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
  * - r must be a root, already mapped, and with positive polarity
  */
 void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x) {
-  assert(0 <= x && x < INT32_MAX && is_pos_term(r) && 
+  assert(0 <= x && x < INT32_MAX && is_pos_term(r) &&
          intern_tbl_is_root(tbl, r) && intern_tbl_root_is_mapped(tbl, r));
 
   ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
@@ -598,7 +598,7 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
     case BV_POLY:
       bfs_visit_bvpoly(tbl, bvpoly_for_idx(terms, x));
       break;
-      
+
     default:
       assert(false);
       abort();
@@ -621,15 +621,15 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
  * - both r1 and r2 must be roots and they must have compatible types.
  * - r1 must have positive polarity.
  * - r2 must not be a constant term.
- * - returns true if r1 is a free root, and the substitution does not 
+ * - returns true if r1 is a free root, and the substitution does not
  *   create a cycle.
  *
  * NOTE: if r2 is a constant, the next function should be used instead.
  */
 bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
-  assert(is_pos_term(r1) && 
-         intern_tbl_is_root(tbl, r1) && 
-         intern_tbl_is_root(tbl, r2) && 
+  assert(is_pos_term(r1) &&
+         intern_tbl_is_root(tbl, r1) &&
+         intern_tbl_is_root(tbl, r2) &&
          !is_constant_term(tbl->terms, r2));
 
 
@@ -639,10 +639,10 @@ bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
 
 
 /*
- * Check whether the substitution [r1 := r2] is valid. 
+ * Check whether the substitution [r1 := r2] is valid.
  * - r1 must be a root and r2 must be a constant
  * - r1 must have positive polarity
- * - returns true if r1 is a free root and 
+ * - returns true if r1 is a free root and
  *   if r2's type is a subtype of r1's class type.
  *
  * (e.g., x := 1/2 is not a valid substitution if x is an integer variable).
@@ -651,7 +651,7 @@ bool intern_tbl_valid_const_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   type_t tau1, tau2;
   bool ok;
 
-  assert(is_pos_term(r1) && 
+  assert(is_pos_term(r1) &&
          intern_tbl_is_root(tbl, r1) &&
          intern_tbl_is_root(tbl, r2) &&
          is_constant_term(tbl->terms, r2));
@@ -689,7 +689,7 @@ void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
 
 
 /*
- * Merge the classes of r1 and r2 
+ * Merge the classes of r1 and r2
  * - both r1 and r2 must be free roots and have compatible types
  * - if both r1 and r2 are boolean, they may have arbitrary polarity
  * This adds either the substitution [r1 := r2] or [r2 := r1]

@@ -26,7 +26,7 @@
 #define INIT_CLAUSE_ACTIVITY_INCREMENT  1.0
 
 /*
- * Minimal number of conflicts between two successive calls to 
+ * Minimal number of conflicts between two successive calls to
  * simplify_clause_database
  */
 #define SIMPLIFY_CONFLICT_THRESHOLD    2000

@@ -3,7 +3,7 @@
  */
 
 /*
- * Two implementations: 
+ * Two implementations:
  * one for UNIX (Linux/Darwin/Cygwin)
  * one for Windows (MinGW).
  *
@@ -21,7 +21,7 @@
  * - on solaris 5.10, the signal handler is reset to SIG_DFL before
  *   the handler is called. So we must restore the handler every time.
  * - on Linux/Darwin/Cygwin: the signal handler is not changed.
- * 
+ *
  */
 
 #include <assert.h>
@@ -109,11 +109,11 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
   if (saved_handler == SIG_ERR) {
     perror("Yices: failed to install SIG_ALRM handler: ");
     exit(YICES_EXIT_INTERNAL_ERROR);
-  }  
+  }
 #endif
 
   (void) alarm(delay);
-} 
+}
 
 
 
@@ -123,7 +123,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
  * - set state to READY
  */
 void clear_timeout(void) {
-  // TODO: Check whether we should block the signals here? 
+  // TODO: Check whether we should block the signals here?
   if (the_timeout.state == TIMEOUT_ACTIVE) {
     // not fired;
     the_timeout.state = TIMEOUT_CANCELED;
@@ -147,7 +147,7 @@ void delete_timeout(void) {
 }
 
 
-#else 
+#else
 
 
 /************************************
@@ -177,7 +177,7 @@ HANDLE timer;
 /*
  * Callback function for the timer
  * - to nothing id the timeout is not active
- * - otherwise change the state to fired and 
+ * - otherwise change the state to fired and
  *   call the handler.
  */
 VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
@@ -189,7 +189,7 @@ VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
 
 
 /*
- * Initialization: 
+ * Initialization:
  * - create the timer queue
  */
 void init_timeout(void) {
@@ -229,7 +229,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
     fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
-  }                         
+  }
 }
 
 
@@ -238,7 +238,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
  * Delete the timer
  */
 void clear_timeout(void) {
-  // GetLastError returns DWORD, which is an unsigned 32bit integer 
+  // GetLastError returns DWORD, which is an unsigned 32bit integer
   uint32_t error_code;
 
   if (the_timeout.state == TIMEOUT_ACTIVE || the_timeout.state == TIMEOUT_FIRED) {
@@ -252,7 +252,7 @@ void clear_timeout(void) {
      * if the timer has fired. That's fine as the timeout state is not
      * active anymore so the timer_callback does nothing.
      *
-     * Second try: give INVALID_HANDLE_VALUE? 
+     * Second try: give INVALID_HANDLE_VALUE?
      * This causes SEG FAULT in ntdll.dll
      */
     if (! DeleteTimerQueueTimer(timer_queue, timer, INVALID_HANDLE_VALUE)) {

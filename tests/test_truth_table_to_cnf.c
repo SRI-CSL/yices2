@@ -60,12 +60,12 @@ static void show_table(int32_t b[8]) {
 
 
 /*
- * CNF encoding: each clause is defined by 
+ * CNF encoding: each clause is defined by
  * - an index i between 0 and 7
  * - the value b[i] for x
  * - a bit-mask m[i] of four bits
  *
- * i is formed of three bits i2 i1 i0, which define three literals 
+ * i is formed of three bits i2 i1 i0, which define three literals
  * (i.e., a row in the table as above)
  * - if i2 is 1, the first  literal is (not y), otherwise, it's y (literal l2)
  * - if i1 is 1, the second literal is (not z), otherwise, it's z (literal l1)
@@ -82,9 +82,9 @@ static void show_table(int32_t b[8]) {
  *   if m0 is 1, l0 is kept (otherwise, it's removed)
  *
  * We use the following bit-tricks:
- * - the common variables of two clauses i and j is defined 
+ * - the common variables of two clauses i and j is defined
  *   by the '1' bits in m[i] & m[j]
- * - the variables that have opposite polarities in i and j 
+ * - the variables that have opposite polarities in i and j
  *   are defined  by (i ^ j) & m[i] & m[j]
  */
 
@@ -157,7 +157,7 @@ static bool reduce_by_clause(uint32_t m[8], int32_t b[8], uint32_t i) {
       delta = (i ^ j) & m[i];
       switch (delta) {
       case 0:
-	changed = true; 
+	changed = true;
 	m[j] = 0; // i subsumes j
 	break;
 
@@ -166,7 +166,7 @@ static bool reduce_by_clause(uint32_t m[8], int32_t b[8], uint32_t i) {
       case 4:
 	/*
 	 * i is of the form a \/ B
-	 * j is of the form (not a) \/ B or C 
+	 * j is of the form (not a) \/ B or C
 	 * with C possibly empty.
 	 * resolving gives: B \/ C which subsumes j
 	 */
@@ -188,9 +188,9 @@ static bool reduce_by_clause(uint32_t m[8], int32_t b[8], uint32_t i) {
 /*
  * The triple (k, msk, v) defines a clause
  * - k = index between 0 and 7 (variables are y, z, t)
- * - msk = bit mask 
+ * - msk = bit mask
  * - v = value of x
- * This function checks whether one clause in the set 
+ * This function checks whether one clause in the set
  * is subsumed by (k, msk, v) and if so it removes it.
  * - return true if some clause is removed
  */
@@ -203,7 +203,7 @@ static bool check_subsumption(uint32_t m[8], int32_t b[8], uint32_t k, uint32_t 
   for (i=0; i<8; i++) {
     if (m[i] != 0 && b[i] == v && (msk & m[i]) == msk) {
       if (((i ^ k) & msk) == 0) {
-	// clause i is subsumed 
+	// clause i is subsumed
 	m[i] = 0;
 	changed = true;
       }
@@ -306,7 +306,7 @@ static void make_cnf(int32_t b[8], uint32_t m[8]) {
    * Full reduction
    */
   while (remove_redundant_clauses(m, b));
-  
+
   printf("Reduced clause set:\n");
   show_clauses(b, m);
   show_compact_mask(m);

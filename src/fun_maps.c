@@ -162,7 +162,7 @@ static bool equal_map_arrays(map_elem_t *a, map_elem_t *b, uint32_t n) {
       return false;
     }
   }
-  return true;  
+  return true;
 }
 
 
@@ -260,7 +260,7 @@ static bool map_is_normal(map_t *map) {
 void add_elem_to_map(map_t *map, particle_t index, particle_t value) {
   uint32_t i;
 
-  assert(index != null_particle && value != null_particle && 
+  assert(index != null_particle && value != null_particle &&
          !index_is_in_map(map, index));
 
   i = map->nelems;
@@ -321,16 +321,16 @@ void add_elem_to_normal_map(map_t *map, particle_t index, particle_t value) {
  * - map must be normalized
  * - if k is an index in map, return the corresponding value
  * - otherwise, if map has a default value return it
- * - otherwise return null_particle 
+ * - otherwise return null_particle
  */
-particle_t eval_map(map_t *map, particle_t k) {  
+particle_t eval_map(map_t *map, particle_t k) {
   int32_t i;
   particle_t v;
 
   assert(map_is_normal(map));
 
   v = map->def; // default value
-  i = binary_search_map_array(map->data, map->nelems, k);  
+  i = binary_search_map_array(map->data, map->nelems, k);
   if (i >= 0) {
     assert(map->data[i].index == k);
     v = map->data[i].value;
@@ -351,7 +351,7 @@ bool equal_maps(map_t *map1, map_t *map2) {
   assert(map_is_normal(map1) && map_is_normal(map2));
 
   n = map1->nelems;
-  return n == map2->nelems && map1->def == map2->def && 
+  return n == map2->nelems && map1->def == map2->def &&
     equal_map_arrays(map1->data, map2->data, n);
 }
 
@@ -396,7 +396,7 @@ particle_t disagreement_point(map_t *map1, map_t *map2) {
     } else {
       // k1  == k2
       if (map1->data[i1].value != map2->data[i2].value) {
-        return k1;      
+        return k1;
       }
       i1 ++;
       i2 ++;
@@ -464,7 +464,7 @@ particle_t distinguishing_point(map_t *map1, map_t *map2) {
   } else if (i < n2) {
     assert(i == n1);
     return map2->data[i].index;
-  } else {  
+  } else {
     assert(i == n1 && i == n2);
     return null_particle;
   }
@@ -503,7 +503,7 @@ bool index_in_map_domain(map_t *map, particle_t k) {
  **********************************/
 
 /*
- * Tuple increment: 
+ * Tuple increment:
  * - a = an array of n integers between 0 and (c-1)
  * - increment a: in reverse lexicographic order
  */
@@ -544,14 +544,14 @@ static uint32_t ceil_log(uint32_t c, uint32_t n) {
 
 
 /*
- * Force maps map[0 ... n-1] to be all distinct by updating them. 
+ * Force maps map[0 ... n-1] to be all distinct by updating them.
  * - store = particle store to create fresh indices
  * - f = type descriptor for all the maps in the array
  * - n must be positive
  *
  * Technique used:
  * - create fresh indices i_1,..,i_k in the domain of f
- * - create c values a_1,..., a_c in the range of f 
+ * - create c values a_1,..., a_c in the range of f
  * such that (c ^ k) >= n.
  * Update map[t] by adding [i_1 -> a_t1, ..., i_k -> a_tk]
  * in such a way that (t1, ...., tk) differ from (u1, ..., uk) when u/=t.
@@ -627,7 +627,7 @@ bool force_maps_to_differ(pstore_t *store, function_type_t *f, uint32_t n, map_t
     if (i == n) break;
     tuple_successor(tuple, k, c);
   }
-  
+
   safe_free(a);
   safe_free(idx);
   safe_free(tuple);

@@ -6,7 +6,7 @@
  * A matrix is represented as an array of rows
  * - row i is a sparse representation of (a_i1, ..., a_in)
  *   (where only the non-zero elements are stored)
- * - for each column j, we keep track of all the rows where 
+ * - for each column j, we keep track of all the rows where
  *   a_ij is non-zero in a column vector
  *
  * Equivalently, each row can be seen as a linear equation
@@ -32,13 +32,13 @@
  * - col[j][j_ptr] = (i, i_ptr)
  *
  * Column index 0 = const_idx is used to represent constants in the equations:
- * a_1 x_1 + ... + a_n x_n + b = 0, where b is a rational constant, is represented as 
+ * a_1 x_1 + ... + a_n x_n + b = 0, where b is a rational constant, is represented as
  * b.x_0 + a_1.x_1 + ... + a_n x_n = 0. The value of x_0 should always be one (i.e., it
  * should be a fixed variable with lower bound and upper bound both equal to 1).
  *
  * Initially, the matrix is not a tableau. Rows can be added arbitrarily, and there are
- * no basic variables. The matrix can be converted to a tableau using the 
- * tableau_construction functions. This assigns a basic variable to every row. 
+ * no basic variables. The matrix can be converted to a tableau using the
+ * tableau_construction functions. This assigns a basic variable to every row.
  * Then the matrix is in the form
  *
  *    y_1 + a_11 x_1 + ... + a_1n x_n = 0
@@ -70,7 +70,7 @@
 typedef struct row_elem_s {
   int32_t c_idx;    // column index
   int32_t c_ptr;    // pointer into column[c_idx]
-  rational_t coeff; 
+  rational_t coeff;
 } row_elem_t;
 
 typedef struct col_elem_s {
@@ -90,7 +90,7 @@ typedef struct row_s {
   uint32_t nelems;
   uint32_t size;
   uint32_t capacity;
-  int32_t  free;  
+  int32_t  free;
   row_elem_t data[0]; // real size is equal to capacity
 } row_t;
 
@@ -128,7 +128,7 @@ typedef struct column_s {
  *
  * Constant array: built on demand
  * - constant: for each row i, constant[i] = index of the
- *   constant in row i. If constant[i] = k >= 0, then row[i][k] is 
+ *   constant in row i. If constant[i] = k >= 0, then row[i][k] is
  *   <b, x_0, ..>.  If constant[i] = -1, then there's no constant in row i.
  *
  */
@@ -220,7 +220,7 @@ typedef struct elim_matrix_s {
  * Fixed variables: during Gaussian elimination,
  * all variables that occur in a row x == 0 or x + a == 0
  * (where a is a constant) are eliminated.
- * The corresponding variables and their values are stored in 
+ * The corresponding variables and their values are stored in
  * a resizable array. Each element of the array is a pair <var, rational>
  */
 typedef struct fvar_rec_s {
@@ -294,7 +294,7 @@ typedef struct markowitz_s {
  * Initialize a matrix of initial capacity = n rows, m columns
  * - if n == 0, then DEF_MATRIX_NUM_ROWS is used,
  * - if m == 0, then DEF_MATRIX_NUM_COLUMNS is used
- * - nrows and ncolumns are both 0 
+ * - nrows and ncolumns are both 0
  */
 extern void init_matrix(matrix_t *matrix, uint32_t n, uint32_t m);
 
@@ -329,7 +329,7 @@ extern void copy_matrix(matrix_t *matrix, matrix_t *matrix1);
 extern void matrix_add_column(matrix_t *matrix);
 
 /*
- * Add m columns to matrix 
+ * Add m columns to matrix
  * - if p = number of columns before the call, then the new columns
  * are given ids p to p + m - 1
  */
@@ -338,7 +338,7 @@ extern void matrix_add_columns(matrix_t *matrix, uint32_t m);
 
 /*
  * The two following functions can add arbitrary rows to the matrix,
- * without assigning basic variables to the new row. They cannot be 
+ * without assigning basic variables to the new row. They cannot be
  * used if the matrix is in tableau form.
  */
 
@@ -377,7 +377,7 @@ extern void matrix_add_tableau_eq(matrix_t *matrix, int32_t x, monomial_t *a, ui
  */
 
 /*
- * Reduce the matrix to dimension n x m 
+ * Reduce the matrix to dimension n x m
  * - n = number of rows to keep
  * - m = number of columns to keep
  */
@@ -500,9 +500,9 @@ static inline bool matrix_row_is_unmarked(matrix_t *matrix, uint32_t r) {
  */
 
 /*
- * The process is 
+ * The process is
  * 1) build the const_idx vector
- * 2) call eliminate_fixed variable for every fixed variable x 
+ * 2) call eliminate_fixed variable for every fixed variable x
  * 3) call cleanup_constants
  * - no rows or columns should be added during this process
  */
@@ -554,8 +554,8 @@ extern void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *r
  * Pivoting: make a variable x basic in row r0
  * - r0 = row index
  * - k = element index in row r0 that identifies x:
- * k must be the index of a valid element, such that 
- * matrix->row[r0]->data[k] is a triple (x, j, a) where 
+ * k must be the index of a valid element, such that
+ * matrix->row[r0]->data[k] is a triple (x, j, a) where
  *    x is a variable index (x >= 0)
  *    a is a non-zero rational
  * Important: x must not be equal to const_idx (i.e., 0)
@@ -640,14 +640,14 @@ extern void reset_fvar_vector(fvar_vector_t *v);
  * created, then x is eliminated and stored in the fixed-variable
  * vector.
  *
- * Parameters: 
+ * Parameters:
  * - matrix = input matrix
- * - elim_candidates = array of variables that may be eliminated   
+ * - elim_candidates = array of variables that may be eliminated
  *   n = size of that array. There must not be duplicates in the array.
  * - i_flag = bitvector that indicates which variables are integer:
  *   i_flag[x] = 1 means x is an integer variable,
  *   i_flag[x] = 0 means x is not an integer variable
- * - elim = elimination matrix where the eliminated rows will be stored 
+ * - elim = elimination matrix where the eliminated rows will be stored
  *   (if elim is NULL nothing is stored)
  * - fvars = vectors to record the eliminated fixed variables
  *
@@ -659,10 +659,10 @@ extern void reset_fvar_vector(fvar_vector_t *v);
  * NOTE: the variable assignments in fvars may be inconsistent
  * - there can be two types of inconsistencies:
  *   (x == 0) where x = const_idx = 1 if a row a == 0 is generated with a!=0
- *   (x == b) where x is an integer variable and b is not an integer 
+ *   (x == b) where x is an integer variable and b is not an integer
  * - the caller must check for this
  */
-extern void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, 
+extern void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n,
                             byte_t *i_flag, elim_matrix_t *elim, fvar_vector_t *fvars);
 
 

@@ -12,7 +12,7 @@
  * - mpq_mul_si(mpq_t q, long num, unsigned long den)
  * - mpq_div_si(mpq_t q, long num, unsigned long den)
  *
- * 
+ *
  * Initialization function:
  * - mpq_init2(mpq_t q, unsigned long n)
  *
@@ -38,7 +38,7 @@
 
 
 /*
- * Initialization: allocate and initialize the 
+ * Initialization: allocate and initialize the
  * global variables.
  */
 extern void init_mpq_aux();
@@ -137,7 +137,7 @@ static inline bool mpq_is_integer(mpq_t q) {
 
 
 /*
- * Assignment functions: 
+ * Assignment functions:
  * - mpq_set_int32 stores num/den into q, where num and den are 32 bit integers.
  * - mpq_set_int64 stores num/den into q, where num and den are 64 bit integers.
  * For both functions:
@@ -152,7 +152,7 @@ static inline bool mpq_is_integer(mpq_t q) {
  *   The result is valid only if mpq_fits_int32(q) is true.
  * - mpq_get_int64 converts q to num/den where num and den are 64bit integers
  *   The result is correct only if mpq_fits_int64(q) is true.
- * 
+ *
  * IMPORTANT: the conversion functions require q to be canonicalized.
  *
  * GMP provides conversions from mpz to signed and unsigned long.

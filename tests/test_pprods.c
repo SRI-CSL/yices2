@@ -44,7 +44,7 @@ static void print_pp_buffer(FILE *f, pp_buffer_t *b) {
 static void print_pprod(FILE *f, pprod_t *p) {
   fprintf(f, "pprod %p\n", p);
   if (pp_is_var(p)) {
-    fprintf(f, " var pp = [x_%"PRId32"]\n", var_of_pp(p));    
+    fprintf(f, " var pp = [x_%"PRId32"]\n", var_of_pp(p));
   } else if (pp_is_empty(p)) {
     fprintf(f, " empty\n");
   } else {
@@ -80,7 +80,7 @@ static pprod_t *p[NUM_PRODS];
 
 int main() {
   pprod_t *p1, *p2;
-  uint32_t i, j;  
+  uint32_t i, j;
   int32_t cmp;
 
   p[0] = empty_pp;
@@ -98,9 +98,9 @@ int main() {
   pp_buffer_reset(&buffer);
   pp_buffer_mul_var(&buffer, 0);
   pp_buffer_mul_var(&buffer, 1);
-  pp_buffer_mul_var(&buffer, 0);  
+  pp_buffer_mul_var(&buffer, 0);
   p[6] = pp_buffer_getprod(&buffer);  // x_0^2 x_1
-  
+
   pp_buffer_reset(&buffer);
   pp_buffer_mul_varexp(&buffer, 1, 2);
   pp_buffer_mul_varexp(&buffer, 4, 3);
@@ -122,7 +122,7 @@ int main() {
     for (j=0; j<5; j++) {
       printf(" degree of x_%"PRIu32" = %"PRIu32"\n", j, pprod_var_degree(p[i], j));
     }
-    printf("----\n");    
+    printf("----\n");
   }
   printf("\n");
 
@@ -142,7 +142,7 @@ int main() {
       }
       if (pprod_divisor(&buffer, p1, p2)) {
 	printf("p2/p1: ");
-	print_pp_buffer0(stdout, &buffer);	
+	print_pp_buffer0(stdout, &buffer);
       }
       if (pprod_divides(p2, p1)) {
 	printf("p2 divides p1\n");

@@ -42,8 +42,8 @@
  * The other nodes are expressions to be compiled.
  *
  * A node occurrence encodes bvneg:
- * - given a node index i, then bvp(i) denotes +i 
- *   and bvn(i) denotes (bvneg i) = -i. 
+ * - given a node index i, then bvp(i) denotes +i
+ *   and bvn(i) denotes (bvneg i) = -i.
  * - the sign is encoded in the lower-order bit of a node occurrence:
  *     bvp(i) is (i << 1) | 0
  *     bvn(i) is (i << 1) | 1
@@ -78,7 +78,7 @@
  *   [sum  n1 + n2]     where n1 and n2 are leaves
  *
  * Each node is identified by a positive integer n
- * - for node n, we store 
+ * - for node n, we store
  *     desc[n] = node descriptor
  *     use[n] = index of nodes that contain +n or -n
  * - to represent the sets leaf/elementary/other nodes:
@@ -88,7 +88,7 @@
  *   the three elements list[-2], list[-1], list[0] are headers
  *   for the lists of non-elementary, elementary, leaf nodes, respectively.
  *
- * During compilation, a node i may be replaced by a node occurrence n.  
+ * During compilation, a node i may be replaced by a node occurrence n.
  * We represent this by mapping i to the special descriptor [alias n].
  * The alias nodes are not stored in any of the lists.
  */
@@ -178,8 +178,8 @@ typedef struct bvc_mono_s {
 /*
  * Product
  * - varexp_t is a pair var/exponent defined in power_products.h
- * - hash = bitmask based on the nodes occurring in the products 
- * - len = number of pairs in the power product 
+ * - hash = bitmask based on the nodes occurring in the products
+ * - len = number of pairs in the power product
  * - prod = array of size elements
  * The actual operands are stored in prod[0..len-1] but
  * size may be more than len.
@@ -301,7 +301,7 @@ typedef struct bvc_item_s {
 typedef struct bvc_dag_s {
   // node descriptors + use lists + node sets
   bvc_header_t **desc;
-  int32_t **use;  
+  int32_t **use;
   bvc_item_t *list;
   uint32_t nelems;   // number of nodes (i.e., desc[1]  ... desc[nelems] are non-NULL)
   uint32_t size;     // size of arrays desc and use
@@ -318,7 +318,7 @@ typedef struct bvc_dag_s {
   object_store_t mono_store;
   object_store_t prod_store;  // for binary products
   object_store_t sum_store1;  // for sums of len <= 4
-  object_store_t sum_store2;  // for sums of len between 4 and 8  
+  object_store_t sum_store2;  // for sums of len between 4 and 8
   object_store_t alias_store;
 
   // auxiliary buffers
@@ -567,7 +567,7 @@ extern int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n);
 extern node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize);
 extern node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize);
 
- 
+
 /*
  * Construct an offset node q
  * - a must be normalized modulo 2^bitsize
@@ -576,7 +576,7 @@ extern node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32
  */
 extern node_occ_t bvc_dag_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize);
 extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize);
- 
+
 
 
 /*
@@ -614,9 +614,9 @@ extern node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, u
 
 /*
  * Convert a polynomial p to a DAG node q and return q
- * - q is defined by the coefficients in p and 
+ * - q is defined by the coefficients in p and
  *   the node occurrences in array a
- * - p must be non-zero and non-constant: it's of the 
+ * - p must be non-zero and non-constant: it's of the
  *   form  b_0 x_0 + b_1 x_1 + ... + b_k x_k  where k >= 1.
  * - array a must have k+1 elements a[0] ... a[k]
  *
@@ -688,7 +688,7 @@ extern uint32_t bvc_num_complex_nodes(bvc_dag_t *dag);
  * Convert node i to a leaf node (for variable x)
  * - i must not be a leaf or alias node
  */
-extern void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x); 
+extern void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x);
 
 
 /*
@@ -708,7 +708,7 @@ extern void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, nod
 
 /*
  * Check whether there is a sum node that can be reduced by +n1 +n2 or -n1 -n2
- * - n1 and n2 must be distinct 
+ * - n1 and n2 must be distinct
  */
 extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 

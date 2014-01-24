@@ -8,7 +8,7 @@
  * but it should be usable by future variants.
  *
  * More precisely, for each arithmetic variable v, the table stores
- * - the definition of v, which can be 
+ * - the definition of v, which can be
  *    either NULL
  *    or a pointer to a polynomial_t object
  *    or a pointer to a varprod_t object (for non-linear arithmetic)
@@ -62,7 +62,7 @@ static uint32_t hash_rational(rational_t *q) {
  */
 void init_arith_vartable(arith_vartable_t *table) {
   uint32_t n;
-  
+
   n = DEF_AVARTABLE_SIZE;
   table->nvars = 0;
   table->ivars = 0;
@@ -75,7 +75,7 @@ void init_arith_vartable(arith_vartable_t *table) {
   table->value = (xrational_t *) safe_malloc(n * sizeof(xrational_t));
   table->lower_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
   table->upper_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  
+
   init_int_htbl(&table->htbl, 0); // use the default size defined in int_hash_tables.h
 }
 
@@ -93,7 +93,7 @@ static void extend_arith_vartable(arith_vartable_t *table) {
   if (n >= MAX_AVARTABLE_SIZE) {
     out_of_memory();
   }
-  
+
   table->size = n;
   table->def = (void **) safe_realloc(table->def, n * sizeof(void *));
   table->atoms = (int32_t **) safe_realloc(table->atoms, n * sizeof(int32_t *));
@@ -119,7 +119,7 @@ void delete_arith_vartable(arith_vartable_t *table) {
   n = table->nvars;
   for (i=0; i<n; i++) {
     delete_index_vector(table->atoms[i]);
-    xq_clear(table->value + i);    
+    xq_clear(table->value + i);
     p = table->def[i];
     switch (arith_var_kind(table, i)) {
     case AVAR_FREE: // nothing to delete
@@ -190,7 +190,7 @@ void reset_arith_vartable(arith_vartable_t *table) {
       q_clear(p);
       safe_free(p);
       break;
-    }    
+    }
   }
 
   for (i=0; i<n; i++) {
@@ -267,7 +267,7 @@ void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
     xq_clear(table->value + i);
   }
 
-  table->nvars = nvars;  
+  table->nvars = nvars;
 
   assert(table->ivars == dbg_integer_vars(table));
 }
@@ -278,7 +278,7 @@ void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
  * Remove all references to egraph terms of indices >= nterms
  */
 void arith_vartable_remove_eterms(arith_vartable_t *table, uint32_t nterms) {
-  eterm_t *tmp;  
+  eterm_t *tmp;
   uint32_t i, n;
   eterm_t t;
 
@@ -362,7 +362,7 @@ static thvar_t new_arith_var(arith_vartable_t *table, void *def, uint8_t tg) {
   }
   assert(v < table->size);
 
-  table->def[v] = def;  
+  table->def[v] = def;
   table->atoms[v] = NULL;
   if (table->eterm != NULL) {
     table->eterm[v] = null_eterm;
@@ -479,7 +479,7 @@ static bool eq_rational_hobj(rational_hobj_t *o, thvar_t x) {
   arith_vartable_t *table;
 
   table = o->table;
-  return arith_var_def_is_rational(table, x) 
+  return arith_var_def_is_rational(table, x)
     && q_eq(arith_var_rational_def(table, x), o->q);
 }
 
@@ -677,7 +677,7 @@ thvar_t get_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n, bo
  */
 
 /*
- * Hash-consing object to interface with int_hash_table 
+ * Hash-consing object to interface with int_hash_table
  * - the polynomial to create is in o->poly
  * - the polynomial must be normalized as defined by varsort in polynomials.h:
  *   all coefficients must be non-zero
@@ -710,7 +710,7 @@ static bool eq_poly_hobj(poly_hobj_t *o, thvar_t x) {
   if (arith_var_def_is_poly(table, x)) {
     p = table->def[x];
     return p->nterms == o->len && equal_monarrays(p->mono, o->poly);
-  } 
+  }
 
   return false;
 }
@@ -761,10 +761,10 @@ static poly_hobj_t poly_hobj = {
 
 
 /*
- * Find a variable whose definition is equal to polynomial p 
+ * Find a variable whose definition is equal to polynomial p
  * - if there's no such variable, return null_thvar = -1
  * - p must be normalized and all its variables must exist in table
- *   (i.e., p must have its variables sorted and it must be terminated 
+ *   (i.e., p must have its variables sorted and it must be terminated
  *    by the end-marker max_idx)
  * - n must be the length of p, excluding the end marker
  */

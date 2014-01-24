@@ -76,7 +76,7 @@
  * - DEFAULT_BOOLACK_THRESHOLD = 8
  * - DEFAULT_MAX_INTERFACE_EQS = 200
  *
- * The dynamic ackermann heuristic is disabled for both 
+ * The dynamic ackermann heuristic is disabled for both
  * boolean and non-boolean terms.
  */
 #define DEFAULT_USE_DYN_ACK           false
@@ -159,7 +159,7 @@ static param_t default_settings = {
  * Search parameters and options can be set individually.
  *
  * We use an integer code to identify the parameters + a table of
- * parameter names in lexicographic order. Each parameter 
+ * parameter names in lexicographic order. Each parameter
  * is described in context.h
  */
 typedef enum param_key {
@@ -364,7 +364,7 @@ static int32_t set_branching_param(const char *value, branch_t *v) {
 
 
 /*
- * Parse val as a signed 32bit integer. Check whether 
+ * Parse val as a signed 32bit integer. Check whether
  * the result is in the interval [low, high].
  * - if so, store the result into *v and return 0
  * - if val is not an integer, return -2
@@ -381,7 +381,7 @@ static int32_t set_int32_param(const char *value, int32_t *v, int32_t low, int32
       *v = aux;
       aux = 0;
     } else {
-      aux = -2;   
+      aux = -2;
     }
     break;
 
@@ -424,7 +424,7 @@ static int32_t set_uint32_param(const char *value, uint32_t *v) {
 
 
 /*
- * Parse value as a double. Check whether 
+ * Parse value as a double. Check whether
  * the result is in the interval [low, high].
  * - if so, store the result into *v and return 0
  * - if the string can't be parse as a double, return -1
@@ -442,7 +442,7 @@ static int32_t set_double_param(const char *value, double *v, double low, double
       *v = aux;
       result = 0;
     } else {
-      result = -2;   
+      result = -2;
     }
     break;
 
@@ -651,7 +651,7 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
 
   case PARAM_ICHECK_PERIOD:
     r = set_int32_param(value, &parameters->integer_check_period, 1, INT32_MAX);
-    break;    
+    break;
 
   case PARAM_MAX_UPDATE_CONFLICTS:
     r = set_int32_param(value, &z, 1, INT32_MAX);

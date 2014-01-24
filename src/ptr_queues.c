@@ -2,16 +2,16 @@
  * Queue of pointers
  *
  * data = content of the queue
- * size = full size of the data array 
+ * size = full size of the data array
  * head = start of the queue = index in data array
  * tail = end of the queue = index in data array
  *
  * There are two modes:
- * 1) if 0 <= head <= tail < size, then 
+ * 1) if 0 <= head <= tail < size, then
  *    the queue consists of data[head ... tail-1]
- *    the queue is empty if head = tail                        
- * 2) if 0 <= tail < head < size then 
- *    the queue is the concatenation of 
+ *    the queue is empty if head = tail
+ * 2) if 0 <= tail < head < size then
+ *    the queue is the concatenation of
  *    data[head ... size -1] and data[0 ... tail-1]
  *
  * So size cannot be zero and head and tail are always between
@@ -41,7 +41,7 @@ void init_ptr_queue(ptr_queue_t *q, uint32_t n) {
 
 
 /*
- * Delete: free data array 
+ * Delete: free data array
  */
 void delete_ptr_queue(ptr_queue_t *q) {
   safe_free(q->data);
@@ -82,8 +82,8 @@ void ptr_queue_push(ptr_queue_t *q, void *p) {
 
   if (i == q->size) {
     if (q->head == 0) {
-      /* 
-       * full queue, stored in data[0...size-1], 
+      /*
+       * full queue, stored in data[0...size-1],
        * just increase the size
        */
       resize_queue(q);

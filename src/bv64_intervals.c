@@ -57,7 +57,7 @@ static void add_mul64(uint32_t r[4], uint64_t a, uint64_t b, uint64_t c) {
   // convert a, b, c to 128 bit (zero extend)
   bvconst_set64(r, 4, a);
   bvconst_set64(bb, 4, b);
-  bvconst_set64(cc, 4, c); 
+  bvconst_set64(cc, 4, c);
   bvconst_addmul(r, 4, bb, cc);
 }
 
@@ -72,7 +72,7 @@ static void sub_mul64(uint32_t r[4], uint64_t a, uint64_t b, uint64_t c) {
   // convert a, b, c to 128 bit (zero extend)
   bvconst_set64(r, 4, a);
   bvconst_set64(bb, 4, b);
-  bvconst_set64(cc, 4, c); 
+  bvconst_set64(cc, 4, c);
   bvconst_submul(r, 4, bb, cc);
 }
 
@@ -140,7 +140,7 @@ static void add_mul64_signed(uint32_t r[4], int64_t a, int64_t b, int64_t c) {
   // convert a, b, c to 128 bit (sign extend)
   bvconst_set64_signed(r, 4, a);
   bvconst_set64_signed(bb, 4, b);
-  bvconst_set64_signed(cc, 4, c); 
+  bvconst_set64_signed(cc, 4, c);
   bvconst_addmul(r, 4, bb, cc);
 }
 
@@ -173,7 +173,7 @@ static int64_t add_mul_shift64_signed(uint64_t a, uint64_t b, uint64_t c, uint32
 
 #if 0
 
-// NOT USED 
+// NOT USED
 
 /*
  * Compute a - b*c as a 128 bit signed integer
@@ -185,7 +185,7 @@ static void sub_mul64_signed(uint32_t r[4], int64_t a, int64_t b, int64_t c) {
   // convert a, b, c to 128 bit (sign extend)
   bvconst_set64_signed(r, 4, a);
   bvconst_set64_signed(bb, 4, b);
-  bvconst_set64_signed(cc, 4, c); 
+  bvconst_set64_signed(cc, 4, c);
   bvconst_submul(r, 4, bb, cc);
 }
 
@@ -224,7 +224,7 @@ static int64_t sub_mul_shift64_signed(uint64_t a, uint64_t b, uint64_t c, uint32
  */
 
 /*
- * Compute the interval that encloses the set 
+ * Compute the interval that encloses the set
  *   S = { (x1 + x2) mod 2^n | a.low <= x1 <= a.high and l <= x2 <= u }
  *
  * Store the result in a:
@@ -235,7 +235,7 @@ static int64_t sub_mul_shift64_signed(uint64_t a, uint64_t b, uint64_t c, uint32
  *   min(S) is 0
  *   max(S) is 2^n-1
  * Otherwise
- *   min(S) is (a.low + l) mod 2^n 
+ *   min(S) is (a.low + l) mod 2^n
  *   max(S) is (a.high + u) mod 2^n
  */
 static void bv64_interval_add_u_core(bv64_interval_t *a, uint64_t l, uint64_t u, uint32_t n) {
@@ -246,9 +246,9 @@ static void bv64_interval_add_u_core(bv64_interval_t *a, uint64_t l, uint64_t u,
   a->low = norm64(a->low + l, n);
   a->high = norm64(a->high + u, n);
   if (a->high < u && a->low >= l) {
-    /* 
+    /*
      * overflow in a->high
-     * no overflow in a->low 
+     * no overflow in a->low
      * so the domain D is [a->low, 0b1111] U [0b0000, a->high]
      * the enclosing interval for D is [0b0000, 0b1111]
      */
@@ -304,7 +304,7 @@ static void bv64_interval_add_s_core(bv64_interval_t *a, uint64_t l, uint64_t u,
  *   min(D) = 0
  *   max(D) = 2^n-1
  * Otherwise
- *   min(D) = (a.low - u) mod 2^n 
+ *   min(D) = (a.low - u) mod 2^n
  *   max(D) = (a.high - l) mod 2^n
  */
 static void bv64_interval_sub_u_core(bv64_interval_t *a, uint64_t l, uint64_t u, uint32_t n) {
@@ -401,7 +401,7 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
     bv64_interval_sub_u_core(a, l, u, n);
   } else {
     /*
-     * We want an interval for (x + c y mod 2^n) where 
+     * We want an interval for (x + c y mod 2^n) where
      *     a.low <= x <= a.high   and   l <= y <= u.
      *
      * Let c' = (2^n - c) then (x + c y mod 2^n) == (x - c' y mod 2^n).
@@ -417,9 +417,9 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
       q2 = add_mul_shift64(a->high, u, c, n);  // q2 = quotient(a.high + c * b.high, 2^n)
 
       assert(q1 <= q2);
-      
+
       /*
-       * We know  q1 * 2^n <= a.low + c * l < (q1 + 1) * 2^n 
+       * We know  q1 * 2^n <= a.low + c * l < (q1 + 1) * 2^n
        *     and  q2 * 2^n <= a.high + c * u < (q2 + 1) * 2^n
        *     and  a.low + c * l <= x + c * y <= a.high + c * u
        * If q1 = q2, we can conclude that
@@ -436,8 +436,8 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
 
     } else {
       c = norm64(-c, n); // this is c'
-      q1 = sub_mul_shift64(a->low, u, c, n); 
-      q2 = sub_mul_shift64(a->high, l, c, n); 
+      q1 = sub_mul_shift64(a->low, u, c, n);
+      q2 = sub_mul_shift64(a->high, l, c, n);
 
       assert(signed64_le(q1, q2, n));
 
@@ -464,7 +464,7 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
  * Signed version
  */
 void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) {
-  uint64_t l, u; 
+  uint64_t l, u;
   int64_t q1, q2;
   uint32_t n;
 
@@ -492,7 +492,7 @@ void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
       u = norm64(a->high + c * b->low, n);
     }
 
-    if ((q1 == q2 && signed64_le(l, u, n)) || 
+    if ((q1 == q2 && signed64_le(l, u, n)) ||
         (q1 == q2 - 1 && is_neg64(l, n) && is_pos64(u, n))) {
       a->low = l;
       a->high = u;
@@ -500,7 +500,7 @@ void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
       a->low = min_signed64(n);
       a->high = max_signed64(n);
     }
-    
+
     assert(bv64_interval_is_normalized(a) && signed64_le(a->low, a->high, n));
   }
 }

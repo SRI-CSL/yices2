@@ -11,7 +11,7 @@
  * - removed trichotomy lemmas/cache
  *
  * Version 3: 2008/11/03
- * - put back the derived bounds and more general forms of bound 
+ * - put back the derived bounds and more general forms of bound
  *   propagation.
  * - added diophantine subsolver
  * - put back the trichotomy cache. It's now used for interfacing
@@ -33,28 +33,28 @@
  * - the table maps x to a descriptor
  * - variable 0 is always the constant (const_idx = 0)
  *   its descriptor is the rational 1/1 (kind = AVAR_CONST)
- * - for all other variables, we use only two kinds of descriptors 
+ * - for all other variables, we use only two kinds of descriptors
  *   either x is a free variable          (kind = AVAR_FREE)
  *       or x has a polynomial definition (kind = AVAR_POLY)
  *   We convert any rational constant to a constant polynomial before
  *   adding it to the variable table (i.e., we don't use kind = AVAR_CONST).
- * 
+ *
  * Variable substitutions: if x's definition is a simple polynomial of
  * the form (c + b.y) then the solver always replace x by c + b.y
  * (rather than adding the row c - x + b.y = 0 to the matrix).
- * 
+ *
  * Matrix/tableau:
  * - We use a two-stage approach to building the constraints A X = 0.
- * - The constraint matrix is built during formula internalization. 
+ * - The constraint matrix is built during formula internalization.
  *   It contains two types of rows:
  *   - variable definitions: rows of the form (x - p) == 0,
- *     where x := p is an entry in the variable table and p is not a 
+ *     where x := p is an entry in the variable table and p is not a
  *     simple polynomial
  *   - top-level assertions: rows of the form (p == 0) when p == 0
  *     is asserted at the toplevel
- * - The matrix is simplified and the tableau is constructed 
+ * - The matrix is simplified and the tableau is constructed
  *   when start_search is called.
- * 
+ *
  * The solver maintains:
  * - a variable assignment that maps X to extended rationals
  * - a queue/stack of asserted or derived constraints
@@ -72,10 +72,10 @@
  * There are two stacks: a stack of assertions and a constraint (or bound) stack.
  * Assertions are arithmetic atoms or negation of arithmetic atoms. Each assertion
  * is identified by the atom id and a polarity bit (1 for negation).
- * Assertions are pushed onto the assertion stack when the core calls 
+ * Assertions are pushed onto the assertion stack when the core calls
  * simplex_assert_atom(.., l) where l is a literal. The bound stack maintains the
  * current lower and upper bound on each variable.
- * 
+ *
  * Then simplex_propagate does the following operations:
  *
  * 1) Process_assertions: visit all assertions on the assertion stack
@@ -95,16 +95,16 @@
  *
  * 4) Optional: search for implied bounds (simplex-propagation)
  *    If no conflict is found by step 1 or 3:
- *    - add more bounds to the bound stacks (implied bounds). 
+ *    - add more bounds to the bound stacks (implied bounds).
  *    - if integer variables are present, theory propagation may detect
- *      conflicts or invalidate the current assignment (i.e.. val[x] no longer 
+ *      conflicts or invalidate the current assignment (i.e.. val[x] no longer
  *      between lb[x] and ub[x] because the bounds are strengthened).
- *    - if theory_propagation does not find a conflict but the current assignment is 
+ *    - if theory_propagation does not find a conflict but the current assignment is
  *      invalid, attempt to correct it: make sure all non-basic variables are within
- *      their bounds then call make_feasible again. 
+ *      their bounds then call make_feasible again.
  *
  * 5) Find implied literals and propagate them to the core.
- *    If no conflict is found in steps 1, 3, or 4: process all the new bounds on the 
+ *    If no conflict is found in steps 1, 3, or 4: process all the new bounds on the
  *    bound stack, and assign all literals implied by these bounds in the core.
  */
 
@@ -156,7 +156,7 @@
  *       axiom --> no explanation
  *       assertion --> explanation is a literal l
  *       derived/strengthened --> explanation is an array of literals
- *       equality propagation from the egraph --> the explanation is a pair 
+ *       equality propagation from the egraph --> the explanation is a pair
  *                                                of variables (v[0], v[1])
  * - bit 7 of the tag is used as a mark when generating explanations
  * - for backtracking, pre[i] stores the previous constraint of the same type,
@@ -170,7 +170,7 @@
  *
  * Other components:
  * - top = top of the stack
- * - prop_ptr = index of the first constraint to check for theory propagation 
+ * - prop_ptr = index of the first constraint to check for theory propagation
  *   (bounds of index prop_ptr to top-1 have not been visited)
  * - fix_ptr = index of the first constraint to check for updating the assignment.
  * - size = size of all subarrays
@@ -284,9 +284,9 @@ static inline uint8_t arith_tag(uint8_t tag) {
 /*
  * Asserted atoms (from the core) are stored into a queue/stack
  * before being processed by simplex_propagate.
- * - each assertion is a 32bit integer than consists of an 
- *   atom id + a sign bit 
- * - the atom id, is an atom index in the atom table 
+ * - each assertion is a 32bit integer than consists of an
+ *   atom id + a sign bit
+ * - the atom id, is an atom index in the atom table
  *   (that fits in 28 bits since there are at most UINT32_MAX/16 atoms)
  * The sign bit is the low-order bit of the assertion code:
  * - sign bit = 0 means atom asserted true
@@ -353,25 +353,25 @@ typedef struct arith_undo_stack_s {
  * The constraint matrix is modified (destructively) on every simplex_start_search
  * To support push/pop and multiple checks, we must keep enough information to
  * restore the matrix to what it was before the previous 'start_search'.
- * 
+ *
  * The matrix contains two types of rows:
  * - rows of the form (p == 0) added on calls to assert_eq_axiom
  * - rows of the form (x - q = 0) where x is a variable and q is a polynomial.
  *   The polynomial q is x's definition obtained from the variable table.
- * 
+ *
  * We don't add the row (x - q = 0) if q is simple. Currently
  * simple means that q is of the form (k + a.y) for two constants k and a.
  * For such polynomials, we replace x by q eagerly, everywhere x is referenced.
  * (and x is a trivial variable).
  *
  * To restore the matrix to its old state:
- * - we keep a copy of all polynomials p_1, ..., p_k that form the first type of 
+ * - we keep a copy of all polynomials p_1, ..., p_k that form the first type of
  *   rows. These polynomials are stored in vector simplex->saved_rows.
  * - we reconstruct the rows (x - q = 0) for all the non-trivial variables.
  */
 
 /*
- * On entry to a new base level, we save 
+ * On entry to a new base level, we save
  * - the number of variables and atoms
  * - the size of the saved row vector
  * - the current propagation pointer for both assertion_queue and bound stack
@@ -408,7 +408,7 @@ typedef struct arith_trail_stack_s {
  * The explanation for l must be a vector of literals (l_1 ... l_n) such that
  *  "(and l_1 ... l_n) implies l" holds.
  *
- * Currently, there are two types of propagation objects, corresponding to two 
+ * Currently, there are two types of propagation objects, corresponding to two
  * propagation rules:
  *
  * 1) simplex propagation:
@@ -422,10 +422,10 @@ typedef struct arith_trail_stack_s {
  *    a simplex variable  y = x1 - x2 and two atoms (y >= 0) and (y <= 0).
  *    Then it will add a trichotomy clause to the core:
  *        (or (eq t1 t2) (not (y >= 0)) (not (y <= 0)))
- *    and the simplex solver may have to propagate (not (eq t1 t2)) to the core. 
+ *    and the simplex solver may have to propagate (not (eq t1 t2)) to the core.
  *    The propagation object stores x1 and x2 in that case + a hint.
  *
- * The propagation objects starts with a tag that identifies the 
+ * The propagation objects starts with a tag that identifies the
  * propagation rule.
  *
  * NOTE: APROP_EGRAPH_DISEQ is not used anymore.
@@ -500,7 +500,7 @@ typedef struct eq_propagator_s {
 /*
  * If the simplex solver is connected to an egraph, trichotomy clauses
  * may be generated dynamically. If t1 and t2 are two egraph terms,
- * with respective theory variables x1 and x2 (both in the simplex), then the 
+ * with respective theory variables x1 and x2 (both in the simplex), then the
  * trichotomy clauses is the axiom:
  *    (t1 == t2) or (x1 < x2) or (x2 < x1)
  * Internally, this is encoded via an auxiliary variable y and a constant k
@@ -513,7 +513,7 @@ typedef struct eq_propagator_s {
  * (modulo reordering to ensure t1 < t2). Note: we can't use l in the cache
  * because (t1 == t2) may the false literal (fixed a bug by changing that).
  *
- * Each cache record needs a tag + a non-zero flag. To differentiate from the tags 
+ * Each cache record needs a tag + a non-zero flag. To differentiate from the tags
  * used in the egraph cache, we use 2 here.
  */
 typedef enum arith_lemma_tag {
@@ -544,7 +544,7 @@ typedef enum arith_lemma_flag {
  * maintain integer feasibility. All these components are stored in
  * the following record.
  *
- * - lb and ub are lower and upper bounds 
+ * - lb and ub are lower and upper bounds
  * - has_lb is true if lb is valid, otherwise, there's no lower bound
  * - has_ub is true if ub is valid, otherwise, there's no upper bound
  * - period is a rational number, if it's not zero then the allowed
@@ -552,7 +552,7 @@ typedef enum arith_lemma_flag {
  *   shifts on x can be anything).
  *
  * Two more components are used for sampling
- * - k_min = smallest integer k such that lb <= k period 
+ * - k_min = smallest integer k such that lb <= k period
  *   (i.e., k_min = ceil(lb/period))
  * - k_max = largest integer k such that k period <= ub
  *   (i.e., k_max = floor(ub/period))
@@ -622,7 +622,7 @@ typedef struct simplex_stats_s {
   uint32_t num_dioph_conflicts;  // number of dsolver unsat
   uint32_t num_bound_conflicts;  // unsat by bound strengthening
   uint32_t num_recheck_conflicts;  // unsat after recheck
-  
+
 } simplex_stats_t;
 
 
@@ -662,12 +662,12 @@ typedef struct simplex_solver_s {
    * Interrupt flag: set to true to stop pivoting
    */
   bool interrupted;
-  
+
   /*
    * Pivoting parameters
    */
   bool use_blands_rule;     // true if Bland's rule is active
-  uint32_t bland_threshold; // number of repeat entering variable  
+  uint32_t bland_threshold; // number of repeat entering variable
 
   /*
    * Parameters for propagation
@@ -682,7 +682,7 @@ typedef struct simplex_solver_s {
   uint32_t prng;
 
   /*
-   * Flag and parameter for integer arithmetic 
+   * Flag and parameter for integer arithmetic
    */
   bool integer_solving;
   int32_t check_counter;
@@ -764,7 +764,7 @@ typedef struct simplex_solver_s {
   arith_astack_t assertion_queue;
 
   /*
-   * Queue of egraph assertions + disequalities received from 
+   * Queue of egraph assertions + disequalities received from
    * the egraph (disequalities are stored in a stack)
    */
   eassertion_queue_t egraph_queue;
@@ -779,7 +779,7 @@ typedef struct simplex_solver_s {
    */
   arith_trail_stack_t trail_stack;
   pvector_t saved_rows;
-  
+
   /*
    * Result of matrix simplification
    * - a triangular matrix + a variable assignment
@@ -808,10 +808,10 @@ typedef struct simplex_solver_s {
 
 
   /*
-   * Model construction support   
+   * Model construction support
    * - value[x] = rational value of x
    * - epsilon is a positive rational
-   * - if val[x] = a + b delta as an extended rational, then the rational value 
+   * - if val[x] = a + b delta as an extended rational, then the rational value
    *   for a variable x is a + b * epsilon.
    * - factor is an auxiliary rational used for computing epsilon
    * - dprng is used by a pseudo-random number generator (for adjust model)
@@ -847,7 +847,7 @@ typedef struct simplex_solver_s {
  * - bit = 1 means option enabled, 0 means disabled
  *
  * Current options
- * - EAGER_LEMMAS: when an atom on x is created, all binary lemmas 
+ * - EAGER_LEMMAS: when an atom on x is created, all binary lemmas
  *   relating it to other atoms on x are added to the clause set.
  * - PROPAGATION: enable propagation via rows
  * - ICHECK: enable periodic integer checking

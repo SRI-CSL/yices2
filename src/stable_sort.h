@@ -16,8 +16,8 @@
  *
  * Overview
  * --------
- * The algorithm is a merge sort that processes an array A of N 
- * elements from left to right. The processed part is a prefix 
+ * The algorithm is a merge sort that processes an array A of N
+ * elements from left to right. The processed part is a prefix
  * A[0 ... K-1] of A where K <= N; the unprocessed part is A[K ... N-1].
  *
  * The processed part is divided in a sequence of segments or runs, where
@@ -38,7 +38,7 @@
  *   d[n-3] > d[n-2] + d[n-1]
  *     ...
  *   d[0]   > d[1] + ... + d[n-1]
- * 
+ *
  * It follows that d[i] >= 2^(n-i-1) and K = d[0] + ... + d[n-1] >= 2^n
  * The maximal array size we can handle is 2^32-1 so we need no more than
  * 32 segments. We use a fixed size array or 33 elements to store s[0] ... s[n].
@@ -51,7 +51,7 @@
  *      (i.e., we have A[K] <= A[K-1] <= ... <= A[M-1])
  *    - push M on top of the segment stack
  *    - the stack is then of the form s[0] .... s[n] where s[n] = M
- *    - if d[n-1] >= d[n-2] or d[n-1] + d[n-2] >= d[n-3] then 
+ *    - if d[n-1] >= d[n-2] or d[n-1] + d[n-2] >= d[n-3] then
  *      restore the invariant by merging consecutive runs.
  *    - K := M
  * 3) Finish the sort by merging all successive runs, starting with
@@ -74,12 +74,12 @@
  *
  * Data structures
  * ---------------
- * - we keep a pointer to the array A 
+ * - we keep a pointer to the array A
  * - the ordering function cmp
  * - the stack seg of 33 indices + the number of segments n
- * - an auxiliary array used when merging successive runs 
+ * - an auxiliary array used when merging successive runs
  *   (its size is at most N/2)
- */ 
+ */
 
 #ifndef __STABLE_SORT_H
 #define __STABLE_SORT_H
@@ -106,7 +106,7 @@
  * Elements in data are void* pointers.
  * The comparison function takes three arguments:
  *   cmp(aux, x, y)
- * where aux = the auxiliary pointer. 
+ * where aux = the auxiliary pointer.
  * - cmp(aux, x, y) must return true if x <= y in the ordering.
  */
 

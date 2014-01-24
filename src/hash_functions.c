@@ -2,7 +2,7 @@
 #include "hash_functions.h"
 
 /*
- * The source for Jenkins's mix and hash functions is 
+ * The source for Jenkins's mix and hash functions is
  * http://www.burtleburtle.net/bob/hash/index.html
  *
  * The specific function below is lookup2.c (this is Public Domain)
@@ -257,10 +257,10 @@ uint32_t jenkins_hash_uint64(uint64_t x) {
 
 
 /*
- * Hash code for an arbitrary pointer p 
+ * Hash code for an arbitrary pointer p
  */
 uint32_t jenkins_hash_ptr(void *p) {
   return jenkins_hash_uint64((uint64_t) ((size_t) p));
 }
- 
+
 

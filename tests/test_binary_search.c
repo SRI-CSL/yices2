@@ -61,7 +61,7 @@ static int32_t sequential_search(int32_t *a, uint32_t n, int32_t x) {
     return k;
   } else {
     return -1;
-  }  
+  }
 }
 
 
@@ -88,7 +88,7 @@ static void init_array(int32_t *a, uint32_t n) {
  */
 static void print_array(int32_t *a, uint32_t n) {
   uint32_t i, l;
-  
+
   l = 0;
   for (i=0; i<n; i++) {
     printf(" %4"PRId32, a[i]);
@@ -121,7 +121,7 @@ static void test_binary_search(int32_t *a, uint32_t n) {
     if (j != k || (k>=0 && a[k] != x)) {
       printf("*** BUG ***\n");
     }
-  }  
+  }
 }
 
 

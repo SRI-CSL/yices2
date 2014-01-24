@@ -53,7 +53,7 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t);
  * Create a new egraph constant of the given type
  */
 static eterm_t make_egraph_constant(context_t *ctx, type_t type, int32_t id) {
-  assert(type_kind(ctx->types, type) == UNINTERPRETED_TYPE || 
+  assert(type_kind(ctx->types, type) == UNINTERPRETED_TYPE ||
          type_kind(ctx->types, type) == SCALAR_TYPE);
   return egraph_make_constant(ctx->egraph, type, id);
 }
@@ -66,7 +66,7 @@ static eterm_t make_egraph_constant(context_t *ctx, type_t type, int32_t id) {
 static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
   eterm_t u;
   bvar_t v;
-  
+
   if (type == bool_type(ctx->types)) {
     v = create_boolean_variable(ctx->core);
     u = egraph_bvar2term(ctx->egraph, v);
@@ -224,13 +224,13 @@ static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   tau = intern_tbl_type_of_root(&ctx->intern, t);
   u = egraph_skolem_term(ctx->egraph, tau);
   egraph_assert_eq_axiom(ctx->egraph, u1, pos_occ(u));
-  
+
   return u;
 }
 
 
 /*
- * Convert (select i t) to an egraph term 
+ * Convert (select i t) to an egraph term
  * - tau must be the type of that term (should not be bool)
  * - if a new eterm u is created, attach a theory variable to it
  */
@@ -279,7 +279,7 @@ static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau)
   } else {
     // eliminate the if-then-else
     u = make_egraph_variable(ctx, tau);
-    l1 = egraph_make_eq(ctx->egraph, pos_occ(u), u2); 
+    l1 = egraph_make_eq(ctx->egraph, pos_occ(u), u2);
     l2 = egraph_make_eq(ctx->egraph, pos_occ(u), u3);
 
     assert_ite(&ctx->gate_manager, c, l1, l2, true);
@@ -301,7 +301,7 @@ static occ_t map_update_to_eterm(context_t *ctx, composite_term_t *update, type_
 
   assert(update->arity > 2);
 
-  n = update->arity; 
+  n = update->arity;
   a = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {
     a[i] = internalize_to_eterm(ctx, update->arg[i]);
@@ -424,7 +424,7 @@ static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_i
    */
   v = ctx->arith.create_var(ctx->arith_solver, is_int);
 
-  x = internalize_to_arith(ctx, ite->arg[1]);  
+  x = internalize_to_arith(ctx, ite->arg[1]);
   ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, c, v, x); // c ==> v = t1
 
   x = internalize_to_arith(ctx, ite->arg[2]);
@@ -903,8 +903,8 @@ static literal_t map_apply_to_literal(context_t *ctx, composite_term_t *app) {
 
 /*
  * Auxiliary function: translate (distinct a[0 ... n-1]) to a literal,
- * when a[0] ... a[n-1] are arithmetic variables. 
- * 
+ * when a[0] ... a[n-1] are arithmetic variables.
+ *
  * We expand this into a quadratic number of disequalities.
  */
 static literal_t make_arith_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
@@ -931,8 +931,8 @@ static literal_t make_arith_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
 
 /*
  * Auxiliary function: translate (distinct a[0 ... n-1]) to a literal,
- * when a[0] ... a[n-1] are bitvector variables. 
- * 
+ * when a[0] ... a[n-1] are bitvector variables.
+ *
  * We expand this into a quadratic number of disequalities.
  */
 static literal_t make_bv_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
@@ -1133,7 +1133,7 @@ static literal_t map_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2) {
    */
   terms = ctx->terms;
   if (is_ite_term(terms, t1) && ! is_ite_term(terms, t2)) {
-    l = map_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2); 
+    l = map_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2);
   } else if (is_ite_term(terms, t2) && !is_ite_term(terms, t1)) {
     l = map_ite_arith_bineq(ctx, ite_term_desc(terms, t2), t1);
   } else if (context_has_egraph(ctx)) {
@@ -1161,7 +1161,7 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
 
   if (t1 == u1) {
     return true_literal;
-  } 
+  }
 
   /*
    * Check the cache
@@ -1264,7 +1264,7 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   if (t != NULL_TERM) {
     // (bveq t1 t2) is equivalent to t
     return internalize_to_literal(ctx, t);
-  } 
+  }
 
   /*
    * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
@@ -1308,7 +1308,7 @@ static literal_t map_bit_select_to_literal(context_t *ctx, select_term_t *select
   s = extract_bit(ctx->terms, t, select->idx);
   if (s != NULL_TERM) {
     // (select t i) is s
-    return internalize_to_literal(ctx, s); 
+    return internalize_to_literal(ctx, s);
   } else {
     // no simplification
     x = internalize_to_bv(ctx, t);
@@ -1520,7 +1520,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
 /*
  * Translate internalization code x to an arithmetic variable
- * - if the code is for an egraph term u, then we return the 
+ * - if the code is for an egraph term u, then we return the
  *   theory variable attached to u in the egraph.
  * - otherwise, x must be the code of an arithmetic variable v,
  *   we return v.
@@ -1530,7 +1530,7 @@ static thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
   thvar_t v;
 
   assert(code_is_valid(x));
-  
+
   if (code_is_eterm(x)) {
     u = code2eterm(x);
     assert(ctx->egraph != NULL && egraph_term_is_arith(ctx->egraph, u));
@@ -1822,7 +1822,7 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
 
 /*
  * Translate an internalization code x to a literal
- * - if x is the code of an egraph occurrence u, we return the 
+ * - if x is the code of an egraph occurrence u, we return the
  *   theory variable for u in the egraph
  * - otherwise, x should be the code of a literal l in the core
  */
@@ -1836,7 +1836,7 @@ static literal_t translate_code_to_literal(context_t *ctx, int32_t x) {
     if (term_of_occ(u) == true_eterm) {
       l = mk_lit(const_bvar, polarity_of(u));
 
-      assert((u == true_occ && l == true_literal) || 
+      assert((u == true_occ && l == true_literal) ||
              (u == false_occ && l == false_literal));
     } else {
       assert(ctx->egraph != NULL);
@@ -1857,7 +1857,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
   literal_t l;
   occ_t u;
 
-  assert(is_boolean_term(ctx->terms, t));  
+  assert(is_boolean_term(ctx->terms, t));
 
   r = intern_tbl_get_root(&ctx->intern, t);
   polarity = polarity_of(r);
@@ -1895,7 +1895,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
     case VARIABLE:
       longjmp(ctx->env, FREE_VARIABLE_IN_FORMULA);
       break;
-              
+
     case UNINTERPRETED_TERM:
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
@@ -1956,7 +1956,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
     case BIT_TERM:
       l = map_bit_select_to_literal(ctx, bit_term_desc(terms, r));
       break;
-      
+
     case BV_EQ_ATOM:
       l = map_bveq_to_literal(ctx, bveq_atom_desc(terms, r));
       break;
@@ -1994,7 +1994,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
 static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
   occ_t g;
   literal_t l;
-  
+
   assert(code_is_valid(x));
 
   if (code_is_eterm(x)) {
@@ -2013,7 +2013,7 @@ static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
   } else {
     l = code2literal(x);
     if (! tt) l = not(l);
-    add_unit_clause(ctx->core, l);    
+    add_unit_clause(ctx->core, l);
   }
 }
 
@@ -2026,7 +2026,7 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
   int32_t code;
   bool tt;
 
-  assert(is_boolean_term(ctx->terms, t) && 
+  assert(is_boolean_term(ctx->terms, t) &&
          intern_tbl_is_root(&ctx->intern, t) &&
          intern_tbl_root_is_mapped(&ctx->intern, t));
 
@@ -2049,7 +2049,7 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
 
 /*
  * TODO: improve this in the integer case:
- * - all_int is based on p's type in the term table and does 
+ * - all_int is based on p's type in the term table and does
  *   not take the context's substitutions into account.
  * - integral_poly_after_div requires all coefficients
  *   to be integer. This could be generalized to polynomials
@@ -2075,7 +2075,7 @@ static bool is_elimination_candidate(context_t *ctx, term_t t) {
 static void apply_renaming_to_poly(context_t *ctx, polynomial_t *p,  poly_buffer_t *buffer) {
   uint32_t i, n;
   term_t t;
-  
+
   reset_poly_buffer(buffer);
 
   assert(poly_buffer_is_zero(buffer));
@@ -2086,7 +2086,7 @@ static void apply_renaming_to_poly(context_t *ctx, polynomial_t *p,  poly_buffer
     if (t == const_idx) {
       poly_buffer_add_const(buffer, &p->mono[i].coeff);
     } else {
-      // replace t by its root 
+      // replace t by its root
       t = intern_tbl_get_root(&ctx->intern, t);
       poly_buffer_addmul_term(ctx->terms, buffer, t, &p->mono[i].coeff);
     }
@@ -2120,7 +2120,7 @@ static bool integralpoly_after_div(poly_buffer_t *buffer, rational_t *a) {
 /*
  * Check whether a top-level assertion (p == 0) can be
  * rewritten (t == q) where t is not internalized yet.
- * - all_int is true if p is an integer polynomial (i.e., 
+ * - all_int is true if p is an integer polynomial (i.e.,
  *   all coefficients and all terms of p are integer).
  * - p = input polynomial
  * - return t or null_term if no adequate t is found
@@ -2134,7 +2134,7 @@ static term_t try_poly_substitution(context_t *ctx, poly_buffer_t *buffer, bool 
   for (i=0; i<n; i++) {
     t = buffer->mono[i].var;
     if (t != const_idx && is_elimination_candidate(ctx, t)) {
-      if (in_real_class(ctx, t) || 
+      if (in_real_class(ctx, t) ||
           (all_int && integralpoly_after_div(buffer, &buffer->mono[i].coeff))) {
         // t is candidate for elimination
         return t;
@@ -2197,7 +2197,7 @@ static polynomial_t *build_poly_substitution(context_t *ctx, poly_buffer_t *buff
  * Try to eliminate a toplevel equality (p == 0) by variable substitution:
  * - i.e., try to rewrite p == 0 into (x - q) == 0 where x is a free variable
  *   then store the substitution x --> q in the internalization table.
- * - all_int is true if p is an integer polynomial (i.e., all variables and all 
+ * - all_int is true if p is an integer polynomial (i.e., all variables and all
  *   coefficients of p are integer)
  *
  * - return true if the elimination succeeds
@@ -2245,10 +2245,10 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
    * where q = -1/a * p0
    */
   q = build_poly_substitution(ctx, buffer, u); // q is in ctx->aux_poly
-  
+
   // convert q to a theory variable in the arithmetic solver
   x = map_poly_to_arith(ctx, q);
-    
+
   // map u (and its root) to x
   r = intern_tbl_get_root(&ctx->intern, u);
   assert(intern_tbl_root_is_free(&ctx->intern, r) && is_pos_term(r));
@@ -2310,11 +2310,11 @@ static void assert_ite_arith_bineq(context_t *ctx, composite_term_t *ite, term_t
  * - both are arithmetic terms and roots in the internalization table
  */
 static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
-  intern_tbl_t *intern;  
+  intern_tbl_t *intern;
   thvar_t x, y;
   int32_t code;
 
-  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) && 
+  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) &&
          intern_tbl_root_is_free(&ctx->intern, t1));
 
   intern = &ctx->intern;
@@ -2330,7 +2330,7 @@ static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
   } else {
     /*
      * Internalize t2 to x.
-     * If t1 is still free after that, we can map t1 to x 
+     * If t1 is still free after that, we can map t1 to x
      * otherwise, t2 depends on t1 so we can't substitute
      */
     x = internalize_to_arith(ctx, t2);
@@ -2340,7 +2340,7 @@ static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
       assert(intern_tbl_root_is_mapped(intern, t1));
       code = intern_tbl_map_of_root(intern, t1);
       y = translate_code_to_arith(ctx, code);
-      
+
       // assert x == y in the arithmetic solver
       ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, true);
     }
@@ -2368,7 +2368,7 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
   if (is_ite_term(terms, t1) && !is_ite_term(terms, t2)) {
     assert_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2, tt);
     return;
-  } 
+  }
 
   if (is_ite_term(terms, t2) && !is_ite_term(terms, t1)) {
     assert_ite_arith_bineq(ctx, ite_term_desc(terms, t2), t1, tt);
@@ -2399,7 +2399,7 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
       try_arithvar_bineq_elim(ctx, t2, t1);
       return;
     }
-    
+
   }
 
   /*
@@ -2433,7 +2433,7 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
  * - this is used when a toplevel formula simplifies to t
  *   For example (ite c t u) --> t if c is true.
  * - t is not necessarily a root in the internalization table
- */ 
+ */
 static void assert_term(context_t *ctx, term_t t, bool tt);
 
 
@@ -2657,7 +2657,7 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
   u2 = flatten_ite_equality(ctx, v, u1, t2);
 
   /*
-   * (t1 == u1) is now equivalent to 
+   * (t1 == u1) is now equivalent to
    * the conjunction of (t2 == u2) and all the terms in v
    */
   n = v->size;
@@ -2700,8 +2700,8 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
 
 
 /*
- * Top-level arithmetic assertion: 
- * - if tt is true, assert p == 0 
+ * Top-level arithmetic assertion:
+ * - if tt is true, assert p == 0
  * - if tt is false, assert p != 0
  */
 static void assert_toplevel_poly_eq(context_t *ctx, polynomial_t *p, bool tt) {
@@ -2771,8 +2771,8 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
 
 
 /*
- * Top-level arithmetic assertion: 
- * - if tt is true, assert p >= 0 
+ * Top-level arithmetic assertion:
+ * - if tt is true, assert p >= 0
  * - if tt is false, assert p < 0
  */
 static void assert_toplevel_poly_geq(context_t *ctx, polynomial_t *p, bool tt) {
@@ -2849,7 +2849,7 @@ static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) 
 
   l1 = internalize_to_literal(ctx, ite->arg[0]);
   if (l1 == true_literal) {
-    assert_term(ctx, ite->arg[1], tt); 
+    assert_term(ctx, ite->arg[1], tt);
   } else if (l1 == false_literal) {
     assert_term(ctx, ite->arg[2], tt);
   } else {
@@ -2884,7 +2884,7 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
         a[i] = v->data[i];
       }
       ivector_reset(v);
-      
+
       for (i=0; i<n; i++) {
         a[i] = internalize_to_literal(ctx, a[i]);
         if (a[i] == true_literal) goto done;
@@ -2902,7 +2902,7 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
       }
     }
 
-    // assert (or a[0] ... a[n-1]) 
+    // assert (or a[0] ... a[n-1])
     add_clause(ctx->core, n, a);
 
   done:
@@ -2939,7 +2939,7 @@ static void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) 
   assert_xor(&ctx->gate_manager, n, a, tt);
   free_istack_array(&ctx->istack, a);
 }
- 
+
 
 
 /*
@@ -3009,13 +3009,13 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
         assert_term(ctx, a[i], true);
       }
 
-      free_istack_array(&ctx->istack, a);      
+      free_istack_array(&ctx->istack, a);
       return;
     }
 
     // flattening failed
     ivector_reset(v);
-  } 
+  }
 
   /*
    * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
@@ -3057,7 +3057,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   int32_t code;
   bool tt;
 
-  assert(is_boolean_term(ctx->terms, t) && 
+  assert(is_boolean_term(ctx->terms, t) &&
          intern_tbl_is_root(&ctx->intern, t) &&
          term_is_true(ctx, t));
 
@@ -3161,13 +3161,13 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
 
 /*
  * Assert (t == tt) for a boolean term t:
- * - if t is not internalized, record the mapping 
- *   (root t) --> tt in the internalization table 
+ * - if t is not internalized, record the mapping
+ *   (root t) --> tt in the internalization table
  */
 static void assert_term(context_t *ctx, term_t t, bool tt) {
   term_table_t *terms;
   int32_t code;
-  
+
   assert(is_boolean_term(ctx->terms, t));
 
   /*
@@ -3199,7 +3199,7 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
       code = INTERNAL_ERROR;
       goto abort;
 
-    case UNINTERPRETED_TERM: 
+    case UNINTERPRETED_TERM:
       // nothing to do: t --> true/false in the internalization table
       break;
 
@@ -3281,7 +3281,7 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
 
  abort:
   longjmp(ctx->env, code);
-} 
+}
 
 
 
@@ -3381,7 +3381,7 @@ static const uint32_t mode2options[NUM_MODES] = {
  * We need an empty theory solver for initializing
  * the core if the architecture is NOSOLVERS.
  */
-static void donothing(void *solver) {  
+static void donothing(void *solver) {
 }
 
 static void null_backtrack(void *solver, uint32_t backlevel) {
@@ -3452,14 +3452,14 @@ void enable_splx_eager_lemmas(context_t *ctx) {
   ctx->options |= SPLX_EGRLMAS_OPTION_MASK;
   if (context_has_simplex_solver(ctx)) {
     simplex_enable_eager_lemmas(ctx->arith_solver);
-  }  
+  }
 }
 
 void disable_splx_eager_lemmas(context_t *ctx) {
   ctx->options &= ~SPLX_EGRLMAS_OPTION_MASK;
   if (context_has_simplex_solver(ctx)) {
     simplex_disable_eager_lemmas(ctx->arith_solver);
-  }  
+  }
 }
 
 
@@ -3575,7 +3575,7 @@ static void create_rdl_solver(context_t *ctx, bool automatic) {
 /*
  * Create an initialize the simplex solver and attach it to the core
  * or to the egraph if the egraph exists.
- * - if automatic is true, this is part of auto_idl or auto_rdl. So the 
+ * - if automatic is true, this is part of auto_idl or auto_rdl. So the
  *   core is already initialized.
  */
 static void create_simplex_solver(context_t *ctx, bool automatic) {
@@ -3614,8 +3614,8 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
     init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, simplex_ctrl_interface(solver),
                   simplex_smt_interface(solver), cmode);
   } else {
-    // the core is already initialized: attach simplex 
-    smt_core_reset_thsolver(ctx->core, solver, simplex_ctrl_interface(solver), 
+    // the core is already initialized: attach simplex
+    smt_core_reset_thsolver(ctx->core, solver, simplex_ctrl_interface(solver),
 			    simplex_smt_interface(solver));
   }
 
@@ -3665,7 +3665,7 @@ static void create_auto_idl_solver(context_t *ctx) {
       atom_density = ((double) profile->num_atoms)/profile->num_vars;
     } else {
       atom_density = 0;
-    }    
+    }
 
     if (atom_density >= 10.0) {
       // high density: use FW
@@ -3694,7 +3694,7 @@ static void create_auto_rdl_solver(context_t *ctx) {
     create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
   } else if (profile->num_vars <= 200 || profile->num_eqs == 0) {
-    create_rdl_solver(ctx, true); 
+    create_rdl_solver(ctx, true);
     ctx->arch = CTX_ARCH_RFW;
   } else {
     // problem density
@@ -3702,7 +3702,7 @@ static void create_auto_rdl_solver(context_t *ctx) {
       atom_density = ((double) profile->num_atoms)/profile->num_vars;
     } else {
       atom_density = 0;
-    }    
+    }
 
     if (atom_density >= 7.0) {
       // high density: use FW
@@ -3776,7 +3776,7 @@ static void create_fun_solver(context_t *ctx) {
 
 /*
  * Allocate and initialize solvers based on architecture and mode
- * - core and gate manager must exist at this point 
+ * - core and gate manager must exist at this point
  * - if the architecture is either AUTO_IDL or AUTO_RDL, no theory solver
  *   is allocated yet, and the core is initialized for Boolean only
  * - otherwise, all components are ready and initialized, including the core.
@@ -3827,14 +3827,14 @@ static void init_solvers(context_t *ctx) {
   egraph = ctx->egraph;
   core = ctx->core;
   if (egraph != NULL) {
-    init_smt_core(core, CTX_DEFAULT_CORE_SIZE, egraph, egraph_ctrl_interface(egraph), 
+    init_smt_core(core, CTX_DEFAULT_CORE_SIZE, egraph, egraph_ctrl_interface(egraph),
                   egraph_smt_interface(egraph), cmode);
     egraph_attach_core(egraph, core);
 
   } else if (solvers == 0) {
     /*
      * Boolean solver only. If arch if AUTO_IDL or AUTO_RDL, the
-     * theory solver will be changed lated by create_auto_idl_solver 
+     * theory solver will be changed lated by create_auto_idl_solver
      * or create_auto_rdl_solver.
      */
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
@@ -3863,7 +3863,7 @@ static void delete_arith_solver(context_t *ctx) {
 
   solvers = arch_components[ctx->arch];
   if (solvers & IFW) {
-    delete_idl_solver(ctx->arith_solver);    
+    delete_idl_solver(ctx->arith_solver);
   } else if (solvers & RFW) {
     delete_rdl_solver(ctx->arith_solver);
   } else if (solvers & SPLX) {
@@ -3900,7 +3900,7 @@ static inline bool valid_arch(context_arch_t arch) {
  * - qflag = false means no quantifiers
  */
 void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
-                  context_mode_t mode, context_arch_t arch, bool qflag) {  
+                  context_mode_t mode, context_arch_t arch, bool qflag) {
   assert(valid_mode(mode) && valid_arch(arch));
 
   /*
@@ -3939,7 +3939,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   /*
    * Simplification/internalization support
    */
-  init_intern_tbl(&ctx->intern, 0, terms);  
+  init_intern_tbl(&ctx->intern, 0, terms);
   init_ivector(&ctx->top_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->top_atoms, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->top_formulas, CTX_DEFAULT_VECTOR_SIZE);
@@ -3948,7 +3948,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   /*
    * Force the internalization mapping for true and false
    * - true  term --> true_occ
-   * - false term --> false_occ 
+   * - false term --> false_occ
    * This mapping holds even if there's no egraph.
    */
   intern_tbl_map_root(&ctx->intern, true_term, bool2code(true));
@@ -4136,7 +4136,7 @@ void context_pop(context_t *ctx) {
 /*
  * Flatten and internalize assertions a[0 ... n-1]
  * - all elements a[i] must be valid boolean term in ctx->terms
- * - return code: 
+ * - return code:
  *   TRIVIALLY_UNSAT if there's an easy contradiction
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
@@ -4163,7 +4163,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     /*
      * At this point, the assertions are stored into the vectors
      * top_eqs, top_atoms, top_formulas, and top_interns
-     * - more top-level equalities may be in subst_eqs 
+     * - more top-level equalities may be in subst_eqs
      * - ctx->intern stores the internalized terms and the variable
      *   substitutions.
      */
@@ -4186,7 +4186,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
       break;
-      
+
     case CTX_ARCH_AUTO_RDL:
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
@@ -4307,14 +4307,14 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
  * Return code:
  * - TRIVIALLY_UNSAT means that an inconsistency is detected
  *   (in that case the context status is set to UNSAT)
- * - CTX_NO_ERROR means no internalization error and status not 
+ * - CTX_NO_ERROR means no internalization error and status not
  *   determined
  * - otherwise, the code is negative to report an error.
  */
 int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   int32_t code;
 
-  assert(ctx->arch == CTX_ARCH_AUTO_IDL || 
+  assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
          smt_status(ctx->core) == STATUS_IDLE);
 
@@ -4322,7 +4322,7 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   if (code == TRIVIALLY_UNSAT) {
     if (ctx->arch == CTX_ARCH_AUTO_IDL || ctx->arch == CTX_ARCH_AUTO_RDL) {
       // cleanup: reset arch/config to 'no theory'
-      assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL && 
+      assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL &&
 	     ctx->mode == CTX_MODE_ONECHECK);
       ctx->arch = CTX_ARCH_NOSOLVERS;
       ctx->theories = 0;
@@ -4349,9 +4349,9 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
  * Return code:
  * - TRIVIALLY_UNSAT means that an inconsistency is detected
  *   (in that case the context status is set to UNSAT)
- * - CTX_NO_ERROR means no internalization error and status not 
+ * - CTX_NO_ERROR means no internalization error and status not
  *   determined
- * - otherwise, the code is negative. The assertion could 
+ * - otherwise, the code is negative. The assertion could
  *   not be processed.
  */
 int32_t assert_formula(context_t *ctx, term_t f) {
@@ -4399,7 +4399,7 @@ void context_stop_search(context_t *ctx) {
 
 
 /*
- * Cleanup: restore ctx to a good state after check_context 
+ * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
  */
 void context_cleanup(context_t *ctx) {
@@ -4447,7 +4447,7 @@ void context_clear_unsat(context_t *ctx) {
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
  * - this collects all decision literals in the current truth assignment
- *   (say l_1, ..., l_k) then clears the current assignment and adds the 
+ *   (say l_1, ..., l_k) then clears the current assignment and adds the
  *  clause ((not l_1) \/ ... \/ (not l_k)).
  *
  * Return code:
@@ -4461,7 +4461,7 @@ int32_t assert_blocking_clause(context_t *ctx) {
   uint32_t i, n;
   int32_t code;
 
-  assert(smt_status(ctx->core) == STATUS_SAT || 
+  assert(smt_status(ctx->core) == STATUS_SAT ||
          smt_status(ctx->core) == STATUS_UNKNOWN);
 
   // get decision literals and build the blocking clause

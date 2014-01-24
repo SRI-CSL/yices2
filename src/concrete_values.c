@@ -147,7 +147,7 @@ static bool mappings_match(value_table_t *table, value_t i, value_t j) {
  * - return v if such a pair is found, null_value otherwise
  */
 static value_t hash_eval_app(value_table_t *table, value_t f, uint32_t n, value_t *a) {
-  map_pair_t *d;  
+  map_pair_t *d;
   uint32_t i, mask;
   value_t j;
 
@@ -177,10 +177,10 @@ static value_t hash_eval_app(value_table_t *table, value_t f, uint32_t n, value_
  * - p must be a valid pair (i.e., p->function >= 0)
  * - there must be an empty slot in data
  */
-static void map_htbl_clean_copy(value_table_t *table, map_pair_t *data, 
+static void map_htbl_clean_copy(value_table_t *table, map_pair_t *data,
                                 map_pair_t *p, uint32_t mask) {
   uint32_t i;
-  
+
   i = hash_map_pair(table, p->function, p->map) & mask;
   while (data[i].function >= 0) {
     i ++;
@@ -301,7 +301,7 @@ static void resize_vtbl_queue(vtbl_queue_t *vq, uint32_t n) {
 
   assert(vq->size < n && n <= MAX_VALUE_TABLE_SIZE);
 
-  n = (n + 63) & ~63u;       // round n up to a multiple of 64  
+  n = (n + 63) & ~63u;       // round n up to a multiple of 64
   if (n < DEF_VTBL_QUEUE_SIZE) {
     n = DEF_VTBL_QUEUE_SIZE;
   }
@@ -482,7 +482,7 @@ static void hset_add_map(value_table_t *table, map_hset_t *hset, value_t i) {
   for (;;) {
     k = d[j];
     if (k < 0) break;   // add i
-    if (mappings_match(table, i, k)) return; // k has precedence 
+    if (mappings_match(table, i, k)) return; // k has precedence
     j ++;
     j &= mask;
   }
@@ -730,7 +730,7 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
     case UPDATE_VALUE:
       safe_free(table->desc[i].ptr);
       break;
-    } 
+    }
   }
 }
 
@@ -872,7 +872,7 @@ value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
   value_unint_t *d;
   value_t i;
 
-  assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
+  assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
          type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
 
   d = (value_unint_t *) safe_malloc(sizeof(value_unint_t));
@@ -907,7 +907,7 @@ value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
 static uint32_t normalize_map_array(uint32_t n, value_t *a) {
   uint32_t i, j;
   value_t v, w;
-  
+
   if (n > 1) {
     int_array_sort(a, n);
     j = 1;
@@ -929,7 +929,7 @@ static uint32_t normalize_map_array(uint32_t n, value_t *a) {
 
 
 /*
- * Remove all elements in array a[0 ... n-1] that give the same 
+ * Remove all elements in array a[0 ... n-1] that give the same
  * value as def.
  * - return the number of elements left in a
  */
@@ -963,7 +963,7 @@ static uint32_t remove_redundant_mappings(value_table_t *table, uint32_t n, valu
  * The default value and type of the function are copied into
  * *def and *tau
  */
-static void normalize_update(value_table_t *table, value_t i, map_hset_t *hset, value_t *def, type_t *tau) { 
+static void normalize_update(value_table_t *table, value_t i, map_hset_t *hset, value_t *def, type_t *tau) {
   value_update_t *upd;
   value_fun_t *fun;
   uint32_t j, n;
@@ -1111,7 +1111,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
   map_hset_t *hset;
   uint32_t i, j, m, dsize;
   value_t k;
-  
+
   assert(old_def != new_def);
 
   // add all the current maps of a to hset2
@@ -1153,7 +1153,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
       j ++;
     }
   }
-  
+
   if (m > 10) {
     safe_free(aux);
   }
@@ -1172,7 +1172,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
  * - n = number of elements in a
  * - *def = current default value
  *
- * If the representation is changed then a and *def are modified and 
+ * If the representation is changed then a and *def are modified and
  * the function returns the number of elements in a. Otherwise, the function returns n.
  *
  * NOTE: this must be called after the standard normalization procedure:
@@ -1220,7 +1220,7 @@ static bool equal_arrays(value_t *a, value_t *b, uint32_t n) {
 }
 
 
-/* 
+/*
  * Check whether all elements in a are canonical
  */
 static bool canonical_array(value_table_t *table, value_t *a, uint32_t n) {
@@ -1252,7 +1252,7 @@ static bool canonical_array(value_table_t *table, value_t *a, uint32_t n) {
  *
  * For map objects, hash-consing relies only on the function and arguments:
  * - all map objects with the same function must have the same number of arguments.
- * - two maps objects with the same function and arguments must also have the 
+ * - two maps objects with the same function and arguments must also have the
  *   same result.
  */
 typedef struct {
@@ -1321,7 +1321,7 @@ typedef struct {
   uint32_t arity;
   value_t fun;
   value_t updt;
-  
+
   value_t def;
   uint32_t map_size;
   value_t *map;
@@ -1374,7 +1374,7 @@ static uint32_t hash_update_value(update_hobj_t *o) {
 
 
 /*
- * Equality testing: compare the object being constructed with 
+ * Equality testing: compare the object being constructed with
  * an existing value of index i in the table.
  */
 static bool equal_rational_value(rational_hobj_t *o, value_t i) {
@@ -1446,16 +1446,16 @@ static bool equal_fun_value(fun_hobj_t *o, value_t i) {
   switch (table->kind[i]) {
   case FUNCTION_VALUE:
     f = (value_fun_t *) table->desc[i].ptr;
-    return f->type == o->type && f->def == o->def 
-      && f->map_size == o->map_size 
+    return f->type == o->type && f->def == o->def
+      && f->map_size == o->map_size
       && equal_arrays(f->map, o->map, o->map_size);
 
   case UPDATE_VALUE:
     hset = get_hset2(table);
     reset_map_hset(hset);
     normalize_update(table, i, hset, &def, &tau);
-    return tau == o->type &&  def == o->def 
-      && o->map_size == hset->nelems 
+    return tau == o->type &&  def == o->def
+      && o->map_size == hset->nelems
       && equal_arrays(hset->data, o->map, o->map_size);
 
   default:
@@ -1475,16 +1475,16 @@ static bool equal_update_value(update_hobj_t *o, value_t i) {
   switch (table->kind[i]) {
   case FUNCTION_VALUE:
     f = (value_fun_t *) table->desc[i].ptr;
-    return f->type == o->type && f->def == o->def 
-      && f->map_size == o->map_size 
+    return f->type == o->type && f->def == o->def
+      && f->map_size == o->map_size
       && equal_arrays(f->map, o->map, o->map_size);
 
   case UPDATE_VALUE:
     hset = get_hset2(table);
     reset_map_hset(hset);
     normalize_update(table, i, hset, &def, &tau);
-    return tau == o->type &&  def == o->def 
-      && o->map_size == hset->nelems 
+    return tau == o->type &&  def == o->def
+      && o->map_size == hset->nelems
       && equal_arrays(hset->data, o->map, o->map_size);
 
   default:
@@ -1541,7 +1541,7 @@ static value_t build_bv_value(bv_hobj_t *o) {
   d = (value_bv_t *) safe_malloc(sizeof(value_bv_t) + w * sizeof(uint32_t));
   d->nbits = o->nbits;
   d->width = w;
-  bvconst_set(d->data, w, o->data);  
+  bvconst_set(d->data, w, o->data);
 
   table = o->table;
   i = allocate_object(table);
@@ -1568,9 +1568,9 @@ static value_t build_tuple_value(tuple_hobj_t *o) {
   d->nelems = n;
   for (j=0; j<n; j++) {
     d->elem[j] = o->elem[j];
-    
+
   }
-  
+
   table = o->table;
   i = allocate_object(table);
   table->kind[i] = TUPLE_VALUE;
@@ -1648,7 +1648,7 @@ static value_t build_fun_value(fun_hobj_t *o) {
   }
 
   // set the canonical flag
-  if (!o->ambiguous && object_is_canonical(table, fun->def) && 
+  if (!o->ambiguous && object_is_canonical(table, fun->def) &&
       canonical_array(table, fun->map, n)) {
     set_bit(table->canonical, f);
   } else {
@@ -1675,7 +1675,7 @@ static value_t build_update_value(update_hobj_t *o) {
   table->desc[i].ptr = d;
 
   // set the canonical flag
-  if (!o->ambiguous && object_is_canonical(table, o->def) && 
+  if (!o->ambiguous && object_is_canonical(table, o->def) &&
       canonical_array(table, o->map, o->map_size)) {
     set_bit(table->canonical, i);
   } else {
@@ -1789,12 +1789,12 @@ value_t vtbl_mk_bv(value_table_t *table, uint32_t n, int32_t *a) {
  * - a = array of w words (w = ceil(n/32)
  */
 value_t vtbl_mk_bv_from_bv(value_table_t *table, uint32_t n, uint32_t *a) {
-  bvconst_normalize(a, n);  
+  bvconst_normalize(a, n);
 
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = a;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &bv_hobj);  
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &bv_hobj);
 }
 
 
@@ -1884,7 +1884,7 @@ value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) 
   value_unint_t *d;
   value_t v;
 
-  assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
+  assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
          type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
   assert(0 <= id);
 
@@ -1926,7 +1926,7 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
 /*
  * Function defined by the array a[0...n-1] and default value def
  * - tau = its type
- * - a = array of n mapping objects. 
+ * - a = array of n mapping objects.
  *   The array must not contain conflicting mappings and all elements in a
  *   must have the right arity (same as defined by type tau). It's allowed
  *   to have duplicate elements in a.
@@ -1981,7 +1981,7 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
   normalize_update(table, f, hset, &def, &tau);
 
 
-  // hash consing 
+  // hash consing
   update_hobj.table = table;
   update_hobj.type = tau;
   update_hobj.arity = function_type_arity(table->type_table, tau);
@@ -2118,7 +2118,7 @@ static bool vtbl_make_two_tuples(value_table_t *vtbl, tuple_type_t *d, value_t a
 
     done = true;
   }
-  
+
   if (n > 10) {
     safe_free(aux);
   }
@@ -2176,7 +2176,7 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     a[0] = vtbl_mk_function(vtbl, tau, 0, NULL, a[0]);
     a[1] = vtbl_mk_function(vtbl, tau, 0, NULL, a[1]);
     break;
-   
+
   default:
     assert(false);
     return false;
@@ -2247,7 +2247,7 @@ value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c) {
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = aux;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj); 
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
 }
 
 /*
@@ -2268,7 +2268,7 @@ value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b) {
  * Check whether the constant of type tau and index i is present
  */
 value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {
-  assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
+  assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
          type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
   assert(0 <= id);
 
@@ -2450,12 +2450,12 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
   ivector_reset(v);
 
   assert(count <= n);
-  
+
   if (count == 0) {
     // special case: constant function
     k = vtbl_mk_function(table, tau, 0, NULL, def);
   } else {
-    
+
     // allocate array map of size (n - count) to store the map objects
     map = buffer2;
     if (n - count > 32) {
@@ -2506,7 +2506,7 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
       safe_free(map);
     }
   }
-  
+
   return k;
 }
 
@@ -2531,7 +2531,7 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
     assert(i == 0 && is_unit_type(types, f->range));
     v = vtbl_gen_object(table, f->range, 0);
     v = vtbl_mk_function(table, tau, 0, NULL, v);
-  } else {    
+  } else {
     n = card_of_domain_type(types, tau);
     aux = buffer;
     if (n > 32) {
@@ -2544,7 +2544,7 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
       aux[j] = vtbl_gen_object(table, f->range, aux[j]);
     }
     v = vtbl_make_function_from_value_map(table, tau, f, n, (value_t *) aux);
-    
+
     if (n > 32) {
       safe_free(aux);
     }
@@ -2567,7 +2567,7 @@ static value_t vtbl_gen_bitvector(value_table_t *table, uint32_t n, uint32_t i) 
 
 
 /*
- * If tau is a finite type, then we can enumerate its elements from 
+ * If tau is a finite type, then we can enumerate its elements from
  * 0 to card(tau) - 1. The following function construct and element
  * of finite type tau given an enumeration index i.
  * - tau must be finite
@@ -2630,13 +2630,13 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
     assert(n < UINT32_MAX/sizeof(uint32_t));
     aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   }
-  
+
   sigma = function_type_range(table->type_table, tau);
   vtbl_expand_function_code(table->type_table, n, sigma, i, aux);
   for (j=0; j<n; j++) {
     a[j] = vtbl_gen_object(table, sigma, aux[j]);
   }
-  
+
   if (n > 32) {
     safe_free(aux);
   }
@@ -2679,7 +2679,7 @@ value_t vtbl_find_object_tuple(value_table_t *table, uint32_t n, type_t *tau, ui
     safe_free(aux);
   }
 
-  return v;  
+  return v;
 }
 
 
@@ -2742,11 +2742,11 @@ static value_t vtbl_find_function_with_value_map(value_table_t *table, type_t ta
   ivector_reset(v);
 
   assert(count <= n);
-  
+
   if (count == 0) {
     // special case: constant function
     k = vtbl_find_function(table, tau, 0, NULL, def);
-  } else {    
+  } else {
     // allocate array map of size (n - count) to store the map objects
     map = buffer2;
     if (n - count > 32) {
@@ -2798,7 +2798,7 @@ static value_t vtbl_find_function_with_value_map(value_table_t *table, type_t ta
       safe_free(map);
     }
   }
-  
+
   return k;
 }
 
@@ -2841,7 +2841,7 @@ static value_t vtbl_find_enum_function(value_table_t *table, type_t tau, uint32_
       aux[j] = v;
     }
 
-    // n good elements are in aux[0 ... n-1] 
+    // n good elements are in aux[0 ... n-1]
     v = vtbl_find_function_with_value_map(table, tau, f, n, (value_t *) aux);
 
   cleanup:
@@ -2849,7 +2849,7 @@ static value_t vtbl_find_enum_function(value_table_t *table, type_t tau, uint32_
       safe_free(aux);
     }
   }
-  
+
   return v;
 }
 
@@ -2937,7 +2937,7 @@ void vtbl_set_constant_name(value_table_t *table, value_t c, char *name) {
 
 
 /***********************
- *  TEMPORARY OBJECTS  * 
+ *  TEMPORARY OBJECTS  *
  **********************/
 
 /*
@@ -2980,7 +2980,7 @@ void value_table_end_tmp(value_table_t *table) {
 
 /*
  * Check whether every element in the domain and range of f
- * is canonical. 
+ * is canonical.
  * - f must be a function
  */
 static bool semi_canonical(value_table_t *table, value_t f) {
@@ -3020,13 +3020,13 @@ static value_t vtbl_eval_eq_functions(value_table_t *table, value_t f1, value_t 
      * f2 maps m->arg[0 ... arity-1] to v
      * both m->value and v are canonical
      */
-    assert(object_is_canonical(table, v) && 
+    assert(object_is_canonical(table, v) &&
 	   object_is_canonical(table, m->val));
     if (v != m->val) goto not_equal;
   }
 
   /*
-   * k = number of elements in the domain 
+   * k = number of elements in the domain
    * where f1 and f2 agree.
    */
   k = n;
@@ -3079,7 +3079,7 @@ value_t vtbl_eval_eq(value_table_t *table, value_t a, value_t b) {
     /*
      * a and b are non canonical
      */
-    if (object_is_function(table, a) && object_is_function(table, b) && 
+    if (object_is_function(table, a) && object_is_function(table, b) &&
         semi_canonical(table, a) && semi_canonical(table, b)) {
       v = vtbl_eval_eq_functions(table, a, b);
     } else {

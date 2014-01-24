@@ -1,5 +1,5 @@
 /*
- * Test 
+ * Test
  */
 
 #include <stdio.h>
@@ -36,7 +36,7 @@ static void catcher(void) {
     jumper(&env);
   } else {
     printf("return from longjmp: code = %d\n", code);
-    fflush(stdout);    
+    fflush(stdout);
   }
 }
 

@@ -20,7 +20,7 @@ static fun_tree_t tree;
 /*
  * Print particle x as a index (or tuple)
  */
-static void print_index(particle_t x) { 
+static void print_index(particle_t x) {
   particle_tuple_t *tup;
   uint32_t i, n;
 
@@ -46,7 +46,7 @@ static void print_index(particle_t x) {
 /*
  * Print particle x as a value
  */
-static void print_value(particle_t x) { 
+static void print_value(particle_t x) {
   particle_tuple_t *tup;
   uint32_t i, n;
 
@@ -61,7 +61,7 @@ static void print_value(particle_t x) {
     tup = tuple_particle_desc(&store, x);
     printf("(tuple ");
     n = tup->nelems;
-    for (i=0; i<n; i++) {      
+    for (i=0; i<n; i++) {
       printf(" ");
       print_value(tup->elem[i]);
     }
@@ -137,7 +137,7 @@ static type_t fun_type2(type_t tau1, type_t tau2, type_t tau3) {
 
 
 /*
- * Build 4 fully specified boolean maps and add them 
+ * Build 4 fully specified boolean maps and add them
  * to the tree
  */
 static void test1(void) {
@@ -151,7 +151,7 @@ static void test1(void) {
          "***********************\n"
 	 "*       TEST 1        *\n"
          "***********************\n");
-  
+
   tau = bool_type(&types);
   tt = pstore_labeled_particle(&store, 0, tau);
   ff = pstore_labeled_particle(&store, 1, tau);
@@ -178,7 +178,7 @@ static void test1(void) {
   set_map_default(map[3], ff);
   add_elem_to_map(map[3], ff, tt);
   add_elem_to_map(map[3], tt, tt);
-  normalize_map(map[3]);  
+  normalize_map(map[3]);
 
   // map[4] equal to map[2]. Different default
   map[4] = new_map(3);
@@ -223,12 +223,12 @@ static void test1(void) {
   for (i=0; i<5; i++) {
     free_map(map[i]);
   }
-  
+
 }
 
 
 /*
- * Build 5 empty boolean maps and add them 
+ * Build 5 empty boolean maps and add them
  * to the tree. The last addition should fail.
  */
 static void test2(void) {
@@ -242,7 +242,7 @@ static void test2(void) {
          "***********************\n"
 	 "*       TEST 2        *\n"
          "***********************\n");
-  
+
   tau = bool_type(&types);
   tt = pstore_labeled_particle(&store, 0, tau);
   ff = pstore_labeled_particle(&store, 1, tau);
@@ -262,7 +262,7 @@ static void test2(void) {
 
   map[3] = new_map(1);
   set_map_default(map[3], tt);
-  normalize_map(map[3]);  
+  normalize_map(map[3]);
 
   map[4] = new_map(1);
   set_map_default(map[4], ff);
@@ -292,7 +292,7 @@ static void test2(void) {
     }
   }
 
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -305,7 +305,7 @@ static void test2(void) {
   for (i=0; i<5; i++) {
     free_map(map[i]);
   }
-  
+
 }
 
 
@@ -325,7 +325,7 @@ static void test3(void) {
          "***********************\n"
 	 "*       TEST 3        *\n"
          "***********************\n");
-  
+
   tau = bool_type(&types);
   ff = pstore_labeled_particle(&store, 1, tau);
 
@@ -344,7 +344,7 @@ static void test3(void) {
 
   map[3] = new_map(1);
   set_map_default(map[3], ff);
-  normalize_map(map[3]);  
+  normalize_map(map[3]);
 
   map[4] = new_map(1);
   set_map_default(map[4], ff);
@@ -374,7 +374,7 @@ static void test3(void) {
       printf("Conflict\n");
     }
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -387,7 +387,7 @@ static void test3(void) {
   for (i=0; i<5; i++) {
     free_map(map[i]);
   }
-  
+
 }
 
 
@@ -405,7 +405,7 @@ static void test4(void) {
          "***********************\n"
 	 "*       TEST 4        *\n"
          "***********************\n");
-  
+
   unint = new_uninterpreted_type(&types);
   x = pstore_labeled_particle(&store, 21, unint);
   y = pstore_labeled_particle(&store, 22, unint);
@@ -455,7 +455,7 @@ static void test4(void) {
       printf("Conflict\n");
     }
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -468,7 +468,7 @@ static void test4(void) {
   for (i=0; i<5; i++) {
     free_map(map[i]);
   }
-  
+
 }
 
 
@@ -486,7 +486,7 @@ static void test5(void) {
          "***********************\n"
 	 "*       TEST 5        *\n"
          "***********************\n");
-  
+
   unint = new_uninterpreted_type(&types);
   x = pstore_labeled_particle(&store, 31, unint);
   y = pstore_labeled_particle(&store, 32, unint);
@@ -543,7 +543,7 @@ static void test5(void) {
       printf("Conflict\n");
     }
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -573,7 +573,7 @@ static void test6(void) {
          "***********************\n"
 	 "*       TEST 6        *\n"
          "***********************\n");
-  
+
   tau = bool_type(&types);
   tt = pstore_labeled_particle(&store, 0, tau);
 
@@ -607,7 +607,7 @@ static void test6(void) {
       printf("Conflict\n");
     }
   }
-  
+
 
   // print all the maps;
   printf("\nFinal maps\n");

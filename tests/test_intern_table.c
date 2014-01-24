@@ -44,7 +44,7 @@ static void  __attribute__((unused)) show_terms(void) {
 }
 
 
-  
+
 
 /*
  * TERM/TYPE STORE
@@ -80,7 +80,7 @@ typedef struct test_store_s {
   ivector_t types;
   ivector_t terms;
   ivector_t vars;
-  ivector_t constants;  
+  ivector_t constants;
 } test_store_t;
 
 
@@ -222,7 +222,7 @@ static void add_random_types(test_store_t *s, uint32_t n) {
     }
 
     assert(tau >= 0);
-    ivector_push(&buffer, tau); 
+    ivector_push(&buffer, tau);
   }
 
   assert(buffer.size == n);
@@ -244,7 +244,7 @@ static void add_base_constants(test_store_t *s) {
 
   ivector_push(&s->constants, yices_true());
   ivector_push(&s->constants, yices_false());
-  
+
   ivector_push(&s->constants, yices_zero());
   ivector_push(&s->constants, yices_int32(1));
   ivector_push(&s->constants, yices_int32(-1));
@@ -259,7 +259,7 @@ static void add_base_constants(test_store_t *s) {
   ivector_push(&s->constants, yices_bvconst_uint32(32, 0x55555555u));
 
   t = yices_constant(unint1, 0);
-  yices_set_term_name(t, "K0");  
+  yices_set_term_name(t, "K0");
   ivector_push(&s->constants, t);
 
   t = yices_constant(unint1, 1);
@@ -292,7 +292,7 @@ static void add_base_constants(test_store_t *s) {
 
   t = yices_constant(compass, 3);
   yices_set_term_name(t, "West");
-  ivector_push(&s->constants, t);  
+  ivector_push(&s->constants, t);
 }
 
 
@@ -314,7 +314,7 @@ static void add_variables_of_type(test_store_t *s, uint32_t n, type_t tau, char 
     yices_set_term_name(t, string_buffer.data);
     ivector_push(&s->vars, t);
   }
-  
+
 }
 
 
@@ -404,7 +404,7 @@ static term_t random_term(ivector_t *v, int32_t (*p)(term_t)) {
   return pick;
 }
 
-static term_t random_bool_term(ivector_t *v) { 
+static term_t random_bool_term(ivector_t *v) {
   term_t t;
 
   t = random_term(v, yices_term_is_bool);
@@ -561,7 +561,7 @@ static term_t random_or(test_store_t *s) {
   a = random_bool_term(&s->terms);
   b = random_bool_term(&s->terms);
 
-  return yices_or2(a, b);  
+  return yices_or2(a, b);
 }
 
 static term_t random_and(test_store_t *s) {
@@ -570,7 +570,7 @@ static term_t random_and(test_store_t *s) {
   a = random_bool_term(&s->terms);
   b = random_bool_term(&s->terms);
 
-  return yices_and2(a, b);  
+  return yices_and2(a, b);
 }
 
 static term_t random_xor(test_store_t *s) {
@@ -579,7 +579,7 @@ static term_t random_xor(test_store_t *s) {
   a = random_bool_term(&s->terms);
   b = random_bool_term(&s->terms);
 
-  return yices_xor2(a, b);  
+  return yices_xor2(a, b);
 }
 
 static term_t random_pair(test_store_t *s) {
@@ -638,7 +638,7 @@ static term_t random_update(test_store_t *s) {
 
 static term_t random_distinct(test_store_t *s) {
   term_t aux[4];
-  
+
   aux[0] = sample_vector(&s->terms);
   aux[1] = random_compatible_term(&s->terms, aux[0]);
   aux[2] = random_compatible_term(&s->terms, aux[0]);
@@ -672,7 +672,7 @@ static term_t random_neg(test_store_t *s) {
   term_t a;
 
   a = random_arith_term(&s->terms);
-  
+
   return yices_neg(a);
 }
 
@@ -691,7 +691,7 @@ static term_t random_square(test_store_t *s) {
   term_t a;
 
   a = random_arith_term(&s->terms);
-  
+
   return yices_square(a);
 }
 
@@ -1094,7 +1094,7 @@ static term_t random_bvslt(test_store_t *s) {
  * Table to select one of the above constructors
  * Each record in the table contains:
  * - function pointer
- * - name 
+ * - name
  * - weight
  * The probability of selecting i is weight[i]/sum of all weights
  * - sum of all weights = 10000 (50 * 200)
@@ -1124,7 +1124,7 @@ static const rand_desc_t random_constr[NUM_RAND_CONSTRUCTORS] = {
   { random_triple, "random_triple", 250 },
   { random_select, "random_select", 500 }, // 1000
 
-  { random_add, "random_add", 500 }, 
+  { random_add, "random_add", 500 },
   { random_sub, "random_sub", 500 },
   { random_neg, "random_neg", 500 },
   { random_mul, "random_mul", 300 },
@@ -1165,7 +1165,7 @@ static const rand_desc_t random_constr[NUM_RAND_CONSTRUCTORS] = {
   { random_bvsge, "random_bvsge", 125 },
   { random_bvsle, "random_bvsle", 125 },
   { random_bvsgt, "random_bvsgt", 125 },
-  { random_bvslt, "random_bvslt", 125 },   // 1000 
+  { random_bvslt, "random_bvslt", 125 },   // 1000
 };
 
 
@@ -1200,7 +1200,7 @@ static void add_random_terms(test_store_t *s, uint32_t n) {
     assert(t >= 0);
     ivector_push(&buffer, t);
   }
-  
+
   assert(buffer.size == n);
   for (i=0; i<n; i++) {
     t = buffer.data[i];
@@ -1313,7 +1313,7 @@ static void show_mapping(yices_pp_t *printer, intern_tbl_t *tbl) {
 	flush_yices_pp(printer);
       }
     }
-  }  
+  }
 }
 
 
@@ -1380,7 +1380,7 @@ static void test_subst(intern_tbl_t *tbl) {
     } else {
       printf("invalid substitution\n");
     }
-  }  
+  }
 }
 
 
@@ -1412,7 +1412,7 @@ static void test_map(intern_tbl_t *tbl, int32_t x) {
   printf("\ntesting map: ");
   print_term_name(stdout, __yices_globals.terms, t);
   printf(" --> %"PRId32"\n", x);
-  
+
   t = intern_tbl_get_root(tbl, t);
   if (is_neg_term(t)) {
     printf("invalid map: root ");
@@ -1426,7 +1426,7 @@ static void test_map(intern_tbl_t *tbl, int32_t x) {
     printf("good map\n");
     intern_tbl_map_root(tbl, t, x);
   }
-} 
+}
 
 /*
  * Internalize n terms (map them to integers)
@@ -1473,7 +1473,7 @@ int main(void) {
   intern_tbl_push(&intern);
   repeat_test_subst(&intern, 10);
   repeat_test_subst(&intern, 10);
-  
+
   repeat_test_map(&intern, 100);
   repeat_test_map(&intern, 100);
 
@@ -1504,7 +1504,7 @@ int main(void) {
   pp_intern_tbl(stdout, &intern);
   printf("\nPOP\n");
   intern_tbl_pop(&intern);
-  pp_intern_tbl(stdout, &intern);  
+  pp_intern_tbl(stdout, &intern);
 
   delete_intern_tbl(&intern);
 

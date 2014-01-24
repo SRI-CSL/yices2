@@ -20,4 +20,4 @@ extern void poly_buffer_add_term(term_table_t *terms, poly_buffer_t *b, term_t t
 extern void poly_buffer_sub_term(term_table_t *terms, poly_buffer_t *b, term_t t);
 
 
-#endif /* __POLY_BUFFER_TERMS_H */ 
+#endif /* __POLY_BUFFER_TERMS_H */

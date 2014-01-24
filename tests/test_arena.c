@@ -28,7 +28,7 @@ int main() {
 
   tst = arena_alloc(&arena, 23);
   printf("--- Allocated 23 bytes: ptr = %p ---\n", tst);
-  print_arena(&arena);  
+  print_arena(&arena);
 
   arena_push(&arena);
   printf("--- After setting mark ---\n");
@@ -36,11 +36,11 @@ int main() {
 
   tst = arena_alloc(&arena, 31);
   printf("--- Allocated 31 bytes: ptr = %p ---\n", tst);
-  print_arena(&arena);  
+  print_arena(&arena);
 
   tst = arena_alloc(&arena, 10000);
   printf("--- Allocated 10000 bytes: ptr = %p ---\n", tst);
-  print_arena(&arena);  
+  print_arena(&arena);
 
   arena_pop(&arena);
   printf("--- After backtracking ---\n");
@@ -48,7 +48,7 @@ int main() {
 
   tst = arena_alloc(&arena, 51);
   printf("--- Allocated 51 bytes: ptr = %p ---\n", tst);
-  print_arena(&arena);  
+  print_arena(&arena);
 
   arena_reset(&arena);
   printf("--- After reset ---\n");
@@ -60,7 +60,7 @@ int main() {
 
   tst = arena_alloc(&arena, 23);
   printf("--- Allocated 23 bytes: ptr = %p ---\n", tst);
-  print_arena(&arena);  
+  print_arena(&arena);
 
   delete_arena(&arena);
   return 0;

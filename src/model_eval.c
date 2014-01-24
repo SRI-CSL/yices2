@@ -60,7 +60,7 @@ static value_t eval_cached_value(evaluator_t *eval, term_t t) {
   int_hmap_pair_t *r;
 
   assert(good_term(eval->terms, t));
-  
+
   r = int_hmap_find(&eval->cache, t);
   if (r == NULL) {
     return null_value;
@@ -89,7 +89,7 @@ static void eval_cache_map(evaluator_t *eval, term_t t, value_t v) {
 /*
  * EVALUATION:
  *
- * Compute the value v of term t in the model 
+ * Compute the value v of term t in the model
  * - add the mapping t := v  to the cache
  * - raise an exception if t can't be evaluated
  */
@@ -156,7 +156,7 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
 
   v1 = eval_term(eval, eq->arg[0]);
   v2 = eval_term(eval, eq->arg[1]);
-  assert(object_is_rational(eval->vtbl, v1) && 
+  assert(object_is_rational(eval->vtbl, v1) &&
          object_is_rational(eval->vtbl, v2));
 
   return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
@@ -263,7 +263,7 @@ static term_t eval_bv_div(evaluator_t *eval, composite_term_t *app) {
   uint32_t *aux;
   uint32_t n, w;
   value_t v1, v2, v;
-  value_bv_t *bv1, *bv2;  
+  value_bv_t *bv1, *bv2;
 
   assert(app->arity == 2);
 
@@ -290,7 +290,7 @@ static term_t eval_bv_rem(evaluator_t *eval, composite_term_t *app) {
   uint32_t *aux;
   uint32_t n, w;
   value_t v1, v2, v;
-  value_bv_t *bv1, *bv2;  
+  value_bv_t *bv1, *bv2;
 
   assert(app->arity == 2);
 
@@ -317,7 +317,7 @@ static term_t eval_bv_sdiv(evaluator_t *eval, composite_term_t *app) {
   uint32_t *aux;
   uint32_t n, w;
   value_t v1, v2, v;
-  value_bv_t *bv1, *bv2;  
+  value_bv_t *bv1, *bv2;
 
   assert(app->arity == 2);
 
@@ -344,7 +344,7 @@ static term_t eval_bv_srem(evaluator_t *eval, composite_term_t *app) {
   uint32_t *aux;
   uint32_t n, w;
   value_t v1, v2, v;
-  value_bv_t *bv1, *bv2;  
+  value_bv_t *bv1, *bv2;
 
   assert(app->arity == 2);
 
@@ -396,7 +396,7 @@ static term_t eval_bv_smod(evaluator_t *eval, composite_term_t *app) {
 
 
 /*
- * Convert bv's value (interpreted as a non-negative integer) into a shift amount. 
+ * Convert bv's value (interpreted as a non-negative integer) into a shift amount.
  * If bv's value is larger than nbits, then returns bv->nbits
  */
 static uint32_t get_shift_amount(value_bv_t *bv) {
@@ -409,13 +409,13 @@ static uint32_t get_shift_amount(value_bv_t *bv) {
     k = bv->width;
     // if any of the higher order words is nonzero, return n
     for (i=1; i<k; i++) {
-      if (bv->data[i] != 0) { 
+      if (bv->data[i] != 0) {
         return n;
       }
     }
     return s;
   }
-   
+
   return n;
 }
 
@@ -580,7 +580,7 @@ static value_t eval_bv_pprod(evaluator_t *eval, pprod_t *p, uint32_t nbits) {
   w = (nbits + 31) >> 5; // width in words
   a = (uint32_t *) alloc_istack_array(&eval->stack, w);
   bvconst_set_one(a, w);
-  
+
   n = p->len;
   for (i=0; i<n; i++) {
     t = p->prod[i].var;
@@ -593,7 +593,7 @@ static value_t eval_bv_pprod(evaluator_t *eval, pprod_t *p, uint32_t nbits) {
   bvconst_normalize(a, nbits);
   o = vtbl_mk_bv_from_bv(eval->vtbl, nbits, a);
 
-  // cleanup  
+  // cleanup
   free_istack_array(&eval->stack, (int32_t *) a);
 
   return o;
@@ -661,7 +661,7 @@ static value_t eval_bv64_poly(evaluator_t *eval, bvpoly64_t *p) {
   uint32_t i, n, nbits;
   term_t t;
   value_t v;
-  
+
   nbits = p->bitsize;
   assert(0 < nbits && nbits <= 64);
 
@@ -673,7 +673,7 @@ static value_t eval_bv64_poly(evaluator_t *eval, bvpoly64_t *p) {
     if (t == const_idx) {
       sum += p->mono[i].coeff;
     } else {
-      v = eval_term(eval, t);    
+      v = eval_term(eval, t);
       sum += p->mono[i].coeff * bvobj_to_uint64(vtbl_bitvector(eval->vtbl, v));
     }
   }
@@ -709,15 +709,15 @@ static value_t eval_eq(evaluator_t *eval, composite_term_t *eq) {
 
   assert(eq->arity == 2);
 
-  v1 = eval_term(eval, eq->arg[0]); 
+  v1 = eval_term(eval, eq->arg[0]);
   v2 = eval_term(eval, eq->arg[1]);
   return vtbl_eval_eq(eval->vtbl, v1, v2);
 }
 
 
 /*
- * app is (fun arg[0] ... arg[n-1]) 
- */ 
+ * app is (fun arg[0] ... arg[n-1])
+ */
 static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
   value_t *a;
   value_t *b;
@@ -827,7 +827,7 @@ static value_t eval_tuple(evaluator_t *eval, composite_term_t *tuple) {
   for (i=0; i<n; i++) {
     a[i] = eval_term(eval, tuple->arg[i]);
   }
-  v = vtbl_mk_tuple(eval->vtbl, n, a); 
+  v = vtbl_mk_tuple(eval->vtbl, n, a);
   free_istack_array(&eval->stack, a);
 
   return v;
@@ -858,7 +858,7 @@ static value_t eval_update(evaluator_t *eval, composite_term_t *update) {
   f = eval_term(eval, update->arg[0]);
   for (i=0; i<n; i++) {
     a[i] = eval_term(eval, update->arg[i+1]);
-  }  
+  }
   v = eval_term(eval, update->arg[n+1]);
 
   v = vtbl_mk_update(eval->vtbl, f, n, a, v);
@@ -882,7 +882,7 @@ static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
       eq = vtbl_eval_eq(eval->vtbl, a[j], v);
       if (is_unknown(eval->vtbl, eq)) {
         v = eq; // i.e., unknown
-        goto done; 
+        goto done;
       } else if (is_true(eval->vtbl, eq)) {
         // a[j] == v so distinct is false
         v = vtbl_mk_false(eval->vtbl);
@@ -930,14 +930,14 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
     // [t --> u] is a substitution in the alias table
     v = eval_term(eval, u);
   }
-  
+
   return v;
 }
 
 
 
 /*
- * Compute the value v of term t in the model 
+ * Compute the value v of term t in the model
  * - add the mapping t := v  to the cache
  * - raise an exception if t can't be evaluated
  */
@@ -951,7 +951,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
   /*
    * First check the model itself then check the cache.
-   * If no value is mapped to t in either of them, compute t's 
+   * If no value is mapped to t in either of them, compute t's
    * value v and add the mapping t := v to the cache.
    */
   v = model_find_term_value(eval->model, t);
@@ -965,9 +965,9 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         if (t == true_term) {
           v = vtbl_mk_true(eval->vtbl);
         } else if (t == false_term) {
-          v = vtbl_mk_false(eval->vtbl); 
+          v = vtbl_mk_false(eval->vtbl);
         } else {
-          v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t), 
+          v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t),
                             term_name(terms, t));
         }
         break;
@@ -990,7 +990,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case UNINTERPRETED_TERM:
-        // t has no value mapped in the model 
+        // t has no value mapped in the model
         if (eval->model->has_alias) {
           v = eval_uninterpreted(eval, t);
         } else {
@@ -1174,7 +1174,7 @@ value_t eval_in_model(evaluator_t *eval, term_t t) {
     v = eval_term(eval, t);
   } else {
     assert(v < 0); // error code after longjmp
-    reset_istack(&eval->stack);    
+    reset_istack(&eval->stack);
   }
 
   return v;

@@ -26,7 +26,7 @@
  * - terms = pointer to a term table
  * - pprod = pointer to a power-product table
  * - types = pointer to an external type table.
- * 
+ *
  * Optional components allocated and initialized lazily:
  * - nodes = node table for bvlogic buffer
  * - bvarith_store = store for bitvector monomials (large coefficients)
@@ -109,7 +109,7 @@ static inline type_table_t *term_manager_get_types(term_manager_t *manager) {
 
 
 /*
- * Access to the internal stores: 
+ * Access to the internal stores:
  * - the store is allocated and initialized if needed
  */
 extern node_table_t *term_manager_get_nodes(term_manager_t *manager);
@@ -140,7 +140,7 @@ extern bvlogic_buffer_t *term_manager_get_bvlogic_buffer(term_manager_t *manager
  * Binary constructor: both x and y must be Boolean terms (in manager->terms)
  * - all constructors apply the obvious simplifications
  * - and is converted to not (or (not ..) ...)
- * - iff and binary xor are turned into a binary equality between Boolean terms 
+ * - iff and binary xor are turned into a binary equality between Boolean terms
  */
 extern term_t mk_binary_or(term_manager_t *manager, term_t x, term_t y);
 extern term_t mk_binary_and(term_manager_t *manager, term_t x, term_t y);
@@ -177,7 +177,7 @@ extern term_t mk_xor(term_manager_t *manager, uint32_t n, term_t a[]);
 /*
  * Constant of type tau and index i
  * - tau must be uninterpreted or scalar type
- * - i must be non-negative and smaller than the size of tau 
+ * - i must be non-negative and smaller than the size of tau
  *   (which matters only if tau is scalar)
  */
 extern term_t mk_constant(term_manager_t *manager, type_t tau, int32_t i);
@@ -256,7 +256,7 @@ extern term_t mk_tuple_update(term_manager_t *manager, term_t tuple, uint32_t in
 
 
 /*
- * Quantifiers: 
+ * Quantifiers:
  * - n = number of variables (n must be positive and no more than YICES_MAX_VAR)
  * - all variables v[0 ... n-1] must be distinct
  * - body must be a Boolean term
@@ -370,9 +370,9 @@ extern term_t mk_bv_constant(term_manager_t *manager, bvconstant_t *b);
  * 1) b reduced to a single variable x: return x
  * 2) b reduced to a power product pp: return pp
  * 3) b is constant, return a BV64_CONSTANT or BV_CONSTANT term
- * 4) b can be converted to a BV_ARRAY term (by converting + and * 
+ * 4) b can be converted to a BV_ARRAY term (by converting + and *
  *    to bitwise or and shift): return the BV_ARRAY
- * 
+ *
  * Otherwise, build a bit-vector polynomial.
  */
 extern term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b);

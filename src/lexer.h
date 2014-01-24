@@ -25,13 +25,13 @@ typedef int32_t token_t;
  * The current token type is in lexer->token
  * For string, numbers, symbol tokens, etc.,
  * the value is in buffer (as a null-terminated string)
- * 
+ *
  * The position of the start of the token is
  * stored as pos, line, column (same interpretation as in reader)
  * The reader is one-character ahead of the token so its position
  * is the last character of token + 1.
  *
- * String buffer is shared by all lexers in the stack. 
+ * String buffer is shared by all lexers in the stack.
  * Keywords is a hash table for storing the keywords. (Removed,
  * we now use a perfect hash table, generated using gperf).
  */
@@ -62,9 +62,9 @@ typedef struct keyword_s {
  *
  * Return -1 if the file can't be opened, 0 otherwise.
  * (lex cannot be used if the result is -1)
- * 
+ *
  * If result = 0,
- * - string buffer is allocated, 
+ * - string buffer is allocated,
  * - the reader is initialized
  * - token is set to -1
  */
@@ -158,8 +158,8 @@ static inline uint32_t current_token_column(lexer_t *lex) {
 }
 
 /*
- * Null-terminated value of the token (provided the lexing 
- * function works properly). 
+ * Null-terminated value of the token (provided the lexing
+ * function works properly).
  *
  * Warning: lexer operations overwrite the value.
  */

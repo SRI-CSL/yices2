@@ -17,14 +17,14 @@ saved_cflags=$CFLAGS
 dnl
 dnl Build platform
 dnl --------------
-dnl 
+dnl
 dnl Changed this (07/12/2012) to allow cross-compilation (patch from
 dnl Dave Vitek, from Grammatch).
 dnl  build = platform on which we run the build
 dnl  host = platform for which we build
 dnl
 dnl Also changed AC_CHECK_PROG(LD, ..) to AC_CHECK_TOOL(LD, ...) etc.
-dnl 
+dnl
 AC_CANONICAL_BUILD
 
 AC_SUBST(ARCH)
@@ -83,7 +83,7 @@ else
   AC_MSG_CHECKING([gperf version])
   gperfversion=`"$GPERF" --version 2>&1 | awk '/^GNU/ { print $3 }'`
   case $gperfversion in
-  0.* | 1.* | 2.* ) 
+  0.* | 1.* | 2.* )
      AC_MSG_RESULT([${gperfversion}])
      AC_MSG_ERROR([*** found $GPERF version $gperfversion but version 3.0 or higher is required ***])
      ;;
@@ -106,7 +106,7 @@ dnl Check whether the C compliler accepts the flag -fno-stack-protector
 dnl -------------------------------------------------------------------
 dnl
 dnl Several Linux distributions (also Darwin) come with GCC that has
-dnl -fstack-protector enabled by default. This may cause problems at 
+dnl -fstack-protector enabled by default. This may cause problems at
 dnl link time on the user machine (if the user doesn't have the right
 dnl runtime libraries). The symptom is:
 dnl    undefined reference to '__stack_chk_fail'
@@ -139,25 +139,25 @@ dnl We need as many as three different versions of GMP:
 dnl
 dnl To build static executables and libraries, we link with the
 dnl default libgmp.a (usually /usr/local/lib/libgmp.a).
-dnl 
+dnl
 dnl To construct the yices library (libyices.so) with GMP included,
 dnl we need a version of libgmp.a that's position independent code.
 dnl On systems where -fPIC is not the default, we must build
 dnl a specific version of GMP from the source, using option CFLAG=-fPIC.
 dnl
 dnl To build dynamic executables and libraries without GMP included,
-dnl we need a a dynamic version of the GMP library (e.g., /usr/local/libgmp.so). 
+dnl we need a a dynamic version of the GMP library (e.g., /usr/local/libgmp.so).
 dnl
-dnl On mingw and cygwin, dynamic and static GMP libraries do not coexist well.  
+dnl On mingw and cygwin, dynamic and static GMP libraries do not coexist well.
 dnl They must be installed in different locations and use different gmp.h files.
 dnl
 dnl To deal with this, the build Makefiles use the following variables:
 dnl   STATIC_GMP = full path to a static version of gmp (e.g., /usr/local/lib/libgmp.a)
-dnl   STATIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' compatible with STATIC_GMP is located  
+dnl   STATIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' compatible with STATIC_GMP is located
 dnl                            (or empty if 'gmp.h' is in a standard place)
 dnl
 dnl   PIC_GMP = full path to a libgmp.a that's PIC code
-dnl   PIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' header file compatible with PIC_GMP 
+dnl   PIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' header file compatible with PIC_GMP
 dnl                         is located
 dnl
 dnl By default, the configure script search for a usable STATIC_GMP in default
@@ -173,14 +173,14 @@ dnl --with-pic-gmp=full-path-to-relocatable-libgmp.a
 dnl --with-pic-gmp-include-dir=directory where the corresponding gmp.h resides
 dnl
 static_libgmp=""
-AC_ARG_WITH([static-gmp], 
+AC_ARG_WITH([static-gmp],
    [AS_HELP_STRING([--with-static-gmp=<path>],[Full path to a static GMP library (e.g., libgmp.a)])],
    [if test "x$withval" == x; then
       AC_MSG_WARN([--with-static-gmp was used but no path was given. Using defaults])
     else
       static_libgmp=$withval
     fi
-   ] 
+   ]
    [])
 
 static_includegmp=""
@@ -189,7 +189,7 @@ AC_ARG_WITH([static-gmp-include-dir],
             [Directory of include file "gmp.h" compatible with static GMP library])],
    [if test "x$withval" == x; then
       AC_MSG_WARN([--with-static-gmp-include-dir was used but no directory was given. Using defaults])
-    else 
+    else
       static_includegmp=$withval
     fi
    ]
@@ -197,7 +197,7 @@ AC_ARG_WITH([static-gmp-include-dir],
 
 
 pic_libgmp=""
-AC_ARG_WITH([pic-gmp], 
+AC_ARG_WITH([pic-gmp],
    [AS_HELP_STRING([--with-pic-gmp=<path>],[Full path to a relocatable GMP library (e.g., libgmp.a)])],
    [if test "x$withval" == x; then
       AC_MSG_WARN([--with-pic-gmp was used but no path was given. Using defaults])
@@ -213,7 +213,7 @@ AC_ARG_WITH([pic-gmp-include-dir],
             [Directory of include file "gmp.h" compatible with relocatable GMP library])],
    [if test "x$withval" == x; then
       AC_MSG_WARN([--with-pic-gmp-include-dir was used but no directory was given. Using defaults])
-    else 
+    else
       pic_includegmp=$withval
     fi
    ]
@@ -243,7 +243,7 @@ if test "x$1" != x; then
      else
         AC_MSG_ERROR([*** gmp.h not found in $1. Check option $2 ***])
      fi
-  else 
+  else
      AC_MSG_ERROR([*** directory $1 not found. Check option $2 ***])
   fi
 fi
@@ -309,7 +309,7 @@ mpz_t tst;
 [[
 mpz_init(tst);
 mpz_clear(tst);
-if ((__GNU_MP_VERSION < 4) || 
+if ((__GNU_MP_VERSION < 4) ||
     ((__GNU_MP_VERSION == 4) && (__GNU_MP_VERSION_MINOR < 1))) {
     return 1;
   }
@@ -330,7 +330,7 @@ dnl
 dnl CSL_CHECK_STATIC_GMP(ligmp,includedir)
 dnl ------------------------------------
 dnl try to find the full path to a usable libgmp.a, use $1 if not empty.
-dnl if $2 is not empty, then the checks are compiled with -I$2 
+dnl if $2 is not empty, then the checks are compiled with -I$2
 dnl if everything works, then set STATIC_GMP to the fullpath for libgmp.a
 dnl and set STATIC_GMP_INCLUDE_DIR to $2
 dnl
@@ -341,7 +341,7 @@ AC_MSG_NOTICE([Trying to find a usable ligmp.a])
 CSL_CHECK_GMP_HEADER($2,--with-static-gmp-include-dir)
 #
 # if $1 is not given, search for it in library paths
-# 
+#
 if test -z "$1"; then
    #
    # Some (non-GNU) versions of ld do not recognize --verbose
@@ -365,7 +365,7 @@ if test -z "$1"; then
    #
    # Add LD_LIBRARY_PATH or DYLD_LIBRARY_PATH if they are defined
    #
-   if test "x$LD_LIBRARY_PATH" != x; then 
+   if test "x$LD_LIBRARY_PATH" != x; then
       aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
    else
       if test "x$DYLD_LIBRARY_PATH" != x; then
@@ -382,9 +382,9 @@ if test -z "$1"; then
    for ld_arg in $LDFLAGS; do
      if test "$prev_l_opt" = "true"; then
         search_libs=" $ld_arg $search_libs"
-     else 
+     else
         if test "$ld_arg" = "-L"; then
-           prev_l_opt=true 
+           prev_l_opt=true
         else
            libprefix=`echo $ld_arg | cut -c -2`
            body=`echo $ld_arg | cut -c 3-`
@@ -396,7 +396,7 @@ if test -z "$1"; then
              if test "$libprefix" = "--library-path"; then
                search_libs=" $body $search_libs"
              fi
-           fi   
+           fi
         fi
      fi
    done
@@ -431,7 +431,7 @@ else
   if test $run_ok = yes; then
      STATIC_GMP=$testlib
      STATIC_GMP_INCLUDE_DIR=$testincludedir
-  else        
+  else
      AC_MSG_ERROR([*** $1 does not appear to be usable: check option --with-static-gmp ***])
   fi
 fi
@@ -471,10 +471,10 @@ if test "x$pic_libgmp" != x ; then
   #
   # --with-pic-gmp was given on the command line
   #
-  CSL_CHECK_GMP_HEADER($pic_includegmp,--with-pic-gmp-include-dir) 
+  CSL_CHECK_GMP_HEADER($pic_includegmp,--with-pic-gmp-include-dir)
   CSL_CHECK_LIBGMP_PATH($pic_libgmp,--with-pic-gmp)
   CSL_CHECK_GMP($testlib,$testincludedir)
-  if test $run_ok = yes; then 
+  if test $run_ok = yes; then
     PIC_GMP=$testlib
     PIC_GMP_INCLUDE_DIR=$testincludedir
   else
@@ -499,7 +499,7 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 #   ./install-sh*)
 #      curdir=`pwd`
 #      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***]) 
+#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***])
 #     MKDIR_P=$new_mkdir_p
 #     ;;
 # esac

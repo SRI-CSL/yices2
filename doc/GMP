@@ -23,7 +23,7 @@ As many as three different versions of GMP can be used to build Yices.
 Building PIC libgmp.a on linux (based on gmp-4.3.2)
 ---------------------------------------------------
 
-1) 64bit version: 
+1) 64bit version:
 
    ./configure --prefix=/homes/bruno/tools/x86_64-linux/reloc_gmp \
       ABI=64 CFLAGS=-fPIC CPPFLAGS=-DPIC --disable-shared
@@ -42,7 +42,7 @@ some versions of GCC do not compile GMP properly on 64bit machines.
 
 NOTE: it's important to always build GMP from a clean state, and doing
 'make clean' form the GMP source directory does not make it clean enough.
-The safest method is to delete the source directory and extract the 
+The safest method is to delete the source directory and extract the
 sources from a tarfile every time.
 
 NOTE2: it's a good idea to add option -fno-stack-protector to CFLAGS,
@@ -71,10 +71,10 @@ On my Solaris machine I got:
 2) Cleanup then configure GMP again, this time for PIC compilation.
    Make sure to give the same CFLAGS as above and add -fPIC
 
-   ./configure 
-       --prefix=/home/labrea5/dutertre/reloc_gmp 
+   ./configure
+       --prefix=/home/labrea5/dutertre/reloc_gmp
        CFLAGS='-fPIC -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc'
-       CPPFLAGS=-DPIC 
+       CPPFLAGS=-DPIC
        MPN_PATH=" sparc32/v9 sparc32/v8 sparc32 generic"
        --disable-shared
 
@@ -99,7 +99,7 @@ available on Mac OS X.
 Here is how to build gmp-4.3.2 on an Intel MacBook running Darwin-9.8.0.
 This was done using X-code 3.1.4.
 
-1) There are two gcc compilers with this X-code version: 
+1) There are two gcc compilers with this X-code version:
 
    /usr/bin/gcc     (i686-apple-darwin9-gcc-4.0.1)
    /usr/bin/gcc-4.2 (i686-apple-darwin9-gcc-4.2.1)
@@ -111,24 +111,24 @@ the GMP configure script.
 
 2) GMP for 32bit/PIC/static only
 
-   ./configure --prefix=... 
+   ./configure --prefix=...
                --disable-shared
                CC=gcc-4.2
                ABI=32
                CFLAGS='-fPIC -m32'
-               CPPFLAGS=-DPIC 
+               CPPFLAGS=-DPIC
 
-   
+
    then compile with 'make'
 
 
    'make check' failed
 
-   None of the test programs can be compiled and an error about 
-   undefined symbols in 'gmp-4.3.2/tests/.libs/libtests.a' is 
+   None of the test programs can be compiled and an error about
+   undefined symbols in 'gmp-4.3.2/tests/.libs/libtests.a' is
    reported. All test programs require this library.
 
-   These undefined symbols are used by 'x86call.o' and are 
+   These undefined symbols are used by 'x86call.o' and are
    actually defined in 'x86check.o'. Even though 'x86check.o'
    is present in 'libtests.a', the linker does not find the symbols.
 
@@ -136,16 +136,16 @@ the GMP configure script.
    both '.libs/libtests.a' and 'x86check.o'. This can be achieved
    by editing 'gmp-4.3.2/tests/Makefile' and  'gmp-4.3.2/tests/*/Makefile'.
 
-   In gmp-4.3.2/tests/Makefile, search for the line 
+   In gmp-4.3.2/tests/Makefile, search for the line
 
      LDADD = libtests.la $(top_builddir)/libgmp.la
 
    and replace it by
-     
+
      LDADD = libtests.la $(top_builddir)/libgmp.la x86check.o
 
 
-   In gmp-4.3.2/tests/*/Makefile, search for 
+   In gmp-4.3.2/tests/*/Makefile, search for
 
      LDADD = $(top_buiddir)/tests/libtests.la $(top_builddir)/libgmp.la
 
@@ -158,12 +158,12 @@ the GMP configure script.
 
 3) GMP for 64bit/PIC/static only
 
-   ./configure --prefix=... 
+   ./configure --prefix=...
                --disable-shared
                CC=gcc-4.2
                ABI=64
                CFLAGS='-fPIC -m64'
-               CPPFLAGS=-DPIC 
+               CPPFLAGS=-DPIC
 
    make
    make check
@@ -194,15 +194,15 @@ the GMP configure script.
    right 'gmp.h' at compile time. See utils/gmp-hack.h.
 
 
-5) What if configure rejects option ABI=64? 
+5) What if configure rejects option ABI=64?
 
    This may happen on some Mac hardware that's not properly recognized
-   by the GMP ./configure script. For example, for GMP-4.3.2, 
+   by the GMP ./configure script. For example, for GMP-4.3.2,
 
       ./configure ABI=64
 
-   fails on a MacBook Pro that has an Intel Core i5 CPU, but it works 
-   fine on a MacBook Pro that has an Intel Core 2 Duo. 
+   fails on a MacBook Pro that has an Intel Core i5 CPU, but it works
+   fine on a MacBook Pro that has an Intel Core 2 Duo.
 
    The simplest solution to such problems is to give a specific build
    triple to bypass the ./configure guesses. This can be done using
@@ -238,7 +238,7 @@ and install it somewhere else:
      ./configure --enable-shared --disable-static --prefix=/usr
      make
      make check
-     make install     
+     make install
 
    The resulting GMP library(ies) are installed as
 
@@ -247,29 +247,29 @@ and install it somewhere else:
      /usr/lib/libgmp.la       (stuff used by libtool)
 
     + others we don't care about
-  
+
    and the corresponding 'gmp.h' will be
-  
+
      /usr/include/gmp.h
 
 
 2) Then, build GMP as a static library in a different location (say
-   /tools/static_gmp/). This can be done by 
+   /tools/static_gmp/). This can be done by
 
-      ./configure --disable-share --enable-static --prefix=/tools/static_gmp 
+      ./configure --disable-share --enable-static --prefix=/tools/static_gmp
       make
       make check
       make install
 
-   from the GMP source directory. 
+   from the GMP source directory.
 
-   This will install 
+   This will install
 
       /tools/static_gmp/lib/libgmp.a
       /tools/static_gmp/include/gmp.h
 
 
-   To use this static libgmp.a when building Yices, give the following 
+   To use this static libgmp.a when building Yices, give the following
    options to the Yices ./configure script:
 
       --with-static-gmp=/tools/static_gmp/lib/libgmp.a
@@ -281,15 +281,15 @@ Building GMP for mingw32 from cygwin
 ------------------------------------
 
 From cygwin, we can build code for the mingw32 target (i.e., it can run
-on windows native without requiring the cygwin libraries). 
+on windows native without requiring the cygwin libraries).
 
 There are two options:
 
-1) use a version of gcc that supports -mno-cygwin (e.g., 
+1) use a version of gcc that supports -mno-cygwin (e.g.,
    /usr/bin/gcc-3 on cygwin). Unfortunately, new versions of GCC
    no longer support this.
 
-2) use a cross compiler. 
+2) use a cross compiler.
 
    There are two cross compilers that target mingw (Windows)  in the cygwin
    repository/mirrors. They can be installed using cygwin's setup.exe
@@ -298,7 +298,7 @@ There are two options:
 
    There should then be two cross compilers in cygwin:
 
-   /usr/bin/x86_86-w64-mingw32-gcc:  produces 64bit code that can run on 
+   /usr/bin/x86_86-w64-mingw32-gcc:  produces 64bit code that can run on
                                      64bit Windows
 
    /usr/bin/i686-w64-mingw32-gcc:    produces 32bit code that can run on
@@ -309,14 +309,14 @@ There are two options:
 To build a 32bit GMP dll for mingw from cygwin, give the following options to
 GMP's configure script:
 
-  ./configure --disable-static --enable-shared  \ 
+  ./configure --disable-static --enable-shared  \
      --prefix=<where to install the mingw GMP library> \
      CC=<mingw-compiler> CC_FOR_BUILD=<cygwin-compiler> \
      --host=i686-pc-mingw32 --build=i686-pc-cygwin ABI=32
 
 then type
    make
-   make check 
+   make check
    make install
 
 NOTE: make check works from cygwin even though the tests are mingw32
@@ -333,7 +333,7 @@ NOTE: make check failed when using cross compilation with --disable-shared.
 
 The failure was a compilation error on tests/misc/t-locale.c (the complaint
 was about redefinition of a type or constant). So I just disabled that
-specific test by editing the Makefile in tests/misc (search for 
+specific test by editing the Makefile in tests/misc (search for
 check_PROGRAMS). All tests passed after that.
 
 
@@ -344,8 +344,8 @@ To build a 64bit GMP dll for mingw from cygwin, first use GMP 5.0.1 (or newer).
 GMP 4.3.2 failed to configure. This is related to the fact that Visual Studio,
 and the mingw64 compiler have (sizeof(long) == 4) even for 64bit code.
 
-For GMP 5.0.1, it's also a good idea to get the patch at 
-   
+For GMP 5.0.1, it's also a good idea to get the patch at
+
   http://gmplib.org:8000/gmp-5.0/raw-rev/794410151f5f.
 
 Otherwise, make check will fail for t-perfpow.
@@ -360,22 +360,22 @@ Then, give the following options to GMP's configure script:
     NM=/usr/bin/x86_64-w64-mingw32-nm \
     AR=/usr/bin/x86_64-w64-mingw32-ar \
     CC_FOR_BUILD=gcc \
- 
 
-It's important to specify NM as the x86_64 version. Otherwise the 
+
+It's important to specify NM as the x86_64 version. Otherwise the
 './configure' fails. Not sure specifying AR=... is required.
 
 
 
 UPDATE (2012/02/15)
 
-When installing GMP 5.0.4, cross compilation for producing DLL with 
+When installing GMP 5.0.4, cross compilation for producing DLL with
 mingw64, 'make check' failed with this complaint:
 
-   ./.libs/libtests.a: could not read symbols: 
+   ./.libs/libtests.a: could not read symbols:
    Archive has no index; run ranlib to add one
 
-To fix this, I just did: 
+To fix this, I just did:
    /usr/bin/x86_64-w64-mingw32-ranlib ./tests/.libs/libtests.a
 
 (Playing with with RANLIB= ... or other options to configure

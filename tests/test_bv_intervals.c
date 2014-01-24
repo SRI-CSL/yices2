@@ -33,7 +33,7 @@ static void show_interval_unsigned(FILE *f, bv_interval_t *intv) {
     bvconst_print(f, intv->low, n);
     fputs(", ", f);
     bvconst_print(f, intv->high, n);
-    fprintf(f, " %"PRIu32" bits]", n); 
+    fprintf(f, " %"PRIu32" bits]", n);
   }
 }
 
@@ -49,7 +49,7 @@ static void show_interval_signed(FILE *f, bv_interval_t *intv) {
     bvconst_print(f, intv->low, n);
     fputs(", ", f);
     bvconst_print(f, intv->high, n);
-    fprintf(f, " %"PRIu32" bits]", n); 
+    fprintf(f, " %"PRIu32" bits]", n);
   }
 }
 
@@ -73,7 +73,7 @@ static void random_bv(uint32_t *v, uint32_t n) {
   for (i=0; i<w; i++) {
     v[i] = random_uint32();
   }
-  bvconst_normalize(v, n);  
+  bvconst_normalize(v, n);
 }
 
 
@@ -92,7 +92,7 @@ static void small_random_bv(uint32_t *v, uint32_t n) {
   }
 
   bvconst_set32_signed(v, w, x);
-  bvconst_normalize(v, n);  
+  bvconst_normalize(v, n);
 }
 
 
@@ -102,8 +102,8 @@ static void small_random_bv(uint32_t *v, uint32_t n) {
  * - m must be at least 10
  */
 static void init_bvconst_array(uint32_t **b, uint32_t m, uint32_t n) {
-  uint32_t *v; 
-  uint32_t i, w;  
+  uint32_t *v;
+  uint32_t i, w;
 
   assert(m >= 10);
 
@@ -141,7 +141,7 @@ static void init_bvconst_array(uint32_t **b, uint32_t m, uint32_t n) {
     small_random_bv(v, n);
     b[i] = v;
   }
-  
+
   // for the rest: add random vectors
   for (i=10; i<m; i++) {
     v = bvconst_alloc(w);
@@ -353,7 +353,7 @@ static void test_addmul_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, ui
   printf("\n\n");
 
   delete_bv_interval(&aux);
-  delete_bv_aux_buffers(&buffers);		       
+  delete_bv_aux_buffers(&buffers);
 }
 
 
@@ -415,14 +415,14 @@ static void report_error(uint32_t *u, uint32_t *v, uint32_t *w, uint32_t n) {
  * - go through all pairs of constants u and v in array data
  * - if u belongs to [a, b] and v belongs to [c, d], then check whether u + v belongs to a
  * - n = number of bits in all vectors
- * - m = size of the data array 
+ * - m = size of the data array
  */
 static void check_sum_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n,
 			       uint32_t **data, uint32_t m) {
   bvconstant_t buffer;
-  uint32_t *u, *v;  
+  uint32_t *u, *v;
   uint32_t i, j, w;
-  
+
   init_bvconstant(&buffer);
   bvconstant_set_bitsize(&buffer, n);
   w = buffer.width;
@@ -437,7 +437,7 @@ static void check_sum_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, ui
 	if (in_interval_u(v, c, d, n)) {
 	  // u is in [a, b] and v is in [c, d]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_add(buffer.data, w, v); 
+	  bvconst_add(buffer.data, w, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u + v modulo 2^n
 	  if (! member_u(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);
@@ -455,9 +455,9 @@ static void check_sum_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, ui
 static void check_sum_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n,
 			     uint32_t **data, uint32_t m) {
   bvconstant_t buffer;
-  uint32_t *u, *v;  
+  uint32_t *u, *v;
   uint32_t i, j, w;
-  
+
   init_bvconstant(&buffer);
   bvconstant_set_bitsize(&buffer, n);
   w = buffer.width;
@@ -472,7 +472,7 @@ static void check_sum_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint
 	if (in_interval_s(v, c, d, n)) {
 	  // u is in [a, b] and v is in [c, d]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_add(buffer.data, w, v); 
+	  bvconst_add(buffer.data, w, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u + v modulo 2^n
 	  if (! member_s(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);
@@ -491,12 +491,12 @@ static void check_sum_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint
  * - go through all pairs of constants u and v in array data
  * - if u belongs to [a, b] and v belongs to [c, d], then check whether u - v belongs to a
  * - n = number of bits in all vectors
- * - m = size of the data array 
+ * - m = size of the data array
  */
 static void check_diff_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n,
 				uint32_t **data, uint32_t m) {
   bvconstant_t buffer;
-  uint32_t *u, *v;  
+  uint32_t *u, *v;
   uint32_t i, j, w;
 
     init_bvconstant(&buffer);
@@ -513,7 +513,7 @@ static void check_diff_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, u
 	if (in_interval_u(v, c, d, n)) {
 	  // u is in [a, b] and v is in [c, d]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_sub(buffer.data, w, v); 
+	  bvconst_sub(buffer.data, w, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u - v modulo 2^n
 	  if (! member_u(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);
@@ -532,7 +532,7 @@ static void check_diff_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uin
   bvconstant_t buffer;
   uint32_t *u, *v;
   uint32_t i, j, w;
-  
+
   init_bvconstant(&buffer);
   bvconstant_set_bitsize(&buffer, n);
   w = buffer.width;
@@ -547,7 +547,7 @@ static void check_diff_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uin
 	if (in_interval_s(v, c, d, n)) {
 	  // u is in [a, b] and v is in [c, d]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_sub(buffer.data, w, v); 
+	  bvconst_sub(buffer.data, w, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u - v modulo 2^n
 	  if (! member_s(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);
@@ -570,7 +570,7 @@ static void check_addmul_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b,
   bvconstant_t buffer;
   uint32_t *u, *v;
   uint32_t i, j, w;
-  
+
   init_bvconstant(&buffer);
   bvconstant_set_bitsize(&buffer, n);
   w = buffer.width;
@@ -585,7 +585,7 @@ static void check_addmul_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b,
 	if (in_interval_u(v, d, e, n)) {
 	  // u is in [a, b] and v is in [d, e]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_addmul(buffer.data, w, c, v); 
+	  bvconst_addmul(buffer.data, w, c, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u + c * v modulo 2^n
 	  if (! member_u(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);
@@ -604,7 +604,7 @@ static void check_addmul_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, u
   bvconstant_t buffer;
   uint32_t *u, *v;
   uint32_t i, j, w;
-  
+
   init_bvconstant(&buffer);
   bvconstant_set_bitsize(&buffer, n);
   w = buffer.width;
@@ -619,7 +619,7 @@ static void check_addmul_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, u
 	if (in_interval_s(v, d, e, n)) {
 	  // u is in [a, b] and v is in [d, e]
 	  bvconst_set(buffer.data, w, u);
-	  bvconst_addmul(buffer.data, w, c, v); 
+	  bvconst_addmul(buffer.data, w, c, v);
 	  bvconst_normalize(buffer.data, n); // buffer := u + c * v modulo 2^n
 	  if (! member_s(buffer.data, intv)) {
 	    report_error(u, v, buffer.data, n);

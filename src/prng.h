@@ -43,7 +43,7 @@ static inline int32_t random_int32(void) {
 
 // random integer between 0 and n-1 (remove 8 low-order bits)
 static inline uint32_t random_uint(uint32_t n) {
-  return (random_uint32() >> 8) % n;  
+  return (random_uint32() >> 8) % n;
 }
 
 

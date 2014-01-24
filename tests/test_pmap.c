@@ -54,7 +54,7 @@ int main() {
   printf("\n*** Map ***\n");
   print_map(&map);
 
-  // search 
+  // search
   for (i=0; i<20; i++) {
     k0 = i + 1;
     k1 = 10 - i;
@@ -78,13 +78,13 @@ int main() {
       pmap_erase(&map, d);
     } else {
       printf("*** BUG ***\n");
-    }    
+    }
   }
 
   printf("\n*** Map after deletion ***\n");
   print_map(&map);
 
-  // search 
+  // search
   for (i=0; i<9; i++) {
     k0 = i + 1;
     k1 = 10 - i;
@@ -99,11 +99,11 @@ int main() {
   }
 
   pmap_reset(&map);
-  
+
   printf("\n*** Map after reset ***\n");
   print_map(&map);
 
   delete_pmap(&map);
-  
+
   return 0;
 }

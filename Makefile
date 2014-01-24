@@ -17,7 +17,7 @@ YICES_TOP_DIR=$(shell pwd)
 #   for darwin: the compatibility version is <major>.<minor>.0
 #               the version is set to <major>.<minor>.<patch-level>
 #
-# Conventions we should follow: 
+# Conventions we should follow:
 # <major> increases for major new releases.
 # <minor> increases when we make changes that loose
 #         backward compatibility.
@@ -53,14 +53,14 @@ endif
 #
 # OPTION: select an alternative configuration file
 #
-# 1) On Mac OS X Leopard/intel (darwin9.X.Y), the default configuration is 
+# 1) On Mac OS X Leopard/intel (darwin9.X.Y), the default configuration is
 #    in file  make.include.i386-apple-darwin9.X.Y
 #    This builds Yices as a 32bit executable.
 #
 #    It's possible to use an alternative configuration file
 #       make.include.x86_64-apple-darwin9.Y.Z on the same system.
 #    This is intended to build Yices as 64bit code.
-#      
+#
 #    To select the alternative configuration use 'make OPTION=64bits ..'
 #
 # 1a) Since Mac OS X Snow Leopard (darwin10.X.Y) and newer, the default
@@ -72,10 +72,10 @@ endif
 #     configuration file  make.include.i386-apple-darwin10.X.Y
 #
 #     To select the alternative configuration use 'make OPTION=32bits ...'
-# 
+#
 # 2) On Linux/x86_64, we compile in 64 bit mode by default,
 #    using configuration file make.include.x86_64-unknown-linux-gnu
-# 
+#
 #    It may be possible to build in 32 bit mode on the same machine,
 #    provided the compiler understand option -m32 and the necessary
 #    32bit libraries are present. The corresponding Yices configuration
@@ -97,19 +97,19 @@ endif
 #
 #    Issue: 2013/12/11: this Makefile is not robust for
 #    cross-compilation on Cygwin (to produce Windows 64 code).
-#    The simplest way to configure for this cross-compilation is 
+#    The simplest way to configure for this cross-compilation is
 #       ./configure --host=x86_64-w64-mingw32 ....
 #
 #    This generates ./configs/makefile.include.x86_64-w64-mingw32.
 #    But OPTION=mingw64 gives ./configs/makefile.include.x86_64-pc-mingw32
 #
 #
-# 4) On solaris, the default is make.include.sparc-sun-solaris2.x 
-#    (should be 32bits). 
+# 4) On solaris, the default is make.include.sparc-sun-solaris2.x
+#    (should be 32bits).
 #
-#    The alternative is make.include.sparc64-sun-solaris2.x 
+#    The alternative is make.include.sparc64-sun-solaris2.x
 #    (should be for 64bits build). To select it, give OPTION=64bits.
-# 
+#
 # Check README for details on generating these alternative configurations.
 #
 ifneq ($(OPTION),)
@@ -119,7 +119,7 @@ ifneq ($(OPTION),)
     endif
   else
   ifeq ($(POSIXOS),darwin)
-    ifeq ($(OPTION),64bits) 
+    ifeq ($(OPTION),64bits)
       newarch=$(subst i386,x86_64,$(ARCH))
     else
     ifeq ($(OPTION),32bits)
@@ -175,7 +175,7 @@ endif
 # Check whether make.include exists
 #
 # Note: we don't want to run ./configure from here.
-# The user may need to give options to the ./configure 
+# The user may need to give options to the ./configure
 # script.
 #
 make_include = configs/make.include.$(ARCH)
@@ -191,7 +191,7 @@ ifeq (,$(YICES_MAKE_INCLUDE))
      make_alternate = configs/make.include.$(alternate)
      YICES_MAKE_INCLUDE := $(findstring $(make_alternate), $(known_make_includes))
      ifeq (,$(YICES_MAKE_INCLUDE))
-        $(error Could not find $(make_include) nor $(make_alternate). Run ./configure) 
+        $(error Could not find $(make_include) nor $(make_alternate). Run ./configure)
      else
         $(info Could not find $(make_include). Using $(make_alternate) instead)
      endif
@@ -234,7 +234,7 @@ checkgmake:
 
 #
 # Invoke submake that will do the real work
-# the quotes around the 'YICES_TOP_DIR= ...' help if the directory 
+# the quotes around the 'YICES_TOP_DIR= ...' help if the directory
 # name include spaces
 #
 .DEFAULT: checkgmake

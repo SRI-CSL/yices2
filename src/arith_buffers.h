@@ -45,7 +45,7 @@ typedef struct mlist_s {
 // buffer
 typedef struct arith_buffer_s {
   uint32_t nterms;        // length of the list (excluding the end marker)
-  mlist_t *list;          // start of the list 
+  mlist_t *list;          // start of the list
   object_store_t *store;  // for allocation of list elements
   pprod_table_t *ptbl;    // for creation of power products
 } arith_buffer_t;
@@ -217,8 +217,8 @@ extern bool arith_buffer_equal(arith_buffer_t *b1, arith_buffer_t *b2);
  * They do not ensure that b is normalized.
  *
  * Some operations have a power product r as argument.
- * The power product r must be defined in b's internal 
- * power-product table (i.e., either r is empty_pp, or 
+ * The power product r must be defined in b's internal
+ * power-product table (i.e., either r is empty_pp, or
  * r is a tagged variable, or r occurs in b->ptbl).
  *
  * Some operations use one or two other buffers b1 and b2.  In such
@@ -406,7 +406,7 @@ extern void arith_buffer_sub_buffer_times_buffer(arith_buffer_t *b, arith_buffer
  *   of x_i to a power product.
  *
  * All operations are in place operations on the first argument b
- * (i.e., all modify the buffer). There are two requirements 
+ * (i.e., all modify the buffer). There are two requirements
  * on mono and pp:
  * - poly must be terminated by and end-marker (var = max_idx).
  * - pp must be sorted in the deg-lex ordering and have at least
@@ -488,7 +488,7 @@ extern void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *poly,
  */
 
 /*
- * Hash code for P(b, v). 
+ * Hash code for P(b, v).
  * This function is consistent with hash_polynomial defined in polynomials.c:
  * If P(b, v) = p0 then hash_arith_buffer(b, v) = hash_polynomial(p0).
  */
@@ -595,7 +595,7 @@ static inline void arith_buffer_sub_var_times_buffer(arith_buffer_t *b, arith_bu
 /*
  * Add a * x * b1 to b
  */
-static inline void 
+static inline void
 arith_buffer_add_varmono_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, rational_t *a, int32_t x) {
   arith_buffer_add_mono_times_buffer(b, b1, a, var_pp(x));
 }

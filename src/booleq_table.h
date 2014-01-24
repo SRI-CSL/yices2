@@ -1,5 +1,5 @@
 /*
- * EXPERIMENTAL: TABLE OF BOOLEAN EQUALITIES 
+ * EXPERIMENTAL: TABLE OF BOOLEAN EQUALITIES
  */
 
 /*
@@ -8,14 +8,14 @@
  * where l, a, and b are literals.
  *
  * We keep a table that maps boolean variables to pairs of literals:
- * for a variable x: def[x] is either -1 (no definition) or the 
+ * for a variable x: def[x] is either -1 (no definition) or the
  * index i of in array eq: eq[i] is a pair {a, b}.
  * This records that the assertion pos_lit(x) := (eq a b) was asserted.
  *
- * Given l := (xor a b) 
+ * Given l := (xor a b)
  * - if l is neg_lit(x), we convert the constraint to (not l) := (xor (not a) b)
- * - after this sterp we can assume the constraint is of the form 
- *      pos_lit(x) := (xor a b), which is equivalent to 
+ * - after this sterp we can assume the constraint is of the form
+ *      pos_lit(x) := (xor a b), which is equivalent to
  *      pos_lit(x) := (eq (not a) b)
  * - we then store the pair {a, b} in def[x]
  */
@@ -116,7 +116,7 @@ static inline bool literal_is_eq(booleq_table_t *table, literal_t l) {
 /*
  * Get the equality equivalent to l
  * - return false if there's no such equality in table
- * - return true otherwise and set *a and *b 
+ * - return true otherwise and set *a and *b
  * If the result is true then the equivalence l <=> (eq *a *b) holds
  */
 extern bool get_booleq(booleq_table_t *table, literal_t l, literal_t *a, literal_t *b);

@@ -13,9 +13,9 @@
 
 /*
  * Print an error message on stream f, for the given exception.
- * - if name is non NULL, the error message is 
+ * - if name is non NULL, the error message is
  *   'name: error message ...'
- * - if name is NULL the error message is 
+ * - if name is NULL the error message is
  *   'Error: message ...'
  * The term-stack location and other fields are used to help locate the error.
  *

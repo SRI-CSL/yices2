@@ -13,12 +13,12 @@
  *    This should not be called if the timer is already active.
  *    - delay = timeout in seconds
  *    - handler = callback function to call when the timeout expires
- *    - param = a generic pointer that's passed as unique argument to 
+ *    - param = a generic pointer that's passed as unique argument to
  *              handler
  *
  * 3) clear_timeout(void): cancel the timeout and do some cleanup.
  *    If the timeout has fired already, this just does the cleanup
- *    
+ *
  * 4) delete_timeout(void): final cleanup. Delete the internal
  *    data structures allocated by init_timeout.
  *

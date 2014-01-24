@@ -192,10 +192,10 @@ pmap_rec_t *pmap_find(pmap_t *hmap, int32_t k0, int32_t k1) {
   pmap_rec_t *d;
 
   mask = hmap->size - 1;
-  j = hash_pair(k0, k1) & mask;  
+  j = hash_pair(k0, k1) & mask;
   for (;;) {
     d = hmap->data + j;
-    if (d->val == NULL) return NULL;    
+    if (d->val == NULL) return NULL;
     if (d->val != DELETED_PTR && d->k0 == k0 && d->k1 == k1) {
       return d;
     }

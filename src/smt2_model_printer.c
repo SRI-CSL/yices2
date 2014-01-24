@@ -16,8 +16,8 @@
 /*
  * The (get-model) command is not officially part of the SMT-LIB 2 standard,
  * but it is useful. To implement it, we print the model as a list of
- * equalities 
- *     (= <term-name> <value>) 
+ * equalities
+ *     (= <term-name> <value>)
  * followed by function/array definitions
  */
 
@@ -135,7 +135,7 @@ static void smt2_pp_function_assignments(yices_pp_t *printer, model_t *model, te
     if (is_function_term(terms, t)) {
       smt2_pp_term_value(printer, model, t);
     }
-  }  
+  }
 }
 
 
@@ -275,7 +275,7 @@ static void smt2_eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *
     if (is_function_term(terms, t)) {
       smt2_eval_pp_term_value(printer, eval, t);
     }
-  }  
+  }
 }
 
 

@@ -75,7 +75,7 @@ static bool move_to_buffer(stable_sorter_t *sorter, uint32_t i, uint32_t j) {
  * Mimimal run size for an array of size n:
  * - returns n if n < 64
  * - returns 32 if n is a power of two
- * - returns a number between 33 and 64 otherwise = 
+ * - returns a number between 33 and 64 otherwise =
  *   1 + the 6 high order bits of n
  */
 static uint32_t min_run(uint32_t n) {
@@ -93,7 +93,7 @@ static uint32_t min_run(uint32_t n) {
 /*
  * Binary search: locate the position of p in slice data[i .. j-1]
  * - the slice data[i ... j-1] must be sorted
- * - this returns k such that i <= k <= j and 
+ * - this returns k such that i <= k <= j and
  * - all elements in data[i ... k-1] are less than or equal to p
  * - all elements in data[k ... j-1] are strictly more than p
  *
@@ -131,7 +131,7 @@ static uint32_t locate_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, voi
 static uint32_t locate_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, void *p) {
   void **a;
   uint32_t k;
- 
+
   assert(i <= j && j <= sorter->nelems);
 
   a = sorter->data;
@@ -247,9 +247,9 @@ static uint32_t find_run(stable_sorter_t *sorter, uint32_t i, bool *increasing) 
 
 
 /*
- * Merge runs data[i ... j-1] and data[j ... k-1] where i < j and j <  k 
- * - this is a slower than merge_left or merge_right but it can be used 
- *   if buffer is too small to contain a full copy of data[i ... j-1] 
+ * Merge runs data[i ... j-1] and data[j ... k-1] where i < j and j <  k
+ * - this is a slower than merge_left or merge_right but it can be used
+ *   if buffer is too small to contain a full copy of data[i ... j-1]
  *   or data[j ... k-1]
  */
 static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
@@ -269,7 +269,7 @@ static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint3
     u = j;
 
     /*
-     * merge initial elements of a[i ... j-1] and a[j .. k-1] 
+     * merge initial elements of a[i ... j-1] and a[j .. k-1]
      * into the buffer: b[0 ... n-1]
      */
     do {
@@ -306,7 +306,7 @@ static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint3
     for (v=0; v<s; v++, i++) {
       a[i] = b[v];
     }
-    j = u;    
+    j = u;
 
   } while (i < j && j < k);
 }
@@ -332,14 +332,14 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
   if (! move_to_buffer(sorter, i, j)) {
     low_mem_merge(sorter, i, j, k);
     return;
-  } 
+  }
 
   /*
    * a --> first run (in buffer), na = size of the first run
-   * b --> second run, nb = size of the second run  
-   * c --> destination block = data + i 
+   * b --> second run, nb = size of the second run
+   * c --> destination block = data + i
    */
-  a = sorter->buffer;  
+  a = sorter->buffer;
   b = sorter->data + j;
   c = sorter->data + i;
   na = j - i;
@@ -390,7 +390,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
   uint32_t na, nb;
 
   assert(i < j && j < k && k <= sorter->nelems);
-  
+
   if (! move_to_buffer(sorter, j, k)) {
     low_mem_merge(sorter, i, j, k);
     return;
@@ -406,7 +406,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
   a = sorter->data + j;
   b = sorter->buffer + nb;
   c = sorter->data + k;
-  
+
   p = *(--a);
   q = *(--b);
 
@@ -456,7 +456,7 @@ static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
    * i0 = its location in segment a[i ... j-1]
    * a[i ... i0-1] doesn't need to change
    */
-  i0 = locate_left(sorter, i, j, a[j]); 
+  i0 = locate_left(sorter, i, j, a[j]);
   if (i0 == j) return;
   assert(i <= i0 && i0 < j);
 
@@ -465,7 +465,7 @@ static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
    * j0 = its location in segment a[j ... k-1]
    * a[j0 ... k-1] doesn't change
    */
-  j0 = locate_right(sorter, j, k, a[j-1]); // j0 = location of a[j-1] 
+  j0 = locate_right(sorter, j, k, a[j-1]); // j0 = location of a[j-1]
   assert(j < j0 && j0 <= k);
 
   /*
@@ -483,7 +483,7 @@ static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
 
 
 /*
- * Add a new run to the stack: 
+ * Add a new run to the stack:
  * - i = start index of the unprocessed part
  * - so we push i on top of the segment stack
  * After the push:
@@ -528,10 +528,10 @@ static void balance_runs(stable_sorter_t *sorter) {
      *     C = d - c = size of the right segment
      *     B+C = d - b
      *
-     * if A <= B+C 
-     *   if A < C 
+     * if A <= B+C
+     *   if A < C
      *      merge left and middle segments
-     *   else 
+     *   else
      *      merge middle and right segments.
      */
     if (b - a > d - b) break;
@@ -560,7 +560,7 @@ static void balance_runs(stable_sorter_t *sorter) {
   if (c - b <= d - c) {
     merge_runs(sorter, b, c, d);
     sorter->seg[n-1] = d;
-    n --; 
+    n --;
   }
 
   sorter->nsegs = n;
@@ -633,7 +633,7 @@ void apply_sorter(stable_sorter_t *sorter, void **a, uint32_t n) {
 
   // finish the sort
   merge_all(sorter);
-  
+
   // reset the stack
   sorter->nsegs = 0;
 }

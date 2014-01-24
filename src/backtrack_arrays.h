@@ -223,7 +223,7 @@ static inline uint8_t au8_get(uint8_array_t *a, int32_t i) {
 }
 
 /*
- * Direct write: i must be between 0 and a->top 
+ * Direct write: i must be between 0 and a->top
  * - the current value a->map[i] is not saved
  */
 static inline void au8_set(uint8_array_t *a, int32_t i, uint8_t x) {

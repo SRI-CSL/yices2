@@ -144,7 +144,7 @@ static void sctx_hmap_extend(sctx_hmap_t *hmap) {
   safe_free(hmap->data);
   hmap->data = tmp;
   hmap->size = n2;
-  hmap->resize_threshold = (uint32_t) (n2 * SCTX_HMAP_RESIZE_RATIO);  
+  hmap->resize_threshold = (uint32_t) (n2 * SCTX_HMAP_RESIZE_RATIO);
 }
 
 

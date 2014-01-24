@@ -179,7 +179,7 @@ static void test1(uint32_t n) {
   bvarith64_buffer_add_var(&buffer, 2);
   bvarith64_buffer_sub_var(&buffer, 0);
   bvarith64_buffer_add_var(&buffer, 1);
-  bvarith64_buffer_add_var(&buffer, 0);  
+  bvarith64_buffer_add_var(&buffer, 0);
   bvarith64_buffer_normalize(&buffer);
   test_buffer(&buffer);
 
@@ -202,7 +202,7 @@ static void test1(uint32_t n) {
   bvarith64_buffer_mul_varmono(&buffer, 2, 4);
   bvarith64_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Multiplying by x_1^2\n");
   bvarith64_buffer_mul_var(&buffer, 1);
   bvarith64_buffer_mul_var(&buffer, 1);
@@ -226,17 +226,17 @@ static void test1(uint32_t n) {
   bvarith64_buffer_square(&buffer);
   bvarith64_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   bvarith64_buffer_square(&buffer);
   bvarith64_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   printf("Squaring\n");
   bvarith64_buffer_square(&buffer);
   bvarith64_buffer_normalize(&buffer);
   test_buffer(&buffer);
-  
+
   delete_bvarith64_buffer(&buffer);
 }
 
@@ -264,7 +264,7 @@ static void init_test2(uint32_t n) {
     init_bvarith64_buffer(aux + i, &prod_table, &store);
     bvarith64_buffer_prepare(aux + i, n);
   }
-  
+
   bvarith64_buffer_add_var(&aux[0], 3); // x_3
 
   bvarith64_buffer_add_const(&aux[1], 2); // 2
@@ -312,7 +312,7 @@ static void test_ops(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
   uint32_t n;
 
   assert(b1->bitsize == b2->bitsize);
-  
+
   printf("b1: ");
   print_bvarith64_buffer(stdout, b1);
   printf("\nb2: ");
@@ -328,7 +328,7 @@ static void test_ops(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
 
   n = b1->bitsize;
   init_bvarith64_buffer(&b, &prod_table, &store);
-  
+
   bvarith64_buffer_prepare(&b, n);
   bvarith64_buffer_add_buffer(&b, b1);
   bvarith64_buffer_add_buffer(&b, b2);
@@ -408,18 +408,18 @@ static void test2(uint32_t n) {
 int main() {
   init_globals();
 
-  test1(5); 
+  test1(5);
   printf("\n\n");
-  test1(32); 
+  test1(32);
   printf("\n\n");
-  test1(35); 
+  test1(35);
   printf("\n\n");
 
   test2(5);
   printf("\n\n");
-  test2(32); 
+  test2(32);
   printf("\n\n");
-  test2(35); 
+  test2(35);
   printf("\n\n");
 
   delete_globals();

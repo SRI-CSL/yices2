@@ -12,7 +12,7 @@
  * arithmetic variables. For the difference logic fragments, we must
  * convert these terms to the form (x - y <= c) or (x - y == c) that
  * the graph algorithms can use. For this purpose, we store a mapping
- * from arithmetic variables to triples of the form 
+ * from arithmetic variables to triples of the form
  *    [target vertex, source vertex, rational constant].
  * The triple [x, y, c] denotes the polynomial (x - y + c).
  */
@@ -52,7 +52,7 @@ typedef struct dl_triple_s {
 
 
 /*
- * Marker: nil 
+ * Marker: nil
  */
 enum {
   nil_vertex = -1,
@@ -177,7 +177,7 @@ extern thvar_t get_dl_var(dl_vartable_t *table, dl_triple_t *d);
 
 /*
  * Add the triples for x and y and store the result in d
- * - return true if the result can be computed (i.e., 
+ * - return true if the result can be computed (i.e.,
  *   if triple(x) + triple(y) is of the form (w - z + c)
  * - return false otherwise.
  * - d->constant must be initialized

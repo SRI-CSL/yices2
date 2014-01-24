@@ -59,7 +59,7 @@ static void show_terms(void) {
 }
 
 
-  
+
 /*
  * TYPE STORE
  */
@@ -91,7 +91,7 @@ static void init_type_store(type_store_t *store) {
 
   n = TYPE_STORE_DEF_SIZE;
   assert(n < TYPE_STORE_MAX_SIZE);
-  
+
   store->size = n;
   store->ntypes = 0;
   store->type = (type_t *) safe_malloc(n * sizeof(type_t));
@@ -170,7 +170,7 @@ static void type_store_add_term(type_store_t *store, term_t t) {
 
   tau = term_type(__yices_globals.terms, t);
   i = type_store_get_type(store, tau);
-  ivector_push(store->terms + i, t);  
+  ivector_push(store->terms + i, t);
 }
 
 
@@ -206,7 +206,7 @@ static void delete_type_store(type_store_t *store) {
   safe_free(store->terms);
 
   store->type = NULL;
-  store->terms = NULL;  
+  store->terms = NULL;
 }
 
 
@@ -242,7 +242,7 @@ static void init_term_store(term_store_t *store) {
 
   n = TERM_STORE_DEF_SIZE;
   assert(n < TERM_STORE_MAX_SIZE);
-  
+
   store->size = n;
   store->nterms = 0;
   store->term = (term_t *) safe_malloc(n * sizeof(term_t));
@@ -267,7 +267,7 @@ static void extend_term_store(term_store_t *store) {
   }
 
   store->size = n;
-  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));  
+  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));
 }
 
 
@@ -292,7 +292,7 @@ static uint32_t term_store_alloc_index(term_store_t *store) {
 /*
  * Mark term t
  */
-static void term_store_mark_term(term_store_t *store, term_t t) {  
+static void term_store_mark_term(term_store_t *store, term_t t) {
   uint32_t n;
 
   assert(t >= 0);
@@ -300,7 +300,7 @@ static void term_store_mark_term(term_store_t *store, term_t t) {
   n = store->max_term;
   if (t >= n) {
     // make the mark vector large enough to mark t: try to double its size
-    // if that's not enough allocate a vector of size 
+    // if that's not enough allocate a vector of size
     n += n;
     if (t >= n) {
       n = (t + 8) >> 3; // ceil((t+1)/8)
@@ -481,7 +481,7 @@ static term_t term_store_sample(term_store_t *store, type_t tau, term_pred_t p) 
       if (t != NULL_TERM) {
 	s = t;
       }
-    }    
+    }
   } else {
     s = term_array_sample(store->term, n, tau, p); // all terms are small
   }
@@ -492,7 +492,7 @@ static term_t term_store_sample(term_store_t *store, type_t tau, term_pred_t p) 
 
 
 /*
- * BASE TYPES 
+ * BASE TYPES
  */
 static type_t boolean, bv1, bv2, bv12, bv32, bv64, bv65, bv100;
 
@@ -578,14 +578,14 @@ static void init_base_terms(void) {
   add_term(yices_bvconst_uint32(64, x));
   add_term(yices_bvconst_uint32(65, x));
   add_term(yices_bvconst_uint32(100, x));
-  
+
   x = (uint32_t) random();
   add_term(yices_bvconst_uint32(12, x));
   add_term(yices_bvconst_uint32(32, x));
   add_term(yices_bvconst_uint32(64, x));
   add_term(yices_bvconst_uint32(65, x));
   add_term(yices_bvconst_uint32(100, x));
-  
+
   x = (uint32_t) random();
   add_term(yices_bvconst_uint32(12, x));
   add_term(yices_bvconst_uint32(32, x));
@@ -808,7 +808,7 @@ static bv_shift_op_t shift_array[NUM_SHIFT_OPS] = {
 
 
 /*
- * Zero-extend, sign-extend, repeat concat: bitvector + integer 
+ * Zero-extend, sign-extend, repeat concat: bitvector + integer
  */
 #define NUM_EXTEND_OPS 3
 
@@ -829,7 +829,7 @@ static term_t test_binop(uint32_t i, term_t t1, term_t t2) {
   term_t t;
 
   assert(i < NUM_BINOPS);
-  
+
   printf("test: (%s ", binop_array[i].name);
   print_term(stdout, __yices_globals.terms, t1);
   printf(" ");
@@ -849,7 +849,7 @@ static term_t test_unop(uint32_t i, term_t t1) {
   term_t t;
 
   assert(i < NUM_UNARY_OPS);
-  
+
   printf("test: (%s ", unop_array[i].name);
   print_term(stdout, __yices_globals.terms, t1);
   printf(") --> ");
@@ -880,7 +880,7 @@ static term_t test_pred(uint32_t i, term_t t1, term_t t2) {
 
   fflush(stdout);
 
-  return t;  
+  return t;
 }
 
 
@@ -975,7 +975,7 @@ static term_t test_bvarray1(uint32_t n, term_t t1) {
   assert(n <= 100);
   for (i=0; i<n; i++) {
     switch (random() % 4) {
-    case 0: 
+    case 0:
       bvarray[i] = false_term;
       break;
 
@@ -1016,7 +1016,7 @@ static term_t test_bvarray2(uint32_t n, term_t t1, term_t t2) {
   assert(n <= 100);
   for (i=0; i<n; i++) {
     switch (random() % 6) {
-    case 0: 
+    case 0:
       bvarray[i] = false_term;
       break;
 
@@ -1093,7 +1093,7 @@ static term_t test_bitextract(term_t t, uint32_t i) {
   b = yices_bitextract(t, i);
   print_term(stdout, __yices_globals.terms, b);
   printf("\n");
-  
+
   fflush(stdout);
 
   return b;
@@ -1118,7 +1118,7 @@ static void full_binary_tests(term_t t1, term_t t2) {
   }
 
   for (i=0; i<NUM_PREDS; i++) {
-    test_pred(i, t1, t2);    
+    test_pred(i, t1, t2);
   }
 
   n = term_bitsize(__yices_globals.terms, t1);
@@ -1142,7 +1142,7 @@ static void full_binary_tests(term_t t1, term_t t2) {
     test_extend(i, t1, 1);
     test_extend(i, t2, 1);
     test_extend(i, t1, 4);
-    test_extend(i, t2, 4);    
+    test_extend(i, t2, 4);
   }
 
   test_bvconcat(t1, t2);
@@ -1318,7 +1318,7 @@ int main(void) {
 
   random_ite(5000);
   random_binary_tests(6000);
-  
+
   show_types();
   show_terms();
 

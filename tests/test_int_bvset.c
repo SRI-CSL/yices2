@@ -33,7 +33,7 @@ static void print_set(int_bvset_t *s) {
     k = 10;
     for (i=0; i<n; i++) {
       if (int_bvset_member(s, i)) {
-	k ++; 
+	k ++;
 	if (k > 10) {
 	  printf("\n    %3"PRIu32, i);
 	  k = 0;
@@ -104,7 +104,7 @@ int main() {
 	 "*****************\n"
 	 "*    TEST 2     *\n"
 	 "*****************\n\n");
-  
+
   reset_int_bvset(&s);
   printf("After reset\n");
   print_set(&s);
@@ -118,9 +118,9 @@ int main() {
     } else {
       printf("no change\n");
     }
-    print_set(&s);    
+    print_set(&s);
   }
-  
+
   printf("\nCheck members\n");
   for (i=0; i<=1000; i++) {
     printf(" %"PRIu32": ", i);

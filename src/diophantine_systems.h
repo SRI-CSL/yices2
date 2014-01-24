@@ -24,7 +24,7 @@
  * Search for a matrix C and a unimodular matrix U such that
  *     C = A U and C is in echelon form.
  *
- * Unimodular means that the coefficients of U are integer 
+ * Unimodular means that the coefficients of U are integer
  * and det(U) is +1 or -1.
  *
  * Echelon form means that C looks like this
@@ -32,26 +32,26 @@
  *   c_21 c_22 0 ............ 0
  *     ...
  *   c_m1 c_m2 ... c_m,m 0 .. 0
- * 
+ *
  * (provided C has rank m).
- * 
+ *
  * Solving C y = b is equivalent to solving A x = b:
- * 1) if y is a solution to (C y = b) then x = U y is a 
+ * 1) if y is a solution to (C y = b) then x = U y is a
  *    solution to (A x = b)
  * 2) if x is a solution to (A x = b) then y = U^{-1} x is an
  *    integer solution to (C y = b)
  *
  * Since C is in echelon form, solving C y = b is easy.
- * 
+ *
  * Trick to compute C and U
  * ------------------------
  * - build a larger matrix D (m+n rows, n columns) by joining C and U
- * - extend b into an (m+n) vector B 
+ * - extend b into an (m+n) vector B
  * - initially:
  *
  *      D = [ A ]      B = [b]
  *          [ I ]          [0]
- * 
+ *
  *   where I is the n x n identity matrix.
  *
  * - turn the upper part of D into an echelon matrix by applying
@@ -60,7 +60,7 @@
  *    1) negate a column of D
  *    2) swap two columns of D
  *    3) add an integer multiple of a column of D to another column of D
- * - other operation: 
+ * - other operation:
  *    4) add an integer multiple of a column of D to B
  *
  * The algorithm operates then on D and B of the following form
@@ -74,29 +74,29 @@
  *    2) C = A U
  *    3) f = A g + b
  *
- * The problem is solved when we reach a state where f = 0 
+ * The problem is solved when we reach a state where f = 0
  * (then g is a solution to A x + b = 0) and C is in echelon form.
- * The problem is unsat if there's an unsat row in C (which can be easily 
+ * The problem is unsat if there's an unsat row in C (which can be easily
  * checked).
  *
  * If C is in echelon form, then the last k columns of C are zero.
- * The corresponding k columns of U = u_1, ..., u_k form a basis of 
+ * The corresponding k columns of U = u_1, ..., u_k form a basis of
  * the set of vectors x such that A x = 0. So the general solution is
  *  x =  g + u_1 z_1 + ... + u_k z_k.
  *
  * Rosser's algorithm
  * ------------------
- * We can't just apply arbitrary column transformations in any order. 
- * If we're not careful, the coefficients in matrix D grow exponentially. 
+ * We can't just apply arbitrary column transformations in any order.
+ * If we're not careful, the coefficients in matrix D grow exponentially.
  * Rosser's algorithm is a way of controlling coefficient growth.
  *
  */
 
 /*
  * DATA STRUCTURES
- * 
- * The solver stores a matrix A and a column vector B. 
- * - A is stored as an array of columns 
+ *
+ * The solver stores a matrix A and a column vector B.
+ * - A is stored as an array of columns
  * - B is a single column
  *
  * The dimensions are stored as
@@ -108,17 +108,17 @@
  * - solver->constant_column = vector B
  * - solver->rows = dependencies for row i = an array of column indices
  *
- * We use a sparse representation: only the non-zero elements of A 
+ * We use a sparse representation: only the non-zero elements of A
  * and B are stored. If A[i, j] is not zero then
- * - solver->row[i] contains column index j 
+ * - solver->row[i] contains column index j
  * - solver->column[j] contains the entry [i, k, coeff]
  *     where k = integer such that solver->row[i][k] = j
  *       coeff = A[i, j] stored as a rational number
  *
  * Variables
  * ---------
- * When the matrix A is constructed, each column of A is mapped to an 
- * external variable x. Conversely, for each variable x, we store the 
+ * When the matrix A is constructed, each column of A is mapped to an
+ * external variable x. Conversely, for each variable x, we store the
  * corresponding column index in array solver->col_idx[x]. If x does not
  * occur, then solver->col_idx[x] = -1.
  *
@@ -128,25 +128,25 @@
  * External row ids
  * ----------------
  * Internally, rows are numbered from 0 to nrows - 1.
- * To interact with the simplex solver, each row of A is assigned an 
+ * To interact with the simplex solver, each row of A is assigned an
  * external id (which corresponds to a row index in the simplex matrix/tableau).
  * For i between 0 and nrows - 1, row_id[i] stores the external id.
  *
  * Simplification
  * --------------
- * If coefficient A[i, j] is either +1 or -1, and all other elements of 
+ * If coefficient A[i, j] is either +1 or -1, and all other elements of
  * column j are zero, then we can remove row i and column j from the system.
  * The row denotes an equation a_i1 x_1 + ... + a_ij x_j + ... + b_i = 0,
  * where a_ij is +1 or -1. We can then solve for x_j and remove the row (and the column).
  * The corresponding substitution x_j := - a_ij (a_i1 x_1 + ... + ... + b_i) is stored
- * in an elimination record as a pair <variable, polynomial>. 
- * 
+ * in an elimination record as a pair <variable, polynomial>.
+ *
  *
  * Rosser's algorithm
  * ------------------
  * To solve the system: we keep three sets of columns
  * - A = active columns = matrix A as above
- * - S = solved columns = left-hand part of the echelon matrix = columns 
+ * - S = solved columns = left-hand part of the echelon matrix = columns
  * - C = auxiliary set used during processing
  *
  * Initially: S and C are empty, A is the full set of columns
@@ -158,29 +158,29 @@
  * - for each c in C, let c[i] denote the coefficient of row_i in column c
  * - if c[i] is negative, replace c by -c in C
  * - reduction:
- *     while C has at least two columns, 
+ *     while C has at least two columns,
  *       let c_1 be the column with largest coefficient c_1[i]
  *           c_2 be the column with second largest coefficient c_2[i]
  *         remove c_1 from C;
  *         compute c'_1 :=  c_1 - k c_2 where k = (c_1[i] div c_2[i])
- *         if c'_1[i] != 0 then 
+ *         if c'_1[i] != 0 then
  *           add c'_1 back to C
- *         else 
+ *         else
  *           add c'_1 back to A
  *         endif
  *     end
  * - now C contains a single column c with c[i] != 0, let b[i] be the corresponding
  *   coefficient in the constant vector b.
- *   if b[i] is a multiple of c[i] then 
+ *   if b[i] is a multiple of c[i] then
  *      replace b by b - k.c where k = (b[i]/c[i])
  *      add c to S
  *      reset C to emptyset
  *      iterate with a new row j
- *   else 
+ *   else
  *      the system is unsat
  *   endif
  *
- * NOTE: the description above is not quite right. It's much better to 
+ * NOTE: the description above is not quite right. It's much better to
  * reduce the constant column by c1 inside the loop, rather than doing
  * it once at the end.
  *
@@ -209,7 +209,7 @@
  * - the coefficient is stored as a rational_t object
  * - a column may be detached from the matrix, in which case, r_ptr is
  *   not used.
- * - if a column j if attached to the matrix, then for every element [i, k, coeff] 
+ * - if a column j if attached to the matrix, then for every element [i, k, coeff]
  *   of the column, we have row[i][k] = j.
  */
 typedef struct dcol_elem_s {
@@ -225,13 +225,13 @@ typedef struct dcol_elem_s {
  * - there's an end marker of index max_idx = INT32_MAX
  *   (max_idx is defined in polynomial_manager.h)
  * Header:
- * - one element may be selected as the active element 
- *   in a column. In that case, active is its index in 
+ * - one element may be selected as the active element
+ *   in a column. In that case, active is its index in
  *   the data array, otherwise active is -1.
  * - var = variable attached to the column (or -1) for the constant vector
  */
 typedef struct dcolumn_s {
-  int32_t active;      // -1 or index between 0 and nelems 
+  int32_t active;      // -1 or index between 0 and nelems
   int32_t var;         // variable corresponding to this column
   uint32_t size;       // size of the data array
   uint32_t nelems;     // number of elements in use, excluding the end marker
@@ -247,7 +247,7 @@ typedef struct dcolumn_s {
  * Elimination records: store (x := poly) where x does not occur in poly
  * also keep track of the row from which the elimination record was built.
  */
-typedef struct delim_record_s {  
+typedef struct delim_record_s {
   int32_t var;
   int32_t source; // row index
   polynomial_t *poly;
@@ -272,17 +272,17 @@ typedef struct delim_vector_s {
 /*
  * Status flags: record the solver state
  * - READY: rows can be added
- * - TRIVIALLY_UNSAT: a row (b == 0) was added 
+ * - TRIVIALLY_UNSAT: a row (b == 0) was added
  * - GCD_UNSAT: a row was added that failed the GCD test
  * - SIMPLIFIED: after simplifications (row elimination)
  * - SOLVED_SAT: the system was solved and a solution was found
  * - SOLVED_UNSAT: the system has been solved and it's not SAT
  * For all UNSAT states, then unsat_row is the internal index of a row
- * where unsatisfiability was detected. For GCD_UNSAT or TRIV_UNSAT, this is 
- * the last inconsistent row added. 
+ * where unsatisfiability was detected. For GCD_UNSAT or TRIV_UNSAT, this is
+ * the last inconsistent row added.
  */
 typedef enum dsolver_status {
-  DSOLVER_READY, 
+  DSOLVER_READY,
   DSOLVER_TRIV_UNSAT,
   DSOLVER_GCD_UNSAT,
   DSOLVER_SIMPLIFIED,
@@ -315,7 +315,7 @@ typedef struct dsolver_s {
   /*
    * Counters used when solving the equations:
    * - number of solved rows/columns
-   * - number of main rows = rows in the input system, before the 
+   * - number of main rows = rows in the input system, before the
    * identity matrix is adjoined.
    */
   uint32_t nsolved;
@@ -382,17 +382,17 @@ typedef struct dsolver_s {
    * - arrays base_sol and gen_sol are allocated on demand, after solving the system
    * - their size is equal to nvars
    * - for a variable x,
-   *   base_sol[x] = solution for variable x as a rational 
+   *   base_sol[x] = solution for variable x as a rational
    *              (or zero if x does not occur in the equations)
    *   gen_sol[x] = "generic solution" for x as a polynomial
    *              (or NULL if x does not occur in the equations)
    * - the variables of gen_sol[x] are integer parameters
    *
-   * Parameter numbering: when constructing the general solutions, the parameters are 
+   * Parameter numbering: when constructing the general solutions, the parameters are
    * given a variable index in the range [nvars, .., nvars + k-1] (so that they don't clash
-   * with the problem variables in [0 ... nvars-1]). 
+   * with the problem variables in [0 ... nvars-1]).
    * - if column[c] is not a solved or eliminated column then param_id[c] is the parameter
-   *   id for column c. 
+   *   id for column c.
    * - otherwise, column[c] is NULL and param_id[c] is -1.
    * - num_params is the number of non-NULL columns = number of parameters.
    *
@@ -499,7 +499,7 @@ extern void dsolver_row_addmul_constant(dsolver_t *solver, rational_t *a, ration
  * - add the normalized row to the system of equation.
  * - return true if the row is consistent, false otherwise
  *
- * The row is locally inconsistent if either it's of the form 
+ * The row is locally inconsistent if either it's of the form
  * b == 0 where b is a nonzero constant or it fails the GCD test,
  * (i.e., it's of the form a_1 x_1 + ... + a_n x_b + b == 0,
  * where a_1, ..., a_n are non-zero integer and b is not integer).
@@ -588,7 +588,7 @@ static inline rational_t *dsolver_get_value(dsolver_t *solver, int32_t x) {
  * - solver->gen_sol[0] is the constant 1 polynomial
  * - solver->param_id[c] is set if column c is not eliminated
  * - solver->num_params is computed here
- * - otherwise, solver->gen_sol[x] is a polynomial 
+ * - otherwise, solver->gen_sol[x] is a polynomial
  *   the form b + a_1 i_1 + ... + a_t i_t
  *   where i_1 ... i_t are integer parameters.
  */

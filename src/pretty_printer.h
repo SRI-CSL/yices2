@@ -5,23 +5,23 @@
  *
  * The input to the pretty printer is a sequence of
  * tokens, that contains atomic tokens + block delimiters.
- * - Atomic tokens are strings to be printed. They should not 
+ * - Atomic tokens are strings to be printed. They should not
  *   contain line breaks, or start or end with spaces.
- * - A block is a sequence of tokens of the form 
+ * - A block is a sequence of tokens of the form
  *
- *      open_block token .... token close_block 
- *  
+ *      open_block token .... token close_block
+ *
  * An open-block has the following attributes:
  * - label = string to be printed at the start of the block (may be empty)
  * - whether the block is enclosed by '(' and ')'
- * - whether a space or line break is allowed between the label and the 
+ * - whether a space or line break is allowed between the label and the
  *   next text element
  * - a set of possible formats for that block. There are four
  *   choices: horizontal, vertical, mixed, tight.
  * - the indentation for mixed and vertical formats
  * - the (shorter) indentation for the tight format
  *
- * The possible formats are 
+ * The possible formats are
  *
  *      (label b_1 .... b_n)   Horizontal layout
  *
@@ -29,7 +29,7 @@
  *             b_2
  *             ...
  *             b_n)
- * 
+ *
  *      (label b_1 ....        Mixed HV layout
  *             b_k .... b_n)
  *
@@ -41,15 +41,15 @@
  *
  * There are constraints between the selected layout for a block and the
  * allowed layouts for its sub-blocks:
- * - if b is printed horizontally, then all its sub-blocks must also be 
+ * - if b is printed horizontally, then all its sub-blocks must also be
  *   printed horizontally
  * - if b is printed in vertical or mixed layouts, then all
  *   its sub-blocks must be printed horizontally
  *
  * As in Oppen's paper the pretty printer consists of two main components
  * - a printer does the actual printing.
- * - a formatter computes the size of each block (or a lower bound that's 
- *   larger than the current line width) and feeds that information to 
+ * - a formatter computes the size of each block (or a lower bound that's
+ *   larger than the current line width) and feeds that information to
  *   the printer.
  */
 
@@ -103,15 +103,15 @@
 /*
  * The display area is a rectangle characterized by
  * its width, height, and offset as follows:
- * 
+ *
  *                  <----------- width ------------->
- *                   _______________________________ 
+ *                   _______________________________
  * <---- offset --->|                               |   ^
  *                  |                               |   |
  *                  |                               | Height
  *                  |                               |   |
  *                  |                               |   v
- *                   ------------------------------- 
+ *                   -------------------------------
  *
  *
  * The printer keeps track of the current print line within that area.
@@ -119,9 +119,9 @@
  * the first column of the rectangle).
  *
  * By default, each line has enough space for (width - indent) characters.
- * There's a 'stretch' option that can be used to make the lines wider. 
+ * There's a 'stretch' option that can be used to make the lines wider.
  * If stretch is true, then each line extends to the right and has
- * space for 'width' characters independent of 'indent'. 
+ * space for 'width' characters independent of 'indent'.
  *
  * A 'truncate' flag specifies how to deal with an atomic token that does
  * not fit on the print line (e.g., if the indentation is large):
@@ -192,7 +192,7 @@ typedef struct pp_atomic_token_s {
 
 /*
  * Open block descriptor
- * - bsize = block size = size of the block + number of closing 
+ * - bsize = block size = size of the block + number of closing
  *           parentheses that follow it.
  * - csize = maximal block size of the sub-blocks and atoms in that block
  * - fsize = block size of the first sub-block or atom
@@ -206,7 +206,7 @@ typedef struct pp_atomic_token_s {
  * - user_tag = provided by the user
  *
  * The fields bsize, csize, and fsize are computed by the formatter.
- * All the other components must be set when the token is created. 
+ * All the other components must be set when the token is created.
  */
 typedef struct pp_open_token_s {
   uint32_t bsize;
@@ -372,20 +372,20 @@ static inline pp_atomic_token_t *untag_separator(void *p) {
  * The pretty printer requires several user-provided functions to
  * convert tokens to string. To help in this conversion, each token
  * has a user_tag, which must be set when the token is created.
- * 
+ *
  * Conversion functions:
  * - get_label(ptr, tk): label of an open-block token tk
  * - get_string(ptr, tk): convert atomic token tk to a string.
- * - get_truncated(ptr, tk, n): convert atomic token tk to a 
+ * - get_truncated(ptr, tk, n): convert atomic token tk to a
  *   string of length <= n (where n < tk->size).
  *
- * All the conversions take a generic user-provided pointer as first 
+ * All the conversions take a generic user-provided pointer as first
  * argument and must return character string (terminated by '\0').
- * For consistency, 
+ * For consistency,
  * - get_label(ptr, tk) should return a string of length equal to tk->label_size.
  * - get_string(ptr, tk) should return a string of length equal to tk->size.
  *
- * Free functions: when token tk is consumed, one of the 
+ * Free functions: when token tk is consumed, one of the
  * following function is called.
  * - free_open_token(ptr, tk)
  * - free_atomic_token(ptr, tk)
@@ -433,7 +433,7 @@ typedef struct pp_token_converter_s {
  *   if yes, print a space then print s
  *   if no, print a line break, indent, print s.
  *
- * There's an immediate correspondence between layouts 
+ * There's an immediate correspondence between layouts
  * and print modes:
  * - HLAYOUT --> HMODE
  * - VLAYOUT and TLAYOUT --> VMODE
@@ -446,7 +446,7 @@ typedef enum {
 
 
 /*
- * A print state keeps track of the current print mode 
+ * A print state keeps track of the current print mode
  * and indentation. States are stored on a stack.
  */
 typedef struct pp_state_s {
@@ -478,15 +478,15 @@ typedef struct pp_stack_s {
  * The printer is attached to an output file, to a converter
  * structure, and to a display area.
  *
- * It keeps track of a current print-line, defined by 
+ * It keeps track of a current print-line, defined by
  * - line = line number (0 means top of the display area)
  * - col = cursor location
  * - margin = end of the line
  *
  * When we get close to the end of the line, the printer
  * may have to store pending tokens (that fit on the line
- * but can't be printed for sure yet because '...' may be needed). 
- * These tokens are stored in a 'pending_token' vector and 
+ * but can't be printed for sure yet because '...' may be needed).
+ * These tokens are stored in a 'pending_token' vector and
  * the printer keeps track of the column where they will be
  * printed if possible in 'pending_col'.
  *
@@ -496,7 +496,7 @@ typedef struct pp_stack_s {
  * - indent = current indentation
  * - next_margin = margin to use after the following line break
  *               = width of the next line
- * - no_break = true to prevent line break 
+ * - no_break = true to prevent line break
  * - no_space = true to prevent space
  * - full_line = true if the current line is full
  * - overfull_count = number of open blocks seen since the line has been full
@@ -539,18 +539,18 @@ typedef struct printer_s {
  * FORMATTER
  */
 
-/* 
+/*
  * The formatter looks ahead in the token stream to compute
  * - the bsize of all atomic tokens
  * - the bsize and csize of all open tokens
  *
  * The formatter works as if all the tokens were printed on
- * a single (long) horizontal line (the formatting line). 
+ * a single (long) horizontal line (the formatting line).
  * The formatter state includes:
  *
  * 1) A queue of tokens.
  *    - input tokens are added to this queue
- *    - they are removed from the queue when their bsize 
+ *    - they are removed from the queue when their bsize
  *      is known or as soon as it's known that their bsize is
  *      larger than max_width (= the display area width).
  *
@@ -559,15 +559,15 @@ typedef struct printer_s {
  *    - the column where the block starts on the formatting line
  *    - the current csize for that block = largest bsize among
  *      its sub-blocks.
- * 
+ *
  * 3) The formatting line parameters:
- *    - length = size of the line = column where new tokens are added 
- *    - no_space = flag that determines whether a space should be 
+ *    - length = size of the line = column where new tokens are added
+ *    - no_space = flag that determines whether a space should be
  *                 added before the next token.
  *
  * 4) A optional head_token
  *    - if head_token isn't NULL then it's the start of a block
- *      whose bsize is known to be larger than max_width but 
+ *      whose bsize is known to be larger than max_width but
  *      whose fsize and csize fields are not known yet.
  *
  * 5) An optional last_atom
@@ -576,7 +576,7 @@ typedef struct printer_s {
  *      by closed parentheses
  *    - if last_atom != NULL then atom_col is the start of the
  *      atom on the line
- * 
+ *
  *
  * Note: we could send tokens to the printer as soon as we know that
  * bsize is larger than the space left on the printer's line, but that
@@ -589,10 +589,10 @@ typedef struct printer_s {
  * ______________________________________________________________|__
  *  |Head    |B0            |B1         | .... |B_n   ... atom)))|
  * --------------------------------------------------------------|--
- *  ^        ^              ^                  ^          ^      
+ *  ^        ^              ^                  ^          ^
  * head    col_0         col_1              col_n        atom_col
  *
- *  
+ *
  * The following invariants hold:
  * 1) head_token->bsize > max_width
  *    head_token->fsize <= head_token->csize <= max_width
@@ -601,7 +601,7 @@ typedef struct printer_s {
  *
  * 2) length - col_i <= max_width
  *    token_i->fsize <= token_i->csize <= max_width
- *    token_i->fsize = token_i->csize is 0 if B_i+1 is 
+ *    token_i->fsize = token_i->csize is 0 if B_i+1 is
  *    the first sub-block of B_i
  *   (or, for i=n, if the last_atom is the first component of B_n).
  */
@@ -651,10 +651,10 @@ typedef struct pp_block_queue_s {
  * - block_queue = the queue itself
  * - queue_size = number of blocks in the queue
  * - nclosed = number of closed blocks in the queue
- * - head_token = pointer to token starting the enclosing 
+ * - head_token = pointer to token starting the enclosing
  *   block (or NULL)
  * - head_closed = true if the head block is close
- * 
+ *
  * Last atom:
  * - pointer to the last atom in the token queue (or NULL)
  * - atom_col = start of that atom on the line
@@ -662,8 +662,8 @@ typedef struct pp_block_queue_s {
  * Line descriptors:
  * - no_space: flag to prevent ' '
  * - length = the full length of the line
- * - max_width = maximal block width (any block whose bsize 
- *   is known to be more than max_width gets assigned 
+ * - max_width = maximal block width (any block whose bsize
+ *   is known to be more than max_width gets assigned
  *   bsize = MAX_BSIZE).
  *
  * Depth counter:
@@ -683,7 +683,7 @@ typedef struct formatter_s {
   // last atom
   pp_atomic_token_t *last_atom;
   uint32_t atom_col;
-  
+
   // control flag, line size, max_width
   bool no_space;
   uint32_t length;
@@ -748,7 +748,7 @@ extern void delete_pp(pp_t *pp);
  * - this also return true if pp->printed_failed is true
  *   (i.e., one of fputs, fputc, or fflush returned an error).
  */
-extern bool pp_is_full(pp_t *pp); 
+extern bool pp_is_full(pp_t *pp);
 
 
 /*

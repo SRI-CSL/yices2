@@ -18,7 +18,7 @@
  * - elements are in the interval [0 ... dsize - 1]
  * - data = array of w words where w = ceil(dsize/32)
  *   data is used as a bitvector: if i is in the set
- *   and i = 32k + r (with 0 <= r < 31) then 
+ *   and i = 32k + r (with 0 <= r < 31) then
  *   bit r in data[k] i set to 1
  *
  * - in addition, we store a 32bit hash: bit[i] of hash is 1
@@ -85,7 +85,7 @@ extern bool cset_member(cset_t *s, uint32_t i);
 
 
 /*
- * Checks: s1 and s2 must have the same domain 
+ * Checks: s1 and s2 must have the same domain
  * (equal and positive dsize)
  * - cset_subset(s1, s2): true means s1 is a subset of s2
  * - cset_disjoint(s1, s2): true means s1 and s2 are disjoint
@@ -99,7 +99,7 @@ extern bool cset_disjoint(cset_t *s1, cset_t *s2);
  * - cset_empty(s): remove all elements of s
  * - cset_fill(s):  add the full domain to s
  *
- * - cset_add(s, i): add element i 
+ * - cset_add(s, i): add element i
  * - cset_remove(s, i): remove iK
  *   (i must satisfy 0 <= i < s->dsize)
  *

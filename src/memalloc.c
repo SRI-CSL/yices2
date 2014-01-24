@@ -43,9 +43,9 @@ void *safe_malloc(size_t size) {
  *
  * NOTE: C99 specifies that realloc should behave like
  * malloc if ptr is NULL. This is what the Linux default
- * malloc does, but it's not clear whether other malloc 
+ * malloc does, but it's not clear whether other malloc
  * implementations (e.g., on MacOSX) follow the standard.
- * It's safer to check whether ptr is NULL and 
+ * It's safer to check whether ptr is NULL and
  * call malloc or realloc accordingly.
  *
  * size must be positive: realloc(p, 0) is the same as free(ptr).

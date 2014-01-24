@@ -1,6 +1,6 @@
 /*
- * Top-level call to yices_main: 
- * - this is used to call yices_main from Lisp 
+ * Top-level call to yices_main:
+ * - this is used to call yices_main from Lisp
  *   using a foreign function mechanism.
  */
 

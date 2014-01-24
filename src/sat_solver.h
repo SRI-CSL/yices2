@@ -150,7 +150,7 @@ enum {
  *   (a negative number).
  * - the first two literals stored in cl[0] and cl[1]
  *   are the watched literals.
- * Learned clauses have the same components as a clause 
+ * Learned clauses have the same components as a clause
  * and an activity, i.e., a float used by the clause-deletion
  * heuristic. (Because of alignment and padding, this wastes 32bits
  * on a 64bit machine....)
@@ -163,10 +163,10 @@ enum {
  *
  * SPECIAL CODING: to distinguish between learned clauses and problem
  * clauses, the end marker is different.
- * - for problem clauses, end_marker = -1 
+ * - for problem clauses, end_marker = -1
  * - for learned clauses, end_marker = -2
  *
- * A solver stores a value for these two end_markers: it must 
+ * A solver stores a value for these two end_markers: it must
  * always be equal to VAL_UNDEF.
  *
  * CLAUSE DELETION: to mark a clause for deletion, cl[0] and cl[1]
@@ -198,7 +198,7 @@ struct clause_s {
  * - deletion = number of conflicts when the clause is deleted
  * - props = number of propagations involving that clause
  * - last_prop = last time the clause caused a propagation
- * - resos = number of times the clause is used in resolution 
+ * - resos = number of times the clause is used in resolution
  * - last_reso = last time the clause was involved in a resolution step
  * - base_glue = glue score at creation
  * - glue = last computed glue
@@ -233,7 +233,7 @@ typedef struct learned_clauses_stats_s {
   lcstat_t *data;
   uint32_t nrecords;
   uint32_t size;
-  FILE *file;  
+  FILE *file;
 } learned_clauses_stats_t;
 
 
@@ -360,7 +360,7 @@ typedef struct {
  *   or heap_index[x] = -1 if x is not in the heap
  * - heap: array of nvars + 1 variables
  * - heap_last: index of last element in the heap
- *   heap[0] = -1, 
+ *   heap[0] = -1,
  *   for i=1 to heap_last, heap[i] = x for some variable x
  * - size = number of variable (nvars)
  * - vmax = variable index (last variable not in the heap)
@@ -459,7 +459,7 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
 
 
 /*
- * STATISTICS 
+ * STATISTICS
  */
 typedef struct solver_stats_s {
   uint32_t starts;           // 1 + number of restarts
@@ -493,11 +493,11 @@ typedef struct solver_stats_s {
  *   unit and binary clauses are stored implicitly.
  * - propagation structures: for every literal l
  *   bin[l] = literal vector for binary clauses
- *   watch[l] = list of clauses where l is a watched literal 
+ *   watch[l] = list of clauses where l is a watched literal
  *     (i.e., clauses where l occurs in position 0 or 1)
  *
- * - for every variable x between 0 and nb_vars - 1 
- *   - antecedent[x]: antecedent type and value 
+ * - for every variable x between 0 and nb_vars - 1
+ *   - antecedent[x]: antecedent type and value
  *   - level[x]: decision level (only meaningful if x is assigned)
  *   - mark[x]: 1 bit used in UIP computation
  *
@@ -646,7 +646,7 @@ extern bvar_t sat_solver_new_var(sat_solver_t *solver);
 extern void sat_solver_add_empty_clause(sat_solver_t *solver);
 extern void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l);
 extern void sat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1);
-extern void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, 
+extern void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1,
                                           literal_t l2);
 
 // clause l[0] ... l[n-1]
@@ -662,7 +662,7 @@ extern void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n,
 
 
 /*
- * Bounded search: search until either unsat or sat is determined, or until 
+ * Bounded search: search until either unsat or sat is determined, or until
  * the number of conflicts generated reaches conflict_bound.
  * Return status_unsat, status_sat if the problem is solved.
  * Return status_unknown if the conflict bound is reached.
@@ -716,7 +716,7 @@ static inline bval_t get_variable_assignment(sat_solver_t *solver, bvar_t x) {
 }
 
 /*
- * Copy the full variable assignment in array val. 
+ * Copy the full variable assignment in array val.
  * - val must have size >= solver->nb_vars
  */
 extern void get_allvars_assignment(sat_solver_t *solver, bval_t *val);

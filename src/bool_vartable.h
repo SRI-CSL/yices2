@@ -14,9 +14,9 @@
  * - gate_hash_table
  *
  * The remap table attempts to keep track of equalities between
- * Boolean variables but it's imperfect. The gate manager and 
+ * Boolean variables but it's imperfect. The gate manager and
  * gate_hash_table keep track of gate definitions and are used
- * for hash-consing. 
+ * for hash-consing.
  *
  * One issue: for each gate, we create clauses at the time the
  * Boolean gate is created. Also sometimes Boolean variables
@@ -29,12 +29,12 @@
  *
  * That's what this module is intended for: it stores a set of
  * Boolean variables, a set of clauses. and set of equalities between
- * literals. 
+ * literals.
  *
- * Each variable has a descriptor (i.e., the variable definition).  
+ * Each variable has a descriptor (i.e., the variable definition).
  * The definitions may be:
- *   1) a pure variable (i.e., no definition) 
- *   2) a Boolean function of other variables 
+ *   1) a pure variable (i.e., no definition)
+ *   2) a Boolean function of other variables
  *   3) a theory atom
  *
  * We support the following Boolean functions:
@@ -48,19 +48,19 @@
  *   (CMP a b c) := (a > b) or ((a = b) and c)
  *
  * (MAJ a b c) is the majority of a, b, c. It can be used to
- * build full adders. 
+ * build full adders.
  *
  * NOTE: we have (CMP a b c) = (MAJ a (not b) c)
  *
  * The majority of functions used in bitvector problems have
- * two or three variables. We represent a function (f x y z) 
+ * two or three variables. We represent a function (f x y z)
  * compactly using its truth table, which is stored as four integers:
  * - a bitmask for the truth table (8bits are used)
  * - the three variables x, y, z in increasing order
  *
  * To store the equivalences, we use a union-find structure (in a
  * simple form: there's no path compression to facilitate backtracking).
- * - each variable x: 
+ * - each variable x:
  *     root[x] = 0 or 1
  *     map[x] = what x is mapped to
  * - x may be mapped to a literal l or to null_literal
@@ -79,7 +79,7 @@
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
-#include "smt_core_base_types.h" 
+#include "smt_core_base_types.h"
 
 
 /*
@@ -100,8 +100,8 @@ enum {
 
 /*
  * Descriptor for a Boolean gate (function of arity <= 3)
- * - for functions of arity 3, 
- *     var[0], var[1], var[2] are the indices of three Boolean variables 
+ * - for functions of arity 3,
+ *     var[0], var[1], var[2] are the indices of three Boolean variables
  *     in increasing order
  * - for functions of arity 2, var[2] is not used (it's null_bvar = -1)
  *     var[0] and var[1] are two Boolean variables
@@ -173,7 +173,7 @@ typedef struct bgate_array_s {
 
 
 /*
- * Resizable integer array used as descriptors of 
+ * Resizable integer array used as descriptors of
  * large OR gates.
  * - the descriptors are stored in data[0 .... top-1]
  * - if a descriptor starts at index k then
@@ -184,7 +184,7 @@ typedef struct bgate_array_s {
 typedef struct ordata_array_s {
   uint32_t *data;
   uint32_t top;
-  uint32_t size;  
+  uint32_t size;
 } ordata_array_t;
 
 #define DEF_ORDATA_ARRAY_SIZE 1000
@@ -249,7 +249,7 @@ typedef struct equiv_queue_s {
 
 /*
  * Variable table
- * - for each variable: 
+ * - for each variable:
  *   tag[x] = 8bit
  *   desc[x] = 32bit index
  *   map[x] = literal
@@ -260,14 +260,14 @@ typedef struct equiv_queue_s {
  * - if tag[x] = BOR then desc[x] = index k in array ordata
  */
 typedef struct bool_vartable_s {
-  uint32_t nvars;   // number of variables 
+  uint32_t nvars;   // number of variables
   uint32_t size;    // size of arrays tag, desc, map, root
 
   uint8_t *tag;
   uint32_t *desc;
   literal_t *map;
   byte_t *root;
-  
+
   bgate_array_t gates;
   ordata_array_t ordata;
 
@@ -301,7 +301,7 @@ extern void delete_bool_vartable(bool_vartable_t *table);
 
 
 /*
- * Reset: empty the table. All variables and descriptors are 
+ * Reset: empty the table. All variables and descriptors are
  * removed except variable 0.
  */
 extern void reset_bool_vartable(bool_vartable_t *table);
@@ -436,7 +436,7 @@ extern void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l
 /*
  * Second version: simplfy then add a clause
  * - simplification used: remove false literals and duplicate literals.
- *   do nothing if the clause is true (either because it contains 
+ *   do nothing if the clause is true (either because it contains
  *   true_literal or a pair of complementary literals).
  * - WARNING: in bool_vartable_simplify_and_add_clause(table, n, a): array a may be modified
  */

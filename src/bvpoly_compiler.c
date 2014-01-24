@@ -48,7 +48,7 @@ static void bvc_queue_extend(bvc_queue_t *queue) {
     n = DEF_BVC_QUEUE_SIZE;
     assert(n > 0 && n <= MAX_BVC_QUEUE_SIZE && queue->data == NULL);
   } else {
-    n += (n >> 1); // 50% large   
+    n += (n >> 1); // 50% large
     assert(n > queue->size);
     if (n > MAX_BVC_QUEUE_SIZE) {
       out_of_memory();
@@ -251,7 +251,7 @@ static void bv_compiler_map_to_const(bvc_t *c, thvar_t x, uint32_t *a, uint32_t 
 
 
 // variant: constant = 0
-static void bv_compiler_map_to_zero(bvc_t *c, thvar_t x, uint32_t n) {  
+static void bv_compiler_map_to_zero(bvc_t *c, thvar_t x, uint32_t n) {
   uint32_t aux[8];
   uint32_t *a;
   uint32_t w;
@@ -373,7 +373,7 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
     x = null_thvar;
     /*
      * In each iteration:
-     *  x = product of all variables x_i's that have odd degree 
+     *  x = product of all variables x_i's that have odd degree
      *  (or null_thvar if all variables have even degree)
      *  d_i := d_i/2
      */
@@ -423,7 +423,7 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
   bv_vartable_t *vtbl;
   uint32_t i, n;
   thvar_t x;
-  
+
   reset_bvpoly_buffer(b, p->bitsize);
 
   vtbl = c->vtbl;
@@ -434,7 +434,7 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
     bvpoly_buffer_add_const64(b, p->mono[0].coeff);
     i ++;
   }
-  
+
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
@@ -446,7 +446,7 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
     }
     i ++;
   }
-  
+
   normalize_bvpoly_buffer(b);
 }
 
@@ -454,7 +454,7 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
   bv_vartable_t *vtbl;
   uint32_t i, n;
   thvar_t x;
-  
+
   reset_bvpoly_buffer(b, p->bitsize);
 
   vtbl = c->vtbl;
@@ -465,7 +465,7 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
     bvpoly_buffer_add_constant(b, p->mono[0].coeff);
     i ++;
   }
-  
+
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
@@ -477,7 +477,7 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
     }
     i ++;
   }
-  
+
   normalize_bvpoly_buffer(b);
 }
 
@@ -560,7 +560,7 @@ static void bv_compiler_push_pprod(bvc_t *c, pprod_t *p) {
  */
 void bv_compiler_push_var(bvc_t *c, thvar_t x) {
   bv_vartable_t *vtbl;
-  
+
   assert(0 < x && x < c->vtbl->nvars);
 
   vtbl = c->vtbl;
@@ -574,7 +574,7 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
     }
     break;
 
-  case BVTAG_POLY: 
+  case BVTAG_POLY:
     if (bvvar_to_process(c, x)) {
       int_bvset_add(&c->in_queue, x);
       bv_compiler_push_poly(c, bvvar_poly_def(vtbl, x));
@@ -651,7 +651,7 @@ static node_occ_t bv_compiler_pbuffer_to_dag(bvc_t *c, bvpoly_buffer_t *b) {
 
   n = bvpoly_buffer_num_terms(b);
   nbits = bvpoly_buffer_bitsize(b);
-  
+
   i = 0;
   if (bvpoly_buffer_var(b, 0) == const_idx) {
     ivector_push(v, const_idx); // need a place-holder in v->data[0]
@@ -681,7 +681,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
   uint64_t a;
 
   assert(0 < x && x < c->vtbl->nvars && int_bvset_member(&c->in_queue, x));
-           
+
   q = -1; // Stop GCC warning
 
   vtbl = c->vtbl;
@@ -697,7 +697,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
       }
       bv_compiler_map_to_const64(c, x, a, b->bitsize);
       return;
-    } 
+    }
     q = bv_compiler_pbuffer_to_dag(c, b);
     break;
 
@@ -711,7 +711,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
         bv_compiler_map_to_const(c, x, bvpoly_buffer_coeff(b, 0), b->bitsize);
       }
       return;
-    } 
+    }
     q = bv_compiler_pbuffer_to_dag(c, b);
     break;
 
@@ -745,7 +745,7 @@ static void bv_compiler_simplify_dag_bvadd(bvc_t *c, thvar_t x, thvar_t y, thvar
   nz = bvc_dag_nocc_of_var(dag, z);
   if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
-    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+    assert(bvvar_bitsize(c->vtbl, y) == nbits &&
            bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
@@ -764,7 +764,7 @@ static void bv_compiler_simplify_dag_bvsub(bvc_t *c, thvar_t x, thvar_t y, thvar
   nz = negate_occ(bvc_dag_nocc_of_var(dag, z));
   if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
-    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+    assert(bvvar_bitsize(c->vtbl, y) == nbits &&
            bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
@@ -783,7 +783,7 @@ static void bv_compiler_simplify_dag_bvmul(bvc_t *c, thvar_t x, thvar_t y, thvar
   nz = bvc_dag_nocc_of_var(dag, z);
   if (bvc_dag_check_reduce_prod(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
-    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+    assert(bvvar_bitsize(c->vtbl, y) == nbits &&
            bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
@@ -800,7 +800,7 @@ static void bv_compiler_simplify_dag(bvc_t *c, thvar_t x) {
   thvar_t y, z;
 
   dag = &c->dag;
-  vtbl = c->vtbl; 
+  vtbl = c->vtbl;
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_ADD:
     aux = bvvar_binop(vtbl, x);
@@ -843,7 +843,7 @@ static void bv_compiler_simplify_dag(bvc_t *c, thvar_t x) {
 /*
  * Compilation of an elementary node i
  */
-// case 1: i is [offset a0 n] 
+// case 1: i is [offset a0 n]
 static void bvc_process_offset(bvc_t *c, bvnode_t i, bvc_offset_t *d) {
   bv_vartable_t *vtbl;
   uint32_t nbits;
@@ -868,7 +868,7 @@ static void bvc_process_offset(bvc_t *c, bvnode_t i, bvc_offset_t *d) {
   bvc_dag_convert_to_leaf(&c->dag, i, x);
 }
 
-// case 2: i is [mono a0 n] 
+// case 2: i is [mono a0 n]
 static void bvc_process_monomial(bvc_t *c, bvnode_t i, bvc_mono_t *d) {
   bv_vartable_t *vtbl;
   uint32_t nbits;
@@ -894,9 +894,9 @@ static void bvc_process_elem_prod(bvc_t *c, bvnode_t i, bvc_prod_t *d) {
   node_occ_t nx, ny, nz;
   thvar_t x, y, z;
 
-  assert((d->len == 1 && d->prod[0].exp == 2) || 
+  assert((d->len == 1 && d->prod[0].exp == 2) ||
          (d->len == 2 && d->prod[0].exp == 1 && d->prod[1].exp == 1));
-  
+
   nbits = d->header.bitsize;
 
   ny = d->prod[0].var;
@@ -911,13 +911,13 @@ static void bvc_process_elem_prod(bvc_t *c, bvnode_t i, bvc_prod_t *d) {
   // i is compiled to [bvmul y z]
   x = bv_compiler_mk_bvmul(c, nbits, y, z);
   bvc_dag_convert_to_leaf(&c->dag, i, x);
-  
+
   // now replace (ny * nz) by nx everywhere
   nx = bvp(i);
   bvc_dag_reduce_prod(&c->dag, nx, ny, nz);
 }
 
-// case 4: i is [sum n1 n2] 
+// case 4: i is [sum n1 n2]
 static void bvc_process_elem_sum(bvc_t *c, bvnode_t i, bvc_sum_t *d) {
   uint32_t nbits;
   node_occ_t nx, ny, nz;
@@ -953,7 +953,7 @@ static void bvc_process_elem_sum(bvc_t *c, bvnode_t i, bvc_sum_t *d) {
   // replace ny nz by nx everywhere
   bvc_dag_convert_to_leaf(&c->dag, i, x);
   nx = bvp(i);
-  bvc_dag_reduce_sum(&c->dag, nx, ny, nz);  
+  bvc_dag_reduce_sum(&c->dag, nx, ny, nz);
 }
 
 static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
@@ -1044,7 +1044,7 @@ static bool bvc_sum_is_simple(bvc_dag_t *dag, bvc_sum_t *p) {
 
 
 /*
- * Compilation of a simple/non-elementary node i 
+ * Compilation of a simple/non-elementary node i
  */
 static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   pp_buffer_t *pp;
@@ -1052,7 +1052,7 @@ static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   thvar_t x;
 
   assert(p->len >= 1);
-  
+
   pp = &c->pp_buffer;
   pp_buffer_reset(pp);
 
@@ -1071,7 +1071,7 @@ static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   x = bv_compiler_mk_power_product(c, nbits, pp);
 
   // replace i by [leaf x] in DAG
-  bvc_dag_convert_to_leaf(&c->dag, i, x); 
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
 }
 
 static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
@@ -1080,7 +1080,7 @@ static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
   thvar_t x, y;
   bool all_neg;
 
-  assert(p->len >= 3); 
+  assert(p->len >= 3);
 
   nbits = p->header.bitsize;
   m = p->len;
@@ -1089,10 +1089,10 @@ static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
   all_neg = (sign_of_occ(n) != 0);
 
   /*
-   * Invariant: 
+   * Invariant:
    * - all_neg means that all node occurrences
    *   in 0 ... j-1 have negative sign.
-   * - if all_neg is true, then x is the opposite 
+   * - if all_neg is true, then x is the opposite
    *   if (sum n0 ... n_{j-1})
    *   otherwise, x is (sum n0 ... n_{j-1}
    */
@@ -1242,7 +1242,7 @@ static thvar_t bv_compiler_get_bvneg(bvc_t *c, thvar_t x) {
 
 
 /*
- * Get the variable y that x is compiled to 
+ * Get the variable y that x is compiled to
  * - store the mapping [x --> y] in the vmap
  */
 static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
@@ -1285,7 +1285,7 @@ void bv_compiler_process_queue(bvc_t *c) {
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
-    bv_compiler_map_var_to_dag(c, c->queue.data[i]);    
+    bv_compiler_map_var_to_dag(c, c->queue.data[i]);
   }
 
 #if TRACE

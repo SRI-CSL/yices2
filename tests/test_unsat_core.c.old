@@ -36,7 +36,7 @@ static void init_solver1(void) {
   bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[3]), pos_lit(v[4]));
   bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[1]), neg_lit(v[2]));
   bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[5]), pos_lit(v[6]));
-  bit_solver_add_unit_clause(&solver, neg_lit(v[5]));  
+  bit_solver_add_unit_clause(&solver, neg_lit(v[5]));
 }
 
 
@@ -110,7 +110,7 @@ static void test1(void) {
     return;
   }
 
-  
+
   printf("\n---> Assumption: ");
   print_literal(stdout, neg_lit(v[0]));
   printf("\n");
@@ -126,7 +126,7 @@ static void test1(void) {
     return;
   }
 
-  
+
   printf("\n---> Assumption: ");
   print_literal(stdout, neg_lit(v[6]));
   printf("\n");
@@ -142,7 +142,7 @@ static void test1(void) {
 
     printf("---> RETRACT\n");
     bit_solver_retract(&solver);
-    print_solver();    
+    print_solver();
   }
 
 
@@ -161,7 +161,7 @@ static void test1(void) {
 
     printf("---> RETRACT\n");
     bit_solver_retract(&solver);
-    print_solver();    
+    print_solver();
   }
 
   printf("\n---> Assumption: ");
@@ -185,7 +185,7 @@ static void test1(void) {
     printf("\n---> RETRACT\n");
     bit_solver_retract(&solver);
     print_solver();
-  }  
+  }
 }
 
 

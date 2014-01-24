@@ -30,7 +30,7 @@ bool signed64_ge(uint64_t a, uint64_t b, uint32_t n) {
   sa = a & sgn_bit_mask64(n); // sign of a << (n-1)
   sb = b & sgn_bit_mask64(n); // sign of b << (n-1)
 
-  // a >= b iff (sign of a = 0 and sign of b = 1) 
+  // a >= b iff (sign of a = 0 and sign of b = 1)
   //         or (sign_of a == sign_of b and a >= b);
   return (sa < sb) || (sa == sb && a >= b);
 }
@@ -44,7 +44,7 @@ bool signed64_gt(uint64_t a, uint64_t b, uint32_t n) {
   sa = a & sgn_bit_mask64(n); // sign of a << (n-1)
   sb = b & sgn_bit_mask64(n); // sign of b << (n-1)
 
-  // a >= b iff (sign of a = 0 and sign of b = 1) 
+  // a >= b iff (sign of a = 0 and sign of b = 1)
   //         or (sign_of a == sign_of b and a > b);
   return (sa < sb) || (sa == sb && a > b);
 }
@@ -53,7 +53,7 @@ bool signed64_gt(uint64_t a, uint64_t b, uint32_t n) {
 
 
 /*
- * Shift left: (a << b), padding with 0. 
+ * Shift left: (a << b), padding with 0.
  * - n = number of bits in a and b
  * - if b is more than n, this returns 0b00000
  * - the result is normalized
@@ -232,8 +232,8 @@ uint64_t bvconst64_smod2z(uint64_t x, uint64_t y, uint32_t n) {
     r = sx - q * sy;
     if (r != 0 && (is_neg64(x, n) != is_neg64(y, n))) {
       /*
-       * x and y have opposite signs so the rational (x/y) 
-       * is negative. Then fdiv(sx, sy) is q-1 and we 
+       * x and y have opposite signs so the rational (x/y)
+       * is negative. Then fdiv(sx, sy) is q-1 and we
        * must correct r.
        */
       r += sy;
@@ -326,7 +326,7 @@ int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
       assert(0 <= hex && hex < 16);
       // set bits 4n-1 to 4n-4
       x = (x << 4) | hex;
-      n --;  
+      n --;
     } else {
       // error
       return -1;
@@ -341,7 +341,7 @@ int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
 
 
 /*
- * Convert the n low-order bits of a rational q to a bitvector 
+ * Convert the n low-order bits of a rational q to a bitvector
  * constant of n-bits
  * - q must be a non-negative integer
  */
@@ -350,7 +350,7 @@ uint64_t bvconst64_from_q(uint32_t n, rational_t *q) {
   uint64_t x;
 
   assert(1 <= n && n <= 64);
-  
+
   bvconst_set_q(aux, 2, q);
   x = ((uint64_t) aux[0]) | (((uint64_t) aux[1]) << 32);
 

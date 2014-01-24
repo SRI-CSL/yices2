@@ -18,7 +18,7 @@ enum option_keys {
   TEST6,
 };
 
-static option_desc_t options[6] = { 
+static option_desc_t options[6] = {
   { "flag", 't', FLAG_OPTION, TEST1 },
   { "flag-trick", 'u', FLAG_OPTION, TEST2 },
   { "int-required", 'i', MANDATORY_INT, TEST3 },
@@ -45,7 +45,7 @@ static void show_cmdline_details(cmdline_elem_t *e) {
     break;
   }
   if (e->s_value == NULL) {
-    printf("  no parameter\n"); 
+    printf("  no parameter\n");
   } else {
     printf("  parameter %s (i_value = %"PRId32")\n", e->s_value, e->i_value);
   }
@@ -131,6 +131,6 @@ int main(int argc, char *argv[]) {
     }
     i ++;
   }
-  
+
   return 0;
 }

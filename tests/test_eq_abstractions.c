@@ -33,7 +33,7 @@ static epartition_t *partition[NUM_PARTITIONS];
 /*
  * Test partitions
  */
-static term_t test1[10] = { 
+static term_t test1[10] = {
   1, 2, 3, NULL_TERM,
   4, 5, 6, 7, 8, NULL_TERM,
 };
@@ -56,7 +56,7 @@ static term_t test3[15] = {
 /*
  * Print partition p
  */
-static void print_partition(epartition_t *p) { 
+static void print_partition(epartition_t *p) {
   term_t *q, t;
   uint32_t i, n;
 
@@ -225,7 +225,7 @@ static epartition_t *test_meet(epartition_t **p, uint32_t n) {
 static void test_meets(void) {
   uint32_t n, m;
   epartition_t *p;
-  
+
   for (n=0; n<100; n++) {
     m = random() % 30;
     build_random_partitions(m, 30);
@@ -327,7 +327,7 @@ static void test_joins(void) {
   partition[2] = test_join(partition, 2);
   delete_partitions(3);
 
-  
+
   partition[0] = make_epartition(test1, 10);
   partition[1] = make_epartition(test2, 11);
   partition[2] = make_epartition(test3, 15);
@@ -369,7 +369,7 @@ int main() {
   printf("\n--- After join ---\n");
   print_manager();
   printf("\n");
-  
+
   delete_epartition_manager(&mngr);
 
   return 0;

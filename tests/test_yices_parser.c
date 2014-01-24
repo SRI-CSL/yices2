@@ -29,7 +29,7 @@ enum {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
-  { "dump", 'd', OPTIONAL_STRING, set_dump },  
+  { "dump", 'd', OPTIONAL_STRING, set_dump },
 };
 
 
@@ -56,7 +56,7 @@ static void print_help(char *progname) {
 
 static void print_usage(char *progname) {
   fprintf(stderr, "Usage: %s [options] <input_file>\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 
@@ -90,7 +90,7 @@ static void process_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (input_filename == NULL) {
-	input_filename = elem.arg;	
+	input_filename = elem.arg;
       } else {
 	fprintf(stderr, "%s: can't have several input files\n", parser.command_name);
 	goto bad_usage;
@@ -106,7 +106,7 @@ static void process_command_line(int argc, char *argv[]) {
       case help_flag:
 	print_help(parser.command_name);
 	goto quick_exit;
-	
+
       case set_dump:
 	dump_requested = true;
 	if (elem.s_value != NULL) {
@@ -133,7 +133,7 @@ static void process_command_line(int argc, char *argv[]) {
 
  quick_exit:
   exit(YICES_EXIT_SUCCESS);
-  
+
  bad_usage:
   print_usage(parser.command_name);
   exit(YICES_EXIT_USAGE);
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
 	perror(dump_filename);
 	exit(YICES_EXIT_FILE_NOT_FOUND);
       }
-    } 
+    }
 
     fprintf(dump, "\n==== ALL TYPES ====\n");
     print_type_table(dump, __yices_globals.types);

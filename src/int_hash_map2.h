@@ -22,7 +22,7 @@ typedef struct int_hmap2_rec_s {
   int32_t k0;
   int32_t k1;
   int32_t val;
-} int_hmap2_rec_t; 
+} int_hmap2_rec_t;
 
 /*
  * Markers for empty records (stored in k0)
@@ -36,10 +36,10 @@ enum {
  * Hash-table components:
  * - data = table proper
  * - size = its size
- * - nelems = number of elements stored 
+ * - nelems = number of elements stored
  *   (i.e., elements of the data array whose k0 field is >= 0).
- * - resize_threshold = threshold to trigger resizing 
- *   when nelems >= resize_threshold, the table's size is 
+ * - resize_threshold = threshold to trigger resizing
+ *   when nelems >= resize_threshold, the table's size is
  *   doubled.
  */
 typedef struct int_hmap2_s {
@@ -83,7 +83,7 @@ extern int_hmap2_rec_t *int_hmap2_find(int_hmap2_t *hmap, int32_t k0, int32_t k1
 /*
  * Get record with key (k0, k1).
  * - if one is in the table return it and set *new to false.
- * - otherwise, create a fresh record with key (k0, k1), and 
+ * - otherwise, create a fresh record with key (k0, k1), and
  *   set *new to true.
  * If a new record is created, val is not initialized.
  * - k0 and k1 must be non-negative.
@@ -106,12 +106,12 @@ extern void reset_int_hmap2(int_hmap2_t *hmap);
 
 
 /*
- * Support for garbage collection: 
- * - keep_alive is a function that indicates whether a 
+ * Support for garbage collection:
+ * - keep_alive is a function that indicates whether a
  *   record should be kept or not.
  * - aux is an auxiliary pointer passed as argument to keep_alive
- * The garbage collection function scans all records in the table, 
- * calls keep_alive(aux, r) on every record r, and removes r if 
+ * The garbage collection function scans all records in the table,
+ * calls keep_alive(aux, r) on every record r, and removes r if
  * keep_alive returns false.
  */
 typedef bool (*keep_alive_fun_t)(void *aux, int_hmap2_rec_t *r);

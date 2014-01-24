@@ -19,7 +19,7 @@
  * - match = equivalence predicate
  * These two function take an auxiliary pointer as first argument:
  * - hash(aux, i) must return the hash code for object i
- * - match(aux, i1, i2) must return true if i1 and i2 are in 
+ * - match(aux, i1, i2) must return true if i1 and i2 are in
  *   the same class
  * Requirement: elements in the same class must have the same
  * hash code.
@@ -68,9 +68,9 @@ enum {
  * Initialize table
  * - n = initial table size
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  */
-extern void init_int_hclass(int_hclass_t *table, uint32_t n, void *aux, 
+extern void init_int_hclass(int_hclass_t *table, uint32_t n, void *aux,
                             iclass_hash_fun_t hash_fn, iclass_match_fun_t match_fn);
 
 

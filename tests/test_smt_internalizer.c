@@ -44,7 +44,7 @@ static context_t context;
  * - filename = name of the input file (in SMT format)
  *   if filenemae is NULL, we read stdin
  * - dump = whether to produce a dump file or not
- * - dump_file = name of the dump file 
+ * - dump_file = name of the dump file
  *   if dump is true and dump_file is NULL, we
  *   use 'yices2intern.dmp' as default.
  * - print = whether to print the assertions (can be very expensive)
@@ -68,7 +68,7 @@ enum {
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "dump", 'd', FLAG_OPTION, dump_option },
-  { "out",  'o', MANDATORY_STRING, out_option },  
+  { "out",  'o', MANDATORY_STRING, out_option },
   { "print", 'p', FLAG_OPTION, pp_option },
   { "help", 'h', FLAG_OPTION, help_flag },
 };
@@ -160,7 +160,7 @@ static void process_command_line(int argc, char *argv[]) {
     fprintf(stderr, "%s: can't use '%s' for both input and dump file\n", parser.command_name, dump_file);
     goto bad_usage;
   }
-  
+
   return;
 
  quick_exit:
@@ -203,7 +203,7 @@ static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     printf("Internalization OK\n");
-    printf("Assertions simplify to false\n\n"); 
+    printf("Assertions simplify to false\n\n");
     printf("unsat\n");
   } else if (code == CTX_NO_ERROR) {
     printf("Internalization OK\n\n");
@@ -213,7 +213,7 @@ static void print_internalization_code(int32_t code) {
     code = - code;
     printf("Internalization error: %s\n\n", code2error[code]);
     printf("unknown\n");
-  }    
+  }
 
   fflush(stdout);
 }
@@ -372,11 +372,11 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
 
 /*
  * Temporary test. Check whether the assertions are trivially true
- * after internalization and variable elimination (i.e., vectors 
+ * after internalization and variable elimination (i.e., vectors
  * top_eqs, top_formulas, top_atoms, top_interns are all empty).
  */
 static bool context_is_empty(context_t *ctx) {
-  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 && 
+  return ctx->top_eqs.size == 0 && ctx->top_atoms.size == 0 &&
     ctx->top_formulas.size == 0 && ctx->top_interns.size == 0;
 }
 
@@ -529,8 +529,8 @@ static void test_internalization(smt_benchmark_t *bench) {
    */
   if (bench->logic_name == NULL) {
     printf("No logic specified\n\nunknown\n");
-    return;    
-  } 
+    return;
+  }
 
   logic = smt_logic_code(bench->logic_name);
   assert(AUFLIA <= logic && logic <= SMT_UNKNOWN);
@@ -551,22 +551,22 @@ static void test_internalization(smt_benchmark_t *bench) {
   enable_eq_abstraction(&context);
   enable_diseq_and_or_flattening(&context); // flatten does not help
   enable_arith_elimination(&context);
-  enable_bvarith_elimination(&context);  
+  enable_bvarith_elimination(&context);
   if (iflag) {
     enable_splx_periodic_icheck(&context);
   }
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   if (code != CTX_NO_ERROR) {
-    print_internalization_code(code);    
+    print_internalization_code(code);
   } else if (context_is_empty(&context)) {
     printf("Reduced to the empty context\n\nsat\n");
   } else if (context_has_bv_solver(&context)) {
-    // test bit-blasting 
+    // test bit-blasting
     //    if (bv_solver_compile(context.bv_solver)) {
     if (bv_solver_bitblast(context.bv_solver)) {
       printf("Bitblasting OK\n");
-      print_internalization_code(code);    
+      print_internalization_code(code);
     } else {
       printf("Bitbasting detected inconsistency\n\nunsat\n");
     }
@@ -609,7 +609,7 @@ int main(int argc, char *argv[]) {
     if (init_smt_file_lexer(&lexer, filename) < 0) {
       perror(filename);
       exit(YICES_EXIT_FILE_NOT_FOUND);
-    } 
+    }
   } else {
     // read from stdin
     init_smt_stdin_lexer(&lexer);

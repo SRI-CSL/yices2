@@ -267,7 +267,7 @@ static bool add_dl_triple(dl_triple_t *t1, dl_triple_t *t2) {
   y2 = t2->source;
 
 
-  /* 
+  /*
    * t1 is x1 - y1 + c1
    * t2 is x2 - y2 + c2
    * t1 + t2 is x1 + x2 - y1 - y2 + (c1 + c2)
@@ -320,7 +320,7 @@ static bool sub_dl_triple(dl_triple_t *t1, dl_triple_t *t2) {
   y2 = t2->source;
 
 
-  /* 
+  /*
    * t1 is x1 - y1 + c1
    * t2 is x2 - y2 + c2
    * t1 - t2 is x1 + y2 - y1 - x2 + (c1 - c2)
@@ -394,7 +394,7 @@ static void poly_buffer_submul_triple(poly_buffer_t *b, dl_triple_t *t, rational
 
   if (t->target >= 0) poly_buffer_sub_monomial(b, t->target + 1, a);
   if (t->source >= 0) poly_buffer_add_monomial(b, t->source + 1, a);
-  poly_buffer_submul_monomial(b, const_idx, &t->constant, a);  
+  poly_buffer_submul_monomial(b, const_idx, &t->constant, a);
 }
 
 
@@ -423,7 +423,7 @@ static bool eq_dl_var(dl_var_hobj_t *o, thvar_t x) {
   return eq_dl_triple(o->triple, tbl->triple + x);
 }
 
-// Build new variable 
+// Build new variable
 static int32_t build_dl_var(dl_var_hobj_t *o) {
   dl_vartable_t *tbl;
   dl_triple_t *d;
@@ -476,7 +476,7 @@ void copy_dl_var_triple(dl_vartable_t *tbl, thvar_t x, dl_triple_t *d) {
 
 /*
  * Add the triples for x and y and store the result in d
- * - return true if the result can be computed (i.e., 
+ * - return true if the result can be computed (i.e.,
  *   if triple(x) + triple(y) is of the form (w - z + c)
  * - return false otherwise.
  */
@@ -500,7 +500,7 @@ bool diff_dl_vars(dl_vartable_t *table, thvar_t x, thvar_t y, dl_triple_t *d) {
   copy_dl_var_triple(table, x, d);
   dy = dl_var_triple(table, y);
   return sub_dl_triple(d, dy);
-} 
+}
 
 
 /*
@@ -512,15 +512,15 @@ bool diff_dl_vars(dl_vartable_t *table, thvar_t x, thvar_t y, dl_triple_t *d) {
  * These operation do not normalize the buffer b
  */
 void add_dl_var_to_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x) {
-  poly_buffer_add_triple(b, dl_var_triple(table, x));  
+  poly_buffer_add_triple(b, dl_var_triple(table, x));
 }
 
 void sub_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x) {
-  poly_buffer_sub_triple(b, dl_var_triple(table, x));  
+  poly_buffer_sub_triple(b, dl_var_triple(table, x));
 }
 
 void addmul_dl_var_to_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x, rational_t *a) {
-  poly_buffer_addmul_triple(b, dl_var_triple(table, x), a);  
+  poly_buffer_addmul_triple(b, dl_var_triple(table, x), a);
 }
 
 void submul_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x, rational_t *a) {
@@ -549,7 +549,7 @@ bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
   d->target = nil_vertex;
   d->source = nil_vertex;
   q_clear(&d->constant);
-  
+
   // get the constant term of b if any
   if (n > 0 && p[0].var == const_idx) {
     q_set(&d->constant, &p[0].coeff);
@@ -565,13 +565,13 @@ bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
     if (q_is_one(&p[0].coeff)) {
       d->target = p[0].var - 1;
       return true;
-    } 
+    }
 
     if (q_is_minus_one(&p[0].coeff)) {
       d->source = p[0].var - 1;
       return true;
     }
-    
+
   } else if (n == 2 && q_opposite(&p[0].coeff, &p[1].coeff)) {
     if (q_is_one(&p[0].coeff)) {
       d->target = p[0].var - 1;
@@ -612,11 +612,11 @@ bool rescale_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
 
 
   /*
-   * Attempt to write b as (a x - a y + c) with a > 0 
+   * Attempt to write b as (a x - a y + c) with a > 0
    * and  c is stored in d->constant.
    * Then return (x - y + c/a) as the result.
-   * There are special cases for 
-   *    b = a x + c (then y = nil), 
+   * There are special cases for
+   *    b = a x + c (then y = nil),
    *    b = - a y + c (then x = nil), etc.
    */
   q_init(&a);

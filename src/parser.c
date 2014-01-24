@@ -93,7 +93,7 @@ int32_t parser_push_lexer(parser_t *parser, const char *filename) {
   code = init_nested_lexer(new_lexer, filename, parser->lex);
   if (code >= 0) {
     // no error
-    parser->lex = new_lexer;    
+    parser->lex = new_lexer;
   } else {
     // cleanup
     safe_free(new_lexer);
@@ -111,7 +111,7 @@ void parser_pop_lexer(parser_t *parser) {
 
   // there must be a previous one
   top_lexer = parser->lex;
-  assert(top_lexer->next != NULL);   
+  assert(top_lexer->next != NULL);
   parser->lex = top_lexer->next;
   close_lexer(top_lexer);
   safe_free(top_lexer);

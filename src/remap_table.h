@@ -18,11 +18,11 @@
  * The first step in bit-blasting is to assign literals
  * to the bit-vector variables. We want to avoid creating
  * redundant literals, i.e., create l1 and l2 then later
- * assert that l1 and l2 are equal. 
+ * assert that l1 and l2 are equal.
  *
  * For this purpose, we use a level of indirection. We map bit-vector
  * variables to (arrays of) pseudo-literals then map pseudo-literals
- * to literals in the bit-solver as needed.  Pseudo literals are 
+ * to literals in the bit-solver as needed.  Pseudo literals are
  * integer labels with a polarity bits, just like normal literals, but
  * nothing is created in the bitsolver for a pseudo literal. The role
  * of the pseudo literals is to record when two bits are equal before
@@ -48,7 +48,7 @@
  *
  * To deal with equality constraints like (v == w) we substitute
  * pseudo literals of w with pseudo literals of v. The remapping
- * table stores the mapping from pseudo-literals to real literals 
+ * table stores the mapping from pseudo-literals to real literals
  * and the substitution.
  *
  * Table components:
@@ -67,7 +67,7 @@
  *
  *
  * Support for push/pop:
- * - when variable v is remapped either to a pseudo literal l or to 
+ * - when variable v is remapped either to a pseudo literal l or to
  *   a real literal l0, then we push s onto the undo stack
  * - for each level: we keep track of nvars and top of the undo stack
  */
@@ -98,7 +98,7 @@ typedef struct remap_trail_elem_s {
   uint32_t undo_top;
   uint32_t map_top;
 } remap_trail_elem_t;
- 
+
 typedef struct remap_trail_s {
   uint32_t size;
   uint32_t top;
@@ -125,7 +125,7 @@ typedef struct remap_trail_s {
  */
 typedef struct remap_table_s {
   literal_t *map;
-  byte_t *merge_bit;  
+  byte_t *merge_bit;
   uint32_t nvars;
   uint32_t prev_top;
   uint32_t size;
@@ -190,7 +190,7 @@ extern void remap_table_set_level(remap_table_t *table, uint32_t n);
 
 /*
  * Create a fresh pseudo literal l = pos_lit(v) where v is a fresh
- * variable. 
+ * variable.
  * - map[v] is null_literal, merge_bit[v] is 0
  */
 extern literal_t remap_table_fresh_lit(remap_table_t *table);
@@ -240,16 +240,16 @@ static inline bool remap_table_is_root(remap_table_t *table, literal_t l) {
 /*
  * Check whether l1 and l2 can be merged
  * - l1 and l2 must be roots
- * - return true if l1 is different from l2 and not(l2) and if 
+ * - return true if l1 is different from l2 and not(l2) and if
  *   l1 or l2 has no assignment.
  */
 extern bool remap_table_mergeable(remap_table_t *table, literal_t l1, literal_t l2);
 
 
 /*
- * Merge l1 and l2: 
+ * Merge l1 and l2:
  * - both must be roots and l1 must be different from l2 and not(l2)
- * - if remap[l1] != null_literal, we use l2 := l1 
+ * - if remap[l1] != null_literal, we use l2 := l1
  * - otherwise, we map l1 to l2
  */
 extern void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2);
@@ -278,7 +278,7 @@ extern void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2);
 extern void remap_table_assign(remap_table_t *table, literal_t l, literal_t l1);
 
 /*
- * Auxiliary function used below: 
+ * Auxiliary function used below:
  * - flip the polarity bit of l if sgn is 1 and l is non-null
  * - keep l unchanged otherwise
  */
@@ -287,7 +287,7 @@ static inline literal_t xor_sign(literal_t l, uint32_t sgn) {
 }
 
 /*
- * Return the literal assigned to the class of l 
+ * Return the literal assigned to the class of l
  * return null_literal if no literal is assigned to the class
  */
 static inline literal_t remap_table_find(remap_table_t *table, literal_t l) {

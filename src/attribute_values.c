@@ -39,7 +39,7 @@ void init_attr_vtbl(attr_vtbl_t *table) {
   table->tag = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (attr_desc_t *) safe_malloc(n * sizeof(attr_desc_t));
   table->refcount = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  
+
   table->size = n;
   table->nelems = 0;
   table->free_idx = -1;
@@ -168,7 +168,7 @@ aval_t attr_vtbl_rational(attr_vtbl_t *table, rational_t *q) {
 }
 
 /*
- * Copy bitvector constant c. 
+ * Copy bitvector constant c.
  * n = number of bits (must be no more than 64)
  */
 aval_t attr_vtbl_bv64(attr_vtbl_t *table, uint32_t n, uint64_t c) {
@@ -191,7 +191,7 @@ aval_t attr_vtbl_bv64(attr_vtbl_t *table, uint32_t n, uint64_t c) {
 }
 
 /*
- * Same thing for constant c = array of 32bit words 
+ * Same thing for constant c = array of 32bit words
  */
 aval_t attr_vtbl_bv(attr_vtbl_t *table, uint32_t n, uint32_t *c) {
   bvconst_attr_t *tmp;
@@ -236,7 +236,7 @@ aval_t attr_vtbl_str(attr_vtbl_t *table, const char *s, aval_type_t tag) {
 
 
 /*
- * List a[0 ... n-1] 
+ * List a[0 ... n-1]
  */
 aval_t attr_vtbl_list(attr_vtbl_t *table, uint32_t n, aval_t a[]) {
   attr_list_t *tmp;

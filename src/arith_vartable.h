@@ -16,11 +16,11 @@
  * and derived bounds are pushed).
  *
  * More precisely, for each arithmetic variable v, the table stores
- * - the definition of v, which can be 
+ * - the definition of v, which can be
  *     either NULL
  *     or a pointer to a polynomial_t object
  *     or a pointer to a pprod_t object (for non-linear arithmetic)
- *     or a pointer to a rational_t object 
+ *     or a pointer to a rational_t object
  * - whether v is an integer or a real variable
  * - the egraph term attached to v (or null_eterm if there's none)
  * - a vector of atoms indices (all the atoms whose variable is v)
@@ -54,8 +54,8 @@
 /*
  * For each variable x we keep data used during assignment updates,
  * and other simplex operations.
- * - whether value[x] is equal to the lower bound on x 
- * - whether value[x] is equal to the upper bound on x 
+ * - whether value[x] is equal to the lower bound on x
+ * - whether value[x] is equal to the upper bound on x
  * - a generic 1bit mark
  *
  * This data is stored into an 8bit variable tag
@@ -65,7 +65,7 @@
  *
  * The mark bit is currently used only in simplex make_feasible
  * - variable x is marked if it was the leaving variable in a pivoting step
- * - this is used to switch to Blend's rule after too many variables 
+ * - this is used to switch to Blend's rule after too many variables
  *   leave the basis
  *
  * Other bits in this tag store information about x's type and
@@ -123,7 +123,7 @@ typedef enum {
  *
  * - value = current assignment
  * - upper_index, lower_index = indices in the bound queue (-1) means no bound
- * - tag = variable tag 
+ * - tag = variable tag
  */
 typedef struct arith_vartable_s {
   uint32_t nvars;
@@ -140,13 +140,13 @@ typedef struct arith_vartable_s {
   xrational_t *value;
   int32_t *lower_index;
   int32_t *upper_index;
-  
+
   int_htbl_t htbl;   // for hash consing
 } arith_vartable_t;
 
 
 /*
- * Default and maximal size 
+ * Default and maximal size
  */
 #define DEF_AVARTABLE_SIZE 100
 #define MAX_AVARTABLE_SIZE (UINT32_MAX/sizeof(xrational_t))
@@ -267,7 +267,7 @@ extern thvar_t get_var_for_constant(arith_vartable_t *table, rational_t *q, bool
 
 
 /*
- * Find a variable whose definition is equal to polynomial p 
+ * Find a variable whose definition is equal to polynomial p
  * - if there's no such variable, return null_thvar = -1
  * - p must be normalized and all its variables must exist in table
  * (i.e., p must have its variables sorted and it must be terminated by the end-marker max_idx)
@@ -308,7 +308,7 @@ extern thvar_t get_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, u
  * Find a variable whose definition is equal to the product p
  * - if there's no such variable, return null_thvar = -1
  * - p = array of pairs (variable, exponents)
- * - n = number of pairs in p 
+ * - n = number of pairs in p
  * - p must normalized (cf. power_products.h)
  *
  * IMPORTANT: p must have degree at least 2.
@@ -475,7 +475,7 @@ static inline bool arith_var_at_bound(arith_vartable_t *table, thvar_t x) {
 // check whether x is a fixed variable (both flags are set)
 static inline bool arith_var_is_fixed(arith_vartable_t *table, thvar_t x) {
   assert(valid_arith_var(table, x));
-  return (table->tag[x] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) == 
+  return (table->tag[x] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) ==
     (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK);
 }
 

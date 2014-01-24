@@ -8,9 +8,9 @@
  *   expressions
  * - we keep track of a parenthesized expression as a sequence of tokens
  * - a token represents either an atomic token such as '+' 'x' '1/30'
- *   or the beginning or closing of a parenthesized sequence of tokens 
+ *   or the beginning or closing of a parenthesized sequence of tokens
  * - a sequence '( * 2 y z ) is represented by a seqeuence of n tokens:
- *     tk[i]   --> 'open' with val := i+5 
+ *     tk[i]   --> 'open' with val := i+5
  *     tk[i+1] --> '*'
  *     tk[i+2] --> '2'
  *     tk[i+3] --> 'y'
@@ -27,7 +27,7 @@
  * - if tk[i] is 'close' then i is not the start of a valid expression
  * - otherwise, tk[i] is an atomic expression
  *
- * The 'close' tokens are somewhat redundant but keeping them 
+ * The 'close' tokens are somewhat redundant but keeping them
  * explicitly simplifies pretty printing.
  */
 
@@ -44,7 +44,7 @@
  * - for atomic tokens:
  *   key and val can be anything as long as key >= 0
  *   ptr is either NULL or a pointer to a character string.
- * - for open tokens: 
+ * - for open tokens:
  *   key = ETK_OPEN (-1)
  *   val is the index of the matching close token
  *   ptr is NULL
@@ -54,7 +54,7 @@
  *   ptr is NULL
  *
  * During construction of a sequence, the val field of open
- * tokens is used to keep track of all 'open' tokens not 
+ * tokens is used to keep track of all 'open' tokens not
  * yet closed.
  */
 typedef struct etoken_s {
@@ -72,7 +72,7 @@ enum {
  * To store copies of strings, we use a list of memory
  * blocks. Each block is a char array + a pointer to the
  * previous block. All blocks have the same default size.
- * If a string larger than this default is required, we 
+ * If a string larger than this default is required, we
  * store it in its own block.
  *
  * We force data to align on a multiple of 8 (for 32bit
@@ -81,7 +81,7 @@ enum {
 typedef struct cblock_s cblock_t;
 
 struct cblock_s {
-  union { 
+  union {
     cblock_t *pre;
     char padding[8];
   } h;
@@ -98,11 +98,11 @@ struct cblock_s {
  * - size = size of this array
  * - top = index of the first free element in tk
  *   so all tokens are stored in tk[0 ... top-1]
- * - last_open = index of the rightmost open-scope token 
+ * - last_open = index of the rightmost open-scope token
  *   (or -1 if there's no open scope)
  * - mem = list of cblocks for copying strings
  *   mem = pointer to the last block
- * - free = free space in the last block 
+ * - free = free space in the last block
  *
  * When a token sequence is being built, we keep track of all open
  * tokens that have no matching close token (i.e. open scopes) by
@@ -188,7 +188,7 @@ static inline bool good_token(etk_queue_t *queue, int32_t i) {
 
 /*
  * Get token structure for i:
- * - warning: use with care. This pointer can become invalid if 
+ * - warning: use with care. This pointer can become invalid if
  *   more tokens are added.
  */
 static inline etoken_t *get_etoken(etk_queue_t *queue, int32_t i) {
@@ -247,14 +247,14 @@ static inline bool etk_scope_is_close(etk_queue_t *queue, int32_t i) {
  * - i must either be an atomic token or the opening
  *   token for a closed scope.
  */
-extern bool start_token(etk_queue_t *queue, int32_t i);  
+extern bool start_token(etk_queue_t *queue, int32_t i);
 
 
 /*
- * Right sibling of an expression i: 
+ * Right sibling of an expression i:
  * - i must be a start token
  * - if i is atomic, return i+1
- *   if i is an open token, return the index of the 
+ *   if i is an open token, return the index of the
  *   token that follows the matching close token.
  */
 extern int32_t token_sibling(etk_queue_t *queue, int32_t i);

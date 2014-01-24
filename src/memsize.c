@@ -4,7 +4,7 @@
  * Three implementations:
  * - on Mac OS X: use mach kernel API
  * - on solaris: read /proc/<pid>/psinfo
- * - on other systems: try to get it by 
+ * - on other systems: try to get it by
  *   reading /proc/<pid>/statm
  * - on mingw: nothing implemented. Return 0.0
  */
@@ -54,7 +54,7 @@ double mem_size(void) {
     }
 
     // regions with mode == SM_EMPTY are stack guards or similar regions
-    // the global shared library segment too has share_mode == SM_EMPTY 
+    // the global shared library segment too has share_mode == SM_EMPTY
     if (top_info.share_mode != SM_EMPTY) {
       total_size += size;
     }
@@ -63,7 +63,7 @@ double mem_size(void) {
 
   } while (address != 0);
 
-  
+
 end:
   return (double) total_size;
 }
@@ -134,7 +134,7 @@ static unsigned long get_pages(void) {
   /*
    * In some versions of glibc, fscanf is declared with attribute
    * warn_unused_result. In such cases, we get a compilation warning,
-   * even though the code is safe. I've changed the code a bit to 
+   * even though the code is safe. I've changed the code a bit to
    * avoid this warning.
    */
   pages = 0;
@@ -148,7 +148,7 @@ static unsigned long get_pages(void) {
   return pages;
 }
 
-double mem_size(void) { 
+double mem_size(void) {
   return (double)(getpagesize() * get_pages());
 }
 
@@ -162,7 +162,7 @@ double mem_size(void) {
 /*
  * NOTE: on Free BSD 5.5, I got compilation errors
  * because <sys/user.h> depends on constants defined
- * in <sys/param.h>. That's why I've added 
+ * in <sys/param.h>. That's why I've added
  *   #include <sys/param.h>
  * here.
  */
@@ -193,12 +193,12 @@ double mem_size(void) {
     assert(len == sizeof(kp));
     vsize = kp.ki_size;
   }
-  
+
   return vsize;
 }
 
 
-#else 
+#else
 
 /*
  * MINGW: don't know how to implement anything reasonable

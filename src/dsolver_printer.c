@@ -39,7 +39,7 @@ void dsolver_print_status(FILE *f, dsolver_t *solver) {
  * Hack: this is copied from diophantine_systems.c
  *
  * Search for an element with r_idx == i in the column
- * - return the index k of that element if it's found 
+ * - return the index k of that element if it's found
  * - return -1 otherwise
  */
 static int32_t find_row(dcolumn_t *c, int32_t i) {
@@ -315,7 +315,7 @@ static void dsolver_print_sol_row_core(FILE *f, dsolver_t *solver, int32_t x, in
       fprintf(f, ")");
     }
   }
-  
+
 }
 
 
@@ -346,7 +346,7 @@ void dsolver_print_active_row(FILE *f, dsolver_t *solver) {
 void dsolver_print_row(FILE *f, dsolver_t *solver, int32_t k) {
   assert(0 <= k && k < solver->nrows);
   dsolver_print_row_core(f, solver, k, solver->row[k]);
-  fprintf(f, "\n");  
+  fprintf(f, "\n");
 }
 
 
@@ -453,10 +453,10 @@ void dsolver_print_sol_rows(FILE *f, dsolver_t *solver) {
   for (i=0; i<n; i++) {
     rows2var[i] = -1;
   }
-  
+
   n = solver->nvars;
   x = solver->main_rows;
-  for (i=0; i<n; i++) {    
+  for (i=0; i<n; i++) {
     j = solver->sol_row[i];
     if (j >= x) {
       assert(j < solver->nrows && rows2var[j] < 0);
@@ -526,7 +526,7 @@ void dsolver_print_solved_columns(FILE *f, dsolver_t *solver) {
           dsolver_print_monomial(f, &c->data[k].coeff, c->var, 'i');
         }
       }
-      fprintf(f, "\n");      
+      fprintf(f, "\n");
     }
   }
 }
@@ -592,8 +592,8 @@ static void dsolver_print_matrix_row(FILE *f, row_t *row, int32_t m) {
   char prefix;
 
   n = row->size;
-  if (n == 0) {    
-    fputs("(= 0 0)", f); // empty row (should not happen) 
+  if (n == 0) {
+    fputs("(= 0 0)", f); // empty row (should not happen)
   } else {
 
     if (n == 1) {
@@ -601,7 +601,7 @@ static void dsolver_print_matrix_row(FILE *f, row_t *row, int32_t m) {
     } else {
       fputs("(= (+", f);
     }
-    
+
     for (i=0; i<n; i++) {
       x = row->data[i].c_idx;
       if (x >= 0) {
@@ -612,7 +612,7 @@ static void dsolver_print_matrix_row(FILE *f, row_t *row, int32_t m) {
           prefix = x < m ? 'x' : 'i';
           dsolver_print_monomial(f, &row->data[i].coeff, x, prefix);
         }
-      } 
+      }
     }
 
     if (n == 1) {
@@ -653,7 +653,7 @@ void dsolver_print_tableau(FILE *f, matrix_t *matrix, int32_t param_idx) {
     fputs("]:  ", f);
     dsolver_print_matrix_row(f, matrix->row[i], param_idx);
     fputc('\n', f);
-  }  
+  }
 }
 
 

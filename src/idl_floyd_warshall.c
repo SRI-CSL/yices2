@@ -205,7 +205,7 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
         dst[j] = src[j];
       }
     }
-  }  
+  }
 }
 
 
@@ -447,7 +447,7 @@ static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t
    * collect relevant vertices in vector v:
    * vertex z is relevant if there's a path from y to z and
    *    c + dist(y, z) < dist(x, z)
-   * if z is not relevant then, for any vertex w, the new edge 
+   * if z is not relevant then, for any vertex w, the new edge
    * cannot reduce dist(w, z)
    */
   v = &graph->buffer;
@@ -557,9 +557,9 @@ static void idl_graph_explain_path(idl_graph_t *graph, int32_t x, int32_t y, ive
  * - cell[x, x].id must be zero and cell[x, x].val must be 0
  * For all x != y:
  * - cell[x, y].id must be -1 or between 1 and number of egdes -1
- * - if cell[x, y].id == i and i != 1 then 
+ * - if cell[x, y].id == i and i != 1 then
  *   let u = source of edge i and v = target of edge i
- *   we must have 
+ *   we must have
  *      cell[x, u].id != 1 and cell[x, u].id < i
  *      cell[v, y].id != 1 and cell[v, y].id < i
  *      cell[x, y].dist = cell[x, u].dist + cost of edge i + cell[v, y].dist
@@ -829,7 +829,7 @@ static void restore_idl_atbl(idl_atbl_t *table, uint32_t n) {
       idlatom_remove(table->free_list, i);
     }
   }
-  table->natoms = n;  
+  table->natoms = n;
 }
 
 
@@ -891,7 +891,7 @@ static void extend_idl_astack(idl_astack_t *stack) {
 
 /*
  * Usual encoding: atom id + sign bit are packed into a 32 bit integer index
- * - the sign is 0 for positive, 1 for negative 
+ * - the sign is 0 for positive, 1 for negative
  * - pos_index(i) in the queue means that atom i is true
  * - neg_index(i) in the queue means that atom i is false
  */
@@ -972,7 +972,7 @@ static inline void delete_idl_astack(idl_astack_t *stack) {
  *   level was entered
  * - natoms = number of atoms in the propagation queue when the
  *   decision level was entered.
- * 
+ *
  * The records are stored in stack->data[0 ... top-1] so top should
  * always be equal to decision_level + 1.
  *
@@ -1084,7 +1084,7 @@ static void idl_trail_stack_save(idl_trail_stack_t *stack, uint32_t nv, uint32_t
     if (n == 0) {
       n = DEFAULT_IDL_TRAIL_SIZE;
     } else {
-      n += n>>1; // 50% larger 
+      n += n>>1; // 50% larger
       if (n >= MAX_IDL_TRAIL_SIZE) {
         out_of_memory();
       }
@@ -1191,7 +1191,7 @@ static inline uint32_t hash_idl_atom(int32_t x, int32_t y, int32_t d) {
 typedef struct idlatom_hobj_s {
   int_hobj_t m;     // methods
   idl_atbl_t *atbl; // atom table
-  int32_t source, target, cost; // atom components  
+  int32_t source, target, cost; // atom components
 } idlatom_hobj_t;
 
 
@@ -1204,7 +1204,7 @@ static uint32_t hash_atom(idlatom_hobj_t *p) {
 
 static bool equal_atom(idlatom_hobj_t *p, int32_t id) {
   idl_atom_t *atm;
-  
+
   atm = get_idl_atom(p->atbl, id);
   return atm->source == p->source && atm->target == p->target && atm->cost == p->cost;
 }
@@ -1241,7 +1241,7 @@ static bvar_t bvar_for_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t 
   atm = get_idl_atom(&solver->atoms, id);
   v = atm->boolvar;
   if (v == null_bvar) {
-    v = create_boolean_variable(solver->core);    
+    v = create_boolean_variable(solver->core);
     atm->boolvar = v;
     attach_atom_to_bvar(solver->core, v, index2atom(id));
   }
@@ -1275,7 +1275,7 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   }
 
   // EXPERIMENTAL
-  if (solver->base_level == solver->decision_level && 
+  if (solver->base_level == solver->decision_level &&
       x < solver->graph.matrix.dim && y < solver->graph.matrix.dim) {
     idl_cell_t *cell;
 
@@ -1289,7 +1289,7 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
       printf("] = %"PRId32"\n",  cell->dist);
 #endif
       return true_literal;
-    }    
+    }
     cell = idl_cell(&solver->graph.matrix, y, x);
     if (cell->id >= 0 && cell->dist < -d) {
 #if TRACE
@@ -1329,7 +1329,7 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
  ***************/
 
 /*
- * Assert (x - y <= d) as an axiom: 
+ * Assert (x - y <= d) as an axiom:
  * - attach true_literal to the edge
  */
 void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
@@ -1358,14 +1358,14 @@ void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   }
 
   /*
-   * save limit for add_edge: 
+   * save limit for add_edge:
    * k = top edge id stored in the top record of the undo stack
    * if base level == 0, k = -1, so nothing will be saved
    */
   assert(solver->stack.top == solver->decision_level + 1);
   k = idl_undo_stack_top(&solver->stack)->edge_id;
 
-  // add the edge  
+  // add the edge
   idl_graph_add_edge(&solver->graph, x, y, d, true_literal, k);
 }
 
@@ -1400,7 +1400,7 @@ static bool idl_add_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d, 
     ivector_reset(v);
     idl_graph_explain_path(&solver->graph, y, x, v);
     ivector_push(v, l);
-    /* 
+    /*
      * the conflict is not (v[0] ... v[n-1])
      * we need to convert it to a clause and add the end marker
      */
@@ -1534,7 +1534,7 @@ static void idl_atom_propagation(idl_solver_t *solver) {
   for (i=first_unassigned_atom(tbl); i >= 0; i = next_unassigned_atom(tbl, i)) {
     check_atom_for_propagation(solver, i);
   }
-  
+
   // update prop_ptr to skip all implied atoms in the next
   // call to idl_propagate.
   solver->astack.prop_ptr = solver->astack.top;
@@ -1566,7 +1566,7 @@ void idl_start_search(idl_solver_t *solver) {
 
 /*
  * Start a new decision level:
- * - save the current number of edges and saved cells, 
+ * - save the current number of edges and saved cells,
  *   and the size of the atom queue
  */
 void idl_increase_decision_level(idl_solver_t *solver) {
@@ -1627,7 +1627,7 @@ bool idl_propagate(idl_solver_t *solver) {
   for (i=solver->astack.prop_ptr; i<n; i++) {
     k = a[i];
     atom = get_idl_atom(&solver->atoms, atom_of_index(k));
-    // turn atom or its negation into (x - y <= d) 
+    // turn atom or its negation into (x - y <= d)
     if (is_pos_index(k)) {
       x = atom->source;
       y = atom->target;
@@ -1694,10 +1694,10 @@ void idl_backtrack(idl_solver_t *solver, uint32_t back_level) {
    * stack->data[back_level+1] = undo record created on entry to back_level + 1
    */
   assert(back_level + 1 < solver->stack.top);
-  undo = solver->stack.data + back_level + 1; 
+  undo = solver->stack.data + back_level + 1;
   // remove all edges of level >= back_level + 1
   idl_graph_remove_edges(&solver->graph, undo->edge_id, undo->nsaved);
-  
+
   /*
    * all atoms assigned at levels > back_level must be put back into the free list
    * this must be done in reverse order of atom processing
@@ -1736,7 +1736,7 @@ void idl_backtrack(idl_solver_t *solver, uint32_t back_level) {
 
 
 /*
- * Push: 
+ * Push:
  * - store current number of vertices and atoms on the trail_stack
  * - increment both decision level and base level
  */
@@ -1893,7 +1893,7 @@ static __attribute__ ((noreturn)) void idl_exception(idl_solver_t *solver, int c
 /*
  * Store a triple (x, y, c) into the internal triple
  * create/get the corresponding variable from vtbl.
- * - x = target vertex 
+ * - x = target vertex
  * - y = source vertex
  * - c = constant
  * This returns a variable id whose descriptor is (x - y + c).
@@ -1943,7 +1943,7 @@ static void idl_rename_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map)
     addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
   }
 
-  normalize_poly_buffer(b);  
+  normalize_poly_buffer(b);
 }
 
 
@@ -1984,7 +1984,7 @@ static literal_t idl_eq_from_triple(idl_solver_t *solver, dl_triple_t *d) {
     } else {
       return false_literal;
     }
-  } 
+  }
 
   // a nil_vertex in triples denote 'zero'
   if (x < 0) {
@@ -2085,7 +2085,7 @@ static void idl_assert_triple_eq(idl_solver_t *solver, dl_triple_t *d, bool tt) 
 /*
  * Assert (x - y + c) >= 0 or (x - y + c) < 0, given a triple d = x - y + c
  * - tt true: assert  (x - y + c) >= 0
- * - tt false: assert (x - y + c) < 0 
+ * - tt false: assert (x - y + c) < 0
  */
 static void idl_assert_triple_ge(idl_solver_t *solver, dl_triple_t *d, bool tt) {
   int32_t x, y, c;
@@ -2174,11 +2174,11 @@ thvar_t idl_create_const(idl_solver_t *solver, rational_t *q) {
  * Create a variable for a polynomial p, with variables defined by map:
  * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
  *   are arithmetic terms.
- * - map[i] is the theory variable x_i for t_i 
+ * - map[i] is the theory variable x_i for t_i
  *   (with map[0] = null_thvar if t_0 is const_idx)
  * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
  *
- * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial 
+ * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial
  *   (i.e., not of the form x - y + c)
  */
 thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
@@ -2191,7 +2191,7 @@ thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
 
   // b contains a_0 x_0 + ... + a_n x_n
   triple = &solver->triple;
-  if (! convert_poly_buffer_to_dl_triple(b, triple) || 
+  if (! convert_poly_buffer_to_dl_triple(b, triple) ||
       ! q_is_int32(&triple->constant)) {
     /*
      * Exception here: either b is not of the right form
@@ -2201,7 +2201,7 @@ thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
-  return get_dl_var(&solver->vtbl, triple);    
+  return get_dl_var(&solver->vtbl, triple);
 }
 
 
@@ -2237,12 +2237,12 @@ literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t v) {
 /*
  * Create the atom (v = w)
  */
-literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t v, thvar_t w) {  
+literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t v, thvar_t w) {
   dl_triple_t *triple;
 
   triple = &solver->triple;
   if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
-    // v - w is not expressible as (target - source + c) 
+    // v - w is not expressible as (target - source + c)
     idl_exception(solver, FORMULA_NOT_IDL);
   }
 
@@ -2419,7 +2419,7 @@ void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, thvar_t v, t
     return;
   }
 
-  
+
   if (x < 0) {
     x = idl_get_zero_vertex(solver);
   } else if (y < 0) {
@@ -2451,8 +2451,8 @@ void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, thvar_t v, t
  ***********************/
 
 /*
- * Set val[x] to vx then extend the model to predecessors of x that are 
- * not marked: if y is not marked and there's a path from y to x, set 
+ * Set val[x] to vx then extend the model to predecessors of x that are
+ * not marked: if y is not marked and there's a path from y to x, set
  *   val[y] := vx + d[y, x] and mark y.
  */
 static void set_reference_point(idl_solver_t *solver, int32_t x, int32_t vx, byte_t *mark) {
@@ -2695,7 +2695,7 @@ static arith_interface_t idl_intern = {
  ****************/
 
 /*
- * Initialze solver: 
+ * Initialze solver:
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */

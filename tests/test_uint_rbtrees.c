@@ -27,7 +27,7 @@ static void recur_print_tree(rbtree_t *tree, uint32_t i) {
 }
 
 /*
- * Print content of tree 
+ * Print content of tree
  */
 static void print_tree(rbtree_t *tree) {
   printf("Tree %p\n", tree);
@@ -70,7 +70,7 @@ static void print_all_nodes(rbtree_t *tree) {
 
 static rbtree_t tree;
 static uint32_t data[NDATA];
-  
+
 
 /*
  * Initialize data a with n random values in the interval [0 .. 99]
@@ -82,7 +82,7 @@ static void random_data(uint32_t *a, uint32_t n) {
   for (i=0; i<n; i++) {
     a[i] = ((uint32_t) random()) % d;
   }
-} 
+}
 
 
 /*
@@ -156,7 +156,7 @@ static void test_scan_tree(rbtree_t *tree) {
   for (;;) {
     i = rbtree_find_sup(tree, x);
     if (i == 0) {
-      printf("sup(%"PRIu32"): node %"PRIu32" (no element)\n", x, i);      
+      printf("sup(%"PRIu32"): node %"PRIu32" (no element)\n", x, i);
       break;
     } else {
       y = rbtree_node_value(tree, i);
@@ -204,7 +204,7 @@ static void test_tree_speed_find(rbtree_t *tree, uint32_t *a, uint32_t n) {
       cnt ++;
     }
   }
-  printf("Search test: size = %"PRIu32", found = %"PRIu32"\n", n, cnt);  
+  printf("Search test: size = %"PRIu32", found = %"PRIu32"\n", n, cnt);
 }
 
 /*
@@ -252,7 +252,7 @@ static void repeat_test_speed(rbtree_t *tree) {
  * Test rotations
  */
 extern void test_rotate(rbtree_t *tree, uint32_t p, uint32_t q, uint32_t r);
- 
+
 // random child of node r
 static uint32_t random_child(rbtree_t *tree, uint32_t r) {
   uint32_t k;
@@ -285,15 +285,15 @@ static void test_rotations(rbtree_t *tree) {
 
       if (p != null_rbnode) {
 	test_rotate(tree, p, q, r);
-	
+
 	printf("--- After rotation of %"PRIu32" and %"PRIu32" ---\n", p, q);
 	print_tree(tree);
 	//	print_all_nodes(tree);
-	printf("\n");      
+	printf("\n");
       }
     }
   }
-  
+
 }
 
 #endif

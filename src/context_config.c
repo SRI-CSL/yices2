@@ -267,7 +267,7 @@ void init_config_to_defaults(ctx_config_t *config) {
  * Set a default configuration to support the given logic
  * - return -1 if the logic name is not recognized
  * - return -2 if we don't support the logic yet
- * - return 0 otherwise 
+ * - return 0 otherwise
  *
  * If the function returns 0, the logic field is updated.
  * All other fields are left unchanged.
@@ -291,7 +291,7 @@ int32_t config_set_logic(ctx_config_t *config, const char *logic) {
 
 
 /*
- * Convert value to a solver 
+ * Convert value to a solver
  */
 static int32_t set_solver_code(const char *value, solver_code_t *dest) {
   int32_t v, r;
@@ -306,7 +306,7 @@ static int32_t set_solver_code(const char *value, solver_code_t *dest) {
     *dest = (solver_code_t) v;
     r = 0;
   }
-  
+
   return r;
 }
 
@@ -315,7 +315,7 @@ static int32_t set_solver_code(const char *value, solver_code_t *dest) {
  * Set an individual field in config
  * - key = field name
  * - value = value for that field
- * 
+ *
  * Return code:
  *   -1 if the key is not recognized
  *   -2 if the value is not recognized
@@ -385,11 +385,11 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
 /*
  * Auxiliary functions to build architecture codes incrementally
  * - each function takes an integer a: a is either a valid architecture
- *   code or -1 
+ *   code or -1
  * - then the function adds a new solver component to a: this results
  *   in either a new valid code or -1 if the new component is not compatible with a.
  *
- * Important: we assume that the components are added in the following 
+ * Important: we assume that the components are added in the following
  * order: egraph, array solver, bitvector solver, arithmetic solver
  */
 static inline int32_t arch_add_egraph(int32_t a) {
@@ -432,7 +432,7 @@ static int32_t arch_add_bv(int32_t a) {
   return a;
 }
 
-// add the simplex solver 
+// add the simplex solver
 static int32_t arch_add_simplex(int32_t a) {
   switch (a) {
   case CTX_ARCH_NOSOLVERS:
@@ -450,7 +450,7 @@ static int32_t arch_add_simplex(int32_t a) {
   case CTX_ARCH_EGBV:
     a = CTX_ARCH_EGSPLXBV;
     break;
-    
+
   case CTX_ARCH_EGFUNBV:
     a = CTX_ARCH_EGFUNSPLXBV;
     break;
@@ -553,7 +553,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
 	*arch = CTX_ARCH_AUTO_IDL;
 	*mode = CTX_MODE_ONECHECK;
 	*iflag = false;
-	*qflag = false;	
+	*qflag = false;
 	goto done;
       }
 
@@ -562,11 +562,11 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
 	*arch = CTX_ARCH_AUTO_RDL;
 	*mode = CTX_MODE_ONECHECK;
 	*iflag = false;
-	*qflag = false;	
+	*qflag = false;
 	goto done;
       }
     }
-    
+
     a = logic2arch[logic_code];
     if (a < 0) {
       // not supported
@@ -601,7 +601,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     } else if (arch_supports_mode(a, config->mode)) {
       // good configuration
       *logic = SMT_UNKNOWN;
-      *arch = (context_arch_t) a;      
+      *arch = (context_arch_t) a;
       *iflag = fragment2iflag[config->arith_fragment];
       *qflag = false;
       *mode = config->mode;

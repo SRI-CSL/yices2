@@ -16,8 +16,8 @@
  *
  * We define a variant of assert to fix these warnings without
  * adding ugly #ifndef NDEBUG in many places. To use it,
- * replace the code fragment above by 
- * 
+ * replace the code fragment above by
+ *
  *    assert_true(function(....))
  * or assert_false(function(...))
  */

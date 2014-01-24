@@ -8,7 +8,7 @@
 
 #define TRACE_RESIZE 0
 
-#if TRACE_RESIZE 
+#if TRACE_RESIZE
 // PROVISIONAL
 #include <stdio.h>
 #include <inttypes.h>
@@ -149,7 +149,7 @@ static void stbl_extend(stbl_t *sym_table) {
   old_size = sym_table->size;
   n = old_size << 1;
   if (n == 0 || n >= MAX_STBL_SIZE) {
-    // overflow: cannot expand 
+    // overflow: cannot expand
     return;
   }
 
@@ -179,7 +179,7 @@ static void stbl_extend(stbl_t *sym_table) {
 
 #if TRACE_RESIZE
   printf("resize table %p: cost = %"PRIu32", nelems = %"PRIu32", ndeleted = %"PRIu32
-         ", old size = %"PRIu32", new size = %"PRIu32"\n", 
+         ", old size = %"PRIu32", new size = %"PRIu32"\n",
 	 sym_table, sym_table->cost, sym_table->nelems, sym_table->ndeleted, old_size, n);
   fflush(stdout);
 #endif
@@ -198,7 +198,7 @@ void init_stbl(stbl_t *sym_table, uint32_t n) {
     n = STBL_DEFAULT_SIZE;
   }
 
-  if (n >= MAX_STBL_SIZE) {    
+  if (n >= MAX_STBL_SIZE) {
     out_of_memory(); // abort if too large
   }
 
@@ -251,7 +251,7 @@ void delete_stbl(stbl_t *sym_table) {
       }
     }
     // delete b
-    next = b->next;   
+    next = b->next;
     safe_free(b);
     b = next;
     k = 0;
@@ -358,7 +358,7 @@ void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val) {
 static bool list_has_duplicates(stbl_t *sym_table, uint32_t i, stbl_rec_t *r) {
   stbl_rec_t *p, *l;
   uint32_t h;
-  
+
   assert(i < sym_table->size);
   l = sym_table->data[i];
   h = l->hash;
@@ -462,7 +462,7 @@ void stbl_add(stbl_t *sym_table, char *symbol, int32_t value) {
 /*
  * Iterator: call f(aux, r) for every live record r in the table
  * - aux is an arbitrary pointer, provided by the caller
- * - f must not have side effects (it must not add or remove anything 
+ * - f must not have side effects (it must not add or remove anything
  *   from the symbol table, or modify the record r).
  */
 void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f) {
@@ -486,14 +486,14 @@ void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f) {
 /*
  * Remove records using a filter
  * - calls f(aux, r) on every record r present in the table
- * - if f(aux, r) returns true, then the finalizer is called 
+ * - if f(aux, r) returns true, then the finalizer is called
  *   then r is removed from the table.
  * - f must not have side effects
  */
 void stbl_remove_records(stbl_t *sym_table, void *aux, stbl_filter_t f) {
   uint32_t i, n;
   stbl_rec_t *r, *p, **q;
-  
+
   n = sym_table->size;
   for (i=0; i<n; i++) {
     q = sym_table->data + i;

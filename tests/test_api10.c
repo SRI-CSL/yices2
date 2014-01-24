@@ -110,7 +110,7 @@ static void init_domain(void) {
   new_unint(&unint[6], t_bv, "U0");
   new_unint(&unint[7], t_bv, "U1");
   new_unint(&unint[8], t_u, "V0");
-  new_unint(&unint[9], t_u, "V1");  
+  new_unint(&unint[9], t_u, "V1");
 }
 
 
@@ -162,7 +162,7 @@ static void init_range(void) {
   new_unint(&range[32], yices_int_type(), "X");
   new_unint(&range[33], yices_int_type(), "Y");
   new_unint(&range[34], yices_int_type(), "Z");
-  
+
   t = yices_parse_term("(+ x0 x1 i0 i1)");
   tau = yices_type_of_term(t);
   range[35].term = t;
@@ -267,8 +267,8 @@ static void init_test(void) {
   test[61] = yices_parse_term("(distinct x0 x1 i0 i1)");
   test[62] = yices_parse_term("(distinct x0 x1 i0 i1 I0)");
   test[63] = yices_parse_term("(distinct x0 x1 1 2 I0 I1)");
-  
-  
+
+
 }
 
 
@@ -332,7 +332,7 @@ static void test_substitution(uint32_t n, term_t *v, term_t *s, term_t t) {
   u = yices_subst_term(n, v, s, t);
   if (u < 0) {
     printf("Error: ");
-    yices_print_error(stdout);    
+    yices_print_error(stdout);
   } else {
     printf("Result: ");
     yices_pp_term(stdout, u, 100, 20, 8);

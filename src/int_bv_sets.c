@@ -52,7 +52,7 @@ static void resize_int_bvset(int_bvset_t *set, uint32_t x) {
   n = set->size;
   if (x > n) {
     // new size = max(2*n, x)
-    n += n;    
+    n += n;
     if (x > n) n = x;
     set->size = n;
     //    set->data = extend_bitvector(set->data, n);

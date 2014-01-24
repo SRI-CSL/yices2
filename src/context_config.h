@@ -56,7 +56,7 @@ typedef enum arith_fragment {
 
 #define NUM_ARITH_FRAGMENTS (CTX_CONFIG_ARITH_NIRA+1)
 
- 
+
 /*
  * Codes for each solver
  */
@@ -128,7 +128,7 @@ extern int32_t config_set_logic(ctx_config_t *config, const char *logic);
  * This can't be used to set config->logic: key must be one of "mode",
  * "arith-fragment", "uf-solver", "array-solver", "bv-solver",
  * "arith-solver".
- * 
+ *
  * Return code:
  *   -1 if the key is not recognized
  *   -2 if the value is not recognized
@@ -152,12 +152,12 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *    one of the supported architectures (cf. context.h) and if
  *    the solvers all support the requested mode.
  *
- * 2) if config->logic is QF_IDL or QF_RDL and mode=ONESHOT 
+ * 2) if config->logic is QF_IDL or QF_RDL and mode=ONESHOT
  *     and arith solver core is AUTO then we build a context
  *     with architecture CTX_ARCH_AUTO_IDL or CTX_ARCH_AUTO_RDL.
  *     The actual solver to chosen on the first call to assert_formulas.
  *
- * 3) otherwise, if config->logic is specified, then solver codes and 
+ * 3) otherwise, if config->logic is specified, then solver codes and
  *    arithmetic fragments are ignored.
  *
  * Return code:
@@ -165,7 +165,7 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *  -2 if the config is valid but not currently supported
  *   0 if the config is valid and supported
  */
-extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, 
+extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch,
                              context_mode_t *mode, bool *iflag, bool *qflag);
 
 

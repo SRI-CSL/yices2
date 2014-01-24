@@ -33,7 +33,7 @@
  * Structure:
  * - mngr = relevant term manager
  * - terms = relevant term table (must be mngr->terms)
- * - map = base substitution: variable --> term 
+ * - map = base substitution: variable --> term
  * - cache
  * - stack = array stack
  * - rctx: renaming context, allocated lazily
@@ -53,7 +53,7 @@ typedef struct term_subst_s {
 
 /*
  * Check whether arrays v and t define a valid substitution:
- * - v and t must be arrays of n terms 
+ * - v and t must be arrays of n terms
  * - this returns true if forall i, v[i] is a variable or uninterpreted term,
  *   and the type of t[i] is a subtype of v[i]'s type.
  */
@@ -135,18 +135,18 @@ extern void term_subst_domain(term_subst_t *subt, ivector_t *d);
 
 
 /*
- * Apply the substitution to term t 
+ * Apply the substitution to term t
  * - t must be a valid term in the subst's term manager
  * - return the resulting term
- * - return -1 (NULL_TERM) if the result can't be constructed 
+ * - return -1 (NULL_TERM) if the result can't be constructed
  *   (because of a degree overflow).
  * - return -2 if something else goes wrong (symptom of a bug somewhere)
  *
- * IMPORTANT: 
+ * IMPORTANT:
  * ---------
  * It's possible to call apply_term_subst on several terms
  *  t_1 .... t_n provided none of these terms contain any fresh
- * variables introduced by the substitution. 
+ * variables introduced by the substitution.
  *
  * For example: this sequence is not recommended
  *   t1 = apply_term_subst(subst, t0);
@@ -164,7 +164,7 @@ extern void delete_term_subst(term_subst_t *subst);
 
 /*
  * Apply beta-reduction to t (only at the top-level).
- * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then 
+ * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then
  *   it's returned unchanged
  * - otherwise, apply the substitution [x_1 := t_1, ... x_n := t_n] to u and return
  *   the result

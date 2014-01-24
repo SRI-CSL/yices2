@@ -19,7 +19,7 @@
  */
 typedef struct {
   rational_t main;   // stores c
-  rational_t delta;  // stores d  
+  rational_t delta;  // stores d
 } xrational_t;
 
 
@@ -225,7 +225,7 @@ static inline void xq_set_q_plus_delta(xrational_t *r, rational_t *a) {
 }
 
 /*
- * Assign a - delta to r 
+ * Assign a - delta to r
  */
 static inline void xq_set_q_minus_delta(xrational_t *r, rational_t *a) {
   q_set(&r->main, a);

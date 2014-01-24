@@ -1,5 +1,5 @@
 /*
- * INTERVALS OF BIT-VECTOR VALUES 
+ * INTERVALS OF BIT-VECTOR VALUES
  */
 
 /*
@@ -8,7 +8,7 @@
  */
 
 #ifndef __BV_INTERVALS_H
-#define __BV_INTERVALS_H 
+#define __BV_INTERVALS_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -119,14 +119,14 @@ extern void bv_point_interval(bv_interval_t *intv, uint32_t *x, uint32_t n);
  * Initialize to the interval [0, 0]
  * - n must be positive
  * - resize the arrays if necessary
- */ 
+ */
 extern void bv_zero_interval(bv_interval_t *intv, uint32_t n);
 
 
 /*
  * Initialize to the interval [x, y] (unsigned)
  * - n must be positive
- * - x and y must be normalized modulo 2^n  
+ * - x and y must be normalized modulo 2^n
  * - x <= y must hold
  * - the arrays are resized if necessary
  */
@@ -136,7 +136,7 @@ extern void bv_interval_set_u(bv_interval_t *intv, uint32_t *x, uint32_t *y, uin
 /*
  * Initialize to the interval [x, y] (signed)
  * - n must be positive
- * - x and y must be normalized modulo 2^n  
+ * - x and y must be normalized modulo 2^n
  * - x <= y must hold (2s'complement comparison)
  * - the arrays are resized if necessary
  */
@@ -167,17 +167,17 @@ extern void bv_triv_interval_s(bv_interval_t *intv, uint32_t n);
  */
 static inline bool bv_interval_is_normalized(bv_interval_t *intv) {
   assert(intv->nbits > 0);
-  return bvconst_is_normalized(intv->low, intv->nbits) && 
+  return bvconst_is_normalized(intv->low, intv->nbits) &&
     bvconst_is_normalized(intv->high, intv->nbits);
 }
- 
+
 
 /*
  * Check whether the interval is trivial (contains all possible n-bit vectors)
  */
 static inline bool bv_interval_is_triv_u(bv_interval_t *intv) {
   assert(bv_interval_is_normalized(intv));
-  return bvconst_is_zero(intv->low, intv->width) && 
+  return bvconst_is_zero(intv->low, intv->width) &&
     bvconst_is_minus_one(intv->high, intv->nbits);
 }
 

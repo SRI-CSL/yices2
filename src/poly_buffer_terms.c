@@ -9,7 +9,7 @@ void poly_buffer_addmul_term(term_table_t *terms, poly_buffer_t *aux, term_t t, 
   } else {
     poly_buffer_add_monomial(aux, t, a);
   }
-}                                                                                                    
+}
 
 void poly_buffer_submul_term(term_table_t *terms, poly_buffer_t *aux, term_t t, rational_t *a) {
   assert(is_arithmetic_term(terms, t) && is_pos_term(t));
@@ -19,7 +19,7 @@ void poly_buffer_submul_term(term_table_t *terms, poly_buffer_t *aux, term_t t, 
   } else {
     poly_buffer_sub_monomial(aux, t, a);
   }
-}                                                                                                    
+}
 
 void poly_buffer_add_term(term_table_t *terms, poly_buffer_t *aux, term_t t) {
   assert(is_arithmetic_term(terms, t) && is_pos_term(t));

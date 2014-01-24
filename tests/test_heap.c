@@ -29,7 +29,7 @@ static uint32_t nvars;
 /*
  * Initialize heap for n variables
  * - heap is initially empty: heap_last = 0
- * - heap[0] = -1 is a marker, with activity[-1] higher 
+ * - heap[0] = -1 is a marker, with activity[-1] higher
  *   than any variable activity.
  * - activity increment and threshold are set to their
  *   default initial value.
@@ -100,7 +100,7 @@ static void reset_heap(var_heap_t *heap) {
     heap->heap_index[i] = -1;
     heap->activity[i] = 0.0;
   }
-  heap->heap_last = 0; 
+  heap->heap_last = 0;
 }
 
 /*
@@ -122,7 +122,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   j = i >> 1;    // parent of i
   y = h[j];      // variable at position j in the heap
 
-  // The loop terminates since act[h[0]] = DBL_MAX 
+  // The loop terminates since act[h[0]] = DBL_MAX
   while (act[y] < ax) {
     // move y down, into position i
     h[i] = y;
@@ -136,7 +136,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
 
   // i is the new position for variable x
   h[i] = x;
-  index[x] = i;  
+  index[x] = i;
 }
 
 
@@ -146,7 +146,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  */
 static void update_down(var_heap_t *heap, uint32_t i) {
   double ax, *act;
-  int32_t* index; 
+  int32_t* index;
   bvar_t *h, x, y;
   uint32_t j, last;
 
@@ -163,13 +163,13 @@ static void update_down(var_heap_t *heap, uint32_t i) {
   ax = act[h[last]]; // activity of last heap element.
 
   j = 2 * i;      // left child of i
-  
+
   while (j + 1 < last) {
     // find child of i with highest activity.
     x = h[j];
     y = h[j+1];
     if (act[y] > act[x]) {
-      j++; 
+      j++;
       x = y;
     }
 
@@ -199,7 +199,7 @@ static void update_down(var_heap_t *heap, uint32_t i) {
     x = h[j];
     if (ax >= act[x]) {
       h[i] = y;
-      index[y] = i;      
+      index[y] = i;
     } else {
       h[i] = x;
       index[x] = i;
@@ -210,14 +210,14 @@ static void update_down(var_heap_t *heap, uint32_t i) {
     h[i] = y;
     index[y] = i;
   }
-  
+
 }
 
 
 /*
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
- * - x must be between 0 and nvars - 1 
+ * - x must be between 0 and nvars - 1
  */
 static inline void heap_insert(var_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
@@ -240,7 +240,7 @@ static void heap_remove(var_heap_t *heap, bvar_t x) {
   heap->heap_index[x] = -1;
 
   j = heap->heap_last;
-  y = heap->heap[j]; // last variable  
+  y = heap->heap[j]; // last variable
 
   if (heap->activity[x] >= heap->activity[y]) {
     update_down(heap, i);
@@ -257,7 +257,7 @@ static void heap_remove(var_heap_t *heap, bvar_t x) {
  * Get and remove top element
  * - returns null_var (i.e., -1) if the heap is empty.
  */
-static inline bvar_t heap_get_top(var_heap_t *heap) {  
+static inline bvar_t heap_get_top(var_heap_t *heap) {
   bvar_t top;
 
   if (heap->heap_last == 0) {

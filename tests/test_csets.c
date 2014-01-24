@@ -44,7 +44,7 @@ static void init_bset(bset_t *s, uint32_t n) {
 
   // empty set
   for (i=0; i<n; i++) {
-    s->tag[i] = 0; 
+    s->tag[i] = 0;
   }
 }
 
@@ -75,7 +75,7 @@ static void bset_remove_elem(bset_t *s, uint32_t i) {
     s->tag[i] = 0;
 
     n = s->card;
-    assert(n > 0);    
+    assert(n > 0);
 
     j = 0;
     while (s->data[j] != i) j ++;
@@ -315,7 +315,7 @@ static void test_add_set(cset_t *c1, cset_t *c2, bset_t *s1, bset_t *s2) {
   copy_bset(c2, s2);
   cset_add_set(c1, c2);
   bset_add_set(s1, s2);
-  check_equal_sets(s1, c1);  
+  check_equal_sets(s1, c1);
   printf("OK\n");
   printf("   result: ");
   show_cset(c1);
@@ -441,7 +441,7 @@ static void run_tests(cset_t *c1, cset_t *c2, bset_t *s1, bset_t *s2, bset_t *s)
 
   test_copy(c1, s1);
   test_copy(c2, s2);
-  
+
   bset_empty(s);
   bset_add_set(s, s1);
   test_add_set(c1, c2, s, s2);
@@ -457,7 +457,7 @@ static void run_tests(cset_t *c1, cset_t *c2, bset_t *s1, bset_t *s2, bset_t *s)
   bset_empty(s);
   bset_add_set(s, s2);
   test_remove_set(c1, c2, s, s1);
-  
+
   test_subset(c1, c2, s1, s2);
   test_disjoint(c1, c2, s1, s2);
 }
@@ -494,9 +494,9 @@ static void random_test(cset_t *c1, cset_t *c2, bset_t *s1, bset_t *s2, bset_t *
 
   random_bset(s1, 12);
   random_bset(s2, 12);
-  run_tests(c1, c2, s1, s2, s);  
+  run_tests(c1, c2, s1, s2, s);
 }
-  
+
 /*
  * Run tests for dsize = n
  */
@@ -522,7 +522,7 @@ static void do_tests(uint32_t n) {
   test_empty(&c1, &b1);
   test_fill(&c1, &b1);
   test_fill(&c1, &b1);
-  
+
   for (i=0; i<20; i++) {
     random_test(&c1, &c2, &b1, &b2, &b);
   }

@@ -14,7 +14,7 @@
  * distinguished root element. All elements other than the root are
  * uninterpreted term indices (i.e., variables).
  *
- * - For a root r we store: 
+ * - For a root r we store:
  *      map[r] = object mapped to the class (or NULL)
  *     type[r] = type of the class
  *     rank[r] = an 8bit value for balancing the union-find structure
@@ -29,7 +29,7 @@
  *   and all elements in the class are uninterpreted. It's possible to
  *   merge the r's class with another class.
  *
- * - a non-root i must be an uninterpreted term index and map[i] is the 
+ * - a non-root i must be an uninterpreted term index and map[i] is the
  *   parent of i in the union-find tree.
  *
  * To distinguish between roots and non-roots, we use the sign bit:
@@ -50,12 +50,12 @@
  * the exact type of frozen classes would require dynamically
  * recomputing the types as classes are merged. For example, given
  * the declarations:
- *   x :: real 
- *   i :: int 
+ *   x :: real
+ *   i :: int
  *   r := 3 x + 1
- * then r has type real. But if we merge x and i (i.e., assert x == i), 
- * then the type of r becomes int.  We don't do this dynamic type computation. 
- * Type[r] is set when r is added to a class, and it remain unchanged, 
+ * then r has type real. But if we merge x and i (i.e., assert x == i),
+ * then the type of r becomes int.  We don't do this dynamic type computation.
+ * Type[r] is set when r is added to a class, and it remain unchanged,
  * independent of substitutions like x == i.
  */
 
@@ -124,7 +124,7 @@ extern void intern_tbl_pop(intern_tbl_t *tbl);
 
 /*
  * Get a bound on the number of terms in tbl:
- * - if n = intern_tbl_num_terms(tbl) then terms of 
+ * - if n = intern_tbl_num_terms(tbl) then terms of
  *   index >= n are roots and not mapped to anything
  */
 static inline uint32_t intern_tbl_num_terms(intern_tbl_t *tbl) {
@@ -146,7 +146,7 @@ static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
 
 
 /*
- * Check whether i is a root: this returns true if i is not 
+ * Check whether i is a root: this returns true if i is not
  * present in the table.
  */
 static inline bool intern_tbl_is_root_idx(intern_tbl_t *tbl, int32_t i) {
@@ -199,7 +199,7 @@ extern term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t);
 static inline bool intern_tbl_root_is_mapped(intern_tbl_t *tbl, term_t r) {
   assert(intern_tbl_is_root(tbl, r));
   return ai32_read(&tbl->map, index_of(r)) != NULL_MAP;
-}                                                                 
+}
 
 /*
  * Type of r's class (return the type of r if r is not in tbl)
@@ -252,7 +252,7 @@ extern void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x);
 /*
  * Check whether r is a free root:
  * - r must be a root (may have negative polarity)
- * - if r is in the table, return true if rank[r] < 255, 
+ * - if r is in the table, return true if rank[r] < 255,
  *   otherwise, return true if r is uninterpreted.
  */
 extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
@@ -263,7 +263,7 @@ extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
  * - both r1 and r2 must be roots and they must have compatible types.
  * - r1 must have positive polarity.
  * - r2 must not be a constant term.
- * - returns true if r1 is a free root, and the substitution does not 
+ * - returns true if r1 is a free root, and the substitution does not
  *   create a cycle.
  *
  * NOTE: if r2 is a constant, the next function should be used instead.
@@ -272,10 +272,10 @@ extern bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 
 /*
- * Check whether the substitution [r1 := r2] is valid. 
+ * Check whether the substitution [r1 := r2] is valid.
  * - r1 must be a root and r2 must be a constant
  * - r1 must have positive polarity
- * - returns true if r1 is a free root and 
+ * - returns true if r1 is a free root and
  *   if r2's type is a subtype of r1's class type.
  *
  * (e.g., x := 1/2 is not a valid substitution if x is an integer variable).
@@ -291,7 +291,7 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 
 /*
- * Merge the classes of r1 and r2 
+ * Merge the classes of r1 and r2
  * - both r1 and r2 must be free roots and have compatible types
  * - if both r1 and r2 are boolean, they may have arbitrary polarity
  * This adds either the substitution [r1 := r2] or [r2 := r1]

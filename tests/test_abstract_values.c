@@ -16,7 +16,7 @@ static pstore_t store;
 /*
  * Print particle x
  */
-static void print_particle(particle_t x) { 
+static void print_particle(particle_t x) {
   particle_tuple_t *tup;
   uint32_t i, n;
 
@@ -59,7 +59,7 @@ static void print_particle_def(particle_t x) {
  */
 static void print_particle_array(particle_t *q, uint32_t n) {
   uint32_t i;
- 
+
   printf("[");
   for (i=0; i<n; i++) {
     if (i > 0) {
@@ -186,7 +186,7 @@ static void test2(void) {
   print_particle_array(q, 0);
   printf("\n");
 
-  // create new objects until that fails 
+  // create new objects until that fails
   for (n = 0; n<40; n++) {
     x = get_distinct_particle(&store, tau, n, q);
     printf("New particle:");
@@ -233,7 +233,7 @@ static void test3(void) {
   print_particle_array(q, 0);
   printf("\n");
 
-  // create new tuples until that fails 
+  // create new tuples until that fails
   for (n = 0; n<40; n++) {
     x = get_distinct_tuple(&store, 3, tau, n, q);
     if (x == null_particle) {
@@ -276,7 +276,7 @@ static void test4(void) {
   print_particle_array(q, 0);
   printf("\n");
 
-  // create new tuples until that fails 
+  // create new tuples until that fails
   for (n = 0; n<40; n++) {
     x = get_distinct_tuple(&store, 2, tau, n, q);
     if (x == null_particle) {
@@ -350,7 +350,7 @@ static void test5(void) {
   print_particle_array(q, 0);
   printf("\n");
 
-  // create new tuples until that fails 
+  // create new tuples until that fails
   for (n = 0; n<40; n++) {
     x = get_distinct_tuple(&store, 2, tau, n, q);
     if (x == null_particle) {
@@ -368,7 +368,7 @@ static void test5(void) {
   print_particle_set(pstore_find_set_for_types(&store, 2, tau));
   printf("\n\n");
 
-  
+
 }
 
 
@@ -423,7 +423,7 @@ static void test6(void) {
   print_particle_array(q, 0);
   printf("\n");
 
-  // create new tuples until that fails 
+  // create new tuples until that fails
   for (n = 0; n<40; n++) {
     x = get_distinct_tuple(&store, 2, tau, n, q);
     if (x == null_particle) {
@@ -441,7 +441,7 @@ static void test6(void) {
   print_particle_set(pstore_find_set_for_types(&store, 2, tau));
   printf("\n\n");
 
-  
+
 }
 
 

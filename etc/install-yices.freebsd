@@ -6,7 +6,7 @@
 # Usage
 # -----
 #     ./install-yices [OPTIONS] <directory>
-# 
+#
 # This script must be called from the toplevel Yices directory.
 #
 # It will install Yices as follows:
@@ -59,7 +59,7 @@ location=
 
 while test -n "$1"; do
   case $1 in
-    -h | --help) 
+    -h | --help)
         echo "$usage"
         exit 0;;
 
@@ -122,7 +122,7 @@ if test -n "$location" ; then
           break;;
 
     *) install_dir="$location"
-       if test "$location" -ef "$local_dir" ; then 
+       if test "$location" -ef "$local_dir" ; then
           local_install="yes"
        fi
        break;;
@@ -135,14 +135,14 @@ fi
 # Check that the tools exist and are executable
 #
 if test "$local_install" = "no" ; then
-  { test  -f "$install" -a -x "$install" ; }  || 
+  { test  -f "$install" -a -x "$install" ; }  ||
   { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
 fi
 
-{ test -f "$link" -a -x "$link" ; } || 
+{ test -f "$link" -a -x "$link" ; } ||
   { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
 
-{ test -f "$ldconfig" -a -x "$ldconfig" ; }  || 
+{ test -f "$ldconfig" -a -x "$ldconfig" ; }  ||
   { echo "$failure" ; echo "Can't find $ldconfig" ; echo "" ; exit 1 ; }
 
 
@@ -164,7 +164,7 @@ if test "$local_install" = "no" ; then
   {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
      && $install -m 0644 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
-     && $install ./lib/*.so.2.* "$libdir" ; } 2> /dev/null || 
+     && $install ./lib/*.so.2.* "$libdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create the directories or copy files."
     echo "Check that you have the right permissions (try sudo)."
@@ -177,8 +177,8 @@ fi
 # Run ldconfig if the install directory is /usr/lib or /usr/local/lib
 #
 case "$libdir" in
-  "/usr/lib" | "/usr/local/lib" ) 
-     "$ldconfig" -m "$libdir" || 
+  "/usr/lib" | "/usr/local/lib" )
+     "$ldconfig" -m "$libdir" ||
        { echo "$failure"; echo "Could not run ldconfig" ; echo "" ; exit 1 ; }
      ;;
 esac

@@ -11,12 +11,12 @@
  * This is enough since we want to search for elements not in the set,
  * so picking from a subdomain of 2^32 values should be plenty.
  *
- * We map the full domain (2^32) to a smaller set S of size 2^k for 
- * a small k (default k = 13) using a hash function. To generate 
+ * We map the full domain (2^32) to a smaller set S of size 2^k for
+ * a small k (default k = 13) using a hash function. To generate
  * fresh values we search for x in [0 ... 2^n-1] such that hash(x)
  * is not in S.
  *
- * WARNING: because of collisions in hash, we can fail to find 
+ * WARNING: because of collisions in hash, we can fail to find
  * such x even if S is not full.
  */
 
@@ -31,11 +31,11 @@
 
 /*
  * Data-structures:
- * - set = bitvector of 2^k bits for some k <= n 
+ * - set = bitvector of 2^k bits for some k <= n
  * - size = 2^k
  * - nelems = number of bits set in set = card of S
  * - max_val = max value in the domain:
- *   if n <= 31 then max_val = 2^n-1, 
+ *   if n <= 31 then max_val = 2^n-1,
  *   if n >= 32, max_val = UINT32_MAX = 2^32-1
  *   valid values are in the interval [0 ... max_val]
  * - fresh_vals = array where store the fresh values

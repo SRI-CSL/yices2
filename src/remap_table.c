@@ -358,7 +358,7 @@ literal_t *remap_table_fresh_array(remap_table_t *table, uint32_t n) {
 
 
 /*
- * Substitution: replace l by its root 
+ * Substitution: replace l by its root
  */
 literal_t remap_table_find_root(remap_table_t *table, literal_t l) {
   assert(0 <= var_of(l) && var_of(l) < table->nvars);
@@ -366,7 +366,7 @@ literal_t remap_table_find_root(remap_table_t *table, literal_t l) {
   while (tst_bit(table->merge_bit, var_of(l))) {
     // if l = pos(v), replace l by map[v]
     // if l = neg(v), replace l by not(map[v])
-    assert(table->map[var_of(l)] != null_literal);    
+    assert(table->map[var_of(l)] != null_literal);
     l = table->map[var_of(l)] ^ sign_of_lit(l);
   }
   return l;
@@ -377,9 +377,9 @@ literal_t remap_table_find_root(remap_table_t *table, literal_t l) {
  * Check whether l1 and l2 can be merged
  */
 bool remap_table_mergeable(remap_table_t *table, literal_t l1, literal_t l2) {
-  assert(0 <= var_of(l1) && var_of(l1) < table->nvars && 
+  assert(0 <= var_of(l1) && var_of(l1) < table->nvars &&
          0 <= var_of(l2) && var_of(l2) < table->nvars);
-  return var_of(l1) != var_of(l2) && 
+  return var_of(l1) != var_of(l2) &&
     (table->map[var_of(l1)] == null_literal || table->map[var_of(l2)] == null_literal);
 }
 
@@ -399,21 +399,21 @@ static inline void remap_table_save(remap_table_t *table, int32_t v) {
 
 
 /*
- * Merge l1 and l2: 
+ * Merge l1 and l2:
  * - both must be root and l1 must be different from l2 and not(l2)
- * - if remap[l1] != null_literal, we use l2 := l1 
+ * - if remap[l1] != null_literal, we use l2 := l1
  * - otherwise, we map l1 to l2
  */
 void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2) {
   literal_t aux;
 
-  assert(remap_table_is_root(table, l1) && remap_table_is_root(table, l2) && 
+  assert(remap_table_is_root(table, l1) && remap_table_is_root(table, l2) &&
          var_of(l1) != var_of(l2));
 
   if (table->map[var_of(l1)] != null_literal) {
     // swap l1 and l2
     aux = l1; l1 = l2; l2 = aux;
-  } 
+  }
 
   /*
    * If l1 is positive: store l2 as map[var_of(l1)]

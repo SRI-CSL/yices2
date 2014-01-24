@@ -224,9 +224,9 @@ extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a,
  * Convert a string of '0' and '1's to a bitvector constant.
  * - n = number of bits, must be positive.
  * - s must be at least n character long
- * 
+ *
  * Reads the n first characters of s. All must be '0' or '1'
- * - the string is assumed in big-endian format: the 
+ * - the string is assumed in big-endian format: the
  *   first character is the high-order bit.
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
@@ -240,10 +240,10 @@ extern int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, const char *s);
  * - n = number of characters, must be positive.
  * - s must be at least n character long
  * - bv must be an array of at least ceil(4*n/32) words
- * 
- * Reads the n first characters of s. 
+ *
+ * Reads the n first characters of s.
  * All must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
- * - the string is assumed in big-endian format: the 
+ * - the string is assumed in big-endian format: the
  *   first character defines the high-order 4 bits.
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
@@ -259,7 +259,7 @@ extern int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, const char
 extern void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n);
 
 
-/*  
+/*
  * Convert bv to an GMP integer.
  * - k = size of bv in words.
  * - as an mpz integer
@@ -271,7 +271,7 @@ extern void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 /*
  * Get the 32 or 64 low-order bits of bv
  * - as a 32bit integer
- * - as a 64bit integer (bv must be more than 32bits). 
+ * - as a 64bit integer (bv must be more than 32bits).
  */
 static inline uint32_t bvconst_get32(uint32_t *bv) {
   return *bv;
@@ -288,7 +288,7 @@ static inline uint64_t bvconst_get64(uint32_t *bv) {
  * - k must be the size of bv in words
  */
 extern uint32_t bvconst_popcount(uint32_t *bv, uint32_t k);
- 
+
 
 
 /*
@@ -302,7 +302,7 @@ extern void bvconst_xor(uint32_t *bv, uint32_t k, uint32_t *a);
 
 
 /*
- * In-place shifts: 
+ * In-place shifts:
  * n = size of bv (number of bits)
  * m = shift amount = integer between 0 and n
  * b = padding bit = either 0 or 1
@@ -312,7 +312,7 @@ extern void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b);
 
 
 /*
- * More shift operations: 
+ * More shift operations:
  * - a is shifted by the amount defined by b
  * - the result is stored in *bv and normalized
  * - n = number of bits in a, b, and bv
@@ -346,10 +346,10 @@ extern void bvconst_concat(uint32_t *bv, uint32_t *a, uint32_t n, uint32_t *b, u
  *  all operations are done modulo 2^(32k).
  *  the result is in bv
  *  a, a1, and a2 must not overlap with bv
- * - negate:  bv := - bv 
+ * - negate:  bv := - bv
  * - add_one: bv := bv + 1
  * - sub_one: bv := bv - 1
- * - add:     bv += a 
+ * - add:     bv += a
  * - sub:     bv -= a
  * - mul:     bv *= a
  * - addmul:  bv += a1 * a2
@@ -397,14 +397,14 @@ extern void bvconst_mulpower(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d);
  * bvconst_udiv2: quotient, a1 and a2 interpreted as unsigned integers
  * bvconst_urem2: remainder, a1 and a2 interpreted as unsigned integers
  *
- * bvconst_sdiv2: quotient, a1 and a2 interpreted as signed integers 
+ * bvconst_sdiv2: quotient, a1 and a2 interpreted as signed integers
  *                (truncated division, rounding toward 0)
  * bvconst_srem2: remainder, a1 and a2 interpreted as signed integers
  *                (remainder of truncated division, rounding toward 0)
  * bvconst_smod2: remainder, a1 and a2 interpreted as signed integers
  *                (remainder of floor division, rounding toward minus infinity)
  *
- * These are all the division and remainder functions defined in 
+ * These are all the division and remainder functions defined in
  * the SMT-LIB notation. (NOTE: the definition of bvsmod in the SMT-LIB
  * website is incorrect).
  *
@@ -427,7 +427,7 @@ extern void bvconst_smod2(uint32_t *bv, uint32_t n, uint32_t *a1, uint32_t *a2);
 /*
  * Same functions except that a zero divider is allowed, using
  * the following rules:
- *  (udiv a 0) = 0b11...1 
+ *  (udiv a 0) = 0b11...1
  *  (urem a 0) = a
  *  (sdiv a 0) = 0b111..1 if a >= 0
  *  (sdiv a 0) = 0b00..01 if a < 0
@@ -462,7 +462,7 @@ extern bool bvconst_is_one(uint32_t *bv, uint32_t k);
 
 
 /*
- * Check whether bv is -1 (i.e., 0b11...1) 
+ * Check whether bv is -1 (i.e., 0b11...1)
  * - n = number of bits in bv
  * - bv must be normalized
  */

@@ -69,7 +69,7 @@ typedef struct {
  * - size = bitsize (must be positive and no more than YICES_MAX_BVSIZE)
  * The coefficients and variables are not initialized,
  * except the end marker.
- */ 
+ */
 extern bvpoly_t *alloc_bvpoly(uint32_t n, uint32_t size);
 
 

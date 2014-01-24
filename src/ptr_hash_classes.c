@@ -21,10 +21,10 @@ static bool is_power_of_two(uint32_t n) {
  * Initialize table
  * - n = initial table size:
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  * - the table is empty, classes is not allocated yet (NULL).
  */
-void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux, pclass_hash_fun_t hash_fn, 
+void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux, pclass_hash_fun_t hash_fn,
                      pclass_match_fun_t match_fn) {
   void **tmp;
   uint32_t i;
@@ -76,7 +76,7 @@ void reset_ptr_hclass(ptr_hclass_t *table) {
   for (i=0; i<n; i++) {
     table->data[i] = NULL;
   }
-  table->nelems = 0;  
+  table->nelems = 0;
 }
 
 

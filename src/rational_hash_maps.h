@@ -61,7 +61,7 @@ typedef struct xq_hmap_s {
 
 /*
  * Initialization
- * - n = initial size 
+ * - n = initial size
  * - n must be 0 or a power of two
  * - if n = 0, then the default size is used.
  */

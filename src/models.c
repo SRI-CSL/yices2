@@ -12,7 +12,7 @@
 
 /*
  * Function to get the name of constant/uninterpreted terms
- * - we check in the term table 
+ * - we check in the term table
  */
 static const char *name_of_const(term_table_t *terms, value_unint_t *d) {
   const char *s;
@@ -130,7 +130,7 @@ void model_map_term(model_t *model, term_t t, value_t v) {
   if (name != NULL) {
     vtbl = &model->vtbl;
     if (object_is_function(vtbl, v) && vtbl_function(vtbl, v)->name == NULL) {
-      vtbl_set_function_name(vtbl, v, name);      
+      vtbl_set_function_name(vtbl, v, name);
     }
   }
 }
@@ -172,7 +172,7 @@ void model_add_substitution(model_t *model, term_t t, term_t u) {
 /*
  * Iteration: call f(aux, t) for every term t stored in the model
  * - this includes every t in model->map (term mapped to a value)
- * - if all is true, then the iterator is appleid to every t in the domain 
+ * - if all is true, then the iterator is appleid to every t in the domain
  *   of model->alias (term mapped to another term)
  * - f must not have side effects on model
  */

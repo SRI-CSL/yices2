@@ -4,7 +4,7 @@
  *
  * This module provides low-level functions for term construction
  * and management of a global term table.
- * 
+ *
  * Changes:
  *
  * Feb. 20, 2007.  Added explicit variables for dealing with
@@ -30,7 +30,7 @@
  * June 12, 2007. Added the bv_apply constructor to support bit-vector operations
  * that are overloaded but that we want to treat as uninterpreted terms (mostly).
  * This is a hack to support the overloaded operators from SMT-LIB 2007 (e.g., bvdiv,
- * bvlshr, etc.) 
+ * bvlshr, etc.)
  *
  * December 11, 2008. Added arith_bineq constructor.
  *
@@ -40,11 +40,11 @@
  * MAJOR REVISION: April 2010
  *
  * 1) Removed the arithmetic and bitvector variables in polynomials
- *    To replace them, we represent power-products directly as 
+ *    To replace them, we represent power-products directly as
  *    terms in the term table.
  *
- * 2) Removed the AIG-style data structures for bitvectors (these 
- *    are replaced by arrays of boolean terms). Added an n-ary 
+ * 2) Removed the AIG-style data structures for bitvectors (these
+ *    are replaced by arrays of boolean terms). Added an n-ary
  *    (xor ...) term constructor to help representing bv-xor.
  *
  * 3) Removed the term constructor 'not' for boolean negation.
@@ -53,7 +53,7 @@
  *    where t- means (not t).
  *
  * 5) Added terms for converting between boolean and bitvector terms:
- *    Given a term u of type (bitvector n) then (bit u i) is 
+ *    Given a term u of type (bitvector n) then (bit u i) is
  *    a boolean term for i=0 to n-1. (bit u 0) is the low-order bit.
  *    Conversely, given n boolean terms b_0 ... b_{n-1}, the term
  *    (bitarray b0 ... b_{n-1}) is the bitvector formed by b0 ... b_{n-1}.
@@ -92,7 +92,7 @@
  *    - xor t1 ... t_n
  *    - bit i u (extract bit i of a bitvector term u)
  * 6) arithmetic terms and atoms
- *    - terms are either rational constants, power products, or 
+ *    - terms are either rational constants, power products, or
  *      polynomials with rational coefficients
  *    - atoms are either of the form (t == 0) or (t >= 0)
  *      where p is a term.
@@ -117,15 +117,15 @@
  * - bit[0] = polarity bit: 0 for t+, 1 for t-
  *
  * For a boolean term t, the occurrence t+ means p
- * and t- means (not p). All occurrences of a 
+ * and t- means (not p). All occurrences of a
  * non-boolean term t are positive.
- * 
+ *
  * For every term, we keep:
  * - type[t] (index in the type table)
  * - kind[t] (what kind of term it is)
  * - desc[t] = descriptor that depends on the kind
  *
- * It is possible to attach names to term occurrences (but not directly 
+ * It is possible to attach names to term occurrences (but not directly
  * to terms). This is required to deal properly with booleans. For example,
  * we want to allow the user to give different names to t and (not t).
  */
@@ -162,7 +162,7 @@
  * We use the type term_t to denote term occurrences (i.e., a pair
  * term index + polarity bit packed into a signed 32bit integer as
  * defined in term_occurrences.h).
- * 
+ *
  * NULL_TERM and NULL_TYPE are also defined in yices_types.h (used to
  * report errors).
  *
@@ -260,7 +260,7 @@ typedef enum {
 
 /*
  * Term index 0 is reserved to make sure there's no possibility
- * that a real term has index equal to const_idx (= 0) used in 
+ * that a real term has index equal to const_idx (= 0) used in
  * polynomials.
  *
  * The boolean constant true is built-in and always has index 1.
@@ -333,7 +333,7 @@ typedef struct bvconst64_term_s {
  *   that contain deeply nested if-then-else terms, where
  *   all the leaves are constant terms.
  * - in such a case, we attach the set of leaves (i.e., the
- *   possible values for that term) to the special term 
+ *   possible values for that term) to the special term
  *   descriptor.
  */
 typedef struct special_term_s {
@@ -347,7 +347,7 @@ typedef struct special_term_s {
  * - integer index for constant terms and variables
  * - rational constant
  * - pair  (idx, arg) for select term
- * - ptr to a composite, polynomial, power-product, or bvconst 
+ * - ptr to a composite, polynomial, power-product, or bvconst
  */
 typedef union {
   int32_t integer;
@@ -377,7 +377,7 @@ typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
  *
  * After deletion, term indices are recycled into a free list.
  * - free_idx = start of the free list (-1 if the list is empty)
- * - if i is in the free list then kind[i] is UNUSED and 
+ * - if i is in the free list then kind[i] is UNUSED and
  *   desc[i].integer is the index of the next term in the free list
  *   (or -1 if i is the last element in the free list).
  *
@@ -387,7 +387,7 @@ typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
  * - stbl is a symbol table that maps names (strings) to term occurrences.
  * - the name table is the reverse. If maps term occurrence to a name.
  * The base name of a term occurrence t, is what's mapped to t in ntbl.
- * It's used to display t in pretty printing. The symbol table is 
+ * It's used to display t in pretty printing. The symbol table is
  * more important.
  *
  * Other components:
@@ -415,14 +415,14 @@ typedef struct term_table_s {
   type_table_t *types;
   pprod_table_t *pprods;
   special_finalizer_t finalize;
-  
+
   int_htbl_t htbl;
   stbl_t stbl;
   ptr_hmap_t ntbl;
   int_hmap_t utbl;
 
   ivector_t ibuffer;
-  pvector_t pbuffer;  
+  pvector_t pbuffer;
 } term_table_t;
 
 
@@ -434,7 +434,7 @@ typedef struct term_table_s {
 
 /*
  * Initialize table:
- * - n = initial size 
+ * - n = initial size
  * - ttbl = attached type table
  * - ptbl = attached power-product table
  */
@@ -443,7 +443,7 @@ extern void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
 /*
  * Delete all terms and descriptors, symbol table, hash table, etc.
- */ 
+ */
 extern void delete_term_table(term_table_t *table);
 
 
@@ -465,7 +465,7 @@ extern void reset_term_table(term_table_t *table);
  * TERM CONSTRUCTORS
  */
 
-/* 
+/*
  * All term constructors return a term occurrence and all the arguments
  * the constructors must be term occurrences (term index + polarity
  * bit). The constructors do not check type correctness or attempt any
@@ -510,7 +510,7 @@ extern term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left
 
 /*
  * Other constructors compute the result type
- * - for variable-arity constructor: 
+ * - for variable-arity constructor:
  *   arg must be an array of n term occurrences
  *   and n must be no more than YICES_MAX_ARITY.
  */
@@ -533,14 +533,14 @@ extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
  */
 
 /*
- * Power product: r must be valid in table->ptbl, and must not be a tagged 
+ * Power product: r must be valid in table->ptbl, and must not be a tagged
  * variable or empty_pp.
  * - each variable index x_i in r must be a term defined in table
  * - the x_i's must have compatible types: either they are all arithmetic
- *   terms (type int or real) or they are all bit-vector terms of the 
+ *   terms (type int or real) or they are all bit-vector terms of the
  *   same type.
  * The type of the result is determined from the x_i's type:
- * - if all x_i's are int, the result is int 
+ * - if all x_i's are int, the result is int
  * - if some x_i's are int, some are real, the result is real
  * - if all x_i's have type (bitvector k), the result has type (bitvector k)
  */
@@ -613,7 +613,7 @@ extern bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b);
 extern term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv);
 
 /*
- * Bitvector constant: 
+ * Bitvector constant:
  * - n = bitsize
  * - bv = array of k words (where k = ceil(n/32))
  * The constant must be normalized (modulo 2^n)
@@ -627,7 +627,7 @@ extern term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv);
  * - all variables of b must be bitvector terms defined in table
  * - b must be normalized and b->ptbl must be the same as table->ptbl
  * - if b contains non-linear terms, then the power products that
- *   occur in b are converted to terms (using pprod_term) then 
+ *   occur in b are converted to terms (using pprod_term) then
  *   a polynomial object is created.
  *
  * SIDE EFFECT: b is reset to zero.
@@ -648,7 +648,7 @@ extern term_t bvarray_term(term_table_t *table, uint32_t n, term_t arg[]);
  * Division and shift operators
  * - the two arguments must be bitvector terms of the same type
  * - in the division/remainder operators, b is the divisor
- * - in the shift operator: a is the bitvector to be shifted 
+ * - in the shift operator: a is the bitvector to be shifted
  *   and b is the shift amount
  */
 extern term_t bvdiv_term(term_table_t *table, term_t a, term_t b);
@@ -722,10 +722,10 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  * IMPORTANT: we use reference counting on character strings as
  * implemented in refcount_strings.h.
  *
- * Parameter "name" in set_term_name and set_term_basename 
- * must be constructed via the clone_string function.  
- * That's not necessary for get_term_by_name or remove_term_name.  
- * When name is added to the term table, its reference counter 
+ * Parameter "name" in set_term_name and set_term_basename
+ * must be constructed via the clone_string function.
+ * That's not necessary for get_term_by_name or remove_term_name.
+ * When name is added to the term table, its reference counter
  * is increased by 1 or 2.  When remove_term_name is
  * called for an existing symbol, the symbol's reference counter is
  * decremented.  When the table is deleted (via delete_term_table),
@@ -737,14 +737,14 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  * Assign name to term occurrence t.
  *
  * If name is already mapped to another term t' then the previous mapping
- * is hidden. The next calls to get_term_by_name will return t. After a 
- * call to remove_term_name, the mapping [name --> t] is removed and 
+ * is hidden. The next calls to get_term_by_name will return t. After a
+ * call to remove_term_name, the mapping [name --> t] is removed and
  * the previous mapping [name --> t'] is revealed.
  *
- * If t does not have a base name already, then 'name' is stored as the 
+ * If t does not have a base name already, then 'name' is stored as the
  * base name for t. That's what's printed for t by the pretty printer.
  *
- * Warning: name is stored as a pointer, no copy is made; name must be 
+ * Warning: name is stored as a pointer, no copy is made; name must be
  * created via the clone_string function.
  */
 extern void set_term_name(term_table_t *table, term_t t, char *name);
@@ -834,7 +834,7 @@ static inline int32_t index_of(term_t x) {
 
 static inline uint32_t polarity_of(term_t x) {
   return ((uint32_t) x) & 1;
-} 
+}
 
 
 /*
@@ -902,12 +902,12 @@ static inline term_t bool2term(bool tt) {
 
 /*
  * The term table store polynomials in the form
- *      a_0 t_0 + ... + a_n t_n 
+ *      a_0 t_0 + ... + a_n t_n
  * where a_i is a coefficient and t_i is a term.
  *
  * For arithmetic and bit-vector operations that involve buffers and
  * terms, we must convert the integer indices t_0 ... t_n to the
- * power products r_0 ... r_n that buffers require. 
+ * power products r_0 ... r_n that buffers require.
  *
  * The translation is defined by:
  * 1) if t_i is const_idx --> r_i is empty_pp
@@ -937,7 +937,7 @@ extern uint32_t term_degree(term_table_t *table, term_t t);
 
 /*
  * Convert all indices in polynomial p to power products
- * - all variable indices of p must be either const_idx or 
+ * - all variable indices of p must be either const_idx or
  *   arithmetic terms present in table.
  * - the result is stored in table's internal pbuffer.
  * - the function returns pbuffer->data
@@ -951,7 +951,7 @@ extern pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p);
 
 /*
  * Convert all indices in bitvector polynomial p to power products
- * - all variable indices of p must be either const_idx or 
+ * - all variable indices of p must be either const_idx or
  *   bitvector terms of bitsize <= 64 present in table.
  * - the result is stored in table's internal pbuffer.
  * - the function returns pbuffer->data.
@@ -961,7 +961,7 @@ extern pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p);
 
 /*
  * Convert all indices in bitvector polynomial p to power products
- * - all variable indices of p must be either const_idx or 
+ * - all variable indices of p must be either const_idx or
  *   arithmetic terms present in table.
  * - the result is stored in table's internal pbuffer.
  * - the function returns pbuffer->data.
@@ -1077,7 +1077,7 @@ static inline bool live_term(term_table_t *table, term_t t) {
 }
 
 static inline bool good_term(term_table_t *table, term_t t) {
-  return good_term_idx(table, index_of(t)) && 
+  return good_term_idx(table, index_of(t)) &&
     (is_pos_term(t) || type_for_idx(table, index_of(t)) == bool_id);
 }
 
@@ -1292,7 +1292,7 @@ static inline term_t select_term_arg(term_table_t *table, term_t t) {
   return select_term_desc(table, t)->arg;
 }
 
-// index of a bit select term t 
+// index of a bit select term t
 static inline uint32_t bit_term_index(term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->idx;
 }
@@ -1304,7 +1304,7 @@ static inline term_t bit_term_arg(term_table_t *table, term_t t) {
 
 // argument of arith eq and arith ge atoms
 static inline term_t arith_atom_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_EQ_ATOM || 
+  assert(term_kind(table, t) == ARITH_EQ_ATOM ||
          term_kind(table, t) == ARITH_GE_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
@@ -1322,7 +1322,7 @@ static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
 
 
 /*
- * All the following functions are equivalent to composite_term_desc, but, 
+ * All the following functions are equivalent to composite_term_desc, but,
  * when debugging is enabled, they also check that the term kind is consistent.
  */
 static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
@@ -1474,7 +1474,7 @@ static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
 /*
  * Mark and sweep mechanism:
  * - nothing gets deleted until an explicit call to term_table_gc
- * - before calling the garbage collector, the root terms must be 
+ * - before calling the garbage collector, the root terms must be
  *   marked by calling set_gc_mark.
  * - all the terms that can be accessed by a name (i.e., all the terms
  *   that are present in the symbol table) are also considered root terms.
@@ -1484,7 +1484,7 @@ static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
  * - If keep_named is true, all terms accessible from the symbol table are marked too
  * - The marks are propagated to subterms, types, and power products.
  * - Every term that's not marked is deleted.
- * - If keep_named is false, all references to dead terms are removed from the 
+ * - If keep_named is false, all references to dead terms are removed from the
  *   symbol table.
  * - The type and power-product tables' own garbage collectors are called.
  * - Finally all the marks are cleared.

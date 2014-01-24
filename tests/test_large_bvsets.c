@@ -50,7 +50,7 @@ static void print_bvset(large_bvset_t *s) {
 
 /*
  * Add n random elements to set s
- * - mask = 2^k - 1 where k = bitsize considered 
+ * - mask = 2^k - 1 where k = bitsize considered
  *   (i.e., elements are in the interval [0, 2^k-1]
  */
 static void add_random(large_bvset_t *s, uint32_t n, uint32_t mask) {
@@ -96,7 +96,7 @@ static void test1(void) {
 	 "=================\n\n");
 
   // 50 initial elements
-  init_test_set(&set, 6, 50); 
+  init_test_set(&set, 6, 50);
   printf("=== Initial set: 50 additions ===\n");
   print_bvset(&set);
   printf("\n");
@@ -163,7 +163,7 @@ static void test2(void) {
 	 "=================\n\n");
 
   // 200 initial additions
-  init_test_set(&set, 8, 200); 
+  init_test_set(&set, 8, 200);
   printf("=== Initial set: 200 additions ===\n");
   print_bvset(&set);
   printf("\n");
@@ -230,7 +230,7 @@ static void test3(void) {
 	 "=================\n\n");
 
   // 1000 initial additions
-  init_test_set(&set, 11, 1000); 
+  init_test_set(&set, 11, 1000);
   printf("=== Initial set: 1000 additions ===\n");
   print_bvset(&set);
   printf("\n");

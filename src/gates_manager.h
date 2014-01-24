@@ -5,7 +5,7 @@
 /*
  * This module is used to build auxiliary literal definition:
  * For example, to create l0 = (OR l1 ...  l_n)
- * - the module simplifies (OR l1 ... l_n) 
+ * - the module simplifies (OR l1 ... l_n)
  * - then it creates a fresh boolean l0 = pos_lit(v0)
  * - and it asserts clauses equivalent to "l0 = (OR ....)"
  * Hash consing is used to avoid duplications
@@ -20,9 +20,9 @@
 
 
 /*
- * Manager = smt_core + hash table + an internal literal buffer 
+ * Manager = smt_core + hash table + an internal literal buffer
  */
-typedef struct gate_manager_s {  
+typedef struct gate_manager_s {
   smt_core_t *core;
   gate_table_t htbl;
   ivector_t buffer;
@@ -30,7 +30,7 @@ typedef struct gate_manager_s {
 
 
 /*
- * Hash consing bound: hash consing is not used for 
+ * Hash consing bound: hash consing is not used for
  * operators with more than MAX_HASHCONS_SIZE input parameters
  * MAX_HASHCONS_SIZE must be no more than MAX_INDEGREE
  */
@@ -50,7 +50,7 @@ typedef struct gate_manager_s {
 extern void init_gate_manager(gate_manager_t *m, smt_core_t *core);
 
 /*
- * Deletion: doesn't delete the core, just the hash table 
+ * Deletion: doesn't delete the core, just the hash table
  */
 extern void delete_gate_manager(gate_manager_t *m);
 
@@ -82,7 +82,7 @@ static inline void reset_gate_manager(gate_manager_t *m) {
  *
  * The generic constructors take an array of n literals a[0 ... n-1] as input
  * - they do the right thing if n=0 or n=1
- * - short-cuts are provided for n=2 and n=3  
+ * - short-cuts are provided for n=2 and n=3
  * - the constructors do not modify array a
  */
 extern literal_t mk_or_gate(gate_manager_t *m, uint32_t n, literal_t *a);
@@ -115,7 +115,7 @@ extern literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, liter
 
 
 /*
- * Direct assertions for the following constraints 
+ * Direct assertions for the following constraints
  *  (XOR l1  ... ln ) == v
  *  (XOR l1 l2) == v
  *  (XOR l1 l2 l3) == v

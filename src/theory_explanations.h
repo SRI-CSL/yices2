@@ -69,12 +69,12 @@ static inline atom_vector_t *av_header(literal_t *v) {
 
 static inline eq_vector_t *eqv_header(th_eq_t *v) {
   assert(v != NULL);
-  return (eq_vector_t *)(((char *) v) - offsetof(eq_vector_t, data));  
+  return (eq_vector_t *)(((char *) v) - offsetof(eq_vector_t, data));
 }
 
 static inline diseq_vector_t *diseqv_header(diseq_pre_expl_t *v) {
   assert(v != NULL);
-  return (diseq_vector_t *)(((char *) v) - offsetof(diseq_vector_t, data));  
+  return (diseq_vector_t *)(((char *) v) - offsetof(diseq_vector_t, data));
 }
 
 static inline uint32_t get_av_size(literal_t *v) {

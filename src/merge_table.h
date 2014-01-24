@@ -45,7 +45,7 @@ typedef struct mtbl_undo_stack_s {
 /*
  * Trail stack: for each level, keeps track of
  * - top of the undo stack
- * - top map = 1 + largest index x such that map[x] != null 
+ * - top map = 1 + largest index x such that map[x] != null
  */
 typedef struct mtbl_trail_elem_s {
   uint32_t map_top;
@@ -65,7 +65,7 @@ typedef struct mtbl_trail_s {
 /*
  * Merge table:
  * - the current maps is defined by map[0 ... top - 1]
- * - for any non-negative x: 
+ * - for any non-negative x:
  *   parent[x] = map[x] if 0 <= x < top
  *   parent[x] = -1 otherwise
  * - prev_top = value of top on the preceding call to push
@@ -117,7 +117,7 @@ extern void mtbl_push(mtbl_t *table);
 
 
 /*
- * Pop: restore the table to what it was on the 
+ * Pop: restore the table to what it was on the
  * matching push.
  * - the trail_stack must be non-empty
  */

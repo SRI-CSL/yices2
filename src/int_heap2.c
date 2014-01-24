@@ -108,7 +108,7 @@ static void int_heap2_update_down(int_heap2_t *heap, int32_t x) {
   int32_t y, z;
   uint32_t i, j, n;
 
-  assert(heap->nelems >= 1);  
+  assert(heap->nelems >= 1);
 
   n = heap->nelems;
   h = heap->heap;

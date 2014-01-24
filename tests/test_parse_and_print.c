@@ -50,16 +50,16 @@ static uint32_t left_margin(uint32_t n) {
 
 
 /*
- * Print spaces to align assertions 
+ * Print spaces to align assertions
  * - n = total number of assertions
  * - i = current assertion
  *
- * This adds enough spaces after 'Assertion[i]:' 
+ * This adds enough spaces after 'Assertion[i]:'
  * to make sure that 'Assertion[i]:' and 'Assertion[n-1]:'
  * are aligned.
  *
  * Example: if n = 200, then 'Assertion[199]:' takes
- * 2 more characters than 'Assertion[2]' so 
+ * 2 more characters than 'Assertion[2]' so
  * print_space(2, 200) should print two spaces to compensate
  */
 static void print_space(uint32_t i, uint32_t n) {
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
     pretty_print_term_full(stdout, &area, __yices_globals.terms, bench.formulas[i]);
   }
 
-  
+
   delete_benchmark(&bench);
   delete_parser(&parser);
   close_lexer(&lexer);

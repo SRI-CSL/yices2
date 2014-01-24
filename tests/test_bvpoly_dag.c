@@ -58,7 +58,7 @@ static void print_bvconst(FILE *f, uint32_t *c, uint32_t n) {
 
   w = (n + 31) >> 5;
   if (bvconst_is_one(c, w)) {
-    fputs("+1", f);   
+    fputs("+1", f);
   } else if (bvconst_is_minus_one(c, n)) {
     fputs("-1", f);
   } else {
@@ -81,7 +81,7 @@ static void print_offset_node(FILE *f, bvc_offset_t *d) {
   fprintf(f, "[OFFSET ");
   if (n <= 64) {
     bvconst64_print(f, d->constant.c, n);
-  } else { 
+  } else {
     bvconst_print(f, d->constant.w, n);
   }
   fputc(' ', f);
@@ -96,7 +96,7 @@ static void print_mono_node(FILE *f, bvc_mono_t *d) {
   fprintf(f, "[MONO ");
   if (n <= 64) {
     bvconst64_print(f, d->coeff.c, n);
-  } else { 
+  } else {
     bvconst_print(f, d->coeff.w, n);
   }
   fputc(' ', f);
@@ -116,7 +116,7 @@ static void print_prod_node(FILE *f, bvc_prod_t *d) {
       fprintf(f, "^%"PRId32, d->prod[i].exp);
     }
   }
-  fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);  
+  fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);
 }
 
 static void print_sum_node(FILE *f, bvc_sum_t *d) {
@@ -128,7 +128,7 @@ static void print_sum_node(FILE *f, bvc_sum_t *d) {
     fputc(' ', f);
     print_nocc(f, d->sum[i]);
   }
-  fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);    
+  fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);
 }
 
 static void print_node_descriptor(FILE *f, bvc_header_t *d) {
@@ -149,7 +149,7 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
     print_prod_node(f, prod_node(d));
     break;
 
-  case BVC_SUM:    
+  case BVC_SUM:
     print_sum_node(f, sum_node(d));
     break;
 
@@ -191,7 +191,7 @@ static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
   print_node_descriptor(f, dag->desc[q]);
   fprintf(f, "\n");
   fprintf(f, "   use list: ");
-  print_use_list(f, dag->use[q]);  
+  print_use_list(f, dag->use[q]);
   fprintf(f, "\n");
 }
 
@@ -230,15 +230,15 @@ static void print_dag(FILE *f, bvc_dag_t *dag) {
   fprintf(f, "\nLeaf nodes:");
   print_list(f, dag, BVC_DAG_LEAF_LIST);
   fprintf(f, "\n");
-  
+
   fprintf(f, "\nElementary nodes:");
   print_list(f, dag, BVC_DAG_ELEM_LIST);
   fprintf(f, "\n");
-  
+
   fprintf(f, "\nOther nodes:");
   print_list(f, dag, BVC_DAG_DEFAULT_LIST);
   fprintf(f, "\n");
-  
+
   fflush(f);
 }
 
@@ -260,13 +260,13 @@ static node_occ_t test_leaf(bvc_dag_t *dag, int32_t v, uint32_t b) {
   r = bvc_dag_leaf(dag, v, b);
   chk = bvc_dag_leaf(dag, v, b);
   q = r >> 1;
-  
+
   if (r != chk) {
     printf("---> ERROR: hash-consing failed\n");
     fflush(stdout);
     exit(1);
   }
-  
+
   printf("---> created leaf node n!%"PRId32" for var u!%"PRId32" (%"PRIu32" bits)\n", q, v, b);
   if (sign_of_occ(r) == 0 && bvc_dag_node_is_leaf(dag, q)) {
     d = bvc_dag_node_leaf(dag, q);
@@ -275,10 +275,10 @@ static node_occ_t test_leaf(bvc_dag_t *dag, int32_t v, uint32_t b) {
     }
   } else {
     goto error;
-  }	
+  }
 
   return r;
-  
+
  error:
   printf("---> ERROR\n");
   fflush(stdout);
@@ -318,7 +318,7 @@ static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t
     fflush(stdout);
     exit(1);
   }
-  
+
   if (a == 1) {
     if (tst != r) goto error;
   } else if (a == mask64(b)) {
@@ -329,7 +329,7 @@ static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t
     if (d->header.bitsize != b) goto error;
 
     if (sign_of_occ(r) == 0) {
-      if (d->nocc != r || 
+      if (d->nocc != r ||
 	  (sign == 0 && d->coeff.c != a) ||
 	  (sign == 1 && d->coeff.c != norm64(-a, b))) {
 	goto error;
@@ -389,7 +389,7 @@ static node_occ_t test_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t 
     fflush(stdout);
     exit(1);
   }
-  
+
   w = (b + 31) >> 5;
   if (bvconst_is_one(a, w)) {
     if (tst != r) goto error;
@@ -405,7 +405,7 @@ static node_occ_t test_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t 
     bvconst_normalize(aux, b);
 
     if (sign_of_occ(r) == 0) {
-      if (d->nocc != r || 
+      if (d->nocc != r ||
 	  (sign == 0 && bvconst_neq(d->coeff.w, a, w)) ||
 	  (sign == 1 && bvconst_neq(d->coeff.w, aux, w))) {
 	goto error;
@@ -458,7 +458,7 @@ static node_occ_t test_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32
     fflush(stdout);
     exit(1);
   }
-  
+
   if (sign_of_occ(tst) != 0) goto error;
   if (!bvc_dag_node_is_offset(dag, q)) goto error;
 
@@ -505,7 +505,7 @@ static node_occ_t test_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_
     fflush(stdout);
     exit(1);
   }
-  
+
   if (sign_of_occ(tst) != 0) goto error;
   if (!bvc_dag_node_is_offset(dag, q)) goto error;
 
@@ -529,7 +529,7 @@ static node_occ_t test_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_
 
 
 /*
- * Test sum constructor: 
+ * Test sum constructor:
  * - a = array of n node occurrences
  * - b = bitsize
  * - n must be no more than 20
@@ -593,7 +593,7 @@ static node_occ_t test_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t b
   } else {
     if (sign_of_occ(tst) != 0) goto error;
     if (!bvc_dag_node_is_sum(dag, q)) goto error;
-    
+
     d = bvc_dag_node_sum(dag, q);
     if (d->header.bitsize != b || d->len != n || !equal_arrays(d->sum, aux2, n)) goto error;
 
@@ -637,7 +637,7 @@ static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_
   bvc_prod_t *d;
   node_occ_t tst, chk;
   bvnode_t q;
-  uint32_t i;  
+  uint32_t i;
 
   assert(n >= 2 && n <= 20);
 
@@ -654,7 +654,7 @@ static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_
   tst = bvc_dag_pprod(dag, pp, a, b);
   chk = bvc_dag_pprod(dag, pp, a, b);
   q = tst >> 1;
-  
+
   printf("---> got ");
   print_nocc(stdout, tst);
   printf(" for product");
@@ -679,14 +679,14 @@ static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_
 
   if (sign_of_occ(tst) != 0) goto error;
   if (!bvc_dag_node_is_prod(dag, q)) goto error;
-  
+
   d = bvc_dag_node_prod(dag, q);
   if (d->header.bitsize != b || d->len != aux.len || !equal_varexp(d->prod, aux.prod, aux.len)) goto error;
 
   printf("     decriptor: %p = ", d);
   print_prod_node(stdout, d);
   printf("\n");
-  
+
   delete_pp_buffer(&aux);
   safe_free(pp);
 
@@ -839,7 +839,7 @@ static void select_node_bitsize(test_occ_t *s, uint32_t b) {
 
 
 /*
- * Select k nodes of same bitsize from the store 
+ * Select k nodes of same bitsize from the store
  * - store the bitsize in *bitsize
  * - store the node occurrences in s[0 ... k-1]
  */
@@ -852,7 +852,7 @@ static void select_node_array(uint32_t *bitsize, node_occ_t *s, uint32_t k) {
   n = store.nelems;
   i = random_uint32() % n;
 
-  // use store.data[i] for s[0]  
+  // use store.data[i] for s[0]
   s[0] = store.data[i].nocc;
   b = store.data[i].bitsize;
   *bitsize = b;
@@ -981,7 +981,7 @@ static void test_make_mono64(bvc_dag_t *dag, test_occ_t *t) {
   save_nocc(r, b);
   r = test_mono64(dag, -6, tst, b);
   save_nocc(r, b);
-  
+
   printf("\n");
 }
 
@@ -1019,11 +1019,11 @@ static void test_make_mono(bvc_dag_t *dag, test_occ_t *t) {
   bvconst_set32_signed(aux, w, 4);
   r = test_mono(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set32_signed(aux, w, -4);
   r = test_mono(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set32_signed(aux, w, 4);
   r = test_mono(dag, aux, tst^1, b);
   save_nocc(r, b);
@@ -1031,19 +1031,19 @@ static void test_make_mono(bvc_dag_t *dag, test_occ_t *t) {
   bvconst_set32_signed(aux, w, -4);
   r = test_mono(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_min_signed(aux, b);
   r = test_mono(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_min_signed(aux, b);
   r = test_mono(dag, aux, tst^1, b);
   save_nocc(r, b);
-  
+
   bvconst_set_max_signed(aux, b);
   r = test_mono(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_max_signed(aux, b);
   r = test_mono(dag, aux, tst^1, b);
   save_nocc(r, b);
@@ -1057,7 +1057,7 @@ static void test_make_offset64(bvc_dag_t *dag, test_occ_t *t) {
   uint64_t c;
   uint32_t b;
   node_occ_t r, tst;
-  
+
   tst = t->nocc;
   b = t->bitsize;
 
@@ -1093,7 +1093,7 @@ static void test_make_offset64(bvc_dag_t *dag, test_occ_t *t) {
   save_nocc(r, b);
   r = test_offset64(dag, -6, tst, b);
   save_nocc(r, b);
-  
+
   printf("\n");
 }
 
@@ -1131,11 +1131,11 @@ static void test_make_offset(bvc_dag_t *dag, test_occ_t *t) {
   bvconst_set32_signed(aux, w, 4);
   r = test_offset(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set32_signed(aux, w, -4);
   r = test_offset(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set32_signed(aux, w, 4);
   r = test_offset(dag, aux, tst^1, b);
   save_nocc(r, b);
@@ -1143,19 +1143,19 @@ static void test_make_offset(bvc_dag_t *dag, test_occ_t *t) {
   bvconst_set32_signed(aux, w, -4);
   r = test_offset(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_min_signed(aux, b);
   r = test_offset(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_min_signed(aux, b);
   r = test_offset(dag, aux, tst^1, b);
   save_nocc(r, b);
-  
+
   bvconst_set_max_signed(aux, b);
   r = test_offset(dag, aux, tst, b);
   save_nocc(r, b);
-  
+
   bvconst_set_max_signed(aux, b);
   r = test_offset(dag, aux, tst^1, b);
   save_nocc(r, b);
@@ -1176,7 +1176,7 @@ static void test_make_sum(bvc_dag_t *dag, uint32_t n) {
     select_node_array(&b, aux, n);
     r = test_sum(dag, aux, n, b);
     save_nocc(r, b);
-  }  
+  }
 }
 
 
@@ -1212,7 +1212,7 @@ static void test_make_product(bvc_dag_t *dag, uint32_t n) {
     select_node_array(&b, a, n);
     r = test_pprod(dag, a, exp, n, b);
     save_nocc(r, b);
-  }  
+  }
 
 }
 
@@ -1262,7 +1262,7 @@ int main(void) {
   }
 
   test_all_offset64(&dag);
-  
+
   printf("\n=== TEST ADD OFFSETS ===\n");
 
   for (i=0; i<4; i++) {

@@ -309,7 +309,7 @@ const void *hashmap_insert(hash_table *ht, const void *key, const void *val,
 	idx = ++ht->limit;
 	ht->i->sethash(ht, cache->slot, idx);
 	ht->use++;
-    } else 
+    } else
 	rv = *ht->i->val(ht, idx-1);
     *ht->i->key(ht, idx-1) = key;
     *ht->i->val(ht, idx-1) = val;
@@ -514,7 +514,7 @@ static size_t strhash3(const void *key)
     }
 
     /*----------------------------- handle the last (probably partial) block */
-    /* 
+    /*
      * "k[2]&0xffffff" actually reads beyond the end of the string, but
      * then masks off the part it's not allowed to read.  Because the
      * string is aligned, the masked-off tail is in the same word as the

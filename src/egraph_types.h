@@ -12,7 +12,7 @@
  * - removed lazy clause support (for now) to simplify the implementation
  * - removed support for disequality propagation (did not seem to provide any performance
  *   improvement on our benchmarks)
- * - revert to implementing the dynamic ackermann trick as in Yices 1 (i.e., by 
+ * - revert to implementing the dynamic ackermann trick as in Yices 1 (i.e., by
  *   creating lemmas in the smt_core)
  *
  * 2008-12-30: modified term creation interface
@@ -31,14 +31,14 @@
  * Terms are represented by 32 bit signed integers (eterm_t) between 0
  * and nterms - 1. Negative indices are used as special markers.
  *
- * For each term t, 
+ * For each term t,
  * - body[t] is either a composite or a special marker.
  *
  * Atomic terms are constants or variables
  * - if t is a constant, body[t] = mk_constant(id) where id is a constant index.
  *   id is used during model construction.
  * - if t is a variable, body[t] = VARIABLE_BODY
- * The difference is that all constants are assumed distinct, whereas 
+ * The difference is that all constants are assumed distinct, whereas
  * variables are not. Term 0 is the boolean constant (true).
  *
  * Non-atomic terms are of one of the following forms:
@@ -56,7 +56,7 @@
  * Lambda terms are of the form (lambda t1 tag) where tag is an integer index
  * that identifies the term domain. There's an associate lambda descriptor
  * table and lambda_desc[tag] stores:
- *    n = arity of the term 
+ *    n = arity of the term
  *    dom[0] ... dom[n-1] = types
  * For example, we may have
  *    u = (lambda (x::int) (y::int) t)
@@ -79,7 +79,7 @@
  * A term may have a theory variable attached: it's stored in thvar[t].
  *
  * 2009-01-23: For model construction, we also store the type of every
- * term (as an index in the generic type table = egraph->types). 
+ * term (as an index in the generic type table = egraph->types).
  *
  *
  * Equivalence classes
@@ -98,7 +98,7 @@
  *    next[t] = u-  label[t] = C+
  *    next[u] = v+  label[u] = C-
  *    next[v] = t-  label[v] = C-
- * this defines two complementary classes: 
+ * this defines two complementary classes:
  *   C+ = { t+, u-, v- } = { t, (not u), (not v) }
  *   C- = { t-, u+, v+ } = { (not t), u, v }
  *
@@ -109,13 +109,13 @@
  * - root[c] = class representative = root of the explanation tree for c
  * - dmask[c] = bitmask for distinct predicates
  *   - bit 0 of dmask[c] is 1 if c contains a constant term
- *   - bit i of dmask[c] is 1 if predicate (distinct t_1 ... t_n) is asserted 
+ *   - bit i of dmask[c] is 1 if predicate (distinct t_1 ... t_n) is asserted
  *     and t_j is in the class of c (i is an index attached to distinct ...)
  * - for boolean classes, only bit 0 matters. Distinct predicates with boolean
  *   arguments can be eliminated:
  *      (distinct t1 ... t_n) = false if n >= 3
  *      (distinct t1 t2) = (not (eq t1 t2))
- *   so if c is a class of boolean terms, then either dmask[c] == 1 if c is the 
+ *   so if c is a class of boolean terms, then either dmask[c] == 1 if c is the
  *   class of true or dmask[c] == 0.
  *
  * The merge algorithm ensures that root[c] is fixed. When a term t is created,
@@ -155,20 +155,20 @@
  * Initially, thvar[c] is the same as thvar[root[c]]. But thvar[c] is dynamically
  * updated as the classes are merged. If classes c2 is merged into class c1, and
  * c1 has no theory variable, then it inherits the theory variable of c2 (if any).
- * If both classes have theory variables v1 and v2, then a theory solver is notified 
+ * If both classes have theory variables v1 and v2, then a theory solver is notified
  * that v1 and v2 are now equal.
- * 
- * 
+ *
+ *
  * Special tricks: the egraph deals internally with boolean and tuple classes.
  * There is no theory solver involved for them:
  *
  * If etype[c] = ETYPE_TUPLE: then thvar[c] is a tuple-term that belongs to c.
- * - this is used to implement the propagation rule 
+ * - this is used to implement the propagation rule
  *    (tuple t_1 ... t_n) == (tuple u_1 ... u_n) ==> u_i == t_i
  *
  * If etype[c] = ETYPE_BOOL, thvar[c] is a boolean variable in the core
  * - for class 0 == class of true/false, we use thvar[c] = bool_const (bvar 0)
- * - for other boolean class, thvar[c] is a boolean variable v such that 
+ * - for other boolean class, thvar[c] is a boolean variable v such that
  *   1) there is a term t in c  with thvar[c] = t
  *   2) there is an egraph atom of the form <t, v> in the atom table
  *
@@ -187,8 +187,8 @@
  *
  * Explanations
  * ------------
- * - an explanation contains enough information for explaining how an equality (t1 == t2) 
- *   was derived. 
+ * - an explanation contains enough information for explaining how an equality (t1 == t2)
+ *   was derived.
  * - explanations can be
  *   - axiom: empty antecedent
  *   - assertion: literal
@@ -202,17 +202,17 @@
  * - when (distinct t_1 ... t_n) := true is asserted, a bit-index k is assigned and
  *   the composite (distinct ... ) is  stored in distinct[k]
  * - then bit k of dmask[class[t1] ... class[t_n]] is set to 1
- * - bit 0 is reserved and distinct[0] = NULL: 
+ * - bit 0 is reserved and distinct[0] = NULL:
  *   bit 0 of dmask[c] is 1 iff c contains a constant term
  *
  *
  * Merge graph/explanation tree
  * ----------------------------
- * - with every class c is associated an explanation tree 
+ * - with every class c is associated an explanation tree
  * - nodes in the tree are the terms in c
  * - the root of the tree is root[c]
  * - edges are of the form t1 ---> t2 where (t1 = t2) is an asserted or implied equality
- * - an edge of origin t1 is represented by storing edge[t1] = k where k is an index 
+ * - an edge of origin t1 is represented by storing edge[t1] = k where k is an index
  *   in the propagation queue (that contains <t1, t2> + an explanation)
  *
  */
@@ -324,10 +324,10 @@ typedef struct eterm_table_s {
  *****************/
 
 /*
- * Every equality (t1 == t2) in the propagation queue has an 
+ * Every equality (t1 == t2) in the propagation queue has an
  * antecedent that explains how (t1 == t2) was derived.
  *
- * An explanation is encoded in two parts: 
+ * An explanation is encoded in two parts:
  * - an 8bit tag defines its type
  * - extra data depending on the tag is stored in a union
  *
@@ -337,7 +337,7 @@ typedef struct eterm_table_s {
  * - eq(u, v):       (u == v) implies (t1 == t2)
  * - distinct0(u, v): (u != v) implies (t1 == t2)
  *      where u != v is obtained via constants (bit 0 of dmask)
- * - distinct[i](u, v): (u != v) implies (t1 == t2) 
+ * - distinct[i](u, v): (u != v) implies (t1 == t2)
  *      where u != v is obtained via dmask (bit i of dmask)
  * - simp_or is used in two cases:
  *    (or u_1 ... u_n) == false (for all i, u_i == false)
@@ -353,9 +353,9 @@ typedef struct eterm_table_s {
  * - eq_congruence1: (t1 == u1), (t2 == u2) implies (eq t1 t2) == (eq u1 u2)
  * - eq_congruence2: (t1 == u2), (t2 == u1) implies (eq t1 t2) == (eq u1 u2)
  *
- * - ite_congruence1: (t1 == u1), (t2 == u2), (t3 == u3) implies 
+ * - ite_congruence1: (t1 == u1), (t2 == u2), (t3 == u3) implies
  *                      (ite t1 t2 t3) == (ite u1 u2 u3)
- * - ite_congruence2: (t1 == (not u1)), (t2 == u3), (t3 == u2) 
+ * - ite_congruence2: (t1 == (not u1)), (t2 == u3), (t3 == u2)
  *                      implies (ite t1 t2 t3) == (ite u1 u2 u3)
  *
  * - or_congruence(v) where v is an array of term occurrences
@@ -363,18 +363,18 @@ typedef struct eterm_table_s {
  *
  * When (or t_1 ... t_n) == (or u_1 ... u_m) is implied by congruence,
  * we have to match each t_i to a u_j (and conversely) to produce an explanation.
- * To preserve causality, we compute the mapping t_i --> u_j at the time 
+ * To preserve causality, we compute the mapping t_i --> u_j at the time
  * the congruence is detected.  The mapping is stored as an array v of n + m elements
  * v_1 ... v_n, v_n+1 ... v_{n+m} and it encodes the conjunction
  * (t_1 == v1 ... t_n == v_n) and (u_1 == v_{n+1} ... u_m == v_{n+m}).
- * 
+ *
  * The same thing is done when (distinct t1 ... t_n) == (distinct u_1 ... u_n) is
  * implied by congruence.
  *
- * Other explanations: 
+ * Other explanations:
  * - Propagation via pseudo-clauses and Ackermann propagation are not used anymore.
  * - Equalities propagated from a satellite solver: the antecedent is a pointer
- *   The tag identifies the solver 
+ *   The tag identifies the solver
  */
 typedef enum expl_tag {
   EXPL_AXIOM,
@@ -418,7 +418,7 @@ typedef enum expl_tag {
   EXPL_DISTINCT31,
 
   EXPL_SIMP_OR,
-  
+
   // congruence rules
   EXPL_BASIC_CONGRUENCE,
   EXPL_EQ_CONGRUENCE1,
@@ -464,7 +464,7 @@ typedef union expl_data_u {
 #define NDISTINCTS 32
 #define MAX_DISTINCT_TERMS (NDISTINCTS-1)
 
-typedef struct distinct_table_s {  
+typedef struct distinct_table_s {
   uint32_t npreds;
   composite_t *distinct[NDISTINCTS];
 } distinct_table_t;
@@ -489,7 +489,7 @@ typedef struct ltag_desc_s {
 
 #define MAX_LTAG_DESC_ARITY ((UINT32_MAX-sizeof(ltag_desc_t))/sizeof(type_t))
 
-typedef struct ltag_table_s {  
+typedef struct ltag_table_s {
   uint32_t size;
   uint32_t ntags;
   ltag_desc_t **data;
@@ -519,10 +519,10 @@ typedef struct update_graph_s update_graph_t;
  ****************************/
 
 /*
- * Each element i in the queue encodes an assertion 
- * - eq[i] of the from (t1 == t2) 
+ * Each element i in the queue encodes an assertion
+ * - eq[i] of the from (t1 == t2)
  * - with explanation defined by the pair <etag[i], edata[i]>
- * 
+ *
  * When the assertion is processed, it's turned into an edge
  * t1 ---> t2 in an explanation tree (i.e., edge[t1] is set to i).
  *
@@ -578,9 +578,9 @@ enum {
 
 /*
  * Data for backtracking. Some of the undo data is already in
- * the propagation queue, but it's simpler to use a special undo stack. 
+ * the propagation queue, but it's simpler to use a special undo stack.
  * TODO: check cost and revise this if needed.
- * 
+ *
  * Operations that can be undone:
  * - merge classes of t1 and t2
  * - assertion of a distinct atom
@@ -590,7 +590,7 @@ enum {
  * are also recorded in the trail_stack:
  * - a composite term created during the search needs to
  *   be reanalyzed after backtracking
- * 
+ *
  */
 typedef enum undo_tag {
   // undo operations
@@ -614,7 +614,7 @@ typedef union undo_u {
 
 /*
  * Undo stack:
- * - each trail object consists of an 8bit tag (tag[i]) + a union (data[i]) 
+ * - each trail object consists of an 8bit tag (tag[i]) + a union (data[i])
  * Other components:
  * - top = top of the stack
  * - size = size of arrays tag and data
@@ -642,7 +642,7 @@ typedef struct undo_stack_s {
  *********************/
 
 /*
- * The signature (sigma c) of a composite term c is derived from 
+ * The signature (sigma c) of a composite term c is derived from
  * label[t[0]] ... label[t[n-1]] where t[0] ... t[n-1] are c's children.
  * - two composites c1 and c2 are congruent iff they have equal signature
  * - signature computation also includes normalization
@@ -653,7 +653,7 @@ typedef struct undo_stack_s {
 typedef struct signature_s {
   uint32_t size;
   uint32_t tag;  // encodes kind + arity
-  elabel_t *sigma; 
+  elabel_t *sigma;
 } signature_t;
 
 
@@ -664,7 +664,7 @@ typedef struct signature_s {
  **********************/
 
 /*
- * Hash-table of composites: stores a unique representative 
+ * Hash-table of composites: stores a unique representative
  * (congruence root) per signature. It's similar to int_hash_table.
  */
 typedef struct congruence_table_s {
@@ -725,10 +725,10 @@ typedef struct egraph_trail_stack_s {
  ********************************************/
 
 /*
- * The egraph can be used standalone or as a central solver 
+ * The egraph can be used standalone or as a central solver
  * connected to the core and communicating with other solvers.
  *
- * Two kinds of solvers can be attached to the egraph: 
+ * Two kinds of solvers can be attached to the egraph:
  * - full solvers: right now, this means arithmetic and bitvector solver,
  *   a full solver is one that has its own atoms (and could be attached
  *   directly to the core).
@@ -747,7 +747,7 @@ typedef struct egraph_trail_stack_s {
  * - propagate equalities and disequalities to all sub-solvers
  * Satellite solvers may propagate equalities to the egraph.
  *
- * 
+ *
  * GENERIC EGRAPH INTERFACE
  * ========================
  *
@@ -762,7 +762,7 @@ typedef struct egraph_trail_stack_s {
  *
  * 2) void assert_disequality(void *solver, thvar_t x1, thvar_t x2, composite_t *cmp)
  *    notify solver that x1 != x2 holds.
- *    cmp is an explanation hint. It allows the egraph to correctly generate an 
+ *    cmp is an explanation hint. It allows the egraph to correctly generate an
  *    explanation for x1 != x2 if that's needed later.
  *
  * 3) void assert_distinct(void *solver, uint32_t n, thvar_t *a, composite_t *cmp)
@@ -786,23 +786,23 @@ typedef struct egraph_trail_stack_s {
  *
  *
  * 5) void expand_th_explanation(void *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result)
- *   
- *    When the solver propagates an equality t1 == t2, it must provide an opaque explanation 
- *    object expl (a void * pointer). The egraph calls the function expand_th_explanation 
+ *
+ *    When the solver propagates an equality t1 == t2, it must provide an opaque explanation
+ *    object expl (a void * pointer). The egraph calls the function expand_th_explanation
  *    when it needs to expand expl to a set of antecedent atoms. The parameters passed to
  *    the function are x1 --> theory variable of t1 and x2 --> theory variable of t2.
- *    The function must construct a conjunction of constraints that imply t1 == t2. 
+ *    The function must construct a conjunction of constraints that imply t1 == t2.
  *    Each constraint may be of the following forms:
  *     - atom(l): an atom from the satellite solver, attached to literal l
  *     - eq(u, v): an equality (u==v) that was propagated by egraph to the solver
  *                 via a call to assert_equality.
  *     - diseq(u, v): a disequality (u!=v) that was propagated by egraph to the solver,
  *                via a call to assert_disequality or assert_distinct. This must be given
- *                as a pre_expl object. 
- *    The set of constraints is stored in a th_explanation data structure that maintains 
+ *                as a pre_expl object.
+ *    The set of constraints is stored in a th_explanation data structure that maintains
  *    three resizable vectors, for atoms, equalities, and diseq constraints.
  *
- * 
+ *
  * Theory conflict and explanations
  * --------------------------------
  *
@@ -811,7 +811,7 @@ typedef struct egraph_trail_stack_s {
  *  - egraph_explain_term_eq
  *  - egraph_store_diseq_pre_expl
  *  - egraph_expand_diseq_pre_expl
- * These functions are defined in egraph_explanation.c. 
+ * These functions are defined in egraph_explanation.c.
  *
  * Another function 'egraph_explain_term_diseq' is defined in
  * egraph_explanation.c but it cannot be used reliably to
@@ -826,11 +826,11 @@ typedef struct egraph_trail_stack_s {
  * explanation for (x1 != x2) if it is needed later.  At the time of
  * the inference: the satellite must record the pre_expl data using
  * function
- *  
- *   egraph_store_diseq_pre_expl(egraph, t1, t2, hint, pre_expl) where 
+ *
+ *   egraph_store_diseq_pre_expl(egraph, t1, t2, hint, pre_expl) where
  *   - t1 must be the egraph term attached to x1
  *   - t2 must be the egraph term attached to x2
- *   - hint is the composite provided by the egraph in 
+ *   - hint is the composite provided by the egraph in
  *     assert_disequality or assert_distinct
  *   - pre_expl is a pointer to a pre_expl_t structure
  *
@@ -840,7 +840,7 @@ typedef struct egraph_trail_stack_s {
  *   egraph_expand_diseq_pre_expl(egraph, pre_expl, ..)
  *
  * at that time.
- * 
+ *
  *
  * Interface equalities (2010/01/13)
  * ---------------------------------
@@ -855,19 +855,19 @@ typedef struct egraph_trail_stack_s {
  * the following function.
  *
  * 6) uint32_t reconcile_model(void *solver, uint32_t max_eq)
- * 
+ *
  *     This function is called in final_check by the egraph to enforce consistency
  *     between the egraph and the solver's internal model. There's a conflict
  *     between egraph and solver if there are two terms t1 and t2 in the egraph,
  *     and two theory variables x1 and x2 in the solver such that:
- *      - t1 and t2 are in different classes in the egraph 
+ *      - t1 and t2 are in different classes in the egraph
  *      - x1 and x2 are equal in the solver's model
  *      - x1 is t1's theory variable and x2 is t2's theory variable.
  *
- *     The solver should attempt to resolve such conflicts by changing the 
+ *     The solver should attempt to resolve such conflicts by changing the
  *     values of x1 and x2 if that's possible. Otherwise, it must construct
  *     the interface equality (eq t1 t2) in the egraph (by calling egraph_make_simple_eq).
- *     - max_eq is a bound on the number of interface equalities the solver is 
+ *     - max_eq is a bound on the number of interface equalities the solver is
  *       allowed to generate
  *     - the function must return the number of interface equalities actually created
  *       (0 means that the egraph and solver model are consistent).
@@ -878,7 +878,7 @@ typedef struct egraph_trail_stack_s {
  * conflict by merging classes. If that fails, it asks the satellite
  * solver to generate interface lemmmas. To support this, the
  * satellite solvers must implement the following functions:
- * 
+ *
  * 6a) void prepare_model(void *solver)
  *
  *    This function is called in final_check before the egraph generates interface lemmas.
@@ -900,7 +900,7 @@ typedef struct egraph_trail_stack_s {
  *    Called at the end of final_check. This means that the local model built by prepare_model
  *    is no longer needed. The solver can free whatever internal data structures it used for
  *    the local model, or do other cleanup.
- *  
+ *
  *
  * 6e) ipart_t *build_model_partition(void *solver)
  *
@@ -931,11 +931,11 @@ typedef struct egraph_trail_stack_s {
  * New function for theory branching (2010/10/27)
  * ----------------------------------------------
  *
- * If theory branching is enabled, the egraph must decide whether an atom l := (eq u1 u2) 
+ * If theory branching is enabled, the egraph must decide whether an atom l := (eq u1 u2)
  * must be assigned true or false when l is selected as decision literal. If u1 and u2 are both
  * attached to two theory variables x1 and x2, then the egraph can delegate the decision to
  * the theory solver. For this purpose, it calls the function
- * 
+ *
  * 9) literal_t select_eq_polarity(void *solver, thvar_t x1, thvar_t x2, literal_t l)
  *    - l is a decision literal attached to an egraph atom (eq u1 u2)
  *    - x1 and x2 are the theory variables for u1 and u2, respectively
@@ -947,17 +947,17 @@ typedef struct egraph_trail_stack_s {
  * THEORY-SPECIFIC INTERFACES
  * ==========================
  *
- * In addition to the common egraph interface defined above, the egraph needs theory-specific 
+ * In addition to the common egraph interface defined above, the egraph needs theory-specific
  * functions to create terms and theory variables, and to build a global model. These are
  * grouped in interface descriptors that are distinct for each theory.
- * 
+ *
  * Support for term creation
  * -------------------------
  *
  * For new terms of arithmetic, bitvector, or function types, the egraph may create a theory variable
  * and attach it to the new term. For this purpose, the theory solver must provide functions for
  * creating theory variables. These functions are the same as the ones used in the context:
- * 
+ *
  * For arithmetic variables:
  * - thvar_t create_arith_var(void *arith_solver, bool is_int): create a new arithmetic variable.
  *   If is_int is true, the variable is integer, otherwise it's real.
@@ -977,9 +977,9 @@ typedef struct egraph_trail_stack_s {
  * An egraph model maps term occurrences to objects (defined in
  * concrete_values.h).  To build the model, the egraph must query the
  * satellite solvers for rational/integer or bitvector values assigned
- * to theory variables. 
+ * to theory variables.
  *
- * For this, we use the following functions: 
+ * For this, we use the following functions:
  *
  *  a) arithmetic solver
  *     ----------------
@@ -1000,16 +1000,16 @@ typedef struct egraph_trail_stack_s {
  *    Must return true if the bitvector solver has a value for x in its current model.
  *    It must then copy that value in b. It must return false otherwise.
  *
- *    This function should be identical to the function of the same name in the 
+ *    This function should be identical to the function of the same name in the
  *    bvsolver_interface used by the context.
  *
- * 
+ *
  *  c) function-theory solver
  *     ----------------------
  *
  *    A function subsolver cannot be used without the egraph. So model
  *    construction requires close coordination between the egraph and
- *    the subsolver. We use a two-step approach: 
+ *    the subsolver. We use a two-step approach:
  *
  *    - First the function solver constructs an abstract model (via
  *      fun_maps/abstract_values).  This may introduce new objects
@@ -1022,12 +1022,12 @@ typedef struct egraph_trail_stack_s {
  *
  *    To support this, the function solver must implement the following functions:
  *
- *    1) void build_model(void *solver, pstore_t *store): 
+ *    1) void build_model(void *solver, pstore_t *store):
  *       Build a model that maps theory variables to abstract maps (map_t).
  *       Abstract values (particles) necessary for this model must be allocated in store.
  *
- *    2) map_t *value_in_model(void *solver, thvar_t x): 
- *       Return the value assigned to theory variable x in the model. 
+ *    2) map_t *value_in_model(void *solver, thvar_t x):
+ *       Return the value assigned to theory variable x in the model.
  *       Return NULL if the value of x is not available.
  *
  *    3) void free_model(void *solver):
@@ -1043,13 +1043,13 @@ typedef struct egraph_trail_stack_s {
 /*
  * Disequality pre-explanation object:
  * This store enough data to encode the antecedents of a derived
- * disequality. A disequality is derived by one of the following 
+ * disequality. A disequality is derived by one of the following
  * inference rules:
  * Rule 1) (eq u1 u2) = false, u1 == t1,  u2 == t2 IMPLIES (t1 != t2)
- * Rule 2) (distinct ... u2 ... u1 ,...) == true, 
+ * Rule 2) (distinct ... u2 ... u1 ,...) == true,
  *          u1 == t1, u2 == t2 IMPLIES (t1 != t2)
  * To reliably reconstruct the explanation for (t1 != t2) later on,
- * we must store 
+ * we must store
  * - the composite involved (either (eq u1 u2) or (distinct ....))
  * - the terms involved, namely, u1, u2, t1, and t2.
  */
@@ -1058,7 +1058,7 @@ typedef struct diseq_pre_expl_s {
   eterm_t t1, u1;
   eterm_t t2, u2;
 } diseq_pre_expl_t;
- 
+
 
 // equality constraint in a theory explanation
 typedef struct th_eq_s {
@@ -1211,20 +1211,20 @@ typedef struct egraph_model_s {
 /*
  * Lemmas can be added to the core by the egraph:
  *
- * 1) Expansion of a (distinct ...) atom. When 
- *   "not (distinct t1 ... t_n)" is asserted, then the clause 
+ * 1) Expansion of a (distinct ...) atom. When
+ *   "not (distinct t1 ... t_n)" is asserted, then the clause
  *   "(distinct t1 ... t_n) or (eq t1 t2) or (eq t1 t3) ... or (eq t_n-1 t_n)"
  *   is added to the core
  *
- * 2) Ackermann clause. A heuristic may create clauses of the form 
- *   "(eq t1 u1) and (eq t2 u2) ... (eq t_n u_n) implies 
+ * 2) Ackermann clause. A heuristic may create clauses of the form
+ *   "(eq t1 u1) and (eq t2 u2) ... (eq t_n u_n) implies
  *           (eq (f t_1 ... t_n) (f u_1 ... u_n))"
  *
  * An internal cache stores data about which lemmas have been created (to
  * prevents multiple generation of the same lemma).
- * - for a distinct-expansion, the cache stores <DISTINCT_LEMMA, u> where u = term id of 
+ * - for a distinct-expansion, the cache stores <DISTINCT_LEMMA, u> where u = term id of
  *   the (distinct ...) term
- * - for an Ackermann clause, the cache stores <ACKERMANN_LEMMA, u, v> where u and v are 
+ * - for an Ackermann clause, the cache stores <ACKERMANN_LEMMA, u, v> where u and v are
  *   the term ids of (f t_1 ... t_n) and (f u_1 ... u_n), respectively.
  */
 typedef enum elemma_tag {
@@ -1255,10 +1255,10 @@ typedef struct egraph_stats_s {
   // statistics on interface equalities
   uint32_t final_checks;     // number of calls to final check
   uint32_t interface_eqs;    // number of interface equalities generated
-  
+
 } egraph_stats_t;
 
- 
+
 
 /**************
  *   EGRAPH   *
@@ -1275,7 +1275,7 @@ struct egraph_s {
 
   /*
    * base_level and decision_level mirror the same counters
-   * in the attached core. 
+   * in the attached core.
    * - base_level keeps track of the number of calls to push
    * - decision_level is incremented during the search, decremented
    *   during backtracking
@@ -1292,7 +1292,7 @@ struct egraph_s {
   /*
    * Number of (distinct ...) terms allocated
    */
-  uint32_t ndistincts; 
+  uint32_t ndistincts;
 
   /*
    * Number of atoms
@@ -1338,7 +1338,7 @@ struct egraph_s {
   /*
    * Two candidates for the next Ackermann lemma:
    * when the egraph detects a conflict while processing (t1 == t2)
-   * then it stores t1 in ack_left and t2 in ack_right if 
+   * then it stores t1 in ack_left and t2 in ack_right if
    * (t1 == t2) was propagated by BASIC_CONGRUENCE.
    */
   occ_t ack_left, ack_right;
@@ -1361,7 +1361,7 @@ struct egraph_s {
   ltag_table_t tag_table;
 
   update_graph_t *update_graph; // optional
-  
+
   /*
    * Push/pop stack
    */
@@ -1397,7 +1397,7 @@ struct egraph_s {
    * may need to be reactivated after backtracking. They
    * are stored in reanalyze_vector.
    */
-  pvector_t reanalyze_vector; 
+  pvector_t reanalyze_vector;
 
   /*
    * Theory explanation object: for building explanation of equalities
@@ -1415,7 +1415,7 @@ struct egraph_s {
    * Satellite solvers and interface descriptors
    *
    * Generic:
-   * - th[i] = solver for theory i 
+   * - th[i] = solver for theory i
    * - ctrl[i] = its control interface
    * - eg[i] = its egraph interface
    *
@@ -1456,11 +1456,11 @@ struct egraph_s {
  *
  * DYNAMIC_ACKERMANN enables generation of ackermann lemmas for non-boolean terms.
  * If it's enabled, max_ackermann is a bound on the number of lemmas generated.
- * 
+ *
  * DYNAMIC_BOOLACKERMANN enables the generation of ackermann lemmas for boolean terms.
  * If that's enabled, max_boolackermann is a bound on the number of lemmas generated.
  *
- * OPTIMISTIC_FCHECK selects the experimental version of final_check instead of the 
+ * OPTIMISTIC_FCHECK selects the experimental version of final_check instead of the
  * baseline verion.
  *
  * In addition, aux_eq_quota is a bound on the total number of new equalities allowed

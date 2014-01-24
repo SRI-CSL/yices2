@@ -26,7 +26,7 @@
 
 static void init_solver(egraph_t *egraph, smt_core_t *core) {
   init_egraph(egraph, __yices_globals.types);
-  init_smt_core(core, DEFAULT_NVARS, egraph, egraph_ctrl_interface(egraph), 
+  init_smt_core(core, DEFAULT_NVARS, egraph, egraph_ctrl_interface(egraph),
 		egraph_smt_interface(egraph), SMT_MODE_PUSHPOP);
   egraph_attach_core(egraph, core);
 }
@@ -112,7 +112,7 @@ static void test1(void) {
   // test push/pop
   printf("---> push\n");
   smt_push(&core);
-  
+
   // create (eq x y)
   printf("---> building (eq x y)\n");
   (void) egraph_make_eq(&egraph, x, y);
@@ -149,7 +149,7 @@ static void test1(void) {
   printf("---> pop 2\n");
   smt_pop(&core);
   print_solver(&egraph, &core);
-  
+
   // reset
   reset_solver(&egraph, &core);
   print_solver(&egraph, &core);
@@ -189,7 +189,7 @@ static void test2(void) {
     print_literal(stdout, l);
     printf("\n");
   }
-  
+
   print_solver(&egraph, &core);
   delete_solver(&egraph, &core);
 }

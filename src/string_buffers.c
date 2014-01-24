@@ -15,7 +15,7 @@
  * Initialize: n = initial size
  */
 void init_string_buffer(string_buffer_t *s, uint32_t n) {
-  s->size = n; 
+  s->size = n;
   s->index = 0;
   s->data = NULL;
   if (n > 0) {
@@ -67,7 +67,7 @@ static inline void string_buffer_extend1(string_buffer_t *s) {
 void delete_string_buffer(string_buffer_t *s) {
   safe_free(s->data);
   s->data = NULL;
-  s->size = 0;  
+  s->size = 0;
   s->index = 0;
 }
 
@@ -189,4 +189,4 @@ void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n) 
 void string_buffer_print(FILE *f, string_buffer_t *s) {
   string_buffer_append_char(s, '\0');
   fputs(s->data, f);
-} 
+}

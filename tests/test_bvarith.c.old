@@ -97,7 +97,7 @@ static void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b, uint32_t level) {
     fprintf(f, "bvarith buffer %p\n", b);
     fprintf(f, "  nterms = %"PRId32"\n", b->nterms);
     fprintf(f, "  size = %"PRIu32"\n", b->size);
-    fprintf(f, "  width = %"PRIu32"\n", b->width);    
+    fprintf(f, "  width = %"PRIu32"\n", b->width);
   }
 
   k = b->size;
@@ -128,7 +128,7 @@ static void print_bvarith_expr(FILE *f, bvarith_expr_t *e, bv_var_manager_t *m, 
     fprintf(f, "bv-expr %p\n", e);
     fprintf(f, "  nterms = %"PRId32"\n", e->nterms);
     fprintf(f, "  size = %"PRIu32"\n", e->size);
-    fprintf(f, "  width = %"PRIu32"\n", e->width);    
+    fprintf(f, "  width = %"PRIu32"\n", e->width);
   }
 
   k = e->size;
@@ -147,7 +147,7 @@ static void print_bvarith_expr(FILE *f, bvarith_expr_t *e, bv_var_manager_t *m, 
     }
   }
   fprintf(f, ")\n");
-  
+
 }
 
 static void random_vector(int32_t *v, int32_t n) {
@@ -216,7 +216,7 @@ int main() {
 
   printf("--- Four declared variables ---\n");
   for (i=0; i<4; i++) {
-    printf("v[%"PRId32"]: idx = %"PRId32", name = y_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));    
+    printf("v[%"PRId32"]: idx = %"PRId32", name = y_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));
   }
 
   printf("\n--- Products ---\n");
@@ -230,11 +230,11 @@ int main() {
   printf("v[4] = %s * %s: idx = %"PRId32", term = ", name[0], name[0], v[4]);
   print_bvarith_var(stdout, v[4], &manager);
   printf("\n");
-  
+
   printf("v[5] = %s * %s: idx = %"PRId32", term = ", name[0], name[1], v[5]);
   print_bvarith_var(stdout, v[5], &manager);
   printf("\n");
-  
+
   printf("v[6] = %s * 1: idx = %"PRId32", term = ", name[2], v[6]);
   print_bvarith_var(stdout, v[6], &manager);
   printf("\n");
@@ -242,11 +242,11 @@ int main() {
   printf("v[7] = v[5] * %s: idx = %"PRId32", term = ", name[1], v[7]);
   print_bvarith_var(stdout, v[7], &manager);
   printf("\n");
-  
+
   printf("v[8] = %s * v[4]: idx = %"PRId32", term = ", name[0], v[8]);
   print_bvarith_var(stdout, v[8], &manager);
   printf("\n\n");
-  
+
 
   printf("\n--- Empty buffer ---\n");
   print_bvarith_buffer(stdout, &buffer, 10);

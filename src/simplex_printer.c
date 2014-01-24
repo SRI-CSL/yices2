@@ -120,7 +120,7 @@ void print_arith_vartable(FILE *f, arith_vartable_t *table) {
       print_eterm_id(f, arith_var_eterm(table, i));
     }
     fputc('\n', f);
-  }  
+  }
 }
 
 
@@ -162,7 +162,7 @@ void print_arith_atomtable(FILE *f, arith_vartable_t *vtbl, arith_atomtable_t *a
     print_arith_atom(f, vtbl, a + i);
     fputs("\t\t", f);
     print_bval(f, bvar_value(atbl->core, a[i].boolvar));
-    fputc('\n', f);    
+    fputc('\n', f);
   }
 }
 
@@ -204,7 +204,7 @@ static void print_row(FILE *f, arith_vartable_t *vtbl, row_t *row) {
   }
   if (first) {
     // nothing printed so the row is empty
-    fputc('0', f); 
+    fputc('0', f);
   }
   fputs(" == 0", f);
 }
@@ -285,7 +285,7 @@ static void print_avar_bounds(FILE *f, simplex_solver_t *solver, thvar_t x) {
  * Value of variable x
  */
 static void print_avar_value(FILE *f, arith_vartable_t *vtbl, thvar_t x) {
-  fputs("  val[", f);  
+  fputs("  val[", f);
   print_avar(f, vtbl, x);
   fputs("] = ", f);
   xq_print(f, arith_var_value(vtbl, x));
@@ -319,7 +319,7 @@ static void print_avar_full(FILE *f, simplex_solver_t *solver, thvar_t x) {
       xq_print(f, solver->bstack.bound + ub);
     }
   } else {
-    fputs("no bounds", f); 
+    fputs("no bounds", f);
   }
 
   if (r >= 0) {
@@ -466,7 +466,7 @@ void print_simplex_vars_summary(FILE *f, simplex_solver_t *solver) {
   uint32_t i, n;
   int32_t lb, ub;
 
-  table = &solver->vtbl;  
+  table = &solver->vtbl;
   n = num_arith_vars(table);
   for (i=0; i<n; i++) {
     lb = arith_var_lower_index(&solver->vtbl, i);
@@ -523,7 +523,7 @@ void print_simplex_vardef(FILE *f, simplex_solver_t *solver, thvar_t v) {
   } else if (arith_var_def_is_product(table, v)) {
     fputs(" := ", f);
     print_avar_product(f, table, arith_var_product_def(table, v));
-  } 
+  }
   fputc('\n', f);
 }
 
@@ -580,7 +580,7 @@ void print_simplex_atom_of_literal(FILE *f, simplex_solver_t *solver, literal_t 
 
 
 void print_simplex_buffer(FILE *f, simplex_solver_t *solver) {
-  poly_buffer_t *b;  
+  poly_buffer_t *b;
   uint32_t i, n;
 
   b = &solver->buffer;
@@ -604,7 +604,7 @@ void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i) {
     } else {
       fputs(" >= ", f);
     }
-    xq_print(f, solver->bstack.bound + i);    
+    xq_print(f, solver->bstack.bound + i);
   } else {
     fprintf(f, "<INVALID BOUND INDEX>");
   }
@@ -662,7 +662,7 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
     }
   }
 
-  // print the non-constant monomials and q 
+  // print the non-constant monomials and q
   first = true;
   if (q_is_nonzero(&q)) {
     print_avar_monomial(f, vtbl, const_idx, &q, first);
@@ -684,7 +684,7 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
 
   if (first) {
     // nothing printed so the row is empty
-    fputc('0', f); 
+    fputc('0', f);
   }
   fputs(" == 0", f);
 

@@ -1,14 +1,14 @@
 Introduction
 ============
 
-Yices is an SMT solver developed in 
-`SRI International <http://www.sri.com/>`_'s 
+Yices is an SMT solver developed in
+`SRI International <http://www.sri.com/>`_'s
 `Computer Science Laboratory <http://www.sri.com/about/organization/information-computing-sciences/computer-science-laboratory>`_.
 
 Yices decides the satisfiability of formulas containing uninterpreted
 function symbols, linear real and integer arithmetic, scalar types,
 tuples, arrays, and bitvectors. One can interact with Yices using
-scripts in the Yices input language, or using the 
+scripts in the Yices input language, or using the
 `SMT-LIB <http://www.smtlib.org/>`_ notation. Yices can also be used as a
 library via its C-API.
 
@@ -23,7 +23,7 @@ Here is a simple example script in the Yices language::
   (define c::BV (mk-bv 32 1008832))
   (define d::BV)
 
-  (assert (= a (bv-or (bv-and (mk-bv 32 255) (bv-not (bv-or b (bv-not c)))) 
+  (assert (= a (bv-or (bv-and (mk-bv 32 255) (bv-not (bv-or b (bv-not c))))
                       (bv-and c (bv-xor d (mk-bv 32 1023))))))
 
   (check)

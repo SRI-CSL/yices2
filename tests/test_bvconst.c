@@ -202,8 +202,8 @@ int main() {
       printf("\n\n");
     }
   }
-  
-  
+
+
   //  exit(0);
 
   for (n=20; n>0; n--) {
@@ -256,7 +256,7 @@ int main() {
   printf("sgnext(a, 31) = ");
   bvconst_print(stdout, b, 31);
   printf("\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -275,7 +275,7 @@ int main() {
   printf("sgnext(a, 31) = ");
   bvconst_print(stdout, b, 31);
   printf("\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -294,7 +294,7 @@ int main() {
   printf("sgnext(a, 31) = ");
   bvconst_print(stdout, b, 31);
   printf("\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -313,7 +313,7 @@ int main() {
   printf("sgnext(a, 31) = ");
   bvconst_print(stdout, b, 31);
   printf("\n\n");
-  
+
 
   for (i=20; i<=99; i++) {
     random_vector(vector, 20);
@@ -334,7 +334,7 @@ int main() {
     bvconst_print(stdout, b, i);
     printf("\n\n");
   }
-  
+
 
   for (i=32; i<=99; i++) {
     random_vector(vector, 32);
@@ -355,7 +355,7 @@ int main() {
     bvconst_print(stdout, b, i);
     printf("\n\n");
   }
-  
+
 
   random_vector(vector, 120);
   bvconst_set_array(a, vector, 120);
@@ -445,7 +445,7 @@ int main() {
   bvconst_print(stdout, e, 128);
   printf("\n\n");
 
-  
+
 
   bvconst_set64(a, 4, 1372919719782793ULL);
   bvconst_set32(b, 4, 12670371);
@@ -468,7 +468,7 @@ int main() {
   printf("e = ");
   bvconst_print(stdout, e, 128);
   printf("\n\n");
-  
+
   mpz_init(z0);
   mpz_init(z1);
   mpz_init(z2);
@@ -777,7 +777,7 @@ int main() {
     printf(" a ge b: %d\n", bvconst_ge(a, b, 25));
     printf(" a lt b: %d\n", bvconst_lt(a, b, 25));
     printf(" a gt b: %d\n", bvconst_gt(a, b, 25));
-    
+
     printf("Signed tests\n");
     printf(" a sle b: %d\n", bvconst_sle(a, b, 25));
     printf(" a sge b: %d\n", bvconst_sge(a, b, 25));
@@ -807,7 +807,7 @@ int main() {
     printf(" a ge b: %d\n", bvconst_ge(a, b, 32));
     printf(" a lt b: %d\n", bvconst_lt(a, b, 32));
     printf(" a gt b: %d\n", bvconst_gt(a, b, 32));
-    
+
     printf("Signed tests\n");
     printf(" a sle b: %d\n", bvconst_sle(a, b, 32));
     printf(" a sge b: %d\n", bvconst_sge(a, b, 32));
@@ -836,7 +836,7 @@ int main() {
     printf(" a ge b: %d\n", bvconst_ge(a, b, 33));
     printf(" a lt b: %d\n", bvconst_lt(a, b, 33));
     printf(" a gt b: %d\n", bvconst_gt(a, b, 33));
-    
+
     printf("Signed tests\n");
     printf(" a sle b: %d\n", bvconst_sle(a, b, 33));
     printf(" a sge b: %d\n", bvconst_sge(a, b, 33));
@@ -865,7 +865,7 @@ int main() {
     printf(" a ge b: %d\n", bvconst_ge(a, b, 63));
     printf(" a lt b: %d\n", bvconst_lt(a, b, 63));
     printf(" a gt b: %d\n", bvconst_gt(a, b, 63));
-    
+
     printf("Signed tests\n");
     printf(" a sle b: %d\n", bvconst_sle(a, b, 63));
     printf(" a sge b: %d\n", bvconst_sge(a, b, 63));
@@ -894,7 +894,7 @@ int main() {
     printf(" a ge b: %d\n", bvconst_ge(a, b, 64));
     printf(" a lt b: %d\n", bvconst_lt(a, b, 64));
     printf(" a gt b: %d\n", bvconst_gt(a, b, 64));
-    
+
     printf("Signed tests\n");
     printf(" a sle b: %d\n", bvconst_sle(a, b, 64));
     printf(" a sge b: %d\n", bvconst_sge(a, b, 64));
@@ -920,7 +920,7 @@ int main() {
   printf(" a ge b: %d\n", bvconst_ge(a, b, 64));
   printf(" a lt b: %d\n", bvconst_lt(a, b, 64));
   printf(" a gt b: %d\n", bvconst_gt(a, b, 64));
-    
+
   printf("Signed tests\n");
   printf(" a sle b: %d\n", bvconst_sle(a, b, 64));
   printf(" a sge b: %d\n", bvconst_sge(a, b, 64));
@@ -945,7 +945,7 @@ int main() {
   printf(" a ge b: %d\n", bvconst_ge(a, b, 65));
   printf(" a lt b: %d\n", bvconst_lt(a, b, 65));
   printf(" a gt b: %d\n", bvconst_gt(a, b, 65));
-    
+
   printf("Signed tests\n");
   printf(" a sle b: %d\n", bvconst_sle(a, b, 65));
   printf(" a sge b: %d\n", bvconst_sge(a, b, 65));
@@ -969,7 +969,7 @@ int main() {
   printf(" a ge b: %d\n", bvconst_ge(a, b, 63));
   printf(" a lt b: %d\n", bvconst_lt(a, b, 63));
   printf(" a gt b: %d\n", bvconst_gt(a, b, 63));
-    
+
   printf("Signed tests\n");
   printf(" a sle b: %d\n", bvconst_sle(a, b, 63));
   printf(" a sge b: %d\n", bvconst_sge(a, b, 63));
@@ -1091,8 +1091,8 @@ int main() {
       bvconst_clr_bit(a, j);
       bvconst_clr_bit(a, 127 - j);
     }
-  }      
-  
+  }
+
 
   // test mulpower
   for (i=0; i<130; i++) {
@@ -1160,15 +1160,15 @@ int main() {
     printf("a = ");
     bvconst_print(stdout, a, i);
     printf(": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(a, n)), b2str(bvconst_is_minus_one(a, i)));
-    
+
     printf("b = ");
     bvconst_print(stdout, b, i);
     printf(": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(b, n)), b2str(bvconst_is_minus_one(b, i)));
-    
+
     printf("c = ");
     bvconst_print(stdout, c, i);
     printf(": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(c, n)), b2str(bvconst_is_minus_one(c, i)));
-    
+
     printf("d = ");
     bvconst_print(stdout, d, i);
     printf(": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(d, n)), b2str(bvconst_is_minus_one(d, i)));
@@ -1200,15 +1200,15 @@ int main() {
     printf("a = ");
     bvconst_print(stdout, a, i);
     printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(a, i)), b2str(bvconst_is_max_signed(a, i)));
-    
+
     printf("b = ");
     bvconst_print(stdout, b, i);
     printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(b, i)), b2str(bvconst_is_max_signed(b, i)));
-    
+
     printf("c = ");
     bvconst_print(stdout, c, i);
     printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(c, i)), b2str(bvconst_is_max_signed(c, i)));
-    
+
     printf("d = ");
     bvconst_print(stdout, d, i);
     printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(d, i)), b2str(bvconst_is_max_signed(d, i)));

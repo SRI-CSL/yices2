@@ -147,7 +147,7 @@ int32_t print_error(FILE *f) {
 
   case INCOMPATIBLE_BVSIZES:
     code = fprintf(f, "arguments have incompatible bitsizes\n");
-    break;    
+    break;
 
   case EMPTY_BITVECTOR:
     code = fprintf(f, "bitvector must have positive bitsize\n");
@@ -186,7 +186,7 @@ int32_t print_error(FILE *f) {
     break;
 
     /*
-     * Parser errors 
+     * Parser errors
      */
   case INVALID_TOKEN:
     code = fprintf(f, "invalid token\n");
@@ -207,7 +207,7 @@ int32_t print_error(FILE *f) {
   case REDEFINED_TYPE_NAME:
     code = fprintf(f, "cannot redefine type\n");
     break;
-  
+
   case REDEFINED_TERM_NAME:
     code = fprintf(f, "cannot redefine term\n");
     break;
@@ -338,7 +338,7 @@ int32_t print_error(FILE *f) {
   case CTX_ARRAY_SOLVER_EXCEPTION:
     code = fprintf(f, "array solver exception\n");
     break;
-  
+
   case CTX_INVALID_OPERATION:
     code = fprintf(f, "the context state does not allow operation\n");
     break;

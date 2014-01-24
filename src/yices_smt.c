@@ -69,7 +69,7 @@ static double construction_time, start_search_time, search_time;
 
 
 /*
- * Flag for the interrupt handler: true when the context 
+ * Flag for the interrupt handler: true when the context
  * has been initialized
  */
 static bool context_exists;
@@ -85,7 +85,7 @@ static tracer_t tracer;
  * Conversion of status code in the benchmark header
  */
 static const char * const status2string[] = {
-  "none", "unsat", "sat", "unknown",  
+  "none", "unsat", "sat", "unknown",
 };
 
 
@@ -93,7 +93,7 @@ static const char * const status2string[] = {
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error", 
+  "no error",
   "internal error",
   "type error",
   "formula contains free variables",
@@ -208,7 +208,7 @@ typedef enum optid {
   r_threshold_opt,            // lower limit on conflict-reduction threshold
   r_fraction_opt,
   r_factor_opt,
-  
+
   // Branching heuristics
   var_decay_opt,              // decay factor for variable activities
   randomness_opt,             // percent of random decisions
@@ -279,11 +279,11 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "c-factor", '\0', MANDATORY_FLOAT, c_factor_opt },
   { "d-threshold", '\0', MANDATORY_INT, d_threshold_opt },
   { "d-factor", '\0', MANDATORY_FLOAT, d_factor_opt },
-  
+
   { "r-threshold", '\0', MANDATORY_INT, r_threshold_opt },
   { "r-fraction", '\0', MANDATORY_FLOAT, r_fraction_opt },
   { "r-factor", '\0', MANDATORY_FLOAT, r_factor_opt },
-  
+
   { "var-decay", '\0', MANDATORY_FLOAT, var_decay_opt },
   { "randomness", '\0', MANDATORY_FLOAT, randomness_opt },
   { "random-seed", '\0', MANDATORY_INT, randomseed_opt },
@@ -426,7 +426,7 @@ static void yices_help(char *progname) {
  */
 static void yices_usage(char *progname) {
   fprintf(stderr, "Usage: %s [options] filename\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 
@@ -515,7 +515,7 @@ static void check_parameters(char *progname) {
   if (opt_set[use_simplex]) {
     arith_solver = ARITH_SOLVER_SIMPLEX;
   }
-  
+
   // simplex-specific options
   eager_lemmas = opt_set[simplex_eager_lemmas];
 
@@ -588,11 +588,11 @@ static void check_parameters(char *progname) {
 
   // Restart parameters
   if (opt_set[fast_restart_opt]) {
-    // set fast_restart flags 
+    // set fast_restart flags
     // set factors to the default
     params.fast_restart = true;
-    params.c_factor = 1.1;  
-    params.d_factor = 1.1; 
+    params.c_factor = 1.1;
+    params.d_factor = 1.1;
     use_default_params = false;
   }
 
@@ -628,8 +628,8 @@ static void check_parameters(char *progname) {
       params.d_threshold = v;
       use_default_params = false;
     } else {
-      fprintf(stderr, "%s: option %s requires both %s and %s\n", progname, 
-              opt_name(d_threshold_opt), opt_name(fast_restart_opt), 
+      fprintf(stderr, "%s: option %s requires both %s and %s\n", progname,
+              opt_name(d_threshold_opt), opt_name(fast_restart_opt),
               opt_name(c_threshold_opt));
       goto error;
     }
@@ -817,7 +817,7 @@ static void check_parameters(char *progname) {
       }
       params.max_boolackermann = v;
     } else {
-      fprintf(stderr, "%s: %s requires %s\n", progname, opt_name(max_boolackermann_opt), 
+      fprintf(stderr, "%s: %s requires %s\n", progname, opt_name(max_boolackermann_opt),
               opt_name(dyn_boolack_opt));
       goto error;
     }
@@ -845,7 +845,7 @@ static void check_parameters(char *progname) {
         fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_ratio_opt));
         goto error;
       }
-      params.aux_eq_ratio = x;      
+      params.aux_eq_ratio = x;
     } else {
       fprintf(stderr, "%s: %s requires %s or %s\n", progname, opt_name(aux_eq_ratio_opt),
               opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
@@ -1053,7 +1053,7 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" remove irrelevant       : %"PRIu32"\n", stat->remove_calls);
   printf(" decisions               : %"PRIu64"\n", stat->decisions);
   printf(" random decisions        : %"PRIu64"\n", stat->random_decisions);
-  printf(" propagations            : %"PRIu64"\n", stat->propagations);  
+  printf(" propagations            : %"PRIu64"\n", stat->propagations);
   printf(" conflicts               : %"PRIu64"\n", stat->conflicts);
   printf(" theory propagations     : %"PRIu32"\n", stat->th_props);
   printf(" propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
@@ -1066,7 +1066,7 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   printf(" deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
+  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
 /*
@@ -1116,7 +1116,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
   printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
   printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
   printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
-  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);  
+  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
   printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
   //  printf(" propagation lemmas      : %"PRIu32"\n", stat->num_prop_lemmas);  (it's always zero)
   printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
@@ -1200,7 +1200,7 @@ static void print_results() {
   show_stats(&core->stats);
   printf(" boolean variables       : %"PRIu32"\n", core->nvars);
   printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
-  
+
   egraph = context.egraph;
   if (egraph != NULL) {
     show_egraph_stats(&egraph->stats);
@@ -1212,7 +1212,7 @@ static void print_results() {
   }
 
   if (context_has_simplex_solver(&context)) {
-    simplex = context_get_simplex_solver(&context);    
+    simplex = context_get_simplex_solver(&context);
     if (simplex != NULL) {
       simplex_collect_statistics(simplex);
       show_simplex_stats(&simplex->stats);
@@ -1259,7 +1259,7 @@ static void print_presearch_stats() {
     printf("egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
     printf("app/update reductions   : %"PRIu32"\n", egraph->stats.app_reductions);
   }
- 
+
   if (context_has_simplex_solver(&context)) {
     printf("arithmetic solver       : Simplex\n");
   } else if (context_has_idl_solver(&context)) {
@@ -1316,7 +1316,7 @@ static void print_options(FILE *f, context_t *ctx) {
       if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
         fprintf(f, " --eager-lemmas");
       }
-      if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) || 
+      if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) ||
           params.use_simplex_prop) {
         fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
       }
@@ -1347,7 +1347,7 @@ static void print_options(FILE *f, context_t *ctx) {
   }
 
   if (context_has_fun_solver(ctx)) {
-    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n", 
+    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n",
             params.max_update_conflicts, params.max_extensionality);
   }
 
@@ -1392,7 +1392,7 @@ static void print_options(FILE *f, context_t *ctx) {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    printf("Assertions simplify to false\n\n"); 
+    printf("Assertions simplify to false\n\n");
     printf("unsat\n");
     fflush(stdout);
   } else if (code < 0) {
@@ -1402,7 +1402,7 @@ static void print_internalization_code(int32_t code) {
     } else {
       fprintf(stderr, "%s\n\n", code2error[code]);
     }
-  }  
+  }
 }
 
 
@@ -1458,7 +1458,7 @@ static void test_evaluator(FILE *f, model_t *model) {
         vtbl_print_object(f, model_get_vtbl(model), v);
         if (object_is_function(model_get_vtbl(model), v)) {
           fprintf(f, "\n");
-          vtbl_print_function(f, model_get_vtbl(model), v, true);         
+          vtbl_print_function(f, model_get_vtbl(model), v, true);
         }
         fprintf(f, "\n\n");
       } else {
@@ -1550,7 +1550,7 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
     //    print_egraph_root_classes_details(dump, context->egraph);
     fprintf(dump, "\n==== EGRAPH ATOMS ====\n");
     print_egraph_atoms(dump, context->egraph);
-    
+
   }
 
   if (context_has_idl_solver(context)) {
@@ -1632,7 +1632,7 @@ static void clear_handler(void) {
   signal(SIGABRT, SIG_IGN);
 #ifndef MINGW
   signal(SIGXCPU, SIG_IGN);
-#endif  
+#endif
 }
 
 
@@ -1697,7 +1697,7 @@ static int process_benchmark(char *filename) {
     // read from stdin
     init_smt_stdin_lexer(&lexer);
   }
-  
+
   context_exists = false;
   init_handler();
 
@@ -1739,7 +1739,7 @@ static int process_benchmark(char *filename) {
   }
 
   /*
-   * Select architecture based on the benchmark logic and 
+   * Select architecture based on the benchmark logic and
    * command-line options
    */
   need_icheck = false;
@@ -1764,7 +1764,7 @@ static int process_benchmark(char *filename) {
 
     case QF_IDL:
       /*
-       * Default for QF_IDL: automatic 
+       * Default for QF_IDL: automatic
        * unless --simplex or --floyd-warshall was given on the command line
        */
       switch (arith_solver) {
@@ -1782,7 +1782,7 @@ static int process_benchmark(char *filename) {
 
     case QF_RDL:
       /*
-       * Default for QF_RDL: automatic 
+       * Default for QF_RDL: automatic
        * unless --simplex or --floyd-warshall was given on the command line
        */
       switch (arith_solver) {
@@ -1823,7 +1823,7 @@ static int process_benchmark(char *filename) {
 
     case QF_UFIDL:
       /*
-       * Some SMT-LIB benchmarks labeled as QF_UFIDL are actually 
+       * Some SMT-LIB benchmarks labeled as QF_UFIDL are actually
        * pure IDL so we allow IDL floyd-warshall here.
        * The default is EGRAPH + SIMPLEX.
        */
@@ -1896,7 +1896,7 @@ static int process_benchmark(char *filename) {
   /*
    * Initialize the context and set options
    */
-  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, false);  
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, false);
   if (var_elim) {
     enable_variable_elimination(&context);
   }
@@ -1904,7 +1904,7 @@ static int process_benchmark(char *filename) {
     enable_diseq_and_or_flattening(&context);
   }
   if (learn_eq && arch == CTX_ARCH_EG) {
-    enable_eq_abstraction(&context); 
+    enable_eq_abstraction(&context);
   }
   if (break_sym && arch == CTX_ARCH_EG) {
     enable_symmetry_breaking(&context);
@@ -1981,11 +1981,11 @@ static int process_benchmark(char *filename) {
       printf("\nMODEL\n");
       model_print(stdout, model);
       printf("----\n");
-      
+
       // FOR TESTING
 #if TEST_EVALUATOR
       test_evaluator(stdout, model);
-#endif 
+#endif
       check_model(stdout, &bench, model);
       free_model(model);
     }
@@ -2000,7 +2000,7 @@ static int process_benchmark(char *filename) {
 
 
   /*
-   * Cleanup and return code 
+   * Cleanup and return code
    *
    * To cleanup aftere an error: jump to cleanup_context if the error
    * is detected after the context is initialized or to cleanup_benchmark

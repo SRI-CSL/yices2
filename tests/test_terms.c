@@ -83,7 +83,7 @@ static void add_type(type_t tau, char *name) {
   i = num_types;
   if (i < MAX_TYPES) {
     type[i] = tau;
-    num_types = i+1;    
+    num_types = i+1;
   }
 
   if (name != NULL) {
@@ -179,7 +179,7 @@ static bool check_term_integer(term_t x, term_kind_t tag, type_t tau, int32_t in
   int32_t i;
 
   i = index_of(x);
-  return kind_for_idx(&terms, i) == tag && type_for_idx(&terms, i) == tau && 
+  return kind_for_idx(&terms, i) == tag && type_for_idx(&terms, i) == tau &&
     integer_value_for_idx(&terms, i) == index && is_pos_term(x);
 }
 
@@ -262,7 +262,7 @@ static void hash_consing_failed(void) {
  * - each test function builds a term
  * - check that the term descriptor and type are correct
  * - call the constructor twice to check whether hash-consing works
- * - add the name if 
+ * - add the name if
  */
 static term_t test_constant_term(type_t tau, int32_t index, char *name) {
   term_t x, y;
@@ -372,7 +372,7 @@ static term_t test_not(term_t a, char *name) {
 
 
 /*
- * constructor ite_term(.., a. b, c) may build ITE_TERM or ITE_SPECIAL, depending 
+ * constructor ite_term(.., a. b, c) may build ITE_TERM or ITE_SPECIAL, depending
  * on the tags for b and c:
  */
 static bool special_for_ite(term_t x) {
@@ -403,7 +403,7 @@ static term_t test_ite(type_t tau, term_t a, term_t b, term_t c, char *name) {
   if (! check_composite3(x, expected_tag, tau, a, b, c)) {
     constructor_failed();
   }
-  
+
   y = ite_term(&terms, tau, a, b, c);
   if (y != x) {
     hash_consing_failed();
@@ -584,7 +584,7 @@ static term_t test_tuple1(type_t tau, term_t a, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_tuple2(type_t tau, term_t a, term_t b, char *name) {
@@ -617,7 +617,7 @@ static term_t test_tuple2(type_t tau, term_t a, term_t b, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_select(type_t tau, term_t a, uint32_t k, char *name) {
@@ -645,7 +645,7 @@ static term_t test_select(type_t tau, term_t a, uint32_t k, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_eq(term_t a, term_t b, char *name) {
@@ -816,7 +816,7 @@ static term_t test_or2(term_t a, term_t b, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_xor3(term_t a, term_t b, term_t c, char *name) {
@@ -852,7 +852,7 @@ static term_t test_xor3(term_t a, term_t b, term_t c, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_bit(term_t a, uint32_t k, char *name) {
@@ -879,7 +879,7 @@ static term_t test_bit(term_t a, uint32_t k, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_arith_eq(term_t a, char *name) {
@@ -906,7 +906,7 @@ static term_t test_arith_eq(term_t a, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_arith_geq(term_t a, char *name) {
@@ -933,7 +933,7 @@ static term_t test_arith_geq(term_t a, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_arith_bineq(term_t a, term_t b, char *name) {
@@ -962,7 +962,7 @@ static term_t test_arith_bineq(term_t a, term_t b, char *name) {
   print_term(stdout, &terms, x);
   printf("\n");
 
-  return x;  
+  return x;
 }
 
 static term_t test_bvarray4(term_t a, term_t b, term_t c, term_t d, char *name) {
@@ -1341,7 +1341,7 @@ static bool check_rational(term_t x, rational_t *a) {
   return kind_for_idx(&terms, i) == ARITH_CONSTANT && type_for_idx(&terms, i) == tau &&
     q_eq(a, rational_for_idx(&terms, i)) && is_pos_term(x);
 }
-    
+
 static void test_rationals(void) {
   rational_t a;
   term_t x, y;
@@ -1352,7 +1352,7 @@ static void test_rationals(void) {
   printf("Testing: rational ");
   q_print(stdout, &a);
   printf(": ");
-  
+
   x = arith_constant(&terms, &a);
   if (! check_rational(x, &a)) {
     constructor_failed();
@@ -1362,7 +1362,7 @@ static void test_rationals(void) {
   if (y != x) {
     hash_consing_failed();
   }
-  
+
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1371,7 +1371,7 @@ static void test_rationals(void) {
   printf("Testing: rational ");
   q_print(stdout, &a);
   printf(": ");
-  
+
   x = arith_constant(&terms, &a);
   if (! check_rational(x, &a)) {
     constructor_failed();
@@ -1381,10 +1381,10 @@ static void test_rationals(void) {
   if (y != x) {
     hash_consing_failed();
   }
-  
+
   print_term(stdout, &terms, x);
   printf("\n");
-  
+
   q_clear(&a);
 }
 
@@ -1423,7 +1423,7 @@ static void test_polynomials(void) {
 
   rba_buffer_add_buffer(&buffer2, &buffer1); // make a copy
   assert(rba_buffer_equal(&buffer1, &buffer2));
-  
+
   printf("Testing: ");
   print_arith_buffer(stdout, &buffer1);
   printf(": ");
@@ -1440,8 +1440,8 @@ static void test_polynomials(void) {
 
   print_term(stdout, &terms, s);
   printf("\n");
-  
-  // real polynomial x + y - 1/2  
+
+  // real polynomial x + y - 1/2
   reset_rba_buffer(&buffer1);
   reset_rba_buffer(&buffer2);
   rba_buffer_add_var(&buffer1, x);
@@ -1464,10 +1464,10 @@ static void test_polynomials(void) {
   if (t != s) {
     hash_consing_failed();
   }
-  
+
   print_term(stdout, &terms, s);
   printf("\n");
-  
+
   q_clear(&a);
   delete_rba_buffer(&buffer1);
   delete_rba_buffer(&buffer2);
@@ -1488,7 +1488,7 @@ static bool check_bvconst(term_t x, uint32_t *bv, uint32_t n) {
   i = index_of(x);
   k = (n + 31) >> 5;
   d = bvconst_for_idx(&terms, i);
-  return kind_for_idx(&terms, i) == BV_CONSTANT && type_for_idx(&terms, i) == tau && 
+  return kind_for_idx(&terms, i) == BV_CONSTANT && type_for_idx(&terms, i) == tau &&
     d->bitsize == n && bvconst_eq(d->data, bv, k);
 }
 
@@ -1553,7 +1553,7 @@ static void test_bvpoly(void) {
   y = test_uninterpreted_term(tau, "V");
   bvarith_buffer_prepare(&buffer1, 65);
   bvarith_buffer_prepare(&buffer2, 65);
-  
+
   bvarith_buffer_add_var(&buffer1, x);
   r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
   bvarith_buffer_add_pp(&buffer1, r0);
@@ -1563,7 +1563,7 @@ static void test_bvpoly(void) {
   bvarith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
   bvarith_buffer_normalize(&buffer2);
   assert(bvarith_buffer_equal(&buffer1, &buffer2));
-  
+
   printf("Testing: ");
   print_bvarith_buffer(stdout, &buffer1);
   printf(": ");
@@ -1580,7 +1580,7 @@ static void test_bvpoly(void) {
 
   print_term(stdout, &terms, s);
   printf("\n");
-  
+
   delete_bvarith_buffer(&buffer1);
   delete_bvarith_buffer(&buffer2);
   printf("\n");
@@ -1599,7 +1599,7 @@ static bool check_bvconst64(term_t x, uint64_t c, uint32_t n) {
   tau = bv_type(&types, n);
   i = index_of(x);
   d = bvconst64_for_idx(&terms, i);
-  return kind_for_idx(&terms, i) == BV64_CONSTANT && type_for_idx(&terms, i) == tau && 
+  return kind_for_idx(&terms, i) == BV64_CONSTANT && type_for_idx(&terms, i) == tau &&
     d->bitsize == n && d->value == c;
 }
 
@@ -1652,7 +1652,7 @@ static void test_bvpoly64(void) {
 
   init_bvarith64_buffer(&buffer1, &pprods, &bvmlist64_store);
   init_bvarith64_buffer(&buffer2, &pprods, &bvmlist64_store);
-  
+
   c = 3;
   tau = bv_type(&types, 5);
 
@@ -1661,7 +1661,7 @@ static void test_bvpoly64(void) {
   y = test_uninterpreted_term(tau, "YY");
   bvarith64_buffer_prepare(&buffer1, 5);
   bvarith64_buffer_prepare(&buffer2, 5);
-  
+
   bvarith64_buffer_add_var(&buffer1, x);
   r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
   bvarith64_buffer_add_pp(&buffer1, r0);
@@ -1671,7 +1671,7 @@ static void test_bvpoly64(void) {
   bvarith64_buffer_add_buffer(&buffer2, &buffer1); // make a copy
   bvarith64_buffer_normalize(&buffer2);
   assert(bvarith64_buffer_equal(&buffer1, &buffer2));
-  
+
   printf("Testing: ");
   print_bvarith64_buffer(stdout, &buffer1);
   printf(": ");
@@ -1692,7 +1692,7 @@ static void test_bvpoly64(void) {
   // mark it for next GC test
   printf("Marking term %"PRId32"\n", index_of(s));
   term_table_set_gc_mark(&terms, index_of(s));
-  
+
   delete_bvarith64_buffer(&buffer1);
   delete_bvarith64_buffer(&buffer2);
   printf("\n");
@@ -1740,7 +1740,7 @@ static void test_unints(void) {
   unint[0] = test_uninterpreted_term(type[0], "p");   // bool
   unint[1] = test_uninterpreted_term(type[0], "q");   // bool
   unint[2] = test_uninterpreted_term(type[1], "i");   // int
-  unint[3] = test_uninterpreted_term(type[1], "j");   // int 
+  unint[3] = test_uninterpreted_term(type[1], "j");   // int
   unint[4] = test_uninterpreted_term(type[2], "x");   // real
   unint[5] = test_uninterpreted_term(type[2], "y");   // real
   unint[6] = test_uninterpreted_term(type[3], "aa");  // bv1
@@ -1755,7 +1755,7 @@ static void test_unints(void) {
   unint[14] = test_uninterpreted_term(type[16], "G0"); // T1 -> T2
   unint[15] = test_uninterpreted_term(type[17], "H0"); // real -> U1
   unint[16] = test_uninterpreted_term(type[17], "H1"); // real -> U1
-  
+
   num_unints = 17;
   printf("\n");
 }
@@ -1781,7 +1781,7 @@ static void test_composites(void) {
   (void) test_not(false_term, NULL);
   x = test_not(unint[0], "not_p");
   y = test_not(x, "not_not_p");
-  
+
   (void) test_ite(type[8], x, constant[0], constant[1], NULL);
   (void) test_ite(type[8], y, constant[0], constant[1], NULL);
   (void) test_ite(type[8], x, constant[1], constant[0], NULL);
@@ -1800,10 +1800,10 @@ static void test_composites(void) {
   x = test_tuple1(type[18], unint[7], NULL);   // [bv6]
   y = test_tuple2(type[19], unint[2], unint[5], NULL); // [int real]
 
-  (void) test_select(type[4], x, 0, NULL); 
+  (void) test_select(type[4], x, 0, NULL);
   (void) test_select(type[1], y, 0, NULL);
   (void) test_select(type[2], y, 1, NULL);
-  
+
   (void) test_eq(y, y, NULL);
   (void) test_eq(constant[3], constant[4], NULL);
 
@@ -1835,7 +1835,7 @@ static void test_composites(void) {
   (void) test_bvshl(type[4], unint[7], unint[7], NULL);
   (void) test_bvlshr(type[4], unint[7], unint[7], NULL);
   (void) test_bvashr(type[4], unint[7], unint[7], NULL);
-  
+
   (void) test_bveq(unint[8], unint[8], NULL);
   (void) test_bvge(unint[8], unint[8], NULL);
   (void) test_bvsge(unint[8], unint[8], NULL);
@@ -1953,7 +1953,7 @@ static void test_name(char *name, type_t y) {
     print_term(stdout, &terms, x);
     printf("\n");
   }
-  
+
   if (y != x) {
     printf("BUG: the expected result is ");
     if (y != NULL_TERM) {
@@ -2008,7 +2008,7 @@ static void test_names(void) {
   test_name("....", NULL_TERM);
   test_name("", NULL_TERM);
 
-  // constant[2] 
+  // constant[2]
   printf("\n");
   printf("removing name 'd2'\n");
   remove_term_name(&terms, "d2");

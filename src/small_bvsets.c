@@ -15,13 +15,13 @@
 
 
 /*
- * Initialize a small set for bitsize n 
+ * Initialize a small set for bitsize n
  * - n must be positive and no more than 31
  */
 void init_small_bvset(small_bvset_t *s, uint32_t n) {
   uint32_t size;
 
-  assert(0 < n && n < 32);  
+  assert(0 < n && n < 32);
   size = (1 << n);
   s->set = allocate_bitvector0(size);
   s->size = size;
@@ -57,7 +57,7 @@ void small_bvset_add(small_bvset_t *s, uint32_t x) {
   if (! tst_bit(s->set, x)) {
     set_bit(s->set, x);
     s->nelems ++;
-  }  
+  }
 }
 
 

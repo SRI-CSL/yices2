@@ -1,5 +1,5 @@
 /*
- * Products of variables: x_1^d_1 ... x_n^d_n 
+ * Products of variables: x_1^d_1 ... x_n^d_n
  *
  * These are used to represent polynomials
  * Variables are just integer indices
@@ -87,7 +87,7 @@ static void pp_buffer_pusharray(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t
   pp_buffer_resize(b, l + n);
   for (i=0; i<n; i++) {
     b->prod[l+i].var = v[i];
-    b->prod[l+i].exp = d[i];    
+    b->prod[l+i].exp = d[i];
   }
   b->len = l + n;
 }
@@ -178,7 +178,7 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   // The test i <= j in the second loop is required for termination
   // if all elements are smaller than the pivot.
   do { j--; } while (a[j].var > pivot);
-  do { i++; } while (i <= j && a[i].var < pivot); 
+  do { i++; } while (i <= j && a[i].var < pivot);
 
   while (i < j) {
     aux = a[i]; a[i] = a[j]; a[j] = aux;
@@ -189,7 +189,7 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
 
   // swap pivot = a[0] and a[j]
   aux = a[0]; a[0] = a[j]; a[j] = aux;
-   
+
   // sort a[0 ... j-1] and a[j+1 ... n-1]
   sort_varexp_array(a, j);
   j ++;
@@ -218,7 +218,7 @@ static uint32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
     if (a[i].var == v) {
       d += a[i].exp;
     } else {
-      if (d != 0) {     
+      if (d != 0) {
         a[j].var = v;
         a[j].exp = d;
         j ++;
@@ -512,13 +512,13 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n) {
  * The ordering between power products must be compatible with the
  * product and with the ordering on variables. That is, we want
  *  1) a < b => a * c < b * c for any c
- *  2) x < y as variables => x^1 y^0 < x^0 y^1 
- * 
+ *  2) x < y as variables => x^1 y^0 < x^0 y^1
+ *
  * The lexical ordering defined as follows works:
  * Let a = x_1^d_1 .... x_n^d_n and b = x_1^c_1 ... x_n^c_n
  * then a < b if for some i we have
  *   d_1 = c_1 and ...  and d_{i-1} = c_{i-1} and d_i > c_i
- * 
+ *
  * Input:
  * - a and b must be normalized, na = length of a, nb = length of b
  * Output:
@@ -634,8 +634,8 @@ static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t
   j = 0;
   for (i=0; i<na; i++) {
     v = a[i].var;
-    while (j < nb && b[j].var < v) { 
-      j++; 
+    while (j < nb && b[j].var < v) {
+      j++;
     }
     if (j == nb || b[j].var > v || a[i].exp > b[j].exp) {
       return false;
@@ -720,7 +720,7 @@ bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
   j =0;
   for (i=0; i<n; i++) {
     v = a1[i].var;
-    while (a2[j].var < v) j++; 
+    while (a2[j].var < v) j++;
     if (a2[j].var > v || a2[j].exp < a1[i].exp) return false;
     a2[j].exp -= a1[i].exp;
     j ++;
@@ -745,7 +745,7 @@ bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
 /*
  * Check whether p1 and p2 are equal
  */
-bool pprod_equal(pprod_t *p1, pprod_t *p2) {  
+bool pprod_equal(pprod_t *p1, pprod_t *p2) {
   assert(p1 != end_pp && p2 != end_pp);
 
   if (p1 == p2) return true;

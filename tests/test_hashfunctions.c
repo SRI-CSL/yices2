@@ -103,11 +103,11 @@ static uint32_t jenkins_hash_byte_ori(char *k, uint32_t len, uint32_t initval) {
   case 3 : a+=((uint32_t)k[2]<<16);
   case 2 : a+=((uint32_t)k[1]<<8);
   case 1 : a+=k[0];
-    /* case 0: nothing left to add */    
+    /* case 0: nothing left to add */
   }
   mix(a, b, c);
 
-  return c;  
+  return c;
 }
 
 
@@ -173,7 +173,7 @@ static void show_stats() {
     sum += stat[i];
     sum_squares += stat[i] * stat[i];
     if (stat[i] < min) min = stat[i];
-    if (stat[i] > max) max = stat[i];    
+    if (stat[i] > max) max = stat[i];
   }
 
   mean = ((double) sum)/N;
@@ -182,7 +182,7 @@ static void show_stats() {
   printf("mean:     %8.3f\n", mean);
   printf("variance: %8.3f\n", var);
   printf("min:      %8d\n", min);
-  printf("max:      %8d\n", max);  
+  printf("max:      %8d\n", max);
 }
 #endif
 
@@ -289,7 +289,7 @@ static void clear_words() {
   uint32_t j;
 
   for (j=0; j<n_words; j++) free(words[j]);
-  free(words);  
+  free(words);
 }
 
 static void file_test(char *filename) {
@@ -308,7 +308,7 @@ static void file_test(char *filename) {
   }
   runtime = get_cpu_time() - runtime;
   printf("\nNaive hash:    %.4f s\n\n", runtime);
-  histogram();  
+  histogram();
 
   runtime = get_cpu_time();
   for (i=0; i<100000; i++) {

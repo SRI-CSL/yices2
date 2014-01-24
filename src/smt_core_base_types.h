@@ -107,7 +107,7 @@ static inline literal_t signed_literal(literal_t l, bool tt) {
 
 
 /*
- * Variant of mk_lit that takes a boolean polarity instead of 
+ * Variant of mk_lit that takes a boolean polarity instead of
  * a sign:
  * - mk_signed_lit(x, true) = mk_lit(x, 0) = pos_lit(x)
  * - mk_signed_lit(x, false) = mk_lit(x, 1) = neg_lit(x)

@@ -51,7 +51,7 @@ static type_t base[NUM_BASE_TYPES];
 static void init_base_types(void) {
   base[0] = bool_type(&types);               // bool
   base[1] = bv_type(&types, 5);              // bv5
-  base[2] = new_scalar_type(&types, 3);      // scalar3 
+  base[2] = new_scalar_type(&types, 3);      // scalar3
   base[3] = new_scalar_type(&types, 1);      // scalar1
   base[4] = pair_type(base[0], base[2]);     // bool x scalar3
   base[5] = pair_type(base[3], base[0]);     // scalar1 x bool
@@ -74,7 +74,7 @@ static void init_base_types(void) {
   base[18] = bv_type(&types, 40);           // bv40
 
   // infinite domain, unit range
-  base[19] = fun_type1(base[13], base[3]);  // [real -> scalar1]  
+  base[19] = fun_type1(base[13], base[3]);  // [real -> scalar1]
 }
 
 
@@ -103,7 +103,7 @@ static void test_type(type_t tau, uint32_t n) {
     if (vtbl_queue_is_nonempty(&vtbl)) {
       vtbl_print_queued_functions(stdout, &vtbl, true);
       printf("\n");
-    }    
+    }
   } while (i <n);
 
   printf("\n---> got %"PRIu32" fresh values\n\n", i);

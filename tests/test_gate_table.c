@@ -78,7 +78,7 @@ static void test_orgate(literal_t l0, literal_t l1, literal_t l2) {
   input[1] = l1;
   input[2] = l2;
   printf("\n--- Testing OR gate ---\n");
-  printf("test: OR"); 
+  printf("test: OR");
   show_input(3);
   fputc('\n', stdout);
 

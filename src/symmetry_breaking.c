@@ -42,7 +42,7 @@ static uint32_t hash_const_set(term_t *a, uint32_t n) {
  * - a must be sorted
  * - arrays r->trm/r->idx are allocated with default initial size
  */
-static void init_rng_record(rng_record_t *r, term_t *a, uint32_t n) {  
+static void init_rng_record(rng_record_t *r, term_t *a, uint32_t n) {
   term_t *tmp;
   uint32_t i, nt;
 
@@ -223,12 +223,12 @@ static void delete_rng_vector(rng_vector_t *rng) {
 /*
  * Add a range constraint to v:
  * - a[0 ... n-1] = the constant for this constraint
- * - t = term, id = index 
+ * - t = term, id = index
  * - a must be sorted.
  */
 static void add_range_constraint(rng_vector_t *v, term_t *a, uint32_t n, term_t t, uint32_t id) {
   uint32_t i, p;
-  
+
   p = v->nelems;
   for (i=0; i<p; i++) {
     if (rng_record_match(v->data + i, a, n)) {
@@ -256,7 +256,7 @@ static void add_range_constraint(rng_vector_t *v, term_t *a, uint32_t n, term_t 
 
 /*
  * For breadth-first term exploration we use a queue + cache
- * - terms to be processed are in the queue 
+ * - terms to be processed are in the queue
  * - terms already processed or already in the queue are in cache
  */
 
@@ -380,7 +380,7 @@ static bool false_eq(term_table_t *table, term_t t1, term_t t2) {
  * - false term
  * - disjuction: (or t1 ... tn_
  * - equality (x == constant) or (constant == x)
- * 
+ *
  * The function retuns one of the following codes:
  * - MATCH_FALSE
  * - MATCH_OR
@@ -402,7 +402,7 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
   term_table_t *terms;
   match_code_t code;
   term_t t1, t2;
-  
+
   if (term_is_false(ctx, t)) {
     code = MATCH_FALSE;
   } else {
@@ -416,7 +416,7 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
 	t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
 	t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 	if (t1 != t2) {
-	  /* 
+	  /*
 	   * if (t1 and t2) are equal, we return MATCH_OTHER, since (eq t1 t2) is true
 	   */
 	  if (false_eq(terms, t1, t2)) {
@@ -496,14 +496,14 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
 	/*
 	 * First equality: (y == b). Second equality: (x == a)
 	 */
-	if (y == x) { 
-	  // y is the common term, a and b are constant	  
+	if (y == x) {
+	  // y is the common term, a and b are constant
 	  ivector_push(v, b);
 	  ivector_push(v, a);
 	} else if (y == a && term_is_uconst(terms, x)) {
 	  // y is the common term, b and x are constant
 	  ivector_push(v, b);
-	  ivector_push(v, a);	  
+	  ivector_push(v, a);
 	} else if (x == b && term_is_uconst(terms, y)) {
 	  // b is the common term, y and a are constant
 	  ivector_push(v, y);
@@ -531,7 +531,7 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
 	} else {
 	  // no match
 	  goto done;
-	}	
+	}
       }
       neqs ++;
       break;
@@ -606,7 +606,7 @@ static void resize_ctx_subst(ctx_subst_t *s, uint32_t i) {
 /*
  * Store the mapping [i --> t] into subst
  */
-static void ctx_subst_store(ctx_subst_t *s, uint32_t i, term_t t) {  
+static void ctx_subst_store(ctx_subst_t *s, uint32_t i, term_t t) {
   uint32_t j;
 
   if (i >= s->nterms) {
@@ -734,14 +734,14 @@ static term_t ctx_subst_ite(ctx_subst_t *s, composite_term_t *d) {
 
     result = mk_ite(&s->mngr, c, t1, t2, tau);
   }
-  
+
   return result;
 }
 
 // (eq t1 t2)
 static term_t ctx_subst_eq(ctx_subst_t *s, composite_term_t *d) {
   term_t t1, t2;
-  
+
   assert(d->arity == 2);
   t1 = ctx_subst(s, d->arg[0]);
   t2 = ctx_subst(s, d->arg[1]);
@@ -749,7 +749,7 @@ static term_t ctx_subst_eq(ctx_subst_t *s, composite_term_t *d) {
 }
 
 // (or t1 .... tn)
-static term_t ctx_subst_or(ctx_subst_t *s, composite_term_t *d) {  
+static term_t ctx_subst_or(ctx_subst_t *s, composite_term_t *d) {
   term_t *a;
   term_t result;
   uint32_t i, n;
@@ -971,7 +971,7 @@ static void make_cycle(ctx_subst_t *s, term_t *c, uint32_t n) {
     set_ctx_subst_of_term(s, c[i], c[i-1]);
   }
 }
- 
+
 
 /*
  * Check whether the assertions in ctx are invariant with respect
@@ -1062,7 +1062,7 @@ static bool sorted_array(term_t *c, uint32_t n) {
 /*
  * Check whether a belongs to array c[0 ... n-1]
  * - c must be sorted in strict increasing order
- * - return true if a is in the array and store a's position 
+ * - return true if a is in the array and store a's position
  *   in *j.
  */
 static bool constant_is_in_set(term_t a, term_t *c, uint32_t n, uint32_t *j) {
@@ -1075,7 +1075,7 @@ static bool constant_is_in_set(term_t a, term_t *c, uint32_t n, uint32_t *j) {
   for (;;) {
     k = (l + h)/2;
     assert(l <= k && k < h);
-    if (k == l) break; 
+    if (k == l) break;
     if (a < c[k]) {
       h = k;
     } else {
@@ -1113,14 +1113,14 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
 
   do {
     // r := root of the first term in the queue
-    r = intern_tbl_get_root(intern, int_queue_pop(queue)); 
+    r = intern_tbl_get_root(intern, int_queue_pop(queue));
     switch (term_kind(terms, r)) {
     case UNUSED_TERM:
     case RESERVED_TERM:
       assert(false);
       abort();
       break;
-      
+
     case CONSTANT_TERM:
     case UNINTERPRETED_TERM:
       if (constant_is_in_set(r, c, n, &k)) {
@@ -1140,7 +1140,7 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
     case ARITH_GE_ATOM:
       push_term(queue, cache, arith_atom_arg(terms, r));
       break;
-      
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case APP_TERM:
@@ -1190,7 +1190,7 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
 
     case BV_POLY:
       push_bvpoly_vars(queue, cache, bvpoly_term_desc(terms, r));
-      break;      
+      break;
     }
   } while (! int_queue_is_empty(queue));
 
@@ -1384,7 +1384,7 @@ static void compute_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
  *       E[i] = C[i] \inter new available set
  * - we have new available set = old available set - removed
  *   So if removed \inter D[i] is empty, we know that E[i] = D[i]
- *   and cost[i] does not change. 
+ *   and cost[i] does not change.
  * - We check whether hash[i] & removed->hash is 0. If so, we know that
  *   D[i] inter removed is empty.
  */
@@ -1409,7 +1409,7 @@ static void update_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
 }
 
 
-							
+
 /*
  * Select a term t from s->candidates then remove t from the candidate set.
  * - heuristic: terms with lower cost are prefered, in case of ties (equal costs)
@@ -1481,7 +1481,7 @@ static void move_constants(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   }
   s->num_used = j;
 }
- 
+
 
 
 /*
@@ -1617,7 +1617,7 @@ static bool aux_eq_is_false(sym_breaker_t *breaker, term_t t, term_t c) {
 
 
 /*
- * Search for a constant c in s->constants such that 
+ * Search for a constant c in s->constants such that
  * 1) c is in s->available and not in s->removed
  * 2) (eq t c) is not false
  * - return c's index or -1 if nothing is found
@@ -1669,7 +1669,7 @@ void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   term_t t;
 
   compute_costs(breaker, s);
- 
+
   while (! cset_is_empty(&s->available)) {
     t = select_candidate(breaker, s);
     if (t == NULL_TERM) break; // no candidates
@@ -1710,7 +1710,7 @@ void delete_sym_breaker(sym_breaker_t *breaker) {
   delete_rng_vector(&breaker->range_constraints);
   safe_free(breaker->sorted_constraints);
   delete_sym_breaker_sets(&breaker->sets);
-  delete_int_queue(&breaker->queue); 
+  delete_int_queue(&breaker->queue);
   delete_int_hset(&breaker->cache);
   delete_ivector(&breaker->aux);
 }
@@ -1753,7 +1753,7 @@ void collect_range_constraints(sym_breaker_t *breaker) {
   ivector_t *v;
   uint32_t i, n;
   term_t t;
-  
+
   v = &breaker->aux;
   formulas = &breaker->ctx->top_formulas;
   n = formulas->size;
@@ -1773,7 +1773,7 @@ void collect_range_constraints(sym_breaker_t *breaker) {
 
 
 /*
- * Check whether the assertions are invariant by permutation of 
+ * Check whether the assertions are invariant by permutation of
  * constants in record r.
  */
 bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r) {

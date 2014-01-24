@@ -274,7 +274,7 @@ int32_t mtbl_get_root(mtbl_t *table, int32_t x) {
     if (y < 0) break;
     x = y;
   }
-  
+
   return x;
 }
 

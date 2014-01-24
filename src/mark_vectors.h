@@ -12,16 +12,16 @@
 /*
  * Vector:
  * - def = default value
- * - map = current map 
+ * - map = current map
  * - size = size of the map array
  * - end_map = largest index mapped in map + 1
- * The mark of an index i>=0 is 
+ * The mark of an index i>=0 is
  * - map[i] if i < end_map
  * - def otherwise
  * - we always have end_map <= size
  */
 typedef struct mark_vector_s {
-  uint8_t *map;  
+  uint8_t *map;
   uint32_t end_map;
   uint32_t start_map;
   uint32_t size;

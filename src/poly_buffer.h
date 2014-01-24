@@ -3,9 +3,9 @@
  * (Simpler than arith_buffers/Supports only linear arithmetic).
  *
  * The buffer may be normalized or not.
- * - once the buffer is normalized, the monomials are sorted, all coefficients 
- *   are non-zero and there is an end marker 
- * - operations such as adding monomials or polynomials do not require the 
+ * - once the buffer is normalized, the monomials are sorted, all coefficients
+ *   are non-zero and there is an end marker
+ * - operations such as adding monomials or polynomials do not require the
  *   input buffer to be normalized, and their result is not normalized.
  */
 
@@ -24,12 +24,12 @@
  * Buffer for constructing polynomials
  * - the polynomial under construction is stored in a monomial array
  *   (i.e., in mono[0 ... nterms - 1])
- * - array index maps variables to the corresponding monomial 
- * For a variable x: 
- * - buffer->index[x] = -1 if there's no monomial of the form a * x 
+ * - array index maps variables to the corresponding monomial
+ * For a variable x:
+ * - buffer->index[x] = -1 if there's no monomial of the form a * x
  * - otherwise buffer->index[x] = i, where mono[i] is a * x
  *
- * As in polynomials.h, const_idx = 0 is used to denote constants. 
+ * As in polynomials.h, const_idx = 0 is used to denote constants.
  * (e.g., 3 + 2 x is represented as 3 * const_idx + 2 * x)
  */
 typedef struct poly_buffer_s {
@@ -81,7 +81,7 @@ extern void reset_poly_buffer(poly_buffer_t *buffer);
 
 /*
  * Add monomials to the buffer
- * - poly_buffer_add_monomial: add              a * x 
+ * - poly_buffer_add_monomial: add              a * x
  * - poly_buffer_sub_monomial: subtract         a * x
  * - poly_buffer_add_var:      add monomial     1 * x
  * - poly_buffer_sub_var:      add monomial    -1 * x
@@ -268,7 +268,7 @@ static inline bool poly_buffer_is_nzconstant(poly_buffer_t *buffer) {
  * Check whether the buffer is constant and positive
  */
 static inline bool poly_buffer_is_pos_constant(poly_buffer_t *buffer) {
-  return buffer->nterms == 1 && buffer->mono[0].var == const_idx && 
+  return buffer->nterms == 1 && buffer->mono[0].var == const_idx &&
     q_is_pos(&buffer->mono[0].coeff);
 }
 
@@ -283,10 +283,10 @@ static inline bool poly_buffer_is_neg_constant(poly_buffer_t *buffer) {
 
 /*
  * Return a pointer to the main coefficient of p
- * - if buffer is a_0 + a_1 x_1 + ... + a_n x_n in that order, then the 
+ * - if buffer is a_0 + a_1 x_1 + ... + a_n x_n in that order, then the
  *   main coeff is a_n
  * - buffer must be non zero
- */ 
+ */
 static inline rational_t *poly_buffer_get_main_coeff(poly_buffer_t *buffer) {
   assert(buffer->nterms > 0);
   return &buffer->mono[buffer->nterms - 1].coeff;
@@ -294,9 +294,9 @@ static inline rational_t *poly_buffer_get_main_coeff(poly_buffer_t *buffer) {
 
 
 /*
- * Multiply by the inverse of the main coefficient: this makes the 
+ * Multiply by the inverse of the main coefficient: this makes the
  * main coefficient equal to one.
- * - return true is the main coefficient was negative 
+ * - return true is the main coefficient was negative
  * - return false otherwise
  * - buffer must be non-zero
  */
@@ -305,7 +305,7 @@ extern bool poly_buffer_make_monic(poly_buffer_t *buffer);
 
 /*
  * Make all coefficients integral and make the main coefficient positive:
- * If the buffer contains b + a_1 x_1 + ... + a_n x_n, the result is 
+ * If the buffer contains b + a_1 x_1 + ... + a_n x_n, the result is
  *    Lb + La_1 x_1 + ... + La_n x_n
  * where L is an integer such that
  *    Lb, La_1, ..., La_n are integer and La_n > 0
@@ -321,11 +321,11 @@ extern bool poly_buffer_make_integral(poly_buffer_t *buffer);
  * Make all coefficients, except the constant term, integral. Make the main
  * coefficient positive.
  * If the buffer contains b + a_1 x_1 + ... + a_n x_n, the result is
- *    Lb + La_1 x_1 + ... + La_n x_n 
+ *    Lb + La_1 x_1 + ... + La_n x_n
  * where L is an integer such that
  *    La_1 ... La_n are integer and La_n > 0
  * (L is either the lcm of den(a_1), ..., den(a_n) or its opposite)
- * 
+ *
  * - return true is L<0, false if L > 0
  * - buffer must be non-zero
  */
@@ -339,7 +339,7 @@ extern bool poly_buffer_make_nonconstant_integral(poly_buffer_t *buffer);
  *   check whether b is a multiple of gcd(a_1, ..., a_n).
  * - if so return true, otherwise return false
  * All coefficients b, a_1, ... , a_n must be integer.
- * If x_1, ..., x_n are integer and the gcd test fails then 
+ * If x_1, ..., x_n are integer and the gcd test fails then
  *  (b + a_1 x_1 + ... + a_n a_n) can't be zero
  */
 extern bool poly_buffer_gcd_test(poly_buffer_t *buffer);
@@ -349,7 +349,7 @@ extern bool poly_buffer_gcd_test(poly_buffer_t *buffer);
  * Copy the constant term of buffer, or its opposite, into a
  *
  * NOTE: This is used to construct atoms: for example, to rewrite
- * atom (a + q) >= 0 to (q >= -a) 
+ * atom (a + q) >= 0 to (q >= -a)
  */
 extern void poly_buffer_get_constant(poly_buffer_t *buffer, rational_t *a);
 extern void poly_buffer_get_neg_constant(poly_buffer_t *buffer, rational_t *a);
@@ -368,7 +368,7 @@ extern void poly_buffer_get_den_lcm(poly_buffer_t *buffer, rational_t *a);
  * (i.e., if it's 1.x for some variable x, where x may be const_idx)
  * - if so return x, otherwise return null_idx = -1
  */
-static inline int32_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {  
+static inline int32_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {
   if (buffer->nterms == 1 && q_is_one(&buffer->mono[0].coeff)) {
     return buffer->mono[0].var;
   }
@@ -377,7 +377,7 @@ static inline int32_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {
 
 
 /*
- * Check whether the non-constant part of buffer is reduced to a single variable 
+ * Check whether the non-constant part of buffer is reduced to a single variable
  * or equal to 0 (i.e., the buffer is either a + x or x, where a
  * is a constant).
  * - if so return x, otherwise return null_idx = -1

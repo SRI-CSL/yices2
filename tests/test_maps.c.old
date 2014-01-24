@@ -15,7 +15,7 @@ static pstore_t store;
 /*
  * Print particle x as a index (or tuple)
  */
-static void print_index(particle_t x) { 
+static void print_index(particle_t x) {
   particle_tuple_t *tup;
   uint32_t i, n;
 
@@ -41,7 +41,7 @@ static void print_index(particle_t x) {
 /*
  * Print particle x as a value
  */
-static void print_value(particle_t x) { 
+static void print_value(particle_t x) {
   particle_tuple_t *tup;
   uint32_t i, n;
 
@@ -56,7 +56,7 @@ static void print_value(particle_t x) {
     tup = tuple_particle_desc(&store, x);
     printf("(tuple ");
     n = tup->nelems;
-    for (i=0; i<n; i++) {      
+    for (i=0; i<n; i++) {
       printf(" ");
       print_value(tup->elem[i]);
     }
@@ -145,7 +145,7 @@ static void test1(void) {
 	 "*       TEST 1        *\n"
          "***********************\n");
 
-  init_pstore(&store, &types); 
+  init_pstore(&store, &types);
 
   for (i=0; i<4; i++) {
     map[i] = new_map(3);
@@ -157,7 +157,7 @@ static void test1(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   tau = fun_type1(tau, tau); // [bool -> bool]
   f = function_type_desc(&types, tau);
@@ -167,7 +167,7 @@ static void test1(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<4; i++) {
@@ -198,8 +198,8 @@ static void test2(void) {
 	 "***********************\n"
 	 "*       TEST 2        *\n"
          "***********************\n");
-  
-  init_pstore(&store, &types); 
+
+  init_pstore(&store, &types);
 
   for (i=0; i<5; i++) {
     map[i] = new_map(3);
@@ -211,7 +211,7 @@ static void test2(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   tau = fun_type1(tau, tau); // [bool -> bool]
   f = function_type_desc(&types, tau);
@@ -221,7 +221,7 @@ static void test2(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -252,8 +252,8 @@ static void test3(void) {
 	 "***********************\n"
 	 "*       TEST 3        *\n"
          "***********************\n");
-  
-  init_pstore(&store, &types); 
+
+  init_pstore(&store, &types);
 
   for (i=0; i<16; i++) {
     map[i] = new_map(3);
@@ -265,7 +265,7 @@ static void test3(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   tau = fun_type2(tau, tau, tau); // [bool bool -> bool]
   f = function_type_desc(&types, tau);
@@ -275,7 +275,7 @@ static void test3(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<16; i++) {
@@ -306,8 +306,8 @@ static void test4(void) {
 	 "***********************\n"
  	 "*       TEST 4        *\n"
          "***********************\n");
-  
-  init_pstore(&store, &types); 
+
+  init_pstore(&store, &types);
 
   for (i=0; i<17; i++) {
     map[i] = new_map(3);
@@ -319,7 +319,7 @@ static void test4(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   tau = fun_type2(tau, tau, tau); // [bool bool -> bool]
   f = function_type_desc(&types, tau);
@@ -329,7 +329,7 @@ static void test4(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<17; i++) {
@@ -361,8 +361,8 @@ static void test5(void) {
 	 "***********************\n"
 	 "*       TEST 5        *\n"
          "***********************\n");
-  
-  init_pstore(&store, &types); 
+
+  init_pstore(&store, &types);
 
   for (i=0; i<5; i++) {
     map[i] = new_map(3);
@@ -374,7 +374,7 @@ static void test5(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   unint = new_uninterpreted_type(&types);
   tau = fun_type1(tau, unint); // [bool -> unint]
@@ -385,7 +385,7 @@ static void test5(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {
@@ -417,8 +417,8 @@ static void test6(void) {
 	 "***********************\n"
 	 "*       TEST 6        *\n"
          "***********************\n");
-  
-  init_pstore(&store, &types); 
+
+  init_pstore(&store, &types);
 
   for (i=0; i<5; i++) {
     map[i] = new_map(3);
@@ -430,7 +430,7 @@ static void test6(void) {
     print_map(map[i]);
   }
   printf("\n");
-  
+
   tau = bool_type(&types);
   unint = new_uninterpreted_type(&types);
   tau = fun_type1(unint, tau); // [unint -> bool]
@@ -441,7 +441,7 @@ static void test6(void) {
   } else {
     printf("All distinct: failed\n");
   }
-  
+
   // print all the maps;
   printf("\nFinal maps\n");
   for (i=0; i<5; i++) {

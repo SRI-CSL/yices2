@@ -68,8 +68,8 @@ void xq_floor(xrational_t *r) {
 
 
 /*
- * Ceiling of r 
- * r = a + b \delta 
+ * Ceiling of r
+ * r = a + b \delta
  * ceil(r) = ceil(a) if a is not an integer
  *         = a + 1   if a is an integer and b > 0
  *         = a       if a is an integer and b <= 0
@@ -95,7 +95,7 @@ void xq_print(FILE *f, xrational_t *r) {
   int s;
 
   s = q_sgn(&r->delta);
-  if (s == 0) { 
+  if (s == 0) {
     q_print(f, &r->main);
   } else {
     if (q_is_nonzero(&r->main)) {

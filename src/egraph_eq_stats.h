@@ -7,7 +7,7 @@
  * Each element in the table stores statistics
  * about a pair of theory veriables x[0] and x[1]
  * - currently we keep:
- * - the number of times, the egraph propagates (x[0] == x[1]) 
+ * - the number of times, the egraph propagates (x[0] == x[1])
  * - the number of times, the egraph propagates (x[0] != x[1])
  * - the number of times, the equality (x[0] == x[1]) is used in
  *   a conflict explanation
@@ -37,12 +37,12 @@ typedef struct egeq_elem_s {
 /*
  * Structure for allocation of records:
  * - block is an array of size 'capacity'
- * - for 0 <= i < nblocks: 
- *   block[i] is a pointer to an allocated block (an array of 
+ * - for 0 <= i < nblocks:
+ *   block[i] is a pointer to an allocated block (an array of
  *     EGEQ_BLOCK_SIZE records)
  * - for nblocks <= i < capacity: block[i] is not initialized
  * - for 0 <= i < free_block: block[i] contains data
- * - for free_block <= i < nblocks, block[i] is empty 
+ * - for free_block <= i < nblocks, block[i] is empty
  *
  * If the bank is empty, then free_blocks = 0
  *
@@ -66,7 +66,7 @@ typedef struct egeq_bank_s {
 
 /*
  * Stack of allocation marks for push/pop operations
- * - each element in the stack has a level k>0 
+ * - each element in the stack has a level k>0
  *   and keeps a pointer to the first record allocated at that level
  *   the pointer consists of a pair <block id, index in block>
  * - the stack elements are in data[0 ... nmarks-1]
@@ -112,7 +112,7 @@ typedef struct egeq_htbl_s {
 
 /*
  * DEF_EGEQ_HTBL_SIZE must be a power of 2, smaller than MAX_EGEQ_HTBL_SIZE
- */ 
+ */
 #define DEF_EGEQ_HTBL_SIZE 32
 #define MAX_EGEQ_HTBL_SIZE (UINT32_MAX/sizeof(egeq_elem_t*))
 #define EGEQ_HTBL_RESIZE_RATIO  0.6
@@ -163,7 +163,7 @@ static inline void egeq_push(egeq_t *egeq) {
 
 
 /*
- * Pop: delete all objects created at the current level 
+ * Pop: delete all objects created at the current level
  * then decrement current_level. Should not be called at level 0.
  */
 extern void egeq_pop(egeq_t *egeq);

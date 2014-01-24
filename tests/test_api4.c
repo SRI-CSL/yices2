@@ -53,7 +53,7 @@ static void show_terms(void) {
 }
 
 
-  
+
 /*
  * TERM STORE
  */
@@ -85,7 +85,7 @@ static void init_term_store(term_store_t *store) {
 
   n = TERM_STORE_DEF_SIZE;
   assert(n < TERM_STORE_MAX_SIZE);
-  
+
   store->size = n;
   store->nterms = 0;
   store->term = (term_t *) safe_malloc(n * sizeof(term_t));
@@ -110,7 +110,7 @@ static void extend_term_store(term_store_t *store) {
   }
 
   store->size = n;
-  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));  
+  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));
 }
 
 
@@ -135,7 +135,7 @@ static uint32_t term_store_alloc_index(term_store_t *store) {
 /*
  * Mark term t
  */
-static void term_store_mark_term(term_store_t *store, term_t t) {  
+static void term_store_mark_term(term_store_t *store, term_t t) {
   uint32_t n;
 
   assert(t >= 0);
@@ -143,7 +143,7 @@ static void term_store_mark_term(term_store_t *store, term_t t) {
   n = store->max_term;
   if (t >= n) {
     // make the mark vector large enough to mark t: try to double its size
-    // if that's not enough allocate a vector of size 
+    // if that's not enough allocate a vector of size
     n += n;
     if (t >= n) {
       n = (t + 8) >> 3; // ceil((t+1)/8)
@@ -193,7 +193,7 @@ static void delete_term_store(term_store_t *store) {
 
 
 /*
- * Term sampling: get a random term 
+ * Term sampling: get a random term
  * Give priority to small terms (i.e., those created early).
  */
 typedef bool (*term_pred_t)(type_t tau, term_t t);
@@ -229,7 +229,7 @@ static term_t term_store_sample(term_store_t *store, type_t tau, term_pred_t p) 
       if (t != NULL_TERM) {
 	s = t;
       }
-    }    
+    }
   } else {
     s = term_array_sample(store->term, n, tau, p); // all terms are small
   }
@@ -331,7 +331,7 @@ static term_t test_binop(uint32_t i, term_t t1, term_t t2) {
   term_t t;
 
   assert(i < NUM_BINOPS);
-  
+
   printf("test: (%s ", binop_array[i].name);
   print_term(stdout, __yices_globals.terms, t1);
   printf(" ");

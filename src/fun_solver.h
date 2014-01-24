@@ -63,7 +63,7 @@ typedef struct fun_edgetable_s {
 
 /*
  * Special edge indices:
- * - null_fun_edge = -1 
+ * - null_fun_edge = -1
  * - null_fun_pred = large index (used as a mark as pred[x] when x is a source variable)
  */
 enum {
@@ -225,7 +225,7 @@ typedef struct fun_solver_s {
    * Push/pop stack
    */
   fun_trail_stack_t trail_stack;
-  
+
   /*
    * Buffers
    */
@@ -255,27 +255,27 @@ typedef struct fun_solver_s {
    * Components used for interface equalities/model building
    * - num_bases = number of connected components:
    *   for every root variable x base[x] is between 0 and num_bases-1
-   * - base_value[i] encodes the default value assigned to every array 
+   * - base_value[i] encodes the default value assigned to every array
    *   variable x such that base[x] = i.
    * The base_value for i is either the label of an egraph term u or a special
-   * code (a negative integer). All variables with the same base have a type 
+   * code (a negative integer). All variables with the same base have a type
    * [domain --> sigma] and base_value[i] denotes some object of type sigma.
    * (Note: all variables have the same type).
-   * - base_value[i] can be an egraph class of type sigma: in this 
+   * - base_value[i] can be an egraph class of type sigma: in this
    *   case. We set base_value[i] = label of some class (>= 0)
    * - base_value[i] can be a fresh object of type sigam (i.e., a fresh
    *   particle in the pstore. We encode this by setting base_value[i] = -(k+1)
    *   for some non-negative index k.
    *
    * We use the following rules to assign base_values:
-   * - If sigma is infinite, we  can assign a fresh value to base_value[i] 
-   *   (i.e., a value distinct from that of any other object in the egraph). 
+   * - If sigma is infinite, we  can assign a fresh value to base_value[i]
+   *   (i.e., a value distinct from that of any other object in the egraph).
    *   This is encoded by setting base[i] = - (i+1).
    * - If sigma is finite, we search for distinct egraph terms (as many as we can)
    *   and use them as base values. If there are not enough egraph terms, then
    *   we create fresh_values (but we make sure the total number of elements
    *   used as base values is not more than card(sigma)). The fresh values
-   *   are encoded as negative integers in the range [-p... -1] where 
+   *   are encoded as negative integers in the range [-p... -1] where
    *   p = card(sigma).
    *
    * When building the model, we convert the base values to particles.
@@ -287,7 +287,7 @@ typedef struct fun_solver_s {
   int32_t *base_value;
 
   /*
-   * Model: 
+   * Model:
    * - value[x] = map for variable x
    * - base_map[i] = default map for all variables x such that base[x] = i
    * Value and base_map are allocated only when the model is constructed
@@ -470,7 +470,7 @@ extern bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar
  *********************/
 
 /*
- * These functions are exported for testing only. 
+ * These functions are exported for testing only.
  * The egraph uses the fun_egraph interface.
  */
 

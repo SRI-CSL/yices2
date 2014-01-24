@@ -30,7 +30,7 @@ char *clone_string(const char *str) {
 
 
 /*
- * Decrement s's reference counter 
+ * Decrement s's reference counter
  * free the string if the ref count gets to 0.
  */
 void string_decref(char *s) {
@@ -38,7 +38,7 @@ void string_decref(char *s) {
   h = string_header(s);
   assert(h->ref > 0);
   h->ref --;
-  if (h->ref == 0) free(h); 
+  if (h->ref == 0) free(h);
 }
 
 

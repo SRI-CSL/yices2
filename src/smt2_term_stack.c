@@ -34,7 +34,7 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
     v = attr_vtbl_symbol(stack->avtbl, e->val.string);
     break;
 
-  case TAG_STRING: 
+  case TAG_STRING:
     v = attr_vtbl_string(stack->avtbl, e->val.string);
     break;
 
@@ -72,7 +72,7 @@ static bool is_keyword(stack_elem_t *e) {
 
 
 /*
- * Convert element e into an smt2_keyword 
+ * Convert element e into an smt2_keyword
  * - raise exception INTERNAL_ERROR if e is not a keyword
  */
 static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
@@ -101,7 +101,7 @@ static void check_term(tstack_t *stack, term_t t) {
 
 /*
  * TODO: deal with other SMT2 nonsense
- * 
+ *
  * 1) mk_implies can take more than two arguments
  *    (=> a b c) is interpreted as (=> a (=> b c))
  *
@@ -241,7 +241,7 @@ static void eval_smt2_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32
 static void check_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BV_ZERO_EXTEND);
   check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);  
+  check_tag(stack, f, TAG_RATIONAL);
 }
 
 static void eval_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -274,7 +274,7 @@ static void eval_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     left = yices_and(n, arg);
     right = get_term(stack, f+n);
   }
-  
+
   t = yices_implies(left, right);
   check_term(stack, t);
 
@@ -317,7 +317,7 @@ static void eval_smt2_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     t = yices_and(n, arg);
   }
   check_term(stack, t);
-  
+
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
@@ -366,7 +366,7 @@ static void eval_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_term(stack, t);
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);  
+  set_term_result(stack, t);
 }
 
 
@@ -407,7 +407,7 @@ static void eval_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_term(stack, t);
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);  
+  set_term_result(stack, t);
 }
 
 
@@ -449,7 +449,7 @@ static void eval_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_term(stack, t);
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);  
+  set_term_result(stack, t);
 }
 
 
@@ -490,7 +490,7 @@ static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_term(stack, t);
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);  
+  set_term_result(stack, t);
 }
 
 
@@ -508,7 +508,7 @@ static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_smt2_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_EXIT);
   check_size(stack, n == 0);
-} 
+}
 
 static void eval_smt2_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   smt2_exit();
@@ -523,7 +523,7 @@ static void eval_smt2_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_smt2_silent_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_SILENT_EXIT);
   check_size(stack, n == 0);
-} 
+}
 
 static void eval_smt2_silent_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   smt2_silent_exit();
@@ -982,14 +982,14 @@ static void eval_smt2_make_attr_list(tstack_t *stack, stack_elem_t *f, uint32_t 
 
 /*
  * [add-attributes <term> <keyword> <value> ... ]
- * - the attributes we care about are of the form 
+ * - the attributes we care about are of the form
  *    :named <symbol>
  *    :pattern <term> ... <term>
- * - for future extensions, we also allow 
+ * - for future extensions, we also allow
  *    :keyword <optional-value> where <optional value> is not a keyword
  */
 static void check_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_ADD_ATTRIBUTES);  
+  check_op(stack, SMT2_ADD_ATTRIBUTES);
   check_size(stack, n>=1);
 }
 
@@ -1063,7 +1063,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       // ignore the attribute and skip the attribute value if there's one
       i ++;
       if (i < n && !is_keyword(f + i)) {
-	i ++; 
+	i ++;
       }
       break;
     }
@@ -1094,7 +1094,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
  */
 typedef enum smt2_key {
   SMT2_KEY_TYPE,         // type name
-  SMT2_KEY_TYPE_OP,      // type constructor 
+  SMT2_KEY_TYPE_OP,      // type constructor
   SMT2_KEY_IDX_TYPE,     // indexed type
   SMT2_KEY_IDX_TYPE_OP,  // indexed type constructor
 
@@ -1112,8 +1112,8 @@ typedef enum smt2_key {
 
 /*
  * Conversion table:
- * - a symbol s can be converted to a type, a term, an opcode, 
- *   or something else. The conversion is determined by 
+ * - a symbol s can be converted to a type, a term, an opcode,
+ *   or something else. The conversion is determined by
  *      smt2_key[s] = conversion key
  *      smt2_map[s] = conversion value (i.e., type, term, or opcode)
  *
@@ -1223,7 +1223,7 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   MK_GE,                 // SMT2_SYM_GE
   MK_GT,                 // SMT2_SYM_GT
   SMT2_MK_DIV,           // SMT2_SYM_DIV (integer division not supported)
-  SMT2_MK_MOD,           // SMT2_SYM_MOD 
+  SMT2_MK_MOD,           // SMT2_SYM_MOD
   SMT2_MK_ABS,           // SMT2_SYM_ABS
   SMT2_MK_TO_REAL,       // SMT2_SYM_TO_REAL (?? could use a NO_OP for that one)
   SMT2_MK_TO_INT,        // SMT2_SYM_TO_INT
@@ -1398,7 +1398,7 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   default:
     push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
     break;
-  }  
+  }
 }
 
 
@@ -1573,7 +1573,7 @@ void tstack_push_qual_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) 
  * function name in SORTED_INDEXED_APPLY
  *  ((as (_ <symbol> <idx> ... <idx>) <sort>) <arg> ... <arg>)
  */
-void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) { 
+void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   smt2_symbol_t symbol;
   smt2_key_t key;
 
@@ -1651,7 +1651,7 @@ static void eval_smt2_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_term(stack, t);
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);  
+  set_term_result(stack, t);
 }
 
 
@@ -1695,7 +1695,7 @@ static void check_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n
   raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
-static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {  
+static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
@@ -1751,7 +1751,7 @@ static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
  *
  * This is intended to disambiguate <symbol> is overloaded.  There's
  * no real need for this given the theories we have, but nothing stops
- * people from using these constructs anyway.  In such cases, we 
+ * people from using these constructs anyway.  In such cases, we
  * construct the term then check whether it has the correct <sort>.
  */
 
@@ -1777,7 +1777,7 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
     return yices_check_term_type(e->val.term, tau);
 
   case TAG_ARITH_BUFFER:
-    return is_real_type(tau) || 
+    return is_real_type(tau) ||
       (is_integer_type(tau) && yices_arith_buffer_is_int(e->val.arith_buffer));
 
   case TAG_BVARITH64_BUFFER:
@@ -1839,7 +1839,7 @@ static uint32_t find_type_elem(stack_elem_t *f, uint32_t n) {
 
 
 /*
- * Shift stack elements: 
+ * Shift stack elements:
  * - copy f[0 ... n-1] into f[1 ... n]
  *   f[0] is left unchanged, f[n] is lost
  */
@@ -1953,7 +1953,7 @@ static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uin
   int32_t op;
   type_t tau;
   uint32_t k;
-  
+
   /*
    * frame content:
    *   f[0] = opcode

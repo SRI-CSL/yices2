@@ -59,7 +59,7 @@ static void show_terms(void) {
 }
 
 
-  
+
 /*
  * TYPE STORE
  */
@@ -92,7 +92,7 @@ static void init_type_store(type_store_t *store) {
 
   n = TYPE_STORE_DEF_SIZE;
   assert(n < TYPE_STORE_MAX_SIZE);
-  
+
   store->size = n;
   store->ntypes = 0;
   store->type = (type_t *) safe_malloc(n * sizeof(type_t));
@@ -171,7 +171,7 @@ static void type_store_add_term(type_store_t *store, term_t t) {
 
   tau = term_type(__yices_globals.terms, t);
   i = type_store_get_type(store, tau);
-  ivector_push(store->terms + i, t);  
+  ivector_push(store->terms + i, t);
 }
 
 
@@ -207,7 +207,7 @@ static void delete_type_store(type_store_t *store) {
   safe_free(store->terms);
 
   store->type = NULL;
-  store->terms = NULL;  
+  store->terms = NULL;
 }
 
 
@@ -243,7 +243,7 @@ static void init_term_store(term_store_t *store) {
 
   n = TERM_STORE_DEF_SIZE;
   assert(n < TERM_STORE_MAX_SIZE);
-  
+
   store->size = n;
   store->nterms = 0;
   store->term = (term_t *) safe_malloc(n * sizeof(term_t));
@@ -268,7 +268,7 @@ static void extend_term_store(term_store_t *store) {
   }
 
   store->size = n;
-  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));  
+  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));
 }
 
 
@@ -293,7 +293,7 @@ static uint32_t term_store_alloc_index(term_store_t *store) {
 /*
  * Mark term t
  */
-static void term_store_mark_term(term_store_t *store, term_t t) {  
+static void term_store_mark_term(term_store_t *store, term_t t) {
   uint32_t n;
 
   assert(t >= 0);
@@ -301,7 +301,7 @@ static void term_store_mark_term(term_store_t *store, term_t t) {
   n = store->max_term;
   if (t >= n) {
     // make the mark vector large enough to mark t: try to double its size
-    // if that's not enough allocate a vector of size 
+    // if that's not enough allocate a vector of size
     n += n;
     if (t >= n) {
       n = (t + 8) >> 3; // ceil((t+1)/8)
@@ -544,8 +544,8 @@ static void init_base_terms(void) {
   add_term(t);
   t = yices_new_uninterpreted_term(sigma);
   yices_set_term_name(t, "g0");
-  add_term(t);  
-  
+  add_term(t);
+
   // tuples
   tau = unary_tuple_type(yices_bool_type());
   t = yices_new_uninterpreted_term(tau);
@@ -840,7 +840,7 @@ static term_t test_update1(term_t fun, term_t arg, term_t new_v) {
   t = yices_update(fun, 1, &arg, new_v);
   print_term(stdout, __yices_globals.terms, t);
   printf("\n");
-  
+
   fflush(stdout);
 
   return t;
@@ -865,7 +865,7 @@ static term_t test_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v) {
   t = yices_update(fun, 2, aux, new_v);
   print_term(stdout, __yices_globals.terms, t);
   printf("\n");
-  
+
   fflush(stdout);
 
   return t;
@@ -874,7 +874,7 @@ static term_t test_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v) {
 
 static term_t test_tuple_update(term_t arg, term_t new_v, uint32_t i) {
   term_t t;
-  
+
   printf("test: (tuple-update ");
   print_term(stdout, __yices_globals.terms, arg);
   printf(" %"PRIu32" ", i);
@@ -986,7 +986,7 @@ static term_t term_store_sample(term_store_t *store, type_t tau, term_pred_t p) 
       if (t != NULL_TERM) {
 	s = t;
       }
-    }    
+    }
   } else {
     s = term_array_sample(store->term, n, tau, p); // all terms are small
   }
@@ -1057,7 +1057,7 @@ static bool is_term(type_t tau, term_t t) {
  * - select one of the test above (from test_app1 to test_tuple_update)
  * - select arguments for the test randomly then execute the test
  */
-static void random_test(void) {  
+static void random_test(void) {
   uint32_t k, i;
   type_t tau, sigma;
   term_t fun;
@@ -1076,9 +1076,9 @@ static void random_test(void) {
     tau = function_type_domain(__yices_globals.types, sigma, 0);
     t1 = term_store_sample(&all_terms, tau, has_subtype);
     // run the test:
-    t = test_app1(fun, t1);    
+    t = test_app1(fun, t1);
     break;
-    
+
   case 3:
   case 4:
   case 5:
@@ -1146,7 +1146,7 @@ static void random_test(void) {
     tau = type_store_sample(&all_types, is_type); // any type
     t1 = term_store_sample(&all_terms, tau, has_compatible_type);
     t2 = term_store_sample(&all_terms, tau, has_compatible_type);
-    t = test_distinct2(t1, t2);    
+    t = test_distinct2(t1, t2);
     break;
 
   case 28:
@@ -1164,7 +1164,7 @@ static void random_test(void) {
   case 31:
     // tuple1
     t1 = term_store_sample(&all_terms, NULL_TYPE, is_term);
-    t = test_tuple1(t1);    
+    t = test_tuple1(t1);
     break;
 
   case 32:
@@ -1194,7 +1194,7 @@ static void random_test(void) {
     // select
     tau = type_store_sample(&all_types, is_tup_type);
     t1 = type_store_sample_terms(&all_types, tau);
-    i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, tau);    
+    i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, tau);
     t = test_select(t1, i + 1);
     break;
 
@@ -1234,7 +1234,7 @@ static void random_test(void) {
     i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, sigma);
     tau = tuple_type_component(__yices_globals.types, sigma, i);
     v = term_store_sample(&all_terms, tau, has_subtype);
-    // components are indexed from 1 to n 
+    // components are indexed from 1 to n
     // but i is between 0 and n-1
     t = test_tuple_update(t1, v, 1 + i);
     break;
@@ -1285,7 +1285,7 @@ static bool check_wrong_number_of_arguments(term_t t, type_t tau, uint32_t bad) 
   error_report_t *rep;
 
   rep = yices_error_report();
-  return t == NULL_TERM && yices_error_code() == WRONG_NUMBER_OF_ARGUMENTS && 
+  return t == NULL_TERM && yices_error_code() == WRONG_NUMBER_OF_ARGUMENTS &&
     rep->type1 == tau && rep->badval == bad;
 }
 
@@ -1293,7 +1293,7 @@ static bool check_type_mismatch(term_t t, term_t bad_arg, type_t expected_tau) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return t == NULL_TERM && yices_error_code() == TYPE_MISMATCH && rep->term1 == bad_arg && 
+  return t == NULL_TERM && yices_error_code() == TYPE_MISMATCH && rep->term1 == bad_arg &&
     rep->type1 == expected_tau;
 }
 
@@ -1399,13 +1399,13 @@ static void test_error_codes(void) {
   t = yices_ite(t3, t1, v);
   assert(check_incompatible_types(t, t1, v));
 
-  // equality 
+  // equality
   t = yices_eq(v, t1);
   assert(check_incompatible_types(t, v, t1));
 
   t = yices_neq(v, t1);
   assert(check_incompatible_types(t, v, t1));
-  
+
   v = 19309390;
   t = yices_eq(t1, v);
   assert(check_invalid_term(t , v));
@@ -1431,7 +1431,7 @@ static void test_error_codes(void) {
   t1 = false_term;
   t = yices_select(1, t1);
   assert(check_tuple_required(t, t1));
-  
+
   t = yices_select(1, -34);
   assert(check_invalid_term(t, -34));
 
@@ -1449,7 +1449,7 @@ static void test_error_codes(void) {
 
   t = yices_tuple_update(-3, 1, v);
   assert(check_invalid_term(t, -3));
-  
+
   t = yices_tuple_update(true_term, 1, v);
   assert(check_tuple_required(t, true_term));
 
@@ -1469,7 +1469,7 @@ static void test_error_codes(void) {
 int main(void) {
   yices_init();
   init_store();
-  
+
   init_base_terms();
   show_types();
   show_terms();
@@ -1482,7 +1482,7 @@ int main(void) {
 
   show_types();
   show_terms();
-  
+
   delete_store();
   yices_exit();
 

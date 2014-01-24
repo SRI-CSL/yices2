@@ -4,8 +4,8 @@
 
 /*
  * The term_stack data structures and main operations
- * are defined in "term_stack.h". To support the 
- * SMT-LIB notation (version 1.2), we redefine the 
+ * are defined in "term_stack.h". To support the
+ * SMT-LIB notation (version 1.2), we redefine the
  * following operations:
  *
  * Yices 2 Version                      SMT 1.2 Version
@@ -27,8 +27,8 @@
 #include "term_stack2.h"
 
 /*
- * Initialize stack for SMT-LIB 1.2: 
- * - initialize the stack then redefines the 
+ * Initialize stack for SMT-LIB 1.2:
+ * - initialize the stack then redefines the
  *   operations above
  */
 extern void init_smt_tstack(tstack_t *stack);

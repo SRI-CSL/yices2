@@ -5,7 +5,7 @@
  * or unsigned integer.
  *
  * Each value stored in the cache is a record:
- * - var = variable x 
+ * - var = variable x
  * - tag = which bound is considered
  * - data = the bound stored as an array of 32bit words
  * The bitsize of x is not stored (since it's available from the bv_vartable).
@@ -42,7 +42,7 @@ void init_bvbound_cache(bvbound_cache_t *cache, uint32_t n) {
   if (n == 0) {
     n = DEF_BVBOUND_CACHE_SIZE;
   }
-  
+
   if (n >= MAX_BVBOUND_CACHE_SIZE) {
     out_of_memory();
   }
@@ -111,7 +111,7 @@ void reset_bvbound_cache(bvbound_cache_t *cache) {
   }
 
   cache->nelems = 0;
-  cache->ndeleted = 0;  
+  cache->ndeleted = 0;
 }
 
 
@@ -151,7 +151,7 @@ bvbound_t *find_bvbound(bvbound_cache_t *cache, bvbound_tag_t tag, int32_t x) {
   bvbound_t *d;
   uint32_t header;
   uint32_t mask, i;
-  
+
   assert(cache->size > cache->nelems + cache->ndeleted);
 
   header = bvbound_header(x, tag);
@@ -174,7 +174,7 @@ bvbound_t *find_bvbound(bvbound_cache_t *cache, bvbound_tag_t tag, int32_t x) {
  * Build a new record: (tag, x, lower, higher)
  * - n = number of bits in variable x
  * - lower = lower bound on x
- * - upper = upper bound on x 
+ * - upper = upper bound on x
  * The bounds are both normalized modulo 2^n (just a precaution).
  */
 static bvbound_t *make_bvbound64(bvbound_tag_t tag, int32_t x, uint32_t n, uint64_t lower, uint64_t upper) {
@@ -250,7 +250,7 @@ static void bvbound_cache_clean_copy(bvbound_t **data, bvbound_t *d, uint32_t ma
   }
   data[i] = d;
 }
- 
+
 
 /*
  * Double the size, keep the content
@@ -313,13 +313,13 @@ static void bvbound_cache_cleanup(bvbound_cache_t *cache) {
 
   safe_free(cache->data);
   cache->data = tmp;
-  cache->ndeleted = 0;  
+  cache->ndeleted = 0;
 }
 
 
 
 /*
- * Add record d to the cache 
+ * Add record d to the cache
  * - there must not be a record matching d already in the cache
  */
 static void bvbound_cache_add(bvbound_cache_t *cache, bvbound_t *d) {

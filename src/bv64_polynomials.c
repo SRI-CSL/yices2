@@ -16,7 +16,7 @@
  * - size = bitsize (must be positive and no more than 64)
  * The coefficients and variables are not initialized,
  * except the end marker.
- */ 
+ */
 bvpoly64_t *alloc_bvpoly64(uint32_t n, uint32_t size) {
   bvpoly64_t *tmp;
 
@@ -97,7 +97,7 @@ bool equal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2) {
 
 
 /*
- * Check for simple disequality: return true if (p1 - p2) is a non-zero 
+ * Check for simple disequality: return true if (p1 - p2) is a non-zero
  * constant bitvector.
  * - p1 and p2 must have the same bitsize
  */

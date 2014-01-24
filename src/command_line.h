@@ -4,23 +4,23 @@
  * optionally, an abbreviation of the from -o where o is a single
  * character.
  *
- * The argument <value> to an option can be given as 
+ * The argument <value> to an option can be given as
  *   --option=<value>
  *   --option <value>
  *   -o <value>
  * For options with no parameter, the allowed forms are --option or -o
  *
- * Multiple short-name options must be separated. The form -abc 
- * is not supported; it must be written -a -b -c. 
+ * Multiple short-name options must be separated. The form -abc
+ * is not supported; it must be written -a -b -c.
  *
- * Options can be of different types, which determine whether 
+ * Options can be of different types, which determine whether
  * an argument is required or allowed, and how the argument is parsed.
  *
- * For options with an optional value, the parser uses the following 
+ * For options with an optional value, the parser uses the following
  * conventions.
  * --option=<value>   no ambiguity, <value> is parsed as is
  *
- * --option <next>    if <next> does not start with '-' it's 
+ * --option <next>    if <next> does not start with '-' it's
  * -o <next>          taken as <value>. If <next> starts with '-'
  *                    and can be parsed as an integer and option
  *                    has integer type, it's also taken as <value>
@@ -59,15 +59,15 @@ typedef enum option_type {
  * Option descriptor:
  * - name must be the long name, without prefix '--'
  * - abbrev is a one-character abbreviation
- * - set abbrev to a non alpha character (e.g., '\0') if there's 
+ * - set abbrev to a non alpha character (e.g., '\0') if there's
  *   no abbreviation.
  * - type must be one of the above types
- * - key is the option id 
+ * - key is the option id
  */
-typedef struct option_desc_s { 
+typedef struct option_desc_s {
   char *name;
   char abbrev;
-  uint8_t type;  
+  uint8_t type;
   uint16_t key;
 } option_desc_t;
 
@@ -75,10 +75,10 @@ typedef struct option_desc_s {
 /*
  * Results from parsing are stored into a cmdline_elem_t structure:
  * - status = parsing result
- * - format = what format was seen 
+ * - format = what format was seen
  * - arg = argument or option name being parsed
  * - key = option id
- * - s_val = string value 
+ * - s_val = string value
  * - i_val = integer value
  * - d_val = floating-point value (double)
  * - e_code = error code
@@ -100,7 +100,7 @@ typedef struct cmdline_elem_s {
  */
 enum cmd_line_status {
   cmdline_done,     // all arguments have been processed
-  cmdline_argument, // generic argument 
+  cmdline_argument, // generic argument
   cmdline_option,   // valid option
   cmdline_error,    // incorrect option
 };
@@ -120,7 +120,7 @@ enum cmdline_error {
   cmdline_int_overflow,    // integer value was given but does not fit in 32bits
   cmdline_float_format,    // value was given but could not be parsed as a double
   cmdline_float_overflow,  // underflow/overflow value
-  cmdline_arg_missing,     // nothing after '--' 
+  cmdline_arg_missing,     // nothing after '--'
 };
 
 

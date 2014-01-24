@@ -13,7 +13,7 @@
  * The same string symbol may occur several times in the list.
  * In such a case, the first record masks the others.
  */
-typedef struct stbl_rec_s stbl_rec_t; 
+typedef struct stbl_rec_s stbl_rec_t;
 
 struct stbl_rec_s {
   uint32_t hash;
@@ -45,7 +45,7 @@ typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
 
 /*
  * To determine when it makes sense to resize the table (i.e., double
- * the number of buckets), we periodically check the average cost 
+ * the number of buckets), we periodically check the average cost
  * of recent lookups. If this cost is high, we try to resize the table.
  * But we must also take into account the fact that the same string
  * may occur several times in one list (in which case, resizing may
@@ -56,7 +56,7 @@ typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
  * it visits at least MAXVISITS records. If a lookup in list data[i]
  * is expensive, we check whether the list contains different records
  * or many times the same symbol.
- *  
+ *
  * The following parameters are used:
  * - NLOOKUPS = periodic check for resizing
  * - MAXVISITS = threshold for expensive lookups
@@ -156,7 +156,7 @@ extern void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t v
 /*
  * Iterator: call f(aux, r) for every live record r in the table
  * - aux is an arbitrary pointer, provided by the caller
- * - f must not have side effects (it must not add or remove anything 
+ * - f must not have side effects (it must not add or remove anything
  *   from the symbol table, or modify the record r).
  */
 typedef void (*stbl_iterator_t)(void *aux, const stbl_rec_t *r);

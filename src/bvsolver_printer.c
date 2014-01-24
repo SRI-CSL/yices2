@@ -48,7 +48,7 @@ static void print_bv_product(FILE *f, pprod_t *p) {
 
 // c = coeff, x = variable, n = number of bits
 static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool first) {
-  if (c == 1) {    
+  if (c == 1) {
     if (first) {
       if (x == const_idx) {
         fputs("1", f);
@@ -109,7 +109,7 @@ static void print_bv_poly64(FILE *f, bvpoly64_t *p) {
 static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool first) {
   uint32_t w;
 
-  w = (n + 31) >> 5; // number of words in c 
+  w = (n + 31) >> 5; // number of words in c
   if (bvconst_is_one(c, w)) {
     if (first) {
       if (x == const_idx) {
@@ -244,7 +244,7 @@ static void print_bv_vardef(FILE *f, bv_vartable_t *vtbl, thvar_t x) {
   case BVTAG_UREM:
     print_bv_binop(f, "rem", bvvar_binop(vtbl, x));
     break;
-    
+
   case BVTAG_SDIV:
     print_bv_binop(f, "sdiv", bvvar_binop(vtbl, x));
     break;
@@ -252,7 +252,7 @@ static void print_bv_vardef(FILE *f, bv_vartable_t *vtbl, thvar_t x) {
   case BVTAG_SREM:
     print_bv_binop(f, "srem", bvvar_binop(vtbl, x));
     break;
-    
+
   case BVTAG_SMOD:
     print_bv_binop(f, "smod", bvvar_binop(vtbl, x));
     break;
@@ -264,7 +264,7 @@ static void print_bv_vardef(FILE *f, bv_vartable_t *vtbl, thvar_t x) {
   case BVTAG_LSHR:
     print_bv_binop(f, "lshr", bvvar_binop(vtbl, x));
     break;
-    
+
   case BVTAG_ASHR:
     print_bv_binop(f, "ashr", bvvar_binop(vtbl, x));
     break;
@@ -417,7 +417,7 @@ static void print_bv_atom(FILE *f, bvatm_t *atm) {
   case BVUGE_ATM:
     print_atom_aux(f, "bvge", atm->left, atm->right);
     break;
-  case BVSGE_ATM:    
+  case BVSGE_ATM:
     print_atom_aux(f, "bvsge", atm->left, atm->right);
     break;
   }
@@ -463,7 +463,7 @@ void print_bv_solver_atom(FILE *f, bv_solver_t *solver, int32_t id) {
   case BVUGE_ATM:
     print_atom_aux(f, "bvge", atm->left, atm->right);
     break;
-  case BVSGE_ATM:    
+  case BVSGE_ATM:
     print_atom_aux(f, "bvsge", atm->left, atm->right);
     break;
   }
@@ -520,7 +520,7 @@ static void print_bv_pprod(FILE *f, pprod_t *p) {
 
 
 /*
- * Monomial coeff * r: 
+ * Monomial coeff * r:
  */
 static void print_bvmlist64_mono(FILE *f, uint64_t coeff, pprod_t *r, uint32_t n, bool first) {
   if (pp_is_empty(r)) {
@@ -599,7 +599,7 @@ void print_bvexp(FILE *f, bvmlist_t *p, uint32_t n) {
       first = false;
       p = p->next;
     }
-  }    
+  }
 }
 
 
@@ -647,7 +647,7 @@ static void print_bv_solver_bound(FILE *f, bv_solver_t *solver, bv_bound_t *b) {
   case BVUGE_ATM:
     print_atom_aux(f, "bvge", atm->left, atm->right);
     break;
-  case BVSGE_ATM:    
+  case BVSGE_ATM:
     print_atom_aux(f, "bvsge", atm->left, atm->right);
     break;
   }
@@ -704,7 +704,7 @@ static void print_offset_node(FILE *f, bvc_offset_t *d) {
   fprintf(f, "[OFFSET ");
   if (n <= 64) {
     bvconst64_print(f, d->constant.c, n);
-  } else { 
+  } else {
     bvconst_print(f, d->constant.w, n);
   }
   fputc(' ', f);
@@ -719,7 +719,7 @@ static void print_mono_node(FILE *f, bvc_mono_t *d) {
   fprintf(f, "[MONO ");
   if (n <= 64) {
     bvconst64_print(f, d->coeff.c, n);
-  } else { 
+  } else {
     bvconst_print(f, d->coeff.w, n);
   }
   fputc(' ', f);
@@ -757,7 +757,7 @@ static void print_sum_node(FILE *f, bvc_sum_t *d) {
 static void print_alias_node(FILE *f, bvc_alias_t *d) {
   fprintf(f, "[ALIAS ");
   print_nocc(f, d->alias);
-  fputc(']', f); 
+  fputc(']', f);
 }
 
 static void print_node_descriptor(FILE *f, bvc_header_t *d) {
@@ -778,7 +778,7 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
     print_prod_node(f, prod_node(d));
     break;
 
-  case BVC_SUM:    
+  case BVC_SUM:
     print_sum_node(f, sum_node(d));
     break;
 
@@ -828,7 +828,7 @@ static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
   fprintf(f, "\n");
 #if 0
   fprintf(f, "       use list: ");
-  print_use_list(f, dag->use[q]);  
+  print_use_list(f, dag->use[q]);
   fprintf(f, "\n");
 #endif
 }
@@ -867,15 +867,15 @@ void print_bvc_dag(FILE *f, bvc_dag_t *dag) {
   fprintf(f, "\nLeaf nodes:");
   print_list(f, dag, BVC_DAG_LEAF_LIST);
   fprintf(f, "\n");
-  
+
   fprintf(f, "\nElementary nodes:");
   print_list(f, dag, BVC_DAG_ELEM_LIST);
   fprintf(f, "\n");
-  
+
   fprintf(f, "\nOther nodes:");
   print_list(f, dag, BVC_DAG_DEFAULT_LIST);
   fprintf(f, "\n");
-  
+
   fflush(f);
 }
 

@@ -97,7 +97,7 @@ static void print_dl_triple(dl_triple_t *t) {
 
 
   if (! space) {
-    q_print(stdout, &t->constant); 
+    q_print(stdout, &t->constant);
   } else if (q_is_pos(&t->constant)) {
     printf(" + ");
     q_print(stdout, &t->constant);
@@ -140,12 +140,12 @@ static void print_dl_vartable(dl_vartable_t *table) {
 #define MIN_NUMERATOR (INT32_MIN>>1)
 #define MAX_DENOMINATOR MAX_NUMERATOR
 
-static int32_t num[12] = { 
-  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR 
+static int32_t num[12] = {
+  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR
 };
 
 static uint32_t den[12] = {
-  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2 
+  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2
 };
 
 
@@ -339,7 +339,7 @@ static void test_add_diff(dl_vartable_t *table) {
   q_clear(&test2.constant);
   delete_poly_buffer(&buffer);
 }
-						
+
 
 
 /*
@@ -395,7 +395,7 @@ int main() {
     test_random_triple(&table);
   }
   printf("After 100 additions\n");
-  print_dl_vartable(&table);  
+  print_dl_vartable(&table);
 
   test_add_diff(&table);
 

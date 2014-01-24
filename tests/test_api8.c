@@ -147,7 +147,7 @@ static void test_set_posint_param(param_t *params, const char *name) {
   test_set_param(params, name, "-100", -1, CTX_INVALID_PARAMETER_VALUE);
   test_set_param(params, name, "2147483648", -1, CTX_INVALID_PARAMETER_VALUE);
 
-  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);  
+  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 }
 
 
@@ -163,7 +163,7 @@ static void test_set_posint2_param(param_t *params, const char *name) {
   test_set_param(params, name, "-100", -1, CTX_INVALID_PARAMETER_VALUE);
   test_set_param(params, name, "2147483648", -1, CTX_INVALID_PARAMETER_VALUE);
 
-  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);  
+  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 }
 
 
@@ -179,7 +179,7 @@ static void test_set_nonnegint_param(param_t *params, const char *name) {
   test_set_param(params, name, "-100", -1, CTX_INVALID_PARAMETER_VALUE);
   test_set_param(params, name, "2147483648", -1, CTX_INVALID_PARAMETER_VALUE);
 
-  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);  
+  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 }
 
 
@@ -195,7 +195,7 @@ static void test_set_posint16_param(param_t *params, const char *name) {
   test_set_param(params, name, "-100", -1, CTX_INVALID_PARAMETER_VALUE);
   test_set_param(params, name, "65536", -1, CTX_INVALID_PARAMETER_VALUE);
 
-  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);  
+  test_set_param(params, name, "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 }
 
 
@@ -260,13 +260,13 @@ static void test_set_params(param_t *params) {
   test_set_posint2_param(params, "tclause-size");
 
   test_set_nonnegint_param(params, "prop-threshold");
-  
+
   test_set_posint16_param(params, "dyn-ack-threshold");
   test_set_posint16_param(params, "dyn-bool-ack-threshold");
 
   test_set_uint32_pram(params, "random-seed");
 
-  test_set_branching(params, "branching");  
+  test_set_branching(params, "branching");
 
   test_set_param(params, "xxxx", "yyyy", -1, CTX_UNKNOWN_PARAMETER);
 }
@@ -288,7 +288,7 @@ int main(void) {
 
   yices_free_param_record(p2);
   yices_free_param_record(p1);
-  
+
   yices_exit();
 
   return 0;

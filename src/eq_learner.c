@@ -100,7 +100,7 @@ static epartition_t *find_cached_abstraction(eq_learner_t *learner, term_t f) {
 static void cache_abstraction(eq_learner_t *learner, term_t f, epartition_t *p) {
   ptr_hmap_pair_t *r;
 
-  assert(good_term(learner->terms, f) && is_boolean_term(learner->terms, f) && p != NULL);  
+  assert(good_term(learner->terms, f) && is_boolean_term(learner->terms, f) && p != NULL);
   r = ptr_hmap_get(&learner->cache, f);
   assert(r->val == NULL);
   r->val = p;
@@ -133,7 +133,7 @@ static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity)
 /*
  * Build the abstraction for an (OR ...) formula or its negation
  * - if polarity is true: abstraction of (OR t1 ... tn)
- * - if polarity is false: abstraction of not (OR t1 ... tn) 
+ * - if polarity is false: abstraction of not (OR t1 ... tn)
  *   (i.e., abstraction of (AND (not t1) ... (not tn)))
  */
 static epartition_t *eq_abstract_or(eq_learner_t *learner, composite_term_t *or, bool polarity) {
@@ -143,7 +143,7 @@ static epartition_t *eq_abstract_or(eq_learner_t *learner, composite_term_t *or,
 
   assert(or->arity > 1);
 
-  // abstract the arguments 
+  // abstract the arguments
   n = or->arity;
   for (i=0; i<n; i++) {
     (void) eq_abstract(learner, or->arg[i], polarity);
@@ -151,7 +151,7 @@ static epartition_t *eq_abstract_or(eq_learner_t *learner, composite_term_t *or,
 
   /*
    * for (OR t1 ... t_n): construct the join of abs(t1) ... abs(t_n)
-   * for not (OR t1 ... t_n) <=> (and (not t1) ... (not t_n)): 
+   * for not (OR t1 ... t_n) <=> (and (not t1) ... (not t_n)):
    *  construct meet(abs (not t1) ... abs(not t_n))
    */
   m = &learner->manager;
@@ -217,11 +217,11 @@ static epartition_t *eq_abstract_eq(eq_learner_t *learner, composite_term_t *eq,
   if (is_boolean_term(learner->terms, t1)) {
     assert(is_boolean_term(learner->terms, t2));
     /*
-     * - for positive polarity, 
+     * - for positive polarity,
      *   let u2 = t2, then (t1 <==> t2) is (t1 <==> u2)
      * - for negative polarity
      *   let u2 = (not t2), then (not (t1 <==> t2)) is equivalent to (t1 <==> u2)
-     * - in both cases we compute  
+     * - in both cases we compute
      *     abs(t1 <==> u2)
      *   = abs((t1 ==> u2) and (u2 ==> t1))
      *   = abs((not t1 or u2) and (not u2 or t1))
@@ -268,12 +268,12 @@ static epartition_t *eq_abstract_ite(eq_learner_t *learner, composite_term_t *it
   t2 = ite->arg[2];
 
   /*
-   * - for positive polarity: let u1=t1 and u2=t2, then 
+   * - for positive polarity: let u1=t1 and u2=t2, then
    *     (ite c t1 t2) is (ite c u1 u2)
    * - for negative polarity: let u1=not t1 and u2=not t2, then
    *     not (ite c t1 t2) is (ite c u1 u2)
-   * - in both cases, we compute 
-   *     abs(ite c u1 u2) 
+   * - in both cases, we compute
+   *     abs(ite c u1 u2)
    *   = abs((c ==> u1) and (not c ==> u2))
    *   = abs((not c or u1) and (c or u2))
    *   = meet(join(abs(not c), abs(u1)), join(abs(c), abs(u2)))
@@ -286,7 +286,7 @@ static epartition_t *eq_abstract_ite(eq_learner_t *learner, composite_term_t *it
   p1 = eq_abstract_join(m, q, p1);  // join(abs(not c), abs(u1))
   p2 = eq_abstract_join(m, p, p2);  // join(abs(c), abs(u2))
   p = eq_abstract_meet(m, p1, p2);  // result
-  
+
   delete_epartition(m, p1);
   delete_epartition(m, p2);
 
@@ -303,7 +303,7 @@ static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity)
   epartition_t *a;
 
   assert(is_boolean_term(learner->terms, f));
-  
+
   a = find_cached_abstraction(learner, signed_term(f, polarity));
   if (a == NULL) {
     // not in the cache

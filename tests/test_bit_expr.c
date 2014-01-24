@@ -84,7 +84,7 @@ static void extend_tt(void) {
   for (i=ttsize; i<n; i++) {
     fresh[i] = true;
   }
-  
+
   ttsize = n;
 }
 
@@ -144,7 +144,7 @@ static void print_id(bit_t x) {
 	printf("  ~%c   ", 'a' + (char) (v-1));
       } else {
 	printf("   %c   ", 'a' + (char) (v-1));
-      } 
+      }
     } else if (v < 10) {
       if (bit_is_neg(x)) {
 	printf("  ~p%"PRId32"  ", v);
@@ -213,10 +213,10 @@ static void print_tt(void) {
  */
 static void init(void) {
   uint32_t v;
-  bit_t x;  
+  bit_t x;
 
   init_tt();
-  init_node_table(&dag, 0);  
+  init_node_table(&dag, 0);
 
   record_tt(true_bit, 0xFFFFFFFF);
   record_tt(false_bit, 0x0000000);
@@ -295,7 +295,7 @@ static uint32_t dag_truth_table(bit_t x) {
       fflush(stdout);
       abort();
     }
-  
+
     if (bit_is_neg(x)) {
       aux = ~aux;
     }
@@ -335,8 +335,8 @@ static void print_simple_id(bit_t x) {
 
 
 /*
- * Build z = (or x y) and compare the expected and dag-computed 
- * truth values 
+ * Build z = (or x y) and compare the expected and dag-computed
+ * truth values
  * - if they agree, add z and ~z to tt
  */
 static void test_or(bit_t x, bit_t y) {
@@ -348,7 +348,7 @@ static void test_or(bit_t x, bit_t y) {
   printf(" ");
   print_simple_id(y);
   printf("): ");
-  
+
   assert(! fresh_bit(x) && ! fresh_bit(y));
 
   //  z = bit_or2(&dag, x, y);
@@ -357,7 +357,7 @@ static void test_or(bit_t x, bit_t y) {
   v1 = (tt[x] | tt[y]);
   if (v0 == v1) {
     printf("ok\n");
-    if (fresh_bit(z)) {      
+    if (fresh_bit(z)) {
       record_tt(z, v0);
       record_tt(bit_not(z), ~v0);
     }
@@ -365,13 +365,13 @@ static void test_or(bit_t x, bit_t y) {
     printf("error\n");
     fflush(stdout);
     abort();
-  }  
+  }
 }
 
 
 /*
- * Build z = (xor x y) and compare the expected and dag-computed 
- * truth values 
+ * Build z = (xor x y) and compare the expected and dag-computed
+ * truth values
  * - if they agree, add z and ~z to tt
  */
 static void test_xor(bit_t x, bit_t y) {
@@ -383,7 +383,7 @@ static void test_xor(bit_t x, bit_t y) {
   printf(" ");
   print_simple_id(y);
   printf("): ");
-  
+
   assert(! fresh_bit(x) && ! fresh_bit(y));
 
   //  z = bit_xor2(&dag, x, y);
@@ -392,7 +392,7 @@ static void test_xor(bit_t x, bit_t y) {
   v1 = (tt[x] ^ tt[y]);
   if (v0 == v1) {
     printf("ok\n");
-    if (fresh_bit(z)) {      
+    if (fresh_bit(z)) {
       record_tt(z, v0);
       record_tt(bit_not(z), ~v0);
     }
@@ -400,7 +400,7 @@ static void test_xor(bit_t x, bit_t y) {
     printf("error\n");
     fflush(stdout);
     abort();
-  }  
+  }
 }
 
 
@@ -447,7 +447,7 @@ static void test_all_pairs(void) {
 	  test_or(x, y);
 	  test_xor(x, y);
 	}
-      }   
+      }
     }
   }
 }

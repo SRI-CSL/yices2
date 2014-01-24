@@ -25,7 +25,7 @@ static bool is_power_of_two(uint32_t n) {
  * Initialize pp
  * - n = hash table size:
  *   n must be a power of 2. If n=0, the default size is used.
- * - hash_fn, match_fn, aux: customization 
+ * - hash_fn, match_fn, aux: customization
  * - the table is empty, classes is not allocated yet (NULL).
  */
 void init_int_partition(ipart_t *pp, uint32_t n, void *aux, ipart_hash_fun_t hash_fn, ipart_match_fun_t match_fn) {
@@ -98,7 +98,7 @@ void reset_int_partition(ipart_t *pp) {
   for (i=0; i<n; i++) {
     pp->records[i].data = not_an_index;
   }
-  pp->nelems = 0;  
+  pp->nelems = 0;
 }
 
 
@@ -162,7 +162,7 @@ static void resize_int_partition(ipart_t *pp) {
 
 /*
  * Allocate a new class: return its id
- * - the new class vector is pp->classes[i]. It's initialized to NULL 
+ * - the new class vector is pp->classes[i]. It's initialized to NULL
  */
 static uint32_t allocate_class(ipart_t *pp) {
   uint32_t i, n;
@@ -198,7 +198,7 @@ static uint32_t allocate_class(ipart_t *pp) {
  * Add x to the table:
  * - if there's y in the table that matches x
  *   then x is added to y's class. If y has no class attached
- *   yet, then a new class vector is allocated and both y and 
+ *   yet, then a new class vector is allocated and both y and
  *   x are added to that class.
  */
 void int_partition_add(ipart_t *pp, int32_t x) {
@@ -241,5 +241,5 @@ void int_partition_add(ipart_t *pp, int32_t x) {
     j ++;
     j &= mask;
   }
-  
+
 }

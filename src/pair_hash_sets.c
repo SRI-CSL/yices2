@@ -105,16 +105,16 @@ bool pair_hset_member(pair_hset_t *set, int32_t x, int32_t y) {
     if (d[i].left == x && d[i].right == y) return true;
     i ++;
     i &= mask;
-  }  
+  }
 }
 
 
 /*
- * Copy pair *p into array data. 
+ * Copy pair *p into array data.
  * - size of array data must be a power of 2
- * - mask = size of data - 1 
+ * - mask = size of data - 1
  * - p must be a valid pair: p->left >= 0, p->right >= 0.
- * - data must be a clean array: empty slots must be marked by setting left to 
+ * - data must be a clean array: empty slots must be marked by setting left to
  *   a negative value
  * - there must be some empty slot in data
  */

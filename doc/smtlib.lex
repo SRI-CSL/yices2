@@ -9,21 +9,21 @@ IDCHAR  ({LETTER}|{DIGIT}|{OPCHAR})
 [ \t\r\f]	{ /* skip whitespace */ }
 
 {DIGIT}+"\."{DIGIT}+ { smtliblval.str = new std::string(smtlibtext); return NUMERAL_TOK; }
-{DIGIT}+	{ smtliblval.str = new std::string(smtlibtext); return NUMERAL_TOK; 
+{DIGIT}+	{ smtliblval.str = new std::string(smtlibtext); return NUMERAL_TOK;
 		}
 
 ";"		{ BEGIN COMMENT; }
-<COMMENT>"\n"	{ BEGIN INITIAL; /* return to normal mode */ 
+<COMMENT>"\n"	{ BEGIN INITIAL; /* return to normal mode */
                   CVCL::parserTemp->lineNum++; }
 <COMMENT>.	{ /* stay in comment mode */ }
 
-<INITIAL>"\""		{ BEGIN STRING_LITERAL; 
+<INITIAL>"\""		{ BEGIN STRING_LITERAL;
                           _string_lit.erase(_string_lit.begin(),
                                             _string_lit.end()); }
 <STRING_LITERAL>"\\".	{ /* escape characters (like \n or \") */
                           _string_lit.insert(_string_lit.end(),
                                              escapeChar(smtlibtext[1])); }
-<STRING_LITERAL>"\""	{ BEGIN INITIAL; /* return to normal mode */ 
+<STRING_LITERAL>"\""	{ BEGIN INITIAL; /* return to normal mode */
 			  smtliblval.str = new std::string(_string_lit);
                           return STRING_TOK; }
 <STRING_LITERAL>.	{ _string_lit.insert(_string_lit.end(),*smtlibtext); }
@@ -35,7 +35,7 @@ IDCHAR  ({LETTER}|{DIGIT}|{OPCHAR})
 <USER_VALUE>"\\"[{}] { /* escape characters */
                           _string_lit.insert(_string_lit.end(),smtlibtext[1]); }
 
-<USER_VALUE>"}"	        { BEGIN INITIAL; /* return to normal mode */ 
+<USER_VALUE>"}"	        { BEGIN INITIAL; /* return to normal mode */
 			  smtliblval.str = new std::string(_string_lit);
                           return USER_VAL_TOK; }
 

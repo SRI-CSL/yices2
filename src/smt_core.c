@@ -111,7 +111,7 @@ static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
 }
 
 /*
- * Get pointer to learned_clause in which clause cl is embedded. 
+ * Get pointer to learned_clause in which clause cl is embedded.
  */
 static inline learned_clause_t *learned(const clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
@@ -162,7 +162,7 @@ static inline bool is_clause_to_be_removed(clause_t *cl) {
  */
 static inline void restore_removed_clause(clause_t *cl) {
   cl->cl[0] = - cl->cl[0];
-  cl->cl[1] = - cl->cl[1];  
+  cl->cl[1] = - cl->cl[1];
 }
 
 
@@ -190,7 +190,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
   clause_t *result;
   uint32_t i;
 
-  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) + 
+  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) +
                                     len * sizeof(literal_t));
 
   for (i=0; i<len; i++) {
@@ -213,7 +213,7 @@ static inline void delete_clause(clause_t *cl) {
  * Allocate and initialize a new learned clause
  * \param len = number of literals
  * \param lit = array of len literals
- * The watched pointers are not initialized. 
+ * The watched pointers are not initialized.
  * The activity is initialized to 0.0
  */
 static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
@@ -221,7 +221,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   clause_t *result;
   uint32_t i;
 
-  tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
+  tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) +
                                          len * sizeof(literal_t));
   tmp->activity = 0.0;
   result = &(tmp->clause);
@@ -249,7 +249,7 @@ static inline void delete_learned_clause(clause_t *cl) {
  *******************/
 
 /*
- * Create a clause vector of capacity n. 
+ * Create a clause vector of capacity n.
  */
 static clause_t **new_clause_vector(uint32_t n) {
   clause_vector_t *tmp;
@@ -273,7 +273,7 @@ static void delete_clause_vector(clause_t **v) {
  */
 static void add_clause_to_vector(clause_t ***v, clause_t *cl) {
   clause_vector_t *vector;
-  clause_t **d;  
+  clause_t **d;
   uint32_t i, n;
 
   d = *v;
@@ -285,7 +285,7 @@ static void add_clause_to_vector(clause_t ***v, clause_t *cl) {
     if (n > MAX_CLAUSE_VECTOR_SIZE) {
       out_of_memory();
     }
-    vector = (clause_vector_t *) 
+    vector = (clause_vector_t *)
       safe_realloc(vector, sizeof(clause_vector_t) + n * sizeof(clause_t *));
     vector->capacity = n;
     d = vector->data;
@@ -315,7 +315,7 @@ static inline void reset_clause_vector(clause_t **v) {
  * NULL.  Memory is allocated on the first addition and literal
  * vectors are terminated by -1.
  *
- * For a vector v of size i, the literals are stored 
+ * For a vector v of size i, the literals are stored
  * in v[0],...,v[i-1], and v[i] = -1
  */
 
@@ -349,7 +349,7 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
       if (n > MAX_LITERAL_VECTOR_SIZE) {
         out_of_memory();
       }
-      vector = (literal_vector_t *) 
+      vector = (literal_vector_t *)
         safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
       vector->capacity = n;
       d = vector->data;
@@ -358,7 +358,7 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
   }
 
   assert(i + 1 < vector->capacity);
-  
+
   d[i] = l;
   d[i+1] = null_literal;
   vector->size = i+1;
@@ -447,7 +447,7 @@ static void reset_stack(prop_stack_t *s) {
 
 
 /*
- * Free memory used by stack s 
+ * Free memory used by stack s
  */
 static void delete_stack(prop_stack_t *s) {
   free(s->lit);
@@ -474,7 +474,7 @@ static void push_literal(prop_stack_t *s, literal_t l) {
 /*
  * Initialize heap for n variables
  * - heap is initially empty: heap_last = 0
- * - heap[0] = -1 is a marker, with activity[-1] higher 
+ * - heap[0] = -1 is a marker, with activity[-1] higher
  *   than any variable activity.
  * - we also use -2 as a marker with negative activity
  * - activity increment and threshold are set to their
@@ -547,7 +547,7 @@ static void reset_heap(var_heap_t *heap) {
     heap->heap_index[i] = -1;
     heap->activity[i] = 0.0;
   }
-  heap->heap_last = 0; 
+  heap->heap_last = 0;
 
   // reset actitivity parameters: this makes a difference (2010/08/10)
   heap->act_increment = INIT_VAR_ACTIVITY_INCREMENT;
@@ -557,12 +557,12 @@ static void reset_heap(var_heap_t *heap) {
 
 /*
  * EXPERIMENT: TEST TWO HEAP ORDERINGS
- * - if BREAK_TIES is set, then ties are broken by ranking 
+ * - if BREAK_TIES is set, then ties are broken by ranking
  *   the variable with smallest index higher than the other.
  *   (seems to work better on bitvector benchmarks)
  * - otherwise, we don't attempt to break ties.
  *
- * NOTE: if BREAK_TIES is set, then rescale_var_activities 
+ * NOTE: if BREAK_TIES is set, then rescale_var_activities
  * may not preserve the intended heap ordering. We ignore this
  * issue for now, it should not matter much anyway??
  */
@@ -570,7 +570,7 @@ static void reset_heap(var_heap_t *heap) {
 #define BREAK_TIES 1
 
 /*
- * Comparison: return true if x precedes y in the heap ordering (strict ordering) 
+ * Comparison: return true if x precedes y in the heap ordering (strict ordering)
  * - ax = activity of x
  * - ay = activity of y
  */
@@ -622,7 +622,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
 
   // i is the new position for variable x
   h[i] = x;
-  index[x] = i;  
+  index[x] = i;
 }
 
 
@@ -632,7 +632,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  */
 static void update_down(var_heap_t *heap, uint32_t i) {
   double *act;
-  int32_t *index; 
+  int32_t *index;
   bvar_t *h;
   double ax, ay, az;
   bvar_t x, y, z;
@@ -672,8 +672,8 @@ static void update_down(var_heap_t *heap, uint32_t i) {
     }
 
     // x = child of node i of highest activity
-    // j = position of x in the heap (j = 2i or j = 2i+1)    
-    if (heap_cmp(z, x, az, ax)) break;    
+    // j = position of x in the heap (j = 2i or j = 2i+1)
+    if (heap_cmp(z, x, az, ax)) break;
 
     // move x up, into heap[i]
     h[i] = x;
@@ -692,7 +692,7 @@ static void update_down(var_heap_t *heap, uint32_t i) {
 /*
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
- * - x must be between 0 and nvars - 1 
+ * - x must be between 0 and nvars - 1
  */
 static void heap_insert(var_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
@@ -715,7 +715,7 @@ static void heap_remove(var_heap_t *heap, bvar_t x) {
   heap->heap_index[x] = -1;
 
   j = heap->heap_last;
-  y = heap->heap[j]; // last variable  
+  y = heap->heap[j]; // last variable
 
   if (i == j) {
     // x was the last element
@@ -745,7 +745,7 @@ static inline bool heap_is_empty(var_heap_t *heap) {
  * Get and remove the top element
  * - the heap must not be empty
  */
-static bvar_t heap_get_top(var_heap_t *heap) {  
+static bvar_t heap_get_top(var_heap_t *heap) {
   bvar_t top;
 
   assert(heap->heap_last > 0);
@@ -800,7 +800,7 @@ static void init_trail_stack(trail_stack_t *stack) {
  * - b_ptr = boolean propagation pointer
  * - t_ptr = theory propagation pointer
  */
-static void trail_stack_save(trail_stack_t *stack, uint32_t v, uint32_t u, uint32_t b, uint32_t p, 
+static void trail_stack_save(trail_stack_t *stack, uint32_t v, uint32_t u, uint32_t b, uint32_t p,
                              uint32_t b_ptr, uint32_t t_ptr) {
   uint32_t i, n;
 
@@ -925,7 +925,7 @@ static void reset_atom_table(atom_table_t *tbl) {
 
 
 /*
- * Attach atom atm to variable v: 
+ * Attach atom atm to variable v:
  * - v must not have an atom attached already and there must be enough
  * room in tbl for variable v (i.e., tbl must be resized before this
  * function is called).
@@ -985,7 +985,7 @@ static void delete_lemma_queue(lemma_queue_t *queue) {
 static void increase_lemma_queue_capacity(lemma_queue_t *queue) {
   uint32_t  n;
 
-  n = 2 * queue->capacity; // new capacity 
+  n = 2 * queue->capacity; // new capacity
   if (n == 0) {
     n = DEF_LEMMA_BLOCKS;
   }
@@ -1040,7 +1040,7 @@ static lemma_block_t *find_block_for_lemma(lemma_queue_t *queue, uint32_t n) {
     // try the current block
     tmp = queue->block[i-1];
     assert(tmp != NULL && tmp->ptr > 0);
-    if (tmp->size - tmp->ptr >= n) return tmp;    
+    if (tmp->size - tmp->ptr >= n) return tmp;
   }
 
   // current block does not exist or it's full.
@@ -1075,7 +1075,7 @@ static lemma_block_t *find_block_for_lemma(lemma_queue_t *queue, uint32_t n) {
   queue->free_block ++;
   queue->nblocks ++;
 
-  return tmp;  
+  return tmp;
 }
 
 
@@ -1088,7 +1088,7 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
   literal_t *b;
 
   blk = find_block_for_lemma(queue, n+1);
-  assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1] 
+  assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1]
          && blk->ptr + n < blk->size);
 
   b = blk->data + blk->ptr;
@@ -1157,7 +1157,7 @@ static void init_checkpoint_stack(checkpoint_stack_t *stack) {
 }
 
 /*
- * Delete 
+ * Delete
  */
 static void delete_checkpoint_stack(checkpoint_stack_t *stack) {
   safe_free(stack->data);
@@ -1216,7 +1216,7 @@ static inline void pop_checkpoint(checkpoint_stack_t *stack) {
 }
 
 /*
- * Push a checkpoint 
+ * Push a checkpoint
  * - d = decision level,
  * - n = number of terms
  */
@@ -1225,7 +1225,7 @@ static void push_checkpoint(checkpoint_stack_t *stack, uint32_t d, uint32_t n) {
 
   i = stack->top;
   if (i >= stack->size) {
-    extend_checkpoint_stack(stack);    
+    extend_checkpoint_stack(stack);
     assert(i < stack->size);
   }
   stack->data[i].dlevel = d;
@@ -1359,7 +1359,7 @@ static void test_eq_clause(smt_core_t *s, const char *msg, uint32_t n, literal_t
       neq ++;
     }
   }
-  
+
   if (neq >= 0) {
     printf("\n--- Learned clause %"PRIu64" %s ---\n", s->stats.conflicts, msg);
     printf("{");
@@ -1415,7 +1415,7 @@ static void test_eq_conflict(smt_core_t *s) {
 	printf(")\n");
       }
       c ++;
-    }    
+    }
   }
 }
 
@@ -1438,11 +1438,11 @@ static void test_eq_conflict(smt_core_t *s) {
  * The clause and variable activity increments, and the randonmess
  * parameters are set to their default values
  */
-void init_smt_core(smt_core_t *s, uint32_t n, void *th, 
+void init_smt_core(smt_core_t *s, uint32_t n, void *th,
                    th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
                    smt_mode_t mode) {
   uint32_t lsize;
-  
+
   s->th_solver = th;
   s->th_ctrl = *ctrl; // make a full copy
   s->th_smt = *smt;   // ditto
@@ -1450,7 +1450,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
 
   s->status = STATUS_IDLE;
 
-  switch (mode) {    
+  switch (mode) {
   case SMT_MODE_BASIC:
     s->option_flag = 0;
     break;
@@ -1474,7 +1474,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
 
 
   // counters
-  s->nvars = 1; 
+  s->nvars = 1;
   s->nlits = 2;
   s->vsize = n;
   s->lsize = lsize;
@@ -1483,7 +1483,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->nb_prob_clauses = 0;
   s->nb_bin_clauses = 0;
   s->nb_unit_clauses = 0;
-  
+
   s->simplify_bottom = 0;
   s->simplify_props = 0;
   s->simplify_threshold = 0;
@@ -1520,7 +1520,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   init_ivector(&s->binary_clauses, 0);
 
-  
+
   /*
    * Variable-indexed arrays
    *
@@ -1529,7 +1529,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
    * value[-1] = VAL_UNDEF_FALSE (not assigned)
    */
   s->value = (uint8_t *) safe_malloc((n + 1) * sizeof(uint8_t)) + 1;
-  s->antecedent = (antecedent_t *) safe_malloc(n * sizeof(antecedent_t)); 
+  s->antecedent = (antecedent_t *) safe_malloc(n * sizeof(antecedent_t));
   s->level = (uint32_t *) safe_malloc((n + 1) * sizeof(uint32_t)) + 1;
   s->mark = allocate_bitvector(n);
   s->level[-1] = UINT32_MAX;
@@ -1548,7 +1548,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->level[const_bvar] = 0;
   s->value[const_bvar] = VAL_TRUE;
   set_bit(s->mark, const_bvar);
-  assert(literal_value(s, true_literal) == VAL_TRUE && 
+  assert(literal_value(s, true_literal) == VAL_TRUE &&
 	 literal_value(s, false_literal) == VAL_FALSE);
 
   s->bin[true_literal] = NULL;
@@ -1557,7 +1557,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->watch[false_literal] = NULL_LINK;
 
   init_stack(&s->stack, n);
-  init_heap(&s->heap, n);  
+  init_heap(&s->heap, n);
   init_lemma_queue(&s->lemmas);
   init_statistics(&s->stats);
   init_atom_table(&s->atoms);
@@ -1575,7 +1575,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
  * Replace the theory solver and interface descriptors
  * - this can used provided no atom/clause has been added yet
  */
-void smt_core_reset_thsolver(smt_core_t *s, void *th, th_ctrl_interface_t *ctrl, 
+void smt_core_reset_thsolver(smt_core_t *s, void *th, th_ctrl_interface_t *ctrl,
 			     th_smt_interface_t *smt) {
   s->th_solver = th;
   s->th_ctrl = *ctrl; // make a full copy
@@ -1611,7 +1611,7 @@ void delete_smt_core(smt_core_t *s) {
 
   delete_ivector(&s->binary_clauses);
 
-  // var-indexed arrays  
+  // var-indexed arrays
   safe_free(s->value - 1);
   safe_free(s->antecedent);
   safe_free(s->level - 1);
@@ -1642,7 +1642,7 @@ void delete_smt_core(smt_core_t *s) {
  * - also calls reset on the attached theory solver
  * - we don't call atom_deleted for the solver.
  */
-void reset_smt_core(smt_core_t *s) { 
+void reset_smt_core(smt_core_t *s) {
   uint32_t i, n;
   clause_t **cl;
 
@@ -1677,7 +1677,7 @@ void reset_smt_core(smt_core_t *s) {
   reset_statistics(&s->stats);
   reset_atom_table(&s->atoms);
   reset_trail_stack(&s->trail_stack);
-  reset_checkpoint_stack(&s->checkpoints);  
+  reset_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
 
   // reset all counters
@@ -1767,7 +1767,7 @@ void set_randomness(smt_core_t *s, float random_factor) {
 
 
 /*
- * Set the internal seed 
+ * Set the internal seed
  */
 void set_random_seed(smt_core_t *s, uint32_t x) {
   s->prng = x;
@@ -1822,7 +1822,7 @@ static void init_variable(smt_core_t *s, bvar_t x) {
   s->bin[l0] = NULL;
   s->bin[l1] = NULL;
   s->watch[l0] = NULL_LINK;
-  s->watch[l1] = NULL_LINK;  
+  s->watch[l1] = NULL_LINK;
 }
 
 /*
@@ -1849,7 +1849,7 @@ bvar_t create_boolean_variable(smt_core_t *s) {
 
 /*
  * Add n fresh boolean variables: indices are allocated starting
- * from s->nvars (i.e., if s->nvars == v before the call, the 
+ * from s->nvars (i.e., if s->nvars == v before the call, the
  * new variables have indices v, v+1, ... v+n-1).
  */
 void add_boolean_variables(smt_core_t *s, uint32_t n) {
@@ -2011,7 +2011,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
 
   // Notify the theory solver
   s->th_ctrl.increase_decision_level(s->th_solver);
- 
+
 #if TRACE
   printf("\n---> DPLL:   Decision: literal ");
   print_literal(stdout, l);
@@ -2057,7 +2057,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   bvar_t v;
 
   assert(literal_is_unassigned(s, l));
-  assert(bvar_has_atom(s, var_of(l))); 
+  assert(bvar_has_atom(s, var_of(l)));
 
 #if TRACE
   printf("---> DPLL:   Theory prop ");
@@ -2089,7 +2089,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
  **************************/
 
 /*
- * Select an unassigned literal: returns null_literal if all literals 
+ * Select an unassigned literal: returns null_literal if all literals
  * are assigned. Use activity-based heuristic + randomization.
  */
 literal_t select_unassigned_literal(smt_core_t *s) {
@@ -2121,7 +2121,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
     }
   }
 
-  /* 
+  /*
    * select unassigned variable x with highest activity
    */
   while (! heap_is_empty(&s->heap)) {
@@ -2129,7 +2129,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
     if (bval_is_undef(v[x])) {
       goto var_found;
     }
-  } 
+  }
 
   // empty heap
   return null_literal;
@@ -2156,10 +2156,10 @@ bvar_t select_most_active_bvar(smt_core_t *s) {
     if (bval_is_undef(v[x])) {
       goto var_found;
     }
-  } 
+  }
 
   x = null_bvar;
-  
+
  var_found:
   return x;
 }
@@ -2181,7 +2181,7 @@ bvar_t select_random_bvar(smt_core_t *s) {
   assert(0 <= x && x < n);
 
   if (bval_is_undef(v[x])) return x;
-  
+
   if (all_variables_assigned(s)) return null_bvar;
 
   // d = random increment, must be prime with n.
@@ -2318,7 +2318,7 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
 
   // Update the cp_flag: the deletion of atoms is enabled if there's a checkpoint
   // and if the top checkpoint has level >= the new decision level
-  s->cp_flag = non_empty_checkpoint_stack(&s->checkpoints) && 
+  s->cp_flag = non_empty_checkpoint_stack(&s->checkpoints) &&
     top_checkpoint(&s->checkpoints)->dlevel >= back_level;
 }
 
@@ -2360,9 +2360,9 @@ static void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
 
   s->inconsistent = true;
   s->conflict_buffer[0] = l0;
-  s->conflict_buffer[1] = l1; 
+  s->conflict_buffer[1] = l1;
   s->conflict_buffer[2] = end_clause;
-  s->conflict = s->conflict_buffer;  
+  s->conflict = s->conflict_buffer;
 }
 
 
@@ -2441,7 +2441,7 @@ void record_theory_conflict(smt_core_t *s, literal_t *a) {
  * Short cuts
  */
 void record_empty_theory_conflict(smt_core_t *s) {
-  s->conflict_buffer[0] = null_literal;  
+  s->conflict_buffer[0] = null_literal;
   record_theory_conflict(s, s->conflict_buffer);
 }
 
@@ -2485,7 +2485,7 @@ static inline bval_t lit_val(uint8_t *v, literal_t l) {
  * - val = literal value array (must be s->value)
  * - l0 = literal (must be false in the current assignment)
  * - v = array of literals terminated by -1 (must be s->bin[l])
- * v must be != NULL 
+ * v must be != NULL
  *
  * Return true if there's no conflict, false otherwise.
  */
@@ -2557,7 +2557,7 @@ static bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t 
     } else {
       /*
        * Search for a new watched literal in cl.
-       * The loop terminates since cl->cl terminates with an end marked 
+       * The loop terminates since cl->cl terminates with an end marked
        * and val[end_marker] == VAL_UNDEF.
        */
       k = 1;
@@ -2566,7 +2566,7 @@ static bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t 
         k ++;
         l = b[k];
       } while (lit_val(val, l) == VAL_FALSE);
-      
+
       if (l >= 0) {
         /*
          * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
@@ -2624,13 +2624,13 @@ static bool boolean_propagation(smt_core_t *s) {
 
   for (i = s->stack.prop_ptr; i < s->stack.top; i++) {
     l = not(s->stack.lit[i]);
-    
+
     bin = s->bin[l];
     if (bin != NULL && ! propagation_via_bin_vector(s, val, l, bin)) {
       // conflict found
       return false;
     }
-    
+
     if (! propagation_via_watched_list(s, val, l)) {
       return false;
     }
@@ -2665,7 +2665,7 @@ static bool theory_propagation(smt_core_t *s) {
   bvar_t x;
 
   /*
-   * IMPORTANT: make sure the theory_solver does not 
+   * IMPORTANT: make sure the theory_solver does not
    * create new atoms within the assert_atom function
    */
   n = s->atoms.size;
@@ -2819,7 +2819,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   clause_t *cl;
   uint32_t i, j, k, q;
   literal_t l0, l1;
-  
+
 #if TRACE
   printf("---> DPLL:   Learned clause: {");
   for (i=0; i<n; i++) {
@@ -2831,7 +2831,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
   l0 = a[0];
 
-  if (n == 1) { 
+  if (n == 1) {
 
     backtrack_to_base_level(s);
     if (literal_value(s, l0) == VAL_FALSE) {
@@ -2849,7 +2849,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
       assign_literal(s, l0);
       s->nb_unit_clauses ++;
     }
- 
+
   } else if (n == 2) {
 
     l1 = a[1];
@@ -2936,7 +2936,7 @@ static bool try_cache_theory_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   } else if (n > 2) {
 
     i = 0;
-    while (i<n) { 
+    while (i<n) {
       l = a[i];
       if (d_level(s, l) == d) goto found0;
       i ++;
@@ -3048,7 +3048,7 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
 
   assert(d_level(s, l0) == s->decision_level && literal_value(s, l0) == VAL_TRUE);
   ivector_push(v, l0);
-  
+
   // turn the implication into a clause
   // ignore literals assigned at the base level
   for (i=0; i<n; i++) {
@@ -3082,7 +3082,7 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
  * must be before l in the assignment/propagation stack.
  */
 static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
-  assert(literal_value(s, l) == VAL_TRUE && a == s->antecedent[var_of(l)] && 
+  assert(literal_value(s, l) == VAL_TRUE && a == s->antecedent[var_of(l)] &&
          antecedent_tag(a) == generic_tag);
 
   ivector_reset(&s->explanation);
@@ -3095,7 +3095,7 @@ static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
 
 
 /*
- * Auxiliary function to accelerate clause simplification (cf. Minisat). 
+ * Auxiliary function to accelerate clause simplification (cf. Minisat).
  * This builds a hash of the decision levels in a literal array.
  * b = array of literals
  * n = number of literals
@@ -3122,7 +3122,7 @@ static inline bool check_level(smt_core_t *s, literal_t l, uint32_t sgn) {
  * Analyze literal antecedents of not(l) to check whether l is subsumed.
  * - sgn = signature of the learned clause
  * level of l must match sgn (i.e., check_level(sol, l, sgn) is not 0).
- * 
+ *
  * - returns false if l is not subsumed: either because not(l) has no antecedents
  *   or if an antecedent of not(l) has a decision level that does not match sgn.
  * - returns true otherwise.
@@ -3181,7 +3181,7 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
       ivector_push(b, l1);
     }
     break;
-    
+
   case generic_tag:
     explain_antecedent(s, not(l), a);
     c = s->explanation.data;
@@ -3194,7 +3194,7 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
           ivector_push(b, l1);
         } else {
           return false;
-        }       
+        }
       }
     }
     break;
@@ -3256,9 +3256,9 @@ static void simplify_learned_clause(smt_core_t *s) {
   j = 1;
   for (i=1; i<n; i++) {
     l = b[i];
-    if (subsumed(s, l, hash)) { 
+    if (subsumed(s, l, hash)) {
       // Hack: move l to buffer2 to clear its mark later
-      ivector_push(&s->buffer2, l); 
+      ivector_push(&s->buffer2, l);
     } else {
       // keep l in buffer
       b[j] = l;
@@ -3294,7 +3294,7 @@ static void simplify_learned_clause(smt_core_t *s) {
  *   or by end_learned (i.e., by a negative number)
  * - if a is empty, the conflict level is set to s->base_level
  *   otherwise conflict level = max { d_level(l) | l in the clause }
- * 
+ *
  * Also set s->th_conflict_size to the number of literals in the conflict clause.
  * This is used by the caching heuristics.
  *
@@ -3303,7 +3303,7 @@ static void simplify_learned_clause(smt_core_t *s) {
  * is the same as the current decision_level
  */
 static uint32_t get_conflict_level(smt_core_t *s, literal_t *a) {
-  uint32_t k, q, i; 
+  uint32_t k, q, i;
   literal_t l;
 
   k = s->base_level;
@@ -3313,7 +3313,7 @@ static uint32_t get_conflict_level(smt_core_t *s, literal_t *a) {
     if (l < 0) break;
     assert(literal_value(s, l) == VAL_FALSE);
     q = d_level(s, l);
-    if (q > k) { 
+    if (q > k) {
       k = q;
     }
     i ++;
@@ -3330,7 +3330,7 @@ static uint32_t get_conflict_level(smt_core_t *s, literal_t *a) {
 /*
  * Search for first UIP and build the learned clause
  * d = solver state
- * - s->conflict stores a conflict clause (i.e., an array of literals 
+ * - s->conflict stores a conflict clause (i.e., an array of literals
  *   terminated by -1 or -2 with all literals false).
  *
  * result:
@@ -3404,7 +3404,7 @@ static void resolve_conflict(smt_core_t *s) {
   unresolved = 0;
 
   // reserve space for the implied literal
-  ivector_push(buffer, null_literal); 
+  ivector_push(buffer, null_literal);
 
   /*
    * scan the conflict clause
@@ -3419,7 +3419,7 @@ static void resolve_conflict(smt_core_t *s) {
     c ++;
     l = *c;
   }
-  
+
   /*
    * If the conflict is a learned clause, increase its activity
    */
@@ -3525,7 +3525,7 @@ static void resolve_conflict(smt_core_t *s) {
   s->theory_conflict = false;
 
   /*
-   * Add the learned clause: this causes backtracking 
+   * Add the learned clause: this causes backtracking
    * and assert the implied literal
    */
   add_learned_clause(s, s->buffer.size, s->buffer.data);
@@ -3542,12 +3542,12 @@ static void resolve_conflict(smt_core_t *s) {
 /*
  * Before addition, clauses are simplified with respect to the
  * base-level assignment:
- * - if a clause contains a literal true at the base level, 
+ * - if a clause contains a literal true at the base level,
  *   or two complementary literals, then it's trivially true
  *   so it is ignored.
  * - otherwise all literals false at the base level are removed
  *   and duplicate literals are removed
- * - at this point, the clause contains no literals assigned 
+ * - at this point, the clause contains no literals assigned
  *   at the base level.
  *
  * For a clause added during the search, we examine its truth value
@@ -3560,11 +3560,11 @@ static void resolve_conflict(smt_core_t *s) {
  * - for a false clause, take two literals of highest d_level
  * - for an undef clause, take two unassigned literals if that's possible,
  *   otherwise take the unassigned literal + a false literal of highest d_level
- * - for a true clause, let 
+ * - for a true clause, let
  *       d = min { d_level(l) | l in clause and l is true }
  *   then the watched literals can be any literals of d_level >= d.
- * 
- * We backtrack if the clause is false or if it contains a single 
+ *
+ * We backtrack if the clause is false or if it contains a single
  * unassigned literal and all other literals are false.
  * - the backtrack level k is computed as follows:
  *   - for unit clauses, k = the base level
@@ -3576,13 +3576,13 @@ static void resolve_conflict(smt_core_t *s) {
  *   1) all literals are still false. We record the clause as a conflict.
  *      (this may overwrite an existing conflict but that's OK. We need
  *      to keep the conflict of lowest d_level anyway).
- *   2) one literal is unassigned, all other are false. We do a 
+ *   2) one literal is unassigned, all other are false. We do a
  *      unit propagation step (to make the unassigned literal true).
  *
  * If several clauses are added in succession, then one may cause a conflict
  * at level k0 that gets cleared later by another clause that causes backtracking
  * to a lower level.
- */   
+ */
 
 /*
  * Create a (simplified) problem clause
@@ -3658,7 +3658,7 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
     return;
   }
 
-  k0 = UINT32_MAX; 
+  k0 = UINT32_MAX;
   k1 = UINT32_MAX;
   v0 = literal_value(s, l0);
   if (bval_is_def(v0)) k0 = s->level[var_of(l0)];
@@ -3671,7 +3671,7 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
       backtrack_to_level(s, k0);
       s->inconsistent = false; // clear conflict if any
     }
-    implied_literal(s, l1, mk_literal_antecedent(l0));    
+    implied_literal(s, l1, mk_literal_antecedent(l0));
 
   } else if (v1 == VAL_FALSE && k1 < k0) {
     // l0 implied at level k1
@@ -3686,7 +3686,7 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
     // conflict at level k0
     backtrack_to_level(s, k0);
     record_binary_conflict(s, l0, l1);
-  }   
+  }
 }
 
 
@@ -3694,7 +3694,7 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
  * For selecting watched literals, we pick two literals
  * that are minimal for a preference relation <
  *
- * To compare l and l', we look at 
+ * To compare l and l', we look at
  *  (v  k)  where v  = value of l  and k  = level of l
  *  (v' k') where v' = value of l' and k' = level of l'
  *
@@ -3711,13 +3711,13 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
  */
 
 /*
- * Priority table: 
+ * Priority table:
  * - prio[true] = 1
  * - prio[undef] = 0
  * - prio[false]  = -1
  *
  * If prio[v1] > prio[v2] then v1 is preferred
- * If prio[v1] = prio[v2] 
+ * If prio[v1] = prio[v2]
  */
 static const int8_t prio[4] = {
   0, 0, -1, +1,
@@ -3776,7 +3776,7 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
       // circular rotation: a[i] --> a[0] --> a[1] --> a[i]
       a[i] = a[1]; a[1] = a[0]; a[0] = l;
       v1 = v0; k1 = k0;
-      v0 = v; k0 = k; 
+      v0 = v; k0 = k;
     } else if (prefer(v, k, v1, k1)) {
       // swap a[i] and a[1]
       a[i] = a[1]; a[1] = l;
@@ -3814,7 +3814,7 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     backtrack_to_level(s, k0);
     record_clause_conflict(s, cl);
   }
- 
+
 }
 
 
@@ -3825,10 +3825,10 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
  * - remove all literals false at base-level
  * - remove duplicate literals
  * - check whether the clause is true at base-level
- * Return code: 
+ * Return code:
  * - true means the clause is not trivial
  *   n is updated and the simplified clause is stored in a[0 .. n-1].
- * - false means the clause contains complementary literals or 
+ * - false means the clause contains complementary literals or
  *   a literal true at the base level
  */
 static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
@@ -3857,10 +3857,10 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
   for (i=0; i<m; i++) {
     l = a[i];
     switch (literal_base_value(s, l)) {
-    case VAL_FALSE: 
+    case VAL_FALSE:
       break;
     case VAL_UNDEF_FALSE:
-    case VAL_UNDEF_TRUE: 
+    case VAL_UNDEF_TRUE:
       a[j++] = l;
       break;
     case VAL_TRUE:
@@ -3868,7 +3868,7 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
     }
   }
 
-  *n = j;  
+  *n = j;
   return true;
 }
 
@@ -3881,7 +3881,7 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  * - can be called if s->status is IDLE or SEARCHING
  * - if a clause is added on the fly, when decision_level > base_level,
  *   we copy it into the lemma queue for future processing.
- * The theory solver may call the clause-addition function within 
+ * The theory solver may call the clause-addition function within
  * its propagate or backtrack functions.
  */
 
@@ -3891,15 +3891,15 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  *  if s->status is not IDLE or SEARCHING or INTERRUPTED).
  */
 static bool on_the_fly(smt_core_t *s) {
-  assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) || 
-         (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) || 
+  assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) ||
+         (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) ||
          (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
   return s->status != STATUS_IDLE;
 }
 
 /*
  * Record the empty clause as a conflict
- * - if resolve conflict is called after this, it will do the 
+ * - if resolve conflict is called after this, it will do the
  * right thing (namely, see that the conflict can't be resolved).
  */
 static void record_empty_conflict(smt_core_t *s) {
@@ -3910,7 +3910,7 @@ static void record_empty_conflict(smt_core_t *s) {
 #endif
   s->inconsistent = true;
   s->conflict_buffer[0] = end_clause;
-  s->conflict = s->conflict_buffer;  
+  s->conflict = s->conflict_buffer;
 }
 
 
@@ -3966,7 +3966,7 @@ void add_unit_clause(smt_core_t *s, literal_t l) {
 
 /*
  * Simplify then add clause a[0 ... n-1]
- * - this modifies array a 
+ * - this modifies array a
  */
 void add_clause_unsafe(smt_core_t *s, uint32_t n, literal_t *a) {
   if (on_the_fly(s)) {
@@ -4071,8 +4071,8 @@ void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, literal_t l3)
  *  DEAL WITH THE LEMMA QUEUE   *
  *******************************/
 
-/* 
- * Find the length of a lemma a: 
+/*
+ * Find the length of a lemma a:
  * - a must be terminated by null_literal (or any negative end marker)
  */
 static uint32_t lemma_length(literal_t *a) {
@@ -4130,11 +4130,11 @@ static void add_all_lemmas(smt_core_t *s) {
     lemma = tmp->data;
     j = 0;
     while (j < tmp->ptr) {
-      /* 
+      /*
        * it's possible for new lemmas to be added within this loop
        * because clause addition may cause backtracking and
        * the theory solver is allowed to create lemmas within backtrack.
-       */      
+       */
       n = lemma_length(lemma);
       add_lemma(s, n, lemma);
       n ++; // skip the end marker
@@ -4158,8 +4158,8 @@ static void add_all_lemmas(smt_core_t *s) {
 /*
  * Reorder an array  a[low ... high-1] of learned clauses so that
  * the clauses are divided in two half arrays:
- * - the clauses of highest activities are all stored in a[low...half - 1]  
- * - the clauses of lowest activities are in a[half ... high-1], 
+ * - the clauses of highest activities are all stored in a[low...half - 1]
+ * - the clauses of lowest activities are in a[half ... high-1],
  * where half = (low + high) / 2.
  */
 static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
@@ -4199,14 +4199,14 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
      * - all clauses in a[low,.., j - 1] have activity >= pivot
      * - activity of a[j] == pivot
      * - all clauses in a[j+1,..., high-1] have activity <= pivot
-     * reapply the procedure to whichever of the two subarrays 
+     * reapply the procedure to whichever of the two subarrays
      * contains the half point
      */
     if (j < half) {
       low = j + 1;
     } else {
       high = j;
-    }    
+    }
   } while (j != half);
 }
 
@@ -4299,7 +4299,7 @@ static void delete_learned_clauses(smt_core_t *s) {
   set_cv_size(s->learned_clauses, j);
   s->nb_clauses -= (n - j);
 
-  s->stats.learned_clauses_deleted += (n - j);  
+  s->stats.learned_clauses_deleted += (n - j);
 }
 
 
@@ -4386,12 +4386,12 @@ void remove_irrelevant_learned_clauses(smt_core_t *s) {
 
   p = n - n/TAIL_RATIO;
   coeff = (HEAD_ACTIVITY - TAIL_ACTIVITY)/n;
-  
+
   for (i=0; i<n; i++) {
     cl = v[i];
     if (! clause_is_locked(s, cl)) {
       relevance = i < p ? HEAD_RELEVANCE : TAIL_RELEVANCE;
-      if (get_activity(cl) < HEAD_ACTIVITY - coeff * i && 
+      if (get_activity(cl) < HEAD_ACTIVITY - coeff * i &&
           unassigned_literals(s, cl) > relevance) {
         mark_for_removal(cl);
       }
@@ -4431,9 +4431,9 @@ static inline bval_t unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
 
 /*
  * Simplify clause cl, given the current literal assignment
- * - mark cl for deletion if it's true 
+ * - mark cl for deletion if it's true
  * - otherwise remove the false literals
- * The watched literals are unchanged. 
+ * The watched literals are unchanged.
  *
  * Update the counters aux_clauses and aux_literals if the clause
  * is not marked for removal.
@@ -4519,7 +4519,7 @@ static void simplify_clause_set(smt_core_t *s) {
     v = s->problem_clauses;
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
-      if (! is_clause_to_be_removed(v[i]) && 
+      if (! is_clause_to_be_removed(v[i]) &&
           ! clause_is_locked(s, v[i])) {
         simplify_clause(s, v[i]);
       }
@@ -4550,7 +4550,7 @@ static void simplify_clause_set(smt_core_t *s) {
     v = s->problem_clauses;
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
-      if (! is_clause_to_be_removed(v[i]) && 
+      if (! is_clause_to_be_removed(v[i]) &&
           ! clause_is_locked(s, v[i])) {
         mark_true_clause(s, v[i]);
       }
@@ -4637,7 +4637,7 @@ static void cleanup_binary_clause_vector(smt_core_t *s, literal_t *v) {
     l = v[i++];
     if (unsafe_literal_is_unassigned(s, l)) { //keep l
       v[j ++] = l;
-    }    
+    }
   } while (l >= 0); // end-marker is copied too
 
   s->aux_literals += i - j;
@@ -4651,7 +4651,7 @@ static void cleanup_binary_clause_vector(smt_core_t *s, literal_t *v) {
  * - remove all the binary clauses that contain one such literal
  * - free the binary watch vectors
  *
- * Should not be used at base_level > 0, otherwise pop won't restore the 
+ * Should not be used at base_level > 0, otherwise pop won't restore the
  * binary clauses properly.
  */
 static void simplify_binary_vectors(smt_core_t *s) {
@@ -4718,18 +4718,18 @@ static void simplify_clause_database(smt_core_t *s) {
 
   /*
    * The next call to simplify_clause_database is enabled when
-   *   s->decision_level == base_level && 
+   *   s->decision_level == base_level &&
    *   s->stack.top > s->simplify_bottom &&
    *   s->stats.propagations > s->simplify_props + s->simplify_threshold
    *
    * s->simplify_threshold is set to the total number of literals.
    *
-   * This is an arbitrary choice that avoids calling simplify too often. 
+   * This is an arbitrary choice that avoids calling simplify too often.
    * This is copied from Minisat.
-   */ 
+   */
   s->simplify_bottom = s->stack.top;
   s->simplify_props = s->stats.propagations;
-  s->simplify_threshold = s->stats.learned_literals + s->stats.prob_literals + 
+  s->simplify_threshold = s->stats.learned_literals + s->stats.prob_literals +
     2 * s->nb_bin_clauses;
 }
 
@@ -4741,7 +4741,7 @@ static void simplify_clause_database(smt_core_t *s) {
  *************/
 
 /*
- * Push: 
+ * Push:
  * - clear current assignment and reset status to IDLE if necessary
  * - save current base-level state
  * - notify the theory solver
@@ -4756,7 +4756,7 @@ void smt_push(smt_core_t *s) {
   assert((s->option_flag & PUSH_POP_MASK) != 0);
 
   /*
-   * Reset assignment and status 
+   * Reset assignment and status
    */
   if (s->status == STATUS_UNKNOWN || s->status == STATUS_SAT) {
     smt_clear(s);
@@ -4772,9 +4772,9 @@ void smt_push(smt_core_t *s) {
    * - number of problem clauses
    * - propagation pointers
    */
-  trail_stack_save(&s->trail_stack, 
-                   s->nvars, s->nb_unit_clauses, s->binary_clauses.size, 
-                   get_cv_size(s->problem_clauses), 
+  trail_stack_save(&s->trail_stack,
+                   s->nvars, s->nb_unit_clauses, s->binary_clauses.size,
+                   get_cv_size(s->problem_clauses),
                    s->stack.prop_ptr, s->stack.theory_ptr);
 
   /*
@@ -4792,7 +4792,7 @@ void smt_push(smt_core_t *s) {
     increase_stack_levels(&s->stack);
   }
   s->stack.level_index[k] = s->stack.top;
-  
+
 }
 
 
@@ -4862,7 +4862,7 @@ static void restore_clauses(smt_core_t *s, uint32_t n) {
 
   // empty the watch lists
   reset_watch_lists(s);
-  
+
   // do the real deletion
   v = s->learned_clauses;
   m = get_cv_size(v);
@@ -4880,7 +4880,7 @@ static void restore_clauses(smt_core_t *s, uint32_t n) {
 
   /*
    * put all problem clauses back into the watch lists
-   * and restore the marked problem clauses in v[0 ... n-1] 
+   * and restore the marked problem clauses in v[0 ... n-1]
    */
   nlits = 0;   // to count the total number of literals
   for (i=0; i<n; i++) {
@@ -4915,7 +4915,7 @@ static void restore_binary_clauses(smt_core_t *s, uint32_t n) {
   uint32_t i;
   literal_t l0, l1;
   literal_t *bin_clauses;
-  
+
   bin_clauses = s->binary_clauses.data;
   i = s->binary_clauses.size;
   assert((i & 1) == 0  && (n & 1) == 0 && i >= n);
@@ -4942,8 +4942,8 @@ static void restore_binary_clauses(smt_core_t *s, uint32_t n) {
  * Keep variables 0 ... n-1. Remove the rest
  * Must be called after restore_clauses.
  *
- * Atoms are removed if needed, but we don't call 
- * s->th_smt.delete_atom, since s->th_ctrl.pop has been 
+ * Atoms are removed if needed, but we don't call
+ * s->th_smt.delete_atom, since s->th_ctrl.pop has been
  * called before this.
  */
 static void restore_variables(smt_core_t *s, uint32_t n) {
@@ -5040,8 +5040,8 @@ void smt_pop(smt_core_t *s) {
  * - we just call pop
  */
 void smt_cleanup(smt_core_t *s) {
-  assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT) 
-         && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0); 
+  assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT)
+         && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0);
   s->status = STATUS_IDLE; // make sure pop does not abort
   smt_pop(s);
 }
@@ -5053,7 +5053,7 @@ void smt_cleanup(smt_core_t *s) {
 void smt_clear(smt_core_t *s) {
   assert(s->status == STATUS_SAT || s->status == STATUS_UNKNOWN);
   /*
-   * In clean-interrupt mode, we restore the state to what it was 
+   * In clean-interrupt mode, we restore the state to what it was
    * before the search started. This also backtracks to the base_level
    * and clears the current assignment.
    */
@@ -5073,8 +5073,8 @@ void smt_clear(smt_core_t *s) {
 void smt_clear_unsat(smt_core_t *s) {
   assert(s->status == STATUS_UNSAT);
   /*
-   * In clean-interrupt mode, we restore the state to what it was 
-   * before the search started (using pop), but we leave 
+   * In clean-interrupt mode, we restore the state to what it was
+   * before the search started (using pop), but we leave
    * status UNSAT.
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
@@ -5095,7 +5095,7 @@ void smt_clear_unsat(smt_core_t *s) {
  * be deleted when the solver backtracks to a lower decision level
  */
 void smt_checkpoint(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING || 
+  assert(s->status == STATUS_SEARCHING ||
          s->status == STATUS_INTERRUPTED);
   push_checkpoint(&s->checkpoints, s->decision_level, s->nvars);
   s->cp_flag = false;
@@ -5105,15 +5105,15 @@ void smt_checkpoint(smt_core_t *s) {
 /*
  * Heuristic for deletion of variables and atoms created on the fly:
  *
- * The checkpoints divide the boolean variables in disjoint segments 
+ * The checkpoints divide the boolean variables in disjoint segments
  * - the top segment is [n, s->nvars - 1] where n <= nvars
- * - each segment is assigned a decision level (the decision level at the 
+ * - each segment is assigned a decision level (the decision level at the
  *   time the checkpoint was created)
  * - the top segment can be deleted if the following conditions are satisfied:
  *   1) s->cp_flag is true (i.e., after backtracking)
  *   2) the segment level is <= the current decision level in s
  *   3) all variables in the segment are unassigned.
- * - if these conditions hold, we remove all variables in [n, s->nvars - 1] 
+ * - if these conditions hold, we remove all variables in [n, s->nvars - 1]
  *   and all the atoms attached to these variable, then we consider the next
  *   segment in the checkpoint stack.
  * - after this, we remove all the clauses that refer to a deleted variables
@@ -5122,7 +5122,7 @@ void smt_checkpoint(smt_core_t *s) {
 
 /*
  * Attempt to remove the top segment [n, s->nvars - 1]
- * - if all variables in this segment are unassigned, then their 
+ * - if all variables in this segment are unassigned, then their
  *   atoms are removed and the function returns true
  * - otherwise, the function returns false and does nothing
  * Note: it does nothing if n == s->nvars, but returns true in that case.
@@ -5154,7 +5154,7 @@ static bool delete_variables(smt_core_t *s, uint32_t n) {
   }
 
   // update s->nvars and s->nlits
-  s->nvars = n;  
+  s->nvars = n;
   s->nlits = 2 * n;
 
   return true;
@@ -5166,7 +5166,7 @@ static bool delete_variables(smt_core_t *s, uint32_t n) {
  */
 static void cleanup_garbage_in_binary_clause_vector(smt_core_t *s, literal_t *v) {
   uint32_t i, j;
-  literal_t l, max;  
+  literal_t l, max;
 
   max = pos_lit(s->nvars);
   i = 0;
@@ -5185,7 +5185,7 @@ static void cleanup_garbage_in_binary_clause_vector(smt_core_t *s, literal_t *v)
 
 /*
  * Remove all binary clauses that contain a removed variable.
- * - old_nvar = number of variables before removal 
+ * - old_nvar = number of variables before removal
  */
 static void remove_garbage_bin_clauses(smt_core_t *s, uint32_t old_nvars) {
   literal_t max, l, l0, *v0;
@@ -5265,7 +5265,7 @@ static void mark_clause_to_remove(smt_core_t *s, clause_t *cl, literal_t max) {
  * Cleanup the problem and learned clauses after removal of variables
  */
 static void remove_garbage_clauses(smt_core_t *s) {
-  literal_t max; 
+  literal_t max;
   uint32_t i, j, n;
   clause_t **v;
 
@@ -5367,15 +5367,15 @@ static void delete_irrelevant_variables(smt_core_t *s) {
  * Purge all literals that refer to a dynamic variable
  * from the assignment stack.
  */
-static void purge_all_dynamic_atoms(smt_core_t *s) {  
+static void purge_all_dynamic_atoms(smt_core_t *s) {
   checkpoint_stack_t *cp;
   literal_t *u, l;
   uint32_t base_nvars;
   uint32_t i, j, k;
   bvar_t x;
 
-  assert(s->base_level == s->decision_level && 
-         s->stack.top == s->stack.prop_ptr && 
+  assert(s->base_level == s->decision_level &&
+         s->stack.top == s->stack.prop_ptr &&
          s->stack.top == s->stack.theory_ptr &&
          s->nb_unit_clauses == s->stack.top);
 
@@ -5384,7 +5384,7 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
     // number of variables to keep = nvars at the bottom checkpoint
     base_nvars = cp->data[0].nvars;
 
-    // remove all literals whose var is >= base_nvars from 
+    // remove all literals whose var is >= base_nvars from
     // the assignment stack
     u = s->stack.lit;
     k = s->stack.top;
@@ -5407,7 +5407,7 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
     s->stack.prop_ptr = j;
     s->stack.theory_ptr = j;
 
-    s->nb_unit_clauses = j;    
+    s->nb_unit_clauses = j;
   }
 
 }
@@ -5439,7 +5439,7 @@ void internalization_start(smt_core_t *s) {
 
 
 /*
- * Propagate at the base  
+ * Propagate at the base
  * - this is used to detect early inconsistencies during internalization
  */
 bool base_propagate(smt_core_t *s) {
@@ -5449,7 +5449,7 @@ bool base_propagate(smt_core_t *s) {
   printf("\n---> DPLL BASE PROPAGATE\n");
   fflush(stdout);
 #endif
-  
+
   /*
    * If s is inconsistent (i.e., the empty clause was added) then there's
    * nothing more to do.
@@ -5471,9 +5471,9 @@ bool base_propagate(smt_core_t *s) {
 
 /*
  * Prepare for the search:
- * - initialize variable heap 
+ * - initialize variable heap
  * - set status to searching
- * - if clean_interrupt is enabled, save the current state to 
+ * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
  */
 void start_search(smt_core_t *s) {
@@ -5483,7 +5483,7 @@ void start_search(smt_core_t *s) {
   printf("\n---> DPLL START\n");
   fflush(stdout);
 #endif
-  
+
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
     /*
      * in clean-interrupt mode, save the current state so
@@ -5516,7 +5516,7 @@ void start_search(smt_core_t *s) {
 #if DEBUG
   check_heap_content(s);
   check_heap(s);
-#endif  
+#endif
 }
 
 
@@ -5542,7 +5542,7 @@ void stop_search(smt_core_t *s) {
  * 3) if a conflict is found, resolve that conflict otherwise
  *    exit the loop
  */
-void smt_process(smt_core_t *s) {  
+void smt_process(smt_core_t *s) {
   while (s->status == STATUS_SEARCHING) {
     if (s->inconsistent) {
       resolve_conflict(s);
@@ -5575,10 +5575,10 @@ void smt_process(smt_core_t *s) {
   // try to simplify at the base level
   if (s->status == STATUS_SEARCHING &&
       s->decision_level == s->base_level &&
-      s->stack.top > s->simplify_bottom && 
+      s->stack.top > s->simplify_bottom &&
       s->stats.propagations >= s->simplify_props + s->simplify_threshold) {
     simplify_clause_database(s);
-  }     
+  }
 
 }
 
@@ -5590,7 +5590,7 @@ void smt_process(smt_core_t *s) {
  * - call the final_check function of the theory solver
  * - if that creates new variables or lemmas or report a conflict
  *   then smt_process is called
- * - return false if more processing is required, 
+ * - return false if more processing is required,
  *   return true if the theory solver does not trigger anything more.
  * - if the result is true then the whole thing is SAT/UNKNOWN
  */
@@ -5621,18 +5621,18 @@ void smt_final_check(smt_core_t *s) {
 
 
 
-/*************** 
+/***************
  *  RESTARTS   *
  **************/
 
 /*
  * Three variants of restart:
  * - full restart: backtrack to the base_level
- * - partial restart: lazier version: backtrack(s, k) for some 
+ * - partial restart: lazier version: backtrack(s, k) for some
  *   level k >= base_level determined by variable activities:
  * - partial_restart_var: even lazier version: if partial restart
  *   would backtrack to level k then partial_restart_var backtracks
- *   to k' >= k. 
+ *   to k' >= k.
  * - benchmarking shows that partial_restart_var seems to work best.
  */
 
@@ -5666,16 +5666,16 @@ static bool level_has_lower_activity(smt_core_t *s, double ax, uint32_t k) {
   prop_stack_t *stack;
   uint32_t i, n;
   bvar_t x;
-  
+
   assert(s->base_level <= k && k <= s->decision_level);
   stack = &s->stack;
 
   // i := start of level k
   // n := end of level k
-  i = stack->level_index[k]; 
+  i = stack->level_index[k];
   n = stack->top;
   if (k < s->decision_level) {
-    n = stack->level_index[k+1]; 
+    n = stack->level_index[k+1];
   }
 
   while (i < n) {
@@ -5714,9 +5714,9 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
   s->th_ctrl.backtrack(s->th_solver, k);
 }
 
- 
+
 /*
- * Full restart: cause s and the theory solver to backtrack to base_level 
+ * Full restart: cause s and the theory solver to backtrack to base_level
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
@@ -5769,8 +5769,8 @@ void smt_partial_restart(smt_core_t *s) {
       for (i=s->base_level+1; i<=n; i++) {
 	k = s->stack.level_index[i];
 	x = var_of(s->stack.lit[k]);  // decision variable for level i
-	assert(bvar_is_assigned(s, x) && 
-	       s->level[x] == i && 
+	assert(bvar_is_assigned(s, x) &&
+	       s->level[x] == i &&
 	       s->antecedent[x] == mk_literal_antecedent(null_literal));
 
 	if (s->heap.activity[x] < ax) {
@@ -5842,8 +5842,8 @@ static bool all_binary_clauses_are_true(smt_core_t *s) {
       v = s->bin[l0];
       if (v != NULL) {
         // this loop terminates with l<0 (end-marker) if all clauses {l0, l} are true
-        do { 
-	  l = *v ++; 
+        do {
+	  l = *v ++;
 	} while (literal_value(s, l) == VAL_TRUE);
         if (l >= 0) return false;
       }
@@ -5915,7 +5915,7 @@ void collect_true_literals(smt_core_t *s, ivector_t *v) {
   lit = s->stack.lit;
   n = s->stack.top;
   for (i=0; i<n; i++) {
-    ivector_push(v, lit[i]);    
+    ivector_push(v, lit[i]);
   }
 }
 
@@ -6144,7 +6144,7 @@ static void check_marks(smt_core_t *s) {
   for (i=0; i<n; i++) {
     l = s->stack.lit[i];
     if (is_lit_unmarked(s, l)) {
-      printf("Warning: literal %"PRId32" assigned at level %"PRIu32" but not marked\n", 
+      printf("Warning: literal %"PRId32" assigned at level %"PRIu32" but not marked\n",
              l, s->level[var_of(l)]);
       fflush(stdout);
     }
@@ -6193,7 +6193,7 @@ static void check_theory_conflict(smt_core_t *s, literal_t *a) {
     }
     i ++;
     l = a[i];
-  }  
+  }
 }
 
 /*
@@ -6257,7 +6257,7 @@ static void check_theory_explanation(smt_core_t *s, literal_t l) {
   n = s->explanation.size;
   print = true;
   for (i=0; i<n; i++) {
-    l0 = s->explanation.data[i];    
+    l0 = s->explanation.data[i];
 
     if (literal_value(s, l0) != VAL_TRUE) {
       print_theory_explanation_warning(&s->explanation, l, &print);
@@ -6270,7 +6270,7 @@ static void check_theory_explanation(smt_core_t *s, literal_t l) {
     } else if (d_level(s, l0) == k && ! check_precedence(s, l0, l)) {
       print_theory_explanation_warning(&s->explanation, l, &print);
       printf("Literal %"PRId32" is after %"PRId32" in the assignment queue\n", l0, l);
-      
+
     }
   }
   if (print) {
@@ -6280,11 +6280,11 @@ static void check_theory_explanation(smt_core_t *s, literal_t l) {
 
 
 /*
- * Check whether a[0] and a[1] are valid watched literals for 
+ * Check whether a[0] and a[1] are valid watched literals for
  * the clause a[0] ... a[n-1]. (n >= 2)
  */
 static void print_lit_val_level(literal_t l, bval_t v, uint32_t k) {
-  printf("---> "); 
+  printf("---> ");
   print_literal(stdout, l);
   printf(": value = ");
   print_bval(stdout, v);
@@ -6295,12 +6295,12 @@ static void print_lit_val_level(literal_t l, bval_t v, uint32_t k) {
 }
 
 /*
- * Check whether (v1, k1) must be preferred to (v2, k2) 
+ * Check whether (v1, k1) must be preferred to (v2, k2)
  * - rule1:  (undef, _) < (false, _)
  * - rule2:  k2 < k1 implies (false, k1) < (false, k2)
  */
 static bool check_prefer(bval_t v1, uint32_t k1, bval_t v2, uint32_t k2) {
-  return (bval_is_undef(v1) && v2 == VAL_FALSE) 
+  return (bval_is_undef(v1) && v2 == VAL_FALSE)
     || (v1 == VAL_FALSE && v2 == VAL_FALSE && k1 > k2);
 }
 

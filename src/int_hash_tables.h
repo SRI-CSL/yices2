@@ -4,7 +4,7 @@
  * These are intended for hash consing: terms are identified by an
  * index in a global term table. A hash-table stores records <k, v>
  * where v is the index of a term and k is the hash of that term.
- * There should never be duplicates (i.e., distinct records <k1, v1> and 
+ * There should never be duplicates (i.e., distinct records <k1, v1> and
  * <k2, v2> with v1 = v2).
  */
 
@@ -26,9 +26,9 @@
  * - size = size of the record array
  * - nelems = number of elements actually stored
  * - ndeleted = number of deleted elements
- * 
- * - resize_threshold: the table is resized when 
- *    nelems + ndeleted > resize_threshold 
+ *
+ * - resize_threshold: the table is resized when
+ *    nelems + ndeleted > resize_threshold
  * - cleanup_threshold: deleted elements are removed when
  *    ndeleted > cleanup_threshold
  */
@@ -80,7 +80,7 @@ typedef struct int_htbl_s {
  *  o->build(o) = store o in the term table and return its index
  *                (called if o is not already present in the table).
  *
- * Added 2007/08/31: 
+ * Added 2007/08/31:
  *  o->build(o) can signal an error by returning a negative number
  *  if that happens, nothing is added to the hash table
  */
@@ -128,7 +128,7 @@ extern void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v);
 extern int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o);
 
 /*
- * Get index of object equal to o if present, otherwise, build o and return 
+ * Get index of object equal to o if present, otherwise, build o and return
  * the new index.
  */
 extern int32_t int_htbl_get_obj(int_htbl_t *table, int_hobj_t *o);

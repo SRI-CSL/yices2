@@ -5,7 +5,7 @@
 #include "index_vectors.h"
 #include "dep_tables.h"
 
-#ifdef MINGW 
+#ifdef MINGW
 
 static inline long int random(void) {
   return rand();

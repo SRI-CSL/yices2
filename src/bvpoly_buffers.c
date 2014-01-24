@@ -66,7 +66,7 @@ void delete_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   buffer->index = NULL;
   buffer->var = NULL;
   buffer->c = NULL;
-  
+
   p = buffer->p;
   if (p != NULL) {
     n = buffer->m_size;
@@ -88,7 +88,7 @@ static void bvpoly_alloc_coeff_array(bvpoly_buffer_t *buffer) {
   uint32_t **p;
   uint32_t i, n;
 
-  p = buffer->p; 
+  p = buffer->p;
   if (p == NULL) {
     n = buffer->m_size;
     p = (uint32_t **) safe_malloc(n * sizeof(uint32_t *));
@@ -238,7 +238,7 @@ static void bvpoly_buffer_extend_mono(bvpoly_buffer_t *buffer) {
  */
 static int32_t bvpoly_buffer_alloc_mono(bvpoly_buffer_t *buffer) {
   uint32_t i;
-  
+
   i = buffer->nterms;
   if (i == buffer->m_size) {
     bvpoly_buffer_extend_mono(buffer);
@@ -251,7 +251,7 @@ static int32_t bvpoly_buffer_alloc_mono(bvpoly_buffer_t *buffer) {
       buffer->p[i] = (uint32_t *) safe_malloc(buffer->w_size * sizeof(uint32_t));
     }
   }
-  
+
   buffer->nterms = i+1;
 
   return i;
@@ -817,7 +817,7 @@ static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   // move it to position l
   swap_monomials(buffer, i, l);
   x = buffer->var[l];
-  
+
   i = l;
   j = h;
   do { j--; } while (buffer->var[j] > x);
@@ -869,7 +869,7 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
   uint64_t mask;
   uint32_t i, j, n, b, w;
   int32_t x;
-  
+
 
   b = buffer->bitsize;
   n = buffer->nterms;
@@ -896,7 +896,7 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
           buffer->p[j] = p;
         }
         j ++;
-      }      
+      }
     }
     buffer->nterms = j;
 
@@ -935,7 +935,7 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
 #ifndef NDEBUG
 
 
-static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {  
+static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {
   uint32_t i, n, b, w;
   uint64_t c;
 
@@ -981,7 +981,7 @@ static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {
  */
 void normalize_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   poly_buffer_sort(buffer);
-  bvpoly_buffer_reduce_coefficients(buffer);  
+  bvpoly_buffer_reduce_coefficients(buffer);
   assert(bvpoly_buffer_is_normalized(buffer));
 }
 
@@ -1086,7 +1086,7 @@ bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
   assert(p->width == w);
 
   for (i=0; i<n; i++) {
-    if (b->var[i] != p->mono[i].var || 
+    if (b->var[i] != p->mono[i].var ||
         bvconst_neq(b->p[i], p->mono[i].coeff, w)) {
       return false;
     }
@@ -1102,7 +1102,7 @@ bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
  * - b must be normalized and have bitsize <= 64
  *
  * This follows the definition of hash_bvpoly64 in bv64_polynomials:
- * - if b is equal to a bvpoly64 p then 
+ * - if b is equal to a bvpoly64 p then
  *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
  */
 uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b) {
@@ -1116,7 +1116,7 @@ uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b) {
   size = b->bitsize;
   for (i=0; i<n; i++) {
     h = jenkins_hash_mix3((uint32_t) (b->c[i] >> 32), (uint32_t) b->c[i], h);
-    h = jenkins_hash_mix3(b->var[i], size, h);    
+    h = jenkins_hash_mix3(b->var[i], size, h);
   }
 
   return h;

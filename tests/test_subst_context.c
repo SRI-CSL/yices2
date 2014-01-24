@@ -13,7 +13,7 @@
 
 
 /*
- * Display the context: 
+ * Display the context:
  * format: x<n> := t<m> for the binding n --> m.
  */
 static void show_binding(FILE *f, ctx_binding_t *b) {
@@ -45,7 +45,7 @@ static void show_context(FILE *f, subst_ctx_t *ctx) {
 
 static void show_full_context(FILE *f, subst_ctx_t *ctx) {
   uint32_t i, n;
-  
+
   fputs("all subst:\n", f);
   n = ctx->nelems;
   for (i=0; i<n; i++) {
@@ -70,14 +70,14 @@ static void test_add(subst_ctx_t *ctx, int32_t n, int32_t delta) {
     printf("x%-2"PRId32" := t%"PRId32"\n", i, i+delta);
   }
   printf("\n");
-  show_context(stdout, ctx);  
-  
+  show_context(stdout, ctx);
+
   for (i=0; i<n; i++) {
     subst_ctx_push_binding(ctx, i, i+delta);
   }
   printf("---> after additions:\n");
   show_context(stdout, ctx);
-  
+
   printf("---> lookups:\n");
   for (i=0; i<n; i++) {
     t = subst_ctx_lookup(ctx, i);
@@ -156,7 +156,7 @@ static void empty_mapping(int32_t n, int32_t *a) {
     a[i] = -1;
   }
 }
- 
+
 
 /*
  * Check that the current mapping of x_0 to x_n-1 matches a[0...n-1]
@@ -256,7 +256,7 @@ int main(void) {
 
   /*
    * Re-add the bindings as before the reset.
-   * - the hash codes a1, a2, a3, a4 
+   * - the hash codes a1, a2, a3, a4
    *   should still be valid
    */
   check_mapping(&ctx, NVARS, check[0]);
@@ -328,7 +328,7 @@ int main(void) {
     exit(1);
   }
 
-  
+
   delete_subst_ctx(&ctx);
 
   return 0;

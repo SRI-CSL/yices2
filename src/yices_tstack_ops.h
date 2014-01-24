@@ -27,7 +27,7 @@ enum yices_opcodes {
   PUSH_CMD,                          // [push]
   POP_CMD,                           // [pop]
   RESET_CMD,                         // [reset]
-  ECHO_CMD,                          // [echo <string>]                     
+  ECHO_CMD,                          // [echo <string>]
   INCLUDE_CMD,                       // [include <string>]
   SET_PARAM_CMD,                     // [set-param <symbol> <value> ]
   SHOW_PARAM_CMD,                    // [show-param <symbol> ]
@@ -38,7 +38,7 @@ enum yices_opcodes {
   SHOW_TIMEOUT_CMD,                  // [show-timeout]
   HELP_CMD,                          // [help] or [help <symbol>] or [help <string>]
   EFSOLVE_CMD,                       // [ef-solve]
-  DUMP_CMD,                          // [dump]  
+  DUMP_CMD,                          // [dump]
 };
 
 

@@ -10,7 +10,7 @@ extern double get_cpu_time(void);
 
 
 /*
- * When printing time differences (t1 - t2), 
+ * When printing time differences (t1 - t2),
  * it may happen that rounding errors cause the difference
  * to be printed as -0, even though t1 should always be >= t2.
  * To fix this use time_diff(t1, t2) rather than (t1 - t2)

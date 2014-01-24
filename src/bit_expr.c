@@ -2,12 +2,12 @@
  * XOR/OR/NOT graph used to represent bit-vector expressions
  *
  * We need a new representation to replace BDDs. The BDDs blow
- * up on several benchmarks. 
+ * up on several benchmarks.
  *
  * Update: January 29, 2009.
  * - Tests show that flattening the nodes is dangerous. It can consume
  *   a lot of memory and the node table blows up on one QF_BV benchmark.
- * - Since flattening does not work, it makes sense to simplify the 
+ * - Since flattening does not work, it makes sense to simplify the
  *   data structures. All OR and XOR nodes are now binary nodes.
  *
  * April 2010:
@@ -290,8 +290,8 @@ static bool eq_or_node(node_hobj_t *p, node_t i) {
   node_table_t *table;
 
   table = p->tbl;
-  return table->kind[i] == OR_NODE && 
-    table->desc[i].c[0] == p->child[0] && 
+  return table->kind[i] == OR_NODE &&
+    table->desc[i].c[0] == p->child[0] &&
     table->desc[i].c[1] == p->child[1];
 }
 
@@ -324,8 +324,8 @@ static bool eq_xor_node(node_hobj_t *p, node_t i) {
   node_table_t *table;
 
   table = p->tbl;
-  return table->kind[i] == XOR_NODE && 
-    table->desc[i].c[0] == p->child[0] && 
+  return table->kind[i] == XOR_NODE &&
+    table->desc[i].c[0] == p->child[0] &&
     table->desc[i].c[1] == p->child[1];
 }
 
@@ -460,7 +460,7 @@ static inline bit_shape_t shape_of_bit(node_table_t *table, bit_t x) {
 
   k = (node_kind(table, node_of_bit(x)) << 1) | sign_of_bit(x);
   assert(0 <= k && k < 12);
-  return shape[k]; 
+  return shape[k];
 }
 
 
@@ -523,7 +523,7 @@ bit_t node_table_alloc_select(node_table_t *table, uint32_t k, int32_t x) {
  * - ensure left child < right child
  * - intended to be used when (or a b) cannot be simplified
  */
-static bit_t make_or2(node_table_t *table, bit_t a, bit_t b) { 
+static bit_t make_or2(node_table_t *table, bit_t a, bit_t b) {
   bit_t aux;
 
   assert(node_of_bit(a) != node_of_bit(b) && ! bit_is_const(a) && ! bit_is_const(b));
@@ -546,14 +546,14 @@ static bit_t make_xor2(node_table_t *table, bit_t a, bit_t b) {
   bit_t aux;
 
   /*
-   * Ensure child[0] < child[1] and children of xor 
+   * Ensure child[0] < child[1] and children of xor
    * have positive polarity
    */
   sign = sign_of_bit(a) ^ sign_of_bit(b);   // sign of the result
   a &= ~1;  // force positive polarity (clear lower bit)
   b &= ~1;
 
-  assert(bit_is_pos(a) && bit_is_pos(b) && a != b && 
+  assert(bit_is_pos(a) && bit_is_pos(b) && a != b &&
          a != true_bit && b != true_bit);
   if (a > b) {
     aux = a; a = b; b = aux;
@@ -604,7 +604,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
   node_t na, nb;
   bit_t a0, a1;
   bit_t b0, b1;
-  bit_shape_t a_shape, b_shape;  
+  bit_shape_t a_shape, b_shape;
 
   /*
    * (or a true) --> true
@@ -637,14 +637,14 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
     a0 = left_child_of_node(table, na);
     a1 = right_child_of_node(table, na);
     switch (a_shape) {
-    case POS_OR: 
+    case POS_OR:
       /*
        * (or (or a0 a1) a0)  --> (or a0 a1)
        * (or (or a0 a1) a1)  --> (or a0 a1)
        * (or (or a0 a1) ~a0) --> true
        * (or (or a0 a1) ~a1) --> true
        */
-      if (b == a0 || b == a1) return a;  
+      if (b == a0 || b == a1) return a;
       if (opposite_bits(b, a0) || opposite_bits(b, a1)) return true_bit;
       break;
     case NEG_OR:
@@ -663,7 +663,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
       break;
     }
   }
-  
+
   /*
    * Symmetric rules: a + shape and children of b
    */
@@ -680,7 +680,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or ~b0 (or b0 b1)) --> true
        * (or ~b1 (or b0 b1)) --> true
        */
-      if (a == b0 || a == b1) return b;  
+      if (a == b0 || a == b1) return b;
       if (opposite_bits(a, b0) || opposite_bits(a, b1)) return true_bit;
       break;
     case NEG_OR:
@@ -703,7 +703,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
    * Children of a + children of b
    */
   if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
-    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
+    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) &&
            b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
 
     switch (combine_shapes(a_shape, b_shape)) {
@@ -715,7 +715,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) (or b0 ~a1)) --> true
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+          opposite_bits(a1, b0) || opposite_bits(a1, b1))
         return true_bit;
       break;
 
@@ -727,7 +727,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) ~(or b0 ~a1))  --> (or a0 a1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+          opposite_bits(a1, b0) || opposite_bits(a1, b1))
         return a;
       break;
     case NEG_OR_POS_OR:
@@ -738,7 +738,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 ~b1) (or b0 b1))  --> (or b0 b1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+          opposite_bits(a1, b0) || opposite_bits(a1, b1))
         return b;
       break;
 
@@ -786,7 +786,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * test: 2010/02/04
        * (or ~(or a0 a1) ~(or ~a0 ~a1)) --> ~(xor a0 a1)
        */
-      if (opposite_bits(a0, b0) && a1 == b1) 
+      if (opposite_bits(a0, b0) && a1 == b1)
         return bit_not(a1);
       if (a0 == b0 && opposite_bits(a1, b1))
         return bit_not(a0);
@@ -821,7 +821,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (xor a0 a1) ~(or a0 ~a1))  --> (xor a0 a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-        return a;      
+        return a;
       break;
 
     case POS_XOR_POS_XOR:
@@ -832,7 +832,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
       break;
     }
   }
-  
+
 
   return make_or2(table, a, b);
 }
@@ -949,7 +949,7 @@ bit_t bit_xor2simplify(node_table_t *table, bit_t a, bit_t b) {
 
 
   if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
-    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
+    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) &&
            b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
 
     if (combine_shapes(a_shape, b_shape) == POS_OR_POS_OR ) {
@@ -986,7 +986,7 @@ bit_t bit_xor2simplify(node_table_t *table, bit_t a, bit_t b) {
  */
 static bit_t make_or(node_table_t *table, uint32_t n, bit_t *a) {
   uint32_t h;
-  bit_t left, right; 
+  bit_t left, right;
 
   assert(n > 0);
 
@@ -998,7 +998,7 @@ static bit_t make_or(node_table_t *table, uint32_t n, bit_t *a) {
   } else {
     h = n/2;
     left = make_or(table, h, a);        // (OR a[0] ... a[h-1])
-    right = make_or(table, n-h, a+h);   // (OR a[h] ... a[n-1])    
+    right = make_or(table, n-h, a+h);   // (OR a[h] ... a[n-1])
   }
 
   return make_or2(table, left, right);
@@ -1048,14 +1048,14 @@ static bit_t bit_or_aux(node_table_t *table, ivector_t *v) {
 
 
 /*
- * Simplify (OR a[0] ... a[n-1]) and return the corresponding 
+ * Simplify (OR a[0] ... a[n-1]) and return the corresponding
  * bit index
  */
 bit_t bit_or(node_table_t *table, bit_t *a, uint32_t n) {
   ivector_t *v;
   bit_t b;
   uint32_t i;
-  
+
   v = &table->aux_buffer;
   ivector_reset(v);
 
@@ -1116,7 +1116,7 @@ bit_t bit_and(node_table_t *table, bit_t *a, uint32_t n) {
  */
 static bit_t make_xor(node_table_t *table, uint32_t n, bit_t *a) {
   uint32_t h;
-  bit_t left, right, aux; 
+  bit_t left, right, aux;
 
   assert(n > 0);
 
@@ -1128,7 +1128,7 @@ static bit_t make_xor(node_table_t *table, uint32_t n, bit_t *a) {
   } else {
     h = n/2;
     left = make_xor(table, h, a);       // (XOR a[0] ... a[h-1])
-    right = make_xor(table, n-h, a+h);  // (XOR a[h] ... a[n-1])    
+    right = make_xor(table, n-h, a+h);  // (XOR a[h] ... a[n-1])
   }
 
   if (left > right) {

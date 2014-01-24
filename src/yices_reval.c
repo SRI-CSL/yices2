@@ -204,7 +204,7 @@ static const char * const status2string[] = {
  * using the command (set-param <name> <value>).
  *
  * We use an integer code to identify the parameters + a table of
- * parameter names in lexicographic order. Each parameter 
+ * parameter names in lexicographic order. Each parameter
  * is described in context.h
  */
 typedef enum yices_param {
@@ -215,7 +215,7 @@ typedef enum yices_param {
   PARAM_FLATTEN,
   PARAM_LEARN_EQ,
   PARAM_KEEP_ITE,
-  // restart parameters 
+  // restart parameters
   PARAM_FAST_RESTARTS,
   PARAM_C_THRESHOLD,
   PARAM_C_FACTOR,
@@ -510,7 +510,7 @@ static option_desc_t options[NUM_OPTIONS] = {
  * Version and help
  */
 static void print_version(FILE *f) {
-  fprintf(f, 
+  fprintf(f,
           "Yices %s\n"
           "Copyright SRI International.\n"
           "Linked with GMP %s\n"
@@ -728,8 +728,8 @@ static void process_command_line(int argc, char *argv[]) {
     iflag = true;
     qflag = false;
     break;
-    
-  case QF_IDL:    
+
+  case QF_IDL:
     if (arith_code == ARITH_SIMPLEX) {
       arch = CTX_ARCH_SPLX;
     } else if (arith_code == ARITH_FLOYD_WARSHALL) {
@@ -801,7 +801,7 @@ static void process_command_line(int argc, char *argv[]) {
 
  quick_exit:
   exit(YICES_EXIT_SUCCESS);
-  
+
  bad_usage:
   print_usage(parser.command_name);
   exit(YICES_EXIT_USAGE);
@@ -840,7 +840,7 @@ static void sigint_handler(int signum) {
   if (saved_handler == SIG_ERR) {
     perror("Yices: failed to install SIG_INT handler: ");
     exit(YICES_EXIT_INTERNAL_ERROR);
-  }  
+  }
 #endif
 }
 
@@ -917,7 +917,7 @@ static void report_system_error(const char *s) {
   fprintf(stderr, "error at line %"PRId32": ", reader_line(rd));
   perror(s);
 
-  done = !interactive;  
+  done = !interactive;
 }
 
 
@@ -933,7 +933,7 @@ static void report_invalid_param(const char *name) {
   if (rd->name != NULL) {
     fprintf(stderr, "%s: ", rd->name);
   }
-  fprintf(stderr, "invalid parameter %s (line %"PRId32", column %"PRId32")\n", 
+  fprintf(stderr, "invalid parameter %s (line %"PRId32", column %"PRId32")\n",
           name, reader_line(rd), reader_column(rd));
   done = !interactive;
 }
@@ -945,7 +945,7 @@ static void report_invalid_param_value(const char *name, const char *reason) {
   if (rd->name != NULL) {
     fprintf(stderr, "%s: ", rd->name);
   }
-  fprintf(stderr, "invalid value for parameter %s: %s (line %"PRId32", column %"PRId32")\n", 
+  fprintf(stderr, "invalid value for parameter %s: %s (line %"PRId32", column %"PRId32")\n",
           name, reason, reader_line(rd), reader_column(rd));
   done = !interactive;
 }
@@ -987,7 +987,7 @@ static void report_bug(const char *s) {
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error", 
+  "no error",
   "internal error",
   "type error",
   "formula contains free variables",
@@ -1068,7 +1068,7 @@ static void free_model(model_t *model) {
 
 
 /****************************
- *  CONTEXT INITIALIZATION  *  
+ *  CONTEXT INITIALIZATION  *
  ***************************/
 
 /*
@@ -1123,7 +1123,8 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 4);
     context_set_trace(context, &tracer);
-  }  
+  }
+
   init_handlers();
 }
 
@@ -1160,7 +1161,7 @@ static const char *branching2string[NUM_BRANCHING_MODES];
  * Argument to the setparam command encodes an immediate value
  * - the tag is given by the enumeration below
  * - PARAM_VAL_ERROR means an unexpected value was pushed
- * - the value is either a pointer to rational or a symbol 
+ * - the value is either a pointer to rational or a symbol
  */
 typedef enum param_val_enum {
   PARAM_VAL_FALSE,
@@ -1628,7 +1629,7 @@ static void yices_include_cmd(const char *s) {
   if (parser_push_lexer(&parser, s) < 0) {
     report_system_error(s);
   } else {
-    include_depth ++;    
+    include_depth ++;
   }
 }
 
@@ -1749,12 +1750,12 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_D_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n)) {      
+    if (param_val_to_pos32(param, val, &n)) {
       parameters.d_threshold = n;
       print_ok();
     }
     break;
-    
+
   case PARAM_D_FACTOR:
     if (param_val_to_factor(param, val, &x)) {
       parameters.d_factor = x;
@@ -1913,7 +1914,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 	}
       }
       print_ok();
-    } 
+    }
     break;
 
   case PARAM_SIMPLEX_PROP:
@@ -2029,7 +2030,7 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" reduce db               : %"PRIu32"\n", stat->reduce_calls);
   printf(" decisions               : %"PRIu64"\n", stat->decisions);
   printf(" random decisions        : %"PRIu64"\n", stat->random_decisions);
-  printf(" propagations            : %"PRIu64"\n", stat->propagations);  
+  printf(" propagations            : %"PRIu64"\n", stat->propagations);
   printf(" conflicts               : %"PRIu64"\n", stat->conflicts);
   printf(" theory propagations     : %"PRIu32"\n", stat->th_props);
   printf(" propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
@@ -2042,7 +2043,7 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   printf(" deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
+  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
 static void show_egraph_stats(egraph_stats_t *stat) {
@@ -2071,7 +2072,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
   printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
   printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
   printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);  
+  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);
   printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
   printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
   printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
@@ -2408,7 +2409,7 @@ static void yices_push_cmd(void) {
     default:
       // should not happen
       report_bug("unexpected context status in push");
-      break;  
+      break;
     }
   }
 }
@@ -2453,7 +2454,7 @@ static void yices_pop_cmd(void) {
     default:
       report_bug("unexpected context status in pop");
       break;
-    }    
+    }
   }
 }
 
@@ -2559,7 +2560,7 @@ static smt_status_t do_check(void) {
 
   /*
    * Set a timeout if requested.
-   * We call init_timeout only now because the internal timeout 
+   * We call init_timeout only now because the internal timeout
    * consumes resources even if it's never used.
    */
   if (timeout > 0) {
@@ -2668,7 +2669,7 @@ static void yices_showmodel_cmd(void) {
     if (model == NULL) {
       model = new_model();
       context_build_model(model, context);
-    }    
+    }
     //    model_print(stdout, model);
     //    model_print_full(stdout, model);
     if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
@@ -2704,7 +2705,7 @@ static void yices_showmodel_cmd(void) {
  */
 static void yices_eval_cmd(term_t t) {
   evaluator_t evaluator;
-  value_table_t *vtbl;  
+  value_table_t *vtbl;
   value_t v;
 
   if (efsolver) {
@@ -2718,7 +2719,7 @@ static void yices_eval_cmd(term_t t) {
     if (model == NULL) {
       model = new_model();
       context_build_model(model, context);
-    }    
+    }
     init_evaluator(&evaluator, model);
     v = eval_in_model(&evaluator, t);
     if (v >= 0) {
@@ -3066,7 +3067,7 @@ static void eval_include_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  */
 static void check_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, ASSERT_CMD);
-  check_size(stack, n == 1);  
+  check_size(stack, n == 1);
 }
 
 static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -3084,7 +3085,7 @@ static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  */
 static void check_eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, EVAL_CMD);
-  check_size(stack, n == 1);  
+  check_size(stack, n == 1);
 }
 
 static void eval_eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -3138,7 +3139,7 @@ static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
 
   yices_setparam_cmd(f->val.string, &aux);
-  
+
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -3256,7 +3257,7 @@ static void check_help_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_help_cmd(tstack_t *stack,  stack_elem_t *f, uint32_t n) {
   char *topic;
-  
+
   topic = NULL;
   if (n == 1) {
     topic = f->val.string;
@@ -3327,7 +3328,7 @@ int yices_main(int argc, char *argv[]) {
 
   // Deal with command-line options
   process_command_line(argc, argv);
-  
+
   /*
    * Check the input file
    * - initialize the lexer
@@ -3393,7 +3394,7 @@ int yices_main(int argc, char *argv[]) {
       // error
       if (interactive) {
         /*
-         * If the error occurs within an include file, 
+         * If the error occurs within an include file,
          * we close all included files and return to main
          */
         while (include_depth > 0) {
@@ -3405,7 +3406,7 @@ int yices_main(int argc, char *argv[]) {
         done = true;
         exit_code = YICES_EXIT_SYNTAX_ERROR;
       }
-    }    
+    }
   }
 
   /*

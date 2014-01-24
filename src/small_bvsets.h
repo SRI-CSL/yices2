@@ -1,7 +1,7 @@
 /*
  * SETS OF BIT-VECTOR VALUES
  *
- * This is used in model construction to find fresh-values of 
+ * This is used in model construction to find fresh-values of
  * type (bitvector n)
  * - a set is initialized for a fixed bit size n.
  * - a set is stored as a bitvector of 2^n elements, so n must be small.
@@ -36,7 +36,7 @@ typedef struct small_bvset_s {
 
 
 /*
- * Initialize a small set for bitsize n 
+ * Initialize a small set for bitsize n
  * - n must be positive and no more than 31
  */
 extern void init_small_bvset(small_bvset_t *s, uint32_t n);

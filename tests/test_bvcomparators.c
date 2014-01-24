@@ -58,7 +58,7 @@ static th_smt_interface_t null_theory_smt = {
   NULL,            // expand explanation
   NULL,            // select polarity
   NULL,            // delete_atom
-  NULL,            // end_deletion 
+  NULL,            // end_deletion
 };
 
 
@@ -140,7 +140,7 @@ static void print_litarray_as_uint32(uint32_t n, literal_t *a) {
     }
   }
 
-  printf("%"PRIu32, x);  
+  printf("%"PRIu32, x);
 }
 
 
@@ -427,7 +427,7 @@ static void test_size1(void (*f)(uint32_t, literal_t *, literal_t *)) {
 
   a[0] = fresh_lit();
   b[0] = fresh_lit();
-  f(1, a, b);  
+  f(1, a, b);
 
   printf("\n");
 }
@@ -529,7 +529,7 @@ static void truth_table_test4(void (*f)(uint32_t, literal_t *, literal_t *)) {
   for (x=0; x<16; x++) {
     uint32_to_litarray(x, 4, a);
     for (y=0; y<16; y++) {
-      uint32_to_litarray(y, 4, b);      
+      uint32_to_litarray(y, 4, b);
       f(4, a, b);
     }
   }
@@ -571,7 +571,7 @@ static void all_bveq_tests(void) {
 	 "****************\n"
 	 "*  BVEQ TESTS  *\n"
 	 "****************\n\n");
-  
+
   init();
   test_size0(test_bveq);
   test_size1(test_bveq);
@@ -587,7 +587,7 @@ static void all_bvuge_tests(void) {
 	 "*****************\n"
 	 "*  BVUGE TESTS  *\n"
 	 "*****************\n\n");
-  
+
   init();
   test_size0(test_bvuge);
   test_size1(test_bvuge);
@@ -603,7 +603,7 @@ static void all_bvsge_tests(void) {
 	 "*****************\n"
 	 "*  BVSGE TESTS  *\n"
 	 "*****************\n\n");
-  
+
   init();
   test_size1(test_bvsge);
   truth_table_test4(test_bvsge_const);

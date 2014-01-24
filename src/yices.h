@@ -2,7 +2,7 @@
  * YICES API
  */
 
-#ifndef __YICES_H 
+#ifndef __YICES_H
 #define __YICES_H
 
 
@@ -10,7 +10,7 @@
  * On windows/cygwin/mingw:
  *
  *   __YICES_DLLSPEC__ is '__declspec(dllimport) by default
- * 
+ *
  * This can be overridden as follows:
  *
  * 1) give -DNOYICES_DLL as a compilation flag (if you want to
@@ -47,7 +47,7 @@ extern "C" {
  * It's not available in Microsoft Visual Studio (prior to Visual Studio 2010),
  * and it's possibly missing from other compilers too.
  *
- * If necessary, there are open-source 'stdint.h' that can 
+ * If necessary, there are open-source 'stdint.h' that can
  * be downloaded at
  *      http://code.google.com/p/msinttypes/   (for MS Visual Studio only)
  *   or http://www.azillionmonkeys.com/qed/pstdint.h
@@ -108,7 +108,7 @@ __YICES_DLLSPEC__ extern void yices_exit(void);
 /*
  * Full reset
  * - delete all terms and types and reset the symbol tables
- * - delete all contexts, models, configuration descriptors and 
+ * - delete all contexts, models, configuration descriptors and
  *   parameter records.
  */
 __YICES_DLLSPEC__ extern void yices_reset(void);
@@ -174,7 +174,7 @@ __YICES_DLLSPEC__ extern type_t yices_real_type(void);
  * Requires size > 0
  *
  * If size = 0, error report is set
- *   code = POS_INT_REQUIRED 
+ *   code = POS_INT_REQUIRED
  *   badval = size
  * If size > YICES_MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
@@ -186,7 +186,7 @@ __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
 /*
  * New scalar type of given cardinality.
  * Requires card > 0
- * 
+ *
  * If card = 0, set error report to
  *   code = POS_INT_REQUIRED
  *   badval = size
@@ -204,9 +204,9 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
  * Tuple type tau[0] x ... x tau[n-1].
  * Requires n>0 and tau[0] ... tau[n-1] to be well defined types.
  *
- * Error report 
- * if n == 0, 
- *   code = POS_INT_REQUIRED 
+ * Error report
+ * if n == 0,
+ *   code = POS_INT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
  *   code = TOO_MANY_ARGUMENTS
@@ -282,7 +282,7 @@ __YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, t
  *   x_1 has type sigma_1, ..., x_n has type sigma_n
  * - then (f x1 ... xn) is type correct if sigma_i
  *   is a subtype of tau_i for i=1,...,n.
- * Examples: 
+ * Examples:
  * - x_i has type int and tau_i is real: OK
  * - x_i has type real and tau_i is int: type error
  */
@@ -323,7 +323,7 @@ __YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
  *
  * An uninterpreted term is like a global variable of type tau. But, we
  * don't call it a variable, because variables have a different meaning
- * in Yices (see next function). 
+ * in Yices (see next function).
  *
  * If tau is a function type, then this creates an uninterpreted
  * function (see yices_application).
@@ -352,7 +352,7 @@ __YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
 
 /*
  * Application of an uninterpreted function to n arguments.
- * 
+ *
  * Error report:
  * if n == 0,
  *   code = POS_INT_REQUIRED
@@ -602,7 +602,7 @@ __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  * Quantified terms
  *  (forall (var[0] ... var[n-1]) body)
  *  (exists (var[0] ... var[n-1]) body)
- * 
+ *
  * Note: array var may be modified
  *
  * Error report:
@@ -706,13 +706,13 @@ __YICES_DLLSPEC__ extern term_t yices_mpq(mpq_t q);
 
 
 /*
- * Convert a string to a rational or integer term. 
+ * Convert a string to a rational or integer term.
  * The string format is
  *     <optional_sign> <numerator>/<denominator>
  *  or <optional_sign> <numerator>
  *
  * where <optional_sign> is + or - or nothing
- * <numerator> and <denominator> are sequences of 
+ * <numerator> and <denominator> are sequences of
  * decimal digits.
  *
  * Error report:
@@ -728,7 +728,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_rational(const char *s);
  *   <optional sign> <integer part> . <fractional part>
  *   <optional sign> <integer part> <exp> <optional sign> <integer>
  *   <optional sign> <integer part> . <fractional part> <exp> <optional sign> <integer>
- * 
+ *
  * where <optional sign> is + or - or nothing
  *       <exp> is either 'e' or 'E'
  *
@@ -858,7 +858,7 @@ __YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t
  * Polynomial with rational coefficients
  * - den, num, and t must be arrays of size n
  * - the coefficient a_i is den[i]/num[i]
- * 
+ *
  * Error report:
  * if num[i] is 0
  *   code = DIVISION_BY_ZERO
@@ -934,7 +934,7 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  * Constants can be constructed from C integers (32 or 64 bits),
  * from GMP integers, from arrays, or by parsing strings.
  *
- * The constant constructors return NULL_TERM (-1) if there's 
+ * The constant constructors return NULL_TERM (-1) if there's
  * an error and set the error report.
  */
 
@@ -1015,7 +1015,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
 /*
  * Parsing from a hexadecimal string
  * All characters must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
- * - First character = 4 high order bits 
+ * - First character = 4 high order bits
  * - Last character = 4 low-order bits
  * The constant has 4n bits if s has n characters.
  *
@@ -1058,7 +1058,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *
  *
  * In case of division by 0, Yices uses the following conventions:
- *   
+ *
  *   (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
  *                       (i.e., 0b111....1)
  *
@@ -1070,7 +1070,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *   (bvsrem x 0b00...0) is x
  *
  *   (bvsmod x 0b00...0) is x
- * 
+ *
  */
 __YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);     // addition (t1 + t2)
 __YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);     // subtraction (t1 - t2)
@@ -1106,7 +1106,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
  * - shift_right1 sets the high-order bits to one
  * - ashift_right is arithmetic shift, it copies the sign bit
  * - rotate_left: circular rotation
- * - rotate_right: circular rotation 
+ * - rotate_right: circular rotation
  *
  * If t is a vector of m bits, then n must satisfy 0 <= n <= m.
  *
@@ -1235,7 +1235,7 @@ __YICES_DLLSPEC__ extern term_t yices_zero_extend(term_t t, uint32_t n);
 
 
 /*
- * AND-reduction: 
+ * AND-reduction:
  * if t is b[m-1] ... b[0], then the result is a bit-vector of 1 bit
  * equal to the conjunction of all bits of t (i.e., (and b[0] ... b[m-1])
  *
@@ -1252,7 +1252,7 @@ __YICES_DLLSPEC__ extern term_t yices_zero_extend(term_t t, uint32_t n);
  *   term1 = t
  */
 __YICES_DLLSPEC__ extern term_t yices_redand(term_t t);
-__YICES_DLLSPEC__ extern term_t yices_redor(term_t t); 
+__YICES_DLLSPEC__ extern term_t yices_redor(term_t t);
 
 
 /*
@@ -1396,11 +1396,11 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  * - map must be an array of n terms
  * - the type of map[i] must be a subtype of var[i]'s type
  * - every occurrence of var[i] in t is replaced by map[i]
- * - if a variable occurs several times in v, the last occurrence 
- *   counts. (e.g., if v[i] = x and v[j] = x with i < j, and 
- *   there are no other occurrences of x in v, then x is 
+ * - if a variable occurs several times in v, the last occurrence
+ *   counts. (e.g., if v[i] = x and v[j] = x with i < j, and
+ *   there are no other occurrences of x in v, then x is
  *   replaced by map[j]).
- * 
+ *
  * Return the resulting term or NULL_TERM if there's an error.
  *
  * Error codes:
@@ -1419,14 +1419,14 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
  *   map must be an array of n terms
  *   map[i]'s type must be a subtype of var[i]'s type
  * - the substitution is applied to terms t[0] ... t[m-1]
- * - on entry to the function: t[i] must be a valid term 
+ * - on entry to the function: t[i] must be a valid term
  *   the function applies the substitution to t[i]
  *   then store the result in place (i.e., t[i] := subst(n, var, map, t[i])).
  *
  * Note: it's more efficient to call this function than to call
  * yices_subst_term m times.
  *
- * Return code: 
+ * Return code:
  *  0 if all goes well
  * -1 if there's an error
  *
@@ -1447,7 +1447,7 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
  *
  * For each term and type, Yices stores a base name, which
  * is used for pretty printing. By default, the base name is NULL.
- * The base name is set on the first call to yices_set_term_name or 
+ * The base name is set on the first call to yices_set_term_name or
  * yices_set_type_name.
  *
  * In addition, Yices stores two symbol tables that maps names to
@@ -1455,7 +1455,7 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
  * are disjoint. The term or type that a name refers to can be changed,
  * and Yices provides a scoping mechanism:
  * - when function  yices_set_term_name(t, name) is called,
- *   then the previous mapping for 'name' (if any) is hidden and now 
+ *   then the previous mapping for 'name' (if any) is hidden and now
  *   'name' refers to term 't'.
  * - if function yices_remove_term_name(name) is called, then the current
  *   mapping for 'name' is removed and the previous mapping (if any)
@@ -1465,9 +1465,9 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
 /*
  * The following functions attach a name to a type or a term
  * - name  must be a '\0'-terminated string
- * - if tau or t does not have a base name yet, then name is stored 
+ * - if tau or t does not have a base name yet, then name is stored
  *   as base name for tau or t.
- * - if name referred to another term or another type, then this 
+ * - if name referred to another term or another type, then this
  *   previous mapping is hidden
  *
  * The functions return -1 and set the error report if the term or
@@ -1501,10 +1501,10 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
 /*
  * Remove the base name of a type tau or of a term t.
  *
- * The functions return -1 and set the error report if the 
+ * The functions return -1 and set the error report if the
  * type or term is invalid. Otherwise, they return 0.
  *
- * If tau or t doesn't have a base name, the functions do 
+ * If tau or t doesn't have a base name, the functions do
  * nothing and return 0.
  *
  * Otherwise, the mapping from the base_name to tau or t is removed
@@ -1513,11 +1513,11 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
  */
 __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
-  
+
 
 /*
  * Get the base name of a term or type
- * 
+ *
  * The functions return NULL if the  term or type has no name,
  * of if the term or type is not valid. The error report is set
  * to INVALID_TERM or INVALID_TYPE in such cases.
@@ -1535,22 +1535,22 @@ __YICES_DLLSPEC__ extern const char *yices_get_term_name(term_t t);
 /*
  * Pretty printing uses a rectangular display area, characterized
  * by its width, height, and offset as follows.
- * 
+ *
  *                  <----------- width ------------->
- *                   _______________________________ 
+ *                   _______________________________
  * <---- offset --->|                               |   ^
  *                  |                               |   |
  *                  |                               | Height
  *                  |                               |   |
  *                  |                               |   v
- *                   ------------------------------- 
+ *                   -------------------------------
  *
  */
 
 /*
  * Pretty print type tau or term t on file f
  * - width, height, offset define the print area
- * - f = output file to use. 
+ * - f = output file to use.
  *   f must be open and writable.
  *
  * - return -1 on error
@@ -1579,7 +1579,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  * - a = array of terms
  * - width, height, offset define the print area
  * - horiz = Boolean flag that determines the layout
- * 
+ *
  * If horiz is true (non-zero), the terms are printed as follows
  *     a[0]  a[1] .... a[k]
  *     a[k+1] ... a[n-1]
@@ -1591,9 +1591,9 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *     a[n-1]
  *
  * The function first checks whether all terms in a[0... n-1] are
- * valid.  If not, it sets the error report: 
+ * valid.  If not, it sets the error report:
  *    code = INVALID_TERM
- *    term = a[i] (first invalid term in the array) 
+ *    term = a[i] (first invalid term in the array)
  * and returns -1. Nothing is printed in this case.
  *
  * Otherwise, the terms a[0... n-1] are printed in the specified
@@ -1604,7 +1604,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *    code = OUTPUT_ERROR
  *
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], 
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[],
 						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
 
 
@@ -1617,7 +1617,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t
 /*
  * Checks on a type tau:
  * - all functions return 0 for false, 1 for true
- * 
+ *
  * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
  *
  * if tau not a valid type, the functions return false
@@ -1679,7 +1679,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  *
  * - term_is_arithmetic check whether t's type is either int or real
  * - term_is_real check whether t's type is real
- * - term_is_int check whether t's type is int 
+ * - term_is_int check whether t's type is int
  * - term_is_scalar check whether t has a scalar or uninterpreted type
  *
  * If t is not a valid term, the check functions return false
@@ -1713,7 +1713,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 /*
  * Check whether t is a ground term (i.e., does not have free variables)
  * - return 0 for false, 1 for true
- * 
+ *
  * Also return false and set the error report if t is not valid
  */
 __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
@@ -1744,21 +1744,21 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  * that is used by a live context or model. For example, if you call
  * yices_new_context to obtain a new context and assert formulas in
  * this context, then all these formulas are considered root terms
- * until you delete the context using yices_free_context. 
+ * until you delete the context using yices_free_context.
  *
  * In addition, you can specify more roots using any of the following
  * mechanisms (they can be combined).
  *
- * 1) give a list of root terms and types as arguments to 
+ * 1) give a list of root terms and types as arguments to
  *    yices_garbage_collect.
  *
  * 2) set parameter 'keep_named' to true when calling
- *    yices_garbage_collect. 
+ *    yices_garbage_collect.
  *
  *    If this flag is true, any term or type that is stored in the
  *    symbol tables is added to the set of roots.
  *
- * 3) maintain reference counters for terms and types, using the functions 
+ * 3) maintain reference counters for terms and types, using the functions
  *      yices_incref_term
  *      yices_decref_term
  *      yices_incref_type
@@ -1788,7 +1788,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_num_types(void);
  *
  * Error reports:
  * - INVALID_TERM or INVALID_TYPE if the argument is not valid
- * 
+ *
  * The decref functions also report an error if the argument has a
  * current reference count of zero. The error report's code is set to
  * BAD_TERM_DECREF or BAD_TYPE_DECREF in such a case.
@@ -1801,7 +1801,7 @@ __YICES_DLLSPEC__ extern int32_t yices_decref_type(type_t tau);
 
 /*
  * The following functions give the number of terms and types
- * that have a positive reference count. They return 0 if 
+ * that have a positive reference count. They return 0 if
  * no call to yices_incref_term or yices_incref_type has been
  * made.
  */
@@ -1810,22 +1810,22 @@ __YICES_DLLSPEC__ extern uint32_t yices_num_posref_types(void);
 
 
 /*
- * Call the garbage collector. 
+ * Call the garbage collector.
  * - t = optional array of terms
  * - nt = size of t
  * - tau = optional array of types
  * - ntau = size of tau
  * - keep_named specifies whether the named terms and types should
  *   all be preserved
- * 
+ *
  * The set of roots is determined as follows:
  * 1) all terms/types used by contexts and models are roots.
- * 2) if t is non NULL, then all elements in t[0 ... nt-1] are added to 
+ * 2) if t is non NULL, then all elements in t[0 ... nt-1] are added to
  *    the set of root terms.
- * 3) if tau is non NULL, then all elements in tau[0 ... ntau - 1] are added 
+ * 3) if tau is non NULL, then all elements in tau[0 ... ntau - 1] are added
  *    to the set of root types.
  * 4) if keep_named is non zero (i.e., true), then all terms and types
- *    that are referenced in the symbol tables are added to the set of 
+ *    that are referenced in the symbol tables are added to the set of
  *    roots.
  * 5) all terms and types with a positive reference count are added to
  *    the set of roots.
@@ -1848,7 +1848,7 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
  * specific solver or a specific combination of solvers.  It is also
  * possible to specify whether or not the context should support
  * features such as push and pop.
- * 
+ *
  * The following theory solvers are currently available:
  * - egraph (solver for uninterpreted functions)
  * - bitvector solver
@@ -1896,7 +1896,7 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
  *
  * To specify another configuration, one must pass a configuration
  * descriptor to function yices_new_context. A configuration descriptor
- * is an opaque structure that includes the following fields: 
+ * is an opaque structure that includes the following fields:
  * - arith-fragment: either IDL, RDL, LRA, LIA, or LIRA
  * - uf-solver: either NONE, DEFAULT
  * - bv-solver: either NONE, DEFAULT
@@ -1908,7 +1908,7 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
  * 1) allocate a configuration descriptor via yices_new_config
  * 2) set the configuration parameters by repeated calls to yices_set_config
  *    or using yices_default_config_for_logic
- * 3) create one or more context with this configuration by passing the 
+ * 3) create one or more context with this configuration by passing the
  *    descriptor to yices_new_context
  * 4) free the configuration descriptor when it's no longer needed
  */
@@ -1937,9 +1937,9 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *   ----------------------------------------------------------------------------------------
  *            "mode"  | "one-shot"          |  only one call to check is supported
  *                    |                     |
- *                    | "multi-checks"      |  several calls to assert and check are 
+ *                    | "multi-checks"      |  several calls to assert and check are
  *                    |                     |  possible
- *                    |                     | 
+ *                    |                     |
  *                    | "push-pop"          |  like multi-check and with support for
  *                    |                     |  retracting assertions (via push/pop)
  *                    |                     |
@@ -1955,7 +1955,7 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *    "array-solver"  | "default"           |  the array solver is included
  *                    | "none"              |  no array solver
  *   ----------------------------------------------------------------------------------------
- *    "arith-solver"  | "ifw"               |  solver for IDL, based on the Floyd-Warshall 
+ *    "arith-solver"  | "ifw"               |  solver for IDL, based on the Floyd-Warshall
  *                    |                     |  algorithm
  *                    |                     |
  *                    | "rfw"               |  solver for RDL, based on Floyd-Warshall
@@ -1977,7 +1977,7 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    | "LRA"               |  linear real arithmetic
  *                    | "LIRA"              |  mixed linear arithmetic (real + integer variables)
  *
- * 
+ *
  *
  * The function returns -1 if there's an error, 0 otherwise.
  *
@@ -2028,7 +2028,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *   UFLRA
  *   UFNIA
  *
- * 
+ *
  * Error codes:
  *  CTX_UNKNOWN_LOGIC if logic is not a valid name
  *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
@@ -2062,7 +2062,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *    After assertions, the status may change to STATUS_UNSAT (if
  *    the assertions are trivially unsatisfiable). Otherwise
  *    the state remains STATUS_IDLE.
- * 
+ *
  * 2) STATUS_SEARCHING: this is the context status during search.
  *    The context moves into that state after a call to 'check'
  *    and remains in that state until the solver completes
@@ -2072,7 +2072,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *    - STATUS_UNSAT means the assertions are not satisfiable.
  *    - STATUS_SAT means they are satisfiable.
  *    - STATUS_UNKNOWN means that the solver could not determine whether
- *      the assertions are satisfiable or not. This may happen if 
+ *      the assertions are satisfiable or not. This may happen if
  *      Yices is not complete for the specific logic used (e.g.,
  *      if the formula includes quantifiers).
  *
@@ -2115,10 +2115,10 @@ __YICES_DLLSPEC__ extern void yices_free_context(context_t *ctx);
 
 /*
  * Get status: return the context's status flag
- * - return one of the codes defined in yices_types.h, 
+ * - return one of the codes defined in yices_types.h,
  *   namely one of the constants
  *
- *    STATUS_IDLE 
+ *    STATUS_IDLE
  *    STATUS_SEARCHING
  *    STATUS_UNKNOWN
  *    STATUS_SAT
@@ -2130,7 +2130,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
 
 
 /*
- * Reset: remove all assertions and restore ctx's 
+ * Reset: remove all assertions and restore ctx's
  * status to STATUS_IDLE.
  */
 __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
@@ -2184,7 +2184,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *   the lemmas that involve two inequalities on the same variable x).
  *
  *   flatten: whether to flatten nested (or ...)
- *   if this is enabled the term (or (or a b) (or c d) ) is 
+ *   if this is enabled the term (or (or a b) (or c d) ) is
  *   flattened to (or a b c d)
  *
  *   learn-eq: enable/disable heuristics to learn implied equalities
@@ -2205,7 +2205,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  */
 __YICES_DLLSPEC__ extern int32_t yices_context_enable_option(context_t *ctx, const char *option);
 __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, const char *option);
- 
+
 
 
 /*
@@ -2214,14 +2214,14 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  * - t must be a boolean term
  *
  * If ctx's status is STATUS_UNSAT, nothing is done.
- * 
+ *
  * If ctx's status is STATUS_IDLE, STATUS_SAT, or STATUS_UNKNOWN, then
  * the formula is simplified and  asserted in the context. The context
  * status is changed  to STATUS_UNSAT if the formula  is simplified to
  * 'false' or to STATUS_IDLE otherwise.
- * 
+ *
  * This returns 0 if there's no error or -1 if there's an error.
- * 
+ *
  * Error report:
  * if t is invalid
  *   code = INVALID_TERM
@@ -2232,7 +2232,7 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  *   type1 = bool (expected type)
  * if ctx's status is not STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
  *   code = CTX_INVALID_OPERATION
- * if ctx's status is neither STATUS_IDLE nor STATUS_UNSAT, and the context is 
+ * if ctx's status is neither STATUS_IDLE nor STATUS_UNSAT, and the context is
  * not configured for multiple checks
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -2256,7 +2256,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
 
 /*
  * Check satisfiability: check whether the assertions stored in ctx
- * are satisfiable.  
+ * are satisfiable.
  * - params is an optional structure that stores heuristic parameters.
  * - if params is NULL, default parameter settings are used.
  *
@@ -2266,27 +2266,27 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *
  * The behavior and returned value depend on ctx's current status:
  *
- * 1) If ctx's status is STATUS_SAT, STATUS_UNSAT, or STATUS_UNKNOWN, the function 
+ * 1) If ctx's status is STATUS_SAT, STATUS_UNSAT, or STATUS_UNKNOWN, the function
  *    does nothing and just returns the status.
  *
  * 2) If ctx's status is STATUS_IDLE, then the solver searches for a
  *    satisfying assignment. If param != NULL, the search parameters
  *    defined by params are used.
- * 
+ *
  *    The function returns one of the following codes:
  *    - STATUS_SAT: the context is satisfiable
  *    - STATUS_UNSAT: the context is not satisfiable
- *    - STATUS_UNKNOWN: satisfiability can't be proved or disproved 
+ *    - STATUS_UNKNOWN: satisfiability can't be proved or disproved
  *    - STATUS_INTERRUPTED: the search was interrupted
  *
  *    The returned status is also stored as the new ctx's status flag,
- *    with the following exception. If the context was built with 
+ *    with the following exception. If the context was built with
  *    mode = INTERACTIVE and the search was interrupted, then the
  *    function returns STATUS_INTERRUPTED but the ctx's state is restored to
  *    what it was before the call to 'yices_check_context' and the
  *    status flag is reset to STATUS_IDLE.
  *
- * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR', 
+ * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR',
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
@@ -2297,10 +2297,10 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
  * for a set of assertions.
  * - if ctx's status is STATUS_SAT or STATUS_UNKNOWN, then a new clause is added to ctx
  *   to remove the current truth assignment from the search space. After this
- *   clause is added, the next call to yices_check_context will either produce 
+ *   clause is added, the next call to yices_check_context will either produce
  *   a different truth assignment (hence a different model) or return STATUS_UNSAT.
  *
- * - ctx's status flag is updated to STATUS_IDLE (if the new clause is not empty) or 
+ * - ctx's status flag is updated to STATUS_IDLE (if the new clause is not empty) or
  *   to STATUS_UNSAT (if the new clause is the empty clause).
  *
  * Return code: 0 if there's no error, -1 if there's an error.
@@ -2334,21 +2334,21 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
 /*
  * A parameter record is an opaque object that stores various
  * search parameters and options that control the heuristics used by
- * the solver. 
+ * the solver.
  *
- * A parameter structure is created by calling 
+ * A parameter structure is created by calling
  * - yices_new_param_structure(void)
  * This returns a parameter structure initialized with default
  * settings.
  *
  * Then individual parameters can be set using function
- * - yices_set_param(s, name, value) where both name and value are 
+ * - yices_set_param(s, name, value) where both name and value are
  *   character strings.
  * - an unknown/unsupported parameter name is ignored
  *
  * Then the param object can be passed on as argument to yices_check_context.
  *
- * When it's no longer needed, the object must be deleted by 
+ * When it's no longer needed, the object must be deleted by
  * calling yices_free_param_structure(param).
  */
 
@@ -2388,14 +2388,14 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  *************/
 
 /*
- * Build a model from ctx 
+ * Build a model from ctx
  * - keep_subst indicates whether the model should include
- *   the eliminated variables: 
+ *   the eliminated variables:
  *   keep_subst = 0 means don't keep substitutions,
  *   keep_subst != 0 means keep them
  * - ctx status must be STATUS_SAT or STATUS_UNKNOWN
  *
- * The function returns NULL if the status isn't SAT or STATUS_UNKNOWN 
+ * The function returns NULL if the status isn't SAT or STATUS_UNKNOWN
  * and sets an error report (code = CTX_INVALID_OPERATION).
  *
  * When assertions are added to the context, the simplifications may
@@ -2403,7 +2403,7 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  * 'keep_subst' indicates whether the model should keep track of these
  * eliminated variables and include their value.
  *
- * Example: after the following assertions 
+ * Example: after the following assertions
  *
  *    (= x (bv-add y z))
  *    (bv-gt y 0b000)
@@ -2438,7 +2438,7 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  * but it will skip the ones that don't have a name.
  *
  * To see the value of uninterpreted term x in the model, you have to
- * give a name to 'x'. For example, this can be done by creating 'x' 
+ * give a name to 'x'. For example, this can be done by creating 'x'
  * as follows:
  *
  *   x = yices_new_uninterpreted_term(<some type>)
@@ -2452,25 +2452,25 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
  * Pretty printing:
  * - f = output file to use
  * - width, height, offset define the print area
- * 
+ *
  * return -1 on error, 0 otherwise
  *
  * Like yices_print_model, this function ignores the uninterpreted terms
- * that don't have a name. 
+ * that don't have a name.
  *
  * On error:
  *   code = OUTPUT_ERROR (means that writing to f failed)
  *   in this case, errno, perror, etc. can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
- 
+
 
 
 /*
  * Evaluation functions. Once a model is constructed, it's possible
  * to query for the value of a term t in that model. The following
  * functions do that for different term types.
- * 
+ *
  * The evaluation functions return -1 if the value of t is unknown
  * or can't be computed in the model. Otherwise, they return 0.
  *
@@ -2539,7 +2539,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
  * - the value is returned using small-endian convention:
  *    val[0] is the low-order bit
  *    ...
- *    val[n-1] is the high-order bit 
+ *    val[n-1] is the high-order bit
  *
  * If t is not a bitvector term
  *   code = BITVECTOR_REQUIRED
@@ -2550,13 +2550,13 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
 
 /*
  * Value of term t of uninterpreted or scalar type
- * - the value is returned as a constant index in *val 
+ * - the value is returned as a constant index in *val
  *   (with the same meaning as in function yices_constant):
- * - if t has type tau and tau is a scalar type of size n then 
+ * - if t has type tau and tau is a scalar type of size n then
  *   the function returns an index k between 0 and n-1
  * - if tau is an uninterpreted type, then the function returns an
  *   integer index k
- * 
+ *
  * The index k is a unique identifier: if two terms t1 and t2 are not
  * equal in the model mdl, then their values will be distinct indices k.
  *

@@ -1,7 +1,7 @@
 /*
  * Abstract objects used by the array solver to construct models.
  * - an array variable is modeled as a mapping from [tau1 ... tau_n -> sigma]
- * - tau_1 ... tau_n and sigma are types defined in the global type table 
+ * - tau_1 ... tau_n and sigma are types defined in the global type table
  *
  * An array A is specified via a finite number of mappings
  *        [x_11 ... x_1n -> y_1]
@@ -13,7 +13,7 @@
  *     A[x_i1 ... x_in] = y_i for (i=1, ..., m)
  *     A[i_1, ..., i_n] = y_0 for all other input
  *
- * This module provides support for building the objects x_ij and y_k, 
+ * This module provides support for building the objects x_ij and y_k,
  * and for representing the arrays and mappings. Each atomic element
  * - x_ij or y_k is either an egraph class or a fresh constant of some type tau
  *   created by the solver.
@@ -157,7 +157,7 @@ static particle_t mk_label_particle(particle_table_t *table, elabel_t l) {
   table->concrete[i] = null_value;
   clr_bit(table->mark, i);
 
-  return i;  
+  return i;
 }
 
 
@@ -188,7 +188,7 @@ static particle_t mk_tuple_particle(particle_table_t *table, uint32_t n, particl
 
 
 /*
- * HASH CONSING 
+ * HASH CONSING
  */
 
 /*
@@ -346,7 +346,7 @@ static particle_set_t *new_particle_set(uint32_t n, type_t *tau) {
 static inline particle_set_t *new_particle_set1(type_t tau) {
   return new_particle_set(1, &tau);
 }
- 
+
 
 /*
  * Delete set
@@ -793,7 +793,7 @@ particle_t get_distinct_particle(pstore_t *store, type_t tau, uint32_t p, partic
 
 /*
  * Return a (fresh) particle of that tau that's distinct from all
- * other particles of that type. 
+ * other particles of that type.
  * - return null_particle if that's not possible.
  */
 particle_t get_new_particle(pstore_t *store, type_t tau) {
@@ -821,9 +821,9 @@ particle_t get_new_particle(pstore_t *store, type_t tau) {
  * from a[0] ... a[p-1]. To do this, we sort elements of a in
  * lexicographic order. Because all types have finitely many particles,
  * we can define the successor and predecessor (succ(a), pre(a)) of any
- * element a of type tau[0] x ... x tau[n-1] in the lexicographic order 
- * (except the first and last elements). To find an element not in 
- *  a[0 ... p-1], we search for a[i] such that a' = suc(a[i]) or pre(a[i]) 
+ * element a of type tau[0] x ... x tau[n-1] in the lexicographic order
+ * (except the first and last elements). To find an element not in
+ *  a[0 ... p-1], we search for a[i] such that a' = suc(a[i]) or pre(a[i])
  * is not in the array then we return a'
  *
  * Lexicographic order: for all elements in set[tau], we assign
@@ -985,7 +985,7 @@ static void lexico_isort(particle_table_t *table, particle_t *a, uint32_t n) {
   for (i=1; i<n; i++) {
     x = a[i];
     j = 0;
-    while (lexico_precedes(table, a[j], x)) { 
+    while (lexico_precedes(table, a[j], x)) {
       j ++;
     }
     while (j < i) {
@@ -1023,14 +1023,14 @@ static void lexico_qsort(particle_table_t *table, particle_t *a, uint32_t n) {
   j = n;
 
   do { j--; } while (lexico_precedes(table, x, a[j]));
-  do { i++; } while (i <= j && lexico_precedes(table, a[i], x)); 
+  do { i++; } while (i <= j && lexico_precedes(table, a[i], x));
 
   while (i < j) {
     // we have a[i] >= x and a[j] <= x: swap a[i] and a[j]
     y = a[i]; a[i] = a[j]; a[j] = y;
 
     do { j--; } while (lexico_precedes(table, x, a[j]));
-    do { i++; } while (lexico_precedes(table, a[i], x)); 
+    do { i++; } while (lexico_precedes(table, a[i], x));
   }
 
   // swap pivot and a[j]
@@ -1089,7 +1089,7 @@ static bool has_successor(pstore_t *store, particle_t x) {
     }
   }
 
-  // all components have maximal rank 
+  // all components have maximal rank
   return false;
 }
 
@@ -1159,7 +1159,7 @@ static void rank_successor(pstore_t *store, particle_t x) {
       store->aux[i] = k;
       break;
     }
-  }  
+  }
 }
 
 
@@ -1200,7 +1200,7 @@ static particle_t pstore_tuple_from_ranks(pstore_t *store, uint32_t n, type_t *t
   particle_t y;
   int32_t k;
   uint32_t i;
-  
+
   // replace aux[i] by the variable of type tau[i] and rank aux[i]
   assert(n <= store->card_size);
   for (i=0; i<n; i++) {
@@ -1280,7 +1280,7 @@ static particle_t make_distinct_tuple(pstore_t *store, uint32_t n, type_t *tau, 
   if (pstore_prepare_for_tuple(store, n, tau)) {
     lexico_sort(&store->ptbl, a, p);
     k = new_distinct_tuple(store, n, tau, p, a);
-  } 
+  }
   return k;
 }
 
@@ -1320,7 +1320,7 @@ static particle_t add_fresh_particles_and_build_tuple(pstore_t *store, uint32_t 
   }
 
   if (fresh_elem) {
-    return pstore_tuple_particle(store, n, store->aux, tau); 
+    return pstore_tuple_particle(store, n, store->aux, tau);
   } else {
     return null_particle;
   }
@@ -1346,14 +1346,14 @@ particle_t get_distinct_tuple(pstore_t *store, uint32_t n, type_t *tau, uint32_t
   if (k != null_particle) {
     goto done;
   }
-   
+
   // try to construct a new tuple
   k = make_distinct_tuple(store, n, tau, p, a);
   if (k != null_particle) {
     goto done;
   }
-  
-  // try to create a new tuple by adding an element in tau[0] or ... or tau[n-1]      
+
+  // try to create a new tuple by adding an element in tau[0] or ... or tau[n-1]
   k = add_fresh_particles_and_build_tuple(store, n, tau);
 
  done:
@@ -1381,13 +1381,13 @@ particle_t get_new_tuple(pstore_t *store, uint32_t n, type_t *tau) {
   for (i=0; i<s; i++) {
     a[i] = set->data[i];
   }
-  
+
   // try to construct a new tuple
   k = make_distinct_tuple(store, n, tau, s, a);
   safe_free(a);
 
   if (k == null_particle) {
-    // try to create a new tuple by adding an element in tau[0] or ... or tau[n-1]      
+    // try to create a new tuple by adding an element in tau[0] or ... or tau[n-1]
     k = add_fresh_particles_and_build_tuple(store, n, tau);
   }
 

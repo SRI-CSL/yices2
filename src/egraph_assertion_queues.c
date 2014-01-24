@@ -2,10 +2,10 @@
  * Queue for storing assertions sent by egraph to theory solvers.
  *
  * The assertions are of the following forms:
- *   v1 == v2 
+ *   v1 == v2
  *   v1 != v2 with a hint
  *   distinct v[0] ... v[n-1] with a hint
- * where v1, v2, etc. are theory variable. The hint is a composite_t 
+ * where v1, v2, etc. are theory variable. The hint is a composite_t
  * object that the egraph requires to generate explanations.
  *
  * Each assertion is stored as the following data
@@ -31,7 +31,7 @@ void init_eassertion_queue(eassertion_queue_t *queue) {
 
 
 /*
- * Delete 
+ * Delete
  */
 void delete_eassertion_queue(eassertion_queue_t *queue) {
   safe_free(queue->data);
@@ -46,7 +46,7 @@ void delete_eassertion_queue(eassertion_queue_t *queue) {
 static void resize_eassertion_queue(eassertion_queue_t *queue, uint32_t size) {
   uint32_t d, n;
 
-  d = queue->top + size; 
+  d = queue->top + size;
   n = queue->size;
   if (d > n) {
     // make n bigger

@@ -38,9 +38,9 @@ extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);
  *
  * 2) print term_def: print t's name and its definition in
  *    the format  'name := expression'.
- *    If t is a composite term, then t's subterms are not 
+ *    If t is a composite term, then t's subterms are not
  *    recursively expanded (to avoid blowing up).
- *    
+ *
  * 3) print_term_exp: print t's definition as 'expression'
  *    As above, t's subterms are not recursively expanded.
  *

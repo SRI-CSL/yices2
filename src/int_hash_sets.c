@@ -45,7 +45,7 @@ void init_int_hset(int_hset_t *set, uint32_t n) {
   set->size = n;
   set->nelems = 0;
   set->z_flag = false;
-  set->resize_threshold = (uint32_t)(n * INT_HSET_RESIZE_RATIO);  
+  set->resize_threshold = (uint32_t)(n * INT_HSET_RESIZE_RATIO);
 }
 
 
@@ -97,7 +97,7 @@ static void hset_insert(uint32_t *a, uint32_t mask, uint32_t x) {
  * Check whether x is present in a
  * - mask = 2^n - 1 where size of a = 2^n
  * - x must be nonzero
- * - if x is not present, there must be at least one 
+ * - if x is not present, there must be at least one
  *   empty slot in a, otherwise the function loops.
  */
 static bool hset_search(uint32_t *a, uint32_t mask, uint32_t x) {
@@ -118,7 +118,7 @@ static bool hset_search(uint32_t *a, uint32_t mask, uint32_t x) {
  * - return true if x was added
  * - mask = 2^n - 1, where size of a = 2^n
  * - x must be nonzero
- * - there must be at least one empty slot in a (unless x is 
+ * - there must be at least one empty slot in a (unless x is
  * present)
  */
 static bool hset_add(uint32_t *a, uint32_t mask, uint32_t x) {
@@ -215,7 +215,7 @@ bool int_hset_add(int_hset_t *set, uint32_t x) {
  */
 void int_hset_close(int_hset_t *set) {
   uint32_t i, j, n, x, *a;
-  
+
   n = set->size;
   a = set->data;
   i = 0;
