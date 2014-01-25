@@ -870,13 +870,13 @@ Yices is invoked on an input file by typing
 \begin{verbatim}
       yices [option] <filename>
 \end{verbatim}
-If no \texttt{<filename>} is given, \texttt{yices} will run in
+If no \texttt{filename} is given, \texttt{yices} will run in
 interactive mode and will read the standard input. The following
 options are supported.
 \begin{options}
 \item[--logic=<name>] Select an SMT-LIB logic.
 
-  The \texttt{<name>} must either be an SMT-LIB logic name such as
+  The \texttt{name} must either be an SMT-LIB logic name such as
   \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
 
   Yices recognizes the logics defined at \url{http://www.smtlib.org}
@@ -899,7 +899,7 @@ options are supported.
   propositional (i.e., involve only Boolean terms).
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
-  \texttt{<solver>}     must    be     one     of    \texttt{simplex},
+  \texttt{solver}     must    be     one     of    \texttt{simplex},
   \texttt{floyd-warshall}, or \texttt{auto}.
 
   If  the  logic is  \texttt{QF\_IDL}  (integer  difference logic)  or
@@ -914,7 +914,7 @@ options are supported.
   \texttt{QF\_RDL}.
 
 \item[--mode=<mode>] Select solver features.\\[1mm]
-  \texttt{<mode>} can be \texttt{one-shot}, \texttt{multi-checks},
+  \texttt{mode} can be \texttt{one-shot}, \texttt{multi-checks},
   \texttt{push-pop}, or \texttt{interactive}.
 
   This  option selects  the set  of functionalities  supported  by the

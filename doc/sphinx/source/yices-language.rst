@@ -7,7 +7,7 @@ Syntax
 The language grammar is shown below
 
 .. productionlist::
-   command : ( define-type <symbol> )
+   command :   ( define-type <symbol> )
            : | ( define-type <symbol> `typedef` )
            : | ( define <symbol> :: `type` )
            : | ( define <symbol> :: `type` `expr` )
@@ -33,10 +33,10 @@ The language grammar is shown below
            : | ( help <symbol> )
            : | ( help <string> )
            :
-   typedef : `type`
+   typedef :   `type`
            : | ( scalar <symbol> ... <symbol> )
            :
-   type    : <symbol>
+   type    :   <symbol>
            : | ( tuple `type` ... `type` )
            : | ( -> `type` ... `type` `type` )
            : | ( bitvector <rational> )
@@ -44,7 +44,7 @@ The language grammar is shown below
            : | bool
            : | real
            :
-   expr    : true
+   expr    :   true
 	   : | false
            : | <symbol>
            : | `number`
@@ -57,14 +57,14 @@ The language grammar is shown below
            : | ( update `expr` ( `expr` ... `expr` ) `expr` )
            : | ( `function` `expr` ... `expr` )
            :
-   function : <function-keyword>
+   function :   <function-keyword>
             : | `expr`
             :
    var_decl : <symbol> :: `type`
             :
    binding  : ( <symbol> `expr` )
             :
-   immediatevalue : true
+   immediatevalue :   true
                   : | false
                   : | `number`
                   : | <symbol>
