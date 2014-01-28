@@ -591,6 +591,7 @@ int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     break;
 
   case EF_GEN_BY_SUBST_OPTION:
+  default: // added this to prevent bogus GCC warning
     val = solver->uvalue_aux.data;
     new_constraint = ef_generalize2(solver->prob, i, val);
     if (new_constraint < 0) {
