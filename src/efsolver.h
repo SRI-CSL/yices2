@@ -81,6 +81,16 @@
  * - Other options: cheaper forms of quantifier elimination,
  *   driven by the witness y_i.
  *
+ * Variant for initializing the exist context
+ * ------------------------------------------
+ * Given constraint
+ *   (FORALL Y_i: B_i(Y_i) => C_i(X_i, Y_i))
+ * we can sample y_s that satisfy B_i(Y_i). For every
+ * such y_i, we get a constraint C_i(X_i, y_i) by substitution.
+ * Then this constraint depends only on the existential
+ * variable, so we can add (not (C_i(X_i, y_i))) to the
+ * exists context.
+ *
  * Baseline implementation
  * -----------------------
  * - support Option 1 and 2.
@@ -108,8 +118,8 @@
  */
 
 /*
- * NOTE: operations from context.h can be applied to the exists context
- * - including context_delete
+ * NOTE: operations from context.h can be applied to the exists and
+ * forall context (including context_delete and add_blocking_clause)
  */
 
 /*
@@ -118,8 +128,9 @@
  * - the context is configured based on logic and arch
  * - logic = logic code (NONE means purely Boolean)
  * - arch = solver architecture (as defined in context.h)
+ * - the context's mode is set to MULTIPLECHECKS
  */
-extern void init_exists_context(context_t *ctx, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch);
+extern void init_ef_context(context_t *ctx, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch);
 
 /*
  * Assert all conditions defined in prob into ctx
@@ -138,18 +149,6 @@ extern int32_t exits_context_assert_conditions(context_t *ctx, ef_prob_t *prob);
  */
 extern int32_t update_exists_context(context_t *ctx, term_t f);
 
-
-
-/*
- * OPERATION ON A UNIVERSAL CONSTRAINT
- */
-
-/*
- * Initialize a forall context:
- * - prob = the ef_problem
- * - logic and arch define the logic and solver architecture
- */
-extern void init_forall_context(context_t *ctx, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch);
 
 /*
  * Assert (B and not C) in context ctx
@@ -188,6 +187,12 @@ extern int32_t forall_context_assert(context_t *ctx, term_t b, term_t c);
  */
 extern smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *var, term_t *value, uint32_t n);
 
+
+/*
+ * Try to get another model: add a blocking clause then call satisfy_context
+ * again. Same return codes as satisfy_context
+ */
+extern smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *var, term_t *value, uint32_t n);
 
 
 /*
@@ -248,6 +253,126 @@ extern term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32
  * - value = model for cnstr[i]: value[k] = what's mapped to cnstr[i].uvar[k] in the model
  */
 extern term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value);
+
+
+
+/*
+ * GLOBAL PROCEDURES
+ */
+
+/*
+ * efsolver: stores a pointer to the ef_prob_t descriptor
+ * + flags for context initialization: logic/arch
+ * + search parameters (for now we use the same parameters for exists and forall)
+ * + generalization option
+ * + presampling setting: if max_samples is 0, no presampling
+ *   otherwise, max_samples is used for sampling
+ *
+ * Internal data structures:
+ * - exists_context, forall_context: pointers to contexts, allocated and initialized
+ *   when needed
+ * - evalue = array large enough to store the value of all exists variables
+ * - uvalue = array large enough to store the value of all universal variables
+ * - evalue_aux and uvalue_aux = auxiliary vectors (to store value vector of smaller
+ *   sizes than evalue/uvalue)
+ */
+typedef enum ef_gen_option {
+  EF_NOGEN_OPTION,        // option 1 above
+  EF_GEN_BY_SUBST_OPTION, // option 2 above
+} ef_gen_option_t;
+
+typedef struct ef_solver_s {
+  ef_prob_t *prob;
+  const param_t *parameters;
+  smt_logic_t logic;
+  context_arch_t arch;
+  ef_gen_option_t option;
+  uint32_t max_samples; // for pre-sampling
+  uint32_t iters;       // number of iterations
+
+  context_t *exists_context;
+  context_t *forall_context;
+  term_t *evalue;
+  term_t *uvalue;
+  ivector_t evalue_aux;
+  ivector_t uvalue_aux;
+} ef_solver_t;
+
+
+/*
+ * Initialize solver:
+ * - prob = problem descriptor
+ * - logic/arch/parameters = for context initialization and check
+ * - option = generalization option
+ * - max_samples = sampling setting
+ */
+extern void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, const param_t *parameters, smt_logic_t logic,
+			   context_arch_t arch, ef_gen_option_t option, uint32_t max_samples);
+
+/*
+ * Delete the whole thing
+ */
+extern void delete_ef_solver(ef_solver_t *solver);
+
+
+/*
+ * Initialize the exists context
+ * - asserts all conditions from solver->prob
+ * - if max_samples is positive, also apply pre-sampling to all the universal constraints
+ * - return code:
+ *   TRIVIALLY_UNSAT --> exists context is unsat (not ef solution)
+ *   CTX_NO_ERROR --> nothing bad happened
+ *   negative values --> errors (cf. context.h)
+ */
+extern int32_t ef_solver_start(ef_solver_t *solver);
+
+
+/*
+ * Start a new iteration: search for a model of the current exists context
+ * - precondition: the exists context is allocated and ready (i.e.,
+ *   ef_solver_start was called and returned CTX_NO_ERROR)
+ * - return code:
+ *   if STATUS_SAT (or STATUS_UNKNOWN): the model is stored in solver->evalue
+ *   if STATUS_UNSAT: no model found (EF problem is unsat)
+ *   anything else: error of some kind
+ */
+extern smt_status_t ef_solver_check_exists(ef_solver_t *solver);
+
+
+/*
+ * Test the current exists model using universal constraint i
+ * - i must be a valid index (i.e., 0 <= i < solver->prob.num_cnstr)
+ * - this checks the assertion B_i and not C_i after replacing existential
+ *   variables by their values (stored in evalues)
+ * - return code:
+ *   if STATUS_SAT (or STATUS_UNKNOWN): a model of B_i and not C_i
+ *   is found and stored in uvalue_aux
+ *   if STATUS_UNSAT: not model found (current exists model is good as
+ *   far as constraint i is concerned)
+ *   anything else: an error
+ */
+extern smt_status_t ef_solver_check_forall(ef_solver_t *solver, uint32_t i);
+
+
+/*
+ * Learn a new constraint for the exists context from a forall witness
+ * - i = index of the universal constraint for which we have a witness
+ * - the witness is defined by the uvars of constraint i
+ * + the values stored in uvalue_aux.
+ * - this adds a constraint that will remove the current exists model
+ * - if solver->option is EF_NOGEN_OPTION, the new constraint is
+ *   of the form (or (/= var[0] eval[k0) ... (/= var[k-1] eval[k-1]))
+ *   where var[0 ... k-1] are the exist variables of constraint i
+ * - if solver->option is EF_GEN_BY_SUBST_OPTION, we build a new
+ *   constraint by substitution (option 2)
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT: the new constraint make exists_context unsat
+ * - CTX_NO_ERROR: nothing bad happened
+ * - a negative value --> error
+ */
+extern int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i);
+
 
 
 #endif /* __EFSOLVER_H */
