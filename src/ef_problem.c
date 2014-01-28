@@ -11,7 +11,9 @@
 /*
  * Initialization: all empty
  */
-void init_ef_prob(ef_prob_t *prob) {
+void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
+  prob->terms = term_manager_get_terms(mngr);
+  prob->manager = mngr;
   prob->all_evars = NULL;
   prob->all_uvars = NULL;
   prob->conditions = NULL;
@@ -49,6 +51,15 @@ void delete_ef_prob(ef_prob_t *prob) {
   }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;
+}
+
+
+/*
+ * Check whether the descriptor is empty:
+ */
+bool ef_prob_is_empty(ef_prob_t *prob) {
+  return iv_is_empty(prob->all_evars) && iv_is_empty(prob->all_uvars)
+    && iv_is_empty(prob->conditions) && prob->num_cnstr == 0;
 }
 
 
@@ -163,6 +174,8 @@ void ef_prob_add_evars(ef_prob_t *prob, term_t *v, uint32_t n) {
 void ef_prob_add_uvars(ef_prob_t *prob, term_t *v, uint32_t n) {
   add_to_vector(&prob->all_uvars, v, n);
 }
+
+
 
 
 /*

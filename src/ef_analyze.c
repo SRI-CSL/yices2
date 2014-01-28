@@ -910,6 +910,8 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, 
   term_t t;
   ef_code_t c, return_code;
 
+  assert(ef_prob_is_empty(prob) && prob->terms == ef->terms);
+
   return_code = EF_NO_ERROR;
 
   init_ef_clause(&clause);

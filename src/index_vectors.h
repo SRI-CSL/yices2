@@ -89,6 +89,13 @@ static inline uint32_t iv_len(int32_t *v) {
 
 
 /*
+ * Test emptiness
+ */
+static inline bool iv_is_empty(int32_t *v) {
+  return v == NULL || iv_size(v) == 0;
+}
+
+/*
  * Empty vector v
  */
 static inline void reset_index_vector(int32_t *v) {

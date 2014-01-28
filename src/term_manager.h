@@ -220,6 +220,21 @@ extern term_t mk_eq(term_manager_t *manager, term_t t1, term_t t2);
 extern term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2);  // t1 != t2
 
 
+/*
+ * Array equality:
+ * - given two arrays a and b of n term, build
+ *   (and (= a[0] b[0]) ... (= a[n-1] b[n-1])
+ */
+extern term_t mk_array_eq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]);
+
+
+/*
+ * Array inequality:
+ * - given two arrays a and b of n terms, build the term
+ *   (or (/= a[0] b[0]) ... (/= a[n-1] b[n-1]))
+ */
+extern term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]);
+
 
 /*
  * Tuple constructor:

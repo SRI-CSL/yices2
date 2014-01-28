@@ -262,6 +262,8 @@ extern void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
  *   a[0 ... n-1] = the assertions
  *   f_ite: flag to enable flattening of if-then-else
  *   f_iff: flag to enable flattening of iff
+ * - prob = empty problem descriptor (must be initialized and have
+ *   the same term table as ef).
  * - result code: same as ef_decompose
  * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is
  *   filled in with the problem

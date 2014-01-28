@@ -37,8 +37,9 @@
 #define __EF_PROBLEM_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
-#include "terms.h"
+#include "term_manager.h"
 
 
 /*
@@ -54,9 +55,12 @@ typedef struct ef_cnstr_s {
 
 /*
  * Descriptor for the full problem
+ * - terms/managers = pointers to term table and term manager
  * - all_evars and all_uvars are sorted in increasing order
  */
 typedef struct ef_prob_s {
+  term_table_t *terms;
+  term_manager_t *manager;
   term_t *all_evars;      // existential variables
   term_t *all_uvars;      // universal variables
   term_t *conditions;     // constraints on x = A_1(x), ..., A_n(x)
@@ -73,13 +77,16 @@ typedef struct ef_prob_s {
 
 /*
  * Initialization: all empty
+ * - mngr = relevant term manager
  */
-extern void init_ef_prob(ef_prob_t *prob);
+extern void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr);
+
 
 /*
  * Reset to empty
  */
 extern void reset_ef_prob(ef_prob_t *prob);
+
 
 /*
  * Delete the whole thing
@@ -88,15 +95,23 @@ extern void delete_ef_prob(ef_prob_t *prob);
 
 
 /*
+ * Check emptiness
+ */
+extern bool ef_prob_is_empty(ef_prob_t *prob);
+
+
+/*
  * Add v[0...n-1] to all_evars or all_uvars (remove duplicates)
  */
 extern void ef_prob_add_evars(ef_prob_t *prob, term_t *v, uint32_t n);
 extern void ef_prob_add_uvars(ef_prob_t *prob, term_t *v, uint32_t n);
 
+
 /*
  * Add t as a constraint on x
  */
 extern void ef_prob_add_condition(ef_prob_t *prob, term_t t);
+
 
 /*
  * Add a forall constraint:
@@ -133,7 +148,6 @@ extern uint32_t ef_prob_num_conditions(ef_prob_t *prob);
 static inline uint32_t ef_prob_num_constraints(ef_prob_t *prob) {
   return prob->num_cnstr;
 }
-
 
 
 /*

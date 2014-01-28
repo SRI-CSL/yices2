@@ -2520,6 +2520,35 @@ term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
 }
 
 
+/*
+ * Array disequality:
+ * - given two arrays a and b of n terms, build the term
+ *   (or (/= a[0] b[0]) ... (/= a[n-1] b[n-1]))
+ */
+term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]) {
+  uint32_t i;
+  term_t *aux;
+
+  resize_ivector(&manager->vector0, n);
+  aux = manager->vector0.data;
+
+  for (i=0; i<n; i++) {
+    aux[i] = mk_neq(manager, a[i], b[i]);
+  }
+  return mk_or(manager, n, aux);
+}
+
+
+/*
+ * Array equality:
+ * - given two arrays a and b of n term, build
+ *   (and (= a[0] b[0]) ... (= a[n-1] b[n-1])
+ */
+term_t mk_array_eq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]) {
+  return opposite_term(mk_array_neq(manager, n, a, b));
+}
+
+
 
 
 /*****************************

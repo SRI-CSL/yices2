@@ -2829,7 +2829,7 @@ static void yices_efsolve_cmd(void) {
     yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0, false);
 
     init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(&prob);
+    init_ef_prob(&prob, __yices_globals.manager);
     c = ef_analyze(&analyzer, &prob, v->size, v->data, true, true);
     switch (c) {
     case EF_UNINTERPRETED_FUN:
