@@ -101,6 +101,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <setjmp.h>
 
 #include "yices_types.h"
@@ -275,6 +276,11 @@ extern term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value);
  * - uvalue = array large enough to store the value of all universal variables
  * - evalue_aux and uvalue_aux = auxiliary vectors (to store value vector of smaller
  *   sizes than evalue/uvalue)
+ *
+ * Flags for diagnostic
+ * - status = status of the last call to check (either in the exists or
+ *   the forall context)
+ * - code = result of the last assertion (negative code is an error)
  */
 typedef enum ef_gen_option {
   EF_NOGEN_OPTION,        // option 1 above
@@ -289,6 +295,9 @@ typedef struct ef_solver_s {
   ef_gen_option_t option;
   uint32_t max_samples; // for pre-sampling
   uint32_t iters;       // number of iterations
+  smt_status_t status;
+  int32_t code;
+  uint32_t scan_idx;    // first universal constraint to check
 
   context_t *exists_context;
   context_t *forall_context;
@@ -306,14 +315,20 @@ typedef struct ef_solver_s {
  * - option = generalization option
  * - max_samples = sampling setting
  */
-extern void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, const param_t *parameters, smt_logic_t logic,
-			   context_arch_t arch, ef_gen_option_t option, uint32_t max_samples);
+extern void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, const param_t *parameters,
+			   smt_logic_t logic, context_arch_t arch,
+			   ef_gen_option_t option, uint32_t max_samples);
 
 /*
  * Delete the whole thing
  */
 extern void delete_ef_solver(ef_solver_t *solver);
 
+
+/*
+ * Increment the scan index
+ */
+extern void ef_scan_increment(ef_solver_t *solver);
 
 /*
  * Initialize the exists context
@@ -374,5 +389,14 @@ extern smt_status_t ef_solver_check_forall(ef_solver_t *solver, uint32_t i);
 extern int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i);
 
 
+/*
+ * Print model for the exists variables
+ */
+extern void print_ef_solution(FILE *f, ef_solver_t *solver);
+
+/*
+ * Show witness found for constraint i
+ */
+extern void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i);
 
 #endif /* __EFSOLVER_H */

@@ -2,6 +2,8 @@
  * SUPPORT FOR EXISTS/FORALL SOLVING
  */
 
+#include <inttypes.h>
+
 #include "index_vectors.h"
 #include "efsolver.h"
 #include "term_substitution.h"
@@ -242,7 +244,7 @@ term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n) {
 
 /*
  * Option 2: generalize by substitution
- * - return not (prob->cnstr[i].guarantee with y := value)
+ * - return (prob->cnstr[i].guarantee with y := value)
  */
 term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
   ef_cnstr_t *cnstr;
@@ -253,12 +255,7 @@ term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
   cnstr = prob->cnstr + i;
   n = ef_constraint_num_uvars(cnstr);
   g = ef_substitution(prob, cnstr->uvars, value, n, cnstr->guarantee);
-  if (g < 0) {
-    // substitution error
-    return g;
-  }
-
-  return opposite_term(g);
+  return g;
 }
 
 
@@ -284,6 +281,9 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, const param_t *paramet
   solver->option = option;
   solver->max_samples = max_samples;
   solver->iters = 0;
+  solver->status = STATUS_IDLE;
+  solver->code = CTX_NO_ERROR;
+  solver->scan_idx = 0;
 
   solver->exists_context = NULL;
   solver->forall_context = NULL;
@@ -319,6 +319,19 @@ void delete_ef_solver(ef_solver_t *solver) {
   delete_ivector(&solver->uvalue_aux);
 }
 
+
+/*
+ * Increment the scan index
+ */
+void ef_scan_increment(ef_solver_t *solver) {
+  uint32_t n;
+
+  n = ef_prob_num_constraints(solver->prob);
+  solver->scan_idx ++;
+  if (solver->scan_idx >= n) {
+    solver->scan_idx = 0;
+  }
+}
 
 /*
  * Allocate and initialize the exists_context
@@ -391,7 +404,7 @@ int32_t ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
   ef_cnstr_t *cnstr;
   term_t *value;
   uint32_t nvars, samples;
-  int32_t code;
+  int32_t ecode, ucode;
   smt_status_t status;
   term_t cnd;
 
@@ -408,12 +421,14 @@ int32_t ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
 
   samples = solver->max_samples;
 
+  ecode = CTX_NO_ERROR; // default return code
+
   /*
    * assert the assumption in the forall context
    */
   sampling_ctx = get_forall_context(solver);
-  code = assert_formula(sampling_ctx, cnstr->assumption);
-  while (code == CTX_NO_ERROR) {
+  ucode = assert_formula(sampling_ctx, cnstr->assumption);
+  while (ucode == CTX_NO_ERROR) {
     status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, value, nvars);
     switch (status) {
     case STATUS_SAT:
@@ -421,30 +436,41 @@ int32_t ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       // learned condition on X:
       cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
       if (cnd < 0) {
-	code = INTERNAL_ERROR;
+	ecode = INTERNAL_ERROR;
 	goto done;
       }
-      code = update_exists_context(solver->exists_context, opposite_term(cnd));
+      // FOR DEBUGGING
+      printf("ef_sample_constraint %"PRIu32"\n", i);
+      printf("sample\n");
+      print_forall_witness(stdout, solver, i);
+      printf("learned conditions: ");
+      yices_pp_term(stdout, cnd, 100, 20, 12);
+      printf("\n");
+      //
+      ecode = update_exists_context(solver->exists_context, cnd);
+      if (ecode != CTX_NO_ERROR) {
+	goto done;
+      }
       break;
 
     case STATUS_UNSAT:
       goto done;
 
     default:
-      code = INTERNAL_ERROR;
+      ecode = INTERNAL_ERROR;
       goto done;
     }
 
     samples --;
     if (samples == 0) goto done;
 
-    code = assert_blocking_clause(sampling_ctx);
+    ucode = assert_blocking_clause(sampling_ctx);
   }
 
  done:
   clear_forall_context(solver, true);
 
-  return code;
+  return ecode;
 }
 
 
@@ -455,7 +481,7 @@ int32_t ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
  * - asserts all conditions from solver->prob
  * - if max_samples is positive, also apply pre-sampling to all the universal constraints
  * - return code:
- *   TRIVIALLY_UNSAT --> exists context is unsat (not ef solution)
+ *   TRIVIALLY_UNSAT --> exists context is unsat (no ef solution)
  *   CTX_NO_ERROR --> nothing bad happened
  *   negative values --> errors (cf. context.h)
  */
@@ -533,6 +559,16 @@ smt_status_t ef_solver_check_forall(ef_solver_t *solver, uint32_t i) {
   value = solver->uvalue_aux.data;
 
   forall_ctx = get_forall_context(solver);
+
+  // TEMPORARY: FOR DEBUGGING
+  printf("ef_solver_check_forall\n");
+  printf("assumption: ");
+  yices_pp_term(stdout, cnstr->assumption, 100, 20, 12);
+  printf("simplified guarantee: ");
+  yices_pp_term(stdout, g, 100, 20, 12);
+  printf("\n");
+  // END
+
   code = forall_context_assert(forall_ctx, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
   if (code == CTX_NO_ERROR) {
     status = satisfy_context(forall_ctx, solver->parameters, cnstr->uvars, value, n);
@@ -600,5 +636,47 @@ int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     break;
   }
 
+  printf("ef_solver_learn\n");
+  printf("new constraint: ");
+  yices_pp_term(stdout, new_constraint, 100, 20, 12);
+  printf("\n");
   return update_exists_context(solver->exists_context, new_constraint);
+}
+
+
+
+/*
+ * Print solution found by the ef solver
+ */
+void print_ef_solution(FILE *f, ef_solver_t *solver) {
+  ef_prob_t *prob;
+  uint32_t i, n;
+
+  prob = solver->prob;
+  n = ef_prob_num_evars(prob);
+
+  for (i=0; i<n; i++) {
+    printf("%s := ", yices_get_term_name(prob->all_evars[i]));
+    yices_pp_term(stdout, solver->evalue[i], 100, 1, 10);
+  }
+}
+
+
+/*
+ * Show witness found for constraint i
+ */
+void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i) {
+  ef_prob_t *prob;
+  ef_cnstr_t *cnstr;
+  uint32_t j, n;
+
+  prob = solver->prob;
+  assert(i < ef_prob_num_constraints(prob));
+  cnstr = prob->cnstr + i;
+
+  n = ef_constraint_num_uvars(cnstr);
+  for (j=0; j<n; j++) {
+    printf("%s := ", yices_get_term_name(cnstr->uvars[j]));
+    yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
+  }
 }

@@ -55,6 +55,7 @@
 
 #include "ef_analyze.h"
 #include "ef_problem.h"
+#include "efsolver.h"
 
 #include "context.h"
 #include "models.h"
@@ -148,7 +149,7 @@ static param_t parameters;
 /*
  * If mode = one-shot or ef
  * - all assertions are pushed into this vector
- * - all assertions are then processed at once on the call to 
+ * - all assertions are then processed at once on the call to
  *   (check) or (ef-solve)
  */
 static ivector_t delayed_assertions;
@@ -557,7 +558,7 @@ static void print_help(char *progname) {
 	 "\n"
 	 "  ef: enable the exist-forall solver\n"
 	 "    In this mode, (ef-solve) can be used\n"
-	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"     
+	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"
          "\n"
          "For reporting bugs and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -623,7 +624,7 @@ static void process_command_line(int argc, char *argv[]) {
   verbose = false;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
-  mode_code = -1; // means not set 
+  mode_code = -1; // means not set
   efsolver = false;
   efdone = false;
 
@@ -780,7 +781,7 @@ static void process_command_line(int argc, char *argv[]) {
       mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
     }
   } else if (mode_code == EFSOLVER_MODE) {
-    /* 
+    /*
      * EF-Solver enabled:
      * we set mode to ONE_CHECK so that assertions get added to the delayed_assertion vector
      */
@@ -1652,7 +1653,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 	  enable_variable_elimination(context);
 	} else {
 	  disable_variable_elimination(context);
-	}	
+	}
       }
       print_ok();
     }
@@ -1662,7 +1663,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     if (param_val_to_bool(param, val, &tt)) {
       ctx_parameters.arith_elim = tt;
       if (context != NULL) {
-	if (tt) {	
+	if (tt) {
 	  enable_arith_elimination(context);
 	} else {
 	  disable_arith_elimination(context);
@@ -2314,14 +2315,14 @@ static void yices_dump_cmd(void) {
     if (context_has_bv_solver(context)) {
       dump_bv_solver(stdout, context->bv_solver);
     }
-    
+
     /*
      * If arch is still AUTO_IDL or AUTO_RDL,
      * then flattening + simplification returned unsat
      * but the core is not initialized
      * so we can't print the clauses.
      */
-    if (context->arch != CTX_ARCH_AUTO_IDL && 
+    if (context->arch != CTX_ARCH_AUTO_IDL &&
 	context->arch != CTX_ARCH_AUTO_RDL) {
       printf("--- Clauses ---\n");
       print_clauses(stdout, context->core);
@@ -2357,7 +2358,7 @@ static void yices_help_cmd(const char *topic) {
  */
 static void yices_reset_cmd(void) {
   if (efsolver) {
-    // TBD 
+    // TBD
     ivector_reset(&delayed_assertions);
     efdone = false;
   } else {
@@ -2379,7 +2380,7 @@ static void yices_push_cmd(void) {
   if (efsolver) {
     report_error("(push) is not supported by the exists/forall solver");
   } else if (! context_supports_pushpop(context)) {
-    report_error("push/pop not supported by this context");    
+    report_error("push/pop not supported by this context");
   } else {
     switch (context_status(context)) {
     case STATUS_UNKNOWN:
@@ -2476,9 +2477,9 @@ static void yices_assert_cmd(term_t f) {
       ivector_push(&delayed_assertions, f);
       print_ok();
     } else {
-      report_error("type error in assert: boolean term required");      
+      report_error("type error in assert: boolean term required");
     }
-    
+
   } else {
     status = context_status(context);
     if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
@@ -2492,7 +2493,7 @@ static void yices_assert_cmd(term_t f) {
 	  free_model(model);
 	  model = NULL;
 	}
-	context_clear(context); 
+	context_clear(context);
 	assert(context_status(context) == STATUS_IDLE);
 	// fall-through intended
 
@@ -2520,7 +2521,7 @@ static void yices_assert_cmd(term_t f) {
 	}
 	fflush(stderr);
 	break;
-	
+
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
@@ -2809,6 +2810,141 @@ static void show_clause(ef_clause_t *clause) {
 
 #endif
 
+
+/*
+ * Ef solver: inner loop:
+ * - search for a universal constraint that can be falsified
+ *   in the current assignment to the exists variables.
+ * - return true if the exists assignment is good (no
+ *   counterexample found for any universal constraint)
+ * - return false otherwise, and add a new assertion in
+ *   the exists_context.
+ *
+ * If there's an error sowewhere: set the solver's error code flag
+ * and return false.
+ */
+static bool efsolve_check_exists_model(ef_solver_t *solver) {
+  int32_t code;
+  smt_status_t status;
+  uint32_t i, j, n;
+
+  n = ef_prob_num_constraints(solver->prob);
+  i = solver->scan_idx;
+  for (j=0; j<n; j++) {
+    status = ef_solver_check_forall(solver, i);
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      printf("--- forall context: found witness for constraint %"PRIu32" ---\n", i);
+      print_forall_witness(stdout, solver, i);
+      printf("\n");
+      code = ef_solver_learn(solver, i);
+      solver->code = code;
+      if (code == TRIVIALLY_UNSAT) {
+	solver->status = STATUS_UNSAT;
+      }
+      return false;
+
+    case STATUS_UNSAT:
+      break;
+
+    default:
+      // error in the check call
+      solver->code = INTERNAL_ERROR;
+      solver->status = status;
+      return false;
+    }
+
+    i ++;
+    if (i == n) {
+      i = 0;
+    }
+  }
+
+  /*
+   * update scan_idx to ensure that all constraints
+   * are examined eventually
+   */
+  ef_scan_increment(solver);
+
+  return true;
+}
+
+/*
+ * Basic efsolving algorithm: outer loop
+ */
+static void efsolve(ef_prob_t *prob) {
+  ef_solver_t solver;
+  int32_t code;
+  smt_status_t status;
+
+  // max_samples = 5
+  init_ef_solver(&solver, prob, &parameters, logic_code, arch, EF_GEN_BY_SUBST_OPTION, 5);
+  code = ef_solver_start(&solver);
+  if (code == TRIVIALLY_UNSAT) {
+    solver.status = STATUS_UNSAT;
+  }
+  while (code == CTX_NO_ERROR) {
+    solver.iters ++;
+    printf("---- EF iteration: %"PRIu32" ----\n", solver.iters);
+    fflush(stdout);
+
+    // generate a candidate solution for the X variables
+    status = ef_solver_check_exists(&solver);
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      // found a model for the exists variable
+      // check whether the model is good:
+      printf("candidate exist model\n");
+      print_ef_solution(stdout, &solver);
+      printf("\n");
+      if (efsolve_check_exists_model(&solver)) {
+	printf("Sat\n");
+	print_ef_solution(stdout, &solver);
+	printf("\n");
+	fflush(stdout);
+	goto done;
+      }
+      // the current solution is not good.
+      // code is either an error code or 'TRIVIALLY_UNSAT'
+      code = solver.code;
+      break;
+
+    case STATUS_UNSAT:
+      // force exit from this loop
+      code = TRIVIALLY_UNSAT;
+      solver.status = status;
+      break;
+
+    default:
+      code = INTERNAL_ERROR;
+      solver.status = status;
+      break;
+    }
+  }
+
+  // code is either an error or TRIVIALLY_UNSAT
+  if (code == TRIVIALLY_UNSAT) {
+    assert(solver.status == STATUS_UNSAT);
+    printf("Unsat\n");
+    printf("no solution to the exists/forall problem\n");
+    fflush(stdout);
+  } else if (code < 0) {
+    if (code == INTERNAL_ERROR) {
+      report_bug("Unexpected context status\n");
+    } else {
+      printf("Error in learning/assertions\n");
+      print_internalization_code(code); // report an error
+      fflush(stdout);
+    }
+  }
+
+ done:
+  delete_ef_solver(&solver);
+}
+
+
 /*
  * New command: ef solver
  */
@@ -2822,7 +2958,7 @@ static void yices_efsolve_cmd(void) {
 
   if (efsolver) {
     /*
-     * Test EF processing
+     * EF pre-processing
      */
     v = &delayed_assertions;
     fputs("Assertions:\n", stdout);
@@ -2845,7 +2981,7 @@ static void yices_efsolve_cmd(void) {
       n = ef_prob_num_uvars(&prob);
       yices_pp_term_array(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23, true);
       printf("\n");
-    
+
       printf("Conditions:\n  ");
       n = ef_prob_num_conditions(&prob);
       yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2, false);
@@ -2865,6 +3001,9 @@ static void yices_efsolve_cmd(void) {
 	yices_pp_term(stdout, cnstr->guarantee, 100, UINT32_MAX, 14);
 	printf("\n");
       }
+
+      // CALL THE SOLVER
+      efsolve(&prob);
       break;
 
     case EF_NESTED_QUANTIFIER:
@@ -2879,11 +3018,11 @@ static void yices_efsolve_cmd(void) {
     case EF_ERROR:
       fputs("error\n", stdout);
       break;
-    }      
+    }
 
     delete_ef_prob(&prob);
     delete_ef_analyzer(&analyzer);
-    
+
     efdone = true;
     fflush(stdout);
   } else {
@@ -3412,7 +3551,7 @@ int yices_main(int argc, char *argv[]) {
   /*
    * Clean up
    */
-  if (!efsolver) { 
+  if (!efsolver) {
     delete_ctx();
   }
 
