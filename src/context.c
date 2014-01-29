@@ -4473,8 +4473,9 @@ int32_t assert_blocking_clause(context_t *ctx) {
     v->data[i] = not(v->data[i]);
   }
 
-  // prepare for the new assertion
+  // prepare for the new assertion + notify solvers of a new assertion
   context_clear(ctx);
+  internalization_start(ctx->core);
 
   // add the blocking clause
   add_clause(ctx->core, n, v->data);
