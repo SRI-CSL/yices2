@@ -6841,6 +6841,7 @@ static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
       if (b[i] < 0) {
 	v = eval_in_model(&evaluator, a[i]);
 	if (v < 0) break;
+	b[i] = v;
       }
     }
     delete_evaluator(&evaluator);
