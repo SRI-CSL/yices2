@@ -6820,16 +6820,16 @@ static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
   /*
    * First pass: simple eval of all terms.
    * - k = number of terms, for which this fails
-   * - simple eval fails for a[i], we have b[i] = null_value
+   * - if simple eval fails for a[i], we set b[i] = null_value
    */
   k = 0;
   for (i=0; i<n; i++) {
     v = model_find_term_value(mdl, a[i]);
+    b[i] = v;
     if (v < 0) {
       assert(v == null_value);
       k ++;
     }
-    b[i] = v;
   }
 
   /*
@@ -6840,8 +6840,8 @@ static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
     for (i=0; i<n; i++) {
       if (b[i] < 0) {
 	v = eval_in_model(&evaluator, a[i]);
-	if (v < 0) break;
 	b[i] = v;
+	if (v < 0) break;
       }
     }
     delete_evaluator(&evaluator);
@@ -6871,8 +6871,8 @@ static int32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uin
     init_val_converter(&convert, vtbl, terms);
     for (i=0; i<n; i++) {
       t = convert_value(&convert, b[i]);
-      if (t < 0) break;
       b[i] = t;
+      if (t < 0) break;
     }
     delete_val_converter(&convert);
 
@@ -6884,9 +6884,6 @@ static int32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uin
 
   return true;
 }
-
-
-
 
 
 
