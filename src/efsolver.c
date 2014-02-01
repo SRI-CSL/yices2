@@ -2,6 +2,12 @@
  * SUPPORT FOR EXISTS/FORALL SOLVING
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <inttypes.h>
 
 #include "index_vectors.h"
