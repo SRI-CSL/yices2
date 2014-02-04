@@ -1288,7 +1288,7 @@ distinct  constants  \texttt{A}, \texttt{B},  and  \texttt{C}. Such  a
 declaration  is valid  provided \texttt{P}  is a  fresh type  name and
 \texttt{A}, \texttt{B}, and \texttt{C} are all fresh term names.
 
-\smallskip\noindent The enumeration must include at least one element,
+\medskip\noindent The enumeration must include at least one element,
 but  singleton   types  are   allowed.  For  example,   the  following
 declaration is valid.
 \begin{small}
@@ -1325,7 +1325,7 @@ This is equivalent to the declaration
 \end{verbatim}
 \end{small}
 
-\smallskip\noindent   Tuple  types   with  a   single   component  are
+\medskip\noindent   Tuple  types   with  a   single   component  are
 allowed. For example, the following declaration is legal.
 \begin{small}
 \begin{verbatim}
@@ -1347,7 +1347,7 @@ the integers and that returns a Boolean can be declared as follows:
 \end{verbatim}
 \end{small}
 
-\smallskip\noindent Yices does not  have a distinct type construct for
+\medskip\noindent Yices does not  have a distinct type construct for
 arrays. In Yices, arrays are the same as functions.
 
 
@@ -2660,9 +2660,9 @@ arithmetic expression). This should not be a problem, as any properly
 typed SMT-LIB~2.0 arithmetic expression is also type-correct for
 Yices.
 
-This version of Yices does not yet support all the operators defined
-in the SMT-LIB theory \texttt{Ints}. Yices does not support the functions
-\texttt{div}, \texttt{mode}, and \texttt{abs}.
+\medskip\noindent This version of Yices does not yet support the
+operators \texttt{div}, \texttt{mod}, and \texttt{abs} defined in the
+SMT-LIB theory \texttt{Ints}.
 
 \subsubsection*{Bitvectors}
 
@@ -2676,11 +2676,12 @@ Some commands defined in SMT-LIB 2.0 are optional. This version of
 Yices supports the basic commands for declaration and definition of
 sorts and terms, assertions, and satisfiability checking. It also
 implements the commands \texttt{push} and \texttt{pop}, and the
-optional commands \texttt{get-value} and \texttt{get-assignment}.  The
-following optional commands are not supported:
+optional commands \texttt{get-value} and \texttt{get-assignment}.
+Yices does not support the other optional commands:
 \texttt{get-assertions}, \texttt{get-proof}, and
 \texttt{get-unsat-core}.
 
+\medskip\noindent
 The standard requires option \texttt{:produce-assignments} to be set
 to \texttt{true} before the command \texttt{get-assignment} can be
 issued.  It also requires option \texttt{:produce-models} to be set to
