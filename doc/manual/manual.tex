@@ -2644,25 +2644,26 @@ Here is the full list of command-line options supported by
 \end{options}
 
 
-\subsection{Notes on SMT-LIB~2.0 Compliance}
+\subsection{SMT-LIB~2.0 Compliance}
 
-Yices follows the SMT-LIB~2.0 specifications as much as possible, with
-a few exceptions.
+Yices follows the SMT-LIB~2.0 specifications as much as possible. In
+this section, we list the few special cases where Yices may not adhere
+to the standard.
 
 \subsubsection*{Arithmetic}
 
 Because Yices uses a more liberal type system than SMT-LIB~2.0, it
 will accept input that is not strictly compliant with SMT-LIB~2.0. The
-difference occurs in arithmetic problems. Yices allows specifications
-that freely mix real and integer terms (in SMT-LIB 2.0, the types
+difference occurs in arithmetic problems. Yices allows formulas to
+freely mix real and integer terms. In SMT-LIB 2.0, the types
 \texttt{Int} and \texttt{Real} are disjoint and cannot be mixed in
-arithmetic expression). This should not be a problem, as any properly
+arithmetic expression. This should not be a problem, as any properly
 typed SMT-LIB~2.0 arithmetic expression is also type-correct for
 Yices.
 
-\medskip\noindent This version of Yices does not yet support the
-operators \texttt{div}, \texttt{mod}, and \texttt{abs} defined in the
-SMT-LIB theory \texttt{Ints}.
+\medskip\noindent Yices does not yet support the operators
+\texttt{div}, \texttt{mod}, and \texttt{abs} defined in the SMT-LIB
+theory \texttt{Ints}. This will be added in future releases.
 
 \subsubsection*{Bitvectors}
 
@@ -2692,14 +2693,156 @@ corresponding option is \texttt{false}.
 
 \subsubsection*{In-line Definitions}
 
+In SMT-LIB 2.0, one can attach annotations to any term. In particular,
+one can give a name to a term using the syntax
+\begin{small}
+\begin{verbatim}
+   (! <term> :named <symbol>)
+\end{verbatim}
+\end{small}
+The \texttt{<symbol>} is a label attached to \texttt{<term>} and marks
+it as important for the command \texttt{get-assignment} and
+\texttt{get-unsat-core}.  The standard also requires such an
+annotation to be treated as an in-line definition. When an annotated
+subterm \texttt{(! <term> :named <name>)} is encountered while parsing
+a larger term \texttt{t0}, then the annotation must be treated as if
+one had written
+\begin{small}
+\begin{verbatim}
+  (define-fun <name> () <sort> <term>)
+\end{verbatim}
+\end{small}
+before the term \texttt{t0}. This unfortunate decision breaks
+well-established, common-sense rules about the scope of
+identifiers. It also means that removing annotations can turn a
+syntactically correct formula into an incorrect one. It forces SMT-LIB
+solver to process annotations even if they do not support the commands
+\texttt{get-unsat-core} and \texttt{get-assignment}, which were the
+reason for attaching labels to terms in the first place.  Other
+undesirable consequences include the fact that simple syntactic
+transformations (for example, rewriting \texttt{(or a b)} to
+\texttt{(or b a)} may be incorrect if \texttt{a} contains named
+annotations).  In short, this decision complicates implementation
+while providing little, if any, benefit.
+
+\medskip\noindent Still, Yices supports in-line definitions, provided
+the \texttt{<name>} occurring in the annotation is globally fresh. That
+is, the \texttt{<name>} must not be assigned via a previous global
+definition or by a local \texttt{let}.  For example, the following
+monstrosity will cause Yices to complain
+\begin{small}
+\begin{verbatim}
+  (assert (let ((x (+ y 1))) (! (P (* 2 x))) :named x)))
+\end{verbatim}
+\end{small}
+because the symbol \texttt{x} is bound by the enclosing \texttt{let}
+when the annotated term is processed.
 
 
 \subsubsection*{Miscellaneous Issues}
 
+The SMT-LIB 2.0 document states that option \texttt{:print-success}
+should be \texttt{true} by default. This setting requires SMT solver
+to report success after any command in a script. This is fine for
+interactive use, but impractical when reading large input files (such
+as the SMT-LIB benchmarks at \url{http://www.smtlib.org/}). These
+input files typically contain long sequences of declarations and
+definitions, and printing \texttt{success} after each of them is not
+useful or informative, and can generate hundreds of thousands even
+millions of lines of output.  Like other solvers, Yices avoids these
+issues by setting \texttt{:print-success} to \texttt{false} by default,
+unless command-line option \texttt{--interactive} is given.
 
-\subsection{Non-standard Extensions}
+
+\medskip\noindent SMT-LIB 2.0 includes two options for directing
+output and diagnostic information to other channels than the default
+\texttt{stdout} and \texttt{stderr}. To send output to a file, you can
+use the command
+\begin{small}
+\begin{verbatim}
+  (set-option :regular-output-channel <filename>)
+\end{verbatim}
+\end{small}
+SMT-LIB~2.0 states that \texttt{<filename>} should follow the POSIX
+standard. Yices does not check or enforce this requirement. You can
+use any character string that can be interpreted as a file name by the
+underlying operating system.
 
 
+\subsubsection*{Non-standard Extensions}
+
+Yices provides a few commands that are not defined in SMT-LIB~2.0 but
+should be useful. Similar commands are available in other solvers such
+as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}} and
+Z3\footnote{\url{http://rise4fun.com/z3/tutorial/guide}}.
+
+\medskip\noindent The primary command to examine models in SMT-LIB~2.0
+is \texttt{get-value}, which prints the value of a list of terms in
+the current model. It is often more convenient to just display the
+whole model.  Yices provides command \texttt{(get-model)} for this
+purpose. It displays the model in a format similar to the one
+illustrated in Figure~\ref{model-format}, except that constants are
+printed with the SMT-LIB~2.0 syntax.
+
+\medskip\noindent When Yices is run in incremental mode, a
+\texttt{(reset)} command is available to remove all assertions,
+declarations, and definitions from the context. This command cannot be
+used before \texttt{set-logic} (cf.~\cite{SMTLIB20:2012}). It resets
+the solver to its initial state, but it keeps the logic and all
+options unchanged.
+
+\medskip\noindent Yices provides the non-standard command
+\texttt{(echo <string>)} that just prints the given \texttt{<string>}
+on the output channel.
+
+\subsubsection*{Global Declarations}
+
+Yices supports the option \texttt{:global-decls} introduced by MathSAT
+to control the removal of declarations in incremental mode. By
+default, \texttt{:global-decls} is \texttt{false} and Yices follows
+the SMT-LIB~2.0 conventions. In this mode, the command \texttt{(pop
+  ..)}  removes all the terms and sorts declared since the matching
+\texttt{(push ...)}. Here is a small example of this default behavior
+\begin{small}
+\begin{verbatim}
+   (set-logic QF_UF)
+   (declare-sort U 0)
+   (declare-fun a () U)
+   (push 1)
+   (declare-fun b () U)
+   (assert (not (= a b)))
+   (check-sat)
+   (pop 1)
+   (declare-fun f (U) U)
+   (assert (= a (f b))) ;; error: b is not in scope here
+   (check-sat)
+\end{verbatim}
+\end{small}
+In this small script, the command \texttt{(pop 1)} retracts the first
+assertion and removes the declaration of constant \texttt{b}.  The
+second assertion is then incorrect as \texttt{b} is now undefined.
+
+\medskip\noindent Setting \texttt{:global-decls} to \texttt{true}
+makes all declarations global and unaffected by \texttt{push} and
+\texttt{pop}. A small change to the previous scripts shows the difference:
+\begin{small}
+\begin{verbatim}
+   (set-option :global-decls true)
+   (set-logic QF_UF)
+   (declare-sort U 0)
+   (declare-fun a () U)
+   (push 1)
+   (declare-fun b () U)
+   (assert (not (= a b)))
+   (check-sat)
+   (pop 1)
+   (declare-fun f (U) U)
+   (assert (= a (f b))) ;; correct: b is still in scope here
+   (check-sat)
+\end{verbatim}
+\end{small}
+Like other options, the \texttt{:global-decls} must be set before
+\texttt{set-logic}.
 
 
 \section{SMT-LIB 1.2}
