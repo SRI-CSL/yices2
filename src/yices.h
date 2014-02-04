@@ -5,7 +5,6 @@
 #ifndef __YICES_H
 #define __YICES_H
 
-
 /*
  * On windows/cygwin/mingw:
  *
@@ -79,7 +78,7 @@ __YICES_DLLSPEC__ extern const char *yices_version;
  * More details about the release:
  * - build_arch is a string like "x86_64-unknown-linux-gnu"
  * - build_mode is "release" or "debug"
- * - build_date is the compilation date as in "Wed Jun 16 11:11:57 PDT 2010"
+ * - build_date is the compilation date as in "2014-01-27"
  */
 __YICES_DLLSPEC__ extern const char *yices_build_arch;
 __YICES_DLLSPEC__ extern const char *yices_build_mode;
@@ -119,6 +118,18 @@ __YICES_DLLSPEC__ extern void yices_reset(void);
 /*********************
  *  ERROR REPORTING  *
  ********************/
+
+/*
+ * Error codes and the error_report data structure are defined in
+ * yices_types.h. When an API function is called with invalid
+ * arguments or when some error occurs for whatever reason, then the
+ * function returns a specific value (typically a negative value) and
+ * stores information about the error in a global error_report
+ * structure.  This structure can be examined by calling
+ * yices_error_report().  The most important component of the
+ * error_report is an error code that is returned by a call to
+ * yices_error_code().
+ */
 
 /*
  * Get the last error code
@@ -1370,7 +1381,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 <
  *************/
 
 /*
- * Parsing uses the Yices language.
+ * Parsing uses the Yices language (cf. doc/YICES-LANGUAGE)
  * - convert an input string s to a type or term.
  * - s must be terminated by '\0'
  *
@@ -1758,14 +1769,14 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *    If this flag is true, any term or type that is stored in the
  *    symbol tables is added to the set of roots.
  *
- * 3) maintain reference counters for terms and types, using the functions
+ * 3) maintain reference counts for terms and types, using the functions
  *      yices_incref_term
  *      yices_decref_term
  *      yices_incref_type
  *      yices_decref_type
  *
  *    When yices_garbage_collect is called, all terms and all types with
- *    a positive reference counter are considered roots. If you never
+ *    a positive reference count are considered roots. If you never
  *    call yices_incref_term or yices_incref_type, then the reference
  *    counting is disabled and it's not taken into account when calling
  *    yices_garbage_collect.
@@ -2363,7 +2374,7 @@ __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
  * - pname = parameter name
  * - value = setting
  *
- * TBD: describe the parameters and the range of values for each.
+ * The parameters are explained in doc/YICES-LANGUAGE.
  *
  * Return -1 if there's an error, 0 otherwise.
  *
