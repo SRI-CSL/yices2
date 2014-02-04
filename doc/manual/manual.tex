@@ -2644,7 +2644,56 @@ Here is the full list of command-line options supported by
 \end{options}
 
 
-\subsection{Compliance with the Standard}
+\subsection{Notes on SMT-LIB~2.0 Compliance}
+
+Yices follows the SMT-LIB~2.0 specifications as much as possible, with
+a few exceptions.
+
+\subsubsection*{Arithmetic}
+
+Because Yices uses a more liberal type system than SMT-LIB~2.0, it
+will accept input that is not strictly compliant with SMT-LIB~2.0. The
+difference occurs in arithmetic problems. Yices allows specifications
+that freely mix real and integer terms (in SMT-LIB 2.0, the types
+\texttt{Int} and \texttt{Real} are disjoint and cannot be mixed in
+arithmetic expression). This should not be a problem, as any properly
+typed SMT-LIB~2.0 arithmetic expression is also type-correct for
+Yices.
+
+This version of Yices does not yet support all the operators defined
+in the SMT-LIB theory \texttt{Ints}. Yices does not support the functions
+\texttt{div}, \texttt{mode}, and \texttt{abs}.
+
+\subsubsection*{Bitvectors}
+
+As mentioned previously, Yices follows the SMT-LIB standard definition
+for all bit-vector operators except division by zero. The conventions
+used by Yices are explained in Section~\ref{bitvector-general}.
+
+\subsubsection*{Unsupported Commands}
+
+Some commands defined in SMT-LIB 2.0 are optional. This version of
+Yices supports the basic commands for declaration and definition of
+sorts and terms, assertions, and satisfiability checking. It also
+implements the commands \texttt{push} and \texttt{pop}, and the
+optional commands \texttt{get-value} and \texttt{get-assignment}.  The
+following optional commands are not supported:
+\texttt{get-assertions}, \texttt{get-proof}, and
+\texttt{get-unsat-core}.
+
+The standard requires option \texttt{:produce-assignments} to be set
+to \texttt{true} before the command \texttt{get-assignment} can be
+issued.  It also requires option \texttt{:produce-models} to be set to
+\texttt{true} before using the command \texttt{get-value}. Yices does
+not enforce these rules. It supports both commands
+\texttt{get-assignment} and \texttt{get-value} even if the
+corresponding option is \texttt{false}.
+
+\subsubsection*{In-line Definitions}
+
+
+
+\subsubsection*{Miscellaneous Issues}
 
 
 \subsection{Non-standard Extensions}
@@ -2801,120 +2850,3 @@ DAMAGES, and LIMITATION AND RELEASE OF LIABILITY shall survive.
 
 U.S.   GOVERNMENT RESTRICTED  RIGHTS.  The  Software is  deemed  to be
 "commercial    software"    and    "commercial    computer    software
-documentation",  respectively,  pursuant to  DFARS  §227.7202 and  FAR
-12.212, as applicable.   Any use, modification, reproduction, release,
-performance,   display,  or   disclosure  of   the  Software   by  the
-U.S. Government or  any of its agencies or by  a U.S. Government prime
-contractor or subcontractor (at  any tier) shall have only "Restricted
-Rights", shall be governed solely by the terms of this EULA, and shall
-be prohibited except to the extent expressly permitted by the terms of
-this EULA.
-
-DISCLAIMER OF ALL  WARRANTIES.  SRI PROVIDES THE SOFTWARE  "AS IS" AND
-WITH  ALL  FAULTS,  AND  HEREBY  DISCLAIMS ALL  OTHER  WARRANTIES  AND
-CONDITIONS, EITHER  EXPRESS, IMPLIED  OR STATUTORY, INCLUDING  BUT NOT
-LIMITED  TO   ANY  (IF  ANY)  IMPLIED  WARRANTIES   OR  CONDITIONS  OF
-MERCHANTABILITY,  OF FITNESS  FOR  A PARTICULAR  PURPOSE,  OF LACK  OF
-VIRUSES  AND OF  LACK OF  NEGLIGENCE  OR LACK  OF WORKMANLIKE  EFFORT.
-ALSO, THERE IS  NO WARRANTY OR CONDITION OF  TITLE, OF QUIET ENJOYMENT
-OR OF  NON-INFRINGEMENT.  THE  ENTIRE RISK ARISING  OUT OF THE  USE OR
-PERFORMANCE OF THE SOFTWARE IS WITH YOU.
-
-EXCLUSION  OF  ALL  DAMAGES.   TO  THE  MAXIMUM  EXTENT  PERMITTED  BY
-APPLICABLE LAW, IN NO EVENT SHALL SRI BE LIABLE FOR ANY CONSEQUENTIAL,
-INCIDENTAL,  DIRECT,  INDIRECT,  SPECIAL,  PUNITIVE OR  OTHER  DAMAGES
-WHATSOEVER (INCLUDING,  WITHOUT LIMITATION, DAMAGES FOR  ANY INJURY TO
-PERSON   OR  PROPERTY,   DAMAGES   FOR  LOSS   OF  PROFITS,   BUSINESS
-INTERRUPTION, LOSS  OF BUSINESS INFORMATION,  FOR LOSS OF  PRIVACY FOR
-FAILURE  TO MEET ANY  DUTY INCLUDING  OF GOOD  FAITH OR  OF REASONABLE
-CARE, FOR NEGLIGENCE  AND FOR ANY PECUNIARY OR  OTHER LOSS WHATSOEVER)
-ARISING OUT OF OR IN ANY WAY RELATED TO THE USE OF OR INABILITY TO USE
-THE SOFTWARE, EVEN IF SRI HAS  BEEN ADVISED OF THE POSSIBILITY OF SUCH
-DAMAGES.  THIS  EXCLUSION OF  DAMAGES SHALL BE  EFFECTIVE EVEN  IF ANY
-REMEDY FAILS OF ITS ESSENTIAL PURPOSE.
-
-LIMITATION AND  RELEASE OF LIABILITY.   SRI has included in  this EULA
-terms that disclaim all warranties and liability for the Software.  To
-the full  extent allowed by law,  YOU HEREBY RELEASE SRI  FROM ANY AND
-ALL LIABILITY  ARISING FROM  OR RELATED TO  ALL CLAIMS  CONCERNING THE
-SOFTWARE  OR ITS USE.   If you  do not  wish to  accept access  to the
-Software  under the  terms of  this  EULA, do  not access  or use  the
-Software.  No refund will be made because the SOFTWARE was provided to
-you at no charge.  Independent  of, severable from, and to be enforced
-independently  of   any  other  provision  of  this   EULA,  UNDER  NO
-CIRCUMSTANCE  SHALL  SRI'S   aggregate  LIABILITY  TO  YOU  (INCLUDING
-LIABILITY TO  ANY THIRD  PERSON OR PERSONS  WHOSE CLAIM OR  CLAIMS ARE
-BASED  ON OR  DERIVED FROM  A RIGHT  OR RIGHTS  CLAIMED BY  YOU), WITH
-RESPECT TO  ANY AND ALL  CLAIMS AT ANY  AND ALL TIMES ARISING  FROM OR
-RELATED  TO THE SUBJECT  MATTER OF  THIS EULA,  IN CONTRACT,  TORT, OR
-OTHERWISE,  EXCEED  THE TOTAL  AMOUNT  ACTUALLY  PAID  BY YOU  to  SRI
-pursuant to THIS EULA, IF ANY.
-
-JURISDICTIONAL ISSUES.   This Software is  controlled by SRI  from its
-offices within  the State of California.  SRI  makes no representation
-that  the  Software is  appropriate  or  available  for use  in  other
-locations.   Those  who choose  to  access  this  Software from  other
-locations  do so  at  their  own initiative  and  are responsible  for
-compliance  with local  laws,  if and  to  the extent  local laws  are
-applicable.  You hereby acknowledge that the rights and obligations of
-the EULA are subject to the  laws and regulations of the United States
-relating to the export of products and technical information.  Without
-limitation,  you shall  comply  with all  such  laws and  regulations,
-including the restriction that the  Software may not be accessed from,
-used or otherwise exported or reexported (i) into (or to a national or
-resident of)  any country  to which the  U.S. has embargoed  goods; or
-(ii) to  anyone on  the U.S. Treasury  Department's list  of Specialty
-Designated Nationals  or the U.S. Commerce Department's  Table of Deny
-Orders.  By accessing or using the Software, you represent and warrant
-that you  are not located in, under  the control of, or  a national or
-resident of any such country on any such list.
-
-Notice  and Procedure  for  Making Claims  of Copyright  Infringement.
-Pursuant  to   Title  17,  United  States   Code,  Section  512(c)(2),
-notifications of claimed copyright  infringement should be sent to SRI
-International,  Office of  the General  Counsel, 333  Ravenswood Ave.,
-Menlo Park, CA 94025.
-
-SUPPORT, UPDATES  AND NEW RELEASES.  The  EULA does not  grant you any
-rights to any software  support, enhancements or updates.  Any updates
-or  new  releases  of  the  Software  which SRI  chooses  at  its  own
-discretion to distribute or provide  access to shall be subject to the
-terms hereof.
-
-GENERAL  INFORMATION.   The  EULA  constitutes  the  entire  agreement
-between  you  and SRI  and  governs  your access  to  and  use of  the
-Software.  The  EULA shall not be  modified except in  writing by both
-parties.
-
-The EULA  shall be  governed by and  construed in accordance  with the
-laws of  the State of California,  without regard to  the conflicts of
-law principles thereof. The parties shall resolve any disputes arising
-out  of  this  EULA,  including  disputes  about  the  scope  of  this
-arbitration  provision, by  final and  binding arbitration  seated and
-held  in San Francisco,  California before  a single  arbitrator. JAMS
-shall administer  the arbitration under  its comprehensive arbitration
-rules and procedures.  The arbitrator shall aware the prevailing party
-its reasonable attorney's fees  and expenses, and its arbitration fees
-and associated  costs.  Any court of competent  jurisdiction may enter
-judgment on the award.
-
-If any  provision of the EULA  shall be deemed unlawful,  void, or for
-any  reason  unenforceable,  then   that  provision  shall  be  deemed
-severable  from these  terms and  shall  not affect  the validity  and
-enforceability of any remaining provisions.
-
-In consideration of  your use of the Software,  you represent that you
-are  of legal age  to form  a binding  contract and  are not  a person
-barred from receiving services under  the laws of the United States or
-other applicable jurisdiction.
-
-The failure  of SRI to exercise  or enforce any right  or provision of
-the EULA shall not constitute a waiver of such right or provision.
-\end{verbatim}
-\end{footnotesize}
-
-\newpage
-\bibliographystyle{alpha}
-\bibliography{manual}
-
-\end{document}
