@@ -39,7 +39,7 @@ Menlo Park CA 94025 USA
 \end{titlepage}
 
 \maketitle
-`\cleardoublepageblank
+\cleardoublepageblank
 \tableofcontents
 %\listoffigures
 \cleardoublepage
@@ -230,11 +230,11 @@ via the Yices mailing lists:
 
   Please include enough information in your bug report to enable us to
   reproduce and fix the problem. Figure~\ref{good-report} shows what a
-  good bug report looks like. This example is based an edited version
-  of real good bug report we actually received (with private
-  information removed. Figure~\ref{bad-report} shows an example of
-  poor bug report. This example is fictitious but representative of
-  what we sometimes receive on our mailing list. Please try to use
+  good bug report looks like. This example is an edited version of
+  real good bug report we actually received (with private information
+  removed). Figure~\ref{bad-report} shows an example of poor bug
+  report. This example is fictitious but representative of what we
+  sometimes receive on our mailing list. Please try to use
   Figure~\ref{good-report} as a template and include answers to the
   following questions:
     \begin{itemize}
@@ -2322,12 +2322,12 @@ of the following commands:
 \end{verbatim}
 \end{small}
 Without argument, \texttt{(help)} prints a summary of the main Yices
-  commands. With an argument, \texttt{(help <topic>)} gives help on
-  the specified \texttt{<topic>}. The argument can be a command name,
-  one of the built-in type or term constructor, or the name of an
-  parameter.  The argument can be given as a string or as a
-  symbol. For example, to get some information on the search parameter \texttt{var-elim},
-one can type either
+commands. With an argument, \texttt{(help <topic>)} gives help on the
+specified \texttt{<topic>}. The argument can be a command name, one of
+the built-in type or term constructor, or the name of a parameter.
+The argument can be given as a string or as a symbol. For example, to
+get some information on the search parameter \texttt{var-elim}, one
+can type either
 \begin{small}
 \begin{verbatim}
    (help "var-elim")
@@ -2361,7 +2361,7 @@ solver). The following command prints all the internal statistics
 As part of these statistics, \texttt{yices} keeps track of the
 cumulative CPU time spent in calls to the \texttt{check} command.  To
 get time measurement for a specific call to \texttt{(check)} (rather
-than the total amount of time spent on all calls to \texttt{(check)}
+than the total amount of time spent in all calls to \texttt{(check)}
 so far), one can reset the global time counter to zero using command
 \texttt{(reset-stats)}. To get the runtime and other statistics about
 a specific \texttt{(check)}, type the following commands:
@@ -2614,7 +2614,7 @@ rest of the file.
 \label{yices-smt}
 
 The \texttt{yices} tool described in the previous chapter processes
-input given in the Yices2 language. The distribution includes two
+input given in the Yices~2 language. The distribution includes two
 other tools that can process input in the SMT-LIB~2.0 and the older
 SMT-LIB~1.2 notations.
 
