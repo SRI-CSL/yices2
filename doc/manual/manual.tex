@@ -228,10 +228,67 @@ via the Yices mailing lists:
 
 \item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
 
-  Please include enough information in your bug report to enable us
-  to reproduce the problem.
-
+  Please include enough information in your bug report to enable us to
+  reproduce and fix the problem. Figure~\ref{good-report} shows what a
+  good bug report looks like. This example is based an edited version
+  of real good bug report we actually received (with private
+  information removed. Figure~\ref{bad-report} shows an example of
+  poor bug report. This example is fictitious but representative of
+  what we sometimes receive on our mailing list. Please try to use
+  Figure~\ref{good-report} as a template and include answers to the
+  following questions:
+    \begin{itemize}
+    \item Which version of Yices are you using?
+    \item On which hardware and OS?
+    \item How can we reproduce the bug? If at all possible send an input file
+      or program fragment.
+    \end{itemize}
 \end{itemize}
+
+\begin{figure}
+\begin{center}
+\begin{footnotesize}
+\begin{verbatim}
+   From: ...
+   Subject: Yices 1.0.36 segfault
+   To: yices-bugs@csl.sri.com
+
+   Hi,
+
+   I am experiencing a segmentation fault from Yices. I have attached
+   a small test case that causes the crash. I am using Yices 1.0.36 on
+   x86_64 statically linked against GMP on Ubuntu 12.04.
+   ...
+\end{verbatim}
+\end{footnotesize}
+\end{center}
+\caption{Good Bug Report}
+\label{good-report}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\begin{footnotesize}
+\begin{verbatim}
+   From: ...
+   Subject: Segmentation fault
+   To: yices-bugs@csl.sri.com
+
+   I have just downloaded Yices. After I compile my code and link it
+   with Yices, there is a segmentation fault when I run the executable.
+
+   Can you help?
+
+   Thanks,
+   ...
+\end{verbatim}
+\end{footnotesize}
+\end{center}
+\caption{Poor Bug Report}
+\label{bad-report}
+\end{figure}
+
+
 
 
 
@@ -2841,8 +2898,10 @@ makes all declarations global and unaffected by \texttt{push} and
    (check-sat)
 \end{verbatim}
 \end{small}
-Like other options, the \texttt{:global-decls} must be set before
-\texttt{set-logic}.
+The second assertion is now correct as the command \texttt{(pop 1)}
+just retracts the first assertion but it does not remove the
+declaration of \texttt{b}.  Like other options in SMT-LIB~2.0, the
+\texttt{:global-decls} must be set before \texttt{set-logic}.
 
 
 \section{SMT-LIB 1.2}
