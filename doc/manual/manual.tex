@@ -2977,15 +2977,316 @@ The following command-line options can be given to \texttt{yices-smt}.
 \item[--help, -h] Show a summary of all options and exit.
 \end{options}
 
+
 \chapter{Yices API}
 \label{yices-api}
 
-The distribution includes a library and header files for embedding
-Yices in other software. The main header file is \texttt{yices.h}
-which includes all the API. The API functions are documented in this
-header file. More complete and detailed documentation on the Yices~2
-API will be provided at the Yices website
-\url{http://yices.csl.sri.com/}.
+%% The distribution includes a library and header files for embedding
+%% Yices in other software. The main header file is \texttt{yices.h}
+%% which includes all the API. The API functions are documented in this
+%% header file. More complete and detailed documentation on the Yices~2
+%% API will be provided at the Yices website
+%% \url{http://yices.csl.sri.com/}.
+
+As sketched in Figure~\ref{top-level-architecture}, the API provides
+three main classes of functions:
+\begin{itemize}
+\item Type and term constructors
+\item Operations on contexts
+\item Operations on models
+\end{itemize}
+The API also includes functions related to error reporting and
+diagnosis, global initialization and cleanup, and garbage collection.
+
+In the API, types and terms are identified by 32bit signed integers
+(the types \texttt{type\_t} and \texttt{term\_t} are aliases for
+\texttt{int32\_t}, as defined in file \texttt{yices\_types.h}). Other
+data structures internal to Yices are accessed via opaque
+pointers. For example, a context is an object of the following type
+\begin{small}
+\begin{verbatim}
+   typedef struct context_s context_t;
+\end{verbatim}
+\end{small}
+and all functions that operate on contexts take an argument of type
+\texttt{context\_t *}.
+
+When an API function fails, it returns a special code. Term
+constructors return the constant \texttt{NULL\_TERM}; type
+constructors return \texttt{NULL\_TYPE}. Other functions either return
+a negative integer or the \texttt{NULL} pointer. In addition,
+diagnostic information is stored in a global data structure of type
+\texttt{error\_report\_t} (defined in \texttt{yices\_types.h}. The API
+provides functions to help diagnosis by printing error messages or
+consulting the error report structure.
+
+
+
+
+\section{A Minimal Example}
+
+The distribution includes four include files:
+\begin{itemize}
+\item \texttt{yices\_types.h} defines all types that are part of the API,
+including a data structure used for error reporting and a set of error codes.
+\item \texttt{yices\_limits.h} defines a few constants that set hard
+  limits on the sizes of various constructs. For example, this file
+  defined the maximal arity of functions and the maximal size of
+  bitvector types supported by Yices.
+\item \texttt{yices.h} defines all the API functions.
+\item \texttt{yices\_exit\_codes.h} lists the exit codes that can be
+  returned by the Yices executables (via an \texttt{exit} system call).
+\end{itemize}
+
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+   #include <stdio.h>
+   #include <yices.h>
+
+   int main(void) {
+      printf("Testing Yices %s (%s, %s)\n", yices_version,
+              yices_build_arch, yices_build_mode);
+      return 0;
+   }
+\end{verbatim}
+\end{footnotesize}
+\caption{Minimal Example}
+\label{minimal}
+\end{figure}
+
+To use the library, it is enough to include \texttt{yices.h} in your
+code. This will also include \texttt{yices\_types.h} and
+\texttt{yices\_limits.h}. A minimal example is shown in
+Figure~\ref{minimal}. Assuming the Yices library and header files are
+in standard directories such as \texttt{/usr/local/lib} and
+\texttt{/usr/local/include}, this code should compile with the
+following command
+\begin{small}
+\begin{verbatim}
+   gcc minimal.c -o minimal -lyices
+\end{verbatim}
+\end{small}
+(other compilers than GCC can be used). If Yices is installed in a
+non-standard location, then give appropriate flags to the compilation
+command. For example, if Yices is installed in your home directory:
+\begin{small}
+\begin{verbatim}
+   gcc minimal.c -o minimal -I${HOME}/yices-2.2.0/include \
+        -L${HOME}/yices-2.2.0/lib -lyices
+\end{verbatim}
+\end{small}
+Running the program should print something like this:
+\begin{small}
+\begin{verbatim}
+   Testing Yices 2.2.0 (x86_64-unknown-linux-gnu, release)
+\end{verbatim}
+\end{small}
+If you have a Yices distribution dynamically linked against GMP, make
+sure to install GMP on your system.  If the Yices library is installed
+in a non-standard location, you may also need to set environment
+variable \texttt{LD\_LIBRARY\_PATH} (or \texttt{DYLD\_LIBRARY\_PAH} on
+Mac~OS~X).
+
+
+\section{Basic API Usage}
+
+The distribution includes a few simple examples that illustrate basic
+use of the Yices library. The code fragments shown in this section
+come from file \texttt{example/example1.c} included in the
+distribution.
+
+\subsection*{Global Initialization}
+
+Before doing anything with Yices, make sure to initialize all internal
+data structures by calling function \texttt{yices\_init}.  To avoid
+memory leaks, it is a good idea to call \texttt{yices\_exit} when one
+is done. This frees all the memory that Yices has allocated
+internally.
+
+\subsection*{Term Construction}
+
+Figure~\ref{term-construction} shows code that builds two
+uninterpreted terms \texttt{x} and \texttt{y} of type \texttt{int},
+then constructs the formula
+\begin{small}
+\begin{verbatim}
+  (and (>= x 0) (>= y 0) (= (+ x y) 100))
+\end{verbatim}
+\end{small}
+This code fragment comes from file \texttt{example1.c} that is
+included in the distribution.
+
+
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+ // Create two uninterpreted terms of type int.
+ type_t int_type = yices_int_type();
+ term_t x = yices_new_uninterpreted_term(int_type);
+ term_t y = yices_new_uninterpreted_term(int_type);
+
+ // Assign names "x" and "y" to these terms.
+ // This is optional, but we need the names in yices_parse_term
+ // and it makes pretty printing nicer.
+ yices_set_term_name(x, "x");
+ yices_set_term_name(y, "y");
+
+ // Build the formula (and (>= x 0) (>= y 0) (= (+ x y) 100))
+ term_t f = yices_and3(yices_arith_geq0_atom(x),
+                       yices_arith_geq0_atom(y),
+                       yices_arith_eq_atom(yices_add(x, y),
+                                           yices_int32(100)));
+
+ // Another way to do it
+ term_t f_var =
+   yices_parse_term("(and (>= x 0) (>= y 0) (= (+ x y) 100))");
+\end{verbatim}
+\end{footnotesize}
+\caption{Term Construction using the API}
+\label{term-construction}
+\end{figure}
+
+\subsection*{Pretty Printing}
+
+Once a term is constructed, we can print it as shown in
+Figure~\ref{pretty-printing}.  This uses the pretty-printing function
+\texttt{yices\_pp\_term}. The first argument to this function is the
+output file to use (in this case, \texttt{stdout}). The second
+argument is the term to print. The other three arguments define the
+pretty-printing area (in this case, a rectangle of 80 columns and 70
+lines). The figure also shows how one checks for errors and prints
+an error message.
+
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+ static void print_term(term_t term) {
+   int32_t code;
+
+   code = yices_pp_term(stdout, term, 80, 20, 0);
+   if (code < 0) {
+     // An error occurred
+     fprintf(stderr, "Error in print_term: ");
+     yices_print_error(stderr);
+     exit(1);
+   }
+ }
+
+ ...
+
+ // print f and f_var: they should be identical
+ printf("Formula f\n");
+ print_term(f);
+ printf("Formula f_var\n");
+ print_term(f_var);
+\end{verbatim}
+\end{footnotesize}
+\caption{Pretty Printing a Term}
+\label{pretty-printing}
+\end{figure}
+
+\subsection*{Building a Context and Checking Satisfiability}
+
+To check whether formula \texttt{f} (or \texttt{f\_var}) constructed
+previously is satisfiable, we construct a fresh context, assert
+formula \texttt{f} in this context, then call function
+\texttt{yices\_check\_context}. This is illustrated in
+Figure~\ref{context-check}.
+
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+ context_t *ctx = yices_new_context(NULL);
+ code = yices_assert_formula(ctx, f);
+ if (code < 0) {
+   fprintf(stderr, "Assert failed: code = %"PRId32", error = %"PRId32"\n",
+           code, yices_error_code());
+   yices_print_error(stderr);
+ }
+
+ switch (yices_check_context(ctx, NULL)) {
+ case STATUS_SAT:
+   printf("The formula is satisfiable\n");
+   ...
+   break;
+
+  case STATUS_UNSAT:
+    printf("The formula is not satisfiable\n");
+    break;
+
+  case STATUS_UNKNOWN:
+    printf("The status is unknown\n");
+    break;
+
+  case STATUS_IDLE:
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  case STATUS_ERROR:
+    fprintf(stderr, "Error in check_context\n");
+    yices_print_error(stderr);
+    break;
+  }
+  yices_free_context(ctx);
+\end{verbatim}
+\end{footnotesize}
+\caption{Checking Satisfiability}
+\label{context-check}
+\end{figure}
+
+
+\subsection*{Building and Querying a Model}
+
+If \texttt{yices\_check\_context} returns \texttt{STATUS\_SAT} (or
+\texttt{STATUS\_UNKNOWN}), then we can construct a model of the
+asserted formulas as shown in Figure~\ref{model-query}. The code also
+shows how to print the model and how to evaluate the value of terms in
+a model.
+
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+ model_t* model = yices_get_model(ctx, true);  // get the model
+ if (model == NULL) {
+   fprintf(stderr, "Error in get_model\n");
+   yices_print_error(stderr);
+ } else {
+   printf("Model\n");
+   code = yices_pp_model(stdout, model, 80, 4, 0); // print the model
+
+   int32_t v;
+   // get the value of x, we know it fits int32
+   code = yices_get_int32_value(model, x, &v);
+   if (code < 0) {
+     printf(stderr, "Error in get_int32_value for 'x'\n");
+     yices_print_error(stderr);
+   } else {
+     printf("Value of x = %"PRId32"\n", v);
+   }
+
+   // get the value of y
+   code = yices_get_int32_value(model, y, &v);
+   if (code < 0) {
+     fprintf(stderr, "Error in get_int32_value for 'y'\n");
+     yices_print_error(stderr);
+   } else {
+     printf("Value of y = %"PRId32"\n", v);
+   }
+
+   yices_free_model(model); // clean up: delete the model
+ }
+\end{verbatim}
+\end{footnotesize}
+\caption{Building and Querying a Model}
+\label{model-query}
+\end{figure}
+
+
+\subsection{Full API}
+
+The main header file \texttt{yices.h} includes documentation about all
+API functions. We will provide more documentation on the Yices
+website: \texttt{http://yices.csl.sri.com/}.
 
 
 \chapter{License Terms}
@@ -2993,8 +3294,8 @@ API will be provided at the Yices website
 
 Before downloading and using Yices, you will be asked to agree to the
 Yices license terms reproduced below. SRI is open to distributing
-Yices under other agreements. Contact us
-at \texttt{fm-licensing@csl.sri.com} to discuss alternative license
+Yices under other agreements. Contact us at
+\texttt{fm-licensing@csl.sri.com} to discuss alternative license
 terms.
 
 \begin{small}
