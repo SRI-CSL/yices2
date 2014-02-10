@@ -129,7 +129,7 @@ static void simple_test(void) {
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
   case STATUS_ERROR:
-    fprintf(stderr, "Error in assert_formula\n");
+    fprintf(stderr, "Error in check_context\n");
     yices_print_error(stderr);
     break;
   }
