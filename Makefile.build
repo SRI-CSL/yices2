@@ -35,7 +35,6 @@ endif
 
 include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
-
 #
 # ldconfig is used by the install rules.
 # We don't check for ldconfig in configure.ac (since that doesn't
@@ -283,6 +282,13 @@ static-smt2: build_subdirs version
 # On other platforms: make binary-distribution or make
 # static-distribution should work.
 #
+# On MacOS X Mavericks (maybe others too?), the tar command adds files
+# of the form ._xxxx to store metadata/extended file attributes. This
+# gets ugly if we untar on some other platform. To prevent generation
+# of these ._xxxx files, it is enough to set the environment variable
+# COPYFILE_DISABLE to 1. We do this systematically (even on other systems)
+# hopefully COPYFILE_DISABLE should not matter in other systems than MacOS X.
+#
 # We use a shell script ./util/mkreadme to make sure
 # the README file in the tarfile is up to date (probably
 # not foolproof)
@@ -330,7 +336,7 @@ tarfile: $(distributions)
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
+	export COPYFILE_DISABLE=1; tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
@@ -355,7 +361,7 @@ static-tarfile: $(distributions)
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
+	export COPYFILE_DISABLE=1; tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
@@ -392,7 +398,7 @@ smt-tarfile: $(distributions)
 	cp -r $(smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
+	export COPYFILE_DISABLE=1; tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(smtdist_dir)
 
@@ -403,7 +409,7 @@ static-smt-tarfile: $(distributions)
 	cp -r $(static_smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
+	export COPYFILE_DISABLE=1; tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(smtdist_dir)
 
@@ -535,7 +541,7 @@ source-distribution: $(distributions)
 	  cp examples/$$file $(srcdist_dir)/examples ; \
 	done || true
 	chmod -R og+rX $(srcdist_dir)
-	tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
+	export COPYFILE_DISABLE=1; tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(srcdist_dir)
 
