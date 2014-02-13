@@ -1,0 +1,14 @@
+(define b1::bool)
+(define b2::bool)
+
+(define bool2bv::(-> bool (bitvector 1))
+   (lambda (x::bool) (ite x 0b1 0b0)))
+
+(define mk-bv2::(-> bool bool (bitvector 2))
+   (lambda (x::bool y::bool) (bv-concat (bool2bv y) (bool2bv x))))
+
+(assert (let ((u (mk-bv2 b1 b2))) (= u 0b01)))
+
+(check)
+
+(show-model)

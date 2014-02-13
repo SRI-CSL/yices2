@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="497.37006"
+   height="164.44789"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="logo.svg"
+   version="1.0"
+   inkscape:export-filename="/export/u1/homes/bruno/SAL/src/yices/yices2/doc/logo9.png"
+   inkscape:export-xdpi="40.52"
+   inkscape:export-ydpi="40.52">
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.540463"
+     inkscape:cx="220.48692"
+     inkscape:cy="76.646565"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     inkscape:window-width="1264"
+     inkscape:window-height="765"
+     inkscape:window-x="944"
+     inkscape:window-y="374"
+     width="12.8cm"
+     height="9.6cm"
+     units="cm"
+     showgrid="true"
+     grid_units="mm"
+     inkscape:object-paths="false"
+     inkscape:grid-points="true"
+     inkscape:grid-bbox="true"
+     inkscape:guide-points="true"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:window-maximized="0"
+     fit-margin-top="1"
+     fit-margin-left="1"
+     fit-margin-bottom="1"
+     fit-margin-right="1"
+     inkscape:snap-global="false">
+    <sodipodi:guide
+       orientation="vertical"
+       position="79.741491,-90.111369"
+       id="guide3573" />
+    <sodipodi:guide
+       orientation="horizontal"
+       position="23.264964,-79.075726"
+       id="guide3579" />
+    <sodipodi:guide
+       orientation="horizontal"
+       position="23.264964,-66.092616"
+       id="guide3886" />
+    <sodipodi:guide
+       orientation="horizontal"
+       position="23.264964,195.51704"
+       id="guide3988" />
+    <sodipodi:guide
+       orientation="horizontal"
+       position="23.264964,213.04424"
+       id="guide4081" />
+    <inkscape:grid
+       id="GridFromPre046Settings"
+       type="xygrid"
+       originx="6.56589mm"
+       originy="-25.431431mm"
+       spacingx="2mm"
+       spacingy="2mm"
+       color="#3f3fff"
+       empcolor="#3f3fff"
+       opacity="0.15"
+       empopacity="0.38"
+       empspacing="5"
+       units="mm"
+       visible="true"
+       enabled="true"
+       snapvisiblegridlinesonly="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs4">
+    <linearGradient
+       id="linearGradient3767">
+      <stop
+         style="stop-color:#0000c9;stop-opacity:1;"
+         offset="0"
+         id="stop3769" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3771" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3767"
+       id="linearGradient3773"
+       x1="-56.692917"
+       y1="790.15747"
+       x2="566.92914"
+       y2="917.71655"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-21.259841,2.2199496e-5)" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3767-9"
+       id="linearGradient3773-6"
+       x1="-56.692917"
+       y1="790.15747"
+       x2="566.92914"
+       y2="917.71655"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-21.259841,2.2199496e-5)" />
+    <linearGradient
+       id="linearGradient3767-9">
+      <stop
+         style="stop-color:#0000c9;stop-opacity:0.5;"
+         offset="0"
+         id="stop3769-6" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3771-8" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3767-9"
+       id="linearGradient3906"
+       x1="-56.692917"
+       y1="790.15747"
+       x2="566.92914"
+       y2="917.71655"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-21.259841,2.2199496e-5)" />
+    <linearGradient
+       id="linearGradient3908">
+      <stop
+         style="stop-color:#0000c9;stop-opacity:1;"
+         offset="0"
+         id="stop3910" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3912" />
+    </linearGradient>
+    <linearGradient
+       y2="917.71655"
+       x2="566.92914"
+       y1="790.15747"
+       x1="-56.692917"
+       gradientTransform="translate(-25.803926,1.9475559)"
+       gradientUnits="userSpaceOnUse"
+       id="linearGradient3916"
+       xlink:href="#linearGradient3767-9"
+       inkscape:collect="always" />
+    <filter
+       id="filter3951"
+       inkscape:label="Fancy blur"
+       inkscape:menu="Blurs"
+       inkscape:menu-tooltip="Smooth colorized contour which allows desaturation and hue rotation"
+       color-interpolation-filters="sRGB">
+      <feGaussianBlur
+         id="feGaussianBlur3953"
+         stdDeviation="5"
+         result="result1" />
+      <feComposite
+         id="feComposite3955"
+         in2="result1"
+         operator="arithmetic"
+         k2="2"
+         in="result1"
+         k1="0"
+         k3="0"
+         k4="0" />
+    </filter>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3767-9"
+       id="linearGradient6676"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-32.944636,-112.95296)"
+       x1="15.522065"
+       y1="883.8111"
+       x2="586.77887"
+       y2="823.43964" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3767"
+       id="linearGradient6678"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-20.610686,2.2224707e-5)"
+       x1="546.53125"
+       y1="920.16388"
+       x2="7.0830488"
+       y2="811.75494" />
+    <filter
+       inkscape:collect="always"
+       id="filter7244"
+       x="-0.036532491"
+       width="1.073065"
+       y="-0.16777287"
+       height="1.3355457">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="5.4101562"
+         id="feGaussianBlur7246" />
+    </filter>
+  </defs>
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(23.264969,-783.62971)">
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000055;fill-opacity:0.86224491;stroke:none;filter:url(#filter7244);font-family:Sans"
+       x="43.168831"
+       y="899.05328"
+       id="text2995-7"
+       sodipodi:linespacing="125%"
+       inkscape:export-xdpi="40.515457"
+       inkscape:export-ydpi="40.515457"
+       inkscape:export-filename="/export/u1/homes/bruno/SAL/src/yices/yices2/doc/logo5.png"
+       transform="matrix(1.0187229,0,0,1.0439631,-0.5468571,-35.614202)"><tspan
+         sodipodi:role="line"
+         id="tspan2997-6"
+         x="43.168831"
+         y="899.05328"
+         style="font-size:100px;font-weight:bold;fill:#000055;fill-opacity:0.86224491;stroke:none;-inkscape-font-specification:Sans Bold">Yices2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:url(#linearGradient6678);fill-opacity:1;stroke:#000005;stroke-width:2.83464575;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:0.99607843;stroke-dasharray:none;font-family:Sans"
+       x="43.168839"
+       y="896.45667"
+       id="text2995"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan2997"
+         x="43.168839"
+         y="896.45667"
+         style="font-size:100px;font-weight:bold;fill:url(#linearGradient6678);fill-opacity:1;stroke:#000005;stroke-width:2.83464575;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:0.99607843;stroke-dasharray:none;-inkscape-font-specification:Sans Bold">Yices2</tspan></text>
+  </g>
+</svg>
