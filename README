@@ -95,10 +95,10 @@ The source subdirectories include
 
   ./src:           source code for Yices proper
 
-  ./sat_solver:    source code for variant implementations of
-                   the SAT solver
-
   ./tests:         source code for test programs
+
+  ./front-end:	   source code for an old SMT2 front end built
+                   with lex and yacc.
 
   ./doc:           documentation, notes
 
@@ -128,7 +128,7 @@ profiling and help to debugging (cf. Makefile).
 
 The default compilation platform is whatever 'config.guess' returns,
 but some systems can have variant platforms (e.g., a 32bit build on a
-64bit linux system).
+64bit Linux system).
 
 Example: on an Intel Mac, there may be four subdirectories under build:
 
@@ -321,8 +321,7 @@ Three makefiles are involved during compilation.
    command.
 
 3) The last 'make' command will use the 'Makefile' located
-   in one of the './src' or './tests' or './sat_solver'
-   directories.
+   in one of the './src', './front-end'. or './tests' directories.
 
 
 
@@ -505,7 +504,7 @@ NOTES:
 
 2) Building for 32bits on a 64bit Linux machine
 
-It's possible to build 32bit code on a 64bit Linux machine,
+It's possible to build 32bit code on a 64bit Linux machine.
 This depends on GCC and on whether the support 32bit libraries are
 present on the machine. On Ubuntu, these 32bit libraries can be
 installed using 'apt-get'.
