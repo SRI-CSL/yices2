@@ -282,12 +282,12 @@ static-smt2: build_subdirs version
 # On other platforms: make binary-distribution or make
 # static-distribution should work.
 #
-# On MacOS X Mavericks (maybe others too?), the tar command adds files
-# of the form ._xxxx to store metadata/extended file attributes. This
-# gets ugly if we untar on some other platform. To prevent generation
-# of these ._xxxx files, it is enough to set the environment variable
-# COPYFILE_DISABLE to 1. We do this systematically (even on other systems)
-# hopefully COPYFILE_DISABLE should not matter in other systems than MacOS X.
+# On MacOS X, the tar command adds files of the form ._xxxx to store
+# metadata/extended file attributes. This gets ugly if we untar on
+# some other platform. To prevent generation of these ._xxxx files, it
+# is enough to set the environment variable COPYFILE_DISABLE to 1. We
+# do this systematically (even on other systems). Hopefully,
+# COPYFILE_DISABLE should not matter on other systems than MacOS X.
 #
 # We use a shell script ./util/mkreadme to make sure
 # the README file in the tarfile is up to date (probably
