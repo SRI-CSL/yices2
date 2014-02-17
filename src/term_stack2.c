@@ -4954,6 +4954,8 @@ static void check_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 /*
  * Build a bitvector from n boolean terms
+ * - we reverse the bit order: in [mk-bool-to-bv u_0 ... u_{n-1}], we want
+ *   u_0 to be the high order bit and u_{n-1} to be the low order bit.
  * - the result is stored as a bvlogic_buffer element
  */
 static void eval_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -4972,7 +4974,7 @@ static void eval_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     if (! yices_check_boolean_term(t)) {
       report_yices_error(stack);
     }
-    aux[i] = t;
+    aux[(n-1) - i] = t;
   }
 
   b = tstack_get_bvlbuffer(stack);
