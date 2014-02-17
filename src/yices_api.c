@@ -4808,6 +4808,10 @@ term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
   return mk_bvlogic_term(&manager, b);
 }
 
+term_t bvlogic_buffer_get_bit(bvlogic_buffer_t *b, uint32_t i) {
+  return bvl_get_bit(&manager, b, i);
+}
+
 term_t bvarith_buffer_get_term(bvarith_buffer_t *b) {
   return mk_bvarith_term(&manager, b);
 }

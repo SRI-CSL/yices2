@@ -428,6 +428,9 @@ enum base_opcodes {
   MK_BV_SLE,          // [mk-bv-sle <bv> <bv> ]
   MK_BV_SLT,          // [mk-bv-slt <bv> <bv> ]
 
+  MK_BOOL_TO_BV,      // [mk-bool-to-bv <bool> .... <bool>]
+  MK_BIT,             // [mk-bit <bv> <index>]
+
   // collect result
   BUILD_TERM,         // [build-term <term> ]
   BUILD_TYPE,         // [build-type <type> ]

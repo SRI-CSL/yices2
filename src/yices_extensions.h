@@ -225,6 +225,15 @@ extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
  */
 extern term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b);
 
+
+/*
+ * Convert bit i of b to a Boolean term then reset b
+ * - b must not be empty
+ * - i must satisfy 0 <= i < b->bitsize
+ */
+extern term_t bvlogic_buffer_get_bit(bvlogic_buffer_t *b, uint32_t i);
+
+
 /*
  * Normalize b then convert it to a term and reset b
  *

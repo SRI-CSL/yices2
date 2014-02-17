@@ -3164,6 +3164,7 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 
 
 
+
 /***************************
  *  BITVECTOR POLYNOMIALS  *
  **************************/
@@ -4224,6 +4225,21 @@ term_t mk_bitextract(term_manager_t *manager, term_t t, uint32_t i) {
   }
 
   return u;
+}
+
+
+
+/*
+ * Convert bit i of buffer b to a term then reset b
+ */
+term_t bvl_get_bit(term_manager_t *manager, bvlogic_buffer_t *b, uint32_t i) {
+  term_t t;
+
+  assert(i < b->bitsize);
+  t = convert_bit_to_term(manager->terms, manager->nodes, b->bit[i]);
+  bvlogic_buffer_clear(b);
+
+  return t;
 }
 
 

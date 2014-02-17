@@ -1540,6 +1540,51 @@ static uint32_t elem_bitsize(tstack_t *stack, stack_elem_t *e) {
 }
 
 
+/*
+ * Get the i-th bit of element e
+ * - e must be a bitvector element
+ * - i must statisfy 0 <= i < n (where n = bitsize of e)
+ */
+static term_t elem_bit_select(tstack_t *stack, stack_elem_t *e, uint32_t i) {
+  term_t  t;
+
+  switch (e->tag) {
+  case TAG_BV64:
+    assert(i < e->val.bv64.bitsize);
+    t = bool2term(tst_bit64(e->val.bv64.value, i));
+    break;
+
+  case TAG_BV:
+    assert(i < e->val.bv.bitsize);
+    t = bool2term(bvconst_tst_bit(e->val.bv.data, i));
+    break;
+
+  case TAG_TERM:
+    t = yices_bitextract(e->val.term, i);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    t = yices_bitextract(t, i);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    t = yices_bitextract(t, i);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    t = bvlogic_buffer_get_bit(e->val.bvlogic_buffer, i);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
+    break;
+  }
+
+  return t;
+}
+
 
 /*
  * Verify that element e is a bitvector term of bitsize equal to n
@@ -4895,11 +4940,74 @@ static void eval_mk_bv_comp(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 
+/*
+ * Conversion from Booleans to bitvectors
+ */
+
+/*
+ * [mk-bool-to-bv <bool> .... <bool>]
+ */
+static void check_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BOOL_TO_BV);
+  check_size(stack, n>=1);
+}
+
+/*
+ * Build a bitvector from n boolean terms
+ * - the result is stored as a bvlogic_buffer element
+ */
+static void eval_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+  term_t *aux;
+  term_t t;
+  uint32_t i;
+
+  if (! yices_check_bvsize(n)) {
+    report_yices_error(stack);
+  }
+
+  aux = get_aux_buffer(stack, n);
+  for (i=0; i<n; i++) {
+    t = get_term(stack, f+i);
+    if (! yices_check_boolean_term(t)) {
+      report_yices_error(stack);
+    }
+    aux[i] = t;
+  }
+
+  b = tstack_get_bvlbuffer(stack);
+  bvlogic_buffer_set_term_array(b, __yices_globals.terms, n, aux);
+
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
 
 
+/*
+ * Extract a bit from a bitvector: [mk-bit <bv> <index> ]
+ */
+static void check_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BIT);
+  check_size(stack, n == 2);
+}
 
+static void eval_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t nbits;
+  int32_t i;
+  term_t t;
 
+  nbits = elem_bitsize(stack, f);
+  i = get_integer(stack, f+1);
 
+  if (! yices_check_bvextract(nbits, i, i)) {
+    report_yices_error(stack);
+  }
+
+  t = elem_bit_select(stack, f, i);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
 
 
 /*
@@ -5092,6 +5200,8 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // MK_BV_SGT
   0, // MK_BV_SLE
   0, // MK_BV_SLT
+  0, // MK_BOOL_TO_BV
+  0, // MK_BIT
   0, // BUILD_TERM
   0, // BUILD_TYPE
 };
@@ -5181,6 +5291,8 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_mk_bv_sgt,
   check_mk_bv_sle,
   check_mk_bv_slt,
+  check_mk_bool2bv,
+  check_mk_bit,
   check_build_term,
   check_build_type,
 };
@@ -5270,6 +5382,8 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_mk_bv_sgt,
   eval_mk_bv_sle,
   eval_mk_bv_slt,
+  eval_mk_bool2bv,
+  eval_mk_bit,
   eval_build_term,
   eval_build_type,
 };

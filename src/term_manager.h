@@ -450,6 +450,12 @@ extern term_t mk_bvsmod(term_manager_t *manager, term_t t1, term_t t2);
 extern term_t mk_bitextract(term_manager_t *manager, term_t t, uint32_t i);
 
 
+/*
+ * Convert bit i of buffer b to a Boolean term then reset b
+ * - i must be between 0 and n-1 when n = b->bitsize
+ */
+extern term_t bvl_get_bit(term_manager_t *manager, bvlogic_buffer_t *b, uint32_t i);
+
 
 /*
  * Atoms: t1 and t2 must be bitvector terms of the same type
