@@ -149,6 +149,8 @@ enum actions {
   bv_redor_next_push_e3_goto_e0,
   bv_redand_next_push_e3_goto_e0,
   bv_comp_next_push_e3_goto_e0,
+  bool_to_bv_next_push_e3_goto_e0,
+  bit_next_push_e3_goto_e0,
   
   update_next_push_e5_goto_e0,
   forall_next_goto_e10,
@@ -344,6 +346,8 @@ static triple_t triples[] = {
   { c15, TK_BV_REDOR, "symbol_next_goto_r0" },
   { c15, TK_BV_REDAND, "symbol_next_goto_r0" },
   { c15, TK_BV_COMP, "symbol_next_goto_r0" },
+  { c15, TK_BOOL_TO_BV, "symbol_next_goto_r0" },
+  { c15, TK_BIT, "symbol_next_goto_r0" },
   { c15, TK_SYMBOL, "symbol_next_goto_r0" },
   { c15, TK_STRING, "string_next_goto_r0" },
   { c15, TK_RP, "ret" },
@@ -457,6 +461,8 @@ static triple_t triples[] = {
   { e1, TK_BV_REDOR, "bv_redor_next_push_e3_goto_e0" },
   { e1, TK_BV_REDAND, "bv_redand_next_push_e3_goto_e0" },
   { e1, TK_BV_COMP, "bv_comp_next_push_e3_goto_e0" },
+  { e1, TK_BOOL_TO_BV, "bool_to_bv_next_push_e3_goto_e0" },
+  { e1, TK_BIT, "bit_next_push_e3_goto_e0" },
 
   { e1, TK_UPDATE, "update_next_push_e5_goto_e0" },
   { e1, TK_FORALL, "forall_next_goto_e10" },

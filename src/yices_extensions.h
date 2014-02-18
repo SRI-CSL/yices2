@@ -412,6 +412,14 @@ extern bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j);
 
 
 /*
+ * Check whether i is a valid bit index for a bitvector of size n
+ * - return true if 0 <= i < n
+ * - otherwise set the error report and return false.
+ */
+extern bool yices_check_bitextract(uint32_t n, int32_t i);
+
+
+/*
  * Check whether repeat_concat(b, n) is valid
  * - return true if 0 <= n and (n * b->bitsize) <= MAX_BVSIZE
  * - return false and set error report otherwise.

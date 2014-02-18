@@ -5001,7 +5001,7 @@ static void eval_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   nbits = elem_bitsize(stack, f);
   i = get_integer(stack, f+1);
 
-  if (! yices_check_bvextract(nbits, i, i)) {
+  if (! yices_check_bitextract(nbits, i)) {
     report_yices_error(stack);
   }
 

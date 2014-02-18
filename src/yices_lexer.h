@@ -78,6 +78,9 @@ enum yices_token {
   TK_BV_DIV, TK_BV_REM, TK_BV_SDIV, TK_BV_SREM, TK_BV_SMOD,
   TK_BV_REDOR, TK_BV_REDAND, TK_BV_COMP,
 
+  // conversions between bitvectors and Booleans
+  TK_BOOL_TO_BV, TK_BIT,
+
   // unrecognized tokens or other errors
   TK_OPEN_STRING, TK_EMPTY_BVCONST, TK_EMPTY_HEXCONST,
   TK_INVALID_NUM, TK_ZERO_DIVISOR, TK_ERROR,

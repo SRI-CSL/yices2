@@ -73,6 +73,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "invalid indices in bv-extract\n");
     break;
 
+  case INVALID_BITEXTRACT:
+    code = fprintf(f, "invalid index in bit extraction\n");
+    break;
+
   case TOO_MANY_ARGUMENTS:
     code = fprintf(f, "too many arguments (max. arity is %"PRIu32")\n", YICES_MAX_ARITY);
     break;

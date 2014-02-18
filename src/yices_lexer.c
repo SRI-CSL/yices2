@@ -126,6 +126,10 @@ static keyword_t yices_keywords[] = {
   { "bv-redand", TK_BV_REDAND },
   { "bv-comp", TK_BV_COMP },
 
+  // conversions between bitvectors and Booleans
+  { "bool-to-bv", TK_BOOL_TO_BV },
+  { "bit", TK_BIT},
+
   // other keywords
   { "let", TK_LET },
   { "define-type", TK_DEFINE_TYPE },

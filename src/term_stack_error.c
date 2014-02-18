@@ -170,6 +170,9 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "bitvector inequality",
   "bitvector inequality",
 
+  "bool-to-bv",  // not in SMT
+  "bit",         // not in SMT
+
   "build term",
   "build type",
 };
@@ -276,6 +279,9 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "bitvector inequality",
   "bitvector inequality",
   "bitvector inequality",
+
+  "bool-to-bv",
+  "bit",
 
   "build term",
   "build type",
@@ -466,6 +472,7 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // INVALID_BVHEX_FORMAT (raised by yices_parse_bvhex)
   0, // INVALID_BITSHIFT
   0, // INVALID_BVEXTRACT
+  0, // INVALID_BITEXTRACT
   0, // TOO_MANY_ARGUMENTS
   0, // TOO_MANY_VARS,
   0, // MAX_BVSIZE_EXCEEDED

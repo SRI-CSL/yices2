@@ -1897,9 +1897,18 @@ static bool check_bitshift(uint32_t i, uint32_t n) {
 }
 
 // Check whether [i, j] is a valid segment for bitvectors of size n
-static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
+static bool check_bvextract(uint32_t i, uint32_t j, uint32_t n) {
   if (i > j || j >= n) {
     error.code = INVALID_BVEXTRACT;
+    return false;
+  }
+  return true;
+}
+
+// Check whether i is a valid bit index for a bitvector of size n
+static bool check_bitextract(uint32_t i, uint32_t n) {
+  if (i >= n) {
+    error.code = INVALID_BITEXTRACT;
     return false;
   }
   return true;
@@ -3945,7 +3954,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
 
   tbl = &terms;
   n = term_bitsize(tbl, t);
-  if (! check_bitextract(i, j, n)) {
+  if (! check_bvextract(i, j, n)) {
     return NULL_TERM;
   }
 
@@ -4361,7 +4370,7 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) ||
-      ! check_bitextract(i, i, term_bitsize(&terms, t))) {
+      ! check_bitextract(i, term_bitsize(&terms, t))) {
     return NULL_TERM;
   }
   return mk_bitextract(&manager, t, i);
@@ -4998,6 +5007,20 @@ bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
     return false;
   }
 
+  return true;
+}
+
+
+/*
+ * Check whether i is a valid bit index for a bitvector of size n
+ * - return true if 0 <= i < n
+ * - otherwise set the error report and return false.
+ */
+bool yices_check_bitextract(uint32_t n, int32_t i) {
+  if (i < 0 || i >= n) {
+    error.code = INVALID_BITEXTRACT;
+    return false;
+  }
   return true;
 }
 

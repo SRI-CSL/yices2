@@ -563,7 +563,7 @@ static const help_record_t help_data[] = {
     "\n"
     "The bitvector constant (mk-bv n x) is the binary representation of (x mod 2^n)\n",
     "(mk-bv 6 0)     is equal to 0b000000\n"
-    "(mk-bv 6 127)   is equal to 0b111111\n"},
+    "(mk-bv 6 63)    is equal to 0b111111\n"},
 
   // bv-add: index 58
   { HBITVECTOR,
@@ -1366,11 +1366,35 @@ static const help_record_t help_data[] = {
     NULL,
     NULL },
 
-  // END MARKER: index 142
+  // bool-to-bv: index 142
+  { HBITVECTOR,
+    "(bool-to-bv [expr_1] ... [expr_n])",
+    "Convert a Boolean array to a bitvector",
+    "   [expr_1] ... [expr_n] must be Boolean expressions"
+    "\n"
+    "(bool-to-bv [expr_1] ... [expr_n]) construct a bitvector of n bits\n"
+    "The low-order bit is [expr_n] and the high-order bit is [expr_1]\n",
+    "(bool-to-bv true false false)  is equal to 0b100\n" },
+
+  // bit: index 143
+  { HBITVECTOR,
+    "(bit [expr] [index])",
+    "Bit extraction",
+    "   [expr] must be a bitvector expression\n"
+    "   [index] must be an integer constant\n"
+    "\n"
+    "(bit x i)  extracts bit i of x\n"
+    "If x has n bits, then i must satisfy 0 <= i <= n-1\n"
+    "    (bit x 0)   is the low order bit of x\n"
+    "    (bit x n-1) is the high order bit of x\n",
+    "(bit 0b001001 3)  is true\n"
+    "(bit 0b001001 4)  is false\n" },
+
+  // END MARKER: index 144
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 142
+#define END_HELP_DATA 144
 
 
 
@@ -1716,10 +1740,12 @@ static const help_index_t help_index[] = {
   { "assert", NULL, 4, help_basic },
   { "aux-eq-quota", NULL, 125, help_basic },
   { "aux-eq-ratio", NULL, 126, help_basic },
+  { "bit", NULL, 143, help_basic },
   { "bitvector", NULL, 26, help_basic },
   { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
   { "bland-threshold", NULL, 134, help_basic },
   { "bool", NULL, 23, help_basic },
+  { "bool-to-bv", NULL, 142, help_basic },
   { "booleans", "Boolean Operators", HBOOLEAN, help_for_category },
   { "branching", NULL, 117, help_basic },
   { "bv-add", NULL, 58, help_basic },
@@ -1882,7 +1908,7 @@ void show_help(FILE *f, const char *topic) {
     if (index != NULL) {
       index->proc(f, topic, index->aux, index->idx);
     } else {
-      fputs("\nSorry, nothing relevant\n"
+      fputs("\nNothing relevant\n"
             "\nTry '(help index)' for a list of help topics\n\n", f);
     }
   }

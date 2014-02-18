@@ -101,7 +101,7 @@ function-keyword ::=
         bv-div	bv-rem 	bv-sdiv bv-srem bv-smod
 	bv-redor 	bv-redand	bv-comp
 
-
+        bool-to-bv      bit
 
 
 Recursive-descent parser

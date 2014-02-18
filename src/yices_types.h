@@ -99,6 +99,7 @@ typedef enum error_code {
   INVALID_BVHEX_FORMAT,
   INVALID_BITSHIFT,
   INVALID_BVEXTRACT,
+  INVALID_BITEXTRACT,    // added 2014/02/17
   TOO_MANY_ARGUMENTS,
   TOO_MANY_VARS,
   MAX_BVSIZE_EXCEEDED,
@@ -241,6 +242,7 @@ typedef enum error_code {
  *  INVALID_BVHEX_FORMAT       none
  *  INVALID_BITSHIFT           badval
  *  INVALID_BVEXTRACT          none
+ *  INVALID_BITEXTRACT         none
  *  TOO_MANY_ARGUMENTS         badval
  *  TOO_MANY_VARS              badval
  *  MAX_BVSIZE_EXCEEDED        badval
