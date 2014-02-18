@@ -17,8 +17,10 @@
 #
 # Prerequisites for this to work:
 # - must be on a cygwin bash
-# - visual studio 10.0 must be installed
+# - visual studio must be installed
 # - Yices must be configured for both mingw32 and mingw64
+# - we must have two versions of libgmp-10.dll (one for
+#   mingw32 and one for mingw64)
 #
 
 #
@@ -48,12 +50,26 @@ fi
 
 
 #
+# CONFIGURATION
+#
+# vsbase = install directory for Visual studio
+# gmp32 = directory where libgmp-10.dll compatible with mingw32 resides
+# gmp64 = directory where libgmp-10.dll compatible with mingw64 resides
+#
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
+gmp32="/home/bruno/tools/mingw32/bin"
+gmp64="/home/bruno/tools/mingw64/bin"
+
+
+#
 # Need the Microsoft lib utility. It's part of Visual Studio.
 # The PATH must be set so that lib.exe and the DLLs it requires
 # can be found.
 #
-vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
-export PATH=${vsbase}/VC/bin:${vsbase}/Common7/IDE:${PATH}
+# Need to add gmp32 and gmp64 to the path so that mkreadme can
+# run yices (dynamic version).
+#
+export PATH=${vsbase}/VC/bin:${vsbase}/Common7/IDE:${gmp32}:${gmp64}:${PATH}
 
 #
 # Keep track of the current directory
