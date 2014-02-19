@@ -157,3 +157,29 @@ void print_intern_mapping(FILE *f, intern_tbl_t *tbl) {
   }
   fflush(f);
 }
+
+
+/*
+ * Variant formatting for subsitutions
+ */
+void print_intern_substitution2(FILE *f, intern_tbl_t *tbl) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t, r;
+
+  terms = tbl->terms;
+  n = tbl->map.top;     // number of terms in tbl->map
+  for (i=0; i<n; i++) {
+    if (good_term_idx(terms, i) && !intern_tbl_is_root_idx(tbl, i)) {
+      t = pos_term(i);
+      r = intern_tbl_find_root(tbl, t);
+      print_term_name(f, terms, t);
+      fputs(" --> ", f);
+      print_term_full(f, terms, r);
+      fputc('\n', f);
+    }
+  }
+  fflush(f);
+}
+
+

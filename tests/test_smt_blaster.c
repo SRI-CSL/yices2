@@ -16,7 +16,7 @@
 #include "smt_term_stack.h"
 #include "context.h"
 
-#include "smt_core_exporter.h"
+#include "dimacs_printer.h"
 
 // TEMPORARY: for bv_solver_bitblast
 #include "bvsolver.h"
@@ -227,6 +227,39 @@ static bool context_is_empty(context_t *ctx) {
     ctx->top_formulas.size == 0 && ctx->top_interns.size == 0;
 }
 
+/*
+ * Export the clauses of core into the given file:
+ * - use the DIMACs CNF format
+ * - don't export the learned clauses
+ * - return 0 if this works
+ * - return -1 if the file can't be opened
+ */
+static int32_t smt_core_export(smt_core_t *core, const char *filename) {
+  FILE *f;
+
+  f = fopen(filename, "w");
+  if (f == NULL) return -1;
+  dimacs_print_core(f, core);
+  fclose(f);
+
+  return 0;
+}
+
+
+/*
+ * Export the context
+ */
+static int32_t export_context(context_t *ctx, const char *filename) {
+  FILE *f;
+
+  f = fopen(filename, "w");
+  if (f == NULL) return -1;
+  dimacs_print_bvcontext(f, ctx);
+  fclose(f);
+
+  return 0;
+}
+
 
 /*
  * Test bitblasting
@@ -275,7 +308,7 @@ static void test_blaster(smt_benchmark_t *bench) {
       if (out_file == NULL) {
 	out_file = "yices2bblast.cnf";
       }
-      if (smt_core_export(context.core, out_file) == 0) {
+      if (export_context(&context, out_file) == 0) {
 	printf("Exported to %s\n", out_file);
       } else {
 	perror(out_file);

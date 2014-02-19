@@ -30,6 +30,11 @@ extern void print_intern_substitution(FILE *f, intern_tbl_t *tbl);
 extern void print_intern_mapping(FILE *f, intern_tbl_t *tbl);
 
 
+/*
+ * Variant format for substitution
+ */
+extern void print_intern_substitution2(FILE *f, intern_tbl_t *tbl);
+
 
 
 #endif /* __INTERNALIZATION_PRINTER_H */

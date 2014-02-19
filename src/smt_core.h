@@ -1269,6 +1269,11 @@ static inline uint64_t num_prob_literals(smt_core_t *s) {
   return s->stats.prob_literals;
 }
 
+// this is either 0 or 1
+static inline uint32_t num_empty_clauses(smt_core_t *s) {
+  return s->inconsistent;
+}
+
 static inline uint32_t num_unit_clauses(smt_core_t *s) {
   return s->nb_unit_clauses;
 }
@@ -1287,7 +1292,7 @@ static inline uint64_t num_learned_literals(smt_core_t *s) {
 
 // all clauses
 static inline uint32_t num_clauses(smt_core_t *s) {
-  return num_unit_clauses(s) + num_binary_clauses(s) +
+  return num_empty_clauses(s) + num_unit_clauses(s) + num_binary_clauses(s) +
     num_prob_clauses(s) + num_learned_clauses(s);
 }
 

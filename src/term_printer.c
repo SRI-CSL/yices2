@@ -2209,7 +2209,7 @@ void pp_term_def(yices_pp_t *printer, term_table_t *tbl, term_t t) {
       break;
 
     case VARIABLE:
-      pp_open_block(printer, PP_OPEN_CONST_DEF);
+      pp_open_block(printer, PP_OPEN_VAR_DEF);
       pp_int32(printer, variable_term_index(tbl, t));
       pp_string(printer, "of");
       pp_type(printer, tbl->types, term_type(tbl, t));

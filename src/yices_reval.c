@@ -2295,6 +2295,9 @@ static void yices_dump_cmd(void) {
 
     printf("\n--- Internalization ---\n");
     print_context_intern_mapping(stdout, context);
+
+    printf("\n--- Gates ---\n");
+    print_gate_table(stdout, &context->gate_manager.htbl);
 #endif
 
     if (context_has_egraph(context)) {
@@ -2969,7 +2972,9 @@ static void yices_efsolve_cmd(void) {
     c = ef_analyze(&analyzer, &prob, v->size, v->data, true, true);
     switch (c) {
     case EF_UNINTERPRETED_FUN:
-      fputs("Warning: input has uninterpreted function\n", stdout);
+      fputs("error: input has uninterpreted function\n", stdout);
+      break;
+
     case EF_NO_ERROR:
       printf("\n--- EF problem descriptor ---\n");
       printf("Existential variables: ");
@@ -3009,12 +3014,15 @@ static void yices_efsolve_cmd(void) {
     case EF_NESTED_QUANTIFIER:
       fputs("error: nested quantifiers\n", stdout);
       break;
+
     case EF_HIGH_ORDER_UVAR:
       fputs("error: non-atomic universal variable\n", stdout);
       break;
+
     case EF_HIGH_ORDER_EVAR:
       fputs("error: non-atomic existential variable\n", stdout);
       break;
+
     case EF_ERROR:
       fputs("error\n", stdout);
       break;
@@ -3025,6 +3033,7 @@ static void yices_efsolve_cmd(void) {
 
     efdone = true;
     fflush(stdout);
+
   } else {
     fputs("The (ef-solve) command is not supported. Please use command-line option --mode=ef\n", stdout);
     fflush(stdout);
