@@ -2760,44 +2760,88 @@ static void yices_check_cmd(void) {
  */
 static void yices_showmodel_cmd(void) {
   if (efmode) {
-    report_error("(show-model) is not supported by the exists/forall solver");
-    return;
-  }
-
-  switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (model == NULL) {
-      model = new_model();
-      context_build_model(model, context);
+    if (efdone) {
+      assert(efsolver != NULL);
+      if (efsolver->status == EF_STATUS_SAT) {
+	assert(efsolver->exists_model != NULL);
+	if (yices_pp_model(stdout, efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
+	  report_system_error("stdout");
+	}
+	fflush(stdout);
+      } else {
+	fputs("(ef-solve) did not find a solution. No model\n", stderr);
+	fflush(stderr);
+      }
+    } else {
+      fputs("Can't build a model. Call (ef-solve) first.\n", stderr);
+      fflush(stderr);
     }
-    //    model_print(stdout, model);
-    //    model_print_full(stdout, model);
-    if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
-      report_system_error("stdout");
+
+  } else {
+
+    switch (context_status(context)) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      if (model == NULL) {
+	model = new_model();
+	context_build_model(model, context);
+      }
+      //    model_print(stdout, model);
+      //    model_print_full(stdout, model);
+      if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
+	report_system_error("stdout");
+      }
+      fflush(stdout);
+      break;
+
+    case STATUS_UNSAT:
+      fputs("The context is unsat. No model.\n", stderr);
+      fflush(stderr);
+      break;
+
+    case STATUS_IDLE:
+      fputs("Can't build a model. Call (check) first.\n", stderr);
+      fflush(stderr);
+      break;
+
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // this should not happen
+      report_bug("unexpected context status in show-model");
+      break;
     }
-    fflush(stdout);
-    break;
-
-  case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stderr);
-    fflush(stderr);
-    break;
-
-  case STATUS_IDLE:
-    fputs("Can't build a model. Call (check) first.\n", stderr);
-    fflush(stderr);
-    break;
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // this should not happen
-    report_bug("unexpected context status in show-model");
-    break;
   }
 }
 
+
+
+/*
+ * Print the value of t in model
+ */
+static void show_val_in_model(model_t *model, term_t t) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_t v;
+
+  init_evaluator(&evaluator, model);
+  v = eval_in_model(&evaluator, t);
+  if (v >= 0) {
+    vtbl = model_get_vtbl(model);
+    if (object_is_function(vtbl, v)) {
+      vtbl_print_function(stdout, vtbl, v, true);
+    } else if (object_is_update(vtbl, v)) {
+      vtbl_normalize_and_print_update(stdout, vtbl, yices_get_term_name(t), v, true);
+    } else {
+      vtbl_print_object(stdout, model_get_vtbl(model), v);
+      fputc('\n', stdout);
+    }
+  } else {
+    fputs("unknown\n", stdout);
+  }
+  fflush(stdout);
+  delete_evaluator(&evaluator);
+}
 
 
 /*
@@ -2805,57 +2849,50 @@ static void yices_showmodel_cmd(void) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  evaluator_t evaluator;
-  value_table_t *vtbl;
-  value_t v;
-
   if (efmode) {
-    report_error("(eval ...) is not supported by the exists/forall solver");
-    return;
-  }
-
-  switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (model == NULL) {
-      model = new_model();
-      context_build_model(model, context);
-    }
-    init_evaluator(&evaluator, model);
-    v = eval_in_model(&evaluator, t);
-    if (v >= 0) {
-      vtbl = model_get_vtbl(model);
-      if (object_is_function(vtbl, v)) {
-        vtbl_print_function(stdout, vtbl, v, true);
-      } else if (object_is_update(vtbl, v)) {
-	vtbl_normalize_and_print_update(stdout, vtbl, yices_get_term_name(t), v, true);
+    if (efdone) {
+      assert(efsolver != NULL);
+      if (efsolver->status == EF_STATUS_SAT) {
+	assert(efsolver->exists_model != NULL);
+	show_val_in_model(efsolver->exists_model, t);
       } else {
-	vtbl_print_object(stdout, model_get_vtbl(model), v);
-        fputc('\n', stdout);
+	fputs("(ef-solve) did not find a solution. No model\n", stderr);
+	fflush(stderr);
       }
+
     } else {
-      fputs("unknown\n", stdout);
+      fputs("No model. Call (ef-solve) first\n", stderr);
     }
-    fflush(stdout);
-    delete_evaluator(&evaluator);
-    break;
 
-  case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stderr);
-    fflush(stderr);
-    break;
+  } else {
 
-  case STATUS_IDLE:
-    fputs("No model.\n", stderr);
-    fflush(stderr);
-    break;
+    switch (context_status(context)) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      if (model == NULL) {
+	model = new_model();
+	context_build_model(model, context);
+      }
+      show_val_in_model(model, t);
+      break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // this should not happen
-    report_bug("unexpected context status in eval");
-    break;
+    case STATUS_UNSAT:
+      fputs("The context is unsat. No model.\n", stderr);
+      fflush(stderr);
+      break;
+
+    case STATUS_IDLE:
+      fputs("No model.\n", stderr);
+      fflush(stderr);
+      break;
+
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // this should not happen
+      report_bug("unexpected context status in eval");
+      break;
+    }
   }
 }
 
@@ -2893,42 +2930,52 @@ static void build_ef_problem(void) {
  */
 static void print_ef_status(void) {
   ef_status_t stat;
+  int32_t error;
 
   assert(efsolver != NULL && efdone);
 
-  printf("Search used %"PRIu32" iterations\n", efsolver->iters);
+  printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
 
   stat = efsolver->status;
+  error = efsolver->error_code;
 
   switch (stat) {
-  case EF_STATUS_UNKNOWN:
   case EF_STATUS_SAT:
+  case EF_STATUS_UNKNOWN:
   case EF_STATUS_UNSAT:
   case EF_STATUS_INTERRUPTED:
     fputs(ef_status2string[stat], stdout);
     fputc('\n', stdout);
+    if (stat == EF_STATUS_SAT) {
+      print_ef_solution(stdout, efsolver);
+      fputc('\n', stdout);
+    }
     fflush(stdout);
     break;
 
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
   case EF_STATUS_SUBST_ERROR:
+    if (error == -1) {
+      report_error("EF solver failed: degree overflow in substitution\n");
+    } else {
+      assert(error == -2);
+      report_bug("EF solver: substitution failed\n");
+    }
+    break;
+
+  case EF_STATUS_ASSERT_ERROR:
+    assert(error < 0);
+    print_internalization_code(error);
+    break;
+
   case EF_STATUS_TVAL_ERROR:
   case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ASSERT_ERROR:
   case EF_STATUS_ERROR:
-    fprintf(stdout, "Got ef-status: %s\n", ef_status2string[stat]);
-    fflush(stdout);
-    report_error("Unexpected ef status");
+  case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+    fprintf(stderr, "ef-status: %s\n", ef_status2string[stat]);
+    report_bug("EF solver: unexpected status");
     break;
-  }
 
-  // for testing:
-  if (stat == EF_STATUS_SAT) {
-    fputc('\n', stdout);
-    print_ef_solution(stdout, efsolver);
-    fputc('\n', stdout);
-    fflush(stdout);
   }
 }
 
