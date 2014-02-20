@@ -9,25 +9,25 @@
 
 
 
+
 /*
  * EF CLAUSES
  */
-
-void init_ef_clause(ef_clause_t *cl) {
+static void init_ef_clause(ef_clause_t *cl) {
   init_ivector(&cl->evars, 10);
   init_ivector(&cl->uvars, 10);
   init_ivector(&cl->assumptions, 10);
   init_ivector(&cl->guarantees, 10);
 }
 
-void reset_ef_clause(ef_clause_t *cl) {
+static void reset_ef_clause(ef_clause_t *cl) {
   ivector_reset(&cl->evars);
   ivector_reset(&cl->uvars);
   ivector_reset(&cl->assumptions);
   ivector_reset(&cl->guarantees);
 }
 
-void delete_ef_clause(ef_clause_t *cl) {
+static void delete_ef_clause(ef_clause_t *cl) {
   delete_ivector(&cl->evars);
   delete_ivector(&cl->uvars);
   delete_ivector(&cl->assumptions);
@@ -260,7 +260,7 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
-void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
+static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
   uint32_t i;
 
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
@@ -381,7 +381,7 @@ static void ef_build_disjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivecto
  *   if f_ite is true (ite c a b) is rewritten to (c and a) or ((not c) and b)
  *   if f_iff is true (iff a b)   is rewritten to (a and b) or ((not a) and (not b))
  */
-void ef_flatten_to_disjuncts(ef_analyzer_t *ef, term_t t, bool f_ite, bool f_iff, ivector_t *v) {
+static void ef_flatten_to_disjuncts(ef_analyzer_t *ef, term_t t, bool f_ite, bool f_iff, ivector_t *v) {
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
   ivector_reset(v);
@@ -475,12 +475,13 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
 
 
 /*
- * Process term t:
- * - check whether t is quantifier free
- * - collect its free variables in uvar and its uninterpreted
- *   terms in evar
+ * Collect variables of t and check that it's quantifier free
+ * - return true if t is quantifier free
+ * - return false otherwise
+ * - collect the variables of t in vector uvar (universal vars)
+ * - collect the uninterpreted constants of t in vector evar (existential vars)
  */
-bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
+static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   term_table_t *terms;
   int_queue_t *queue;
 
@@ -593,7 +594,7 @@ bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) 
 /*
  * Check that all variables of v have atomic types
  */
-bool all_atomic_vars(ef_analyzer_t *ef, ivector_t *v) {
+static bool all_atomic_vars(ef_analyzer_t *ef, ivector_t *v) {
   term_table_t *terms;
   uint32_t i, n;
   type_t tau;
@@ -624,7 +625,7 @@ static bool is_basic_type(type_table_t *types, type_t tau) {
  * Check that all (existential variables of v) have either an atomic type
  * or a type [-> tau_1 ... tau_n sigma] where the tau_i's and sigma are atomic.
  */
-bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
+static bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
   term_table_t *terms;
   type_table_t *types;
   uint32_t i, n;
@@ -650,7 +651,7 @@ bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
  * - this is intended to be used for v that satisfies all_basic_vars
  * - return the number of terms removed
  */
-uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
+static uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
   term_table_t *terms;
   term_t x;
   uint32_t i, j, n;
@@ -712,7 +713,7 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
  *   the A_i's are stored in cl->assumptions
  *   the G_j's are stored in cl->guarantees
  */
-ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool f_ite, bool f_iff) {
+static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool f_ite, bool f_iff) {
   ivector_t *v;
   uint32_t i, n;
   ef_code_t c, code;
@@ -863,7 +864,7 @@ static term_t ef_make_or(ef_analyzer_t *ef, ivector_t *v) {
  *    So both A and G are ground terms.
  *    Then we add the universal constrains (forall y: A => G) to prob.
  */
-void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
+static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
   term_t a, g;
 
   if (c->uvars.size == 0) {

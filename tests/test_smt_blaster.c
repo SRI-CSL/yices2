@@ -227,6 +227,10 @@ static bool context_is_empty(context_t *ctx) {
     ctx->top_formulas.size == 0 && ctx->top_interns.size == 0;
 }
 
+
+#if 0
+
+// NOT USED ANYMORE
 /*
  * Export the clauses of core into the given file:
  * - use the DIMACs CNF format
@@ -245,6 +249,7 @@ static int32_t smt_core_export(smt_core_t *core, const char *filename) {
   return 0;
 }
 
+#endif
 
 /*
  * Export the context
