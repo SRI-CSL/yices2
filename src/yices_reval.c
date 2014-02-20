@@ -2817,10 +2817,10 @@ static void print_ef_status(void) {
 
   case EF_STATUS_SUBST_ERROR:
     if (error == -1) {
-      report_error("EF solver failed: degree overflow in substitution\n");
+      report_error("EF solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
-      report_bug("EF solver: substitution failed\n");
+      report_bug("EF solver: substitution failed");
     }
     break;
 
@@ -2864,7 +2864,7 @@ static void yices_efsolve_cmd(void) {
     }
 
   } else {
-    report_error("(ef-solve) not supported. Use option --mode=ef\n");
+    report_error("(ef-solve) not supported. Use option --mode=ef");
   }
 }
 
@@ -2888,7 +2888,7 @@ static void yices_export_cmd(const char *s) {
   }
 
   /*
-   * Crude test for now: also, we should force bitblasting (cf
+   * Crude test for now: we should force bitblasting (cf
    * bvsolver.h) and deal with mode == CTX_MODE_ONECHECK.
    */
   assert(context != NULL);
@@ -2907,7 +2907,7 @@ static void yices_export_cmd(const char *s) {
     break;
 
   default:
-    report_error("(export-to-dimacs) is supported only when logic=NONE or logic=QF_BV");;
+    report_error("(export-to-dimacs) is not supported. Use option --logic=NONE or --logic=QF_BV");;
     break;
   }
 
