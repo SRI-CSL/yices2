@@ -154,6 +154,7 @@ static keyword_t yices_keywords[] = {
   { "show-timeout", TK_SHOW_TIMEOUT },
   { "help", TK_HELP },
   { "ef-solve", TK_EF_SOLVE },
+  { "export-to-dimacs", TK_EXPORT_TO_DIMACS },
 
   // end-marker
   { NULL, 0 },

@@ -38,6 +38,7 @@ enum yices_opcodes {
   SHOW_TIMEOUT_CMD,                  // [show-timeout]
   HELP_CMD,                          // [help] or [help <symbol>] or [help <string>]
   EFSOLVE_CMD,                       // [ef-solve]
+  EXPORT_CMD,                        // [export <string>]
   DUMP_CMD,                          // [dump]
 };
 

@@ -6362,7 +6362,6 @@ void bv_solver_start_internalization(bv_solver_t *solver) {
 void bv_solver_start_search(bv_solver_t *solver) {
   bool feasible;
 
-
   solver->stats.equiv_lemmas = 0;
   solver->stats.equiv_conflicts = 0;
   solver->stats.half_equiv_lemmas = 0;

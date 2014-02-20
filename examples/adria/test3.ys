@@ -1,5 +1,5 @@
-(set-param var-elim true)
-;; (set-param branching positive)
+(set-param var-elim false)
+(set-param branching positive)
 
 (define VLVState_1__dup_2868::bool)
 (define nx2970::bool)
@@ -1052,7 +1052,7 @@
 
 (check)
 
-(dump-context)
+(export-to-dimacs "aaa.cnf")
+
 (show-model)
 
-;; (dump-context)

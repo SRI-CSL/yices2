@@ -1,3 +1,6 @@
+(set-param branching positive)
+(set-param var-elim false)
+
 (define VLVState_1__dup_2868::bool)
 (define nx2970::bool)
 (define nx2973::bool)
@@ -489,19 +492,19 @@
 (assert (forall (hitcnt_0__dup_2896::bool hitcnt_1__dup_2895::bool hitcnt_2__dup_2894::bool hitcnt_3__dup_2893::bool hitcnt_4__dup_2892::bool hitcnt_5__dup_2891::bool hitcnt_6__dup_2890::bool hitcnt_7__dup_2889::bool hitcnt_8__dup_2888::bool hitcnt_9__dup_2887::bool hitcnt_10__dup_2886::bool hitcnt_11__dup_2885::bool hitcnt_12__dup_2884::bool hitcnt_13__dup_2883::bool hitcnt_14__dup_2882::bool hitcnt_15__dup_2881::bool hitcnt_16__dup_2880::bool hitcnt_17__dup_2879::bool hitcnt_18__dup_2878::bool hitcnt_19__dup_2869::bool hitcnt_20__dup_2938::bool hitcnt_21__dup_2937::bool hitcnt_0__dup_2896_next::bool hitcnt_1__dup_2895_next::bool hitcnt_2__dup_2894_next::bool hitcnt_3__dup_2893_next::bool hitcnt_4__dup_2892_next::bool hitcnt_5__dup_2891_next::bool hitcnt_6__dup_2890_next::bool hitcnt_7__dup_2889_next::bool hitcnt_8__dup_2888_next::bool hitcnt_9__dup_2887_next::bool hitcnt_10__dup_2886_next::bool hitcnt_11__dup_2885_next::bool hitcnt_12__dup_2884_next::bool hitcnt_13__dup_2883_next::bool hitcnt_14__dup_2882_next::bool hitcnt_15__dup_2881_next::bool hitcnt_16__dup_2880_next::bool hitcnt_17__dup_2879_next::bool hitcnt_18__dup_2878_next::bool hitcnt_19__dup_2869_next::bool hitcnt_20__dup_2938_next::bool hitcnt_21__dup_2937_next::bool vlvctl5_6_::bool VLVState_0__dup_2870::bool nx3045::bool)
 (and
 
-p_0_0
-p_1_1
-p_2_2
-p_3_3
-p_4_4
-p_5_5
-p_6_6
-p_7_7
-p_8_8
-p_9_9
-p_10_10
-p_11_11
-p_12_12
+; p_0_0
+; p_1_1
+; p_2_2
+; p_3_3
+; p_4_4
+; p_5_5
+; p_6_6
+; p_7_7
+; p_8_8
+; p_9_9
+; p_10_10
+; p_11_11
+; p_12_12
 ;p_13_13
 ;p_14_14
 ;p_15_15

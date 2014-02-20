@@ -50,8 +50,9 @@ typedef enum actions {
   settimeout_next_goto_c14,
   help_next_goto_c15,
   efsolve_next_goto_r0,   // New command: (ef-solve)
+  export_next_goto_c3,    // New command: (export-to-dimacs filename)
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
-  string_next_goto_r0,    // string argument to echo, include, help
+  string_next_goto_r0,    // string argument to echo, include, help, export-to-dimacs
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
   next_push_c9_goto_t0,
   symbol_next_goto_c12,   // in (set-param <symbol> ...)
@@ -196,7 +197,7 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 36
-#define BSIZE 292
+#define BSIZE 294
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -241,43 +242,43 @@ static const uint8_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
-     7,   5,   2,  53,   8,  45,   6, 140, 142,  40,
-    16,  21, 150, 165,  22, 143, 143, 145, 137, 145,
-   164, 148, 166, 160, 169, 171,
+     7,   5,   2,  54,   8,  46,   6, 141, 143,  41,
+    16,  21, 151, 166,  22, 144, 144, 146, 138, 146,
+   165, 149, 167, 161, 170, 172,
 };
 
 // Check table
 static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-     2,   2,  36,  36,  36,  36,  36,   1,   0,   6,
-     1,   4,   7,   8,  12,  14,   3,   5,   9,  10,
-    10,  11,  16,  10,  14,  14,  14,  14,  20,  21,
-    24,  10,  10,  13,  13,  13,  13,  13,  13,  13,
+     2,   2,   2,  36,  36,  36,  36,  36,   1,   0,
+     6,   1,   4,   7,   8,  12,  14,   3,   5,   9,
+    10,  10,  11,  16,  10,  14,  14,  14,  14,  20,
+    21,  24,  10,  10,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    19,  13,  19,  19,  13,  15,  15,  15,  15,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  19,  13,  19,  19,  13,  15,  15,  15,
+    15,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  17,  18,
-    25,  26,  27,  28,  29,  31,  17,  22,  18,  18,
-    18,  18,  22,  22,  22,  22,  22,  23,  23,  23,
-    23,  23,  30,  32,  22,  22,  33,  34,  35,  35,
-    30,  36,  36,  36,  36,  36,  36,  36,  36,  36,
-    36,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    17,  18,  25,  26,  27,  28,  29,  31,  17,  22,
+    18,  18,  18,  18,  22,  22,  22,  22,  22,  23,
+    23,  23,  23,  23,  30,  32,  22,  22,  33,  34,
+    35,  35,  30,  36,  36,  36,  36,  36,  36,  36,
+    36,  36,  36,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
-    36,  36,  36,  36,  36,  36,  36,  36,  36,  36,
-    36,  36,
+    23,  23,  36,  36,  36,  36,  36,  36,  36,  36,
+    36,  36,  36,  36,
 };
 
 // Value table
@@ -304,6 +305,7 @@ static const uint8_t value[BSIZE] = {
   showtimeout_next_goto_r0,
   help_next_goto_c15,
   efsolve_next_goto_r0,
+  export_next_goto_c3,
   error,
   error,
   error,
@@ -335,6 +337,7 @@ static const uint8_t value[BSIZE] = {
   ret,
   true_next_goto_r0,
   false_next_goto_r0,
+  symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,

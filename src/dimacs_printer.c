@@ -348,7 +348,7 @@ void dimacs_print_term_map(FILE *f, context_t *ctx, term_t t) {
 
   terms = ctx->terms;
   assert(good_term(terms, t));
-  fputs("c ", f);
+  fputs("c   ", f);
   print_term_name(f, terms, t);
   fputs(" --> ", f);
   dimacs_print_internalized_term(f, ctx, t);

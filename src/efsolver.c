@@ -16,33 +16,168 @@
 #include "yices.h"
 
 
+
+
 /*
- * Initialize a context from prob
- * - we use the same settings/mode for exists and forall contexts
+ * PRINT STUFF
  */
-void init_ef_context(context_t *ctx, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch) {
-  init_context(ctx, prob->terms, logic, CTX_MODE_MULTICHECKS, arch, false); // qflag is false
+
+/*
+ * Print solution found by the ef solver
+ */
+void print_ef_solution(FILE *f, ef_solver_t *solver) {
+  ef_prob_t *prob;
+  uint32_t i, n;
+
+  prob = solver->prob;
+  n = ef_prob_num_evars(prob);
+
+  for (i=0; i<n; i++) {
+    fprintf(f, "%s := ", yices_get_term_name(prob->all_evars[i]));
+    yices_pp_term(f, solver->evalue[i], 100, 1, 10);
+  }
 }
 
+
+/*
+ * Show witness found for constraint i
+ */
+void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i) {
+  ef_prob_t *prob;
+  ef_cnstr_t *cnstr;
+  uint32_t j, n;
+
+  prob = solver->prob;
+  assert(i < ef_prob_num_constraints(prob));
+  cnstr = prob->cnstr + i;
+
+  n = ef_constraint_num_uvars(cnstr);
+  for (j=0; j<n; j++) {
+    fprintf(f, "%s := ", yices_get_term_name(cnstr->uvars[j]));
+    yices_pp_term(f, solver->uvalue_aux.data[j], 100, 1, 10);
+  }
+}
+
+
+
+
+/*
+ * GLOBAL PROCEDURES
+ */
+
+/*
+ * Initialize solver:
+ * - prob = problem descriptor
+ * - logic/arch/parameters = for context initialization and check
+ */
+void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch) {
+  uint32_t n;
+
+  solver->prob = prob;
+  solver->logic = logic;
+  solver->arch = arch;
+  solver->status = EF_STATUS_IDLE;
+
+  solver->parameters = NULL;
+  solver->option = EF_GEN_BY_SUBST_OPTION;
+  solver->max_samples = 0;
+  solver->max_iters = 0;
+  solver->scan_idx = 0;
+
+  solver->exists_context = NULL;
+  solver->forall_context = NULL;
+  solver->exists_model = NULL;
+
+  n = ef_prob_num_evars(prob);
+  assert(n <= UINT32_MAX/sizeof(term_t));
+  solver->evalue = (term_t *) safe_malloc(n * sizeof(term_t));
+
+  n = ef_prob_num_uvars(prob);
+  assert(n <= UINT32_MAX/sizeof(term_t));
+  solver->uvalue = (term_t *) safe_malloc(n * sizeof(term_t));
+
+  init_ivector(&solver->evalue_aux, 64);
+  init_ivector(&solver->uvalue_aux, 64);
+}
+
+
+/*
+ * Delete the whole thing
+ */
+void delete_ef_solver(ef_solver_t *solver) {
+  if (solver->exists_context != NULL) {
+    delete_context(solver->exists_context);
+    safe_free(solver->exists_context);
+    solver->exists_context = NULL;
+  }
+  if (solver->forall_context != NULL) {
+    delete_context(solver->forall_context);
+    safe_free(solver->forall_context);
+    solver->forall_context = NULL;
+  }
+  if (solver->exists_model != NULL) {
+    yices_free_model(solver->exists_model);
+    solver->exists_model = NULL;
+  }
+
+  safe_free(solver->evalue);
+  safe_free(solver->uvalue);
+  solver->evalue = NULL;
+  solver->uvalue = NULL;
+
+  delete_ivector(&solver->evalue_aux);
+  delete_ivector(&solver->uvalue_aux);
+}
+
+
+
+
+/*
+ * OPERATIONS ON THE EXISTS CONTEXT
+ */
+
+/*
+ * Allocate and initialize the exists context
+ */
+static void init_exists_context(ef_solver_t *solver) {
+  context_t *ctx;
+
+  assert(solver->exists_context == NULL);
+  ctx = (context_t *) safe_malloc(sizeof(context_t));
+  init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_MULTICHECKS, solver->arch, false); // qflag is false
+  solver->exists_context = ctx;
+}
 
 /*
  * Assert all the conditions from prob into ctx
+ * - return the internalization code
  */
-int32_t exists_context_assert_conditions(context_t *ctx, ef_prob_t *prob) {
+static int32_t exists_context_assert_conditions(ef_solver_t *solver) {
+  context_t *ctx;
   uint32_t n;
-  n = ef_prob_num_conditions(prob);
-  return assert_formulas(ctx, n, prob->conditions);
+
+  ctx = solver->exists_context;
+
+  assert(ctx != NULL && context_status(ctx) == STATUS_IDLE);
+
+  n = ef_prob_num_conditions(solver->prob);
+  return assert_formulas(ctx, n, solver->prob->conditions);
 }
 
 
 /*
- * Add an assertion to an exists context
+ * Add  assertion f to the exists context
+ * - return the internalization code
+ * - the exists context must not be UNSAT
  */
-int32_t update_exists_context(context_t *ctx, term_t f) {
+static int32_t update_exists_context(ef_solver_t *solver, term_t f) {
+  context_t *ctx;
   smt_status_t status;
   int32_t code;
 
-  assert(is_boolean_term(ctx->terms, f));
+  ctx = solver->exists_context;
+
+  assert(ctx != NULL && is_boolean_term(ctx->terms, f));
 
   status = context_status(ctx);
   switch (status) {
@@ -64,48 +199,138 @@ int32_t update_exists_context(context_t *ctx, term_t f) {
 
 
 /*
- * Assert (B and not C) in ctx
+ * SUBSTITUTION
  */
-int32_t forall_context_assert(context_t *ctx, term_t b, term_t c) {
+
+/*
+ * Apply the substitution defined by var and value to term t
+ * - n = size of arrays var and value
+ * - return code < 0 means that an error occurred during the substitution
+ *   (cf. apply_term_subst in term_substitution.h).
+ */
+static term_t ef_substitution(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n, term_t t) {
+  term_subst_t subst;
+  term_t g;
+
+  init_term_subst(&subst, prob->manager, n, var, value);
+  g = apply_term_subst(&subst, t);
+  delete_term_subst(&subst);
+
+  return g;
+}
+
+
+
+
+
+/*
+ * FORALL CONTEXT
+ */
+
+/*
+ * Allocate and initialize it (prior to sampling)
+ */
+static void init_forall_context(ef_solver_t *solver) {
+  context_t *ctx;
+
+  assert(solver->forall_context == NULL);
+  ctx = (context_t *) safe_malloc(sizeof(context_t));
+  init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_MULTICHECKS, solver->arch, false);
+  solver->forall_context = ctx;
+}
+
+
+/*
+ * Assert (B and not C) in ctx
+ * - return the assertion code
+ */
+static int32_t forall_context_assert(ef_solver_t *solver, term_t b, term_t c) {
+  context_t *ctx;
   term_t assertions[2];
 
+  ctx = solver->forall_context;
+
+  assert(ctx != NULL && context_status(ctx) == STATUS_IDLE);
   assert(is_boolean_term(ctx->terms, b) && is_boolean_term(ctx->terms, c));
+
   assertions[0] = b;
   assertions[1] = opposite_term(c);
   return assert_formulas(ctx, 2, assertions);
 }
 
 
+/*
+ * Free or reset the forall_context:
+ * - if flag del is true: delete
+ * - otherwise, just reset
+ */
+static void clear_forall_context(ef_solver_t *solver, bool del) {
+  assert(solver->forall_context != NULL);
+  if (del) {
+    delete_context(solver->forall_context);
+    safe_free(solver->forall_context);
+    solver->forall_context = NULL;
+  } else {
+    reset_context(solver->forall_context);
+  }
+}
+
+
+/*
+ * Get the forall_context: return it if it's not NULL
+ * allocate and initialize it otherwise.
+ */
+static context_t *get_forall_context(ef_solver_t *solver) {
+  if (solver->forall_context == NULL) {
+    init_forall_context(solver);
+  }
+  return solver->forall_context;
+}
+
+
+
+
+
+/*
+ * SAT SOLVING
+ */
 
 /*
  * Check satisfiability and get a model
  * - ctx = the context
  * - parameters = heuristic settings (if parameters is NULL, the defaults are used)
  * - var = array of n uninterpreted terms
- * - value = array of n terms (to receive the value of each var)
  * - n = size of array evar and value
+ * Output parameters;
+ * - value = array of n terms (to receive the value of each var)
+ * - model = to export the model (if model is NULL, nothing is exported)
  *
  * The return code is as in check_context:
  * 1) if code = STATUS_SAT then the context is satisfiable
- *   and a model is stored in value[0 ... n-1]
- * - value[i] = a constant term mapped to evar[i] in the model
+ *    and a model is stored in value[0 ... n-1]
+ *    - value[i] = a constant term mapped to evar[i] in the model
  * 2) code = STATUS_UNSAT: not satisfiable
  *
- * 3) other codes report an error of some kind
+ * 3) other codes report an error of some kind or STATUS_INTTERRUPT
  */
-smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *var, term_t *value, uint32_t n) {
+static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
   smt_status_t stat;
-  model_t *model;
+  model_t *mdl;
   int32_t code;
 
   assert(context_status(ctx) == STATUS_IDLE);
+
   stat = check_context(ctx, parameters);
   switch (stat) {
   case STATUS_SAT:
   case STATUS_UNKNOWN:
-    model = yices_get_model(ctx, true);
-    code = yices_term_array_value(model, n, var, value);
-    yices_free_model(model);
+    mdl = yices_get_model(ctx, true);
+    code = yices_term_array_value(mdl, n, var, value);
+    if (model != NULL) {
+      *model = mdl;
+    } else {
+      yices_free_model(mdl);
+    }
 
     if (code < 0) {
       // can't convert the model to constant terms
@@ -122,10 +347,16 @@ smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *
 }
 
 
+#if 0
+
+// NOT USED
 /*
- * Support for sampling: get another model after adding the blocking clause
+ * Recheck:
+ * - same parameters and conventions as satisfy context
+ * - this adds the blocking clasuse then call satisfy context
+ * - return code as in satisfy_context
  */
-smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *var, term_t *value, uint32_t n) {
+static smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
   int32_t code;
 
   assert(context_status(ctx) == STATUS_SAT || context_status(ctx) == STATUS_UNKNOWN);
@@ -135,26 +366,109 @@ smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *
     return STATUS_UNSAT;
   } else {
     assert(code == CTX_NO_ERROR);
-    return satisfy_context(ctx, parameters, var, value, n);
+    return satisfy_context(ctx, parameters, var, n, value, model);
   }
 }
 
+#endif
+
 
 /*
- * - apply the substitution defined by var and value to term t
- * - n = size of arrays var and value
- * - return code < 0 means that an error occurred during the substitution
- *   (cf. apply_term_subst in term_substitution.h).
+ * Check satisfiability of the exists_context
+ * - first free the exists_model if non-NULL
+ * - if SAT build a model (in solver->evalue) and store the exists_model
  */
-term_t ef_substitution(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n, term_t t) {
-  term_subst_t subst;
+static smt_status_t ef_solver_check_exists(ef_solver_t *solver) {
+  term_t *evar;
+  uint32_t n;
+
+  if (solver->exists_model != NULL) {
+    yices_free_model(solver->exists_model);
+    solver->exists_model = NULL;
+  }
+
+  evar = solver->prob->all_evars;
+  n = iv_len(evar);
+  return satisfy_context(solver->exists_context, solver->parameters, evar, n, solver->evalue, &solver->exists_model);
+}
+
+
+
+/*
+ * Test the current exists model using universal constraint i
+ * - i must be a valid index (i.e., 0 <= i < solver->prob->num_cnstr)
+ * - this checks the assertion B_i and not C_i after replacing existential
+ *   variables by their values (stored in evalue)
+ * - return code:
+ *   if STATUS_SAT (or STATUS_UNKNOWN): a model of (B_i and not C_i)
+ *   is found and stored in uvalue_aux
+ *   if STATUS_UNSAT: no model found (current exists model is good as
+ *   far as constraint i is concerned)
+ *   anything else: an error or interruption
+ *
+ * - if we get an error or interruption, solver->status is updated
+ *   otherwise, it is kept as is (should be EF_STATUS_SEARCHING)
+ */
+static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i) {
+  context_t *forall_ctx;
+  ef_cnstr_t *cnstr;
+  term_t *value;
   term_t g;
+  uint32_t n;
+  int32_t code;
+  smt_status_t status;
 
-  init_term_subst(&subst, prob->manager, n, var, value);
-  g = apply_term_subst(&subst, t);
-  delete_term_subst(&subst);
+  assert(i < ef_prob_num_constraints(solver->prob));
+  cnstr = solver->prob->cnstr + i;
 
-  return g;
+  n = ef_prob_num_evars(solver->prob);
+  g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue, n, cnstr->guarantee);
+  if (g < 0) {
+    // error in substitution
+    solver->status = EF_STATUS_ERROR;
+    return STATUS_ERROR;
+  }
+
+  /*
+   * make uvalue_aux large enough
+   */
+  n = ef_constraint_num_uvars(cnstr);
+  resize_ivector(&solver->uvalue_aux, n);
+  value = solver->uvalue_aux.data;
+
+  forall_ctx = get_forall_context(solver);
+
+  code = forall_context_assert(solver, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
+  if (code == CTX_NO_ERROR) {
+    status = satisfy_context(forall_ctx, solver->parameters, cnstr->uvars, n, value, NULL);
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+    case STATUS_UNSAT:
+      break;
+
+    case STATUS_INTERRUPTED:
+      solver->status = EF_STATUS_INTERRUPTED;
+      break;
+
+    default:
+      solver->status = EF_STATUS_ERROR;
+      break;
+    }
+
+  } else if (code == TRIVIALLY_UNSAT) {
+    assert(context_status(forall_ctx) == STATUS_UNSAT);
+    status = STATUS_UNSAT;
+
+  } else {
+    // error in assertion
+    solver->status = EF_STATUS_ERROR;
+    status = STATUS_ERROR;
+  }
+
+  clear_forall_context(solver, true);
+
+  return status;
 }
 
 
@@ -208,7 +522,7 @@ static void project_model(int32_t *var, term_t *value, term_t *subvar, term_t *s
 
 
 /*
- * Project model to a subset of the existential variables
+ * Project model onto a subset of the existential variables
  * - value[i] = exist model = array of constant values
  * - evar = an array of n existential variables: every element of evar occurs in ef->all_evars
  * - then this function projects builds the model restricted to evar into array eval
@@ -219,20 +533,176 @@ static void project_model(int32_t *var, term_t *value, term_t *subvar, term_t *s
  * - then if evar[i] = x and x is equal to all_evar[k] the function copies
  *   value[k] into eval[i]
  */
-void ef_project_exists_model(ef_prob_t *prob, term_t *value, term_t *evar, term_t *eval, uint32_t n) {
+static void ef_project_exists_model(ef_prob_t *prob, term_t *value, term_t *evar, term_t *eval, uint32_t n) {
   project_model(prob->all_evars, value, evar, eval, n);
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Same thing for a universal model:
  * - value[i] = model = array of constant value such that value[i] is the value of ef->all_uvar[i]
  * - uvar = subset of the universal variables (of size n)
  * - uval = restriction of value to uvar (as above)
  */
-void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar, term_t *uval, uint32_t n) {
+static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar, term_t *uval, uint32_t n) {
   project_model(prob->all_uvars, value, uvar, uval, n);
 }
+
+#endif
+
+
+/*
+ * PRE SAMPLING
+ */
+
+/*
+ * Sampling for the i-th constrainy in solver->prob
+ * - search for at most max_samples y's that satisfy the assumption of constraint i in prob
+ * - for each such y, add a new constraint to the exist context ctx
+ * - max_samples = bound on the number of samples to take (must be positive)
+ *
+ * Constraint i is of the form
+ *    (FORALL Y_i: B_i(Y_i) => C(X_i, Y_i))
+ * - every sample is a model y_i that satisfies B_i.
+ * - for each sample, we learn that any X_i such that not C(X_i, y_i) holds
+ *   can't be a good candidate. So we add the constraint not C(X_i, y_i) to ctx.
+ *
+ * Update the solver->status to
+ * - EF_STATUS_UNSAT if the exits context is trivially unsat
+ * - EF_STATUS_ERROR if something goes wrong
+ * - EF_STATUS_INTERRUPTED if a call to check/recheck context is interrupted
+ * keep it unchanged otherwise (should be EF_STATUS_SEARCHING).
+ */
+static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
+  context_t *sampling_ctx;
+  ef_cnstr_t *cnstr;
+  term_t *value;
+  uint32_t nvars, samples;
+  int32_t ucode, ecode;
+  smt_status_t status;
+  term_t cnd;
+
+  assert(i < ef_prob_num_constraints(solver->prob) && solver->max_samples > 0);
+
+  cnstr = solver->prob->cnstr + i;
+
+  /*
+   * make uvalue_aux large enough
+   * its size = number of universal variables in constraint i
+   */
+  nvars = ef_constraint_num_uvars(cnstr);
+  resize_ivector(&solver->uvalue_aux, nvars);
+  value = solver->uvalue_aux.data;
+
+  samples = solver->max_samples;
+
+  /*
+   * assert the assumption in the forall context
+   */
+  sampling_ctx = get_forall_context(solver);
+  ucode = assert_formula(sampling_ctx, cnstr->assumption);
+  while (ucode == CTX_NO_ERROR) {
+    status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, nvars, value, NULL);
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      // learned condition on X:
+      cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
+      if (cnd < 0) {
+	solver->status = EF_STATUS_ERROR;
+	goto done;
+      }
+      ecode = update_exists_context(solver, cnd);
+      if (ecode < 0) {
+	solver->status = EF_STATUS_ERROR;
+	goto done;
+      }
+      if (ecode == TRIVIALLY_UNSAT) {
+	solver->status = EF_STATUS_UNSAT;
+	goto done;
+      }
+      break;
+
+    case STATUS_UNSAT:
+      // no more samples for this constraints
+      goto done;
+
+    case STATUS_INTERRUPTED:
+      solver->status = EF_STATUS_INTERRUPTED;
+      goto done;
+
+    default:
+      solver->status = EF_STATUS_ERROR;
+      goto done;
+    }
+
+    samples --;
+    if (samples == 0) goto done;
+
+    ucode = assert_blocking_clause(sampling_ctx);
+  }
+
+  /*
+   * if ucode < 0, something went wrong in assert_formula
+   * or in assert_blocking_clause
+   */
+  if (ucode < 0) {
+    solver->status = EF_STATUS_ERROR;
+  }
+
+ done:
+  clear_forall_context(solver, true);
+}
+
+
+
+
+/*
+ * FIRST EXISTS MODELS
+ */
+
+/*
+ * Initialize the exists context
+ * - asserts all conditions from solver->prob
+ * - if max_samples is positive, also apply pre-sampling to all the universal constraints
+ *
+ * - solver->status is set as follows
+ *   EF_STATUS_SEARCHING: means not solved yet
+ *   EF_STATUS_UNSAT: if the exists context is trivially UNSAT
+ *   EF_STATUS_ERROR: if something goes wrong
+ *   EF_STATUS_INTERRUPTED if the pre-sampling is interrupted
+ */
+static void ef_solver_start(ef_solver_t *solver) {
+  int32_t code;
+  uint32_t i, n;
+
+  assert(solver->status == EF_STATUS_IDLE);
+
+  solver->status = EF_STATUS_SEARCHING;
+
+  init_exists_context(solver);
+  code = exists_context_assert_conditions(solver); // add all conditions
+  if (code < 0) {
+    // assertion error
+    solver->status = EF_STATUS_ERROR;
+  } else if (code == TRIVIALLY_UNSAT) {
+    solver->status = EF_STATUS_UNSAT;
+  } else if (solver->max_samples > 0) {
+    /*
+     * run the pre-sampling stuff
+     */
+    n = ef_prob_num_constraints(solver->prob);
+    for (i=0; i<n; i++) {
+      ef_sample_constraint(solver, i);
+      if (solver->status != EF_STATUS_SEARCHING) break;
+    }
+  }
+}
+
+
 
 
 /*
@@ -243,7 +713,7 @@ void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar, term_
  * Option 1: don't generalize:
  * - build the formula (or (/= var[0] value[0]) ... (/= var[n-1] value[n-1]))
  */
-term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n) {
+static term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n) {
   return mk_array_neq(prob->manager, n, var, value);
 }
 
@@ -252,7 +722,7 @@ term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32_t n) {
  * Option 2: generalize by substitution
  * - return (prob->cnstr[i].guarantee with y := value)
  */
-term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
+static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
   ef_cnstr_t *cnstr;
   uint32_t n;
   term_t g;
@@ -266,354 +736,30 @@ term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
 
 
 /*
- * GLOBAL PROCEDURES
- */
-
-/*
- * Initialize solver:
- * - prob = problem descriptor
- * - logic/arch/parameters = for context initialization and check
- * - option = generalization option
- * - max_samples = sampling setting
- */
-void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, const param_t *parameters, smt_logic_t logic,
-		    context_arch_t arch, ef_gen_option_t option, uint32_t max_samples) {
-  uint32_t n;
-
-  solver->prob = prob;
-  solver->parameters = parameters;
-  solver->logic = logic;
-  solver->arch = arch;
-  solver->option = option;
-  solver->max_samples = max_samples;
-  solver->iters = 0;
-  solver->status = STATUS_IDLE;
-  solver->code = CTX_NO_ERROR;
-  solver->scan_idx = 0;
-
-  solver->exists_context = NULL;
-  solver->forall_context = NULL;
-
-  n = ef_prob_num_evars(prob);
-  assert(n <= UINT32_MAX/sizeof(term_t));
-  solver->evalue = (term_t *) safe_malloc(n * sizeof(term_t));
-
-  n = ef_prob_num_uvars(prob);
-  assert(n <= UINT32_MAX/sizeof(term_t));
-  solver->uvalue = (term_t *) safe_malloc(n * sizeof(term_t));
-
-  init_ivector(&solver->evalue_aux, 64);
-  init_ivector(&solver->uvalue_aux, 64);
-}
-
-
-/*
- * Delete the whole thing
- */
-void delete_ef_solver(ef_solver_t *solver) {
-  if (solver->exists_context != NULL) {
-    delete_context(solver->exists_context);
-    safe_free(solver->exists_context);
-    solver->exists_context = NULL;
-  }
-  if (solver->forall_context != NULL) {
-    delete_context(solver->forall_context);
-    safe_free(solver->forall_context);
-    solver->forall_context = NULL;
-  }
-  delete_ivector(&solver->evalue_aux);
-  delete_ivector(&solver->uvalue_aux);
-}
-
-
-/*
- * Increment the scan index
- */
-void ef_scan_increment(ef_solver_t *solver) {
-  uint32_t n;
-
-  n = ef_prob_num_constraints(solver->prob);
-  solver->scan_idx ++;
-  if (solver->scan_idx >= n) {
-    solver->scan_idx = 0;
-  }
-}
-
-/*
- * Allocate and initialize the exists_context
- */
-static void init_exists_context(ef_solver_t *solver) {
-  context_t *ctx;
-
-  assert(solver->exists_context == NULL);
-  ctx = (context_t *) safe_malloc(sizeof(context_t));
-  init_ef_context(ctx, solver->prob, solver->logic, solver->arch);
-  solver->exists_context = ctx;
-}
-
-
-/*
- * Allocate an initialize the forall_context
- */
-static void init_forall_context(ef_solver_t *solver) {
-  context_t *ctx;
-
-  assert(solver->forall_context == NULL);
-  ctx = (context_t *) safe_malloc(sizeof(context_t));
-  init_ef_context(ctx, solver->prob, solver->logic, solver->arch);
-  solver->forall_context = ctx;
-}
-
-/*
- * Free or reset the forall_context:
- * - if flag del is true: delete
- * - otherwise, just reset
- */
-static void clear_forall_context(ef_solver_t *solver, bool del) {
-  assert(solver->forall_context != NULL);
-  if (del) {
-    delete_context(solver->forall_context);
-    safe_free(solver->forall_context);
-    solver->forall_context = NULL;
-  } else {
-    reset_context(solver->forall_context);
-  }
-}
-
-
-/*
- * Get the forall_context: return it if it's not NULL
- * allocate and initialize it otherwise.
- */
-static context_t *get_forall_context(ef_solver_t *solver) {
-  if (solver->forall_context == NULL) {
-    init_forall_context(solver);
-  }
-  return solver->forall_context;
-}
-
-
-/*
- * Sampling for the i-th constrain in solver->prob:
- * - search for at most max_samples y's that satisfy the assumption of constraint i in prob
- * - for each such y, add a new constraint to the exist context ctx
- * - max_samples = bound on the number of samples to take
- *
- * Constraint i is of the form
- *    (FORALL Y_i: B_i(Y_i) => C(X_i, Y_i))
- * - every sample is a model y_i that satisfies B_i.
- * - for each sample, we learn that any X_i such that C(X_i, y_i) holds
- *   can't be a good candidate. So we add the constraint not C(X_i, y_i) to ctx.
- */
-int32_t ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
-  context_t *sampling_ctx;
-  ef_cnstr_t *cnstr;
-  term_t *value;
-  uint32_t nvars, samples;
-  int32_t ecode, ucode;
-  smt_status_t status;
-  term_t cnd;
-
-  assert(i < ef_prob_num_constraints(solver->prob) && solver->max_samples > 0);
-  cnstr = solver->prob->cnstr + i;
-
-  /*
-   * make uvalue_aux large enough
-   * its size = number of universal variables in constraint i
-   */
-  nvars = ef_constraint_num_uvars(cnstr);
-  resize_ivector(&solver->uvalue_aux, nvars);
-  value = solver->uvalue_aux.data;
-
-  samples = solver->max_samples;
-
-  ecode = CTX_NO_ERROR; // default return code
-
-  /*
-   * assert the assumption in the forall context
-   */
-  sampling_ctx = get_forall_context(solver);
-  ucode = assert_formula(sampling_ctx, cnstr->assumption);
-  while (ucode == CTX_NO_ERROR) {
-    status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, value, nvars);
-    switch (status) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
-      // learned condition on X:
-      cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
-      if (cnd < 0) {
-	ecode = INTERNAL_ERROR;
-	goto done;
-      }
-      // FOR DEBUGGING
-      printf("ef_sample_constraint %"PRIu32"\n", i);
-      printf("sample\n");
-      print_forall_witness(stdout, solver, i);
-      printf("learned conditions: ");
-      yices_pp_term(stdout, cnd, 100, 20, 12);
-      printf("\n");
-      //
-      ecode = update_exists_context(solver->exists_context, cnd);
-      if (ecode != CTX_NO_ERROR) {
-	goto done;
-      }
-      break;
-
-    case STATUS_UNSAT:
-      goto done;
-
-    default:
-      ecode = INTERNAL_ERROR;
-      goto done;
-    }
-
-    samples --;
-    if (samples == 0) goto done;
-
-    ucode = assert_blocking_clause(sampling_ctx);
-  }
-
- done:
-  clear_forall_context(solver, true);
-
-  return ecode;
-}
-
-
-
-
-/*
- * Initialize the exists context
- * - asserts all conditions from solver->prob
- * - if max_samples is positive, also apply pre-sampling to all the universal constraints
- * - return code:
- *   TRIVIALLY_UNSAT --> exists context is unsat (no ef solution)
- *   CTX_NO_ERROR --> nothing bad happened
- *   negative values --> errors (cf. context.h)
- */
-int32_t ef_solver_start(ef_solver_t *solver) {
-  context_t *ctx;
-  int32_t code;
-  uint32_t i, n;
-
-  init_exists_context(solver);
-  ctx = solver->exists_context;
-  code = exists_context_assert_conditions(ctx, solver->prob); // add all conditions
-  if (code == CTX_NO_ERROR && solver->max_samples > 0) {
-    // sample: take all constraints in order
-    n = ef_prob_num_constraints(solver->prob);
-    for (i=0; i<n; i++) {
-      code = ef_sample_constraint(solver, i);
-      if (code != CTX_NO_ERROR) break;
-    }
-  }
-
-  return code;
-}
-
-
-/*
- * Check satisfiability of the exists_context
- * - if SAT build a model (in solver->evalue)
- */
-smt_status_t ef_solver_check_exists(ef_solver_t *solver) {
-  term_t *evar;
-  uint32_t n;
-
-  evar = solver->prob->all_evars;
-  n = iv_len(evar);
-  return satisfy_context(solver->exists_context, solver->parameters, evar, solver->evalue, n);
-}
-
-
-/*
- * Test the current exists model using universal constraint i
- * - i must be a valid index (i.e., 0 <= i < solver->prob->num_cnstr)
- * - this checks the assertion B_i and not C_i after replacing existential
- *   variables by their values (stored in evalue)
- * - return code:
- *   if STATUS_SAT (or STATUS_UNKNOWN): a model of B_i and not C_i
- *   is found and stored in uvalue_aux
- *   if STATUS_UNSAT: not model found (current exists model is good as
- *   far as constraint i is concerned)
- *   anything else: an error
- */
-smt_status_t ef_solver_check_forall(ef_solver_t *solver, uint32_t i) {
-  context_t *forall_ctx;
-  ef_cnstr_t *cnstr;
-  term_t *value;
-  term_t g;
-  uint32_t n;
-  int32_t code;
-  smt_status_t status;
-
-  assert(i < ef_prob_num_constraints(solver->prob));
-  cnstr = solver->prob->cnstr + i;
-
-  n = ef_prob_num_evars(solver->prob);
-  g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue, n, cnstr->guarantee);
-  if (g < 0) {
-    // error in substitution
-    return STATUS_ERROR;
-  }
-
-  /*
-   * make uvalue_aux large enough
-   */
-  n = ef_constraint_num_uvars(cnstr);
-  resize_ivector(&solver->uvalue_aux, n);
-  value = solver->uvalue_aux.data;
-
-  forall_ctx = get_forall_context(solver);
-
-  // TEMPORARY: FOR DEBUGGING
-  printf("ef_solver_check_forall\n");
-  printf("assumption: ");
-  yices_pp_term(stdout, cnstr->assumption, 100, 20, 12);
-  printf("simplified guarantee: ");
-  yices_pp_term(stdout, g, 100, 20, 12);
-  printf("\n");
-  // END
-
-  code = forall_context_assert(forall_ctx, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
-  if (code == CTX_NO_ERROR) {
-    status = satisfy_context(forall_ctx, solver->parameters, cnstr->uvars, value, n);
-  } else if (code == TRIVIALLY_UNSAT) {
-    assert(context_status(forall_ctx) == STATUS_UNSAT);
-    status = STATUS_UNSAT;
-  } else {
-    // error in assertion
-    status = STATUS_ERROR;
-  }
-  clear_forall_context(solver, true);
-
-  return status;
-}
-
-
-/*
  * Learn a constraint for the exists variable based on the
- * existing forall witness:
- * - i = index of the universal constraint for which we have a witness
+ * existing forall witness for constraint i:
  * - the witness is defined by the uvars of constraint i
- * + the values stored in uvalue_aux.
- * - this adds a constraint that will remove the current exists model
+ *   and the values stored in uvalue_aux.
+ *
+ * This function adds a constraint to the exists_context that will remove the
+ *  current exists model:
  * - if solver->option is EF_NOGEN_OPTION, the new constraint is
  *   of the form (or (/= var[0] eval[k0) ... (/= var[k-1] eval[k-1]))
  *   where var[0 ... k-1] are the exist variables of constraint i
  * - if solver->option is EF_GEN_BY_SUBST_OPTION, we build a new
  *   constraint by substitution (option 2)
  *
- * Return code:
- * - TRIVIALLY_UNSAT: the new constraint make exists_context unsat
- * - CTX_NO_ERROR: nothing bad happened
- * - a negative value --> error
+ * If something goes wrong, then solver->status is updated to EF_STATUS_ERROR.
+ * If the new learned assertion makes the exist context trivially unsat
+ * then context->status is set to EF_STATUS_UNSAT.
+ * Otherwise context->status is kept as is.
  */
-int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i) {
+static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
   ef_cnstr_t *cnstr;
   term_t *val;
   term_t new_constraint;
   uint32_t n;
+  int32_t code;
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
@@ -637,52 +783,186 @@ int32_t ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     val = solver->uvalue_aux.data;
     new_constraint = ef_generalize2(solver->prob, i, val);
     if (new_constraint < 0) {
-      return INTERNAL_ERROR;
+      // error in substitution
+      solver->status = EF_STATUS_ERROR;
+      return;
     }
     break;
   }
 
-  printf("ef_solver_learn\n");
-  printf("new constraint: ");
-  yices_pp_term(stdout, new_constraint, 100, 20, 12);
-  printf("\n");
-  return update_exists_context(solver->exists_context, new_constraint);
+  // add the new constaints to the exists context
+  code = update_exists_context(solver, new_constraint);
+  if (code == TRIVIALLY_UNSAT) {
+    solver->status = EF_STATUS_UNSAT;
+  } else if (code < 0) {
+    solver->status = EF_STATUS_ERROR;
+  }
 }
 
 
 
+
 /*
- * Print solution found by the ef solver
+ * EF SOLVER: INNER LOOP
  */
-void print_ef_solution(FILE *f, ef_solver_t *solver) {
-  ef_prob_t *prob;
+
+/*
+ * Check whether the current exists_model can be falsified by one
+ * of the universal constraints.
+ * - scan the universal constraints starting from solver->scan_idx
+ * - the current exists model is defined by
+ *   the mapping from solver->prob->evars to solver->evalues
+ *
+ * Update the solver->status as follows:
+ * - if no constraint falsifies the model, solver->status = EF_STATUS_SAT
+ * - if some constraint falsifies the model, then solver->status may be
+ *   updated to EF_STATUS_UNSAT (trivially unsat after learning)
+ * - if something goes wrong, solver->status = EF_STATUS_ERROR
+ *
+ * If constraint i falsifies the model then solver->scan_idx is
+ * set to (i+1) modulo num_constraints.
+ */
+static void  ef_solver_check_exists_model(ef_solver_t *solver) {
+  smt_status_t status;
   uint32_t i, n;
 
-  prob = solver->prob;
-  n = ef_prob_num_evars(prob);
+  n = ef_prob_num_constraints(solver->prob);
+  i = solver->scan_idx;
+  do {
+    status = ef_solver_test_exists_model(solver, i);
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      ef_solver_learn(solver, i);
 
-  for (i=0; i<n; i++) {
-    printf("%s := ", yices_get_term_name(prob->all_evars[i]));
-    yices_pp_term(stdout, solver->evalue[i], 100, 1, 10);
+    default:
+      i ++;
+      if (i == n) {
+	i = 0;
+      }
+      break;
+    }
+
+  } while (status == STATUS_UNSAT && i != solver->scan_idx);
+
+  if (status == STATUS_UNSAT) {
+    // done a full scan
+    assert(i == solver->scan_idx);
+    solver->status = EF_STATUS_SAT;
   }
+}
+
+
+
+/*
+ * EF SOLVER: OUTER LOOP
+ */
+
+/*
+ * Sample exists models
+ * - stop when we find one that's not refuted by the forall constraints
+ * - of when we reach the iteration bound
+ *
+ * Result:
+ * - solver->status = EF_STATUS_ERROR if something goes wrong
+ * - solver->status = EF_STATUS_INTERRUPTED if one of the calls to
+ *   check_context is interrupted
+ * - solver->status = EF_STATUS_UNSAT if all efmodels have been tried and none
+ *   of them worked
+ * - solver->status = EF_STATUS_UNKNOWN if the iteration limit is reached
+ * - solver->status = EF_STATUS_SAT if a good model is found
+ *
+ * In the later case,
+ * - the model is stores in solver->exists_model
+ * - also it's available as a mapping form solver->prob->evars to solver->evalues
+ *
+ * Also solver->iters stores the number of iterations used.
+ */
+static void ef_solver_search(ef_solver_t *solver) {
+  smt_status_t stat;
+  uint32_t i, max;
+
+
+
+  max = solver->max_iters;
+  i = 0;
+
+  assert(max > 0);
+
+  ef_solver_start(solver);
+  while (solver->status == EF_STATUS_SEARCHING && i < max) {
+
+#if 0
+    printf("--- Iteration %"PRIu32" ---\n", i);
+#endif
+
+    stat = ef_solver_check_exists(solver);
+    switch (stat) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      // we have a candidate exists model
+      // check it and learn what we can
+
+#if 0
+      // FOR DEBUGGING
+      printf("Candidate exists model:\n");
+      print_ef_solution(stdout, solver);
+      printf("\n");
+#endif
+
+      ef_solver_check_exists_model(solver);
+      break;
+
+    case STATUS_UNSAT:
+      solver->status = EF_STATUS_UNSAT;
+      break;
+
+    case STATUS_INTERRUPTED:
+      solver->status = EF_STATUS_INTERRUPTED;
+      break;
+
+    default:
+      solver->status = EF_STATUS_ERROR;
+      break;
+    }
+
+    i ++;
+  }
+
+  /*
+   * Cleanup and set status if i == max
+   */
+  if (solver->status != EF_STATUS_SAT && solver->exists_model != NULL) {
+    yices_free_model(solver->exists_model);
+    solver->exists_model = NULL;
+    if (solver->status == EF_STATUS_SEARCHING) {
+      assert(i == max);
+      solver->status = EF_STATUS_UNKNOWN;
+    }
+  }
+
+  solver->iters = i;
 }
 
 
 /*
- * Show witness found for constraint i
+ * Check satisfiability: the result is stored in solver->status
+ * - if solver->status is EF_STATUS_SAT then the model is in solver->exists_model
+ *   (as in ef_solver_search).
  */
-void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i) {
-  ef_prob_t *prob;
-  ef_cnstr_t *cnstr;
-  uint32_t j, n;
+void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
+		     ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters) {
+  solver->parameters = parameters;
+  solver->option = gen_mode;
+  solver->max_samples = max_samples;
+  solver->max_iters = max_iters;
+  solver->scan_idx = 0;
 
-  prob = solver->prob;
-  assert(i < ef_prob_num_constraints(prob));
-  cnstr = prob->cnstr + i;
+  assert(solver->exists_context == NULL &&
+	 solver->forall_context == NULL &&
+	 solver->exists_model == NULL);
 
-  n = ef_constraint_num_uvars(cnstr);
-  for (j=0; j<n; j++) {
-    printf("%s := ", yices_get_term_name(cnstr->uvars[j]));
-    yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
-  }
+  ef_solver_search(solver);
 }
+
+

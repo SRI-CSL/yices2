@@ -1,3 +1,6 @@
+(set-param var-elim false)
+(set-param branching positive)
+
 (define VLVState_1__dup_2868::bool)
 (define nx2970::bool)
 (define nx2973::bool)
@@ -538,19 +541,19 @@
 (assert
 (and
 
-p_0_0
-p_1_1
-p_2_2
-p_3_3
-p_4_4
-p_5_5
-p_6_6
-p_7_7
-p_8_8
-p_9_9
-p_10_10
-p_11_11
-p_12_12
+; p_0_0
+; p_1_1
+; p_2_2
+; p_3_3
+; p_4_4
+; p_5_5
+; p_6_6
+; p_7_7
+; p_8_8
+; p_9_9
+; p_10_10
+; p_11_11
+; p_12_12
 ;p_13_13
 ;p_14_14
 ;p_15_15
@@ -1207,7 +1210,9 @@ p_12_12
 	(let ((nx3014_next ( not ( or ( and nx3045 nx2932 ) ( and ( not nx3045 ) hitcnt_17__dup_2879 ) ) ) ))
 	(let ((nx3016_next ( not ( or ( and nx3045 nx2934 ) ( and ( not nx3045 ) hitcnt_18__dup_2878 ) ) ) ))
 	(let ((nx3020_next ( not ( or ( and nx3045 nx2936 ) ( and ( not nx3045 ) hitcnt_19__dup_2869 ) ) ) ))
-	(let ((nx3021_next ( not ( or ( and nx3045 nx2940 ) ( and ( not nx3045 ) hitcnt_20__dup_2938 ) ) ) )) (and (= hitcnt_0__dup_2896_next ( or ( and nx3045 nx2897 ) ( and ( not nx3045 ) hitcnt_0__dup_2896 ) ))
+	(let ((nx3021_next ( not ( or ( and nx3045 nx2940 ) ( and ( not nx3045 ) hitcnt_20__dup_2938 ) ) ) ))
+(and
+(= hitcnt_0__dup_2896_next ( or ( and nx3045 nx2897 ) ( and ( not nx3045 ) hitcnt_0__dup_2896 ) ))
 (= hitcnt_1__dup_2895_next ( or ( and nx3045 nx2899 ) ( and ( not nx3045 ) hitcnt_1__dup_2895 ) ))
 (= hitcnt_2__dup_2894_next ( or ( and nx3045 nx2901 ) ( and ( not nx3045 ) hitcnt_2__dup_2894 ) ))
 (= hitcnt_3__dup_2893_next ( or ( and nx3045 nx2903 ) ( and ( not nx3045 ) hitcnt_3__dup_2893 ) ))
@@ -1231,22 +1236,23 @@ p_12_12
 (= hitcnt_21__dup_2937_next ( or ( and nx3045 nx2941 ) ( and ( not nx3045 ) hitcnt_21__dup_2937 ) )))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 )
 
-true
-;; (and
-;;      (=>
-;;          (and nx3045 c_0 c_1 (bv-lt bv_template_inputs 0b1100000000000000000000))
-;;          (= bv_template_outputs (bv-add bv_template_inputs (mk-bv 22 1)))
-;;      )
-;;      (=>
-;;          (not nx3045)
-;;          (= bv_template_outputs bv_template_inputs)
-;;      )
+(and
+      (=>
+          (and nx3045 c_0 c_1 (bv-lt bv_template_inputs 0b1100000000000000000000))
+          (= bv_template_outputs (bv-add bv_template_inputs (mk-bv 22 1)))
+      )
+      (=>
+          (not nx3045)
+          (= bv_template_outputs bv_template_inputs)
+      )
 
-;; )
+)
 
 )))))
 
 ;; (ef-solve)
 (check)
 
-(dump-context)
+(export-to-dimacs "bbb.cnf")
+
+;; (dump-context)

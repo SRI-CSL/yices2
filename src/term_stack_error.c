@@ -307,6 +307,8 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "set-timeout",
   "show-timeout",
   "help",
+  "ef-solve",
+  "export-to-dimacs",
   "dump-context",
 };
 

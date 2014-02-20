@@ -87,7 +87,8 @@ typedef struct ef_analyzer_s {
 
 
 /*
- * Error codes when formulas can't be converted
+ * Error codes when formulas can't be converted to the expected
+ * EXISTS/FORALL format
  */
 typedef enum ef_code {
   EF_NO_ERROR = 0,       // everything fine
@@ -98,7 +99,7 @@ typedef enum ef_code {
   EF_ERROR,              // other errors
 } ef_code_t;
 
-
+#define NUM_EF_CODES (EF_ERROR+1)
 
 
 /*
