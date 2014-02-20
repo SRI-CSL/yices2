@@ -539,6 +539,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
     case BV_LSHR:
     case BV_ASHR:
     case BV_EQ_ATOM:
+    case BV_GE_ATOM:
     case BV_SGE_ATOM:
       ef_analyze_composite(ef, composite_term_desc(terms, t));
       break;

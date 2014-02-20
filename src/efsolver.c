@@ -77,6 +77,7 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   solver->logic = logic;
   solver->arch = arch;
   solver->status = EF_STATUS_IDLE;
+  solver->error_code = 0;
 
   solver->parameters = NULL;
   solver->option = EF_GEN_BY_SUBST_OPTION;
@@ -425,7 +426,8 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
   g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue, n, cnstr->guarantee);
   if (g < 0) {
     // error in substitution
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_SUBST_ERROR;
+    solver->error_code = g;
     return STATUS_ERROR;
   }
 
@@ -452,7 +454,8 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
       break;
 
     default:
-      solver->status = EF_STATUS_ERROR;
+      solver->status = EF_STATUS_CHECK_ERROR;
+      solver->error_code = status;
       break;
     }
 
@@ -462,7 +465,8 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
 
   } else {
     // error in assertion
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_ASSERT_ERROR;
+    solver->error_code = code;
     status = STATUS_ERROR;
   }
 
@@ -572,7 +576,7 @@ static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar
  *
  * Update the solver->status to
  * - EF_STATUS_UNSAT if the exits context is trivially unsat
- * - EF_STATUS_ERROR if something goes wrong
+ * - EF_STATUS_..._ERRORif something goes wrong
  * - EF_STATUS_INTERRUPTED if a call to check/recheck context is interrupted
  * keep it unchanged otherwise (should be EF_STATUS_SEARCHING).
  */
@@ -612,12 +616,14 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       // learned condition on X:
       cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
       if (cnd < 0) {
-	solver->status = EF_STATUS_ERROR;
+	solver->status = EF_STATUS_SUBST_ERROR;
+	solver->error_code = cnd;
 	goto done;
       }
       ecode = update_exists_context(solver, cnd);
       if (ecode < 0) {
-	solver->status = EF_STATUS_ERROR;
+	solver->status = EF_STATUS_ASSERT_ERROR;
+	solver->error_code = ecode;
 	goto done;
       }
       if (ecode == TRIVIALLY_UNSAT) {
@@ -635,7 +641,8 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       goto done;
 
     default:
-      solver->status = EF_STATUS_ERROR;
+      solver->status = EF_STATUS_CHECK_ERROR;
+      solver->error_code = status;
       goto done;
     }
 
@@ -650,7 +657,8 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
    * or in assert_blocking_clause
    */
   if (ucode < 0) {
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_ASSERT_ERROR;
+    solver->error_code = ucode;
   }
 
  done:
@@ -672,7 +680,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
  * - solver->status is set as follows
  *   EF_STATUS_SEARCHING: means not solved yet
  *   EF_STATUS_UNSAT: if the exists context is trivially UNSAT
- *   EF_STATUS_ERROR: if something goes wrong
+ *   EF_STATUS_..._ERROR: if something goes wrong
  *   EF_STATUS_INTERRUPTED if the pre-sampling is interrupted
  */
 static void ef_solver_start(ef_solver_t *solver) {
@@ -687,7 +695,8 @@ static void ef_solver_start(ef_solver_t *solver) {
   code = exists_context_assert_conditions(solver); // add all conditions
   if (code < 0) {
     // assertion error
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_ASSERT_ERROR;
+    solver->error_code = code;
   } else if (code == TRIVIALLY_UNSAT) {
     solver->status = EF_STATUS_UNSAT;
   } else if (solver->max_samples > 0) {
@@ -784,7 +793,8 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     new_constraint = ef_generalize2(solver->prob, i, val);
     if (new_constraint < 0) {
       // error in substitution
-      solver->status = EF_STATUS_ERROR;
+      solver->status = EF_STATUS_SUBST_ERROR;
+      solver->error_code = new_constraint;
       return;
     }
     break;
@@ -795,7 +805,8 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
   if (code == TRIVIALLY_UNSAT) {
     solver->status = EF_STATUS_UNSAT;
   } else if (code < 0) {
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_ASSERT_ERROR;
+    solver->error_code = code;
   }
 }
 
@@ -922,7 +933,8 @@ static void ef_solver_search(ef_solver_t *solver) {
       break;
 
     default:
-      solver->status = EF_STATUS_ERROR;
+      solver->status = EF_STATUS_CHECK_ERROR;
+      solver->error_code = stat;
       break;
     }
 

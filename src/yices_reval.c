@@ -243,6 +243,10 @@ static const char* const ef_status2string[] = {
   "sat",
   "unsat",
   "interrupted",
+  "subst error",
+  "tval error",
+  "check error",
+  "assert error",
   "error",
 };
 
@@ -2906,8 +2910,12 @@ static void print_ef_status(void) {
     fflush(stdout);
     break;
 
-  case EF_STATUS_SEARCHING:
   case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+  case EF_STATUS_SUBST_ERROR:
+  case EF_STATUS_TVAL_ERROR:
+  case EF_STATUS_CHECK_ERROR:
+  case EF_STATUS_ASSERT_ERROR:
   case EF_STATUS_ERROR:
     fprintf(stdout, "Got ef-status: %s\n", ef_status2string[stat]);
     fflush(stdout);

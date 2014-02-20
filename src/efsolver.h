@@ -140,6 +140,9 @@ typedef enum ef_gen_option {
 } ef_gen_option_t;
 
 
+/*
+ * Status + error report
+ */
 typedef enum ef_status {
   EF_STATUS_IDLE,         // before call to efsolver_check
   EF_STATUS_SEARCHING,    // while in efsolver_check
@@ -147,16 +150,33 @@ typedef enum ef_status {
   EF_STATUS_SAT,          // satisfiable
   EF_STATUS_UNSAT,        // unsat
   EF_STATUS_INTERRUPTED,  // timeout
+  EF_STATUS_SUBST_ERROR,  // error in a substitution
+  EF_STATUS_TVAL_ERROR,   // error when converting model to constant terms
+  EF_STATUS_CHECK_ERROR,  // unexpected status in check_context
+  EF_STATUS_ASSERT_ERROR, // error in assert formulas
   EF_STATUS_ERROR,        // internal error of some kind
 } ef_status_t;
 
 
+/*
+ * error_code below can be used for diagnostic
+ * when status is EF_STATUS_..._ERROR:
+ * - status = EF_STATUS_SUBST_ERROR
+ *   error_code = negative code from apply_term_subst
+ * - status = EF_STATUS_TVAL_ERROR
+ *   error_code = not used (error from yices_term_array_value)
+ * - status = EF_STATUS_CHECK_ERROR:
+ *   error_code = the unexpected status
+ * - status = EF_STATUS_ASSERT_ERROR
+ *   error_code = exception code from context_assert_formulas
+ */
 typedef struct ef_solver_s {
   // Input problem + logic and architecture codes
   ef_prob_t *prob;
   smt_logic_t logic;
   context_arch_t arch;
   ef_status_t status;
+  int32_t error_code;        // for diagnostic
 
   // Parameters used during the search
   const param_t *parameters; // seach parameters
