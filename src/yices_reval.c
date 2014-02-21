@@ -169,7 +169,7 @@ static double ready_time, check_process_time;
 
 /*
  * More parameters for preprocessing and simplifications
- * - there parameters are stored in the context but
+ * - these parameters are stored in the context but
  *   we want to keep a copy when esolver is true (since then
  *   context is NULL).
  */
@@ -248,7 +248,9 @@ static const char* const ef_status2string[] = {
  *
  * We use an integer code to identify the parameters + a table of
  * parameter names in lexicographic order. Each parameter
- * is described in context.h
+ * is described in context.h.
+ *
+ * New: added the EF solver parameters.
  */
 typedef enum yices_param {
   // internalization options
@@ -299,6 +301,12 @@ typedef enum yices_param {
   // array solver parameters
   PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_MAX_EXTENSIONALITY,
+  // EF solver
+  PARAM_EF_FLATTEN_IFF,
+  PARAM_EF_FLATTEN_ITE,
+  PARAM_EF_GEN_MODE,
+  PARAM_EF_MAX_SAMPLES,
+  PARAM_EF_MAX_ITERS,
   // error
   PARAM_UNKNOWN
 } yices_param_t;
@@ -324,6 +332,11 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "dyn-bool-ack",
   "dyn-bool-ack-threshold",
   "eager-lemmas",
+  "ef-flatten-iff",
+  "ef-flatten-ite",
+  "ef-gen-mode",
+  "ef-max-iters",
+  "ef-max-samples",
   "fast-restarts",
   "flatten",
   "icheck",
@@ -368,6 +381,11 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_DYN_BOOL_ACK,
   PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_EAGER_LEMMAS,
+  PARAM_EF_FLATTEN_IFF,
+  PARAM_EF_FLATTEN_ITE,
+  PARAM_EF_GEN_MODE,
+  PARAM_EF_MAX_ITERS,
+  PARAM_EF_MAX_SAMPLES,
   PARAM_FAST_RESTARTS,
   PARAM_FLATTEN,
   PARAM_ICHECK,
@@ -416,6 +434,23 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
   BRANCHING_TH_NEG,
   BRANCHING_TH_POS,
   BRANCHING_THEORY,
+};
+
+
+
+/*
+ * Names of the generalitzation modes for the EF solver
+ */
+#define NUM_EF_GEN_MODES 2
+
+static const char * const ef_gen_modes[NUM_EF_GEN_MODES] = {
+  "none",
+  "substitution",
+};
+
+static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
+  EF_NOGEN_OPTION,
+  EF_GEN_BY_SUBST_OPTION,
 };
 
 
@@ -1230,11 +1265,12 @@ static void init_ef_params(void) {
 
 /*
  * Tables for converting parameter id to parameter name
- * and branching code to branching name.
+ * and branching code to branching name. One more table
+ * for converting from EF generalization codes to strings.
  */
 static const char *param2string[NUM_PARAMETERS];
 static const char *branching2string[NUM_BRANCHING_MODES];
-
+static const char *efgen2string[NUM_EF_GEN_MODES];
 
 /*
  * Argument to the setparam command encodes an immediate value
@@ -1264,6 +1300,7 @@ typedef struct param_val_s {
 /*
  * Initialize the table [parameter id --> string]
  * and [branching mode --> string]
+ * and [ef gen code --> string]
  */
 static void init_parameter_name_table(void) {
   uint32_t i, j;
@@ -1279,6 +1316,12 @@ static void init_parameter_name_table(void) {
     name = branching_modes[i];
     j = branching_code[i];
     branching2string[j] = name;
+  }
+
+  for (i=0; i<NUM_EF_GEN_MODES; i++) {
+    name = ef_gen_modes[i];
+    j = ef_gen_code[i];
+    efgen2string[j] = name;
   }
 }
 
@@ -1362,7 +1405,7 @@ static bool param_val_to_pos16(const char *name, const param_val_t *v, int32_t *
 
 static bool param_val_to_nonneg32(const char *name, const param_val_t *v, int32_t *value) {
   if (param_val_to_int32(name, v, value)) {
-    if (*value > 0) return true;
+    if (*value >= 0) return true;
     report_invalid_param_value(name, "cannot be negative");
   }
   return false;
@@ -1445,6 +1488,32 @@ static bool param_val_to_branching(const char *name, const param_val_t *v, branc
 
 
 
+/*
+ * EF generalization mode
+ * - allowed modes are "none" or "substitution"
+ * - we use a general implementation so that we can add more modes later
+ */
+static bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value) {
+  int32_t i;
+
+  if (v->tag == PARAM_VAL_SYMBOL) {
+    i = binary_search_string(v->val.symbol, ef_gen_modes, NUM_EF_GEN_MODES);
+    if (i >= 0) {
+      assert(i < NUM_EF_GEN_MODES);
+      *value = ef_gen_code[i];
+      return true;
+    }
+  }
+
+  report_error("invalid generalization mode");
+  fputs("possible modes are", stderr);
+  for (i=0; i<NUM_EF_GEN_MODES; i++) {
+    fprintf(stderr, " '%s'", ef_gen_modes[i]);
+  }
+  fputc('\n', stderr);
+
+  return false;
+}
 
 
 /*
@@ -1660,6 +1729,26 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], parameters.max_extensionality, n);
     break;
 
+  case PARAM_EF_FLATTEN_IFF:
+    show_bool_param(param2string[p], ef_parameters.flatten_iff, n);
+    break;
+
+  case PARAM_EF_FLATTEN_ITE:
+    show_bool_param(param2string[p], ef_parameters.flatten_ite, n);
+    break;
+
+  case PARAM_EF_GEN_MODE:
+    show_string_param(param2string[p], efgen2string[ef_parameters.gen_mode], n);
+    break;
+
+  case PARAM_EF_MAX_SAMPLES:
+    show_pos32_param(param2string[p], ef_parameters.max_samples, n);
+    break;
+
+  case PARAM_EF_MAX_ITERS:
+    show_pos32_param(param2string[p], ef_parameters.max_iters, n);
+    break;
+
   case PARAM_UNKNOWN:
   default:
     report_bug("invalid parameter id in 'show_param'");
@@ -1721,6 +1810,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   int32_t n;
   double x;
   branch_t b;
+  ef_gen_option_t g;
 
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
@@ -2055,6 +2145,41 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_MAX_EXTENSIONALITY:
     if (param_val_to_pos32(param, val, &n)) {
       parameters.max_extensionality = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EF_FLATTEN_IFF:
+    if (param_val_to_bool(param, val, &tt)) {
+      ef_parameters.flatten_iff = tt;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EF_FLATTEN_ITE:
+    if (param_val_to_bool(param, val, &tt)) {
+      ef_parameters.flatten_ite = tt;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EF_GEN_MODE:
+    if (param_val_to_genmode(param, val, &g)) {
+      ef_parameters.gen_mode = g;
+      print_ok();;
+    }
+    break;
+
+  case PARAM_EF_MAX_SAMPLES:
+    if (param_val_to_nonneg32(param, val, &n)) {
+      ef_parameters.max_samples = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EF_MAX_ITERS:
+    if (param_val_to_pos32(param, val, &n)) {
+      ef_parameters.max_iters = n;
       print_ok();
     }
     break;
