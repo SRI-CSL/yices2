@@ -1225,6 +1225,22 @@ extern void context_clear(context_t *ctx);
 extern void context_clear_unsat(context_t *ctx);
 
 
+/*
+ * Precheck: force generation of clauses and other stuff that's
+ * constructed lazily by the solvers. For example, this
+ * can be used to convert all the constraints asserted in the
+ * bitvector to clauses so that we can export the result to DIMACS.
+ *
+ * If ctx status is IDLE:
+ * - the function calls 'start_search' and does one round of propagation.
+ * - if this results in UNSAT, the function returns UNSAT
+ * - otherwise the function returns UNKNOWN and restore the status to
+ *   IDLE
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing
+ * else.
+ */
+extern smt_status_t precheck_context(context_t *ctx);
 
 
 

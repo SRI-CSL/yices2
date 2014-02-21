@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "int_vectors.h"
 #include "term_manager.h"
 
 
@@ -155,6 +156,15 @@ static inline uint32_t ef_prob_num_constraints(ef_prob_t *prob) {
  */
 extern uint32_t ef_constraint_num_evars(ef_cnstr_t *cnstr);
 extern uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr);
+
+
+/*
+ * Convert prob to an array of formulas (a big conjunction)
+ * - all the conditions are added to v
+ * - for every constraint, the formula (B_i => C_i) is added to v
+ *   (without quantifiers)
+ */
+extern void ef_prob_collect_conjuncts(ef_prob_t *prob, ivector_t *v);
 
 
 #endif /* __EF_PROBLEM_H */

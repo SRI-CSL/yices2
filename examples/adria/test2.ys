@@ -1251,8 +1251,13 @@
 )))))
 
 ;; (ef-solve)
+
+(export-to-dimacs "test2aaa.cnf")
+
+(export-to-dimacs "test2bbb.cnf")
+
 (check)
 
-(export-to-dimacs "bbb.cnf")
+(export-to-dimacs "test2ccc.cnf")
 
 ;; (dump-context)

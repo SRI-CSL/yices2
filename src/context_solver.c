@@ -411,6 +411,52 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
 
 
 
+/*
+ * Precheck: force generation of clauses and other stuff that's
+ * constructed lazily by the solvers. For example, this
+ * can be used to convert all the constraints asserted in the
+ * bitvector to clauses so that we can export the result to DIMACS.
+ *
+ * If ctx status is IDLE:
+ * - the function calls 'start_search' and does one round of propagation.
+ * - if this results in UNSAT, the function returns UNSAT
+ * - if the precheck is interrupted, the function returns INTERRRUPTED
+ * - otherwise the function returns UNKNOWN and sets the status to
+ *   UNKWOWN.
+ *
+ * IMPORTANT: call smt_clear or smt_cleanup to restore the context to
+ * IDLE before doing anything else with this context.
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing
+ * else.
+ */
+smt_status_t precheck_context(context_t *ctx) {
+  smt_status_t stat;
+  smt_core_t *core;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      end_search_unknown(core);
+      stat = STATUS_UNKNOWN;
+    }
+  }
+
+  return stat;
+}
+
+
+
+
 
 /*
  * MODEL CONSTRUCTION

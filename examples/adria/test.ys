@@ -1,5 +1,5 @@
 (set-param branching positive)
-(set-param var-elim false)
+(set-param var-elim true)
 
 (define VLVState_1__dup_2868::bool)
 (define nx2970::bool)
@@ -1197,4 +1197,9 @@
 )
 
 ))))))
+
+(export-to-dimacs "ef-export3.cnf")
+
 (ef-solve)
+
+(export-to-dimacs "ef-export4.cnf")

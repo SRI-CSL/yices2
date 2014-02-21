@@ -242,3 +242,24 @@ uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr) {
 
 
 
+/*
+ * Convert prob to an array of formulas (a big conjunction)
+ * - all the conditions are added to v
+ * - for every constraint, the formula (B_i => C_i) is added to v
+ *   (without quantifiers)
+ */
+void ef_prob_collect_conjuncts(ef_prob_t *prob, ivector_t *v) {
+  uint32_t i, n;
+  term_t t;
+
+  n = iv_len(prob->conditions);
+  for (i=0; i<n; i++) {
+    ivector_push(v, prob->conditions[i]);
+  }
+
+  n = prob->num_cnstr;
+  for (i=0; i<n; i++) {
+    t = mk_implies(prob->manager, prob->cnstr[i].assumption, prob->cnstr[i].guarantee);
+    ivector_push(v, t);
+  }
+}

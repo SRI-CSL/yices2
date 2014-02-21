@@ -2876,41 +2876,145 @@ static void yices_efsolve_cmd(void) {
  */
 
 /*
+ * Export ctx content in DIMACS format
+ * - s = file name
+ */
+static void do_export(context_t *ctx, const char *s) {
+  FILE *f;
+
+  f = fopen(s, "w");
+  if (f == NULL) {
+    report_system_error(s);
+  } else {
+    dimacs_print_bvcontext(f, ctx);
+    fclose(f);
+    print_ok();
+  }
+}
+
+
+/*
+ * Force bitblasting then export
+ * - s = filename
+ * - ctx's status must be IDLE when this is called
+ */
+static void bitblast_then_export(context_t *ctx, const char *s) {
+  smt_status_t stat;
+
+  assert(context_status(ctx) == STATUS_IDLE);
+  stat = precheck_context(ctx);
+  switch (stat) {
+  case STATUS_UNKNOWN:
+    do_export(ctx, s);
+    if (context_supports_multichecks(ctx)) {
+      assert(ctx == context);
+      context_clear(ctx); // restore to IDLE
+    }
+    break;
+
+  case STATUS_UNSAT:
+    do_export(ctx, s);
+    break;
+
+  case STATUS_INTERRUPTED:
+    if (context_supports_cleaninterrupt(ctx)) {
+      context_cleanup(ctx);
+      assert(context_status(ctx) == STATUS_IDLE);
+    }
+    report_error("export-to-dimacs interrupted\n");
+    break;
+
+  default:
+    report_bug("unexpected context status after pre-check");
+    break;
+  }
+}
+
+
+/*
+ * Export the assertions --> use the ef_analyzer first
+ * - then add all the assertions into a temporary context
+ * - we disable variable elimination (could check the global parameters
+ *   and do this optionally?)
+ */
+static void export_ef_problem(const char *s) {
+  context_t *aux;
+  ivector_t all_ef;
+  int code;
+
+  build_ef_problem();
+  if (efcode != EF_NO_ERROR) {
+    print_ef_analyze_code(efcode);
+  } else {
+    assert(efprob != NULL);
+
+    // convert the ef-problem to a conjunction of formulas
+    init_ivector(&all_ef, 10);
+    ef_prob_collect_conjuncts(efprob, &all_ef);
+
+    // assert these in a temporary context
+    aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
+    disable_variable_elimination(aux);
+    disable_bvarith_elimination(aux);
+    code = assert_formulas(aux, all_ef.size, all_ef.data);
+    if (code < 0) {
+      print_internalization_code(code);
+    } else {
+      bitblast_then_export(aux, s);
+    }
+
+    yices_free_context(aux);
+    delete_ivector(&all_ef);
+  }
+}
+
+
+/*
+ * Export the delayed assertions
+ */
+static void export_delayed_assertions(const char *s) {
+  context_t *aux;
+  int code;
+
+  aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
+  disable_variable_elimination(aux);
+  disable_bvarith_elimination(aux);
+  code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
+  if (code < 0) {
+    print_internalization_code(code);
+  } else {
+    bitblast_then_export(aux, s);
+  }
+  yices_free_context(aux);
+}
+
+
+/*
  * s = FILE NAME
  */
 static void yices_export_cmd(const char *s) {
-  FILE *f;
-
-  if (efmode) {
-    fputs("Not yet support when mode=ef (To be done)\n", stdout);
-    fflush(stdout);
-    return;
-  }
-
-  /*
-   * Crude test for now: we should force bitblasting (cf
-   * bvsolver.h) and deal with mode == CTX_MODE_ONECHECK.
-   */
-  assert(context != NULL);
-
-  switch (context->logic) {
+  switch (logic_code) {
   case NONE:
   case QF_BV:
-    f = fopen(s, "w");
-    if (f == NULL) {
-      report_system_error(s);
+    if (efmode) {
+      export_ef_problem(s);
+    } else if (mode == CTX_MODE_ONECHECK) {
+      export_delayed_assertions(s);
     } else {
-      dimacs_print_bvcontext(f, context);
-      fclose(f);
-      print_ok();
+      assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
+      if (context_status(context) == STATUS_IDLE) {
+	bitblast_then_export(context, s);
+      } else {
+	do_export(context, s);
+      }
     }
     break;
 
   default:
-    report_error("(export-to-dimacs) is not supported. Use option --logic=NONE or --logic=QF_BV");;
+    // Can't convert to DIMACS (at least not for sure)
+    report_error("(export-to-dimacs ...) not supported. Use option --logic=NONE or --logic=QF_BV");;
     break;
   }
-
 
 }
 
