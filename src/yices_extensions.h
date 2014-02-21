@@ -477,10 +477,17 @@ extern context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, c
 
 
 /*
- * Set default search parameters for ctx (based on architecture and theories)
+ * Set default search parameters for the given architecture and logic.
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
-extern void yices_set_default_params(context_t *ctx, param_t *params);
+extern void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t arch);
+
+
+/*
+ * Set default search parameters for ctx
+ */
+extern void yices_default_params_for_context(context_t *ctx, param_t *params);
+
 
 
 /*

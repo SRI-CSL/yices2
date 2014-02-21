@@ -6146,12 +6146,11 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
 
 
 /*
- * Set default search parameters for ctx (based on architecture and theories)
- * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
+ * Set default search parameters based on architecture and logic
  */
-void yices_set_default_params(context_t *ctx, param_t *params) {
+void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t arch) {
   init_params_to_defaults(params);
-  switch (ctx->arch) {
+  switch (arch) {
   case CTX_ARCH_EG:
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
     params->use_bool_dyn_ack = true;
@@ -6166,7 +6165,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->branching = BRANCHING_THEORY;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_LIA) {
+    if (logic == QF_LIA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
       // TEST: disable Bland's rule
@@ -6193,14 +6192,14 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_UFLIA || ctx->logic == QF_AUFLIA) {
+    if (logic == QF_UFLIA || logic == QF_AUFLIA) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
-    if (ctx->logic == QF_UFLIA) {
+    if (logic == QF_UFLIA) {
       params->use_optimistic_fcheck = false;
     }
     break;
@@ -6247,7 +6246,17 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     // nothing required
     break;
   }
+
 }
+
+/*
+ * Set default search parameters for ctx (based on architecture and theories)
+ * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
+ */
+void yices_default_params_for_context(context_t *ctx, param_t *params) {
+  yices_set_default_params(params, ctx->logic, ctx->arch);
+}
+
 
 
 /*
@@ -6293,7 +6302,7 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
   case STATUS_IDLE:
     if (params == NULL) {
-      yices_set_default_params(ctx, &default_params);
+      yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
     stat = check_context(ctx, params);

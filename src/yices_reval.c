@@ -1190,8 +1190,9 @@ static void save_ctx_params(void) {
 
 /*
  * If there's no context: use some defaults for both ctx_parameters and parameters
+ * - arch + logic are derived from the command-line options
  */
-static void default_ctx_params(void) {
+static void default_ctx_params(smt_logic_t logic, context_arch_t arch) {
   ctx_parameters.var_elim = true;
   ctx_parameters.arith_elim = true;
   ctx_parameters.bvarith_elim = true;
@@ -1201,7 +1202,8 @@ static void default_ctx_params(void) {
   ctx_parameters.splx_eager_lemmas = false;
   ctx_parameters.splx_periodic_icheck = false;
 
-  init_params_to_defaults(&parameters);
+  //  init_params_to_defaults(&parameters);
+  yices_set_default_params(&parameters, logic_code, arch);
 }
 
 
@@ -1218,7 +1220,7 @@ static void default_ctx_params(void) {
 static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   model = NULL;
   context = yices_create_context(logic, arch, mode, iflag, qflag);
-  yices_set_default_params(context, &parameters);
+  yices_default_params_for_context(context, &parameters);
   save_ctx_params();
   if (verbose) {
     init_trace(&tracer);
@@ -3639,7 +3641,7 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params();
+    default_ctx_params(logic_code, arch);
     if (verbose) {
       init_trace(&tracer);
       set_trace_vlevel(&tracer, 4);

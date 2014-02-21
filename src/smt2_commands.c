@@ -1934,7 +1934,7 @@ static void init_smt2_context(smt2_globals_t *g) {
  */
 static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
-  yices_set_default_params(g->ctx, &parameters);
+  yices_default_params_for_context(g->ctx, &parameters);
 }
 
 
