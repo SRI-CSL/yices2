@@ -78,15 +78,15 @@ the file and follow the instructions in the included README file.
 \textbf{OS/Hardware} & \textbf{Notes} \\
 \hline
 \hline
-Linux (32 and 64bit)    & Requires Kernel 2.6.8 or more recent \\
+Linux (32 and 64 bits)    & Requires Kernel 2.6.8 or more recent \\
 \hline
-Mac~OS~X (Intel 32 and 64bit) & For MacOS X 10.5 (Leopard) and more recent \\
+Mac~OS~X (Intel 32 and 64 bits) & For MacOS X 10.5 (Leopard) and more recent \\
 \hline
-Windows (32bits and 64bit) & Compatible with Windows XP, Vista, 7 and 8\\
+Windows (32 and 64 bits) & Compatible with Windows XP, Vista, 7 and 8\\
 \hline
-Cygwin (32bit Intel)  &  \\
+Cygwin (32b and 64bits Intel)  &  \\
 \hline
-FreeBSD~9.0 (32 and 64bits) &  \\
+FreeBSD~9.2 (Intel 32 and 64 bits) &  \\
 \hline
 Solaris~2.10 (Sparc 64bits)  & \\
 \hline
@@ -3188,46 +3188,46 @@ an error message.
 
 \subsection*{Building a Context and Checking Satisfiability}
 
-To check whether formula \texttt{f} (or \texttt{f\_var}) constructed
-previously is satisfiable, we construct a fresh context, assert
-formula \texttt{f} in this context, then call function
+To check whether formula \texttt{f} constructed previously is
+satisfiable, we create a fresh context, assert formula \texttt{f}
+in this context, then call function
 \texttt{yices\_check\_context}. This is illustrated in
 Figure~\ref{context-check}.
 
 \begin{figure}
 \begin{footnotesize}
 \begin{verbatim}
- context_t *ctx = yices_new_context(NULL);
- code = yices_assert_formula(ctx, f);
- if (code < 0) {
-   fprintf(stderr, "Assert failed: code = %"PRId32", error = %"PRId32"\n",
-           code, yices_error_code());
-   yices_print_error(stderr);
- }
+context_t *ctx = yices_new_context(NULL);
+code = yices_assert_formula(ctx, f);
+if (code < 0) {
+  fprintf(stderr, "Assert failed: code = %"PRId32", error = %"PRId32"\n",
+          code, yices_error_code());
+  yices_print_error(stderr);
+}
 
- switch (yices_check_context(ctx, NULL)) {
- case STATUS_SAT:
-   printf("The formula is satisfiable\n");
-   ...
+switch (yices_check_context(ctx, NULL)) {
+case STATUS_SAT:
+  printf("The formula is satisfiable\n");
+  ...
+  break;
+
+ case STATUS_UNSAT:
+   printf("The formula is not satisfiable\n");
    break;
 
-  case STATUS_UNSAT:
-    printf("The formula is not satisfiable\n");
-    break;
+ case STATUS_UNKNOWN:
+   printf("The status is unknown\n");
+   break;
 
-  case STATUS_UNKNOWN:
-    printf("The status is unknown\n");
-    break;
-
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  case STATUS_ERROR:
-    fprintf(stderr, "Error in check_context\n");
-    yices_print_error(stderr);
-    break;
-  }
-  yices_free_context(ctx);
+ case STATUS_IDLE:
+ case STATUS_SEARCHING:
+ case STATUS_INTERRUPTED:
+ case STATUS_ERROR:
+   fprintf(stderr, "Error in check_context\n");
+   yices_print_error(stderr);
+   break;
+ }
+ yices_free_context(ctx);
 \end{verbatim}
 \end{footnotesize}
 \caption{Checking Satisfiability}
