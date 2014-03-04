@@ -103,6 +103,9 @@ index_vectors.c         more efficient in some cases: use a hidden header)
 mark_vectors.h:         arrays to map 32bit integer indices to unsigned 8bit integers,
 mark_vectors.c          with a default value
 
+tag_map.h:		maps 32bit to unsigned 8bit like mark_vector but is intended
+tag_map.c               to be more efficient for sparse arrays
+
 ptr_vectors.h:          vectors of (void*) pointers
 ptr_vectors.c
 
@@ -445,8 +448,8 @@ bit_term_converion.c
 poly_buffer_terms.h:           Operation involving poly_buffers and terms
 poly_buffer_terms.c
 
-rba_buffer_terms.h:             Operation involving balanced arithmetic buffers
-rba_buffer_terms.c              (implemented as red-black trees) and terms.
+rba_buffer_terms.:             Operation involving balanced arithmetic buffers
+rba_buffer_terms.c             (implemented as red-black trees) and terms.
 
 term_utils.h:                  Utilities to help normalizing/simplifying terms
 term_utils.c
@@ -631,14 +634,14 @@ dl_vartable.h:          Table that stores variable descriptors for difference lo
 dl_vartable.c           - each variable is mapped to a triple [x, y, c] (which denotes
                           the term x - y + c)
 
-idl_floydwarshall.h:    Solver for integer difference logic problems, implemented using an
-idl_floydwarshall.c     incremental form of the Floyd-Warshall algorithm (for dense problems)
+idl_floyd_warshall.h:   Solver for integer difference logic problems, implemented using an
+idl_floyd_warshall.c    incremental form of the Floyd-Warshall algorithm (for dense problems)
 
 idl_fw_printer.h:       Print functions for the idl_floydwarshall solver
 idl_fw_printer.c
 
-rdl_floydwarshall.h:    Solver for real difference logic problems, implemented using an
-rdl_floydwarshall.c     incremental form of the Floyd-Warshall algorithm (for dense problems)
+rdl_floyd_warshall.h:   Solver for real difference logic problems, implemented using an
+rdl_floyd_warshall.c    incremental form of the Floyd-Warshall algorithm (for dense problems)
 
 rdl_fw_printer.h:       Print functions for the rdl_floydwarshall solver
 rdl_fw_printer.c
@@ -764,6 +767,12 @@ concrete_values.h:      Hash-consing + tagging of constants used in models.
 concrete_values.c       - concrete values include booleans, rationals, bitvectors, tuples,
                           functions and function updates
 
+concrete_value_printer.h: Print and pretty-printing functions for concrete values
+concrete_value_printer.c
+
+fresh_value_maker.h:	Support for building fresh objects (concrete values) of a given
+fresh_value_maker.c     type.
+
 small_bvsets.h:         Set of bit-vector constants. Used by the bvsolver to create
 small_bvsets.c          fresh values when requested by the egraph. Compact representation
                         that works for small bit-vector width.
@@ -785,8 +794,8 @@ model_printer.c
 model_eval.h:           Evaluator: compute the (concrete) value of a term in a model
 model_eval.c
 
-
-
+val_to_term.h:		Convert concrete values to constant terms (in terms.h)
+val_to_term.c
 
 
 
@@ -847,12 +856,13 @@ context_printer.h:            Print internal context structures
 context_printer.c
 
 
-
 8.2) Solving
      -------
 
 context_solver.c:            Global search algorithm for formulas asserted in a context
 
+context_statistics.h:	     Print statistics on the search + others
+context_staticstics.c
 
 
 
@@ -993,9 +1003,24 @@ smt2_parser.c
 attribute_values.c         Support for storing attributes (as defined in the SMT-LIB 2 notation)
 attribute_values.h
 
+parenthesized_expr.h:      Support to store expressions in the SMT-LIB 2.0 notation
+parenthesized_expr.c       - for this purpose, an expression is any well-parenthesized sequence
+                             of tokens
+
+smt2_expressions.h:        Store then pretty-print input expressions in the SMT-LIB 2.0 notation
+smt2_expressions.c         (this uses the parenthesized_expr representation).
+
+smt2_printer.h:		   Pretty printer for concrete_values in the SMT-LIB 2.0 syntax
+smt2_printer.c
+
+smt2_model_printer.h:	   Pretty print models using the SMT-LIB 2.0 syntax
+smt2_model_printer.c
+
+
 smt2_term_stack.h:         Built on top of term_stack2: with variant implementation of
 smt2_term_stack.c          several operations to follow the SMT-LIB 2.0 conventions, and
                            new operations that are specific to SMT-LIB 2.0.
+
 
 smt2_commands.h:           Commands defined in SMT-LIB 2.0 (not complete yet)
 smt2_commads.c
