@@ -9,7 +9,7 @@
  * - we keep track of a parenthesized expression as a sequence of tokens
  * - a token represents either an atomic token such as '+' 'x' '1/30'
  *   or the beginning or closing of a parenthesized sequence of tokens
- * - a sequence '( * 2 y z ) is represented by a seqeuence of n tokens:
+ * - a sequence '( * 2 y z ) is represented by a sequence of n tokens:
  *     tk[i]   --> 'open' with val := i+5
  *     tk[i+1] --> '*'
  *     tk[i+2] --> '2'
@@ -23,7 +23,7 @@
  * Assuming all open parentheses are matched with a close parenthesis,
  * we can identify an expression by its start index i in the token array:
  * - if tk[i] is an 'open' token, then i is formed by all tokens
- *   in tk[i ... k] where j = tk[i].val
+ *   in tk[i ... k] where k = tk[i].val
  * - if tk[i] is 'close' then i is not the start of a valid expression
  * - otherwise, tk[i] is an atomic expression
  *
