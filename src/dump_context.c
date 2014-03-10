@@ -96,6 +96,10 @@ void dump_context(FILE *f, context_t *context) {
   assert(context != NULL);
 
 #ifndef NDEBUG
+  fprintf(f, "--- All terms ---\n");
+  pp_term_table(f, __yices_globals.terms);
+  fputc('\n', f);
+
   fprintf(f, "--- Substitutions ---\n");
   print_context_intern_subst(f, context);
 
