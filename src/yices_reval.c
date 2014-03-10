@@ -2146,6 +2146,9 @@ static void yices_dump_cmd(void) {
   assert(context != NULL);
 
 #ifndef NDEBUG
+  printf("--- All terms ---\n");
+  pp_term_table(stdout, __yices_globals.terms);
+
   printf("--- Substitutions ---\n");
   print_context_intern_subst(stdout, context);
 

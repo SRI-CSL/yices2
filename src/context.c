@@ -1365,7 +1365,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
     if (is_boolean_type(tau)) {
       l = internalize_to_literal(ctx, r);
       u = egraph_literal2occ(ctx->egraph, l);
-      intern_tbl_remap_root(&ctx->intern, r, u);
+      intern_tbl_remap_root(&ctx->intern, r, occ2code(u));
     } else {
       /*
        * r is not a boolean term
