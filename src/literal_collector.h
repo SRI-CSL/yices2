@@ -14,6 +14,11 @@
  *   p_1 .... p_n and a term u such that
  *   1) every p_i is true in M
  *   2) p_1 /\ p_2 /\ ... /\ p_n => (t == u)
+ *   3) u is atomic:
+ *      if t is Boolean, u is either true_term or false_term
+ *      otherwise u a term with no if-then-else subterms
+ *      (e.g., u is an arithmetic term with no if-then-elses).
+ *
  * - informally, u is the result of simplifying t modulo p_1 ... p_n
  * - example:
  *   processing  2 + (ite (< x y) x y) may return
@@ -40,7 +45,21 @@
 
 
 /*
+ * Error codes returned by lit_collector_process:
+ * - all codes are negative
+ * - since NULL_TERM is -1, we start with -2
+ */
+enum {
+  LIT_COLLECT_INTERNAL_ERROR = -2,        // symptom of a bug
+  LIT_COLLECT_FREEVAR_IN_TERM = -3,       // free variable
+  LIT_COLLECT_QUANTIFIER = -4,            // can't process quantifiers
+  LIT_COLLECT_LAMBDA = -5,                // can't process lambdas
+  LIT_COLLECT_EVAL_FAILED = -6,             // a call to eval_in_model fails
+};
+
+/*
  * Collector structure:
+ * - terms = the relevant term table
  * - model = the relevant model
  * - evaluator = initialized for the model
  * - manager = for creating the simplified terms (if any)
@@ -50,6 +69,7 @@
  * - env = jump buffer for exceptions
  */
 typedef struct lit_collector_s {
+  term_table_t *terms;
   model_t *model;
   evaluator_t eval;
   term_manager_t manager;
