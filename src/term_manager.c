@@ -1,3 +1,4 @@
+
 /*
  * TERM MANAGER
  */
@@ -26,11 +27,10 @@
 /*
  * Initialization:
  * - terms = attached term table
- * - types = attached type table
  */
-void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_t *terms) {
+void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   manager->terms = terms;
-  manager->types = types;
+  manager->types = terms->types;
   manager->pprods = terms->pprods;
 
   manager->arith_buffer = NULL;

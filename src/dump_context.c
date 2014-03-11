@@ -15,6 +15,10 @@
 #include "context_printer.h"
 #include "dump_context.h"
 
+#ifndef NDEBUG
+#include "yices_globals.h"
+#endif
+
 /*
  * Dump: print all internal tables
  * + the egraph/core and theory solvers

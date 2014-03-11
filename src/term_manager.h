@@ -73,9 +73,8 @@ typedef struct term_manager_s {
 /*
  * Initialization:
  * - terms = attached term table
- * - types = attached type table
  */
-extern void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_t *terms);
+extern void init_term_manager(term_manager_t *manager, term_table_t *terms);
 
 
 /*

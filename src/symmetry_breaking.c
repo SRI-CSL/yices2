@@ -575,7 +575,7 @@ static void init_ctx_subst(ctx_subst_t *s, context_t *ctx) {
   s->subst = (term_t *) safe_malloc(n * sizeof(term_t));
   s->nterms = 0;
   s->size = n;
-  init_term_manager(&s->mngr, ctx->types, ctx->terms);
+  init_term_manager(&s->mngr, ctx->terms);
   init_istack(&s->stack);
 }
 

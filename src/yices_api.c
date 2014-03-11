@@ -814,7 +814,7 @@ EXPORTED void yices_init(void) {
   init_type_table(&types, INIT_TYPE_SIZE);
   init_pprod_table(&pprods, 0);
   init_term_table(&terms, INIT_TERM_SIZE, &types, &pprods);
-  init_term_manager(&manager, &types, &terms);
+  init_term_manager(&manager, &terms);
 
   // buffer lists
   clear_list(&arith_buffer_list);
