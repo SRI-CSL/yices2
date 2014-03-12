@@ -21,6 +21,11 @@
 #include "context.h"
 #include "smt_logic_codes.h"
 
+// PROVISIONAL: for testing of implicant generation
+#include "int_vectors.h"
+#include "literal_collector.h"
+//
+
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_exit_codes.h"
@@ -971,6 +976,27 @@ static void timeout_handler(void *p) {
 
 
 /*
+ * PROVISIONAL: FOR TESTING OF IMPLICANT CONSTRUCTION
+ */
+static void show_implicants(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
+  ivector_t v;
+  int32_t code;
+
+  init_ivector(&v, 10);
+  code = get_implicants(mdl, bench->nformulas, bench->formulas, &v);
+  if (code < 0) {
+    fprintf(f, "\n*** GET IMPLICANTS FAILED (code = %"PRId32") ***\n", code);
+    fflush(f);
+  } else {
+    fprintf(f, "\nIMPLICANTS\n");
+    yices_pp_term_array(f, v.size, v.data, 120, UINT32_MAX, 0, 0);
+    fflush(f);
+  }
+
+  delete_ivector(&v);
+}
+
+/*
  * MAIN SOLVER FUNCTION
  * - parse input file (assumed to be in SMT-LIB format)
  * - solve benchmark
@@ -1289,6 +1315,7 @@ static int process_benchmark(void) {
       printf("\n");
       if (full_model) {
         model_print_full(stdout, model);
+	show_implicants(stdout, model, &bench);
       } else {
         model_print(stdout, model);
       }

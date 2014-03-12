@@ -987,3 +987,50 @@ term_t lit_collector_process(lit_collector_t *collect, term_t t) {
 
   return u;
 }
+
+
+
+/*
+ * GET IMPLICANTS FOR ASSERTIONS GIVEN A MODEL
+ */
+
+/*
+ * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
+ * compute a set of implicants for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * - all terms in a must be Boolean and all of them must be true in mdl
+ * - if there's a error, the function returns a negative code
+ *   and leaves v unchanged
+ * - otherwise, the function retuns 0 and add the implicants to vector
+ *   v  (v is not reset).
+ */
+int32_t get_implicants(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
+  lit_collector_t collect;
+  int_hset_t *set;
+  int32_t u;
+  uint32_t i;
+
+  init_lit_collector(&collect, mdl);
+  for (i=0; i<n; i++) {
+    u = lit_collector_process(&collect, a[i]);
+    if (u < 0) goto done;
+    assert(u == true_term); // since a[i] must be true in mdl
+  }
+
+  // Extract the implicants. They are stored in collect.lit_set
+  set = &collect.lit_set;
+  int_hset_close(set);
+  n = set->nelems;
+  for (i=0; i<n; i++) {
+    u = set->data[i];
+    assert(is_true_in_model(&collect, u));
+    ivector_push(v, u);
+  }
+
+  // return code = 0 (no error);
+  u = 0;
+
+ done:
+  delete_lit_collector(&collect);
+  return u;
+}
+
