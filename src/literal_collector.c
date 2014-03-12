@@ -34,7 +34,9 @@
 
 #include <stdbool.h>
 
+#include "assert_utils.h"
 #include "literal_collector.h"
+
 
 /*
  * Initialization: prepare collector for model mdl
@@ -145,10 +147,13 @@ static bool is_true_in_model(lit_collector_t *collect, term_t t) {
 /*
  * Add t to the set of literals
  * - t must be a true in the model
+ * - do nothing it t is true_term
  */
 static void lit_collector_add_literal(lit_collector_t *collect, term_t t) {
   assert(is_true_in_model(collect, t));
-  (void) int_hset_add(&collect->lit_set, t);
+  if (t != true_term) {
+    (void) int_hset_add(&collect->lit_set, t);
+  }
 }
 
 
@@ -176,158 +181,613 @@ static term_t register_atom(lit_collector_t *collect, term_t t) {
  */
 
 /*
+ * Test equality of two arrays of terms
+ */
+static bool inequal_arrays(term_t *a, term_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] != b[i]) return true;
+  }
+  return false;
+}
+
+
+/*
+ * Variant for pprod: check whether a[i] != p->prod[i].var for some i
+ * - a must have the same size as p (i.e., p->len)
+ */
+static bool inequal_array_pprod(term_t *a, pprod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (a[i] != p->prod[i].var) return true;
+  }
+  return false;
+}
+
+
+/*
+ * Variants for polynomials
+ */
+static bool inequal_array_poly(term_t *a, polynomial_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (a[i] != p->mono[i].var) return true;
+  }
+
+  return false;
+}
+
+static bool inequal_array_bvpoly64(term_t *a, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (a[i] != p->mono[i].var) return true;
+  }
+
+  return false;
+}
+
+static bool inequal_array_bvpoly(term_t *a, bvpoly_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (a[i] != p->mono[i].var) return true;
+  }
+
+  return false;
+}
+
+
+
+/*
  * Process a term t: collect literals of t and return an atomic term
  * equal to t modulo the literals.
  */
 static term_t lit_collector_visit(lit_collector_t *collect, term_t t);
 
+
 /*
- * Processing of non-atomic terms
+ * Processing of terms:
+ * - input = term t + descriptor of t
  */
 
-// (t == 0)
-static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t) {
-  return NULL_TERM;
+// t is (u == 0)
+static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_term_eq0(&collect->manager, v);
+  }
+  return register_atom(collect, t);
 }
 
-// (t >= 0)
-static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t) {
-  return NULL_TERM;
+// t is (u >= 0)
+static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_term_geq0(&collect->manager, v);
+  }
+  return register_atom(collect, t);
 }
 
 // (ite c t1 t2)
-static term_t lit_collector_visit_ite(lit_collector_t *collect, composite_term_t *ite) {
-  return NULL_TERM;
+static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, composite_term_t *ite) {
+  term_t v, u;
+
+  assert(ite->arity == 3);
+  v = lit_collector_visit(collect, ite->arg[0]); // simplify the condition
+  if (v == true_term) {
+    u = ite->arg[1];  // t1
+  } else {
+    assert(v == false_term);
+    u = ite->arg[2]; // t2
+  }
+
+  return lit_collector_visit(collect, u);
 }
 
 // (apply f t1 ... t_n)
-static term_t lit_collector_visit_app(lit_collector_t *collect, composite_term_t *app) {
-  return NULL_TERM;
+static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, composite_term_t *app) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = app->arity;
+  assert(n >= 2);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, app->arg[i]);
+  }
+
+  if (inequal_arrays(a, app->arg, n)) {
+    t = mk_application(&collect->manager, a[0], n-1, a+1);
+  }
+
+  if (is_boolean_term(collect->terms, t)) {
+    t = register_atom(collect, t);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // (update f t1 ... t_n v)
-static term_t lit_collector_visit_update(lit_collector_t *collect, composite_term_t *update) {
-  return NULL_TERM;
+static term_t lit_collector_visit_update(lit_collector_t *collect, term_t t, composite_term_t *update) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = update->arity;
+  assert(n >= 3);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, update->arg[i]);
+  }
+
+  if (inequal_arrays(a, update->arg, n)) {
+    t = mk_update(&collect->manager, a[0], n-2, a+1, a[n-1]);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // (tuple t1 ... t_n)
-static term_t lit_collector_visit_tuple(lit_collector_t *collect, composite_term_t *tuple) {
-  return NULL_TERM;
+static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, composite_term_t *tuple) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = tuple->arity;
+  assert(n >= 3);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, tuple->arg[i]);
+  }
+
+  if (inequal_arrays(a, tuple->arg, n)) {
+    t = mk_tuple(&collect->manager, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // (eq t1 t2)
-static term_t lit_collector_visit_eq(lit_collector_t *collect, composite_term_t *eq) {
-  return NULL_TERM;
+static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
+  term_t t1, t2;
+
+  assert(eq->arity == 2);
+  t1 = lit_collector_visit(collect, eq->arg[0]);
+  t2 = lit_collector_visit(collect, eq->arg[1]);
+  if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
+    t = mk_eq(&collect->manager, t1, t2);
+  }
+
+  return register_atom(collect, t);
 }
 
 // (distinct t1 ... t_n)
-static term_t lit_collector_visit_distinct(lit_collector_t *collect, composite_term_t *distinct) {
-  return NULL_TERM;
+static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, composite_term_t *distinct) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = distinct->arity;
+  assert(n >= 3);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, distinct->arg[i]);
+  }
+
+  if (inequal_arrays(a, distinct->arg, n)) {
+    t = mk_distinct(&collect->manager, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return register_atom(collect, t);
 }
 
 // t is (or t1 ... t_n)
 static term_t lit_collector_visit_or(lit_collector_t *collect, term_t t, composite_term_t *or) {
-  return NULL_TERM;
+  term_t u;
+  uint32_t i, n;
+
+  n = or->arity;
+  assert(n > 0);
+  u = false_term; // prevent compilation warning
+
+  if (term_is_true_in_model(collect, t)) {
+    for (i=0; i<n; i++) {
+      if (term_is_true_in_model(collect, or->arg[i])) break;
+    }
+    assert(i < n);
+    u = lit_collector_visit(collect, or->arg[i]);
+    assert(u == true_term);
+
+  } else {
+    // (or t1 ... t_n) is false --> visit all subterms
+    // they should all reduce to false_term
+    for (i=0; i<n; i++) {
+      u = lit_collector_visit(collect, or->arg[i]);
+      assert(u == false_term);
+    }
+  }
+
+  return u;
 }
 
 // (xor t1 ... t_n)
-static term_t lit_collector_visit_xor(lit_collector_t *collect, composite_term_t *xor) {
-  return NULL_TERM;
+static term_t lit_collector_visit_xor(lit_collector_t *collect, term_t t, composite_term_t *xor) {
+  uint32_t i, n;
+  term_t u;
+  bool b;
+
+  b = false;
+  n = xor->arity;
+  for (i=0; i<n; i++) {
+    u = lit_collector_visit(collect, xor->arg[i]);
+    assert(u == false_term || u == true_term);
+    b ^= (u == true_term);
+  }
+  return bool2term(b);
 }
 
+
 // (arith-eq t1 t2)
-static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, composite_term_t *eq) {
-  return NULL_TERM;
+static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
+  term_t t1, t2;
+
+  assert(eq->arity == 2);
+  t1 = lit_collector_visit(collect, eq->arg[0]);
+  t2 = lit_collector_visit(collect, eq->arg[1]);
+  if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
+    t = mk_arith_eq(&collect->manager, t1, t2);
+  }
+
+  return register_atom(collect, t);
 }
 
 // (bv-array t1 ... tn)
-static term_t lit_collector_visit_bvarray(lit_collector_t *collect, composite_term_t *bv) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvarray(lit_collector_t *collect, term_t t, composite_term_t *bv) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = bv->arity;
+  assert(n >= 1);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, bv->arg[i]);
+  }
+
+  t = mk_bvarray(&collect->manager, n, a);
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // (bvdiv t1 t2)
-static term_t lit_collector_visit_bvdiv(lit_collector_t *collect, composite_term_t *bvdiv) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvdiv(lit_collector_t *collect, term_t t, composite_term_t *bvdiv) {
+  term_t t1, t2;
+
+  assert(bvdiv->arity == 2);
+  t1 = lit_collector_visit(collect, bvdiv->arg[0]);
+  t2 = lit_collector_visit(collect, bvdiv->arg[1]);
+  if (t1 != bvdiv->arg[0] || t2 != bvdiv->arg[1]) {
+    t = mk_bvdiv(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvrem t1 t2)
-static term_t lit_collector_visit_bvrem(lit_collector_t *collect, composite_term_t *bvrem) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvrem(lit_collector_t *collect, term_t t, composite_term_t *bvrem) {
+  term_t t1, t2;
+
+  assert(bvrem->arity == 2);
+  t1 = lit_collector_visit(collect, bvrem->arg[0]);
+  t2 = lit_collector_visit(collect, bvrem->arg[1]);
+  if (t1 != bvrem->arg[0] || t2 != bvrem->arg[1]) {
+    t = mk_bvrem(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvsdiv t1 t2)
-static term_t lit_collector_visit_bvsdiv(lit_collector_t *collect, composite_term_t *bvsdiv) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvsdiv(lit_collector_t *collect, term_t t, composite_term_t *bvsdiv) {
+  term_t t1, t2;
+
+  assert(bvsdiv->arity == 2);
+  t1 = lit_collector_visit(collect, bvsdiv->arg[0]);
+  t2 = lit_collector_visit(collect, bvsdiv->arg[1]);
+  if (t1 != bvsdiv->arg[0] || t2 != bvsdiv->arg[1]) {
+    t = mk_bvsdiv(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvsrem t1 t2)
-static term_t lit_collector_visit_bvsrem(lit_collector_t *collect, composite_term_t *bvsrem) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvsrem(lit_collector_t *collect, term_t t, composite_term_t *bvsrem) {
+  term_t t1, t2;
+
+  assert(bvsrem->arity == 2);
+  t1 = lit_collector_visit(collect, bvsrem->arg[0]);
+  t2 = lit_collector_visit(collect, bvsrem->arg[1]);
+  if (t1 != bvsrem->arg[0] || t2 != bvsrem->arg[1]) {
+    t = mk_bvsrem(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvsmod t1 t2)
-static term_t lit_collector_visit_bvsmod(lit_collector_t *collect, composite_term_t *bvsmod) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvsmod(lit_collector_t *collect, term_t t, composite_term_t *bvsmod) {
+  term_t t1, t2;
+
+  assert(bvsmod->arity == 2);
+  t1 = lit_collector_visit(collect, bvsmod->arg[0]);
+  t2 = lit_collector_visit(collect, bvsmod->arg[1]);
+  if (t1 != bvsmod->arg[0] || t2 != bvsmod->arg[1]) {
+    t = mk_bvsmod(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvshl t1 t2)
-static term_t lit_collector_visit_bvshl(lit_collector_t *collect, composite_term_t *bvshl) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvshl(lit_collector_t *collect, term_t t, composite_term_t *bvshl) {
+  term_t t1, t2;
+
+  assert(bvshl->arity == 2);
+  t1 = lit_collector_visit(collect, bvshl->arg[0]);
+  t2 = lit_collector_visit(collect, bvshl->arg[1]);
+  if (t1 != bvshl->arg[0] || t2 != bvshl->arg[1]) {
+    t = mk_bvshl(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvlshr t1 t2)
-static term_t lit_collector_visit_bvlshr(lit_collector_t *collect, composite_term_t *bvlshr) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvlshr(lit_collector_t *collect, term_t t, composite_term_t *bvlshr) {
+  term_t t1, t2;
+
+  assert(bvlshr->arity == 2);
+  t1 = lit_collector_visit(collect, bvlshr->arg[0]);
+  t2 = lit_collector_visit(collect, bvlshr->arg[1]);
+  if (t1 != bvlshr->arg[0] || t2 != bvlshr->arg[1]) {
+    t = mk_bvlshr(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bvashr t1 t2)
-static term_t lit_collector_visit_bvashr(lit_collector_t *collect, composite_term_t *bvashr) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvashr(lit_collector_t *collect, term_t t, composite_term_t *bvashr) {
+  term_t t1, t2;
+
+  assert(bvashr->arity == 2);
+  t1 = lit_collector_visit(collect, bvashr->arg[0]);
+  t2 = lit_collector_visit(collect, bvashr->arg[1]);
+  if (t1 != bvashr->arg[0] || t2 != bvashr->arg[1]) {
+    t = mk_bvashr(&collect->manager, t1, t2);
+  }
+
+  return t;
 }
 
 // (bveq t1 t2)
-static term_t lit_collector_visit_bveq(lit_collector_t *collect, composite_term_t *bveq) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bveq(lit_collector_t *collect, term_t t, composite_term_t *bveq) {
+  term_t t1, t2;
+
+  assert(bveq->arity == 2);
+  t1 = lit_collector_visit(collect, bveq->arg[0]);
+  t2 = lit_collector_visit(collect, bveq->arg[1]);
+  if (t1 != bveq->arg[0] || t2 != bveq->arg[1]) {
+    t = mk_bveq(&collect->manager, t1, t2);
+  }
+
+  return register_atom(collect, t);
 }
 
 // (bvge t1 t2)
-static term_t lit_collector_visit_bvge(lit_collector_t *collect, composite_term_t *bvge) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvge(lit_collector_t *collect, term_t t, composite_term_t *bvge) {
+  term_t t1, t2;
+
+  assert(bvge->arity == 2);
+  t1 = lit_collector_visit(collect, bvge->arg[0]);
+  t2 = lit_collector_visit(collect, bvge->arg[1]);
+  if (t1 != bvge->arg[0] || t2 != bvge->arg[1]) {
+    t = mk_bvge(&collect->manager, t1, t2);
+  }
+
+  return register_atom(collect, t);
 }
 
 // (bvsge t1 t2)
-static term_t lit_collector_visit_bvsge(lit_collector_t *collect, composite_term_t *bvsge) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvsge(lit_collector_t *collect, term_t t, composite_term_t *bvsge) {
+  term_t t1, t2;
+
+  assert(bvsge->arity == 2);
+  t1 = lit_collector_visit(collect, bvsge->arg[0]);
+  t2 = lit_collector_visit(collect, bvsge->arg[1]);
+  if (t1 != bvsge->arg[0] || t2 != bvsge->arg[1]) {
+    t = mk_bvsge(&collect->manager, t1, t2);
+  }
+
+  return register_atom(collect, t);
 }
 
-// (select i t)
-static term_t lit_collector_visit_select(lit_collector_t *collect, select_term_t *select) {
-  return NULL_TERM;
+// (select i u)
+static term_t lit_collector_visit_select(lit_collector_t *collect, term_t t, select_term_t *select) {
+  term_t u, v;
+  uint32_t i;
+
+  /*
+   * select may become an invalid pointer if new terms are created
+   * so we extract u and i before recursive calls to visit.
+   */
+  u = select->arg;
+  i = select->idx;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_select(&collect->manager, i, v);
+  }
+
+  if (is_boolean_term(collect->terms, t)) {
+    t = register_atom(collect, t);
+  }
+
+  return t;
 }
 
 // (bit i u)
-static term_t lit_collector_visit_bit(lit_collector_t *collect, select_term_t *bit) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bit(lit_collector_t *collect, term_t t, select_term_t *bit) {
+  term_t u, v;
+  uint32_t i;
+
+  /*
+   * bit may become an invalid pointer if new terms are created
+   * so we extract u and i before recursive calls to visit.
+   */
+  u = bit->arg;
+  i = bit->idx;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_bitextract(&collect->manager, v, i);
+  }
+
+  return register_atom(collect, t);
 }
 
 // power product
-static term_t lit_collector_visit_pprod(lit_collector_t *collect, pprod_t *p) {
-  return NULL_TERM;
+static term_t lit_collector_visit_pprod(lit_collector_t *collect, term_t t, pprod_t *p) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = p->len;
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, p->prod[i].var);
+  }
+
+  if (inequal_array_pprod(a, p)) {
+    t = mk_pprod(&collect->manager, p, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // polynomial (rational coefficients)
-static term_t lit_collector_visit_poly(lit_collector_t *collect, polynomial_t *p) {
-  return NULL_TERM;
+static term_t lit_collector_visit_poly(lit_collector_t *collect, term_t t, polynomial_t *p) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&collect->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of p
+  while (i < n) {
+    a[i] = lit_collector_visit(collect, p->mono[i].var);
+    i ++;
+  }
+
+  if (inequal_array_poly(a, p)) {
+    t = mk_arith_poly(&collect->manager, p, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // bitvector polynomial (coefficients are 64bit or less)
-static term_t lit_collector_visit_bvpoly64(lit_collector_t *collect, bvpoly64_t *p) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvpoly64(lit_collector_t *collect, term_t t, bvpoly64_t *p) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&collect->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of p
+  while (i < n) {
+    a[i] = lit_collector_visit(collect, p->mono[i].var);
+    i ++;
+  }
+
+  if (inequal_array_bvpoly64(a, p)) {
+    t = mk_bvarith64_poly(&collect->manager, p, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // bitvector polynomials (coefficients more than 64bits)
-static term_t lit_collector_visit_bvpoly(lit_collector_t *collect, bvpoly_t *p) {
-  return NULL_TERM;
+static term_t lit_collector_visit_bvpoly(lit_collector_t *collect, term_t t, bvpoly_t *p) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&collect->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of p
+  while (i < n) {
+    a[i] = lit_collector_visit(collect, p->mono[i].var);
+    i ++;
+  }
+
+  if (inequal_array_bvpoly(a, p)) {
+    t = mk_bvarith_poly(&collect->manager, p, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 
@@ -369,36 +829,36 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case ARITH_EQ_ATOM:
-      u = lit_collector_visit_eq_atom(collect, arith_eq_arg(terms, t));
+      u = lit_collector_visit_eq_atom(collect, t, arith_eq_arg(terms, t));
       break;
 
     case ARITH_GE_ATOM:
-      u = lit_collector_visit_ge_atom(collect, arith_ge_arg(terms, t));
+      u = lit_collector_visit_ge_atom(collect, t, arith_ge_arg(terms, t));
       break;
 
     case ITE_TERM:
     case ITE_SPECIAL:
-      u = lit_collector_visit_ite(collect, ite_term_desc(terms, t));
+      u = lit_collector_visit_ite(collect, t, ite_term_desc(terms, t));
       break;
 
     case APP_TERM:
-      u = lit_collector_visit_app(collect, app_term_desc(terms, t));
+      u = lit_collector_visit_app(collect, t, app_term_desc(terms, t));
       break;
 
     case UPDATE_TERM:
-      u = lit_collector_visit_update(collect, update_term_desc(terms, t));
+      u = lit_collector_visit_update(collect, t, update_term_desc(terms, t));
       break;
 
     case TUPLE_TERM:
-      u = lit_collector_visit_tuple(collect, tuple_term_desc(terms, t));
+      u = lit_collector_visit_tuple(collect, t, tuple_term_desc(terms, t));
       break;
 
     case EQ_TERM:
-      u = lit_collector_visit_eq(collect, eq_term_desc(terms, t));
+      u = lit_collector_visit_eq(collect, t, eq_term_desc(terms, t));
       break;
 
     case DISTINCT_TERM:
-      u = lit_collector_visit_distinct(collect, distinct_term_desc(terms, t));
+      u = lit_collector_visit_distinct(collect, t, distinct_term_desc(terms, t));
       break;
 
     case FORALL_TERM:
@@ -414,83 +874,83 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case XOR_TERM:
-      u = lit_collector_visit_xor(collect, xor_term_desc(terms, t));
+      u = lit_collector_visit_xor(collect, t, xor_term_desc(terms, t));
       break;
 
     case ARITH_BINEQ_ATOM:
-      u = lit_collector_visit_arith_bineq(collect, arith_bineq_atom_desc(terms, t));
+      u = lit_collector_visit_arith_bineq(collect, t, arith_bineq_atom_desc(terms, t));
       break;
 
     case BV_ARRAY:
-      u = lit_collector_visit_bvarray(collect, bvarray_term_desc(terms, t));
+      u = lit_collector_visit_bvarray(collect, t, bvarray_term_desc(terms, t));
       break;
 
     case BV_DIV:
-      u = lit_collector_visit_bvdiv(collect, bvdiv_term_desc(terms, t));
+      u = lit_collector_visit_bvdiv(collect, t, bvdiv_term_desc(terms, t));
       break;
 
     case BV_REM:
-      u = lit_collector_visit_bvrem(collect, bvrem_term_desc(terms, t));
+      u = lit_collector_visit_bvrem(collect, t, bvrem_term_desc(terms, t));
       break;
 
     case BV_SDIV:
-      u = lit_collector_visit_bvsdiv(collect, bvsdiv_term_desc(terms, t));
+      u = lit_collector_visit_bvsdiv(collect, t, bvsdiv_term_desc(terms, t));
       break;
 
     case BV_SREM:
-      u = lit_collector_visit_bvsrem(collect, bvsrem_term_desc(terms, t));
+      u = lit_collector_visit_bvsrem(collect, t, bvsrem_term_desc(terms, t));
       break;
 
     case BV_SMOD:
-      u = lit_collector_visit_bvsmod(collect, bvsmod_term_desc(terms, t));
+      u = lit_collector_visit_bvsmod(collect, t, bvsmod_term_desc(terms, t));
       break;
 
     case BV_SHL:
-      u = lit_collector_visit_bvshl(collect, bvshl_term_desc(terms, t));
+      u = lit_collector_visit_bvshl(collect, t, bvshl_term_desc(terms, t));
       break;
 
     case BV_LSHR:
-      u = lit_collector_visit_bvlshr(collect, bvlshr_term_desc(terms, t));
+      u = lit_collector_visit_bvlshr(collect, t, bvlshr_term_desc(terms, t));
       break;
 
     case BV_ASHR:
-      u = lit_collector_visit_bvashr(collect, bvashr_term_desc(terms, t));
+      u = lit_collector_visit_bvashr(collect, t, bvashr_term_desc(terms, t));
       break;
 
     case BV_EQ_ATOM:
-      u = lit_collector_visit_bveq(collect, bveq_atom_desc(terms, t));
+      u = lit_collector_visit_bveq(collect, t, bveq_atom_desc(terms, t));
       break;
 
     case BV_GE_ATOM:
-      u = lit_collector_visit_bvge(collect, bvge_atom_desc(terms, t));
+      u = lit_collector_visit_bvge(collect, t, bvge_atom_desc(terms, t));
       break;
 
     case BV_SGE_ATOM:
-      u = lit_collector_visit_bvsge(collect, bvge_atom_desc(terms, t));
+      u = lit_collector_visit_bvsge(collect, t, bvge_atom_desc(terms, t));
       break;
 
     case SELECT_TERM:
-      u = lit_collector_visit_select(collect, select_term_desc(terms, t));
+      u = lit_collector_visit_select(collect, t, select_term_desc(terms, t));
       break;
 
     case BIT_TERM:
-      u = lit_collector_visit_bit(collect, bit_term_desc(terms, t));
+      u = lit_collector_visit_bit(collect, t, bit_term_desc(terms, t));
       break;
 
     case POWER_PRODUCT:
-      u = lit_collector_visit_pprod(collect, pprod_term_desc(terms, t));
+      u = lit_collector_visit_pprod(collect, t, pprod_term_desc(terms, t));
       break;
 
     case ARITH_POLY:
-      u = lit_collector_visit_poly(collect, poly_term_desc(terms, t));
+      u = lit_collector_visit_poly(collect, t, poly_term_desc(terms, t));
       break;
 
     case BV64_POLY:
-      u = lit_collector_visit_bvpoly64(collect, bvpoly64_term_desc(terms, t));
+      u = lit_collector_visit_bvpoly64(collect, t, bvpoly64_term_desc(terms, t));
       break;
 
     case BV_POLY:
-      u = lit_collector_visit_bvpoly(collect, bvpoly_term_desc(terms, t));
+      u = lit_collector_visit_bvpoly(collect, t, bvpoly_term_desc(terms, t));
       break;
 
     case UNUSED_TERM:

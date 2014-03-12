@@ -477,4 +477,90 @@ extern term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2);   // t1 <
 
 
 
+/*
+ * POWER-PRODUCT AND POLYNOMIAL CONSTRUCTORS
+ */
+
+/*
+ * The following functions are intended to support operations such as term_substitution
+ * or simplification of terms:
+ * - for example, for a power product p = t_1^e_1 ... t_k^e_k, we want to construct
+ *      f(t_1)^e_1 ... f(t_k)^e_k
+ *   where f is a function that maps terms to terms.
+ *   To do this: first construct an array a such that a[i] = f(t_i) then call function
+ *    mk_pprod(manager, p, n, a) where n = p->len = size of a
+ */
+
+/*
+ * Arithmetic product:
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n arithmetic terms
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ *
+ * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * before calling this function.
+ */
+extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a);
+
+/*
+ * Bitvector product: 1 to 64 bits vector
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n bitvector terms
+ * - nbits = number of bits in each term of a
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ *
+ * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * before calling this function.
+ */
+extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits);
+
+/*
+ * Bitvector product: more than 64 bits
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n bitvector terms
+ * - nbits = number of bits in each term of a
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ *
+ * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * before calling this function.
+ */
+extern term_t mk_bvarith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits);
+
+/*
+ * Generic product:
+ * - p is a power product descriptor
+ * - a is an array of term
+ * - n must be positive
+ * - this function check the type of a[0] then calls one of the three preceding
+ *   mk_..._pprod functions
+ *
+ * All terms of a must be arithmetic terms or all of them must be bitvector terms
+ * with the same bitsize (number of bits).
+ */
+extern term_t mk_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a);
+
+/*
+ * Arithmetic polynomials:
+ * - p is c_0 t_0 + ... + c_{n-1} t_{n-1}
+ * - a must be an array of n terms (or const_idx)
+ * - the function builds c_0 a[0] + ... + c_{n-1} a[n-1]
+ *
+ * Special convention: if a[i] is const_idx (then c_i * a[i] is just c_i)
+ */
+extern term_t mk_arith_poly(term_manager_t *manager, polynomial_t *p, uint32_t n, term_t *a);
+
+/*
+ * Bitvector polynomial: same as mk_arith_poly but all elements of a
+ * must be either const_idx of bitvector terms of the equal size
+ * - the size must be the same as the coefficients of p
+ */
+extern term_t mk_bvarith64_poly(term_manager_t *manager, bvpoly64_t *p, uint32_t n, term_t *a);
+
+/*
+ * Bitvector polynomials: terms with more than 64bits
+ * - same conventions as mk_bvarith64_poly.
+ */
+extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, term_t *a);
+
+
 #endif /* __TERM_MANAGER_H */

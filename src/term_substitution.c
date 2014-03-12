@@ -5,10 +5,6 @@
 #include <assert.h>
 
 #include "memalloc.h"
-#include "rba_buffer_terms.h"
-#include "bvarith_buffer_terms.h"
-#include "bvarith64_buffer_terms.h"
-
 #include "term_substitution.h"
 
 /*
@@ -335,7 +331,7 @@ static void subst_pop_renaming(term_subst_t *subst, uint32_t n) {
  */
 
 /*
- * Check whether the product a[0]^e_0 ... a[n-1]^e_{n-1} has degree > YICEX_MAX_DEGREE
+ * Check whether the product a[0]^e_0 ... a[n-1]^e_{n-1} has degree > YICES_MAX_DEGREE
  * - e_i = exponent in pprod p
  */
 static bool pprod_degree_overflows(term_table_t *tbl, pprod_t *p, uint32_t n, term_t *a) {
@@ -382,189 +378,6 @@ static bool term_is_zero(term_table_t *tbl, term_t t) {
   default:
     return false;
   }
-}
-
-
-/*
- * Arithmetic product:
- * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
- * - a is an array of n arithmetic terms: a[i] = subst of t_i
- * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
- */
-static term_t arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(n == p->len);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_arith_buffer(mngr);
-
-  rba_buffer_set_one(b); // b := 1
-  for (i=0; i<n; i++) {
-    // b := b * a[i]^e[i]
-    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
-  }
-
-  return mk_arith_term(mngr, b);
-}
-
-
-/*
- * Bitvector product: 1 to 64 bits vector
- * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
- * - a is an array of n arithmetic terms: a[i] = subst of t_i
- * - nbits = number of bits in each term
- * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
- */
-static term_t bvarith64_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits) {
-  bvarith64_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(n == p->len && 0 < nbits && nbits <= 64);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_bvarith64_buffer(mngr);
-
-  bvarith64_buffer_prepare(b, nbits);
-  bvarith64_buffer_set_one(b); // b := 1
-  for (i=0; i<n; i++) {
-    // b := b * a[i]^e[i]
-    bvarith64_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
-  }
-
-  return mk_bvarith64_term(mngr, b);
-}
-
-
-/*
- * Bitvector product: more than 64 bits
- * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
- * - a is an array of n arithmetic terms: a[i] = subst of t_i
- * - nbits = number of bits in each term
- * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
- */
-static term_t bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits) {
-  bvarith_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(n == p->len && 64 < nbits && nbits <= YICES_MAX_BVSIZE);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_bvarith_buffer(mngr);
-
-  bvarith_buffer_prepare(b, nbits);
-  bvarith_buffer_set_one(b); // b := 1
-  for (i=0; i<n; i++) {
-    // b := b * a[i]^e[i]
-    bvarith_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
-  }
-
-  return mk_bvarith_term(mngr, b);
-}
-
-
-/*
- * Polynomial:
- * - p is a polynomial c_0 t_0 + c_1 t_1 + ... + c_{n-1} t_{n-1}
- * - a is an array of n terms: a[i] = subst of t_i
- *   except that a[0] = const_idx if t_0 = const_idx
- * - construct the term c_0 a[0] + c_1 a[1] + ... + c_{n-1} a[n-1]
- *   (or c_0 + c_1 a[1] + ... + c_{n-1} a[n-1] if a[0] = const_idx)
- */
-static term_t build_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, term_t *a) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(p->nterms == n);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_arith_buffer(mngr);
-  reset_rba_buffer(b);
-
-  // deal with the constant
-  i = 0;
-  if (a[i] == const_idx) {
-    assert(p->mono[0].var == const_idx);
-    rba_buffer_add_const(b, &p->mono[0].coeff);
-    i ++;
-  }
-
-  // rest
-  while (i < n) {
-    rba_buffer_add_const_times_term(b, tbl, &p->mono[i].coeff, a[i]);
-    i ++;
-  }
-
-  return mk_arith_term(mngr, b);
-}
-
-
-/*
- * Same thing for a bitvector polynomial (1 to 64bits)
- */
-static term_t build_bvarith64_poly(term_manager_t *mngr, bvpoly64_t *p, uint32_t n, term_t *a) {
-  bvarith64_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(p->nterms == n && 0 < p->bitsize && p->bitsize <= 64);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_bvarith64_buffer(mngr);
-  bvarith64_buffer_prepare(b, p->bitsize);
-
-  // deal with the constant
-  i = 0;
-  if (a[i] == const_idx) {
-    assert(p->mono[0].var == const_idx);
-    bvarith64_buffer_add_const(b, p->mono[0].coeff);
-    i ++;
-  }
-
-  // rest
-  while (i < n) {
-    bvarith64_buffer_add_const_times_term(b, tbl, p->mono[i].coeff, a[i]);
-    i ++;
-  }
-
-  return mk_bvarith64_term(mngr, b);
-}
-
-
-/*
- * Same thing for a bitvector polynomial (more than 64bits)
- */
-static term_t build_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, term_t *a) {
-  bvarith_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  assert(p->nterms == n && 64 < p->bitsize && p->bitsize <= YICES_MAX_BVSIZE);
-
-  tbl = term_manager_get_terms(mngr);
-  b = term_manager_get_bvarith_buffer(mngr);
-  bvarith_buffer_prepare(b, p->bitsize);
-
-  // deal with the constant
-  i = 0;
-  if (a[i] == const_idx) {
-    assert(p->mono[0].var == const_idx);
-    bvarith_buffer_add_const(b, p->mono[0].coeff);
-    i ++;
-  }
-
-  // rest
-  while (i < n) {
-    bvarith_buffer_add_const_times_term(b, tbl, p->mono[i].coeff, a[i]);
-    i ++;
-  }
-
-  return mk_bvarith_term(mngr, b);
 }
 
 
@@ -1099,13 +912,13 @@ static term_t subst_pprod(term_subst_t *subst, pprod_t *p, type_t tau) {
    * build the term a[0] ^ e_0 ... a[n-1]^ e_{n-1}
    */
   if (is_arithmetic_type(tau)) {
-    result = arith_pprod(subst->mngr, p, n, a);
+    result = mk_arith_pprod(subst->mngr, p, n, a);
   } else {
     nbits = bv_type_size(subst->terms->types, tau);
     if (nbits <= 64) {
-      result = bvarith64_pprod(subst->mngr, p, n, a, nbits);
+      result =  mk_bvarith64_pprod(subst->mngr, p, n, a, nbits);
     } else {
-      result = bvarith_pprod(subst->mngr, p, n, a, nbits);
+      result = mk_bvarith_pprod(subst->mngr, p, n, a, nbits);
     }
   }
 
@@ -1141,7 +954,7 @@ static term_t subst_poly(term_subst_t *subst, polynomial_t *p) {
   }
 
   // build the polynomial
-  result = build_arith_poly(subst->mngr, p, n, a);
+  result = mk_arith_poly(subst->mngr, p, n, a);
 
   free_istack_array(&subst->stack, a);
 
@@ -1174,7 +987,7 @@ static term_t subst_bvpoly64(term_subst_t *subst, bvpoly64_t *p) {
   }
 
   // build the polynomial
-  result = build_bvarith64_poly(subst->mngr, p, n, a);
+  result = mk_bvarith64_poly(subst->mngr, p, n, a);
 
   free_istack_array(&subst->stack, a);
 
@@ -1207,7 +1020,7 @@ static term_t subst_bvpoly(term_subst_t *subst, bvpoly_t *p) {
   }
 
   // build the polynomial
-  result = build_bvarith_poly(subst->mngr, p, n, a);
+  result = mk_bvarith_poly(subst->mngr, p, n, a);
 
   free_istack_array(&subst->stack, a);
 
