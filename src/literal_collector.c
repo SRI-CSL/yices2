@@ -926,7 +926,7 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case BV_SGE_ATOM:
-      u = lit_collector_visit_bvsge(collect, t, bvge_atom_desc(terms, t));
+      u = lit_collector_visit_bvsge(collect, t, bvsge_atom_desc(terms, t));
       break;
 
     case SELECT_TERM:
