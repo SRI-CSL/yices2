@@ -991,19 +991,19 @@ term_t lit_collector_process(lit_collector_t *collect, term_t t) {
 
 
 /*
- * GET IMPLICANTS FOR ASSERTIONS GIVEN A MODEL
+ * GET IMPLICANT FOR ASSERTIONS GIVEN A MODEL
  */
 
 /*
  * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
- * compute a set of implicants for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
  * - all terms in a must be Boolean and all of them must be true in mdl
  * - if there's a error, the function returns a negative code
  *   and leaves v unchanged
- * - otherwise, the function retuns 0 and add the implicants to vector
+ * - otherwise, the function retuns 0 and add the implicant literals to vector
  *   v  (v is not reset).
  */
-int32_t get_implicants(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
+int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
   lit_collector_t collect;
   int_hset_t *set;
   int32_t u;

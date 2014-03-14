@@ -978,17 +978,17 @@ static void timeout_handler(void *p) {
 /*
  * PROVISIONAL: FOR TESTING OF IMPLICANT CONSTRUCTION
  */
-static void show_implicants(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
+static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
   ivector_t v;
   int32_t code;
 
   init_ivector(&v, 10);
-  code = get_implicants(mdl, bench->nformulas, bench->formulas, &v);
+  code = get_implicant(mdl, bench->nformulas, bench->formulas, &v);
   if (code < 0) {
-    fprintf(f, "\n*** GET IMPLICANTS FAILED (code = %"PRId32") ***\n", code);
+    fprintf(f, "\n*** GET IMPLICANT FAILED (code = %"PRId32") ***\n", code);
     fflush(f);
   } else {
-    fprintf(f, "\nIMPLICANTS\n");
+    fprintf(f, "\nIMPLICANT:\n");
     yices_pp_term_array(f, v.size, v.data, 120, UINT32_MAX, 0, 0);
     fflush(f);
   }
@@ -1315,7 +1315,7 @@ static int process_benchmark(void) {
       printf("\n");
       if (full_model) {
         model_print_full(stdout, model);
-	show_implicants(stdout, model, &bench);
+	show_implicant(stdout, model, &bench);
       } else {
         model_print(stdout, model);
       }

@@ -57,6 +57,8 @@ enum {
   LIT_COLLECT_EVAL_FAILED = -6,           // a call to eval_in_model fails
 };
 
+
+
 /*
  * Collector structure:
  * - terms = the relevant term table
@@ -111,14 +113,14 @@ extern term_t lit_collector_process(lit_collector_t *collect, term_t t);
 
 /*
  * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
- * compute a set of implicants for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
  * - all terms in a must be Boolean and all of them must be true in mdl
  * - if there's a error, the function returns a negative code
  *   and leaves v unchanged
- * - otherwise, the function retuns 0 and add the implicants to vector
- *   v  (v is not reset).
+ * - otherwise, the function retuns 0 and add the literals forming the
+ *   implicant to vector v  (v is not reset).
  */
-extern int32_t get_implicants(model_t *mdl, uint32_t n, term_t *a, ivector_t *v);
+extern int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v);
 
 
 #endif /* __LITERAL_COLLECTOR_H */

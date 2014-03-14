@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <string.h>
 #include <signal.h>
 #include <inttypes.h>
@@ -34,6 +35,7 @@
 #include "arith_solver_codes.h"
 #include "yices_exit_codes.h"
 
+
 // FOR DUMP
 #include "dump_context.h"
 
@@ -44,6 +46,9 @@
 
 // FOR EXPORT TO DIMACS
 #include "dimacs_printer.h"
+
+// FOR SHOW IMPLICANT
+#include "literal_collector.h"
 
 // FOR EF-SOLVER
 #include "ef_analyze.h"
@@ -1042,10 +1047,15 @@ static void report_negative_timeout(int32_t val) {
 /*
  * BUG in Yices: Print an error message then exit
  */
-static void report_bug(const char *s) {
+static void report_bug(const char *format, ...) {
+  va_list p;
+
   fprintf(stderr, "\n*************************************************************\n");
-  fprintf(stderr, "FATAL ERROR: %s\n\n", s);
-  fprintf(stderr, "Please report this bug to yices-bugs@csl.sri.com.\n");
+  fprintf(stderr, "FATAL ERROR: ");
+  va_start(p, format);
+  vfprintf(stderr, format, p);
+  va_end(p);
+  fprintf(stderr, "\n\nPlease report this bug to yices-bugs@csl.sri.com.\n");
   fprintf(stderr, "To help us diagnose this problem, please include the\n"
                   "following information in your bug report:\n\n");
   fprintf(stderr, "  Yices version: %s\n", yices_version);
@@ -1138,6 +1148,50 @@ static void print_ef_analyze_code(ef_code_t code) {
     report_error(efcode2error[code]);
   }
 }
+
+
+
+/*
+ * Conversion of get_implicant error code to a string:
+ * - 0 means "no error"
+ * - the other codes are in -2 to -6 (cf. literal_collector.h)
+ * - we negate them here
+ */
+#define NUM_LIT_COLLECT_ERROR_CODES 7
+
+static const char * const implicant_code2error[NUM_LIT_COLLECT_ERROR_CODES] = {
+  "no error",
+  NULL,                // not used
+  "internal error",
+  "free variable(s) in assertion",
+  "assertions contain quantifier(s)",
+  "assertions contain lambda(s)",
+  "eval-in-model failed",
+};
+
+// which of the previous codes are bugs
+static const bool implicant_fatal_error[NUM_LIT_COLLECT_ERROR_CODES] = {
+  true,
+  true,
+  true,       // LIT_COLLECT_INTERNAL_ERROR
+  true,       // LIT_COLLECT_FREEVAR_IN_TERM
+  false,      // LIT_COLLECT_QUANTIFIER
+  false,      // LIT_COLLECT_LAMBDA
+  false,      // LIT_COLLECT_EVAL_FAILED
+};
+
+static void report_get_implicant_error(int32_t code) {
+  if (code > -2 || code <= -NUM_LIT_COLLECT_ERROR_CODES) {
+    report_bug("unexpected error code from 'show-implicant'");
+  } else {
+    code = -code;
+    if (implicant_fatal_error[code]) {
+      report_bug(implicant_code2error[code]);
+    } else {
+      report_error(implicant_code2error[code]);
+    }
+  }
+};
 
 
 
@@ -2498,7 +2552,7 @@ static void yices_push_cmd(void) {
     case STATUS_INTERRUPTED:
     default:
       // should not happen
-      report_bug("unexpected context status in push");
+      report_bug("unexpected context status in 'push'");
       break;
     }
   }
@@ -2542,7 +2596,7 @@ static void yices_pop_cmd(void) {
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
     default:
-      report_bug("unexpected context status in pop");
+      report_bug("unexpected context status in 'pop'");
       break;
     }
   }
@@ -2615,7 +2669,7 @@ static void yices_assert_cmd(term_t f) {
       case STATUS_INTERRUPTED:
       default:
 	// should not happen
-	report_bug("unexpected context status in assert");
+	report_bug("unexpected context status in 'assert'");
 	break;
       }
     }
@@ -2737,11 +2791,54 @@ static void yices_check_cmd(void) {
   case STATUS_INTERRUPTED:
   default:
     // this should not happen
-    report_bug("unexpected context status in check");
+    report_bug("unexpected context status in 'check'");
     break;
   }
 }
 
+
+/*
+ * Helper function for show-model, eval, and show-implicant:
+ * - return true if the context's status is SAT or UNKNOWN
+ *   also build the model if it does not exist
+ * - return false and print an error message if the status
+ *   is UNSAT or something else
+ * - cmd_name = string for error reporting (name of the command executed)
+ */
+static bool context_has_model(const char *cmd_name) {
+  bool has_model;
+
+  has_model = false;
+  switch (context_status(context)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (model == NULL) {
+      model = new_model();
+      context_build_model(model, context);
+    }
+    has_model = true;
+    break;
+
+  case STATUS_UNSAT:
+    fputs("The context is unsat. No model.\n", stderr);
+    fflush(stderr);
+    break;
+
+  case STATUS_IDLE:
+    fputs("Can't build a model. Call (check) first.\n", stderr);
+    fflush(stderr);
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    // this should not happen
+    report_bug("unexpected context status in '%s'", cmd_name);
+    break;
+  }
+
+  return has_model;
+}
 
 
 /*
@@ -2766,40 +2863,13 @@ static void yices_showmodel_cmd(void) {
       fflush(stderr);
     }
 
-  } else {
-
-    switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      if (model == NULL) {
-	model = new_model();
-	context_build_model(model, context);
-      }
-      //    model_print(stdout, model);
-      //    model_print_full(stdout, model);
-      if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
-	report_system_error("stdout");
-      }
-      fflush(stdout);
-      break;
-
-    case STATUS_UNSAT:
-      fputs("The context is unsat. No model.\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_IDLE:
-      fputs("Can't build a model. Call (check) first.\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
-    default:
-      // this should not happen
-      report_bug("unexpected context status in show-model");
-      break;
+  } else if (context_has_model("show-model")) {
+    // model_print(stdout, model);
+    // model_print_full(stdout, model);
+    if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
+      report_system_error("stdout");
     }
+    fflush(stdout);
   }
 }
 
@@ -2853,35 +2923,8 @@ static void yices_eval_cmd(term_t t) {
       fputs("No model. Call (ef-solve) first\n", stderr);
     }
 
-  } else {
-
-    switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      if (model == NULL) {
-	model = new_model();
-	context_build_model(model, context);
-      }
-      show_val_in_model(model, t);
-      break;
-
-    case STATUS_UNSAT:
-      fputs("The context is unsat. No model.\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_IDLE:
-      fputs("No model.\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
-    default:
-      // this should not happen
-      report_bug("unexpected context status in eval");
-      break;
-    }
+  } else if (context_has_model("eval")) {
+    show_val_in_model(model, t);
   }
 }
 
@@ -3150,8 +3193,36 @@ static void yices_export_cmd(const char *s) {
  * Test the implicant computation
  */
 static void yices_show_implicant_cmd(void) {
-  printf("do be done\n");
-  fflush(stdout);
+  ivector_t v;
+  int32_t code;
+
+  if (efmode) {
+    report_error("(show-implicant) is not supported by the exists/forall solver");
+  } else if (mode != CTX_MODE_ONECHECK) {
+    report_error("(show-implicant) is not supported. Use --mode=one-shot");
+  } else if (context_has_model("show-implicant")) {
+    init_ivector(&v, 20);
+    code = get_implicant(model, delayed_assertions.size, delayed_assertions.data, &v);
+    if (code < 0) {
+      /*
+       * Error or bug in get_implicant
+       */
+      report_get_implicant_error(code);
+    } else {
+      if (yices_pp_term_array(stdout, v.size, v.data, 140, UINT32_MAX, 0, 0) < 0) {
+	/*
+	 * Error in pp_term_array
+	 */
+	if (yices_error_code() == OUTPUT_ERROR) {
+	  report_system_error("stdout");
+	} else {
+	  report_bug("invalid term in 'show-implicant'");
+	}
+      }
+      fflush(stdout);
+    }
+    delete_ivector(&v);
+  }
 }
 
 
