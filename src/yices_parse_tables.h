@@ -51,6 +51,8 @@ typedef enum actions {
   help_next_goto_c15,
   efsolve_next_goto_r0,   // New command: (ef-solve)
   export_next_goto_c3,    // New command: (export-to-dimacs filename)
+  implicant_next_goto_r0, // New command: (show-implicant)
+
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,    // string argument to echo, include, help, export-to-dimacs
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
@@ -197,7 +199,7 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 36
-#define BSIZE 294
+#define BSIZE 296
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -242,43 +244,43 @@ static const uint8_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
-     7,   5,   2,  54,   8,  46,   6, 141, 143,  41,
-    16,  21, 151, 166,  22, 144, 144, 146, 138, 146,
-   165, 149, 167, 161, 170, 172,
+     7,   5,   2,  55,   8,  47,   6, 142, 144,  42,
+    16,  21, 152, 167,  22, 145, 145, 147, 139, 147,
+   166, 150, 168, 162, 171, 173,
 };
 
 // Check table
 static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-     2,   2,   2,  36,  36,  36,  36,  36,   1,   0,
-     6,   1,   4,   7,   8,  12,  14,   3,   5,   9,
-    10,  10,  11,  16,  10,  14,  14,  14,  14,  20,
-    21,  24,  10,  10,  13,  13,  13,  13,  13,  13,
+     2,   2,   2,   2,  36,  36,  36,  36,  36,   1,
+     0,   6,   1,   4,   7,   8,  12,  14,   3,   5,
+     9,  10,  10,  11,  16,  10,  14,  14,  14,  14,
+    20,  21,  24,  10,  10,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  19,  13,  19,  19,  13,  15,  15,  15,
-    15,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  19,  13,  19,  19,  13,  15,
+    15,  15,  15,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    17,  18,  25,  26,  27,  28,  29,  31,  17,  22,
-    18,  18,  18,  18,  22,  22,  22,  22,  22,  23,
-    23,  23,  23,  23,  30,  32,  22,  22,  33,  34,
-    35,  35,  30,  36,  36,  36,  36,  36,  36,  36,
-    36,  36,  36,  23,  23,  23,  23,  23,  23,  23,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
+    13,  13,  17,  18,  25,  26,  27,  28,  29,  31,
+    17,  22,  18,  18,  18,  18,  22,  22,  22,  22,
+    22,  23,  23,  23,  23,  23,  30,  32,  22,  22,
+    33,  34,  35,  35,  30,  36,  36,  36,  36,  36,
+    36,  36,  36,  36,  36,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
-    23,  23,  36,  36,  36,  36,  36,  36,  36,  36,
-    36,  36,  36,  36,
+    23,  23,  23,  23,  36,  36,  36,  36,  36,  36,
+    36,  36,  36,  36,  36,  36,
 };
 
 // Value table
@@ -306,6 +308,7 @@ static const uint8_t value[BSIZE] = {
   help_next_goto_c15,
   efsolve_next_goto_r0,
   export_next_goto_c3,
+  implicant_next_goto_r0,
   error,
   error,
   error,
@@ -337,6 +340,7 @@ static const uint8_t value[BSIZE] = {
   ret,
   true_next_goto_r0,
   false_next_goto_r0,
+  symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,

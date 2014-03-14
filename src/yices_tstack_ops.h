@@ -39,6 +39,7 @@ enum yices_opcodes {
   HELP_CMD,                          // [help] or [help <symbol>] or [help <string>]
   EFSOLVE_CMD,                       // [ef-solve]
   EXPORT_CMD,                        // [export <string>]
+  SHOW_IMPLICANT_CMD,                // [show-implicant]
   DUMP_CMD,                          // [dump]
 };
 

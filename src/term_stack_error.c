@@ -309,6 +309,7 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "help",
   "ef-solve",
   "export-to-dimacs",
+  "show-implicant",
   "dump-context",
 };
 

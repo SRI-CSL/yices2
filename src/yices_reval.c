@@ -3146,6 +3146,14 @@ static void yices_export_cmd(const char *s) {
 }
 
 
+/*
+ * Test the implicant computation
+ */
+static void yices_show_implicant_cmd(void) {
+  printf("do be done\n");
+  fflush(stdout);
+}
+
 
 /*************************
  *  TERM STACK WRAPPERS  *
@@ -3552,6 +3560,20 @@ static void eval_export_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   no_result(stack);
 }
 
+/*
+ * [show-implicant]
+ */
+static void check_showimplicant_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_IMPLICANT_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showimplicant_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_show_implicant_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
 
 /*
  * Initialize the term stack and add these commmands
@@ -3580,6 +3602,7 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, HELP_CMD, false, eval_help_cmd, check_help_cmd);
   tstack_add_op(stack, EFSOLVE_CMD, false, eval_efsolve_cmd, check_efsolve_cmd);
   tstack_add_op(stack, EXPORT_CMD, false, eval_export_cmd, check_export_cmd);
+  tstack_add_op(stack, SHOW_IMPLICANT_CMD, false, eval_showimplicant_cmd, check_showimplicant_cmd);
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }
 

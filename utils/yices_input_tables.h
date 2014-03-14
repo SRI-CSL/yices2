@@ -44,18 +44,19 @@ enum actions {
   showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
   help_next_goto_c15,
-  efsolve_next_goto_r0,   // New command: (ef-solve)
-  export_next_goto_c3,    // New command: (export-to-dimacs filename)
-  typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
-  string_next_goto_r0,    // string argument to echo, include, help
-  termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
+  efsolve_next_goto_r0,    // New command: (ef-solve)
+  export_next_goto_c3,     // New command: (export-to-dimacs filename)
+  implicant_next_goto_r0,  // New command: (show-implicant)
+  typename_next_goto_c10,  // token must be a free typename (TK_SYMBOL)
+  string_next_goto_r0,     // string argument to echo, include, help, export
+  termname_next_goto_c7,   // token must be a free termname (TK_SYMBOL)
   next_push_c9_goto_t0,
-  symbol_next_goto_c12,   // in (set-param <symbol> ...)
-  true_next_goto_r0,      // in (set-param ... true)
-  false_next_goto_r0,     // in (set-param ... false)
-  float_next_goto_r0,     // in (set-param ... <float>)
-  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
-  ret,                    // return
+  symbol_next_goto_c12,    // in (set-param <symbol> ...)
+  true_next_goto_r0,       // in (set-param ... true)
+  false_next_goto_r0,      // in (set-param ... false)
+  float_next_goto_r0,      // in (set-param ... <float>)
+  symbol_next_goto_r0,     // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
+  ret,                     // return
   push_r0_goto_e0,
   push_r0_goto_td0,
 
@@ -212,6 +213,7 @@ static triple_t triples[] = {
   { c1, TK_HELP, "help_next_goto_c15" },
   { c1, TK_EF_SOLVE, "efsolve_next_goto_r0" },
   { c1, TK_EXPORT_TO_DIMACS, "export_next_goto_c3" },
+  { c1, TK_SHOW_IMPLICANT, "implicant_next_goto_r0" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -268,6 +270,7 @@ static triple_t triples[] = {
   { c15, TK_HELP, "symbol_next_goto_r0" },
   { c15, TK_EF_SOLVE, "symbol_next_goto_r0" },
   { c15, TK_EXPORT_TO_DIMACS, "symbol_next_goto_r0" },
+  { c15, TK_SHOW_IMPLICANT, "symbol_next_goto_r0" },
   { c15, TK_UPDATE, "symbol_next_goto_r0" },
   { c15, TK_FORALL, "symbol_next_goto_r0" },
   { c15, TK_EXISTS, "symbol_next_goto_r0" },

@@ -1390,11 +1390,31 @@ static const help_record_t help_data[] = {
     "(bit 0b001001 3)  is true\n"
     "(bit 0b001001 4)  is false\n" },
 
-  // END MARKER: index 144
+  // export-to-dimacs: index 144
+  { HCOMMAND,
+    "(export-to-dimacs [filename])",
+    "Convert Boolean and bitvector problems to DIMACS",
+    "   [filename] must be given as a string as in \"example.cnf\"\n"
+    "\n"
+    "This collects all assertions, converts them to CNF, and \n"
+    "write the result in the given [filename] in the DIMACS CNF format.\n"
+    "A mapping form Yices terms to DIMACS literals is also shown in the file.\n",
+    NULL },
+
+  // show-implicant: index 145
+  { HCOMMAND,
+    "(show-implicant)",
+    "Show an implicant build from the model",
+    "The implicant is list of literals (atoms or negation of atoms)\n"
+    "that are all true in the current model and the conjunction\n"
+    "of these literals imply the assertion.\n",
+    NULL },
+
+  // END MARKER: index 146
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 144
+#define END_HELP_DATA 146
 
 
 
@@ -1431,6 +1451,8 @@ static const help_record_t help_data[] = {
   "       | ( help <symbol> )\n" \
   "       | ( help <string> )\n" \
   "       | ( ef-solve )\n" \
+  "       | ( export-to-dimacs <string> )\n" \
+  "       | ( show-implicant )\n" \
   "\n"   \
   "  <typedef> ::=\n" \
   "         <type>\n" \
@@ -1812,6 +1834,7 @@ static const help_index_t help_index[] = {
   { "ef-solve", NULL, 141, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
+  { "export-to-dimacs", NULL, 144, help_basic },
   { "false", NULL, 40, help_basic },
   { "fast-restarts", NULL, 106, help_basic },
   { "flatten", NULL, 103, help_basic },
@@ -1852,6 +1875,7 @@ static const help_index_t help_index[] = {
   { "select", NULL, 36, help_basic },
   { "set-param", NULL, 13, help_basic },
   { "set-timeout", NULL, 18, help_basic },
+  { "show-implicant", NULL, 145, help_basic },
   { "show-model", NULL, 9, help_basic },
   { "show-param", NULL, 14, help_basic },
   { "show-params", NULL, 15, help_basic },
