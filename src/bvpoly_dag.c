@@ -88,16 +88,6 @@ static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, bvnode_t n) {
   list_add(dag->list, BVC_DAG_LEAF_LIST, n);
 }
 
-static inline void bvc_dag_add_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
-  assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, BVC_DAG_ELEM_LIST, n);
-}
-
-static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, bvnode_t n) {
-  assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, BVC_DAG_DEFAULT_LIST, n);
-}
-
 
 /*
  * Move n to a different list

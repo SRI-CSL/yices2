@@ -74,9 +74,11 @@ static inline void reset_dl_trail_stack(dl_trail_stack_t *stack) {
 /*
  * Check emptiness
  */
+#ifndef NDEBUG
 static inline bool dl_trail_stack_is_empty(dl_trail_stack_t *stack) {
   return stack->top == 0;
 }
+#endif
 
 /*
  * Get the top element from the stack

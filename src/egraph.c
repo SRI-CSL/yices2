@@ -768,6 +768,8 @@ static inline void undo_stack_push_composite(undo_stack_t *stack, composite_t *c
   undo_stack_push_ptr(stack, cmp, UNDO_SIMPLIFY);
 }
 
+#if 0
+// NOT USED
 /*
  * REANALYZE_CONGRUENCE_ROOT and REANALYZE_COMPOSITE mean that cmp was created on the fly,
  * and that its signature and class must be recomputed when we backtrack.
@@ -781,7 +783,7 @@ static inline void undo_stack_push_congruence_root(undo_stack_t *stack, composit
 static inline void undo_stack_push_simplified_composite(undo_stack_t *stack, composite_t *cmp) {
   undo_stack_push_ptr(stack, cmp, REANALYZE_COMPOSITE);
 }
-
+#endif
 
 
 /*

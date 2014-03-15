@@ -118,10 +118,11 @@ static inline bool rdl_const_lt(rdl_const_t *c1, rdl_const_t *c2) {
   return q_lt(&c1->q, &c2->q) || (q_eq(&c1->q, &c2->q) && c1->delta < c2->delta);
 }
 
+#ifndef NDEBUG
 static inline bool rdl_const_eq(rdl_const_t *c1, rdl_const_t *c2) {
   return q_eq(&c1->q, &c2->q) && c1->delta == c2->delta;
 }
-
+#endif
 
 /*
  * Comparisons between c and a rational q
@@ -133,21 +134,22 @@ static inline bool rdl_const_le_q(rdl_const_t *c, rational_t *q) {
   return q_lt(&c->q, q) || (q_eq(&c->q, q) && c->delta <= 0);
 }
 
+#ifndef NDEBUG
 static inline bool rdl_const_lt_q(rdl_const_t *c, rational_t *q) {
   return q_lt(&c->q, q) || (q_eq(&c->q, q) && c->delta < 0);
 }
+#endif
 
-static inline bool rdl_const_eq_q(rdl_const_t *c, rational_t *q) {
-  return q_eq(&c->q, q) && c->delta == 0;
-}
 
 
 /*
  * Check whether c is zero
  */
+#ifndef NDEBUG
 static inline bool rdl_const_is_zero(rdl_const_t *c) {
   return q_is_zero(&c->q) && c->delta == 0;
 }
+#endif
 
 /*
  * Check whether c1 is negative
@@ -410,12 +412,6 @@ static inline int32_t rdl_edge_id(rdl_matrix_t *m, uint32_t x, uint32_t y) {
   return rdl_cell(m, x, y)->id;
 }
 
-/*
- * Check whether there's a path from x to y
- */
-static inline bool connected(rdl_matrix_t *m, uint32_t x, uint32_t y) {
-  return rdl_edge_id(m, x, y) != null_rdl_edge;
-}
 
 
 
@@ -980,15 +976,6 @@ static inline rdl_atom_t *get_rdl_atom(rdl_atbl_t *table, int32_t i) {
 
 
 /*
- * Get the id of atom a
- */
-static inline int32_t rdl_atom_id(rdl_atbl_t *table, rdl_atom_t *a) {
-  assert(table->atoms <= a && a < table->atoms + table->natoms);
-  return (int32_t)(a - table->atoms);
-}
-
-
-/*
  * Check whether atom i is assigned (i.e., marked)
  */
 static inline bool rdl_atom_is_assigned(rdl_atbl_t *table, int32_t i) {
@@ -1153,10 +1140,6 @@ static inline uint32_t sign_of_index(int32_t idx) {
 
 static inline bool is_pos_index(int32_t idx) {
   return sign_of_index(idx) == 0;
-}
-
-static inline bool is_neg_index(int32_t idx) {
-  return sign_of_index(idx) == 1;
 }
 
 

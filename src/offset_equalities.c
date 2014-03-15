@@ -548,10 +548,11 @@ static inline bool offset_poly_is_active(offset_poly_table_t *table, int32_t k) 
   return tst_bit(table->active, k);
 }
 
+#ifndef NDEBUG
 static inline bool offset_poly_is_inactive(offset_poly_table_t *table, int32_t k) {
   return !offset_poly_is_active(table, k);
 }
-
+#endif
 
 
 /*
@@ -572,15 +573,6 @@ static void init_offset_var(offset_table_t *table, int32_t x) {
 
   table->edge[x] = -1;
   table->dep[x] = NULL;
-}
-
-
-/*
- * Check whether x is a root variable
- */
-static inline bool offset_var_is_root(offset_table_t *table, int32_t x) {
-  assert(0 <= x && x < table->nvars);
-  return table->desc[x].root == x;
 }
 
 

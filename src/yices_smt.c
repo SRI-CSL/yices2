@@ -1167,16 +1167,6 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
   return (simplex_solver_t *) ctx->arith_solver;
 }
 
-static inline idl_solver_t *context_get_idl_solver(context_t *ctx) {
-  assert(context_has_idl_solver(ctx));
-  return (idl_solver_t *) ctx->arith_solver;
-}
-
-static inline rdl_solver_t *context_get_rdl_solver(context_t *ctx) {
-  assert(context_has_rdl_solver(ctx));
-  return (rdl_solver_t *) ctx->arith_solver;
-}
-
 
 /*
  * Statistics + result, after the search

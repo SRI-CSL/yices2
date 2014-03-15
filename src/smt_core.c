@@ -124,12 +124,6 @@ static inline float get_activity(const clause_t *cl) {
   return learned(cl)->activity;
 }
 
-/*
- * Set the activity to act
- */
-static inline void set_activity(clause_t *cl, float act) {
-  learned(cl)->activity = act;
-}
 
 /*
  * Increase the activity of a learned clause by delta
@@ -392,11 +386,12 @@ static  void literal_vector_pop(literal_t *v) {
 /*
  * Last element of vector v (used in assert)
  */
+#ifndef NDEBUG
 static inline literal_t last_lv_elem(literal_t *v) {
   assert(v != NULL && get_lv_size(v) > 0);
   return v[get_lv_size(v) - 1];
 }
-
+#endif
 
 
 /***********
@@ -2737,9 +2732,11 @@ static inline bool is_var_unmarked(smt_core_t *s, bvar_t x) {
   return ! tst_bit(s->mark, x);
 }
 
+#if DEBUG || !defined(NDEBUG)
 static inline bool is_var_marked(smt_core_t *s, bvar_t x) {
   return tst_bit(s->mark, x);
 }
+#endif
 
 static inline void set_var_mark(smt_core_t *s, bvar_t x) {
   set_bit(s->mark, x);

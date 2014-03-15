@@ -246,9 +246,11 @@ static inline idl_cell_t *idl_row(idl_matrix_t *m, uint32_t x) {
 /*
  * Distance from x to y
  */
+#ifndef NDEBUG
 static inline int32_t idl_dist(idl_matrix_t *m, uint32_t x, uint32_t y) {
   return idl_cell(m, x, y)->dist;
 }
+#endif
 
 /*
  * Edge id for path from x to y
@@ -257,12 +259,6 @@ static inline int32_t idl_edge_id(idl_matrix_t *m, uint32_t x, uint32_t y) {
   return idl_cell(m, x, y)->id;
 }
 
-/*
- * Check whether there's a path from x to y
- */
-static inline bool connected(idl_matrix_t *m, uint32_t x, uint32_t y) {
-  return idl_edge_id(m, x, y) != null_idl_edge;
-}
 
 
 
@@ -754,15 +750,6 @@ static inline idl_atom_t *get_idl_atom(idl_atbl_t *table, int32_t i) {
 
 
 /*
- * Get the id of atom a
- */
-static inline int32_t idl_atom_id(idl_atbl_t *table, idl_atom_t *a) {
-  assert(table->atoms <= a && a < table->atoms + table->natoms);
-  return (int32_t)(a - table->atoms);
-}
-
-
-/*
  * Check whether atom i is assigned (i.e., marked)
  */
 static inline bool idl_atom_is_assigned(idl_atbl_t *table, int32_t i) {
@@ -918,10 +905,6 @@ static inline uint32_t sign_of_index(int32_t idx) {
 
 static inline bool is_pos_index(int32_t idx) {
   return sign_of_index(idx) == 0;
-}
-
-static inline bool is_neg_index(int32_t idx) {
-  return sign_of_index(idx) == 1;
 }
 
 

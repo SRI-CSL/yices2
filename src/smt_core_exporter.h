@@ -3,7 +3,7 @@
  */
 
 #ifndef __SMT_CORE_EXPORTER_H
-#define __SMT_CORE_EXPORTED_H
+#define __SMT_CORE_EXPORTER_H
 
 #include <stdint.h>
 

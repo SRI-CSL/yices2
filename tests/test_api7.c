@@ -48,17 +48,6 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "unknown",
 };
 
-static const char* const fragment2string[NUM_ARITH_FRAGMENTS] = {
-  "IDL",
-  "RDL",
-  "LRA",
-  "LIA",
-  "LIRA",
-  "NRA",
-  "NIA",
-  "NIRA",
-};
-
 static const char* const solver_code2string[NUM_SOLVER_CODES] = {
   "none",
   "default",

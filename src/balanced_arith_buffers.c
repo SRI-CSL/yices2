@@ -111,10 +111,12 @@ uint32_t rba_find_node(rba_buffer_t *b, pprod_t *r) {
  * Check whether p is parent of q
  * - both must be valid node indices
  */
+#ifndef NDEBUG
 static inline bool is_parent_node(rba_buffer_t *b, uint32_t p, uint32_t q) {
   assert(p < b->num_nodes && q < b->num_nodes);
   return b->child[p][0] == q || b->child[p][1] == q;
 }
+#endif
 
 /*
  * Child-index(p, q):

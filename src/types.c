@@ -1602,10 +1602,12 @@ static inline bool is_eq_constraint(int32_t k) {
   return (k & 1) != 0;
 }
 
+#ifndef NDEBUG
 static inline bool is_subtype_constraint(int32_t k) {
   assert(k >= 0);
   return (k & 1) == 0;
 }
+#endif
 
 static inline type_t arg_of_constraint(int32_t k) {
   assert(k >= 0);
