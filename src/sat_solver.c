@@ -79,13 +79,6 @@ static inline float get_activity(const clause_t *cl) {
 }
 
 /*
- * Set the activity to act
- */
-static inline void set_activity(clause_t *cl, float act) {
-  learned(cl)->activity = act;
-}
-
-/*
  * Increase the activity of a learned clause by delta
  */
 static inline void increase_activity(clause_t *cl, float delta) {
@@ -222,10 +215,6 @@ static inline void set_cv_size(clause_t **v, uint32_t sz) {
   cv_header(v)->size = sz;
 }
 
-static inline uint32_t get_cv_capacity(clause_t **v) {
-  return cv_header(v)->capacity;
-}
-
 
 /*
  * Create a clause vector of capacity n.
@@ -321,10 +310,6 @@ static inline uint32_t get_lv_size(literal_t *v) {
 
 static inline void set_lv_size(literal_t *v, uint32_t sz) {
   lv_header(v)->size = sz;
-}
-
-static inline uint32_t get_lv_capacity(literal_t *v) {
-  return lv_header(v)->capacity;
 }
 
 
@@ -2411,9 +2396,6 @@ static inline bool is_var_unmarked(sat_solver_t *sol, bvar_t x) {
   return tst_bit(sol->mark, x) == 0;
 }
 
-static inline bool is_var_marked(sat_solver_t *sol, bvar_t x) {
-  return tst_bit(sol->mark, x) != 0;
-}
 
 /*
  * Set mark for literal l
@@ -3146,6 +3128,19 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
  **************/
 
 #if DEBUG
+
+/*
+ * Inline functions used only here: thay can cause compilation warning
+ * (clang is getting picky)
+ */
+static inline uint32_t get_lv_capacity(literal_t *v) {
+  return lv_header(v)->capacity;
+}
+
+static inline bool is_var_marked(sat_solver_t *sol, bvar_t x) {
+  return tst_bit(sol->mark, x) != 0;
+}
+
 
 /*
  * Check whether all variables in the heap have activity <= x

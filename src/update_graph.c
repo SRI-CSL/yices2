@@ -216,10 +216,11 @@ static void delete_lpair_set(lpair_set_t *set) {
 /*
  * Check whether the set is empty
  */
+#ifndef NDEBUG
 static inline bool lpair_set_is_empty(lpair_set_t *set) {
   return set->nelems == 0;
 }
-
+#endif
 
 /*
  * Check whether the set contains a pair [tag, sigma]

@@ -126,11 +126,12 @@ static uint32_t alloc_column_elem(column_t **v) {
 /*
  * Check whether column element i is valid (not in the free list)
  */
+#ifndef NDEBUG
 static inline bool good_column_elem(column_t *v, int32_t i) {
   assert(0 <= i && i < v->size);
   return v->data[i].r_idx >= 0;
 }
-
+#endif
 
 /*
  * Free element of index i in column v
@@ -141,15 +142,6 @@ static void free_column_elem(column_t *v, int32_t i) {
   v->data[i].r_ptr = v->free;
   v->free = i;
   v->nelems --;
-}
-
-/*
- * Empty the column
- */
-static inline void reset_column(column_t *v) {
-  v->free = -1;
-  v->nelems = 0;
-  v->size = 0;
 }
 
 
@@ -248,11 +240,12 @@ static uint32_t alloc_row_elem(row_t **v) {
 /*
  * Check whether row element i is valid (not in the free list)
  */
+#ifndef NDEBUG
 static inline bool good_row_elem(row_t *v, int32_t i) {
   assert(0 <= i && i < v->size);
   return v->data[i].c_idx >= 0;
 }
-
+#endif
 
 /*
  * Free element of index i in row v
@@ -267,24 +260,9 @@ static void free_row_elem(row_t *v, int32_t i) {
 
 
 /*
- * Empty the row and reset all rational coefficients to zero
- */
-static inline void reset_row(row_t *v) {
-  uint32_t i, n;
-  n = v->size;
-  for (i=0; i<n; i++) {
-    q_clear(&v->data[i].coeff);
-  }
-  v->free = -1;
-  v->nelems = 0;
-  v->size = 0;
-}
-
-
-/*
  * Delete row v
  */
-static inline void delete_row(row_t *v) {
+static void delete_row(row_t *v) {
   uint32_t i, n;
   n = v->size;
   for (i=0; i<n; i++) {
@@ -424,14 +402,6 @@ static inline col_elem_t *column_elem(matrix_t *matrix, uint32_t j, uint32_t k) 
   return matrix->column[j]->data + k;
 }
 
-
-/*
- * Get the index of a new column element for column i
- */
-static inline uint32_t get_row_elem(matrix_t *matrix, uint32_t i) {
-  assert(i < matrix->nrows);
-  return alloc_row_elem(matrix->row + i);
-}
 
 /*
  * Pointer to column element k in row i

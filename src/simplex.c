@@ -369,14 +369,6 @@ static void delete_arith_astack(arith_astack_t *stack) {
  *
  * The following functions convert between atom_id+sign and 32bit code
  */
-static inline int32_t mk_true_assertion(int32_t atom_id) {
-  return atom_id << 1;
-}
-
-static inline int32_t mk_false_assertion(int32_t atom_id) {
-  return (atom_id << 1) | 1;
-}
-
 static inline int32_t mk_assertion(int32_t atom_id, uint32_t sign) {
   assert(sign == 0 || sign == 1);
   return (atom_id << 1) | sign;
@@ -390,14 +382,17 @@ static inline uint32_t sign_of_assertion(int32_t a) {
   return ((uint32_t) a) & 1;
 }
 
+#if DEBUG || TRACE
 static inline bool assertion_is_true(int32_t a) {
   return sign_of_assertion(a) == 0;
 }
+#endif
 
+#if DEBUG
 static inline bool assertion_is_false(int32_t a) {
   return sign_of_assertion(a) == 1;
 }
-
+#endif
 
 
 
@@ -450,15 +445,6 @@ static void arith_push_undo_record(arith_undo_stack_t *stack, uint32_t n_b, uint
   stack->top = i+1;
 }
 
-
-
-/*
- * Get the top record
- */
-static inline arith_undo_record_t *arith_undo_stack_top(arith_undo_stack_t *stack) {
-  assert(stack->top > 0);
-  return stack->data + (stack->top - 1);
-}
 
 
 

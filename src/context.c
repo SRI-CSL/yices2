@@ -3883,6 +3883,7 @@ static void delete_arith_solver(context_t *ctx) {
 /*
  * Check mode and architecture
  */
+#ifndef NDEBUG
 static inline bool valid_mode(context_mode_t mode) {
   return CTX_MODE_ONECHECK <= mode && mode <= CTX_MODE_INTERACTIVE;
 }
@@ -3890,7 +3891,7 @@ static inline bool valid_mode(context_mode_t mode) {
 static inline bool valid_arch(context_arch_t arch) {
   return CTX_ARCH_NOSOLVERS <= arch && arch <= CTX_ARCH_AUTO_RDL;
 }
-
+#endif
 
 
 /*
