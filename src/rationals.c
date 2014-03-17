@@ -175,8 +175,8 @@ mpq_ptr get_mpq(int32_t i) {
 /*
  * Global gmp variables used for intermediate computations
  */
-static mpz_t z0, z1;
-static mpq_t q0, q1;
+static mpz_t z0;
+static mpq_t q0;
 
 /*
  * String buffer for parsing.
@@ -193,9 +193,7 @@ void init_rationals() {
   string_buffer = NULL;
   string_buffer_length = 0;
   mpz_init2(z0, 64);
-  mpz_init2(z1, 64);
   mpq_init2(q0, 64);
-  mpq_init2(q1, 64);
 }
 
 void cleanup_rationals() {
@@ -203,9 +201,7 @@ void cleanup_rationals() {
   clear_bank();
   safe_free(string_buffer);
   mpz_clear(z0);
-  mpz_clear(z1);
   mpq_clear(q0);
-  mpq_clear(q1);
 }
 
 static void division_by_zero() {
