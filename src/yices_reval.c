@@ -1154,30 +1154,34 @@ static void print_ef_analyze_code(ef_code_t code) {
 /*
  * Conversion of get_implicant error code to a string:
  * - 0 means "no error"
- * - the other codes are in -2 to -6 (cf. literal_collector.h)
+ * - the other codes are in -2 to -8 (cf. literal_collector.h)
  * - we negate them here
  */
-#define NUM_LIT_COLLECT_ERROR_CODES 7
+#define NUM_LIT_COLLECT_ERROR_CODES 9
 
 static const char * const implicant_code2error[NUM_LIT_COLLECT_ERROR_CODES] = {
-  "no error",
-  NULL,                // not used
-  "internal error",
-  "free variable(s) in assertion",
-  "assertions contain quantifier(s)",
-  "assertions contain lambda(s)",
-  "eval-in-model failed",
+  "no error",                          // no error
+  NULL,                                // not used
+  "internal error",                    // MDL_EVAL_INTERNAL_ERROR
+  "failed to evaluate term",           // MDL_EVAL_UNKNOWN_TERM
+  "free variable(s) in assertion",     // MDL_EVAL_FREEVAR_IN_TERM
+  "assertions contain quantifier(s)",  // MDL_EVAL_QUANTIFIER
+  "assertions contain lambda(s)",      // MDL_EVAL_LAMBDA
+  "eval-in-model failed",              // MDL_EVAL_FAILED
+  "internal error",                    // MDL_EVAL_FORMULA_FALSE
 };
 
 // which of the previous codes are bugs
 static const bool implicant_fatal_error[NUM_LIT_COLLECT_ERROR_CODES] = {
-  true,
-  true,
-  true,       // LIT_COLLECT_INTERNAL_ERROR
-  true,       // LIT_COLLECT_FREEVAR_IN_TERM
-  false,      // LIT_COLLECT_QUANTIFIER
-  false,      // LIT_COLLECT_LAMBDA
-  false,      // LIT_COLLECT_EVAL_FAILED
+  true,       // no error
+  true,       // not used
+  true,       // MDL_EVAL_INTERNAL_ERROR
+  false,      // MDL_EVAL_UNKNOWN_TERM
+  false,      // MDL_EVAL_FREEVAR_IN_TERM
+  false,      // MDL_EVAL_QUANTIFIER
+  false,      // MDL_EVAL_LAMBDA
+  true,       // MDL_EVAL_FAILED
+  true,       // MDL_EVAL_FORMULA_FALSE
 };
 
 static void report_get_implicant_error(int32_t code) {

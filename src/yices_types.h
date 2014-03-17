@@ -30,6 +30,35 @@ typedef int32_t type_t;
 
 
 
+
+/********************************
+ *  VECTORS OF TERMS AND TYPES  *
+ *******************************/
+
+/*
+ * Some functions return a collection of terms or types
+ * via a vector. The vector is an array that gets resized
+ * by the library as needed. For each vector type, the API
+ * provide three functions:
+ * - yices_init_term_vector(term_vector_t *v)
+ * - yices_delete_term_vector(term_vector_t *v)
+ * - yices_reset_term_vector(term_vector_t *v)
+ */
+typedef struct term_vector_s {
+  uint32_t capacity;
+  uint32_t size;
+  term_t *data;
+} term_vector_t;
+
+typedef struct type_vector_s {
+  uint32_t capacity;
+  uint32_t size;
+  type_t *data;
+} type_vector_t;
+
+
+
+
 /************************
  *  CONTEXT AND MODELS  *
  ***********************/
@@ -203,6 +232,7 @@ typedef enum error_code {
   EVAL_OVERFLOW,
   EVAL_FAILED,
   EVAL_CONVERSION_FAILED,
+  EVAL_NO_IMPLICANT,
 
   /*
    * Input/output and system errors
@@ -321,17 +351,22 @@ typedef enum error_code {
  *  CTX_INVALID_OPERATION
  *  CTX_OPERATION_NOT_SUPPORTED
  *
- *  CTX_INVALID_CONFIG,
- *  CTX_UNKNOWN_PARAMETER,
- *  CTX_INVALID_PARAMETER_VALUE,
- *  CTX_UNKNOWN_LOGIC,
+ *  CTX_INVALID_CONFIG
+ *  CTX_UNKNOWN_PARAMETER
+ *  CTX_INVALID_PARAMETER_VALUE
+ *  CTX_UNKNOWN_LOGIC
  *
+ *
+ * Errors for functions that operate on a model (i.e., evaluate
+ * terms in a model).
  *  EVAL_UNKNOWN_TERM
  *  EVAL_FREEVAR_IN_TERM
  *  EVAL_QUANTIFIER
  *  EVAL_LAMBDA
  *  EVAL_OVERFLOW
  *  EVAL_FAILED
+ *  EVAL_CONVERSION_FAILED
+ *  EVAL_NO_IMPLICANT
  *
  *
  * Other error codes. No field is meaningful in the error_report,

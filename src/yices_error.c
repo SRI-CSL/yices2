@@ -391,6 +391,14 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "exception in term evaluation\n");
     break;
 
+  case EVAL_CONVERSION_FAILED:
+    code = fprintf(f, "could not convert value (in model) to a term\n");
+    break;
+
+  case EVAL_NO_IMPLICANT:
+    code = fprintf(f, "can't build an implicant: input formula is false in the model\n");
+    break;
+
   case OUTPUT_ERROR:
     code = fprintf(f, "output error\n");
     break;

@@ -122,8 +122,7 @@ static bool term_is_true_in_model(lit_collector_t *collect, term_t t) {
   v = eval_in_model(&collect->eval, t);
   if (v < 0) {
     // error in the evaluation
-    longjmp(collect->env, LIT_COLLECT_EVAL_FAILED);
-    // We could return false here?
+    longjmp(collect->env, v);
   }
 
   return is_true(&collect->model->vtbl, v);
@@ -643,7 +642,7 @@ static term_t lit_collector_visit_select(lit_collector_t *collect, term_t t, sel
 
   /*
    * select may become an invalid pointer if new terms are created
-   * so we extract u and i before recursive calls to visit.
+   * so we extract u and i before the recursive call to visit.
    */
   u = select->arg;
   i = select->idx;
@@ -667,7 +666,7 @@ static term_t lit_collector_visit_bit(lit_collector_t *collect, term_t t, select
 
   /*
    * bit may become an invalid pointer if new terms are created
-   * so we extract u and i before recursive calls to visit.
+   * so we extract u and i before the recursive call to visit.
    */
   u = bit->arg;
   i = bit->idx;
@@ -795,7 +794,7 @@ static term_t lit_collector_visit_bvpoly(lit_collector_t *collect, term_t t, bvp
  * Process term t:
  * - if t is in the cache (already visited) return the corresponding term
  * - otherwise explore t and return its simplified version
- * - also add atoms found while exploring t
+ * - the atoms found while exploring t are added to collect->lit_set
  */
 static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
   term_table_t *terms;
@@ -817,7 +816,7 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case VARIABLE:
-      longjmp(collect->env, LIT_COLLECT_FREEVAR_IN_TERM);
+      longjmp(collect->env, MDL_EVAL_FREEVAR_IN_TERM);
       break;
 
     case UNINTERPRETED_TERM:
@@ -862,11 +861,11 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case FORALL_TERM:
-      longjmp(collect->env, LIT_COLLECT_QUANTIFIER);
+      longjmp(collect->env, MDL_EVAL_QUANTIFIER);
       break;
 
     case LAMBDA_TERM:
-      longjmp(collect->env, LIT_COLLECT_LAMBDA);
+      longjmp(collect->env, MDL_EVAL_LAMBDA);
       break;
 
     case OR_TERM:
@@ -957,7 +956,7 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
     case RESERVED_TERM:
     default:
       assert(false);
-      longjmp(collect->env, LIT_COLLECT_INTERNAL_ERROR);
+      longjmp(collect->env, MDL_EVAL_INTERNAL_ERROR);
       break;
     }
     lit_collector_cache_result(collect, t, u);
@@ -1003,7 +1002,7 @@ term_t lit_collector_process(lit_collector_t *collect, term_t t) {
  * - otherwise, the function retuns 0 and add the implicant literals to vector
  *   v  (v is not reset).
  */
-int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
+int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v) {
   lit_collector_t collect;
   int_hset_t *set;
   int32_t u;
@@ -1012,8 +1011,13 @@ int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
   init_lit_collector(&collect, mdl);
   for (i=0; i<n; i++) {
     u = lit_collector_process(&collect, a[i]);
-    if (u < 0) goto done;
-    assert(u == true_term); // since a[i] must be true in mdl
+    if (u < 0) goto done; // exception in process
+    if (u == false_term) {
+      // formula a[i] is false in the model
+      u = MDL_EVAL_FORMULA_FALSE;
+      goto done;
+    }
+    assert(u == true_term);
   }
 
   // Extract the implicants. They are stored in collect.lit_set
@@ -1026,7 +1030,7 @@ int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v) {
     ivector_push(v, u);
   }
 
-  // return code = 0 (no error);
+  // Return code = 0 (no error);
   u = 0;
 
  done:

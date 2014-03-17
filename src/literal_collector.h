@@ -44,17 +44,16 @@
 #include "term_manager.h"
 #include "int_vectors.h"
 
+
 /*
  * Error codes returned by lit_collector_process:
- * - all codes are negative
- * - since NULL_TERM is -1, we start with -2
+ * - any error code defined in model_eval.h can be returned
+ *   (i.e., from -2 to -7)
+ * - additional code for get_implicant: return -8 if an
+ *   input formual is false in the model
  */
 enum {
-  LIT_COLLECT_INTERNAL_ERROR = -2,        // symptom of a bug
-  LIT_COLLECT_FREEVAR_IN_TERM = -3,       // free variable
-  LIT_COLLECT_QUANTIFIER = -4,            // can't process quantifiers
-  LIT_COLLECT_LAMBDA = -5,                // can't process lambdas
-  LIT_COLLECT_EVAL_FAILED = -6,           // a call to eval_in_model fails
+  MDL_EVAL_FORMULA_FALSE = -8,
 };
 
 
@@ -120,7 +119,7 @@ extern term_t lit_collector_process(lit_collector_t *collect, term_t t);
  * - otherwise, the function retuns 0 and add the literals forming the
  *   implicant to vector v  (v is not reset).
  */
-extern int32_t get_implicant(model_t *mdl, uint32_t n, term_t *a, ivector_t *v);
+extern int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v);
 
 
 #endif /* __LITERAL_COLLECTOR_H */

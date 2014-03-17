@@ -46,6 +46,7 @@
 #include "val_to_term.h"
 #include "context_config.h"
 #include "search_parameters.h"
+#include "literal_collector.h"
 
 #include "type_printer.h"
 #include "term_printer.h"
@@ -1149,6 +1150,55 @@ void model_iterate(void *aux, void (*f)(void *, model_t *)) {
 
 
 
+/****************************************
+ *  VECTOR INITIALIZATION AND DELETION  *
+ ***************************************/
+
+EXPORTED void yices_init_term_vector(term_vector_t *v) {
+  v->capacity = 0;
+  v->size = 0;
+  v->data = NULL;
+}
+
+EXPORTED void yices_init_type_vector(type_vector_t *v) {
+  v->capacity = 0;
+  v->size = 0;
+  v->data = NULL;
+}
+
+EXPORTED void yices_delete_term_vector(term_vector_t *v) {
+  safe_free(v->data);
+  v->data = NULL;
+}
+
+EXPORTED void yices_delete_type_vector(type_vector_t *v) {
+  safe_free(v->data);
+  v->data = NULL;
+}
+
+#define VECTOR_REDUCE_THRESHOLD 16384
+
+EXPORTED void yices_reset_term_vector(term_vector_t *v) {
+  v->size = 0;
+  if (v->capacity >VECTOR_REDUCE_THRESHOLD) {
+    safe_free(v->data);
+    v->data = NULL;
+    v->capacity = 0;
+  }
+}
+
+EXPORTED void yices_reset_type_vector(type_vector_t *v) {
+  v->size = 0;
+  if (v->capacity >VECTOR_REDUCE_THRESHOLD) {
+    safe_free(v->data);
+    v->data = NULL;
+    v->capacity = 0;
+  }
+}
+
+
+
+
 /******************
  *  TYPECHECKING  *
  *****************/
@@ -1234,7 +1284,7 @@ static bool check_good_type(type_table_t *tbl, type_t tau) {
 }
 
 // Check whether all types in a[0 ... n-1] are valid
-static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
+static bool check_good_types(type_table_t *tbl, uint32_t n, const type_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -1248,7 +1298,7 @@ static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
 }
 
 // Check whether all types in a[0 ... n-1] are type variables
-static bool check_all_type_variables(type_table_t *tbl, uint32_t n, type_t *a) {
+static bool check_all_type_variables(type_table_t *tbl, uint32_t n, const type_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -1262,7 +1312,7 @@ static bool check_all_type_variables(type_table_t *tbl, uint32_t n, type_t *a) {
 }
 
 // Check whether all variables in a[0...n-1] are distinct
-static bool check_no_duplicate_type_vars(uint32_t n, type_t *a) {
+static bool check_no_duplicate_type_vars(uint32_t n, const type_t *a) {
   type_t aux[10];
   type_t *b;
   uint32_t i;
@@ -1364,7 +1414,7 @@ static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) 
 }
 
 // check that terms a[0 ... n-1] have types that match tau[0 ... n-1].
-static bool check_arg_types(term_manager_t *mngr, uint32_t n, term_t *a, type_t *tau) {
+static bool check_arg_types(term_manager_t *mngr, uint32_t n, const term_t *a, const type_t *tau) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -1383,7 +1433,7 @@ static bool check_arg_types(term_manager_t *mngr, uint32_t n, term_t *a, type_t 
 }
 
 // check whether (f a[0] ... a[n-1]) is type correct
-static bool check_good_application(term_manager_t *mngr, term_t f, uint32_t n, term_t *a) {
+static bool check_good_application(term_manager_t *mngr, term_t f, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   function_type_t *ft;
 
@@ -1527,7 +1577,7 @@ static bool check_compatible_bv_terms(term_manager_t *mngr, term_t t1, term_t t2
 }
 
 // Check whether terms a[0 ... n-1] are all boolean
-static bool check_boolean_args(term_manager_t *mngr, uint32_t n, term_t *a) {
+static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -1546,7 +1596,7 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, term_t *a) {
 }
 
 // Check whether terms a[0 ... n-1] are all arithmetic terms
-static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, term_t *a) {
+static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -1565,7 +1615,7 @@ static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, term_t *a) {
 
 
 // Check wether all numbers den[0 ... n-1] are positive
-static bool check_denominators32(uint32_t n, uint32_t *den) {
+static bool check_denominators32(uint32_t n, const uint32_t *den) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -1579,7 +1629,7 @@ static bool check_denominators32(uint32_t n, uint32_t *den) {
 }
 
 
-static bool check_denominators64(uint32_t n, uint64_t *den) {
+static bool check_denominators64(uint32_t n, const uint64_t *den) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -1622,7 +1672,7 @@ static bool check_good_select(term_manager_t *mngr, uint32_t i, term_t t) {
 }
 
 // Check that (update f (a_1 ... a_n) v) is well typed
-static bool check_good_update(term_manager_t *mngr, term_t f, uint32_t n, term_t *a, term_t v) {
+static bool check_good_update(term_manager_t *mngr, term_t f, uint32_t n, const term_t *a, term_t v) {
   term_table_t *tbl;
   function_type_t *ft;
 
@@ -1660,7 +1710,7 @@ static bool check_good_update(term_manager_t *mngr, term_t f, uint32_t n, term_t
 }
 
 // Check (distinct t_1 ... t_n)
-static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, term_t *a) {
+static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
   type_t tau;
@@ -1691,7 +1741,7 @@ static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, term_t *a
 
 // Check whether all elements of v are variables
 // (this assumes that they are all good terms)
-static bool check_good_variables(term_manager_t *mngr, uint32_t n, term_t *v) {
+static bool check_good_variables(term_manager_t *mngr, uint32_t n, const term_t *v) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -1710,7 +1760,7 @@ static bool check_good_variables(term_manager_t *mngr, uint32_t n, term_t *v) {
 
 // Check quantified formula (FORALL/EXISTS (v_1 ... v_n) body)
 // v must be sorted.
-static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, term_t *v, term_t body) {
+static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, const term_t *v, term_t body) {
   uint32_t i;
 
   if (! check_positive(n) ||
@@ -1734,7 +1784,7 @@ static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, term_t 
 }
 
 // Check for duplicates in array v: don't modify v
-static bool check_no_duplicates(uint32_t n, term_t *v) {
+static bool check_no_duplicates(uint32_t n, const term_t *v) {
   term_t buffer[10];
   term_t *a;
   uint32_t i;
@@ -1769,7 +1819,7 @@ static bool check_no_duplicates(uint32_t n, term_t *v) {
 }
 
 // Check lambda term: (LAMBDA (v_1 ... v_n) body)
-static bool check_good_lambda_term(term_manager_t *mngr, uint32_t n, term_t *v, term_t body) {
+static bool check_good_lambda_term(term_manager_t *mngr, uint32_t n, const term_t *v, term_t body) {
   return
     check_positive(n) &&
     check_maxvars(n) &&
@@ -1865,7 +1915,7 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 
 
 // Check that the degree of t[0] x .... x t[n-1] does not overflow
-static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, term_t t[]) {
+static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, const term_t *t) {
   term_table_t *tbl;
   uint32_t i, d;
 
@@ -1929,7 +1979,7 @@ static bool term_is_var_or_uninterpreted(term_table_t *tbl, term_t t) {
 
 // Check that all terms of v are variables or uninterpreted terms
 // all elements of v must be good terms
-static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, term_t *v) {
+static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, const term_t *v) {
   term_table_t *tbl;
   uint32_t i;
 
@@ -1947,7 +1997,7 @@ static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, t
 
 // Check whether arrays v and a define a valid substitution
 // both must be arrays of n elements
-static bool check_good_substitution(term_manager_t *mngr, uint32_t n, term_t *v, term_t *a) {
+static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term_t *v, const term_t *a) {
   term_table_t *tbl;
   type_t tau;
   uint32_t i;
@@ -6643,9 +6693,9 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
 /*
  * Convert a negative evaluation code v to
  * the corresponding yices error code.
- * - v is a code returned by eval_in_model
+ * - v is a code returned by eval_in_model or get_implicant
  */
-#define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FAILED) + 1)
+#define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FORMULA_FALSE) + 1)
 
 static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   NO_ERROR,              // v = 0
@@ -6656,9 +6706,10 @@ static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-5)
   EVAL_LAMBDA,           // v = MDL_EVAL_LAMBDA (-6)
   EVAL_FAILED,           // v = MDL_EVAL_FAILED (-7)
+  EVAL_NO_IMPLICANT,     // v = MDL_EVAL_FALSE (-8)
 };
 
-static inline error_code_t yices_eval_error(value_t v) {
+static inline error_code_t yices_eval_error(int32_t v) {
   assert(0 <= -v && -v <= NUM_EVAL_ERROR_CODES);
   return eval_error2code[-v];
 }
@@ -7131,6 +7182,72 @@ EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a
   return 0;
 }
 
+
+
+/*
+ * IMPLICANTS
+ */
+
+/*
+ * Given a model mdl and a Boolean term t that is true in mdl, return an implicant for t
+ * - the implicant is a list of literals a[0 ... n-1] such that
+ *   every a[i] is true in mdl
+ *   the conjunction a[0] /\ a[1] /\ ... /\ a[n-1] implies t
+ *
+ * The function returns a[0 ... n-1] in a term_vector v that must be initialized (by
+ * yices_init_term_vector).
+ *
+ * The function returns 0 if all goes well or -1 if there's an error
+ *
+ * Error codes:
+ * - INVALID_TERM         if t is not valid
+ * - TYPE_MISMATCH        if t is not a Boolean term
+ * - EVAL_FREEVAR_IN_TERM if t contains free variables
+ * - EVAL_QUANTIIFIER     if t containts quantifiers
+ * - EVAL_LAMBDA          if t contains a lambda
+ * - EVAL_NO_IMPLICANT    if t is false in  mdl
+ * - EVAL_FAILED          if the function fails for some other reason
+ */
+EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v) {
+  int32_t code;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  v->size = 0;
+  code = get_implicant(mdl, 1, &t, (ivector_t *) v);
+  if (code < 0) {
+    error.code = yices_eval_error(code);
+    return -1;
+  }
+
+  return 0;
+}
+
+
+/*
+ * Same thing for an array of formulas a[0 ... n-1]
+ */
+EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
+  int32_t code;
+
+  if (! check_good_terms(&manager, n, a) ||
+      ! check_boolean_args(&manager, n, a)) {
+    return -1;
+  }
+
+  v->size = 0;
+  code = get_implicant(mdl, n, a, (ivector_t *) v);
+  if (code < 0) {
+    error.code = yices_eval_error(code);
+    return -1;
+  }
+
+  return 0;
+
+}
 
 
 

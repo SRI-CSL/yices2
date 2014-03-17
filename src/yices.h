@@ -163,6 +163,45 @@ __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
 
 
 
+/********************************
+ *  VECTORS OF TERMS AND TYPES  *
+ *******************************/
+
+/*
+ * Some functions in the API return arrays of terms or types
+ * in a vector object (i.e., a resizable array). The vector
+ * structures are defined in yices_types.h:
+ * - v.size = number of elements in the array
+ * - v.data = the array proper: the elements are stored in
+ *            v.data[0] .... v.data[n-1] where n = v.size.
+ *
+ * Before calling any function that fills in a term_vector or
+ * type_vector, the vector object must be initialized via
+ * yices_init_term_vector or yices_init_type_vector. To prevent
+ * memory leaks, it must be deleted when no longer needed.
+ */
+
+/*
+ * Initialize a term or type vector v
+ */
+__YICES_DLLSPEC__ extern void yices_init_term_vector(term_vector_t *v);
+__YICES_DLLSPEC__ extern void yices_init_type_vector(type_vector_t *v);
+
+
+/*
+ * Delete vector v
+ */
+__YICES_DLLSPEC__ extern void yices_delete_term_vector(term_vector_t *v);
+__YICES_DLLSPEC__ extern void yices_delete_type_vector(type_vector_t *v);
+
+
+/*
+ * Reset: empty the vector (reset size to 0)
+ */
+__YICES_DLLSPEC__ extern void yices_reset_term_vector(term_vector_t *v);
+__YICES_DLLSPEC__ extern void yices_reset_type_vector(type_vector_t *v);
+
+
 
 /***********************
  *  TYPE CONSTRUCTORS  *
@@ -2623,6 +2662,62 @@ __YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
  * The error codes are the same as for yices_get_value_as_term.
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
+
+
+
+/*
+ * IMPLICANTS
+ */
+
+/*
+ * Compute an implicant for t in mdl
+ * - t must be a Boolean term that's true in mdl
+ * - the implicant is a list of Boolean terms a[0] ... a[n-1] such that
+ *    1) a[i] is a literal (atom or negation of an atom)
+ *    2) a[i] is true in mdl
+ *    3) the conjunction a[0] /\ ... /\ a[n-1] implies t
+ *
+ * The implicant is returned in vector v, which must be initialized by
+ * yices_init_term_vector:
+ *    v->size is the number of literals in the implicant (i.e., n)
+ *    v->data[0] ... v->data[n-1] = the n literals
+ *
+ * The function returns 0 if the implicant can be computed. Otherwise
+ * it returns -1.
+ *
+ * Error report:
+ * if t is not valid
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not a Boolean term
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool
+ * if t is false in the model:
+ *   code = EVAL_NO_IMPLICANT
+ * any of the error codes for evaluation functions is also possible:
+ *   EVAL_UNKNOWN_TERM
+ *   EVAL_FREEVAR_IN_TERM
+ *   EVAL_QUANTIFIER
+ *   EVAL_LAMBDA
+ *   EVAL_FAILED
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v);
+
+
+/*
+ * Variant: compute an implicant for an array of formulas in mdl.
+ * - n = size of the array
+ * - a[0 ... n-1] = n input terms.
+ *   each a[i] must be a Boolean term and must be true in mdl
+ *
+ * The function computes an implicant for the conjunction (and a[0] ... a[n-1]).
+ *
+ * Return codes and errors are as in the previous function. The implicant is stored in vector v
+ * if the return code is 0. v->size = number of literals, v->data contains the array of literals.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
 
 
 #ifdef __cplusplus
