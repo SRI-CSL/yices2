@@ -121,7 +121,7 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c               \
               subst_cache.c subst_context.c symbol_tables.c             \
               symmetry_breaking.c terms.c term_manager.c term_printer.c \
               term_stack2.c term_stack_error.c term_substitution.c      \
-              term_utils.c theory_explanations.c tracer.c               \
+              term_to_val.c term_utils.c theory_explanations.c tracer.c \
               tuple_hash_map.c types.c type_printer.c uint_rbtrees.c    \
               use_vectors.c val_to_term.c variable_renaming.c           \
               yices_api.c yices_error.c yices_lexer.c yices_pp.c        \
