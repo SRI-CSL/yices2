@@ -120,7 +120,7 @@ typedef enum error_code {
   INVALID_TYPE,
   INVALID_TERM,
   INVALID_CONSTANT_INDEX,
-  INVALID_VAR_INDEX,      // Not used anymore
+  INVALID_VAR_INDEX,       // Not used anymore
   INVALID_TUPLE_INDEX,
   INVALID_RATIONAL_FORMAT,
   INVALID_FLOAT_FORMAT,
@@ -128,7 +128,7 @@ typedef enum error_code {
   INVALID_BVHEX_FORMAT,
   INVALID_BITSHIFT,
   INVALID_BVEXTRACT,
-  INVALID_BITEXTRACT,    // added 2014/02/17
+  INVALID_BITEXTRACT,      // added 2014/02/17
   TOO_MANY_ARGUMENTS,
   TOO_MANY_VARS,
   MAX_BVSIZE_EXCEEDED,
@@ -149,14 +149,14 @@ typedef enum error_code {
   DUPLICATE_VARIABLE,
   INCOMPATIBLE_BVSIZES,
   EMPTY_BITVECTOR,
-  ARITHCONSTANT_REQUIRED, // added 2013/01/23
-  INVALID_MACRO,          // added 2013/03/31
-  TOO_MANY_MACRO_PARAMS,  // added 2013/03/31
-  TYPE_VAR_REQUIRED,      // added 2013/03/31
-  DUPLICATE_TYPE_VAR,     // added 2013/03/31
-  BVTYPE_REQUIRED,        // added 2013/05/27
-  BAD_TERM_DECREF,        // added 2013/10/03
-  BAD_TYPE_DECREF,        // added 2013/10/03
+  ARITHCONSTANT_REQUIRED,  // added 2013/01/23
+  INVALID_MACRO,           // added 2013/03/31
+  TOO_MANY_MACRO_PARAMS,   // added 2013/03/31
+  TYPE_VAR_REQUIRED,       // added 2013/03/31
+  DUPLICATE_TYPE_VAR,      // added 2013/03/31
+  BVTYPE_REQUIRED,         // added 2013/05/27
+  BAD_TERM_DECREF,         // added 2013/10/03
+  BAD_TYPE_DECREF,         // added 2013/10/03
 
   /*
    * Parser errors
@@ -233,6 +233,17 @@ typedef enum error_code {
   EVAL_FAILED,
   EVAL_CONVERSION_FAILED,
   EVAL_NO_IMPLICANT,
+
+
+  /*
+   * Error codes for model construction
+   */
+  MDL_UNINT_REQUIRED,
+  MDL_CONSTANT_REQUIRED,
+  MDL_DUPLICATE_VAR,
+  MDL_FTYPE_NOT_ALLOWED,
+  MDL_CONSTRUCTION_FAILED,
+
 
   /*
    * Input/output and system errors

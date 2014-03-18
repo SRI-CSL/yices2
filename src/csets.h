@@ -100,7 +100,7 @@ extern bool cset_disjoint(cset_t *s1, cset_t *s2);
  * - cset_fill(s):  add the full domain to s
  *
  * - cset_add(s, i): add element i
- * - cset_remove(s, i): remove iK
+ * - cset_remove(s, i): remove i
  *   (i must satisfy 0 <= i < s->dsize)
  *
  * - cset_add_set(s, s1): add all elements of s1 to s

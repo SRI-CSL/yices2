@@ -2670,6 +2670,31 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
  */
 
 /*
+ * Build a model from a term-to-term mapping:
+ * - the mapping is defined by two arrays var[] and map[]
+ * - every element of var must be an uninterpreted term
+ *   every element of map must be a constant of primitive or tuple type
+ *   map[i]'s type must be a subtype of var[i]
+ * - there must not be duplicates in array var
+ *
+ * The function returns NULL and set up the error report if something
+ * goes wrong. It allocates and create a new model otherwise. This
+ * model must be deleted when no longer used via yices_free_model.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var[i] or map[i] is not valid
+ * - code = TYPE_MISMATCH if map[i] doesn't have a type compatible (subtype of)
+ *          var[i]'s type
+ * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
+ * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
+ * - code = MDL_DUPLICATE_VAR if var contains duplicate elements
+ * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
+ * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
+ */
+__YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
+
+
+/*
  * Compute an implicant for t in mdl
  * - t must be a Boolean term that's true in mdl
  * - the implicant is a list of Boolean terms a[0] ... a[n-1] such that

@@ -399,6 +399,26 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "can't build an implicant: input formula is false in the model\n");
     break;
 
+  case MDL_UNINT_REQUIRED:
+    code = fprintf(f, "argument is not an uninterpreted term\n");
+    break;
+
+  case MDL_CONSTANT_REQUIRED:
+    code = fprintf(f, "value is not a constant term\n");
+    break;
+
+  case MDL_DUPLICATE_VAR:
+    code = fprintf(f, "duplicate term in input array\n");
+    break;
+
+  case MDL_FTYPE_NOT_ALLOWED: // not used
+    code = fprintf(f, "function-types are not supported\n");
+    break;
+
+  case MDL_CONSTRUCTION_FAILED: // not used
+    code = fprintf(f, "model-construction failed\n");
+    break;
+
   case OUTPUT_ERROR:
     code = fprintf(f, "output error\n");
     break;
