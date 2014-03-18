@@ -29,7 +29,7 @@ static bool term_is_var(term_table_t *terms, term_t t) {
  * - this returns true if forall i, v[i] is a variable
  *   and the type of t[i] is a subtype of v[i]'s type.
  */
-bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t) {
+bool good_term_subst(term_table_t *terms, uint32_t n, const term_t *v, const term_t *t) {
   type_table_t *types;
   uint32_t i;
   term_t x, u;
@@ -52,7 +52,7 @@ bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t) {
 /*
  * Initialize subst: store the mapping v[i] --> t[i]
  */
-void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term_t *v, term_t *t) {
+void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, const term_t *v, const term_t *t) {
   int_hmap_pair_t *p;
   uint32_t i;
   term_t x;
@@ -98,7 +98,7 @@ void reset_term_subst(term_subst_t *subst) {
  *
  * - if the reset flag is true, reset the cache
  */
-void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bool reset) {
+void extend_term_subst(term_subst_t *subst, uint32_t n, const term_t *v, const term_t *t, bool reset) {
   int_hmap_pair_t *p;
   uint32_t i;
   term_t x;

@@ -103,25 +103,26 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c               \
               int_hash_sets.c int_hash_tables.c int_heap.c int_heap2.c  \
               int_partitions.c int_powers.c int_queues.c int_stack.c    \
               int_vectors.c internalization_table.c lexer.c             \
-              literal_collector.c mark_vectors.c matrices.c memalloc.c  \
-              merge_table.c models.c model_eval.c model_printer.c       \
-              mpq_aux.c object_stores.c offset_equalities.c             \
-              pair_hash_map2.c parser.c pointer_vectors.c polynomials.c \
-              poly_buffer.c poly_buffer_terms.c power_products.c        \
-              pprod_table.c pretty_printer.c pseudo_subst.c             \
-              ptr_array_sort.c ptr_array_sort2.c ptr_hash_classes.c     \
-              ptr_hash_map.c ptr_heap.c ptr_partitions.c ptr_queues.c   \
-              ptr_stack.c ptr_vectors.c rationals.c                     \
-              rational_hash_maps.c rba_buffer_terms.c                   \
-              rdl_floyd_warshall.c reader.c refcount_int_arrays.c       \
-              refcount_strings.c remap_table.c renaming_context.c       \
-              search_parameters.c simplex.c smt_core.c                  \
-              smt_logic_codes.c smt_term_stack.c sparse_arrays.c        \
-              stable_sort.c string_buffers.c string_utils.c             \
-              subst_cache.c subst_context.c symbol_tables.c             \
-              symmetry_breaking.c terms.c term_manager.c term_printer.c \
-              term_stack2.c term_stack_error.c term_substitution.c      \
-              term_to_val.c term_utils.c theory_explanations.c tracer.c \
+              literal_collector.c map_to_model.c mark_vectors.c         \
+              matrices.c memalloc.c merge_table.c models.c model_eval.c \
+              model_printer.c mpq_aux.c object_stores.c                 \
+              offset_equalities.c pair_hash_map2.c parser.c             \
+              pointer_vectors.c polynomials.c poly_buffer.c             \
+              poly_buffer_terms.c power_products.c pprod_table.c        \
+              pretty_printer.c pseudo_subst.c ptr_array_sort.c          \
+              ptr_array_sort2.c ptr_hash_classes.c ptr_hash_map.c       \
+              ptr_heap.c ptr_partitions.c ptr_queues.c ptr_stack.c      \
+              ptr_vectors.c rationals.c rational_hash_maps.c            \
+              rba_buffer_terms.c rdl_floyd_warshall.c reader.c          \
+              refcount_int_arrays.c refcount_strings.c remap_table.c    \
+              renaming_context.c search_parameters.c simplex.c          \
+              smt_core.c smt_logic_codes.c smt_term_stack.c             \
+              sparse_arrays.c stable_sort.c string_buffers.c            \
+              string_utils.c subst_cache.c subst_context.c              \
+              symbol_tables.c symmetry_breaking.c terms.c               \
+              term_manager.c term_printer.c term_stack2.c               \
+              term_stack_error.c term_substitution.c term_to_val.c      \
+              term_utils.c theory_explanations.c tracer.c               \
               tuple_hash_map.c types.c type_printer.c uint_rbtrees.c    \
               use_vectors.c val_to_term.c variable_renaming.c           \
               yices_api.c yices_error.c yices_lexer.c yices_pp.c        \

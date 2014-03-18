@@ -5244,7 +5244,7 @@ bool yices_arith_buffer_is_int(rba_buffer_t *b) {
  * - TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
  * - DEGREE_OVERFLOW if the substitution causes an overflow
  */
-EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t t) {
+EXPORTED term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t) {
   term_subst_t subst;
   term_t u;
 
@@ -5276,7 +5276,7 @@ EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t 
 /*
  * Variant: apply the substitution to m terms t[0 .. m-1]
  */
-EXPORTED int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]) {
+EXPORTED int32_t yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[]) {
   term_subst_t subst;
   term_t u;
   uint32_t i;

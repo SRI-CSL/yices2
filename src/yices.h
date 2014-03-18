@@ -1459,7 +1459,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  * - TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
  * - DEGREE_OVERFLOW if the substitution causes an overflow
  */
-__YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t t);
+__YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t);
 
 
 /*
@@ -1482,7 +1482,7 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
  *
  * Error codes: as above
  */
-__YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]);
+__YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[]);
 
 
 

@@ -57,7 +57,7 @@ typedef struct term_subst_s {
  * - this returns true if forall i, v[i] is a variable or uninterpreted term,
  *   and the type of t[i] is a subtype of v[i]'s type.
  */
-extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t);
+extern bool good_term_subst(term_table_t *terms, uint32_t n, const term_t *v, const term_t *t);
 
 
 /*
@@ -78,7 +78,7 @@ extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *
  * The jump buffer env is not initialized.
  */
 extern void init_term_subst(term_subst_t *subst, term_manager_t *mngr,
-                            uint32_t n, term_t *v, term_t *t);
+                            uint32_t n, const term_t *v, const term_t *t);
 
 
 
@@ -99,7 +99,7 @@ extern void reset_term_subst(term_subst_t *subst);
  * - the type of t[i] must be a substype of v[i]'s type
  * - if the reset flag is true, also resets the cache.
  */
-extern void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bool reset);
+extern void extend_term_subst(term_subst_t *subst, uint32_t n, const term_t *v, const term_t *t, bool reset);
 
 
 /*
