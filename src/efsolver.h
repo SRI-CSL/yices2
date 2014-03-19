@@ -83,13 +83,15 @@
  *
  * Variant for initializing the exist context
  * ------------------------------------------
- * Given constraint
+ * - Given constraint
+ *
  *   (FORALL Y_i: B_i(Y_i) => C_i(X_i, Y_i))
- * we can sample y_s that satisfy B_i(Y_i). For every
- * such y_i, we get a constraint C_i(X_i, y_i) by substitution.
- * Then this constraint depends only on the existential
- * variable, so we can add (not (C_i(X_i, y_i))) to the
- * exists context.
+ *
+ *   we can sample y_s that satisfy B_i(Y_i). For every
+ *   such y_i, we get a constraint C_i(X_i, y_i) by substitution.
+ *   Then this constraint depends only on the existential
+ *   variable, so we can add (C_i(X_i, y_i))) to the
+ *   exists context (i.e., any good X_i must satisfy C_i(X_i, y_i)).
  *
  * Baseline implementation
  * -----------------------

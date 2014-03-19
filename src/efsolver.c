@@ -903,8 +903,6 @@ static void ef_solver_search(ef_solver_t *solver) {
   smt_status_t stat;
   uint32_t i, max;
 
-
-
   max = solver->max_iters;
   i = 0;
 
