@@ -47,9 +47,6 @@
 // FOR EXPORT TO DIMACS
 #include "dimacs_printer.h"
 
-// FOR SHOW IMPLICANT
-#include "literal_collector.h"
-
 // FOR EF-SOLVER
 #include "ef_analyze.h"
 #include "ef_problem.h"
@@ -1152,51 +1149,65 @@ static void print_ef_analyze_code(ef_code_t code) {
 
 
 /*
- * Conversion of get_implicant error code to a string:
- * - 0 means "no error"
- * - the other codes are in -2 to -8 (cf. literal_collector.h)
- * - we negate them here
+ * Error code from eval_in_model:
+ * - code is an error code defined in model_eval.h
  */
-#define NUM_LIT_COLLECT_ERROR_CODES 9
+static void report_eval_error(int32_t code) {
+  switch (code) {
+  case MDL_EVAL_UNKNOWN_TERM:
+    report_error("eval failed: term is not defined in the model\n");
+    break;
 
-static const char * const implicant_code2error[NUM_LIT_COLLECT_ERROR_CODES] = {
-  "no error",                          // no error
-  NULL,                                // not used
-  "internal error",                    // MDL_EVAL_INTERNAL_ERROR
-  "failed to evaluate term",           // MDL_EVAL_UNKNOWN_TERM
-  "free variable(s) in assertion",     // MDL_EVAL_FREEVAR_IN_TERM
-  "assertions contain quantifier(s)",  // MDL_EVAL_QUANTIFIER
-  "assertions contain lambda(s)",      // MDL_EVAL_LAMBDA
-  "eval-in-model failed",              // MDL_EVAL_FAILED
-  "internal error",                    // MDL_EVAL_FORMULA_FALSE
-};
+  case MDL_EVAL_QUANTIFIER:
+    report_error("eval failed: can't evaluate quantifiers\n");
+    break;
 
-// which of the previous codes are bugs
-static const bool implicant_fatal_error[NUM_LIT_COLLECT_ERROR_CODES] = {
-  true,       // no error
-  true,       // not used
-  true,       // MDL_EVAL_INTERNAL_ERROR
-  false,      // MDL_EVAL_UNKNOWN_TERM
-  false,      // MDL_EVAL_FREEVAR_IN_TERM
-  false,      // MDL_EVAL_QUANTIFIER
-  false,      // MDL_EVAL_LAMBDA
-  true,       // MDL_EVAL_FAILED
-  true,       // MDL_EVAL_FORMULA_FALSE
-};
+  case MDL_EVAL_LAMBDA:
+    report_error("eval failed: can't evaluate lambdas\n");
+    break;
 
-static void report_get_implicant_error(int32_t code) {
-  if (code > -2 || code <= -NUM_LIT_COLLECT_ERROR_CODES) {
-    report_bug("unexpected error code from 'show-implicant'");
-  } else {
-    code = -code;
-    if (implicant_fatal_error[code]) {
-      report_bug(implicant_code2error[code]);
-    } else {
-      report_error(implicant_code2error[code]);
-    }
+  case MDL_EVAL_FAILED:
+    report_error("eval failed: high-order terms\n");
+    break;
+
+  case MDL_EVAL_INTERNAL_ERROR:
+    report_bug("Internal error in 'eval'");
+    break;
+
+  case MDL_EVAL_FREEVAR_IN_TERM:
+  default:
+    report_bug("Unexpected error code %"PRId32" in 'eval'", code);
+    break;
   }
-};
+}
 
+/*
+ * Error code from show-implicant
+ */
+static void report_show_implicant_error(error_code_t code) {
+  switch (code) {
+  case EVAL_UNKNOWN_TERM:
+    report_error("eval failed: encountered term undefined in the model\n");
+    break;
+
+  case EVAL_QUANTIFIER:
+    report_error("eval failed: quantified terms\n");
+    break;
+
+  case EVAL_LAMBDA:
+    report_error("eval failed: lambda terms\n");
+    break;
+
+  case EVAL_FREEVAR_IN_TERM:
+  case EVAL_OVERFLOW:
+  case EVAL_FAILED:
+  case EVAL_CONVERSION_FAILED:
+  case EVAL_NO_IMPLICANT:
+  default:
+    report_bug("Unexpected error code %"PRId32" in 'show-implicant'", code);
+    break;
+  }
+}
 
 
 /***************************
@@ -2900,7 +2911,7 @@ static void show_val_in_model(model_t *model, term_t t) {
       fputc('\n', stdout);
     }
   } else {
-    fputs("unknown\n", stdout);
+    report_eval_error(v);
   }
   fflush(stdout);
   delete_evaluator(&evaluator);
@@ -3194,10 +3205,10 @@ static void yices_export_cmd(const char *s) {
 
 
 /*
- * Test the implicant computation
+ * Implicant computation
  */
 static void yices_show_implicant_cmd(void) {
-  ivector_t v;
+  term_vector_t v;
   int32_t code;
 
   if (efmode) {
@@ -3205,13 +3216,10 @@ static void yices_show_implicant_cmd(void) {
   } else if (mode != CTX_MODE_ONECHECK) {
     report_error("(show-implicant) is not supported. Use --mode=one-shot");
   } else if (context_has_model("show-implicant")) {
-    init_ivector(&v, 20);
-    code = get_implicant(model, delayed_assertions.size, delayed_assertions.data, &v);
+    yices_init_term_vector(&v);
+    code = yices_implicant_for_formulas(model, delayed_assertions.size, delayed_assertions.data, &v);
     if (code < 0) {
-      /*
-       * Error or bug in get_implicant
-       */
-      report_get_implicant_error(code);
+      report_show_implicant_error(yices_error_code());
     } else {
       if (yices_pp_term_array(stdout, v.size, v.data, 140, UINT32_MAX, 0, 0) < 0) {
 	/*
@@ -3225,7 +3233,7 @@ static void yices_show_implicant_cmd(void) {
       }
       fflush(stdout);
     }
-    delete_ivector(&v);
+    yices_delete_term_vector(&v);
   }
 }
 
