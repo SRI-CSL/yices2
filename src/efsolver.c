@@ -838,6 +838,16 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   uint32_t i, n;
 
   n = ef_prob_num_constraints(solver->prob);
+
+  /*
+   * Special case: if there are no universal constraints
+   * we return SAT immediately.
+   */
+  if (n == 0) {
+    solver->status = EF_STATUS_SAT;
+    return;
+  }
+
   i = solver->scan_idx;
   do {
     status = ef_solver_test_exists_model(solver, i);
