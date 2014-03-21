@@ -314,9 +314,9 @@ $(dist_dir):
 $(static_dist_dir):
 	$(MKDIR_P) $(static_dist_dir)
 
-binary-distribution: doc dist tarfile
+binary-distribution: dist tarfile
 
-static-distribution: doc static-dist static-tarfile
+static-distribution: static-dist static-tarfile
 
 dist: build_subdirs version $(dist_dir)
 	@ echo "=== Preparing binary distribution ==="
@@ -327,7 +327,7 @@ static-dist: build_subdirs version $(static_dist_dir)
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
 
 
-tarfile: $(distributions)
+tarfile: $(distributions) doc
 	@ echo "=== Building $(bindist_tarfile) ==="
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
@@ -352,7 +352,7 @@ tarfile: $(distributions)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
-static-tarfile: $(distributions)
+static-tarfile: $(distributions) doc
 	@ echo "=== Building $(static_bindist_tarfile) ==="
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
