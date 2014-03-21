@@ -265,6 +265,18 @@ static-smt2: build_subdirs version
 
 
 
+#
+# Documentation: for now we just build manual.pdf
+# this assumes latexmk is available
+#
+doc:
+	@ echo "=== Building the documentation ==="
+	(cd doc/manual ; latexmk -pdf manual)
+
+documentation manual: doc
+
+.PHONY: doc documentation manual
+
 
 #
 # Binary distribution:
@@ -302,9 +314,9 @@ $(dist_dir):
 $(static_dist_dir):
 	$(MKDIR_P) $(static_dist_dir)
 
-binary-distribution: dist tarfile
+binary-distribution: doc dist tarfile
 
-static-distribution: static-dist static-tarfile
+static-distribution: doc static-dist static-tarfile
 
 dist: build_subdirs version $(dist_dir)
 	@ echo "=== Preparing binary distribution ==="
@@ -508,7 +520,7 @@ srcdist_tarfile= yices-$(YICES_VERSION)-src.tar.gz
 # - on CSL ungoliant: make sure /csl/bin is in the path before /bin
 #   and /usr/bin
 #
-source-distribution: $(distributions)
+source-distribution: $(distributions) doc
 	@ echo "=== Building $(srcdist_tarfile) ==="
 	rm -f -r $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)
