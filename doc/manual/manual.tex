@@ -99,9 +99,9 @@ Solaris~2.10 (Sparc 64bits)  & \\
 
 \section{Content of  the Distribution}
 
-The distribution includes the Yices executables, the Yices library and
-header files, and examples and documentation.  Four solvers are currently included in the
-distribution:
+The distribution includes the Yices binaries, the Yices library and
+header files, and examples and documentation.  Four solvers are
+currently included in the distribution:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -2622,8 +2622,8 @@ SMT-LIB~1.2 notations.
 
 To process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver
 instead of \texttt{yices}. This tool is included in the \texttt{bin}
-directory in the distribution. In the Windows or Cygwin distribution,
-it is called \texttt{yices-smt2.exe}.
+directory in the distribution. In the Windows and Cygwin
+distributions, it is called \texttt{yices-smt2.exe}.
 
 \medskip\noindent
 The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
@@ -3015,7 +3015,7 @@ constructors return the constant \texttt{NULL\_TERM}; type
 constructors return \texttt{NULL\_TYPE}. Other functions either return
 a negative integer or the \texttt{NULL} pointer. In addition,
 diagnostic information is stored in a global data structure of type
-\texttt{error\_report\_t} (defined in \texttt{yices\_types.h}. The API
+\texttt{error\_report\_t} (defined in \texttt{yices\_types.h}). The API
 provides functions to help diagnosis by printing error messages or
 consulting the error report structure.
 
