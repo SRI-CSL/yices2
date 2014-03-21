@@ -6,4 +6,5 @@
 /manual.out
 /manual.toc
 /manual.pdf
+/manual.fdb_*
 /texput.log
