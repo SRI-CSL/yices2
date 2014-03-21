@@ -306,13 +306,6 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
 
 
 
-/*
- * Global pointer: either equal to opcode2yices_string or to opcode2smt_string.
- */
-static const char * const *opcode2string;
-
-
-
 
 /*
  * BUG in Yices: Print an error message then exit
@@ -342,8 +335,9 @@ void report_bug(const char *s) {
  * - tstack->error_op = operation being executed
  * - tstack->error_loc = location of the argument expression (approximative)
  *   that triggered the error
+ * - opcode2string = either opcoode2yicse_string or opecode2smt_string
  */
-static void yices_error(FILE *f, const char *name, tstack_t *tstack) {
+static void yices_error(FILE *f, const char *name, tstack_t *tstack, const char * const opcode2string[]) {
   if (name != NULL) {
     fprintf(f, "%s: ", name);
   }
@@ -358,11 +352,11 @@ static void yices_error(FILE *f, const char *name, tstack_t *tstack) {
 /*
  * Print an error message for the given exception
  */
-static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
+static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception, const char * const opcode2string[]) {
   assert(exception != TSTACK_NO_ERROR);
 
   if (exception == TSTACK_YICES_ERROR) {
-    yices_error(f, name, tstack);
+    yices_error(f, name, tstack, opcode2string);
     return;
   }
 
@@ -453,7 +447,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * - severity 1: means bug in SMT parser or something related
  * - severity 2: means bug in term_stack or Yices parser
  */
-static uint8_t severity[NUM_YICES_ERRORS] = {
+static const uint8_t severity[NUM_YICES_ERRORS] = {
   2, // NO_ERROR (should never be raised)
   2, // INVALID_TYPE
   2, // INVALID_TERM
@@ -527,8 +521,7 @@ static inline bool fatal_smt_error(error_code_t error) {
  * internal to Yices.
  */
 void term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
-  opcode2string = opcode2yices_string;
-  base_term_stack_error(f, name, tstack, exception);
+  base_term_stack_error(f, name, tstack, exception, opcode2yices_string);
   if (exception == TSTACK_YICES_ERROR && fatal_error(yices_error_code())) {
     report_bug("Internal error");
   }
@@ -540,9 +533,7 @@ void term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_
  * SMT-LIB input (e.g., error codes involving tuples).
  */
 void term_stack_smt_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
-  opcode2string = opcode2smt_string;
-  base_term_stack_error(f, name, tstack, exception);
-
+  base_term_stack_error(f, name, tstack, exception, opcode2smt_string);
   if (exception == TSTACK_YICES_ERROR && fatal_smt_error(yices_error_code())) {
     report_bug("Internal error (SMT-LIB)");
   }
