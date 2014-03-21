@@ -271,7 +271,13 @@ static-smt2: build_subdirs version
 #
 doc:
 	@ echo "=== Building the documentation ==="
-	(cd doc/manual ; latexmk -pdf manual)
+	@ (cd doc/manual ; \
+          (latexmk -pdf manual || \
+            (echo "===================================="; \
+             echo "  WARNING: can't run latexmk"; \
+             echo "   manual.pdf may be out-of-date"; \
+             echo "===================================="; )))
+
 
 documentation manual: doc
 
