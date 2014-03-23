@@ -529,7 +529,7 @@ static void project_model(int32_t *var, term_t *value, term_t *subvar, term_t *s
  * Project model onto a subset of the existential variables
  * - value[i] = exist model = array of constant values
  * - evar = an array of n existential variables: every element of evar occurs in ef->all_evars
- * - then this function projects builds the model restricted to evar into array eval
+ * - then this function builds the model restricted to evar into array eval
  *
  * Assumption:
  * - value[i] = value mapped to ef->all_evars[i] for i=0 ... num_evars-1
@@ -563,7 +563,7 @@ static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar
  */
 
 /*
- * Sampling for the i-th constrainy in solver->prob
+ * Sampling for the i-th constraint in solver->prob
  * - search for at most max_samples y's that satisfy the assumption of constraint i in prob
  * - for each such y, add a new constraint to the exist context ctx
  * - max_samples = bound on the number of samples to take (must be positive)
@@ -571,8 +571,8 @@ static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar
  * Constraint i is of the form
  *    (FORALL Y_i: B_i(Y_i) => C(X_i, Y_i))
  * - every sample is a model y_i that satisfies B_i.
- * - for each sample, we learn that any X_i such that not C(X_i, y_i) holds
- *   can't be a good candidate. So we add the constraint not C(X_i, y_i) to ctx.
+ * - for each sample, we learn that any good candidate X_i must satisfy C(X_i, y_i).
+ *   So we add the constraint  C(X_i, y_i) to ctx.
  *
  * Update the solver->status to
  * - EF_STATUS_UNSAT if the exits context is trivially unsat
@@ -751,7 +751,7 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
  *   and the values stored in uvalue_aux.
  *
  * This function adds a constraint to the exists_context that will remove the
- *  current exists model:
+ * current exists model:
  * - if solver->option is EF_NOGEN_OPTION, the new constraint is
  *   of the form (or (/= var[0] eval[k0) ... (/= var[k-1] eval[k-1]))
  *   where var[0 ... k-1] are the exist variables of constraint i
@@ -882,7 +882,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 /*
  * Sample exists models
  * - stop when we find one that's not refuted by the forall constraints
- * - of when we reach the iteration bound
+ * - or when we reach the iteration bound
  *
  * Result:
  * - solver->status = EF_STATUS_ERROR if something goes wrong
@@ -894,7 +894,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
  * - solver->status = EF_STATUS_SAT if a good model is found
  *
  * In the later case,
- * - the model is stores in solver->exists_model
+ * - the model is stored in solver->exists_model
  * - also it's available as a mapping form solver->prob->evars to solver->evalues
  *
  * Also solver->iters stores the number of iterations used.
