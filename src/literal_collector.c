@@ -349,7 +349,7 @@ static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, comp
   uint32_t i, n;
 
   n = tuple->arity;
-  assert(n >= 3);
+  assert(n >= 1);
 
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
