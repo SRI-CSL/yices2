@@ -458,12 +458,14 @@ void prop_table_reduce(prop_table_t *table) {
   // delete all rows of activity < threshold that are not locked
   for (i=0; i<n; i++) {
     p = table->row[i];
-    if (p != NULL && p->activity < threshold && p->lock != null_literal) {
-      delete_prop_row(p);
-      table->row[i] = NULL;
-      ivector_push(&table->free_rows, i);
-    } else {
-      attach_row(table, p, i);
+    if (p != NULL) {
+      if (p->activity < threshold && p->lock != null_literal) {
+	delete_prop_row(p);
+	table->row[i] = NULL;
+	ivector_push(&table->free_rows, i);
+      } else {
+	attach_row(table, p, i);
+      }
     }
   }
 }
