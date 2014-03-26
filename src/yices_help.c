@@ -1410,11 +1410,61 @@ static const help_record_t help_data[] = {
     "of these literals imply the assertion.\n",
     NULL },
 
-  // END MARKER: index 146
+  // ef-flatten-iff: index 146
+  { HPARAM,
+    "(set-param ef-flatten-iff [boolean])",
+    "Enable/disbale flattening of iff in (ef-solve)",
+    "If this parameter is true, the following rewriting rules\n"
+    "are applied to the assertions when (ef-solve) is called:\n"
+    "In a disjunction, (iff p q) --> (or (and p q) (and (not p) (not q)))\n"
+    "In a conjunction, (iff p q) --> (and (=> p q) (=> q p))\n",
+    NULL },
+
+  // ef-flatten-ite: index 147
+  { HPARAM,
+    "(set-param ef-flatten-iff [boolean])",
+    "Enable/disbale flattening of iff in (ef-solve)",
+    "If this parameter is true, the following rewriting rules\n"
+    "are applied to the assertions when (ef-solve) is called:\n"
+    "In a disjunction, (ite p q r) --> (or (and p q) (and (not p) r))\n"
+    "In a conjunction, (ite p q r) --> (and (=> p q) (=> (not p) r))\n",
+    NULL },
+
+  // ef-gen-mode: index 148
+  { HPARAM,
+    "(set-param ef-gen-mode [mode])",
+    "Select the generalization heuristic for the ef-solver",
+    "Currently, two generalization heuristics can be selected\n"
+    "   none         --> no generalization\n"
+    "   substitution --> generalize by substitution\n",
+    NULL },
+
+  // ef-max-iters: index 149
+  { HPARAM,
+    "(set-param ef-max-iters [integer])",
+    "Set a limit on the number of ef-solver iteration",
+    "The ef-solver runs for a finite number of iterations.\n"
+    "If the limit is reached, (ef-solve) will return 'unknown'\n"
+    "(i.e., it could not find a solution or show that the constraints\n"
+    "have no solution).\n",
+    NULL },
+
+  // ef-max-samples: index 150
+  { HPARAM,
+    "(set-param ef-max-samples [integer])",
+    "Limit the number of samples when inititalizing the ef-solver",
+    "The first phase of ef-solving consists of learning constraints\n"
+    "on the existential variables. The current heuristics is based\n"
+    "on sampling the universal variables to learn these constraints.\n"
+    "The ef-max-samples parameters is a bound on the number of samples\n"
+    "per universal constraints. If the bound is 0, learning is disabled).\n",
+    NULL },
+
+  // END MARKER: index 151
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 146
+#define END_HELP_DATA 151
 
 
 
@@ -1831,6 +1881,11 @@ static const help_index_t help_index[] = {
   { "dyn-bool-ack-threshold", NULL, 128, help_basic },
   { "eager-lemmas", NULL, 130, help_basic },
   { "echo", NULL, 12, help_basic },
+  { "ef-flatten-iff", NULL, 146, help_basic },
+  { "ef-flatten-ite", NULL, 147, help_basic },
+  { "ef-gen-mode", NULL, 148, help_basic },
+  { "ef-max-iters", NULL, 149, help_basic },
+  { "ef-max-samples", NULL, 150, help_basic },
   { "ef-solve", NULL, 141, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
