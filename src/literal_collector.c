@@ -34,7 +34,6 @@
 
 #include <stdbool.h>
 
-#include "assert_utils.h"
 #include "literal_collector.h"
 
 
@@ -50,6 +49,7 @@ void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
   init_int_hmap(&collect->cache, 0);
   init_int_hset(&collect->lit_set, 0);
   init_istack(&collect->stack);
+  collect->options = LIT_COLLECTOR_DEFAULT_OPTIONS;
 }
 
 
@@ -298,47 +298,182 @@ static bool inequal_array_bvpoly(term_t *a, bvpoly_t *p) {
 /*
  * Process a term t: collect literals of t and return an atomic term
  * equal to t modulo the literals.
+ *
+ * - if keep_term is true, then Booleans are treated as ordinary terms:
  */
 static term_t lit_collector_visit(lit_collector_t *collect, term_t t);
 
 
-/*
- * Processing of terms:
- * - input = term t + descriptor of t
- *
- * For arithmetic equalities, we try to avoid (not (t1 == 0)) so we either
- * add the atom (t1 > 0) or (t1 < 0) depending on the sign of t1 in the model.
- * Similarly, we avoid (not (t1 == t2)) by adding the atom (t1 < t2) or (t2 < t1)
- * depending on the values of t1 and t2 in the model.
- */
 
-// t is (u == 0)
+/*
+ * Processing t := (u == 0)
+ * - if ELIM_ARITH_NEQ0 is enabled and t is false is the model,
+ *   we replace (u /= 0) by either (u < 0) or (u > 0) depending
+ *   on the sign of u in the model.
+ */
 static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
   int sgn;
 
   v = lit_collector_visit(collect, u);
-  sgn = lit_collector_sign_in_model(collect, v);
+  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
+    sgn = lit_collector_sign_in_model(collect, v);
+    if (sgn < 0) {
+      // atom is (v < 0)
+      t = mk_arith_term_lt0(&collect->manager, v);
+    } else if (sgn  == 0) {
+      // atom is (v == 0);
+      if (v != u) {
+	t = mk_arith_term_eq0(&collect->manager, v);
+      }
+    } else {
+      // atom is (v > 0)
+      t = mk_arith_term_gt0(&collect->manager, v);
+    }
 
-  if (sgn < 0) {
-    // atom is (v < 0)
-    t = mk_arith_term_lt0(&collect->manager, v);
-  } else if (sgn  == 0) {
-    // atom is (v == 0);
+    // we know that t is true in the model
+    lit_collector_add_literal(collect, t);
+
+    return true_term;
+
+  } else {
+    // keep (u == 0) as a literal
     if (v != u) {
       t = mk_arith_term_eq0(&collect->manager, v);
     }
+    return register_atom(collect, t);
+  }
+}
+
+
+/*
+ * Arithmetic atom: (t1 == t2)
+ * - if ELIM_ARITH_NEQ is enabled and (t1 != t2) in the model then we replace
+ *   (not (t1 == t2)) by either (t1 < t2) or (t1 > t2)
+ */
+static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
+  term_t t1, t2;
+  int cmp;
+
+  assert(eq->arity == 2);
+  t1 = lit_collector_visit(collect, eq->arg[0]);
+  t2 = lit_collector_visit(collect, eq->arg[1]);
+
+  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ)) {
+    cmp = arith_cmp_in_model(collect, t1, t2);
+    if (cmp < 0) {
+      // atom (t1 < t2)
+      t = mk_arith_lt(&collect->manager, t1, t2);
+    } else if (cmp == 0) {
+      // atom (t1 == t2)
+      if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
+	t = mk_arith_eq(&collect->manager, t1, t2);
+      }
+    } else {
+      // atom (t1 > t2)
+      t = mk_arith_gt(&collect->manager, t1, t2);
+    }
+
+    lit_collector_add_literal(collect, t);
+
+    return true_term;
+
   } else {
-    // atom is (v > 0)
-    t = mk_arith_term_gt0(&collect->manager, v);
+    // keep the atom as (t1 == t2)
+    if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
+      t = mk_arith_eq(&collect->manager, t1, t2);
+    }
+
+    return register_atom(collect, t);
+  }
+}
+
+
+/*
+ * (distinct t1 ... t_n)
+ * We could do more:
+ * 1) if (distinct t1 ... t_n) is false in the model, we could
+ *    search for two terms t_i and t_j that are equal in the model then collect the
+ *    atom (eq t_i t_j) instead of (not (distinct t1 ... t_n)).
+ * 2) if (distinct t1 ... t_n) is true in the model and all t_i's are arithmetic
+ *    terms, then we could sort them and generate the atoms:
+ *    (< t_1 t_2) .... (< t_{n-1} t_n) (modulo permutation of the indices.
+ */
+static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, composite_term_t *distinct) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = distinct->arity;
+  assert(n >= 3);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, distinct->arg[i]);
   }
 
-  // we know that t is true in the model
-  lit_collector_add_literal(collect, t);
+  if (inequal_arrays(a, distinct->arg, n)) {
+    t = mk_distinct(&collect->manager, n, a);
+  }
 
-  return true_term;
-  //  return register_atom(collect, t);
+  free_istack_array(&collect->stack, a);
+
+  return register_atom(collect, t);
 }
+
+
+/*
+ * (eq t1 t2): special processing if t1 and t2 are Boolean and if one of them
+ * is an uninterpreted term.
+ */
+static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
+  term_t u1, u2;
+  term_t t1, t2;
+
+  assert(eq->arity == 2);
+
+  t1 = eq->arg[0];
+  t2 = eq->arg[1];
+
+  if (lit_collector_option_enabled(collect, KEEP_BOOL_EQ) &&
+      is_boolean_term(collect->terms, t1)) {
+    /*
+     * Special processing: for Boolean equality
+     * attempt to keep (eq t1 t2) as an atom.
+     *
+     * The default is to treat it as a disjunction:
+     *   (or (and t1 t2) (and (not1 t1) (not t2)))
+     */
+    assert(is_boolean_term(collect->terms, t2));
+
+    if (term_kind(collect->terms, t1) == UNINTERPRETED_TERM) {
+      u1 = t1;
+      u2 = lit_collector_visit(collect, t2); // FIXME: special processing here
+      goto build_atom;
+    }
+
+    if (term_kind(collect->terms, t2) == UNINTERPRETED_TERM) {
+      u1 = lit_collector_visit(collect, t1); // FIXME TOO
+      u2 = t2;
+      goto build_atom;
+    }
+  }
+
+  /*
+   * Default processing: if KEEP_BOOL_EQ is disabled or t1 and t2 are
+   * not Boolean, or if neither t1 nor t2 is uninterpreted.
+   */
+  u1 = lit_collector_visit(collect, t1);
+  u2 = lit_collector_visit(collect, t2);
+
+ build_atom:
+  if (t1 != u1 || t2 != u2) {
+    t = mk_eq(&collect->manager, u1, u2);
+  }
+
+  return register_atom(collect, t);
+}
+
+
 
 // t is (u >= 0)
 static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, term_t u) {
@@ -437,51 +572,6 @@ static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, comp
   return t;
 }
 
-// (eq t1 t2)
-static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
-  term_t t1, t2;
-
-  assert(eq->arity == 2);
-  t1 = lit_collector_visit(collect, eq->arg[0]);
-  t2 = lit_collector_visit(collect, eq->arg[1]);
-  if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
-    t = mk_eq(&collect->manager, t1, t2);
-  }
-
-  return register_atom(collect, t);
-}
-
-/*
- * (distinct t1 ... t_n)
- * We could do more:
- * 1) if (distinct t1 ... t_n) is false in the model, we could
- *    search for two terms t_i and t_j that are equal in the model then collect the
- *    atom (eq t_i t_j) instead of (not (distinct t1 ... t_n)).
- * 2) if (distinct t1 ... t_n) is true in the model and all t_i's are arithmetic
- *    terms, then we could sort them and generate the atoms:
- *    (< t_1 t_2) .... (< t_{n-1} t_n) (modulo permutation of the indices.
- */
-static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, composite_term_t *distinct) {
-  term_t *a;
-  uint32_t i, n;
-
-  n = distinct->arity;
-  assert(n >= 3);
-
-  a = alloc_istack_array(&collect->stack, n);
-  for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, distinct->arg[i]);
-  }
-
-  if (inequal_arrays(a, distinct->arg, n)) {
-    t = mk_distinct(&collect->manager, n, a);
-  }
-
-  free_istack_array(&collect->stack, a);
-
-  return register_atom(collect, t);
-}
-
 // t is (or t1 ... t_n)
 static term_t lit_collector_visit_or(lit_collector_t *collect, term_t t, composite_term_t *or) {
   term_t u;
@@ -526,37 +616,6 @@ static term_t lit_collector_visit_xor(lit_collector_t *collect, term_t t, compos
   }
   return bool2term(b);
 }
-
-
-// (arith-eq t1 t2)
-static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
-  term_t t1, t2;
-  int cmp;
-
-  assert(eq->arity == 2);
-  t1 = lit_collector_visit(collect, eq->arg[0]);
-  t2 = lit_collector_visit(collect, eq->arg[1]);
-
-  cmp = arith_cmp_in_model(collect, t1, t2);
-  if (cmp < 0) {
-    // atom (t1 < t2)
-    t = mk_arith_lt(&collect->manager, t1, t2);
-  } else if (cmp == 0) {
-    // atom (t1 == t2)
-    if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
-      t = mk_arith_eq(&collect->manager, t1, t2);
-    }
-  } else {
-    // atom (t1 > t2)
-    t = mk_arith_gt(&collect->manager, t1, t2);
-  }
-
-  //  return register_atom(collect, t);
-  lit_collector_add_literal(collect, t);
-
-  return true_term;
-}
-
 
 // (bv-array t1 ... tn)
 static term_t lit_collector_visit_bvarray(lit_collector_t *collect, term_t t, composite_term_t *bv) {

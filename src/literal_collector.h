@@ -29,6 +29,28 @@
  * Then to get the implicant for a formula f, we process f, the simplified
  * term should be true and the set of literals collected imply f.
  *
+ *
+ * Options
+ * -------
+ * Several options control the type of atoms/literals produced.
+ * - ELIM_ARITH_NEQ0: eliminate arithmetic disequalities.
+ *   If atom (= t 0) is false in the model, then we normally add its
+ *   negation (not (t = 0)) to the set of literals.
+ *   is replaced by either (< t 0) or (> t 0), whichever is true in the model.
+ *
+ * - ELIM_ARITH_NEQ: eliminate binary arithmetic disequalities.
+ *   If atom (= t1 t2) is false, then rewrite it to either (< t1 t2) or (> t1 t2)
+ *
+ * - ELIM_ARITH_DISTINCT: generalize ELIM_ARITH_NEQ to distinct
+ *   If (distinct t1 t2 .... t_n) is true, then order the t_i's in increasing
+ *   order (based on their value in the model) and generate
+ *    (< t1 t2) (< t2 t3) ... (< t_{n-1} t_n)
+ *
+ * - ELIM_NOT_DISTINCT: if (distinct t_1 ... t_n) is false, then search for
+ *   t_i and t_j that are equal in the model and generate (eq t_i t_j)
+ *
+ * - KEEP_BOOL_EQ: treat (eq t1 t2) where t1 and t2 are Boolean as an
+ *   atom if t1 or t2 is a Boolean variable.
  */
 
 #ifndef __LITERAL_COLLECTOR_H
@@ -36,6 +58,7 @@
 
 #include <stdint.h>
 #include <setjmp.h>
+#include <assert.h>
 
 #include "int_stack.h"
 #include "int_hash_sets.h"
@@ -57,6 +80,25 @@ enum {
 };
 
 
+/*
+ * Option codes: each option sets a bit in a 32bit option word
+ */
+#define ELIM_ARITH_NEQ0     ((uint32_t) 0x1)
+#define ELIM_ARITH_NEQ      ((uint32_t) 0x2)
+#define ELIM_ARITH_DISTINCT ((uint32_t) 0x4)
+#define ELIM_NOT_DISTINCT   ((uint32_t) 0x8)
+#define KEEP_BOOL_EQ        ((uint32_t) 0x10)
+
+/*
+ * Mask: five low-order bits
+ */
+#define LIT_COLLECTOR_OPTION_MASK  ((uint32_t) 0x1F)
+
+/*
+ * Default: all options are disabled
+ */
+#define LIT_COLLECTOR_DEFAULT_OPTIONS ((uint32_t) 0)
+
 
 /*
  * Collector structure:
@@ -67,6 +109,7 @@ enum {
  * - cache = keeps the simplified form of all visited terms
  * - lit_set = set of literals
  * - stack for recursive processing of terms
+ * - options = option word
  * - env = jump buffer for exceptions
  */
 typedef struct lit_collector_s {
@@ -77,13 +120,14 @@ typedef struct lit_collector_s {
   int_hmap_t cache;
   int_hset_t lit_set;
   int_stack_t stack;
+  uint32_t options;
   jmp_buf env;
 } lit_collector_t;
 
 
 
 /*
- * Initialization for model mdl
+ * Initialization for model mdl + default options
  */
 extern void init_lit_collector(lit_collector_t *collect, model_t *mdl);
 
@@ -120,6 +164,28 @@ extern term_t lit_collector_process(lit_collector_t *collect, term_t t);
  *   implicant to vector v  (v is not reset).
  */
 extern int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v);
+
+
+/*
+ * Set/clear options (must be done before calling get_implicatn)
+ */
+static inline void lit_collector_set_option(lit_collector_t *collect, uint32_t opt) {
+  assert((opt & ~LIT_COLLECTOR_OPTION_MASK) == 0);
+  collect->options |= opt;
+}
+
+static inline void lit_collector_clear_option(lit_collector_t *collect, uint32_t opt) {
+  assert((opt & ~LIT_COLLECTOR_OPTION_MASK) == 0);
+  collect->options &= ~opt;
+}
+
+
+/*
+ * Check which option(s) are enabled
+ */
+static inline bool lit_collector_option_enabled(lit_collector_t *collect, uint32_t opt) {
+  return (collect->options & opt) != 0;
+}
 
 
 #endif /* __LITERAL_COLLECTOR_H */
