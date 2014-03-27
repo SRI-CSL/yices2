@@ -51,7 +51,7 @@ typedef struct subst_triple_s {
 /*
  * Bank for triple allocation:
  * - list of blocks
- * - each block contains ST_BANK_SIZE triple
+ * - each block contains ST_BANK_SIZE triples
  * We want to be able so scan the all set of triples in
  * chronological order.
  */
