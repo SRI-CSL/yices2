@@ -54,8 +54,8 @@
 
 #include "int_queues.h"
 #include "int_stack.h"
-#include "mark_vector.h"
-#include "int_hash_maps.h"
+#include "mark_vectors.h"
+#include "int_hash_map.h"
 #include "terms.h"
 #include "term_manager.h"
 
@@ -76,12 +76,83 @@ typedef struct full_subst_s {
   int_hmap_t map;
   mark_vector_t mark;
   int_queue_t queue;
-  int_hamp_t cache;
+  int_hmap_t cache;
   int_stack_t stack;
   jmp_buf env;
 } full_subst_t;
 
 
-#endif /* __FULL_SUBST_H */
+/*
+ * Initialization:
+ * - mngr = term_manager to use
+ */
+extern void init_full_subst(full_subst_t *subst, term_manager_t *mngr);
 
+
+/*
+ * Delete the whole thing
+ */
+extern void delete_full_subst(full_subst_t *subst);
+
+
+
+/*
+ * CONSTRUCTION
+ */
+
+/*
+ * Check what's mapped to x
+ * - x must be an uninterpreted term in subst->terms
+ * - return  NULL_TERM if nothing is mapped to x
+ */
+extern term_t full_subst_get_map(full_subst_t *subst, term_t x);
+
+/*
+ * Check whether x is mapped to something
+ */
+static inline bool full_subst_is_mapped(full_subst_t *subst, term_t x) {
+  return full_subst_get_map(subst, x) < 0;
+}
+
+/*
+ * Add mapping [x --> t] to subst
+ * - x and t must be valid terms in subst->terms
+ * - x must be an uninterpreted term
+ *   t must be a ground term
+ * - t's type must be a subtyoe of x's type
+ * - x must not be mapped to anything yet
+ */
+extern void full_subst_add_map(full_subst_t *subst, term_t x, term_t t);
+
+/*
+ * Check whether the map [x --> t] can be added to subst
+ * - x and t must be as above
+ * - return false if x is already mapped to something else
+ *   or if the map x --> t would create a cycle
+ */
+extern bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t);
+
+
+/*
+ * Remove substitution cycles (if any)
+ */
+extern void full_subst_remove_cycles(full_subst_t *subst);
+
+
+/*
+ * APPLY TO TERMS
+ */
+
+/*
+ * Apply subst to term t
+ * - t must be a valid term in subst->terms
+ * - the returned value is negative (error code) if something goes
+ *   wrong.
+ */
+extern term_t full_subst_apply(full_subst_t *subst, term_t t);
+
+
+
+
+#endif /* __FULL_SUBST_H */
 
