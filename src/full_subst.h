@@ -119,7 +119,7 @@ static inline bool full_subst_is_mapped(full_subst_t *subst, term_t x) {
  * - x and t must be valid terms in subst->terms
  * - x must be an uninterpreted term
  *   t must be a ground term
- * - t's type must be a subtyoe of x's type
+ * - t's type must be a subtype of x's type
  * - x must not be mapped to anything yet
  */
 extern void full_subst_add_map(full_subst_t *subst, term_t x, term_t t);
