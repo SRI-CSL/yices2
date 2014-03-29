@@ -42,6 +42,7 @@ void delete_full_subst(full_subst_t *subst) {
 
 
 
+#ifndef NDEBUG
 /*
  * Simple check on mapping: [x --> t]
  * - x must be uninterpreted
@@ -58,6 +59,7 @@ static bool good_map_types(full_subst_t *subst, term_t x, term_t t) {
     term_kind(terms, x) == UNINTERPRETED_TERM &&
     is_subtype(terms->types, term_type(terms, t), term_type(terms, x));
 }
+#endif
 
 
 /*
@@ -94,7 +96,7 @@ term_t full_subst_get_map(full_subst_t *subst, term_t x) {
 void full_subst_add_map(full_subst_t *subst, term_t x, term_t t) {
   int_hmap_pair_t *r;
 
-  assert(good_map_type(subst, x, t));
+  assert(good_map_types(subst, x, t));
 
   r = int_hmap_get(&subst->map, x);
   assert(r->val < 0);
