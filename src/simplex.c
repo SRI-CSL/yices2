@@ -4306,11 +4306,13 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
       break;
     }
 
-    loops ++;
-    if ((loops & 0xFFF) == 0) {
-      printf(".");
-      fflush(stdout);
+    if (tracing(solver->core->trace, 15)) {
+      loops ++;
+      if ((loops & 0xFFF) == 0) {
+	tputs(solver->core->trace, 15, ".");
+      }
     }
+
     x = int_heap_get_min(&solver->infeasible_vars);
     if (x < 0) {
       feasible = true;
@@ -4374,8 +4376,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
         if (repeats > bthreshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
-	  printf("b");
-	  fflush(stdout);
+	  tputs(solver->core->trace, 15, "b");
         }
       }
     }
@@ -4389,9 +4390,10 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   }
   ivector_reset(leaving_vars);
 
-  if (loops > 0xFFF || solver->use_blands_rule) {
-    printf("\n");
-    fflush(stdout);
+  if (tracing(solver->core->trace, 15)) {
+    if (loops > 0xFFF || solver->use_blands_rule) {
+      tnewline(solver->core->trace, 15);
+    }
   }
 
 #if TRACE

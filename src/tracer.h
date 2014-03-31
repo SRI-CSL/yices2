@@ -51,6 +51,15 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
 
 
 /*
+ * Check whether the verbosity level is at least lvl
+ * - return false if trace is NULL
+ */
+static inline bool tracing(tracer_t *tracer, uint32_t lvl) {
+  return tracer != NULL && tracer->vlevel >= lvl;
+}
+
+
+/*
  * Change output file:
  * - f must be open and writable
  * - close the current file if it's not stderr
