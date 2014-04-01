@@ -62,17 +62,6 @@
 #include "yices_pp.h"
 
 
-// PROVISIONAL (FOR BENCHMARKING SMT2)
-#include <inttypes.h>
-#include "context.h"
-#include "simplex.h"
-#include "idl_floyd_warshall.h"
-#include "rdl_floyd_warshall.h"
-#include "fun_solver.h"
-#include "bvsolver.h"
-// END
-
-
 
 /****************************
  *  GLOBAL DATA STRUCTURES  *
