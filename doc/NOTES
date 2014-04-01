@@ -879,7 +879,7 @@ yices_limits.h:             Hardcoded limits on term/type representations
 
 yices.h:                    (public) API
 
-<yices_exit_codes.h:         Constants passed to the 'exit' system call on unrecoverable errors
+yices_exit_codes.h:         Constants passed to the 'exit' system call on unrecoverable errors
 
 yices_api.c:                Implements all API functions and more
 
