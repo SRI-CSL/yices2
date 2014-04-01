@@ -8,9 +8,9 @@
 
 #include <stdio.h>
 
+#include "int_array_hsets.h"
 #include "terms.h"
 #include "bvlogic_buffers.h"
-#include "free_var_collector.h"
 #include "context.h"
 
 
@@ -446,8 +446,12 @@ extern bool yices_arith_buffer_is_int(rba_buffer_t *b);
  */
 
 /*
- * Get the free variables of t as a harray object (defined in free_var_collector.h)
+ * Get the free variables of t as a harray object
+ * (defined in int_array_hsets.h)
  * - return NULL if t is ground
+ * - otherwise, the result is a harray a:
+ *   a->nelems = number of variables (n)
+ *   a->data[0 ... n-1] = variables of t in increasing order
  */
 extern harray_t *yices_free_vars_of_term(term_t t);
 
@@ -506,13 +510,6 @@ extern model_t *yices_new_model(bool keep_subst);
  */
 extern void yices_reset_tables(void);
 
-
-/*
- * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING
- */
-extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
-extern void yices_show_statistics(FILE *f, context_t *ctx);
-extern void yices_dump_context(FILE *f, context_t *ctx);
 
 
 #endif /* __YICES_EXTENSIONS_H */
