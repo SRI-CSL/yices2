@@ -3016,7 +3016,7 @@ constructors return the constant \texttt{NULL\_TERM}; type
 constructors return \texttt{NULL\_TYPE}. Other functions either return
 a negative integer or the \texttt{NULL} pointer. In addition,
 diagnostic information is stored in a global data structure of type
-\texttt{error\_report\_t} (defined in \texttt{yices\_types.h}. The API
+\texttt{error\_report\_t} (defined in \texttt{yices\_types.h}). The API
 provides functions to help diagnosis by printing error messages or
 consulting the error report structure.
 
@@ -3025,7 +3025,7 @@ consulting the error report structure.
 
 \section{A Minimal Example}
 
-The distribution includes four include files:
+The distribution includes four header files:
 \begin{itemize}
 \item \texttt{yices\_types.h} defines all types that are part of the API,
 including a data structure used for error reporting and a set of error codes.
@@ -3033,7 +3033,7 @@ including a data structure used for error reporting and a set of error codes.
   limits on the sizes of various constructs. For example, this file
   defined the maximal arity of functions and the maximal size of
   bitvector types supported by Yices.
-\item \texttt{yices.h} defines all the API functions.
+\item \texttt{yices.h} contains the declaration of all the API functions.
 \item \texttt{yices\_exit\_codes.h} lists the exit codes that can be
   returned by the Yices executables (via an \texttt{exit} system call).
 \end{itemize}
@@ -3100,9 +3100,8 @@ distribution.
 
 Before doing anything with Yices, make sure to initialize all internal
 data structures by calling function \texttt{yices\_init}.  To avoid
-memory leaks, it is a good idea to call \texttt{yices\_exit} when one
-is done. This frees all the memory that Yices has allocated
-internally.
+memory leaks, you should also call \texttt{yices\_exit} at the end of
+your code to free all the memory that Yices has allocated internally.
 
 \subsection*{Term Construction}
 
@@ -3282,7 +3281,7 @@ a model.
 \end{figure}
 
 
-\subsection{Full API}
+\section{Full API}
 
 The main header file \texttt{yices.h} includes documentation about all
 API functions. We will provide more documentation on the Yices
