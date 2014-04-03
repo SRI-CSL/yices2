@@ -52,8 +52,8 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "int_queues.h"
 #include "int_stack.h"
+#include "int_vectors.h"
 #include "mark_vectors.h"
 #include "int_hash_map.h"
 #include "terms.h"
@@ -65,9 +65,10 @@
  * - terms = relevant term table (must be mngr->terms)
  * - map = substitution (uninterpreted terms to terms)
  * - mark = for cycle detection/removal
- * - queue = for cycle detection/removal
+ * - remove_cycles = boolean flag to distinguish between detection and removal of cycles
  * - cache = when applying the substitution
  * - stack = for allocation of arrays to store intermediate results
+ * - aux = generic vector (buffer)
  * - env = to report exceptions
  */
 typedef struct full_subst_s {
@@ -75,9 +76,10 @@ typedef struct full_subst_s {
   term_table_t *terms;
   int_hmap_t map;
   mark_vector_t mark;
-  int_queue_t queue;
+  bool remove_cycles;
   int_hmap_t cache;
   int_stack_t stack;
+  ivector_t aux;
   jmp_buf env;
 } full_subst_t;
 
@@ -126,7 +128,10 @@ extern void full_subst_add_map(full_subst_t *subst, term_t x, term_t t);
 
 /*
  * Check whether the map [x --> t] can be added to subst
- * - x and t must be as above
+ * - x and t must be be valid terms in subst->terms
+ * - x must be an uninterpreted term
+ *   t must be a ground term
+ * - t's type must be a subtype of x's type
  * - return false if x is already mapped to something else
  *   or if the map x --> t would create a cycle
  */
