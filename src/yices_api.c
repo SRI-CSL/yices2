@@ -3405,7 +3405,7 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   return mk_bv_constant(&manager, &bv0);
 }
 
-EXPORTED term_t yices_bvconst_mpz(uint32_t n, mpz_t x) {
+EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }

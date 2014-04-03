@@ -457,7 +457,7 @@ void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a) {
 
 
 // assign 32k low-order bits of z
-void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z) {
+void bvconst_set_mpz(uint32_t *bv, uint32_t k, const mpz_t z) {
   mpz_t aux;
 
   assert(mpz_sgn(z) >= 0); // z must be  non-negative

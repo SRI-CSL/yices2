@@ -1008,7 +1008,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
 __YICES_DLLSPEC__ extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
 
 #ifdef __GMP_H__
-__YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, const mpz_t x);
 #endif
 
 

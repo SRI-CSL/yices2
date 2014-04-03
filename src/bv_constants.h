@@ -190,7 +190,7 @@ extern void bvconst_set32(uint32_t *bv, uint32_t k, uint32_t a);
 extern void bvconst_set64(uint32_t *bv, uint32_t k, uint64_t a);
 extern void bvconst_set32_signed(uint32_t *bv, uint32_t k, int32_t a);
 extern void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a);
-extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z);
+extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, const mpz_t z);
 extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
 
 extern void bvconst_set(uint32_t *bv, uint32_t k, const uint32_t *a);
