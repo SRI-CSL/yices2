@@ -32,7 +32,7 @@ static void macro_name_finalizer(stbl_rec_t *r) {
  * - vars = array of n type variables
  * - body = type index
  */
-static type_macro_t *new_descriptor(char *name, uint32_t n, type_t *vars, type_t body) {
+static type_macro_t *new_descriptor(char *name, uint32_t n, const type_t *vars, type_t body) {
   type_macro_t *tmp;
   uint32_t i;
 
@@ -449,7 +449,7 @@ static type_mtbl_t *get_macro_table(type_table_t *table) {
  * - min    flag = 1 if a[0] ... a[n-1] are all minimal types
  * - ground flag = 1 if a[0] ... a[n-1] are all ground types
  */
-static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, type_t *a) {
+static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, const type_t *a) {
   uint32_t i, flg;
 
   flg = UNIT_TYPE_FLAGS;
@@ -465,7 +465,7 @@ static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, type_t *a) 
  * Product of cardinalities of all types in a[0 ... n-1]
  * - return a value > UINT32_MAX if there's an overflow
  */
-static uint64_t type_card_product(type_table_t *table, uint32_t n, type_t *a) {
+static uint64_t type_card_product(type_table_t *table, uint32_t n, const type_t *a) {
   uint64_t prod;
   uint32_t i;
 
@@ -484,7 +484,7 @@ static uint64_t type_card_product(type_table_t *table, uint32_t n, type_t *a) {
  * - r must be small
  * - return a value > UINT32_MAX if there's an overflow
  */
-static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t r) {
+static uint64_t fun_type_card(type_table_t *table, uint32_t n, const type_t *e, type_t r) {
   uint64_t power, dom;
   uint32_t range;
 
@@ -517,7 +517,7 @@ static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t
  */
 
 // for tuple
-static uint32_t depth_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
+static uint32_t depth_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
   uint32_t i, max, d;
 
   max = 0;
@@ -531,7 +531,7 @@ static uint32_t depth_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
 }
 
 // for function type
-static uint32_t depth_function_type(type_table_t *table, uint32_t n, type_t *e, type_t r) {
+static uint32_t depth_function_type(type_table_t *table, uint32_t n, const type_t *e, type_t r) {
   uint32_t i, max, d;
 
   max = type_depth(table, r);
@@ -545,7 +545,7 @@ static uint32_t depth_function_type(type_table_t *table, uint32_t n, type_t *e, 
 }
 
 // for instance type: same as tuple
-static inline uint32_t depth_instance_type(type_table_t *table, uint32_t n, type_t *param) {
+static inline uint32_t depth_instance_type(type_table_t *table, uint32_t n, const type_t *param) {
   return depth_tuple_type(table, n, param);
 }
 
@@ -659,7 +659,7 @@ type_t new_uninterpreted_type(type_table_t *table) {
 /*
  * Add tuple type: e[0], ..., e[n-1]
  */
-static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
+static type_t new_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
   tuple_type_t *d;
   uint64_t card;
   type_t i;
@@ -718,7 +718,7 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
 /*
  * Add function type: (e[0], ..., e[n-1] --> r)
  */
-static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type_t r) {
+static type_t new_function_type(type_table_t *table, uint32_t n, const type_t *e, type_t r) {
   function_type_t *d;
   uint64_t card;
   type_t i;
@@ -823,7 +823,7 @@ static type_t new_type_variable(type_table_t *table, uint32_t id) {
  * is treated like a new uninterpreted type. Otherwise, we mark it
  * as a type with variables (flag = FREE_TYPE_FLAGS, card = UINT32_MAX).
  */
-static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t *param) {
+static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, const type_t *param) {
   instance_type_t *d;
   type_t i;
   uint32_t j, flag;
@@ -874,7 +874,7 @@ typedef struct tuple_type_hobj_s {
   int_hobj_t m;
   type_table_t *tbl;
   uint32_t n;
-  type_t *elem;
+  const type_t *elem;
 } tuple_type_hobj_t;
 
 typedef struct function_type_hobj_s {
@@ -882,7 +882,7 @@ typedef struct function_type_hobj_s {
   type_table_t *tbl;
   type_t range;
   uint32_t n;
-  type_t *dom;
+  const type_t *dom;
 } function_type_hobj_t;
 
 typedef struct type_var_hobj_s {
@@ -896,7 +896,7 @@ typedef struct instance_type_hobj_s {
   type_table_t *tbl;
   int32_t cid;
   uint32_t arity;
-  type_t *param;
+  const type_t *param;
 } instance_type_hobj_t;
 
 
@@ -1250,7 +1250,7 @@ type_t bv_type(type_table_t *table, uint32_t size) {
 /*
  * Tuple type
  */
-type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]) {
+type_t tuple_type(type_table_t *table, uint32_t n, const type_t elem[]) {
   assert(0 < n && n <= YICES_MAX_ARITY);
   tuple_hobj.tbl = table;
   tuple_hobj.n = n;
@@ -1261,7 +1261,7 @@ type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]) {
 /*
  * Function type
  */
-type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]) {
+type_t function_type(type_table_t *table, type_t range, uint32_t n, const type_t dom[]) {
   assert(0 < n && n <= YICES_MAX_ARITY);
   function_hobj.tbl = table;
   function_hobj.range = range;
@@ -1284,7 +1284,7 @@ type_t type_variable(type_table_t *table, uint32_t id) {
 /*
  * Type instance
  */
-type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t tau[]) {
+type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, const type_t tau[]) {
   assert(0 < n && n <= YICES_MAX_ARITY);
   instance_hobj.tbl = table;
   instance_hobj.cid = cid;
@@ -1302,7 +1302,7 @@ type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t tau[])
 /*
  * Check that the elements of v are distinct variables
  */
-static bool all_distinct_vars(type_table_t *table, uint32_t n, type_t v[]) {
+static bool all_distinct_vars(type_table_t *table, uint32_t n, const type_t v[]) {
   uint32_t i, j;
 
   for (i=0; i<n; i++) {
@@ -1334,7 +1334,7 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
 /*
  * Build the tuple type (tuple (subst tau[0]) ... (subst tau[n-1]))
  */
-static type_t tuple_type_subst(type_table_t *table, int_hmap_t *hmap, type_t *tau, uint32_t n) {
+static type_t tuple_type_subst(type_table_t *table, int_hmap_t *hmap, const type_t *tau, uint32_t n) {
   type_t buffer[8];
   type_t *s;
   type_t result;
@@ -1360,7 +1360,7 @@ static type_t tuple_type_subst(type_table_t *table, int_hmap_t *hmap, type_t *ta
 /*
  * Build the function type (-> (subst tau[0]) ... (subst tau[n-1]) (subst sigma))
  */
-static type_t function_type_subst(type_table_t *table, int_hmap_t *hmap, type_t sigma, type_t *tau, uint32_t n) {
+static type_t function_type_subst(type_table_t *table, int_hmap_t *hmap, type_t sigma, const type_t *tau, uint32_t n) {
   type_t buffer[8];
   type_t *s;
   type_t result;
@@ -1472,7 +1472,7 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
  * the function replaces v[i] by s[i] in tau and returns
  * the result.
  */
-type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]) {
+type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, const type_t v[], const type_t s[]) {
   int_hmap_t hmap;
   int_hmap_pair_t *p;
   uint32_t i;
@@ -2055,7 +2055,7 @@ void clear_type_name(type_table_t *table, type_t t) {
  * - returns the same value as card_of(tuple_type(tau[0] ... tau[n-1])) but does not
  *   construct the tuple type.
  */
-uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *tau) {
+uint32_t card_of_type_product(type_table_t *table, uint32_t n, const type_t *tau) {
   uint64_t card;
 
   card = type_card_product(table, n, tau);
@@ -2611,7 +2611,7 @@ bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
  * - vars = array of n type variables (must be all distinct)
  * - body = type
  */
-int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body) {
+int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, const type_t *vars, type_t body) {
   type_mtbl_t *mtbl;
   type_macro_t *d;
   int32_t i;
@@ -2761,7 +2761,7 @@ void delete_type_macro(type_table_t *table, int32_t id) {
  *   instance is constructed by substituting variables in body with
  *   the actuals. The result is stored in mtbl->hmap.
  */
-type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual) {
+type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const type_t *actual) {
   type_mtbl_t *mtbl;
   int32_t aux[10];
   int32_t *key;

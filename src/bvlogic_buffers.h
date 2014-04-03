@@ -183,7 +183,7 @@ extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, te
  * - a[0] = low order bit
  *   a[n] = high order bit
  */
-extern void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a);
+extern void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, const term_t *a);
 
 
 /*

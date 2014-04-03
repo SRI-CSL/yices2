@@ -4142,7 +4142,7 @@ void context_pop(context_t *ctx) {
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a) {
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -4312,7 +4312,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
  *   determined
  * - otherwise, the code is negative to report an error.
  */
-int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
+int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||

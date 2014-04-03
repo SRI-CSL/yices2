@@ -1131,7 +1131,7 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
  * Assert all formulas f[0] ... f[n-1]
  * same return code as above.
  */
-extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
+extern int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
 
 
 /*

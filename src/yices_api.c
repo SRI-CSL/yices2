@@ -2175,7 +2175,7 @@ EXPORTED type_t yices_new_scalar_type(uint32_t card) {
   return new_scalar_type(&types, card);
 }
 
-EXPORTED type_t yices_tuple_type(uint32_t n, type_t elem[]) {
+EXPORTED type_t yices_tuple_type(uint32_t n, const type_t elem[]) {
   if (! check_positive(n) ||
       ! check_arity(n) ||
       ! check_good_types(&types, n, elem)) {
@@ -2184,7 +2184,7 @@ EXPORTED type_t yices_tuple_type(uint32_t n, type_t elem[]) {
   return tuple_type(&types, n, elem);
 }
 
-EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
+EXPORTED type_t yices_function_type(uint32_t n, const type_t dom[], type_t range) {
   if (! check_positive(n) ||
       ! check_arity(n) ||
       ! check_good_type(&types, range) ||
@@ -2429,7 +2429,7 @@ EXPORTED term_t yices_new_variable(type_t tau) {
  * Apply fun to arg[0 ...n-1]
  * - we apply beta-reduction eagerly here
  */
-EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
+EXPORTED term_t yices_application(term_t fun, uint32_t n, const term_t arg[]) {
   term_t t;
 
   if (! check_good_application(&manager, fun, n, arg)) {
@@ -2671,7 +2671,7 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
 }
 
 
-EXPORTED term_t yices_tuple(uint32_t n, term_t arg[]) {
+EXPORTED term_t yices_tuple(uint32_t n, const term_t arg[]) {
   if (! check_positive(n) ||
       ! check_arity(n) ||
       ! check_good_terms(&manager, n, arg)) {
@@ -2690,7 +2690,7 @@ EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
   return mk_select(&manager, index-1, tuple);
 }
 
-EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+EXPORTED term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v) {
   if (! check_good_update(&manager, fun, n, arg, new_v)) {
     return NULL_TERM;
   }
@@ -2741,7 +2741,7 @@ EXPORTED term_t yices_exists(uint32_t n, term_t var[], term_t body) {
   return mk_exists(&manager, n, var, body);
 }
 
-EXPORTED term_t yices_lambda(uint32_t n, term_t var[], term_t body) {
+EXPORTED term_t yices_lambda(uint32_t n, const term_t var[], term_t body) {
   if (! check_good_lambda_term(&manager, n, var, body)) {
     return NULL_TERM;
   }
@@ -2801,7 +2801,7 @@ EXPORTED term_t yices_rational64(int64_t num, uint64_t den) {
 /*
  * Constant from GMP integers or rationals
  */
-EXPORTED term_t yices_mpz(mpz_t z) {
+EXPORTED term_t yices_mpz(const mpz_t z) {
   term_t t;
 
   q_set_mpz(&r0, z);
@@ -2811,7 +2811,7 @@ EXPORTED term_t yices_mpz(mpz_t z) {
   return t;
 }
 
-EXPORTED term_t yices_mpq(mpq_t q) {
+EXPORTED term_t yices_mpq(const mpq_t q) {
   term_t t;
 
   q_set_mpq(&r0, q);
@@ -3026,7 +3026,7 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
 /*
  * Sum of n terms t[0] ... t[n-1]
  */
-EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
+EXPORTED term_t yices_sum(uint32_t n, const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3050,7 +3050,7 @@ EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
 /*
  * Product of n terms t[0] ... t[n-1]
  */
-EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
+EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3127,7 +3127,7 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
 /*
  * integer coefficients
  */
-EXPORTED term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]) {
+EXPORTED term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3148,7 +3148,7 @@ EXPORTED term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]) {
   return mk_arith_term(&manager, b);
 }
 
-EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
+EXPORTED term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3179,7 +3179,7 @@ EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
  * if num[i] is 0
  *   code = DIVISION_BY_ZERO
  */
-EXPORTED term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[], term_t t[]) {
+EXPORTED term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3201,7 +3201,7 @@ EXPORTED term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[],
   return mk_arith_term(&manager, b);
 }
 
-EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], term_t t[]) {
+EXPORTED term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3227,7 +3227,7 @@ EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[],
 /*
  * GMP integers and rationals
  */
-EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
+EXPORTED term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3251,7 +3251,7 @@ EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
 }
 
 
-EXPORTED term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]) {
+EXPORTED term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3459,7 +3459,7 @@ EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
  * - a[i] =  0 --> bit i = 0
  * - a[i] != 0 --> bit i = 1
  */
-EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
+EXPORTED term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -3508,7 +3508,7 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
 
 
 /*
- * Parse a string of hexa decimal digits and convert it to a bit constant
+ * Parse a string of hexadecimal digits and convert it to a bit constant
  * - return NULL_TERM if there's a format error
  * - the number of bits is four times the length of s
  * - the string is read in big-endian format (the first character defines
@@ -4508,7 +4508,7 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
  *    type1 = bool
  *    index = i
  */
-EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
+EXPORTED term_t yices_bvarray(uint32_t n, const term_t arg[]) {
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
       ! check_good_terms(&manager, n, arg) ||
@@ -4719,7 +4719,7 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
  * - f = output file to use
  * - width, height, offset = print area
  */
-EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -4741,7 +4741,7 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t w
   if (horiz == 0) {
     init_default_yices_pp(&printer, f, &area); // default: PP_VMODE
   } else {
-    init_yices_pp(&printer, f, &area, PP_HVMODE, 0); // horizonatl/vertical mode
+    init_yices_pp(&printer, f, &area, PP_HVMODE, 0); // horizontal/vertical mode
   }
 
   for (i=0; i<n; i++) {
@@ -6220,7 +6220,7 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
 /*
  * Same thing for an array of n formulas t[0 ... n-1]
  */
-EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
+EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
   int32_t code;
 
   if (! check_good_terms(&manager, n, t) ||
@@ -7394,7 +7394,7 @@ static void model_list_gc_mark(void) {
 }
 
 // mark all terms in array a, n = size of a
-static void mark_term_array(term_table_t *tbl, term_t *a, uint32_t n) {
+static void mark_term_array(term_table_t *tbl, const term_t *a, uint32_t n) {
   uint32_t i;
   int32_t idx;
 
@@ -7407,7 +7407,7 @@ static void mark_term_array(term_table_t *tbl, term_t *a, uint32_t n) {
 }
 
 // mark all types in array a
-static void mark_type_array(type_table_t *tbl, type_t *a, uint32_t n) {
+static void mark_type_array(type_table_t *tbl, const type_t *a, uint32_t n) {
   uint32_t i;
   type_t tau;
 
@@ -7429,8 +7429,8 @@ static void mark_type_array(type_table_t *tbl, type_t *a, uint32_t n) {
  * - keep_named specifies whether the named terms and types should
  *   all be preserved
  */
-EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
-				    type_t *tau, uint32_t ntau,
+EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
+				    const type_t tau[], uint32_t ntau,
 				    int32_t keep_named) {
   bool keep;
 

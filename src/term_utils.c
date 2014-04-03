@@ -863,7 +863,7 @@ bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
 
 
 // check whether a[i] cannot be equal to b[i] for one i
-bool disequal_term_arrays(term_table_t *tbl, uint32_t n, term_t *a, term_t *b) {
+bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const term_t *b) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -875,7 +875,7 @@ bool disequal_term_arrays(term_table_t *tbl, uint32_t n, term_t *a, term_t *b) {
 
 // check whether all elements of a are disequal
 // this is expensive: quadratic cost, but should fail quickly on most examples
-bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a) {
+bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a) {
   uint32_t i, j;
 
   for (i=0; i<n; i++) {

@@ -300,7 +300,7 @@ void reset_term_manager(term_manager_t *manager) {
  * Check whether all elements of a are boolean constants
  * - n = size of the array
  */
-static bool bvarray_is_constant(term_t *a, uint32_t n) {
+static bool bvarray_is_constant(const term_t *a, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -315,7 +315,7 @@ static bool bvarray_is_constant(term_t *a, uint32_t n) {
 /*
  * Convert a to a 64bit value (padded with 0)
  */
-static uint64_t bvarray_get_constant64(term_t *a, uint32_t n) {
+static uint64_t bvarray_get_constant64(const term_t *a, uint32_t n) {
   uint64_t c;
 
   assert(n <= 64);
@@ -333,7 +333,7 @@ static uint64_t bvarray_get_constant64(term_t *a, uint32_t n) {
 /*
  * Copy constant array into c
  */
-static void bvarray_get_constant(term_t *a, uint32_t n, bvconstant_t *c) {
+static void bvarray_get_constant(const term_t *a, uint32_t n, bvconstant_t *c) {
   uint32_t i, k;
 
   assert(n > 64);
@@ -384,11 +384,11 @@ static term_t term_is_bit0(term_table_t *tbl, term_t b) {
 
 
 /*
- * Check whether b is of the form (bit 0 x) ... (bit n-1 x)
+ * Check whether a is of the form (bit 0 x) ... (bit n-1 x)
  * - if so return x
  * - otherwise return NULL_TERM
  */
-static term_t bvarray_get_var(term_table_t *tbl, term_t *a, uint32_t n) {
+static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
   term_t x;
   uint32_t i;
 
@@ -410,7 +410,7 @@ static term_t bvarray_get_var(term_table_t *tbl, term_t *a, uint32_t n) {
  * Convert array a to a term
  * - side effect: use bv0
  */
-static term_t bvarray_get_term(term_manager_t *manager, term_t *a, uint32_t n) {
+static term_t bvarray_get_term(term_manager_t *manager, const term_t *a, uint32_t n) {
   term_table_t *terms;
   bvconstant_t *bv;
   term_t t;
@@ -1623,7 +1623,7 @@ static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_
 /*
  * Auxiliary function: check whether terms a[0...n-1] and b[0 .. n-1] are equal
  */
-static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
+static bool equal_term_arrays(uint32_t n, const term_t *a, const term_t *b) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -2526,7 +2526,7 @@ term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
  * - given two arrays a and b of n terms, build the term
  *   (or (/= a[0] b[0]) ... (/= a[n-1] b[n-1]))
  */
-term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]) {
+term_t mk_array_neq(term_manager_t *manager, uint32_t n, const term_t a[], const term_t b[]) {
   uint32_t i;
   term_t *aux;
 
@@ -2545,7 +2545,7 @@ term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[])
  * - given two arrays a and b of n term, build
  *   (and (= a[0] b[0]) ... (= a[n-1] b[n-1])
  */
-term_t mk_array_eq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]) {
+term_t mk_array_eq(term_manager_t *manager, uint32_t n, const term_t a[], const term_t b[]) {
   return opposite_term(mk_array_neq(manager, n, a, b));
 }
 
@@ -2615,7 +2615,7 @@ term_t mk_variable(term_manager_t *manager, type_t tau) {
  *         if x_i must disequal a_i
  *
  */
-term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[]) {
+term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, const term_t arg[]) {
   term_table_t *tbl;
   type_table_t *types;
   composite_term_t *update;
@@ -2659,11 +2659,11 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t ar
 
 
 /*
- * Attempt to simplify (mk-tuplle arg[0] .... arg[n-1]):
+ * Attempt to simplify (mk-tuple arg[0] .... arg[n-1]):
  * return x if arg[i] = (select i x) for i=0 ... n-1 and x is a tuple term of arity n
  * return NULL_TERM otherwise
  */
-static term_t simplify_mk_tuple(term_table_t *tbl, uint32_t n, term_t arg[]) {
+static term_t simplify_mk_tuple(term_table_t *tbl, uint32_t n, const term_t arg[]) {
   uint32_t i;
   term_t x, a;
 
@@ -2705,7 +2705,7 @@ static term_t simplify_mk_tuple(term_table_t *tbl, uint32_t n, term_t arg[]) {
  *   (mk_tuple (select 0 x) ... (select n-1 x)) --> x
  * provided x is a tuple of arity n
  */
-term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
+term_t mk_tuple(term_manager_t *manager, uint32_t n, const term_t arg[]) {
   term_table_t *tbl;
   term_t x;
   type_t tau;
@@ -2771,7 +2771,7 @@ term_t mk_select(term_manager_t *manager, uint32_t index, term_t tuple) {
  *  (update (update f (a_1 ... a_n) v) (a_1 ... a_n) v') --> (update f (a_1 ... a_n) v')
  *  (update f (a_1 ... a_n) (f a_1 ... a_n)) --> f
  */
-term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, const term_t arg[], term_t new_v) {
   term_table_t *tbl;
   composite_term_t *update, *app;
   type_t tau;
@@ -2958,14 +2958,14 @@ term_t mk_tuple_update(term_manager_t *manager, term_t tuple, uint32_t index, te
  *  (exists (x_1::t_1 ... x_n::t_n) true) --> true
  *  (exists (x_1::t_1 ... x_n::t_n) false) --> false (types are nonempty)
  */
-term_t mk_forall(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
+term_t mk_forall(term_manager_t *manager, uint32_t n, const term_t var[], term_t body) {
   if (body == true_term) return body;
   if (body == false_term) return body;
 
   return forall_term(manager->terms, n, var, body);
 }
 
-term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
+term_t mk_exists(term_manager_t *manager, uint32_t n, const term_t var[], term_t body) {
   if (body == true_term) return body;
   if (body == false_term) return body;
 
@@ -2987,7 +2987,7 @@ term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
  */
 
 // check whether var[0 ... n-1] and arg[0 ... n-1] are equal
-static bool equal_arrays(term_t var[], term_t arg[], uint32_t n) {
+static bool equal_arrays(const term_t var[], const term_t arg[], uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -3000,7 +3000,7 @@ static bool equal_arrays(term_t var[], term_t arg[], uint32_t n) {
 }
 
 // check whether the domain of f matches the variable types
-static bool same_domain(term_table_t *table, term_t f, term_t var[], uint32_t n) {
+static bool same_domain(term_table_t *table, term_t f, const term_t var[], uint32_t n) {
   function_type_t *desc;
   type_t tau;
   uint32_t i;
@@ -3018,7 +3018,7 @@ static bool same_domain(term_table_t *table, term_t f, term_t var[], uint32_t n)
   return true;
 }
 
-term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
+term_t mk_lambda(term_manager_t *manager, uint32_t n, const term_t var[], term_t body) {
   term_table_t *tbl;
   composite_term_t *d;
   term_t f;
@@ -3551,7 +3551,7 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
  * - a must be an array of n boolean terms
  * - n must be positive and no more than YICES_MAX_BVSIZE
  */
-term_t mk_bvarray(term_manager_t *manager, uint32_t n, term_t *a) {
+term_t mk_bvarray(term_manager_t *manager, uint32_t n, const term_t *a) {
   bvlogic_buffer_t *b;
 
   assert(0 < n && n <= YICES_MAX_BVSIZE);
@@ -4421,7 +4421,7 @@ term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2) {
  * - a is an array of n arithmetic terms
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  */
-term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
+term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4448,7 +4448,7 @@ term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
  * - nbits = number of bits in each term of a
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  */
-term_t mk_bvarith64_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits) {
+term_t mk_bvarith64_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits) {
   bvarith64_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4476,7 +4476,7 @@ term_t mk_bvarith64_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *
  * - nbits = number of bits in each term of a
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  */
-term_t mk_bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits) {
+term_t mk_bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits) {
   bvarith_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4500,7 +4500,7 @@ term_t mk_bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a,
 /*
  * Generic version: check the type of a[0]
  */
-term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
+term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a) {
   type_t tau;
   uint32_t nbits;
 
@@ -4526,7 +4526,7 @@ term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
  * - construct the term c_0 a[0] + c_1 a[1] + ... + c_{n-1} a[n-1]
  *   except that c_i * a[i] is replaced by c_i if a[i] == const_idx.
  */
-term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, term_t *a) {
+term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4552,7 +4552,7 @@ term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, term_t *
 /*
  * Same thing for a bitvector polynomial (1 to 64bits)
  */
-term_t mk_bvarith64_poly(term_manager_t *mngr, bvpoly64_t *p, uint32_t n, term_t *a) {
+term_t mk_bvarith64_poly(term_manager_t *mngr, bvpoly64_t *p, uint32_t n, const term_t *a) {
   bvarith64_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4578,7 +4578,7 @@ term_t mk_bvarith64_poly(term_manager_t *mngr, bvpoly64_t *p, uint32_t n, term_t
 /*
  * Same thing for a bitvector polynomial (more than 64bits)
  */
-term_t mk_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, term_t *a) {
+term_t mk_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, const term_t *a) {
   bvarith_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;

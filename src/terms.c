@@ -276,7 +276,7 @@ static int32_t new_select_term(term_table_t *table, term_kind_t tag, type_t tau,
  * - n = arity
  * - a[0 ... n-1] = components
  */
-static composite_term_t *new_composite_term(uint32_t n, term_t *a) {
+static composite_term_t *new_composite_term(uint32_t n, const term_t *a) {
   composite_term_t *d;
   uint32_t j;
 
@@ -298,7 +298,7 @@ static composite_term_t *new_composite_term(uint32_t n, term_t *a) {
  * - n = arity
  * - a[0 ... n-1] = arguments to f
  */
-static composite_term_t *new_app_term(term_t f, uint32_t n, term_t *a) {
+static composite_term_t *new_app_term(term_t f, uint32_t n, const term_t *a) {
   composite_term_t *d;
   uint32_t j;
 
@@ -318,7 +318,7 @@ static composite_term_t *new_app_term(term_t f, uint32_t n, term_t *a) {
 /*
  * Function update: (update f a[0] ... a[n-1] v)
  */
-static composite_term_t *new_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
+static composite_term_t *new_update_term(term_t f, uint32_t n, const term_t *a, term_t v) {
   composite_term_t *d;
   uint32_t j;
 
@@ -339,7 +339,7 @@ static composite_term_t *new_update_term(term_t f, uint32_t n, term_t *a, term_t
 /*
  * Quantified term: (forall v[0] ... v[n-1] p)
  */
-static composite_term_t *new_forall_term(uint32_t n, term_t *v, term_t p) {
+static composite_term_t *new_forall_term(uint32_t n, const term_t *v, term_t p) {
   composite_term_t *d;
   uint32_t j;
 
@@ -359,7 +359,7 @@ static composite_term_t *new_forall_term(uint32_t n, term_t *v, term_t p) {
 /*
  * Lambda term: (lambda v[0] ... v[n-1] t)
  */
-static composite_term_t *new_lambda_term(uint32_t n, term_t *v, term_t t) {
+static composite_term_t *new_lambda_term(uint32_t n, const term_t *v, term_t t) {
   composite_term_t *d;
   uint32_t j;
 
@@ -380,7 +380,7 @@ static composite_term_t *new_lambda_term(uint32_t n, term_t *v, term_t t) {
  * Bit-vector constant:
  * - v = array of k words where k = ceil(bitsize/32).
  */
-static bvconst_term_t *new_bvconst_term(uint32_t bitsize, uint32_t *v) {
+static bvconst_term_t *new_bvconst_term(uint32_t bitsize, const uint32_t *v) {
   bvconst_term_t *d;
   uint32_t k;
 
@@ -419,7 +419,7 @@ static bvconst64_term_t *new_bvconst64_term(uint32_t bitsize, uint64_t v) {
  * - fill in the rest as a composite of arity n
  * - a[0 ... n-1] = components
  */
-static composite_term_t *new_special_term(uint32_t n, term_t *a) {
+static composite_term_t *new_special_term(uint32_t n, const term_t *a) {
   special_term_t *d;
   uint32_t j;
 
@@ -466,7 +466,7 @@ static uint32_t hash_rational_term(term_kind_t tag, type_t tau, rational_t *a) {
 /*
  * Generic composite term: (tag, arity, arg[0] ... arg[n-1])
  */
-static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, term_t *a) {
+static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, const term_t *a) {
   return jenkins_hash_array((uint32_t *) a, n, (uint32_t) (0x8ede2341 + tag));
 }
 
@@ -474,7 +474,7 @@ static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, term_t *a) {
 /*
  * Function application: (f, n, a[0] ... a[n-1])
  */
-static uint32_t hash_app_term(term_t f, uint32_t n, term_t *a) {
+static uint32_t hash_app_term(term_t f, uint32_t n, const term_t *a) {
   uint32_t h;
 
   h = jenkins_hash_intarray(a, n);
@@ -485,7 +485,7 @@ static uint32_t hash_app_term(term_t f, uint32_t n, term_t *a) {
 /*
  * Function update: (update f a[0] ... a[n-1] v)
  */
-static uint32_t hash_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
+static uint32_t hash_update_term(term_t f, uint32_t n, const term_t *a, term_t v) {
   uint32_t h;
 
   h = jenkins_hash_intarray(a, n);
@@ -496,7 +496,7 @@ static uint32_t hash_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
 /*
  * Quantified term: (forall v[0] ... v[n-1] p)
  */
-static uint32_t hash_forall_term(uint32_t n, term_t *v, term_t p) {
+static uint32_t hash_forall_term(uint32_t n, const term_t *v, term_t p) {
   uint32_t h;
 
   h = jenkins_hash_intarray(v, n);
@@ -507,7 +507,7 @@ static uint32_t hash_forall_term(uint32_t n, term_t *v, term_t p) {
 /*
  * Lambda term: (lambda v[0] ... v[n-1] t)
  */
-static uint32_t hash_lambda_term(uint32_t n, term_t *v, term_t t) {
+static uint32_t hash_lambda_term(uint32_t n, const term_t *v, term_t t) {
   uint32_t h;
 
   h = jenkins_hash_intarray(v, n);
@@ -527,7 +527,7 @@ static inline uint32_t hash_select_term(term_kind_t tag, uint32_t k, term_t t) {
  * Power product: since the pprod-table already does hash consing,
  * a power product r is uniquely identified by its address.
  */
-static inline uint32_t hash_power_product(pprod_t *r) {
+static inline uint32_t hash_power_product(const pprod_t *r) {
   return jenkins_hash_ptr(r);
 }
 
@@ -535,7 +535,7 @@ static inline uint32_t hash_power_product(pprod_t *r) {
 /*
  * For bitvector constant, we can use bvconst_hash defined in bv_constants.c
  */
-static inline uint32_t hash_bvconst_term(uint32_t bitsize, uint32_t *bv) {
+static inline uint32_t hash_bvconst_term(uint32_t bitsize, const uint32_t *bv) {
   return bvconst_hash(bv, bitsize);
 }
 
@@ -615,7 +615,7 @@ typedef struct {
   term_kind_t tag;
   type_t tau;
   uint32_t arity;
-  term_t *arg;
+  const term_t *arg;
 } composite_term_hobj_t;
 
 
@@ -632,7 +632,7 @@ typedef struct {
   type_t tau;
   term_t f;
   uint32_t n;
-  term_t *arg;
+  const term_t *arg;
 } app_term_hobj_t;
 
 
@@ -651,7 +651,7 @@ typedef struct {
   term_t f;
   term_t v;
   uint32_t n;
-  term_t *arg;
+  const term_t *arg;
 } update_term_hobj_t;
 
 
@@ -666,7 +666,7 @@ typedef struct {
   term_table_t *tbl;
   term_t p;
   uint32_t n;
-  term_t *v;
+  const term_t *v;
 } forall_term_hobj_t;
 
 
@@ -683,7 +683,7 @@ typedef struct {
   type_t tau;
   term_t t;
   uint32_t n;
-  term_t *v;
+  const term_t *v;
 } lambda_term_hobj_t;
 
 
@@ -768,7 +768,7 @@ typedef struct {
   term_table_t *tbl;
   type_t tau;
   uint32_t bitsize;
-  uint32_t *v;
+  const uint32_t *v;
 } bvconst_term_hobj_t;
 
 
@@ -869,7 +869,7 @@ static bool eq_rational_hobj(rational_term_hobj_t *o, int32_t i) {
 
 
 // test whether arrays a and b of size n are equal
-static bool eq_term_arrays(term_t *a, term_t *b, uint32_t n) {
+static bool eq_term_arrays(const term_t *a, const term_t *b, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -1891,7 +1891,7 @@ void reset_term_table(term_table_t *table) {
 /*
  * Type of (tuple arg[0] ... arg[n-1])
  */
-static type_t type_of_tuple(term_table_t *table, uint32_t n, term_t arg[]) {
+static type_t type_of_tuple(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t *v;
   type_t tau;
   uint32_t j;
@@ -1913,7 +1913,7 @@ static type_t type_of_tuple(term_table_t *table, uint32_t n, term_t arg[]) {
 /*
  * Type of (lambda v[0] ... v[n-1] t)
  */
-static type_t type_of_lambda(term_table_t *table, uint32_t n, term_t *v, term_t t) {
+static type_t type_of_lambda(term_table_t *table, uint32_t n, const term_t *v, term_t t) {
   int32_t *dom;
   type_t tau;
   uint32_t j;
@@ -2084,7 +2084,7 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
 /*
  * Function application: (fun arg[0] ... arg[n-1])
  */
-term_t app_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[]) {
+term_t app_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[]) {
   type_t tau;
   int32_t i;
 
@@ -2107,7 +2107,7 @@ term_t app_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[]) {
  * - new_v must be in the range of fun (not in a supertype)
  * - the result has the same type as fun
  */
-term_t update_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+term_t update_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[], term_t new_v) {
   type_t tau;
   int32_t i;
 
@@ -2129,7 +2129,7 @@ term_t update_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[], te
 /*
  * (tuple arg[0] .. arg[n-1])
  */
-term_t tuple_term(term_table_t *table, uint32_t n, term_t arg[]) {
+term_t tuple_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
 
   composite_hobj.tbl = table;
@@ -2198,7 +2198,7 @@ term_t eq_term(term_table_t *table, term_t left, term_t right) {
 /*
  * (distinct arg[0] ... arg[n-1])
  */
-term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]) {
+term_t distinct_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
 
   composite_hobj.tbl = table;
@@ -2216,7 +2216,7 @@ term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]) {
 /*
  * (forall var[0] ... var[n-1] body)
  */
-term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
+term_t forall_term(term_table_t *table, uint32_t n, const term_t var[], term_t body) {
   int32_t i;
 
   forall_hobj.tbl = table;
@@ -2233,7 +2233,7 @@ term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
 /*
  * (lambda var[0] ... var[n-1] body)
  */
-term_t lambda_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
+term_t lambda_term(term_table_t *table, uint32_t n, const term_t var[], term_t body) {
   int32_t i;
 
   lambda_hobj.tbl = table;
@@ -2251,7 +2251,7 @@ term_t lambda_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
 /*
  * (or arg[0] ... arg[n-1])
  */
-term_t or_term(term_table_t *table, uint32_t n, term_t arg[]) {
+term_t or_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
 
   composite_hobj.tbl = table;
@@ -2269,7 +2269,7 @@ term_t or_term(term_table_t *table, uint32_t n, term_t arg[]) {
 /*
  * (xor arg[0] ... arg[n-1])
  */
-term_t xor_term(term_table_t *table, uint32_t n, term_t arg[]) {
+term_t xor_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
 
   composite_hobj.tbl = table;
@@ -2419,7 +2419,7 @@ term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv) {
  * The constant must be normalized (modulo 2^n)
  * This constructor should be used only for n > 64.
  */
-term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv) {
+term_t bvconst_term(term_table_t *table, uint32_t n, const uint32_t *bv) {
   int32_t i;
 
   bvconst_hobj.tbl = table;
@@ -2438,7 +2438,7 @@ term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv) {
  * - n must be positive and no more than YICES_MAX_BVSIZE
  * - arg[0] ... arg[n-1] must be boolean terms
  */
-term_t bvarray_term(term_table_t *table, uint32_t n, term_t arg[]) {
+term_t bvarray_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
 
   composite_hobj.tbl = table;
@@ -2547,7 +2547,7 @@ static int32_t poly_index_for_pprod(term_table_t *table, pprod_t *r) {
  * Check whether all terms in array v are integers
  * - skip const_idx if it's in v (it should be first)
  */
-static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
+static bool all_integer_terms(term_table_t *table, const term_t *v, uint32_t n) {
   uint32_t i;
 
   if (n > 0) {
@@ -2839,7 +2839,7 @@ uint32_t term_degree(term_table_t *table, term_t t) {
  * - store the result in table->pbuffer
  * - return the array of power products
  */
-pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p) {
+pprod_t **pprods_for_bvpoly64(term_table_t *table, const bvpoly64_t *p) {
   uint32_t i, n;
   void **v;
 
@@ -2872,7 +2872,7 @@ pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p) {
  * - store the result in table->pbuffer
  * - return the array of power products
  */
-pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p) {
+pprod_t **pprods_for_bvpoly(term_table_t *table, const bvpoly_t *p) {
   uint32_t i, n;
   void **v;
 
@@ -2906,7 +2906,7 @@ pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p) {
  * - store the result in table->pbuffer
  * - return the array of power products
  */
-pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p) {
+pprod_t **pprods_for_poly(term_table_t *table, const polynomial_t *p) {
   uint32_t i, n;
   void **v;
 

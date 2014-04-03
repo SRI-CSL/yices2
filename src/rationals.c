@@ -543,7 +543,7 @@ static inline void q_prepare(rational_t *r) {
 /*
  * assign r:= z/1
  */
-void q_set_mpz(rational_t *r, mpz_t z) {
+void q_set_mpz(rational_t *r, const mpz_t z) {
   q_prepare(r);
   mpq_set_z(bank_q[r->num], z);
 }
@@ -552,7 +552,7 @@ void q_set_mpz(rational_t *r, mpz_t z) {
 /*
  * Copy q into r
  */
-void q_set_mpq(rational_t *r, mpq_t q) {
+void q_set_mpq(rational_t *r, const mpq_t q) {
   q_prepare(r);
   mpq_set(bank_q[r->num], q);
 }
@@ -561,7 +561,7 @@ void q_set_mpq(rational_t *r, mpq_t q) {
 /*
  * Copy r2 into r1
  */
-void q_set(rational_t *r1, rational_t *r2) {
+void q_set(rational_t *r1, const rational_t *r2) {
   if (r2->den == 0) {
     //    q_set_mpq(r1, bank_q[r2->num]); BUG HERE
     q_prepare(r1);
@@ -577,7 +577,7 @@ void q_set(rational_t *r1, rational_t *r2) {
 /*
  * Copy opposite of r2 into r1
  */
-void q_set_neg(rational_t *r1, rational_t *r2) {
+void q_set_neg(rational_t *r1, const rational_t *r2) {
   if (r2->den == 0) {
     q_prepare(r1);
     mpq_neg(bank_q[r1->num], bank_q[r2->num]);
@@ -592,7 +592,7 @@ void q_set_neg(rational_t *r1, rational_t *r2) {
 /*
  * Copy the absolute value of r2 into r1
  */
-void q_set_abs(rational_t *r1, rational_t *r2) {
+void q_set_abs(rational_t *r1, const rational_t *r2) {
   if (r2->den == 0) {
     q_prepare(r1);
     mpq_abs(bank_q[r1->num], bank_q[r2->num]);
@@ -613,7 +613,7 @@ void q_set_abs(rational_t *r1, rational_t *r2) {
  * - r1 must be initialized
  * - r2 and r1 must be different objects
  */
-void q_get_num(rational_t *r1, rational_t *r2) {
+void q_get_num(rational_t *r1, const rational_t *r2) {
   mpq_ptr q;
   long num;
 
@@ -645,7 +645,7 @@ void q_get_num(rational_t *r1, rational_t *r2) {
  * - r1 must be initialized
  * - r1 and r2 must be different objects
  */
-void q_get_den(rational_t *r1, rational_t *r2) {
+void q_get_den(rational_t *r1, const rational_t *r2) {
   mpq_ptr q;
   unsigned long den;
 
@@ -882,7 +882,7 @@ int q_set_from_float_string(rational_t *r, const char *s) {
 /*
  * Add r2 to r1
  */
-void q_add(rational_t *r1, rational_t *r2) {
+void q_add(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
@@ -912,7 +912,7 @@ void q_add(rational_t *r1, rational_t *r2) {
 /*
  * Subtract r2 from r1
  */
-void q_sub(rational_t *r1, rational_t *r2) {
+void q_sub(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
@@ -976,10 +976,11 @@ void q_inv(rational_t *r) {
   }
 }
 
+
 /*
  * Multiply r1 by r2
  */
-void q_mul(rational_t *r1, rational_t *r2) {
+void q_mul(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
@@ -1011,7 +1012,7 @@ void q_mul(rational_t *r1, rational_t *r2) {
 /*
  * Divide r1 by r2
  */
-void q_div(rational_t *r1, rational_t *r2) {
+void q_div(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
@@ -1045,7 +1046,7 @@ void q_div(rational_t *r1, rational_t *r2) {
 /*
  * Add r2 * r3 to  r1
  */
-void q_addmul(rational_t *r1, rational_t *r2, rational_t *r3) {
+void q_addmul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
   int64_t num;
   rational_t tmp;
 
@@ -1072,7 +1073,7 @@ void q_addmul(rational_t *r1, rational_t *r2, rational_t *r3) {
 /*
  * Subtract r2 * r3 from r1
  */
-void q_submul(rational_t *r1, rational_t *r2, rational_t *r3) {
+void q_submul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
   int64_t num;
   rational_t tmp;
 
@@ -1179,7 +1180,7 @@ void q_ceil(rational_t *r) {
 /*
  * Store r1 * (r2 ^ n) into r1
  */
-void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n) {
+void q_mulexp(rational_t *r1, const rational_t *r2, uint32_t n) {
   rational_t aux;
 
   if (n <= 3) {
@@ -1228,7 +1229,7 @@ static inline uint32_t abs32(int32_t x) {
  * - r1 and r2 must be integer
  * - the result is always positive
  */
-void q_lcm(rational_t *r1, rational_t *r2) {
+void q_lcm(rational_t *r1, const rational_t *r2) {
   uint32_t a, b;
   uint64_t d;
 
@@ -1264,7 +1265,7 @@ void q_lcm(rational_t *r1, rational_t *r2) {
  * - r1 and r2 must be integer and non-zero
  * - the result is positive
  */
-void q_gcd(rational_t *r1, rational_t *r2) {
+void q_gcd(rational_t *r1, const rational_t *r2) {
   uint32_t a, b, d;
 
   if (r2->den != 0) {
@@ -1415,7 +1416,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
  *
  * Both r1 and r2 must be integers and r1 must be non-zero
  */
-bool q_integer_divides(rational_t *r1, rational_t *r2) {
+bool q_integer_divides(rational_t *r1, const rational_t *r2) {
   uint32_t aux;
 
   q_normalize(r1);
@@ -1444,7 +1445,7 @@ bool q_integer_divides(rational_t *r1, rational_t *r2) {
  * Check whether r2/r1 is an integer
  * - r1 must be non-zero
  */
-bool q_divides(rational_t *r1, rational_t *r2) {
+bool q_divides(const rational_t *r1, const rational_t *r2) {
   rational_t aux;
   bool divides;
 

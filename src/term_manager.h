@@ -200,7 +200,7 @@ extern term_t mk_variable(term_manager_t *manager, type_t tau);
  * - arg = array of n arguments
  * - the argument types much match the domain of f
  */
-extern term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[]);
+extern term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, const term_t arg[]);
 
 
 /*
@@ -224,7 +224,7 @@ extern term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2);  // t1 != t
  * - given two arrays a and b of n term, build
  *   (and (= a[0] b[0]) ... (= a[n-1] b[n-1])
  */
-extern term_t mk_array_eq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]);
+extern term_t mk_array_eq(term_manager_t *manager, uint32_t n, const term_t a[], const term_t b[]);
 
 
 /*
@@ -232,7 +232,7 @@ extern term_t mk_array_eq(term_manager_t *manager, uint32_t n, term_t a[], term_
  * - given two arrays a and b of n terms, build the term
  *   (or (/= a[0] b[0]) ... (/= a[n-1] b[n-1]))
  */
-extern term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term_t b[]);
+extern term_t mk_array_neq(term_manager_t *manager, uint32_t n, const term_t a[], const term_t b[]);
 
 
 /*
@@ -240,7 +240,7 @@ extern term_t mk_array_neq(term_manager_t *manager, uint32_t n, term_t a[], term
  * - arg = array of n terms
  * - n must be positive and no more than YICES_MAX_ARITY
  */
-extern term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]);
+extern term_t mk_tuple(term_manager_t *manager, uint32_t n, const term_t arg[]);
 
 
 /*
@@ -253,12 +253,13 @@ extern term_t mk_select(term_manager_t *manager, uint32_t i, term_t tuple);
  * Function update: (update f (arg[0] ... arg[n-1]) new_v)
  * - f must have function type and arity n
  */
-extern term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[], term_t new_v);
+extern term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, const term_t arg[], term_t new_v);
 
 
 /*
  * Distinct: all terms arg[0] ... arg[n-1] must have compatible types
  * - n must be positive and no more than YICES_MAX_ARITY
+ * - arg[] may be modified (sorted)
  */
 extern term_t mk_distinct(term_manager_t *manager, uint32_t n, term_t arg[]);
 
@@ -275,8 +276,8 @@ extern term_t mk_tuple_update(term_manager_t *manager, term_t tuple, uint32_t in
  * - all variables v[0 ... n-1] must be distinct
  * - body must be a Boolean term
  */
-extern term_t mk_forall(term_manager_t *manager, uint32_t n, term_t v[], term_t body);
-extern term_t mk_exists(term_manager_t *manager, uint32_t n, term_t v[], term_t body);
+extern term_t mk_forall(term_manager_t *manager, uint32_t n, const term_t v[], term_t body);
+extern term_t mk_exists(term_manager_t *manager, uint32_t n, const term_t v[], term_t body);
 
 
 /*
@@ -284,7 +285,7 @@ extern term_t mk_exists(term_manager_t *manager, uint32_t n, term_t v[], term_t 
  * - n = number of variables (must be positive and no more than YICES_MAX_VAR)
  * - all variables v[0 ... n-1] must be distinct
  */
-extern term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t v[], term_t body);
+extern term_t mk_lambda(term_manager_t *manager, uint32_t n, const term_t v[], term_t body);
 
 
 
@@ -418,7 +419,7 @@ extern term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t t, term_t e);
  * - a must be an array of n boolean terms
  * - n must be positive and no more than YICES_MAX_BVSIZE
  */
-extern term_t mk_bvarray(term_manager_t *manager, uint32_t n, term_t *a);
+extern term_t mk_bvarray(term_manager_t *manager, uint32_t n, const term_t *a);
 
 
 /*
@@ -500,7 +501,7 @@ extern term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2);   // t1 <
  * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
-extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a);
+extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a);
 
 /*
  * Bitvector product: 1 to 64 bits vector
@@ -512,7 +513,7 @@ extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, te
  * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
-extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits);
+extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits);
 
 /*
  * Bitvector product: more than 64 bits
@@ -524,7 +525,7 @@ extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n
  * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
-extern term_t mk_bvarith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a, uint32_t nbits);
+extern term_t mk_bvarith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits);
 
 /*
  * Generic product:
@@ -537,7 +538,7 @@ extern term_t mk_bvarith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, 
  * All terms of a must be arithmetic terms or all of them must be bitvector terms
  * with the same bitsize (number of bits).
  */
-extern term_t mk_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *a);
+extern term_t mk_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a);
 
 /*
  * Arithmetic polynomials:
@@ -547,20 +548,20 @@ extern term_t mk_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, term_t *
  *
  * Special convention: if a[i] is const_idx (then c_i * a[i] is just c_i)
  */
-extern term_t mk_arith_poly(term_manager_t *manager, polynomial_t *p, uint32_t n, term_t *a);
+extern term_t mk_arith_poly(term_manager_t *manager, polynomial_t *p, uint32_t n, const term_t *a);
 
 /*
  * Bitvector polynomial: same as mk_arith_poly but all elements of a
  * must be either const_idx of bitvector terms of the equal size
  * - the size must be the same as the coefficients of p
  */
-extern term_t mk_bvarith64_poly(term_manager_t *manager, bvpoly64_t *p, uint32_t n, term_t *a);
+extern term_t mk_bvarith64_poly(term_manager_t *manager, bvpoly64_t *p, uint32_t n, const term_t *a);
 
 /*
  * Bitvector polynomials: terms with more than 64bits
  * - same conventions as mk_bvarith64_poly.
  */
-extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, term_t *a);
+extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, const term_t *a);
 
 
 #endif /* __TERM_MANAGER_H */

@@ -27,7 +27,7 @@ extern uint32_t jenkins_hash_array(const uint32_t *d, uint32_t n, uint32_t seed)
 /*
  * Hash code for an arbitrary pointer
  */
-extern uint32_t jenkins_hash_ptr(void *p);
+extern uint32_t jenkins_hash_ptr(const void *p);
 
 
 /*

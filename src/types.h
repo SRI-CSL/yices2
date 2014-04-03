@@ -474,20 +474,20 @@ extern type_t new_uninterpreted_type(type_table_t *table);
  * Construct tuple type elem[0] ... elem[n-1].
  * - n must positive and no more than YICES_MAX_ARITY
  */
-extern type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]);
+extern type_t tuple_type(type_table_t *table, uint32_t n, const type_t elem[]);
 
 /*
  * Construct function type dom[0] ... dom[n-1] --> range
  * - n must be positive and no more than YICES_MAX_ARITY
  */
-extern type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]);
+extern type_t function_type(type_table_t *table, type_t range, uint32_t n, const type_t dom[]);
 
 /*
  * Construct instance type: (cid tau[0] ... tau[n-1])
  * - cid = constructor id
  * - n = constructor arity (must be positive and no more than YICES_MAX_ARITY)
  */
-extern type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t tau[]);
+extern type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, const type_t tau[]);
 
 /*
  * Type variable of the given id
@@ -508,7 +508,7 @@ extern type_t type_variable(type_table_t *table, uint32_t id);
  * the function replaces v[i] by s[i] in tau and returns
  * the result.
  */
-extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]);
+extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, const type_t v[], const type_t s[]);
 
 
 
@@ -605,7 +605,7 @@ extern void clear_type_name(type_table_t *table, type_t t);
  *
  * return the macro's id
  */
-extern int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body);
+extern int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, const type_t *vars, type_t body);
 
 
 /*
@@ -669,7 +669,7 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
  *   for the macro variable.
  * In both cases, the instance is stored in table->hmap.
  */
-extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual);
+extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const type_t *actual);
 
 
 
@@ -935,7 +935,7 @@ static inline bool type_card_is_exact(type_table_t *tbl, type_t i) {
  * - returns the same value as card_of(tuple_type(tau[0] ... tau[n-1])) but does not
  *   construct the tuple type.
  */
-extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *tau);
+extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, const type_t *tau);
 
 
 /*

@@ -271,7 +271,7 @@ static void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
 
 
 // array of n boolean terms a[0] ... a[n-1]
-void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, const term_t *a) {
   uint32_t i;
 
   assert(0 < n);

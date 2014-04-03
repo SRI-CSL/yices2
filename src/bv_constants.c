@@ -245,7 +245,7 @@ void bvconstant_set_all_one(bvconstant_t *b, uint32_t n) {
 /*
  * Resize and copy bitvector a into b.
  */
-void bvconstant_copy(bvconstant_t *b, uint32_t n, uint32_t *a) {
+void bvconstant_copy(bvconstant_t *b, uint32_t n, const uint32_t *a) {
   uint32_t k;
 
   k = (n + 31) >> 5;
@@ -296,7 +296,7 @@ void bvconst_normalize(uint32_t *bv, uint32_t n) {
  * Check whether bv is normalized modulo 2^n (i.e., whether the high
  * order bits are 0).
  */
-bool bvconst_is_normalized(uint32_t *bv, uint32_t n) {
+bool bvconst_is_normalized(const uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   r = n & 0x1f;  // r = n mod 32
@@ -308,7 +308,7 @@ bool bvconst_is_normalized(uint32_t *bv, uint32_t n) {
 /*
  * Operations on single bits
  */
-bool bvconst_tst_bit(uint32_t *bv, uint32_t i) {
+bool bvconst_tst_bit(const uint32_t *bv, uint32_t i) {
   uint32_t j, mask;
 
   j = i >> 5;
@@ -479,7 +479,7 @@ void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z) {
 }
 
 // conversion from bv to mpz_t
-void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z) {
+void bvconst_get_mpz(const uint32_t *bv, uint32_t k, mpz_t z) {
   assert(k > 0);
 
   k --;
@@ -503,7 +503,7 @@ void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r) {
 }
 
 // copy a into b: b has k words. a has k or more words
-void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a) {
+void bvconst_set(uint32_t *bv, uint32_t k, const uint32_t *a) {
   assert(k > 0);
   do {
     *bv ++  = *a++;
@@ -540,7 +540,7 @@ void bvconst_set_max_signed(uint32_t *bv, uint32_t n) {
  * - bv has m = 32k bits
  * - a has n = 32d + r bits with d < k and 0 <= r <= 31
  */
-static void bvconst_set_p0(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, uint32_t r) {
+static void bvconst_set_p0(uint32_t *bv, uint32_t k, const uint32_t *a, uint32_t d, uint32_t r) {
   assert(r <= 31);
   assert(d < k);
 
@@ -559,7 +559,7 @@ static void bvconst_set_p0(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, ui
 }
 
 // padding with 1
-static void bvconst_set_p1(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, uint32_t r) {
+static void bvconst_set_p1(uint32_t *bv, uint32_t k, const uint32_t *a, uint32_t d, uint32_t r) {
   uint32_t mask;
 
   assert(r <= 31);
@@ -587,7 +587,7 @@ static void bvconst_set_p1(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, ui
  * - mode = 1: padding with 1
  * - mode = -1: sign extension
  */
-void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32_t mode) {
+void bvconst_set_extend(uint32_t *bv, uint32_t n, const uint32_t *a, uint32_t m, int32_t mode) {
   uint32_t k, d, r;
 
   assert(0 < m && m <= n);
@@ -620,7 +620,7 @@ void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32
  * Assignment from array a of n elements
  * - bit i of bv = 0 iff a[i] = 0
  */
-void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n) {
+void bvconst_set_array(uint32_t *bv, const int32_t *a, uint32_t n) {
   uint32_t i;
   assert(n > 0);
 
@@ -633,7 +633,7 @@ void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n) {
 /*
  * Reverse operation: store bit i of bv in a[i].
  */
-void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n) {
+void bvconst_get_array(const uint32_t *bv, int32_t *a, uint32_t n) {
   uint32_t i;
   assert(n > 0);
 
@@ -644,7 +644,7 @@ void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n) {
 /*
  * Print bv constant of size n
  */
-void bvconst_print(FILE *f, uint32_t *bv, uint32_t n) {
+void bvconst_print(FILE *f, const uint32_t *bv, uint32_t n) {
   assert(n>0);
 
   fprintf(f, "0b");
@@ -749,7 +749,7 @@ int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, const char *s) {
  * - bv must be normalized
  * - k must be the size of bv in words
  */
-uint32_t bvconst_popcount(uint32_t *bv, uint32_t k) {
+uint32_t bvconst_popcount(const uint32_t *bv, uint32_t k) {
   uint32_t i, c;
 
   c = 0;
@@ -1396,7 +1396,7 @@ void bvconst_mulpower(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d) {
  * - k = word size
  * - bv must be normalized
  */
-bool bvconst_is_zero(uint32_t *bv, uint32_t k) {
+bool bvconst_is_zero(const uint32_t *bv, uint32_t k) {
   assert(k > 0);
   do {
     if (*bv != 0) return false;
@@ -1407,7 +1407,7 @@ bool bvconst_is_zero(uint32_t *bv, uint32_t k) {
   return true;
 }
 
-bool bvconst_is_one(uint32_t *bv, uint32_t k) {
+bool bvconst_is_one(const uint32_t *bv, uint32_t k) {
   assert(k > 0);
 
   if (*bv != 1) return false;
@@ -1429,7 +1429,7 @@ bool bvconst_is_one(uint32_t *bv, uint32_t k) {
  * - n = number of bits in bv
  * - bv must be normalized
  */
-bool bvconst_is_minus_one(uint32_t *bv, uint32_t n) {
+bool bvconst_is_minus_one(const uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   assert(n > 0);
@@ -1454,7 +1454,7 @@ bool bvconst_is_minus_one(uint32_t *bv, uint32_t n) {
  * - n = number of bits in bv
  * - bv must be normalized.
  */
-bool bvconst_is_min_signed(uint32_t *bv, uint32_t n) {
+bool bvconst_is_min_signed(const uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   assert(n > 0);
@@ -1484,7 +1484,7 @@ bool bvconst_is_min_signed(uint32_t *bv, uint32_t n) {
  * - n = number of bits in bv
  * - bv must be normalized
  */
-bool bvconst_is_max_signed(uint32_t *bv, uint32_t n) {
+bool bvconst_is_max_signed(const uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
   assert(n > 0);
@@ -1517,7 +1517,7 @@ bool bvconst_is_max_signed(uint32_t *bv, uint32_t n) {
  * - bv must be normalized
  * - k = number of words in bv
  */
-int32_t bvconst_is_power_of_two(uint32_t *bv, uint32_t k) {
+int32_t bvconst_is_power_of_two(const uint32_t *bv, uint32_t k) {
   uint32_t u;
   int32_t n, p;
 
@@ -1564,7 +1564,7 @@ int32_t bvconst_is_power_of_two(uint32_t *bv, uint32_t k) {
  * Both a and b must be normalized (modulo 2^n) if n = bitsize
  * of a and b, and n != 32 k
  */
-bool bvconst_eq(uint32_t *a, uint32_t *b, uint32_t k) {
+bool bvconst_eq(const uint32_t *a, const uint32_t *b, uint32_t k) {
   assert(k > 0);
   do {
     if (*a != *b) return false;
@@ -1581,7 +1581,7 @@ bool bvconst_eq(uint32_t *a, uint32_t *b, uint32_t k) {
  * Check whether a <= b (interpreted as unsigned numbers)
  * - both a and b must be of bitsize n (with n>0) and normalized
  */
-bool bvconst_le(uint32_t *a, uint32_t *b, uint32_t n) {
+bool bvconst_le(const uint32_t *a, const uint32_t *b, uint32_t n) {
   uint32_t k;
 
   assert(n > 0);
@@ -1597,7 +1597,7 @@ bool bvconst_le(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a <= b (interpreted as signed numbers)
  * - both a and b must be of bitsize n (with n>0) and normalized
  */
-bool bvconst_sle(uint32_t *a, uint32_t *b, uint32_t n) {
+bool bvconst_sle(const uint32_t *a, const uint32_t *b, uint32_t n) {
   uint32_t k, mask, sign_a, sign_b;
 
   assert(n > 0);
@@ -1626,7 +1626,7 @@ bool bvconst_sle(uint32_t *a, uint32_t *b, uint32_t n) {
  * Compute hash of constant a. n = bitsize
  * - a must be normalized for this to be compatible with eq
  */
-uint32_t bvconst_hash(uint32_t *a, uint32_t n) {
+uint32_t bvconst_hash(const uint32_t *a, uint32_t n) {
   uint32_t k;
 
   k = (n + 31) >> 5;
@@ -1645,7 +1645,7 @@ uint32_t bvconst_hash(uint32_t *a, uint32_t n) {
  * - a is interpreted as an unsigned n-bit integer
  * - a must be normalized modulo (2^n)
  */
-static inline void unsigned_bv2mpz(mpz_t z, uint32_t n, uint32_t *a) {
+static inline void unsigned_bv2mpz(mpz_t z, uint32_t n, const uint32_t *a) {
   uint32_t k;
 
   k = (n + 31) >> 5;
@@ -1658,7 +1658,7 @@ static inline void unsigned_bv2mpz(mpz_t z, uint32_t n, uint32_t *a) {
  * - a is interpreted as a signed n-bit integer
  * - a must be normalized modulo (2^n)
  */
-static void signed_bv2mpz(mpz_t z, uint32_t n, uint32_t *a) {
+static void signed_bv2mpz(mpz_t z, uint32_t n, const uint32_t *a) {
   mpz_t aux;
   uint32_t k;
 

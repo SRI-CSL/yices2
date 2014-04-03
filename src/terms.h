@@ -514,16 +514,16 @@ extern term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left
  *   arg must be an array of n term occurrences
  *   and n must be no more than YICES_MAX_ARITY.
  */
-extern term_t app_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[]);
-extern term_t update_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[], term_t new_v);
-extern term_t tuple_term(term_table_t *table, uint32_t n, term_t arg[]);
+extern term_t app_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[]);
+extern term_t update_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[], term_t new_v);
+extern term_t tuple_term(term_table_t *table, uint32_t n, const term_t arg[]);
 extern term_t select_term(term_table_t *table, uint32_t index, term_t tuple);
 extern term_t eq_term(term_table_t *table, term_t left, term_t right);
-extern term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]);
-extern term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body);
-extern term_t lambda_term(term_table_t *table, uint32_t n, term_t var[], term_t body);
-extern term_t or_term(term_table_t *table, uint32_t n, term_t arg[]);
-extern term_t xor_term(term_table_t *table, uint32_t n, term_t arg[]);
+extern term_t distinct_term(term_table_t *table, uint32_t n, const term_t arg[]);
+extern term_t forall_term(term_table_t *table, uint32_t n, const term_t var[], term_t body);
+extern term_t lambda_term(term_table_t *table, uint32_t n, const term_t var[], term_t body);
+extern term_t or_term(term_table_t *table, uint32_t n, const term_t arg[]);
+extern term_t xor_term(term_table_t *table, uint32_t n, const term_t arg[]);
 extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
 
 
@@ -619,7 +619,7 @@ extern term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv);
  * The constant must be normalized (modulo 2^n)
  * This constructor should be used only for n > 64.
  */
-extern term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv);
+extern term_t bvconst_term(term_table_t *table, uint32_t n, const uint32_t *bv);
 
 
 /*
@@ -641,7 +641,7 @@ extern term_t bv_poly(term_table_t *table, bvarith_buffer_t *b);
  * - n must be positive and no more than YICES_MAX_BVSIZE
  * - arg[0] ... arg[n-1] must be boolean terms
  */
-extern term_t bvarray_term(term_table_t *table, uint32_t n, term_t arg[]);
+extern term_t bvarray_term(term_table_t *table, uint32_t n, const term_t arg[]);
 
 
 /*
@@ -946,7 +946,7 @@ extern uint32_t term_degree(term_table_t *table, term_t t);
  * - pbuffer->data[i] = pprod_for_term(table, p->mono[i].var)
  * - the last element of buffer->data is the end marker end_pp.
  */
-extern pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p);
+extern pprod_t **pprods_for_poly(term_table_t *table, const polynomial_t *p);
 
 
 /*
@@ -956,7 +956,7 @@ extern pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p);
  * - the result is stored in table's internal pbuffer.
  * - the function returns pbuffer->data.
  */
-extern pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p);
+extern pprod_t **pprods_for_bvpoly64(term_table_t *table, const bvpoly64_t *p);
 
 
 /*
@@ -966,7 +966,7 @@ extern pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p);
  * - the result is stored in table's internal pbuffer.
  * - the function returns pbuffer->data.
  */
-extern pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p);
+extern pprod_t **pprods_for_bvpoly(term_table_t *table, const bvpoly_t *p);
 
 
 /*

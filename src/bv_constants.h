@@ -113,7 +113,7 @@ extern void bvconstant_set_all_one(bvconstant_t *b, uint32_t n);
  * Resize and initialize with a (and normalize).
  * - n = number of bits
  */
-extern void bvconstant_copy(bvconstant_t *b, uint32_t n, uint32_t *a);
+extern void bvconstant_copy(bvconstant_t *b, uint32_t n, const uint32_t *a);
 
 
 /*
@@ -139,7 +139,7 @@ extern void bvconst_normalize(uint32_t *bv, uint32_t n);
  * Check whether bv is normalized modulo 2^n (i.e., whether the high
  * order bits are 0).
  */
-extern bool bvconst_is_normalized(uint32_t *bv, uint32_t n);
+extern bool bvconst_is_normalized(const uint32_t *bv, uint32_t n);
 
 
 
@@ -147,19 +147,19 @@ extern bool bvconst_is_normalized(uint32_t *bv, uint32_t n);
  * Hash code of bitvector constant a, n = bitsize
  * - a must be normalized modulo 2^n first.
  */
-extern uint32_t bvconst_hash(uint32_t *a, uint32_t n);
+extern uint32_t bvconst_hash(const uint32_t *a, uint32_t n);
 
 
 /*
  * Display bv in binary format: 0b.....
  */
-extern void bvconst_print(FILE *f, uint32_t *bv, uint32_t n);
+extern void bvconst_print(FILE *f, const uint32_t *bv, uint32_t n);
 
 
 /*
  * bit operations. If bv has size k, then i must be between 0 and 32k-1.
  */
-extern bool bvconst_tst_bit(uint32_t *bv, uint32_t i);
+extern bool bvconst_tst_bit(const uint32_t *bv, uint32_t i);
 extern void bvconst_set_bit(uint32_t *bv, uint32_t i);
 extern void bvconst_clr_bit(uint32_t *bv, uint32_t i);
 extern void bvconst_flip_bit(uint32_t *bv, uint32_t i);
@@ -193,8 +193,8 @@ extern void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a);
 extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
 
-extern void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a);
-extern void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n);
+extern void bvconst_set(uint32_t *bv, uint32_t k, const uint32_t *a);
+extern void bvconst_set_array(uint32_t *bv, const int32_t *a, uint32_t n);
 
 
 /*
@@ -216,7 +216,7 @@ extern void bvconst_set_max_signed(uint32_t *bv, uint32_t n);
  * - mode = 1: padding with 1
  * - mode = -1: sign extension (padding = high-order bit).
  */
-extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a,
+extern void bvconst_set_extend(uint32_t *bv, uint32_t n, const uint32_t *a,
                                uint32_t m, int32_t mode);
 
 
@@ -256,7 +256,7 @@ extern int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, const char
  * - as an integer array: a[i] = bit i of bv (either 0 or 1)
  * - n must be no more than bv's bit width
  */
-extern void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n);
+extern void bvconst_get_array(const uint32_t *bv, int32_t *a, uint32_t n);
 
 
 /*
@@ -265,7 +265,7 @@ extern void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n);
  * - as an mpz integer
  * - bv should be normalized first
  */
-extern void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z);
+extern void bvconst_get_mpz(const uint32_t *bv, uint32_t k, mpz_t z);
 
 
 /*
@@ -273,11 +273,11 @@ extern void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z);
  * - as a 32bit integer
  * - as a 64bit integer (bv must be more than 32bits).
  */
-static inline uint32_t bvconst_get32(uint32_t *bv) {
+static inline uint32_t bvconst_get32(const uint32_t *bv) {
   return *bv;
 }
 
-static inline uint64_t bvconst_get64(uint32_t *bv) {
+static inline uint64_t bvconst_get64(const uint32_t *bv) {
   return ((uint64_t) bv[0]) | (((uint64_t) bv[1]) << 32);
 }
 
@@ -287,7 +287,7 @@ static inline uint64_t bvconst_get64(uint32_t *bv) {
  * - bv must be normalized
  * - k must be the size of bv in words
  */
-extern uint32_t bvconst_popcount(uint32_t *bv, uint32_t k);
+extern uint32_t bvconst_popcount(const uint32_t *bv, uint32_t k);
 
 
 
@@ -449,16 +449,16 @@ extern void bvconst_smod2z(uint32_t *bv, uint32_t n, uint32_t *a1, uint32_t *a2)
 /*
  * Check whether bv is null, k = word size
  */
-extern bool bvconst_is_zero(uint32_t *bv, uint32_t k);
+extern bool bvconst_is_zero(const uint32_t *bv, uint32_t k);
 
-static inline bool bvconst_is_nonzero(uint32_t *bv, uint32_t k) {
+static inline bool bvconst_is_nonzero(const uint32_t *bv, uint32_t k) {
   return ! bvconst_is_zero(bv, k);
 }
 
 /*
  * Check whether bv is one, k = word size
  */
-extern bool bvconst_is_one(uint32_t *bv, uint32_t k);
+extern bool bvconst_is_one(const uint32_t *bv, uint32_t k);
 
 
 /*
@@ -466,7 +466,7 @@ extern bool bvconst_is_one(uint32_t *bv, uint32_t k);
  * - n = number of bits in bv
  * - bv must be normalized
  */
-extern bool bvconst_is_minus_one(uint32_t *bv, uint32_t n);
+extern bool bvconst_is_minus_one(const uint32_t *bv, uint32_t n);
 
 
 /*
@@ -474,7 +474,7 @@ extern bool bvconst_is_minus_one(uint32_t *bv, uint32_t n);
  * - n = number of bits in bv
  * - bv must be normalized.
  */
-extern bool bvconst_is_min_signed(uint32_t *bv, uint32_t n);
+extern bool bvconst_is_min_signed(const uint32_t *bv, uint32_t n);
 
 
 /*
@@ -482,7 +482,7 @@ extern bool bvconst_is_min_signed(uint32_t *bv, uint32_t n);
  * - n = number of bits in bv
  * - bv must be normalized
  */
-extern bool bvconst_is_max_signed(uint32_t *bv, uint32_t n);
+extern bool bvconst_is_max_signed(const uint32_t *bv, uint32_t n);
 
 
 /*
@@ -490,21 +490,21 @@ extern bool bvconst_is_max_signed(uint32_t *bv, uint32_t n);
  * - if so return n>=0 such that bv = 2^n
  * - if not return -1
  */
-extern int32_t bvconst_is_power_of_two(uint32_t *bv, uint32_t k);
+extern int32_t bvconst_is_power_of_two(const uint32_t *bv, uint32_t k);
 
 
 /*
  * Check whether a and b are equal, k = word size
  * - a and b must have the same size and be normalized
  */
-extern bool bvconst_eq(uint32_t *a, uint32_t *b, uint32_t k);
+extern bool bvconst_eq(const uint32_t *a, const uint32_t *b, uint32_t k);
 
 
 /*
  * Check whether a and b are distinct, k = word size
  * - a and b must have the same size and be normalized
  */
-static inline bool bvconst_neq(uint32_t *a, uint32_t *b, uint32_t k) {
+static inline bool bvconst_neq(const uint32_t *a, const uint32_t *b, uint32_t k) {
   return ! bvconst_eq(a, b, k);
 }
 
@@ -513,13 +513,13 @@ static inline bool bvconst_neq(uint32_t *a, uint32_t *b, uint32_t k) {
  * Check whether a <= b (unsigned comparison), n = bit size
  * - a and b must have the same size and be normalized
  */
-extern bool bvconst_le(uint32_t *a, uint32_t *b, uint32_t n);
+extern bool bvconst_le(const uint32_t *a, const uint32_t *b, uint32_t n);
 
 
 /*
  * Check whether a >= b (unsigned comparison). n = bit size
  */
-static inline bool bvconst_ge(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_ge(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return bvconst_le(b, a, n);
 }
 
@@ -528,7 +528,7 @@ static inline bool bvconst_ge(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a < b (unsigned comparison), n = bitsize
  * - a and b must have the same size and be normalized.
  */
-static inline bool bvconst_lt(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_lt(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return ! bvconst_le(b, a, n);
 }
 
@@ -537,7 +537,7 @@ static inline bool bvconst_lt(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a > b (unsigned comparison), n = bitsize.
  * - a and b must have the same size and be normalized.
  */
-static inline bool bvconst_gt(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_gt(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return ! bvconst_le(a, b, n);
 }
 
@@ -546,13 +546,13 @@ static inline bool bvconst_gt(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a <= b (signed comparison), n = bitsize
  * - a and b must have the same size and be normalized
  */
-extern bool bvconst_sle(uint32_t *a, uint32_t *b, uint32_t n);
+extern bool bvconst_sle(const uint32_t *a, const uint32_t *b, uint32_t n);
 
 
 /*
  * Check whether a >= b (signed comparison), n = bitsize
  */
-static inline bool bvconst_sge(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_sge(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return bvconst_sle(b, a, n);
 }
 
@@ -561,7 +561,7 @@ static inline bool bvconst_sge(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a < b (signed comparison), n = bitsize
  * - a and b must have the same size and be normalized.
  */
-static inline bool bvconst_slt(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_slt(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return ! bvconst_sle(b, a, n);
 }
 
@@ -570,7 +570,7 @@ static inline bool bvconst_slt(uint32_t *a, uint32_t *b, uint32_t n) {
  * Check whether a > b (signed comparison), n = bitsize.
  * - a and b must have the same size and be normalized.
  */
-static inline bool bvconst_sgt(uint32_t *a, uint32_t *b, uint32_t n) {
+static inline bool bvconst_sgt(const uint32_t *a, const uint32_t *b, uint32_t n) {
   return ! bvconst_sle(a, b, n);
 }
 

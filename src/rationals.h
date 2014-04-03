@@ -138,11 +138,11 @@ extern void q_set_int64(rational_t *r, int64_t num, uint64_t den);
 extern void q_set32(rational_t *r, int32_t num);
 extern void q_set64(rational_t *r, int64_t num);
 
-extern void q_set_mpq(rational_t *r, mpq_t q);
-extern void q_set_mpz(rational_t *r, mpz_t z);
-extern void q_set(rational_t *r1, rational_t *r2);
-extern void q_set_neg(rational_t *r1, rational_t *r2);
-extern void q_set_abs(rational_t *r1, rational_t *r2);
+extern void q_set_mpq(rational_t *r, const mpq_t q);
+extern void q_set_mpz(rational_t *r, const mpz_t z);
+extern void q_set(rational_t *r1, const rational_t *r2);
+extern void q_set_neg(rational_t *r1, const rational_t *r2);
+extern void q_set_abs(rational_t *r1, const rational_t *r2);
 
 
 /*
@@ -179,8 +179,8 @@ static inline void q_swap(rational_t *r1, rational_t *r2) {
 /*
  * Copy the numerator or denominator of r2 into r1
  */
-extern void q_get_num(rational_t *r1, rational_t *r2);
-extern void q_get_den(rational_t *r1, rational_t *r2);
+extern void q_get_num(rational_t *r1, const rational_t *r2);
+extern void q_get_den(rational_t *r1, const rational_t *r2);
 
 
 /*
@@ -235,21 +235,20 @@ extern int q_set_from_float_string(rational_t *r, const char *s);
  *    q_floor: store largest integer <= r into r
  *    q_ceil: store smaller integer >= r into r
  */
-
-extern void q_add(rational_t *r1, rational_t *r2);
-extern void q_sub(rational_t *r1, rational_t *r2);
-extern void q_mul(rational_t *r1, rational_t *r2);
-extern void q_div(rational_t *r1, rational_t *r2);
+extern void q_add(rational_t *r1, const rational_t *r2);
+extern void q_sub(rational_t *r1, const rational_t *r2);
+extern void q_mul(rational_t *r1, const rational_t *r2);
+extern void q_div(rational_t *r1, const rational_t *r2);
 extern void q_neg(rational_t *r);
 extern void q_inv(rational_t *r);
 
-extern void q_addmul(rational_t *r1, rational_t *r2, rational_t *r3);
-extern void q_submul(rational_t *r1, rational_t *r2, rational_t *r3);
+extern void q_addmul(rational_t *r1, const rational_t *r2, const rational_t *r3);
+extern void q_submul(rational_t *r1, const rational_t *r2, const rational_t *r3);
 extern void q_add_one(rational_t *r1);
 extern void q_sub_one(rational_t *r1);
 
-extern void q_lcm(rational_t *r1, rational_t *r2);
-extern void q_gcd(rational_t *r1, rational_t *r2);
+extern void q_lcm(rational_t *r1, const rational_t *r2);
+extern void q_gcd(rational_t *r1, const rational_t *r2);
 
 extern void q_floor(rational_t *r);
 extern void q_ceil(rational_t *r);
@@ -260,13 +259,14 @@ extern void q_ceil(rational_t *r);
  * Exponentiation:
  * - q_mulexp(r1, r2, n): multiply r1 by r2^n
  */
-extern void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n);
+extern void q_mulexp(rational_t *r1, const rational_t *r2, uint32_t n);
 
 
 /*
  * Integer division and remainder
  * - r1 and r2 must both be integer
  * - r2 must be positive.
+ * - side effect: r2 is normalized
  *
  * q_integer_div(r1, r2) stores the quotient of r1 divided by r2 into r1
  * q_integer_rem(r1, r2) stores the remainder into r1
@@ -418,15 +418,16 @@ static inline bool q_is_integer(rational_t *r) {
 /*
  * Check whether r1 divides r2: both must be integers
  * - r1 must be non-zero
+ * - side effect: r1 is normalized
  */
-extern bool q_integer_divides(rational_t *r1, rational_t *r2);
+extern bool q_integer_divides(rational_t *r1, const rational_t *r2);
 
 
 /*
  * General divisibility check: return true iff r2/r1 is an integer
  * - r1 must be non-zero
  */
-extern bool q_divides(rational_t *r1, rational_t *r2);
+extern bool q_divides(const rational_t *r1, const rational_t *r2);
 
 
 

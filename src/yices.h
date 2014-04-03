@@ -265,7 +265,7 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
  *   code = INVALID_TYPE
  *   type1 = tau[i]
  */
-__YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
+__YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, const type_t tau[]);
 
 /*
  * Variants: for small arity
@@ -301,7 +301,7 @@ __YICES_DLLSPEC__ extern type_t yices_tuple_type3(type_t tau1, type_t tau2, type
  *   code = INVALID_TYPE
  *   type1 = dom[i]
  */
-__YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
+__YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, const type_t dom[], type_t range);
 
 
 /*
@@ -422,7 +422,7 @@ __YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
  *   term1 = arg[i]
  *   type1 = expected type
  */
-__YICES_DLLSPEC__ extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_application(term_t fun, uint32_t n, const term_t arg[]);
 
 
 /*
@@ -547,7 +547,7 @@ __YICES_DLLSPEC__ extern term_t yices_implies(term_t left, term_t right);
  *   code = INVALID_TERM
  *   term1 = arg[i]
  */
-__YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, const term_t arg[]);
 
 
 /*
@@ -620,7 +620,7 @@ __YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index,
  *    term1 = arg[i]
  *    type1 = expected type
  */
-__YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
+__YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v);
 
 
 /*
@@ -701,7 +701,7 @@ __YICES_DLLSPEC__ extern term_t yices_exists(uint32_t n, term_t var[], term_t bo
  *    term1 = var[i]
  *
  */
-__YICES_DLLSPEC__ extern term_t yices_lambda(uint32_t n, term_t var[], term_t body);
+__YICES_DLLSPEC__ extern term_t yices_lambda(uint32_t n, const term_t var[], term_t body);
 
 
 
@@ -750,8 +750,8 @@ __YICES_DLLSPEC__ extern term_t yices_rational64(int64_t num, uint64_t den);
  * - q must be canonicalized
  */
 #ifdef __GMP_H__
-__YICES_DLLSPEC__ extern term_t yices_mpz(mpz_t z);
-__YICES_DLLSPEC__ extern term_t yices_mpq(mpq_t q);
+__YICES_DLLSPEC__ extern term_t yices_mpz(const mpz_t z);
+__YICES_DLLSPEC__ extern term_t yices_mpq(const mpq_t q);
 #endif
 
 
@@ -830,7 +830,7 @@ __YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
  *   code = ARITHTERM_REQUIRED
  *   term1 = t[i]
  */
-__YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, const term_t t[]);
 
 
 /*
@@ -849,7 +849,7 @@ __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
  *   code = DEGREE OVERFLOW
  *   badval = degree
  */
-__YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, const term_t t[]);
 
 
 /*
@@ -900,8 +900,8 @@ __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
  * Polynomial with integer coefficients
  * - a and t must both be arrays of size n
  */
-__YICES_DLLSPEC__ extern term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]);
 
 
 /*
@@ -913,8 +913,8 @@ __YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t
  * if num[i] is 0
  *   code = DIVISION_BY_ZERO
  */
-__YICES_DLLSPEC__ extern term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[], term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]);
 
 
 /*
@@ -922,8 +922,8 @@ __YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, int64_t num[],
  * - the rationals q[0 ... n-1] must all be canonicalized
  */
 #ifdef __GMP_H__
-__YICES_DLLSPEC__ extern term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]);
 #endif
 
 
@@ -1043,7 +1043,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_minus_one(uint32_t n);
  *    code = MAX_BVSIZE_EXCEEDED
  *    badval = n
  */
-__YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, int32_t a[]);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]);
 
 
 /*
@@ -1347,7 +1347,7 @@ __YICES_DLLSPEC__ extern term_t yices_redcomp(term_t t1, term_t t2);
  *    term1 = arg[i]
  *    type1 = bool
  */
-__YICES_DLLSPEC__ extern term_t yices_bvarray(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_bvarray(uint32_t n, const term_t arg[]);
 
 
 /*
@@ -1654,7 +1654,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *    code = OUTPUT_ERROR
  *
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
 
 
 
@@ -1881,8 +1881,8 @@ __YICES_DLLSPEC__ extern uint32_t yices_num_posref_types(void);
  *
  * The function silently ignores any term t[i] or any type tau[j] that's not valid.
  */
-__YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
-						    type_t *tau, uint32_t ntau,
+__YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t nt,
+						    const type_t tau[], uint32_t ntau,
 						    int32_t keep_named);
 
 
@@ -2300,7 +2300,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
  *
  * The error report is set as in the previous function.
  */
-__YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]);
+__YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]);
 
 
 /*
@@ -2621,7 +2621,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
 /*
  * Value of term t converted to a constant term val.
  *
- * For primitive types, this is the same as extracing the value
+ * For primitive types, this is the same as extracting the value
  * then converting it to a constant term:
  * - if t is a Boolean term, then val is either true or false (as
  *   returned by functions yices_true() or yices_false()).
