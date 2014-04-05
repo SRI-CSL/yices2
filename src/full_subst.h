@@ -113,7 +113,7 @@ extern term_t full_subst_get_map(full_subst_t *subst, term_t x);
  * Check whether x is mapped to something
  */
 static inline bool full_subst_is_mapped(full_subst_t *subst, term_t x) {
-  return full_subst_get_map(subst, x) < 0;
+  return full_subst_get_map(subst, x) >= 0;
 }
 
 /*
