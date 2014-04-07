@@ -1014,8 +1014,6 @@ static term_t full_subst_bvpoly(full_subst_t *subst, bvpoly_t *p) {
 
 
 
-
-
 /*
  * Substitution for a composite term t
  * - t is a good term with positive polarity
