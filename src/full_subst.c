@@ -2,6 +2,7 @@
  * FULL SUBSTITUTION
  */
 
+#include "term_substitution.h"
 #include "full_subst.h"
 
 /*
@@ -438,3 +439,605 @@ void full_subst_remove_cycles(full_subst_t *subst) {
   }
 }
 
+
+/*
+ * Reset the internal cache:
+ * - must be called if the substitution is modified by add_map
+ *   after it's been applied (because the cache is no longer valid)
+ */
+void full_subst_clear_cache(full_subst_t *subst) {
+  int_hmap_reset(&subst->cache);
+}
+
+
+/*
+ * APPLY THE SUBSTITUTION
+ */
+
+/*
+ * Check whether subst(t) is in the cache
+ * - t must have positive polarity
+ * - return subst(t) if it's there or NULL_TERM if it's not present
+ */
+static term_t cached_full_subst(full_subst_t *subst, term_t t) {
+  int_hmap_pair_t *r;
+  term_t s;
+
+  assert(good_term(subst->terms, t) && is_pos_term(t));
+  s = NULL_TERM;
+  r = int_hmap_find(&subst->cache, t);
+  if (r != NULL) {
+    s = r->val;
+    assert(good_term(subst->terms, s));
+  }
+  return s;
+}
+
+/*
+ * Add [subst(t) = s] to the cache
+ * - t must have positive polarity and subst(t) must not be present
+ */
+static void full_subst_cache_result(full_subst_t *subst, term_t t, term_t s) {
+  int_hmap_pair_t *r;
+
+  assert(good_term(subst->terms, t) && is_pos_term(t) &&  good_term(subst->terms, s));
+
+  r = int_hmap_get(&subst->cache, t);
+  assert(r->val < 0);
+  r->val = s;
+}
+
+
+/*
+ * Apply subst to term t
+ * - t must be a valid term in subst->terms
+ * - call longjmp if something goes wrong
+ */
+static term_t full_subst(full_subst_t *subst, term_t t);
+
+/*
+ * Apply subst to all children of composite d
+ * - store the result in array a allocated in subst->stack
+ */
+static term_t *full_subst_children(full_subst_t *subst, composite_term_t *d) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = d->arity;
+  a = alloc_istack_array(&subst->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = full_subst(subst, d->arg[i]);
+  }
+
+  return a;
+}
+
+
+/*
+ * Apply subst to non-atomic terms
+ */
+// t == 0
+static term_t full_subst_arith_eq(full_subst_t *subst, term_t t) {
+  term_t s;
+
+  s = full_subst(subst, t);
+  return mk_arith_term_eq0(subst->mngr, s);
+}
+
+// t >= 0
+static term_t full_subst_arith_ge(full_subst_t *subst, term_t t) {
+  term_t s;
+
+  s = full_subst(subst, t);
+  return mk_arith_term_geq0(subst->mngr, s);
+}
+
+static term_t full_subst_ite(full_subst_t *subst, composite_term_t *ite) {
+  term_table_t *tbl;
+  term_t c, a, b, s;
+  type_t tau;
+
+  assert(ite->arity == 3);
+
+  c = full_subst(subst, ite->arg[0]); // condition
+  if (c == true_term) {
+    s = full_subst(subst, ite->arg[1]);
+  } else if (c == false_term) {
+    s = full_subst(subst, ite->arg[2]);
+  } else {
+    a = full_subst(subst, ite->arg[1]);
+    b = full_subst(subst, ite->arg[2]);
+
+    tbl = subst->terms;
+    tau = super_type(tbl->types, term_type(tbl, a), term_type(tbl, b));
+    assert(tau != NULL_TYPE);
+
+    s = mk_ite(subst->mngr, c, a, b, tau);
+  }
+
+  return s;
+}
+
+static term_t full_subst_app(full_subst_t *subst, composite_term_t *app) {
+  term_t *a;
+  term_t s;
+
+  assert(app->arity >= 2);
+
+  a = full_subst_children(subst, app);
+  // a[0] = function, a[1 ... n-1] = arguments
+  s = mk_application(subst->mngr, a[0], app->arity-1, a+1);
+  free_istack_array(&subst->stack, a);
+
+  // a[0] may be a lambda term so we apply beta-reduction here
+  return beta_reduce(subst->mngr, s);
+}
+
+static term_t full_subst_update(full_subst_t *subst, composite_term_t *update) {
+  term_t *a;
+  term_t s;
+  uint32_t n;
+
+  assert(update->arity >= 3);
+  a = full_subst_children(subst, update);
+  n = update->arity;
+  // a[0] = function, a[1 ... n-2] = arguments, a[n-1] = new value
+  s = mk_update(subst->mngr, a[0], n-2, a+1, a[n-1]);
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_tuple(full_subst_t *subst, composite_term_t *tuple) {
+  term_t *a;
+  term_t s;
+
+  a = full_subst_children(subst, tuple);
+  s = mk_tuple(subst->mngr, tuple->arity, a);
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_eq(full_subst_t *subst, composite_term_t *eq) {
+  term_t a, b;
+
+  assert(eq->arity == 2);
+  a = full_subst(subst, eq->arg[0]);
+  b = full_subst(subst, eq->arg[1]);
+  return mk_eq(subst->mngr, a, b);
+}
+
+static term_t full_subst_distinct(full_subst_t *subst, composite_term_t *distinct) {
+  term_t *a;
+  term_t s;
+
+  a = full_subst_children(subst, distinct);
+  s = mk_distinct(subst->mngr, distinct->arity, a);
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_forall(full_subst_t *subst, composite_term_t *forall) {
+  term_t s;
+  uint32_t n;
+
+  n = forall->arity;
+  assert(n >= 2);
+
+  /*
+   * Since subst maps unint to ground terms, there's no need to
+   * worry about variable capture/renaming.
+   * - forall->arg[0 ... n-2] are unchanged
+   *   the body is subst(arg[n-1]).
+   */
+  s = full_subst(subst, forall->arg[n-1]);
+  return mk_forall(subst->mngr, n-1, forall->arg, s);
+}
+
+static term_t full_subst_lambda(full_subst_t *subst, composite_term_t *lambda) {
+  term_t s;
+  uint32_t n;
+
+  // as forall, no variable renaming required
+  n = lambda->arity;
+  assert(n >= 2);
+  s = full_subst(subst, lambda->arg[n-1]);
+  return mk_lambda(subst->mngr, n-1, lambda->arg, s);
+}
+
+static term_t full_subst_or(full_subst_t *subst, composite_term_t *or) {
+  term_t *a;
+  term_t s;
+  uint32_t i, n;
+
+  n = or->arity;
+  assert(n >= 2);
+
+  a = alloc_istack_array(&subst->stack, n);
+  s = true_term;
+  for (i=0; i<n; i++) {
+    a[i] = full_subst(subst, or->arg[i]);
+    if (a[i] == true_term) goto done;
+  }
+
+  s = mk_or(subst->mngr, n, a);
+
+ done:
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_xor(full_subst_t *subst, composite_term_t *xor) {
+  term_t *a;
+  term_t s;
+
+  assert(xor->arity >= 2);
+  a = full_subst_children(subst, xor);
+  s = mk_xor(subst->mngr, xor->arity, a);
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_arith_bineq(full_subst_t *subst, composite_term_t *eq) {
+  term_t a, b;
+
+  assert(eq->arity == 2);
+  a = full_subst(subst, eq->arg[0]);
+  b = full_subst(subst, eq->arg[1]);
+  return mk_arith_eq(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvarray(full_subst_t *subst, composite_term_t *bvarray) {
+  term_t *a;
+  term_t s;
+
+  assert(bvarray->arity >= 1);
+  a = full_subst_children(subst, bvarray);
+  s = mk_bvarray(subst->mngr, bvarray->arity, a);
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+static term_t full_subst_bvdiv(full_subst_t *subst, composite_term_t *div) {
+  term_t a, b;
+
+  assert(div->arity == 2);
+  a = full_subst(subst, div->arg[0]);
+  b = full_subst(subst, div->arg[1]);
+  return mk_bvdiv(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvrem(full_subst_t *subst, composite_term_t *rem) {
+  term_t a, b;
+
+  assert(rem->arity == 2);
+  a = full_subst(subst, rem->arg[0]);
+  b = full_subst(subst, rem->arg[1]);
+  return mk_bvrem(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvsdiv(full_subst_t *subst, composite_term_t *sdiv) {
+  term_t a, b;
+
+  assert(sdiv->arity == 2);
+  a = full_subst(subst, sdiv->arg[0]);
+  b = full_subst(subst, sdiv->arg[1]);
+  return mk_bvsdiv(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvsrem(full_subst_t *subst, composite_term_t *srem) {
+  term_t a, b;
+
+  assert(srem->arity == 2);
+  a = full_subst(subst, srem->arg[0]);
+  b = full_subst(subst, srem->arg[1]);
+  return mk_bvsrem(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvsmod(full_subst_t *subst, composite_term_t *smod) {
+  term_t a, b;
+
+  assert(smod->arity == 2);
+  a = full_subst(subst, smod->arg[0]);
+  b = full_subst(subst, smod->arg[1]);
+  return mk_bvsmod(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvshl(full_subst_t *subst, composite_term_t *shl) {
+  term_t a, b;
+
+  assert(shl->arity == 2);
+  a = full_subst(subst, shl->arg[0]);
+  b = full_subst(subst, shl->arg[1]);
+  return mk_bvshl(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvlshr(full_subst_t *subst, composite_term_t *lshr) {
+  term_t a, b;
+
+  assert(lshr->arity == 2);
+  a = full_subst(subst, lshr->arg[0]);
+  b = full_subst(subst, lshr->arg[1]);
+  return mk_bvlshr(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvashr(full_subst_t *subst, composite_term_t *ashr) {
+  term_t a, b;
+
+  assert(ashr->arity == 2);
+  a = full_subst(subst, ashr->arg[0]);
+  b = full_subst(subst, ashr->arg[1]);
+  return mk_bvashr(subst->mngr, a, b);
+}
+
+static term_t full_subst_bveq(full_subst_t *subst, composite_term_t *eq) {
+  term_t a, b;
+
+  assert(eq->arity == 2);
+  a = full_subst(subst, eq->arg[0]);
+  b = full_subst(subst, eq->arg[1]);
+  return mk_bveq(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvge(full_subst_t *subst, composite_term_t *ge) {
+  term_t a, b;
+
+  assert(ge->arity == 2);
+  a = full_subst(subst, ge->arg[0]);
+  b = full_subst(subst, ge->arg[1]);
+  return mk_bvge(subst->mngr, a, b);
+}
+
+static term_t full_subst_bvsge(full_subst_t *subst, composite_term_t *sge) {
+  term_t a, b;
+
+  assert(sge->arity == 2);
+  a = full_subst(subst, sge->arg[0]);
+  b = full_subst(subst, sge->arg[1]);
+  return mk_bvsge(subst->mngr, a, b);
+}
+
+
+// select is not a safe pointer: we copy idx before the recursive call
+static term_t full_subst_select(full_subst_t *subst, select_term_t *select) {
+  uint32_t idx;
+  term_t t;
+
+  idx = select->idx;
+  t = full_subst(subst, select->arg);
+  return mk_select(subst->mngr, idx, t);
+}
+
+// bit is not a safe pointer
+static term_t full_subst_bit(full_subst_t *subst, select_term_t *bit) {
+  uint32_t idx;
+  term_t t;
+
+  idx = bit->idx;
+  t = full_subst(subst, bit->arg);
+  return mk_bitextract(subst->mngr, t, idx);
+}
+
+
+
+
+/*
+ * Substitution for a composite term t
+ * - t is a good term with positive polarity
+ */
+static term_t full_subst_composite(full_subst_t *subst, term_t t) {
+  term_table_t *terms;
+  term_t s;
+
+  terms = subst->terms;
+  switch (term_kind(terms, t)) {
+  case ARITH_EQ_ATOM:
+    s = full_subst_arith_eq(subst, arith_eq_arg(terms, t));
+    break;
+
+  case ARITH_GE_ATOM:
+    s = full_subst_arith_ge(subst, arith_ge_arg(terms, t));
+    break;
+
+  case ITE_TERM:
+  case ITE_SPECIAL:
+    s = full_subst_ite(subst, ite_term_desc(terms, t));
+    break;
+
+  case APP_TERM:
+    s = full_subst_app(subst, app_term_desc(terms, t));
+    break;
+
+  case UPDATE_TERM:
+    s = full_subst_update(subst, update_term_desc(terms, t));
+    break;
+
+  case TUPLE_TERM:
+    s = full_subst_tuple(subst, tuple_term_desc(terms, t));
+    break;
+
+  case EQ_TERM:
+    s = full_subst_eq(subst, eq_term_desc(terms, t));
+    break;
+
+  case DISTINCT_TERM:
+    s = full_subst_distinct(subst, distinct_term_desc(terms, t));
+    break;
+
+  case FORALL_TERM:
+    s = full_subst_forall(subst, forall_term_desc(terms, t));
+    break;
+
+  case LAMBDA_TERM:
+    s = full_subst_lambda(subst, lambda_term_desc(terms, t));
+    break;
+
+  case OR_TERM:
+    s = full_subst_or(subst, or_term_desc(terms, t));
+    break;
+
+  case XOR_TERM:
+    s = full_subst_xor(subst, xor_term_desc(terms, t));
+    break;
+
+  case ARITH_BINEQ_ATOM:
+    s = full_subst_arith_bineq(subst, arith_bineq_atom_desc(terms, t));
+    break;
+
+  case BV_ARRAY:
+    s = full_subst_bvarray(subst, bvarray_term_desc(terms, t));
+    break;
+
+  case BV_DIV:
+    s = full_subst_bvdiv(subst, bvdiv_term_desc(terms, t));
+    break;
+
+  case BV_REM:
+    s = full_subst_bvrem(subst, bvrem_term_desc(terms, t));
+    break;
+
+  case BV_SDIV:
+    s = full_subst_bvsdiv(subst, bvsdiv_term_desc(terms, t));
+    break;
+
+  case BV_SREM:
+    s = full_subst_bvsrem(subst, bvsrem_term_desc(terms, t));
+    break;
+
+  case BV_SMOD:
+    s = full_subst_bvsmod(subst, bvsmod_term_desc(terms, t));
+    break;
+
+  case BV_SHL:
+    s = full_subst_bvshl(subst, bvshl_term_desc(terms, t));
+    break;
+
+  case BV_LSHR:
+    s = full_subst_bvlshr(subst, bvlshr_term_desc(terms, t));
+    break;
+
+  case BV_ASHR:
+    s = full_subst_bvashr(subst, bvashr_term_desc(terms, t));
+    break;
+
+  case BV_EQ_ATOM:
+    s = full_subst_bveq(subst, bveq_atom_desc(terms, t));
+    break;
+
+  case BV_GE_ATOM:
+    s = full_subst_bvge(subst, bvge_atom_desc(terms, t));
+    break;
+
+  case BV_SGE_ATOM:
+    s = full_subst_bvsge(subst, bvsge_atom_desc(terms, t));
+    break;
+
+  case SELECT_TERM:
+    s = full_subst_select(subst, select_term_desc(terms, t));
+    break;
+
+  case BIT_TERM:
+    s = full_subst_bit(subst, bit_term_desc(terms, t));
+    break;
+
+  case POWER_PRODUCT:
+  case ARITH_POLY:
+  case BV64_POLY:
+  case BV_POLY:
+    s = NULL_TERM;
+    break;
+
+  default:
+    assert(false);
+    longjmp(subst->env, FULL_SUBST_INTERNAL_ERROR);
+    break;
+  }
+
+  return s;
+}
+
+
+/*
+ * Apply subst to term t
+ * - t must be a valid term in subst->terms
+ * - raise an exception via longjmp is something goes wrong
+ */
+static term_t full_subst(full_subst_t *subst, term_t t) {
+  term_table_t *terms;
+  uint32_t polarity;
+  term_t r, s;
+
+  polarity = polarity_of(t);
+  t = unsigned_term(t);
+
+  terms = subst->terms;
+
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+  case VARIABLE:
+    s = t;
+    break;
+
+  case UNINTERPRETED_TERM:
+    r = full_subst_get_map(subst, t);
+    s = t;
+    if (r >= 0) {
+      // t mapped to r in subst->map
+      s = full_subst(subst, r);
+    }
+    break;
+
+  case UNUSED_TERM:
+  case RESERVED_TERM:
+    assert(false);
+    longjmp(subst->env, FULL_SUBST_INTERNAL_ERROR);
+    break;
+
+  default:
+    // t is a composite
+    s = cached_full_subst(subst, t);
+    if (s < 0) {
+      s = full_subst_composite(subst, t);
+      full_subst_cache_result(subst, t, s);
+    }
+    break;
+  }
+
+
+  return s ^ polarity;
+}
+
+
+
+/*
+ * Apply subst to term t
+ * - t must be a valid term in subst->terms
+ * - the returned value is negative (error code) if something goes
+ *   wrong.
+ */
+term_t full_subst_apply(full_subst_t *subst, term_t t) {
+  term_t result;
+  int code;
+
+  code = setjmp(subst->env);
+  if (code == 0) {
+    result = full_subst(subst, t);
+  } else {
+    // error code
+    assert(code < 0);
+    result = (term_t) code;
+
+    // clean up
+    reset_istack(&subst->stack);
+  }
+
+  return result;
+}

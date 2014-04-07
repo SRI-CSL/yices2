@@ -59,6 +59,17 @@
 #include "terms.h"
 #include "term_manager.h"
 
+
+/*
+ * Error codes
+ */
+enum {
+  FULL_SUBST_INTERNAL_ERROR = -2,   // Bug somewhere
+  FULL_SUBST_DEGREE_OVERFLOW = -3,  // Overflow in the result
+  FULL_SUBST_CYCLE = -4,            // Not used for now
+};
+
+
 /*
  * Structure:
  * - mngr = relevant term manager
@@ -142,6 +153,14 @@ extern bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t);
  * Remove substitution cycles (if any)
  */
 extern void full_subst_remove_cycles(full_subst_t *subst);
+
+
+/*
+ * Reset the internal cache:
+ * - must be called if the substitution is modified (by add_map)
+ *   after it's been applied (because the cache is no longer valid)
+ */
+extern void full_subst_clear_cache(full_subst_t *subst);
 
 
 /*

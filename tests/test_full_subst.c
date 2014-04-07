@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "assert_utils.h"
 #include "full_subst.h"
 #include "term_printer.h"
 #include "yices.h"
@@ -77,7 +78,7 @@ static void init_vars(void) {
       name = aux;
     }
     code = yices_set_term_name(v, name);
-    assert(code == 0);
+    assert_true(code == 0);
     var[i] = v;
   }
 }
@@ -103,7 +104,7 @@ static void init_funs(void) {
       name = aux;
     }
     code = yices_set_term_name(f, name);
-    assert(code == 0);
+    assert_true(code == 0);
     fun[i] = f;
   }
 }
@@ -113,7 +114,7 @@ static void init_tables(void) {
 
   tau = yices_new_uninterpreted_type();
   code = yices_set_type_name(tau, "T");
-  assert(code == 0);
+  assert_true(code == 0);
 
   init_vars();
   init_funs();
@@ -256,6 +257,56 @@ static void test_add_maps(full_subst_t *subst, uint32_t n) {
 }
 
 
+/*
+ * Test: circular substitution: x_i --> x_i+1 and x_{NVARS-1} --> x_0
+ */
+static void test_circular(full_subst_t *subst) {
+  term_t x, val;
+  uint32_t i;
+
+  for (i=0; i+1<NVARS; i++) {
+    x = var[i];
+    val = var[i+1];
+    printf("testing: ");
+    show_map(stdout, x, val);
+    printf("\n");
+    if (! full_subst_check_map(subst, x, val)) {
+      printf("*** BUG: check_map returned false ***\n");
+      fflush(stdout);
+      exit(1);
+    }
+    full_subst_add_map(subst, x, val);
+  }
+
+  printf("\nVariable shift:\n");
+  show_subst(stdout, subst);
+
+  printf("\nTesting removing cycles\n");
+  full_subst_remove_cycles(subst);
+  show_subst(stdout, subst);
+
+  // close the cycle
+  x = var[NVARS-1];
+  val = var[0];
+  printf("testing: ");
+  show_map(stdout, x, val);
+  printf("\n");
+  if (full_subst_check_map(subst, x, val)) {
+    printf("*** BUG: check_map returned true (cycle present) ***\n");
+    fflush(stdout);
+    exit(1);
+  }
+  full_subst_add_map(subst, x, val);
+
+  printf("\nCircular substitution\n");
+  show_subst(stdout, subst);
+
+  printf("\nAfter removing cycles\n");
+  full_subst_remove_cycles(subst);
+  show_subst(stdout, subst);
+}
+
+
 
 
 int main(void) {
@@ -264,6 +315,13 @@ int main(void) {
 
   yices_init();
   init_tables();
+
+  printf("*\n"
+	 "* Testing circular substitution\n"
+	 "*\n");
+  init_full_subst(&test, __yices_globals.manager);
+  test_circular(&test);
+  delete_full_subst(&test);
 
   for (i=0; i<3; i++) {
     printf("*\n"
