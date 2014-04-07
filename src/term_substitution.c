@@ -327,7 +327,7 @@ static void subst_pop_renaming(term_subst_t *subst, uint32_t n) {
 
 
 /*
- * BUILD POWER PRODUCTS AND POLYNOMIAL TERMS
+ * POWER PRODUCTS
  */
 
 /*

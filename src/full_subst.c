@@ -824,6 +824,196 @@ static term_t full_subst_bit(full_subst_t *subst, select_term_t *bit) {
 }
 
 
+/*
+ * POWER PRODUCTS
+ */
+
+/*
+ * Check whether the product a[0]^e_0 ... a[n-1]^e_{n-1} has degree > YICES_MAX_DEGREE
+ * - e_i = exponent in pprod p
+ */
+static bool pprod_degree_overflows(term_table_t *tbl, pprod_t *p, uint32_t n, term_t *a) {
+  uint64_t d;
+  uint32_t i;
+
+  assert(n == p->len);
+
+  d = 0;
+  for (i=0; i<n; i++) {
+    d += ((uint64_t) term_degree(tbl, a[i])) * p->prod[i].exp;
+    if (d > (uint64_t) YICES_MAX_DEGREE) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether term t is 0
+ * - t is either an arithmetic or a bitvector term
+ */
+static bool term_is_zero(term_table_t *tbl, term_t t) {
+  bvconst_term_t *c;
+  uint32_t k;
+
+  assert(is_arithmetic_term(tbl, t) || is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    assert(t == zero_term || q_is_nonzero(rational_term_desc(tbl, t)));;
+    return t == zero_term;
+
+  case BV64_CONSTANT:
+    return bvconst64_term_desc(tbl, t)->value == (uint64_t) 0;
+
+  case BV_CONSTANT:
+    c = bvconst_term_desc(tbl, t);
+    k = (c->bitsize + 31) >> 5;
+    return bvconst_is_zero(c->data, k);
+
+  default:
+    return false;
+  }
+}
+
+
+/*
+ * Substitution for power product p
+ */
+static term_t full_subst_pprod(full_subst_t *subst, pprod_t *p) {
+  term_t *a;
+  term_t s;
+  uint32_t i, n;
+
+  n = p->len;
+  a = alloc_istack_array(&subst->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = full_subst(subst, p->prod[i].var);
+    if (term_is_zero(subst->terms, a[i])) {
+      // the result is 0
+      s = a[i];
+      goto done;
+    }
+  }
+
+  if (pprod_degree_overflows(subst->terms, p, n, a)) {
+    longjmp(subst->env, FULL_SUBST_DEGREE_OVERFLOW);
+  }
+
+  s = mk_pprod(subst->mngr, p, n, a);
+
+ done:
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+
+
+/*
+ * Arithmetic polynomial
+ */
+static term_t full_subst_poly(full_subst_t *subst, polynomial_t *p) {
+  term_t *a;
+  term_t s;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&subst->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of the terms in p
+  while (i < n) {
+    a[i] = full_subst(subst, p->mono[i].var);
+    i ++;
+  }
+
+  // build the polynomial
+  s = mk_arith_poly(subst->mngr, p, n, a);
+
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+
+/*
+ * Bitvector polynomial: 64bit coefficients
+ */
+static term_t full_subst_bvpoly64(full_subst_t *subst, bvpoly64_t *p) {
+  term_t *a;
+  term_t s;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&subst->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of the terms in p
+  while (i < n) {
+    a[i] = full_subst(subst, p->mono[i].var);
+    i ++;
+  }
+
+  // build the polynomial
+  s = mk_bvarith64_poly(subst->mngr, p, n, a);
+
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+
+/*
+ * Bitvector polynomial: more than 64bits
+ */
+static term_t full_subst_bvpoly(full_subst_t *subst, bvpoly_t *p) {
+  term_t *a;
+  term_t s;
+  uint32_t i, n;
+
+  n = p->nterms;
+  a = alloc_istack_array(&subst->stack, n);
+
+  // skip the constant term if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[i] = const_idx;
+    i ++;
+  }
+
+  // rest of the terms in p
+  while (i < n) {
+    a[i] = full_subst(subst, p->mono[i].var);
+    i ++;
+  }
+
+  // build the polynomial
+  s= mk_bvarith_poly(subst->mngr, p, n, a);
+
+  free_istack_array(&subst->stack, a);
+
+  return s;
+}
+
+
+
+
+
 
 
 /*
@@ -946,10 +1136,19 @@ static term_t full_subst_composite(full_subst_t *subst, term_t t) {
     break;
 
   case POWER_PRODUCT:
+    s = full_subst_pprod(subst, pprod_term_desc(terms, t));
+    break;
+
   case ARITH_POLY:
+    s = full_subst_poly(subst, poly_term_desc(terms, t));
+    break;
+
   case BV64_POLY:
+    s = full_subst_bvpoly64(subst, bvpoly64_term_desc(terms, t));
+    break;
+
   case BV_POLY:
-    s = NULL_TERM;
+    s = full_subst_bvpoly(subst, bvpoly_term_desc(terms, t));
     break;
 
   default:
