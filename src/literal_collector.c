@@ -50,6 +50,7 @@ void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
   init_int_hset(&collect->lit_set, 0);
   init_istack(&collect->stack);
   collect->options = LIT_COLLECTOR_DEFAULT_OPTIONS;
+  collect->bool_are_terms = false;
 }
 
 
@@ -208,11 +209,16 @@ static void lit_collector_add_literal(lit_collector_t *collect, term_t t) {
 
 /*
  * Found an atom t:
- * - add either t or not(t) to the set of literals
- * - return true_term or false_term (i.e., value of t in the model)
+ * - if collect->bool_are_terms is true, we do nothing and return t
+ * - otherwise we add either t or not(t) to the set of literals
+ *   and we return true_term or false_term (i.e., value of t in the model)
  */
 static term_t register_atom(lit_collector_t *collect, term_t t) {
   term_t u;
+
+  if (collect->bool_are_terms) {
+    return t;
+  }
 
   u = true_term;
   if (! term_is_true_in_model(collect, t)) {
@@ -298,8 +304,7 @@ static bool inequal_array_bvpoly(term_t *a, bvpoly_t *p) {
 /*
  * Process a term t: collect literals of t and return an atomic term
  * equal to t modulo the literals.
- *
- * - if keep_term is true, then Booleans are treated as ordinary terms:
+ * - if collect->bool_are_terms is true then Boolean terms are treated as ordinary terms
  */
 static term_t lit_collector_visit(lit_collector_t *collect, term_t t);
 
@@ -434,7 +439,8 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
   t1 = eq->arg[0];
   t2 = eq->arg[1];
 
-  if (lit_collector_option_enabled(collect, KEEP_BOOL_EQ) &&
+  if (!collect->bool_are_terms &&
+      lit_collector_option_enabled(collect, KEEP_BOOL_EQ) &&
       is_boolean_term(collect->terms, t1)) {
     /*
      * Special processing: for Boolean equality
@@ -447,12 +453,18 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
 
     if (term_kind(collect->terms, t1) == UNINTERPRETED_TERM) {
       u1 = t1;
-      u2 = lit_collector_visit(collect, t2); // FIXME: special processing here
+      // treat t2 as a term here
+      collect->bool_are_terms = true;
+      u2 = lit_collector_visit(collect, t2);
+      collect->bool_are_terms = false;
       goto build_atom;
     }
 
     if (term_kind(collect->terms, t2) == UNINTERPRETED_TERM) {
-      u1 = lit_collector_visit(collect, t1); // FIXME TOO
+      // treat t1 as a term
+      collect->bool_are_terms = true;
+      u1 = lit_collector_visit(collect, t1);
+      collect->bool_are_terms = false;
       u2 = t2;
       goto build_atom;
     }
@@ -489,9 +501,19 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
 // (ite c t1 t2)
 static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, composite_term_t *ite) {
   term_t v, u;
+  bool saved_mode;
 
   assert(ite->arity == 3);
+
+  /*
+   * we always process c as a formula (so that it reduces to true_term or false_term)
+   * so we force bool_are_terms to false here.
+   */
+  saved_mode = collect->bool_are_terms;
+  collect->bool_are_terms = false;
   v = lit_collector_visit(collect, ite->arg[0]); // simplify the condition
+  collect->bool_are_terms = saved_mode; // restore the mode
+
   if (v == true_term) {
     u = ite->arg[1];  // t1
   } else {
@@ -506,9 +528,14 @@ static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, compos
 static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, composite_term_t *app) {
   term_t *a;
   uint32_t i, n;
+  bool saved_mode;
 
   n = app->arity;
   assert(n >= 2);
+
+  // force t1 ... t_n to be treated as terms
+  saved_mode = collect->bool_are_terms;
+  collect->bool_are_terms = true;
 
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
@@ -518,12 +545,14 @@ static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, compos
   if (inequal_arrays(a, app->arg, n)) {
     t = mk_application(&collect->manager, a[0], n-1, a+1);
   }
+  free_istack_array(&collect->stack, a);
+
+  // restore the mode
+  collect->bool_are_terms = saved_mode;
 
   if (is_boolean_term(collect->terms, t)) {
     t = register_atom(collect, t);
   }
-
-  free_istack_array(&collect->stack, a);
 
   return t;
 }

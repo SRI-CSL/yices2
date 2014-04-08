@@ -307,6 +307,55 @@ static void test_circular(full_subst_t *subst) {
 }
 
 
+/*
+ * Error code
+ */
+static void print_subst_error(FILE *f, int32_t code) {
+  assert(code < 0);
+  switch (code) {
+  case FULL_SUBST_INTERNAL_ERROR:
+    fprintf(f, "Internal error\n");
+    break;
+
+  case FULL_SUBST_DEGREE_OVERFLOW:
+    fprintf(f, "Degree overflow\n");
+    break;
+
+  case FULL_SUBST_CYCLE:
+    fprintf(f, "Cycle detected\n");
+    break;
+
+  default:
+    fprintf(f, "Unexpected error code %"PRId32"\n", code);
+    fflush(f);
+    exit(1);
+  }
+}
+
+/*
+ * Apply subst to all variables
+ */
+static void test_apply_subst(full_subst_t *subst) {
+  uint32_t i;
+  term_t x, s;
+
+  for (i=0; i<NVARS; i++) {
+    x = var[i];
+    printf("Test: apply_subst to ");
+    print_term_name(stdout, __yices_globals.terms, x);
+    printf("\n");
+    s = full_subst_apply(subst, x);
+    if (s < 0) {
+      print_subst_error(stdout, s);
+    } else {
+      printf("result = ");
+      print_term_full(stdout, __yices_globals.terms, s);
+      printf("\n");
+    }
+    printf("\n");
+  }
+}
+
 
 
 int main(void) {
@@ -316,24 +365,27 @@ int main(void) {
   yices_init();
   init_tables();
 
-  printf("*\n"
-	 "* Testing circular substitution\n"
-	 "*\n");
+  printf("**********************************\n"
+	 "* Testing circular substitution  *\n"
+	 "**********************************\n");
   init_full_subst(&test, __yices_globals.manager);
   test_circular(&test);
+  test_apply_subst(&test);
   delete_full_subst(&test);
 
-  for (i=0; i<3; i++) {
-    printf("*\n"
-	   "* Random test %"PRIu32"\n"
-	   "*\n", i);
+  for (i=1; i<=3000; i++) {
+    printf("**********************\n"
+	   "*  Random test %-4"PRIu32"  *\n"
+	   "**********************\n", i);
     init_full_subst(&test, __yices_globals.manager);
     printf("\nEmpty substitution:\n");
     show_subst(stdout, &test);
+    test_apply_subst(&test);
 
     test_safe_add_maps(&test, 10);
     printf("\nContent\n");
     show_subst(stdout, &test);
+    test_apply_subst(&test);
 
     test_add_maps(&test, 10);
     printf("\nContent\n");
@@ -346,10 +398,12 @@ int main(void) {
     printf("\nDouble checking: should not change\n");
     full_subst_remove_cycles(&test);
     show_subst(stdout, &test);
+    test_apply_subst(&test);
 
     delete_full_subst(&test);
   }
 
   yices_exit();
+
   return 0;
 }

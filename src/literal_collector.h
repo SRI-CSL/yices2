@@ -51,6 +51,24 @@
  *
  * - KEEP_BOOL_EQ: treat (eq t1 t2) where t1 and t2 are Boolean as an
  *   atom if t1 or t2 is a Boolean variable.
+ *
+ * Mode
+ * ----
+ * The mode determines how Boolean terms are treated.
+ *
+ * By default, all Boolean terms are treated as formulas and are
+ * reduced to true or false. In some cases, it may make more sense to
+ * treat a Boolean terms as a term.
+ *
+ * Examples:
+ * - if KEEP_BOOL_EQ is active, then we want to treat t as a term in (= x t).
+ *   (rather than reducing t to true or false then tread (= x t) as either
+ *    (= x true) or (= x false)).
+ * - if an uninterpreted function is applied to Booleans as in (P t1 t2)
+ *   then it's probably more useful to keep t1 and t2 as terms rather than
+ *   constructing (P true false) say.
+ * - on the other hand, we always want to reduce (ite c a b) so we treat
+ *   c as a formula in this context (i.e., we reduce it to true/false).
  */
 
 #ifndef __LITERAL_COLLECTOR_H
@@ -110,6 +128,7 @@ enum {
  * - lit_set = set of literals
  * - stack for recursive processing of terms
  * - options = option word
+ * - bool_are_terms = the mode (true means: treat Booleans like ordinary terms)
  * - env = jump buffer for exceptions
  */
 typedef struct lit_collector_s {
@@ -121,6 +140,7 @@ typedef struct lit_collector_s {
   int_hset_t lit_set;
   int_stack_t stack;
   uint32_t options;
+  bool bool_are_terms;
   jmp_buf env;
 } lit_collector_t;
 

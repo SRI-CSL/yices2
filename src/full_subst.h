@@ -45,6 +45,7 @@
  * implicit definition of mapping for X_1 and delay the
  * construction of (-a_0/a_1 - ... ) after we remove cycles.
  */
+
 #ifndef __FULL_SUBST_H
 #define __FULL_SUBST_H
 
@@ -155,13 +156,6 @@ extern bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t);
 extern void full_subst_remove_cycles(full_subst_t *subst);
 
 
-/*
- * Reset the internal cache:
- * - must be called if the substitution is modified (by add_map)
- *   after it's been applied (because the cache is no longer valid)
- */
-extern void full_subst_clear_cache(full_subst_t *subst);
-
 
 /*
  * APPLY TO TERMS
@@ -175,6 +169,12 @@ extern void full_subst_clear_cache(full_subst_t *subst);
  */
 extern term_t full_subst_apply(full_subst_t *subst, term_t t);
 
+/*
+ * Reset the internal cache:
+ * - must be called if the substitution is modified (by add_map)
+ *   after it's been applied (because the cache is no longer valid)
+ */
+extern void full_subst_clear_cache(full_subst_t *subst);
 
 
 

@@ -2706,6 +2706,8 @@ __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t 
  * yices_init_term_vector:
  *    v->size is the number of literals in the implicant (i.e., n)
  *    v->data[0] ... v->data[n-1] = the n literals
+ * If there's an error (return code -1) then v is empty:
+ *    v->size is set to 0.
  *
  * The function returns 0 if the implicant can be computed. Otherwise
  * it returns -1.
@@ -2738,8 +2740,13 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_
  *
  * The function computes an implicant for the conjunction (and a[0] ... a[n-1]).
  *
- * Return codes and errors are as in the previous function. The implicant is stored in vector v
- * if the return code is 0. v->size = number of literals, v->data contains the array of literals.
+ * Return codes and errors are as in the previous function.
+ * The implicant is stored in vector v.
+ *
+ * If the return code is 0, then
+ *    v->size = number of literals
+ *    v->data contains the array of literals.
+ * Otherwise, v->size is set 0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
