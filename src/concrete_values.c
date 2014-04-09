@@ -1,4 +1,3 @@
-
 /*
  * Concrete values = constants of different types.
  * This is used to build models: a model is a mapping from terms to concrete values.

@@ -69,7 +69,11 @@ static void alloc_buffer(uint32_t size) {
 }
 
 static void expand_buffer(void) {
-  assert(buffer_size <= MAX_CLAUSE_SIZE);
+  /*
+   * Added the assertion buffer_size > 0 to stop a false report from
+   * the clang static analyzer.
+   */
+  assert(buffer_size > 0 && buffer_size <= MAX_CLAUSE_SIZE);
   buffer_size = 2 * buffer_size;
   if (buffer_size > MAX_CLAUSE_SIZE) {
     buffer_size = MAX_CLAUSE_SIZE;
