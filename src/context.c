@@ -860,8 +860,6 @@ static literal_t map_xor_to_literal(context_t *ctx, composite_term_t *xor) {
   literal_t l;
   uint32_t i, n;
 
-  // TODO: add flattening here?
-
   n = xor->arity;
   a = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {

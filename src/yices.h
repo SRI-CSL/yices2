@@ -2683,8 +2683,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
  *
  * Error report:
  * - code = INVALID_TERM if var[i] or map[i] is not valid
- * - code = TYPE_MISMATCH if map[i] doesn't have a type compatible (subtype of)
- *          var[i]'s type
+ * - code = TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
  * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
  * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
  * - code = MDL_DUPLICATE_VAR if var contains duplicate elements

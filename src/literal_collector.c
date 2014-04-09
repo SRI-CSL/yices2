@@ -34,6 +34,7 @@
 
 #include <stdbool.h>
 
+#include "int_array_sort2.h"
 #include "literal_collector.h"
 
 
@@ -111,6 +112,20 @@ static void lit_collector_cache_result(lit_collector_t *collect, term_t t, term_
 }
 
 
+
+/*
+ * Evaluate t: raise an exception if the evaluation fails
+ */
+static value_t lit_collector_eval(lit_collector_t *collect, term_t t) {
+  value_t v;
+
+  v = eval_in_model(&collect->eval, t);
+  if (v < 0) {
+    longjmp(collect->env, v);
+  }
+  return v;
+}
+
 /*
  * Check whether t is true in the model
  * - t must be a Boolean term
@@ -120,13 +135,22 @@ static bool term_is_true_in_model(lit_collector_t *collect, term_t t) {
 
   assert(is_boolean_term(collect->terms, t));
 
-  v = eval_in_model(&collect->eval, t);
-  if (v < 0) {
-    // error in the evaluation
-    longjmp(collect->env, v);
-  }
+  v = lit_collector_eval(collect, t);
 
   return is_true(&collect->model->vtbl, v);
+}
+
+/*
+ * Check whether t is false
+ */
+static bool term_is_false_in_model(lit_collector_t *collect, term_t t) {
+  value_t v;
+
+  assert(is_boolean_term(collect->terms, t));
+
+  v = lit_collector_eval(collect, t);
+
+  return is_false(&collect->model->vtbl, v);
 }
 
 
@@ -145,6 +169,11 @@ static bool is_true_in_model(lit_collector_t *collect, term_t t) {
 
 
 
+
+/*
+ * SUPPORT FOR PROCESSING OF ARITHMETIC ATOMS
+ */
+
 /*
  * Compare the values of t1 and t2 in the model
  * - both t1 and t2 must be arithmetic terms
@@ -160,15 +189,8 @@ static int arith_cmp_in_model(lit_collector_t *collect, term_t t1, term_t t2) {
   assert(is_arithmetic_term(collect->terms, t1) &&
 	 is_arithmetic_term(collect->terms, t2));
 
-  v1 = eval_in_model(&collect->eval, t1);
-  if (v1 < 0) {
-    longjmp(collect->env, v1);
-  }
-  v2 = eval_in_model(&collect->eval, t2);
-  if (v2 < 0) {
-    longjmp(collect->env, v2);
-  }
-
+  v1 = lit_collector_eval(collect, t1);
+  v2 = lit_collector_eval(collect, t2);
   vtbl = &collect->model->vtbl;
   return q_cmp(vtbl_rational(vtbl, v1), vtbl_rational(vtbl, v2));
 }
@@ -186,13 +208,66 @@ static int lit_collector_sign_in_model(lit_collector_t *collect, term_t t) {
 
   assert(is_arithmetic_term(collect->terms, t));
 
-  v = eval_in_model(&collect->eval, t);
-  if (v < 0) {
-    longjmp(collect->env, v);
-  }
+  v = lit_collector_eval(collect, t);
   return q_sgn(vtbl_rational(&collect->model->vtbl, v));
 }
 
+
+/*
+ * Sort the terms of a in increasing order:
+ * - n = size of a
+ * - all elements in a must be arithmetic terms
+ * - the ordering is: t1 < t2 if value of t1 < value of t2 in the model
+ */
+static bool lt_in_model(void *d, term_t t1, term_t t2) {
+  return arith_cmp_in_model(d, t1, t2) < 0;
+}
+
+static void lit_collector_sort_in_model(lit_collector_t *collect, uint32_t n, term_t *a) {
+  int_array_sort2(a, n, collect, lt_in_model);
+}
+
+
+/*
+ * FOR NOT DISTINCT
+ */
+
+/*
+ * Sort the elements of a (to detect whether two of them are equal)
+ * - the ordering is based on the value index
+ *
+ * There's some overhead since we may evaluate the same term several
+ * times. Since the evaluator uses a cache, this overhead should be
+ * small.
+ */
+static bool lt_in_model2(void *d, term_t t1, term_t t2) {
+  value_t v1, v2;
+
+  v1 = lit_collector_eval(d, t1);
+  v2 = lit_collector_eval(d, t2);
+  return v1 < v2;
+}
+
+static void lit_collector_sort_by_value(lit_collector_t *collect, uint32_t n, term_t *a) {
+  int_array_sort2(a, n, collect, lt_in_model2);
+}
+
+/*
+ * Check whether t1 and t2 have the same value
+ */
+static bool equal_in_model(lit_collector_t *collect, term_t t1, term_t t2) {
+  value_t v1, v2;
+
+  v1 = lit_collector_eval(collect, t1);
+  v2 = lit_collector_eval(collect, t2);
+  return v1 == v2;
+}
+
+
+
+/*
+ * ADDITION OF LITERALS
+ */
 
 /*
  * Add t to the set of literals
@@ -309,6 +384,36 @@ static bool inequal_array_bvpoly(term_t *a, bvpoly_t *p) {
 static term_t lit_collector_visit(lit_collector_t *collect, term_t t);
 
 
+/*
+ * Process t (preserve Boolean terms)
+ */
+static term_t lit_collector_visit_term(lit_collector_t *collect, term_t t) {
+  bool saved_mode;
+  term_t r;
+
+  saved_mode = collect->bool_are_terms;
+  collect->bool_are_terms = true;
+  r = lit_collector_visit(collect, t);
+  collect->bool_are_terms = saved_mode;
+
+  return r;
+}
+
+/*
+ * Process t (reduce Boolean terms to true/false)
+ */
+static term_t lit_collector_visit_formula(lit_collector_t *collect, term_t t) {
+  bool saved_mode;
+  term_t r;
+
+  saved_mode = collect->bool_are_terms;
+  collect->bool_are_terms = false;
+  r = lit_collector_visit(collect, t);
+  collect->bool_are_terms = saved_mode;
+
+  return r;
+}
+
 
 /*
  * Processing t := (u == 0)
@@ -317,29 +422,36 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t);
  *   on the sign of u in the model.
  */
 static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, term_t u) {
-  term_t v;
+  term_t v, r;
   int sgn;
 
   v = lit_collector_visit(collect, u);
-  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
+  if (!collect->bool_are_terms &&
+      lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
+    /*
+     * Check whether (u == 0) is false
+     */
     sgn = lit_collector_sign_in_model(collect, v);
     if (sgn < 0) {
-      // atom is (v < 0)
+      // atom is (v < 0), the result is false
+      r = false_term;
       t = mk_arith_term_lt0(&collect->manager, v);
     } else if (sgn  == 0) {
-      // atom is (v == 0);
+      // atom is (v == 0), the result is true
+      r = true_term;
       if (v != u) {
 	t = mk_arith_term_eq0(&collect->manager, v);
       }
     } else {
       // atom is (v > 0)
+      r = false_term;
       t = mk_arith_term_gt0(&collect->manager, v);
     }
 
     // we know that t is true in the model
     lit_collector_add_literal(collect, t);
 
-    return true_term;
+    return r;
 
   } else {
     // keep (u == 0) as a literal
@@ -357,31 +469,38 @@ static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, te
  *   (not (t1 == t2)) by either (t1 < t2) or (t1 > t2)
  */
 static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t, composite_term_t *eq) {
-  term_t t1, t2;
+  term_t t1, t2, r;
   int cmp;
 
   assert(eq->arity == 2);
   t1 = lit_collector_visit(collect, eq->arg[0]);
   t2 = lit_collector_visit(collect, eq->arg[1]);
 
-  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ)) {
+  if (!collect->bool_are_terms &&
+      lit_collector_option_enabled(collect, ELIM_ARITH_NEQ)) {
+    /*
+     * Check whether (t1 != t2) in the model
+     */
     cmp = arith_cmp_in_model(collect, t1, t2);
     if (cmp < 0) {
       // atom (t1 < t2)
+      r = false_term;
       t = mk_arith_lt(&collect->manager, t1, t2);
     } else if (cmp == 0) {
       // atom (t1 == t2)
+      r = true_term;
       if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
 	t = mk_arith_eq(&collect->manager, t1, t2);
       }
     } else {
       // atom (t1 > t2)
+      r = false_term;
       t = mk_arith_gt(&collect->manager, t1, t2);
     }
 
     lit_collector_add_literal(collect, t);
 
-    return true_term;
+    return r;
 
   } else {
     // keep the atom as (t1 == t2)
@@ -416,13 +535,54 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
     a[i] = lit_collector_visit(collect, distinct->arg[i]);
   }
 
-  if (inequal_arrays(a, distinct->arg, n)) {
-    t = mk_distinct(&collect->manager, n, a);
+  if (!collect->bool_are_terms &&
+      lit_collector_option_enabled(collect, ELIM_ARITH_DISTINCT) &&
+      is_arithmetic_term(collect->terms, distinct->arg[0]) &&
+      term_is_true_in_model(collect, t)) {
+    /*
+     * (distinct t1 ... t_n) is true in the model and t_1 ... t_n are arithmetic terms
+     * convert to a conjunction of strict inequalities
+     */
+    lit_collector_sort_in_model(collect, n, a);
+    for (i=0; i<n-1; i++) {
+      t = mk_arith_lt(&collect->manager, a[i], a[i+1]);
+      lit_collector_add_literal(collect, t); // since t is true in the model
+    }
+    t = true_term;
+
+  } else if (!collect->bool_are_terms &&
+	     lit_collector_option_enabled(collect, ELIM_NOT_DISTINCT) &&
+	     term_is_false_in_model(collect, t)) {
+    /*
+     * (distinct t1 ... t_n) is false in the model
+     * search for two terms t_i and t_j that have same value in the model
+     */
+    lit_collector_sort_by_value(collect, n, a);
+    for (i=0; i<n-1; i++) {
+      if (equal_in_model(collect, a[i], a[i+1])) {
+	t = mk_eq(&collect->manager, a[i], a[i+1]);
+	lit_collector_add_literal(collect, t); // t is true
+	break;
+      }
+    }
+
+    assert(i < n-1);
+
+    t = false_term; // since (distinct ...) is false
+
+  } else {
+    /*
+     * No special processing: keep distinct as an atom
+     */
+    if (inequal_arrays(a, distinct->arg, n)) {
+      t = mk_distinct(&collect->manager, n, a);
+    }
+    t = register_atom(collect, t);
   }
 
   free_istack_array(&collect->stack, a);
 
-  return register_atom(collect, t);
+  return t;
 }
 
 
@@ -454,25 +614,24 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
     if (term_kind(collect->terms, t1) == UNINTERPRETED_TERM) {
       u1 = t1;
       // treat t2 as a term here
-      collect->bool_are_terms = true;
-      u2 = lit_collector_visit(collect, t2);
-      collect->bool_are_terms = false;
+      u2 = lit_collector_visit_term(collect, t2);
       goto build_atom;
     }
 
     if (term_kind(collect->terms, t2) == UNINTERPRETED_TERM) {
       // treat t1 as a term
-      collect->bool_are_terms = true;
-      u1 = lit_collector_visit(collect, t1);
-      collect->bool_are_terms = false;
+      u1 = lit_collector_visit_term(collect, t1);
       u2 = t2;
       goto build_atom;
     }
   }
 
   /*
-   * Default processing: if KEEP_BOOL_EQ is disabled or t1 and t2 are
-   * not Boolean, or if neither t1 nor t2 is uninterpreted.
+   * Default processing:
+   * - if bool_are_terms is true
+   * - if KEEP_BOOL_EQ is disabled
+   * - if t1 and t2 are not Boolean
+   * - if neither t1 nor t2 is uninterpreted
    */
   u1 = lit_collector_visit(collect, t1);
   u2 = lit_collector_visit(collect, t2);
@@ -501,18 +660,14 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
 // (ite c t1 t2)
 static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, composite_term_t *ite) {
   term_t v, u;
-  bool saved_mode;
 
   assert(ite->arity == 3);
 
   /*
-   * we always process c as a formula (so that it reduces to true_term or false_term)
+   * We always process c as a formula so that it reduces to true_term or false_term.
    * so we force bool_are_terms to false here.
    */
-  saved_mode = collect->bool_are_terms;
-  collect->bool_are_terms = false;
-  v = lit_collector_visit(collect, ite->arg[0]); // simplify the condition
-  collect->bool_are_terms = saved_mode; // restore the mode
+  v = lit_collector_visit_formula(collect, ite->arg[0]); // simplify the condition
 
   if (v == true_term) {
     u = ite->arg[1];  // t1
@@ -528,27 +683,20 @@ static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, compos
 static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, composite_term_t *app) {
   term_t *a;
   uint32_t i, n;
-  bool saved_mode;
 
   n = app->arity;
   assert(n >= 2);
 
   // force t1 ... t_n to be treated as terms
-  saved_mode = collect->bool_are_terms;
-  collect->bool_are_terms = true;
-
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, app->arg[i]);
+    a[i] = lit_collector_visit_term(collect, app->arg[i]);
   }
 
   if (inequal_arrays(a, app->arg, n)) {
     t = mk_application(&collect->manager, a[0], n-1, a+1);
   }
   free_istack_array(&collect->stack, a);
-
-  // restore the mode
-  collect->bool_are_terms = saved_mode;
 
   if (is_boolean_term(collect->terms, t)) {
     t = register_atom(collect, t);
@@ -567,7 +715,7 @@ static term_t lit_collector_visit_update(lit_collector_t *collect, term_t t, com
 
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, update->arg[i]);
+    a[i] = lit_collector_visit_term(collect, update->arg[i]);
   }
 
   if (inequal_arrays(a, update->arg, n)) {
@@ -589,7 +737,7 @@ static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, comp
 
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, tuple->arg[i]);
+    a[i] = lit_collector_visit_term(collect, tuple->arg[i]);
   }
 
   if (inequal_arrays(a, tuple->arg, n)) {
@@ -601,13 +749,14 @@ static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, comp
   return t;
 }
 
-// t is (or t1 ... t_n)
-static term_t lit_collector_visit_or(lit_collector_t *collect, term_t t, composite_term_t *or) {
+// t is (or t1 ... t_n): treat it as a formula
+static term_t lit_collector_visit_or_formula(lit_collector_t *collect, term_t t, composite_term_t *or) {
   term_t u;
   uint32_t i, n;
 
   n = or->arity;
   assert(n > 0);
+
   u = false_term; // prevent compilation warning
 
   if (term_is_true_in_model(collect, t)) {
@@ -630,8 +779,30 @@ static term_t lit_collector_visit_or(lit_collector_t *collect, term_t t, composi
   return u;
 }
 
-// (xor t1 ... t_n)
-static term_t lit_collector_visit_xor(lit_collector_t *collect, term_t t, composite_term_t *xor) {
+// t is (or t1 ... t_n): treat it as a term
+static term_t lit_collector_visit_or_term(lit_collector_t *collect, term_t t, composite_term_t *or) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = or->arity;
+  assert(n > 0);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, or->arg[i]);
+  }
+
+  if (inequal_arrays(a, or->arg, n)) {
+    t = mk_or(&collect->manager, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
+}
+
+// (xor t1 ... t_n): treat is as a formula
+static term_t lit_collector_visit_xor_formula(lit_collector_t *collect, term_t t, composite_term_t *xor) {
   uint32_t i, n;
   term_t u;
   bool b;
@@ -644,6 +815,28 @@ static term_t lit_collector_visit_xor(lit_collector_t *collect, term_t t, compos
     b ^= (u == true_term);
   }
   return bool2term(b);
+}
+
+// (xor t1 ... t_n): treat it as a term
+static term_t lit_collector_visit_xor_term(lit_collector_t *collect, term_t t, composite_term_t *xor) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = xor->arity;
+  assert(n > 0);
+
+  a = alloc_istack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = lit_collector_visit(collect, xor->arg[i]);
+  }
+
+  if (inequal_arrays(a, xor->arg, n)) {
+    t = mk_xor(&collect->manager, n, a);
+  }
+
+  free_istack_array(&collect->stack, a);
+
+  return t;
 }
 
 // (bv-array t1 ... tn)
@@ -1054,11 +1247,19 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case OR_TERM:
-      u = lit_collector_visit_or(collect, t, or_term_desc(terms, t));
+      if (collect->bool_are_terms) {
+	u = lit_collector_visit_or_term(collect, t, or_term_desc(terms, t));
+      } else {
+	u = lit_collector_visit_or_formula(collect, t, or_term_desc(terms, t));
+      }
       break;
 
     case XOR_TERM:
-      u = lit_collector_visit_xor(collect, t, xor_term_desc(terms, t));
+      if (collect->bool_are_terms) {
+	u = lit_collector_visit_xor_term(collect, t, xor_term_desc(terms, t));
+      } else {
+	u = lit_collector_visit_xor_formula(collect, t, xor_term_desc(terms, t));
+      }
       break;
 
     case ARITH_BINEQ_ATOM:

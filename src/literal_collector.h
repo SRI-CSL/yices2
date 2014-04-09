@@ -49,8 +49,9 @@
  * - ELIM_NOT_DISTINCT: if (distinct t_1 ... t_n) is false, then search for
  *   t_i and t_j that are equal in the model and generate (eq t_i t_j)
  *
- * - KEEP_BOOL_EQ: treat (eq t1 t2) where t1 and t2 are Boolean as an
- *   atom if t1 or t2 is a Boolean variable.
+ * - KEEP_BOOL_EQ: treat (eq t1 t2) as an atom if t1 or t2 is a
+ *   Boolean variable. By default, Boolean equalities are treated as iff:
+ *    (eq t1 t2) is interpreted as (or (and t1 t2) (and (not t1) (not t2)))
  *
  * Mode
  * ----
@@ -115,7 +116,7 @@ enum {
 /*
  * Default: all options are disabled
  */
-#define LIT_COLLECTOR_DEFAULT_OPTIONS ((uint32_t) 0)
+#define LIT_COLLECTOR_DEFAULT_OPTIONS (ELIM_ARITH_NEQ0|ELIM_ARITH_NEQ|ELIM_ARITH_DISTINCT|ELIM_NOT_DISTINCT)
 
 
 /*
