@@ -1,0 +1,241 @@
+The SMT tokens are
+
+enum smt_token {
+  // separators
+  SMT_TK_LP, SMT_TK_RP, SMT_TK_LB, SMT_TK_RB, SMT_TK_COLON, SMT_TK_EOS,
+
+  // strings, symbols, variables, attributes
+  SMT_TK_STRING, SMT_TK_SYMBOL, SMT_TK_VAR, SMT_TK_FVAR,
+  SMT_TK_ATTRIBUTE, SMT_TK_USER_VALUE,
+
+  // numerals: more permissive than SMT LIB, we allow
+  // rationals as <optional_sign><digits> or <optional_sign><digits>/<digits>
+  // floats as <optional_sigm><digits>.<digits>
+  SMT_TK_RATIONAL, SMT_TK_FLOAT,
+
+  // bitvector constants "bv<digits>" (size is determined by the theory (e.g., QF_UFBV[32])
+  // New bitvector theory: size is appended in the format "bv<digits>[i]"
+  SMT_TK_BV_CONSTANT,
+
+  // bitvector constants in binary "bvbin<bits>" and hexadecimal "bvhex<bits>"
+  SMT_TK_BV_BINCONSTANT, SMT_TK_BV_HEXCONSTANT,
+
+
+  // SMT-LIB keywords (independent of the logic and theories)
+  SMT_TK_DISTINCT, SMT_TK_ITE, SMT_TK_EQ,
+
+  SMT_TK_TRUE, SMT_TK_FALSE, SMT_TK_NOT, SMT_TK_IMPLIES, SMT_TK_IF_THEN_ELSE, SMT_TK_AND,
+  SMT_TK_OR, SMT_TK_XOR, SMT_TK_IFF, SMT_TK_EXISTS, SMT_TK_FORALL, SMT_TK_LET, SMT_TK_FLET,
+
+  // attribute for patterns
+  SMT_TK_PAT, SMT_TK_NOPAT,
+
+  // benchmark attributes and keywords
+  SMT_TK_BENCHMARK, SMT_TK_SAT, SMT_TK_UNSAT, SMT_TK_UNKNOWN, SMT_TK_LOGIC,
+  SMT_TK_ASSUMPTION, SMT_TK_FORMULA, SMT_TK_STATUS, SMT_TK_EXTRASORTS,
+  SMT_TK_EXTRAFUNS, SMT_TK_EXTRAPREDS, SMT_TK_NOTES,
+
+  // theories: sort symbols
+  SMT_TK_INDEX, SMT_TK_ELEMENT, SMT_TK_ARRAY, SMT_TK_U, SMT_TK_INT, SMT_TK_REAL,
+  SMT_TK_ARRAY1, SMT_TK_ARRAY2, SMT_TK_BITVEC,
+
+  // theories: function symbols
+  SMT_TK_ADD, SMT_TK_SUB, SMT_TK_MUL, SMT_TK_DIV, SMT_TK_TILDE, SMT_TK_LT, SMT_TK_LE,
+  SMT_TK_GT, SMT_TK_GE, SMT_TK_SELECT, SMT_TK_STORE,
+
+  // old bitvector functions
+  SMT_TK_BVADD, SMT_TK_BVSUB, SMT_TK_BVMUL, SMT_TK_BVNEG,
+  SMT_TK_BVOR, SMT_TK_BVAND, SMT_TK_BVXOR, SMT_TK_BVNOT,
+  SMT_TK_BVLT, SMT_TK_BVLEQ, SMT_TK_BVGT, SMT_TK_BVGEQ,
+  SMT_TK_BVSLT, SMT_TK_BVSLEQ, SMT_TK_BVSGT, SMT_TK_BVSGEQ,
+  SMT_TK_CONCAT, SMT_TK_EXTRACT, SMT_TK_SIGN_EXTEND, SMT_TK_SHIFT_LEFT0,
+  SMT_TK_SHIFT_LEFT1, SMT_TK_SHIFT_RIGHT0, SMT_TK_SHIFT_RIGHT1, SMT_TK_BIT0, SMT_TK_BIT1,
+
+  // new bitvector functions
+  SMT_TK_BVUDIV, SMT_TK_BVUREM,
+  SMT_TK_BVSDIV, SMT_TK_BVSREM, SMT_TK_BVSMOD,
+  SMT_TK_BVSHL,  SMT_TK_BVLSHR, SMT_TK_BVASHR,
+  SMT_TK_BVNAND, SMT_TK_BVNOR,  SMT_TK_BVXNOR,
+  SMT_TK_BVREDOR, SMT_TK_BVREDAND, SMT_TK_BVCOMP,
+
+  SMT_TK_REPEAT, SMT_TK_ZERO_EXTEND, SMT_TK_ROTATE_LEFT, SMT_TK_ROTATE_RIGHT,
+
+  // new names of bitvector predicates
+  SMT_TK_BVULT, SMT_TK_BVULE, SMT_TK_BVUGT, SMT_TK_BVUGE,
+  SMT_TK_BVSLE, SMT_TK_BVSGE,
+
+  // errors
+  SMT_TK_OPEN_STRING, SMT_TK_OPEN_USER_VAL,
+  SMT_TK_ZERO_DIVISOR, SMT_TK_INVALID_NUMBER,
+  SMT_TK_INVALID_BITVEC, SMT_TK_INVALID_EXTRACT,
+  SMT_TK_ERROR,
+}
+
+
+Transitions:
+
+benchmark := {b0} ( {b1> benchmark {b2} <id> {b3} <bench_attribute>* {b4}
+                     <formula-attrib> {b5} <attribute>+ {b6} )
+
+bench_attribute :=   {a0}  :logic {a1} <id> | :assumption {a2} <formula> | :status
+                 {a3} <status> |
+                 :extrasorts {a4} ( {a5} <sort-symb>+ {r0} ) |
+		 :extrafuns {a6} ( {a7} <fun-decl>+ {r0} ) |
+		 :extrapreds {a8}  ( {a9} <pred-decl>+ {r0}) |
+		 :notes {a12} <string> |
+		 <annotation>
+
+formula-attrib := {fa0} :formula {fa1} <formula>
+
+<formula> := {f0} {true | false | <fvar> | <identifier> |
+             ( {f1} [[[true | false | <fvar> | identifier] {f2} <annotation>+ {f3}] |
+                [[ <pred> {f4} <term>+ {f5}] |
+		 [<connective> {f6} <formula>+ {f7}]  |
+	         [<quant> {f8} <var-decl>+ {f9} <formula> ] |
+	         [let {f10} ( {f11} <var> {f12} <term> {f13} ) {f14} <formula>] |
+	         [flet {f15} ( {f16} <fvar> {f17} <formula> {f18} ) {f19}
+                 <formula> ] {f20}]
+		   <annotation>* ]
+		 {r0} )
+
+<status> := sat | unsat | unknown
+
+<connective> := exists | forall
+
+<sort-symb> := <identifier>
+
+<var-decl> := {vd0} ( {vd1} <var> {vd2} <sort-symb> {vd3} ) {vd4}
+
+<fun-decl> := {fd0} ( {fd1} [<funsymb> {fd2} <sort-symb>+ {fd3} |
+                             [<numeral> | <rational> ] {fd4} <sort-symb>]
+			     {fd5} <annotation>* {fd6})
+
+<pred-decl> := {pd0} ( {pd1} <predsymb> {fd2} <sort_symb>+
+<annotation> := {an0}[ <attribute>  | ( {an1} <attribute> {an2} <userval>
+                      {an3} )]
+
+<term> := {t0} <var> | <numeral> | <rational> | <identifier> |
+          ( {t1} [ [ [<var> | <numeral> | <rational> | <identifier> ] {t2}
+          <annotation>+ {t3}]
+            | [ [ite <t4} <formula> {t5} <term> {t6} <term> ] |
+	        [<fun> {t7} <term>+ {t8}] ] {t9} <annotation>*] {t10}
+		)
+
+<identifier> := id0 <simple_id> | <simple_id> [ <numeral> {: <numeral>}* ]
+
+
+state    token              action
+
+b0	 (		    next; goto b1
+b1	 benchmark	    next; goto b2
+b2	 <identifier>	    next; goto b3
+b3	 :formula	    next; push b3; goto f0
+	 :logic		    next; push b3; goto la0
+	 :assumption	    next; push b3; goto f0
+	 :status	    next; push b3; goto ta0
+	 :extrasorts	    next; push b3; goto sa0
+	 :extrafuns	    next; push b3; goto fn0
+	 :extrapreds	    next; push b3; goto pa0
+	 :notes		    next; push b3; goto n0
+	 :attribute	    push b3; goto an0
+	 )		    return
+
+
+la0	 <symbol>	    return
+
+ta0	 sat		    return
+	 unsat		    return
+	 unknown	    return
+
+sa0	 (		    next; goto sa1
+sa1	 <symbol>	    next; goto sa1
+	 )		    return
+
+fn0	 (		    next; push fn1; goto fd0
+fn1	 )		    return
+	 _		    push fn1; goto fd0
+
+fd0	 (		    next; goto fd1
+fd1	 <symbol>	    next; goto fd2
+	 <numeral>	    next; goto fd3
+	 <rational>	    next; goto fd3
+fd2	 <symbol>	    push fd3; goto sid0  //sort+
+fd3	 <symbol>	    push fd3; goto sid0
+fd4	 )		    next; goto fd5
+	 <attribute>	    push fd4; goto an0    // grammar allows any attribute
+fd5	 (		    next; goto fd1
+	 _		    return_nonext
+
+an0	 <attribute>	    next; goto an1
+
+an1	 <userval>	    return
+	 _		    return_nonext
+
+pa0	 (		    next; push fn1; goto pr0
+pa1	 )		    return
+	 _		    push pa1; goto pr0
+
+pr0	 (		    next; goto pr1
+pr1	 <symbol>	    next; goto pr2
+pr2	 <symbol>	    push pr2; goto sid0 //sort symbol
+	 )		    next; goto pr3
+	 <attribute>	    push pr4; goto an0
+pr3	 (		    next; goto pr1
+	 _		    return_nonext
+pr4	 )		    next; goto pr3
+
+
+n0	 <string>	    return
+					//terms and formulas are unified
+f0	 true		    return
+	 false		    return
+	 <fvar>		    return
+	 <var>		    return
+	 <rational>	    return
+	 <float>	    return
+	 <symbol>	    goto id0
+	 (		    next; goto f1
+f1	 <quant>	    next; goto f2
+	 let		    next; goto f8
+	 flet		    next; goto f8
+	 ite		    push fd4; push f0; push f0; goto f0
+	 if_then_else	    push fd4; push f0; push f0; goto f0
+	 not		    push fd4; goto f0
+	 implies	    push fd4; push f0;	goto f0
+	 and		    next; goto f10  //allows nullary and
+	 or		    next; goto f10
+	 xor		    push fd4; push f0;	goto f0
+	 iff		    push fd4; push f0;	goto f0
+	 <symbol>	    push f10; goto id0
+
+f2	 (		    next; goto f3  //quant
+f3	 <var>		    next; goto f4
+	 <fvar>		    next; got f4
+f4	 <symbol>	    next; push f5; goto id0
+f5	 )		    next; goto f6
+f6	 (		    next; goto f7  //further bindings
+f7	 <var>		    next; goto f4
+	 <fvar>		    next; goto f4
+	 _		    goto f0        //body
+
+
+f8	 (		    next; goto f9    //let bindings
+f9	 <var>		    next; push r0; goto f0
+	 <fvar>		    next; push r0; goto f0
+
+f10	 <attribute>	    goto fd4   //no next
+	 )		    return
+	 _		    push f10; goto f0  //<formula/term>*
+
+
+r0	 )		    return
+
+id0	 <symbol>	    next; goto id1
+id1	 [		    next; goto id2
+	 _		    return_nonext
+id2	 <numeral>	    next; goto id3
+id3	 ]		    return
+	 :		    next; goto id2
+
+sid0	 BitVec		    next; goto id1
+	 Array		    next; goto id1

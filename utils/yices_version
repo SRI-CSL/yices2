@@ -1,0 +1,51 @@
+#!/bin/sh
+
+#
+# Script to get the Yices version (by calling yices)
+#
+# Usage:
+#   ./yices_version <dist directory>
+#
+# - the argument must be the path to the binary or static dist
+# - there should be a binary called yices or yices.ext in the bin directory
+# - this script call yices --version then extract the GMP version from there
+#
+
+usage="Usage: $0 <distribution directory>
+
+   For example
+
+     $0 ./build/x86_64-unknown-linux-gnu-release/dist
+"
+
+if test $# -ne 1 ; then
+   echo $usage
+   exit 2
+fi
+
+dist=$1
+if test ! -d $dist ; then
+   echo "Error: cant's find directory $dist"
+   exit 2
+fi
+
+yices=$dist/bin/yices
+test -x $yices || yices=$dist/bin/yices.exe
+
+if test -x $yices ; then
+   tmp=` $yices --version | awk '/Yices/ { print $2 }'`
+   case $tmp in
+     *.*.* )
+       echo $tmp
+       ;;
+
+     * )
+       echo "Error: Yices version not found or badly formatted"
+       echo $tmp
+       exit 2
+       ;;
+   esac
+else
+  echo "Error: can't run $dist/bin/yices"
+  exit 2
+fi

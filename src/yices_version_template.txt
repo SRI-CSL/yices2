@@ -1,0 +1,29 @@
+/*
+ * Template for generating yices_version.c
+ */
+
+
+/*
+ * Visibility control: version strings are part of the API.
+ */
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
+
+
+EXPORTED const char * const yices_version = "YICES_VERSION";
+EXPORTED const char * const yices_build_date = "YICES_COMPILATION_DATE";
+EXPORTED const char * const yices_build_arch = "YICES_ARCH";
+
+#if defined(YICES_STATIC)
+EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE/static";
+#else
+EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE";
+#endif
+
+#ifndef NDEBUG
+const char * const yices_svn_url = "SVN_URL";
+const char * const yices_svn_rev = "SVN_REVISION";
+#endif

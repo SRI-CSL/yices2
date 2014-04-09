@@ -1,0 +1,117 @@
+NOTES FOR BUILDING ON mission.ai.sri.com
+(this is a Sparc solaris2.8 machine).
+
+On that machine, my home directory is
+
+/home/labrea5/dutertre
+
+My login shell is tcsh
+
+
+First steps:
+
+Add /usr/local/bin to path: that's where gmake, gcc, etc. are installed on
+that machine.
+
+Note: /usr/local/bin/gcc is old (version 3.0.3).
+
+Add /usr/local/lib to LD_LIBRARY_PATH
+
+
+
+Second step:
+
+Install the tools needed for Yices in ~/tools
+
+1) gperf-3.0.3: in ~/tools/bin
+  (compiled and installed without problem)
+
+2) gmp-4.3.2: installed in ~/tools/lib (configured for ultrasparc, 32bit)
+
+   GMP configuration on that machine was
+
+   ABI=32
+   CC="gcc -std=gnu99"
+   CFLAGS="-m32 -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc"
+   CPPFLAGS=""
+   MPN_PATH=" sparc32/v9 sparc32/v8 sparc32 generic"
+
+
+
+
+Third step: install a more recent GCC compiler.
+
+GCC 3.0.3 is too old to compile Yices. We use the visibility attribute
+that was introduced in GCC 3.3.x and support for C99.
+
+To install GCC 4.5.2:
+
+1) Check the GCC/platform notes for sparc-sun-solaris2 (and relatives):
+   - the notes mention that GCC 3.0.x can't be used to build GCC 3.3 or 3,4
+   - it also failed to compiled GCC 4.5.2 for me
+
+2) So I first installed GCC 3.2.3 as recommended in these notes.
+
+   The GCC configure on solaris requires a few special flags (need to
+   to specify whether ld/as are the GNU versions or the Sun versions).
+   On mission.ai.sri.com, I used /usr/local/bin/ld and /usr/local/bin/as,
+   which are both from GNU/binutils 2.11.2. Also, I disabled multilib
+   (i.e., compiled GCC 3.2.3 to generate only 32bit code):
+
+
+   So the configure for GCC 3.2.3 was:
+
+   ../gcc-3.2.3/configure ----prefix=/home/labrea5/dutertre/tools \
+         --with-gnu-ld --with-gnu-as --with-ld=/usr/local/bin/ld \
+         --with-as=/usr/local/bin/as \
+         --disable-multilib
+
+
+3) Other preliminary steps before installing GCC 4.5.2:
+
+   a) install mpfr and mpc (both depend on GMP)
+
+   b) install a more recent version of GNU make (the version on
+      mission.ai.sri.com was too old)
+
+
+4) Configured GCC 4.5.2:
+
+   ../gcc-4.5.2/configure \
+        --prefix=/home/labrea5/dutertre/tools \
+        --with-gnu-ld --with-gnu-as --with-ld=/usr/local/bin/ld \
+        --with-as=/usr/local/bin/as
+
+   Also need to set LDFLAGS and CPPFLAGS:
+
+     setenv LDFLAGS -L/home/labrea5/dutertre/tools/lib
+     setenv CPPFLAGS -I/home/labrea5/dutertre/tools/include
+
+
+
+5) Built GCC 4.5.2
+
+   The default build (i.e., typing just 'make') failed after stage1
+   because stage2 could not find mpc, etc. So I used
+
+     make BOOT_LDFLAGS=-L/home/labrea5/dutertre/tools/lib
+
+   This seems to fix the problem.
+
+   There were warnings that /usr/local/bin/ld was too old.
+
+
+
+MORE NOTES: to fix the warning about ld being too old:
+
+1) install binutils 2.20 from the source in ~/tools (binutils 2.21w is
+   more recent but it did not work on this machine).
+
+2) re-build and install GCC 4.5.2. Follow steps 4 and 5 above,
+   but configure GCC to use the freshly installed ld and as:
+
+   ../gcc-4.5.2/configure \
+        --prefix=/home/labrea5/dutertre/tools \
+        --with-gnu-ld --with-gnu-as \
+        --with-ld=/home/labrea5/dutertre/tools/bin/ld \
+        --with-as=/home/labrea5/dutertre/tools/bin/as

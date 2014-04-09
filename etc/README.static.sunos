@@ -1,0 +1,33 @@
+Yices SMT Solver, Copyright SRI International
+=============================================
+
+This file is part of the Yices __YICES__ binary distribution for Sparc
+Solaris 2.10. Yices is distributed free-of-charge for personal use
+under the terms of the Yices license (see LICENSE).
+
+
+This distribution includes four solvers
+
+  bin/yices       (for the Yices 2 language)
+  bin/yices-smt   (for SMT-LIB 1.2)
+  bin/yices-smt2  (for SMT-LIB 2.0)
+  bin/yices-sat   (sat solver, DIMACS format)
+
+and the Yices libraries and header files
+
+  lib/__DYLIB__
+  include/yices.h
+  include/yices_types.h
+  include/yices_limits.h
+  include/yices_exit_codes.h
+
+
+Examples and documentation are in the examples and doc directories.
+
+
+The binaries and library were linked statically against GMP version __GMP__,
+copyright Free Software Foundation (see NOTICES).
+
+
+For more information, please visit http://yices.csl.sri.com.
+

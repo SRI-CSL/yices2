@@ -1,0 +1,16 @@
+PROBLEM NOTED ON MARCH 03, 2010
+-------------------------------
+
+There are kernel-dependencies in GLIBC so even code compiled and linked
+statically may not work on old versions of linux (e.g., Yices 2 does
+not run on plato, which has a 2.4 linux kernel). This is easy to
+diagnose: the executable crashes with the message
+
+   FATAL: kernel too old
+   Segmentation fault
+
+Our goal should be to ensure static binaries work on any linux 2.6 kernel?
+Not sure we can really achieve that.
+
+
+

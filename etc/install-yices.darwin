@@ -1,0 +1,221 @@
+#!/bin/sh
+
+#
+# Script to install Yices on Mac OS X
+#
+# Usage
+# -----
+#     ./install-yices [OPTIONS] <location>
+#
+# This script must be called from the toplevel Yices directory.
+#
+# If <location> is a directory, then Yices is installed as follows:
+#     binaries      in <location>/bin
+#     libraries     in <location>/lib
+#     include files in <location>/include
+#
+# If no <location> is given, Yices will be installed in /usr/local.
+#
+# If <location> is the special keyword 'here', or if it is equal to
+# the current directory, then no files are copied but symbolic links
+# are created in ./lib
+#
+# OPTIONS:
+#  -h --help: print a short help message
+#
+
+usage="Usage: $0 <directory>
+    or $0 here
+
+The fist form installs Yices in the location specified by <directory>.
+This copies binaries, libraries, and header files as follows:
+
+   binaries      in <directory>/bin
+   libraries     in <directory>/lib
+   include files in <directory>/include
+
+If the <directory> is not given, this script will attempt to install
+Yices in the default location, that is, in /usr/local. To use this
+option, you typically need
+
+   sudo $0
+
+The second form install yices locally. The script will just create symbolic
+links in the ./lib directory.
+
+
+OPTIONS:
+  -h --help:  print this message
+"
+
+failure="
+Installation failed
+"
+
+
+#
+# Tools we need: change this if they are not found
+#
+install="/usr/bin/install"
+link="/bin/ln"
+install_name_tool="/usr/bin/install_name_tool"
+
+
+#
+# Process the command line
+#
+location_given=no
+location=
+
+while test -n "$1"; do
+  case $1 in
+    -h | --help)
+        echo "$usage"
+        exit 0;;
+
+    -*) echo "Unknown option $1. Try $0 -h for help"
+        exit 1;;
+
+    *) if test "$location_given" = "yes" ; then
+         echo "Please specify a single location. Try $0 -h for help"
+         exit 1
+       fi
+       location_given="yes"
+       location=$1
+       shift
+       continue;;
+  esac
+done
+
+
+
+#
+# Check that the current directory contains bin lib include
+# subdirectories and check the lib contains libyices.2.dylbib.
+#
+local_dir=`pwd`
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+
+   dylib_file=`ls lib/libyices.2.dylib | sed -e 's+lib/++' 2>/dev/null`
+
+   case "$dylib_file" in
+     libyices.2.dylib)
+       break;;
+
+     *) echo "$failure"
+        echo "Can't find the Yices library libyices.2.dylib in ./lib"
+        echo "Make sure $0 is run from the toplevel Yices directory"
+	echo ""
+        exit 1;;
+
+    esac
+
+else
+   echo "$failure"
+   echo "Can't find the ./bin ./lib or ./include directory"
+   echo "Make sure $0 is run from the toplevel Yices directory"
+   echo ""
+   exit 1
+fi
+
+
+#
+# Set install dir and local_install flag
+#
+local_install="no"
+install_dir="/usr/local"
+
+if test -n "$location" ; then
+  case $location in
+
+    here)
+      local_install="yes"
+      install_dir="$local_dir"
+      break;;
+
+    /*)
+      install_dir="$location"
+      if test "$location" -ef "$local_dir" ; then
+         local_install="yes"
+      fi
+      break;;
+
+    *)
+      echo "The directory must be givan as an absolute path"
+      exit 1;;
+
+  esac
+fi
+
+
+#
+# Check that the tools exist and are executable
+#
+if test "$local_install" = "no" ; then
+  { test -f "$install" -a -x "$install" ; } ||
+  { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
+fi
+
+if test "$install_dir" != "/usr/local" ; then
+  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } ||
+  { echo "$failure" ; echo "Can't find $install_name_tool" ; echo "" ; exit 1 ; }
+fi
+
+{ test -f "$link" -a -x "$link"; } ||
+  { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
+
+
+#
+# Install directories
+#
+bindir="$install_dir/bin"
+libdir="$install_dir/lib"
+includedir="$install_dir/include"
+
+
+#
+# For non-local install:
+# create the install directories then copy the files
+#
+if test "$local_install" = "no" ; then
+  echo "Installing Yices in $install_dir"
+  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+    && $install -m 0644 ./include/*.h "$includedir" \
+    && $install ./bin/* "$bindir" \
+    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null ||
+  { echo "$failure"
+    echo "Could not create install directories or copy files"
+    echo "Check that you have the right permissions"
+    echo "or try sudo $0"
+    echo ""
+    exit 1 ; }
+fi
+
+
+#
+# If the install_dir is not /usr/local, fix the
+# library's intall name.
+#
+if test "$install_dir" != "/usr/local" ; then
+   full_path_dylib="$libdir/$dylib_file"
+  { "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; }  ||
+   { echo "$failure"
+     echo "Could not fix the install name"
+     echo ""
+     exit 1 ; }
+fi
+
+#
+# Create the symbolic link to lib/liyices.2.dylib
+# on Mac OS, the symbolic link permissions matter.
+# To make things usable, we force umask to 22:
+# this gives xwrx_rx_r to the symbolic link.
+#
+umask 22
+{ "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; } ||
+  { echo "$failure"
+    echo "Could not create symbolic link libyices.dylib"
+    echo ""
+    exit 1 ; }
+
+echo "Done"

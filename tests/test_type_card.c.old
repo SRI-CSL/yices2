@@ -1,0 +1,178 @@
+/*
+ * Test of cardinality computation
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "types.h"
+
+static type_table_t table;
+
+static void test(type_t tau, char *name) {
+  printf("card_of(%s) = %"PRIu32, name, card_of_type(&table, tau));
+  if (finite_type(&table, tau)) {
+    printf(" finite");
+  } else {
+    printf(" infinite");
+  }
+  if (unit_type(&table, tau)) {
+    printf(" (singleton)\n");
+  } else {
+    printf("\n");
+  }
+  fflush(stdout);
+}
+
+
+int main() {
+  type_t b, i, r, u, bv1, bv10, bv31, bv32, bv33, scal1, scal4, scal23;
+  type_t aux[10];
+  type_t fun1, fun2, fun3, tup1, tup2;
+  type_t tau;
+
+  init_type_table(&table, 0);
+
+  b = bool_type(&table);
+  test(b, "bool");
+
+  i = int_type(&table);
+  test(i, "int");
+
+  r = real_type(&table);
+  test(r, "real");
+
+  u = new_uninterpreted_type(&table);
+  test(u, "U");
+
+  bv1 = bv_type(&table, 1);
+  test(bv1, "bv[1]");
+
+  bv10 = bv_type(&table, 10);
+  test(bv10, "bv[10]");
+
+  bv31 = bv_type(&table, 31);
+  test(bv31, "bv[31]");
+
+  bv32 = bv_type(&table, 32);
+  test(bv32, "bv[32]");
+
+  bv33 = bv_type(&table, 33);
+  test(bv33, "bv[33]");
+
+  scal1 = new_scalar_type(&table, 1);
+  test(scal1, "scal1");
+
+  scal4 = new_scalar_type(&table, 4);
+  test(scal4, "scal4");
+
+  scal23 = new_scalar_type(&table, 23);
+  test(scal23, "scal23");
+
+  aux[0] = b;
+  aux[1] = scal23;
+  tup1 = tuple_type(&table, 2, aux);
+  test(tup1, "bool x scal23");
+
+  aux[0] = scal1;
+  aux[1] = scal1;
+  aux[2] = scal1;
+  tup2 = tuple_type(&table, 3, aux);
+  test(tup2, "scal1 x scal1 x scal1");
+
+  aux[0] = i;
+  aux[1] = b;
+  fun1 = function_type(&table, scal1, 2, aux);
+  test(fun1, "int x bool -> scal1");
+
+  aux[0] = scal4;
+  aux[1] = scal23;
+  fun2 = function_type(&table, b, 2, aux);
+  test(fun2, "scal4 x scal23 -> bool");
+
+  aux[0] = scal4;
+  fun3 = function_type(&table, scal4, 1, aux);
+  test(fun3, "scal4 -> scal4");
+
+  aux[0] = r;
+  tau = function_type(&table, fun1, 1, aux);
+  test(tau, "real -> (int x bool -> scal1)");
+
+  aux[0] = fun1;
+  tau = function_type(&table, r, 1, aux);
+  test(tau, "(int x bool -> scal1) -> real");
+
+  aux[0] = fun2;
+  tau = function_type(&table, fun2, 1, aux);
+  test(tau, "(scal4 x scal23 -> bool) -> (scal4 x scal23 -> bool)");
+
+  aux[0] = fun3;
+  aux[1] = tup1;
+  tau = tuple_type(&table, 2, aux);
+  test(tau, "(scal4 -> scal4) x (bool x scal23)");
+
+  aux[0] = fun3;
+  aux[1] = tup1;
+  aux[2] = tup1;
+  tau = tuple_type(&table, 3, aux);
+  test(tau, "(scal4 -> scal4) x (bool x scal23) x (bool x scal23)");
+
+  aux[0] = fun3;
+  aux[1] = tup1;
+  aux[2] = b;
+  aux[3] = b;
+  aux[4] = b;
+  tau = tuple_type(&table, 3, aux);
+  test(tau, "(scal4 -> scal4) x (bool x scal23) x bool x bool");
+
+  aux[0] = bv10;
+  tau = function_type(&table, b, 1, aux);
+  test(tau, "bv[10] -> bool");
+
+  aux[0] = bv10;
+  aux[1] = bv1;
+  tau = function_type(&table, b, 2, aux);
+  test(tau, "bv[10] x bv[1] -> bool");
+
+  aux[0] = bv1;
+  aux[1] = bv1;
+  aux[2] = bv1;
+  tau = function_type(&table, scal4, 3, aux);
+  test(tau, "bv[1] x bv[1] x bv[1] -> scal4");
+
+  aux[0] = bv1;
+  aux[1] = bv1;
+  aux[2] = bv1;
+  aux[3] = bv1;
+  tau = function_type(&table, scal4, 4, aux);
+  test(tau, "bv[1] x bv[1] x bv[1] x bv[1] -> scal4");
+
+  aux[0] = bv1;
+  aux[1] = bv1;
+  aux[2] = bv1;
+  aux[3] = bv1;
+  aux[4] = bv1;
+  tau = function_type(&table, scal4, 5, aux);
+  test(tau, "bv[1] x bv[1] x bv[1] x bv[1] x bv[1] -> scal4");
+
+
+  aux[0] = scal23;
+  tau = function_type(&table, scal4, 1, aux);
+  test(tau, "scal23 -> scal4");
+
+  aux[0] = scal23;
+  tau = function_type(&table, b, 1, aux);
+  test(tau, "scal23 -> bool");
+
+  aux[0] = fun1;
+  aux[1] = scal23;
+  aux[2] = tup2;
+  tau = function_type(&table, b, 3, aux);
+  test(tau, "(int x bool -> scal1) x scal23 x (scal1 x scal1 x scal1) -> bool");
+
+  delete_type_table(&table);
+
+  return 0;
+}

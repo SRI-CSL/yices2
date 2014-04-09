@@ -1,0 +1,175 @@
+#!/bin/sh
+
+#
+# Construct a README file from a template
+#
+# Usage:
+#   ./mkreadme <dist> <template>
+#
+# <dist> must be a distribution directory like
+#   build/x86_64-unknown-linux-gnu-release/static_dist
+#
+# The template must be an appropriate text file for the distribution
+# (e.g. etc/README.static.linux)
+#
+# This scripts replaces
+#  __YICES__      by the Yices version number
+#  __GMP__        by the GMP version
+#  __DYLIB__      by the name of the dynamic libray
+#  __OS_VERSION__ by the build OS
+# in the template
+#
+# NOTE: For cross-compilation on cygwin, this script may not work for
+# the mingw32 or mingw64 non-static distribution (can't run yices.exe
+# from cygwin because the libgmp.xx.dll is not found). It should work
+# for the static mingw32 and mingw64 distributions.
+#
+
+usage="Usage: $0 <distribution directory> <template>\n
+\n
+   For example\n
+\n
+    $0 ./build/x86_64-unknown-linux-gnu-release/dist ./etc/README.linux\n
+"
+
+if test $# != 2 ; then
+   echo $usage
+   exit 1
+fi
+
+dist=$1
+template=$2
+libdir=$dist/lib
+
+if test ! -d $dist ; then
+   echo "Error: $dist not found or not a directory"
+   exit 1
+fi
+
+if test ! -f $template ; then
+   echo "Error: $template not found"
+   exit 1
+fi
+
+if test ! -d $libdir ; then
+   echo "Error: $libdir not found or not a directory"
+   exit 1
+fi
+
+
+if test -x $dist/bin/yices ; then
+  yices=$dist/bin/yices
+else
+  if test -x $dist/bin/yices.exe ; then
+     yices=$dist/bin/yices.exe
+  else
+    echo "Error: can't find yices or yices.exe in $dist/bin"
+    exit 1
+  fi
+fi
+
+
+#
+# Check whether we can execute $yices --version
+#
+{ $yices --version > /dev/null 2>&1 ; } || { echo "Error: can't run $yices" ; exit 1 ; }
+
+
+#
+# Get GMP version
+#
+tmp=` $yices --version | awk '/GMP/ { print $4 }' `
+case $tmp in
+  *.*.* )
+    gmp_version=$tmp
+    ;;
+
+  * )
+    echo "Error: invalid GMP version (got $tmp)"
+    exit 1
+    ;;
+esac
+
+#
+# Get Yices version
+#
+tmp=` $yices --version | awk '/Yices/ { print $2 }'`
+case $tmp in
+  *.*.* )
+    yices_version=$tmp
+    ;;
+
+  * )
+    echo "Error: invalid Yices version (got $tmp)"
+    exit 1
+    ;;
+esac
+
+
+#
+# Get the dynamic library name
+#
+libname="none"
+alllibs=`ls $libdir`
+for lib in $alllibs; do
+  case $lib in
+    libyices.so.* | libyices.*.dylib )
+      if test $libname = "none" ; then
+        libname=$lib
+      else
+        echo "Error: found two dymanic libraries: $libname and $lib in $dist/lib"
+        exit 1
+      fi
+    ;;
+  esac
+done
+
+
+#
+# Get os name and release
+#
+os_name=`uname 2>/dev/null` || os_name=unknown
+os_release=`(uname -r) 2>/dev/null` || os_release=unknown
+case "${os_name}:${os_release}" in
+  unknown:* |  *:unknown )
+    echo "Error: failed to get OS version\n"
+    exit 1
+    ;;
+
+  *Linux* | *linux* )
+    #
+    # Try to get the distribution (via lsb_release)
+    #
+    linux_dist=`(lsb_release -d -s) 2>/dev/null` || linux_dist=unknown
+    case $linux_dist in
+      unknown )
+         os_version="${os_name} ${os_release}"
+         ;;
+
+      * )
+         os_version="${linux_dist} (${os_name} ${os_release})"
+         ;;
+    esac
+    ;;
+
+  * )
+    os_version="${os_name} ${os_release}"
+    ;;
+esac
+
+#
+# On cygwin and possibly other systems, the os_release contains '/'
+# so we can't do sed -e "s/__OS_VERSION__/${os_version}/g". Instead,
+# we use sed -e "s,__OS_VERSION__,${os_version},g".
+#
+# To make sure this command works, we remove any ',' from the os_version.
+#
+clean_os_version=` echo $os_version | sed -e 's/,/ /g' `
+
+
+#
+# Apply the substitution
+#
+sed -e "s/__YICES__/${yices_version}/g" -e "s/__GMP__/${gmp_version}/g" \
+    -e "s/__DYLIB__/${libname}/g" -e "s,__OS_VERSION__,${clean_os_version},g" $template
+

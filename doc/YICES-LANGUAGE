@@ -1,0 +1,535 @@
+YICES LANGUAGE
+
+This is a summary of the commands and input language of the Yices 2
+solver (restricted to bitvector problems).
+
+
+1) Lexical analysis
+   ----------------
+
+- comments start with ';' and extend to the end of the line ('\n' or EOF)
+
+- tokens are ( ) :: <symbol> <string> <rational> <float> <binary bv> <hexa bv>
+
+-  <strings> are similar to strings in C:
+
+   - they are delimited by "
+   - the characters \n, \t are replaced by newline and tab
+   - '\' followed by at most 3 octal digits is replaced by the character
+     whose ASCII code is the octal number
+   - in all other cases, '\<char>' is replaced by <char> (including if <char> is newline)
+   - newline cannot occur inside the string, unless preceded by '\'
+
+- <rationals> are numbers in the format
+
+        <optional_sign><digits>/<digits>
+     or <optional_sign><digits>
+
+- <floats> also denote numbers in a floating-point format
+
+        <optional_sign> <digits> . <digits>
+     or <optional_sign> <digits> <exp> <optional_sign> <digits>
+     or <optional_sign> <digits> . <digits> <exp> <optional_sign> <digits>
+
+   where <exp> is 'e' or 'E'
+
+
+- <binary bvs> are bitvector constants in binary format 0b<binary-digits>
+
+- <hexa bvs> are bitvector constants in hexadecimal format 0x<hexa-digits>
+
+
+- <symbols>
+
+    symbols start by anything that's not a digit, a space, or one of the
+    characters ( ) ;  : "  if the first char is + or -, it must not be followed by a digit
+
+    symbols end by a space of one of ( ) ; : "
+
+
+
+  keywords
+  --------
+
+        bool    bitvector
+
+        true    false   if      ite     =       /=      distinct
+        or      and     not     xor     <=>     =>
+        let
+
+        mk-bv   bv-add  bv-sub  bv-mul  bv-neg  bv-pow
+        bv-not  bv-and  bv-or   bv-xor  bv-nand bv-nor  bv-xnor
+        bv-shift-left0  bv-shift-left1  bv-shift-right0 bv-shift-right1
+        bv-ashift-right bv-rotate-left  bv-rotate-right
+        bv-extract      bv-concat       bv-repeat
+        bv-sign-extend  bv-zero-extend  bv-ge   bv-gt   bv-le   bv-lt
+        bv-sge  bv-sgt  bv-sle  bv-slt  bv-shl  bv-lshr bv-ashr
+        bv-div  bv-rem  bv-sdiv bv-srem bv-smod
+        bv-redor        bv-redand       bv-comp
+
+        define-type     define          assert  check   push    pop
+        reset           dump-context    exit    echo    include
+        show-model      eval            set-param       show-param
+        show-params     show-stats      reset-stats     set-timeout
+        dump-context    help
+
+
+
+2) Syntax
+   ------
+
+   <command>  ::=
+              ( define-type <symbol> <type> )
+            | ( define <symbol> :: <type> )
+            | ( define <symbol> :: <type> <expression> )
+            | ( assert <expression> )
+            | ( exit )
+            | ( check )
+            | ( push )
+            | ( pop )
+            | ( reset )
+            | ( show-model )
+            | ( eval <expression> )
+            | ( echo <string> )
+            | ( include <string> )
+            | ( set-param <symbol> <immediate-value> )
+            | ( show-param <symbol> )
+            | ( show-params )
+            | ( show-stats )
+            | ( reset-stats )
+            | ( set-timeout <number> )
+            | ( dump-context )
+            | ( help )
+            | ( help <symbol> )
+            | ( help <string> )
+            | EOS
+
+
+   <type> ::=
+              <symbol>
+            | ( bitvector <rational> )
+
+
+   <expression> ::=
+              true
+            | false
+            | <symbol>
+            | <rational>
+            | <binary bv>
+            | <hexa bv>
+            | ( let ( <binding> ... <binding> ) <expression> )
+            | ( <function> <expression> ... <expression> )
+
+
+   <function> ::=
+              <function-keyword>
+
+   <immediate-value> ::=
+              true
+            | false
+            | <number>
+            | <symbol>
+
+   <number> ::=
+              <rational>
+            | <float>
+
+
+3) Types
+   -----
+
+3.1) The primitive types are: bool and (bitvector k) where k is
+     a positive integer.
+
+
+
+4) Built-in constants and functions
+   --------------------------------
+
+4.1) ite is the if-then-else construct.
+     if is a synonym for ite
+
+     distinct takes are least 2 arguments.
+
+     =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than two arguments).
+
+
+4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and
+     functions.
+
+     or, and, xor can take any number of arguments (provided there's at least one).
+
+     <=> and => are binary operators.
+
+
+4.3) bitvector functions:
+
+     a) bitvector constant from an integer
+
+        (mk-bv <size> <value>)
+
+        Note: value must be a non-negative integer and
+        size must be a positive integer.
+
+
+     b) bitvector arithmetic
+
+        bv-add, bv-sub, bv-mul take exactly two arguments, and both
+        must have the same size
+
+        (bv-neg x) = opposite of x in 2's complement arithmetic
+
+        (bv-pow x k) = exponentiation (k must be a non-negative integer constant)
+
+
+     c) bitwise logical operators
+
+        (bv-not x) = bitwise negation of x
+
+        bv-and, bv-or, bv-xor, bv-nand, bv-nor, bv-xnor: bitwise operators,
+        all take two arguments of the same size
+
+        note: (bv-xnor x y) is the same as (bv-not (bv-xor x y)).
+
+
+     d) shift/rotate by a fixed constant
+
+        (bv-shift-left0 x k):  shift x by k bits to the left, padding with 0
+        (bv-shift-left1 x k):  shift x by k bits to the left, padding with 1
+        (bv-shift-right0 x k): shift x by k bits to the right, padding with 0
+        (bv-shift-right1 x k): shift x by k bits to the right, padding with 1
+
+        (bv-ashift-right x k): arithmetic shift by k bits
+        (bv-rotate-left x k):  rotate x by k bits to the left
+        (bv-rotate-right x k): rotate x by k bits to the right
+
+        In all these shift/rotate operations, k must an integer be between 0
+        and the size of x.
+
+
+       shift by a varying amount: in the following operations,
+       x and y must be bitvectors of the same size (n bits)
+
+        (bv-shl x y): shift x by k bits to the left, padding with 0
+                      where k = value of bitvector y
+
+        (bv-lshr x y): logical shift: shift x by k bits to the right
+                       (padding with 0) where k = value of bitvector y
+
+        (bv-ashr x y): arithmetic shift: shift x by k bits to the right,
+                       padding with x's sign bit, where k = value of
+                       bitvector y.
+
+     e) subvector extraction:
+
+        (bv-extract i j x): extract  bits j, j+1, .. i of x
+
+        Requires 0 <= j <= i <= (size of x) - 1.
+
+
+     f) bv-concat takes two arguments
+
+     g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
+
+     h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
+        (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)
+
+
+     i) unsigned bit-vector comparisons:
+
+        (bv-ge x y): x >= y
+        (bv-gt x y): x > y
+        (bv-le x y): x <= y
+        (bv-lt x y): x < y
+
+        x and y are interpreted as non-negative integers (both must have the same size)
+
+     j) signed bit-vector comparisons
+
+        (bv-sge x y): x >= y
+        (bv-sgt x y): x > y
+        (bv-sle x y): x <= y
+        (bv-slt x y): x < y
+
+        x and y are interpreted as signed integers (in 2's complement representation)
+        they must have the same size
+
+
+     k) (bv-div x y):  quotient in the unsigned division of x by y
+        (bv-rem x y):  remainder in the unsigned division of x by y
+
+         x and y must have the same size (n bits)
+
+         if y = 0, Yices uses the following convention:
+
+           (bv-rem x 0) = x
+           (bv-div x 0) = largest integer representable using n bits (i.e. 0b1111...1)
+
+
+        (bv-sdiv x y):  quotient in the signed division of x by y, with rounding to 0
+        (bv-srem x y):  remainder in the signed division of x by y (also rounding to 0).
+
+         x and y must have the same size
+
+         if y = 0, Yices uses the following convention:
+
+           (bv-srem x 0) = x
+
+           (bv-sdiv x 0) = 0b00000...01 if x < 0
+           (bv-sdiv x 0) = 0b11111...11 if x >= 0
+
+
+        (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus
+                        infinity
+
+         if y = 0, (bv-smod x 0) = x.
+
+
+      l) (bv-redor x):  this is the 1-bit vector [(or b_0 ... b_{n-1})] where b_i is bit i of x
+         (bv-redand x): same thing for and
+
+         (bv-comp x y): compute a 1-bit vector u such that u = 0b1 if x and y are equal
+                                                           u = 0b0 otherwise
+
+          x and y must have the same size.
+
+
+
+
+5) Commands
+   --------
+
+   (define-type name <type>) : 'name' equal to <type>
+
+   (define name :: <type>): create a new uninterpreted constant (i.e., global variable) of the
+                            given <type> called <name>
+
+   (define name :: <type> <expr>):  create a new term called 'name' equal to <expr>
+                            After this definition, every occurrence of 'name' in any expression is
+                            replaced by <expr>.
+
+   (assert <formula>):  add an assertion to the context
+
+   (check):  check whether the context is satisfiable
+
+   (push):  start a new assertion scope
+
+   (pop):  remove all assertions added after the matching (push)
+           Note: this does not remove declarations.
+
+   (reset):  clears the context (all assertions are removed, all 'push's are undone)
+             the current model is also deleted (if any))
+
+   (show-model): display the current model (if any)
+                 a model is available after (check) provided (check) return sat or unknown
+                 it is deleted on the next call to (assert) or (push) or (reset) or (pop)
+
+   (eval <term>): show the value of <term> in the current model
+
+   (echo <string>):  prints <string> on stdout
+
+   (include <string>):  <string> must be the name of a file that contains Yices commands
+                        this reads and execute all the commands in that file
+
+   (set-param <parameter-name> <parameter-value>):
+                 assign a value to one parameter (parameters control simplification
+                 and search heuristics)
+
+   (show-param <parameter-name>): show the current value of a parameter
+
+   (show-params): show all parameters and their values
+
+   (show-stats): show statistics (on the search).
+
+   (reset-stats): reset all statistics to zero
+
+   (set-timeout <value>): give a timeout in seconds. This timeout value
+          will limit the search time on the subsequent call to (check)
+          If <value> is 0 then the timeout is cleared (i.e., no timeout).
+          The timeout is reset (to 0) after every call to (check).
+
+   (show-timeout): print the current timeout. The value displayed
+          will be used as timeout in the next call to (check).
+
+   (help): print a summary of the main commands
+
+   (help <topic>): print help on a particular topic. <topic> can be given
+       as a symbol as in (help syntax) or as a string as in (help "syntax").
+
+
+
+
+6) Parameters
+   ----------
+
+The following parameters can be set using (set-param ...) or examined using (show-param ...).
+
+
+6.1) Parameters controlling preprocessing and simplifications
+
+
+   Parameter    Type            Description
+   Name
+
+   var-elim     Boolean         If var-elim is true then variable elimination is enabled.
+
+                                Example: assertion (and (= x (g a)) (P y (f x))) is simplified
+                                to (P y (f (g a)))
+
+   bvarith-elim Boolean         If bvarith-elim is true then bitvector variables are eliminated
+                                using Gaussian elimination.
+
+   flatten      Boolean         If flatten is true then nested 'or' and 'and' are flattened:
+
+                                Example: (or a b (or b c d))  is rewritten to (or a b c d).
+
+
+
+6.2) SAT Solver Parameters
+
+   Yices uses a CDCL SAT solver, similar to Minisat and Picosat. The following parameters
+   affect heuristics used by this SAT solver.
+
+
+6.2.1) Restart Heuristics
+
+
+   Parameter     Type
+   Name
+
+   fast-restart  Boolean       If true, yices will use a fast restart heuristics.
+
+   c-threshold   Integer       Number of conflict before the first restart
+
+   c-factor      Float         Increase factor for c-threshold after every restart (must be >= 1.0)
+
+   d-threshold   Integer       Secondary threshold used only if fast-restart is true
+
+   d-factor      Float         Increase factor for d-threshold (must be >= 1.0)
+
+
+
+   If fast-restart is false, the following procedure is used
+   (restart with a geometric progression):
+      c := c-threshold
+      while not solved
+         dpll search
+         when number of conflicts == c:
+            restart the search
+            c := c-factor * c
+
+   If fast-restart is true, the following procedure is used
+   (Picosat-like restart)
+
+     d := d-threshold
+     c := c-threshold
+     while not solved
+        dpll search
+        when number of conflicts == c:
+           restart the search
+           c := c_factor * c
+           if c >= d then
+             c := c_threshold
+             d := d_factor * d
+
+
+
+
+6.2.2) Clause deletion
+
+
+   Parameter        Type
+   Name
+
+   r-threshold      Integer     Clause-reduction initial threshold
+
+   r-fraction       Float       Clause-reduction fraction (must be between 0.0 and 1.0)
+
+   r-factor         Float       Increase factor for clause reduction (must be >= 1.0)
+
+   clause-decay     Float       Clause activity decay (must be between 0.0 and 1.0)
+
+
+
+   To control clause deletion, Yices uses the following strategy (same as Minisat
+   and other SAT solvers).
+
+   Clause activity:
+
+   Each learned clause has an activity score that decays
+   geometrically.  After each conflict, the activity of all clauses
+   not involved in this conflict is reduced by a factor equal to
+   clause-decay (by default it's 0.999).  A smaller clause-decay
+   causes clauses activity do go down faster.
+
+   To trigger clause deletion: the solver uses a threshold = reduction-bound
+
+   Initially:
+
+     reduction-bound = max(r-threshold, r-fraction * number of clauses in initial problem)
+
+   During the search:
+
+      when the number of learned clauses >= reduction bound
+      delete low-activity clauses
+      reduction-bound  := r-factor * reduction-bound
+
+
+
+6.2.3) Decision heuristic
+
+   When the SAT solver makes a decision, it picks an unassigned Boolean variable
+   of highest activity or it picks a variable randomly.  Once this decision
+   variable is picked, the solver assigns it to true or false depending
+   on the branching mode.
+
+
+   Parameter      Type
+   Name
+
+
+   var-decay      Float         Variable activity decay factor (must be between 0 and 1.0)
+                                Controls how fast variable activities go down.
+
+   randomness     Float         Fraction of random decisions in branching (must be between 0 and 1.0)
+                                (e.g., if randomness is 0.1, 10% of the decision are variables
+                                picked randomly).
+
+   branching      see below
+
+
+
+
+   Once a decision variable 'x' is selected, the branching mode
+   determines whether 'x' is set to true or false. The following modes
+   are defined:
+
+   default:     default heuristic (as in RSAT)
+                This use a cache to remember the last value of each variable (i.e., true or false).
+                When 'x' is picked as a decision variable, then it is assigned the cached value
+                (i.e., the same value as what was last assigned to 'x')
+
+   negative:    always set 'x' to false
+
+   positive:    always set 'x' to true
+
+
+   theory:      use the default if 'x' is a pure Boolean, delegate to the theory solver otherwise
+
+   th-neg:      set 'x' to false if 'x' is a pure Boolean, delegate to the theory solver otherwise
+
+   th-pos:      set 'x' to true if 'x' is a pure Boolean, delegate to the theory solver otherwise
+
+
+
+   Delegating to the theory solver, means asking the theory solver to evaluate the atom attached
+   to 'x' in the theory solver's current model. Then branching accordingly. This is supported by
+   the Egraph and by the Simplex solver.
+
+   Example: if 'x' is attached to arithmetic atom (<= n 4),  then the Simplex solver
+   examines the value of 'n' in its current variable assignment.  If this value
+   is more than 4, branch 'x := false', otherwise, branch 'x := true'.
+
+
+
+

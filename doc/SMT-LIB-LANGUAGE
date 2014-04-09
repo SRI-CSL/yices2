@@ -1,0 +1,65 @@
+SMT-LIB LANGUAGE (as done in Yices)
+
+1) Lexical analysis
+   ----------------
+
+- comments start with ; and extend to the end of the line (or EOF)
+
+- tokens are ( ) [ ] : <string> <user value> <var> <fvar> <float> <rational>
+  <bv constant> <bvbin constant> <bvhex constant> <symbol> <attribute>
+
+  <strings> are delimited by " and may contain \"
+
+  <user values> start by { and end by } any occurrence of { or } inside
+    the user value must be preceded by \
+
+
+  delimiters are spaces EOF " { } ( ) [ ] ; : ? $ \ ,
+
+  <var> start by ?,  followed by a nonempty sequence of characters,
+        until a delimiter is read
+
+  <fvar> start by $ followed by nonempty sequence of characters,
+        until a delimiter is read
+
+  <float> are of the form <digits>.<digits>
+
+  <rationals> are of the form <digits> or <digits>/<digits>
+
+
+  <bv constants> start by 'bv' followed by a non-empty sequence of digits
+
+  <bvbin constants> start by 'bvbin' followed by a non-empty sequence of binary digits
+
+  <bvhex constants> start by 'bvhex' followed by a non-empty sequence of hexadecimal digits
+
+  <attributes> start by ':' followed by a letter, followed by a sequence of chars until
+        a delimiter is read
+
+  a <symbol> is anything that's not a <bv/bvbin/bvhex constant> and that starts by a
+       letter (more exactly, anything that's not a delimiter, or a digit, or . or ')
+       followed by a sequence of characters until a delimiter is read
+
+
+
+ Keywords
+ --------
+
+	distinct	ite	=	true	false	not	implies
+	if_then_else	and	or	xor	iff	exists	forall
+	let 	flet	:pat	:nopat	benchmark	sat	unsat
+	unknown	:logic	:assumption	:formula	:status	:extrasorts
+	:extrafuns	:extrapreds	:notes	Index	Element	Array
+	U	Real	Array1	Array2	BitVec	+	-	*
+	/	~	<	<=	>	>=	select	store
+	bvadd	bvsub	bvmul	bvneg	bvor	bvand	bvxor	bvnot
+	bvlt	bvleq	bvgt	bvgeq	bvslt	bvsleq	bvsgt	bvsgeq
+	concat	extract	sign_extend	shift_left0	shift_left1
+	shift_right0	shift_right1	bit0	bit1	bvudiv	bvurem
+	bvsdiv	bvsrem	bvsmod	bvshl	bvlshr	bvashr	bvnand	bvnor
+	bvxnor	bvredor	bvredand	bvcomp	repeat	zero_extend
+	rotate_left	rotate_right	bvult	bvule	bvugt	bvuge
+	bvsle	bvsge
+
+
+

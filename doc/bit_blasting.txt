@@ -1,0 +1,150 @@
+BIT BLASTING
+------------
+
+The primitive operators (defined in gates_hash_table.h) are
+
+(OR a_1 ... a_n)   with arbitrary n
+(XOR a_1 ... a_n)  with arbitrary n
+(ITE c a1 a2)      multiplexer with c as control
+(UCMP a1 a2 c)     unsigned bit comparison
+(SCMP a1 a2 c)     signed bit comparison
+(HALFADD a1 a2)    half-adder with two output literals
+(FULLADD a1 a2 c)  full-adder with two output literals
+
+
+
+CLAUSAL ENCODING
+----------------
+
+1) Constraint x = (or a_1 .... a_n)
+
+   Clauses:
+
+   (x ~a_1)
+      ...
+   (x ~a_n)
+   (~x a_1 .... a_n)
+
+
+
+2) Constraint x = (xor a1 a2) equivalent to  (xor a1 a2 x) = 0
+
+   Clauses:
+
+   (~a1 ~a2 ~x)
+   (~a1 a2 x)
+   (a1 ~a2 x)
+   (a1 a2 ~x)
+
+
+3) Constraint x = (xor a1 a2 a3) equivalent to (xor a1 a2 a3 x) = 0
+
+   Clauses:
+
+   (~a1 ~a2 ~a3  x)
+   (~a1 ~a2  a3 ~x)
+   (~a1  a2 ~a3 ~x)
+   ( a1 ~a2 ~a3 ~x)
+   ( a1  a2  a3 ~x)
+   ( a1  a2 ~a3  x)
+   ( a1 ~a2  a3  x)
+   (~a1  a2  a3  x)
+
+   Variant: introduce y = (xor a1 a2) then x = (xor x a3) ?
+
+
+4) Constraint (x = y) equivalent to (xor x y) = 0
+
+   Clauses:
+
+   (~x  y)
+   ( y ~x)
+
+
+5) Constraint x = (ite c a1 a2)
+
+   Clauses:
+
+   (~c  a1 ~x)
+   (~c ~a1  x)
+   ( c  a2 ~x)
+   ( c ~a2  x)
+
+
+6) Constraint x = (UCMP a1 a2 c).
+
+   This means  "x = (a1 > a2) or ((a1 >= a2) and c)"
+   or equivalently, "x = (a1 > a2) or ((a1 = a2) and c)"
+
+
+   Truth table
+
+    a1    a2     c     x
+
+     0     0     0     0
+     0     0     1     1
+     0     1     0     0
+     0     1     1     0
+     1     0     0     1
+     1     0     1     1
+     1     1     0     0
+     1     1     1     1
+
+
+    Clauses:
+
+    ( a1 ~a2  x)
+    (~a1  a2 ~x)
+    ( a1  a2  c ~x)
+    ( a1  a2 ~c  x)
+    (~a1 ~a2  c ~x)
+    (~a2 ~a2 ~c  x)
+
+
+   NOTE: we don't really need CMP. We can use the identity
+
+     (CMP a1 a2 c) = (majoriy a1 ~a2 c)
+
+   and use the truth-table and clauses for majority given below.
+
+
+7) Constraint x = (SCMP a1 a2 c)
+
+   This is equivalent to (UCMP a2 a1 c) so we don't need it.
+
+
+
+8) Half-adder: (x, y) = halfadd(a1, a2)
+
+   This is equivalent to x = (xor a1 a2) and ~y = (or ~a1 ~a2).
+
+
+9) Full-adder: (x, y) = fulladd(a1, a2, c)
+
+   This means x = (xor a1 a2 c) and y = (majority a1 a2 c).
+
+
+   Truth table for y = (majority a1 a2 c)
+
+    a1    a2     c     y
+
+     0	   0	 0     0
+     0	   0	 1     0
+     0	   1	 0     0
+     0	   1 	 1     1
+     1	   0	 0     0
+     1	   0	 1     1
+     1	   1	 0     1
+     1	   1	 1     1
+
+
+   Clauses for y = (majority a1 a2 c)
+
+    ( a1  a2 ~y)
+    (~a1 ~a2  y)
+    ( a1  c ~y)
+    (~a1 ~c  y)
+    ( a2  c ~y)
+    (~a2 ~c  y)
+
+

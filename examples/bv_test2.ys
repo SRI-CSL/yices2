@@ -1,0 +1,16 @@
+(define-type BV (bitvector 32))
+
+(define a::BV)
+(define b::BV)
+(define c::BV (mk-bv 32 1008832))
+(define d::BV)
+
+(assert (= a (bv-or (bv-and (mk-bv 32 255) (bv-not (bv-or b (bv-not c)))) (bv-and c (bv-xor d (mk-bv 32 1023))))))
+
+(check)
+
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+(eval d)

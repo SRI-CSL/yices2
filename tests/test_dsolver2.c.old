@@ -1,0 +1,423 @@
+/*
+ * More test of diophantine system solver
+ */
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "memalloc.h"
+#include "rationals.h"
+#include "int_vectors.h"
+#include "diophantine_systems.h"
+#include "dsolver_printer.h"
+
+#include "mini_simplex.h"
+
+
+/*
+ * BUILD A SYSTEM OF EQUATIONS
+ */
+
+/*
+ * Input for a row = array of triples num/den * var
+ * - var = 0 means a constant
+ */
+typedef struct triple_s {
+  int32_t num;
+  uint32_t den;
+  int32_t var;
+} triple_t;
+
+/*
+ * Row = resizable vector of triples
+ */
+typedef struct triple_vector_s {
+  uint32_t size;
+  uint32_t ntriples;
+  triple_t *data;
+} triple_vector_t;
+
+/*
+ * System of linear equations = array of rows
+ * - nrows = number of rows stored
+ * - size = size of array rows
+ * - row[i] = vector
+ */
+typedef struct dsystem_s {
+  uint32_t size;
+  uint32_t nrows;
+  triple_vector_t *row;
+} dsystem_t;
+
+
+#define DEF_DSYSTEM_SIZE 20
+#define MAX_DSYSTEM_SIZE (UINT32_MAX/8)
+
+#define DEF_DSYSTEM_ROW_SIZE 10
+#define MAX_DSYSTEM_ROW_SIZE (UINT32_MAX/sizeof(triple_t))
+
+
+/*
+ * Initialize s with the default size
+ */
+static void init_dsystem(dsystem_t *s) {
+  uint32_t n;
+
+  n = DEF_DSYSTEM_SIZE;
+
+  s->size = n;
+  s->nrows = 0;
+  s->row = (triple_vector_t *) safe_malloc(n * sizeof(triple_vector_t));
+}
+
+/*
+ * Delete s
+ */
+static void delete_dsystem(dsystem_t *s) {
+  uint32_t i, n;
+
+  n = s->nrows;
+  for (i=0; i<n; i++) {
+    safe_free(s->row[i].data);
+  }
+  safe_free(s->row);
+  s->row = NULL;
+}
+
+
+/*
+ * Allocate a new row descriptor (and a new row)
+ * - the row is empty and of default row size
+ * - return its index
+ */
+static int32_t dsystem_alloc_row(dsystem_t *s) {
+  uint32_t i, n;
+
+  i = s->nrows;
+  if (i == s->size) {
+    n = s->size * 2;
+    if (n >= MAX_DSYSTEM_SIZE) {
+      out_of_memory();
+    }
+    s->row = (triple_vector_t *) safe_realloc(s->row, n * sizeof(triple_vector_t));
+    s->size = n;
+  }
+  assert(i < s->size);
+
+  n = DEF_DSYSTEM_ROW_SIZE;
+  s->row[i].size = n;
+  s->row[i].ntriples = 0;
+  s->row[i].data = (triple_t *) safe_malloc(n * sizeof(triple_t));
+
+  s->nrows = i+1;
+
+  return i;
+}
+
+
+/*
+ * Add triple (num, den, var) at the end of row i
+ * - i must be an existing row
+ */
+static void dsystem_add_triple(dsystem_t *s, uint32_t i,
+			       int32_t num, uint32_t den, int32_t var) {
+  triple_vector_t *v;
+  uint32_t j, n;
+
+  assert(0 <= i && i < s->nrows);
+  v = s->row + i;
+  j = v->ntriples;
+  if (j == v->size) {
+    n = v->size * 2;
+    if (n >= MAX_DSYSTEM_ROW_SIZE) {
+      out_of_memory();
+    }
+    v->data = (triple_t *) safe_realloc(v->data, n * sizeof(triple_t));
+    v->size = n;
+  }
+  assert(j < v->size);
+  v->data[j].num = num;
+  v->data[j].den = den;
+  v->data[j].var = var;
+  v->ntriples = j+1;
+}
+
+
+
+/*
+ * Read triples from a file and build the system
+ * - s must be initialized and empty when this is called
+ *
+ * The file contains a list of integer triples
+ * in the order (num, den, var)
+ * - num may be any integer (we don't check for overflow)
+ * - den must be positive
+ * - var must be non-negative. If var is 0, this is a constant triple.
+ * - the end of a row is marked by a 0 0 0 triple
+ * - the end of the system is marked by an empty row
+ *
+ * Return code:
+ * - 0 means no problem, s is ready
+ * - 1 means EOF or other format error (missing data)
+ * - 2 means an incorrect truple was given: the denominator is 0
+ *   or the variable index is negative or too large.
+ */
+#define DSYSTEM_READ_OK 0
+#define DSYSTEM_READ_ERROR 1
+#define DSYSTEM_INVALID_TRIPLE 2
+
+static int32_t read_dsystem(FILE *f, dsystem_t *s) {
+  int32_t num, var;
+  uint32_t den;
+  int32_t current_row;
+  int code;
+
+  current_row = -1;
+
+  for (;;) {
+    code = fscanf(f, "%"SCNd32" %"SCNu32" %"SCNd32, &num, &den, &var);
+    if (code != 3) {
+      return DSYSTEM_READ_ERROR;
+    }
+
+    if (num == 0 && den == 0 && var == 0) {
+      if (current_row < 0) {
+	// empty row: exit
+	return DSYSTEM_READ_OK;
+      } else {
+	// end of current row;
+	current_row = -1;
+      }
+
+    } else if (den == 0 || var < 0 || var >= max_idx) {
+      // invalid input
+      return DSYSTEM_INVALID_TRIPLE;
+    } else {
+      // start a new row if needed then add the triple
+      if (current_row < 0) {
+	current_row = dsystem_alloc_row(s);
+      }
+      dsystem_add_triple(s, current_row, num, den, var);
+    }
+  }
+}
+
+
+
+
+
+/*
+ * GLOBAL OBJECTS
+ */
+
+static rational_t coeff;
+static dsolver_t solver;
+static ivector_t expl;
+static dsystem_t sys;
+static mini_simplex_t splx;
+
+/*
+ * Initialize global objects
+ */
+static void init(void) {
+  init_rationals();
+  q_init(&coeff);
+  init_dsolver(&solver, 0, 0, 0);
+  init_ivector(&expl, 0);
+  init_dsystem(&sys);
+}
+
+
+/*
+ * Delete the global objects
+ */
+static void cleanup(void) {
+  delete_dsystem(&sys);
+  delete_ivector(&expl);
+  delete_dsolver(&solver);
+  q_clear(&coeff);
+  cleanup_rationals();
+}
+
+
+
+
+/*
+ * Assert a row into solver
+ * - n = number of triples
+ * - id = row id
+ */
+static void assert_row(dsolver_t *solver, triple_t *row, uint32_t n, int32_t id) {
+  uint32_t i;
+  int32_t x, k;
+  bool ok;
+
+  k = dsolver_row_open(solver, id);
+
+  for (i=0; i<n; i++) {
+    q_set_int32(&coeff, row[i].num, row[i].den); // coeff num/den
+    x = row[i].var;
+    if (x > 0) {
+      dsolver_row_add_mono(solver, &coeff, x);
+    } else {
+      dsolver_row_add_constant(solver, &coeff);
+    }
+  }
+
+  printf("Adding row %"PRId32"\n", id);
+  dsolver_print_active_row(stdout, solver);
+  ok = dsolver_row_close(solver);
+  printf("Normalized to:  ");
+  dsolver_print_row(stdout, solver, k);
+  printf("\n");
+}
+
+
+/*
+ * Print v as a set of rows
+ */
+static void print_explanation(ivector_t *v) {
+  uint32_t i, n;
+
+  printf("Explanation:");
+  n = v->size;
+  for (i=0; i<n; i++) {
+    printf(" %"PRId32, v->data[i]);
+  }
+  printf("\n");
+}
+
+
+/*
+ * Assert a system of equations
+ * then simplify and solved it
+ */
+static void assert_system(dsolver_t *solver, dsystem_t *s) {
+  triple_vector_t *v;
+  uint32_t i, n;
+  int32_t np;
+  bool feasible;
+
+  reset_dsolver(solver);
+  n = s->nrows;
+  v = s->row;
+  for (i=0; i<n; i++) {
+    assert_row(solver, v->data, v->ntriples, i);
+    if (dsolver_status(solver) != DSOLVER_READY) {
+      // unsat detected
+      break;
+    }
+    v ++;
+  }
+
+  printf("\n**** Initial system ****\n");
+  dsolver_print_rows(stdout, solver);
+  dsolver_print_status(stdout, solver);
+  printf("\n");
+
+  if (dsolver_status(solver) == DSOLVER_READY) {
+    dsolver_simplify(solver);
+    printf("\n*** Simplified system ***\n");
+    dsolver_print_rows(stdout, solver);
+    dsolver_print_elim_rows(stdout, solver);
+    dsolver_print_status(stdout, solver);
+    printf("\n");
+
+    // solve the equations and print the solutions
+    feasible = dsolver_is_feasible(solver);
+    printf("\n*** Solved system ***\n");
+    dsolver_print_main_rows(stdout, solver);
+    dsolver_print_sol_rows(stdout, solver);
+    dsolver_print_status(stdout, solver);
+    printf("\n");
+
+    if (feasible) {
+      dsolver_build_solution(solver);
+      dsolver_build_general_solution(solver);
+      dsolver_print_solution(stdout, solver);
+      dsolver_print_gen_solution(stdout, solver);
+
+      printf("\n*** Explanations ***\n");
+      n = solver->nvars;
+      for (i=1; i<n; i++) {
+	if (dsolver_gen_sol(solver, i) != NULL) {
+	  ivector_reset(&expl);
+	  dsolver_explain_solution(solver, i, &expl);
+	  printf("variable x_%"PRIu32": ", i);
+	  print_explanation(&expl);
+	}
+      }
+      printf("\n");
+
+      np = dsolver_num_parameters(solver);
+      init_mini_simplex(&splx);
+      mini_simplex_set_eq(&splx, n, np, dsolver_get_gen_sol(solver));
+      printf("\n*** Mini simplex: initial tableau ***\n");
+      dsolver_print_tableau(stdout, &splx.matrix, n);
+      printf("\n");
+      delete_mini_simplex(&splx);
+
+    } else {
+      // UNSAT: print the explanation
+      dsolver_unsat_rows(solver, &expl);
+      print_explanation(&expl);
+    }
+
+  } else {
+    // just for testing
+    dsolver_unsat_rows(solver, &expl);
+    print_explanation(&expl);
+  }
+
+}
+
+
+
+
+/*
+ * Main
+ */
+int main(int argc, char *argv[]) {
+  char * file_name;
+  FILE *input;
+  int32_t parse_code;
+
+  if (argc == 1) {
+    input = stdin;
+  } else if (argc == 2) {
+    file_name = argv[1];
+    input = fopen(file_name, "r");
+    if (input == NULL) {
+      perror(file_name);
+      return 1;
+    }
+  } else {
+    fprintf(stdout, "Usage: %s <input file>\n", argv[0]);
+    return 1;
+  }
+
+  init();
+  parse_code = read_dsystem(input, &sys);
+  switch (parse_code) {
+  case DSYSTEM_READ_OK:
+    assert_system(&solver, &sys);
+    break;
+  case DSYSTEM_READ_ERROR:
+    fprintf(stderr, "Format error\n");
+    break;
+  case DSYSTEM_INVALID_TRIPLE:
+    fprintf(stderr, "Invalid triple\n");
+    break;
+  default:
+    fprintf(stderr, "Bug\n");
+    break;
+  }
+
+  if (argc == 2) {
+    fclose(input);
+  }
+
+  cleanup();
+
+  return 0;
+}

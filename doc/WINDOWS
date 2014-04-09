@@ -1,0 +1,49 @@
+Possible Compilation issue: missing header file
+-----------------------------------------------
+
+The header file <stdint.h> is included in 'yices.h' so it's required
+to compile and link with the yices library. That's not a problem with
+GCC as all versions of GCC I've seen follow the C99 standard (more or
+less) and they all include <stdint.h>.
+
+Unfortunately, Microsoft Visual Studio does not even try to
+approximate C99, and some versions of Visual Studio do not have
+<stdint.h>
+
+The simplest workaround for using 'yices.h' on a system that does not
+have <stdint.h> is to get an open-source replacement:
+
+   'msinttypes' at http://code.google.com/p/msinttypes
+   'pstdint.h' at http://www.azillionmonkeys.com/qed/
+
+
+For compilation with Visual Studio, just copy one of the open-source
+stdint.h into the include directory.
+
+
+
+
+DLL import/export directives
+----------------------------
+
+On cyginw, mingw, or Windows native, we distribute the Yices library
+as a DLL. For proper compilation and link with this DLL, all functions
+and variables in 'yices.h' must be declared with '__declspec(dllimport)'.
+
+
+But when we build the library and compile yices itself, all the
+functions must be exported (i.e., declared with '__declsepc(dllexport)').
+
+Solution for now:
+- all declarations in 'yices.h' are decorated with '__YICES_DLLSPEC__'
+- by default 'yices.h' defines __YICES_DLLSPEC__ to __declspec(dllimport)
+- but 'yices.h' leaves __YICES_DLLSPEC__ unchanged if it's already defined
+
+All code that includes 'yices.h' in the source tree must make sure
+to define __YICES_DLLSPEC__ to '__declspec(dllexport)' before
+the line #include "yices.h"
+
+Also, to make it possible to link with 'libyices.a' on Windows, we
+provide the flag NOYICES_DLL. If this flag is defined when 'yices.h'
+is included then __YICES_DLLSPEC__ is empty.
+

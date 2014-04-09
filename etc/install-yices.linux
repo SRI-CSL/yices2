@@ -1,0 +1,186 @@
+#!/bin/sh
+
+#
+# Script to install Yices on linux
+#
+# Usage
+# -----
+#     ./install-yices [OPTIONS] <directory>
+#
+# This script must be called from the toplevel Yices directory.
+#
+# It will install Yices as follows:
+#     binaries      in <directory>/bin
+#     libraries     in <directory>/lib
+#     include files in <directory>/include
+#
+# If no <directory> is given, Yices will be installed in /usr/local.
+#
+# If <directory> is the string here or if it's equal to the current
+# directory, then no files are copied but symbolic links are created
+# in ./lib
+#
+# OPTIONS:
+#  -h: print a short help message
+#
+
+usage="Usage: $0 [OPTIONS] <directory>
+    or $0 [OPTIONS] here
+
+The first form installs Yices in the specified by <directory> as follows:
+   binaries      in <directory>/bin
+   libraries     in <directory>/lib
+   include files in <directory>/include
+
+The second form installs Yices locally. No files are copied, but
+symbolic links are created in ./lib.
+
+OPTIONS:
+  -h --help: print this message
+"
+
+failure="
+Installation failed
+"
+
+#
+# Tools we need: change this if they are not found
+#
+install="/usr/bin/install"
+link="/bin/ln"
+ldconfig="/sbin/ldconfig"
+
+
+#
+# Process the command line
+#
+location_given=no
+location=
+
+while test -n "$1"; do
+  case $1 in
+    -h | --help)
+        echo "$usage"
+        exit 0;;
+
+    -*) echo "Unknown option $1. Try $0 -h for help"
+        exit 1;;
+
+    *) if test "$location_given" = "yes" ; then
+         echo "Please specify a single location. Try $0 -h for help"
+         exit 1
+       fi
+       location_given="yes"
+       location=$1
+       shift
+       continue;;
+  esac
+done
+
+
+#
+# Check that the current directory contains bin lib include
+# subdirectory and get the dynamic libraries name.
+#
+local_dir=`pwd`
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+
+   sofile=`ls lib/*.so.2.*.* | sed -e 's+lib/++' 2>/dev/null`
+
+   case "$sofile" in
+     libyices.so.2.*.*)
+       break;;
+
+     *) echo "$failure"
+        echo "Can't find the Yices library libyices.so.2.x.y in ./lib"
+        echo "Make sure $0 is run from the toplevel Yices directory"
+	echo ""
+        exit 1;;
+
+    esac
+
+else
+   echo "$failure"
+   echo "Can't find the ./bin ./lib or ./include directory"
+   echo "Make sure $0 is run from the toplevel Yices directory"
+   echo ""
+   exit 1
+fi
+
+
+#
+# Set install dir and local_install flag
+#
+local_install="no"
+install_dir="/usr/local"
+
+if test -n "$location" ; then
+  case $location in
+
+    here) local_install="yes"
+          install_dir="$local_dir"
+          break;;
+
+    *) install_dir="$location"
+       if test "$location" -ef "$local_dir" ; then
+          local_install="yes"
+       fi
+       break;;
+
+  esac
+fi
+
+
+#
+# Check that the tools exist and are executable
+#
+if test "$local_install" = "no" ; then
+  { test  -f "$install" -a -x "$install" ; }  ||
+  { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
+fi
+
+{ test -f "$link" -a -x "$link" ; } ||
+  { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
+
+{ test -f "$ldconfig" -a -x "$ldconfig" ; }  ||
+  { echo "$failure" ; echo "Can't find $ldconfig" ; echo "" ; exit 1 ; }
+
+
+
+#
+# Install directories
+#
+bindir="$install_dir/bin"
+libdir="$install_dir/lib"
+includedir="$install_dir/include"
+
+
+
+#
+# Create the directories then copy the files
+#
+if test "$local_install" = "no" ; then
+  echo "Installing Yices in $install_dir"
+  {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+     && $install -m 0644 ./include/*.h "$includedir"  \
+     && $install ./bin/* "$bindir"  \
+     && $install ./lib/*.so.2.*.* "$libdir" ; } 2> /dev/null ||
+  { echo "$failure"
+    echo "Could not create the directories or copy files."
+    echo "Check that you have the right permissions (try sudo)."
+    echo ""
+    exit 1 ; }
+fi
+
+
+#
+# Run ldconfig and create libyices.so (symbolic link to libyices.so.2.x.y)
+#
+{ "$ldconfig" -n "$libdir" && "$link" -sf "$sofile" "$libdir/libyices.so" ; } ||
+  { echo "$failure"
+    echo "Could not run ldconfig or create symbolic link libyices.so"
+    echo ""
+    exit 1 ; }
+
+
+echo "Done"

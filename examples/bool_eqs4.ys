@@ -1,0 +1,56 @@
+(define a::bool)
+(define b::bool)
+(define c::bool)
+(define d::bool)
+(define e::bool)
+
+(echo "\ntest1: (assert (= a (or b c))) (assert a)\n")
+(assert (= a (or b c)))
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+(assert a)
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+(reset)
+
+(echo "\ntest2: (assert (= a (or b c))) (assert b)\n")
+(assert (= a (or b c)))
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+(assert b)
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+
+(reset)
+(echo "\ntest3: (assert (= a (or b c))) (assert c)\n")
+(assert (= a (or b c)))
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+(assert c)
+(check)
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+
+

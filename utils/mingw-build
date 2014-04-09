@@ -1,0 +1,151 @@
+#!/bin/bash
+
+#
+# Script to help build the Windows (mingw32/mingw64) distributions from
+# cygwin.
+#
+#
+# This script can be invoked as
+#   mingw-build
+#   mingw-build mingw32
+#   mingw-build mingw64
+# from the top-level Yices source directory
+#
+# The first form builds the static and binary distributions for
+# both Windows 32bits and Windows 64bits.
+# The second and third forms do it for only 32bit or 64bit Windows
+#
+# Prerequisites for this to work:
+# - must be on a cygwin bash
+# - visual studio must be installed
+# - Yices must be configured for both mingw32 and mingw64
+# - we must have two versions of libgmp-10.dll (one for
+#   mingw32 and one for mingw64)
+#
+
+#
+# check arguments
+#
+what='mingw32 mingw64'
+
+if [[ $# > 1 ]]; then
+  echo "Usage: $0"
+  echo "    or $0 <distrib>"
+  echo "  <distrib> can be either mingw32 or mingw64"
+  exit 1
+elif [[ $# == 1 ]]; then
+  case $1 in
+    mingw32 | mingw64 )
+      what=$1
+      ;;
+    * )
+      echo "Invalid parameter $1"
+      echo "Usage: $0"
+      echo "    or $0 <distrib>"
+      echo "  <distrib> can be either mingw32 or mingw64"
+      exit 1
+      ;;
+    esac
+fi
+
+
+#
+# CONFIGURATION
+#
+# vsbase = install directory for Visual studio
+# gmp32 = directory where libgmp-10.dll compatible with mingw32 resides
+# gmp64 = directory where libgmp-10.dll compatible with mingw64 resides
+#
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
+gmp32="/home/bruno/tools/mingw32/bin"
+gmp64="/home/bruno/tools/mingw64/bin"
+
+
+#
+# Need the Microsoft lib utility. It's part of Visual Studio.
+# The PATH must be set so that lib.exe and the DLLs it requires
+# can be found.
+#
+# Need to add gmp32 and gmp64 to the path so that mkreadme can
+# run yices (dynamic version).
+#
+export PATH=${vsbase}/VC/bin:${vsbase}/Common7/IDE:${gmp32}:${gmp64}:${PATH}
+
+#
+# Keep track of the current directory
+#
+topdir=`pwd`
+
+#
+# Second pass: build the distributions
+#
+for dist in $what; do
+  case $dist in
+    mingw32)
+      buildir=build/i686-pc-mingw32-release
+      arch=x86
+      ;;
+    mingw64)
+      buildir=build/x86_64-pc-mingw32-release
+      arch=x64
+      ;;
+  esac
+
+  for mode in binary static; do
+    case $mode in
+      binary)
+        dist_to_make=dist
+        tar_to_make=tarfile
+        dist_lib=$buildir/dist/lib
+        ;;
+      static)
+        dist_to_make=static-dist
+        tar_to_make=static-tarfile
+        dist_lib=$buildir/static_dist/lib
+        ;;
+    esac
+
+    echo ""
+    echo "==================================================="
+    echo "Building $mode Yices distribution for $dist"
+    echo "==================================================="
+    echo ""
+
+    #
+    # Prepare distribution
+    #
+    echo "make $dist_to_make OPTION=$dist"
+    make $dist_to_make OPTION=$dist
+    #
+    # Create libyices.lib
+    #
+    echo ""
+    echo "lib /def:libyices.def /machine:$arch"
+    cd $dist_lib
+    lib /def:libyices.def /machine:$arch
+    #
+    # Cleanup
+    #
+    rm libyices.def
+    rm libyices.a
+    rm libyices.exp
+    #
+    # Make the tarfile
+    #
+    cd $topdir
+    echo ""
+    echo "make $tar_to_make OPTION=$dist"
+    make $tar_to_make OPTION=$dist
+    echo ""
+    echo "Done"
+    echo ""
+  done
+done
+
+#
+echo ""
+echo "================================================"
+echo "BUILD COMPLETE"
+echo "The tar files are in ./distribution"
+echo "================================================"
+echo ""

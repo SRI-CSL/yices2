@@ -1,0 +1,42 @@
+#!/bin/sh
+
+#
+# post-install script for the MacOS X package installer
+#
+# After libyices.$(VERSION).dylib is copied in $(DEF_INSTALL)/lib,
+# we need to create symbolic links
+#   libyices.dylib
+#   libyices.$(MAJOR).dylib
+#
+# As per Apple's Softwre Delivery Guide:
+#
+# This script is invoked with four arguments
+#   $1 = full path to the package being processed
+#   $2 = full path to the installation destination (should be /usr/local)
+#   $3 = installation volume (mountpoint)
+#   $4 = root directory for the file system
+#
+# The following environment variables are set
+#   $SCRIPT_NAME = filename for this script
+#   $PACKAGE_PATH = same as $1
+#   $INSTALLER_TEMP = a directory for temporary files
+#   $RECEIPT_PATH = subdectory of $INSTALLER_TEMP
+#
+
+MAJOR=2
+MINOR=1
+PATCH=0
+
+VERSION=$MAJOR.$MINOR.$PATCH
+
+echo "$SCRIPT_NAME: creating symbolic links to Yices library in $PACKAGE_PATH"
+
+if test -d $PACKAGE_PATH ; then
+  ln -sf libyices.$VERSION.dylib $PACKAGE_PATH/lib/libyices.dylib
+  ln -sf libyices.$VERSION.dylib $PACKAGE_PATH/lib/libyices.$MAJOR.dylib
+  exit 0
+else
+  echo "$SCRIPT_NAME: could not find directory $PACKAGE_PATH"
+  exit 1
+fi
+

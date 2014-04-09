@@ -1,0 +1,22 @@
+(define-type bv-type-32 (bitvector 32))
+
+(define temp-var-0::bv-type-32 (mk-bv 32 7))
+(define temp-var-22::bv-type-32 (mk-bv 32 0))
+(define EIP_0_1_0::bv-type-32 temp-var-0)
+
+(define ESP_0_0_0::bv-type-32)
+(define temp-var-2::bv-type-32 (mk-bv 32 4294967292))
+(define temp-var-3::bv-type-32 (bv-add ESP_0_0_0 temp-var-2))
+(define ESP_0_1_0::bv-type-32 temp-var-3)
+
+(define temp-var-54::bv-type-32 (bv-mul ESP_0_1_0 (mk-bv 32 473028019)))
+(define temp-var-55::bv-type-32 (bv-mul temp-var-0 (mk-bv 32 956831788)))
+(define temp-var-56::bv-type-32 (bv-sub temp-var-54 temp-var-55))
+(define temp-var-57::bv-type-32 (bv-mul ESP_0_0_0 (mk-bv 32 473028019)))
+(define temp-var-58::bv-type-32 (bv-sub temp-var-56 temp-var-57))
+
+(define temp-var-59::bool (= temp-var-22 temp-var-58))
+(define temp-var-65::bool (not temp-var-59))
+(assert temp-var-65)
+
+(check)

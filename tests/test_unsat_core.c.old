@@ -1,0 +1,200 @@
+/*
+ * Test assumption processing and retract,
+ * and unsat core construction in bit_solver.
+ */
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "int_vectors.h"
+#include "bit_solver.h"
+#include "solver_printer.h"
+
+
+static bit_solver_t solver;
+
+static bvar_t v[10]; // 10 variables
+
+static ivector_t unsat_core;
+
+
+/*
+ * Create and initialize solver
+ * - add variables and clauses
+ */
+static void init_solver1(void) {
+  uint32_t i;
+
+  init_ivector(&unsat_core, 20);
+  init_bit_solver(&solver, 20);
+  for (i=0; i<10; i++) {
+    v[i] = bit_solver_new_var(&solver);
+  }
+
+  // add test clauses
+  bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[1]), pos_lit(v[2]));
+  bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[3]), pos_lit(v[4]));
+  bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[1]), neg_lit(v[2]));
+  bit_solver_add_ternary_clause(&solver, pos_lit(v[0]), pos_lit(v[5]), pos_lit(v[6]));
+  bit_solver_add_unit_clause(&solver, neg_lit(v[5]));
+}
+
+
+/*
+ * Print solver content
+ */
+static void print_solver(void) {
+  printf("Clauses:\n");
+  print_bit_solver_clauses(stdout, &solver);
+  printf("Assignment\n");
+  print_bit_solver_assignment(stdout, &solver);
+  printf("Assumptions\n");
+  print_bit_solver_assumptions(stdout, &solver);
+  printf("Base level = %"PRIu32"\n", solver.base_level);
+  printf("Decision level = %"PRIu32"\n", solver.decision_level);
+  printf("Status: ");
+  print_status(stdout, bit_solver_status(&solver));
+  printf("\n");
+}
+
+
+/*
+ * Print the unsat core
+ */
+static void print_core(void) {
+  ivector_t *v;
+  uint32_t i, n;
+
+  printf("unsat core:");
+  v = &unsat_core;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    printf(" ");
+    print_literal(stdout, v->data[i]);
+  }
+  printf("\n");
+}
+
+
+/*
+ * First test
+ */
+static void test1(void) {
+  bool ok;
+
+  printf("\n**** TEST 1 ****\n\n");
+  init_solver1();
+  print_solver();
+  printf("\n---> Start search\n");
+  ok = bit_solver_start_search(&solver);
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    return;
+  }
+
+  printf("\n---> Assumption: ");
+  print_literal(stdout, neg_lit(v[0]));
+  printf("\n");
+  ok = bit_solver_assume(&solver, neg_lit(v[0]));
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    ivector_reset(&unsat_core);
+    bit_solver_get_unsat_core(&solver, &unsat_core);
+    print_core();
+    return;
+  }
+
+
+  printf("\n---> Assumption: ");
+  print_literal(stdout, neg_lit(v[0]));
+  printf("\n");
+  ok = bit_solver_assume(&solver, neg_lit(v[0]));
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    ivector_reset(&unsat_core);
+    bit_solver_get_unsat_core(&solver, &unsat_core);
+    print_core();
+    return;
+  }
+
+
+  printf("\n---> Assumption: ");
+  print_literal(stdout, neg_lit(v[6]));
+  printf("\n");
+  ok = bit_solver_assume(&solver, neg_lit(v[6]));
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    ivector_reset(&unsat_core);
+    bit_solver_get_unsat_core(&solver, &unsat_core);
+    print_core();
+
+    printf("---> RETRACT\n");
+    bit_solver_retract(&solver);
+    print_solver();
+  }
+
+
+  printf("\n---> Assumption: ");
+  print_literal(stdout, neg_lit(v[4]));
+  printf("\n");
+  ok = bit_solver_assume(&solver, neg_lit(v[4]));
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    ivector_reset(&unsat_core);
+    bit_solver_get_unsat_core(&solver, &unsat_core);
+    print_core();
+
+    printf("---> RETRACT\n");
+    bit_solver_retract(&solver);
+    print_solver();
+  }
+
+  printf("\n---> Assumption: ");
+  print_literal(stdout, neg_lit(v[1]));
+  printf("\n");
+  ok = bit_solver_assume(&solver, neg_lit(v[1]));
+  print_solver();
+  if (ok) {
+    printf("---> OK\n");
+  } else {
+    printf("---> UNSAT\n");
+    ivector_reset(&unsat_core);
+    bit_solver_get_unsat_core(&solver, &unsat_core);
+    print_core();
+    printf("---> RETRACT\n");
+    bit_solver_retract(&solver);
+    print_solver();
+  }
+
+  while (solver.base_level > 0) {
+    printf("\n---> RETRACT\n");
+    bit_solver_retract(&solver);
+    print_solver();
+  }
+}
+
+
+/*
+ * Run test1 then exit
+ */
+int main(void) {
+  test1();
+  delete_bit_solver(&solver);
+  delete_ivector(&unsat_core);
+  return 0;
+}

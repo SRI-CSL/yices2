@@ -1,0 +1,43 @@
+#!/bin/sh
+
+#
+# Remove the trailing whitespaces and tabs from file
+#
+# Usage ./remove_trailing_whitespaces <file> <file> ....
+#
+# Any modified file is renamed to file~~
+# Any file that has suffix ~ in the input list is skipped
+#
+
+tmpfile=/tmp/xxx.$$
+
+#
+# If we have GNU sed, we can use 's/[ \t]+$//'.
+# But on freeBSD and Darwin, \t does not match tab so
+# this doesn't work. We use [[:blank:]] instead.
+#
+for file in $* ; do
+  if test -f $file ; then
+    case $file in
+     *~)
+       echo "Skipping $file"
+       ;;
+     *)
+       sed -e 's/[[:blank:]]*$//' "${file}" > $tmpfile
+       diff -q $tmpfile $file > /dev/null
+       if test $? -ne 0 ; then
+         echo "Removed spaces in $file"
+         mv $file $file~~
+         cp $tmpfile $file
+       fi
+       rm $tmpfile
+       ;;
+    esac
+  else
+    if test -e $file ; then
+      echo "Skipping $file"
+    else
+      echo "Warning: $file not found"
+    fi
+  fi
+done

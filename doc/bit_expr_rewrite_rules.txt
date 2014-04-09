@@ -1,0 +1,141 @@
+Possible simplification rules for the bit_expr graphs
+-----------------------------------------------------
+
+Local rules for (or x y): examine x and y and their children.
+Don't go deeper into the DAG.
+
+1 variable
+
+(or a T)   --> T
+(or a F)   --> a
+(or a a)   --> a
+(or a ~a)  --> T
+
+2 variables
+
+(or (or a b) a)   --> (or a b)
+(or (or a b) ~a)  --> T
+(or ~(or a b) a)  --> (or a ~b)
+(or ~(or a b) ~a) --> ~a
+
+(or (xor a b) a)   --> (or a b)
+(or (xor a b) ~a)  --> (or ~a ~b)
+(or ~(xor a b) a)  --> (or a ~b)
+(or ~(xor a b) ~a) --> (or ~a b)
+
+(or (or a b) (or ~a b))    --> T
+(or (or a b) (or ~a ~b))   --> T
+(or (or a b) ~(or ~a b))   --> (or a b)
+(or (or a b) ~(or ~a ~b))  --> (or a b)
+(or ~(or a b) ~(or ~a b))  --> ~b
+(or ~(or a b) ~(or ~a ~b)) --> ~(xor a b)
+
+(or (or a b) (xor a b))     --> (or a b)
+(or (or a b) (xor ~a b))    --> T
+(or (or a b) (xor ~a ~b))   --> (or a b)
+(or (or a b) ~(xor a b))    --> T
+(or (or a b) ~(xor ~a b))   --> (or a b)
+(or (or a b) ~(xor ~a ~b))  --> T
+(or ~(or a b) (xor a b))    --> (or ~a ~b)
+(or ~(or a b) (xor ~a b))   --> ~ (xor a b)
+(or ~(or a b) (xor ~a ~b))  --> (or ~a ~b)
+(or ~(or a b) ~(xor a b))   --> ~ (xor a b)
+(or ~(or a b) ~(xor ~a b))  --> (or ~a ~b)
+(or ~(or a b) ~(xor ~a ~b)) --> ~ (xor a b)
+
+(or (xor a b) (xor ~a b))    --> T
+(or (xor a b) (xor ~a ~b))   --> (xor a b)
+(or (xor a b) ~(xor ~a b))   --> (xor a b)
+(or (xor a b) ~(xor ~a ~b))  --> T
+(or ~(xor a b) (xor ~a b))   --> ~(xor a b)
+(or ~(xor a b) (xor ~a ~b))  --> T
+(or ~(xor a b) ~(xor ~a b))  --> T
+(or ~(xor a b) ~(xor ~a ~b)) --> ~(xor a b)
+
+
+3 variables
+
+(or (or a b) (or a c))      --> (or (or a b) c)
+                            --> (or (or a c) b)
+(or (or a b) (or ~a c))     --> T
+(or (or a b) ~(or a c))     --> (or (or a b) ~c)
+(or (or a b) ~(or ~a c))    --> (or a b)
+
+
+(or (or a b) (xor a c))     --> (or (or a b) c)
+(or (or a b) (xor ~a c))    --> (or (or a b) ~c)
+(or (or a b) ~(xor a c))    --> (or (or a b) ~c)
+(or (or a b) ~(xor ~a c))   --> (or (or a b) c)
+
+
+
+
+
+Local rules of (xor x y): examine x and y and their children.
+Don't go deeper into the DAG.
+
+1 variable
+
+(xor a T)  --> ~a
+(xor a F)  --> a
+(xor a a)  --> F
+(xor a ~a) --> T
+
+
+2 variables
+
+(xor ~a ~b) --> (xor a b)  (normalization)
+(xor ~a b)  --> ~(xor a b)
+
+
+(xor (or a b) a)   --> ~(or a ~b)
+(xor (or a b) ~a)  --> (or a ~b)
+(xor ~(or a b) a)  --> (or a ~b)
+(xor ~(or a b) ~a) --> ~(or a ~b)
+
+(xor (xor a b) a)   --> b
+(xor (xor a b) ~a)  --> ~b
+(xor ~(xor a b) a)  --> ~b
+(xor ~(xor a b) ~a) --> b
+
+(xor (or a b) (or a b))     --> F
+(xor (or a b) (or ~a b))    --> ~b
+(xor (or a b) (or ~a ~b))   --> ~(xor a b)
+(xor (or a b) ~(or a b))    --> T
+(xor (or a b) ~(or ~a b))   --> b
+(xor (or a b) ~(or ~a ~b))  --> (xor a b)
+(xor ~(or a b) ~(or a b))   --> F
+(xor ~(or a b) ~(or ~a b))  --> ~b
+(xor ~(or a b) ~(or ~a ~b)) --> ~(xor a b)
+
+
+(xor (or a b) (xor a b))    --> ~(or a b)
+(xor (or a b) (xor ~a b))   --> (or a b)
+(xor (or a b) (xor ~a ~b))  --> ~(or a b)
+(xor (or a b) ~(xor a b))   --> (or a b)
+(xor (or a b) ~(xor ~a b))  --> ~(or a b)
+(xor (or a b) ~(xor ~a ~b)) --> (or a b)
+(xor ~(or a b) (xor a b))    --> (or a b)
+(xor ~(or a b) (xor ~a b))   --> ~(or a b)
+(xor ~(or a b) (xor ~a ~b))  --> (or a b)
+(xor ~(or a b) ~(xor a b))   --> ~(or a b)
+(xor ~(or a b) ~(xor ~a b))  --> (or a b)
+(xor ~(or a b) ~(xor ~a ~b)) --> ~(or a b)
+
+(xor (xor a b) (xor a b))    --> F
+(xor (xor a b) (xor ~a b))   --> T
+(xor (xor a b) (xor ~a ~b))  --> T
+etc.
+
+
+3 variables
+
+(xor (or a b) (or a c))     --> ~(or a ~(xor b c))
+(xor (or a b) ~(or a c))    --> (or a ~(xor b c))
+(xor ~(or a b) ~(or a c))   --> ~(or a ~(xor b c))
+
+(xor (xor a b) (xor a c))   --> (xor b c)
+(xor (xor a b) ~(xor a c))  --> ~(xor b c)
+etc.
+
+

@@ -1,0 +1,19 @@
+(define a::bool)
+(define b::bool)
+(define c::bool)
+(define d::bool)
+(define e::bool)
+
+(assert (= a (or b c)))
+(assert (= d (not (and b c))))
+(assert (= a d))
+(check)
+(show-model)
+
+(assert (= e (xor b c)))
+(assert (= e d))
+(check)
+(show-model)
+
+(assert (not d))
+(check)
