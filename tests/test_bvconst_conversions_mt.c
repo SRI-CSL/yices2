@@ -7,11 +7,10 @@
 #include <gmp.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <errno.h>
-#include <string.h>
-#include <pthread.h>
 
 #include "bv_constants.h"
+#include "threads.h"
+
 
 /*
  * Initialize z and copy a into z
@@ -221,7 +220,7 @@ static void test_unsigned_conversions(FILE* output) {
   test_unsigned_conversion(output, a, 64);
 }
 
-void* test_thread(void* arg){
+yices_thread_result_t test_thread(void* arg){
   FILE* output = (FILE *)arg;
   fprintf(stderr, "Starting: %s\n", "test_signed_conversions");
   test_signed_conversions(output);
@@ -231,41 +230,22 @@ void* test_thread(void* arg){
   return NULL;
 }
 
-#define NTHREADS  2
+int main(int argc, char* argv[]) {
 
+  if(argc != 2){
+    mt_test_usage(argc, argv);
+    return 0;
+  } else {
+    int nthreads = atoi(argv[1]);
 
-int main() {
-  int retcode, thread;
-  char  buff[1024];
-  FILE*  outfp[NTHREADS];
-  pthread_t tids[NTHREADS];
-
-  printf("%d threads\n", NTHREADS);
-
-  for(thread = 0; thread < NTHREADS; thread++){
-    snprintf(buff, 1024, "/tmp/test_bvconst_conversions_mt_%d.txt", thread);
-    printf("Logging thread %d to %s\n", thread, buff);
-    outfp[thread] = fopen(buff, "w");
-    if(outfp[thread] == NULL){
-      fprintf(stderr, "fopen failed: %s\n", strerror(errno));
-      exit(0);
+    if(nthreads < 0){
+      fprintf(stderr, "thread number must be positive!\n");
+      exit(EXIT_FAILURE);
+    } else if(nthreads == 0){
+      test_thread(stdout);
+    } else {
+      launch_threads(nthreads, "/tmp/test_bvconst_conversions_mt_%d.txt", test_thread);
     }
-    retcode =  pthread_create(&tids[thread], NULL, test_thread, outfp[thread]);
-    if(retcode){
-      fprintf(stderr, "pthread_create failed: %s\n", strerror(retcode));
-      exit(0);
-    }
-  }
-
-  printf("threads away\n\n");
-
-
-  for(thread = 0; thread < NTHREADS; thread++){
-    retcode = pthread_join(tids[thread], NULL);
-    if(retcode){
-      fprintf(stderr, "pthread_join failed: %s\n", strerror(retcode));
-    }
-    fclose(outfp[thread]);
   }
 
   return 0;

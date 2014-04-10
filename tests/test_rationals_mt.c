@@ -52,9 +52,6 @@ static char* test_strings2[22] = {
   "46878952/46878952", "+46878952/46878952", "-46878952/46878952",
 };
 
-//static rational_t r0, r1, r2;
-//static mpq_t q0, q1, q2;
-
 
 /*
  * Tests
@@ -650,3 +647,6 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
+
+
+
