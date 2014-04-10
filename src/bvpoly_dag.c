@@ -78,24 +78,12 @@ static inline void list_remove(bvc_item_t *list, int32_t i) {
 
 
 /*
- * Add n to one of the three node lists:
+ * Add n to the the list of leaves
  * - list[0]  --> leaves
- * - list[-1] --> elementary nodes
- * - list[-2] --> default list
  */
 static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_add(dag->list, BVC_DAG_LEAF_LIST, n);
-}
-
-static inline void bvc_dag_add_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
-  assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, BVC_DAG_ELEM_LIST, n);
-}
-
-static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, bvnode_t n) {
-  assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, BVC_DAG_DEFAULT_LIST, n);
 }
 
 

@@ -1149,16 +1149,6 @@ static inline bool block_queue_is_empty(pp_block_queue_t *q) {
   return q->head == q->tail;
 }
 
-/*
- * Empty the queue
- */
-static inline void reset_block_queue(pp_block_queue_t *q) {
-  q->head = 0;
-  q->tail = 0;
-}
-
-
-
 
 /*
  * Descriptors of the first and last element in the queue

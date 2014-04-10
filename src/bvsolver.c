@@ -1931,13 +1931,14 @@ static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) 
  * - this is fine since no atom should involve two constants
  *   (constraints between constants are always simplified to true or false)
  */
+#ifndef NDEBUG
 static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
 
   a = bvatom_desc(&solver->atbl, i);
   return is_constant(&solver->vtbl, a->left) || is_constant(&solver->vtbl, a->right);
 }
-
+#endif
 
 /*
  * Get the variable in a bound atom
@@ -2492,15 +2493,6 @@ static const uint8_t bvtag2rank[NUM_BVTAGS] = {
 static inline bool simpler_bvtag(bvvar_tag_t a, bvvar_tag_t b) {
   return bvtag2rank[a] < bvtag2rank[b];
 }
-
-
-/*
- * Check whether tag is for a constant
- */
-static inline bool constant_bvtag(bvvar_tag_t a) {
-  return a == BVTAG_CONST64 || a == BVTAG_CONST;
-}
-
 
 
 /*

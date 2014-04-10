@@ -132,10 +132,12 @@ uint32_t rbtree_find(rbtree_t *tree, uint32_t x) {
  * Check whether p is parent of q
  * - both must be valid node indices
  */
+#ifndef NDEBUG
 static inline bool is_parent_node(rbtree_t *tree, uint32_t p, uint32_t q) {
   assert(p < tree->nbnodes && q < tree->nbnodes);
   return tree->node[p][0] == q || tree->node[p][1] == q;
 }
+#endif
 
 /*
  * Child-index(p, q):
@@ -169,10 +171,11 @@ static inline bool is_red(rbtree_t *tree, uint32_t p) {
   return tst_bit(tree->isred, p);
 }
 
+#ifndef NDEBUG
 static inline bool is_black(rbtree_t *tree, uint32_t p) {
   return ! is_red(tree, p);
 }
-
+#endif
 
 /*
  * Set the color of node p
