@@ -45,13 +45,6 @@ extern void init_mpq_aux();
 
 
 /*
- * Cleanup: delete global variables and free memory
- */
-extern void cleanup_mpq_aux();
-
-
-
-/*
  * Initialize q with enough room for numerator
  * and denominator with n bits. q is set to 0.
  *

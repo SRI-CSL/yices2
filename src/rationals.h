@@ -57,16 +57,6 @@ extern void cleanup_rationals(void);
  */
 
 /*
- * Release internal gmp number of index i.
- */
-//extern void free_mpq(int32_t i);
-
-/*
- * Get internal gmp number of index i.
- */
-//extern mpq_ptr get_mpq(int32_t i);
-
-/*
  * Set r to 0/1, Must be called before any operation on r.
  */
 static inline void q_init(rational_t *r) {

@@ -15,17 +15,9 @@
 #define DEBUG 1
 
 /*
- * Global variable for intermediate computations.
- */
-//static mpz_t z0;
-
-
-/*
  * Debug code: double check results
  */
 #ifdef DEBUG
-
-//static mpq_t check, aux;
 
 static inline void check_result(mpq_t q, mpq_t check) {
   if (! mpq_equal(q, check)) {
@@ -59,27 +51,7 @@ void init_mpq_aux() {
     abort();
   }
 
-  //mpz_init(z0);
-
-#ifdef DEBUG
-  //mpq_init(check);
-  //mpq_init(aux);
-#endif
 }
-
-
-/*
- * Cleanup
- */
-void cleanup_mpq_aux() {
-  //mpz_clear(z0);
-
-#ifdef DEBUG
-  //mpq_clear(check);
-  //mpq_clear(aux);
-#endif
-}
-
 
 
 /*

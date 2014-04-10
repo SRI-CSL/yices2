@@ -64,7 +64,6 @@ void init_rationals() {
 }
 
 void cleanup_rationals() {
-  cleanup_mpq_aux();
   cleanup_string_buffer();
   mpq_pool_shutdown();
   mpz_pool_shutdown();
