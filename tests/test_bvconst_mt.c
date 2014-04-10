@@ -102,7 +102,9 @@ static char* b2str(bool x) {
 
 
 
-yices_thread_result_t test_thread(void* arg){
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
 
   int32_t i, j, n;
@@ -1258,7 +1260,7 @@ yices_thread_result_t test_thread(void* arg){
   free_constants(a, b, c, d, e);
 
 
-  return NULL;
+  return yices_thread_exit();
 }
 
 
@@ -1278,7 +1280,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_bvconst_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_bvconst_mt", test_thread);
     }
 
     cleanup_bvconstants();

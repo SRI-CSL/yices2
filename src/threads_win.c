@@ -13,7 +13,7 @@
 
 /* not tested or compiled yet */
 
-void launch_threads(int nthreads, const char* file_format, yices_thread_main_t thread_main){
+void launch_threads(int nthreads, const char* test, yices_thread_main_t thread_main){
   int thread;
   char  buff[1024];
   FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
@@ -26,7 +26,7 @@ void launch_threads(int nthreads, const char* file_format, yices_thread_main_t t
   printf("%d threads\n", nthreads);
 
   for(thread = 0; thread < nthreads; thread++){
-    snprintf(buff, 1024, file_format, thread);
+    snprintf(buff, 1024, "%s_%d.txt", test, thread);
     printf("Logging thread %d to %s\n", thread, buff);
     outfp[thread] = fopen(buff, "w");
     if(outfp[thread] == NULL){

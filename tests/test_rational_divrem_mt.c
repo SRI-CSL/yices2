@@ -193,7 +193,7 @@ static void test_big_big(FILE* output) {
   q_clear(&c);
 }
 
-yices_thread_result_t test_thread(void* arg){
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
   fprintf(stderr, "Starting: %s\n", "test_small_small");
   test_small_small(output);
@@ -204,7 +204,7 @@ yices_thread_result_t test_thread(void* arg){
   fprintf(stderr, "Starting: %s\n", "test_big_big");
   test_big_big(output);
   fprintf(stderr, "Done.\n");
-  return NULL;
+  return yices_thread_exit();
 }
 
 
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_rational_divrem_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_rational_divrem_mt", test_thread);
     }
 
     cleanup_rationals();

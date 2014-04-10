@@ -81,7 +81,9 @@ static void test_shift(FILE* output, uint32_t *x, uint32_t *y, uint32_t n) {
 }
 
 
-yices_thread_result_t test_thread(void* arg){
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
   uint32_t i, j;
   uint64_t a, b;
@@ -147,7 +149,7 @@ yices_thread_result_t test_thread(void* arg){
   test_shift(output, x, y, 64);
   y[1] = 2;
   test_shift(output, x, y, 64);
-  return NULL;
+  return yices_thread_exit();
 }
 
 int main(int argc, char* argv[]) {
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_bvconst_shifts_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_bvconst_shifts_mt", test_thread);
     }
 
   }

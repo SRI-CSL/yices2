@@ -86,7 +86,9 @@ static void test_bv(FILE* output, uint32_t *x, uint32_t *y, uint32_t n) {
   }
 }
 
-yices_thread_result_t test_thread(void* arg){
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
 
   uint32_t i, j;
@@ -106,7 +108,7 @@ yices_thread_result_t test_thread(void* arg){
     }
   }
 
-  return NULL;
+  return yices_thread_exit();
 }
 
 int main(int argc, char* argv[]) {
@@ -125,7 +127,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_bvconst_divisions_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_bvconst_divisions_mt", test_thread);
     }
   }
 

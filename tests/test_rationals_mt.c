@@ -595,7 +595,7 @@ void miscellaneous_tests(FILE* output){
 
 }
 
-yices_thread_result_t test_thread(void* arg){
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
   fprintf(stderr, "Starting: %s\n", "assignment_tests");
   assignment_tests(output);
@@ -639,7 +639,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_rationals_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_rationals_mt", test_thread);
     }
 
     cleanup_rationals();

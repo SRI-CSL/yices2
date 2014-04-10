@@ -220,14 +220,14 @@ static void test_unsigned_conversions(FILE* output) {
   test_unsigned_conversion(output, a, 64);
 }
 
-yices_thread_result_t test_thread(void* arg){
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
   fprintf(stderr, "Starting: %s\n", "test_signed_conversions");
   test_signed_conversions(output);
   fprintf(stderr, "Starting: %s\n", "test_unsigned_conversions");
   test_unsigned_conversions(output);
   fprintf(stderr, "Done.\n");
-  return NULL;
+  return yices_thread_exit();
 }
 
 int main(int argc, char* argv[]) {
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_bvconst_conversions_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_bvconst_conversions_mt", test_thread);
     }
   }
 

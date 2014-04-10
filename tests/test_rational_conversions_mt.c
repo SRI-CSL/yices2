@@ -301,7 +301,9 @@ static void test4(FILE* output) {
   q_clear(&r);
 }
 
-yices_thread_result_t test_thread(void* arg){
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
   fprintf(stderr, "Starting: %s\n", "test1");
   test1(output);
@@ -312,7 +314,7 @@ yices_thread_result_t test_thread(void* arg){
   fprintf(stderr, "Starting: %s\n", "test4");
   test4(output);
   fprintf(stderr, "Done.\n");
-  return NULL;
+  return yices_thread_exit();
 }
 
 int main(int argc, char* argv[]) {
@@ -331,7 +333,7 @@ int main(int argc, char* argv[]) {
     } else if(nthreads == 0){
       test_thread(stdout);
     } else {
-      launch_threads(nthreads, "/tmp/test_rational_conversions_mt_%d.txt", test_thread);
+      launch_threads(nthreads, "test_rational_conversions_mt", test_thread);
     }
 
     cleanup_rationals();
