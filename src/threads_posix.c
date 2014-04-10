@@ -11,7 +11,7 @@ void launch_threads(int nthreads, const char* file_format, yices_thread_main_t t
   pthread_t* tids = (pthread_t*)calloc(nthreads, sizeof(pthread_t));
   if((outfp == NULL) || (tids == NULL)){
     fprintf(stderr, "Couldn't alloc memory for %d threads\n", nthreads);
-    return 0;
+    exit(EXIT_FAILURE);
   }
   printf("%d threads\n", nthreads);
 
