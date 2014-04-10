@@ -18,9 +18,9 @@ extern int mpz_pool_init(void);
 extern mpz_ptr fetch_mpz(int32_t i);
 
 /*
- * Borrow an mpz from the pool, the mpz will be *qp 
+ * Borrow an mpz from the pool, the mpz will be *qp
  * and it's index will be *indexp. The index is used to
- * return the mpz to the pool. qp can be NULL, in which case 
+ * return the mpz to the pool. qp can be NULL, in which case
  * only the index is returned.
  *
  *  Returns 0 on success, nonzero on error.
@@ -28,7 +28,7 @@ extern mpz_ptr fetch_mpz(int32_t i);
  */
 extern int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp);
 
-/* 
+/*
  * Return the mpz with that index to the pool.
  *
  *  Returns 0 on success, nonzero on error.

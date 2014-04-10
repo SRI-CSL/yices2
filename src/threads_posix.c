@@ -13,7 +13,7 @@ void launch_threads(int nthreads, const char* file_format, yices_thread_main_t t
     return 0;
   }
   printf("%d threads\n", nthreads);
-  
+
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, file_format, thread);
     printf("Logging thread %d to %s\n", thread, buff);
@@ -28,10 +28,10 @@ void launch_threads(int nthreads, const char* file_format, yices_thread_main_t t
       exit(EXIT_FAILURE);
     }
   }
-  
+
   printf("threads away\n\n");
-  
-  
+
+
   for(thread = 0; thread < nthreads; thread++){
     retcode = pthread_join(tids[thread], NULL);
     if(retcode){
@@ -40,7 +40,7 @@ void launch_threads(int nthreads, const char* file_format, yices_thread_main_t t
     }
     fclose(outfp[thread]);
   }
-  
+
   free(outfp);
   free(tids);
 

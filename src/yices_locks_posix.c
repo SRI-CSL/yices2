@@ -7,11 +7,11 @@
 #ifdef DEBUG
 static pthread_mutexattr_t mta;
 static pthread_mutexattr_t* mattr = &mta;
-#else 
+#else
 static pthread_mutexattr_t* mattr = NULL;
 #endif
 
- 
+
 int create_yices_lock(yices_lock_t* lock){
   int retcode;
 #ifdef DEBUG

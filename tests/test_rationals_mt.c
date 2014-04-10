@@ -21,7 +21,7 @@
 
 static int32_t num[24] = {
   0, 1, -1, -23, 23,
-  112, -112, 126, -126, INT32_MAX, 
+  112, -112, 126, -126, INT32_MAX,
   INT32_MIN, MAX_NUMERATOR, MIN_NUMERATOR, MAX_NUMERATOR - 1, MIN_NUMERATOR + 1,
   MAX_NUMERATOR + 1, MIN_NUMERATOR - 1, MAX_NUMERATOR + 2, MIN_NUMERATOR - 2,
   INT32_MAX-1, INT32_MIN + 1, 100, 1000, 10000,
@@ -34,20 +34,20 @@ static uint32_t den[16] = {
 };
 
 static char* test_strings[12] = {
-  "1/10", "+1/10", "-1/10", 
-  "1889139832988/137873278932897", "8eeee/8792183jeebag", 
-  "00001893821/000031278781238", "", 
+  "1/10", "+1/10", "-1/10",
+  "1889139832988/137873278932897", "8eeee/8792183jeebag",
+  "00001893821/000031278781238", "",
   "+11398990", "-1893983982", "819230982139",
   "46878952/46878952", "-46878952/46878952",
 };
 
 static char* test_strings2[22] = {
-  "1.10", "+1.10", "-1.10", 
-  "100e0", "100e-2", "100e+2", 
-  "10.6e0", "10.6e-2", "10.6e+2", 
-  "+10.6e0", "+10.6e-2", "+10.6e+2", 
-  "-10.6e0", "-10.6e-2", "-10.6e+2", 
-  "1889139832988.137873278932897e-4", "8.eee", 
+  "1.10", "+1.10", "-1.10",
+  "100e0", "100e-2", "100e+2",
+  "10.6e0", "10.6e-2", "10.6e+2",
+  "+10.6e0", "+10.6e-2", "+10.6e+2",
+  "-10.6e0", "-10.6e-2", "-10.6e+2",
+  "1889139832988.137873278932897e-4", "8.eee",
   "00001893821/000031278781238", "",
   "46878952/46878952", "+46878952/46878952", "-46878952/46878952",
 };
@@ -92,7 +92,7 @@ static void test_equal(FILE* output, rational_t *r, mpq_t q) {
   //  printf("  r = "); q_print(stdout, r); printf("\n");
   //  printf("  q = "); mpq_out_str(stdout, 10, q); printf("\n");
   //  fflush(stdout);
-  q_check_equal(output, r, q);  
+  q_check_equal(output, r, q);
 }
 
 // set r0 = num/den
@@ -552,7 +552,7 @@ void miscellaneous_tests(FILE* output){
     fprintf(output, "\n");
     fprintf(output, "hash num = %"PRIu32"\n", q_hash_numerator(&r0));
     fprintf(output, "hash den = %"PRIu32"\n", q_hash_denominator(&r0));
-    
+
     mpq_set_int32(q0, MIN_NUMERATOR-1, 23);
     mpq_canonicalize(q0);
     q_set_mpq(&r1, q0);
@@ -561,8 +561,8 @@ void miscellaneous_tests(FILE* output){
     fprintf(output, "\n");
     fprintf(output, "hash num = %"PRIu32"\n", q_hash_numerator(&r1));
     fprintf(output, "hash den = %"PRIu32"\n", q_hash_denominator(&r1));
-    
-    
+
+
     fprintf(output, "\n\n");
     for (i=0; i<12; i++) {
       fprintf(output, "set_from_string <%s>\n", test_strings[i]);
@@ -576,7 +576,7 @@ void miscellaneous_tests(FILE* output){
       }
       fprintf(output, "\n\n");
     }
-    
+
     fprintf(output, "\n");
     for (i=0; i<22; i++) {
       fprintf(output, "set_from_float_string <%s>\n", test_strings2[i]);
@@ -590,12 +590,12 @@ void miscellaneous_tests(FILE* output){
       }
       fprintf(output, "\n\n");
     }
-    
+
 
     mpq_pool_return(iq0);
     mpq_pool_return(iq1);
     mpq_pool_return(iq2);
-    
+
 }
 
 yices_thread_result_t test_thread(void* arg){
@@ -627,15 +627,15 @@ int main(int argc, char* argv[]) {
     return 0;
   } else {
     int nthreads = atoi(argv[1]);
-    
-    printf("GMP %s (bits per limb = %"PRId32")\n", gmp_version, GMP_LIMB_BITS);  
+
+    printf("GMP %s (bits per limb = %"PRId32")\n", gmp_version, GMP_LIMB_BITS);
     printf("MAX_NUM = %d\n", MAX_NUMERATOR);
     printf("MIN_NUM = %d\n", MIN_NUMERATOR);
     printf("MAX_DEN = %d\n", MAX_DENOMINATOR);
     printf("----\n");
-    
+
     init_rationals();
-    
+
     if(nthreads < 0){
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
@@ -644,7 +644,7 @@ int main(int argc, char* argv[]) {
     } else {
       launch_threads(nthreads, "/tmp/test_rationals_mt_%d.txt", test_thread);
     }
-    
+
     cleanup_rationals();
   }
 

@@ -24,147 +24,10 @@
 #include "rationals.h"
 #include "gcd.h"
 
+#include "yices_locks.h"
+#include "mpq_pool.h"
+#include "mpz_pool.h"
 
-
-/****************************
- *  POOL OF GMP RATIONALS   *
- ***************************/
-
-/*
- * Bank of mpq numbers
- * - bank_q[] = mpq_rationals (all initialized)
- * - bank_free = index of the first unused elements in mpq
- *   (start of free list)
- * - bank_capacity = size of arrays mpq_bank
- * - bank_size = number of rationals currently stored
- *
- * The free list is encoded via the numerators:
- * succ(i) = mpz_get_si(mpq_numref(bank_q[i]))
- */
-mpq_t *bank_q = NULL;
-
-static int32_t bank_free = -1;
-static uint32_t bank_capacity = 0;
-static uint32_t bank_size = 0;
-
-
-/*
- * Maximal size.
- */
-#define MAX_BANK_SIZE (UINT32_MAX/sizeof(mpq_t))
-
-/*
- * Initialize bank for initial capacity n.
- * (n must be positive).
- */
-static void init_bank(uint32_t n) {
-  uint32_t i;
-
-  if (n >= MAX_BANK_SIZE) {
-    out_of_memory();
-  }
-
-  bank_q = (mpq_t *) safe_malloc(n * sizeof(mpq_t));
-  bank_free = -1;
-  bank_capacity = n;
-  bank_size = 0;
-
-  // initialize all the rationals with room
-  // for a 64bit numerator and a 64bit denominator
-  for (i=0; i<n; i++) {
-    mpq_init2(bank_q[i], 64);
-  }
-}
-
-
-/*
- * Increase bank capacity to n.
- */
-static void resize_bank(uint32_t n) {
-  uint32_t i, old_n;
-
-  old_n = bank_capacity;
-  if (n > old_n) {
-    if (n >= MAX_BANK_SIZE) {
-      out_of_memory();
-    }
-
-    bank_q = (mpq_t *) safe_realloc(bank_q, n * sizeof(mpq_t));
-    bank_capacity = n;
-
-    for (i=old_n; i<n; i++) {
-      mpq_init2(bank_q[i], 64);
-    }
-  }
-}
-
-
-/*
- * Free the bank
- */
-static void clear_bank() {
-  uint32_t i, n;
-
-  n = bank_capacity;
-  for (i=0; i<n; i++) {
-    mpq_clear(bank_q[i]);
-  }
-
-  free(bank_q);
-}
-
-
-/*
- * Free-list operations
- */
-static inline int32_t free_list_next(int32_t i) {
-  return mpz_get_si(mpq_numref(bank_q[i]));
-}
-
-static inline void free_list_insert(int32_t i) {
-  assert(0 <= i && i < bank_capacity);
-  assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity);
-  mpz_set_si(mpq_numref(bank_q[i]), bank_free);
-  bank_free = i;
-}
-
-
-/*
- * Allocate an mpq number: return the index
- */
-static int32_t alloc_mpq() {
-  int32_t n;
-
-  n = bank_free;
-  if (n >= 0) {
-    bank_free = free_list_next(n);
-  } else {
-    n = bank_size;
-    if (n >= bank_capacity) {
-      resize_bank(2 * n);
-    }
-    bank_size = n + 1;
-    assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity);
-  }
-  return n;
-}
-
-
-
-/*
- * Free allocated mpq number of index i
- */
-void free_mpq(int32_t i) {
-  free_list_insert(i);
-}
-
-
-/*
- * Get gmp number of index i
- */
-mpq_ptr get_mpq(int32_t i) {
-  return bank_q[i];
-}
 
 
 
@@ -172,40 +35,39 @@ mpq_ptr get_mpq(int32_t i) {
  * INITIALIZATION AND CLEANUP  *
  ******************************/
 
-/*
- * Global gmp variables used for intermediate computations
- */
-static mpz_t z0, z1;
-static mpq_t q0, q1;
 
 /*
- * String buffer for parsing.
+ * String buffer for parsing, now synchronized.
  */
 static char* string_buffer;
 static uint32_t string_buffer_length;
+static yices_lock_t string_buffer_lock;
 
+static inline void init_string_buffer(){
+  string_buffer = NULL;
+  string_buffer_length = 0;
+  create_yices_lock(&string_buffer_lock);
+}
 
-#define INITIAL_BANK_CAPACITY 1024
+static void cleanup_string_buffer(){
+  safe_free(string_buffer);
+  string_buffer = NULL;
+  string_buffer_length = 0;
+  destroy_yices_lock(&string_buffer_lock);
+}
 
 void init_rationals() {
   init_mpq_aux();
-  init_bank(INITIAL_BANK_CAPACITY);
-  string_buffer = NULL;
-  string_buffer_length = 0;
-  mpz_init2(z0, 64);
-  mpz_init2(z1, 64);
-  mpq_init2(q0, 64);
-  mpq_init2(q1, 64);
+  init_string_buffer();
+  mpq_pool_init();
+  mpz_pool_init();
 }
 
 void cleanup_rationals() {
   cleanup_mpq_aux();
-  clear_bank();
-  safe_free(string_buffer);
-  mpz_clear(z0);
-  mpz_clear(z1);
-  mpq_clear(q0);
-  mpq_clear(q1);
+  cleanup_string_buffer();
+  mpq_pool_shutdown();
+  mpz_pool_shutdown();
 }
 
 static void division_by_zero() {
@@ -254,7 +116,7 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
   assert(b > 0);
 
   if (a == 0 || (b == 1 && MIN_NUMERATOR <= a && a <= MAX_NUMERATOR)) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = a;
     r->den = 1;
     return;
@@ -320,18 +182,20 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
 
   // assing to r
   if (abs_a <= MAX_NUMERATOR && b <= MAX_DENOMINATOR) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = (int32_t) a;
     r->den = (uint32_t) b;
   } else {
+    mpq_ptr qi;
     if (r->den != 0) {
-      i = alloc_mpq();
+      mpq_pool_borrow(&i, NULL);
       r->den = 0;
       r->num = i;
     } else {
       i = r->num;
     }
-    mpq_set_int64(bank_q[i], a, b);
+    qi = fetch_mpq(i);
+    mpq_set_int64(qi, a, b);
   }
 }
 
@@ -347,7 +211,7 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
   assert(b > 0);
 
   if (a == 0 || (b == 1 && MIN_NUMERATOR <= a && a <= MAX_NUMERATOR)) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = a;
     r->den = 1;
     return;
@@ -414,18 +278,20 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
 
   // assign to r
   if (abs_a <= MAX_NUMERATOR && b <= MAX_DENOMINATOR) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = a;
     r->den = b;
   } else {
+    mpq_ptr qi;
     if (r->den != 0) {
-      i = alloc_mpq();
+      mpq_pool_borrow(&i, NULL);
       r->den = 0;
       r->num = i;
     } else {
       i = r->num;
     }
-    mpq_set_int32(bank_q[i], a, b);
+    qi = fetch_mpq(i);
+    mpq_set_int32(qi, a, b);
   }
 }
 
@@ -437,18 +303,20 @@ void q_set64(rational_t *r, int64_t a) {
   int32_t i;
 
   if (MIN_NUMERATOR <= a && a <= MAX_NUMERATOR) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = (int32_t) a;
     r->den = 1;
   } else {
+    mpq_ptr qi;
     if (r->den != 0) {
-      i = alloc_mpq();
+      mpq_pool_borrow(&i, NULL);
       r->den = 0;
       r->num = i;
     } else {
       i = r->num;
     }
-    mpq_set_int64(bank_q[i], a, 1);
+    qi = fetch_mpq(i);
+    mpq_set_int64(qi, a, 1);
   }
 }
 
@@ -457,18 +325,20 @@ void q_set32(rational_t *r, int32_t a) {
   int32_t i;
 
   if (MIN_NUMERATOR <= a && a <= MAX_NUMERATOR) {
-    if (r->den == 0) free_mpq(r->num);
+    if (r->den == 0) mpq_pool_return(r->num);
     r->num = a;
     r->den = 1;
   } else {
+    mpq_ptr qi;
     if (r->den != 0) {
-      i = alloc_mpq();
+      mpq_pool_borrow(&i, NULL);
       r->den = 0;
       r->num = i;
     } else {
       i = r->num;
     }
-    mpq_set_int32(bank_q[i], a, 1);
+    qi = fetch_mpq(i);
+    mpq_set_int32(qi, a, 1);
   }
 }
 
@@ -481,10 +351,11 @@ void q_set32(rational_t *r, int32_t a) {
  */
 static void convert_to_gmp(rational_t *r) {
   int32_t i;
+  mpq_ptr qi;
 
   assert(r->den != 0);
-  i = alloc_mpq();
-  mpq_set_int32(bank_q[i], r->num, r->den);
+  mpq_pool_borrow(&i, &qi);
+  mpq_set_int32(qi, r->num, r->den);
   r->num = i;
   r->den = 0;
 }
@@ -494,10 +365,11 @@ static void convert_to_gmp(rational_t *r) {
  */
 static void set_to_gmp64(rational_t *r, int64_t a) {
   int32_t i;
+  mpq_ptr qi;
 
   assert(r->den != 0);
-  i = alloc_mpq();
-  mpq_set_int64(bank_q[i], a, 1);
+  mpq_pool_borrow(&i, &qi);
+  mpq_set_int64(qi, a, 1);
   r->num = i;
   r->den = 0;
 }
@@ -518,12 +390,12 @@ void q_normalize(rational_t *r) {
   long num;
 
   if (r->den == 0) {
-    q = bank_q[r->num];
+    q = fetch_mpq(r->num);
     if (mpz_fits_ulong_p(mpq_denref(q)) && mpz_fits_slong_p(mpq_numref(q))) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-        free_mpq(r->num);
+        mpq_pool_return(r->num);
         r->num = (int32_t) num;
         r->den = (uint32_t) den;
       }
@@ -535,12 +407,14 @@ void q_normalize(rational_t *r) {
 
 /*
  * Prepare to assign an mpq number to r
- * - if r is not attached to an mpq number in bank_q, then allocate one
+ * - if r is not attached to an mpq number in the pool, then allocate one
  */
-static inline void q_prepare(rational_t *r) {
+static inline void q_prepare(rational_t *r, mpq_ptr *numrp) {
   if (r->den != 0) {
     r->den = 0;
-    r->num = alloc_mpq();
+    mpq_pool_borrow(&r->num, numrp);
+  } else {
+    *numrp = fetch_mpq(r->num);
   }
 }
 
@@ -548,8 +422,9 @@ static inline void q_prepare(rational_t *r) {
  * assign r:= z/1
  */
 void q_set_mpz(rational_t *r, mpz_t z) {
-  q_prepare(r);
-  mpq_set_z(bank_q[r->num], z);
+  mpq_ptr numr;
+  q_prepare(r, &numr);
+  mpq_set_z(numr, z);
 }
 
 
@@ -557,8 +432,9 @@ void q_set_mpz(rational_t *r, mpz_t z) {
  * Copy q into r
  */
 void q_set_mpq(rational_t *r, mpq_t q) {
-  q_prepare(r);
-  mpq_set(bank_q[r->num], q);
+  mpq_ptr numr;
+  q_prepare(r, &numr);
+  mpq_set(numr, q);
 }
 
 
@@ -567,11 +443,12 @@ void q_set_mpq(rational_t *r, mpq_t q) {
  */
 void q_set(rational_t *r1, rational_t *r2) {
   if (r2->den == 0) {
-    //    q_set_mpq(r1, bank_q[r2->num]); BUG HERE
-    q_prepare(r1);
-    mpq_set(bank_q[r1->num], bank_q[r2->num]);
+    mpq_ptr numr1;
+    //    q_set_mpq(r1, fetch_mpq(r2->num)); BUG HERE
+    q_prepare(r1, &numr1);
+    mpq_set(numr1, fetch_mpq(r2->num));
   } else {
-    if (r1->den == 0) free_mpq(r1->num);
+    if (r1->den == 0) mpq_pool_return(r1->num);
     r1->num = r2->num;
     r1->den = r2->den;
   }
@@ -583,10 +460,12 @@ void q_set(rational_t *r1, rational_t *r2) {
  */
 void q_set_neg(rational_t *r1, rational_t *r2) {
   if (r2->den == 0) {
-    q_prepare(r1);
-    mpq_neg(bank_q[r1->num], bank_q[r2->num]);
+    mpq_ptr numr1, rq2;
+    q_prepare(r1, &numr1);
+    rq2 = fetch_mpq(r2->num);
+    mpq_neg(numr1, rq2);
   } else {
-    if (r1->den == 0) free_mpq(r1->num);
+    if (r1->den == 0) mpq_pool_return(r1->num);
     r1->num = - r2->num;
     r1->den = r2->den;
   }
@@ -598,10 +477,12 @@ void q_set_neg(rational_t *r1, rational_t *r2) {
  */
 void q_set_abs(rational_t *r1, rational_t *r2) {
   if (r2->den == 0) {
-    q_prepare(r1);
-    mpq_abs(bank_q[r1->num], bank_q[r2->num]);
+    mpq_ptr numr1, rq2;
+    q_prepare(r1, &numr1);
+    rq2 = fetch_mpq(r2->num);
+    mpq_abs(numr1, rq2);
   } else {
-    if (r1->den == 0) free_mpq(r1->num);
+    if (r1->den == 0) mpq_pool_return(r1->num);
     r1->den = r2->den;
     if (r2->num < 0) {
       r1->num = - r2->num;
@@ -618,26 +499,27 @@ void q_set_abs(rational_t *r1, rational_t *r2) {
  * - r2 and r1 must be different objects
  */
 void q_get_num(rational_t *r1, rational_t *r2) {
-  mpq_ptr q;
+  mpq_ptr q2;
+  mpq_ptr numr1;
   long num;
 
   if (r2->den == 0) {
-    q = bank_q[r2->num];
-    if (mpz_fits_slong_p(mpq_numref(q))) {
-      num = mpz_get_si(mpq_numref(q));
+    q2 = fetch_mpq(r2->num);
+    if (mpz_fits_slong_p(mpq_numref(q2))) {
+      num = mpz_get_si(mpq_numref(q2));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
-        if (r1->den == 0) free_mpq(r1->num);
+        if (r1->den == 0) mpq_pool_return(r1->num);
         r1->num = num;
         r1->den = 1;
         return;
       }
     }
     // BUG:    q_set_mpz(r1, mpq_numref(q));
-    q_prepare(r1);
-    mpq_set_z(bank_q[r1->num], mpq_numref(bank_q[r2->num]));
+    q_prepare(r1, &numr1);
+    mpq_set_z(numr1, mpq_numref(q2));
 
   } else {
-    if (r1->den == 0) free_mpq(r1->num);
+    if (r1->den == 0) mpq_pool_return(r1->num);
     r1->num = r2->num;
     r1->den = 1;
   }
@@ -651,25 +533,26 @@ void q_get_num(rational_t *r1, rational_t *r2) {
  */
 void q_get_den(rational_t *r1, rational_t *r2) {
   mpq_ptr q;
+  mpq_ptr numr1;
   unsigned long den;
 
   if (r2->den == 0) {
-    q = bank_q[r2->num];
+    q = fetch_mpq(r2->num);
     if (mpz_fits_ulong_p(mpq_denref(q))) {
       den = mpz_get_ui(mpq_denref(q));
       if (den <= MAX_DENOMINATOR) {
-        if (r1->den == 0) free_mpq(r1->num);
+        if (r1->den == 0) mpq_pool_return(r1->num);
         r1->num = den;
         r1->den = 1;
         return;
       }
     }
     // BUG    q_set_mpz(r1, mpq_denref(q));
-    q_prepare(r1);
-    mpq_set_z(bank_q[r1->num], mpq_denref(bank_q[r2->num]));
+    q_prepare(r1, &numr1);
+    mpq_set_z(numr1, mpq_denref(q));
 
   } else {
-    if (r1->den == 0) free_mpq(r1->num);
+    if (r1->den == 0) mpq_pool_return(r1->num);
     r1->num = r2->den;
     r1->den = 1;
   }
@@ -686,7 +569,7 @@ void q_get_den(rational_t *r1, rational_t *r2) {
 /*
  * Resize string_buffer if necessary
  */
-static void resize_string_buffer(uint32_t new_size) {
+static void _o_resize_string_buffer(uint32_t new_size) {
   uint32_t n;
 
   if (string_buffer_length < new_size) {
@@ -713,17 +596,20 @@ static void resize_string_buffer(uint32_t new_size) {
  * - q0 must be canonicalized
  * - return 0.
  */
-static int q_set_q0(rational_t *r) {
+static int q_set_q0(mpq_ptr q0, rational_t *r) {
+  int retval = 0;
+
   int32_t i;
   unsigned long den;
   long num;
+  mpq_ptr qi;
 
   // try to store q0 as a pair num/den
   if (mpz_fits_ulong_p(mpq_denref(q0)) && mpz_fits_slong_p(mpq_numref(q0))) {
     num = mpz_get_si(mpq_numref(q0));
     den = mpz_get_ui(mpq_denref(q0));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-      if (r->den == 0) free_mpq(r->num);
+      if (r->den == 0) mpq_pool_return(r->num);
       r->num = (int32_t) num;
       r->den = (uint32_t) den;
       return 0;
@@ -732,15 +618,18 @@ static int q_set_q0(rational_t *r) {
 
   // copy q0
   if (r->den != 0) {
-    i = alloc_mpq();
+    mpq_pool_borrow(&i, NULL);
     r->den = 0;
     r->num = i;
   } else {
     i = r->num;
   }
-  mpq_set(bank_q[i], q0);
 
-  return 0;
+  qi = fetch_mpq(i);
+  mpq_set(qi, q0);
+
+
+  return retval;
 }
 
 /*
@@ -752,12 +641,30 @@ static int q_set_q0(rational_t *r) {
  * - returns 0 otherwise
  */
 int q_set_from_string(rational_t *r, const char *s) {
+  int retval;
+  int32_t iq0;
+  mpq_ptr q0;
+
+  mpq_pool_borrow(&iq0, &q0);
+
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
-  if (mpq_set_str(q0, s, 10) < 0) return -1;
-  if (mpz_sgn(mpq_denref(q0)) == 0) return -2; // the denominator is zero
+  if (mpq_set_str(q0, s, 10) < 0){
+    retval = -1;
+    goto clean_up;
+  }
+  if (mpz_sgn(mpq_denref(q0)) == 0){
+    retval = -2; // the denominator is zero
+    goto clean_up;
+  }
   mpq_canonicalize(q0);
-  return q_set_q0(r);
+  retval = q_set_q0(q0, r);
+
+ clean_up:
+
+  mpq_pool_return(iq0);
+
+  return retval;
 }
 
 /*
@@ -769,13 +676,32 @@ int q_set_from_string(rational_t *r, const char *s) {
  * otherwise, the base is 10.
  */
 int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
+  int retval;
+  int32_t iq0;
+  mpq_ptr q0;
+
+  mpq_pool_borrow(&iq0, &q0);
+
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
   assert(0 == base || (2 <= base && base <= 36));
-  if (mpq_set_str(q0, s, base) < 0) return -1;
-  if (mpz_sgn(mpq_denref(q0)) == 0) return -2; // the denominator is zero
+  if (mpq_set_str(q0, s, base) < 0){
+    retval = -1;
+    goto clean_up;
+  }
+  if (mpz_sgn(mpq_denref(q0)) == 0){
+    retval = -2; // the denominator is zero
+    goto clean_up;
+  }
   mpq_canonicalize(q0);
-  return q_set_q0(r);
+
+  retval = q_set_q0(q0, r);
+
+ clean_up:
+
+  mpq_pool_return(iq0);
+
+  return retval;
 }
 
 /*
@@ -790,18 +716,39 @@ int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
  * - returns -1 and leaves r unchanged if the string is not in that format
  * - returns 0 otherwise
  */
+
+static int _o_q_set_from_float_string(rational_t *r, const char *s);
+
 int q_set_from_float_string(rational_t *r, const char *s) {
+  int retval;
+
+  get_yices_lock(&string_buffer_lock);
+
+  retval = _o_q_set_from_float_string(r, s);
+
+  release_yices_lock(&string_buffer_lock);
+
+  return retval;
+}
+
+int _o_q_set_from_float_string(rational_t *r, const char *s) {
   size_t len;
   int frac_len, sign;
   long int exponent;
   char *b, c;
+  int retval;
+  int32_t iq0;
+  mpq_ptr q0;
+
+  mpq_pool_borrow(&iq0, &q0);
+
 
   len = strlen(s);
   if (len >= (size_t) UINT32_MAX) {
     // just to be safe if s is really long
     out_of_memory();
   }
-  resize_string_buffer(len + 1);
+  _o_resize_string_buffer(len + 1);
   c = *s ++;
 
   // get sign
@@ -837,7 +784,10 @@ int q_set_from_float_string(rational_t *r, const char *s) {
   if (c == 'e' || c == 'E') {
     errno = 0;  // strtol sets errno on error
     exponent = strtol(s, (char **) NULL, 10);
-    if (errno != 0) return -1;
+    if (errno != 0){
+      retval = -1;
+      goto clean_up;
+    }
   }
 
 #if 0
@@ -852,7 +802,8 @@ int q_set_from_float_string(rational_t *r, const char *s) {
 
   // set numerator
   if (mpz_set_str(mpq_numref(q0), string_buffer, 10) < 0) {
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
   if (sign < 0) {
     mpq_neg(q0, q0);
@@ -861,15 +812,29 @@ int q_set_from_float_string(rational_t *r, const char *s) {
   // multiply by 10^exponent
   exponent -= frac_len;
   if (exponent > 0) {
+    int32_t iz0;
+    mpz_ptr z0;
+
+    mpz_pool_borrow(&iz0, &z0);
+
     mpz_ui_pow_ui(z0, 10, exponent);
     mpz_mul(mpq_numref(q0), mpq_numref(q0), z0);
+
+    mpz_pool_return(iz0);
+
   } else if (exponent < 0) {
     // this works even if exponent == LONG_MIN.
     mpz_ui_pow_ui(mpq_denref(q0), 10UL, (unsigned long) (- exponent));
     mpq_canonicalize(q0);
   }
 
-  return q_set_q0(r);
+  retval = q_set_q0(q0, r);
+
+ clean_up:
+
+  mpq_pool_return(iq0);
+
+  return retval;
 }
 
 
@@ -889,6 +854,7 @@ int q_set_from_float_string(rational_t *r, const char *s) {
 void q_add(rational_t *r1, rational_t *r2) {
   uint64_t den;
   int64_t num;
+  mpq_ptr rq1, rq2;
 
   if (r1->den == 1 && r2->den == 1) {
     r1->num += r2->num;
@@ -900,10 +866,13 @@ void q_add(rational_t *r1, rational_t *r2) {
 
   if (r2->den == 0) {
     if (r1->den != 0) convert_to_gmp(r1) ;
-    mpq_add(bank_q[r1->num], bank_q[r1->num], bank_q[r2->num]);
+    rq1 = fetch_mpq(r1->num);
+    rq2 = fetch_mpq(r2->num);
+    mpq_add(rq1, rq1, rq2);
 
   } else if (r1->den == 0) {
-    mpq_add_si(bank_q[r1->num], r2->num, r2->den);
+    rq1 = fetch_mpq(r1->num);
+    mpq_add_si(rq1, r2->num, r2->den);
 
   } else {
     den = r1->den * ((uint64_t) r2->den);
@@ -919,6 +888,7 @@ void q_add(rational_t *r1, rational_t *r2) {
 void q_sub(rational_t *r1, rational_t *r2) {
   uint64_t den;
   int64_t num;
+  mpq_ptr rq1, rq2;
 
   if (r1->den == 1 && r2->den == 1) {
     r1->num -= r2->num;
@@ -930,10 +900,13 @@ void q_sub(rational_t *r1, rational_t *r2) {
 
   if (r2->den == 0) {
     if (r1->den != 0) convert_to_gmp(r1) ;
-    mpq_sub(bank_q[r1->num], bank_q[r1->num], bank_q[r2->num]);
+    rq1 = fetch_mpq(r1->num);
+    rq2 = fetch_mpq(r2->num);
+    mpq_sub(rq1, rq1, rq2);
 
   } else if (r1->den == 0) {
-    mpq_sub_si(bank_q[r1->num], r2->num, r2->den);
+    rq1 = fetch_mpq(r1->num);
+    mpq_sub_si(rq1, r2->num, r2->den);
 
   } else {
     den = r1->den * ((uint64_t) r2->den);
@@ -948,7 +921,8 @@ void q_sub(rational_t *r1, rational_t *r2) {
  */
 void q_neg(rational_t *r) {
   if (r->den == 0) {
-    mpq_neg(bank_q[r->num], bank_q[r->num]);
+    mpq_ptr rq = fetch_mpq(r->num);;
+    mpq_neg(rq, rq);
   } else {
     r->num = - r->num;
   }
@@ -963,7 +937,8 @@ void q_inv(rational_t *r) {
   uint32_t abs_num;
 
   if (r->den == 0) {
-    mpq_inv(bank_q[r->num], bank_q[r->num]);
+    mpq_ptr rq = fetch_mpq(r->num);
+    mpq_inv(rq, rq);
 
   } else if (r->num < 0) {
     abs_num = (uint32_t) - r->num;
@@ -986,6 +961,7 @@ void q_inv(rational_t *r) {
 void q_mul(rational_t *r1, rational_t *r2) {
   uint64_t den;
   int64_t num;
+  mpq_ptr rq1, rq2;
 
   if (r1->den == 1 && r2->den == 1) {
     num = r1->num * ((int64_t) r2->num);
@@ -999,10 +975,13 @@ void q_mul(rational_t *r1, rational_t *r2) {
 
   if (r2->den == 0) {
     if (r1->den != 0) convert_to_gmp(r1);
-    mpq_mul(bank_q[r1->num], bank_q[r1->num], bank_q[r2->num]);
+    rq1 = fetch_mpq(r1->num);
+    rq2 = fetch_mpq(r2->num);
+    mpq_mul(rq1, rq1, rq2);
 
   } else if (r1->den == 0) {
-    mpq_mul_si(bank_q[r1->num], r2->num, r2->den);
+    rq1 = fetch_mpq(r1->num);
+    mpq_mul_si(rq1, r2->num, r2->den);
 
   } else {
     den = r1->den * ((uint64_t) r2->den);
@@ -1018,16 +997,20 @@ void q_mul(rational_t *r1, rational_t *r2) {
 void q_div(rational_t *r1, rational_t *r2) {
   uint64_t den;
   int64_t num;
+  mpq_ptr rq1, rq2;
 
   if (r2->den == 0) {
     if (r1->den != 0) convert_to_gmp(r1);
-    mpq_div(bank_q[r1->num], bank_q[r1->num], bank_q[r2->num]);
+    rq1 = fetch_mpq(r1->num);
+    rq2 = fetch_mpq(r2->num);
+    mpq_div(rq1, rq1, rq2);
 
   } else if (r1->den == 0) {
     if (r2->num == 0) {
       division_by_zero();
     } else {
-      mpq_div_si(bank_q[r1->num], r2->num, r2->den);
+      rq1 = fetch_mpq(r1->num);
+      mpq_div_si(rq1, r2->num, r2->den);
     }
 
   } else if (r2->num > 0) {
@@ -1102,10 +1085,11 @@ void q_submul(rational_t *r1, rational_t *r2, rational_t *r3) {
  * Increment: add one to r1
  */
 void q_add_one(rational_t *r1) {
-  int32_t n;
+  mpq_ptr rq1;
+
   if (r1->den == 0) {
-    n = r1->num;
-    mpz_add(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
+    rq1 = fetch_mpq(r1->num);
+    mpz_add(mpq_numref(rq1), mpq_numref(rq1), mpq_denref(rq1));
   } else {
     r1->num += r1->den;
     if (r1->num > MAX_NUMERATOR) {
@@ -1118,10 +1102,10 @@ void q_add_one(rational_t *r1) {
  * Decrement: subtract one from r1
  */
 void q_sub_one(rational_t *r1) {
-  int32_t n;
+  mpq_ptr rq1;
   if (r1->den == 0) {
-    n = r1->num;
-    mpz_sub(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
+    rq1 = fetch_mpq(r1->num);
+    mpz_sub(mpq_numref(rq1), mpq_numref(rq1), mpq_denref(rq1));
   } else {
     r1->num -= r1->den;
     if (r1->num < MIN_NUMERATOR) {
@@ -1139,13 +1123,14 @@ void q_sub_one(rational_t *r1) {
 // set r to floor(r);
 void q_floor(rational_t *r) {
   int32_t n;
+  mpq_ptr rq;
 
   if (q_is_integer(r)) return;
 
   if (r->den == 0) {
-    n = r->num;
-    mpz_fdiv_q(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
-    mpz_set_ui(mpq_denref(bank_q[n]), 1UL);
+    rq = fetch_mpq(r->num);
+    mpz_fdiv_q(mpq_numref(rq), mpq_numref(rq), mpq_denref(rq));
+    mpz_set_ui(mpq_denref(rq), 1UL);
   } else {
     n = r->num / (int32_t) r->den;
     if (r->num < 0) n --;
@@ -1157,13 +1142,14 @@ void q_floor(rational_t *r) {
 // set r to ceil(r)
 void q_ceil(rational_t *r) {
   int32_t n;
+  mpq_ptr rq;
 
   if (q_is_integer(r)) return;
 
   if (r->den == 0) {
-    n = r->num;
-    mpz_cdiv_q(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_denref(bank_q[n]));
-    mpz_set_ui(mpq_denref(bank_q[n]), 1UL);
+    rq = fetch_mpq(r->num);
+    mpz_cdiv_q(mpq_numref(rq), mpq_numref(rq), mpq_denref(rq));
+    mpz_set_ui(mpq_denref(rq), 1UL);
   } else {
     n = r->num / (int32_t) r->den;
     if (r->num > 0) n ++;
@@ -1235,6 +1221,7 @@ static inline uint32_t abs32(int32_t x) {
 void q_lcm(rational_t *r1, rational_t *r2) {
   uint32_t a, b;
   uint64_t d;
+  mpq_ptr rq1, rq2;
 
   if (r2->den != 0) {
     if (r1->den != 0) {
@@ -1251,13 +1238,16 @@ void q_lcm(rational_t *r1, rational_t *r2) {
     } else {
       // r2 is 32bits, r1 is gmp
       b = abs32(r2->num);
-      mpz_lcm_ui(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), b);
+      rq1 = fetch_mpq(r1->num);
+      mpz_lcm_ui(mpq_numref(rq1), mpq_numref(rq1), b);
     }
 
   } else {
     // r2 is a gmp rational
     if (r1->den != 0) convert_to_gmp(r1);
-    mpz_lcm(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r2->num]));
+    rq1 = fetch_mpq(r1->num);
+    rq2 = fetch_mpq(r2->num);
+    mpz_lcm(mpq_numref(rq1), mpq_numref(rq1), mpq_numref(rq2));
   }
 
 }
@@ -1270,6 +1260,7 @@ void q_lcm(rational_t *r1, rational_t *r2) {
  */
 void q_gcd(rational_t *r1, rational_t *r2) {
   uint32_t a, b, d;
+  mpq_ptr rq1, rq2;
 
   if (r2->den != 0) {
     if (r1->den != 0) {
@@ -1280,8 +1271,9 @@ void q_gcd(rational_t *r1, rational_t *r2) {
     } else {
       // r1 is gmp, r2 is a small integer
       b = abs32(r2->num);
-      d = mpz_gcd_ui(NULL, mpq_numref(bank_q[r1->num]), b);
-      free_mpq(r1->num);
+      rq1 = fetch_mpq(r1->num);
+      d = mpz_gcd_ui(NULL, mpq_numref(rq1), b);
+      mpq_pool_return(r1->num);
     }
     assert(d <= MAX_NUMERATOR);
     r1->num = d;
@@ -1290,13 +1282,16 @@ void q_gcd(rational_t *r1, rational_t *r2) {
     if (r1->den != 0) {
       // r1 is a small integer, r2 is a gmp number
       a = abs32(r1->num);
-      d = mpz_gcd_ui(NULL, mpq_numref(bank_q[r2->num]), a);
+      rq2 = fetch_mpq(r2->num);
+      d = mpz_gcd_ui(NULL, mpq_numref(rq2), a);
       assert(d <= MAX_NUMERATOR);
       r1->num = d;
       r1->den = 1;
     } else {
       // both are gmp numbers
-      mpz_gcd(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r2->num]));
+      rq1 = fetch_mpq(r1->num);
+      rq2 = fetch_mpq(r2->num);
+      mpz_gcd(mpq_numref(rq1), mpq_numref(rq1), mpq_numref(rq2));
     }
   }
 }
@@ -1314,6 +1309,7 @@ void q_gcd(rational_t *r1, rational_t *r2) {
  */
 void q_integer_div(rational_t *r1, rational_t *r2) {
   int32_t n;
+  mpq_ptr rq1, rq2;
 
   q_normalize(r2);
 
@@ -1328,11 +1324,13 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
       }
     } else {
       // r1 is gmp, r2 is a small integer
-      mpz_fdiv_q_ui(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), r2->num);
-      assert(mpq_is_integer(bank_q[r1->num]));
+      rq1 = fetch_mpq(r1->num);
+      mpz_fdiv_q_ui(mpq_numref(rq1), mpq_numref(rq1), r2->num);
+      assert(mpq_is_integer(rq1));
     }
   } else {
-    assert(mpq_is_integer(bank_q[r2->num]) && mpq_sgn(bank_q[r2->num]) > 0);
+    rq2 = fetch_mpq(r2->num);
+    assert(mpq_is_integer(rq2) && mpq_sgn(rq2) > 0);
     if (r1->den != 0) {
       /*
        * r1 is a small integer, r2 is a gmp rational
@@ -1347,9 +1345,9 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
       }
     } else {
       // both r1 and r2 are gmp rationals
-      mpz_fdiv_q(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]),
-                 mpq_numref(bank_q[r2->num]));
-      assert(mpq_is_integer(bank_q[r1->num]));
+      rq1 = fetch_mpq(r1->num);
+      mpz_fdiv_q(mpq_numref(rq1), mpq_numref(rq1), mpq_numref(rq2));
+      assert(mpq_is_integer(rq1));
     }
   }
 }
@@ -1361,6 +1359,7 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
  */
 void q_integer_rem(rational_t *r1, rational_t *r2) {
   int32_t n;
+  mpq_ptr rq1, rq2, rqn;
 
   q_normalize(r2);
 
@@ -1379,14 +1378,16 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
       r1->num = n;
     } else {
       // r1 is gmp, r2 is a small integer
-      n = mpz_fdiv_ui(mpq_numref(bank_q[r1->num]), r2->num);
+      rq1 = fetch_mpq(r1->num);
+      n = mpz_fdiv_ui(mpq_numref(rq1), r2->num);
       assert(0 <= n && n <= MAX_NUMERATOR);
-      free_mpq(r1->num);
+      mpq_pool_return(r1->num);
       r1->num = n;
       r1->den = 1;
     }
   } else {
-    assert(mpq_is_integer(bank_q[r2->num]) && mpq_sgn(bank_q[r2->num]) > 0);
+    rq2 = fetch_mpq(r2->num);
+    assert(mpq_is_integer(rq2) && mpq_sgn(rq2) > 0);
     if (r1->den != 0) {
       /*
        * r1 is a small integer, r2 is a gmp rational
@@ -1396,19 +1397,19 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
        */
       assert(r1->den == 1);
       if (r1->num < 0) {
-        n = alloc_mpq();
-        mpq_set_si(bank_q[n], r1->num, 1UL);
-        mpz_add(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_numref(bank_q[r2->num]));
+        mpq_pool_borrow(&n, &rqn);
+        mpq_set_si(rqn, r1->num, 1UL);
+        mpz_add(mpq_numref(rqn), mpq_numref(rqn), mpq_numref(rq2));
         r1->num = n;
         r1->den = 0;
-        assert(mpq_is_integer(bank_q[n]) && mpq_sgn(bank_q[n]) > 0);
+        assert(mpq_is_integer(rqn) && mpq_sgn(rqn) > 0);
       }
 
     } else {
       // both r1 and r2 are gmp rationals
-      mpz_fdiv_r(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]),
-                 mpq_numref(bank_q[r2->num]));
-      assert(mpq_is_integer(bank_q[r1->num]));
+      rq1 = fetch_mpq(r1->num);
+      mpz_fdiv_r(mpq_numref(rq1), mpq_numref(rq1), mpq_numref(rq2));
+      assert(mpq_is_integer(rq1));
     }
   }
 }
@@ -1421,12 +1422,16 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
  */
 bool q_integer_divides(rational_t *r1, rational_t *r2) {
   uint32_t aux;
+  mpq_ptr rq1, rq2;
 
   q_normalize(r1);
 
   if (r1->den == 0) {
     if (r2->den == 0) {
-      return mpz_divisible_p(mpq_numref(bank_q[r2->num]), mpq_numref(bank_q[r1->num]));
+      rq1 = fetch_mpq(r1->num);
+      rq2 = fetch_mpq(r2->num);
+
+      return mpz_divisible_p(mpq_numref(rq2), mpq_numref(rq1));
     } else {
       return false;  // abs(r1) > abs(r2) so r1 can't divide r2
     }
@@ -1435,7 +1440,8 @@ bool q_integer_divides(rational_t *r1, rational_t *r2) {
     assert(r1->den == 1);
     aux = abs32(r1->num);
     if (r2->den == 0) {
-      return mpz_divisible_ui_p(mpq_numref(bank_q[r2->num]), aux);
+      rq2 = fetch_mpq(r2->num);
+      return mpz_divisible_ui_p(mpq_numref(rq2), aux);
     } else {
       return abs32(r2->num) % aux == 0;
     }
@@ -1525,20 +1531,24 @@ void q_generalized_lcm(rational_t *r1, rational_t *r2) {
  */
 int q_cmp(rational_t *r1, rational_t *r2) {
   int64_t num;
+  mpq_ptr rq1, rq2;
 
   if (r1->den == 1 && r2->den == 1) {
     return r1->num - r2->num;
   }
 
   if (r1->den == 0) {
+    rq1 = fetch_mpq(r1->num);
     if (r2->den == 0) {
-      return mpq_cmp(bank_q[r1->num], bank_q[r2->num]);
+      rq2 = fetch_mpq(r2->num);
+      return mpq_cmp(rq1, rq2);
     } else {
-      return mpq_cmp_si(bank_q[r1->num], r2->num, r2->den);
+      return mpq_cmp_si(rq1, r2->num, r2->den);
     }
   } else {
     if (r2->den == 0) {
-      return - mpq_cmp_si(bank_q[r2->num], r1->num, r1->den);
+      rq2 = fetch_mpq(r2->num);
+      return - mpq_cmp_si(rq2, r1->num, r1->den);
     } else {
       num = r2->den * ((int64_t) r1->num) - r1->den * ((int64_t) r2->num);
       return (num < 0 ? -1 : (num > 0));
@@ -1554,21 +1564,33 @@ int q_cmp_int32(rational_t *r1, int32_t num, uint32_t den) {
   int64_t nn;
 
   if (r1->den == 0) {
-    return mpq_cmp_si(bank_q[r1->num], num, den);
+    return mpq_cmp_si(fetch_mpq(r1->num), num, den);
   } else {
     nn = den * ((int64_t) r1->num) - r1->den * ((int64_t) num);
     return (nn < 0 ? -1 : (nn > 0));
   }
 }
 
+
 int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den) {
+  int retval;
+  int32_t iq0;
+  mpq_ptr q0;
+
+  mpq_pool_borrow(&iq0, &q0);
+
   mpq_set_int64(q0, num, den);
   mpq_canonicalize(q0);
   if (r1->den == 0) {
-    return mpq_cmp(bank_q[r1->num], q0);
+    retval = mpq_cmp(fetch_mpq(r1->num), q0);
   } else {
-    return - mpq_cmp_si(q0, r1->num, r1->den);
+    retval = - mpq_cmp_si(q0, r1->num, r1->den);
   }
+
+  mpq_pool_return(iq0);
+
+  return retval;
+
 }
 
 
@@ -1605,16 +1627,19 @@ bool q_opposite(rational_t *r1, rational_t *r2) {
  */
 bool q_get32(rational_t *r, int32_t *v) {
   uint32_t d;
+  mpq_ptr rq;
 
   if (r->den == 1) {
     *v = r->num;
     return true;
-  } else if (r->den == 0 && mpq_fits_int32(bank_q[r->num])) {
-    mpq_get_int32(bank_q[r->num], v, &d);
-    return d == 1;
-  } else {
-    return false;
+  } else if (r->den == 0) {
+    rq = fetch_mpq(r->num);
+    if(mpq_fits_int32(rq)) {
+      mpq_get_int32(rq, v, &d);
+      return d == 1;
+    }
   }
+  return false;
 }
 
 
@@ -1624,16 +1649,19 @@ bool q_get32(rational_t *r, int32_t *v) {
  */
 bool q_get64(rational_t *r, int64_t *v) {
   uint64_t d;
+  mpq_ptr rq;
 
   if (r->den == 1) {
     *v = r->num;
     return true;
-  } else if (r->den == 0 && mpq_fits_int64(bank_q[r->num])) {
-    mpq_get_int64(bank_q[r->num], v, &d);
-    return d == 1;
-  } else {
-    return false;
+  } else if (r->den == 0){
+    rq = fetch_mpq(r->num);
+    if(mpq_fits_int64(rq)) {
+      mpq_get_int64(rq, v, &d);
+      return d == 1;
+    }
   }
+  return false;
 }
 
 
@@ -1642,34 +1670,42 @@ bool q_get64(rational_t *r, int64_t *v) {
  * - return false if the numerator or denominator doesn't fit in 32bits
  */
 bool q_get_int32(rational_t *r, int32_t *num, uint32_t *den) {
+  mpq_ptr rq;
+
   if (r->den != 0) {
     *num = r->num;
     *den = r->den;
     return true;
-  } else if (mpq_fits_int32(bank_q[r->num])) {
-    mpq_get_int32(bank_q[r->num], num, den);
-    return true;
   } else {
-    return false;
+    rq = fetch_mpq(r->num);
+    if (mpq_fits_int32(rq)) {
+      mpq_get_int32(rq, num, den);
+      return true;
+    }
   }
+  return false;
 }
-
 /*
  * Convert r to a pair of 64bit integers num/den
  * - return false if the numerator or denominator doesn't fit in 64bits
  */
 bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
+  mpq_ptr rq;
+
   if (r->den != 0) {
     *num = r->num;
     *den = r->den;
     return true;
-  } else if (mpq_fits_int64(bank_q[r->num])) {
-    mpq_get_int64(bank_q[r->num], num, den);
-    return true;
   } else {
-    return false;
+    rq = fetch_mpq(r->num);
+    if (mpq_fits_int64(rq)) {
+      mpq_get_int64(rq, num, den);
+      return true;
+    }
   }
+  return false;
 }
+
 
 
 
@@ -1678,19 +1714,19 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
  * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
  */
 bool q_is_int32(rational_t *r) {
-  return r->den == 1 || (r->den == 0 && mpq_is_int32(bank_q[r->num]));
+  return r->den == 1 || (r->den == 0 && mpq_is_int32(fetch_mpq(r->num)));
 }
 
 bool q_is_int64(rational_t *r) {
-  return r->den == 1 || (r->den == 0 && mpq_is_int64(bank_q[r->num]));
+  return r->den == 1 || (r->den == 0 && mpq_is_int64(fetch_mpq(r->num)));
 }
 
 bool q_fits_int32(rational_t *r) {
-  return r->den != 0 || mpq_fits_int32(bank_q[r->num]);
+  return r->den != 0 || mpq_fits_int32(fetch_mpq(r->num));
 }
 
 bool q_fits_int64(rational_t *r) {
-  return r->den != 0 || mpq_fits_int64(bank_q[r->num]);
+  return r->den != 0 || mpq_fits_int64(fetch_mpq(r->num));
 }
 
 
@@ -1701,15 +1737,19 @@ bool q_fits_int64(rational_t *r) {
  * - return false if r is not an integer
  */
 bool q_get_mpz(rational_t *r, mpz_t z) {
+  mpq_ptr rq;
+
   if (r->den == 1) {
     mpz_set_si(z, r->num);
     return true;
-  } else if (r->den == 0 && mpq_is_integer(bank_q[r->num])) {
-    mpz_set(z, mpq_numref(bank_q[r->num]));
-    return true;
-  } else {
-    return false;
+  } else if (r->den == 0 ){
+    rq = fetch_mpq(r->num);
+    if(mpq_is_integer(rq)) {
+      mpz_set(z, mpq_numref(rq));
+      return true;
+    }
   }
+  return false;
 }
 
 
@@ -1718,7 +1758,7 @@ bool q_get_mpz(rational_t *r, mpz_t z) {
  */
 void q_get_mpq(rational_t *r, mpq_t q) {
   if (r->den == 0) {
-    mpq_set(q, bank_q[r->num]);
+    mpq_set(q, fetch_mpq(r->num));
   } else {
     mpq_set_int32(q, r->num, r->den);
   }
@@ -1730,8 +1770,18 @@ void q_get_mpq(rational_t *r, mpq_t q) {
  * Convert to a double
  */
 double q_get_double(rational_t *r) {
+  int retval;
+  int32_t iq0;
+  mpq_ptr q0;
+
+  mpq_pool_borrow(&iq0, &q0);
+
   q_get_mpq(r, q0);
-  return mpq_get_d(q0);
+  retval = mpq_get_d(q0);
+
+  mpq_pool_return(iq0);
+
+  return retval;
 }
 
 
@@ -1746,7 +1796,7 @@ double q_get_double(rational_t *r) {
  */
 void q_print(FILE *f, rational_t *r) {
   if (r->den == 0) {
-    mpq_out_str(f, 10, bank_q[r->num]);
+    mpq_out_str(f, 10, fetch_mpq(r->num));
   } else if (r->den != 1) {
     fprintf(f, "%" PRId32 "/%" PRIu32, r->num, r->den);
   } else {
@@ -1762,13 +1812,13 @@ void q_print_abs(FILE *f, rational_t *r) {
   int32_t abs_num;
 
   if (r->den == 0) {
-    q = bank_q[r->num];
+    q = fetch_mpq(r->num);
     if (mpq_sgn(q) < 0) {
       mpq_neg(q, q);
-      mpq_out_str(f, 10, bank_q[r->num]);
+      mpq_out_str(f, 10, q);
       mpq_neg(q, q);
     } else {
-      mpq_out_str(f, 10, bank_q[r->num]);
+      mpq_out_str(f, 10, q);
     }
   } else {
     abs_num = r->num;
@@ -1803,7 +1853,7 @@ void q_print_abs(FILE *f, rational_t *r) {
  */
 uint32_t q_hash_numerator(rational_t *r) {
   if (r->den == 0) {
-    return (uint32_t) mpz_fdiv_ui(mpq_numref(bank_q[r->num]), HASH_MODULUS);
+    return (uint32_t) mpz_fdiv_ui(mpq_numref(fetch_mpq(r->num)), HASH_MODULUS);
   } else if (r->num >= 0) {
     return (uint32_t) r->num;
   } else {
@@ -1813,15 +1863,18 @@ uint32_t q_hash_numerator(rational_t *r) {
 
 uint32_t q_hash_denominator(rational_t *r) {
   if (r->den == 0) {
-    return (uint32_t) mpz_fdiv_ui(mpq_denref(bank_q[r->num]), HASH_MODULUS);
+    return (uint32_t) mpz_fdiv_ui(mpq_denref(fetch_mpq(r->num)), HASH_MODULUS);
   }
   return r->den;
 }
 
 void q_hash_decompose(rational_t *r, uint32_t *h_num, uint32_t *h_den) {
+  mpq_ptr rq;
+
   if (r->den == 0) {
-    *h_num = (uint32_t) mpz_fdiv_ui(mpq_numref(bank_q[r->num]), HASH_MODULUS);
-    *h_den = (uint32_t) mpz_fdiv_ui(mpq_denref(bank_q[r->num]), HASH_MODULUS);
+    rq = fetch_mpq(r->num);
+    *h_num = (uint32_t) mpz_fdiv_ui(mpq_numref(rq), HASH_MODULUS);
+    *h_den = (uint32_t) mpz_fdiv_ui(mpq_denref(rq), HASH_MODULUS);
   } else if (r->num >= 0) {
     *h_num = (uint32_t) r->num;
     *h_den = r->den;

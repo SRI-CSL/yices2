@@ -177,7 +177,7 @@ static void test_big_big(FILE* output) {
     for (j=0; j<NBIGS; j++) {
       q_set_from_string(&a, large_signed[j]);
       q_set(&c, &a);
-      
+
       q_integer_div(&a, &b);
       q_integer_rem(&c, &b);
 
@@ -236,7 +236,7 @@ int main() {
       exit(0);
     }
   }
-  
+
   printf("threads away\n\n");
 
 

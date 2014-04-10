@@ -8,7 +8,7 @@
 #include "mpq_aux.h"
 #include "yices_locks.h"
 
-/* 
+/*
  * The major difference between mpz_pool and mpq_pool is the tuning here.
  * mpqs are much more numerous than mpzs. The latter are of the same order
  * as the number of threads.
@@ -22,7 +22,7 @@ typedef struct mpq_pool_block *mpq_pool_block_ptr;
 /* our pool will be a linked list of mpq_pool_block_t blocks; so we never worry about realloc issues */
 typedef struct mpq_pool_block {
   mpq_pool_block_ptr next;
-  mpq_t*             bank;   
+  mpq_t*             bank;
 } mpq_pool_block_t;
 
 typedef struct mpq_pool {
@@ -51,7 +51,7 @@ static mpq_pool_block_t* alloc_mpq_pool_block(void){
 
   retval->bank = (mpq_t *) safe_malloc(MPQ_BLOCK_SIZE * sizeof(mpq_t));
 
-  for(i = 0; i < MPQ_BLOCK_SIZE; i++){  
+  for(i = 0; i < MPQ_BLOCK_SIZE; i++){
     mpq_init2(retval->bank[i], 64);
   }
 
@@ -67,7 +67,7 @@ static int init_mpq_pool(void){
 
   the_mpq_pool.block = alloc_mpq_pool_block();
   the_mpq_pool.last_block = the_mpq_pool.block;
-  the_mpq_pool.block_count = 1; 
+  the_mpq_pool.block_count = 1;
   the_mpq_pool.capacity = MPQ_BLOCK_SIZE;
   the_mpq_pool.count = 0;
   the_mpq_pool.start = -1;
@@ -94,7 +94,7 @@ mpq_ptr fetch_mpq(int32_t i) {
 }
 
 /*
- * Add a new block to the pool 
+ * Add a new block to the pool
  */
 static int _o_grow_mpq_pool(void){
   mpq_pool_block_t* new_block;
@@ -103,7 +103,7 @@ static int _o_grow_mpq_pool(void){
   if (  new_capacity >= MAX_MPQ_POOL_SIZE ) {
     out_of_memory();
   }
-  
+
   new_block = alloc_mpq_pool_block();
 
   the_mpq_pool.last_block->next = new_block;
@@ -116,7 +116,7 @@ static int _o_grow_mpq_pool(void){
 }
 
 /*
- * Reclaim a pool block 
+ * Reclaim a pool block
  */
 static void _o_free_mpq_pool_block(mpq_pool_block_t* block){
   uint32_t i;
@@ -137,7 +137,7 @@ static void _o_free_mpq_pool_blocks(void){
     free ( current_block );
     current_block = next;
   }
-} 
+}
 
 /*
  * Reclaim the pool. N.B. any use of the pool after this will lead to tears
@@ -148,7 +148,7 @@ static void _o_free_mpq_pool(void) {
 
   the_mpq_pool.block = NULL;
   the_mpq_pool.last_block = NULL;
-  the_mpq_pool.block_count = 0; 
+  the_mpq_pool.block_count = 0;
   the_mpq_pool.capacity = 0;
   the_mpq_pool.count = 0;
   the_mpq_pool.start = -1;
@@ -169,7 +169,7 @@ static inline int32_t _o_free_list_next(int32_t i) {
 
 static inline void _o_free_list_insert(int32_t i) {
   assert(0 <= i && i < the_mpq_pool.capacity);
-  assert(-1 <= the_mpq_pool.start && the_mpq_pool.start < (int32_t) the_mpq_pool.capacity); 
+  assert(-1 <= the_mpq_pool.start && the_mpq_pool.start < (int32_t) the_mpq_pool.capacity);
   mpq_ptr insert = fetch_mpq(i);
   mpz_set_si(mpq_numref(insert), the_mpq_pool.start);
   the_mpq_pool.start = i;
@@ -191,7 +191,7 @@ static int32_t _o_alloc_mpq(void) {
       _o_grow_mpq_pool();
     }
     the_mpq_pool.count = n + 1;
-    assert(-1 <= the_mpq_pool.start && the_mpq_pool.start < (int32_t) the_mpq_pool.capacity); 
+    assert(-1 <= the_mpq_pool.start && the_mpq_pool.start < (int32_t) the_mpq_pool.capacity);
   }
   return n;
 }
@@ -223,10 +223,10 @@ int mpq_pool_init(void){
  * Borrow an mpq_t from the pool (Pool API)
  */
 int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp){
-  int32_t index; 
+  int32_t index;
 
   get_yices_lock(&(the_mpq_pool.lock));
-  
+
   index = _o_alloc_mpq();
   *indexp = index;
   if(qp != NULL){
@@ -261,7 +261,7 @@ int mpq_pool_shutdown(void){
   get_yices_lock(&(the_mpq_pool.lock));
 
   _o_free_mpq_pool();
-  
+
   release_yices_lock(&(the_mpq_pool.lock));
 
   destroy_yices_lock(&(the_mpq_pool.lock));

@@ -19,7 +19,7 @@ void launch_threads(int nthreads, char* file_format, yices_thread_main_t thread_
     exit(EXIT_FAILURE);
   }
   printf("%d threads\n", nthreads);
-  
+
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, file_format, thread);
     printf("Logging thread %d to %s\n", thread, buff);
@@ -34,17 +34,17 @@ void launch_threads(int nthreads, char* file_format, yices_thread_main_t thread_
       exit(EXIT_FAILURE);
     }
   }
-  
+
   printf("threads away\n\n");
-  
-  
+
+
   for(thread = 0; thread < nthreads; thread++){
 
     WaitForSingleObject( handles[thread], INFINITE );
     CloseHandle( handles[thread] );
     fclose(outfp[thread]);
   }
-  
+
   free(outfp);
   free(handles);
   free(tids);

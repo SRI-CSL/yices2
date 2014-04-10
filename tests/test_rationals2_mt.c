@@ -64,7 +64,7 @@ static void test_equal(FILE* output, rational_t *r, mpz_t z) {
   mpq_pool_borrow(&iq0, &q0);
 
   mpq_set_z(q0, z);
-  q_check_equal(output, r, q0);  
+  q_check_equal(output, r, q0);
 
 
   mpq_pool_return(iq0);
@@ -75,13 +75,13 @@ static void test_equal(FILE* output, rational_t *r, mpz_t z) {
 /*
  * Non-zero integers to use for testing
  */
-static int32_t num[48] = { 
-  1, -1, -23, 23, 112, -112, 126, -126, 
+static int32_t num[48] = {
+  1, -1, -23, 23, 112, -112, 126, -126,
   INT32_MAX, INT32_MIN, INT32_MAX-1, INT32_MIN + 1,
-  MAX_NUMERATOR, MIN_NUMERATOR, 
-  MAX_NUMERATOR - 1, MIN_NUMERATOR + 1, MAX_NUMERATOR + 1, 
+  MAX_NUMERATOR, MIN_NUMERATOR,
+  MAX_NUMERATOR - 1, MIN_NUMERATOR + 1, MAX_NUMERATOR + 1,
   MIN_NUMERATOR - 1, MAX_NUMERATOR + 2, MIN_NUMERATOR - 2,
-  6, 12, 15, 30, 60, 90, 150, 270, 300, 432, 500, 
+  6, 12, 15, 30, 60, 90, 150, 270, 300, 432, 500,
   -6, -12, -15, -30, -60, -90, -150, -270, -300, -432, -500,
   7, -49, 343, -6517, 148877, -148877,
 };
@@ -218,7 +218,7 @@ static void test_lcm(FILE* output) {
   rational_t r0, r1;
   int32_t iz0, iz1, iz2;
   mpz_ptr z0, z1, z2;
- 
+
   q_init(&r0);
   q_init(&r1);
 
@@ -445,7 +445,7 @@ void* test_thread(void* arg){
 #define NTHREADS  2
 
   int retcode, thread;
-  
+
   char  buff[1024];
   FILE*  outfp[NTHREADS];
   pthread_t tids[NTHREADS];
@@ -482,7 +482,7 @@ int main() {
       fprintf(stderr, "pthread_join failed: %s\n", strerror(retcode));
     }
   }
- 
+
   cleanup_rationals();
 
   return 0;

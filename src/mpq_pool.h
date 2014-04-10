@@ -18,9 +18,9 @@ extern int mpq_pool_init(void);
 extern mpq_ptr fetch_mpq(int32_t i);
 
 /*
- * Borrow an mpq from the pool, the mpq will be *qp 
+ * Borrow an mpq from the pool, the mpq will be *qp
  * and it's index will be *indexp. The index is used to
- * return the mpq to the pool. qp can be NULL, in which case 
+ * return the mpq to the pool. qp can be NULL, in which case
  * only the index is returned.
  *
  * Returns 0 on success, nonzero on error.
@@ -28,7 +28,7 @@ extern mpq_ptr fetch_mpq(int32_t i);
  */
 extern int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp);
 
-/* 
+/*
  * Return the mpq with that index to the pool.
  *
  *  Returns 0 on success, nonzero on error.

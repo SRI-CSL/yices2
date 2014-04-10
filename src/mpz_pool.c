@@ -8,7 +8,7 @@
 #include "mpq_aux.h"
 #include "yices_locks.h"
 
-/* 
+/*
  * The major difference between mpz_pool and mpq_pool is the tuning here.
  * mpqs are much more numerous than mpzs. The latter are of the same order
  * as the number of threads.
@@ -22,7 +22,7 @@ typedef struct mpz_pool_block *mpz_pool_block_ptr;
 /* our pool will be a linked list of mpz_pool_block_t blocks; so we never worry about realloc issues */
 typedef struct mpz_pool_block {
   mpz_pool_block_ptr next;
-  mpz_t*             bank;   
+  mpz_t*             bank;
 } mpz_pool_block_t;
 
 typedef struct mpz_pool {
@@ -51,7 +51,7 @@ static mpz_pool_block_t* alloc_mpz_pool_block(void){
 
   retval->bank = (mpz_t *) safe_malloc(MPZ_BLOCK_SIZE * sizeof(mpz_t));
 
-  for(i = 0; i < MPZ_BLOCK_SIZE; i++){  
+  for(i = 0; i < MPZ_BLOCK_SIZE; i++){
     mpz_init2(retval->bank[i], 64);
   }
 
@@ -67,7 +67,7 @@ static int init_mpz_pool(void){
 
   the_mpz_pool.block = alloc_mpz_pool_block();
   the_mpz_pool.last_block = the_mpz_pool.block;
-  the_mpz_pool.block_count = 1; 
+  the_mpz_pool.block_count = 1;
   the_mpz_pool.capacity = MPZ_BLOCK_SIZE;
   the_mpz_pool.count = 0;
   the_mpz_pool.start = -1;
@@ -94,7 +94,7 @@ mpz_ptr fetch_mpz(int32_t i) {
 }
 
 /*
- * Add a new block to the pool 
+ * Add a new block to the pool
  */
 static int _o_grow_mpz_pool(void){
   mpz_pool_block_t* new_block;
@@ -103,7 +103,7 @@ static int _o_grow_mpz_pool(void){
   if (  new_capacity >= MAX_MPZ_POOL_SIZE ) {
     out_of_memory();
   }
-  
+
   new_block = alloc_mpz_pool_block();
 
   the_mpz_pool.last_block->next = new_block;
@@ -116,7 +116,7 @@ static int _o_grow_mpz_pool(void){
 }
 
 /*
- * Reclaim a pool block 
+ * Reclaim a pool block
  */
 static void _o_free_mpz_pool_block(mpz_pool_block_t* block){
   uint32_t i;
@@ -137,7 +137,7 @@ static void _o_free_mpz_pool_blocks(void){
     free ( current_block );
     current_block = next;
   }
-} 
+}
 
 /*
  * Reclaim the pool. N.B. any use of the pool after this will lead to tears
@@ -148,7 +148,7 @@ static void _o_free_mpz_pool(void) {
 
   the_mpz_pool.block = NULL;
   the_mpz_pool.last_block = NULL;
-  the_mpz_pool.block_count = 0; 
+  the_mpz_pool.block_count = 0;
   the_mpz_pool.capacity = 0;
   the_mpz_pool.count = 0;
   the_mpz_pool.start = -1;
@@ -166,7 +166,7 @@ static inline int32_t _o_free_list_next(int32_t i) {
 
 static inline void _o_free_list_insert(int32_t i) {
   assert(0 <= i && i < the_mpz_pool.capacity);
-  assert(-1 <= the_mpz_pool.start && the_mpz_pool.start < (int32_t) the_mpz_pool.capacity); 
+  assert(-1 <= the_mpz_pool.start && the_mpz_pool.start < (int32_t) the_mpz_pool.capacity);
   mpz_ptr insert = fetch_mpz(i);
   mpz_set_si(insert, the_mpz_pool.start);
   the_mpz_pool.start = i;
@@ -188,7 +188,7 @@ static int32_t _o_alloc_mpz(void) {
       _o_grow_mpz_pool();
     }
     the_mpz_pool.count = n + 1;
-    assert(-1 <= the_mpz_pool.start && the_mpz_pool.start < (int32_t) the_mpz_pool.capacity); 
+    assert(-1 <= the_mpz_pool.start && the_mpz_pool.start < (int32_t) the_mpz_pool.capacity);
   }
   return n;
 }
@@ -220,7 +220,7 @@ int mpz_pool_init(void){
  * Borrow an mpz_t from the pool (Pool API)
  */
 int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp){
-  int32_t index; 
+  int32_t index;
 
   get_yices_lock(&(the_mpz_pool.lock));
 

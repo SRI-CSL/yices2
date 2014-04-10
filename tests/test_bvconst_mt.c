@@ -134,10 +134,10 @@ int main() {
       exit(0);
     }
   }
-  
+
   printf("threads away\n\n");
-  
-  
+
+
   for(thread = 0; thread < NTHREADS; thread++){
     retcode = pthread_join(tids[thread], NULL);
     if(retcode){
@@ -145,11 +145,11 @@ int main() {
     }
     fclose(outfp[thread]);
   }
-  
 
-  
+
+
   cleanup_bvconstants();
-  
+
   return 0;
 }
 
@@ -277,8 +277,8 @@ void* test_thread(void* arg){
       fprintf(output, "\n\n");
     }
   }
-  
-  
+
+
   //  exit(0);
 
   fprintf(output, "\n\nRANDOMIZED\n\n");
@@ -333,7 +333,7 @@ void* test_thread(void* arg){
   fprintf(output, "sgnext(a, 31) = ");
   bvconst_print(output, b, 31);
   fprintf(output, "\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -352,7 +352,7 @@ void* test_thread(void* arg){
   fprintf(output, "sgnext(a, 31) = ");
   bvconst_print(output, b, 31);
   fprintf(output, "\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -371,7 +371,7 @@ void* test_thread(void* arg){
   fprintf(output, "sgnext(a, 31) = ");
   bvconst_print(output, b, 31);
   fprintf(output, "\n\n");
-  
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
@@ -390,7 +390,7 @@ void* test_thread(void* arg){
   fprintf(output, "sgnext(a, 31) = ");
   bvconst_print(output, b, 31);
   fprintf(output, "\n\n");
-  
+
 
   for (i=20; i<=99; i++) {
     random_vector(vector, 20);
@@ -411,7 +411,7 @@ void* test_thread(void* arg){
     bvconst_print(output, b, i);
     fprintf(output, "\n\n");
   }
-  
+
 
   for (i=32; i<=99; i++) {
     random_vector(vector, 32);
@@ -432,7 +432,7 @@ void* test_thread(void* arg){
     bvconst_print(output, b, i);
     fprintf(output, "\n\n");
   }
-  
+
 
   random_vector(vector, 120);
   bvconst_set_array(a, vector, 120);
@@ -522,7 +522,7 @@ void* test_thread(void* arg){
   bvconst_print(output, e, 128);
   fprintf(output, "\n\n");
 
-  
+
 
   bvconst_set64(a, 4, 1372919719782793ULL);
   bvconst_set32(b, 4, 12670371);
@@ -545,7 +545,7 @@ void* test_thread(void* arg){
   fprintf(output, "e = ");
   bvconst_print(output, e, 128);
   fprintf(output, "\n\n");
-  
+
   mpz_init(z0);
   mpz_init(z1);
   mpz_init(z2);
@@ -858,7 +858,7 @@ void* test_thread(void* arg){
     fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 25));
     fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 25));
     fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 25));
-    
+
     fprintf(output, "Signed tests\n");
     fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 25));
     fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 25));
@@ -888,7 +888,7 @@ void* test_thread(void* arg){
     fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 32));
     fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 32));
     fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 32));
-    
+
     fprintf(output, "Signed tests\n");
     fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 32));
     fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 32));
@@ -917,7 +917,7 @@ void* test_thread(void* arg){
     fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 33));
     fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 33));
     fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 33));
-    
+
     fprintf(output, "Signed tests\n");
     fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 33));
     fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 33));
@@ -946,7 +946,7 @@ void* test_thread(void* arg){
     fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 63));
     fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 63));
     fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 63));
-    
+
     fprintf(output, "Signed tests\n");
     fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 63));
     fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 63));
@@ -975,7 +975,7 @@ void* test_thread(void* arg){
     fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 64));
     fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 64));
     fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 64));
-    
+
     fprintf(output, "Signed tests\n");
     fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 64));
     fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 64));
@@ -1001,7 +1001,7 @@ void* test_thread(void* arg){
   fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 64));
   fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 64));
   fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 64));
-    
+
   fprintf(output, "Signed tests\n");
   fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 64));
   fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 64));
@@ -1026,7 +1026,7 @@ void* test_thread(void* arg){
   fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 65));
   fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 65));
   fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 65));
-    
+
   fprintf(output, "Signed tests\n");
   fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 65));
   fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 65));
@@ -1050,7 +1050,7 @@ void* test_thread(void* arg){
   fprintf(output, " a ge b: %d\n", bvconst_ge(a, b, 63));
   fprintf(output, " a lt b: %d\n", bvconst_lt(a, b, 63));
   fprintf(output, " a gt b: %d\n", bvconst_gt(a, b, 63));
-    
+
   fprintf(output, "Signed tests\n");
   fprintf(output, " a sle b: %d\n", bvconst_sle(a, b, 63));
   fprintf(output, " a sge b: %d\n", bvconst_sge(a, b, 63));
@@ -1172,8 +1172,8 @@ void* test_thread(void* arg){
       bvconst_clr_bit(a, j);
       bvconst_clr_bit(a, 127 - j);
     }
-  }      
-  
+  }
+
 
   // test mulpower
   for (i=0; i<130; i++) {
@@ -1241,15 +1241,15 @@ void* test_thread(void* arg){
     fprintf(output, "a = ");
     bvconst_print(output, a, i);
     fprintf(output, ": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(a, n)), b2str(bvconst_is_minus_one(a, i)));
-    
+
     fprintf(output, "b = ");
     bvconst_print(output, b, i);
     fprintf(output, ": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(b, n)), b2str(bvconst_is_minus_one(b, i)));
-    
+
     fprintf(output, "c = ");
     bvconst_print(output, c, i);
     fprintf(output, ": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(c, n)), b2str(bvconst_is_minus_one(c, i)));
-    
+
     fprintf(output, "d = ");
     bvconst_print(output, d, i);
     fprintf(output, ": is_one = %s, is_minus_one = %s\n", b2str(bvconst_is_one(d, n)), b2str(bvconst_is_minus_one(d, i)));
@@ -1281,15 +1281,15 @@ void* test_thread(void* arg){
     fprintf(output, "a = ");
     bvconst_print(output, a, i);
     fprintf(output, ": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(a, i)), b2str(bvconst_is_max_signed(a, i)));
-    
+
     fprintf(output, "b = ");
     bvconst_print(output, b, i);
     fprintf(output, ": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(b, i)), b2str(bvconst_is_max_signed(b, i)));
-    
+
     fprintf(output, "c = ");
     bvconst_print(output, c, i);
     fprintf(output, ": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(c, i)), b2str(bvconst_is_max_signed(c, i)));
-    
+
     fprintf(output, "d = ");
     bvconst_print(output, d, i);
     fprintf(output, ": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(d, i)), b2str(bvconst_is_max_signed(d, i)));

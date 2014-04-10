@@ -16,6 +16,8 @@
 #include "hash_functions.h"
 #include "bit_tricks.h"
 
+#include "yices_locks.h"
+
 
 
 /*****************
@@ -38,6 +40,7 @@
 typedef struct {
   object_store_t *store;
   uint32_t nstores;
+  yices_lock_t lock;             /* lock to protect mt access */
 } bvconst_allocator_t;
 
 
@@ -66,6 +69,7 @@ static bvconst_allocator_t allocator;
 static void init_allocator(bvconst_allocator_t *s) {
   s->nstores = 0;
   s->store = NULL;
+  create_yices_lock(&(s->lock));
 }
 
 /*
@@ -144,6 +148,7 @@ static void delete_allocator(bvconst_allocator_t *s) {
   safe_free(s->store);
   s->store = NULL;
   s->nstores = 0;
+  destroy_yices_lock(&(s->lock));
 }
 
 
@@ -165,14 +170,27 @@ void cleanup_bvconstants() {
  * Allocate a vector of k words.
  */
 uint32_t *bvconst_alloc(uint32_t k) {
-  return alloc_vector(&allocator, k);
+  uint32_t *retval;
+
+  get_yices_lock(&(allocator.lock));
+
+  retval = alloc_vector(&allocator, k);
+
+  release_yices_lock(&(allocator.lock));
+
+  return retval;
 }
 
 /*
  * Free vector bv of size k.
  */
 void bvconst_free(uint32_t *bv, uint32_t k) {
+  get_yices_lock(&(allocator.lock));
+
   free_vector(&allocator, bv, k);
+
+  release_yices_lock(&(allocator.lock));
+
 }
 
 
@@ -498,7 +516,7 @@ void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r) {
   if (r->den == 1) {
     bvconst_set32(bv, k, r->num);
   } else {
-    bvconst_set_mpz(bv, k, mpq_numref(get_mpq(r->num)));
+    bvconst_set_mpz(bv, k, mpq_numref(fetch_mpq(r->num)));
   }
 }
 

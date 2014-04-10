@@ -12,6 +12,8 @@
 
 #include "mpq_aux.h"
 
+#include "mpq_pool.h"
+
 
 
 /*
@@ -28,11 +30,6 @@ typedef struct {
   uint32_t den;
 } rational_t;
 
-
-/*
- * Global bank of GMP numbers
- */
-extern mpq_t *bank_q;
 
 /*
  * Initialization: allocate and initialize
@@ -62,12 +59,12 @@ extern void cleanup_rationals(void);
 /*
  * Release internal gmp number of index i.
  */
-extern void free_mpq(int32_t i);
+//extern void free_mpq(int32_t i);
 
 /*
  * Get internal gmp number of index i.
  */
-extern mpq_ptr get_mpq(int32_t i);
+//extern mpq_ptr get_mpq(int32_t i);
 
 /*
  * Set r to 0/1, Must be called before any operation on r.
@@ -82,7 +79,7 @@ static inline void q_init(rational_t *r) {
  * Must be called before r is deleted to prevent memory leaks.
  */
 static inline void q_clear(rational_t *r) {
-  if (r->den == 0) free_mpq(r->num);
+  if (r->den == 0) mpq_pool_return(r->num);
   r->num = 0;
   r->den = 1;
 }
@@ -108,13 +105,13 @@ extern void q_normalize(rational_t *r);
  * Assign +1 or -1 to r
  */
 static inline void q_set_one(rational_t *r) {
-  if (r->den == 0) free_mpq(r->num);
+  if (r->den == 0) mpq_pool_return(r->num);
   r->num = 1;
   r->den = 1;
 }
 
 static inline void q_set_minus_one(rational_t *r) {
-  if (r->den == 0) free_mpq(r->num);
+  if (r->den == 0) mpq_pool_return(r->num);
   r->num = -1;
   r->den = 1;
 }
@@ -301,7 +298,7 @@ extern void q_generalized_lcm(rational_t *r1, rational_t *r2);
  */
 static inline int q_sgn(rational_t *r) {
   if (r->den == 0) {
-    return mpq_sgn(bank_q[r->num]);
+    return mpq_sgn(fetch_mpq(r->num));
   } else {
     return (r->num < 0 ? -1 : (r->num > 0));
   }
@@ -372,41 +369,41 @@ extern bool q_opposite(rational_t *r1, rational_t *r2);
  * Tests on rational r
  */
 static inline bool q_is_zero(rational_t *r) {
-  return r->den == 0 ? mpq_is_zero(bank_q[r->num]) : r->num == 0;
+  return r->den == 0 ? mpq_is_zero(fetch_mpq(r->num)) : r->num == 0;
 }
 
 static inline bool q_is_nonzero(rational_t *r) {
-  return r->den == 0 ? mpq_is_nonzero(bank_q[r->num]) : r->num != 0;
+  return r->den == 0 ? mpq_is_nonzero(fetch_mpq(r->num)) : r->num != 0;
 }
 
 static inline bool q_is_one(rational_t *r) {
   return (r->den == 1 && r->num == 1) ||
-    (r->den == 0 && mpq_is_one(bank_q[r->num]));
+    (r->den == 0 && mpq_is_one(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_minus_one(rational_t *r) {
   return (r->den == 1 && r->num == -1) ||
-    (r->den == 0 && mpq_is_minus_one(bank_q[r->num]));
+    (r->den == 0 && mpq_is_minus_one(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_pos(rational_t *r) {
-  return (r->den > 0 ?  r->num > 0 : mpq_is_pos(bank_q[r->num]));
+  return (r->den > 0 ?  r->num > 0 : mpq_is_pos(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_nonneg(rational_t *r) {
-  return (r->den > 0 ?  r->num >= 0 : mpq_is_nonneg(bank_q[r->num]));
+  return (r->den > 0 ?  r->num >= 0 : mpq_is_nonneg(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_neg(rational_t *r) {
-  return (r->den > 0 ?  r->num < 0 : mpq_is_neg(bank_q[r->num]));
+  return (r->den > 0 ?  r->num < 0 : mpq_is_neg(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_nonpos(rational_t *r) {
-  return (r->den > 0 ?  r->num <= 0 : mpq_is_nonpos(bank_q[r->num]));
+  return (r->den > 0 ?  r->num <= 0 : mpq_is_nonpos(fetch_mpq(r->num)));
 }
 
 static inline bool q_is_integer(rational_t *r) {
-  return (r->den == 1) || (r->den == 0 && mpq_is_integer(bank_q[r->num]));
+  return (r->den == 1) || (r->den == 0 && mpq_is_integer(fetch_mpq(r->num)));
 }
 
 

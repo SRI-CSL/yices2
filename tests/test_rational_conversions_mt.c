@@ -46,7 +46,7 @@ static void convert_int32_test(FILE* output, rational_t *r1) {
       fflush(output);
       exit(1);
     }
-  }  
+  }
 }
 
 
@@ -81,7 +81,7 @@ static void convert_int64_test(FILE* output, rational_t *r1) {
       fflush(output);
       exit(1);
     }
-  }  
+  }
 }
 
 
@@ -344,19 +344,19 @@ int main() {
       exit(0);
     }
   }
-  
+
   printf("threads away\n\n");
-  
-  
+
+
   for(thread = 0; thread < NTHREADS; thread++){
     retcode = pthread_join(tids[thread], NULL);
     if(retcode){
       fprintf(stderr, "pthread_join failed: %s\n", strerror(retcode));
     }
   }
-  
+
   cleanup_rationals();
-  
-  
+
+
   return 0;
 }

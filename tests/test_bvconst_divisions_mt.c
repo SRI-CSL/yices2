@@ -35,7 +35,7 @@ static void test_bv64(FILE* output, uint64_t x, uint64_t y, uint32_t n) {
   fprintf(output, "urem(%"PRIu64", %"PRIu64") = %"PRIu64", ", x, y, urem);
   fprintf(output, "sdiv(%"PRIu64", %"PRIu64") = %"PRIu64", ", x, y, sdiv);
   fprintf(output, "srem(%"PRIu64", %"PRIu64") = %"PRIu64", ", x, y, srem);
-  fprintf(output, "smod(%"PRIu64", %"PRIu64") = %"PRIu64"\n", x, y, smod);  
+  fprintf(output, "smod(%"PRIu64", %"PRIu64") = %"PRIu64"\n", x, y, smod);
 }
 
 
@@ -72,19 +72,19 @@ static void test_bv(FILE* output, uint32_t *x, uint32_t *y, uint32_t n) {
   bvconst_normalize(srem, n);
   bvconst_smod2z(smod, n, x, y);
   bvconst_normalize(smod, n);
-  
+
   if (n <= 32) {
     fprintf(output, "udiv(%"PRIu32", %"PRIu32") = %"PRIu32", ", bv32(x), bv32(y), bv32(udiv));
     fprintf(output, "urem(%"PRIu32", %"PRIu32") = %"PRIu32", ", bv32(x), bv32(y), bv32(urem));
     fprintf(output, "sdiv(%"PRIu32", %"PRIu32") = %"PRIu32", ", bv32(x), bv32(y), bv32(sdiv));
     fprintf(output, "srem(%"PRIu32", %"PRIu32") = %"PRIu32", ", bv32(x), bv32(y), bv32(srem));
-    fprintf(output, "smod(%"PRIu32", %"PRIu32") = %"PRIu32"\n", bv32(x), bv32(y), bv32(smod));  
+    fprintf(output, "smod(%"PRIu32", %"PRIu32") = %"PRIu32"\n", bv32(x), bv32(y), bv32(smod));
   } else {
     fprintf(output, "udiv(%"PRIu64", %"PRIu64") = %"PRIu64", ", bv64(x), bv64(y), bv64(udiv));
     fprintf(output, "urem(%"PRIu64", %"PRIu64") = %"PRIu64", ", bv64(x), bv64(y), bv64(urem));
     fprintf(output, "sdiv(%"PRIu64", %"PRIu64") = %"PRIu64", ", bv64(x), bv64(y), bv64(sdiv));
     fprintf(output, "srem(%"PRIu64", %"PRIu64") = %"PRIu64", ", bv64(x), bv64(y), bv64(srem));
-    fprintf(output, "smod(%"PRIu64", %"PRIu64") = %"PRIu64"\n", bv64(x), bv64(y), bv64(smod));  
+    fprintf(output, "smod(%"PRIu64", %"PRIu64") = %"PRIu64"\n", bv64(x), bv64(y), bv64(smod));
   }
 }
 
@@ -102,7 +102,7 @@ void* test_thread(void* arg){
       b = j;
       test_bv64(output, a, b, 5);
       x[0] = i; x[1] = 0;
-      y[0] = j; y[1] = 0; 
+      y[0] = j; y[1] = 0;
       test_bv(output, x, y, 5);
       fprintf(output, "---\n");
     }
@@ -136,7 +136,7 @@ int main() {
       exit(0);
     }
   }
-  
+
   printf("threads away\n\n");
 
 

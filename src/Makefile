@@ -113,7 +113,8 @@ base_src_c := arena.c backtrack_arrays.c cache.c csets.c dep_tables.c	\
               smt_logic_codes.c context_config.c context_simplifier.c	\
               context_solver.c term_stack2.c term_stack_error.c		\
               parser.c yices_lexer.c yices_parser.c yices_api.c		\
-              yices_error.c
+              yices_error.c yices_locks.c mpq_pool.c mpz_pool.c
+
 
 #
 # Other source files for libyices.a
@@ -127,7 +128,8 @@ extra_src_c := command_line.c cputime.c memsize.c timeout.c		\
                gates_printer.c internalization_printer.c sat_solver.c	\
                smt_core_exporter.c smt_core_printer.c smt_lexer.c	\
                smt_parser.c smt_term_stack.c smt2_lexer.c		\
-               context_printer.c yices_help.c yices_reval.c
+               context_printer.c yices_help.c yices_reval.c threads.c
+
 
 src_c := $(base_src_c) $(extra_src_c)
 
@@ -283,8 +285,8 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
-  BIN_LDFLAGS=
+  CFLAGS += -fvisibility=hidden -pthread
+  BIN_LDFLAGS=-pthread
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else

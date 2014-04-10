@@ -9,12 +9,15 @@
 #include <gmp.h>
 
 #include "mpq_aux.h"
+#include "mpq_pool.h"
+#include "mpz_pool.h"
 
+#define DEBUG 1
 
 /*
  * Global variable for intermediate computations.
  */
-static mpz_t z0;
+//static mpz_t z0;
 
 
 /*
@@ -22,9 +25,9 @@ static mpz_t z0;
  */
 #ifdef DEBUG
 
-static mpq_t check, aux;
+//static mpq_t check, aux;
 
-static inline void check_result(mpq_t q) {
+static inline void check_result(mpq_t q, mpq_t check) {
   if (! mpq_equal(q, check)) {
     fprintf(stderr, "**** ERROR IN mpq_aux.c\n");
     abort();
@@ -33,7 +36,7 @@ static inline void check_result(mpq_t q) {
 
 #else
 
-static inline void check_result(mpq_t q) {}
+static inline void check_result(mpq_t q, mpq_t check) {}
 
 #endif
 
@@ -56,11 +59,11 @@ void init_mpq_aux() {
     abort();
   }
 
-  mpz_init(z0);
+  //mpz_init(z0);
 
 #ifdef DEBUG
-  mpq_init(check);
-  mpq_init(aux);
+  //mpq_init(check);
+  //mpq_init(aux);
 #endif
 }
 
@@ -69,11 +72,11 @@ void init_mpq_aux() {
  * Cleanup
  */
 void cleanup_mpq_aux() {
-  mpz_clear(z0);
+  //mpz_clear(z0);
 
 #ifdef DEBUG
-  mpq_clear(check);
-  mpq_clear(aux);
+  //mpq_clear(check);
+  //mpq_clear(aux);
 #endif
 }
 
@@ -96,7 +99,6 @@ void mpq_init2(mpq_t q, unsigned long n) {
 
 
 
-
 /*
  * Add rational num/den to q.
  * - den must be non zero
@@ -106,6 +108,33 @@ void mpq_init2(mpq_t q, unsigned long n) {
 void mpq_add_si(mpq_t q, long num, unsigned long den) {
   mpz_ptr num_q, den_q;
   unsigned long gcd;
+
+
+  int retcode;
+  int32_t icheck, iaux;
+  mpq_ptr check, aux;
+  int32_t iz0;
+  mpz_ptr z0;
+
+  retcode = mpq_pool_borrow(&icheck, &check);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_add_si: mpq_pool_borrow failed");
+    abort();
+  }
+
+  retcode = mpq_pool_borrow(&iaux, &aux);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_add_si: mpq_pool_borrow failed");
+    abort();
+  }
+
+  retcode = mpz_pool_borrow(&iz0, &z0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_add_si: mpz_pool_borrow failed");
+    abort();
+  }
+
+
 
 #ifdef DEBUG
   mpq_set_si(aux, num, den);
@@ -122,8 +151,8 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_mul_si(z0, den_q, num);
     mpz_add(num_q, num_q, z0);
 
-    check_result(q);
-    return;
+    check_result(q, check);
+    goto clean_up;
   }
 
   gcd = mpz_gcd_ui(NULL, den_q, den);
@@ -136,8 +165,8 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_add(num_q, num_q, z0);
     mpz_mul_ui(den_q, den_q, den);
 
-    check_result(q);
-    return;
+    check_result(q, check);
+    goto clean_up;
   }
 
   mpz_divexact_ui(den_q, den_q, gcd); // b0 = b/gcd
@@ -154,7 +183,29 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_mul_ui(den_q, den_q, den/gcd);
   }
 
-  check_result(q);
+  check_result(q, check);
+
+ clean_up:
+
+    retcode = mpq_pool_return(icheck);
+    if(retcode != 0){
+      fprintf(stderr, "mpq_add_si: mpq_pool_return failed");
+      abort();
+    }
+
+    retcode = mpq_pool_return(iaux);
+    if(retcode != 0){
+      fprintf(stderr, "mpq_add_si: mpq_pool_return failed");
+      abort();
+    }
+
+    retcode = mpz_pool_return(iz0);
+    if(retcode != 0){
+      fprintf(stderr, "mpq_add_si: mpz_pool_return failed");
+      abort();
+    }
+
+
 }
 
 
@@ -170,6 +221,22 @@ void mpq_mul_si(mpq_t q, long num, unsigned long den) {
   mpz_ptr num_q, den_q;
   unsigned long gcd, abs_num;
 
+  int retcode;
+  int32_t icheck, iaux;
+  mpq_ptr check, aux;
+
+  retcode = mpq_pool_borrow(&icheck, &check);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_mul_si: mpq_pool_borrow failed");
+    abort();
+  }
+
+  retcode = mpq_pool_borrow(&iaux, &aux);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_mul_si: mpq_pool_borrow failed");
+    abort();
+  }
+
 #ifdef DEBUG
   mpq_set_si(aux, num, den);
   mpq_mul(check, q, aux);
@@ -177,8 +244,8 @@ void mpq_mul_si(mpq_t q, long num, unsigned long den) {
 
   if (num == 0) {
     mpq_set_ui(q, 0, 1);
-    check_result(q);
-    return;
+    check_result(q, check);
+    goto clean_up;
   }
 
   num_q = mpq_numref(q);
@@ -203,7 +270,23 @@ void mpq_mul_si(mpq_t q, long num, unsigned long den) {
     mpz_neg(num_q, num_q);
   }
 
-  check_result(q);
+  check_result(q, check);
+
+ clean_up:
+
+  retcode = mpq_pool_return(icheck);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_mul_si: mpq_pool_return failed");
+    abort();
+  }
+
+  retcode = mpq_pool_return(iaux);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_mul_si: mpq_pool_return failed");
+    abort();
+  }
+
+
 }
 
 
@@ -217,6 +300,22 @@ void mpq_mul_si(mpq_t q, long num, unsigned long den) {
 void mpq_div_si(mpq_t q, long num, unsigned long den) {
   mpz_ptr num_q, den_q;
   unsigned long gcd, abs_num;
+
+  int retcode;
+  int32_t icheck, iaux;
+  mpq_ptr check, aux;
+
+  retcode = mpq_pool_borrow(&icheck, &check);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_div_si: mpq_pool_borrow failed");
+    abort();
+  }
+
+  retcode = mpq_pool_borrow(&iaux, &aux);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_div_si: mpq_pool_borrow failed");
+    abort();
+  }
 
 #ifdef DEBUG
   mpq_set_si(aux, num, den);
@@ -245,7 +344,19 @@ void mpq_div_si(mpq_t q, long num, unsigned long den) {
     mpz_neg(num_q, num_q);
   }
 
-  check_result(q);
+  check_result(q, check);
+
+  retcode = mpq_pool_return(icheck);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_div_si: mpq_pool_return failed");
+    abort();
+  }
+
+  retcode = mpq_pool_return(iaux);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_div_si: mpq_pool_return failed");
+    abort();
+  }
 }
 
 
@@ -266,6 +377,16 @@ void mpq_div_si(mpq_t q, long num, unsigned long den) {
  */
 void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
   uint64_t absnum;
+
+  int retcode;
+  int32_t iz0;
+  mpz_ptr z0;
+
+  retcode = mpz_pool_borrow(&iz0, &z0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_set_int64: mpz_pool_borrow failed");
+    abort();
+  }
 
   /*
    * Note: the following assignment works even when num = INT64_MIN
@@ -293,6 +414,14 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
   mpz_set_ui(z0, (unsigned long) (den >> 32));
   mpz_mul_2exp(z0, z0, 32);
   mpz_add_ui(mpq_denref(q), z0, (unsigned long)(den & (~ 0)));
+
+  retcode = mpz_pool_return(iz0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_set_int64: mpz_pool_return failed");
+    abort();
+  }
+
+
 }
 
 
@@ -304,6 +433,17 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
 void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
   unsigned long a, b;
   uint64_t aux;
+
+  int retcode;
+  int32_t iz0;
+  mpz_ptr z0;
+
+  retcode = mpz_pool_borrow(&iz0, &z0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_get_int64: mpz_pool_borrow failed");
+    abort();
+  }
+
 
   // convert the numerator
   mpz_abs(z0, mpq_numref(q));
@@ -323,6 +463,12 @@ void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
   mpz_fdiv_q_2exp(z0, z0, 32);
   b = mpz_get_ui(z0);
   *den = (((uint64_t) b) << 32) | ((uint64_t) a);
+
+  retcode = mpz_pool_return(iz0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_get_int64: mpz_pool_return failed");
+    abort();
+  }
 }
 
 
@@ -338,13 +484,33 @@ bool mpq_fits_int32(mpq_t q) {
  * Check whether q can be converted into two 64bit integers num/den
  */
 bool mpq_fits_int64(mpq_t q) {
+  bool retval;
+  int retcode;
+  int32_t iz0;
+  mpz_ptr z0;
+
+  retcode = mpz_pool_borrow(&iz0, &z0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_add_si: mpz_pool_borrow failed");
+    abort();
+  }
+
+
   mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator>>32
   if (mpz_fits_slong_p(z0)) {
     mpz_fdiv_q_2exp(z0, mpq_denref(q), 32); // denominator >> 32
-    return mpz_fits_ulong_p(z0);
+    retval = mpz_fits_ulong_p(z0);
   } else {
-    return false;
+    retval = false;
   }
+
+  retcode = mpz_pool_return(iz0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_add_si: mpz_pool_return failed");
+    abort();
+  }
+
+  return retval;
 }
 
 
@@ -362,12 +528,31 @@ bool mpq_is_int32(mpq_t q) {
  * - i.e., the numerator fits into a 64bit number and the denominator is 1
  */
 bool mpq_is_int64(mpq_t q) {
+  bool retval;
+  int retcode;
+  int32_t iz0;
+  mpz_ptr z0;
+
+  retcode = mpz_pool_borrow(&iz0, &z0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_is_int64: mpz_pool_borrow failed");
+    abort();
+  }
+
   if (mpz_cmp_ui(mpq_denref(q), 1UL) == 0) {
     mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator >> 32
-    return mpz_fits_slong_p(z0);
+    retval = mpz_fits_slong_p(z0);
   } else {
-    return false;
+    retval = false;
   }
+
+
+  retcode = mpz_pool_return(iz0);
+  if(retcode != 0){
+    fprintf(stderr, "mpq_is_int64: mpz_pool_return failed");
+    abort();
+  }
+  return retval;
 }
 
 

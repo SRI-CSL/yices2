@@ -58,7 +58,7 @@ static mpq_t q0, q1, q2;
  */
 static void q_export(rational_t *r, mpq_t q) {
   if (r->den == 0) {
-    mpq_set(q, bank_q[r->num]);
+    mpq_set(q, fetch_mpq(r->num));
   } else {
     mpq_set_int32(q, r->num, r->den);
   }
@@ -67,7 +67,7 @@ static void q_export(rational_t *r, mpq_t q) {
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
   if (r->den == 0) {
-    equal = mpq_equal(bank_q[r->num], q);
+    equal = mpq_equal(fetch_mpq(r->num), q);
   } else {
     equal = (mpq_cmp_si(q, r->num, r->den) == 0);
   }

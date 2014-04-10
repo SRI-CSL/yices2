@@ -29,7 +29,7 @@ static mpq_t q0;
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
   if (r->den == 0) {
-    equal = mpq_equal(bank_q[r->num], q);
+    equal = mpq_equal(fetch_mpq(r->num), q);
   } else {
     equal = (mpq_cmp_si(q, r->num, r->den) == 0);
   }

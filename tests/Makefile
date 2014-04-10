@@ -103,9 +103,10 @@ ifeq ($(POSIXOS),sunos)
 else
 ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
+  LIBS+=-pthread
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
