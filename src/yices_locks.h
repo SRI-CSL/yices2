@@ -3,10 +3,11 @@
 
 
 #ifdef MINGW
-  typedef CRITICAL_SECTION yices_lock_t;
+#include <windows.h>
+typedef CRITICAL_SECTION yices_lock_t;
 #else
 #include <pthread.h>
-  typedef pthread_mutex_t yices_lock_t;
+typedef pthread_mutex_t yices_lock_t;
 #endif
 
 

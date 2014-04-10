@@ -16,7 +16,7 @@ int try_yices_lock(yices_lock_t* lock){
 
 int get_yices_lock(yices_lock_t* lock){
   /* void return type */
-  EnterCriticalSection(&lock);
+  EnterCriticalSection(lock);
   return 0;
 }
 

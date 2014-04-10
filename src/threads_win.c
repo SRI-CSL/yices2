@@ -1,4 +1,9 @@
 // compile with: /MT
+
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0500
+#endif
+
 #include <windows.h>
 #include <process.h>
 
@@ -8,8 +13,8 @@
 
 /* not tested or compiled yet */
 
-void launch_threads(int nthreads, char* file_format, yices_thread_main_t thread_main){
-  int retcode, thread;
+void launch_threads(int nthreads, const char* file_format, yices_thread_main_t thread_main){
+  int thread;
   char  buff[1024];
   FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
   HANDLE* handles = (HANDLE*)calloc(nthreads, sizeof(HANDLE));
@@ -28,7 +33,7 @@ void launch_threads(int nthreads, char* file_format, yices_thread_main_t thread_
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
       exit(EXIT_FAILURE);
     }
-    handles[thread]  =  (HANDLE)_beginthreadex( NULL, 0, &thread_main, outfp[thread], 0, &tids[thread]);
+    handles[thread]  =  (HANDLE)_beginthreadex( NULL, 0, thread_main, outfp[thread], 0, &tids[thread]);
     if(handles[thread] == 0){
       fprintf(stderr, "_beginthreadex: %s\n", strerror(errno));
       exit(EXIT_FAILURE);
