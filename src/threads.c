@@ -1,4 +1,7 @@
+#include <stdio.h>
+
 #include "threads.h"
+
 
 
 #ifndef MINGW
