@@ -4,8 +4,8 @@
 #include <string.h>
 #include <pthread.h>
 
-void launch_threads(int nthreads, const char* test, yices_thread_main_t thread_main){
-  int retcode, thread;
+void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main){
+  int32_t retcode, thread;
   char  buff[1024];
   FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
   pthread_t* tids = (pthread_t*)calloc(nthreads, sizeof(pthread_t));

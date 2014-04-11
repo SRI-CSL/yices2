@@ -61,7 +61,7 @@ static mpq_pool_block_t* alloc_mpq_pool_block(void){
 /*
  * Initialize the pool
  */
-static int init_mpq_pool(void){
+static int32_t init_mpq_pool(void){
 
   create_yices_lock(&(the_mpq_pool.lock));
 
@@ -96,7 +96,7 @@ mpq_ptr fetch_mpq(int32_t i) {
 /*
  * Add a new block to the pool
  */
-static int _o_grow_mpq_pool(void){
+static int32_t _o_grow_mpq_pool(void){
   mpq_pool_block_t* new_block;
   int32_t new_capacity = the_mpq_pool.capacity + MPQ_BLOCK_SIZE;
 
@@ -207,7 +207,7 @@ void _o_free_mpq(int32_t i) {
 /*
  * Init the pool (Pool API)
  */
-int mpq_pool_init(void){
+int32_t mpq_pool_init(void){
 
   if(init_mpq_pool() != 0){
     fprintf(stderr, "mpq_pool_init: init_mpq_pool failed\n");
@@ -222,7 +222,7 @@ int mpq_pool_init(void){
 /*
  * Borrow an mpq_t from the pool (Pool API)
  */
-int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp){
+int32_t mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp){
   int32_t index;
 
   get_yices_lock(&(the_mpq_pool.lock));
@@ -242,7 +242,7 @@ int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp){
 /*
  * Return a mpq_t to the pool (Pool API)
  */
-int mpq_pool_return(int32_t index){
+int32_t mpq_pool_return(int32_t index){
 
   get_yices_lock(&(the_mpq_pool.lock));
 
@@ -256,7 +256,7 @@ int mpq_pool_return(int32_t index){
 /*
  * Shutdown the pool (Pool API)
  */
-int mpq_pool_shutdown(void){
+int32_t mpq_pool_shutdown(void){
 
   get_yices_lock(&(the_mpq_pool.lock));
 

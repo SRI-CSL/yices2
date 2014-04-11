@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
     mt_test_usage(argc, argv);
     return 0;
   } else {
-    int nthreads = atoi(argv[1]);
+    int32_t nthreads = atoi(argv[1]);
 
     if(nthreads < 0){
       fprintf(stderr, "thread number must be positive!\n");

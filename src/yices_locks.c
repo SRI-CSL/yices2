@@ -1,7 +1,3 @@
-
-#include "yices_locks.h"
-
-
 #ifndef MINGW
 #include "yices_locks_posix.c"
 #else

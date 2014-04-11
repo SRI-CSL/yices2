@@ -1,6 +1,7 @@
 #ifndef __MPQ_POOL_H
 #define __MPQ_POOL_H
 
+#include <stdint.h>
 #include <gmp.h>
 
 /*
@@ -10,7 +11,7 @@
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpq_pool_init(void);
+extern int32_t mpq_pool_init(void);
 
 /*
  * Fetch an mpq by its index
@@ -26,7 +27,7 @@ extern mpq_ptr fetch_mpq(int32_t i);
  * Returns 0 on success, nonzero on error.
  *
  */
-extern int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp);
+extern int32_t mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp);
 
 /*
  * Return the mpq with that index to the pool.
@@ -34,7 +35,7 @@ extern int mpq_pool_borrow(int32_t* indexp, mpq_ptr* qp);
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpq_pool_return(int32_t index);
+extern int32_t mpq_pool_return(int32_t index);
 
 /*
  * Reclaim all the memory used by the pool. Using the pool
@@ -43,7 +44,7 @@ extern int mpq_pool_return(int32_t index);
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpq_pool_shutdown(void);
+extern int32_t mpq_pool_shutdown(void);
 
 
 #endif /* __MPQ_POOL_H */

@@ -13,8 +13,8 @@
 
 /* not tested or compiled yet */
 
-void launch_threads(int nthreads, const char* test, yices_thread_main_t thread_main){
-  int thread;
+void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main){
+  int32_t thread;
   char  buff[1024];
   FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
   HANDLE* handles = (HANDLE*)calloc(nthreads, sizeof(HANDLE));

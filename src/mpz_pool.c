@@ -61,7 +61,7 @@ static mpz_pool_block_t* alloc_mpz_pool_block(void){
 /*
  * Initialize the pool
  */
-static int init_mpz_pool(void){
+static int32_t init_mpz_pool(void){
 
   create_yices_lock(&(the_mpz_pool.lock));
 
@@ -96,7 +96,7 @@ mpz_ptr fetch_mpz(int32_t i) {
 /*
  * Add a new block to the pool
  */
-static int _o_grow_mpz_pool(void){
+static int32_t _o_grow_mpz_pool(void){
   mpz_pool_block_t* new_block;
   int32_t new_capacity = the_mpz_pool.capacity + MPZ_BLOCK_SIZE;
 
@@ -204,7 +204,7 @@ void _o_free_mpz(int32_t i) {
 /*
  * Init the pool (Pool API)
  */
-int mpz_pool_init(void){
+int32_t mpz_pool_init(void){
 
   if(init_mpz_pool() != 0){
     fprintf(stderr, "mpz_pool_init: init_mpz_pool failed\n");
@@ -219,7 +219,7 @@ int mpz_pool_init(void){
 /*
  * Borrow an mpz_t from the pool (Pool API)
  */
-int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp){
+int32_t mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp){
   int32_t index;
 
   get_yices_lock(&(the_mpz_pool.lock));
@@ -239,7 +239,7 @@ int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp){
 /*
  * Return a mpz_t to the pool (Pool API)
  */
-int mpz_pool_return(int32_t index){
+int32_t mpz_pool_return(int32_t index){
 
   get_yices_lock(&(the_mpz_pool.lock));
 
@@ -253,7 +253,7 @@ int mpz_pool_return(int32_t index){
 /*
  * Shutdown the pool (Pool API)
  */
-int mpz_pool_shutdown(void){
+int32_t mpz_pool_shutdown(void){
 
   get_yices_lock(&(the_mpz_pool.lock));
 

@@ -1,6 +1,7 @@
 #ifndef __MPZ_POOL_H
 #define __MPZ_POOL_H
 
+#include <stdint.h>
 #include <gmp.h>
 
 /*
@@ -10,7 +11,7 @@
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpz_pool_init(void);
+extern int32_t mpz_pool_init(void);
 
 /*
  * Fetch an mpz by its index
@@ -26,7 +27,7 @@ extern mpz_ptr fetch_mpz(int32_t i);
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp);
+extern int32_t mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp);
 
 /*
  * Return the mpz with that index to the pool.
@@ -34,7 +35,7 @@ extern int mpz_pool_borrow(int32_t* indexp,  mpz_ptr* zp);
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpz_pool_return(int32_t index);
+extern int32_t mpz_pool_return(int32_t index);
 
 /*
  * Reclaim all the memory used by the pool. Using the pool
@@ -43,7 +44,7 @@ extern int mpz_pool_return(int32_t index);
  *  Returns 0 on success, nonzero on error.
  *
  */
-extern int mpz_pool_shutdown(void);
+extern int32_t mpz_pool_shutdown(void);
 
 
 #endif /* __MPZ_POOL_H */

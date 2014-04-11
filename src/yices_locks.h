@@ -1,5 +1,6 @@
 #ifndef __YICES_LOCKS_H
 #define __YICES_LOCKS_H
+#include <stdint.h>
 
 
 #ifdef MINGW
@@ -12,16 +13,16 @@ typedef pthread_mutex_t yices_lock_t;
 
 
 /* returns 0 on success; -1 on failure (and prints an error message) */
-extern int create_yices_lock(yices_lock_t* lock);
+extern int32_t create_yices_lock(yices_lock_t* lock);
 
 /* returns 0 on success; 1 if the lock was already taken; -1 on failure (and prints an error message) */
-extern int try_yices_lock(yices_lock_t* lock);
+extern int32_t try_yices_lock(yices_lock_t* lock);
 
 /* returns 0 on success; -1 on failure (and prints an error message) */
-extern int get_yices_lock(yices_lock_t* lock);
+extern int32_t get_yices_lock(yices_lock_t* lock);
 
 /* returns 0 on success; -1 on failure (and prints an error message) */
-extern int release_yices_lock(yices_lock_t* lock);
+extern int32_t release_yices_lock(yices_lock_t* lock);
 
 extern void destroy_yices_lock(yices_lock_t* lock);
 
