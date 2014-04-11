@@ -35,7 +35,6 @@ endif
 
 include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
-
 #
 # ldconfig is used by the install rules.
 # We don't check for ldconfig in configure.ac (since that doesn't
@@ -44,8 +43,12 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 #   make install LDCONFIG=...
 #
-LDCONFIG= /sbin/ldconfig
+LDCONFIG=/sbin/ldconfig
 
+#
+# Script/command to build a README file from a template
+#
+MKREADME=./utils/mkreadme
 
 #
 # Source directories
@@ -166,11 +169,11 @@ build_subdirs: $(build_dir) $(dyn_objdir) $(dyn_libdir) $(dyn_bindir) \
 #
 all: obj static-obj lib static-lib bin static-bin
 
-obj: build_subdirs
+obj: build_subdirs version
 	@ echo "=== Building objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) obj
 
-static-obj: build_subdirs
+static-obj: build_subdirs version
 	@ echo "=== Building static objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-obj
 
@@ -191,12 +194,32 @@ static-bin: build_subdirs version
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 
 
+#
+# Version file
+# Compilation date and mode, svn repository and version, and version numbers
+# are copied into yices_version.c.
+#
+# 2013/12/11: moved from svn to git
+# - replaced svn_url and svn version by the git SHA1 code of the HEAD
+#
+now := $(shell date +"%Y-%m-%d")
+rev := $(shell git rev-parse HEAD || echo "unknown")
+
 
 #
 # Force a new 'yices_version.c' to be generated
 #
 version:
-	rm -f $(srcdir)/yices_version.c
+	@$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
+	       -e 's/REVISION/$(rev)/g' -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
+	       $(srcdir)/yices_version_template.txt > $(srcdir)/yices_version.tmp
+	@diff -N $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c > /dev/null; \
+	if [ $$? -ne 0 ]; \
+	then \
+	  mv $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c; \
+	else \
+	  rm -f $(srcdir)/yices_version.tmp; \
+	fi
 
 .PHONY: version
 
@@ -225,6 +248,24 @@ static-test: build_subdirs
 
 
 
+#
+# Documentation: for now we just build manual.pdf
+# this assumes latexmk is available
+#
+doc:
+	@ echo "=== Building the documentation ==="
+	@ (cd doc/manual ; \
+          (latexmk -pdf manual || \
+            (echo "===================================="; \
+             echo "  WARNING: can't run latexmk"; \
+             echo "   manual.pdf may be out-of-date"; \
+             echo "===================================="; )))
+
+
+documentation manual: doc
+
+.PHONY: doc documentation manual
+
 
 #
 # Binary distribution:
@@ -241,6 +282,17 @@ static-test: build_subdirs
 #
 # On other platforms: make binary-distribution or make
 # static-distribution should work.
+#
+# On MacOS X, the tar command adds files of the form ._xxxx to store
+# metadata/extended file attributes. This gets ugly if we untar on
+# some other platform. To prevent generation of these ._xxxx files, it
+# is enough to set the environment variable COPYFILE_DISABLE to 1. We
+# do this systematically (even on other systems). Hopefully,
+# COPYFILE_DISABLE should not matter on other systems than MacOS X.
+#
+# We use a shell script ./util/mkreadme to make sure
+# the README file in the tarfile is up to date (probably
+# not foolproof)
 #
 $(distributions):
 	$(MKDIR_P) $(distributions)
@@ -264,13 +316,13 @@ static-dist: build_subdirs version $(static_dist_dir)
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
 
 
-tarfile: $(distributions)
+tarfile: $(distributions) doc
 	@ echo "=== Building $(bindist_tarfile) ==="
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
-	cp etc/README.$(POSIXOS) $(bindist_dir)/README
+	$(MKREADME) $(dist_dir) etc/README.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
 	  chmod ug+x $(bindist_dir)/install-yices ; \
@@ -278,24 +330,24 @@ tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
-	cp doc/manual.pdf $(bindist_dir)/doc
+	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
-static-tarfile: $(distributions)
+static-tarfile: $(distributions) doc
 	@ echo "=== Building $(static_bindist_tarfile) ==="
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
-	cp etc/README.static.$(POSIXOS) $(bindist_dir)/README
+	$(MKREADME) $(static_dist_dir) etc/README.static.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
 	  chmod ug+x $(bindist_dir)/install-yices ; \
@@ -303,14 +355,14 @@ static-tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
-	cp doc/manual.pdf $(bindist_dir)/doc
+	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
@@ -347,7 +399,7 @@ smt-tarfile: $(distributions)
 	cp -r $(smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(smtdist_dir)
 
@@ -358,7 +410,7 @@ static-smt-tarfile: $(distributions)
 	cp -r $(static_smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(smtdist_dir)
 
@@ -457,7 +509,7 @@ srcdist_tarfile= yices-$(YICES_VERSION)-src.tar.gz
 # - on CSL ungoliant: make sure /csl/bin is in the path before /bin
 #   and /usr/bin
 #
-source-distribution: $(distributions)
+source-distribution: $(distributions) doc
 	@ echo "=== Building $(srcdist_tarfile) ==="
 	rm -f -r $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)
@@ -477,19 +529,20 @@ source-distribution: $(distributions)
 	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
 	   src/yices_version_template.txt $(srcdist_dir)/src
 	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
-	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual.pdf \
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
            $(srcdist_dir)/doc
 	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
 	   utils/yices_parser.txt utils/yices_input_tables.h \
 	   utils/smt_parser.txt utils/smt_input_tables.h \
 	   utils/smt2_parser.txt utils/smt2_input_tables.h \
-	   utils/table_builder.c $(srcdist_dir)/utils
+	   utils/table_builder.c utils/truth_table_compiler.c \
+	   $(srcdist_dir)/utils
 	cp etc/* $(srcdist_dir)/etc
-	for file in `ls examples | $(EGREP) '\.ys$$|\.txt$$|\.smt$$|\.c$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.txt$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
 	  cp examples/$$file $(srcdist_dir)/examples ; \
 	done || true
 	chmod -R og+rX $(srcdist_dir)
-	tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(srcdist_dir)
 

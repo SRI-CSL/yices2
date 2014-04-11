@@ -438,7 +438,8 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
+NOGMP_LIBS := $(subst $(LIBS),-lgmp,)
+STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
 
 
 
@@ -507,26 +508,6 @@ smt2_hash_symbols.h: smt2_symbols.txt
 	--lookup-function-name=in_smt2_sym smt2_symbols.txt
 
 
-#
-# Version file
-# Compilation date and mode, svn repository and version, and version numbers
-# are copied into yices_version.c.
-#
-now := $(shell date)
-
-url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
-ifeq ($(url), URL: unknown)
-  rev := unknown
-else
-  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
-endif
-
-yices_version.c: yices_version_template.txt
-	$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
-	       -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
-	       yices_version_template.txt > $@
-
 
 #
 # Object files
@@ -557,6 +538,17 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 #
 # Executables
 #
+
+# for yices_sat: we don't need gmp
+$(bindir)/yices_sat$(EXEEXT): $(objdir)/yices_sat.o $(libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $< $(libyices) $(NOGMP_LIBS)
+
+$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/yices_sat.o $(static_libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
+# for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
