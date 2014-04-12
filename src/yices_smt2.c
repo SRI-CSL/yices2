@@ -70,11 +70,14 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(void) {
   printf("Yices %s. Copyright SRI International.\n"
-         "GMP %s. Copyright Free Software Foundation, Inc.\n"
-         "Build date: %s\n"
-         "Platform: %s (%s)\n",
-         yices_version, gmp_version,
-         yices_build_date, yices_build_arch, yices_build_mode);
+	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
+	 "Build date: %s\n"
+	 "Platform: %s (%s)\n",
+	 yices_version,
+	 gmp_version,
+	 yices_build_date,
+	 yices_build_arch,
+	 yices_build_mode);
   fflush(stdout);
 }
 

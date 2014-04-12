@@ -379,8 +379,10 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(FILE *f) {
   fprintf(f,
-          "Yices %s. Copyright SRI International.\n"
-          "GMP %s. Copyright Free Software Foundation, Inc.\n"
+          "Yices %s\n"
+          "Copyright SRI International.\n"
+          "Linked with GMP %s\n"
+	  "Copyright Free Software Foundation, Inc.\n"
           "Build date: %s\n"
           "Platform: %s (%s)\n",
           yices_version,

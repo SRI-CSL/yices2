@@ -264,7 +264,8 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(FILE *f) {
   fprintf(f,
-          "Yices %s. Copyright SRI International.\n"
+          "Yices %s\n"
+	  "Copyright SRI International.\n"
           "Build date: %s\n"
           "Platform: %s (%s)\n",
           yices_version,
