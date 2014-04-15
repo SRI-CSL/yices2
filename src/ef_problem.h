@@ -20,10 +20,10 @@
  * To represent such problems, we store:
  * - the set of all existential variables
  * - the set of all universal variables (the union of y_1 ... y_t)
- * - the of all constraints on x (A_1(x) ... A_n(x))
- * - a descriptor for each forall constraint
+ * - the set of all constraints on x: the list A_1(x) ... A_n(x)
+ * - a descriptor for each universal constraint
  *
- * For a constraint (forall y: B(y) => C(x, y)), the descriptor includes*
+ * For a constraint (forall y: B(y) => C(x, y)), the descriptor includes
  * - the set of existential variables occurring in C (i.e., a subset of x)
  * - the set of universal variables occurring in B or C
  * - the assumption B(y)
@@ -115,7 +115,7 @@ extern void ef_prob_add_condition(ef_prob_t *prob, term_t t);
 
 
 /*
- * Add a forall constraint:
+ * Add a universal constraint:
  * - ev = existential variables, nev = size of the ev array
  * - uv = universal variables, nuv = size of the uv array
  * - assumption = formula on uv

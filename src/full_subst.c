@@ -337,8 +337,9 @@ static bool fsubst_explore(full_subst_t *subst, int32_t i) {
      * i is on a cycle of grey nodes:
      * x := ... -> y := u --> ... --> i --> ... --> x
      *
-     * we'll remove the mapping y := u so we must clear the mark of
-     * all nodes on the path u --> ... --> i --> ... --> x (except x)
+     * If remove_cycles is true, we'll remove the mapping y := u.
+     * So we must clear the mark of all nodes on the path
+     *   u --> ... --> i --> ... --> x (except x)
      */
     if (subst->remove_cycles) {
       mark_vector_add_mark(&subst->mark, i, MARK_WHITE);
@@ -353,7 +354,6 @@ static bool fsubst_explore(full_subst_t *subst, int32_t i) {
 /*
  * Explore t:
  * - return true if t is on a cycle
- * -
  */
 static bool fsubst_visit(full_subst_t *subst, term_t t) {
   int32_t i;

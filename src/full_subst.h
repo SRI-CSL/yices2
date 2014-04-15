@@ -166,6 +166,11 @@ extern void full_subst_remove_cycles(full_subst_t *subst);
  * - t must be a valid term in subst->terms
  * - the returned value is negative (error code) if something goes
  *   wrong.
+ *
+ * NOTE: on-the-fly detection of cycles is not implemented
+ * - this means that error code FULL_SUBST_CYCLE is never returned
+ * - so make sure there's no substitution cycles before calling
+ *   this function.
  */
 extern term_t full_subst_apply(full_subst_t *subst, term_t t);
 
