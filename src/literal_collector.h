@@ -32,7 +32,8 @@
  *
  * Options
  * -------
- * Several options control the type of atoms/literals produced.
+ * Several options control the type of atoms/literals produced:
+ *
  * - ELIM_ARITH_NEQ0: eliminate arithmetic disequalities.
  *   If atom (= t 0) is false in the model, then we normally add its
  *   negation (not (t = 0)) to the set of literals.
