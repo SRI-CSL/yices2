@@ -1422,8 +1422,8 @@ static const help_record_t help_data[] = {
 
   // ef-flatten-ite: index 147
   { HPARAM,
-    "(set-param ef-flatten-iff [boolean])",
-    "Enable/disbale flattening of iff in (ef-solve)",
+    "(set-param ef-flatten-ite [boolean])",
+    "Enable/disbale flattening of if-then-else in (ef-solve)",
     "If this parameter is true, the following rewriting rules\n"
     "are applied to the assertions when (ef-solve) is called:\n"
     "In a disjunction, (ite p q r) --> (or (and p q) (and (not p) r))\n"
