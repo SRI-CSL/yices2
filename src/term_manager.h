@@ -564,4 +564,13 @@ extern term_t mk_bvarith64_poly(term_manager_t *manager, bvpoly64_t *p, uint32_t
 extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, const term_t *a);
 
 
+/*
+ * Support for elimating arithmetic variables:
+ * - given a polynomial p and a term t that occurs in p,
+ *   construct the polynomial q such that (t == q) is equivalent to (p == 0)
+ *   (i.e., write p as a.t + r and construct  q :=  -r/a).
+ */
+extern term_t mk_arith_elim_poly(term_manager_t *manager, polynomial_t *p, term_t t);
+
+
 #endif /* __TERM_MANAGER_H */

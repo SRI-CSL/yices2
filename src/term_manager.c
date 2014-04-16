@@ -4600,3 +4600,73 @@ term_t mk_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, const term
   return mk_bvarith_term(mngr, b);
 }
 
+
+
+/*
+ * Support for elimating arithmetic variables:
+ * - given a polynomial p and a term t that occurs in p
+ * - construct the polynomial q such that (t == q) is equivalent to (p == 0)
+ *   (i.e., write p as a.t + r and construct  q :=  -r/a).
+ */
+term_t mk_arith_elim_poly(term_manager_t *mngr, polynomial_t *p, term_t t) {
+  rba_buffer_t *b;
+  rational_t *a;
+  uint32_t i, j, n;
+
+  assert(good_term(mngr->terms, t));
+
+  n = p->nterms;
+
+  // find j such that p->mono[j].var == t
+  j = 0;
+  while (p->mono[j].var != t) {
+    j++;
+    assert(j < n);
+  }
+
+  a = &p->mono[j].coeff; // coefficient of t in p
+  assert(q_is_nonzero(a));
+
+  /*
+   * p is r + a.t, construct -r/a in buffer b
+   */
+  b = term_manager_get_arith_buffer(mngr);
+  reset_rba_buffer(b);
+  if (q_is_minus_one(a)) {
+    // special case: a = -1
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      assert(j > 0);
+      rba_buffer_add_const(b, &p->mono[0].coeff);
+      i ++;
+    }
+    while (i < n) {
+      if (i != j) {
+	assert(p->mono[i].var != t);
+	rba_buffer_add_varmono(b, &p->mono[i].coeff, p->mono[i].var);
+      }
+      i++;
+    }
+  } else {
+    // first construct -r then divide by a
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      assert(j > 0);
+      rba_buffer_sub_const(b, &p->mono[0].coeff);
+      i ++;
+    }
+    while (i < n) {
+      if (i != j) {
+	assert(p->mono[i].var != t);
+	rba_buffer_sub_varmono(b, &p->mono[i].coeff, p->mono[i].var);
+      }
+      i ++;
+    }
+    if (! q_is_one(a)) {
+      rba_buffer_div_const(b, a);
+    }
+  }
+
+  return mk_arith_term(mngr, b);
+}
+

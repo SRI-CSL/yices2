@@ -93,10 +93,10 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               diophantine_systems.c diseq_stacks.c dl_vartable.c        \
               ef_analyze.c ef_problem.c efsolver.c	                \
               egraph_assertion_queues.c egraph_explanations.c		\
-              egraph_utils.c egraph.c eq_abstraction.c eq_learner.c	\
-              extended_rationals.c flattening.c free_var_collector.c	\
-              fresh_value_maker.c full_subst.c fun_maps.c		\
-              fun_solver.c fun_trees.c gates_hash_table.c		\
+              egraph_utils.c egraph.c elim_subst.c eq_abstraction.c     \
+              eq_learner.c extended_rationals.c flattening.c            \
+              free_var_collector.c fresh_value_maker.c full_subst.c     \
+              fun_maps.c fun_solver.c fun_trees.c gates_hash_table.c    \
               gates_manager.c gcd.c generic_heap.c hash_functions.c	\
               idl_floyd_warshall.c ilists.c index_vectors.c		\
               int_array_hsets.c int_array_sort.c int_array_sort2.c	\
