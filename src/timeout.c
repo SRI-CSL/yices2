@@ -31,7 +31,7 @@
 
 
 /*
- * Global structure common to both implementation.
+ * Global structure common to both implementations.
  */
 static timeout_t the_timeout;
 
