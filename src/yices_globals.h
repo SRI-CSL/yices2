@@ -15,11 +15,10 @@
 #include "term_stack2.h"
 
 typedef struct yices_globals_s {
-  type_table_t *types;     // type table
-  term_table_t *terms;     // term table
-  term_manager_t *manager; // full term manager (includes terms)
-  tstack_t *tstack;        // term stack (or NULL)
-  error_report_t *error;   // data structure for error reporting
+  type_table_t *types;       // type table
+  term_table_t *terms;       // term table
+  term_manager_t *manager;   // full term manager (includes terms)
+  error_report_t *error;     // data structure for error reporting
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;
