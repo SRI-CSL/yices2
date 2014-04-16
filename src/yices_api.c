@@ -79,13 +79,6 @@ static parser_t *parser;
 static lexer_t *lexer;
 static tstack_t *tstack;
 
-// rational for building terms
-static rational_t r0;
-
-// buffer for building bitvector constants
-static bvconstant_t bv0;
-
-
 /*
  * Initial sizes of the type and term tables.
  */
@@ -97,7 +90,7 @@ static bvconstant_t bv0;
  * Global table. Initially all pointers are NULL
  */
 yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, 
 };
 
 
@@ -605,10 +598,6 @@ static parser_t *get_parser(const char *s) {
     parser = (parser_t *) safe_malloc(sizeof(parser_t));
     init_parser(parser, lexer, tstack);
 
-    // copy tstack into the global objects
-    assert(__yices_globals.tstack == NULL);
-    __yices_globals.tstack = tstack;
-
   } else {
     // reset the input string
     assert(lexer != NULL && tstack != NULL);
@@ -624,7 +613,6 @@ static parser_t *get_parser(const char *s) {
  * (it they exist)
  */
 static void delete_parsing_objects(void) {
-  assert(__yices_globals.tstack == tstack);
 
   if (parser != NULL) {
     assert(lexer != NULL && tstack != NULL);
@@ -639,7 +627,7 @@ static void delete_parsing_objects(void) {
     delete_tstack(tstack);
     safe_free(tstack);
     tstack = NULL;
-    __yices_globals.tstack = NULL;
+
   }
 
   assert(lexer == NULL && tstack == NULL);
@@ -659,7 +647,6 @@ static void init_globals(yices_globals_t *glob) {
   glob->types = &types;
   glob->terms = &terms;
   glob->manager = &manager;
-  glob->tstack = NULL;
   glob->error = &error;
 }
 
@@ -671,7 +658,6 @@ static void clear_globals(yices_globals_t *glob) {
   glob->types = NULL;
   glob->terms = NULL;
   glob->manager = NULL;
-  glob->tstack = NULL;
   glob->error = NULL;
 }
 
@@ -686,9 +672,6 @@ EXPORTED void yices_init(void) {
   init_yices_lexer_table();
   init_bvconstants();
   init_rationals();
-
-  q_init(&r0);
-  init_bvconstant(&bv0);
 
   // tables
   init_type_table(&types, INIT_TYPE_SIZE);
@@ -751,9 +734,6 @@ EXPORTED void yices_exit(void) {
   delete_term_table(&terms);
   delete_pprod_table(&pprods);
   delete_type_table(&types);
-
-  q_clear(&r0);
-  delete_bvconstant(&bv0);
 
   cleanup_rationals();
   cleanup_bvconstants();
@@ -1596,36 +1576,65 @@ EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
  *************************/
 
 EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
+  term_t retval;
+  bvconstant_t bv0;
+ 
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
+
+  init_bvconstant(&bv0);
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set32(bv0.data, bv0.width, x);
 
-  return mk_bv_constant(&manager, &bv0);
+  retval = mk_bv_constant(&manager, &bv0);
+
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
+
 
 EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
+  term_t retval;
+  bvconstant_t bv0;
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
 
+  init_bvconstant(&bv0);
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64(bv0.data, bv0.width, x);
+  
+  retval =  mk_bv_constant(&manager, &bv0);
 
-  return mk_bv_constant(&manager, &bv0);
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
+
 EXPORTED term_t yices_bvconst_mpz(uint32_t n, mpz_t x) {
+  term_t retval;
+  bvconstant_t bv0;
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
+
+
+  init_bvconstant(&bv0);
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_mpz(bv0.data, bv0.width, x);
+  
+  retval = mk_bv_constant(&manager, &bv0);
+  
+  delete_bvconstant(&bv0);
 
-  return mk_bv_constant(&manager, &bv0);
+  return retval;
 }
 
 
@@ -1635,34 +1644,60 @@ EXPORTED term_t yices_bvconst_mpz(uint32_t n, mpz_t x) {
  * bvconst_minus_one: set all bits to 1
  */
 EXPORTED term_t yices_bvconst_zero(uint32_t n) {
-  if (!check_positive(n) || !check_maxbvsize(n)) {
+  term_t retval;
+  bvconstant_t bv0;
+
+ if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
 
-  bvconstant_set_all_zero(&bv0, n);
-
-  return mk_bv_constant(&manager, &bv0);
+ init_bvconstant(&bv0);
+ 
+ bvconstant_set_all_zero(&bv0, n);
+ 
+ retval =  mk_bv_constant(&manager, &bv0);
+ 
+ delete_bvconstant(&bv0);
+ return retval;
 }
 
 EXPORTED term_t yices_bvconst_one(uint32_t n) {
+  term_t retval;
+  bvconstant_t bv0;
+  
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
+
+  init_bvconstant(&bv0);
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_one(bv0.data, bv0.width);
 
-  return mk_bv_constant(&manager, &bv0);
+  retval = mk_bv_constant(&manager, &bv0);
+  
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
 EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
+  term_t retval;
+  bvconstant_t bv0;
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
 
+  init_bvconstant(&bv0);
+
   bvconstant_set_all_one(&bv0, n);
 
-  return mk_bv_constant(&manager, &bv0);
+  retval = mk_bv_constant(&manager, &bv0);
+
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
 
@@ -1672,14 +1707,23 @@ EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
  * - a[i] != 0 --> bit i = 1
  */
 EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
+  term_t retval;
+  bvconstant_t bv0;
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
 
+  init_bvconstant(&bv0);
+
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_array(bv0.data, a, n);
 
-  return mk_bv_constant(&manager, &bv0);
+  retval = mk_bv_constant(&manager, &bv0);
+
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
 
@@ -1691,6 +1735,8 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
  *   is the high-order bit.
  */
 EXPORTED term_t yices_parse_bvbin(const char *s) {
+  term_t retval;
+  bvconstant_t bv0;
   size_t len;
   uint32_t n;
   int32_t code;
@@ -1708,14 +1754,23 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
   }
 
   n = (uint32_t) len;
+
+  init_bvconstant(&bv0);
+  
+
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
+
   if (code < 0) {
     error.code = INVALID_BVBIN_FORMAT;
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_bv_constant(&manager, &bv0);
   }
 
-  return mk_bv_constant(&manager, &bv0);
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
 // same function under a different name for backward compatibility
@@ -1733,6 +1788,8 @@ EXPORTED term_t yices_bvconst_from_string(const char *s) {
  *   the four high-order bits).
  */
 EXPORTED term_t yices_parse_bvhex(const char *s) {
+  term_t retval;
+  bvconstant_t bv0;
   size_t len;
   uint32_t n;
   int32_t code;
@@ -1750,14 +1807,24 @@ EXPORTED term_t yices_parse_bvhex(const char *s) {
   }
 
   n = (uint32_t) len;
+
+  init_bvconstant(&bv0);
+
+
   bvconstant_set_bitsize(&bv0, 4 * n);
   code = bvconst_set_from_hexa_string(bv0.data, n, s);
   if (code < 0) {
     error.code = INVALID_BVHEX_FORMAT;
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+
+    retval = mk_bv_constant(&manager, &bv0);
   }
 
-  return mk_bv_constant(&manager, &bv0);
+  
+  delete_bvconstant(&bv0);
+
+  return retval;
 }
 
 
@@ -3918,7 +3985,7 @@ EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
 
 /*
  * For backward compatibiltiy:
- * - use the following defautl configuration:
+ * - use the following default configuration:
  *   mode = CTX_MODE_MULTICHECKS
  *   logic = QF_BV
  */
