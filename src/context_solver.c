@@ -482,7 +482,7 @@ void context_build_model(model_t *model, context_t *ctx) {
   assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN);
 
   /*
-   * First build assignments in the satellite solvers
+   * First build assignments in the satellite solver
    * and get the val_in_model functions for the egraph
    */
   if (context_has_bv_solver(ctx)) {
