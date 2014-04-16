@@ -19,6 +19,8 @@ typedef struct yices_globals_s {
   term_table_t *terms;       // term table
   term_manager_t *manager;   // full term manager (includes terms)
   error_report_t *error;     // data structure for error reporting
+  pprod_table_t *pprods;     // pprod table
+
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;
