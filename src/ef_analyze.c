@@ -703,7 +703,7 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
 
 /*
  * Decompose term t into an Exist/Forall clause
- * - t is written to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
+ * - t is rewritten to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
  *   where x = uninterpreted constants of t (existentials)
  *     and y = free variables of t (universal variables)
  * - f_ite, f_iff: optional flattening flags
