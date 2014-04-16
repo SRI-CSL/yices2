@@ -1301,7 +1301,15 @@ static void random_ite(uint32_t n) {
   }
 }
 
-
+#if 0
+#define BVNUM 200
+#define ITENUM 5000
+#define BINUM 6000
+#else
+#define BVNUM 200
+#define ITENUM 200
+#define BINUM 200
+#endif
 
 
 int main(void) {
@@ -1313,11 +1321,11 @@ int main(void) {
   show_types();
   show_terms();
 
-  random_bvarrays(200);
-  random_bvextracts(200);
+  random_bvarrays(BVNUM);
+  random_bvextracts(BVNUM);
 
-  random_ite(5000);
-  random_binary_tests(6000);
+  random_ite(ITENUM);
+  random_binary_tests(BINUM);
 
   show_types();
   show_terms();
