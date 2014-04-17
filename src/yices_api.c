@@ -222,9 +222,15 @@ static inline bvarith_buffer_t *bvarith_buffer(dl_list_t *l) {
  */
 static inline bvarith_buffer_t *alloc_bvarith_buffer(void) {
   bvarith_buffer_elem_t *new_elem;
+  
 
   new_elem = (bvarith_buffer_elem_t *) safe_malloc(sizeof(bvarith_buffer_elem_t));
+
+  get_yices_lock(&bvarith_buffer_lock);
   list_insert_next(&bvarith_buffer_list, &new_elem->header);
+  release_yices_lock(&bvarith_buffer_lock);
+
+
   return &new_elem->buffer;
 }
 
@@ -235,7 +241,12 @@ static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvarith_buffer_header(b);
+
+  get_yices_lock(&bvarith_buffer_lock);
   list_remove(elem);
+  release_yices_lock(&bvarith_buffer_lock);
+
+
   safe_free(elem);
 }
 
@@ -244,6 +255,8 @@ static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
  */
 static void free_bvarith_buffer_list(void) {
   dl_list_t *elem, *aux;
+
+  get_yices_lock(&bvarith_buffer_lock);
 
   elem = bvarith_buffer_list.next;
   while (elem != &bvarith_buffer_list) {
@@ -254,6 +267,9 @@ static void free_bvarith_buffer_list(void) {
   }
 
   clear_list(&bvarith_buffer_list);
+
+  release_yices_lock(&bvarith_buffer_lock);
+
 }
 
 
@@ -283,7 +299,13 @@ static inline bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
   bvarith64_buffer_elem_t *new_elem;
 
   new_elem = (bvarith64_buffer_elem_t *) safe_malloc(sizeof(bvarith64_buffer_elem_t));
+
+  get_yices_lock(&bvarith64_buffer_lock);
+
   list_insert_next(&bvarith64_buffer_list, &new_elem->header);
+
+  release_yices_lock(&bvarith64_buffer_lock);
+
   return &new_elem->buffer;
 }
 
@@ -304,6 +326,8 @@ static inline void free_bvarith64_buffer(bvarith64_buffer_t *b) {
 static void free_bvarith64_buffer_list(void) {
   dl_list_t *elem, *aux;
 
+  get_yices_lock(&bvarith64_buffer_lock);
+
   elem = bvarith64_buffer_list.next;
   while (elem != &bvarith64_buffer_list) {
     aux = elem->next;
@@ -313,6 +337,9 @@ static void free_bvarith64_buffer_list(void) {
   }
 
   clear_list(&bvarith64_buffer_list);
+
+  release_yices_lock(&bvarith64_buffer_lock);
+
 }
 
 
@@ -342,7 +369,11 @@ static inline bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
   bvlogic_buffer_elem_t *new_elem;
 
   new_elem = (bvlogic_buffer_elem_t *) safe_malloc(sizeof(bvlogic_buffer_elem_t));
+
+  get_yices_lock(&bvlogic_buffer_lock);
   list_insert_next(&bvlogic_buffer_list, &new_elem->header);
+  release_yices_lock(&bvlogic_buffer_lock);
+
   return &new_elem->buffer;
 }
 
@@ -363,6 +394,8 @@ static inline void free_bvlogic_buffer(bvlogic_buffer_t *b) {
 static void free_bvlogic_buffer_list(void) {
   dl_list_t *elem, *aux;
 
+  get_yices_lock(&bvlogic_buffer_lock);
+
   elem = bvlogic_buffer_list.next;
   while (elem != &bvlogic_buffer_list) {
     aux = elem->next;
@@ -372,6 +405,9 @@ static void free_bvlogic_buffer_list(void) {
   }
 
   clear_list(&bvlogic_buffer_list);
+
+  release_yices_lock(&bvlogic_buffer_lock);
+  
 }
 
 
@@ -403,7 +439,11 @@ static inline context_t *alloc_context(void) {
   context_elem_t *new_elem;
 
   new_elem = (context_elem_t *) safe_malloc(sizeof(context_elem_t));
+
+  get_yices_lock(&context_lock);
   list_insert_next(&context_list, &new_elem->header);
+  release_yices_lock(&context_lock);
+
   return &new_elem->context;
 }
 
@@ -428,6 +468,8 @@ static inline void free_context(context_t *c) {
 static void free_context_list(void) {
   dl_list_t *elem, *aux;
 
+  get_yices_lock(&context_lock);
+
   elem = context_list.next;
   while (elem != &context_list) {
     aux = elem->next;
@@ -437,6 +479,8 @@ static void free_context_list(void) {
   }
 
   clear_list(&context_list);
+
+  release_yices_lock(&context_lock);
 }
 
 
@@ -467,7 +511,11 @@ static inline model_t *alloc_model(void) {
   model_elem_t *new_elem;
 
   new_elem = (model_elem_t *) safe_malloc(sizeof(model_elem_t));
+
+  get_yices_lock(&model_lock);
   list_insert_next(&model_list, &new_elem->header);
+  release_yices_lock(&model_lock);
+
   return &new_elem->model;
 }
 
@@ -492,6 +540,8 @@ static inline void free_model(model_t *m) {
 static void free_model_list(void) {
   dl_list_t *elem, *aux;
 
+  get_yices_lock(&model_lock);
+
   elem = model_list.next;
   while (elem != &model_list) {
     aux = elem->next;
@@ -501,6 +551,9 @@ static void free_model_list(void) {
   }
 
   clear_list(&model_list);
+
+  release_yices_lock(&model_lock);
+
 }
 
 
@@ -529,7 +582,11 @@ static inline ctx_config_t *alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
+
+  get_yices_lock(&generic_lock);
   list_insert_next(&generic_list, &new_elem->header);
+  release_yices_lock(&generic_lock);
+
   return &new_elem->config;
 }
 
@@ -537,7 +594,11 @@ static inline param_t *alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
+
+  get_yices_lock(&generic_lock);
   list_insert_next(&generic_list, &new_elem->header);
+  release_yices_lock(&generic_lock);
+
   return &new_elem->param;
 }
 
@@ -567,6 +628,8 @@ static inline void free_param_structure(param_t *p) {
 static void free_generic_list(void) {
   dl_list_t *elem, *aux;
 
+  get_yices_lock(&generic_lock);
+
   elem = generic_list.next;
   while (elem != &generic_list) {
     aux = elem->next;
@@ -575,6 +638,8 @@ static void free_generic_list(void) {
   }
 
   clear_list(&generic_list);
+
+  release_yices_lock(&generic_lock);
 }
 
 
@@ -589,6 +654,9 @@ static void free_generic_list(void) {
  * - s must be non-NULL, terminated by '\0'
  */
 static parser_t *get_parser(const char *s) {
+  
+  get_yices_lock(&(__yices_parser_state.lock));
+  
   if (__yices_parser_state.parser == NULL) {
     assert(__yices_parser_state.lexer == NULL && __yices_parser_state.tstack == NULL);
     __yices_parser_state.tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
@@ -606,6 +674,8 @@ static parser_t *get_parser(const char *s) {
     reset_string_lexer(__yices_parser_state.lexer, s);
   }
 
+  release_yices_lock(&(__yices_parser_state.lock));
+
   return __yices_parser_state.parser;
 }
 
@@ -615,6 +685,8 @@ static parser_t *get_parser(const char *s) {
  * (it they exist)
  */
 static void delete_parsing_objects(void) {
+
+  get_yices_lock(&(__yices_parser_state.lock));
 
   if (__yices_parser_state.parser != NULL) {
     assert(__yices_parser_state.lexer != NULL && __yices_parser_state.tstack != NULL);
@@ -633,6 +705,9 @@ static void delete_parsing_objects(void) {
   }
 
   assert(__yices_parser_state.lexer == NULL && __yices_parser_state.tstack == NULL);
+
+  release_yices_lock(&(__yices_parser_state.lock));
+
 }
 
 
@@ -995,54 +1070,79 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
  *  ITERATORS  *
  **************/
 
-void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {
+void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {  //bruno?  hope these f's don't use locks 
   dl_list_t *elem;
+
+  get_yices_lock(&bvarith_buffer_lock);
 
   for (elem = bvarith_buffer_list.next;
        elem != &bvarith_buffer_list;
        elem = elem->next) {
     f(aux, bvarith_buffer(elem));
   }
+
+  release_yices_lock(&bvarith_buffer_lock);
+
 }
 
-void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) {
+void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) { //bruno?  hope these f's don't use locks
   dl_list_t *elem;
+
+  get_yices_lock(&bvarith64_buffer_lock);
 
   for (elem = bvarith64_buffer_list.next;
        elem != &bvarith64_buffer_list;
        elem = elem->next) {
     f(aux, bvarith64_buffer(elem));
   }
+
+  release_yices_lock(&bvarith64_buffer_lock);
+
 }
 
-void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) {
+void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) { //bruno?  hope these f's don't use locks
   dl_list_t *elem;
+
+  get_yices_lock(&bvlogic_buffer_lock);
 
   for (elem = bvlogic_buffer_list.next;
        elem != &bvlogic_buffer_list;
        elem = elem->next) {
     f(aux, bvlogic_buffer(elem));
   }
+
+  release_yices_lock(&bvlogic_buffer_lock);
+
 }
 
 void context_iterate(void *aux, void (*f)(void *, context_t *)) {
   dl_list_t *elem;
+
+  get_yices_lock(&context_lock);
 
   for (elem = context_list.next;
        elem != &context_list;
        elem = elem->next) {
     f(aux, context_of_header(elem));
   }
+
+  release_yices_lock(&context_lock);
+
 }
 
 void model_iterate(void *aux, void (*f)(void *, model_t *)) {
   dl_list_t *elem;
+
+  get_yices_lock(&context_lock);
 
   for (elem = context_list.next;
        elem != &context_list;
        elem = elem->next) {
     f(aux, model_of_header(elem));
   }
+
+  release_yices_lock(&context_lock);
+
 }
 
 
@@ -4866,7 +4966,7 @@ EXPORTED int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val
 /*
  * Allocate and initialize the registry tables
  */
-static sparse_array_t *get_root_terms(void) {
+static sparse_array_t *_o_get_root_terms(void) {
   if (root_terms == NULL) {
     init_sparse_array(&the_root_terms, 0);
     root_terms = &the_root_terms;
@@ -4874,7 +4974,7 @@ static sparse_array_t *get_root_terms(void) {
   return root_terms;
 }
 
-static sparse_array_t *get_root_types(void) {
+static sparse_array_t *_o_get_root_types(void) {
   if (root_types == NULL) {
     init_sparse_array(&the_root_types, 0);
     root_types = &the_root_types;
@@ -4888,66 +4988,89 @@ static sparse_array_t *get_root_types(void) {
  */
 EXPORTED int32_t yices_incref_term(term_t t) {
   sparse_array_t *roots;
+  
 
   if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
 
+  get_yices_lock(&root_lock);
+
   // we keep the ref count on the term index
   // (i.e., we ignore t's polarity)
-  roots = get_root_terms();
+  roots = _o_get_root_terms();
   sparse_array_incr(roots, index_of(t));
 
+  release_yices_lock(&root_lock);
+  
   return 0;
 }
 
 EXPORTED int32_t yices_incref_type(type_t tau) {
   sparse_array_t *roots;
 
+
   if (!check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
-  roots = get_root_types();
+  get_yices_lock(&root_lock);
+
+  roots = _o_get_root_types();
   sparse_array_incr(roots, tau);
+
+  release_yices_lock(&root_lock);
 
   return 0;
 }
 
 EXPORTED int32_t yices_decref_term(term_t t) {
   error_report_t *error = __yices_globals.error;
+  int32_t retval = -1;
+
+
   if (!check_good_term(__yices_globals.manager, t)) {
-    return -1;
+    return retval;
   }
+
+  get_yices_lock(&root_lock);
 
   if (root_terms == NULL ||
       sparse_array_read(root_terms, index_of(t)) == 0) {
     error->code = BAD_TERM_DECREF;
     error->term1 = t;
-    return -1;
+  } else {
+    sparse_array_decr(root_terms, index_of(t));
+    retval = 0;
   }
-
-  sparse_array_decr(root_terms, index_of(t));
-
-  return 0;
+  
+  release_yices_lock(&root_lock);
+  
+  return retval;
 }
 
 EXPORTED int32_t yices_decref_type(type_t tau) {
   error_report_t *error = __yices_globals.error;
+  int32_t retval = -1;
+
   if (! check_good_type(__yices_globals.types, tau)) {
-    return -1;
+    return retval;
   }
+
+  get_yices_lock(&root_lock);
 
   if (root_types == NULL ||
       sparse_array_read(root_types, tau) == 0) {
     error->code = BAD_TYPE_DECREF;
     error->type1 = tau;
-    return -1;
+  } else {
+    sparse_array_decr(root_types, tau);
+    retval = 0;
   }
 
-  sparse_array_decr(root_types, tau);
+  release_yices_lock(&root_lock);
 
-  return 0;
+  return retval;
 }
 
 
@@ -4969,20 +5092,30 @@ EXPORTED uint32_t yices_num_types(void) {
 EXPORTED uint32_t yices_num_posref_terms(void) {
   uint32_t n;
 
+  get_yices_lock(&root_lock);
+
   n = 0;
   if (root_terms != NULL) {
     n = root_terms->nelems;
   }
+
+  release_yices_lock(&root_lock);
+
   return n;
 }
 
 EXPORTED uint32_t yices_num_posref_types(void) {
   uint32_t n;
 
+  get_yices_lock(&root_lock);
+
   n = 0;
   if (root_types != NULL) {
     n = root_types->nelems;
   }
+
+  release_yices_lock(&root_lock);
+
   return n;
 }
 
@@ -5012,22 +5145,33 @@ static void type_marker(void *aux, uint32_t i) {
 static void context_list_gc_mark(void) {
   dl_list_t *elem;
 
+  get_yices_lock(&context_lock);
+
+
   elem = context_list.next;
   while (elem != &context_list) {
     context_gc_mark(context_of_header(elem));
     elem = elem->next;
   }
+ 
+  release_yices_lock(&context_lock);
+
 }
 
 // scan the list of models and call the mark procedure
 static void model_list_gc_mark(void) {
   dl_list_t *elem;
 
+  get_yices_lock(&model_lock);
+
   elem = model_list.next;
   while (elem != &model_list) {
     model_gc_mark(model_of_header(elem));
     elem = elem->next;
   }
+
+  release_yices_lock(&model_lock);
+
 }
 
 // mark all terms in array a, n = size of a
@@ -5073,6 +5217,7 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
   term_table_t *terms = __yices_globals.terms;
   type_table_t *types = __yices_globals.types;
 
+
   /*
    * Default roots: all terms and types in all live models and context
    */
@@ -5085,6 +5230,7 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
   if (t != NULL) mark_term_array(terms, t, nt);
   if (tau != NULL) mark_type_array(types, tau, ntau);
 
+  get_yices_lock(&root_lock);
 
   /*
    * Roots from the reference counting
@@ -5096,9 +5242,13 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
     sparse_array_iterate(root_types, types, type_marker);
   }
 
+  release_yices_lock(&root_lock);
+
   /*
    * Call the garbage collector
    */
   keep = (keep_named != 0);
   term_table_gc(terms, keep);
+
+
 }
