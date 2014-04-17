@@ -12,6 +12,7 @@
  *
  * The set Y is stored as a int_hash_set.
  */
+
 #ifndef __ELIM_SUBST_H
 #define __ELIM_SUBST_H
 

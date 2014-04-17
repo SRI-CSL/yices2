@@ -94,15 +94,14 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               ef_analyze.c ef_problem.c efsolver.c	                \
               egraph_assertion_queues.c egraph_explanations.c		\
               egraph_utils.c egraph.c elim_subst.c eq_abstraction.c     \
-              eq_learner.c extended_rationals.c flattening.c            \
-              free_var_collector.c fresh_value_maker.c full_subst.c     \
-              fun_maps.c fun_solver.c fun_trees.c gates_hash_table.c    \
-              gates_manager.c gcd.c generic_heap.c hash_functions.c	\
-              idl_floyd_warshall.c ilists.c index_vectors.c		\
-              int_array_hsets.c int_array_sort.c int_array_sort2.c	\
-              int_bags.c int_bv_sets.c int_hash_classes.c		\
-              int_hash_map.c int_hash_map2.c int_hash_sets.c		\
-              int_hash_tables.c int_heap.c int_heap2.c			\
+              eq_learner.c extended_rationals.c free_var_collector.c    \
+              fresh_value_maker.c full_subst.c fun_maps.c fun_solver.c  \
+              fun_trees.c gates_hash_table.c gates_manager.c gcd.c      \
+              generic_heap.c hash_functions.c idl_floyd_warshall.c      \
+              index_vectors.c int_array_hsets.c int_array_sort.c        \
+              int_array_sort2.c int_bags.c int_bv_sets.c                \
+              int_hash_classes.c int_hash_map.c int_hash_map2.c         \
+              int_hash_sets.c int_hash_tables.c int_heap.c int_heap2.c  \
               int_partitions.c int_powers.c int_queues.c int_stack.c	\
               int_vectors.c internalization_table.c lexer.c		\
               literal_collector.c map_to_model.c mark_vectors.c		\

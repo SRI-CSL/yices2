@@ -6,12 +6,15 @@
  *
  * Basic flattening to  disjunct/conjuncts
  * ----------------------------------------
- * Given a formula f, flattening to conjuncts:
- * return n formulas c_1 ... c_n such that
- *   f == (and c_1 ... c_n)
+ * Given a formula f,
  *
- * Flattening to disjuncts: return n formulas d_1 ... d_n such that
- *   f == (or d_1 ... d_n)
+ * 1) flattening to conjuncts returns n formulas c_1 ... c_n such that
+ *
+ *       f <=> (and c_1 ... c_n)
+ *
+ * 2) flattening to disjuncts returns n formulas d_1 ... d_n such that
+ *
+ *       f <=> (or d_1 ... d_n)
  *
  * Basic flattening does this for nested and/or constructs
  *
