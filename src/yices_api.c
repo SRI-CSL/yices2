@@ -55,6 +55,7 @@
 #include "yices_iterators.h"
 #include "yices_globals.h"
 #include "yices_lexer.h"
+#include "yices_locks.h"
 #include "yices_parser.h"
 #include "yices_pp.h"
 
@@ -66,10 +67,21 @@
  ***************************/
 
 
+/*
 // parser, lexer, term stack: all are allocated on demand
 static parser_t *parser;
 static lexer_t *lexer;
 static tstack_t *tstack;
+*/
+typedef struct {
+  yices_lock_t lock; 
+  parser_t *parser;
+  lexer_t *lexer;
+  tstack_t *tstack;
+} global_parser_state_t;
+
+global_parser_state_t __yices_parser_state;
+
 
 /*
  * Initial sizes of the type and term tables.
@@ -79,11 +91,9 @@ static tstack_t *tstack;
 
 
 /*
- * Global table. Initially all pointers are NULL
+ * Global table.
  */
-yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL 
-};
+yices_globals_t __yices_globals;
 
 
 
@@ -96,6 +106,8 @@ yices_globals_t __yices_globals = {
  *   On the first call to register a term or type, we initialize the
  *   static tables and update root_terms/root_types to point to it
  */
+static yices_lock_t root_lock;
+
 static sparse_array_t *root_terms;
 static sparse_array_t *root_types;
 
@@ -124,6 +136,7 @@ typedef struct {
 } bvarith_buffer_elem_t;
 
 static dl_list_t bvarith_buffer_list;
+static yices_lock_t  bvarith_buffer_lock; 
 
 
 /*
@@ -135,7 +148,7 @@ typedef struct {
 } bvarith64_buffer_elem_t;
 
 static dl_list_t bvarith64_buffer_list;
-
+static yices_lock_t bvarith64_buffer_lock;
 
 /*
  * Doubly-linked list of bitvector buffers
@@ -146,7 +159,7 @@ typedef struct {
 } bvlogic_buffer_elem_t;
 
 static dl_list_t bvlogic_buffer_list;
-
+static yices_lock_t bvlogic_buffer_lock;
 
 /*
  * Doubly-linked list of contexts
@@ -157,7 +170,7 @@ typedef struct {
 } context_elem_t;
 
 static dl_list_t context_list;
-
+static yices_lock_t context_lock;
 
 /*
  * Models
@@ -168,6 +181,7 @@ typedef struct {
 } model_elem_t;
 
 static dl_list_t model_list;
+static yices_lock_t model_lock;
 
 
 /*
@@ -185,6 +199,7 @@ typedef struct {
 } param_structure_elem_t;
 
 static dl_list_t generic_list;
+static yices_lock_t generic_lock;
 
 
 
@@ -579,24 +594,24 @@ static void free_generic_list(void) {
  * - s must be non-NULL, terminated by '\0'
  */
 static parser_t *get_parser(const char *s) {
-  if (parser == NULL) {
-    assert(lexer == NULL && tstack == NULL);
-    tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
-    init_tstack(tstack, NUM_BASE_OPCODES);
+  if (__yices_parser_state.parser == NULL) {
+    assert(__yices_parser_state.lexer == NULL && __yices_parser_state.tstack == NULL);
+    __yices_parser_state.tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
+    init_tstack(__yices_parser_state.tstack, NUM_BASE_OPCODES);
 
-    lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
-    init_string_lexer(lexer, s, "yices");
+    __yices_parser_state.lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
+    init_string_lexer(__yices_parser_state.lexer, s, "yices");
 
-    parser = (parser_t *) safe_malloc(sizeof(parser_t));
-    init_parser(parser, lexer, tstack);
+    __yices_parser_state.parser = (parser_t *) safe_malloc(sizeof(parser_t));
+    init_parser(__yices_parser_state.parser, __yices_parser_state.lexer, __yices_parser_state.tstack);
 
   } else {
     // reset the input string
-    assert(lexer != NULL && tstack != NULL);
-    reset_string_lexer(lexer, s);
+    assert(__yices_parser_state.lexer != NULL && __yices_parser_state.tstack != NULL);
+    reset_string_lexer(__yices_parser_state.lexer, s);
   }
 
-  return parser;
+  return __yices_parser_state.parser;
 }
 
 
@@ -606,23 +621,23 @@ static parser_t *get_parser(const char *s) {
  */
 static void delete_parsing_objects(void) {
 
-  if (parser != NULL) {
-    assert(lexer != NULL && tstack != NULL);
-    delete_parser(parser);
-    safe_free(parser);
-    parser = NULL;
+  if (__yices_parser_state.parser != NULL) {
+    assert(__yices_parser_state.lexer != NULL && __yices_parser_state.tstack != NULL);
+    delete_parser(__yices_parser_state.parser);
+    safe_free(__yices_parser_state.parser);
+    __yices_parser_state.parser = NULL;
 
-    close_lexer(lexer);
-    safe_free(lexer);
-    lexer = NULL;
+    close_lexer(__yices_parser_state.lexer);
+    safe_free(__yices_parser_state.lexer);
+    __yices_parser_state.lexer = NULL;
 
-    delete_tstack(tstack);
-    safe_free(tstack);
-    tstack = NULL;
+    delete_tstack(__yices_parser_state.tstack);
+    safe_free(__yices_parser_state.tstack);
+    __yices_parser_state.tstack = NULL;
 
   }
 
-  assert(lexer == NULL && tstack == NULL);
+  assert(__yices_parser_state.lexer == NULL && __yices_parser_state.tstack == NULL);
 }
 
 
@@ -638,7 +653,10 @@ static void delete_parsing_objects(void) {
 
 
 
-static void alloc_globals(yices_globals_t *glob) {
+static void init_globals(yices_globals_t *glob, global_parser_state_t* gparser) {
+
+  /* first the global object, then the miscellaneous globals */
+
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
   term_table_t *terms = (term_table_t *)safe_malloc(sizeof(term_table_t));
   term_manager_t *manager = (term_manager_t *)safe_malloc(sizeof(term_manager_t));
@@ -656,13 +674,24 @@ static void alloc_globals(yices_globals_t *glob) {
   glob->manager = manager;
   glob->error = error;
   glob->pprods = pprods;
+
+  create_yices_lock(&(glob->lock));
+
+  /* the parser state */
+ gparser->parser = NULL;
+ gparser->lexer = NULL;
+ gparser->tstack = NULL;
+
+ create_yices_lock(&(gparser->lock));
+
+
 }
 
 
 /*
  * Reset all to NULL (and free up the memory)
  */
-static void clear_globals(yices_globals_t *glob) {
+static void clear_globals(yices_globals_t *glob, global_parser_state_t* gparser) {
 
   free(glob->types);
   free(glob->terms);
@@ -675,6 +704,11 @@ static void clear_globals(yices_globals_t *glob) {
   glob->manager = NULL;
   glob->error = NULL;
   //glob->pprods = NULL;    //bruno?
+
+  
+  destroy_yices_lock(&(glob->lock));
+
+
 }
 
 /*
@@ -688,7 +722,7 @@ EXPORTED void yices_init(void) {
   pprod_table_t *pprods;   
 
   // allocate the global table
-  alloc_globals(&__yices_globals);
+  init_globals(&__yices_globals, &__yices_parser_state);
 
   types = __yices_globals.types;
   terms = __yices_globals.terms;
@@ -711,21 +745,28 @@ EXPORTED void yices_init(void) {
   init_term_manager(manager, types, terms);
 
   // buffer lists
+  create_yices_lock(&(bvarith_buffer_lock));
   clear_list(&bvarith_buffer_list);
+
+  create_yices_lock(&(bvarith64_buffer_lock));
   clear_list(&bvarith64_buffer_list);
+
+  create_yices_lock(&(bvlogic_buffer_lock));
   clear_list(&bvlogic_buffer_list);
 
   // other dynamic object lists
+  create_yices_lock(&(context_lock));
   clear_list(&context_list);
+
+  create_yices_lock(&(model_lock));
   clear_list(&model_list);
+
+  create_yices_lock(&(generic_lock));
   clear_list(&generic_list);
 
-  // parser etc.
-  parser = NULL;
-  lexer = NULL;
-  tstack = NULL;
 
   // registries for garbage collection
+  create_yices_lock(&(root_lock));
   root_terms = NULL;
   root_types = NULL;
 
@@ -768,7 +809,18 @@ EXPORTED void yices_exit(void) {
   delete_pprod_table(pprods);
   delete_type_table(types);
 
-  clear_globals(&__yices_globals);
+  clear_globals(&__yices_globals, &__yices_parser_state);
+
+  /* ditch the global locks */
+  destroy_yices_lock(&(bvarith_buffer_lock));
+  destroy_yices_lock(&(bvarith64_buffer_lock));
+  destroy_yices_lock(&(bvlogic_buffer_lock));
+  destroy_yices_lock(&(context_lock));
+  destroy_yices_lock(&(model_lock));
+  destroy_yices_lock(&(generic_lock));
+  destroy_yices_lock(&(root_lock));
+
+
 
   cleanup_rationals();
   cleanup_bvconstants();

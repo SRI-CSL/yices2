@@ -13,13 +13,15 @@
 
 #include "term_manager.h"
 #include "term_stack2.h"
+#include "yices_locks.h"
 
 typedef struct yices_globals_s {
-  type_table_t *types;       // type table
-  term_table_t *terms;       // term table
-  term_manager_t *manager;   // full term manager (includes terms)
-  error_report_t *error;     // data structure for error reporting
-  pprod_table_t *pprods;     // pprod table
+  yices_lock_t lock;                /* a lock protecting the globals                         */
+  type_table_t *types;              /* type table                                            */
+  term_table_t *terms;              /* term table                                            */
+  term_manager_t *manager;          /* full term manager (includes terms)                    */
+  error_report_t *error;            /* data structure for error reporting                    */
+  pprod_table_t *pprods;            /* pprod table                                           */
 
 } yices_globals_t;
 
