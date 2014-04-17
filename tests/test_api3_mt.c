@@ -29,6 +29,7 @@
 #include "type_printer.h"
 #include "term_printer.h"
 
+#include "threads.h"
 
 
 #ifdef MINGW
@@ -51,20 +52,18 @@ static inline long int random(void) {
 /*
  * Print the type table
  */
-static void show_types(void) {
-  printf("\n---- Type table ----\n");
-  //  print_type_table(stdout, __yices_globals.types);
-  pp_type_table(stdout, __yices_globals.types);
+static void show_types(FILE* output) {
+  fprintf(output, "\n---- Type table ----\n");
+  pp_type_table(output, __yices_globals.types);
 }
 
 
 /*
  * Print the term table
  */
-static void show_terms(void) {
-  printf("\n---- Term table -----\n");
-  //  print_term_table(stdout, __yices_globals.terms);
-  pp_term_table(stdout, __yices_globals.terms);
+static void show_terms(FILE* output) {
+  fprintf(output, "\n---- Term table -----\n");
+  pp_term_table(output, __yices_globals.terms);
 }
 
 
@@ -97,6 +96,7 @@ typedef struct type_store_s {
  */
 static void init_type_store(type_store_t *store) {
   uint32_t n;
+
 
   n = TYPE_STORE_DEF_SIZE;
   assert(n < TYPE_STORE_MAX_SIZE);
@@ -216,6 +216,7 @@ static void delete_type_store(type_store_t *store) {
 
   store->type = NULL;
   store->terms = NULL;
+
 }
 
 
@@ -361,16 +362,18 @@ static void delete_term_store(term_store_t *store) {
  * GLOBAL STORE:
  * - a store for all the types and another one for the terms
  */
-static type_store_t all_types;
-static term_store_t all_terms;
+static yices_lock_t __all_lock;
+static type_store_t __all_types;
+static term_store_t __all_terms;
 
 
 /*
  * Initialize both
  */
 static void init_store(void) {
-  init_type_store(&all_types);
-  init_term_store(&all_terms);
+  create_yices_lock(&__all_lock);
+  init_type_store(&__all_types);
+  init_term_store(&__all_terms);
 }
 
 
@@ -378,8 +381,9 @@ static void init_store(void) {
  * Delete both
  */
 static void delete_store(void) {
-  delete_type_store(&all_types);
-  delete_term_store(&all_terms);
+  destroy_yices_lock(&__all_lock);
+  delete_type_store(&__all_types);
+  delete_term_store(&__all_terms);
 }
 
 
@@ -388,10 +392,16 @@ static void delete_store(void) {
  * - do nothing if t is already present
  */
 static void add_term(term_t t) {
-  if (! term_store_contains_term(&all_terms, t)) {
-    term_store_add_term(&all_terms, t);
-    type_store_add_term(&all_types, t);
+
+  get_yices_lock(&__all_lock);
+
+  if (! term_store_contains_term(&__all_terms, t)) {
+    term_store_add_term(&__all_terms, t);
+    type_store_add_term(&__all_types, t);
   }
+
+  release_yices_lock(&__all_lock);
+  
 }
 
 
@@ -834,97 +844,97 @@ static bv_shift_op_t extend_array[NUM_EXTEND_OPS] = {
  * - i = index in binop_array
  * - t1, t2 = arguments
  */
-static term_t test_binop(uint32_t i, term_t t1, term_t t2) {
+static term_t test_binop(FILE* output, uint32_t i, term_t t1, term_t t2) {
   term_t t;
 
   assert(i < NUM_BINOPS);
 
-  printf("test: (%s ", binop_array[i].name);
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" ");
-  print_term(stdout, __yices_globals.terms, t2);
-  printf(") --> ");
+  fprintf(output, "test: (%s ", binop_array[i].name);
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " ");
+  print_term(output, __yices_globals.terms, t2);
+  fprintf(output, ") --> ");
   t = binop_array[i].fun(t1, t2);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
 
 // same thing for unary operations
-static term_t test_unop(uint32_t i, term_t t1) {
+static term_t test_unop(FILE* output, uint32_t i, term_t t1) {
   term_t t;
 
   assert(i < NUM_UNARY_OPS);
 
-  printf("test: (%s ", unop_array[i].name);
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(") --> ");
+  fprintf(output, "test: (%s ", unop_array[i].name);
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, ") --> ");
   t = unop_array[i].fun(t1);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
 
 
 // predicate
-static term_t test_pred(uint32_t i, term_t t1, term_t t2) {
+static term_t test_pred(FILE* output, uint32_t i, term_t t1, term_t t2) {
   term_t t;
 
   assert(i < NUM_PREDS);
 
-  printf("test: (%s ", pred_array[i].name);
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" ");
-  print_term(stdout, __yices_globals.terms, t2);
-  printf(") --> ");
+  fprintf(output, "test: (%s ", pred_array[i].name);
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " ");
+  print_term(output, __yices_globals.terms, t2);
+  fprintf(output, ") --> ");
   t = pred_array[i].fun(t1, t2);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
 
 
 // shift/rotate operations
-static term_t test_shift(uint32_t i, term_t t1, uint32_t n) {
+static term_t test_shift(FILE* output, uint32_t i, term_t t1, uint32_t n) {
   term_t t;
 
   assert(i < NUM_SHIFT_OPS);
 
-  printf("test: (%s ", shift_array[i].name);
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" %"PRIu32") --> ", n);
+  fprintf(output, "test: (%s ", shift_array[i].name);
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " %"PRIu32") --> ", n);
   t = shift_array[i].fun(t1, n);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
 
 // extend/repeat operations
-static term_t test_extend(uint32_t i, term_t t1, uint32_t n) {
+static term_t test_extend(FILE* output, uint32_t i, term_t t1, uint32_t n) {
   term_t t;
 
   assert(i < NUM_EXTEND_OPS);
 
-  printf("test: (%s ", extend_array[i].name);
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" %"PRIu32") --> ", n);
+  fprintf(output, "test: (%s ", extend_array[i].name);
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " %"PRIu32") --> ", n);
   t = extend_array[i].fun(t1, n);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
@@ -934,19 +944,19 @@ static term_t test_extend(uint32_t i, term_t t1, uint32_t n) {
 /*
  * Test bvconcat
  */
-static term_t test_bvconcat(term_t t1, term_t t2) {
+static term_t test_bvconcat(FILE* output, term_t t1, term_t t2) {
   term_t t;
 
-  printf("test: (bvconcat ");
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" ");
-  print_term(stdout, __yices_globals.terms, t2);
-  printf(") ---> ");
+  fprintf(output, "test: (bvconcat ");
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " ");
+  print_term(output, __yices_globals.terms, t2);
+  fprintf(output, ") ---> ");
   t = yices_bvconcat(t1, t2);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
@@ -955,17 +965,17 @@ static term_t test_bvconcat(term_t t1, term_t t2) {
 /*
  * Test bvextract
  */
-static term_t test_bvextract(term_t t1, uint32_t i, uint32_t j) {
+static term_t test_bvextract(FILE* output, term_t t1, uint32_t i, uint32_t j) {
   term_t t;
 
-  printf("test: (bvextract ");
-  print_term(stdout, __yices_globals.terms, t1);
-  printf(" %"PRIu32" %"PRIu32") --> ", i, j);
+  fprintf(output, "test: (bvextract ");
+  print_term(output, __yices_globals.terms, t1);
+  fprintf(output, " %"PRIu32" %"PRIu32") --> ", i, j);
   t = yices_bvextract(t1, i, j);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
@@ -974,94 +984,114 @@ static term_t test_bvextract(term_t t1, uint32_t i, uint32_t j) {
 /*
  * Test of bvarray construct
  */
-static term_t bvarray[100];
+static term_t __bvarray[100];
+static yices_lock_t __bvarray_lock;
+
+static void init_bvarray(void){
+ create_yices_lock(&__bvarray_lock);
+}
+
+static void destroy_bvarray(void){
+ destroy_yices_lock(&__bvarray_lock);
+}
+
 
 // array of constants + t1 + (not t1)
-static term_t test_bvarray1(uint32_t n, term_t t1) {
+static term_t test_bvarray1(FILE* output, uint32_t n, term_t t1) {
   term_t t;
   uint32_t i;
-
+  
   assert(n <= 100);
+
+  get_yices_lock(&__bvarray_lock);
+
   for (i=0; i<n; i++) {
     switch (random() % 4) {
     case 0:
-      bvarray[i] = false_term;
+      __bvarray[i] = false_term;
       break;
 
     case 1:
-      bvarray[i] = true_term;
+      __bvarray[i] = true_term;
       break;
 
     case 2:
-      bvarray[i] = t1;
+      __bvarray[i] = t1;
       break;
 
     default:
-      bvarray[i] = yices_not(t1);
+      __bvarray[i] = yices_not(t1);
       break;
     }
   }
 
-  printf("test: (bvarray");
+  fprintf(output, "test: (bvarray");
   for (i=0; i<n; i++) {
-    printf(" ");
-    print_term(stdout, __yices_globals.terms, bvarray[i]);
+    fprintf(output, " ");
+    print_term(output, __yices_globals.terms, __bvarray[i]);
   }
-  printf(") --> ");
-  t = yices_bvarray(n, bvarray);
-  print_term(stdout,__yices_globals.terms, t);
-  printf("\n");
+  fprintf(output, ") --> ");
+  t = yices_bvarray(n, __bvarray);
+  print_term(output,__yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
+
+  release_yices_lock(&__bvarray_lock);
 
   return t;
 }
 
 // array of constants + t1/t2 + (not t1) + (not t2)
-static term_t test_bvarray2(uint32_t n, term_t t1, term_t t2) {
+static term_t test_bvarray2(FILE* output, uint32_t n, term_t t1, term_t t2) {
   term_t t;
   uint32_t i;
 
   assert(n <= 100);
+
+  get_yices_lock(&__bvarray_lock);
+
   for (i=0; i<n; i++) {
     switch (random() % 6) {
     case 0:
-      bvarray[i] = false_term;
+      __bvarray[i] = false_term;
       break;
 
     case 1:
-      bvarray[i] = true_term;
+      __bvarray[i] = true_term;
       break;
 
     case 2:
-      bvarray[i] = t1;
+      __bvarray[i] = t1;
       break;
 
     case 3:
-      bvarray[i] = yices_not(t1);
+      __bvarray[i] = yices_not(t1);
       break;
 
     case 4:
-      bvarray[i] = t2;
+      __bvarray[i] = t2;
       break;
 
     default:
-      bvarray[i] = yices_not(t2);
+      __bvarray[i] = yices_not(t2);
       break;
     }
   }
 
-  printf("test: (bvarray");
+  fprintf(output, "test: (bvarray");
   for (i=0; i<n; i++) {
-    printf(" ");
-    print_term(stdout, __yices_globals.terms, bvarray[i]);
+    fprintf(output, " ");
+    print_term(output, __yices_globals.terms, __bvarray[i]);
   }
-  printf(") --> ");
-  t = yices_bvarray(n, bvarray);
-  print_term(stdout,__yices_globals.terms, t);
-  printf("\n");
+  fprintf(output, ") --> ");
+  t = yices_bvarray(n, __bvarray);
+  print_term(output,__yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
+
+  release_yices_lock(&__bvarray_lock);
 
   return t;
 }
@@ -1070,21 +1100,21 @@ static term_t test_bvarray2(uint32_t n, term_t t1, term_t t2) {
 /*
  * If-then-else
  */
-static term_t test_ite(term_t c, term_t left, term_t right) {
+static term_t test_ite(FILE* output, term_t c, term_t left, term_t right) {
   term_t t;
 
-  printf("test: (ite ");
-  print_term(stdout, __yices_globals.terms, c);
-  printf(" ");
-  print_term(stdout, __yices_globals.terms, left);
-  printf(" ");
-  print_term(stdout, __yices_globals.terms, right);
-  printf(") --> ");
+  fprintf(output, "test: (ite ");
+  print_term(output, __yices_globals.terms, c);
+  fprintf(output, " ");
+  print_term(output, __yices_globals.terms, left);
+  fprintf(output, " ");
+  print_term(output, __yices_globals.terms, right);
+  fprintf(output, ") --> ");
   t = yices_ite(c, left, right);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return t;
 }
@@ -1093,17 +1123,17 @@ static term_t test_ite(term_t c, term_t left, term_t right) {
 /*
  * Test bit_extract
  */
-static term_t test_bitextract(term_t t, uint32_t i) {
+static term_t test_bitextract(FILE* output, term_t t, uint32_t i) {
   term_t b;
 
-  printf("test: (bit-extract ");
-  print_term(stdout, __yices_globals.terms, t);
-  printf(" %"PRIu32") --> ", i);
+  fprintf(output, "test: (bit-extract ");
+  print_term(output, __yices_globals.terms, t);
+  fprintf(output, " %"PRIu32") --> ", i);
   b = yices_bitextract(t, i);
-  print_term(stdout, __yices_globals.terms, b);
-  printf("\n");
+  print_term(output, __yices_globals.terms, b);
+  fprintf(output, "\n");
 
-  fflush(stdout);
+  fflush(output);
 
   return b;
 }
@@ -1113,67 +1143,67 @@ static term_t test_bitextract(term_t t, uint32_t i) {
 /*
  * Run all possible tests with terms t1 and t2 (equal size)
  */
-static void full_binary_tests(term_t t1, term_t t2) {
+static void full_binary_tests(FILE* output, term_t t1, term_t t2) {
   uint32_t i, n;
 
   for (i=0; i<NUM_BINOPS; i++) {
-    test_binop(i, t1, t2);
-    test_binop(i, t2, t1);
+    test_binop(output, i, t1, t2);
+    test_binop(output, i, t2, t1);
   }
 
   for (i=0; i<NUM_UNARY_OPS; i++) {
-    test_unop(i, t1);
-    test_unop(i, t2);
+    test_unop(output, i, t1);
+    test_unop(output, i, t2);
   }
 
   for (i=0; i<NUM_PREDS; i++) {
-    test_pred(i, t1, t2);
+    test_pred(output, i, t1, t2);
   }
 
   n = term_bitsize(__yices_globals.terms, t1);
   for (i=0; i<NUM_SHIFT_OPS; i++) {
-    test_shift(i, t1, 0);
-    test_shift(i, t2, 0);
-    test_shift(i, t1, 1);
-    test_shift(i, t2, 1);
-    test_shift(i, t1, n-1);
-    test_shift(i, t2, n-1);
-    test_shift(i, t1, n);
-    test_shift(i, t2, n);
+    test_shift(output, i, t1, 0);
+    test_shift(output, i, t2, 0);
+    test_shift(output, i, t1, 1);
+    test_shift(output, i, t2, 1);
+    test_shift(output, i, t1, n-1);
+    test_shift(output, i, t2, n-1);
+    test_shift(output, i, t1, n);
+    test_shift(output, i, t2, n);
   }
 
   for (i=0; i<NUM_EXTEND_OPS; i++) {
     if (i > 0) {
       // repeat concat does not allow n=0
-      test_extend(i, t1, 0);
-      test_extend(i, t2, 0);
+      test_extend(output, i, t1, 0);
+      test_extend(output, i, t2, 0);
     }
-    test_extend(i, t1, 1);
-    test_extend(i, t2, 1);
-    test_extend(i, t1, 4);
-    test_extend(i, t2, 4);
+    test_extend(output, i, t1, 1);
+    test_extend(output, i, t2, 1);
+    test_extend(output, i, t1, 4);
+    test_extend(output, i, t2, 4);
   }
 
-  test_bvconcat(t1, t2);
-  test_bvconcat(t2, t1);
-  test_bvconcat(t1, t1);
-  test_bvconcat(t2, t2);
+  test_bvconcat(output, t1, t2);
+  test_bvconcat(output, t2, t1);
+  test_bvconcat(output, t1, t1);
+  test_bvconcat(output, t2, t2);
 
-  test_bvextract(t1, 0, n-1);
-  test_bvextract(t2, 0, n-1);
+  test_bvextract(output, t1, 0, n-1);
+  test_bvextract(output, t2, 0, n-1);
   for (i=0; i+2<n; i++) {
-    test_bvextract(t1, i, i+2);
-    test_bvextract(t2, i, i+2);
+    test_bvextract(output, t1, i, i+2);
+    test_bvextract(output, t2, i, i+2);
   }
 
   for (i=0; i<n; i++) {
-    test_bvextract(t1, i, i);
-    test_bvextract(t2, i, i);
+    test_bvextract(output, t1, i, i);
+    test_bvextract(output, t2, i, i);
   }
 
   for (i=0; i<n; i++) {
-    test_bitextract(t1, i);
-    test_bitextract(t2, i);
+    test_bitextract(output, t1, i);
+    test_bitextract(output, t2, i);
   }
 }
 
@@ -1197,19 +1227,26 @@ static bool has_type(type_t tau, term_t t) {
 /*
  * Run n full tests on a pair of randomly selected bit-vector terms
  */
-static void random_binary_tests(uint32_t n) {
+static void random_binary_tests(FILE* output, uint32_t n) {
   type_t tau;
   term_t t1, t2;
 
   while (n > 0) {
-    tau = type_store_sample(&all_types, is_bvtype);
+    
+    get_yices_lock(&__all_lock);
+
+    tau = type_store_sample(&__all_types, is_bvtype);
     assert(tau != NULL_TYPE);
-    t1 = type_store_sample_terms(&all_types, tau);
-    t2 = type_store_sample_terms(&all_types, tau);
+    t1 = type_store_sample_terms(&__all_types, tau);
+    t2 = type_store_sample_terms(&__all_types, tau);
+
+    release_yices_lock(&__all_lock);
+
+
     assert(t1 != NULL_TERM && t2 != NULL_TERM);
-    printf("--- Test %"PRIu32"---\n", n);
-    full_binary_tests(t1, t2);
-    printf("\n\n");
+    fprintf(output, "--- Test %"PRIu32"---\n", n);
+    full_binary_tests(output, t1, t2);
+    fprintf(output, "\n\n");
     n --;
   }
 }
@@ -1219,25 +1256,31 @@ static void random_binary_tests(uint32_t n) {
 /*
  * Random bitarrays n rounds
  */
-static void random_bvarrays(uint32_t n) {
+static void random_bvarrays(FILE* output, uint32_t n) {
   type_t tau;
   term_t t1, t2, t;
   uint32_t k;
 
-  printf("\n---- Random bitarrays ----\n");
+  fprintf(output, "\n---- Random bitarrays ----\n");
   while (n > 0) {
-    tau = type_store_sample(&all_types, is_bvtype);
+
+    get_yices_lock(&__all_lock);
+
+    tau = type_store_sample(&__all_types, is_bvtype);
     k = bv_type_size(__yices_globals.types, tau);
-    t1 = term_store_sample(&all_terms, boolean, has_type);
-    t2 = term_store_sample(&all_terms, boolean, has_type);
+    t1 = term_store_sample(&__all_terms, boolean, has_type);
+    t2 = term_store_sample(&__all_terms, boolean, has_type);
 
-    t = test_bvarray1(k, t1);
-    add_term(t);
-    printf("\n");
+    release_yices_lock(&__all_lock);
 
-    t = test_bvarray2(k, t1, t2);
+
+    t = test_bvarray1(output, k, t1);
     add_term(t);
-    printf("\n");
+    fprintf(output, "\n");
+
+    t = test_bvarray2(output, k, t1, t2);
+    add_term(t);
+    fprintf(output, "\n");
 
     n --;
   }
@@ -1248,33 +1291,38 @@ static void random_bvarrays(uint32_t n) {
 /*
  * Random bv-extracts: n rounds
  */
-static void random_bvextracts(uint32_t n) {
+static void random_bvextracts(FILE* output, uint32_t n) {
   type_t tau;
   term_t t1, t2, t3, t;
   uint32_t k, i;
 
-  printf("\n---- Random bvextracts ----\n");
+  fprintf(output, "\n---- Random bvextracts ----\n");
   while (n > 0) {
-    tau = type_store_sample(&all_types, is_bvtype);
+
+    get_yices_lock(&__all_lock);
+ 
+    tau = type_store_sample(&__all_types, is_bvtype);
     k = bv_type_size(__yices_globals.types, tau);
 
-    t1 = type_store_sample_terms(&all_types, tau);
+    t1 = type_store_sample_terms(&__all_types, tau);
+
+    release_yices_lock(&__all_lock);
 
     // split t1
     i = ((uint32_t) random()) % k;
     assert(0 <= i && i <= k-1);
 
     // right part: low order bits [0 ... i]
-    t2 = test_bvextract(t1, 0, i);
+    t2 = test_bvextract(output, t1, 0, i);
     add_term(t2);
 
     if (i < k-1) {
       // left part: high-order bits [i+1 ... k-1]
-      t3 = test_bvextract(t1, i+1, k-1);
+      t3 = test_bvextract(output, t1, i+1, k-1);
       add_term(t3);
 
       // check concat: should get back t1
-      t = test_bvconcat(t3, t2);
+      t = test_bvconcat(output, t3, t2);
       assert(t == t1);
 
     } else {
@@ -1282,7 +1330,7 @@ static void random_bvextracts(uint32_t n) {
       assert(t1 == t2);
     }
 
-    printf("\n");
+    fprintf(output, "\n");
 
     n --;
   }
@@ -1292,46 +1340,90 @@ static void random_bvextracts(uint32_t n) {
 /*
  * Random if-then-else test: n rounds
  */
-static void random_ite(uint32_t n) {
+static void random_ite(FILE* output, uint32_t n) {
   type_t tau;
   term_t t1, t2, c;
 
-  printf("\n---- Test if-then-else ----\n");
+  fprintf(output, "\n---- Test if-then-else ----\n");
   while (n > 0) {
-    tau = type_store_sample(&all_types, is_bvtype);
-    t1 = type_store_sample_terms(&all_types, tau);
-    t2 = type_store_sample_terms(&all_types, tau);
-    c = term_store_sample(&all_terms, boolean, has_type);
 
-    test_ite(c, t1, t2);
-    printf("\n");
+    get_yices_lock(&__all_lock);
+
+    tau = type_store_sample(&__all_types, is_bvtype);
+    t1 = type_store_sample_terms(&__all_types, tau);
+    t2 = type_store_sample_terms(&__all_types, tau);
+    c = term_store_sample(&__all_terms, boolean, has_type);
+
+    release_yices_lock(&__all_lock);
+
+
+    test_ite(output, c, t1, t2);
+    fprintf(output, "\n");
 
     n --;
   }
 }
 
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
+  FILE* output = (FILE *)arg;
+
+  fprintf(stderr, "Starting: %s\n", "show_types");
+  show_types(output);
+
+  fprintf(stderr, "Starting: %s\n", "show_terms");
+  show_terms(output);
+
+  fprintf(stderr, "Starting: %s\n", "random_bvarrays");
+  random_bvarrays(output, BVNUM);
+
+  fprintf(stderr, "Starting: %s\n", "random_bvextracts");
+  random_bvextracts(output, BVNUM);
+
+  fprintf(stderr, "Starting: %s\n", "random_ite");
+  random_ite(output, ITENUM);
+
+  fprintf(stderr, "Starting: %s\n", "random_binary_tests");
+  random_binary_tests(output, BINUM);
+
+  fprintf(stderr, "Starting: %s\n", "show_types");
+  show_types(output);
+
+  fprintf(stderr, "Starting: %s\n", "show_terms");
+  show_terms(output);
 
 
-int main(void) {
-  yices_init();
-  init_store();
-  init_base_types();
-  init_base_terms();
+  fprintf(stderr, "Done.\n");
 
-  show_types();
-  show_terms();
+  return yices_thread_exit();
+}
 
-  random_bvarrays(BVNUM);
-  random_bvextracts(BVNUM);
+int main(int argc, char* argv[]) {
 
-  random_ite(ITENUM);
-  random_binary_tests(BINUM);
+  if(argc != 2){
+    mt_test_usage(argc, argv);
+    return 0;
+  } else {
+    int32_t nthreads = atoi(argv[1]);
 
-  show_types();
-  show_terms();
+    yices_init();
+    init_bvarray();
+    init_store();
+    init_base_types();
+    init_base_terms();
 
-  delete_store();
-  yices_exit();
+    if(nthreads < 0){
+      fprintf(stderr, "thread number must be positive!\n");
+      exit(EXIT_FAILURE);
+    } else if(nthreads == 0){
+      test_thread(stdout);
+    } else {
+      launch_threads(nthreads, "test_api3_mt", test_thread);
+    }
+    
 
+    delete_store();
+    destroy_bvarray();
+    yices_exit();
+  }
   return 0;
 }

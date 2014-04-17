@@ -67,12 +67,7 @@
  ***************************/
 
 
-/*
-// parser, lexer, term stack: all are allocated on demand
-static parser_t *parser;
-static lexer_t *lexer;
-static tstack_t *tstack;
-*/
+// the parser bundle: parser, lexer, term stack: all are allocated on demand
 typedef struct {
   yices_lock_t lock; 
   parser_t *parser;
