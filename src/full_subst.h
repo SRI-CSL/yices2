@@ -146,8 +146,24 @@ extern void full_subst_add_map(full_subst_t *subst, term_t x, term_t t);
  * - t's type must be a subtype of x's type
  * - return false if x is already mapped to something else
  *   or if the map x --> t would create a cycle
+ *
+ * IMPORTANT: this assumes that there are no cycles in subst.
+ * (otherwise the function may return false if there's a cycle
+ *  that does not include the edge x --> t).
  */
 extern bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t);
+
+
+/*
+ * Check whether one of a[0].. a[n-1] depends on x
+ * - return true if so, false otherwise
+ *
+ * This can be used for checking whether a map of the form
+ *   [x --> f(a[0]. ... a[n-1]) ]  will create a cycle
+ *
+ * Important: subst must not contain cycles.
+ */
+extern bool full_subst_check_deps(full_subst_t *subst, term_t x, uint32_t n, term_t *a);
 
 
 /*

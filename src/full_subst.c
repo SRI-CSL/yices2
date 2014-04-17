@@ -384,8 +384,13 @@ static bool fsubst_visit(full_subst_t *subst, term_t t) {
  * - x must be an uninterpreted term
  *   t must be a ground term
  * - t's type must be a subtype of x's type
+ *
  * - return false if x is already mapped to something else
  *   or if the map x --> t would create a cycle
+ *
+ * IMPORTANT: this assumes that there are no cycles in subst.
+ * (otherwise the function may return false if there's a cycle
+ * that does not include the edge x --> t).
  */
 bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t) {
   assert(good_map_types(subst, x, t));
@@ -400,6 +405,37 @@ bool full_subst_check_map(full_subst_t *subst, term_t x, term_t t) {
   mark_vector_add_mark(&subst->mark, index_of(x), MARK_GREY);
 
   return !fsubst_visit(subst, t);
+}
+
+
+/*
+ * Generalization of check_map:
+ * - check whether one of a[0].. a[n-1] depends on x
+ * - this can be used for checking whether a map of the form
+ *   [x --> f(a[0]. ... a[n-1]) ]  will create a cycle.
+ *
+ * IMPORTANT: this assumes that there are no cycles in subst.
+ * (otherwise the function may return false if there's a cycle
+ * that does not include the edge x --> t).
+ */
+bool full_subst_check_deps(full_subst_t *subst, term_t x, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  subst->remove_cycles = false;
+  reset_mark_vector(&subst->mark);
+  mark_vector_add_mark(&subst->mark, index_of(x), MARK_GREY);
+
+  for (i=0; i<n; i++) {
+    if (fsubst_visit(subst, a[i])) {
+      /*
+       * reached a grey node starting from a[i]
+       * we assume that this node is x
+       */
+      return true;
+    }
+  }
+
+  return false;
 }
 
 

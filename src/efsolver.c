@@ -911,7 +911,7 @@ static void ef_solver_search(ef_solver_t *solver) {
   ef_solver_start(solver);
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
-#if 0
+#if 1
     printf("--- Iteration %"PRIu32" ---\n", i);
 #endif
 
@@ -922,7 +922,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
-#if 0
+#if 1
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);

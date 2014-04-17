@@ -6,8 +6,10 @@
 
 #include "term_utils.h"
 #include "ef_analyze.h"
+#include "yices.h"
 
-
+#include "term_sets.h"
+#include "elim_subst.h"
 
 
 /*
@@ -33,6 +35,7 @@ static void delete_ef_clause(ef_clause_t *cl) {
   delete_ivector(&cl->assumptions);
   delete_ivector(&cl->guarantees);
 }
+
 
 
 /*
@@ -64,6 +67,20 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
 }
 
 
+/*
+ * Print a clause
+ */
+void print_ef_clause(FILE *f, ef_clause_t *cl) {
+  fprintf(f, "EF Clause: evars\n");
+  yices_pp_term_array(f, cl->evars.size, cl->evars.data, 120, UINT32_MAX, 0, 1);
+  fprintf(f, "\nEF Clause: uvars\n");
+  yices_pp_term_array(f, cl->uvars.size, cl->uvars.data, 120, UINT32_MAX, 0, 1);
+  fprintf(f, "\nEF Clause: assumptions\n");
+  yices_pp_term_array(f, cl->assumptions.size, cl->assumptions.data, 120, UINT32_MAX, 0, 0);
+  fprintf(f, "\nEF Clause: guarantees\n");
+  yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, UINT32_MAX, 0, 0);
+  fprintf(f, "---\n");
+}
 
 
 
@@ -851,6 +868,96 @@ static term_t ef_make_or(ef_analyzer_t *ef, ivector_t *v) {
 
 
 /*
+ * Simplify a clause: attempt to remove universal variables by substitution
+ * - search for literals of the form (/= y t) in the guarantees and assumptions
+ * - then apply a substitution: i.e., convert (or (/= y t) ... (P y) ...))
+ *   into (or ... (P t) ...)
+ */
+static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
+  int_hset_t uvars;
+  elim_subst_t elim;
+  uint32_t i, j, n;
+  term_t x, t, u;
+
+  init_term_set(&uvars, c->uvars.size, c->uvars.data);
+  init_elim_subst(&elim, ef->manager, &uvars);
+
+  // try to convert the guarantees into a substitution
+  n = c->guarantees.size;
+  for (i=0; i<n; i++) {
+    t = opposite_term(c->guarantees.data[i]);
+    (void) elim_subst_try_map(&elim, t, false);
+  }
+  n = c->assumptions.size;
+  for (i=0; i<n; i++) {
+    t = opposite_term(c->guarantees.data[i]);
+    (void) elim_subst_try_map(&elim, t, false);
+  }
+
+  elim_subst_remove_cycles(&elim);
+
+  // remove the universal variables that can be eliminated
+  n = c->uvars.size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = c->uvars.data[i];
+    t = elim_subst_get_map(&elim, x);
+    // TEMPORARY: print
+    if (t >= 0) {
+      printf("Elimination: %s --> ", yices_get_term_name(x));
+      yices_pp_term(stdout, t, 100, 20, 14);
+    } else {
+      // x is kept in uvars
+      c->uvars.data[j] = x;
+      j ++;
+    }
+  }
+  ivector_shrink(&c->uvars, j);
+
+
+  if (j < n) {
+    /*
+     * Some universal variables can be eliminated.
+     * Apply the substitution to all the terms of c.
+     *
+     * The substitution may introduce existential variables in the
+     * assumptions (so they should be moved to the guarantees vector).
+     * Crude approach for now: if an assumption is modified, we move it
+     * to the guarantees vector.
+     */
+    n = c->guarantees.size;
+    j = 0;
+    for (i=0; i<n; i++) {
+      t = c->guarantees.data[i];
+      u = elim_subst_apply(&elim, t);
+      if (u != false_term) {
+	c->guarantees.data[j] = u;
+	j ++;
+      }
+    }
+    ivector_shrink(&c->guarantees, j);
+
+    n = c->assumptions.size;
+    j = 0;
+    for (i=0; i<n; i++) {
+      t = c->assumptions.data[i];
+      u = elim_subst_apply(&elim, t);
+      if (t == u) {
+	c->assumptions.data[j] = t;
+	j ++;
+      } else if (u != false_term) {
+	ef_clause_add_guarantee(c, u);
+      }
+    }
+    ivector_shrink(&c->assumptions, j);
+  }
+
+
+  delete_elim_subst(&elim);
+  delete_term_set(&uvars);
+}
+
+/*
  * Add clause c to an ef_prob descriptor
  * - t = term that decomposed into c
  *
@@ -872,11 +979,21 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     // no universal variables
     ef_prob_add_condition(prob, t);
     ef_prob_add_evars(prob, c->evars.data, c->evars.size);
+
   } else {
     // convert all uvars to clones and make ground
     ef_clone_uvar_array(ef, c->uvars.data, c->uvars.size);
     ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
+
+    // simplify the clause: attempt to eliminate some universal variables.
+    //  print_ef_clause(stdout, c);
+    ef_simplify_clause(ef, c);
+    ef_simplify_clause(ef, c);
+    ef_simplify_clause(ef, c);
+    ef_simplify_clause(ef, c);
+    // printf("\nAFTER SIMPLIFICATION\n");
+    // print_ef_clause(stdout, c);
 
     // build the assumption: not (or c->assumptions)
     a = opposite_term(ef_make_or(ef, &c->assumptions));

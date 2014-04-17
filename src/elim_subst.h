@@ -17,14 +17,17 @@
 
 #include <stdbool.h>
 
+#include "int_vectors.h"
 #include "int_hash_sets.h"
 #include "full_subst.h"
+
 
 typedef struct elim_subst_s {
   term_manager_t *mngr;
   term_table_t *terms;
   int_hset_t *elimvars;
   full_subst_t full_subst;
+  ivector_t aux;
 } elim_subst_t;
 
 
@@ -45,14 +48,17 @@ extern void delete_elim_subst(elim_subst_t *subst);
  * where y is a candidate for elimination.
  * - if so, add map [y --> t] to the internal full_subst and return true
  * - otherwise, do nothing and return false.
+ *
+ * If check_cycles is true, we also check for subsitution cycles before
+ * adding [y --> t] to the full_susbt, and returns false if there's a cycle.
  */
-extern bool elim_subst_try_map(elim_subst_t *subst, term_t f);
+extern bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles);
+
+
 
 /*
- * Same thing but also check whether [y --> t] causes a substitution cycle
- * - if there's a cycle, the map is not added and the function returns false
+ * WRAPPERS FOR THE FUNCTIONS DEFINED IN FULL_SUBST
  */
-extern bool elim_subst_try_check_map(elim_subst_t *subst, term_t f);
 
 /*
  * Remove cycles (if any)
@@ -69,5 +75,23 @@ static inline void elim_subst_remove_cycles(elim_subst_t *subst) {
 static inline term_t elim_subst_apply(elim_subst_t *subst, term_t t) {
   return full_subst_apply(&subst->full_subst, t);
 }
+
+/*
+ * Check whether x is mapped to something in subst
+ * - x must be an uninterpreted term
+ */
+static inline bool elim_subst_is_mapped(elim_subst_t *subst, term_t x) {
+  return full_subst_is_mapped(&subst->full_subst, x);
+}
+
+/*
+ * Get the term mapped to x (return NULL_TERM = -1 if nothing is mapped)
+ * - x must be an uninterpreted term
+ */
+static inline term_t elim_subst_get_map(elim_subst_t *subst, term_t x) {
+  return full_subst_get_map(&subst->full_subst, x);
+}
+
+
 
 #endif /* __ELIM_SUBST_H */
