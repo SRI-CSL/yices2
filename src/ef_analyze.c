@@ -882,7 +882,7 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
   init_term_set(&uvars, c->uvars.size, c->uvars.data);
   init_elim_subst(&elim, ef->manager, &uvars);
 
-  // try to convert the guarantees into a substitution
+  // try to convert the guarantees and assumptions into a substitution
   n = c->guarantees.size;
   for (i=0; i<n; i++) {
     t = opposite_term(c->guarantees.data[i]);
@@ -890,7 +890,7 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
   }
   n = c->assumptions.size;
   for (i=0; i<n; i++) {
-    t = opposite_term(c->guarantees.data[i]);
+    t = opposite_term(c->assumptions.data[i]);
     (void) elim_subst_try_map(&elim, t, false);
   }
 
@@ -904,8 +904,8 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
     t = elim_subst_get_map(&elim, x);
     // TEMPORARY: print
     if (t >= 0) {
-      printf("Elimination: %s --> ", yices_get_term_name(x));
-      yices_pp_term(stdout, t, 100, 20, 14);
+      printf("Elimination:\n %s --> ", yices_get_term_name(x));
+      yices_pp_term(stdout, t, 100, 20, 12);
     } else {
       // x is kept in uvars
       c->uvars.data[j] = x;
@@ -987,13 +987,16 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
     // simplify the clause: attempt to eliminate some universal variables.
-    //  print_ef_clause(stdout, c);
+#if 0
+    printf("\nINITIAL CLAUSE\n\n");
+    print_ef_clause(stdout, c);
+#endif
     ef_simplify_clause(ef, c);
-    ef_simplify_clause(ef, c);
-    ef_simplify_clause(ef, c);
-    ef_simplify_clause(ef, c);
-    // printf("\nAFTER SIMPLIFICATION\n");
-    // print_ef_clause(stdout, c);
+#if 0
+    printf("\nAFTER SIMPLIFICATION\n\n");
+    print_ef_clause(stdout, c);
+#endif
+    //    ef_simplify_clause(ef, c);
 
     // build the assumption: not (or c->assumptions)
     a = opposite_term(ef_make_or(ef, &c->assumptions));
