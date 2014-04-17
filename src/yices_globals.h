@@ -14,14 +14,24 @@
 #include "term_manager.h"
 #include "term_stack2.h"
 #include "yices_locks.h"
+#include "yices_lexer.h"
+#include "yices_parser.h"
+#include "yices_pp.h"
 
 typedef struct yices_globals_s {
   yices_lock_t lock;                /* a lock protecting the globals                         */
+
   type_table_t *types;              /* type table                                            */
   term_table_t *terms;              /* term table                                            */
   term_manager_t *manager;          /* full term manager (includes terms)                    */
   error_report_t *error;            /* data structure for error reporting                    */
   pprod_table_t *pprods;            /* pprod table                                           */
+
+  /* the parser bundle: parser, lexer, term stack: all are allocated on demand               */
+
+  parser_t *parser;
+  lexer_t *lexer;
+  tstack_t *tstack;
 
 } yices_globals_t;
 
