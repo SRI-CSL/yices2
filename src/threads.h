@@ -25,5 +25,6 @@ extern void mt_test_usage(int32_t argc, char* argv[]);
 
 extern yices_thread_result_t yices_thread_exit(void);
 
+
 #endif /* __THREADS_H */
 

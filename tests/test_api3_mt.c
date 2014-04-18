@@ -31,14 +31,8 @@
 
 #include "stores.h"
 #include "threads.h"
+#include "threadsafe.h"
 
-
-
-#ifdef MINGW
-static inline long int random(void) {
-  return rand();
-}
-#endif
 
 /* knobs or dials for the numbers */
 #if 0
@@ -442,12 +436,12 @@ static term_t test_binop(FILE* output, uint32_t i, term_t t1, term_t t2) {
   assert(i < NUM_BINOPS);
 
   fprintf(output, "test: (%s ", binop_array[i].name);
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " ");
-  print_term(output, __yices_globals.terms, t2);
+  print_term_mt(output, t2);
   fprintf(output, ") --> ");
   t = binop_array[i].fun(t1, t2);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -462,10 +456,10 @@ static term_t test_unop(FILE* output, uint32_t i, term_t t1) {
   assert(i < NUM_UNARY_OPS);
 
   fprintf(output, "test: (%s ", unop_array[i].name);
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, ") --> ");
   t = unop_array[i].fun(t1);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -481,12 +475,12 @@ static term_t test_pred(FILE* output, uint32_t i, term_t t1, term_t t2) {
   assert(i < NUM_PREDS);
 
   fprintf(output, "test: (%s ", pred_array[i].name);
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " ");
-  print_term(output, __yices_globals.terms, t2);
+  print_term_mt(output, t2);
   fprintf(output, ") --> ");
   t = pred_array[i].fun(t1, t2);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -502,10 +496,10 @@ static term_t test_shift(FILE* output, uint32_t i, term_t t1, uint32_t n) {
   assert(i < NUM_SHIFT_OPS);
 
   fprintf(output, "test: (%s ", shift_array[i].name);
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " %"PRIu32") --> ", n);
   t = shift_array[i].fun(t1, n);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -520,10 +514,10 @@ static term_t test_extend(FILE* output, uint32_t i, term_t t1, uint32_t n) {
   assert(i < NUM_EXTEND_OPS);
 
   fprintf(output, "test: (%s ", extend_array[i].name);
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " %"PRIu32") --> ", n);
   t = extend_array[i].fun(t1, n);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -540,12 +534,12 @@ static term_t test_bvconcat(FILE* output, term_t t1, term_t t2) {
   term_t t;
 
   fprintf(output, "test: (bvconcat ");
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " ");
-  print_term(output, __yices_globals.terms, t2);
+  print_term_mt(output, t2);
   fprintf(output, ") ---> ");
   t = yices_bvconcat(t1, t2);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -561,10 +555,10 @@ static term_t test_bvextract(FILE* output, term_t t1, uint32_t i, uint32_t j) {
   term_t t;
 
   fprintf(output, "test: (bvextract ");
-  print_term(output, __yices_globals.terms, t1);
+  print_term_mt(output, t1);
   fprintf(output, " %"PRIu32" %"PRIu32") --> ", i, j);
   t = yices_bvextract(t1, i, j);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -620,11 +614,11 @@ static term_t test_bvarray1(FILE* output, uint32_t n, term_t t1) {
   fprintf(output, "test: (bvarray");
   for (i=0; i<n; i++) {
     fprintf(output, " ");
-    print_term(output, __yices_globals.terms, __bvarray[i]);
+    print_term_mt(output, __bvarray[i]);
   }
   fprintf(output, ") --> ");
   t = yices_bvarray(n, __bvarray);
-  print_term(output,__yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -674,11 +668,11 @@ static term_t test_bvarray2(FILE* output, uint32_t n, term_t t1, term_t t2) {
   fprintf(output, "test: (bvarray");
   for (i=0; i<n; i++) {
     fprintf(output, " ");
-    print_term(output, __yices_globals.terms, __bvarray[i]);
+    print_term_mt(output, __bvarray[i]);
   }
   fprintf(output, ") --> ");
   t = yices_bvarray(n, __bvarray);
-  print_term(output,__yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -696,14 +690,14 @@ static term_t test_ite(FILE* output, term_t c, term_t left, term_t right) {
   term_t t;
 
   fprintf(output, "test: (ite ");
-  print_term(output, __yices_globals.terms, c);
+  print_term_mt(output, c);
   fprintf(output, " ");
-  print_term(output, __yices_globals.terms, left);
+  print_term_mt(output, left);
   fprintf(output, " ");
-  print_term(output, __yices_globals.terms, right);
+  print_term_mt(output, right);
   fprintf(output, ") --> ");
   t = yices_ite(c, left, right);
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, "\n");
 
   fflush(output);
@@ -719,10 +713,10 @@ static term_t test_bitextract(FILE* output, term_t t, uint32_t i) {
   term_t b;
 
   fprintf(output, "test: (bit-extract ");
-  print_term(output, __yices_globals.terms, t);
+  print_term_mt(output, t);
   fprintf(output, " %"PRIu32") --> ", i);
   b = yices_bitextract(t, i);
-  print_term(output, __yices_globals.terms, b);
+  print_term_mt(output, b);
   fprintf(output, "\n");
 
   fflush(output);

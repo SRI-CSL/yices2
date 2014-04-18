@@ -13,6 +13,12 @@
 
 #include "yices.h"
 
+#ifdef MINGW
+static inline long int random(void) {
+  return rand();
+}
+#endif
+
 extern void show_types(FILE* output);
 extern void show_terms(FILE* output);
 

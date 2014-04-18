@@ -25,6 +25,7 @@
 
 
 
+
 #ifdef MINGW
 static inline long int random(void) {
   return rand();

@@ -32,22 +32,10 @@
 #include "stores.h"
 
 
-#ifdef MINGW
-static inline long int random(void) {
-  return rand();
-}
-#endif
-
 /* dials for the numbers */
-#if 0
 #define BVNUM 200
 #define ITENUM 5000
 #define BINUM 6000
-#else
-#define BVNUM 200
-#define ITENUM 200
-#define BINUM 200
-#endif
 
 /*
  * GLOBAL STORE:
