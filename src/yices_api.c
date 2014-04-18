@@ -2014,21 +2014,22 @@ EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
  
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    init_bvconstant(&bv0);
+
+    bvconstant_set_bitsize(&bv0, n);
+    bvconst_set32(bv0.data, bv0.width, x);
+
+    retval = mk_bv_constant(__yices_globals.manager, &bv0);
+
+    delete_bvconstant(&bv0);
   }
 
-  init_bvconstant(&bv0);
-
-  bvconstant_set_bitsize(&bv0, n);
-  bvconst_set32(bv0.data, bv0.width, x);
-
-  retval = mk_bv_constant(__yices_globals.manager, &bv0);
-
-  delete_bvconstant(&bv0);
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2040,13 +2041,10 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   bvconstant_t bv0;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
- 
-
  
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
-  }
+    retval = NULL_TERM;
+  } else {
 
   init_bvconstant(&bv0);
   bvconstant_set_bitsize(&bv0, n);
@@ -2055,6 +2053,10 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   retval =  mk_bv_constant(__yices_globals.manager, &bv0);
 
   delete_bvconstant(&bv0);
+
+  }
+
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2066,22 +2068,24 @@ EXPORTED term_t yices_bvconst_mpz(uint32_t n, mpz_t x) {
   bvconstant_t bv0;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
  
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+
+    init_bvconstant(&bv0);
+
+    bvconstant_set_bitsize(&bv0, n);
+    bvconst_set_mpz(bv0.data, bv0.width, x);
+    
+    retval = mk_bv_constant(__yices_globals.manager, &bv0);
+    
+    delete_bvconstant(&bv0);
+
   }
 
-
-  init_bvconstant(&bv0);
-
-  bvconstant_set_bitsize(&bv0, n);
-  bvconst_set_mpz(bv0.data, bv0.width, x);
-  
-  retval = mk_bv_constant(__yices_globals.manager, &bv0);
-  
-  delete_bvconstant(&bv0);
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2123,20 +2127,23 @@ EXPORTED term_t yices_bvconst_one(uint32_t n) {
   
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
+    retval =  NULL_TERM;
+  } else {
+
+    init_bvconstant(&bv0);
+
+    bvconstant_set_bitsize(&bv0, n);
+    bvconst_set_one(bv0.data, bv0.width);
+
+    retval = mk_bv_constant(__yices_globals.manager, &bv0);
+  
+    delete_bvconstant(&bv0);
+
   }
 
-  init_bvconstant(&bv0);
-
-  bvconstant_set_bitsize(&bv0, n);
-  bvconst_set_one(bv0.data, bv0.width);
-
-  retval = mk_bv_constant(__yices_globals.manager, &bv0);
-  
-  delete_bvconstant(&bv0);
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2146,21 +2153,23 @@ EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
   term_t retval;
   bvconstant_t bv0;
 
-
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
+    retval =  NULL_TERM;
+  } else {
+
+    init_bvconstant(&bv0);
+
+    bvconstant_set_all_one(&bv0, n);
+
+    retval = mk_bv_constant(__yices_globals.manager, &bv0);
+
+    delete_bvconstant(&bv0);
+
   }
 
-  init_bvconstant(&bv0);
-
-  bvconstant_set_all_one(&bv0, n);
-
-  retval = mk_bv_constant(__yices_globals.manager, &bv0);
-
-  delete_bvconstant(&bv0);
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2178,20 +2187,23 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
 
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
-    return NULL_TERM;
+    retval =  NULL_TERM;
+  } else {
+
+    init_bvconstant(&bv0);
+    
+    bvconstant_set_bitsize(&bv0, n);
+    bvconst_set_array(bv0.data, a, n);
+    
+    retval = mk_bv_constant(__yices_globals.manager, &bv0);
+    
+    delete_bvconstant(&bv0);
+
   }
 
-  init_bvconstant(&bv0);
-
-  bvconstant_set_bitsize(&bv0, n);
-  bvconst_set_array(bv0.data, a, n);
-
-  retval = mk_bv_constant(__yices_globals.manager, &bv0);
-
-  delete_bvconstant(&bv0);
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2207,44 +2219,45 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
 EXPORTED term_t yices_parse_bvbin(const char *s) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
-  term_t retval;
+  term_t retval = NULL_TERM;
   bvconstant_t bv0;
   size_t len;
   uint32_t n;
   int32_t code;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   len = strlen(s);
   if (len == 0) {
     error->code = INVALID_BVBIN_FORMAT;
-    return NULL_TERM;
+    goto clean_up;
   }
 
   if (len > YICES_MAX_BVSIZE) {
     error->code = MAX_BVSIZE_EXCEEDED;
     error->badval = len; // slightly wrong: len is unsigned, badval is signed
-    return NULL_TERM;
+    goto clean_up;
   }
 
   n = (uint32_t) len;
 
   init_bvconstant(&bv0);
   
-
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
 
   if (code < 0) {
     error->code = INVALID_BVBIN_FORMAT;
-    retval = NULL_TERM;
   } else {
     retval = mk_bv_constant(__yices_globals.manager, &bv0);
   }
 
   delete_bvconstant(&bv0);
+
+ clean_up:
+
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2266,25 +2279,24 @@ EXPORTED term_t yices_bvconst_from_string(const char *s) {
 EXPORTED term_t yices_parse_bvhex(const char *s) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
-  term_t retval;
+  term_t retval = NULL_TERM;
   bvconstant_t bv0;
   size_t len;
   uint32_t n;
   int32_t code;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   len = strlen(s);
   if (len == 0) {
     error->code = INVALID_BVHEX_FORMAT;
-    return NULL_TERM;
+    goto clean_up;
   }
 
   if (len > YICES_MAX_BVSIZE/4) {
     error->code = MAX_BVSIZE_EXCEEDED;
     error->badval = ((uint64_t) len) * 4; // could overflow here
-    return NULL_TERM;
+    goto clean_up;
   }
 
   n = (uint32_t) len;
@@ -2296,14 +2308,15 @@ EXPORTED term_t yices_parse_bvhex(const char *s) {
   code = bvconst_set_from_hexa_string(bv0.data, n, s);
   if (code < 0) {
     error->code = INVALID_BVHEX_FORMAT;
-    retval = NULL_TERM;
   } else {
-
     retval = mk_bv_constant(__yices_globals.manager, &bv0);
   }
-
   
   delete_bvconstant(&bv0);
+
+ clean_up:
+
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2357,17 +2370,18 @@ EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval = mk_bvadd64(t1, t2);
+  } else {
+    retval = mk_bvadd(t1, t2);
   }
 
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvadd64(t1, t2);
-  } else {
-    return mk_bvadd(t1, t2);
-  }
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -2402,17 +2416,18 @@ EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval =  mk_bvsub64(t1, t2);
+  } else {
+    retval =  mk_bvsub(t1, t2);
   }
 
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvsub64(t1, t2);
-  } else {
-    return mk_bvsub(t1, t2);
-  }
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -2446,18 +2461,19 @@ EXPORTED term_t yices_bvneg(term_t t1) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval = mk_bvneg64(t1);
+  } else {
+    retval = mk_bvneg(t1);
   }
 
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvneg64(t1);
-  } else {
-    return mk_bvneg(t1);
-  }
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -2491,18 +2507,19 @@ EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_compatible_bv_terms(manager, t1, t2) ||
       ! check_product_degree(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval = mk_bvmul64(t1, t2);
+  } else {
+    retval = mk_bvmul(t1, t2);
   }
 
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvmul64(t1, t2);
-  } else {
-    return mk_bvmul(t1, t2);
-  }
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
