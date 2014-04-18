@@ -1504,20 +1504,32 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, term_t *v,
 
 EXPORTED type_t yices_bool_type(void) {
   yices_lock_t *lock = &__yices_globals.lock;
+  type_t retval;
+
   get_yices_lock(lock);
+
+  retval = bool_type(__yices_globals.types);
+
   release_yices_lock(lock);
-  return bool_type(__yices_globals.types);
+
+  return retval;
 }
 
 EXPORTED type_t yices_bv_type(uint32_t size) {
   yices_lock_t *lock = &__yices_globals.lock;
+  type_t retval;
+
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_positive(size) || ! check_maxbvsize(size)) {
-    return NULL_TYPE;
+    retval = NULL_TYPE;
+  } else {
+    retval = bv_type(__yices_globals.types, size);
   }
-  return bv_type(__yices_globals.types, size);
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -1600,17 +1612,24 @@ EXPORTED term_t yices_false(void) {
   return false_term;
 }
 
+
+
+
 EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_type(__yices_globals.types, tau)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_uterm(__yices_globals.manager, tau);
   }
 
-  return mk_uterm(__yices_globals.manager, tau);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -1620,15 +1639,16 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   term_manager_t *manager = __yices_globals.manager;
   error_report_t *error = __yices_globals.error;
   type_t tau;
+  term_t retval = NULL_TERM;
+
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   // Check type correctness: first steps
   if (! check_good_term(manager, cond) ||
       ! check_good_term(manager, then_term) ||
       ! check_good_term(manager, else_term) ||
       ! check_boolean_term(manager, cond)) {
-    return NULL_TERM;
+    goto clean_up;
   }
 
   // Check whether then/else are compatible and get the supertype
@@ -1641,30 +1661,42 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
     error->type1 = term_type(tbl, then_term);
     error->term2 = else_term;
     error->type2 = term_type(tbl, else_term);
-    return NULL_TERM;
+    goto clean_up;
   }
 
-  return mk_ite(manager, cond, then_term, else_term, tau);
+  retval = mk_ite(manager, cond, then_term, else_term, tau);
+
+  clean_up: 
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
 EXPORTED term_t yices_eq(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_eq(manager, left, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_eq(manager, left, right);
   }
 
-  return mk_eq(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 EXPORTED term_t yices_neq(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1683,6 +1715,7 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
 EXPORTED term_t yices_not(term_t arg) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1702,9 +1735,11 @@ EXPORTED term_t yices_not(term_t arg) {
 EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
- 
+  term_t retval;
+
   get_yices_lock(lock);
   release_yices_lock(lock);
+ 
 
   if (! check_arity(n) ||
       ! check_good_terms(manager, n, arg) ||
@@ -1727,6 +1762,7 @@ EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
 EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1752,9 +1788,11 @@ EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
 EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
+
 
   if (! check_arity(n) ||
       ! check_good_terms(manager, n, arg) ||
@@ -1815,6 +1853,7 @@ EXPORTED term_t yices_xor3(term_t t1, term_t t2, term_t t3) {
 EXPORTED term_t yices_or2(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1832,6 +1871,7 @@ EXPORTED term_t yices_or2(term_t left, term_t right) {
 EXPORTED term_t yices_and2(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1849,6 +1889,7 @@ EXPORTED term_t yices_and2(term_t left, term_t right) {
 EXPORTED term_t yices_xor2(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1867,6 +1908,7 @@ EXPORTED term_t yices_xor2(term_t left, term_t right) {
 EXPORTED term_t yices_iff(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1884,6 +1926,7 @@ EXPORTED term_t yices_iff(term_t left, term_t right) {
 EXPORTED term_t yices_implies(term_t left, term_t right) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1902,6 +1945,7 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
 EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -1925,12 +1969,12 @@ EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
 
 EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
   yices_lock_t *lock = &__yices_globals.lock;
-  term_t retval;
   bvconstant_t bv0;
- 
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
+ 
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
@@ -1954,10 +1998,11 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   term_t retval;
   bvconstant_t bv0;
 
- 
   get_yices_lock(lock);
   release_yices_lock(lock);
+ 
 
+ 
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -1979,9 +2024,9 @@ EXPORTED term_t yices_bvconst_mpz(uint32_t n, mpz_t x) {
   term_t retval;
   bvconstant_t bv0;
 
-
   get_yices_lock(lock);
   release_yices_lock(lock);
+ 
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
@@ -2012,8 +2057,9 @@ EXPORTED term_t yices_bvconst_zero(uint32_t n) {
   bvconstant_t bv0;
 
 
-  get_yices_lock(lock);
-  release_yices_lock(lock);
+
+   get_yices_lock(lock);
+   release_yices_lock(lock);
 
  if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
@@ -2185,7 +2231,6 @@ EXPORTED term_t yices_parse_bvhex(const char *s) {
   uint32_t n;
   int32_t code;
 
-
   get_yices_lock(lock);
   release_yices_lock(lock);
 
@@ -2247,7 +2292,6 @@ static term_t mk_bvadd64(term_t t1, term_t t2) {
   term_table_t *tbl = __yices_globals.terms;
   bvarith64_buffer_t *b;
 
-
   b = term_manager_get_bvarith64_buffer(manager);
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_add_term(b, tbl, t2);
@@ -2269,6 +2313,7 @@ static term_t mk_bvadd(term_t t1, term_t t2) {
 
 EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
 
   get_yices_lock(lock);
   release_yices_lock(lock);
@@ -2313,6 +2358,11 @@ static term_t mk_bvsub(term_t t1, term_t t2) {
 
 EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -2352,6 +2402,11 @@ static term_t mk_bvneg(term_t t1) {
 EXPORTED term_t yices_bvneg(term_t t1) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1)) {
     return NULL_TERM;
@@ -2392,6 +2447,11 @@ static term_t mk_bvmul(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2) ||
       ! check_product_degree(manager, t1, t2)) {
     return NULL_TERM;
@@ -2434,6 +2494,11 @@ static term_t mk_bvsquare(term_t t1) {
 EXPORTED term_t yices_bvsquare(term_t t1) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1) ||
       ! check_square_degree(manager, t1)) {
@@ -2483,6 +2548,11 @@ static term_t mk_bvpower(term_t t1, uint32_t d) {
 EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1) ||
       ! check_power_degree(manager, t1, d)) {
@@ -2507,6 +2577,11 @@ EXPORTED term_t yices_bvnot(term_t t1) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;  
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1)) {
@@ -2526,6 +2601,11 @@ EXPORTED term_t yices_bvand(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -2543,6 +2623,11 @@ EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
@@ -2561,6 +2646,11 @@ EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -2579,6 +2669,11 @@ EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -2597,6 +2692,11 @@ EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -2615,6 +2715,11 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -2665,6 +2770,11 @@ EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
 
   if (! check_good_term(manager, t) ||
@@ -2685,6 +2795,11 @@ EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2704,6 +2819,11 @@ EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
  
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2723,6 +2843,11 @@ EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2742,6 +2867,11 @@ EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2761,6 +2891,11 @@ EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2782,6 +2917,11 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2831,7 +2971,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
 
   uint32_t n;
 
-  get_yices_lock(&(__yices_globals.lock));
+  get_yices_lock(lock);
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -2853,7 +2993,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
 
  clean_up:
 
-  release_yices_lock(&(__yices_globals.lock));
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -2881,6 +3021,11 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t1) ||
       ! check_good_term(manager, t2) ||
@@ -2925,8 +3070,12 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
-
   uint64_t m;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
@@ -2975,6 +3124,11 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
   uint64_t m;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -3023,6 +3177,11 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
   uint64_t m;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -3068,6 +3227,11 @@ EXPORTED term_t yices_redand(term_t t) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -3086,6 +3250,11 @@ EXPORTED term_t yices_redor(term_t t) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -3126,6 +3295,11 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3149,6 +3323,11 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3160,6 +3339,11 @@ EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3171,6 +3355,11 @@ EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3189,6 +3378,11 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3199,6 +3393,11 @@ EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3209,6 +3408,11 @@ EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3219,6 +3423,11 @@ EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3229,6 +3438,11 @@ EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3261,6 +3475,11 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
       ! check_good_terms(manager, n, arg) ||
@@ -3289,6 +3508,11 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitextract(i, i, term_bitsize(__yices_globals.terms, t))) {
@@ -3307,6 +3531,11 @@ EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
 EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3317,6 +3546,11 @@ EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3327,6 +3561,11 @@ EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3337,6 +3576,11 @@ EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3357,6 +3601,11 @@ EXPORTED term_t yices_bvle_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3367,6 +3616,11 @@ EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3376,6 +3630,11 @@ EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3386,6 +3645,11 @@ EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvsle_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3396,6 +3660,11 @@ EXPORTED term_t yices_bvsle_atom(term_t t1, term_t t2) {
 EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -3418,6 +3687,11 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
@@ -3459,6 +3733,11 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
+  term_t retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
@@ -3508,11 +3787,21 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
  */
 EXPORTED int32_t yices_type_is_bool(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_type(__yices_globals.types, tau) && is_boolean_type(tau);
 }
 
 EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_type(__yices_globals.types, tau) && is_bv_type(__yices_globals.types, tau);
 }
 
@@ -3529,6 +3818,11 @@ EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
  */
 EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_type(__yices_globals.types, tau) && check_good_type(__yices_globals.types, sigma) && is_subtype(__yices_globals.types, tau, sigma);
 }
 
@@ -3546,6 +3840,11 @@ EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
  */
 EXPORTED uint32_t yices_bvtype_size(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_type(__yices_globals.types, tau) ||
       ! check_bvtype(__yices_globals.types, tau)) {
     return 0;
@@ -3568,6 +3867,11 @@ EXPORTED uint32_t yices_bvtype_size(type_t tau) {
  */
 EXPORTED type_t yices_type_of_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  type_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(__yices_globals.manager, t)) {
     return NULL_TYPE;
   }
@@ -3585,11 +3889,21 @@ EXPORTED type_t yices_type_of_term(term_t t) {
  */
 EXPORTED int32_t yices_term_is_bool(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_term(__yices_globals.manager, t) && is_boolean_term(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_bitvector(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_term(__yices_globals.manager, t) && is_bitvector_term(__yices_globals.terms, t);
 }
 
@@ -3599,6 +3913,11 @@ EXPORTED int32_t yices_term_is_bitvector(term_t t) {
  */
 EXPORTED uint32_t yices_term_bitsize(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  uint32_t retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_bitvector_term(__yices_globals.manager, t)) {
     return 0;
   }
@@ -3664,6 +3983,11 @@ term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
 bool yices_check_boolean_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_term(manager, t) && check_boolean_term(manager, t);
 }
 
@@ -3674,6 +3998,11 @@ bool yices_check_term_type(term_t t, type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   term_table_t *tbl = __yices_globals.terms;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! is_subtype(tbl->types, term_type(tbl, t), tau)) {
     error->code = TYPE_MISMATCH;
     error->term1 = t;
@@ -3688,6 +4017,12 @@ bool yices_check_term_type(term_t t, type_t tau) {
  * Check whether n <= YICES_MAX_BVSIZE and if not set the error report.
  */
 bool yices_check_bvsize(uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_maxbvsize(n);
 }
 
@@ -3707,6 +4042,11 @@ bool yices_check_bvsize(uint32_t n) {
 bool yices_check_bv_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_manager_t *manager = __yices_globals.manager;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return check_good_term(manager, t) && check_bitvector_term(manager, t);
 }
 
@@ -3718,6 +4058,11 @@ bool yices_check_bv_term(term_t t) {
  */
 bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
   yices_lock_t *lock = &__yices_globals.lock;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (bvlogic_buffer_is_empty(b)) {
     __yices_globals.error->code = EMPTY_BITVECTOR;
     return false;
@@ -3734,6 +4079,11 @@ bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
 bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (s < 0 || s > bvlogic_buffer_bitsize(b)) {
     error->code = INVALID_BITSHIFT;
     error->badval = s;
@@ -3751,6 +4101,11 @@ bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
  */
 bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
   yices_lock_t *lock = &__yices_globals.lock;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (i < 0 || i > j || j >= n) {
     __yices_globals.error->code = INVALID_BVEXTRACT;
     return false;
@@ -3777,6 +4132,11 @@ bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   uint64_t m;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (n <= 0) {
     error->code = POS_INT_REQUIRED;
@@ -3811,6 +4171,11 @@ bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   uint64_t m;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (n < 0) {
     error->code = NONNEG_INT_REQUIRED;
@@ -3851,6 +4216,11 @@ bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_table_t *tbl;
   uint32_t d1, d2;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   tbl = __yices_globals.terms;
 
@@ -3865,7 +4235,13 @@ bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t) {
 }
 
 bool yices_check_bvmul64_buffer(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
+  yices_lock_t *lock = &__yices_globals.lock;
   uint32_t d1, d2;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   d1 = bvarith64_buffer_degree(b1);
   d2 = bvarith64_buffer_degree(b2);
@@ -3879,6 +4255,11 @@ bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   term_table_t *tbl;
   uint32_t d1, d2;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   tbl = __yices_globals.terms;
 
@@ -3893,7 +4274,13 @@ bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t) {
 }
 
 bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
+  yices_lock_t *lock = &__yices_globals.lock;
   uint32_t d1, d2;
+  bool retval; 
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   d1 = bvarith_buffer_degree(b1);
   d2 = bvarith_buffer_degree(b2);
@@ -3935,6 +4322,10 @@ EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t 
   term_subst_t subst;
   term_t u;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
+
   if (! check_good_term(manager, t) ||
       ! check_good_substitution(manager, n, var, map)) {
     return NULL_TERM;
@@ -3970,6 +4361,9 @@ EXPORTED int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], 
   term_subst_t subst;
   term_t u;
   uint32_t i;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
 
   if (! check_good_terms(manager, m, t) ||
       ! check_good_substitution(manager, n, var, map)) {
@@ -4011,7 +4405,11 @@ EXPORTED int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], 
  * Return NULL_TYPE if there's an error.
  */
 EXPORTED type_t yices_parse_type(const char *s) {
+  yices_lock_t *lock = &__yices_globals.lock;
   parser_t *p;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
 
   p = get_parser(s);
   return parse_yices_type(p, NULL);
@@ -4023,7 +4421,11 @@ EXPORTED type_t yices_parse_type(const char *s) {
  * Return NULL_TERM if there's an error.
  */
 EXPORTED term_t yices_parse_term(const char *s) {
+  yices_lock_t *lock = &__yices_globals.lock;
   parser_t *p;
+ 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
 
   p = get_parser(s);
   return parse_yices_term(p, NULL);
@@ -4049,6 +4451,9 @@ EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
   char *clone;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
@@ -4073,6 +4478,9 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
   char *clone;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
@@ -4091,7 +4499,13 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
  */
 EXPORTED const char *yices_get_type_name(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
-  if (! check_good_type(__yices_globals.types, tau)) {
+  const char *retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
+
+ if (! check_good_type(__yices_globals.types, tau)) {
     return NULL;
   }
   return type_name(__yices_globals.types, tau);
@@ -4104,6 +4518,11 @@ EXPORTED const char *yices_get_type_name(type_t tau) {
  */
 EXPORTED const char *yices_get_term_name(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  const char *retval;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(__yices_globals.manager, t)) {
     return NULL;
   }
@@ -4117,6 +4536,10 @@ EXPORTED const char *yices_get_term_name(term_t t) {
  */
 EXPORTED void yices_remove_type_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   remove_type_name(__yices_globals.types, name);
 }
 
@@ -4126,6 +4549,10 @@ EXPORTED void yices_remove_type_name(const char *name) {
  */
 EXPORTED void yices_remove_term_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   remove_term_name(__yices_globals.terms, name);
 }
 
@@ -4135,6 +4562,10 @@ EXPORTED void yices_remove_term_name(const char *name) {
  */
 EXPORTED type_t yices_get_type_by_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return get_type_by_name(__yices_globals.types, name);
 }
 
@@ -4144,6 +4575,10 @@ EXPORTED type_t yices_get_type_by_name(const char *name) {
  */
 EXPORTED term_t yices_get_term_by_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return get_term_by_name(__yices_globals.terms, name);
 }
 
@@ -4155,6 +4590,10 @@ EXPORTED term_t yices_get_term_by_name(const char *name) {
  */
 EXPORTED int32_t yices_clear_type_name(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
@@ -4172,6 +4611,10 @@ EXPORTED int32_t yices_clear_type_name(type_t tau) {
  */
 EXPORTED int32_t yices_clear_term_name(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
@@ -4731,6 +5174,10 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   error_report_t *error = __yices_globals.error;
   int32_t code;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
+
   if (! check_good_term(manager, t) ||
       ! check_boolean_term(manager, t)) {
     return -1;
@@ -4783,6 +5230,9 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
   term_manager_t *manager = __yices_globals.manager;
   error_report_t *error = __yices_globals.error;
   int32_t code;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
 
   if (! check_good_terms(manager, n, t) ||
       ! check_boolean_args(manager, n, t)) {
@@ -5134,6 +5584,10 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   value_table_t *vtbl;
   value_t v;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
+
   if (! check_good_term(manager, t) ||
       ! check_boolean_term(manager, t)) {
     return -1;
@@ -5192,6 +5646,10 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   value_table_t *vtbl;
   value_bv_t *bv;
   value_t v;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
@@ -5261,6 +5719,9 @@ EXPORTED int32_t yices_incref_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   sparse_array_t *roots;
   
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
@@ -5282,6 +5743,9 @@ EXPORTED int32_t yices_incref_type(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
   sparse_array_t *roots;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
 
   if (!check_good_type(__yices_globals.types, tau)) {
     return -1;
@@ -5301,6 +5765,9 @@ EXPORTED int32_t yices_decref_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   int32_t retval = -1;
+
+  get_yices_lock(lock);
+  release_yices_lock(lock);
 
 
   if (!check_good_term(__yices_globals.manager, t)) {
@@ -5328,6 +5795,10 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
   error_report_t *error = __yices_globals.error;
   int32_t retval = -1;
 
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
+
   if (! check_good_type(__yices_globals.types, tau)) {
     return retval;
   }
@@ -5354,11 +5825,17 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
  */
 EXPORTED uint32_t yices_num_terms(void) {
   yices_lock_t *lock = &__yices_globals.lock;
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return __yices_globals.terms->live_terms;
 }
 
 EXPORTED uint32_t yices_num_types(void) {
   yices_lock_t *lock = &__yices_globals.lock;
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   return __yices_globals.types->live_types;
 }
 
@@ -5405,6 +5882,9 @@ EXPORTED uint32_t yices_num_posref_types(void) {
 // iterator for the root_terms array
 static void term_idx_marker(void *aux, uint32_t i) {
   yices_lock_t *lock = &__yices_globals.lock;
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   assert(aux == __yices_globals.terms);
   if (good_term_idx(aux, i)) {
     term_table_set_gc_mark(aux, i);
@@ -5414,6 +5894,9 @@ static void term_idx_marker(void *aux, uint32_t i) {
 // iterator for the root_types array
 static void type_marker(void *aux, uint32_t i) {
   yices_lock_t *lock = &__yices_globals.lock;
+  get_yices_lock(lock);
+  release_yices_lock(lock);
+
   assert(aux == __yices_globals.types);
   if (good_type(aux, i)) {
     type_table_set_gc_mark(aux, i);
