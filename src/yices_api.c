@@ -2555,19 +2555,20 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1) ||
       ! check_square_degree(manager, t1)) {
-    return NULL_TERM;
-  }
-
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvsquare64(t1);
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval = mk_bvsquare64(t1);
   } else {
-    return mk_bvsquare(t1);
+    retval = mk_bvsquare(t1);
   }
+  
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -2609,19 +2610,20 @@ EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1) ||
       ! check_power_degree(manager, t1, d)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else if (term_bitsize(__yices_globals.terms, t1) <= 64) {
+    retval =  mk_bvpower64(t1, d);
+  } else {
+    retval = mk_bvpower(t1, d);
   }
 
-  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
-    return mk_bvpower64(t1, d);
-  } else {
-    return mk_bvpower(t1, d);
-  }
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -2638,19 +2640,21 @@ EXPORTED term_t yices_bvnot(term_t t1) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (! check_good_term(manager, t1) ||
       ! check_bitvector_term(manager, t1)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_not(b);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_not(b);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -2662,18 +2666,20 @@ EXPORTED term_t yices_bvand(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_and_term(b, tbl, t2);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_and_term(b, tbl, t2);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
@@ -2684,19 +2690,19 @@ EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_or_term(b, tbl, t2);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_or_term(b, tbl, t2);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
@@ -2707,18 +2713,19 @@ EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_xor_term(b, tbl, t2);
+    retval =  mk_bvlogic_term(manager, b);
   }
-
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_xor_term(b, tbl, t2);
-
-  return mk_bvlogic_term(manager, b);
+  
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -2730,19 +2737,20 @@ EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_and_term(b, tbl, t2);
+    bvlogic_buffer_not(b);
+    retval =  mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_and_term(b, tbl, t2);
-  bvlogic_buffer_not(b);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
@@ -2753,19 +2761,20 @@ EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_or_term(b, tbl, t2);
+    bvlogic_buffer_not(b);
+    retval =  mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_or_term(b, tbl, t2);
-  bvlogic_buffer_not(b);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
@@ -2776,19 +2785,20 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_xor_term(b, tbl, t2);
+    bvlogic_buffer_not(b);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_xor_term(b, tbl, t2);
-  bvlogic_buffer_not(b);
-
-  return mk_bvlogic_term(manager, b);
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -2831,21 +2841,21 @@ EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_shift_left0(b, n);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_shift_left0(b, n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
@@ -2856,20 +2866,21 @@ EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_shift_left1(b, n);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_shift_left1(b, n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
@@ -2880,20 +2891,21 @@ EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
  
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_shift_right0(b, n);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_shift_right0(b, n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
@@ -2904,20 +2916,21 @@ EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_shift_right1(b, n);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_shift_right1(b, n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
@@ -2928,20 +2941,21 @@ EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_ashift_right(b, n);
+    retval =  mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_ashift_right(b, n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
@@ -2952,22 +2966,23 @@ EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    if (n < b->bitsize) {
+      bvlogic_buffer_rotate_left(b, n);
+    }
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  if (n < b->bitsize) {
-    bvlogic_buffer_rotate_left(b, n);
-  }
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
@@ -2978,22 +2993,23 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    if (n < b->bitsize) {
+      bvlogic_buffer_rotate_right(b, n);
+    }
+    retval =  mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  if (n < b->bitsize) {
-    bvlogic_buffer_rotate_right(b, n);
-  }
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -3082,22 +3098,23 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t1) ||
       ! check_good_term(manager, t2) ||
       ! check_bitvector_term(manager, t1) ||
       ! check_bitvector_term(manager, t2) ||
       ! check_maxbvsize(term_bitsize(tbl, t1) + term_bitsize(tbl, t2))) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t2);
+    bvlogic_buffer_concat_left_term(b, tbl, t1);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t2);
-  bvlogic_buffer_concat_left_term(b, tbl, t1);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -3132,28 +3149,31 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_positive(n)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    // check size
+    m = ((uint64_t) n) * term_bitsize(tbl, t);
+
+    if (m > (uint64_t) YICES_MAX_BVSIZE) {
+      error->code = MAX_BVSIZE_EXCEEDED;
+      error->badval = m;
+      retval = NULL_TERM;
+    } else {
+      b = term_manager_get_bvlogic_buffer(manager);
+      bvlogic_buffer_set_term(b, tbl, t);
+      bvlogic_buffer_repeat_concat(b, n);
+      retval =  mk_bvlogic_term(manager, b);
+    }
   }
 
-  // check size
-  m = ((uint64_t) n) * term_bitsize(tbl, t);
-  if (m > (uint64_t) YICES_MAX_BVSIZE) {
-    error->code = MAX_BVSIZE_EXCEEDED;
-    error->badval = m;
-    return NULL_TERM;
-  }
-
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_repeat_concat(b, n);
-
-  return mk_bvlogic_term(manager, b);
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -3185,28 +3205,29 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    // check size
+    m = ((uint64_t) n) + term_bitsize(tbl, t);
+
+    if (m > (uint64_t) YICES_MAX_BVSIZE) {
+      error->code = MAX_BVSIZE_EXCEEDED;
+      error->badval = m;
+      retval = NULL_TERM;
+    } else {
+      b = term_manager_get_bvlogic_buffer(manager);
+      bvlogic_buffer_set_term(b, tbl, t);
+      bvlogic_buffer_sign_extend(b, b->bitsize + n);
+      retval = mk_bvlogic_term(manager, b);
+    }
   }
 
+  release_yices_lock(lock);
 
-  // check size
-  m = ((uint64_t) n) + term_bitsize(tbl, t);
-  if (m > (uint64_t) YICES_MAX_BVSIZE) {
-    error->code = MAX_BVSIZE_EXCEEDED;
-    error->badval = m;
-    return NULL_TERM;
-  }
-
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_sign_extend(b, b->bitsize + n);
-
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -3238,27 +3259,29 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
-    return NULL_TERM;
-  }
+    retval = NULL_TERM;
+  } else {
+    // check size
+    m = ((uint64_t) n) + term_bitsize(tbl, t);
 
-  // check size
-  m = ((uint64_t) n) + term_bitsize(tbl, t);
-  if (m > (uint64_t) YICES_MAX_BVSIZE) {
+    if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error->code = MAX_BVSIZE_EXCEEDED;
     error->badval = m;
-    return NULL_TERM;
+    retval = NULL_TERM;
+    } else {
+      b = term_manager_get_bvlogic_buffer(manager);
+      bvlogic_buffer_set_term(b, tbl, t);
+      bvlogic_buffer_zero_extend(b, b->bitsize + n);
+      retval = mk_bvlogic_term(manager, b);
+    }
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_zero_extend(b, b->bitsize + n);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -3288,19 +3311,20 @@ EXPORTED term_t yices_redand(term_t t) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_redand(b);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_redand(b);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 EXPORTED term_t yices_redor(term_t t) {
@@ -3311,19 +3335,20 @@ EXPORTED term_t yices_redor(term_t t) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t);
+    bvlogic_buffer_redor(b);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t);
-  bvlogic_buffer_redor(b);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
@@ -3356,18 +3381,19 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_compatible_bv_terms(manager, t1, t2)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    b = term_manager_get_bvlogic_buffer(manager);
+    bvlogic_buffer_set_term(b, tbl, t1);
+    bvlogic_buffer_comp_term(b, tbl, t2);
+    retval = mk_bvlogic_term(manager, b);
   }
 
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_comp_term(b, tbl, t2);
+  release_yices_lock(lock);
 
-  return mk_bvlogic_term(manager, b);
+  return retval;
 }
 
 
