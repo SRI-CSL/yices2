@@ -31,7 +31,6 @@
 #include "int_vectors.h"
 #include "int_hash_tables.h"
 
-
 /*
  * The graph is stored as a table of nodes
  * - each node is identified by a 30 bit index in the table

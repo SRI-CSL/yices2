@@ -128,7 +128,9 @@ extra_src_c := command_line.c cputime.c memsize.c timeout.c		\
                gates_printer.c internalization_printer.c sat_solver.c	\
                smt_core_exporter.c smt_core_printer.c smt_lexer.c	\
                smt_parser.c smt_term_stack.c smt2_lexer.c		\
-               context_printer.c yices_help.c yices_reval.c threads.c
+               context_printer.c yices_help.c yices_reval.c             \
+               threads.c stores.c
+
 
 
 src_c := $(base_src_c) $(extra_src_c)

@@ -482,18 +482,19 @@ extern void init_context(context_t *ctx, term_table_t *terms,
                          context_mode_t mode, context_arch_t arch, bool qflag);
 
 
+//Bruno: CRITCAL
 /*
  * Deletion
  */
 extern void delete_context(context_t *ctx);
 
-
+//Bruno: CRITCAL
 /*
  * Reset: remove all assertions
  */
 extern void reset_context(context_t *ctx);
 
-
+//Bruno: CRITCAL
 /*
  * Set the trace:
  * - the current tracer must be NULL.
@@ -502,7 +503,7 @@ extern void reset_context(context_t *ctx);
  */
 extern void context_set_trace(context_t *ctx, tracer_t *trace);
 
-
+//Bruno: CRITCAL
 /*
  * Push and pop
  * - should not be used if the push_pop option is disabled
@@ -791,6 +792,7 @@ extern void context_free_marks(context_t *ctx);
  *   ASSERTIONS AND CHECK   *
  ***************************/
 
+//Bruno: CRITCAL
 /*
  * Assert a boolean formula f.
  *
@@ -807,6 +809,7 @@ extern void context_free_marks(context_t *ctx);
 extern int32_t assert_formula(context_t *ctx, term_t f);
 
 
+//Bruno: CRITCAL
 /*
  * Assert all formulas f[0] ... f[n-1]
  * same return code as above.
@@ -814,6 +817,7 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
 extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 
+//Bruno: CRITCAL
 /*
  * Convert boolean term t to a literal l in context ctx
  * - return a negative code if there's an error
@@ -822,6 +826,7 @@ extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 extern int32_t context_internalize(context_t *ctx, term_t t);
 
 
+//Bruno: CRITCAL
 /*
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
@@ -838,6 +843,7 @@ extern int32_t context_internalize(context_t *ctx, term_t t);
 extern int32_t assert_blocking_clause(context_t *ctx);
 
 
+//Bruno: CRITCAL
 /*
  * Check whether the context is consistent
  * - parameters = search and heuristic parameters to use
@@ -849,6 +855,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 
 
+//Bruno: CRITCAL
 /*
  * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
  * - model must be initialized (and empty)
@@ -859,7 +866,7 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  */
 extern void context_build_model(model_t *model, context_t *ctx);
 
-
+//Bruno: SHOULD NOT NEED THE LOCK  (since it is an interrupter)
 /*
  * Interrupt the search
  * - this can be called after check_context from a signal handler
@@ -874,6 +881,7 @@ extern void context_build_model(model_t *model, context_t *ctx);
 extern void context_stop_search(context_t *ctx);
 
 
+//Bruno: CRITCAL
 /*
  * Cleanup after check is interrupted
  * - must not be called if the clean_interrupt option is disabled
@@ -882,6 +890,7 @@ extern void context_stop_search(context_t *ctx);
 extern void context_cleanup(context_t *ctx);
 
 
+//Bruno: CRITCAL
 /*
  * Clear boolean assignment and return to the IDLE state.
  * - this can be called after check returns UNKNOWN or SEARCHING
@@ -893,6 +902,7 @@ extern void context_cleanup(context_t *ctx);
 extern void context_clear(context_t *ctx);
 
 
+//Bruno: CRITCAL
 /*
  * Cleanup after the search returned UNSAT
  * - if the clean_interrupt option is enabled, this restore
@@ -986,17 +996,6 @@ static inline void enable_pseudo_inverse_simplification(context_t *ctx) {
 static inline void disable_pseudo_inverse_simplification(context_t *ctx) {
   ctx->options &= ~PSEUDO_INVERSE_OPTION_MASK;
 }
-
-
-/*
- * Simplex-related options
- */
-extern void enable_splx_eager_lemmas(context_t *ctx);
-extern void disable_splx_eager_lemmas(context_t *ctx);
-extern void enable_splx_periodic_icheck(context_t *ctx);
-extern void disable_splx_periodic_icheck(context_t *ctx);
-extern void enable_splx_eqprop(context_t *ctx);
-extern void disable_splx_eqprop(context_t *ctx);
 
 
 /*

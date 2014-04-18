@@ -29,6 +29,7 @@
 #include "type_printer.h"
 #include "term_printer.h"
 
+#include "stores.h"
 
 
 #ifdef MINGW
@@ -37,7 +38,7 @@ static inline long int random(void) {
 }
 #endif
 
-/* knobs or dials for the numbers */
+/* dials for the numbers */
 #if 0
 #define BVNUM 200
 #define ITENUM 5000
@@ -47,315 +48,6 @@ static inline long int random(void) {
 #define ITENUM 200
 #define BINUM 200
 #endif
-
-/*
- * Print the type table
- */
-static void show_types(void) {
-  printf("\n---- Type table ----\n");
-  //  print_type_table(stdout, __yices_globals.types);
-  pp_type_table(stdout, __yices_globals.types);
-}
-
-
-/*
- * Print the term table
- */
-static void show_terms(void) {
-  printf("\n---- Term table -----\n");
-  //  print_term_table(stdout, __yices_globals.terms);
-  pp_term_table(stdout, __yices_globals.terms);
-}
-
-
-
-/*
- * TYPE STORE
- */
-
-/*
- * Type store:
- * - size = its size
- * - ntypes = number of types
- * - type = array where the types are stored
- * - terms[i] = all the terms of type type[i]
- */
-typedef struct type_store_s {
-  uint32_t size;
-  uint32_t ntypes;
-  type_t *type;
-  ivector_t *terms;
-} type_store_t;
-
-
-#define TYPE_STORE_DEF_SIZE 100
-#define TYPE_STORE_MAX_SIZE (UINT32_MAX/sizeof(ivector_t))
-
-
-/*
- * Initialization
- */
-static void init_type_store(type_store_t *store) {
-  uint32_t n;
-
-  n = TYPE_STORE_DEF_SIZE;
-  assert(n < TYPE_STORE_MAX_SIZE);
-
-  store->size = n;
-  store->ntypes = 0;
-  store->type = (type_t *) safe_malloc(n * sizeof(type_t));
-  store->terms = (ivector_t *) safe_malloc(n * sizeof(ivector_t));
-}
-
-
-/*
- * Make the store 50% larger
- */
-static void extend_type_store(type_store_t *store) {
-  uint32_t n;
-
-  n = store->size + 1;
-  n += n >> 1;
-
-  if (n >= TYPE_STORE_MAX_SIZE) {
-    out_of_memory();
-  }
-
-  store->size = n;
-  store->type = (type_t *) safe_realloc(store->type, n * sizeof(type_t));
-  store->terms = (ivector_t *) safe_realloc(store->terms, n * sizeof(ivector_t));
-}
-
-
-/*
- * Allocate a new index i and initialize terms[i]
- */
-static uint32_t type_store_alloc_index(type_store_t *store) {
-  uint32_t i;
-
-  i = store->ntypes;
-  if (i == store->size) {
-    extend_type_store(store);
-  }
-  assert(i < store->size);
-
-  init_ivector(store->terms + i, 10);
-  store->ntypes ++;
-
-  return i;
-}
-
-
-/*
- * Get the index of type tau:
- * - if tau is not in the store, add it
- */
-static uint32_t type_store_get_type(type_store_t *store, type_t tau) {
-  uint32_t i, n;
-
-  n = store->ntypes;
-  for (i=0; i<n; i++) {
-    if (store->type[i] == tau) {
-      return i;
-    }
-  }
-
-  i = type_store_alloc_index(store);
-  store->type[i] = tau;
-
-  return i;
-}
-
-
-/*
- * Add term t to the store:
- * - t is added as last element of store->terms[i] where i = index for type of t
- */
-static void type_store_add_term(type_store_t *store, term_t t) {
-  uint32_t i;
-  type_t tau;
-
-  assert(good_term(__yices_globals.terms, t));
-
-  tau = term_type(__yices_globals.terms, t);
-  i = type_store_get_type(store, tau);
-  ivector_push(store->terms + i, t);
-}
-
-
-
-/*
- * Get the index of type tau.
- * - return store->ntypes is tau is not present in the store.
- */
-static uint32_t type_store_type_index(type_store_t *store, type_t tau) {
-  uint32_t i, n;
-
-  n = store->ntypes;
-  for (i=0; i<n; i++) {
-    if (store->type[i] == tau) break;
-  }
-  return i;
-}
-
-
-
-
-/*
- * Delete the store
- */
-static void delete_type_store(type_store_t *store) {
-  uint32_t i, n;
-
-  n = store->ntypes;
-  for (i=0; i<n; i++) {
-    delete_ivector(store->terms + i);
-  }
-  safe_free(store->type);
-  safe_free(store->terms);
-
-  store->type = NULL;
-  store->terms = NULL;
-}
-
-
-
-/*
- * TERM STORE
- */
-
-/*
- * Term store:
- * - term = array of all terms
- * - mark = bitvectore: mark[t] = 1 if t is present in terms
- */
-typedef struct term_store_s {
-  uint32_t size;
-  uint32_t nterms;
-  term_t *term;
-  uint32_t max_term;  // size of mark bitvector
-  byte_t *mark;
-} term_store_t;
-
-#define TERM_STORE_DEF_SIZE 1000
-#define TERM_STORE_MAX_SIZE (UINT32_MAX/sizeof(term_t))
-
-#define TERM_STORE_DEF_MSIZE 100
-
-
-/*
- * Initialize store
- */
-static void init_term_store(term_store_t *store) {
-  uint32_t n;
-
-  n = TERM_STORE_DEF_SIZE;
-  assert(n < TERM_STORE_MAX_SIZE);
-
-  store->size = n;
-  store->nterms = 0;
-  store->term = (term_t *) safe_malloc(n * sizeof(term_t));
-
-  n = TERM_STORE_DEF_MSIZE;
-  store->max_term = n;
-  store->mark = allocate_bitvector0(n);
-}
-
-
-/*
- * Extend: make the term array 50% larger
- */
-static void extend_term_store(term_store_t *store) {
-  uint32_t n;
-
-  n = store->size + 1;
-  n += n>>1;
-
-  if (n >= TERM_STORE_MAX_SIZE) {
-    out_of_memory();
-  }
-
-  store->size = n;
-  store->term = (term_t *) safe_realloc(store->term, n * sizeof(term_t));
-}
-
-
-/*
- * Get a new index i to store a term
- */
-static uint32_t term_store_alloc_index(term_store_t *store) {
-  uint32_t i;
-
-  i = store->nterms;
-  if (i == store->size) {
-    extend_term_store(store);
-  }
-  assert(i < store->size);
-  store->nterms ++;
-
-  return i;
-}
-
-
-
-/*
- * Mark term t
- */
-static void term_store_mark_term(term_store_t *store, term_t t) {
-  uint32_t n;
-
-  assert(t >= 0);
-
-  n = store->max_term;
-  if (t >= n) {
-    // make the mark vector large enough to mark t: try to double its size
-    // if that's not enough allocate a vector of size
-    n += n;
-    if (t >= n) {
-      n = (t + 8) >> 3; // ceil((t+1)/8)
-    }
-    store->mark = extend_bitvector0(store->mark, n, store->max_term);
-    store->max_term = n;
-    assert(t < n);
-  }
-  set_bit(store->mark, t);
-}
-
-
-
-/*
- * Check whether t is present in store
- */
-static bool term_store_contains_term(term_store_t *store, term_t t) {
-  return t < store->max_term && tst_bit(store->mark, t);
-}
-
-
-/*
- * Add term t to the store (t should not be present)
- */
-static void term_store_add_term(term_store_t *store, term_t t) {
-  uint32_t i;
-
-  assert(! term_store_contains_term(store, t));
-
-  i = term_store_alloc_index(store);
-  store->term[i] = t;
-  term_store_mark_term(store, t);
-}
-
-
-/*
- * Delete store
- */
-static void delete_term_store(term_store_t *store) {
-  safe_free(store->term);
-  delete_bitvector(store->mark);
-  store->term = NULL;
-  store->mark = NULL;
-}
-
-
 
 /*
  * GLOBAL STORE:
@@ -394,109 +86,6 @@ static void add_term(term_t t) {
   }
 }
 
-
-
-
-/*
- * SUPPORT FOR RANDOM TESTING
- */
-
-/*
- * Sampling: select one type in store that satifies predicate p
- */
-typedef bool (*predicate_t)(type_t tau);
-
-static type_t type_store_sample(type_store_t *store, predicate_t p) {
-  uint32_t i, n, m;
-  type_t tau, sigma;
-
-  n = store->ntypes;
-  m = 0;
-  sigma = NULL_TYPE;
-  for (i=0; i<n; i++) {
-    tau = store->type[i];
-    if (p(tau)) {
-      m ++;
-      // replace sigma by tau with probability 1/m
-      // keep sigma with probablity (m-1)/m
-      if ((((uint32_t)random()) % m) == 0) {
-	sigma = tau;
-      }
-    }
-  }
-
-  return sigma;
-}
-
-
-
-/*
- * Sampling: select one of the terms of type tau
- * - return NULL_TERM if there's nothing of type tau in the store.
- */
-static term_t type_store_sample_terms(type_store_t *store, type_t tau) {
-  uint32_t i, j, n;
-  term_t t;
-
-  t = NULL_TERM;
-  i = type_store_type_index(store, tau);
-  if (i < store->ntypes) {
-    n = store->terms[i].size;
-    if (n > 0) {
-      j = ((uint32_t) random()) % n;
-      t = store->terms[i].data[j];
-    }
-  }
-
-  return t;
-}
-
-
-
-/*
- * Term sampling: get a term that satisfies the predicate P(tau, t).
- * Give priority to small terms (i.e., those created early).
- */
-typedef bool (*term_pred_t)(type_t tau, term_t t);
-
-static term_t term_array_sample(term_t *a, uint32_t n, type_t tau, term_pred_t p) {
-  uint32_t i, m;
-  term_t t, s;
-
-  m = 0;
-  s = NULL_TERM;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (p(tau, t)) {
-      m ++;
-      if ((((uint32_t)random()) % m) == 0) {
-	s = t;
-      }
-    }
-  }
-
-  return s;
-}
-
-static term_t term_store_sample(term_store_t *store, type_t tau, term_pred_t p) {
-  uint32_t n;
-  term_t t, s;
-
-  n = store->nterms;
-  if (n > 150) {
-    s = term_array_sample(store->term, 150, tau, p); // small terms
-    if (s == NULL_TERM || (random() % 10) == 0) {
-      t = term_array_sample(store->term + 150, n - 150, tau, p); // large terms
-      if (t != NULL_TERM) {
-	s = t;
-      }
-    }
-  } else {
-    s = term_array_sample(store->term, n, tau, p); // all terms are small
-  }
-
-  return s;
-}
 
 
 
@@ -1318,8 +907,8 @@ int main(void) {
   init_base_types();
   init_base_terms();
 
-  show_types();
-  show_terms();
+  show_types(stdout);
+  show_terms(stdout);
 
   random_bvarrays(BVNUM);
   random_bvextracts(BVNUM);
@@ -1327,8 +916,8 @@ int main(void) {
   random_ite(ITENUM);
   random_binary_tests(BINUM);
 
-  show_types();
-  show_terms();
+  show_types(stdout);
+  show_terms(stdout);
 
   delete_store();
   yices_exit();
