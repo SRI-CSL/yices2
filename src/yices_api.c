@@ -4702,19 +4702,22 @@ EXPORTED term_t yices_parse_term(const char *s) {
 EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
   char *clone;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_type(__yices_globals.types, tau)) {
-    return -1;
+    retval = -1;
+  } else {
+    // make a copy of name
+    clone = clone_string(name);
+    set_type_name(__yices_globals.types, tau, clone);
+    retval = 0;
   }
 
-  // make a copy of name
-  clone = clone_string(name);
-  set_type_name(__yices_globals.types, tau, clone);
+  release_yices_lock(lock);
 
-  return 0;
+  return retval;
 }
 
 
@@ -4729,19 +4732,22 @@ EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
 EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
   char *clone;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(__yices_globals.manager, t)) {
-    return -1;
+    retval = -1;
+  } else {
+    // make a copy of name
+    clone = clone_string(name);
+    set_term_name(__yices_globals.terms, t, clone);
+    retval =  0;
   }
 
-  // make a copy of name
-  clone = clone_string(name);
-  set_term_name(__yices_globals.terms, t, clone);
+  release_yices_lock(lock);
 
-  return 0;
+  return retval;
 }
 
 
@@ -4754,13 +4760,16 @@ EXPORTED const char *yices_get_type_name(type_t tau) {
   const char *retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
-
- if (! check_good_type(__yices_globals.types, tau)) {
-    return NULL;
+  if (! check_good_type(__yices_globals.types, tau)) {
+    retval = NULL;
+  } else {
+    retval = type_name(__yices_globals.types, tau);
   }
-  return type_name(__yices_globals.types, tau);
+  
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -4773,12 +4782,16 @@ EXPORTED const char *yices_get_term_name(term_t t) {
   const char *retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(__yices_globals.manager, t)) {
-    return NULL;
+    retval = NULL;
+  } else {
+    retval = term_name(__yices_globals.terms, t);
   }
-  return term_name(__yices_globals.terms, t);
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -4814,11 +4827,15 @@ EXPORTED void yices_remove_term_name(const char *name) {
  */
 EXPORTED type_t yices_get_type_by_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+  type_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
-  return get_type_by_name(__yices_globals.types, name);
+  retval = get_type_by_name(__yices_globals.types, name);
+
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -4827,12 +4844,18 @@ EXPORTED type_t yices_get_type_by_name(const char *name) {
  */
 EXPORTED term_t yices_get_term_by_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
 
   get_yices_lock(lock);
+
+  retval = get_term_by_name(__yices_globals.terms, name);
+
   release_yices_lock(lock);
 
-  return get_term_by_name(__yices_globals.terms, name);
+  return retval;
 }
+
 
 
 /*
@@ -4842,16 +4865,20 @@ EXPORTED term_t yices_get_term_by_name(const char *name) {
  */
 EXPORTED int32_t yices_clear_type_name(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_type(__yices_globals.types, tau)) {
-    return -1;
+    retval = -1;
+  } else {
+    clear_type_name(__yices_globals.types, tau);
+    retval = 0;
   }
 
-  clear_type_name(__yices_globals.types, tau);
-  return 0;
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -4863,16 +4890,20 @@ EXPORTED int32_t yices_clear_type_name(type_t tau) {
  */
 EXPORTED int32_t yices_clear_term_name(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(__yices_globals.manager, t)) {
-    return -1;
+    retval = -1;
+  } else {
+    clear_term_name(__yices_globals.terms, t);
+    retval = 0;
   }
 
-  clear_term_name(__yices_globals.terms, t);
-  return 0;
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -4885,7 +4916,8 @@ EXPORTED int32_t yices_clear_term_name(term_t t) {
 
 /*
  * Allocate a new configuration descriptor
- * - initialize it do defaults
+ * - initialize it do defaults     
+ *
  */
 EXPORTED ctx_config_t *yices_new_config(void) {
   ctx_config_t *tmp;
@@ -4909,7 +4941,7 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
  * Set a configuration parameter
  */
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   int32_t k;
 
@@ -4934,7 +4966,7 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
  * - return 0 otherwise
  */
 EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   int32_t k;
 
@@ -4993,7 +5025,7 @@ static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
  * Enable a specific option
  */
 EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   int32_t k, r;
 
   r = 0; // default return code: no error
@@ -5027,7 +5059,7 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
  * Disable a specific option
  */
 EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   int32_t k, r;
 
   r = 0; // default return code: no error
@@ -5116,7 +5148,7 @@ EXPORTED void yices_free_param_record(param_t *param) {
  * Set a search parameter
  */
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   int32_t k;
 
@@ -5170,13 +5202,12 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
  * - qflag = true to support quantifiers
  */
 context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
-  yices_lock_t *lock = &__yices_globals.lock;
   context_t *ctx;
 
   ctx = alloc_context();
   init_context(ctx, __yices_globals.terms, mode, arch, qflag);
   context_set_default_options(ctx, arch, iflag, qflag);
-
+  
   return ctx;
 }
 
@@ -5190,12 +5221,16 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
  */
 EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
   yices_lock_t *lock = &__yices_globals.lock;
+  error_report_t *error = __yices_globals.error;
   context_arch_t arch;
   context_mode_t mode;
   bool iflag;
   bool qflag;
   int32_t k;
+  context_t *retval;
 
+  get_yices_lock(lock);
+  
   if (config == NULL) {
     // Default configuration: all solvers, mode = push/pop
     arch = CTX_ARCH_EGFUNSPLXBV;
@@ -5207,12 +5242,19 @@ EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
     k = decode_config(config, &arch, &mode, &iflag, &qflag);
     if (k < 0) {
       // invalid configuration
-      __yices_globals.error->code = CTX_INVALID_CONFIG;
-      return NULL;
+      error->code = CTX_INVALID_CONFIG;
+      retval = NULL;
+      goto clean_up;
     }
   }
+  
+  retval = yices_create_context(arch, mode, iflag, qflag);
 
-  return yices_create_context(arch, mode, iflag, qflag);
+ clean_up:
+  
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 #endif
@@ -5268,7 +5310,7 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  *   code = CTX_INVALID_OPERATION
  */
 EXPORTED int32_t yices_push(context_t *ctx) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   if (! context_supports_pushpop(ctx)) {
     error->code = CTX_OPERATION_NOT_SUPPORTED;
@@ -5315,7 +5357,7 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   code = CTX_INVALID_OPERATION
  */
 EXPORTED int32_t yices_pop(context_t *ctx) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   if (! context_supports_pushpop(ctx)) {
     error->code = CTX_OPERATION_NOT_SUPPORTED;
@@ -5383,7 +5425,7 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
 };
 
 static inline void convert_internalization_error(int32_t code) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
   __yices_globals.error->code = intern_code2error[-code];
 }
@@ -5425,53 +5467,65 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   term_manager_t *manager = __yices_globals.manager;
   error_report_t *error = __yices_globals.error;
   int32_t code;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (! check_good_term(manager, t) ||
       ! check_boolean_term(manager, t)) {
-    return -1;
-  }
+    retval = -1;
+  } else {
 
-  switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (! context_supports_multichecks(ctx)) {
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return -1;
+    switch (context_status(ctx)) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      if (! context_supports_multichecks(ctx)) {
+        error->code = CTX_OPERATION_NOT_SUPPORTED;
+        retval = -1;
+        goto clean_up;
+      }
+      context_clear(ctx);
+      assert(context_status(ctx) == STATUS_IDLE);
+      // fall-through intended
+    case STATUS_IDLE:
+      code = assert_formula(ctx, t);
+      if (code < 0) {
+        // error during internalization
+        convert_internalization_error(code);
+        retval = -1;
+        goto clean_up;
+      }
+      assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
+    case STATUS_UNSAT:
+      // nothing to do
+      break;
+
+      
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+      error->code = CTX_INVALID_OPERATION;
+      retval = -1;
+      goto clean_up;
+
+    case STATUS_ERROR:
+    default:
+      error->code = INTERNAL_EXCEPTION;
+      retval = -1;
+      goto clean_up;
     }
-    context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
-  case STATUS_IDLE:
-    code = assert_formula(ctx, t);
-    if (code < 0) {
-      // error during internalization
-      convert_internalization_error(code);
-      return -1;
-    }
-    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
-  case STATUS_UNSAT:
-    // nothing to do
-    break;
-
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-    error->code = CTX_INVALID_OPERATION;
-    return -1;
-
-  case STATUS_ERROR:
-  default:
-    error->code = INTERNAL_EXCEPTION;
-    return -1;
+    
+    retval = 0;
+    
   }
+  
+  
+ clean_up:
+  
+  release_yices_lock(lock);
 
-  return 0;
+  return retval;
 }
-
 
 
 /*
@@ -5482,21 +5536,23 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
   term_manager_t *manager = __yices_globals.manager;
   error_report_t *error = __yices_globals.error;
   int32_t code;
-
+  int32_t retval;
+  
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
+  
   if (! check_good_terms(manager, n, t) ||
       ! check_boolean_args(manager, n, t)) {
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
-
+  
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return -1;
+      retval = -1;
+      goto clean_up;
     }
     context_clear(ctx);
     assert(context_status(ctx) == STATUS_IDLE);
@@ -5506,7 +5562,8 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
     if (code < 0) {
       // error during internalization
       convert_internalization_error(code);
-      return -1;
+      retval = -1;
+      goto clean_up;
     }
     assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
 
@@ -5519,15 +5576,23 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
     error->code = CTX_INVALID_OPERATION;
-    return -1;
+    retval = -1;
+    goto clean_up;
 
   case STATUS_ERROR:
   default:
     error->code = INTERNAL_EXCEPTION;
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   return 0;
+
+ clean_up:
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -5548,7 +5613,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
  *    code = CTX_OPERATION_NOT_SUPPORTED
  */
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
@@ -5635,7 +5700,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  //yices_lock_t *lock = &__yices_globals.lock;
   error_report_t *error = __yices_globals.error;
   param_t default_params;
   smt_status_t stat;
@@ -5713,8 +5778,10 @@ EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
   error_report_t *error = __yices_globals.error;
   model_t *mdl;
 
-  assert(ctx != NULL);
+  get_yices_lock(lock);
 
+  assert(ctx != NULL);
+  
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
@@ -5722,12 +5789,14 @@ EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
     init_model(mdl, __yices_globals.terms, (keep_subst != 0));
     context_build_model(mdl, ctx);
     break;
-
+    
   default:
     error->code = CTX_INVALID_OPERATION;
     mdl = NULL;
     break;
   }
+
+  release_yices_lock(lock);
 
   return mdl;
 }
@@ -5762,6 +5831,8 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
   pp_area_t area;
   int32_t code;
 
+  get_yices_lock(lock);
+
   if (width < 4) width = 4;
   if (height == 0) height = 1;
 
@@ -5783,6 +5854,8 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
     __yices_globals.error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
+
+  release_yices_lock(lock);
 
   return code;
 }
@@ -5835,14 +5908,15 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   evaluator_t evaluator;
   value_table_t *vtbl;
   value_t v;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (! check_good_term(manager, t) ||
       ! check_boolean_term(manager, t)) {
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   v = model_find_term_value(mdl, t);
@@ -5854,18 +5928,26 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
 
   if (v < 0) {
     error->code = yices_eval_error(v);
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_boolean(vtbl, v)) {
     error->code = INTERNAL_EXCEPTION;
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   *val = boolobj_value(vtbl, v);
 
-  return 0;
+  retval = 0;
+
+ clean_up:
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -5898,14 +5980,14 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   value_table_t *vtbl;
   value_bv_t *bv;
   value_t v;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t)) {
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   v = model_find_term_value(mdl, t);
@@ -5917,19 +5999,28 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
 
   if (v < 0) {
     error->code = yices_eval_error(v);
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_bitvector(vtbl, v)) {
     error->code = INTERNAL_EXCEPTION;
-    return -1;
+    retval = -1;
+    goto clean_up;
   }
 
   bv = vtbl_bitvector(vtbl, v);
   bvconst_get_array(bv->data, val, bv->nbits);
 
-  return 0;
+  retval = 0;
+
+
+ clean_up:
+  
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 // same function under a different name for backward compatibility
@@ -5970,47 +6061,58 @@ static sparse_array_t *_o_get_root_types(void) {
 EXPORTED int32_t yices_incref_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
   sparse_array_t *roots;
-  
+  int32_t retval;
+
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (!check_good_term(__yices_globals.manager, t)) {
-    return -1;
+    retval = -1;
+  } else {
+
+    get_yices_lock(&root_lock);
+
+    // we keep the ref count on the term index
+    // (i.e., we ignore t's polarity)
+    roots = _o_get_root_terms();
+    sparse_array_incr(roots, index_of(t));
+
+    release_yices_lock(&root_lock);
+
+    retval = 0;
   }
 
-  get_yices_lock(&root_lock);
-
-  // we keep the ref count on the term index
-  // (i.e., we ignore t's polarity)
-  roots = _o_get_root_terms();
-  sparse_array_incr(roots, index_of(t));
-
-  release_yices_lock(&root_lock);
+  release_yices_lock(lock);
   
-  return 0;
+  return retval;
 }
 
 EXPORTED int32_t yices_incref_type(type_t tau) {
   yices_lock_t *lock = &__yices_globals.lock;
   sparse_array_t *roots;
+  int32_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
 
   if (!check_good_type(__yices_globals.types, tau)) {
-    return -1;
+    retval = -1;
+  } else {
+
+    get_yices_lock(&root_lock);
+
+    roots = _o_get_root_types();
+    sparse_array_incr(roots, tau);
+
+    release_yices_lock(&root_lock);
+
+    retval = 0;
   }
 
-  get_yices_lock(&root_lock);
 
-  roots = _o_get_root_types();
-  sparse_array_incr(roots, tau);
+  release_yices_lock(lock);
 
-  release_yices_lock(&root_lock);
-
-  return 0;
+  return retval;
 }
 
 EXPORTED int32_t yices_decref_term(term_t t) {
@@ -6048,25 +6150,27 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
   int32_t retval = -1;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_good_type(__yices_globals.types, tau)) {
-    return retval;
-  }
-
-  get_yices_lock(&root_lock);
-
-  if (root_types == NULL ||
-      sparse_array_read(root_types, tau) == 0) {
-    error->code = BAD_TYPE_DECREF;
-    error->type1 = tau;
+    retval = -1;
   } else {
-    sparse_array_decr(root_types, tau);
-    retval = 0;
+
+    get_yices_lock(&root_lock);
+
+    if (root_types == NULL ||
+        sparse_array_read(root_types, tau) == 0) {
+      error->code = BAD_TYPE_DECREF;
+      error->type1 = tau;
+    } else {
+      sparse_array_decr(root_types, tau);
+      retval = 0;
+    }
+
+    release_yices_lock(&root_lock);
   }
 
-  release_yices_lock(&root_lock);
+  
+  release_yices_lock(lock);
 
   return retval;
 }
@@ -6077,20 +6181,29 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
  */
 EXPORTED uint32_t yices_num_terms(void) {
   yices_lock_t *lock = &__yices_globals.lock;
+  uint32_t retval;
+
   get_yices_lock(lock);
+
+  retval = __yices_globals.terms->live_terms;
+
   release_yices_lock(lock);
 
-  return __yices_globals.terms->live_terms;
+  return retval;
 }
 
 EXPORTED uint32_t yices_num_types(void) {
   yices_lock_t *lock = &__yices_globals.lock;
+  uint32_t retval;
+
   get_yices_lock(lock);
+
+  retval = __yices_globals.types->live_types;
+
   release_yices_lock(lock);
 
-  return __yices_globals.types->live_types;
+  return retval;
 }
-
 
 /*
  * Number of terms/types with a positive reference count
@@ -6135,24 +6248,26 @@ EXPORTED uint32_t yices_num_posref_types(void) {
 static void term_idx_marker(void *aux, uint32_t i) {
   yices_lock_t *lock = &__yices_globals.lock;
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   assert(aux == __yices_globals.terms);
   if (good_term_idx(aux, i)) {
     term_table_set_gc_mark(aux, i);
   }
+
+  release_yices_lock(lock);
 }
 
 // iterator for the root_types array
 static void type_marker(void *aux, uint32_t i) {
   yices_lock_t *lock = &__yices_globals.lock;
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   assert(aux == __yices_globals.types);
   if (good_type(aux, i)) {
     type_table_set_gc_mark(aux, i);
   }
+  release_yices_lock(lock);
+
 }
 
 // scan the list of contexts and mark
@@ -6232,6 +6347,7 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
   term_table_t *terms = __yices_globals.terms;
   type_table_t *types = __yices_globals.types;
 
+  get_yices_lock(lock);
 
   /*
    * Default roots: all terms and types in all live models and context
@@ -6265,5 +6381,6 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
   keep = (keep_named != 0);
   term_table_gc(terms, keep);
 
+  release_yices_lock(lock);
 
 }
