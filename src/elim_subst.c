@@ -116,13 +116,12 @@ static bool elim_subst_try_arith_elim(elim_subst_t *subst, polynomial_t *p, bool
   while (i < n) {
     x = p->mono[i].var;
     if (is_elim_candidate(subst, x)) {
-      if (check_cycles && arith_elim_causes_cycle(subst, p, x)) {
-	continue;
+      if (!check_cycles || !arith_elim_causes_cycle(subst, p, x)) {
+	// success: add the map [x --> q] for q = elim of x in p
+	q = mk_arith_elim_poly(subst->mngr, p, x);
+	full_subst_add_map(&subst->full_subst, x, q);
+	return true;
       }
-      // success: add the map [x --> q] for q = elim of x in p
-      q = mk_arith_elim_poly(subst->mngr, p, x);
-      full_subst_add_map(&subst->full_subst, x, q);
-      return true;
     }
     i ++;
   }

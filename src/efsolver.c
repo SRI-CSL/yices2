@@ -753,7 +753,7 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
  * This function adds a constraint to the exists_context that will remove the
  * current exists model:
  * - if solver->option is EF_NOGEN_OPTION, the new constraint is
- *   of the form (or (/= var[0] eval[k0) ... (/= var[k-1] eval[k-1]))
+ *   of the form (or (/= var[0] eval[k0]) ... (/= var[k-1] eval[k-1]))
  *   where var[0 ... k-1] are the exist variables of constraint i
  * - if solver->option is EF_GEN_BY_SUBST_OPTION, we build a new
  *   constraint by substitution (option 2)
