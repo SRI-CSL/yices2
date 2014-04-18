@@ -1697,15 +1697,17 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
   term_manager_t *manager = __yices_globals.manager;
   term_t retval;
 
-
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_eq(manager, left, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_neq(manager, left, right);
   }
-
-  return mk_neq(manager, left, right);
+  
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -1718,14 +1720,17 @@ EXPORTED term_t yices_not(term_t arg) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, arg) ||
       ! check_boolean_term(manager, arg)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = opposite_term(arg);
   }
 
-  return opposite_term(arg);
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 
@@ -1738,25 +1743,32 @@ EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
  
 
   if (! check_arity(n) ||
       ! check_good_terms(manager, n, arg) ||
       ! check_boolean_args(manager, n, arg)) {
-    return NULL_TERM;
-  }
+    retval = NULL_TERM;
+  } else {
 
-  switch (n) {
-  case 0:
-    return false_term;
-  case 1:
-    return arg[0];
-  case 2:
-    return mk_binary_or(manager, arg[0], arg[1]);
-  default:
-    return mk_or(manager, n, arg);
+    switch (n) {
+    case 0:
+      retval = false_term;
+      break;
+    case 1:
+      retval = arg[0];
+      break;
+    case 2:
+      retval =  mk_binary_or(manager, arg[0], arg[1]);
+      break;
+    default:
+      retval =  mk_or(manager, n, arg);
+    }
   }
+  
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
@@ -1765,24 +1777,30 @@ EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_arity(n) ||
       ! check_good_terms(manager, n, arg) ||
       ! check_boolean_args(manager, n, arg)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    switch (n) {
+    case 0:
+      retval = true_term;
+      break;
+    case 1:
+      retval = arg[0];
+      break;
+    case 2:
+      retval = mk_binary_and(manager, arg[0], arg[1]);
+      break;
+    default:
+      retval = mk_and(manager, n, arg);
+    }
   }
 
-  switch (n) {
-  case 0:
-    return true_term;
-  case 1:
-    return arg[0];
-  case 2:
-    return mk_binary_and(manager, arg[0], arg[1]);
-  default:
-    return mk_and(manager, n, arg);
-  }
+  release_yices_lock(lock);
+  
+  return retval;
 }
 
 EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
@@ -1791,25 +1809,30 @@ EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
-
 
   if (! check_arity(n) ||
       ! check_good_terms(manager, n, arg) ||
       ! check_boolean_args(manager, n, arg)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    switch (n) {
+    case 0:
+      retval = false_term;
+      break;
+    case 1:
+      retval = arg[0];
+      break;
+    case 2:
+      retval = mk_binary_xor(manager, arg[0], arg[1]);
+      break;
+    default:
+      retval =  mk_xor(manager, n, arg);
+    }
   }
+  
+  release_yices_lock(lock);
 
-  switch (n) {
-  case 0:
-    return false_term;
-  case 1:
-    return arg[0];
-  case 2:
-    return mk_binary_xor(manager, arg[0], arg[1]);
-  default:
-    return mk_xor(manager, n, arg);
-  }
+  return retval;
 }
 
 
@@ -1856,16 +1879,19 @@ EXPORTED term_t yices_or2(term_t left, term_t right) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, left) ||
       ! check_good_term(manager, right) ||
       ! check_boolean_term(manager, left) ||
       ! check_boolean_term(manager, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval =  mk_binary_or(manager, left, right);
   }
 
-  return mk_binary_or(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 EXPORTED term_t yices_and2(term_t left, term_t right) {
@@ -1874,16 +1900,19 @@ EXPORTED term_t yices_and2(term_t left, term_t right) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, left) ||
       ! check_good_term(manager, right) ||
       ! check_boolean_term(manager, left) ||
       ! check_boolean_term(manager, right)) {
-    return NULL_TERM;
+    retval =  NULL_TERM;
+  } else {
+    retval = mk_binary_and(manager, left, right);
   }
 
-  return mk_binary_and(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 EXPORTED term_t yices_xor2(term_t left, term_t right) {
@@ -1892,16 +1921,19 @@ EXPORTED term_t yices_xor2(term_t left, term_t right) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, left) ||
       ! check_good_term(manager, right) ||
       ! check_boolean_term(manager, left) ||
       ! check_boolean_term(manager, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_binary_xor(manager, left, right);
   }
 
-  return mk_binary_xor(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -1911,16 +1943,19 @@ EXPORTED term_t yices_iff(term_t left, term_t right) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, left) ||
       ! check_good_term(manager, right) ||
       ! check_boolean_term(manager, left) ||
       ! check_boolean_term(manager, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_iff(manager, left, right);
   }
 
-  return mk_iff(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 EXPORTED term_t yices_implies(term_t left, term_t right) {
@@ -1929,16 +1964,19 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_good_term(manager, left) ||
       ! check_good_term(manager, right) ||
       ! check_boolean_term(manager, left) ||
       ! check_boolean_term(manager, right)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval =  mk_implies(manager, left, right);
   }
 
-  return mk_implies(manager, left, right);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
@@ -1948,15 +1986,18 @@ EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
   term_t retval;
 
   get_yices_lock(lock);
-  release_yices_lock(lock);
 
   if (! check_positive(n) ||
       ! check_arity(n) ||
       ! check_good_distinct_term(manager, n, arg)) {
-    return NULL_TERM;
+    retval = NULL_TERM;
+  } else {
+    retval = mk_distinct(manager, n, arg);
   }
 
-  return mk_distinct(manager, n, arg);
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
