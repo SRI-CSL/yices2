@@ -338,7 +338,7 @@ void tstack_push_str(tstack_t *stack, tag_t tag, char *s, uint32_t n, loc_t *loc
  * or TSTACK_MACRO_REDEF)
  */
 void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_type_by_name(s) != NULL_TYPE) {
+  if (_o_yices_get_type_by_name(s) != NULL_TYPE) {
     push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
@@ -496,7 +496,7 @@ void tstack_push_type_by_name(tstack_t *stack, char *s, loc_t *loc) {
   stack_elem_t *e;
   type_t tau;
 
-  tau = yices_get_type_by_name(s);
+  tau = _o_yices_get_type_by_name(s);
   if (tau == NULL_TYPE) push_exception(stack, loc, s, TSTACK_UNDEF_TYPE);
 
   e = tstack_get_topelem(stack);

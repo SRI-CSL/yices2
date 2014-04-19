@@ -19,8 +19,20 @@ static inline long int random(void) {
 }
 #endif
 
+/*
+ * Print the type table
+ */
 extern void show_types(FILE* output);
+
+/*
+ * Print the term table
+ */
 extern void show_terms(FILE* output);
+
+/*
+ * Print location + error message
+ */
+extern void show_error(FILE* output);
 
 /*
  * TYPE STORE

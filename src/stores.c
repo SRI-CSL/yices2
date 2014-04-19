@@ -27,6 +27,18 @@ void show_terms(FILE* output) {
   pp_term_table(output, __yices_globals.terms);
 }
 
+/*
+ * Print location + error message
+ */
+void show_error(FILE* output) {
+  error_report_t *error;
+
+  error = yices_error_report();
+  fprintf(output, "parser error: line %"PRIu32", column %"PRIu32"\n", error->line, error->column);
+  yices_print_error(output);
+  fflush(output);
+}
+
 
 /*
  * Initialization

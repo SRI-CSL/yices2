@@ -31,3 +31,13 @@ void print_term_mt(FILE* output, term_t t){
 
 }
 
+void print_type_mt(FILE* output, type_t t){
+  yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+
+  print_type(output, __yices_globals.types, t);
+
+  release_yices_lock(lock);
+
+}

@@ -642,11 +642,8 @@ static void free_generic_list(void) {
  * - initialize it to read from the given string
  * - s must be non-NULL, terminated by '\0'
  */
-static parser_t *get_parser(const char *s) {
-  yices_lock_t *lock = &__yices_globals.lock;
+static parser_t *_o_get_parser(const char *s) {
 
-  get_yices_lock(lock);
-  
   if (__yices_globals.parser == NULL) {
     assert(__yices_globals.lexer == NULL && __yices_globals.tstack == NULL);
     __yices_globals.tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
@@ -663,8 +660,6 @@ static parser_t *get_parser(const char *s) {
     assert(__yices_globals.lexer != NULL && __yices_globals.tstack != NULL);
     reset_string_lexer(__yices_globals.lexer, s);
   }
-
-  release_yices_lock(lock);
 
   return __yices_globals.parser;
 }
@@ -4652,13 +4647,16 @@ EXPORTED type_t yices_parse_type(const char *s) {
   parser_t *p;
   type_t retval;
 
-
+  fprintf(stderr, "locking\n");
   get_yices_lock(lock);
+  fprintf(stderr, "locked\n");
 
-  p = get_parser(s);
+  p = _o_get_parser(s);
   retval = parse_yices_type(p, NULL);
 
+  fprintf(stderr, "unlocking\n");
   release_yices_lock(lock);
+  fprintf(stderr, "unlocked\n");
 
   return retval;
 }
@@ -4675,7 +4673,7 @@ EXPORTED term_t yices_parse_term(const char *s) {
  
   get_yices_lock(lock);
 
-  p = get_parser(s);
+  p = _o_get_parser(s);
   retval = parse_yices_term(p, NULL);
 
   release_yices_lock(lock);
@@ -4825,6 +4823,10 @@ EXPORTED void yices_remove_term_name(const char *name) {
 /*
  * Get type of the given name or return NULL_TYPE (-1)
  */
+type_t _o_yices_get_type_by_name(const char *name) {
+   return get_type_by_name(__yices_globals.types, name);
+}
+
 EXPORTED type_t yices_get_type_by_name(const char *name) {
   yices_lock_t *lock = &__yices_globals.lock;
   type_t retval;
