@@ -3139,7 +3139,24 @@ term_t _o_yices_shift_left0(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_shift_left1(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_shift_left1(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_shift_left1(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3157,7 +3174,24 @@ EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_shift_right0(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_shift_right0(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_shift_right0(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3175,7 +3209,24 @@ EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_shift_right1(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_shift_right1(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_shift_right1(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3193,7 +3244,24 @@ EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_ashift_right(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_ashift_right(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_ashift_right(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3211,7 +3279,24 @@ EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_rotate_left(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_rotate_left(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_rotate_left(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3231,7 +3316,24 @@ EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_rotate_right(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_rotate_right(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_rotate_right(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3275,6 +3377,7 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
  * if 0 <= i <= j <= m-1 does not hold
  *   code = INVALID_BVEXTRACT
  */
+
 term_t _o_yices_bvextract(term_t t, uint32_t i, uint32_t j);
 
 EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
@@ -3315,42 +3418,6 @@ term_t _o_yices_bvextract(term_t t, uint32_t i, uint32_t j) {
   }
 }
 
-EXPORTED term_t __yices_bvextract(term_t t, uint32_t i, uint32_t j) {
-  term_manager_t *manager = __yices_globals.manager;
-  term_table_t *tbl = __yices_globals.terms;
-  term_t retval = NULL_TERM;
-  bvlogic_buffer_t *b;
-
-  uint32_t n;
-
-  get_yices_lock(&(__yices_globals.lock));
-
-  if (! check_good_term(manager, t) ||
-      ! check_bitvector_term(manager, t)) {
-    goto clean_up;
-  }
-
-  n = term_bitsize(tbl, t);
-  if (! check_bitextract(i, j, n)) {
-    goto clean_up;
-  }
-
-  if (i == 0 && j == n-1) {
-    retval = t;
-  } else {
-    b = term_manager_get_bvlogic_buffer(manager);
-    bvlogic_buffer_set_slice_term(b, tbl, i, j, t);
-    retval = mk_bvlogic_term(manager, b);
-  }
-
- clean_up:
-
-  release_yices_lock(&(__yices_globals.lock));
-
-  return retval;
-}
-
-
 /*
  * Concatenation
  * - t1 and t2 must be bitvector terms
@@ -3368,7 +3435,25 @@ EXPORTED term_t __yices_bvextract(term_t t, uint32_t i, uint32_t j) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
+
+term_t _o_yices_bvconcat(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvconcat(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvconcat(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3410,7 +3495,25 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n * bitsize of t
  */
+
+term_t _o_yices_bvrepeat(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvrepeat(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvrepeat(term_t t, uint32_t n) {
   error_report_t *error = __yices_globals.error;
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
@@ -3458,7 +3561,25 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n + bitsize of t
  */
+
+term_t _o_yices_sign_extend(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_sign_extend(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_sign_extend(term_t t, uint32_t n) {
   error_report_t *error = __yices_globals.error;
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
@@ -3505,7 +3626,25 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n + bitsize of t
  */
+
+term_t _o_yices_zero_extend(term_t t, uint32_t n);
+
+/* locking version */
 EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_zero_extend(t, n);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_zero_extend(term_t t, uint32_t n) {
   error_report_t *error = __yices_globals.error;
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
