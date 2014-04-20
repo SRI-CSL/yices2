@@ -3690,7 +3690,25 @@ term_t _o_yices_zero_extend(term_t t, uint32_t n) {
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
+
+term_t _o_yices_redand(term_t t);
+
+/* locking version */
 EXPORTED term_t yices_redand(term_t t) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_redand(t);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_redand(term_t t) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3707,7 +3725,24 @@ EXPORTED term_t yices_redand(term_t t) {
   return mk_bvlogic_term(manager, b);
 }
 
+term_t _o_yices_redor(term_t t);
+
+/* locking version */
 EXPORTED term_t yices_redor(term_t t) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_redor(t);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_redor(term_t t) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3746,7 +3781,25 @@ EXPORTED term_t yices_redor(term_t t) {
  *   term2 = t2
  *   type2 = type of t2
  */
+
+term_t _o_yices_redcomp(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_redcomp(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_redcomp(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
@@ -3770,7 +3823,24 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
  *****************************/
 
 
+term_t _o_yices_bvshl(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvshl(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvshl(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3780,7 +3850,24 @@ EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvlshr(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvlshr(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvlshr(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3790,7 +3877,24 @@ EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvashr(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvashr(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvashr(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3807,7 +3911,24 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
  *  BITVECTOR DIVISION OPERATORS  *
  *********************************/
 
+term_t _o_yices_bvdiv(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvdiv(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvdiv(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3816,7 +3937,24 @@ EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvrem(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvrem(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvrem(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3825,7 +3963,24 @@ EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvsdiv(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvsdiv(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvsdiv(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3834,7 +3989,24 @@ EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvsrem(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvsrem(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvsrem(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
@@ -3843,7 +4015,24 @@ EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
 }
 
 
+term_t _o_yices_bvsmod(term_t t1, term_t t2);
+
+/* locking version */
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvsmod(t1, t2);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvsmod(term_t t1, term_t t2) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
