@@ -320,16 +320,6 @@ extern bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n);
 extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
 
 /*
- * LOCK FREE VERSIONS OF YICES_API CALLS
- */
-
-/*
- * Get type of the given name or return NULL_TYPE (-1)
- */
-extern type_t _o_yices_get_type_by_name(const char *name);
-
-
-/*
  * CONTEXT INITIALIZATION
  */
 
