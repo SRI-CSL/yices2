@@ -4063,7 +4063,25 @@ term_t _o_yices_bvsmod(term_t t1, term_t t2) {
  *    type1 = bool
  *    index = i
  */
+
+term_t _o_yices_bvarray(uint32_t n, term_t arg[]);
+
+/* locking version */
 EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bvarray(n, arg);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bvarray(uint32_t n, term_t arg[]) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
@@ -4090,7 +4108,25 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
  * if i >= v's bitsize
  *    code = INVALID_BVEXTRACT
  */
+
+term_t _o_yices_bitextract(term_t t, uint32_t i);
+
+/* locking version */
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  term_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_bitextract(t, i);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+term_t _o_yices_bitextract(term_t t, uint32_t i) {
   term_manager_t *manager = __yices_globals.manager;
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
