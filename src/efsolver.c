@@ -59,6 +59,22 @@ void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i) {
 }
 
 
+/*
+ * Print the full map:
+ * - the variables are in solver->all_vars
+ * - their values are in solver->all_values
+ */
+void print_full_map(FILE *f, ef_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->all_vars.size;
+  assert(n == solver->all_values.size);
+  for (i=0; i<n; i++) {
+    fprintf(f, "%s := ", yices_get_term_name(solver->all_vars.data[i]));
+    yices_pp_term(f, solver->all_values.data[i], 100, 1, 10);
+  }
+  fprintf(f, "(%"PRIu32" variables)\n", n);
+}
 
 
 /*
@@ -97,8 +113,14 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   assert(n <= UINT32_MAX/sizeof(term_t));
   solver->uvalue = (term_t *) safe_malloc(n * sizeof(term_t));
 
+
+  solver->full_model = NULL;
+  yices_init_term_vector(&solver->implicant);
+
   init_ivector(&solver->evalue_aux, 64);
   init_ivector(&solver->uvalue_aux, 64);
+  init_ivector(&solver->all_vars, 64);
+  init_ivector(&solver->all_values, 64);
 }
 
 
@@ -126,8 +148,16 @@ void delete_ef_solver(ef_solver_t *solver) {
   solver->evalue = NULL;
   solver->uvalue = NULL;
 
+  if (solver->full_model != NULL) {
+    yices_free_model(solver->full_model);
+    solver->full_model = NULL;
+  }
+  yices_delete_term_vector(&solver->implicant);
+
   delete_ivector(&solver->evalue_aux);
   delete_ivector(&solver->uvalue_aux);
+  delete_ivector(&solver->all_vars);
+  delete_ivector(&solver->all_values);
 }
 
 
@@ -436,6 +466,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
    */
   n = ef_constraint_num_uvars(cnstr);
   resize_ivector(&solver->uvalue_aux, n);
+  solver->uvalue_aux.size = n;
   value = solver->uvalue_aux.data;
 
   forall_ctx = get_forall_context(solver);
@@ -599,6 +630,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
    */
   nvars = ef_constraint_num_uvars(cnstr);
   resize_ivector(&solver->uvalue_aux, nvars);
+  solver->uvalue_aux.size = nvars;
   value = solver->uvalue_aux.data;
 
   samples = solver->max_samples;
@@ -713,6 +745,100 @@ static void ef_solver_start(ef_solver_t *solver) {
 
 
 
+/*
+ * IMPLICANT CONSTRUCTION
+ */
+
+/*
+ * Merge the exists and forall variables of constraint i
+ * - store the variables in solver->all_vars
+ * - store their values in solver->all_values
+ */
+static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
+  ef_cnstr_t *cnstr;
+  ivector_t *v;
+  uint32_t n;
+
+  assert(i < ef_prob_num_constraints(solver->prob));
+  cnstr = solver->prob->cnstr + i;
+
+  // collect all variables of cnstr in solver->all_vars
+  v = &solver->all_vars;
+  ivector_reset(v);
+  n = ef_constraint_num_evars(cnstr);
+  ivector_add(v, cnstr->evars, n);
+  n = ef_constraint_num_uvars(cnstr);
+  ivector_add(v, cnstr->uvars, n);
+
+  // project the evalues onto the exists variable of constraint i
+  // store the results in all_values
+  v = &solver->all_values;
+  n = ef_constraint_num_evars(cnstr);
+  resize_ivector(v, n);
+  v->size = n;
+  ef_project_exists_model(solver->prob, solver->evalue, cnstr->evars, v->data, n);
+
+  // copy the uvalues for constraint i (from uvalue_aux to v)
+  n = ef_constraint_num_uvars(cnstr);
+  assert(n == solver->uvalue_aux.size);
+  ivector_add(v, solver->uvalue_aux.data, n);
+
+#if 1
+  printf("Full map\n");
+  print_full_map(stdout, solver);
+  printf("\n");
+  fflush(stdout);
+#endif
+}
+
+
+/*
+ * Compute an implicant for constraint i
+ * - we must have an assignment for the exists variable in solver->evalue
+ *   and an assignment for the universal variables of constraints i in
+ *   solver->uvalue_aux.
+ */
+static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
+  model_t *mdl;
+  ef_cnstr_t *cnstr;
+  term_vector_t *v;
+  term_t a[2];
+  uint32_t n;
+  int32_t code;
+
+  assert(i < ef_prob_num_constraints(solver->prob));
+
+  ef_build_full_map(solver, i);
+  n = solver->all_vars.size;
+  assert(n == solver->all_values.size);
+  mdl = yices_model_from_map(n, solver->all_vars.data, solver->all_values.data);
+  if (mdl == NULL) {
+    // error in the model construction
+    solver->status = EF_STATUS_ERROR; // TODO: add another code
+    solver->error_code = yices_error_code();
+    return;
+  }
+
+  cnstr = solver->prob->cnstr + i;
+  a[0] = cnstr->assumption;
+  a[1] = opposite_term(cnstr->guarantee);
+  v = &solver->implicant;
+  v->size = 0;
+  code = yices_implicant_for_formulas(mdl, 2, a, v);
+  if (code < 0) {
+    solver->status = EF_STATUS_ERROR;
+    solver->error_code = yices_error_code();
+  }
+  yices_free_model(mdl);
+
+#if 1
+  printf("Implicant\n");
+  yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
+  printf("(%"PRIu32" literals)\n", v->size);
+#endif
+
+}
+
 
 /*
  * GENERALIZATION FROM UNIVERSAL MODELS
@@ -770,6 +896,10 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
   uint32_t n;
   int32_t code;
 
+  // FOR TESTING ONLY
+  ef_build_implicant(solver, i);
+  //
+
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
 
@@ -782,6 +912,7 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
      */
     n = ef_constraint_num_evars(cnstr);
     resize_ivector(&solver->evalue_aux, n);
+    solver->evalue_aux.size = n;
     val = solver->evalue_aux.data;
     ef_project_exists_model(solver->prob, solver->evalue, cnstr->evars, val, n);
     new_constraint = ef_generalize1(solver->prob, cnstr->evars, val, n);
@@ -854,6 +985,12 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
+#if 1
+      printf("Counterexample for constraint[%"PRIu32"]\n", i);
+      print_forall_witness(stdout, solver, i);
+      printf("\n");
+      fflush(stdout);
+#endif
       ef_solver_learn(solver, i);
 
     default:
@@ -912,7 +1049,7 @@ static void ef_solver_search(ef_solver_t *solver) {
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
 #if 1
-    printf("--- Iteration %"PRIu32" ---\n", i);
+    printf("\n--- Iteration %"PRIu32" ---\n", i);
 #endif
 
     stat = ef_solver_check_exists(solver);

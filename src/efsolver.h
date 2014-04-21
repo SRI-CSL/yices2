@@ -195,9 +195,15 @@ typedef struct ef_solver_s {
   term_t *evalue;
   term_t *uvalue;
 
+  // Support for implicant construction
+  model_t *full_model;
+  term_vector_t implicant;
+
   // Auxiliary buffers
   ivector_t evalue_aux;
   ivector_t uvalue_aux;
+  ivector_t all_vars;
+  ivector_t all_values;
 } ef_solver_t;
 
 
