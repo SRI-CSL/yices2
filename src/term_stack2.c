@@ -346,7 +346,7 @@ void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc)
 }
 
 void tstack_push_free_termname(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_term_by_name(s) != NULL_TERM) {
+  if (_o_yices_get_term_by_name(s) != NULL_TERM) {
     push_exception(stack, loc, s, TSTACK_TERMNAME_REDEF);
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
@@ -510,7 +510,7 @@ void tstack_push_term_by_name(tstack_t *stack, char *s, loc_t *loc) {
   stack_elem_t *e;
   term_t t;
 
-  t = yices_get_term_by_name(s);
+  t = _o_yices_get_term_by_name(s);
   if (t == NULL_TERM) push_exception(stack, loc, s, TSTACK_UNDEF_TERM);
 
   e = tstack_get_topelem(stack);
@@ -528,7 +528,7 @@ void tstack_push_bool_type(tstack_t *stack, loc_t *loc) {
 
   e = tstack_get_topelem(stack);
   e->tag = TAG_TYPE;
-  e->val.type = yices_bool_type();
+  e->val.type = _o_yices_bool_type();
   e->loc = *loc;
 }
 
@@ -743,10 +743,10 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
     recycle_bvlbuffer(stack, e->val.bvlogic_buffer);
     break;
   case TAG_BINDING:
-    yices_remove_term_name(e->val.binding.symbol);
+    _o_yices_remove_term_name(e->val.binding.symbol);
     break;
   case TAG_TYPE_BINDING:
-    yices_remove_type_name(e->val.type_binding.symbol);
+    _o_yices_remove_type_name(e->val.type_binding.symbol);
     break;
   default:
     break; // prevent GCC warning
@@ -1230,7 +1230,7 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_SYMBOL:
-    t = yices_get_term_by_name(e->val.string);
+    t = _o_yices_get_term_by_name(e->val.string);
     if (t == NULL_TERM) {
       raise_exception(stack, e, TSTACK_UNDEF_TERM);
     }
@@ -2371,7 +2371,7 @@ static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   type_t tau;
 
   tau = f[1].val.type;
-  yices_set_type_name(tau, f[0].val.string);
+  _o_yices_set_type_name(tau, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2396,14 +2396,14 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   tau = f[1].val.type;
   if (n == 2) {
-    t = yices_new_uninterpreted_term(tau);
+    t = _o_yices_new_uninterpreted_term(tau);
   } else {
     t = get_term(stack, f+2);
     if (! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, t), tau)) {
       raise_exception(stack, f+2, TSTACK_TYPE_ERROR_IN_DEFTERM);
     }
   }
-  yices_set_term_name(t, f[0].val.string);
+  _o_yices_set_term_name(t, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2425,7 +2425,7 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   name = f[0].val.string;
   t = get_term(stack, f+1);
-  yices_set_term_name(t, name);
+  _o_yices_set_term_name(t, name);
   tstack_pop_frame(stack);
   set_binding_result(stack, t, name);
 }
@@ -2466,7 +2466,7 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   if (size <= 0) {
     raise_exception(stack, f, TSTACK_NONPOSITIVE_BVSIZE);
   }
-  tau = yices_bv_type(size);
+  tau = _o_yices_bv_type(size);
   check_type(stack, tau);
 
   tstack_pop_frame(stack);
@@ -2492,7 +2492,7 @@ static void eval_mk_ite(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   cond = get_term(stack, f);
   left = get_term(stack, f+1);
   right = get_term(stack, f+2);
-  t = yices_ite(cond, left, right);
+  t = _o_yices_ite(cond, left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2513,7 +2513,7 @@ static void eval_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_eq(left, right);
+  t = _o_yices_eq(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2534,7 +2534,7 @@ static void eval_mk_diseq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_neq(left, right);
+  t = _o_yices_neq(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2559,7 +2559,7 @@ static void eval_mk_distinct(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_distinct(n, arg);
+  t = _o_yices_distinct(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2577,7 +2577,7 @@ static void check_mk_not(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void eval_mk_not(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
-  t = yices_not(get_term(stack, f));
+  t = _o_yices_not(get_term(stack, f));
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2603,7 +2603,7 @@ static void eval_mk_or(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_or(n, arg);
+  t = _o_yices_or(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2628,7 +2628,7 @@ static void eval_mk_and(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_and(n, arg);
+  t = _o_yices_and(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2653,7 +2653,7 @@ static void eval_mk_xor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_xor(n, arg);
+  t = _o_yices_xor(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2675,7 +2675,7 @@ static void eval_mk_iff(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t = get_term(stack, f);
   for (i=1; i<n; i++) {
-    t = yices_iff(t, get_term(stack, f+i));
+    t = _o_yices_iff(t, get_term(stack, f+i));
     check_term(stack, t);
   }
   tstack_pop_frame(stack);
@@ -2696,7 +2696,7 @@ static void eval_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_implies(left, right);
+  t = _o_yices_implies(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -2962,7 +2962,7 @@ static void eval_mk_bv_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
    * arith_buffers, rationals, etc.?
    */
   t = get_term(stack, f);
-  t = yices_bvpower(t, exponent);
+  t = _o_yices_bvpower(t, exponent);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3444,7 +3444,7 @@ static void eval_mk_bv_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvge_atom(t1, t2);
+  t = _o_yices_bvge_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3465,7 +3465,7 @@ static void eval_mk_bv_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvgt_atom(t1, t2);
+  t = _o_yices_bvgt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3486,7 +3486,7 @@ static void eval_mk_bv_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvle_atom(t1, t2);
+  t = _o_yices_bvle_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3507,7 +3507,7 @@ static void eval_mk_bv_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvlt_atom(t1, t2);
+  t = _o_yices_bvlt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3528,7 +3528,7 @@ static void eval_mk_bv_sge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsge_atom(t1, t2);
+  t = _o_yices_bvsge_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3549,7 +3549,7 @@ static void eval_mk_bv_sgt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsgt_atom(t1, t2);
+  t = _o_yices_bvsgt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3570,7 +3570,7 @@ static void eval_mk_bv_sle(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsle_atom(t1, t2);
+  t = _o_yices_bvsle_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3591,7 +3591,7 @@ static void eval_mk_bv_slt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvslt_atom(t1, t2);
+  t = _o_yices_bvslt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3635,7 +3635,7 @@ static void eval_mk_bv_shl(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvshl(t1, t2);
+    t = _o_yices_bvshl(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -3678,7 +3678,7 @@ static void eval_mk_bv_lshr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvlshr(t1, t2);
+    t = _o_yices_bvlshr(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -3720,7 +3720,7 @@ static void eval_mk_bv_ashr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvashr(t1, t2);
+    t = _o_yices_bvashr(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -3761,7 +3761,7 @@ static void eval_mk_bv_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvdiv(t1, t2);
+  t = _o_yices_bvdiv(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3781,7 +3781,7 @@ static void eval_mk_bv_rem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvrem(t1, t2);
+  t = _o_yices_bvrem(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3808,7 +3808,7 @@ static void eval_mk_bv_sdiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsdiv(t1, t2);
+  t = _o_yices_bvsdiv(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3828,7 +3828,7 @@ static void eval_mk_bv_srem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsrem(t1, t2);
+  t = _o_yices_bvsrem(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3849,7 +3849,7 @@ static void eval_mk_bv_smod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsmod(t1, t2);
+  t = _o_yices_bvsmod(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
