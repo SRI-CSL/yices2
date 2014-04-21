@@ -34,6 +34,7 @@
 #include "gates_manager.h"
 #include "smt_core.h"
 #include "models.h"
+#include "yices_locks.h"
 
 
 
@@ -352,7 +353,11 @@ typedef struct bv_interface_s {
  *************/
 
 struct context_s {
-    // mode + architecture
+
+  //lock to synchronize multithreaded access
+  yices_lock_t      lock;
+
+  // mode + architecture
   context_mode_t mode;
   context_arch_t arch;
 

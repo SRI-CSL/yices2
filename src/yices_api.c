@@ -580,6 +580,7 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
  */
 static inline ctx_config_t *alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
+  ctx_config_t *retval;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
 
@@ -589,7 +590,13 @@ static inline ctx_config_t *alloc_config_structure(void) {
 
   release_yices_lock(&generic_lock);
 
-  return &new_elem->config;
+  create_yices_lock(&(new_elem->config.lock));
+
+  retval = &new_elem->config;
+
+  create_yices_lock(&(retval->lock));
+
+  return retval;
 }
 
 static inline param_t *alloc_param_structure(void) {
@@ -607,12 +614,15 @@ static inline param_t *alloc_param_structure(void) {
 }
 
 /*
- * Remove a structure form the generic list
+ * Remove a structure from the generic list
  */
 static inline void free_config_structure(ctx_config_t *c) {
   dl_list_t *elem;
 
   elem = header_of_config_structure(c);
+
+  destroy_yices_lock(&(c->lock));
+
   list_remove(elem);
   safe_free(elem);
 }

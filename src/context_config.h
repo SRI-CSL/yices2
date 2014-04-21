@@ -39,6 +39,7 @@
  */
 #include "smt_logic_codes.h"
 #include "context.h"
+#include "yices_locks.h"
 
 /*
  * Codes for the arithmetic fragments
@@ -89,6 +90,7 @@ struct ctx_config_s {
   solver_code_t     bv_config;
   solver_code_t     arith_config;
   arith_fragment_t  arith_fragment;
+  yices_lock_t      lock;
 };
 
 

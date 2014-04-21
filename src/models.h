@@ -25,6 +25,7 @@
 #include "concrete_values.h"
 #include "int_hash_map.h"
 #include "yices_types.h"
+#include "yices_locks.h"
 
 
 /*
@@ -40,6 +41,7 @@
  *   is set at construction time and it may be true even if alias_map is NULL).
  */
 struct model_s {
+  yices_lock_t lock;
   value_table_t vtbl;
   int_hmap_t map;
   int_hmap_t *alias_map;
