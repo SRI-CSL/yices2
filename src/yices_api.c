@@ -7161,6 +7161,13 @@ EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const ter
  * IMPLICANTS
  */
 
+
+/*
+ * Option code for the call to get_implicant:
+ * enable all options.
+ */
+#define IMPLICANT_OPTIONS (ELIM_ARITH_NEQ0|ELIM_ARITH_NEQ|ELIM_ARITH_DISTINCT|ELIM_NOT_DISTINCT|KEEP_BOOL_EQ)
+
 /*
  * Given a model mdl and a Boolean term t that is true in mdl, return an implicant for t
  * - the implicant is a list of literals a[0 ... n-1] such that
@@ -7190,7 +7197,7 @@ EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector
   }
 
   v->size = 0;
-  code = get_implicant(mdl, 1, &t, (ivector_t *) v);
+  code = get_implicant(mdl, IMPLICANT_OPTIONS, 1, &t, (ivector_t *) v);
   if (code < 0) {
     error.code = yices_eval_error(code);
     return -1;
@@ -7212,7 +7219,7 @@ EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const te
   }
 
   v->size = 0;
-  code = get_implicant(mdl, n, a, (ivector_t *) v);
+  code = get_implicant(mdl, IMPLICANT_OPTIONS, n, a, (ivector_t *) v);
   if (code < 0) {
     error.code = yices_eval_error(code);
     return -1;

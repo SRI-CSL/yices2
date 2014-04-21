@@ -117,7 +117,7 @@ enum {
 /*
  * Default: all options are disabled
  */
-#define LIT_COLLECTOR_DEFAULT_OPTIONS (ELIM_ARITH_NEQ0|ELIM_ARITH_NEQ|ELIM_ARITH_DISTINCT|ELIM_NOT_DISTINCT)
+#define LIT_COLLECTOR_DEFAULT_OPTIONS ((uint32_t) 0)
 
 
 /*
@@ -176,20 +176,9 @@ extern void reset_lit_collector(lit_collector_t *collect);
 extern term_t lit_collector_process(lit_collector_t *collect, term_t t);
 
 
-/*
- * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
- * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
- * - all terms in a must be Boolean and all of them must be true in mdl
- * - if there's a error, the function returns a negative code
- *   and leaves v unchanged
- * - otherwise, the function retuns 0 and add the literals forming the
- *   implicant to vector v  (v is not reset).
- */
-extern int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v);
-
 
 /*
- * Set/clear options (must be done before calling get_implicatn)
+ * Set/clear options (must be done before calling lit_collector_process)
  */
 static inline void lit_collector_set_option(lit_collector_t *collect, uint32_t opt) {
   assert((opt & ~LIT_COLLECTOR_OPTION_MASK) == 0);
@@ -201,13 +190,37 @@ static inline void lit_collector_clear_option(lit_collector_t *collect, uint32_t
   collect->options &= ~opt;
 }
 
-
 /*
  * Check which option(s) are enabled
  */
 static inline bool lit_collector_option_enabled(lit_collector_t *collect, uint32_t opt) {
   return (collect->options & opt) != 0;
 }
+
+
+/*
+ * Get all the literals in collect->lit_set: store them in vector_v
+ * - this modifies the collect->lit_set data structure
+ * - lit_collector_process should not be called after this (unless
+ *   reset_lit_collector is called first).
+ */
+extern void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v);
+
+
+
+/*
+ * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
+ * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * - all terms in a must be Boolean and all of them must be true in mdl
+ * - if there's a error, the function returns a negative code
+ *   and leaves v unchanged
+ * - otherwise, the function retuns 0 and add the literals forming the
+ *   implicant to vector v  (v is not reset).
+ *
+ * - options = bit mask to enable/disable the optional processing.
+ */
+extern int32_t get_implicant(model_t *mdl, uint32_t options, uint32_t n, const term_t *a, ivector_t *v);
+
 
 
 #endif /* __LITERAL_COLLECTOR_H */

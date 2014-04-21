@@ -21,11 +21,6 @@
 #include "context.h"
 #include "smt_logic_codes.h"
 
-// PROVISIONAL: for testing of implicant generation
-#include "int_vectors.h"
-#include "literal_collector.h"
-//
-
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_exit_codes.h"
@@ -979,13 +974,14 @@ static void timeout_handler(void *p) {
  * PROVISIONAL: FOR TESTING OF IMPLICANT CONSTRUCTION
  */
 static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
-  ivector_t v;
+  term_vector_t v;
   int32_t code;
 
-  init_ivector(&v, 10);
-  code = get_implicant(mdl, bench->nformulas, bench->formulas, &v);
+  yices_init_term_vector(&v);
+  code = yices_implicant_for_formulas(mdl, bench->nformulas, bench->formulas, &v);
   if (code < 0) {
-    fprintf(f, "\n*** GET IMPLICANT FAILED (code = %"PRId32") ***\n", code);
+    fprintf(f, "\n*** GET IMPLICANT FAILED ***\n");
+    yices_print_error(f);
     fflush(f);
   } else {
     fprintf(f, "\nIMPLICANT:\n");
@@ -993,8 +989,9 @@ static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
     fflush(f);
   }
 
-  delete_ivector(&v);
+  yices_delete_term_vector(&v);
 }
+
 
 /*
  * MAIN SOLVER FUNCTION

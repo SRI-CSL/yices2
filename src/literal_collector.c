@@ -1374,6 +1374,24 @@ term_t lit_collector_process(lit_collector_t *collect, term_t t) {
 }
 
 
+/*
+ * Store the literals of collect->lit_set into vector v
+ */
+void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v) {
+  int_hset_t *set;
+  term_t t;
+  uint32_t i, n;
+
+  set = &collect->lit_set;
+  int_hset_close(set);
+  n = set->nelems;
+  for (i=0; i<n; i++) {
+    t = set->data[i];
+    assert(is_true_in_model(collect, t));
+    ivector_push(v, t);
+  }
+}
+
 
 /*
  * GET IMPLICANT FOR ASSERTIONS GIVEN A MODEL
@@ -1387,14 +1405,16 @@ term_t lit_collector_process(lit_collector_t *collect, term_t t) {
  *   and leaves v unchanged
  * - otherwise, the function retuns 0 and add the implicant literals to vector
  *   v  (v is not reset).
+ *
+ * - options = bit mask to enable/disable the optional processing.
  */
-int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v) {
+int32_t get_implicant(model_t *mdl, uint32_t options, uint32_t n, const term_t *a, ivector_t *v) {
   lit_collector_t collect;
-  int_hset_t *set;
   int32_t u;
   uint32_t i;
 
   init_lit_collector(&collect, mdl);
+  lit_collector_set_option(&collect, options);
   for (i=0; i<n; i++) {
     u = lit_collector_process(&collect, a[i]);
     if (u < 0) goto done; // exception in process
@@ -1407,14 +1427,7 @@ int32_t get_implicant(model_t *mdl, uint32_t n, const term_t *a, ivector_t *v) {
   }
 
   // Extract the implicants. They are stored in collect.lit_set
-  set = &collect.lit_set;
-  int_hset_close(set);
-  n = set->nelems;
-  for (i=0; i<n; i++) {
-    u = set->data[i];
-    assert(is_true_in_model(&collect, u));
-    ivector_push(v, u);
-  }
+  lit_collector_get_literals(&collect, v);
 
   // Return code = 0 (no error);
   u = 0;
