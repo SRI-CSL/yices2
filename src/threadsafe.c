@@ -2,7 +2,8 @@
 #include "threadsafe.h"
 #include "yices_locks.h"
 #include "yices_globals.h"
-
+#include "type_printer.h"
+#include "term_printer.h"
 
 /*
  * Predicate: check whether t has type tau
