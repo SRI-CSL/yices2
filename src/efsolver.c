@@ -1003,9 +1003,9 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 
   } while (status == STATUS_UNSAT && i != solver->scan_idx);
 
+  solver->scan_idx = i; // prepare for the next call
   if (status == STATUS_UNSAT) {
     // done a full scan
-    assert(i == solver->scan_idx);
     solver->status = EF_STATUS_SAT;
   }
 }
@@ -1045,11 +1045,18 @@ static void ef_solver_search(ef_solver_t *solver) {
 
   assert(max > 0);
 
+#if 1
+  printf("\nEF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars\n",
+	 ef_prob_num_constraints(solver->prob),
+	 ef_prob_num_evars(solver->prob),
+	 ef_prob_num_uvars(solver->prob));
+#endif
+
   ef_solver_start(solver);
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
 #if 1
-    printf("\n--- Iteration %"PRIu32" ---\n", i);
+    printf("\n--- Iteration %"PRIu32" (scan_idx = %"PRIu32") ---\n", i, solver->scan_idx);
 #endif
 
     stat = ef_solver_check_exists(solver);

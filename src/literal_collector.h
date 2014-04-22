@@ -126,19 +126,27 @@ enum {
  * - model = the relevant model
  * - evaluator = initialized for the model
  * - manager = for creating the simplified terms (if any)
- * - cache = keeps the simplified form of all visited terms
+ * - tcache = simplified form of all visited terms
+ * - fcache = simplified form of all visited formulas
  * - lit_set = set of literals
  * - stack for recursive processing of terms
  * - options = option word
  * - bool_are_terms = the mode (true means: treat Booleans like ordinary terms)
  * - env = jump buffer for exceptions
+ *
+ * NOTE: a Boolean term may be visited twice: once as a term and once as
+ * a formula. To deal with this, we use two different caches:
+ * - tcache is the default cache: it's used for all non-Boolean terms
+ * - tcache is also used for a Boolean term t (when bool_are_terms is true)
+ * - fcache is used for Boolean terms when bool_are_terms is false.
  */
 typedef struct lit_collector_s {
   term_table_t *terms;
   model_t *model;
   evaluator_t eval;
   term_manager_t manager;
-  int_hmap_t cache;
+  int_hmap_t tcache;
+  int_hmap_t fcache;
   int_hset_t lit_set;
   int_stack_t stack;
   uint32_t options;
@@ -161,7 +169,7 @@ extern void delete_lit_collector(lit_collector_t *collect);
 
 
 /*
- * Reset: empty the lit_set and the cache
+ * Reset: empty the lit_set and the caches
  */
 extern void reset_lit_collector(lit_collector_t *collect);
 

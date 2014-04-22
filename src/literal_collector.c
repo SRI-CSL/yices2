@@ -47,7 +47,8 @@ void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
   collect->model = mdl;
   init_evaluator(&collect->eval, mdl);
   init_term_manager(&collect->manager, mdl->terms);
-  init_int_hmap(&collect->cache, 0);
+  init_int_hmap(&collect->tcache, 0);
+  init_int_hmap(&collect->fcache, 0);
   init_int_hset(&collect->lit_set, 0);
   init_istack(&collect->stack);
   collect->options = LIT_COLLECTOR_DEFAULT_OPTIONS;
@@ -61,34 +62,43 @@ void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
 void delete_lit_collector(lit_collector_t *collect) {
   delete_evaluator(&collect->eval);
   delete_term_manager(&collect->manager);
-  delete_int_hmap(&collect->cache);
+  delete_int_hmap(&collect->tcache);
+  delete_int_hmap(&collect->fcache);
   delete_int_hset(&collect->lit_set);
   delete_istack(&collect->stack);
 }
 
 
 /*
- * Reset: empty the lit_set and the cache
+ * Reset: empty the lit_set and the caches
  */
 void reset_lit_collector(lit_collector_t *collect) {
-  int_hmap_reset(&collect->cache);
+  int_hmap_reset(&collect->tcache);
+  int_hmap_reset(&collect->fcache);
   int_hset_reset(&collect->lit_set);
   reset_istack(&collect->stack);
 }
 
 
 /*
- * Get the term mapped to t in collect->cache
+ * Get the term mapped to t in collect->tcache or collect->fcache
  * - return NULL_TERM if t is not in the cache
  */
 static term_t lit_collector_find_cached_term(lit_collector_t *collect, term_t t) {
+  int_hmap_t *cache;
   int_hmap_pair_t *r;
   term_t u;
 
   assert(good_term(collect->terms, t));
 
+  cache = &collect->tcache; // default cache for terms
+  if (is_boolean_term(collect->terms, t) && !collect->bool_are_terms) {
+    // t is visited as a formula: use the fcache
+    cache = &collect->fcache;
+  }
+
   u = NULL_TERM;
-  r = int_hmap_find(&collect->cache, t);
+  r = int_hmap_find(cache, t);
   if (r != NULL) {
     u = r->val;
     assert(good_term(collect->terms, u));
@@ -99,14 +109,20 @@ static term_t lit_collector_find_cached_term(lit_collector_t *collect, term_t t)
 
 
 /*
- * Store the mapping t --> u in the cache
+ * Store the mapping t --> u in the relevant cache
  */
 static void lit_collector_cache_result(lit_collector_t *collect, term_t t, term_t u) {
+  int_hmap_t *cache;
   int_hmap_pair_t *r;
 
   assert(good_term(collect->terms, t) && good_term(collect->terms, u));
 
-  r = int_hmap_get(&collect->cache, t);
+  cache = &collect->tcache; // default cache
+  if (is_boolean_term(collect->terms, t) &&!collect->bool_are_terms) {
+    cache = &collect->fcache; // formula cache
+  }
+
+  r = int_hmap_get(cache, t);
   assert(r != NULL && r->val == -1);
   r->val = u;
 }

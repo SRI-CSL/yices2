@@ -211,6 +211,34 @@ static bool elim_subst_try_booleq(elim_subst_t *subst, term_t t1, term_t t2, boo
 
 
 /*
+ * Literal f (either t or not t, where t is UNINTERPRETED_TERM)
+ */
+static bool elim_subst_try_prop_variable(elim_subst_t *subst, term_t f) {
+  term_t u;
+
+  assert(term_kind(subst->terms, f) == UNINTERPRETED_TERM);
+
+  u = true_term;
+  if (is_neg_term(f)) {
+    // rewrite to (not f) == false
+    f = opposite_term(f);
+    u = false_term;
+  }
+
+  /*
+   * Since u is a constant, the substitution [f := u] can't cause
+   * a cycle. We just check whether f is an elimination candidate.
+   */
+  if (is_elim_candidate(subst, f)) {
+    full_subst_add_map(&subst->full_subst, f, u);
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
  * Check whether f is equivalent to an equality (y == t)
  * where y is a candidate for elimination.
  * - if so, add map [y --> t] to the internal full_subst and return true
@@ -225,6 +253,12 @@ bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles) {
   result = false;
   terms = subst->terms;
   switch (term_kind(terms, f)) {
+  case UNINTERPRETED_TERM:
+    if (is_boolean_term(terms, f)) {
+      result = elim_subst_try_prop_variable(subst, f);
+    }
+    break;
+
   case ARITH_EQ_ATOM: // (t == 0)
     if (is_pos_term(f)) {
       t1 = arith_eq_arg(terms, f);
