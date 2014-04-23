@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "prng.h"
+#include "utils/prng.h"
 
 
 #ifdef MINGW

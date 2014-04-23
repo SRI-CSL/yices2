@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "reader.h"
+#include "io/reader.h"
 
 static reader_t reader;
 

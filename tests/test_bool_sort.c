@@ -9,7 +9,7 @@
 
 #include <assert.h>
 
-#include "prng.h"
+#include "utils/prng.h"
 
 #ifdef MINGW
 

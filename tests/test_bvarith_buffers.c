@@ -4,10 +4,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "object_stores.h"
-#include "pprod_table.h"
-#include "bvarith_buffers.h"
-#include "bv_constants.h"
+#include "utils/object_stores.h"
+#include "terms/pprod_table.h"
+#include "terms/bvarith_buffers.h"
+#include "terms/bv_constants.h"
 
 
 /*

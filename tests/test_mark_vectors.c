@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "mark_vectors.h"
+#include "utils/mark_vectors.h"
 
 
 #ifdef MINGW

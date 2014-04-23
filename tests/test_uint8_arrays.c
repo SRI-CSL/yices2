@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "backtrack_arrays.h"
-#include "memalloc.h"
+#include "utils/backtrack_arrays.h"
+#include "utils/memalloc.h"
 
 
 #ifdef MINGW

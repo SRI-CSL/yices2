@@ -1,0 +1,40 @@
+%{
+#include <string.h>
+#include "frontend/smt2/smt2_lexer.h"
+%}
+%struct-type
+%define slot-name word
+struct keyword_s;
+%%
+par,                          SMT2_TK_PAR
+NUMERAL,                      SMT2_TK_NUM
+DECIMAL,                      SMT2_TK_DEC
+STRING,                       SMT2_TK_STR,
+_,                            SMT2_TK_UNDERSCORE
+!,                            SMT2_TK_BANG
+as,                           SMT2_TK_AS
+let,                          SMT2_TK_LET
+exists,                       SMT2_TK_EXISTS
+forall,                       SMT2_TK_FORALL
+assert,                       SMT2_TK_ASSERT
+check-sat,                    SMT2_TK_CHECK_SAT
+declare-sort,                 SMT2_TK_DECLARE_SORT
+declare-fun,                  SMT2_TK_DECLARE_FUN
+define-sort,                  SMT2_TK_DEFINE_SORT
+define-fun,                   SMT2_TK_DEFINE_FUN
+exit,                         SMT2_TK_EXIT
+get-assertions,               SMT2_TK_GET_ASSERTIONS
+get-assignment,               SMT2_TK_GET_ASSIGNMENT
+get-info,                     SMT2_TK_GET_INFO
+get-option,                   SMT2_TK_GET_OPTION
+get-proof,                    SMT2_TK_GET_PROOF
+get-unsat-core,               SMT2_TK_GET_UNSAT_CORE
+get-value,                    SMT2_TK_GET_VALUE
+pop,                          SMT2_TK_POP
+push,                         SMT2_TK_PUSH
+set-logic,                    SMT2_TK_SET_LOGIC
+set-info,                     SMT2_TK_SET_INFO
+set-option,                   SMT2_TK_SET_OPTION
+get-model,                    SMT2_TK_GET_MODEL
+echo,                         SMT2_TK_ECHO
+reset,                        SMT2_TK_RESET

@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "string_hash_map.h"
+#include "utils/string_hash_map.h"
 
 static void print_map(strmap_t *hmap) {
   strmap_rec_t *d;

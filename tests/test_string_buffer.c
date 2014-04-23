@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "string_buffers.h"
-#include "rationals.h"
-#include "bv_constants.h"
+#include "utils/string_buffers.h"
+#include "terms/rationals.h"
+#include "terms/bv_constants.h"
 
 static string_buffer_t buffer;
 

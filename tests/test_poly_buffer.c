@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "poly_buffer.h"
-#include "rationals.h"
+#include "terms/poly_buffer.h"
+#include "terms/rationals.h"
 
 #ifdef MINGW
 

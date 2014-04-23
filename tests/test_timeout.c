@@ -8,8 +8,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "cputime.h"
-#include "timeout.h"
+#include "utils/cputime.h"
+#include "utils/timeout.h"
 
 
 /*

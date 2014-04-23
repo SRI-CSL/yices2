@@ -8,8 +8,8 @@
 
 #include <gmp.h>
 
-#include "bv_constants.h"
-#include "bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/bv64_constants.h"
 
 
 /*

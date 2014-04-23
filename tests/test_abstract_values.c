@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "types.h"
-#include "abstract_values.h"
+#include "terms/types.h"
+#include "model/abstract_values.h"
 
 static type_table_t types;
 static pstore_t store;

@@ -4,17 +4,17 @@
 #include <inttypes.h>
 
 
-#include "cputime.h"
-#include "memsize.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 
-#include "term_printer.h"
-#include "type_printer.h"
-#include "smt_lexer.h"
-#include "smt_parser.h"
-#include "smt_term_stack.h"
-#include "yices.h"
-#include "yices_globals.h"
-#include "yices_exit_codes.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "frontend/smt1/smt_lexer.h"
+#include "frontend/smt1/smt_parser.h"
+#include "frontend/smt1/smt_term_stack.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "include/yices_exit_codes.h"
 
 
 static lexer_t lexer;

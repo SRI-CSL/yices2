@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "bv64_constants.h"
+#include "terms/bv64_constants.h"
 
 
 /*

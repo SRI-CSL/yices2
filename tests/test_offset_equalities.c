@@ -1,9 +1,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "assert_utils.h"
-#include "int_vectors.h"
-#include "offset_equalities.h"
+#include "utils/assert_utils.h"
+#include "utils/int_vectors.h"
+#include "solvers/simplex/offset_equalities.h"
 
 
 /*

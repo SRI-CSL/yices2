@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "assert_utils.h"
+#include "utils/assert_utils.h"
 
 typedef size_t tptr_t;
 

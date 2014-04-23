@@ -54,6 +54,12 @@ MKREADME=./utils/mkreadme
 # Source directories
 #
 srcdir = src
+srcsubdirs = \
+    include io terms utils solvers solvers/floyd_warshall solvers/funs \
+    solvers/bv solvers/egraph solvers/exists_forall solvers/cdcl \
+    solvers/simplex parser_utils model scratch api frontend frontend/smt1 \
+    frontend/dimacs frontend/yices frontend/smt2 context
+
 testdir = tests
 smt2dir = front_end
 
@@ -135,6 +141,10 @@ $(build_dir):
 
 $(dyn_objdir):
 	$(MKDIR_P) $(dyn_objdir)
+	for subdir in $(srcsubdirs); \
+	do \
+		$(MKDIR_P) $(dyn_objdir)/$$subdir; \
+	done    
 
 $(dyn_libdir):
 	$(MKDIR_P) $(dyn_libdir)
@@ -143,7 +153,11 @@ $(dyn_bindir):
 	$(MKDIR_P) $(dyn_bindir)
 
 $(static_objdir):
-	$(MKDIR_P) $(static_objdir)
+	$(MKDIR_P) $(dyn_objdir)
+	for subdir in $(srcsubdirs); \
+	do \
+		$(MKDIR_P) $(static_objdir)/$$subdir; \
+	done    
 
 $(static_libdir):
 	$(MKDIR_P) $(static_libdir)
@@ -213,13 +227,13 @@ rev := $(shell git rev-parse HEAD || echo "unknown")
 version:
 	@$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
 	       -e 's/REVISION/$(rev)/g' -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
-	       $(srcdir)/yices_version_template.txt > $(srcdir)/yices_version.tmp
-	@diff -N $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c > /dev/null; \
+	       $(srcdir)/api/yices_version_template.txt > $(srcdir)/api/yices_version.tmp
+	@diff -N $(srcdir)/api/yices_version.tmp $(srcdir)/api/yices_version.c > /dev/null; \
 	if [ $$? -ne 0 ]; \
 	then \
-	  mv $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c; \
+	  mv $(srcdir)/api/yices_version.tmp $(srcdir)/api/yices_version.c; \
 	else \
-	  rm -f $(srcdir)/yices_version.tmp; \
+	  rm -f $(srcdir)/api/yices_version.tmp; \
 	fi
 
 .PHONY: version
@@ -541,10 +555,8 @@ source-distribution: $(distributions) doc
 	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
 	cp README Makefile Makefile.build make.include.in $(srcdist_dir)
 	cp autoconf/* $(srcdist_dir)/autoconf
-	cp src/Makefile src/*.h src/*.c \
-	   src/yices_keywords.txt src/smt_keywords.txt \
-	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
-	   src/yices_version_template.txt $(srcdist_dir)/src
+	$(MKDIR_P) $(addprefix $(srcdist_dir)/src/,$(srcsubdirs))
+	rsync -R `find src/ -name "Makefile" -or -name "*.c" -or -name "*.h" -or -name "*.txt"` $(srcdist_dir)
 	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
 	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
            $(srcdist_dir)/doc

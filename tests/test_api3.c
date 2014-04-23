@@ -16,18 +16,18 @@
 #include <stdlib.h>
 #include <gmp.h>
 
-#include "int_vectors.h"
-#include "memalloc.h"
-#include "bitvectors.h"
+#include "utils/int_vectors.h"
+#include "utils/memalloc.h"
+#include "utils/bitvectors.h"
 
-#include "rationals.h"
-#include "bv64_constants.h"
-#include "bv_constants.h"
+#include "terms/rationals.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
 
-#include "yices.h"
-#include "yices_globals.h"
-#include "type_printer.h"
-#include "term_printer.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "io/type_printer.h"
+#include "io/term_printer.h"
 
 
 

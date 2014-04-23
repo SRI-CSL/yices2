@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "eq_abstraction.h"
+#include "context/eq_abstraction.h"
 
 #ifdef MINGW
 

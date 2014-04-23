@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "cache.h"
+#include "utils/cache.h"
 
 #ifdef MINGW
 

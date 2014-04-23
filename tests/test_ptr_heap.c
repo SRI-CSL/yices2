@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "ptr_heap.h"
+#include "utils/ptr_heap.h"
 
 
 #ifdef MINGW

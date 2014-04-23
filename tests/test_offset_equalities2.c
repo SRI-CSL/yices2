@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "memalloc.h"
-#include "hash_functions.h"
-#include "int_partitions.h"
-#include "index_vectors.h"
-#include "int_vectors.h"
+#include "utils/memalloc.h"
+#include "utils/hash_functions.h"
+#include "utils/int_partitions.h"
+#include "utils/index_vectors.h"
+#include "utils/int_vectors.h"
 
-#include "offset_equalities.h"
+#include "solvers/simplex/offset_equalities.h"
 
 
 

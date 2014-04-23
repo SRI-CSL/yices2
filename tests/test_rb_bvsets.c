@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "bitvectors.h"
-#include "rb_bvsets.h"
+#include "utils/bitvectors.h"
+#include "model/rb_bvsets.h"
 
 #ifdef MINGW
 

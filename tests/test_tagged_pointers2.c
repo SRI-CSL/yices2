@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "tagged_pointers.h"
+#include "utils/tagged_pointers.h"
 
 #define MAX_TAG_INT (INT32_MAX>>1)
 #define MIN_TAG_INT (INT32_MIN>>1)

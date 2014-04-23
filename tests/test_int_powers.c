@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_powers.h"
+#include "utils/int_powers.h"
 
 int main(void) {
   uint32_t d;

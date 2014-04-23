@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "bit_tricks.h"
+#include "utils/bit_tricks.h"
 
 
 /*

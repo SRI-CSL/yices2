@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "smt_lexer.h"
-#include "bv_constants.h"
+#include "frontend/smt1/smt_lexer.h"
+#include "terms/bv_constants.h"
 
 static lexer_t lexer;
 

@@ -4,10 +4,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "object_stores.h"
-#include "pprod_table.h"
-#include "rationals.h"
-#include "arith_buffers.h"
+#include "utils/object_stores.h"
+#include "terms/pprod_table.h"
+#include "terms/rationals.h"
+#include "terms/arith_buffers.h"
 
 
 

@@ -8,11 +8,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "assert_utils.h"
-#include "full_subst.h"
-#include "term_printer.h"
-#include "yices.h"
-#include "yices_globals.h"
+#include "utils/assert_utils.h"
+#include "terms/full_subst.h"
+#include "io/term_printer.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
 
 
 #ifdef MINGW

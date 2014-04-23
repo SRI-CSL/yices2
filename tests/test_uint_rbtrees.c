@@ -2,7 +2,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "uint_rbtrees.h"
+#include "utils/uint_rbtrees.h"
 
 #ifdef MINGW
 

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "pprod_table.h"
+#include "terms/pprod_table.h"
 
 
 /*

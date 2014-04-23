@@ -4,8 +4,8 @@
 
 #include <stdio.h>
 
-#include "memsize.h"
-#include "memalloc.h"
+#include "utils/memsize.h"
+#include "utils/memalloc.h"
 
 int main() {
   double size;

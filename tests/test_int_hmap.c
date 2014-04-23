@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_hash_map.h"
+#include "utils/int_hash_map.h"
 
 static int_hmap_t map;
 

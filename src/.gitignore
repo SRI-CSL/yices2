@@ -1,6 +1,6 @@
-/smt_hash_keywords.h
-/smt2_hash_keywords.h
-/smt2_hash_symbols.h
-/smt2_hash_tokens.h
-/yices_hash_keywords.h
-/yices_version.c
+api/yices_version.c
+frontend/smt1/smt_hash_keywords.h
+frontend/smt2/smt2_hash_keywords.h
+frontend/smt2/smt2_hash_symbols.h
+frontend/smt2/smt2_hash_tokens.h
+frontend/yices/yices_hash_keywords.h

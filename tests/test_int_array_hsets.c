@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_array_hsets.h"
+#include "utils/int_array_hsets.h"
 
 
 static void print_array(uint32_t n, int32_t *a) {

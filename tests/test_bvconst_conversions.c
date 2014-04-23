@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "bv_constants.h"
+#include "terms/bv_constants.h"
 
 /*
  * Initialize z and copy a into z

@@ -7,8 +7,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "memalloc.h"
-#include "remap_table.h"
+#include "utils/memalloc.h"
+#include "solvers/bv/remap_table.h"
 
 
 #ifdef MINGW

@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "memalloc.h"
+#include "utils/cputime.h"
+#include "utils/memalloc.h"
 
 #ifdef MINGW
 
