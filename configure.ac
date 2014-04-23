@@ -442,6 +442,32 @@ fi
 ])
 
 
+dnl
+dnl CHECK_THREAD_LOCAL
+dnl ------------------
+dnl check whether we can declare variables with the __thread
+dnl attribute. If not we assume the platform doesn't support
+dnl thread-local storage.
+dnl
+AC_DEFUN([CSL_CHECK_THREAD_LOCAL],
+[
+save_cppflags=$CPPFLAGS
+save_libs=$LIBS
+AC_MSG_CHECKING([for thread-local storage support])
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[
+__thread int test;
+]],
+[[
+]])
+],has_tls=yes,has_tls=no,has_tls=no)
+AC_MSG_RESULT([$has_tls])
+#
+# restore CPPFLAGS and LIBS
+#
+CPPFLAGS=$save_cppflags
+LIBS=$save_libs
+])
 
 
 #
@@ -488,6 +514,20 @@ fi
 #
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
+
+
+#
+# TLS test
+# --------
+#
+AC_SUBST(HAS_TLS)
+has_tls=""
+CSL_CHECK_THREAD_LOCAL()
+if test "x$has_tls" == xyes; then
+  HAS_TLS=1
+else
+  HAS_TLS=0
+fi
 
 
 #
