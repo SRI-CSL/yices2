@@ -24,14 +24,23 @@
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
+  int32_t count, errno, timewaste, sum;
 
-  set_tl_error(4 * (tdata->id + 1));
+  for(count = 1; count < 1000; count++){
+    errno =  count * (tdata->id + 1);
+    set_tl_error(errno);
 
+    fprintf(output, "Done %d errno = %d.\n", tdata->id, get_tl_error());
 
-  fprintf(output, "Done %d errno = %d.\n", tdata->id, get_tl_error());
-
-  fprintf(stderr, "Done %d errno = %d.\n", tdata->id, get_tl_error());
-
+    
+    for(timewaste = 0; timewaste  < 100000; timewaste++){
+      sum = timewaste + count;
+    }
+    if(errno != get_tl_error()){
+      fprintf(stderr, "Thread %d errno = %d but get_tl_error() = %d.\n", tdata->id, errno, get_tl_error());
+    }
+    assert(errno == get_tl_error());
+  }
 
   return yices_thread_exit();
 }
