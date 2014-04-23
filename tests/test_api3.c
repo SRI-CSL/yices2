@@ -80,10 +80,10 @@ static void add_term(term_t t) {
 /*
  * BASE TYPES
  */
-static type_t boolean, bv1, bv2, bv12, bv32, bv64, bv65, bv100;
+static type_t the_boolean, bv1, bv2, bv12, bv32, bv64, bv65, bv100;
 
 static void init_base_types(void) {
-  boolean = yices_bool_type();
+  the_boolean = yices_bool_type();
   bv1 = yices_bv_type(1);
   bv2 = yices_bv_type(2);
   bv12 = yices_bv_type(12);
@@ -108,23 +108,23 @@ static void init_base_terms(void) {
   // boolean terms
   add_term(yices_true());
   add_term(yices_false());
-  t = yices_new_uninterpreted_term(boolean);
+  t = yices_new_uninterpreted_term(the_boolean);
   yices_set_term_name(t, "p0");
   add_term(t);
   add_term(yices_not(t));
-  t = yices_new_uninterpreted_term(boolean);
+  t = yices_new_uninterpreted_term(the_boolean);
   yices_set_term_name(t, "p1");
   add_term(t);
   add_term(yices_not(t));
-  t = yices_new_uninterpreted_term(boolean);
+  t = yices_new_uninterpreted_term(the_boolean);
   yices_set_term_name(t, "p2");
   add_term(t);
   add_term(yices_not(t));
-  t = yices_new_uninterpreted_term(boolean);
+  t = yices_new_uninterpreted_term(the_boolean);
   yices_set_term_name(t, "p3");
   add_term(t);
   add_term(yices_not(t));
-  t = yices_new_uninterpreted_term(boolean);
+  t = yices_new_uninterpreted_term(the_boolean);
   yices_set_term_name(t, "p4");
   add_term(t);
   add_term(yices_not(t));
@@ -805,8 +805,8 @@ static void random_bvarrays(uint32_t n) {
   while (n > 0) {
     tau = type_store_sample(&all_types, is_bvtype);
     k = bv_type_size(__yices_globals.types, tau);
-    t1 = term_store_sample(&all_terms, boolean, has_type);
-    t2 = term_store_sample(&all_terms, boolean, has_type);
+    t1 = term_store_sample(&all_terms, the_boolean, has_type);
+    t2 = term_store_sample(&all_terms, the_boolean, has_type);
 
     t = test_bvarray1(k, t1);
     add_term(t);
@@ -878,7 +878,7 @@ static void random_ite(uint32_t n) {
     tau = type_store_sample(&all_types, is_bvtype);
     t1 = type_store_sample_terms(&all_types, tau);
     t2 = type_store_sample_terms(&all_types, tau);
-    c = term_store_sample(&all_terms, boolean, has_type);
+    c = term_store_sample(&all_terms, the_boolean, has_type);
 
     test_ite(c, t1, t2);
     printf("\n");

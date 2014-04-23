@@ -254,7 +254,7 @@ static bool has_type(type_t tau, term_t t) {
  * GLOBAL STORE + boolean type + a buffer
  */
 static term_store_t all_terms;
-static type_t boolean;
+static type_t the_boolean;
 static ivector_t buffer;
 
 
@@ -269,13 +269,13 @@ static void init_store(void) {
   init_term_store(&all_terms);
   init_ivector(&buffer, 10);
 
-  boolean = yices_bool_type();
+  the_boolean = yices_bool_type();
   term_store_add_term(&all_terms, yices_true());
   term_store_add_term(&all_terms, yices_false());
 
   // ten boolean variables
   for (i=0; i<10; i++) {
-    t = yices_new_uninterpreted_term(boolean);
+    t = yices_new_uninterpreted_term(the_boolean);
     sprintf(name, "p%"PRIu32, i);
     yices_set_term_name(t, name);
     term_store_add_term(&all_terms, t);
@@ -437,8 +437,8 @@ static void random_binary_tests(uint32_t n) {
   term_t t1, t2;
 
   while (n > 0) {
-    t1 = term_store_sample(&all_terms, boolean, has_type);
-    t2 = term_store_sample(&all_terms, boolean, has_type);
+    t1 = term_store_sample(&all_terms, the_boolean, has_type);
+    t2 = term_store_sample(&all_terms, the_boolean, has_type);
     printf("--- Test %"PRIu32" ---\n", n);
     all_binary_tests(t1, t2);
     printf("\n\n");
@@ -458,7 +458,7 @@ static void random_nary_tests(uint32_t n) {
     m = ((uint32_t) random()) % 10; // size between 0 and 9
     ivector_reset(&buffer);
     for (i=0; i<m; i++) {
-      t = term_store_sample(&all_terms, boolean, has_type);
+      t = term_store_sample(&all_terms, the_boolean, has_type);
       ivector_push(&buffer, t);
     }
     printf("--- Test %"PRIu32" ---\n", n);
@@ -478,9 +478,9 @@ static void random_ite(uint32_t n) {
 
   printf("\n---- Test if-then-else ----\n");
   while (n > 0) {
-    c = term_store_sample(&all_terms, boolean, has_type);
-    t1 = term_store_sample(&all_terms, boolean, has_type);
-    t2 = term_store_sample(&all_terms, boolean, has_type);
+    c = term_store_sample(&all_terms, the_boolean, has_type);
+    t1 = term_store_sample(&all_terms, the_boolean, has_type);
+    t2 = term_store_sample(&all_terms, the_boolean, has_type);
 
     test_ite(c, t1, t2);
     printf("\n");

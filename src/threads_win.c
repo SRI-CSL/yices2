@@ -50,7 +50,7 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
 
     WaitForSingleObject( handles[thread], INFINITE );
     CloseHandle( handles[thread] );
-    fclose(tdata[thread].output));
+    fclose(tdata[thread].output);
   }
 
   free(tdata);

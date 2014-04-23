@@ -2,13 +2,18 @@
  * Term and Type Stores for testing
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
 
 #include "stores.h"
-
 #include "yices_globals.h"
 #include "type_printer.h"
 #include "term_printer.h"
 
+#include "yices.h"
 
 /*
  * Print the type table

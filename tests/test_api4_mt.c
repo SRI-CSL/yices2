@@ -39,7 +39,7 @@
  */
 static yices_lock_t __all_lock;
 static term_store_t __all_terms;
-static type_t boolean;
+static type_t the_boolean;
 
 
 /*
@@ -52,13 +52,13 @@ static void init_store(void) {
 
   init_term_store(&__all_terms);
 
-  boolean = yices_bool_type();
+  the_boolean = yices_bool_type();
   term_store_add_term(&__all_terms, yices_true());
   term_store_add_term(&__all_terms, yices_false());
 
   // ten boolean variables
   for (i=0; i<10; i++) {
-    t = yices_new_uninterpreted_term(boolean);
+    t = yices_new_uninterpreted_term(the_boolean);
     sprintf(name, "p%"PRIu32, i);
     yices_set_term_name(t, name);
     term_store_add_term(&__all_terms, t);
@@ -223,8 +223,8 @@ static void random_binary_tests(FILE* output, uint32_t n) {
 
     get_yices_lock(&__all_lock);
 
-    t1 = term_store_sample(&__all_terms, boolean, has_type_mt);
-    t2 = term_store_sample(&__all_terms, boolean, has_type_mt);
+    t1 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
+    t2 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
 
     release_yices_lock(&__all_lock);
   
@@ -253,7 +253,7 @@ static void random_nary_tests(FILE* output, uint32_t n) {
       
       get_yices_lock(&__all_lock);
 
-      t = term_store_sample(&__all_terms, boolean, has_type_mt);
+      t = term_store_sample(&__all_terms, the_boolean, has_type_mt);
 
       release_yices_lock(&__all_lock);
 
@@ -282,9 +282,9 @@ static void random_ite(FILE* output, uint32_t n) {
 
     get_yices_lock(&__all_lock);
 
-    c = term_store_sample(&__all_terms, boolean, has_type_mt);
-    t1 = term_store_sample(&__all_terms, boolean, has_type_mt);
-    t2 = term_store_sample(&__all_terms, boolean, has_type_mt);
+    c = term_store_sample(&__all_terms, the_boolean, has_type_mt);
+    t1 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
+    t2 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
 
     release_yices_lock(&__all_lock);
 

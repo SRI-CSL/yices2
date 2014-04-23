@@ -10,8 +10,8 @@
 
 #include "int_vectors.h"
 #include "bitvectors.h"
-
-#include "yices.h"
+#include "terms.h"
+#include "types.h"
 
 #ifdef MINGW
 static inline long int random(void) {
