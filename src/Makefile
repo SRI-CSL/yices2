@@ -340,6 +340,13 @@ ifeq ($(POSIXOS),mingw)
 endif
 
 
+#
+# Enable/disable support for TLS
+# HAS_TLS is set to 1 by configure if TLS is supported
+#
+ifeq ($(HAS_TLS),1)
+  CPPFLAGS += -DHAS_TLS
+endif
 
 
 #
