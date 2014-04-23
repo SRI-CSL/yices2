@@ -24,6 +24,9 @@
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
+
+  #ifdef HAS_TLS
+
   int32_t count, errno, timewaste, sum;
 
   for(count = 1; count < 1000; count++){
@@ -36,11 +39,23 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
     for(timewaste = 0; timewaste  < 100000; timewaste++){
       sum = timewaste + count;
     }
+
+
     if(errno != get_tl_error()){
       fprintf(stderr, "Thread %d errno = %d but get_tl_error() = %d.\n", tdata->id, errno, get_tl_error());
     }
     assert(errno == get_tl_error());
   }
+  fprintf(output, "Done %d errno = %d sum = %d.\n", tdata->id, get_tl_error(), sum);
+
+
+  #else
+
+  fprintf(stderr, "No TLS support. This test could not succeed!\n");
+
+
+  #endif
+
 
   return yices_thread_exit();
 }

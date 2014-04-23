@@ -225,6 +225,7 @@ check: checkgmake
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
 	@ echo "YICES_VERSION is $(YICES_VERSION)"
+	@ echo "HAS_TLS is $(HAS_TLS)"
 
 checkgmake:
 	@ ./gmaketest --make=$(MAKE) || \
