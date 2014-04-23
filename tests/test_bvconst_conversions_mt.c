@@ -221,7 +221,9 @@ static void test_unsigned_conversions(FILE* output) {
 }
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
-  FILE* output = (FILE *)arg;
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
+
   fprintf(stderr, "Starting: %s\n", "test_signed_conversions");
   test_signed_conversions(output);
   fprintf(stderr, "Starting: %s\n", "test_unsigned_conversions");
@@ -242,7 +244,8 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
     } else if(nthreads == 0){
-      test_thread(stdout);
+      thread_data_t tdata = {0, stdout};
+      test_thread(&tdata);
     } else {
       launch_threads(nthreads, "test_bvconst_conversions_mt", test_thread);
     }

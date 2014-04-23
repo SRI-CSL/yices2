@@ -304,7 +304,9 @@ static void test4(FILE* output) {
 
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
-  FILE* output = (FILE *)arg;
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
+
   fprintf(stderr, "Starting: %s\n", "test1");
   test1(output);
   fprintf(stderr, "Starting: %s\n", "test2");
@@ -331,7 +333,8 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
     } else if(nthreads == 0){
-      test_thread(stdout);
+      thread_data_t tdata = {0, stdout};
+      test_thread(&tdata);
     } else {
       launch_threads(nthreads, "test_rational_conversions_mt", test_thread);
     }

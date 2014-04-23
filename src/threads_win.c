@@ -16,10 +16,12 @@
 void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main){
   int32_t thread;
   char  buff[1024];
-  FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
+
+  thread_data_t* tdata = (thread_data_t*)calloc(nthreads, sizeof(thread_data_t)); 
+
   HANDLE* handles = (HANDLE*)calloc(nthreads, sizeof(HANDLE));
   unsigned* tids = (unsigned*)calloc(nthreads, sizeof(unsigned));
-  if((outfp == NULL) || (tids == NULL) || (handles == NULL)){
+  if((tdata == NULL) || (tids == NULL) || (handles == NULL)){
     fprintf(stderr, "Couldn't alloc memory for %d threads\n", nthreads);
     exit(EXIT_FAILURE);
   }
@@ -28,12 +30,13 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, "%s_%d.txt", test, thread);
     printf("Logging thread %d to %s\n", thread, buff);
-    outfp[thread] = fopen(buff, "w");
-    if(outfp[thread] == NULL){
+    tdata[thread].id = thread;
+    tdata[thread].output = fopen(buff, "w");
+    if(tdata[thread].output == NULL){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
       exit(EXIT_FAILURE);
     }
-    handles[thread]  =  (HANDLE)_beginthreadex( NULL, 0, thread_main, outfp[thread], 0, &tids[thread]);
+    handles[thread]  =  (HANDLE)_beginthreadex( NULL, 0, thread_main, &tdata[thread], 0, &tids[thread]);
     if(handles[thread] == 0){
       fprintf(stderr, "_beginthreadex: %s\n", strerror(errno));
       exit(EXIT_FAILURE);
@@ -47,10 +50,10 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
 
     WaitForSingleObject( handles[thread], INFINITE );
     CloseHandle( handles[thread] );
-    fclose(outfp[thread]);
+    fclose(tdata[thread].output));
   }
 
-  free(outfp);
+  free(tdata);
   free(handles);
   free(tids);
 

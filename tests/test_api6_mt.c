@@ -73,7 +73,8 @@ static void test_parse_term(FILE* output, char *s) {
 
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
-  FILE* output = (FILE *)arg;
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
 
   show_types(output);
   show_terms(output);
@@ -130,7 +131,8 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
     } else if(nthreads == 0){
-      test_thread(stdout);
+      thread_data_t tdata = {0, stdout};
+      test_thread(&tdata);
     } else {
       launch_threads(nthreads, "test_api3_mt", test_thread);
     }

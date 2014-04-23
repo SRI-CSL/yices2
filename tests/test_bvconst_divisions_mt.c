@@ -89,7 +89,8 @@ static void test_bv(FILE* output, uint32_t *x, uint32_t *y, uint32_t n) {
 
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
-  FILE* output = (FILE *)arg;
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
 
   uint32_t i, j;
   uint32_t x[2], y[2];
@@ -125,7 +126,8 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
     } else if(nthreads == 0){
-      test_thread(stdout);
+      thread_data_t tdata = {0, stdout};
+      test_thread(&tdata);
     } else {
       launch_threads(nthreads, "test_bvconst_divisions_mt", test_thread);
     }

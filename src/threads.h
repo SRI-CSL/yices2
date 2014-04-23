@@ -14,6 +14,13 @@ typedef yices_thread_result_t ( YICES_THREAD_ATTR  *yices_thread_main_t)(void *)
 #endif
 
 
+typedef struct thread_data {
+  int32_t id;
+  FILE* output;
+} thread_data_t;
+
+
+
 /* launches nthreads computing thread_main and logging to a file based on test and the thread index;
    on *nix the file is in /tmp, on windows it is in the cwd
 */

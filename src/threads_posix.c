@@ -7,9 +7,11 @@
 void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main){
   int32_t retcode, thread;
   char  buff[1024];
-  FILE**  outfp = (FILE**)calloc(nthreads, sizeof(FILE*));
+
+  thread_data_t* tdata = (thread_data_t*)calloc(nthreads, sizeof(thread_data_t)); 
+
   pthread_t* tids = (pthread_t*)calloc(nthreads, sizeof(pthread_t));
-  if((outfp == NULL) || (tids == NULL)){
+  if((tdata == NULL) || (tids == NULL)){
     fprintf(stderr, "Couldn't alloc memory for %d threads\n", nthreads);
     exit(EXIT_FAILURE);
   }
@@ -18,12 +20,13 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, "/tmp/%s_%d.txt", test, thread);
     printf("Logging thread %d to %s\n", thread, buff);
-    outfp[thread] = fopen(buff, "w");
-    if(outfp[thread] == NULL){
+    tdata[thread].id = thread;
+    tdata[thread].output = fopen(buff, "w");
+    if(tdata[thread].output == NULL){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
       exit(EXIT_FAILURE);
     }
-    retcode =  pthread_create(&tids[thread], NULL, thread_main, outfp[thread]);
+    retcode =  pthread_create(&tids[thread], NULL, thread_main, &tdata[thread]);
     if(retcode){
       fprintf(stderr, "pthread_create failed: %s\n", strerror(retcode));
       exit(EXIT_FAILURE);
@@ -39,10 +42,10 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
       fprintf(stderr, "pthread_join failed: %s\n", strerror(retcode));
       exit(EXIT_FAILURE);
     }
-    fclose(outfp[thread]);
+    fclose(tdata[thread].output);
   }
 
-  free(outfp);
+  free(tdata);
   free(tids);
 
 }
