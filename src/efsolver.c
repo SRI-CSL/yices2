@@ -797,6 +797,11 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
  * - we must have an assignment for the exists variable in solver->evalue
  *   and an assignment for the universal variables of constraints i in
  *   solver->uvalue_aux.
+ * - this builds and store the full model for constraint i in solver->full_model
+ *   then construct and store the implicant in solver->implicant
+ *
+ * Error codes: set solver->status to EF_STATUS_ERROR
+ * - this may happen if yices_model_from_map or yices_implicant_for_fomuulas fail
  */
 static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   model_t *mdl;
@@ -808,6 +813,13 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
 
   assert(i < ef_prob_num_constraints(solver->prob));
 
+  // free the current full model if any
+  if (solver->full_model != NULL) {
+    yices_free_model(solver->full_model);
+    solver->full_model = NULL;
+  }
+
+  // build the full_map and the correspongin model.
   ef_build_full_map(solver, i);
   n = solver->all_vars.size;
   assert(n == solver->all_values.size);
@@ -818,6 +830,7 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
     solver->error_code = yices_error_code();
     return;
   }
+  solver->full_model = mdl;
 
   cnstr = solver->prob->cnstr + i;
   a[0] = cnstr->assumption;
@@ -829,7 +842,6 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
     solver->status = EF_STATUS_ERROR;
     solver->error_code = yices_error_code();
   }
-  yices_free_model(mdl);
 
 #if 1
   printf("Implicant\n");
