@@ -66,27 +66,6 @@
  */
 #define DEFAULT_BRANCHING  BRANCHING_DEFAULT
 
-/*
- * All default parameters
- */
-static const param_t default_settings = {
-  DEFAULT_FAST_RESTART,
-  DEFAULT_C_THRESHOLD,
-  DEFAULT_D_THRESHOLD,
-  DEFAULT_C_FACTOR,
-  DEFAULT_D_FACTOR,
-
-  DEFAULT_R_THRESHOLD,
-  DEFAULT_R_FRACTION,
-  DEFAULT_R_FACTOR,
-
-  DEFAULT_VAR_DECAY,
-  DEFAULT_RANDOMNESS,
-  DEFAULT_RANDOM_SEED,
-  DEFAULT_BRANCHING,
-  DEFAULT_CLAUSE_DECAY,
-};
-
 
 
 /*************************************
@@ -188,16 +167,31 @@ static const int32_t branching_code[NUM_BRANCHING_MODES] = {
 /*
  * Initialize params with a copy of default_settings
  */
+
+/* replaces the static initializer */
+static inline void init_default_settings(param_t *parameters){
+  param_t p = *parameters;
+
+  p.fast_restart  =  DEFAULT_FAST_RESTART;
+  p.c_threshold   =  DEFAULT_C_THRESHOLD;    
+  p.d_threshold   =  DEFAULT_D_THRESHOLD;    
+  p.c_factor      =  DEFAULT_C_FACTOR;       
+  p.d_factor      =  DEFAULT_D_FACTOR;       
+
+  p.r_threshold   =  DEFAULT_R_THRESHOLD;
+  p.r_fraction    =  DEFAULT_R_FRACTION;
+  p.r_factor      =  DEFAULT_R_FACTOR;
+
+  p.var_decay     =  DEFAULT_VAR_DECAY;     
+  p.randomness    =  DEFAULT_RANDOMNESS;    
+  p.random_seed   =  DEFAULT_RANDOM_SEED;
+  p.branching     =  DEFAULT_BRANCHING;    
+  p.clause_decay  =  DEFAULT_CLAUSE_DECAY; 
+
+};
+
 void init_params_to_defaults(param_t *parameters) {
-  *parameters = default_settings;
-}
-
-
-/*
- * Return the default parameters
- */
-const param_t *get_default_params(void) {
-  return &default_settings;
+  init_default_settings(parameters);
 }
 
 

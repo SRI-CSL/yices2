@@ -304,6 +304,7 @@ static void solve(smt_core_t *core, const param_t *params) {
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
   smt_core_t *core;
+  param_t dparams;
 
   core = ctx->core;
 
@@ -313,7 +314,8 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
      * Clean state: search can proceed
      */
     if (params == NULL) {
-      params = get_default_params();
+      init_params_to_defaults(&dparams);
+      params = &dparams;
     }
 
     /*

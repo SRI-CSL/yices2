@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "yices_types.h"
+#include "yices_locks.h"
 
 
 /*
@@ -29,6 +30,9 @@ typedef enum {
 
 
 struct param_s {
+
+  yices_lock_t lock;
+
   /*
    * Restart heuristic: similar to PICOSAT or MINISAT
    *
@@ -81,11 +85,6 @@ struct param_s {
  */
 extern void init_params_to_defaults(param_t *parameters);
 
-
-/*
- * Get a pointer to an internal record (set to defaults)
- */
-extern const param_t *get_default_params(void);
 
 
 /*

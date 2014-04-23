@@ -431,8 +431,9 @@ static inline context_t *context_of_header(dl_list_t *l) {
  * Allocate a fresh context object and insert it in the context_list
  * - WARNING: the context is not initialized
  */
-static inline context_t *alloc_context(void) {
+static context_t *alloc_context(void) {
   context_elem_t *new_elem;
+  context_t *retval;
 
   new_elem = (context_elem_t *) safe_malloc(sizeof(context_elem_t));
 
@@ -442,7 +443,11 @@ static inline context_t *alloc_context(void) {
 
   release_yices_lock(&context_lock);
 
-  return &new_elem->context;
+  retval = &new_elem->context;
+
+  create_yices_lock(&(retval->lock));
+
+  return retval;
 }
 
 
@@ -451,12 +456,20 @@ static inline context_t *alloc_context(void) {
  * - WARNING: make sure to call delete_context(c) before this
  *   function
  */
-static inline void free_context(context_t *c) {
+static void free_context(context_t *c) {
   dl_list_t *elem;
+  
+  destroy_yices_lock(&(c->lock));
 
   elem = header_of_context(c);
+
+  get_yices_lock(&context_lock);
+
   list_remove(elem);
   safe_free(elem);
+
+  release_yices_lock(&context_lock); 
+ 
 }
 
 
@@ -505,8 +518,9 @@ static inline model_t *model_of_header(dl_list_t *l) {
  * Allocate a fresh model object and insert it in the model_list
  * - WARNING: the model is not initialized
  */
-static inline model_t *alloc_model(void) {
+static model_t *alloc_model(void) {
   model_elem_t *new_elem;
+  model_t *retval;
 
   new_elem = (model_elem_t *) safe_malloc(sizeof(model_elem_t));
 
@@ -516,7 +530,11 @@ static inline model_t *alloc_model(void) {
 
   release_yices_lock(&model_lock);
 
-  return &new_elem->model;
+  retval = &new_elem->model;
+
+  create_yices_lock(&(retval->lock));
+
+  return retval;
 }
 
 
@@ -525,12 +543,20 @@ static inline model_t *alloc_model(void) {
  * - WARNING: make sure to call delete_model(c) before this
  *   function
  */
-static inline void free_model(model_t *m) {
+static void free_model(model_t *m) {
   dl_list_t *elem;
 
   elem = header_of_model(m);
+
+  destroy_yices_lock(&(m->lock));
+
+  get_yices_lock(&model_lock);
+
   list_remove(elem);
   safe_free(elem);
+
+  release_yices_lock(&model_lock);
+
 }
 
 
@@ -578,11 +604,13 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
  * Allocate a structure and insert it into the generic
  * WARNING: the record is not initialized
  */
-static inline ctx_config_t *alloc_config_structure(void) {
+static ctx_config_t *alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
   ctx_config_t *retval;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
+
+  /* add the new elem to the generic list */
 
   get_yices_lock(&generic_lock);
 
@@ -594,13 +622,16 @@ static inline ctx_config_t *alloc_config_structure(void) {
 
   retval = &new_elem->config;
 
+  /* initialize the ctx_config_t lock */
+
   create_yices_lock(&(retval->lock));
 
   return retval;
 }
 
-static inline param_t *alloc_param_structure(void) {
+static param_t *alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
+  param_t *retval;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
 
@@ -610,29 +641,53 @@ static inline param_t *alloc_param_structure(void) {
 
   release_yices_lock(&generic_lock);
 
-  return &new_elem->param;
+  retval = &new_elem->param;
+
+  /* initialize the param_t lock */
+
+  create_yices_lock(&(retval->lock));
+
+  return  retval;
 }
 
 /*
  * Remove a structure from the generic list
  */
-static inline void free_config_structure(ctx_config_t *c) {
+static void free_config_structure(ctx_config_t *c) {
   dl_list_t *elem;
 
   elem = header_of_config_structure(c);
 
+  /* reclaim the lock */
   destroy_yices_lock(&(c->lock));
 
+  /* remove the ctx_config_t object from the generic list */
+
+  get_yices_lock(&generic_lock);
+
   list_remove(elem);
   safe_free(elem);
+
+  release_yices_lock(&generic_lock);
 }
 
-static inline void free_param_structure(param_t *p) {
+static void free_param_structure(param_t *p) {
   dl_list_t *elem;
 
+
   elem = header_of_param_structure(p);
+
+  /* reclaim the lock */
+  destroy_yices_lock(&(p->lock));
+
+  /* remove the param_t object from the generic list */
+  
+  get_yices_lock(&generic_lock);
+  
   list_remove(elem);
   safe_free(elem);
+  
+  release_yices_lock(&generic_lock);
 }
 
 
@@ -5393,8 +5448,6 @@ int32_t _o_yices_clear_term_name(term_t t) {
  *  CONTEXT CONFIGURATIONS  *
  ***************************/
 
-/* Ian says: context configurations might need locks */
-
 /*
  * Allocate a new configuration descriptor
  * - initialize it do defaults
@@ -5423,6 +5476,9 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
   error_report_t *error = __yices_globals.error;
   int32_t k;
+  int32_t retval;
+
+  get_yices_lock(&(config->lock));
 
   k = config_set_field(config, name, value);
   if (k < 0) {
@@ -5432,10 +5488,14 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
     } else {
       error->code = CTX_INVALID_PARAMETER_VALUE;
     }
-    return -1;
+    retval = -1;
+  } else {
+    retval = 0;
   }
 
-  return 0;
+  release_yices_lock(&(config->lock));
+
+  return retval;
 }
 
 
@@ -5447,6 +5507,9 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
 EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
   error_report_t *error = __yices_globals.error;
   int32_t k;
+  int32_t retval;
+
+  get_yices_lock(&(config->lock));
 
   k = config_set_logic(config, logic);
   if (k < 0) {
@@ -5455,10 +5518,15 @@ EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char
     } else {
       error->code = CTX_LOGIC_NOT_SUPPORTED;
     }
-    return -1;
+    retval = -1;
+  } else {
+    retval = 0;
   }
 
-  return 0;
+  release_yices_lock(&(config->lock));
+
+  return retval;
+
 }
 
 
@@ -5502,7 +5570,23 @@ static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
 /*
  * Enable a specific option
  */
+
+/* locking version */
 EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
+  yices_lock_t *lock = &(ctx->lock);
+  int32_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_context_enable_option(ctx, option);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+int32_t _o_yices_context_enable_option(context_t *ctx, const char *option) {
   int32_t k, r;
 
   r = 0; // default return code: no error
@@ -5527,7 +5611,7 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
     r = -1;
     break;
   }
-
+  
   return r;
 }
 
@@ -5537,6 +5621,8 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
  */
 EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
   int32_t k, r;
+
+  get_yices_lock(&(ctx->lock));
 
   r = 0; // default return code: no error
   k = parse_as_keyword(option, ctx_option_names, ctx_option_key, NUM_CTX_OPTIONS);
@@ -5561,6 +5647,8 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
   }
 
+  release_yices_lock(&(ctx->lock));
+
   return r;
 }
 
@@ -5569,27 +5657,63 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
  * For backward compatibility: functions to enable/disable one option
  */
 EXPORTED void yices_enable_var_elim(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   enable_variable_elimination(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 EXPORTED void yices_disable_var_elim(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   disable_variable_elimination(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 EXPORTED void yices_enable_flattening(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   enable_diseq_and_or_flattening(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 EXPORTED void yices_disable_flattening(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   disable_diseq_and_or_flattening(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 EXPORTED void yices_enable_bvarith_elim(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   enable_bvarith_elimination(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 EXPORTED void yices_disable_bvarith_elim(context_t *ctx) {
+
+  get_yices_lock(&(ctx->lock));
+
   disable_bvarith_elimination(ctx);
+
+  release_yices_lock(&(ctx->lock));
+
 }
 
 
@@ -5626,6 +5750,10 @@ EXPORTED void yices_free_param_record(param_t *param) {
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
   error_report_t *error = __yices_globals.error;
   int32_t k;
+  int32_t retval;
+
+  get_yices_lock(&(param->lock));
+
 
   k = params_set_field(param, name, value);
   if (k < 0) {
@@ -5634,10 +5762,14 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
     } else {
       error->code = CTX_INVALID_PARAMETER_VALUE;
     }
-    return -1;
+    retval =-1;
+  } else {
+    retval =  0;
   }
 
-  return 0;
+  release_yices_lock(&(param->lock));
+
+  return retval;
 }
 
 
@@ -5687,40 +5819,6 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
 }
 
 
-#if 0
-/*
- * Allocate and initialize and new context
- * - the configuration is defined by config.
- * - if config is NULL, the default is used.
- * - otherwise, if the configuration is not supported, the function returns NULL.
- */
-EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
-  context_arch_t arch;
-  context_mode_t mode;
-  bool iflag;
-  bool qflag;
-  int32_t k;
-
-  if (config == NULL) {
-    // Default configuration: all solvers, mode = push/pop
-    arch = CTX_ARCH_EGFUNSPLXBV;
-    mode = CTX_MODE_PUSHPOP;
-    iflag = true;
-    qflag = false;
-  } else {
-    // read the config
-    k = decode_config(config, &arch, &mode, &iflag, &qflag);
-    if (k < 0) {
-      // invalid configuration
-      __yices_globals.error->code = CTX_INVALID_CONFIG;
-      return NULL;
-    }
-  }
-
-  return yices_create_context(arch, mode, iflag, qflag);
-}
-
-#endif
 
 /*
  * For backward compatibiltiy:
@@ -5734,7 +5832,7 @@ EXPORTED context_t *yices_new_context(void) {
 
 
 /*
- * Delete ctx
+ * Delete ctx 
  */
 EXPORTED void yices_free_context(context_t *ctx) {
   delete_context(ctx);
@@ -5743,20 +5841,58 @@ EXPORTED void yices_free_context(context_t *ctx) {
 
 
 
-
 /*
  * Get status: return the context's status flag
  * - return one of the codes defined in yices_types.h
  */
+
+/* locking version */
 EXPORTED smt_status_t yices_context_status(context_t *ctx) {
-  return context_status(ctx);
+  yices_lock_t *lock = &(ctx->lock);
+  smt_status_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_context_status(ctx);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+smt_status_t _o_yices_context_status(context_t *ctx) {
+  smt_status_t retval;
+  yices_lock_t *lock = &(ctx->lock);
+  
+  get_yices_lock(lock);
+  
+  retval = context_status(ctx);
+
+  release_yices_lock(lock);
+
+  return retval;
 }
 
 
 /*
  * Reset: remove all assertions and restore ctx's status to IDLE
  */
-EXPORTED void yices_reset_context(context_t *ctx) {
+
+/* locking version */
+EXPORTED  void yices_reset_context(context_t *ctx) {
+  yices_lock_t *lock = &(ctx->lock);
+
+  get_yices_lock(lock);
+
+  _o_yices_reset_context(ctx);
+
+  release_yices_lock(lock);
+
+}
+
+/* non-locking version */
+void _o_yices_reset_context(context_t *ctx) {
   reset_context(ctx);
 }
 
@@ -5772,8 +5908,25 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  * - if the context status is UNSAT or SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
+
+/* locking version */
 EXPORTED int32_t yices_push(context_t *ctx) {
+  yices_lock_t *lock = &(ctx->lock);
+  int32_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_push(ctx);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+int32_t _o_yices_push(context_t *ctx) {
   error_report_t *error = __yices_globals.error;
+
   if (! context_supports_pushpop(ctx)) {
     error->code = CTX_OPERATION_NOT_SUPPORTED;
     return -1;
@@ -5787,21 +5940,22 @@ EXPORTED int32_t yices_push(context_t *ctx) {
     // fall-through intended
   case STATUS_IDLE:
     break;
-
+    
   case STATUS_UNSAT:
   case STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
     error->code = CTX_INVALID_OPERATION;
     return -1;
-
+    
   case STATUS_ERROR:
   default:
     error->code = INTERNAL_EXCEPTION;
     return -1;
   }
-
+  
   context_push(ctx);
   return 0;
+  
 }
 
 
@@ -5818,8 +5972,25 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   or if the context's status is SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
+
+/* locking version */
 EXPORTED int32_t yices_pop(context_t *ctx) {
+  yices_lock_t *lock = &(ctx->lock);
+  int32_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_pop(ctx);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+int32_t _o_yices_pop(context_t *ctx) {
   error_report_t *error = __yices_globals.error;
+
   if (! context_supports_pushpop(ctx)) {
     error->code = CTX_OPERATION_NOT_SUPPORTED;
     return -1;
@@ -5926,11 +6097,16 @@ static inline void convert_internalization_error(int32_t code) {
 /* locking version */
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *ctxlock = &(ctx->lock);
   int32_t retval;
 
   get_yices_lock(lock);
 
+  get_yices_lock(ctxlock);
+
   retval = _o_yices_assert_formula(ctx, t);
+
+  release_yices_lock(ctxlock);
 
   release_yices_lock(lock);
 
@@ -5994,11 +6170,17 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
 /* locking version */
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *ctxlock = &(ctx->lock);
   int32_t retval;
 
   get_yices_lock(lock);
 
+  get_yices_lock(ctxlock);
+
+
   retval = _o_yices_assert_formulas(ctx, n, t);
+
+  release_yices_lock(ctxlock);
 
   release_yices_lock(lock);
 
@@ -6075,7 +6257,7 @@ int32_t _o_yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
 
 /* locking version */
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *lock = &(ctx->lock);
   int32_t retval;
 
   get_yices_lock(lock);
@@ -6116,12 +6298,25 @@ int32_t _o_yices_assert_blocking_clause(context_t *ctx) {
 }
 
 
-
 /*
  * Set default search parameters for ctx (based on architecture and theories)
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
-void yices_set_default_params(context_t *ctx, param_t *params) {
+
+/* locking version */
+EXPORTED void yices_set_default_params(context_t *ctx, param_t *params) {
+  yices_lock_t *lock = &(params->lock);
+
+  get_yices_lock(lock);
+
+  _o_yices_set_default_params(ctx, params);
+
+  release_yices_lock(lock);
+
+}
+
+/* non-locking version */
+void _o_yices_set_default_params(context_t *ctx, param_t *params) {
   init_params_to_defaults(params);
   switch (ctx->arch) {
   case CTX_ARCH_BV:
@@ -6177,7 +6372,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
 
 /* locking version */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
-  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *lock = &(ctx->lock);
   smt_status_t retval;
 
   get_yices_lock(lock);
@@ -6238,6 +6433,9 @@ smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params) {
  * If ctx's status is SEARCHING, then the current search is
  * interrupted and ctx's status flag is updated to
  * INTERRUPTED. Otherwise, the function does nothing.
+ *
+ * N.B. Doesn't need to get the lock (presumably because it can't)
+ *
  */
 EXPORTED void yices_stop_search(context_t *ctx) {
   if (context_status(ctx) == STATUS_SEARCHING) {
@@ -6267,11 +6465,16 @@ EXPORTED void yices_stop_search(context_t *ctx) {
 /* locking version */
 EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *ctxlock = &(ctx->lock);
   model_t *retval;
 
   get_yices_lock(lock);
 
+  get_yices_lock(ctxlock);
+
   retval = _o_yices_get_model(ctx, keep_subst);
+
+  release_yices_lock(ctxlock);
 
   release_yices_lock(lock);
 
@@ -6316,7 +6519,26 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
+
+/* locking version */
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *mdllock = &(mdl->lock);
+
+  get_yices_lock(lock);
+
+  get_yices_lock(mdllock);
+
+  _o_yices_print_model(f, mdl);
+
+  release_yices_lock(mdllock);
+
+  release_yices_lock(lock);
+
+}
+
+/* non-locking version */
+void _o_yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
 
@@ -6330,11 +6552,16 @@ EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
 /* locking version */
 EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *mdllock = &(mdl->lock);
   int32_t retval;
 
   get_yices_lock(lock);
 
+  get_yices_lock(mdllock);
+
   retval = _o_yices_pp_model(f, mdl, width, height, offset);
+
+  release_yices_lock(mdllock);
 
   release_yices_lock(lock);
 
@@ -6417,11 +6644,16 @@ static inline error_code_t yices_eval_error(value_t v) {
 /* locking version */
 EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *mdllock = &(mdl->lock);
   int32_t retval;
 
   get_yices_lock(lock);
-
+ 
+  get_yices_lock(mdllock);
+ 
   retval = _o_yices_get_bool_value(mdl, t, val);
+
+  release_yices_lock(mdllock);
 
   release_yices_lock(lock);
 
@@ -6490,11 +6722,16 @@ EXPORTED int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *
 /* locking version */
 EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *mdllock = &(mdl->lock);
   int32_t retval;
 
   get_yices_lock(lock);
 
+  get_yices_lock(mdllock);
+
   retval = _o_yices_get_bv_value(mdl, t, val);
+
+  release_yices_lock(mdllock);
 
   release_yices_lock(lock);
 

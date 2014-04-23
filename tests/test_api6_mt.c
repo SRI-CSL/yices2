@@ -75,70 +75,39 @@ static void test_parse_term(FILE* output, char *s) {
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = (FILE *)arg;
 
-  fprintf(stderr, "Starting: %s\n", "show_types");
   show_types(output);
-  fprintf(stderr, "Starting: %s\n", "show_terms");
   show_terms(output);
 
-  fprintf(stderr, "Starting: %s\n", "int");
   test_parse_type(output, "int");
-  fprintf(stderr, "Starting: %s\n", "  bool ");
   test_parse_type(output, "  bool ");
-  fprintf(stderr, "Starting: %s\n", "real");
   test_parse_type(output, "\nreal");
-  fprintf(stderr, "Starting: %s\n", "(bitvector 103)");
   test_parse_type(output, "(bitvector 103)");
-  fprintf(stderr, "Starting: %s\n", "(-> int int int)");
   test_parse_type(output, "(-> int int int)");
-  fprintf(stderr, "Starting: %s\n", "(tuple bool bool bool bool)");
   test_parse_type(output, "(tuple bool bool bool bool)");
-  fprintf(stderr, "Starting: %s\n", "(scalar A B C D)");
   test_parse_type(output, "(scalar A B C D)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(scalar X)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "not_a_type");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector -1929)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 0)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 321211213456777733887738)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 1073741824)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 178447/43)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 31.4e1)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_type(output, "(bitvector 31.4e-3)");
 
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "true");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "false");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "0b30043");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "0b");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "0b00101");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "1/0");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "(/ 1 0)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "(+ 1 2 3 4 5)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "(* 1 2 3 4 5)");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "(not (= 1 (- 5)))");
-  fprintf(stderr, "Starting: %s\n", "");
   test_parse_term(output, "(let ((x A) (y B))\n   (= x y))");
 
-  fprintf(stderr, "Starting: %s\n", "");
   show_types(output);
-  fprintf(stderr, "Starting: %s\n", "");
   show_terms(output);
 
   fprintf(stderr, "Done.\n");

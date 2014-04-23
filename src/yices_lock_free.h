@@ -302,10 +302,38 @@ extern int32_t _o_yices_assert_blocking_clause(context_t *ctx);
 
 extern smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params);
 
+extern void _o_yices_set_default_params(context_t *ctx, param_t *params);
+
+
+/*******************************************
+ *  SIMPLIFICATION/PREPROCESSING OPTIONS   *
+ ******************************************/
+
+extern int32_t _o_yices_context_enable_option(context_t *ctx, const char *option);
+
+
+/*************************
+ *  CONTEXT OPERATIONS   *
+ ************************/
+
+extern smt_status_t _o_yices_context_status(context_t *ctx);
+
+extern void _o_yices_reset_context(context_t *ctx);
+
+extern int32_t _o_yices_push(context_t *ctx);
+
+extern int32_t _o_yices_pop(context_t *ctx);
+
+
+
+
+
 
 /************
  *  MODELS  *
  ***********/
+
+extern void _o_yices_print_model(FILE *f, model_t *mdl);
 
 extern model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst);
 
