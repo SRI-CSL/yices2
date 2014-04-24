@@ -2,12 +2,17 @@
  * Processing for formulas for EF-solving
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <assert.h>
 
 #include "term_utils.h"
 #include "ef_analyze.h"
 #include "yices.h"
-
 #include "term_sets.h"
 #include "elim_subst.h"
 
