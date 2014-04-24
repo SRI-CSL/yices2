@@ -8,7 +8,6 @@
 #define YICES_THREAD_LOCAL static
 #endif
 
-#include "yices_types.h"
 
 
 
