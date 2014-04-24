@@ -24,7 +24,7 @@ typedef struct yices_globals_s {
   type_table_t *types;              /* type table                                            */
   term_table_t *terms;              /* term table                                            */
   term_manager_t *manager;          /* full term manager (includes terms)                    */
-  error_report_t *error;            /* data structure for error reporting                    */
+  //  error_report_t *error;            /* data structure for error reporting                    */
   pprod_table_t *pprods;            /* pprod table                                           */
 
   /* the parser bundle: parser, lexer, term stack: all are allocated on demand               */
@@ -36,5 +36,11 @@ typedef struct yices_globals_s {
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;
+
+extern bool __yices_error_initialized;
+extern error_report_t  __yices_error; 
+
+extern error_report_t* get_yices_error();
+
 
 #endif /* __YICES_GLOBALS_H */

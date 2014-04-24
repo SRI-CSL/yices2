@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <string.h>
 
 #include "thread_error.h"
 
@@ -16,7 +17,7 @@ YICES_THREAD_LOCAL int32_t _yices_tl_errno;
 YICES_THREAD_LOCAL bool _yices_error_initialized = false;
 YICES_THREAD_LOCAL error_report_t _yices_error;
 
-static inline init_yices_error(void){
+static inline void te_init_yices_error(void){
 
   if(!_yices_error_initialized){
     _yices_error_initialized = true;
@@ -25,18 +26,18 @@ static inline init_yices_error(void){
 
 }
 
-static inline error_report_t* get_yices_error(){
-  init_yices_error();
+static inline error_report_t* te_get_yices_error(){
+  te_init_yices_error();
   return &_yices_error;
 }
 
 void set_yices_error_code(error_code_t code){
-  error_report_t* _yices_errorp =  get_yices_error();
+  error_report_t* _yices_errorp =  te_get_yices_error();
   _yices_errorp->code = code;
 }
 
 error_code_t get_yices_error_code(){
-  error_report_t* _yices_errorp =  get_yices_error();
+  error_report_t* _yices_errorp =  te_get_yices_error();
   return _yices_errorp->code;
 }
 
