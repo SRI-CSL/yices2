@@ -24,7 +24,7 @@ static inline long int random(void) {
  * Create a random pointer
  */
 static void *random_pointer(void) {
-  return (void *) random();
+  return (void *) ((size_t) random());
 }
 
 
