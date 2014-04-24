@@ -61,7 +61,7 @@ void test_yices_error(thread_data_t* tdata, FILE* output){
 
   int32_t count, timewaste, sum;
 
-  for(count = NO_ERROR; count < BAD_TYPE_DECREF; count++){
+  for(count = 0; count < 1000; count++){
     set_yices_error_code((error_code_t)count);
 
     for(timewaste = 0; timewaste  < 100000; timewaste++){
@@ -70,7 +70,7 @@ void test_yices_error(thread_data_t* tdata, FILE* output){
 
 
     if(count != get_yices_error_code()){
-      fprintf(stderr, "Thread %d error_code = %d but get_tl_error() = %d.\n", tdata->id, count, get_yices_error_code());
+      fprintf(stderr, "Thread %d error_code = %d but get_yices_error_code() = %d.\n", tdata->id, count, get_yices_error_code());
     }
     assert(count == get_yices_error_code());
   }
@@ -95,7 +95,7 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
 
   test_yices_error(tdata, output);
   
-    return yices_thread_exit();
+  return yices_thread_exit();
 }
 
 
