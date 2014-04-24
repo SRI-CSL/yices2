@@ -11,6 +11,14 @@
 #ifndef __YICES_GLOBALS_H
 #define __YICES_GLOBALS_H
 
+
+#ifdef HAS_TLS
+#define YICES_THREAD_LOCAL __thread
+#else
+#define YICES_THREAD_LOCAL 
+#endif
+
+
 #include "term_manager.h"
 #include "term_stack2.h"
 #include "yices_locks.h"
@@ -37,8 +45,8 @@ typedef struct yices_globals_s {
 
 extern yices_globals_t __yices_globals;
 
-extern bool __yices_error_initialized;
-extern error_report_t  __yices_error; 
+extern YICES_THREAD_LOCAL bool __yices_error_initialized;
+extern YICES_THREAD_LOCAL error_report_t  __yices_error; 
 
 extern error_report_t* get_yices_error();
 

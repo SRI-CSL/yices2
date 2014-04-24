@@ -62,11 +62,6 @@
 
 
 
-#ifdef HAS_TLS
-#define YICES_THREAD_LOCAL __thread
-#else
-#define YICES_THREAD_LOCAL 
-#endif
 
 
 /****************************
