@@ -18,12 +18,10 @@ YICES_THREAD_LOCAL bool _yices_error_initialized = false;
 YICES_THREAD_LOCAL error_report_t _yices_error;
 
 static inline void te_init_yices_error(void){
-
   if(!_yices_error_initialized){
     _yices_error_initialized = true;
     memset(&_yices_error, 0, sizeof(error_report_t));
   }
-
 }
 
 static inline error_report_t* te_get_yices_error(){

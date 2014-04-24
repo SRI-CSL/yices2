@@ -64,6 +64,8 @@ void test_yices_error(thread_data_t* tdata, FILE* output){
   for(count = 0; count < 1000; count++){
     set_yices_error_code((error_code_t)count);
 
+    fprintf(output, "Done %d error_code = %d.\n", tdata->id, get_yices_error_code());
+
     for(timewaste = 0; timewaste  < 100000; timewaste++){
       sum = timewaste + count;
     }
@@ -91,10 +93,11 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
 
+  fprintf(stderr, "%d starting tl test\n", tdata->id);
   test_tl_error(tdata, output);
-
+  fprintf(stderr, "%d starting yices error test\n", tdata->id);
   test_yices_error(tdata, output);
-  
+  fprintf(stderr, "%d Done\n", tdata->id);
   return yices_thread_exit();
 }
 
