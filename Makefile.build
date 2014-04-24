@@ -612,6 +612,7 @@ recheck:
 	@ echo "  RANLIB   = $(RANLIB)"
 	@ echo "  GPERF    = $(GPERF)"
 	@ echo "  STRIP    = $(STRIP)"
+	@ echo "  HAS_TLS  = $(HAS_TLS)"
 	@ echo
 	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
 	@ echo
@@ -627,6 +628,6 @@ recheck:
 
 #
 # Make sure everything here is serialized
-# The sub makes can be run in parallel so option -j x should be allowed
+# The sub makes can be run in parallel so make -j .. should be allowed
 #
 .NOTPARALLEL:
