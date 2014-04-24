@@ -20,10 +20,7 @@
 #include "thread_error.h"
 
 
-
-yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
-  thread_data_t* tdata = (thread_data_t *)arg;
-  FILE* output = tdata->output;
+void test_tl_error(thread_data_t* tdata, FILE* output){
 
   #ifdef HAS_TLS
 
@@ -56,8 +53,49 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
 
   #endif
 
+}
 
-  return yices_thread_exit();
+void test_yices_error(thread_data_t* tdata, FILE* output){
+
+  #ifdef HAS_TLS
+
+  int32_t count, errno, timewaste, sum;
+
+  for(count = NO_ERROR; count < BAD_TYPE_DECREF; count++){
+    set_yices_error_code((error_code_t)count);
+
+    for(timewaste = 0; timewaste  < 100000; timewaste++){
+      sum = timewaste + count;
+    }
+
+
+    if(count != get_yices_error_code()){
+      fprintf(stderr, "Thread %d error_code = %d but get_tl_error() = %d.\n", tdata->id, count, get_yices_error_code());
+    }
+    assert(count == get_yices_error_code());
+  }
+  fprintf(output, "Done %d errno = %d sum = %d.\n", tdata->id, get_yices_error_code(), sum);
+
+
+  #else
+
+  fprintf(stderr, "No TLS support. This test could not succeed!\n");
+
+
+  #endif
+
+}
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
+
+  test_tl_error(tdata, output);
+
+  test_yices_error(tdata, output);
+  
+    return yices_thread_exit();
 }
 
 
