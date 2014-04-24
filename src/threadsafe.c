@@ -82,3 +82,16 @@ void print_type_mt(FILE* output, type_t t){
   release_yices_lock(lock);
 
 }
+
+uint32_t term_bitsize_mt (term_table_t *table, term_t t) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  uint32_t retval;
+
+  get_yices_lock(lock);
+
+  retval = term_bitsize (table, t);
+
+  release_yices_lock(lock);
+  
+  return retval;
+}

@@ -746,7 +746,7 @@ static void full_binary_tests(FILE* output, term_t t1, term_t t2) {
     test_pred(output, i, t1, t2);
   }
 
-  n = term_bitsize(__yices_globals.terms, t1);
+  n = term_bitsize_mt(__yices_globals.terms, t1);
   for (i=0; i<NUM_SHIFT_OPS; i++) {
     test_shift(output, i, t1, 0);
     test_shift(output, i, t2, 0);
