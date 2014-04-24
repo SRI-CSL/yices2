@@ -17,6 +17,9 @@
 #define MAX_MPQ_POOL_SIZE         (UINT32_MAX/sizeof(mpq_t))
 #define MPQ_BLOCK_SIZE            1024
 
+//turn off for helgrinding
+#define POOL_DEBUG  0
+
 typedef struct mpq_pool_block *mpq_pool_block_ptr;
 
 /* our pool will be a linked list of mpq_pool_block_t blocks; so we never worry about realloc issues */
@@ -83,7 +86,9 @@ mpq_ptr fetch_mpq(int32_t i) {
   int32_t block_id = i / MPQ_BLOCK_SIZE;
   int32_t index = i % MPQ_BLOCK_SIZE;
 
+#ifdef POOL_DEBUG
   assert(0 <= block_id && block_id < the_mpq_pool.block_count);
+#endif
 
   mpq_pool_block_ptr  block = the_mpq_pool.block;
   while(block_id > 0){

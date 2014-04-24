@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
       thread_data_t tdata = {0, stdout};
       test_thread(&tdata);
     } else {
-      launch_threads(nthreads, "test_api3_mt", test_thread);
+      launch_threads(nthreads, "test_api6_mt", test_thread);
     }
     
 

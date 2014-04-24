@@ -17,6 +17,9 @@
 #define MAX_MPZ_POOL_SIZE         (UINT32_MAX/sizeof(mpz_t))
 #define MPZ_BLOCK_SIZE            64
 
+//turn off for helgrinding
+#define POOL_DEBUG  0
+
 typedef struct mpz_pool_block *mpz_pool_block_ptr;
 
 /* our pool will be a linked list of mpz_pool_block_t blocks; so we never worry about realloc issues */
@@ -83,7 +86,9 @@ mpz_ptr fetch_mpz(int32_t i) {
   int32_t block_id = i / MPZ_BLOCK_SIZE;
   int32_t index = i % MPZ_BLOCK_SIZE;
 
+#ifdef POOL_DEBUG
   assert(0 <= block_id && block_id < the_mpz_pool.block_count);
+#endif
 
   mpz_pool_block_ptr  block = the_mpz_pool.block;
   while(block_id > 0){
