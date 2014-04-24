@@ -82,18 +82,19 @@ static void delete_store(void) {
 static void add_term(term_t t) {
   yices_lock_t *lock = &__yices_globals.lock;
 
-  get_yices_lock(lock);
-
   get_yices_lock(&__all_lock);
+
+  get_yices_lock(lock);
 
   if (! term_store_contains_term(&__all_terms, t)) {
     term_store_add_term(&__all_terms, t);
     type_store_add_term(&__all_types, t);
   }
 
+  release_yices_lock(lock);
+
   release_yices_lock(&__all_lock);
   
-  release_yices_lock(lock);
   
 }
 
