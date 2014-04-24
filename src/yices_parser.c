@@ -2,10 +2,18 @@
  * Parser for the Yices language.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
+
 #include <stdio.h>
 #include <setjmp.h>
 #include <inttypes.h>
 
+#include "yices.h"
 #include "yices_tstack_ops.h"
 #include "yices_parse_tables.h"
 #include "yices_parser.h"
@@ -41,7 +49,7 @@ static inline const char *reader_name(lexer_t *lex) {
  * - expected_token = what was expected (or -1)
  */
 static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
-  error_report_t *error = get_yices_error();
+  error_report_t *error = yices_error_report();
   reader_t *rd;
   yices_token_t tk;
 
@@ -137,7 +145,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
  * Store code and location data for an exception raised by tstack
  */
 static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
-  error_report_t *error = get_yices_error();
+  error_report_t *error = yices_error_report();
 
   //error = __yices_globals.error;
   error->line = tstack->error_loc.line;

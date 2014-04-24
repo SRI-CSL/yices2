@@ -299,17 +299,17 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
 
-  fprintf(stderr, "Starting: %s\n", "show_types");
+  fprintf(stderr, "Starting: %s\n", "show_types_mt");
 
-  show_types(output);
-  show_terms(output);
+  show_types_mt(output);
+  show_terms_mt(output);
   fprintf(output, "\n\n");
 
   random_binary_tests(output, 1000);
   random_nary_tests(output, 3000);
   random_ite(output, 3000);
 
-  show_terms(output);
+  show_terms_mt(output);
 
   fprintf(stderr, "Done.\n");
 

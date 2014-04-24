@@ -1,9 +1,49 @@
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
+#include <inttypes.h>
+
 #include "threadsafe.h"
+#include "yices.h"
 #include "yices_locks.h"
 #include "yices_globals.h"
 #include "type_printer.h"
 #include "term_printer.h"
+
+/*
+ * Print the type table
+ */
+void show_types_mt(FILE* output) {
+  yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+
+  fprintf(output, "\n---- Type table ----\n");
+  pp_type_table(output, __yices_globals.types);
+
+  release_yices_lock(lock);
+
+}
+
+
+/*
+ * Print the term table
+ */
+void show_terms_mt(FILE* output) {
+  yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
+
+  fprintf(output, "\n---- Term table -----\n");
+  pp_term_table(output, __yices_globals.terms);
+
+  release_yices_lock(lock);
+
+}
 
 /*
  * Predicate: check whether t has type tau

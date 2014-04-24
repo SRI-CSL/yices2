@@ -76,9 +76,6 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
 
-  show_types(output);
-  show_terms(output);
-
   test_parse_type(output, "int");
   test_parse_type(output, "  bool ");
   test_parse_type(output, "\nreal");
@@ -108,8 +105,8 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   test_parse_term(output, "(not (= 1 (- 5)))");
   test_parse_term(output, "(let ((x A) (y B))\n   (= x y))");
 
-  show_types(output);
-  show_terms(output);
+  show_types_mt(output);
+  show_terms_mt(output);
 
   fprintf(stderr, "Done.\n");
 

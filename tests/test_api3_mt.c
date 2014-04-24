@@ -954,11 +954,11 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
 
-  fprintf(stderr, "Starting: %s\n", "show_types");
-  show_types(output);
+  fprintf(stderr, "Starting: %s\n", "show_types_mt");
+  show_types_mt(output);
 
-  fprintf(stderr, "Starting: %s\n", "show_terms");
-  show_terms(output);
+  fprintf(stderr, "Starting: %s\n", "show_terms_mt");
+  show_terms_mt(output);
 
   fprintf(stderr, "Starting: %s\n", "random_bvarrays");
   random_bvarrays(output, BVNUM);
@@ -972,11 +972,11 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   fprintf(stderr, "Starting: %s\n", "random_binary_tests");
   random_binary_tests(output, BINUM);
 
-  fprintf(stderr, "Starting: %s\n", "show_types");
-  show_types(output);
+  fprintf(stderr, "Starting: %s\n", "show_types_mt");
+  show_types_mt(output);
 
-  fprintf(stderr, "Starting: %s\n", "show_terms");
-  show_terms(output);
+  fprintf(stderr, "Starting: %s\n", "show_terms_mt");
+  show_terms_mt(output);
 
 
   fprintf(stderr, "Done.\n");

@@ -85,18 +85,25 @@ yices_globals_t __yices_globals;
  * Thread Local Errors
  */
 
+#ifdef HAS_TLS
+#define YICES_THREAD_LOCAL __thread
+#else
+#define YICES_THREAD_LOCAL 
+#endif
 
-YICES_THREAD_LOCAL bool __yices_error_initialized = false;
-YICES_THREAD_LOCAL error_report_t  __yices_error; 
+static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
+static YICES_THREAD_LOCAL error_report_t  __yices_error; 
 
 void init_yices_error(void){
   if(!__yices_error_initialized){
     __yices_error_initialized = true;
     memset(&__yices_error, 0, sizeof(error_report_t));
+    __yices_error.code = NO_ERROR;
+    
   }
 }
 
-error_report_t* get_yices_error(){
+static inline error_report_t* get_yices_error(){
   init_yices_error();
   return &__yices_error;
 }
@@ -810,19 +817,16 @@ static void init_globals(yices_globals_t *glob) {
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
   term_table_t *terms = (term_table_t *)safe_malloc(sizeof(term_table_t));
   term_manager_t *manager = (term_manager_t *)safe_malloc(sizeof(term_manager_t));
-  //error_report_t *error = (error_report_t *)safe_malloc(sizeof(error_report_t));
   pprod_table_t *pprods = (pprod_table_t *)safe_malloc(sizeof(pprod_table_t));   
 
   memset(types, 0, sizeof(type_table_t));
   memset(terms, 0, sizeof(term_table_t));
   memset(manager, 0, sizeof(term_manager_t));
-  //memset(error, 0, sizeof(error_report_t));
   memset(pprods, 0, sizeof(pprod_table_t));
 
   glob->types = types;
   glob->terms = terms;
   glob->manager = manager;
-  //glob->error = error;
   glob->pprods = pprods;
 
   /* the parser state */
@@ -843,13 +847,11 @@ static void clear_globals(yices_globals_t *glob) {
   free(glob->types);
   free(glob->terms);
   free(glob->manager);
-  //free(glob->error);
   //free(glob->pprods);    //bruno?
 
   glob->types = NULL;
   glob->terms = NULL;
   glob->manager = NULL;
-  //glob->error = NULL;
   //glob->pprods = NULL;    //bruno?
 
   
@@ -865,7 +867,6 @@ EXPORTED void yices_init(void) {
   type_table_t *types;
   term_table_t *terms;
   term_manager_t *manager;
-  //error_report_t *error;
   pprod_table_t *pprods;   
 
   // allocate the global table
@@ -874,11 +875,9 @@ EXPORTED void yices_init(void) {
   types = __yices_globals.types;
   terms = __yices_globals.terms;
   manager = __yices_globals.manager;
-  //error = __yices_globals.error;
   pprods = __yices_globals.pprods;   
 
 
-  //error->code = NO_ERROR;
 
   init_yices_pp_tables();
   init_yices_lexer_table();
@@ -988,12 +987,10 @@ EXPORTED void yices_reset(void) {
  * Get the last error report
  */
 EXPORTED error_report_t *yices_error_report(void) {
-  //  return __yices_globals.error;
   return get_yices_error();
 }
 
 EXPORTED error_report_t *yices_get_error_report(void) {
-  //return __yices_globals.error;
   return get_yices_error();
 }
 
@@ -1005,13 +1002,11 @@ EXPORTED error_report_t *yices_get_error_report(void) {
 EXPORTED error_code_t yices_error_code(void) {
   error_report_t *error = get_yices_error();
   return error->code;
-  // return __yices_globals.error->code;
 }
 
 EXPORTED error_code_t yices_get_error_code(void) {
   error_report_t *error = get_yices_error();
   return error->code;
-  // return __yices_globals.error->code;
 }
 
 
@@ -1021,8 +1016,6 @@ EXPORTED error_code_t yices_get_error_code(void) {
 EXPORTED void yices_clear_error(void) {
   error_report_t *error = get_yices_error();
   error->code = NO_ERROR;
-
-  //__yices_globals.error->code = NO_ERROR;
 }
 
 
@@ -1146,7 +1139,7 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
  *  ITERATORS  *
  **************/
 
-void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {  //bruno?  hope these f's don't use locks 
+void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {
   dl_list_t *elem;
 
   get_yices_lock(&bvarith_buffer_lock);
@@ -1161,7 +1154,7 @@ void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) { 
 
 }
 
-void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) { //bruno?  hope these f's don't use locks
+void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) {
   dl_list_t *elem;
 
   get_yices_lock(&bvarith64_buffer_lock);
@@ -1176,7 +1169,7 @@ void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)
 
 }
 
-void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) { //bruno?  hope these f's don't use locks
+void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) {
   dl_list_t *elem;
 
   get_yices_lock(&bvlogic_buffer_lock);
@@ -6828,7 +6821,7 @@ EXPORTED int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val
 /*
  * Allocate and initialize the registry tables
  */
-static sparse_array_t *_o_get_root_terms(void) {  //bruno: _o_ means the calling function needs to already have the lock.
+static sparse_array_t *_o_get_root_terms(void) { 
   if (root_terms == NULL) {
     init_sparse_array(&the_root_terms, 0);
     root_terms = &the_root_terms;

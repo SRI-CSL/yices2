@@ -5,6 +5,16 @@
 
 #include "types.h"
 
+/*
+ * Print the type table
+ */
+extern void show_types_mt(FILE* output);   
+
+/*
+ * Print the term table
+ */
+extern void show_terms_mt(FILE* output);
+
 
 /* used in the _mt tests */
 extern bool has_type_mt(type_t tau, term_t t);
