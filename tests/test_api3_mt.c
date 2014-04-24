@@ -80,6 +80,9 @@ static void delete_store(void) {
  * - do nothing if t is already present
  */
 static void add_term(term_t t) {
+  yices_lock_t *lock = &__yices_globals.lock;
+
+  get_yices_lock(lock);
 
   get_yices_lock(&__all_lock);
 
@@ -89,6 +92,8 @@ static void add_term(term_t t) {
   }
 
   release_yices_lock(&__all_lock);
+  
+  release_yices_lock(lock);
   
 }
 
