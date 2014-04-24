@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "symbol_tables.h"
-#include "refcount_strings.h"
+#include "utils/symbol_tables.h"
+#include "utils/refcount_strings.h"
 
 #ifdef MINGW
 static inline long int random(void) {

@@ -9,9 +9,9 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "symbol_tables.h"
-#include "cputime.h"
-#include "memsize.h"
+#include "utils/symbol_tables.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 
 static char buffer[1000];
 static char **words;

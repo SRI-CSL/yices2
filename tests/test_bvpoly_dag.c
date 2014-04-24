@@ -7,14 +7,14 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "bv64_constants.h"
-#include "bv_constants.h"
-#include "index_vectors.h"
-#include "int_array_sort.h"
-#include "memalloc.h"
-#include "prng.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "utils/index_vectors.h"
+#include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
-#include "bvpoly_dag.h"
+#include "solvers/bv/bvpoly_dag.h"
 
 
 /*

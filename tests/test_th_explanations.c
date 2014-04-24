@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "egraph_types.h"
-#include "theory_explanations.h"
+#include "solvers/egraph/egraph_types.h"
+#include "solvers/egraph/theory_explanations.h"
 
 #ifdef MINGW
 

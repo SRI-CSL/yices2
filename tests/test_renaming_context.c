@@ -7,10 +7,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "types.h"
-#include "pprod_table.h"
-#include "terms.h"
-#include "renaming_context.h"
+#include "terms/types.h"
+#include "terms/pprod_table.h"
+#include "terms/terms.h"
+#include "terms/renaming_context.h"
 
 
 /*

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "hash_functions.h"
-#include "ptr_partitions.h"
+#include "utils/hash_functions.h"
+#include "utils/ptr_partitions.h"
 
 
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "booleq_table.h"
+#include "scratch/booleq_table.h"
 
 
 static void show_literal(literal_t l) {

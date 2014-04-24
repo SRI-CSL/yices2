@@ -7,24 +7,24 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "memsize.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 
-#include "smt_logic_codes.h"
-#include "smt_lexer.h"
-#include "smt_parser.h"
-#include "smt_term_stack.h"
-#include "context.h"
+#include "api/smt_logic_codes.h"
+#include "frontend/smt1/smt_lexer.h"
+#include "frontend/smt1/smt_parser.h"
+#include "frontend/smt1/smt_term_stack.h"
+#include "context/context.h"
 
-#include "dimacs_printer.h"
+#include "solvers/bv/dimacs_printer.h"
 
 // TEMPORARY: for bv_solver_bitblast
-#include "bvsolver.h"
+#include "solvers/bv/bvsolver.h"
 
-#include "command_line.h"
-#include "yices.h"
-#include "yices_globals.h"
-#include "yices_exit_codes.h"
+#include "utils/command_line.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "include/yices_exit_codes.h"
 
 
 static lexer_t lexer;

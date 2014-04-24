@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "arena.h"
+#include "utils/arena.h"
 
 static void print_arena(arena_t *a) {
   printf("--- Arena %p ---\n", a);

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_queues.h"
+#include "utils/int_queues.h"
 
 static int_queue_t q;
 

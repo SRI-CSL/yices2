@@ -3,9 +3,9 @@
 #include <float.h>
 #include <inttypes.h>
 
-#include "assert_utils.h"
-#include "memalloc.h"
-#include "smt_core.h"
+#include "utils/assert_utils.h"
+#include "utils/memalloc.h"
+#include "solvers/cdcl/smt_core.h"
 
 #ifdef MINGW
 

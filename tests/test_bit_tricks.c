@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "bit_tricks.h"
+#include "utils/cputime.h"
+#include "utils/bit_tricks.h"
 
 
 /*

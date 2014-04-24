@@ -8,14 +8,14 @@
 #include <inttypes.h>
 
 
-#include "smt_core.h"
-#include "egraph.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/egraph.h"
 
-#include "egraph_printer.h"
-#include "smt_core_printer.h"
+#include "solvers/egraph/egraph_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
-#include "yices.h"
-#include "yices_globals.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
 
 
 

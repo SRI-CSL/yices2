@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "pair_hash_map2.h"
+#include "utils/pair_hash_map2.h"
 
 
 /*

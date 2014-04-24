@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "context_config.h"
-#include "yices.h"
+#include "api/context_config.h"
+#include "include/yices.h"
 
 
 /*

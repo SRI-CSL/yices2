@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "prng.h"
+#include "utils/prng.h"
 
 typedef uint32_t bddvar_t;
 

@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "power_products.h"
-#include "prng.h"
+#include "terms/power_products.h"
+#include "utils/prng.h"
 
 #ifdef MINGW
 

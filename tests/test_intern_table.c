@@ -6,16 +6,16 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "int_vectors.h"
-#include "string_buffers.h"
+#include "utils/int_vectors.h"
+#include "utils/string_buffers.h"
 
-#include "yices.h"
-#include "yices_globals.h"
-#include "yices_pp.h"
-#include "type_printer.h"
-#include "term_printer.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "io/yices_pp.h"
+#include "io/type_printer.h"
+#include "io/term_printer.h"
 
-#include "internalization_table.h"
+#include "context/internalization_table.h"
 
 #ifdef MINGW
 static inline long int random(void) {

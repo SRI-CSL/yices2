@@ -5,7 +5,7 @@
 #include <inttypes.h>
 
 
-#include "ptr_array_sort2.h"
+#include "utils/ptr_array_sort2.h"
 
 #ifdef MINGW
 

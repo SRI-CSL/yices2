@@ -6,9 +6,9 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "rationals.h"
-#include "polynomials.h"
-#include "matrices.h"
+#include "terms/rationals.h"
+#include "terms/polynomials.h"
+#include "solvers/simplex/matrices.h"
 
 
 

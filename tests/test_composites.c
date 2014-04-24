@@ -8,10 +8,10 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "egraph_types.h"
-#include "composites.h"
-#include "egraph_printer.h"
-#include "arena.h"
+#include "solvers/egraph/egraph_types.h"
+#include "solvers/egraph/composites.h"
+#include "solvers/egraph/egraph_printer.h"
+#include "utils/arena.h"
 
 
 /*

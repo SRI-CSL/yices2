@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "pseudo_subst.h"
+#include "context/pseudo_subst.h"
 
 
 #ifdef MINGW

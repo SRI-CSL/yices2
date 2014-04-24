@@ -3,11 +3,11 @@
 #include <inttypes.h>
 #include <gmp.h>
 
-#include "yices.h"
-#include "yices_globals.h"
-#include "int_vectors.h"
-#include "free_var_collector.h"
-#include "term_printer.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "utils/int_vectors.h"
+#include "terms/free_var_collector.h"
+#include "io/term_printer.h"
 
 
 /*

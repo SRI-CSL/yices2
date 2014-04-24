@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "int_stack.h"
+#include "utils/int_stack.h"
 
 static int_stack_t stack;
 

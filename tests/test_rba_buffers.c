@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "rationals.h"
-#include "pprod_table.h"
-#include "balanced_arith_buffers.h"
+#include "terms/rationals.h"
+#include "terms/pprod_table.h"
+#include "terms/balanced_arith_buffers.h"
 
 #ifdef MINGW
 static inline long int random(void) {

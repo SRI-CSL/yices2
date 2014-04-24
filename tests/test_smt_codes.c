@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "smt_logic_codes.h"
+#include "api/smt_logic_codes.h"
 
 #define NUM_TESTS 29
 

@@ -6,9 +6,9 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "types.h"
-#include "type_printer.h"
-#include "refcount_strings.h"
+#include "terms/types.h"
+#include "io/type_printer.h"
+#include "utils/refcount_strings.h"
 
 #ifdef MINGW
 

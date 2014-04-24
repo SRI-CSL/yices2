@@ -3,16 +3,16 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "memsize.h"
-#include "tstack_internals.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
+#include "terms/tstack_internals.h"
 
-#include "smt2_lexer.h"
-#include "smt2_parser.h"
-#include "smt2_term_stack.h"
-#include "smt2_commands.h"
-#include "yices.h"
-#include "yices_exit_codes.h"
+#include "frontend/smt2/smt2_lexer.h"
+#include "frontend/smt2/smt2_parser.h"
+#include "frontend/smt2/smt2_term_stack.h"
+#include "frontend/smt2/smt2_commands.h"
+#include "include/yices.h"
+#include "include/yices_exit_codes.h"
 
 
 /*

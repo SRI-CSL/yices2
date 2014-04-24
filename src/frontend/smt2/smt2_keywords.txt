@@ -1,0 +1,34 @@
+%{
+#include <string.h>
+#include "frontend/smt2/smt2_lexer.h"
+%}
+%struct-type
+%define slot-name word
+struct keyword_s;
+%%
+:print-success,               SMT2_KW_PRINT_SUCCESS
+:expand-definitions,          SMT2_KW_EXPAND_DEFINITIONS
+:interactive-mode,            SMT2_KW_INTERACTIVE_MODE
+:produce-proofs,              SMT2_KW_PRODUCE_PROOFS
+:produce-unsat-cores,         SMT2_KW_PRODUCE_UNSAT_CORES
+:produce-models,              SMT2_KW_PRODUCE_MODELS
+:produce-assignments,         SMT2_KW_PRODUCE_ASSIGNMENTS
+:regular-output-channel,      SMT2_KW_REGULAR_OUTPUT
+:diagnostic-output-channel,   SMT2_KW_DIAGNOSTIC_OUTPUT
+:random-seed,                 SMT2_KW_RANDOM_SEED
+:verbosity,                   SMT2_KW_VERBOSITY
+:error-behavior,              SMT2_KW_ERROR_BEHAVIOR
+:name,                        SMT2_KW_NAME
+:authors,                     SMT2_KW_AUTHORS
+:version,                     SMT2_KW_VERSION
+:reason-unknown,              SMT2_KW_REASON_UNKNOWN
+:all-statistics,              SMT2_KW_ALL_STATISTICS
+:named,                       SMT2_KW_NAMED
+:pattern,                     SMT2_KW_PATTERN
+:status,                      SMT2_KW_STATUS
+:source,                      SMT2_KW_SOURCE
+:smt-lib-version,             SMT2_KW_SMT_LIB_VERSION
+:category,                    SMT2_KW_CATEGORY
+:difficulty,                  SMT2_KW_DIFFICULTY
+:notes,                       SMT2_KW_NOTES
+:global-decls,                SMT2_KW_GLOBAL_DECLS

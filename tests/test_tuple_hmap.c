@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "tuple_hash_map.h"
+#include "utils/tuple_hash_map.h"
 
 
 static void print_tuple(uint32_t n, int32_t *a) {

@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "subst_context.h"
-#include "int_bv_sets.h"
+#include "terms/subst_context.h"
+#include "utils/int_bv_sets.h"
 
 
 

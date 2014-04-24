@@ -4,10 +4,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "object_stores.h"
-#include "pprod_table.h"
-#include "bv64_constants.h"
-#include "bvarith64_buffers.h"
+#include "utils/object_stores.h"
+#include "terms/pprod_table.h"
+#include "terms/bv64_constants.h"
+#include "terms/bvarith64_buffers.h"
 
 /*
  * Display power products

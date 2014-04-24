@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_bags.h"
+#include "utils/int_bags.h"
 
 // Mask to set/clear the sign bit of an integer
 #define SIGN_BIT_MASK ((uint32_t) 0x80000000)

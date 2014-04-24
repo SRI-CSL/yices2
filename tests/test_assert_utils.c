@@ -6,7 +6,7 @@
  */
 
 #include <stdio.h>
-#include "assert_utils.h"
+#include "utils/assert_utils.h"
 
 static bool good_function(const char *msg) {
   printf("good_function called with %s\n", msg);

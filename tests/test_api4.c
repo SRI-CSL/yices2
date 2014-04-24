@@ -14,14 +14,14 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "memalloc.h"
-#include "bitvectors.h"
-#include "int_vectors.h"
+#include "utils/memalloc.h"
+#include "utils/bitvectors.h"
+#include "utils/int_vectors.h"
 
-#include "yices.h"
-#include "yices_globals.h"
-#include "type_printer.h"
-#include "term_printer.h"
+#include "include/yices.h"
+#include "api/yices_globals.h"
+#include "io/type_printer.h"
+#include "io/term_printer.h"
 
 
 

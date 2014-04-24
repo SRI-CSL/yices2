@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "yices.h"
+#include "include/yices.h"
 
 
 /*

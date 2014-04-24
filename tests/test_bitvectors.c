@@ -3,7 +3,7 @@
  */
 
 #include <stdio.h>
-#include "bitvectors.h"
+#include "utils/bitvectors.h"
 
 static void display_bitvector(byte_t *bv, int32_t n) {
   int32_t i;

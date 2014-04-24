@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "int_hash_sets.h"
+#include "utils/int_hash_sets.h"
 
 #ifdef MINGW
 

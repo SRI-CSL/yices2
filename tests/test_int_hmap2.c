@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "int_hash_map2.h"
+#include "utils/int_hash_map2.h"
 
 
 #ifdef MINGW

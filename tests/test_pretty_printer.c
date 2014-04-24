@@ -2,7 +2,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "pretty_printer.h"
+#include "io/pretty_printer.h"
 
 /*
  * Token to test the pretty printer

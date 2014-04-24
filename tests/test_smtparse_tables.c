@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#include "smt_parse_tables.h"
-#include "smt_lexer.h"
+#include "frontend/smt1/smt_parse_tables.h"
+#include "frontend/smt1/smt_lexer.h"
 
 static action_t get_action(state_t s, token_t tk) {
   int32_t i;

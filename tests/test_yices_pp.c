@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <gmp.h>
 
-#include "rationals.h"
-#include "yices_pp.h"
+#include "terms/rationals.h"
+#include "io/yices_pp.h"
 
 // pretty printer
 static yices_pp_t printer;

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "rationals.h"
+#include "terms/rationals.h"
 
 
 /*
