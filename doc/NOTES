@@ -448,7 +448,7 @@ bit_term_conversion.c
 poly_buffer_terms.h:           Operation involving poly_buffers and terms
 poly_buffer_terms.c
 
-rba_buffer_terms.:             Operation involving balanced arithmetic buffers
+rba_buffer_terms.h:            Operation involving balanced arithmetic buffers
 rba_buffer_terms.c             (implemented as red-black trees) and terms.
 
 term_utils.h:                  Utilities to help normalizing/simplifying terms
@@ -626,8 +626,8 @@ egraph_explanations.c
 egraph_assertion_queues.h:  Queues to store equalities/disequalities/distinct predicate
 egraph_assertion_queues.c   that are propagated by the egraph to the satellite solvers.
 
-theory_explanation.h:       Data structure to store explanations produced by satellite solvers
-theory_explanation.c
+theory_explanations.h:      Data structure to store explanations produced by satellite solvers
+theory_explanations.c
 
 diseq_stacks.h:             Stack that can be used by satellite solvers to store disequalities
 diseq_stacks.c              they receive from the egraph.
@@ -765,6 +765,8 @@ bvsolver.c
 bvsolver_printer.h:     Print functions for the bitvector solver
 bvsolver_printer.c
 
+dimacs_printer.h:	Convert literals from the Yices encoding to hte Dimacs format.
+dimacs_printer.c
 
 
 7.6) Model construction
@@ -822,7 +824,7 @@ map_to_model.c          - the mapping assigns constant terms to uninterpreted te
                         - this module converts it to the model data structure
 
 literal_collector.h:	Compute an implicant for a formula based on a model
-literal_collector.c         that satisfies the formula.
+literal_collector.c     that satisfies the formula.
 
 
 
@@ -938,6 +940,10 @@ yices_extensions.h:         Functions defined in yices_api.c that are not part
                             of the API. These are variants of functions declared
                             in 'yices.h'.
 
+yices_globals.h:	    Declare a global structure (maintained in yices.c) that
+			    store pointers to the global tables and other global variables
+			    maintained by yices.c.
+
 yices_iterators.h:          Functions to iterate over all contexts, models, etc.
                             (these functions are defined in yices_api.c)
 
@@ -985,6 +991,9 @@ yices_tstack_ops.h          Opcodes used by Yices version of term_stack
 
 yices_help.h:               On-line help for the solver (Yices language)
 yices_help.c
+
+dump_context.h:             Print the context (mostly for debugging).
+dump_context.c
 
 yices_reval.h:              Read-eval-print loop. Accepts input in the Yices language
 yices_reval.c               - this is separated so that the reval functions can be called
