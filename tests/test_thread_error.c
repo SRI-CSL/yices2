@@ -24,13 +24,13 @@ void test_tl_error(thread_data_t* tdata, FILE* output){
 
   #ifdef HAS_TLS
 
-  int32_t count, errno, timewaste, sum;
+  int32_t count, error_number, timewaste, sum;
 
   for(count = 1; count < 1000; count++){
-    errno =  count * (tdata->id + 1);
-    set_tl_error(errno);
+    error_number =  count * (tdata->id + 1);
+    set_tl_error(error_number);
 
-    fprintf(output, "Done %d errno = %d.\n", tdata->id, get_tl_error());
+    fprintf(output, "Done %d error_number = %d.\n", tdata->id, get_tl_error());
 
     
     for(timewaste = 0; timewaste  < 100000; timewaste++){
@@ -38,12 +38,12 @@ void test_tl_error(thread_data_t* tdata, FILE* output){
     }
 
 
-    if(errno != get_tl_error()){
-      fprintf(stderr, "Thread %d errno = %d but get_tl_error() = %d.\n", tdata->id, errno, get_tl_error());
+    if(error_number != get_tl_error()){
+      fprintf(stderr, "Thread %d error_number = %d but get_tl_error() = %d.\n", tdata->id, error_number, get_tl_error());
     }
-    assert(errno == get_tl_error());
+    assert(error_number == get_tl_error());
   }
-  fprintf(output, "Done %d errno = %d sum = %d.\n", tdata->id, get_tl_error(), sum);
+  fprintf(output, "Done %d error_number = %d sum = %d.\n", tdata->id, get_tl_error(), sum);
 
 
   #else
