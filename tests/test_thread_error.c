@@ -59,7 +59,7 @@ void test_yices_error(thread_data_t* tdata, FILE* output){
 
   #ifdef HAS_TLS
 
-  int32_t count, errno, timewaste, sum;
+  int32_t count, timewaste, sum;
 
   for(count = NO_ERROR; count < BAD_TYPE_DECREF; count++){
     set_yices_error_code((error_code_t)count);
@@ -74,7 +74,7 @@ void test_yices_error(thread_data_t* tdata, FILE* output){
     }
     assert(count == get_yices_error_code());
   }
-  fprintf(output, "Done %d errno = %d sum = %d.\n", tdata->id, get_yices_error_code(), sum);
+  fprintf(output, "Done %d error_code = %d sum = %d.\n", tdata->id, get_yices_error_code(), sum);
 
 
   #else
