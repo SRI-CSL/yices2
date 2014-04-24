@@ -30,6 +30,8 @@ extern void print_type_mt(FILE* output, type_t t);
 
 extern uint32_t term_bitsize_mt(term_table_t *table, term_t t);
 
+extern bool is_bvtype_mt(type_t tau);
+
 
 #endif /* __THREADAFES_H */
 

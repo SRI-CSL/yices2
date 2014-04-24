@@ -800,15 +800,6 @@ static void full_binary_tests(FILE* output, term_t t1, term_t t2) {
  * RANDOM TESTS
  */
 
-// predicates used in sampling;
-static bool is_bvtype(type_t tau) {
-  return type_kind(__yices_globals.types, tau) == BITVECTOR_TYPE;
-}
-
-// term of type tau
-static bool has_type(type_t tau, term_t t) {
-  return term_type(__yices_globals.terms, t) == tau;
-}
 
 /*
  * Run n full tests on a pair of randomly selected bit-vector terms
@@ -821,7 +812,7 @@ static void random_binary_tests(FILE* output, uint32_t n) {
     
     get_yices_lock(&__all_lock);
 
-    tau = type_store_sample(&__all_types, is_bvtype);
+    tau = type_store_sample(&__all_types, is_bvtype_mt);
     assert(tau != NULL_TYPE);
     t1 = type_store_sample_terms(&__all_types, tau);
     t2 = type_store_sample_terms(&__all_types, tau);
@@ -852,10 +843,10 @@ static void random_bvarrays(FILE* output, uint32_t n) {
 
     get_yices_lock(&__all_lock);
 
-    tau = type_store_sample(&__all_types, is_bvtype);
+    tau = type_store_sample(&__all_types, is_bvtype_mt);
     k = bv_type_size(__yices_globals.types, tau);
-    t1 = term_store_sample(&__all_terms, the_boolean, has_type);
-    t2 = term_store_sample(&__all_terms, the_boolean, has_type);
+    t1 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
+    t2 = term_store_sample(&__all_terms, the_boolean, has_type_mt);
 
     release_yices_lock(&__all_lock);
 
@@ -887,7 +878,7 @@ static void random_bvextracts(FILE* output, uint32_t n) {
 
     get_yices_lock(&__all_lock);
  
-    tau = type_store_sample(&__all_types, is_bvtype);
+    tau = type_store_sample(&__all_types, is_bvtype_mt);
     k = bv_type_size(__yices_globals.types, tau);
 
     t1 = type_store_sample_terms(&__all_types, tau);
@@ -935,10 +926,10 @@ static void random_ite(FILE* output, uint32_t n) {
 
     get_yices_lock(&__all_lock);
 
-    tau = type_store_sample(&__all_types, is_bvtype);
+    tau = type_store_sample(&__all_types, is_bvtype_mt);
     t1 = type_store_sample_terms(&__all_types, tau);
     t2 = type_store_sample_terms(&__all_types, tau);
-    c = term_store_sample(&__all_terms, the_boolean, has_type);
+    c = term_store_sample(&__all_terms, the_boolean, has_type_mt);
 
     release_yices_lock(&__all_lock);
 

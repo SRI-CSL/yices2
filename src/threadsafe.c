@@ -54,7 +54,7 @@ bool has_type_mt(type_t tau, term_t t) {
 
   get_yices_lock(lock);
 
-  retval = term_type(__yices_globals.terms, t) == tau;
+  retval = (term_type(__yices_globals.terms, t) == tau);
 
   release_yices_lock(lock);
   
@@ -95,3 +95,17 @@ uint32_t term_bitsize_mt (term_table_t *table, term_t t) {
   
   return retval;
 }
+
+bool is_bvtype_mt(type_t tau) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  bool retval;
+
+  get_yices_lock(lock);
+
+  retval = (type_kind(__yices_globals.types, tau) == BITVECTOR_TYPE);
+
+  release_yices_lock(lock);
+  
+  return retval;
+}
+
