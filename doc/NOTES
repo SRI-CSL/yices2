@@ -4,7 +4,7 @@ GUIDE TO THE SOURCE CODE
 1) Utilities
    ---------
 
-1.1) Memory management
+1.1) Memory management 
      -----------------
 
 arena.h:                region-based allocator with push/pop functions
@@ -232,8 +232,8 @@ string_hash_map.c
 symbol_tables.h:        symbol tables: hash map from strings to integers
 symbol_tables.c		with support for scoping
 
-tuple_hash_maps.h:      hash map for arrays of int32 to int32 values
-tuple_hash_maps.c
+tuple_hash_map.h:      hash map for arrays of int32 to int32 values
+tuple_hash_map.c
 
 
 
@@ -443,7 +443,7 @@ bvarith_buffer_terms.h:        Operations involving bvarith_buffers and terms
 bvarith_buffer_terms.c
 
 bit_term_conversion.h:         Conversion between bit_expr DAGs and term descriptors
-bit_term_converion.c
+bit_term_conversion.c
 
 poly_buffer_terms.h:           Operation involving poly_buffers and terms
 poly_buffer_terms.c
@@ -593,7 +593,8 @@ gates_printer.h:        Print functions for Boolean gates
 gates_printer.c
 
 sat_solver.h:           A separate DPLL SAT solver similar to core but without theory solver
-sat_solver.c            (it's used to build the yices_sat standalone SAT solver)
+sat_solver.c     
+       (it's used to build the yices_sat standalone SAT solver)
 
 sat_parameters.h:	Parameters for sat_solver.c
 
@@ -820,8 +821,8 @@ map_to_model.h:		Convert a mapping to a model
 map_to_model.c          - the mapping assigns constant terms to uninterpreted term
                         - this module converts it to the model data structure
 
-lit_collector.h:	Compute an implicant for a formula based on a model
-lit_collector.c         that satisfies the formula.
+literal_collector.h:	Compute an implicant for a formula based on a model
+literal_collector.c         that satisfies the formula.
 
 
 
@@ -887,7 +888,7 @@ context_printer.c
 context_solver.c:            Global search algorithm for formulas asserted in a context
 
 context_statistics.h:	     Print statistics on the search + others
-context_staticstics.c
+context_statistics.c
 
 
 
@@ -980,7 +981,7 @@ yices_parse_tables.h:       Tables used for parsing the Yices language
 yices_parser.h:             Parser for the Yices language
 yices_parser.c
 
-yices_stack_ops.h           Opcodes used by Yices version of term_stack
+yices_tstack_ops.h          Opcodes used by Yices version of term_stack
 
 yices_help.h:               On-line help for the solver (Yices language)
 yices_help.c
@@ -1070,7 +1071,7 @@ smt2_term_stack.c          several operations to follow the SMT-LIB 2.0 conventi
 
 
 smt2_commands.h:           Commands defined in SMT-LIB 2.0 (not complete yet)
-smt2_commads.c
+smt2_commands.c
 
 yices_smt2.c:		   Solver for problems in the SMT-LIB 2.0 notation
 
