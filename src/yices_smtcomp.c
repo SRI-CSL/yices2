@@ -380,123 +380,6 @@ static void print_presearch_stats(FILE *f) {
 
 
 
-/*
- * Print parameters and settings:
- * - disabled this for now: these options can't be set so there's
- *   no reason to print them. Also the meaning of many of them
- *   is mysterious.
- */
-static void print_options(FILE *f, context_t *ctx) {
-#if 0
-  simplex_solver_t *simplex;
-
-  if (context_has_preprocess_options(ctx)) {
-    fprintf(f, "Preprocessing:");
-    if (context_var_elim_enabled(ctx)) {
-      fprintf(f, " --var-elim");
-    }
-    if (context_flatten_or_enabled(ctx)) {
-      fprintf(f, " --flatten-or");
-    }
-    if (context_flatten_diseq_enabled(ctx)) {
-      fprintf(f, " --flatten-diseq");
-    }
-    if (context_eq_abstraction_enabled(ctx)) {
-      fprintf(f, " --learn-eq");
-    }
-    if (context_breaksym_enabled(ctx)) {
-      fprintf(f, " --break-symmetries");
-    }
-    if (context_arith_elim_enabled(ctx)) {
-      fprintf(f, " --arith-elim");
-    }
-    if (context_bvarith_elim_enabled(ctx)) {
-      fprintf(f, " --bvarith-elim");
-    }
-    if (context_keep_ite_enabled(ctx)) {
-      fprintf(f, " --keep-ite");
-    }
-    fprintf(f, "\n");
-  }
-
-  if (context_has_arith_solver(ctx)) {
-    fprintf(f, "Arithmetic: ");
-    if (context_has_simplex_solver(ctx)) {
-      fprintf(f, " --simplex");
-      simplex = context_get_simplex_solver(ctx);
-      if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
-        fprintf(f, " --eager-lemmas");
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) ||
-          params.use_simplex_prop) {
-        fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
-          params.adjust_simplex_model) {
-        fprintf(f, " --simplex-ajust-model");
-      }
-      fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
-      fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
-    } else if (context_has_rdl_solver(ctx) || context_has_idl_solver(ctx)) {
-      fprintf(f, " --floyd-warshall");
-    }
-    fprintf(f, "\n");
-  }
-
-  if (context_has_egraph(ctx)) {
-    fprintf(f, "Egraph: ");
-    if (params.use_dyn_ack || params.use_bool_dyn_ack) {
-      if (params.use_dyn_ack) {
-        fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32,
-                params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
-      }
-      if (params.use_bool_dyn_ack) {
-        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32,
-                params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
-      }
-      fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio);
-    }
-    fprintf(f, " --max-interface-eqs=%"PRIu32"\n", params.max_interface_eqs);
-  }
-
-  if (context_has_fun_solver(ctx)) {
-    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n",
-            params.max_update_conflicts, params.max_extensionality);
-  }
-
-  if (params.fast_restart || params.cache_tclauses || params.branching != BRANCHING_DEFAULT) {
-    fprintf(f, "Core: ");
-    if (params.fast_restart) {
-      fprintf(f, " --fast-restarts");
-    }
-    if (params.cache_tclauses) {
-      fprintf(f, " --cache-tclauses --tclause-size=%"PRIu32, params.tclause_size);
-    }
-    switch (params.branching) {
-    case BRANCHING_DEFAULT:
-      break;
-    case BRANCHING_NEGATIVE:
-      fprintf(f, " --neg-branching");
-      break;
-    case BRANCHING_POSITIVE:
-      fprintf(f, " --pos-branching");
-      break;
-    case BRANCHING_THEORY:
-      fprintf(f, " --theory-branching");
-      break;
-    case BRANCHING_TH_NEG:
-      fprintf(f, " --th-neg-branching");
-      break;
-    case BRANCHING_TH_POS:
-      fprintf(f, " --th-pos-branching");
-      break;
-    }
-    fprintf(f, "\n");
-  }
-  fprintf(f, "\n");
-#endif
-}
-
 #endif
 
 
@@ -888,7 +771,6 @@ static int process_benchmark(void) {
      * Deal with verbosity, timeout, model, and statistics
      */
     if (verbose) {
-      print_options(stderr, &context);
       print_presearch_stats(stderr);
     }
 
