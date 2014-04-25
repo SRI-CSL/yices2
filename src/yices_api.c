@@ -5,8 +5,8 @@
 /*
  * This module implements the API defined in yices.h.
  *
- * It also implements the functions defined in yices_extensions.h and
- * yices_iterators.h
+ * It also implements the functions defined in yices_extensions.h, and
+ * yices_lock_free.h, and yices_iterators.h
  */
 
 
