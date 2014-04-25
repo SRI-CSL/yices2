@@ -118,7 +118,7 @@ static void print_internalization_code(int32_t code) {
  * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
  */
-static int process_benchmark(char *filename) {
+static int process_benchmark(char *filename, bool build_model) {
   int32_t code;
   smt_logic_t logic;  // logic code read from the file
   model_t *model;
@@ -199,7 +199,7 @@ static int process_benchmark(char *filename) {
     }
     print_results(context);
 
-    if (code == STATUS_SAT || code == STATUS_UNKNOWN) {
+    if (build_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
       model = yices_get_model(context, true);
       code = yices_pp_model(stdout, model, 100, UINT32_MAX, 0);
       if (code < 0) {
@@ -232,15 +232,15 @@ int main(int argc, char *argv[]) {
   int code;
 
   filename = NULL;
-  if (argc == 2) {
+  if (argc >= 2) {
     filename = argv[1];
   } else {
-    printf("Usage: %s <SMT filename>\n", argv[0]);
+    printf("Usage: %s <SMT filename> [build model]\n", argv[0]);
     exit(YICES_EXIT_USAGE);
   }
 
   yices_init();
-  code = process_benchmark(filename);
+  code = process_benchmark(filename, (argc==3));
   yices_exit();
 
   return code;
