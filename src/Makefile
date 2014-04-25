@@ -140,8 +140,7 @@ src_c := $(base_src_c) $(extra_src_c)
 #
 # additional source files for the binaries
 #
-# bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c yices_sat.c yices_smt2.c
-bin_src_c := yices_main.c yices_sat.c yices_smtcomp.c
+bin_src_c := yices_main.c yices_sat.c yices_smtcomp.c yices_smtcomp_mt.c
 
 #
 # Auto-generated version file

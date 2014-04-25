@@ -1,6 +1,6 @@
 
 
-#ifdef MINGW
+#if defined(MINGW) || defined(SOLARIS)
 void print_trace (void) { }
 #else
 #include <stdio.h>

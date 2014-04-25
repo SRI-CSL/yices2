@@ -877,8 +877,6 @@ EXPORTED void yices_init(void) {
   manager = __yices_globals.manager;
   pprods = __yices_globals.pprods;   
 
-
-
   init_yices_pp_tables();
   init_yices_lexer_table();
   init_bvconstants();
@@ -5890,16 +5888,7 @@ EXPORTED smt_status_t yices_context_status(context_t *ctx) {
 
 /* non-locking version */
 smt_status_t _o_yices_context_status(context_t *ctx) {
-  smt_status_t retval;
-  yices_lock_t *lock = &(ctx->lock);
-  
-  get_yices_lock(lock);
-  
-  retval = context_status(ctx);
-
-  release_yices_lock(lock);
-
-  return retval;
+  return context_status(ctx);
 }
 
 
