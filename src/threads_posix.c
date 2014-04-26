@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 
-void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main){
+void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_thread_main_t thread_main){
   int32_t retcode, thread;
   char  buff[1024];
 
@@ -21,6 +21,9 @@ void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thre
     snprintf(buff, 1024, "/tmp/%s_%d.txt", test, thread);
     printf("Logging thread %d to %s\n", thread, buff);
     tdata[thread].id = thread;
+    if(extras != NULL){
+      tdata[thread].extra = extras[thread];
+    }
     tdata[thread].output = fopen(buff, "w");
     if(tdata[thread].output == NULL){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));

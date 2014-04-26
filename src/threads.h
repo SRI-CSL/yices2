@@ -17,14 +17,19 @@ typedef yices_thread_result_t ( YICES_THREAD_ATTR  *yices_thread_main_t)(void *)
 typedef struct thread_data {
   int32_t id;
   FILE* output;
+  void* extra;
 } thread_data_t;
 
 
 
 /* launches nthreads computing thread_main and logging to a file based on test and the thread index;
-   on *nix the file is in /tmp, on windows it is in the cwd
+   on *nix the file is in /tmp, on windows it is in the cwd;
+
+   extras if not NULL should be of the same length as nthread, and each element is put in the appropriate void* extra
+   slot in the thread data.
+
 */
-extern void launch_threads(int32_t nthreads, const char* test, yices_thread_main_t thread_main);
+extern void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_thread_main_t thread_main);
 
 /* lets the user know what is needed */
 extern void mt_test_usage(int32_t argc, char* argv[]);
