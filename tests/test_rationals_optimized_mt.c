@@ -93,15 +93,10 @@ static void test_equal(FILE* output, rational_t *r, mpq_t q) {
 }
 
 // set r0 = num/den
-static void test_assign(FILE* output, int32_t num, uint32_t den) {
+static void test_assign(FILE* output, int32_t num, uint32_t den, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0;
 
-  int32_t iq0;
-  mpq_ptr q0;
-
   q_init(&r0);
-
-  mpq_pool_borrow(&iq0, &q0);
 
   q_set_int32(&r0, num, den);
   mpq_set_si(q0, num, den);
@@ -109,22 +104,15 @@ static void test_assign(FILE* output, int32_t num, uint32_t den) {
   fprintf(output, "test assign: %"PRId32"/%"PRIu32"\n", num, den);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-
 }
 
 // compute r0 = r1 + num/den
-static void test_add(FILE* output, int32_t num, uint32_t den) {
+static void test_add(FILE* output, int32_t num, uint32_t den, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r1;
-
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
 
   q_init(&r0);
   q_init(&r1);
 
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set_int32(&r0, num, den);
   q_add(&r0, &r1);
@@ -142,25 +130,16 @@ static void test_add(FILE* output, int32_t num, uint32_t den) {
   test_equal(output, &r0, q0);
 
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-
 }
 
 
 
 // compute r0 = num/den - r1
-static void test_sub(FILE* output, int32_t num, uint32_t den) {
+static void test_sub(FILE* output, int32_t num, uint32_t den, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r1;
-
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
 
   q_init(&r0);
   q_init(&r1);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set_int32(&r0, num, den);
   q_sub(&r0, &r1);
@@ -177,26 +156,15 @@ static void test_sub(FILE* output, int32_t num, uint32_t den) {
   mpq_sub(q0, q0, q1);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-
-
 }
 
 // compute r0 = r1 - num/den
-static void test_sub2(FILE* output, int32_t num, uint32_t den) {
+static void test_sub2(FILE* output, int32_t num, uint32_t den, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r1, r2;
-
-
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
 
   q_init(&r0);
   q_init(&r1);
   q_init(&r2);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set(&r0, &r1);
   q_set_int32(&r2, num, den);
@@ -214,24 +182,16 @@ static void test_sub2(FILE* output, int32_t num, uint32_t den) {
   mpq_sub(q0, q1, q0);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
 }
 
 
 
 // r0 = num/den * r1
-static void test_mul(FILE* output, int32_t num, uint32_t den) {
+static void test_mul(FILE* output, int32_t num, uint32_t den, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r1;
-
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
 
   q_init(&r0);
   q_init(&r1);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set_int32(&r0, num, den);
   q_mul(&r0, &r1);
@@ -248,23 +208,15 @@ static void test_mul(FILE* output, int32_t num, uint32_t den) {
   mpq_mul(q0, q0, q1);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-
 }
 
 // r0 = (num/den) / r1
-static void test_div(FILE* output, int32_t num, uint32_t den, rational_t r1) {
+static void test_div(FILE* output, int32_t num, uint32_t den, rational_t r1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0;
 
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
   fprintf(output, "test div: >(num = %"PRId32" den = %"PRIu32") / ", num, den);
 
   q_init(&r0);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set_int32(&r0, num, den);
   q_div(&r0, &r1);
@@ -280,23 +232,14 @@ static void test_div(FILE* output, int32_t num, uint32_t den, rational_t r1) {
   mpq_div(q0, q0, q1);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-
 }
 
 // r0 = r1 / (num/den)
-static void test_div2(FILE* output, int32_t num, uint32_t den, rational_t r1) {
+static void test_div2(FILE* output, int32_t num, uint32_t den, rational_t r1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r2;
-
-  int32_t iq0, iq1;
-  mpq_ptr q0, q1;
 
   q_init(&r0);
   q_init(&r2);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
 
   q_set(&r0, &r1);
   q_set_int32(&r2, num, den);
@@ -313,26 +256,15 @@ static void test_div2(FILE* output, int32_t num, uint32_t den, rational_t r1) {
   mpq_div(q0, q1, q0);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-
 }
 
 // r0 = (num1/den1) + r1 * (num2/den2)
-static void test_addmul(FILE* output, int32_t num1, uint32_t den1, int32_t num2, uint32_t den2) {
+static void test_addmul(FILE* output, int32_t num1, uint32_t den1, int32_t num2, uint32_t den2, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   rational_t r0, r1, r2;
-
-  int32_t iq0, iq1, iq2;
-  mpq_ptr q0, q1, q2;
-
 
   q_init(&r0);
   q_init(&r1);
   q_init(&r2);
-
-  mpq_pool_borrow(&iq0, &q0);
-  mpq_pool_borrow(&iq1, &q1);
-  mpq_pool_borrow(&iq2, &q2);
 
   q_set_int32(&r0, num1, den1);
   q_set_int32(&r2, num2, den2);
@@ -352,15 +284,11 @@ static void test_addmul(FILE* output, int32_t num1, uint32_t den1, int32_t num2,
   mpq_add(q0, q0, q1);
   test_equal(output, &r0, q0);
 
-  mpq_pool_return(iq0);
-  mpq_pool_return(iq1);
-  mpq_pool_return(iq2);
-
 }
 
 
 
-static void assignment_tests(FILE* output) {
+static void assignment_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -368,12 +296,12 @@ static void assignment_tests(FILE* output) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      test_assign(output, a, b);
+      test_assign(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void addition_test(FILE* output, int32_t num1, uint32_t den1) {
+static void addition_test(FILE* output, int32_t num1, uint32_t den1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
   rational_t r1;
@@ -384,12 +312,12 @@ static void addition_test(FILE* output, int32_t num1, uint32_t den1) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      test_add(output, a, b);
+      test_add(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void addition_tests(FILE* output) {
+static void addition_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -397,45 +325,12 @@ static void addition_tests(FILE* output) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      addition_test(output, a, b);
+      addition_test(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void subtraction_test(FILE* output, int32_t num1, uint32_t den1) {
-  int32_t i, j, a;
-  uint32_t b;
-  rational_t r1;
-  q_init(&r1);
-
-  q_set_int32(&r1, num1, den1);
-  for (i=0; i<16; i++) {
-    b = den[i];
-    for (j=0; j<24; j++) {
-      a = num[j];
-      test_sub(output, a, b);
-      test_sub2(output, a, b);
-    }
-  }
-}
-
-static void subtraction_tests(FILE* output) {
-  int32_t i, j, a;
-  uint32_t b;
-
-  for (i=0; i<16; i++) {
-    b = den[i];
-    for (j=0; j<24; j++) {
-      a = num[j];
-      subtraction_test(output, a, b);
-    }
-  }
-}
-
-
-
-
-static void product_test(FILE* output, int32_t num1, uint32_t den1) {
+static void subtraction_test(FILE* output, int32_t num1, uint32_t den1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
   rational_t r1;
@@ -446,12 +341,13 @@ static void product_test(FILE* output, int32_t num1, uint32_t den1) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      test_mul(output, a, b);
+      test_sub(output, a, b, q0, q1, q2);
+      test_sub2(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void product_tests(FILE* output) {
+static void subtraction_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -459,12 +355,15 @@ static void product_tests(FILE* output) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      product_test(output, a, b);
+      subtraction_test(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void division_test(FILE* output, int32_t num1, uint32_t den1) {
+
+
+
+static void product_test(FILE* output, int32_t num1, uint32_t den1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
   rational_t r1;
@@ -475,13 +374,12 @@ static void division_test(FILE* output, int32_t num1, uint32_t den1) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      if (num1 != 0) test_div(output, a, b, r1);
-      if (a != 0) test_div2(output, a, b, r1);
+      test_mul(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void division_tests(FILE* output) {
+static void product_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -489,12 +387,42 @@ static void division_tests(FILE* output) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      division_test(output, a, b);
+      product_test(output, a, b, q0, q1, q2);
     }
   }
 }
 
-static void addmul_test(FILE* output, int32_t num1, uint32_t den1) {
+static void division_test(FILE* output, int32_t num1, uint32_t den1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
+  int32_t i, j, a;
+  uint32_t b;
+  rational_t r1;
+  q_init(&r1);
+
+  q_set_int32(&r1, num1, den1);
+  for (i=0; i<16; i++) {
+    b = den[i];
+    for (j=0; j<24; j++) {
+      a = num[j];
+      if (num1 != 0) test_div(output, a, b, r1, q0, q1, q2);
+      if (a != 0) test_div2(output, a, b, r1, q0, q1, q2);
+    }
+  }
+}
+
+static void division_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
+  int32_t i, j, a;
+  uint32_t b;
+
+  for (i=0; i<16; i++) {
+    b = den[i];
+    for (j=0; j<24; j++) {
+      a = num[j];
+      division_test(output, a, b, q0, q1, q2);
+    }
+  }
+}
+
+static void addmul_test(FILE* output, int32_t num1, uint32_t den1, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a, b;
   uint32_t c, d;
   rational_t r1;
@@ -507,12 +435,12 @@ static void addmul_test(FILE* output, int32_t num1, uint32_t den1) {
     for (j=0; j<23; j++) {
       a = num[j];
       b = num[j+1];
-      test_addmul(output, a, c, b, d);
+      test_addmul(output, a, c, b, d, q0, q1, q2);
     }
   }
 }
 
-static void addmul_tests(FILE* output) {
+static void addmul_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -520,28 +448,20 @@ static void addmul_tests(FILE* output) {
     b = den[i];
     for (j=0; j<24; j++) {
       a = num[j];
-      addmul_test(output, a, b);
+      addmul_test(output, a, b, q0, q1, q2);
     }
   }
 
 }
 
 
-void miscellaneous_tests(FILE* output){
+void miscellaneous_tests(FILE* output, mpq_ptr q0, mpq_ptr q1, mpq_ptr q2){
     rational_t r0, r1, r2;
     int32_t i;
-
-    int32_t iq0, iq1, iq2;
-    mpq_ptr q0, q1, q2;
-
 
     q_init(&r0);
     q_init(&r1);
     q_init(&r2);
-
-    mpq_pool_borrow(&iq0, &q0);
-    mpq_pool_borrow(&iq1, &q1);
-    mpq_pool_borrow(&iq2, &q2);
 
     q_set_int32(&r0, MIN_NUMERATOR-1, 23);
     fprintf(output, "r0 = ");
@@ -589,31 +509,39 @@ void miscellaneous_tests(FILE* output){
     }
 
 
-    mpq_pool_return(iq0);
-    mpq_pool_return(iq1);
-    mpq_pool_return(iq2);
-
 }
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
 
+  int32_t iq0, iq1, iq2;
+  mpq_ptr q0, q1, q2;
+
+  
+  mpq_pool_borrow(&iq0, &q0);
+  mpq_pool_borrow(&iq1, &q1);
+  mpq_pool_borrow(&iq2, &q2);
+  
   fprintf(stderr, "Starting: %s\n", "assignment_tests");
-  assignment_tests(output);
+  assignment_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "addition_tests");
-  addition_tests(output);
+  addition_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "subtraction_tests");
-  subtraction_tests(output);
+  subtraction_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "product_tests");
-  product_tests(output);
+  product_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "division_tests");
-  division_tests(output);
+  division_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "addmul_tests");
-  addmul_tests(output);
+  addmul_tests(output, q0, q1, q2);
   fprintf(stderr, "Starting: %s\n", "miscellaneous_tests");
-  miscellaneous_tests(output);
+  miscellaneous_tests(output, q0, q1, q2);
   fprintf(stderr, "Done.\n");
+
+  mpq_pool_return(iq0);
+  mpq_pool_return(iq1);
+  mpq_pool_return(iq2);
 
   return yices_thread_exit();
 }
@@ -642,7 +570,7 @@ int main(int argc, char* argv[]) {
       thread_data_t tdata = {0, stdout};
       test_thread(&tdata);
     } else {
-      launch_threads(nthreads, NULL, "test_rationals_mt", test_thread);
+      launch_threads(nthreads, NULL, "test_rationals_optimized_mt", test_thread);
     }
 
     cleanup_rationals();

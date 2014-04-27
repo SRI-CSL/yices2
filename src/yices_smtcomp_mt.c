@@ -25,6 +25,8 @@
 #include "yices_extensions.h"
 #include "yices_exit_codes.h"
 
+#include "threads.h"
+
 
 /*
  * GLOBAL OBJECTS
@@ -32,7 +34,6 @@
 static lexer_t lexer;
 static parser_t parser;
 static tstack_t stack;
-static smt_benchmark_t bench;
 
 
 /*
@@ -103,28 +104,12 @@ static void print_internalization_code(int32_t code) {
 
 
 
-
-/*
- * MAIN SOLVER FUNCTION
- * - parse input file (assumed to be in SMT-LIB format)
- * - solve benchmark
- * - return an exit code (defined in yices_exit_codes.h)
- */
-static int process_benchmark(char *filename, bool build_model) {
+static int32_t parse_benchmark(smt_benchmark_t *benchp, char *filename){
   int32_t code;
-  smt_logic_t logic;  // logic code read from the file
-  model_t *model;
-  context_t *context;
-  param_t *params;
 
-  // open input file if given or stdin
-  if (filename != NULL) {
-    if (init_smt_file_lexer(&lexer, filename) < 0) {
-      perror(filename);
-      return YICES_EXIT_FILE_NOT_FOUND;
-    }
-  } else {
-    init_smt_stdin_lexer(&lexer);
+  if (init_smt_file_lexer(&lexer, filename) < 0) {
+    perror(filename);
+    return YICES_EXIT_FILE_NOT_FOUND;
   }
 
   /*
@@ -133,35 +118,49 @@ static int process_benchmark(char *filename, bool build_model) {
   init_smt_tstack(&stack);
 
   init_parser(&parser, &lexer, &stack);
-  init_benchmark(&bench);
-  code = parse_smt_benchmark(&parser, &bench); // code < 0 means syntax error, 0 means OK
+  init_benchmark(benchp);
+  code = parse_smt_benchmark(&parser, benchp); // code < 0 means syntax error, 0 means OK
 
   delete_parser(&parser);
   close_lexer(&lexer);
   delete_tstack(&stack);
 
-  if (code < 0) {
-    code = YICES_EXIT_SYNTAX_ERROR;
-    goto cleanup_benchmark;
-  }
+  
+  return code;
 
+}
 
+/* determine the logic code of the benchmark */
+static int32_t check_logic(smt_benchmark_t *benchp){
+  smt_logic_t logic;  
   /*
    * Select architecture based on the benchmark logic
    */
-  if (bench.logic_name != NULL) {
-    logic = smt_logic_code(bench.logic_name);
+  if (benchp->logic_name != NULL) {
+    logic = smt_logic_code(benchp->logic_name);
     if (logic != QF_BV) {
       print_internalization_code(LOGIC_NOT_SUPPORTED);
-      code = YICES_EXIT_ERROR;
-      goto cleanup_benchmark;
+      return YICES_EXIT_ERROR;
     }
   } else {
     printf("unknown\n");
     printf("No logic specified\n");
-    code = YICES_EXIT_ERROR;
-    goto cleanup_benchmark;
+    return YICES_EXIT_ERROR;
   }
+  return NO_ERROR;
+}
+
+/*
+ * MAIN SOLVER FUNCTION
+ * - parse input file (assumed to be in SMT-LIB format)
+ * - solve benchmark
+ * - return an exit code (defined in yices_exit_codes.h)
+ */
+static int process_benchmark(smt_benchmark_t *benchp, bool build_model) {
+  int32_t code;
+  model_t *model = NULL;
+  context_t *context = NULL;
+  param_t *params = NULL;
 
   /*
    * Initialize the context and set internalization options
@@ -173,7 +172,7 @@ static int process_benchmark(char *filename, bool build_model) {
   /*
    * Assert and internalize
    */
-  code = yices_assert_formulas(context, bench.nformulas, bench.formulas);
+  code = yices_assert_formulas(context, benchp->nformulas, benchp->formulas);
   if (code < 0) {
     fprintf(stderr, "Assert formulas failed: ");
     yices_print_error(stderr);
@@ -211,30 +210,107 @@ static int process_benchmark(char *filename, bool build_model) {
   yices_free_context(context);
   yices_free_param_record(params);
 
- cleanup_benchmark:
-  delete_benchmark(&bench);
+  return code;
+}
+
+typedef struct thread_extras {
+  smt_benchmark_t *benchp;
+  bool build_model;
+  int32_t code;
+} thread_extras_t;
+
+
+yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
+  thread_data_t* tdata = (thread_data_t *)arg;
+  int32_t id  = tdata->id;
+  FILE* output = tdata->output;
+  thread_extras_t* extra = (thread_extras_t*)(tdata->extra); 
+  if(extra != NULL){
+    extra->code = process_benchmark(extra->benchp, extra->build_model);
+    fprintf(output, "Thread %d: returned %d\n", id, extra->code);
+    fflush(output);
+  } else {
+    fprintf(output, "Thread %d: no extras, so no work done.\n", id);
+    fflush(output);
+  }
+  return yices_thread_exit();
+}
+
+static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool build_model) {
+  thread_extras_t* extras;
+  size_t extras_sz;
+  int32_t thread;
+  int32_t code;
+  assert(nthreads > 0);
+  extras_sz = nthreads * sizeof(thread_extras_t);
+  extras = (thread_extras_t*)safe_malloc(extras_sz);
+  memset(extras, 0, extras_sz);
+  /* bruno? a safe_calloc would be nicer */
+  
+  for(thread = 0; thread < nthreads; thread++){
+    extras[thread].benchp = benchp;
+    extras[thread].build_model =  build_model;
+    extras[thread].code = NO_ERROR;
+  }
+
+  launch_threads(nthreads, (void *)extras, "yices_smtcomp_m", test_thread);
+
+  
+  for(thread = 0; thread < nthreads; thread++){
+    /* bruno?  look at the exit code of each thread */
+
+  }
 
   return code;
 }
 
-
-
 int main(int argc, char *argv[]) {
   char *filename;
+  int32_t nthreads;
   int code;
+  smt_benchmark_t bench;
 
   filename = NULL;
-  if (argc >= 2) {
+  if (argc >= 3) {
     filename = argv[1];
+    nthreads = atoi(argv[2]);
   } else {
-    printf("Usage: %s <SMT filename> [build model]\n", argv[0]);
+    printf("Usage: %s <SMT filename> <number of threads> [build model]\n", argv[0]);
     exit(YICES_EXIT_USAGE);
   }
 
   yices_init();
-  code = process_benchmark(filename, (argc==3));
-  yices_exit();
 
+  code = parse_benchmark(&bench, filename);
+  
+  if (code < 0) {
+    code = YICES_EXIT_SYNTAX_ERROR;
+    goto clean_up;
+  }
+  
+  code = check_logic(&bench);
+  
+  if (code != NO_ERROR){
+    goto clean_up_benchmark;
+  }
+  
+  if(nthreads == 0){
+
+    code = process_benchmark(&bench, (argc==4));
+    
+  } else {
+    
+    code = spawn_benchmarks(nthreads, &bench, (argc==4));
+  }
+  
+ clean_up_benchmark:
+
+  delete_benchmark(&bench);
+  
+ clean_up:
+  
+  yices_exit();
+  
   return code;
 }
 
