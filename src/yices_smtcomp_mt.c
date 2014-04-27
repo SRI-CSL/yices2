@@ -36,14 +36,6 @@ static smt_benchmark_t bench;
 
 
 /*
- * Conversion of status code in the benchmark header
- */
-static const char * const status2string[] = {
-  "none", "unsat", "sat", "unknown",
-};
-
-
-/*
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
