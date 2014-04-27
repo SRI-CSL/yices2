@@ -166,8 +166,9 @@ static int process_benchmark(smt_benchmark_t *benchp, bool build_model) {
    * Initialize the context and set internalization options
    * and global search options
    */
-  params = yices_new_param_record();
   context = yices_create_context(CTX_ARCH_BV, CTX_MODE_ONECHECK, false, false);
+  params = yices_new_param_record();
+  yices_set_default_params(context, params); // set parameters for QF_BV
 
   /*
    * Assert and internalize

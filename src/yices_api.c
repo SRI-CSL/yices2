@@ -5753,7 +5753,7 @@ EXPORTED void yices_disable_bvarith_elim(context_t *ctx) {
 
 /*
  * Allocate a new configuration descriptor
- * - initialize it do defaults
+ * - initialize it to defaults
  */
 EXPORTED param_t *yices_new_param_record(void) {
   param_t *tmp;
