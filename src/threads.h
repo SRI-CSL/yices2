@@ -29,7 +29,7 @@ typedef struct thread_data {
    slot in the thread data.
 
 */
-extern void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_thread_main_t thread_main);
+extern void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main);
 
 /* lets the user know what is needed */
 extern void mt_test_usage(int32_t argc, char* argv[]);

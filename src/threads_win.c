@@ -13,7 +13,7 @@
 
 /* not tested or compiled yet */
 
-void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_thread_main_t thread_main){
+void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main){
   int32_t thread;
   char  buff[1024];
 
@@ -32,7 +32,7 @@ void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_th
     printf("Logging thread %d to %s\n", thread, buff);
     tdata[thread].id = thread;
     if(extras != NULL){
-      tdata[thread].extra = &extras[thread];
+      tdata[thread].extra = (extras + (thread * extra_sz));
     }
     tdata[thread].output = fopen(buff, "w");
     if(tdata[thread].output == NULL){

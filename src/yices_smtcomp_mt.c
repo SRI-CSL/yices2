@@ -232,6 +232,8 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = tdata->output;
   thread_extras_t* extra = (thread_extras_t*)(tdata->extra); 
 
+  fprintf(stderr, "test_thread: extra  = %p\n", extra);
+    
   if(extra != NULL){
     extra->code = process_benchmark(extra->benchp, extra->build_model);
     fprintf(output, "Thread %d: returned %d\n", id, extra->code);
@@ -263,13 +265,16 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
     extras[thread].build_model =  build_model;
     extras[thread].code = NO_ERROR;
   }
+  
+  for(thread = 0; thread < nthreads; thread++){
+    fprintf(stderr, "Thread %d: extras = %p, extras[thread].benchp = %p.\n", thread, &extras[thread], extras[thread].benchp);
+  }
 
-  launch_threads(nthreads, (void *)extras, "yices_smtcomp_m", test_thread);
-
+  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "yices_smtcomp_m", test_thread);
   
   for(thread = 0; thread < nthreads; thread++){
     /* bruno?  look at the exit code of each thread */
-
+    
   }
 
   return code;

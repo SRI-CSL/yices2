@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
       thread_data_t tdata = {0, stdout};
       test_thread(&tdata);
     } else {
-      launch_threads(nthreads, NULL, "test_bvconst_divisions_mt", test_thread);
+      launch_threads(nthreads, NULL, 0, "test_bvconst_divisions_mt", test_thread);
     }
   }
 
