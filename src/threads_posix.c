@@ -22,7 +22,7 @@ void launch_threads(int32_t nthreads, void* extras[], const char* test, yices_th
     printf("Logging thread %d to %s\n", thread, buff);
     tdata[thread].id = thread;
     if(extras != NULL){
-      tdata[thread].extra = extras[thread];
+      tdata[thread].extra = &extras[thread];
     }
     tdata[thread].output = fopen(buff, "w");
     if(tdata[thread].output == NULL){

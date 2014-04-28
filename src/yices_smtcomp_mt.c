@@ -164,6 +164,8 @@ static int process_benchmark(smt_benchmark_t *benchp, bool build_model) {
   model_t *model = NULL;
   context_t *context = NULL;
   param_t *params = NULL;
+  
+  fprintf(stderr,  "process_benchmark(%p, %d)\n", benchp, build_model);
 
   /*
    * Initialize the context and set internalization options
@@ -302,7 +304,10 @@ int main(int argc, char *argv[]) {
   if (code != NO_ERROR){
     goto clean_up_benchmark;
   }
+
+  fprintf(stderr,  "main(%p, %d)\n", &bench, (argc==4));
   
+
   if(nthreads == 0){
 
     code = process_benchmark(&bench, (argc==4));
