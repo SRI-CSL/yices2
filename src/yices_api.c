@@ -99,7 +99,6 @@ void init_yices_error(void){
     __yices_error_initialized = true;
     memset(&__yices_error, 0, sizeof(error_report_t));
     __yices_error.code = NO_ERROR;
-    
   }
 }
 

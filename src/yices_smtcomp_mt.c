@@ -112,6 +112,10 @@ static void print_internalization_code(int32_t code) {
 
 
 
+/*
+ *
+ * - parse input file (assumed to be in SMT-LIB format)
+ */
 static int32_t parse_benchmark(smt_benchmark_t *benchp, char *filename){
   int32_t code;
 
@@ -159,8 +163,7 @@ static int32_t check_logic(smt_benchmark_t *benchp){
 }
 
 /*
- * MAIN SOLVER FUNCTION
- * - parse input file (assumed to be in SMT-LIB format)
+ * 
  * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
  */
@@ -233,6 +236,7 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   int32_t id  = tdata->id;
   FILE* output = tdata->output;
   thread_extras_t* extra = (thread_extras_t*)(tdata->extra); 
+
   if(extra != NULL){
     extra->code = process_benchmark(extra->benchp, extra->build_model);
     fprintf(output, "Thread %d: returned %d\n", id, extra->code);
@@ -241,6 +245,7 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
     fprintf(output, "Thread %d: no extras, so no work done.\n", id);
     fflush(output);
   }
+
   return yices_thread_exit();
 }
 
@@ -249,11 +254,14 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
   size_t extras_sz;
   int32_t thread;
   int32_t code;
+
   assert(nthreads > 0);
+
+  /* bruno? a safe_calloc would be nicer */
   extras_sz = nthreads * sizeof(thread_extras_t);
   extras = (thread_extras_t*)safe_malloc(extras_sz);
   memset(extras, 0, extras_sz);
-  /* bruno? a safe_calloc would be nicer */
+
   
   for(thread = 0; thread < nthreads; thread++){
     extras[thread].benchp = benchp;
@@ -309,6 +317,7 @@ int main(int argc, char *argv[]) {
   } else {
     
     code = spawn_benchmarks(nthreads, &bench, (argc==4));
+
   }
   
  clean_up_benchmark:
