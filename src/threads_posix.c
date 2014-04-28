@@ -30,8 +30,6 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
       exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "launch_threads: &extras[thread]  = %p\n", &extras[thread]);
-
     retcode =  pthread_create(&tids[thread], NULL, thread_main, &tdata[thread]);
     if(retcode){
       fprintf(stderr, "pthread_create failed: %s\n", strerror(retcode));

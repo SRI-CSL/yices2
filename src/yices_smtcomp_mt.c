@@ -66,13 +66,10 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 /*
  * STATISTICS DISABLED: JUST PRINT THE RESULT
  */
-static void print_results(context_t *ctx) {
-  smt_status_t resu;
-
-  resu = yices_context_status(ctx);
-  if (resu == STATUS_SAT) {
+static void print_status(smt_status_t status) {
+  if (status == STATUS_SAT) {
     printf("sat\n");
-  } else if (resu == STATUS_UNSAT) {
+  } else if (status == STATUS_UNSAT) {
     printf("unsat\n");
   } else {
     printf("unknown\n");
@@ -80,6 +77,14 @@ static void print_results(context_t *ctx) {
   fflush(stdout);
 }
 
+#if 0
+static void print_results(context_t *ctx) {
+  smt_status_t resu;
+
+  resu = yices_context_status(ctx);
+  print_status(resu);
+}
+#endif
 
 
 /*
@@ -151,21 +156,22 @@ static int32_t check_logic(smt_benchmark_t *benchp){
     printf("No logic specified\n");
     return YICES_EXIT_ERROR;
   }
-  return NO_ERROR;
+  return YICES_EXIT_SUCCESS;
 }
 
 /*
  * 
  * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
+ * - if the exit code is YICES_EXIT_SUCCESS, then the status is stored in *status
  */
-static int process_benchmark(smt_benchmark_t *benchp, bool build_model) {
+static int process_benchmark(smt_benchmark_t *benchp, bool build_model, smt_status_t *status) {
   int32_t code;
   model_t *model = NULL;
   context_t *context = NULL;
   param_t *params = NULL;
   
-  fprintf(stderr,  "process_benchmark(%p, %d)\n", benchp, build_model);
+  //  fprintf(stderr,  "process_benchmark(%p, %d)\n", benchp, build_model);
 
   /*
    * Initialize the context and set internalization options
@@ -194,8 +200,8 @@ static int process_benchmark(smt_benchmark_t *benchp, bool build_model) {
       code = YICES_EXIT_ERROR;
       goto cleanup_context;
     }
-    print_results(context);
-
+    //    print_results(context);
+    *status = yices_context_status(context);;
     if (build_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
       model = yices_get_model(context, true);
       code = yices_pp_model(stdout, model, 100, UINT32_MAX, 0);
@@ -223,6 +229,7 @@ typedef struct thread_extras {
   smt_benchmark_t *benchp;
   bool build_model;
   int32_t code;
+  smt_status_t status;
 } thread_extras_t;
 
 
@@ -232,10 +239,8 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   FILE* output = tdata->output;
   thread_extras_t* extra = (thread_extras_t*)(tdata->extra); 
 
-  fprintf(stderr, "test_thread: extra  = %p\n", extra);
-    
   if(extra != NULL){
-    extra->code = process_benchmark(extra->benchp, extra->build_model);
+    extra->code = process_benchmark(extra->benchp, extra->build_model, &extra->status);
     fprintf(output, "Thread %d: returned %d\n", id, extra->code);
     fflush(output);
   } else {
@@ -251,6 +256,8 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
   size_t extras_sz;
   int32_t thread;
   int32_t code;
+  smt_status_t status;
+  bool consensus;
 
   assert(nthreads > 0);
 
@@ -263,18 +270,28 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
   for(thread = 0; thread < nthreads; thread++){
     extras[thread].benchp = benchp;
     extras[thread].build_model =  build_model;
-    extras[thread].code = NO_ERROR;
+    extras[thread].code = YICES_EXIT_SUCCESS;
+    extras[thread].status = STATUS_UNKNOWN;
   }
   
-  for(thread = 0; thread < nthreads; thread++){
-    fprintf(stderr, "Thread %d: extras = %p, extras[thread].benchp = %p.\n", thread, &extras[thread], extras[thread].benchp);
+  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "yices_smtcomp_m", test_thread);
+
+  consensus = true;
+  code = extras[0].code;
+  status = extras[0].status;
+  for(thread = 1; thread < nthreads; thread++){
+    /* bruno?  look at the exit code of each thread */
+    if (extras[thread].code != code || extras[thread].status != status) {
+      consensus = false;
+      break;
+    }
   }
 
-  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "yices_smtcomp_m", test_thread);
-  
-  for(thread = 0; thread < nthreads; thread++){
-    /* bruno?  look at the exit code of each thread */
-    
+  if (consensus) {
+    print_status(status);
+  } else {
+    printf("BUG: threads disagree\n");
+    fflush(stdout);
   }
 
   return code;
@@ -285,6 +302,7 @@ int main(int argc, char *argv[]) {
   int32_t nthreads;
   int code;
   smt_benchmark_t bench;
+  smt_status_t status;
 
   filename = NULL;
   if (argc >= 3) {
@@ -306,17 +324,17 @@ int main(int argc, char *argv[]) {
   
   code = check_logic(&bench);
   
-  if (code != NO_ERROR){
+  if (code != YICES_EXIT_SUCCESS){
     goto clean_up_benchmark;
   }
 
-  fprintf(stderr,  "main(%p, %d)\n", &bench, (argc==4));
-  
 
   if(nthreads == 0){
-
-    code = process_benchmark(&bench, (argc==4));
-    
+    status = STATUS_UNKNOWN;
+    code = process_benchmark(&bench, (argc==4), &status);
+    if (code == YICES_EXIT_SUCCESS) {
+      print_status(status);
+    }
   } else {
     
     code = spawn_benchmarks(nthreads, &bench, (argc==4));
