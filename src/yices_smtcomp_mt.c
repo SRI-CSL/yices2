@@ -271,7 +271,7 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
     extras[thread].status = STATUS_UNKNOWN;
   }
   
-  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "yices_smtcomp_m", test_thread);
+  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "yices_smtcomp_mt", test_thread);
 
   consensus = true;
   code = extras[0].code;
