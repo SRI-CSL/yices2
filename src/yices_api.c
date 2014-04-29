@@ -5893,15 +5893,21 @@ smt_status_t _o_yices_context_status(context_t *ctx) {
 
 /*
  * Reset: remove all assertions and restore ctx's status to IDLE
+ * Takes both locks because it accesses the term table internally.
  */
 
 /* locking version */
 EXPORTED  void yices_reset_context(context_t *ctx) {
-  yices_lock_t *lock = &(ctx->lock);
+  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *ctxlock = &(ctx->lock);
 
   get_yices_lock(lock);
 
+  get_yices_lock(ctxlock);
+
   _o_yices_reset_context(ctx);
+
+  release_yices_lock(ctxlock);
 
   release_yices_lock(lock);
 
