@@ -171,8 +171,6 @@ static int process_benchmark(smt_benchmark_t *benchp, bool build_model, smt_stat
   context_t *context = NULL;
   param_t *params = NULL;
   
-  //  fprintf(stderr,  "process_benchmark(%p, %d)\n", benchp, build_model);
-
   /*
    * Initialize the context and set internalization options
    * and global search options
@@ -261,7 +259,6 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
 
   assert(nthreads > 0);
 
-  /* bruno? a safe_calloc would be nicer */
   extras_sz = nthreads * sizeof(thread_extras_t);
   extras = (thread_extras_t*)safe_malloc(extras_sz);
   memset(extras, 0, extras_sz);
@@ -280,7 +277,6 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
   code = extras[0].code;
   status = extras[0].status;
   for(thread = 1; thread < nthreads; thread++){
-    /* bruno?  look at the exit code of each thread */
     if (extras[thread].code != code || extras[thread].status != status) {
       consensus = false;
       break;
@@ -293,6 +289,8 @@ static int32_t spawn_benchmarks(int32_t nthreads, smt_benchmark_t *benchp, bool 
     printf("BUG: threads disagree\n");
     fflush(stdout);
   }
+  
+  safe_free(extras);
 
   return code;
 }

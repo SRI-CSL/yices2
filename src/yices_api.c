@@ -6401,9 +6401,10 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   return retval;
 }
 
-/* non-locking version */
+/* non-locking version */  //XXX: FIXME params not got no lock when default....
 smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params) {
   error_report_t *error = get_yices_error();
+  bool reclaim_lock = false;
   param_t default_params;
   smt_status_t stat;
 
@@ -6416,6 +6417,9 @@ smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params) {
 
   case STATUS_IDLE:
     if (params == NULL) {
+      /* have to make a usable one on the fly */
+      create_yices_lock(&(default_params.lock));
+      reclaim_lock = true;
       yices_set_default_params(ctx, &default_params);
       params = &default_params;
     }
@@ -6436,6 +6440,10 @@ smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params) {
     error->code = INTERNAL_EXCEPTION;
     stat = STATUS_ERROR;
     break;
+  }
+  
+  if (reclaim_lock){
+    destroy_yices_lock(&(default_params.lock));
   }
 
   return stat;
