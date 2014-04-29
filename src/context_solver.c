@@ -26,7 +26,7 @@
  */
 static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
   tprintf(core->trace, level,
-	  "(%-10s %8"PRIu32" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %7.1f)\n",
+	  "(%-10s %8"PRIu64" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu64" %8"PRIu32" %8"PRIu64" %7.1f)\n",
 	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
 	  num_learned_clauses(core), num_learned_literals(core),
