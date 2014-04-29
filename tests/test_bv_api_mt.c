@@ -332,7 +332,7 @@ static int32_t spawn_examples(int32_t nthreads, context_t **ctx) {
     extras[thread].example =  (thread % 2 == 0) ? example1 : example2;
   }
   
-  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "bv_test_mt", test_thread);
+  launch_threads(nthreads, (void *)extras, sizeof(thread_extras_t), "test_bv_api_mt", test_thread, true);
 
   free(extras);
 

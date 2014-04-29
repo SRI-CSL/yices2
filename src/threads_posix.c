@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 
-void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main){
+void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main, bool verbose){
   int32_t retcode, thread;
   char  buff[1024];
 
@@ -15,11 +15,16 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
     fprintf(stderr, "Couldn't alloc memory for %d threads\n", nthreads);
     exit(EXIT_FAILURE);
   }
-  printf("%d threads\n", nthreads);
+
+  if(verbose){
+    printf("%d threads\n", nthreads);
+  }
 
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, "/tmp/%s_%d.txt", test, thread);
-    printf("Logging thread %d to %s\n", thread, buff);
+    if(verbose){
+      printf("Logging thread %d to %s\n", thread, buff);
+    }
     tdata[thread].id = thread;
     if(extras != NULL){
       tdata[thread].extra = (extras + (thread * extra_sz));
@@ -37,7 +42,9 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
     }
   }
 
-  printf("threads away\n\n");
+  if(verbose){
+    printf("threads away\n\n");
+  }
 
 
   for(thread = 0; thread < nthreads; thread++){
