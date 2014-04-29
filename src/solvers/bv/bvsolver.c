@@ -6805,10 +6805,17 @@ void bv_solver_pop(bv_solver_t *solver) {
  * and reset base_level to 0.
  */
 void bv_solver_reset(bv_solver_t *solver) {
-  // exp buffers must be reset before etbl
-  bvarith_buffer_prepare(&solver->exp_buffer, 100);
-  bvarith64_buffer_prepare(&solver->exp64_buffer, 10);
+  /*
+   * The exp buffers must be deleted first since they use
+   * solver->etbl.store/store64, and reset_bvexp_table will reset
+   * these two stores. We reconstruct the two buffers after
+   * reset_bvexp_table.
+   */
+  delete_bvarith_buffer(&solver->exp_buffer);
+  delete_bvarith64_buffer(&solver->exp64_buffer);
   reset_bvexp_table(&solver->etbl);
+  bvexp_init_buffer(&solver->etbl, &solver->exp_buffer);
+  bvexp_init_buffer64(&solver->etbl, &solver->exp64_buffer);
 
   reset_bv_vartable(&solver->vtbl);
   reset_bv_atomtable(&solver->atbl);

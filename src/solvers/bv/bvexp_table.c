@@ -159,14 +159,23 @@ void bvexp_table_remove_vars(bvexp_table_t *table, uint32_t nv) {
 void reset_bvexp_table(bvexp_table_t *table) {
   bvexp_table_remove_vars(table, 0);
 
-  // aux buffers must be reset before the stores
-  bvarith_buffer_prepare(&table->aux, 100);
-  bvarith64_buffer_prepare(&table->aux64, 32);
+  /*
+   * The two aux buffers must be deleted first since their content may become
+   * invalid pointers afer the reset_objstore calls. Just calling
+   * bvarith..._prepare is not enough as it keeps the end_marker in
+   * table->aux/table->aux64.
+   */
+  delete_bvarith_buffer(&table->aux);
+  delete_bvarith64_buffer(&table->aux64);
   pp_buffer_reset(&table->pp);
 
   reset_objstore(&table->store);
   reset_objstore(&table->store64);
   reset_pprod_table(&table->pprods);
+
+  // Recreate the buffers aux and aux64
+  init_bvarith_buffer(&table->aux, &table->pprods, &table->store);
+  init_bvarith64_buffer(&table->aux64, &table->pprods, &table->store64);
 }
 
 
