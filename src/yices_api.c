@@ -806,11 +806,7 @@ static void delete_parsing_objects(void) {
 /*
  * Initialize the table of global objects
  */
-
-
-
 static void init_globals(yices_globals_t *glob) {
-
   /* first the global object, then the miscellaneous globals */
 
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
@@ -842,22 +838,19 @@ static void init_globals(yices_globals_t *glob) {
  * Reset all to NULL (and free up the memory)
  */
 static void clear_globals(yices_globals_t *glob) {
-
   free(glob->types);
   free(glob->terms);
   free(glob->manager);
-  //free(glob->pprods);    //bruno?
+  free(glob->pprods);
 
   glob->types = NULL;
   glob->terms = NULL;
   glob->manager = NULL;
-  //glob->pprods = NULL;    //bruno?
-
+  glob->pprods = NULL;
   
   destroy_yices_lock(&(glob->lock));
-
-
 }
+
 
 /*
  * Initialize all global objects
