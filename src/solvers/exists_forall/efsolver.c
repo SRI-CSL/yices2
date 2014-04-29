@@ -1062,6 +1062,9 @@ static void ef_solver_search(ef_solver_t *solver) {
 	 ef_prob_num_constraints(solver->prob),
 	 ef_prob_num_evars(solver->prob),
 	 ef_prob_num_uvars(solver->prob));
+
+  printf("\nConditions on the exists variables:\n");
+  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
 #endif
 
   ef_solver_start(solver);
