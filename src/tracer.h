@@ -83,7 +83,8 @@ extern void delete_trace(tracer_t *tracer);
  * - fmt = a format string as in printf
  * - rest = stuff to print (as in prinf too)
  */
-extern void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...);
+extern void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...)
+  __attribute__ ((format (printf, 3, 4)));
 
 
 /*

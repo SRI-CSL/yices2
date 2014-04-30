@@ -17,8 +17,8 @@
 #define MAX_MPZ_POOL_SIZE         (UINT32_MAX/sizeof(mpz_t))
 #define MPZ_BLOCK_SIZE            64
 
-//turn off for helgrinding
-#define POOL_DEBUG  0
+// undefine for helgrinding; define for debugging 
+//#define POOL_DEBUG 
 
 typedef struct mpz_pool_block *mpz_pool_block_ptr;
 

@@ -470,10 +470,10 @@ LIBS=$save_libs
 ])
 
 
-#
-# CHECK GMP LIBRARIES
-# -------------------
-#
+dnl
+dnl CHECK GMP LIBRARIES
+dnl -------------------
+dnl
 AC_LANG([C])
 
 #
@@ -516,34 +516,28 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
 
 
-#
-# TLS test
-# --------
-#
-AC_SUBST(HAS_TLS)
+dnl
+dnl Test support for thread-local storage
+dnl -------------------------------------
+dnl
+AC_SUBST(HAVE_TLS)
 has_tls=""
 CSL_CHECK_THREAD_LOCAL
 if test "x$has_tls" == xyes; then
-  HAS_TLS=1
+  HAVE_TLS=1
 else
-  HAS_TLS=0
+  HAVE_TLS=0
 fi
 
 
-#
-# Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
-# because the Makefiles import its definition via ./configs/make.include.
-# This may be unreliable (it won't handle spaces in directory names).
-#
-# case "$MKDIR_P" in
-#   ./install-sh*)
-#      curdir=`pwd`
-#      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***])
-#     MKDIR_P=$new_mkdir_p
-#     ;;
-# esac
-#
+dnl
+dnl Test support for execinfo and backstrace_symbols
+dnl ------------------------------------------------
+dnl on FreeBSD, extra library libexecinfo is required
+dnl
+AC_SUBST(HAVE_BACKTRACE)
+AC_SEARCH_LIBS(backtrace_symbols,[execinfo])
+AC_CHECK_FUNC(backtrace_symbols,[HAVE_BACKTRACE=1],[HAVE_BACKTRACE=0])
 
 #
 # Restore CFLAGS

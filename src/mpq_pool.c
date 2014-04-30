@@ -17,8 +17,8 @@
 #define MAX_MPQ_POOL_SIZE         (UINT32_MAX/sizeof(mpq_t))
 #define MPQ_BLOCK_SIZE            1024
 
-//turn off for helgrinding
-#define POOL_DEBUG  0
+// undefine for helgrinding; define for debugging 
+//#define POOL_DEBUG 
 
 typedef struct mpq_pool_block *mpq_pool_block_ptr;
 

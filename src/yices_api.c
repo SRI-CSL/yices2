@@ -81,11 +81,11 @@
  */
 yices_globals_t __yices_globals;
 
+
 /*
  * Thread Local Errors
  */
-
-#ifdef HAS_TLS
+#ifdef HAVE_TLS
 #define YICES_THREAD_LOCAL __thread
 #else
 #define YICES_THREAD_LOCAL 
@@ -806,11 +806,7 @@ static void delete_parsing_objects(void) {
 /*
  * Initialize the table of global objects
  */
-
-
-
 static void init_globals(yices_globals_t *glob) {
-
   /* first the global object, then the miscellaneous globals */
 
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
@@ -842,22 +838,19 @@ static void init_globals(yices_globals_t *glob) {
  * Reset all to NULL (and free up the memory)
  */
 static void clear_globals(yices_globals_t *glob) {
-
   free(glob->types);
   free(glob->terms);
   free(glob->manager);
-  //free(glob->pprods);    //bruno?
+  free(glob->pprods);
 
   glob->types = NULL;
   glob->terms = NULL;
   glob->manager = NULL;
-  //glob->pprods = NULL;    //bruno?
-
+  glob->pprods = NULL;
   
   destroy_yices_lock(&(glob->lock));
-
-
 }
+
 
 /*
  * Initialize all global objects
@@ -5893,15 +5886,21 @@ smt_status_t _o_yices_context_status(context_t *ctx) {
 
 /*
  * Reset: remove all assertions and restore ctx's status to IDLE
+ * Takes both locks because it accesses the term table internally.
  */
 
 /* locking version */
 EXPORTED  void yices_reset_context(context_t *ctx) {
-  yices_lock_t *lock = &(ctx->lock);
+  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *ctxlock = &(ctx->lock);
 
   get_yices_lock(lock);
 
+  get_yices_lock(ctxlock);
+
   _o_yices_reset_context(ctx);
+
+  release_yices_lock(ctxlock);
 
   release_yices_lock(lock);
 
