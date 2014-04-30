@@ -129,13 +129,14 @@ static void pp_buffer_push_varexp_array(pp_buffer_t *b, uint32_t n, varexp_t *a)
  * - n = size of the array.
  */
 static void isort_varexp_array(varexp_t *a, uint32_t n);
-static void qsort_varexp_array(varexp_t *a, uint32_t n);
+static void qsort_varexp_array(uint32_t *seed, varexp_t *a, uint32_t n);
 
 static inline void sort_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t seed = PRNG_DEFAULT_SEED;
   if (n <= 10) {
     isort_varexp_array(a, n);
   } else {
-    qsort_varexp_array(a, n);
+    qsort_varexp_array(&seed, a, n);
   }
 }
 
@@ -158,13 +159,13 @@ static void isort_varexp_array(varexp_t *a, uint32_t n) {
   }
 }
 
-static void qsort_varexp_array(varexp_t *a, uint32_t n) {
+static void qsort_varexp_array(uint32_t *seed, varexp_t *a, uint32_t n) {
   uint32_t i, j;
   int32_t pivot;
   varexp_t aux;
 
   // random pivot
-  i = random_uint(n);
+  i = random_uint(seed, n);
   aux = a[i];
   pivot = a[i].var;
 

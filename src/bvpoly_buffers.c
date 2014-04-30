@@ -805,14 +805,14 @@ static void isort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
 /*
  * Quick sort: requires h > l
  */
-static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
+static void qsort_buffer(uint32_t *seed, bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   uint32_t i, j;
   int32_t x;
 
   assert(h > l);
 
   // random pivot
-  i = l + random_uint(h - l);
+  i = l + random_uint(seed, h - l);
 
   // move it to position l
   swap_monomials(buffer, i, l);
@@ -838,10 +838,11 @@ static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
 
 
 static void sort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
+  uint32_t seed = PRNG_DEFAULT_SEED;
   if (h < l + 4) {
     isort_buffer(buffer, l, h);
   } else {
-    qsort_buffer(buffer, l, h);
+    qsort_buffer(&seed, buffer, l, h);
   }
 }
 

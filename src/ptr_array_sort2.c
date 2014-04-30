@@ -5,7 +5,7 @@
 #include "ptr_array_sort2.h"
 #include "prng.h"
 
-static void qsort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp);
+static void qsort_ptr_array2(uint32_t *seed, void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp);
 
 
 // insertion sort
@@ -26,20 +26,21 @@ static void isort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp
 }
 
 static inline void sort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp) {
+  uint32_t seed = PRNG_DEFAULT_SEED;
   if (n < 10) {
     isort_ptr_array2(a, n, data, cmp);
   } else {
-    qsort_ptr_array2(a, n, data, cmp);
+    qsort_ptr_array2(&seed, a, n, data, cmp);
   }
 }
 
 // quick sort: requires n > 1
-static void qsort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp) {
+static void qsort_ptr_array2(uint32_t *seed, void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp) {
   uint32_t i, j;
   void *x, *y;
 
   // x = random pivot
-  i = random_uint(n);
+  i = random_uint(seed, n);
   x = a[i];
 
   // swap x and a[0]
