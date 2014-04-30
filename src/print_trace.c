@@ -1,14 +1,17 @@
+/*
+ * Print_trace:
+ * - shows the stack if we have support for execinfo/backtrace_symbols.
+ * - no op otherwise
+ */
 
+#ifdef HAVE_BACKTRACE
 
-#if defined(MINGW) || defined(SOLARIS)
-void print_trace (void) { }
-#else
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <execinfo.h>
 
-void print_trace (void) {
+void print_trace(void) {
   void *array[10];
   size_t size;
   char **strings;
@@ -20,4 +23,11 @@ void print_trace (void) {
     fprintf (stderr, "%s\n", strings[i]);
   free (strings);
 } 
+
+#else
+
+// not supported
+void print_trace(void) {
+}
+
 #endif

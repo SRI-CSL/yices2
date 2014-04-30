@@ -341,10 +341,18 @@ endif
 
 #
 # Enable/disable support for TLS
-# HAS_TLS is set to 1 by configure if TLS is supported
+# HAVE_TLS is set to 1 by configure if TLS is supported
 #
-ifeq ($(HAS_TLS),1)
-  CPPFLAGS += -DHAS_TLS
+ifeq ($(HAVE_TLS),1)
+  CPPFLAGS += -DHAVE_TLS
+endif
+
+#
+# Enable/disable backtrace_symbols
+# HAVE_BACKTRACE is set to 1 by configure
+#
+ifeq ($(HAVE_BACKTRACE),1)
+  CPPFLAGS += -DHAVE_BACKTRACE
 endif
 
 

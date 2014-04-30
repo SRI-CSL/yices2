@@ -3,7 +3,7 @@
 
 #include "thread_error.h"
 
-#ifdef HAS_TLS
+#ifdef HAVE_TLS
 #define YICES_THREAD_LOCAL __thread
 #else
 #define YICES_THREAD_LOCAL static
