@@ -239,8 +239,6 @@ endif
 STATIC_LIBS := $(STATIC_GMP) $(subst -lgmp,,$(LIBS))
 
 
-
-
 # Dependency file
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
