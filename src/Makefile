@@ -619,9 +619,9 @@ endif
 # $(STATIC_GMP) does not work on Darwin and cygwin
 # We also use $(NOGMP_LIBS) to build yices_sat.
 #
-NOGMP_LIBS := $(subst $(LIBS),-lgmp,)
+NOGMP_LIBS := $(subst -lgmp,,$(LIBS))
 STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
-
+PIC_LIBS := $(PIC_GMP) $(NOGMP_LIBS)
 
 
 
@@ -758,7 +758,7 @@ $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
-	$(base_obj) $(version_obj) $(PIC_GMP) -lc
+	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
 	$(STRIP) -x $@
 
 
@@ -787,7 +787,7 @@ $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 	$(STRIP) -x $@
 
 
@@ -817,7 +817,7 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 	$(STRIP) $@
 
 
@@ -846,7 +846,7 @@ $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_GMP)
+	$(base_obj) $(version_obj) $(PIC_LIBS)
 	$(STRIP) -x $@
 
 # All objects
