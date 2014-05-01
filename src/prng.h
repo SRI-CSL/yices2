@@ -29,9 +29,8 @@ static inline void random_seed(uint32_t *seedp, uint32_t s) {
 }
 
 static inline uint32_t random_uint32(uint32_t *seedp) {
-  uint32_t x;
-  x = *seedp;
-  *seedp = *seedp * ((uint32_t) PRNG_MULTIPLIER) + ((uint32_t) PRNG_CONSTANT);
+  uint32_t x = *seedp;
+  *seedp = x * ((uint32_t) PRNG_MULTIPLIER) + ((uint32_t) PRNG_CONSTANT);
   return x;
 }
 
