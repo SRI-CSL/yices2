@@ -318,6 +318,8 @@ extern int32_t _o_yices_context_enable_option(context_t *ctx, const char *option
 
 extern smt_status_t _o_yices_context_status(context_t *ctx);
 
+extern uint32_t _o_yices_push_level(context_t *ctx);
+
 extern void _o_yices_reset_context(context_t *ctx);
 
 extern int32_t _o_yices_push(context_t *ctx);
@@ -338,6 +340,8 @@ extern void _o_yices_print_model(FILE *f, model_t *mdl);
 extern model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst);
 
 extern int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+extern int32_t _o_yices_pp_value_in_model(FILE *f, model_t *mdl, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
 extern int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
 

@@ -26,9 +26,13 @@ static int file_reader_next_char(reader_t *reader) {
     reader->column = 0;
   }
 
-  // getc_unlocked is unsafe in multithreading applications
-  // but it's much faster.
-#if defined(MINGW) || defined(SOLARIS)
+  /*
+   * getc_unlocked is unsafe in multithreading applications
+   * but it's much faster.
+   *
+   * BD: don't use getc_unlocked at all for this version.
+   */
+#if 1
   reader->current = getc(reader->input.stream);
 #else
   reader->current = getc_unlocked(reader->input.stream);

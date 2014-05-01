@@ -1252,9 +1252,15 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
  */
 
 /*
- * Create a new context
+ * Create a new context (without support for push/pop).
  */
 __YICES_DLLSPEC__ extern context_t *yices_new_context(void);
+
+
+/*
+ * Create a new context (with support for push/pop)
+ */
+__YICES_DLLSPEC__ extern context_t *yices_new_context_with_push(void);
 
 
 /*
@@ -1271,6 +1277,35 @@ __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
 
 
 /*
+ * Push: mark a backtrack point
+ * - return 0 if this operation is supported by the context
+ *         -1 otherwise
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if the context status is UNSAT or SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
+
+
+/*
+ * Pop: backtrack to the previous backtrack point (i.e., the matching
+ * call to yices_push).
+ * - return 0 if the operation succeeds, -1 otherwise.
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if there's no matching push (i.e., the context stack is empty)
+ *   or if the context's status is SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
+
+
+/*
  * Get status: return the context's status flag
  * - return one of the codes defined in yices_types.h,
  *   namely one of the constants
@@ -1284,6 +1319,14 @@ __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
  *
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
+
+
+/*
+ * Push level: return the size of the push/pop stack.
+ * - return 0 if the context is not configured for push/pop
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_push_level(context_t *ctx);
+
 
 /*
  * Assert formula t in ctx
@@ -1617,6 +1660,24 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  *
  * Other codes are possible depending on the specific evaluation function.
  */
+
+/*
+ * Evaluate t in mdl.  If that succeeds, print t's value.
+ * If t's value can't be computed, print nothing.
+ * - f = output file to use
+ * - width, height, offset define the print area
+ *
+ * return -1 on error, 0 otherwise.
+ *
+ * Error codes:
+ * - if t can't be evaluated:
+ *     code can be INVALID_TERM, EVAL_UNKNOWN_TERM, EVAL_FAILED
+ * - if writing to f failes:
+ *     code = OUTPUT_ERROR
+ *     in this case, errno, perror can be used for diagnosis.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_value_in_model(FILE *f, model_t *mdl, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
 
 /*
  * Value of boolean term t: returned as an integer val

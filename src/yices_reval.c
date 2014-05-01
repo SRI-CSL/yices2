@@ -34,6 +34,9 @@
 #include "yices_exit_codes.h"
 
 
+// FOR STATISTICS
+#include "bvsolver.h"
+
 // FOR DUMP
 #include "term_printer.h"
 #include "type_printer.h"
@@ -42,13 +45,6 @@
 #include "smt_core_printer.h"
 #include "context_printer.h"
 
-// FOR STATISTICS
-#include "bvsolver.h"
-
-#include "context.h"
-#include "models.h"
-#include "model_eval.h"
-#include "model_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_extensions.h"
@@ -812,33 +808,6 @@ static void print_internalization_code(int32_t code) {
 
 
 
-/***************************
- *  MODEL ALLOCATION/FREE  *
- **************************/
-
-/*
- * Allocate and initialize a model
- * - set has_alias true
- */
-static model_t *new_model(void) {
-  model_t *tmp;
-
-  tmp = (model_t *) safe_malloc(sizeof(model_t));
-  init_model(tmp, __yices_globals.terms, true);
-  return tmp;
-}
-
-
-/*
- * Free model
- */
-static void free_model(model_t *model) {
-  delete_model(model);
-  safe_free(model);
-}
-
-
-
 /****************************
  *  CONTEXT INITIALIZATION  *
  ***************************/
@@ -855,6 +824,7 @@ static void free_model(model_t *model) {
 static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   model = NULL;
   context = yices_create_context(arch, mode, iflag, qflag);
+  create_yices_lock(&parameters.lock); // needed
   yices_set_default_params(context, &parameters);
   if (verbose) {
     init_trace(&tracer);
@@ -873,9 +843,10 @@ static void delete_ctx(void) {
   assert(context != NULL);
   reset_handlers();
   if (model != NULL) {
-    free_model(model);
+    yices_free_model(model);
     model = NULL;
   }
+  destroy_yices_lock(&parameters.lock);
   yices_free_context(context);
   context = NULL;
 }
@@ -1602,7 +1573,7 @@ static void yices_help_cmd(const char *topic) {
  */
 static void yices_reset_cmd(void) {
   if (model != NULL) {
-    free_model(model);
+    yices_free_model(model);
     model = NULL;
   }
   reset_context(context);
@@ -1614,39 +1585,34 @@ static void yices_reset_cmd(void) {
  * Push
  */
 static void yices_push_cmd(void) {
-  if (! context_supports_pushpop(context)) {
-    report_error("push/pop not supported by this context");
-  } else {
-    switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      // cleanup model and return to IDLE
-      if (model != NULL) {
-        free_model(model);
-        model = NULL;
+  if (yices_push(context) < 0) {
+    // push failed
+    switch (yices_error_code()) {
+    case CTX_OPERATION_NOT_SUPPORTED:
+      report_error("push/pop not supported by this context");
+      break;
+
+    case CTX_INVALID_OPERATION:
+      if (yices_context_status(context) == STATUS_UNSAT) {
+	fputs("The context is unsat; (push) is not allowed\n", stderr);
+	fflush(stderr);
+      } else {
+	report_bug("unexpected context status in push");
       }
-      context_clear(context);
-      assert(context_status(context) == STATUS_IDLE);
-      // fall-through intended.
-
-    case STATUS_IDLE:
-      context_push(context);
-      print_ok();
       break;
 
-    case STATUS_UNSAT:
-      // cannot take (push)
-      fputs("The context is unsat; (push) is not allowed\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case INTERNAL_EXCEPTION:
     default:
-      // should not happen
-      report_bug("unexpected context status in push");
+      report_bug("unexpected error code returned by yices_push");
       break;
     }
+  } else {
+    // cleanup model
+    if (model != NULL) {
+      yices_free_model(model);
+      model = NULL;
+    }
+    print_ok();
   }
 }
 
@@ -1656,39 +1622,32 @@ static void yices_push_cmd(void) {
  * Pop
  */
 static void yices_pop_cmd(void) {
-  if (! context_supports_pushpop(context)) {
-    report_error("push/pop not supported by this context");
-  } else if (context_base_level(context) == 0) {
-    report_error("pop not allowed at bottom level");
-  } else {
-    switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      // delete the model first
-      if (model != NULL) {
-        free_model(model);
-        model = NULL;
+  if (yices_pop(context) < 0) {
+    // pop failed
+    switch (yices_error_code()) {
+    case CTX_OPERATION_NOT_SUPPORTED:
+      report_error("push/pop not supported by this context");
+      break;
+
+    case CTX_INVALID_OPERATION:
+      if (yices_push_level(context) == 0) {
+	report_error("pop not allowed at bottom level");
+      } else {
+	report_bug("unexpected context status in pop");
       }
-      context_clear(context);
-      assert(context_status(context) == STATUS_IDLE);
-      // fall-through intended
-    case STATUS_IDLE:
-      context_pop(context);
-      print_ok();
       break;
 
-    case STATUS_UNSAT:
-      context_clear_unsat(context);
-      context_pop(context);
-      print_ok();
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case INTERNAL_EXCEPTION:
     default:
-      report_bug("unexpected context status in pop");
+      report_bug("unexpected error code returned by yices_pop");
       break;
     }
+  } else {
+    if (model != NULL) {
+      yices_free_model(model);
+      model = NULL;
+    }
+    print_ok();
   }
 }
 
@@ -1709,7 +1668,7 @@ static void yices_assert_cmd(term_t f) {
     case STATUS_SAT:
       // cleanup then return to the idle state
       if (model != NULL) {
-        free_model(model);
+        yices_free_model(model);
         model = NULL;
       }
       context_clear(context);
@@ -1872,11 +1831,9 @@ static void yices_showmodel_cmd(void) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (model == NULL) {
-      model = new_model();
-      context_build_model(model, context);
+      model = yices_get_model(context, true);
+      assert(model != NULL);
     }
-    //    model_print(stdout, model);
-    //    model_print_full(stdout, model);
     if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
       report_system_error("stdout");
     }
@@ -1909,26 +1866,34 @@ static void yices_showmodel_cmd(void) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  evaluator_t evaluator;
-  value_t v;
-
   switch (context_status(context)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (model == NULL) {
-      model = new_model();
-      context_build_model(model, context);
+      model = yices_get_model(context, true);
+      assert(model != NULL);
     }
-    init_evaluator(&evaluator, model);
-    v = eval_in_model(&evaluator, t);
-    if (v >= 0) {
-      vtbl_print_object(stdout, model_get_vtbl(model), v);
-      fputc('\n', stdout);
-    } else {
-      fputs("unknown\n", stdout);
+    if (yices_pp_value_in_model(stdout, model, t, 140, UINT32_MAX, 0) < 0) {
+      // error
+      switch (yices_error_code()) {
+      case EVAL_UNKNOWN_TERM:
+      case EVAL_FAILED:
+	// evaluation failed
+	fputs("unknown\n", stdout);
+	fflush(stdout);
+	break;
+
+      case OUTPUT_ERROR:
+	// pretty-printing failed
+	report_system_error("stdout");
+	break;
+
+      default:
+	// should not happen
+	report_bug("unexpected error code returned by yices_pp_value_in_model");
+	break;
+      }
     }
-    fflush(stdout);
-    delete_evaluator(&evaluator);
     break;
 
   case STATUS_UNSAT:

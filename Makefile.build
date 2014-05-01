@@ -612,7 +612,8 @@ recheck:
 	@ echo "  RANLIB   = $(RANLIB)"
 	@ echo "  GPERF    = $(GPERF)"
 	@ echo "  STRIP    = $(STRIP)"
-	@ echo "  HAS_TLS  = $(HAS_TLS)"
+	@ echo "  HAVE_TLS  = $(HAVE_TLS)"
+	@ echo "  HAVE_BACKTRACE = $(HAVE_BACKTRACE)"
 	@ echo
 	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
 	@ echo

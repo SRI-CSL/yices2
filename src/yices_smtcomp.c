@@ -24,6 +24,7 @@
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_exit_codes.h"
+#include "yices_extensions.h"
 
 
 /*
@@ -69,8 +70,7 @@ static lexer_t lexer;
 static parser_t parser;
 static tstack_t stack;
 static smt_benchmark_t bench;
-static context_t context;
-static param_t params;
+static context_t *context;
 
 /*
  * Flag for signal handler
@@ -367,10 +367,10 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
 /*
  * Statistics on problem size, before the search
  */
-static void print_presearch_stats(FILE *f) {
+static void print_presearch_stats(FILE *f, context_t *context) {
   smt_core_t *core;
 
-  core = context.core;
+  core = context->core;
 
   fprintf(f, "boolean variables       : %"PRIu32"\n", core->nvars);
   fprintf(f, "atoms                   : %"PRIu32"\n", core->atoms.natoms);
@@ -438,7 +438,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
 /*
  * Statistics + result, after the search
  */
-static void print_results() {
+static void print_results(context_t *context) {
   smt_core_t *core;
   uint32_t resu;
   double mem_used;
@@ -449,14 +449,14 @@ static void print_results() {
       search_time = 0.0;
     }
 
-    core = context.core;
+    core = context->core;
 
     show_stats(&core->stats);
     fprintf(stderr, " boolean variables       : %"PRIu32"\n", core->nvars);
     fprintf(stderr, " atoms                   : %"PRIu32"\n", core->atoms.natoms);
 
-    if (context_has_bv_solver(&context)) {
-      show_bvsolver_stats(context.bv_solver);
+    if (context_has_bv_solver(context)) {
+      show_bvsolver_stats(context->bv_solver);
     }
 
     fprintf(stderr, "\nSearch time             : %.4f s\n", search_time);
@@ -468,7 +468,7 @@ static void print_results() {
     fflush(stderr);
   }
 
-  resu = context.core->status;
+  resu = context->core->status;
   if (resu == STATUS_SAT) {
     printf("sat\n");
   } else if (resu == STATUS_UNSAT) {
@@ -486,10 +486,10 @@ static void print_results() {
 /*
  * STATISTICS DISABLED: JUST PRINT THE RESULT
  */
-static void print_results() {
+static void print_results(context_t *context) {
   uint32_t resu;
 
-  resu = context.core->status;
+  resu = context->core->status;
 
   if (resu == STATUS_SAT) {
     printf("sat\n");
@@ -594,7 +594,7 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
  */
 static void handler(int signum) {
   if (context_exists) {
-    print_results();
+    print_results(context);
   }
   fprintf(stderr, "Interrupted by signal %d\n\n", signum);
   exit(YICES_EXIT_INTERRUPTED);
@@ -648,6 +648,8 @@ static void timeout_handler(void *p) {
  * - return an exit code (defined in yices_exit_codes.h)
  */
 static int process_benchmark(void) {
+  param_t *params;
+  model_t *model;
   int32_t code;
   smt_logic_t logic;  // logic code read from the file
 #if COMMAND_LINE_OPTIONS
@@ -680,9 +682,7 @@ static int process_benchmark(void) {
   /*
    * Parse and build the formula
    */
-  yices_init();
   init_smt_tstack(&stack);
-
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench); // code < 0 means syntax error, 0 means OK
@@ -729,37 +729,26 @@ static int process_benchmark(void) {
    * Initialize the context and set internalization options
    * and global search options
    */
-
-  // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-  //    enable_diseq_and_or_flattening(&context);  flatten makes things worse
-  init_params_to_defaults(&params);
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_BV, false);
-  enable_variable_elimination(&context);
-  enable_bvarith_elimination(&context);
-  disable_diseq_and_or_flattening(&context);
-  params.fast_restart = true;
-  params.c_factor = 1.1;
-  params.d_factor = 1.1;
-  params.randomness = 0.0;
-  // EXPERIMENT: faster restarts
-  params.c_factor = 1.05;
-  params.d_factor = 1.05;
+  context = yices_create_context(CTX_ARCH_BV, CTX_MODE_ONECHECK, false, false);
+  params = yices_new_param_record();
+  yices_set_default_params(context, params); // set parameters for QF_BV
+  context_exists = true;
 
 #if COMMAND_LINE_OPTIONS
   if (verbose) {
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 3);
-    context_set_trace(&context, &tracer);
+    context_set_trace(context, &tracer);
   }
 #endif
 
-  context_exists = true;
   /*
    * Assert and internalize
    */
-  code = assert_formulas(&context, bench.nformulas, bench.formulas);
-  print_internalization_code(code);
+  code = yices_assert_formulas(context, bench.nformulas, bench.formulas);
   if (code < 0) {
+    fprintf(stderr, "Assert formulas failed: ");
+    yices_print_error(stderr);
     code = YICES_EXIT_ERROR;
     goto cleanup_context;
   }
@@ -771,7 +760,7 @@ static int process_benchmark(void) {
      * Deal with verbosity, timeout, model, and statistics
      */
     if (verbose) {
-      print_presearch_stats(stderr);
+      print_presearch_stats(stderr, context);
     }
 
     start_search_time = get_cpu_time();
@@ -780,36 +769,23 @@ static int process_benchmark(void) {
       init_timeout();
       start_timeout(timeout, timeout_handler, &context);
     }
-    code = check_context(&context, &params);
+    code = yices_check_context(context, params);
     clear_handler();
     if (timeout > 0) {
       clear_timeout();
       delete_timeout();
     }
-    print_results();
+    print_results(context);
 
     if ((simple_model || full_model) && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
-      model_t *model;
-
       /*
        * if full_model is true, keep substitutions in the model
        * and print everything
        * otherwise, print a simple model (don't worry about eliminated variables)
        */
-      model = (model_t *) safe_malloc(sizeof(model_t));
-      init_model(model, __yices_globals.terms, full_model);
-      context_build_model(model, &context);
-      printf("\n");
-      if (full_model) {
-        model_print_full(stdout, model);
-      } else {
-        model_print(stdout, model);
-      }
-#if CHECK_MODEL
-      check_model(stdout, &bench, model);
-#endif
-      delete_model(model);
-      safe_free(model);
+      model = yices_get_model(context, full_model);
+      yices_print_model(stdout, model);
+      yices_free_model(model);
     }
 
 #else
@@ -819,9 +795,9 @@ static int process_benchmark(void) {
 #if SHOW_STATISTICS
     start_search_time = get_cpu_time();
 #endif
-    code = check_context(&context, &params);
+    code = yices_check_context(context, params);
     clear_handler();
-    print_results();
+    print_results(context);
 #endif
   }
 
@@ -831,7 +807,8 @@ static int process_benchmark(void) {
    * Cleanup and return code
    */
  cleanup_context:
-  delete_context(&context);
+  yices_free_context(context);
+  yices_free_param_record(params);
 #if COMMAND_LINE_OPTIONS
   if (verbose) {
     delete_trace(&tracer);
@@ -840,7 +817,6 @@ static int process_benchmark(void) {
 
  cleanup_benchmark:
   delete_benchmark(&bench);
-  yices_exit();
 
   return code;
 }
@@ -848,6 +824,8 @@ static int process_benchmark(void) {
 
 
 int main(int argc, char *argv[]) {
+  int code;
+
 #if SHOW_STATISTICS
   show_statistics = true; // can be overridden by parse_command_line if enabled
 #endif
@@ -856,6 +834,10 @@ int main(int argc, char *argv[]) {
   parse_command_line(argc, argv);
 #endif
 
-  return process_benchmark();
+  yices_init();
+  code = process_benchmark();
+  yices_exit();
+
+  return code;
 }
 

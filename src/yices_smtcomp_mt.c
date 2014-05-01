@@ -13,12 +13,10 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <inttypes.h>
-#include <gmp.h>
 
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "smt_term_stack.h"
-#include "context.h"
 #include "smt_logic_codes.h"
 
 #include "yices.h"
@@ -191,7 +189,7 @@ static int process_benchmark(smt_benchmark_t *benchp, bool build_model, smt_stat
   }
 
   if (code != TRIVIALLY_UNSAT) {
-    code = check_context(context, params);
+    code = yices_check_context(context, params);
     if (code == STATUS_ERROR) {
       fprintf(stderr, "Check context failed: ");
       yices_print_error(stderr);

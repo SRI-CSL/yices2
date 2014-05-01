@@ -88,11 +88,11 @@ yices_globals_t __yices_globals;
 #ifdef HAVE_TLS
 #define YICES_THREAD_LOCAL __thread
 #else
-#define YICES_THREAD_LOCAL 
+#define YICES_THREAD_LOCAL
 #endif
 
 static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
-static YICES_THREAD_LOCAL error_report_t  __yices_error; 
+static YICES_THREAD_LOCAL error_report_t  __yices_error;
 
 void init_yices_error(void){
   if(!__yices_error_initialized){
@@ -146,7 +146,7 @@ typedef struct {
 } bvarith_buffer_elem_t;
 
 static dl_list_t bvarith_buffer_list;
-static yices_lock_t  bvarith_buffer_lock; 
+static yices_lock_t  bvarith_buffer_lock;
 
 
 /*
@@ -237,7 +237,7 @@ static inline bvarith_buffer_t *bvarith_buffer(dl_list_t *l) {
  */
 static inline bvarith_buffer_t *alloc_bvarith_buffer(void) {
   bvarith_buffer_elem_t *new_elem;
-  
+
 
   new_elem = (bvarith_buffer_elem_t *) safe_malloc(sizeof(bvarith_buffer_elem_t));
 
@@ -428,7 +428,7 @@ static void free_bvlogic_buffer_list(void) {
   clear_list(&bvlogic_buffer_list);
 
   release_yices_lock(&bvlogic_buffer_lock);
-  
+
 }
 
 
@@ -483,7 +483,7 @@ static context_t *alloc_context(void) {
  */
 static void free_context(context_t *c) {
   dl_list_t *elem;
-  
+
   destroy_yices_lock(&(c->lock));
 
   elem = header_of_context(c);
@@ -493,8 +493,8 @@ static void free_context(context_t *c) {
   list_remove(elem);
   safe_free(elem);
 
-  release_yices_lock(&context_lock); 
- 
+  release_yices_lock(&context_lock);
+
 }
 
 
@@ -706,12 +706,12 @@ static void free_param_structure(param_t *p) {
   destroy_yices_lock(&(p->lock));
 
   /* remove the param_t object from the generic list */
-  
+
   get_yices_lock(&generic_lock);
-  
+
   list_remove(elem);
   safe_free(elem);
-  
+
   release_yices_lock(&generic_lock);
 }
 
@@ -748,7 +748,7 @@ static void free_generic_list(void) {
  * - s must be non-NULL, terminated by '\0'
  */
 static parser_t *get_parser(const char *s) {
-  
+
   if (__yices_globals.parser == NULL) {
     assert(__yices_globals.lexer == NULL && __yices_globals.tstack == NULL);
     __yices_globals.tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
@@ -812,7 +812,7 @@ static void init_globals(yices_globals_t *glob) {
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
   term_table_t *terms = (term_table_t *)safe_malloc(sizeof(term_table_t));
   term_manager_t *manager = (term_manager_t *)safe_malloc(sizeof(term_manager_t));
-  pprod_table_t *pprods = (pprod_table_t *)safe_malloc(sizeof(pprod_table_t));   
+  pprod_table_t *pprods = (pprod_table_t *)safe_malloc(sizeof(pprod_table_t));
 
   memset(types, 0, sizeof(type_table_t));
   memset(terms, 0, sizeof(term_table_t));
@@ -847,7 +847,7 @@ static void clear_globals(yices_globals_t *glob) {
   glob->terms = NULL;
   glob->manager = NULL;
   glob->pprods = NULL;
-  
+
   destroy_yices_lock(&(glob->lock));
 }
 
@@ -859,7 +859,7 @@ EXPORTED void yices_init(void) {
   type_table_t *types;
   term_table_t *terms;
   term_manager_t *manager;
-  pprod_table_t *pprods;   
+  pprod_table_t *pprods;
 
   // allocate the global table
   init_globals(&__yices_globals);
@@ -867,7 +867,7 @@ EXPORTED void yices_init(void) {
   types = __yices_globals.types;
   terms = __yices_globals.terms;
   manager = __yices_globals.manager;
-  pprods = __yices_globals.pprods;   
+  pprods = __yices_globals.pprods;
 
   init_yices_pp_tables();
   init_yices_lexer_table();
@@ -916,7 +916,7 @@ EXPORTED void yices_exit(void) {
   type_table_t *types = __yices_globals.types;
   term_table_t *terms = __yices_globals.terms;
   term_manager_t *manager = __yices_globals.manager;
-  pprod_table_t *pprods = __yices_globals.pprods;   
+  pprod_table_t *pprods = __yices_globals.pprods;
 
   // registries
   if (root_terms != NULL) {
@@ -1055,11 +1055,11 @@ bvarith_buffer_t *yices_new_bvarith_buffer(uint32_t n) {
   bvarith_buffer_t *retval;
 
   get_yices_lock(&(__yices_globals.lock));
-  
+
   retval = _o_yices_new_bvarith_buffer(n);
-  
+
   release_yices_lock(&(__yices_globals.lock));
-  
+
   return retval;
 }
 
@@ -1254,7 +1254,7 @@ static bool check_maxbvsize(uint32_t n) {
 // Check whether d is no more than YICES_MAX_DEGREE
 static bool check_maxdegree(uint32_t d) {
   error_report_t *error = get_yices_error();
- 
+
   if (d > YICES_MAX_DEGREE) {
     error->code = DEGREE_OVERFLOW;
     error->badval = d;
@@ -2112,7 +2112,7 @@ EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
 term_t _o_yices_bvconst_uint32(uint32_t n, uint32_t x) {
   term_t retval;
   bvconstant_t bv0;
- 
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -2156,7 +2156,7 @@ term_t _o_yices_bvconst_uint64(uint32_t n, uint64_t x) {
   init_bvconstant(&bv0);
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64(bv0.data, bv0.width, x);
-  
+
   retval =  mk_bv_constant(__yices_globals.manager, &bv0);
 
   delete_bvconstant(&bv0);
@@ -2193,9 +2193,9 @@ term_t _o_yices_bvconst_mpz(uint32_t n, mpz_t x) {
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_mpz(bv0.data, bv0.width, x);
-  
+
   retval = mk_bv_constant(__yices_globals.manager, &bv0);
-  
+
   delete_bvconstant(&bv0);
 
   return retval;
@@ -2232,11 +2232,11 @@ term_t _o_yices_bvconst_zero(uint32_t n) {
   }
 
  init_bvconstant(&bv0);
- 
+
  bvconstant_set_all_zero(&bv0, n);
- 
+
  retval =  mk_bv_constant(__yices_globals.manager, &bv0);
- 
+
  delete_bvconstant(&bv0);
  return retval;
 }
@@ -2259,7 +2259,7 @@ EXPORTED term_t yices_bvconst_one(uint32_t n) {
 term_t _o_yices_bvconst_one(uint32_t n) {
   term_t retval;
   bvconstant_t bv0;
-  
+
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -2270,7 +2270,7 @@ term_t _o_yices_bvconst_one(uint32_t n) {
   bvconst_set_one(bv0.data, bv0.width);
 
   retval = mk_bv_constant(__yices_globals.manager, &bv0);
-  
+
   delete_bvconstant(&bv0);
 
   return retval;
@@ -2399,7 +2399,7 @@ term_t _o_yices_parse_bvbin(const char *s) {
   n = (uint32_t) len;
 
   init_bvconstant(&bv0);
-  
+
 
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
@@ -2481,7 +2481,7 @@ term_t _o_yices_parse_bvhex(const char *s) {
     retval = mk_bv_constant(__yices_globals.manager, &bv0);
   }
 
-  
+
   delete_bvconstant(&bv0);
 
   return retval;
@@ -2865,7 +2865,7 @@ EXPORTED term_t yices_bvnot(term_t t1) {
 /* non-locking version */
 term_t _o_yices_bvnot(term_t t1) {
   term_manager_t *manager = __yices_globals.manager;
-  term_table_t *tbl = __yices_globals.terms;  
+  term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
 
   if (! check_good_term(manager, t1) ||
@@ -3191,7 +3191,7 @@ term_t _o_yices_shift_right0(term_t t, uint32_t n) {
   term_manager_t *manager = __yices_globals.manager;
   term_table_t *tbl = __yices_globals.terms;
   bvlogic_buffer_t *b;
- 
+
   if (! check_good_term(manager, t) ||
       ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
@@ -5628,7 +5628,7 @@ int32_t _o_yices_context_enable_option(context_t *ctx, const char *option) {
     r = -1;
     break;
   }
-  
+
   return r;
 }
 
@@ -5796,7 +5796,6 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
  *  CONTEXT OPERATIONS   *
  ************************/
 
-
 /*
  * Set the default preprocessing options for a context
  * - arch = architecture
@@ -5850,7 +5849,15 @@ EXPORTED context_t *yices_new_context(void) {
 
 
 /*
- * Delete ctx 
+ * Variant: add support for push/pop
+ */
+EXPORTED context_t *yices_new_context_with_push(void) {
+  return yices_create_context(CTX_ARCH_BV, CTX_MODE_MULTICHECKS, false, false);
+}
+
+
+/*
+ * Delete ctx
  */
 EXPORTED void yices_free_context(context_t *ctx) {
   delete_context(ctx);
@@ -5881,6 +5888,29 @@ EXPORTED smt_status_t yices_context_status(context_t *ctx) {
 /* non-locking version */
 smt_status_t _o_yices_context_status(context_t *ctx) {
   return context_status(ctx);
+}
+
+
+/*
+ * Get the push stack size
+ */
+/* locking version */
+EXPORTED uint32_t yices_push_level(context_t *ctx) {
+  yices_lock_t *lock = &(ctx->lock);
+  smt_status_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_push_level(ctx);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+uint32_t _o_yices_push_level(context_t *ctx) {
+  return context_base_level(ctx);
 }
 
 
@@ -5955,22 +5985,22 @@ int32_t _o_yices_push(context_t *ctx) {
     // fall-through intended
   case STATUS_IDLE:
     break;
-    
+
   case STATUS_UNSAT:
   case STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
     error->code = CTX_INVALID_OPERATION;
     return -1;
-    
+
   case STATUS_ERROR:
   default:
     error->code = INTERNAL_EXCEPTION;
     return -1;
   }
-  
+
   context_push(ctx);
   return 0;
-  
+
 }
 
 
@@ -6440,7 +6470,7 @@ smt_status_t _o_yices_check_context(context_t *ctx, const param_t *params) {
     stat = STATUS_ERROR;
     break;
   }
-  
+
   if (reclaim_lock){
     destroy_yices_lock(&(default_params.lock));
   }
@@ -6654,6 +6684,112 @@ static inline error_code_t yices_eval_error(value_t v) {
 
 
 /*
+ * Evaluate t in mdl.  If that succeeds, print t's value.
+ * If t's value can't be computed, print nothing.
+ * - f = output file to use
+ * - width, height, offset define the print area
+ *
+ * return -1 on error, 0 otherwise.
+ *
+ * Error codes:
+ * - if t can't be evaluated:
+ *     code can be INVALID_TERM, EVAL_UNKNOWN_TERM, EVAL_FAILED
+ * - if writing to f failes:
+ *     code = OUTPUT_ERROR
+ *     in this case, errno, perror can be used for diagnosis.
+ */
+
+/*
+ * pretty print value v on f:
+ * - return -1 if the pretty printing fails
+ * - return 0 otherwise
+ */
+static int32_t pp_value(FILE *f, value_table_t *vtbl, value_t v, uint32_t width, uint32_t height, uint32_t offset) {
+  error_report_t *error = get_yices_error();
+  yices_pp_t printer;
+  pp_area_t area;
+  int32_t code;
+
+  assert(good_object(vtbl, v));
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  vtbl_pp_object(&printer, vtbl, v);
+  flush_yices_pp(&printer);
+
+  // check for error
+  code = 0;
+  if (yices_pp_print_failed(&printer)) {
+    code = -1;
+    errno = yices_pp_errno(&printer);
+    error->code = OUTPUT_ERROR;
+  }
+  delete_yices_pp(&printer, false);
+
+  return code;
+}
+
+/* locking version */
+EXPORTED int32_t yices_pp_value_in_model(FILE *f, model_t *mdl, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  yices_lock_t *mdllock = &(mdl->lock);
+  int32_t retval;
+
+  get_yices_lock(lock);
+
+  get_yices_lock(mdllock);
+
+  retval = _o_yices_pp_value_in_model(f, mdl, t, width, height, offset);
+
+  release_yices_lock(mdllock);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+
+/* non-locking version */
+int32_t _o_yices_pp_value_in_model(FILE *f, model_t *mdl, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  error_report_t *error = get_yices_error();
+  term_manager_t *manager = __yices_globals.manager;
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_t v;
+
+  if (! check_good_term(manager, t) ||
+      ! check_boolean_term(manager, t)) {
+    return -1;
+  }
+
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);
+  }
+
+  if (v < 0) {
+    error->code = yices_eval_error(v);
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+
+  return pp_value(f, vtbl, v, width, height, offset);
+}
+
+
+
+/*
  * Value of boolean term t: returned as an integer val
  * - val = 0 means t is false in mdl
  * - val = 1 means t is true in mdl
@@ -6673,9 +6809,9 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   int32_t retval;
 
   get_yices_lock(lock);
- 
+
   get_yices_lock(mdllock);
- 
+
   retval = _o_yices_get_bool_value(mdl, t, val);
 
   release_yices_lock(mdllock);
@@ -6816,7 +6952,7 @@ EXPORTED int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val
 /*
  * Allocate and initialize the registry tables
  */
-static sparse_array_t *_o_get_root_terms(void) { 
+static sparse_array_t *_o_get_root_terms(void) {
   if (root_terms == NULL) {
     init_sparse_array(&the_root_terms, 0);
     root_terms = &the_root_terms;
@@ -6854,7 +6990,7 @@ EXPORTED int32_t yices_incref_term(term_t t) {
 /* non-locking version */
 int32_t _o_yices_incref_term(term_t t) {
   sparse_array_t *roots;
-  
+
 
   if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
@@ -6868,7 +7004,7 @@ int32_t _o_yices_incref_term(term_t t) {
   sparse_array_incr(roots, index_of(t));
 
   release_yices_lock(&root_lock);
-  
+
   return 0;
 }
 
@@ -6939,9 +7075,9 @@ int32_t _o_yices_decref_term(term_t t) {
     sparse_array_decr(root_terms, index_of(t));
     retval = 0;
   }
-  
+
   release_yices_lock(&root_lock);
-  
+
   return retval;
 }
 
@@ -7126,7 +7262,7 @@ static void context_list_gc_mark(void) {
     context_gc_mark(context_of_header(elem));
     elem = elem->next;
   }
- 
+
   release_yices_lock(&context_lock);
 
 }
