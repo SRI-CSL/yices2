@@ -129,7 +129,7 @@ extra_src_c := command_line.c cputime.c memsize.c timeout.c		\
                smt_core_exporter.c smt_core_printer.c smt_lexer.c	\
                smt_parser.c smt_term_stack.c smt2_lexer.c		\
                context_printer.c yices_help.c yices_reval.c             \
-               threads.c threadsafe.c print_trace.c stores.c thread_error.c 
+               threads.c threadsafe.c print_trace.c stores.c thread_error.c
 
 
 
@@ -455,10 +455,9 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-NOGMP_LIBS := $(subst $(LIBS),-lgmp,)
+NOGMP_LIBS := $(subst -lgmp,,$(LIBS))
 STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
 PIC_LIBS := $(PIC_GMP) $(NOGMP_LIBS)
-
 
 
 #################
@@ -596,7 +595,7 @@ $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
-	$(base_obj) $(version_obj) $(PIC_GMP) $(PIC_LIBS) -lc
+	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
 	$(STRIP) -x $@
 
 
@@ -836,6 +835,6 @@ clean:
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo "  PIC_GMP = $(PIC_GMP)"
 	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
-	@ echo
-
+	@ echo "  STATIC_LIBS = $(STATIC_LIBS)"
+	@ echo "  PIC_LIBS = $(PIC_LIBS)"
 
