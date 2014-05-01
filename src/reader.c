@@ -9,15 +9,6 @@
 #include "reader.h"
 
 
-/*
- * It seems that we need an explicit declaration of getc_unlocked on
- * Solaris (to avoid a compilation warning). Not sure whether this
- * is required on all Solaris versions?
- */
-#if defined(SOLARIS)
-extern int getc_unlocked(FILE *);
-#endif
-
 
 /*
  * Read and return the next char from a stream reader
@@ -37,7 +28,7 @@ static int file_reader_next_char(reader_t *reader) {
 
   // getc_unlocked is unsafe in multithreading applications
   // but it's much faster.
-#if defined(MINGW)
+#if defined(MINGW) || defined(SOLARIS)
   reader->current = getc(reader->input.stream);
 #else
   reader->current = getc_unlocked(reader->input.stream);
