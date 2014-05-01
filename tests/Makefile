@@ -91,13 +91,13 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
 else
@@ -110,12 +110,12 @@ ifeq ($(POSIXOS),linux)
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
 else
   PIC=-fPIC
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   STATIC=-static
 endif
 endif
@@ -236,9 +236,7 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
-
-
+STATIC_LIBS := $(STATIC_GMP) $(subst -lgmp,,$(LIBS))
 
 
 # Dependency file

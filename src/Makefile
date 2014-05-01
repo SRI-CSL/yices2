@@ -129,7 +129,7 @@ extra_src_c := command_line.c cputime.c memsize.c timeout.c		\
                smt_core_exporter.c smt_core_printer.c smt_lexer.c	\
                smt_parser.c smt_term_stack.c smt2_lexer.c		\
                context_printer.c yices_help.c yices_reval.c             \
-               threads.c threadsafe.c print_trace.c stores.c thread_error.c 
+               threads.c threadsafe.c print_trace.c stores.c thread_error.c
 
 
 
@@ -267,7 +267,7 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
@@ -278,7 +278,7 @@ ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -296,7 +296,7 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden  -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -306,7 +306,7 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden  -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -455,10 +455,9 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-NOGMP_LIBS := $(subst $(LIBS),-lgmp,)
+NOGMP_LIBS := $(subst -lgmp,,$(LIBS))
 STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
-
-
+PIC_LIBS := $(PIC_GMP) $(NOGMP_LIBS)
 
 
 #################
@@ -596,7 +595,7 @@ $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
-	$(base_obj) $(version_obj) $(PIC_GMP) -lc
+	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
 	$(STRIP) -x $@
 
 
@@ -625,7 +624,7 @@ $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 	$(STRIP) -x $@
 
 
@@ -655,7 +654,7 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 	$(STRIP) $@
 
 
@@ -684,7 +683,7 @@ $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_GMP)
+	$(base_obj) $(version_obj) $(PIC_LIBS)
 	$(STRIP) -x $@
 
 # All objects
@@ -836,6 +835,6 @@ clean:
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo "  PIC_GMP = $(PIC_GMP)"
 	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
-	@ echo
-
+	@ echo "  STATIC_LIBS = $(STATIC_LIBS)"
+	@ echo "  PIC_LIBS = $(PIC_LIBS)"
 
