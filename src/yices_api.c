@@ -6765,8 +6765,7 @@ int32_t _o_yices_pp_value_in_model(FILE *f, model_t *mdl, term_t t, uint32_t wid
   value_table_t *vtbl;
   value_t v;
 
-  if (! check_good_term(manager, t) ||
-      ! check_boolean_term(manager, t)) {
+  if (! check_good_term(manager, t)) {
     return -1;
   }
 
