@@ -435,6 +435,49 @@ static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_i
 
 
 /*
+ * Assert the bounds on t when t is an arithmetic, special if-then-else
+ * - x = arithmetic variable mapped to t in the arithmetic solver
+ */
+static void assert_ite_bounds(context_t *ctx, term_t t, thvar_t x) {
+  term_table_t *terms;
+  polynomial_t *p;
+  term_t lb, ub;
+  thvar_t map[2];
+
+  terms = ctx->terms;
+  assert(is_arithmetic_term(terms, t));
+
+  // get lower and upper bound on t. Both are rational constants
+  term_finite_domain_bounds(terms, t, &lb, &ub);
+
+  /*
+   * prepare polynomial p:
+   * first monomial is a constant, second monomial is either +t or -t
+   * map[0] = null (what's mapped to const_idx)
+   * map[1] = x = (what's mapped to t)
+   */
+  p = context_get_aux_poly(ctx, 3);
+  p->nterms = 2;
+  p->mono[0].var = const_idx;
+  p->mono[1].var = x;
+  p->mono[2].var = max_idx;
+  map[0] = null_thvar;
+  map[1] = x;
+
+
+  // first bound: t >= lb
+  q_set_neg(&p->mono[0].coeff, rational_term_desc(terms, lb)); // -lb
+  q_set_one(&p->mono[1].coeff); // +t
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true); // assert -lb + t >= 0
+
+  // second bound: t <= ub
+  q_set(&p->mono[0].coeff, rational_term_desc(terms, ub));  // +ub
+  q_set_minus_one(&p->mono[1].coeff);  // -t
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true); // assert +ub - t >= 0
+}
+
+
+/*
  * Convert a power product to an arithmetic variable
  */
 static thvar_t map_pprod_to_arith(context_t *ctx, pprod_t *p) {
@@ -1079,7 +1122,7 @@ static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
     l = map_poly_ge_to_literal(ctx, poly_term_desc(terms, t));
   } else {
     x = internalize_to_arith(ctx, t);
-    l =ctx->arith.create_ge_atom(ctx->arith_solver, x);
+    l = ctx->arith.create_ge_atom(ctx->arith_solver, x);
   }
 
   return l;
@@ -1588,9 +1631,16 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       break;
 
     case ITE_TERM:
+      x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
     case ITE_SPECIAL:
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      if (true) {
+	assert_ite_bounds(ctx, r, x);
+      }
       break;
 
     case APP_TERM:
