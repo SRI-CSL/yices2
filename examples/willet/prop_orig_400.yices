@@ -1,3 +1,5 @@
+(set-param eager-lemmas true)
+
 ;; center_bv/run_constraint1.m:5:14
 (define x0::bool)
 ;; center_bv/RunStats_noarith.m:24:16

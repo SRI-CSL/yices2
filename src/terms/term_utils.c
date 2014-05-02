@@ -251,7 +251,6 @@ static bool finite_domain_is_neg(term_table_t *tbl, finite_domain_t *d) {
 }
 
 
-
 /*
  * Check whether all elements in t's domain are non-negative
  * - t must be a special if-then-else of arithmetic type
@@ -278,6 +277,54 @@ bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {
 }
 
 
+/*
+ * Check whether t < u
+ * - both must be arithmetic constants (rationals)
+ */
+static bool arith_constant_lt(term_table_t *tbl, term_t t, term_t u) {
+  return q_lt(rational_term_desc(tbl, t), rational_term_desc(tbl, u));
+}
+
+/*
+ * Compute the lower and upper bounds on domain d
+ * - d must be a non-empty arithmetic domain
+ * - the lower bound is stored in *lb
+ * - the upper bound is stored in *ub
+ */
+static void finite_domain_bounds(term_table_t *tbl, finite_domain_t *d, term_t *lb, term_t *ub) {
+  uint32_t i, n;
+  term_t t, min, max;
+
+  n = d->nelems;
+  assert(n > 0);
+  min = d->data[0];
+  max = d->data[1];
+  for (i=1; i<n; i++) {
+    t = d->data[i];
+    if (arith_constant_lt(tbl, t, min)) {
+      min = t;
+    } else if (arith_constant_lt(tbl, max, t)) {
+      max = t;
+    }
+  }
+
+  *lb = min;
+  *ub = max;
+}
+
+
+/*
+ * Compute the lower and upper bound for term t
+ * - t must be a special if-then-else term of arithmetic type
+ * - the domain is computed if required
+ * - the lower bound is stored in *lb and the upper bound is stored in *ub
+ */
+void term_finite_domain_bounds(term_table_t *tbl, term_t t, term_t *lb, term_t *ub) {
+  finite_domain_t *d;
+
+  d = special_ite_get_finite_domain(tbl, t);
+  finite_domain_bounds(tbl, d, lb, ub);
+}
 
 
 

@@ -81,7 +81,7 @@ extern bool term_has_negative_finite_domain(term_table_t *tbl, term_t t);
 
 
 /*
- * Check whether all elements in t's domain are negative
+ * Check whether all elements in t's domain are non-zero
  * - t must be a special if-then-else term of arithmetic type
  * - the domain of t is computed if required
  */
@@ -91,8 +91,14 @@ static inline bool term_has_nonzero_finite_domain(term_table_t *tbl, term_t t) {
 }
 
 
-
-
+/*
+ * Compute the lower and upper bound of t's domain
+ * - t must be a special if-then-else term of arithmetic type
+ * - the domain of t is computed if needed
+ * - the lower bound is stored in *lb and the upper bound is stored in *ub
+ *   (both are ARITH_CONSTANT terms)
+ */
+extern void term_finite_domain_bounds(term_table_t *tbl, term_t t, term_t *lb, term_t *ub);
 
 
 /*
