@@ -40,13 +40,14 @@ static int bool_rank(x) {
 }
 
 static void isort_terms(uint32_t n, term_t *a);
-static void qsort_terms(uint32_t n, term_t *a);
+static void qsort_terms(uint32_t *seed, uint32_t n, term_t *a);
 
 static inline void sort_terms(uint32_t n, term_t *a) {
+  uint32_t seed = PRNG_DEFAULT_SEED;
   if (n <= 10) {
     isort_terms(n, a);
   } else {
-    qsort_terms(n, a);
+    qsort_terms(&seed, n, a);
   }
 }
 
@@ -69,7 +70,7 @@ static void isort_terms(uint32_t n, term_t *a) {
   }
 }
 
-static void qsort_terms(uint32_t n, term_t *a) {
+static void qsort_terms(uint32_t *seed, uint32_t n, term_t *a) {
   uint32_t i, j, r;
   term_t x, y;
 
@@ -77,7 +78,7 @@ static void qsort_terms(uint32_t n, term_t *a) {
   //  if (n <= 1) return;
 
   // random pivot
-  i = random_uint(n);
+  i = random_uint(seed, n);
   x = a[i];
   r = bool_rank(x);
 

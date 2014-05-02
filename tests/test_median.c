@@ -31,16 +31,18 @@ static inline long int random(void) {
 static int32_t median(int32_t *a, uint32_t n) {
   uint32_t low, high, half, i, j;
   int32_t pivot, aux;
+  uint32_t seed; // for prng
 
   assert(n > 0);
 
   half = n/2;
   low = 0;
   high = n;
+  seed = PRNG_DEFAULT_SEED;
 
   do {
     // pick a random pivot in a[low ... high - 1]
-    i = low + random_uint(high - low);
+    i = low + random_uint(&seed, high - low);
     pivot = a[i];
 
     // store pivot in a[low]

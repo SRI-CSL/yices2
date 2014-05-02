@@ -36,12 +36,12 @@ static void isort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
 
 
 // preconditions: n > 0
-static void qsort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
+static void qsort_by_rank(uint32_t *seed, bddvar_t *a, uint32_t n, uint32_t *rank) {
   uint32_t i, j, r;
   bddvar_t x, y;
 
   // x = randomly picked pivot
-  i = random_uint(n);
+  i = random_uint(seed, n);
   x = a[i];
   r = rank[x];
 
@@ -72,10 +72,13 @@ static void qsort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
 }
 
 static void sort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
+  uint32_t seed;
+
   if (n <= 10) {
     isort_by_rank(a, n, rank);
   } else {
-    qsort_by_rank(a, n, rank);
+    seed = PRNG_DEFAULT_SEED;
+    qsort_by_rank(&seed, a, n, rank);
   }
 }
 
@@ -108,11 +111,13 @@ static void check_sorted_array(bddvar_t *a, uint32_t n, uint32_t *rank) {
 /*
  * Random ranks
  */
+static uint32_t rseed = PRNG_DEFAULT_SEED;
+
 static void random_ranks(uint32_t n, uint32_t *rank) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    rank[i] = random_uint(50);
+    rank[i] = random_uint(&rseed, 50);
   }
 }
 
