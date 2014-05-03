@@ -940,7 +940,6 @@ void yices_reset_tables(void) {
  * They are exported to be used by other yices modules.
  */
 
-
 /*
  * Short cuts: extract manager components
  */
@@ -972,8 +971,6 @@ static inline bvarith64_buffer_t *get_bvarith64_buffer(void) {
 static inline bvlogic_buffer_t *get_bvlogic_buffer(void) {
   return term_manager_get_bvlogic_buffer(&manager);
 }
-
-
 
 
 /*
