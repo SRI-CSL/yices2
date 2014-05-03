@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <inttypes.h>
 
 #include "utils/command_line.h"
@@ -198,6 +199,52 @@ static void parse_command_line(int argc, char *argv[]) {
   return;
 }
 
+/********************
+ *  SIGNAL HANDLER  *
+ *******************/
+
+/*
+ * We call exit on SIGINT/ABORT and XCPU
+ * - we could try to handle SIGINT more gracefully in interactive mode
+ * - this will do for now.
+ */
+static void default_handler(int signum) {
+  if (verbosity > 0) {
+    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
+    fflush(stderr);
+  }
+  exit(YICES_EXIT_INTERRUPTED);
+}
+
+
+/*
+ * Initialize the signal handlers
+ */
+static void init_handlers(void) {
+  signal(SIGINT, default_handler);
+  signal(SIGABRT, default_handler);
+#ifndef MINGW
+  signal(SIGXCPU, default_handler);
+#endif
+}
+
+
+/*
+ * Reset the default handlers
+ */
+static void reset_handlers(void) {
+  signal(SIGINT, SIG_DFL);
+  signal(SIGABRT, SIG_DFL);
+#ifndef MINGW
+  signal(SIGXCPU, SIG_DFL);
+#endif
+}
+
+
+
+/**********
+ *  MAIN  *
+ *********/
 
 int main(int argc, char *argv[]) {
   int32_t code;
@@ -214,6 +261,8 @@ int main(int argc, char *argv[]) {
     // read from stdin
     init_smt2_stdin_lexer(&lexer);
   }
+
+  init_handlers();
 
   yices_init();
   init_smt2(!incremental, interactive);
@@ -249,6 +298,8 @@ int main(int argc, char *argv[]) {
   delete_tstack(&stack);
   delete_smt2();
   yices_exit();
+
+  reset_handlers();
 
   return YICES_EXIT_SUCCESS;
 }
