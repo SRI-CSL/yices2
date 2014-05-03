@@ -450,6 +450,18 @@ static void assert_ite_bounds(context_t *ctx, term_t t, thvar_t x) {
   // get lower and upper bound on t. Both are rational constants
   term_finite_domain_bounds(terms, t, &lb, &ub);
 
+#if 0
+  printf("assert ite bound:\n  term: ");
+  print_term_name(stdout, terms, t);
+  printf("\n");
+  printf("  lower bound: ");
+  print_term_full(stdout, terms, lb);
+  printf("\n");
+  printf("  upper bound: ");
+  print_term_full(stdout, terms, ub);
+  printf("\n");
+#endif
+
   /*
    * prepare polynomial p:
    * first monomial is a constant, second monomial is either +t or -t
@@ -459,7 +471,7 @@ static void assert_ite_bounds(context_t *ctx, term_t t, thvar_t x) {
   p = context_get_aux_poly(ctx, 3);
   p->nterms = 2;
   p->mono[0].var = const_idx;
-  p->mono[1].var = x;
+  p->mono[1].var = t;
   p->mono[2].var = max_idx;
   map[0] = null_thvar;
   map[1] = x;

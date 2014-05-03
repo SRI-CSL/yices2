@@ -13,6 +13,24 @@
 #include "utils/int_hash_sets.h"
 #include "terms/term_utils.h"
 
+#if 0
+
+#include <stdio.h>
+#include <inttypes.h>
+#include "term_printer.h"
+
+static void print_finite_domain(FILE *f, term_table_t *tbl, finite_domain_t *d) {
+  uint32_t i, n;
+
+  n = d->nelems;
+  fputs("[", f);
+  for (i=0; i<n; i++) {
+    if (i > 0) fputs(" ", f);
+    print_term(f, tbl, d->data[i]);
+  }
+  fputs("]", f);
+}
+#endif
 
 
 
@@ -298,7 +316,7 @@ static void finite_domain_bounds(term_table_t *tbl, finite_domain_t *d, term_t *
   n = d->nelems;
   assert(n > 0);
   min = d->data[0];
-  max = d->data[1];
+  max = d->data[0];
   for (i=1; i<n; i++) {
     t = d->data[i];
     if (arith_constant_lt(tbl, t, min)) {
@@ -323,6 +341,13 @@ void term_finite_domain_bounds(term_table_t *tbl, term_t t, term_t *lb, term_t *
   finite_domain_t *d;
 
   d = special_ite_get_finite_domain(tbl, t);
+
+#if 0
+  printf("finite domain for term %"PRId32"\n", t);
+  print_finite_domain(stdout, tbl, d);
+  printf("\n");
+#endif
+
   finite_domain_bounds(tbl, d, lb, ub);
 }
 
