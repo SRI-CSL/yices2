@@ -884,10 +884,9 @@ static inline bool live_term(term_table_t *table, term_t t) {
   return live_term_idx(table, index_of(t));
 }
 
-static inline bool good_term(term_table_t *table, term_t t) {
-  return good_term_idx(table, index_of(t)) &&
-    (is_pos_term(t) || type_for_idx(table, index_of(t)) == bool_id);
-}
+// good_term means good_term_index
+// and polarity = 0 (unless t is Boolean)
+extern bool good_term(term_table_t *table, term_t t);
 
 static inline bool bad_term(term_table_t *table, term_t t) {
   return ! good_term(table, t);

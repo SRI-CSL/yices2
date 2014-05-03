@@ -1770,6 +1770,18 @@ pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p) {
 }
 
 
+/*
+ * CHECKS ON TERMS
+ */
+
+/*
+ * Good term: valid descriptor + polarity = 0 unless
+ * t is a Boolean term.
+ */
+bool good_term(term_table_t *table, term_t t) {
+  return good_term_idx(table, index_of(t)) &&
+    (is_pos_term(t) || type_for_idx(table, index_of(t)) == bool_id);
+}
 
 
 
