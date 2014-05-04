@@ -1650,7 +1650,7 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
     case ITE_SPECIAL:
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
-      if (true) {
+      if (false) {
 	assert_ite_bounds(ctx, r, x);
       }
       break;
