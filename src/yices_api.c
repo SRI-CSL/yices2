@@ -5650,7 +5650,7 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
 
   case CTX_OPTION_BVARITH_ELIM:
-    enable_bvarith_elimination(ctx);
+    disable_bvarith_elimination(ctx);
     break;
 
   case CTX_OPTION_FLATTEN:
