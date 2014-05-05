@@ -908,9 +908,10 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
   uint32_t n;
   int32_t code;
 
-  // FOR TESTING ONLY
-  ef_build_implicant(solver, i);
-  //
+  // change to true for testing the implicant construction
+  if (false) {
+    ef_build_implicant(solver, i);
+  }
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
@@ -1063,8 +1064,8 @@ static void ef_solver_search(ef_solver_t *solver) {
 	 ef_prob_num_evars(solver->prob),
 	 ef_prob_num_uvars(solver->prob));
 
-  printf("\nConditions on the exists variables:\n");
-  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
+  //  printf("\nConditions on the exists variables:\n");
+  //  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
 #endif
 
   ef_solver_start(solver);

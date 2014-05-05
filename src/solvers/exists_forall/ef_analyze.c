@@ -106,6 +106,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->disjuncts, 64);
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
+  init_ivector(&ef->aux, 10);
 }
 
 
@@ -120,6 +121,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->disjuncts);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
+  ivector_reset(&ef->aux);
 }
 
 
@@ -134,6 +136,7 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->disjuncts);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
+  delete_ivector(&ef->aux);
 }
 
 
@@ -149,6 +152,85 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
 static void ef_push_term(ef_analyzer_t *ef, term_t t) {
   if (int_hset_add(&ef->cache, t)) {
     int_queue_push(&ef->queue, t);
+  }
+}
+
+
+/*
+ * Check whether we should apply distributivity to (or a[0] .... a[n-1)
+ * - heuristic: return true if exactly one of a[i] is a conjunct
+ */
+static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
+  term_table_t *terms;
+  uint32_t i, n;
+  bool result;
+  term_t t;
+
+  terms = ef->terms;
+  result = false;
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    t = d->arg[i];
+    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
+      // t is not (or ...) i.e., a conjunct
+      result = !result;
+      if (!result) break;  // second conjunct
+    }
+  }
+
+  return result;
+}
+
+/*
+ * Apply distributivity and flatten
+ * - this function rewrites
+ *     (or a[0] ... a[n-2] (and b[0] ... b[m-1]))
+ *   to (and (or a[0] ... a[n-2] b[0])
+ *            ...
+ *           (or a[0] ... a[n-2] b[m-1]))
+ *   then push all terms
+ *      (or a[0] ... a[n-1] b[j]) to the queue
+ *
+ * - the rewriting is applied to the first a[j] that's a conjunct.
+ */
+static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
+  term_table_t *terms;
+  composite_term_t *b;
+  ivector_t *v;
+  uint32_t i, n;
+  term_t t;
+
+  terms = ef->terms;
+  v = &ef->aux;
+  ivector_reset(v);
+  ivector_push(v, NULL_TERM); // place holder
+
+  /*
+   * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
+   * - store that term's descriptor in b
+   * - copy all the other subterms a[j] into vector v
+   */
+  b = NULL;
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    t = d->arg[i];
+    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
+      b = or_term_desc(terms, t);
+    } else {
+      ivector_push(v, t);
+    }
+  }
+
+  /*
+   * a[j] is (not (or b[0] ... b[k])) == not b
+   * v contains a[0] ... a[n-1] for i/=j
+   */
+  assert(b != NULL && v->size == n);
+  n = b->arity;
+  for (i=0; i<n; i++) {
+    v->data[0] = opposite_term(b->arg[i]);   // this is not b[i]
+    t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
+    ef_push_term(ef, t);
   }
 }
 
@@ -224,16 +306,19 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
       break;
 
     case OR_TERM:
+      d = or_term_desc(terms, t);
       if (is_neg_term(t)) {
 	/*
 	 * t is (not (or a[0] ... a[n-1]))
 	 * it flattens to (and (not a[0]) ... (not a[n-1]))
 	 */
-	d = or_term_desc(terms, t);
 	n = d->arity;
 	for (i=0; i<n; i++) {
 	  ef_push_term(ef, opposite_term(d->arg[i]));
 	}
+	continue;
+      } else if (ef_distribute_is_cheap(ef, d)) {
+	ef_flatten_distribute(ef, d);
 	continue;
       }
       break;
@@ -1002,7 +1087,6 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     printf("\nAFTER SIMPLIFICATION\n\n");
     print_ef_clause(stdout, c);
 #endif
-    //    ef_simplify_clause(ef, c);
 
     // build the assumption: not (or c->assumptions)
     a = opposite_term(ef_make_or(ef, &c->assumptions));
