@@ -78,7 +78,14 @@ typedef enum {
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
  *
- * PSEUDO_INVERSE is based on Brummayer's thesis (Boolector stuff).
+ * PSEUDO_INVERSE is based on Brummayer's thesis (Boolector stuff)
+ * - not implemented yet
+ *
+ * ITE_BOUNDS: for a special if-then-else termt t (i.e., if-then-else
+ * term with constant leaves), compute the lower and upper bound on t
+ * and assert that t is between these two bounds. Example: for t =
+ * (ite c 0 1), assert (0 <= t <= 1), and similar for nested
+ * if-then-elses.
  *
  * Options passed to the simplex solver when it's created
  * - EAGER_LEMMAS
@@ -99,12 +106,13 @@ typedef enum {
 #define BVARITHELIM_OPTION_MASK         0x400
 #define BREAKSYM_OPTION_MASK            0x800
 #define PSEUDO_INVERSE_OPTION_MASK      0x1000
-
+#define ITE_BOUNDS_OPTION_MASK          0x2000
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
   EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
-  BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK)
+  BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK|\
+  ITE_BOUNDS_OPTION_MASK)
 
 // SIMPLEX OPTIONS
 #define SPLX_EGRLMAS_OPTION_MASK  0x10000
@@ -1323,6 +1331,14 @@ static inline void disable_pseudo_inverse_simplification(context_t *ctx) {
   ctx->options &= ~PSEUDO_INVERSE_OPTION_MASK;
 }
 
+static inline void enable_assert_ite_bounds(context_t *ctx) {
+  ctx->options |= ITE_BOUNDS_OPTION_MASK;
+}
+
+static inline void disable_assert_ite_bounds(context_t *ctx) {
+  ctx->options &= ~ITE_BOUNDS_OPTION_MASK;
+}
+
 
 /*
  * Simplex-related options
@@ -1372,6 +1388,10 @@ static inline bool context_breaksym_enabled(context_t *ctx) {
 
 static inline bool context_pseudo_inverse_enabled(context_t *ctx) {
   return (ctx->options & PSEUDO_INVERSE_OPTION_MASK) != 0;
+}
+
+static inline bool context_ite_bounds_enabled(context_t *ctx) {
+  return (ctx->options & ITE_BOUNDS_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {
