@@ -2206,6 +2206,11 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *   break-symmetries: attempt to detect symmetries and add constraints
  *   to remove them (this can be used only if the context is created for QF_UF)
  *
+ *   assert-ite-bounds: try to determine upper and lower bound on if-then-else
+ *   terms and assert these bounds. For example, if term t is defined as
+ *   (ite c 10 (ite d 3 20)), then the context with include the assertion
+ *   3 <= t <= 20.
+ *
  * The parameter must be given as a string. For example, to disable var-elim,
  * call  yices_context_disable_option(ctx, "var-elim")
  *

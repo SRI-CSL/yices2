@@ -5480,9 +5480,10 @@ typedef enum ctx_option {
   CTX_OPTION_BREAK_SYMMETRIES,
   CTX_OPTION_KEEP_ITE,
   CTX_OPTION_EAGER_ARITH_LEMMAS,
+  CTX_OPTION_ASSERT_ITE_BOUNDS,
 } ctx_option_t;
 
-#define NUM_CTX_OPTIONS (CTX_OPTION_EAGER_ARITH_LEMMAS+1)
+#define NUM_CTX_OPTIONS (CTX_OPTION_ASSERT_ITE_BOUNDS+1)
 
 
 /*
@@ -5490,6 +5491,7 @@ typedef enum ctx_option {
  */
 static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
   "arith-elim",
+  "assert-ite-bounds",
   "break-symmetries",
   "bvarith-elim",
   "eager-arith-lemmas",
@@ -5505,6 +5507,7 @@ static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
  */
 static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
   CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_ASSERT_ITE_BOUNDS,
   CTX_OPTION_BREAK_SYMMETRIES,
   CTX_OPTION_BVARITH_ELIM,
   CTX_OPTION_EAGER_ARITH_LEMMAS,
@@ -5556,6 +5559,10 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
     enable_splx_eager_lemmas(ctx);
     break;
 
+  case CTX_OPTION_ASSERT_ITE_BOUNDS:
+    enable_assert_ite_bounds(ctx);
+    break;
+
   default:
     assert(k == -1);
     // not recognized
@@ -5586,7 +5593,7 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
 
   case CTX_OPTION_BVARITH_ELIM:
-    enable_bvarith_elimination(ctx);
+    disable_bvarith_elimination(ctx);
     break;
 
   case CTX_OPTION_FLATTEN:
@@ -5606,7 +5613,11 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
 
   case CTX_OPTION_EAGER_ARITH_LEMMAS:
-    enable_splx_eager_lemmas(ctx);
+    disable_splx_eager_lemmas(ctx);
+    break;
+
+  case CTX_OPTION_ASSERT_ITE_BOUNDS:
+    disable_assert_ite_bounds(ctx);
     break;
 
   default:
@@ -5686,6 +5697,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   enable_eq_abstraction(ctx);
   enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
+  enable_assert_ite_bounds(ctx);
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
