@@ -571,7 +571,7 @@ typedef struct dl_data_s {
  *************/
 
 struct context_s {
-    // mode + architecture + logic code
+  // mode + architecture + logic code
   context_mode_t mode;
   context_arch_t arch;
   smt_logic_t logic;
