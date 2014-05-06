@@ -5719,8 +5719,15 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
     disable_diseq_and_or_flattening(ctx);
     break;
 
+  case CTX_ARCH_SPLX:
+    /// PROVISIONAL. FOR BENCHMARKING WITH ASSERT_ITE_BOUNDS
+    enable_splx_eager_lemmas(ctx);
+    break;
+
   case CTX_ARCH_EGSPLX:
   case CTX_ARCH_EGFUNSPLX:
+    /// PROVISIONAL. FOR BENCHMARKING WITH ASSERT_ITE_BOUNDS
+    enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
     enable_splx_eqprop(ctx);
     break;
