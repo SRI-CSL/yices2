@@ -178,6 +178,7 @@ static void pp_term_vector(yices_pp_t *printer, term_table_t *terms, ivector_t *
   pp_term_array(printer, terms, v->data, v->size);
 }
 
+
 /*
  * Pretty print the result of flattening + variable elimination
  */

@@ -4432,16 +4432,130 @@ int32_t context_internalize(context_t *ctx, term_t t) {
   int code;
   literal_t l;
 
+  ivector_reset(&ctx->top_eqs);
+  ivector_reset(&ctx->top_atoms);
+  ivector_reset(&ctx->top_formulas);
+  ivector_reset(&ctx->top_interns);
+  ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_eqs);
+
   code = setjmp(ctx->env);
   if (code == 0) {
     l = internalize_to_literal(ctx, t);
   } else {
     assert(code < 0);
+    /*
+     * Clean up
+     */
+    ivector_reset(&ctx->aux_vector);
+    reset_istack(&ctx->istack);
+    int_queue_reset(&ctx->queue);
+    context_free_subst(ctx);
+    context_free_marks(ctx);
     l = code;
   }
 
   return l;
 }
+
+
+/*
+ * PROVISIONAL: FOR TESTING/DEBUGGING
+ */
+
+/*
+ * Preprocess formula f or array of formulas f[0 ... n-1]
+ * - this does flattening + build substitutions
+ * - return code: as in assert_formulas
+ * - the result is stored in the internal vectors
+ *     ctx->top_interns
+ *     ctx->top_eqs
+ *     ctx->top_atoms
+ *     ctx->top_formulas
+ *   + ctx->intern stores substitutions
+ */
+int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
+  uint32_t i;
+  int code;
+
+  ivector_reset(&ctx->top_eqs);
+  ivector_reset(&ctx->top_atoms);
+  ivector_reset(&ctx->top_formulas);
+  ivector_reset(&ctx->top_interns);
+  ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_eqs);
+
+  code = setjmp(ctx->env);
+  if (code == 0) {
+    // flatten
+    for (i=0; i<n; i++) {
+      flatten_assertion(ctx, f[i]);
+    }
+
+    /*
+     * At this point, the assertions are stored into the vectors
+     * top_eqs, top_atoms, top_formulas, and top_interns
+     * - more top-level equalities may be in subst_eqs
+     * - ctx->intern stores the internalized terms and the variable
+     *   substitutions.
+     */
+
+    // optional processing
+    switch (ctx->arch) {
+    case CTX_ARCH_EG:
+      if (context_breaksym_enabled(ctx)) {
+	break_uf_symmetries(ctx);
+      }
+      if (context_eq_abstraction_enabled(ctx)) {
+        analyze_uf(ctx);
+      }
+      if (ctx->aux_eqs.size > 0) {
+	process_aux_eqs(ctx);
+      }
+      break;
+
+    case CTX_ARCH_AUTO_IDL:
+      analyze_diff_logic(ctx, true);
+      create_auto_idl_solver(ctx);
+      break;
+
+    case CTX_ARCH_AUTO_RDL:
+      analyze_diff_logic(ctx, false);
+      create_auto_rdl_solver(ctx);
+      break;
+
+    default:
+      break;
+    }
+
+
+    /*
+     * Process the candidate variable substitutions if any
+     */
+    if (ctx->subst_eqs.size > 0) {
+      context_process_candidate_subst(ctx);
+    }
+
+    code = CTX_NO_ERROR;
+
+  } else {
+    /*
+     * Exception: return from longjmp(ctx->env, code);
+     */
+    ivector_reset(&ctx->aux_vector);
+    reset_istack(&ctx->istack);
+    int_queue_reset(&ctx->queue);
+    context_free_subst(ctx);
+    context_free_marks(ctx);
+  }
+
+  return code;
+}
+
+int32_t context_process_formula(context_t *ctx, term_t f) {
+  return context_process_formulas(ctx, 1, &f);
+}
+
 
 
 /*

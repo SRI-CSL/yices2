@@ -43,6 +43,9 @@
 #include "yices_globals.h"
 
 
+//// PROVISIONAL
+extern void pp_context(FILE *f, context_t *ctx);
+//// DONE
 
 /*
  * NAME STACKS
@@ -2163,6 +2166,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
+#if 0
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
       // error during assertion processing
@@ -2196,6 +2200,18 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       bad_status_bug(g->err);
       break;
     }
+#else
+    /*
+     * FOR TESTING: DISPLAY THE ASSERTIONS
+     * (Preprocess then print)
+     */
+    code = context_process_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      print_yices_error(true);
+      return;
+    }
+    pp_context(g->out, g->ctx);
+#endif
   }
 
   flush_out();

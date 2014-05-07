@@ -1234,6 +1234,24 @@ extern void context_clear_unsat(context_t *ctx);
 
 
 
+/*
+ * FOR TESTING/DEBUGGING
+ */
+
+/*
+ * Preprocess formula f or array of formulas f[0 ... n-1]
+ * - this does flattening + build substitutions
+ * - return code: as in assert_formulas
+ * - the result is stored in the internal vectors
+ *     ctx->top_interns
+ *     ctx->top_eqs
+ *     ctx->top_atoms
+ *     ctx->top_formulas
+ *   + ctx->intern stores substitutions
+ */
+extern int32_t context_process_formula(context_t *ctx, term_t f);
+extern int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f);
+
 
 
 /*****************************

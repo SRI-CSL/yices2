@@ -2238,8 +2238,8 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
   name_size = max_term_name_length(tbl) + 2;
   if (name_size < 4) {
     name_size = 4;
-  } else if (name_size > 20) {
-    name_size = 20;
+  } else if (name_size > 30) {
+    name_size = 30;
   }
 
   area.width = 120;
