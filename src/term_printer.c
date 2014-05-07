@@ -1455,17 +1455,20 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   switch (tbl->kind[i]) {
   case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
-    if (name != NULL) {
-      pp_string(printer, name);
-    } else if (neg_name != NULL) {
-      pp_open_block(printer, PP_OPEN_NOT);
-      pp_string(printer, neg_name);
-      pp_close_block(printer, true);
-    } else if (polarity) {
-      pp_id(printer, "t!", i);
+    if (polarity) {
+      if (name != NULL) {
+	pp_string(printer, name);
+      } else {
+	pp_id(printer, "t!", i);
+      }
     } else {
+      // print (not ...)
       pp_open_block(printer, PP_OPEN_NOT);
-      pp_id(printer, "t!", i);
+      if (neg_name != NULL) {
+	pp_string(printer, neg_name);
+      } else {
+	pp_id(printer, "t!", i);
+      }
       pp_close_block(printer, true);
     }
     break;
