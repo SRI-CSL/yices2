@@ -189,7 +189,7 @@ void pp_context(FILE *f, context_t *ctx) {
 
   terms = ctx->terms;
 
-  area.width = 180;
+  area.width = 120;
   area.height = UINT32_MAX;
   area.offset = 0;
   area.stretch = false;
