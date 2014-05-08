@@ -2166,7 +2166,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
-#if 0
+#if 1
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
       // error during assertion processing
