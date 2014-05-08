@@ -1040,6 +1040,66 @@ bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
 
 
 
+
+/******************
+ *  EXPERIMENTAL  *
+ *****************/
+
+/*
+ * Check whether two Boolean terms t1 and t2
+ * are incompatible (i.e., (t1 and t2) is false.
+ * - this does very simple checks for now
+ */
+bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2) {
+  term_kind_t k1, k2;
+  term_t p1, p2;
+
+  assert(is_boolean_term(tbl, t1) && is_boolean_term(tbl, t2));
+
+  k1 = term_kind(tbl, t1);
+  k2 = term_kind(tbl, t2);
+
+  if (k1 == ARITH_EQ_ATOM && k2 == ARITH_EQ_ATOM) {
+    p1 = arith_eq_arg(tbl, t1);
+    p2 = arith_eq_arg(tbl, t2);
+
+    if (term_kind(tbl, p1) == ARITH_POLY && term_kind(tbl, p2) == ARITH_POLY) {
+      // t1 is (p1 == 0), t2 is (p2 == 0)
+      // if (p1 - p2 is a constant) we return true
+      return disequal_polynomials(poly_term_desc(tbl, t1), poly_term_desc(tbl, t2));
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether t1 subsumes t2 (i.e., t1 => t2)
+ */
+bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2) {
+  return incompatible_boolean_terms(tbl, t1, opposite_term(t2));
+}
+
+/*
+ * Check whether t1 subsumes all elements of a[0 ... n-1]
+ */
+bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (!term_subsumes_term(tbl, t1, a[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+
+
 /*******************************
  *  BOUNDS ON BITVECTOR TERMS  *
  ******************************/

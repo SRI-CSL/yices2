@@ -169,6 +169,28 @@ extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t);
 
 
 
+/*
+ * EXPERIMENTAL CHECKS FOR SUBSUMPTIONS
+ */
+
+/*
+ * Check whether two Boolean terms t1 and t2
+ * are incompatible (i.e., (t1 and t2) is false.
+ * - this does very simple checks for now
+ */
+extern bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2);
+
+/*
+ * Check whether t1 subsumes t2 (i.e., t1 => t2)
+ */
+extern bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2);
+
+/*
+ * Check whether t1 subsumes all elements of a[0 ... n-1]
+ */
+extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a);
+
+
 
 /*
  * BOUNDS ON BITVECTOR TERMS
