@@ -1391,7 +1391,7 @@ static bool arith_cnstr_disjoint(arith_constraint_t *cnstr1, arith_constraint_t 
  *****************/
 
 /*
- * Check whether two arithmetic literals t1 and t2 and incompatible
+ * Check whether two arithmetic literals t1 and t2 are incompatible
  */
 bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2) {
   arith_constraint_t cnstr1, cnstr2;
@@ -1418,27 +1418,71 @@ bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2) {
 
 
 /*
+ * Check whether two bitvector literals t1 and t2 are incompatible
+ * MORE TO BE DONE
+ */
+bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2) {
+  composite_term_t *eq1, *eq2;
+  bool result;
+  uint32_t i, j;
+
+  if (opposite_bool_terms(t1, t2)) {
+    result = true;
+  } else {
+    result = false;
+
+    if (is_pos_term(t1) && is_pos_term(t2) &&
+	term_kind(tbl, t1) == BV_EQ_ATOM && term_kind(tbl, t2) == BV_EQ_ATOM) {
+      eq1 = bveq_atom_desc(tbl, t1);
+      eq2 = bveq_atom_desc(tbl, t2);
+      assert(eq1->arity == 2 && eq2->arity == 2);
+
+      for (i=0; i<2; i++) {
+	for (j=0; j<2; j++) {
+	  if (eq1->arg[i] == eq2->arg[j]) {
+	    result = disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
+	    goto done;
+	  }
+	}
+      }
+    }
+  }
+
+ done:
+  return result;
+}
+
+/*
  * Check whether two Boolean terms t1 and t2
  * are incompatible (i.e., (t1 and t2) is false.
  * - this does very simple checks for now
  */
 bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2) {
-  term_kind_t k1, k2;
-  term_t p1, p2;
+  composite_term_t *eq1, *eq2;
+  uint32_t i, j;
 
-  assert(is_boolean_term(tbl, t1) && is_boolean_term(tbl, t2));
+  if (is_arithmetic_literal(tbl, t1) && is_arithmetic_literal(tbl, t2)) {
+    return incompatible_arithmetic_literals(tbl, t1, t2);
+  }
+  if (is_bitvector_literal(tbl, t1) && is_bitvector_literal(tbl, t2)) {
+    return incompatible_bitvector_literals(tbl, t1, t2);
+  }
 
-  k1 = term_kind(tbl, t1);
-  k2 = term_kind(tbl, t2);
+  if (t1 == false_term || t2 == false_term || opposite_bool_terms(t1, t2)) {
+    return true;
+  }
 
-  if (k1 == ARITH_EQ_ATOM && k2 == ARITH_EQ_ATOM) {
-    p1 = arith_eq_arg(tbl, t1);
-    p2 = arith_eq_arg(tbl, t2);
+  if (is_pos_term(t1) && is_pos_term(t2) &&
+      term_kind(tbl, t1) == EQ_TERM && term_kind(tbl, t2) == EQ_TERM) {
+    eq1 = eq_term_desc(tbl, t1);
+    eq2 = eq_term_desc(tbl, t2);
 
-    if (term_kind(tbl, p1) == ARITH_POLY && term_kind(tbl, p2) == ARITH_POLY) {
-      // t1 is (p1 == 0), t2 is (p2 == 0)
-      // if (p1 - p2 is a constant) we return true
-      return disequal_polynomials(poly_term_desc(tbl, t1), poly_term_desc(tbl, t2));
+    for (i=0; i<2; i++) {
+      for (j=0; j<2; j++) {
+	if (eq1->arg[i] == eq2->arg[j]) {
+	  return disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
+	}
+      }
     }
   }
 

@@ -2971,6 +2971,42 @@ bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b) {
 
 
 
+/*******************************
+ *  CHECKS ON ATOMS/LITERALS   *
+ ******************************/
+
+/*
+ * Check whether t is an arithmetic literal (i.e., arithmetic atom
+ * or the negation of an arithmetic atom).
+ */
+bool is_arithmetic_literal(term_table_t *table, term_t t) {
+  switch (term_kind(table, t)) {
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+  case ARITH_BINEQ_ATOM:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+/*
+ * Test whether t is a bitvector literal
+ */
+bool is_bitvector_literal(term_table_t *table, term_t t) {
+  switch (term_kind(table, t)) {
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+
 /********************
  *  CONSTANT TERMS  *
  *******************/

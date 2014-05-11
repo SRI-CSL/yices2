@@ -1172,6 +1172,17 @@ static inline bool is_const_term(term_table_t *table, term_t t) {
 
 
 /*
+ * Check the type of a literal.
+ * - arithmetic_literals: (t == 0) or (t >= 0) or (t1 == t2) between
+ *   two arithmetic terms
+ * - bitvector literals: bv-eq, bv-ge, bv-sga
+ */
+extern bool is_arithmetic_literal(term_table_t *table, term_t t);
+extern bool is_bitvector_literal(term_table_t *table, term_t t);
+
+
+
+/*
  * CONSTANT TERMS
  */
 
