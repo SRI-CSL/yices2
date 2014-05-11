@@ -183,6 +183,12 @@ extern bool equal_monarrays(monomial_t *p1, monomial_t *p2);
 extern bool disequal_monarrays(monomial_t *p1, monomial_t *p2);
 
 
+/*
+ * Check whether p1 and p2 are opposite
+ * - both must be normalized
+ */
+extern bool opposite_monarrays(monomial_t *p1, monomial_t *p2);
+
 
 /*
  * INTEGER-ARITHMETIC OPERATIONS

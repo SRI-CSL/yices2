@@ -135,8 +135,6 @@ void sort_monarray(monomial_t *a, uint32_t n) {
 }
 
 
-
-
 /*
  * SORT: CUSTOM ORDERING
  */
@@ -370,6 +368,26 @@ bool disequal_monarrays(monomial_t *p1, monomial_t *p2) {
   return equal_monarrays(p1, p2);
 }
 
+/*
+ * Check whether p1 and p2 are opposite
+ * - both must be normalized
+ */
+bool opposite_monarrays(monomial_t *p1, monomial_t *p2) {
+  int32_t v1, v2;
+
+  v1 = p1->var;
+  v2 = p2->var;
+  while (v1 == v2) {
+    if (v1 == max_idx) return true;
+    if (! q_opposite(&p1->coeff, &p2->coeff)) return false;
+    p1 ++;
+    v1 = p1->var;
+    p2 ++;
+    v2 = p2->var;
+  }
+
+  return false;
+}
 
 
 /*
