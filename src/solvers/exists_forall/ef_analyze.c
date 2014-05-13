@@ -202,6 +202,8 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
 
   terms = ef->terms;
 
+  j = 0; // Stop GCC warning
+
   /*
    * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
    * - store that term's descriptor in b
