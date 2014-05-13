@@ -72,7 +72,7 @@ typedef struct ef_clause_s {
  * - disjuncts = vector of formula (or-flattening of assertions)
  * - evars = vector to collect existential variables (uninterpreted terms)
  * - uvars = vector to collect universal variables (variables)
- * - aux = auxiliary general-purpose vector
+ * - aux, aux2 = auxiliary general-purpose vectors
  */
 typedef struct ef_analyzer_s {
   term_table_t *terms;

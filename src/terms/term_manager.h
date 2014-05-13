@@ -160,7 +160,7 @@ extern term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y)
  * - n = number of arguments (must be positive and no more than YICES_MAX_ARITY)
  * - a = array of n Boolean terms
  *
- * side effect; a is modified
+ * SIDE EFFECT: a is modified
  */
 extern term_t mk_or(term_manager_t *manager, uint32_t n, term_t a[]);
 extern term_t mk_and(term_manager_t *manager, uint32_t n, term_t a[]);

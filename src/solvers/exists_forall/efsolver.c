@@ -998,7 +998,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
-#if 1
+#if 0
       printf("Counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
@@ -1071,7 +1071,7 @@ static void ef_solver_search(ef_solver_t *solver) {
   ef_solver_start(solver);
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
-#if 1
+#if 0
     printf("\n--- Iteration %"PRIu32" (scan_idx = %"PRIu32") ---\n", i, solver->scan_idx);
 #endif
 
@@ -1082,7 +1082,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
-#if 1
+#if 0
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);

@@ -197,18 +197,15 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
   term_table_t *terms;
   composite_term_t *b;
   ivector_t *v;
-  uint32_t i, n;
+  uint32_t i, j, k, n, m;
   term_t t;
 
   terms = ef->terms;
-  v = &ef->aux;
-  ivector_reset(v);
-  ivector_push(v, NULL_TERM); // place holder
 
   /*
    * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
    * - store that term's descriptor in b
-   * - copy all the other subterms a[j] into vector v
+   * - store its index in j
    */
   b = NULL;
   n = d->arity;
@@ -216,19 +213,31 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
     t = d->arg[i];
     if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
       b = or_term_desc(terms, t);
-    } else {
-      ivector_push(v, t);
+      j = i;
     }
   }
 
   /*
-   * a[j] is (not (or b[0] ... b[k])) == not b
-   * v contains a[0] ... a[n-1] for i/=j
+   * a[j] is (not (or b[0] ... b[m-1])) == not b
+   * d->arg is (or a[0] ... a[n-1])
    */
-  assert(b != NULL && v->size == n);
-  n = b->arity;
-  for (i=0; i<n; i++) {
-    v->data[0] = opposite_term(b->arg[i]);   // this is not b[i]
+  assert(b != NULL);
+
+  v = &ef->aux;
+  m = b->arity;
+  for (k=0; k<m; k++) {
+    /*
+     * IMPORTANT: we make a full copy of d->arg into v
+     * at every iteration of this loop. This is required because
+     * mk_or modifies v->data.
+     */
+    ivector_reset(v);
+    ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
+    for (i=0; i<n; i++) {
+      if (i != j) {
+	ivector_push(v, d->arg[i]); // a[i] for i/=j
+      }
+    }
     t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
     ef_push_term(ef, t);
   }
@@ -992,10 +1001,12 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
   for (i=0; i<n; i++) {
     x = c->uvars.data[i];
     t = elim_subst_get_map(&elim, x);
-    // TEMPORARY: print
+    // TEMPORARY: print the substitution
     if (t >= 0) {
+#if 0
       printf("Elimination:\n %s --> ", yices_get_term_name(x));
       yices_pp_term(stdout, t, 100, 20, 12);
+#endif
     } else {
       // x is kept in uvars
       c->uvars.data[j] = x;
