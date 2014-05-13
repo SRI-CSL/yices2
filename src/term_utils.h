@@ -181,9 +181,10 @@ extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t);
 extern bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2);
 
 /*
- * Special casse: t1 and t2 are arithmetic atoms
+ * Special cases: t1 and t2 are arithmetic or bitvector literals
  */
 extern bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2);
+extern bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2);
 
 /*
  * Check whether t1 subsumes t2 (i.e., t1 => t2)

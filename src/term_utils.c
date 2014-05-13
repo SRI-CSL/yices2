@@ -13,6 +13,7 @@
 #include "int_hash_sets.h"
 #include "term_utils.h"
 
+
 #if 0
 
 #include <stdio.h>
@@ -1451,6 +1452,7 @@ bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2) {
  done:
   return result;
 }
+
 
 /*
  * Check whether two Boolean terms t1 and t2
