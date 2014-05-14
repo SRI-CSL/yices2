@@ -45,7 +45,7 @@
 
 //// PROVISIONAL
 extern void pp_context(FILE *f, context_t *ctx);
-//// DONE
+////
 
 /*
  * NAME STACKS
@@ -2173,7 +2173,6 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       print_yices_error(true);
       return;
     }
-    // TEMPORARY
     //    yices_print_presearch_stats(stderr, g->ctx);
 
     init_search_parameters(g);

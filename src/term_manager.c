@@ -1549,7 +1549,6 @@ static term_t mk_mul_term_const(term_manager_t *manager, term_t t, rational_t *c
  * - t and e must be distinct integer polynomials
  * - if r is null and a is one, it builds (ite c t e)
  * - if r is null and a is more than one, it builds a * (ite t' e')
- * - b = buffer to be used for computation
  */
 static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_t t, term_t e) {
   term_table_t *tbl;
@@ -2120,6 +2119,9 @@ term_t mk_arith_geq0(term_manager_t *manager, rba_buffer_t *b) {
  * - for example: [c, x, z, y, u] is stored as
  *    cond = c,  left1 = x, left2 = z,  right1 = y, right2 = u
  * - the function return true if the decomposition succeeds, false otherwise
+ *
+ * NOTE: we don't want to apply these lift-if rules if one or both terms
+ * are special if-then-elses.
  */
 typedef struct lift_result_s {
   term_t cond;
@@ -2132,8 +2134,8 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
   composite_term_t *ite1, *ite2;
   term_t cond;
 
-  if (is_ite_term(tbl, t1)) {
-    if (is_ite_term(tbl, t2)) {
+  if (term_kind(tbl, t1) == ITE_TERM) {
+    if (term_kind(tbl, t2) == ITE_TERM) {
       // both are (if-then-else ..)
       ite1 = ite_term_desc(tbl, t1);
       ite2 = ite_term_desc(tbl, t2);
@@ -2159,7 +2161,7 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
       return true;
 
     }
-  } else if (is_ite_term(tbl, t2)) {
+  } else if (term_kind(tbl, t2) == ITE_TERM) {
     // t2 is (if-then-else ..) t1 is not
 
     ite2 = ite_term_desc(tbl, t2);
@@ -2208,6 +2210,15 @@ static term_t mk_lifted_aritheq(term_manager_t *manager, term_t c, term_t t1, te
   return mk_bool_ite(manager, c, left, right);
 }
 
+// Variant: apply the cheap lift-if rules recursively
+static term_t mk_lifted_aritheq_recur(term_manager_t *manager, term_t c, term_t t1, term_t t2, term_t t3, term_t t4) {
+  term_t left, right;
+
+  left = mk_arith_eq(manager, t1, t2);
+  right = mk_arith_eq(manager, t3, t4);
+  return mk_bool_ite(manager, c, left, right);
+}
+
 
 /*
  * Build the term (ite c (arithge t1 t2) (arithge t3 t4))
@@ -2225,6 +2236,15 @@ static term_t mk_lifted_arithgeq(term_manager_t *manager, term_t c, term_t t1, t
   mk_arith_diff(manager, b, t3, t4);
   right = mk_arith_geq0(manager, b);
 
+  return mk_bool_ite(manager, c, left, right);
+}
+
+// Variant: apply the cheap lift-if rules recursively
+static term_t mk_lifted_arithgeq_recur(term_manager_t *manager, term_t c, term_t t1, term_t t2, term_t t3, term_t t4) {
+  term_t left, right;
+
+  left = mk_arith_geq(manager, t1, t2);
+  right = mk_arith_geq(manager, t3, t4);
   return mk_bool_ite(manager, c, left, right);
 }
 
@@ -2250,8 +2270,12 @@ term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_arithmetic_term(manager->terms, t1) &&
          is_arithmetic_term(manager->terms, t2));
 
-  if (check_for_lift_if(manager->terms, t1, t2, &tmp)) {
-    return mk_lifted_aritheq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+  if (true && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
+    if (true) {
+      return mk_lifted_aritheq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+    } else {
+      return mk_lifted_aritheq_recur(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+    }
   }
 
   b = term_manager_get_arith_buffer(manager);
@@ -2272,8 +2296,12 @@ term_t mk_arith_geq(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_arithmetic_term(manager->terms, t1) &&
          is_arithmetic_term(manager->terms, t2));
 
-  if (check_for_lift_if(manager->terms, t1, t2, &tmp)) {
-    return mk_lifted_arithgeq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+  if (true && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
+    if (true) {
+      return mk_lifted_arithgeq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+    } else {
+      return mk_lifted_arithgeq_recur(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
+    }
   }
 
   b = term_manager_get_arith_buffer(manager);
@@ -2683,7 +2711,7 @@ term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
   tbl = manager->terms;
   x = simplify_mk_tuple(tbl, n, arg);
   if (x == NULL_TERM) {
-    // not simplifeid
+    // not simplified
     x = tuple_term(tbl, n, arg);
 
     // check whether x is unique element of its type
