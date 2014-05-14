@@ -27,8 +27,6 @@
 #endif
 
 
-// to test
-extern void context_test_conditional_for_ite(context_t *ctx, composite_term_t *ite, term_t t);
 
 
 /**********************
@@ -1457,9 +1455,6 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
       case ITE_TERM:
       case ITE_SPECIAL:
-	// for testing
-	context_test_conditional_for_ite(ctx, ite_term_desc(terms, r), r);
-	// end of test
         u = map_ite_to_eterm(ctx, ite_term_desc(terms, r), tau);
         break;
 
@@ -1648,17 +1643,11 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       break;
 
     case ITE_TERM:
-      // for testing
-      context_test_conditional_for_ite(ctx, ite_term_desc(terms, r), r);
-      // end of test
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ITE_SPECIAL:
-      // for testing
-      context_test_conditional_for_ite(ctx, ite_term_desc(terms, r), r);
-      // end of test
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       if (context_ite_bounds_enabled(ctx)) {
@@ -1788,9 +1777,6 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
 
     case ITE_TERM:
     case ITE_SPECIAL:
-      // for testing
-      context_test_conditional_for_ite(ctx, ite_term_desc(terms, r), r);
-      // end of test
       x = map_ite_to_bv(ctx, ite_term_desc(terms, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
@@ -1978,9 +1964,6 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
 
     case ITE_TERM:
     case ITE_SPECIAL:
-      // for testing
-      context_test_conditional_for_ite(ctx, ite_term_desc(terms, r), r);
-      // end of test
       l = map_ite_to_literal(ctx, ite_term_desc(terms, r));
       break;
 
@@ -3159,9 +3142,6 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
 
   case ITE_TERM:
   case ITE_SPECIAL:
-    // for testing
-    context_test_conditional_for_ite(ctx, ite_term_desc(terms, t), t);
-    // end of test
     assert_toplevel_ite(ctx, ite_term_desc(terms, t), tt);
     break;
 
@@ -3287,9 +3267,6 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
 
     case ITE_TERM:
     case ITE_SPECIAL:
-      // for testing
-      context_test_conditional_for_ite(ctx, ite_term_desc(terms, t), t);
-      // end of test
       assert_toplevel_ite(ctx, ite_term_desc(terms, t), tt);
       break;
 
