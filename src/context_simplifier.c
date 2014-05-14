@@ -11,6 +11,7 @@
 #include "rba_buffer_terms.h"
 #include "poly_buffer_terms.h"
 #include "term_manager.h"
+#include "conditionals.h"
 
 #include "context.h"
 #include "eq_learner.h"
@@ -23,7 +24,7 @@
 
 #define TRACE_SYM_BREAKING 0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2718,6 +2719,63 @@ void analyze_diff_logic(context_t *ctx, bool idl) {
 
 
 
+/**********************************
+ *  FOR TESTING OF CONDITIONALS   *
+ *********************************/
+
+/*
+ * Print result of conversion of t to a conditional structure
+ */
+static void print_conditional_conversion(conditional_t *d, term_t t) {
+  yices_pp_t pp;
+  pp_area_t area;
+  uint32_t i, n;
+
+  area.width = 400;
+  area.height = 300;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = true;
+  init_default_yices_pp(&pp, stdout, &area);
+
+  pp_open_block(&pp, PP_OPEN);
+  pp_string(&pp, "Conversion to conditional for term");
+  pp_term_full(&pp, d->terms, t);
+  pp_close_block(&pp, false);
+  flush_yices_pp(&pp);
+
+  n = d->nconds;
+  for (i=0; i<n; i++) {
+    pp_open_block(&pp, PP_OPEN_ITE);
+    pp_term_full(&pp, d->terms, d->pair[i].cond);
+    pp_term_full(&pp, d->terms, d->pair[i].val);
+    pp_close_block(&pp, true);
+  }
+
+  pp_open_block(&pp, PP_OPEN_PAR);
+  pp_string(&pp, "else");
+  pp_term_full(&pp, d->terms, d->defval);
+  pp_close_block(&pp, true);
+
+  delete_yices_pp(&pp, true);
+}
+
+/*
+ * Try to flatten an ite term t into a conditional
+ * - if that works print the result
+ */
+void context_test_conditional_for_ite(context_t *ctx, composite_term_t *ite, term_t t) {
+  conditional_t condi;
+
+  init_conditional(&condi, ctx->terms);
+  convert_ite_to_conditional(&condi, ite->arg[0], ite->arg[1], ite->arg[2]);
+
+  if (condi.nconds > 1) {
+    print_conditional_conversion(&condi, t);
+  }
+
+  delete_conditional(&condi);
+}
 
 
 /****************************************************
