@@ -11,7 +11,6 @@
 #include "rba_buffer_terms.h"
 #include "poly_buffer_terms.h"
 #include "term_manager.h"
-#include "conditionals.h"
 
 #include "context.h"
 #include "eq_learner.h"
@@ -2719,9 +2718,55 @@ void analyze_diff_logic(context_t *ctx, bool idl) {
 
 
 
-/**********************************
- *  FOR TESTING OF CONDITIONALS   *
- *********************************/
+/*******************
+ *  CONDITIONALS   *
+ ******************/
+
+/*
+ * Allocate a conditional descriptor from the store
+ */
+static conditional_t *new_conditional(context_t *ctx) {
+  conditional_t *d;
+
+  d = objstore_alloc(&ctx->cstore);
+  init_conditional(d, ctx->terms);
+  return d;
+}
+
+/*
+ * Free conditional descriptor d
+ */
+void context_free_conditional(context_t *ctx, conditional_t *d) {
+  delete_conditional(d);
+  objstore_free(&ctx->cstore, d);
+}
+
+/*
+ * Attempt to convert an if-then-else term to a conditional
+ * - return NULL if the conversion fails
+ * - return a conditional descriptor otherwise
+ * - if NON-NULL, the result must be freed when no-longer used
+ *   by calling context_free_conditional
+ */
+conditional_t *context_make_conditional(context_t *ctx, composite_term_t *ite) {
+  conditional_t *d;
+
+  assert(ite->arity == 3);
+
+  d = new_conditional(ctx);
+  convert_ite_to_conditional(d, ite->arg[0], ite->arg[1], ite->arg[2]);
+  if (d->nconds <= 1) {
+    context_free_conditional(ctx, d);
+    d = NULL;
+  }
+
+  return d;
+}
+
+
+/*
+ * FOR TESTING ONLY
+ */
 
 /*
  * Print result of conversion of t to a conditional structure

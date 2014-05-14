@@ -4022,8 +4022,10 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
-  init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
+  init_istack(&ctx->istack);
+  init_objstore(&ctx->cstore, sizeof(conditional_t), 32);
+
   ctx->subst = NULL;
   ctx->marks = NULL;
   ctx->cache = NULL;
@@ -4096,8 +4098,9 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->subst_eqs);
   delete_ivector(&ctx->aux_eqs);
   delete_ivector(&ctx->aux_vector);
-  delete_istack(&ctx->istack);
   delete_int_queue(&ctx->queue);
+  delete_istack(&ctx->istack);
+  delete_objstore(&ctx->cstore);
 
   context_free_subst(ctx);
   context_free_marks(ctx);
@@ -4138,8 +4141,9 @@ void reset_context(context_t *ctx) {
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
   ivector_reset(&ctx->aux_vector);
-  reset_istack(&ctx->istack);
   int_queue_reset(&ctx->queue);
+  reset_istack(&ctx->istack);
+  reset_objstore(&ctx->cstore);
 
   context_free_subst(ctx);
   context_free_marks(ctx);

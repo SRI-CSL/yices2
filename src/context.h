@@ -25,6 +25,7 @@
 #include "internalization_codes.h"
 #include "pseudo_subst.h"
 #include "mark_vectors.h"
+#include "conditionals.h"
 
 #include "smt_logic_codes.h"
 #include "search_parameters.h"
@@ -615,9 +616,12 @@ struct context_s {
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
   ivector_t aux_eqs;
-  int_queue_t queue;
   ivector_t aux_vector;
+  int_queue_t queue;
   int_stack_t istack;
+
+  // store for the conditional descriptors
+  object_store_t cstore;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;
@@ -1112,6 +1116,24 @@ extern void context_free_subst(context_t *ctx);
 extern void context_free_marks(context_t *ctx);
 extern void context_free_dl_profile(context_t *ctx);
 
+
+/*
+ * CONDITIONALS/FLATTENING OF NESTED IF-THEN-ELSE
+ */
+
+/*
+ * Attempt to convert an if-then-else term to a conditional
+ * - return NULL if the conversion fails
+ * - return a conditional descriptor otherwise
+ * - if NON-NULL, the result must be freed when no-longer used
+ *   by calling context_free_conditional
+ */
+extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t *ite);
+
+/*
+ * Free a conditional descriptor returned by the previous function
+ */
+extern void contect_free_conditional(context_t *ctx, conditional_t *d);
 
 
 
