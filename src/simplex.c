@@ -1102,10 +1102,10 @@ static void prop_eq_to_egraph(void *s, eterm_t t1, eterm_t t2) {
   egraph = solver->egraph;
   assert(egraph != NULL);
 
-  egraph_propagate_equality(egraph, t1, t2, EXPL_ARITH_PROPAGATION, NULL);
 #if 0
   printf("---> eq prop: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
+  egraph_propagate_equality(egraph, t1, t2, EXPL_ARITH_PROPAGATION, NULL);
 }
 
 
@@ -1466,6 +1466,10 @@ static void simplex_propagate_equalities(simplex_solver_t *solver) {
       printf(" == ");
       print_simplex_var_value(stdout, solver, x);
       printf(" (bound = %"PRIu32")\n", i);
+      if (!arith_var_is_free(&solver->vtbl, x)) {
+	printf("     ");
+	print_simplex_vardef(stdout, solver, x);
+      }
 #endif
 
       eqprop_process_frozen_var(solver, x);
@@ -3901,6 +3905,15 @@ static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, 
 
   // build the explanation from the queue then reset the queue
   simplex_build_theory_explanation(solver, queue, result);
+
+#if 0
+  printf("---> simplex provides explanation for g!%"PRId32" == g!%"PRId32"\n",
+	 arith_var_eterm(&solver->vtbl, x1), arith_var_eterm(&solver->vtbl, x2));
+  printf("     antecedents: ");
+  print_theory_explanation(stdout, result);
+  printf("\n");
+  fflush(stdout);
+#endif
 }
 
 
@@ -4401,6 +4414,12 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
     printf("---> Simplex: make feasible succeeded\n");
   } else {
     printf("---> Simplex: arithmetic conflict\n");
+  }
+#endif
+
+#if 0
+  if (!feasible) {
+    printf("---> SIMPLEX CONFLICT: not feasible\n");
   }
 #endif
 
@@ -6900,6 +6919,11 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
     switch (eassertion_get_kind(a)) {
     case EGRAPH_VAR_EQ:
       if (! simplex_process_var_eq(solver, a->var[0], a->var[1])) {
+#if 0
+	printf("---> SIMPLEX CONFLICT on g!%"PRId32" == g!%"PRId32"\n",
+	       arith_var_eterm(&solver->vtbl, a->var[0]),
+	       arith_var_eterm(&solver->vtbl, a->var[1]));
+#endif
         reset_eassertion_queue(&solver->egraph_queue);
         return false;
       }
@@ -7137,9 +7161,9 @@ void simplex_start_search(simplex_solver_t *solver) {
 
 #if 0
   printf("\n\n*** SIMPLEX START ***\n");
-  print_simplex_vars_summary(stdout, solver);
-  //  printf("==== Simplex variables ====\n");
-  //  print_simplex_vars(stdout, solver);
+  //  print_simplex_vars_summary(stdout, solver);
+  printf("==== Simplex variables ====\n");
+  print_simplex_vars(stdout, solver);
   //  printf("\n==== Tableau ====\n");
   //  print_simplex_matrix(stdout, solver);
   //  printf("\n==== Assignment ====\n");

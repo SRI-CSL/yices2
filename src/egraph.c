@@ -5039,6 +5039,13 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
+#if 0
+      printf("---> EGRAPH CONFLICT on g!%"PRId32" == g!%"PRId32"\n", e->lhs, e->rhs);
+      printf("     explanation: ");
+      print_egraph_conflict(stdout, egraph, &egraph->expl_vector);
+      printf("\n\n");
+      fflush(stdout);
+#endif
       egraph->stack.prop_ptr = i;
       return false;
     }
@@ -6346,6 +6353,9 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     return;
   }
 
+#if 0
+  printf("---> good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+#endif
   egraph->stats.eq_props ++;
 
   k = egraph_stack_push_eq(&egraph->stack, pos_occ(t1), pos_occ(t2));

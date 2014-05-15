@@ -43,6 +43,8 @@ extern void print_th_eq(FILE *f, th_eq_t *eq);
 extern void print_th_diseq(FILE *f, diseq_pre_expl_t *diseq);
 extern void print_theory_explanation(FILE *f, th_explanation_t *e);
 
+extern void print_egraph_conflict(FILE *f, egraph_t *egraph, ivector_t *expl_vector);
+
 
 /*
  * Terms/classes in the egraph

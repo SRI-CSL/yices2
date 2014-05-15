@@ -385,6 +385,39 @@ void print_theory_explanation(FILE *f, th_explanation_t *e) {
 }
 
 
+void print_egraph_conflict(FILE *f, egraph_t *egraph, ivector_t *expl_vector) {
+  void *atom;
+  uint32_t i, n;
+  literal_t l;
+  bvar_t v;
+
+  n = expl_vector->size;
+  for (i=0; i<n; i++) {
+    l = expl_vector->data[i];
+    v = var_of(l);
+    if (bvar_has_atom(egraph->core, v)) {
+      atom = bvar_atom(egraph->core, v);
+      switch (atom_tag(atom)) {
+      case EGRAPH_ATM_TAG:
+	if (is_neg(l)) fputs("(not ", f);
+	print_eterm(f, egraph, ((atom_t *) untag_atom(atom))->eterm);
+	if (is_neg(l)) fputc(')', f);
+	break;
+
+      default:
+	print_literal(f, l);
+	break;
+      }
+    } else {
+      print_literal(f, l);
+    }
+    if (i+1 < n) {
+      fputc(' ', f);
+    }
+  }
+  fflush(f);
+}
+
 
 /*
  * Term in egraph
