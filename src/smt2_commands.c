@@ -44,8 +44,161 @@
 
 
 //// PROVISIONAL
-extern void pp_context(FILE *f, context_t *ctx);
+
+#include "term_printer.h"
+#include "type_printer.h"
+#include "idl_fw_printer.h"
+#include "rdl_fw_printer.h"
+#include "simplex_printer.h"
+#include "bvsolver_printer.h"
+#include "egraph_printer.h"
+#include "smt_core_printer.h"
+#include "context_printer.h"
+#include "gates_printer.h"
+
+
+/*
+ * Print the egraph state
+ */
+static void dump_egraph(FILE *f, egraph_t *egraph) {
+  fprintf(f, "\n--- Egraph Variables ---\n");
+  print_egraph_terms(f, egraph);
+  fprintf(f, "\n--- Egraph Atoms ---\n");
+  print_egraph_atoms(f, egraph);
+}
+
+
+/*
+ * Print the arithmetic solver state
+ */
+static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
+  fprintf(f, "\n--- IDL Variables ---\n");
+  print_idl_var_table(f, idl);
+  fprintf(f, "\n--- IDL Atoms ---\n");
+  print_idl_atoms(f, idl);
+  fprintf(f, "\n--- IDL Constraints ---\n");
+  print_idl_axioms(f, idl);
+  fprintf(f, "\n");
+}
+
+static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
+  fprintf(f, "\n--- RDL Variables ---\n");
+  print_rdl_var_table(f, rdl);
+  fprintf(f, "\n--- RDL Atoms ---\n");
+  print_rdl_atoms(f, rdl);
+  fprintf(f, "\n--- RDL Constraints ---\n");
+  print_rdl_axioms(f, rdl);
+  fprintf(f, "\n");
+}
+
+static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
+  fprintf(f, "\n--- Simplex Variables ---\n");
+  print_simplex_vars(f, simplex);
+  fprintf(f, "\n--- Simplex Atoms ---\n");
+  print_simplex_atoms(f, simplex);
+  fprintf(f, "\n--- Simplex Tableau ---\n");
+  print_simplex_matrix(f, simplex);
+  fprintf(f, "\n--- Simplex Bounds ---\n");
+  print_simplex_bounds(f, simplex);
+  fprintf(f, "\n");
+}
+
+
+/*
+ * Print the bitvector solver state
+ */
+static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
+  fprintf(f, "\n--- Bitvector Partition ---\n");
+  print_bv_solver_partition(f, solver);
+  fprintf(f, "\n--- Bitvector Variables ---\n");
+  print_bv_solver_vars(f, solver);
+  fprintf(f, "\n--- Bitvector Atoms ---\n");
+  print_bv_solver_atoms(f, solver);
+  fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
+  fprintf(f, "\n--- Bitvector Bounds ---\n");
+  print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n--- DAG ---\n");
+  print_bv_solver_dag(f, solver);
+  if (solver->blaster != NULL) {
+    fprintf(f, "\n--- Gates ---\n");
+    print_gate_table(f, &solver->blaster->htbl);
+  }
+  fprintf(f, "\n");
+}
+
+/*
+ * Print the context:
+ */
+static void dump_context(FILE *f, context_t *ctx) {
+  fprintf(f, "--- All terms ---\n");
+  pp_term_table(f, ctx->terms);
+  fprintf(f, "--- Substitutions ---\n");
+  print_context_intern_subst(f, ctx);
+  fprintf(f, "\n--- Internalization ---\n");
+  print_context_intern_mapping(f, ctx);
+
+  if (context_has_egraph(ctx)) {
+    dump_egraph(f, ctx->egraph);
+  }
+
+  if (context_has_arith_solver(ctx)) {
+    if (context_has_idl_solver(ctx)) {
+      dump_idl_solver(f, ctx->arith_solver);
+    } else if (context_has_rdl_solver(ctx)) {
+      dump_rdl_solver(f, ctx->arith_solver);
+    } else {
+      assert(context_has_simplex_solver(ctx));
+      dump_simplex_solver(f, ctx->arith_solver);
+    }
+  }
+
+  if (context_has_bv_solver(ctx)) {
+    dump_bv_solver(f, ctx->bv_solver);
+  }
+
+  /*
+   * If arch is still AUTO_IDL or AUTO_RDL,
+   * then flattening + simplification returned unsat
+   * but the core is not initialized
+   * so we can't print the clauses.
+   */
+  if (ctx->arch != CTX_ARCH_AUTO_IDL &&
+      ctx->arch != CTX_ARCH_AUTO_RDL) {
+    fprintf(f, "--- Clauses ---\n");
+    print_clauses(f, ctx->core);
+    fprintf(f, "\n");
+  }
+
+
+#if 0
+  fprintf(f, "--- Auxiliary vectors ---\n\n");
+  print_context_subst_eqs(f, ctx);
+  print_context_top_eqs(f, ctx);
+  print_context_top_atoms(f, ctx);
+  print_context_top_formulas(f, ctx);
+  print_context_top_interns(f, ctx);
+  fprintf(f, "\n");
+#endif
+
+  fflush(f);
+}
+
+
+static void dump(const char *filename, context_t *ctx) {
+  FILE *f;
+
+  f = fopen(filename, "w");
+  if (f == NULL) {
+    perror(filename);
+  } else {
+    dump_context(f, ctx);
+    fclose(f);
+  }
+}
+
 ////
+
+
 
 /*
  * NAME STACKS
@@ -1149,7 +1302,7 @@ static const char * const status2string[] = {
   "error",
 };
 
-static void print_status(smt_status_t status) {
+static void show_status(smt_status_t status) {
   print_out("%s\n", status2string[status]);
 }
 
@@ -2174,6 +2327,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       return;
     }
     //    yices_print_presearch_stats(stderr, g->ctx);
+    dump("yices2intern.dmp", g->ctx);
 
     init_search_parameters(g);
     if (g->random_seed != 0) {
@@ -2186,7 +2340,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     case STATUS_UNSAT:
     case STATUS_SAT:
     case STATUS_INTERRUPTED:
-      print_status(status);
+      show_status(status);
       break;
 
     case STATUS_ERROR:
@@ -2309,7 +2463,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
   case STATUS_UNSAT:
   case STATUS_SAT:
     // already solved: print the status
-    print_status(stat);
+    show_status(stat);
     break;
 
   case STATUS_IDLE:
@@ -2318,7 +2472,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
       parameters.random_seed = g->random_seed;
     }
     stat = check_context(g->ctx, &parameters);
-    print_status(stat);
+    show_status(stat);
     break;
 
   case STATUS_SEARCHING:

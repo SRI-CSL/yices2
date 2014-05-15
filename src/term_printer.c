@@ -938,6 +938,40 @@ static void print_name_or_constant(FILE *f, term_table_t *tbl, term_t t) {
 }
 
 
+/*
+ * Variant: t's id unless it's a constant
+ */
+static void print_id_or_constant(FILE *f, term_table_t *tbl, term_t t) {
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    assert(is_pos_term(t));
+    q_print(f, rational_term_desc(tbl, t));
+    break;
+
+  case BV64_CONSTANT:
+    assert(is_pos_term(t));
+    print_bvconst64_term(f, bvconst64_term_desc(tbl, t));
+    break;
+
+  case BV_CONSTANT:
+    assert(is_pos_term(t));
+    print_bvconst_term(f, bvconst_term_desc(tbl, t));
+    break;
+
+  default:
+    if (t <= false_term) {
+      fputs(term2string[t], f);
+    } else if (is_neg_term(t)) {
+      fputs("(not ", f);
+      print_term_id(f, opposite_term(t));
+      fputc(')', f);
+    } else {
+      print_term_id(f, t);
+    }
+    break;
+  }
+}
+
 
 /*
  * Maximal length of all names in tbl
@@ -1006,7 +1040,7 @@ static void print_composite(FILE *f, term_table_t *tbl, term_kind_t tag, composi
   n = d->arity;
   for (i=0; i<n; i++) {
     fputc(' ', f);
-    print_name_or_constant(f, tbl, d->arg[i]);
+    print_id_or_constant(f, tbl, d->arg[i]);
   }
   fputc(')', f);
 }
@@ -1021,7 +1055,7 @@ static void print_app(FILE *f, term_table_t *tbl, composite_term_t *d) {
   print_name_or_constant(f, tbl, d->arg[0]);
   for (i=1; i<n; i++) {
     fputc(' ', f);
-    print_name_or_constant(f, tbl, d->arg[i]);
+    print_id_or_constant(f, tbl, d->arg[i]);
   }
   fputc(')', f);
 }
@@ -1030,7 +1064,7 @@ static void print_app(FILE *f, term_table_t *tbl, composite_term_t *d) {
 static void print_select(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d) {
   assert(SELECT_TERM <= tag && tag <= BIT_TERM);
   fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
-  print_name_or_constant(f, tbl, d->arg);
+  print_id_or_constant(f, tbl, d->arg);
   fputc(')', f);
 }
 
@@ -1043,14 +1077,14 @@ static void print_named_varexp_array(FILE *f, term_table_t *tbl, varexp_t *a, ui
     return;
   }
   d = a[0].exp;
-  print_name_or_constant(f, tbl, a[0].var);
+  print_id_or_constant(f, tbl, a[0].var);
   if (d != 1) {
     fprintf(f, "^%"PRIu32, d);
   }
   for (i=1; i<n; i++) {
     d = a[i].exp;
     fputc('*', f);
-    print_name_or_constant(f, tbl, a[i].var);
+    print_id_or_constant(f, tbl, a[i].var);
     if (d != 1) {
       fprintf(f, "^%"PRIu32, d);
     }
@@ -1059,7 +1093,7 @@ static void print_named_varexp_array(FILE *f, term_table_t *tbl, varexp_t *a, ui
 
 static void print_named_pprod(FILE *f, term_table_t *tbl, pprod_t *r) {
   if (pp_is_var(r)) {
-    print_name_or_constant(f, tbl, var_of_pp(r));
+    print_id_or_constant(f, tbl, var_of_pp(r));
   } else if (pp_is_empty(r)) {
     fputc('1', f);
   } else if (r == end_pp) {
@@ -1099,7 +1133,7 @@ static void print_named_monomial(FILE *f, term_table_t *tbl, rational_t *coeff, 
       q_print_abs(f, coeff);
       fprintf(f, "*");
     }
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
   }
 }
 
@@ -1131,18 +1165,18 @@ static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff,
 
   } else if (bvconst_is_one(coeff, w)) {
     if (! first) fputs(" + ", f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
 
   } else if (bvconst_is_minus_one(coeff, n)) {
     if (! first) fputc(' ', f);
     fputs("- ", f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
 
   } else {
     if (! first) fputs(" + ", f);
     bvconst_print(f, coeff, n);
     fputc('*', f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
 
   }
 }
@@ -1172,18 +1206,18 @@ static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff,
 
   } else if (coeff == 1) {
     if (! first) fputs(" + ", f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
 
   } else if (bvconst64_is_minus_one(coeff, n)) {
     if (! first) fputc(' ', f);
     fputs("- ", f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
 
   } else {
     if (! first) fputs(" + ", f);
     print_bvconst64(f, coeff, n);
     fputc('*', f);
-    print_name_or_constant(f, tbl, x);
+    print_id_or_constant(f, tbl, x);
   }
 }
 
@@ -1269,13 +1303,13 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 
       case ARITH_EQ_ATOM:
         fputs("(arith-eq ", f);
-        print_name_or_constant(f, tbl, tbl->desc[i].integer);
+        print_id_or_constant(f, tbl, tbl->desc[i].integer);
         fputs(" 0)", f);
         break;
 
       case ARITH_GE_ATOM:
         fputs("(arith-ge ", f);
-        print_name_or_constant(f, tbl, tbl->desc[i].integer);
+        print_id_or_constant(f, tbl, tbl->desc[i].integer);
         fputs(" 0)", f);
         break;
 
@@ -1377,13 +1411,13 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
 
   case ARITH_EQ_ATOM:
     fputs("(arith-eq ", f);
-    print_name_or_constant(f, tbl, tbl->desc[i].integer);
+    print_id_or_constant(f, tbl, tbl->desc[i].integer);
     fputs(" 0)", f);
     break;
 
   case ARITH_GE_ATOM:
     fputs("(arith-ge ", f);
-    print_name_or_constant(f, tbl, tbl->desc[i].integer);
+    print_id_or_constant(f, tbl, tbl->desc[i].integer);
     fputs(" 0)", f);
     break;
 
@@ -1969,12 +2003,12 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     neg_name = term_name(tbl, mk_term(i, !polarity));
   }
 
-  if (name != NULL && level <= 0) {
+  if (name != NULL && level <= 0 && polarity) {
     pp_string(printer, name);
     return;
   }
 
-  if (neg_name != NULL && level <= 1) {
+  if (neg_name != NULL && level <= 1 && !polarity) {
     pp_open_block(printer, PP_OPEN_NOT);
     pp_string(printer, neg_name);
     pp_close_block(printer, true);
