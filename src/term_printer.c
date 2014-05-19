@@ -1988,54 +1988,44 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
 
 
 /*
+ * Name for i or (not i)
+ */
+static void pp_term_idx_name(yices_pp_t *printer, term_table_t *tbl, int32_t i, bool polarity) {
+  char *name;
+
+  name = term_name(tbl, pos_term(i));
+
+  if (!polarity) {
+    pp_open_block(printer, PP_OPEN_NOT);
+  }
+  if (name != NULL) {
+    pp_string(printer, name);
+  } else {
+    pp_id(printer, "t!", i);
+  }
+  if (!polarity) {
+    pp_close_block(printer, true);
+  }
+}
+
+/*
  * term idx i or (not i)
  */
 static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32_t level, bool polarity) {
-  char *name;
-  char *neg_name;
   pp_open_type_t op;
 
   assert(is_boolean_type(tbl->type[i]) || polarity);
 
-  name = term_name(tbl, mk_term(i, polarity));
-  neg_name = NULL;
-  if (is_boolean_type(tbl->type[i])) {
-    neg_name = term_name(tbl, mk_term(i, !polarity));
-  }
-
-  if (name != NULL && level <= 0 && polarity) {
-    pp_string(printer, name);
+  if (level <= 0) {
+    pp_term_idx_name(printer, tbl, i, polarity);
     return;
   }
-
-  if (neg_name != NULL && level <= 1 && !polarity) {
-    pp_open_block(printer, PP_OPEN_NOT);
-    pp_string(printer, neg_name);
-    pp_close_block(printer, true);
-    return;
-  }
-
 
   switch (tbl->kind[i]) {
   case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
   case VARIABLE:
-    if (polarity) {
-      if (name != NULL) {
-	pp_string(printer, name);
-      } else {
-	pp_id(printer, "t!", i);
-      }
-    } else {
-      // print (not ...)
-      pp_open_block(printer, PP_OPEN_NOT);
-      if (neg_name != NULL) {
-	pp_string(printer, neg_name);
-      } else {
-	pp_id(printer, "t!", i);
-      }
-      pp_close_block(printer, true);
-    }
+    pp_term_idx_name(printer, tbl, i, polarity);
     break;
 
   case ARITH_CONSTANT:

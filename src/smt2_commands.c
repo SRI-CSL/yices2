@@ -45,6 +45,10 @@
 
 //// PROVISIONAL
 
+#define DUMP_CTX 0
+
+#if DUMP_CTX
+
 #include "term_printer.h"
 #include "type_printer.h"
 #include "idl_fw_printer.h"
@@ -132,7 +136,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
 static void dump_context(FILE *f, context_t *ctx) {
   fprintf(f, "--- All terms ---\n");
   pp_term_table(f, ctx->terms);
-  fprintf(f, "--- Substitutions ---\n");
+  fprintf(f, "\n--- Substitutions ---\n");
   print_context_intern_subst(f, ctx);
   fprintf(f, "\n--- Internalization ---\n");
   print_context_intern_mapping(f, ctx);
@@ -195,6 +199,8 @@ static void dump(const char *filename, context_t *ctx) {
     fclose(f);
   }
 }
+
+#endif
 
 ////
 
@@ -2327,7 +2333,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       return;
     }
     //    yices_print_presearch_stats(stderr, g->ctx);
-    dump("yices2intern.dmp", g->ctx);
+    //    dump("yices2intern.dmp", g->ctx);
 
     init_search_parameters(g);
     if (g->random_seed != 0) {

@@ -2270,7 +2270,7 @@ term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_arithmetic_term(manager->terms, t1) &&
          is_arithmetic_term(manager->terms, t2));
 
-  if (true && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
+  if (false && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
     if (true) {
       return mk_lifted_aritheq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
     } else {
@@ -2296,7 +2296,7 @@ term_t mk_arith_geq(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_arithmetic_term(manager->terms, t1) &&
          is_arithmetic_term(manager->terms, t2));
 
-  if (true && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
+  if (false && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
     if (true) {
       return mk_lifted_arithgeq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
     } else {

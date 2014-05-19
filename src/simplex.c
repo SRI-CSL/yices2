@@ -4199,6 +4199,9 @@ static void build_conflict_for_increase(simplex_solver_t *solver, row_t *row, th
   ivector_reset(v);
   simplex_build_conflict_clause(solver, v);
 
+#if 0
+  printf("\n---> SIMPLEX CONFLICT: not feasible\n");
+#endif
   // record expl_vector as a conflict (first add the null-literal terminator)
   ivector_push(v, null_literal);
   record_theory_conflict(solver->core, v->data);
@@ -4249,6 +4252,9 @@ static void build_conflict_for_decrease(simplex_solver_t *solver, row_t *row, th
   ivector_reset(v);
   simplex_build_conflict_clause(solver, v);
 
+#if 0
+  printf("\n---> SIMPLEX CONFLICT: not feasible\n");
+#endif
   // record expl_vector as a conflict (first add the null-literal terminator)
   ivector_push(v, null_literal);
   record_theory_conflict(solver->core, v->data);
@@ -4555,6 +4561,13 @@ static void record_simple_conflict(simplex_solver_t *solver, int32_t k, literal_
   convert_expl_to_clause(v);
   ivector_push(v, not(l));
 
+#if 0
+  if (is_pos(l)) {
+    printf("\n---> SIMPLEX CONFLICT: bound %"PRId32" => ~p!%"PRId32"\n", k, var_of(l));
+  } else {
+    printf("\n---> SIMPLEX CONFLICT: bound %"PRId32" => p!%"PRId32"\n", k, var_of(l));
+  }
+#endif
   // add the end marker
   ivector_push(v, null_literal);
   record_theory_conflict(solver->core, v->data);
@@ -6504,6 +6517,10 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
   convert_expl_to_clause(v);
   ivector_push(v, null_literal); // end-marker
 
+#if 0
+  printf("\n---> SIMPLEX CONFLICT on g!%"PRId32" == g!%"PRId32" (conflict with bound)\n",
+	 arith_var_eterm(&solver->vtbl, x1), arith_var_eterm(&solver->vtbl, x2));
+#endif
   record_theory_conflict(solver->core, v->data);
 
   solver->stats.num_conflicts ++;
