@@ -3658,7 +3658,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
   literal_t l;
 
   core = egraph->core;
-  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2));
+  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2) && v2 != const_bvar);
 
   atm1 = get_bvar_atom(core, v1);
   atm2 = get_bvar_atom(core, v2);
