@@ -7969,24 +7969,12 @@ bool simplex_assert_atom(simplex_solver_t *solver, void *a, literal_t l) {
 /*
  * Expand a propagation object into a conjunction of literals
  * - expl is a pointer to a propagation object in solver->arena
+ *
+ * NOTE: the old APROP_EGRAPH_DISEQ is not used anymore,
  */
 void simplex_expand_explanation(simplex_solver_t *solver, literal_t l, aprop_header_t *expl, ivector_t *v) {
-  aprop_egraph_diseq_t *diseq;
-
-  switch (expl->tag) {
-  case APROP_BOUND:
-    simplex_explain_bound(solver, ((aprop_t *) expl)->bound, v);
-    break;
-
-  case APROP_EGRAPH_DISEQ:
-    diseq = (aprop_egraph_diseq_t *) expl;
-    egraph_expand_diseq_pre_expl(solver->egraph, &diseq->d, v);
-    break;
-
-  default:
-    abort();
-    break;
-  }
+  assert(expl->tag == APROP_BOUND);
+  simplex_explain_bound(solver, ((aprop_t *) expl)->bound, v);
 }
 
 

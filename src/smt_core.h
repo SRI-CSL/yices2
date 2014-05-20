@@ -542,7 +542,7 @@ typedef struct atom_table_s {
  * add clauses, atoms, and literals on the fly.
  * - literal propagation is performed by calling propagate_literal(core, ...)
  *   this function can be called only from
- *      th->start_seach
+ *      th->start_search
  *      th->propagate
  * - on-the-fly literals, atoms, and lemmas can be created from within
  *      th->start_search
