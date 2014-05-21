@@ -330,6 +330,20 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
 }
 
 
+/*
+ * Macros to pack/unpack an integer into a void* pointer
+ * to be used as a generic explanation.
+ * - we can't use the default tag_i32/untag_i32 because we must
+ *   keep the two lower bits 00
+ */
+static inline void *mk_i32_expl(int32_t x) {
+  return (void *) (((size_t) ((uint32_t) x))<<2);
+}
+
+static inline int32_t i32_of_expl(void *g) {
+  return (int32_t) (((size_t) g) >> 2);
+}
+
 
 
 /*******************
@@ -1351,6 +1365,15 @@ extern void *bvar_atom(smt_core_t *s, bvar_t x);
 static inline void *get_bvar_atom(smt_core_t *s, bvar_t x) {
   assert(bvar_has_atom(s, x));
   return s->atoms.atom[x];
+}
+
+
+/*
+ * Antecedent of x
+ */
+static inline antecedent_t get_bvar_antecedent(smt_core_t *s, bvar_t x) {
+  assert(0 <= x && x < s->nvars);
+  return s->antecedent[x];
 }
 
 

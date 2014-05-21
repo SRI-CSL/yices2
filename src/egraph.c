@@ -25,7 +25,7 @@
 #define TRACE 0
 #define TRACE_FCHECK 0
 
-#if TRACE || TRACE_FCHECK
+#if TRACE || TRACE_FCHECK || 1
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
@@ -3650,9 +3650,10 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
  * When boolean variable v1 and v2 are merged into the same boolean class
  * - this means that either v1 == v2 or v1 == (not v2)
  * - if v1 == const_bvar, then v2 is now true or false.
- * - (v2 is never equal to const_bvar)
+ *   (v2 is never equal to const_bvar)
+ * - id = edge index that caused v1 and v2 to be merged
  */
-static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
+static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, int32_t id) {
   atom_t *atm1, *atm2, *atm;
   smt_core_t *core;
   literal_t l;
@@ -3668,14 +3669,15 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
     do {
       /*
        * atm->eterm is either true or false
-       * assign the same value to atm->boolvar, with NULL as antecedent
+       * assign the same value to atm->boolvar
+       * we keep track of the edge id in the antecedent
        */
       assert(egraph_term_is_true(egraph, atm->eterm) ||
              egraph_term_is_false(egraph, atm->eterm));
 
       if (bvar_is_unassigned(core, atm->boolvar)) {
         l = mk_lit(atm->boolvar, egraph_term_is_false(egraph, atm->eterm));
-        propagate_literal(core, l, NULL);
+        propagate_literal(core, l, mk_i32_expl(id));
         egraph->stats.th_props ++;
       }
 
@@ -3693,12 +3695,14 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
  * Propagate equality between two theory variables v1 and v2
  * - v1 = theory var of c1
  * - v2 = theory var of c2
+ * - id = edge index that caused c1 and c2 to be merged
+ *
  * This is called when c1 and c2 are merged:
  * - c1 remains root (and v1 remains visible in the egraph)
  * - c2 is no longer root after the merge (so v2 is no longer
  *   visible in the egraph).
  */
-static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
+static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2, int32_t id) {
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar &&
@@ -3715,7 +3719,7 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
     break;
 
   case ETYPE_BOOL:
-    propagate_boolean_equality(egraph, v1, v2);
+    propagate_boolean_equality(egraph, v1, v2, id);
     break;
 
   case ETYPE_TUPLE:
@@ -4322,7 +4326,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     if (v2 != null_thvar) {
       v1 = egraph->classes.thvar[c1];
       if (v1 != null_thvar) {
-        propagate_thvar_equality(egraph, c1, v1, c2, v2);
+        propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
       } else {
         egraph->classes.thvar[c1] = v2;
       }
@@ -5039,9 +5043,12 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
-#if 0
-      printf("\n---> EGRAPH CONFLICT on g!%"PRId32" == g!%"PRId32"\n", e->lhs, e->rhs);
-      printf("     explanation: ");
+#if 1
+      printf("\n---> EGRAPH CONFLICT on ");
+      print_occurrence(stdout, e->lhs);
+      printf(" == ");
+      print_occurrence(stdout, e->rhs);
+      printf("\n     explanation: ");
       print_egraph_conflict(stdout, egraph, &egraph->expl_vector);
       printf("\n");
       fflush(stdout);
@@ -6353,8 +6360,8 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     return;
   }
 
-#if 0
-  printf("---> good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+#if 1
+  printf("---> EGRAPH: good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
   egraph->stats.eq_props ++;
 
@@ -6378,6 +6385,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
   void *atom;
   atom_t *a;
   occ_t u;
+  int32_t id;
 
   assert(v->size == 0);
 
@@ -6388,7 +6396,13 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
     assert(a->boolvar == var_of(l));
     assert(literal_is_assigned(egraph->core, l) &&
 	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
+    id = i32_of_expl(expl);    // id := edge that triggered the propagation
     u = mk_occ(a->eterm, sign_of(l));
+#if 1
+    printf("---> EGRAPH: expand explanation for ");
+    print_literal(stdout, l);
+    printf(" (trigger edge = %"PRId32")\n", id);
+#endif
     /*
      * Build the explanation for u == true
      */

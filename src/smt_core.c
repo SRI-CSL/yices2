@@ -15,7 +15,7 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE
+#if DEBUG || TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2398,7 +2398,7 @@ static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
  * - all literals in a must be false in the current assignment
  */
 void record_theory_conflict(smt_core_t *s, literal_t *a) {
-#if TRACE
+#if TRACE || 1
   uint32_t i;
   literal_t l;
 
@@ -2817,13 +2817,13 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   uint32_t i, j, k, q;
   literal_t l0, l1;
 
-#if TRACE
+#if TRACE || 1
   printf("---> DPLL:   Learned clause: {");
   for (i=0; i<n; i++) {
     printf(" ");
     print_literal(stdout, a[i]);
   }
-  printf(" }\n");
+  printf(" }\n\n");
 #endif
 
   l0 = a[0];
@@ -3248,6 +3248,15 @@ static void simplify_learned_clause(smt_core_t *s) {
   hash = signature(s, b+1, n-1); // skip b[0]. It cannot subsume anything.
 
   assert(s->buffer2.size == 0);
+
+#if TRACE || 1
+  printf("---> DPLL:   Learned clause: {");
+  for (i=0; i<n; i++) {
+    printf(" ");
+    print_literal(stdout, b[i]);
+  }
+  printf(" }\n");
+#endif
 
   // remove the subsumed literals
   j = 1;
