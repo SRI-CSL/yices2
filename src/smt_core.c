@@ -15,7 +15,7 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE || 1
+#if DEBUG || TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2398,7 +2398,7 @@ static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
  * - all literals in a must be false in the current assignment
  */
 void record_theory_conflict(smt_core_t *s, literal_t *a) {
-#if TRACE || 1
+#if TRACE
   uint32_t i;
   literal_t l;
 
@@ -2817,7 +2817,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   uint32_t i, j, k, q;
   literal_t l0, l1;
 
-#if TRACE || 1
+#if TRACE
   printf("---> DPLL:   Learned clause: {");
   for (i=0; i<n; i++) {
     printf(" ");
@@ -3249,7 +3249,7 @@ static void simplify_learned_clause(smt_core_t *s) {
 
   assert(s->buffer2.size == 0);
 
-#if TRACE || 1
+#if TRACE
   printf("---> DPLL:   Learned clause: {");
   for (i=0; i<n; i++) {
     printf(" ");
