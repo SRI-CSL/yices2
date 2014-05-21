@@ -3799,13 +3799,16 @@ static void enqueue_frozen_var_constraints(simplex_solver_t *solver, ivector_t *
 
 /*
  * For an equality (x1 == x2) received from the egraph, add the corresponding egraph equality
- * (t1 == t2) to resu;t.
+ * (t1 == t2) to result.
+ * - triple->var[0] = x1
+ * - triple->var[1] = x2
+ * - triple->id = egraph edge that caused (x1 == x2)
  */
-static void explain_vareq_from_egraph(simplex_solver_t *solver, thvar_t x1, thvar_t x2, th_explanation_t *result) {
+static void explain_vareq_from_egraph(simplex_solver_t *solver, egraph_expl_triple_t *triple, th_explanation_t *result) {
   eterm_t t1, t2;
 
-  t1 = arith_var_eterm(&solver->vtbl, x1);
-  t2 = arith_var_eterm(&solver->vtbl, x2);
+  t1 = arith_var_eterm(&solver->vtbl, triple->var[0]);
+  t2 = arith_var_eterm(&solver->vtbl, triple->var[1]);
   th_explanation_add_eq(result, t1, t2);
 }
 
@@ -3850,7 +3853,7 @@ static void simplex_build_theory_explanation(simplex_solver_t *solver, ivector_t
     case ARITH_EGRAPHEQ_LB:
     case ARITH_EGRAPHEQ_UB:
       // add eq to the result
-      explain_vareq_from_egraph(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], result);
+      explain_vareq_from_egraph(solver, bstack->expl[i].ptr, result);
       break;
 
     default:
