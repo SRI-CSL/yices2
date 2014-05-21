@@ -6642,7 +6642,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     }
   }
 
-  // triple = NULL;
+  triple = NULL; // otherwise GCC gives a warning
   if (cmp_lb < 0 || cmp_ub > 0) {
     triple = (egraph_expl_triple_t *) arena_alloc(&solver->arena, sizeof(egraph_expl_triple_t));
     triple->var[0] = x1;
