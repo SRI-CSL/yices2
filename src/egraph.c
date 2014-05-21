@@ -3570,16 +3570,18 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
  * Propagate equality between two theory variables v1 and v2 in theory i
  * - v1 = theory var of c1
  * - v2 = theory var of c2
+ * - id = edge index that caused v1 and v2 to be merged (must be stored by the
+ *   theory solver to pass it to egraph_explain_equality).
  * This is called when c1 and c2 are merged
  * - c1 remains root (and v1 remains visible in the egraph)
  * - c2 is no longer root after the merge (so v2 is no longer
  *   visible in the egraph).
  */
-static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2) {
+static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, int32_t id) {
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
 
   // call the merge function for theory i
-  egraph->eg[i]->assert_equality(egraph->th[i], v1, v2);
+  egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
 }
 
 
@@ -3715,7 +3717,7 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
   case ETYPE_REAL:
   case ETYPE_BV:
   case ETYPE_FUNCTION:
-    propagate_satellite_equality(egraph, i, v1, v2);
+    propagate_satellite_equality(egraph, i, v1, v2, id);
     break;
 
   case ETYPE_BOOL:
@@ -5467,8 +5469,9 @@ static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, 
 
 /*
  * Propagate equality v1 == v2 during reconciliation
+ * - id = edge that caused merging of c1 and c2
  */
-static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
+static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2, int32_t id) {
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar &&
@@ -5485,7 +5488,7 @@ static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2
     break;
 
   case ETYPE_FUNCTION:
-    egraph->eg[i]->assert_equality(egraph->th[i], v1, v2);
+    egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
     break;
 
   case ETYPE_BOOL:
@@ -5599,7 +5602,7 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   v1 = egraph->classes.thvar[c1];
   if (v1 != null_thvar) {
     assert(v2 != null_thvar);
-    reconcile_thvar(egraph, c1, v1, c2, v2);
+    reconcile_thvar(egraph, c1, v1, c2, v2, i);
   }
 
   return true;
@@ -6406,7 +6409,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
     /*
      * Build the explanation for u == true
      */
-    egraph_explain_equality(egraph, u, true_occ, v);
+    egraph_explain_equality(egraph, u, true_occ, id, v);
     break;
 
   case ARITH_ATM_TAG:
@@ -6587,6 +6590,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_arena(&egraph->arena);
   init_ivector(&egraph->expl_queue, DEFAULT_EXPL_VECTOR_SIZE);
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
+  egraph->top_id = 0;
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);
   init_istack(&egraph->istack);

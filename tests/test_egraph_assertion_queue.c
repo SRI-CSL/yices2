@@ -60,6 +60,7 @@ static void print_assertion(eassertion_t *a) {
   size = eassertion_get_size(a);
   printf("Assertion %p: %s, arith = %"PRIu32", size = %"PRIu32"\n", a, kind2string(eassertion_get_kind(a)), n, size);
   printf(" hint = %p\n", a->hint);
+  printf(" id = %"PRId32"\n", a->id);
   printf(" vars:");
   for (i=0; i<n; i++) {
     printf(" %"PRId32, a->var[i]);
@@ -95,12 +96,12 @@ int main() {
   printf("=== Initial queue ===\n");
   print_queue();
 
-  eassertion_push_eq(&queue, 1, 1);
-  eassertion_push_eq(&queue, 2, 2);
-  eassertion_push_eq(&queue, 3, 3);
-  eassertion_push_eq(&queue, 4, 4);
-  eassertion_push_eq(&queue, 5, 5);
-  eassertion_push_eq(&queue, 6, 6);
+  eassertion_push_eq(&queue, 1, 1, 1);
+  eassertion_push_eq(&queue, 2, 2, 2);
+  eassertion_push_eq(&queue, 3, 3, 3);
+  eassertion_push_eq(&queue, 4, 4, 4);
+  eassertion_push_eq(&queue, 5, 5, 5);
+  eassertion_push_eq(&queue, 6, 6, 6);
   printf("=== After 6 eqs ===\n");
   print_queue();
 

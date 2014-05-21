@@ -3,11 +3,13 @@
  * Solvers must process these assertions when propagate is called.
  *
  * The assertions are of the following forms:
- *   v1 == v2
+ *   v1 == v2 with an id
  *   v1 != v2 with a hint
  *   distinct v[0] ... v[n-1] with a hint
  * where v1, v2, etc. are theory variable. The hint is a composite_t
  * object that the egraph requires to generate explanations.
+ * For (v1 == v2), the id is the index of an egraph edge, that's also
+ * used to generate explanations.
  *
  * Each assertion is stored as the following data
  * - tag: encode the assertion type (eq, diseq, distinct)
@@ -42,6 +44,7 @@ typedef enum eassertion_kind {
 typedef struct eassertion_s {
   composite_t *hint;
   uint32_t tag;
+  int32_t id;
   thvar_t var[0]; // real size depends on arity
 } eassertion_t;
 
@@ -161,7 +164,7 @@ static inline void reset_eassertion_queue(eassertion_queue_t *queue) {
 /*
  * Add assertions to the queue
  */
-extern void eassertion_push_eq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2);
+extern void eassertion_push_eq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2, int32_t id);
 extern void eassertion_push_diseq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2, composite_t *hint);
 extern void eassertion_push_distinct(eassertion_queue_t *queue, uint32_t n, thvar_t *a, composite_t *hint);
 

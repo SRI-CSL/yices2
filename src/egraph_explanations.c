@@ -973,7 +973,8 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
 
 
 
-
+#if 0
+// NOT USED
 /*
  * Build explanation for edge i
  */
@@ -984,13 +985,16 @@ void egraph_explain_edge(egraph_t *egraph, int32_t i, ivector_t *v) {
   build_explanation_vector(egraph, v);
 }
 
+#endif
 
 /*
  * Build explanation for (t1 == t2): requires class[t1] == class[t2]
+ * - id = edge index: all egdes used in building the explanation must have index < id
  */
-void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v) {
+void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t id, ivector_t *v) {
   assert(egraph_equal_occ(egraph, t1, t2));
   assert(egraph->expl_queue.size == 0);
+  egraph->top_id = id;
   explain_eq(egraph, t1, t2);
   build_explanation_vector(egraph, v);
 }

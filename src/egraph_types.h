@@ -756,9 +756,10 @@ typedef struct egraph_trail_stack_s {
  * to a satellite solver, the egraph calls one of the following
  * functions (in the th_egraph interface).
  *
- * 1) void assert_equality(void *solver, thvar_t x1, thvar_t x2)
+ * 1) void assert_equality(void *solver, thvar_t x1, thvar_t x2, int32_t id)
  *    notify solver that x1 and x2 are equal (after merging classes c1 and c2,
  *    with thvar[c1] = x1  and thvar[c2] = x2).
+ *    id is the egraph edge that caused c1 and c2 to be merged.
  *
  * 2) void assert_disequality(void *solver, thvar_t x1, thvar_t x2, composite_t *cmp)
  *    notify solver that x1 != x2 holds.
@@ -1079,7 +1080,7 @@ typedef struct th_explanation_s {
 /*
  * GENERIC EGRAPH INTERFACE
  */
-typedef void (*assert_eq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
+typedef void (*assert_eq_fun_t)(void *satellite, thvar_t x1, thvar_t x2, int32_t id);
 typedef void (*assert_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2, composite_t *hint);
 typedef bool (*assert_distinct_fun_t)(void *satellite, uint32_t n, thvar_t *a, composite_t *hint);
 typedef bool (*check_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
@@ -1380,6 +1381,7 @@ struct egraph_s {
   arena_t arena;              // stack-based allocation
   ivector_t expl_queue;       // vector used as a queue of edges (explanation queue)
   ivector_t expl_vector;      // vector of literals for conflict/explanations
+  int32_t top_id;             // used when building explanations
   pvector_t cmp_vector;       // generic vector to store composites
   ivector_t aux_buffer;       // generic buffer used in term construction
   int_stack_t istack;         // generic stack for recursive processsing

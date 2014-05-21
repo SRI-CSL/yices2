@@ -889,8 +889,8 @@ static void push_lb_derived(simplex_solver_t *solver, thvar_t x, xrational_t *b,
 
 
 
-// assertion x <= c with x1 and x2 as explanation (implied by the egraph)
-static void push_ub_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, thvar_t x1, thvar_t x2) {
+// assertion x <= c with triple as an explanation:
+static void push_ub_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, egraph_expl_triple_t *triple) {
   arith_bstack_t *stack;
   int32_t k;
 
@@ -900,15 +900,14 @@ static void push_ub_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, t
   xq_set_q(stack->bound + k, c);
   stack->var[k] = x;
   stack->pre[k] = arith_var_upper_index(&solver->vtbl, x);
-  stack->expl[k].v[0] = x1;
-  stack->expl[k].v[1] = x2;
+  stack->expl[k].ptr = triple;
   stack->tag[k] = ARITH_EGRAPHEQ_UB;
   set_arith_var_upper_index(&solver->vtbl, x, k);
 }
 
 
-// assertion x >= c with x1 and x2 as explanation (implied by the egraph)
-static void push_lb_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, thvar_t x1, thvar_t x2) {
+// assertion x >= c with triple as explanation
+static void push_lb_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, egraph_expl_triple_t *triple) {
   arith_bstack_t *stack;
   int32_t k;
 
@@ -918,8 +917,7 @@ static void push_lb_egraph(simplex_solver_t *solver, thvar_t x, rational_t *c, t
   xq_set_q(stack->bound + k, c);
   stack->var[k] = x;
   stack->pre[k] = arith_var_lower_index(&solver->vtbl, x);
-  stack->expl[k].v[0] = x1;
-  stack->expl[k].v[1] = x2;
+  stack->expl[k].ptr = triple;
   stack->tag[k] = ARITH_EGRAPHEQ_LB;
   set_arith_var_lower_index(&solver->vtbl, x, k);
 }
@@ -3617,15 +3615,18 @@ static void enqueue_cnstr_array_indices(ivector_t *q, int32_t *a, arith_bstack_t
 /*
  * Add the explanation for (x1 == x2) to vector v
  * then remove duplicate literals from v.
+ * - triple->var[0] = x1
+ * - triple->var[1] = x2
+ * - triple->id = egraph edge to explain the equality
  */
-static void collect_egraph_eq_expl(simplex_solver_t *solver, thvar_t x1, thvar_t x2, ivector_t *v) {
+static void collect_egraph_eq_expl(simplex_solver_t *solver, egraph_expl_triple_t *triple, ivector_t *v) {
   eterm_t t1, t2;
   uint32_t n;
 
-  t1 = arith_var_eterm(&solver->vtbl, x1);
-  t2 = arith_var_eterm(&solver->vtbl, x2);
+  t1 = arith_var_eterm(&solver->vtbl, triple->var[0]);
+  t2 = arith_var_eterm(&solver->vtbl, triple->var[1]);
   n = v->size;
-  egraph_explain_term_eq(solver->egraph, t1, t2, v);
+  egraph_explain_term_eq(solver->egraph, t1, t2, triple->id, v);
   if (n > 0) {
     ivector_remove_duplicates(v);
   }
@@ -3681,7 +3682,7 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
     case ARITH_EGRAPHEQ_LB:
     case ARITH_EGRAPHEQ_UB:
       // add explanation from the egraph into aux
-      collect_egraph_eq_expl(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], aux);
+      collect_egraph_eq_expl(solver, bstack->expl[i].ptr, aux);
       break;
 
     default:
@@ -6500,8 +6501,9 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 /*
  * Construct a conflict when we have bound k ==> (x1 != x2)
  * after the egraph propagated that (x1 == x2)
+ * - id = egraph edge that triggered (x1 == x2)
  */
-static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar_t x1, thvar_t x2) {
+static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar_t x1, thvar_t x2, int32_t id) {
   ivector_t *v;
   eterm_t t1, t2;
 
@@ -6511,7 +6513,7 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
 
   t1 = arith_var_eterm(&solver->vtbl, x1);
   t2 = arith_var_eterm(&solver->vtbl, x2);
-  egraph_explain_term_eq(solver->egraph, t1, t2, v); // add literals that imply (x1 == x2)
+  egraph_explain_term_eq(solver->egraph, t1, t2, id, v); // add literals that imply (x1 == x2)
 
   // turn v into a conflict clause
   convert_expl_to_clause(v);
@@ -6531,10 +6533,12 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
  * Process (x1 == x2)
  * - x1 and x2 are two variables attached to two egraph terms t1 and t2
  * - this function is called when t1 and t2 become equal in the egraph
+ * - id = egraph edge that triggered merge of x1 and x2's classes
  * - return false if there's a conflict, true otherwise
  */
-static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
   rational_t *c;
+  egraph_expl_triple_t *triple;
   literal_t l;
   thvar_t y;
   int32_t k, cmp_lb, cmp_ub;
@@ -6611,7 +6615,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
   if (k >= 0) {
     cmp_lb = xq_cmp_q(solver->bstack.bound + k, c);
     if (cmp_lb > 0) {
-      record_egraph_eq_conflict(solver, k, x1, x2);
+      record_egraph_eq_conflict(solver, k, x1, x2, id);
 
 #if TRACE
       printf("     conflict with bound ");
@@ -6626,7 +6630,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
   if (k >= 0) {
     cmp_ub = xq_cmp_q(solver->bstack.bound + k, c);
     if (cmp_ub < 0) {
-      record_egraph_eq_conflict(solver, k, x1, x2);
+      record_egraph_eq_conflict(solver, k, x1, x2, id);
 
 #if TRACE
       printf("     conflict with bound ");
@@ -6638,11 +6642,18 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     }
   }
 
+  // triple = NULL;
+  if (cmp_lb < 0 || cmp_ub > 0) {
+    triple = (egraph_expl_triple_t *) arena_alloc(&solver->arena, sizeof(egraph_expl_triple_t));
+    triple->var[0] = x1;
+    triple->var[1] = x2;
+    triple->id = id;
+  }
   if (cmp_lb < 0) {
-    push_lb_egraph(solver, y, c, x1, x2);
+    push_lb_egraph(solver, y, c, triple);
   }
   if (cmp_ub > 0) {
-    push_ub_egraph(solver, y, c, x1, x2);
+    push_ub_egraph(solver, y, c, triple);
   }
 
   assert(simplex_fixed_variable(solver, y) && q_eq(fixed_variable_value(solver, y), c));
@@ -6935,7 +6946,7 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
   while (a < end) {
     switch (eassertion_get_kind(a)) {
     case EGRAPH_VAR_EQ:
-      if (! simplex_process_var_eq(solver, a->var[0], a->var[1])) {
+      if (! simplex_process_var_eq(solver, a->var[0], a->var[1], a->id)) {
 #if 0
 	printf("---> SIMPLEX CONFLICT on g!%"PRId32" == g!%"PRId32"\n",
 	       arith_var_eterm(&solver->vtbl, a->var[0]),
@@ -8150,10 +8161,13 @@ void delete_simplex_solver(simplex_solver_t *solver) {
 
 /*
  * Save egraph assertions in the assertion queue
+ * - x1 and x2: become equal after the egraph merge two classes c1 and c2
+ *   such that thvar[c1] = x1 and thvar[c2] = x2
+ * - id = index of the egraph egde that caused c1 and c2 to be merged
  */
-void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2));
-  eassertion_push_eq(&solver->egraph_queue, x1, x2);
+  eassertion_push_eq(&solver->egraph_queue, x1, x2, id);
 
 #if TRACE
   printf("\n---> Simplex: received egraph equality: ");
