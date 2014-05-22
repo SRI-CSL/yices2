@@ -25,7 +25,7 @@
 #define TRACE 0
 #define TRACE_FCHECK 0
 
-#if TRACE || TRACE_FCHECK || 1
+#if TRACE || TRACE_FCHECK
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
@@ -5049,7 +5049,7 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
-#if 1
+#if 0
       printf("---> EGRAPH CONFLICT on ");
       print_occurrence(stdout, e->lhs);
       printf(" == ");
@@ -6375,7 +6375,7 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     return;
   }
 
-#if 1
+#if 0
   printf("---> EGRAPH: good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
   egraph->stats.eq_props ++;
@@ -6413,7 +6413,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
 	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
     id = i32_of_expl(expl);    // id := edge that triggered the propagation
     u = mk_occ(a->eterm, sign_of(l));
-#if 1
+#if 0
     printf("---> EGRAPH: expand explanation for ");
     print_literal(stdout, l);
     printf(" (trigger edge = %"PRId32")\n", id);
