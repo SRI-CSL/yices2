@@ -2515,7 +2515,7 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
     v = egraph->terms.thvar[t];
     if (v == null_thvar) {
       /*
-       * This assertion is wrong: the equality t == false may no
+       * This assertion is wrong: the equality t == false may not
        * be processed yet (i.e., still in the queue). If that's the
        * case, egraph_term_is_false(egraph, t) will return false and
        * the assertion will fail.
@@ -5172,10 +5172,18 @@ literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   if (eq >= 0) {
     assert(egraph_term_type(egraph, eq) == ETYPE_BOOL);
     v = egraph->terms.thvar[eq];
+#if CONSERVATIVE_DISEQ_AXIOMS
+    assert(v != null_thvar);
+    l = pos_lit(v);
+#else
     // null_thvar is possible if (eq t1 t2) is false at the top level
-    if (v != null_thvar) {
+    if (v == null_thvar) {
+      assert(egraph_term_is_false(egraph, eq) || egraph_term_asserted_false(egraph, eq));
+      l = true_literal; // eq is asserted as an axiom, so its literal is true
+    } else {
       l = pos_lit(v);
     }
+#endif
   }
 
   return l;
@@ -6590,10 +6598,12 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_arena(&egraph->arena);
   init_ivector(&egraph->expl_queue, DEFAULT_EXPL_VECTOR_SIZE);
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
-  egraph->top_id = 0;
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);
   init_istack(&egraph->istack);
+
+  egraph->short_cuts = false;
+  egraph->top_id = 0;
 
   init_ivector(&egraph->interface_eqs, 40);
   egraph->reconcile_top = 0;

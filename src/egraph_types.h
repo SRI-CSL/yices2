@@ -1381,10 +1381,23 @@ struct egraph_s {
   arena_t arena;              // stack-based allocation
   ivector_t expl_queue;       // vector used as a queue of edges (explanation queue)
   ivector_t expl_vector;      // vector of literals for conflict/explanations
-  int32_t top_id;             // used when building explanations
   pvector_t cmp_vector;       // generic vector to store composites
   ivector_t aux_buffer;       // generic buffer used in term construction
   int_stack_t istack;         // generic stack for recursive processsing
+
+
+  /*
+   * Experimental: attempt to produce better equality explanation
+   * - when the egraph knows (t1 == t2) it can propagate a literal l := true
+   *   where l is attached to (eq t1 t2).
+   * - by default, we explore the egraph merge trees to construct an
+   *   explanation for (t1 == t2)
+   * - if short_cuts is true, we try to just use l as the explanation for (t1 == t2),
+   *   but we have to make sure this does not introduce circularities.
+   * - top_id is intended to prevent circular explanation
+   */
+  bool short_cuts;            // enable/disable short cuts in explanations
+  int32_t top_id;             // used when building explanations
 
   /*
    * Support for model reconciliation

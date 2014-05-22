@@ -170,6 +170,9 @@ extern literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2);
 /*
  * Check whether (eq t1 t2) exists and if it does return the corresponding literal.
  * - return null_literal if (eq t1 t2) does not exist
+ * - return true_literal if (eq t1 t2) does exist but is not attached to an atom
+ *   (and thus not attached to a boolean variable). This may happen after a call to
+ *   egraph_assert_diseq_axiom(egraph, t1, t2).
  */
 extern literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2);
 
@@ -197,7 +200,7 @@ extern literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2);
  *               where v = (make_tuple x y)
  *               and x, y, z are fresh skolem constants of the right type.
  *
- *   This is the skolemization of the axiom EXSTS x y z: t = (make-typle (make-typle x y) z).
+ *   This is the skolemization of the axiom EXSTS x y z: t = (make-tuple (make-tuple x y) z).
  */
 extern eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id);
 extern eterm_t egraph_make_variable(egraph_t *egraph, type_t tau);
