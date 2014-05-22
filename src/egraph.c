@@ -25,7 +25,7 @@
 #define TRACE 0
 #define TRACE_FCHECK 0
 
-#if TRACE || TRACE_FCHECK
+#if TRACE || TRACE_FCHECK || 1
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
@@ -3652,8 +3652,11 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
  * When boolean variable v1 and v2 are merged into the same boolean class
  * - this means that either v1 == v2 or v1 == (not v2)
  * - if v1 == const_bvar, then v2 is now true or false.
- *   (v2 is never equal to const_bvar)
  * - id = edge index that caused v1 and v2 to be merged
+ *
+ * Special case: if v1 is const_bvar then v2 may also be const_bvar
+ * - that's because we use const_bvar as theory variable for (distinct .. ) axioms
+ *   so different classes may be mapped to const_bvar.
  */
 static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, int32_t id) {
   atom_t *atm1, *atm2, *atm;
@@ -3661,7 +3664,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, i
   literal_t l;
 
   core = egraph->core;
-  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2) && v2 != const_bvar);
+  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2));
 
   atm1 = get_bvar_atom(core, v1);
   atm2 = get_bvar_atom(core, v2);
@@ -3672,7 +3675,8 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, i
       /*
        * atm->eterm is either true or false
        * assign the same value to atm->boolvar
-       * we keep track of the edge id in the antecedent
+       * we keep track of the edge id in the antecedent of atm->boolvar
+       * in the core.
        */
       assert(egraph_term_is_true(egraph, atm->eterm) ||
              egraph_term_is_false(egraph, atm->eterm));
@@ -5045,8 +5049,8 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
-#if 0
-      printf("\n---> EGRAPH CONFLICT on ");
+#if 1
+      printf("---> EGRAPH CONFLICT on ");
       print_occurrence(stdout, e->lhs);
       printf(" == ");
       print_occurrence(stdout, e->rhs);
@@ -6371,7 +6375,7 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     return;
   }
 
-#if 0
+#if 1
   printf("---> EGRAPH: good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
   egraph->stats.eq_props ++;
@@ -6409,7 +6413,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
 	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
     id = i32_of_expl(expl);    // id := edge that triggered the propagation
     u = mk_occ(a->eterm, sign_of(l));
-#if 0
+#if 1
     printf("---> EGRAPH: expand explanation for ");
     print_literal(stdout, l);
     printf(" (trigger edge = %"PRId32")\n", id);
@@ -6602,7 +6606,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->aux_buffer, 0);
   init_istack(&egraph->istack);
 
-  egraph->short_cuts = false;
+  egraph->short_cuts = true;
   egraph->top_id = 0;
 
   init_ivector(&egraph->interface_eqs, 40);

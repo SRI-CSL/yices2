@@ -52,6 +52,7 @@
 #include <inttypes.h>
 
 #include "smt_core_printer.h"
+#include "egraph_printer.h"
 
 #endif
 
@@ -368,7 +369,7 @@ static eterm_t common_ancestor(egraph_t *egraph, eterm_t t1, eterm_t t2) {
  * we can look for short cuts. A short cut for explaining (t1 == t2)
  * is a literal l such that
  * 1) l is equivalent to (t1 == t2)
- * 2) l is assigned (true) in the smt_core
+ * 2) l is true in the smt_core
  * 3) l does not cause a circularity in the explanation
  *
  * To check condition 3: we keep track of the edge index that triggers
@@ -386,22 +387,32 @@ static eterm_t common_ancestor(egraph_t *egraph, eterm_t t1, eterm_t t2) {
  */
 
 /*
- * Literal equivalent to a Boolean term occurrence x
+ * Literal equivalent to a Boolean term occurrence x.
+ *
+ * NOTE: Some Boolean terms don't have a theory variable. They come
+ * from axioms of the form (not (eq t1 t2))
+ * (cf. egraph_assert_diseq_axiom)
  */
 static literal_t literal_for_eterm(egraph_t *egraph, occ_t x) {
   eterm_t tx;
   bvar_t v;
+  literal_t l;
 
   tx = term_of_occ(x);
   assert(egraph_term_is_bool(egraph, tx));
   v = egraph_term_base_thvar(egraph, tx);
-  assert(v != null_thvar);
-  return mk_signed_lit(v, is_pos_occ(x));
+  l = null_literal;
+  if (v != null_thvar) {
+    l = mk_signed_lit(v, is_pos_occ(x));
+  }
+
+  return l;
 }
 
 /*
  * Search for a literal equivalent to (x == y)
- * - return null_literal if no literal is found
+ * - return a negative integer if no literal is found:
+ *   either null_literal (i.e., -1) or -2 (i.e., null_literal ^ 1)
  */
 static literal_t literal_for_eq(egraph_t *egraph, occ_t x, occ_t y) {
   if (term_of_occ(x) == true_eterm) {
@@ -439,7 +450,7 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
   antecedent_t a;
   int32_t id;
 
-  assert(egraph_equal_occ(egraph, x, y));
+  assert(egraph_same_class(egraph, x, y));
 
   tx = term_of_occ(x);
   ty = term_of_occ(y);
@@ -448,22 +459,34 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
 
   if (egraph->short_cuts) {
     l = literal_for_eq(egraph, x, y);
+    if (l >= 0) {
+      if (egraph_opposite_occ(egraph, x, y)) {
+	l = not(l);
+      }
 
-    if (l == true_literal) return;
-    assert(l != false_literal);
-
-    if (l != null_literal && literal_is_assigned(egraph->core, l)) {
-      assert(literal_value(egraph->core, l) == VAL_TRUE);
-      a = get_bvar_antecedent(egraph->core, var_of(l));
-      if (antecedent_tag(a) == generic_tag) {
-	// i.e., l was propagated by the Egraph
-	id = i32_of_expl(generic_antecedent(a));
-	if (id < egraph->top_id) {
+      if (l == true_literal) {
 #if 1
-	  printf("---> possible short cut: ");
-	  print_literal(stdout, l);
-	  printf("\n");
+	printf("---> possible short cut: ");
+	print_literal(stdout, l);
+	printf("\n");
 #endif
+	return;
+      }
+
+      if (literal_value(egraph->core, l) == VAL_TRUE) {
+	a = get_bvar_antecedent(egraph->core, var_of(l));
+	if (antecedent_tag(a) == generic_tag) {
+	  // i.e., l was propagated by the Egraph
+	  id = i32_of_expl(generic_antecedent(a));
+	  if (id < egraph->top_id) {
+#if 1
+	    printf("---> possible short cut: ");
+	    print_literal(stdout, l);
+	    printf(" := ");
+	    print_egraph_atom_of_literal(stdout, egraph, l);
+	    printf("\n");
+#endif
+	  }
 	}
       }
     }
@@ -1334,6 +1357,8 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
 
   assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
 
+  egraph->top_id = INT32_MAX;
+
   if (egraph_opposite_occ(egraph, t1, t2)) {
     // t1 == (not t2);
     explain_eq(egraph, t1, t2);
@@ -1394,6 +1419,8 @@ bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivector_t *v
   int_hmap_pair_t *p;
 
   assert(egraph->expl_queue.size == 0);
+
+  egraph->top_id = INT32_MAX;
 
   imap = egraph_get_imap(egraph);
 
@@ -1462,6 +1489,8 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
   uint32_t *dmask, dmsk;
 
   assert(egraph->expl_queue.size == 0);
+
+  egraph->top_id = INT32_MAX;
 
   dmask = egraph->classes.dmask;
   m = composite_arity(d);
