@@ -1053,6 +1053,8 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
   }
   ivector_reset(queue);
 
+  // remove duplicates
+  ivector_remove_duplicates(v);
 }
 
 
