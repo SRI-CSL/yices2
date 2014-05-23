@@ -6606,7 +6606,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->aux_buffer, 0);
   init_istack(&egraph->istack);
 
-  egraph->short_cuts = true;
+  egraph->short_cuts = false;
   egraph->top_id = 0;
 
   init_ivector(&egraph->interface_eqs, 40);
