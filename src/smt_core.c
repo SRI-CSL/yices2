@@ -3180,18 +3180,24 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
     break;
 
   case generic_tag:
-    explain_antecedent(s, not(l), a);
-    c = s->explanation.data;
-    // (and c[0] ... c[n-1]) implies (not l)
-    for (i=0; i<s->explanation.size; i++) {
-      l1 = not(c[i]);
-      if (is_lit_unmarked(s, l1)) {
-        if (check_level(s, l1, sgn)) {
-          set_lit_mark(s, l1);
-          ivector_push(b, l1);
-        } else {
-          return false;
-        }
+    /*
+     * TODO: check whether skipping all theory-propagated literals
+     * makes a difference here.
+     */
+    if (false) {
+      explain_antecedent(s, not(l), a);
+      c = s->explanation.data;
+      // (and c[0] ... c[n-1]) implies (not l)
+      for (i=0; i<s->explanation.size; i++) {
+	l1 = not(c[i]);
+	if (is_lit_unmarked(s, l1)) {
+	  if (check_level(s, l1, sgn)) {
+	    set_lit_mark(s, l1);
+	    ivector_push(b, l1);
+	  } else {
+	    return false;
+	  }
+	}
       }
     }
     break;
