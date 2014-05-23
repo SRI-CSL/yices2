@@ -3199,6 +3199,8 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
 	  }
 	}
       }
+    } else {
+      return false;
     }
     break;
   }
