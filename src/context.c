@@ -254,13 +254,70 @@ static occ_t map_select_to_eterm(context_t *ctx, select_term_t *s, type_t tau) {
 
 
 /*
+ * Convert a conditional expression to an egraph term
+ * - c = conditional descriptor
+ * - tau = type of c
+ */
+static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t tau) {
+  literal_t *a;
+  occ_t u, v;
+  uint32_t i, n;
+  literal_t l;
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n + 1);
+
+  // first pass: convert all the conditions to literals
+  // check whether one condition is true
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      u = internalize_to_eterm(ctx, c->pair[i].val);
+      goto done;
+    }
+  }
+
+  u = pos_occ(make_egraph_variable(ctx, tau));
+
+  // second pass: one clause for each pair a[i] => u = v[i]
+  for (i=0; i<n; i++) {
+    if (a[i] != false_literal) {
+      v = internalize_to_eterm(ctx, c->pair[i].val);
+      l = egraph_make_eq(ctx->egraph, u, v);
+      add_binary_clause(ctx->core, not(a[i]), l);
+    }
+  }
+
+  // clause for the default value
+  v = internalize_to_eterm(ctx, c->defval);
+  l = egraph_make_eq(ctx->egraph, u, v);
+  a[n] = l;
+  add_clause(ctx->core, n+1, a);
+
+ done:
+  free_istack_array(&ctx->istack, a);
+
+  return u;
+}
+
+
+/*
  * Convert (ite c t1 t2) to an egraph term
  * - tau = type of (ite c t1 t2)
  */
 static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau) {
+  conditional_t *d;
   eterm_t u;
   occ_t u1, u2, u3;
   literal_t c, l1, l2;
+
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    u1 = map_conditional_to_eterm(ctx, d, tau);
+    context_free_conditional(ctx, d);
+    return u1;
+  }
 
   c = internalize_to_literal(ctx, ite->arg[0]);
   if (c == true_literal) {
@@ -400,15 +457,61 @@ static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
  *****************************************************/
 
 /*
+ * Convert a conditional to an arithmetic variable
+ * - if is_int is true, the variable is integer otherwise, it's real
+ */
+static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool is_int) {
+  literal_t *a;
+  uint32_t i, n;
+  thvar_t x, v;
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n);
+
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      v = internalize_to_arith(ctx, c->pair[i].val);
+      goto done;
+    }
+  }
+
+  v = ctx->arith.create_var(ctx->arith_solver, is_int);
+
+  for (i=0; i<n; i++) {
+    if (a[i] != false_literal) {
+      x = internalize_to_arith(ctx, c->pair[i].val);
+      ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, a[i], v, x); // a[i] => v == t[i]
+    }
+  }
+
+  x = internalize_to_arith(ctx, c->defval);
+  ctx->arith.assert_clause_vareq_axiom(ctx->arith_solver, n, a, v, x);
+
+ done:
+  free_istack_array(&ctx->istack, a);
+  return v;
+}
+
+
+/*
  * Convert if-then-else to an arithmetic variable
  * - if is_int is true, the if-then-else term is integer
  * - otherwise, it's real
  */
 static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_int) {
+  conditional_t *d;
   literal_t c;
   thvar_t v, x;
 
   assert(ite->arity == 3);
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    v = map_conditional_to_arith(ctx, d, is_int);
+    context_free_conditional(ctx, d);
+    return v;
+  }
 
   c = internalize_to_literal(ctx, ite->arg[0]); // condition
   if (c == true_literal) {
@@ -2899,15 +3002,65 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
 }
 
 
+
+
+/*
+ * Top-level conditional
+ * - c = conditional descriptor
+ * - if tt is true: assert c otherwise assert not c
+ *
+ * - c->nconds = number of clauses in the conditional
+ * - for each clause i: c->pair[i] = <cond, val>
+ * - c->defval = default value
+ */
+static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool tt) {
+  uint32_t i, n;
+  literal_t *a;
+  literal_t l;
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n + 1);
+
+  // first pass: convert all the conditions to literals
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+  }
+
+  // second pass: one clause for each pair a[i] => v[i];
+  for (i=0; i<n; i++) {
+    if (a[i] != false_literal) {
+      l = signed_literal(internalize_to_literal(ctx, c->pair[i].val), tt);
+      add_binary_clause(ctx->core, not(a[i]), l); // a[i] => v[i]
+    }
+  }
+
+  // last clause: default value
+  a[n] = signed_literal(internalize_to_literal(ctx, c->defval), tt);
+  add_clause(ctx->core, n+1, a);
+
+  // cleanup
+  free_istack_array(&ctx->istack, a);
+}
+
+
+
 /*
  * Top-level boolean if-then-else (ite c t1 t2)
  * - if tt is true: assert (ite c t1 t2)
  * - if tt is false: assert (not (ite c t1 t2))
  */
 static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
+  conditional_t *d;
   literal_t l1, l2, l3;
 
   assert(ite->arity == 3);
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    assert_toplevel_conditional(ctx, d, tt);
+    context_free_conditional(ctx, d);
+    return;
+  }
 
   l1 = internalize_to_literal(ctx, ite->arg[0]);
   if (l1 == true_literal) {

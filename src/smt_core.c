@@ -3184,7 +3184,7 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
      * TODO: check whether skipping all theory-propagated literals
      * makes a difference here.
      */
-    if (true) {
+    if (false) {
       explain_antecedent(s, not(l), a);
       c = s->explanation.data;
       // (and c[0] ... c[n-1]) implies (not l)

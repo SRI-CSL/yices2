@@ -412,6 +412,7 @@ typedef struct rdl_solver_s {
   int_htbl_t htbl;       // for hash-consing of atoms
   arena_t arena;         // for storing explanations of implied atoms
   ivector_t expl_buffer; // for constructing explanations
+  ivector_t aux_vector;  // general-purpose vector
   rdl_const_t c1;        // for internal use
   rational_t q;          // for internalization
 
@@ -667,6 +668,11 @@ extern void rdl_assert_vareq_axiom(rdl_solver_t *solver, thvar_t x, thvar_t y, b
  */
 extern void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
 
+
+/*
+ * Assert (c[0] \/ ... \/ c[n-1] \/ x == y)
+ */
+extern void rdl_assert_clause_vareq_axiom(rdl_solver_t *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y);
 
 
 

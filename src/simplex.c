@@ -3125,6 +3125,55 @@ void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t c, thva
 }
 
 
+
+/*
+ * Assert (c[0] \/ ... \/ c[n-1] \/ x == y)
+ */
+void simplex_assert_clause_vareq_axiom(simplex_solver_t *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y) {
+  poly_buffer_t *b;
+  ivector_t *v;
+  literal_t l, l1, l2;
+
+  assert(valid_arith_var(&solver->vtbl, x) && valid_arith_var(&solver->vtbl, y));
+
+  // compute polynomial p = (x - y)
+  b = &solver->buffer;
+  assert(poly_buffer_nterms(b) == 0);
+  add_var_or_subst(solver, b, x);
+  sub_var_or_subst(solver, b, y);
+  normalize_poly_buffer(b);
+
+  l = simplify_eq_atom(solver, &l1, &l2);
+  if (l == null_literal) {
+    // l1 is (p >= 0) and l2 is (p <= 0)
+    // assert (c[0] \/ ... \/ c[n-1] \/ l1)
+    //    and (c[0] \/ ... \/ c[n-1] \/ l2)
+
+    v = &solver->aux_vector;
+    assert(v->size == 0);
+    ivector_copy(v, c, n);
+
+    assert(v->size == n);
+    ivector_push(v, l1);
+    add_clause(solver->core, n+1, v->data);
+
+    v->data[n] = l2;
+    add_clause(solver->core, n+1, v->data);
+
+    ivector_reset(v);
+
+  } else {
+    assert(l == false_literal || l == true_literal);
+    // if p == 0 is true, nothing to do
+    // if p == 0 is false, assert (c[0] \/ ... \/ c[n-1])
+    if (l == false_literal) {
+      add_clause(solver->core, n, c);
+    }
+  }
+}
+
+
+
 /*****************************************
  *  SIMPLIFICATION/TABLEAU CONSTRUCTION  *
  ****************************************/
@@ -9936,6 +9985,7 @@ static arith_interface_t simplex_context = {
   (assert_arith_paxiom_fun_t) simplex_assert_poly_ge_axiom,
   (assert_arith_vareq_axiom_fun_t) simplex_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) simplex_assert_cond_vareq_axiom,
+  (assert_arith_clause_vareq_axiom_fun_t) simplex_assert_clause_vareq_axiom,
 
   (attach_eterm_fun_t) simplex_attach_eterm,
   (eterm_of_var_fun_t) simplex_eterm_of_var,

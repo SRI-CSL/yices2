@@ -296,6 +296,9 @@ enum {
  *     - this is used to convert if-then-else equalities:
  *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
  *
+ * 15b) void assert_clause_vareq_axiom(void *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y)
+ *     - assert (c[0] \/ ... \/ c[n-1] \/ x == y)
+ *
  * Egraph connection
  * -----------------
  *
@@ -361,6 +364,7 @@ typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
 typedef void (*assert_arith_paxiom_fun_t)(void *solver, polynomial_t *p, thvar_t *map, bool tt);
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
+typedef void (*assert_arith_clause_vareq_axiom_fun_t)(void* solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y);
 
 typedef void    (*attach_eterm_fun_t)(void *solver, thvar_t v, eterm_t t);
 typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
@@ -387,6 +391,7 @@ typedef struct arith_interface_s {
   assert_arith_paxiom_fun_t assert_poly_ge_axiom;
   assert_arith_vareq_axiom_fun_t assert_vareq_axiom;
   assert_arith_cond_vareq_axiom_fun_t assert_cond_vareq_axiom;
+  assert_arith_clause_vareq_axiom_fun_t assert_clause_vareq_axiom;
 
   attach_eterm_fun_t attach_eterm;
   eterm_of_var_fun_t eterm_of_var;
@@ -1133,7 +1138,7 @@ extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t 
 /*
  * Free a conditional descriptor returned by the previous function
  */
-extern void contect_free_conditional(context_t *ctx, conditional_t *d);
+extern void context_free_conditional(context_t *ctx, conditional_t *d);
 
 
 
