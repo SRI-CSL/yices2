@@ -16,7 +16,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -264,6 +264,10 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   uint32_t i, n;
   literal_t l;
 
+#if 1
+  printf("---> conditional to eterm\n");
+#endif
+
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
@@ -464,6 +468,10 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   literal_t *a;
   uint32_t i, n;
   thvar_t x, v;
+
+#if 1
+  printf("---> conditional to arith\n");
+#endif
 
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n);
@@ -3018,12 +3026,20 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   literal_t *a;
   literal_t l;
 
+#if 1
+  printf("---> toplevel conditional\n");
+#endif
+
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
   // first pass: convert all the conditions to literals
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      assert_term(ctx, c->pair[i].val, tt);
+      goto done;
+    }
   }
 
   // second pass: one clause for each pair a[i] => v[i];
@@ -3039,6 +3055,7 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   add_clause(ctx->core, n+1, a);
 
   // cleanup
+ done:
   free_istack_array(&ctx->istack, a);
 }
 

@@ -2789,6 +2789,9 @@ static void print_conditional_conversion(conditional_t *d, term_t t) {
   pp_close_block(&pp, false);
   flush_yices_pp(&pp);
 
+  pp_string(&pp, "result:");
+  flush_yices_pp(&pp);
+
   n = d->nconds;
   for (i=0; i<n; i++) {
     pp_open_block(&pp, PP_OPEN_ITE);
