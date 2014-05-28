@@ -857,7 +857,8 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   }
 
   // no substitution
-  ivector_push(&ctx->top_eqs, e);
+  //  ivector_push(&ctx->top_eqs, e);
+  ivector_push(&ctx->top_formulas, e);
 }
 
 
@@ -1357,7 +1358,7 @@ static void finalize_subst_candidates(context_t *ctx) {
  *    t is mapped to true in the internalization table.
  *
  * 3) ctx->top_formulas = non-atomic terms.
- *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...)
+ *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...) or (IFF ..)
  *    or the negation of such a term.
  *    t is mapped to true in the internalization table.
  *
