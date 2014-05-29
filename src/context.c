@@ -3056,7 +3056,7 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   literal_t l;
   bool all_false;
 
-#if 1
+#if 0
   printf("---> toplevel conditional\n");
 #endif
 
