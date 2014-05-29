@@ -16,7 +16,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -265,7 +265,7 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   literal_t l;
   bool all_false;
 
-#if 1
+#if 0
   printf("---> conditional to eterm\n");
 #endif
 
@@ -481,7 +481,7 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   thvar_t x, v;
   bool all_false;
 
-#if 1
+#if 0
   printf("---> conditional to arith\n");
 #endif
 
