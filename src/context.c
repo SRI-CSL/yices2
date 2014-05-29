@@ -263,6 +263,7 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   occ_t u, v;
   uint32_t i, n;
   literal_t l;
+  bool all_false;
 
 #if 1
   printf("---> conditional to eterm\n");
@@ -271,28 +272,38 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
-  // first pass: convert all the conditions to literals
-  // check whether one condition is true
+  all_false = true;
+  u = null_occurrence;
+
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
     if (a[i] == true_literal) {
+      // a[0] ... a[i-1] must all be false_literal
+      assert(u == null_occurrence);
       u = internalize_to_eterm(ctx, c->pair[i].val);
       goto done;
     }
-  }
-
-  u = pos_occ(make_egraph_variable(ctx, tau));
-
-  // second pass: one clause for each pair a[i] => u = v[i]
-  for (i=0; i<n; i++) {
     if (a[i] != false_literal) {
+      if (all_false) {
+	assert(u == null_occurrence);
+	u = pos_occ(make_egraph_variable(ctx, tau));
+	all_false = false;
+      }
+      // one clause for a[i] => (u = v[i])
       v = internalize_to_eterm(ctx, c->pair[i].val);
       l = egraph_make_eq(ctx->egraph, u, v);
       add_binary_clause(ctx->core, not(a[i]), l);
     }
   }
 
+  if (all_false) {
+    assert(u == null_occurrence);
+    u = internalize_to_eterm(ctx, c->defval);
+    goto done;
+  }
+
   // clause for the default value
+  assert(u != null_occurrence);
   v = internalize_to_eterm(ctx, c->defval);
   l = egraph_make_eq(ctx->egraph, u, v);
   a[n] = l;
@@ -468,6 +479,7 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   literal_t *a;
   uint32_t i, n;
   thvar_t x, v;
+  bool all_false;
 
 #if 1
   printf("---> conditional to arith\n");
@@ -476,23 +488,40 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n);
 
+  all_false = true;
+  v = null_thvar;
+
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
     if (a[i] == true_literal) {
+      // a[0] ... a[i-1] must all be false_literal
+      assert(v == null_thvar);
       v = internalize_to_arith(ctx, c->pair[i].val);
       goto done;
     }
-  }
-
-  v = ctx->arith.create_var(ctx->arith_solver, is_int);
-
-  for (i=0; i<n; i++) {
     if (a[i] != false_literal) {
+      if (all_false) {
+	assert(v == null_thvar);
+	v = ctx->arith.create_var(ctx->arith_solver, is_int);
+	all_false = false;
+      }
+      // clause for a[i] => (v = c->pair[i].val)
       x = internalize_to_arith(ctx, c->pair[i].val);
-      ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, a[i], v, x); // a[i] => v == t[i]
+      ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, a[i], v, x);
     }
   }
 
+  if (all_false) {
+    assert(v == null_thvar);
+    v = internalize_to_arith(ctx, c->defval);
+    goto done;
+  }
+
+  /*
+   * last clause (only if some a[i] isn't false):
+   * (a[0] \/ ... \/ a[n-1] \/ v == c->defval)
+   */
+  assert(v != null_thvar);
   x = internalize_to_arith(ctx, c->defval);
   ctx->arith.assert_clause_vareq_axiom(ctx->arith_solver, n, a, v, x);
 
@@ -3025,6 +3054,7 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   uint32_t i, n;
   literal_t *a;
   literal_t l;
+  bool all_false;
 
 #if 1
   printf("---> toplevel conditional\n");
@@ -3033,24 +3063,30 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
-  // first pass: convert all the conditions to literals
+  all_false = true;
   for (i=0; i<n; i++) {
+    // a[i] = condition for pair[i]
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
     if (a[i] == true_literal) {
+      // if a[i] is true, all other conditions must be false
       assert_term(ctx, c->pair[i].val, tt);
       goto done;
     }
-  }
-
-  // second pass: one clause for each pair a[i] => v[i];
-  for (i=0; i<n; i++) {
     if (a[i] != false_literal) {
+      // l = value for pair[i]
       l = signed_literal(internalize_to_literal(ctx, c->pair[i].val), tt);
       add_binary_clause(ctx->core, not(a[i]), l); // a[i] => v[i]
+      all_false = false;
     }
   }
 
-  // last clause: default value
+  if (all_false) {
+    // all a[i]s are false: no need for a clause
+    assert_term(ctx, c->defval, tt);
+    goto done;
+  }
+
+  // last clause: (a[0] \/ .... \/ a[n] \/ +/-defval)
   a[n] = signed_literal(internalize_to_literal(ctx, c->defval), tt);
   add_clause(ctx->core, n+1, a);
 
