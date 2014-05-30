@@ -1271,6 +1271,14 @@ static inline uint64_t num_conflicts(smt_core_t *s) {
   return s->stats.conflicts;
 }
 
+static inline uint32_t num_theory_conflicts(smt_core_t *s) {
+  return s->stats.th_conflicts;
+}
+
+static inline uint32_t num_theory_propagations(smt_core_t *s) {
+  return s->stats.th_props;
+}
+
 
 /*
  * Read the size statistics
