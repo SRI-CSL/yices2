@@ -1396,7 +1396,7 @@ static void show_core_stats(smt_core_t *core) {
   print_out(" :conflicts %"PRIu64"\n", num_conflicts(core));
   print_out(" :theory-conflicts %"PRIu32"\n", num_theory_conflicts(core));
   print_out(" :boolean-propagations %"PRIu64"\n", num_propagations(core));
-  print_out(" :theory-propagations %"PRIu32"\n", num_propagations(core));
+  print_out(" :theory-propagations %"PRIu32"\n", num_theory_propagations(core));
 }
 
 static void show_egraph_stats(egraph_t *egraph) {
