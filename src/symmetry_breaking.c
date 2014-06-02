@@ -376,12 +376,12 @@ static bool false_eq(term_table_t *table, term_t t1, term_t t2) {
 }
 
 /*
- * Check whether t is of the following formsL
+ * Check whether t is of the following forms
  * - false term
- * - disjuction: (or t1 ... tn_
+ * - disjuction: (or t1 ... tn)
  * - equality (x == constant) or (constant == x)
  *
- * The function retuns one of the following codes:
+ * The function returns one of the following codes:
  * - MATCH_FALSE
  * - MATCH_OR
  * - MATCH_EQ

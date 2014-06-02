@@ -170,35 +170,6 @@ extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t);
 
 
 /*
- * EXPERIMENTAL CHECKS FOR SUBSUMPTIONS
- */
-
-/*
- * Check whether two Boolean terms t1 and t2
- * are incompatible (i.e., (t1 and t2) is false.
- * - this does very simple checks for now
- */
-extern bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2);
-
-/*
- * Special cases: t1 and t2 are arithmetic or bitvector literals
- */
-extern bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2);
-extern bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2);
-
-/*
- * Check whether t1 subsumes t2 (i.e., t1 => t2)
- */
-extern bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2);
-
-/*
- * Check whether t1 subsumes all elements of a[0 ... n-1]
- */
-extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a);
-
-
-
-/*
  * BOUNDS ON BITVECTOR TERMS
  */
 
@@ -295,6 +266,54 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
  * NOTE: v may be modified event if the function returns false
  */
 extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
+
+
+
+/*
+ * EXPERIMENTAL CHECKS FOR SUBSUMPTIONS
+ */
+
+/*
+ * Check whether two Boolean terms t1 and t2
+ * are incompatible (i.e., (t1 and t2) is false.
+ * - this does very simple checks for now
+ */
+extern bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2);
+
+/*
+ * Special cases: t1 and t2 are arithmetic or bitvector literals
+ */
+extern bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2);
+extern bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2);
+
+/*
+ * Check whether t1 subsumes t2 (i.e., t1 => t2)
+ */
+extern bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2);
+
+/*
+ * Check whether t1 subsumes all elements of a[0 ... n-1]
+ */
+extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a);
+
+
+
+
+/*
+ * EQUALITY DECOMPOSITION
+ */
+
+/*
+ * Check whether t is equivalent to (x == a) where x is a term and a is a constant
+ * - if so stores the term and constant in *x and *a, and returns true.
+ * - otherwise returns false, and leave *x and *a unchanged.
+ *
+ * The following cases are handled:
+ * - t is (eq a x) where x and a have unintepreted types
+ * - t is (arith-bineq x a) or (arith-eq0 x)
+ * - t is (bveq x a)
+ */
+extern bool term_is_const_term_eq(term_table_t *tbl, term_t t, term_t *x, term_t *a);
 
 
 
