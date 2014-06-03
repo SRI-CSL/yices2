@@ -313,7 +313,7 @@ extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t
  * - t is (arith-bineq x a) or (arith-eq0 x)
  * - t is (bveq x a)
  */
-extern bool term_is_const_term_eq(term_table_t *tbl, term_t t, term_t *x, term_t *a);
+extern bool is_term_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a);
 
 
 

@@ -75,7 +75,9 @@ typedef enum {
  * - KEEP_ITE: keep if-then-else terms in the egraph
  * - BREAKSYM: enables symmetry breaking
  * - PSEUDO_INVERSE: enables elimination of unconstrained terms using
- *   pseudo-inverse tricks.
+ *   pseudo-inverse tricks
+ * - CONDITIONAL_DEF: attempt to detect and use assertions of the form
+ *     (condition => (term = constant))
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
  *
@@ -108,17 +110,18 @@ typedef enum {
 #define BREAKSYM_OPTION_MASK            0x800
 #define PSEUDO_INVERSE_OPTION_MASK      0x1000
 #define ITE_BOUNDS_OPTION_MASK          0x2000
+#define CONDITIONAL_DEF_OPTION_MASK     0x4000
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
   EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
   BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK|\
-  ITE_BOUNDS_OPTION_MASK)
+  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK)
 
 // SIMPLEX OPTIONS
-#define SPLX_EGRLMAS_OPTION_MASK  0x10000
-#define SPLX_ICHECK_OPTION_MASK   0x20000
-#define SPLX_EQPROP_OPTION_MASK   0x40000
+#define SPLX_EGRLMAS_OPTION_MASK  0x1000000
+#define SPLX_ICHECK_OPTION_MASK   0x2000000
+#define SPLX_EQPROP_OPTION_MASK   0x4000000
 
 // FOR TESTING
 #define LAX_OPTION_MASK         0x40000000
@@ -1105,6 +1108,12 @@ extern void analyze_diff_logic(context_t *ctx, bool idl);
 extern void break_uf_symmetries(context_t *ctx);
 
 
+/*
+ * Preprocessing of conditional definitions
+ */
+extern void process_conditional_definitions(context_t *ctx);
+
+
 
 /*
  * CLEANUP
@@ -1368,6 +1377,14 @@ static inline void disable_assert_ite_bounds(context_t *ctx) {
   ctx->options &= ~ITE_BOUNDS_OPTION_MASK;
 }
 
+static inline void enable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options |= CONDITIONAL_DEF_OPTION_MASK;
+}
+
+static inline void disable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options &= ~CONDITIONAL_DEF_OPTION_MASK;
+}
+
 
 /*
  * Simplex-related options
@@ -1421,6 +1438,10 @@ static inline bool context_pseudo_inverse_enabled(context_t *ctx) {
 
 static inline bool context_ite_bounds_enabled(context_t *ctx) {
   return (ctx->options & ITE_BOUNDS_OPTION_MASK) != 0;
+}
+
+static inline bool context_cond_def_preprocessing_enabled(context_t *ctx) {
+  return (ctx->options & CONDITIONAL_DEF_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {

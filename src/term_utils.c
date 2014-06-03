@@ -2224,7 +2224,7 @@ bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a) {
  * - if so stores the term and constant in *x and *a, and returns true.
  * - otherwise returns false, and leave *x and *a unchanged.
  */
-bool term_is_const_term_eq(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
+bool is_term_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
   composite_term_t *eq;
 
   assert(good_term(tbl, t));

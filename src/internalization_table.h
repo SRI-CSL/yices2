@@ -37,9 +37,9 @@
  *               by clearing the sign bit.
  *   map[i] >= 0 if i is not a root, then map[i] is a term (term index + polarity bit)
  *
- * For boolean classes, the polarity bit is significant: the substitution
- * may map a boolean index 'i' to a negative term '(not t)'. Then the root
- * of 'i' is '(not t)'.
+ * For boolean classes, the polarity bit is significant: the
+ * substitution may map a boolean index 'i' to term '(not t)'. Then
+ * the root of 'i' is '(not t)'.
  *
  * The type of a class (attached to the class root) is the intersection type
  * of all the class elements. If the root is not frozen this is the exact

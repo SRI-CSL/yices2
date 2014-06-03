@@ -15,6 +15,7 @@
 #include "context.h"
 #include "eq_learner.h"
 #include "symmetry_breaking.h"
+#include "conditional_definitions.h"
 
 
 #define TRACE_SUBST  0
@@ -23,7 +24,7 @@
 
 #define TRACE_SYM_BREAKING 0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING || 1
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2765,6 +2766,8 @@ conditional_t *context_make_conditional(context_t *ctx, composite_term_t *ite) {
 }
 
 
+#if 0
+
 /*
  * FOR TESTING ONLY
  */
@@ -2825,6 +2828,9 @@ void context_test_conditional_for_ite(context_t *ctx, composite_term_t *ite, ter
 
   delete_conditional(&condi);
 }
+
+
+#endif
 
 
 /****************************************************
@@ -2980,7 +2986,7 @@ static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
 
 
 /*
- * For testing only: to be completed
+ * Break symmetries
  */
 void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
@@ -3036,3 +3042,25 @@ void break_uf_symmetries(context_t *ctx) {
   delete_sym_breaker(&breaker);
 }
 
+
+
+
+/******************************
+ *  CONDITIONAL DEFINITIONS   *
+ *****************************/
+
+void process_conditional_definitions(context_t *ctx) {
+  cond_def_collector_t collect;
+  ivector_t *v;
+  uint32_t i, n;
+
+  v = &ctx->top_formulas;
+  n = v->size;
+  if (n > 0) {
+    init_cond_def_collector(&collect, ctx);
+    for (i=0; i<n; i++) {
+      extract_conditional_definitions(&collect, v->data[i]);
+    }
+    delete_cond_def_collector(&collect);
+  }
+}

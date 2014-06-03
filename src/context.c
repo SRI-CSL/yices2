@@ -4469,12 +4469,16 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       break;
     }
 
-
     /*
      * Process the candidate variable substitutions if any
      */
     if (ctx->subst_eqs.size > 0) {
       context_process_candidate_subst(ctx);
+    }
+
+    // more optional processing
+    if (context_cond_def_preprocessing_enabled(ctx)) {
+      process_conditional_definitions(ctx);
     }
 
 
@@ -4738,13 +4742,18 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
       break;
     }
 
-
     /*
      * Process the candidate variable substitutions if any
      */
     if (ctx->subst_eqs.size > 0) {
       context_process_candidate_subst(ctx);
     }
+
+    // more optional processing
+    if (context_cond_def_preprocessing_enabled(ctx)) {
+      process_conditional_definitions(ctx);
+    }
+
 
     code = CTX_NO_ERROR;
 
