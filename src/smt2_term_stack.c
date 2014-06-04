@@ -187,7 +187,7 @@ static void eval_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint3
   }
   // we known 0 <= index <= bitsize of b
   if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_left(b, index);
+    bvlogic_buffer_rotate_right(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
