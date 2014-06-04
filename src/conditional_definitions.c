@@ -66,7 +66,7 @@ static void add_var_to_vector(ivector_t *v, term_t t) {
   j = v->size;
   while (i < j) {
     k = (i+j) >> 1; // (i+j) can't overflow since v->size <= MAX_IVECTOR_SIZE
-    assert(i <= k && k <= j);
+    assert(i <= k && k < j);
     if (v->data[k] < t) {
       i = k+1;
     } else {
@@ -75,14 +75,20 @@ static void add_var_to_vector(ivector_t *v, term_t t) {
   }
 
   j = v->size;
-  if (i == j || v->data[i] < t) {
-    // insert t in v->data[i] and shift everything
-    ivector_push(v, 0); // make room
-    while (j > i) {
-      v->data[j] = v->data[j-1];
-      j --;
+  if (i == j) {
+    // all elements are smaller than t
+    ivector_push(v, t);
+  } else {
+    assert(i < v->size && v->data[i] >= t);
+    if (v->data[i] > t) {
+      // insert t in v->data[i] and shift everything
+      ivector_push(v, 0); // make room
+      while (j > i) {
+	v->data[j] = v->data[j-1];
+	j --;
+      }
+      v->data[j] = t;
     }
-    v->data[j] = t;
   }
 
   assert(vector_is_sorted(v) && i < v->size && v->data[i] == t);
