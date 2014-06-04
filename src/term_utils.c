@@ -1818,12 +1818,17 @@ static void delete_arith_cnstr(arith_constraint_t *cnstr) {
  *     cnstr->is_pos = false
  *     cnstr->poly = a1 t1 + ... + a_n t_n
  *     cnstr->constant = +a0
+ *
+ * When this function is called, we know that p occurs in an
+ * atom of the form (p == 0) or (p >= 0). Then we can assume
+ * that p is not a constant polynomial (otherwise the aotm would
+ * be reduced to true or false  by the term manager).
  */
 static void arith_cnstr_set_poly(arith_constraint_t *cnstr, polynomial_t *p) {
   uint32_t n;
 
   n = p->nterms;
-  assert(n > 1);
+  assert(n >= 1);
   cnstr->is_pos = true;
 
   if (p->mono[0].var == const_idx) {
