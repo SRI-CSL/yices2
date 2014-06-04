@@ -5,7 +5,9 @@
 #include <assert.h>
 
 #include "memalloc.h"
+#include "ptr_array_sort2.h"
 #include "term_utils.h"
+
 #include "conditional_definitions.h"
 
 
@@ -118,12 +120,14 @@ static void add_vars_to_vector(ivector_t *v, harray_t *a) {
  */
 
 /*
- * Initialize collect: ctx = relevant context
+ * Initialize collect:
+ * - ctx = relevant context
+ * - store = hash_array structure
  */
-static void init_bool_var_collector(bool_var_collector_t *collect, context_t *ctx) {
+static void init_bool_var_collector(bool_var_collector_t *collect, context_t *ctx, int_array_hset_t *store) {
   collect->ctx = ctx;
   collect->terms = ctx->terms;
-  init_int_array_hset(&collect->store, 0);
+  collect->store = store;
   init_simple_cache(&collect->cache, 0);
   init_pstack(&collect->stack);
   init_ivector(&collect->buffer, 10);
@@ -133,7 +137,6 @@ static void init_bool_var_collector(bool_var_collector_t *collect, context_t *ct
  * Free memory
  */
 static void delete_bool_var_collector(bool_var_collector_t *collect) {
-  delete_int_array_hset(&collect->store);
   delete_simple_cache(&collect->cache);
   delete_pstack(&collect->stack);
   delete_ivector(&collect->buffer);
@@ -144,16 +147,16 @@ static void delete_bool_var_collector(bool_var_collector_t *collect) {
  * Build sets
  */
 static harray_t *empty_set(bool_var_collector_t *collect) {
-  return int_array_hset_get(&collect->store, 0, NULL); // this returns a non-NULL harray
+  return int_array_hset_get(collect->store, 0, NULL); // this returns a non-NULL harray
 }
 
 static harray_t *singleton(bool_var_collector_t *collect, term_t t) {
-  return int_array_hset_get(&collect->store, 1, &t);
+  return int_array_hset_get(collect->store, 1, &t);
 }
 
 static harray_t *vector_to_set(bool_var_collector_t *collect, ivector_t *v) {
   assert(vector_is_sorted(v));
-  return int_array_hset_get(&collect->store, v->size, v->data);
+  return int_array_hset_get(collect->store, v->size, v->data);
 }
 
 
@@ -293,10 +296,11 @@ static bool bool_term_is_pure(bool_var_collector_t *collect, term_t t) {
  * Create a conditional definition descriptor:
  * - t = term
  * - v = value
+ * - vset = set of variables
  * - n = number of conditions
  * - a[0 ... n-1] = conditions
  */
-static cond_def_t *new_cond_def(term_t t, term_t v, uint32_t n, term_t *a) {
+static cond_def_t *new_cond_def(term_t t, term_t v, harray_t *vset, uint32_t n, term_t *a) {
   cond_def_t *tmp;
   uint32_t i;
 
@@ -304,6 +308,7 @@ static cond_def_t *new_cond_def(term_t t, term_t v, uint32_t n, term_t *a) {
   tmp = (cond_def_t *) safe_malloc(sizeof(cond_def_t) + n * sizeof(term_t));
   tmp->term = t;
   tmp->value = v;
+  tmp->vset = vset;
   tmp->nconds = n;
   for (i=0; i<n; i++) {
     tmp->cond[i] = a[i];
@@ -321,8 +326,10 @@ void init_cond_def_collector(cond_def_collector_t *c, context_t *ctx) {
   c->ctx = ctx;
   c->terms = ctx->terms;
   init_pvector(&c->cdefs, 0);
-  init_bool_var_collector(&c->collect, ctx);
+  init_int_array_hset(&c->store, 0);
+  init_bool_var_collector(&c->collect, ctx, &c->store);
   init_ivector(&c->assumptions, 10);
+  init_ivector(&c->aux, 10);
 }
 
 
@@ -338,7 +345,9 @@ void delete_cond_def_collector(cond_def_collector_t *c) {
   }
   delete_pvector(&c->cdefs);
   delete_bool_var_collector(&c->collect);
+  delete_int_array_hset(&c->store);
   delete_ivector(&c->assumptions);
+  delete_ivector(&c->aux);
 }
 
 
@@ -367,7 +376,6 @@ static void print_cond_def(cond_def_collector_t *c, cond_def_t *def) {
   init_default_yices_pp(&pp, stdout, &area);
 
   pp_open_block(&pp, PP_OPEN);
-  pp_string(&pp, "Conditional def:");
   pp_open_block(&pp, PP_OPEN_IMPLIES);
   n = def->nconds;
   if (n > 1) pp_open_block(&pp, PP_OPEN_AND);
@@ -407,6 +415,36 @@ static void push_assumption(cond_def_collector_t *c, term_t t) {
   }
   ivector_push(&c->assumptions, t);
 }
+
+
+/*
+ * Compute the set of variables occurring in a[0 ... n-1]
+ * - a[0 ... n-1] must all be pure Boolean terms
+ */
+static harray_t *bool_vars_of_array(cond_def_collector_t *c, uint32_t n, term_t *a) {
+  ivector_t *v;
+  harray_t *s;
+  uint32_t i;
+
+  if (n == 0) {
+    s = int_array_hset_get(&c->store, 0, NULL); // empty set
+  } else if (n == 1) {
+    s = bool_vars_of_term(&c->collect, a[0]);
+  } else {
+    v = &c->aux;
+    assert(v->size == 0);
+    for (i=0; i<n; i++) {
+      s = bool_vars_of_term(&c->collect, a[i]);
+      add_vars_to_vector(v, s);
+    }
+    assert(vector_is_sorted(v));
+    s = int_array_hset_get(&c->store, v->size, v->data);
+    ivector_reset(v);
+  }
+
+  return s;
+}
+
 
 /*
  * Attempts to convert a formula of the form (assumptions => f) to
@@ -498,6 +536,7 @@ static void cond_def_explore_ite(cond_def_collector_t *c, composite_term_t *ite,
 static void cond_def_explore(cond_def_collector_t *c, term_t f) {
   term_table_t *terms;
   cond_def_t *def;
+  harray_t *set;
   term_t x, a;
 
   terms = c->terms;
@@ -515,9 +554,16 @@ static void cond_def_explore(cond_def_collector_t *c, term_t f) {
     //    if (is_term_eq_const(terms, f, &x, &a)) {
     if (is_unint_eq_const(terms, f, &x, &a)) {
       if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
-	def = new_cond_def(x, a, c->assumptions.size, c->assumptions.data);
-	add_cond_def(c, def);
-	print_cond_def(c, def);
+	set = bool_vars_of_array(c, c->assumptions.size, c->assumptions.data);
+	/*
+	 * If set is empty, we ignore this definition: either the assumptions
+	 * are all true or all false. In either case, normal internalization
+	 * will process (x == a) or ignore it.
+	 */
+	if (set->nelems > 0) {
+	  def = new_cond_def(x, a, set, c->assumptions.size, c->assumptions.data);
+	  add_cond_def(c, def);
+	}
       }
     }
     break;
@@ -526,12 +572,72 @@ static void cond_def_explore(cond_def_collector_t *c, term_t f) {
 
 
 
-
 /*
  * Attempt to convert f to a conjunction of conditional definitions
+ * - id = index to identify f
  * - add the defintions to c->cdefs
  */
 void extract_conditional_definitions(cond_def_collector_t *c, term_t f) {
   ivector_reset(&c->assumptions);
   cond_def_explore(c, f);
+}
+
+
+/*
+ * Process all conditional definitions for the same term x
+ * - the definitions are stored in a[0 ... n-1]
+ */
+static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t **a, uint32_t n) {
+  cond_def_t *d;
+  uint32_t i;
+
+  printf("\nDefinitions for term ");
+  print_term_name(stdout, c->terms, x);
+  printf("\n");
+  for (i=0; i<n; i++) {
+    d = a[i];
+    assert(d->term == x);
+    print_cond_def(c, d);
+  }
+  printf("---\n");
+}
+
+/*
+ * Sort the conditional definitions:
+ * - we want all defintions with the same variable to be adjacent in c->cdefs
+ */
+// comparison function: return true if d1 < d2 in this ordering
+static bool cdef_lt(void *data, void *d1, void *d2) {
+  return ((cond_def_t *) d1)->term  < ((cond_def_t *) d2)-> term;
+}
+
+/*
+ * Process all conditional definitions in c->cdefs
+ */
+void analyze_conditional_definitions(cond_def_collector_t *c) {
+  uint32_t i, j, n;
+  cond_def_t **a;
+  term_t x;
+
+  n = c->cdefs.size;
+  if (n > 0) {
+    ptr_array_sort2(c->cdefs.data, n, NULL, cdef_lt);
+
+    a = (cond_def_t **) c->cdefs.data;
+    i = 0;
+    j = 0;
+    while (i < n) {
+      assert(i == j);
+
+      /*
+       * find segment: [i ... j-1]: that containts all defs with the
+       * same variable x
+       */
+      x = a[i]->term;
+      do { j ++; } while (j < n && a[j]->term == x);
+      assert(i < j);
+      analyze_term_cond_def(c, x, a + i, j - i);
+      i = j;
+    }
+  }
 }

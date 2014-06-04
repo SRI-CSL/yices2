@@ -48,7 +48,7 @@
 typedef struct bool_var_collector_s {
   context_t *ctx;
   term_table_t *terms;
-  int_array_hset_t store;
+  int_array_hset_t *store;
   simple_cache_t cache;
   ptr_stack_t stack;
   ivector_t buffer;
@@ -60,6 +60,7 @@ typedef struct bool_var_collector_s {
  * Record to store a conditional definition
  * - term = defined term
  * - value = constant term
+ * - vset = Boolean variables occurring in the conditions
  * - nconds = number of terms in cond
  * - cond = array of terms
  *
@@ -71,6 +72,7 @@ typedef struct bool_var_collector_s {
 typedef struct cond_def_s {
   term_t term;
   term_t value;
+  harray_t *vset;
   uint32_t nconds;
   term_t cond[0]; // real size = nconds
 } cond_def_t;
@@ -82,16 +84,19 @@ typedef struct cond_def_s {
  * Data structure to collect conditional definitions
  * - pointers to the relevant context and term table
  * - cdefs = vector of conditional definitons
+ * - store = for building sets
  * - collector = for finding Boolean variables
  */
 typedef struct cond_def_collector_s {
   context_t *ctx;
   term_table_t *terms;
   pvector_t cdefs;
+  int_array_hset_t store;
   bool_var_collector_t collect;
 
   // auxiliary structures
   ivector_t assumptions;
+  ivector_t aux;
 } cond_def_collector_t;
 
 
@@ -118,6 +123,11 @@ extern void delete_cond_def_collector(cond_def_collector_t *c);
  * - add the defintions to c->cdefs
  */
 extern void extract_conditional_definitions(cond_def_collector_t *c, term_t f);
+
+/*
+ * Process all conditional definitions in c->cdefs
+ */
+extern void analyze_conditional_definitions(cond_def_collector_t *c);
 
 
 #endif /* __CONDITIONAL_DEFINITIONS_H */

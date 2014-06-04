@@ -2272,7 +2272,7 @@ bool is_unint_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
   term_t x0, a0;
 
   if (is_term_eq_const(tbl, t, &x0, &a0) &&
-      term_kind(tbl, t) == UNINTERPRETED_TERM) {
+      term_kind(tbl, x0) == UNINTERPRETED_TERM) {
     assert(is_pos_term(x0));
     *x = x0;
     *a = a0;

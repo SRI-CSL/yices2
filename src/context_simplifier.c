@@ -3061,6 +3061,7 @@ void process_conditional_definitions(context_t *ctx) {
     for (i=0; i<n; i++) {
       extract_conditional_definitions(&collect, v->data[i]);
     }
+    analyze_conditional_definitions(&collect);
     delete_cond_def_collector(&collect);
   }
 }
