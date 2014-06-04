@@ -1,10 +1,27 @@
 /*
- * ATTEMPT TO LEARN CONSTRAINTS ON VARIABLES FROM CONDITIONAL DEFINITONS
+ * PROCESS ASSERTIONS OF THE FORM (condition => term = constant)
  */
 
 /*
- * In this module, a conditional definition is a formula of the form (condition => (term = constant))
+ * The condition is required to be a Boolean combination of unintpreted terms (e.g.,
+ * something like (and x (not y)) where x and y are Boolean variables).
+ *
+ * If we have several clauses of the form
+ *  (c1 => t = k1)
+ *  (c2 => t = k2)
+ *  ...
+ *
+ * Then we may be able to learn global constraints on t. In particular, benchmarks
+ * in the QF_LRA/miplib family use encodings like this
+ *    (x2 and x3 => tmp1 = 2)
+ *    (not x2 and x3 => tmp1 = 1)
+ *    (x2 and not x3 => tmp1 = 1)
+ *    (not x2 and not x3 => tmp1 = 0).
+ *
+ * We can convert this to one constraint:
+ *    tmp1 = 1.x2 + 1.x3  where x2 and x3 are now { 0, 1 } variables
  */
+
 
 #ifndef __CONDITIONAL_DEFINITIONS_H
 #define __CONDITIONAL_DEFINITIONS_H
@@ -12,11 +29,33 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "int_vectors.h"
-#include "int_queues.h"
+#include "int_array_hsets.h"
 #include "int_hash_sets.h"
+#include "int_queues.h"
+#include "int_vectors.h"
 #include "ptr_vectors.h"
+#include "ptr_stack.h"
+#include "simple_cache.h"
+
 #include "context.h"
+
+
+/*
+ * Data structure to check that a term is a combination of Boolean
+ * variables and to compute the set of variables.
+ * - set of variables are stored using int_array_hset.
+ * - we keep a cache that mapped term to the set
+ * + a pointer stack for recursive exploration of terms
+ */
+typedef struct bool_var_collector_s {
+  context_t *ctx;
+  term_table_t *terms;
+  int_array_hset_t store;
+  simple_cache_t cache;
+  ptr_stack_t stack;
+  ivector_t buffer;
+} bool_var_collector_t;
+
 
 
 /*
@@ -38,20 +77,20 @@ typedef struct cond_def_s {
   term_t cond[0]; // real size = nconds
 } cond_def_t;
 
-
-// Bound on the number of conjuncts we want to consider
-#define MAX_COND_DEF_CONJUNCTS 10
+#define MAX_COND_DEF_CONJUNCTS (UINT32_MAX/sizeof(term_t))
 
 
 /*
  * Data structure to collect conditional definitions
  * - pointers to the relevant context and term table
  * - cdefs = vector of conditional definitons
+ * - collector = for finding Boolean variables
  */
 typedef struct cond_def_collector_s {
   context_t *ctx;
   term_table_t *terms;
   pvector_t cdefs;
+  bool_var_collector_t collect;
 
   // auxiliary structures
   ivector_t assumptions;

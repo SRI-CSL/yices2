@@ -115,8 +115,8 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               ptr_vectors.c rationals.c rational_hash_maps.c		\
               rba_buffer_terms.c rdl_floyd_warshall.c reader.c		\
               refcount_int_arrays.c refcount_strings.c remap_table.c	\
-              renaming_context.c search_parameters.c simplex.c		\
-              smt_core.c smt_logic_codes.c smt_term_stack.c		\
+              renaming_context.c search_parameters.c simple_cache.c     \
+              simplex.c smt_core.c smt_logic_codes.c smt_term_stack.c   \
               sparse_arrays.c stable_sort.c string_buffers.c		\
               string_utils.c subst_cache.c subst_context.c		\
               symbol_tables.c symmetry_breaking.c terms.c		\

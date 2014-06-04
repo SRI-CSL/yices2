@@ -20,6 +20,270 @@
 
 
 /*
+ * SET OF TERMS (BOOLEAN VARIABLES)
+ */
+
+/*
+ * We store sets of variables using harray_t.
+ * A set if represented as a sorted array of terms.
+ */
+/*
+ * Check that array a of n term is sorted and has no duplicates
+ */
+#ifndef NDEBUG
+static bool array_is_sorted(term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i+1<n; i++) {
+    if (a[i] >= a[i+1]) return false;
+  }
+  return true;
+}
+
+static bool vector_is_sorted(ivector_t *v) {
+  return array_is_sorted(v->data, v->size);
+}
+
+static bool harray_is_sorted(harray_t *a) {
+  return array_is_sorted(a->data, a->nelems);
+}
+
+#endif
+
+
+/*
+ * Insert t into vector v
+ * - v is assumed sorted in increasing order
+ * - do nothing if t is already in v
+ */
+static void add_var_to_vector(ivector_t *v, term_t t) {
+  uint32_t i, j, k;
+
+  assert(vector_is_sorted(v));
+
+  // binary search
+  i = 0;
+  j = v->size;
+  while (i < j) {
+    k = (i+j) >> 1; // (i+j) can't overflow since v->size <= MAX_IVECTOR_SIZE
+    assert(i <= k && k <= j);
+    if (v->data[k] < t) {
+      i = k+1;
+    } else {
+      j = k;
+    }
+  }
+
+  j = v->size;
+  if (i == j || v->data[i] < t) {
+    // insert t in v->data[i] and shift everything
+    ivector_push(v, 0); // make room
+    while (j > i) {
+      v->data[j] = v->data[j-1];
+      j --;
+    }
+    v->data[j] = t;
+  }
+
+  assert(vector_is_sorted(v) && i < v->size && v->data[i] == t);
+}
+
+
+/*
+ * Add all elements of a to vector v:
+ * - we could use a merge here?
+ */
+static void add_vars_to_vector(ivector_t *v, harray_t *a) {
+  uint32_t i, n;
+
+  assert(vector_is_sorted(v) && harray_is_sorted(a));
+
+  n = a->nelems;
+  for (i=0; i<n; i++) {
+    add_var_to_vector(v, a->data[i]);
+  }
+}
+
+
+
+
+/*
+ * BOOLEAN CONDITIONS
+ */
+
+/*
+ * Initialize collect: ctx = relevant context
+ */
+static void init_bool_var_collector(bool_var_collector_t *collect, context_t *ctx) {
+  collect->ctx = ctx;
+  collect->terms = ctx->terms;
+  init_int_array_hset(&collect->store, 0);
+  init_simple_cache(&collect->cache, 0);
+  init_pstack(&collect->stack);
+  init_ivector(&collect->buffer, 10);
+}
+
+/*
+ * Free memory
+ */
+static void delete_bool_var_collector(bool_var_collector_t *collect) {
+  delete_int_array_hset(&collect->store);
+  delete_simple_cache(&collect->cache);
+  delete_pstack(&collect->stack);
+  delete_ivector(&collect->buffer);
+}
+
+
+/*
+ * Build sets
+ */
+static harray_t *empty_set(bool_var_collector_t *collect) {
+  return int_array_hset_get(&collect->store, 0, NULL); // this returns a non-NULL harray
+}
+
+static harray_t *singleton(bool_var_collector_t *collect, term_t t) {
+  return int_array_hset_get(&collect->store, 1, &t);
+}
+
+static harray_t *vector_to_set(bool_var_collector_t *collect, ivector_t *v) {
+  assert(vector_is_sorted(v));
+  return int_array_hset_get(&collect->store, v->size, v->data);
+}
+
+
+
+/*
+ * Cache for bool_var_collector:
+ * - the value for a term index i is a pointer (to harray_t)
+ * - the value is NULL if i is not a pure Boolean term
+ * - otherwise the value is the set of Boolean variables occurring in i
+ */
+static void cache_bool_var_set(bool_var_collector_t *collect, int32_t i, harray_t *a) {
+  assert(good_term_idx(collect->terms, i));
+  simple_cache_store_ptr(&collect->cache, i, 0, a); // tag = 0 (not used)
+}
+
+
+/*
+ * Check whether term t is purely Boolean and compute the set of variables
+ * - return NULL if t is not purely Boolean
+ * - return the set of variables of t otherwise
+ */
+static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t);
+
+// recursively explore a composite term d
+static harray_t *bool_vars_of_composite(bool_var_collector_t *collect, composite_term_t *d) {
+  void **a;
+  harray_t *set;
+  ivector_t *v;
+  uint32_t i, n;
+
+  set = NULL;
+
+  n = d->arity;
+  a = alloc_pstack_array(&collect->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = bool_vars_of_term(collect, d->arg[i]);
+    if (a[i] == NULL) goto done;
+  }
+
+  // compute the union of a[0 ... n-1]
+  v = &collect->buffer;
+  assert(v->size == 0);
+  for (i=0; i<n; i++) {
+    add_vars_to_vector(v, a[i]);
+  }
+  set = vector_to_set(collect, v);
+  ivector_reset(v);
+
+ done:
+  free_pstack_array(&collect->stack, a);
+  return set;
+}
+
+
+static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
+  context_t *ctx;
+  term_table_t *terms;
+  simple_cache_entry_t *e;
+  harray_t *set;
+  composite_term_t *eq;
+  term_t r;
+  int32_t i;
+
+  assert(is_boolean_term(collect->terms, t));
+
+  set = NULL;
+
+  ctx = collect->ctx;
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (term_is_true(ctx, r) || term_is_false(ctx, r)) {
+    set = empty_set(collect);
+
+  } else {
+
+    i = index_of(r);
+    assert(good_term_idx(collect->terms, i));
+
+    terms = collect->terms;
+    switch (kind_for_idx(terms, i)) {
+    case UNINTERPRETED_TERM:
+      set = singleton(collect, pos_occ(i));
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case OR_TERM:
+    case XOR_TERM:
+      e = simple_cache_find(&collect->cache, i);
+      if (e != NULL) {
+	assert(e->key == i && e->tag == 0);
+	set =  e->val.ptr;
+      } else {
+	set = bool_vars_of_composite(collect, composite_for_idx(terms, i));
+	cache_bool_var_set(collect, i, set);
+      }
+      break;
+
+    case EQ_TERM:
+      eq = composite_for_idx(terms, i);
+      if (is_boolean_term(terms, eq->arg[0])) {
+	// treat i as (IFF t1 t2)
+	e = simple_cache_find(&collect->cache, i);
+	if (e != NULL) {
+	  assert(e->key == i && e->tag == 0);
+	  set =  e->val.ptr;
+	} else {
+	  set = bool_vars_of_composite(collect, eq);
+	  cache_bool_var_set(collect, i, set);
+	}
+      }
+      break;
+
+    default:
+      // not a pure Boolean term
+      break;
+    }
+  }
+
+  return set;
+}
+
+
+/*
+ * Check whether t is purely Boolean
+ */
+static bool bool_term_is_pure(bool_var_collector_t *collect, term_t t) {
+  return bool_vars_of_term(collect, t) != NULL;
+}
+
+
+
+/*
+ * CONDITIONAL DEFINITIONS
+ */
+
+/*
  * Create a conditional definition descriptor:
  * - t = term
  * - v = value
@@ -51,6 +315,7 @@ void init_cond_def_collector(cond_def_collector_t *c, context_t *ctx) {
   c->ctx = ctx;
   c->terms = ctx->terms;
   init_pvector(&c->cdefs, 0);
+  init_bool_var_collector(&c->collect, ctx);
   init_ivector(&c->assumptions, 10);
   init_int_queue(&c->queue, 0);
   init_int_hset(&c->cache, 0);
@@ -68,6 +333,7 @@ void delete_cond_def_collector(cond_def_collector_t *c) {
     safe_free(c->cdefs.data[i]);
   }
   delete_pvector(&c->cdefs);
+  delete_bool_var_collector(&c->collect);
   delete_ivector(&c->assumptions);
   delete_int_queue(&c->queue);
   delete_int_hset(&c->cache);
@@ -119,131 +385,81 @@ static void print_cond_def(cond_def_collector_t *c, cond_def_t *def) {
 
 
 
-/*
- * ASSUMPTIONS/CONDITIONS
- */
-
-/*
- * Add term t to c->queue and c->cache it t isn't in the cache
- */
-static void cond_def_enqueue(cond_def_collector_t *c, term_t t) {
-  if (int_hset_add(&c->cache, t)) {
-    int_queue_push(&c->queue, t);
-  }
-}
-
-// or is (or t1 ... t_n): enqueue not(t1) ... not(tn)
-static void cond_def_enqueue_conjuncts(cond_def_collector_t *c, composite_term_t *or) {
-  uint32_t i, n;
-
-  n = or->arity;
-  for (i=0; i<n; i++) {
-    cond_def_enqueue(c, opposite_term(or->arg[i]));
-  }
-}
-
-
-/*
- * When processing formulas, we store conditions into vector c->assumptions
- * - we also flatten assumptions of the form (not (or a[0] ... a[k])) into
- *   their conjuncts.
- * - for this flattening, we use c->queue and c->cache.
- */
-static void cond_def_push_assumption(cond_def_collector_t *c, term_t t) {
-  term_table_t *terms;
-  intern_tbl_t *intern;
-  term_t r;
-
-  assert(int_queue_is_empty(&c->queue) && int_hset_is_empty(&c->cache));
-
-  terms = c->terms;
-  intern = &c->ctx->intern;
-
-  cond_def_enqueue(c, t);
-  do {
-    // r := root of the first term in the queue
-    r = intern_tbl_get_root(intern, int_queue_pop(&c->queue));
-    if (term_is_false(c->ctx, r)) {
-      // add false_term as the last assumption
-      ivector_push(&c->assumptions, false_term);
-      goto done;
-    }
-    if (!term_is_true(c->ctx, r)) {
-      if (is_neg_term(r) && term_kind(terms, r) == OR_TERM) {
-	cond_def_enqueue_conjuncts(c, or_term_desc(terms, r));
-      } else {
-	// add r as an assumption
-	ivector_push(&c->assumptions, r);
-      }
-    }
-  } while (! int_queue_is_empty(&c->queue));
-
- done:
-  int_queue_reset(&c->queue);
-  int_hset_reset(&c->cache);
-}
-
-
 
 /*
  * CONVERSION OF ASSERTIONS TO CONDITIONAL DEFINITIONS
  */
 
 /*
+ * Add t as an assumption: follow the internalization table
+ */
+static void push_assumption(cond_def_collector_t *c, term_t t) {
+  context_t *ctx;
+
+  ctx = c->ctx;
+  t = intern_tbl_get_root(&ctx->intern, t);
+  if (term_is_true(ctx, t)) {
+    t = true_term;
+  } else if (term_is_false(ctx, t)) {
+    t = false_term;
+  }
+  ivector_push(&c->assumptions, t);
+}
+
+/*
  * Attempts to convert a formula of the form (assumptions => f) to
  * conditional definitions.
  * - the assumptions are stored in c->assumption vector
  * - f = term to explore
- * - the numebr of assumptions must be not more than MAX_COND_DEF_CONJUNCTS
  */
 static void cond_def_explore(cond_def_collector_t *c, term_t f);
 
 
 /*
- * - or is (or t[0] ... t[n-1])
- * - i is an index between 0 and n-1
- * Add (not t[j]) for j /= i as assumptions then explore t[i]
- */
-static void cond_def_explore_disjunct(cond_def_collector_t *c, composite_term_t *or, uint32_t i) {
-  uint32_t num_assumptions;
-  uint32_t j, n;
-
-  assert(0 <= i && i < or->arity);
-
-  num_assumptions = c->assumptions.size;
-
-  n = or->arity;
-  for (j=0; j<n; j++) {
-    if (j != i) {
-      cond_def_push_assumption(c, opposite_term(or->arg[j]));
-    }
-  }
-
-  if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
-    cond_def_explore(c, or->arg[i]);
-  }
-
-  // restore the assumption stack
-  ivector_shrink(&c->assumptions, num_assumptions);
-}
-
-
-/*
  * Explore (or t1 ... tn)
- * - if polary is true, this is processed as (or t1 ... tn)
+ * - if polarity is true, this is processed as (or t1 ... tn)
  * - if polarity is false, this is processed (and (not t1) ... (not t_n))
  */
 static void cond_def_explore_or(cond_def_collector_t *c, composite_term_t *or, bool polarity) {
-  uint32_t i, n;
+  uint32_t i, n, num_assumptions;
+  term_t t, u;
 
   n = or->arity;
   if (polarity) {
+    num_assumptions = c->assumptions.size;
+
     /*
-     * To avoid blowing up, we stop exploring if n + num_assumptions is too large
+     * Check whether all t_i's but one are pure Boolean.
      */
+    u = NULL_TERM;
     for (i=0; i<n; i++) {
-      cond_def_explore_disjunct(c, or, i);
+      t = or->arg[i];
+      if (bool_term_is_pure(&c->collect, t)) {
+	// add t as an assumption
+	push_assumption(c, t);
+      } else {
+	if (u != NULL_TERM){
+	  // we can't convert the or to a conditional definition
+	  goto abort;
+	}
+	u = t;
+      }
     }
+
+    /*
+     * u is the unique sub-term that's not purely Boolean
+     * the other subterms are in the assumption vector
+     * we recursively process u.
+     */
+    if (u != NULL_TERM) {
+      cond_def_explore(c, u);
+    }
+
+  abort:
+    // restore the assumption stack
+    ivector_shrink(&c->assumptions, num_assumptions);
+
+
   } else {
     /*
      * Assumptions => (and (not t1) ... (not t_n))
@@ -261,23 +477,19 @@ static void cond_def_explore_or(cond_def_collector_t *c, composite_term_t *or, b
  * - otherwise, it's processed as (c => not(t1)) AND (not c => not(t2))
  */
 static void cond_def_explore_ite(cond_def_collector_t *c, composite_term_t *ite, bool polarity) {
-  uint32_t num_assumptions;
+  term_t cond;
 
   assert(ite->arity == 3);
-
-  num_assumptions = c->assumptions.size;
-
-  cond_def_push_assumption(c, ite->arg[0]);
-  if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
+  cond = ite->arg[0];
+  if (bool_term_is_pure(&c->collect, cond)) {
+    push_assumption(c, cond);
     cond_def_explore(c, signed_term(ite->arg[1], polarity));
-  }
-  ivector_shrink(&c->assumptions, num_assumptions);
+    ivector_pop(&c->assumptions);
 
-  cond_def_push_assumption(c, opposite_term(ite->arg[0]));
-  if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
+    push_assumption(c, opposite_term(cond));
     cond_def_explore(c, signed_term(ite->arg[2], polarity));
+    ivector_pop(&c->assumptions);
   }
-  ivector_shrink(&c->assumptions, num_assumptions);
 }
 
 
@@ -299,10 +511,11 @@ static void cond_def_explore(cond_def_collector_t *c, term_t f) {
 
   default:
     if (is_term_eq_const(terms, f, &x, &a)) {
-      assert(c->assumptions.size <= MAX_COND_DEF_CONJUNCTS);
-      def = new_cond_def(x, a, c->assumptions.size, c->assumptions.data);
-      add_cond_def(c, def);
-      print_cond_def(c, def);
+      if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
+	def = new_cond_def(x, a, c->assumptions.size, c->assumptions.data);
+	add_cond_def(c, def);
+	print_cond_def(c, def);
+      }
     }
     break;
   }
