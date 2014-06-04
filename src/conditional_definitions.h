@@ -30,8 +30,6 @@
 #include <stdbool.h>
 
 #include "int_array_hsets.h"
-#include "int_hash_sets.h"
-#include "int_queues.h"
 #include "int_vectors.h"
 #include "ptr_vectors.h"
 #include "ptr_stack.h"
@@ -94,8 +92,6 @@ typedef struct cond_def_collector_s {
 
   // auxiliary structures
   ivector_t assumptions;
-  int_queue_t queue;
-  int_hset_t cache;
 } cond_def_collector_t;
 
 

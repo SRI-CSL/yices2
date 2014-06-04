@@ -323,8 +323,6 @@ void init_cond_def_collector(cond_def_collector_t *c, context_t *ctx) {
   init_pvector(&c->cdefs, 0);
   init_bool_var_collector(&c->collect, ctx);
   init_ivector(&c->assumptions, 10);
-  init_int_queue(&c->queue, 0);
-  init_int_hset(&c->cache, 0);
 }
 
 
@@ -341,8 +339,6 @@ void delete_cond_def_collector(cond_def_collector_t *c) {
   delete_pvector(&c->cdefs);
   delete_bool_var_collector(&c->collect);
   delete_ivector(&c->assumptions);
-  delete_int_queue(&c->queue);
-  delete_int_hset(&c->cache);
 }
 
 
@@ -516,7 +512,8 @@ static void cond_def_explore(cond_def_collector_t *c, term_t f) {
     break;
 
   default:
-    if (is_term_eq_const(terms, f, &x, &a)) {
+    //    if (is_term_eq_const(terms, f, &x, &a)) {
+    if (is_unint_eq_const(terms, f, &x, &a)) {
       if (c->assumptions.size <= MAX_COND_DEF_CONJUNCTS) {
 	def = new_cond_def(x, a, c->assumptions.size, c->assumptions.data);
 	add_cond_def(c, def);

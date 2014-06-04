@@ -315,6 +315,11 @@ extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t
  */
 extern bool is_term_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a);
 
+/*
+ * Variant: check whether t is equivalent to (x == a) where x is an uninterpreted
+ * term and a is a constant.
+ */
+extern bool is_unint_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a);
 
 
 /*
