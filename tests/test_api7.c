@@ -22,17 +22,24 @@ static const char* const mode2string[NUM_MODES] = {
 
 static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "NONE",
+  "ALIA",
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",
+  "BV",
+  "LIA",
   "LRA",
+  "NIA",
+  "NRA",
   "QF_ABV",
+  "QF_ALIA",
   "QF_AUFBV",
   "QF_AUFLIA",
   "QF_AX",
   "QF_BV",
   "QF_IDL",
   "QF_LIA",
+  "QF_LIRA",
   "QF_LRA",
   "QF_NIA",
   "QF_NRA",
@@ -42,7 +49,12 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_UFIDL",
   "QF_UFLIA",
   "QF_UFLRA",
+  "QF_UFNIA",
   "QF_UFNRA",
+  "UF",
+  "UFBV",
+  "UFIDL",
+  "UFLIA",
   "UFLRA",
   "UFNIA",
   "unknown",
@@ -64,27 +76,39 @@ static const char* const solver_code2string[NUM_SOLVER_CODES] = {
  */
 static const bool logic_is_supported[NUM_SMT_LOGICS] = {
   true,   // NONE
+  false,  // ALIA
   false,  // AUFLIA
   false,  // AUFLIRA
   false,  // AUFNIRA
+  false,  // BV
+  false,  // LIA
   false,  // LRA
+  false,  // NIA
+  false,  // NRA
   true,   // QF_ABV
+  true,   // QF_ALIA
   true,   // QF_AUFBV
   true,   // QF_AUFLIA
   true,   // QF_AX
   true,   // QF_BV
   true,   // QF_IDL
   true,   // QF_LIA
+  true,   // QF_LIRA
   true,   // QF_LRA
   false,  // QF_NIA
   false,  // QF_NRA
   true,   // QF_RDL
   true,   // QF_UF
-  true,   // QF_UFBV
+  true,   // QF_UFBV[xx]
   true,   // QF_UFIDL
   true,   // QF_UFLIA
   true,   // QF_UFLRA
+  false,  // QF_UFNIA
   false,  // QF_UFNRA
+  false,  // UF
+  false,  // UFBV
+  false,  // UFIDL
+  false,  // UFLIA
   false,  // UFLRA
   false,  // UFNIA
 };

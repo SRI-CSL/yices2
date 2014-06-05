@@ -5703,7 +5703,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
-    if (logic == QF_LIA) {
+    if (logic == QF_LIA || logic == QF_LIRA) {
       enable_splx_eager_lemmas(ctx);
     }
   }
@@ -6148,7 +6148,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->branching = BRANCHING_THEORY;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_LIA) {
+    if (ctx->logic == QF_LIA || ctx->logic == QF_LIRA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
       // TEST: disable Bland's rule
