@@ -6175,7 +6175,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_UFLIA || ctx->logic == QF_AUFLIA) {
+    if (ctx->logic == QF_UFLIA || ctx->logic == QF_AUFLIA || ctx->logic == QF_ALIA) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
