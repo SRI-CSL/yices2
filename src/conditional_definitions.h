@@ -44,6 +44,7 @@
  * - set of variables are stored using int_array_hset.
  * - we keep a cache that mapped term to the set
  * + a pointer stack for recursive exploration of terms
+ * + a counter to abort exploration of large terms
  */
 typedef struct bool_var_collector_s {
   context_t *ctx;
@@ -52,6 +53,7 @@ typedef struct bool_var_collector_s {
   simple_cache_t cache;
   ptr_stack_t stack;
   ivector_t buffer;
+  uint32_t budget;
 } bool_var_collector_t;
 
 

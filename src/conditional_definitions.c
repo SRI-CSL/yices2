@@ -131,6 +131,7 @@ static void init_bool_var_collector(bool_var_collector_t *collect, context_t *ct
   init_simple_cache(&collect->cache, 0);
   init_pstack(&collect->stack);
   init_ivector(&collect->buffer, 10);
+  collect->budget = 0;
 }
 
 /*
@@ -224,54 +225,58 @@ static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
 
   set = NULL;
 
-  ctx = collect->ctx;
-  r = intern_tbl_get_root(&ctx->intern, t);
-  if (term_is_true(ctx, r) || term_is_false(ctx, r)) {
-    set = empty_set(collect);
+  if (collect->budget > 0) {
+    collect->budget --;
 
-  } else {
+    ctx = collect->ctx;
+    r = intern_tbl_get_root(&ctx->intern, t);
+    if (term_is_true(ctx, r) || term_is_false(ctx, r)) {
+      set = empty_set(collect);
 
-    i = index_of(r);
-    assert(good_term_idx(collect->terms, i));
+    } else {
 
-    terms = collect->terms;
-    switch (kind_for_idx(terms, i)) {
-    case UNINTERPRETED_TERM:
-      set = singleton(collect, pos_occ(i));
-      break;
+      i = index_of(r);
+      assert(good_term_idx(collect->terms, i));
 
-    case ITE_TERM:
-    case ITE_SPECIAL:
-    case OR_TERM:
-    case XOR_TERM:
-      e = simple_cache_find(&collect->cache, i);
-      if (e != NULL) {
-	assert(e->key == i && e->tag == 0);
-	set =  e->val.ptr;
-      } else {
-	set = bool_vars_of_composite(collect, composite_for_idx(terms, i));
-	cache_bool_var_set(collect, i, set);
-      }
-      break;
+      terms = collect->terms;
+      switch (kind_for_idx(terms, i)) {
+      case UNINTERPRETED_TERM:
+	set = singleton(collect, pos_occ(i));
+	break;
 
-    case EQ_TERM:
-      eq = composite_for_idx(terms, i);
-      if (is_boolean_term(terms, eq->arg[0])) {
-	// treat i as (IFF t1 t2)
+      case ITE_TERM:
+      case ITE_SPECIAL:
+      case OR_TERM:
+      case XOR_TERM:
 	e = simple_cache_find(&collect->cache, i);
 	if (e != NULL) {
 	  assert(e->key == i && e->tag == 0);
 	  set =  e->val.ptr;
 	} else {
-	  set = bool_vars_of_composite(collect, eq);
+	  set = bool_vars_of_composite(collect, composite_for_idx(terms, i));
 	  cache_bool_var_set(collect, i, set);
 	}
-      }
-      break;
+	break;
 
-    default:
-      // not a pure Boolean term
-      break;
+      case EQ_TERM:
+	eq = composite_for_idx(terms, i);
+	if (is_boolean_term(terms, eq->arg[0])) {
+	  // treat i as (IFF t1 t2)
+	  e = simple_cache_find(&collect->cache, i);
+	  if (e != NULL) {
+	    assert(e->key == i && e->tag == 0);
+	    set =  e->val.ptr;
+	  } else {
+	    set = bool_vars_of_composite(collect, eq);
+	    cache_bool_var_set(collect, i, set);
+	  }
+	}
+	break;
+
+      default:
+	// not a pure Boolean term
+	break;
+      }
     }
   }
 
@@ -281,9 +286,20 @@ static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
 
 /*
  * Check whether t is purely Boolean
+ * - set a budget of 100 = max number of recursive calls to bool_vars_of_term
  */
 static bool bool_term_is_pure(bool_var_collector_t *collect, term_t t) {
+  collect->budget = 100;
   return bool_vars_of_term(collect, t) != NULL;
+}
+
+
+/*
+ * Collect the variables of t when t is known to be small and pure Boolean
+ */
+static harray_t *get_bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
+  collect->budget = UINT32_MAX;
+  return bool_vars_of_term(collect, t);
 }
 
 
@@ -429,12 +445,12 @@ static harray_t *bool_vars_of_array(cond_def_collector_t *c, uint32_t n, term_t 
   if (n == 0) {
     s = int_array_hset_get(&c->store, 0, NULL); // empty set
   } else if (n == 1) {
-    s = bool_vars_of_term(&c->collect, a[0]);
+    s = get_bool_vars_of_term(&c->collect, a[0]);
   } else {
     v = &c->aux;
     assert(v->size == 0);
     for (i=0; i<n; i++) {
-      s = bool_vars_of_term(&c->collect, a[i]);
+      s = get_bool_vars_of_term(&c->collect, a[i]);
       add_vars_to_vector(v, s);
     }
     assert(vector_is_sorted(v));
