@@ -2687,7 +2687,14 @@ static bool theory_propagation(smt_core_t *s) {
 
   s->stack.theory_ptr = i;
 
-  return s->th_ctrl.propagate(s->th_solver);
+  /*
+   * If this function is called at base_level, then the theory solver
+   * may add clauses (in its propagate function). In particular, the
+   * theory solver may add the empty clause, which sets
+   * s->inconsistent to true.  So we must check for s->inconsistent
+   * here.
+   */
+  return s->th_ctrl.propagate(s->th_solver) && !s->inconsistent;
 }
 
 
@@ -5453,7 +5460,7 @@ void internalization_start(smt_core_t *s) {
 
 
 /*
- * Propagate at the base
+ * Propagate at the base level
  * - this is used to detect early inconsistencies during internalization
  */
 bool base_propagate(smt_core_t *s) {
