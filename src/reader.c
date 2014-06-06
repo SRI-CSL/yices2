@@ -3,10 +3,14 @@
  * String reader: same thing but reads from a null-terminated string.
  */
 
+#define _GNU_SOURCE
+
+#include <wchar.h>
 #include <stdbool.h>
 #include <assert.h>
 
 #include "reader.h"
+
 
 
 /*
@@ -47,6 +51,7 @@ static int file_reader_next_char(reader_t *reader) {
 
   return reader->current;
 }
+
 
 
 /*
@@ -168,3 +173,75 @@ int close_reader(reader_t *reader) {
     return 0;
   }
 }
+
+
+
+/*
+ * Experimental variant: use wide characters
+ * (we assume UTF-8 encoding)
+ *
+ * We assume that int is large enough to store any character.
+ * To do this properly, we should use wint_t.
+ */
+static int file_reader_next_wchar(reader_t *reader) {
+  wint_t c;
+
+  assert(reader->is_stream);
+
+  if (reader->current == EOF) {
+    return EOF;
+  }
+
+  if (reader->current == '\n') { // this should works in UTF-8?
+    reader->line ++;
+    reader->column ++;
+  }
+
+  c = fgetwc_unlocked(reader->input.stream);
+  if (c == WEOF) {
+    reader->current = EOF;
+  } else {
+    reader->current = c;
+    reader->pos ++;
+    reader->column += wcwidth(c);
+  }
+
+  return c;
+}
+
+
+/*
+ * Experimental: try to support wide chararcters (UTF-8)
+ */
+int32_t init_wide_file_reader(reader_t *reader, const char *filename) {
+    FILE *f;
+
+  f = fopen(filename, "r");
+  reader->input.stream = f; // keep it NULL if there's an error
+  reader->pos = 0;
+  reader->line = 0;
+  reader->column = 1;
+  reader->is_stream = true;
+  reader->read = file_reader_next_wchar;
+  reader->name = filename;
+
+  if (f == NULL) {
+    reader->current = EOF;
+    return -1;
+  }
+
+  reader->current = '\n';
+  return 0;
+}
+
+void init_wide_stream_reader(reader_t *reader, FILE *f, const char *name) {
+  reader->current = '\n';
+  reader->input.stream = f;
+  reader->pos = 0;
+  reader->line = 0;
+  reader->column = 1;
+  reader->is_stream = true;
+  reader->read = file_reader_next_wchar;
+  reader->name = name;
+}
+

@@ -14,6 +14,9 @@
 #include <signal.h>
 #include <inttypes.h>
 
+// EXPERIMENT
+#include <locale.h>
+
 #include "command_line.h"
 
 #include "smt2_lexer.h"
@@ -251,6 +254,14 @@ int main(int argc, char *argv[]) {
   int32_t code;
 
   parse_command_line(argc, argv);
+
+  // HACK TO FORCE UTF8
+  if (setlocale(LC_CTYPE, "C.UTF-8") == NULL) {
+    fprintf(stderr, "failed to switch locale to C.UTF-8. Current locale is %s\n", setlocale(LC_CTYPE, NULL));
+  } else {
+    fprintf(stderr, "Switched locale to %s\n", setlocale(LC_CTYPE, NULL));
+  }
+  fflush(stderr);
 
   if (filename != NULL) {
     // read from file

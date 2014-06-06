@@ -84,6 +84,18 @@ extern void init_string_reader(reader_t *reader, const char *data, const char *n
 
 
 /*
+ * Experimental hack: attempt to support UTF-8 input
+ */
+extern int32_t init_wide_file_reader(reader_t *reader, const char *filename);
+
+extern void init_wide_stream_reader(reader_t *reader, FILE *f, const char *name);
+
+static inline void init_wide_stdin_reader(reader_t *reader) {
+  init_wide_stream_reader(reader, stdin, "stdin");
+}
+
+
+/*
  * Change the input string of reader
  * - reset position/line/col and current
  * - reader must be a string reader.

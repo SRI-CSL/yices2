@@ -82,6 +82,14 @@ static inline void init_stdin_lexer(lexer_t *lex) {
   init_stream_lexer(lex, stdin, "stdin");
 }
 
+
+/*
+ * HACK/EXPERIMENT: use UTF-8 encoded input
+ */
+extern int32_t init_wide_file_lexer(lexer_t *lex, const char *filename);
+extern void init_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name);
+
+
 /*
  * Read from a string
  */
