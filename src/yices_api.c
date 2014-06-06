@@ -6083,6 +6083,56 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
 }
 
 
+#if 0
+// PROVISIONAL FOR TESTING
+// THIS IS USED IN SMT2_COMMAND TO PROCESS AND PRINT THE BENCHMARKS
+int32_t yices_process_formulas(context_t *ctx, uint32_t n, term_t t[]) {
+  int32_t code;
+
+  if (! check_good_terms(&manager, n, t) ||
+      ! check_boolean_args(&manager, n, t)) {
+    return -1;
+  }
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return -1;
+    }
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    code = context_process_formulas(ctx, n, t);
+    if (code < 0) {
+      // error during internalization
+      convert_internalization_error(code);
+      return -1;
+    }
+    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
+
+  case STATUS_UNSAT:
+    // fall-through intended
+    // nothing to do
+    break;
+
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  return 0;
+}
+#endif
 
 /*
  * Add a blocking clause: this is intended to support all-sat and variants.
