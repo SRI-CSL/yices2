@@ -1544,27 +1544,60 @@ void process_aux_eqs(context_t *ctx) {
  *******************************/
 
 /*
- * Flatten term t:
- * - if t is already internalized, keep t and add it to v
- * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
- * - otherwise store t into v
- * All terms already in v must be in the small cache
+ * We use a breadth-first approach:
+ * - ctx->queue contains all terms to process
+ * - v contains the terms that can't be flattened
+ * - ctx->small_cache contains all the terms that have been visited
+ *   (including all terms in v and in ctx->queue).
+ *
+ * The term we're building is (or <elements in v> <elements in the queue>)
  */
-static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
+
+/*
+ * Push t into ctx->queue if it's not been visited yet
+ */
+static void flatten_or_push_term(context_t *ctx, term_t t) {
+  assert(is_boolean_term(ctx->terms, t));
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    int_queue_push(&ctx->queue, t);
+  }
+}
+
+/*
+ * Add t to v if it's not been visited yet
+ */
+static void flatten_or_add_term(context_t *ctx, ivector_t *v, term_t t) {
+  assert(is_boolean_term(ctx->terms, t));
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    ivector_push(v, t);
+  }
+}
+
+/*
+ * Process all elements in ctx->queue.
+ *
+ * For every term t in the queue:
+ * - if t is already internalized, keep t and add it to v
+ * - if t is (or t1 ... t_n), add t1 ... t_n to the queue
+ * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
+ *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
+ * - otherwise store t into v
+ */
+static void flatten_or_process_queue(context_t *ctx, ivector_t *v) {
   term_table_t *terms;
   composite_term_t *or;
   uint32_t i, n;
   term_kind_t kind;
+  term_t t;
 
-  assert(is_boolean_term(ctx->terms, t));
+  while (! int_queue_is_empty(&ctx->queue)) {
+    t = int_queue_pop(&ctx->queue);
 
-  // apply substitutions
-  t = intern_tbl_get_root(&ctx->intern, t);
+    // apply substitutions
+    t = intern_tbl_get_root(&ctx->intern, t);
 
-  if (int_hset_add(ctx->small_cache, t)) {
-    /*
-     * t not already in v and not visited before
-     */
     if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
       // t is already internalized, keep it as is
       ivector_push(v, t);
@@ -1572,12 +1605,12 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
       terms = ctx->terms;
       kind = term_kind(terms, t);
       if (is_pos_term(t) && kind == OR_TERM) {
-        // recursively flatten t
-        or = or_term_desc(terms, t);
-        n = or->arity;
-        for (i=0; i<n; i++) {
-          flatten_or_recur(ctx, v, or->arg[i]);
-        }
+	// add t's children to the queue
+	or = or_term_desc(terms, t);
+	n = or->arity;
+	for (i=0; i<n; i++) {
+	  flatten_or_push_term(ctx, or->arg[i]);
+	}
       } else {
         // can't flatten
         ivector_push(v, t);
@@ -1595,16 +1628,19 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
 void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
   uint32_t i, n;
 
-  assert(v->size == 0);
+  assert(v->size == 0 && int_queue_is_empty(&ctx->queue));
 
   (void) context_get_small_cache(ctx); // initialize the cache
+
   n = or->arity;
   for (i=0; i<n; i++) {
-    flatten_or_recur(ctx, v, or->arg[i]);
+    flatten_or_push_term(ctx, or->arg[i]);
   }
+
+  flatten_or_process_queue(ctx, v);
+
   //  context_delete_small_cache(ctx);
   context_reset_small_cache(ctx);
 }
-
 
 
