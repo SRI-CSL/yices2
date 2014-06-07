@@ -4007,17 +4007,33 @@ static uint32_t shifter_fixed_part(bit_blaster_t *s, literal_t *b, uint32_t w) {
 
 
 /*
+ * Check whether literal l = bit of the control input is active
+ * - l is inactive if it's true or false in the core
+ * - if l is false, then it's ignored in the shift circuit
+ * - if l is true, then its contribution to the shift is constant
+ *   and part of the amount returned by shifter_fixed_part.
+ */
+static bool shifter_control_bit_is_active(bit_blaster_t *s, literal_t c) {
+  switch (base_value(s, c)) {
+  case VAL_FALSE:
+  case VAL_TRUE:
+    return false;
+
+  default:
+    return true;
+  }
+}
+
+
+/*
  * Given literal array b and w = number of control bits in b.
  * - find the index k of the last non-constant bit in b and return k+1
  * - return 0 if all bits of b[0...w-1] are constant
  * - return w if b[w-1] is non constant, etc.
  */
 static uint32_t shifter_last_control_bit(bit_blaster_t *s, literal_t *b, uint32_t w) {
-  literal_t l;
-
   while (w > 0) {
-    l = eval_literal(s, b[w-1]);
-    if (var_of(l) != const_bvar) {
+    if (shifter_control_bit_is_active(s, b[w-1])) {
       break;
     }
     w --;
@@ -4210,7 +4226,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
       shift = 1;
       for (i=0; i<k-1; i++) {
         c = b[i];
-        if (var_of(c) != const_bvar) {
+	if (shifter_control_bit_is_active(s, c)) {
           // aux := (ite c (aux << 2^i) aux)
           conditional_shift_left(s, aux, c, aux, n, shift);
         }
@@ -4219,7 +4235,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != const_bvar);
+      assert(shifter_control_bit_is_active(s, c));
       assert_conditional_shift_left(s, u, c, aux, n, shift);
     }
 
@@ -4230,7 +4246,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != const_bvar) {
+      if (shifter_control_bit_is_active(s, c)) {
         // aux := (ite c (aux << 2^i) aux)
         conditional_shift_left(s, aux, c, aux, n, shift);
       }
@@ -4378,7 +4394,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       shift = 1;
       for (i=0; i<k-1; i++) {
         c = b[i];
-        if (var_of(c) != const_bvar) {
+	if (shifter_control_bit_is_active(s, c)) {
           // aux := (ite c (aux << 2^i) aux)
           conditional_lshift_right(s, aux, c, aux, n, shift);
         }
@@ -4387,7 +4403,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != const_bvar);
+      assert(shifter_control_bit_is_active(s, c));
       assert_conditional_lshift_right(s, u, c, aux, n, shift);
     }
 
@@ -4398,7 +4414,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != const_bvar) {
+      if (shifter_control_bit_is_active(s, c)) {
         // aux := (ite c (aux << 2^i) aux)
         conditional_lshift_right(s, aux, c, aux, n, shift);
       }
@@ -4555,7 +4571,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       shift = 1;
       for (i=0; i<k-1; i++) {
         c = b[i];
-        if (var_of(c) != const_bvar) {
+	if (shifter_control_bit_is_active(s, c)) {
           // aux := (ite c (aux << 2^i) aux)
           conditional_ashift_right(s, aux, c, aux, n, shift);
         }
@@ -4564,7 +4580,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != const_bvar);
+      assert(shifter_control_bit_is_active(s, c));
       assert_conditional_ashift_right(s, u, c, aux, n, shift);
     }
 
@@ -4575,8 +4591,8 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != const_bvar) {
-        // aux := (ite c (aux << 2^i) aux)
+      if (shifter_control_bit_is_active(s, c)) {
+	// aux := (ite c (aux << 2^i) aux)
         conditional_ashift_right(s, aux, c, aux, n, shift);
       }
       shift <<= 1;
