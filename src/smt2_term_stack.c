@@ -1299,6 +1299,32 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
 
 /*
+ * Name in (define-sort <name> ..) or (declare-sort <name> ...)
+ */
+void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_UNKNOWN:
+    tstack_push_free_type_or_macro_name(stack, s, n, loc);
+    break;
+
+  case SMT2_KEY_TYPE:
+  case SMT2_KEY_TYPE_OP:
+    push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_REDEF_SORT);
+    break;
+  }
+}
+
+
+/*
  * Symbol in an indexed sort
  * (_ <symbol> <number> ... <number> )
  */
@@ -1397,6 +1423,34 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
   default:
     push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
+    break;
+  }
+}
+
+
+/*
+ * Name in a function declaration/definition:
+ *  (define-fun <name> ....)
+ *  (declare-fun <name> ...)
+ */
+void tstack_push_free_fun_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_UNKNOWN:
+    tstack_push_free_termname(stack, s, n, loc);
+    break;
+
+  case SMT2_KEY_TERM:
+  case SMT2_KEY_TERM_OP:
+    push_exception(stack, loc, s, TSTACK_TERMNAME_REDEF);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_REDEF_FUN);
     break;
   }
 }

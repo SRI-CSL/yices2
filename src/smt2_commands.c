@@ -1006,6 +1006,8 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
   "invalid :named attribute (term is not ground)",    // SMT2_NAMED_TERM_NOT_GROUND
   "invalid :named attribute (name is already used)",  // SMT2_NAMED_SYMBOL_REUSED
+  NULL,                                 // SMT2_SYMBOL_REDEF_SORT
+  NULL,                                 // SMT2_SYMBOL_REDEF_FUN
 };
 
 
@@ -1217,6 +1219,16 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
       print_out("%s: %s", exception_string[exception], tstack->error_string);
     }
     break;
+
+  case SMT2_SYMBOL_REDEF_SORT:
+  case SMT2_SYMBOL_REDEF_FUN:
+    if (symbol_needs_quotes(tstack->error_string)) {
+      print_out("name |%s| is already defined in the logic", tstack->error_string);
+    } else {
+      print_out("name %s is already defined in the logic", tstack->error_string);
+    }
+    break;
+
 
   case TSTACK_RATIONAL_FORMAT:
   case TSTACK_FLOAT_FORMAT:
