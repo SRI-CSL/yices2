@@ -460,12 +460,12 @@ void init_smt2_string_lexer(lexer_t *lex, char *data, const char *name) {
  */
 int32_t init_smt2_wide_file_lexer(lexer_t *lex, const char *filename) {
   smt2_activate_default();
-  return init_file_lexer(lex, filename);
+  return init_wide_file_lexer(lex, filename);
 }
 
 void init_smt2_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
   smt2_activate_default();
-  init_stream_lexer(lex, f, name);
+  init_wide_stream_lexer(lex, f, name);
 }
 
 
