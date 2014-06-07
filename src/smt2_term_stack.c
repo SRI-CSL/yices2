@@ -1287,12 +1287,13 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_type(stack, smt2_val[symbol], loc);
     break;
 
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_type_by_name(stack, s, loc);
-    break;
-
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_SORT);
+    /*
+     * The standard allows predefined symbols to be used as sort names
+     * provided there's no ambiguity. This is a terrible idea, but
+     * we allow anything here.
+     */
+    tstack_push_type_by_name(stack, s, loc);
     break;
   }
 }
@@ -1308,17 +1309,19 @@ void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc
   symbol = smt2_string_to_symbol(s, n);
   key = smt2_key[symbol];
   switch (key) {
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_free_type_or_macro_name(stack, s, n, loc);
-    break;
-
+    /*
+     * The standard allows predefined symbols to be used anywhere
+     * provided there's no ambiguity. This is a terrible idea.
+     *
+     * To support this, we must allow anything here that's not
+     * a predefined sort.
+     */
   case SMT2_KEY_TYPE:
-  case SMT2_KEY_TYPE_OP:
     push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
     break;
 
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_REDEF_SORT);
+    tstack_push_free_type_or_macro_name(stack, s, n, loc);
     break;
   }
 }
@@ -1417,12 +1420,13 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_term(stack, smt2_val[symbol], loc);
     break;
 
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_term_by_name(stack, s, loc);
-    break;
-
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
+    /*
+     * The standard allows predefined symbols to be used as term names
+     * provided there's no ambiguity. This is a terrible idea, but
+     * we allow anything here.
+     */
+    tstack_push_term_by_name(stack, s, loc);
     break;
   }
 }
@@ -1440,17 +1444,19 @@ void tstack_push_free_fun_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc)
   symbol = smt2_string_to_symbol(s, n);
   key = smt2_key[symbol];
   switch (key) {
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_free_termname(stack, s, n, loc);
-    break;
-
+    /*
+     * The standard allows predefined symbols to be used anywhere
+     * provided there's no ambiguity. This is a terrible idea.
+     *
+     * To support this, we must allow anything here that's not
+     * a predefined term here.
+     */
   case SMT2_KEY_TERM:
-  case SMT2_KEY_TERM_OP:
     push_exception(stack, loc, s, TSTACK_TERMNAME_REDEF);
     break;
 
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_REDEF_FUN);
+    tstack_push_free_termname(stack, s, n, loc);
     break;
   }
 }
