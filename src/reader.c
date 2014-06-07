@@ -197,7 +197,12 @@ static int file_reader_next_wchar(reader_t *reader) {
     reader->column ++;
   }
 
+#if defined(LINUX)
   c = fgetwc_unlocked(reader->input.stream);
+#else
+  c = fgetwc(reader->input.stream);
+#endif
+
   if (c == WEOF) {
     reader->current = EOF;
   } else {
