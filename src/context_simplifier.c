@@ -2061,8 +2061,30 @@ static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
   return mk_direct_arith_lt0(ctx->terms, b);
 }
 
+
 /*
- * Add t to vector t if it's not in the small cache
+ * We use a breadth-first approach:
+ * - ctx->queue contains all terms to process
+ * - v contains the terms that can't be flattened
+ * - ctx->small_cache contains all the terms that have been visited
+ *   (including all terms in v and in ctx->queue).
+ *
+ * The term we're building is (or <elements in v> <elements in the queue>)
+ */
+
+/*
+ * Push t into ctx->queue if it's not been visited yet
+ */
+static void flatten_or_push_term(context_t *ctx, term_t t) {
+  assert(is_boolean_term(ctx->terms, t));
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    int_queue_push(&ctx->queue, t);
+  }
+}
+
+/*
+ * Add t to v if it's not been visited yet
  */
 static void flatten_or_add_term(context_t *ctx, ivector_t *v, term_t t) {
   assert(is_boolean_term(ctx->terms, t));
@@ -2072,6 +2094,131 @@ static void flatten_or_add_term(context_t *ctx, ivector_t *v, term_t t) {
   }
 }
 
+/*
+ * Process all elements in ctx->queue.
+ *
+ * For every term t in the queue:
+ * - if t is already internalized, keep t and add it to v
+ * - if t is (or t1 ... t_n), add t1 ... t_n to the queue
+ * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
+ *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
+ * - otherwise store t into v
+ */
+static void flatten_or_process_queue(context_t *ctx, ivector_t *v) {
+  term_table_t *terms;
+  composite_term_t *or;
+  composite_term_t *eq;
+  uint32_t i, n;
+  term_kind_t kind;
+  term_t t, x, y;
+
+  while (! int_queue_is_empty(&ctx->queue)) {
+    t = int_queue_pop(&ctx->queue);
+
+    // apply substitutions
+    t = intern_tbl_get_root(&ctx->intern, t);
+
+    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
+      // t is already internalized, keep it as is
+      ivector_push(v, t);
+    } else {
+      terms = ctx->terms;
+      kind = term_kind(terms, t);
+      if (is_pos_term(t) && kind == OR_TERM) {
+	// add t's children to the queue
+	or = or_term_desc(terms, t);
+	n = or->arity;
+	for (i=0; i<n; i++) {
+	  flatten_or_push_term(ctx, or->arg[i]);
+	}
+      } else if (is_neg_term(t) && context_flatten_diseq_enabled(ctx)) {
+	switch (kind) {
+	case ARITH_EQ_ATOM:
+	  /*
+	   * t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	   *
+	   * Exception: keep it as an equality if x is an if-then-else term
+	   */
+	  x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
+	  if (is_ite_term(terms, x)) {
+	    ivector_push(v, t);
+	  } else {
+	    flatten_or_add_term(ctx, v, lt0_atom(ctx, x));
+	    flatten_or_add_term(ctx, v, gt0_atom(ctx, x));
+	  }
+	  break;
+
+	case ARITH_BINEQ_ATOM:
+	  /*
+	   * t is (not (eq x y)): rewrite to (or (x < y) (y < x))
+	   *
+	   * Exception 1: if x or y is an if-then-else term, then it's
+	   * better to keep (eq x y) because the if-lifting
+	   * simplifications are more likely to work on
+	   *    (ite c a b) = y
+	   * than (ite c a b) >= y AND (ite c a b) <= y
+	   *
+	   * Exception 2: if there's an egraph, then it's better
+	   * to keep (eq x y) as is. It will be converted to an
+	   * egraph equality.
+	   */
+	  eq = arith_bineq_atom_desc(terms, t);
+	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+	  if (context_has_egraph(ctx) || is_ite_term(terms, x) || is_ite_term(terms, y)) {
+	    ivector_push(v, t);
+	  } else {
+	    flatten_or_add_term(ctx, v, lt_atom(ctx, x, y));
+	    flatten_or_add_term(ctx, v, lt_atom(ctx, y, x));
+	  }
+	  break;
+
+	default:
+	  // can't flatten
+	  ivector_push(v, t);
+	  break;
+	}
+
+      } else {
+        // can't flatten
+        ivector_push(v, t);
+      }
+    }
+  }
+}
+
+/*
+ * Flatten a top-level (or t1 .... tp)
+ * - initialize the small_cache, then calls the recursive function
+ * - the result is stored in v
+ */
+void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
+  uint32_t i, n;
+
+  assert(v->size == 0 && int_queue_is_empty(&ctx->queue));
+
+  (void) context_get_small_cache(ctx); // initialize the cache
+  if (context_flatten_diseq_enabled(ctx)) {
+    (void) context_get_arith_buffer(ctx);  // allocate the internal buffer
+  }
+
+  n = or->arity;
+  for (i=0; i<n; i++) {
+    flatten_or_push_term(ctx, or->arg[i]);
+  }
+
+  flatten_or_process_queue(ctx, v);
+
+  //  context_delete_small_cache(ctx);
+  context_reset_small_cache(ctx);
+}
+
+
+
+
+#if 0
+
+// VARIANT/PREVIOUS IMPLEMENTATION: DEPTH-FIRST
 /*
  * Flatten term t:
  * - if t is already internalized, keep t and add it to v
@@ -2173,10 +2320,10 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
  * - initialize the small_cache, then calls the recursive function
  * - the result is stored in v
  */
-void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
+void flatten_or_term_dfs(context_t *ctx, ivector_t *v, composite_term_t *or) {
   uint32_t i, n;
 
-  assert(v->size == 0);
+  assert(v->size == 0));
 
   (void) context_get_small_cache(ctx); // initialize the cache
   if (context_flatten_diseq_enabled(ctx)) {
@@ -2187,9 +2334,15 @@ void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
   for (i=0; i<n; i++) {
     flatten_or_recur(ctx, v, or->arg[i]);
   }
+
   //  context_delete_small_cache(ctx);
   context_reset_small_cache(ctx);
 }
+
+
+
+
+#endif
 
 
 
