@@ -250,16 +250,38 @@ static void reset_handlers(void) {
  *  MAIN  *
  *********/
 
+/*
+ * List of locales to try
+ */
+#define NUM_LOCALES 3
+
+static const char *const locales[NUM_LOCALES] = {
+  "C.UTF-8", "en_US.utf8", "en_US.UTF-8",
+};
+
+// HACK TO FORCE UTF8
+static void force_utf8(void) {
+  uint32_t i;
+
+  for (i=0; i<NUM_LOCALES; i++) {
+    if (setlocale(LC_CTYPE, locales[i]) != NULL) {
+      if (verbosity > 1) {
+	fprintf(stderr, "Switched to locale '%s'\n", setlocale(LC_CTYPE, NULL));
+	fflush(stderr);
+      }
+      return;
+    }
+  }
+
+  fprintf(stderr, "Failed to switch locale to UTF-8. Current locale is '%s'\n", setlocale(LC_CTYPE, NULL));
+  fflush(stderr);
+}
+
 int main(int argc, char *argv[]) {
   int32_t code;
 
   parse_command_line(argc, argv);
-
-  // HACK TO FORCE UTF8
-  if (setlocale(LC_CTYPE, "C.UTF-8") == NULL) {
-    fprintf(stderr, "failed to switch locale to C.UTF-8. Current locale is %s\n", setlocale(LC_CTYPE, NULL));
-  }
-  fflush(stderr);
+  force_utf8();
 
   if (filename != NULL) {
     // read from file
