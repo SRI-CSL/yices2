@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
   int32_t code;
 
   parse_command_line(argc, argv);
-  force_utf8();
+  //  force_utf8();
 
   if (filename != NULL) {
     // read from file
