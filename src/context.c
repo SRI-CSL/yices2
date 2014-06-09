@@ -2884,6 +2884,14 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
       for (i=0; i<n; i++) {
         assert_term(ctx, a[i], true);
       }
+
+      /*
+       * The assertions a[0] ... a[n-1] may have
+       * caused roots to be merged. So we must
+       * apply term substitution again.
+       */
+      t2 = intern_tbl_get_root(&ctx->intern, t2);
+      u2 = intern_tbl_get_root(&ctx->intern, u2);
       assert_arith_bineq_aux(ctx, t2, u2, true);
 
     } else {
