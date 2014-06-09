@@ -545,7 +545,7 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
   assert(y != NULL_TERM && t == NULL_TERM);
 
   if (neqs >= 2) {
-    assert(v->size == 2);
+    assert(v->size == neqs);
     t = y;
   }
 
