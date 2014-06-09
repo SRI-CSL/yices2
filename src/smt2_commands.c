@@ -823,6 +823,15 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
  * ERROR FROM YICES (in yices_error_report)
  */
 
+// mismatch between logic and assertions
+static void unsupported_construct(const char *what) {
+  if (__smt2_globals.logic_name != NULL) {
+    print_out("%s not allowed in logic %s", what, __smt2_globals.logic_name);
+  } else {
+    print_out("%s not supported");
+  }
+}
+
 /*
  * If full is true: print (error <message>)
  * Otherwise: print <message>
@@ -893,19 +902,61 @@ static void print_yices_error(bool full) {
     break;
 
   case CTX_FREE_VAR_IN_FORMULA:
+    print_out("formula contains free variable");
+    break;
+
   case CTX_LOGIC_NOT_SUPPORTED:
+    print_out("logic not supported");
+    break;
+
   case CTX_UF_NOT_SUPPORTED:
+    unsupported_construct("UF is");
+    break;
+
   case CTX_ARITH_NOT_SUPPORTED:
+    unsupported_construct("arithmetic is");
+    break;
+
   case CTX_BV_NOT_SUPPORTED:
+    unsupported_construct("bitvectors are");
+    break;
+
   case CTX_ARRAYS_NOT_SUPPORTED:
+    unsupported_construct("arrays are");
+    break;
+
   case CTX_QUANTIFIERS_NOT_SUPPORTED:
+    unsupported_construct("quantifiers are");
+    break;
+
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
+    unsupported_construct("non-linear arithmetic is");
+    break;
+
   case CTX_FORMULA_NOT_IDL:
+    print_out("formula is not in integer difference logic");
+    break;
+
   case CTX_FORMULA_NOT_RDL:
+    print_out("formula is not in real difference logic");
+    break;
+
   case CTX_TOO_MANY_ARITH_VARS:
+    print_out("too many variables for the arithemtic solver");
+    break;
+
   case CTX_TOO_MANY_ARITH_ATOMS:
+    print_out("too many atoms for the arithmetic solver");
+    break;
+
   case CTX_TOO_MANY_BV_VARS:
+    print_out("too many variables for the bit-vector solver");
+    break;
+
   case CTX_TOO_MANY_BV_ATOMS:
+    print_out("too many atoms for the bit-vector solver");
+    break;
+
   case CTX_ARITH_SOLVER_EXCEPTION:
   case CTX_BV_SOLVER_EXCEPTION:
   case CTX_ARRAY_SOLVER_EXCEPTION:
@@ -914,16 +965,22 @@ static void print_yices_error(bool full) {
   case CTX_UNKNOWN_PARAMETER:
   case CTX_INVALID_PARAMETER_VALUE:
   case CTX_UNKNOWN_LOGIC:
-    print_out("context exception"); // expand
+    print_out("context exception");
+    break;
+
+  case EVAL_QUANTIFIER:
+    print_out("can't evaluate quantified terms");
+    break;
+
+  case EVAL_LAMBDA:
+    print_out("can't evaluate lambda terms");
     break;
 
   case EVAL_UNKNOWN_TERM:
   case EVAL_FREEVAR_IN_TERM:
-  case EVAL_QUANTIFIER:
-  case EVAL_LAMBDA:
   case EVAL_OVERFLOW:
   case EVAL_FAILED:
-    print_out("can't evaluate term value"); // expand
+    print_out("can't evaluate term value");
     break;
 
   case OUTPUT_ERROR:
