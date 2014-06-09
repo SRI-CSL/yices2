@@ -542,8 +542,12 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
     }
   } while (! int_queue_is_empty(queue));
 
-  assert(y != NULL_TERM);
-  t = y;
+  assert(y != NULL_TERM && t == NULL_TERM);
+
+  if (neqs >= 2) {
+    assert(v->size == 2);
+    t = y;
+  }
 
  done:
   int_queue_reset(queue);
