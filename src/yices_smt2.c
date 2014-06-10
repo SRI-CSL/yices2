@@ -250,6 +250,8 @@ static void reset_handlers(void) {
  *  MAIN  *
  *********/
 
+#if HACK_FOR_UTF
+
 /*
  * List of locales to try
  */
@@ -277,11 +279,19 @@ static void force_utf8(void) {
   fflush(stderr);
 }
 
+#else
+
+static void force_utf8(void) {
+  // Do nothing
+}
+
+#endif
+
 int main(int argc, char *argv[]) {
   int32_t code;
 
   parse_command_line(argc, argv);
-  //  force_utf8();
+  force_utf8();
 
   if (filename != NULL) {
     // read from file
