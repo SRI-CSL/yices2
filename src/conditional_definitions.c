@@ -114,6 +114,26 @@ static void add_vars_to_vector(ivector_t *v, harray_t *a) {
 
 
 
+/*
+ * Build sets
+ */
+static harray_t *empty_set(int_array_hset_t *store) {
+  return int_array_hset_get(store, 0, NULL); // this returns a non-NULL harray
+}
+
+static harray_t *singleton(int_array_hset_t *store, term_t t) {
+  return int_array_hset_get(store, 1, &t);
+}
+
+static harray_t *vector_to_set(int_array_hset_t *store, ivector_t *v) {
+  assert(vector_is_sorted(v));
+  return int_array_hset_get(store, v->size, v->data);
+}
+
+
+
+
+
 
 /*
  * BOOLEAN CONDITIONS
@@ -142,24 +162,6 @@ static void delete_bool_var_collector(bool_var_collector_t *collect) {
   delete_pstack(&collect->stack);
   delete_ivector(&collect->buffer);
 }
-
-
-/*
- * Build sets
- */
-static harray_t *empty_set(bool_var_collector_t *collect) {
-  return int_array_hset_get(collect->store, 0, NULL); // this returns a non-NULL harray
-}
-
-static harray_t *singleton(bool_var_collector_t *collect, term_t t) {
-  return int_array_hset_get(collect->store, 1, &t);
-}
-
-static harray_t *vector_to_set(bool_var_collector_t *collect, ivector_t *v) {
-  assert(vector_is_sorted(v));
-  return int_array_hset_get(collect->store, v->size, v->data);
-}
-
 
 
 /*
@@ -203,7 +205,7 @@ static harray_t *bool_vars_of_composite(bool_var_collector_t *collect, composite
   for (i=0; i<n; i++) {
     add_vars_to_vector(v, a[i]);
   }
-  set = vector_to_set(collect, v);
+  set = vector_to_set(collect->store, v);
   ivector_reset(v);
 
  done:
@@ -231,7 +233,7 @@ static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
     ctx = collect->ctx;
     r = intern_tbl_get_root(&ctx->intern, t);
     if (term_is_true(ctx, r) || term_is_false(ctx, r)) {
-      set = empty_set(collect);
+      set = empty_set(collect->store);
 
     } else {
 
@@ -241,7 +243,7 @@ static harray_t *bool_vars_of_term(bool_var_collector_t *collect, term_t t) {
       terms = collect->terms;
       switch (kind_for_idx(terms, i)) {
       case UNINTERPRETED_TERM:
-	set = singleton(collect, pos_occ(i));
+	set = singleton(collect->store, pos_occ(i));
 	break;
 
       case ITE_TERM:
@@ -410,6 +412,19 @@ static void print_cond_def(cond_def_collector_t *c, cond_def_t *def) {
 }
 
 
+/*
+ * For testing: print the variables in s
+ */
+static void print_vset(cond_def_collector_t *c, harray_t *s) {
+  uint32_t i, n;
+
+  n = s->nelems;
+  for (i=0; i<n; i++) {
+    if (i > 0) printf(" ");
+    print_term_full(stdout, c->terms, s->data[i]);
+  }
+}
+
 
 
 /*
@@ -443,7 +458,7 @@ static harray_t *bool_vars_of_array(cond_def_collector_t *c, uint32_t n, term_t 
   uint32_t i;
 
   if (n == 0) {
-    s = int_array_hset_get(&c->store, 0, NULL); // empty set
+    s = empty_set(&c->store);
   } else if (n == 1) {
     s = get_bool_vars_of_term(&c->collect, a[0]);
   } else {
@@ -599,12 +614,60 @@ void extract_conditional_definitions(cond_def_collector_t *c, term_t f) {
 }
 
 
+
+/*
+ * Compute the union of all vsets in a[0] ... a[n-1]
+ * - n must be positive
+ * - return NULL if the union has more than 6 elements
+ */
+static harray_t *merge_vsets(cond_def_collector_t *c, cond_def_t **a, uint32_t n) {
+  harray_t *s, *r;
+  ivector_t *v;
+  uint32_t i;
+
+  assert(n > 0);
+
+  r = NULL;
+  s = a[0]->vset;
+  if (s->nelems <= 6) {
+    // it's common for all sets to be equal.
+    for (i=1; i<n; i++) {
+      if (s != a[i]->vset) break;
+    }
+
+    if (i == n) {
+      // a[0 ... n-1] all have the set same vset
+      r = s;
+    } else {
+      assert(i < n);
+
+      // merge s with a[i] ... a[n-1];
+      v = &c->aux;
+      assert(v->size == 0);
+      add_vars_to_vector(v, s);
+      do {
+	add_vars_to_vector(v, a[i]->vset);
+	i ++;
+      } while (v->size <= 6 && i < n);
+
+      if (v->size <= 6) {
+	r = vector_to_set(&c->store, v);
+      }
+      ivector_reset(v);
+    }
+  }
+
+  return r;
+}
+
+
 /*
  * Process all conditional definitions for the same term x
  * - the definitions are stored in a[0 ... n-1]
  */
 static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t **a, uint32_t n) {
   cond_def_t *d;
+  harray_t *s;
   uint32_t i;
 
   printf("\nDefinitions for term ");
@@ -614,6 +677,14 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
     d = a[i];
     assert(d->term == x);
     print_cond_def(c, d);
+  }
+  s = merge_vsets(c, a, n);
+  if (s != NULL) {
+    printf("Var set: ");
+    print_vset(c, s);
+    printf("\n");
+  } else {
+    printf("More than six variables\n");
   }
   printf("---\n");
 }
