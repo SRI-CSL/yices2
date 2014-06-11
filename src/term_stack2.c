@@ -4070,9 +4070,9 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   1, // MK_BV_AND
   1, // MK_BV_OR
   1, // MK_BV_XOR
-  1, // MK_BV_NAND
-  1, // MK_BV_NOR
-  1, // MK_BV_XNOR
+  0, // MK_BV_NAND
+  0, // MK_BV_NOR
+  0, // MK_BV_XNOR
   0, // MK_BV_SHIFT_LEFT0
   0, // MK_BV_SHIFT_LEFT1
   0, // MK_BV_SHIFT_RIGHT0
