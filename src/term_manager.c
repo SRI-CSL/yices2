@@ -803,10 +803,12 @@ term_t mk_iff(term_manager_t *manager, term_t x, term_t y) {
 
 
 /*
- * Rewrite (xor x y) to (iff (not x) y)
+ * Rewrite (xor x y) to (not (iff x  y))
+ *
+ * NOTE: used to be (xor x y) to (iff (not x) y)
  */
 term_t mk_binary_xor(term_manager_t *manager, term_t x, term_t y) {
-  return mk_iff(manager, opposite_term(x), y);
+  return opposite_term(mk_iff(manager, x, y));
 }
 
 
