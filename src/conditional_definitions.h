@@ -88,6 +88,7 @@ typedef struct cond_def_s {
  * - cdefs = vector of conditional definitons
  * - store = for building sets
  * - collector = for finding Boolean variables
+ * - cache = for constructing truth-tables
  */
 typedef struct cond_def_collector_s {
   context_t *ctx;
@@ -95,6 +96,8 @@ typedef struct cond_def_collector_s {
   pvector_t cdefs;
   int_array_hset_t store;
   bool_var_collector_t collect;
+
+  simple_cache_t cache;
 
   // auxiliary structures
   ivector_t assumptions;

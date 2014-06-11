@@ -5698,14 +5698,17 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
   enable_assert_ite_bounds(ctx);
-  // FOR TESTING ONLY
-  enable_cond_def_preprocessing(ctx);
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
     if (logic == QF_LIA || logic == QF_LIRA) {
       enable_splx_eager_lemmas(ctx);
     }
+  }
+
+  if (logic == QF_LRA) {
+    // FOR TESTING ONLY
+    enable_cond_def_preprocessing(ctx);
   }
 
   switch (arch) {
