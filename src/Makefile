@@ -380,7 +380,7 @@ CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CPPFLAGS := $(CPPFLAGS) 
 else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) -O3 -pg
