@@ -429,6 +429,7 @@ static void print_vset(cond_def_collector_t *c, harray_t *s) {
 }
 
 
+#if 0
 /*
  * For testing: print a truth table
  * - ttbl = 64bit encoding for the table
@@ -475,6 +476,55 @@ static void print_truth_tbl(cond_def_collector_t *c, uint64_t ttbl, term_t *x, u
 
   printf("\n");
 }
+#endif
+
+/*
+ * For testing: print a definition table
+ * - table = 64bit encoding for the table
+ * - x[0 ... n-1] = Boolean variables in increasing order
+ */
+static void print_definition_table(cond_def_collector_t *c, term_t *table, term_t *x, uint32_t n) {
+  uint32_t i, k, max_k;
+  uint64_t bit;
+
+  assert(array_is_sorted(x, n) && n <= 6);
+
+  for (i=0; i<n; i++) {
+    assert(is_boolean_term(c->terms, x[i]) &&
+	   is_pos_term(x[i]) &&
+	   term_kind(c->terms, x[i]) == UNINTERPRETED_TERM);
+
+    printf("  %6s", term_name(c->terms, x[i]));
+  }
+  printf("\n");
+
+  max_k = (1 << n); // 2^n
+  assert(max_k <= 64);
+
+  for (k=0; k<max_k; k++) {
+    for (i=0; i<n; i++) {
+      bit = (k & (1 << i));
+      assert(bit == 0 || bit == (1 << i));
+      if (bit == 0) {
+	printf("  %6s", "0");
+      } else {
+	printf("  %6s", "1");
+      }
+    }
+    printf("   |   ");
+    if (table[k] == NULL_TERM) {
+      printf("unknown");
+    } else if (table[k] == -2) {
+      printf("conflict");
+    } else {
+      print_term_full(stdout, c->terms, table[k]);
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+}
+
 
 
 /*
@@ -934,6 +984,19 @@ static uint64_t truth_tbl_of_array(cond_def_collector_t *c, uint32_t m, term_t *
 
 
 /*
+ * Test row k of the truth table ttbl
+ * - k must be between 0 and 63
+ */
+static bool truth_tbl_test_row(uint64_t ttbl, uint32_t k) {
+  uint64_t mask;
+
+  assert(k < 64);
+  mask = ((uint64_t) 1) << k;
+  return (ttbl & mask) != 0;
+}
+
+
+/*
  * ANALYSIS OF CONDITIONAL DEFINITIONS
  */
 
@@ -983,15 +1046,22 @@ static harray_t *merge_vsets(cond_def_collector_t *c, cond_def_t **a, uint32_t n
 }
 
 
+
 /*
  * Process all conditional definitions for the same term x
  * - the definitions are stored in a[0 ... n-1]
+ * - first, we build the set of variables that occur in a[0 ... n-1]
+ * - if this set S has six variables or less, we build a table that defines x.
+ * - each truth assignment to variables of S is encoded as an integer
+ *   between 0 and 2^|S|-1.
+ * - table[k] = value of x for truth assignment k
  */
 static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t **a, uint32_t n) {
+  term_t table[64];
   cond_def_t *d;
   harray_t *s;
   uint64_t ttbl;
-  uint32_t i;
+  uint32_t i, k, max_k;
 
   printf("\nDefinitions for term ");
   print_term_name(stdout, c->terms, x);
@@ -1000,18 +1070,52 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
     d = a[i];
     assert(d->term == x);
     print_cond_def(c, d);
-    s = d->vset;
-    if (s->nelems <= 6) {
-      ttbl = truth_tbl_of_array(c, d->nconds, d->cond, s->data, s->nelems);
-      print_truth_tbl(c, ttbl, s->data, s->nelems);
-    }
   }
 
   s = merge_vsets(c, a, n);
   if (s != NULL) {
-    printf("Merged var set: ");
+    // s has six vars or less
+    max_k = (1 << s->nelems);
+    assert(max_k <= 64);
+
+    for (k=0; k<max_k; k++) {
+      table[k] = NULL_TERM;
+    }
+
+    for (i=0; i<n; i++) {
+      d = a[i];
+      /*
+       * d is (cond => x = d->value)
+       * we build ttbl = truth table of cond
+       * if ttbl[k] is true, then table[k] := d->value
+       */
+      ttbl = truth_tbl_of_array(c, d->nconds, d->cond, s->data, s->nelems);
+      for (k=0; k<max_k; k++) {
+	if (truth_tbl_test_row(ttbl, k)) {
+	  /*
+	   * table[k] must be equal to d->value
+	   * if table[k] is already set to something else, we mark the conflict
+	   * by setting table[k] to -2.
+	   */
+	  if (table[k] == NULL_TERM) {
+	    table[k] = d->value;
+	  } else if (table[k] != d->value) {
+	    assert(table[k] == -2 || disequal_terms(c->terms, d->value, table[k]));
+	    table[k] = -2;
+	  }
+	}
+      }
+    }
+
+  }
+
+
+  if (s != NULL) {
+    printf("Var set: ");
     print_vset(c, s);
     printf("\n");
+    printf("Table:\n");
+    print_definition_table(c, table, s->data, s->nelems);
   } else {
     printf("More than six variables\n");
   }
