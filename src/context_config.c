@@ -153,6 +153,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_EGSPLX,      // QF_UFIDL
   CTX_ARCH_EGSPLX,      // QF_UFLIA
   CTX_ARCH_EGSPLX,      // QF_UFLRA
+  CTX_ARCH_EGSPLX,      // QF_UFLIRA
   -1,                   // QF_UFNIA
   -1,                   // QF_UFNRA
   -1,                   // UF
@@ -196,6 +197,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
   false,  // QF_UFIDL
   true,   // QF_UFLIA
   false,  // QF_UFLRA
+  true,   // QF_UFLIRA
   true,   // QF_UFNIA
   false,  // QF_UFNRA
   false,  // UF
@@ -239,6 +241,7 @@ static const bool logic2qflag[NUM_SMT_LOGICS] = {
   false,  // QF_UFIDL
   false,  // QF_UFLIA
   false,  // QF_UFLRA
+  false,  // QF_UFLIRA
   false,  // QF_UFNIA
   false,  // QF_UFNRA
   true,   // UF

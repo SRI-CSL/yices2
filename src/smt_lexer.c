@@ -234,6 +234,9 @@ static void init_smttoken2string(void) {
  *   UFIDL:         Ints
  *   UFLIA:         Ints
  *
+ * More logics: added June 10 2014
+ * 
+ *   QF_UFLIRA      Ints Reals 
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
 
@@ -446,6 +449,7 @@ void smt_lexer_activate_logic(smt_logic_t code) {
   case QF_UFIDL:
   case QF_UFLIA:
   case QF_UFLRA:
+  case QF_UFLIRA:
   case QF_UFNIA:
   case QF_UFNRA:
   case UFIDL:

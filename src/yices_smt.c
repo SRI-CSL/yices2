@@ -1837,6 +1837,7 @@ static int process_benchmark(char *filename) {
       break;
 
     case QF_UFLIA:
+    case QF_UFLIRA:
       /*
        * EGRAPH + SIMPLEX, activate periodic integer checks
        */

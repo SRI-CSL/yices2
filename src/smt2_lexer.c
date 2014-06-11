@@ -424,6 +424,7 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
     break;
 
   case QF_LIRA:
+  case QF_UFLIRA:
     smt2_activate_mixed_arith();
     break;
 

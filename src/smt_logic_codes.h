@@ -43,6 +43,7 @@ typedef enum smt_logic {
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
+  QF_UFLIRA,   // added 06/11 2014
   QF_UFNIA,    // SMTCOMP 2014
   QF_UFNRA,
 

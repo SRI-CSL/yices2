@@ -165,6 +165,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_EGSPLX,      // QF_UFIDL
   CTX_ARCH_EGSPLX,      // QF_UFLIA
   CTX_ARCH_EGSPLX,      // QF_UFLRA
+  CTX_ARCH_EGSPLX,      // QF_UFLIRA
   -1,                   // QF_UFNIA
   -1,                   // QF_UFNRA
   -1,                   // UF
@@ -208,6 +209,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
   false,  // QF_UFIDL
   true,   // QF_UFLIA
   false,  // QF_UFLRA
+  true,   // QF_UFLIRA
   true,   // QF_UFNIA
   false,  // QF_UFNRA
   false,  // UF
@@ -250,6 +252,7 @@ static const bool logic2qflag[NUM_SMT_LOGICS] = {
   false,  // QF_UFBV[xx]
   false,  // QF_UFIDL
   false,  // QF_UFLIA
+  false,  // QF_UFLRA
   false,  // QF_UFLRA
   false,  // QF_UFNIA
   false,  // QF_UFNRA
@@ -1184,7 +1187,7 @@ static int process_benchmark(void) {
     params.adjust_simplex_model = true;
     params.cache_tclauses = true;
     params.tclause_size = 8;
-    if (logic == QF_UFLIA || logic == QF_AUFLIA || logic == QF_ALIA) {
+    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA) {
       params.branching = BRANCHING_NEGATIVE;
       params.max_interface_eqs = 15;
     } else {
@@ -1194,7 +1197,7 @@ static int process_benchmark(void) {
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
     }
-    if (logic == QF_UFLIA) {
+    if (logic == QF_UFLIA || logic == QF_UFLIRA) {
       params.use_optimistic_fcheck = false;
     }
     enable_splx_eqprop(&context);
