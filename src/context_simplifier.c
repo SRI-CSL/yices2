@@ -2919,6 +2919,46 @@ conditional_t *context_make_conditional(context_t *ctx, composite_term_t *ite) {
 }
 
 
+/*
+ * Check whether conditional_t *d can be simplified
+ * - d is of the form
+ *    COND c1 --> a1
+ *         c2 --> a2
+ *         ...
+ *         else --> b
+ *    END
+ *   where c_1 ... c_n are pairwise disjoint
+ *
+ * - if one of c_i is true, the function returns a_i
+ * - if all c_i's are false, the function returns d
+ * - in all other cases, the function returns NULL_TERM
+ */
+term_t simplify_conditional(context_t *ctx, conditional_t *d) {
+  uint32_t i, n;
+  bool all_false;
+  term_t result;
+
+  n = d->nconds;
+  all_false = true;
+  result = NULL_TERM;
+
+  for (i=0; i<n; i++) {
+    if (term_is_true(ctx, d->pair[i].cond)) {
+      result = d->pair[i].val;
+      goto done;
+    }
+    all_false = (all_false &&  term_is_false(ctx, d->pair[i].cond));
+  }
+
+  if (all_false) {
+    result = d->defval;
+  }
+
+ done:
+  return result;
+}
+
+
 #if 0
 
 /*

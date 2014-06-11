@@ -264,10 +264,16 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   uint32_t i, n;
   literal_t l;
   bool all_false;
+  term_t t;
 
 #if 0
   printf("---> conditional to eterm\n");
 #endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    return internalize_to_eterm(ctx, t);
+  }
 
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
@@ -278,9 +284,21 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
     if (a[i] == true_literal) {
-      // a[0] ... a[i-1] must all be false_literal
-      assert(u == null_occurrence);
-      u = internalize_to_eterm(ctx, c->pair[i].val);
+      /*
+       * a[0] ... a[i-1] are all reducible to false
+       * but we can't assume that a[0] ... a[i-1] are all false_literals
+       * since we don't know how the theory solver internalizes the
+       * conditions.
+       */
+      v = internalize_to_eterm(ctx, c->pair[i].val);
+      if (all_false) {
+	// all previous conditions a[0 ... i-1] are false
+	assert(u == null_occurrence);
+	u = v;
+      } else {
+	// we assert (u == v) as a top-level equality
+	egraph_assert_eq_axiom(ctx->egraph, u, v);
+      }
       goto done;
     }
     if (a[i] != false_literal) {
@@ -480,10 +498,16 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   uint32_t i, n;
   thvar_t x, v;
   bool all_false;
+  term_t t;
 
 #if 0
   printf("---> conditional to arith\n");
 #endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    return internalize_to_arith(ctx, t);
+  }
 
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n);
@@ -494,9 +518,20 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, c->pair[i].cond);
     if (a[i] == true_literal) {
-      // a[0] ... a[i-1] must all be false_literal
-      assert(v == null_thvar);
-      v = internalize_to_arith(ctx, c->pair[i].val);
+      /*
+       * a[0] ... a[i-1] are all reducible to false
+       * but we can't assume v == null_thvar, since
+       * we don't know how the theory solver internalizes
+       * the conditions (i.e., some of them may not be false_literal).
+       */
+      x = internalize_to_arith(ctx, c->pair[i].val);
+      if (all_false) {
+	assert(v == null_thvar);
+	v = x;
+      } else {
+	// assert (v == x) in the arithmetic solver
+	ctx->arith.assert_vareq_axiom(ctx->arith_solver, v, x, true);
+      }
       goto done;
     }
     if (a[i] != false_literal) {
@@ -3063,10 +3098,18 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
   literal_t *a;
   literal_t l;
   bool all_false;
+  term_t t;
 
 #if 0
   printf("---> toplevel conditional\n");
 #endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    assert_term(ctx, t, tt);
+    return;
+  }
+
 
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);

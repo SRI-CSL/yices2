@@ -1150,6 +1150,23 @@ extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t 
 extern void context_free_conditional(context_t *ctx, conditional_t *d);
 
 
+/*
+ * Check whether conditional_t *d can be simplified
+ * - d is of the form
+ *    COND c1 --> a1
+ *         c2 --> a2
+ *         ...
+ *         else --> b
+ *    END
+ *   where c_1 ... c_n are pairwise disjoint
+ *
+ * - if one of c_i is true, the function returns a_i
+ * - if all c_i's are false, the function returns d
+ * - in all other cases, the function returns NULL_TERM
+ */
+extern term_t simplify_conditional(context_t *ctx, conditional_t *d);
+
+
 
 /****************************
  *   ASSERTIONS AND CHECK   *
