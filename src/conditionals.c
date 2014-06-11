@@ -105,58 +105,82 @@ static bool disjoint_condition(conditional_t *d, term_t c) {
  */
 void convert_ite_to_conditional(conditional_t *d, term_t c, term_t a, term_t b) {
   composite_term_t *ite;
-  term_t t, c1;
+  term_t t, c1, t1, t2;
 
   reset_conditional(d);
 
   if (is_ite_term(d->terms, b)) {
     /*
-     * b is (ite c1 t1 t2)
-     * we try to build the conditional
-     *    [c --> a,     c1 --> t1, else --> t2] if c and c1 are disjoint
-     * or [c --> a, not c1 --> t2, else --> t1] if c and not c1 are disjoint
+     * b is either (ite c1 ...) or (not (ite c1  ...).
+     *
+     * we normalize to (ite c1 t1 t2):
+     * - if b is (ite c1 t1 t2) we're done
+     * - if b is (not (ite c1 u1 u2)) we push the negation inside:
+     *   so t1 := (not u1) and t2 := (not u2)
      */
     ite = ite_term_desc(d->terms, b);
     assert(ite->arity == 3);
 
     c1 = ite->arg[0];
+    t1 = ite->arg[1];
+    t2 = ite->arg[2];
+    if (is_neg_term(b)) {
+      t1 = opposite_term(t1);
+      t2 = opposite_term(t2);
+    }
+
+    /*
+     * we try to build the conditional
+     *    [c --> a,     c1 --> t1, else --> t2] if c and c1 are disjoint
+     * or [c --> a, not c1 --> t2, else --> t1] if c and not c1 are disjoint
+     */
     if (incompatible_boolean_terms(d->terms, c, c1)) {
       conditional_add_pair(d, c, a);
-      conditional_add_pair(d, c1, ite->arg[1]);
-      t = ite->arg[2];
+      conditional_add_pair(d, c1, t1);
+      t = t2;
       goto loop;
     }
 
     if (incompatible_boolean_terms(d->terms, c, opposite_term(c1))) {
       conditional_add_pair(d, c, a);
-      conditional_add_pair(d, opposite_term(c1), ite->arg[2]);
-      t = ite->arg[1];
+      conditional_add_pair(d, opposite_term(c1), t2);
+      t = t1;
       goto loop;
     }
   }
 
   if (is_ite_term(d->terms, a)) {
     /*
-     * a is (ite c1 t1 t2)
-     * we try
-     *    [not c --> b,     c1 --> t1, else --> t2]
-     * or [not c --> b, not c1 --> t2, else --> t1]
+     * a is either (ite c1 ...) or (not (ite c1 ...))
+     * we normalize as above to (ite c1 t1 t2)
      */
     ite = ite_term_desc(d->terms, a);
     assert(ite->arity == 3);
 
     c1 = ite->arg[0];
+    t1 = ite->arg[1];
+    t2 = ite->arg[2];
+    if (is_neg_term(a)) {
+      t1 = opposite_term(t1);
+      t2 = opposite_term(t2);
+    }
+
+    /*
+     * we try
+     *    [not c --> b,     c1 --> t1, else --> t2]
+     * or [not c --> b, not c1 --> t2, else --> t1]
+     */
     if (incompatible_boolean_terms(d->terms, opposite_term(c), c1)) {
       conditional_add_pair(d, opposite_term(c), b);
-      conditional_add_pair(d, c1, ite->arg[1]);
-      t = ite->arg[2];
+      conditional_add_pair(d, c1, t1);
+      t = t2;
       goto loop;
     }
 
     if (incompatible_boolean_terms(d->terms, opposite_term(c), opposite_term(c1))) {
       conditional_add_pair(d, opposite_term(c), b);
-      conditional_add_pair(d, opposite_term(c1), ite->arg[2]);
-      t = ite->arg[1];
+      conditional_add_pair(d, opposite_term(c1), t2);
+      t = t1;
       goto loop;
     }
   }
@@ -174,12 +198,19 @@ void convert_ite_to_conditional(conditional_t *d, term_t c, term_t a, term_t b) 
     assert(ite->arity == 3);
 
     c1 = ite->arg[0];
+    t1 = ite->arg[1];
+    t2 = ite->arg[2];
+    if (is_neg_term(t)) {
+      t1 = opposite_term(t1);
+      t2 = opposite_term(t2);
+    }
+
     if (disjoint_condition(d, c1)) {
-      conditional_add_pair(d, c1, ite->arg[1]);
-      t = ite->arg[2];
+      conditional_add_pair(d, c1, t1);
+      t = t2;
     } else if (disjoint_condition(d, opposite_term(c1))) {
-      conditional_add_pair(d, opposite_term(c1), ite->arg[2]);
-      t = ite->arg[1];
+      conditional_add_pair(d, opposite_term(c1), t2);
+      t = t1;
     } else {
       break;
     }
@@ -201,10 +232,18 @@ void convert_ite_to_conditional(conditional_t *d, term_t c, term_t a, term_t b) 
  */
 void convert_term_to_conditional(conditional_t *d, term_t t) {
   composite_term_t *ite;
+  term_t a, b;
 
   if (is_ite_term(d->terms, t)) {
     ite = ite_term_desc(d->terms, t);
     assert(ite->arity == 3);
+
+    a = ite->arg[1];
+    b = ite->arg[2];
+    if (is_neg_term(t)) {
+      a = opposite_term(a);
+      b = opposite_term(b);
+    }
     convert_ite_to_conditional(d, ite->arg[0], ite->arg[1], ite->arg[2]);
   } else {
     reset_conditional(d);
