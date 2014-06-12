@@ -1,5 +1,5 @@
  (set-option :produce-models true)
-  (set-logic QF_UFLIRA)
+  (set-logic QF_UFLIA)
   (declare-fun f (Int) Bool)
   (define-fun nf ((i Int)) Bool (not (f i)))
   (assert (f 0))

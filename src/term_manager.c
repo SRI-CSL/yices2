@@ -3026,7 +3026,7 @@ term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   assert(0 < n && n <= YICES_MAX_ARITY);
 
   tbl = manager->terms;
-  if (term_kind(tbl, body) == APP_TERM) {
+  if (is_pos_term(body) && term_kind(tbl, body) == APP_TERM) {
     d = app_term_desc(tbl, body);
     if (d->arity == n+1 && equal_arrays(var, d->arg + 1, n)) {
       f = d->arg[0];
