@@ -37,7 +37,7 @@
  * - [sum  n1 + ... + n_k]
  * Where a0 is a constant, and n_t is a node occurrence.
  *
- * The leave nodes correspond to expressions that don't need
+ * The leaf nodes correspond to expressions that don't need
  * compilation (i.e., [leaf x] is compiled to variable x).
  * The other nodes are expressions to be compiled.
  *
@@ -50,7 +50,7 @@
  *
  * Constraints:
  * - in [mono a0 n]: n must be a positive occurrence
- * - in [prod n1^d1 ... n_k^d-k]: all n_i's must be positive occurrences
+ * - in [prod n1^d1 ... n_k^d_k]: all n_i's must be positive occurrences
  * - in [sum n1 ... n_k]: the n_i's must not be offset nodes
  *
  * The DAG maintains a mapping from bit-vector variables to node occurrences.
@@ -324,6 +324,7 @@ typedef struct bvc_dag_s {
   // auxiliary buffers
   bvconstant_t aux;
   pp_buffer_t pp_aux;
+  bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
 } bvc_dag_t;
 
