@@ -250,6 +250,8 @@ static void reset_handlers(void) {
  *  MAIN  *
  *********/
 
+#define HACK_FOR_UTF 1
+
 #if HACK_FOR_UTF
 
 /*
