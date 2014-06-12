@@ -1456,6 +1456,114 @@ node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t
 }
 
 
+/*
+ * Convert buffer p to a DAG.
+ * - p contains a polynomial a_0 x_0 + ... a_n x_n
+ * - each x_i must be node index (can be positive or negative)
+ * - there mustn't be duplicates among x_0 ... x_n
+ *   all node_of_occ(x_i) must be distinct.
+ */
+static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
+  ivector_t *v;
+  uint32_t i, n, bitsize;
+  node_occ_t r;
+
+  n = bvpoly_buffer_num_terms(buffer);
+  bitsize = bvpoly_buffer_bitsize(buffer);
+  assert(bitsize <= 64);
+
+  i = 0;
+  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+    // skip the constant
+    i = 1;
+
+  }
+
+  // build the monomials and store the corresponding node occs in v
+  v = &dag->buffer;
+  assert(v->size == 0);
+
+  while (i < n) {
+    r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
+    ivector_push(v, r);
+    i ++;
+  }
+
+  // build the sum
+  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+  ivector_reset(v);
+
+  // add the constant if any
+  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+    r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(buffer, 0), r, bitsize);
+  }
+
+  return r;
+}
+
+
+// same thing for a polynomial with large coefficients
+static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
+  ivector_t *v;
+  uint32_t i, n, bitsize;
+  node_occ_t r;
+
+  n = bvpoly_buffer_num_terms(buffer);
+  bitsize = bvpoly_buffer_bitsize(buffer);
+  assert(bitsize > 64);
+
+  i = 0;
+  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+    // skip the constant
+    i = 1;
+
+  }
+
+  // build the monomials and store the corresponding node occs in v
+  v = &dag->buffer;
+  assert(v->size == 0);
+
+  while (i < n) {
+    r = bvc_dag_mono(dag, bvpoly_buffer_coeff(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
+    ivector_push(v, r);
+    i ++;
+  }
+
+  // build the sum
+  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+  ivector_reset(v);
+
+  // add the constant if any
+  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+    r = bvc_dag_offset(dag, bvpoly_buffer_coeff(buffer, 0), r, bitsize);
+  }
+
+  return r;
+}
+
+
+/*
+ * Add a * node to buffer
+ */
+static void bvpoly_buffer_add64(bvpoly_buffer_t *buffer, uint64_t a, node_occ_t n) {
+  if (sign_of_occ(n) == 1) {
+    bvpoly_buffer_sub_mono64(buffer, unsigned_occ(n), a);
+  } else {
+    bvpoly_buffer_add_mono64(buffer, n, a);
+  }
+}
+
+static void bvpoly_buffer_add(bvpoly_buffer_t *buffer, uint32_t *a, node_occ_t n) {
+  if (sign_of_occ(n) == 1) {
+    bvpoly_buffer_sub_monomial(buffer, unsigned_occ(n), a);
+  } else {
+    bvpoly_buffer_add_monomial(buffer, n, a);
+  }
+}
+
+
+
+
 
 /*
  * Convert a polynomial p to a DAG node q and return q
@@ -1471,12 +1579,24 @@ node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t
  *    [offset b0 [sum [mono b_1 a[1]] ... [mono b_k a[k]]]].
  */
 node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
-  ivector_t *v;
+  bvpoly_buffer_t *buffer;
   uint32_t i, n, bitsize;
-  node_occ_t r;
+
 
   n = p->nterms;
   bitsize = p->bitsize;
+  assert(bitsize <= 64);
+
+  buffer = &dag->poly_buffer;
+  reset_bvpoly_buffer(buffer, bitsize);
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_add64(buffer, p->mono[i].coeff, a[i]);
+  }
+  normalize_bvpoly_buffer(buffer);
+
+  return bvc_dag_of_buffer64(dag, buffer);
+
+#if 0
   i = 0;
   if (p->mono[0].var == const_idx) {
     // skip the constant
@@ -1503,9 +1623,29 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
   }
 
   return r;
+#endif
 }
 
 node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
+  bvpoly_buffer_t *buffer;
+  uint32_t i, n, bitsize;
+
+
+  n = p->nterms;
+  bitsize = p->bitsize;
+  assert(bitsize > 64);
+
+  buffer = &dag->poly_buffer;
+  reset_bvpoly_buffer(buffer, bitsize);
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_add(buffer, p->mono[i].coeff, a[i]);
+  }
+  normalize_bvpoly_buffer(buffer);
+
+  return bvc_dag_of_buffer(dag, buffer);
+
+#if 0
+  // OLD
   ivector_t *v;
   uint32_t i, n, bitsize;
   node_occ_t r;
@@ -1538,6 +1678,7 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
   }
 
   return r;
+#endif
 }
 
 
@@ -1545,12 +1686,33 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
  * Same thing but p is stored in buffer b
  */
 node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a) {
-  ivector_t *v;
+  bvpoly_buffer_t *buffer;
   uint32_t nbits, i, n;
   node_occ_t r;
 
   n = bvpoly_buffer_num_terms(b);
   nbits = bvpoly_buffer_bitsize(b);
+
+  buffer = &dag->poly_buffer;
+  reset_bvpoly_buffer(buffer, nbits);
+  if (nbits <= 64) {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add64(buffer, bvpoly_buffer_coeff64(b, i), a[i]);
+    }
+    normalize_bvpoly_buffer(buffer);
+    r = bvc_dag_of_buffer64(dag, buffer);
+
+  } else {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add(buffer, bvpoly_buffer_coeff(b, i), a[i]);
+    }
+    normalize_bvpoly_buffer(buffer);
+    r = bvc_dag_of_buffer(dag, buffer);
+  }
+
+  return r;
+
+#if 0
   i = 0;
   if (bvpoly_buffer_var(b, 0) == const_idx) {
     // skip the constant
@@ -1587,6 +1749,7 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
   ivector_reset(v);
 
   return r;
+#endif
 }
 
 
