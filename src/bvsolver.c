@@ -6204,14 +6204,23 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   y1 = mtbl_get_root(&solver->mtbl, x1);
   y2 = mtbl_get_root(&solver->mtbl, x2);
 
+  if (equal_bvvar(solver, y1, y2)) {
+    goto no_conflict;
+  }
+
   if (diseq_bvvar(solver, y1, y2)) {
     bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
     goto conflict;
   }
 
-  if (simplify_eq(solver, &y1, &y2) && diseq_bvvar(solver, y1, y2)) {
-    bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
-    goto conflict;
+  if (simplify_eq(solver, &y1, &y2)) {
+    if (equal_bvvar(solver, y1, y2)) {
+      goto no_conflict;
+    }
+    if (diseq_bvvar(solver, y1, y2)) {
+      bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
+      goto conflict;
+    }
   }
 
   atbl = &solver->atbl;
@@ -6259,7 +6268,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
     }
   }
 
-
+ no_conflict:
   return false; // no conflict found
 
  conflict:
