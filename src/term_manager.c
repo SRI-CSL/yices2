@@ -3150,6 +3150,7 @@ static term_t map_node_to_term(term_manager_t *manager, node_t x) {
   term_t t;
 
   nodes = manager->nodes;
+  assert(nodes != NULL);
 
   t = map_of_node(nodes, x);
   if (t < 0) {
@@ -3220,11 +3221,9 @@ static term_t bvlogic_buffer_get_bvconst(term_manager_t *manager, bvlogic_buffer
  * Convert buffer b to a bv-array term
  */
 static term_t bvlogic_buffer_get_bvarray(term_manager_t *manager, bvlogic_buffer_t *b) {
-  node_table_t *nodes;
   uint32_t i, n;
 
-  nodes = manager->nodes;
-  assert(b->nodes == nodes && nodes != NULL);
+  assert(b->nodes == manager->nodes && manager->nodes != NULL);
 
   // translate each bit of b into a boolean term
   // we store the translation in b->bit
