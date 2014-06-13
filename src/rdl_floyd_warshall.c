@@ -1890,6 +1890,12 @@ fcheck_code_t rdl_final_check(rdl_solver_t *solver) {
 }
 
 
+/*
+ * Clear: do nothing
+ */
+void rdl_clear(rdl_solver_t *solver) {
+}
+
 
 
 
@@ -3017,6 +3023,7 @@ static th_ctrl_interface_t rdl_control = {
   (push_fun_t) rdl_push,
   (pop_fun_t) rdl_pop,
   (reset_fun_t) rdl_reset,
+  (clear_fun_t) rdl_clear,
 };
 
 

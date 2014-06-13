@@ -1405,6 +1405,8 @@ struct egraph_s {
   ivector_t interface_eqs;    // pairs of term occurrences (for interface lemmas)
   uint32_t reconcile_top;     // top of the undo stack when reconcile started
   uint32_t reconcile_neqs;    // number of equalities when reconcile started
+  bool reconcile_mode;        // true if the egraph has some edges for model reconciliation
+
 
   /*
    * Support for on-the-fly creation of composite terms.

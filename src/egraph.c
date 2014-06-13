@@ -4531,6 +4531,11 @@ void egraph_reset(egraph_t *egraph) {
   arena_reset(&egraph->arena);
   reset_istack(&egraph->istack);
 
+  ivector_reset(&egraph->interface_eqs);
+  egraph->reconcile_top = 0;
+  egraph->reconcile_neqs = 0;
+  egraph->reconcile_mode = false;
+
   if (egraph->app_partition != NULL) {
     delete_ptr_partition(egraph->app_partition);
     safe_free(egraph->app_partition);
@@ -5828,11 +5833,13 @@ static bool egraph_reconcile(egraph_t *egraph) {
 /*
  * Prepare for reconciliation:
  * - store the current number of equalities + the top of the undo stack
+ * - set the reconcile_mode flag
  */
 static void egraph_start_reconciliation(egraph_t *egraph) {
   assert(egraph->stack.prop_ptr == egraph->stack.top);
   egraph->reconcile_top = egraph->undo.top;
   egraph->reconcile_neqs = egraph->stack.top;
+  egraph->reconcile_mode = true;
 }
 
 
@@ -5843,6 +5850,7 @@ static void egraph_reconciliation_restore(egraph_t *egraph) {
   egraph_undo_reconcile_attempt(egraph, egraph->reconcile_top);
   egraph->stack.top = egraph->reconcile_neqs;
   egraph->stack.prop_ptr = egraph->reconcile_neqs;
+  egraph->reconcile_mode = false;
 }
 
 
@@ -6069,6 +6077,28 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
+  }
+}
+
+
+/*
+ * Clear the edges added during reconciliation:
+ * - if egraph_final_check succeeds, then we may have added new equalities
+ *   in the egraph (during model reconciliation).
+ * - before any other operation on the egraph (e.g., assert, push, pop), we
+ *   must restore it to what it was at the start of final check
+ */
+void egraph_clear(egraph_t *egraph) {
+  uint32_t i;
+
+  if (egraph->reconcile_mode) {
+    egraph_reconciliation_restore(egraph);
+  }
+  // forward to the satellite solvers
+  for (i=0; i<NUM_SATELLITES; i++) {
+    if (egraph->ctrl[i] != NULL) {
+      egraph->ctrl[i]->clear(egraph->th[i]);
+    }
   }
 }
 
@@ -6523,6 +6553,7 @@ static th_ctrl_interface_t egraph_control = {
   (push_fun_t) egraph_push,
   (pop_fun_t) egraph_pop,
   (reset_fun_t) egraph_reset,
+  (clear_fun_t) egraph_clear,
 };
 
 
@@ -6612,6 +6643,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->interface_eqs, 40);
   egraph->reconcile_top = 0;
   egraph->reconcile_neqs = 0;
+  egraph->reconcile_mode = false;
 
   init_pvector(&egraph->reanalyze_vector, 0);
   init_th_explanation(&egraph->th_expl);

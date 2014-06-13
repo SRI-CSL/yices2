@@ -7458,6 +7458,13 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
 }
 
 
+/*
+ * Clear: nothing to to
+ */
+void simplex_clear(simplex_solver_t *solver) {
+}
+
+
 /*****************************
  *  INCREASE DECISION LEVEL  *
  ***************************/
@@ -10020,6 +10027,7 @@ static th_ctrl_interface_t simplex_control = {
   (push_fun_t) simplex_push,
   (pop_fun_t) simplex_pop,
   (reset_fun_t) simplex_reset,
+  (clear_fun_t) simplex_clear,
 };
 
 static th_smt_interface_t simplex_smt = {

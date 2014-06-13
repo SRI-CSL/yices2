@@ -121,7 +121,6 @@ static void null_reset(void *t) {
   th->b_level = 0;
 }
 
-
 static literal_t null_select_polarity(void *t, void *atom, literal_t l) {
   return l;
 }
@@ -132,6 +131,13 @@ static fcheck_code_t null_final_check(void *t) {
   th = t;
   printf("%s->final_check\n", th->name);
   return FCHECK_SAT;
+}
+
+static void null_clear(void *t) {
+  empty_theory_t *th;
+
+  th = t;
+  printf("%s->clear\n", th->name);
 }
 
 
@@ -150,6 +156,7 @@ static th_ctrl_interface_t null_ctrl = {
   null_push,
   null_pop,
   null_reset,
+  null_clear,
 };
 
 static th_smt_interface_t null_smt = {

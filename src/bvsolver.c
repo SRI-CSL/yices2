@@ -6399,6 +6399,11 @@ fcheck_code_t bv_solver_final_check(bv_solver_t *solver) {
   return FCHECK_SAT;
 }
 
+// clear: do nothing
+void bv_solver_clear(bv_solver_t *solver) {
+
+}
+
 void bv_solver_increase_decision_level(bv_solver_t *solver) {
   solver->decision_level ++;
 
@@ -8073,6 +8078,7 @@ static th_ctrl_interface_t bv_solver_control = {
   (push_fun_t) bv_solver_push,
   (pop_fun_t) bv_solver_pop,
   (reset_fun_t) bv_solver_reset,
+  (clear_fun_t) bv_solver_clear,
 };
 
 static th_smt_interface_t bv_solver_smt = {

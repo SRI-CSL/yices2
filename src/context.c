@@ -3724,6 +3724,7 @@ static th_ctrl_interface_t null_ctrl = {
   donothing,        // push
   donothing,        // pop
   donothing,        // reset
+  donothing,        // clear
 };
 
 

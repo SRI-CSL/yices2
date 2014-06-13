@@ -546,6 +546,15 @@ typedef struct atom_table_s {
  *     void pop(void *solver)
  *     void reset(void *solver)
  *
+ * 13) void clear(void *solver)
+ *   - new function added June 12, 2014. Whenever smt_clear is called
+ *     the smt_core progates it to the theory solver by calling this function.
+ *     Smt_clear is called in a state where solver->status is SAT or UNKNOWN,
+ *     the theory solver must restore its internal state to what it was on enty
+ *     to the previous call to final_check (this should be used by the Egraph
+ *     to remove all temporary equalities introduced during model reconciliation).
+ *
+ *
  * Functions deleted_atom, end_deletion, push, pop, and reset are
  * optional. The corresponding function pointer in theory_solver_t
  * object may be set to NULL. This will work provided the features
@@ -589,6 +598,8 @@ typedef void (*end_del_fun_t)(void *solver);
 typedef void (*push_fun_t)(void *solver);
 typedef void (*pop_fun_t)(void *solver);
 typedef void (*reset_fun_t)(void *solver);
+typedef void (*clear_fun_t)(void *solver);
+
 
 /*
  * Solver descriptor: 2008/02/11: we now split it into
@@ -612,6 +623,7 @@ typedef struct th_ctrl_interface_s {
   push_fun_t           push;
   pop_fun_t            pop;
   reset_fun_t          reset;
+  clear_fun_t          clear;
 } th_ctrl_interface_t;
 
 typedef struct th_smt_interface_s {

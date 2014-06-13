@@ -1645,6 +1645,12 @@ fcheck_code_t idl_final_check(idl_solver_t *solver) {
 }
 
 
+/*
+ * Clear: do nothing
+ */
+void idl_clear(idl_solver_t *solver) {
+}
+
 
 /*
  * Expand explanation for literal l
@@ -2686,6 +2692,7 @@ static th_ctrl_interface_t idl_control = {
   (push_fun_t) idl_push,
   (pop_fun_t) idl_pop,
   (reset_fun_t) idl_reset,
+  (clear_fun_t) idl_clear,
 };
 
 

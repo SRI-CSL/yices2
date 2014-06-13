@@ -2104,7 +2104,11 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
 }
 
 
-
+/*
+ * Clear: nothing to do
+ */
+void fun_solver_clear(fun_solver_t *solver) {
+}
 
 
 
@@ -3550,6 +3554,7 @@ static th_ctrl_interface_t fsolver_control = {
   (push_fun_t) fun_solver_push,
   (pop_fun_t) fun_solver_pop,
   (reset_fun_t) fun_solver_reset,
+  (clear_fun_t) fun_solver_clear,
 };
 
 static th_egraph_interface_t fsolver_egraph = {

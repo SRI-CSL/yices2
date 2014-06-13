@@ -5073,6 +5073,10 @@ void smt_cleanup(smt_core_t *s) {
  */
 void smt_clear(smt_core_t *s) {
   assert(s->status == STATUS_SAT || s->status == STATUS_UNKNOWN);
+
+  // Give a change to the theory solver to cleanup its own state
+  s->th_ctrl.clear(s->th_solver);
+
   /*
    * In clean-interrupt mode, we restore the state to what it was
    * before the search started. This also backtracks to the base_level
