@@ -3677,7 +3677,7 @@ void smt2_pop(uint32_t n) {
   __smt2_globals.stats.num_pop ++;
   __smt2_globals.stats.num_commands ++;
   tprintf(__smt2_globals.tracer, 12,
-	  "\n(pop: %"PRIu32" calls)\n", __smt2_globals.stats.num_push);
+	  "\n(pop: %"PRIu32" calls)\n", __smt2_globals.stats.num_pop);
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {

@@ -484,6 +484,7 @@ static void init_arith_trail(arith_trail_stack_t *stack) {
  * Save a base-level:
  * - nv = number of variables
  * - na = number of atoms
+ * - nr = number of saved rows
  * - pa = propagation pointer in the assertion stack
  * - pb = propagation pointer in the bound stack
  */
@@ -7792,6 +7793,37 @@ static uint32_t num_active_vars(arith_vartable_t *vtbl) {
 
 
 /*
+ * Scan the bound stack backward from top to fix_ptr
+ * and clear the ub/lb tags of all variables.
+ */
+static void roll_back_fix_ptr(simplex_solver_t *solver) {
+  arith_bstack_t *bstack;
+  arith_vartable_t *vtbl;
+  uint32_t i, n;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  bstack = &solver->bstack;
+
+  i = bstack->top;
+  n = bstack->fix_ptr;
+  while (i > n) {
+    i --;
+    x = bstack->var[i];
+    if (xq_eq(bstack->bound + i, arith_var_value(vtbl, x))) {
+      // value[x] = bound[k]
+      if (constraint_is_lower_bound(bstack, i)) {
+	clear_arith_var_lb(vtbl, x);
+      } else {
+	assert(constraint_is_upper_bound(bstack, i));
+	clear_arith_var_ub(vtbl, x);
+      }
+    }
+  }
+}
+
+
+/*
  * Return to the previous base level
  */
 void simplex_pop(simplex_solver_t *solver) {
@@ -7868,6 +7900,13 @@ void simplex_pop(simplex_solver_t *solver) {
   solver->bstack.prop_ptr = top->bound_ptr;
   solver->bstack.fix_ptr = top->bound_ptr;
   solver->assertion_queue.prop_ptr = top->assertion_ptr;
+
+  /*
+   * If bstack->fix_ptr < bstack->top, we must now revisit
+   * all bounds in bstack[fix_ptr ... top-1] and clear the
+   * lb/ub tags of variables.
+   */
+  roll_back_fix_ptr(solver);
 
   // remove trail object
   arith_trail_pop(&solver->trail_stack);
@@ -10241,7 +10280,8 @@ static void check_assertion(simplex_solver_t *solver, int32_t a) {
       printf(" is false\n");
     }
     break;
-  case VAL_UNDEF:
+  case VAL_UNDEF_TRUE:
+  case VAL_UNDEF_FALSE:
     printf("---> ERROR: truth assignment mismatch\n");
     printf("     atom %"PRId32" asserted\n", i);
     printf("     atom %"PRId32" is ", i);
