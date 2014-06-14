@@ -1476,7 +1476,6 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   if (bvpoly_buffer_var(buffer, 0) == const_idx) {
     // skip the constant
     i = 1;
-
   }
 
   // build the monomials and store the corresponding node occs in v
@@ -2045,22 +2044,23 @@ static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
 /*
  * Replace the pair n1, n2 by n in p->sum:
  * - p must be the descriptor of node i
- * - n1 and n2 must occur in p
+ * - n1 and n2 must occur in p at position k1 and k2, respectively
  * - n must be a leaf
  * - remove i from n1 and n2's use lists and add i to n's use list
  * - move i to the elementary list if p becomes elementary
  */
-static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
+		       node_occ_t n, node_occ_t n1, node_occ_t n2, uint32_t k1, uint32_t k2) {
   uint32_t j, k, m;
   node_occ_t x;
 
   m = p->len;
 
-  assert(m >= 2);
+  assert(m >= 2 && k1 != k2 && p->sum[k1] == n1 && p->sum[k2] == n2);
 
   if (m == 2) {
     // i is equal to n
-    assert((p->sum[0] == n1 && p->sum[1] == n2) || (p->sum[0] == n2 && p->sum[1] == n1));
+    assert((k1 == 0 && k2 == 1) || (k1 == 1 && k2 == 0));
     replace_node(dag, i, n);
     return;;
   }
@@ -2069,7 +2069,7 @@ static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t n, n
   k = 0;
   for (j=0; j<m; j++) {
     x = p->sum[j];
-    if (x != n1 && x != n2) {
+    if (j != k1 && j != k2) {
       p->sum[k] = x;
       p->hash |= bit_hash_occ(x);
       k ++;
@@ -2127,9 +2127,9 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
         // p->sum[k1] contains +/- n1
         // p->sum[k2] contains +/- n2
         if (p->sum[k1] == n1 && p->sum[k2] == n2) {
-          shrink_sum(dag, p, i, n, n1, n2);
+          shrink_sum(dag, p, i, n, n1, n2, k1, k2);
         } else if (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2)) {
-          shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2));
+          shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), k1, k2);
         }
       }
     }
@@ -2154,7 +2154,7 @@ void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t 
   r2 = node_of_occ(n2);
   h = bit_hash(r1) | bit_hash(r2);
 
-  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems && r1 != r2);
+  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems);
 
   l1 = dag->use[r1];
   l2 = dag->use[r2];
