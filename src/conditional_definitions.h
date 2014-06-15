@@ -102,6 +102,11 @@ typedef struct cond_def_collector_s {
   // auxiliary structures
   ivector_t assumptions;
   ivector_t aux;
+
+  rational_t coeff[6];
+  rational_t base;
+  rational_t q_aux;
+
 } cond_def_collector_t;
 
 

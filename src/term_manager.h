@@ -298,6 +298,11 @@ extern term_t mk_arith_constant(term_manager_t *manager, rational_t *r);
  */
 extern term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b);
 
+/*
+ * Variant: use the term table
+ */
+extern term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b);
+
 
 /*
  * Create an arithmetic atom from the content of buffer b:

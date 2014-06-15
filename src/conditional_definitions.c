@@ -13,7 +13,7 @@
 #include "conditional_definitions.h"
 
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 
@@ -346,6 +346,8 @@ static cond_def_t *new_cond_def(term_t t, term_t v, harray_t *vset, uint32_t n, 
  * - ctx = relevant context
  */
 void init_cond_def_collector(cond_def_collector_t *c, context_t *ctx) {
+  uint32_t i;
+
   c->ctx = ctx;
   c->terms = ctx->terms;
   init_pvector(&c->cdefs, 0);
@@ -354,6 +356,12 @@ void init_cond_def_collector(cond_def_collector_t *c, context_t *ctx) {
   init_simple_cache(&c->cache, 0);
   init_ivector(&c->assumptions, 10);
   init_ivector(&c->aux, 10);
+
+  for (i=0; i<6; i++) {
+    q_init(c->coeff + i);
+  }
+  q_init(&c->base);
+  q_init(&c->q_aux);
 }
 
 
@@ -373,6 +381,12 @@ void delete_cond_def_collector(cond_def_collector_t *c) {
   delete_int_array_hset(&c->store);
   delete_ivector(&c->assumptions);
   delete_ivector(&c->aux);
+
+  for (i=0; i<6; i++) {
+    q_clear(c->coeff + i);
+  }
+  q_clear(&c->base);
+  q_clear(&c->q_aux);
 }
 
 
@@ -532,6 +546,23 @@ static void print_definition_table(cond_def_collector_t *c, term_t *table, term_
   printf("\n");
 }
 
+
+static void print_candidate(cond_def_collector_t *c, harray_t *s) {
+  uint32_t i, n;
+  rational_t *q;
+
+  n = s->nelems;
+  assert(n <= 6);
+
+  q_print(stdout, &c->base);
+  for (i=0; i<n; i++) {
+    q = c->coeff + i;
+    printf(" + (");
+    q_print(stdout, q);
+    printf(" %s)", term_name(c->terms, s->data[i]));
+  }
+  printf("\n");
+}
 
 #endif
 
@@ -1018,6 +1049,22 @@ static bool arith_lt(term_table_t *tbl, term_t t, term_t u) {
 }
 
 /*
+ * Copy the value of term t into q
+ * - t must be an arithmetic constant
+ */
+static void copy_rational_term(term_table_t *terms, rational_t *q, term_t t) {
+  q_set(q, rational_term_desc(terms, t));
+}
+
+/*
+ * Check whether t's value equals q
+ */
+static bool rational_eq_term(term_table_t *terms, rational_t *q, term_t t) {
+  return q_eq(q, rational_term_desc(terms, t));
+}
+
+
+/*
  * Add aux atom t <= u in the context.
  * - both t and u must be arithmetic terms
  */
@@ -1095,6 +1142,160 @@ static void assert_arith_bounds_from_table(cond_def_collector_t *c, term_t x, ui
 }
 
 /*
+ * Store table[0] in c->base
+ * Then the coefficients for each variables in c->coeff[0 ... n-1]
+ */
+static void build_candidate(cond_def_collector_t *c, uint32_t n, term_t *table) {
+  uint32_t i, k;
+
+  assert(n <= 6);
+
+  copy_rational_term(c->terms, &c->base, table[0]);
+
+  k = 1;
+  for (i=0; i<n; i++) {
+    copy_rational_term(c->terms, c->coeff + i, table[k]);
+    q_sub(c->coeff + i, &c->base);   // coeff[i] := table[2^i] - table[0]
+    k <<= 1;
+  }
+}
+
+
+/*
+ * The candidate linear expression is
+ * b + c[0] x[0] + ... + c[n-1] x[n-1]
+ * where b = c->base, c[i] = c->coeff[i] and x[i] = Boolean variable.
+ *
+ * This function evaluate the expression for the Boolean assignment defined by index m:
+ * - bit i of m = value of x[i]
+ * The result is stored in c->q_aux
+ */
+static void eval_candidate(cond_def_collector_t *c, uint32_t n, uint32_t m) {
+  rational_t *q;
+  uint32_t i, k;
+
+  assert(n <= 6);
+
+  q = &c->q_aux;
+  q_set(q, &c->base);
+
+  k = 1;
+  for (i=0; i<n; i++) {
+    // k is 2^i, k&m is bit i of m
+    if ((k & m) != 0) {
+      q_add(q, c->coeff + i);
+    }
+    k <<= 1;
+  }
+}
+
+
+/*
+ * Check that the candidate expression agrees with the full table
+ */
+static bool candidate_is_good(cond_def_collector_t *c, uint32_t n, uint32_t k_max, term_t *table) {
+  uint32_t m;
+
+  assert(n <= 6 && k_max == (1 << n));
+
+  for (m=0; m<k_max; m++) {
+    eval_candidate(c, n, m);
+    if (! rational_eq_term(c->terms, &c->q_aux, table[m])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+ * Build the term q * x where x is Boolean variable
+ * - this builds (if x q 0)
+ */
+static term_t make_pseudo_product(term_table_t *terms, rational_t *q, term_t x) {
+  term_t a;
+  type_t tau;
+
+  assert(is_boolean_term(terms, x));
+
+  a = arith_constant(terms, q);
+  tau = term_type(terms, a);
+
+  return ite_term(terms, tau, x, a, zero_term);
+}
+
+
+// variant: make (if x 1 0)
+static term_t make_zero_one(term_table_t *terms, term_t x) {
+  rational_t q;
+  term_t t;
+
+  q_init(&q);
+  q_set_one(&q);
+  t = make_pseudo_product(terms, &q, x);
+  q_clear(&q);
+
+  return t;
+}
+
+/*
+ * Build the linear expression (as a term)
+ * - s = variables
+ */
+static term_t make_linear_expression(cond_def_collector_t *c, harray_t *s) {
+  rba_buffer_t *b;
+  uint32_t i, n;
+  term_t t;
+
+  b = context_get_arith_buffer(c->ctx);
+  assert(b != NULL && rba_buffer_is_zero(b));
+
+  rba_buffer_add_const(b, &c->base);
+
+  n = s->nelems;
+  assert(n <= 6);
+  for (i=0; i<n; i++) {
+#if 0
+    t = make_pseudo_product(c->terms, c->coeff + i, s->data[i]);
+    rba_buffer_add_term(b, c->terms, t);
+#else
+    t = make_zero_one(c->terms, s->data[i]);
+    rba_buffer_add_const_times_term(b, c->terms, c->coeff + i, t);
+#endif
+  }
+
+  return mk_direct_arith_term(c->terms, b);
+}
+
+
+/*
+ * Attempt to convert table into a linear combination of 0/1 variables
+ */
+static void try_linear_table(cond_def_collector_t *c, term_t x, harray_t *s, uint32_t k_max, term_t *table) {
+  uint32_t n;
+  term_t expr;
+
+  n = s->nelems;
+  assert(k_max == (1 << n));
+
+  build_candidate(c, n, table);
+  if (candidate_is_good(c, n, k_max, table)) {
+#if TRACE
+    printf("Candidate linear expression: ");
+    print_candidate(c, s);
+#endif
+    expr = make_linear_expression(c, s);
+    add_aux_eq(c->ctx, x, expr);
+#if TRACE
+    printf("As term: ");
+    print_term_full(stdout, c->terms, expr);
+    printf("\n");
+#endif
+  }
+}
+
+
+/*
  * Examine the table of values for a term x
  * - s = variable set = set of Boolean variables with at most six elements
  *   s = { b_0, ..., b_n } where n<=5
@@ -1112,13 +1313,17 @@ static void assert_arith_bounds_from_table(cond_def_collector_t *c, term_t x, ui
  * - otherwise table[i] is a constant term
  */
 static void analyze_map_table(cond_def_collector_t *c, term_t x, harray_t *s, uint32_t k_max, term_t *table) {
-  uint32_t i;
+  uint32_t i, nconflicts;
 
   assert(s->nelems <= 6 && k_max <= 64 && (k_max == (1 << s->nelems)));
 
   // if any row in table is NULL_TERM we don't do anything
+  nconflicts = 0;
   for (i=0; i<k_max; i++) {
     if (table[i] == NULL_TERM) return;
+    if (table[i] == -2) {
+      nconflicts ++;
+    }
   }
 
   /*
@@ -1127,6 +1332,9 @@ static void analyze_map_table(cond_def_collector_t *c, term_t x, harray_t *s, ui
    */
   if (is_arithmetic_term(c->terms, x)) {
     assert_arith_bounds_from_table(c, x, k_max, table);
+    if (nconflicts == 0 && s->nelems >= 2) {
+      try_linear_table(c, x, s, k_max, table);
+    }
   }
 }
 

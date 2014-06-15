@@ -687,7 +687,9 @@ term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
   return arith_buffer_to_term(manager->terms, b);
 }
 
-
+term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b) {
+  return arith_buffer_to_term(tbl, b);
+}
 
 
 
