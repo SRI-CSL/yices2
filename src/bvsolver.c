@@ -6601,9 +6601,6 @@ void bv_solver_push(bv_solver_t *solver) {
   nd = solver->delayed_queue.top;
   bb = solver->bbptr;
 
-  //  printf("---> BVSOLVER: push at level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms,  ptr = %"PRIu32")\n",
-  //     solver->base_level, nv, na, bb);
-
   bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd, bb);
 
   mtbl_push(&solver->mtbl);
