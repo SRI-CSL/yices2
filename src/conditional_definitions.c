@@ -1332,7 +1332,7 @@ static void analyze_map_table(cond_def_collector_t *c, term_t x, harray_t *s, ui
    */
   if (is_arithmetic_term(c->terms, x)) {
     assert_arith_bounds_from_table(c, x, k_max, table);
-    if (nconflicts == 0 && s->nelems >= 2) {
+    if (nconflicts == 0 && s->nelems >= 2 && s->nelems <= 4) {
       try_linear_table(c, x, s, k_max, table);
     }
   }

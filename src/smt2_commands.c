@@ -2430,7 +2430,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
      */
     if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
 	!has_uf(g->assertions.data, g->assertions.size)) {
-      fprintf(g->err, "Warning: switching logic to QF_IDL\n");
+      tprintf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
