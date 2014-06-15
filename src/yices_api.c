@@ -6205,6 +6205,9 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
     }
+    if (ctx->logic == QF_LRA) {
+      params->bland_threshold = 200000;
+    }
     break;
 
   case CTX_ARCH_BV:
