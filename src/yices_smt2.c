@@ -250,7 +250,7 @@ static void reset_handlers(void) {
  *  MAIN  *
  *********/
 
-#define HACK_FOR_UTF 1
+#define HACK_FOR_UTF 0
 
 #if HACK_FOR_UTF
 
@@ -297,13 +297,13 @@ int main(int argc, char *argv[]) {
 
   if (filename != NULL) {
     // read from file
-    if (init_smt2_wide_file_lexer(&lexer, filename) < 0) {
+    if (init_smt2_file_lexer(&lexer, filename) < 0) {
       perror(filename);
       exit(YICES_EXIT_FILE_NOT_FOUND);
     }
   } else {
     // read from stdin
-    init_smt2_wide_stdin_lexer(&lexer);
+    init_smt2_stdin_lexer(&lexer);
   }
 
   init_handlers();

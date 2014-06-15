@@ -3,9 +3,11 @@
  * String reader: same thing but reads from a null-terminated string.
  */
 
+#if 0
 #define _GNU_SOURCE
-
 #include <wchar.h>
+#endif
+
 #include <stdbool.h>
 #include <assert.h>
 
@@ -175,7 +177,7 @@ int close_reader(reader_t *reader) {
 }
 
 
-
+#if 0
 /*
  * Experimental variant: use wide characters
  * (we assume UTF-8 encoding)
@@ -250,3 +252,4 @@ void init_wide_stream_reader(reader_t *reader, FILE *f, const char *name) {
   reader->name = name;
 }
 
+#endif

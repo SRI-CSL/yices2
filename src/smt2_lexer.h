@@ -279,6 +279,8 @@ static inline void init_smt2_stdin_lexer(lexer_t *lex) {
 extern void init_smt2_string_lexer(lexer_t *lex, char *data, const char *name);
 
 
+#if 0
+
 /*
  * HACK/EXPERIMENT: use UTF-8 encoded input
  */
@@ -287,6 +289,8 @@ extern void init_smt2_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name)
 static inline void init_smt2_wide_stdin_lexer(lexer_t *lex) {
   init_smt2_wide_stream_lexer(lex, stdin, "stdin");
 }
+
+#endif
 
 /*
  * Read next token and return its type

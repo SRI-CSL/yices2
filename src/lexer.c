@@ -58,6 +58,7 @@ void init_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
 }
 
 
+#if 0
 /*
  * HACK/EXPERIMENT: use UTF-8 encoded input
  */
@@ -75,6 +76,8 @@ void init_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
   init_wide_stream_reader(&lex->reader, f, name);
   init_lexer(lex);
 }
+
+#endif
 
 
 /*

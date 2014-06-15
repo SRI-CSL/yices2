@@ -3,10 +3,7 @@
  */
 
 #include <assert.h>
-
-// EXPERIMENTAL
-// #include <ctype.h>
-#include <wctype.h>
+#include <ctype.h>
 
 #include "smt2_lexer.h"
 
@@ -456,6 +453,8 @@ void init_smt2_string_lexer(lexer_t *lex, char *data, const char *name) {
 }
 
 
+#if 0
+
 /*
  * HACK/EXPERIMENT: use UTF-8 encoded strings
  */
@@ -469,6 +468,7 @@ void init_smt2_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
   init_wide_stream_lexer(lex, f, name);
 }
 
+#endif
 
 /*
  * Get string for tokens/symbols/keywords
@@ -533,7 +533,7 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
       break;
     }
 
-    if (!iswprint(c) && !iswspace(c)) {
+    if (!isprint(c) && !isspace(c)) {
       // error
       tk = SMT2_TK_INVALID_STRING;
       break;
@@ -625,7 +625,7 @@ static smt2_token_t smt2_read_hexa(lexer_t *lex) {
   do {
     string_buffer_append_char(buffer, c);
     c = reader_next_char(rd);
-  } while (iswxdigit(c));
+  } while (isxdigit(c));
   string_buffer_close(buffer);
 
   tk = SMT2_TK_HEXADECIMAL;
@@ -659,13 +659,13 @@ static smt2_token_t smt2_read_number(lexer_t *lex) {
   buffer = lex->buffer;
   c = reader_current_char(rd);
 
-  assert(string_buffer_length(buffer) == 0 && iswdigit(c) && c != '0');
+  assert(string_buffer_length(buffer) == 0 && isdigit(c) && c != '0');
 
   // first sequence of digits
   do {
     string_buffer_append_char(buffer, c);
     c = reader_next_char(rd);
-  } while (iswdigit(c));
+  } while (isdigit(c));
 
   tk = SMT2_TK_NUMERAL;
   if (c == '.') {
@@ -675,7 +675,7 @@ static smt2_token_t smt2_read_number(lexer_t *lex) {
     do {
       string_buffer_append_char(buffer, c);
       c = reader_next_char(rd);
-    } while (iswdigit(c));
+    } while (isdigit(c));
 
     tk = SMT2_TK_DECIMAL;
     if (string_buffer_length(buffer) <= i+1) {
@@ -717,14 +717,14 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
     do {
       string_buffer_append_char(buffer, c);
       c = reader_next_char(rd);
-    } while (iswdigit(c));
+    } while (isdigit(c));
 
     tk = SMT2_TK_DECIMAL;
     if (string_buffer_length(buffer) <= 2) {
       tk = SMT2_TK_INVALID_DECIMAL; // '0.' but not digit after that
     }
 
-  } else if (iswdigit(c)) {
+  } else if (isdigit(c)) {
     /*
      * invalid numeral such as '00..' or '05...'
      * put all the digits that follow '0' in the buffer
@@ -733,7 +733,7 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
     do {
       string_buffer_append_char(buffer, c);
       c = reader_next_char(rd);
-    } while (iswdigit(c));
+    } while (isdigit(c));
 
     tk = SMT2_TK_INVALID_NUMERAL;
   }
@@ -750,10 +750,10 @@ static smt2_token_t smt2_read_number0(lexer_t *lex) {
  *
  * NOTE: again, we don't really follow the standard (we can
  * accept non-ASCII characters, depending on the locale and
- * how iswalnum(c) decides).
+ * how isalnum(c) decides).
  */
 static bool issimple(int c) {
-  if (iswalnum(c)) {
+  if (isalnum(c)) {
     return true;
   }
 
@@ -885,7 +885,7 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
   for (;;) {
     c = reader_next_char(rd);
     if (c == '|' || c == '\\' ||
-        (!iswprint(c) && !iswspace(c))) {
+        (!isprint(c) && !isspace(c))) {
       // either the terminator '|' or a character not allowed in quoted symbols
       break;
     }
@@ -924,7 +924,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
 
   // skip spaces and comments
   for (;;) {
-    while (iswspace(c)) c = reader_next_char(rd);
+    while (isspace(c)) c = reader_next_char(rd);
     if (c != ';') break;
     // comments: read everything until the end of the line or EOF
     do {
@@ -1061,7 +1061,7 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
   sym = SMT2_SYM_UNKNOWN;
   if (n >= 3 && s[0] == 'b' && s[1] == 'v') {
     for (i=2; i<n; i++) {
-      if (!iswdigit((int) s[i])) {
+      if (!isdigit((int) s[i])) {
         goto done; // not of the form bv<digits>
       }
     }

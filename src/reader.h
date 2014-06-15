@@ -83,6 +83,7 @@ static inline void init_stdin_reader(reader_t *reader) {
 extern void init_string_reader(reader_t *reader, const char *data, const char *name);
 
 
+#if 0
 /*
  * Experimental hack: attempt to support UTF-8 input
  */
@@ -93,6 +94,8 @@ extern void init_wide_stream_reader(reader_t *reader, FILE *f, const char *name)
 static inline void init_wide_stdin_reader(reader_t *reader) {
   init_wide_stream_reader(reader, stdin, "stdin");
 }
+
+#endif
 
 
 /*
