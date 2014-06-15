@@ -7,11 +7,15 @@
 #include "memalloc.h"
 #include "ptr_array_sort2.h"
 #include "term_utils.h"
+#include "rba_buffer_terms.h"
+#include "term_manager.h"
 
 #include "conditional_definitions.h"
 
 
-#if 1
+#define TRACE 1
+
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -381,6 +385,8 @@ static inline void add_cond_def(cond_def_collector_t *c, cond_def_t *def) {
 }
 
 
+#if TRACE
+
 /*
  * For testing: print def
  */
@@ -427,6 +433,7 @@ static void print_vset(cond_def_collector_t *c, harray_t *s) {
     print_term_full(stdout, c->terms, s->data[i]);
   }
 }
+
 
 
 #if 0
@@ -525,6 +532,8 @@ static void print_definition_table(cond_def_collector_t *c, term_t *table, term_
   printf("\n");
 }
 
+
+#endif
 
 
 /*
@@ -1001,6 +1010,128 @@ static bool truth_tbl_test_row(uint64_t ttbl, uint32_t k) {
  */
 
 /*
+ * Check whether t < u
+ * - both must be arithmetic constants (rationals)
+ */
+static bool arith_lt(term_table_t *tbl, term_t t, term_t u) {
+  return q_lt(rational_term_desc(tbl, t), rational_term_desc(tbl, u));
+}
+
+/*
+ * Add aux atom t <= u in the context.
+ * - both t and u must be arithmetic terms
+ */
+static void add_le_atom(context_t *ctx, term_t t, term_t u) {
+  rba_buffer_t *b;
+  term_t a;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+  assert(is_pos_term(u) && is_arithmetic_term(ctx->terms, u));
+
+  b = context_get_arith_buffer(ctx);
+  assert(b != NULL && rba_buffer_is_zero(b));
+  rba_buffer_add_term(b, ctx->terms, t);
+  rba_buffer_sub_term(b, ctx->terms, u);   // b is t - u
+  a = mk_direct_arith_leq0(ctx->terms, b); // a is (t - u <= 0)
+
+  add_aux_atom(ctx, a);
+
+#if TRACE
+  printf("Adding atom: ");
+  pretty_print_term_full(stdout, NULL, ctx->terms, a);
+#endif
+
+  tputs(ctx->trace, 5, "Adding atom\n");
+  tpp_term(ctx->trace, 5, ctx->terms, a);
+}
+
+
+/*
+ * Table[0 ... k_max-1] contains a set of constants that are
+ * all the possible values of term x.
+ * - x is an arithmetic term
+ * - find minimal and maximal element in table then assert
+ *   min <= x <= max
+ * - skip any table[i] that's not a valid term
+ */
+static void assert_arith_bounds_from_table(cond_def_collector_t *c, term_t x, uint32_t k_max, term_t *table) {
+  term_table_t *terms;
+  term_t min, max, t;
+  uint32_t i;
+
+  min = NULL_TERM;
+  max = NULL_TERM;
+  terms = c->terms;
+
+  assert(is_arithmetic_term(terms, x));
+
+  for (i=0; i<k_max; i++) {
+    t = table[i];
+    if (t >= 0) {
+      assert(term_kind(terms, t) == ARITH_CONSTANT);
+      if (min < 0) {
+	assert(max < 0);
+	min = t;
+	max = t;
+      } else {
+	if (arith_lt(terms, t, min)) {
+	  min = t;
+	}
+	if (arith_lt(terms, max, t)) {
+	  max = t;
+	}
+      }
+    }
+  }
+
+  if (min >= 0) {
+    assert(term_kind(terms, min) == ARITH_CONSTANT &&
+	   term_kind(terms, max) == ARITH_CONSTANT &&
+	   q_le(rational_term_desc(terms, min), rational_term_desc(terms, max)));
+
+    add_le_atom(c->ctx, min, x);
+    add_le_atom(c->ctx, x, max);
+  }
+}
+
+/*
+ * Examine the table of values for a term x
+ * - s = variable set = set of Boolean variables with at most six elements
+ *   s = { b_0, ..., b_n } where n<=5
+ * - table = array of k_max values where k_max = 2^|s|
+ * - every integer in 0 ... k_max-1 encodes a Boolean assignment
+ *   to the variables of s:
+ *     bit 0 of i is the value of b_0
+ *     bit 1 of i is the value of b_1
+ *     etc.
+ * - using this encoding,  table[i] = value assigned to x
+ *   for the Boolean assignment i
+ *
+ * - if table[i] = NULL_TERM, then the value is not defined
+ * - if table[i] = -2 then assignment i is not allowed
+ * - otherwise table[i] is a constant term
+ */
+static void analyze_map_table(cond_def_collector_t *c, term_t x, harray_t *s, uint32_t k_max, term_t *table) {
+  uint32_t i;
+
+  assert(s->nelems <= 6 && k_max <= 64 && (k_max == (1 << s->nelems)));
+
+  // if any row in table is NULL_TERM we don't do anything
+  for (i=0; i<k_max; i++) {
+    if (table[i] == NULL_TERM) return;
+  }
+
+  /*
+   * table[0 ... k_max-1] contains the set of possible
+   * values of x
+   */
+  if (is_arithmetic_term(c->terms, x)) {
+    assert_arith_bounds_from_table(c, x, k_max, table);
+  }
+}
+
+
+/*
  * Compute the union of all vsets in a[0] ... a[n-1]
  * - n must be positive
  * - return NULL if the union has more than 6 elements
@@ -1046,7 +1177,6 @@ static harray_t *merge_vsets(cond_def_collector_t *c, cond_def_t **a, uint32_t n
 }
 
 
-
 /*
  * Process all conditional definitions for the same term x
  * - the definitions are stored in a[0 ... n-1]
@@ -1063,6 +1193,7 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
   uint64_t ttbl;
   uint32_t i, k, max_k;
 
+#if TRACE
   printf("\nDefinitions for term ");
   print_term_name(stdout, c->terms, x);
   printf("\n");
@@ -1071,6 +1202,7 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
     assert(d->term == x);
     print_cond_def(c, d);
   }
+#endif
 
   s = merge_vsets(c, a, n);
   if (s != NULL) {
@@ -1107,20 +1239,21 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
       }
     }
 
-  }
-
-
-  if (s != NULL) {
+#if TRACE
     printf("Var set: ");
     print_vset(c, s);
     printf("\n");
     printf("Table:\n");
     print_definition_table(c, table, s->data, s->nelems);
-  } else {
-    printf("More than six variables\n");
+#endif
+
+    /*
+     * Learn what we can from the table
+     */
+    analyze_map_table(c, x, s, max_k, table);
   }
 
-  printf("---\n");
+
 }
 
 /*

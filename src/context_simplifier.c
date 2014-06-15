@@ -2002,6 +2002,56 @@ void process_aux_eqs(context_t *ctx) {
 
 
 
+/*******************
+ *  LEARNED ATOMS  *
+ ******************/
+
+/*
+ * Add an atom (learned by preprocessing) to ctx->aux_atoms
+ */
+void add_aux_atom(context_t *ctx, term_t atom) {
+  assert(is_boolean_term(ctx->terms, atom));
+  ivector_push(&ctx->aux_atoms, atom);
+}
+
+
+/*
+ * Process all terms in ctx->aux_atoms:
+ */
+void process_aux_atoms(context_t *ctx) {
+  ivector_t *v;
+  uint32_t i, n;
+  term_t t, r;
+  int32_t code;
+
+  v = &ctx->aux_atoms;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    t = v->data[i];
+    r = intern_tbl_get_root(&ctx->intern, t);
+
+    if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+      // already internalized
+      code = intern_tbl_map_of_root(&ctx->intern, r);
+      if (code == bool2code(false)) {
+	// contradiction
+	longjmp(ctx->env, TRIVIALLY_UNSAT);
+      } else if (code != bool2code(true)) {
+	ivector_push(&ctx->top_atoms, r);
+      }
+    } else {
+      // not mapped
+      intern_tbl_map_root(&ctx->intern, r, bool2code(true));
+      ivector_push(&ctx->top_atoms, r);
+    }
+  }
+
+  ivector_reset(v);
+}
+
+
+
+
 /********************************
  *  FLATTENING OF DISJUNCTIONS  *
  *******************************/

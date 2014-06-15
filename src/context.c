@@ -4279,6 +4279,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    */
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_eqs, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->aux_atoms, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_int_queue(&ctx->queue, 0);
   init_istack(&ctx->istack);
@@ -4355,6 +4356,7 @@ void delete_context(context_t *ctx) {
 
   delete_ivector(&ctx->subst_eqs);
   delete_ivector(&ctx->aux_eqs);
+  delete_ivector(&ctx->aux_atoms);
   delete_ivector(&ctx->aux_vector);
   delete_int_queue(&ctx->queue);
   delete_istack(&ctx->istack);
@@ -4398,6 +4400,7 @@ void reset_context(context_t *ctx) {
 
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
+  ivector_reset(&ctx->aux_atoms);
   ivector_reset(&ctx->aux_vector);
   int_queue_reset(&ctx->queue);
   reset_istack(&ctx->istack);
@@ -4477,6 +4480,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
   ivector_reset(&ctx->top_interns);
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
+  ivector_reset(&ctx->aux_atoms);
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -4531,6 +4535,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     // more optional processing
     if (context_cond_def_preprocessing_enabled(ctx)) {
       process_conditional_definitions(ctx);
+      if (ctx->aux_atoms.size > 0) {
+	process_aux_atoms(ctx);
+      }
     }
 
 

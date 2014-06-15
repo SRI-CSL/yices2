@@ -624,6 +624,7 @@ struct context_s {
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
   ivector_t aux_eqs;
+  ivector_t aux_atoms;
   ivector_t aux_vector;
   int_queue_t queue;
   int_stack_t istack;
@@ -1020,6 +1021,25 @@ extern void process_aux_eqs(context_t *ctx);
  *   ctx->top_eqs.
  */
 extern void context_process_candidate_subst(context_t *ctx);
+
+
+/*
+ * Auxiliary atoms:
+ * - add atom a to the aux_atoms vector
+ * - the auxiliary atom can be processed later by process_aux_atoms
+ */
+extern void add_aux_atom(context_t *ctx, term_t atom);
+
+
+/*
+ * Process the auxiliary atoms:
+ * - take all atoms in ctx->aux_atoms and assert them
+ *   (map them to true and add them to ctx->top_atoms)
+ * - if there's a trivial contradiction: an atom is both
+ *   asserted true and false, this function raises an exception
+ *   via longjmp
+ */
+extern void process_aux_atoms(context_t *ctx);
 
 
 
