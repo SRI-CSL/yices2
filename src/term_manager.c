@@ -687,7 +687,9 @@ term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
   return arith_buffer_to_term(manager->terms, b);
 }
 
-
+term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b) {
+  return arith_buffer_to_term(tbl, b);
+}
 
 
 
@@ -803,10 +805,12 @@ term_t mk_iff(term_manager_t *manager, term_t x, term_t y) {
 
 
 /*
- * Rewrite (xor x y) to (iff (not x) y)
+ * Rewrite (xor x y) to (not (iff x  y))
+ *
+ * NOTE: used to be (xor x y) to (iff (not x) y)
  */
 term_t mk_binary_xor(term_manager_t *manager, term_t x, term_t y) {
-  return mk_iff(manager, opposite_term(x), y);
+  return opposite_term(mk_iff(manager, x, y));
 }
 
 
@@ -3024,7 +3028,7 @@ term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   assert(0 < n && n <= YICES_MAX_ARITY);
 
   tbl = manager->terms;
-  if (term_kind(tbl, body) == APP_TERM) {
+  if (is_pos_term(body) && term_kind(tbl, body) == APP_TERM) {
     d = app_term_desc(tbl, body);
     if (d->arity == n+1 && equal_arrays(var, d->arg + 1, n)) {
       f = d->arg[0];
@@ -3077,6 +3081,125 @@ term_t mk_bv_constant(term_manager_t *manager, bvconstant_t *b) {
 
 
 
+/**************************
+ *  CONVERT BITS TO TERMS  *
+ *************************/
+
+/*
+ * A bvlogic buffer stores an array of bits in manager->nodes.
+ * Function bvlogic_buffer_get_bvarray requires converting bits
+ * back to Boolean terms.
+ *
+ * The nodes data structure is defined in bit_expr.h
+ */
+
+/*
+ * Recursive function: return the term mapped to node x
+ * - compute it if needed then store the result in manager->nodes->map[x]
+ */
+static term_t map_node_to_term(term_manager_t *manager, node_t x);
+
+/*
+ * Get the term mapped to bit b. If node_of(b) is mapped to t then
+ * - if b has positive polarity, map_of(b) = t
+ * - if b has negative polarity, map_of(b) = not t
+ */
+static inline term_t map_bit_to_term(term_manager_t *manager, bit_t b) {
+  return map_node_to_term(manager, node_of_bit(b)) ^ polarity_of(b);
+}
+
+
+
+/*
+ * Given two bits b1 = c[0] and b2 = c[1], convert (or b1 b2) to a term
+ */
+static term_t make_or2(term_manager_t *manager, bit_t *c) {
+  term_t x, y;
+
+  x = map_bit_to_term(manager, c[0]);
+  y = map_bit_to_term(manager, c[1]);
+
+  assert(is_boolean_term(manager->terms, x) &&
+	 is_boolean_term(manager->terms, y));
+
+  return mk_binary_or(manager, x, y);
+}
+
+
+/*
+ * Same thing for (xor c[0] c[1])
+ */
+static term_t make_xor2(term_manager_t *manager, bit_t *c) {
+  term_t x, y;
+
+  x = map_bit_to_term(manager, c[0]);
+  y = map_bit_to_term(manager, c[1]);
+
+  assert(is_boolean_term(manager->terms, x) &&
+	 is_boolean_term(manager->terms, y));
+
+  return mk_binary_xor(manager, x, y);
+}
+
+
+
+/*
+ * Recursive function: return the term mapped to node x
+ * - compute it if needed then store the result in nodes->map[x]
+ */
+static term_t map_node_to_term(term_manager_t *manager, node_t x) {
+  node_table_t *nodes;
+  term_t t;
+
+  nodes = manager->nodes;
+  assert(nodes != NULL);
+
+  t = map_of_node(nodes, x);
+  if (t < 0) {
+    assert(t == -1);
+
+    switch (node_kind(nodes, x)) {
+    case CONSTANT_NODE:
+      // x is true
+      t = true_term;
+      break;
+
+    case VARIABLE_NODE:
+      // x is (var t) for a boolean term t
+      t = var_of_node(nodes, x);
+      break;
+
+    case SELECT_NODE:
+      // x is (select i u) for a bitvector term u
+      //      t = bit_term(terms, index_of_select_node(nodes, x), var_of_select_node(nodes, x));
+      t = mk_bitextract(manager, var_of_select_node(nodes, x), index_of_select_node(nodes, x));
+      break;
+
+    case OR_NODE:
+      t = make_or2(manager, children_of_node(nodes, x));
+      break;
+
+    case XOR_NODE:
+      t = make_xor2(manager, children_of_node(nodes, x));
+      break;
+
+    default:
+      assert(false);
+      abort();
+      break;
+    }
+
+    assert(is_boolean_term(manager->terms, t));
+    set_map_of_node(nodes, x, t);
+  }
+
+  return t;
+}
+
+
+
+
+
 /*******************
  *  BVLOGIC TERMS  *
  ******************/
@@ -3100,24 +3223,19 @@ static term_t bvlogic_buffer_get_bvconst(term_manager_t *manager, bvlogic_buffer
  * Convert buffer b to a bv-array term
  */
 static term_t bvlogic_buffer_get_bvarray(term_manager_t *manager, bvlogic_buffer_t *b) {
-  term_table_t *terms;
-  node_table_t *nodes;
   uint32_t i, n;
 
-  nodes = manager->nodes;
-  assert(b->nodes == nodes && nodes != NULL);
-
-  terms = manager->terms;
+  assert(b->nodes == manager->nodes && manager->nodes != NULL);
 
   // translate each bit of b into a boolean term
   // we store the translation in b->bit
   n = b->bitsize;
   for (i=0; i<n; i++) {
-    b->bit[i] = convert_bit_to_term(terms, nodes, b->bit[i]);
+    b->bit[i] = map_bit_to_term(manager, b->bit[i]);
   }
 
   // build the term (bvarray b->bit[0] ... b->bit[n-1])
-  return bvarray_term(terms, n, b->bit);
+  return bvarray_term(manager->terms, n, b->bit);
 }
 
 

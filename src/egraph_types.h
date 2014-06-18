@@ -756,9 +756,10 @@ typedef struct egraph_trail_stack_s {
  * to a satellite solver, the egraph calls one of the following
  * functions (in the th_egraph interface).
  *
- * 1) void assert_equality(void *solver, thvar_t x1, thvar_t x2)
+ * 1) void assert_equality(void *solver, thvar_t x1, thvar_t x2, int32_t id)
  *    notify solver that x1 and x2 are equal (after merging classes c1 and c2,
  *    with thvar[c1] = x1  and thvar[c2] = x2).
+ *    id is the egraph edge that caused c1 and c2 to be merged.
  *
  * 2) void assert_disequality(void *solver, thvar_t x1, thvar_t x2, composite_t *cmp)
  *    notify solver that x1 != x2 holds.
@@ -1079,7 +1080,7 @@ typedef struct th_explanation_s {
 /*
  * GENERIC EGRAPH INTERFACE
  */
-typedef void (*assert_eq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
+typedef void (*assert_eq_fun_t)(void *satellite, thvar_t x1, thvar_t x2, int32_t id);
 typedef void (*assert_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2, composite_t *hint);
 typedef bool (*assert_distinct_fun_t)(void *satellite, uint32_t n, thvar_t *a, composite_t *hint);
 typedef bool (*check_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
@@ -1384,12 +1385,28 @@ struct egraph_s {
   ivector_t aux_buffer;       // generic buffer used in term construction
   int_stack_t istack;         // generic stack for recursive processsing
 
+
+  /*
+   * Experimental: attempt to produce better equality explanation
+   * - when the egraph knows (t1 == t2) it can propagate a literal l := true
+   *   where l is attached to (eq t1 t2).
+   * - by default, we explore the egraph merge trees to construct an
+   *   explanation for (t1 == t2)
+   * - if short_cuts is true, we try to just use l as the explanation for (t1 == t2),
+   *   but we have to make sure this does not introduce circularities.
+   * - top_id is intended to prevent circular explanation
+   */
+  bool short_cuts;            // enable/disable short cuts in explanations
+  int32_t top_id;             // used when building explanations
+
   /*
    * Support for model reconciliation
    */
   ivector_t interface_eqs;    // pairs of term occurrences (for interface lemmas)
   uint32_t reconcile_top;     // top of the undo stack when reconcile started
   uint32_t reconcile_neqs;    // number of equalities when reconcile started
+  bool reconcile_mode;        // true if the egraph has some edges for model reconciliation
+
 
   /*
    * Support for on-the-fly creation of composite terms.

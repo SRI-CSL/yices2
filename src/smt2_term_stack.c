@@ -187,7 +187,7 @@ static void eval_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint3
   }
   // we known 0 <= index <= bitsize of b
   if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_left(b, index);
+    bvlogic_buffer_rotate_right(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
@@ -1287,12 +1287,46 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_type(stack, smt2_val[symbol], loc);
     break;
 
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_type_by_name(stack, s, loc);
+  case SMT2_KEY_TYPE_OP:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_SORT);
     break;
 
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_SORT);
+    /*
+     * The standard allows predefined symbols to be used as sort names
+     * provided there's no ambiguity. This is a terrible idea, but
+     * we allow anything here.
+     */
+    tstack_push_type_by_name(stack, s, loc);
+    break;
+  }
+}
+
+
+/*
+ * Name in (define-sort <name> ..) or (declare-sort <name> ...)
+ */
+void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+    /*
+     * The standard allows predefined symbols to be used anywhere
+     * provided there's no ambiguity. This is a terrible idea.
+     *
+     * To support this, we must allow anything here that's not
+     * a predefined sort or sort constructor.
+     */
+  case SMT2_KEY_TYPE:
+  case SMT2_KEY_TYPE_OP:
+    push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
+    break;
+
+  default:
+    tstack_push_free_type_or_macro_name(stack, s, n, loc);
     break;
   }
 }
@@ -1391,12 +1425,48 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_term(stack, smt2_val[symbol], loc);
     break;
 
-  case SMT2_KEY_UNKNOWN:
-    tstack_push_term_by_name(stack, s, loc);
+  case SMT2_KEY_TERM_OP:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
     break;
 
   default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
+    /*
+     * The standard allows predefined symbols to be used as term names
+     * provided there's no ambiguity. This is a terrible idea, but
+     * we allow anything here.
+     */
+    tstack_push_term_by_name(stack, s, loc);
+    break;
+  }
+}
+
+
+/*
+ * Name in a function declaration/definition:
+ *  (define-fun <name>  ...)
+ *  (declare-fun <name> ...)
+ */
+void tstack_push_free_fun_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+    /*
+     * The standard allows predefined symbols to be used anywhere
+     * provided there's no ambiguity. This is a terrible idea.
+     *
+     * To support this, we must allow anything here that's not
+     * a predefined term or function here.
+     */
+  case SMT2_KEY_TERM:
+  case SMT2_KEY_TERM_OP:
+    push_exception(stack, loc, s, TSTACK_TERMNAME_REDEF);
+    break;
+
+  default:
+    tstack_push_free_termname(stack, s, n, loc);
     break;
   }
 }
@@ -1417,15 +1487,19 @@ void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_op(stack, smt2_val[symbol], loc);
     break;
 
+  case SMT2_KEY_TERM:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_FUNCTION);
+    break;
+
   case SMT2_KEY_UNKNOWN:
-    // uninterprted function
+  default:
+    /*
+     * Anything else should? be treated as an uninterpreted function
+     */
     tstack_push_op(stack, MK_APPLY, loc);
     tstack_push_term_by_name(stack, s, loc);
     break;
 
-  default:
-    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_FUNCTION);
-    break;
   }
 }
 

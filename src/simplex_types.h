@@ -158,6 +158,9 @@
  *       derived/strengthened --> explanation is an array of literals
  *       equality propagation from the egraph --> the explanation is a pair
  *                                                of variables (v[0], v[1])
+ *       new egraph explanation --> explanation is a pointer to a triple
+ *        (v[0], v[1], id) where id is an egraph edge index
+ *
  * - bit 7 of the tag is used as a mark when generating explanations
  * - for backtracking, pre[i] stores the previous constraint of the same type,
  *   on the same variable.
@@ -195,6 +198,13 @@ typedef struct arith_bstack_s {
   uint32_t fix_ptr;
   uint32_t size;
 } arith_bstack_t;
+
+
+// New: explanation triple from the egraph
+typedef struct egraph_expl_triple_s {
+  thvar_t var[2];
+  int32_t id;
+} egraph_expl_triple_t;
 
 
 /*

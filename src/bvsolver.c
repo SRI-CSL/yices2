@@ -6149,15 +6149,16 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 
 /*
  * Build the explanation for (x1 == x2) from the Egraph
+ * - id = Egraph edge to get the explanation
  * - store the explanation in vector v
  */
-static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2, ivector_t *v) {
+static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id, ivector_t *v) {
   eterm_t t1, t2;
 
   t1 = bvvar_get_eterm(&solver->vtbl, x1);
   t2 = bvvar_get_eterm(&solver->vtbl, x2);
   ivector_reset(v);
-  egraph_explain_term_eq(solver->egraph, t1, t2, v);
+  egraph_explain_term_eq(solver->egraph, t1, t2, id, v);
 }
 
 
@@ -6186,10 +6187,11 @@ static void bv_solver_add_conflict(bv_solver_t *solver, ivector_t *v) {
  * Check whether x1 and x2 are distinct in the current assignment
  * - x1 and x2 are two variables attached to egraph terms t1 and t2
  * - the egraph has propagated the equality x1 == x2
+ * - id = index of the egraph edge that propagated (x1 == x2)
  * - if (x1 != x2), generate a theory conflict and return true
  * - return false if there's no conflict
  */
-static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
+static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
   ivector_t *v;
   bv_atomtable_t *atbl;
   ivector_t *a, *b;
@@ -6202,14 +6204,23 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   y1 = mtbl_get_root(&solver->mtbl, x1);
   y2 = mtbl_get_root(&solver->mtbl, x2);
 
+  if (equal_bvvar(solver, y1, y2)) {
+    goto no_conflict;
+  }
+
   if (diseq_bvvar(solver, y1, y2)) {
-    bv_solver_explain_egraph_eq(solver, x1, x2, v);
+    bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
     goto conflict;
   }
 
-  if (simplify_eq(solver, &y1, &y2) && diseq_bvvar(solver, y1, y2)) {
-    bv_solver_explain_egraph_eq(solver, x1, x2, v);
-    goto conflict;
+  if (simplify_eq(solver, &y1, &y2)) {
+    if (equal_bvvar(solver, y1, y2)) {
+      goto no_conflict;
+    }
+    if (diseq_bvvar(solver, y1, y2)) {
+      bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
+      goto conflict;
+    }
   }
 
   atbl = &solver->atbl;
@@ -6221,7 +6232,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
      */
     l = atbl->data[i].lit;
     if (literal_value(solver->core, l) == VAL_FALSE) {
-      bv_solver_explain_egraph_eq(solver, x1, x2, v);
+      bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
       ivector_push(v, not(l));
       goto conflict;
     }
@@ -6242,14 +6253,14 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
       l1 = a->data[j];
       l2 = b->data[j];
       if (literal_value(solver->core, l1) == VAL_FALSE && literal_value(solver->core, l2) == VAL_TRUE) {
-        bv_solver_explain_egraph_eq(solver, x1, x2, v);
+        bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
         ivector_push(v, not(l1));
         ivector_push(v, l2);
         goto conflict;
       }
 
       if (literal_value(solver->core, l1) == VAL_TRUE && literal_value(solver->core, l2) == VAL_FALSE) {
-        bv_solver_explain_egraph_eq(solver, x1, x2, v);
+        bv_solver_explain_egraph_eq(solver, x1, x2, id, v);
         ivector_push(v, l1);
         ivector_push(v, not(l2));
         goto conflict;
@@ -6257,7 +6268,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
     }
   }
 
-
+ no_conflict:
   return false; // no conflict found
 
  conflict:
@@ -6289,7 +6300,7 @@ static bool bv_solver_process_egraph_assertions(bv_solver_t *solver) {
   // first pass: check for conflicts
   while (a < end) {
     assert(eassertion_get_kind(a) == EGRAPH_VAR_EQ);
-    if (bv_solver_bvequiv_conflict(solver, a->var[0], a->var[1])) {
+    if (bv_solver_bvequiv_conflict(solver, a->var[0], a->var[1], a->id)) {
       consistent = false;
       goto done;
     }
@@ -6386,6 +6397,11 @@ bool bv_solver_propagate(bv_solver_t *solver) {
  */
 fcheck_code_t bv_solver_final_check(bv_solver_t *solver) {
   return FCHECK_SAT;
+}
+
+// clear: do nothing
+void bv_solver_clear(bv_solver_t *solver) {
+
 }
 
 void bv_solver_increase_decision_level(bv_solver_t *solver) {
@@ -6584,9 +6600,6 @@ void bv_solver_push(bv_solver_t *solver) {
   ns = solver->select_queue.top;
   nd = solver->delayed_queue.top;
   bb = solver->bbptr;
-
-  //  printf("---> BVSOLVER: push at level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms,  ptr = %"PRIu32")\n",
-  //     solver->base_level, nv, na, bb);
 
   bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd, bb);
 
@@ -6883,7 +6896,7 @@ void bv_solver_reset(bv_solver_t *solver) {
  * - process it immediately if we're at the base level
  * - otherwise add it to the egraph assertion queue
  */
-void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x, thvar_t y) {
+void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x, thvar_t y, int32_t id) {
   assert(bvvar_has_eterm(&solver->vtbl, x) && bvvar_has_eterm(&solver->vtbl, y));
 
 #if TRACE
@@ -6898,7 +6911,7 @@ void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x, thvar_t y) {
     assert(solver->decision_level == solver->base_level);
     bv_solver_assert_eq_axiom(solver, x, y, true);
   } else {
-    eassertion_push_eq(&solver->egraph_queue, x, y);
+    eassertion_push_eq(&solver->egraph_queue, x, y, id);
   }
 }
 
@@ -8062,6 +8075,7 @@ static th_ctrl_interface_t bv_solver_control = {
   (push_fun_t) bv_solver_push,
   (pop_fun_t) bv_solver_pop,
   (reset_fun_t) bv_solver_reset,
+  (clear_fun_t) bv_solver_clear,
 };
 
 static th_smt_interface_t bv_solver_smt = {

@@ -136,6 +136,7 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
 static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold,
                            double r_factor, branching_fun_t branch) {
   uint64_t max_conflicts;
+  uint64_t deletions;
   uint32_t r_threshold;
   literal_t l;
 
@@ -148,8 +149,10 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
+      deletions = core->stats.learned_clauses_deleted;
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
+      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
     }
 
     // decision

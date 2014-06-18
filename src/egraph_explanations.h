@@ -67,53 +67,13 @@ extern void gen_ndprop_antecedent(egraph_t *egraph, composite_t *d, occ_t t1, oc
  */
 
 /*
- * Expand the explanation for edge i into a conjunction of literals
- * add these literals to vector v. v is not reset.
- */
-extern void egraph_explain_edge(egraph_t *egraph, int32_t i, ivector_t *v);
-
-/*
  * Build a conjunction of literals that implies (t1 == t2)
  * add these literals to v. v is not reset.
+ * _ id = edge index to ensure causality of short cuts
  * - t1 and t2 must be have the same label
+ * - id = egde that merges t1 and t2
  */
-extern void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v);
-
-/*
- * Build a conjunction of literals that implies (t1 != t2)
- * add these literals to v. v is not reset.
- * - t1 and t2 must be disequal for one of the following reasons
- * 1) they belong to classes c1 and c2 with incompatible dmasks
- * 2) they belong to the same class but they have different polarities
- * 3) there's a term u = (eq v1 v2) such that u == false
- *    and, v1 == t1 and v2 == t2 or v1 == t2 and v2 == t1.
- */
-extern void egraph_explain_disequality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v);
-
-
-/*
- * Explain why (distinct t_1 ... t_n) is true in the easy case
- * - dmask must be dmask[class[t1]] & ... & dmask[class[t_n]] and must be non-zero
- * - add literals to v (do not reset v)
- * - d must be (distinct t_1 ... t_n)
- */
-extern void egraph_explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_t dmsk, ivector_t *v);
-
-/*
- * Explain (distinct t_1 ... t_n): general form
- * - d must be (distinct t_1 ... t_n)
- * - literals are added to v
- */
-extern void egraph_explain_distinct(egraph_t *egraph, composite_t *d, ivector_t *v);
-
-
-/*
- * Explain why (distinct t_1 ... t_n) is false:
- * - find t_i and t_j that are equal and generate the explanation for (t_i == t_j)
- * - literals are added to v.
- */
-extern void egraph_explain_not_distinct(egraph_t *egraph, composite_t *d, ivector_t *v);
-
+extern void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t id, ivector_t *v);
 
 
 
@@ -126,23 +86,14 @@ extern void egraph_explain_not_distinct(egraph_t *egraph, composite_t *d, ivecto
  * - t1 and t2 must be terms attached to theory variables x1 and x2 in a satellite solver.
  * - the equality x1 == x2 must have been propagated to the satellite solver via
  *   the satellite's assert_equality function.
+ * - id = egde that caused t1 and t2's classes to be merged (passed to the satellite
+ *   solver's assert_equality)
  * - explanation literals are added to vector v
  */
-static inline void egraph_explain_term_eq(egraph_t *egraph, eterm_t t1, eterm_t t2, ivector_t *v) {
-  egraph_explain_equality(egraph, pos_occ(t1), pos_occ(t2), v);
+static inline void egraph_explain_term_eq(egraph_t *egraph, eterm_t t1, eterm_t t2, int32_t id, ivector_t *v) {
+  egraph_explain_equality(egraph, pos_occ(t1), pos_occ(t2), id, v);
 }
 
-
-/*
- * Build an explanation for (t1 != t2)
- * - t1 and t2 must be terms attached to theory variables x1 and x2 in a satellite solver
- * - the disequality x1 != x2 must have been propagated to the satellite solver
- *   via a call to the satellite's assert_disequality or assert_distinct.
- * - hint must be a composite provided by the egraph in assert_disequality or assert_distinct
- *
- * WARNING: THIS CANNOT BE USED TO EXPAND EXPLANATIONS LAZILY.
- */
-extern void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, composite_t *hint, ivector_t *v);
 
 /*
  * Disequality pre-explanation objects.  These must be used if the
@@ -209,16 +160,6 @@ extern bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivect
  * Warning: can be expensive if n is large
  */
 extern bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_t *v);
-
-
-/*
- * Explanation for a non-distinct conflict:
- * - d is (distinct t_1 ... t_n)
- * To be used when d == false was asserted (without conflict) but a conflict occurred
- * later when all pairs t_i, t_j become disequal.
- * Reset v and store the literal explanation in v.
- */
-extern void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *d, ivector_t *v);
 
 
 

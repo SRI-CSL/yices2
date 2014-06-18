@@ -2515,7 +2515,7 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
     v = egraph->terms.thvar[t];
     if (v == null_thvar) {
       /*
-       * This assertion is wrong: the equality t == false may no
+       * This assertion is wrong: the equality t == false may not
        * be processed yet (i.e., still in the queue). If that's the
        * case, egraph_term_is_false(egraph, t) will return false and
        * the assertion will fail.
@@ -3570,16 +3570,18 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
  * Propagate equality between two theory variables v1 and v2 in theory i
  * - v1 = theory var of c1
  * - v2 = theory var of c2
+ * - id = edge index that caused v1 and v2 to be merged (must be stored by the
+ *   theory solver to pass it to egraph_explain_equality).
  * This is called when c1 and c2 are merged
  * - c1 remains root (and v1 remains visible in the egraph)
  * - c2 is no longer root after the merge (so v2 is no longer
  *   visible in the egraph).
  */
-static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2) {
+static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, int32_t id) {
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
 
   // call the merge function for theory i
-  egraph->eg[i]->assert_equality(egraph->th[i], v1, v2);
+  egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
 }
 
 
@@ -3650,15 +3652,19 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
  * When boolean variable v1 and v2 are merged into the same boolean class
  * - this means that either v1 == v2 or v1 == (not v2)
  * - if v1 == const_bvar, then v2 is now true or false.
- * - (v2 is never equal to const_bvar)
+ * - id = edge index that caused v1 and v2 to be merged
+ *
+ * Special case: if v1 is const_bvar then v2 may also be const_bvar
+ * - that's because we use const_bvar as theory variable for (distinct .. ) axioms
+ *   so different classes may be mapped to const_bvar.
  */
-static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
+static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, int32_t id) {
   atom_t *atm1, *atm2, *atm;
   smt_core_t *core;
   literal_t l;
 
   core = egraph->core;
-  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2) && v2 != const_bvar);
+  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2));
 
   atm1 = get_bvar_atom(core, v1);
   atm2 = get_bvar_atom(core, v2);
@@ -3668,14 +3674,16 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
     do {
       /*
        * atm->eterm is either true or false
-       * assign the same value to atm->boolvar, with NULL as antecedent
+       * assign the same value to atm->boolvar
+       * we keep track of the edge id in the antecedent of atm->boolvar
+       * in the core.
        */
       assert(egraph_term_is_true(egraph, atm->eterm) ||
              egraph_term_is_false(egraph, atm->eterm));
 
       if (bvar_is_unassigned(core, atm->boolvar)) {
         l = mk_lit(atm->boolvar, egraph_term_is_false(egraph, atm->eterm));
-        propagate_literal(core, l, NULL);
+        propagate_literal(core, l, mk_i32_expl(id));
         egraph->stats.th_props ++;
       }
 
@@ -3693,12 +3701,14 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
  * Propagate equality between two theory variables v1 and v2
  * - v1 = theory var of c1
  * - v2 = theory var of c2
+ * - id = edge index that caused c1 and c2 to be merged
+ *
  * This is called when c1 and c2 are merged:
  * - c1 remains root (and v1 remains visible in the egraph)
  * - c2 is no longer root after the merge (so v2 is no longer
  *   visible in the egraph).
  */
-static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
+static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2, int32_t id) {
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar &&
@@ -3711,11 +3721,11 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
   case ETYPE_REAL:
   case ETYPE_BV:
   case ETYPE_FUNCTION:
-    propagate_satellite_equality(egraph, i, v1, v2);
+    propagate_satellite_equality(egraph, i, v1, v2, id);
     break;
 
   case ETYPE_BOOL:
-    propagate_boolean_equality(egraph, v1, v2);
+    propagate_boolean_equality(egraph, v1, v2, id);
     break;
 
   case ETYPE_TUPLE:
@@ -4322,7 +4332,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     if (v2 != null_thvar) {
       v1 = egraph->classes.thvar[c1];
       if (v1 != null_thvar) {
-        propagate_thvar_equality(egraph, c1, v1, c2, v2);
+        propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
       } else {
         egraph->classes.thvar[c1] = v2;
       }
@@ -4520,6 +4530,11 @@ void egraph_reset(egraph_t *egraph) {
   reset_cache(&egraph->cache);
   arena_reset(&egraph->arena);
   reset_istack(&egraph->istack);
+
+  ivector_reset(&egraph->interface_eqs);
+  egraph->reconcile_top = 0;
+  egraph->reconcile_neqs = 0;
+  egraph->reconcile_mode = false;
 
   if (egraph->app_partition != NULL) {
     delete_ptr_partition(egraph->app_partition);
@@ -5040,8 +5055,11 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
 #if 0
-      printf("\n---> EGRAPH CONFLICT on g!%"PRId32" == g!%"PRId32"\n", e->lhs, e->rhs);
-      printf("     explanation: ");
+      printf("---> EGRAPH CONFLICT on ");
+      print_occurrence(stdout, e->lhs);
+      printf(" == ");
+      print_occurrence(stdout, e->rhs);
+      printf("\n     explanation: ");
       print_egraph_conflict(stdout, egraph, &egraph->expl_vector);
       printf("\n");
       fflush(stdout);
@@ -5163,10 +5181,18 @@ literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   if (eq >= 0) {
     assert(egraph_term_type(egraph, eq) == ETYPE_BOOL);
     v = egraph->terms.thvar[eq];
+#if CONSERVATIVE_DISEQ_AXIOMS
+    assert(v != null_thvar);
+    l = pos_lit(v);
+#else
     // null_thvar is possible if (eq t1 t2) is false at the top level
-    if (v != null_thvar) {
+    if (v == null_thvar) {
+      assert(egraph_term_is_false(egraph, eq) || egraph_term_asserted_false(egraph, eq));
+      l = true_literal; // eq is asserted as an axiom, so its literal is true
+    } else {
       l = pos_lit(v);
     }
+#endif
   }
 
   return l;
@@ -5460,8 +5486,9 @@ static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, 
 
 /*
  * Propagate equality v1 == v2 during reconciliation
+ * - id = edge that caused merging of c1 and c2
  */
-static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
+static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2, int32_t id) {
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar &&
@@ -5478,7 +5505,7 @@ static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2
     break;
 
   case ETYPE_FUNCTION:
-    egraph->eg[i]->assert_equality(egraph->th[i], v1, v2);
+    egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
     break;
 
   case ETYPE_BOOL:
@@ -5592,7 +5619,7 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   v1 = egraph->classes.thvar[c1];
   if (v1 != null_thvar) {
     assert(v2 != null_thvar);
-    reconcile_thvar(egraph, c1, v1, c2, v2);
+    reconcile_thvar(egraph, c1, v1, c2, v2, i);
   }
 
   return true;
@@ -5806,11 +5833,13 @@ static bool egraph_reconcile(egraph_t *egraph) {
 /*
  * Prepare for reconciliation:
  * - store the current number of equalities + the top of the undo stack
+ * - set the reconcile_mode flag
  */
 static void egraph_start_reconciliation(egraph_t *egraph) {
   assert(egraph->stack.prop_ptr == egraph->stack.top);
   egraph->reconcile_top = egraph->undo.top;
   egraph->reconcile_neqs = egraph->stack.top;
+  egraph->reconcile_mode = true;
 }
 
 
@@ -5821,6 +5850,7 @@ static void egraph_reconciliation_restore(egraph_t *egraph) {
   egraph_undo_reconcile_attempt(egraph, egraph->reconcile_top);
   egraph->stack.top = egraph->reconcile_neqs;
   egraph->stack.prop_ptr = egraph->reconcile_neqs;
+  egraph->reconcile_mode = false;
 }
 
 
@@ -6047,6 +6077,28 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
+  }
+}
+
+
+/*
+ * Clear the edges added during reconciliation:
+ * - if egraph_final_check succeeds, then we may have added new equalities
+ *   in the egraph (during model reconciliation).
+ * - before any other operation on the egraph (e.g., assert, push, pop), we
+ *   must restore it to what it was at the start of final check
+ */
+void egraph_clear(egraph_t *egraph) {
+  uint32_t i;
+
+  if (egraph->reconcile_mode) {
+    egraph_reconciliation_restore(egraph);
+  }
+  // forward to the satellite solvers
+  for (i=0; i<NUM_SATELLITES; i++) {
+    if (egraph->ctrl[i] != NULL) {
+      egraph->ctrl[i]->clear(egraph->th[i]);
+    }
   }
 }
 
@@ -6354,7 +6406,7 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
   }
 
 #if 0
-  printf("---> good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+  printf("---> EGRAPH: good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
   egraph->stats.eq_props ++;
 
@@ -6378,6 +6430,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
   void *atom;
   atom_t *a;
   occ_t u;
+  int32_t id;
 
   assert(v->size == 0);
 
@@ -6388,11 +6441,17 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
     assert(a->boolvar == var_of(l));
     assert(literal_is_assigned(egraph->core, l) &&
 	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
+    id = i32_of_expl(expl);    // id := edge that triggered the propagation
     u = mk_occ(a->eterm, sign_of(l));
+#if 0
+    printf("---> EGRAPH: expand explanation for ");
+    print_literal(stdout, l);
+    printf(" (trigger edge = %"PRId32")\n", id);
+#endif
     /*
      * Build the explanation for u == true
      */
-    egraph_explain_equality(egraph, u, true_occ, v);
+    egraph_explain_equality(egraph, u, true_occ, id, v);
     break;
 
   case ARITH_ATM_TAG:
@@ -6494,6 +6553,7 @@ static th_ctrl_interface_t egraph_control = {
   (push_fun_t) egraph_push,
   (pop_fun_t) egraph_pop,
   (reset_fun_t) egraph_reset,
+  (clear_fun_t) egraph_clear,
 };
 
 
@@ -6577,9 +6637,13 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->aux_buffer, 0);
   init_istack(&egraph->istack);
 
+  egraph->short_cuts = true;
+  egraph->top_id = 0;
+
   init_ivector(&egraph->interface_eqs, 40);
   egraph->reconcile_top = 0;
   egraph->reconcile_neqs = 0;
+  egraph->reconcile_mode = false;
 
   init_pvector(&egraph->reanalyze_vector, 0);
   init_th_explanation(&egraph->th_expl);

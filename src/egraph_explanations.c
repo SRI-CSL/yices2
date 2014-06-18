@@ -45,10 +45,14 @@
 #include "composites.h"
 #include "theory_explanations.h"
 
+
 #if 0
 
 #include <stdio.h>
 #include <inttypes.h>
+
+#include "smt_core_printer.h"
+#include "egraph_printer.h"
 
 #endif
 
@@ -282,9 +286,10 @@ void gen_or_congruence_antecedent(egraph_t *egraph, composite_t *c1, composite_t
  * Add edge i to the explanation queue if it's not marked and mark it.
  */
 static inline void enqueue_edge(ivector_t *eq, byte_t *mark, int32_t i) {
-  if (tst_bit(mark, i)) return;
-  set_bit(mark, i);
-  ivector_push(eq, i);
+  if (!tst_bit(mark, i)) {
+    set_bit(mark, i);
+    ivector_push(eq, i);
+  }
 }
 
 /*
@@ -355,14 +360,95 @@ static eterm_t common_ancestor(egraph_t *egraph, eterm_t t1, eterm_t t2) {
 }
 
 
+/*
+ * SHORT CUTS FOR EQUALITY EXPLANATION
+ */
 
 /*
- * Explanation for (x == y) or (x == (not y)) by transitivity/symmetry
- * (i.e., for x and y in the same class)
- * - find a path between x and y, mark all unmarked edges on that path
+ * Rather than processing the egraph merge trees to construct explanation.
+ * we can look for short cuts. A short cut for explaining (t1 == t2)
+ * is a literal l such that
+ * 1) l is equivalent to (t1 == t2)
+ * 2) l is true in the smt_core
+ * 3) l does not cause a circularity in the explanation
+ *
+ * To check condition 3: we keep track of the edge index that triggers
+ * a theory propagation from the egraph to the core: that's an egde
+ * that causes merging of a class c with the Boolean constant class.
+ * This causes all terms in c's class to be mapped to true or false,
+ * and corresponding literals to be propagated in the smt_core.
+ * If l is such a literal, then the antecedent for l in the core
+ * stores the index k of the edge that triggered the propagation.
+ *
+ * When building an explanation for an egraph conflict, the index k
+ * does not matter. When building an explanation for something else
+ * (i.e., an equality (u1 == u2), then we can take l as a short cut
+ * if i < k.
  */
-static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
+
+/*
+ * Literal equivalent to a Boolean term occurrence x.
+ *
+ * NOTE: Some Boolean terms don't have a theory variable. They come
+ * from axioms of the form (not (eq t1 t2))
+ * (cf. egraph_assert_diseq_axiom)
+ */
+static literal_t literal_for_eterm(egraph_t *egraph, occ_t x) {
+  eterm_t tx;
+  bvar_t v;
+  literal_t l;
+
+  tx = term_of_occ(x);
+  assert(egraph_term_is_bool(egraph, tx));
+  v = egraph_term_base_thvar(egraph, tx);
+  l = null_literal;
+  if (v != null_thvar) {
+    l = mk_signed_lit(v, is_pos_occ(x));
+  }
+
+  return l;
+}
+
+/*
+ * Search for a literal equivalent to (x == y)
+ * - return a negative integer if no literal is found:
+ *   either null_literal (i.e., -1) or -2 (i.e., null_literal ^ 1)
+ */
+static literal_t literal_for_eq(egraph_t *egraph, occ_t x, occ_t y) {
+  if (term_of_occ(x) == true_eterm) {
+    /*
+     * x is either true_occ or false_occ
+     * - if x is true_occ, we return the literal for y
+     * - if x is false_occ, we return the opposite of the literal for y
+     * we do this by flipping the low order bit if x is false, that is if
+     * polarity of x is 1.
+     */
+    return literal_for_eterm(egraph, y) ^ polarity_of_occ(x);
+  }
+
+  if (term_of_occ(y) == true_eterm) {
+    // y is either true_occ or false_occ
+    return literal_for_eterm(egraph, x) ^ polarity_of_occ(y);
+  }
+
+  // otherwise: search for (eq x y)
+  return egraph_find_eq(egraph, x, y);
+}
+
+
+
+/*
+ * Explanation for (x == y) or (x == (not y)) when x and y are in the same class.
+ * - if short_cuts are enabled, search for a literal l that's equivalent to (x == y)
+ *   and add it to vector v
+ * - it short_cuts are disabled, or no l is found, use symmatry/transitivity:
+ *   find a path between x and y, mark all unmarked edges on that path
+ */
+static void explain_eq(egraph_t *egraph, occ_t x, occ_t y, ivector_t *v) {
   eterm_t tx, ty, w;
+  literal_t l;
+  antecedent_t a;
+  int32_t id;
 
   assert(egraph_same_class(egraph, x, y));
 
@@ -370,6 +456,45 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
   ty = term_of_occ(y);
 
   if (tx == ty) return;
+
+  if (egraph->short_cuts) {
+    assert(v != NULL);
+
+    l = literal_for_eq(egraph, x, y);
+    if (l >= 0) {
+      if (egraph_opposite_occ(egraph, x, y)) {
+	l = not(l);
+      }
+
+      if (l == true_literal) {
+#if 0
+	printf("---> possible short cut: ");
+	print_literal(stdout, l);
+	printf("\n");
+#endif
+	return;
+      }
+
+      if (literal_value(egraph->core, l) == VAL_TRUE) {
+	a = get_bvar_antecedent(egraph->core, var_of(l));
+	if (antecedent_tag(a) == generic_tag) {
+	  // i.e., l was propagated by the Egraph
+	  id = i32_of_expl(generic_antecedent(a));
+	  if (id < egraph->top_id) {
+#if 0
+	    printf("---> short cut: ");
+	    print_literal(stdout, l);
+	    printf(" := ");
+	    print_egraph_atom_of_literal(stdout, egraph, l);
+	    printf("\n");
+#endif
+	    ivector_push(v, l);
+	    return;
+	  }
+	}
+      }
+    }
+  }
 
   w = common_ancestor(egraph, tx, ty);
   mark_path(egraph, tx, w);
@@ -430,8 +555,6 @@ static bool causally_equal(egraph_t *egraph, occ_t x, occ_t y, int32_t k) {
  * DISEQUALITY EXPLANATIONS
  */
 
-#if 1
-
 /*
  * Check whether term t is constant
  */
@@ -460,8 +583,6 @@ static bool eterm_is_constant(egraph_t *egraph, eterm_t t) {
   return false;
 }
 
-#endif
-
 
 
 /*
@@ -485,45 +606,9 @@ static occ_t constant_in_class(egraph_t *egraph, occ_t x) {
  * Explanation for (x != y) via bit 0 of dmasks:
  * - find two constants a and b such that x == a and y == b
  */
-static void explain_diseq_via_constants(egraph_t *egraph, occ_t x, occ_t y) {
-  explain_eq(egraph, x, constant_in_class(egraph, x));
-  explain_eq(egraph, y, constant_in_class(egraph, y));
-}
-
-
-
-/*
- * Explanation for (x != y) using (eq u v)
- * - we must have (eq u v) == false and either x == u and y == v, or y == u and x == v
- */
-static void explain_diseq_via_eq(egraph_t *egraph, occ_t x, occ_t y, composite_t *eq) {
-  occ_t t;
-  class_t cx;
-#ifndef NDEBUG
-  class_t cy;
-#endif
-
-  assert(composite_kind(eq) == COMPOSITE_EQ);
-
-  t = pos_occ(eq->id);
-  assert(egraph_label(egraph, t) == false_label);
-
-  explain_eq(egraph, t, false_occ);
-
-  cx = egraph_class(egraph, x);
-#ifndef NDEBUG
-  cy = egraph_class(egraph, y);
-#endif
-
-  assert(cx != cy);
-
-  if (cx != egraph_class(egraph, eq->child[0])) {
-    assert(cy == egraph_class(egraph, eq->child[0]));
-    t = x; x = y; y = t;
-  }
-
-  explain_eq(egraph, x, eq->child[0]);
-  explain_eq(egraph, y, eq->child[1]);
+static void explain_diseq_via_constants(egraph_t *egraph, occ_t x, occ_t y, ivector_t *v) {
+  explain_eq(egraph, x, constant_in_class(egraph, x), v);
+  explain_eq(egraph, y, constant_in_class(egraph, y), v);
 }
 
 
@@ -532,7 +617,7 @@ static void explain_diseq_via_eq(egraph_t *egraph, occ_t x, occ_t y, composite_t
  * - we must have (distinct u_1 ... u_n) == true, x == u_i, y == u_j for i/=j
  * - the explanation is built using edges that precede k
  */
-static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, composite_t *d, int32_t k) {
+static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, composite_t *d, int32_t k, ivector_t *v) {
   class_t cx, cy;
   occ_t t, tx, ty;
   uint32_t i;
@@ -541,7 +626,7 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
 
   t = pos_occ(d->id);
   assert(egraph_label(egraph, t) == true_label);
-  explain_eq(egraph, t, true_occ);
+  explain_eq(egraph, t, true_occ, v);
 
   cx = egraph_class(egraph, x);
   cy = egraph_class(egraph, y);
@@ -569,8 +654,8 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
     i ++;
   }
 
-  explain_eq(egraph, x, tx);
-  explain_eq(egraph, y, ty);
+  explain_eq(egraph, x, tx, v);
+  explain_eq(egraph, y, ty, v);
 }
 
 
@@ -581,7 +666,7 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
  * - i must be between 1 and 31
  * - k = index of the edge that uses (x != y) as antecedent
  */
-static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_t i, int32_t k) {
+static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_t i, int32_t k, ivector_t *v) {
   composite_t *dpred;
 
   assert(1 <= i && i < egraph->dtable.npreds);
@@ -589,7 +674,7 @@ static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_
   dpred = egraph->dtable.distinct[i];
   assert(dpred != NULL && composite_kind(dpred) == COMPOSITE_DISTINCT);
 
-  explain_diseq_via_distinct(egraph, x, y, dpred, k);
+  explain_diseq_via_distinct(egraph, x, y, dpred, k, v);
 }
 
 
@@ -603,22 +688,22 @@ static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_
  * Explanation for (or t1 ... tn) == false
  * - t_i == false for all i
  */
-static void explain_simp_or_false(egraph_t *egraph, composite_t *c) {
+static void explain_simp_or_false(egraph_t *egraph, composite_t *c, ivector_t *v) {
   uint32_t i, m;
 
   assert(composite_kind(c) == COMPOSITE_OR);
   m = composite_arity(c);
   for (i=0; i<m; i++) {
-    explain_eq(egraph, c->child[i], false_occ);
+    explain_eq(egraph, c->child[i], false_occ, v);
   }
 }
 
 
 /*
- * Explanation for (or t1 ... tn) == v
+ * Explanation for (or t1 ... tn) == u
  * - either t_i == false or t_i == v for all i
  */
-static void explain_simp_or(egraph_t *egraph, composite_t *c, occ_t v) {
+static void explain_simp_or(egraph_t *egraph, composite_t *c, occ_t u, ivector_t *v) {
   uint32_t i, m;
   occ_t t;
 
@@ -628,9 +713,9 @@ static void explain_simp_or(egraph_t *egraph, composite_t *c, occ_t v) {
   for (i=0; i<m; i++) {
     t = c->child[i];
     if (egraph_occ_is_false(egraph, t)) {
-      explain_eq(egraph, t, false_occ);
+      explain_eq(egraph, t, false_occ, v);
     } else {
-      explain_eq(egraph, t, v);
+      explain_eq(egraph, t, u, v);
     }
   }
 }
@@ -640,45 +725,45 @@ static void explain_simp_or(egraph_t *egraph, composite_t *c, occ_t v) {
 /*
  * Explanation for "c1 and c2 are congruent" when c1 and c2 are apply, update, or tuple terms
  */
-static void explain_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2) {
+static void explain_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2, ivector_t *v) {
   uint32_t i, m;
 
   assert(c1->tag == c2->tag);
 
   m = composite_arity(c1);
   for (i=0; i<m; i++) {
-    explain_eq(egraph, c1->child[i], c2->child[i]);
+    explain_eq(egraph, c1->child[i], c2->child[i], v);
   }
 }
 
 /*
  * (eq t1 t2) congruent to (eq u1 u2): two variants
-*/
-static void explain_eq_congruence1(egraph_t *egraph, composite_t *c1, composite_t *c2) {
-  explain_eq(egraph, c1->child[0], c2->child[0]);
-  explain_eq(egraph, c1->child[1], c2->child[1]);
+ */
+static void explain_eq_congruence1(egraph_t *egraph, composite_t *c1, composite_t *c2, ivector_t *v) {
+  explain_eq(egraph, c1->child[0], c2->child[0], v);
+  explain_eq(egraph, c1->child[1], c2->child[1], v);
 }
 
-static void explain_eq_congruence2(egraph_t *egraph, composite_t *c1, composite_t *c2) {
-  explain_eq(egraph, c1->child[0], c2->child[1]);
-  explain_eq(egraph, c1->child[1], c2->child[0]);
+static void explain_eq_congruence2(egraph_t *egraph, composite_t *c1, composite_t *c2, ivector_t *v) {
+  explain_eq(egraph, c1->child[0], c2->child[1], v);
+  explain_eq(egraph, c1->child[1], c2->child[0], v);
 }
 
 
 /*
  * (ite t1 t2 t3) congruent to (ite u1 u2 u3): two variants
  */
-static void explain_ite_congruence1(egraph_t *egraph, composite_t *c1, composite_t *c2) {
-  explain_eq(egraph, c1->child[0], c2->child[0]);
-  explain_eq(egraph, c1->child[1], c2->child[1]);
-  explain_eq(egraph, c1->child[2], c2->child[2]);
+static void explain_ite_congruence1(egraph_t *egraph, composite_t *c1, composite_t *c2, ivector_t *v) {
+  explain_eq(egraph, c1->child[0], c2->child[0], v);
+  explain_eq(egraph, c1->child[1], c2->child[1], v);
+  explain_eq(egraph, c1->child[2], c2->child[2], v);
 }
 
-static void explain_ite_congruence2(egraph_t *egraph, composite_t *c1, composite_t *c2) {
+static void explain_ite_congruence2(egraph_t *egraph, composite_t *c1, composite_t *c2, ivector_t *v) {
   // the first call to explain_eq is for c1->child[0] == (not c2->child[0])
-  explain_eq(egraph, c1->child[0], c2->child[0]);
-  explain_eq(egraph, c1->child[1], c2->child[2]);
-  explain_eq(egraph, c1->child[2], c2->child[1]);
+  explain_eq(egraph, c1->child[0], c2->child[0], v);
+  explain_eq(egraph, c1->child[1], c2->child[2], v);
+  explain_eq(egraph, c1->child[2], c2->child[1], v);
 }
 
 
@@ -690,18 +775,18 @@ static void explain_ite_congruence2(egraph_t *egraph, composite_t *c1, composite
  * the explanation if the conjunction
  *  (t_1 == p[0] and ... and t_n == p[n-1]) and (u_1 == p[n] and ... and u_m == p[n+m-1])
  */
-static void explain_or_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2, occ_t *p) {
+static void explain_or_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2, occ_t *p, ivector_t *v) {
   uint32_t i, k;
 
   k = composite_arity(c1);
   for (i=0; i<k; i++) {
-    explain_eq(egraph, c1->child[i], *p);
+    explain_eq(egraph, c1->child[i], *p, v);
     p ++;
   }
 
   k = composite_arity(c2);
   for (i=0; i<k; i++) {
-    explain_eq(egraph, c2->child[i], *p);
+    explain_eq(egraph, c2->child[i], *p, v);
     p ++;
   }
 }
@@ -712,12 +797,12 @@ static void explain_or_congruence(egraph_t *egraph, composite_t *c1, composite_t
  * the explanation is the conjunction
  * (t_1 == p[0] ... t_n == p[n-1])
  */
-static void explain_distinct_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2, occ_t *p) {
+static void explain_distinct_congruence(egraph_t *egraph, composite_t *c1, composite_t *c2, occ_t *p, ivector_t *v) {
   uint32_t i, k;
 
   k = composite_arity(c1);
   for (i=0; i<k; i++) {
-    explain_eq(egraph, c1->child[i], p[i]);
+    explain_eq(egraph, c1->child[i], p[i], v);
   }
 }
 
@@ -783,7 +868,7 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
   if (eqs != NULL) {
     n = get_eqv_size(eqs);
     for (i=0; i<n; i++) {
-      explain_eq(egraph, pos_occ(eqs[i].lhs), pos_occ(eqs[i].rhs));
+      explain_eq(egraph, pos_occ(eqs[i].lhs), pos_occ(eqs[i].rhs), v);
     }
   }
 
@@ -798,13 +883,13 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
       t = pos_occ(cmp->id);
       if (composite_kind(cmp) == COMPOSITE_EQ) {
 	assert(egraph_label(egraph, t) == false_label);
-	explain_eq(egraph, t, false_occ);
+	explain_eq(egraph, t, false_occ, v);
       } else {
 	assert(composite_kind(cmp) == COMPOSITE_DISTINCT && egraph_label(egraph, t) == true_label);
-	explain_eq(egraph, t, true_occ);
+	explain_eq(egraph, t, true_occ, v);
       }
-      explain_eq(egraph, pos_occ(diseqs[i].t1), pos_occ(diseqs[i].u1));
-      explain_eq(egraph, pos_occ(diseqs[i].t2), pos_occ(diseqs[i].u2));
+      explain_eq(egraph, pos_occ(diseqs[i].t1), pos_occ(diseqs[i].u1), v);
+      explain_eq(egraph, pos_occ(diseqs[i].t2), pos_occ(diseqs[i].u2), v);
     }
   }
 }
@@ -852,11 +937,11 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       break;
 
     case EXPL_EQ:
-      explain_eq(egraph, edata[i].t[0], edata[i].t[1]);
+      explain_eq(egraph, edata[i].t[0], edata[i].t[1], v);
       break;
 
     case EXPL_DISTINCT0:
-      explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1]);
+      explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1], v);
       break;
 
     case EXPL_DISTINCT1:
@@ -890,7 +975,7 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
     case EXPL_DISTINCT29:
     case EXPL_DISTINCT30:
     case EXPL_DISTINCT31:
-      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i);
+      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i, v);
       break;
 
     case EXPL_SIMP_OR:
@@ -898,52 +983,52 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       t1 = term_of_occ(eq[i].lhs);
       assert(composite_body(body[t1]));
       if (eq[i].rhs == false_occ) {
-        explain_simp_or_false(egraph, body[t1]);
+        explain_simp_or_false(egraph, body[t1], v);
       } else {
-        explain_simp_or(egraph, body[t1], eq[i].rhs);
+        explain_simp_or(egraph, body[t1], eq[i].rhs, v);
       }
       break;
 
     case EXPL_BASIC_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_congruence(egraph, body[t1], body[t2]);
+      explain_congruence(egraph, body[t1], body[t2], v);
       break;
 
     case EXPL_EQ_CONGRUENCE1:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_eq_congruence1(egraph, body[t1], body[t2]);
+      explain_eq_congruence1(egraph, body[t1], body[t2], v);
       break;
 
     case EXPL_EQ_CONGRUENCE2:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_eq_congruence2(egraph, body[t1], body[t2]);
+      explain_eq_congruence2(egraph, body[t1], body[t2], v);
       break;
 
     case EXPL_ITE_CONGRUENCE1:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_ite_congruence1(egraph, body[t1], body[t2]);
+      explain_ite_congruence1(egraph, body[t1], body[t2], v);
       break;
 
     case EXPL_ITE_CONGRUENCE2:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_ite_congruence2(egraph, body[t1], body[t2]);
+      explain_ite_congruence2(egraph, body[t1], body[t2], v);
       break;
 
     case EXPL_OR_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr, v);
       break;
 
     case EXPL_DISTINCT_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr, v);
       break;
 
     case EXPL_ARITH_PROPAGATION:
@@ -968,30 +1053,22 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
   }
   ivector_reset(queue);
 
+  // remove duplicates
+  ivector_remove_duplicates(v);
 }
 
 
-
-
-
-/*
- * Build explanation for edge i
- */
-void egraph_explain_edge(egraph_t *egraph, int32_t i, ivector_t *v) {
-  assert(0 <= i && i < egraph->stack.top);
-  assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
-  enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
-  build_explanation_vector(egraph, v);
-}
 
 
 /*
  * Build explanation for (t1 == t2): requires class[t1] == class[t2]
+ * - id = edge index: all egdes used in building the explanation must have index < id
  */
-void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v) {
+void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t id, ivector_t *v) {
   assert(egraph_equal_occ(egraph, t1, t2));
   assert(egraph->expl_queue.size == 0);
-  explain_eq(egraph, t1, t2);
+  egraph->top_id = id;
+  explain_eq(egraph, t1, t2, v);
   build_explanation_vector(egraph, v);
 }
 
@@ -1001,7 +1078,7 @@ void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v)
  * Explanation for (t1 != t2) either via dmasks or via an atom (eq u v) == false
  * with t1 == u and t2 == v.
  */
-static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
+static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v) {
   composite_t *eq;
   class_t c1, c2;
   occ_t aux;
@@ -1015,12 +1092,12 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
 
   msk = egraph->classes.dmask[c1] & egraph->classes.dmask[c2];
   if ((msk & 1) != 0) {
-    explain_diseq_via_constants(egraph, t1, t2);
+    explain_diseq_via_constants(egraph, t1, t2, v);
     return;
   } else if (msk != 0){
     assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
     k = egraph->stack.top;
-    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), k);
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), k, v);
     return;
   }
 
@@ -1030,15 +1107,15 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
 
   if (eq != NULL_COMPOSITE && egraph_occ_is_false(egraph, pos_occ(eq->id))) {
 
-    explain_eq(egraph, pos_occ(eq->id), false_occ);
+    explain_eq(egraph, pos_occ(eq->id), false_occ, v);
 
     if (c1 != egraph_class(egraph, eq->child[0])) {
       assert(c2 == egraph_class(egraph, eq->child[0]));
       aux = t1; t1 = t2; t2 = aux;
     }
 
-    explain_eq(egraph, t1, eq->child[0]);
-    explain_eq(egraph, t2, eq->child[1]);
+    explain_eq(egraph, t1, eq->child[0], v);
+    explain_eq(egraph, t2, eq->child[1], v);
 
   } else {
     // they don't look disequal
@@ -1048,54 +1125,6 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
 }
 
 
-/*
- * Build explanation for (t1 != t2)
- */
-void egraph_explain_disequality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v) {
-  assert(egraph->expl_queue.size == 0);
-  if (egraph_opposite_occ(egraph, t1, t2)) {
-    explain_eq(egraph, t1, t2);
-  } else {
-    explain_diseq(egraph, t1, t2);
-  }
-  build_explanation_vector(egraph, v);
-}
-
-
-
-
-
-/*
- * Variant for satellite solvers: build explanation for (t1 != t2)
- * - t1 and t2 must be terms attached to theory variables x1 and x2 in a satellite solver
- * - the disequality x1 != x2 must have been propagated to the satellite solver
- *   (via a call to the satellite's assert_disequality or assert_distinct)
- * - hint must be a composite provided by the egraph in assert_disequality or assert_distinct
- *
- * WARNING: THIS CANNOT BE USED TO EXPAND EXPLANATIONS LAZILY
- * - that's because we can't guarantee that explain_diseq_via_eq or explain_diseq_via_distinct
- *   generate a valid explanation when there's a conflict.
- * - for example, explain_diseq_via_eq corresponds to either one of the
- *   following propagation rules:
- *    Rule 1: (eq u1 u2) == false AND (u1 == t1) AND (u2 == t2) IMPLIES (t1 /= t2)
- *    Rule 2: (eq u1 u2) == false AND (u1 == t2) AND (u2 == t1) IMPLIES (t1 /= t2)
- *   At propagation time, only one of these two rules was used.
- *   If we wait to generate an explanation, then we can't always tell which of
- *   the two rules to apply, because we may have (u1 == t1 == t2 == u2) if there's
- *   a conflict.
- */
-void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, composite_t *hint, ivector_t *v) {
-  int32_t k;
-
-  assert(egraph->expl_queue.size == 0);
-  if (composite_kind(hint) == COMPOSITE_EQ) {
-    explain_diseq_via_eq(egraph, pos_occ(t1), pos_occ(t2), hint);
-  } else {
-    k = egraph->stack.top;
-    explain_diseq_via_distinct(egraph, pos_occ(t1), pos_occ(t2), hint, k);
-  }
-  build_explanation_vector(egraph, v);
-}
 
 
 
@@ -1179,18 +1208,17 @@ void egraph_expand_diseq_pre_expl(egraph_t *egraph, diseq_pre_expl_t *p, ivector
   t = pos_occ(hint->id);
   if (composite_kind(hint) == COMPOSITE_EQ) {
     assert(egraph_label(egraph, t) == false_label);
-    explain_eq(egraph, t, false_occ);
+    explain_eq(egraph, t, false_occ, v);
   } else {
     assert(composite_kind(hint) == COMPOSITE_DISTINCT && egraph_label(egraph, t) == true_label);
-    explain_eq(egraph, t, true_occ);
+    explain_eq(egraph, t, true_occ, v);
   }
 
-  explain_eq(egraph, pos_occ(p->t1), pos_occ(p->u1));
-  explain_eq(egraph, pos_occ(p->t2), pos_occ(p->u2));
+  explain_eq(egraph, pos_occ(p->t1), pos_occ(p->u1), v);
+  explain_eq(egraph, pos_occ(p->t2), pos_occ(p->u2), v);
 
   build_explanation_vector(egraph, v);
 }
-
 
 
 
@@ -1200,7 +1228,7 @@ void egraph_expand_diseq_pre_expl(egraph_t *egraph, diseq_pre_expl_t *p, ivector
  * - d = (distinct t_1 ... t_n)
  * - dmsk = dmask[class[t1]] & ... & dmask[class[t_n]]
  */
-static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_t dmsk) {
+static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_t dmsk, ivector_t *v) {
   occ_t t, t1, t2;
   uint32_t i, j, m;
   composite_t *dpred;
@@ -1219,7 +1247,7 @@ static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
     // t_1 ... t_m are equal to distinct constants a_1 ... a_m
     for (j=0; j<m; j++) {
       t1 = d->child[j];
-      explain_eq(egraph, t1, constant_in_class(egraph, t1));
+      explain_eq(egraph, t1, constant_in_class(egraph, t1), v);
     }
 
   } else {
@@ -1230,7 +1258,7 @@ static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
     // explain why dpred is true
     t = pos_occ(dpred->id);
     assert(egraph_label(egraph, t) == true_label);
-    explain_eq(egraph, t, true_occ);
+    explain_eq(egraph, t, true_occ, v);
 
     imap = egraph_get_imap(egraph);
     for (i=0; i<m; i++) {
@@ -1249,7 +1277,7 @@ static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
       t2 = p->val;
       if (t2 >= 0) {
         assert(egraph_equal_occ(egraph, t1, t2));
-        explain_eq(egraph, t1, t2);
+        explain_eq(egraph, t1, t2, v);
       }
     }
 
@@ -1257,7 +1285,8 @@ static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
   }
 }
 
-
+#if 0
+// NOT USED
 /*
  * Explain distinct: general case
  */
@@ -1302,68 +1331,7 @@ static void explain_distinct(egraph_t *egraph, composite_t *d) {
 }
 
 
-
-/*
- * Build explanation for (distinct t_1 ... t_n) when
- * dmask[class[t1]] & ... & dmask[class[t_n]] != 0.
- */
-void egraph_explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_t dmsk, ivector_t *v) {
-  assert(egraph->expl_queue.size == 0);
-  explain_distinct_via_dmask(egraph, d, dmsk);
-  build_explanation_vector(egraph, v);
-}
-
-/*
- * Build explanation for (distinct t_1 ... t_n)
- * - add literals to v
- */
-void egraph_explain_distinct(egraph_t *egraph, composite_t *d, ivector_t *v) {
-  assert(egraph->expl_queue.size == 0);
-  explain_distinct(egraph, d);
-  build_explanation_vector(egraph, v);
-}
-
-
-/*
- * Build explanation for not (distinct t_1 ... t_n)
- */
-void egraph_explain_not_distinct(egraph_t *egraph, composite_t *d, ivector_t *v) {
-  occ_t t1, t2;
-  elabel_t x;
-  uint32_t i, m;
-  int_hmap_t *imap;
-  int_hmap_pair_t *p;
-
-  assert(egraph->expl_queue.size == 0);
-  imap = egraph_get_imap(egraph);
-
-  // stop gcc compilation warning
-  t1 = null_occurrence;
-  t2 = null_occurrence;
-
-  // check whether two terms have the same label
-  m = composite_arity(d);
-  for (i=0; i<m; i++) {
-    t1 = d->child[i];
-    x = egraph_label(egraph, t1);
-    assert(x >= 0);
-    p = int_hmap_get(imap, x);
-    t2 = p->val;
-    if (t2 >= 0) break;
-    p->val = t1;
-  }
-  int_hmap_reset(imap);
-
-  // t1 and t2 have same label x
-  assert(egraph_label(egraph, t1) == egraph_label(egraph, t2) && t1 != t2);
-  explain_eq(egraph, t1, t2);
-
-  ivector_reset(v);
-  build_explanation_vector(egraph, v);
-}
-
-
-
+// NOT USED
 /*
  * Explain a conflict between
  * - assertion (distinct t_1 ... t_n) == false
@@ -1373,12 +1341,13 @@ void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *d, ivec
   assert(egraph_equal_occ(egraph, pos_occ(d->id), false_occ));
   assert(egraph->expl_queue.size == 0);
 
-  explain_eq(egraph, pos_occ(d->id), false_occ);
+  explain_eq(egraph, pos_occ(d->id), false_occ, v);
   explain_distinct(egraph, d);
   ivector_reset(v);
   build_explanation_vector(egraph, v);
 }
 
+#endif
 
 /*
  * Check whether asserting equality (t1 == t2) is inconsistent
@@ -1394,9 +1363,12 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
 
   assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
 
+  egraph->top_id = INT32_MAX;
+
   if (egraph_opposite_occ(egraph, t1, t2)) {
     // t1 == (not t2);
-    explain_eq(egraph, t1, t2);
+    ivector_reset(v);
+    explain_eq(egraph, t1, t2, v);
     goto conflict;
   }
 
@@ -1406,26 +1378,29 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
 
   msk = egraph->classes.dmask[c1] & egraph->classes.dmask[c2];
   if ((msk & 1) != 0) {
-    explain_diseq_via_constants(egraph, t1, t2);
+    ivector_reset(v);
+    explain_diseq_via_constants(egraph, t1, t2, v);
     goto conflict;
   } else if (msk != 0) {
     assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
-    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), egraph->stack.top);
+    ivector_reset(v);
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), egraph->stack.top, v);
     goto conflict;
   }
 
   cmp = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
   if (cmp != NULL && egraph_occ_is_false(egraph, pos_occ(cmp->id))) {
     // cmp is congruent to (eq t1 t2) and cmp == false
-    explain_eq(egraph, pos_occ(cmp->id), false_occ);
+    ivector_reset(v);
+    explain_eq(egraph, pos_occ(cmp->id), false_occ, v);
 
     if (c1 != egraph_class(egraph, cmp->child[0])) {
       assert(c2 == egraph_class(egraph, cmp->child[0]));
       aux = t1; t1 = t2; t2 = aux;
     }
 
-    explain_eq(egraph, t1, cmp->child[0]);
-    explain_eq(egraph, t2, cmp->child[1]);
+    explain_eq(egraph, t1, cmp->child[0], v);
+    explain_eq(egraph, t2, cmp->child[1], v);
     goto conflict;
   }
 
@@ -1434,8 +1409,8 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
  conflict:
   // add edge i to the explanation queue
   enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
-  ivector_reset(v);
   build_explanation_vector(egraph, v);
+
   return true;
 }
 
@@ -1454,6 +1429,8 @@ bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivector_t *v
   int_hmap_pair_t *p;
 
   assert(egraph->expl_queue.size == 0);
+
+  egraph->top_id = INT32_MAX;
 
   imap = egraph_get_imap(egraph);
 
@@ -1477,14 +1454,15 @@ bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivector_t *v
   int_hmap_reset(imap);
 
   // conflict explanation is (t1 == t2) + (d == true)
+  ivector_reset(v);
+
   t = pos_occ(d->id);
   assert(egraph_occ_is_true(egraph, t));
   assert(egraph_equal_occ(egraph, t1, t2));
 
-  explain_eq(egraph, t, true_occ);
-  explain_eq(egraph, t1, t2);
+  explain_eq(egraph, t, true_occ, v);
+  explain_eq(egraph, t1, t2, v);
 
-  ivector_reset(v);
   build_explanation_vector(egraph, v);
 
   return true;
@@ -1523,6 +1501,8 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
 
   assert(egraph->expl_queue.size == 0);
 
+  egraph->top_id = INT32_MAX;
+
   dmask = egraph->classes.dmask;
   m = composite_arity(d);
   assert(m > 0);
@@ -1547,7 +1527,8 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
 
   if (dmsk) {
     // cheap trick worked: conflict detected
-    explain_distinct_via_dmask(egraph, d, dmsk);
+    ivector_reset(v);
+    explain_distinct_via_dmask(egraph, d, dmsk, v);
     goto conflict;
   }
 
@@ -1568,10 +1549,11 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
   /*
    * All pairs are distinct: build conflict explanation
    */
+  ivector_reset(v);
   for (i=0; i<m; i++) {
     t1 = d->child[i];
     for (j=i+1; j<m; j++) {
-      explain_diseq(egraph, t1, d->child[j]);
+      explain_diseq(egraph, t1, d->child[j], v);
     }
   }
 
@@ -1579,10 +1561,9 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
   // explain (d == false);
   t = pos_occ(d->id);
   assert(egraph_occ_is_false(egraph, t));
-  explain_eq(egraph, t, false_occ);
+  explain_eq(egraph, t, false_occ, v);
 
   // expand the explanations
-  ivector_reset(v);
   build_explanation_vector(egraph, v);
 
   return true;
@@ -1641,9 +1622,17 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
   unsigned char *etag;
   expl_data_t *edata;
   composite_t **body;
+  bool saved_short_cuts;
   eterm_t t1, t2;
   uint32_t k;
   int32_t i, found;
+
+  /*
+   * We force short_cuts to false here since we're not
+   * building an explanation.
+   */
+  saved_short_cuts = egraph->short_cuts;
+  egraph->short_cuts = false;
 
   eq = egraph->stack.eq;
   mark = egraph->stack.mark;
@@ -1669,11 +1658,11 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
       break;
 
     case EXPL_EQ:
-      explain_eq(egraph, edata[i].t[0], edata[i].t[1]);
+      explain_eq(egraph, edata[i].t[0], edata[i].t[1], NULL);
       break;
 
    case EXPL_DISTINCT0:
-      explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1]);
+     explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1], NULL);
       break;
 
     case EXPL_DISTINCT1:
@@ -1707,7 +1696,7 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
     case EXPL_DISTINCT29:
     case EXPL_DISTINCT30:
     case EXPL_DISTINCT31:
-      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i);
+      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i, NULL);
       break;
 
     case EXPL_SIMP_OR:
@@ -1715,52 +1704,52 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
       t1 = term_of_occ(eq[i].lhs);
       assert(composite_body(body[t1]));
       if (eq[i].rhs == false_occ) {
-        explain_simp_or_false(egraph, body[t1]);
+        explain_simp_or_false(egraph, body[t1], NULL);
       } else {
-        explain_simp_or(egraph, body[t1], eq[i].rhs);
+        explain_simp_or(egraph, body[t1], eq[i].rhs, NULL);
       }
       break;
 
     case EXPL_BASIC_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_congruence(egraph, body[t1], body[t2]);
+      explain_congruence(egraph, body[t1], body[t2], NULL);
       break;
 
     case EXPL_EQ_CONGRUENCE1:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_eq_congruence1(egraph, body[t1], body[t2]);
+      explain_eq_congruence1(egraph, body[t1], body[t2], NULL);
       break;
 
     case EXPL_EQ_CONGRUENCE2:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_eq_congruence2(egraph, body[t1], body[t2]);
+      explain_eq_congruence2(egraph, body[t1], body[t2], NULL);
       break;
 
     case EXPL_ITE_CONGRUENCE1:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_ite_congruence1(egraph, body[t1], body[t2]);
+      explain_ite_congruence1(egraph, body[t1], body[t2], NULL);
       break;
 
     case EXPL_ITE_CONGRUENCE2:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_ite_congruence2(egraph, body[t1], body[t2]);
+      explain_ite_congruence2(egraph, body[t1], body[t2], NULL);
       break;
 
     case EXPL_OR_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr, NULL);
       break;
 
     case EXPL_DISTINCT_CONGRUENCE:
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
-      explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr, NULL);
       break;
 
     case EXPL_ARITH_PROPAGATION:
@@ -1785,6 +1774,9 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
   ivector_reset(queue);
 
   assert(found >= 0);
+
+  // restore the short_cuts flag
+  egraph->short_cuts = saved_short_cuts;
 
   return found;
 }

@@ -33,6 +33,10 @@ extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_
 
 
 
+#if 0
+
+// OBSOLETE
+
 /*
  * Convert bit expression b to a boolean term
  * - b must be a valid bit expression in table 'nodes'
@@ -46,7 +50,7 @@ extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_
  */
 extern term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, bit_t b);
 
-
+#endif
 
 
 #endif /* __BIT_TERM_CONVERSION_H */

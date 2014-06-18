@@ -254,13 +254,103 @@ static occ_t map_select_to_eterm(context_t *ctx, select_term_t *s, type_t tau) {
 
 
 /*
+ * Convert a conditional expression to an egraph term
+ * - c = conditional descriptor
+ * - tau = type of c
+ */
+static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t tau) {
+  literal_t *a;
+  occ_t u, v;
+  uint32_t i, n;
+  literal_t l;
+  bool all_false;
+  term_t t;
+
+#if 0
+  printf("---> conditional to eterm\n");
+#endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    return internalize_to_eterm(ctx, t);
+  }
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n + 1);
+
+  all_false = true;
+  u = null_occurrence;
+
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      /*
+       * a[0] ... a[i-1] are all reducible to false
+       * but we can't assume that a[0] ... a[i-1] are all false_literals
+       * since we don't know how the theory solver internalizes the
+       * conditions.
+       */
+      v = internalize_to_eterm(ctx, c->pair[i].val);
+      if (all_false) {
+	// all previous conditions a[0 ... i-1] are false
+	assert(u == null_occurrence);
+	u = v;
+      } else {
+	// we assert (u == v) as a top-level equality
+	egraph_assert_eq_axiom(ctx->egraph, u, v);
+      }
+      goto done;
+    }
+    if (a[i] != false_literal) {
+      if (all_false) {
+	assert(u == null_occurrence);
+	u = pos_occ(make_egraph_variable(ctx, tau));
+	all_false = false;
+      }
+      // one clause for a[i] => (u = v[i])
+      v = internalize_to_eterm(ctx, c->pair[i].val);
+      l = egraph_make_eq(ctx->egraph, u, v);
+      add_binary_clause(ctx->core, not(a[i]), l);
+    }
+  }
+
+  if (all_false) {
+    assert(u == null_occurrence);
+    u = internalize_to_eterm(ctx, c->defval);
+    goto done;
+  }
+
+  // clause for the default value
+  assert(u != null_occurrence);
+  v = internalize_to_eterm(ctx, c->defval);
+  l = egraph_make_eq(ctx->egraph, u, v);
+  a[n] = l;
+  add_clause(ctx->core, n+1, a);
+
+ done:
+  free_istack_array(&ctx->istack, a);
+
+  return u;
+}
+
+
+/*
  * Convert (ite c t1 t2) to an egraph term
  * - tau = type of (ite c t1 t2)
  */
 static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau) {
+  conditional_t *d;
   eterm_t u;
   occ_t u1, u2, u3;
   literal_t c, l1, l2;
+
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    u1 = map_conditional_to_eterm(ctx, d, tau);
+    context_free_conditional(ctx, d);
+    return u1;
+  }
 
   c = internalize_to_literal(ctx, ite->arg[0]);
   if (c == true_literal) {
@@ -400,15 +490,100 @@ static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
  *****************************************************/
 
 /*
+ * Convert a conditional to an arithmetic variable
+ * - if is_int is true, the variable is integer otherwise, it's real
+ */
+static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool is_int) {
+  literal_t *a;
+  uint32_t i, n;
+  thvar_t x, v;
+  bool all_false;
+  term_t t;
+
+#if 0
+  printf("---> conditional to arith\n");
+#endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    return internalize_to_arith(ctx, t);
+  }
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n);
+
+  all_false = true;
+  v = null_thvar;
+
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      /*
+       * a[0] ... a[i-1] are all reducible to false
+       * but we can't assume v == null_thvar, since
+       * we don't know how the theory solver internalizes
+       * the conditions (i.e., some of them may not be false_literal).
+       */
+      x = internalize_to_arith(ctx, c->pair[i].val);
+      if (all_false) {
+	assert(v == null_thvar);
+	v = x;
+      } else {
+	// assert (v == x) in the arithmetic solver
+	ctx->arith.assert_vareq_axiom(ctx->arith_solver, v, x, true);
+      }
+      goto done;
+    }
+    if (a[i] != false_literal) {
+      if (all_false) {
+	assert(v == null_thvar);
+	v = ctx->arith.create_var(ctx->arith_solver, is_int);
+	all_false = false;
+      }
+      // clause for a[i] => (v = c->pair[i].val)
+      x = internalize_to_arith(ctx, c->pair[i].val);
+      ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, a[i], v, x);
+    }
+  }
+
+  if (all_false) {
+    assert(v == null_thvar);
+    v = internalize_to_arith(ctx, c->defval);
+    goto done;
+  }
+
+  /*
+   * last clause (only if some a[i] isn't false):
+   * (a[0] \/ ... \/ a[n-1] \/ v == c->defval)
+   */
+  assert(v != null_thvar);
+  x = internalize_to_arith(ctx, c->defval);
+  ctx->arith.assert_clause_vareq_axiom(ctx->arith_solver, n, a, v, x);
+
+ done:
+  free_istack_array(&ctx->istack, a);
+  return v;
+}
+
+
+/*
  * Convert if-then-else to an arithmetic variable
  * - if is_int is true, the if-then-else term is integer
  * - otherwise, it's real
  */
 static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_int) {
+  conditional_t *d;
   literal_t c;
   thvar_t v, x;
 
   assert(ite->arity == 3);
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    v = map_conditional_to_arith(ctx, d, is_int);
+    context_free_conditional(ctx, d);
+    return v;
+  }
 
   c = internalize_to_literal(ctx, ite->arg[0]); // condition
   if (c == true_literal) {
@@ -2744,6 +2919,14 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
       for (i=0; i<n; i++) {
         assert_term(ctx, a[i], true);
       }
+
+      /*
+       * The assertions a[0] ... a[n-1] may have
+       * caused roots to be merged. So we must
+       * apply term substitution again.
+       */
+      t2 = intern_tbl_get_root(&ctx->intern, t2);
+      u2 = intern_tbl_get_root(&ctx->intern, u2);
       assert_arith_bineq_aux(ctx, t2, u2, true);
 
     } else {
@@ -2899,15 +3082,89 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
 }
 
 
+
+
+/*
+ * Top-level conditional
+ * - c = conditional descriptor
+ * - if tt is true: assert c otherwise assert not c
+ *
+ * - c->nconds = number of clauses in the conditional
+ * - for each clause i: c->pair[i] = <cond, val>
+ * - c->defval = default value
+ */
+static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool tt) {
+  uint32_t i, n;
+  literal_t *a;
+  literal_t l;
+  bool all_false;
+  term_t t;
+
+#if 0
+  printf("---> toplevel conditional\n");
+#endif
+
+  t = simplify_conditional(ctx, c);
+  if (t != NULL_TERM) {
+    assert_term(ctx, t, tt);
+    return;
+  }
+
+
+  n = c->nconds;
+  a = alloc_istack_array(&ctx->istack, n + 1);
+
+  all_false = true;
+  for (i=0; i<n; i++) {
+    // a[i] = condition for pair[i]
+    a[i] = internalize_to_literal(ctx, c->pair[i].cond);
+    if (a[i] == true_literal) {
+      // if a[i] is true, all other conditions must be false
+      assert_term(ctx, c->pair[i].val, tt);
+      goto done;
+    }
+    if (a[i] != false_literal) {
+      // l = value for pair[i]
+      l = signed_literal(internalize_to_literal(ctx, c->pair[i].val), tt);
+      add_binary_clause(ctx->core, not(a[i]), l); // a[i] => v[i]
+      all_false = false;
+    }
+  }
+
+  if (all_false) {
+    // all a[i]s are false: no need for a clause
+    assert_term(ctx, c->defval, tt);
+    goto done;
+  }
+
+  // last clause: (a[0] \/ .... \/ a[n] \/ +/-defval)
+  a[n] = signed_literal(internalize_to_literal(ctx, c->defval), tt);
+  add_clause(ctx->core, n+1, a);
+
+  // cleanup
+ done:
+  free_istack_array(&ctx->istack, a);
+}
+
+
+
 /*
  * Top-level boolean if-then-else (ite c t1 t2)
  * - if tt is true: assert (ite c t1 t2)
  * - if tt is false: assert (not (ite c t1 t2))
  */
 static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
+  conditional_t *d;
   literal_t l1, l2, l3;
 
   assert(ite->arity == 3);
+
+  d = context_make_conditional(ctx, ite);
+  if (d != NULL) {
+    assert_toplevel_conditional(ctx, d, tt);
+    context_free_conditional(ctx, d);
+    return;
+  }
 
   l1 = internalize_to_literal(ctx, ite->arg[0]);
   if (l1 == true_literal) {
@@ -3467,6 +3724,7 @@ static th_ctrl_interface_t null_ctrl = {
   donothing,        // push
   donothing,        // pop
   donothing,        // reset
+  donothing,        // clear
 };
 
 
@@ -4021,6 +4279,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    */
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_eqs, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->aux_atoms, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_int_queue(&ctx->queue, 0);
   init_istack(&ctx->istack);
@@ -4097,6 +4356,7 @@ void delete_context(context_t *ctx) {
 
   delete_ivector(&ctx->subst_eqs);
   delete_ivector(&ctx->aux_eqs);
+  delete_ivector(&ctx->aux_atoms);
   delete_ivector(&ctx->aux_vector);
   delete_int_queue(&ctx->queue);
   delete_istack(&ctx->istack);
@@ -4140,6 +4400,7 @@ void reset_context(context_t *ctx) {
 
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
+  ivector_reset(&ctx->aux_atoms);
   ivector_reset(&ctx->aux_vector);
   int_queue_reset(&ctx->queue);
   reset_istack(&ctx->istack);
@@ -4219,6 +4480,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
   ivector_reset(&ctx->top_interns);
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
+  ivector_reset(&ctx->aux_atoms);
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -4259,10 +4521,22 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       create_auto_rdl_solver(ctx);
       break;
 
+    case CTX_ARCH_SPLX:
+      // more optional processing
+      if (context_cond_def_preprocessing_enabled(ctx)) {
+	process_conditional_definitions(ctx);
+	if (ctx->aux_eqs.size > 0) {
+	  process_aux_eqs(ctx);
+	}
+	if (ctx->aux_atoms.size > 0) {
+	  process_aux_atoms(ctx);
+	}
+      }
+      break;
+
     default:
       break;
     }
-
 
     /*
      * Process the candidate variable substitutions if any
@@ -4270,7 +4544,6 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     if (ctx->subst_eqs.size > 0) {
       context_process_candidate_subst(ctx);
     }
-
 
     /*
      * Notify the core + solver(s)
@@ -4532,13 +4805,18 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
       break;
     }
 
-
     /*
      * Process the candidate variable substitutions if any
      */
     if (ctx->subst_eqs.size > 0) {
       context_process_candidate_subst(ctx);
     }
+
+    // more optional processing
+    if (context_cond_def_preprocessing_enabled(ctx)) {
+      process_conditional_definitions(ctx);
+    }
+
 
     code = CTX_NO_ERROR;
 

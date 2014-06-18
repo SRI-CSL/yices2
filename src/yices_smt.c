@@ -1738,6 +1738,7 @@ static int process_benchmark(char *filename) {
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
     switch (logic) {
+    case QF_ALIA:
     case QF_AUFLIA:
       /*
        * Arrays + uf + simplex
@@ -1836,6 +1837,7 @@ static int process_benchmark(char *filename) {
       break;
 
     case QF_UFLIA:
+    case QF_UFLIRA:
       /*
        * EGRAPH + SIMPLEX, activate periodic integer checks
        */

@@ -389,62 +389,87 @@ static bool context_is_empty(context_t *ctx) {
 static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
 #if 0
   // These are the real codes
-  -1,                  // NONE: not an SMT logic
-  -1,                  // AUFLIA
-  -1,                  // AUFLIRA
-  -1,                  // AUFNIRA
-  -1,                  // LRA
-  CTX_ARCH_EGFUNBV,    // QF_ABV
-  CTX_ARCH_EGFUNBV,    // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
-  CTX_ARCH_EGFUN,      // QF_AX
-  CTX_ARCH_BV,         // QF_BV
-  CTX_ARCH_AUTO_IDL,   // QF_IDL
-  CTX_ARCH_SPLX,       // QF_LIA
-  CTX_ARCH_SPLX,       // QF_LRA
-  -1,                  // QF_NIA
-  -1,                  // QF_NRA
-  CTX_ARCH_AUTO_RDL,   // QF_RDL
-  CTX_ARCH_EG,         // QF_UF
-  CTX_ARCH_EGBV,       // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,     // QF_UFIDL
-  CTX_ARCH_EGSPLX,     // QF_UFLIA
-  CTX_ARCH_EGSPLX,     // QF_UFLRA
-  -1,                  // QF_UFNRA
-  -1,                  // UFLRA
-  -1,                  // UFNIA
+  -1,                   // NONE: not a real SMT logic (treat as unsupported)
+  -1,                   // ALIA
+  -1,                   // AUFLIA
+  -1,                   // AUFLIRA
+  -1,                   // AUFNIRA
+  -1,                   // BV
+  -1,                   // LIA
+  -1,                   // LRA
+  -1,                   // NIA
+  -1,                   // NRA
+  CTX_ARCH_EGFUNBV,     // QF_ABV
+  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
+  CTX_ARCH_EGFUNBV,     // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
+  CTX_ARCH_EGFUN,       // QF_AX
+  CTX_ARCH_BV,          // QF_BV
+  CTX_ARCH_AUTO_IDL,    // QF_IDL
+  CTX_ARCH_SPLX,        // QF_LIA
+  CTX_ARCH_SPLX,        // QF_LIRA
+  CTX_ARCH_SPLX,        // QF_LRA
+  -1,                   // QF_NIA
+  -1,                   // QF_NRA
+  CTX_ARCH_AUTO_RDL,    // QF_RDL
+  CTX_ARCH_EG,          // QF_UF
+  CTX_ARCH_EGBV,        // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,      // QF_UFIDL
+  CTX_ARCH_EGSPLX,      // QF_UFLIA
+  CTX_ARCH_EGSPLX,      // QF_UFLRA
+  CTX_ARCH_EGSPLX,      // QF_UFLIRA
+  -1,                   // QF_UFNIA
+  -1,                   // QF_UFNRA
+  -1,                   // UF
+  -1,                   // UFBV
+  -1,                   // UFIDL
+  -1,                   // UFLIA
+  -1,                   // UFLRA
+  -1,                   // UFNIA
 #endif
 
   /*
    * For testing: use a default architecture
    * even for logic we don't support yet.
    */
-  -1,                  // NONE
-  CTX_ARCH_EGSPLX,     // AUFLIA
-  CTX_ARCH_EGSPLX,     // AUFLIRA
-  CTX_ARCH_EGSPLX,     // AUFNIRA
-  CTX_ARCH_EGSPLX,     // LRA
-  CTX_ARCH_EGFUNBV,    // QF_ABV
-  CTX_ARCH_EGFUNBV,    // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
-  CTX_ARCH_EGFUN,      // QF_AX
+  -1,                   // NONE: not a real SMT logic (treat as unsupported)
 
-  CTX_ARCH_BV,         // QF_BV
-
-  CTX_ARCH_AUTO_IDL,   // QF_IDL
-  CTX_ARCH_SPLX,       // QF_LIA
-  CTX_ARCH_SPLX,       // QF_LRA
-  CTX_ARCH_SPLX,       // QF_NIA
-  CTX_ARCH_SPLX,       // QF_NRA
-  CTX_ARCH_AUTO_RDL,   // QF_RDL
-  CTX_ARCH_EG,         // QF_UF
-  CTX_ARCH_EGBV,       // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,     // QF_UFIDL
-  CTX_ARCH_EGSPLX,     // QF_UFLIA
-  CTX_ARCH_EGSPLX,     // QF_UFLRA
-  CTX_ARCH_EGSPLX,     // QF_UFNRA
-  CTX_ARCH_EGSPLX,     // UFLRA
-  CTX_ARCH_EGSPLX,     // UFNIA
+  CTX_ARCH_EGFUNSPLX,   // ALIA
+  CTX_ARCH_EGFUNSPLX,   // AUFLIA
+  CTX_ARCH_EGFUNSPLX,   // AUFLIRA
+  CTX_ARCH_EGFUNSPLX,   // AUFNIRA
+  CTX_ARCH_BV,          // BV
+  CTX_ARCH_SPLX,        // LIA
+  CTX_ARCH_SPLX,        // LRA
+  CTX_ARCH_SPLX,        // NIA
+  CTX_ARCH_SPLX,        // NRA
+  CTX_ARCH_EGFUNBV,     // QF_ABV
+  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
+  CTX_ARCH_EGFUNBV,     // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
+  CTX_ARCH_EGFUN,       // QF_AX
+  CTX_ARCH_BV,          // QF_BV
+  CTX_ARCH_AUTO_IDL,    // QF_IDL
+  CTX_ARCH_SPLX,        // QF_LIA
+  CTX_ARCH_SPLX,        // QF_LIRA
+  CTX_ARCH_SPLX,        // QF_LRA
+  CTX_ARCH_SPLX,        // QF_NIA
+  CTX_ARCH_SPLX,        // QF_NRA
+  CTX_ARCH_AUTO_RDL,    // QF_RDL
+  CTX_ARCH_EG,          // QF_UF
+  CTX_ARCH_EGBV,        // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,      // QF_UFIDL
+  CTX_ARCH_EGSPLX,      // QF_UFLIA
+  CTX_ARCH_EGSPLX,      // QF_UFLRA
+  CTX_ARCH_EGSPLX,      // QF_UFLIRA
+  CTX_ARCH_EGSPLX,      // QF_UFNIA
+  CTX_ARCH_EGSPLX,      // QF_UFNRA
+  CTX_ARCH_EG,          // UF
+  CTX_ARCH_EGBV,        // UFBV
+  CTX_ARCH_EGSPLX,      // UFIDL
+  CTX_ARCH_EGSPLX,      // UFLIA
+  CTX_ARCH_EGSPLX,      // UFLRA
+  CTX_ARCH_EGSPLX,      // UFNIA
 
   -1,                  // SMT_UNKNOWN (error)
 };
@@ -455,27 +480,40 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
   false,  // NONE
+  true,   // ALIA
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
+  false,  // BV
+  true,   // LIA
   false,  // LRA
+  true,   // NIA
+  false,  // NRA
   false,  // QF_ABV
+  true,   // QF_ALIA
   false,  // QF_AUFBV
   true,   // QF_AUFLIA
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
   true,   // QF_LIA
+  true,   // QF_LIRA
   false,  // QF_LRA
   true,   // QF_NIA
-  false,   // QF_NRA
+  false,  // QF_NRA
   false,  // QF_RDL
   false,  // QF_UF
-  false,  // QF_UFBV[x]
+  false,  // QF_UFBV[xx]
   false,  // QF_UFIDL
   true,   // QF_UFLIA
   false,  // QF_UFLRA
+  true,   // QF_UFLIRA
+  true,   // QF_UFNIA
   false,  // QF_UFNRA
+  false,  // UF
+  false,  // UFBV
+  false,  // UFIDL
+  true,   // UFLIA
   false,  // UFLRA
   true,   // UFNIA
 };
@@ -486,27 +524,40 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
   false,  // NONE
+  true,   // ALIA
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
+  true,   // BV
+  true,   // LIA
   true,   // LRA
+  true,   // NIA
+  true,   // NRA
   false,  // QF_ABV
+  false,  // QF_ALIA
   false,  // QF_AUFBV
   false,  // QF_AUFLIA
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
   false,  // QF_LIA
+  false,  // QF_LIRA
   false,  // QF_LRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_RDL
   false,  // QF_UF
-  false,  // QF_UFBV[x]
+  false,  // QF_UFBV[xx]
   false,  // QF_UFIDL
   false,  // QF_UFLIA
+  false,  // QF_UFLIRA
   false,  // QF_UFLRA
+  false,  // QF_UFNIA
   false,  // QF_UFNRA
+  true,   // UF
+  true,   // UFBV
+  true,   // UFIDL
+  true,   // UFLIA
   true,   // UFLRA
   true,   // UFNIA
 };

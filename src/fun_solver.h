@@ -434,10 +434,11 @@ extern void fun_solver_reset(fun_solver_t *solver);
 
 /*
  * Assert that x1 and x2 are equal
+ * - id = edge index to be used in a subsequent call to egraph_explain_term_eq
  * - x1 and x2 are two variables attached to two egraph terms t1 and t2
  * - this function is called when t1 and t2 become equal in the egraph
  */
-extern void fun_solver_assert_var_eq(fun_solver_t *solver, thvar_t x1, thvar_t x2);
+extern void fun_solver_assert_var_eq(fun_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id);
 
 
 /*

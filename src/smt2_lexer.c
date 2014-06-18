@@ -361,7 +361,9 @@ static void smt2_activate_bv(void) {
  */
 void smt2_lexer_activate_logic(smt_logic_t logic) {
   switch (logic) {
+  case ALIA:
   case AUFLIA:
+  case QF_ALIA:
   case QF_AUFLIA:
     smt2_activate_ints();
     smt2_activate_arrays();
@@ -374,6 +376,7 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
     break;
 
   case LRA:
+  case NRA:
   case QF_LRA:
   case QF_NRA:
   case QF_RDL:
@@ -393,24 +396,37 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
     smt2_activate_arrays();
     break;
 
+  case BV:
   case QF_BV:
   case QF_UFBV:
+  case UFBV:
     smt2_activate_bv();
     break;
 
   case QF_IDL:
   case QF_UFIDL:
+  case UFIDL:
     smt2_activate_idl();
     break;
 
+  case LIA:
+  case NIA:
   case QF_LIA:
   case QF_NIA:
   case QF_UFLIA:
+  case QF_UFNIA:
+  case UFLIA:
   case UFNIA:
     smt2_activate_ints();
     break;
 
+  case QF_LIRA:
+  case QF_UFLIRA:
+    smt2_activate_mixed_arith();
+    break;
+
   case QF_UF:
+  case UF:
   case SMT_UNKNOWN:
   case NONE:
     break;
@@ -421,21 +437,38 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
 /*
  * Lexer initialization
  */
-int32_t init_smt2_file_lexer(lexer_t *lex, char *filename) {
+int32_t init_smt2_file_lexer(lexer_t *lex, const char *filename) {
   smt2_activate_default();
   return init_file_lexer(lex, filename);
 }
 
-void init_smt2_stream_lexer(lexer_t *lex, FILE *f, char *name) {
+void init_smt2_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
   smt2_activate_default();
   init_stream_lexer(lex, f, name);
 }
 
-void init_smt2_string_lexer(lexer_t *lex, char *data, char *name) {
+void init_smt2_string_lexer(lexer_t *lex, char *data, const char *name) {
   smt2_activate_default();
   init_string_lexer(lex, data, name);
 }
 
+
+#if 0
+
+/*
+ * HACK/EXPERIMENT: use UTF-8 encoded strings
+ */
+int32_t init_smt2_wide_file_lexer(lexer_t *lex, const char *filename) {
+  smt2_activate_default();
+  return init_wide_file_lexer(lex, filename);
+}
+
+void init_smt2_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
+  smt2_activate_default();
+  init_wide_stream_lexer(lex, f, name);
+}
+
+#endif
 
 /*
  * Get string for tokens/symbols/keywords

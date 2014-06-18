@@ -32,7 +32,7 @@
  * We collect such assertions into an array of range-constraint records:
  * - each record stores the terms [c1 ... c_n]
  *   + a set of terms t_1 .... t_m  and a set of indices i_1 .... i_m
- * - for each index i_j in { i_1 ,.... i_m } we have
+ * - for each index i_j in { i_1 ,.... i_m }, the
  *   assertion ctx->top_formula[i_j] is a range constraint
  *   equivalent to (or (= t_j c1) .... (= t_j c_n))
  * - every c_i and every t_j is a root term in ctx->intern

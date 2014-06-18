@@ -75,7 +75,9 @@ typedef enum {
  * - KEEP_ITE: keep if-then-else terms in the egraph
  * - BREAKSYM: enables symmetry breaking
  * - PSEUDO_INVERSE: enables elimination of unconstrained terms using
- *   pseudo-inverse tricks.
+ *   pseudo-inverse tricks
+ * - CONDITIONAL_DEF: attempt to detect and use assertions of the form
+ *     (condition => (term = constant))
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
  *
@@ -108,17 +110,18 @@ typedef enum {
 #define BREAKSYM_OPTION_MASK            0x800
 #define PSEUDO_INVERSE_OPTION_MASK      0x1000
 #define ITE_BOUNDS_OPTION_MASK          0x2000
+#define CONDITIONAL_DEF_OPTION_MASK     0x4000
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
   EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
   BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK|\
-  ITE_BOUNDS_OPTION_MASK)
+  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK)
 
 // SIMPLEX OPTIONS
-#define SPLX_EGRLMAS_OPTION_MASK  0x10000
-#define SPLX_ICHECK_OPTION_MASK   0x20000
-#define SPLX_EQPROP_OPTION_MASK   0x40000
+#define SPLX_EGRLMAS_OPTION_MASK  0x1000000
+#define SPLX_ICHECK_OPTION_MASK   0x2000000
+#define SPLX_EQPROP_OPTION_MASK   0x4000000
 
 // FOR TESTING
 #define LAX_OPTION_MASK         0x40000000
@@ -296,6 +299,9 @@ enum {
  *     - this is used to convert if-then-else equalities:
  *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
  *
+ * 15b) void assert_clause_vareq_axiom(void *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y)
+ *     - assert (c[0] \/ ... \/ c[n-1] \/ x == y)
+ *
  * Egraph connection
  * -----------------
  *
@@ -361,6 +367,7 @@ typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
 typedef void (*assert_arith_paxiom_fun_t)(void *solver, polynomial_t *p, thvar_t *map, bool tt);
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
+typedef void (*assert_arith_clause_vareq_axiom_fun_t)(void* solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y);
 
 typedef void    (*attach_eterm_fun_t)(void *solver, thvar_t v, eterm_t t);
 typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
@@ -387,6 +394,7 @@ typedef struct arith_interface_s {
   assert_arith_paxiom_fun_t assert_poly_ge_axiom;
   assert_arith_vareq_axiom_fun_t assert_vareq_axiom;
   assert_arith_cond_vareq_axiom_fun_t assert_cond_vareq_axiom;
+  assert_arith_clause_vareq_axiom_fun_t assert_clause_vareq_axiom;
 
   attach_eterm_fun_t attach_eterm;
   eterm_of_var_fun_t eterm_of_var;
@@ -616,6 +624,7 @@ struct context_s {
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
   ivector_t aux_eqs;
+  ivector_t aux_atoms;
   ivector_t aux_vector;
   int_queue_t queue;
   int_stack_t istack;
@@ -1014,6 +1023,25 @@ extern void process_aux_eqs(context_t *ctx);
 extern void context_process_candidate_subst(context_t *ctx);
 
 
+/*
+ * Auxiliary atoms:
+ * - add atom a to the aux_atoms vector
+ * - the auxiliary atom can be processed later by process_aux_atoms
+ */
+extern void add_aux_atom(context_t *ctx, term_t atom);
+
+
+/*
+ * Process the auxiliary atoms:
+ * - take all atoms in ctx->aux_atoms and assert them
+ *   (map them to true and add them to ctx->top_atoms)
+ * - if there's a trivial contradiction: an atom is both
+ *   asserted true and false, this function raises an exception
+ *   via longjmp
+ */
+extern void process_aux_atoms(context_t *ctx);
+
+
 
 /*
  * TYPES AFTER VARIABLE ELIMINATION
@@ -1100,6 +1128,12 @@ extern void analyze_diff_logic(context_t *ctx, bool idl);
 extern void break_uf_symmetries(context_t *ctx);
 
 
+/*
+ * Preprocessing of conditional definitions
+ */
+extern void process_conditional_definitions(context_t *ctx);
+
+
 
 /*
  * CLEANUP
@@ -1133,7 +1167,24 @@ extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t 
 /*
  * Free a conditional descriptor returned by the previous function
  */
-extern void contect_free_conditional(context_t *ctx, conditional_t *d);
+extern void context_free_conditional(context_t *ctx, conditional_t *d);
+
+
+/*
+ * Check whether conditional_t *d can be simplified
+ * - d is of the form
+ *    COND c1 --> a1
+ *         c2 --> a2
+ *         ...
+ *         else --> b
+ *    END
+ *   where c_1 ... c_n are pairwise disjoint
+ *
+ * - if one of c_i is true, the function returns a_i
+ * - if all c_i's are false, the function returns d
+ * - in all other cases, the function returns NULL_TERM
+ */
+extern term_t simplify_conditional(context_t *ctx, conditional_t *d);
 
 
 
@@ -1363,6 +1414,14 @@ static inline void disable_assert_ite_bounds(context_t *ctx) {
   ctx->options &= ~ITE_BOUNDS_OPTION_MASK;
 }
 
+static inline void enable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options |= CONDITIONAL_DEF_OPTION_MASK;
+}
+
+static inline void disable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options &= ~CONDITIONAL_DEF_OPTION_MASK;
+}
+
 
 /*
  * Simplex-related options
@@ -1416,6 +1475,10 @@ static inline bool context_pseudo_inverse_enabled(context_t *ctx) {
 
 static inline bool context_ite_bounds_enabled(context_t *ctx) {
   return (ctx->options & ITE_BOUNDS_OPTION_MASK) != 0;
+}
+
+static inline bool context_cond_def_preprocessing_enabled(context_t *ctx) {
+  return (ctx->options & CONDITIONAL_DEF_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {

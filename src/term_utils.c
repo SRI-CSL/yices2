@@ -1042,482 +1042,6 @@ bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
 
 
 
-/*********************************************
- *  NORMALIZATION OF ARITHMETIC CONSTRAINTS  *
- ********************************************/
-
-/*
- * There are three types of arithmetic atoms in Yices:
- *   ARITH_EQ: [t == 0]
- *   ARITH_GE: [t >= 0]
- *   ARITH_BINEQ: [t1 == t2]
- *
- * We normalize them to check whether two arithmetic literals are
- * incompatible (can't both be true).
- *
- * This is limited to constraints on the same term. For example,
- *   [t == 0] and [not [2 + t >= 0]]
- * are normalized to constraints on t:
- *    t == 0 and  t < -2,
- * which are incompatible.
- */
-
-/*
- * Descriptor of an arithmetic constraint:
- * - all constraints are written in the form <sign> <poly> <op> <constant>
- * - <sign> is either + or -
- * - <op> can be EQ/LE/LT/GE/GT
- * - <poly> is a sum of monomials without constant term
- * - to get a normal form, we set <sign> to - if the first monomial of <poly>
- *   is negative and to + if the first monomial of <poly> is positive.
- *
- * To store the representation:
- * - len = number of monomials in p
- * - poly = pointer to the monomial array
- * - aux[3] = array to build the monomial array if required
- */
-typedef enum {
-  EQ, LE, LT, GE, GT,
-} cmp_op_t;
-
-#define NUM_ARITH_CMP_OP ((uint32_t)(GT+1))
-
-typedef struct arith_constraint_s {
-  cmp_op_t op;       // comparison operator
-  bool is_pos;       // true if positive sign
-  uint32_t len;      // number of monomials in poly
-  monomial_t *poly;
-  rational_t constant;
-  monomial_t aux[3];
-} arith_constraint_t;
-
-
-/*
- * Initialize all rationals coefficients (except aux[2])
- */
-static void init_arith_cnstr(arith_constraint_t *cnstr) {
-  q_init(&cnstr->constant);
-  q_init(&cnstr->aux[0].coeff);
-  q_init(&cnstr->aux[1].coeff);
-}
-
-/*
- * Clear the constraint descriptor
- */
-static void delete_arith_cnstr(arith_constraint_t *cnstr) {
-  q_clear(&cnstr->constant);
-  q_clear(&cnstr->aux[0].coeff);
-  q_clear(&cnstr->aux[1].coeff);
-}
-
-/*
- * Store p into cnstr:
- * - p is a0 + a1 t1 + ... + a_n t_n
- * - if a_1 is positive, then we set
- *     cnstr->is_pos = true
- *     cnstr->poly = a1 t1 + ... + a_n t_n
- *     cnstr->constant = - a0
- * - if a_1 is negative, then we store
- *     cnstr->is_pos = false
- *     cnstr->poly = a1 t1 + ... + a_n t_n
- *     cnstr->constant = +a0
- */
-static void arith_cnstr_set_poly(arith_constraint_t *cnstr, polynomial_t *p) {
-  uint32_t n;
-
-  n = p->nterms;
-  assert(n > 1);
-  cnstr->is_pos = true;
-
-  if (p->mono[0].var == const_idx) {
-    cnstr->len = n - 1;
-    cnstr->poly = p->mono + 1;
-    q_set_neg(&cnstr->constant, &p->mono[0].coeff);
-  } else {
-    // no constant term in p
-    cnstr->len = n;
-    cnstr->poly = p->mono;
-    q_clear(&cnstr->constant);
-  }
-
-  if (q_is_neg(&cnstr->poly[0].coeff)) {
-    cnstr->is_pos = false;
-    q_neg(&cnstr->constant);
-  }
-}
-
-
-/*
- * Store 1 * t into cnstr->aux
- */
-static void arith_cnstr_aux_set_term(arith_constraint_t *cnstr, term_t t) {
-  q_set_one(&cnstr->aux[0].coeff);
-  cnstr->aux[0].var = t;
-  cnstr->aux[1].var = max_idx; // end marker
-}
-
-/*
- * Store t into cnstr: t should not be a polynomial
- */
-static void arith_cnstr_set_term(arith_constraint_t *cnstr, term_t t) {
-  arith_cnstr_aux_set_term(cnstr, t);
-  cnstr->is_pos = true;
-  cnstr->len = 1;
-  cnstr->poly = cnstr->aux;
-  q_clear(&cnstr->constant);  // constant = 0
-}
-
-
-/*
- * Store t1 - t2 into cnstr:
- * - one of them may be a rational constant
- */
-static void arith_cnstr_set_diff(term_table_t *tbl, arith_constraint_t *cnstr, term_t t1, term_t t2) {
-  assert(t1 != t2);
-
-  if (term_kind(tbl, t1) == ARITH_CONSTANT) {
-    arith_cnstr_aux_set_term(cnstr, t2);
-    cnstr->is_pos = true;
-    cnstr->len = 1;
-    cnstr->poly = cnstr->aux;
-    q_set(&cnstr->constant, rational_term_desc(tbl, t1));
-
-  } else if (term_kind(tbl, t2) == ARITH_CONSTANT) {
-    arith_cnstr_aux_set_term(cnstr, t1);
-    cnstr->is_pos = true;
-    cnstr->len = 1;
-    cnstr->poly = cnstr->aux;
-    q_set(&cnstr->constant, rational_term_desc(tbl, t2));
-
-  } else {
-    // store t1 - t2 into aux
-    if (t1 < t2) {
-      cnstr->is_pos = true;
-      q_set_one(&cnstr->aux[0].coeff);
-      cnstr->aux[0].var = t1;
-      q_set_minus_one(&cnstr->aux[1].coeff);
-      cnstr->aux[1].var = t2;
-    } else {
-      cnstr->is_pos = false;
-      q_set_minus_one(&cnstr->aux[0].coeff);
-      cnstr->aux[0].var = t2;
-      q_set_one(&cnstr->aux[1].coeff);
-      cnstr->aux[1].var = t1;
-    }
-    cnstr->aux[2].var = max_idx; // end marker
-
-    cnstr->len = 2;
-    cnstr->poly = cnstr->aux;
-    q_clear(&cnstr->constant); // constant = 0
-  }
-}
-
-
-/*
- * Store atom t == 0 into descriptor cnstr
- * - t must be an arithmetic term defined in tbl
- */
-static void store_arith_eq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
-  assert(is_arithmetic_term(tbl, t));
-
-  cnstr->op = EQ;
-  if (term_kind(tbl, t) == ARITH_POLY) {
-    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
-  } else {
-    arith_cnstr_set_term(cnstr, t);
-  }
-}
-
-/*
- * Store atom t >= 0 into cnstr
- * - t must be an arithmetic term defined in tbl
- */
-static void store_arith_geq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
-  assert(is_arithmetic_term(tbl, t));
-
-  if (term_kind(tbl, t) == ARITH_POLY) {
-    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
-    // op = GE is sign in '+' or LE is sign is '-'
-    cnstr->op = cnstr->is_pos ? GE : LE;
-  } else {
-    arith_cnstr_set_term(cnstr, t);
-    assert(cnstr->is_pos);
-    cnstr->op = GE;
-  }
-}
-
-/*
- * Store atom t < 0 into cnstr
- * - t must be an arithmetic term defined in tbl
- */
-static void store_arith_lt(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
-  assert(is_arithmetic_term(tbl, t));
-
-  if (term_kind(tbl, t) == ARITH_POLY) {
-    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
-    // op = LT is sign in '+' or GT is sign is '-'
-    cnstr->op = cnstr->is_pos ? LT : GT;
-  } else {
-    arith_cnstr_set_term(cnstr, t);
-    assert(cnstr->is_pos);
-    cnstr->op = LT;
-  }
-}
-
-/*
- * Store t1 == t2 into cnstr
- * - we assume t1 and t2 are not polynomials
- */
-static void store_arith_bineq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t1, term_t t2) {
-  assert(is_arithmetic_term(tbl, t1) && is_arithmetic_term(tbl, t2));
-  arith_cnstr_set_diff(tbl, cnstr, t1, t2);
-  cnstr->op = EQ;
-}
-
-
-/*
- * Attempt to store the arithmetic literal t into cnstr
- * - return false if this fails: either because t is not an arithmetic literal
- *   or it's of the form (not (t == 0)) or (not (t1 == t2))
- */
-static bool arith_cnstr_store_literal(term_table_t *tbl, arith_constraint_t *cnstr, term_t l) {
-  composite_term_t *eq;
-  term_t t;
-
-  switch (term_kind(tbl, l)) {
-  case ARITH_EQ_ATOM:
-    if (is_pos_term(l)) {
-      t = arith_eq_arg(tbl, l);
-      store_arith_eq(tbl, cnstr, t);
-      return true;
-    }
-    break;
-
-  case ARITH_GE_ATOM:
-    t = arith_ge_arg(tbl, l);
-    if (is_pos_term(l)) {
-      store_arith_geq(tbl, cnstr, t);
-    } else {
-      store_arith_lt(tbl, cnstr, t);
-    }
-    return true;
-
-  case ARITH_BINEQ_ATOM:
-    if (is_pos_term(l)) {
-      eq = arith_bineq_atom_desc(tbl, l);
-      assert(eq->arity == 2);
-      store_arith_bineq(tbl, cnstr, eq->arg[0], eq->arg[1]);
-      return true;
-    }
-    break;
-
-  default:
-    break;
-  }
-
-  return false;
-}
-
-
-/*
- * Check whether two cnstr1 and cnstr2 are on the same term/polynomial
- */
-static bool arith_cnstr_same_poly(arith_constraint_t *cnstr1, arith_constraint_t *cnstr2) {
-  if (cnstr1->len == cnstr2->len) {
-    if (cnstr1->is_pos == cnstr2->is_pos) {
-      return equal_monarrays(cnstr1->poly, cnstr2->poly);
-    } else {
-      return opposite_monarrays(cnstr1->poly, cnstr2->poly);
-    }
-  }
-  return false;
-}
-
-
-/*
- * Table to check whether two constraints on t are incompatible
- * - each row correspond to a constraint [t op a] for different ops
- * - each column correspond to a constraint [t op b] for different ops
- * - the content of the table is a check on constants a and b:
- *   such that ([t op a] /\ [t op b]) is false whenever the check holds
- * - example [t >= a] /\ [t = b] is false if b < a
- */
-typedef enum {
-  A_NE_B,
-  B_LE_A,
-  B_LT_A,
-  A_LE_B,
-  A_LT_B,
-  NEVER,
-} constant_check_t;
-
-static const uint8_t cnstr_check_table[NUM_ARITH_CMP_OP][NUM_ARITH_CMP_OP] = {
-  /* [t = b]  [t <= b]  [t < b]  [t >= b]  [t > b] */
-  {  A_NE_B,   B_LT_A,  B_LE_A,   A_LT_B,  A_LE_B }, /* [t = a]  */
-  {  A_LT_B,   NEVER,   NEVER,    A_LT_B,  A_LE_B }, /* [t <= a] */
-  {  A_LE_B,   NEVER,   NEVER,    A_LE_B,  A_LE_B }, /* [t < a]  */
-  {  B_LT_A,   B_LT_A,  B_LE_A,   NEVER,   NEVER },  /* [t >= a] */
-  {  B_LE_A,   B_LE_A,  B_LE_A,   NEVER,   NEVER },  /* [t > a]  */
-};
-
-
-/*
- * Check whether cnstr1 and cnstr2 are incompatible
- */
-static bool arith_cnstr_disjoint(arith_constraint_t *cnstr1, arith_constraint_t *cnstr2) {
-  rational_t *a, *b;
-
-  if (arith_cnstr_same_poly(cnstr1, cnstr2)) {
-    a = &cnstr1->constant;
-    b = &cnstr2->constant;
-    switch (cnstr_check_table[cnstr1->op][cnstr2->op]) {
-    case A_NE_B: return q_neq(a, b);
-    case B_LE_A: return q_le(b, a);
-    case B_LT_A: return q_lt(b, a);
-    case A_LE_B: return q_le(a, b);
-    case A_LT_B: return q_lt(a, b);
-
-    default: // return false
-      break;
-    }
-  }
-
-  return false;
-}
-
-
-
-/******************
- *  SUBSUMPTION   *
- *****************/
-
-/*
- * Check whether two arithmetic literals t1 and t2 are incompatible
- */
-bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2) {
-  arith_constraint_t cnstr1, cnstr2;
-  bool result;
-
-  if (opposite_bool_terms(t1, t2)) {
-    result = true;
-  } else {
-    init_arith_cnstr(&cnstr1);
-    init_arith_cnstr(&cnstr2);
-
-    result = false;
-    if (arith_cnstr_store_literal(tbl, &cnstr1, t1) &&
-	arith_cnstr_store_literal(tbl, &cnstr2, t2)) {
-      result = arith_cnstr_disjoint(&cnstr1, &cnstr2);
-    }
-
-    delete_arith_cnstr(&cnstr1);
-    delete_arith_cnstr(&cnstr2);
-  }
-
-  return result;
-}
-
-
-/*
- * Check whether two bitvector literals t1 and t2 are incompatible
- * MORE TO BE DONE
- */
-bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2) {
-  composite_term_t *eq1, *eq2;
-  bool result;
-  uint32_t i, j;
-
-  if (opposite_bool_terms(t1, t2)) {
-    result = true;
-  } else {
-    result = false;
-
-    if (is_pos_term(t1) && is_pos_term(t2) &&
-	term_kind(tbl, t1) == BV_EQ_ATOM && term_kind(tbl, t2) == BV_EQ_ATOM) {
-      eq1 = bveq_atom_desc(tbl, t1);
-      eq2 = bveq_atom_desc(tbl, t2);
-      assert(eq1->arity == 2 && eq2->arity == 2);
-
-      for (i=0; i<2; i++) {
-	for (j=0; j<2; j++) {
-	  if (eq1->arg[i] == eq2->arg[j]) {
-	    result = disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
-	    goto done;
-	  }
-	}
-      }
-    }
-  }
-
- done:
-  return result;
-}
-
-
-/*
- * Check whether two Boolean terms t1 and t2
- * are incompatible (i.e., (t1 and t2) is false.
- * - this does very simple checks for now
- */
-bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2) {
-  composite_term_t *eq1, *eq2;
-  uint32_t i, j;
-
-  if (is_arithmetic_literal(tbl, t1) && is_arithmetic_literal(tbl, t2)) {
-    return incompatible_arithmetic_literals(tbl, t1, t2);
-  }
-  if (is_bitvector_literal(tbl, t1) && is_bitvector_literal(tbl, t2)) {
-    return incompatible_bitvector_literals(tbl, t1, t2);
-  }
-
-  if (t1 == false_term || t2 == false_term || opposite_bool_terms(t1, t2)) {
-    return true;
-  }
-
-  if (is_pos_term(t1) && is_pos_term(t2) &&
-      term_kind(tbl, t1) == EQ_TERM && term_kind(tbl, t2) == EQ_TERM) {
-    eq1 = eq_term_desc(tbl, t1);
-    eq2 = eq_term_desc(tbl, t2);
-
-    for (i=0; i<2; i++) {
-      for (j=0; j<2; j++) {
-	if (eq1->arg[i] == eq2->arg[j]) {
-	  return disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
-	}
-      }
-    }
-  }
-
-  return false;
-}
-
-
-/*
- * Check whether t1 subsumes t2 (i.e., t1 => t2)
- */
-bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2) {
-  return incompatible_boolean_terms(tbl, t1, opposite_term(t2));
-}
-
-/*
- * Check whether t1 subsumes all elements of a[0 ... n-1]
- */
-bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (!term_subsumes_term(tbl, t1, a[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-
-
-
 /*******************************
  *  BOUNDS ON BITVECTOR TERMS  *
  ******************************/
@@ -2215,7 +1739,553 @@ bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
 
 
 
+/*********************************************
+ *  NORMALIZATION OF ARITHMETIC CONSTRAINTS  *
+ ********************************************/
 
+/*
+ * There are three types of arithmetic atoms in Yices:
+ *   ARITH_EQ: [t == 0]
+ *   ARITH_GE: [t >= 0]
+ *   ARITH_BINEQ: [t1 == t2]
+ *
+ * We normalize them to check whether two arithmetic literals are
+ * incompatible (can't both be true).
+ *
+ * This is limited to constraints on the same term. For example,
+ *   [t == 0] and [not [2 + t >= 0]]
+ * are normalized to constraints on t:
+ *    t == 0 and  t < -2,
+ * which are incompatible.
+ */
+
+/*
+ * Descriptor of an arithmetic constraint:
+ * - all constraints are written in the form <sign> <poly> <op> <constant>
+ * - <sign> is either + or -
+ * - <op> can be EQ/LE/LT/GE/GT
+ * - <poly> is a sum of monomials without constant term
+ * - to get a normal form, we set <sign> to - if the first monomial of <poly>
+ *   is negative and to + if the first monomial of <poly> is positive.
+ *
+ * To store the representation:
+ * - len = number of monomials in p
+ * - poly = pointer to the monomial array
+ * - aux[3] = array to build the monomial array if required
+ */
+typedef enum {
+  EQ, LE, LT, GE, GT,
+} cmp_op_t;
+
+#define NUM_ARITH_CMP_OP ((uint32_t)(GT+1))
+
+typedef struct arith_constraint_s {
+  cmp_op_t op;       // comparison operator
+  bool is_pos;       // true if positive sign
+  uint32_t len;      // number of monomials in poly
+  monomial_t *poly;
+  rational_t constant;
+  monomial_t aux[3];
+} arith_constraint_t;
+
+
+/*
+ * Initialize all rationals coefficients (except aux[2])
+ */
+static void init_arith_cnstr(arith_constraint_t *cnstr) {
+  q_init(&cnstr->constant);
+  q_init(&cnstr->aux[0].coeff);
+  q_init(&cnstr->aux[1].coeff);
+}
+
+/*
+ * Clear the constraint descriptor
+ */
+static void delete_arith_cnstr(arith_constraint_t *cnstr) {
+  q_clear(&cnstr->constant);
+  q_clear(&cnstr->aux[0].coeff);
+  q_clear(&cnstr->aux[1].coeff);
+}
+
+/*
+ * Store p into cnstr:
+ * - p is a0 + a1 t1 + ... + a_n t_n
+ * - if a_1 is positive, then we set
+ *     cnstr->is_pos = true
+ *     cnstr->poly = a1 t1 + ... + a_n t_n
+ *     cnstr->constant = - a0
+ * - if a_1 is negative, then we store
+ *     cnstr->is_pos = false
+ *     cnstr->poly = a1 t1 + ... + a_n t_n
+ *     cnstr->constant = +a0
+ *
+ * When this function is called, we know that p occurs in an
+ * atom of the form (p == 0) or (p >= 0). Then we can assume
+ * that p is not a constant polynomial (otherwise the aotm would
+ * be reduced to true or false  by the term manager).
+ */
+static void arith_cnstr_set_poly(arith_constraint_t *cnstr, polynomial_t *p) {
+  uint32_t n;
+
+  n = p->nterms;
+  assert(n >= 1);
+  cnstr->is_pos = true;
+
+  if (p->mono[0].var == const_idx) {
+    cnstr->len = n - 1;
+    cnstr->poly = p->mono + 1;
+    q_set_neg(&cnstr->constant, &p->mono[0].coeff);
+  } else {
+    // no constant term in p
+    cnstr->len = n;
+    cnstr->poly = p->mono;
+    q_clear(&cnstr->constant);
+  }
+
+  if (q_is_neg(&cnstr->poly[0].coeff)) {
+    cnstr->is_pos = false;
+    q_neg(&cnstr->constant);
+  }
+}
+
+
+/*
+ * Store 1 * t into cnstr->aux
+ */
+static void arith_cnstr_aux_set_term(arith_constraint_t *cnstr, term_t t) {
+  q_set_one(&cnstr->aux[0].coeff);
+  cnstr->aux[0].var = t;
+  cnstr->aux[1].var = max_idx; // end marker
+}
+
+/*
+ * Store t into cnstr: t should not be a polynomial
+ */
+static void arith_cnstr_set_term(arith_constraint_t *cnstr, term_t t) {
+  arith_cnstr_aux_set_term(cnstr, t);
+  cnstr->is_pos = true;
+  cnstr->len = 1;
+  cnstr->poly = cnstr->aux;
+  q_clear(&cnstr->constant);  // constant = 0
+}
+
+
+/*
+ * Store t1 - t2 into cnstr:
+ * - one of them may be a rational constant
+ */
+static void arith_cnstr_set_diff(term_table_t *tbl, arith_constraint_t *cnstr, term_t t1, term_t t2) {
+  assert(t1 != t2);
+
+  if (term_kind(tbl, t1) == ARITH_CONSTANT) {
+    arith_cnstr_aux_set_term(cnstr, t2);
+    cnstr->is_pos = true;
+    cnstr->len = 1;
+    cnstr->poly = cnstr->aux;
+    q_set(&cnstr->constant, rational_term_desc(tbl, t1));
+
+  } else if (term_kind(tbl, t2) == ARITH_CONSTANT) {
+    arith_cnstr_aux_set_term(cnstr, t1);
+    cnstr->is_pos = true;
+    cnstr->len = 1;
+    cnstr->poly = cnstr->aux;
+    q_set(&cnstr->constant, rational_term_desc(tbl, t2));
+
+  } else {
+    // store t1 - t2 into aux
+    if (t1 < t2) {
+      cnstr->is_pos = true;
+      q_set_one(&cnstr->aux[0].coeff);
+      cnstr->aux[0].var = t1;
+      q_set_minus_one(&cnstr->aux[1].coeff);
+      cnstr->aux[1].var = t2;
+    } else {
+      cnstr->is_pos = false;
+      q_set_minus_one(&cnstr->aux[0].coeff);
+      cnstr->aux[0].var = t2;
+      q_set_one(&cnstr->aux[1].coeff);
+      cnstr->aux[1].var = t1;
+    }
+    cnstr->aux[2].var = max_idx; // end marker
+
+    cnstr->len = 2;
+    cnstr->poly = cnstr->aux;
+    q_clear(&cnstr->constant); // constant = 0
+  }
+}
+
+
+/*
+ * Store atom t == 0 into descriptor cnstr
+ * - t must be an arithmetic term defined in tbl
+ */
+static void store_arith_eq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  cnstr->op = EQ;
+  if (term_kind(tbl, t) == ARITH_POLY) {
+    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
+  } else {
+    arith_cnstr_set_term(cnstr, t);
+  }
+}
+
+/*
+ * Store atom t >= 0 into cnstr
+ * - t must be an arithmetic term defined in tbl
+ */
+static void store_arith_geq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  if (term_kind(tbl, t) == ARITH_POLY) {
+    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
+    // op = GE is sign in '+' or LE is sign is '-'
+    cnstr->op = cnstr->is_pos ? GE : LE;
+  } else {
+    arith_cnstr_set_term(cnstr, t);
+    assert(cnstr->is_pos);
+    cnstr->op = GE;
+  }
+}
+
+/*
+ * Store atom t < 0 into cnstr
+ * - t must be an arithmetic term defined in tbl
+ */
+static void store_arith_lt(term_table_t *tbl, arith_constraint_t *cnstr, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  if (term_kind(tbl, t) == ARITH_POLY) {
+    arith_cnstr_set_poly(cnstr, poly_term_desc(tbl, t));
+    // op = LT is sign in '+' or GT is sign is '-'
+    cnstr->op = cnstr->is_pos ? LT : GT;
+  } else {
+    arith_cnstr_set_term(cnstr, t);
+    assert(cnstr->is_pos);
+    cnstr->op = LT;
+  }
+}
+
+/*
+ * Store t1 == t2 into cnstr
+ * - we assume t1 and t2 are not polynomials
+ */
+static void store_arith_bineq(term_table_t *tbl, arith_constraint_t *cnstr, term_t t1, term_t t2) {
+  assert(is_arithmetic_term(tbl, t1) && is_arithmetic_term(tbl, t2));
+  arith_cnstr_set_diff(tbl, cnstr, t1, t2);
+  cnstr->op = EQ;
+}
+
+
+/*
+ * Attempt to store the arithmetic literal t into cnstr
+ * - return false if this fails: either because t is not an arithmetic literal
+ *   or it's of the form (not (t == 0)) or (not (t1 == t2))
+ */
+static bool arith_cnstr_store_literal(term_table_t *tbl, arith_constraint_t *cnstr, term_t l) {
+  composite_term_t *eq;
+  term_t t;
+
+  switch (term_kind(tbl, l)) {
+  case ARITH_EQ_ATOM:
+    if (is_pos_term(l)) {
+      t = arith_eq_arg(tbl, l);
+      store_arith_eq(tbl, cnstr, t);
+      return true;
+    }
+    break;
+
+  case ARITH_GE_ATOM:
+    t = arith_ge_arg(tbl, l);
+    if (is_pos_term(l)) {
+      store_arith_geq(tbl, cnstr, t);
+    } else {
+      store_arith_lt(tbl, cnstr, t);
+    }
+    return true;
+
+  case ARITH_BINEQ_ATOM:
+    if (is_pos_term(l)) {
+      eq = arith_bineq_atom_desc(tbl, l);
+      assert(eq->arity == 2);
+      store_arith_bineq(tbl, cnstr, eq->arg[0], eq->arg[1]);
+      return true;
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether two cnstr1 and cnstr2 are on the same term/polynomial
+ */
+static bool arith_cnstr_same_poly(arith_constraint_t *cnstr1, arith_constraint_t *cnstr2) {
+  if (cnstr1->len == cnstr2->len) {
+    if (cnstr1->is_pos == cnstr2->is_pos) {
+      return equal_monarrays(cnstr1->poly, cnstr2->poly);
+    } else {
+      return opposite_monarrays(cnstr1->poly, cnstr2->poly);
+    }
+  }
+  return false;
+}
+
+
+/*
+ * Table to check whether two constraints on t are incompatible
+ * - each row correspond to a constraint [t op a] for different ops
+ * - each column correspond to a constraint [t op b] for different ops
+ * - the content of the table is a check on constants a and b:
+ *   such that ([t op a] /\ [t op b]) is false whenever the check holds
+ * - example [t >= a] /\ [t = b] is false if b < a
+ */
+typedef enum {
+  A_NE_B,
+  B_LE_A,
+  B_LT_A,
+  A_LE_B,
+  A_LT_B,
+  NEVER,
+} constant_check_t;
+
+static const uint8_t cnstr_check_table[NUM_ARITH_CMP_OP][NUM_ARITH_CMP_OP] = {
+  /* [t = b]  [t <= b]  [t < b]  [t >= b]  [t > b] */
+  {  A_NE_B,   B_LT_A,  B_LE_A,   A_LT_B,  A_LE_B }, /* [t = a]  */
+  {  A_LT_B,   NEVER,   NEVER,    A_LT_B,  A_LE_B }, /* [t <= a] */
+  {  A_LE_B,   NEVER,   NEVER,    A_LE_B,  A_LE_B }, /* [t < a]  */
+  {  B_LT_A,   B_LT_A,  B_LE_A,   NEVER,   NEVER },  /* [t >= a] */
+  {  B_LE_A,   B_LE_A,  B_LE_A,   NEVER,   NEVER },  /* [t > a]  */
+};
+
+
+/*
+ * Check whether cnstr1 and cnstr2 are incompatible
+ */
+static bool arith_cnstr_disjoint(arith_constraint_t *cnstr1, arith_constraint_t *cnstr2) {
+  rational_t *a, *b;
+
+  if (arith_cnstr_same_poly(cnstr1, cnstr2)) {
+    a = &cnstr1->constant;
+    b = &cnstr2->constant;
+    switch (cnstr_check_table[cnstr1->op][cnstr2->op]) {
+    case A_NE_B: return q_neq(a, b);
+    case B_LE_A: return q_le(b, a);
+    case B_LT_A: return q_lt(b, a);
+    case A_LE_B: return q_le(a, b);
+    case A_LT_B: return q_lt(a, b);
+
+    default: // return false
+      break;
+    }
+  }
+
+  return false;
+}
+
+
+
+/******************
+ *  SUBSUMPTION   *
+ *****************/
+
+/*
+ * Check whether two arithmetic literals t1 and t2 are incompatible
+ */
+bool incompatible_arithmetic_literals(term_table_t *tbl, term_t t1, term_t t2) {
+  arith_constraint_t cnstr1, cnstr2;
+  bool result;
+
+  if (opposite_bool_terms(t1, t2)) {
+    result = true;
+  } else {
+    init_arith_cnstr(&cnstr1);
+    init_arith_cnstr(&cnstr2);
+
+    result = false;
+    if (arith_cnstr_store_literal(tbl, &cnstr1, t1) &&
+	arith_cnstr_store_literal(tbl, &cnstr2, t2)) {
+      result = arith_cnstr_disjoint(&cnstr1, &cnstr2);
+    }
+
+    delete_arith_cnstr(&cnstr1);
+    delete_arith_cnstr(&cnstr2);
+  }
+
+  return result;
+}
+
+
+/*
+ * Check whether two bitvector literals t1 and t2 are incompatible
+ * MORE TO BE DONE
+ */
+bool incompatible_bitvector_literals(term_table_t *tbl, term_t t1, term_t t2) {
+  composite_term_t *eq1, *eq2;
+  bool result;
+  uint32_t i, j;
+
+  if (opposite_bool_terms(t1, t2)) {
+    result = true;
+  } else {
+    result = false;
+
+    if (is_pos_term(t1) && is_pos_term(t2) &&
+	term_kind(tbl, t1) == BV_EQ_ATOM && term_kind(tbl, t2) == BV_EQ_ATOM) {
+      eq1 = bveq_atom_desc(tbl, t1);
+      eq2 = bveq_atom_desc(tbl, t2);
+      assert(eq1->arity == 2 && eq2->arity == 2);
+
+      for (i=0; i<2; i++) {
+	for (j=0; j<2; j++) {
+	  if (eq1->arg[i] == eq2->arg[j]) {
+	    result = disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
+	    goto done;
+	  }
+	}
+      }
+    }
+  }
+
+ done:
+  return result;
+}
+
+
+/*
+ * Check whether two Boolean terms t1 and t2
+ * are incompatible (i.e., (t1 and t2) is false.
+ * - this does very simple checks for now
+ */
+bool incompatible_boolean_terms(term_table_t *tbl, term_t t1, term_t t2) {
+  composite_term_t *eq1, *eq2;
+  uint32_t i, j;
+
+  if (is_arithmetic_literal(tbl, t1) && is_arithmetic_literal(tbl, t2)) {
+    return incompatible_arithmetic_literals(tbl, t1, t2);
+  }
+  if (is_bitvector_literal(tbl, t1) && is_bitvector_literal(tbl, t2)) {
+    return incompatible_bitvector_literals(tbl, t1, t2);
+  }
+
+  if (t1 == false_term || t2 == false_term || opposite_bool_terms(t1, t2)) {
+    return true;
+  }
+
+  if (is_pos_term(t1) && is_pos_term(t2) &&
+      term_kind(tbl, t1) == EQ_TERM && term_kind(tbl, t2) == EQ_TERM) {
+    eq1 = eq_term_desc(tbl, t1);
+    eq2 = eq_term_desc(tbl, t2);
+
+    for (i=0; i<2; i++) {
+      for (j=0; j<2; j++) {
+	if (eq1->arg[i] == eq2->arg[j]) {
+	  return disequal_bv_terms(tbl, eq1->arg[1 - i], eq2->arg[1 - j]);
+	}
+      }
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether t1 subsumes t2 (i.e., t1 => t2)
+ */
+bool term_subsumes_term(term_table_t *tbl, term_t t1, term_t t2) {
+  return incompatible_boolean_terms(tbl, t1, opposite_term(t2));
+}
+
+/*
+ * Check whether t1 subsumes all elements of a[0 ... n-1]
+ */
+bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (!term_subsumes_term(tbl, t1, a[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+
+
+/*
+ * EQUALITY DECOMPOSITION
+ */
+
+/*
+ * Check whether t is equivalent to (x == a) where x is a term and a is a constant
+ * - if so stores the term and constant in *x and *a, and returns true.
+ * - otherwise returns false, and leave *x and *a unchanged.
+ */
+bool is_term_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
+  composite_term_t *eq;
+
+  assert(good_term(tbl, t));
+  if (is_pos_term(t)) {
+    switch (term_kind(tbl, t)) {
+    case ARITH_EQ_ATOM:
+      // t is (x == 0);
+      *x = arith_eq_arg(tbl, t);
+      *a = zero_term;
+      return true;
+
+    case EQ_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_EQ_ATOM:
+      eq = composite_term_desc(tbl, t);
+      assert(eq->arity == 2);
+      if (is_const_term(tbl, eq->arg[0])) {
+	*a = eq->arg[0];
+	*x = eq->arg[1];
+	return true;
+      }
+      if (is_const_term(tbl, eq->arg[1])) {
+	*x = eq->arg[0];
+	*a = eq->arg[1];
+	return true;
+      }
+      break;
+
+    default:
+      break;
+    }
+
+  }
+
+  return false;
+}
+
+
+
+/*
+ * Variant: check whether t is of the form (x == a) where is uninterpreted and
+ * a is a constant.
+ */
+bool is_unint_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
+  term_t x0, a0;
+
+  if (is_term_eq_const(tbl, t, &x0, &a0) &&
+      term_kind(tbl, x0) == UNINTERPRETED_TERM) {
+    assert(is_pos_term(x0));
+    *x = x0;
+    *a = a0;
+    return true;
+  }
+
+  return false;
+}
 
 
 

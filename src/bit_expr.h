@@ -48,8 +48,7 @@
  *   - XOR nodes: (XOR a b)
  *   where a and b are node occurrences
  *
- * (term-idx i) is intended to denote a boolean term of index i
- * in the term table
+ * (term-idx i) is intended to denote boolean term i in the term table
  *
  * (select k i) is intended to be bit k of term i where i
  * is a bitvector term in the term table.
@@ -164,7 +163,7 @@ typedef union node_desc_u {
  * - desc[k] = descriptor
  * - map[k] = integer (used in conversion from bits to Boolean terms)
  *   map[k] is set to -1 when the node is created
- *   map[k] is the term index corresponding to node k after conversion to terms
+ *   map[k] is the term corresponding to node k after conversion to terms
  *    (cf. bit_term_conversion)
  *
  * Free list: the UNUSED nodes are stored in a free list

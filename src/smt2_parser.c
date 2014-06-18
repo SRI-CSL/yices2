@@ -263,13 +263,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_goto_c3:
       // in (declare-sort <symbol> ..)
-      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
+      //      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_free_sort_name(tstack, tkval(lex), tklen(lex), &loc);
       state = c3;
       goto loop;
 
     case symbol_next_goto_c9a:
       // in (define-sort <symbol> ...)
-      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
+      //      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_free_sort_name(tstack, tkval(lex), tklen(lex), &loc);
       state = c9a;
       goto loop;
 
@@ -293,7 +295,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_goto_c10a:
       // in (declare-fun <symbol> ...)
-      tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
+      //      tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_free_fun_name(tstack, tkval(lex), tklen(lex), &loc);
       state = c10a;
       goto loop;
 
@@ -308,7 +311,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_goto_c11a:
       // in (define-fun <symbol> ...)
-      tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
+      //      tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_free_fun_name(tstack, tkval(lex), tklen(lex), &loc);
       state = c11a;
       goto loop;
 

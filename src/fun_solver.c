@@ -2104,7 +2104,11 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
 }
 
 
-
+/*
+ * Clear: nothing to do
+ */
+void fun_solver_clear(fun_solver_t *solver) {
+}
 
 
 
@@ -2223,7 +2227,7 @@ eterm_t fun_solver_get_eterm_of_var(fun_solver_t *solver, thvar_t x) {
 /*
  * Assert that x1 and x2 are equal: do nothing
  */
-void fun_solver_assert_var_eq(fun_solver_t *solver, thvar_t x1, thvar_t x2) {
+void fun_solver_assert_var_eq(fun_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
   assert(0 <= x1 && x1 < solver->vtbl.nvars && 0 <= x2 && x2 < solver->vtbl.nvars);
 }
 
@@ -3550,6 +3554,7 @@ static th_ctrl_interface_t fsolver_control = {
   (push_fun_t) fun_solver_push,
   (pop_fun_t) fun_solver_pop,
   (reset_fun_t) fun_solver_reset,
+  (clear_fun_t) fun_solver_clear,
 };
 
 static th_egraph_interface_t fsolver_egraph = {

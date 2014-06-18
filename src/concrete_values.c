@@ -245,7 +245,7 @@ static void add_hash_pair(value_table_t *table, value_t f, value_t i) {
     j &= mask;
   }
 
-  assert(d[j].function = null_value);
+  assert(d[j].function == null_value);
   d[j].function = f;
   d[j].map = i;
 

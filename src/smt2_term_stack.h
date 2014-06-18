@@ -75,6 +75,20 @@ extern void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, l
 
 
 /*
+ * More for sort names/function names in declarations/definitions:
+ *    (define-sort  <symbol> ...)
+ *    (declare-sort <symbol> ...)
+ *    (define-fun   <symbol> ...)
+ *    (declare-fun  <symbol> ...)
+ */
+// symbol in a sort declaration/definition
+extern void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
+// symbol in a function declaration/definition
+extern void tstack_push_free_fun_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
+
+/*
  * Initialize stack for SMT2:
  * - add all the operations defined above
  * - modify the implementation of default operations

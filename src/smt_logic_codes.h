@@ -9,21 +9,31 @@
 /*
  * Codes for the logic (based on benchmarks available in June 2009)
  * + one special code 'NONE' for propositional logic
+ *
+ * 06/03/2014: More surprise logics for SMTCOMP 2014
  */
 typedef enum smt_logic {
   NONE,        // added 12/27/2012
 
+  ALIA,        // SMTCOMP 2014
   AUFLIA,
   AUFLIRA,
   AUFNIRA,
+  BV,          // SMTCOMP 2014
+  LIA,         // SMTCOMP 2014
   LRA,
+  NIA,         // SMPCOMP 2014
+  NRA,         // SMPCOMP 2014
+
   QF_ABV,      // new name for what used to be QF_AUFBV (arrays + BV)
+  QF_ALIA,     // SMTCOMP 2014
   QF_AUFBV,    // now means arrays + uninterpreted functions + BV
   QF_AUFLIA,
   QF_AX,
   QF_BV,
   QF_IDL,
   QF_LIA,
+  QF_LIRA,     // added 06/03/2014
   QF_LRA,
   QF_NIA,
   QF_NRA,      // added 07/25/2011
@@ -33,7 +43,14 @@ typedef enum smt_logic {
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
+  QF_UFLIRA,   // added 06/11 2014
+  QF_UFNIA,    // SMTCOMP 2014
   QF_UFNRA,
+
+  UF,          // SMTCOMP 2014
+  UFBV,        // SMTCOMP 2014
+  UFIDL,       // SMTCOMP 2014
+  UFLIA,       // SMTCOMP 2014
   UFLRA,       // added 07/25/2011
   UFNIA,
 

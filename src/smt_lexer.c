@@ -210,13 +210,33 @@ static void init_smttoken2string(void) {
  *   QF_NRA         Reals    (added July 2011)
  *   QF_RDL         Reals
  *   QF_UF          Empty
- *   QF_UFIDL       Ints
  *   QF_UFBV        Fixed_Size_BitVectors             BitVec
+ *   QF_UFIDL       Ints
  *   QF_UFLIA       Ints
  *   QF_UFLRA       Reals
  *   QF_UFNRA       Reals
  *   UFLRA          Reals    (added July 2011)
  *   UFNIA          Ints
+ *
+ * More logics: added June 03 2014 (for SMTCOMP 2014)
+ *
+ *   ALIA:          Int_ArrayEx
+ *   BV:            Fixed_Size_BitVectors
+ *   LIA:           Ints
+ *   NIA:           Ints
+ *   NRA:           Reals
+ *   QF_ABV:        BitVector_ArrayEx
+ *   QF_ALIA:       Int_ArrayEx
+ *   QF_LIRA:       Ints Reals
+ *   QF_UFNIA:      Ints Reals
+ *   UF:            Empty
+ *   UFBV:          Fixed_Size_BitVectors
+ *   UFIDL:         Ints
+ *   UFLIA:         Ints
+ *
+ * More logics: added June 10 2014
+ * 
+ *   QF_UFLIRA      Ints Reals 
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
 
@@ -376,7 +396,9 @@ static void activate_new_bv_tokens(void) {
  */
 void smt_lexer_activate_logic(smt_logic_t code) {
   switch (code) {
+  case ALIA:
   case AUFLIA:
+  case QF_ALIA:
   case QF_AUFLIA:
     activate_array_tokens();
     activate_arith_tokens();
@@ -403,7 +425,9 @@ void smt_lexer_activate_logic(smt_logic_t code) {
     activate_new_bv_tokens();
     break;
 
+  case BV:
   case QF_BV:
+  case UFBV:
     activate_new_bv_tokens();
     break;
 
@@ -411,17 +435,25 @@ void smt_lexer_activate_logic(smt_logic_t code) {
     activate_old_bv_tokens();
     break;
 
+  case LIA:
   case LRA:
-  case QF_LRA:
-  case QF_RDL:
-  case QF_UFLRA:
-  case QF_UFNRA:
+  case NIA:
+  case NRA:
   case QF_IDL:
   case QF_LIA:
+  case QF_LIRA:
+  case QF_LRA:
   case QF_NIA:
   case QF_NRA:
+  case QF_RDL:
   case QF_UFIDL:
   case QF_UFLIA:
+  case QF_UFLRA:
+  case QF_UFLIRA:
+  case QF_UFNIA:
+  case QF_UFNRA:
+  case UFIDL:
+  case UFLIA:
   case UFLRA:
   case UFNIA:
     activate_arith_tokens();
@@ -430,6 +462,7 @@ void smt_lexer_activate_logic(smt_logic_t code) {
     break;
 
   case QF_UF:
+  case UF:
   case NONE:
   case SMT_UNKNOWN:
     break;

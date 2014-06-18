@@ -62,10 +62,16 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t, ui
     break;
   }
 
-  // save the mapping x --> pos_term(i) in the node table
-  assert(bit_is_pos(x));
+  /*
+   * save the mapping x --> pos_term(i) in the node table
+   * if x is positive, node_of_bit(x) := pos_term(i)
+   * if x is negative, node_of_bit(x) := neg_term(i)
+   */
   if (map_of_node(nodes, node_of_bit(x)) == -1) {
-    set_map_of_node(nodes, node_of_bit(x), pos_term(i));
+    set_map_of_node(nodes, node_of_bit(x), mk_term(i, bit_is_pos(x)));
+
+    assert((bit_is_pos(x) && map_of_node(nodes, node_of_bit(x)) == pos_term(i)) ||
+	   (bit_is_neg(x) && map_of_node(nodes, node_of_bit(x)) == neg_term(i)));
   }
 
   // flip x's polarity if t has negative polarity
@@ -75,6 +81,10 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t, ui
 }
 
 
+#if 0
+
+// THIS IS OBSOLETE. THE CONVERSION FROM BIT TO TERMS IS NOW IMPLEMENTED
+// IN term_manager.c.
 
 
 /*
@@ -189,3 +199,5 @@ static term_t map_node_to_term(term_table_t *terms, node_table_t *nodes, node_t 
 term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, bit_t b) {
   return map_bit_to_term(terms, nodes, b);
 }
+
+#endif

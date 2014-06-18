@@ -58,6 +58,28 @@ void init_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
 }
 
 
+#if 0
+/*
+ * HACK/EXPERIMENT: use UTF-8 encoded input
+ */
+int32_t init_wide_file_lexer(lexer_t *lex, const char *filename) {
+  int32_t code;
+
+  code = init_wide_file_reader(&lex->reader, filename);
+  if (code >= 0) {
+    init_lexer(lex);
+  }
+  return code;
+}
+
+void init_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
+  init_wide_stream_reader(&lex->reader, f, name);
+  init_lexer(lex);
+}
+
+#endif
+
+
 /*
  * Initialize lexer for a string data
  */

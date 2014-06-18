@@ -376,24 +376,30 @@ static bool false_eq(term_table_t *table, term_t t1, term_t t2) {
 }
 
 /*
- * Check whether t is of the following formsL
+ * Check whether t is of the following forms
  * - false term
- * - disjuction: (or t1 ... tn_
+ * - disjuction: (or t1 ... tn)
  * - equality (x == constant) or (constant == x)
+ * - boolean equivalence: (x == true) or (x == false)
  *
- * The function retuns one of the following codes:
+ * The function returns one of the following codes:
  * - MATCH_FALSE
  * - MATCH_OR
  * - MATCH_EQ
+ * - MATCH_IFF
  * - MATCH_OTHER
  *
- * And in case of MATCH_EQ it stores the constant in *a and the other
+ * In case of MATCH_EQ it stores the constant in *a and the other
  * term in *x. Warning: *x may be uninterpreted.
+ *
+ * In case of MATCH_IFF: the function stores a Boolean term *x
+ * such that x is equivalent to t.
  */
 typedef enum match_code {
   MATCH_FALSE,
   MATCH_OR,
   MATCH_EQ,
+  MATCH_IFF,
   MATCH_OTHER,
 } match_code_t;
 
@@ -407,31 +413,67 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
     code = MATCH_FALSE;
   } else {
     code = MATCH_OTHER;
-    if (is_pos_term(t)) {
-      terms = ctx->terms;
-      if (term_kind(terms, t) == OR_TERM) {
+    terms = ctx->terms;
+
+    switch (term_kind(terms, t)) {
+    case OR_TERM:
+      if (is_pos_term(t)) {
 	code = MATCH_OR;
-      } else if (term_kind(terms, t) == EQ_TERM) {
-	eq = eq_term_desc(terms, t);
-	t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
-	t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	if (t1 != t2) {
-	  /*
-	   * if (t1 and t2) are equal, we return MATCH_OTHER, since (eq t1 t2) is true
-	   */
-	  if (false_eq(terms, t1, t2)) {
-	    code = MATCH_FALSE;
-	  } else if (term_is_constant(terms, t1)) {
-	    *a = t1;
-	    *x = t2;
-	    code = MATCH_EQ;
-	  } else if (term_is_constant(terms, t2)) {
-	    *a = t2;
-	    *x = t1;
-	    code = MATCH_EQ;
-	  }
+      }
+      break;
+
+    case EQ_TERM:
+      eq = eq_term_desc(terms, t);
+      t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+      t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+      if (is_boolean_term(terms, t1)) {
+	assert(is_boolean_term(terms, t2));
+	/*
+	 * t is either (iff t1 t2) or (not (iff t1 t2))
+	 * we rewrite (not (iff t1 t2)) to (iff t1 (not t2))
+	 */
+	if (is_neg_term(t)) {
+	  t2 = opposite_term(t2);
+	}
+	/*
+	 * Check whether t1 or t2 is true or false
+	 */
+	if (term_is_true(ctx, t1)) {
+	  code = MATCH_IFF;
+	  *x = t2;
+	} else if (term_is_false(ctx, t1)) {
+	  code = MATCH_IFF;
+	  *x = opposite_term(t2);
+	} else if (term_is_true(ctx, t2)) {
+	  code = MATCH_IFF;
+	  *x = t1;
+	} else if (term_is_false(ctx, t2)) {
+	  code = MATCH_IFF;
+	  *x = opposite_term(t1);
+	}
+
+      } else if (t1 != t2) {
+	/*
+	 * t1 and t2 are not Boolean
+	 * if t1 and t2 are equal, we return MATCH_OTHER, since (eq t1 t2) is true
+	 */
+	assert(is_pos_term(t1) && is_pos_term(t2));
+	if (false_eq(terms, t1, t2)) {
+	  code = MATCH_FALSE;
+	} else if (term_is_constant(terms, t1)) {
+	  *a = t1;
+	  *x = t2;
+	  code = MATCH_EQ;
+	} else if (term_is_constant(terms, t2)) {
+	  *a = t2;
+	  *x = t1;
+	  code = MATCH_EQ;
 	}
       }
+      break;
+
+    default:
+      break;
     }
   }
 
@@ -536,14 +578,25 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
       neqs ++;
       break;
 
+    case MATCH_IFF:
+      /*
+       * the returned term x is equivalent to t
+       */
+      push_term(queue, cache, x);
+      break;
+
     default:
       // abort
       goto done;
     }
   } while (! int_queue_is_empty(queue));
 
-  assert(y != NULL_TERM);
-  t = y;
+  assert(y != NULL_TERM && t == NULL_TERM);
+
+  if (neqs >= 2) {
+    assert(v->size == neqs);
+    t = y;
+  }
 
  done:
   int_queue_reset(queue);

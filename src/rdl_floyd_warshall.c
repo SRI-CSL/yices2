@@ -1890,6 +1890,12 @@ fcheck_code_t rdl_final_check(rdl_solver_t *solver) {
 }
 
 
+/*
+ * Clear: do nothing
+ */
+void rdl_clear(rdl_solver_t *solver) {
+}
+
 
 
 
@@ -2044,6 +2050,7 @@ void rdl_reset(rdl_solver_t *solver) {
   reset_int_htbl(&solver->htbl);
   arena_reset(&solver->arena);
   ivector_reset(&solver->expl_buffer);
+  ivector_reset(&solver->aux_vector);
   reset_rdl_const(&solver->c1);
   q_clear(&solver->q);
 
@@ -2627,6 +2634,64 @@ void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t v, t
 
 
 
+/*
+ * Assert (c[0] \/ ... \/ c[n-1]  \/  v == w)
+ */
+void rdl_assert_clause_vareq_axiom(rdl_solver_t *solver, uint32_t n, literal_t *c, thvar_t v, thvar_t w) {
+  dl_triple_t *triple;
+  ivector_t *aux;
+  int32_t x, y;
+  literal_t l1, l2;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  x = triple->target;
+  y = triple->source;
+  // v == w is equivalent to (x - y + d) == 0
+  if (x == y) {
+    if (q_is_nonzero(&triple->constant)) {
+      // (x - y + d) == 0 is false
+      add_clause(solver->core, n, c);
+    }
+    return;
+  }
+
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  /*
+   * Assert two clauses:
+   *  c[0] \/ ... \/ c[n-1] \/ (y - x <= d)
+   *  c[0] \/ ... \/ c[n-1] \/ (x - y <= -d)
+   */
+  l1 = rdl_make_atom(solver, y, x, &triple->constant);  // (y - x <= d)
+  q_set_neg(&solver->q, &triple->constant);             /// q := -d
+  l2 = rdl_make_atom(solver, x, y, &solver->q);         // (x - y <= -d)
+
+
+  aux = &solver->aux_vector;
+  assert(aux->size == 0);
+  ivector_copy(aux, c, n);
+
+  assert(aux->size == n);
+  ivector_push(aux, l1);
+  add_clause(solver->core, n+1, aux->data);
+
+  aux->data[n] = l2;
+  add_clause(solver->core, n+1, aux->data);
+
+  ivector_reset(aux);
+}
+
+
+
 
 
 
@@ -2958,6 +3023,7 @@ static th_ctrl_interface_t rdl_control = {
   (push_fun_t) rdl_push,
   (pop_fun_t) rdl_pop,
   (reset_fun_t) rdl_reset,
+  (clear_fun_t) rdl_clear,
 };
 
 
@@ -2994,6 +3060,7 @@ static arith_interface_t rdl_intern = {
   (assert_arith_paxiom_fun_t) rdl_assert_poly_ge_axiom,
   (assert_arith_vareq_axiom_fun_t) rdl_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
+  (assert_arith_clause_vareq_axiom_fun_t) rdl_assert_clause_vareq_axiom,
 
   NULL, // attach_eterm is not supported
   NULL, // eterm of var is not supported
@@ -3038,6 +3105,7 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   init_int_htbl(&solver->htbl, 0);
   init_arena(&solver->arena);
   init_ivector(&solver->expl_buffer, DEFAULT_RDL_BUFFER_SIZE);
+  init_ivector(&solver->aux_vector, DEFAULT_RDL_BUFFER_SIZE);
   init_rdl_const(&solver->c1);
   q_init(&solver->q);
 
@@ -3078,6 +3146,7 @@ void delete_rdl_solver(rdl_solver_t *solver) {
   delete_int_htbl(&solver->htbl);
   delete_arena(&solver->arena);
   delete_ivector(&solver->expl_buffer);
+  delete_ivector(&solver->aux_vector);
   clear_rdl_const(&solver->c1);
   q_clear(&solver->q);
 

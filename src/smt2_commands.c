@@ -823,6 +823,15 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
  * ERROR FROM YICES (in yices_error_report)
  */
 
+// mismatch between logic and assertions
+static void unsupported_construct(const char *what) {
+  if (__smt2_globals.logic_name != NULL) {
+    print_out("%s not allowed in logic %s", what, __smt2_globals.logic_name);
+  } else {
+    print_out("%s not supported");
+  }
+}
+
 /*
  * If full is true: print (error <message>)
  * Otherwise: print <message>
@@ -893,19 +902,61 @@ static void print_yices_error(bool full) {
     break;
 
   case CTX_FREE_VAR_IN_FORMULA:
+    print_out("formula contains free variable");
+    break;
+
   case CTX_LOGIC_NOT_SUPPORTED:
+    print_out("logic not supported");
+    break;
+
   case CTX_UF_NOT_SUPPORTED:
+    unsupported_construct("UF is");
+    break;
+
   case CTX_ARITH_NOT_SUPPORTED:
+    unsupported_construct("arithmetic is");
+    break;
+
   case CTX_BV_NOT_SUPPORTED:
+    unsupported_construct("bitvectors are");
+    break;
+
   case CTX_ARRAYS_NOT_SUPPORTED:
+    unsupported_construct("arrays are");
+    break;
+
   case CTX_QUANTIFIERS_NOT_SUPPORTED:
+    unsupported_construct("quantifiers are");
+    break;
+
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
+    unsupported_construct("non-linear arithmetic is");
+    break;
+
   case CTX_FORMULA_NOT_IDL:
+    print_out("formula is not in integer difference logic");
+    break;
+
   case CTX_FORMULA_NOT_RDL:
+    print_out("formula is not in real difference logic");
+    break;
+
   case CTX_TOO_MANY_ARITH_VARS:
+    print_out("too many variables for the arithemtic solver");
+    break;
+
   case CTX_TOO_MANY_ARITH_ATOMS:
+    print_out("too many atoms for the arithmetic solver");
+    break;
+
   case CTX_TOO_MANY_BV_VARS:
+    print_out("too many variables for the bit-vector solver");
+    break;
+
   case CTX_TOO_MANY_BV_ATOMS:
+    print_out("too many atoms for the bit-vector solver");
+    break;
+
   case CTX_ARITH_SOLVER_EXCEPTION:
   case CTX_BV_SOLVER_EXCEPTION:
   case CTX_ARRAY_SOLVER_EXCEPTION:
@@ -914,16 +965,22 @@ static void print_yices_error(bool full) {
   case CTX_UNKNOWN_PARAMETER:
   case CTX_INVALID_PARAMETER_VALUE:
   case CTX_UNKNOWN_LOGIC:
-    print_out("context exception"); // expand
+    print_out("context exception");
+    break;
+
+  case EVAL_QUANTIFIER:
+    print_out("can't evaluate quantified terms");
+    break;
+
+  case EVAL_LAMBDA:
+    print_out("can't evaluate lambda terms");
     break;
 
   case EVAL_UNKNOWN_TERM:
   case EVAL_FREEVAR_IN_TERM:
-  case EVAL_QUANTIFIER:
-  case EVAL_LAMBDA:
   case EVAL_OVERFLOW:
   case EVAL_FAILED:
-    print_out("can't evaluate term value"); // expand
+    print_out("can't evaluate term value");
     break;
 
   case OUTPUT_ERROR:
@@ -1006,6 +1063,8 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
   "invalid :named attribute (term is not ground)",    // SMT2_NAMED_TERM_NOT_GROUND
   "invalid :named attribute (name is already used)",  // SMT2_NAMED_SYMBOL_REUSED
+  NULL,                                 // SMT2_SYMBOL_REDEF_SORT
+  NULL,                                 // SMT2_SYMBOL_REDEF_FUN
 };
 
 
@@ -1218,6 +1277,16 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     }
     break;
 
+  case SMT2_SYMBOL_REDEF_SORT:
+  case SMT2_SYMBOL_REDEF_FUN:
+    if (symbol_needs_quotes(tstack->error_string)) {
+      print_out("name |%s| is already defined in the logic", tstack->error_string);
+    } else {
+      print_out("name %s is already defined in the logic", tstack->error_string);
+    }
+    break;
+
+
   case TSTACK_RATIONAL_FORMAT:
   case TSTACK_FLOAT_FORMAT:
   case TSTACK_BVBIN_FORMAT:
@@ -1325,7 +1394,9 @@ static void show_core_stats(smt_core_t *core) {
   print_out(" :clause-db-simplify %"PRIu32"\n", num_simplify_calls(core));
   print_out(" :decisions %"PRIu64"\n", num_decisions(core));
   print_out(" :conflicts %"PRIu64"\n", num_conflicts(core));
+  print_out(" :theory-conflicts %"PRIu32"\n", num_theory_conflicts(core));
   print_out(" :boolean-propagations %"PRIu64"\n", num_propagations(core));
+  print_out(" :theory-propagations %"PRIu32"\n", num_theory_propagations(core));
 }
 
 static void show_egraph_stats(egraph_t *egraph) {
@@ -1963,58 +2034,85 @@ static void unsupported_option(void) {
  * -1 means not supported
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
-  -1,                  // NONE: not a real SMT logic (treat as unsupported)
-  -1,                  // AUFLIA
-  -1,                  // AUFLIRA
-  -1,                  // AUFNIRA
-  -1,                  // LRA
-  CTX_ARCH_EGFUNBV,    // QF_ABV
-  CTX_ARCH_EGFUNBV,    // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
-  CTX_ARCH_EGFUN,      // QF_AX
-  CTX_ARCH_BV,         // QF_BV
-  CTX_ARCH_AUTO_IDL,   // QF_IDL
-  CTX_ARCH_SPLX,       // QF_LIA
-  CTX_ARCH_SPLX,       // QF_LRA
-  -1,                  // QF_NIA
-  -1,                  // QF_NRA
-  CTX_ARCH_AUTO_RDL,   // QF_RDL
-  CTX_ARCH_EG,         // QF_UF
-  CTX_ARCH_EGBV,       // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,     // QF_UFIDL
-  CTX_ARCH_EGSPLX,     // QF_UFLIA
-  CTX_ARCH_EGSPLX,     // QF_UFLRA
-  -1,                  // QF_UFNRA
-  -1,                  // UFLRA
-  -1,                  // UFNIA
+  -1,                   // NONE: not a real SMT logic (treat as unsupported)
+  -1,                   // ALIA
+  -1,                   // AUFLIA
+  -1,                   // AUFLIRA
+  -1,                   // AUFNIRA
+  -1,                   // BV
+  -1,                   // LIA
+  -1,                   // LRA
+  -1,                   // NIA
+  -1,                   // NRA
+  CTX_ARCH_EGFUNBV,     // QF_ABV
+  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
+  CTX_ARCH_EGFUNBV,     // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
+  CTX_ARCH_EGFUN,       // QF_AX
+  CTX_ARCH_BV,          // QF_BV
+  CTX_ARCH_AUTO_IDL,    // QF_IDL
+  CTX_ARCH_SPLX,        // QF_LIA
+  CTX_ARCH_SPLX,        // QF_LIRA
+  CTX_ARCH_SPLX,        // QF_LRA
+  -1,                   // QF_NIA
+  -1,                   // QF_NRA
+  CTX_ARCH_AUTO_RDL,    // QF_RDL
+  CTX_ARCH_EG,          // QF_UF
+  CTX_ARCH_EGBV,        // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,      // QF_UFIDL
+  CTX_ARCH_EGSPLX,      // QF_UFLIA
+  CTX_ARCH_EGSPLX,      // QF_UFLRA
+  CTX_ARCH_EGSPLX,      // QF_UFLIRA
+  -1,                   // QF_UFNIA
+  -1,                   // QF_UFNRA
+  -1,                   // UF
+  -1,                   // UFBV
+  -1,                   // UFIDL
+  -1,                   // UFLIA
+  -1,                   // UFLRA
+  -1,                   // UFNIA
 };
+
 
 /*
  * Specify whether the integer solver should be activated
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
   false,  // NONE
+  true,   // ALIA
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
+  false,  // BV
+  true,   // LIA
   false,  // LRA
+  true,   // NIA
+  false,  // NRA
   false,  // QF_ABV
+  true,   // QF_ALIA
   false,  // QF_AUFBV
   true,   // QF_AUFLIA
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
   true,   // QF_LIA
+  true,   // QF_LIRA
   false,  // QF_LRA
   true,   // QF_NIA
   false,  // QF_NRA
   false,  // QF_RDL
   false,  // QF_UF
-  false,  // QF_UFBV[x]
+  false,  // QF_UFBV[xx]
   false,  // QF_UFIDL
   true,   // QF_UFLIA
   false,  // QF_UFLRA
+  true,   // QF_UFLIRA
+  true,   // QF_UFNIA
   false,  // QF_UFNRA
+  false,  // UF
+  false,  // UFBV
+  false,  // UFIDL
+  true,   // UFLIA
   false,  // UFLRA
   true,   // UFNIA
 };
@@ -2025,27 +2123,40 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
   false,  // NONE
+  true,   // ALIA
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
+  true,   // BV
+  true,   // LIA
   true,   // LRA
+  true,   // NIA
+  true,   // NRA
   false,  // QF_ABV
+  false,  // QF_ALIA
   false,  // QF_AUFBV
   false,  // QF_AUFLIA
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
   false,  // QF_LIA
+  false,  // QF_LIRA
   false,  // QF_LRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_RDL
   false,  // QF_UF
-  false,  // QF_UFBV[x]
+  false,  // QF_UFBV[xx]
   false,  // QF_UFIDL
   false,  // QF_UFLIA
   false,  // QF_UFLRA
+  false,  // QF_UFLIRA
+  false,  // QF_UFNIA
   false,  // QF_UFNRA
+  true,   // UF
+  true,   // UFBV
+  true,   // UFIDL
+  true,   // UFLIA
   true,   // UFLRA
   true,   // UFNIA
 };
@@ -2321,7 +2432,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
      */
     if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
 	!has_uf(g->assertions.data, g->assertions.size)) {
-      fprintf(g->err, "Warning: switching logic to QF_IDL\n");
+      tprintf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
@@ -3568,7 +3679,7 @@ void smt2_pop(uint32_t n) {
   __smt2_globals.stats.num_pop ++;
   __smt2_globals.stats.num_commands ++;
   tprintf(__smt2_globals.tracer, 12,
-	  "\n(pop: %"PRIu32" calls)\n", __smt2_globals.stats.num_push);
+	  "\n(pop: %"PRIu32" calls)\n", __smt2_globals.stats.num_pop);
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {

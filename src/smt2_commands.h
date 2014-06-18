@@ -86,10 +86,13 @@ enum smt2_errors {
 
   SMT2_NAMED_TERM_NOT_GROUND,              // bad term in (! t :named xxxx)
   SMT2_NAMED_SYMBOL_REUSED,                // bad name in (! t :named xxxx)
+
+  SMT2_SYMBOL_REDEF_SORT,                  // name not allowed in (declare-sort <name> ...)  or (define-sort <name> ...)
+  SMT2_SYMBOL_REDEF_FUN,                   // name not allowed in (define-fun <name> ..) or (declare-fun <name> ...)
 };
 
 
-#define NUM_SMT2_EXCEPTIONS (SMT2_NAMED_SYMBOL_REUSED+1)
+#define NUM_SMT2_EXCEPTIONS (SMT2_SYMBOL_REDEF_FUN+1)
 
 
 /*

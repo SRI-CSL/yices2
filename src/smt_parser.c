@@ -141,7 +141,7 @@ typedef struct builtins_s {
   type_t elem_type;  // uninterpreted (for QF_AX)
   type_t ax_array;   // [index -> elem]
 
-  // types for QF_AUFIDL/QF_AUFLIA
+  // types for QF_AUFIDL/QF_AUFLIA/QF_ALIA
   type_t int_array;  // [int -> int]
   type_t array1; // [int -> real]
   type_t array2; // [int -> array1]

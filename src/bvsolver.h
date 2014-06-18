@@ -285,11 +285,12 @@ extern void bv_solver_free_model(bv_solver_t *solver);
 
 /*
  * Assert that x1 and x2 are equal:
+ * - id = edge index to be used in a subsequent call to egraph_explain_term_eq
  * - turn this into an axiom if possible
  * - otherwise push the equality into a queue for processing on the next
  *   call to propagate.
  */
-extern void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2);
+extern void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id);
 
 
 /*

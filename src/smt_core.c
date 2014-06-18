@@ -2687,7 +2687,14 @@ static bool theory_propagation(smt_core_t *s) {
 
   s->stack.theory_ptr = i;
 
-  return s->th_ctrl.propagate(s->th_solver);
+  /*
+   * If this function is called at base_level, then the theory solver
+   * may add clauses (in its propagate function). In particular, the
+   * theory solver may add the empty clause, which sets
+   * s->inconsistent to true.  So we must check for s->inconsistent
+   * here.
+   */
+  return s->th_ctrl.propagate(s->th_solver) && !s->inconsistent;
 }
 
 
@@ -2823,7 +2830,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     printf(" ");
     print_literal(stdout, a[i]);
   }
-  printf(" }\n");
+  printf(" }\n\n");
 #endif
 
   l0 = a[0];
@@ -3199,6 +3206,8 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
 	  }
 	}
       }
+    } else {
+      return false;
     }
     break;
   }
@@ -3254,6 +3263,15 @@ static void simplify_learned_clause(smt_core_t *s) {
   hash = signature(s, b+1, n-1); // skip b[0]. It cannot subsume anything.
 
   assert(s->buffer2.size == 0);
+
+#if TRACE
+  printf("---> DPLL:   Learned clause: {");
+  for (i=0; i<n; i++) {
+    printf(" ");
+    print_literal(stdout, b[i]);
+  }
+  printf(" }\n");
+#endif
 
   // remove the subsumed literals
   j = 1;
@@ -5055,6 +5073,10 @@ void smt_cleanup(smt_core_t *s) {
  */
 void smt_clear(smt_core_t *s) {
   assert(s->status == STATUS_SAT || s->status == STATUS_UNKNOWN);
+
+  // Give a change to the theory solver to cleanup its own state
+  s->th_ctrl.clear(s->th_solver);
+
   /*
    * In clean-interrupt mode, we restore the state to what it was
    * before the search started. This also backtracks to the base_level
@@ -5442,7 +5464,7 @@ void internalization_start(smt_core_t *s) {
 
 
 /*
- * Propagate at the base
+ * Propagate at the base level
  * - this is used to detect early inconsistencies during internalization
  */
 bool base_propagate(smt_core_t *s) {

@@ -5701,9 +5701,14 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
-    if (logic == QF_LIA) {
+    if (logic == QF_LIA || logic == QF_LIRA) {
       enable_splx_eager_lemmas(ctx);
     }
+  }
+
+  if (logic == QF_LRA) {
+    // FOR TESTING ONLY
+    enable_cond_def_preprocessing(ctx);
   }
 
   switch (arch) {
@@ -5721,7 +5726,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   case CTX_ARCH_SPLX:
     /// PROVISIONAL. FOR BENCHMARKING WITH ASSERT_ITE_BOUNDS
-    //    enable_splx_eager_lemmas(ctx);
+    enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
     break;
 
@@ -6081,6 +6086,56 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
 }
 
 
+#if 0
+// PROVISIONAL FOR TESTING
+// THIS IS USED IN SMT2_COMMAND TO PROCESS AND PRINT THE BENCHMARKS
+int32_t yices_process_formulas(context_t *ctx, uint32_t n, term_t t[]) {
+  int32_t code;
+
+  if (! check_good_terms(&manager, n, t) ||
+      ! check_boolean_args(&manager, n, t)) {
+    return -1;
+  }
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return -1;
+    }
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    code = context_process_formulas(ctx, n, t);
+    if (code < 0) {
+      // error during internalization
+      convert_internalization_error(code);
+      return -1;
+    }
+    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
+
+  case STATUS_UNSAT:
+    // fall-through intended
+    // nothing to do
+    break;
+
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  return 0;
+}
+#endif
 
 /*
  * Add a blocking clause: this is intended to support all-sat and variants.
@@ -6146,11 +6201,12 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->branching = BRANCHING_THEORY;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_LIA) {
+    if (ctx->logic == QF_LIA || ctx->logic == QF_LIRA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
-      // TEST: disable Bland's rule
-      //      params->bland_threshold = UINT32_MAX;
+    }
+    if (ctx->logic == QF_LRA) {
+      params->bland_threshold = 200000;
     }
     break;
 
@@ -6173,14 +6229,14 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_UFLIA || ctx->logic == QF_AUFLIA) {
+    if (ctx->logic == QF_UFLIA || ctx->logic == QF_UFLIRA || ctx->logic == QF_AUFLIA || ctx->logic == QF_ALIA) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
-    if (ctx->logic == QF_UFLIA) {
+    if (ctx->logic == QF_UFLIA || ctx->logic == QF_UFLIRA) {
       params->use_optimistic_fcheck = false;
     }
     break;

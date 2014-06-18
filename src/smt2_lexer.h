@@ -268,16 +268,29 @@ typedef enum smt2_symbol smt2_symbol_t;
  * - init_smt2_file_lexer returns -1 if the file can't be opened
  *   or 0 otherwise.
  */
-extern int32_t init_smt2_file_lexer(lexer_t *lex, char *filename);
+extern int32_t init_smt2_file_lexer(lexer_t *lex, const char *filename);
 
-extern void init_smt2_stream_lexer(lexer_t *lex, FILE *f, char *name);
+extern void init_smt2_stream_lexer(lexer_t *lex, FILE *f, const char *name);
 
 static inline void init_smt2_stdin_lexer(lexer_t *lex) {
   init_smt2_stream_lexer(lex, stdin, "stdin");
 }
 
-extern void init_smt2_string_lexer(lexer_t *lex, char *data, char *name);
+extern void init_smt2_string_lexer(lexer_t *lex, char *data, const char *name);
 
+
+#if 0
+
+/*
+ * HACK/EXPERIMENT: use UTF-8 encoded input
+ */
+extern int32_t init_smt2_wide_file_lexer(lexer_t *lex, const char *filename);
+extern void init_smt2_wide_stream_lexer(lexer_t *lex, FILE *f, const char *name);
+static inline void init_smt2_wide_stdin_lexer(lexer_t *lex) {
+  init_smt2_wide_stream_lexer(lex, stdin, "stdin");
+}
+
+#endif
 
 /*
  * Read next token and return its type

@@ -54,6 +54,7 @@ static th_ctrl_interface_t null_theory_ctrl = {
   do_nothing,       // push
   do_nothing,       // pop
   do_nothing,       // reset
+  do_nothing,       // clear
 };
 
 static th_smt_interface_t null_theory_smt = {

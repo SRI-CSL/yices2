@@ -88,12 +88,13 @@ static eassertion_t *eassertion_alloc(eassertion_queue_t *queue, uint32_t n) {
 /*
  * Add x1 == x2 to the queue
  */
-void eassertion_push_eq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2) {
+void eassertion_push_eq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2, int32_t id) {
   eassertion_t *a;
 
   a = eassertion_alloc(queue, 2);
   a->hint = NULL;
   a->tag = mk_var_eq_tag();
+  a->id = id;
   a->var[0] = x1;
   a->var[1] = x2;
 }
@@ -108,6 +109,7 @@ void eassertion_push_diseq(eassertion_queue_t *queue, thvar_t x1, thvar_t x2, co
   a = eassertion_alloc(queue, 2);
   a->hint = hint;
   a->tag = mk_var_diseq_tag();
+  a->id = 0;
   a->var[0] = x1;
   a->var[1] = x2;
 }
@@ -122,6 +124,7 @@ void eassertion_push_distinct(eassertion_queue_t *queue, uint32_t n, thvar_t *v,
 
   a = eassertion_alloc(queue, n);
   a->hint = hint;
+  a->id = 0;
   a->tag = mk_var_distinct_tag(n);
   for (i=0; i<n; i++) {
     a->var[i] = v[i];

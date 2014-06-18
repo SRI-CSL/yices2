@@ -640,7 +640,7 @@ void rba_delete_node(rba_buffer_t *b, uint32_t i) {
   p = ivector_pop2(&b->stack); // parent of i or null if i is the root
 
   if (p == rba_null) {
-    assert(b->root = i);
+    assert(b->root == i);
     b->root = j;
     mark_black(b, j);
   } else {
