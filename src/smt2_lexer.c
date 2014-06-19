@@ -360,79 +360,37 @@ static void smt2_activate_bv(void) {
  * Select the built-in symbols for a given logic
  */
 void smt2_lexer_activate_logic(smt_logic_t logic) {
-  switch (logic) {
-  case ALIA:
-  case AUFLIA:
-  case QF_ALIA:
-  case QF_AUFLIA:
-    smt2_activate_ints();
+  if (logic_has_arrays(logic)) {
     smt2_activate_arrays();
-    break;
-
-  case AUFLIRA:
-  case AUFNIRA:
-    smt2_activate_mixed_arith();
-    smt2_activate_arrays();
-    break;
-
-  case LRA:
-  case NRA:
-  case QF_LRA:
-  case QF_NRA:
-  case QF_RDL:
-  case QF_UFLRA:
-  case QF_UFNRA:
-  case UFLRA:
-    smt2_activate_reals();
-    break;
-
-  case QF_ABV:
-  case QF_AUFBV:
+  }
+  if (logic_has_bv(logic)) {
     smt2_activate_bv();
-    smt2_activate_arrays();
-    break;
-
-  case QF_AX:
-    smt2_activate_arrays();
-    break;
-
-  case BV:
-  case QF_BV:
-  case QF_UFBV:
-  case UFBV:
-    smt2_activate_bv();
-    break;
-
-  case QF_IDL:
-  case QF_UFIDL:
-  case UFIDL:
+  }
+  switch (arith_fragment(logic)) {
+  case ARITH_IDL:
     smt2_activate_idl();
     break;
 
-  case LIA:
-  case NIA:
-  case QF_LIA:
-  case QF_NIA:
-  case QF_UFLIA:
-  case QF_UFNIA:
-  case UFLIA:
-  case UFNIA:
+  case ARITH_LIA:
+  case ARITH_NIA:
     smt2_activate_ints();
     break;
 
-  case QF_LIRA:
-  case QF_UFLIRA:
+  case ARITH_LRA:
+  case ARITH_NRA:
+  case ARITH_RDL:
+    smt2_activate_reals();
+    break;
+
+  case ARITH_LIRA:
+  case ARITH_NIRA:
     smt2_activate_mixed_arith();
     break;
 
-  case QF_UF:
-  case UF:
-  case SMT_UNKNOWN:
-  case NONE:
+  case ARITH_NONE:
     break;
   }
 }
-
 
 /*
  * Lexer initialization

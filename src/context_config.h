@@ -27,34 +27,30 @@
 
 #include <stdint.h>
 
+#include "smt_logic_codes.h"
+#include "context.h"
+
+
 
 /*
  * The possible logic codes are defined in smt_logic_codes.h
  *
+ * The arithmetic codes are also in smt_logic_codes.h:
+ *    ARITH_IDL
+ *    ARITH_RDL
+ *    ARITH_LRA
+ *    ARITH_LIA
+ *    ARITH_LIRA
+ *    ARITH_NRA
+ *    ARITH_NIA
+ *    ARITH_NIRA
+ *
  * The possible modes are defined in context.h:
- *  CTX_MODE_ONECHECK
- *  CTX_MODE_MULTICHECKS
- *  CTX_MODE_PUSHPOP
- *  CTX_MODE_INTERACTIVE
+ *    CTX_MODE_ONECHECK
+ *    CTX_MODE_MULTICHECKS
+ *    CTX_MODE_PUSHPOP
+ *    CTX_MODE_INTERACTIVE
  */
-#include "smt_logic_codes.h"
-#include "context.h"
-
-/*
- * Codes for the arithmetic fragments
- */
-typedef enum arith_fragment {
-  CTX_CONFIG_ARITH_IDL,       // integer difference logic
-  CTX_CONFIG_ARITH_RDL,       // real difference logic
-  CTX_CONFIG_ARITH_LRA,       // linear real arithmetic
-  CTX_CONFIG_ARITH_LIA,       // linear integer arithmetic
-  CTX_CONFIG_ARITH_LIRA,      // mixed linear arithmetic  (default)
-  CTX_CONFIG_ARITH_NRA,       // non-linear, real arithmetic
-  CTX_CONFIG_ARITH_NIA,       // non-linear, integer arithmetic
-  CTX_CONFIG_ARITH_NIRA,      // non-linear, mixed arithmetic
-} arith_fragment_t;
-
-#define NUM_ARITH_FRAGMENTS (CTX_CONFIG_ARITH_NIRA+1)
 
 
 /*
@@ -167,6 +163,37 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  */
 extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch,
                              context_mode_t *mode, bool *iflag, bool *qflag);
+
+
+
+
+/*
+ * DIRECT CONFIGURATION
+ */
+
+/*
+ * To configure a context, we need:
+ * - architecture, iflag, qflag
+ * - mode
+ *
+ * The functions below return arch/iflag/qflag for a given logic code.
+ * The code must be a valid logic (not SMT_UNKNOWN).
+ *
+ * Function arch_for_logic returns -1 if we don't support the logic.
+ * For IDL and RDL, arch_for_logic returns CTX_ARCH_SPLX (because the
+ * alternaive solvers IFW and RFW don't support push and pop).
+ */
+extern int32_t arch_for_logic(smt_logic_t code);
+
+extern bool iflag_for_logic(smt_logic_t code);
+
+static inline bool qflag_for_logic(smt_logic_t code) {
+  return logic_has_quantifiers(code);
+}
+
+static inline bool logic_is_supported(smt_logic_t code) {
+  return arch_for_logic(code) >= 0;
+}
 
 
 

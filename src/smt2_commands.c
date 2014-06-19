@@ -37,6 +37,9 @@
 #include "cputime.h"
 #include "memsize.h"
 
+// for direct context configuration
+#include "context_config.h"
+
 #include "yices.h"
 #include "yices_exit_codes.h"
 #include "yices_extensions.h"
@@ -2029,138 +2032,6 @@ static void unsupported_option(void) {
  * CONTEXT INITIALIZATION
  */
 
-/*
- * Conversion of SMT logic code to architecture code
- * -1 means not supported
- */
-static const int32_t logic2arch[NUM_SMT_LOGICS] = {
-  -1,                   // NONE: not a real SMT logic (treat as unsupported)
-  -1,                   // ALIA
-  -1,                   // AUFLIA
-  -1,                   // AUFLIRA
-  -1,                   // AUFNIRA
-  -1,                   // BV
-  -1,                   // LIA
-  -1,                   // LRA
-  -1,                   // NIA
-  -1,                   // NRA
-  CTX_ARCH_EGFUNBV,     // QF_ABV
-  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
-  CTX_ARCH_EGFUNBV,     // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
-  CTX_ARCH_EGFUN,       // QF_AX
-  CTX_ARCH_BV,          // QF_BV
-  CTX_ARCH_AUTO_IDL,    // QF_IDL
-  CTX_ARCH_SPLX,        // QF_LIA
-  CTX_ARCH_SPLX,        // QF_LIRA
-  CTX_ARCH_SPLX,        // QF_LRA
-  -1,                   // QF_NIA
-  -1,                   // QF_NRA
-  CTX_ARCH_AUTO_RDL,    // QF_RDL
-  CTX_ARCH_EG,          // QF_UF
-  CTX_ARCH_EGBV,        // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,      // QF_UFIDL
-  CTX_ARCH_EGSPLX,      // QF_UFLIA
-  CTX_ARCH_EGSPLX,      // QF_UFLRA
-  CTX_ARCH_EGSPLX,      // QF_UFLIRA
-  -1,                   // QF_UFNIA
-  -1,                   // QF_UFNRA
-  -1,                   // UF
-  -1,                   // UFBV
-  -1,                   // UFIDL
-  -1,                   // UFLIA
-  -1,                   // UFLRA
-  -1,                   // UFNIA
-};
-
-
-/*
- * Specify whether the integer solver should be activated
- */
-static const bool logic2iflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  false,  // BV
-  true,   // LIA
-  false,  // LRA
-  true,   // NIA
-  false,  // NRA
-  false,  // QF_ABV
-  true,   // QF_ALIA
-  false,  // QF_AUFBV
-  true,   // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  true,   // QF_LIA
-  true,   // QF_LIRA
-  false,  // QF_LRA
-  true,   // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  true,   // QF_UFLIA
-  false,  // QF_UFLRA
-  true,   // QF_UFLIRA
-  true,   // QF_UFNIA
-  false,  // QF_UFNRA
-  false,  // UF
-  false,  // UFBV
-  false,  // UFIDL
-  true,   // UFLIA
-  false,  // UFLRA
-  true,   // UFNIA
-};
-
-
-/*
- * Specify whether quantifier support is needed
- */
-static const bool logic2qflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  true,   // BV
-  true,   // LIA
-  true,   // LRA
-  true,   // NIA
-  true,   // NRA
-  false,  // QF_ABV
-  false,  // QF_ALIA
-  false,  // QF_AUFBV
-  false,  // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  false,  // QF_LIA
-  false,  // QF_LIRA
-  false,  // QF_LRA
-  false,  // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  false,  // QF_UFLIA
-  false,  // QF_UFLRA
-  false,  // QF_UFLIRA
-  false,  // QF_UFNIA
-  false,  // QF_UFNRA
-  true,   // UF
-  true,   // UFBV
-  true,   // UFIDL
-  true,   // UFLIA
-  true,   // UFLRA
-  true,   // UFNIA
-};
-
 
 /*
  * Allocate and initialize the context based on g->logic
@@ -2173,21 +2044,29 @@ static void init_smt2_context(smt2_globals_t *g) {
   bool iflag;
   bool qflag;
 
-  assert(logic2arch[g->logic_code] >= 0);
+  assert(logic_is_supported(g->logic_code));
 
-  // default: assume g->benchmark_mode is true
+  // default: assume g->benchmark_mode is false
   logic = g->logic_code;
-  mode = CTX_MODE_ONECHECK;
-  arch = (context_arch_t) logic2arch[g->logic_code];
-  iflag = logic2iflag[g->logic_code];
-  qflag = logic2qflag[g->logic_code];
+  mode = CTX_MODE_PUSHPOP;
+  arch = arch_for_logic(logic);
+  iflag = iflag_for_logic(logic);
+  qflag = qflag_for_logic(logic);
 
-  if (! g->benchmark_mode) {
-    // change mode and arch
-    // to support push/pop, we can't use the Floyd-Warshall solvers
-    mode = CTX_MODE_PUSHPOP;
-    if (arch == CTX_ARCH_AUTO_RDL || arch == CTX_ARCH_AUTO_IDL) {
-      arch = CTX_ARCH_SPLX;
+  if (g->benchmark_mode) {
+    // change mode and arch for QF_IDL/QF_RDL
+    mode = CTX_MODE_ONECHECK;
+    switch (logic) {
+    case QF_IDL:
+      arch = CTX_ARCH_AUTO_IDL;
+      break;
+
+    case QF_RDL:
+      arch = CTX_ARCH_AUTO_RDL;
+      break;
+
+    default:
+      break;
     }
   }
 
@@ -3605,9 +3484,13 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
-  if (logic2arch[code] < 0) {
+  if (! logic_is_supported(code)) {
     print_error("logic %s is not supported", name);
     return;
+  }
+
+  if (! logic_is_official(code)) {
+    tprintf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
   smt2_lexer_activate_logic(code);

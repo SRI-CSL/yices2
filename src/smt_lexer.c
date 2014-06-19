@@ -235,8 +235,8 @@ static void init_smttoken2string(void) {
  *   UFLIA:         Ints
  *
  * More logics: added June 10 2014
- * 
- *   QF_UFLIRA      Ints Reals 
+ *
+ *   QF_UFLIRA      Ints Reals
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
 
@@ -392,82 +392,71 @@ static void activate_new_bv_tokens(void) {
 
 
 /*
- * Configure the lexer for a given SMT-LIB Logic
+ * Support for integer/real/mixed arithmetic
  */
-void smt_lexer_activate_logic(smt_logic_t code) {
+static void activate_arith_fragment(arith_fragment_t code) {
   switch (code) {
-  case ALIA:
-  case AUFLIA:
-  case QF_ALIA:
-  case QF_AUFLIA:
-    activate_array_tokens();
+  case ARITH_IDL:
+  case ARITH_LIA:
+  case ARITH_NIA:
     activate_arith_tokens();
     smt_token_active[SMT_TK_INT] = true;
     break;
 
+  case ARITH_RDL:
+  case ARITH_LRA:
+  case ARITH_NRA:
+    activate_arith_tokens();
+    smt_token_active[SMT_TK_REAL] = true;
+    break;
+
+  case ARITH_LIRA:
+  case ARITH_NIRA:
+    activate_arith_tokens();
+    smt_token_active[SMT_TK_INT] = true;
+    smt_token_active[SMT_TK_REAL] = true;
+    break;
+
+  case ARITH_NONE:
+    break;
+  }
+}
+
+/*
+ * Configure the lexer for a given SMT-LIB Logic
+ */
+void smt_lexer_activate_logic(smt_logic_t code) {
+  switch (code) {
   case AUFLIRA:
   case AUFNIRA:
-    activate_array_tokens();
+  case QF_AUFLIRA:
+  case QF_AUFNIRA:
+    // Special cases: arrays + int + real
+    // We must activate ARRAY1 and ARRAY2
     activate_arith_tokens();
+    activate_array_tokens();
     smt_token_active[SMT_TK_ARRAY1] = true;
     smt_token_active[SMT_TK_ARRAY2] = true;
     smt_token_active[SMT_TK_REAL] = true;
     smt_token_active[SMT_TK_INT] = true;
     break;
 
-  case QF_AX:
-    activate_array_tokens();
-    break;
-
-  case QF_ABV:
-  case QF_AUFBV:
-    activate_array_tokens();
-    activate_new_bv_tokens();
-    break;
-
-  case BV:
-  case QF_BV:
-  case UFBV:
-    activate_new_bv_tokens();
-    break;
-
   case QF_UFBV:
     activate_old_bv_tokens();
     break;
 
-  case LIA:
-  case LRA:
-  case NIA:
-  case NRA:
-  case QF_IDL:
-  case QF_LIA:
-  case QF_LIRA:
-  case QF_LRA:
-  case QF_NIA:
-  case QF_NRA:
-  case QF_RDL:
-  case QF_UFIDL:
-  case QF_UFLIA:
-  case QF_UFLRA:
-  case QF_UFLIRA:
-  case QF_UFNIA:
-  case QF_UFNRA:
-  case UFIDL:
-  case UFLIA:
-  case UFLRA:
-  case UFNIA:
-    activate_arith_tokens();
-    smt_token_active[SMT_TK_REAL] = true;
-    smt_token_active[SMT_TK_INT] = true;
-    break;
-
-  case QF_UF:
-  case UF:
-  case NONE:
-  case SMT_UNKNOWN:
+  default:
+    activate_arith_fragment(arith_fragment(code));
+    if (logic_has_arrays(code)) {
+      activate_array_tokens();
+    }
+    if (logic_has_bv(code)) {
+      activate_new_bv_tokens();
+    }
     break;
   }
 }
+
 
 
 /*

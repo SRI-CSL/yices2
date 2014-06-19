@@ -32,6 +32,7 @@
 #include "string_utils.h"
 #include "smt_logic_codes.h"
 #include "arith_solver_codes.h"
+#include "context_config.h"
 #include "yices_exit_codes.h"
 
 
@@ -334,147 +335,6 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
 
 
 
-/*
- * CONTEXT SETTING FOR A GIVEN LOGIC CODE
- */
-
-/*
- * Conversion of SMT logic code to architecture code
- * -1 means not supported
- */
-static const int32_t logic2arch[NUM_SMT_LOGICS] = {
-  CTX_ARCH_NOSOLVERS,   // NONE
-  -1,                   // ALIA
-  -1,                   // AUFLIA
-  -1,                   // AUFLIRA
-  -1,                   // AUFNIRA
-  -1,                   // BV
-  -1,                   // LIA
-  -1,                   // LRA
-  -1,                   // NIA
-  -1,                   // NRA
-  CTX_ARCH_EGFUNBV,     // QF_ABV
-  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
-  CTX_ARCH_EGFUNBV,     // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
-  CTX_ARCH_EGFUN,       // QF_AX
-  CTX_ARCH_BV,          // QF_BV
-  CTX_ARCH_AUTO_IDL,    // QF_IDL
-  CTX_ARCH_SPLX,        // QF_LIA
-  CTX_ARCH_SPLX,        // QF_LIRA
-  CTX_ARCH_SPLX,        // QF_LRA
-  -1,                   // QF_NIA
-  -1,                   // QF_NRA
-  CTX_ARCH_AUTO_RDL,    // QF_RDL
-  CTX_ARCH_EG,          // QF_UF
-  CTX_ARCH_EGBV,        // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,      // QF_UFIDL
-  CTX_ARCH_EGSPLX,      // QF_UFLIA
-  CTX_ARCH_EGSPLX,      // QF_UFLRA
-  CTX_ARCH_EGSPLX,      // QF_UFLIRA
-  -1,                   // QF_UFNIA
-  -1,                   // QF_UFNRA
-  -1,                   // UF
-  -1,                   // UFBV
-  -1,                   // UFIDL
-  -1,                   // UFLIA
-  -1,                   // UFLRA
-  -1,                   // UFNIA
-};
-
-
-/*
- * Specify whether the integer solver should be activated
- */
-static const bool logic2iflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  false,  // BV
-  true,   // LIA
-  false,  // LRA
-  true,   // NIA
-  false,  // NRA
-  false,  // QF_ABV
-  true,   // QF_ALIA
-  false,  // QF_AUFBV
-  true,   // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  true,   // QF_LIA
-  true,   // QF_LIRA
-  false,  // QF_LRA
-  true,   // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  true,   // QF_UFLIA
-  false,  // QF_UFLRA
-  true,   // QF_UFLIRA
-  true,   // QF_UFNIA
-  false,  // QF_UFNRA
-  false,  // UF
-  false,  // UFBV
-  false,  // UFIDL
-  true,   // UFLIA
-  false,  // UFLRA
-  true,   // UFNIA
-};
-
-
-/*
- * Specify whether quantifier support is needed
- */
-static const bool logic2qflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  true,   // BV
-  true,   // LIA
-  true,   // LRA
-  true,   // NIA
-  true,   // NRA
-  false,  // QF_ABV
-  false,  // QF_ALIA
-  false,  // QF_AUFBV
-  false,  // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  false,  // QF_LIA
-  false,  // QF_LIRA
-  false,  // QF_LRA
-  false,  // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  false,  // QF_UFLIA
-  false,  // QF_UFLRA
-  false,  // QF_UFLIRA
-  false,  // QF_UFNIA
-  false,  // QF_UFNRA
-  true,   // UF
-  true,   // UFBV
-  true,   // UFIDL
-  true,   // UFLIA
-  true,   // UFLRA
-  true,   // UFNIA
-};
-
-
-
-
-
-
 
 /**************************
  *  COMMAND-LINE OPTIONS  *
@@ -722,14 +582,14 @@ static void process_command_line(int argc, char *argv[]) {
 
   default:
     assert(logic_name != NULL && 0 <= logic_code && logic_code < NUM_SMT_LOGICS);
-    arch_code = logic2arch[logic_code];
+    arch_code = arch_for_logic(logic_code);
     if (arch_code < 0) {
       fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
       exit(YICES_EXIT_ERROR);
     }
     arch = (context_arch_t) arch_code;
-    iflag = logic2iflag[logic_code];
-    qflag = logic2qflag[logic_code];
+    iflag = iflag_for_logic(logic_code);
+    qflag = qflag_for_logic(logic_code);
     break;
   }
 

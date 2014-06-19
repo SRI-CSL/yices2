@@ -29,32 +29,6 @@ static const int32_t mode[NUM_MODES] = {
 
 
 /*
- * Arithmetic fragments
- */
-static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
-  "IDL",
-  "LIA",
-  "LIRA",
-  "LRA",
-  "NIA",
-  "NIRA",
-  "NRA",
-  "RDL",
-};
-
-static const int32_t fragment[NUM_ARITH_FRAGMENTS] = {
-  CTX_CONFIG_ARITH_IDL,
-  CTX_CONFIG_ARITH_LIA,
-  CTX_CONFIG_ARITH_LIRA,
-  CTX_CONFIG_ARITH_LRA,
-  CTX_CONFIG_ARITH_NIA,
-  CTX_CONFIG_ARITH_NIRA,
-  CTX_CONFIG_ARITH_NRA,
-  CTX_CONFIG_ARITH_RDL,
-};
-
-
-/*
  * Solver codes
  */
 static const char * const solver_code_names[NUM_SOLVER_CODES] = {
@@ -112,7 +86,6 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
 
 
 
-
 /*
  * CONTEXT SETTING FOR A GIVEN LOGIC CODE
  */
@@ -125,140 +98,87 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
  * the Floyd-Warshall solvers don't support all use modes.
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
-  CTX_ARCH_NOSOLVERS,   // NONE
-  -1,                   // ALIA
-  -1,                   // AUFLIA
-  -1,                   // AUFLIRA
-  -1,                   // AUFNIRA
-  -1,                   // BV
-  -1,                   // LIA
-  -1,                   // LRA
-  -1,                   // NIA
-  -1,                   // NRA
-  CTX_ARCH_EGFUNBV,     // QF_ABV
-  CTX_ARCH_EGFUNSPLX,   // QF_ALIA
-  CTX_ARCH_EGFUNBV,     // QF_AUFBV
-  CTX_ARCH_EGFUNSPLX,   // QF_AUFLIA
-  CTX_ARCH_EGFUN,       // QF_AX
-  CTX_ARCH_BV,          // QF_BV
-  CTX_ARCH_SPLX,        // QF_IDL
-  CTX_ARCH_SPLX,        // QF_LIA
-  CTX_ARCH_SPLX,        // QF_LIRA
-  CTX_ARCH_SPLX,        // QF_LRA
-  -1,                   // QF_NIA
-  -1,                   // QF_NRA
-  CTX_ARCH_SPLX,        // QF_RDL
-  CTX_ARCH_EG,          // QF_UF
-  CTX_ARCH_EGBV,        // QF_UFBV[xx]
-  CTX_ARCH_EGSPLX,      // QF_UFIDL
-  CTX_ARCH_EGSPLX,      // QF_UFLIA
-  CTX_ARCH_EGSPLX,      // QF_UFLRA
-  CTX_ARCH_EGSPLX,      // QF_UFLIRA
-  -1,                   // QF_UFNIA
-  -1,                   // QF_UFNRA
-  -1,                   // UF
-  -1,                   // UFBV
-  -1,                   // UFIDL
-  -1,                   // UFLIA
-  -1,                   // UFLRA
-  -1,                   // UFNIA
+  CTX_ARCH_NOSOLVERS,  // NONE
+
+  -1,                  // AX
+  -1,                  // BV
+  -1,                  // IDL
+  -1,                  // LIA
+  -1,                  // LRA
+  -1,                  // LIRA
+  -1,                  // NIA
+  -1,                  // NRA
+  -1,                  // NIRA
+  -1,                  // RDL
+  -1,                  // UF
+  -1,                  // ABV
+  -1,                  // ALIA
+  -1,                  // ALRA
+  -1,                  // ALIRA
+  -1,                  // ANIA
+  -1,                  // ANRA
+  -1,                  // ANIRA
+  -1,                  // AUF
+  -1,                  // UFBV
+  -1,                  // UFIDL
+  -1,                  // UFLIA
+  -1,                  // UFLRA
+  -1,                  // UFLIRA
+  -1,                  // UFNIA
+  -1,                  // UFNRA
+  -1,                  // UFNIRA
+  -1,                  // UFRDL
+  -1,                  // AUFBV
+  -1,                  // AUFLIA
+  -1,                  // AUFLRA
+  -1,                  // AUFLIRA
+  -1,                  // AUFNIA
+  -1,                  // AUFNRA
+  -1,                  // AUFNIRA
+
+  CTX_ARCH_EGFUN,      // QF_AX
+  CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_SPLX,       // QF_IDL
+  CTX_ARCH_SPLX,       // QF_RDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  CTX_ARCH_SPLX,       // QF_LIRA
+  -1,                  // QF_NIA
+  -1,                  // QF_NRA
+  -1,                  // QF_NIRA
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGFUNBV,    // QF_ABV
+  CTX_ARCH_EGFUNSPLX,  // QF_ALIA
+  CTX_ARCH_EGFUNSPLX,  // QF_ALRA
+  CTX_ARCH_EGFUNSPLX,  // QF_ALIRA
+  -1,                  // QF_ANIA
+  -1,                  // QF_ANRA
+  -1,                  // QF_ANIRA
+  CTX_ARCH_EGFUN,      // QF_AUF
+  CTX_ARCH_EGBV,       // QF_UFBV
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  CTX_ARCH_EGSPLX,     // QF_UFLIRA
+  -1,                  // QF_UFNIA
+  -1,                  // QF_UFNRA
+  -1,                  // QF_UFNIRA
+  CTX_ARCH_EGSPLX,     // QF_UFRDL
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLRA
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIRA
+  -1,                  // QF_AUFNIA
+  -1,                  // QF_AUFNRA
+  -1,                  // QF_AUFNIRA
 };
-
-
-/*
- * Specify whether the integer solver should be activated
- */
-static const bool logic2iflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  false,  // BV
-  true,   // LIA
-  false,  // LRA
-  true,   // NIA
-  false,  // NRA
-  false,  // QF_ABV
-  true,   // QF_ALIA
-  false,  // QF_AUFBV
-  true,   // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  true,   // QF_LIA
-  true,   // QF_LIRA
-  false,  // QF_LRA
-  true,   // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  true,   // QF_UFLIA
-  false,  // QF_UFLRA
-  true,   // QF_UFLIRA
-  true,   // QF_UFNIA
-  false,  // QF_UFNRA
-  false,  // UF
-  false,  // UFBV
-  false,  // UFIDL
-  true,   // UFLIA
-  false,  // UFLRA
-  true,   // UFNIA
-};
-
-
-/*
- * Specify whether quantifier support is needed
- */
-static const bool logic2qflag[NUM_SMT_LOGICS] = {
-  false,  // NONE
-  true,   // ALIA
-  true,   // AUFLIA
-  true,   // AUFLIRA
-  true,   // AUFNIRA
-  true,   // BV
-  true,   // LIA
-  true,   // LRA
-  true,   // NIA
-  true,   // NRA
-  false,  // QF_ABV
-  false,  // QF_ALIA
-  false,  // QF_AUFBV
-  false,  // QF_AUFLIA
-  false,  // QF_AX
-  false,  // QF_BV
-  false,  // QF_IDL
-  false,  // QF_LIA
-  false,  // QF_LIRA
-  false,  // QF_LRA
-  false,  // QF_NIA
-  false,  // QF_NRA
-  false,  // QF_RDL
-  false,  // QF_UF
-  false,  // QF_UFBV[xx]
-  false,  // QF_UFIDL
-  false,  // QF_UFLIA
-  false,  // QF_UFLRA
-  false,  // QF_UFLIRA
-  false,  // QF_UFNIA
-  false,  // QF_UFNRA
-  true,   // UF
-  true,   // UFBV
-  true,   // UFIDL
-  true,   // UFLIA
-  true,   // UFLRA
-  true,   // UFNIA
-};
-
 
 
 
 /*
  * WHICH ARITHMETIC FRAGMENTS REQUIRE THE DIOPHANTINE SUBSOLVER
  */
-static const bool fragment2iflag[NUM_ARITH_FRAGMENTS] = {
+static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
   false,  // IDL
   false,  // RDL
   false,  // LRA
@@ -267,6 +187,7 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS] = {
   false,  // NRA
   true,   // NIA
   true,   // NIRA
+  false,  // no arithmetic
 };
 
 
@@ -284,15 +205,31 @@ static const ctx_config_t default_config = {
   CTX_CONFIG_DEFAULT,     // array
   CTX_CONFIG_DEFAULT,     // bv
   CTX_CONFIG_DEFAULT,     // arith
-  CTX_CONFIG_ARITH_LIRA,  // fragment
+  ARITH_LIRA,             // fragment
 };
 
 
 
 
 
+/*
+ * DIRECT CONFIGURATION
+ */
+int32_t arch_for_logic(smt_logic_t code) {
+  assert(code != SMT_UNKNOWN);
+  return logic2arch[code];
+}
+
+bool iflag_for_logic(smt_logic_t code) {
+  assert(code != SMT_UNKNOWN);
+  return fragment2iflag[arith_fragment(code)];
+}
 
 
+
+/*
+ * CONFIG OBJECT
+ */
 
 /*
  * Initialize config to the default configuration
@@ -364,6 +301,7 @@ static int32_t set_solver_code(const char *value, solver_code_t *dest) {
  */
 int32_t config_set_field(ctx_config_t *config, const char *key, const char *value) {
   int32_t k, v, r;
+  arith_fragment_t arith;
 
   r = 0; // return code
 
@@ -379,12 +317,11 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     break;
 
   case CTX_CONFIG_KEY_ARITH_FRAGMENT:
-    v = parse_as_keyword(value, fragment_names, fragment, NUM_ARITH_FRAGMENTS);
-    if (v < 0) {
+    arith = arith_fragment_code(value);
+    if (arith == ARITH_NONE) {
       r = -2;
     } else {
-      assert(0 <= v && v < NUM_ARITH_FRAGMENTS);
-      config->arith_fragment = (arith_fragment_t) v;
+      config->arith_fragment = arith;
     }
     break;
 
@@ -418,7 +355,6 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
 
   return r;
 }
-
 
 
 
@@ -571,7 +507,6 @@ static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
  *  -3 if the solver combination is valid but does not support the specified mode
  */
 int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, context_mode_t *mode, bool *iflag, bool *qflag) {
-
   smt_logic_t logic_code;
   int32_t a, r;
 
@@ -615,8 +550,8 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       // good configuration
       *logic = logic_code;
       *arch = (context_arch_t) a;
-      *iflag = logic2iflag[logic_code];
-      *qflag = logic2qflag[logic_code];
+      *iflag = iflag_for_logic(logic_code);
+      *qflag = qflag_for_logic(logic_code);
       *mode = config->mode;
     }
   } else {
@@ -654,4 +589,5 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
  done:
   return r;
 }
+
 

@@ -22,29 +22,62 @@ static const char* const mode2string[NUM_MODES] = {
 
 static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "NONE",
-  "ALIA",
-  "AUFLIA",
-  "AUFLIRA",
-  "AUFNIRA",
+
+  "AX",
   "BV",
+  "IDL",
   "LIA",
   "LRA",
+  "LIRA",
   "NIA",
   "NRA",
-  "QF_ABV",
-  "QF_ALIA",
-  "QF_AUFBV",
-  "QF_AUFLIA",
+  "NIRA",
+  "RDL",
+  "UF",
+  "ABV",
+  "ALIA",
+  "ALRA",
+  "ALIRA",
+  "ANIA",
+  "ANRA",
+  "ANIRA",
+  "AUF",
+  "UFBV",
+  "UFIDL",
+  "UFLIA",
+  "UFLRA",
+  "UFLIRA",
+  "UFNIA",
+  "UFNRA",
+  "UFNIRA",
+  "UFRDL",
+  "AUFBV",
+  "AUFLIA",
+  "AUFLRA",
+  "AUFLIRA",
+  "AUFNIA",
+  "AUFNRA",
+  "AUFNIRA",
+
   "QF_AX",
   "QF_BV",
   "QF_IDL",
+  "QF_RDL",
   "QF_LIA",
-  "QF_LIRA",
   "QF_LRA",
+  "QF_LIRA",
   "QF_NIA",
   "QF_NRA",
-  "QF_RDL",
+  "QF_NIRA",
   "QF_UF",
+  "QF_ABV",
+  "QF_ALIA",
+  "QF_ALRA",
+  "QF_ALIRA",
+  "QF_ANIA",
+  "QF_ANRA",
+  "QF_ANIRA",
+  "QF_AUF",
   "QF_UFBV",
   "QF_UFIDL",
   "QF_UFLIA",
@@ -52,12 +85,16 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_UFLIRA",
   "QF_UFNIA",
   "QF_UFNRA",
-  "UF",
-  "UFBV",
-  "UFIDL",
-  "UFLIA",
-  "UFLRA",
-  "UFNIA",
+  "QF_UFNIRA",
+  "QF_UFRDL",
+  "QF_AUFBV",
+  "QF_AUFLIA",
+  "QF_AUFLRA",
+  "QF_AUFLIRA",
+  "QF_AUFNIA",
+  "QF_AUFNRA",
+  "QF_AUFNIRA",
+
   "unknown",
 };
 
@@ -75,44 +112,80 @@ static const char* const solver_code2string[NUM_SOLVER_CODES] = {
 /*
  * Which logics are currently supported
  */
-static const bool logic_is_supported[NUM_SMT_LOGICS] = {
-  true,   // NONE
-  false,  // ALIA
-  false,  // AUFLIA
-  false,  // AUFLIRA
-  false,  // AUFNIRA
-  false,  // BV
-  false,  // LIA
-  false,  // LRA
-  false,  // NIA
-  false,  // NRA
-  true,   // QF_ABV
-  true,   // QF_ALIA
-  true,   // QF_AUFBV
-  true,   // QF_AUFLIA
-  true,   // QF_AX
-  true,   // QF_BV
-  true,   // QF_IDL
-  true,   // QF_LIA
-  true,   // QF_LIRA
-  true,   // QF_LRA
-  false,  // QF_NIA
-  false,  // QF_NRA
-  true,   // QF_RDL
-  true,   // QF_UF
-  true,   // QF_UFBV[xx]
-  true,   // QF_UFIDL
-  true,   // QF_UFLIA
-  true,   // QF_UFLRA
-  true,   // QF_UFLIRA
-  false,  // QF_UFNIA
-  false,  // QF_UFNRA
-  false,  // UF
-  false,  // UFBV
-  false,  // UFIDL
-  false,  // UFLIA
-  false,  // UFLRA
-  false,  // UFNIA
+static const bool supported[NUM_SMT_LOGICS] = {
+  true,    // NONE
+
+  false,   // AX
+  false,   // BV
+  false,   // IDL
+  false,   // LIA
+  false,   // LRA
+  false,   // LIRA
+  false,   // NIA
+  false,   // NRA
+  false,   // NIRA
+  false,   // RDL
+  false,   // UF
+  false,   // ABV
+  false,   // ALIA
+  false,   // ALRA
+  false,   // ALIRA
+  false,   // ANIA
+  false,   // ANRA
+  false,   // ANIRA
+  false,   // AUF
+  false,   // UFBV
+  false,   // UFIDL
+  false,   // UFLIA
+  false,   // UFLRA
+  false,   // UFLIRA
+  false,   // UFNIA
+  false,   // UFNRA
+  false,   // UFNIRA
+  false,   // UFRDL
+  false,   // AUFBV
+  false,   // AUFLIA
+  false,   // AUFLRA
+  false,   // AUFLIRA
+  false,   // AUFNIA
+  false,   // AUFNRA
+  false,   // AUFNIRA
+
+  true,    // QF_AX
+  true,    // QF_BV
+  true,    // QF_IDL
+  true,    // QF_RDL
+  true,    // QF_LIA
+  true,    // QF_LRA
+  true,    // QF_LIRA
+  false,   // QF_NIA
+  false,   // QF_NRA
+  false,   // QF_NIRA
+  true,    // QF_UF
+  true,    // QF_ABV
+  true,    // QF_ALIA
+  true,    // QF_ALRA
+  true,    // QF_ALIRA
+  false,   // QF_ANIA
+  false,   // QF_ANRA
+  false,   // QF_ANIRA
+  true,    // QF_AUF
+  true,    // QF_UFBV
+  true,    // QF_UFIDL
+  true,    // QF_UFLIA
+  true,    // QF_UFLRA
+  true,    // QF_UFLIRA
+  false,   // QF_UFNIA
+  false,   // QF_UFNRA
+  false,   // QF_UFNIRA
+  true,    // QF_UFRDL
+  true,    // QF_AUFBV
+  true,    // QF_AUFLIA
+  true,    // QF_AUFLRA
+  true,    // QF_AUFLIRA
+  false,   // QF_AUFNIA
+  false,   // QF_AUFNRA
+  false,   // QF_AUFNIRA
 };
 
 
@@ -231,7 +304,7 @@ static void test_logic_configs(ctx_config_t *config) {
 
   // all valid logic names first
   for (i=0; i<NUM_SMT_LOGICS; i++) {
-    if (logic_is_supported[i]) {
+    if (supported[i]) {
       test_config_for_logic(config, logic2string[i], 0, 0);
     } else {
       test_config_for_logic(config, logic2string[i], -1, CTX_LOGIC_NOT_SUPPORTED);
@@ -301,6 +374,9 @@ int main(void) {
   yices_free_config(c1);
 
   yices_exit();
+
+  printf("All tests succeeded\n");
+  fflush(stdout);
 
   return 0;
 }
