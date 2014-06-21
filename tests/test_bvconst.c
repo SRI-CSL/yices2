@@ -32,7 +32,7 @@ static inline int random(void) {
 static uint32_t *a, *b, *c, *d, *e;
 
 static mpz_t z0, z1, z2;
-static int32_t vector[128];
+static int32_t vector[1024];
 
 static void random_vector(int32_t *v, int32_t n) {
   int32_t i;
@@ -88,6 +88,48 @@ static void free_constants() {
 // convert boolean to string
 static char* b2str(bool x) {
   return x ? "true" : "false";
+}
+
+
+static void test_set_extend(uint32_t size1, uint32_t size2) {
+  uint32_t *bv1, *bv2;
+  uint32_t i, w1, w2;
+
+  assert(size1 >= size2);
+
+  w1 = (size1 + 31) >> 5;
+  w2 = (size2 + 31) >> 5;
+
+  bv1 = bvconst_alloc(w1);
+  bv2 = bvconst_alloc(w2);
+
+  printf("=== test_set_extend: size1 = %"PRIu32", size2 = %"PRIu32" ===\n", size1, size2);
+
+  for (i=0; i<20; i++) {
+    random_vector(vector, size2);
+    bvconst_set_array(bv2, vector, size2);
+
+    printf("%"PRIu32" to %"PRIu32" bits\n", size2, size1);
+    printf("bv2            = ");
+    bvconst_print(stdout, bv2, size2);
+    printf("\n");
+    bvconst_set_extend(bv1, size1, bv2, size2, 0);
+    printf("ext(bv2, %"PRIu32", 0) = ", size1);
+    bvconst_print(stdout, bv1, size1);
+    printf("\n");
+    bvconst_set_extend(bv1, size1, bv2, size2, 1);
+    printf("ext(bv2, %"PRIu32", 1) = ", size1);
+    bvconst_print(stdout, bv1, size1);
+    printf("\n");
+    bvconst_set_extend(bv1, size1, bv2, size2, -1);
+    printf("sgnext(bv2, %"PRIu32", 0) = ", size1);
+    bvconst_print(stdout, bv1, size1);
+    printf("\n\n");
+  }
+
+  printf("===\n");
+  bvconst_free(bv1, w1);
+  bvconst_free(bv2, w2);
 }
 
 
@@ -1221,7 +1263,11 @@ int main() {
     fflush(stdout);
   }
 
-
+  for (i=100; i<256; i += 10) {
+    for (j=1; j<=i; j += 9) {
+      test_set_extend(i, j);
+    }
+  }
 
   mpz_clear(z0);
   mpz_clear(z1);

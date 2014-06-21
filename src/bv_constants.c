@@ -565,11 +565,12 @@ static void bvconst_set_p0(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, ui
   while (d > 0) {
     *bv ++ = * a++;
     d --;
+    k --;
   }
   if (r > 0) {
     *bv ++ = (*a) & ((1<<r) - 1);
+    k --;
   }
-  k -= d + 1;
   while (k > 0) {
     *bv ++ = 0;
     k --;
@@ -586,12 +587,13 @@ static void bvconst_set_p1(uint32_t *bv, uint32_t k, uint32_t *a, uint32_t d, ui
   while (d > 0) {
     *bv ++ = * a++;
     d --;
+    k --;
   }
   if (r > 0) {
     mask = (1 << r) - 1;
     *bv ++ = (~mask) | ((*a) & mask);
+    k --;
   }
-  k -= d + 1;
   while (k > 0) {
     *bv ++ = 0xffffffff;
     k --;
@@ -610,7 +612,6 @@ void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32
 
   assert(0 < m && m <= n);
   assert(mode == 0 || mode == 1 || mode == -1);
-
 
   k = (n + 31) >> 5;
 
