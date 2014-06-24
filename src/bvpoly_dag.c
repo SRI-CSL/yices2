@@ -1414,6 +1414,65 @@ node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t b
 }
 
 
+/*
+ * Return the sign of (n ^ d)
+ * - the result is 1 if n is of the form bvn(x) and d is odd
+ *   (i.e., the product has negative sign)
+ * - the result is 0 otherwise (positive sign)
+ */
+static uint32_t sign_of_varexp(node_occ_t n, uint32_t exp) {
+  // return 1 if the low-order bits of n and exp are both 1
+  return n & exp & 1;
+}
+
+
+/*
+ * For debugging: check that all nodes in prod[i].var have positive sign.
+ */
+#ifndef NDEBUG
+static bool good_pprod(varexp_t *prod, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (sign_of_occ(prod[i].var) == 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+#endif
+
+/*
+ * Check that sign is correct for the product a[i]^d_i
+ * where d_i is p->prod[i].exp
+ */
+#ifndef NDEBUG
+static bool is_odd(uint32_t k) {
+  return (k & 1) == 1;
+}
+
+static bool is_neg_node_occ(node_occ_t n) {
+  return sign_of_occ(n) == 1;
+}
+
+static bool good_sign(uint32_t sign, pprod_t *p, node_occ_t *a) {
+  uint32_t i, n;
+  bool is_pos;
+
+  is_pos = true;
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (is_odd(p->prod[i].exp) && is_neg_node_occ(a[i])) {
+      // odd exponent and negative node occurrence: flip the sign
+      is_pos = !is_pos;
+    }
+  }
+
+  return (is_pos && sign == 0) || (!is_pos && sign == 1);
+}
+#endif
+
 
 /*
  * Construct a product node q
@@ -1424,18 +1483,30 @@ node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t b
  */
 node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bitsize) {
   pp_buffer_t *buffer;
-  uint32_t i, n;
+  uint32_t i, n, e, sign;
 
-  // build the power product in dag->pp_aux
+  /*
+   * build the power product in dag->pp_aux
+   * keep track of signs
+   */
+  sign = 0;
   buffer = &dag->pp_aux;
   pp_buffer_reset(buffer);
   n = p->len;
   for (i=0; i<n; i++) {
-    pp_buffer_mul_varexp(buffer, a[i], p->prod[i].exp);
+    /*
+     * If a[i]^exp is negative, flip sign. Otherwise keep sign unchanged
+     * Remove a[i]'s sign in the product
+     */
+    e = p->prod[i].exp;
+    sign ^= sign_of_varexp(a[i], e);
+    pp_buffer_mul_varexp(buffer, unsigned_occ(a[i]), p->prod[i].exp);
   }
   pp_buffer_normalize(buffer);
 
-  return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize));
+  assert(good_sign(sign, p, a) && good_pprod(buffer->prod, buffer->len));
+
+  return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize)) | sign;
 }
 
 
@@ -1921,7 +1992,7 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
  */
 static inline void replace_node_in_offset(bvc_offset_t *d, bvnode_t i, node_occ_t n) {
   // if d->nocc == bvp(i) then d->nocc := n
-  // if d->nocc == bvn(i) then d->noce := negate_off(n);
+  // if d->nocc == bvn(i) then d->nocc := negate_off(n);
   assert(node_of_occ(d->nocc) == i);
   d->nocc = n ^ sign_of_occ(d->nocc);
 }
