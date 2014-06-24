@@ -601,7 +601,11 @@ extern node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uin
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
  *   then a must have k elements a[0] ... a[k-1]
- *   and q is [prod a[0]^d_1 ... a[k-1]^d_k]
+ * - if all a[i] are positive, then q is [prod a[0]^d_1 ... a[k-1]^d_k]
+ * - otherwise, signs are adjusted to ensure that all nodes in the product
+ *   have positive sign. Then the result q is either the positive or negative
+ *   occurrence of the product (depending on the sign of a[i]s and on
+ *   whether the exponents are odd or even).
  */
 extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bitsize);
 
