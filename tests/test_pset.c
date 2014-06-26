@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "pair_hash_sets.h"
+#include "utils/pair_hash_sets.h"
 
 #ifdef MINGW
 

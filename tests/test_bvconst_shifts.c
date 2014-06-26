@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "bv_constants.h"
-#include "bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/bv64_constants.h"
 
 /*
  * Test shift a by b: both stored as 64bit integers

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "int_heap.h"
+#include "utils/int_heap.h"
 
 
 #ifdef MINGW

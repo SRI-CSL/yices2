@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "dl_vartable.h"
+#include "solvers/floyd_warshall/dl_vartable.h"
 
 #ifdef MINGW
 

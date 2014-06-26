@@ -444,7 +444,8 @@ For cleanup:
 
    arch-clean              remove everything in ./build/<platform>-*
 
-   all-clean               remove everything in ./build/
+   all-clean               remove everything in ./build/ and the generated
+                           files in ./src
 
 
 

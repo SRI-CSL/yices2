@@ -3,10 +3,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "types.h"
-#include "type_printer.h"
-#include "refcount_strings.h"
-#include "yices_pp.h"
+#include "terms/types.h"
+#include "io/type_printer.h"
+#include "utils/refcount_strings.h"
+#include "io/yices_pp.h"
 
 /*
  * Short cuts

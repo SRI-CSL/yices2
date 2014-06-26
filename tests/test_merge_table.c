@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "merge_table.h"
+#include "solvers/bv/merge_table.h"
 
 #ifdef MINGW
 static inline long int random(void) {

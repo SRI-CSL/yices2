@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "egraph_assertion_queues.h"
+#include "solvers/egraph/egraph_assertion_queues.h"
 
 static eassertion_queue_t queue;
 

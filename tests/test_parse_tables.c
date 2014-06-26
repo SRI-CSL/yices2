@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#include "yices_parse_tables.h"
-#include "yices_lexer.h"
+#include "frontend/yices/yices_parse_tables.h"
+#include "frontend/yices/yices_lexer.h"
 
 static action_t get_action(state_t s, token_t tk) {
   int32_t i;

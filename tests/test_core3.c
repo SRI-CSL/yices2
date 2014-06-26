@@ -11,12 +11,12 @@
 #include <signal.h>
 #include <assert.h>
 
-#include "cputime.h"
-#include "memsize.h"
-#include "memalloc.h"
-#include "int_vectors.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
+#include "utils/memalloc.h"
+#include "utils/int_vectors.h"
 
-#include "smt_core.h"
+#include "solvers/cdcl/smt_core.h"
 
 
 

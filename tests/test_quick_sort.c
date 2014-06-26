@@ -8,8 +8,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "memalloc.h"
-#include "cputime.h"
+#include "utils/memalloc.h"
+#include "utils/cputime.h"
 
 #ifdef MINGW
 

@@ -8,8 +8,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "bv_constants.h"
-#include "memalloc.h"
+#include "terms/bv_constants.h"
+#include "utils/memalloc.h"
 
 #ifdef MINGW
 

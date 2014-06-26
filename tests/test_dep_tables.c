@@ -2,8 +2,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "index_vectors.h"
-#include "dep_tables.h"
+#include "utils/index_vectors.h"
+#include "utils/dep_tables.h"
 
 #ifdef MINGW
 

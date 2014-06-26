@@ -8,8 +8,8 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "search_parameters.h"
-#include "yices.h"
+#include "api/search_parameters.h"
+#include "include/yices.h"
 
 
 /*

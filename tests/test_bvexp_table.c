@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "bvsolver_printer.h"
-#include "bv_vartable.h"
-#include "bvexp_table.h"
+#include "solvers/bv/bvsolver_printer.h"
+#include "solvers/bv/bv_vartable.h"
+#include "solvers/bv/bvexp_table.h"
 
 
 /*

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "int_bv_sets.h"
+#include "utils/int_bv_sets.h"
 
 #ifdef MINGW
 

@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "smt_logic_codes.h"
+#include "api/smt_logic_codes.h"
 
 #define NUM_TESTS (NUM_SMT_LOGICS+6)
 

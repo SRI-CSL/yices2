@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "command_line.h"
+#include "utils/command_line.h"
 
 enum option_keys {
   TEST1,

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "sparse_arrays.h"
+#include "utils/sparse_arrays.h"
 
 #ifdef MINGW
 static inline long int random(void) {

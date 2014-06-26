@@ -74,7 +74,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	reset		dump-context	exit	echo	include
 	show-model	eval		set-param	show-param
 	show-params     show-stats      reset-stats     set-timeout
-        dump-context    help
+        dump-context    help            ef-solve        export-to-dimacs
 
 
 
@@ -107,6 +107,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	    | ( help )
             | ( help <symbol> )
             | ( help <string> )
+	    | ( ef-solve )
+	    | ( export-to-dimacs <string> )
             | EOS
 
 
@@ -467,6 +469,12 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (help <topic>): print help on a particular topic. <topic> can be given
        as a symbol as in (help syntax) or as a string as in (help "syntax").
 
+
+   (ef-solve): solve an exists/forall problem.
+
+   (export-to-dimacs <string>): convert the current set of assertions to
+       the DIMACS CNF format. <string> is a file name where the result is
+       written.
 
 
 

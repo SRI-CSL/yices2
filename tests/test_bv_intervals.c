@@ -8,8 +8,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "bv_constants.h"
-#include "bv_intervals.h"
+#include "terms/bv_constants.h"
+#include "solvers/bv/bv_intervals.h"
 
 #ifdef MINGW
 static inline long int random(void) {

@@ -2,8 +2,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "hash_functions.h"
-#include "int_hash_classes.h"
+#include "utils/hash_functions.h"
+#include "utils/int_hash_classes.h"
 
 
 

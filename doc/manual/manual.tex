@@ -99,9 +99,9 @@ Solaris~2.10 (Sparc 64bits)  & \\
 
 \section{Content of  the Distribution}
 
-The distribution includes the Yices binaries, the Yices library and
-header files, and examples and documentation.  Four solvers are
-currently included in the distribution:
+The distribution includes the Yices executables, the Yices library and
+header files, and examples and documentation.  Four solvers are currently included in the
+distribution:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -927,13 +927,13 @@ Yices is invoked on an input file by typing
 \begin{verbatim}
       yices [option] <filename>
 \end{verbatim}
-If no \texttt{filename} is given, \texttt{yices} will run in
+If no \texttt{<filename>} is given, \texttt{yices} will run in
 interactive mode and will read the standard input. The following
 options are supported.
 \begin{options}
 \item[--logic=<name>] Select an SMT-LIB logic.
 
-  The \texttt{name} must either be an SMT-LIB logic name such as
+  The \texttt{<name>} must either be an SMT-LIB logic name such as
   \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
 
   Yices recognizes the logics defined at \url{http://www.smtlib.org}
@@ -956,7 +956,7 @@ options are supported.
   propositional (i.e., involve only Boolean terms).
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
-  \texttt{solver}     must    be     one     of    \texttt{simplex},
+  \texttt{<solver>}     must    be     one     of    \texttt{simplex},
   \texttt{floyd-warshall}, or \texttt{auto}.
 
   If  the  logic is  \texttt{QF\_IDL}  (integer  difference logic)  or
@@ -971,7 +971,7 @@ options are supported.
   \texttt{QF\_RDL}.
 
 \item[--mode=<mode>] Select solver features.\\[1mm]
-  \texttt{mode} can be \texttt{one-shot}, \texttt{multi-checks},
+  \texttt{<mode>} can be \texttt{one-shot}, \texttt{multi-checks},
   \texttt{push-pop}, or \texttt{interactive}.
 
   This  option selects  the set  of functionalities  supported  by the
@@ -2622,8 +2622,8 @@ SMT-LIB~1.2 notations.
 
 To process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver
 instead of \texttt{yices}. This tool is included in the \texttt{bin}
-directory in the distribution. In the Windows and Cygwin
-distributions, it is called \texttt{yices-smt2.exe}.
+directory in the distribution. In the Windows or Cygwin distribution,
+it is called \texttt{yices-smt2.exe}.
 
 \medskip\noindent
 The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
@@ -2914,6 +2914,7 @@ version~1.2 of SMT-LIB, which is documented
 in~\cite{SMTLIB12:2006}. This version of SMT-LIB was used in the SMT
 competitions before 2010.  Since 2010, the competitions have used
 SMT-LIB~2.0.
+
 
 \subsection{Tool Usage}
 

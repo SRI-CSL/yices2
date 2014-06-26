@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "bit_expr.h"
-#include "memalloc.h"
+#include "terms/bit_expr.h"
+#include "utils/memalloc.h"
 
 
 #ifdef MINGW

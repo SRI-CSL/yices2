@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "ptr_stack.h"
+#include "utils/ptr_stack.h"
 
 static ptr_stack_t stack;
 

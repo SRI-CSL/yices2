@@ -8,10 +8,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "gates_manager.h"
-#include "gates_printer.h"
-#include "smt_core.h"
-#include "smt_core_printer.h"
+#include "solvers/cdcl/gates_manager.h"
+#include "solvers/cdcl/gates_printer.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 
 

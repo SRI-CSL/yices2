@@ -5,8 +5,8 @@
 // #include <math.h>
 #include <inttypes.h>
 
-#include "symbol_tables.h"
-#include "cputime.h"
+#include "utils/symbol_tables.h"
+#include "utils/cputime.h"
 
 static char buffer[1000];
 static char **words;

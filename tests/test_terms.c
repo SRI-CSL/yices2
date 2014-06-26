@@ -10,15 +10,15 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "refcount_strings.h"
-#include "pprod_table.h"
-#include "bv_constants.h"
-#include "bv64_constants.h"
-#include "types.h"
-#include "terms.h"
+#include "utils/refcount_strings.h"
+#include "terms/pprod_table.h"
+#include "terms/bv_constants.h"
+#include "terms/bv64_constants.h"
+#include "terms/types.h"
+#include "terms/terms.h"
 
-#include "term_printer.h"
-#include "type_printer.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
 
 
 /*

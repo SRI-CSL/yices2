@@ -9,9 +9,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "smt_core.h"
-#include "bit_blaster.h"
-#include "smt_core_printer.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/bv/bit_blaster.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 #ifdef MINGW
 

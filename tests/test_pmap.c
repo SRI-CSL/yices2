@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "pair_hash_map.h"
+#include "utils/pair_hash_map.h"
 
 static pmap_t map;
 

@@ -8,8 +8,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "smt_core.h"
-#include "smt_core_printer.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 
 /*

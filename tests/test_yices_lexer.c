@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "yices_lexer.h"
+#include "frontend/yices/yices_lexer.h"
 
 static lexer_t lexer;
 

@@ -9,8 +9,8 @@
 #include <assert.h>
 
 
-#include "bv64_constants.h"
-#include "bv64_intervals.h"
+#include "terms/bv64_constants.h"
+#include "solvers/bv/bv64_intervals.h"
 
 #ifdef MINGW
 static inline long int random(void) {

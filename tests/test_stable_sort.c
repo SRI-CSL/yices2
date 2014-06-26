@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "stable_sort.h"
+#include "utils/cputime.h"
+#include "utils/stable_sort.h"
 
 #ifdef MINGW
 static inline long int random(void) {

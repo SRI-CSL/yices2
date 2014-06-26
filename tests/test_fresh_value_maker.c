@@ -6,9 +6,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "fresh_value_maker.h"
-#include "type_printer.h"
-#include "concrete_value_printer.h"
+#include "model/fresh_value_maker.h"
+#include "io/type_printer.h"
+#include "model/concrete_value_printer.h"
 
 static type_table_t types;
 static value_table_t vtbl;

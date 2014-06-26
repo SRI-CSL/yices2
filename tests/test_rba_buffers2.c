@@ -4,9 +4,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "pprod_table.h"
-#include "rationals.h"
-#include "balanced_arith_buffers.h"
+#include "terms/pprod_table.h"
+#include "terms/rationals.h"
+#include "terms/balanced_arith_buffers.h"
 
 
 

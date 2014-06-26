@@ -76,56 +76,168 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 #
 # Source files for the dynamic library (libyices.so)
 #
-base_src_c := abstract_values.c arena.c arith_atomtable.c		\
-              arith_vartable.c attribute_values.c backtrack_arrays.c	\
-              balanced_arith_buffers.c bit_blaster.c bit_expr.c		\
-              bit_term_conversion.c bvarith_buffers.c			\
-              bvarith_buffer_terms.c bvarith64_buffers.c		\
-              bvarith64_buffer_terms.c bvlogic_buffers.c		\
-              bv_atomtable.c bv_constants.c bv64_constants.c		\
-              bvconst_hmap.c bv_intervals.c bv64_intervals.c		\
-              bv_polynomials.c bv64_polynomials.c bvpoly_buffers.c	\
-              bvpoly_compiler.c bvpoly_dag.c bvsolver.c bv_vartable.c	\
-              bvexp_table.c cache.c composites.c concrete_values.c	\
-              concrete_value_printer.c conditionals.c                   \
-              conditional_definitions.c context.c context_config.c      \
-              context_simplifier.c context_solver.c csets.c             \
-              dep_tables.c diophantine_systems.c diseq_stacks.c         \
-              dl_vartable.c egraph_assertion_queues.c			\
-              egraph_explanations.c egraph_utils.c egraph.c		\
-              eq_abstraction.c eq_learner.c extended_rationals.c	\
-              free_var_collector.c fresh_value_maker.c fun_maps.c	\
-              fun_solver.c fun_trees.c gates_hash_table.c		\
-              gates_manager.c gcd.c generic_heap.c hash_functions.c	\
-              idl_floyd_warshall.c index_vectors.c int_array_hsets.c	\
-              int_array_sort.c int_array_sort2.c int_bags.c		\
-              int_bv_sets.c int_hash_classes.c int_hash_map.c		\
-              int_hash_map2.c int_hash_sets.c int_hash_tables.c		\
-              int_heap.c int_heap2.c int_partitions.c int_powers.c	\
-              int_queues.c int_stack.c int_vectors.c			\
-              internalization_table.c lexer.c mark_vectors.c		\
-              matrices.c memalloc.c merge_table.c models.c		\
-              model_eval.c model_printer.c mpq_aux.c object_stores.c	\
-              offset_equalities.c pair_hash_map2.c parser.c		\
-              pointer_vectors.c polynomials.c poly_buffer.c		\
-              poly_buffer_terms.c power_products.c pprod_table.c	\
-              pretty_printer.c pseudo_subst.c ptr_array_sort.c		\
-              ptr_array_sort2.c ptr_hash_classes.c ptr_hash_map.c	\
-              ptr_heap.c ptr_partitions.c ptr_queues.c ptr_stack.c	\
-              ptr_vectors.c rationals.c rational_hash_maps.c		\
-              rba_buffer_terms.c rdl_floyd_warshall.c reader.c		\
-              refcount_int_arrays.c refcount_strings.c remap_table.c	\
-              renaming_context.c search_parameters.c simple_cache.c     \
-              simplex.c smt_core.c smt_logic_codes.c smt_term_stack.c   \
-              sparse_arrays.c stable_sort.c string_buffers.c		\
-              string_utils.c subst_cache.c subst_context.c		\
-              symbol_tables.c symmetry_breaking.c terms.c		\
-              term_manager.c term_printer.c term_stack2.c		\
-              term_stack_error.c term_substitution.c term_utils.c	\
-              theory_explanations.c tracer.c tuple_hash_map.c types.c	\
-              type_printer.c uint_rbtrees.c use_vectors.c		\
-              val_to_term.c variable_renaming.c yices_api.c             \
-              yices_error.c yices_lexer.c yices_pp.c yices_parser.c
+base_src_c := \
+	api/context_config.c \
+	api/search_parameters.c \
+	api/smt_logic_codes.c \
+	api/yices_api.c \
+	api/yices_error.c \
+	context/context.c \
+	context/context_simplifier.c \
+	context/context_solver.c \
+	context/context_statistics.c \
+	context/eq_abstraction.c \
+	context/eq_learner.c \
+	context/internalization_table.c \
+	context/pseudo_subst.c \
+	context/symmetry_breaking.c \
+	frontend/smt2/attribute_values.c \
+	frontend/yices/yices_lexer.c \
+	frontend/yices/yices_parser.c \
+	io/pretty_printer.c \
+	io/reader.c \
+	io/term_printer.c \
+	io/tracer.c \
+	io/type_printer.c \
+	io/yices_pp.c \
+	model/abstract_values.c \
+	model/concrete_value_printer.c \
+	model/concrete_values.c \
+	model/fresh_value_maker.c \
+	model/fun_maps.c \
+	model/fun_trees.c \
+	model/literal_collector.c \
+	model/map_to_model.c \
+	model/model_eval.c \
+	model/model_printer.c \
+	model/models.c \
+	model/term_to_val.c \
+	model/val_to_term.c \
+	parser_utils/lexer.c \
+	parser_utils/parser.c \
+	parser_utils/term_stack2.c \
+	parser_utils/term_stack_error.c \
+	solvers/bv/bit_blaster.c \
+	solvers/bv/bv64_intervals.c \
+	solvers/bv/bv_atomtable.c \
+	solvers/bv/bvconst_hmap.c \
+	solvers/bv/bvexp_table.c \
+	solvers/bv/bv_intervals.c \
+	solvers/bv/bvpoly_compiler.c \
+	solvers/bv/bvpoly_dag.c \
+	solvers/bv/bvsolver.c \
+	solvers/bv/bv_vartable.c \
+	solvers/bv/merge_table.c \
+	solvers/bv/remap_table.c \
+	solvers/cdcl/gates_hash_table.c \
+	solvers/cdcl/gates_manager.c \
+	solvers/cdcl/smt_core.c \
+	solvers/egraph/composites.c \
+	solvers/egraph/diseq_stacks.c \
+	solvers/egraph/egraph_assertion_queues.c \
+	solvers/egraph/egraph.c \
+	solvers/egraph/egraph_explanations.c \
+	solvers/egraph/egraph_utils.c \
+	solvers/egraph/theory_explanations.c \
+	solvers/exists_forall/ef_analyze.c \
+	solvers/exists_forall/ef_problem.c \
+	solvers/exists_forall/efsolver.c \
+	solvers/floyd_warshall/dl_vartable.c \
+	solvers/floyd_warshall/idl_floyd_warshall.c \
+	solvers/floyd_warshall/rdl_floyd_warshall.c \
+	solvers/funs/fun_solver.c \
+	solvers/simplex/arith_atomtable.c \
+	solvers/simplex/arith_vartable.c \
+	solvers/simplex/diophantine_systems.c \
+	solvers/simplex/matrices.c \
+	solvers/simplex/offset_equalities.c \
+	solvers/simplex/simplex.c \
+	terms/balanced_arith_buffers.c \
+	terms/bit_expr.c \
+	terms/bit_term_conversion.c \
+	terms/bv64_constants.c \
+	terms/bv64_polynomials.c \
+	terms/bvarith64_buffers.c \
+	terms/bvarith64_buffer_terms.c \
+	terms/bvarith_buffers.c \
+	terms/bvarith_buffer_terms.c \
+	terms/bv_constants.c \
+	terms/bvlogic_buffers.c \
+	terms/bvpoly_buffers.c \
+	terms/bv_polynomials.c \
+	terms/elim_subst.c \
+	terms/extended_rationals.c \
+	terms/free_var_collector.c \
+	terms/full_subst.c \
+	terms/mpq_aux.c \
+	terms/poly_buffer.c \
+	terms/poly_buffer_terms.c \
+	terms/polynomials.c \
+	terms/power_products.c \
+	terms/pprod_table.c \
+	terms/rational_hash_maps.c \
+	terms/rationals.c \
+	terms/rba_buffer_terms.c \
+	terms/renaming_context.c \
+	terms/subst_cache.c \
+	terms/subst_context.c \
+	terms/term_manager.c \
+	terms/terms.c \
+	terms/term_sets.c \
+	terms/term_substitution.c \
+	terms/term_utils.c \
+	terms/types.c \
+	terms/variable_renaming.c \
+	utils/arena.c \
+	utils/backtrack_arrays.c \
+	utils/cache.c \
+	utils/csets.c \
+	utils/dep_tables.c \
+	utils/gcd.c \
+	utils/generic_heap.c \
+	utils/hash_functions.c \
+	utils/index_vectors.c \
+	utils/int_array_hsets.c \
+	utils/int_array_sort2.c \
+	utils/int_array_sort.c \
+	utils/int_bags.c \
+	utils/int_bv_sets.c \
+	utils/int_hash_classes.c \
+	utils/int_hash_map2.c \
+	utils/int_hash_map.c \
+	utils/int_hash_sets.c \
+	utils/int_hash_tables.c \
+	utils/int_heap2.c \
+	utils/int_heap.c \
+	utils/int_partitions.c \
+	utils/int_powers.c \
+	utils/int_queues.c \
+	utils/int_stack.c \
+	utils/int_vectors.c \
+	utils/mark_vectors.c \
+	utils/memalloc.c \
+	utils/object_stores.c \
+	utils/pair_hash_map2.c \
+	utils/pointer_vectors.c \
+	utils/ptr_array_sort2.c \
+	utils/ptr_array_sort.c \
+	utils/ptr_hash_classes.c \
+	utils/ptr_hash_map.c \
+	utils/ptr_heap.c \
+	utils/ptr_partitions.c \
+	utils/ptr_queues.c \
+	utils/ptr_stack.c \
+	utils/ptr_vectors.c \
+	utils/refcount_int_arrays.c \
+	utils/refcount_strings.c \
+	utils/sparse_arrays.c \
+	utils/stable_sort.c \
+	utils/string_buffers.c \
+	utils/string_utils.c \
+	utils/symbol_tables.c \
+	utils/tuple_hash_map.c \
+	utils/uint_rbtrees.c \
+	utils/use_vectors.c
 
 #
 # Other source files for libyices.a
@@ -134,21 +246,53 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
 # + functions for printing/debugging
 # + old stuff not needed anymore (except for tests)
 #
-extra_src_c := arith_buffers.c arith_solver_codes.c                     \
-               bvsolver_printer.c bool_vartable.c booleq_table.c        \
-               command_line.c cputime.c context_printer.c               \
-               context_statistics.c  dsolver_printer.c egraph_printer.c \
-               egraph_eq_stats.c fun_solver_printer.c gates_printer.c   \
-               idl_fw_printer.c internalization_printer.c               \
-               large_bvsets.c memsize.c pair_hash_map.c                 \
-               pair_hash_sets.c parenthesized_expr.c rb_bvsets.c        \
-               rdl_fw_printer.c sat_solver.c simplex_printer.c          \
-               simplex_prop_table.c small_bvsets.c smt_core_exporter.c  \
-               smt_core_printer.c smt_lexer.c smt_parser.c              \
-               smt2_commands.c smt2_expressions.c smt2_lexer.c          \
-               smt2_model_printer.c smt2_parser.c smt2_printer.c        \
-               smt2_term_stack.c string_hash_map.c tag_map.c timeout.c  \
-               union_find.c update_graph.c yices_help.c yices_reval.c
+extra_src_c := \
+	context/context_printer.c \
+	context/dump_context.c \
+	context/internalization_printer.c \
+	frontend/smt1/smt_lexer.c \
+	frontend/smt1/smt_parser.c \
+	frontend/smt1/smt_term_stack.c \
+	frontend/smt2/parenthesized_expr.c \
+	frontend/smt2/smt2_commands.c \
+	frontend/smt2/smt2_expressions.c \
+	frontend/smt2/smt2_lexer.c \
+	frontend/smt2/smt2_model_printer.c \
+	frontend/smt2/smt2_parser.c \
+	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_term_stack.c \
+	frontend/yices/arith_solver_codes.c \
+	frontend/yices/yices_help.c \
+	frontend/yices/yices_reval.c \
+	model/large_bvsets.c \
+	model/rb_bvsets.c \
+	model/small_bvsets.c \
+	scratch/booleq_table.c \
+	scratch/bool_vartable.c \
+	scratch/update_graph.c \
+	solvers/bv/bvsolver_printer.c \
+	solvers/bv/dimacs_printer.c \
+	solvers/cdcl/gates_printer.c \
+	solvers/cdcl/sat_solver.c \
+	solvers/cdcl/smt_core_printer.c \
+	solvers/egraph/egraph_eq_stats.c \
+	solvers/egraph/egraph_printer.c \
+	solvers/floyd_warshall/idl_fw_printer.c \
+	solvers/floyd_warshall/rdl_fw_printer.c \
+	solvers/funs/fun_solver_printer.c \
+	solvers/simplex/dsolver_printer.c \
+	solvers/simplex/simplex_printer.c \
+	solvers/simplex/simplex_prop_table.c \
+	terms/arith_buffers.c \
+	utils/command_line.c \
+	utils/cputime.c \
+	utils/memsize.c \
+	utils/pair_hash_map.c \
+	utils/pair_hash_sets.c \
+	utils/string_hash_map.c \
+	utils/tag_map.c \
+	utils/timeout.c \
+	utils/union_find.c
 
 src_c := $(base_src_c) $(extra_src_c)
 
@@ -156,13 +300,29 @@ src_c := $(base_src_c) $(extra_src_c)
 #
 # additional source files for the binaries
 #
-bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c yices_sat.c yices_smt2.c
+bin_src_c := \
+	frontend/yices_main.c \
+	frontend/yices_sat.c \
+	frontend/yices_smt.c \
+	frontend/yices_smt2.c \
+	frontend/yices_smtcomp.c \
 
 #
 # Auto-generated version file
 #
-version_c := yices_version.c
+version_c := api/yices_version.c
 
+#
+# All auto-generated files
+#
+auto_generated := \
+	$(vesion_c) \
+	api/yices_version.c \
+	frontend/yices/yices_hash_keywords.h \
+	frontend/smt1/smt_hash_keywords.h \
+	frontend/smt2/smt2_hash_tokens.h \
+	frontend/smt2/smt2_hash_keywords.h \
+	frontend/smt2/smt2_hash_symbols.h
 
 #
 # Dependencies and object files
@@ -178,9 +338,9 @@ static_bin_obj = $(bin_src_c:%.c=$(static_objdir)/%.o)
 static_bin_dep = $(bin_src_c:%.c=$(static_objdir)/%.d)
 
 
-version_obj := $(objdir)/yices_version.o
+version_obj := $(objdir)/api/yices_version.o
 version_dep := $(version_c:%.c=$(objdir)/%.d)
-static_version_obj := $(static_objdir)/yices_version.o
+static_version_obj := $(static_objdir)/api/yices_version.o
 static_version_dep := $(version_c:%.c=$(static_objdir)/%.d)
 
 
@@ -194,8 +354,10 @@ static_libyices := $(static_libdir)/libyices.a
 #
 # Binaries
 #
-binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT))
-static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
+# binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT))
+# static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
+binaries := $(addprefix $(bindir)/,$(notdir $(bin_src_c:%.c=%$(EXEEXT))))
+static_binaries := $(addprefix $(static_bindir)/,$(notdir $(bin_src_c:%.c=%$(EXEEXT))))
 
 
 #
@@ -380,7 +542,7 @@ CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-CPPFLAGS := $(CPPFLAGS) 
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) -O3 -pg
@@ -472,13 +634,13 @@ PIC_LIBS := $(PIC_GMP) $(NOGMP_LIBS)
 #
 $(objdir)/%.d: %.c
 	@set -e; echo Building dependency file $@ ; \
-	$(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.$$$$ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(CPPFLAGS) $< > $@.$$$$ ; \
 	$(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
 	rm -f $@.$$$$
 
 $(static_objdir)/%.d: %.c
 	@set -e; echo Building dependency file $@ ; \
-	$(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.$$$$ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.$$$$ ; \
 	$(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
 	rm -f $@.$$$$
 
@@ -499,13 +661,13 @@ endif
 # Gperf generated tables
 # - we need to give different names to the yices and smt lookup functions
 #
-yices_hash_keywords.h: yices_keywords.txt
-	$(GPERF) -C -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
-	--lookup-function-name=in_yices_kw yices_keywords.txt
+frontend/yices/yices_hash_keywords.h: frontend/yices/yices_keywords.txt
+	$(GPERF) -C -L ANSI-C -W yices_kw --output-file=frontend/yices/yices_hash_keywords.h \
+	--lookup-function-name=in_yices_kw frontend/yices/yices_keywords.txt
 
-smt_hash_keywords.h: smt_keywords.txt
-	$(GPERF) -C -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
-	--lookup-function-name=in_smt_kw smt_keywords.txt
+frontend/smt1/smt_hash_keywords.h: frontend/smt1/smt_keywords.txt
+	$(GPERF) -C -L ANSI-C -W smt_kw --output-file=frontend/smt1/smt_hash_keywords.h \
+	--lookup-function-name=in_smt_kw frontend/smt1/smt_keywords.txt
 
 #
 # Tables for SMT2:
@@ -514,17 +676,17 @@ smt_hash_keywords.h: smt_keywords.txt
 #   we need to give different names to the hash function (option -H ...)
 #   we can't use -G and we must give -E
 #
-smt2_hash_tokens.h: smt2_tokens.txt
-	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=smt2_hash_tokens.h \
-	--lookup-function-name=in_smt2_tk smt2_tokens.txt
+frontend/smt2/smt2_hash_tokens.h: frontend/smt2/smt2_tokens.txt
+	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=frontend/smt2/smt2_hash_tokens.h \
+	--lookup-function-name=in_smt2_tk frontend/smt2/smt2_tokens.txt
 
-smt2_hash_keywords.h: smt2_keywords.txt
-	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=smt2_hash_keywords.h \
-	--lookup-function-name=in_smt2_kw smt2_keywords.txt
+frontend/smt2/smt2_hash_keywords.h: frontend/smt2/smt2_keywords.txt
+	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=frontend/smt2/smt2_hash_keywords.h \
+	--lookup-function-name=in_smt2_kw frontend/smt2/smt2_keywords.txt
 
-smt2_hash_symbols.h: smt2_symbols.txt
-	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=smt2_hash_symbols.h \
-	--lookup-function-name=in_smt2_sym smt2_symbols.txt
+frontend/smt2/smt2_hash_symbols.h: frontend/smt2/smt2_symbols.txt
+	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=frontend/smt2/smt2_hash_symbols.h \
+	--lookup-function-name=in_smt2_sym frontend/smt2/smt2_symbols.txt
 
 #
 # Object files
@@ -532,8 +694,8 @@ smt2_hash_symbols.h: smt2_symbols.txt
 $(objdir)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
 
-$(static_version_obj): yices_version.c
-	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c yices_version.c -o $(static_version_obj)
+$(static_version_obj): api/yices_version.c
+	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c api/yices_version.c -o $(static_version_obj)
 
 $(static_objdir)/%.o: %.c
 	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -557,20 +719,20 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 #
 
 # for yices_sat: we don't need gmp
-$(bindir)/yices_sat$(EXEEXT): $(objdir)/yices_sat.o $(libyices)
+$(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(NOGMP_LIBS)
 
-$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/yices_sat.o $(static_libyices)
+$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
 
 # for all other executables
-$(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
+$(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
 
-$(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
+$(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
@@ -726,7 +888,7 @@ STRIPFLAGS=
 dist: bin lib
 	rm -r -f $(distdir)/*
 	mkdir $(distdir)/include
-	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(distdir)/include
+	cp include/*.h $(distdir)/include
 	mkdir $(distdir)/bin
 	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
@@ -744,7 +906,7 @@ dist: bin lib
 static-dist: static-bin static-lib
 	rm -r -f $(static_distdir)/*
 	mkdir $(static_distdir)/include
-	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(static_distdir)/include
+	cp include/*.h $(static_distdir)/include
 	mkdir $(static_distdir)/bin
 	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
@@ -784,8 +946,7 @@ static-smt-dist: static-bin
 # Clean: remove the generated source files
 #
 clean:
-	rm -f yices_version.c yices_hash_keywords.h smt_hash_keywords.h smt2_hash_tokens.h \
-	smt2_hash_keywords.h smt2_hash_symbols.h
+	rm -f $(auto_generated)
 
 .PHONY: clean
 

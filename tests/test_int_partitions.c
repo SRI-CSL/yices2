@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "hash_functions.h"
-#include "index_vectors.h"
-#include "int_partitions.h"
+#include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
+#include "utils/int_partitions.h"
 
 
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "power_products.h"
+#include "terms/power_products.h"
 
 
 static void print_varexp_array(FILE *f, varexp_t *a, uint32_t n) {

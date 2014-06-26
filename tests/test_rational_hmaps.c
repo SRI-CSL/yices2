@@ -2,10 +2,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "memalloc.h"
-#include "rationals.h"
-#include "extended_rationals.h"
-#include "rational_hash_maps.h"
+#include "utils/memalloc.h"
+#include "terms/rationals.h"
+#include "terms/extended_rationals.h"
+#include "terms/rational_hash_maps.h"
 
 
 static void print_hmap(xq_hmap_t *map) {
