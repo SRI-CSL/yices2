@@ -69,6 +69,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr
 	bv-div 	bv-rem  bv-sdiv bv-srem bv-smod
 	bv-redor        bv-redand 	bv-comp
+	bool-to-bv	bit
 
 	define-type	define		assert	check	push	pop
 	reset		dump-context	exit	echo	include
@@ -403,7 +404,26 @@ This is a summary of the commands and input language of the Yices 2 solver.
           x and y must have the same size.
 
 
+      m)  Conversion between Boolean and bitvector terms
 
+          (bool-to-bv b_1 ... b_n): build a bitvector from n Boolean terms
+          the result is a bitvector of n bits equal to [b_n .... b_1]:
+          - b_1 = low-order bit
+          - b_n = high-order bit
+
+          (bit u i): extract the i-th bit of bitvector u (as a Boolean term)
+	  - if u has type (bitvector n) then i must be an integer constant
+            such that 0 <= i <= n-1
+          - (bit u 0) = low-order bit of u
+          - (bit u n-1) = high-order bit of u
+
+          Examples:
+
+            (bool-to-bv true false false) is 0b100
+            (bit 0b100 0) is false
+            (bit 0b100 1) is false
+            (bit 0b100 2) is true
+          
 
 5) Commands
    --------

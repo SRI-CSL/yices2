@@ -26,7 +26,7 @@
 
 #include <stdint.h>
 
-#include "terms.h"
+#include "terms/terms.h"
 
 
 /*

@@ -37,6 +37,7 @@ enum yices_opcodes {
   SET_TIMEOUT_CMD,                   // [set-timeout <rational>]
   SHOW_TIMEOUT_CMD,                  // [show-timeout]
   HELP_CMD,                          // [help] or [help <symbol>] or [help <string>]
+  EFSOLVE_CMD,                       // [ef-solve]
   EXPORT_CMD,                        // [export <string>]
   SHOW_IMPLICANT_CMD,                // [show-implicant]
   DUMP_CMD,                          // [dump]

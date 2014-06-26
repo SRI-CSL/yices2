@@ -1,5 +1,5 @@
 // get token type
-#include "../src/yices_lexer.h"
+#include "frontend/yices/yices_lexer.h"
 
 typedef enum state_s {
   r0, 
@@ -211,6 +211,7 @@ static triple_t triples[] = {
   { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
   { c1, TK_SET_TIMEOUT, "settimeout_next_goto_c14" },
   { c1, TK_HELP, "help_next_goto_c15" },
+  { c1, TK_EF_SOLVE, "efsolve_next_goto_r0" },
   { c1, TK_EXPORT_TO_DIMACS, "export_next_goto_c3" },
   { c1, TK_SHOW_IMPLICANT, "implicant_next_goto_r0" },
 
@@ -267,6 +268,7 @@ static triple_t triples[] = {
   { c15, TK_SET_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_SHOW_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_HELP, "symbol_next_goto_r0" },
+  { c15, TK_EF_SOLVE, "symbol_next_goto_r0" },
   { c15, TK_EXPORT_TO_DIMACS, "symbol_next_goto_r0" },
   { c15, TK_SHOW_IMPLICANT, "symbol_next_goto_r0" },
   { c15, TK_UPDATE, "symbol_next_goto_r0" },

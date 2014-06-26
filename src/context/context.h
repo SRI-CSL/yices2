@@ -16,16 +16,16 @@
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_bv_sets.h"
+#include "utils/mark_vectors.h"
 #include "utils/pair_hash_map2.h"
 #include "terms/poly_buffer.h"
 #include "io/tracer.h"
 
 #include "terms/terms.h"
+#include "terms/conditionals.h"
 #include "context/internalization_table.h"
 #include "context/internalization_codes.h"
 #include "context/pseudo_subst.h"
-#include "utils/mark_vectors.h"
-#include "conditionals.h"
 
 #include "api/smt_logic_codes.h"
 #include "api/search_parameters.h"

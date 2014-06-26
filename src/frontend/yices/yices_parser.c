@@ -399,6 +399,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c15;
       goto loop;
 
+    case efsolve_next_goto_r0:   // New command: (ef-solve)
+      tstack_push_op(tstack, EFSOLVE_CMD, &loc);
+      state = r0;
+      goto loop;
+
     case export_next_goto_c3:    // New command: (export-to-dimacs <filename>)
       tstack_push_op(tstack, EXPORT_CMD, &loc);
       state = c3;

@@ -29,13 +29,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "int_array_hsets.h"
-#include "int_vectors.h"
-#include "ptr_vectors.h"
-#include "ptr_stack.h"
-#include "simple_cache.h"
+#include "utils/int_array_hsets.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_vectors.h"
+#include "utils/ptr_stack.h"
+#include "utils/simple_cache.h"
 
-#include "context.h"
+#include "context/context.h"
 
 
 /*

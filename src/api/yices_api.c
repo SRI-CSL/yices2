@@ -6404,7 +6404,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->branching = BRANCHING_THEORY;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_LIA || ctx->logic == QF_LIRA) {
+    if (logic == QF_LIA || logic == QF_LIRA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
     }
@@ -6429,14 +6429,14 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (ctx->logic == QF_UFLIA || ctx->logic == QF_UFLIRA || ctx->logic == QF_AUFLIA || ctx->logic == QF_ALIA) {
+    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
-    if (ctx->logic == QF_UFLIA || ctx->logic == QF_UFLIRA) {
+    if (logic == QF_UFLIA || logic == QF_UFLIRA) {
       params->use_optimistic_fcheck = false;
     }
     break;
@@ -7103,16 +7103,16 @@ static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
   /*
    * First pass: simple eval of all terms.
    * - k = number of terms, for which this fails
-   * - simple eval fails for a[i], we have b[i] = null_value
+   * - if simple eval fails for a[i], we have b[i] = null_value
    */
   k = 0;
   for (i=0; i<n; i++) {
     v = model_find_term_value(mdl, a[i]);
+    b[i] = v;
     if (v < 0) {
       assert(v == null_value);
       k ++;
     }
-    b[i] = v;
   }
 
   /*
@@ -7123,8 +7123,8 @@ static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
     for (i=0; i<n; i++) {
       if (b[i] < 0) {
 	v = eval_in_model(&evaluator, a[i]);
-	if (v < 0) break;
 	b[i] = v;
+	if (v < 0) break;
       }
     }
     delete_evaluator(&evaluator);

@@ -1,5 +1,5 @@
 // token types
-#include "../src/smt2_lexer.h"
+#include "frontend/smt2/smt2_lexer.h"
 
 typedef enum state_s {
   c0, c1, c3, c4, c5, c6, c6a, c8, c9, c9a, c9b,

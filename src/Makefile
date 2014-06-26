@@ -82,6 +82,7 @@ base_src_c := \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
+	context/conditional_definitions.c \
 	context/context.c \
 	context/context_simplifier.c \
 	context/context_solver.c \
@@ -165,6 +166,7 @@ base_src_c := \
 	terms/bvlogic_buffers.c \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
+	terms/conditionals.c \
 	terms/elim_subst.c \
 	terms/extended_rationals.c \
 	terms/free_var_collector.c \
@@ -230,6 +232,7 @@ base_src_c := \
 	utils/ptr_vectors.c \
 	utils/refcount_int_arrays.c \
 	utils/refcount_strings.c \
+	utils/simple_cache.c \
 	utils/sparse_arrays.c \
 	utils/stable_sort.c \
 	utils/string_buffers.c \

@@ -124,6 +124,7 @@ static inline float get_activity(const clause_t *cl) {
   return learned(cl)->activity;
 }
 
+/*
  * Increase the activity of a learned clause by delta
  */
 static inline void increase_activity(clause_t *cl, float delta) {

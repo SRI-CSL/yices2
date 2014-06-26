@@ -38,6 +38,7 @@ Grammar
         | ( help )
         | ( help <string> )
         | ( help <symbol> )
+	| ( ef-solve )
 	| ( export-to-dimacs <string> )
 	| ( show-implicant )
 	| EOS
@@ -156,6 +157,7 @@ c1	 define-type		c2
 	 show-param             c13
 	 set-timeout		c14
          help                   c15
+         ef-solve               c4
 	 export-to-dimacs       c3
 	 show-implicant         c4
 c2	 <symbol>		c10
@@ -375,6 +377,7 @@ c1       exit           next; goto r0
          show-timeout   next; goto r0
 	 set-timeout    next; goto c14
          help           next; goto c15
+         ef-solve       next; goto r0
          show-implicant next; goto r0
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
@@ -464,7 +467,3 @@ if s != bottom
    next; goto s
 else
    exit
-
-
-
-

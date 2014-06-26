@@ -27,8 +27,8 @@
 
 #include <stdint.h>
 
-#include "smt_logic_codes.h"
-#include "context.h"
+#include "api/smt_logic_codes.h"
+#include "context/context.h"
 
 
 

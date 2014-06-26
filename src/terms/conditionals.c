@@ -5,9 +5,9 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "memalloc.h"
-#include "term_utils.h"
-#include "conditionals.h"
+#include "utils/memalloc.h"
+#include "terms/term_utils.h"
+#include "terms/conditionals.h"
 
 /*
  * Initialize:

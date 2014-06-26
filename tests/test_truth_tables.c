@@ -9,10 +9,10 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "conditional_definitions.h"
-#include "term_printer.h"
-#include "int_array_sort.h"
-#include "yices.h"
+#include "context/conditional_definitions.h"
+#include "io/term_printer.h"
+#include "utils/int_array_sort.h"
+#include "include/yices.h"
 
 
 #ifndef NDEBUG

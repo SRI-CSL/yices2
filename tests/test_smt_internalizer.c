@@ -11,7 +11,7 @@
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
 #include "context/context.h"
-#include "context_config.h"
+#include "api/context_config.h"
 
 #include "io/term_printer.h"
 #include "io/type_printer.h"

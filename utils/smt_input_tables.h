@@ -1,4 +1,4 @@
-#include "../src/smt_lexer.h"
+#include "frontend/smt1/smt_lexer.h"
 
 typedef enum state_s {
   an0, an1,

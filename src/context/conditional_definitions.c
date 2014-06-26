@@ -4,11 +4,11 @@
 
 #include <assert.h>
 
-#include "memalloc.h"
-#include "ptr_array_sort2.h"
-#include "term_utils.h"
-#include "rba_buffer_terms.h"
-#include "term_manager.h"
+#include "utils/memalloc.h"
+#include "utils/ptr_array_sort2.h"
+#include "terms/term_utils.h"
+#include "terms/rba_buffer_terms.h"
+#include "terms/term_manager.h"
 
 #include "conditional_definitions.h"
 

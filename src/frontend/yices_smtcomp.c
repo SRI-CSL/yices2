@@ -20,7 +20,7 @@
 #include "frontend/smt1/smt_term_stack.h"
 #include "context/context.h"
 #include "api/smt_logic_codes.h"
-#include "context_config.h"
+#include "api/context_config.h"
 
 #include "include/yices.h"
 #include "api/yices_globals.h"

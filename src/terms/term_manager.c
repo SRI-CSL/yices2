@@ -2139,6 +2139,8 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
   composite_term_t *ite1, *ite2;
   term_t cond;
 
+  assert(is_pos_term(t1) && is_pos_term(t2));
+
   if (term_kind(tbl, t1) == ITE_TERM) {
     if (term_kind(tbl, t2) == ITE_TERM) {
       // both are (if-then-else ..)
@@ -3201,7 +3203,6 @@ static term_t map_node_to_term(term_manager_t *manager, node_t x) {
 
     case SELECT_NODE:
       // x is (select i u) for a bitvector term u
-      //      t = bit_term(terms, index_of_select_node(nodes, x), var_of_select_node(nodes, x));
       t = mk_bitextract(manager, var_of_select_node(nodes, x), index_of_select_node(nodes, x));
       break;
 
@@ -3308,7 +3309,6 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 
   return t;
 }
-
 
 
 
@@ -4375,7 +4375,6 @@ term_t mk_bitextract(term_manager_t *manager, term_t t, uint32_t i) {
 }
 
 
-
 /*
  * Convert bit i of buffer b to a term then reset b
  */
@@ -4383,11 +4382,12 @@ term_t bvl_get_bit(term_manager_t *manager, bvlogic_buffer_t *b, uint32_t i) {
   term_t t;
 
   assert(i < b->bitsize);
-  t = convert_bit_to_term(manager->terms, manager->nodes, b->bit[i]);
+  t = map_bit_to_term(manager, b->bit[i]);
   bvlogic_buffer_clear(b);
 
   return t;
 }
+
 
 
 

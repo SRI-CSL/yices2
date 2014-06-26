@@ -17,6 +17,8 @@
 #include <signal.h>
 #include <inttypes.h>
 
+#include "include/yices_exit_codes.h"
+
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
 
@@ -87,7 +89,21 @@
  *   timeout value = 0 means no timeout
  * - timeout_initialized: true once init_timeout is called
  * - tracer: initialized to (stderr, 2) in verbose mode (otherwise not used)
+ *
+ * COMMAND-LINE OPTIONS:
+ * - logic_name: logic to use (option --logic=xxx)
+ * - arith_name: arithmetic solver to use (option --arith-solver=xxx)
+ * - mode_name:  option --mode=xxx
+ *   by default, these are NULL
+ *
+ * CONTEXT CONFIGURATION
+ * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
+ * - arith_code = code for the arithemtic solver (default is ARITH_SIMPLEX)
+ * - mode_code = code for the mode (the default depends on the solver/logic)
+ * - iflag = true if the integer solver is required
+ * - qflag = true if support for quantifiers is required
  * - efmode = true to enable the exists/forall solver
+ * - efdone = true after the first call to efsolve
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -114,6 +130,7 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 static bool efmode;
+static bool efdone;
 
 /*
  * Context, model, and solver parameters
@@ -529,6 +546,16 @@ static void print_help(char *progname) {
 static void print_usage(char *progname) {
   fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
+
+/*
+ * Parse a mode string:
+ * - return a code form CTX_MODE_ONECHEK to CTX_MODE_INTERACTIVE
+ *   or the special code EFSOLVER_MODE
+ * - return -1 if the mode is not recognized
+ */
+enum {
+  EFSOLVER_MODE = 10,
+};
 
 
 /*

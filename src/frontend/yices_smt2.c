@@ -249,53 +249,6 @@ static void reset_handlers(void) {
  *  MAIN  *
  *********/
 
-/********************
- *  SIGNAL HANDLER  *
- *******************/
-
-/*
- * We call exit on SIGINT/ABORT and XCPU
- * - we could try to handle SIGINT more gracefully in interactive mode
- * - this will do for now.
- */
-static void default_handler(int signum) {
-  if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
-  }
-  exit(YICES_EXIT_INTERRUPTED);
-}
-
-
-/*
- * Initialize the signal handlers
- */
-static void init_handlers(void) {
-  signal(SIGINT, default_handler);
-  signal(SIGABRT, default_handler);
-#ifndef MINGW
-  signal(SIGXCPU, default_handler);
-#endif
-}
-
-
-/*
- * Reset the default handlers
- */
-static void reset_handlers(void) {
-  signal(SIGINT, SIG_DFL);
-  signal(SIGABRT, SIG_DFL);
-#ifndef MINGW
-  signal(SIGXCPU, SIG_DFL);
-#endif
-}
-
-
-
-/**********
- *  MAIN  *
- *********/
-
 #define HACK_FOR_UTF 0
 
 #if HACK_FOR_UTF
