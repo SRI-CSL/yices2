@@ -508,8 +508,15 @@ CPPFLAGS := -I. $(CPPFLAGS)
 
 #
 # Warning levels
+# in devel mode we get a lot of Warnings about inlined stuff
+# (this is caused by the inlined functions in asserts).
 #
+ifeq ($(YICES_MODE),devel)
+CFLAGS += -Wall -Wredundant-decls
+else
 CFLAGS += -Wall -Winline -Wredundant-decls
+endif
+
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
    # For compilation on mingw using the -mno-cygwin flag,
@@ -544,8 +551,8 @@ CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CFLAGS := $(CFLAGS) -O3 -g -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+CPPFLAGS := $(CPPFLAGS)
 else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) -O3 -pg
