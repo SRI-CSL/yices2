@@ -192,10 +192,10 @@ endif
 
 
 #
-# Include path: -I../src must be first in case there
+# Include path: -I../../src must be first in case there
 # are other -I in CPPFLAGS
 #
-CPPFLAGS := -I../src -I../include $(CPPFLAGS)
+CPPFLAGS := -I../../src -I../../src/include $(CPPFLAGS)
 
 
 #

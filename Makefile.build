@@ -60,7 +60,7 @@ srcsubdirs = \
     solvers/simplex parser_utils model scratch api frontend frontend/smt1 \
     frontend/dimacs frontend/yices frontend/smt2 context
 
-testdir = tests
+testdir = tests/unit
 smt2dir = front_end
 
 #
@@ -249,13 +249,13 @@ test: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 	@ echo "=== Building tests ==="
-	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
+	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all
 
 static-test: build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 	@ echo "=== Building tests ==="
-	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all-static
+	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all-static
 
 
 #
