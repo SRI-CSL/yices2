@@ -61,6 +61,7 @@ srcsubdirs = \
     frontend/dimacs frontend/yices frontend/smt2 context
 
 testdir = tests/unit
+regressdir = tests/regress
 smt2dir = front_end
 
 #
@@ -257,6 +258,21 @@ static-test: build_subdirs version
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all-static
 
+#
+# Regressions
+#
+regress: build_subdirs version
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
+	@ echo "=== Running regressions ==="
+	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin 
+
+
+static-regress: build_subdirs version
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
+	@ echo "=== Running regressions ==="
+	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
 
 #
 # SMT2 front-end: same as test
@@ -275,7 +291,8 @@ static-smt2: build_subdirs version
 
 
 
-.PHONY: all obj static-obj lib static-lib bin static-bin test static-test smt2 static-smt2
+.PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
+    regress static-regress smt2 static-smt2
 
 
 
