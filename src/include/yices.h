@@ -16,7 +16,7 @@
  *    link with libyices.a rather than the DLL)
  *
  * 2) define __YICES_DLLSPEC__ to '__declspec(dllexport)' before
- *      #include "include/yices.h"
+ *      #include "yices.h"
  *    when building yices.
  *
  * On any system other than Windows: __YICES_DLLSPEC__ is empty.
@@ -54,8 +54,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdio.h>
 
-#include "include/yices_types.h"
-#include "include/yices_limits.h"
+#include "yices_types.h"
+#include "yices_limits.h"
 
 
 
