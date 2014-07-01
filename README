@@ -109,7 +109,7 @@ The source subdirectories include
   ./etc:           miscellaneous files that get added to the tar files
 
 
-The following subdirectories are created/used during compilation:
+The following subdirectories are created and used during compilation:
 
   ./configs:       configuration files for each platform. Each file stores
                    compilation options and other settings used by the Makefile(s).
@@ -361,7 +361,7 @@ The possible modes are as follows:
 
    MODE=release           (default mode: compile with optimization enabled)
    MODE=debug             debug mode, no optimization
-   MODE=devel             same optimization as release
+   MODE=devel             same optimization as release, compiled with assertions
 
    MODE=profile
    MODE=gcov
@@ -433,9 +433,11 @@ Other possible targets:
    install                 install libraries/executables/header files on
                            the current machine
 
-   check		   show some data about the configuration
+   show-config             show some data about the configuration
+   show-details            show more data about the configuration
 
-   recheck                 show more data about the configuration
+   check		   run the regression tests (in tests/regress)
+   regress                 samt thing as 'check'
 
 
 For cleanup:

@@ -218,7 +218,7 @@ endif
 #
 # Just print the configuration
 #
-check: checkgmake
+show-config: checkgmake
 	@ echo "ARCH is $(ARCH)"
 	@ echo "POSIXOS is $(POSIXOS)"
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
@@ -254,5 +254,5 @@ checkgmake:
 
 
 
-.PHONY: checkgmake check
+.PHONY: checkgmake show-config
 

@@ -261,6 +261,8 @@ static-test: build_subdirs version
 #
 # Regressions
 #
+check: regress
+
 regress: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
@@ -628,7 +630,7 @@ all-clean:
 #
 # Helper rule for debugging Makefiles and configure
 #
-recheck:
+show-details:
 	@ echo
 	@ echo "*** Recursive Makefile ***"
 	@ echo
@@ -670,7 +672,7 @@ recheck:
 	@ echo
 
 
-.PHONY: recheck
+.PHONY: show-details
 
 
 #
