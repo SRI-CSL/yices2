@@ -17,7 +17,7 @@
 #include <signal.h>
 #include <inttypes.h>
 
-#include "include/yices_exit_codes.h"
+#include "yices_exit_codes.h"
 
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
@@ -57,7 +57,8 @@
 #include "model/model_eval.h"
 #include "model/model_printer.h"
 #include "model/concrete_value_printer.h"
-#include "include/yices.h"
+
+#include "yices.h"
 #include "api/yices_globals.h"
 #include "api/yices_extensions.h"
 #include "frontend/yices/yices_help.h"

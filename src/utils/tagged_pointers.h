@@ -2,6 +2,7 @@
 #define __TAGGED_POINTERS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
 

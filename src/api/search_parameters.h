@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "include/yices_types.h"
+#include "yices_types.h"
 
 
 /*

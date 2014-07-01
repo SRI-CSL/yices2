@@ -11,7 +11,7 @@
 #include "utils/assert_utils.h"
 #include "terms/full_subst.h"
 #include "io/term_printer.h"
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_globals.h"
 
 

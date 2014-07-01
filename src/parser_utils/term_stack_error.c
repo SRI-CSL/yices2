@@ -15,8 +15,8 @@
 
 #include "frontend/yices/yices_tstack_ops.h"
 #include "api/yices_error.h"
-#include "include/yices_exit_codes.h"
-#include "include/yices.h"
+#include "yices_exit_codes.h"
+#include "yices.h"
 
 #include "parser_utils/term_stack_error.h"
 

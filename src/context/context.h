@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "include/yices_types.h"
+#include "yices_types.h"
 
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"

@@ -504,7 +504,7 @@ endif
 #
 # include dirs: we want -I. first
 #
-CPPFLAGS := -I. -I./include $(CPPFLAGS)
+CPPFLAGS := -I. -Iinclude $(CPPFLAGS)
 
 #
 # Warning levels

@@ -14,7 +14,7 @@
 #include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_globals.h"
 
 

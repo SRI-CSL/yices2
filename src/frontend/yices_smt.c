@@ -44,9 +44,9 @@
 #include "solvers/bv/bvsolver.h"
 #include "model/model_printer.h"
 
-#include "include/yices.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 #include "api/yices_globals.h"
-#include "include/yices_exit_codes.h"
 
 
 /*

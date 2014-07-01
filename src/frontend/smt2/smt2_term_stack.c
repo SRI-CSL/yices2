@@ -10,7 +10,7 @@
 
 #include <string.h>
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_extensions.h"
 
 #include "frontend/smt2/attribute_values.h"

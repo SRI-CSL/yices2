@@ -27,7 +27,7 @@
 #include <assert.h>
 
 #include "utils/timeout.h"
-#include "include/yices_exit_codes.h"
+#include "yices_exit_codes.h"
 
 
 /*

@@ -24,7 +24,8 @@
 #include "terms/terms.h"
 #include "model/concrete_values.h"
 #include "utils/int_hash_map.h"
-#include "include/yices_types.h"
+
+#include "yices_types.h"
 
 
 /*

@@ -20,7 +20,7 @@
 
 #include "parser_utils/term_stack_error.h"
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_extensions.h"
 
 

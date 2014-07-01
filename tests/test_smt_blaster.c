@@ -21,10 +21,10 @@
 // TEMPORARY: for bv_solver_bitblast
 #include "solvers/bv/bvsolver.h"
 
-#include "utils/command_line.h"
-#include "include/yices.h"
 #include "api/yices_globals.h"
-#include "include/yices_exit_codes.h"
+#include "utils/command_line.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 static lexer_t lexer;

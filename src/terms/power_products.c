@@ -8,11 +8,12 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "include/yices_limits.h"
-#include "utils/memalloc.h"
+#include "yices_limits.h"
+
 #include "terms/power_products.h"
-#include "utils/prng.h"
 #include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 /*
  * Initialization and deletion of buffers

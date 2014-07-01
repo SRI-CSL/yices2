@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "api/search_parameters.h"
-#include "include/yices.h"
+#include "yices.h"
 
 
 /*

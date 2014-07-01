@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include "terms/term_utils.h"
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_globals.h"
 
 #define NUM_TERMS     5

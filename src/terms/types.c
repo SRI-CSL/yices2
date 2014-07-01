@@ -5,7 +5,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "include/yices_limits.h"
+#include "yices_limits.h"
 #include "utils/memalloc.h"
 #include "utils/refcount_strings.h"
 #include "utils/hash_functions.h"

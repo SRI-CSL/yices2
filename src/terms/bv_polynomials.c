@@ -4,11 +4,11 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "terms/bv_constants.h"
-#include "utils/hash_functions.h"
-#include "include/yices_limits.h"
 #include "terms/bv_polynomials.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "yices_limits.h"
 
 
 /*

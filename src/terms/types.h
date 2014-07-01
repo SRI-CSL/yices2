@@ -53,7 +53,7 @@
 #include "utils/tuple_hash_map.h"
 #include "utils/symbol_tables.h"
 
-#include "include/yices_types.h"
+#include "yices_types.h"
 
 
 /*

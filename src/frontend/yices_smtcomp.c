@@ -22,9 +22,9 @@
 #include "api/smt_logic_codes.h"
 #include "api/context_config.h"
 
-#include "include/yices.h"
 #include "api/yices_globals.h"
-#include "include/yices_exit_codes.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 /*

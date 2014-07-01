@@ -53,7 +53,7 @@
 #include "io/term_printer.h"
 #include "model/model_printer.h"
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_error.h"
 #include "api/yices_extensions.h"
 #include "api/yices_iterators.h"

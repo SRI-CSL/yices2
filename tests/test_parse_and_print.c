@@ -14,14 +14,14 @@
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 
+#include "api/yices_globals.h"
 #include "io/term_printer.h"
 #include "io/type_printer.h"
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
-#include "include/yices.h"
-#include "api/yices_globals.h"
-#include "include/yices_exit_codes.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 static lexer_t lexer;

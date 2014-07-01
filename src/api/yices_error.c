@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_globals.h"
 
 

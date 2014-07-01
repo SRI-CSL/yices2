@@ -12,7 +12,7 @@
 #include "context/conditional_definitions.h"
 #include "io/term_printer.h"
 #include "utils/int_array_sort.h"
-#include "include/yices.h"
+#include "yices.h"
 
 
 #ifndef NDEBUG

@@ -5,14 +5,14 @@
 #include "utils/memsize.h"
 #include "utils/command_line.h"
 
+#include "api/yices_globals.h"
 #include "io/term_printer.h"
 #include "io/type_printer.h"
 #include "parser_utils/term_stack2.h"
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
-#include "include/yices.h"
-#include "api/yices_globals.h"
-#include "include/yices_exit_codes.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 /*

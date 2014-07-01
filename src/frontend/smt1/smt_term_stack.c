@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_extensions.h"
 #include "terms/tstack_internals.h"
 #include "frontend/smt1/smt_term_stack.h"

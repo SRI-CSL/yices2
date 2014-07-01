@@ -19,9 +19,9 @@
  *   sorted in lexicographic order.
  */
 
-#include "utils/hash_functions.h"
 #include "terms/bvarith_buffers.h"
-#include "include/yices_limits.h"
+#include "utils/hash_functions.h"
+#include "yices_limits.h"
 
 
 

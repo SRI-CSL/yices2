@@ -176,8 +176,8 @@
  * 6) YICES_MAX_BVSIZE = bound on the size of bitvector
  *
  */
-#include "include/yices_types.h"
-#include "include/yices_limits.h"
+#include "yices_types.h"
+#include "yices_limits.h"
 
 
 

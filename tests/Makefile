@@ -195,7 +195,7 @@ endif
 # Include path: -I../src must be first in case there
 # are other -I in CPPFLAGS
 #
-CPPFLAGS := -I../src $(CPPFLAGS)
+CPPFLAGS := -I../src -I../include $(CPPFLAGS)
 
 
 #

@@ -20,8 +20,8 @@
 #include "utils/memsize.h"
 #include "utils/command_line.h"
 
-#include "include/yices.h"
-#include "include/yices_exit_codes.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 

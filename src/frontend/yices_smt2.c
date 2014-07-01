@@ -24,8 +24,8 @@
 #include "frontend/smt2/smt2_term_stack.h"
 #include "frontend/smt2/smt2_commands.h"
 
-#include "include/yices.h"
-#include "include/yices_exit_codes.h"
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 /*

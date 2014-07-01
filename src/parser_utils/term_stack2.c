@@ -21,7 +21,7 @@
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/bvarith64_buffer_terms.h"
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 

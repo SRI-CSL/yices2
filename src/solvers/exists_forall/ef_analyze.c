@@ -12,9 +12,10 @@
 
 #include "terms/term_utils.h"
 #include "solvers/exists_forall/ef_analyze.h"
-#include "include/yices.h"
 #include "terms/term_sets.h"
 #include "terms/elim_subst.h"
+
+#include "yices.h"
 
 
 /*

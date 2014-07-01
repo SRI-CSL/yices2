@@ -38,7 +38,7 @@
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
 #include "io/tracer.h"
-#include "include/yices_types.h"
+#include "yices_types.h"
 
 
 // EXPERIMENTAL

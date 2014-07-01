@@ -24,7 +24,7 @@
 #include "terms/bv64_constants.h"
 #include "terms/bv_constants.h"
 
-#include "include/yices.h"
+#include "yices.h"
 #include "api/yices_globals.h"
 #include "io/type_printer.h"
 #include "io/term_printer.h"

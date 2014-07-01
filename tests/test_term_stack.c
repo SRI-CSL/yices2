@@ -7,11 +7,11 @@
 #include <setjmp.h>
 #include <stdio.h>
 
+#include "api/yices_globals.h"
 #include "parser_utils/term_stack2.h"
 #include "io/term_printer.h"
 #include "io/type_printer.h"
-#include "include/yices.h"
-#include "api/yices_globals.h"
+#include "yices.h"
 
 
 static char *code2string[NUM_TSTACK_ERRORS] = {

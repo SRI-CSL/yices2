@@ -7,7 +7,7 @@
 #include <inttypes.h>
 
 #include "api/context_config.h"
-#include "include/yices.h"
+#include "yices.h"
 
 
 /*

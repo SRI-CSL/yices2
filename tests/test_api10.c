@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "include/yices.h"
+#include "yices.h"
 
 /*
  * Arrays of terms for testing: we store term + its type

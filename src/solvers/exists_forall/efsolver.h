@@ -105,12 +105,12 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "include/yices_types.h"
-#include "io/tracer.h"
+#include "yices_types.h"
 
 #include "api/smt_logic_codes.h"
 #include "api/search_parameters.h"
 #include "context/context.h"
+#include "io/tracer.h"
 #include "solvers/exists_forall/ef_problem.h"
 
 
