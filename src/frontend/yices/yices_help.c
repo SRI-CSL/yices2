@@ -1359,7 +1359,13 @@ static const help_record_t help_data[] = {
     "to make it consistent with the arithmetic or bitvector models.\n",
     NULL },
 
-  // END MARKER: index 141
+  // ef-solve: index 141
+  { HCOMMAND,
+    "(ef-solve)",
+    "Invoke the exists/forall solver",
+    NULL,
+    NULL },
+
   // bool-to-bv: index 142
   { HBITVECTOR,
     "(bool-to-bv [expr_1] ... [expr_n])",
@@ -1494,6 +1500,7 @@ static const help_record_t help_data[] = {
   "       | ( help )\n" \
   "       | ( help <symbol> )\n" \
   "       | ( help <string> )\n" \
+  "       | ( ef-solve )\n" \
   "       | ( export-to-dimacs <string> )\n" \
   "       | ( show-implicant )\n" \
   "\n"   \
@@ -1879,6 +1886,7 @@ static const help_index_t help_index[] = {
   { "ef-gen-mode", NULL, 148, help_basic },
   { "ef-max-iters", NULL, 149, help_basic },
   { "ef-max-samples", NULL, 150, help_basic },
+  { "ef-solve", NULL, 141, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
   { "export-to-dimacs", NULL, 144, help_basic },

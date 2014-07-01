@@ -154,9 +154,10 @@ static ef_code_t efcode;
 
 
 /*
- * Experimental: if mode = one-shot, we delay assertions
+ * If mode = one-shot or ef
  * - all assertions are pushed into this vector
  * - all assertions are then processed at once on the call to
+ *   (check) or (ef-solve)
  */
 static ivector_t delayed_assertions;
 
@@ -536,7 +537,7 @@ static void print_help(char *progname) {
 	 "    In this mode, (ef-solve) can be used\n"
 	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"
          "\n"
-         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "For reporting bugs and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -575,6 +576,8 @@ static int32_t context_mode_code(const char *name) {
     x = CTX_MODE_PUSHPOP;
   } else if (strcmp(name, "multi-checks") == 0) {
     x = CTX_MODE_MULTICHECKS;
+  } else if (strcmp(name, "ef") == 0) {
+    x = EFSOLVER_MODE;
   }
 
   return x;
