@@ -8,7 +8,7 @@ FAIL=0
 # The temp file for output
 OUTFILE=`mktemp`
 
-for file in `find $REGRESS_DIR -name '*.smt' -or -name '*.smt2'`;
+for file in `find $REGRESS_DIR -name '*.smt' -or -name '*.smt2' -or -name '*.ys'`;
 do
 
     echo -n $file
@@ -44,7 +44,7 @@ do
             BINARY=yices_smt
             ;;
         ys)
-            BINARY=yices
+            BINARY=yices_main
             ;; 
         *)
             echo unknown extension
@@ -59,8 +59,10 @@ do
   
     if [ $? -eq 0 ];
     then
+    	echo OK
         let PASS=$PASS+1
     else
+    	echo FAIL
         let FAIL=$FAIL+1
     fi
     

@@ -2884,7 +2884,9 @@ static void print_ef_status(void) {
 
   assert(efsolver != NULL && efdone);
 
-  printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
+  if (verbose) {
+    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
+  }
 
   stat = efsolver->status;
   error = efsolver->error_code;
@@ -2896,9 +2898,11 @@ static void print_ef_status(void) {
   case EF_STATUS_INTERRUPTED:
     fputs(ef_status2string[stat], stdout);
     fputc('\n', stdout);
-    if (stat == EF_STATUS_SAT) {
-      print_ef_solution(stdout, efsolver);
-      fputc('\n', stdout);
+    if (verbose) {
+      if (stat == EF_STATUS_SAT) {
+        print_ef_solution(stdout, efsolver);
+        fputc('\n', stdout);
+      }
     }
     fflush(stdout);
     break;

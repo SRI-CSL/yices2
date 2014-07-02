@@ -1059,7 +1059,7 @@ static void ef_solver_search(ef_solver_t *solver) {
 
   assert(max > 0);
 
-#if 1
+#if 0
   printf("\nEF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars\n",
 	 ef_prob_num_constraints(solver->prob),
 	 ef_prob_num_evars(solver->prob),
