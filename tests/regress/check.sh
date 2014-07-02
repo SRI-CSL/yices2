@@ -105,7 +105,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     thetime=`cat $timefile`
 
     # Do the diff
-    diff $outfile $gold > /dev/null
+    diff -w $outfile $gold > /dev/null
   
     if [ $? -eq 0 ] 
     then
