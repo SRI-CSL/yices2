@@ -1,85 +1,129 @@
-#!/bin/bash
+#!/bin/sh
 
-REGRESS_DIR=$1
-BIN_DIR=$2
+#
+# Run regression tests
+#
+# Usage: check.sh <test-dir> <bin-dir>
+#
+# tests-dir contains test files in the SMT1, SMT2, or Yices input language
+# bin-dir contains the Yices binaries for each of these languages
+#
+# For each test file, the expected resuts is stored in file.gold
+# and command-line options are stored in file.options.
+#
+# This scripts calls the appropriate binary on each test file, passing it
+# the command-line options if any, then check whether the output matches
+# what's expected.
+#
 
-FAIL=0
+if test $# != 2 ; then
+   echo "Usage: $0 <test-directory> <bin-directory>"
+   exit
+fi
 
+regress_dir=$1
+bin_dir=$2
+
+#
+# System-dependent configuration
+# - the script uses mktemp and time
+#
+os_name=`uname 2>/dev/null` || os_name=unknown
+
+mktemp_cmd=mktemp
+
+#
+# We try the builtin time command
+#
+time_cmd=time
+
+case "$os_name" in
+  *Darwin* )
+     mktemp_cmd="mktemp -t out"
+  ;;
+
+esac
+
+#
 # The temp file for output
-OUTFILE=`mktemp`
-TIMEFILE=`mktemp`
+#
+outfile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
+timefile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
 
-for file in `find $REGRESS_DIR -name '*.smt' -or -name '*.smt2' -or -name '*.ys'`;
-do
+fail=0
+pass=0
+
+for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys'` ; do
 
     echo -n $file
+
+    # Get the binary based on the filename
+    filename=`basename "$file"`
+
+    case $filename in
+        *.smt2)
+            binary=yices_smt2
+            ;;
+        *.smt)
+            binary=yices_smtcomp
+            ;;
+        *.ys)
+            binary=yices_main
+            ;; 
+        *)
+            echo FAIL: unknown extension for $filename
+            fail=`expr $fail + 1`
+            continue
+    esac
 
     # Get the options
     if [ -e "$file.options" ]
     then
-        OPTIONS=`cat $file.options`
-        echo " [ $OPTIONS ]"
+        options=`cat $file.options`
+        echo " [ $options ]"
     else
-        OPTIONS=
+        options=
         echo
     fi
+
 
     # Get the expected result
     if [ -e "$file.gold" ]
     then
-        GOLD=$file.gold
+        gold=$file.gold
     else
-        echo Missing expected result
-        let FAIL=$FAIL+1
-        continue 
-    fi    
+        echo FAIL: missing file: $file.gold
+        fail=`expr $fail + 1`
+        continue
+    fi
 
-    # Get the binary based on the filename
-    filename=$(basename "$file")
-    extension="${filename##*.}"    
-    case "$extension" in
-        smt2)
-            BINARY=yices_smt2
-            ;;
-        smt)
-            BINARY=yices_smtcomp
-            ;;
-        ys)
-            BINARY=yices_main
-            ;; 
-        *)
-            echo unknown extension
-            let FAIL=$FAIL+1
-            continue
-    esac
-        
     # Run the binary
-    /usr/bin/time -f "%U" -o $TIMEFILE $BIN_DIR/$BINARY $OPTIONS $file >& $OUTFILE
-	TIME=`cat $TIMEFILE`
+    $time_cmd -f "%U" -o $timefile $bin_dir/$binary $options $file > $outfile 2>&1 
+    thetime=`cat $timefile`
 
     # Do the diff
-    diff $OUTFILE $GOLD
+    diff $outfile $gold > /dev/null
   
-    if [ $? -eq 0 ];
+    if [ $? -eq 0 ] 
     then
-    	echo PASS [${TIME}s]
-        let PASS=$PASS+1
+    	echo PASS [${thetime} s]
+        pass=`expr $pass + 1`
     else
     	echo FAIL
-        let FAIL=$FAIL+1
+        fail=`expr $fail + 1`
     fi
     
-done;
+done
 
-rm $OUTFILE
-rm $TIMEFILE
+rm $outfile
+rm $timefile
 
-echo Pass: $PASS
-echo Fail: $FAIL
+echo Pass: $pass
+echo Fail: $fail
 
-if [ $FAIL -eq 0 ];
+if [ $fail -eq 0 ]
 then
     exit 0
 else
-    exit -1
+    exit 1
 fi
