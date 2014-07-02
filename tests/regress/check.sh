@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #
 # Run regression tests
@@ -26,20 +26,23 @@ bin_dir=$2
 
 #
 # System-dependent configuration
-# - the script uses mktemp and time
 #
 os_name=`uname 2>/dev/null` || os_name=unknown
 
 mktemp_cmd=mktemp
 
 #
-# We try the builtin time command
+# We try bash's builtin time command
 #
-time_cmd=time
+TIMEFORMAT="%U"
 
 case "$os_name" in
   *Darwin* )
-     mktemp_cmd="mktemp -t out"
+     mktemp_cmd="/usr/bin/mktemp -t out"
+  ;;
+
+  * )
+     mktemp_cmd=mktemp
   ;;
 
 esac
@@ -98,7 +101,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     fi
 
     # Run the binary
-    $time_cmd -f "%U" -o $timefile $bin_dir/$binary $options $file > $outfile 2>&1 
+    (time  ./$bin_dir/$binary $options ./$file >& $outfile ) >&  $timefile
     thetime=`cat $timefile`
 
     # Do the diff
