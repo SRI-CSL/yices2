@@ -1,0 +1,12 @@
+(define i4::(bitvector 4))
+(define i5::(bitvector 4))
+(define x::(bitvector 4))
+
+(assert (bv-lt x 0b0011))
+
+(assert (bv-lt i4 0b0011))
+(assert (= i5 (bv-add i4 0b0001)))
+(assert (not (bv-lt i5 0b0011)))
+
+(check)
+

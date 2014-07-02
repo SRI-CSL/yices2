@@ -1,0 +1,10 @@
+(define x::(bitvector 20))
+(define y::(bitvector 20))
+(define z::(bitvector 20))
+(define w::(bitvector 20))
+
+(assert (and (= x y)(= z w)))
+(assert (/= (bv-add x z)(bv-add y w)))
+
+;;(dump-context)
+(check)

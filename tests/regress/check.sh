@@ -7,6 +7,7 @@ FAIL=0
 
 # The temp file for output
 OUTFILE=`mktemp`
+TIMEFILE=`mktemp`
 
 for file in `find $REGRESS_DIR -name '*.smt' -or -name '*.smt2' -or -name '*.ys'`;
 do
@@ -28,7 +29,7 @@ do
     then
         GOLD=$file.gold
     else
-        echo Missing extpeced result
+        echo Missing expected result
         let FAIL=$FAIL+1
         continue 
     fi    
@@ -41,7 +42,7 @@ do
             BINARY=yices_smt2
             ;;
         smt)
-            BINARY=yices_smt
+            BINARY=yices_smtcomp
             ;;
         ys)
             BINARY=yices_main
@@ -49,17 +50,19 @@ do
         *)
             echo unknown extension
             let FAIL=$FAIL+1
+            continue
     esac
-    
+        
     # Run the binary
-    $BIN_DIR/$BINARY $OPTIONS $file > $OUTFILE
+    /usr/bin/time -f "%U" -o $TIMEFILE $BIN_DIR/$BINARY $OPTIONS $file >& $OUTFILE
+	TIME=`cat $TIMEFILE`
 
     # Do the diff
     diff $OUTFILE $GOLD
   
     if [ $? -eq 0 ];
     then
-    	echo OK
+    	echo PASS [${TIME}s]
         let PASS=$PASS+1
     else
     	echo FAIL
@@ -69,6 +72,7 @@ do
 done;
 
 rm $OUTFILE
+rm $TIMEFILE
 
 echo Pass: $PASS
 echo Fail: $FAIL
