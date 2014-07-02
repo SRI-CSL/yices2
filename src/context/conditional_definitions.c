@@ -789,12 +789,12 @@ void extract_conditional_definitions(cond_def_collector_t *c, term_t f) {
  * Constant arrays: truth tables for variables x[0 ... 5]
  */
 static const uint64_t truth_tbl_var[6] = {
-  0xAAAAAAAAAAAAAAAAu,  // 1010 1010 1010 1010 1010 1010 1010 1010 ...
-  0xCCCCCCCCCCCCCCCCu,  // 1100 1100 1100 1100 1100 1100 1100 1100 ...
-  0xF0F0F0F0F0F0F0F0u,  // 1111 0000 1111 0000 1111 0000 1111 0000 ...
-  0xFF00FF00FF00FF00u,  // 1111 1111 0000 0000 1111 1111 0000 0000 ...
-  0xFFFF0000FFFF0000u,  // 1111 1111 1111 1111 0000 0000 0000 0000 ..
-  0xFFFFFFFF00000000u,
+  0xAAAAAAAAAAAAAAAAULL,  // 1010 1010 1010 1010 1010 1010 1010 1010 ...
+  0xCCCCCCCCCCCCCCCCULL,  // 1100 1100 1100 1100 1100 1100 1100 1100 ...
+  0xF0F0F0F0F0F0F0F0ULL,  // 1111 0000 1111 0000 1111 0000 1111 0000 ...
+  0xFF00FF00FF00FF00ULL,  // 1111 1111 0000 0000 1111 1111 0000 0000 ...
+  0xFFFF0000FFFF0000ULL,  // 1111 1111 1111 1111 0000 0000 0000 0000 ..
+  0xFFFFFFFF00000000ULL,
 };
 
 
@@ -953,11 +953,11 @@ static uint64_t truth_tbl_of_term(cond_def_collector_t *c, term_t t, term_t *x, 
   ctx = c->ctx;
   r = intern_tbl_get_root(&ctx->intern, t);
   if (term_is_true(ctx, r)) {
-    return 0xFFFFFFFFFFFFFFFFu; // all true
+    return 0xFFFFFFFFFFFFFFFFULL; // all true
   }
 
   if (term_is_false(ctx, r)) {
-    return 0x0000000000000000u; // all false
+    return 0x0000000000000000ULL; // all false
   }
 
   i = index_of(r);
@@ -1014,7 +1014,7 @@ static uint64_t truth_tbl_of_array(cond_def_collector_t *c, uint32_t m, term_t *
   uint64_t r;
   uint32_t i;
 
-  r = 0xFFFFFFFFFFFFFFFFu;
+  r = 0xFFFFFFFFFFFFFFFFULL;
   for (i=0; i<m; i++) {
     r &= truth_tbl_of_term(c, a[i], x, n);
   }
