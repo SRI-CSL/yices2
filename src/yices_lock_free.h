@@ -222,6 +222,8 @@ extern int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t he
 
 extern int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
+extern int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t width, uint32_t height, uint32_t offset);
+
 
 /*********************
  *  CHECKS ON TYPES  *

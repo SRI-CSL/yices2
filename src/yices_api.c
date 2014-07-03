@@ -4457,13 +4457,30 @@ int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uin
  * - f = output file to use
  * - width, height, offset = print area
  */
+
+/* locking version */
 EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t width, uint32_t height, uint32_t offset) {
+  yices_lock_t *lock = &__yices_globals.lock;
+  int32_t retval;
+
+  get_yices_lock(lock);
+
+  retval = _o_yices_pp_term_array(f, n, a, width, height, offset);
+
+  release_yices_lock(lock);
+
+  return retval;
+}
+
+/* non-locking version */
+int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t width, uint32_t height, uint32_t offset) {
+  error_report_t *error = get_yices_error();
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
   uint32_t i;
 
-  if (! check_good_terms(&manager, n, a)) {
+  if (! check_good_terms(__yices_globals.manager, n, a)) {
     return -1;
   }
 
@@ -4478,7 +4495,7 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t w
 
   init_default_yices_pp(&printer, f, &area);
   for (i=0; i<n; i++) {
-    pp_term_full(&printer, &terms, a[i]);
+    pp_term_full(&printer, __yices_globals.terms, a[i]);
   }
   flush_yices_pp(&printer);
 
@@ -4487,7 +4504,7 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t w
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer); 
-    error.code = OUTPUT_ERROR;
+    error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
 
