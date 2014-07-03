@@ -1,0 +1,101 @@
+#!/bin/sh
+
+#
+# Construct a README file from a template
+#
+# This scripts replaces 
+#  __YICES__      by the 2.2.1
+#  __GMP__        by the 6.0.0
+#  __DYLIB__      by the name of the dynamic libray
+#  __OS_VERSION__ by the Linux/Android
+# in the template
+#
+#
+# Usage:
+#   ./mkreadme <dist> <template>
+# 
+# <dist> must be a distribution directory like 
+#   build/arm-linux-androideabi-release/static-dist
+#
+# The template must be an appropriate text file for the distribution
+# (e.g. etc/README.static.linux)
+#
+# NOTE: this script replaces the default mkreadme when cross-compiling
+
+usage="Usage: $0 <distribution directory> <template>\n
+\n
+   For example\n
+\n 
+    $0 ./build/x86_64-unknown-linux-gnu-release/dist ./etc/README.linux\n
+"
+
+if test $# != 2 ; then
+   echo $usage
+   exit 1
+fi
+
+dist=$1
+template=$2
+libdir=$dist/lib
+
+if test ! -d $dist ; then
+   echo "Error: $dist not found or not a directory"
+   exit 1
+fi
+
+if test ! -f $template ; then
+   echo "Error: $template not found"
+   exit 1
+fi
+
+if test ! -d $libdir ; then
+   echo "Error: $libdir not found or not a directory"
+   exit 1
+fi
+
+
+if test -x $dist/bin/yices ; then 
+  yices=$dist/bin/yices
+else
+  if test -x $dist/bin/yices.exe ; then
+     yices=$dist/bin/yices.exe
+  else
+    echo "Error: can't find yices or yices.exe in $dist/bin"
+    exit 1
+  fi
+fi
+
+#
+# Version stuff
+#
+clean_os_version="Android 14"
+gmp_version="6.0.0"
+yices_verion="2.2.1"
+
+
+#
+# Get the dynamic library name
+# 
+libname="none"
+alllibs=`ls $libdir`
+for lib in $alllibs; do
+  case $lib in
+    libyices.so.* | libyices.*.dylib )
+      if test $libname = "none" ; then
+        libname=$lib
+      else
+        echo "Error: found two dymanic libraries: $libname and $lib in $dist/lib"
+        exit 1
+      fi
+    ;;
+  esac
+done
+
+
+
+#
+# Apply the substitution
+#
+sed -e "s/__YICES__/${yices_version}/g" -e "s/__GMP__/${gmp_version}/g" \
+    -e "s/__DYLIB__/${libname}/g" -e "s,__OS_VERSION__,${clean_os_version},g" $template
+

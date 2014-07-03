@@ -48,7 +48,12 @@ LDCONFIG=/sbin/ldconfig
 #
 # Script/command to build a README file from a template
 #
+arm_android=$(findstring arm-linux-android,$(ARCH))
+ifeq ($(arm_android),arm-linux-android)
+MKREADME=./utils/mkreadme-android
+else
 MKREADME=./utils/mkreadme
+endif
 
 #
 # Source directories

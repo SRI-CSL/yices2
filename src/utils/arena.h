@@ -6,7 +6,11 @@
 #ifndef __ARENA_H
 #define __ARENA_H
 
+#ifdef ANDROID
+#include <limits.h>
+#else
 #include <stddef.h>
+#endif
 
 /*
  * Memory block: array of char + header
