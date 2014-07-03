@@ -52,7 +52,7 @@ included in this distribution. Just type
 
 Alternatively, you can install Yices in /usr/local as follows:
 
-  sudo ./install-yices.
+  sudo ./install-yices
 
 This will copy the binaries  /usr/local/bin, the header files in
 /usr/local/include, and the libraries in /usr/local/lib.
