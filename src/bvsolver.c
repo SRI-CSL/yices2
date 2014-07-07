@@ -6351,7 +6351,7 @@ void bv_solver_reset(bv_solver_t *solver) {
    * The exp buffers must be deleted first since they use
    * solver->etbl.store/store64 and reset_bvexp_table will reset these
    * two stores. We reconstruct the two buffers after
-   * reset_bvexpt_table.
+   * reset_bvexp_table.
    */
   delete_bvarith_buffer(&solver->exp_buffer);
   delete_bvarith64_buffer(&solver->exp64_buffer);
