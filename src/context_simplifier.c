@@ -1565,17 +1565,6 @@ static void flatten_or_push_term(context_t *ctx, term_t t) {
 }
 
 /*
- * Add t to v if it's not been visited yet
- */
-static void flatten_or_add_term(context_t *ctx, ivector_t *v, term_t t) {
-  assert(is_boolean_term(ctx->terms, t));
-
-  if (int_hset_add(ctx->small_cache, t)) {
-    ivector_push(v, t);
-  }
-}
-
-/*
  * Process all elements in ctx->queue.
  *
  * For every term t in the queue:

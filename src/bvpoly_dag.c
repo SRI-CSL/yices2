@@ -78,8 +78,10 @@ static inline void list_remove(bvc_item_t *list, int32_t i) {
 
 
 /*
- * Add n to the the list of leaves
+ * Add n to one of the three node lists:
  * - list[0]  --> leaves
+ * - list[-1] --> elementary nodes
+ * - list[-2] --> default list
  */
 static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
@@ -194,6 +196,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
 
   init_bvconstant(&dag->aux);
   init_pp_buffer(&dag->pp_aux, 10);
+  init_bvpoly_buffer(&dag->poly_buffer);
   init_ivector(&dag->buffer, 10);
 }
 
@@ -321,6 +324,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
 
   delete_bvconstant(&dag->aux);
   delete_pp_buffer(&dag->pp_aux);
+  delete_bvpoly_buffer(&dag->poly_buffer);
   delete_ivector(&dag->buffer);
 }
 
@@ -358,6 +362,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   reset_objstore(&dag->alias_store);
 
   pp_buffer_reset(&dag->pp_aux);
+  reset_bvpoly_buffer(&dag->poly_buffer, 32); // any positive bit-size would do
   ivector_reset(&dag->buffer);
 }
 
@@ -1487,6 +1492,7 @@ node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bit
     sign ^= sign_of_varexp(a[i], e);
     pp_buffer_mul_varexp(buffer, unsigned_occ(a[i]), p->prod[i].exp);
   }
+  pp_buffer_normalize(buffer);
 
   assert(good_sign(sign, p, a) && good_pprod(buffer->prod, buffer->len));
 
@@ -1505,6 +1511,7 @@ node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t
   pp_buffer_reset(buffer);
   pp_buffer_set_var(buffer, n1);
   pp_buffer_mul_var(buffer, n2);
+  pp_buffer_normalize(buffer);
 
   return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize));
 }
@@ -1842,7 +1849,7 @@ static inline bool same_node(node_occ_t n1, node_occ_t n2) {
  */
 static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
   int32_t *l;
-  uint32_t j, k, m;
+  uint32_t j, m;
 
   assert(0 < n && n <= dag->nelems && 0 < i && i <= dag->nelems);
 
@@ -1850,16 +1857,18 @@ static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
   assert(l != NULL);
 
   m = iv_size(l);
-  k = 0;
+
   for (j=0; j<m; j++) {
-    if (l[j] != i) {
-      l[k] = l[j];
-      k ++;
-    }
+    if (l[j] == i) break;
+  }
+  j ++;
+  assert(0 < j && j <= m);
+  while (j < m) {
+    l[j-1] = l[j];
+    j ++;
   }
 
-  assert(k == m-1);
-  index_vector_shrink(l, k);
+  index_vector_shrink(l, m-1);
 }
 
 
