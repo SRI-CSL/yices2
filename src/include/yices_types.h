@@ -38,11 +38,18 @@ typedef int32_t type_t;
 /*
  * Some functions return a collection of terms or types
  * via a vector. The vector is an array that gets resized
- * by the library as needed. For each vector type, the API
- * provide three functions:
- * - yices_init_term_vector(term_vector_t *v)
- * - yices_delete_term_vector(term_vector_t *v)
- * - yices_reset_term_vector(term_vector_t *v)
+ * by the library as needed.
+ *
+ * For each vector type, the API provide three functions:
+ * - yices_init_xxx_vector(xxx_vector_t *v)
+ * - yices_reset_xxx_vector(xxx_vector_t *v)
+ * - yices_delete_xxx_vector(xxx_vector_t *v)
+ *
+ * The first function must be called first to initialize a vector.
+ * The reset function can be used to empty vector v. It just resets
+ * v->size to zero.
+ * The delete function must be called to delete a vector that is no
+ * longer needed. This is required to avoid memory leaks.
  */
 typedef struct term_vector_s {
   uint32_t capacity;
