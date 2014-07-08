@@ -3658,7 +3658,7 @@ void smt2_assert(term_t t) {
 void smt2_check_sat(void) {
   __smt2_globals.stats.num_check_sat ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 8,
+  tprintf(__smt2_globals.tracer, 3,
 	  "\n(check-sat: %"PRIu32" calls)\n", __smt2_globals.stats.num_check_sat);
 
   if (check_logic()) {
