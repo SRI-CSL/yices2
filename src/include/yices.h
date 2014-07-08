@@ -2521,6 +2521,11 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 
+
+/***********************
+ *  VALUES IN A MODEL  *
+ **********************/
+
 /*
  * Evaluation functions. Once a model is constructed, it's possible
  * to query for the value of a term t in that model. The following
@@ -2536,7 +2541,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  *   term1 = t
  * If t contains a subterm whose value is not known
  *   code = EVAL_UNKNOWN_TERM
- * If t contains a free variable
+ * If t contains free variables
  *   code = EVAL_FREEVAR_IN_TERM
  * If t contains quantifier(s)
  *   code = EVAL_QUANTIFIER
@@ -2547,6 +2552,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  *
  * Other codes are possible depending on the specific evaluation function.
  */
+
 
 /*
  * Value of boolean term t: returned as an integer val
@@ -2624,6 +2630,216 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
 __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
 
+
+
+/*
+ * VALUE DESCRIPTORS AND NODES
+ */
+
+/*
+ * The previous functions work for terms t of atomic type, but they
+ * can't be used if t has a tuple or function type. Internally, yices
+ * represent the tuple and function values as nodes in a DAG. The
+ * following functions allows one to query and explore this DAG.
+ * A node in the DAG is represented by a structure of type yval_t defined
+ * as follows in yices_types.h:
+ *
+ *  typedef struct yval_s {
+ *    int32_t node_id;
+ *    yval_tag_t node_tag;
+ *  } yval_t;
+ *
+ *
+ * This descriptor includes the node id (all nodes have a unique id) and
+ * a tag that identifies the node type. Leaf nodes represent atomic constants.
+ * Non-leaf nodes represent tuples and functions.
+ *
+ * The possible tags for a leaf node are:
+ *
+ *   YVAL_BOOL       Boolean constant
+ *   YVAL_RATIONAL   Rational (or integer) constant
+ *   YVAL_BV         Bitvector constant
+ *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
+ *
+ * The following tags are used for non-leaf nodes:
+ *
+ *   YVAL_TUPLE      Constant tuple
+ *   YVAL_FUNCTION   Function
+ *   YVAL_MAPPING    Mapping of the form [val_1 .. val_k -> val]
+ *
+ * There is also the special tag to indicate an error or that a value
+ * is not known:
+ *
+ *   YVAL_UNKNOWN
+ *
+ *
+ * The children of a tuple node denote the tuple components. For
+ * example Yices will represent the tuple (true, -1/2, 0b0011) as a
+ * node with tag YVAL_TUPLE and three children. Each children is a
+ * leaf node in this case.
+ *
+ * All functions used in the model have a simple form. They are defined
+ * by a finite list of mappings and a default value. Each mapping specifies the 
+ * value of the function at a single point in its domain. For example, we could
+ * have a function f of type [int, int -> int] defined by the clauses:
+ *    f(0, 0) = 0
+ *    f(3, 1) = 1
+ *    f(x, y) = -2 in all other cases.
+ *
+ * Yices represents such a function as a node with tag YVAL_FUNCTION
+ * and with three children. Two of these children are nodes with tag
+ * YVAL_MAPPING that represent the mappings:
+ *     [0, 0 -> 0]
+ *     [3, 1 -> 1]
+ * The third children represents the default value for f, that is,
+ * it's a leaf node for the constant -2 (tag YVAL_RATIONAL and value -2).
+ *
+ * The following functions return the value of a term t as a node in
+ * the DAG, and allow one to query and collect the children of
+ * non-leaf nodes.
+ */
+
+/*
+ * Vectors of node descriptor: yices_val_expand_function requires
+ * a vector as argument. The following functions must be used
+ * to initialize, delete, or reset this vector. The conventions
+ * are the same as for vectors of terms of types.
+ */
+__YICES_DLLSPEC__ extern void yices_init_yval_vector(yval_vector_t *v);
+__YICES_DLLSPEC__ extern void yices_delete_yval_vector(yval_vector_t *v);
+__YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
+
+
+/*
+ * Value of term t stored as a node descriptor in *val.
+ *
+ * The function returns 0 it t's value can be computed, -1 otherwise.
+ * Error codes are as in the previous evaluation functions.
+ *
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If t contains a subterm whose value is not known
+ *   code = EVAL_UNKNOWN_TERM
+ * If t contains free variables
+ *   code = EVAL_FREEVAR_IN_TERM
+ * If t contains quantifier(s)
+ *   code = EVAL_QUANTIFIER
+ * If t contains lambda terms
+ *   code = EVAL_LAMBDA
+ * If the evaluation fails for other reasons:
+ *   code = EVAL_FAILED
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val);
+
+
+/*
+ * Queries on the value of a rational node:
+ * - if v->node_tag is YVAL_RATIONAL, the functions below check whether v's value
+ *   can be converted to an integer or a pair num/den of the given size.
+ * - if v->node_tag != YVAL_RATIONAL, these functions return false (i.e. 0).
+ *
+ * yices_val_is_int32: check whether v's value fits in a signed, 32bit integer
+ *
+ * yices_val_is_int64: check whether v's value fits in a signed, 64bit integer
+ *
+ * yices_val_is_rational32: check whether v's value can be written num/den where num
+ *    is a signed 32bit integer and den is an unsigned 32bit integer
+ *
+ * yices_val_is_rational64: check whether v's value can be written num/den where num
+ *    is a signed 64bit integer and den is an unsigned 64bit integer
+ &
+ * yices_val_is_integer: check whether v's value is an integer
+ *
+ */
+__YICES_DLLSPEC__ extern int32_t yices_val_is_int32(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern int32_t yices_val_is_int64(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern int32_t yices_val_is_integer(model_t *mdl, const yval_t *v);
+
+
+/*
+ * Get the number of bits in a bv constant, the number of components in a tuple,
+ * or the arity of a maping. These function return 0 if v has the wrong tag (i.e.,
+ * not a bitvector constant, or not a tuple, or not a mapping).
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v);
+__YICES_DLLSPEC__ extern uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v);
+
+
+/*
+ * Conversions: get the value of a leaf node v.
+ * - the functions return 0 if there's no error
+ * - they return -1 if v has the wrong tag and set the error code to YVAL_INVALID_OP.
+ *
+ * The functions that extract an integer or rational value, also return
+ * -1 if v's value does not fit in *val or in the pair (*num)/(*den).  In such a case,
+ * the error report is set to YVAL_OVERFLOW.
+ */
+// Boolean value in *val: 0 means false, 1 means true
+__YICES_DLLSPEC__ extern int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
+
+// Integer value in *val or rational value in (*num)/(*den)
+__YICES_DLLSPEC__ extern int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
+
+// Rational value converted to a floating point number
+__YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
+
+// GMP values
+#ifdef __GMP_H
+__YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+#endif
+
+// Bitvector value: val must be large enough (cf. yices_val_bitsize(mdl, v))
+// val[0] = low-order bit, ..., val[n-1] = high-order bit
+// where n = yices_val_bitsize(mdl, v)
+__YICES_DLLSPEC__ extern int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
+
+// Scalar or uninterpreted constant: val is an index, tau is the constant type
+__YICES_DLLSPEC__ extern int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
+
+
+/*
+ * Expand a tuple node:
+ * - child must be an array large enough to store all children of v (i.e., 
+ *   at least n elements,  if n = yices_val_tuple_arity(mdl, v))
+ * - the children nodes of v are stored in child[0 ... n-1]
+ */
+__YICES_DLLSPEC__ extern int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
+
+
+/*
+ * Expand a function node f
+ * - the default value for f is stored in *del
+ * - the set of mappings for f is stored in vector *v.
+ *   This vector must be initialized using yices_init_yval_vector.
+ *   The number of mappings is v->size and the mappings are store in v->data[0 ... n-1] where n = v->size
+ */
+__YICES_DLLSPEC__ extern int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
+
+
+/*
+ * Expand a mapping node m
+ * - the mapping is of the form [x_1 ... x_k -> v] where k = yices_val_mapping_arity(mdl, m)
+ * - tup must be an array of size at least k
+ * - the nodes (x_1 ... x_k) are stored in tup[0 ... k-1]
+ *   the node v is stored in val
+ */
+__YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val);
+
+
+
+
+/*
+ * CONVERSION TO TERMS
+ */
+
 /*
  * Value of term t converted to a constant term val.
  *
@@ -2668,6 +2884,7 @@ __YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
  * The error codes are the same as for yices_get_value_as_term.
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
+
 
 
 

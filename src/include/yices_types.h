@@ -30,42 +30,6 @@ typedef int32_t type_t;
 
 
 
-
-/********************************
- *  VECTORS OF TERMS AND TYPES  *
- *******************************/
-
-/*
- * Some functions return a collection of terms or types
- * via a vector. The vector is an array that gets resized
- * by the library as needed.
- *
- * For each vector type, the API provide three functions:
- * - yices_init_xxx_vector(xxx_vector_t *v)
- * - yices_reset_xxx_vector(xxx_vector_t *v)
- * - yices_delete_xxx_vector(xxx_vector_t *v)
- *
- * The first function must be called first to initialize a vector.
- * The reset function can be used to empty vector v. It just resets
- * v->size to zero.
- * The delete function must be called to delete a vector that is no
- * longer needed. This is required to avoid memory leaks.
- */
-typedef struct term_vector_s {
-  uint32_t capacity;
-  uint32_t size;
-  term_t *data;
-} term_vector_t;
-
-typedef struct type_vector_s {
-  uint32_t capacity;
-  uint32_t size;
-  type_t *data;
-} type_vector_t;
-
-
-
-
 /************************
  *  CONTEXT AND MODELS  *
  ***********************/
@@ -101,6 +65,112 @@ typedef enum smt_status {
   STATUS_INTERRUPTED,
   STATUS_ERROR,
 } smt_status_t;
+
+
+
+
+
+/********************************
+ *  VECTORS OF TERMS OR TYPES   *
+ *******************************/
+
+/*
+ * Some functions return a collection of terms or types
+ * via a vector. The vector is an array that gets resized
+ * by the library as needed.
+ *
+ * For each vector type, the API provide three functions:
+ * - yices_init_xxx_vector(xxx_vector_t *v)
+ * - yices_reset_xxx_vector(xxx_vector_t *v)
+ * - yices_delete_xxx_vector(xxx_vector_t *v)
+ *
+ * The first function must be called first to initialize a vector.
+ * The reset function can be used to empty vector v. It just resets
+ * v->size to zero.
+ * The delete function must be called to delete a vector that is no
+ * longer needed. This is required to avoid memory leaks.
+ */
+typedef struct term_vector_s {
+  uint32_t capacity;
+  uint32_t size;
+  term_t *data;
+} term_vector_t;
+
+typedef struct type_vector_s {
+  uint32_t capacity;
+  uint32_t size;
+  type_t *data;
+} type_vector_t;
+
+
+
+
+/**********************
+ *  VALUES IN MODELS  *
+ *********************/
+
+/*
+ * A model maps terms to constant objects that can be
+ * atomic values, tuples, or functions. These different
+ * objects form a DAG. The API provides functions to
+ * explore this DAG. Every node in this DAG is defined
+ * by a unique id and a tag that identifies the node type.
+ *
+ * Atomic nodes have one of the following tags:
+ *  YVAL_UNKNOWN    (special marker)
+ *  YVAL_BOOL       Boolean constant
+ *  YVAL_RATIONAL   Rational constant
+ *  YVAL_BV         Bitvector constant
+ *  YVAL_SCALAR     Constant of uninterpreted or scalar type
+ *
+ * Non-leaf nodes:
+ *  YVAL_TUPLE      Tuple
+ *  YVAL_FUNCTION   Function
+ *  YVAL_MAPPING    A pair [tuple -> value].
+ *
+ * All functions are defined by a finite set of mappings
+ * and a default value. For example, if we have 
+ *   f(0, 0) = 0
+ *   f(0, 1) = 1
+ *   f(1, 0) = 1
+ *   f(1, 1) = 2
+ *   f(x, y) = 2 if x and y  are different from 0 and 1
+ *
+ * Then f will be represented as follows:
+ * - default value = 2
+ * - mappings: 
+ *     [0, 0 -> 0]
+ *     [0, 1 -> 1]
+ *     [1, 0 -> 1]
+ *
+ * In the DAG, there is one node for f, one node for the default value,
+ * and three nodes for each of the three  mappings.
+ */
+
+// Tags for the node descriptors
+typedef enum yval_tag {
+  YVAL_UNKNOWN,
+  YVAL_BOOL,
+  YVAL_RATIONAL,
+  YVAL_BV,
+  YVAL_SCALAR,
+  YVAL_TUPLE,
+  YVAL_FUNCTION,
+  YVAL_MAPPING,
+} yval_tag_t;
+
+// Node descriptor
+typedef struct yval_s {
+  int32_t node_id;
+  yval_tag_t node_tag;
+} yval_t;
+
+// Vector of node descriptors
+typedef struct yval_vector_s {
+  uint32_t capacity;
+  uint32_t size;
+  yval_t *data;
+} yval_vector_t;
 
 
 
@@ -188,6 +258,7 @@ typedef enum error_code {
   ARITH_ERROR,
   BVARITH_ERROR,
 
+
   /*
    * Errors in assertion processing.
    * These codes mean that the context, as configured,
@@ -250,6 +321,13 @@ typedef enum error_code {
   MDL_DUPLICATE_VAR,
   MDL_FTYPE_NOT_ALLOWED,
   MDL_CONSTRUCTION_FAILED,
+
+
+  /*
+   * Error codes in DAG/node queries
+   */
+  YVAL_INVALID_OP,
+  YVAL_OVERFLOW,
 
 
   /*
