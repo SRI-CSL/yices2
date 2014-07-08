@@ -1793,7 +1793,7 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
  * - value[x] = VAL_UNDEF_FALSE (negative polarity preferred)
  * - activity[x] = 0 (in heap)
  *
- * For l=pos_lit(x) or neg_lit(x):
+ * For l=pos_lit(x) and neg_lit(x):
  * - bin[l] = NULL
  * - watch[l] = NULL
  */
@@ -1809,6 +1809,12 @@ static void init_variable(smt_core_t *s, bvar_t x) {
   //  assert(s->heap.heap_index[x] < 0);
   //  s->heap.activity[x] = (10000.0/(x+1));
   // end of HACK
+  assert(s->heap.heap_index[x] < 0);
+  s->heap.activity[x] = 0.0;
+
+#if 0
+  printf("bvar %"PRId32": activity = %f\n", x, s->heap.activity[x]);
+#endif
   heap_insert(&s->heap, x);
 
   l0 = pos_lit(x);
