@@ -312,7 +312,6 @@ typedef enum error_code {
   EVAL_CONVERSION_FAILED,
   EVAL_NO_IMPLICANT,
 
-
   /*
    * Error codes for model construction
    */

@@ -907,10 +907,10 @@ __YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, const int64_t a[], 
 /*
  * Polynomial with rational coefficients
  * - den, num, and t must be arrays of size n
- * - the coefficient a_i is den[i]/num[i]
+ * - the coefficient a_i is num[i]/den[i]
  *
  * Error report:
- * if num[i] is 0
+ * if den[i] is 0
  *   code = DIVISION_BY_ZERO
  */
 __YICES_DLLSPEC__ extern term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]);
@@ -961,7 +961,7 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // 
  *   code = INVALID_TERM
  *   term1 = t
  * if t is not an arithmetic term
- *   code = ARITH_TERM_REQUIRES
+ *   code = ARITH_TERM_REQUIRED
  *   term1 = t
  */
 __YICES_DLLSPEC__ extern term_t yices_arith_eq0_atom(term_t t);   // t == 0
@@ -1048,7 +1048,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, const int32
 
 /*
  * Parsing from a string of characters '0' and '1'
- * First character = high order bit
+ * First character = high-order bit
  * Last character = low-order bit
  * The constant has n bits if the strings has n characters.
  *
@@ -1065,7 +1065,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
 /*
  * Parsing from a hexadecimal string
  * All characters must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
- * - First character = 4 high order bits
+ * - First character = 4 high-order bits
  * - Last character = 4 low-order bits
  * The constant has 4n bits if s has n characters.
  *
@@ -1495,8 +1495,8 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, const term_t
  * It's possible to assign names to terms and types, and later
  * retrieve the term or type from these names.
  *
- * For each term and type, Yices stores a base name, which
- * is used for pretty printing. By default, the base name is NULL.
+ * For each term and type, Yices stores a base name that's
+ * used for pretty printing. By default, the base name is NULL.
  * The base name is set on the first call to yices_set_term_name or
  * yices_set_type_name.
  *
@@ -1558,7 +1558,7 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
  * nothing and return 0.
  *
  * Otherwise, the mapping from the base_name to tau or t is removed
- * from the symbol table for terms or types, then the base_name of
+ * from the symbol table for terms or types, and the base_name of
  * tau or t is set to NULL (i.e., tau or t don't have a base name anymore).
  */
 __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
@@ -1776,7 +1776,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
 
 /*
  * By default, Yices never deletes any terms or types. All terms and
- * types returned by the function above can always be used by the
+ * types returned by the functions above can always be used by the
  * application. There's no explicit term or type deletion function.
  *
  * If you want to delete terms or types that are no longer useful, you
@@ -2046,38 +2046,62 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  * The logic must be given as a string, using the SMT-LIB conventions.
  * Currently, Yices recognizes and supports the following logics:
  *
- *   NONE:      no theories (i.e., propositional logic only)
+ *   NONE:        no theories (i.e., propositional logic only)
  *
- *   QF_ABV:    arrays and bitvectors
- *   QF_AUFBV:  arrays, bitvectors, uninterpreted functions
- *   QF_AUFLIA: arrays, uninterpreted functions, and linear integer arithmetic
- *   QF_AX:     arrays with extensionality
- *   QF_BV:     bitvectors
- *   QF_IDL:    integer difference logic
- *   QF_LIA:    linear integer arithmetic
- *   QF_LRA:    linear real arithmetic
- *   QF_RDL:    real difference logic
- *   QF_UF:     uninterpreted functions
- *   QF_UFBV:   uninterpreted functions + bitvectors
- *   QF_UFIDL:  uninterpreted functions + integer difference logic
- *   QF_UFLIA:  uninterpreted functions + linear integer arithmetic
- *   QF_UFLRA:  uninterpreted functions + linear real arithmetic
+ *   QF_AX:       arrays with extensionality
+ *   QF_BV:       bitvectors
+ *   QF_IDL:      integer difference logic
+ *   QF_RDL:      real difference logic
+ *   QF_LIA:      linear integer arithmetic
+ *   QF_LRA:      linear real arithmetic
+ *   QF_LIRA:     mixed linear arithmetic
+ *   QF_UF:       uninterpreted functions
+ *
+ *   QF_ABV:      arrays and bitvectors
+ *   QF_ALIA:     arrays + linear integer arithmeic
+ *   QF_ALRA:     arrays + linear real arithmetic
+ *   QF_ALIRA:    arrays + mixed linear arithmetic
+ *
+ *   QF_AUF:      arrays + uninterpreted functions
+ *   QF_AUFBV:    arrays, bitvectors, uninterpreted functions
+ *   QF_AUFLIA:   arrays, uninterpreted functions, and linear integer arithmetic
+ *   QF_AUFLRA:   arrays, uninterpreted functions, and linear real arithmetic
+ *   QF_AUFLIRA:  arrays, uninterpreted functions, and mixed linear arithmetic
+ *
+ *   QF_UFBV:     uninterpreted functions + bitvectors
+ *   QF_UFIDL:    uninterpreted functions + integer difference logic
+ *   QF_UFLIA:    uninterpreted functions + linear integer arithmetic
+ *   QF_UFLRA:    uninterpreted functions + linear real arithmetic
+ *   QF_UFLIRA:   uninterpreted functions + mixed linear arithmetic
+ *   QF_UFRDL:    uninterpreted functions + real difference logic
  *
  * In all these logics, QF means quantifier-free.
  *
  * For future extensions, Yices also recognizes the following names
  * for logics that Yices does not support yet. (They require solvers
- * that can deal with quantifiers or non-linear arithmetic).
+ * for non-linear arithmetic).
  *
- *   AUFLIA
- *   AUFLIRA
- *   AUFNIRA
- *   LRA
- *   QF_NIA
- *   QF_NRA
- *   UFLRA
- *   UFNIA
+ *   QF_NIA:      non-linear integer arithmetic
+ *   QF_NRA:      non-linear real arithmetic
+ *   QF_NIRA:     non-linear mixed arithmetic
  *
+ *   QF_ANIA:     arrays + non-linear integer arithmetic
+ *   QF_ANRA:     arrays + non-linear real arithmetic
+ *   QF_ANIRA:    arrays + mixed/non-linear arithmetic
+ *
+ *   QF_UFNIA:    uninterpreted functions + non-linear integer arithmetic
+ *   QF_UFNRA:    uninterpreted functions + non-linear real arithmetic
+ *   QF_UFNIRA:   uninterpreted functions + mixed, non-linear arithmetic
+ *
+ *   QF_AUFNIA:   arrays + uninterpreted functions + non-linear integer arithmetic
+ *   QF_AUFNRA:   arrays + uninterpreted functions + non-linear real arithmetic
+ *   QF_AUFNIRA:  arrays + uninterpreted functions + mixed, non-linear arithmetic
+ *
+ * For every QF logic listed above, Yices also recognizes the full logic (i.e.,
+ * with quantifiers). This is for future extension. Yices does not include support
+ * for quantifiers yet. For example, Yices recognizes AUFLIRA as a valid logic name 
+ * (arrays + uninterpreted functions + mixed linear arithmetic), but this logic is
+ * not currently supported.
  *
  * Error codes:
  *  CTX_UNKNOWN_LOGIC if logic is not a valid name
@@ -2146,7 +2170,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  * If config is NULL, the default configuration is used:
  *   push/pop are enabled
  *   the solvers are: egraph + array solver + bv solver + simplex
- *   mixed real/integer arithmetic is supported
+ *   mixed real/integer linear arithmetic is supported
  *
  * Otherwise the context is configured as specified by config, provided
  * that configuration is valid.
@@ -2253,7 +2277,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  * The parameter must be given as a string. For example, to disable var-elim,
  * call  yices_context_disable_option(ctx, "var-elim")
  *
- * The two function return -1 if there's an error, 0 otherwise.
+ * The two functions return -1 if there's an error, 0 otherwise.
  *
  * Error codes:
  *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
@@ -2667,7 +2691,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *   YVAL_FUNCTION   Function
  *   YVAL_MAPPING    Mapping of the form [val_1 .. val_k -> val]
  *
- * There is also the special tag to indicate an error or that a value
+ * There is also the special leaf node to indicate an error or that a value
  * is not known:
  *
  *   YVAL_UNKNOWN
@@ -2691,7 +2715,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  * YVAL_MAPPING that represent the mappings:
  *     [0, 0 -> 0]
  *     [3, 1 -> 1]
- * The third children represents the default value for f, that is,
+ * The third children represents the default value for f. In this case,
  * it's a leaf node for the constant -2 (tag YVAL_RATIONAL and value -2).
  *
  * The following functions return the value of a term t as a node in
@@ -2714,8 +2738,8 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
  * Value of term t stored as a node descriptor in *val.
  *
  * The function returns 0 it t's value can be computed, -1 otherwise.
- * Error codes are as in the previous evaluation functions.
  *
+ * Error codes are as in all evaluation functions.
  * If t is not valid:
  *   code = INVALID_TERM
  *   term1 = t
@@ -2748,9 +2772,8 @@ __YICES_DLLSPEC__ extern int32_t yices_get_value(model_t *mdl, term_t t, yval_t 
  *
  * yices_val_is_rational64: check whether v's value can be written num/den where num
  *    is a signed 64bit integer and den is an unsigned 64bit integer
- &
- * yices_val_is_integer: check whether v's value is an integer
  *
+ * yices_val_is_integer: check whether v's value is an integer
  */
 __YICES_DLLSPEC__ extern int32_t yices_val_is_int32(model_t *mdl, const yval_t *v);
 __YICES_DLLSPEC__ extern int32_t yices_val_is_int64(model_t *mdl, const yval_t *v);
@@ -2761,7 +2784,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_is_integer(model_t *mdl, const yval_t
 
 /*
  * Get the number of bits in a bv constant, the number of components in a tuple,
- * or the arity of a maping. These function return 0 if v has the wrong tag (i.e.,
+ * or the arity of a mapping. These function return 0 if v has the wrong tag (i.e.,
  * not a bitvector constant, or not a tuple, or not a mapping).
  */
 __YICES_DLLSPEC__ extern uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v);
@@ -2770,20 +2793,26 @@ __YICES_DLLSPEC__ extern uint32_t yices_val_mapping_arity(model_t *mdl, const yv
 
 
 /*
- * Conversions: get the value of a leaf node v.
- * - the functions return 0 if there's no error
- * - they return -1 if v has the wrong tag and set the error code to YVAL_INVALID_OP.
- *
- * The functions that extract an integer or rational value, also return
- * -1 if v's value does not fit in *val or in the pair (*num)/(*den).  In such a case,
- * the error report is set to YVAL_OVERFLOW.
+ * Get the value of a Boolean node v.
+ * - returns 0 if there's no error and store the v's value in *val:
+ *   *val is either 0 (for false) or 1 (for true).
+ * - returns -1 if v does not have tag YVAL_BOOL and sets the error code
+ *   to YVAL_INVALID_OP.
  */
-// Boolean value in *val: 0 means false, 1 means true
 __YICES_DLLSPEC__ extern int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
 
-// Integer value in *val or rational value in (*num)/(*den)
+/*
+ * Get the value of a rational node v
+ * - the functions return 0 if there's no error and store v's value in *val
+ *   or in the pair *num, *den (v's value is (*num)/(*den).
+ * - they return -1 if there's an error.
+ *
+ * The error code is set to YVAL_INVALID_OP if v's tag is not YVAL_RATIONAL.
+ * The error code is set to YVAL_OVERFLOW if v's value does not fit in
+ * (*val) or in (*num)/(*den).
+ */
 __YICES_DLLSPEC__ extern int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
 
@@ -2796,20 +2825,32 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
 #endif
 
-// Bitvector value: val must be large enough (cf. yices_val_bitsize(mdl, v))
-// val[0] = low-order bit, ..., val[n-1] = high-order bit
-// where n = yices_val_bitsize(mdl, v)
+/*
+ * Get the value of a bitvector node:
+ * - val must have size at least equal to n = yices_val_bitsize(mdl, v)
+ * - v's value is returned in val[0] = low-order bit, ..., val[n-1] = high-order bit
+ *   every val[i] is either 0 or 1.
+ * - the function returns 0 if v has tag YVAL_BV
+ * - it returns -1 if v has another tag and sets the error code to YVAL_INVALID_OP.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
 
-// Scalar or uninterpreted constant: val is an index, tau is the constant type
+/*
+ * Get the value of a scalar node:
+ * - the function returns 0 if v's tag is YVAL_SCALAR
+ *   the index and type of the scalar/uninterpreted constant are stored in *val and *tau, respectively.
+ * - the function returns -1 if v's tag is not YVAL_SCALAR and sets the error code to YVAL_INVALID_OP.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
-
 
 /*
  * Expand a tuple node:
  * - child must be an array large enough to store all children of v (i.e., 
- *   at least n elements,  if n = yices_val_tuple_arity(mdl, v))
+ *   at least n elements where n = yices_val_tuple_arity(mdl, v))
  * - the children nodes of v are stored in child[0 ... n-1]
+ *
+ * Return code = 0 if v's tag is YVAL_TUPLE.
+ * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
  */
 __YICES_DLLSPEC__ extern int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
 
@@ -2819,7 +2860,11 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_tuple(model_t *mdl, const yval
  * - the default value for f is stored in *del
  * - the set of mappings for f is stored in vector *v.
  *   This vector must be initialized using yices_init_yval_vector.
- *   The number of mappings is v->size and the mappings are store in v->data[0 ... n-1] where n = v->size
+ *   The number of mappings is v->size and the mappings are stored
+ *   in v->data[0 ... n-1] where n = v->size
+ *
+ * Return code = 0 if v's tag is YVAL_FUNCTION.
+ * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
  */
 __YICES_DLLSPEC__ extern int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
 
@@ -2829,7 +2874,10 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_function(model_t *mdl, const y
  * - the mapping is of the form [x_1 ... x_k -> v] where k = yices_val_mapping_arity(mdl, m)
  * - tup must be an array of size at least k
  * - the nodes (x_1 ... x_k) are stored in tup[0 ... k-1]
- *   the node v is stored in val
+ *   the node v is stored in val.
+ *
+ * Return code = 0 if v's tag is YVAL_MAPPING.
+ * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
  */
 __YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val);
 

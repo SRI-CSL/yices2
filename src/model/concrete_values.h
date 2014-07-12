@@ -168,7 +168,7 @@ typedef struct value_update_s {
  * To accelerate function evaluation, we store pairs
  * <function, map> into an auxiliary hash table.
  * - function is a function object (not an update)
- * - maps must be a mapping object that belongs to function
+ * - map must be a mapping object that belongs to function
  */
 typedef struct map_pair_s {
   value_t function;

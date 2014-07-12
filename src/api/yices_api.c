@@ -58,6 +58,7 @@
 #include "api/yices_extensions.h"
 #include "api/yices_iterators.h"
 #include "api/yices_globals.h"
+#include "api/yval.h"
 #include "frontend/yices/yices_parser.h"
 #include "io/yices_pp.h"
 
@@ -1167,7 +1168,7 @@ EXPORTED void yices_delete_type_vector(type_vector_t *v) {
 
 EXPORTED void yices_reset_term_vector(term_vector_t *v) {
   v->size = 0;
-  if (v->capacity >VECTOR_REDUCE_THRESHOLD) {
+  if (v->capacity > VECTOR_REDUCE_THRESHOLD) {
     safe_free(v->data);
     v->data = NULL;
     v->capacity = 0;
@@ -1176,7 +1177,7 @@ EXPORTED void yices_reset_term_vector(term_vector_t *v) {
 
 EXPORTED void yices_reset_type_vector(type_vector_t *v) {
   v->size = 0;
-  if (v->capacity >VECTOR_REDUCE_THRESHOLD) {
+  if (v->capacity > VECTOR_REDUCE_THRESHOLD) {
     safe_free(v->data);
     v->data = NULL;
     v->capacity = 0;
@@ -3170,10 +3171,10 @@ EXPORTED term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]
 /*
  * Polynomial with rational coefficients
  * - den, num, and t must be arrays of size n
- * - the coefficient a_i is den[i]/num[i]
+ * - the coefficient a_i is num[i]/den[i]
  *
  * Error report:
- * if num[i] is 0
+ * if den[i] is 0
  *   code = DIVISION_BY_ZERO
  */
 EXPORTED term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]) {
@@ -6687,9 +6688,50 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
 }
 
 
+/*
+ * BUILD A MODEL FROM A MAP OF UNINTERPRETED TO CONSTANT TERMS
+ */
+
+/*
+ * Build a model from a term-to-term mapping:
+ * - the mapping is defined by two arrays var[] and map[]
+ * - every element of var must be an uninterpreted term
+ *   every element of map must be a constant of primitive or tuple type
+ *   map[i]'s type must be a subtype of var[i]
+ * - there must not be duplicates in array var
+ *
+ * The function returns NULL and set up the error report if something
+ * goes wrong. It allocates and create a new model otherwise. This
+ * model must be deleted when no longer used via yices_free_model.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var[i] or map[i] is not valid
+ * - code = TYPE_MISMATCH if map[i] doesn't have a type compatible (subtype of)
+ *          var[i]'s type
+ * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
+ * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
+ * - code = MDL_DUPLICATE_VAR if var contains duplicate elements
+ * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
+ * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
+ */
+EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]) {
+  model_t *mdl;
+
+  if (! check_good_model_map(&manager, n, var, map)) {
+    return NULL;
+  }
+
+  mdl = yices_new_model(true);
+  build_model_from_map(mdl, n, var, map);
+  return mdl;
+}
 
 
 
+
+/************************
+ *  VALUES IN A MODEL   *
+ ***********************/
 
 /*
  * Convert a negative evaluation code v to
@@ -7032,6 +7074,506 @@ EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 
 
 /*
+ * FULL MODEL: NODES AND VALUE DESCRIPTORS
+ */
+
+/*
+ * Vectors of node descriptors
+ */
+EXPORTED void yices_init_yval_vector(yval_vector_t *v) {
+  init_yval_vector(v);
+}
+
+EXPORTED void yices_reset_yval_vector(yval_vector_t *v) {
+  reset_yval_vector(v);
+}
+
+EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
+  delete_yval_vector(v);
+}
+
+/*
+ * Value of term t stored as a node descriptor in *val.
+ *
+ * The function returns 0 it t's value can be computed, -1 otherwise.
+ *
+ * Error codes are as in all evaluation functions.
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If t contains a subterm whose value is not known
+ *   code = EVAL_UNKNOWN_TERM
+ * If t contains free variables
+ *   code = EVAL_FREEVAR_IN_TERM
+ * If t contains quantifier(s)
+ *   code = EVAL_QUANTIFIER
+ * If t contains lambda terms
+ *   code = EVAL_LAMBDA
+ * If the evaluation fails for other reasons:
+ *   code = EVAL_FAILED
+ */
+EXPORTED int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_t v;
+
+  if (! check_good_term(&manager, t)) {
+    return -1;
+  }
+
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+  get_yval(vtbl, v, val);
+
+  return 0;
+}
+
+
+/*
+ * Queries on the value of a rational node
+ */
+EXPORTED int32_t yices_val_is_int32(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  rational_t *q;
+  value_t id;
+  int32_t code;
+
+  code = false;
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      q = vtbl_rational(vtbl, id);
+      code = q_is_int32(q);
+    }
+  }
+
+  return code;
+}
+
+EXPORTED int32_t yices_val_is_int64(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  rational_t *q;
+  value_t id;
+  int32_t code;
+
+  code = false;
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      q = vtbl_rational(vtbl, id);
+      code = q_is_int64(q);
+    }
+  }
+
+  return code;
+}
+
+EXPORTED int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  rational_t *q;
+  value_t id;
+  int32_t code;
+
+  code = false;
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      q = vtbl_rational(vtbl, id);
+      code = q_fits_int32(q);
+    }
+  }
+
+  return code;
+}
+
+EXPORTED int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  rational_t *q;
+  value_t id;
+  int32_t code;
+
+  code = false;
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      q = vtbl_rational(vtbl, id);
+      code = q_fits_int64(q);
+    }
+  }
+
+  return code;
+}
+
+EXPORTED int32_t yices_val_is_integer(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  rational_t *q;
+  value_t id;
+  int32_t code;
+
+  code = false;
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      q = vtbl_rational(vtbl, id);
+      code = q_is_integer(q);
+    }
+  }
+
+  return code;
+}
+
+/*
+ * Number of bits in a bitvector constant
+ */
+EXPORTED uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_bv_t *bv;
+  value_t id;
+  uint32_t n;
+
+  n = 0;
+  if (v->node_tag == YVAL_BV) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_bitvector(vtbl, id)) {
+      bv = vtbl_bitvector(vtbl, id);
+      n = bv->nbits;
+    }
+  }
+
+  return n;
+}
+
+
+/*
+ * Number of components in a tuple
+ */
+EXPORTED uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_tuple_t *tuple;
+  value_t id;
+  uint32_t n;
+
+  n = 0;
+  if (v->node_tag == YVAL_BV) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
+      tuple = vtbl_tuple(vtbl, id);
+      n = tuple->nelems;
+    }
+  }
+
+  return n;
+}
+
+
+/*
+ * Arity of a mapping object
+ */
+EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_map_t *map;
+  value_t id;
+  uint32_t n;
+
+  n = 0;
+  if (v->node_tag == YVAL_BV) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
+      map = vtbl_map(vtbl, id);
+      n = map->arity;
+    }
+  }
+
+  return n;  
+}
+
+
+/*
+ * Extract value of a leaf node
+ */
+EXPORTED int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_BOOL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_boolean(vtbl, id)) {
+      *val = boolobj_value(vtbl, id);
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * Auxiliary function: return the rational value of v
+ * - return NULL and set error code to YVAL_INVALID_OP if v does not refer to a rational object
+ */
+static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_RATIONAL) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      return vtbl_rational(vtbl, id);
+    }
+  }
+  
+  error.code = YVAL_INVALID_OP;
+  return NULL;
+}
+
+EXPORTED int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get32(q, val)) {
+    error.code = YVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get64(q, val)) {
+    error.code = YVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get_int32(q, num, den)) {
+    error.code = YVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get_int64(q, num, den)) {
+    error.code = YVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  *val = q_get_double(q);
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (!q_get_mpz(q, val)) {
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+  q_get_mpq(q, val);
+
+  return 0;
+}
+
+
+/*
+ * Value of a bitvector node
+ */
+EXPORTED int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) {
+  value_table_t *vtbl;
+  value_bv_t *bv;
+  value_t id;
+
+  if (v->node_tag == YVAL_BV) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_bitvector(vtbl, id)) {
+      bv = vtbl_bitvector(vtbl, id);
+      bvconst_get_array(bv->data, val, bv->nbits);
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * Value of a scalar/uninterpreted constant
+ */
+EXPORTED int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau) {
+  value_table_t *vtbl;
+  value_unint_t *u;
+  value_t id;
+
+  if (v->node_tag == YVAL_SCALAR) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_unint(vtbl, id)) {
+      u = vtbl_unint(vtbl, id);
+      *tau = u->type;
+      *val = u->index;
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * Expand a tuple node
+ */
+EXPORTED int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_TUPLE) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
+      yval_expand_tuple(vtbl, id, child);
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * Expand a mapping node
+ */
+EXPORTED int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_MAPPING) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
+      yval_expand_mapping(vtbl, id, tup, val);
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * Expand a function node
+ */
+EXPORTED int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (f->node_tag == YVAL_FUNCTION) {
+    vtbl = model_get_vtbl(mdl);
+    id = f->node_id;
+    if (good_object(vtbl, id)) {
+      if (object_is_function(vtbl, id)) {
+	yval_expand_function(vtbl, id, v, def);
+	return 0;
+      }
+      if (object_is_update(vtbl, id)) {
+	yval_expand_update(vtbl, id, v, def);
+	return 0;
+      }
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
+
+/*
+ * VALUES AS CONSTANT TERMS
+ */
+
+/*
  * Value of term t converted to a constant term val.
  */
 EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
@@ -7185,52 +7727,11 @@ EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a
 
 
 
-/*
- * BUILD A MODEL FROM A MAP OF UNINTERPRETED TO CONSTANT TERMS
- */
-
-/*
- * Build a model from a term-to-term mapping:
- * - the mapping is defined by two arrays var[] and map[]
- * - every element of var must be an uninterpreted term
- *   every element of map must be a constant of primitive or tuple type
- *   map[i]'s type must be a subtype of var[i]
- * - there must not be duplicates in array var
- *
- * The function returns NULL and set up the error report if something
- * goes wrong. It allocates and create a new model otherwise. This
- * model must be deleted when no longer used via yices_free_model.
- *
- * Error report:
- * - code = INVALID_TERM if var[i] or map[i] is not valid
- * - code = TYPE_MISMATCH if map[i] doesn't have a type compatible (subtype of)
- *          var[i]'s type
- * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
- * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
- * - code = MDL_DUPLICATE_VAR if var contains duplicate elements
- * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
- * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
- */
-EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]) {
-  model_t *mdl;
-
-  if (! check_good_model_map(&manager, n, var, map)) {
-    return NULL;
-  }
-
-  mdl = yices_new_model(true);
-  build_model_from_map(mdl, n, var, map);
-  return mdl;
-}
-
-
-
 
 
 /*
  * IMPLICANTS
  */
-
 
 /*
  * Option code for the call to get_implicant:

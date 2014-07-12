@@ -82,6 +82,7 @@ base_src_c := \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
+	api/yval.c \
 	context/conditional_definitions.c \
 	context/context.c \
 	context/context_simplifier.c \
