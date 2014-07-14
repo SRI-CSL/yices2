@@ -2777,9 +2777,9 @@ solver to process annotations even if they do not support the commands
 \texttt{get-unsat-core} and \texttt{get-assignment}, which were the
 reason for attaching labels to terms in the first place.  Other
 undesirable consequences include the fact that simple syntactic
-transformations (for example, rewriting \texttt{(or a b)} to
-\texttt{(or b a)} may be incorrect if \texttt{a} contains named
-annotations).  In short, this decision complicates implementation
+transformations, for example, rewriting \texttt{(or a b)} to
+\texttt{(or b a)}, may be incorrect if \texttt{a} contains named
+annotations.  In short, this decision complicates implementation
 while providing little, if any, benefit.
 
 \medskip\noindent Still, Yices supports in-line definitions, provided
