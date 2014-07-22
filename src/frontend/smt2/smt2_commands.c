@@ -3109,6 +3109,19 @@ bool smt2_active(void) {
  */
 
 /*
+ * Print number of calls to a command
+ * - cmd = name of this command
+ * - calls = number of calls
+ */
+static void tprint_calls(const char *cmd, uint32_t calls) {
+  if (calls == 1) {
+    tprintf(__smt2_globals.tracer, 12, "\n(%s: 1 call)\n", cmd);
+  } else {
+    tprintf(__smt2_globals.tracer, 12, "\n(%s: %"PRIu32" calls)\n", cmd, calls);
+  }
+}
+
+/*
  * Exit function
  */
 void smt2_exit(void) {
@@ -3145,8 +3158,7 @@ void smt2_get_assertions(void) {
 void smt2_get_assignment(void) {
   __smt2_globals.stats.num_get_assignment ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12,
-	  "\n(get-assignment: %"PRIu32" calls)\n", __smt2_globals.stats.num_get_assignment);
+  tprint_calls("get-assignment", __smt2_globals.stats.num_get_assignment);
 
   if (check_logic()) {
     show_assignment(&__smt2_globals);
@@ -3191,9 +3203,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
   __smt2_globals.stats.num_get_value ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12,
-	  "\n(get-value: %"PRIu32" calls)\n", __smt2_globals.stats.num_get_value);
-
+  tprint_calls("get-value", __smt2_globals.stats.num_get_value);
 
   if (check_logic()) {
     // make sure we have a model
@@ -3522,8 +3532,7 @@ void smt2_push(uint32_t n) {
 
   __smt2_globals.stats.num_push ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12,
-	  "\n(push: %"PRIu32" calls)\n", __smt2_globals.stats.num_push);
+  tprint_calls("push", __smt2_globals.stats.num_push);
 
   if (check_logic()) {
     g = &__smt2_globals;
@@ -3561,8 +3570,7 @@ void smt2_pop(uint32_t n) {
 
   __smt2_globals.stats.num_pop ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 12,
-	  "\n(pop: %"PRIu32" calls)\n", __smt2_globals.stats.num_pop);
+  tprint_calls("pop", __smt2_globals.stats.num_pop);
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
@@ -3629,8 +3637,7 @@ void smt2_pop(uint32_t n) {
 void smt2_assert(term_t t) {
   __smt2_globals.stats.num_assert ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 14,
-	  "\n(assert: %"PRIu32" calls)\n", __smt2_globals.stats.num_assert);
+  tprint_calls("assert", __smt2_globals.stats.num_assert);
 
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
@@ -3658,8 +3665,7 @@ void smt2_assert(term_t t) {
 void smt2_check_sat(void) {
   __smt2_globals.stats.num_check_sat ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 3,
-	  "\n(check-sat: %"PRIu32" calls)\n", __smt2_globals.stats.num_check_sat);
+  tprint_calls("check-sat", __smt2_globals.stats.num_check_sat);
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
@@ -3691,8 +3697,7 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
 
   __smt2_globals.stats.num_declare_sort ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 18,
-	  "\n(declare-sort: %"PRIu32" calls)\n", __smt2_globals.stats.num_declare_sort);
+  tprint_calls("declare-sort", __smt2_globals.stats.num_declare_sort);
 
   if (check_logic()) {
     if (arity == 0) {
@@ -3726,8 +3731,7 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
 
   __smt2_globals.stats.num_define_sort ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 18,
-	  "\n(define-sort: %"PRIu32" calls)\n", __smt2_globals.stats.num_define_sort);
+  tprint_calls("define-sort", __smt2_globals.stats.num_define_sort);
 
   if (check_logic()) {
     if (n == 0) {
@@ -3765,8 +3769,7 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
 
   __smt2_globals.stats.num_declare_fun ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 18,
-	  "\n(declare-fun: %"PRIu32" calls)\n", __smt2_globals.stats.num_declare_fun);
+  tprint_calls("declare-fun", __smt2_globals.stats.num_declare_fun);
 
   if (check_logic()) {
     n --;
@@ -3802,8 +3805,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 
   __smt2_globals.stats.num_define_fun ++;
   __smt2_globals.stats.num_commands ++;
-  tprintf(__smt2_globals.tracer, 18,
-	  "\n(define-fun: %"PRIu32" calls)\n", __smt2_globals.stats.num_define_fun);
+  tprint_calls("define-fun", __smt2_globals.stats.num_define_fun);
 
   if (check_logic()) {
     if (! yices_check_term_type(body, tau)) {
