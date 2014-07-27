@@ -975,7 +975,7 @@ static void ctx_subst_array(ctx_subst_t *s, term_t *a, term_t *b, uint32_t n) {
 
 
 /*
- * Apply s to vectors ctx->top_eqs, ctx->top_atoms, and ctx->top_formuals
+ * Apply s to vectors ctx->top_eqs, ctx->top_atoms, ctx->top_formulas, and ctx->subst_eqs
  * - store the result in array a
  */
 static void ctx_subst_assertions(ctx_subst_t *s, context_t *ctx, term_t *a) {
@@ -993,6 +993,11 @@ static void ctx_subst_assertions(ctx_subst_t *s, context_t *ctx, term_t *a) {
   a += n;
 
   v = &ctx->top_formulas;
+  n = v->size;
+  ctx_subst_array(s, v->data, a, n);
+  a += n;
+
+  v = &ctx->subst_eqs;
   n = v->size;
   ctx_subst_array(s, v->data, a, n);
 }
@@ -1042,7 +1047,7 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
   assert(n >= 2);
 
   // this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE (i.e., UINT32_MAX/8).
-  m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size;
+  m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size + ctx->subst_eqs.size;
   b = (term_t *) safe_malloc(m * sizeof(term_t));
 
   result = false;
