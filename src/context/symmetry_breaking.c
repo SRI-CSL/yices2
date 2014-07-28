@@ -1046,7 +1046,7 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
   assert(n >= 2);
 
-  // this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE (i.e., UINT32_MAX/8).
+  // this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE (i.e., UINT32_MAX/4).
   m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size + ctx->subst_eqs.size;
   b = (term_t *) safe_malloc(m * sizeof(term_t));
 
