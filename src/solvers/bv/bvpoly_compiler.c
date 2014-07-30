@@ -10,7 +10,7 @@
 #include "solvers/bv/bvpoly_compiler.h"
 
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 

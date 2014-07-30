@@ -503,12 +503,6 @@ static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
 
 
 /*
- * Occurrence count for node i
- */
-extern uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i);
-
-
-/*
  * Check whether n is a shared node occurrence
  * (i.e., +n or -n occur more than once)
  */
@@ -616,23 +610,6 @@ extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
 
 
 /*
- * Construct a sum node q
- * - a = array of n node occurrences
- * - n must be positive
- *
- * If n == 1, this returns a[0].
- * Otherwise, a is sorted and a node q := [sum a[0] ... a[n-1]] is created
- */
-extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
-
-
-/*
- * Sum n1, n2: node_of_occ(n1) and node_of_occ(n2) must be different
- */
-extern node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
-
-
-/*
  * Construct a power product node q
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
@@ -647,9 +624,14 @@ extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint3
 
 
 /*
- * Product n1 * n2
+ * Construct a sum node q
+ * - a = array of n node occurrences
+ * - n must be positive
+ *
+ * If n == 1, this returns a[0].
+ * Otherwise, a is sorted and a node q := [sum a[0] ... a[n-1]] is created
  */
-extern node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
+extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
 
 
 /*

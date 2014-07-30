@@ -583,8 +583,7 @@ static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
 /*
  * MORE CHECKS
  */
-
-uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i) {
+static uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i) {
   int32_t *l;
 
   assert(0 < i && i <= dag->nelems);
@@ -748,7 +747,7 @@ static bvnode_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uin
 
 
 /*
- * Create an monomial node q := [mono a, n]
+ * Create a monomial node q := [mono a, n]
  */
 static bvnode_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_mono_t *d;
@@ -887,7 +886,6 @@ static bvnode_t bvc_dag_mk_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32
 /*
  * HASH CONSING
  */
-
 typedef struct bvc_leaf_hobj_s {
   int_hobj_t m;
   bvc_dag_t *dag;
@@ -1478,8 +1476,10 @@ node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsi
 /*
  * Binary sum: n1 n2
  */
-node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
+static node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
   node_occ_t a[2];
+
+  assert(!bvc_dag_occ_is_zero(dag, n1) && !bvc_dag_occ_is_zero(dag, n2));
 
   if (n1 < n2) {
     a[0] = n1;
@@ -1554,6 +1554,22 @@ static bool good_sign(uint32_t sign, pprod_t *p, node_occ_t *a) {
 
 
 /*
+ * Check whether one of a[0 ... n-1] is zero and return it
+ * - return -1 otherwise
+ */
+static node_occ_t bvc_dag_has_zero(bvc_dag_t *dag, node_occ_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (bvc_dag_occ_is_zero(dag, a[i])) {
+      return a[i];
+    }
+  }
+  return -1;
+}
+
+
+/*
  * Construct a product node q
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
@@ -1563,38 +1579,48 @@ static bool good_sign(uint32_t sign, pprod_t *p, node_occ_t *a) {
 node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bitsize) {
   pp_buffer_t *buffer;
   uint32_t i, n, e, sign;
+  node_occ_t r;
 
-  /*
-   * build the power product in dag->pp_aux
-   * keep track of signs
-   */
-  sign = 0;
-  buffer = &dag->pp_aux;
-  pp_buffer_reset(buffer);
   n = p->len;
-  for (i=0; i<n; i++) {
+
+  r = bvc_dag_has_zero(dag, a, n);
+  if (r < 0) {
     /*
-     * If a[i]^exp is negative, flip sign. Otherwise keep sign unchanged
-     * Remove a[i]'s sign in the product
+     * Not a zero product: build the power product in dag->pp_aux keep
+     * track of signs
      */
-    e = p->prod[i].exp;
-    sign ^= sign_of_varexp(a[i], e);
-    pp_buffer_mul_varexp(buffer, unsigned_occ(a[i]), p->prod[i].exp);
+    sign = 0;
+    buffer = &dag->pp_aux;
+    pp_buffer_reset(buffer);
+    for (i=0; i<n; i++) {
+      /*
+       * If a[i]^exp is negative, flip sign. Otherwise keep sign unchanged
+       * Remove a[i]'s sign in the product
+       */
+      e = p->prod[i].exp;
+      sign ^= sign_of_varexp(a[i], e);
+      pp_buffer_mul_varexp(buffer, unsigned_occ(a[i]), p->prod[i].exp);
+    }
+    pp_buffer_normalize(buffer);
+
+    assert(good_sign(sign, p, a) && good_pprod(buffer->prod, buffer->len));
+
+    r = bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize)) | sign;
   }
-  pp_buffer_normalize(buffer);
 
-  assert(good_sign(sign, p, a) && good_pprod(buffer->prod, buffer->len));
-
-  return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize)) | sign;
+  return r;
 }
 
 
 
 /*
  * Binary product: n1 n2
+ * - both must be non-zero
  */
-node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
+static node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
   pp_buffer_t *buffer;
+
+  assert(!bvc_dag_occ_is_zero(dag, n1) && !bvc_dag_occ_is_zero(dag, n2));
 
   buffer = &dag->pp_aux;
   pp_buffer_reset(buffer);
@@ -1748,8 +1774,17 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
 
   buffer = &dag->poly_buffer;
   reset_bvpoly_buffer(buffer, bitsize);
-  for (i=0; i<n; i++) {
-    bvpoly_buffer_add64(buffer, p->mono[i].coeff, a[i]);
+  i = 0;
+  if (n > 0 && p->mono[0].var == const_idx) {
+    // constant term
+    bvpoly_buffer_add_const64(buffer, p->mono[0].coeff);
+    i ++;
+  }
+  while (i < n) {
+    if (!bvc_dag_occ_is_zero(dag, a[i])) {
+      bvpoly_buffer_add64(buffer, p->mono[i].coeff, a[i]);
+    }
+    i ++;
   }
   normalize_bvpoly_buffer(buffer);
 
@@ -1767,8 +1802,16 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
 
   buffer = &dag->poly_buffer;
   reset_bvpoly_buffer(buffer, bitsize);
-  for (i=0; i<n; i++) {
-    bvpoly_buffer_add(buffer, p->mono[i].coeff, a[i]);
+  i = 0;
+  if (n > 0 && p->mono[0].var == const_idx) {
+    bvpoly_buffer_add_constant(buffer, p->mono[0].coeff);
+    i ++;
+  }
+  while (i < n) {
+    if (!bvc_dag_occ_is_zero(dag, a[i])) {
+      bvpoly_buffer_add(buffer, p->mono[i].coeff, a[i]);
+    }
+    i ++;
   }
   normalize_bvpoly_buffer(buffer);
 
@@ -1790,15 +1833,31 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
   buffer = &dag->poly_buffer;
   reset_bvpoly_buffer(buffer, nbits);
   if (nbits <= 64) {
-    for (i=0; i<n; i++) {
-      bvpoly_buffer_add64(buffer, bvpoly_buffer_coeff64(b, i), a[i]);
+    i = 0;
+    if (n > 0 && bvpoly_buffer_var(b, 0) == const_idx) {
+      bvpoly_buffer_add_const64(buffer, bvpoly_buffer_coeff64(b, 0));
+      i ++;
+    }
+    while (i < n) {
+      if (!bvc_dag_occ_is_zero(dag, a[i])) {
+	bvpoly_buffer_add64(buffer, bvpoly_buffer_coeff64(b, i), a[i]);
+      }
+      i ++;
     }
     normalize_bvpoly_buffer(buffer);
     r = bvc_dag_of_buffer64(dag, buffer);
 
   } else {
-    for (i=0; i<n; i++) {
-      bvpoly_buffer_add(buffer, bvpoly_buffer_coeff(b, i), a[i]);
+    i = 0;
+    if (n > 0 && bvpoly_buffer_var(b, 0) == const_idx) {
+      bvpoly_buffer_add_constant(buffer, bvpoly_buffer_coeff(b, 0));
+      i ++;
+    }
+    while (i < n) {
+      if (!bvc_dag_occ_is_zero(dag, a[i])) {
+	bvpoly_buffer_add(buffer, bvpoly_buffer_coeff(b, i), a[i]);
+      }
+      i ++;
     }
     normalize_bvpoly_buffer(buffer);
     r = bvc_dag_of_buffer(dag, buffer);

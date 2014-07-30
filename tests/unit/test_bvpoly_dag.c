@@ -74,6 +74,10 @@ static void print_leaf_node(FILE *f, bvc_leaf_t *d) {
   fprintf(f, "[LEAF u!%"PRId32" (%"PRIu32" bits)]", d->map, d->header.bitsize);
 }
 
+static void print_zero_node(FILE *f, bvc_zero_t *d) {
+  fprintf(f, "[ZERO (%"PRIu32" bits)]", d->header.bitsize);
+}
+
 static void print_offset_node(FILE *f, bvc_offset_t *d) {
   uint32_t n;
 
@@ -630,14 +634,19 @@ static bool equal_varexp(varexp_t *a, varexp_t *b, uint32_t n) {
   return true;
 }
 
+static bool varexp_is_neg(node_occ_t x, uint32_t e) {
+  return (sign_of_occ(x) == 1) && ((e & 1) == 1);
+}
 
 static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_t n, uint32_t b) {
   pp_buffer_t aux;
   pprod_t *pp;
   bvc_prod_t *d;
+  bvc_zero_t *z;
   node_occ_t tst, chk;
   bvnode_t q;
   uint32_t i;
+  int32_t sign;
 
   assert(n >= 2 && n <= 20);
 
@@ -671,21 +680,41 @@ static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_
     exit(1);
   }
 
-
   // build the normalized power product in aux
+  // keep track of the sign + check whether the product is zero
   init_pp_buffer(&aux, n);
-  pp_buffer_mul_varexps(&aux, n, a, e);
+  sign = +1;
+  for (i=0; i<n; i++) {
+    if (bvc_dag_occ_is_zero(dag, a[i])) {
+      sign = 0;
+    } else if (varexp_is_neg(a[i], e[i])) {
+      sign = -sign;
+    }
+    pp_buffer_mul_varexp(&aux, unsigned_occ(a[i]), e[i]);
+  }
+  pp_buffer_normalize(&aux);
 
+  // check results
+  if (sign == 0) {
+    if (!bvc_dag_node_is_zero(dag, q)) goto error;
+    z = bvc_dag_node_zero(dag, q);
 
-  if (sign_of_occ(tst) != 0) goto error;
-  if (!bvc_dag_node_is_prod(dag, q)) goto error;
+    printf("     descriptor: %p = ", z);
+    print_zero_node(stdout, z);
+    printf("\n");
 
-  d = bvc_dag_node_prod(dag, q);
-  if (d->header.bitsize != b || d->len != aux.len || !equal_varexp(d->prod, aux.prod, aux.len)) goto error;
+  } else {
+    if (sign == 1 && sign_of_occ(tst) != 0) goto error;
+    if (sign == -1 && sign_of_occ(tst) != 1) goto error;
+    if (!bvc_dag_node_is_prod(dag, q)) goto error;
 
-  printf("     decriptor: %p = ", d);
-  print_prod_node(stdout, d);
-  printf("\n");
+    d = bvc_dag_node_prod(dag, q);
+    if (d->header.bitsize != b || d->len != aux.len || !equal_varexp(d->prod, aux.prod, aux.len)) goto error;
+
+    printf("     descriptor: %p = ", d);
+    print_prod_node(stdout, d);
+    printf("\n");
+  }
 
   delete_pp_buffer(&aux);
   safe_free(pp);
