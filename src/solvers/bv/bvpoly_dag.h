@@ -29,8 +29,9 @@
 
 
 /*
- * There are five types of nodes:
+ * There are six types of nodes:
  * - [leaf x] where x is a bitvector variable
+ * - [zero]
  * - [offset a0 n1] denotes (a0 + n1)
  * - [mono   a0 n1] denotes (a0 * n1)
  * - [prod  n1^d1 ... n_k^d_k] denotes a power product
@@ -53,6 +54,9 @@
  * - in [prod n1^d1 ... n_k^d_k]: all n_i's must be positive occurrences
  * - in [sum n1 ... n_k]: the n_i's must not be offset nodes
  *
+ * The zero nodes are used when constructing sums: it's possible for
+ * a sum to reduces to zero.
+ *
  * The DAG maintains a mapping from bit-vector variables to node occurrences.
  * - if x is a bitvector polynomial then dag->vmap stores the bvp(n) or
  *   bvn(n) where n is a node index.
@@ -72,6 +76,7 @@
  * - other nodes
  *
  * A node is elementary if it is of the following forms:
+ *   [zero]
  *   [offset a  n]      where n is a leaf
  *   [mono   a * n]     where n is a leaf
  *   [prod n1 * n2]     where n1 and n2 are leaves
@@ -139,6 +144,7 @@ static inline node_occ_t unsigned_occ(node_occ_t n) {
  */
 typedef enum bvc_tag {
   BVC_LEAF,
+  BVC_ZERO,
   BVC_OFFSET,
   BVC_MONO,
   BVC_PROD,
@@ -155,6 +161,11 @@ typedef struct bvc_leaf_s {
   bvc_header_t header;
   int32_t  map; //  variable the leaf is compiled to
 } bvc_leaf_t;
+
+// zero: no attributes except the bitsize
+typedef struct bvc_zero_s {
+  bvc_header_t header;
+} bvc_zero_t;
 
 typedef struct bvc_offset_s {
   bvc_header_t header;
@@ -227,6 +238,10 @@ static inline bool node_is_leaf(bvc_header_t *d) {
   return d->tag == BVC_LEAF;
 }
 
+static inline bool node_is_zero(bvc_header_t *d) {
+  return d->tag == BVC_ZERO;
+}
+
 static inline bool node_is_offset(bvc_header_t *d) {
   return d->tag == BVC_OFFSET;
 }
@@ -250,6 +265,11 @@ static inline bool node_is_alias(bvc_header_t *d) {
 static inline bvc_leaf_t *leaf_node(bvc_header_t *d) {
   assert(node_is_leaf(d));
   return (bvc_leaf_t *) d;
+}
+
+static inline bvc_zero_t *zero_node(bvc_header_t *d) {
+  assert(node_is_zero(d));
+  return (bvc_zero_t *) d;
 }
 
 static inline bvc_offset_t *offset_node(bvc_header_t *d) {
@@ -314,6 +334,7 @@ typedef struct bvc_dag_s {
 
   // stores for descriptor allocation
   object_store_t leaf_store;
+  object_store_t zero_store;
   object_store_t offset_store;
   object_store_t mono_store;
   object_store_t prod_store;  // for binary products
@@ -384,6 +405,11 @@ static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, bvnode_t n) {
   return node_is_leaf(dag->desc[n]);
 }
 
+static inline bool bvc_dag_node_is_zero(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_zero(dag->desc[n]);
+}
+
 static inline bool bvc_dag_node_is_offset(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_offset(dag->desc[n]);
@@ -412,6 +438,11 @@ static inline bool bvc_dag_node_is_alias(bvc_dag_t *dag, bvnode_t n) {
 static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return leaf_node(dag->desc[n]);
+}
+
+static inline bvc_zero_t *bvc_dag_node_zero(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return zero_node(dag->desc[n]);
 }
 
 static inline bvc_offset_t *bvc_dag_node_offset(bvc_dag_t *dag, bvnode_t n) {
@@ -443,6 +474,10 @@ static inline bvc_alias_t *bvc_dag_node_alias(bvc_dag_t *dag, bvnode_t n) {
 // more checks with n a node_occurrence
 static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_leaf(dag, node_of_occ(n));
+}
+
+static inline bool bvc_dag_occ_is_zero(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_is_zero(dag, node_of_occ(n));
 }
 
 static inline bool bvc_dag_occ_is_offset(bvc_dag_t *dag, node_occ_t n) {

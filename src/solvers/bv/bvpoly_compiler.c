@@ -335,7 +335,33 @@ static thvar_t bv_compiler_mk_bvneg(bvc_t *c, uint32_t n, thvar_t x) {
   return v;
 }
 
+static thvar_t bv_compiler_mk_zero(bvc_t *c, uint32_t n) {
+  uint32_t aux[8];
+  uint32_t *a;
+  uint32_t w;
+  thvar_t v;
 
+  assert(1 <= n);
+
+  if (n <= 64) {
+    v = get_bvconst64(c->vtbl, n, 0);
+  } else {
+    w = (n+31) >> 5;
+    a = aux;
+    if (w > 8) {
+      a = bvconst_alloc(w);
+    }
+    bvconst_clear(aux, w);
+    v = get_bvconst(c->vtbl, n, aux);
+    if (w > 8) {
+      bvconst_free(a, w);
+    }
+  }
+
+  bvc_queue_push(&c->elemexp, v);
+
+  return v;
+}
 
 /*
  * POWER-PRODUCT CONSTRUCTION
@@ -956,11 +982,26 @@ static void bvc_process_elem_sum(bvc_t *c, bvnode_t i, bvc_sum_t *d) {
   bvc_dag_reduce_sum(&c->dag, nx, ny, nz);
 }
 
+// case 5: i is zero
+static void bvc_process_zero(bvc_t *c, bvnode_t i, bvc_zero_t *d) {
+  uint32_t nbits;
+  thvar_t x;
+
+  nbits = d->header.bitsize;
+  x = bv_compiler_mk_zero(c, nbits);
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+}
+
+
 static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
   bvc_dag_t *dag;
 
   dag = &c->dag;
   switch (bvc_dag_node_type(dag, i)) {
+  case BVC_ZERO:
+    bvc_process_zero(c, i, bvc_dag_node_zero(dag, i));
+    break;
+
   case BVC_OFFSET:
     bvc_process_offset(c, i, bvc_dag_node_offset(dag, i));
     break;
@@ -1158,6 +1199,7 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
 
   case BVC_LEAF:
   case BVC_ALIAS:
+  case BVC_ZERO:
     assert(false);
     break;
   }

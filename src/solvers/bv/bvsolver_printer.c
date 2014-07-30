@@ -697,6 +697,10 @@ static void print_leaf_node(FILE *f, bvc_leaf_t *d) {
   fputc(']', f);
 }
 
+static void print_zero_node(FILE *f, bvc_zero_t *d) {
+  fprintf(f, "[ZERO %"PRIu32" bits]", d->header.bitsize);  
+}
+
 static void print_offset_node(FILE *f, bvc_offset_t *d) {
   uint32_t n;
 
@@ -764,6 +768,10 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
     print_leaf_node(f, leaf_node(d));
+    break;
+
+  case BVC_ZERO:
+    print_zero_node(f, zero_node(d));
     break;
 
   case BVC_OFFSET:

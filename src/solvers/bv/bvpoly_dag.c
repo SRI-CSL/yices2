@@ -187,6 +187,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_int_hmap(&dag->vmap, 128);
 
   init_objstore(&dag->leaf_store, sizeof(bvc_leaf_t), 500);
+  init_objstore(&dag->zero_store, sizeof(bvc_zero_t), 100);
   init_objstore(&dag->offset_store, sizeof(bvc_offset_t), 500);
   init_objstore(&dag->mono_store, sizeof(bvc_mono_t), 500);
   init_objstore(&dag->prod_store, sizeof(bvc_prod_t) + PROD_STORE_LEN * sizeof(varexp_t), 100);
@@ -258,6 +259,7 @@ static bvnode_t bvc_dag_add_node(bvc_dag_t *dag, bvc_header_t *d) {
 static void delete_descriptor(bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
+  case BVC_ZERO:
     break;
 
   case BVC_OFFSET:
@@ -315,6 +317,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_int_hmap(&dag->vmap);
 
   delete_objstore(&dag->leaf_store);
+  delete_objstore(&dag->zero_store);
   delete_objstore(&dag->offset_store);
   delete_objstore(&dag->mono_store);
   delete_objstore(&dag->prod_store);
@@ -354,6 +357,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   int_hmap_reset(&dag->vmap);
 
   reset_objstore(&dag->leaf_store);
+  reset_objstore(&dag->zero_store);
   reset_objstore(&dag->offset_store);
   reset_objstore(&dag->mono_store);
   reset_objstore(&dag->prod_store);
@@ -381,6 +385,10 @@ void reset_bvc_dag(bvc_dag_t *dag) {
  */
 static inline bvc_leaf_t *alloc_leaf(bvc_dag_t *dag) {
   return (bvc_leaf_t *) objstore_alloc(&dag->leaf_store);
+}
+
+static inline bvc_zero_t *alloc_zero(bvc_dag_t *dag) {
+  return (bvc_zero_t *) objstore_alloc(&dag->zero_store);
 }
 
 static inline bvc_offset_t *alloc_offset(bvc_dag_t *dag) {
@@ -434,6 +442,10 @@ static inline void free_leaf(bvc_dag_t *dag, bvc_leaf_t *d) {
   objstore_free(&dag->leaf_store, d);
 }
 
+static inline void free_zero(bvc_dag_t *dag, bvc_zero_t *d) {
+  objstore_free(&dag->zero_store, d);
+}
+
 static void free_offset(bvc_dag_t *dag, bvc_offset_t *d) {
   if (d->header.bitsize > 64) {
     bvconst_free(d->constant.w, (d->header.bitsize + 31) >> 5);
@@ -474,6 +486,10 @@ static void free_descriptor(bvc_dag_t *dag, bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
     free_leaf(dag, leaf_node(d));
+    break;
+
+  case BVC_ZERO:
+    free_zero(dag, zero_node(d));
     break;
 
   case BVC_OFFSET:
@@ -541,6 +557,9 @@ static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
   case BVC_LEAF:
   case BVC_ALIAS:
     break;
+
+  case BVC_ZERO:
+    return true;
 
   case BVC_OFFSET:
     return offset_node_is_elementary(dag, offset_node(d));
@@ -638,6 +657,26 @@ static bvnode_t bvc_dag_mk_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 
   q = bvc_dag_add_node(dag, &d->header);
   bvc_dag_add_to_leaves(dag, q);
+
+  return q;
+}
+
+
+/*
+ * Create a zero node
+ */
+static bvnode_t bvc_dag_mk_zero(bvc_dag_t *dag, uint32_t bitsize) {
+  bvc_zero_t *d;
+  bvnode_t q;
+
+  d = alloc_zero(dag);
+  d->header.tag = BVC_ZERO;
+  d->header.bitsize = bitsize;
+
+  q = bvc_dag_add_node(dag, &d->header);
+
+  // add to the list of elementary nodes
+  list_add(dag->list, BVC_DAG_ELEM_LIST, q);
 
   return q;
 }
@@ -773,8 +812,6 @@ static bvnode_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint3
 }
 
 
-
-
 /*
  * Product node defined by a[0 ... n-1]:
  * - each a[i] is a pair (node, exponent)
@@ -858,6 +895,12 @@ typedef struct bvc_leaf_hobj_s {
   int32_t map;
 } bvc_leaf_hobj_t;
 
+typedef struct bvc_zero_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  uint32_t bitsize;
+} bvc_zero_hobj_t;
+
 // same struct for both offset/mono with 64bit constant
 typedef struct bvc64_hobj_s {
   int_hobj_t m;
@@ -898,6 +941,10 @@ typedef struct bvc_sum_hobj_s {
  */
 static uint32_t hash_bvc_leaf_hobj(bvc_leaf_hobj_t *p) {
   return jenkins_hash_pair(p->map, 0, 0x12930a32);
+}
+
+static uint32_t hash_bvc_zero_hobj(bvc_zero_hobj_t *p) {
+  return jenkins_hash_uint32(p->bitsize);
 }
 
 static uint32_t hash_bvc_offset64_hobj(bvc64_hobj_t *p) {
@@ -951,6 +998,13 @@ static bool eq_bvc_leaf_hobj(bvc_leaf_hobj_t *p, bvnode_t i) {
 
   d = p->dag->desc[i];
   return d->tag == BVC_LEAF && leaf_node(d)->map == p->map;
+}
+
+static bool eq_bvc_zero_hobj(bvc_zero_hobj_t *p, bvnode_t i) {
+  bvc_header_t *d;
+
+  d = p->dag->desc[i];
+  return d->tag == BVC_ZERO && d->bitsize == p->bitsize;
 }
 
 static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, bvnode_t i) {
@@ -1062,6 +1116,10 @@ static bvnode_t build_bvc_leaf_hobj(bvc_leaf_hobj_t *p) {
   return bvc_dag_mk_leaf(p->dag, p->map, p->bitsize);
 }
 
+static bvnode_t build_bvc_zero_hobj(bvc_zero_hobj_t *p) {
+  return bvc_dag_mk_zero(p->dag, p->bitsize);
+}
+
 static bvnode_t build_bvc_offset64_hobj(bvc64_hobj_t *p) {
   return bvc_dag_mk_offset64(p->dag, p->c, p->nocc, p->bitsize);
 }
@@ -1094,6 +1152,12 @@ static bvc_leaf_hobj_t bvc_leaf_hobj = {
   { (hobj_hash_t) hash_bvc_leaf_hobj, (hobj_eq_t) eq_bvc_leaf_hobj,
     (hobj_build_t) build_bvc_leaf_hobj },
   NULL, 0, 0
+};
+
+static bvc_zero_hobj_t bvc_zero_hobj = {
+  { (hobj_hash_t) hash_bvc_zero_hobj, (hobj_eq_t) eq_bvc_zero_hobj,
+    (hobj_build_t) build_bvc_zero_hobj },
+  NULL, 0
 };
 
 static bvc64_hobj_t bvc_offset64_hobj = {
@@ -1141,6 +1205,12 @@ static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   bvc_leaf_hobj.bitsize = bitsize;
   bvc_leaf_hobj.map = x;
   return int_htbl_get_obj(&dag->htbl, &bvc_leaf_hobj.m);
+}
+
+static bvnode_t bvc_dag_get_zero(bvc_dag_t *dag, uint32_t bitsize) {
+  bvc_zero_hobj.dag = dag;
+  bvc_zero_hobj.bitsize = bitsize;
+  return int_htbl_get_obj(&dag->htbl, &bvc_zero_hobj.m);
 }
 
 static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
@@ -1226,6 +1296,15 @@ void bvc_dag_map_var(bvc_dag_t *dag, int32_t x, node_occ_t n) {
 node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   assert(x > 0);
   return  bvp(bvc_dag_get_leaf(dag, x, bitsize));
+}
+
+
+/*
+ * Zero node
+ */
+static inline node_occ_t bvc_dag_zero(bvc_dag_t *dag, uint32_t bitsize) {
+  assert(1 <= bitsize);
+  return bvp(bvc_dag_get_zero(dag, bitsize));
 }
 
 
@@ -1543,29 +1622,34 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   bitsize = bvpoly_buffer_bitsize(buffer);
   assert(bitsize <= 64);
 
-  i = 0;
-  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-    // skip the constant
-    i = 1;
-  }
+  if (n == 0) {
+    // empty sum
+    r = bvc_dag_zero(dag, bitsize);
+  } else {
+    i = 0;
+    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+      // skip the constant
+      i = 1;
+    }
 
-  // build the monomials and store the corresponding node occs in v
-  v = &dag->buffer;
-  assert(v->size == 0);
+    // build the monomials and store the corresponding node occs in v
+    v = &dag->buffer;
+    assert(v->size == 0);
 
-  while (i < n) {
-    r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
-    ivector_push(v, r);
-    i ++;
-  }
+    while (i < n) {
+      r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
+      ivector_push(v, r);
+      i ++;
+    }
 
-  // build the sum
-  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-  ivector_reset(v);
+    // build the sum
+    r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+    ivector_reset(v);
 
-  // add the constant if any
-  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-    r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(buffer, 0), r, bitsize);
+    // add the constant if any
+    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+      r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(buffer, 0), r, bitsize);
+    }
   }
 
   return r;
@@ -1582,30 +1666,33 @@ static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   bitsize = bvpoly_buffer_bitsize(buffer);
   assert(bitsize > 64);
 
-  i = 0;
-  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-    // skip the constant
-    i = 1;
+  if (n == 0) {
+    r = bvc_dag_zero(dag, bitsize);
+  } else {
+    i = 0;
+    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+      // skip the constant
+      i = 1;
+    }
 
-  }
+    // build the monomials and store the corresponding node occs in v
+    v = &dag->buffer;
+    assert(v->size == 0);
 
-  // build the monomials and store the corresponding node occs in v
-  v = &dag->buffer;
-  assert(v->size == 0);
+    while (i < n) {
+      r = bvc_dag_mono(dag, bvpoly_buffer_coeff(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
+      ivector_push(v, r);
+      i ++;
+    }
 
-  while (i < n) {
-    r = bvc_dag_mono(dag, bvpoly_buffer_coeff(buffer, i), bvpoly_buffer_var(buffer, i), bitsize);
-    ivector_push(v, r);
-    i ++;
-  }
+    // build the sum
+    r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+    ivector_reset(v);
 
-  // build the sum
-  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-  ivector_reset(v);
-
-  // add the constant if any
-  if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-    r = bvc_dag_offset(dag, bvpoly_buffer_coeff(buffer, 0), r, bitsize);
+    // add the constant if any
+    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+      r = bvc_dag_offset(dag, bvpoly_buffer_coeff(buffer, 0), r, bitsize);
+    }
   }
 
   return r;
@@ -1647,6 +1734,8 @@ static void bvpoly_buffer_add(bvpoly_buffer_t *buffer, uint32_t *a, node_occ_t n
  *
  * The DAG for p = (b0 + b_1 a[1] + .... + b_k a[k]) is
  *    [offset b0 [sum [mono b_1 a[1]] ... [mono b_k a[k]]]].
+ *
+ * Special case: if the sum cancels returns a zero_node.
  */
 node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
   bvpoly_buffer_t *buffer;
@@ -1665,35 +1754,6 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
   normalize_bvpoly_buffer(buffer);
 
   return bvc_dag_of_buffer64(dag, buffer);
-
-#if 0
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    // skip the constant
-    i = 1;
-  }
-
-  // build the monomials and store the corresponding node occs in v
-  v = &dag->buffer;
-  assert(v->size == 0);
-
-  while (i < n) {
-    r = bvc_dag_mono64(dag, p->mono[i].coeff, a[i], bitsize);
-    ivector_push(v, r);
-    i ++;
-  }
-
-  // build the sum
-  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-  ivector_reset(v);
-
-  // add the constant if any
-  if (p->mono[0].var == const_idx) {
-    r = bvc_dag_offset64(dag, p->mono[0].coeff, r, bitsize);
-  }
-
-  return r;
-#endif
 }
 
 node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
@@ -1713,42 +1773,6 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
   normalize_bvpoly_buffer(buffer);
 
   return bvc_dag_of_buffer(dag, buffer);
-
-#if 0
-  // OLD
-  ivector_t *v;
-  uint32_t i, n, bitsize;
-  node_occ_t r;
-
-  n = p->nterms;
-  bitsize = p->bitsize;
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    // skip the constant
-    i = 1;
-  }
-
-  // build the monomials and store the corresponding node occs in v
-  v = &dag->buffer;
-  assert(v->size == 0);
-
-  while (i < n) {
-    r = bvc_dag_mono(dag, p->mono[i].coeff, a[i], bitsize);
-    ivector_push(v, r);
-    i ++;
-  }
-
-  // build the sum
-  r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-  ivector_reset(v);
-
-  // add the constant if any
-  if (p->mono[0].var == const_idx) {
-    r = bvc_dag_offset(dag, p->mono[0].coeff, r, bitsize);
-  }
-
-  return r;
-#endif
 }
 
 
@@ -1781,45 +1805,6 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
   }
 
   return r;
-
-#if 0
-  i = 0;
-  if (bvpoly_buffer_var(b, 0) == const_idx) {
-    // skip the constant
-    i = 1;
-  }
-
-  v = &dag->buffer;
-  assert(v->size == 0);
-
-  if (nbits <= 64) {
-    while (i < n) {
-      r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(b, i), a[i], nbits);
-      ivector_push(v, r);
-      i ++;
-    }
-    r = bvc_dag_sum(dag, v->data, v->size, nbits);
-    if (bvpoly_buffer_var(b, 0) == const_idx) {
-      r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(b, 0), r, nbits);
-    }
-
-  } else {
-    // same thing: bitsize > 64
-    while (i < n) {
-      r = bvc_dag_mono(dag, bvpoly_buffer_coeff(b, i), a[i], nbits);
-      ivector_push(v, r);
-      i ++;
-    }
-    r = bvc_dag_sum(dag, v->data, v->size, nbits);
-    if (bvpoly_buffer_var(b, 0) == const_idx) {
-      r = bvc_dag_offset(dag, bvpoly_buffer_coeff(b, 0), r, nbits);
-    }
-  }
-
-  ivector_reset(v);
-
-  return r;
-#endif
 }
 
 
@@ -1909,6 +1894,7 @@ static void remove_from_uses(bvc_dag_t *dag, bvnode_t i, bvc_header_t *d) {
 
   switch (d->tag) {
   case BVC_LEAF:
+  case BVC_ZERO:
     break;
 
   case BVC_OFFSET:
@@ -2028,6 +2014,7 @@ static void replace_node_in_desc(bvc_header_t *d, bvnode_t i, node_occ_t n) {
   switch (d->tag) {
   case BVC_LEAF:
   case BVC_ALIAS:
+  case BVC_ZERO:
     // should not happen
     assert(false);
     break;

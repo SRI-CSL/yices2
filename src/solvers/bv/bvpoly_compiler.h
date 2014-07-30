@@ -40,7 +40,7 @@
  * Queue of variable
  * - each element in this queue is a variable index i
  * - the variables are sorted in topological order
- *   (i.e., if i is (BVADD j k) and j is (BVAD ...) then
+ *   (i.e., if i is (BVADD j k) and j is (BVADD ...) then
  *   j occurs before i in the queue).
  *
  * This is stored as in data[0 ... top-1]
