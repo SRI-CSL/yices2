@@ -13,13 +13,11 @@
 
 usage="Usage: $0 <distribution directory>
 
-   For example
-
-     $0 ./build/x86_64-unknown-linux-gnu-release/dist
+For example: $0 ./build/x86_64-unknown-linux-gnu-release/dist
 "
 
 if test $# -ne 1 ; then
-   echo $usage
+   echo "$usage"
    exit 2
 fi
 

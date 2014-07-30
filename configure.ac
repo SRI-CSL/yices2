@@ -1,3 +1,10 @@
+dnl========================================================================
+dnl The Yices SMT Solver. Copyright 2014 SRI International.
+dnl
+dnl This program may only be used subject to the noncommercial end user
+dnl license agreement which is downloadable along with this program.
+dnl========================================================================
+
 dnl
 dnl Configure for Yices
 dnl
