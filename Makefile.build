@@ -67,7 +67,6 @@ srcsubdirs = \
 
 testdir = tests/unit
 regressdir = tests/regress
-smt2dir = front_end
 
 #
 # Build directory: for this architecture and mode
@@ -571,7 +570,6 @@ source-distribution: $(distributions) doc
 	$(MKDIR_P) $(srcdist_dir)/autoconf
 	$(MKDIR_P) $(srcdist_dir)/configs
 	$(MKDIR_P) $(srcdist_dir)/src
-	$(MKDIR_P) $(srcdist_dir)/tests
 	$(MKDIR_P) $(srcdist_dir)/doc
 	$(MKDIR_P) $(srcdist_dir)/utils
 	$(MKDIR_P) $(srcdist_dir)/etc
@@ -579,9 +577,8 @@ source-distribution: $(distributions) doc
 	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
 	cp README Makefile Makefile.build make.include.in $(srcdist_dir)
 	cp autoconf/* $(srcdist_dir)/autoconf
-#	$(MKDIR_P) $(addprefix $(srcdist_dir)/src/,$(srcsubdirs))
 	rsync -R `find src/ -name "Makefile" -or -name "*.c" -or -name "*.h" -or -name "*.txt"` $(srcdist_dir)
-	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
+	cp -R tests $(srcdist_dir)
 	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
            $(srcdist_dir)/doc
 	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
@@ -621,12 +618,11 @@ arch-clean:
 
 #
 # All clean delete all build directories
-# - also clean the src directory and the front_end directory
+# - also clean the src directory
 #
 all-clean:
 	rm -rf build/*
 	$(MAKE) -C $(srcdir) clean
-	$(MAKE) -C $(smt2dir) clean
 
 .PHONY: clean arch-clean all-clean
 
