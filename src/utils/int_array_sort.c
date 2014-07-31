@@ -1,5 +1,12 @@
 /*
- * Basic sort for integer arrays
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BASIC SORT FOR INTEGER ARRAYS
  */
 
 #include "utils/int_array_sort.h"

@@ -1,6 +1,13 @@
 #!/bin/sh
 
 #
+# The Yices SMT Solver. Copyright 2014 SRI International.
+#
+# This program may only be used subject to the noncommercial end user
+# license agreement which is downloadable along with this program.
+#
+
+#
 # Construct a README file from a template
 #
 # Usage:
@@ -33,7 +40,7 @@ usage="Usage: $0 <distribution directory> <template>\n
 "
 
 if test $# != 2 ; then
-   echo $usage
+   echo "$usage"
    exit 1
 fi
 

@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * SETS OF INTEGERS IN A FINITE RANGE [0 ... dsize - 1]
  */
 

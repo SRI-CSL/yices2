@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Substitution context: stored as a mapping from int32_t indices
  * (variable indices) to int32_t indices (term indices). These
  * indices are assumed non-negative,

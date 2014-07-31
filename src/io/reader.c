@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * File reader: keeps track of filename, position, current character.
  * String reader: same thing but reads from a null-terminated string.
  */

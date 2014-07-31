@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * BAGS OF NON-NEGATIVE INTEGERS
  * - these are implemented as arrays with a hidden header
  * - the code is similar to indexed_vectors but the bags have

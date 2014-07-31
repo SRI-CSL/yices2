@@ -1,5 +1,13 @@
 /*
- * Stack for allocation of pointer arrays in FIFO order.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * STACK FOR ALLOCATION OF POINTER ARRAYS IN FIFO ORDER
+ *
  * This is similar to int_stack but for arrays of (void*) pointers.
  */
 

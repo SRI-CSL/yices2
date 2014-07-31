@@ -1,5 +1,12 @@
 /*
- * Arrays of integers with support for push/pop.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * ARRAYS OF INTEGERS WITH SUPPORT FOR PUSH/POP.
  * - each array stores a mapping from int32_t indices to an integer type.
  * - for now, the range can be: int32_t or uint8_t.
  */

@@ -1,8 +1,17 @@
 /*
- * Global variables.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
  *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * GLOBAL VARIABLES
+ */
+
+/*
  * Several global tables and data structures are maintained by
- * module term_api.c. If other modules need to access these internal
+ * yices_api.c. If other modules need to access these internal
  * data structures, they can use the following table of pointers.
  *
  * The table is initialized after a call to yices_init();

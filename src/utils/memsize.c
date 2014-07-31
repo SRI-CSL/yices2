@@ -1,9 +1,19 @@
 /*
- * Compute memory usage
+ * The Yices SMT Solver. Copyright 2014 SRI International.
  *
- * Three implementations:
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * ESTIMATE MEMORY USAGE
+ */
+
+/*
+ * Several implementations:
  * - on Mac OS X: use mach kernel API
- * - on solaris: read /proc/<pid>/psinfo
+ * - on Solaris: read /proc/<pid>/psinfo
+ * - on FreeBSD: use sysctl
  * - on other systems: try to get it by
  *   reading /proc/<pid>/statm
  * - on mingw: nothing implemented. Return 0.0

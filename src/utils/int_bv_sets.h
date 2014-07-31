@@ -1,5 +1,12 @@
 /*
- * Sets of unsigned integers represented as bitvectors
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * SETS OF UNSIGNED INTEGERS REPRESENTED AS BITVECTORS
  */
 
 #ifndef __INT_BV_SETS_H

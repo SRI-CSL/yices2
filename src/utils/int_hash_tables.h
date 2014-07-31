@@ -1,5 +1,12 @@
 /*
- * Hash tables of non-negative integer.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * HASH TABLES OF NON-NEGATIVE INTEGERS
  *
  * These are intended for hash consing: terms are identified by an
  * index in a global term table. A hash-table stores records <k, v>

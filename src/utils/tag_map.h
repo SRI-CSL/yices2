@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Vector that stores a map from 32bit indices to 8bit values
  * - this is a variant of mark_vectors.h intended to be more
  *   efficient (to be used by the sat solver)

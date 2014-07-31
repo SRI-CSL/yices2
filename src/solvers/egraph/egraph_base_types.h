@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Low-level objects in egraph
  * (We need to separate these typedefs from the full egraph_types.h
  *  to break circular dependencies between include files).

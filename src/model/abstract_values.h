@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Abstract objects used by the array solver to construct models.
  * - an array variable is modeled as a mapping from [tau1 ... tau_n -> sigma]
  * - tau_1 ... tau_n and sigma are types defined in the global type table

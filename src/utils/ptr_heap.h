@@ -1,8 +1,16 @@
 /*
- * Heap of generic objects (implemented using void *pointers)
- * - store pointers to a set of object
- * - the order between these objects is defined when the heap is
- *   initialized
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BINARY HEAP FOR GENERIC OBJECTS
+ *
+ * The heap stores pointers to objects.
+ * The order between these objects is defined when the heap is
+ * initialized.
  */
 
 #ifndef __PTR_HEAP_H

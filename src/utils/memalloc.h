@@ -1,6 +1,14 @@
 /*
- * Wrappers for malloc/realloc/free:
- * abort if out of memory.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * WRAPPERS FOR MALLOC/REALLOC/FREE
+ *
+ * safe_malloc and safe_realloc abort if we run out of memory.
  */
 
 #ifndef __MEMALLOC_H
@@ -27,7 +35,7 @@ extern void *safe_realloc(void *ptr, size_t size) __attribute__ ((malloc));
  * Safer free: used to check whether ptr is NULL before calling free.
  *
  * Updated to just call free. The check is redundant on most
- * systes, The C99 standarrd specifies that free shall have no effect
+ * systes, The C99 standard specifies that free shall have no effect
  * if ptr is NULL.
  *
  */

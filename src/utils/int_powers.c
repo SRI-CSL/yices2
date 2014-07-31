@@ -1,3 +1,10 @@
+/*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
 #include "utils/int_powers.h"
 
 uint32_t upower32(uint32_t x, uint32_t d) {

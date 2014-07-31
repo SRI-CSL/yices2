@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Data structure to collect classes of objects. This is parameterized
  * by an equivalence relation and it's intended to construct the
  * classes that contain at least two objects.  Objects are identified
@@ -33,7 +40,7 @@ typedef struct ipart_rec_s {
  * when the ipart structure is initialized.
  * - hash = hash function
  * - match = equivalence predicate
- * These two function take an auxiliary pointer as first argument:
+ * These two functions take an auxiliary pointer as first argument:
  * - hash(aux, i) must return the hash code for object i
  * - match(aux, i1, i2) must return true if i1 and i2 are in
  *   the same class
@@ -46,7 +53,7 @@ typedef bool (*ipart_match_fun_t)(void *aux, int32_t i1, int32_t i2);
  * Each class is a vector stored in pp->classes that
  * contains at least two objects.
  *
- * To scan the classes, using something like:
+ * To scan the classes, use something like this:
  *
  *   n = int_partition_nclasses(pp);
  *   for (i=0; i<n; i++) {

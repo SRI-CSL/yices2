@@ -1,5 +1,12 @@
 /*
- * Vectors to store a map from 32bit indices to 8bit values
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * VECTORS TO STORE A MAP FROM 32BIT INDICES TO 8BIT VALUES
  */
 
 #include <string.h>

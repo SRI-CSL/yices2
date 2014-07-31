@@ -1,5 +1,12 @@
 /*
- * Support for parsing command-line arguments
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * SUPPORT FOR PARSING COMMAND-LINE ARGUMENTS
  */
 
 #include <stdbool.h>

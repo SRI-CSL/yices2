@@ -1,23 +1,55 @@
+======================================================================
+
+ The Yices SMT Solver. Copyright 2014 SRI International.
+
+ This program may only be used subject to the noncommercial end user
+ license agreement which is downloadable along with this program.
+
+======================================================================
+
+
+CONTENT
+-------
+
+This distribution includes the source of Yices, documentation,
+tests, and examples.
+
+Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, Computer
+Science Laboratory, SRI International.  To contact us, report a big,
+or to get more information about Yices, please visit our website at
+http://yices.csl.sri.com.
+
+
+
+QUICK INSTALLATION GUIDE
+------------------------
+
+  ./configure
+  make all
+  make check (optional)
+  sudo make install
+
+
+This will install binaries and libraries in /usr/local/   
+You can change the installation location by giving option 
+  --prefix=... to ./configure.
+
+
+FOR MORE DETAILS, KEEP READING.
+
+
+
+
 PREREQUISITES
 -------------
 
 - autoconf version 2.60 or newer
-- GCC version 4.0.x or newer
+- GCC version 4.0.x or newer (or clang 3.0 or newer)
 - gperf version 3.0 or newer
 - GMP library version 4.1 or newer
 
 + other standard tools: make (gnumake is required), sed, etc.
 
-NOTE: January 2012.
-
-Other compilers than GCC can be used provided they accept some
-non-standard GCC extensions and understand options -MM -MG, which are
-used to build dependencies in src/Makefile.
-
-Recent versions of clang (e.g., clang+llvm 3.0) seem to work just
-fine. This is important for compilation on MacOS X Lion or newer
-releases because Apple's Xcode for these systems does not include GCC
-but only llvm-gcc and clang.
 
 
 
@@ -40,6 +72,8 @@ To build Yices from the source on a new platform:
 3) compile using
 
       make all
+
+  (or make all -j)
 
    This produces two versions of the binaries and libraries
    (with and without GMP statically linked) in:

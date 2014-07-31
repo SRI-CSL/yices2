@@ -1,5 +1,12 @@
 /*
- * Maps 32bit integers to 32bit integers (all signed)
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * MAPS 32BIT INTEGERS TO 32BIT INTEGERS
  * Assumes that keys are non-negative
  */
 

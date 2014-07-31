@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * BASELINE SIMPLEX PROPAGATOR
  * (This code is included in simplex.c via #include "solvers/simplex/simplex_propagator0.h")
  *

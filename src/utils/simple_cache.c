@@ -1,5 +1,13 @@
 /*
- * Simple cache:
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * FIXED-SIZE CACHE
+ *
  * - keys are 32bit signed integers
  * - values consist of a tag + a union that can store an integer or a pointer
  * - unused entries are marked by setting the key to -1

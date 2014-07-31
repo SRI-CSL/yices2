@@ -1,6 +1,13 @@
 #!/bin/sh
 
 #
+# The Yices SMT Solver. Copyright 2014 SRI International.
+#
+# This program may only be used subject to the noncommercial end user
+# license agreement which is downloadable along with this program.
+#
+
+#
 # Construct a README file from a template
 #
 # This scripts replaces 
@@ -21,6 +28,7 @@
 # (e.g. etc/README.static.linux)
 #
 # NOTE: this script replaces the default mkreadme when cross-compiling
+#
 
 usage="Usage: $0 <distribution directory> <template>\n
 \n
@@ -30,7 +38,7 @@ usage="Usage: $0 <distribution directory> <template>\n
 "
 
 if test $# != 2 ; then
-   echo $usage
+   echo "$usage"
    exit 1
 fi
 

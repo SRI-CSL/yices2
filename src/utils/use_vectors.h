@@ -1,5 +1,12 @@
 /*
- * Use vector = vector of pointers to terms or other objects
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * USE VECTOR = VECTOR OF POINTERS TO TERMS OR OTHER OBJECTS
  */
 
 #ifndef __USE_VECTORS_H

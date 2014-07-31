@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Extended numbers = pairs of rationals (c, d)
  * representing a number of the form c + d.delta
  * where delta is infinitesimal.

@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Power products: x_1^d_1 ... x_n^d_n
  * - each x_i is a 32bit integer
  * - each exponent d_i is a positive integer

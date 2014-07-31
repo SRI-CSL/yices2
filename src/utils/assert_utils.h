@@ -1,5 +1,12 @@
 /*
- * Variant of assert.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * VARIANTS OF ASSERT
  *
  * In several place, we call a function that returns a Boolean result
  * and treat this result differently depending on the compilation mode:

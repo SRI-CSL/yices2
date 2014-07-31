@@ -1,5 +1,12 @@
 /*
- * Sort an array of pointers with user-supplied order
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * SORT AN ARRAY OF POINTERS WITH USER-SUPPLIED ORDER
  */
 
 #include "utils/ptr_array_sort2.h"

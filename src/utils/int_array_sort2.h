@@ -1,5 +1,12 @@
 /*
- * Sort an array of integers with a user-supplied ordering
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * SORT AN ARRAY OF INTEGERS WITH A USER-SUPPLIED ORDERING
  */
 
 #ifndef __INT_ARRAY_SORT2_H

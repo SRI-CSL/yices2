@@ -1,5 +1,13 @@
 /*
- * Hash table for maintaining equivalence classes.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * HASH TABLE FOR MAINTAINING EQUIVALENCE CLASSES
+ *
  * Objects are represented by non-negative integers and
  * an equivalence relation is defined by a match predicate.
  * The table stores one representative per class and allows

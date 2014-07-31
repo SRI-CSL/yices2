@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Maps used as models by the function-theory solver
  * - a map is a finite list or pairs [index -> value]
  * - indices and values are represented as particles (see abstract_values.h)

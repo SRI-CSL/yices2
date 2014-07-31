@@ -1,5 +1,12 @@
 /*
- * Heap of integers
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BINARY HEAP OF INTEGERS
  * - stores a set of integers, all in range [0 ... n]
  * - elements are extracted in increasing order
  */

@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * On non-recoverable errors, the Yices binary exits with a non-zero status.
  * The status values are defined here for different error conditions.
  * - code = 0 means success

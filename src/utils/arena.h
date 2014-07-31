@@ -1,6 +1,12 @@
 /*
- * Stack-based memory allocation
- * (TODO: check the cost of empty pushes. They can be optimized away)
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * STACK-BASED MEMORY ALLOCATION
  */
 
 #ifndef __ARENA_H

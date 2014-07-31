@@ -1,6 +1,12 @@
 /*
- * Codes for SMT Logic categories
- * - as of July 2011
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * CODES FOR THE SMT LOGICS
  */
 
 #ifndef __SMT_LOGIC_CODES_H

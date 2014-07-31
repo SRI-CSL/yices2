@@ -1,5 +1,12 @@
 /*
- * Store for allocation/release of (small) objects of fixed size.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * STORES FOR ALLOCATION/RELEASE OF (SMALL) OBJECTS OF FIXED SIZE.
  */
 
 #ifndef __OBJECT_STORES_H

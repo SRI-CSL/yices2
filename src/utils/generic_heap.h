@@ -1,5 +1,12 @@
 /*
- * Heap of non-negative integers with customizable ordering
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BINARY HEAP OF INTEGERS WITH CUSTOMIZABLE ORDERING
  * - stores a set of integers, all in range [0 ... n]
  * - the ordering is defined by a function provided when
  *   the heap is constructed

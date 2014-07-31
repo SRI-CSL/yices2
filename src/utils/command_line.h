@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * Parsing of command-line arguments follows more or less the GNU
  * style. Options have a long name of the form --option and,
  * optionally, an abbreviation of the from -o where o is a single

@@ -1,5 +1,12 @@
 /*
- * Arrays of integers with reference counters
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * ARRAYS OF INTEGERS WITH REFERENCE COUNTERS
  */
 
 #ifndef __REFCOUNT_INT_ARRAYS_H

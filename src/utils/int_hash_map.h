@@ -1,6 +1,14 @@
 /*
- * Maps 32bit integers to 32bit integers (both signed)
- * Assumes that keys and values are non-negative
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * HASH MAPS
+ *
+ * keys and values are signed 32bit integers that must be non-negative.
  */
 
 #ifndef __INT_HASH_MAP_H

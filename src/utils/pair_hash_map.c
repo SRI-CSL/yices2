@@ -1,6 +1,16 @@
 /*
- * Maps 32bit integers to 32bit integers (all signed)
- * Assumes that keys are non-negative
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * MAPS INTEGERS TO INTEGERS
+ */
+
+/*
+ * Keys are 32bit non-negative integers. Values are signed 32bit integers.
  */
 
 #include <assert.h>

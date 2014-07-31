@@ -1,5 +1,12 @@
 /*
- * Functions to iterate through all the models, contexts, and buffers allocated.
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * FUNCTIONS TO ITERATE THROUGH ALL THE MODELS, CONTEXTS, AND BUFFERS ALLOCATED.
  */
 
 #ifndef __YICES_ITERATORS_H

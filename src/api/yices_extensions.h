@@ -1,6 +1,17 @@
 /*
- * Extensions of yices.h
- * Implemented in yices_api.c
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * API EXTENSIONS
+ */
+
+/*
+ * Various functions implemented in yices_api.c are not officially in
+ * the API but they are used by the front-ends. They are declared here.
  */
 
 #ifndef __YICES_EXTENSIONS_H

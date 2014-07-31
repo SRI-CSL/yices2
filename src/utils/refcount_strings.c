@@ -1,5 +1,12 @@
 /*
- * Strings with reference counter
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * STRINGS WITH REFERENCE COUNTERS
  */
 
 #include <string.h>

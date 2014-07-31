@@ -1,3 +1,10 @@
+/*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
 #include <string.h>
 #include "utils/hash_functions.h"
 
@@ -10,8 +17,6 @@
  *
  * int_hash_sets.c uses another hash function from Bob Jenkins's web
  * site.
- *
- * TODO: migrate to Jenkins's lookup3.c (also Public Domain)
  */
 
 /* Jenkins's lookup2.c code */

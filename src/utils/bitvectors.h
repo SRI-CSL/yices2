@@ -1,5 +1,12 @@
 /*
- * Bit vectors
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BIT VECTORS
  */
 
 #ifndef __BIT_VECTORS_H

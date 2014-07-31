@@ -1,6 +1,18 @@
 /*
- * Hash functions: all return an unsigned 32bit integer
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
+
+/*
+ * HASH FUNCTIONS
+ *
+ * - all return an unsigned 32bit integer
+ * - this code uses Bob Jenkins' mix functions (Public Domain) available
+ *   at http://www.burtleburtle.net/bob/hash/index.html.
+ */
+
 
 #ifndef __HASH_FUNCTIONS_H
 #define __HASH_FUNCTIONS_H

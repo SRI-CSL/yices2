@@ -1,5 +1,12 @@
 /*
- * Heap of integers with customizable ordering
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * BINARY HEAP OF INTEGERS WITH CUSTOMIZABLE ORDERING
  */
 
 #include <assert.h>

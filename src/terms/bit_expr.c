@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
  * XOR/OR/NOT graph used to represent bit-vector expressions
  *
  * We need a new representation to replace BDDs. The BDDs blow
