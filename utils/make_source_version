@@ -1,0 +1,84 @@
+#!/bin/sh
+
+#
+# The Yices SMT Solver. Copyright 2014 SRI International.
+#
+# This program may only be used subject to the noncommercial end user
+# license agreement which is downloadable along with this program.
+#
+
+#
+# Script to build yices_version.c from yices_version_template.txt
+#
+# Usage:
+#  ./make_source_version <template> <result> <version> <mode> <arch>
+# where
+#   <template> = source template    (normally src/api/yices_version_termplate.txt)
+#   <result>   = version file       (normally src/api/yices_version.c)
+#   <version>  = version number     (e.g., 2.2.2)
+#   <mode>     = compilation mode   (release or debug)
+#   <arch>     = build architecture (e.g., x86_64-unknown-linux-gnu)
+#
+#
+
+usage="Usage: $0 <template> <result> <version> <mode> <arch>"
+
+if test $# -ne 5 ; then
+  echo "$usage"
+  exit 2
+fi
+
+template=$1
+result=$2
+version=$3
+mode=$4
+arch=$5
+
+
+#
+# Check that template is readable
+#
+test -f $template || { echo "Can't open $template" ; exit 1 ; }
+
+
+#
+# Temporary file
+#
+os_name=`uname 2>/dev/null` || os_name=unknown
+
+case "$os_name" in
+  *Darwin* )
+     mktemp_cmd="/usr/bin/mktemp -t out"
+  ;;
+
+  * )
+     mktemp_cmd=mktemp
+  ;;
+esac
+
+tempfile=`$mktemp_cmd` || { echo "Can't create temporary file" ; exit 1 ; }
+
+
+#
+# Date and git commit
+#
+now=`date +"%Y-%m-%d"`
+rev=`git rev-parse HEAD 2>/dev/null || echo "unknown"`
+
+
+#
+# Create the revision-file in temp
+#
+sed -e "s/YICES_VERSION/$version/g" -e "s/YICES_COMPILATION_DATE/$now/g" \
+    -e "s/REVISION/$rev/g" -e "s/YICES_ARCH/$arch/g" -e "s/YICES_BUILD_MODE/$mode/g" \
+    $template > $tempfile
+
+#
+# Copy tempfile as result if they differ
+#
+diff -q -N $tempfile $result > /dev/null || cp $tempfile $result
+
+rm -f $tempfile
+
+
+

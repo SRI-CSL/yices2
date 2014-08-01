@@ -15,18 +15,34 @@ This distribution includes the source of Yices, documentation,
 tests, and examples.
 
 Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, Computer
-Science Laboratory, SRI International.  To contact us, report a big,
+Science Laboratory, SRI International.  To contact us, report a bug,
 or to get more information about Yices, please visit our website at
 http://yices.csl.sri.com.
 
 
 
-QUICK INSTALLATION GUIDE
-------------------------
+PREREQUISITES
+-------------
+
+To build Yices from the source, you need:
+
+- autoconf version 2.60 or newer
+- GCC version 4.0.x or newer (or clang 3.0 or newer)
+- gperf version 3.0 or newer
+- GMP library version 4.1 or newer
+- latex and latexmk is you want to build the manual
+
++ other standard tools: make (gnumake is required), sed, etc.
+
+
+
+QUICK INSTALLATION
+------------------
+
+Do this:
 
   ./configure
-  make all
-  make check (optional)
+  make
   sudo make install
 
 
@@ -35,89 +51,11 @@ You can change the installation location by giving option
   --prefix=... to ./configure.
 
 
+
 FOR MORE DETAILS, KEEP READING.
 
 
 
-
-PREREQUISITES
--------------
-
-- autoconf version 2.60 or newer
-- GCC version 4.0.x or newer (or clang 3.0 or newer)
-- gperf version 3.0 or newer
-- GMP library version 4.1 or newer
-
-+ other standard tools: make (gnumake is required), sed, etc.
-
-
-
-
-
-BUILDING YICES USING THE DEFAULT CONFIGURATION
-----------------------------------------------
-
-To build Yices from the source on a new platform:
-
-1) run autoconf
-
-2) run ./configure
-
-   If all goes well, this will produce a configuration file
-   make.include.<platform> in the ./configs directory.
-
-   <platform> is something like 'x86_64-unknown-linux-gnu'
-
-
-3) compile using
-
-      make all
-
-  (or make all -j)
-
-   This produces two versions of the binaries and libraries
-   (with and without GMP statically linked) in:
-
-      ./build/<platform>-release/bin
-      ./build/<platform>-release/static_bin
-      ./build/<platform>-release/lib
-      ./build/<platform>-release/static_lib
-
-
-4) build the distribution tarfiles (not for the mingw32/mingw64 distribution)
-
-      make binary-distribution
-
-   This builds ./distributions/yices-2.x.y-<platform>.tar.gz
-   This tarfile contains binaries + libraries dynamically linked with GMP.
-
-      make static-distribution
-
-   This builds ./distributions/yices-2.x.y-<platform>-static-gmp.tar.gz
-   This tarfile contains binaries + libraries statically linked with GMP.
-
-
-
-4a) For mingw32/mingw64
-
-    A manual step is required to create 'libyices.lib', using the
-    Microsoft's Visual Studio tools. The distributions must be built
-    as follows:
-
-      make dist
-      <manual step to create libyices.lib>
-      make tarfile
-
-    or
-
-      make static-dist
-      <manual step ...>
-      make static-tarfile
-
-
-
-If any of these steps fail or for setting configuration options,
-read the more detailed instruction below.
 
 
 
@@ -130,9 +68,6 @@ The source subdirectories include
   ./src:           source code for Yices proper
 
   ./tests:         source code for test programs
-
-  ./front-end:	   source code for an old SMT2 front end built
-                   with lex and yacc.
 
   ./doc:           documentation, notes
 
@@ -300,7 +235,7 @@ wrong,  the following options can be given to ./configure:
    --with-pic-gmp-include-dir=<directory of the corresponding 'gmp.h'>
 
 
-NOTE: the --with-pic-gmp is useful only if one wants to build a static
+NOTE: the --with-pic-gmp is useful only if your want to build a static
       Yices distribution and if libgmp.a is not position-independent by
       default.
 
@@ -431,6 +366,7 @@ The main targets are:
 
    source-distribution     build a tarfile containing the Yices sources
 
+   doc                     build the documentation  
 
 
 Variants for the mingw distributions:
@@ -596,11 +532,9 @@ version:
   the default platform is of the form i386-apple-darwin9.x.y
   (the x.y part varies with OS updates)
 
-- on 10.6 (Snow Leopard)
+- since 10.6 (Snow Leopard)
   the default is 64bit compilation
   default platform: x86_64-apple-darwin10.x.y
-
-- on 10.7 (Lion) the default is 64bit too
 
 There are also issues with having 32 and 64bit versions of GMP
 on the same machine. I normally use fat libraries, and a hack
@@ -786,9 +720,9 @@ libraries at run time. This code cannot run on a native Windows
 machine that does not have Cygwin installed.
 
 To build a version of Yices that can run on a native Windows machine,
-one can either install Mingw and msys and compile from there, or
+you can either install Mingw and msys and compile from there, or
 compile from Cygwin using --build=i686-pc-mingw32 to select a Mingw32
-configuration.  For the result to work, one must either give the flag
+configuration.  For the result to work, you must either give the flag
 -mno-cygwin to GCC or use a cross compiler. Using -mno-cygwin is
 easier but may no longer be supported by new versions of GCC.
 
@@ -918,6 +852,14 @@ This can be done using the mingw64 cross compiler on Cygwin.
 
 3) Assuming this installation, configure Yices as follows
 
+    ,/configure --host=x86_64-w64-mingw32 \
+	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
+	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
+        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include
+
+  or like this
+
     ./configure --build=x86_64-pc-mingw32 \
         CC=/usr/bin/x86_64-w64-mingw32-gcc \
         LD=/usr/bin/x86_64-w64-mingw32-ld \
@@ -1009,8 +951,8 @@ NOTE: (Updated 2011/12/01). There's a shell script in ./utils that
 
 
 
-NOTES FOR GCC 4.4.y
--------------------
+IF GCC GIVES WARNINGS ABOUT INLINED FUNCTIONS
+---------------------------------------------
 
 Compiling yices with gcc-4.4 with the default options causes a
 lot of warnings of the form:
@@ -1034,102 +976,23 @@ The part about 'code size would grow' can be misleading. The warning
 will be produced even if inlining does not cause any code growth at
 all, probably because the code-growth estimate is not very accurate.
 
-There are several ways to fix this:
 
-1) remove -Winline from the compilation flags. GCC will inline whatever it
-   wants and there will be no warnings.
+The prefered way to fix this is to add option -fno-guess-branch-probability 
+to CFLAGS when configuring Yices:
+
+  ./configure CFLAGS=-fno-guess-branch-probability
+
+
+Other ways to prevent these warnings:
+
+1) remove -Winline from the compilation flags in src/Makefile.
+   GCC will inline whatever it wants and there will be no warnings.
 
 2) add  __attribute__ ((always_inline)) to the inline functions that cause
    problem. GCC will stop checking whether the size grows and whether the
    call is likely.
 
-3) add option -fno-guess-branch-probability to CFLAGS.
-
-4) play with the parameters that control what GCC considers high enough frequency
+3) play with the parameters that control what GCC considers high enough frequency
    (e.g., add option --param hot-bb-frequency-fraction=2000)
-
-
-
-
-
-BUILDING A GCC CROSS COMPILER ON CYGWIN
----------------------------------------
-
-It's possible to build and install a GCC cross compiler (that runs on
-Cygwin and targets Mingw32), then compile Yices with it. The best
-method is to install the pre-built mingw32 and mingw64 compilers using
-Cygwin's 'setup.exe' tool.
-
-
-TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCTIONS:
-
-It's a good idea to read the GCC documentation first to learn how to
-do this (although it does not explain everything well). A Google
-search on 'gcc cross compile Mingw32' also helps and gives
-examples/instructions on how to build GCC as a Mingw32 cross
-compiler. However none of the instructions I found via Google actually
-worked for me, so here is what I did:
-
-  a) compile and install binutil from the source for 'mingw32'
-
-     Give options --prefix=/xcompile --target=i686-pc-mingw32 to ./configure
-
-     The binutil tools are installed in /xcompile/bin and /xcompile/i686-pc-mingw32/bin
-     but under different names. For example, you may have 'ld' as
-         /xcompile/bin/i686-pc-mingw32-ld.exe
-         /xcompile/i686-pc-mingw32/bin/ld.exe
-
-
-  b) install the Mingw runtime support:
-
-     Get the following tarfiles from the Mingw sourceforge:
-
-        mingwrt-3.16-mingw32-dev.tar.gz
-        mingwrt-3.16-mingw32-dll.tar.gz (not sure that one is really necessary)
-        w32api-3.14-mingw32-dev.tar.gz
-
-     (these are the versions I used).
-
-     Untar and copy their content in the right place. I copied the content of
-     these tarfiles both in /xcompile/ and in /xcompile/i686-pc-mingw32/
-     (because I'm not sure where they should go).
-
-
-  c) compile and install a recent version of GCC from the source:
-
-     I used GCC 4.4.2 for C and C++, configured GCC as follows
-
-       ../gcc-4.4.2/configure --prefix=/xcompile --target=i686-pc-mingw32 --disable-nls \
-         --enable-threads --disable-shared --with-as=/xcompile/i686-pc-mingw32/bin/as.exe \
-         --with-ld=/xcompile/i686-pc-mingw32/bin/ld.exe
-
-     (Note that you need GMP and MFPR installed in Cygwin to compile GCC)
-
-     After 'make' and 'make install', this should install gcc (and g++) in two places:
-
-         /xcompile/bin/i686-pc-mingw32-gcc.exe  (the one that works)
-         /xcompile/i686-pc-mingw32/bin/gcc.exe  (the one that doesn't)
-
-     Only the first one works well for me. The other can be used too
-     but with some tedious effort (using obscure command-line flags).
-
-
-
-Before compiling Yices, you need to compile GMP for Mingw32 (and install it
-in /xcompile/lib).
-
-To configure Yices for cross compilation on a Cygwin system, I used
-
-   ./configure --build=i686-pc-mingw32 \
-               CC=/xcompile/bin/i686-pc-mingw32-gcc.exe \
-               LD=/xcompile/bin/i686-pc-mingw32-ld.exe \
-	       AR=/xcompile/bin/i686-pc-mingw32-ar.exe \
-	       STRIP=/xcompile/bin/i686-pc-mingw32-strip.exe \
-               RANLIB=/xcompile/bin/i686-pc-mingw32-ranlib.exe \
-               LDFLAGS=-L/xcompile/lib
-
-Then to select this configuration:
-
-   make OPTION=no-cygwin ....
 
 

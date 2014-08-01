@@ -663,14 +663,19 @@ $(static_objdir)/%.d: %.c
 	rm -f $@.$$$$
 
 
+need_static_deps := $(findstring static,$(MAKECMDGOALS))
+
 ifneq ($(MAKECMDGOALS),clean)
 
 include $(dep)
 include $(bin_dep)
 include $(version_dep)
+
+ifeq ($(need_static_deps),static)
 include $(static_dep)
 include $(static_bin_dep)
 include $(static_version_dep)
+endif
 
 endif
 

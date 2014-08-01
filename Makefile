@@ -223,6 +223,11 @@ endif
 
 
 #
+# Default target: build binaries/libraries
+#
+default: dist
+
+#
 # Just print the configuration
 #
 show-config: checkgmake
@@ -238,13 +243,17 @@ checkgmake:
 	  (echo "GNU-Make is required to compile Yices. Aborting."; exit1)
 
 
-
 #
 # Invoke submake that will do the real work
 # the quotes around the 'YICES_TOP_DIR= ...' help if the directory
 # name include spaces
 #
-.DEFAULT: checkgmake
+# We must have doc as an explicit target since we have a ./doc directory.
+# Without it 'make doc' does nothing. To be safe, I've also added bin,
+# lib, obj, etc. so that the Makefile will work event if directories
+# or files with these names are present.
+#
+.DEFAULT doc all bin lib obj dist static-bin static-lib static-obj static-dist: checkgmake
 	@ echo "Mode:     $(YICES_MODE)"
 	@ echo "Platform: $(ARCH)"
 	@ $(MAKE) -f Makefile.build \
@@ -261,5 +270,6 @@ checkgmake:
 
 
 
-.PHONY: checkgmake show-config
+.PHONY: checkgmake show-config doc all bin lib obj dist \
+        static-bin static-lib static-obj static-dist
 

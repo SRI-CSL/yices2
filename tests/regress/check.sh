@@ -1,6 +1,13 @@
 #!/bin/bash
 
 #
+# The Yices SMT Solver. Copyright 2014 SRI International.
+#
+# This program may only be used subject to the noncommercial end user
+# license agreement which is downloadable along with this program.
+#
+
+#
 # Run regression tests
 #
 # Usage: check.sh <test-dir> <bin-dir>
@@ -29,13 +36,6 @@ bin_dir=$2
 #
 os_name=`uname 2>/dev/null` || os_name=unknown
 
-mktemp_cmd=mktemp
-
-#
-# We try bash's builtin time command
-#
-TIMEFORMAT="%U"
-
 case "$os_name" in
   *Darwin* )
      mktemp_cmd="/usr/bin/mktemp -t out"
@@ -46,6 +46,12 @@ case "$os_name" in
   ;;
 
 esac
+
+#
+# We try bash's builtin time command
+#
+TIMEFORMAT="%U"
+
 
 #
 # The temp file for output
