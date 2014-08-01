@@ -469,7 +469,6 @@ install-cygwin: $(build_dir) $(dist_dir)
 	$(INSTALL) -m 664 $(dist_dir)/include/* $(includedir)
 	$(INSTALL) $(dist_dir)/bin/* $(bindir)
 	$(INSTALL) $(dist_dir)/lib/*.a $(libdir)
-	$(INSTALL) $(dist_dir)/lib/*.dll $(bindir)
 
 install-mingw: install-cygwin
 
