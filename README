@@ -26,13 +26,18 @@ PREREQUISITES
 
 To build Yices from the source, you need:
 
-- autoconf version 2.60 or newer
 - GCC version 4.0.x or newer (or clang 3.0 or newer)
 - gperf version 3.0 or newer
-- GMP library version 4.1 or newer
-- latex and latexmk is you want to build the manual
+- the GMP library version 4.1 or newer
 
 + other standard tools: make (gnumake is required), sed, etc.
+
+
+To build the manual, you also need:
+
+- a latex installation
+- the latexmk tool
+
 
 
 
@@ -181,8 +186,12 @@ are passed to a recursive make:
   PATCH_LEVEL=y
 
 
-To see how these variables are set just type 'make' or 'make MODE=<mode>'.
-For example on a linux/x86_64 platform, typing 'make MODE=debug' gives
+To see how these variables are set, type 
+
+  'make show-config' or 'make show-config MODE=<mode>'.
+
+For example, on a linux/x86_64 platform, 'make show-config MODE=debug' 
+gives
 
   ARCH is x86_64-unknown-linux-gnu
   POSIXOS is linux
@@ -193,10 +202,13 @@ For example on a linux/x86_64 platform, typing 'make MODE=debug' gives
 
 
 More variables are set during configuration. For trouble-shooting, you
-can see the full list by typing 'make recheck' from the toplevel Yices
-directory. In most cases, these variables (CC, LD, etc.) are set to
-good default values, but the defaults may be overridden by giving
-options to the ./configure script.
+can see the full list by typing 
+
+   'make show-details' 
+
+in the toplevel Yices directory. In most cases, these variables (CC,
+LD, etc.) are set to good default values, but the defaults may be
+overridden by giving options to the ./configure script.
 
 
 
@@ -290,7 +302,7 @@ Three makefiles are involved during compilation.
    command.
 
 3) The last 'make' command will use the 'Makefile' located
-   in one of the './src', './front-end'. or './tests' directories.
+   in the './src' or './tests/unit' directories.
 
 
 
@@ -788,9 +800,6 @@ MEW METHOD: Using a cross compiler
 	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
         --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
         --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
-
-   then rename ./configs/makefile.include.i686-w64-mingw32 to
-               ./configs/makefile.include.i686-pc-mingw32
 
 
 
