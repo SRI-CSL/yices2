@@ -266,26 +266,10 @@ static-regress: build_subdirs version
 	@ echo "=== Running regressions ==="
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
 
-#
-# OLD SMT2 front-end: same as test
-#
-smt2: build_subdirs version
-	@ echo "=== Building libraries ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
-	@ echo "=== Building smt2 front end ==="
-	@ $(MAKE) -C $(smt2dir) BUILD=../$(build_dir) bin
-
-static-smt2: build_subdirs version
-	@ echo "=== Building libraries ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
-	@ echo "=== Building smt2 front end  ==="
-	@ $(MAKE) -C $(smt2dir) BUILD=../$(build_dir) static-bin
-
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
-    regress static-regress smt2 static-smt2
-
+    regress static-regress
 
 
 #
