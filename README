@@ -14,10 +14,10 @@ CONTENT
 This distribution includes the source of Yices, documentation,
 tests, and examples.
 
-Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, Computer
-Science Laboratory, SRI International.  To contact us, report a bug,
-or to get more information about Yices, please visit our website at
-http://yices.csl.sri.com.
+Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, at the
+Computer Science Laboratory, SRI International. To contact us, report
+a bug, or to get more information about Yices, please visit our
+website at http://yices.csl.sri.com.
 
 
 
@@ -342,7 +342,7 @@ The possible modes are as follows:
 
    MODE=release           (default mode: compile with optimization enabled)
    MODE=debug             debug mode, no optimization
-   MODE=devel             same optimization as release, compiled with assertions
+   MODE=devel             same optimizations as release, compiled with assertions
 
    MODE=profile
    MODE=gcov
@@ -625,7 +625,7 @@ Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in
 
 
 
-NOTES: on MacOS X Lion, things may be a bit different:
+NOTES: on MacOS X Lion and newer versions, things may be a bit different:
 
 1) Xcode 4.x for Lion no longer includes gcc as compiler. Instead, it
    includes some versions of llvm-gcc and clang. I tried using Xcode
@@ -636,7 +636,7 @@ NOTES: on MacOS X Lion, things may be a bit different:
    Possible workaround: install llvm+clang 3.0 and use that.
 
 
-2) Binaries and libraries are expected to be all position independent
+2) Binaries and libraries are expected to all be position independent
    on MacOS X Lion and Mavericks. This causes some issues with GMP (at
    least with GMP 5.0.2).  A solution is to build libgmp.a using
    position-independent flags (see the nodes in doc/GMP on how to do
@@ -960,8 +960,8 @@ NOTE: (Updated 2011/12/01). There's a shell script in ./utils that
 
 
 
-IF GCC GIVES WARNINGS ABOUT INLINED FUNCTIONS
----------------------------------------------
+GCC GIVES WARNINGS ABOUT INLINED FUNCTIONS
+------------------------------------------
 
 Compiling yices with gcc-4.4 with the default options causes a
 lot of warnings of the form:
