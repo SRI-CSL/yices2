@@ -178,11 +178,11 @@ extern void poly_buffer_substitution(poly_buffer_t *buffer, matrix_t *matrix);
  * Check whether variable x occurs in buffer
  * - x must be between 0 (const_idx) and max_idx
  * - if buffer is not normalized, this function returns true if x
- *    occurs with coefficient 0 in buffer.
+ *   occurs with coefficient 0 in buffer.
  */
 static inline bool poly_buffer_has_var(poly_buffer_t *buffer, int32_t x) {
   assert(0 <= x && x < max_idx);
-  return x <= buffer->i_size && buffer->index[x] >= 0;
+  return x < buffer->i_size && buffer->index[x] >= 0;
 }
 
 /*

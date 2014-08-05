@@ -1667,7 +1667,7 @@ void dsolver_simplify(dsolver_t *solver) {
    * Cleanup the columns that are left.
    * NOTE: some columns may be zero but we keep them.
    * They represent unconstrained variables.
-     */
+   */
   for (i=0; i<n; i++) {
     c = solver->column[i];
     if (c != NULL) {
