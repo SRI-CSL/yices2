@@ -1166,6 +1166,9 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "bvsgt",                // MK_BV_SGT
   "bvsle",                // MK_BV_SLE
   "bvslt",                // MK_BV_SLT
+  NULL,                   // MK_BOOL_TO_BV
+  NULL,                   // MK_BIT
+
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
   //
