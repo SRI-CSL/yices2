@@ -1201,36 +1201,68 @@ thvar_t get_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
 }
 
 
-thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
+  uint32_t nvars;
+  thvar_t i;
+
   bvadd_hobj.tbl = table;
   bvadd_hobj.left = x;
   bvadd_hobj.right = y;
   bvadd_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvadd_hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &bvadd_hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
+  uint32_t nvars;
+  thvar_t i;
+
   bvsub_hobj.tbl = table;
   bvsub_hobj.left = x;
   bvsub_hobj.right = y;
   bvsub_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvsub_hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &bvsub_hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
+  uint32_t nvars;
+  thvar_t i;
+
   bvmul_hobj.tbl = table;
   bvmul_hobj.left = x;
   bvmul_hobj.right = y;
   bvmul_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvmul_hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &bvmul_hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x) {
+thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x, bool *new_var) {
+  uint32_t nvars;
+  thvar_t i;
+
   bvneg_hobj.tbl = table;
   bvneg_hobj.left = x;
   bvneg_hobj.right = null_thvar;
   bvneg_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvneg_hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &bvneg_hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
 
