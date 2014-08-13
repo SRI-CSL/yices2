@@ -251,7 +251,7 @@ void convert_term_to_conditional(conditional_t *d, term_t t) {
       a = opposite_term(a);
       b = opposite_term(b);
     }
-    convert_ite_to_conditional(d, ite->arg[0], ite->arg[1], ite->arg[2]);
+    convert_ite_to_conditional(d, ite->arg[0], a, b);
   } else {
     reset_conditional(d);
     d->defval = t;
