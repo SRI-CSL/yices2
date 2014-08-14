@@ -101,9 +101,9 @@ CLAUSAL ENCODING
     (~a2 ~a2 ~c  x)
 
 
-   NOTE: we don't really need CMP. We can use the identity
+   NOTE: we don't really need UCMP. We can use the identity
 
-     (CMP a1 a2 c) = (majoriy a1 ~a2 c)
+     (UCMP a1 a2 c) = (majority a1 ~a2 c)
 
    and use the truth-table and clauses for majority given below.
 
