@@ -7644,7 +7644,7 @@ EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
  * - return false if this fails for some a[i] and sets the error report
  * - return true otherwise
  */
-static bool eval_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t b[]) {
+static bool evaluate_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t b[]) {
   evaluator_t evaluator;
   uint32_t i, k;
   value_t v;
@@ -7724,7 +7724,7 @@ static int32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uin
  */
 EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
   if (! check_good_terms(&manager, n, a) ||
-      ! eval_term_array(mdl, n, a, b) ||
+      ! evaluate_term_array(mdl, n, a, b) ||
       ! convert_value_array(&terms, model_get_vtbl(mdl), n, b)) {
     return -1;
   }
