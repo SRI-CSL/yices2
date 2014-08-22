@@ -523,7 +523,7 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
    * Invariants:
    * - neqs = number of equality atoms seen so far
    * - if neq == 1, then the first equality is stored as (y == b) where b is a constant
-   * - if neq >= 2, then all equalities seen so far were of the form (x == constant)
+   * - if neq >= 2, then all equalities seen so far were of the form (y == constant)
    */
   do {
     // r := root of the first term in the queue
@@ -587,7 +587,7 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
 
     case MATCH_IFF:
       /*
-       * the returned term x is equivalent to t
+       * the returned term x is equivalent to r
        */
       push_term(queue, cache, x);
       break;
@@ -598,10 +598,10 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
     }
   } while (! int_queue_is_empty(queue));
 
-  assert(y != NULL_TERM && t == NULL_TERM);
+  assert(t == NULL_TERM);
 
   if (neqs >= 2) {
-    assert(v->size == neqs);
+    assert(y != NULL_TERM && v->size == neqs);
     t = y;
   }
 
