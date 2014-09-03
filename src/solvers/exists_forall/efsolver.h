@@ -188,7 +188,7 @@ typedef struct ef_solver_s {
   int32_t error_code;        // for diagnostic
 
   // Parameters used during the search
-  const param_t *parameters; // seach parameters
+  const param_t *parameters; // search parameters
   ef_gen_option_t option;    // generalization mode
   uint32_t max_samples;      // bound on pre-sampling: 0 means no pre-sampling
   uint32_t max_iters;        // bound on outer iterations

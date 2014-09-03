@@ -70,7 +70,7 @@ typedef struct ef_clause_s {
 /*
  * EF analyzer: to process/decompose an EF-problem
  * - terms = term table where all terms are defined
- * - manager = relevant term mamager
+ * - manager = relevant term manager
  * - subst = to convert universal variables to uninterpreted terms
  *
  * - queue = queue to explore terms/subterms
@@ -102,7 +102,7 @@ typedef struct ef_analyzer_s {
 typedef enum ef_code {
   EF_NO_ERROR = 0,       // everything fine
   EF_UNINTERPRETED_FUN,  // formula contains uninterpreted function or predicates
-  EF_NESTED_QUANTIFIER,  // nested quantifiers that can't be flattened (eg., exists inside forall)
+  EF_NESTED_QUANTIFIER,  // nested quantifiers that can't be flattened (e.g., exists inside forall)
   EF_HIGH_ORDER_UVAR,    // universal variables have non-atomic types
   EF_HIGH_ORDER_EVAR,    // existential variables not atomic
   EF_ERROR,              // other errors

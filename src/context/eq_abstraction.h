@@ -48,7 +48,7 @@ typedef struct epartition_s {
 /*
  * Maximal size of a partition
  */
-#define EPARTITION_MAX_SIZE ((UINT32_MAX-sizeof(epartition_t))/4)
+#define EPARTITION_MAX_SIZE ((UINT32_MAX-sizeof(epartition_t))/sizeof(term_t))
 
 
 /*
@@ -106,7 +106,7 @@ typedef struct epartition_manager_s {
 
 /*
  * Initialize manager m:
- * - allocate arrays of default sizes
+ * - allocate arrays of default sizes and create the empty partition
  */
 extern void init_epartition_manager(epartition_manager_t *m);
 

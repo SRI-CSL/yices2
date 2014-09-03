@@ -350,7 +350,7 @@ static context_t *get_forall_context(ef_solver_t *solver) {
  *    - value[i] = a constant term mapped to evar[i] in the model
  * 2) code = STATUS_UNSAT: not satisfiable
  *
- * 3) other codes report an error of some kind or STATUS_INTTERRUPT
+ * 3) other codes report an error of some kind or STATUS_INTERRUPTED
  */
 static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
   smt_status_t stat;
@@ -392,7 +392,7 @@ static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, t
 /*
  * Recheck:
  * - same parameters and conventions as satisfy context
- * - this adds the blocking clasuse then call satisfy context
+ * - this adds the blocking clause then calls satisfy context
  * - return code as in satisfy_context
  */
 static smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
@@ -615,7 +615,7 @@ static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar
  *
  * Update the solver->status to
  * - EF_STATUS_UNSAT if the exits context is trivially unsat
- * - EF_STATUS_..._ERRORif something goes wrong
+ * - EF_STATUS_..._ERROR if something goes wrong
  * - EF_STATUS_INTERRUPTED if a call to check/recheck context is interrupted
  * keep it unchanged otherwise (should be EF_STATUS_SEARCHING).
  */
@@ -809,7 +809,7 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
  *   then construct and store the implicant in solver->implicant
  *
  * Error codes: set solver->status to EF_STATUS_ERROR
- * - this may happen if yices_model_from_map or yices_implicant_for_fomuulas fail
+ * - this may happen if yices_model_from_map or yices_implicant_for_formulas fail
  */
 static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   model_t *mdl;
@@ -827,7 +827,7 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
     solver->full_model = NULL;
   }
 
-  // build the full_map and the correspongin model.
+  // build the full_map and the corresponding model.
   ef_build_full_map(solver, i);
   n = solver->all_vars.size;
   assert(n == solver->all_values.size);
@@ -952,7 +952,7 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     break;
   }
 
-  // add the new constaints to the exists context
+  // add the new constraint to the exists context
   code = update_exists_context(solver, new_constraint);
   if (code == TRIVIALLY_UNSAT) {
     solver->status = EF_STATUS_UNSAT;

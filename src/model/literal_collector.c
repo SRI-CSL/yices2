@@ -1426,7 +1426,7 @@ void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v) {
  * - all terms in a must be Boolean and all of them must be true in mdl
  * - if there's a error, the function returns a negative code
  *   and leaves v unchanged
- * - otherwise, the function retuns 0 and add the implicant literals to vector
+ * - otherwise, the function returns 0 and adds the implicant literals to vector
  *   v  (v is not reset).
  *
  * - options = bit mask to enable/disable the optional processing.

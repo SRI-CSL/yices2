@@ -404,7 +404,7 @@ void epartition_init_for_meet(epartition_manager_t *m, epartition_t *p) {
 
 /*
  * Compute the meet of partition in m and p:
- * - for any terms t u in a class of p,
+ * - for all terms t u in a class of p,
  *   merge the class of t and the class of u in m
  */
 void epartition_meet(epartition_manager_t *m, epartition_t *p) {
@@ -546,7 +546,7 @@ static void epartition_add_to_subclass(epartition_manager_t *m, term_t t, int32_
 
 /*
  * Follow list of terms starting with r
- * - move every term into a separate subclass, based on their label
+ * - move every term into a separate subclass, based on its label
  * - subclass[i] = all terms t in the list such that label[t] == i
  * - terms such that label[t] = -1 are removed
  * Requirement:

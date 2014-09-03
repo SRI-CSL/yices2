@@ -43,8 +43,9 @@
  *
  * - ELIM_ARITH_NEQ0: eliminate arithmetic disequalities.
  *   If atom (= t 0) is false in the model, then we normally add its
- *   negation (not (t = 0)) to the set of literals.
- *   is replaced by either (< t 0) or (> t 0), whichever is true in the model.
+ *   negation (not (t = 0)) to the set of literals. If this option is
+ *   set then this disequalities is replaced by either (< t 0) or (> t 0),
+ *   whichever is true in the model.
  *
  * - ELIM_ARITH_NEQ: eliminate binary arithmetic disequalities.
  *   If atom (= t1 t2) is false, then rewrite it to either (< t1 t2) or (> t1 t2)
@@ -71,7 +72,7 @@
  *
  * Examples:
  * - if KEEP_BOOL_EQ is active, then we want to treat t as a term in (= x t).
- *   (rather than reducing t to true or false then tread (= x t) as either
+ *   (rather than reducing t to true or false then treat (= x t) as either
  *    (= x true) or (= x false)).
  * - if an uninterpreted function is applied to Booleans as in (P t1 t2)
  *   then it's probably more useful to keep t1 and t2 as terms rather than
