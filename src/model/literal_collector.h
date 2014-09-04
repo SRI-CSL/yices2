@@ -226,11 +226,11 @@ extern void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v);
 
 /*
  * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
- * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-1].
  * - all terms in a must be Boolean and all of them must be true in mdl
- * - if there's a error, the function returns a negative code
+ * - if there's an error, the function returns a negative code
  *   and leaves v unchanged
- * - otherwise, the function retuns 0 and add the literals forming the
+ * - otherwise, the function returns 0 and adds the literals forming the
  *   implicant to vector v  (v is not reset).
  *
  * - options = bit mask to enable/disable the optional processing.

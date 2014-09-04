@@ -175,7 +175,7 @@ static bool elim_subst_try_eq(elim_subst_t *subst, term_t t1, term_t t2, bool ch
   }
 
   if (term_kind(subst->terms, t2) == UNINTERPRETED_TERM &&
-      test_elim_map(subst, t1, t2, check_cycles)) {
+      test_elim_map(subst, t2, t1, check_cycles)) {
     // map [t2 --> t1]
     full_subst_add_map(&subst->full_subst, t2, t1);
     return true;

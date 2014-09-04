@@ -452,7 +452,7 @@ static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, te
   if (!collect->bool_are_terms &&
       lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
     /*
-     * Check whether (u == 0) is false
+     * Check whether (v == 0) is false
      */
     sgn = lit_collector_sign_in_model(collect, v);
     if (sgn < 0) {
@@ -872,6 +872,7 @@ static term_t lit_collector_visit_bvarray(lit_collector_t *collect, term_t t, co
 
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
+    // maybe it would be better to call lit_collector_visit_term here?
     a[i] = lit_collector_visit(collect, bv->arg[i]);
   }
 
