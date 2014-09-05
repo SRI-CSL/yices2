@@ -133,9 +133,9 @@ endif
 
 
 #
-# Warning levels
+# Warning levels: for the unit tests we don't use -Winline
 #
-CFLAGS += -Wall -Winline -Wredundant-decls
+CFLAGS += -Wall -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
    #
@@ -153,7 +153,7 @@ endif
 # Compilation flags dependent on MODE
 #
 ifeq ($(YICES_MODE),release)
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
+  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)

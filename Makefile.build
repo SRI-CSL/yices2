@@ -518,7 +518,7 @@ source-distribution: $(distributions) doc
 	   utils/lib_name utils/gmp_version utils/yices_version \
            utils/remove_trailing_whitespaces \
            $(srcdist_dir)/utils
-	for file in `ls examples | $(EGREP) '\.ys$$|\.txt$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.c$$|\.smt2$$' ` ; do \
 	  cp examples/$$file $(srcdist_dir)/examples ; \
 	done || true
 	chmod -R og+rX $(srcdist_dir)
