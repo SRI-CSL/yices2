@@ -2226,6 +2226,7 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
   bvc_sum_t *p;
   uint32_t j, m;
   int32_t k1, k2;
+  int32_t l1, l2;
 
   assert(0 < i && i <= dag->nelems && !same_node(n1, n2));
 
@@ -2237,24 +2238,41 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
       m = p->len;
       k1 = -1;
       k2 = -1;
+      l1 = -1;
+      l2 = -1;
+
+      /*
+       * loop to get:
+       * k1 = last occurrence of +n1 in p (or -1)
+       * k2 = last occurrence of +n2 in p (or -1)
+       * l1 = last occurrence of -n1 in p (or -1)
+       * l2 = last occurrence of -n2 in p (or -1)
+       */
       for (j=0; j<m; j++) {
         if (same_node(n1, p->sum[j])) {
-          assert(k1 < 0);
-          k1 = j;
+	  if (p->sum[j] == n1) {
+	    k1 = j;
+	  } else {
+	    assert(p->sum[j] == negate_occ(n1));
+	    l1 = j;
+	  }
         } else if (same_node(n2, p->sum[j])) {
-          assert(k2 < 0);
-          k2 = j;
+	  if (p->sum[j] == n2) {
+	    k2 = j;
+	  } else {
+	    assert(p->sum[j] == negate_occ(n2));
+	    l2 = j;
+	  }
         }
       }
 
       if (k1 >= 0 && k2 >= 0) {
-        // p->sum[k1] contains +/- n1
-        // p->sum[k2] contains +/- n2
-        if (p->sum[k1] == n1 && p->sum[k2] == n2) {
-          shrink_sum(dag, p, i, n, n1, n2, k1, k2);
-        } else if (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2)) {
-          shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), k1, k2);
-        }
+	assert(p->sum[k1] == n1 && p->sum[k2] == n2);
+	shrink_sum(dag, p, i, n, n1, n2, k1, k2);
+      }
+      if (l1 >= 0 && l2 >= 0) {
+	assert(p->sum[l1] == negate_occ(n1) && p->sum[l2] == negate_occ(n2));
+	shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), l1, l2);	
       }
     }
   }
@@ -2317,6 +2335,7 @@ static bool check_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t 
   bvc_sum_t *p;
   uint32_t j, m;
   int32_t k1, k2;
+  int32_t l1, l2;
 
   assert(0 < i && i <= dag->nelems && !same_node(n1, n2));
 
@@ -2327,25 +2346,38 @@ static bool check_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t 
       m = p->len;
       k1 = -1;
       k2 = -1;
+      l1 = -1;
+      l2 = -1;
       for (j=0; j<m; j++) {
-        if (same_node(n1, p->sum[j])) {
-          assert(k1 < 0);
-          k1 = j;
-          if (k2 >= 0) break;
-        } else if (same_node(n2, p->sum[j])) {
-          assert(k2 < 0);
-          k2 = j;
-          if (k1 >= 0) break;
-        }
-      }
-
-      if (k1 >= 0 && k2 >= 0) {
-        // could use more xor tricks here?
-        return (p->sum[k1] == n1 && p->sum[k2] == n2) ||
-          (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2));
+	if (p->sum[j] == n1) {
+	  k1 = j;
+	  if (k2 >= 0) {
+	    assert(p->sum[k2] == n2);
+	    return true;
+	  }
+	} else if (p->sum[j] == negate_occ(n1)) {
+	  l1 = j;
+	  if (l2 >= 0) {
+	    assert(p->sum[l2] == negate_occ(n2));
+	    return true;
+	  }
+	} else if (p->sum[j] == n2) {
+	  k2 = j;
+	  if (k1 >= 0) {
+	    assert(p->sum[k1] == n1);
+	    return true;
+	  }
+	} else if (p->sum[j] == negate_occ(n2)) {
+	  l2 = j;
+	  if (l1 >= 0) {
+	    assert(p->sum[l1] == negate_occ(n1));
+	    return true;
+	  }
+	}
       }
     }
   }
+
 
   return false;
 }
@@ -2623,7 +2655,7 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
      * l1 = smallest of use[r1], use[r2]
      * m = length of l1
      */
-    // copy l1 into dag->buffer since try_reduce_sum may modify l1
+    // copy l1 into dag->buffer since try_reduce_prod may modify l1
     v = &dag->buffer;
     ivector_copy(v, l1, m);
 
@@ -2899,7 +2931,7 @@ static uint32_t affinity_score_square(bvc_dag_t *dag, bvnode_t r) {
   uint32_t h, i, n, score;
   bvnode_t x;
 
-  assert( 0 < r && r <= dag->nelems);
+  assert(0 < r && r <= dag->nelems);
 
   score = 0;
   h = bit_hash(r);
