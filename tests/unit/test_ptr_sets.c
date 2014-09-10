@@ -1,0 +1,202 @@
+/*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+// Force assert
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
+/*
+ * Sets/bags of pointers
+ */
+#include <stdio.h>
+#include <inttypes.h>
+#include <assert.h>
+
+#include "utils/ptr_sets.h"
+
+/*
+ * Check that the counters s->nelems and s->ndeleted are correct
+ */
+static bool good_ptr_set(ptr_set_t *s) {
+  const void *p;
+  uint32_t i, n;
+  uint32_t elems, deleted;
+
+  elems = 0;
+  deleted = 0;
+
+  n = s->size;
+  for (i=0; i<n; i++) {
+    p = s->data[i];
+    if (p == DELETED_PTR_ELEM) {
+      deleted ++;
+    } else if (p != NULL) {
+      elems ++;
+    }
+  }
+
+  return (elems == s->nelems) && (deleted == s->ndeleted);
+}
+
+
+/*
+ * Check that s contains all elements of array a (and nothing else)
+ * - n = size of a
+ * - all elements of a must be distinct
+ */
+static bool check_ptr_set_content(ptr_set_t *s, const void *a[], uint32_t n) {
+  uint32_t i;
+
+  if (s->nelems != n) {
+    return false;
+  }
+  for (i=0; i<n; i++) {
+    if (! ptr_set_member(s, a[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Show the content of set s
+ */
+static void print_ptr_set(FILE *f, ptr_set_t *s) {
+  const void *p;
+  uint32_t i, n, k;
+
+  if (s == NULL) {
+    fputs("{}\n", f);
+  } else {
+    fputc('{', f);
+    n = s->size;
+    k = 0;
+    for (i=0; i<n; i++) {
+      p = s->data[i];
+      if (p != NULL && p != DELETED_PTR_ELEM) {
+	if (k >= 8) {
+	  fputs("\n ", f);
+	  k = 0;
+	}
+	k ++;
+	fprintf(f, " %p", p);
+      }
+    }
+    fputs(" }\n", f);
+  }
+}
+
+static void show_ptr_set_details(FILE *f, ptr_set_t *s) {
+  fprintf(f, "Set: %p\n", s);
+  if (s != NULL) {
+    fprintf(f, "  size = %"PRIu32"\n", s->size);
+    fprintf(f, "  nelems = %"PRIu32"\n", s->nelems);
+    fprintf(f, "  ndeleted = %"PRIu32"\n", s->ndeleted);
+  }
+  fprintf(f, "  content:\n");
+  print_ptr_set(f, s);
+  fprintf(f, "\n");
+}
+
+
+/*
+ * GLOBAL ARRAY
+ */
+#define TEST_SIZE 300
+
+static const void *test_data[TEST_SIZE];
+
+static void init_test_data(void) {
+  uint32_t i, n;
+
+  n = TEST_SIZE;
+  for (i=0; i<n; i++) {
+    test_data[i] = (const void *) &test_data[i];
+  }
+}
+
+
+int main() {
+  ptr_set_t *test;
+  uint32_t i;
+
+  init_test_data();
+
+  test = NULL;
+  printf("Initial set\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=0; i<100; i++) {
+    ptr_set_add(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, 100));
+	 
+  printf("Content: after 100 additions\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=0; i<50; i++) {
+    ptr_set_remove(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data+50, 50));
+
+  printf("Content: after 50 removals\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=50; i<100; i++) {
+    ptr_set_remove(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, 0));
+
+  printf("Content: after 50 removals\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  i = 300;
+  while (i > 0) {
+    i --;
+    ptr_set_add(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, 300));
+	 
+  printf("Content: after 300 additions\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=100; i<200; i++) {
+    ptr_set_remove(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+
+  printf("Content: after 100 removals\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=200; i<300; i++) {
+    ptr_set_remove(&test, test_data[i]);
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, 100));
+
+  printf("Content: after 100 removals\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+
+  free_ptr_set(test);
+
+  return 0;
+}

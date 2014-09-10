@@ -7,8 +7,8 @@
 
 /*
  * Sets/bags of pointers
- * - this supports addition and removal of (void *) pointers
- *   all elements in the set must be distinct from NULL and 
+ * - this supports addition and removal of (void *) pointers.
+ *   All elements in the set must be distinct from NULL and 
  *   DELETED_PTR_ELEM (defined below)
  * - the implementation uses an array
  * - if the set is small, we just use linear scan of the array
@@ -49,8 +49,8 @@ typedef struct ptr_set_s {
  * a hash-table representation.
  *
  * In hash-table mode, the following thresholds are used:
- * - when nelems + ndeleted > size * PTR_SET_RESIZE_RATIO: make the table larger
- * - when nelems + ndeleted < size * PTR_SET_SHRINK_RATIO: make the table smaller
+ * - when nelems > size * PTR_SET_RESIZE_RATIO: make the table larger
+ * - when nelems < size * PTR_SET_SHRINK_RATIO: make the table smaller
  */
 #define SMALL_PTR_SET_SIZE 16
 #define PTR_SET_RESIZE_RATIO 0.7
@@ -120,7 +120,7 @@ extern void ptr_set_remove(ptr_set_t **s, const void *p);
  * - returns true if p is added (i.e., p was not in *s when the function was called)
  * - returns false otherwise and leaves *s unchanged.
  */
-extern bool ptr_set_add_if_absent(ptr_set_t *s, const void *p);
+extern bool ptr_set_add_if_absent(ptr_set_t **s, const void *p);
 
 
 /*
@@ -130,7 +130,7 @@ extern bool ptr_set_add_if_absent(ptr_set_t *s, const void *p);
  * - otherwise, one occurrence of p is removed from *s, then *s
  *   may be updated as in ptr_set_remove, and the function returns true.
  */
-extern bool ptr_set_remove_if_present(ptr_set_t *s, const void *p);
+extern bool ptr_set_remove_if_present(ptr_set_t **s, const void *p);
 
 
 #endif /* __PTR_SETS_H */
