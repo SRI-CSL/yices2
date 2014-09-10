@@ -10,10 +10,8 @@
 #undef NDEBUG
 #endif
 
-/*
- * Sets/bags of pointers
- */
 #include <stdio.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <assert.h>
 
@@ -45,18 +43,16 @@ static bool good_ptr_set(ptr_set_t *s) {
 
 
 /*
- * Check that s contains all elements of array a (and nothing else)
- * - n = size of a
+ * Check that s has the same content as defined by arrays a and flag
+ * - n = size of both arrays
  * - all elements of a must be distinct
+ * - the expected set is the set of all a[i]'s such that flag[i] is true
  */
-static bool check_ptr_set_content(ptr_set_t *s, const void *a[], uint32_t n) {
+static bool check_ptr_set_content(ptr_set_t *s, const void *a[], bool flag[], uint32_t n) {
   uint32_t i;
 
-  if (s->nelems != n) {
-    return false;
-  }
   for (i=0; i<n; i++) {
-    if (! ptr_set_member(s, a[i])) {
+    if (ptr_set_member(s, a[i]) != flag[i]) {
       return false;
     }
   }
@@ -112,6 +108,7 @@ static void show_ptr_set_details(FILE *f, ptr_set_t *s) {
 #define TEST_SIZE 300
 
 static const void *test_data[TEST_SIZE];
+static bool flag[TEST_SIZE];
 
 static void init_test_data(void) {
   uint32_t i, n;
@@ -119,6 +116,7 @@ static void init_test_data(void) {
   n = TEST_SIZE;
   for (i=0; i<n; i++) {
     test_data[i] = (const void *) &test_data[i];
+    flag[i] = false;
   }
 }
 
@@ -136,9 +134,10 @@ int main() {
 
   for (i=0; i<100; i++) {
     ptr_set_add(&test, test_data[i]);
+    flag[i] = true;
   }
   assert(good_ptr_set(test));
-  assert(check_ptr_set_content(test, test_data, 100));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 	 
   printf("Content: after 100 additions\n");
   show_ptr_set_details(stdout, test);
@@ -146,9 +145,10 @@ int main() {
 
   for (i=0; i<50; i++) {
     ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
   }
   assert(good_ptr_set(test));
-  assert(check_ptr_set_content(test, test_data+50, 50));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 
   printf("Content: after 50 removals\n");
   show_ptr_set_details(stdout, test);
@@ -156,9 +156,10 @@ int main() {
 
   for (i=50; i<100; i++) {
     ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
   }
   assert(good_ptr_set(test));
-  assert(check_ptr_set_content(test, test_data, 0));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 
   printf("Content: after 50 removals\n");
   show_ptr_set_details(stdout, test);
@@ -168,9 +169,10 @@ int main() {
   while (i > 0) {
     i --;
     ptr_set_add(&test, test_data[i]);
+    flag[i] = true;
   }
   assert(good_ptr_set(test));
-  assert(check_ptr_set_content(test, test_data, 300));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 	 
   printf("Content: after 300 additions\n");
   show_ptr_set_details(stdout, test);
@@ -178,6 +180,7 @@ int main() {
 
   for (i=100; i<200; i++) {
     ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
   }
   assert(good_ptr_set(test));
 
@@ -187,13 +190,53 @@ int main() {
 
   for (i=200; i<300; i++) {
     ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
   }
   assert(good_ptr_set(test));
-  assert(check_ptr_set_content(test, test_data, 100));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 
   printf("Content: after 100 removals\n");
   show_ptr_set_details(stdout, test);
   printf("\n");
+
+  for (i=200; i<300; i++) {
+    ptr_set_add(&test, test_data[i]);
+    flag[i] = true;
+  }
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
+
+  printf("Content: after 100 additions\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  for (i=0; i<100; i += 2) {
+    ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
+  }
+  for (i=200; i<300; i += 2) {
+    ptr_set_remove(&test, test_data[i]);
+    flag[i] = false;
+  }
+  printf("Content: after removing half of the elements\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
+
+  for (i=0; i<300; i++) {
+    if (flag[i]) {
+      ptr_set_remove(&test, test_data[i]);
+      flag[i] = false;
+    }
+  }
+  printf("Final cleanup: removed all elements\n");
+  show_ptr_set_details(stdout, test);
+  printf("\n");
+
+  assert(good_ptr_set(test));
+  assert(check_ptr_set_content(test, test_data, flag, 300));
 
 
   free_ptr_set(test);
