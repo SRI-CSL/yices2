@@ -16,6 +16,7 @@
 #include <assert.h>
 
 #include "utils/ptr_sets.h"
+#include "utils/cputime.h"
 
 /*
  * Check that the counters s->nelems and s->ndeleted are correct
@@ -99,6 +100,39 @@ static void show_ptr_set_details(FILE *f, ptr_set_t *s) {
   fprintf(f, "  content:\n");
   print_ptr_set(f, s);
   fprintf(f, "\n");
+}
+
+
+/*
+ * Test speed: add all elements of a to s then remove then all
+ */
+static void speed_test(ptr_set_t **s, const void *a[], uint32_t n) {
+  double start, end;
+  uint32_t i, j;
+
+  start = get_cpu_time();
+  for (i=0; i<2000; i++) {
+    j = n;
+    while (j > 0) {
+      j --;
+      ptr_set_add(s, a[j]);
+    }
+    while (j < n) {
+      ptr_set_add(s, a[j]);
+      j ++;
+    }
+    while (j > 0) {
+      j --;
+      ptr_set_remove(s, a[j]);
+    }
+    while (j < n) {
+      ptr_set_remove(s, a[j]);
+      j ++;
+    }    
+  }
+
+  end = get_cpu_time();
+  printf("Speed test: %"PRIu32" add/remove operations in %.3f s\n", 4 * n * 2000, time_diff(end, start));  
 }
 
 
@@ -238,6 +272,7 @@ int main() {
   assert(good_ptr_set(test));
   assert(check_ptr_set_content(test, test_data, flag, 300));
 
+  speed_test(&test, test_data, 300);
 
   free_ptr_set(test);
 

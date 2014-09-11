@@ -52,7 +52,7 @@ typedef struct ptr_set_s {
  * - when nelems > size * PTR_SET_RESIZE_RATIO: make the table larger
  * - when nelems < size * PTR_SET_SHRINK_RATIO: make the table smaller
  */
-#define SMALL_PTR_SET_SIZE 16
+#define SMALL_PTR_SET_SIZE   32
 #define PTR_SET_RESIZE_RATIO 0.7
 #define PTR_SET_SHRINK_RATIO 0.3
 
