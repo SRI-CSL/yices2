@@ -150,6 +150,18 @@ endif
 
 
 #
+# Option for gcov: we want the .gcna files in objdir or static_objdir
+# For all MODES other than gcov, we set GOVDIR and STATIC_GCOVDIF to empty
+#
+ifeq ($(YICES_MODE),gcov)
+  GCOVDIR = -fprofile-dir=$(objdir)
+  STATIC_GCOVDIR = -fprofile-dir=$(static_objdir)
+else
+  GCOVDIR = 
+  STATIC_GCOVDIR =
+endif
+
+#
 # Compilation flags dependent on MODE
 #
 ifeq ($(YICES_MODE),release)
@@ -258,14 +270,14 @@ include $(static_dep)
 all: $(tests)
 
 $(bindir)/%$(EXEEXT): %.c $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(GCOVDIR) -o $@ $<  $(libyices) $(LIBS)
 
 
 # Test binaries compiled statically
 all-static: $(static_tests)
 
 $(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
-	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC_GCOVDIR) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
 
 
 .PHONY: all all-static
