@@ -12,3 +12,5 @@
 /distributions
 /.gdb_*
 *.fig.bak
+*.gcda
+*.gcno
