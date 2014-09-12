@@ -39,10 +39,14 @@ static fcheck_code_t null_final_check(void *t) {
   return FCHECK_SAT;
 }
 
+static bool empty_propagate(void *t) {
+  return true;
+}
+
 static th_ctrl_interface_t null_theory_ctrl = {
   do_nothing,       // start_internalization
   do_nothing,       // start_search
-  NULL,             // propagate
+  empty_propagate,  // propagate
   null_final_check, // final_check
   do_nothing,       // increase_dlevel
   null_backtrack,   // backtrack
