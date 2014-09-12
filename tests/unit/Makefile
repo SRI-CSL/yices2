@@ -150,18 +150,6 @@ endif
 
 
 #
-# Option for gcov: we want the .gcna files in objdir or static_objdir
-# For all MODES other than gcov, we set GOVDIR and STATIC_GCOVDIF to empty
-#
-ifeq ($(YICES_MODE),gcov)
-  GCOVDIR = -fprofile-dir=$(objdir)
-  STATIC_GCOVDIR = -fprofile-dir=$(static_objdir)
-else
-  GCOVDIR = 
-  STATIC_GCOVDIR =
-endif
-
-#
 # Compilation flags dependent on MODE
 #
 ifeq ($(YICES_MODE),release)
@@ -169,8 +157,8 @@ ifeq ($(YICES_MODE),release)
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),profile)
   CFLAGS := $(CFLAGS) -O3 -pg
@@ -265,19 +253,26 @@ include $(dep)
 include $(static_dep)
 
 
+# Objects
+$(objdir)/%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
+
+$(static_objdir)/%.o: %.c
+	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
+
 
 # All test binaries, using dynamic GMP library
 all: $(tests)
 
-$(bindir)/%$(EXEEXT): %.c $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(GCOVDIR) -o $@ $<  $(libyices) $(LIBS)
+$(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
 
 
 # Test binaries compiled statically
 all-static: $(static_tests)
 
-$(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
-	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC_GCOVDIR) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+$(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
 
 
 .PHONY: all all-static

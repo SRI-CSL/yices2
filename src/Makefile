@@ -744,20 +744,20 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 
 # for yices_sat: we don't need gmp
 $(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(NOGMP_LIBS)
 
 $(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
 
 # for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
 
