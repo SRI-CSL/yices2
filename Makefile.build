@@ -252,6 +252,7 @@ static-test: build_subdirs version
 # Regressions
 #
 check: regress
+static-check: static-regress
 
 regress: build_subdirs version
 	@ echo "=== Building binaries ==="
@@ -269,7 +270,7 @@ static-regress: build_subdirs version
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
-    regress static-regress
+    regress static-regress check static-check
 
 
 #
