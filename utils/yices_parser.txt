@@ -20,7 +20,7 @@ Grammar
 -------
 
  command  ::= 
- 	  ( define-type <symbol> )
+          ( define-type <symbol> )
         | ( define-type <symbol> <typedef> )
         | ( define <symbol> :: <type> )
         | ( define <symbol> :: <type> <expression> )
@@ -30,25 +30,25 @@ Grammar
         | ( push )
         | ( pop )
         | ( reset )
-	| ( show-model )
-	| ( eval <expression> )
+        | ( show-model )
+        | ( eval <expression> )
         | ( echo <string> )
         | ( include <string> )
         | ( set-param <symbol> <immediate-value> )
-	| ( show-param <symbol> )
-	| ( show-params )
-	| ( show-stats )
+        | ( show-param <symbol> )
+        | ( show-params )
+        | ( show-stats )
         | ( reset-stats )
-	| ( set-timeout <number> )
-	| ( show-timeout )
+        | ( set-timeout <number> )
+        | ( show-timeout )
         | ( dump-context )
         | ( help )
         | ( help <string> )
         | ( help <symbol> )
-	| ( ef-solve )
-	| ( export-to-dimacs <string> )
-	| ( show-implicant )
-	| EOS
+        | ( ef-solve )
+        | ( export-to-dimacs <string> )
+        | ( show-implicant )
+        | EOS
 
 immediate-value :: = 
           true 
@@ -87,28 +87,28 @@ expression ::=
        | ( <function> <expression-list> )
 
 function ::=
-	 <function-keyword>
+         <function-keyword>
        | <expression>
 
 function-keyword ::=
-       	if	ite	=	/=	distinct
+        if      ite     =       /=      distinct
 
-	or	and 	not	xor	<=>	=>
+        or      and     not     xor     <=>     =>
 
-	mk-tuple	select	tuple-update
+        mk-tuple        select  tuple-update
 
-        +	-	*	/	^
-	<	<=	>	>=
+        +       -       *       /       ^
+        <       <=      >       >=
 
-	mk-bv	bv-add	bv-sub	bv-mul	bv-neg	bv-pow
-	bv-not	bv-and  bv-or	bv-xor	
-	bv-shift-left0 	bv-shift-left1	bv-shift-right0 bv-shift-right1
-	bv-ashift-right	bv-rotate-left	bv-rotate-right	
-	bv-extract	bv-concat	bv-repeat
-	bv-sign-extend	bv-zero-extend	bv-ge 	bv-gt	bv-le	bv-lt
-	bv-sge	bv-sgt  bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr
-        bv-div	bv-rem 	bv-sdiv bv-srem bv-smod
-	bv-redor 	bv-redand	bv-comp
+        mk-bv   bv-add  bv-sub  bv-mul  bv-neg  bv-pow
+        bv-not  bv-and  bv-or   bv-xor  
+        bv-shift-left0  bv-shift-left1  bv-shift-right0 bv-shift-right1
+        bv-ashift-right bv-rotate-left  bv-rotate-right 
+        bv-extract      bv-concat       bv-repeat
+        bv-sign-extend  bv-zero-extend  bv-ge   bv-gt   bv-le   bv-lt
+        bv-sge  bv-sgt  bv-sle  bv-slt  bv-shl  bv-lshr bv-ashr
+        bv-div  bv-rem  bv-sdiv bv-srem bv-smod
+        bv-redor        bv-redand       bv-comp
 
         bool-to-bv      bit
 
@@ -143,14 +143,14 @@ if state=c9 then
 parse-command:
 - initial-state = c0
 - transition table
-c0	 (			c1
-c1	 define-type		c2
-	 echo			c3
-	 include		c3
-	 exit			c4
-	 check			c4
-	 assert			c5
-	 define			c6
+c0       (                      c1
+c1       define-type            c2
+         echo                   c3
+         include                c3
+         exit                   c4
+         check                  c4
+         assert                 c5
+         define                 c6
          show-model             c4
          eval                   c5
          push                   c4
@@ -159,16 +159,16 @@ c1	 define-type		c2
          show-params            c4
          show-stats             c4
          reset-stats            c4
-	 show-timeout           c4
+         show-timeout           c4
          set-param              c11
-	 show-param             c13
-	 set-timeout		c14
+         show-param             c13
+         set-timeout            c14
          help                   c15
          ef-solve               c4
-	 export-to-dimacs       c3
-	 show-implicant         c4
-c2	 <symbol>		c10
-c3	 <string>		c4 
+         export-to-dimacs       c3
+         show-implicant         c4
+c2       <symbol>               c10
+c3       <string>               c4 
 c4       )                      DONE
 c5       [parse-expression]     c4
 c6       <symbol>               c7
@@ -185,7 +185,7 @@ c12      true                   c4
          <float>                c4
          <symbol>               c4
 c13      <symbol>               c4
-c14	 <rational>             c4
+c14      <rational>             c4
 c15      <symbol>               c4
          <string>               c4
          )                      DONE
@@ -268,7 +268,7 @@ e16     (                      e17
 e17     <symbol>               e18
 e18     [parse-expr]           e19
 e19     )                      e20
-e20     )                      e8   	
+e20     )                      e8       
         <symbol>               e18
 
 
@@ -362,7 +362,7 @@ used by 'utils/build_tables.c'.
 state    token              action
 
 c0       (              next; goto c1
-	 EOS            return
+         EOS            return
 c1       exit           next; goto r0
          check          next; goto r0
          echo           next; goto c3
@@ -377,12 +377,12 @@ c1       exit           next; goto r0
          reset          next; goto r0
          dump-context   next; goto r0
          set-param      next; goto c11
-	 show-params    next; goto r0
-	 show-param     next; goto c13
+         show-params    next; goto r0
+         show-param     next; goto c13
          show-stats     next; goto r0
          reset-stats    next; goto r0
          show-timeout   next; goto r0
-	 set-timeout    next; goto c14
+         set-timeout    next; goto c14
          help           next; goto c15
          ef-solve       next; goto r0
          show-implicant next; goto r0
@@ -451,7 +451,7 @@ e3       )              return
          _              push e3; goto e0
 e5       (              next; push e7; goto e0
 e7       )              next; push r0; goto e0
-	 _              push e7; goto e0
+         _              push e7; goto e0
 e10      (              next; goto e11
 e11      <symbol>       next; goto e12
 e12      ::             next; push e14; goto t0

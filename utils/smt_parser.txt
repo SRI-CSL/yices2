@@ -82,54 +82,54 @@ enum smt_token {
 Tokens that can be atomic terms or formulas
 -------------------------------------------
 
-SMT_TK_VAR	SMT_TK_RATIONALS	SMT_TK_BV_BINCONSTANT	SMT_TK_FALSE
-SMK_TK_FVAR	SMT_TK_FLOAT		SMT_TK_BV_HEXCONSTANT	SMT_TK_BIT0
-SMT_TK_SYMBOL	SMT_TK_BV_CONSTANTS	SMT_TK_TRUE		SMT_TK_BIT1
+SMT_TK_VAR      SMT_TK_RATIONALS        SMT_TK_BV_BINCONSTANT   SMT_TK_FALSE
+SMK_TK_FVAR     SMT_TK_FLOAT            SMT_TK_BV_HEXCONSTANT   SMT_TK_BIT0
+SMT_TK_SYMBOL   SMT_TK_BV_CONSTANTS     SMT_TK_TRUE             SMT_TK_BIT1
 
 
 Tokens that represent simple functions or connectors
 ----------------------------------------------------
 
-SMT_TK_DISTINCT		SMT_TK_EQ	SMT_TK_NOT	SMT_TK_IMPLIES
-SMT_TK_IF_THEN_ELSE	SMT_TK_AND	SMT_TK_OR	SMT_TK_XOR
-SMT_TK_IFF		SMT_TK_ITE	SMT_TK_ADD	SMT_TK_SUB
-SMT_TK_MUL		SMT_TK_DIV	SMT_TK_TILDE	SMT_TK_LT
-SMT_TK_LE		SMT_TK_GT	SMT_TK_GE	SMT_TK_SELECT
-SMT_TK_STORE		SMT_TK_BVADD	SMT_TK_BVSUB	SMT_TK_BVMUL
-SMT_TK_BVNEG		SMT_TK_BVOR	SMT_TK_BVAND	SMT_TK_BVXOR
-SMT_TK_BVNOT		SMT_TK_BVLT	SMT_TK_BVLEQ	SMT_TK_BVGT
-SMT_TK_BVGEQ		SMT_TK_BVSLT	SMT_TK_BVSLEQ	SMT_TK_BVSGT
-SMT_TK_BVSGEQ		SMT_TK_CONCAT	
+SMT_TK_DISTINCT         SMT_TK_EQ       SMT_TK_NOT      SMT_TK_IMPLIES
+SMT_TK_IF_THEN_ELSE     SMT_TK_AND      SMT_TK_OR       SMT_TK_XOR
+SMT_TK_IFF              SMT_TK_ITE      SMT_TK_ADD      SMT_TK_SUB
+SMT_TK_MUL              SMT_TK_DIV      SMT_TK_TILDE    SMT_TK_LT
+SMT_TK_LE               SMT_TK_GT       SMT_TK_GE       SMT_TK_SELECT
+SMT_TK_STORE            SMT_TK_BVADD    SMT_TK_BVSUB    SMT_TK_BVMUL
+SMT_TK_BVNEG            SMT_TK_BVOR     SMT_TK_BVAND    SMT_TK_BVXOR
+SMT_TK_BVNOT            SMT_TK_BVLT     SMT_TK_BVLEQ    SMT_TK_BVGT
+SMT_TK_BVGEQ            SMT_TK_BVSLT    SMT_TK_BVSLEQ   SMT_TK_BVSGT
+SMT_TK_BVSGEQ           SMT_TK_CONCAT   
 
-SMT_TK_SHIFT_LEFT0	SMT_TK_SHIFT_RIGHT0
-SMT_TK_SHIFT_LEFT1	SMT_TK_SHIFT_RIGHT1
+SMT_TK_SHIFT_LEFT0      SMT_TK_SHIFT_RIGHT0
+SMT_TK_SHIFT_LEFT1      SMT_TK_SHIFT_RIGHT1
 
-SMT_TK_BVUDIV		SMT_TK_BVUREM	SMT_TK_BVSDIV	SMT_TK_BVSREM
-SMT_TK_BVSMOD		SMT_TK_BVSHL	SMT_TK_BVLSHR	SMT_TK_BVASHR
-SMT_TK_BVNAND		SMT_TK_BVNOR	SMT_TK_BVXNOR	SMT_TK_BVREDOR
-SMT_TK_BVREDAND		SMT_TK_BVCOMP	SMT_TK_BVULT	SMT_TK_BVULE
-SMT_TK_BVUGT		SMT_TK_BVUGE	SMT_TK_BVSLE	SMT_TK_BVSGE
+SMT_TK_BVUDIV           SMT_TK_BVUREM   SMT_TK_BVSDIV   SMT_TK_BVSREM
+SMT_TK_BVSMOD           SMT_TK_BVSHL    SMT_TK_BVLSHR   SMT_TK_BVASHR
+SMT_TK_BVNAND           SMT_TK_BVNOR    SMT_TK_BVXNOR   SMT_TK_BVREDOR
+SMT_TK_BVREDAND         SMT_TK_BVCOMP   SMT_TK_BVULT    SMT_TK_BVULE
+SMT_TK_BVUGT            SMT_TK_BVUGE    SMT_TK_BVSLE    SMT_TK_BVSGE
 
 
 Tokens that need special treatment
 ----------------------------------
 
-SMT_TK_EXTRACT		SMT_TK_SIGN_EXTEND
-SMT_TK_REPEAT		SMT_TK_ZERO_EXTEND
-SMT_TK_ROTATE_LEFT	SMT_TK_ROTATE_RIGHT
+SMT_TK_EXTRACT          SMT_TK_SIGN_EXTEND
+SMT_TK_REPEAT           SMT_TK_ZERO_EXTEND
+SMT_TK_ROTATE_LEFT      SMT_TK_ROTATE_RIGHT
 
 
 Ordinary sort symbols
 ---------------------
 
-SMT_TK_INT	SMT_TK_REAL
-SMT_TK_ARRAY1	SMT_TK_ARRAY2
+SMT_TK_INT      SMT_TK_REAL
+SMT_TK_ARRAY1   SMT_TK_ARRAY2
 
 
 Sort symbols that need special treatment
 ----------------------------------------
 
-SMT_TK_BITVEC	SMT_TK_ARRAY
+SMT_TK_BITVEC   SMT_TK_ARRAY
 
 
 
@@ -139,197 +139,197 @@ Parsing transitions
 
 list of annotations (possibly empty)
 
-an0	<attribute>	next; goto an1
-	-		return (do not consume the token)
-an1	<attribute>	next; goto an1
-	<user value>	next; goto an0
-	-		return (do not consume the token)
+an0     <attribute>     next; goto an1
+        -               return (do not consume the token)
+an1     <attribute>     next; goto an1
+        <user value>    next; goto an0
+        -               return (do not consume the token)
 
 
 basic term or atoms (excluding <symbol>)
 
-bt0	<var>		next; return
-	<fvar>		next; return
-	<rational>	next; return
-	<float>		next; return
-	<bvbin>		next; return
-	<behex>		next; return
-	true		next; return
-	false		next; return
-	bit0		next; return
-	bit1		next; return
-	<bvconst>	next; goto bt1
+bt0     <var>           next; return
+        <fvar>          next; return
+        <rational>      next; return
+        <float>         next; return
+        <bvbin>         next; return
+        <behex>         next; return
+        true            next; return
+        false           next; return
+        bit0            next; return
+        bit1            next; return
+        <bvconst>       next; goto bt1
 
-bt1	[		next; goto bt2
-	_		return
+bt1     [               next; goto bt2
+        _               return
 
-bt2	<rational>	next; goto bt3    // bitvector size
+bt2     <rational>      next; goto bt3    // bitvector size
 
-bt3	]		next; return
+bt3     ]               next; return
 
 
 
 
 // used to include 
-//	s0	U		next; return   
+//      s0      U               next; return   
 // removed: U is no longer a keyword
 
 sort
 
-s0	Int		next; return
-	Real		next; return
-	Array1		next; return
-	Array2		next; return
-	<symbol>        next; return
-	BitVec		next; goto s1
-	Array		next; goto s4
+s0      Int             next; return
+        Real            next; return
+        Array1          next; return
+        Array2          next; return
+        <symbol>        next; return
+        BitVec          next; goto s1
+        Array           next; goto s4
 
-s1	[		next; goto s2
-s2	<rational>	next; goto s3	// bitvector size
-s3	]		next; return
+s1      [               next; goto s2
+s2      <rational>      next; goto s3   // bitvector size
+s3      ]               next; return
 
-s4	[		next; goto s5
-	-		return
-s5	<rational>	next; goto s6
-s6	:		next; goto s7
-s7	<rational>	next; goto s8
-s8	]		next; return
+s4      [               next; goto s5
+        -               return
+s5      <rational>      next; goto s6
+s6      :               next; goto s7
+s7      <rational>      next; goto s8
+s8      ]               next; return
 
 
 
 
 annotated term of formula
 
-f0	<symbol>	next; return
-	(		next; goto f1
-	-		goto bt0
+f0      <symbol>        next; return
+        (               next; goto f1
+        -               goto bt0
 
-f1	simple kw	next; push f3; goto f0
-	<symbol>	next; goto f4
-	extract		next; goto f6
-	rotate_left 	next; goto f9
-	rotate_right	next; goto f9
-	repeat		next; goto f9
-	zero_extend	next; goto f9
-	sign_extend	next; goto f14
-	let		next; goto f16
-	flet		next; goto f16
-	exists		next; goto f20
-	forall		next; goto f20
-	-		push f5; goto bt0
+f1      simple kw       next; push f3; goto f0
+        <symbol>        next; goto f4
+        extract         next; goto f6
+        rotate_left     next; goto f9
+        rotate_right    next; goto f9
+        repeat          next; goto f9
+        zero_extend     next; goto f9
+        sign_extend     next; goto f14
+        let             next; goto f16
+        flet            next; goto f16
+        exists          next; goto f20
+        forall          next; goto f20
+        -               push f5; goto bt0
 
 
 // function applications or annotated base-term or annotated symbol
-f3	)		next; return
-	<attribute>	next; push f26; goto an1
-	-		push f3; goto f0
+f3      )               next; return
+        <attribute>     next; push f26; goto an1
+        -               push f3; goto f0
 
-f4	<attribute>	next; push f27; goto an1
-	-		push f3; goto f0
+f4      <attribute>     next; push f27; goto an1
+        -               push f3; goto f0
 
-f5	<attribute>	next; push f27; goto an1
+f5      <attribute>     next; push f27; goto an1
 
-f27	)		next; return // no eval
+f27     )               next; return // no eval
 
 
 // f6: read 2 square bracketed rationals
-f6	[		next; goto f7
-f7	<rational>	next; goto f8
-f8	:		next; goto f10
+f6      [               next; goto f7
+f7      <rational>      next; goto f8
+f8      :               next; goto f10
 
 // f9: read 1 square bracketed rational
-f9	[		next; goto f10
-f10	<rational>	next; goto f11
-f11	]		next; push f26; push an0; goto f0
+f9      [               next; goto f10
+f10     <rational>      next; goto f11
+f11     ]               next; push f26; push an0; goto f0
 
 // f13: <annotations> )
-f13	_		push f26; goto an0 // removed
-f26	)		next return
+f13     _               push f26; goto an0 // removed
+f26     )               next return
 
 
 // f14: either [<rational>] term <annotations> )
 //          or term rational <annotations> )
-f14	[		next; goto f10
-	_		push f15; goto f0
+f14     [               next; goto f10
+        _               push f15; goto f0
 
-f15	<rational>	next; goto f13
+f15     <rational>      next; goto f13
 
 // deal with let/flet
-f16	(		next; goto f17
-f17	var		next; push f19; goto f0
-	fvar		next; push f19; goto f0
-f19	)		next; push f13; goto f0
+f16     (               next; goto f17
+f17     var             next; push f19; goto f0
+        fvar            next; push f19; goto f0
+f19     )               next; push f13; goto f0
 
 // quantifiers
-f20	(		next; goto f21
-f21	var		next; push f23; goto s0
-f23	)		next; goto f24
+f20     (               next; goto f21
+f21     var             next; push f23; goto s0
+f23     )               next; goto f24
 
-f24	(		next; goto f25
-	<symbol>	next; goto f13
-	_		push f13; goto bt0
+f24     (               next; goto f25
+        <symbol>        next; goto f13
+        _               push f13; goto bt0
 
-f25	var		next; push f23; goto s0
-	_		push f13; goto f1 // recursive parse term, omitting opening (
+f25     var             next; push f23; goto s0
+        _               push f13; goto f1 // recursive parse term, omitting opening (
 
 
 
 
 benchmark
 
-b0	(		next; goto b1
-b1	benchmark	next; goto b2
-b2	<symbol> 	next; goto b3
+b0      (               next; goto b1
+b1      benchmark       next; goto b2
+b2      <symbol>        next; goto b3
 
-b3	:notes		next; goto b4
-	:status		next; goto b5
-	:assumption	next; push b3; goto f0
-	:formula	next; push b3; goto f0
-	:logic		next; goto b7
-	:extrasorts	next; goto b11
-	:extrapreds	next; goto b14
-	:extrafuns	next; goto b20
-	<attribute>	next; push b3; goto an1
-	)		next; return // done!
+b3      :notes          next; goto b4
+        :status         next; goto b5
+        :assumption     next; push b3; goto f0
+        :formula        next; push b3; goto f0
+        :logic          next; goto b7
+        :extrasorts     next; goto b11
+        :extrapreds     next; goto b14
+        :extrafuns      next; goto b20
+        <attribute>     next; push b3; goto an1
+        )               next; return // done!
 
-b4	<string>	next; goto b3
+b4      <string>        next; goto b3
 
-b5	sat		next; goto b3
-	unsat		next; goto b3
-	unknown		next; goto b3
+b5      sat             next; goto b3
+        unsat           next; goto b3
+        unknown         next; goto b3
 
-b7	<symbol>	next; goto b8
-b8	[		next; goto b9
-	-		goto b3
-b9	<rational>	next; goto b10
-b10	]		next; goto b3
+b7      <symbol>        next; goto b8
+b8      [               next; goto b9
+        -               goto b3
+b9      <rational>      next; goto b10
+b10     ]               next; goto b3
 
 
 // extrasorts
-b11	(		next; goto b12
-b12	<symbol>	next; goto b13
-b13	)		next; goto b3
-	<symbol>	next; goto b13
+b11     (               next; goto b12
+b12     <symbol>        next; goto b13
+b13     )               next; goto b3
+        <symbol>        next; goto b13
 
 // extrapreds
-b14	(		next; goto b15
-b15	(		next; goto b16
-b16	<symbol>	next; goto b17
-b17	)		next; goto b19
-	<attribute>	next; push b18; goto an1
-	_		push b17; goto s0
-b18	) 		next; goto b19
-b19	(		next; goto b16
-	)		next; goto b3
+b14     (               next; goto b15
+b15     (               next; goto b16
+b16     <symbol>        next; goto b17
+b17     )               next; goto b19
+        <attribute>     next; push b18; goto an1
+        _               push b17; goto s0
+b18     )               next; goto b19
+b19     (               next; goto b16
+        )               next; goto b3
 
 // extrafuns
-b20	(		next; goto b21
-b21	(		next; goto b22
-b22	<symbol>	next; push b24; goto s0
-b24	)		next; goto b25
-	<attribute>	next; push b27; goto an1
-	_		push b24; goto s0
-b25	(		next; goto b22
-	)		next; goto b3
-b27	)		next; goto b25
+b20     (               next; goto b21
+b21     (               next; goto b22
+b22     <symbol>        next; push b24; goto s0
+b24     )               next; goto b25
+        <attribute>     next; push b27; goto an1
+        _               push b24; goto s0
+b25     (               next; goto b22
+        )               next; goto b3
+b27     )               next; goto b25
 

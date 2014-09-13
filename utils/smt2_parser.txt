@@ -90,42 +90,42 @@ Grammar (SMT-LIB 2.0, December 21 2010)
    <command> ::= 
               ( set-logic <symbol> )
             | ( set-option <option> )
-	    | ( get-option <keyword> )
+            | ( get-option <keyword> )
             | ( set-info <attribute> )
-	    | ( get-info <info-flag> )	    
-	    | ( push <numeral> )
-	    | ( pop <numeral> )
-	    | ( check-sat )
-	    | ( get-assertions )
-	    | ( get-proof )
-	    | ( get-unsat-core )
-	    | ( get-assignment )
-	    | ( exit )
-	    | ( get-value ( <term>+ ) )
+            | ( get-info <info-flag> )      
+            | ( push <numeral> )
+            | ( pop <numeral> )
+            | ( check-sat )
+            | ( get-assertions )
+            | ( get-proof )
+            | ( get-unsat-core )
+            | ( get-assignment )
+            | ( exit )
+            | ( get-value ( <term>+ ) )
             | ( declare-sort <symbol> <numeral> )
-	    | ( define-sort <symbol> ( <symbol>* ) <sort> )
-	    | ( declare-fun <symbol> ( <sort>* ) <sort> )
-	    | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
-	    | ( assert <term> )
-	    | ( get-model )
-	    | ( echo <string> )
-	    | ( reset )
-	    | EOS
+            | ( define-sort <symbol> ( <symbol>* ) <sort> )
+            | ( declare-fun <symbol> ( <sort>* ) <sort> )
+            | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
+            | ( assert <term> )
+            | ( get-model )
+            | ( echo <string> )
+            | ( reset )
+            | EOS
 
 
    <option> ::=
               :print-success <bool-value>
             | :expand-definitions <bool-value>
-	    | :interactive-mode <bool-value>
-	    | :produce-proofs <bool-value>
-	    | :produce-unsat-core <bool-value>
-	    | :produce-models <bool-value>
-	    | :produce-assignments <bool-value>
-	    | :regular-output-channel <string>
-	    | :diagnostic-output-channel <string>
-	    | :random-seed <numeral>
-	    | :verbosity <numeral>
-	    | <attribute>
+            | :interactive-mode <bool-value>
+            | :produce-proofs <bool-value>
+            | :produce-unsat-core <bool-value>
+            | :produce-models <bool-value>
+            | :produce-assignments <bool-value>
+            | :regular-output-channel <string>
+            | :diagnostic-output-channel <string>
+            | :random-seed <numeral>
+            | :verbosity <numeral>
+            | <attribute>
 
 
    <bool-value> ::= true | false
@@ -133,39 +133,39 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 
    <attribute> ::=
               <keyword> 
-	    | <keyword> <attribute-value>
+            | <keyword> <attribute-value>
 
 
    <attribute-value> ::=
               <numeral>
             | <decimal>
-	    | <hexadecimal>
-	    | <binary>
-	    | <string>
-	    | <symbol>
-	    | ( <s-expr>+ )
+            | <hexadecimal>
+            | <binary>
+            | <string>
+            | <symbol>
+            | ( <s-expr>+ )
 
 
    <s-expr> ::=
               <numeral>
-	    | <decimal>
-	    | <hexadecimal>
-	    | <binary>
-	    | <string>
-	    | <symbol>
-	    | <keyword>
-	    | ( <s-expr>+ )
+            | <decimal>
+            | <hexadecimal>
+            | <binary>
+            | <string>
+            | <symbol>
+            | <keyword>
+            | ( <s-expr>+ )
 
 
    <info-flag> :=
               :error-behavior
             | :name
-	    | :authors
-	    | :version
-	    | :status
-	    | :reason-unknown
-	    | :all-statistics
-	    | <keyword>
+            | :authors
+            | :version
+            | :status
+            | :reason-unknown
+            | :all-statistics
+            | <keyword>
 
 
    <identifier> ::=
@@ -173,8 +173,8 @@ Grammar (SMT-LIB 2.0, December 21 2010)
             | ( _ <symbol> <numeral>+ )
 
    <sort> ::=
-   	      <identifier>
-	    | ( <identifier> <sort>+ )
+              <identifier>
+            | ( <identifier> <sort>+ )
 
 
    <sorted-var> ::=   ( <symbol> <sort> )
@@ -183,20 +183,20 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 
    <qual-identifier> ::=
               <identifier>
-	    | (as <identifier> <sort> )
+            | (as <identifier> <sort> )
 
    <term> ::=
               <numeral>
             | <decimal>
-	    | <hexadecimal>
-	    | <binary>
-	    | <string>
-	    | <qual-identifier>
-	    | ( <qual-identifier> <term>+ )
-	    | ( let ( <var-binding>+ ) <term> )
-	    | ( forall ( <sorted-var>+ ) <term> )
-	    | ( exists ( <sorted-var>+ ) <term> )
-	    | ( ! <term> <term-attribute>+ )
+            | <hexadecimal>
+            | <binary>
+            | <string>
+            | <qual-identifier>
+            | ( <qual-identifier> <term>+ )
+            | ( let ( <var-binding>+ ) <term> )
+            | ( forall ( <sorted-var>+ ) <term> )
+            | ( exists ( <sorted-var>+ ) <term> )
+            | ( ! <term> <term-attribute>+ )
 
    <term-attribute> ::= 
              :named <symbol>
@@ -228,30 +228,30 @@ or
 The new rules are as follows:
 
    <sort> ::=
-   	     <symbol>
+             <symbol>
            | ( _ <symbol> <numeral>+ )
-	   | ( <symbol> <sort>+ )
-	   | ( (_ <symbol> <numeral>+ ) <sort>+ )
+           | ( <symbol> <sort>+ )
+           | ( (_ <symbol> <numeral>+ ) <sort>+ )
 
 
    <terms> ::=
               <numeral>
             | <decimal>
-	    | <hexadecimal>
-	    | <binary>
-	    | <string>
-	    | <symbol>
-	    | (_ <symbol> <numeral>+ )
-	    | ( as <symbol> <sort> )
+            | <hexadecimal>
+            | <binary>
+            | <string>
+            | <symbol>
+            | (_ <symbol> <numeral>+ )
+            | ( as <symbol> <sort> )
             | ( as (_ <symbol> <numeral>+ ) <sort> )
-	    | ( <symbol> <term>+ )
-	    | ( ( _ <symbol> <numeral>+ ) <term>+ )
-	    | ( ( as <symbol> <sort> ) <term>+ )
-	    | ( ( as (_ <symbol> <numeral>+ ) <sort> ) <term>+ )
-	    | ( let ( <var-binding>+ ) <term> )
-	    | ( forall ( <sorted-var>+ ) <term> )
-	    | ( exists ( <sorted-var>+ ) <term> )
-	    | ( ! <term> <attribute>+ )
+            | ( <symbol> <term>+ )
+            | ( ( _ <symbol> <numeral>+ ) <term>+ )
+            | ( ( as <symbol> <sort> ) <term>+ )
+            | ( ( as (_ <symbol> <numeral>+ ) <sort> ) <term>+ )
+            | ( let ( <var-binding>+ ) <term> )
+            | ( forall ( <sorted-var>+ ) <term> )
+            | ( exists ( <sorted-var>+ ) <term> )
+            | ( ! <term> <attribute>+ )
 
 
 We also rewrite the rules for set-info and set-option to make them consistent:
@@ -259,9 +259,9 @@ We also rewrite the rules for set-info and set-option to make them consistent:
    <command> ::=
              ...
            | (set-option <keyword> )
-	   | (set-option <keyword> <attribute-value> )
-	   | (set-info <keyword> )
-	   | (set-info <keyword> <attribute-value> )
+           | (set-option <keyword> <attribute-value> )
+           | (set-info <keyword> )
+           | (set-info <keyword> <attribute-value> )
              ...
 
 
@@ -279,72 +279,72 @@ parse-command:
 - initial state = c0
 - transition table
 
-c0	     (			c1
-	     EOS		DONE
+c0           (                  c1
+             EOS                DONE
 
-c1	     check-sat		c2
-	     get-assertions	c2
-	     get-proof		c2
-	     get-unsat-core	c2
-	     get-assignment  	c2
-	     exit		c2
-	     push		c3
-	     pop		c3
-	     get-option		c4
-	     get-info		c4
-	     set-logic		c5
-	     set-option		c6
-	     set-info		c6
-	     assert		c7
-	     declare-sort	c8
-	     define-sort	c9
-	     declare-fun	c10
-	     define-fun		c11
-	     get-value		c12
+c1           check-sat          c2
+             get-assertions     c2
+             get-proof          c2
+             get-unsat-core     c2
+             get-assignment     c2
+             exit               c2
+             push               c3
+             pop                c3
+             get-option         c4
+             get-info           c4
+             set-logic          c5
+             set-option         c6
+             set-info           c6
+             assert             c7
+             declare-sort       c8
+             define-sort        c9
+             declare-fun        c10
+             define-fun         c11
+             get-value          c12
              get-model          c2
              echo               c13
              reset              c2
 
-c2	     )			DONE
+c2           )                  DONE
 
-c3	     <numeral>          c2
+c3           <numeral>          c2
 
-c4           <keyword>		c2
+c4           <keyword>          c2
 
-c5	     <symbol>          	c2
+c5           <symbol>           c2
 
-c6	     <keyword>	       	c6a
-c6a	     )			DONE
-	     [attribute-value]	c2
+c6           <keyword>          c6a
+c6a          )                  DONE
+             [attribute-value]  c2
 
-c7	     [term]		c2
+c7           [term]             c2
 
-c8	     <symbol>		c3
+c8           <symbol>           c3
 
-c9	     <symbol>		c9a
-c9a	     (			c9b
-c9b	     )			c9c
-	     <symbol>		c9b
-c9c	     [sort]		c2
+c9           <symbol>           c9a
+c9a          (                  c9b
+c9b          )                  c9c
+             <symbol>           c9b
+c9c          [sort]             c2
 
-c10	     <symbol>		c10a
-c10a	     (			c10b
-c10b	     )			c9c
-	     [sort]		c10b
+c10          <symbol>           c10a
+c10a         (                  c10b
+c10b         )                  c9c
+             [sort]             c10b
 
-c11	     <symbol>		c11a
-c11a	     (			c11b
-c11b	     )			c11c
-	     (			c11d
-c11c	     [sort]		c7
-c11d	     <symbol>		c11e
-c11e	     [sort]		c11f
-c11f	     )			c11b
+c11          <symbol>           c11a
+c11a         (                  c11b
+c11b         )                  c11c
+             (                  c11d
+c11c         [sort]             c7
+c11d         <symbol>           c11e
+c11e         [sort]             c11f
+c11f         )                  c11b
 
-c12	     (			c12a
-c12a	     [term]		c12b
-c12b	     )			c2
-	     [term]		c12b
+c12          (                  c12a
+c12a         [term]             c12b
+c12b         )                  c2
+             [term]             c12b
 
 
 c13          <string>           c2
@@ -355,121 +355,121 @@ parse attribute-value:
 - initial state a0
 - all built-in symbols must be treated like symbols here
 
-a0 	     <numeral>		DONE
-	     <decimal>		DONE
-	     <hexadecimal>	DONE
-	     <binary>		DONE
-	     <string> 		DONE
-	     <symbol>		DONE
-	     (			a1
+a0           <numeral>          DONE
+             <decimal>          DONE
+             <hexadecimal>      DONE
+             <binary>           DONE
+             <string>           DONE
+             <symbol>           DONE
+             (                  a1
 
-a1	     [s-expr]		a1
-	     )			DONE
+a1           [s-expr]           a1
+             )                  DONE
 
 
 parse s-expression:
 - initial state v0
 - as above, all built-in symbols must be allowed here
 
-v0 	     <numeral>		DONE
-	     <decimal>		DONE
-	     <hexadecimal>	DONE
-	     <binary>		DONE
-	     <string> 		DONE
-	     <symbol>		DONE
-	     <keyword>		DONE
-	     (			v1
+v0           <numeral>          DONE
+             <decimal>          DONE
+             <hexadecimal>      DONE
+             <binary>           DONE
+             <string>           DONE
+             <symbol>           DONE
+             <keyword>          DONE
+             (                  v1
 
-v1	     [s-expr]		v1
-	     )			DONE
+v1           [s-expr]           v1
+             )                  DONE
 
 
 
 parse sort:
 - initial state s0
 
-s0	     <symbol>		DONE
-	     (			s1
+s0           <symbol>           DONE
+             (                  s1
 
-s1	     _			s2
-	     (			s5
-	     <symbol>		s9
+s1           _                  s2
+             (                  s5
+             <symbol>           s9
 
 // after '(_'
-s2	     <symbol>		s3
-s3	     <numeral>		s4
-s4	     )			DONE
-	     <numeral>		s4
+s2           <symbol>           s3
+s3           <numeral>          s4
+s4           )                  DONE
+             <numeral>          s4
 
 // after '(('
-s5	     _			s6
-s6	     <symbol>		s7
-s7	     <numeral>		s8
-s8	     )			s9
-	     <numeral>		s8
+s5           _                  s6
+s6           <symbol>           s7
+s7           <numeral>          s8
+s8           )                  s9
+             <numeral>          s8
 
 // arguments in ( F <sort> ... <sort> )
-s9	     [sort]		s10
-s10	     )			DONE
-	     [sort]		s10
+s9           [sort]             s10
+s10          )                  DONE
+             [sort]             s10
 
 
 parse term
 - initial state t0
 
-t0	     <numeral>		DONE
-	     <decimal>		DONE
-	     <hexadecimal>	DONE
-	     <binary>		DONE
-	     <string>		DONE
-	     <symbol>		DONE
-	     (			t1
+t0           <numeral>          DONE
+             <decimal>          DONE
+             <hexadecimal>      DONE
+             <binary>           DONE
+             <string>           DONE
+             <symbol>           DONE
+             (                  t1
 
-t1	     let		t2
-	     forall		t3
-	     exists		t3
-	     !			t4
-	     as			t5	     
-	     (			t6
-	     _			t7
-	     <symbol>		t8
+t1           let                t2
+             forall             t3
+             exists             t3
+             !                  t4
+             as                 t5           
+             (                  t6
+             _                  t7
+             <symbol>           t8
 
 // after '(let'
-t2	     (			t2a
-t2a	     (			t2b
-t2b	     <symbol>		t2c
-t2c	     [term]		t2d
-t2d	     )			t2e
-t2e	     (			t2b
-	     )			t9
+t2           (                  t2a
+t2a          (                  t2b
+t2b          <symbol>           t2c
+t2c          [term]             t2d
+t2d          )                  t2e
+t2e          (                  t2b
+             )                  t9
 
 // after '(forall' or '(exists'
-t3	     (			t3a
-t3a	     (			t3b
-t3b	     <symbol>		t3c
-t3c	     [sort]		t3d
-t3d	     )			t3e
-t3e	     (			t3b
-	     )			t9
+t3           (                  t3a
+t3a          (                  t3b
+t3b          <symbol>           t3c
+t3c          [sort]             t3d
+t3d          )                  t3e
+t3e          (                  t3b
+             )                  t9
 
 // after '(!'
-t4	     [term]		t4a
+t4           [term]             t4a
 
-t4a	     <keyword>          t4d      if keyword is :named
+t4a          <keyword>          t4d      if keyword is :named
              <keyword>          t4e      if keyword is :pattern
-             <keyword>		t4b      for all other keywords
+             <keyword>          t4b      for all other keywords
 
-t4b	     )			DONE
+t4b          )                  DONE
 
-t4b	     <keyword>          t4d      if keyword is :named
+t4b          <keyword>          t4d      if keyword is :named
              <keyword>          t4e      if keyword is :pattern
-	     <keyword>		t4b	     
-	     [attribute-value]	t4c
+             <keyword>          t4b          
+             [attribute-value]  t4c
 
-t4c	     ) 			DONE
+t4c          )                  DONE
              <keyword>          t4d      if keyword is :named
              <keyword>          t4e      if keyword is :pattern
-	     <keyword>		t4b
+             <keyword>          t4b
 
 // after :named
 t4d          <symbol>           t4c
@@ -494,43 +494,43 @@ t5e          [sort]             t10
 
 
 // after '(('
-t6	     as			t6a
-	     _			t6h
+t6           as                 t6a
+             _                  t6h
 
 // after '((as'
-t6a	     (                  t6b
+t6a          (                  t6b
              <symbol>           t6f
 t6b          _                  t6c
 t6c          <numeral>          t6d
 t6d          <numeral>          t6e
 t6e          <numeral>          t6e
              )                  t6f
-t6f	     [sort]		t6g
-t6g	     )			t8
+t6f          [sort]             t6g
+t6g          )                  t8
 
 // after '((_'
-t6h	     <symbol>		t6i
-t6i	     <numeral>		t6j
-t6j	     )			t8
-	     <numeral>		t6j
+t6h          <symbol>           t6i
+t6i          <numeral>          t6j
+t6j          )                  t8
+             <numeral>          t6j
 
 // after '(_'
-t7	     <symbol>		t7a
-t7a	     <numeral>		t7b
-t7b	     )			DONE
-	     <numeral>		t7b
+t7           <symbol>           t7a
+t7a          <numeral>          t7b
+t7b          )                  DONE
+             <numeral>          t7b
 
 // list of arguments in '( F <term> ... <term> )'
 // after '( F' has been parsed
-t8	     [term]		t8a
-t8a	     )			DONE
-	     [term]		t8a
+t8           [term]             t8a
+t8a          )                  DONE
+             [term]             t8a
 
 // <term> in '(let (...) <term> )'
 //        or '(forall (...) <term> )'
 //        or '(exists (...) <term. )'
-t9	     [term]		t10
-t10	     )			DONE
+t9           [term]             t10
+t10          )                  DONE
 
 
 
@@ -538,182 +538,182 @@ t10	     )			DONE
 Full table
 ----------
 
-state	     token		action
+state        token              action
 
-c0	     (			next; goto c1
-	     EOS		return
+c0           (                  next; goto c1
+             EOS                return
 
-c1	     check-sat		next; goto r0
-	     get-assertions	next; goto r0
-	     get-proof		next; goto r0
-	     get-unsat-core	next; goto r0
-	     get-assignment	next; goto r0
-	     exit		next; goto r0
-	     push		next; goto c3
-	     pop		next; goto c3
-	     get-option		next; goto c4
-	     get-info		next; goto c4
-	     set-logic		next; goto c5
-	     set-option		next; goto c6
-	     set-info		next; goto c6
-	     assert		next; push r0; goto t0
-	     declare-sort	next; goto c8
-	     define-sort	next; goto c9
-	     declare-fun	next; goto c10
-	     define-fun		next; goto c11
-	     get-value		next; goto c12
+c1           check-sat          next; goto r0
+             get-assertions     next; goto r0
+             get-proof          next; goto r0
+             get-unsat-core     next; goto r0
+             get-assignment     next; goto r0
+             exit               next; goto r0
+             push               next; goto c3
+             pop                next; goto c3
+             get-option         next; goto c4
+             get-info           next; goto c4
+             set-logic          next; goto c5
+             set-option         next; goto c6
+             set-info           next; goto c6
+             assert             next; push r0; goto t0
+             declare-sort       next; goto c8
+             define-sort        next; goto c9
+             declare-fun        next; goto c10
+             define-fun         next; goto c11
+             get-value          next; goto c12
              get-model          next; goto r0
              echo               next; goto c13
              reset              next; goto r0
 
 // after '(push' or '(pop' or '(declare-sort <symnbl>'
-c3	     <numeral>		next; goto r0
+c3           <numeral>          next; goto r0
 
 // after '(get-info' or '(get-option'
-c4	     <keyword>		next; goto r0
+c4           <keyword>          next; goto r0
 
 // after '(set-logic'
-c5	     <symbol>		next; goto r0
+c5           <symbol>           next; goto r0
 
 // after '(set-info' or '(set-option'
-c6	     <keyword>		next; goto c6a
-c6a	     )			next; return
-	     ...		push r0; goto a0
+c6           <keyword>          next; goto c6a
+c6a          )                  next; return
+             ...                push r0; goto a0
 
 // after '(declare-sort'
-c8	     <symbol> 		next; goto c3
+c8           <symbol>           next; goto c3
 
 // after '(define-sort'
-c9	     <symbol>		next; goto c9a
-c9a	     (			next; goto c9b
-c9b	     )			next; push r0; goto s0
-	     <symbol> 		next; goto c9b
+c9           <symbol>           next; goto c9a
+c9a          (                  next; goto c9b
+c9b          )                  next; push r0; goto s0
+             <symbol>           next; goto c9b
 
 // after '(declare-fun'
-c10	     <symbol>		next; goto c10a
-c10a	     (			next; goto c10b
-c10b	     )			next; push r0; goto s0
-	     ...		push c10b; goto s0
+c10          <symbol>           next; goto c10a
+c10a         (                  next; goto c10b
+c10b         )                  next; push r0; goto s0
+             ...                push c10b; goto s0
 
 // after '(define-fun'
-c11	     <symbol> 		next; goto c11a
-c11a	     (			next; goto c11b
-c11b	     )			next; push r0; push t0; goto s0
-	     (			next; goto c11d
-c11d	     <symbol>		next; push c11f; goto s0
-c11f	     )			eval; next; goto c11b      (evaluate the variable declaration here)
+c11          <symbol>           next; goto c11a
+c11a         (                  next; goto c11b
+c11b         )                  next; push r0; push t0; goto s0
+             (                  next; goto c11d
+c11d         <symbol>           next; push c11f; goto s0
+c11f         )                  eval; next; goto c11b      (evaluate the variable declaration here)
 
 // after '(get-value'
-c12	     (			next; push c12b; goto t0
-c12b	     )			next; goto r0
-	     ...		push c12b; goto t0
+c12          (                  next; push c12b; goto t0
+c12b         )                  next; goto r0
+             ...                push c12b; goto t0
 
 // after '(echo'
 c13          <string>           next; goto r0
 
 
 // attribute value
-a0	     <numeral>		next; return
-	     <decimal>		next; return
-	     <hexadecimal>	next; return
-	     <binary>		next; return
-	     <string>		next; return
-	     <symbol>		next; return	     
-	     (			next; goto a1
+a0           <numeral>          next; return
+             <decimal>          next; return
+             <hexadecimal>      next; return
+             <binary>           next; return
+             <string>           next; return
+             <symbol>           next; return         
+             (                  next; goto a1
 
-a1	     )			next; return
-	     ...		push a1; goto v0
+a1           )                  next; return
+             ...                push a1; goto v0
 
-v0	     <numeral>		next; return
-	     <decimal>		next; return
-	     <hexadecimal>	next; return
-	     <binary>		next; return
-	     <string>		next; return
-	     <symbol>		next; return
-	     <keyword>		next; return
-	     (			next; goto a1
+v0           <numeral>          next; return
+             <decimal>          next; return
+             <hexadecimal>      next; return
+             <binary>           next; return
+             <string>           next; return
+             <symbol>           next; return
+             <keyword>          next; return
+             (                  next; goto a1
 
 // sorts
-s0	     <symbol>		next; return
-	     (			next; goto s1
+s0           <symbol>           next; return
+             (                  next; goto s1
 
-s1	     _			next; goto s2
-	     (			next; goto s5
-	     <symbol>		next; push s10; goto s0
+s1           _                  next; goto s2
+             (                  next; goto s5
+             <symbol>           next; push s10; goto s0
 
 // after '(_'
-s2	     <symbol>		next; goto s3
+s2           <symbol>           next; goto s3
 
-s3	     <numeral>		next; goto s4
+s3           <numeral>          next; goto s4
 
-s4	     )			next; return
-	     <numeral>		next; goto s4
+s4           )                  next; return
+             <numeral>          next; goto s4
 
 // after '(('
-s5	     _			next; goto s6
+s5           _                  next; goto s6
 
-s6	     <symbol>		next; goto s7
+s6           <symbol>           next; goto s7
 
-s7	     <numeral>		next; goto s8
+s7           <numeral>          next; goto s8
 
-s8	     )			next; push s10; goto s0
-	     <numeral>		next; goto s8
+s8           )                  next; push s10; goto s0
+             <numeral>          next; goto s8
 
 // arguments to ( F <sort> ... <sort> )
-s10	     )			next; return
-	     ...		push s10; goto s0
+s10          )                  next; return
+             ...                push s10; goto s0
 
 
-t0	     <numeral>		next; return
-	     <decimal>		next; return
-	     <hexadecimal>	next; return
-	     <binary>		next; return
-	     <string>		next; return
-	     <symbol>		next; return
-	     (			next; goto t1
+t0           <numeral>          next; return
+             <decimal>          next; return
+             <hexadecimal>      next; return
+             <binary>           next; return
+             <string>           next; return
+             <symbol>           next; return
+             (                  next; goto t1
 
-t1	     let		next; goto t2
-	     forall		next; goto t3
-	     exists		next; goto t3
-	     !			next; push t4a; goto t0
-	     as			next; goto t5
-	     (			next; goto t6
-	     _			next; goto t7
-	     <symbol>		next; push t8a; goto t0
+t1           let                next; goto t2
+             forall             next; goto t3
+             exists             next; goto t3
+             !                  next; push t4a; goto t0
+             as                 next; goto t5
+             (                  next; goto t6
+             _                  next; goto t7
+             <symbol>           next; push t8a; goto t0
 
 // after '(let'
-t2	     (			next; goto t2a
+t2           (                  next; goto t2a
 
-t2a	     (			next; goto t2b
+t2a          (                  next; goto t2b
 
-t2b	     <symbol>		next; push t2d; goto t0
+t2b          <symbol>           next; push t2d; goto t0
 
-t2d	     )			next; goto t2e
+t2d          )                  next; goto t2e
 
-t2e	     (			next; goto t2b
-	     )			next; push r0; goto t0
+t2e          (                  next; goto t2b
+             )                  next; push r0; goto t0
 
 // after '(exists' or '(forall'
-t3	     (			next; goto t3a
+t3           (                  next; goto t3a
 
-t3a	     (			next; goto t3b
+t3a          (                  next; goto t3b
 
-t3b	     <symbol>		next; push t3d; goto s0
+t3b          <symbol>           next; push t3d; goto s0
 
-t3d	     )			next; goto t3e
+t3d          )                  next; goto t3e
 
-t3e	     (			next; goto t3b
-	     )			next; push r0; goto t0
+t3e          (                  next; goto t3b
+             )                  next; push r0; goto t0
 
 // after '(! <term>'
-t4a          <keyword>		check_keyword_then_branch 
+t4a          <keyword>          check_keyword_then_branch 
 
-t4b	     )			next; return
-	     <keyword>		check_keyword_then_branch
-	     ...		push t4c; goto a0
+t4b          )                  next; return
+             <keyword>          check_keyword_then_branch
+             ...                push t4c; goto a0
 
-t4c	     )			next; return
-	     <keyword>		check_keyword_then_branch
+t4c          )                  next; return
+             <keyword>          check_keyword_then_branch
 
 t4d          <symbol>           next; goto t4c
 
@@ -749,7 +749,7 @@ t5d          <numeral>          next; goto t5d
 
 
 // after '(('
-t6	     as			next; goto t6a
+t6           as                 next; goto t6a
              _                  next; goto t6h
 
 // after '((as'
@@ -777,20 +777,20 @@ t6j          <numeral>          next; goto t6j
 
 
 // after '(_'
-t7	     <symbol>		next; goto t7a
+t7           <symbol>           next; goto t7a
 
-t7a	     <numeral>		next; goto t7b
+t7a          <numeral>          next; goto t7b
 
-t7b	     )			next; return
-	     <numeral>		next; goto t7b
+t7b          )                  next; return
+             <numeral>          next; goto t7b
 
 
 // arguments
-t8a	     )			next; return
-	     ...		push t8a; goto t0
+t8a          )                  next; return
+             ...                push t8a; goto t0
 
 
 
 
-r0	     )			next; return
+r0           )                  next; return
 
