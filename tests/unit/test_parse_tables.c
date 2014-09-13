@@ -25,8 +25,8 @@ static action_t get_action(state_t s, token_t tk) {
 /*
  * States
  */
-static const char* state2string[] = {
-  "r0", "c0", "c1", "c2", "c3", "c6", "c7", "c9", "c10", "c11", "c12", "c13", "c14",
+static const char *state2string[] = {
+  "r0", "c0", "c1", "c2", "c3", "c6", "c7", "c9", "c10", "c11", "c12", "c13", "c14", "c15",
   "td0", "td1", "td2", "td3", "t0", "t1", "t4", "t6",
   "e0", "e1", "e3", "e5", "e7", "e10", "e11", "e12",
   "e14", "e15", "e16", "e17", "e19", "e20",
@@ -36,7 +36,7 @@ static const char* state2string[] = {
 /*
  * Action codes
  */
-static const char* action2string[] = {
+static const char *action2string[] = {
   "next_goto_c1",
   "empty_command",
   "exit_next_goto_r0",
@@ -59,6 +59,10 @@ static const char* action2string[] = {
   "resetstats_next_goto_r0",
   "showtimeout_next_goto_r0",
   "settimeout_next_goto_c14",
+  "help_next_goto_c15",
+  "efsolve_next_goto_r0",
+  "export_next_goto_c3",
+  "implicant_next_goto_r0",
   "typename_next_goto_c10",
   "string_next_goto_r0",
   "termname_next_goto_c7",
@@ -158,6 +162,8 @@ static const char* action2string[] = {
   "bv_redor_next_push_e3_goto_e0",
   "bv_redand_next_push_e3_goto_e0",
   "bv_comp_next_push_e3_goto_e0",
+  "bool_to_bv_next_push_e3_goto_e0",
+  "bit_next_push_e3_goto_e0",
   "update_next_push_e5_goto_e0",
   "forall_next_goto_e10",
   "exists_next_goto_e10",
@@ -187,7 +193,7 @@ static const char* action2string[] = {
 };
 
 
-int main() {
+int main(void) {
   state_t s;
   token_t tk;
   lexer_t lex;
