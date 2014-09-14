@@ -1,0 +1,16 @@
+(set-info :source |fuzzsmt|)
+(set-info :smt-lib-version 2.0)
+(set-info :category "random")
+(set-info :status unknown)
+(set-logic QF_BV)
+(declare-fun v0 () (_ BitVec 1))
+(assert (let ((e1(_ bv133 8)))
+(let ((e2 (bvlshr e1 ((_ sign_extend 7) v0))))
+(let ((e3 (bvsle ((_ sign_extend 7) v0) e2)))
+(let ((e4 (bvule ((_ zero_extend 7) v0) e1)))
+(let ((e5 (not e3)))
+(let ((e6 (xor e4 e5)))
+e6
+)))))))
+
+(check-sat)
