@@ -62,3 +62,5 @@ e52
 )))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 (check-sat)
+(set-option :regular-output-channel "/dev/null")
+(get-model)

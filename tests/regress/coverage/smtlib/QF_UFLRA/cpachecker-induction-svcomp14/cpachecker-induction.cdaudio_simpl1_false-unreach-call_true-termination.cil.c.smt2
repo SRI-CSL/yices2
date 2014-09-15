@@ -610,4 +610,6 @@
 
 (assert _7175)
 (check-sat)
+(set-option :regular-output-channel "/dev/null")
+(get-model)
 (exit)

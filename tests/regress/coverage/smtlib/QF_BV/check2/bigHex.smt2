@@ -9,4 +9,6 @@
 (assert (= #b1111 #xf))
 (assert (= v0 (bvnot (_ bv0 2000))))
 (check-sat)
+(set-option :regular-output-channel "/dev/null")
+(get-model)
 (exit)
