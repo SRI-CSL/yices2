@@ -30,7 +30,7 @@
 #include "frontend/yices/yices_parser.h"
 
 #include "parser_utils/term_stack2.h"
-#include "terms/tstack_internals.h"
+#include "parser_utils/tstack_internals.h"
 #include "frontend/yices/yices_tstack_ops.h"
 
 #include "utils/cputime.h"

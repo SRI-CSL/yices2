@@ -12,7 +12,7 @@
 
 #include "utils/cputime.h"
 #include "utils/memsize.h"
-#include "terms/tstack_internals.h"
+#include "parser_utils/tstack_internals.h"
 
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"

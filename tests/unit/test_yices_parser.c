@@ -16,8 +16,11 @@
 #include "io/term_printer.h"
 #include "io/type_printer.h"
 #include "parser_utils/term_stack2.h"
+#include "parser_utils/tstack_internals.h"
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
+#include "frontend/yices/yices_tstack_ops.h"
+
 #include "yices.h"
 #include "yices_exit_codes.h"
 
@@ -150,6 +153,66 @@ static void process_command_line(int argc, char *argv[]) {
 }
 
 
+/*
+ * Some OPCODES for Yices are not in the default term_stack2. To test
+ * the parser, we map them all to 'do-nothing'. We also implement the
+ * command DEF_YICES_TYPE and DEF_YICES_TERM (by just calling the default
+ * implementations in term_stack2).
+ */
+static void check_deftype(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_check(stack, DEFINE_TYPE, f, n);
+}
+
+static void eval_deftype(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_eval(stack, DEFINE_TYPE, f, n);
+}
+
+static void check_defterm(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_check(stack, DEFINE_TERM, f, n);
+}
+
+static void eval_defterm(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_eval(stack, DEFINE_TERM, f, n);
+}
+
+
+static void check_cmd(tstack_t *strack, stack_elem_t *f, uint32_t n) {
+}
+
+static void eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+static void init_yices_tstack(tstack_t *stack) {
+  init_tstack(stack, NUM_YICES_OPCODES);
+  tstack_add_op(stack, DEF_YICES_TYPE, false, eval_deftype, check_deftype);
+  tstack_add_op(stack, DEF_YICES_TERM, false, eval_defterm, check_defterm);
+  tstack_add_op(stack, EXIT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, ASSERT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, CHECK_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOWMODEL_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, EVAL_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, PUSH_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, POP_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, RESET_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, ECHO_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, INCLUDE_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SET_PARAM_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_PARAM_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_PARAMS_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_STATS_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, RESET_STATS_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SET_TIMEOUT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_TIMEOUT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, HELP_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, EFSOLVE_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, EXPORT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_IMPLICANT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, DUMP_CMD, false, eval_cmd, check_cmd);
+}
+
+
 
 
 static lexer_t lexer;
@@ -165,7 +228,7 @@ int main(int argc, char *argv[]) {
   process_command_line(argc, argv);
 
   yices_init();
-  init_tstack(&stack, NUM_BASE_OPCODES);
+  init_yices_tstack(&stack);
   interactive = false;
 
   if (input_filename == NULL) {

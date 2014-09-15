@@ -21,7 +21,7 @@
 #include "api/yices_extensions.h"
 
 #include "frontend/smt2/attribute_values.h"
-#include "terms/tstack_internals.h"
+#include "parser_utils/tstack_internals.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_term_stack.h"
 #include "frontend/smt2/smt2_commands.h"

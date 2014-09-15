@@ -20,7 +20,7 @@
 
 #include "yices.h"
 #include "api/yices_extensions.h"
-#include "terms/tstack_internals.h"
+#include "parser_utils/tstack_internals.h"
 #include "frontend/smt1/smt_term_stack.h"
 
 

@@ -2343,8 +2343,12 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     status = check_context(g->ctx, &parameters);
     switch (status) {
     case STATUS_UNKNOWN:
-    case STATUS_UNSAT:
     case STATUS_SAT:
+      show_status(status);
+      // get_model here.
+      break;
+
+    case STATUS_UNSAT:
     case STATUS_INTERRUPTED:
       show_status(status);
       break;
