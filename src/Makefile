@@ -148,6 +148,7 @@ base_src_c := \
 	solvers/egraph/egraph_explanations.c \
 	solvers/egraph/egraph_utils.c \
 	solvers/egraph/theory_explanations.c \
+	solvers/exists_forall/arith_projection.c \
 	solvers/exists_forall/ef_analyze.c \
 	solvers/exists_forall/ef_problem.c \
 	solvers/exists_forall/efsolver.c \
