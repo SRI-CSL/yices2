@@ -87,6 +87,7 @@
 #include "utils/ptr_sets.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
+#include "terms/poly_buffer.h"
 
 
 /*
@@ -165,7 +166,7 @@ typedef struct aproj_vtbl_s {
   ptr_set_t **cnstr;
   aproj_score_t *score;
 
-  // reserve mapping: term id to var
+  // reverse mapping: term id to var
   int_hmap_t tmap;
 } aproj_vtbl_t;
 
@@ -187,6 +188,8 @@ typedef struct arith_projector_s {
   term_manager_t *manager;
   aproj_vtbl_t vtbl;
   ptr_set_t *constraints;
+  poly_buffer_t buffer;
+  rational_t q1, q2;
 } arith_projector_t;
 
 
