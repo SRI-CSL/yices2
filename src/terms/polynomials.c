@@ -304,9 +304,9 @@ void in_place_negate_monarray(monomial_t *p) {
 
 
 /*
- * Copy p into q:
- * - p must be terminated by the end marked
- * - q must be large enough to store the result (including end marker)
+ * Copy p1 into p:
+ * - p1 must be terminated by the end marked
+ * - p must be large enough to store the result (including end marker)
  */
 uint32_t copy_monarray(monomial_t *p, monomial_t *p1) {
   uint32_t n;
