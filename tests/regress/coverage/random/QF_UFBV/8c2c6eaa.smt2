@@ -289,3 +289,4 @@ e140
 (get-value (term138))
 (get-value (term139))
 (get-value (term140))
+(get-info :all-statistics)

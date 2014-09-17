@@ -565,3 +565,4 @@ e279
 (get-value (term277))
 (get-value (term278))
 (get-value (term279))
+(get-info :all-statistics)

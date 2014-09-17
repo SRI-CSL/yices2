@@ -21,3 +21,4 @@ e6
 (get-value (term4))
 (get-value (term5))
 (get-value (term6))
+(get-info :all-statistics)

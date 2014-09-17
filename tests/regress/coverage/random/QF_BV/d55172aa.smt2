@@ -93,3 +93,4 @@ e44
 (get-value (term42))
 (get-value (term43))
 (get-value (term44))
+(get-info :all-statistics)

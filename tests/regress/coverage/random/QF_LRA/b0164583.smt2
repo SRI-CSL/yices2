@@ -45,3 +45,4 @@ e18
 (get-value (term16))
 (get-value (term17))
 (get-value (term18))
+(get-info :all-statistics)

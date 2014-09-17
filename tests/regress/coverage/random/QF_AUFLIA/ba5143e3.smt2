@@ -4762,3 +4762,4 @@ e2375
 (get-value (term2373))
 (get-value (term2374))
 (get-value (term2375))
+(get-info :all-statistics)

@@ -114,3 +114,4 @@ e52
 (get-value (term50))
 (get-value (term51))
 (get-value (term52))
+(get-info :all-statistics)

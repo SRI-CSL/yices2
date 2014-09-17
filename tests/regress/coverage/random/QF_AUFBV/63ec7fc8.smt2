@@ -357,3 +357,4 @@ e177
 (get-value (term175))
 (get-value (term176))
 (get-value (term177))
+(get-info :all-statistics)

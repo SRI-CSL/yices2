@@ -165,3 +165,4 @@ e81
 (get-value (term79))
 (get-value (term80))
 (get-value (term81))
+(get-info :all-statistics)

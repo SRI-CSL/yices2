@@ -172,3 +172,4 @@ e83
 (get-value (term81))
 (get-value (term82))
 (get-value (term83))
+(get-info :all-statistics)

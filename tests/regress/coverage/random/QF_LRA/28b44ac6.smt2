@@ -615,3 +615,4 @@ e304
 (get-value (term302))
 (get-value (term303))
 (get-value (term304))
+(get-info :all-statistics)

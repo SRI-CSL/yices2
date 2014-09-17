@@ -112,3 +112,4 @@ e53
 (get-value (term51))
 (get-value (term52))
 (get-value (term53))
+(get-info :all-statistics)

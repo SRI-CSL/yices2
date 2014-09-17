@@ -2496,3 +2496,4 @@ e1242
 (get-value (term1240))
 (get-value (term1241))
 (get-value (term1242))
+(get-info :all-statistics)

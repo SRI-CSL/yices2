@@ -663,3 +663,4 @@ e327
 (get-value (term325))
 (get-value (term326))
 (get-value (term327))
+(get-info :all-statistics)

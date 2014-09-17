@@ -321,3 +321,4 @@ e159
 (get-value (term157))
 (get-value (term158))
 (get-value (term159))
+(get-info :all-statistics)

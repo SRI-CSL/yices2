@@ -472,3 +472,4 @@ e234
 (get-value (term232))
 (get-value (term233))
 (get-value (term234))
+(get-info :all-statistics)

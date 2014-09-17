@@ -442,3 +442,4 @@ e219
 (get-value (term217))
 (get-value (term218))
 (get-value (term219))
+(get-info :all-statistics)

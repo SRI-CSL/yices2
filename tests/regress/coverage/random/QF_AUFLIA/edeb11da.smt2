@@ -1283,3 +1283,4 @@ e635
 (get-value (term633))
 (get-value (term634))
 (get-value (term635))
+(get-info :all-statistics)

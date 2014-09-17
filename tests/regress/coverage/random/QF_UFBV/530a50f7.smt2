@@ -725,3 +725,4 @@ e359
 (get-value (term357))
 (get-value (term358))
 (get-value (term359))
+(get-info :all-statistics)

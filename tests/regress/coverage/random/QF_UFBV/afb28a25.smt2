@@ -299,3 +299,4 @@ e144
 (get-value (term142))
 (get-value (term143))
 (get-value (term144))
+(get-info :all-statistics)

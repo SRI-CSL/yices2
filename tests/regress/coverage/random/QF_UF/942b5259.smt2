@@ -207,3 +207,4 @@ e93
 (get-value (term91))
 (get-value (term92))
 (get-value (term93))
+(get-info :all-statistics)

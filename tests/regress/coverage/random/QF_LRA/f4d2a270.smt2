@@ -2341,3 +2341,4 @@ e1167
 (get-value (term1165))
 (get-value (term1166))
 (get-value (term1167))
+(get-info :all-statistics)

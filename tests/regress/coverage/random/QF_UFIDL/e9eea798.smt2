@@ -422,3 +422,4 @@ e205
 (get-value (term203))
 (get-value (term204))
 (get-value (term205))
+(get-info :all-statistics)

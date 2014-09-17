@@ -650,3 +650,4 @@ e320
 (get-value (term318))
 (get-value (term319))
 (get-value (term320))
+(get-info :all-statistics)

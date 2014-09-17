@@ -2720,3 +2720,4 @@ e1355
 (get-value (term1353))
 (get-value (term1354))
 (get-value (term1355))
+(get-info :all-statistics)

@@ -137,3 +137,4 @@ e66
 (get-value (term64))
 (get-value (term65))
 (get-value (term66))
+(get-info :all-statistics)

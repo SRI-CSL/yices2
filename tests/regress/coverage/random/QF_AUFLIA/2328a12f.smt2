@@ -819,3 +819,4 @@ e404
 (get-value (term402))
 (get-value (term403))
 (get-value (term404))
+(get-info :all-statistics)

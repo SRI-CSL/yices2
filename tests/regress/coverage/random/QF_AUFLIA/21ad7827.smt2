@@ -2034,3 +2034,4 @@ e1011
 (get-value (term1009))
 (get-value (term1010))
 (get-value (term1011))
+(get-info :all-statistics)

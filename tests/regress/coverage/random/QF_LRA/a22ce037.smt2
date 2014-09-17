@@ -1692,3 +1692,4 @@ e842
 (get-value (term840))
 (get-value (term841))
 (get-value (term842))
+(get-info :all-statistics)

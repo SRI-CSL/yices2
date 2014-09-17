@@ -179,3 +179,4 @@ e88
 (get-value (term86))
 (get-value (term87))
 (get-value (term88))
+(get-info :all-statistics)

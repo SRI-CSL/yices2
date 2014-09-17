@@ -238,3 +238,4 @@ e116
 (get-value (term114))
 (get-value (term115))
 (get-value (term116))
+(get-info :all-statistics)

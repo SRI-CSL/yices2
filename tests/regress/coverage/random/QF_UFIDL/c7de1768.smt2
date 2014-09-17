@@ -913,3 +913,4 @@ e452
 (get-value (term450))
 (get-value (term451))
 (get-value (term452))
+(get-info :all-statistics)

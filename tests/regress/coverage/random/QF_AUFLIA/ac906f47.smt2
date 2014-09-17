@@ -2188,3 +2188,4 @@ e1089
 (get-value (term1087))
 (get-value (term1088))
 (get-value (term1089))
+(get-info :all-statistics)

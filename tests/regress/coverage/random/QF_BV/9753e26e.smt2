@@ -78,3 +78,4 @@ e35
 (get-value (term33))
 (get-value (term34))
 (get-value (term35))
+(get-info :all-statistics)

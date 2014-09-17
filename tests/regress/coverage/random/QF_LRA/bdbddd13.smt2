@@ -1823,3 +1823,4 @@ e908
 (get-value (term906))
 (get-value (term907))
 (get-value (term908))
+(get-info :all-statistics)

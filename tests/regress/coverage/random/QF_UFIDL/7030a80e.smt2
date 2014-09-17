@@ -621,3 +621,4 @@ e306
 (get-value (term304))
 (get-value (term305))
 (get-value (term306))
+(get-info :all-statistics)

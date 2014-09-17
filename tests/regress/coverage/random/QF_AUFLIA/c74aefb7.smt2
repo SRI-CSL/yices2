@@ -967,3 +967,4 @@ e477
 (get-value (term475))
 (get-value (term476))
 (get-value (term477))
+(get-info :all-statistics)

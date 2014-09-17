@@ -2349,3 +2349,4 @@ e1170
 (get-value (term1168))
 (get-value (term1169))
 (get-value (term1170))
+(get-info :all-statistics)

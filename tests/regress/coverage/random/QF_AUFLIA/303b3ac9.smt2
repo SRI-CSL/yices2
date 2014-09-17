@@ -3059,3 +3059,4 @@ e1523
 (get-value (term1521))
 (get-value (term1522))
 (get-value (term1523))
+(get-info :all-statistics)

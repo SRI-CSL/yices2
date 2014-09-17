@@ -543,3 +543,4 @@ e267
 (get-value (term265))
 (get-value (term266))
 (get-value (term267))
+(get-info :all-statistics)

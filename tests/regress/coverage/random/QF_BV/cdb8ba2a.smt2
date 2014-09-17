@@ -855,3 +855,4 @@ e425
 (get-value (term423))
 (get-value (term424))
 (get-value (term425))
+(get-info :all-statistics)

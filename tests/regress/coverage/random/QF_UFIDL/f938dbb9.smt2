@@ -788,3 +788,4 @@ e389
 (get-value (term387))
 (get-value (term388))
 (get-value (term389))
+(get-info :all-statistics)

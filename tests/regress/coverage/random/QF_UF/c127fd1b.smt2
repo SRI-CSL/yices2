@@ -493,3 +493,4 @@ e237
 (get-value (term235))
 (get-value (term236))
 (get-value (term237))
+(get-info :all-statistics)

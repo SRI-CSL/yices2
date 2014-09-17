@@ -2475,3 +2475,4 @@ e1234
 (get-value (term1232))
 (get-value (term1233))
 (get-value (term1234))
+(get-info :all-statistics)

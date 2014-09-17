@@ -199,3 +199,4 @@ e94
 (get-value (term92))
 (get-value (term93))
 (get-value (term94))
+(get-info :all-statistics)

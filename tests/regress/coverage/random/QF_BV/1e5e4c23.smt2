@@ -567,3 +567,4 @@ e281
 (get-value (term279))
 (get-value (term280))
 (get-value (term281))
+(get-info :all-statistics)

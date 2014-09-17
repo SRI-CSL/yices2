@@ -3530,3 +3530,4 @@ e1759
 (get-value (term1757))
 (get-value (term1758))
 (get-value (term1759))
+(get-info :all-statistics)

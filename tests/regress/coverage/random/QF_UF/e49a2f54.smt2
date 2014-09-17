@@ -380,3 +380,4 @@ e183
 (get-value (term181))
 (get-value (term182))
 (get-value (term183))
+(get-info :all-statistics)

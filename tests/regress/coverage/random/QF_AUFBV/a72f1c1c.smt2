@@ -495,3 +495,4 @@ e245
 (get-value (term243))
 (get-value (term244))
 (get-value (term245))
+(get-info :all-statistics)

@@ -52,3 +52,4 @@ e23
 (get-value (term21))
 (get-value (term22))
 (get-value (term23))
+(get-info :all-statistics)

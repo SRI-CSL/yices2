@@ -1837,3 +1837,4 @@ e912
 (get-value (term910))
 (get-value (term911))
 (get-value (term912))
+(get-info :all-statistics)

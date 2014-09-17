@@ -31,3 +31,4 @@ e11
 (get-value (term9))
 (get-value (term10))
 (get-value (term11))
+(get-info :all-statistics)

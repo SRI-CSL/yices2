@@ -203,3 +203,4 @@ e100
 (get-value (term98))
 (get-value (term99))
 (get-value (term100))
+(get-info :all-statistics)

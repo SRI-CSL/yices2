@@ -302,3 +302,4 @@ e150
 (get-value (term148))
 (get-value (term149))
 (get-value (term150))
+(get-info :all-statistics)

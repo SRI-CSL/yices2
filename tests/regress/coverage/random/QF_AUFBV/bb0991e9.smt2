@@ -605,3 +605,4 @@ e301
 (get-value (term299))
 (get-value (term300))
 (get-value (term301))
+(get-info :all-statistics)

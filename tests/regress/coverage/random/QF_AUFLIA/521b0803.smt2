@@ -4134,3 +4134,4 @@ e2061
 (get-value (term2059))
 (get-value (term2060))
 (get-value (term2061))
+(get-info :all-statistics)

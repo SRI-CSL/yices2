@@ -48,3 +48,4 @@ e20
 (get-value (term18))
 (get-value (term19))
 (get-value (term20))
+(get-info :all-statistics)

@@ -1792,3 +1792,4 @@ e890
 (get-value (term888))
 (get-value (term889))
 (get-value (term890))
+(get-info :all-statistics)

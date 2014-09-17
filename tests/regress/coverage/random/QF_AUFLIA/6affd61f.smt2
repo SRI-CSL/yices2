@@ -2209,3 +2209,4 @@ e1098
 (get-value (term1096))
 (get-value (term1097))
 (get-value (term1098))
+(get-info :all-statistics)

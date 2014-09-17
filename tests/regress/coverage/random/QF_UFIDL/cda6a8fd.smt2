@@ -738,3 +738,4 @@ e363
 (get-value (term361))
 (get-value (term362))
 (get-value (term363))
+(get-info :all-statistics)

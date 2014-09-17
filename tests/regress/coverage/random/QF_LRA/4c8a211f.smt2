@@ -5495,3 +5495,4 @@ e2744
 (get-value (term2742))
 (get-value (term2743))
 (get-value (term2744))
+(get-info :all-statistics)

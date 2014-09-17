@@ -344,3 +344,4 @@ e163
 (get-value (term161))
 (get-value (term162))
 (get-value (term163))
+(get-info :all-statistics)
