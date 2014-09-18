@@ -27,10 +27,17 @@ static bool is_power_of_two(uint32_t n) {
 #define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 
 static uint32_t hash_ptr(void *p) {
+  uint64_t tmp;
   uint32_t a, b, c;
 
-  a = ((uint32_t) (size_t) p); // lower 32bits
-  b = ((uint32_t) ((size_t) p >> 32)); // higher order bits
+  /*
+   * we first convert p to uin64_t tmp 
+   * because something like ((size_t) p) >> 32
+   * is undefined operation if size_t is 32bits.
+   */
+  tmp = (size_t) p;
+  a = (uint32_t) tmp;         // lower 32bits
+  b = (uint32_t) (tmp >> 32); // higher order bits
   c = 0xa783fadd;   // seed
 
   // this is Jenkins' final mixing
