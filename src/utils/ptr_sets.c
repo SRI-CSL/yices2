@@ -26,7 +26,7 @@ static bool is_power_of_two(uint32_t n) {
  */
 #define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 
-static uint32_t hash_ptr(const void *p) {
+static uint32_t hash_ptr(void *p) {
   uint32_t a, b, c;
 
   a = ((uint32_t) (size_t) p); // lower 32bits
@@ -77,7 +77,7 @@ static ptr_set_t *alloc_ptr_set(uint32_t n) {
 /*
  * Check whether p != NULL && p != DELETED_PTR_ELEM
  */
-static inline bool live_ptr_elem(const void *p) {
+static inline bool live_ptr_elem(void *p) {
   return (((size_t) p) >> 1) != (size_t) 0;
 }
 
@@ -87,7 +87,7 @@ static inline bool live_ptr_elem(const void *p) {
  * - requires set->nelems < set->size
  * - invariant: the DELETED_PTR_ELEMs occur before any NULL element in set->data
  */
-static void add_ptr_to_seq_set(ptr_set_t *set, const void *p) {
+static void add_ptr_to_seq_set(ptr_set_t *set, void *p) {
   uint32_t i;
 
   assert(set->nelems < set->size);
@@ -112,7 +112,7 @@ static void add_ptr_to_seq_set(ptr_set_t *set, const void *p) {
  * Add p to set when the set is treated as a hash table
  * - requires set->nelems < set->size
  */
-static void add_ptr_to_hash_set(ptr_set_t *set, const void *p) {
+static void add_ptr_to_hash_set(ptr_set_t *set, void *p) {
   uint32_t i, mask;
 
   assert(set->nelems < set->size);
@@ -139,7 +139,7 @@ static void add_ptr_to_hash_set(ptr_set_t *set, const void *p) {
 /*
  * Generic form
  */
-static void add_ptr_to_set(ptr_set_t *set, const void *p) {
+static void add_ptr_to_set(ptr_set_t *set, void *p) {
   if (set->size <= SMALL_PTR_SET_SIZE) {
     add_ptr_to_seq_set(set, p);
   } else {
@@ -151,7 +151,7 @@ static void add_ptr_to_set(ptr_set_t *set, const void *p) {
 /*
  * Add p to a freshly initialized set
  */
-static void clean_add_ptr_to_seq_set(ptr_set_t *set, const void *p) {
+static void clean_add_ptr_to_seq_set(ptr_set_t *set, void *p) {
   uint32_t i;
 
   assert(set->ndeleted == 0 && set->nelems < set->size);
@@ -160,7 +160,7 @@ static void clean_add_ptr_to_seq_set(ptr_set_t *set, const void *p) {
   set->nelems = i + 1;
 }
 
-static void clean_add_ptr_to_hash_set(ptr_set_t *set, const void *p) {
+static void clean_add_ptr_to_hash_set(ptr_set_t *set, void *p) {
   uint32_t i, mask;
 
   assert(set->ndeleted == 0 && set->nelems < set->size);
@@ -177,7 +177,7 @@ static void clean_add_ptr_to_hash_set(ptr_set_t *set, const void *p) {
   set->nelems ++;
 }
 
-static void clean_add_ptr_to_set(ptr_set_t *set, const void *p) {
+static void clean_add_ptr_to_set(ptr_set_t *set, void *p) {
   if (set->size <= SMALL_PTR_SET_SIZE) {
     clean_add_ptr_to_seq_set(set, p);
   } else {
@@ -191,7 +191,7 @@ static void clean_add_ptr_to_set(ptr_set_t *set, const void *p) {
  * - s2 must be large enough (i.e., s2->size >= s1->nelems)
  */
 static void copy_ptr_set(ptr_set_t *s2, ptr_set_t *s1) {
-  const void *p;
+  void *p;
   uint32_t i, n;
 
   n = s1->size;
@@ -260,7 +260,7 @@ static ptr_set_t *shrink_ptr_set(ptr_set_t *set) {
 /*
  * Check whether p is present in set: two versions
  */
-static bool ptr_in_seq_set(ptr_set_t *set, const void *p) {
+static bool ptr_in_seq_set(ptr_set_t *set, void *p) {
   uint32_t i, n;
 
   n = set->nelems + set->ndeleted;
@@ -274,7 +274,7 @@ static bool ptr_in_seq_set(ptr_set_t *set, const void *p) {
   return false;
 }
 
-static bool ptr_in_hash_set(ptr_set_t *set, const void *p) {
+static bool ptr_in_hash_set(ptr_set_t *set, void *p) {
   uint32_t i, j, mask;
 
   assert(set->size > 0 && is_power_of_two(set->size));
@@ -298,7 +298,7 @@ static bool ptr_in_hash_set(ptr_set_t *set, const void *p) {
  * - p must be present in set
  * - if p occurs serval times, only one occurrence is removed
  */
-static void remove_ptr_from_seq_set(ptr_set_t *set, const void *p) {
+static void remove_ptr_from_seq_set(ptr_set_t *set, void *p) {
   uint32_t i;
 
   assert(ptr_in_seq_set(set, p));
@@ -312,7 +312,7 @@ static void remove_ptr_from_seq_set(ptr_set_t *set, const void *p) {
   set->ndeleted ++;
 }
 
-static void remove_ptr_from_hash_set(ptr_set_t *set, const void *p) {
+static void remove_ptr_from_hash_set(ptr_set_t *set, void *p) {
   uint32_t i, mask;
 
   assert(ptr_in_hash_set(set, p));
@@ -328,7 +328,7 @@ static void remove_ptr_from_hash_set(ptr_set_t *set, const void *p) {
   set->ndeleted ++;
 }
 
-static void remove_ptr_from_set(ptr_set_t *set, const void *p) {
+static void remove_ptr_from_set(ptr_set_t *set, void *p) {
   if (set->size <= SMALL_PTR_SET_SIZE) {
     remove_ptr_from_seq_set(set, p);
   } else {
@@ -352,7 +352,7 @@ ptr_set_t *new_ptr_set(void) {
  * Check whether set s contains p
  * - s can be NULL here. NULL is interpreted as the empty set.
  */
-bool ptr_set_member(ptr_set_t *s, const void *p) {
+bool ptr_set_member(ptr_set_t *s, void *p) {
   if (s == NULL) {
     return false;
   } else if (s->size <= SMALL_PTR_SET_SIZE) {
@@ -396,7 +396,7 @@ static bool ptr_set_is_full(ptr_set_t *set) {
  * It will add an element to *s no-matter what (so *s may
  * contain duplicates).
  */
-void ptr_set_add(ptr_set_t **s, const void *p) {
+void ptr_set_add(ptr_set_t **s, void *p) {
   ptr_set_t *set;
 
   assert(live_ptr_elem(p));
@@ -436,7 +436,7 @@ static bool ptr_set_is_near_empty(ptr_set_t *set) {
  * If s contains p multiple times, then only one occurrence
  * of p is removed.
  */
-void ptr_set_remove(ptr_set_t **s, const void *p) {
+void ptr_set_remove(ptr_set_t **s, void *p) {
   ptr_set_t *set;
 
   assert(live_ptr_elem(p));
@@ -458,7 +458,7 @@ void ptr_set_remove(ptr_set_t **s, const void *p) {
  * - returns true if p is added (i.e., p was not in *s when the function was called)
  * - returns false otherwise and leaves *s unchanged.
  */
-bool ptr_set_add_if_absent(ptr_set_t **s, const void *p) {
+bool ptr_set_add_if_absent(ptr_set_t **s, void *p) {
   // TBD: We could avoid scanning the set twice.
   if (ptr_set_member(*s, p)) {
     return false;
@@ -475,10 +475,29 @@ bool ptr_set_add_if_absent(ptr_set_t **s, const void *p) {
  * - otherwise, one occurrence of p is removed from *s, then *s
  *   may be updated as in ptr_set_remove, and the function returns true.
  */
-bool ptr_set_remove_if_present(ptr_set_t **s, const void *p) {
+bool ptr_set_remove_if_present(ptr_set_t **s, void *p) {
   if (ptr_set_member(*s, p)) {
     ptr_set_remove(s, p);
     return true;
   }
   return false;
+}
+
+
+/*
+ * Apply function f to all the elements of s
+ */
+void ptr_set_iterate(ptr_set_t *s, void *aux, ptr_set_iterator_t f) {
+  void *p;
+  uint32_t i, n;
+
+  if (s != NULL) {
+    n = s->size;
+    for (i=0; i<n; i++) {
+      p = s->data[i];
+      if (live_ptr_elem(p)) {
+	f(aux, p);
+      }
+    }
+  }
 }
