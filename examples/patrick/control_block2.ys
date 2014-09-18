@@ -1,0 +1,17 @@
+;;
+;; Simple EF-solver test
+;; Source: Chih-Hong Cheng (efsmt.cpp)
+;;
+
+(define k :: (bitvector 15))
+
+(assert (and (bv-slt k 0b000000001100100) (bv-slt 0b111111110011100 k)))
+
+(assert
+ (forall (a :: (bitvector 15))
+   (=> (and (bv-slt 0b111111111111111 a) (bv-slt a 0b000000000110011))
+       (and (bv-slt (bv-mul 0b000000000000010 a) 
+		    (bv-add 0b111111111111111 (bv-mul 0b000000000000010 k) (bv-mul k a)))
+	    (bv-slt 0b000000000000010 k)))))
+
+(ef-solve)
