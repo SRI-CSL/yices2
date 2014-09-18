@@ -125,8 +125,9 @@ static void init_aproj_vtbl(aproj_vtbl_t *table, uint32_t n, uint32_t m) {
   table->cnstr = (ptr_set_t **) safe_malloc(m * sizeof(ptr_set_t *));
   table->score = (aproj_score_t *) safe_malloc(m * sizeof(aproj_score_t));
 
-  // var index 0 is reserved: the constant idx
+  // var index 0 is reserved for the constant idx
   table->term_of[0] = NULL_TERM;
+  q_init(table->val + 0);
   q_set_one(table->val + 0);
   table->cnstr[0] = NULL;
   table->score[0].eq_count = 0;
@@ -191,7 +192,7 @@ static void reset_aproj_vtbl(aproj_vtbl_t *table) {
   int_hmap_reset(&table->tmap);
 
   table->nvars = 1;
-  table->nelims = 0;
+  table->nelims = 1;
 }
 
 
