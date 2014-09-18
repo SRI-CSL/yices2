@@ -92,16 +92,16 @@
 
 /*
  * Tags for identifying the constraint types
- *   APROJ_LT = 00  strict inequality (less than)
- *   APROJ_LE = 01  non-strict inequality
- *   APROJ_EQ = 10  equality
+ *   APROJ_GT = 00  strict inequality (poly > 0)
+ *   APROJ_GE = 01  non-strict inequality  (poly >= 0)
+ *   APROJ_EQ = 10  equality   (poly = 0)
  *
  * Using this encoding, we can compute the resulting tag
  * in a Fourier-Motzking step using bitwise and.
  */
 typedef enum {
-  APROJ_LT = 0,
-  APROJ_LE = 1,
+  APROJ_GT = 0,
+  APROJ_GE = 1,
   APROJ_EQ = 2,
 } aproj_tag_t;
 
@@ -119,7 +119,7 @@ typedef enum {
 typedef struct aproj_constraint_s {
   aproj_tag_t tag;
   uint32_t nterms;
-  monomial_t mono;
+  monomial_t mono[0]; // real size = nterms+1
 } aproj_constraint_t;
 
 #define MAX_APROJ_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(aproj_constraint_t))/sizeof(monomial_t)) - 1)

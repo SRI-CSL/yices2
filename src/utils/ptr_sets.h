@@ -36,7 +36,7 @@ typedef struct ptr_set_s {
   uint32_t nelems;
   uint32_t ndeleted;
   uint32_t resize_threshold;
-  const void *data[0]; // real size = size
+  void *data[0]; // real size = size
 } ptr_set_t;
 
 
@@ -80,7 +80,7 @@ static inline void free_ptr_set(ptr_set_t *s) {
  * Check whether set s contains p
  * - s can be NULL here. NULL is interpreted as the empty set.
  */
-extern bool ptr_set_member(ptr_set_t *s, const void *p);
+extern bool ptr_set_member(ptr_set_t *s, void *p);
 
 
 /*
@@ -98,7 +98,7 @@ extern bool ptr_set_member(ptr_set_t *s, const void *p);
  * It will add an element to *s no-matter what (so *s may
  * contain duplicates).
  */
-extern void ptr_set_add(ptr_set_t **s, const void *p);
+extern void ptr_set_add(ptr_set_t **s, void *p);
 
 
 /*
@@ -111,7 +111,7 @@ extern void ptr_set_add(ptr_set_t **s, const void *p);
  * If s contains p multiple times, then only one occurrence
  * of p is removed.
  */
-extern void ptr_set_remove(ptr_set_t **s, const void *p);
+extern void ptr_set_remove(ptr_set_t **s, void *p);
 
 
 /*
@@ -120,7 +120,7 @@ extern void ptr_set_remove(ptr_set_t **s, const void *p);
  * - returns true if p is added (i.e., p was not in *s when the function was called)
  * - returns false otherwise and leaves *s unchanged.
  */
-extern bool ptr_set_add_if_absent(ptr_set_t **s, const void *p);
+extern bool ptr_set_add_if_absent(ptr_set_t **s, void *p);
 
 
 /*
@@ -130,7 +130,16 @@ extern bool ptr_set_add_if_absent(ptr_set_t **s, const void *p);
  * - otherwise, one occurrence of p is removed from *s, then *s
  *   may be updated as in ptr_set_remove, and the function returns true.
  */
-extern bool ptr_set_remove_if_present(ptr_set_t **s, const void *p);
+extern bool ptr_set_remove_if_present(ptr_set_t **s, void *p);
+
+
+/*
+ * Iterator: call f(aux, p) for every p stored in s
+ * - f must not have a side effect on s
+ */
+typedef void (*ptr_set_iterator_t)(void *aux, void *p);
+
+extern void ptr_set_iterate(ptr_set_t *s, void *aux, ptr_set_iterator_t f);
 
 
 #endif /* __PTR_SETS_H */
