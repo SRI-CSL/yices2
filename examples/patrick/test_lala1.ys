@@ -9,3 +9,4 @@
   (forall (y::real) (=> (and (< (* -1 y) 0) (< (+ -10 y) 0)) (< (+ -7 (* -2 x) y) 0))))
 
 (ef-solve)
+(show-model)

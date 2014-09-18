@@ -10,3 +10,4 @@
 (assert (forall (beta:: (bitvector 5)) (bv-slt (bv-add kp (bv-mul kp beta)) 0b01010)))
 
 (ef-solve)
+(show-model)

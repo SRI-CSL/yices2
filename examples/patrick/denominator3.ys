@@ -13,3 +13,4 @@
 			    (bv-add 0b111111111111100 k (bv-mul 0b000000000000011 (bv-pow k 2)))))))
 
 (ef-solve)
+(show-model)
