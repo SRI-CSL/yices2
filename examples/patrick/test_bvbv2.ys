@@ -13,3 +13,4 @@
 	      (and (bv-slt 0b00000 (bv-add x (bv-mul 0b11111 y))) (bv-slt x 0b01100)))))
 
 (ef-solve)
+(show-model)

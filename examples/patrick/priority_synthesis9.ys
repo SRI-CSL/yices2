@@ -82561,3 +82561,4 @@
     (=> (and nine_put<9_pick_8 nine_put<9_put) nine_put<9_pick_8))))
 
 (ef-solve)
+(show-model)
