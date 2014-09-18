@@ -22,7 +22,7 @@
  * Check that the counters s->nelems and s->ndeleted are correct
  */
 static bool good_ptr_set(ptr_set_t *s) {
-  const void *p;
+  void *p;
   uint32_t i, n;
   uint32_t elems, deleted;
 
@@ -49,7 +49,7 @@ static bool good_ptr_set(ptr_set_t *s) {
  * - all elements of a must be distinct
  * - the expected set is the set of all a[i]'s such that flag[i] is true
  */
-static bool check_ptr_set_content(ptr_set_t *s, const void *a[], bool flag[], uint32_t n) {
+static bool check_ptr_set_content(ptr_set_t *s, void *a[], bool flag[], uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -66,7 +66,7 @@ static bool check_ptr_set_content(ptr_set_t *s, const void *a[], bool flag[], ui
  * Show the content of set s
  */
 static void print_ptr_set(FILE *f, ptr_set_t *s) {
-  const void *p;
+  void *p;
   uint32_t i, n, k;
 
   if (s == NULL) {
@@ -106,7 +106,7 @@ static void show_ptr_set_details(FILE *f, ptr_set_t *s) {
 /*
  * Test speed: add all elements of a to s then remove then all
  */
-static void speed_test(ptr_set_t **s, const void *a[], uint32_t n) {
+static void speed_test(ptr_set_t **s, void *a[], uint32_t n) {
   double start, end;
   uint32_t i, j;
 
@@ -141,7 +141,7 @@ static void speed_test(ptr_set_t **s, const void *a[], uint32_t n) {
  */
 #define TEST_SIZE 300
 
-static const void *test_data[TEST_SIZE];
+static void *test_data[TEST_SIZE];
 static bool flag[TEST_SIZE];
 
 static void init_test_data(void) {
@@ -149,7 +149,7 @@ static void init_test_data(void) {
 
   n = TEST_SIZE;
   for (i=0; i<n; i++) {
-    test_data[i] = (const void *) &test_data[i];
+    test_data[i] = (void *) &test_data[i];
     flag[i] = false;
   }
 }
