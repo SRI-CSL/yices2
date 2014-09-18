@@ -1,0 +1,13 @@
+;;
+;; Simple EF-solver test
+;; Source: Chih-Hong Cheng (efsmt.cpp)
+;;
+
+(define x::real)
+
+(assert (< (* -1 x) 0))
+
+(assert
+  (forall (y::real) (=> (and (< (* -1 y) 0) (/= x y)) (< (+ x (* -1 y)) 0))))
+
+(ef-solve)
