@@ -27,7 +27,8 @@
  */
 static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_tag_t tag) {
   aproj_constraint_t *tmp;
-  uint32_t n;
+  monomial_t *p;
+  uint32_t i, n;
 
   n = poly_buffer_nterms(buffer);
   assert(n > 0);
@@ -37,7 +38,14 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
   tmp = (aproj_constraint_t *) safe_malloc(sizeof(aproj_constraint_t) + (n+1) * sizeof(monomial_t));
   tmp->tag = tag;
   tmp->nterms = n;
-  (void) copy_monarray(tmp->mono, poly_buffer_mono(buffer));
+
+  p = poly_buffer_mono(buffer);
+  for (i=0; i<n; i++) {
+    tmp->mono[i].var = p[i].var;
+    q_init(&tmp->mono[i].coeff);
+    q_set(&tmp->mono[i].coeff, &p[i].coeff);
+  }
+  tmp->mono[i].var = max_idx; // end marker
   reset_poly_buffer(buffer);
 
   return tmp;
@@ -669,15 +677,32 @@ static void aproj_add_arith_bineq(arith_projector_t *proj, composite_term_t *eq)
   assert(poly_buffer_is_zero(buffer));
 
   terms = proj->terms;
-  if (term_kind(terms, t1) == ARITH_POLY) {
+  switch (term_kind(terms, t1)) {
+  case ARITH_CONSTANT:    
+    poly_buffer_add_const(buffer, rational_term_desc(terms, t1));
+    break;
+
+  case ARITH_POLY:
     aproj_buffer_add_poly(buffer, &proj->vtbl, poly_term_desc(terms, t1));
-  } else {
+    break;
+
+  default:
     aproj_buffer_add_var(buffer, &proj->vtbl, t1);
+    break;
   }
-  if (term_kind(terms, t2) == ARITH_POLY) {
+
+  switch (term_kind(terms, t2)) {
+  case ARITH_CONSTANT:    
+    poly_buffer_sub_const(buffer, rational_term_desc(terms, t2));
+    break;
+
+  case ARITH_POLY:
     aproj_buffer_sub_poly(buffer, &proj->vtbl, poly_term_desc(terms, t2));
-  } else {
+    break;
+
+  default:
     aproj_buffer_sub_var(buffer, &proj->vtbl, t2);
+    break;
   }
   add_constraint_from_buffer(proj, buffer, APROJ_EQ);
 }
@@ -700,7 +725,7 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
   term_table_t *terms;
   term_t t;
 
-  assert(good_term(proj->terms, c));
+  assert(good_term(proj->terms, c) && is_boolean_term(proj->terms, c));
 
   if (proj->constraints == NULL) {
     close_aproj_vtbl(&proj->vtbl);
@@ -708,6 +733,10 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
 
   terms = proj->terms;
   switch (term_kind(terms, c)) {
+  case CONSTANT_TERM:
+    assert(c == true_term);
+    break;
+
   case ARITH_EQ_ATOM:
     assert(is_pos_term(c)); // no negation allowed
     t = arith_eq_arg(terms, c);

@@ -8,11 +8,20 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <inttypes.h>
 
+#include "utils/memalloc.h"
 #include "solvers/exists_forall/arith_projection.h"
 #include "api/yices_globals.h"
 #include "yices.h"
+
+#ifdef MINGW
+static inline long int random(void) {
+  return rand();
+}
+#endif
+
 
 
 /*
@@ -175,7 +184,7 @@ static void error_in_yices(const char *msg) {
 
 
 /*
- * GLOBAL TABLE: VARIABLES/MODEL
+ * GLOBAL TABLES
  */
 
 /*
@@ -203,7 +212,6 @@ static const var_desc_t var_desc[NUM_VARS] = {
   { "z", -2, 3 },
 };
 
-
 /*
  * From the descriptors, we build two arrays:
  * - var[i] = term for variable i
@@ -212,7 +220,61 @@ static const var_desc_t var_desc[NUM_VARS] = {
 static term_t var[NUM_VARS];
 static rational_t value[NUM_VARS];
 
-static void init_variables(void) {
+/*
+ * Rational constants used to build polynomials
+ */
+typedef struct rational_desc_s {
+  int32_t num;
+  uint32_t den;
+} rational_desc_t;
+
+#define NUM_CONSTANTS 9
+
+static const rational_desc_t const_desc[NUM_CONSTANTS] = {
+  {  0, 1 },
+  {  1, 1 },
+  { -1, 1 },
+  {  1, 2 },
+  { -1, 2 },
+  {  2, 1 },
+  { -2, 1 },
+  {  3, 1 },
+  { -3, 1 },
+};
+
+// same thing converted to rationals
+static rational_t cnst[NUM_CONSTANTS];
+
+/*
+ * Polynomial descriptor:
+ * - nterms = number of monomials
+ * - size = size of arrays term/num/den
+ * - term = array of terms
+ * - num/den = array of integers (coef i is num[i]/den[i])
+ * - c_num/c_den = constant term
+ * - val = value of the polynomial
+ *
+ * The polynomial is defined by
+ *   num[0]/den[0] * term[0] + ... + num[n-1]/den[n-1] * term[n-1]
+ * where term[i] is equal to var[k] for some k.
+ * The value is obtained by mapping term[i] to value[k]
+ */
+typedef struct poly_desc_s {
+  uint32_t nterms;
+  uint32_t size;
+  int32_t c_num;
+  uint32_t c_den;
+  term_t *term;
+  int32_t *num;
+  uint32_t *den;
+  rational_t val;
+} poly_desc_t;
+
+
+/*
+ * Initialize/cleanup global tables
+ */
+static void init_globals(void) {
   uint32_t i;
   term_t x;
   type_t tau;
@@ -231,16 +293,136 @@ static void init_variables(void) {
     q_init(value + i);
     q_set_int32(value + i, var_desc[i].num, var_desc[i].den);
   }
+
+  for (i=0; i<NUM_CONSTANTS; i++) {
+    q_init(cnst + i);
+    q_set_int32(cnst + i, const_desc[i].num, const_desc[i].den);
+  }
 }
 
-static void cleanup_values(void) {
+static void cleanup_globals(void) {
   uint32_t i;
 
   for (i=0; i<NUM_VARS; i++) {
     q_clear(value + i);
   }
+  for (i=0; i<NUM_CONSTANTS; i++) {
+    q_clear(cnst + i);
+  }
 }
 
+
+/*
+ * Polynomial construction
+ */
+
+/*
+ * Initialize p: n = size
+ */
+static void init_poly_desc(poly_desc_t *p, uint32_t n) {
+  assert(n < UINT32_MAX/sizeof(term_t));
+
+  p->size = n;
+  p->nterms = 0;
+  p->c_num = 0;
+  p->c_den = 1;
+  p->term = (term_t *) safe_malloc(n * sizeof(term_t));
+  p->num = (int32_t *) safe_malloc(n * sizeof(int32_t));
+  p->den = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  q_init(&p->val);
+}
+
+// make sure size >= n
+static void resize_poly_desc(poly_desc_t *p, uint32_t n) {
+  assert(n < UINT32_MAX/sizeof(term_t));
+
+  if (p->size < n) {
+    p->term = (term_t *) safe_realloc(p->term, n * sizeof(term_t));
+    p->num = (int32_t *) safe_realloc(p->num, n * sizeof(int32_t));
+    p->den = (uint32_t *) safe_realloc(p->den, n * sizeof(uint32_t));
+  }
+}
+
+static void delete_poly_desc(poly_desc_t *p) {
+  safe_free(p->term);
+  safe_free(p->num);
+  safe_free(p->den);
+  q_clear(&p->val);
+  p->term = NULL;
+  p->num = NULL;
+  p->den = NULL;
+}
+
+/*
+ * Random boolean
+ */
+static bool random_bool(void) {
+  return (random() & 0x8000) == 0;
+}
+
+#if 0
+/*
+ * Get a random rational in (num, den)
+ */
+static void random_constant(int32_t *num, uint32_t *den) {
+  uint32_t i;
+
+  i = random() % NUM_CONSTANTS;
+  assert(i < NUM_CONSTANTS && const_desc[i].den != 0);
+  *num = const_desc[i].num;
+  *den = const_desc[i].den;
+}
+#endif
+
+/*
+ * Build a random polynomial in p
+ * - p must be initialized
+ * - n = number of monomials (excluding the constant)
+ */
+static void make_random_poly(poly_desc_t *p, uint32_t n) {
+  uint32_t i, j, k;
+
+  resize_poly_desc(p, n);
+  p->nterms = n;
+
+  k = random() % NUM_CONSTANTS; 
+  p->c_num = const_desc[k].num;
+  p->c_den = const_desc[k].den;
+  q_set(&p->val, cnst + k);
+
+  for (i=0; i<n; i++) {
+    j = random() % NUM_VARS;
+    k = random() % NUM_CONSTANTS;
+
+    p->term[i] = var[j];
+    p->num[i] = const_desc[k].num;
+    p->den[i] = const_desc[k].den;
+
+    q_addmul(&p->val, value + j, cnst + k);
+  }
+}
+
+/*
+ * Build term defined by p
+ */
+static term_t build_poly_term(poly_desc_t *p) {
+  term_t c, t;
+
+  c = yices_rational32(p->c_num, p->c_den);
+  if (c < 0) error_in_yices("yices_rational32");
+  t = yices_poly_rational32(p->nterms, p->num, p->den, p->term);
+  if (t < 0) error_in_yices("yices_poly_rational32");
+  t = yices_add(c, t);
+  if (t < 0) error_in_yices("yices_add");
+
+  return t;
+}
+
+
+
+/*
+ * TESTS
+ */
 
 /*
  * Add variables in var[i .. k-1] to proj
@@ -254,7 +436,54 @@ static void test_addvars(arith_projector_t *proj, uint32_t i, uint32_t k, bool t
     i ++;    
   }
 }
+
+/*
+ * Given polynomial descriptor p
+ * - add a constraint satistied by p
+ */
+static void test_add_poly_constraint(arith_projector_t *proj, poly_desc_t *p) {
+  term_t t, u;
+
+  t = build_poly_term(p);
+  if (q_is_pos(&p->val)) {
+    if (random_bool()) {
+      u = yices_arith_gt0_atom(t);
+    } else {
+      u = yices_arith_geq0_atom(t);
+    }
+  } else if (q_is_neg(&p->val)) {
+    if (random_bool()) {
+      u = yices_arith_lt0_atom(t);
+    } else {
+      u = yices_arith_leq0_atom(t);
+    }
+  } else {
+    u = yices_arith_eq0_atom(t);
+  }
+
+  if (u < 0) error_in_yices("arith atom");
+
+  aproj_add_constraint(proj, u);
+}
  
+
+static void test_add_bineq(arith_projector_t *proj) {
+  uint32_t i, j;
+  term_t u;
+
+  i = random() % NUM_VARS;
+  j = i;
+  do {
+    j ++;
+    if (j == NUM_VARS) j = 0;
+    if (q_eq(value + i, value + j)) break;
+  } while (j != i);
+
+  u = yices_arith_eq_atom(var[i], var[j]);
+  if (u < 0) error_in_yices("bineq");
+
+  aproj_add_constraint(proj, u);
+}
 
 static void test_vars(void) {
   arith_projector_t proj;
@@ -312,13 +541,48 @@ static void test_vars(void) {
   delete_arith_projector(&proj);
 }
 
+/*
+ * Add vars and constraints
+ */
+static void test_constraints(void) {
+  arith_projector_t proj;
+  poly_desc_t p;
+  uint32_t i;
+
+  init_arith_projector(&proj, __yices_globals.manager, 0, 0);
+  init_poly_desc(&p, 10);
+  test_addvars(&proj, 0, 5, false); // a, b, c, d, e: vars to keep
+  test_addvars(&proj, 5, 10, true); // v, w, x, y, z: vars to eliminate
+
+  for (i=0; i<20; i++) {
+    make_random_poly(&p, 4);
+    test_add_poly_constraint(&proj, &p);
+  }
+  for (i=0; i<6; i++) {
+    test_add_bineq(&proj);
+  }
+  printf("*** After adding constraints ***\n");
+  show_projector(stdout, &proj);  
+  printf("\n");
+
+  delete_poly_desc(&p);
+  delete_arith_projector(&proj);
+}
+
+
 int main(void) {
   yices_init();
-  init_variables();
+  init_globals();
 
   test_vars();
+  test_constraints();
+  test_constraints();
+  test_constraints();
+  test_constraints();
+  test_constraints();
+  test_constraints();
 
-  cleanup_values();
+  cleanup_globals();
   yices_exit();
 
   return 0;
