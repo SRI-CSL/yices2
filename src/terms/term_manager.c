@@ -1891,7 +1891,14 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
     aux = t1; t1 = t2; t2 = aux;
   }
 
-  return arith_bineq_atom(tbl, t1, t2);
+  if (t1 == zero_term) {
+    aux = arith_eq_atom(tbl, t2); // (t2 == 0)
+  } else {
+    assert(t2 != zero_term);
+    aux = arith_bineq_atom(tbl, t1, t2);
+  }
+
+  return aux;
 }
 
 
