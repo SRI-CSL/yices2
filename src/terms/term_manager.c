@@ -1868,6 +1868,34 @@ static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) 
 
 
 /*
+ * Auxiliary function: try to simplify (t == 0)
+ * Rules:
+ *   (ite c 0 y) == 0  -->  c provided y != 0
+ *   (ite c x 0) == 0  --> ~c provided x != 0
+ */
+static term_t check_arith_eq0_simplifies(term_table_t *tbl, term_t t) {
+  composite_term_t *d;
+  term_t x, y;
+
+  assert(is_arithmetic_term(tbl, t));
+
+  if (is_ite_term(tbl, t)) {
+    // (ite c x y) == 0
+    d = ite_term_desc(tbl, t);
+    x = d->arg[1];
+    y = d->arg[2];
+    if (x == zero_term && arith_term_is_nonzero(tbl, y)) {
+      return d->arg[0];
+    }
+    if (y == zero_term && arith_term_is_nonzero(tbl, x)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+/*
  * Auxiliary function: build binary equality (t1 == t2)
  * for two arithmetic terms t1 and t2.
  * - try simplification and normalize first
@@ -1891,16 +1919,30 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
     aux = t1; t1 = t2; t2 = aux;
   }
 
-  if (t1 == zero_term) {
-    aux = arith_eq_atom(tbl, t2); // (t2 == 0)
-  } else {
-    assert(t2 != zero_term);
-    aux = arith_bineq_atom(tbl, t1, t2);
-  }
-
-  return aux;
+  return arith_bineq_atom(tbl, t1, t2);
 }
 
+
+/*
+ * Auxiliary function: builds equality (t == 0)
+ * - try to simplify and normalize then build (arith-eq0 t)
+ */
+static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t) {
+    term_t aux;
+
+  assert(is_arithmetic_term(tbl, t));
+
+  if (arith_term_is_nonzero(tbl, t)) {
+    return false_term;
+  }
+
+  aux = check_arith_eq0_simplifies(tbl, t);
+  if (aux != NULL_TERM) {
+    return aux;
+  }
+
+  return arith_eq_atom(tbl, t); // (t == 0)
+}
 
 
 /*
@@ -1943,7 +1985,7 @@ term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b) {
       t = false_term;
     } else {
       t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
-      t = mk_arith_bineq_atom(tbl, zero_term, t1); // atom r1 = 0
+      t = mk_arith_eq0_atom(tbl, t1); // atom r1 = 0
     }
 
   } else if (n == 2) {
