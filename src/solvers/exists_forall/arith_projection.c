@@ -99,7 +99,7 @@ static int32_t aproj_constraint_find_var(aproj_constraint_t *c, int32_t i) {
 /*
  * Initialize table:
  * - n = initial size of arrays term_of and val
- * - m = initial isze of arrays cnstr and score
+ * - m = initial size of arrays cnstr and score
  * If n is 0, them default sizes are used.
  * If n is positive and m is 0, then the default esize is used unless it's 
  * larger than n. If the default is more than n, then the initial esize is 
@@ -358,7 +358,7 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
 
   assert(aproj_is_var_to_elim(vtbl, i));
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
-  assert(ptr_set_member(vtbl->cnstr[i], c)); // c must occur in constr[i]
+  assert(ptr_set_member(vtbl->cnstr[i], c)); // c must occur in cnstr[i]
 	 
   ptr_set_remove(vtbl->cnstr + i, c);
   if (c->tag == APROJ_EQ) {
@@ -505,7 +505,7 @@ static void aproj_remove_cnstr(arith_projector_t *proj, aproj_constraint_t *c) {
 
 /*
  * Build linear polynomials in buffer
- * - replace the term id by the correspodnding internal variable
+ * - replace the term id by the corresponding internal variable
  */
 static void aproj_buffer_add_var(poly_buffer_t *buffer, aproj_vtbl_t *vtbl, term_t t) {
   int32_t i;
