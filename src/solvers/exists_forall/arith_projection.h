@@ -31,7 +31,7 @@
  * ----------
  * 1) Gaussian elimination: If b_k /= 0, we rewrite 
  *      a_1 x_1 + .. + b_k y_k + ... + c  =0
- *    to y_k = <linear expression> and subsitute y_k with
+ *    to y_k = <linear expression> and substitute y_k with
  *    the expression everywhere.
  *
  * 2) Fourier-Motzkin: The basic Fourier-Motzkin step takes
@@ -50,7 +50,7 @@
  *   This can quickly blow up so we limit Fourier-Motzkin to cheap cases.
  *   We count the number of inequalities where y occurs with a positive
  *   coefficients and the number of inequalities where y has a negative
- *   coefficients. Then Fourier-Mozkin is cheap if either counter is 0,
+ *   coefficients. Then Fourier-Motzkin is cheap if either counter is 0,
  *   or one of them is 1, or both of them are 2.
  *
  * 3) Virtual Term Substitution.  For the remaining variables, we use
@@ -60,7 +60,7 @@
  *    - upper bounds: y <= q_1, ..., y <= q_l
  *    We evaluate p_1 .... p_k in the model M and keep the p_i that has
  *    largest value. We do the same thing for q_1 ... q_l and keep the q_j
- *    that has the smallest value. Then we eliminate y by substution:
+ *    that has the smallest value. Then we eliminate y by substitution:
  *    we replace y by (p_i + q_j)/2 everywhere.
  *
  *
@@ -97,7 +97,7 @@
  *   APROJ_EQ = 10  equality   (poly = 0)
  *
  * Using this encoding, we can compute the resulting tag
- * in a Fourier-Motzking step using bitwise and.
+ * in a Fourier-Motzkin step using bitwise and.
  */
 typedef enum {
   APROJ_GT = 0,
