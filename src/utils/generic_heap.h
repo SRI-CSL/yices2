@@ -70,7 +70,7 @@ typedef struct generic_heap_s {
 /*
  * Initialize heap:
  * - n = initial size. If n=0, the default is used.
- * - m = initial size of h_idx. If m=0, the default is used.
+ * - m = initial size of idx. If m=0, the default is used.
  * - cmp = the comparison function
  * - data = some data used for computing the ordering
  */

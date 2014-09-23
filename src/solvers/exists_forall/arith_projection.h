@@ -84,6 +84,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "utils/generic_heap.h"
 #include "utils/ptr_sets.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
@@ -108,8 +109,11 @@ typedef enum {
 
 /*
  * Arithmetic constraint:
- * - tag = constraint type
+ * - header encodes the constraint type + an eval bit
+ *   if eval bit is 1, then the val has been computed
+ *   otherwise val is 0
  * - nterms = number of monomials
+ * - val = value in the model
  * - mono = array of nterms + 1 monomials
  * we use the same conventions as in polynomials.h:
  * - the monomials are ordered by increasing variable index
@@ -117,12 +121,54 @@ typedef enum {
  * - const_idx = 0 denotes the constant
  */
 typedef struct aproj_constraint_s {
-  aproj_tag_t tag;
+  uint32_t header;
   uint32_t nterms;
+  rational_t val;
   monomial_t mono[0]; // real size = nterms+1
 } aproj_constraint_t;
 
 #define MAX_APROJ_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(aproj_constraint_t))/sizeof(monomial_t)) - 1)
+
+
+/*
+ * Bit masks for header:
+ * - the two lower bits contain the tag
+ * - bit 2 is the eval bit
+ */
+#define APROJ_TAG_MASK      ((uint32_t) 0x3)
+#define APROJ_EVALBIT_MASK  ((uint32_t) 0x4)
+
+
+/*
+ * Extract tag and eval bit
+ */
+static inline aproj_tag_t aproj_header_tag(uint32_t h) {
+  return (aproj_tag_t) (h & APROJ_TAG_MASK);
+}
+
+static inline bool aproj_header_has_val(uint32_t h) {
+  return (h & APROJ_EVALBIT_MASK) != 0;
+}
+
+static inline aproj_tag_t aproj_cnstr_tag(aproj_constraint_t *c) {
+  return aproj_header_tag(c->header);
+}
+
+static inline bool aproj_cnstr_has_val(aproj_constraint_t *c) {
+  return aproj_header_has_val(c->header);
+}
+
+// default header: evalbit is false
+static inline uint32_t mk_aproj_header(aproj_tag_t tag) {
+  return (uint32_t) tag;
+}
+
+// set valbit to true
+static inline void aproj_cnstr_set_valbit(aproj_constraint_t *c) {
+  c->header |= APROJ_EVALBIT_MASK;
+}
+
+
 
 
 /*
@@ -149,6 +195,7 @@ typedef struct aproj_score_s {
  * - for the variables to eliminate, we also keep
  *   the set of constraints in which they occur
  *   and a score = triple of counters
+ * - a heap for sorting the variables
  * - tmap: maps external term index to internal variable index
  *   (so if term_of[x] = t then tmap[t] = x).
  */
@@ -166,6 +213,9 @@ typedef struct aproj_vtbl_s {
   ptr_set_t **cnstr;
   aproj_score_t *score;
 
+  // heap
+  generic_heap_t heap;
+  
   // reverse mapping: term id to var
   int_hmap_t tmap;
 } aproj_vtbl_t;
@@ -189,6 +239,7 @@ typedef struct arith_projector_s {
   aproj_vtbl_t vtbl;
   ptr_set_t *constraints;
   poly_buffer_t buffer;
+  poly_buffer_t buffer2;
   rational_t q1, q2;
 } arith_projector_t;
 

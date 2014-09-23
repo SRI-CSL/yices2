@@ -91,7 +91,7 @@ static void print_proj_poly(FILE *f, aproj_vtbl_t *vtbl, monomial_t *p, uint32_t
 
 static void print_proj_constraint(FILE *f, aproj_vtbl_t *vtbl, aproj_constraint_t *c) {
   print_proj_poly(f, vtbl, c->mono, c->nterms);
-  switch (c->tag) {
+  switch (aproj_cnstr_tag(c)) {
   case APROJ_GT:
     fputs(" > 0", f);
     break;
@@ -102,7 +102,7 @@ static void print_proj_constraint(FILE *f, aproj_vtbl_t *vtbl, aproj_constraint_
     fputs(" = 0", f);
     break;
   default:
-    fprintf(stderr, "BUG: invalid constraint tag (%"PRId32")\n", (int32_t) c->tag);
+    fprintf(stderr, "BUG: invalid constraint tag (%"PRId32")\n", aproj_cnstr_tag(c));
     exit(1);
     break;
   }
