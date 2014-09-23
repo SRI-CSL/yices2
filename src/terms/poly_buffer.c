@@ -301,12 +301,11 @@ void poly_buffer_clear_monomial(poly_buffer_t *buffer, int32_t x) {
 /*
  * Add p to buffer
  */
-void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p) {
-  uint32_t i, n;
+void poly_buffer_add_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) {
+  uint32_t i;
 
-  n = p->nterms;
   for (i=0; i<n; i++) {
-    poly_buffer_add_monomial(buffer, p->mono[i].var, &p->mono[i].coeff);
+    poly_buffer_add_monomial(buffer, p[i].var, &p[i].coeff);
   }
 }
 
@@ -314,12 +313,11 @@ void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p) {
 /*
  * Subtract p from buffer
  */
-void poly_buffer_sub_poly(poly_buffer_t *buffer, polynomial_t *p) {
-  uint32_t i, n;
+void poly_buffer_sub_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) {
+  uint32_t i;
 
-  n = p->nterms;
   for (i=0; i<n; i++) {
-    poly_buffer_sub_monomial(buffer, p->mono[i].var, &p->mono[i].coeff);
+    poly_buffer_sub_monomial(buffer, p[i].var, &p[i].coeff);
   }
 }
 
@@ -327,12 +325,11 @@ void poly_buffer_sub_poly(poly_buffer_t *buffer, polynomial_t *p) {
 /*
  * Add a * p to buffer
  */
-void poly_buffer_addmul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
-  uint32_t i, n;
+void poly_buffer_addmul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a) {
+  uint32_t i;
 
-  n = p->nterms;
   for (i=0; i<n; i++) {
-    poly_buffer_addmul_monomial(buffer, p->mono[i].var, &p->mono[i].coeff, a);
+    poly_buffer_addmul_monomial(buffer, p[i].var, &p[i].coeff, a);
   }
 }
 
@@ -340,12 +337,11 @@ void poly_buffer_addmul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t 
 /*
  * Subtract a * p from buffer
  */
-void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
-  uint32_t i, n;
+void poly_buffer_submul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a) {
+  uint32_t i;
 
-  n = p->nterms;
   for (i=0; i<n; i++) {
-    poly_buffer_submul_monomial(buffer, p->mono[i].var, &p->mono[i].coeff, a);
+    poly_buffer_submul_monomial(buffer, p[i].var, &p[i].coeff, a);
   }
 }
 

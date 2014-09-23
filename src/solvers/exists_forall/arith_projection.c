@@ -36,9 +36,9 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
     out_of_memory();
   }
   tmp = (aproj_constraint_t *) safe_malloc(sizeof(aproj_constraint_t) + (n+1) * sizeof(monomial_t));
-  tmp->tag = tag;
+  tmp->header = mk_aproj_header(tag);
   tmp->nterms = n;
-
+  q_init(&tmp->val);
   p = poly_buffer_mono(buffer);
   for (i=0; i<n; i++) {
     tmp->mono[i].var = p[i].var;
@@ -56,9 +56,11 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
  * Delete a constraint descriptor
  */
 static void free_aproj_constraint(aproj_constraint_t *c) {
+  q_clear(&c->val);
   clear_monarray(c->mono, c->nterms);
   safe_free(c);
 }
+
 
 /*
  * Find the monomial that contains i in c
@@ -91,10 +93,68 @@ static int32_t aproj_constraint_find_var(aproj_constraint_t *c, int32_t i) {
 }
 
 
+/*
+ * Divide c by rational q
+ */
+static void divide_aproj_constraint(aproj_constraint_t *c, rational_t *q) {
+  uint32_t i, n;
+
+  assert(q_is_nonzero(q));
+
+  n = c->nterms;
+  for (i=0; i<n; i++) {
+    q_div(&c->mono[i].coeff, q);
+  }
+  if (aproj_cnstr_has_val(c)) {
+    q_div(&c->val, q);
+  }
+}
+
+
+/*
+ * Negate the coefficients
+ */
+static void negate_aproj_constraint(aproj_constraint_t *c) {
+  in_place_negate_monarray(c->mono);
+  if (aproj_cnstr_has_val(c)) {
+    q_neg(&c->val);
+  }
+}
+
+
+
+/*
+ * For debugging: check that i has coefficient +1 or -1 in c
+ */
+#ifndef NDEBUG
+static bool aproj_var_coeff_is_one(aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  return k >= 0 && q_is_one(&c->mono[k].coeff);
+}
+
+static bool aproj_var_coeff_is_minus_one(aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  return k >= 0 && q_is_minus_one(&c->mono[k].coeff);
+}
+#endif
+
+
+
 
 /*
  * VARIABLE TABLE
  */
+
+/*
+ * Comparison function for the heap: return true if x is cheaper to eliminate
+ * than y (heuristic based on scores).
+ * - the first argument in the variable table
+ */
+static bool aproj_cheaper_var(void *table, int32_t x, int32_t y);
 
 /*
  * Initialize table:
@@ -141,6 +201,8 @@ static void init_aproj_vtbl(aproj_vtbl_t *table, uint32_t n, uint32_t m) {
   table->score[0].eq_count = 0;
   table->score[0].pos_count = 0;
   table->score[0].neg_count = 0;
+
+  init_generic_heap(&table->heap, 0, 0, aproj_cheaper_var, table);
 
   init_int_hmap(&table->tmap, 0);
 }
@@ -197,6 +259,7 @@ static void reset_aproj_vtbl(aproj_vtbl_t *table) {
     free_ptr_set(table->cnstr[i]);
   }
 
+  reset_generic_heap(&table->heap);
   int_hmap_reset(&table->tmap);
 
   table->nvars = 1;
@@ -218,6 +281,7 @@ static void delete_aproj_vtbl(aproj_vtbl_t *table) {
   for (i=0; i<n; i++) {
     free_ptr_set(table->cnstr[i]);
   }
+  delete_generic_heap(&table->heap);
   delete_int_hmap(&table->tmap);
 
   safe_free(table->term_of);
@@ -287,6 +351,7 @@ static void aproj_vtbl_add_var(aproj_vtbl_t *table, term_t x, bool to_elim, rati
  * - all variables in [nelems .. nvars - 1] are to be kept
  * - for all variable i, we add the mapping term_of[i] --> i
  *   in table->tmap
+ * - then we add all variables to eliminate to the heap
  */
 static void close_aproj_vtbl(aproj_vtbl_t *vtbl) {
   int_hmap_pair_t *d;
@@ -299,6 +364,11 @@ static void close_aproj_vtbl(aproj_vtbl_t *vtbl) {
     d = int_hmap_get(&vtbl->tmap, x);
     assert(d->val < 0);
     d->val = i;
+  }
+
+  n = vtbl->nelims;
+  for (i=1; i<n; i++) {
+    generic_heap_add(&vtbl->heap, i);
   }
 }
 
@@ -337,7 +407,7 @@ static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constrai
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
 
   ptr_set_add(vtbl->cnstr + i, c); // add c to vtbl->cnstr[i]
-  if (c->tag == APROJ_EQ) {
+  if (aproj_cnstr_tag(c) == APROJ_EQ) {
     vtbl->score[i].eq_count ++;
   } else {
     k = aproj_constraint_find_var(c, i);
@@ -346,6 +416,10 @@ static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constrai
     } else {
       vtbl->score[i].neg_count ++;
     }
+  }
+
+  if (generic_heap_member(&vtbl->heap, i)) {
+    generic_heap_update(&vtbl->heap, i);
   }
 }
 
@@ -361,7 +435,7 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
   assert(ptr_set_member(vtbl->cnstr[i], c)); // c must occur in cnstr[i]
 	 
   ptr_set_remove(vtbl->cnstr + i, c);
-  if (c->tag == APROJ_EQ) {
+  if (aproj_cnstr_tag(c) == APROJ_EQ) {
     assert(vtbl->score[i].eq_count > 0);
     vtbl->score[i].eq_count --;
   } else {
@@ -374,7 +448,122 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
       vtbl->score[i].neg_count --;
     }
   }
+
+  if (generic_heap_member(&vtbl->heap, i)) {
+    generic_heap_update(&vtbl->heap, i);
+  }
 }
+
+
+
+/*
+ * ORDERING ON VARIABLES
+ */
+
+/*
+ * We order variables based on the scores data structures. Variables that
+ * are cheap to eliminate occur first in the ordering.
+ *
+ * Trivial variables: if the score of x is one of the following then
+ * we can just remove all constraints on x and we're done.
+ * - eq_count = 1, pos_count = 0, neg_count = 0
+ * - eq_count = 0, pos_count = anything, neg_count = 0
+ * - eq_count = 0, pos_count = 0, neg_count = anything
+ *
+ * After trivial variables, we put all x that occur in one or more equality
+ * - we can eliminate x by substitution
+ *
+ * Then: cheap cases of Fourier-Motzkin elimination:
+ * - eq_count = 0, pos_count = 1, neg_count = anything
+ * - eq_count = 0, pos_count = anything, neg_count = 1
+ * - eq_count = 0, pos_count = 2, neg_count = 2
+ *
+ * Then the other variables: sorted by pos_count + neg_count
+ */
+typedef enum {
+  APROJ_TRIVIAL,
+  APROJ_SUBST,
+  APROJ_CHEAP,
+  APROJ_EXPENSIVE,
+} var_group_t;
+
+/*
+ * Group of a variable x that has a score of the form [0, px, nx]
+ */
+static const var_group_t group_tbl[4][4] = {
+  { APROJ_TRIVIAL, APROJ_TRIVIAL, APROJ_TRIVIAL,   APROJ_TRIVIAL },   // px = 0
+  { APROJ_TRIVIAL, APROJ_CHEAP,   APROJ_CHEAP,     APROJ_CHEAP },     // px = 1
+  { APROJ_TRIVIAL, APROJ_CHEAP,   APROJ_CHEAP,     APROJ_EXPENSIVE }, // px = 2
+  { APROJ_TRIVIAL, APROJ_CHEAP,   APROJ_EXPENSIVE, APROJ_EXPENSIVE }, // px >= 3
+};
+
+static var_group_t aproj_var_group(aproj_vtbl_t *vtbl, int32_t x) {
+  aproj_score_t *score;
+  var_group_t group;
+  uint32_t px, nx;
+
+  assert(aproj_is_var_to_elim(vtbl, x));
+  score = vtbl->score + x;  
+
+  switch (score->eq_count) {
+  case 0:
+    /*
+     * px in {0, 1, 2, 3} = min(3, pos_count of x)
+     * nx in {0, 1, 2, 3} = min(3, neg_count of x)
+     */
+    px = score->pos_count;
+    if (px > 3) px = 3;
+    nx = score->neg_count;
+    if (nx > 3) nx = 3;
+    group = group_tbl[px][nx];
+    break;
+
+  case 1:
+    group = APROJ_SUBST;
+    if (score->pos_count == 0 && score->neg_count == 0) {
+      group = APROJ_TRIVIAL;
+    }
+    break;
+
+  default:
+    group = APROJ_SUBST;
+    break;
+  }
+
+  return group;
+}
+
+
+/*
+ * Secondary metrics: if x and y are in the same group,
+ * we count the total number of constraints on x and y to break ties.
+ */
+static uint32_t aproj_all_count(aproj_vtbl_t *vtbl, int32_t x) {
+  aproj_score_t *score;
+
+  assert(aproj_is_var_to_elim(vtbl, x));
+  score = vtbl->score + x;
+  return score->eq_count + score->pos_count + score->neg_count;
+}
+
+
+/*
+ * Comparison function:
+ * - x and y are two variables to eliminate
+ * - table is a variable table
+ * - return true if x is cheaper to eliminate than y
+ */
+static bool aproj_cheaper_var(void *table, int32_t x, int32_t y) {
+  aproj_vtbl_t *vtbl;
+  var_group_t gx, gy;
+
+  vtbl = table;
+  gx = aproj_var_group(vtbl, x);
+  gy = aproj_var_group(vtbl, y);
+
+  return (gx < gy) || (gx == gy && aproj_all_count(vtbl, x) < aproj_all_count(vtbl, y));
+}
+
 
 
 
@@ -401,6 +590,7 @@ void init_arith_projector(arith_projector_t *proj, term_manager_t *mngr, uint32_
   init_aproj_vtbl(&proj->vtbl, n, m);
   proj->constraints = NULL;
   init_poly_buffer(&proj->buffer);
+  init_poly_buffer(&proj->buffer2);
   q_init(&proj->q1);
   q_init(&proj->q2);
 }
@@ -428,6 +618,7 @@ void reset_arith_projector(arith_projector_t *proj) {
   free_ptr_set(proj->constraints);
   proj->constraints = NULL;
   reset_poly_buffer(&proj->buffer);
+  reset_poly_buffer(&proj->buffer2);
   q_clear(&proj->q1);
   q_clear(&proj->q2);
 }
@@ -442,6 +633,7 @@ void delete_arith_projector(arith_projector_t *proj) {
   free_ptr_set(proj->constraints);
   proj->constraints = NULL;
   delete_poly_buffer(&proj->buffer);
+  delete_poly_buffer(&proj->buffer2);
   q_clear(&proj->q1);
   q_clear(&proj->q2);
 }
@@ -776,4 +968,152 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
     break;
   }
 }
+
+
+
+/*
+ * VARIABLE ELIMINATION
+ */
+
+/*
+ * Remove c from proj->constraints and from cnstr[x] for all x/=y
+ */
+static void aproj_remove_cnstr_var(arith_projector_t *proj, aproj_constraint_t *c, int32_t y) {
+  aproj_vtbl_t *vtbl;
+  uint32_t i, n;
+  int32_t x;
+
+  ptr_set_remove(&proj->constraints, c);
+
+  vtbl = &proj->vtbl;
+  n = c->nterms;
+  for (i=0; i<n; i++) {
+    x = c->mono[i].var;
+    if (x != y && aproj_is_var_to_elim(vtbl, x)) {
+      aproj_remove_cnstr_on_var(vtbl, x, c);
+    }
+  }
+}
+
+/*
+ * Eliminate an unconstrained variable i
+ */
+static void aproj_remove_all_constraints_on_var(arith_projector_t *proj, int32_t i) {
+  ptr_set_t *set;
+  aproj_constraint_t *c;
+  uint32_t k, n;
+
+  assert(aproj_is_var_to_elim(&proj->vtbl, i));
+
+  set = proj->vtbl.cnstr[i];
+  if (set != NULL) {
+    n = set->size;
+    for (k=0; k<n; k++) {
+      c = set->data[k];
+      if (live_ptr_elem(c)) {
+	aproj_remove_cnstr_var(proj, c, i);
+	free_aproj_constraint(c);
+      }
+    }
+
+    free_ptr_set(set);
+    proj->vtbl.cnstr[i] = NULL;
+  }
+}
+
+
+/*
+ * Make the coefficient of i equal to 1 in c
+ * - i must occur in c
+ * - c should be an equality
+ */
+static void aproj_normalize_eq(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0);
+  if (q_is_minus_one(&c->mono[k].coeff)) {
+    negate_aproj_constraint(c);
+  } else if (! q_is_one(&c->mono[k].coeff)) {
+    q_set(&proj->q1, &c->mono[k].coeff);
+    divide_aproj_constraint(c, &proj->q1);
+  }
+
+  assert(aproj_var_coeff_is_one(c, i));
+}
+
+
+/*
+ * Make the coefficient if i equal to 1
+ * - i must have a positive coefficient in c
+ * - c should be an inequality
+ */
+static void aproj_normalize_ineq_pos(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0 && q_is_pos(&c->mono[k].coeff));
+  if (! q_is_one(&c->mono[k].coeff)) {
+    q_set(&proj->q1, &c->mono[k].coeff);
+    divide_aproj_constraint(c, &proj->q1);
+  }
+
+  assert(aproj_var_coeff_is_one(c, i));
+}
+
+
+/*
+ * Make the coefficient of i equal to -1
+ * - i must have negative coefficient in c
+ * - c should be an inequality
+ */
+static void aproj_normalize_ineq_neg(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0 && q_is_neg(&c->mono[k].coeff));
+  if (! q_is_minus_one(&c->mono[k].coeff)) {
+    q_set_neg(&proj->q1, &c->mono[k].coeff);
+    divide_aproj_constraint(c, &proj->q1);
+  }
+
+  assert(aproj_var_coeff_is_minus_one(c, i));
+}
+
+
+/*
+ * Select an equality constraint that contains variable i
+ * - return NULL if there's no such constraint
+ * - otherwise, return an equality with the smallest number of terms
+ *   the returned constraint is removed form i's set and from proj->constraint)
+ */
+static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
+  ptr_set_t *set;
+  aproj_constraint_t *c, *d;
+  uint32_t k, n, size;
+
+
+  assert(aproj_is_var_to_elim(&proj->vtbl, i));
+
+  c = NULL;
+  size = UINT32_MAX; // this is larger than MAX_APROJ_CONSTRAINT_SIZE
+
+  set = proj->vtbl.cnstr[i];
+  if (set != NULL) {
+    n = set->size;
+    for (k=0; k<n; k++) {
+      d = set->data[k];
+      if (live_ptr_elem(d) && aproj_cnstr_tag(d) == APROJ_EQ && d->nterms < size) {
+	c = d;
+      }
+    }
+
+    if (c != NULL) {
+      aproj_remove_cnstr(proj, c);
+    }
+  }
+
+  return c;
+}
+
 

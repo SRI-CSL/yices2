@@ -82,14 +82,6 @@ static ptr_set_t *alloc_ptr_set(uint32_t n) {
 
 
 /*
- * Check whether p != NULL && p != DELETED_PTR_ELEM
- */
-static inline bool live_ptr_elem(void *p) {
-  return (((size_t) p) >> 1) != (size_t) 0;
-}
-
-
-/*
  * Add p to set: sequential array
  * - requires set->nelems < set->size
  * - invariant: the DELETED_PTR_ELEMs occur before any NULL element in set->data

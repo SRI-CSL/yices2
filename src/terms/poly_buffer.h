@@ -142,17 +142,39 @@ static inline void poly_buffer_clear_const(poly_buffer_t *buffer) {
 
 
 
-
 /*
  * Add polynomials:
- * - addmul means add      a * p
- * - submul means subtract a * p
+ * - p is given as an array of n monomials
+ * - n = number of monomials in p
+ *
+ * addmul means add a * p to buffer
+ * submul maans subtract a * p from buffer
  */
-extern void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p);
-extern void poly_buffer_sub_poly(poly_buffer_t *buffer, polynomial_t *p);
-extern void poly_buffer_addmul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a);
-extern void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a);
+extern void poly_buffer_add_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n);
+extern void poly_buffer_sub_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n);
+extern void poly_buffer_addmul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a);
+extern void poly_buffer_submul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a);
 
+
+
+/*
+ * Same operations with p givesn as a polynomial object
+ */
+static inline  void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p) {
+  poly_buffer_add_monarray(buffer, p->mono, p->nterms);
+}
+
+static inline void poly_buffer_sub_poly(poly_buffer_t *buffer, polynomial_t *p) {
+  poly_buffer_sub_monarray(buffer, p->mono, p->nterms);
+}
+
+static inline void poly_buffer_addmul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
+  poly_buffer_addmul_monarray(buffer, p->mono, p->nterms, a);
+}
+
+static inline void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
+  poly_buffer_submul_monarray(buffer, p->mono, p->nterms, a);
+}
 
 
 /*
