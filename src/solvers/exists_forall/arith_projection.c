@@ -36,9 +36,8 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
     out_of_memory();
   }
   tmp = (aproj_constraint_t *) safe_malloc(sizeof(aproj_constraint_t) + (n+1) * sizeof(monomial_t));
-  tmp->header = mk_aproj_header(tag);
+  tmp->tag = tag;
   tmp->nterms = n;
-  q_init(&tmp->val);
   p = poly_buffer_mono(buffer);
   for (i=0; i<n; i++) {
     tmp->mono[i].var = p[i].var;
@@ -56,7 +55,6 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
  * Delete a constraint descriptor
  */
 static void free_aproj_constraint(aproj_constraint_t *c) {
-  q_clear(&c->val);
   clear_monarray(c->mono, c->nterms);
   safe_free(c);
 }
@@ -105,9 +103,6 @@ static void divide_aproj_constraint(aproj_constraint_t *c, rational_t *q) {
   for (i=0; i<n; i++) {
     q_div(&c->mono[i].coeff, q);
   }
-  if (aproj_cnstr_has_val(c)) {
-    q_div(&c->val, q);
-  }
 }
 
 
@@ -116,9 +111,6 @@ static void divide_aproj_constraint(aproj_constraint_t *c, rational_t *q) {
  */
 static void negate_aproj_constraint(aproj_constraint_t *c) {
   in_place_negate_monarray(c->mono);
-  if (aproj_cnstr_has_val(c)) {
-    q_neg(&c->val);
-  }
 }
 
 
@@ -407,7 +399,7 @@ static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constrai
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
 
   ptr_set_add(vtbl->cnstr + i, c); // add c to vtbl->cnstr[i]
-  if (aproj_cnstr_tag(c) == APROJ_EQ) {
+  if (c->tag == APROJ_EQ) {
     vtbl->score[i].eq_count ++;
   } else {
     k = aproj_constraint_find_var(c, i);
@@ -435,7 +427,7 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
   assert(ptr_set_member(vtbl->cnstr[i], c)); // c must occur in cnstr[i]
 	 
   ptr_set_remove(vtbl->cnstr + i, c);
-  if (aproj_cnstr_tag(c) == APROJ_EQ) {
+  if (c->tag == APROJ_EQ) {
     assert(vtbl->score[i].eq_count > 0);
     vtbl->score[i].eq_count --;
   } else {
@@ -469,6 +461,33 @@ static void aproj_cleanup_var_data(aproj_vtbl_t *vtbl, int32_t i) {
   vtbl->score[i].pos_count = 0;
   vtbl->score[i].neg_count = 0;
 }
+
+
+/*
+ * Get value of x in the model:
+ * - x can be const_idx here
+ */
+static inline rational_t *aproj_var_val(aproj_vtbl_t *vtbl, int32_t x) {
+  assert(0 <= x && x < vtbl->nvars && q_is_one(vtbl->val + 0));
+  return vtbl->val + x;
+}
+
+/*
+ * Evaluate c->mono in the model
+ * - store the result in val
+ */
+static void aproj_eval_cnstr_in_model(aproj_vtbl_t *vtbl, rational_t *val, aproj_constraint_t *c) {
+  uint32_t i, n;
+  int32_t x;
+
+  q_clear(val);
+  n = c->nterms;
+  for (i=0; i<n; i++) {
+    x = c->mono[i].var;
+    q_addmul(val, &c->mono[i].coeff, aproj_var_val(vtbl, x));
+  }  
+}
+
 
 
 
@@ -675,6 +694,18 @@ void aproj_add_var(arith_projector_t *proj, term_t x, bool to_elim, rational_t *
   assert(good_term(proj->terms, x) && proj->constraints == NULL);
   aproj_vtbl_add_var(&proj->vtbl, x, to_elim, q);
 }
+
+
+/*
+ * Close the set of variables and prepare for addition of constraints.
+ * - this function must be called once all variables have been added
+ *   and before adding the first constraint.
+ 
+ */
+void aproj_close_var_set(arith_projector_t *proj) {
+  close_aproj_vtbl(&proj->vtbl);
+}
+
 
 
 /*
@@ -974,10 +1005,6 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
 
   assert(good_term(proj->terms, c) && is_boolean_term(proj->terms, c));
 
-  if (proj->constraints == NULL) {
-    close_aproj_vtbl(&proj->vtbl);
-  }
-
   terms = proj->terms;
   switch (term_kind(terms, c)) {
   case CONSTANT_TERM:
@@ -1134,7 +1161,7 @@ static void aproj_normalize_eq(arith_projector_t *proj, aproj_constraint_t *c, i
 /*
  * Apply substitution defined by eq to constraint c
  * - i = variable to eliminate
- * - coeff i in eq must be equal to 1
+ * - the coeff of i in eq must be equal to 1
  * - this creates a new constraint d that does not contain i, 
  *   and d is added to proj
  */
@@ -1159,7 +1186,7 @@ static void aproj_subst_constraint(arith_projector_t *proj, aproj_constraint_t *
   poly_buffer_submul_monarray(buffer, eq->mono, eq->nterms, a);
 
   // add new constraint: same tag as c
-  add_constraint_from_buffer(proj, buffer, aproj_cnstr_tag(c));  
+  add_constraint_from_buffer(proj, buffer, c->tag);  
 }
 
 
@@ -1217,7 +1244,7 @@ static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
   n = set->size;
   for (k=0; k<n; k++) {
     d = set->data[k];
-    if (live_ptr_elem(d) && aproj_cnstr_tag(d) == APROJ_EQ && d->nterms < size) {
+    if (live_ptr_elem(d) && d->tag == APROJ_EQ && d->nterms < size) {
       c = d;
     }
   }
@@ -1318,7 +1345,7 @@ static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i
   for (k=0; k<n; k++) {
     c = set->data[k];
     if (live_ptr_elem(c)) {
-      assert(aproj_cnstr_tag(c) == APROJ_GE || aproj_cnstr_tag(c) == APROJ_GT);
+      assert(c->tag == APROJ_GE || c->tag == APROJ_GT);
       aproj_normalize_inequality(proj, c, i);
     }
   }
@@ -1339,12 +1366,12 @@ static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i
  *   [p > 0]  + [q >= 0] --> [p + q > 0]
  *   [p >= 0] + [q >= 0] --> [p + q >= 0]
  *
- * We do this using biwise and (since APROJ_GT = 0b00, APROJ_GE = 0b01).
+ * We do this using bitwise and (since APROJ_GT = 0b00, APROJ_GE = 0b01).
  *
  * Note: this function also gives the right tag if c1 or c2 is an equality.
  */
 static inline aproj_tag_t aproj_combine_tags(aproj_constraint_t *c1, aproj_constraint_t *c2) {
-  return aproj_cnstr_tag(c1) & aproj_cnstr_tag(c2);
+  return c1->tag & c2->tag;
 }
 
 
@@ -1412,6 +1439,221 @@ static void aproj_fourier_motzkin(arith_projector_t *proj, int32_t i) {
 }
 
 
+/*
+ * VIRTUAL TERM SUBSTITUTION
+ */
+
+/*
+ * Given a variable i such that pos_count[i] > 0 and neg_count[i] > 0,
+ * we first collect and normalize the constraint on i as in Fourier-Motzkin.
+ * Every constraint in pos_vector is then of the form (i + p) > 0 or >= 0.
+ * Every constraint in neg_vector is of the form (- i + q) > or >= 0.
+ *
+ * We search for c in pos_vector whose value is minimal in the model and
+ * for d in neg_vector whose value is maximal. This gives us two constraints:
+ *    c:   (i + p) >= 0
+ *    d:  (-i + q) >= 0
+ * All constraints on i are true in the model, so we know
+ *     - val[p] <= val[i] <= val[q].
+ * 
+ * We eliminate i by replacing it with the term t := (q - p)/2
+ * everywhere.  By the choice of c and d, we known that all
+ * constraints on i are satisfied by t in the model.
+ */
+
+#if 0
+/*
+ * Apply the substitution defined by buffer b to constraint c.
+ * - i = variable to subtitute
+ * - i must occur in c
+ * - b must be normalized and contain a polynomial of the form i - p
+ *   (interpreted as i := p)
+ * - b must be distinct from proj->buffer
+ *
+ * This builds a new constraint that doesn't contain i and add it to proj.
+ */
+static void aproj_subst_buffer(arith_projector_t *proj, aproj_constraint_t *c, poly_buffer_t *b, int32_t i) {
+  poly_buffer_t *buffer;
+  rational_t *a;
+  int32_t k;
+
+  assert(q_is_one(poly_buffer_var_coeff(b, i)));
+
+  // a := coefficient of i in c
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0);
+  q = &proj->q1;
+  q_set(a, &c->mono[k].coeff);
+
+  // build c - a * b in buffer
+  buffer = &proj->buffer;
+  assert(poly_buffer_is_zero(buffer));
+
+  poly_buffer_add_monarray(buffer, c->mono, c->nterms);
+  poly_buffer_submul_monarray(buffer, poly_buffer_mono(b), poly_buffer_nterms(b));
+
+  // add the new constraint with the same tag as c
+  // this resets buffer
+  add_constraint_from_buffer(proj, buffer, c->tag);
+}
+
+#endif
+
+/*
+ * Apply the substitution defined by b and i to all constraints in
+ * pos_vector and neg_vector then remove all constraints in both
+ * vectors.
+ * - i = variable to eliminate
+ * - b must be normalized and contain a polynomial of the form i - t
+ *   (interpreted as i := t)
+ * - b must be distinct from proj->buffer
+ */
+static void aproj_substitute_buffer(arith_projector_t *proj, poly_buffer_t *b, int32_t i) {
+  pvector_t *v;
+  aproj_constraint_t *c;
+  poly_buffer_t *buffer;
+  monomial_t *b_mono;
+  uint32_t k, n, b_nterms;
+
+  assert(q_is_one(poly_buffer_var_coeff(b, i)));
+
+  // buffer for new constraints
+  buffer = &proj->buffer;
+  assert(poly_buffer_is_zero(buffer));
+
+  // polynomial stored in b
+  b_mono = poly_buffer_mono(b);
+  b_nterms = poly_buffer_nterms(b);
+
+  v = &proj->pos_vector;
+  n = v->size;
+  for (k=0; k<n; k++) {
+    c = v->data[k];
+    assert(aproj_var_coeff_is_one(c, i));
+    // c is (i + p) > 0 or >= 0 and b is (i - t)
+    // the new constraint is t + p with the same tag as c
+    poly_buffer_add_monarray(buffer, c->mono, c->nterms);
+    poly_buffer_sub_monarray(buffer, b_mono, b_nterms);
+
+    // add the constraint. This resets buffer
+    add_constraint_from_buffer(proj, buffer, c->tag);
+
+    // c is not needed anymore
+    free_aproj_constraint(c);
+  }
+  pvector_reset(v);
+
+  v = &proj->neg_vector;
+  n = v->size;
+  for (k=0; k<n; k++) {
+    c = v->data[k];
+    assert(aproj_var_coeff_is_minus_one(c, i));
+    // c is (- i + q) > 0 (or >= 0) and b is (i - t)
+    // the new constraint is - t + q >0 or >= 0
+    poly_buffer_add_monarray(buffer, c->mono, c->nterms);
+    poly_buffer_add_monarray(buffer, b_mono, b_nterms);
+    // add the constraint. This resets buffer
+    add_constraint_from_buffer(proj, buffer, c->tag);
+
+    // c is not needed anymore
+    free_aproj_constraint(c);
+  }
+  pvector_reset(v);
+}
+
+
+/*
+ * Find constraint with minimal/maximal value in pos_vector/neg_vector
+ */
+static aproj_constraint_t *aproj_min_pos_constraint(arith_projector_t *proj) {
+  pvector_t *v;
+  rational_t *q_min, *q;
+  aproj_constraint_t *min, *c;
+  uint32_t i, n;
+
+
+  v = &proj->pos_vector;
+  n = v->size;
+  assert(n > 0);
+
+  q_min = &proj->q1;
+  q = &proj->q2;
+
+  min = v->data[0];
+  aproj_eval_cnstr_in_model(&proj->vtbl, q_min, min); // q_min = val(min)
+  for (i=1; i<n; i++) {
+    c = v->data[i];
+    aproj_eval_cnstr_in_model(&proj->vtbl, q, c); // q := val(c)
+    if (q_lt(q, q_min)) {
+      q_set(q_min, q); // q_min := q
+      min = c;
+    }
+  }
+
+  return min;
+}
+
+static aproj_constraint_t *aproj_max_neg_constraint(arith_projector_t *proj) {
+  pvector_t *v;
+  rational_t *q_max, *q;
+  aproj_constraint_t *max, *c;
+  uint32_t i, n;
+
+  v = &proj->neg_vector;
+  n = v->size;
+  assert(n > 0);
+
+  q_max = &proj->q1;
+  q = &proj->q2;
+
+  max = v->data[0];
+  aproj_eval_cnstr_in_model(&proj->vtbl, q_max, max); // q_max = val(max)
+  for (i=1; i<n; i++) {
+    c = v->data[i];
+    aproj_eval_cnstr_in_model(&proj->vtbl, q, c); // q := val(c)
+    if (q_gt(q, q_max)) {
+      q_set(q_max, q); // q_max := q
+      max = c;
+    }
+  }
+
+  return max;
+}
+
+
+/*
+ * Eliminiate i by virtual substitution
+ */
+static void aproj_virtual_subst(arith_projector_t *proj, int32_t i) {
+  aproj_constraint_t *min, *max;
+  poly_buffer_t *b;
+
+  // collect/normalize constraints on i
+  aproj_prepare_inequalities_on_var(proj, i);
+
+  min = aproj_min_pos_constraint(proj);
+  max = aproj_max_neg_constraint(proj);
+
+  /*
+   * min->mono is (i + p)
+   * max->mono is (-i + q)
+   * we build i + (p - q)/2 in buffer2
+   */
+  b = &proj->buffer2;
+  assert(poly_buffer_is_zero(b));
+  poly_buffer_add_monarray(b, min->mono, min->nterms);
+  poly_buffer_sub_monarray(b, max->mono, max->nterms);
+  normalize_poly_buffer(b); // b contains 2i + p - q
+
+  q_set_int32(&proj->q1, 1, 2);
+  poly_buffer_rescale(b, &proj->q1); // multiply b by 1/2
+
+  assert(poly_buffer_has_var(b, i) && q_is_one(poly_buffer_var_coeff(b, i)));
+
+  aproj_substitute_buffer(proj, b, i);
+  reset_poly_buffer(b);
+}
+
 
 /*
  * Main loop: process variables to eliminate one by one
@@ -1438,6 +1680,7 @@ void aproj_eliminate(arith_projector_t *proj) {
       break;
 
     case APROJ_EXPENSIVE:
+      aproj_virtual_subst(proj, i);
       break;
     }
   }
