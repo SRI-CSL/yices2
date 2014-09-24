@@ -91,7 +91,7 @@ static void print_proj_poly(FILE *f, aproj_vtbl_t *vtbl, monomial_t *p, uint32_t
 
 static void print_proj_constraint(FILE *f, aproj_vtbl_t *vtbl, aproj_constraint_t *c) {
   print_proj_poly(f, vtbl, c->mono, c->nterms);
-  switch (aproj_cnstr_tag(c)) {
+  switch (c->tag) {
   case APROJ_GT:
     fputs(" > 0", f);
     break;
@@ -102,7 +102,7 @@ static void print_proj_constraint(FILE *f, aproj_vtbl_t *vtbl, aproj_constraint_
     fputs(" = 0", f);
     break;
   default:
-    fprintf(stderr, "BUG: invalid constraint tag (%"PRId32")\n", aproj_cnstr_tag(c));
+    fprintf(stderr, "BUG: invalid constraint tag (%"PRId32")\n", (int32_t) c->tag);
     exit(1);
     break;
   }
@@ -136,6 +136,35 @@ static void show_proj_vars_to_elim(FILE *f, aproj_vtbl_t *vtbl) {
 static void show_proj_vars_to_keep(FILE *f, aproj_vtbl_t *vtbl) {
   show_proj_var_array(f, vtbl, vtbl->nelims, vtbl->nvars);
 }
+
+
+/*
+ * Scores of variables to eliminate
+ */
+static void show_proj_var_score(FILE *f, aproj_vtbl_t *vtbl, int32_t k) {
+  aproj_score_t *score;
+
+  assert(1 <= k && k < vtbl->nelims);
+
+  score = vtbl->score + k;
+
+  fputs("  score[", f);
+  print_proj_var(f, vtbl, k);
+  fprintf(f, "]: eq: %"PRIu32", pos: %"PRIu32", neg: %"PRIu32"\n",
+	  score->eq_count, score->pos_count, score->neg_count);
+}
+
+static void show_scores(FILE *f, arith_projector_t *proj) {
+  aproj_vtbl_t *vtbl;
+  uint32_t i, n;
+
+  vtbl = &proj->vtbl;
+  n = vtbl->nelims;
+  for (i=1; i<n; i++) {
+    show_proj_var_score(f, vtbl, i);
+  }  
+}
+
 
 /*
  * All constraints in ptr_set s
@@ -553,6 +582,7 @@ static void test_constraints(void) {
   init_poly_desc(&p, 10);
   test_addvars(&proj, 0, 5, false); // a, b, c, d, e: vars to keep
   test_addvars(&proj, 5, 10, true); // v, w, x, y, z: vars to eliminate
+  aproj_close_var_set(&proj);
 
   for (i=0; i<20; i++) {
     make_random_poly(&p, 4);
@@ -563,13 +593,14 @@ static void test_constraints(void) {
   }
   printf("*** After adding constraints ***\n");
   show_projector(stdout, &proj);  
+  show_scores(stdout, &proj);
   printf("\n");
  
   aproj_eliminate(&proj);
   printf("*** After elimination ***\n");
   show_projector(stdout, &proj);  
+  show_scores(stdout, &proj);
   printf("\n");
- 
   
   delete_poly_desc(&p);
   delete_arith_projector(&proj);
@@ -577,16 +608,15 @@ static void test_constraints(void) {
 
 
 int main(void) {
+  uint32_t n;
+
   yices_init();
   init_globals();
 
   test_vars();
-  test_constraints();
-  test_constraints();
-  test_constraints();
-  test_constraints();
-  test_constraints();
-  test_constraints();
+  for (n=0; n<20; n++) {
+    test_constraints();
+  }
 
   cleanup_globals();
   yices_exit();
