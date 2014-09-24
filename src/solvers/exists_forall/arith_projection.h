@@ -86,6 +86,7 @@
 
 #include "utils/generic_heap.h"
 #include "utils/ptr_sets.h"
+#include "utils/ptr_vectors.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "terms/poly_buffer.h"
@@ -232,15 +233,24 @@ typedef struct aproj_vtbl_s {
  * - table of variables
  * - set of all constraints
  * - auxiliary buffers for polynomial operations
+ * - vectors of constraints: when a variable i is eliminated by
+ *   Fourier-Motzkin or virtual term substitution, we store
+ *   the inequalities involving i into pos_vector and neg_vector.
  */
 typedef struct arith_projector_s {
   term_table_t *terms;
   term_manager_t *manager;
   aproj_vtbl_t vtbl;
   ptr_set_t *constraints;
+
+  // buffers
   poly_buffer_t buffer;
   poly_buffer_t buffer2;
   rational_t q1, q2;
+
+  // vectors to collect constraints
+  pvector_t pos_vector;
+  pvector_t neg_vector;
 } arith_projector_t;
 
 
