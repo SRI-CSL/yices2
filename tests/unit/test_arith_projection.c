@@ -564,7 +564,13 @@ static void test_constraints(void) {
   printf("*** After adding constraints ***\n");
   show_projector(stdout, &proj);  
   printf("\n");
-
+ 
+  aproj_eliminate(&proj);
+  printf("*** After elimination ***\n");
+  show_projector(stdout, &proj);  
+  printf("\n");
+ 
+  
   delete_poly_desc(&p);
   delete_arith_projector(&proj);
 }

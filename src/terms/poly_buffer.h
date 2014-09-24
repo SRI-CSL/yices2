@@ -302,11 +302,27 @@ static inline bool poly_buffer_is_pos_constant(poly_buffer_t *buffer) {
 }
 
 /*
+ * Check whether the buffer is constant and non-negative
+ */
+static inline bool poly_buffer_is_nonneg_constant(poly_buffer_t *buffer) {
+  return buffer->nterms == 1 && buffer->mono[0].var == const_idx &&
+    q_is_nonneg(&buffer->mono[0].coeff);
+}
+
+/*
  * Check whether the buffer is constant and negative
  */
 static inline bool poly_buffer_is_neg_constant(poly_buffer_t *buffer) {
   return buffer->nterms == 1 && buffer->mono[0].var == const_idx &&
     q_is_neg(&buffer->mono[0].coeff);
+}
+
+/*
+ * Check whether the buffer is constant and negative
+ */
+static inline bool poly_buffer_is_nonpos_constant(poly_buffer_t *buffer) {
+  return buffer->nterms == 1 && buffer->mono[0].var == const_idx &&
+    q_is_nonpos(&buffer->mono[0].coeff);
 }
 
 

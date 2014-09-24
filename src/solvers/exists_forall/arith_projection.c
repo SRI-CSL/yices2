@@ -457,6 +457,22 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
 
 
 /*
+ * Cleanup after elimination of variable i
+ * - reset cnstr[i] to NULL 
+ * - reset all counters
+ */
+static void aproj_cleanup_var_data(aproj_vtbl_t *vtbl, int32_t i) {
+  assert(aproj_is_var_to_elim(vtbl, i));
+
+  vtbl->cnstr[i] = NULL;
+  vtbl->score[i].eq_count = 0;
+  vtbl->score[i].pos_count = 0;
+  vtbl->score[i].neg_count = 0;
+}
+
+
+
+/*
  * ORDERING ON VARIABLES
  */
 
@@ -593,6 +609,8 @@ void init_arith_projector(arith_projector_t *proj, term_manager_t *mngr, uint32_
   init_poly_buffer(&proj->buffer2);
   q_init(&proj->q1);
   q_init(&proj->q2);
+  init_pvector(&proj->pos_vector, 10);
+  init_pvector(&proj->neg_vector, 10);
 }
 
 
@@ -621,6 +639,8 @@ void reset_arith_projector(arith_projector_t *proj) {
   reset_poly_buffer(&proj->buffer2);
   q_clear(&proj->q1);
   q_clear(&proj->q2);
+  pvector_reset(&proj->pos_vector);
+  pvector_reset(&proj->neg_vector);
 }
 
 
@@ -636,6 +656,8 @@ void delete_arith_projector(arith_projector_t *proj) {
   delete_poly_buffer(&proj->buffer2);
   q_clear(&proj->q1);
   q_clear(&proj->q2);
+  delete_pvector(&proj->pos_vector);
+  delete_pvector(&proj->neg_vector);
 }
 
 
@@ -771,6 +793,33 @@ static void aproj_buffer_sub_poly(poly_buffer_t *buffer, aproj_vtbl_t *vtbl, pol
 
 
 /*
+ * For debugging: check that the constraint defined by buffer/tag
+ * is trivially true.
+ */
+#ifndef NDEBUG
+static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, aproj_tag_t tag) {
+  bool r;
+
+  assert(poly_buffer_is_constant(buffer));
+  r = false;
+  switch (tag) {
+  case APROJ_GT:
+    r = poly_buffer_is_pos_constant(buffer);
+    break;
+  case APROJ_GE:
+    r = poly_buffer_is_nonneg_constant(buffer);
+    break;
+  case APROJ_EQ:
+    r = poly_buffer_is_zero(buffer);
+    break;
+  }
+
+  return r;
+}
+
+#endif
+
+/*
  * Normalize buffer then build a constraint from its content and add the
  * constraint.
  * - tag = the constraint type.
@@ -779,8 +828,14 @@ static void add_constraint_from_buffer(arith_projector_t *proj, poly_buffer_t *b
   aproj_constraint_t *c;
 
   normalize_poly_buffer(buffer);
-  c = make_aproj_constraint(buffer, tag);
-  aproj_add_cnstr(proj, c);  
+  if (poly_buffer_is_constant(buffer)) {
+    // trivial constraint
+    assert(trivial_constraint_in_buffer(buffer, tag));
+    reset_poly_buffer(buffer);
+  } else {
+    c = make_aproj_constraint(buffer, tag);
+    aproj_add_cnstr(proj, c);
+  }
 }
 
 
@@ -972,7 +1027,7 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
 
 
 /*
- * VARIABLE ELIMINATION
+ * SUPPORT FOR VARIABLE ELIMINATION
  */
 
 /*
@@ -995,8 +1050,36 @@ static void aproj_remove_cnstr_var(arith_projector_t *proj, aproj_constraint_t *
   }
 }
 
+
 /*
- * Eliminate an unconstrained variable i
+ * Detach all the constraints that depend on i:
+ * - i must not be trivial (so it must have constraints attached)
+ * - remove them from the global constraint set and from the dependency sets
+ *   of all variables, except i.
+ */
+static void aproj_detach_all_constraints_on_var(arith_projector_t *proj, int32_t i) {
+  ptr_set_t *set;
+  aproj_constraint_t *c;
+  uint32_t k, n;
+
+  assert(aproj_is_var_to_elim(&proj->vtbl, i));
+
+  set = proj->vtbl.cnstr[i];
+  assert(set != NULL);
+
+  n = set->size;
+  for (k=0; k<n; k++) {
+    c = set->data[k];
+    if (live_ptr_elem(c)) {
+      aproj_remove_cnstr_var(proj, c, i);
+    }
+  }
+}
+
+
+
+/*
+ * ELIMINATION OF TRIVIAL VARIABLES
  */
 static void aproj_remove_all_constraints_on_var(arith_projector_t *proj, int32_t i) {
   ptr_set_t *set;
@@ -1017,10 +1100,15 @@ static void aproj_remove_all_constraints_on_var(arith_projector_t *proj, int32_t
     }
 
     free_ptr_set(set);
-    proj->vtbl.cnstr[i] = NULL;
+    aproj_cleanup_var_data(&proj->vtbl, i);
   }
 }
 
+
+
+/*
+ * ELIMINATION BY SUBSTITUTION
+ */
 
 /*
  * Make the coefficient of i equal to 1 in c
@@ -1044,47 +1132,72 @@ static void aproj_normalize_eq(arith_projector_t *proj, aproj_constraint_t *c, i
 
 
 /*
- * Make the coefficient if i equal to 1
- * - i must have a positive coefficient in c
- * - c should be an inequality
+ * Apply substitution defined by eq to constraint c
+ * - i = variable to eliminate
+ * - coeff i in eq must be equal to 1
+ * - this creates a new constraint d that does not contain i, 
+ *   and d is added to proj
  */
-static void aproj_normalize_ineq_pos(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
+static void aproj_subst_constraint(arith_projector_t *proj, aproj_constraint_t *c, aproj_constraint_t *eq, int32_t i) {  
+  poly_buffer_t *buffer;
+  rational_t *a;
   int32_t k;
 
-  k = aproj_constraint_find_var(c, i);
-  assert(k >= 0 && q_is_pos(&c->mono[k].coeff));
-  if (! q_is_one(&c->mono[k].coeff)) {
-    q_set(&proj->q1, &c->mono[k].coeff);
-    divide_aproj_constraint(c, &proj->q1);
-  }
+  assert(aproj_var_coeff_is_one(eq, i));
 
-  assert(aproj_var_coeff_is_one(c, i));
+  // a := coefficient of i in c
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0);
+  a = &proj->q1;
+  q_set(a, &c->mono[k].coeff);
+
+  // build c - a * eq in buffer
+  buffer = &proj->buffer;
+  assert(poly_buffer_is_zero(buffer));
+
+  poly_buffer_add_monarray(buffer, c->mono, c->nterms);
+  poly_buffer_submul_monarray(buffer, eq->mono, eq->nterms, a);
+
+  // add new constraint: same tag as c
+  add_constraint_from_buffer(proj, buffer, aproj_cnstr_tag(c));  
 }
 
 
 /*
- * Make the coefficient of i equal to -1
- * - i must have negative coefficient in c
- * - c should be an inequality
+ * Apply substitution defined by eq to all constraints that contain i,
+ * then remove all constraints on i.
+ * - i = variable to eliminate
+ * - i must have coeffficient 1 in eq
+ * - eq must not occur in proj->vtbl.cnstr[i]
  */
-static void aproj_normalize_ineq_neg(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
-  int32_t k;
+static void aproj_substitute_eq(arith_projector_t *proj, aproj_constraint_t *eq, int32_t i) {
+  ptr_set_t *set;
+  aproj_constraint_t *c;
+  uint32_t k, n;
 
-  k = aproj_constraint_find_var(c, i);
-  assert(k >= 0 && q_is_neg(&c->mono[k].coeff));
-  if (! q_is_minus_one(&c->mono[k].coeff)) {
-    q_set_neg(&proj->q1, &c->mono[k].coeff);
-    divide_aproj_constraint(c, &proj->q1);
+  set = proj->vtbl.cnstr[i];
+  assert(set != NULL);
+
+  n = set->size;
+  for (k=0; k<n; k++) {
+    c = set->data[k];
+    if (live_ptr_elem(c)) {
+      assert(c != eq);
+      aproj_subst_constraint(proj, c, eq, i);
+      free_aproj_constraint(c);
+    }
   }
 
-  assert(aproj_var_coeff_is_minus_one(c, i));
+  // clean up: delete the set and reset the counters
+  free_ptr_set(set);
+  aproj_cleanup_var_data(&proj->vtbl, i);
 }
 
 
 /*
  * Select an equality constraint that contains variable i
- * - return NULL if there's no such constraint
- * - otherwise, return an equality with the smallest number of terms
+ * - i must have positive eq_count
+ * - return an equality with the smallest number of terms
  *   the returned constraint is removed form i's set and from proj->constraint)
  */
 static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
@@ -1093,27 +1206,239 @@ static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
   uint32_t k, n, size;
 
 
-  assert(aproj_is_var_to_elim(&proj->vtbl, i));
+  assert(aproj_is_var_to_elim(&proj->vtbl, i) && proj->vtbl.score[i].eq_count > 0);
 
   c = NULL;
   size = UINT32_MAX; // this is larger than MAX_APROJ_CONSTRAINT_SIZE
 
   set = proj->vtbl.cnstr[i];
-  if (set != NULL) {
-    n = set->size;
-    for (k=0; k<n; k++) {
-      d = set->data[k];
-      if (live_ptr_elem(d) && aproj_cnstr_tag(d) == APROJ_EQ && d->nterms < size) {
-	c = d;
-      }
-    }
-
-    if (c != NULL) {
-      aproj_remove_cnstr(proj, c);
+  assert(set != NULL);
+  
+  n = set->size;
+  for (k=0; k<n; k++) {
+    d = set->data[k];
+    if (live_ptr_elem(d) && aproj_cnstr_tag(d) == APROJ_EQ && d->nterms < size) {
+      c = d;
     }
   }
+
+  assert(c != NULL);
+  aproj_remove_cnstr(proj, c);
 
   return c;
 }
 
 
+/*
+ * Eliminate variable i by substitution
+ * - i must have positive eq_count
+ */
+static void aproj_elim_var_subst(arith_projector_t *proj, int32_t i) {
+  aproj_constraint_t *eq;
+
+  eq = aproj_pick_eq(proj, i);
+  aproj_normalize_eq(proj, eq, i);
+
+  aproj_detach_all_constraints_on_var(proj, i);
+  aproj_substitute_eq(proj, eq, i);
+  free_aproj_constraint(eq);
+}
+
+
+
+/*
+ * ELIMINATION USING FOURIER-MOTZKIN OR VIRTUAL TERM SUBSTITUTION
+ */
+
+/*
+ * Normalize inequality c involving i then move it either to
+ * pos_vector or to neg_vector.
+ * - let a be the coefficient of i in c
+ * - if a is positive, then  1/a * c is added to pos_vector
+ * - if a is negative, then -1/a * c is added to neg_vector
+ */
+static void aproj_normalize_inequality(arith_projector_t *proj, aproj_constraint_t *c, int32_t i) {
+  int32_t k;
+
+  k = aproj_constraint_find_var(c, i);
+  assert(k >= 0);
+
+  if (q_is_pos(&c->mono[k].coeff)) {
+    if (! q_is_one(&c->mono[k].coeff)) {
+      q_set(&proj->q1, &c->mono[k].coeff);
+      divide_aproj_constraint(c, &proj->q1);
+    }
+    assert(aproj_var_coeff_is_one(c, i));
+
+    pvector_push(&proj->pos_vector, c);
+
+  } else {
+    assert(q_is_neg(&c->mono[k].coeff));
+    
+    if (! q_is_minus_one(&c->mono[k].coeff)) {
+      q_set_neg(&proj->q1, &c->mono[k].coeff);
+      divide_aproj_constraint(c, &proj->q1);
+    }
+    assert(aproj_var_coeff_is_minus_one(c, i));
+
+    pvector_push(&proj->neg_vector, c);
+  }
+}
+
+
+/*
+ * Prepare for elimination of variable i by Fourier-Motzkin or Virtual Term Substitution
+ * - i must not have any equality constraints
+ * - result:
+ *   - all constraints on i are normalized and moved to pos_vector/neg_vector
+ *   - they are also all removed from the global constraint set and the 
+ *     dependent sets in vtbl
+ *   - the set cnstr[i] and counters for i are reset
+ *
+ * - in every constraint of pos_vector, i has coefficient +1
+ *   in every constranit of neg_vector, i has coefficient -1
+ *
+ */
+static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i) {
+  ptr_set_t *set;
+  aproj_constraint_t *c;
+  uint32_t k, n;
+
+  assert(aproj_is_var_to_elim(&proj->vtbl, i) && proj->vtbl.score[i].eq_count == 0);
+
+  // remove constraints from the other vars and from proj->constraints
+  aproj_detach_all_constraints_on_var(proj, i);
+
+  assert(proj->pos_vector.size == 0 && proj->neg_vector.size == 0);
+
+  set = proj->vtbl.cnstr[i];
+  assert(set != NULL);
+
+  n = set->size;
+  for (k=0; k<n; k++) {
+    c = set->data[k];
+    if (live_ptr_elem(c)) {
+      assert(aproj_cnstr_tag(c) == APROJ_GE || aproj_cnstr_tag(c) == APROJ_GT);
+      aproj_normalize_inequality(proj, c, i);
+    }
+  }
+
+  assert(proj->pos_vector.size == proj->vtbl.score[i].pos_count &&
+	 proj->neg_vector.size == proj->vtbl.score[i].neg_count);
+
+  // cleanup
+  free_ptr_set(set);
+  aproj_cleanup_var_data(&proj->vtbl, i);
+}
+
+
+/*
+ * Combined tag when adding two inequality constraints:
+ *   [p > 0]  + [q > 0]  --> [p + q > 0]
+ *   [p >= 0] + [q > 0]  --> [p + q > 0]
+ *   [p > 0]  + [q >= 0] --> [p + q > 0]
+ *   [p >= 0] + [q >= 0] --> [p + q >= 0]
+ *
+ * We do this using biwise and (since APROJ_GT = 0b00, APROJ_GE = 0b01).
+ *
+ * Note: this function also gives the right tag if c1 or c2 is an equality.
+ */
+static inline aproj_tag_t aproj_combine_tags(aproj_constraint_t *c1, aproj_constraint_t *c2) {
+  return aproj_cnstr_tag(c1) & aproj_cnstr_tag(c2);
+}
+
+
+/*
+ * Resolution: one step in Fourier-Motzkin elimination;
+ * - c1 and c2 are two inequality constraints
+ * - there's a variable i with coefficient 1 in c1 and -1 in c2
+ * - the resolvant is (c1 + c2) > 0 or (c1 + c2 >= 0)
+ *   (which does not contain variable i).
+ */
+static void aproj_resolve(arith_projector_t *proj, aproj_constraint_t *c1, aproj_constraint_t *c2) {
+  poly_buffer_t *buffer;
+
+  buffer = &proj->buffer;
+  assert(poly_buffer_is_zero(buffer));
+
+  poly_buffer_add_monarray(buffer, c1->mono, c1->nterms);
+  poly_buffer_add_monarray(buffer, c2->mono, c2->nterms);
+  
+  add_constraint_from_buffer(proj, buffer, aproj_combine_tags(c1, c2));
+}
+
+
+/*
+ * Free all constraints in vector v then reset v
+ */
+static void empty_aproj_vector(pvector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    free_aproj_constraint(v->data[i]);
+  }
+  pvector_reset(v);
+}
+
+
+/*
+ * Fourier-Motzkin elimination
+ */
+static void aproj_fourier_motzkin(arith_projector_t *proj, int32_t i) {
+  uint32_t j, k, pos, neg;
+  pvector_t *v1, *v2;
+
+  aproj_prepare_inequalities_on_var(proj, i);
+
+  v1 = &proj->pos_vector;
+  v2 = &proj->neg_vector;
+
+  pos = v1->size;
+  neg = v2->size;
+
+  // Add the resolvants
+  for (j=0; j<pos; j++) {
+    assert(aproj_var_coeff_is_one(v1->data[j], i)); 
+    for (k=0; k<neg; k++) {
+      assert(aproj_var_coeff_is_minus_one(v2->data[k], i));
+      aproj_resolve(proj, v1->data[j], v2->data[k]);
+    }
+  }
+
+  // Cleanup: delete all constraints in v1 and v2
+  empty_aproj_vector(v1);
+  empty_aproj_vector(v2);
+}
+
+
+
+/*
+ * Main loop: process variables to eliminate one by one
+ */
+void aproj_eliminate(arith_projector_t *proj) {
+  generic_heap_t *var_heap;
+  int32_t i;
+
+  var_heap = &proj->vtbl.heap;
+  while (! generic_heap_is_empty(var_heap)) {
+    i = generic_heap_get_min(var_heap);
+
+    switch (aproj_var_group(&proj->vtbl, i)) {
+    case APROJ_TRIVIAL:
+      aproj_remove_all_constraints_on_var(proj, i);
+      break;
+
+    case APROJ_SUBST:
+      aproj_elim_var_subst(proj, i);
+      break;
+
+    case APROJ_CHEAP:
+      aproj_fourier_motzkin(proj, i);
+      break;
+
+    case APROJ_EXPENSIVE:
+      break;
+    }
+  }
+}
