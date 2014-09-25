@@ -497,6 +497,35 @@ static void aproj_eval_cnstr_in_model(aproj_vtbl_t *vtbl, rational_t *val, aproj
   }  
 }
 
+#ifndef NDEBUG
+/*
+ * Check whether c is true in the model
+ */
+static bool aproj_good_constraint(arith_projector_t *proj, aproj_constraint_t *c) {
+  rational_t aux;
+  bool result;
+
+  result = false;
+
+  q_init(&aux);
+  aproj_eval_cnstr_in_model(&proj->vtbl, &aux, c);
+  switch (c->tag) {
+  case APROJ_GE:
+    result = q_is_nonneg(&aux);
+    break;
+  case APROJ_GT:
+    result = q_is_pos(&aux);
+    break;
+  case APROJ_EQ:
+    result = q_is_zero(&aux);
+    break;
+  }
+  q_clear(&aux);
+
+  return result;
+}
+
+#endif
 
 
 
@@ -874,6 +903,7 @@ static void add_constraint_from_buffer(arith_projector_t *proj, poly_buffer_t *b
     reset_poly_buffer(buffer);
   } else {
     c = make_aproj_constraint(buffer, tag);
+    assert(aproj_good_constraint(proj, c));
     aproj_add_cnstr(proj, c);
   }
 }
@@ -1670,7 +1700,9 @@ static void aproj_virtual_subst(arith_projector_t *proj, int32_t i) {
 void aproj_eliminate(arith_projector_t *proj) {
   generic_heap_t *var_heap;
   int32_t i;
+  uint32_t xxxxx;
 
+  xxxxx = 1;
   var_heap = &proj->vtbl.heap;
   while (! generic_heap_is_empty(var_heap)) {
     i = generic_heap_get_min(var_heap);
@@ -1689,7 +1721,10 @@ void aproj_eliminate(arith_projector_t *proj) {
       break;
 
     case APROJ_EXPENSIVE:
-      aproj_virtual_subst(proj, i);
+      if (xxxxx > 0) {
+	aproj_virtual_subst(proj, i);
+	xxxxx --;
+      }
       break;
     }
   }
@@ -1794,6 +1829,3 @@ term_t aproj_get_formula(arith_projector_t *proj) {
 
   return t;
 }
-
-
-
