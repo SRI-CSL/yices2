@@ -85,6 +85,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "utils/int_vectors.h"
 #include "utils/generic_heap.h"
 #include "utils/ptr_sets.h"
 #include "utils/ptr_vectors.h"
@@ -287,12 +288,26 @@ extern void aproj_add_constraint(arith_projector_t *proj, term_t c);
 extern void aproj_eliminate(arith_projector_t *proj);
 
 
+
+/*
+ * Collect the result as a vector of formulas
+ * - every constraint in proj->constraint is converted to a Boolean
+ *   term that's added to vector v
+ * - v is not reset
+ *
+ * So the set of constraints after in proj->constraint is equivalent to 
+ * the conjunction of formulas added to v.
+ */
+extern void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v);
+
+
 /*
  * Collect the result as a formula:
  * - returns either true_term or a conjunction of arithmetic constraints
  *   that do not contain the eliminated variables.
  */
 extern term_t aproj_get_formula(arith_projector_t *proj);
+
 
 
 

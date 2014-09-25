@@ -12,6 +12,7 @@
 #include <assert.h>
 
 #include "utils/memalloc.h"
+#include "terms/rba_buffer_terms.h"
 #include "solvers/exists_forall/arith_projection.h"
 
 
@@ -386,6 +387,14 @@ static bool aproj_is_var_to_elim(aproj_vtbl_t *vtbl, int32_t i) {
   return 0 < i && i < vtbl->nelims;
 }
 
+
+/*
+ * Term that variable i represents
+ */
+static inline term_t aproj_term_of_var(aproj_vtbl_t *vtbl, int32_t i) {
+  assert(1 <= i && i < vtbl->nvars);
+  return vtbl->term_of[i];
+}
 
 /*
  * Add a constraint to variable i's dependents
@@ -1685,3 +1694,106 @@ void aproj_eliminate(arith_projector_t *proj) {
     }
   }
 }
+
+
+/*
+ * CONVERT CONSTRAINTS BACK TO TERMS
+ */
+
+/*
+ * Convert constraint c to a term
+ */
+static term_t aproj_convert_constraint(arith_projector_t *proj, aproj_constraint_t *c) {
+  rba_buffer_t *buffer;
+  aproj_vtbl_t *vtbl;
+  uint32_t i, n;
+  int32_t x;
+  term_t t;
+
+  buffer = term_manager_get_arith_buffer(proj->manager);
+  reset_rba_buffer(buffer);
+
+  vtbl = &proj->vtbl;
+
+  n = c->nterms;
+  i = 0;
+  if (c->mono[0].var == const_idx) {
+    // constant
+    rba_buffer_add_const(buffer, &c->mono[0].coeff);
+    i ++;
+  }
+  while (i < n) {
+    x = c->mono[i].var;
+    t = aproj_term_of_var(vtbl, x);
+    rba_buffer_add_const_times_term(buffer, proj->terms, &c->mono[i].coeff, t);
+    i ++;
+  }
+
+  t = NULL_TERM; // prevent GCC warning
+
+  switch (c->tag) {
+  case APROJ_GT:
+    t = mk_arith_gt0(proj->manager, buffer);
+    break;
+
+  case APROJ_GE:
+    t = mk_arith_geq0(proj->manager, buffer);
+    break;
+
+  case APROJ_EQ:
+    t = mk_arith_eq0(proj->manager, buffer);
+    break;
+  }
+
+  return t;
+}
+
+
+/*
+ * Collect the result as a vector of formulas
+ * - every constraint in proj->constraint is converted to a Boolean
+ *   term that's added to vector v
+ * - v is not reset
+ *
+ * So the set of constraints after in proj->constraint is equivalent to 
+ * the conjunction of formulas added to v.
+ */
+void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v) {
+  ptr_set_t *set;
+  aproj_constraint_t *c;
+  uint32_t i, n;
+  term_t t;
+
+  set = proj->constraints;
+  if (set != NULL) {
+    n = set->size;
+    for (i=0; i<n; i++) {
+      c = set->data[i];
+      if (live_ptr_elem(c)) {
+	t = aproj_convert_constraint(proj, c);
+	ivector_push(v, t);
+      }
+    }
+  }
+}
+
+
+/*
+ * Collect the result as a formula:
+ * - returns either true_term or a conjunction of arithmetic constraints
+ *   that do not contain the eliminated variables.
+ */
+term_t aproj_get_formula(arith_projector_t *proj) {
+  ivector_t v;
+  term_t t;
+
+  init_ivector(&v, 10);
+  aproj_get_formula_vector(proj, &v);
+  t = mk_and(proj->manager, v.size, v.data);
+  delete_ivector(&v);
+
+  return t;
+}
+
+
+
