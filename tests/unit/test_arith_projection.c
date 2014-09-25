@@ -601,6 +601,7 @@ static void test_constraints(void) {
   arith_projector_t proj;
   poly_desc_t p;
   uint32_t i;
+  term_t t;
 
   init_arith_projector(&proj, __yices_globals.manager, 0, 0);
   init_poly_desc(&p, 10);
@@ -627,7 +628,12 @@ static void test_constraints(void) {
   show_scores(stdout, &proj);
   show_values(stdout, &proj);
   printf("\n");
-  
+
+  t = aproj_get_formula(&proj);
+  printf("*** Result formula ***\n");
+  yices_pp_term(stdout, t, 120, 40, 0);
+  printf("\n");
+
   delete_poly_desc(&p);
   delete_arith_projector(&proj);
 }
@@ -640,7 +646,7 @@ int main(void) {
   init_globals();
 
   test_vars();
-  for (n=0; n<1; n++) {
+  for (n=0; n<200; n++) {
     test_constraints();
   }
 
