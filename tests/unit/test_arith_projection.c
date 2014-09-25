@@ -167,6 +167,30 @@ static void show_scores(FILE *f, arith_projector_t *proj) {
 
 
 /*
+ * Values in model
+ */
+static void show_proj_var_value(FILE *f, aproj_vtbl_t *vtbl, int32_t k) {
+  assert(1 <= k && k < vtbl->nvars);
+  fputs("  value[", f);
+  print_proj_var(f, vtbl, k);
+  fputs("] = ", f);
+  q_print(f, &vtbl->val[k]);
+  fputc('\n', f);
+}
+
+static void show_values(FILE *f, arith_projector_t *proj) {
+  aproj_vtbl_t *vtbl;
+  uint32_t i, n;
+
+  vtbl = &proj->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    show_proj_var_value(f, vtbl, i);
+  }  
+}
+
+
+/*
  * All constraints in ptr_set s
  */
 static void show_constraint_set(FILE *f, aproj_vtbl_t *vtbl, ptr_set_t *s) {
@@ -594,12 +618,14 @@ static void test_constraints(void) {
   printf("*** After adding constraints ***\n");
   show_projector(stdout, &proj);  
   show_scores(stdout, &proj);
+  show_values(stdout, &proj);
   printf("\n");
  
   aproj_eliminate(&proj);
   printf("*** After elimination ***\n");
   show_projector(stdout, &proj);  
   show_scores(stdout, &proj);
+  show_values(stdout, &proj);
   printf("\n");
   
   delete_poly_desc(&p);
@@ -614,7 +640,7 @@ int main(void) {
   init_globals();
 
   test_vars();
-  for (n=0; n<20; n++) {
+  for (n=0; n<1; n++) {
     test_constraints();
   }
 
