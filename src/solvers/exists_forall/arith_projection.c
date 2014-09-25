@@ -8,7 +8,6 @@
 /*
  * MODEL-BASED QUANTIFIER ELIMINATION FOR LINEAR ARITHMETIC
  */
-
 #include <assert.h>
 
 #include "utils/memalloc.h"
@@ -1335,6 +1334,7 @@ static void aproj_normalize_inequality(arith_projector_t *proj, aproj_constraint
       divide_aproj_constraint(c, &proj->q1);
     }
     assert(aproj_var_coeff_is_one(c, i));
+    assert(aproj_good_constraint(proj, c));
 
     pvector_push(&proj->pos_vector, c);
 
@@ -1346,6 +1346,7 @@ static void aproj_normalize_inequality(arith_projector_t *proj, aproj_constraint
       divide_aproj_constraint(c, &proj->q1);
     }
     assert(aproj_var_coeff_is_minus_one(c, i));
+    assert(aproj_good_constraint(proj, c));
 
     pvector_push(&proj->neg_vector, c);
   }
@@ -1489,7 +1490,7 @@ static void aproj_fourier_motzkin(arith_projector_t *proj, int32_t i) {
  * Every constraint in neg_vector is of the form (- i + q) > or >= 0.
  *
  * We search for c in pos_vector whose value is minimal in the model and
- * for d in neg_vector whose value is maximal. This gives us two constraints:
+ * for d in neg_vector whose value is miniimal. This gives us two constraints:
  *    c:   (i + p) >= 0
  *    d:  (-i + q) >= 0
  * All constraints on i are true in the model, so we know
@@ -1602,16 +1603,14 @@ static void aproj_substitute_buffer(arith_projector_t *proj, poly_buffer_t *b, i
 
 
 /*
- * Find constraint with minimal/maximal value in pos_vector/neg_vector
+ * Find constraint with minimal value in vecctor v
  */
-static aproj_constraint_t *aproj_min_pos_constraint(arith_projector_t *proj) {
-  pvector_t *v;
+static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector_t *v) {
   rational_t *q_min, *q;
   aproj_constraint_t *min, *c;
   uint32_t i, n;
 
 
-  v = &proj->pos_vector;
   n = v->size;
   assert(n > 0);
 
@@ -1620,9 +1619,11 @@ static aproj_constraint_t *aproj_min_pos_constraint(arith_projector_t *proj) {
 
   min = v->data[0];
   aproj_eval_cnstr_in_model(&proj->vtbl, q_min, min); // q_min = val(min)
+
   for (i=1; i<n; i++) {
     c = v->data[i];
     aproj_eval_cnstr_in_model(&proj->vtbl, q, c); // q := val(c)
+
     if (q_lt(q, q_min)) {
       q_set(q_min, q); // q_min := q
       min = c;
@@ -1632,56 +1633,28 @@ static aproj_constraint_t *aproj_min_pos_constraint(arith_projector_t *proj) {
   return min;
 }
 
-static aproj_constraint_t *aproj_max_neg_constraint(arith_projector_t *proj) {
-  pvector_t *v;
-  rational_t *q_max, *q;
-  aproj_constraint_t *max, *c;
-  uint32_t i, n;
-
-  v = &proj->neg_vector;
-  n = v->size;
-  assert(n > 0);
-
-  q_max = &proj->q1;
-  q = &proj->q2;
-
-  max = v->data[0];
-  aproj_eval_cnstr_in_model(&proj->vtbl, q_max, max); // q_max = val(max)
-  for (i=1; i<n; i++) {
-    c = v->data[i];
-    aproj_eval_cnstr_in_model(&proj->vtbl, q, c); // q := val(c)
-    if (q_gt(q, q_max)) {
-      q_set(q_max, q); // q_max := q
-      max = c;
-    }
-  }
-
-  return max;
-}
-
-
 /*
  * Eliminiate i by virtual substitution
  */
 static void aproj_virtual_subst(arith_projector_t *proj, int32_t i) {
-  aproj_constraint_t *min, *max;
+  aproj_constraint_t *pos, *neg;
   poly_buffer_t *b;
 
   // collect/normalize constraints on i
   aproj_prepare_inequalities_on_var(proj, i);
 
-  min = aproj_min_pos_constraint(proj);
-  max = aproj_max_neg_constraint(proj);
+  pos = aproj_min_constraint(proj, &proj->pos_vector);
+  neg = aproj_min_constraint(proj, &proj->neg_vector);
 
   /*
-   * min->mono is (i + p)
-   * max->mono is (-i + q)
+   * pos->mono is (i + p)
+   * neg->mono is (-i + q)
    * we build i + (p - q)/2 in buffer2
    */
   b = &proj->buffer2;
   assert(poly_buffer_is_zero(b));
-  poly_buffer_add_monarray(b, min->mono, min->nterms);
-  poly_buffer_sub_monarray(b, max->mono, max->nterms);
+  poly_buffer_add_monarray(b, pos->mono, pos->nterms);
+  poly_buffer_sub_monarray(b, neg->mono, neg->nterms);
   normalize_poly_buffer(b); // b contains 2i + p - q
 
   q_set_int32(&proj->q1, 1, 2);
@@ -1700,9 +1673,7 @@ static void aproj_virtual_subst(arith_projector_t *proj, int32_t i) {
 void aproj_eliminate(arith_projector_t *proj) {
   generic_heap_t *var_heap;
   int32_t i;
-  uint32_t xxxxx;
 
-  xxxxx = 1;
   var_heap = &proj->vtbl.heap;
   while (! generic_heap_is_empty(var_heap)) {
     i = generic_heap_get_min(var_heap);
@@ -1721,10 +1692,7 @@ void aproj_eliminate(arith_projector_t *proj) {
       break;
 
     case APROJ_EXPENSIVE:
-      if (xxxxx > 0) {
-	aproj_virtual_subst(proj, i);
-	xxxxx --;
-      }
+      aproj_virtual_subst(proj, i);
       break;
     }
   }
