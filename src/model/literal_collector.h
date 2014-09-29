@@ -131,9 +131,9 @@ enum {
 /*
  * Collector structure:
  * - terms = the relevant term table
+ * - manager = term manager (must match the term_table and model)
  * - model = the relevant model
  * - evaluator = initialized for the model
- * - manager = for creating the simplified terms (if any)
  * - tcache = simplified form of all visited terms
  * - fcache = simplified form of all visited formulas
  * - lit_set = set of literals
@@ -150,9 +150,9 @@ enum {
  */
 typedef struct lit_collector_s {
   term_table_t *terms;
+  term_manager_t *manager;
   model_t *model;
   evaluator_t eval;
-  term_manager_t manager;
   int_hmap_t tcache;
   int_hmap_t fcache;
   int_hset_t lit_set;
@@ -166,8 +166,9 @@ typedef struct lit_collector_s {
 
 /*
  * Initialization for model mdl + default options
+ * - mngr = term manager 
  */
-extern void init_lit_collector(lit_collector_t *collect, model_t *mdl);
+extern void init_lit_collector(lit_collector_t *collect, model_t *mdl, term_manager_t *mngr);
 
 
 /*
@@ -235,7 +236,8 @@ extern void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v);
  *
  * - options = bit mask to enable/disable the optional processing.
  */
-extern int32_t get_implicant(model_t *mdl, uint32_t options, uint32_t n, const term_t *a, ivector_t *v);
+extern int32_t get_implicant(model_t *mdl, term_manager_t *mngr, uint32_t options,
+			     uint32_t n, const term_t *a, ivector_t *v);
 
 
 

@@ -7775,7 +7775,7 @@ EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector
   }
 
   v->size = 0;
-  code = get_implicant(mdl, IMPLICANT_OPTIONS, 1, &t, (ivector_t *) v);
+  code = get_implicant(mdl, &manager, IMPLICANT_OPTIONS, 1, &t, (ivector_t *) v);
   if (code < 0) {
     error.code = yices_eval_error(code);
     return -1;
@@ -7797,7 +7797,7 @@ EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const te
   }
 
   v->size = 0;
-  code = get_implicant(mdl, IMPLICANT_OPTIONS, n, a, (ivector_t *) v);
+  code = get_implicant(mdl, &manager, IMPLICANT_OPTIONS, n, a, (ivector_t *) v);
   if (code < 0) {
     error.code = yices_eval_error(code);
     return -1;

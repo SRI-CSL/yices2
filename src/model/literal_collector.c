@@ -49,11 +49,13 @@
  * Initialization: prepare collector for model mdl
  * - collect->env is not touched.
  */
-void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
+void init_lit_collector(lit_collector_t *collect, model_t *mdl, term_manager_t *mngr) {
+  assert(term_manager_get_terms(mngr) == mdl->terms);
+
   collect->terms = mdl->terms;
+  collect->manager = mngr;
   collect->model = mdl;
   init_evaluator(&collect->eval, mdl);
-  init_term_manager(&collect->manager, mdl->terms);
   init_int_hmap(&collect->tcache, 0);
   init_int_hmap(&collect->fcache, 0);
   init_int_hset(&collect->lit_set, 0);
@@ -68,7 +70,6 @@ void init_lit_collector(lit_collector_t *collect, model_t *mdl) {
  */
 void delete_lit_collector(lit_collector_t *collect) {
   delete_evaluator(&collect->eval);
-  delete_term_manager(&collect->manager);
   delete_int_hmap(&collect->tcache);
   delete_int_hmap(&collect->fcache);
   delete_int_hset(&collect->lit_set);
@@ -458,17 +459,17 @@ static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, te
     if (sgn < 0) {
       // atom is (v < 0), the result is false
       r = false_term;
-      t = mk_arith_term_lt0(&collect->manager, v);
+      t = mk_arith_term_lt0(collect->manager, v);
     } else if (sgn  == 0) {
       // atom is (v == 0), the result is true
       r = true_term;
       if (v != u) {
-	t = mk_arith_term_eq0(&collect->manager, v);
+	t = mk_arith_term_eq0(collect->manager, v);
       }
     } else {
       // atom is (v > 0)
       r = false_term;
-      t = mk_arith_term_gt0(&collect->manager, v);
+      t = mk_arith_term_gt0(collect->manager, v);
     }
 
     // we know that t is true in the model
@@ -479,7 +480,7 @@ static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, te
   } else {
     // keep (u == 0) as a literal
     if (v != u) {
-      t = mk_arith_term_eq0(&collect->manager, v);
+      t = mk_arith_term_eq0(collect->manager, v);
     }
     return register_atom(collect, t);
   }
@@ -508,17 +509,17 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
     if (cmp < 0) {
       // atom (t1 < t2)
       r = false_term;
-      t = mk_arith_lt(&collect->manager, t1, t2);
+      t = mk_arith_lt(collect->manager, t1, t2);
     } else if (cmp == 0) {
       // atom (t1 == t2)
       r = true_term;
       if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
-	t = mk_arith_eq(&collect->manager, t1, t2);
+	t = mk_arith_eq(collect->manager, t1, t2);
       }
     } else {
       // atom (t1 > t2)
       r = false_term;
-      t = mk_arith_gt(&collect->manager, t1, t2);
+      t = mk_arith_gt(collect->manager, t1, t2);
     }
 
     lit_collector_add_literal(collect, t);
@@ -528,7 +529,7 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
   } else {
     // keep the atom as (t1 == t2)
     if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
-      t = mk_arith_eq(&collect->manager, t1, t2);
+      t = mk_arith_eq(collect->manager, t1, t2);
     }
 
     return register_atom(collect, t);
@@ -568,7 +569,7 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
      */
     lit_collector_sort_in_model(collect, n, a);
     for (i=0; i<n-1; i++) {
-      t = mk_arith_lt(&collect->manager, a[i], a[i+1]);
+      t = mk_arith_lt(collect->manager, a[i], a[i+1]);
       lit_collector_add_literal(collect, t); // since t is true in the model
     }
     t = true_term;
@@ -583,7 +584,7 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
     lit_collector_sort_by_value(collect, n, a);
     for (i=0; i<n-1; i++) {
       if (equal_in_model(collect, a[i], a[i+1])) {
-	t = mk_eq(&collect->manager, a[i], a[i+1]);
+	t = mk_eq(collect->manager, a[i], a[i+1]);
 	lit_collector_add_literal(collect, t); // t is true
 	break;
       }
@@ -598,7 +599,7 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
      * No special processing: keep distinct as an atom
      */
     if (inequal_arrays(a, distinct->arg, n)) {
-      t = mk_distinct(&collect->manager, n, a);
+      t = mk_distinct(collect->manager, n, a);
     }
     t = register_atom(collect, t);
   }
@@ -661,7 +662,7 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
 
  build_atom:
   if (t1 != u1 || t2 != u2) {
-    t = mk_eq(&collect->manager, u1, u2);
+    t = mk_eq(collect->manager, u1, u2);
   }
 
   return register_atom(collect, t);
@@ -675,7 +676,7 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
 
   v = lit_collector_visit(collect, u);
   if (v != u) {
-    t = mk_arith_term_geq0(&collect->manager, v);
+    t = mk_arith_term_geq0(collect->manager, v);
   }
   return register_atom(collect, t);
 }
@@ -717,7 +718,7 @@ static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, compos
   }
 
   if (inequal_arrays(a, app->arg, n)) {
-    t = mk_application(&collect->manager, a[0], n-1, a+1);
+    t = mk_application(collect->manager, a[0], n-1, a+1);
   }
   free_istack_array(&collect->stack, a);
 
@@ -742,7 +743,7 @@ static term_t lit_collector_visit_update(lit_collector_t *collect, term_t t, com
   }
 
   if (inequal_arrays(a, update->arg, n)) {
-    t = mk_update(&collect->manager, a[0], n-2, a+1, a[n-1]);
+    t = mk_update(collect->manager, a[0], n-2, a+1, a[n-1]);
   }
 
   free_istack_array(&collect->stack, a);
@@ -764,7 +765,7 @@ static term_t lit_collector_visit_tuple(lit_collector_t *collect, term_t t, comp
   }
 
   if (inequal_arrays(a, tuple->arg, n)) {
-    t = mk_tuple(&collect->manager, n, a);
+    t = mk_tuple(collect->manager, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -816,7 +817,7 @@ static term_t lit_collector_visit_or_term(lit_collector_t *collect, term_t t, co
   }
 
   if (inequal_arrays(a, or->arg, n)) {
-    t = mk_or(&collect->manager, n, a);
+    t = mk_or(collect->manager, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -854,7 +855,7 @@ static term_t lit_collector_visit_xor_term(lit_collector_t *collect, term_t t, c
   }
 
   if (inequal_arrays(a, xor->arg, n)) {
-    t = mk_xor(&collect->manager, n, a);
+    t = mk_xor(collect->manager, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -876,7 +877,7 @@ static term_t lit_collector_visit_bvarray(lit_collector_t *collect, term_t t, co
     a[i] = lit_collector_visit(collect, bv->arg[i]);
   }
 
-  t = mk_bvarray(&collect->manager, n, a);
+  t = mk_bvarray(collect->manager, n, a);
 
   free_istack_array(&collect->stack, a);
 
@@ -891,7 +892,7 @@ static term_t lit_collector_visit_bvdiv(lit_collector_t *collect, term_t t, comp
   t1 = lit_collector_visit(collect, bvdiv->arg[0]);
   t2 = lit_collector_visit(collect, bvdiv->arg[1]);
   if (t1 != bvdiv->arg[0] || t2 != bvdiv->arg[1]) {
-    t = mk_bvdiv(&collect->manager, t1, t2);
+    t = mk_bvdiv(collect->manager, t1, t2);
   }
 
   return t;
@@ -905,7 +906,7 @@ static term_t lit_collector_visit_bvrem(lit_collector_t *collect, term_t t, comp
   t1 = lit_collector_visit(collect, bvrem->arg[0]);
   t2 = lit_collector_visit(collect, bvrem->arg[1]);
   if (t1 != bvrem->arg[0] || t2 != bvrem->arg[1]) {
-    t = mk_bvrem(&collect->manager, t1, t2);
+    t = mk_bvrem(collect->manager, t1, t2);
   }
 
   return t;
@@ -919,7 +920,7 @@ static term_t lit_collector_visit_bvsdiv(lit_collector_t *collect, term_t t, com
   t1 = lit_collector_visit(collect, bvsdiv->arg[0]);
   t2 = lit_collector_visit(collect, bvsdiv->arg[1]);
   if (t1 != bvsdiv->arg[0] || t2 != bvsdiv->arg[1]) {
-    t = mk_bvsdiv(&collect->manager, t1, t2);
+    t = mk_bvsdiv(collect->manager, t1, t2);
   }
 
   return t;
@@ -933,7 +934,7 @@ static term_t lit_collector_visit_bvsrem(lit_collector_t *collect, term_t t, com
   t1 = lit_collector_visit(collect, bvsrem->arg[0]);
   t2 = lit_collector_visit(collect, bvsrem->arg[1]);
   if (t1 != bvsrem->arg[0] || t2 != bvsrem->arg[1]) {
-    t = mk_bvsrem(&collect->manager, t1, t2);
+    t = mk_bvsrem(collect->manager, t1, t2);
   }
 
   return t;
@@ -947,7 +948,7 @@ static term_t lit_collector_visit_bvsmod(lit_collector_t *collect, term_t t, com
   t1 = lit_collector_visit(collect, bvsmod->arg[0]);
   t2 = lit_collector_visit(collect, bvsmod->arg[1]);
   if (t1 != bvsmod->arg[0] || t2 != bvsmod->arg[1]) {
-    t = mk_bvsmod(&collect->manager, t1, t2);
+    t = mk_bvsmod(collect->manager, t1, t2);
   }
 
   return t;
@@ -961,7 +962,7 @@ static term_t lit_collector_visit_bvshl(lit_collector_t *collect, term_t t, comp
   t1 = lit_collector_visit(collect, bvshl->arg[0]);
   t2 = lit_collector_visit(collect, bvshl->arg[1]);
   if (t1 != bvshl->arg[0] || t2 != bvshl->arg[1]) {
-    t = mk_bvshl(&collect->manager, t1, t2);
+    t = mk_bvshl(collect->manager, t1, t2);
   }
 
   return t;
@@ -975,7 +976,7 @@ static term_t lit_collector_visit_bvlshr(lit_collector_t *collect, term_t t, com
   t1 = lit_collector_visit(collect, bvlshr->arg[0]);
   t2 = lit_collector_visit(collect, bvlshr->arg[1]);
   if (t1 != bvlshr->arg[0] || t2 != bvlshr->arg[1]) {
-    t = mk_bvlshr(&collect->manager, t1, t2);
+    t = mk_bvlshr(collect->manager, t1, t2);
   }
 
   return t;
@@ -989,7 +990,7 @@ static term_t lit_collector_visit_bvashr(lit_collector_t *collect, term_t t, com
   t1 = lit_collector_visit(collect, bvashr->arg[0]);
   t2 = lit_collector_visit(collect, bvashr->arg[1]);
   if (t1 != bvashr->arg[0] || t2 != bvashr->arg[1]) {
-    t = mk_bvashr(&collect->manager, t1, t2);
+    t = mk_bvashr(collect->manager, t1, t2);
   }
 
   return t;
@@ -1003,7 +1004,7 @@ static term_t lit_collector_visit_bveq(lit_collector_t *collect, term_t t, compo
   t1 = lit_collector_visit(collect, bveq->arg[0]);
   t2 = lit_collector_visit(collect, bveq->arg[1]);
   if (t1 != bveq->arg[0] || t2 != bveq->arg[1]) {
-    t = mk_bveq(&collect->manager, t1, t2);
+    t = mk_bveq(collect->manager, t1, t2);
   }
 
   return register_atom(collect, t);
@@ -1017,7 +1018,7 @@ static term_t lit_collector_visit_bvge(lit_collector_t *collect, term_t t, compo
   t1 = lit_collector_visit(collect, bvge->arg[0]);
   t2 = lit_collector_visit(collect, bvge->arg[1]);
   if (t1 != bvge->arg[0] || t2 != bvge->arg[1]) {
-    t = mk_bvge(&collect->manager, t1, t2);
+    t = mk_bvge(collect->manager, t1, t2);
   }
 
   return register_atom(collect, t);
@@ -1031,7 +1032,7 @@ static term_t lit_collector_visit_bvsge(lit_collector_t *collect, term_t t, comp
   t1 = lit_collector_visit(collect, bvsge->arg[0]);
   t2 = lit_collector_visit(collect, bvsge->arg[1]);
   if (t1 != bvsge->arg[0] || t2 != bvsge->arg[1]) {
-    t = mk_bvsge(&collect->manager, t1, t2);
+    t = mk_bvsge(collect->manager, t1, t2);
   }
 
   return register_atom(collect, t);
@@ -1051,7 +1052,7 @@ static term_t lit_collector_visit_select(lit_collector_t *collect, term_t t, sel
 
   v = lit_collector_visit(collect, u);
   if (v != u) {
-    t = mk_select(&collect->manager, i, v);
+    t = mk_select(collect->manager, i, v);
   }
 
   if (is_boolean_term(collect->terms, t)) {
@@ -1075,7 +1076,7 @@ static term_t lit_collector_visit_bit(lit_collector_t *collect, term_t t, select
 
   v = lit_collector_visit(collect, u);
   if (v != u) {
-    t = mk_bitextract(&collect->manager, v, i);
+    t = mk_bitextract(collect->manager, v, i);
   }
 
   return register_atom(collect, t);
@@ -1093,7 +1094,7 @@ static term_t lit_collector_visit_pprod(lit_collector_t *collect, term_t t, ppro
   }
 
   if (inequal_array_pprod(a, p)) {
-    t = mk_pprod(&collect->manager, p, n, a);
+    t = mk_pprod(collect->manager, p, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -1123,7 +1124,7 @@ static term_t lit_collector_visit_poly(lit_collector_t *collect, term_t t, polyn
   }
 
   if (inequal_array_poly(a, p)) {
-    t = mk_arith_poly(&collect->manager, p, n, a);
+    t = mk_arith_poly(collect->manager, p, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -1153,7 +1154,7 @@ static term_t lit_collector_visit_bvpoly64(lit_collector_t *collect, term_t t, b
   }
 
   if (inequal_array_bvpoly64(a, p)) {
-    t = mk_bvarith64_poly(&collect->manager, p, n, a);
+    t = mk_bvarith64_poly(collect->manager, p, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -1183,7 +1184,7 @@ static term_t lit_collector_visit_bvpoly(lit_collector_t *collect, term_t t, bvp
   }
 
   if (inequal_array_bvpoly(a, p)) {
-    t = mk_bvarith_poly(&collect->manager, p, n, a);
+    t = mk_bvarith_poly(collect->manager, p, n, a);
   }
 
   free_istack_array(&collect->stack, a);
@@ -1424,6 +1425,7 @@ void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v) {
 /*
  * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
  * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-2].
+ * - mngr = term manager with mngr->terms == mdl->terms
  * - all terms in a must be Boolean and all of them must be true in mdl
  * - if there's a error, the function returns a negative code
  *   and leaves v unchanged
@@ -1432,12 +1434,13 @@ void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v) {
  *
  * - options = bit mask to enable/disable the optional processing.
  */
-int32_t get_implicant(model_t *mdl, uint32_t options, uint32_t n, const term_t *a, ivector_t *v) {
+int32_t get_implicant(model_t *mdl, term_manager_t *mngr, uint32_t options,
+		      uint32_t n, const term_t *a, ivector_t *v) {
   lit_collector_t collect;
   int32_t u;
   uint32_t i;
 
-  init_lit_collector(&collect, mdl);
+  init_lit_collector(&collect, mdl, mngr);
   lit_collector_set_option(&collect, options);
   for (i=0; i<n; i++) {
     u = lit_collector_process(&collect, a[i]);
