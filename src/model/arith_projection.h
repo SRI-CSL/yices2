@@ -95,6 +95,19 @@
 
 
 /*
+ * Error codes for aproj_add_constraint
+ * - a term is rejected if it's not an arithmetic literal
+ * - or if it's an arithmetic disequality (e.g., (not (= x y)))
+ * - or if it's false in the model
+ */
+enum {
+  APROJ_ERROR_NOT_ARITH_LITERAL = -1,
+  APROJ_ERROR_ARITH_DISEQ = -2,
+  APROJ_ERROR_FALSE_LITERAL = -3,
+};
+
+
+/*
  * Tags for identifying the constraint types
  *   APROJ_GT = 00  strict inequality (poly > 0)
  *   APROJ_GE = 01  non-strict inequality  (poly >= 0)
@@ -268,7 +281,8 @@ extern void aproj_close_var_set(arith_projector_t *proj);
 
 /*
  * Add constraint c
- * - c must be an arithmetic predicate of the following forms
+ * - c must be true_term or an arithmetic predicate in 
+ *   one of the following forms
  *    (ARITH_EQ_ATOM t)
  *    (ARITH_BINEQ_ATOM t1 t2)
  *    (ARITH_GE_ATOM t)
@@ -277,8 +291,23 @@ extern void aproj_close_var_set(arith_projector_t *proj);
  *   polynomials in variables declared in proj
  * - c must be true in the model specified by calls to aproj_add_var
  * - no variables can be added after this function is called
+ *
+ * Return code:
+ * - 0 means that c was accepted and added to the set of constraints
+ * - a negative code means that c is rejected:
+ *   - NOT_ARITH_LITERAL means that c is not an arithmetic literal
+ *   - ARITH_DISEQ means that c is either (NOT (ARITH_EQ_ATOM t))
+ *                 or (NOT (ARITH_BINEQ_ATOM t1 t2))
+ *   - FALSE_ATOM means that c is 'false_term'.
+ *
+ * Notes:
+ * - the error checks are not exhaustive: we don't check whether c
+ *   is true in the model.
+ * - the literals (distinct t1 ... tn) and (not (distinct t1 ... tn))
+ *   are rejected with error code NOT_ARITH_LITERAL, even if t1 ... t_n
+ *   are arithemtic terms.
  */
-extern void aproj_add_constraint(arith_projector_t *proj, term_t c);
+extern int32_t aproj_add_constraint(arith_projector_t *proj, term_t c);
 
 
 /*
