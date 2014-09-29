@@ -276,6 +276,10 @@ static void words_from_file(char *filename) {
       str[len] = '\0';
     }
     tmp = (char *) malloc(len + 1);
+    if (tmp == NULL) {
+      fprintf(stderr, "malloc failed after %"PRIu32" words; skipping the rest of the file.\n", i);
+      break;
+    }
     strcpy(tmp, str);
     if (i == n) {
       n += 100;
@@ -342,7 +346,9 @@ static void file_test(char *filename) {
   histogram();
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  char *filename;
+
   prefix_test("x", 100);
   prefix_test("x_", 100);
   prefix_test("y", 500);
@@ -356,9 +362,12 @@ int main() {
   prefix_test("9190ru09hnf93", 600);
   prefix_test("u_3f=hfho2bxgf", 900);
 
-  words_from_file("data2.txt");
-  file_test("data2.txt");
-  clear_words();
+  if (argc == 2) {
+    filename = argv[1];
+    words_from_file(filename);
+    file_test(filename);
+    clear_words();
+  }
 
   return 0;
 }
