@@ -129,6 +129,12 @@ enum {
 
 
 /*
+ * Mask to enable all options
+ */
+#define LIT_COLLECTOR_ALL_OPTIONS ((uint32_t) 0x1F)
+
+
+/*
  * Collector structure:
  * - terms = the relevant term table
  * - manager = term manager (must match the term_table and model)

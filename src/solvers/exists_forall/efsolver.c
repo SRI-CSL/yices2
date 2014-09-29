@@ -20,6 +20,7 @@
 #include "utils/index_vectors.h"
 #include "solvers/exists_forall/efsolver.h"
 #include "terms/term_substitution.h"
+#include "model/literal_collector.h"
 
 #include "yices.h"
 
@@ -123,7 +124,7 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
 
 
   solver->full_model = NULL;
-  yices_init_term_vector(&solver->implicant);
+  init_ivector(&solver->implicant, 20);
 
   init_ivector(&solver->evalue_aux, 64);
   init_ivector(&solver->uvalue_aux, 64);
@@ -160,7 +161,7 @@ void delete_ef_solver(ef_solver_t *solver) {
     yices_free_model(solver->full_model);
     solver->full_model = NULL;
   }
-  yices_delete_term_vector(&solver->implicant);
+  delete_ivector(&solver->implicant);
 
   delete_ivector(&solver->evalue_aux);
   delete_ivector(&solver->uvalue_aux);
@@ -814,7 +815,7 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
 static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   model_t *mdl;
   ef_cnstr_t *cnstr;
-  term_vector_t *v;
+  ivector_t *v;
   term_t a[2];
   uint32_t n;
   int32_t code;
@@ -845,7 +846,7 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   a[1] = opposite_term(cnstr->guarantee);
   v = &solver->implicant;
   v->size = 0;
-  code = yices_implicant_for_formulas(mdl, 2, a, v);
+  code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
   if (code < 0) {
     solver->status = EF_STATUS_ERROR;
     solver->error_code = yices_error_code();
