@@ -110,6 +110,7 @@ base_src_c := \
 	io/type_printer.c \
 	io/yices_pp.c \
 	model/abstract_values.c \
+	model/arith_projection.c \
 	model/concrete_value_printer.c \
 	model/concrete_values.c \
 	model/fresh_value_maker.c \
@@ -148,7 +149,6 @@ base_src_c := \
 	solvers/egraph/egraph_explanations.c \
 	solvers/egraph/egraph_utils.c \
 	solvers/egraph/theory_explanations.c \
-	solvers/exists_forall/arith_projection.c \
 	solvers/exists_forall/ef_analyze.c \
 	solvers/exists_forall/ef_problem.c \
 	solvers/exists_forall/efsolver.c \

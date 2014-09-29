@@ -101,7 +101,7 @@
  * - any error code defined in model_eval.h can be returned
  *   (i.e., from -2 to -7)
  * - additional code for get_implicant: return -8 if an
- *   input formual is false in the model
+ *   input formula is false in the model
  */
 enum {
   MDL_EVAL_FORMULA_FALSE = -8,

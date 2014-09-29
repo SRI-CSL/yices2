@@ -12,7 +12,7 @@
 #include <inttypes.h>
 
 #include "utils/memalloc.h"
-#include "solvers/exists_forall/arith_projection.h"
+#include "model/arith_projection.h"
 #include "api/yices_globals.h"
 #include "yices.h"
 
@@ -496,6 +496,7 @@ static void test_addvars(arith_projector_t *proj, uint32_t i, uint32_t k, bool t
  */
 static void test_add_poly_constraint(arith_projector_t *proj, poly_desc_t *p) {
   term_t t, u;
+  int32_t code;
 
   t = build_poly_term(p);
   if (q_is_pos(&p->val)) {
@@ -516,13 +517,20 @@ static void test_add_poly_constraint(arith_projector_t *proj, poly_desc_t *p) {
 
   if (u < 0) error_in_yices("arith atom");
 
-  aproj_add_constraint(proj, u);
+  code = aproj_add_constraint(proj, u);
+
+  if (code < 0) {
+    fprintf(stderr, "error in test_add_poly_constraint: code = %"PRId32"\n", code);
+    fflush(stderr);
+    exit(1);
+  }
 }
  
 
 static void test_add_bineq(arith_projector_t *proj) {
   uint32_t i, j;
   term_t u;
+  int32_t code;
 
   i = random() % NUM_VARS;
   j = i;
@@ -535,7 +543,13 @@ static void test_add_bineq(arith_projector_t *proj) {
   u = yices_arith_eq_atom(var[i], var[j]);
   if (u < 0) error_in_yices("bineq");
 
-  aproj_add_constraint(proj, u);
+  code = aproj_add_constraint(proj, u);
+
+  if (code < 0) {
+    fprintf(stderr, "error in test_add_bineq: code = %"PRId32"\n", code);
+    fflush(stderr);
+    exit(1);
+  }
 }
 
 static void test_vars(void) {

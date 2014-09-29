@@ -12,7 +12,7 @@
 
 #include "utils/memalloc.h"
 #include "terms/rba_buffer_terms.h"
-#include "solvers/exists_forall/arith_projection.h"
+#include "model/arith_projection.h"
 
 
 /*
@@ -1036,32 +1036,56 @@ static void aproj_add_arith_bineq(arith_projector_t *proj, composite_term_t *eq)
  *   polynomials in variables declared in proj
  * - c must be true in the model specified by calls to aproj_add_var
  * - no variables can be added after this function is called
+ *
+ * Return code:
+ * - 0 means that c was accepted and added to the set of constraints
+ * - a negative code means that c is rejected:
+ *   - NOT_ARITH_LITERAL means that c is not an arithmetic literal
+ *   - ARITH_DISEQ means that c is either (NOT (ARITH_EQ_ATOM t))
+ *                 or (NOT (ARITH_BINEQ_ATOM t1 t2))
+ *   - FALSE_ATOM means that c is 'false_term'.
+ *
  */
-void aproj_add_constraint(arith_projector_t *proj, term_t c) {
+int32_t aproj_add_constraint(arith_projector_t *proj, term_t c) {
   term_table_t *terms;
   term_t t;
+  int32_t code;
 
   assert(good_term(proj->terms, c) && is_boolean_term(proj->terms, c));
 
+  code = 0;
   terms = proj->terms;
   switch (term_kind(terms, c)) {
   case CONSTANT_TERM:
-    assert(c == true_term);
+    /*
+     * c is either true_term or false_term
+     * for true_term, we do nothing
+     * for false_term we return an error code.
+     */
+    if (c == false_term) {
+      code = APROJ_ERROR_FALSE_LITERAL;
+    }
     break;
 
   case ARITH_EQ_ATOM:
-    assert(is_pos_term(c)); // no negation allowed
-    t = arith_eq_arg(terms, c);
-    if (term_kind(terms, t) == ARITH_POLY) {
-      aproj_add_poly_eq_zero(proj, poly_term_desc(terms, t));
+    if (is_neg_term(c)) {
+      code = APROJ_ERROR_ARITH_DISEQ;
     } else {
-      aproj_add_var_eq_zero(proj, t);
+      t = arith_eq_arg(terms, c);
+      if (term_kind(terms, t) == ARITH_POLY) {
+	aproj_add_poly_eq_zero(proj, poly_term_desc(terms, t));
+      } else {
+	aproj_add_var_eq_zero(proj, t);
+      }
     }
     break;
 
   case ARITH_BINEQ_ATOM:
-    assert(is_pos_term(c)); // no negation allowed
-    aproj_add_arith_bineq(proj, arith_bineq_atom_desc(terms, c));
+    if (is_neg_term(c)) {
+      code = APROJ_ERROR_ARITH_DISEQ;
+    } else {
+      aproj_add_arith_bineq(proj, arith_bineq_atom_desc(terms, c));
+    }
     break;
 
   case ARITH_GE_ATOM:
@@ -1084,9 +1108,11 @@ void aproj_add_constraint(arith_projector_t *proj, term_t c) {
     break;
 
   default:
-    assert(false);
+    code = APROJ_ERROR_NOT_ARITH_LITERAL;
     break;
   }
+
+  return code;
 }
 
 
