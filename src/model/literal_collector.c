@@ -126,7 +126,7 @@ static void lit_collector_cache_result(lit_collector_t *collect, term_t t, term_
   assert(good_term(collect->terms, t) && good_term(collect->terms, u));
 
   cache = &collect->tcache; // default cache
-  if (is_boolean_term(collect->terms, t) &&!collect->bool_are_terms) {
+  if (is_boolean_term(collect->terms, t) && !collect->bool_are_terms) {
     cache = &collect->fcache; // formula cache
   }
 
@@ -305,17 +305,39 @@ static void lit_collector_add_literal(lit_collector_t *collect, term_t t) {
   }
 }
 
+/*
+ * Check whether t is a simple term
+ */
+static bool simple_bool_term(lit_collector_t *collect, term_t t) {
+  bool result;
+
+  switch (term_kind(collect->terms, t)) {
+  case UNINTERPRETED_TERM:
+  case APP_TERM:
+  case SELECT_TERM:
+  case BIT_TERM:
+    result = true;
+    break;
+
+  default:
+    result = false;
+    break;
+  }
+
+  return result;
+}
+
 
 /*
  * Found an atom t:
- * - if collect->bool_are_terms is true, we do nothing and return t
+ * - if collect->bool_are_terms is true and t is simple, we do nothing and return t
  * - otherwise we add either t or not(t) to the set of literals
  *   and we return true_term or false_term (i.e., value of t in the model)
  */
 static term_t register_atom(lit_collector_t *collect, term_t t) {
   term_t u;
 
-  if (collect->bool_are_terms) {
+  if (collect->bool_are_terms && simple_bool_term(collect, t)) {
     return t;
   }
 
@@ -450,8 +472,7 @@ static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, te
   int sgn;
 
   v = lit_collector_visit(collect, u);
-  if (!collect->bool_are_terms &&
-      lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
+  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ0)) {
     /*
      * Check whether (v == 0) is false
      */
@@ -500,8 +521,7 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
   t1 = lit_collector_visit(collect, eq->arg[0]);
   t2 = lit_collector_visit(collect, eq->arg[1]);
 
-  if (!collect->bool_are_terms &&
-      lit_collector_option_enabled(collect, ELIM_ARITH_NEQ)) {
+  if (lit_collector_option_enabled(collect, ELIM_ARITH_NEQ)) {
     /*
      * Check whether (t1 != t2) in the model
      */
@@ -559,8 +579,7 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
     a[i] = lit_collector_visit(collect, distinct->arg[i]);
   }
 
-  if (!collect->bool_are_terms &&
-      lit_collector_option_enabled(collect, ELIM_ARITH_DISTINCT) &&
+  if (lit_collector_option_enabled(collect, ELIM_ARITH_DISTINCT) &&
       is_arithmetic_term(collect->terms, distinct->arg[0]) &&
       term_is_true_in_model(collect, t)) {
     /*
@@ -574,8 +593,7 @@ static term_t lit_collector_visit_distinct(lit_collector_t *collect, term_t t, c
     }
     t = true_term;
 
-  } else if (!collect->bool_are_terms &&
-	     lit_collector_option_enabled(collect, ELIM_NOT_DISTINCT) &&
+  } else if (lit_collector_option_enabled(collect, ELIM_NOT_DISTINCT) &&
 	     term_is_false_in_model(collect, t)) {
     /*
      * (distinct t1 ... t_n) is false in the model
@@ -623,8 +641,7 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
   t1 = eq->arg[0];
   t2 = eq->arg[1];
 
-  if (!collect->bool_are_terms &&
-      lit_collector_option_enabled(collect, KEEP_BOOL_EQ) &&
+  if (lit_collector_option_enabled(collect, KEEP_BOOL_EQ) &&
       is_boolean_term(collect->terms, t1)) {
     /*
      * Special processing: for Boolean equality
@@ -657,8 +674,8 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
    * - if t1 and t2 are not Boolean
    * - if neither t1 nor t2 is uninterpreted
    */
-  u1 = lit_collector_visit(collect, t1);
-  u2 = lit_collector_visit(collect, t2);
+  u1 = lit_collector_visit_formula(collect, t1);
+  u2 = lit_collector_visit_formula(collect, t2);
 
  build_atom:
   if (t1 != u1 || t2 != u2) {
@@ -688,10 +705,9 @@ static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, compos
   assert(ite->arity == 3);
 
   /*
-   * We always process c as a formula so that it reduces to true_term or false_term.
-   * so we force bool_are_terms to false here.
+   * We always process c as a formula so that it reduces to either true_term or false_term.
    */
-  v = lit_collector_visit_formula(collect, ite->arg[0]); // simplify the condition
+  v = lit_collector_visit_formula(collect, ite->arg[0]);
 
   if (v == true_term) {
     u = ite->arg[1];  // t1
@@ -711,7 +727,7 @@ static term_t lit_collector_visit_app(lit_collector_t *collect, term_t t, compos
   n = app->arity;
   assert(n >= 2);
 
-  // force t1 ... t_n to be treated as terms
+  // treat t1 ... t_n as terms
   a = alloc_istack_array(&collect->stack, n);
   for (i=0; i<n; i++) {
     a[i] = lit_collector_visit_term(collect, app->arg[i]);
@@ -788,41 +804,19 @@ static term_t lit_collector_visit_or_formula(lit_collector_t *collect, term_t t,
       if (term_is_true_in_model(collect, or->arg[i])) break;
     }
     assert(i < n);
-    u = lit_collector_visit(collect, or->arg[i]);
+    u = lit_collector_visit_formula(collect, or->arg[i]);
     assert(u == true_term);
 
   } else {
     // (or t1 ... t_n) is false --> visit all subterms
     // they should all reduce to false_term
     for (i=0; i<n; i++) {
-      u = lit_collector_visit(collect, or->arg[i]);
+      u = lit_collector_visit_formula(collect, or->arg[i]);
       assert(u == false_term);
     }
   }
 
   return u;
-}
-
-// t is (or t1 ... t_n): treat it as a term
-static term_t lit_collector_visit_or_term(lit_collector_t *collect, term_t t, composite_term_t *or) {
-  term_t *a;
-  uint32_t i, n;
-
-  n = or->arity;
-  assert(n > 0);
-
-  a = alloc_istack_array(&collect->stack, n);
-  for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, or->arg[i]);
-  }
-
-  if (inequal_arrays(a, or->arg, n)) {
-    t = mk_or(collect->manager, n, a);
-  }
-
-  free_istack_array(&collect->stack, a);
-
-  return t;
 }
 
 // (xor t1 ... t_n): treat is as a formula
@@ -834,33 +828,11 @@ static term_t lit_collector_visit_xor_formula(lit_collector_t *collect, term_t t
   b = false;
   n = xor->arity;
   for (i=0; i<n; i++) {
-    u = lit_collector_visit(collect, xor->arg[i]);
+    u = lit_collector_visit_formula(collect, xor->arg[i]);
     assert(u == false_term || u == true_term);
     b ^= (u == true_term);
   }
   return bool2term(b);
-}
-
-// (xor t1 ... t_n): treat it as a term
-static term_t lit_collector_visit_xor_term(lit_collector_t *collect, term_t t, composite_term_t *xor) {
-  term_t *a;
-  uint32_t i, n;
-
-  n = xor->arity;
-  assert(n > 0);
-
-  a = alloc_istack_array(&collect->stack, n);
-  for (i=0; i<n; i++) {
-    a[i] = lit_collector_visit(collect, xor->arg[i]);
-  }
-
-  if (inequal_arrays(a, xor->arg, n)) {
-    t = mk_xor(collect->manager, n, a);
-  }
-
-  free_istack_array(&collect->stack, a);
-
-  return t;
 }
 
 // (bv-array t1 ... tn)
@@ -1272,19 +1244,11 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case OR_TERM:
-      if (collect->bool_are_terms) {
-	u = lit_collector_visit_or_term(collect, t, or_term_desc(terms, t));
-      } else {
-	u = lit_collector_visit_or_formula(collect, t, or_term_desc(terms, t));
-      }
+      u = lit_collector_visit_or_formula(collect, t, or_term_desc(terms, t));
       break;
 
     case XOR_TERM:
-      if (collect->bool_are_terms) {
-	u = lit_collector_visit_xor_term(collect, t, xor_term_desc(terms, t));
-      } else {
-	u = lit_collector_visit_xor_formula(collect, t, xor_term_desc(terms, t));
-      }
+      u = lit_collector_visit_xor_formula(collect, t, xor_term_desc(terms, t));
       break;
 
     case ARITH_BINEQ_ATOM:
