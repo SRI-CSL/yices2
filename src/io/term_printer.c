@@ -523,12 +523,20 @@ static void print_app_term(FILE *f, term_table_t *tbl, composite_term_t *d, int3
   fputc(')', f);
 }
 
-// select
+// select: printed as (select <tuple> <idx>) or (bit <bv> <idx>)
+// for tuple projection, idx must be incremented to be consistent with the parser
 static void print_select_term(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
+  uint32_t idx;
+
   assert(SELECT_TERM <= tag && tag <= BIT_TERM);
-  fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
+
+  idx = d->idx;
+  if (tag == SELECT_TERM) {
+    idx ++;
+  }
+  fprintf(f, "(%s ", tag2string[tag]);
   print_term_recur(f, tbl, d->arg, level);
-  fputc(')', f);
+  fprintf(f, " %"PRIu32")", idx);
 }
 
 // polynomial
@@ -1069,10 +1077,16 @@ static void print_app(FILE *f, term_table_t *tbl, composite_term_t *d) {
 
 // select
 static void print_select(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d) {
+  uint32_t idx;
+
   assert(SELECT_TERM <= tag && tag <= BIT_TERM);
-  fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
+  idx = d->idx;
+  if (tag == SELECT_TERM) {
+    idx ++;
+  }
+  fprintf(f, "(%s ", tag2string[tag]);
   print_id_or_constant(f, tbl, d->arg);
-  fputc(')', f);
+  fprintf(f, " %"PRIu32")", idx);
 }
 
 // power product
@@ -1804,13 +1818,18 @@ static void pp_or_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t 
 // select
 static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
   pp_open_type_t op;
+  uint32_t idx;
 
   assert(SELECT_TERM <= tag && tag <= BIT_TERM);
   op = term_kind2block[tag];
   assert(op != 0);
+  idx = d->idx;
+  if (tag == SELECT_TERM) {
+    idx ++;
+  }
   pp_open_block(printer, op);
-  pp_uint32(printer, d->idx);
   pp_term_recur(printer, tbl, d->arg, level, true);
+  pp_uint32(printer, idx);
   pp_close_block(printer, true);
 }
 
