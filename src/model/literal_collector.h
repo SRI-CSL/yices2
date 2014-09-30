@@ -64,16 +64,23 @@
  *
  * Mode
  * ----
- * The mode determines how Boolean terms are treated.
+ * The mode determines how Boolean terms are treated. By default, we treat
+ * all Boolean terms as formulas and are reduced to either true_term or
+ * false_term.  In some cases, we attempt to reduce a Boolean term to a
+ * literal other than true_term or false_term.
  *
- * By default, all Boolean terms are treated as formulas and are
- * reduced to true or false. In some cases, it may make more sense to
- * treat a Boolean terms as a term.
+ * The selection is detemined by the flag bool_are_terms:
+ * - if this flag is true, then we consider the following terms as atomic:
+ *      Boolean constants
+ *      Boolean variables
+ *      uninterpreted predicates
+ *      tuple projection
+ *      bit-select
+ * - if the flag is false, then only the Boolean constants are atomic.
  *
  * Examples:
- * - if KEEP_BOOL_EQ is active, then we want to treat t as a term in (= x t).
- *   (rather than reducing t to true or false then treat (= x t) as either
- *    (= x true) or (= x false)).
+ * - if KEEP_BOOL_EQ is active, then we want to treat t as a term in (= x t)
+ *   so that we can apply (x := t) as a substitution later on.
  * - if an uninterpreted function is applied to Booleans as in (P t1 t2)
  *   then it's probably more useful to keep t1 and t2 as terms rather than
  *   constructing (P true false) say.
