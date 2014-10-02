@@ -991,7 +991,7 @@ term_t mk_xor(term_manager_t *manager, uint32_t n, term_t *a) {
         y = opposite_term(y);
       }
     }
-    return eq_term(manager->terms, x, y);
+    return opposite_term(eq_term(manager->terms, x, y));
   }
 
   // general case: j >= 3
