@@ -1,0 +1,8 @@
+;;
+;; Bug reported by Heinz Riener: Yices says unsat
+;; Fixed on Oct. 2, 2014: Incorrect processing of (xor A true B)
+;;
+(define v3::bool)
+(assert (forall (v1::bool) (xor (xor (=> v1 v3) true) (= v1 v3))))
+(ef-solve)
+(show-model)
