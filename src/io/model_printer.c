@@ -15,8 +15,8 @@
 
 #include "utils/int_vectors.h"
 #include "model/model_eval.h"
-#include "model/concrete_value_printer.h"
-#include "model/model_printer.h"
+#include "io/concrete_value_printer.h"
+#include "io/model_printer.h"
 
 
 

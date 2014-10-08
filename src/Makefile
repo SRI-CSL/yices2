@@ -103,6 +103,8 @@ base_src_c := \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
+	io/concrete_value_printer.c \
+	io/model_printer.c \
 	io/pretty_printer.c \
 	io/reader.c \
 	io/term_printer.c \
@@ -111,7 +113,6 @@ base_src_c := \
 	io/yices_pp.c \
 	model/abstract_values.c \
 	model/arith_projection.c \
-	model/concrete_value_printer.c \
 	model/concrete_values.c \
 	model/fresh_value_maker.c \
 	model/fun_maps.c \
@@ -119,7 +120,6 @@ base_src_c := \
 	model/literal_collector.c \
 	model/map_to_model.c \
 	model/model_eval.c \
-	model/model_printer.c \
 	model/models.c \
 	model/term_to_val.c \
 	model/val_to_term.c \

@@ -52,7 +52,7 @@
 
 #if COMMAND_LINE_OPTIONS
 #include "utils/timeout.h"
-#include "model/model_printer.h"
+#include "io/model_printer.h"
 #include "utils/command_line.h"
 #if CHECK_MODEL
 #include "model/model_eval.h"
