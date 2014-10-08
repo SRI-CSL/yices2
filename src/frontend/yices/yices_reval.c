@@ -59,11 +59,11 @@
 #include "solvers/exists_forall/ef_analyze.h"
 #include "solvers/exists_forall/ef_problem.h"
 #include "solvers/exists_forall/efsolver.h"
+
 #include "context/context.h"
 #include "model/models.h"
 #include "model/model_eval.h"
-#include "model/model_printer.h"
-#include "model/concrete_value_printer.h"
+#include "io/concrete_value_printer.h"
 
 #include "yices.h"
 #include "api/yices_globals.h"

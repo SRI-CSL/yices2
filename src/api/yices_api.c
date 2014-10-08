@@ -43,22 +43,23 @@
 #include "terms/rba_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/bvarith64_buffer_terms.h"
-
 #include "terms/types.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
+
 #include "context/context.h"
 #include "model/models.h"
 #include "model/model_eval.h"
 #include "model/val_to_term.h"
-#include "api/context_config.h"
-#include "api/search_parameters.h"
 #include "model/map_to_model.h"
 #include "model/literal_collector.h"
+#include "api/context_config.h"
+#include "api/search_parameters.h"
 
 #include "io/type_printer.h"
 #include "io/term_printer.h"
-#include "model/model_printer.h"
+#include "io/model_printer.h"
+#include "io/yices_pp.h"
 
 #include "yices.h"
 #include "api/yices_error.h"
@@ -67,7 +68,6 @@
 #include "api/yices_globals.h"
 #include "api/yval.h"
 #include "frontend/yices/yices_parser.h"
-#include "io/yices_pp.h"
 
 
 

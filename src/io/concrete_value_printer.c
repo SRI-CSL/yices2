@@ -12,7 +12,7 @@
 #include <inttypes.h>
 
 #include "io/type_printer.h"
-#include "model/concrete_value_printer.h"
+#include "io/concrete_value_printer.h"
 
 
 /*
