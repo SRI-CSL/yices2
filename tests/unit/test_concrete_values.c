@@ -17,7 +17,7 @@
 #include "terms/types.h"
 #include "terms/rationals.h"
 #include "model/concrete_values.h"
-#include "model/concrete_value_printer.h"
+#include "io/concrete_value_printer.h"
 
 static type_table_t types;
 static value_table_t vtbl;
