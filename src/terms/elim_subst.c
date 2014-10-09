@@ -307,3 +307,49 @@ bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles) {
   return result;
 }
 
+
+/*
+ * Variant: only processes EQ_TERM and BV_EQ_ATOM
+ */
+bool elim_subst_try_cheap_map(elim_subst_t *subst, term_t f, bool check_cycles) {
+  term_table_t *terms;
+  composite_term_t *eq;
+  bool result;
+  term_t t1, t2;
+
+  result = false;
+  terms = subst->terms;
+  switch (term_kind(terms, f)) {
+  case EQ_TERM: // (t1 == t2)
+    eq = eq_term_desc(terms, f);
+    assert(eq->arity == 2);
+    t1 = eq->arg[0];
+    t2 = eq->arg[1];
+    if (is_boolean_term(terms, t1)) {
+      // if f is (not (eq t1 t2)), we rewrite it to (eq (not t1) t2)
+      if (is_neg_term(f)) {
+	t1 = opposite_term(t1);
+      }
+      result = elim_subst_try_booleq(subst, t1, t2, check_cycles);
+    } else if (is_pos_term(f)) {
+      result = elim_subst_try_eq(subst, t1, t2, check_cycles);
+    }
+    break;
+
+  case BV_EQ_ATOM:       // (t1 == t2): two bitvector terms
+    if (is_pos_term(f)) {
+      eq = composite_term_desc(terms, f);
+      assert(eq->arity == 2);
+      t1 = eq->arg[0];
+      t2 = eq->arg[1];
+      result = elim_subst_try_eq(subst, t1, t2, check_cycles);
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return result;
+
+}

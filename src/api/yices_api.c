@@ -48,26 +48,30 @@
 #include "terms/term_substitution.h"
 
 #include "context/context.h"
+
 #include "model/models.h"
-#include "model/model_eval.h"
+#include "model/model_queries.h"
 #include "model/val_to_term.h"
 #include "model/map_to_model.h"
 #include "model/literal_collector.h"
+
 #include "api/context_config.h"
 #include "api/search_parameters.h"
+#include "api/yices_error.h"
+#include "api/yices_extensions.h"
+#include "api/yices_iterators.h"
+#include "api/yices_globals.h"
+#include "api/yval.h"
 
 #include "io/type_printer.h"
 #include "io/term_printer.h"
 #include "io/model_printer.h"
 #include "io/yices_pp.h"
 
-#include "yices.h"
-#include "api/yices_error.h"
-#include "api/yices_extensions.h"
-#include "api/yices_iterators.h"
-#include "api/yices_globals.h"
-#include "api/yval.h"
 #include "frontend/yices/yices_parser.h"
+
+#include "yices.h"
+
 
 
 
@@ -6298,56 +6302,6 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
 }
 
 
-#if 0
-// PROVISIONAL FOR TESTING
-// THIS IS USED IN SMT2_COMMAND TO PROCESS AND PRINT THE BENCHMARKS
-int32_t yices_process_formulas(context_t *ctx, uint32_t n, term_t t[]) {
-  int32_t code;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_boolean_args(&manager, n, t)) {
-    return -1;
-  }
-
-  switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (! context_supports_multichecks(ctx)) {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
-      return -1;
-    }
-    context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
-  case STATUS_IDLE:
-    code = context_process_formulas(ctx, n, t);
-    if (code < 0) {
-      // error during internalization
-      convert_internalization_error(code);
-      return -1;
-    }
-    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
-
-  case STATUS_UNSAT:
-    // fall-through intended
-    // nothing to do
-    break;
-
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-    error.code = CTX_INVALID_OPERATION;
-    return -1;
-
-  case STATUS_ERROR:
-  default:
-    error.code = INTERNAL_EXCEPTION;
-    return -1;
-  }
-
-  return 0;
-}
-#endif
 
 /*
  * Add a blocking clause: this is intended to support all-sat and variants.
@@ -6778,7 +6732,6 @@ static inline error_code_t yices_eval_error(int32_t v) {
  * + the other evaluation error codes above.
  */
 EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
-  evaluator_t evaluator;
   value_table_t *vtbl;
   value_t v;
 
@@ -6787,13 +6740,7 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
     return -1;
   }
 
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return -1;
@@ -6832,7 +6779,6 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
  * - return NULL and set the error code if the value can't be computed
  */
 static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
-  evaluator_t evaluator;
   value_table_t *vtbl;
   value_t v;
 
@@ -6841,13 +6787,7 @@ static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
     return NULL;
   }
 
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return NULL;
@@ -6994,7 +6934,6 @@ EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
  *   term1 = t
  */
 EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
-  evaluator_t evaluator;
   value_table_t *vtbl;
   value_bv_t *bv;
   value_t v;
@@ -7004,13 +6943,7 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
     return -1;
   }
 
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return -1;
@@ -7045,7 +6978,6 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
  *   term1 = t
  */
 EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
-  evaluator_t evaluator;
   value_table_t *vtbl;
   value_unint_t *uv;
   value_t v;
@@ -7055,13 +6987,7 @@ EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
     return -1;
   }
 
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return -1;
@@ -7120,7 +7046,6 @@ EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
  *   code = EVAL_FAILED
  */
 EXPORTED int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val) {
-  evaluator_t evaluator;
   value_table_t *vtbl;
   value_t v;
 
@@ -7128,13 +7053,7 @@ EXPORTED int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val) {
     return -1;
   }
 
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return -1;
@@ -7584,8 +7503,6 @@ EXPORTED int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t
  * Value of term t converted to a constant term val.
  */
 EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
-  evaluator_t evaluator;
-  val_converter_t convert;
   value_table_t *vtbl;
   value_t v;
   term_t a;
@@ -7594,36 +7511,14 @@ EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
     return NULL_TERM;
   }
 
-  /*
-   * Evaluation
-   */
-  v = model_find_term_value(mdl, t);
-  if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
-  }
-
+  v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
     return NULL_TERM;
   }
 
-
-  /*
-   * Try to convert v to a term:
-   * - try cheap conversion first
-   * - if cheap conversion return NOT_PRIMITIVE
-   *   use a converter object
-   */
   vtbl = model_get_vtbl(mdl);
-  a = convert_simple_value(&terms, vtbl, v);
-  if (a == CONVERT_NOT_PRIMITIVE) {
-    init_val_converter(&convert, vtbl, &terms);
-    a = convert_value(&convert, v);
-    delete_val_converter(&convert);
-  }
-
+  a = convert_value_to_term(&terms, vtbl, v);
   if (a < 0) {
     error.code = EVAL_CONVERSION_FAILED;
     return NULL_TERM;
@@ -7639,93 +7534,25 @@ EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
  */
 
 /*
- * Compute the values of a[0 ... n-1] in mdl
- * - store the result in b[0 ... n-1]
- * - return false if this fails for some a[i] and sets the error report
- * - return true otherwise
- */
-static bool evaluate_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t b[]) {
-  evaluator_t evaluator;
-  uint32_t i, k;
-  value_t v;
-
-  /*
-   * First pass: simple eval of all terms.
-   * - k = number of terms, for which this fails
-   * - if simple eval fails for a[i], we have b[i] = null_value
-   */
-  k = 0;
-  for (i=0; i<n; i++) {
-    v = model_find_term_value(mdl, a[i]);
-    b[i] = v;
-    if (v < 0) {
-      assert(v == null_value);
-      k ++;
-    }
-  }
-
-  /*
-   * Second pass: if k > 0, use the evaluator to complete array b
-   */
-  if (k > 0) {
-    init_evaluator(&evaluator, mdl);
-    for (i=0; i<n; i++) {
-      if (b[i] < 0) {
-	v = eval_in_model(&evaluator, a[i]);
-	b[i] = v;
-	if (v < 0) break;
-      }
-    }
-    delete_evaluator(&evaluator);
-
-    if (v < 0) {
-      // failed to evaluate a[i]
-      error.code = yices_eval_error(v);
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-/*
- * In-place conversion of values b[0 ... n-1] to constant terms
- * - return false if there's an error and sets the error report
- * - return true otherwise
- */
-static int32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b) {
-  val_converter_t convert;
-  uint32_t i;
-  term_t t;
-
-  if (n > 0) {
-    init_val_converter(&convert, vtbl, terms);
-    for (i=0; i<n; i++) {
-      t = convert_value(&convert, b[i]);
-      if (t < 0) break;
-      b[i] = t;
-    }
-    delete_val_converter(&convert);
-
-    if (t < 0) {
-      error.code = EVAL_CONVERSION_FAILED;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-
-/*
  * Values of terms a[0 ... n-1] all converted to terms
  */
 EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
-  if (! check_good_terms(&manager, n, a) ||
-      ! evaluate_term_array(mdl, n, a, b) ||
-      ! convert_value_array(&terms, model_get_vtbl(mdl), n, b)) {
+  int32_t eval_code;
+  uint32_t count;
+
+  if (! check_good_terms(&manager, n, a)) {
+    return -1;
+  }
+
+  eval_code = evaluate_term_array(mdl, n, a, b);
+  if (eval_code < 0) {
+    error.code = yices_eval_error(eval_code);
+    return -1;
+  }
+
+  count = convert_value_array(&terms, model_get_vtbl(mdl), n, b);
+  if (count < n) {
+    error.code = EVAL_CONVERSION_FAILED;
     return -1;
   }
 

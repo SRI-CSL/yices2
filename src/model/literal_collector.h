@@ -237,7 +237,6 @@ static inline bool lit_collector_option_enabled(lit_collector_t *collect, uint32
 extern void lit_collector_get_literals(lit_collector_t *collect, ivector_t *v);
 
 
-
 /*
  * Given a model mdl and a set of formulas a[0 ... n-1] satisfied by mdl,
  * compute an implicant for a[0] /\ a[1] /\ ... /\ a[n-1].

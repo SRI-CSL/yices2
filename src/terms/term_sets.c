@@ -13,7 +13,7 @@
  * Initialize set:
  * - initial content = all terms in a[0 ... n-1]
  */
-void init_term_set(int_hset_t *set, uint32_t n, term_t *a) {
+void init_term_set(int_hset_t *set, uint32_t n, const term_t *a) {
   uint32_t i;
 
   init_int_hset(set, 0);
@@ -28,7 +28,7 @@ void init_term_set(int_hset_t *set, uint32_t n, term_t *a) {
  * - a may contain several times the same term.
  * - duplicates are ignored
  */
-int_hset_t *new_term_set(uint32_t n, term_t *a) {
+int_hset_t *new_term_set(uint32_t n, const term_t *a) {
   int_hset_t *tmp;
 
   tmp = (int_hset_t *) safe_malloc(sizeof(int_hset_t));

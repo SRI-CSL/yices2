@@ -302,3 +302,51 @@ term_t convert_value(val_converter_t *convert, value_t v) {
 
   return t;
 }
+
+
+
+/*
+ * Convert v to a constant term
+ */
+term_t convert_value_to_term(term_table_t *terms, value_table_t *vtbl, value_t v) {
+  val_converter_t convert;
+  term_t t;
+
+  t = convert_simple_value(terms, vtbl, v);
+  if (t == CONVERT_NOT_PRIMITIVE) {
+    init_val_converter(&convert, vtbl, terms);
+    t = convert_value(&convert, v);
+    delete_val_converter(&convert);
+  }
+
+  return t;
+}
+
+
+
+/*
+ * In-place conversion of values b[0 ... n-1] to constant terms
+ * - returns the number of values that could be successfully converted to terms
+ *   (this is an integer between 0 and n).
+ */
+uint32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b) {
+  val_converter_t convert;
+  uint32_t i, s;
+  term_t t;
+
+  s = 0;
+  if (n > 0) {
+    init_val_converter(&convert, vtbl, terms);
+    for (i=0; i<n; i++) {
+      t = convert_value(&convert, b[i]);
+      b[i] = t;
+      if (t >= 0) { // no error
+	s ++;
+      }
+    }
+    delete_val_converter(&convert);
+  }
+
+  return s;
+}
+
