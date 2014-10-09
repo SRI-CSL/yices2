@@ -120,7 +120,9 @@ base_src_c := \
 	model/literal_collector.c \
 	model/map_to_model.c \
 	model/model_eval.c \
+	model/model_queries.c \
 	model/models.c \
+	model/projection.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
 	parser_utils/lexer.c \

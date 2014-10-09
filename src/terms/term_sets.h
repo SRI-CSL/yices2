@@ -6,7 +6,7 @@
  */
 
 /*
- * SUPPORT TO BUILD SET OF TERMS
+ * SUPPORT TO BUILD SETS OF TERMS
  */
 
 /*
@@ -28,7 +28,8 @@
  * - a may contain several times the same term.
  * - duplicates are ignored
  */
-extern int_hset_t *new_term_set(uint32_t n, term_t *a);
+extern int_hset_t *new_term_set(uint32_t n, const term_t *a);
+
 
 /*
  * Delete a set constructed by the previous function
@@ -40,7 +41,7 @@ extern void free_term_set(int_hset_t *s);
  * Initialize set:
  * - initial content = all terms in a[0 ... n-1]
  */
-extern void init_term_set(int_hset_t *set, uint32_t n, term_t *a);
+extern void init_term_set(int_hset_t *set, uint32_t n, const term_t *a);
 
 
 /*

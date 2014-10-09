@@ -89,5 +89,24 @@ extern term_t convert_value(val_converter_t *convert, value_t v);
 extern term_t convert_simple_value(term_table_t *terms, value_table_t *vtbl, value_t v);
 
 
+/*
+ * Convert v to a constant term
+ * - this tries convert_simple_value first then use a val_converter if needed.
+ * - return a negative code if there's an error (same codes as convert_value)
+ */
+extern term_t convert_value_to_term(term_table_t *terms, value_table_t *vtbl, value_t v);
+
+
+/*
+ * In-place conversion of values b[0 ... n-1] to constant terms
+ * - on entry: every b[i] must be a value index in vtbl
+ *   on exit: b[i] is a constant term in terms, or a negative error code
+ *            if the conversion failed for b[i].
+ *
+ * - returns the number of values that could be successfully converted to terms
+ *   (this is an integer between 0 and n).
+ */
+extern uint32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b);
+
 
 #endif /* __VAL_TO_TERM_H */

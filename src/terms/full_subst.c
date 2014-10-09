@@ -143,7 +143,7 @@ static void full_subst_remove_map(full_subst_t *subst, term_t x) {
  * NOTE: we attach the mark to term indices (so t and not(t) have the
  * same mark)
  *
- * - if subst->remove_cycles is false, then the function just detect cycles.
+ * - if subst->remove_cycles is false, then the function just detects cycles.
  * - if subst->remove_cylces is true, then it removes cycles by
  *   removing [x := t] from the map, for the first x that causes a cycle.
  *
@@ -1250,7 +1250,6 @@ static term_t full_subst(full_subst_t *subst, term_t t) {
     }
     break;
   }
-
 
   return s ^ polarity;
 }
