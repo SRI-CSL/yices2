@@ -227,8 +227,6 @@ typedef struct arith_projector_s {
 
 
 
-
-
 /*
  * Initialize projector
  * - mngr = relevant term manager

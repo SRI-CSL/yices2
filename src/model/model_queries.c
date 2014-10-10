@@ -9,6 +9,7 @@
  * QUERIES TO GET THE VALUE OF ONE OR MORE TERMS IN A MODEL
  */
 
+#include "utils/memalloc.h"
 #include "model/model_eval.h"
 #include "model/model_queries.h"
 
@@ -37,6 +38,31 @@ value_t model_get_term_value(model_t *mdl, term_t t) {
   }
 
   return v;
+}
+
+
+/*
+ * Check whether f is true in mdl
+ * - f must be a Boolean term
+ * - this returns false if the evaluation fails and stores the error code in *code
+ */
+bool formula_holds_in_model(model_t *mdl, term_t f, int32_t *code) {
+  value_t v;
+  bool answer;
+
+  assert(is_boolean_term(mdl->terms, f));
+
+  answer = false;
+  v = model_get_term_value(mdl, f);
+  if (v < 0) {
+    // evaluation error
+    *code = v;    
+  } else {
+    *code = 0;
+    answer = is_true(model_get_vtbl(mdl), v);
+  }
+
+  return answer;
 }
 
 
@@ -88,4 +114,43 @@ int32_t evaluate_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t 
 
   return 0;
 }
+
+
+/*
+ * Checks whether mdl is a model of a[0 ... n-1]
+ * - sets *code to 0 if the evaluation succeeds
+ * - returns false if the evaluation fails for some a[i] and stores
+ *   the corresponding error code in *code
+ */
+bool formulas_hold_in_model(model_t *mdl, uint32_t n, const term_t a[], int32_t *code) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  uint32_t i;
+  value_t v;
+  bool answer;
+
+  answer = true;
+  *code = 0;
+
+  vtbl = model_get_vtbl(mdl);
+  init_evaluator(&evaluator, mdl);
+  for (i=0; i<n; i++) {
+    assert(is_boolean_term(mdl->terms, a[i]));
+    v = eval_in_model(&evaluator, a[i]);
+    if (v < 0) {
+      answer = false;
+      *code = v;
+      break;
+    }
+    if (! is_true(vtbl, v)) {
+      answer = false;
+      break;
+    }
+  }
+  delete_evaluator(&evaluator);
+
+  return answer;    
+}
+
+
 

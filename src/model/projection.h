@@ -105,6 +105,13 @@ extern void delete_projector(projector_t *proj);
 
 
 /*
+ * Add literal t to the projector
+ * - t must be true in the model
+ */
+extern void projector_add_literal(projector_t *proj, term_t t);
+
+
+/*
  * Eliminate variables var[0 ... nvars-1] from the cube
  * defined by a[0] ... a[n-1].
  * - mdl = model that satisfies all literals a[0 ... n-1]
