@@ -19,7 +19,7 @@
  *
  * The quantifier elimination is based on substitution (for Boolean
  * variables) and on arithmetic elimination using a mix of
- * subsitution, Fourier-Motkin, and Virtual Term Subsitution (as
+ * substitution, Fourier-Motkin, and Virtual Term Subsitution (as
  * implemented in arith_projection).
  */
 
@@ -41,18 +41,29 @@
  */
 typedef enum {
   PROJ_NO_ERROR = 0,
+  PROJ_ERROR_NON_LINEAR,
   PROJ_ERROR_IN_EVAL,
   PROJ_ERROR_IN_CONVERT,
+  PROJ_ERROR_IN_SUBST,
+  PROJ_ERROR_BAD_ARITH_LITERAL,
 } proj_flag_t;
+
 
 /*
  * Projector data structure:
  * - keeps track of model + term manager + term table
  * - variables to eliminate are stored in array evars
  *   and in set vars_to_elim
- * - literals: contains a set of literals at different
- *   stages of the elimination process
- * - flag: either 0 or an error code
+ * - we keep the set of literals to process in two vectors:
+ *     arith_literals = arithmetic literals
+ *     gen_literals = everything else
+ * - for arithmetic literals, we must collect the arithmetic
+ *   variables to keep. We store them in set avars_to_kepp 
+ *   and vector arith_vars.
+ *
+ * To report errors/exceptions:
+ * - flag: one of the proj_flag status defined above
+ *   error_code: an extra integer to help diagnosis
  *
  * Auxiliary data structures (allocated when needed).
  * - elim_subst: eliminate Boolean/bitvector variables by substitution
@@ -71,7 +82,12 @@ typedef struct projector_s {
   uint32_t num_evars;
 
   // literals to process
-  ivector_t literals;
+  ivector_t gen_literals;
+  ivector_t arith_literals;
+
+  // arithmetic variables
+  int_hset_t *avars_to_keep; // NULL by default, allocated if needed
+  ivector_t arith_vars;
 
   // status flags
   int32_t flag;
@@ -112,6 +128,19 @@ extern void projector_add_literal(projector_t *proj, term_t t);
 
 
 /*
+ * Process the literals: eliminate the variables
+ * - the result is a  set of literals that don't contain
+ *   the variables to eliminate
+ * - these literals are added to vector *v
+ * - v is not reset
+ *
+ * The function returns an error code if something goes wrong
+ * and leave v untcouched. Otherwise, it retutns PROJ_NO_ERROR.
+ */
+extern proj_flag_t run_projector(projector_t *proj, ivector_t *v);
+
+
+/*
  * Eliminate variables var[0 ... nvars-1] from the cube
  * defined by a[0] ... a[n-1].
  * - mdl = model that satisfies all literals a[0 ... n-1]
@@ -124,8 +153,8 @@ extern void projector_add_literal(projector_t *proj, term_t t);
  *
  * Return code: 0 means no error
  */
-extern int32_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
-				uint32_t nvars, const term_t *var, ivector_t *v);
+extern proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
+				    uint32_t nvars, const term_t *var, ivector_t *v);
 
 
 #endif /* __PROJECTION_H */
