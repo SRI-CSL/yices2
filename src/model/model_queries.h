@@ -13,6 +13,7 @@
 #define __MODEL_QUERIES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "model/models.h"
 
@@ -38,6 +39,25 @@ extern value_t model_get_term_value(model_t *mdl, term_t t);
  * - return 0 otherwise.
  */
 extern int32_t evaluate_term_array(model_t *mdl, uint32_t n, const term_t a[], value_t b[]);
+
+
+/*
+ * Checks whether f is true in mdl
+ * - f must be a Boolean term
+ * - code is set to 0, if the evaluation succeeds
+ * - returns false if the evaluation fails and stores the error code in *code
+ */
+extern bool formula_holds_in_model(model_t *mdl, term_t f, int32_t *code);
+
+
+/*
+ * Checks whether mdl is a model of a[0 ... n-1]
+ * - all terms in a must be Boolean
+ * - sets *code to 0 if the evaluation succeeds
+ * - returns false if the evaluation fails for some a[i] and stores
+ *   the corresponding error code in *code
+ */
+extern bool formulas_hold_in_model(model_t *mdl, uint32_t n, const term_t a[], int32_t *code);
 
 
 

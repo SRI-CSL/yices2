@@ -8,6 +8,7 @@
 /*
  * PROJECTION OF A SET OF LITERALS USING A MODEL
  */
+
 #include <assert.h>
 #include <stdbool.h>
 
@@ -20,6 +21,7 @@
 
 
 #ifndef NDEBUG
+// check whether x is a variable
 static bool term_is_unint(term_table_t *terms, term_t x) {
   return is_pos_term(x) && term_kind(terms, x) == UNINTERPRETED_TERM;
 }
@@ -33,6 +35,15 @@ static bool all_unint_terms(term_table_t *terms, uint32_t nvars, const term_t *v
     }
   }
   return true;
+}
+
+// check whether x is true in proj->mdl
+static bool true_formula(projector_t *proj, term_t t) {
+  int32_t code;
+
+  return good_term(proj->terms, t) && 
+    is_boolean_term(proj->terms, t) &&
+    formula_holds_in_model(proj->mdl, t, &code);
 }
 #endif
 
@@ -86,6 +97,22 @@ static void proj_build_elim_subst(projector_t *proj) {
   tmp = (elim_subst_t *) safe_malloc(sizeof(elim_subst_t));
   init_elim_subst(tmp, proj->mngr, &proj->vars_to_elim);
   proj->elim_subst = tmp;
+}
+
+
+/*
+ * Allocate and initialize arith_proj
+ * - use default sizes
+ * - no variables are added to arith_proj
+ */
+static void proj_build_arith_proj(projector_t *proj) {
+  arith_projector_t *tmp;
+
+  assert(proj->arith_proj == NULL);
+
+  tmp = (arith_projector_t *) safe_malloc(sizeof(arith_projector_t));
+  init_arith_projector(tmp, proj->mngr, 0, 0);
+  proj->arith_proj = tmp;
 }
 
 
@@ -145,12 +172,21 @@ static void proj_delete_elim_subst(projector_t *proj) {
   }
 }
 
+static void proj_delete_arith_proj(projector_t *proj) {
+  if (proj->arith_proj != NULL) {
+    delete_arith_projector(proj->arith_proj);
+    safe_free(proj->arith_proj);
+    proj->arith_proj = NULL;
+  }
+}
+
 static void proj_delete_val_subst(projector_t *proj) {
   if (proj->val_subst != NULL) {
     delete_term_subst(proj->val_subst);
     safe_free(proj->val_subst);
     proj->val_subst = NULL;
   }
+
 }
 
 void delete_projector(projector_t *proj) {
@@ -161,7 +197,18 @@ void delete_projector(projector_t *proj) {
   delete_ivector(&proj->buffer);
 
   proj_delete_elim_subst(proj);
+  proj_delete_arith_proj(proj);
   proj_delete_val_subst(proj);
+}
+
+
+
+/*
+ * Add a literal t to proj->literals
+ */
+void projector_add_literal(projector_t *proj, term_t t) {
+  assert(true_formula(proj, t));
+  ivector_push(&proj->literals, t);
 }
 
 
@@ -172,4 +219,53 @@ void delete_projector(projector_t *proj) {
  * - nvars = size of array vars
  * - input = vector of literals
  */
+static void projector_elim_by_substitution(projector_t *proj) {
+  elim_subst_t *subst;
+  uint32_t i, j, n;
+  term_t t, x;
+
+  proj_build_elim_subst(proj);
+  subst = proj->elim_subst;
+
+  // Build a substitution
+  n = proj->literals.size;
+  for (i=0; i<n; i++) {
+    t = proj->literals.data[i];
+    (void) elim_subst_try_cheap_map(subst, t, false);
+  }
+  elim_subst_remove_cycles(subst);
+
+  // Remove all evars that are mapped by subst
+  n = proj->num_evars;
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    t = elim_subst_get_map(subst, x);
+    if (t < 0) { 
+      // x is not eliminated by subst
+      proj->evars[j] = x;
+      j ++;
+    }
+  }
+  proj->num_evars = j;
+
+  // Apply the substitution to all literals
+  if (j < n) {
+    n = proj->literals.size;
+    j = 0;
+    for (i=0; i<n; i++) {
+      t = elim_subst_apply(subst, proj->literals.data[i]);
+      if (t != true_term) {
+	// keep t
+	proj->literals.data[j] = t;
+	j ++;
+      }
+    }
+    ivector_shrink(&proj->literals, j);
+  }
+
+  // Clean-up
+  proj_delete_elim_subst(proj);
+}
+
 
