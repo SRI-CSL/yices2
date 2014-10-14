@@ -1441,9 +1441,17 @@ static const help_record_t help_data[] = {
   { HPARAM,
     "(set-param ef-gen-mode [mode])",
     "Select the generalization heuristic for the ef-solver",
-    "Currently, two generalization heuristics can be selected\n"
+    "Currently, four modes can be selected\n"
     "   none         --> no generalization\n"
-    "   substitution --> generalize by substitution\n",
+    "   substitution --> generalize by substitution\n"
+    "   projection   --> model-based quantifier elimination\n"
+    "   auto         --> either substitution or projection\n"
+    "                    depending on the universal variables\n"
+    "\n"
+    "The default setting is 'auto'. In this mode, Yices uses\n"
+    "model-based quantifier elimination if the problem contains\n"
+    "arithmetic variables or generalization by substitution if the\n"
+    "problem does not have arithmetic variables.\n",
     NULL },
 
   // ef-max-iters: index 149
