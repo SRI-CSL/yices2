@@ -41,11 +41,11 @@
  */
 typedef enum {
   PROJ_NO_ERROR = 0,
-  PROJ_ERROR_NON_LINEAR,
-  PROJ_ERROR_IN_EVAL,
-  PROJ_ERROR_IN_CONVERT,
-  PROJ_ERROR_IN_SUBST,
-  PROJ_ERROR_BAD_ARITH_LITERAL,
+  PROJ_ERROR_NON_LINEAR = -1,
+  PROJ_ERROR_IN_EVAL = -2,
+  PROJ_ERROR_IN_CONVERT = -3,
+  PROJ_ERROR_IN_SUBST = -4,
+  PROJ_ERROR_BAD_ARITH_LITERAL = -5,
 } proj_flag_t;
 
 
@@ -135,7 +135,7 @@ extern void projector_add_literal(projector_t *proj, term_t t);
  * - v is not reset
  *
  * The function returns an error code if something goes wrong
- * and leave v untcouched. Otherwise, it retutns PROJ_NO_ERROR.
+ * and leaves v untcouched. Otherwise, it returns PROJ_NO_ERROR.
  */
 extern proj_flag_t run_projector(projector_t *proj, ivector_t *v);
 
@@ -151,7 +151,7 @@ extern proj_flag_t run_projector(projector_t *proj, ivector_t *v);
  * or Boolean literals. (A Boolean literal is either (= p q) or
  * (not (= p q)) or p or (not p), where p and q are Boolean terms).
  *
- * Return code: 0 means no error
+ * Return code: same as run_projector.
  */
 extern proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
 				    uint32_t nvars, const term_t *var, ivector_t *v);

@@ -21,6 +21,7 @@
 #include "solvers/exists_forall/efsolver.h"
 #include "terms/term_substitution.h"
 #include "model/literal_collector.h"
+#include "model/projection.h"
 
 #include "yices.h"
 
@@ -125,11 +126,14 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
 
   solver->full_model = NULL;
   init_ivector(&solver->implicant, 20);
+  init_ivector(&solver->projection, 20);
 
   init_ivector(&solver->evalue_aux, 64);
   init_ivector(&solver->uvalue_aux, 64);
   init_ivector(&solver->all_vars, 64);
   init_ivector(&solver->all_values, 64);
+
+  solver->trace = NULL;
 }
 
 
@@ -162,11 +166,23 @@ void delete_ef_solver(ef_solver_t *solver) {
     solver->full_model = NULL;
   }
   delete_ivector(&solver->implicant);
+  delete_ivector(&solver->projection);
 
   delete_ivector(&solver->evalue_aux);
   delete_ivector(&solver->uvalue_aux);
   delete_ivector(&solver->all_vars);
   delete_ivector(&solver->all_values);
+}
+
+
+
+/*
+ * Set the trace:
+ * - the current tracer must be NULL.
+ */
+void ef_solver_set_trace(ef_solver_t *solver, tracer_t *trace) {
+  assert(solver->trace == NULL);
+  solver->trace = trace;
 }
 
 
@@ -186,6 +202,9 @@ static void init_exists_context(ef_solver_t *solver) {
   ctx = (context_t *) safe_malloc(sizeof(context_t));
   init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_MULTICHECKS, solver->arch, false); // qflag is false
   solver->exists_context = ctx;
+  if (solver->trace != NULL) {
+    context_set_trace(ctx, solver->trace);
+  }
 }
 
 /*
@@ -277,6 +296,9 @@ static void init_forall_context(ef_solver_t *solver) {
   ctx = (context_t *) safe_malloc(sizeof(context_t));
   init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_MULTICHECKS, solver->arch, false);
   solver->forall_context = ctx;
+  if (solver->trace != NULL) {
+    context_set_trace(ctx, solver->trace);
+  }
 }
 
 
@@ -650,6 +672,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
   sampling_ctx = get_forall_context(solver);
   ucode = assert_formula(sampling_ctx, cnstr->assumption);
   while (ucode == CTX_NO_ERROR) {
+    tprintf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
     status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, nvars, value, NULL);
     switch (status) {
     case STATUS_SAT:
@@ -792,14 +815,17 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
   assert(n == solver->uvalue_aux.size);
   ivector_add(v, solver->uvalue_aux.data, n);
 
-#if 1
+#if 0
   printf("Full map\n");
   print_full_map(stdout, solver);
-  printf("\n");
   fflush(stdout);
 #endif
 }
 
+
+#if 0
+
+// NOT USED
 
 /*
  * Compute an implicant for constraint i
@@ -835,7 +861,7 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   mdl = yices_model_from_map(n, solver->all_vars.data, solver->all_values.data);
   if (mdl == NULL) {
     // error in the model construction
-    solver->status = EF_STATUS_ERROR; // TODO: add another code
+    solver->status = EF_STATUS_MDL_ERROR;
     solver->error_code = yices_error_code();
     return;
   }
@@ -848,17 +874,19 @@ static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
   v->size = 0;
   code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
   if (code < 0) {
-    solver->status = EF_STATUS_ERROR;
+    solver->status = EF_STATUS_IMPLICANT_ERROR;
     solver->error_code = yices_error_code();
   }
 
-#if 1
+#if 0
   printf("Implicant\n");
   yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", v->size);
 #endif
 
 }
+
+#endif
 
 
 /*
@@ -892,6 +920,95 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
 
 
 /*
+ * Option 3: generalize by computing an implicant then
+ * applying projection.
+ */
+static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
+  model_t *mdl;
+  ef_cnstr_t *cnstr;
+  ivector_t *v, *w;
+  term_t a[2];
+  uint32_t n;
+  int32_t code;
+  proj_flag_t pflag;
+  term_t result;
+
+  assert(i < ef_prob_num_constraints(solver->prob));
+
+  // free the current full model if any
+  if (solver->full_model != NULL) {
+    yices_free_model(solver->full_model);
+    solver->full_model = NULL;
+  }
+
+  // build the full_map and the corresponding model.
+  ef_build_full_map(solver, i);
+  n = solver->all_vars.size;
+  assert(n == solver->all_values.size);
+  mdl = yices_model_from_map(n, solver->all_vars.data, solver->all_values.data);
+  if (mdl == NULL) {
+    // error in the model construction
+    solver->status = EF_STATUS_MDL_ERROR;
+    solver->error_code = yices_error_code();
+    return NULL_TERM;
+  }
+  solver->full_model = mdl;
+
+  // Compute the implicant
+  cnstr = solver->prob->cnstr + i;
+  a[0] = cnstr->assumption;
+  a[1] = opposite_term(cnstr->guarantee);
+  v = &solver->implicant;
+  ivector_reset(v);
+  code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
+  if (code < 0) {
+    solver->status = EF_STATUS_IMPLICANT_ERROR;
+    solver->error_code = code;
+    return NULL_TERM;
+  }
+
+#if 0
+  printf("Implicant\n");
+  yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
+  printf("(%"PRIu32" literals)\n", v->size);
+#endif
+
+  // Projection
+  w = &solver->projection;
+  ivector_reset(w);
+  n = ef_constraint_num_uvars(cnstr);
+  pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w);
+  if (pflag != PROJ_NO_ERROR) {
+    solver->status = EF_STATUS_PROJECTION_ERROR;
+    solver->error_code = pflag;
+    return NULL_TERM;
+  }
+
+#if 0
+  printf("Projection\n");
+  yices_pp_term_array(stdout, w->size, w->data, 120, UINT32_MAX, 0, 0);
+  printf("(%"PRIu32" literals)\n", w->size);
+#endif
+
+  switch (w->size) {
+  case 0:
+    result = true_term;
+    break;
+
+  case 1:
+    result = w->data[0];
+    break;
+
+  default:
+    result = mk_and(solver->prob->manager, w->size, w->data);
+    break;
+  }
+
+  return opposite_term(result);
+}
+
+
+/*
  * Learn a constraint for the exists variable based on the
  * existing forall witness for constraint i:
  * - the witness is defined by the uvars of constraint i
@@ -917,11 +1034,6 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
   uint32_t n;
   int32_t code;
 
-  // change to true for testing the implicant construction
-  if (false) {
-    ef_build_implicant(solver, i);
-  }
-
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
 
@@ -941,13 +1053,20 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     break;
 
   case EF_GEN_BY_SUBST_OPTION:
-  default: // added this to prevent bogus GCC warning
     val = solver->uvalue_aux.data;
     new_constraint = ef_generalize2(solver->prob, i, val);
     if (new_constraint < 0) {
       // error in substitution
       solver->status = EF_STATUS_SUBST_ERROR;
       solver->error_code = new_constraint;
+      return;
+    }
+    break;
+
+  case EF_GEN_BY_PROJ_OPTION:
+  default: // added this to prevent bogus GCC warning
+    new_constraint = ef_generalize3(solver, i);
+    if (new_constraint < 0) {     
       return;
     }
     break;
@@ -969,6 +1088,23 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
 /*
  * EF SOLVER: INNER LOOP
  */
+
+/*
+ * Trace: result of testing candidate
+ * - i = constraint id
+ */
+static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t status) {
+  switch (status) {
+  case STATUS_SAT:
+  case STATUS_UNKNOWN:
+    tprintf(solver->trace, 4, "(EF: candidate rejected: failed constraint %"PRIu32")\n", i);
+    break;
+
+  default:
+    tprintf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
+    break;
+  }
+}
 
 /*
  * Check whether the current exists_model can be falsified by one
@@ -1003,7 +1139,10 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 
   i = solver->scan_idx;
   do {
+    tprintf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
     status = ef_solver_test_exists_model(solver, i);
+    trace_candidate_check(solver, i, status);
+
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
@@ -1067,22 +1206,19 @@ static void ef_solver_search(ef_solver_t *solver) {
 
   assert(max > 0);
 
-#if 0
-  printf("\nEF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars\n",
-	 ef_prob_num_constraints(solver->prob),
-	 ef_prob_num_evars(solver->prob),
-	 ef_prob_num_uvars(solver->prob));
+  tprintf(solver->trace, 2,
+	  "(EF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars)\n",
+	  ef_prob_num_constraints(solver->prob),
+	  ef_prob_num_evars(solver->prob),
+	  ef_prob_num_uvars(solver->prob));
 
   //  printf("\nConditions on the exists variables:\n");
   //  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
-#endif
 
   ef_solver_start(solver);
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
-#if 0
-    printf("\n--- Iteration %"PRIu32" (scan_idx = %"PRIu32") ---\n", i, solver->scan_idx);
-#endif
+    tprintf(solver->trace, 3, "(EF Iteration %"PRIu32", scan_idx = %"PRIu32")\n", i, solver->scan_idx);
 
     stat = ef_solver_check_exists(solver);
     switch (stat) {
@@ -1097,15 +1233,17 @@ static void ef_solver_search(ef_solver_t *solver) {
       print_ef_solution(stdout, solver);
       printf("\n");
 #endif
-
+      tputs(solver->trace, 4, "(EF: Found candidate model)\n");
       ef_solver_check_exists_model(solver);
       break;
 
     case STATUS_UNSAT:
+      tputs(solver->trace, 4, "(EF: No candidate model)\n");
       solver->status = EF_STATUS_UNSAT;
       break;
 
     case STATUS_INTERRUPTED:
+      tputs(solver->trace, 4, "(EF: Interrupted)\n");
       solver->status = EF_STATUS_INTERRUPTED;
       break;
 
@@ -1131,6 +1269,8 @@ static void ef_solver_search(ef_solver_t *solver) {
   }
 
   solver->iters = i;
+
+  tputs(solver->trace, 3, "(EF: done)\n\n");
 }
 
 

@@ -84,6 +84,7 @@
  *   If input_filename is NULL, we run in interactive mode and get input from stdin.
  * - lexer, parser, term_stack: to process the input commands
  * - include_depth = number of nested (include ...) commands being processed
+ * - tracer: initialized to (stderr, 2) in verbose mode (otherwise NULL)
  *
  * GLOBAL FLAGS:
  * - interactive: true if no input file is given on the command line
@@ -96,7 +97,6 @@
  * - timeout: timeout value in second (applies to check)
  *   timeout value = 0 means no timeout
  * - timeout_initialized: true once init_timeout is called
- * - tracer: initialized to (stderr, 2) in verbose mode (otherwise not used)
  *
  * COMMAND-LINE OPTIONS:
  * - logic_name: logic to use (option --logic=xxx)
@@ -122,10 +122,10 @@ static uint32_t include_depth;
 static bool interactive;
 static bool done;
 static bool verbose;
+static tracer_t *tracer;
 
 static uint32_t timeout;
 static bool timeout_initialized;
-static tracer_t tracer;
 
 static char *logic_name;
 static char *arith_name;
@@ -447,17 +447,19 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
 
 
 /*
- * Names of the generalitzation modes for the EF solver
+ * Names of the generalization modes for the EF solver
  */
-#define NUM_EF_GEN_MODES 2
+#define NUM_EF_GEN_MODES 3
 
 static const char * const ef_gen_modes[NUM_EF_GEN_MODES] = {
   "none",
+  "projection",
   "substitution",
 };
 
 static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
   EF_NOGEN_OPTION,
+  EF_GEN_BY_PROJ_OPTION,
   EF_GEN_BY_SUBST_OPTION,
 };
 
@@ -610,6 +612,7 @@ static void process_command_line(int argc, char *argv[]) {
   arith_name = NULL;
   mode_name = NULL;
   verbose = false;
+  tracer = NULL;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
   mode_code = -1; // means not set
@@ -783,6 +786,15 @@ static void process_command_line(int argc, char *argv[]) {
         goto bad_usage;
       }
     }
+  }
+
+  /*
+   * Create the tracer object: stderr and with verbosity level = 4
+   */
+  if (verbose) {
+    tracer = (tracer_t *) safe_malloc(sizeof(tracer_t));
+    init_trace(tracer);
+    set_trace_vlevel(tracer, 4);
   }
 
   return;
@@ -1200,10 +1212,8 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_default_params_for_context(context, &parameters);
   save_ctx_params();
-  if (verbose) {
-    init_trace(&tracer);
-    set_trace_vlevel(&tracer, 4);
-    context_set_trace(context, &tracer);
+  if (tracer != NULL) {
+    context_set_trace(context, tracer);
   }
 
   init_handlers();
@@ -2928,6 +2938,9 @@ static void print_ef_status(void) {
     print_internalization_code(error);
     break;
 
+  case EF_STATUS_MDL_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:
+  case EF_STATUS_PROJECTION_ERROR:
   case EF_STATUS_TVAL_ERROR:
   case EF_STATUS_CHECK_ERROR:
   case EF_STATUS_ERROR:
@@ -2945,6 +2958,8 @@ static void print_ef_status(void) {
  * New command: ef-solve
  */
 static void yices_efsolve_cmd(void) {
+  ef_gen_option_t gen_mode;
+
   if (efmode) {
     build_ef_problem();
     if (efcode != EF_NO_ERROR) {
@@ -2955,7 +2970,18 @@ static void yices_efsolve_cmd(void) {
 	assert(efsolver == NULL);
 	efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
 	init_ef_solver(efsolver, efprob, logic_code, arch);
-	ef_solver_check(efsolver, &parameters, ef_parameters.gen_mode,
+	if (tracer != NULL) {
+	  ef_solver_set_trace(efsolver, tracer);
+	}
+	/*
+	 * If the problem has real variables, we force GEN_BY_PROJ
+	 */
+	gen_mode = ef_parameters.gen_mode;
+	if (true && ef_prob_has_arithmetic_uvars(efprob)) {
+	  gen_mode = EF_GEN_BY_PROJ_OPTION;
+	  tputs(tracer, 3, "(Warning: forcing ef-gen-mode to 'projection' to deal with arithmetic variables in forall)\n\n");
+	}
+	ef_solver_check(efsolver, &parameters, gen_mode,
 			ef_parameters.max_samples, ef_parameters.max_iters);
 	efdone = true;
       }
@@ -3662,10 +3688,6 @@ int yices_main(int argc, char *argv[]) {
     context = NULL;
     model = NULL;
     default_ctx_params(logic_code, arch);
-    if (verbose) {
-      init_trace(&tracer);
-      set_trace_vlevel(&tracer, 4);
-    }
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }
@@ -3731,8 +3753,10 @@ int yices_main(int argc, char *argv[]) {
   }
   delete_tstack(&stack);
   delete_ivector(&delayed_assertions);
-  if (verbose) {
-    delete_trace(&tracer);
+  if (tracer != NULL) {
+    delete_trace(tracer);
+    safe_free(tracer);
+    tracer = NULL;
   }
 
   yices_exit();

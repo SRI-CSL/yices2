@@ -145,6 +145,13 @@ extern uint32_t ef_prob_num_uvars(ef_prob_t *prob); // size of all_uvars
 
 
 /*
+ * Check the type of universal variables
+ * - this returns true if some universal variables are integer or real
+ */
+extern bool ef_prob_has_arithmetic_uvars(ef_prob_t *prob);
+
+
+/*
  * Number of conditions
  */
 extern uint32_t ef_prob_num_conditions(ef_prob_t *prob);

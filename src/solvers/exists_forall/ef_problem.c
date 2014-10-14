@@ -248,6 +248,26 @@ uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr) {
 }
 
 
+/*
+ * Check the type of universal variables
+ * - this returns true if some universal variables are integer or real
+ */
+bool ef_prob_has_arithmetic_uvars(ef_prob_t *prob) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t x;
+
+  terms = prob->terms;
+  n = iv_len(prob->all_uvars);
+  for (i=0; i<n; i++) {
+    x = prob->all_uvars[i];
+    if (is_arithmetic_term(terms, x)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 
 /*
  * Convert prob to an array of formulas (a big conjunction)
