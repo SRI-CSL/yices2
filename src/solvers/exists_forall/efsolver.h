@@ -146,6 +146,7 @@
 typedef enum ef_gen_option {
   EF_NOGEN_OPTION,        // option 1 above
   EF_GEN_BY_SUBST_OPTION, // option 2 above
+  EF_GEN_BY_PROJ_OPTION,  // model-based projection (cheap quantifier elimination)
 } ef_gen_option_t;
 
 
@@ -153,17 +154,20 @@ typedef enum ef_gen_option {
  * Status + error report
  */
 typedef enum ef_status {
-  EF_STATUS_IDLE,         // before call to efsolver_check
-  EF_STATUS_SEARCHING,    // while in efsolver_check
-  EF_STATUS_UNKNOWN,      // max_iters reached
-  EF_STATUS_SAT,          // satisfiable
-  EF_STATUS_UNSAT,        // unsat
-  EF_STATUS_INTERRUPTED,  // timeout
-  EF_STATUS_SUBST_ERROR,  // error in a substitution
-  EF_STATUS_TVAL_ERROR,   // error when converting model to constant terms
-  EF_STATUS_CHECK_ERROR,  // unexpected status in check_context
-  EF_STATUS_ASSERT_ERROR, // error in assert formulas
-  EF_STATUS_ERROR,        // internal error of some kind
+  EF_STATUS_IDLE,              // before call to efsolver_check
+  EF_STATUS_SEARCHING,         // while in efsolver_check
+  EF_STATUS_UNKNOWN,           // max_iters reached
+  EF_STATUS_SAT,               // satisfiable
+  EF_STATUS_UNSAT,             // unsat
+  EF_STATUS_INTERRUPTED,       // timeout
+  EF_STATUS_SUBST_ERROR,       // error in a substitution
+  EF_STATUS_TVAL_ERROR,        // error when converting model to constant terms
+  EF_STATUS_CHECK_ERROR,       // unexpected status in check_context
+  EF_STATUS_ASSERT_ERROR,      // error in assert formulas
+  EF_STATUS_MDL_ERROR,         // error in model_from_map
+  EF_STATUS_IMPLICANT_ERROR,   // error in get_implicant
+  EF_STATUS_PROJECTION_ERROR,  // error in projection
+  EF_STATUS_ERROR,             // any other internal error
 } ef_status_t;
 
 
@@ -202,15 +206,19 @@ typedef struct ef_solver_s {
   term_t *evalue;
   term_t *uvalue;
 
-  // Support for implicant construction
+  // Support for implicant construction and projection
   model_t *full_model;
   ivector_t implicant;
+  ivector_t projection;
 
   // Auxiliary buffers
   ivector_t evalue_aux;
   ivector_t uvalue_aux;
   ivector_t all_vars;
   ivector_t all_values;
+
+  // For verbose output (default = NULL)
+  tracer_t *trace;
 } ef_solver_t;
 
 
@@ -227,6 +235,13 @@ extern void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t log
  * Delete the whole thing
  */
 extern void delete_ef_solver(ef_solver_t *solver);
+
+
+/*
+ * Set the trace:
+ * - the current tracer must be NULL.
+ */
+extern void ef_solver_set_trace(ef_solver_t *solver, tracer_t *trace);
 
 
 
