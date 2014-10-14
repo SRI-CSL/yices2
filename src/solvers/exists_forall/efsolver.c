@@ -1287,6 +1287,14 @@ void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
   solver->max_iters = max_iters;
   solver->scan_idx = 0;
 
+  // adjust mode
+  if (gen_mode == EF_GEN_AUTO_OPTION) {
+    solver->option = EF_GEN_BY_SUBST_OPTION;
+    if (ef_prob_has_arithmetic_uvars(solver->prob)) {
+      solver->option  = EF_GEN_BY_PROJ_OPTION;
+    }
+  }
+
   assert(solver->exists_context == NULL &&
 	 solver->forall_context == NULL &&
 	 solver->exists_model == NULL);

@@ -449,15 +449,17 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
 /*
  * Names of the generalization modes for the EF solver
  */
-#define NUM_EF_GEN_MODES 3
+#define NUM_EF_GEN_MODES 4
 
 static const char * const ef_gen_modes[NUM_EF_GEN_MODES] = {
+  "auto",
   "none",
   "projection",
   "substitution",
 };
 
 static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
+  EF_GEN_AUTO_OPTION,
   EF_NOGEN_OPTION,
   EF_GEN_BY_PROJ_OPTION,
   EF_GEN_BY_SUBST_OPTION,
@@ -1241,7 +1243,7 @@ static void delete_ctx(void) {
 static void init_ef_params(void) {
   ef_parameters.flatten_iff = false;
   ef_parameters.flatten_ite = false;
-  ef_parameters.gen_mode = EF_GEN_BY_SUBST_OPTION;
+  ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
   ef_parameters.max_samples = 5;
   ef_parameters.max_iters = 100;
 }
@@ -2958,8 +2960,6 @@ static void print_ef_status(void) {
  * New command: ef-solve
  */
 static void yices_efsolve_cmd(void) {
-  ef_gen_option_t gen_mode;
-
   if (efmode) {
     build_ef_problem();
     if (efcode != EF_NO_ERROR) {
@@ -2976,12 +2976,7 @@ static void yices_efsolve_cmd(void) {
 	/*
 	 * If the problem has real variables, we force GEN_BY_PROJ
 	 */
-	gen_mode = ef_parameters.gen_mode;
-	if (true && ef_prob_has_arithmetic_uvars(efprob)) {
-	  gen_mode = EF_GEN_BY_PROJ_OPTION;
-	  tputs(tracer, 3, "(Warning: forcing ef-gen-mode to 'projection' to deal with arithmetic variables in forall)\n\n");
-	}
-	ef_solver_check(efsolver, &parameters, gen_mode,
+	ef_solver_check(efsolver, &parameters, ef_parameters.gen_mode,
 			ef_parameters.max_samples, ef_parameters.max_iters);
 	efdone = true;
       }
