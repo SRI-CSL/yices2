@@ -1,7 +1,67 @@
-GUIDE TO THE SOURCE CODE
+SOURCE CODE OVERVIEW
 
 
-1) Utilities
+The source code is organized as follows:
+
+  src/utils:        Utilities and generic data structures
+
+  src/terms:        Internal representation of terms and types, including functions and
+                    data structures for building/normalizing/simplifying terms.
+
+  src/models:       Data structures related to building, querying, and manipulating models.
+                    (A model stored mapping from terms to concreted values.)
+
+  src/solvers:      CDCL-based SAT solvers +  theory solvers + solver for 
+                    exists/forall problems.
+
+  src/context:      Support for creating and manipulating contexts and for simplification
+                    and preprocessing of assertions.
+
+  src/api:          Functions and data structures needed to implement the Yices API.
+
+  src/io:           Support for input output, including parsing and pretty printing.
+
+  src/parser_utils:   Data structures common to all front-end tools, including support
+                      for parsing and stack-based construction of terms and types.
+
+  src/frontend:     Main binaries. Each front-end supports a different input language.
+
+  src/include:      Header files that specify the Yices API.
+
+
+src/solvers contains a subdirectory for each solver:
+
+  src/solvers/cdcl:      SAT solver
+
+  src/solvers/bv:        Bit-vector solver
+
+  src/solvers/egraph:    E-graph/UF solver
+
+  src/solvers/simplex:   Solver for linear arithmetic (based on Simplex)
+
+  src/solvers/funs:      Solver for the theory of arrays
+
+  src/solvers/floyd_warshall: Specialized solvers for difference logic
+
+
+
+front_ends contains a subdirectory for each main binary
+
+  src/frontend/yices:    Main binary (supports the Yices language and Exists/Forall solving)
+
+  src/frontend/smt1:     yices-smt (supports SMT-LIB 1.2)
+
+  src/frontend/smt2:     yices-smt2 (supports SMT-LIB 2.0)
+
+
+
+
+
+
+MORE DETAILS
+
+
+1) UTILITIES
    ---------
 
 1.1) Memory management
@@ -31,6 +91,9 @@ assert_utils.h:		Wrappers around assert to avoid compilation warnings
 
 bit_tricks.h:           Low-level bit-mask operations (via GCC's __builtins or replacement
                         if they're not present).
+
+command_line.h:         Support for parsing command-line arguments (passed via argc/argv)
+command_line.c
 
 cputime.h:              For measuring computing time
 cputime.c
@@ -87,6 +150,7 @@ dl_lists.h:             doubly-linked lists
 
 
 1.4.a)  Vectors and Arrays
+        ------------------
 
 backtrack_arrays.h:     arrays of integers with support for update, push/pop
 backtrack_arrays.c
@@ -123,6 +187,7 @@ use_vectors.c
 
 
 1.4.b)  Queues
+        ------
 
 int_queues.h:           queue of signed integers (implemented as a circular array)
 int_queues.c
@@ -131,7 +196,8 @@ ptr_queues.h:           queue of (void*) pointers (implemented as a circular arr
 ptr_queues.c
 
 
-1.4.c)  Heaps
+1.4.c)  Binary Heaps
+        ------------
 
 generic_heap.h:         heap of signed 32bit integers, with an ordering function
 generic_heap.c          defined by the user.
@@ -148,6 +214,7 @@ ptr_heap.c
 
 
 1.4.d)  Sets/Collections
+        ----------------
 
 csets.h:                Sets of integers (all elements are in an interval [0 .. n-1]
 csets.c                 where n is fixed when the set is created)
@@ -158,12 +225,16 @@ int_bags.c              implemented using resizable arrays.
 int_bv_sets.h:          sets of unsigned integers implemented using resizable bitvectors
 int_bv_sets.c
 
+ptr_sets.h:             sets of (void*) pointers
+ptr_sets.c
+
 uint_rbtrees.h:         Red-black trees to store sets of unsigned, 32bit integers
 uint_rbtrees.c
 
 
 
-1.4.e)  Equivalence relations/Partitions
+1.4.e)  Equivalence Relations/Partitions
+        --------------------------------
 
 int_partitions.h:       data structure to construct partitions of integers
 int_partitions.c        based on an equivalence relation provided by the user.
@@ -176,7 +247,8 @@ union_find.h:           a union-find data structure for 32bit non-negative integ
 union_find.c
 
 
-1.4.f)  Character strings
+1.4.f)  Character Strings
+        -----------------
 
 refcount_strings.h:     character strings with reference counter ('\0' terminated)
 refcount_strings.c
@@ -189,6 +261,7 @@ string_utils.c
 
 
 1.4.g)  Hash tables
+        -----------
 
 cache.h:                a hash table that stores triples <tag, x, y>
 cache.c                 also implements push/pop. It's used by the egraph and other solvers.
@@ -226,6 +299,9 @@ ptr_hash_classes.c      by pointers). The table stores one representative per cl
 ptr_hash_map.h:         maps int32 to (void *) pointers (hash table)
 ptr_hash_map.c
 
+simple_cache.h:         fixed-size caches
+simple_cache.c
+
 string_hash_map.h:	map strings to 32bit integers
 string_hash_map.c
 
@@ -237,31 +313,12 @@ tuple_hash_map.c
 
 
 
-1.4.h)  Parsing utilities
 
-command_line.h:         Support for parsing command-line arguments
-command_line.c
+2) TYPES AND TERMS
+   ---------------
 
-reader.h:               Object for reading from files or strings
-reader.c                keeps track of position (line/column number) and stores
-                        a current character.
-
-lexer.h:                Data structure shared by the yices and smt lexers
-lexer.c                 includes a reader object and stores a current token.
-                        Also maintains a stack of lexers (for nested includes).
-
-
-1.4.i)  Pretty printer
-
-pretty_printer.h:       Pretty printer core (Oppen-style implementation).
-pretty_printer.c
-
-
-
-
-
-2) Rational and bitvector constants
-   --------------------------------
+2.1) Rational and bitvector constants
+     --------------------------------
 
 mpq_aux.h:              GMP extensions: operations on multi-precision
 mpq_aux.c               rational numbers (mpq_t)
@@ -285,12 +342,8 @@ rational_hash_maps.c    (implemented using hash tables)
 
 
 
-
-
-
-
-3) Arithmetic and polynomials
-   --------------------------
+2.2) Arithmetic and polynomials
+     --------------------------
 
 Arithmetic terms are represented as polynomials in fully-expanded form
 (i.e.,  sums of  monomials).  Each monomial  is  a pair  (coefficient,
@@ -383,8 +436,8 @@ bvpoly_buffers.c
 
 
 
-4) Bit array expressions
-   ---------------------
+2.3) Bit array expressions
+     ---------------------
 
 bit_expr.h:               Bit expressions (i.e., boolean expressions represented as DAGs
 bit_expr.c                with nodes for XOR/OR and inverters) (variant of AIG).
@@ -397,44 +450,27 @@ bvlogic_buffers.c         (e.g., bit masking, shifts, sign/zero extension). The 
 
 
 
-5) Terms and types
-   ---------------
+2.4) Term and type tables
+     --------------------
 
-Types  and terms  are identified  by an  integer index.  The  index is
-mapped  to  a term  descriptor  stored in  two  global  type and  term
-tables. We use  hash consing: distinct term indices  refer to distinct
-term   descriptors;   distinct  type   indices   have  distinct   type
-descriptors.
+Types  and terms are  identified by  an integer  index.  The  index is
+mapped to a  descriptor stored in a global type or  term table. We use
+hash   consing:  distinct   term  indices   refer  to   distinct  term
+descriptors; distinct type indices have distinct type descriptors.
 
 There's support  for attaching a  name to each  term or type,  and for
 garbage collection of unused types and terms.
 
 
-5.1) Base term and type table implementation
-     ---------------------------------------
-
-yices_types.h:           Define the types type_t and term_t + all types visible
-                         at the Yices API.
-
-yices_limits.h:          Define the hard-coded limits that may be used in the API
-                         (including the maximal number of terms and types).
-
-
-types.h:                 Table of types + type constructors
+types.h:                       Table of types + type constructors
 types.c
 
-
-terms.h:                 Table of terms and basic term constructors
+terms.h:                       Table of terms and basic term constructors
 terms.c
 
-
-
-5.2) Support for operations on terms
-     -------------------------------
-
 arith_buffer_terms.h:          Operations involving arith_buffers and terms
-arith_buffer_terms.c           (Obsolete: arith_buffers are replaced by
-                                balanced_arith_buffers)
+arith_buffer_terms.c           Obsolete: arith_buffers are replaced by
+                               balanced_arith_buffers.
 
 bvarith64_buffer_terms.h:      Operations involving bvarith64_buffers and terms
 bvarith64_buffer_terms.c
@@ -454,40 +490,31 @@ rba_buffer_terms.c             (implemented as red-black trees) and terms.
 term_utils.h:                  Utilities to help normalizing/simplifying terms
 term_utils.c
 
+conditionals.h:                Generalization of if-then-else
+conditionals.c
 
 
-5.3) Support for substitutions
-     -------------------------
 
-subst_context.h                 Store a mapping from int32 to int32 indices
-subst_context.c                 with a scoping mechanism and hash consing
+2.5) Auxiliary data structures for substitutions
+     -------------------------------------------
 
-variable_renaming.h             To rename bound variables by fresh variables
+subst_context.h          Store a mapping from int32 to int32 indices
+subst_context.c          with a scoping mechanism and hash consing
+
+variable_renaming.h      To rename bound variables by fresh variables
 variable_renaming.c
 
-renaming_context.h              Subst context + variable renaming
+renaming_context.h       Subst context + variable renaming
 renaming_context.c
 
-subst_cache.h                   Store mapping (term, context) --> term
+subst_cache.h            Store mapping (term, context) --> term
 subst_cache.c
 
-free_var_collector.h            To compute the free variables of a term
+free_var_collector.h     To compute the free variables of a term
 free_var_collector.c
 
-
-
-5.4) Pretty printer for Yices terms and types
-     ----------------------------------------
-
-yices_pp.h:              Yices pretty printer (extends pretty_printer)
-yices_pp.c
-
-term_printer.h:          Print functions for the terms
-term_printer.c
-
-type_printer.h:          Print functions for the types
-type_printer.c
-
+term_sets.h:             Sets of terms (represented as hash-sets) to be
+term_sets.c              used by the elim_subst code.
 
 
 
@@ -502,10 +529,7 @@ The  constructors   check  for  well-formedness   of  their  arguments
 (including  type  checking)   and  implement  term  normalization  and
 simplification.
 
-The solvers for  the Yices language and for SMT-LIB  1.2 and SMT-LIB 2
-extend term_stack2 with language-specific operations and variants.
-
-Modules used in term construction:
+Main modules for this purpose:
 
 term_manager.h:          Main term-construction module. This is where most term
 term_manager.c           simplification/normalization functions are implemented.
@@ -513,19 +537,6 @@ term_manager.c           simplification/normalization functions are implemented.
 term_substitution.h      Stores a substitution + cache + renaming
 term_substitution.c      context + free variable collector (also implement
                          beta-reduction).
-
-term_stack2.h:           Stack-based term builder. New implementation of term_stack
-term_stack2.c             (removed the commands that were specific to Yices).
-
-term_stack_error.h:      Error messages and diagnosis when the
-term_stack_error.c       term stack module raises an exception.
-
-tstack_internals.h:      Term-stack operations for specializing/extending the default
-                         term_stack.
-
-
-5.6) More substitutions
-     ------------------
 
 full_subst.h:            Recursive substitutions: The full substitution
 full_subst.c               [x --> f(y), y --> a + b] removes both x and y. It's
@@ -536,49 +547,90 @@ full_subst.c               [x --> f(y), y --> a + b] removes both x and y. It's
 elim_subst.h:            Extends full_subst: it builds a full_subst object from
 elim_subst.c             a set of literals and a set of variables to eliminates.
 
-term_sets.h:		 Build a set of terms (represented as a hash-set) to be
-term_sets.c              used by the elim_subst code.
 
 
-6) Others
+
+
+3) MODELS
+   ------
+
+3.1) Basics
+     ------
+
+abstract_values.h:      Intermediate objects used by the function/array solver to
+abstract_values.c       construct models. The egraph converts these abstract values
+                        to constants (concrete values) of appropriate types.
+
+fun_maps.h:             Maps built by the array solver using abstract values. A map
+fun_maps.c              has a default value + a finite list of pair (element -> val)
+
+fun_trees.h:            Tree structure used to force maps with infinite domain
+fun_trees.c             to be all distinct (cf. fun_solver.c).
+
+concrete_values.h:      Hash-consing + tagging of constants used in models.
+concrete_values.c       - concrete values include booleans, rationals, bitvectors, tuples,
+                          functions and function updates
+
+fresh_value_maker.h:	Support for building fresh objects (concrete values) of a given
+fresh_value_maker.c     type.
+
+small_bvsets.h:         Set of bit-vector constants. Used by the bvsolver to create
+small_bvsets.c          fresh values when requested by the egraph. Compact representation
+                        that works for small bit-vector width.
+
+large_bvsets.h:         Variant representation for larger bit width (not used).
+large_bvsets.c          - sets are stored in an inexact form using Bloom filter ideas
+
+rb_bvsets.h:            Another variant representation. Sets of bit-vector constants
+rb_bvsets.c             are stored in red-black trees. (That's what's currently used
+                        in bv_solver)
+
+models.h:               Model representation: map terms to concrete values
+models.c                - optionally: a model can also include a substitution table
+                        that map uninterpreted terms to other terms.
+
+model_eval.h:           Evaluator: compute the (concrete) value of a term in a model
+model_eval.c
+
+val_to_term.h:		Convert concrete values to constant terms (in terms.h)
+val_to_term.c
+
+term_to_val.h:		Convert constant terms to concrete values
+term_to_val.c
+
+map_to_model.h:		Convert a mapping to a model
+map_to_model.c          - the mapping assigns constant terms to uninterpreted term
+                        - this module converts it to the model data structure
+
+
+
+3.2) Implicants and Quantifier Elimination
+     -------------------------------------
+
+literal_collector.h:	Compute an implicant for a formula based on a model
+literal_collector.c     that satisfies the formula.
+
+arith_projection.h:	Model-based Quantifier Elimination for arithmetic
+arith_projection.c      (Fourier-Motzkin + a specialized form of Virtual
+                        Term Substitution)
+
+projection.h:		Model-based Quantifier Elimination (general)
+projection.c
+
+
+
+
+4) SOLVERS
    -------
 
-We currently  support three  input languages for  defining terms/types
-and interactive with Yices:
-- the Yices language itself
-- enough of the SMT-LIB notation version 1.2 to deal with the official
-  SMT-LIB benchmarks used in the SMT Solver Competition in 2009.
-- the SMT-LIB notation version 2.0 (support is not complete yet)
 
-All parsers rely on the following module
-
-parser.h:                Data structure shared by the Yices and SMT-LIB parsers.
-parser.c                 It provides support for implementing recursive-descent parsers
-
-
-
-For printing trace messages & terms depending on a verbosity level:
-
-tracer.h
-tracer.c
-
-
-
-
-7) Solvers
-   -------
-
-
-7.1) Core/DPLL solver
+4.1) Core/SAT solver
      ----------------
 
-smt_core.h:             DPLL-based SAT solver with support for connection to a theory solver
+smt_core.h:             CDCL-based SAT solver with support for connection to a theory solver
 smt_core.c
 
 smt_core_base_types.h:	Type definitions (boolean variables, literals, truth values)
-
-smt_core_exporter.h:    Export the smt_core content to a file (dimacs format)
-smt_core_exporter.c     (this takes only the Boolean part into account)
 
 smt_core_printer.h:     Print functions for the core
 smt_core_printer.c
@@ -592,15 +644,14 @@ gates_manager.c
 gates_printer.h:        Print functions for Boolean gates
 gates_printer.c
 
-sat_solver.h:           A separate DPLL SAT solver similar to core but without theory solver
-sat_solver.c
-       (it's used to build the yices_sat standalone SAT solver)
+sat_solver.h:           A separate SAT solver similar to core but without theory solver
+sat_solver.c           (it's used to build the yices_sat standalone SAT solver)
 
 sat_parameters.h:	Parameters for sat_solver.c
 
 
 
-7.2) Egraph
+4.2) Egraph
      ------
 
 egraph_base_types.h:        Types used by the egraph.
@@ -642,10 +693,11 @@ egraph_printer.c
 
 
 
-7.3) Arithmetic solvers
+4.3) Arithmetic solvers
      ------------------
 
-7.3.a)  Difference Logic Solvers
+4.3.a)  Difference Logic Solvers
+        ------------------------
 
 dl_vartable.h:          Table that stores variable descriptors for difference logic solvers
 dl_vartable.c           - each variable is mapped to a triple [x, y, c] (which denotes
@@ -665,7 +717,8 @@ rdl_fw_printer.c
 
 
 
-7.3.b)  Simplex Solver
+4.3.b)  Simplex Solver
+        --------------
 
 arith_vartable.h:       Table of arithmetic variables: maps variables to a definition
 arith_vartable.c        - uses hash-consing, has support for push/pop/reset, supports non-linear polynomials as
@@ -692,6 +745,7 @@ simplex_types.h:        Simplex-related type definitions
 
 simplex_propagator0.h:  Experimental code to implement theory propagation in the Simplex solver
 simplex_propagator1.h
+
 simplex_prop_table.h
 simplex_prop_table.c
 
@@ -703,7 +757,7 @@ simplex_printer.c
 
 
 
-7.4) Function/Array solver
+4.4) Function/Array solver
      ---------------------
 
 fun_solver.h:           Solver for the function/array theory
@@ -748,9 +802,6 @@ bv64_intervals.c        of no more than 64 bits. (Used by bvsolver for simplific
 bv_intervals.h:         More general version: intervals defined by two bit-vector constants
 bv_intervals.c          with more than 64bits. (Used by bvsolver for simplification)
 
-bvpoly_buffer.h:        Buffer for construction of bit-vector polynomials
-bvpoly_buffer.c         (simpler/more efficient than bvarith_buffer and bvarith64_buffer)
-
 bvpoly_compiler.h:      Support for converting bit-vector polynomials to more elementary
 bvpoly_compiler.c       terms built using binary add, binary product, etc.
 
@@ -765,70 +816,13 @@ bvsolver.c
 bvsolver_printer.h:     Print functions for the bitvector solver
 bvsolver_printer.c
 
-dimacs_printer.h:	Convert literals from the Yices encoding to hte Dimacs format.
-dimacs_printer.c
-
-
-7.6) Model construction
-     -------------------
-
-abstract_values.h:      Intermediate objects used by the function/array solver to
-abstract_values.c       construct models. The egraph converts these abstract values
-                        to constants (concrete values) of appropriate types.
-
-fun_maps.h:             Maps built by the array solver using abstract values. A map
-fun_maps.c              has a default value + a finite list of pair (element -> val)
-
-fun_trees.h:            Tree structure used to force maps with infinite domain
-fun_trees.c             to be all distinct (cf. fun_solver.c).
-
-concrete_values.h:      Hash-consing + tagging of constants used in models.
-concrete_values.c       - concrete values include booleans, rationals, bitvectors, tuples,
-                          functions and function updates
-
-concrete_value_printer.h: Print and pretty-printing functions for concrete values
-concrete_value_printer.c
-
-fresh_value_maker.h:	Support for building fresh objects (concrete values) of a given
-fresh_value_maker.c     type.
-
-small_bvsets.h:         Set of bit-vector constants. Used by the bvsolver to create
-small_bvsets.c          fresh values when requested by the egraph. Compact representation
-                        that works for small bit-vector width.
-
-large_bvsets.h:         Variant representation for larger bit width (not used).
-large_bvsets.c          - sets are stored in an inexact form using Bloom filter ideas
-
-rb_bvsets.h:            Another variant representation. Sets of bit-vector constants
-rb_bvsets.c             are stored in red-black trees. (That's what's currently used
-                        in bv_solver)
-
-models.h:               Model representation: map terms to concrete values
-models.c                - optionally: a model can also include a substitution table
-                        that map uninterpreted terms to other terms.
-
-model_printer.h:        Code to display a model
-model_printer.c
-
-model_eval.h:           Evaluator: compute the (concrete) value of a term in a model
-model_eval.c
-
-val_to_term.h:		Convert concrete values to constant terms (in terms.h)
-val_to_term.c
-
-term_to_val.h:		Convert constant terms to concrete values
-term_to_val.c
-
-map_to_model.h:		Convert a mapping to a model
-map_to_model.c          - the mapping assigns constant terms to uninterpreted term
-                        - this module converts it to the model data structure
-
-literal_collector.h:	Compute an implicant for a formula based on a model
-literal_collector.c     that satisfies the formula.
+dimacs_printer.h:	Export a bitvector problem to the DIMACS format.
+dimacs_printer.c        (also works for pure Boolean problems).
 
 
 
-8) Context
+
+5) CONTEXT
    -------
 
 A context stores  a set of assertions and one or  more solvers to deal
@@ -840,7 +834,7 @@ Also the context performs formula simplification and supports push/pop,
 and implements the toplevel solver and model construction procedures.
 
 
-8.1) Internalization
+5.1) Internalization
      ----------------
 
 internalization_codes.h:      Utilities for tagging/untagging internalization codes
@@ -873,6 +867,9 @@ eq_learner.c
 symmetry_breaking.h:          Add constraints to break symmetries in QF_UF problems
 symmetry_breaking.c
 
+conditional_definitions.h:    Data structures to reconstruct hidden conditional definitions
+conditional_definitions.c     in QF_LIA encodings.
+
 context_simplifier.c:         Simplification and preprocessing procedures used by context.c
                               - implements simplifications that are independent of the solvers
 
@@ -883,8 +880,11 @@ context.c                     - implements the translation of yices terms (as pr
 context_printer.h:            Print internal context structures
 context_printer.c
 
+dump_context.h:		      Print context details (mostly for debugging).
+dump_context.c
 
-8.2) Solving
+
+5.2) Solving
      -------
 
 context_solver.c:            Global search algorithm for formulas asserted in a context
@@ -895,7 +895,8 @@ context_statistics.c
 
 
 
-9) Exists/Forall Solver
+
+6) EXISTS/FORALL SOLVER
    --------------------
 
 An exists/forall solver is intended to solve problems of the form (EXISTS x. FORALL y. P(x, y)).
@@ -911,17 +912,14 @@ ef_analyze.h:               Preprocessing, simplification, and construction of a
 ef_analyze.c                structure from a set of assertions. This takes input of the
                             form FORALL y. P(x, y) and builds an ef_problem from this.
 
-
 efsolver.h:                 Solver for an EF problem.
 efsolver.c
 
 
 
-10) Top-level modules
-   -----------------
 
-10.1) Library/API
-     -----------
+7) API
+   ---
 
 yices_types.h:	            Types visible at the external API
 
@@ -954,9 +952,6 @@ yices_version.c             Version number + compilation + architecture.
                             when compiling (cf. src/Makefile).
 
 
-arith_solver_codes.h:       Used to process command line options
-arith_solver_codes.c        - convert a solver name (e.g., "simplex") to a numerical code
-
 context_config.h:           Data structure to store context configuration info
 context_config.c            (logic + optional features + solvers)
 
@@ -968,8 +963,77 @@ smt_logic_codes.h:          Convert the known SMT-LIB logic names (e.g., "QF_AUF
 smt_logic_codes.c           into a numerical code.
 
 
+yval.h:			    DAG data structures to examine non-atomic values in a model
+yval.c
 
-10.2) Yices solver
+
+
+8) INPUT/OUTPUT
+   ------------
+
+reader.h:               Object for reading from files or strings
+reader.c                keeps track of position (line/column number) and stores
+                        a current character.
+
+pretty_printer.h:       Pretty printer core (Oppen-style implementation).
+pretty_printer.c
+
+yices_pp.h:             Yices pretty printer (extends pretty_printer)
+yices_pp.c
+
+term_printer.h:         Print functions for the terms
+term_printer.c
+
+type_printer.h:         Print functions for the types
+type_printer.c
+
+tracer.h:               To print messages depending on a verbosity level
+tracer.c
+
+concrete_value_printer.h:   Print functions for concrete values
+concrete_value_printer.c
+
+model_printer.h:         Code to display a model
+model_printer.c
+
+
+
+
+9) PARSING SUPPORT
+   ---------------
+
+We currently  support three  input languages for  defining terms/types
+and interactive with Yices:
+- the Yices language itself
+- enough of the SMT-LIB notation version 1.2 to deal with the official
+  SMT-LIB benchmarks used in the SMT Solver Competition in 2009.
+- the SMT-LIB notation version 2.0 (support is not complete yet)
+
+All parsers rely on the following modules
+
+lexer.h:                Data structure shared by the yices and smt lexers
+lexer.c                 includes a reader object and stores a current token.
+
+parser.h:               Data structure shared by the Yices and SMT-LIB parsers.
+parser.c                It provides support for implementing recursive-descent parsers
+                        Also maintains a stack of lexers (for nested includes).
+
+term_stack2.h:           Stack-based term builder. New implementation of term_stack
+term_stack2.c             (removed the commands that were specific to Yices).
+
+term_stack_error.h:      Error messages and diagnosis when the
+term_stack_error.c       term stack module raises an exception.
+
+tstack_internals.h:      Term-stack operations for specializing/extending the default
+                         term_stack.
+
+
+
+
+10) FRONT ENDS
+    ----------
+
+10.1) Yices solver
      ------------
 
 yices_keywords.txt          Input for gperf (to construct a perfect hash for the
@@ -992,8 +1056,8 @@ yices_tstack_ops.h          Opcodes used by Yices version of term_stack
 yices_help.h:               On-line help for the solver (Yices language)
 yices_help.c
 
-dump_context.h:             Print the context (mostly for debugging).
-dump_context.c
+arith_solver_codes.h:       Used to process command line options
+arith_solver_codes.c        - convert a solver name (e.g., "simplex") to a numerical code
 
 yices_reval.h:              Read-eval-print loop. Accepts input in the Yices language
 yices_reval.c               - this is separated so that the reval functions can be called
@@ -1004,8 +1068,8 @@ yices_main.c:              Top-level Yices module for problems in the Yices lang
 
 
 
-10.3) SMT 1.2 solvers
-     ---------------
+10.2) SMT 1.2 solvers
+      ---------------
 
 smt_keywords.txt           Input for gperf (to construct a perfect hash for the
                            smt-lib keywords)
@@ -1032,8 +1096,8 @@ yices_smtcomp.c:           Solver for problems in the SMT-LIB notation
                            on the command line.
 
 
-10.4) SMT-LIB 2 solver
-     ----------------
+10.3) SMT-LIB 2 solver
+     -----------------
 
 smt2_tokens.txt:           All tokens + reserved symbols used in SMT-LIB 2.0 (including
                            command names).
@@ -1086,7 +1150,7 @@ yices_smt2.c:		   Solver for problems in the SMT-LIB 2.0 notation
 
 
 
-10.5) SAT solver
+10.4) SAT solver
      ----------
 
 yices_sat.c:               SAT solver: reads DIMACS CNF input
@@ -1094,7 +1158,11 @@ yices_sat.c:               SAT solver: reads DIMACS CNF input
 
 
 
-11) Experimental modules
+
+
+
+
+11) EXPERIMENTAL MODULES
     --------------------
 
 update_graph.h:            Incomplete: new module intended to replace the array solver
@@ -1105,9 +1173,6 @@ bool_vartable.c
 
 booleq_table.h:		   Store Boolean variables that are defined as (xor x y)
 booleq_table.c
-
-ilists.h:		   Lists of 32bit integers (NOT USED)
-ilists.c
 
 flattening.h:              Flattening of conjuncts/disjuncts with optional
 flattening.c               flattening of iff and Boolean ite. Most of this
