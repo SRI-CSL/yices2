@@ -48,10 +48,10 @@ Menlo Park CA 94025 USA
 \chapter{Introduction}
 
 This  manual   is  an  introduction   to  the  logic,   language,  and
-architecture  of the  Yices~2 SMT  solver. Yices  is developed  in SRI
+architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
 International's  Computer   Science  Laboratory  and   is  distributed
-free-of-charge for personal use, under  the terms of the Yices License
-(reproduced  in  Chapter~\ref{license} of  this  manual).  To  discuss
+free-of-charge for  noncommercial use,  under the  terms of  the Yices
+License   (reproduced   in    Appendix~\ref{license}).    To   discuss
 alternative     license     terms,     please    contact     us     at
 \texttt{fm-license@csl.sri.com}.
 
@@ -757,12 +757,12 @@ specialized  for pure  bitvector problems,  or for  problems combining
 uninterpreted  functions,  arrays,  and  bitvectors (by  removing  the
 arithmetic solver).
 
-Yices~2  combines   several  theory  solver   using  the  Nelson-Oppen
-method~\cite{NelsonOppen79}.   The  UF solver  is  essential for  this
+Yices~2  combines  several  theory   solvers  using  the  Nelson-Oppen
+method~\cite{NelsonOppen79}.   The UF  solver  is  essential for  this
 purpose;  it  coordinates the  different  theory  solvers and  ensures
 global  consistency. The  other solvers  (for arithmetic,  arrays, and
-bitvectors)  communicate only  with the  central UF  solver  and never
-directly with  each other.  This property considerably  simplifies the
+bitvectors)  communicate only  with the  central UF  solver and  never
+directly with  each other.  This property  considerably simplifies the
 design and implementation of theory solvers.
 
 \section{Context Configurations}
