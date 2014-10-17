@@ -3015,12 +3015,12 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_
  * The function computes an implicant for the conjunction (and a[0] ... a[n-1]).
  *
  * Return codes and errors are as in the previous function.
- * The implicant is stored in vector v.
+ * The implicant is returned in vector v.
  *
  * If the return code is 0, then
  *    v->size = number of literals
  *    v->data contains the array of literals.
- * Otherwise, v->size is set 0.
+ * Otherwise, v->size is set to 0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
