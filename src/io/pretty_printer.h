@@ -387,7 +387,7 @@ static inline pp_atomic_token_t *untag_separator(void *p) {
  *   string of length <= n (where n < tk->size).
  *
  * All the conversions take a generic user-provided pointer as first
- * argument and must return character string (terminated by '\0').
+ * argument and must return a character string (terminated by '\0').
  * For consistency,
  * - get_label(ptr, tk) should return a string of length equal to tk->label_size.
  * - get_string(ptr, tk) should return a string of length equal to tk->size.
