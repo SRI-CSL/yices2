@@ -70,7 +70,7 @@ typedef enum smt_status {
   STATUS_SAT,
   STATUS_UNSAT,
   STATUS_INTERRUPTED,
-  STATUS_ERROR,
+  STATUS_ERROR
 } smt_status_t;
 
 
@@ -163,7 +163,7 @@ typedef enum yval_tag {
   YVAL_SCALAR,
   YVAL_TUPLE,
   YVAL_FUNCTION,
-  YVAL_MAPPING,
+  YVAL_MAPPING
 } yval_tag_t;
 
 // Node descriptor
@@ -345,7 +345,7 @@ typedef enum error_code {
    * Catch-all code for anything else.
    * This is a symptom that a bug has been found.
    */
-  INTERNAL_EXCEPTION = 9999,
+  INTERNAL_EXCEPTION = 9999
 } error_code_t;
 
 
