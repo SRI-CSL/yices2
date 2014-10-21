@@ -233,10 +233,14 @@ extern void init_yices_pp_tables(void);
 
 /*
  * Initialize a pretty printer
- * - file = output file (must be open for write)
- * - area = display area (cf. pretty_printer.h)
+ * - file = output file (must be NULL or a stream open for write)
+ * - area = display area (cf. pretty_printer.h) 
  * - mode = initial print mode (cf. pretty printer.h)
  * - indent = initial indentation
+ *
+ * If file is NULL, then the pretty printer is initialized for 
+ * a string buffer. Otherwise, it writes to file.
+ *
  * If area is NULL, then the default is used (cf. pretty_printer.h)
  */
 extern void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
@@ -246,8 +250,7 @@ extern void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
 /*
  * Variant: use default mode and indent
  */
-static inline void init_default_yices_pp(yices_pp_t *printer,
-                                         FILE *file, pp_area_t *area) {
+static inline void init_default_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area) {
   init_yices_pp(printer, file, area, PP_VMODE, 0);
 }
 
@@ -257,6 +260,16 @@ static inline void init_default_yices_pp(yices_pp_t *printer,
  * - then reset the line counter to 0
  */
 extern void flush_yices_pp(yices_pp_t *printer);
+
+
+/*
+ * Extract the string constructed by printer
+ * - printer must be initialized for a string (i.e., with file = NULL)
+ * - this must be called after flush
+ * - the string length is stored in *len
+ * - the returned string must be deleted when no-longer needed using free.
+ */
+extern char *yices_pp_get_string(yices_pp_t *printer, uint32_t *len);
 
 
 /*
@@ -287,17 +300,13 @@ static inline uint32_t yices_pp_depth(yices_pp_t *printer) {
  * Check for print error and error code
  */
 static inline bool yices_pp_print_failed(yices_pp_t *printer) {
-  return printer->pp.printer.print_failed;
+  return writer_failed(&printer->pp.printer.writer);
 }
 
 static inline int yices_pp_errno(yices_pp_t *printer) {
-  return printer->pp.printer.pp_errno;
+  return writer_errno(&printer->pp.printer.writer);
 }
 
-static inline void yices_pp_clear_error(yices_pp_t *printer) {
-  printer->pp.printer.print_failed = false;
-  printer->pp.printer.pp_errno = 0;
-}
 
 
 /*

@@ -144,17 +144,22 @@ static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
 
 /*
  * Initialize the printer p:
- * - file = output stream to use
+ * - file = output stream to use (or NULL)
+ * - if file is NULL, we initialize for a string writer
  * - converter = converter API
  * - area = descriptor of the print area
  * - mode = initial print mode
  * - indent = initial indentation
  */
 static void init_printer(printer_t *p, FILE *file, pp_token_converter_t *converter,
-                         pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+			 pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
   uint32_t next_width;
 
-  p->file = file;
+  if (file != NULL) {
+    init_stream_writer(&p->writer, file);
+  } else {
+    init_string_writer(&p->writer);
+  }
   p->area = *area;      // make an internal copy
   p->conv = *converter; // internal copy too
 
@@ -183,14 +188,11 @@ static void init_printer(printer_t *p, FILE *file, pp_token_converter_t *convert
   p->col = 0;
   p->margin = area->width;
 
-  // error codes
-  p->print_failed = false;
-  p->pp_errno = 0;
-
   // pending tokens: empty
   p->pending_col = 0;
   init_pvector(&p->pending_tokens, 0);
 }
+
 
 
 /*
@@ -258,6 +260,7 @@ static void delete_printer(printer_t *p) {
     free_token(p, v->data[i]);
   }
   delete_pvector(v);
+  delete_writer(&p->writer);
 }
 
 
@@ -266,42 +269,18 @@ static void delete_printer(printer_t *p) {
  */
 
 /*
- * Wrappers for fputc, fputs, and fflush to deal with errors
+ * Wrappers for fputc, fputs, and fflush
  */
-static void pp_fputc(printer_t *p, int c) {
-  int x;
-
-  if (! p->print_failed) {
-    x = fputc(c, p->file);
-    if (x == EOF) {
-      p->print_failed = true;
-      p->pp_errno = errno;
-    }
-  }
+static inline void pp_fputc(printer_t *p, int c) {
+  writer_putc(&p->writer, c);
 }
 
-static void pp_fputs(printer_t *p, char *s) {
-  int x;
-
-  if (!p->print_failed) {
-    x = fputs(s, p->file);
-    if (x == EOF) {
-      p->print_failed = true;
-      p->pp_errno = errno;
-    }
-  }
+static inline void pp_fputs(printer_t *p, char *s) {
+  writer_puts(&p->writer, s);
 }
 
-static void pp_fflush(printer_t *p) {
-  int x;
-
-  if (!p->print_failed) {
-    x = fflush(p->file);
-    if (x == EOF) {
-      p->print_failed = true;
-      p->pp_errno = errno;
-    }
-  }
+static inline void pp_fflush(printer_t *p) {
+  writer_flush(&p->writer);
 }
 
 
@@ -1060,7 +1039,7 @@ static void print_token(printer_t *p, void *tk) {
   }
 
   // for debugging
-  fflush(p->file);
+  pp_fflush(p);
 }
 
 
@@ -1615,7 +1594,9 @@ static pp_area_t default_area = {
  * Initialization:
  * - converter = converter interface (this
  *   is copied into pp->converter).
- * - file = output stream to use (must be an open file)
+ * - file = output stream to use (must be NULL or an open file)
+ *   if file is NULL, pp is initialized for a string buffer
+ *   otherwise, pp writes to the file.
  * - area = specify display area + truncate + stretch
  *   if area is NULL then the default is used
  * - mode = initial mode
@@ -1624,7 +1605,7 @@ static pp_area_t default_area = {
  * mode + indent are the bottom stack element
  */
 void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
-             pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+	     pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
 
   if (area == NULL) {
     area = &default_area;
@@ -1689,6 +1670,19 @@ void flush_pp(pp_t *pp) {
 
 
 /*
+ * After flush: extract the string constructed by pp
+ * - pp must be initialized for a string buffer (i.e., file = NULL)
+ * - the string's length is stored in *len
+ * - the string must be deleted by free when it's no longer needed
+ */
+char *pp_get_string(pp_t *pp, uint32_t *len) {
+  return writer_get_string(&pp->printer.writer, len);
+}
+
+
+
+
+/*
  * Check whether the printer is full (more precisely,
  * check whether we can't print anything more)
  */
@@ -1696,7 +1690,7 @@ bool pp_is_full(pp_t *pp) {
   printer_t *p;
 
   p = &pp->printer;
-  return p->print_failed || (p->full_line && p->line + 1 == p->area.height);
+  return writer_failed(&p->writer) || (p->full_line && p->line + 1 == p->area.height);
 }
 
 

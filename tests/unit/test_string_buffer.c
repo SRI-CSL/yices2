@@ -10,17 +10,28 @@
 #include <inttypes.h>
 
 #include "utils/string_buffers.h"
+#include "utils/memalloc.h"
 #include "terms/rationals.h"
 #include "terms/bv_constants.h"
 
 static string_buffer_t buffer;
 
-static void show_test(char *desc, string_buffer_t *s) {
+static void show_test(const char *desc, string_buffer_t *s) {
+  char *content;
+  uint32_t len;
+
   printf("%s\n", desc);
   string_buffer_append_char(s, '!');
   string_buffer_print(stdout, s);
   printf("\n");
   fflush(stdout);
+
+  content = string_buffer_export(s, &len);
+  printf("Exported to %s\n", content);
+  printf("len = %"PRIu32"\n", len);
+  printf("---\n");
+
+  safe_free(content);
 }
 
 static char aux[40];
