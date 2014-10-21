@@ -123,11 +123,13 @@ void delete_writer(writer_t *writer) {
 void writer_putc(writer_t *writer, char c) {
   int x;
 
-  if (writer->is_stream && !writer->print_failed) {
-    x = fputc(c, writer->output.stream);
-    if (x == EOF) {
-      writer->print_failed = true;
-      writer->print_errno = errno;
+  if (writer->is_stream) {
+    if (!writer->print_failed) {
+      x = fputc(c, writer->output.stream);
+      if (x == EOF) {
+	writer->print_failed = true;
+	writer->print_errno = errno;
+      }
     }
   } else {
     string_buffer_append_char(&writer->output.buffer, c);
@@ -137,11 +139,13 @@ void writer_putc(writer_t *writer, char c) {
 void writer_puts(writer_t *writer, const char *s) {
   int x;
 
-  if (writer->is_stream && !writer->print_failed) {
-    x = fputs(s, writer->output.stream);
-    if (x == EOF) {
-      writer->print_failed = true;
-      writer->print_errno = errno;      
+  if (writer->is_stream) {
+    if (!writer->print_failed) {
+      x = fputs(s, writer->output.stream);
+      if (x == EOF) {
+	writer->print_failed = true;
+	writer->print_errno = errno;      
+      }
     }
   } else {
     string_buffer_append_string(&writer->output.buffer, s);
@@ -151,11 +155,13 @@ void writer_puts(writer_t *writer, const char *s) {
 void writer_flush(writer_t *writer) {
   int x;
 
-  if (writer->is_stream && !writer->print_failed) {
-    x = fflush(writer->output.stream);
-    if (x == EOF) {
-      writer->print_failed = true;
-      writer->print_errno = errno;
+  if (writer->is_stream) {
+    if (!writer->print_failed) {
+      x = fflush(writer->output.stream);
+      if (x == EOF) {
+	writer->print_failed = true;
+	writer->print_errno = errno;
+      }
     }
   }
 }
