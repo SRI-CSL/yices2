@@ -10,8 +10,8 @@
  * String reader: same thing but read from a null-terminated string.
  */
 
-#ifndef __FILE_READER_H
-#define __FILE_READER_H
+#ifndef __READER_H
+#define __READER_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -150,4 +150,4 @@ static inline int reader_next_char(reader_t *reader) {
 }
 
 
-#endif /* __FILE_READER_H */
+#endif /* __READER_H */

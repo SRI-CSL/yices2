@@ -433,6 +433,19 @@ __YICES_DLLSPEC__ extern term_t yices_application(term_t fun, uint32_t n, const 
 
 
 /*
+ * Variants for small arity:
+ * - the arguments are given as arg1, arg2, arg3 instead of an array of n terms
+ * - fun must be an uninterpreted function of arity 1, 2, or 3
+ *
+ * Same error reports are yices_application
+ */
+__YICES_DLLSPEC__ extern term_t yices_application1(term_t fun, term_t arg1);
+__YICES_DLLSPEC__ extern term_t yices_application2(term_t fun, term_t arg1, term_t arg2);
+__YICES_DLLSPEC__ extern term_t yices_application3(term_t fun, term_t arg1, term_t arg2, term_t arg3);
+
+
+
+/*
  * if-then-else
  *
  * Error report:
@@ -558,6 +571,14 @@ __YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, const term_t arg[]);
 
 
 /*
+ * Variants for n=2 or n=3
+ * - same error reports as yices_tuple if arg1, arg2, or arg3 is invalid
+ */
+__YICES_DLLSPEC__ extern term_t yices_pair(term_t arg1, term_t arg2);
+__YICES_DLLSPEC__ extern term_t yices_triple(term_t arg1, term_t arg2, term_t arg3);
+
+
+/*
  * Tuple projection
  *
  * The index must be between 1 and n (where n = number of components in tuple)
@@ -628,6 +649,16 @@ __YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index,
  *    type1 = expected type
  */
 __YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v);
+
+
+/*
+ * Variants of yices_update for small n
+ * - fun must be a function of arity 1, 2, or 3
+ * - the arguments are given as arg1, arg2, arg3 instead of an array arg[]
+ */
+__YICES_DLLSPEC__ extern term_t yices_update1(term_t fun, term_t arg1, term_t new_v);
+__YICES_DLLSPEC__ extern term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v);
+__YICES_DLLSPEC__ extern term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v);
 
 
 /*
@@ -999,9 +1030,37 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  * Conversion of an integer to a bitvector constant.
  * - n = number of bits
  * - x = value
- * The value x is truncated (or 0-padded) to n bits
- *
  * The low-order bit of x is bit 0 of the constant.
+ *
+ * For yices_bvconst_uint32:
+ * - if n is less than 32, then the value of x is truncated to 
+ *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is more than 32, then the value of x is zero-extended to
+ *   n bits.
+ *
+ * For yices_bvconst_uint64:
+ * - if n is less than 64, then the value of x is truncated to 
+ *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is more than 64, then the value of x is zero-extended to
+ *   n bits.
+ *
+ * For yices_bvconst_int32:
+ * - if n is less than 32, then the value of x is truncated to 
+ *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is more than 32, then the value of x is sign-extended to
+ *   n bits.
+ *
+ * For yices_bvconst_int64:
+ * - if n is less than 64, then the value of x is truncated to 
+ *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is more than 64, then the value of x is sign-extended to
+ *   n bits.
+ *
+ * For yices_bvconst_mpz:
+ * - x is interpreted as a signed number in 2-s complement
+ * - if x has fewer than n bits (in 2's complement), then the value is sign-extended
+ * - if x has more than n bits (in 2's complement) then the value is truncated
+ *   (to n least significant bits).
  *
  * Error report:
  * if n = 0
@@ -1013,6 +1072,10 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  */
 __YICES_DLLSPEC__ extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
 __YICES_DLLSPEC__ extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
+
+__YICES_DLLSPEC__ extern term_t yices_bvconst_int32(uint32_t n, int32_t x);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_int64(uint32_t n, int64_t x);
+
 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, const mpz_t x);
@@ -1664,6 +1727,33 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
 						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
 
+
+
+/*
+ * Convert type tau or term t to a string using the pretty printer.
+ * - width, height, offset define the print area as above.
+ *
+ * - return NULL on error
+ * - return a '\0' terminated string otherwise
+ *   this string must be deleted by calling yices_free_string when it's no longer used
+ *
+ * - possible error report for yices_type_to_string
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ *
+ * - possible error report for yices_term_to_string
+ *    code = INVALID_TERM
+ *    term1 = t
+ *
+ */
+__YICES_DLLSPEC__ extern char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Delete a string returned by one of the  previous functions.
+ */
+__YICES_DLLSPEC__ extern void yices_free_string(char *s);
 
 
 

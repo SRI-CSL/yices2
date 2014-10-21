@@ -2465,6 +2465,32 @@ EXPORTED term_t yices_application(term_t fun, uint32_t n, const term_t arg[]) {
   return t;
 }
 
+/*
+ * Variants for small n
+ */
+EXPORTED term_t yices_application1(term_t fun, term_t arg1) {
+  return yices_application(fun, 1, &arg1);
+}
+
+EXPORTED term_t yices_application2(term_t fun, term_t arg1, term_t arg2) {
+  term_t aux[2];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  return yices_application(fun, 2, aux);
+}
+
+EXPORTED term_t yices_application3(term_t fun, term_t arg1, term_t arg2, term_t arg3) {
+  term_t aux[3];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  aux[2] = arg3;
+  return yices_application(fun, 3, aux);
+}
+
+
+
 EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   term_table_t *tbl;
   type_t tau;
@@ -2690,6 +2716,32 @@ EXPORTED term_t yices_tuple(uint32_t n, const term_t arg[]) {
   return mk_tuple(&manager, n, arg);
 }
 
+// variants for n=2 or n=3
+EXPORTED term_t yices_pair(term_t arg1, term_t arg2) {
+  term_t aux[2];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  if (! check_good_terms(&manager, 2, aux)) {
+    return NULL_TERM;
+  }
+  return mk_tuple(&manager, 2, aux);
+}
+
+EXPORTED term_t yices_triple(term_t arg1, term_t arg2, term_t arg3) {
+  term_t aux[3];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  aux[2] = arg3;
+  if (! check_good_terms(&manager, 3, aux)) {
+    return NULL_TERM;
+  }
+  return mk_tuple(&manager, 3, aux);
+}
+
+
+
 EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
   if (! check_good_select(&manager, index, tuple)) {
     return NULL_TERM;
@@ -2706,6 +2758,30 @@ EXPORTED term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t 
 
   return mk_update(&manager, fun, n, arg, new_v);
 }
+
+// Variants for n=1, 2, or 3
+EXPORTED term_t yices_update1(term_t fun, term_t arg1, term_t new_v) {
+  return yices_update(fun, 1, &arg1, new_v);
+}
+
+EXPORTED term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v) {
+  term_t aux[2];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  return yices_update(fun, 2, aux, new_v);  
+}
+
+EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v) {
+  term_t aux[3];
+
+  aux[0] = arg1;
+  aux[1] = arg2;
+  aux[2] = arg3;
+  return yices_update(fun, 3, aux, new_v);  
+}
+
+
 
 EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
   if (! check_positive(n) ||
@@ -3414,13 +3490,50 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   return mk_bv_constant(&manager, &bv0);
 }
 
-EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
+EXPORTED term_t yices_bvconst_int32(uint32_t n, int32_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
 
   bvconstant_set_bitsize(&bv0, n);
-  bvconst_set_mpz(bv0.data, bv0.width, x);
+  bvconst_set32_signed(bv0.data, bv0.width, x);
+
+  return mk_bv_constant(&manager, &bv0);
+}
+
+EXPORTED term_t yices_bvconst_int64(uint32_t n, int64_t x) {
+  if (!check_positive(n) || !check_maxbvsize(n)) {
+    return NULL_TERM;
+  }
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set64_signed(bv0.data, bv0.width, x);
+
+  return mk_bv_constant(&manager, &bv0);
+}
+
+EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
+  mpz_t aux;
+
+  if (!check_positive(n) || !check_maxbvsize(n)) {
+    return NULL_TERM;
+  }
+
+  /*
+   * bvconst_set_mpz requires x>=0
+   * for sign-extend, we copy |x| into aux
+   * copy aux into bv0 then negate bv0
+   */
+  bvconstant_set_bitsize(&bv0, n);
+  if (mpz_sgn(x) >= 0) {
+    bvconst_set_mpz(bv0.data, bv0.width, x);
+  } else {
+    mpz_init_set(aux, x);
+    mpz_abs(aux, aux);
+    bvconst_set_mpz(bv0.data, bv0.width, aux);
+    bvconst_negate(bv0.data, bv0.width);
+    mpz_clear(aux);
+  }
 
   return mk_bv_constant(&manager, &bv0);
 }
@@ -4770,6 +4883,73 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint
   return code;
 }
 
+
+
+/*
+ * Conversion to strings
+ */
+EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  char *str;
+  uint32_t len;
+
+  if (! check_good_type(&types, tau)) {
+    return NULL;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, NULL, &area);
+  pp_type_exp(&printer, &types, tau);
+  flush_yices_pp(&printer);
+
+  str = yices_pp_get_string(&printer, &len);
+  delete_yices_pp(&printer, false);
+
+  return str;
+}
+
+EXPORTED char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  char *str;
+  uint32_t len;
+
+  if (! check_good_term(&manager, t)) {
+    return NULL;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, NULL, &area);
+  pp_term_full(&printer, &terms, t);
+  flush_yices_pp(&printer);
+
+  str = yices_pp_get_string(&printer, &len);
+  delete_yices_pp(&printer, false);
+
+  return str;
+}
+
+
+EXPORTED void yices_free_string(char *s) {
+  safe_free(s);
+}
 
 
 

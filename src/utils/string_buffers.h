@@ -88,4 +88,16 @@ extern void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint3
 extern void string_buffer_print(FILE *f, string_buffer_t *s);
 
 
+/*
+ * Export:
+ * - close the string (add '\0') then return it.
+ * - store the string's size in *len.
+ * - reset the buffer.
+ *
+ * The returned string must be deleted when no-longer needed using
+ * free (or safe_free in utils/memalloc).
+ */
+extern char *string_buffer_export(string_buffer_t *s, uint32_t *len);
+
+
 #endif /* __STRING_BUFFER_H */

@@ -194,6 +194,29 @@ void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n) 
  * Print the full buffer
  */
 void string_buffer_print(FILE *f, string_buffer_t *s) {
-  string_buffer_append_char(s, '\0');
+  string_buffer_close(s);
   fputs(s->data, f);
 }
+
+
+/*
+ * Export:
+ * - close the string (add '\0') then return it
+ * - store the string's size in *len
+ * - then reset the buffer.
+ */
+char *string_buffer_export(string_buffer_t *s, uint32_t *len) {
+  char *tmp;
+
+  string_buffer_close(s);
+  tmp = s->data;
+  *len = s->index;
+
+  // reset to an empty buffer
+  s->size = 0;
+  s->index = 0;
+  s->data = NULL;
+
+  return tmp;
+}
+

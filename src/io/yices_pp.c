@@ -489,6 +489,18 @@ void flush_yices_pp(yices_pp_t *printer) {
   flush_pp(&printer->pp);
 }
 
+/*
+ * Extract the string constructed by printer
+ * - printer must be initialized for a string (i.e., with file = NULL)
+ * - this must be called after flush
+ * - the string length is stored in *len
+ * - the returned string must be deleted when no-longer needed using free.
+ */
+char *yices_pp_get_string(yices_pp_t *printer, uint32_t *len) {
+  return pp_get_string(&printer->pp, len);
+}
+
+
 
 /*
  * Flush then delete a pretty printer
