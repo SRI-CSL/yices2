@@ -122,6 +122,18 @@ static void sign_extend_int64(int64_t x, uint32_t n, int32_t a[]) {
 }
 
 
+/*
+ * Copy an mpz number
+ */
+static void sign_extend_mpz(mpz_t z, uint32_t n, int32_t a[]) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    a[i] = mpz_tstbit(z, i);
+  }
+}
+
+
 
 /*
  * Test 
@@ -194,6 +206,31 @@ static void test_bvconst_int64(int64_t x) {
 
 
 
+/*
+ * Tests using a GMP integer:
+ * - the input is given as a string
+ */
+static void test_bvconst_mpz(const char *s) {
+  int32_t a[MAXBITS];
+  mpz_t z;
+  uint32_t n;
+  term_t t;
+
+  printf("Testing yices_bvconst_mpz: x = %s\n", s);
+  mpz_init(z);
+  mpz_set_str(z, s, 0);
+  sign_extend_mpz(z, MAXBITS, a);
+  for (n=1; n<MAXBITS; n++) {
+    t = yices_bvconst_mpz(n, z);
+    printf("--> %3"PRIu32" bits: ", n);
+    yices_pp_term(stdout, t, 200, 1, 0);
+    check_bvconst(t, n, a);
+  }
+  mpz_clear(z);
+  printf("passed\n\n");
+}
+
+
 int main(void) {
   yices_init();
 
@@ -225,6 +262,13 @@ int main(void) {
   test_bvconst_int64(0xAAAAAAAAAAAAAAAA);
   test_bvconst_int64(0x5555555555555555);
 
+  test_bvconst_mpz("0");
+  test_bvconst_mpz("1");
+  test_bvconst_mpz("-1");
+  test_bvconst_mpz("0b10101010101010101010101010");
+  test_bvconst_mpz("-0b10101010101010101010101010");
+  test_bvconst_mpz("123456789012345678901234567890");
+  test_bvconst_mpz("-123456789012345678901234567890");
 
   yices_exit();
   return 0;
