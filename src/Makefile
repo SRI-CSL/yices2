@@ -402,10 +402,17 @@ libyices_soname := libyices.so.$(MAJOR).$(MINOR)
 # version and compatibility numbers for Darwin
 # install name: /usr/local/lib/libyices.2.dylib
 #
+# 2014/10/22: changed install name to use the $(prefix)
+# set by configure.
+#
+# TODO?: we should use $(libdir) instead of $(prefix)/lib but
+# this clashes with the $(libdir) set at the beginning of this
+# Makefile.
+#
 libyices_dylib := libyices.$(MAJOR).dylib
 libyices_curr_version := $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 libyices_compat_version := $(MAJOR).$(MINOR).0
-libyices_install_name := /usr/local/lib/libyices.$(MAJOR).dylib
+libyices_install_name := $(prefix)/lib/libyices.$(MAJOR).dylib
 
 #
 # Cygwin and mingw:
