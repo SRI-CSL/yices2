@@ -788,14 +788,17 @@ $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS) -lc
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
+endif
 
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
-
+endif
 
 #
 # DLL on cygwin
@@ -816,14 +819,18 @@ $(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
+endif
 
 $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
 	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
+endif
 
 
 #
@@ -845,7 +852,9 @@ $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
+endif
 
 $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
@@ -853,7 +862,9 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
 	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
+endif
 
 
 #
@@ -872,7 +883,9 @@ $(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	$(base_obj) $(version_obj) $(LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
+endif
 
 $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
@@ -882,7 +895,9 @@ $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	$(base_obj) $(version_obj) $(PIC_LIBS)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
+endif
 
 # All objects
 obj: $(obj) $(bin_obj)
@@ -926,17 +941,19 @@ dist: bin lib
 	cp include/*.h $(distdir)/include
 	mkdir $(distdir)/bin
 	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
 	cp $(libdir)/* $(distdir)/lib
+ifeq ($(YICES_MODE),release)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	rm -f $(distdir)/lib/libyices.a
+endif
 
 static-dist: static-bin static-lib
 	rm -r -f $(static_distdir)/*
@@ -944,18 +961,19 @@ static-dist: static-bin static-lib
 	cp include/*.h $(static_distdir)/include
 	mkdir $(static_distdir)/bin
 	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
 	mkdir $(static_distdir)/lib
 	cp $(static_libdir)/* $(static_distdir)/lib
+ifeq ($(YICES_MODE),release)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	rm -f $(static_distdir)/lib/libyices.a
-
+endif
 
 smt-dist: bin
 	rm -r -f $(smt_distdir)/*
