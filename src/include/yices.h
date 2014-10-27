@@ -230,7 +230,7 @@ __YICES_DLLSPEC__ extern type_t yices_real_type(void);
  * Bitvectors of given size (number of bits)
  * Requires size > 0
  *
- * If size = 0, error report is set
+ * If size = 0, the error report is set
  *   code = POS_INT_REQUIRED
  *   badval = size
  * If size > YICES_MAX_BVSIZE
@@ -1785,10 +1785,10 @@ __YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
 
 /*
  * Check whether tau is a subtype of sigma
- * - return 0 for false, 1 for true
+ * - returns 0 for false, 1 for true
  *
  * If tau or sigma is not a valid type, the function returns false
- * and set the error report:
+ * and sets the error report:
  *   code = INVALID_TYPE
  *   type1 = tau or sigma
  */
@@ -1797,7 +1797,7 @@ __YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 
 /*
  * Number of bits for type tau
- * - return 0 if there's an error
+ * - returns 0 if there's an error
  *
  * Error report:
  * if tau is not a valid type
@@ -1812,8 +1812,8 @@ __YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
 
 /*
  * Get the type of term t
- * return NULL_TYPE if t is not a valid term
- * and set the error report:
+ * returns NULL_TYPE if t is not a valid term
+ * and sets the error report:
  *   code = INVALID_TERM
  *   term1 = t
  */
@@ -1822,12 +1822,12 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
 
 /*
  * Check the type of a term t:
- * - return 0 for false, 1 for true
+ * - returns 0 for false, 1 for true
  *
- * - term_is_arithmetic check whether t's type is either int or real
- * - term_is_real check whether t's type is real
- * - term_is_int check whether t's type is int
- * - term_is_scalar check whether t has a scalar or uninterpreted type
+ * - term_is_arithmetic checks whether t's type is either int or real
+ * - term_is_real checks whether t's type is real
+ * - term_is_int checks whether t's type is int
+ * - term_is_scalar checks whether t has a scalar or uninterpreted type
  *
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
@@ -1844,7 +1844,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
 
 /*
  * Size of a bitvector term (i.e., number of bits)
- * - return 0 if there's an error
+ * - returns 0 if there's an error
  *
  * Error report:
  * if t is not a valid term
@@ -2742,6 +2742,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
  * Value of bitvector term t in mdl
  * - the value is returned in array val
  * - val must be an integer array of sufficient size to store all bits of t
+ *   (the number of bits of t can be found yices_term_bitsize).
  * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
  * - the value is returned using small-endian convention:
  *    val[0] is the low-order bit
