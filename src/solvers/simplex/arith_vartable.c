@@ -316,7 +316,7 @@ byte_t *get_integer_vars_vector(arith_vartable_t *table) {
   uint32_t i, n;
 
   n = table->nvars;
-  v = allocate_bitvector(n);
+  v = allocate_bitvector0(n);
   for (i=0; i<n; i++) {
     assign_bit(v, i, arith_var_is_int(table, i));
   }
