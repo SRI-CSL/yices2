@@ -6830,6 +6830,35 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
 
 
 /*
+ * Convert mdl to a string
+ */
+EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  char *str;
+  uint32_t len;
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, NULL, &area);
+  model_pp_full(&printer, mdl);
+  flush_yices_pp(&printer);
+
+  str = yices_pp_get_string(&printer, &len);
+  delete_yices_pp(&printer, false);
+
+  return str;  
+}
+
+
+/*
  * BUILD A MODEL FROM A MAP OF UNINTERPRETED TO CONSTANT TERMS
  */
 
