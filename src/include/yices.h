@@ -1648,114 +1648,6 @@ __YICES_DLLSPEC__ extern const char *yices_get_term_name(term_t t);
 
 
 
-/**********************
- *  PRETTY PRINTING   *
- *********************/
-
-/*
- * Pretty printing uses a rectangular display area, characterized
- * by its width, height, and offset as follows.
- *
- *                  <----------- width ------------->
- *                   _______________________________
- * <---- offset --->|                               |   ^
- *                  |                               |   |
- *                  |                               | Height
- *                  |                               |   |
- *                  |                               |   v
- *                   -------------------------------
- *
- */
-
-/*
- * Pretty print type tau or term t on file f
- * - width, height, offset define the print area
- * - f = output file to use.
- *   f must be open and writable.
- *
- * - return -1 on error
- * - return 0 otherwise.
- *
- * - possible error report for yices_pp_type
- *    code = INVALID_TYPE
- *    type1 = tau
- *
- * - possible error report for yices_pp_term
- *    code = INVALID_TERM
- *    term1 = t
- *
- * - other errors (for both)
- *    code = OUTPUT_ERROR if writing to file f failed.
- *    in this case, errno, perror, etc. can be used for diagnostic.
- */
-__YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
-__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
-
-
-/*
- * Pretty print an array of terms:
- * - f = output file to use
- * - n = number of terms in the array a
- * - a = array of terms
- * - width, height, offset define the print area
- * - horiz = Boolean flag that determines the layout
- *
- * If horiz is true (non-zero), the terms are printed as follows
- *     a[0]  a[1] .... a[k]
- *     a[k+1] ... a[n-1]
- *
- * If horiz is false (zero), the terms are printed as follows
- *     a[0]
- *     a[1]
- *      ...
- *     a[n-1]
- *
- * The function first checks whether all terms in a[0... n-1] are
- * valid.  If not, it sets the error report:
- *    code = INVALID_TERM
- *    term = a[i] (first invalid term in the array)
- * and returns -1. Nothing is printed in this case.
- *
- * Otherwise, the terms a[0... n-1] are printed in the specified
- * print area (some terms may be omitted if the area is too small).
- * The function returns 0 unless there's an error while writing to
- * file f. In such as case, the function returns -1 and
- * set the error report to:
- *    code = OUTPUT_ERROR
- *
- */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
-						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
-
-
-
-/*
- * Convert type tau or term t to a string using the pretty printer.
- * - width, height, offset define the print area as above.
- *
- * - return NULL on error
- * - return a '\0' terminated string otherwise
- *   this string must be deleted by calling yices_free_string when it's no longer used
- *
- * - possible error report for yices_type_to_string
- *    code = INVALID_TYPE
- *    type1 = tau
- *
- * - possible error report for yices_term_to_string
- *    code = INVALID_TERM
- *    term1 = t
- *
- */
-__YICES_DLLSPEC__ extern char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset);
-__YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset);
-
-
-/*
- * Delete a string returned by one of the  previous functions.
- */
-__YICES_DLLSPEC__ extern void yices_free_string(char *s);
-
-
 
 /************************************
  *  SOME CHECKS ON TERMS AND TYPES  *
@@ -2629,44 +2521,6 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
 
-/*
- * Print model mdl on FILE f
- * - f must be open/writable
- *
- * The model stores a mapping from uninterpreted terms to values.
- * This function will print the value of these uninterpreted terms,
- * but it will skip the ones that don't have a name.
- *
- * To see the value of uninterpreted term x in the model, you have to
- * give a name to 'x'. For example, this can be done by creating 'x'
- * as follows:
- *
- *   x = yices_new_uninterpreted_term(<some type>)
- *   yices_set_term_name(x, "x")
- *
- */
-__YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
-
-
-/*
- * Pretty printing:
- * - f = output file to use
- * - width, height, offset define the print area
- *
- * return -1 on error, 0 otherwise
- *
- * Like yices_print_model, this function ignores the uninterpreted terms
- * that don't have a name.
- *
- * On error:
- *   code = OUTPUT_ERROR (means that writing to f failed)
- *   in this case, errno, perror, etc. can be used for diagnostic.
- */
-__YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
-
-
-
-
 /***********************
  *  VALUES IN A MODEL  *
  **********************/
@@ -3153,6 +3007,165 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_
  * Otherwise, v->size is set to 0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
+
+
+
+/**********************
+ *  PRETTY PRINTING   *
+ *********************/
+
+/*
+ * Pretty printing uses a rectangular display area, characterized
+ * by its width, height, and offset as follows.
+ *
+ *                  <----------- width ------------->
+ *                   _______________________________
+ * <---- offset --->|                               |   ^
+ *                  |                               |   |
+ *                  |                               | Height
+ *                  |                               |   |
+ *                  |                               |   v
+ *                   -------------------------------
+ *
+ */
+
+/*
+ * Pretty print type tau or term t on file f
+ * - width, height, offset define the print area
+ * - f = output file to use.
+ *   f must be open and writable.
+ *
+ * - return -1 on error
+ * - return 0 otherwise.
+ *
+ * - possible error report for yices_pp_type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ *
+ * - possible error report for yices_pp_term
+ *    code = INVALID_TERM
+ *    term1 = t
+ *
+ * - other errors (for both)
+ *    code = OUTPUT_ERROR if writing to file f failed.
+ *    in this case, errno, perror, etc. can be used for diagnostic.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Pretty print an array of terms:
+ * - f = output file to use
+ * - n = number of terms in the array a
+ * - a = array of terms
+ * - width, height, offset define the print area
+ * - horiz = Boolean flag that determines the layout
+ *
+ * If horiz is true (non-zero), the terms are printed as follows
+ *     a[0]  a[1] .... a[k]
+ *     a[k+1] ... a[n-1]
+ *
+ * If horiz is false (zero), the terms are printed as follows
+ *     a[0]
+ *     a[1]
+ *      ...
+ *     a[n-1]
+ *
+ * The function first checks whether all terms in a[0... n-1] are
+ * valid.  If not, it sets the error report:
+ *    code = INVALID_TERM
+ *    term = a[i] (first invalid term in the array)
+ * and returns -1. Nothing is printed in this case.
+ *
+ * Otherwise, the terms a[0... n-1] are printed in the specified
+ * print area (some terms may be omitted if the area is too small).
+ * The function returns 0 unless there's an error while writing to
+ * file f. In such as case, the function returns -1 and
+ * set the error report to:
+ *    code = OUTPUT_ERROR
+ *
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
+						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+
+
+
+/*
+ * Print model mdl on FILE f
+ * - f must be open/writable
+ *
+ * The model stores a mapping from uninterpreted terms to values.
+ * This function will print the value of these uninterpreted terms,
+ * but it will skip the ones that don't have a name.
+ *
+ * To see the value of uninterpreted term x in the model, you have to
+ * give a name to 'x'. For example, this can be done by creating 'x'
+ * as follows:
+ *
+ *   x = yices_new_uninterpreted_term(<some type>)
+ *   yices_set_term_name(x, "x")
+ *
+ */
+__YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
+
+
+/*
+ * Pretty printing:
+ * - f = output file to use
+ * - width, height, offset define the print area
+ *
+ * return -1 on error, 0 otherwise
+ *
+ * Like yices_print_model, this function ignores the uninterpreted terms
+ * that don't have a name.
+ *
+ * On error:
+ *   code = OUTPUT_ERROR (means that writing to f failed)
+ *   in this case, errno, perror, etc. can be used for diagnostic.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Convert type tau or term t to a string using the pretty printer.
+ * - width, height, offset define the print area as above.
+ *
+ * - return NULL on error
+ * - return a '\0' terminated string otherwise
+ *   this string must be deleted by calling yices_free_string when it's no longer used
+ *
+ * - possible error report for yices_type_to_string
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ *
+ * - possible error report for yices_term_to_string
+ *    code = INVALID_TERM
+ *    term1 = t
+ *
+ */
+__YICES_DLLSPEC__ extern char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Convert model to a string using the pretty printer.
+ * - width, height, offset define the print area
+ *
+ * Returns NULL on error and sets the error report.
+ *
+ * Returns a '\0'-terminated string otherwise. This string must be deleted
+ * when no longer needed by calling yices_free_string.
+ */
+__YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Delete a string returned by one of the  previous functions.
+ */
+__YICES_DLLSPEC__ extern void yices_free_string(char *s);
+
 
 
 
