@@ -3009,7 +3009,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yv
 
 
 /*
- * CHECK VALUE OF BOOLEAN FORMULAS
+ * CHECK THE VALUE OF BOOLEAN FORMULAS
  */
 
 /*
@@ -3069,7 +3069,7 @@ __YICES_DLLSPEC__ int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n,
  * The function returns val, or NULL_TERM if there's an error.
  *
  * Error report
- *   code =   EVAL_CONVERSION_FAILED,
+ *   code = EVAL_CONVERSION_FAILED,
  *   if the conversion to term fails (because it would require
  *   converting a function to a term).
  *
