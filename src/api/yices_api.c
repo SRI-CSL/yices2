@@ -6938,8 +6938,6 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
 }
 
 
-
-
 /*
  * Value of arithmetic term t: it can be returned as an integer, a
  * rational (pair num/den), converted to a double, or using the GMP
@@ -7706,6 +7704,73 @@ EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
 
   return a;
 }
+
+
+
+/*
+ * TEST TRUTH-VALUE OF BOOLEAN TERMS
+ */
+
+/*
+ * Check whether f is true in mdl
+ * - the returned value is
+ *     1 if f is true in mdl,
+ *     0 if f is false in mdl,
+ *    -1 if f's value can't be evaluated
+ *
+ * Error codes:
+ * - same as get_bool_val
+ */
+EXPORTED int32_t yices_formula_true_in_model(model_t *mdl, term_t f) {
+  int32_t code;
+
+  if (! check_good_term(&manager, f) ||
+      ! check_boolean_term(&manager, f)) {
+    return -1;
+  }
+
+  if (formula_holds_in_model(mdl, f, &code)) {
+    assert(code >= 0);
+    return 1; // true
+  } else if (code >= 0) {
+    return 0; // false
+  } else {
+    // code < 0: contains the evaluation error
+    error.code = yices_eval_error(code);
+    return -1;
+  }
+}
+
+
+/*
+ * Check whether formulas f[0 ... n-1] are all true in mdl
+ * - the returned value is as in the previous function:
+ *     1 if all f[i] are true
+ *     0 if one f[i] is false (and f[0 ... i-1] are all true)
+ *    -1 if one f[i] can't be evaluated
+ * Error code:
+ * - same as yices_get_bool_val
+ */
+EXPORTED int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]) {
+  int32_t code;
+
+  if (! check_good_terms(&manager, n, f) ||
+      ! check_boolean_args(&manager, n, f)) {
+    return -1;
+  }
+
+  if (formulas_hold_in_model(mdl, n, f, &code)) {
+    assert(code >= 0);
+    return 1; // all true
+  } else if (code >= 0) {
+    return 0; // at least one false
+  } else {
+    // error in evaluation: code contains the eval code
+    error.code = yices_eval_error(code);
+    return -1;
+  }
+}
+
 
 
 

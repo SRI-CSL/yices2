@@ -2700,6 +2700,10 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 /*
+ * EVALUATION FOR SIMPLE TYPES
+ */
+
+/*
  * Value of boolean term t: returned as an integer val
  * - val = 0 means t is false in mdl
  * - val = 1 means t is true in mdl
@@ -2776,12 +2780,13 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
 __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
 
+
 /*
- * VALUE DESCRIPTORS AND NODES
+ * GENERIC FORM: VALUE DESCRIPTORS AND NODES
  */
 
 /*
- * The previous functions work for terms t of atomic type, but they
+ * The previous functions work for terms t of atomic types, but they
  * can't be used if t has a tuple or function type. Internally, yices
  * represent the tuple and function values as nodes in a DAG. The
  * following functions allows one to query and explore this DAG.
@@ -3000,6 +3005,40 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_function(model_t *mdl, const y
  * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
  */
 __YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val);
+
+
+
+/*
+ * CHECK VALUE OF BOOLEAN FORMULAS
+ */
+
+/*
+ * Check whether f is true in mdl
+ * - the returned value is
+ *     1 if f is true in mdl,
+ *     0 if f is false in mdl,
+ *    -1 if f's value can't be evaluated (then an error code is set)
+ *
+ * Error codes:
+ * - same as yices_get_bool_val
+ */
+__YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
+
+
+/*
+ * Check whether f[0 ... n-1] are all true in mdl
+ * - the returned value is as in the previous function:
+ *     1 if all f[i] are true
+ *     0 if one f[i] is false (and f[0 ... i-1] are all true)
+ *    -1 if one f[i] can't be evaluated (and f[0 ... i-1] are all true)
+ *
+ * Error codes:
+ * - same as yices_get_bool_val
+ *
+ * NOTE: if n>1, it's more efficient to call this function once than to
+ * call the previous function n times.
+ */
+__YICES_DLLSPEC__ int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
 
 
 
