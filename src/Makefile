@@ -118,6 +118,7 @@ base_src_c := \
 	model/fresh_value_maker.c \
 	model/fun_maps.c \
 	model/fun_trees.c \
+	model/generalization.c \
 	model/literal_collector.c \
 	model/map_to_model.c \
 	model/model_eval.c \

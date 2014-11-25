@@ -409,31 +409,6 @@ static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, t
 }
 
 
-#if 0
-
-// NOT USED
-/*
- * Recheck:
- * - same parameters and conventions as satisfy context
- * - this adds the blocking clause then calls satisfy context
- * - return code as in satisfy_context
- */
-static smt_status_t recheck_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
-  int32_t code;
-
-  assert(context_status(ctx) == STATUS_SAT || context_status(ctx) == STATUS_UNKNOWN);
-
-  code = assert_blocking_clause(ctx);
-  if (code == TRIVIALLY_UNSAT) {
-    return STATUS_UNSAT;
-  } else {
-    assert(code == CTX_NO_ERROR);
-    return satisfy_context(ctx, parameters, var, n, value, model);
-  }
-}
-
-#endif
-
 
 /*
  * Check satisfiability of the exists_context
@@ -604,20 +579,6 @@ static void ef_project_exists_model(ef_prob_t *prob, term_t *value, term_t *evar
 }
 
 
-#if 0
-
-// NOT USED
-/*
- * Same thing for a universal model:
- * - value[i] = model = array of constant value such that value[i] is the value of ef->all_uvar[i]
- * - uvar = subset of the universal variables (of size n)
- * - uval = restriction of value to uvar (as above)
- */
-static void ef_project_forall_model(ef_prob_t *prob, term_t *value, term_t *uvar, term_t *uval, uint32_t n) {
-  project_model(prob->all_uvars, value, uvar, uval, n);
-}
-
-#endif
 
 
 /*
@@ -823,70 +784,6 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
 }
 
 
-#if 0
-
-// NOT USED
-
-/*
- * Compute an implicant for constraint i
- * - we must have an assignment for the exists variable in solver->evalue
- *   and an assignment for the universal variables of constraints i in
- *   solver->uvalue_aux.
- * - this builds and store the full model for constraint i in solver->full_model
- *   then construct and store the implicant in solver->implicant
- *
- * Error codes: set solver->status to EF_STATUS_ERROR
- * - this may happen if yices_model_from_map or yices_implicant_for_formulas fail
- */
-static void ef_build_implicant(ef_solver_t *solver, uint32_t i) {
-  model_t *mdl;
-  ef_cnstr_t *cnstr;
-  ivector_t *v;
-  term_t a[2];
-  uint32_t n;
-  int32_t code;
-
-  assert(i < ef_prob_num_constraints(solver->prob));
-
-  // free the current full model if any
-  if (solver->full_model != NULL) {
-    yices_free_model(solver->full_model);
-    solver->full_model = NULL;
-  }
-
-  // build the full_map and the corresponding model.
-  ef_build_full_map(solver, i);
-  n = solver->all_vars.size;
-  assert(n == solver->all_values.size);
-  mdl = yices_model_from_map(n, solver->all_vars.data, solver->all_values.data);
-  if (mdl == NULL) {
-    // error in the model construction
-    solver->status = EF_STATUS_MDL_ERROR;
-    solver->error_code = yices_error_code();
-    return;
-  }
-  solver->full_model = mdl;
-
-  cnstr = solver->prob->cnstr + i;
-  a[0] = cnstr->assumption;
-  a[1] = opposite_term(cnstr->guarantee);
-  v = &solver->implicant;
-  v->size = 0;
-  code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
-  if (code < 0) {
-    solver->status = EF_STATUS_IMPLICANT_ERROR;
-    solver->error_code = yices_error_code();
-  }
-
-#if 0
-  printf("Implicant\n");
-  yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
-  printf("(%"PRIu32" literals)\n", v->size);
-#endif
-
-}
-
-#endif
 
 
 /*

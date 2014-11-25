@@ -3010,6 +3010,38 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
 
 
 
+/*
+ * MODEL GENERALIZATION
+ */
+
+/*
+ * Given a model mdl for a formula F(X, Y). The following generalization functions
+ * eliminate variables Y from F(X, Y) in a way that is guided by the model.
+ * 
+ * The result is a formula G(X) such that:
+ * 1) mdl satisfies G(X)
+ * 2) G(X) implies (exists Y. F(X, Y))
+ */
+
+/*
+ * Compute a generalization of mdl for formula t
+ * - nelims = number of variables to eliminate
+ * - elim = variables to eliminate
+ * - each term in elim[i] must be an uninterpreted term (as returned by yices_new_uninterpreted_term)
+ *   of one of the following types: Boolean, (bitvector k), or Real
+ *
+ * - the function returns NULL_TERM if there's an error
+ */
+__YICES_DLLSPEC__ extern term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[]);
+
+
+/*
+ * Compute a generalization of mdl for the conjunct (a[0] /\ ... /\ a[n-1])
+ */
+__YICES_DLLSPEC__ extern term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[]);
+
+
+
 
 /**********************
  *  PRETTY PRINTING   *
@@ -3175,3 +3207,4 @@ __YICES_DLLSPEC__ extern void yices_free_string(char *s);
 
 
 #endif /* __YICES_H */
+

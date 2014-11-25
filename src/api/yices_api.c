@@ -2150,6 +2150,46 @@ static bool check_good_model_map(term_manager_t *mngr, uint32_t n, const term_t 
 
 
 
+
+/*
+ * Check that all elements in var are uninterpreted and have a simple type (for model generalization)
+ * - for now, simple means either Boolean, or bit-vector, or real, or a scalar type
+ */
+static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var) {
+  term_table_t *terms;
+  type_table_t *types;
+  type_t tau;
+  uint32_t i;
+
+  terms = term_manager_get_terms(mngr);
+  types = term_manager_get_types(mngr);
+
+  if (! check_good_terms(mngr, n, var) ||
+      ! check_all_uninterpreted(terms, n, var)) {
+    return false;
+  }
+
+  for (i=0; i<n; i++) {
+    tau = term_type(terms, var[i]);
+    switch (type_kind(types, tau)) {
+    case BOOL_TYPE:
+    case REAL_TYPE:
+    case BITVECTOR_TYPE:
+    case SCALAR_TYPE:
+      break;
+
+    default:
+      error.code = MDL_GEN_TYPE_NOT_SUPPORTED;
+      error.type1 = tau;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
 /***********************
  *  TYPE CONSTRUCTORS  *
  **********************/
@@ -7899,8 +7939,49 @@ EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const te
   }
 
   return 0;
-
 }
+
+
+
+/*
+ * MODEL GENERALIZATION
+ */
+
+/*
+ * Given a model mdl for a formula F(X, Y). The following generalization functions
+ * eliminate variables Y from F(X, Y) in a way that is guided by the model.
+ * 
+ * The result is a formula G(X) such that:
+ * 1) mdl satisfies G(X)
+ * 2) G(X) implies (exists Y. F(X, Y))
+ */
+EXPORTED term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[]) {
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t) ||
+      ! check_elim_vars(&manager, nelims, elim)) {
+    return NULL_TERM;
+  }
+
+  // TBD
+  return NULL_TERM;
+}
+
+
+/*
+ * Same thing for a conjunction of formulas a[0 ... n-1]
+ */
+EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[]) {
+  if (! check_good_terms(&manager, n, a) ||
+      ! check_boolean_args(&manager, n, a) ||
+      ! check_elim_vars(&manager, nelims, elim)) {
+    return NULL_TERM;
+  }
+
+  // TBD
+  return NULL_TERM;
+}
+
+
 
 
 

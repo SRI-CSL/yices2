@@ -306,7 +306,6 @@ typedef enum error_code {
   CTX_INVALID_PARAMETER_VALUE,
   CTX_UNKNOWN_LOGIC,
 
-
   /*
    * Error codes for model queries
    */
@@ -326,8 +325,7 @@ typedef enum error_code {
   MDL_CONSTANT_REQUIRED,
   MDL_DUPLICATE_VAR,
   MDL_FTYPE_NOT_ALLOWED,
-  MDL_CONSTRUCTION_FAILED,
-
+  MDL_CONSTRUCTION_FAILED,  
 
   /*
    * Error codes in DAG/node queries
@@ -335,6 +333,10 @@ typedef enum error_code {
   YVAL_INVALID_OP,
   YVAL_OVERFLOW,
 
+  /*
+   * Error codes for model generalization
+   */
+  MDL_GEN_TYPE_NOT_SUPPORTED,
 
   /*
    * Input/output and system errors
