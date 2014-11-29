@@ -174,6 +174,13 @@ extern term_t mk_and(term_manager_t *manager, uint32_t n, term_t a[]);
 extern term_t mk_xor(term_manager_t *manager, uint32_t n, term_t a[]);
 
 
+/*
+ * Variants: do not modify a
+ */
+extern term_t mk_or_safe(term_manager_t *manager, uint32_t n, const term_t a[]);
+extern term_t mk_and_safe(term_manager_t *manager, uint32_t n, const term_t a[]);
+extern term_t mk_xor_safe(term_manager_t *manager, uint32_t n, const term_t a[]);
+
 
 
 /*

@@ -337,6 +337,8 @@ typedef enum error_code {
    * Error codes for model generalization
    */
   MDL_GEN_TYPE_NOT_SUPPORTED,
+  MDL_GEN_NONLINEAR,
+  MDL_GEN_FAILED,
 
   /*
    * Input/output and system errors

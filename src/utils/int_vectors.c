@@ -63,7 +63,7 @@ void resize_ivector(ivector_t *v, uint32_t n) {
 }
 
 // copy array a into v. n = size of a
-void ivector_copy(ivector_t *v, int32_t *a, uint32_t n) {
+void ivector_copy(ivector_t *v, const int32_t *a, uint32_t n) {
   uint32_t i;
 
   resize_ivector(v, n);
@@ -75,7 +75,7 @@ void ivector_copy(ivector_t *v, int32_t *a, uint32_t n) {
 
 
 // add array a to v. n = size of a
-void ivector_add(ivector_t *v, int32_t *a, uint32_t n) {
+void ivector_add(ivector_t *v, const int32_t *a, uint32_t n) {
   int32_t *b;
   uint32_t i, m;
 

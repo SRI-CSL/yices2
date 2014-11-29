@@ -31,6 +31,47 @@
 
 #include "model/models.h"
 #include "terms/term_manager.h"
+#include "model/model_eval.h"
+#include "model/literal_collector.h"
+#include "model/val_to_term.h"
+#include "model/projection.h"
+
+/*
+ * Error codes
+ * - generalization by substitution can fail with an error code from model_eval
+ *   or from val_to_term
+ * - generalization by projection can fail with an error code from model_eval
+ *   or with code = MDL_EVAL_FORMULA_FALSE (-8)
+ * - we group and renumber these error codes here
+ * - since NULL_TERM is -1, we start with -2
+ */
+enum {
+  // evaluation errors (cf. model_eval.h)
+  GEN_EVAL_INTERNAL_ERROR = -2,
+  GEN_EVAL_UNKNOWN_TERM = -3,
+  GEN_EVAL_FREEVAR_IN_TERM = -4,
+  GEN_EVAL_QUANTIFIER = -5,
+  GEN_EVAL_LAMBDA = -6,
+  GEN_EVAL_FAILED = -7,
+
+  // implicant error (cf. literal_collector.h)
+  GEN_EVAL_FORMULA_FALSE = -8,
+
+  // conversion errors (cf. val_to_term.h)
+  GEN_CONV_INTERNAL_ERROR = -9,
+  GEN_CONV_UNKNOWN_VALUE = -10,
+  GEN_CONV_NOT_PRIMITIVE = -11,
+  GEN_CONV_FUNCTION = -12,
+  GEN_CONV_FAILED = -13,
+
+  // projector error (cf. projection.h)
+  GEN_PROJ_ERROR_NON_LINEAR = -14,
+  GEN_PROJ_ERROR_IN_EVAL = -15,
+  GEN_PROJ_ERROR_IN_CONVERT = -16,
+  GEN_PROJ_ERROR_IN_SUBST = -17,
+  GEN_PROJ_ERROR_BAD_ARITH_LITERAL = -18,
+};
+
 
 /*
  * Generalize mdl:
@@ -42,7 +83,8 @@
  * - return a formula G in which variables elim[0 ... nelims-1] do not occur
  *   and G implies (f[0] /\ ... /\ f[n-1])
  */
-extern term_t generalize_model(model_t *mdl, uint32_t n, const term_t f[], uint32_t nelims, const term_t elim[]);
+extern term_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+			       uint32_t nelims, const term_t elim[]);
 
 
 #endif /* __GENERALIZATION_H */

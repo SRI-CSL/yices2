@@ -1004,6 +1004,36 @@ term_t mk_xor(term_manager_t *manager, uint32_t n, term_t *a) {
 }
 
 
+/*
+ * Safe versions of mk_or, mk_and, mk_xor: make a copy of the argument array
+ * into manager->vector0
+ */
+term_t mk_or_safe(term_manager_t *manager, uint32_t n, const term_t a[]) {
+  ivector_t *v;
+
+  v = &manager->vector0;
+  ivector_copy(v, a, n);
+  assert(v->size == n);
+  return mk_or(manager, n, v->data);
+}
+
+term_t mk_and_safe(term_manager_t *manager, uint32_t n, const term_t a[]) {
+  ivector_t *v;
+
+  v = &manager->vector0;
+  ivector_copy(v, a, n);
+  assert(v->size == n);
+  return mk_and(manager, n, v->data);
+}
+
+term_t mk_xor_safe(term_manager_t *manager, uint32_t n, const term_t a[]) {
+  ivector_t *v;
+
+  v = &manager->vector0;
+  ivector_copy(v, a, n);
+  assert(v->size == n);
+  return mk_xor(manager, n, v->data);
+}
 
 
 /******************

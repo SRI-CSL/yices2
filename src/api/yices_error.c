@@ -425,6 +425,26 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "model-construction failed\n");
     break;
 
+  case YVAL_INVALID_OP:
+    code = fprintf(f, "invalid operation on yval\n");
+    break;
+
+  case YVAL_OVERFLOW:
+    code = fprintf(f, "yval overflow: rational does not fit the expected type\n");
+    break;
+
+  case MDL_GEN_TYPE_NOT_SUPPORTED:
+    code = fprintf(f, "generalization failed: bad variable type\n");
+    break;
+
+  case MDL_GEN_NONLINEAR:
+    code = fprintf(f, "generalization failed: nonlinear arithmetic\n");
+    break;
+
+  case MDL_GEN_FAILED:
+    code = fprintf(f, "generalization failed\n");
+    break;
+
   case OUTPUT_ERROR:
     code = fprintf(f, "output error\n");
     break;

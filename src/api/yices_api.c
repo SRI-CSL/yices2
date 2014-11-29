@@ -54,6 +54,7 @@
 #include "model/val_to_term.h"
 #include "model/map_to_model.h"
 #include "model/literal_collector.h"
+#include "model/generalization.h"
 
 #include "api/context_config.h"
 #include "api/search_parameters.h"
@@ -7948,6 +7949,40 @@ EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const te
  */
 
 /*
+ * Convert a negative error code v from generalization.h into the
+ * corresponding yices error code.
+ */
+#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_BAD_ARITH_LITERAL)+1)
+
+static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
+  NO_ERROR,                  // 0
+  MDL_GEN_FAILED,            // NULL_TERM,
+  INTERNAL_EXCEPTION,        // GEN_EVAL_INTERNAL_ERROR
+  EVAL_UNKNOWN_TERM,         // GEN_EVAL_UNKNOWN_TERM
+  EVAL_FREEVAR_IN_TERM,      // GEN_EVAL_FREEVAR_IN_TERM
+  EVAL_QUANTIFIER,           // GEN_EVAL_QUANTIFIER
+  EVAL_LAMBDA,               // GEN_EVAL_LAMBDA
+  MDL_GEN_FAILED,            // GEN_EVAL_FAILED
+  EVAL_NO_IMPLICANT,         // GEN_EVAL_FORMULA_FALSE
+  MDL_GEN_FAILED,            // GEN_CONV_INTERNAL_ERROR
+  EVAL_CONVERSION_FAILED,    // GEN_CONV_UNKNOWN_VALUE
+  EVAL_CONVERSION_FAILED,    // GEN_CONV_NOT_PRIMITIVE
+  EVAL_CONVERSION_FAILED,    // GEN_CONV_FUNCTION
+  EVAL_CONVERSION_FAILED,    // GEN_CONV_FAILED
+  MDL_GEN_NONLINEAR,         // GEN_PROJ_ERROR_NON_LINEAR
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_EVAL
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_CONVERT
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_SUBST
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_ARITH_LITERAL
+};
+
+static inline error_code_t yices_gen_error(int32_t v) {
+  assert(0 <= -v && v < NUM_GEN_ERROR_CODES);
+  return gen_error2code[-v];
+}
+
+
+/*
  * Given a model mdl for a formula F(X, Y). The following generalization functions
  * eliminate variables Y from F(X, Y) in a way that is guided by the model.
  * 
@@ -7956,14 +7991,21 @@ EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const te
  * 2) G(X) implies (exists Y. F(X, Y))
  */
 EXPORTED term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[]) {
+  term_t result;
+
   if (! check_good_term(&manager, t) ||
       ! check_boolean_term(&manager, t) ||
       ! check_elim_vars(&manager, nelims, elim)) {
     return NULL_TERM;
   }
 
-  // TBD
-  return NULL_TERM;
+  result = generalize_model(mdl, &manager, 1, &t, nelims, elim);
+  if (result < 0) {
+    error.code = yices_gen_error(result);
+    result = NULL_TERM;
+  }
+
+  return result;
 }
 
 
@@ -7971,14 +8013,21 @@ EXPORTED term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, 
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
 EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[]) {
+  term_t result;
+
   if (! check_good_terms(&manager, n, a) ||
       ! check_boolean_args(&manager, n, a) ||
       ! check_elim_vars(&manager, nelims, elim)) {
     return NULL_TERM;
   }
 
-  // TBD
-  return NULL_TERM;
+  result = generalize_model(mdl, &manager, n, a, nelims, elim);
+  if (result < 0) {
+    error.code = yices_gen_error(result);
+    result = NULL_TERM;
+  }
+
+  return result;
 }
 
 
