@@ -2590,7 +2590,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_rational32_value(model_t *mdl, term_t
 __YICES_DLLSPEC__ extern int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
 __YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, double *val);
 
-#ifdef __GMP_H
+#ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
 #endif
@@ -2799,7 +2799,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yv
 __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
 
 // GMP values
-#ifdef __GMP_H
+#ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
 #endif
