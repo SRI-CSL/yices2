@@ -164,7 +164,11 @@ static term_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32
   }
 
   // build the conjunct of projection.data
-  result = mk_and(mngr, projection.size, projection.data);
+  if (projection.size == 0) {
+    result = bool2term(true);
+  } else {
+    result = mk_and(mngr, projection.size, projection.data);
+  }
   
  done:
   delete_ivector(&projection);
