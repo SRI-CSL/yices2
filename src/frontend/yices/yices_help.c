@@ -1377,9 +1377,9 @@ static const help_record_t help_data[] = {
   { HBITVECTOR,
     "(bool-to-bv [expr_1] ... [expr_n])",
     "Convert a Boolean array to a bitvector",
-    "   [expr_1] ... [expr_n] must be Boolean expressions"
+    "   [expr_1] ... [expr_n] must be Boolean expressions\n"
     "\n"
-    "(bool-to-bv [expr_1] ... [expr_n]) construct a bitvector of n bits\n"
+    "(bool-to-bv [expr_1] ... [expr_n]) constructs a bitvector of n bits\n"
     "The low-order bit is [expr_n] and the high-order bit is [expr_1]\n",
     "(bool-to-bv true false false)  is equal to 0b100\n" },
 
