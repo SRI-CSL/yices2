@@ -43,7 +43,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -322,6 +322,84 @@ __YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, const type_t dom
 __YICES_DLLSPEC__ extern type_t yices_function_type1(type_t tau1, type_t range);
 __YICES_DLLSPEC__ extern type_t yices_function_type2(type_t tau1, type_t tau2, type_t range);
 __YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range);
+
+
+
+
+/*************************
+ *   TYPE EXPLORATION    *
+ ************************/
+
+/*
+ * Checks on a type tau:
+ * - all functions return 0 for false, 1 for true
+ *
+ * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
+ *
+ * if tau not a valid type, the functions return false
+ * and set the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ */
+__YICES_DLLSPEC__ extern int32_t yices_type_is_bool(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
+
+
+/*
+ * Check whether tau is a subtype of sigma
+ * - returns 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns false
+ * and sets the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+__YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
+
+
+/*
+ * Number of bits for type tau
+ * - returns 0 if there's an error
+ *
+ * Error report:
+ * if tau is not a valid type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ * if tau is not a bitvector type
+ *    code = BVTYPE_REQUIRED
+ *    type1 = tau
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
+
+
+/*
+ * Cardinality of a scalar type
+ * - returns 0 if there's an error
+ *
+ * Error report: TBD
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_scalar_type_card(type_t tau);
+
+
+/*
+ * Arity = number of children of a type
+ * - returns 0 if the type is atomic
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_type_arity(type_t tau);
+
+
+/*
+ * i-th child of type tau.
+ * i must be in 0 and n-1 where n = arity of tau
+ */
+__YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, uint32_t i);
 
 
 
@@ -1649,58 +1727,9 @@ __YICES_DLLSPEC__ extern const char *yices_get_term_name(term_t t);
 
 
 
-/************************************
- *  SOME CHECKS ON TERMS AND TYPES  *
- ***********************************/
-
-/*
- * Checks on a type tau:
- * - all functions return 0 for false, 1 for true
- *
- * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
- *
- * if tau not a valid type, the functions return false
- * and set the error report:
- *   code = INVALID_TYPE
- *   type1 = tau
- */
-__YICES_DLLSPEC__ extern int32_t yices_type_is_bool(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
-
-
-/*
- * Check whether tau is a subtype of sigma
- * - returns 0 for false, 1 for true
- *
- * If tau or sigma is not a valid type, the function returns false
- * and sets the error report:
- *   code = INVALID_TYPE
- *   type1 = tau or sigma
- */
-__YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
-
-
-/*
- * Number of bits for type tau
- * - returns 0 if there's an error
- *
- * Error report:
- * if tau is not a valid type
- *    code = INVALID_TYPE
- *    type1 = tau
- * if tau is not a bitvector type
- *    code = BVTYPE_REQUIRED
- *    type1 = tau
- */
-__YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
-
+/***********************
+ *  TERM EXPLORATION   *
+ **********************/
 
 /*
  * Get the type of term t
@@ -1756,6 +1785,80 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * Also return false and set the error report if t is not valid
  */
 __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
+
+
+/*
+ * MORE
+ * - is_sum means t is of the form a_0 t_0 + ... + a_n t_n
+ * - is_product means t is of the form t_0^d_0 x ... x t_n ^d_n
+ */
+__YICES_DLLSPEC__ extern int32_t yices_term_is_atomic(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_composite(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_projection(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_sum(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_bvsum(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
+
+
+/*
+ * Constructor for term t:
+ * - the return code is defined in yices_types.h
+ */
+__YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
+
+
+/*
+ * Arity: number of children
+ * - for atomic terms, returns 0
+ * - for sums, returns the number of summands
+ * - for products, returns the number of factors
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_term_arity(term_t t);
+
+/*
+ * Get i-th child of a composite term
+ */
+__YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, uint32_t i);
+
+/*
+ * Get the argument and index of a projection
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_proj_index(term_t t);
+__YICES_DLLSPEC__ extern uint32_t yices_proj_arg(term_t t);
+
+
+/*
+ * Values of constant terms
+ */
+__YICES_DLLSPEC__ extern int32_t yices_bool_const_value(term_t t, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
+__YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
+#ifdef __GMP_H__
+__YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
+#endif
+
+
+/*
+ * Components of a sum t
+ * - i = index (must be between 0 and t's arity - 1)
+ * - for an arithmetic sum, each component is a pair (rational, term)
+ * - for a bitvector sum, each component is a pair (bvconstant, term)
+ * - the number of bits in the bvconstant is the same as in t
+ */
+#ifdef __GMP_H__
+__YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, uint32_t i, mpq_t coeff, term_t *term);
+#endif
+
+__YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, uint32_t i, int32_t val[], term_t *term);
+
+
+/*
+ * Component of power product t
+ * - i = index (must be between 0 and t's arity - 1)
+ * - the component is of the form (term, exponent)
+ *   (where exponent is a positive integer)
+ */
+__YICES_DLLSPEC__ extern int32_t yices_product_component(term_t t, uint32_t i, term_t *term, uint32_t *exp);
 
 
 

@@ -111,6 +111,63 @@ typedef struct type_vector_s {
 
 
 
+/***********************
+ *  TERM CONSTRUCTORS  *
+ **********************/
+
+/*
+ * These codes are part of the term exploration API.
+ */
+typedef enum term_constructor {
+  YICES_CONSTRUCTOR_ERROR = -1, // to report an error
+
+  // atomic terms
+  YICES_BOOL_CONSTANT,       // boolean constant
+  YICES_ARITH_CONSTANT,      // rational constant
+  YICES_BV_CONSTANT,         // generic bitvector constant (more than 64 bits)
+  YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
+  YICES_VARIABLE,            // variable in quantifiers
+  YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
+
+  // composite terms
+  YICES_ITE_TERM,            // if-then-else
+  YICES_APP_TERM,            // application of an uninterpreted function
+  YICES_UPDATE_TERM,         // function update
+  YICES_TUPLE_TERM,          // tuple constructor
+  YICES_EQ_TERM,             // equality
+  YICES_DISTINCT_TERM,       // distinct t_1 ... t_n
+  YICES_FORALL_TERM,         // quantifier
+  YICES_LAMBDA_TERM,         // lambda
+  YICES_NOT_TERM,            // (NOT t)
+  YICES_OR_TERM,             // n-ary OR
+  YICES_XOR_TERM,            // n-ary XOR
+
+  YICES_BV_ARRAY,            // array of boolean terms
+  YICES_BV_DIV,              // unsigned division
+  YICES_BV_REM,              // unsigned remainder
+  YICES_BV_SDIV,             // signed division
+  YICES_BV_SREM,             // remainder in signed division (rounding to 0)
+  YICES_BV_SMOD,             // remainder in signed division (rounding to -infinity)
+  YICES_BV_SHL,              // shift left (padding with 0)
+  YICES_BV_LSHR,             // logical shift right (padding with 0)
+  YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
+  YICES_BV_POLY,             // bitvector polynomial
+  YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
+  YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
+  YICES_ARITH_GE_ATOM,       // atom t >= 0
+  
+  // projections
+  YICES_SELECT_TERM,         // tuple projection
+  YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
+
+  // sums
+  YICES_BV_POLY,             // bitvector polynomial
+  YICES_ARITH_POLY,          // polynomial with rational coefficients
+
+  // products
+  YICES_POWER_PRODUCT,       // power products: (t1^d1 * ... * t_n^d_n)
+} term_constructor_t;
+
 
 /**********************
  *  VALUES IN MODELS  *
