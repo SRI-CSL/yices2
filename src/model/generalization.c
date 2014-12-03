@@ -165,7 +165,7 @@ static term_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32
 
   // build the conjunct of projection.data
   if (projection.size == 0) {
-    result = bool2term(true);
+    result = true_term;
   } else {
     result = mk_and(mngr, projection.size, projection.data);
   }
@@ -194,11 +194,17 @@ term_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const te
   term_t result, fmla;
 
   terms = term_manager_get_terms(mngr);
-  if (array_has_arith_term(terms, nelims, elim)) {
-    result = gen_model_by_projection(mdl, mngr, n, f, nelims, elim);
+  if (n > 0) {
+    // we deal with n==0 separately since mk_and_safe requires n>0
+    if (array_has_arith_term(terms, nelims, elim)) {
+      result = gen_model_by_projection(mdl, mngr, n, f, nelims, elim);
+    } else {
+      fmla = mk_and_safe(mngr, n, f);
+      result = gen_model_by_substitution(mdl, mngr, fmla, nelims, elim);
+    }
   } else {
-    fmla = mk_and_safe(mngr, n, f);
-    result = gen_model_by_substitution(mdl, mngr, fmla, nelims, elim);
+    // n == 0
+    result = true_term;
   }
 
   return result;

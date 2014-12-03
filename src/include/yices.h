@@ -2521,6 +2521,8 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
 
+
+
 /***********************
  *  VALUES IN A MODEL  *
  **********************/

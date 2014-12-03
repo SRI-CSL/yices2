@@ -498,7 +498,7 @@ source-distribution: $(distributions) doc
 	rsync -R `find src/ -name "Makefile" -or -name "*.c" -or -name "*.h" -or -name "*.txt"` $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)/doc
 	$(MKDIR_P) $(srcdist_dir)/doc/manual
-	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
+	cp doc/COMPILING doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
            $(srcdist_dir)/doc
 	cp doc/manual/*.pdf doc/manual/*.tex doc/manual/*.bib \
            doc/manual/*.cls doc/manual/*.sty doc/manual/*.eps doc/manual/*.fig \

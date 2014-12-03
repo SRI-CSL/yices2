@@ -98,9 +98,9 @@
 #include "utils/int_stack.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_hash_map.h"
+#include "utils/int_vectors.h"
 #include "model/model_eval.h"
 #include "terms/term_manager.h"
-#include "utils/int_vectors.h"
 
 
 /*
