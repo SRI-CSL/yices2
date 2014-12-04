@@ -1831,18 +1831,20 @@ __YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
 
 
 /*
- * Arity: number of children
+ * Number of children of term t
  * - for atomic terms, returns 0
  * - for sums, returns the number of summands
  * - for products, returns the number of factors
+ *
+ * - returns -1 if t is not a valid term
  */
-__YICES_DLLSPEC__ extern uint32_t yices_term_num_children(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_num_children(term_t t);
 
 
 /*
  * Get i-th child of a composite term
  */
-__YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, uint32_t i);
+__YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
 
 
 /*
@@ -1865,16 +1867,16 @@ __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
 
 /*
  * Components of a sum t
- * - i = index (must be between 0 and t's arity - 1)
+ * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
  * - for a bitvector sum, each component is a pair (bvconstant, term)
  * - the number of bits in the bvconstant is the same as in t
  */
 #ifdef __GMP_H__
-__YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, uint32_t i, mpq_t coeff, term_t *term);
+__YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
 #endif
 
-__YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, uint32_t i, int32_t val[], term_t *term);
+__YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
 
 
 /*
@@ -1883,7 +1885,7 @@ __YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, uint32_t i, int
  * - the component is of the form (term, exponent)
  *   (where exponent is a positive integer)
  */
-__YICES_DLLSPEC__ extern int32_t yices_product_component(term_t t, uint32_t i, term_t *term, uint32_t *exp);
+__YICES_DLLSPEC__ extern int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp);
 
 
 

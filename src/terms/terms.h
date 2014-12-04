@@ -1158,16 +1158,6 @@ static inline bool is_ite_term(term_table_t *table, term_t t) {
 }
 
 
-// Check whether t is atomic
-static inline bool is_atomic_kind(term_kind_t tag) {
-  return CONSTANT_TERM <= tag && tag <= UNINTERPRETED_TERM;
-}
-
-static inline bool is_atomic_term(term_table_t *table, term_t t) {
-  return is_atomic_kind(term_kind(table, t));
-}
-
-
 // Check whether t is atomic and constant
 static inline bool is_const_kind(term_kind_t tag) {
   return CONSTANT_TERM <= tag && tag <= BV_CONSTANT;

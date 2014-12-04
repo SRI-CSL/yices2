@@ -284,4 +284,13 @@ extern uint64_t bvconst64_from_q(uint32_t n, rational_t *q);
 extern void bvconst64_print(FILE *f, uint64_t a, uint32_t n);
 
 
+/*
+ * Store the n lowest order bits of bv into a
+ * - as an integer array: a[i] = bit i of bv (either 0 or 1)
+ * - n must be positive and no more than 64
+ */
+extern void bvconst64_get_array(uint64_t bv, int32_t *a, uint32_t n);
+
+
+
 #endif /* __BV64_CONSTANTS_H */

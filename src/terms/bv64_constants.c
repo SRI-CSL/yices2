@@ -379,3 +379,19 @@ void bvconst64_print(FILE *f, uint64_t a, uint32_t n) {
     fprintf(f, "%u", (unsigned) tst_bit64(a, n));
   } while (n > 0);
 }
+
+
+/*
+ * Store the n lowest order bits of bv into a
+ * - as an integer array: a[i] = bit i of bv (either 0 or 1)
+ * - n must be positive and no more than 64
+ */
+void bvconst64_get_array(uint64_t bv, int32_t *a, uint32_t n) {
+  uint32_t i;
+
+  assert(0 < n && n <= 64);
+
+  for (i=0; i<n; i++) {
+    a[i] = tst_bit64(bv, i);
+  }
+}

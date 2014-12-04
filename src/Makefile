@@ -196,6 +196,7 @@ base_src_c := \
 	terms/renaming_context.c \
 	terms/subst_cache.c \
 	terms/subst_context.c \
+	terms/term_explorer.c \
 	terms/term_manager.c \
 	terms/terms.c \
 	terms/term_sets.c \

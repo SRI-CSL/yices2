@@ -153,7 +153,7 @@ typedef enum term_constructor {
   YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
   YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
   YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
-  YICES_ARITH_GE_ATOM,       // atom t >= 0
+  YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
   
   // projections
   YICES_SELECT_TERM,         // tuple projection
