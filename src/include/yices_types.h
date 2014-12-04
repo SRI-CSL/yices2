@@ -127,7 +127,7 @@ typedef enum term_constructor {
   YICES_BV_CONSTANT,         // generic bitvector constant (more than 64 bits)
   YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
   YICES_VARIABLE,            // variable in quantifiers
-  YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
+  YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound)
 
   // composite terms
   YICES_ITE_TERM,            // if-then-else
@@ -138,7 +138,7 @@ typedef enum term_constructor {
   YICES_DISTINCT_TERM,       // distinct t_1 ... t_n
   YICES_FORALL_TERM,         // quantifier
   YICES_LAMBDA_TERM,         // lambda
-  YICES_NOT_TERM,            // (NOT t)
+  YICES_NOT_TERM,            // (not t)
   YICES_OR_TERM,             // n-ary OR
   YICES_XOR_TERM,            // n-ary XOR
 
@@ -151,7 +151,6 @@ typedef enum term_constructor {
   YICES_BV_SHL,              // shift left (padding with 0)
   YICES_BV_LSHR,             // logical shift right (padding with 0)
   YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
-  YICES_BV_POLY,             // bitvector polynomial
   YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
   YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
   YICES_ARITH_GE_ATOM,       // atom t >= 0
@@ -161,8 +160,8 @@ typedef enum term_constructor {
   YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
 
   // sums
-  YICES_BV_POLY,             // bitvector polynomial
-  YICES_ARITH_POLY,          // polynomial with rational coefficients
+  YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
+  YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
 
   // products
   YICES_POWER_PRODUCT,       // power products: (t1^d1 * ... * t_n^d_n)
