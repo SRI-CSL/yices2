@@ -274,6 +274,7 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
  */
 __YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, const type_t tau[]);
 
+
 /*
  * Variants: for small arity
  *
@@ -383,23 +384,45 @@ __YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
  * Cardinality of a scalar type
  * - returns 0 if there's an error
  *
- * Error report: TBD
+ * Error report:
+ * if tau is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ * if tau is not a scalar type
+ *   code = INVALID_TYPE_OP
  */
 __YICES_DLLSPEC__ extern uint32_t yices_scalar_type_card(type_t tau);
 
 
 /*
- * Arity = number of children of a type
- * - returns 0 if the type is atomic
+ * Number of children of type tau
+ * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
+ * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
+ * - if tau is any other type, returns 0 
+ *
+ * - returns -1 if tau is not a valid type
+ *
+ * Error report:
+ * if tau is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau
  */
-__YICES_DLLSPEC__ extern uint32_t yices_type_arity(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_num_children(type_t tau);
 
 
 /*
  * i-th child of type tau.
- * i must be in 0 and n-1 where n = arity of tau
+ * - i must be in 0 and n-1 where n = yices_type_num_children(tau)
+ * - returns NULL_TYPE if there's an error
+ *
+ * Error report:
+ * if tau is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ * if is is negative or larger than n
+ *   code = INVALID_TYPE_OP
  */
-__YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, uint32_t i);
+__YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, int32_t i);
 
 
 
@@ -1813,12 +1836,14 @@ __YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
  * - for sums, returns the number of summands
  * - for products, returns the number of factors
  */
-__YICES_DLLSPEC__ extern uint32_t yices_term_arity(term_t t);
+__YICES_DLLSPEC__ extern uint32_t yices_term_num_children(term_t t);
+
 
 /*
  * Get i-th child of a composite term
  */
 __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, uint32_t i);
+
 
 /*
  * Get the argument and index of a projection
@@ -1828,7 +1853,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_proj_arg(term_t t);
 
 
 /*
- * Values of constant terms
+ * Value of a constant term
  */
 __YICES_DLLSPEC__ extern int32_t yices_bool_const_value(term_t t, int32_t *val);
 __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);

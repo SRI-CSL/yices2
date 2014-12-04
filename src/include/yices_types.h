@@ -297,6 +297,7 @@ typedef enum error_code {
   BVTYPE_REQUIRED,         // added 2013/05/27
   BAD_TERM_DECREF,         // added 2013/10/03
   BAD_TYPE_DECREF,         // added 2013/10/03
+  INVALID_TYPE_OP,         // added 2014/12/03
 
   /*
    * Parser errors

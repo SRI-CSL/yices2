@@ -1347,6 +1347,16 @@ static bool check_no_duplicate_type_vars(uint32_t n, const type_t *a) {
 }
 
 
+// Check whether tau is a scalar type. tau must be a good type in tbl
+static bool check_scalar_type(type_table_t *tbl, type_t tau) {
+  if (! is_scalar_type(tbl, tau)) {
+    error.code = INVALID_TYPE_OP;
+    error.type1 = tau;
+    return false;
+  }
+  return true;
+}
+
 // Check whether tau is uninterpreted or scalar, and whether
 // i a valid constant index for type tau.
 static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
@@ -5080,9 +5090,94 @@ EXPORTED uint32_t yices_bvtype_size(type_t tau) {
 }
 
 
-/**************************
- *  SOME CHECKS ON TERMS  *
- *************************/
+/*
+ * Cardinality of a scalar type
+ * - return 0 if there's an error
+ */
+EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
+  if (! check_good_type(&types, tau) ||
+      ! check_scalar_type(&types, tau)) {
+    return 0;
+  }
+  return scalar_type_cardinal(&types, tau);
+}
+
+
+/*
+ * Number of children of type tau
+ * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
+ * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
+ * - if tau is any other type, returns 0 
+ *
+ * - returns -1 if tau is not a valid type
+ *
+ * Error report:
+ * if tau is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ */
+EXPORTED int32_t yices_type_num_children(type_t tau) {
+  int32_t n;
+
+  if (! check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  // it's safe to convert from unsigned to signed here
+  // since YICES_MAX_ARITY is (UINT32_MAX/16)
+  n = 0;
+  if (is_tuple_type(&types, tau)) {
+    n = tuple_type_arity(&types, tau);
+  } else if (is_function_type(&types, tau)) {
+    n = function_type_arity(&types, tau) + 1;
+  }
+
+  return n;
+}
+
+
+/*
+ * Get the i-th child of type tau
+ * - return NULL_TYPE if there's an error
+ */
+EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
+  tuple_type_t *tup;
+  function_type_t *fun;
+
+  if (! check_good_type(&types, tau)) {
+    return NULL_TYPE;
+  }
+
+  if (i >= 0) {
+    if (is_tuple_type(&types, tau)) {
+      tup = tuple_type_desc(&types, tau);
+      if (i < tup->nelem) {
+	return tup->elem[i];
+      }
+    } else if (is_function_type(&types, tau)) {
+      fun = function_type_desc(&types, tau);
+      if (i < fun->ndom) {
+	return fun->domain[i];
+      } else if (i == fun->ndom) {
+	return fun->range;
+      }
+    }
+  }
+
+  // bad index or atomic type
+  error.code = INVALID_TYPE_OP;
+  return NULL_TYPE;
+}
+
+
+
+
+
+
+
+/***********************
+ *  TERM EXPLORATION   *
+ **********************/
 
 /*
  * Get the type of term t
