@@ -253,7 +253,7 @@ checkgmake:
 # lib, obj, etc. so that the Makefile will work event if directories
 # or files with these names are present.
 #
-.DEFAULT doc all bin lib obj dist static-bin static-lib static-obj static-dist: checkgmake
+.DEFAULT doc all bin lib obj dist static-bin static-lib static-obj static-dist install: checkgmake
 	@ echo "Mode:     $(YICES_MODE)"
 	@ echo "Platform: $(ARCH)"
 	@ $(MAKE) -f Makefile.build \
