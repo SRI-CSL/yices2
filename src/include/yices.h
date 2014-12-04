@@ -1833,6 +1833,8 @@ __YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
 /*
  * Number of children of term t
  * - for atomic terms, returns 0
+ * - for composite terms, returns the number of children
+ * - for projections, returns 1
  * - for sums, returns the number of summands
  * - for products, returns the number of factors
  *
@@ -1850,8 +1852,8 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
 /*
  * Get the argument and index of a projection
  */
-__YICES_DLLSPEC__ extern uint32_t yices_proj_index(term_t t);
-__YICES_DLLSPEC__ extern uint32_t yices_proj_arg(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_proj_index(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_proj_arg(term_t t);
 
 
 /*
@@ -1870,6 +1872,8 @@ __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
  * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
  * - for a bitvector sum, each component is a pair (bvconstant, term)
+ * - if the term in the pair is NULL_TERM then the component consists of only
+ *   the constant
  * - the number of bits in the bvconstant is the same as in t
  */
 #ifdef __GMP_H__

@@ -46,6 +46,7 @@
 #include "terms/types.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
+#include "terms/term_explorer.h"
 
 #include "context/context.h"
 
@@ -5271,7 +5272,163 @@ harray_t *yices_free_vars_of_term(term_t t) {
   return get_free_vars_of_term(get_fvars(), t);
 }
 
+EXPORTED int32_t yices_term_is_atomic(term_t t) {
+  return check_good_term(&manager, t) && term_is_atomic(&terms, t);
+}
 
+EXPORTED int32_t yices_term_is_composite(term_t t) {
+  return check_good_term(&manager, t) && term_is_composite(&terms, t);
+}
+
+EXPORTED int32_t yices_term_is_projection(term_t t) {
+  return check_good_term(&manager, t) && term_is_projection(&terms, t);
+}
+
+EXPORTED int32_t yices_term_is_sum(term_t t) {
+  return check_good_term(&manager, t) && term_is_sum(&terms, t);
+}
+
+EXPORTED int32_t yices_term_is_bvsum(term_t t) {
+  return check_good_term(&manager, t) && term_is_bvsum(&terms, t);
+}
+
+EXPORTED int32_t yices_term_is_product(term_t t) {
+  return check_good_term(&manager, t) && term_is_product(&terms, t);
+}
+
+
+/*
+ * Constructor for term t:
+ * - the return code is defined in yices_types.h
+ */
+EXPORTED term_constructor_t yices_term_constructor(term_t t) {
+  if (! check_good_term(&manager, t)) {
+    return YICES_CONSTRUCTOR_ERROR;
+  } else {
+    return term_constructor(&terms, t);
+  }
+}
+
+
+/*
+ * Number of children of term t
+ * - for atomic terms, returns 0
+ * - for composite terms, returns the number of children
+ * - for projections, returns 1
+ * - for sums, returns the number of summands
+ * - for products, returns the number of factors
+ *
+ * - returns -1 if t is not a valid term
+ */
+EXPORTED int32_t yices_term_num_children(term_t t) {
+  if (! check_good_term(&manager, t)) {
+    return -1;
+  }
+  return term_num_children(&terms, t);
+}
+
+
+/*
+ * Get i-th child of a composite term
+ */
+EXPORTED term_t yices_term_child(term_t t, int32_t i) {
+  if (! yices_term_is_composite(t)) {
+    return NULL_TERM;
+  }
+  return term_child(&terms, t, i);
+}
+
+
+/*
+ * Get the argument and index of a projection
+ */
+EXPORTED int32_t yices_proj_index(term_t t) {
+  if (! yices_term_is_projection(t)) {
+    return -1;
+  }
+  return proj_term_index(&terms, t);
+}
+
+EXPORTED term_t yices_proj_arg(term_t t) {
+  if (! yices_term_is_projection(t)) {
+    return -1;
+  }
+  return proj_term_arg(&terms, t);
+}
+
+/*
+ * Value of a constant term
+ */
+EXPORTED int32_t yices_bool_const_value(term_t t, int32_t *val) {
+  if (yices_term_constructor(t) != YICES_BOOL_CONSTANT) {
+    return -1;
+  }
+  *val = bool_const_value(&terms, t);
+  return 0;
+}
+
+EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
+  if (yices_term_constructor(t) != YICES_BV_CONSTANT) {
+    return -1;
+  }
+  bv_const_value(&terms, t, val);
+  return 0;
+}
+
+EXPORTED int32_t yices_scalar_const_value(term_t t, int32_t *val) {
+  if (yices_term_constructor(t) != YICES_SCALAR_CONSTANT) {
+    return -1;
+  }
+  *val = generic_const_value(&terms, t);
+  return 0;
+}
+
+EXPORTED int32_t yices_rational_const_value(term_t t, mpq_t q) {
+  if (yices_term_constructor(t) != YICES_ARITH_CONSTANT) {
+    return -1;
+  }
+  arith_const_value(&terms, t, q);
+  return 0;
+}
+
+
+/*
+ * Components of a sum t
+ * - i = index (must be between 0 and t's number of children - 1)
+ * - for an arithmetic sum, each component is a pair (rational, term)
+ * - for a bitvector sum, each component is a pair (bvconstant, term)
+ * - the number of bits in the bvconstant is the same as in t
+ */
+EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
+  if (! yices_term_is_sum(t)) {
+    return -1;
+  }
+  sum_term_component(&terms, t, i, coeff, term);
+  return 0;
+}
+
+EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term) {
+  if (! yices_term_is_bvsum(t)) {
+    return -1;
+  }
+  bvsum_term_component(&terms, t, i, val, term);
+  return 0;
+}
+
+
+/*
+ * Component of power product t
+ * - i = index (must be between 0 and t's arity - 1)
+ * - the component is of the form (term, exponent)
+ *   (where exponent is a positive integer)
+ */
+EXPORTED int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp) {
+  if (! yices_term_is_product(t)) {
+    return -1;
+  }
+  product_term_component(&terms, t, i, term, exp);
+  return 0;
+}
 
 
 /***********************************

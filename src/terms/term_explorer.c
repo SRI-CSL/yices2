@@ -453,7 +453,7 @@ void bvsum_term_component(term_table_t *table, term_t t, uint32_t i, int32_t a[]
  *   child is a term (arithmetic or bitvector term)
  *   exponent is a positive integer
  */
-void prod_term_component(term_table_t *table, term_t t, uint32_t i, term_t *child, uint32_t *exp) {
+void product_term_component(term_table_t *table, term_t t, uint32_t i, term_t *child, uint32_t *exp) {
   pprod_t *p;
 
   assert(is_pos_term(t) && term_kind(table, t) == POWER_PRODUCT);
