@@ -241,6 +241,8 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
 
   assert(good_term(table, t));
 
+  result = 0; // prevent bogus GCC warning
+
   if (is_neg_term(t)) {
     result = 1;
   } else {
@@ -341,7 +343,7 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
       if (i == 0) {
 	result = arith_atom_arg(table, t);
       } else {
-	result = zero_term; // fake second children is always 0
+	result = zero_term; // second child is always zero
       }
       break;
 
