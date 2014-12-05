@@ -86,47 +86,62 @@ static inline int32_t gen_projection_error(proj_flag_t error) {
  * Generalization by substitution
  * - mdl = model
  * - mngr = relevant term manager
- * - f = formula true in the model
- * - v[0 ... n -1] = variables to eliminate
+ * - f[0 ... n-1] = formula true in the model
+ * - elim[0 ... nelim -1] = variables to eliminate
+ * - v = result vector
+ *
+ * - returned code: 0 if no error, an error code otherwise
+ * - error codes are listed in generalization.h
  */
-static term_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, term_t f, uint32_t n, const term_t v[]) {
+int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[], 
+				  uint32_t nelims, const term_t elim[], ivector_t *v) {
   term_subst_t subst;
   ivector_t aux;
   term_table_t *terms;
   int32_t code;
   uint32_t k;
-  term_t result;
+  term_t t;
 
-  // get the value of every v[i] in aux.data[i]
-  init_ivector(&aux, n);
-  code = evaluate_term_array(mdl, n, v, aux.data);
+  // get the value of elim[i] in aux.data[i]
+  init_ivector(&aux, nelims);
+  code = evaluate_term_array(mdl, nelims, elim, aux.data);
   if (code < 0) {
     // error in evaluator
-    result = gen_eval_error(code);
-    assert(GEN_EVAL_FAILED <= result && result <= GEN_EVAL_INTERNAL_ERROR);
+    code = gen_eval_error(code);
+    assert(GEN_EVAL_FAILED <= code  && code <= GEN_EVAL_INTERNAL_ERROR);
     goto done;
   }
 
   // convert every aux.data[i] to a constant term
   terms = term_manager_get_terms(mngr);
-  k = convert_value_array(terms, model_get_vtbl(mdl), n, aux.data);
-  if (k < n) {
+  k = convert_value_array(terms, model_get_vtbl(mdl), nelims, aux.data);
+  if (k < nelims) {
     // aux.data[k] couldn't be converted to a term
-    // conversion error code is in aux.data[k]
-    result = gen_convert_error(aux.data[k]);
-    assert(GEN_CONV_FAILED <= result && result <= GEN_CONV_INTERNAL_ERROR);
+    // the error code is in aux.data[k]
+    code = gen_convert_error(aux.data[k]);
+    assert(GEN_CONV_FAILED <= code && code <= GEN_CONV_INTERNAL_ERROR);
     goto done;
   }
 
-  // build the substition: v[i] is replaced by aux.data[i]
-  init_term_subst(&subst, mngr, n, v, aux.data);
-  result = apply_term_subst(&subst, f);
+
+  // build the substition: elim[i] := aux.data[i]
+  // then apply it to f[0 ... n-1]
+  code = 0;
+  init_term_subst(&subst, mngr, nelims, elim, aux.data);
+  for (k=0; k<n; k++) {
+    t = apply_term_subst(&subst, f[k]);
+    if (t < 0) {
+      code = GEN_PROJ_ERROR_IN_SUBST;
+      break;
+    }
+    ivector_push(v, t);
+  }
   delete_term_subst(&subst);
 
  done:
   delete_ivector(&aux);
 
-  return result;
+  return code;
 }
 
 
@@ -138,75 +153,54 @@ static term_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, term
  * - f[0 ... n-1] = formulas true in mdl
  * - elim[0 ... nelims-1] = variables to eliminate
  */
-static term_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				      uint32_t nelims, const term_t elim[]) {
+int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+				uint32_t nelims, const term_t elim[], ivector_t *v) {
   ivector_t implicant;
-  ivector_t projection;
   int32_t code;
-  term_t result;
   proj_flag_t pflag;
 
   init_ivector(&implicant, 10);
-  init_ivector(&projection, 10);
-
   code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, n, f, &implicant);
   if (code < 0) {
     // implicant construction failed
-    result = gen_implicant_error(code);
+    code = gen_implicant_error(code);
     goto done;
   }
  
-  assert(projection.size == 0);
-  pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, &projection);
+  code = 0;
+  pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, v);
   if (pflag != PROJ_NO_ERROR) {
-    result = gen_projection_error(pflag);
-    goto done;
+    code = gen_projection_error(pflag);
   }
 
-  // build the conjunct of projection.data
-  if (projection.size == 0) {
-    result = true_term;
-  } else {
-    result = mk_and(mngr, projection.size, projection.data);
-  }
-  
  done:
-  delete_ivector(&projection);
   delete_ivector(&implicant);
 
-  return result;
+  return code;
 }
 
 
 
 /*
- * Generalize mdl:
- * - f[0 ... n-1] = array of n Boolean formulas. They must all be true in mdl
- * - elim[0 ... nelims-1] = array of nelims terms (variables to eliminate)
- *   these are the Y variables. Any other variable of f[0 ... n-1] is considered
- *   as a variable to keep (i.e., an X variable).
- *
- * - return a formula G in which variables elim[0 ... nelims-1] do not occur
- *   and G implies (f[0] /\ ... /\ f[n-1])
+ * Generalize mdl: select between gen_by_projection and gen_by_substitution depending
+ * on the variables to eliminate.
  */
-term_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[], uint32_t nelims, const term_t elim[]) {
+int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+			 uint32_t nelims, const term_t elim[], ivector_t *v) {
   term_table_t *terms;
-  term_t result, fmla;
+  int32_t code;
 
-  terms = term_manager_get_terms(mngr);
+  code =0;
   if (n > 0) {
-    // we deal with n==0 separately since mk_and_safe requires n>0
+    // if n == 0, there's nothing to do
+    terms = term_manager_get_terms(mngr);
     if (array_has_arith_term(terms, nelims, elim)) {
-      result = gen_model_by_projection(mdl, mngr, n, f, nelims, elim);
+      code = gen_model_by_projection(mdl, mngr, n, f, nelims, elim, v);
     } else {
-      fmla = mk_and_safe(mngr, n, f);
-      result = gen_model_by_substitution(mdl, mngr, fmla, nelims, elim);
+      code = gen_model_by_substitution(mdl, mngr, n, f, nelims, elim, v);
     }
-  } else {
-    // n == 0
-    result = true_term;
   }
 
-  return result;
+  return code;
 }
 

@@ -79,12 +79,23 @@ enum {
  * - elim[0 ... nelims-1] = array of nelims terms (variables to eliminate)
  *   these are the Y variables. Any other variable of f[0 ... n-1] is considered
  *   as a variable to keep (i.e., an X variable).
+ * - the generalization is returned in vector v (v is not reset, 
+ *   the result formulas are added to v)
  *
- * - return a formula G in which variables elim[0 ... nelims-1] do not occur
- *   and G implies (f[0] /\ ... /\ f[n-1])
+ * There are two main variants forgeneralization by substitution or by projection
+ * - the generic form: generalize_model applies generalization by projection
+ *   if some variables to eliminate are arithmetic variables. It uses
+ *   generalization by substitution otherwise.
  */
-extern term_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-			       uint32_t nelims, const term_t elim[]);
+extern int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+					 uint32_t nelims, const term_t elim[], ivector_t *v);
+
+extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+				       uint32_t nelims, const term_t elim[], ivector_t *v);
+
+extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+				uint32_t nelims, const term_t elim[], ivector_t *v);
+
 
 
 #endif /* __GENERALIZATION_H */

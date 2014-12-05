@@ -237,6 +237,27 @@ typedef struct yval_vector_s {
 
 
 
+/*************************
+ * MODEL GENERALIZATION  *
+ ************************/
+
+/*
+ * These codes define a generalization algorithm for functions
+ *      yices_generalize_model
+ * and  yices_generalize_model_array
+ *
+ * There are currently two algorithms: generalization by
+ * substitution and generalization by projection.
+ * The default is to select the algorithm based on variables
+ * to eliminate.
+ */
+typedef enum yices_gen_mode {
+  YICES_GEN_DEFAULT,
+  YICES_GEN_BY_SUBST,
+  YICES_GEN_BY_PROJ,
+} yices_gen_mode_t;
+
+
 
 /*****************
  *  ERROR CODES  *

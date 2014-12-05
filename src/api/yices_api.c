@@ -8299,35 +8299,55 @@ static inline error_code_t yices_gen_error(int32_t v) {
 /*
  * Given a model mdl for a formula F(X, Y). The following generalization functions
  * eliminate variables Y from F(X, Y) in a way that is guided by the model.
- * 
- * The result is a formula G(X) such that:
- * 1) mdl satisfies G(X)
- * 2) G(X) implies (exists Y. F(X, Y))
+ *
+ * - nelims = number of variables to eliminate
+ * - elim = variables to eliminate
+ * - each term in elim[i] must be an uninterpreted term (as returned by yices_new_uninterpreted_term)
+ *   of one of the following types: Boolean, (bitvector k), or Real
+ * - mode defines the generalization algorithm
+ * - v: term_vector to return the result
+ *
  */
-EXPORTED term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[]) {
-  term_t result;
+EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+					yices_gen_mode_t mode, term_vector_t *v) {
+  int32_t code;
 
   if (! check_good_term(&manager, t) ||
       ! check_boolean_term(&manager, t) ||
       ! check_elim_vars(&manager, nelims, elim)) {
-    return NULL_TERM;
+    return -1;
   }
 
-  result = generalize_model(mdl, &manager, 1, &t, nelims, elim);
-  if (result < 0) {
-    error.code = yices_gen_error(result);
-    result = NULL_TERM;
+  v->size = 0;
+  switch (mode) {
+  case YICES_GEN_BY_SUBST:
+    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
+    break;
+
+  case YICES_GEN_BY_PROJ:
+    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
+    break;
+
+  default:
+    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
+    break;
   }
 
-  return result;
+  if (code < 0) {
+    error.code = yices_gen_error(code);
+    return -1;
+  }
+
+  return 0;
 }
 
 
 /*
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
-EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[]) {
-  term_t result;
+EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					     yices_gen_mode_t mode, term_vector_t *v) {
+  int32_t code;
 
   if (! check_good_terms(&manager, n, a) ||
       ! check_boolean_args(&manager, n, a) ||
@@ -8335,13 +8355,27 @@ EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const ter
     return NULL_TERM;
   }
 
-  result = generalize_model(mdl, &manager, n, a, nelims, elim);
-  if (result < 0) {
-    error.code = yices_gen_error(result);
-    result = NULL_TERM;
+  v->size = 0;
+  switch (mode) {
+  case YICES_GEN_BY_SUBST:
+    code = gen_model_by_substitution(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
+    break;
+
+  case YICES_GEN_BY_PROJ:
+    code = gen_model_by_projection(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
+    break;
+
+  default:
+    code = generalize_model(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
+    break;
   }
 
-  return result;
+  if (code < 0) {
+    error.code = yices_gen_error(code);
+    return -1;
+  }
+
+  return 0;
 }
 
 

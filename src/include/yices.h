@@ -3248,6 +3248,29 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * The result is a formula G(X) such that:
  * 1) mdl satisfies G(X)
  * 2) G(X) implies (exists Y. F(X, Y))
+ *
+ * Yices supports the following generalization methods:
+ *
+ * 1) generalization by substitution: eliminate the Y variables
+ *    by replacing them by their value in mdl
+ *    (this is the simplest approach)
+ *
+ * 2) generalization by projection:
+ *    - first compute an implicant for formula F(X, Y)
+ *      this produces a set of literals L_1(X, Y) .... L_k(X, Y)
+ *    - then Y is eliminated from the literals by projection
+ *      (this is a hybrid of Fourier-Motzkin elimination
+ *       and virtual term substitution)
+ *
+ * In the functions below, the generalization method can be selected
+ * by setting parameter mode to one of the following values:
+ *
+ *   mode = YICES_GEN_BY_SUBST  ---> generalize by substitution
+ *   mode = YICES_GEN_BY_PROJ   ---> projection
+ *   mode = YICES_GEN_DEFAULT   ---> automatically choose the mode
+ *                                   depending on the variables to eliminate
+ *
+ * Any value other that these is interpreted the same as YICES_GEN_DEFAULT
  */
 
 /*
@@ -3256,16 +3279,31 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * - elim = variables to eliminate
  * - each term in elim[i] must be an uninterpreted term (as returned by yices_new_uninterpreted_term)
  *   of one of the following types: Boolean, (bitvector k), or Real
+ * - mode defines the generalization algorithm
+ * - v: term_vector to return the result
  *
- * - the function returns NULL_TERM if there's an error
+ * The generalization G(X) is returned in term_vector v that must be initialized
+ * using yices_init_term_vector. G(X) is the conjunction of all formulas in v.
+ *    v->size = number of formulas returned
+ *    v->data[0] ....  v->data[v->size-1] = the formulas themselves.
+ *
+ * If mode = YICES_GEN_BY_PROJ, then every element of v is guaranteed to be a literal
+ *
+ * Important: t must be true in mdl, otherwise, the returned data may be garbage.
+ *
+ * Returned code:
+ *   0 means success
+ *  -1 means that the generalization failed.
  */
-__YICES_DLLSPEC__ extern term_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[]);
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+							yices_gen_mode_t mode, term_vector_t *v);
 
 
 /*
  * Compute a generalization of mdl for the conjunct (a[0] /\ ... /\ a[n-1])
  */
-__YICES_DLLSPEC__ extern term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[]);
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+							      yices_gen_mode_t mode, term_vector_t *v);
 
 
 
