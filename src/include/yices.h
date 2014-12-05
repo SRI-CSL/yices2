@@ -1777,6 +1777,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * and set the error report as above.
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bool(term_t t);
+
 __YICES_DLLSPEC__ extern int32_t yices_term_is_int(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_real(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_arithmetic(term_t t);
@@ -1811,9 +1812,42 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
 
 
 /*
- * MORE
- * - is_sum means t is of the form a_0 t_0 + ... + a_n t_n
- * - is_product means t is of the form t_0^d_0 x ... x t_n ^d_n
+ * Term structure:
+ *
+ * - atomic terms are Boolean, bitvector, arithmetic constants,
+ *   and variables and uninterpreted terms (i.e., terms that
+ *   don't have subterms)
+ *
+ * - composite terms are of the form
+ *    (constructor, number-of-childern, list-of-children)
+ *
+ * - projection terms are of the form
+ *    (constructor, index, child)
+ *   where the constructor is either a tuple-select or 
+ *   a bit-extract
+ *
+ * - a sum is a term of the form 
+ *      a_0 t_0 + ... + a_n t_n
+ *   where a_0 ... a_n are rational coefficients (constant)
+ *   and t_0 ... t_n are arithmetic terms
+ *
+ * - a bitvector sum is a sum
+ *      a_0 t_0 + ... + a_n t_n
+ *   where the coefficients a_0 ... a_n are bitvector constants
+ *   and t_0 ... t_n are bitvector terms
+ *
+ * - a product is a term of the form t_0^d_0 x ... x t_n ^d_n
+ *   where d_0 ... d_n are positive exponents,
+ *   and t_0 ... t_n are either all arithemtic terms or all
+ *   bitvector terms
+ *
+ * The following function check the structure of a term_t.
+ * They return 0 for false, 1 for true.
+ *
+ * If t is not a valid term, then the functions return 0
+ * and set the error report:
+ *    code = INVALID_TERM
+ *    term1 = t
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_is_atomic(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_composite(term_t t);
@@ -1825,7 +1859,12 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
 
 /*
  * Constructor for term t:
- * - the return code is defined in yices_types.h
+ * - the type 'term_constructor_t' is an enumeration defined in yices_types.h
+ *
+ * If t is not a valid term, the function returns a negative number,
+ * (i.e., YICES_CONSTRUCTOR_ERROR) and set the error report.
+ *    code = INVALID_TERM
+ *    term1 = t
  */
 __YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
 
@@ -1838,26 +1877,60 @@ __YICES_DLLSPEC__ extern term_constructor_t yices_term_constructor(term_t t);
  * - for sums, returns the number of summands
  * - for products, returns the number of factors
  *
- * - returns -1 if t is not a valid term
+ * - returns -1 if t is not a valid term and sets the error report
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_num_children(term_t t);
 
 
 /*
  * Get i-th child of a composite term
+ * - if t has n children (as returned by yices_term_num_children)
+ *   then i must be between 0 and n-1.
+ *
+ * - the function returns NULL_TERM if there's an error.
+ *
+ * Error codes:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not a composite, or i is not in the range [0 .. n-1]
+ *    code = INVALID_TERM_OP
  */
 __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
 
 
 /*
  * Get the argument and index of a projection
+ * - if t is invalid or not a projection term then
+ *     yices_proj_index returns -1
+ *     yices_proj_arg returns NULL_TERM
+ *
+ * Error codes:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not a projection
+ *    code = INVALID_TERM_OP
  */
 __YICES_DLLSPEC__ extern int32_t yices_proj_index(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_proj_arg(term_t t);
 
 
 /*
- * Value of a constant term
+ * Value of a constant term:
+ * - these functions return 0 if t is a valid term and store t's value
+ *   in *val (or in q)
+ * - if t is invalid or it's not the right kind of term, then the
+ *   functions return -1 and leave *val unchanged.
+ *
+ * For yices_rational_const_value, q must be initialized.
+ *
+ * Error codes:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not of the right kind
+ *    code = INVALID_TERM_OP
  */
 __YICES_DLLSPEC__ extern int32_t yices_bool_const_value(term_t t, int32_t *val);
 __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
@@ -1872,9 +1945,18 @@ __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
  * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
  * - for a bitvector sum, each component is a pair (bvconstant, term)
- * - if the term in the pair is NULL_TERM then the component consists of only
- *   the constant
+ * - if the term in the pair is NULL_TERM then the component consists of 
+ *   only the constant
  * - the number of bits in the bvconstant is the same as in t
+ *
+ * These two functions return 0 on success and -1 on error.
+ *
+ * Error codes:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not of the right kind of the index is invalid
+ *    code = INVALID_TERM_OP
  */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
@@ -1888,6 +1970,15 @@ __YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, int32_t i, int3
  * - i = index (must be between 0 and t's arity - 1)
  * - the component is of the form (term, exponent)
  *   (where exponent is a positive integer)
+ *
+ * The function returns 0 on success and -1 on error.
+ *
+ * Error codes:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not of the right kind or i is invalid
+ *    code = INVALID_TERM_OP
  */
 __YICES_DLLSPEC__ extern int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp);
 

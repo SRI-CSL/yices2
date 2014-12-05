@@ -2202,6 +2202,48 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
 
 
 
+/*
+ * Checks for the term-exploration functions.
+ * All these checks set the error code to INVALID_TERM_OP
+ * - t must be a valid term.
+ */
+static bool check_composite(term_table_t *terms, term_t t) {
+  if (! term_is_composite(terms, t)) {
+    error.code = INVALID_TERM_OP;
+    return false;
+  }
+
+  return true;
+}
+
+static bool check_projection(term_table_t *terms, term_t t) {
+  if (! term_is_projection(terms, t)) {
+    error.code = INVALID_TERM_OP;
+    return false;
+  }
+  return true;
+}
+
+static bool check_constructor(term_table_t *terms, term_t t, term_constructor_t c) {
+  if (term_constructor(terms, t) != c) {
+    error.code = INVALID_TERM_OP;
+    return false;
+  }
+  return true;
+}
+
+static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
+  if (i < 0 || i >= term_num_children(terms, t)) {
+    error.code = INVALID_TERM_OP;
+    return false;
+  }
+
+  return true;
+}
+
+
+
+
 /***********************
  *  TYPE CONSTRUCTORS  *
  **********************/
@@ -5272,6 +5314,11 @@ harray_t *yices_free_vars_of_term(term_t t) {
   return get_free_vars_of_term(get_fvars(), t);
 }
 
+
+/*
+ * Check structure of term t
+ * - return false if t is not valid
+ */
 EXPORTED int32_t yices_term_is_atomic(term_t t) {
   return check_good_term(&manager, t) && term_is_atomic(&terms, t);
 }
@@ -5332,7 +5379,9 @@ EXPORTED int32_t yices_term_num_children(term_t t) {
  * Get i-th child of a composite term
  */
 EXPORTED term_t yices_term_child(term_t t, int32_t i) {
-  if (! yices_term_is_composite(t)) {
+  if (! check_good_term(&manager, t) ||
+      ! check_composite(&terms, t) ||
+      ! check_child_idx(&terms, t, i)) {
     return NULL_TERM;
   }
   return term_child(&terms, t, i);
@@ -5343,24 +5392,28 @@ EXPORTED term_t yices_term_child(term_t t, int32_t i) {
  * Get the argument and index of a projection
  */
 EXPORTED int32_t yices_proj_index(term_t t) {
-  if (! yices_term_is_projection(t)) {
+  if (! check_good_term(&manager, t) ||
+      ! check_projection(&terms, t)) {
     return -1;
   }
   return proj_term_index(&terms, t);
 }
 
 EXPORTED term_t yices_proj_arg(term_t t) {
-  if (! yices_term_is_projection(t)) {
-    return -1;
+  if (! check_good_term(&manager, t) ||
+      ! check_projection(&terms, t)) {
+    return NULL_TERM;
   }
   return proj_term_arg(&terms, t);
 }
+
 
 /*
  * Value of a constant term
  */
 EXPORTED int32_t yices_bool_const_value(term_t t, int32_t *val) {
-  if (yices_term_constructor(t) != YICES_BOOL_CONSTANT) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_BOOL_CONSTANT)) {
     return -1;
   }
   *val = bool_const_value(&terms, t);
@@ -5368,7 +5421,8 @@ EXPORTED int32_t yices_bool_const_value(term_t t, int32_t *val) {
 }
 
 EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
-  if (yices_term_constructor(t) != YICES_BV_CONSTANT) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_BV_CONSTANT)) {
     return -1;
   }
   bv_const_value(&terms, t, val);
@@ -5376,7 +5430,8 @@ EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
 }
 
 EXPORTED int32_t yices_scalar_const_value(term_t t, int32_t *val) {
-  if (yices_term_constructor(t) != YICES_SCALAR_CONSTANT) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_SCALAR_CONSTANT)) {
     return -1;
   }
   *val = generic_const_value(&terms, t);
@@ -5384,7 +5439,8 @@ EXPORTED int32_t yices_scalar_const_value(term_t t, int32_t *val) {
 }
 
 EXPORTED int32_t yices_rational_const_value(term_t t, mpq_t q) {
-  if (yices_term_constructor(t) != YICES_ARITH_CONSTANT) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_ARITH_CONSTANT)) {
     return -1;
   }
   arith_const_value(&terms, t, q);
@@ -5400,7 +5456,9 @@ EXPORTED int32_t yices_rational_const_value(term_t t, mpq_t q) {
  * - the number of bits in the bvconstant is the same as in t
  */
 EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
-  if (! yices_term_is_sum(t)) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_ARITH_SUM) ||
+      ! check_child_idx(&terms, t, i)) {
     return -1;
   }
   sum_term_component(&terms, t, i, coeff, term);
@@ -5408,7 +5466,9 @@ EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *t
 }
 
 EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term) {
-  if (! yices_term_is_bvsum(t)) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_BV_SUM) ||
+      ! check_child_idx(&terms, t, i)) {
     return -1;
   }
   bvsum_term_component(&terms, t, i, val, term);
@@ -5423,7 +5483,9 @@ EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_
  *   (where exponent is a positive integer)
  */
 EXPORTED int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp) {
-  if (! yices_term_is_product(t)) {
+  if (! check_good_term(&manager, t) ||
+      ! check_constructor(&terms, t, YICES_POWER_PRODUCT) ||
+      ! check_child_idx(&terms, t, i)) {
     return -1;
   }
   product_term_component(&terms, t, i, term, exp);
