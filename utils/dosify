@@ -1,0 +1,135 @@
+#!/bin/bash
+
+#
+# Script to convert the content of a (Unix) tarfile to a format that's
+# more Windows/DOS friendly.
+#
+# Search for ASCII text files then call unix2dos to fix the end-of-line
+# stuff + renamed them with suffix .txt so that they can be opened with
+# notepad.
+#
+
+#
+# Check argument
+#
+if [[ $# != 1 ]]; then
+   echo "Usage: $0 <tarfile>"
+   exit 1
+else
+   tarfile=$1
+fi
+
+
+#
+# Split the tarfile name into directory/file + find suffix
+#
+the_archive=`basename $tarfile`
+the_archive_dir=`dirname $tarfile`
+
+case "$the_archive" in
+  *.tar )
+     suffix=".tar"
+     untar_cmd="tar xf"
+  ;;
+
+  *.tgz )
+     suffix=".tgz"
+     untar_cmd="tar xf"
+  ;;
+ 
+  *.tar.gz )
+     suffix=".tar.gz"
+     untar_cmd="tar xf"
+  ;;
+
+  *.zip )
+     suffix=".zip"
+     untar_cmd="unzip -q"
+  ;;
+ 
+  *)
+     echo "Can't process $tarfile"
+     exit 1
+  ;;
+
+esac
+
+the_base=`basename $the_archive $suffix`
+
+
+#
+# Temporary directory
+#
+current_dir=`pwd`
+tmpdir=`mktemp -d` || { echo "Can't create temporary directory" ; exit 1 ; }
+
+#
+# Copy and unzip the archive in this directory
+#
+cp $tarfile $tmpdir
+cd $tmpdir
+$untar_cmd $the_archive
+rm $the_archive
+
+echo "Processing archive: $tarfile"
+# echo "  directory: $the_archive_dir"
+# echo "  file name: $the_archive"
+# echo "  base name: $the_base"
+# echo "  suffix:    $suffix"
+# echo "  tmpdir:    $tmpdir"
+
+
+#
+# All files we want to process are in $tmpdir
+# We care about any file 'xxx.txt' or any ASCII file without a suffix
+#
+for f in `find . -type f` ; do
+
+   case `basename $f` in
+      *.txt )
+           unix2dos $f
+      ;;
+
+      Makefile* | makefile* | *.* )
+      ;; 
+
+      *)
+	   file_type=`file -b $f`
+           case "$file_type" in
+              ASCII*text | UTF*text )
+		unix2dos $f
+		mv -n $f $f.txt
+              ;;
+           esac
+      ;;
+
+   esac
+  
+done
+
+
+#
+# Rezip the whole thing
+#
+zipfile=$the_base.zip
+content=`ls`
+echo "Building $zipfile"
+echo "zip -r $zipfile $content"
+zip -q -r $zipfile $content
+
+#
+# Copy the result
+#
+cd $current_dir
+
+if [[ "$zipfile" == "$the_archive" ]] ; then 
+   mv "$tarfile" "$tarfile".save
+fi
+
+cp $tmpdir/$zipfile $the_archive_dir
+echo "Created zip file in $the_archive_dir/$zipfile"
+
+#
+# Clean up
+#
+rm -rf $tmpdir
