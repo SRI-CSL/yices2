@@ -58,10 +58,27 @@ the_base=`basename $the_archive $suffix`
 
 
 #
+# System-dependent configuration
+#
+os_name=`uname 2>/dev/null` || os_name=unknown
+
+case "$os_name" in
+  *Darwin* )
+     mktemp_cmd="/usr/bin/mktemp -d -t xxx"
+  ;;
+
+  * )
+     mktemp_cmd="mktemp -d"
+  ;;
+
+esac
+
+
+#
 # Temporary directory
 #
 current_dir=`pwd`
-tmpdir=`mktemp -d` || { echo "Can't create temporary directory" ; exit 1 ; }
+tmpdir=`$mktemp_cmd` || { echo "Can't create temporary directory" ; exit 1 ; }
 
 #
 # Copy and unzip the archive in this directory
