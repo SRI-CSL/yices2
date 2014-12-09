@@ -164,7 +164,7 @@ typedef enum term_constructor {
   YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
 
   // products
-  YICES_POWER_PRODUCT,       // power products: (t1^d1 * ... * t_n^d_n)
+  YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
 } term_constructor_t;
 
 
@@ -254,7 +254,7 @@ typedef struct yval_vector_s {
 typedef enum yices_gen_mode {
   YICES_GEN_DEFAULT,
   YICES_GEN_BY_SUBST,
-  YICES_GEN_BY_PROJ,
+  YICES_GEN_BY_PROJ
 } yices_gen_mode_t;
 
 
@@ -380,7 +380,7 @@ typedef enum error_code {
   /*
    * Errors in context configurations and search parameter settings
    */
-  CTX_INVALID_CONFIG,
+  CTX_INVALID_CONFIG = 500,
   CTX_UNKNOWN_PARAMETER,
   CTX_INVALID_PARAMETER_VALUE,
   CTX_UNKNOWN_LOGIC,
@@ -388,7 +388,7 @@ typedef enum error_code {
   /*
    * Error codes for model queries
    */
-  EVAL_UNKNOWN_TERM,
+  EVAL_UNKNOWN_TERM = 600,
   EVAL_FREEVAR_IN_TERM,
   EVAL_QUANTIFIER,
   EVAL_LAMBDA,
@@ -400,7 +400,7 @@ typedef enum error_code {
   /*
    * Error codes for model construction
    */
-  MDL_UNINT_REQUIRED,
+  MDL_UNINT_REQUIRED = 700,
   MDL_CONSTANT_REQUIRED,
   MDL_DUPLICATE_VAR,
   MDL_FTYPE_NOT_ALLOWED,
@@ -409,20 +409,20 @@ typedef enum error_code {
   /*
    * Error codes in DAG/node queries
    */
-  YVAL_INVALID_OP,
+  YVAL_INVALID_OP = 800,
   YVAL_OVERFLOW,
 
   /*
    * Error codes for model generalization
    */
-  MDL_GEN_TYPE_NOT_SUPPORTED,
+  MDL_GEN_TYPE_NOT_SUPPORTED = 900,
   MDL_GEN_NONLINEAR,
   MDL_GEN_FAILED,
 
   /*
    * Input/output and system errors
    */
-  OUTPUT_ERROR = 500,
+  OUTPUT_ERROR = 9000,
 
   /*
    * Catch-all code for anything else.

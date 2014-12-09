@@ -84,15 +84,15 @@ int32_t print_error(FILE *f) {
     break;
 
   case TOO_MANY_ARGUMENTS:
-    code = fprintf(f, "too many arguments (max. arity is %"PRIu32")\n", YICES_MAX_ARITY);
+    code = fprintf(f, "too many arguments (max arity is %"PRIu32")\n", YICES_MAX_ARITY);
     break;
 
   case TOO_MANY_VARS:
-    code = fprintf(f, "too many variables in quantifier (max. is %"PRIu32")\n", YICES_MAX_VARS);
+    code = fprintf(f, "too many variables in quantifier (max is %"PRIu32")\n", YICES_MAX_VARS);
     break;
 
   case MAX_BVSIZE_EXCEEDED:
-    code = fprintf(f, "bitvector size is too large (max. is %"PRIu32")\n", YICES_MAX_BVSIZE);
+    code = fprintf(f, "bitvector size is too large (max is %"PRIu32")\n", YICES_MAX_BVSIZE);
     break;
 
   case DEGREE_OVERFLOW:
@@ -193,6 +193,14 @@ int32_t print_error(FILE *f) {
 
   case BAD_TYPE_DECREF:
     code = fprintf(f, "Invalid decref: type has refcount zero\n");
+    break;
+
+  case INVALID_TYPE_OP:
+    code = fprintf(f, "Invalid type-exploration query\n");
+    break;
+
+  case INVALID_TERM_OP:
+    code = fprintf(f, "Invalid term-exploration query\n");
     break;
 
     /*
