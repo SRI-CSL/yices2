@@ -164,13 +164,13 @@ static void init_terms(void) {
   term[2] = yices_new_uninterpreted_term(tau);
   yices_set_term_name(term[2], "Y");
 
-  a = yices_bvand(term[0], term[1]);
+  a = yices_bvand2(term[0], term[1]);
   b = yices_bvadd(a, term[2]);
   c = yices_bvpower(b, 5);
   term[3] = yices_bveq_atom(c, term[1]);
 
-  term[4] = yices_bvxor(a, c);
-  term[5] = yices_bvor(term[4], term[2]);
+  term[4] = yices_bvxor2(a, c);
+  term[5] = yices_bvor2(term[4], term[2]);
 }
 
 

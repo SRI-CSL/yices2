@@ -1587,6 +1587,7 @@ static bool check_compatible_bv_terms(term_manager_t *mngr, term_t t1, term_t t2
     && check_compatible_terms(mngr, t1, t2);
 }
 
+
 // Check whether terms a[0 ... n-1] are all boolean
 static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
@@ -1605,6 +1606,54 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a
 
   return true;
 }
+
+// Check whether a[0 ... n-1] are all valid bitvectors 
+static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  term_table_t *tbl;
+  uint32_t i;
+
+  tbl = term_manager_get_terms(mngr);
+ 
+  for (i=0; i<n; i++) {
+    if (! is_bitvector_term(tbl, a[i])) {
+      error.code = BITVECTOR_REQUIRED;
+      error.term1 = a[i];
+      return false;
+    }
+  }
+  return true;
+}
+
+
+// Check whether a[0 ... n-1] all have the same type (n must be positive)
+// this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector 
+// operators
+static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  term_table_t *tbl;
+  type_t tau0, tau;
+  uint32_t i;
+
+  assert(n > 0);
+
+  tbl = term_manager_get_terms(mngr);
+
+  tau0 = term_type(tbl, a[0]);
+  for (i=1; i<n; i++) {
+    tau = term_type(tbl, a[i]);
+    if (tau != tau0) {
+      error.code = INCOMPATIBLE_TYPES;
+      error.term1 = a[0];
+      error.type1 = tau0;
+      error.term2 = a[i];
+      error.type2 = tau;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
 
 // Check whether terms a[0 ... n-1] are all arithmetic terms
 static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
@@ -3960,14 +4009,17 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
     return NULL_TERM;
   }
 
+  /*
+   * FIX THIS: check_square_degree may overestimate the degree of the
+   * product.
+   */
+
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvsquare64(t1);
   } else {
     return mk_bvsquare(t1);
   }
 }
-
-
 
 
 static term_t mk_bvpower64(term_t t1, uint32_t d) {
@@ -4007,11 +4059,119 @@ EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
     return NULL_TERM;
   }
 
+  /*
+   * FIX THIS: check_power_degree may overestimate the degree of the
+   * product.
+   */
+
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvpower64(t1, d);
   } else {
     return mk_bvpower(t1, d);
   }
+}
+
+
+/************************************
+ *  N-ARY BIT-VECTOR SUMS/PRODUCTS  *
+ ***********************************/
+
+static term_t mk_bvsum64(uint32_t n, const term_t t[]) {
+  bvarith64_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  b = get_bvarith64_buffer();
+  tbl = &terms;
+  bvarith64_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvarith64_buffer_add_term(b, tbl, t[i]);
+  }
+
+  return mk_bvarith64_term(&manager, b);
+}
+
+static term_t mk_bvsum(uint32_t n, const term_t t[]) {
+  bvarith_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  b = get_bvarith_buffer();
+  tbl = &terms;
+  bvarith_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvarith_buffer_add_term(b, tbl, t[i]);
+  }
+
+  return mk_bvarith_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t) ||
+      ! check_same_type(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  if (term_bitsize(&terms, t[0]) <= 64) {
+    return mk_bvsum64(n, t);
+  } else {
+    return mk_bvsum(n, t);
+  }  
+}
+
+
+static term_t mk_bvproduct64(uint32_t n, const term_t t[]) {
+  bvarith64_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  b = get_bvarith64_buffer();
+  tbl = &terms;
+  bvarith64_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvarith64_buffer_mul_term(b, tbl, t[i]);
+  }
+
+  return mk_bvarith64_term(&manager, b);
+}
+
+static term_t mk_bvproduct(uint32_t n, const term_t t[]) {
+  bvarith_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  b = get_bvarith_buffer();
+  tbl = &terms;
+  bvarith_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvarith_buffer_mul_term(b, tbl, t[i]);
+  }
+
+  return mk_bvarith_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t) ||
+      ! check_same_type(&manager, n, t) || 
+      ! check_multi_prod_degree(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  /*
+   * FIX THIS: check_multi_prod_degree may overestimate the degree of the
+   * product.
+   */
+
+  if (term_bitsize(&terms, t[0]) <= 64) {
+    return mk_bvproduct64(n, t);
+  } else {
+    return mk_bvproduct(n, t);
+  }
+  
 }
 
 
@@ -4037,54 +4197,6 @@ EXPORTED term_t yices_bvnot(term_t t1) {
   return mk_bvlogic_term(&manager, b);
 }
 
-
-EXPORTED term_t yices_bvand(term_t t1, term_t t2) {
-  bvlogic_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_bvlogic_buffer();
-  tbl = &terms;
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_and_term(b, tbl, t2);
-
-  return mk_bvlogic_term(&manager, b);
-}
-
-EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
-  bvlogic_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_bvlogic_buffer();
-  tbl = &terms;
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_or_term(b, tbl, t2);
-
-  return mk_bvlogic_term(&manager, b);
-}
-
-EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
-  bvlogic_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_bvlogic_buffer();
-  tbl = &terms;
-  bvlogic_buffer_set_term(b, tbl, t1);
-  bvlogic_buffer_xor_term(b, tbl, t2);
-
-  return mk_bvlogic_term(&manager, b);
-}
 
 
 EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
@@ -4136,6 +4248,157 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
   bvlogic_buffer_not(b);
 
   return mk_bvlogic_term(&manager, b);
+}
+
+
+/************************************
+ *  ASSOCIATIVE BITWISE OPERATIONS  *
+ ***********************************/
+
+EXPORTED term_t yices_bvand(uint32_t n, const term_t t[]) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t) ||
+      ! check_same_type(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvlogic_buffer_and_term(b, tbl, t[i]);
+  }
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvor(uint32_t n, const term_t t[]) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t) ||
+      ! check_same_type(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvlogic_buffer_or_term(b, tbl, t[i]);
+  }
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvxor(uint32_t n, const term_t t[]) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t) ||
+      ! check_same_type(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t[0]);
+  for (i=1; i<n; i++) {
+    bvlogic_buffer_xor_term(b, tbl, t[i]);
+  }
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+
+EXPORTED term_t yices_bvand2(term_t t1, term_t t2) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+
+  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t1);
+  bvlogic_buffer_and_term(b, tbl, t2);
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvor2(term_t t1, term_t t2) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+
+  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t1);
+  bvlogic_buffer_or_term(b, tbl, t2);
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+EXPORTED term_t yices_bvxor2(term_t t1, term_t t2) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+
+  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  tbl = &terms;
+  bvlogic_buffer_set_term(b, tbl, t1);
+  bvlogic_buffer_xor_term(b, tbl, t2);
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+
+EXPORTED term_t yices_bvand3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_bvand(3, aux);
+}
+
+EXPORTED term_t yices_bvor3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_bvor(3, aux);
+}
+
+EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_bvor(3, aux);
 }
 
 

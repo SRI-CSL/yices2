@@ -1307,9 +1307,6 @@ __YICES_DLLSPEC__ extern term_t yices_bvsrem(term_t t1, term_t t2);  // signed r
 __YICES_DLLSPEC__ extern term_t yices_bvsmod(term_t t1, term_t t2);  // signed mod
 
 __YICES_DLLSPEC__ extern term_t yices_bvnot(term_t t1);              // bitwise not
-__YICES_DLLSPEC__ extern term_t yices_bvand(term_t t1, term_t t2);   // bitwise and
-__YICES_DLLSPEC__ extern term_t yices_bvor(term_t t1, term_t t2);    // bitwise or
-__YICES_DLLSPEC__ extern term_t yices_bvxor(term_t t1, term_t t2);   // bitwise exclusive or
 __YICES_DLLSPEC__ extern term_t yices_bvnand(term_t t1, term_t t2);  // bitwise not and
 __YICES_DLLSPEC__ extern term_t yices_bvnor(term_t t1, term_t t2);   // bitwise not or
 __YICES_DLLSPEC__ extern term_t yices_bvxnor(term_t t1, term_t t2);  // bitwise not xor
@@ -1317,6 +1314,47 @@ __YICES_DLLSPEC__ extern term_t yices_bvxnor(term_t t1, term_t t2);  // bitwise 
 __YICES_DLLSPEC__ extern term_t yices_bvshl(term_t t1, term_t t2);   // shift t1 left by k bits where k = value of t2
 __YICES_DLLSPEC__ extern term_t yices_bvlshr(term_t t1, term_t t2);  // logical shift t1 right by k bits, where k = value of t2
 __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmetic shift t1 right by k bits, k = value of t2
+
+
+
+/*
+ * Bitvector and/or/xor 
+ *
+ * The general form takes an array t[0 ...n-1] as argument (n must be positive).
+ * - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
+ * -Special forms are provided for convenience for n=2 and 3.
+ *
+ * These function return NULL_TERM if there's an error.
+ *
+ * Error reports:
+ * if n == 0
+ *    code = POS_INT_REQUIRED
+ *    badval = n
+ * if t[i] is not valid
+ *    code = INVALID_TERM
+ *    term1 = t[i]
+ * if t[i] is not a bitvector term
+ *    code = BITVECTOR_REQUIRED
+ *    badval = n
+ * if t[0] and t[i] don't have the same bitvector type
+ *    code = INCOMPATIBLE_TYPES
+ *    term1 = t[0]
+ *    type1 = type of t[0]
+ *    term2 = t[i]
+ *    type2 = type of t[i]
+ *
+ */
+__YICES_DLLSPEC__ extern term_t yices_bvand(uint32_t n, const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_bvor(uint32_t n, const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_bvxor(uint32_t n, const term_t t[]);
+
+__YICES_DLLSPEC__ extern term_t yices_bvand2(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bvor2(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bvxor2(term_t t1, term_t t2);
+
+__YICES_DLLSPEC__ extern term_t yices_bvand3(term_t t1, term_t t2, term_t t3);
+__YICES_DLLSPEC__ extern term_t yices_bvor3(term_t t1, term_t t2, term_t t3);
+__YICES_DLLSPEC__ extern term_t yices_bvxor3(term_t t1, term_t t2, term_t t3);
 
 
 /*

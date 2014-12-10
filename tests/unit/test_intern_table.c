@@ -862,7 +862,7 @@ static term_t random_bvand(test_store_t *s) {
   tau = yices_type_of_term(a);
   b = random_term_of_type(&s->terms, tau);
 
-  return yices_bvand(a, b);
+  return yices_bvand2(a, b);
 }
 
 
@@ -874,7 +874,7 @@ static term_t random_bvor(test_store_t *s) {
   tau = yices_type_of_term(a);
   b = random_term_of_type(&s->terms, tau);
 
-  return yices_bvor(a, b);
+  return yices_bvor2(a, b);
 }
 
 
@@ -886,7 +886,7 @@ static term_t random_bvxor(test_store_t *s) {
   tau = yices_type_of_term(a);
   b = random_term_of_type(&s->terms, tau);
 
-  return yices_bvxor(a, b);
+  return yices_bvxor2(a, b);
 }
 
 
