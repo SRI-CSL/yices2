@@ -1320,6 +1320,65 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
 
 
 /*
+ * Sum of n bitvector terms t[0] ... t[n-1]
+ * - n must be positive
+ * - all t[i]s must be bitvector terms of the same type (same number of bits)
+ *
+ * Return NULL_TERM if there's an error.
+ *
+ * Error reports:
+ * if n == 0
+ *    code = POS_INT_REQUIRED
+ *    badval = n
+ * if t[i] is not valid
+ *    code = INVALID_TERM
+ *    term1 = t[i]
+ * if t[i] is not a bitvector term
+ *    code = BITVECTOR_REQUIRED
+ *    badval = n
+ * if t[0] and t[i] don't have the same bitvector type
+ *    code = INCOMPATIBLE_TYPES
+ *    term1 = t[0]
+ *    type1 = type of t[0]
+ *    term2 = t[i]
+ *    type2 = type of t[i]
+ */
+__YICES_DLLSPEC__ extern term_t yices_bvsum(uint32_t n, const term_t t[]);
+
+
+/*
+ * Product of n bitvector terms t[0] ... t[n-1]
+ * 
+ * - n must be positive
+ * - all t[i]s must be bitvector terms of the same type (same number of bits)
+ *
+ * Return NULL_TERM if there's an error.
+ *
+ * Error reports:
+ * if n == 0
+ *    code = POS_INT_REQUIRED
+ *    badval = n
+ * if t[i] is not valid
+ *    code = INVALID_TERM
+ *    term1 = t[i]
+ * if t[i] is not a bitvector term
+ *    code = BITVECTOR_REQUIRED
+ *    badval = n
+ * if t[0] and t[i] don't have the same bitvector type
+ *    code = INCOMPATIBLE_TYPES
+ *    term1 = t[0]
+ *    type1 = type of t[0]
+ *    term2 = t[i]
+ *    type2 = type of t[i]
+ * if the result has degree > YICES_MAX_DEGREE
+ *    code = DEGREE_OVERFLOW
+ *    badval = degree
+ */
+__YICES_DLLSPEC__ extern term_t yices_bvproduct(uint32_t n, const term_t t[]);
+
+
+
+/*
  * Shift or rotation by an integer constant n
  * - shift_left0 sets the low-order bits to zero
  * - shift_left1 sets the low-order bits to one

@@ -3915,6 +3915,12 @@ EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
+  /*
+   * FIX THIS: check_product_degree may overestimate the degree of the
+   * product. The coefficients of the leading terms in t1 and t2 are ignored
+   * but their could be zero.
+   */
+
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvmul64(t1, t2);
   } else {
