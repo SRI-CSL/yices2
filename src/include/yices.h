@@ -606,7 +606,7 @@ __YICES_DLLSPEC__ extern term_t yices_not(term_t arg);
  * (and arg[0] ... arg[n-1])
  * (xor arg[0] ... arg[n-1])
  *
- * Note: array arg may be modified.
+ * NOTE: array arg may be modified.
  *
  * Error report:
  * if n > YICES_MAX_ARITY
@@ -1401,7 +1401,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvsum(uint32_t n, const term_t t[]);
  *    term1 = t[i]
  * if t[i] is not a bitvector term
  *    code = BITVECTOR_REQUIRED
- *    badval = n
+ *    term1 = t[i]
  * if t[0] and t[i] don't have the same bitvector type
  *    code = INCOMPATIBLE_TYPES
  *    term1 = t[0]
@@ -1475,6 +1475,10 @@ __YICES_DLLSPEC__ extern term_t yices_bvextract(term_t t, uint32_t i, uint32_t j
  * Concatenation
  * - t1 and t2 must be bitvector terms
  *
+ * NOTE: t1 is the high-order part of the result, t2 is the low-order part.
+ * For example, if t1 is 0b0000 and t2 is 0b11111, then the function will
+ * construct 0b000011111.
+ *
  * Return NULL_TERM (-1) if there's an error.
  *
  * Error reports
@@ -1484,8 +1488,36 @@ __YICES_DLLSPEC__ extern term_t yices_bvextract(term_t t, uint32_t i, uint32_t j
  * if t1 or t2 is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
+ * if the size of the result would be larger than MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
-__YICES_DLLSPEC__ extern term_t yices_bvconcat(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bvconcat2(term_t t1, term_t t2);
+
+
+ /*
+  * General form of concatenation: the input is an array of n bitvector terms
+  * - n must be positive.
+  *
+  * NOTE: t[0] is the high-order part of the result, and t[n-1] is the low-order
+  * part. For example, if n=3, t[0] is 0b000, t[1] is 0b111, and t[2] is 0b01, then
+  * the function constructs 0b00011101.
+  * 
+  * Error reports:
+  * if n == 0
+  *    code = POS_INT_REQUIRED
+  *    badval = n
+  * if t[i] is not valid
+  *    code = INVALID_TERM
+  *    term1 = t[i]
+  * if t[i] is not a bitvector term
+  *    code = BITVECTOR_REQUIRED
+  *    term1 = t[i]  
+  * if the size of the result would be more than YICES_MAX_BVSIZE
+  *    code = MAX_BVSIZE_EXCEEDED
+  *    badval = sum of the size of t[i]s
+  */
+__YICES_DLLSPEC__ extern term_t yices_bvconcat(uint32_t n, const term_t t[]);
 
 
 /*

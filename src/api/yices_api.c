@@ -47,6 +47,7 @@
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
 #include "terms/term_explorer.h"
+#include "terms/term_utils.h"
 
 #include "context/context.h"
 
@@ -3959,16 +3960,16 @@ static term_t mk_bvmul(term_t t1, term_t t2) {
 }
 
 EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
+  /*
+   * check_product_degree may overestimate the degree of the product
+   * (since the product of the coefficients of the leading terms in t1
+   * and t2 are could be zero).  We can't really do much about this,
+   * because the bvarith_buffers can't represent the intermediate terms.
+   */
   if (! check_compatible_bv_terms(&manager, t1, t2) ||
       ! check_product_degree(&manager, t1, t2)) {
     return NULL_TERM;
   }
-
-  /*
-   * FIX THIS: check_product_degree may overestimate the degree of the
-   * product. The coefficients of the leading terms in t1 and t2 are ignored
-   * but their could be zero.
-   */
 
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvmul64(t1, t2);
@@ -4003,16 +4004,15 @@ static term_t mk_bvsquare(term_t t1) {
 }
 
 EXPORTED term_t yices_bvsquare(term_t t1) {
+  /*
+   * check_square_degree may overestimate the degree of the product
+   * but we ignore this issue for now. (cf. yices_bvmul)
+   */
   if (! check_good_term(&manager, t1) ||
       ! check_bitvector_term(&manager, t1) ||
       ! check_square_degree(&manager, t1)) {
     return NULL_TERM;
   }
-
-  /*
-   * FIX THIS: check_square_degree may overestimate the degree of the
-   * product.
-   */
 
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvsquare64(t1);
@@ -4053,16 +4053,15 @@ static term_t mk_bvpower(term_t t1, uint32_t d) {
 }
 
 EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
+  /*
+   * check_power_degree may overestimate the degree of (t1^d)
+   * but we ignore this for now (cf. yices_bvmul).
+   */
   if (! check_good_term(&manager, t1) ||
       ! check_bitvector_term(&manager, t1) ||
       ! check_power_degree(&manager, t1, d)) {
     return NULL_TERM;
   }
-
-  /*
-   * FIX THIS: check_power_degree may overestimate the degree of the
-   * product.
-   */
 
   if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvpower64(t1, d);
@@ -4153,18 +4152,31 @@ static term_t mk_bvproduct(uint32_t n, const term_t t[]) {
 }
 
 EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
+  uint32_t i;
+
   if (! check_positive(n) ||
       ! check_good_terms(&manager, n, t) ||
       ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t) || 
-      ! check_multi_prod_degree(&manager, n, t)) {
+      ! check_same_type(&manager, n, t)) {
     return NULL_TERM;
   }
 
-  /*
-   * FIX THIS: check_multi_prod_degree may overestimate the degree of the
-   * product.
-   */
+  // check whether one t[i] is zero before checking degrees
+  for (i=0; i<n; i++) {
+    if (bvterm_is_zero(&terms, t[i])) {
+      return t[i];
+    }
+  }
+
+  if (! check_multi_prod_degree(&manager, n, t)) {
+    /*
+     * check_multi_prod_degree may overestimate  the actual degree but
+     * a bvarith_buffer/bvarith64_buffer can't  store the intermediate
+     * results  even  if  the  final   result  has  degree  less  than
+     * MAX_DEGREE.
+     */
+    return NULL_TERM;
+  }
 
   if (term_bitsize(&terms, t[0]) <= 64) {
     return mk_bvproduct64(n, t);
@@ -4637,7 +4649,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
-EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
+EXPORTED term_t yices_bvconcat2(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -4654,6 +4666,43 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   b = get_bvlogic_buffer();
   bvlogic_buffer_set_term(b, tbl, t2);
   bvlogic_buffer_concat_left_term(b, tbl, t1);
+
+  return mk_bvlogic_term(&manager, b);
+}
+
+
+/*
+ * Generic form
+ */
+EXPORTED term_t yices_bvconcat(uint32_t n, const term_t t[]) {
+  bvlogic_buffer_t *b;
+  term_table_t *tbl;
+  uint64_t bvsize;
+  uint32_t i;
+
+  if (! check_positive(n) ||
+      ! check_good_terms(&manager, n, t) ||
+      ! check_bitvector_args(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  tbl = &terms;
+  bvsize = 0;
+  for (i=0; i<n; i++) {
+    bvsize += term_bitsize(tbl, t[i]);
+  }
+  if (bvsize > (uint64_t) YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = bvsize;
+    return NULL_TERM;
+  }
+
+  b = get_bvlogic_buffer();
+  bvlogic_buffer_clear(b);
+  while (n>0) {
+    n --;
+    bvlogic_buffer_concat_left_term(b, tbl, t[n]);
+  }
 
   return mk_bvlogic_term(&manager, b);
 }
