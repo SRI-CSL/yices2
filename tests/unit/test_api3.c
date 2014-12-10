@@ -940,7 +940,7 @@ static term_t test_bvconcat(term_t t1, term_t t2) {
   printf(" ");
   print_term(stdout, __yices_globals.terms, t2);
   printf(") ---> ");
-  t = yices_bvconcat(t1, t2);
+  t = yices_bvconcat2(t1, t2);
   print_term(stdout, __yices_globals.terms, t);
   printf("\n");
 

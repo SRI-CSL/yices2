@@ -932,7 +932,7 @@ static term_t random_bvconcat(test_store_t *s) {
   a = random_bv_term(&s->terms);
   b = random_bv_term(&s->terms);
 
-  return yices_bvconcat(a, b);
+  return yices_bvconcat2(a, b);
 }
 
 
