@@ -606,7 +606,7 @@ __YICES_DLLSPEC__ extern term_t yices_not(term_t arg);
  * (and arg[0] ... arg[n-1])
  * (xor arg[0] ... arg[n-1])
  *
- * NOTE: array arg may be modified.
+ * NOTE: ARRAY ARG MAY BE MODIFIED.
  *
  * Error report:
  * if n > YICES_MAX_ARITY
@@ -765,7 +765,7 @@ __YICES_DLLSPEC__ extern term_t yices_update3(term_t fun, term_t arg1, term_t ar
 /*
  * Distinct
  *
- * Note: arg many be modified
+ * NOTE: ARG MANY BE MODIFIED
  *
  * Error report:
  * if n == 0
@@ -792,7 +792,7 @@ __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  *  (forall (var[0] ... var[n-1]) body)
  *  (exists (var[0] ... var[n-1]) body)
  *
- * Note: array var may be modified
+ * NOTE: ARRAY VAR MAY BE MODIFIED
  *
  * Error report:
  * if n == 0
