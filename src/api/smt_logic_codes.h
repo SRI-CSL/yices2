@@ -99,13 +99,13 @@ typedef enum smt_logic {
   QF_AX,       // arrays
   QF_BV,       // bitvectors
   QF_IDL,      // integer difference logic
-  QF_RDL,      // real difference logic
   QF_LIA,      // linear integer arithmetic
   QF_LRA,      // linear real arithmetic
   QF_LIRA,     // mixed linear arithmetic
   QF_NIA,      // non-linear integer arithmetic
   QF_NRA,      // non-linear real arithmetic
   QF_NIRA,     // non-linear mixed arithmetic
+  QF_RDL,      // real difference logic
   QF_UF,       // uninterpreted functions
 
   //  Arrays + some other theory

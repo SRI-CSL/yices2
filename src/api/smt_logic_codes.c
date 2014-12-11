@@ -298,13 +298,13 @@ static const uint8_t has_arrays[NUM_SMT_LOGICS] = {
   true,   // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
-  false,  // QF_RDL
   false,  // QF_LIA
   false,  // QF_LRA
   false,  // QF_LIRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_NIRA
+  false,  // QF_RDL
   false,  // QF_UF
   true,   // QF_ABV
   true,   // QF_ALIA
@@ -374,13 +374,13 @@ static const uint8_t has_bv[NUM_SMT_LOGICS] = {
   false,  // QF_AX
   true,   // QF_BV
   false,  // QF_IDL
-  false,  // QF_RDL
   false,  // QF_LIA
   false,  // QF_LRA
   false,  // QF_LIRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_NIRA
+  false,  // QF_RDL
   false,  // QF_UF
   true,   // QF_ABV
   false,  // QF_ALIA
@@ -450,13 +450,13 @@ static const uint8_t has_quantifiers[NUM_SMT_LOGICS] = {
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
-  false,  // QF_RDL
   false,  // QF_LIA
   false,  // QF_LRA
   false,  // QF_LIRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_NIRA
+  false,  // QF_RDL
   false,  // QF_UF
   false,  // QF_ABV
   false,  // QF_ALIA
@@ -526,13 +526,13 @@ static const uint8_t has_uf[NUM_SMT_LOGICS] = {
   false,  // QF_AX
   false,  // QF_BV
   false,  // QF_IDL
-  false,  // QF_RDL
   false,  // QF_LIA
   false,  // QF_LRA
   false,  // QF_LIRA
   false,  // QF_NIA
   false,  // QF_NRA
   false,  // QF_NIRA
+  false,  // QF_RDL
   true,   // QF_UF
   false,  // QF_ABV
   false,  // QF_ALIA
@@ -602,13 +602,13 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
   ARITH_NONE,   // QF_AX
   ARITH_NONE,   // QF_BV
   ARITH_IDL,    // QF_IDL
-  ARITH_RDL,    // QF_RDL
   ARITH_LIA,    // QF_LIA
   ARITH_LRA,    // QF_LRA
   ARITH_LIRA,   // QF_LIRA
   ARITH_NIA,    // QF_NIA
   ARITH_NRA,    // QF_NRA
   ARITH_NIRA,   // QF_NIRA
+  ARITH_RDL,    // QF_RDL
   ARITH_NONE,   // QF_UF
   ARITH_NONE,   // QF_ABV
   ARITH_LIA,    // QF_ALIA
@@ -718,13 +718,13 @@ static const bool is_official[NUM_SMT_LOGICS] = {
   true,   // QF_AX
   true,   // QF_BV
   true,   // QF_IDL
-  true,   // QF_RDL
   true,   // QF_LIA
   true,   // QF_LRA
   false,  // QF_LIRA
   true,   // QF_NIA
   true,   // QF_NRA
   false,  // QF_NIRA
+  true,   // QF_RDL
   true,   // QF_UF
   true,   // QF_ABV
   true,   // QF_ALIA
