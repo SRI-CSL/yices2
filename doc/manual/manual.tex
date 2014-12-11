@@ -55,18 +55,15 @@ License   (reproduced   in    Appendix~\ref{license}).    To   discuss
 alternative     license     terms,     please    contact     us     at
 \texttt{fm-license@csl.sri.com}.
 
+
 \section{Download and Installation}
 
 The    latest   version    of   Yices~2    can   be    downloaded   at
-\url{http://yices.csl.sri.com/download-yices2.shtml}.     We   provide
-binary distributions for the platforms and operating systems listed in
-Table~\ref{versions}.      To     download     Yices~2,      go     to
-\url{http://yices.csl.sri.com/download-yices2.shtml}  and  select  the
-distribution  that you  want to  install. This  will open  a  web page
-showing the  license terms. If  you agree to  the terms, click  on the
-``accept'' button to  download a tarfile or zip  file.  Untar or unzip
-the file and follow the instructions in the included README file.
+\url{http://yices.csl.sri.com}.  We  provide pre-compiled binaries for
+the platforms and operating systems listed in Table~\ref{versions}. We
+also provide source code.
 
+\subsection{Binary Download and Installation}
 
 \begin{table}
 \begin{center}
@@ -76,30 +73,97 @@ the file and follow the instructions in the included README file.
 \textbf{OS/Hardware} & \textbf{Notes} \\
 \hline
 \hline
-Linux (32 and 64 bits)    & Requires Kernel 2.6.8 or more recent \\
+Linux 64 bits & Kernel 2.6.24 or more recent \\
 \hline
-Mac~OS~X (Intel 32 and 64 bits) & For MacOS X 10.5 (Leopard) and more recent \\
+Mac~OS~X 64 bits &  Mac~OS~X Mavericks or Yosemite \\
 \hline
 Windows (32 and 64 bits) & Compatible with Windows XP, Vista, 7 and 8\\
 \hline
-Cygwin (32b and 64bits Intel)  &  \\
-\hline
-FreeBSD~9.2 (Intel 32 and 64 bits) &  \\
-\hline
-Solaris~2.10 (Sparc 64bits)  & \\
-\hline
 \end{tabular}
 \end{center}
-\caption{Supported Platforms}
+\caption{Binary Distributions}
 \label{versions}
 \end{table}
 
 
-\section{Content of  the Distribution}
+To download Yices~2, go to \url{http://yices.csl.sri.com} and select
+the distribution that you want to install. This will open a web page
+showing the license terms. If you agree to the terms, click on the
+``accept'' button to download a tarfile or zip file.  Untar or unzip
+the file and follow the instructions in the included README file.  The
+binary distributions are self-contained and do not require
+installation of third-party libraries.
 
-The distribution includes the Yices executables, the Yices library and
-header files, and examples and documentation.  Four solvers are currently included in the
-distribution:
+To complete installation on Linux or Mac~OS~X, the binary
+distributions include a shell script called \texttt{install-yices}. By
+default, this script installs Yices in \texttt{/usr/local}. If
+this is fine for you, type
+\begin{small}
+\begin{verbatim}
+   sudo ./install-yices
+\end{verbatim}
+\end{small}
+This will install the binaries in \texttt{/usr/local/bin}, the library
+in \texttt{/usr/local/lib}, and the header files in
+\texttt{/usr/local/include}. 
+
+\medskip\noindent
+To install Yices in a different location, you can type
+\begin{small}
+\begin{verbatim}
+   ./install-yices <directory>
+\end{verbatim}
+\end{small}
+(use \texttt{sudo} if necessary).
+
+
+\subsection{Installation from Source}
+
+The source distribution must be used for operating systems not listed
+in Table~\ref{versions} (or old versions of Linux or Mac~OS~X). It is
+also useful if you desire to compile Yices with debugging information,
+or if you want to link Yices with your own version of the GMP
+library. The source is available as a tarfile at
+\url{http://yices.csl.sri.com}. To download it, you will be asked to
+agree to the Yices license terms (cf. Appendix~\ref{license}).
+
+Yices~2 is straightforward to compile on UNIX-like systems. Any recent
+version of GCC or Clang should work. The compilation uses standard
+tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
+\texttt{gperf} utility and the GMP library. On many systems,
+\texttt{gperf} and \texttt{GMP} can be installed using package
+managers.  For example, on Ubuntu:
+\begin{small}
+\begin{verbatim}
+   sudo apt-get install libgmp-dev
+   sudo apt-get install gperf
+\end{verbatim}
+\end{small}
+After this, compiling and installing Yices uses the following standard steps:
+\begin{small}
+\begin{verbatim}
+   ./configure
+   make
+   sudo make install
+\end{verbatim}
+\end{small}
+This will build binaries and libraries, and install them in \texttt{/usr/local}.
+You can change the installation location by giving a \texttt{--prefix} option
+to \texttt{configure}.
+
+For Windows, we recommend building Yices using Cygwin. If you want a
+version that works natively on Windows (i.e., does not depend on the
+Cygwin DLLs) then you can compile form Cygwin using the MinGW
+cross-compilers.  The file \texttt{doc/COMPILING} included in the
+source distribution gives more details.
+
+
+
+\section{Content of the Distributions}
+
+The binary distributions include the Yices executables, the Yices
+library and header files, and examples and documentation.  Four
+solvers are currently included:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -114,23 +178,22 @@ distribution:
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
- The Yices library and header files allows you to use Yices via its
- API, as explained in Chapter~\ref{yices-api}.
+The Yices library and header files allows you to use Yices via its
+API, as explained in Chapter~\ref{yices-api}.
+
+
 
 
 \section{Library Dependencies}
 
-Yices  uses the GNU  Multiple Precision  Arithmetic Library  (GMP). We
-recommend  most  people  to  download  a Yices  distribution  that  is
-statically linked  against GMP. However, we also  provide Yices builds
-that are  linked dynamically against  GMP. To use  such distributions,
-you   have  to   install  a   compatible  version   of  GMP   on  your
-machine. GMP-5.0.x  or more recent should  work. To see  the exact GMP
-version used by  Yices, check the README file. The  GMP library can be
-installed    using   common   package    managers   in    most   Linux
-distributions. It  can also  be built and  installed from  source. For
-more     information,     please     visit     the     GMP     website
-\url{http://gmplib.org}.
+Yices uses the GNU Multiple Precision Arithmetic Library (GMP).  The
+binary distribution are statically linked against GMP. If you build
+Yices from source, you will need to install GMP on your systerm.  The
+GMP library can be installed using common package managers in most
+Linux distributions. It can also be built and installed from
+source. For more information, please visit the GMP website
+\url{http://gmplib.org}. GMP is distributed under the LGPLv3 License,
+reproduced in Appendix~\ref{gmp-license}.
 
 
 \section{Supported Logics}
@@ -146,66 +209,109 @@ general set of array operations  than required by SMT-LIB, and Yices~2
 has support  for tuple and  enumeration types,  which are not  part of
 SMT-LIB.
 
+%% ALIA
+%% AUFLIA
+%% AUFLIRA
+%% AUFNIRA
+%% LIA
+%% LRA
+%% NIA
+%% NRA
+%% QF_ABV
+%% QF_ALIA
+%% QF_AUFBV
+%% QF_AUFLIA
+%% QF_AX
+%% QF_BV
+%% QF_IDL
+%% QF_LIA
+%% QF_LRA
+%% QF_NIA
+%% QF_NRA
+%% QF_RDL
+%% QF_UF
+%% QF_UFBV
+%% QF_UFIDL
+%% QF_UFLIA
+%% QF_UFLRA
+%% QF_UFNIA
+%% QF_UFNRA
+%% UFLRA
+%% UFNIA
+
+\newcommand{\desc}[1]{\parbox[c][1.6em][c]{9cm}{{\footnotesize #1}}}
+\newcommand{\ddesc}[1]{\parbox[c][2.6em]{9cm}{{\footnotesize #1}}}
+
 \begin{table}
+\begin{small}
 \begin{center}
 \renewcommand{\arraystretch}{1}
-\begin{tabular}{|r|l|c|}
+\begin{tabular}{|c|c|c|}
 \hline
 \textbf{Logic} & \textbf{Description} & \textbf{Supported} \\
 \hline
 \hline
-\texttt{AUFLIA} & Arrays, Linear Integer Arithmetic & no \\
- & Quantifiers, Uninterpreted Functions & \\
+\textsf{ALIA}  & \desc{Arrays, Linear Integer Arithmetic, Quantifiers} & no \\
 \hline
-\texttt{AUFLIRA} & Arrays, Mixed Linear Arithmetic & no \\
- & Quantifiers, Uninterpreted Functions & \\
+\textsf{AUFLIA} & \desc{Arrays, Linear Integer Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
-\texttt{AUFNIRA} & Arrays, Nonlinear Integer Arithmetic & no \\
-                &  Quantifiers, Uninterpreted Functions & \\
+\textsf{AUFLIRA} & \desc{Arrays, Mixed Linear Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
-\texttt{LIA} & Linear Integer Arithmetic, Quantifiers & no \\
+\textsf{AUFNIRA} & \ddesc{Arrays, Nonlinear Integer Arithmetic, Quantifiers,\\ Uninterpreted Functions} & no \\
 \hline
-\texttt{LRA} & Linear Real Arithmetic, Quantifiers & no \\
+\textsf{LIA} & \desc{Linear Integer Arithmetic, Quantifiers} & no \\
 \hline
-\texttt{QF\_A} & Arrays (without extensionality) & yes \\
+\textsf{LRA} & \desc{Linear Real Arithmetic, Quantifiers} & no \\
 \hline
-\texttt{QF\_AUFBV} & Arrays, Bitvectors & yes \\
- & Uninterpreted Functions & \\
+\textsf{NIA} & \desc{Nonlinear Integer Arithmetic, Quantifiers} & no \\
 \hline
-\texttt{QF\_AUFLIA} & Arrays, Linear Integer Arithmetic & yes \\
- & Uninterpreted Functions & \\
+\textsf{NRA} & \desc{Nonlinear Real Arithmetic, Quantifiers} & no \\
 \hline
-\texttt{QF\_AX} & Arrays (with extensionality) & yes \\
+\textsf{QF\_ABV} & \desc{Arrays and Bitvectors} & yes \\
 \hline
-\texttt{QF\_BV} & Bitvectors & yes \\
+\textsf{QF\_ALIA} & \desc{Arrays and Linear Integer Arithmetic} & yes \\
 \hline
-\texttt{QF\_IDL} & Integer Difference Logic  & yes \\
+\textsf{QF\_AUFBV} & \desc{Arrays, Bitvectors Uninterpreted Functions} & yes \\
 \hline
-\texttt{QF\_LIA} & Linear Integer Arithmetic  & yes \\
+\textsf{QF\_AUFLIA} & \desc{Arrays, Linear Integer Arithmetic, Uninterpreted Functions} & yes \\
 \hline
-\texttt{QF\_LIA} & Linear Real Arithmetic  & yes \\
+\textsf{QF\_AX} & \desc{Arrays (with extensionality)} & yes \\
 \hline
-\texttt{QF\_NIA} & Nonlinear Integer Arithmetic  & no \\
+\textsf{QF\_BV} & \desc{Bitvectors} & yes \\
 \hline
-\texttt{QF\_RDL} & Real Difference Logic  & yes \\
+\textsf{QF\_IDL} & \desc{Integer Difference Logic}  & yes \\
 \hline
-\texttt{QF\_UF} & Uninterpreted Functions  & yes \\
+\textsf{QF\_LIA} & \desc{Linear Integer Arithmetic}  & yes \\
 \hline
-\texttt{QF\_UFIDL} & Uninterpreted Functions, Integer Difference Logic & yes \\
+\textsf{QF\_LRA} & \desc{Linear Real Arithmetic}  & yes \\
 \hline
-\texttt{QF\_UFBV} & Uninterpreted Functions, Bitvectors & yes \\
+\textsf{QF\_NIA} & \desc{Nonlinear Integer Arithmetic}  & no \\
 \hline
-\texttt{QF\_UFLIA} & Uninterpreted Functions, Linear Integer Arithmetic & yes \\
+\textsf{QF\_NRA} & \desc{Nonlinear Real Arithmetic}  & no \\
 \hline
-\texttt{QF\_UFLRA} & Uninterpreted Functions, Linear Real Arithmetic & yes \\
+\textsf{QF\_RDL} & \desc{Real Difference Logic}  & yes \\
 \hline
-\texttt{QF\_UFNRA} & Uninterpreted Functions, Nonlinear Real Arithmetic & yes \\
+\textsf{QF\_UF} & \desc{Uninterpreted Functions}  & yes \\
 \hline
-\texttt{UFNIA} & Nonlinear Integer Arithmetic, Quantifiers & no \\
- & Uninterpreted Functions & \\
+\textsf{QF\_UFBV} & \desc{Uninterpreted Functions, Bitvectors} & yes \\
+\hline
+\textsf{QF\_UFIDL} & \desc{Uninterpreted Functions, Integer Difference Logic} & yes \\
+\hline
+\textsf{QF\_UFLIA} & \desc{Uninterpreted Functions, Linear Integer Arithmetic} & yes \\
+\hline
+\textsf{QF\_UFLRA} & \desc{Uninterpreted Functions, Linear Real Arithmetic} & yes \\
+\hline
+\textsf{QF\_UFNIA} & \desc{Uninterpreted Functions, Nonlinear Integer Arithmetic} & no \\
+\hline
+\textsf{QF\_UFNRA} & \desc{Uninterpreted Functions, Nonlinear Real Arithmetic} & no \\
+\hline
+\textsf{UFLRA} & \desc{Nonlinear Real Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
+\hline
+\textsf{UFNIA} & \desc{Nonlinear Integer Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
 \end{tabular}
 \end{center}
+\end{small}
 \caption{Logics Supported by Yices~2}
 \label{supported-logics}
 \end{table}
@@ -229,12 +335,13 @@ via the Yices mailing lists:
   Please include enough information in your bug report to enable us to
   reproduce and fix the problem. Figure~\ref{good-report} shows what a
   good bug report looks like. This example is an edited version of
-  real good bug report we actually received (with private information
+  real bug report that we actually received (with private information
   removed). Figure~\ref{bad-report} shows an example of poor bug
   report. This example is fictitious but representative of what we
-  sometimes receive on our mailing list. Please try to use
-  Figure~\ref{good-report} as a template and include answers to the
-  following questions:
+  sometimes receive on our mailing list.
+
+ Please try to use Figure~\ref{good-report} as a template and include answers to the
+ following questions:
     \begin{itemize}
     \item Which version of Yices are you using?
     \item On which hardware and OS?
@@ -286,6 +393,23 @@ via the Yices mailing lists:
 \label{bad-report}
 \end{figure}
 
+\begin{figure}
+\begin{center}
+\begin{footnotesize}
+\begin{verbatim}
+   From: ...
+   Subject: Invitation to Connect on LinkedIn
+   To: yices-bugs@csl.sri.com
+
+   I'd like to add you to my professional network on LinkedIn.
+
+   ...
+\end{verbatim}
+\end{footnotesize}
+\end{center}
+\caption{Terrible Bug Report}
+\label{terrible-report}
+\end{figure}
 
 
 
@@ -2800,7 +2924,7 @@ The SMT-LIB 2.0 document states that option \texttt{:print-success}
 should be \texttt{true} by default. This setting requires SMT solver
 to report success after any command in a script. This is fine for
 interactive use, but impractical when reading large input files (such
-as the SMT-LIB benchmarks at \url{http://www.smtlib.org/}). These
+as the SMT-LIB benchmarks at \url{http://www.smtlib.org}). These
 input files typically contain long sequences of declarations and
 definitions, and printing \texttt{success} after each of them is not
 useful or informative, and can generate hundreds of thousands even
