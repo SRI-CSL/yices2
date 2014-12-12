@@ -68,7 +68,7 @@ The    latest   version    of   Yices~2    can   be    downloaded   at
 the platforms and operating systems listed in Table~\ref{versions}. We
 also provide source code.
 
-\subsection{Binary Download and Installation}
+\subsection{Binary Distributions}
 
 \begin{table}
 \begin{center}
@@ -122,13 +122,13 @@ To install Yices in a different location, you can type
 (use \texttt{sudo} if necessary).
 
 
-\subsection{Installation from Source}
+\subsection{Source Distribution}
 
 The source distribution must be used for operating systems not listed
-in Table~\ref{versions} (or old versions of Linux or Mac~OS~X). It is
-also useful if you desire to compile Yices with debugging information,
-or if you want to link Yices with your own version of the GMP
-library. The source is available as a tarfile at
+in Table~\ref{versions} (or for old versions of Linux or Mac~OS~X). It
+is also useful if you desire to compile Yices with debugging
+information, or if you want to link Yices with your own version of the
+GMP library. The source is available as a tarfile at
 \url{http://yices.csl.sri.com}. To download it, you will be asked to
 agree to the Yices license terms (cf. Appendix~\ref{license}).
 
@@ -136,7 +136,7 @@ Yices~2 is straightforward to compile on UNIX-like systems. Any recent
 version of GCC or Clang should work. The compilation uses standard
 tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
 \texttt{gperf} utility and the GMP library. On many systems,
-\texttt{gperf} and \texttt{GMP} can be installed using package
+\texttt{gperf} and GMP can be installed using package
 managers.  For example, on Ubuntu:
 \begin{small}
 \begin{verbatim}
@@ -196,7 +196,7 @@ utilities, and the \LaTeX\ source for this manual.
 
 Yices uses the GNU Multiple Precision Arithmetic Library (GMP).  The
 binary distribution are statically linked against GMP. If you build
-Yices from source, you will need to install GMP on your systerm.  The
+Yices from source, you will need to install GMP on your system.  The
 GMP library can be installed using common package managers in most
 Linux distributions. It can also be built and installed from
 source. For more information, please visit the GMP website
@@ -336,8 +336,8 @@ via the Yices mailing lists:
   questions about Yices usage or installation.
 
   This mailing list is moderated, but you do not need to register to
-  post to it. You can register to this mailing list if you're
-  intersted in helping others.
+  post to it. You can register to this mailing list if you are
+  interested in helping others.
 
 \item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
 
@@ -438,9 +438,9 @@ constructs have been removed.
 
 Yices~2 has a few built-in types for primitive objects:
 \begin{itemize}
-\item The arithmetic types \texttt{int} and \texttt{real}
-\item The Boolean type \texttt{bool}
-\item The type \texttt{(bitvector k)} of bitvectors of size $k$,
+\item the arithmetic types \texttt{int} and \texttt{real}
+\item the Boolean type \texttt{bool}
+\item the type \texttt{(bitvector k)} of bitvectors of size $k$,
  where $k$ is a positive integer.
 \end{itemize}
 All these built-in  types are {\em atomic\/}. The  set of atomic types
@@ -669,8 +669,7 @@ unsigned integers or as signed integers in two's complement
 representation), logical operators such as bitwise OR or AND, logical
 and arithmetic shifts, concatenation, and extraction of
 subvectors. Other operators are defined in the theory QF\_BV of
-SMT-LIB (cf.~\url{http://www.smtlib.org}); all of them are supported
-by Yices~2.
+SMT-LIB (cf.~\url{http://www.smtlib.org}); Yices~2 supports all of them.
 
 
 \begin{table}
@@ -789,14 +788,14 @@ operators were introduced in Yices~2.2.2.
   bitvector obtained by concatenating $n$ Boolean terms
   $b_1,\ldots,b_n$. The high-order bit is $b_1$ and the low-order bit
   is $b_n$.  For example, the expression
-$$(\mathtt{bool\mhyphen to\mhyphen bv}\ \mathtt{true}\ \mathtt{false}\ \mathtt{false}\ \mathtt{false})$$
+$$(\mathtt{bool\mhyphen to\mhyphen bv}\ \:\mathtt{true}\ \:\mathtt{false}\ \:\mathtt{false}\ \:\mathtt{false})$$
 is the same as the bitvector constant $\mathtt{0b1000}$.
 \item $(\mathtt{bit}\ a\ i)$ extracts the $i$-th bit of bitvector $a$
   as a Boolean term. If $a$ has $n$ bits, then $i$ must be an index
   between $0$ and $n-1$. The low-order bit has index 0, and the high-order bit has index $n-1$.
 For example, we have
 \begin{eqnarray*}
-(\mathtt{bit}\ (\mathtt{bool\mhyphen to\mhyphen bv}\ \mathtt{false}\ \mathtt{b}\ \mathtt{true}\ \mathtt{true})\ 2) & = & \mathtt{b},
+(\mathtt{bit}\ (\mathtt{bool\mhyphen to\mhyphen bv}\ \:\mathtt{false}\ \:\mathtt{b}\ \:\mathtt{true}\ \:\mathtt{true})\ \:2) & = & \mathtt{b},
 \end{eqnarray*}
 where $\mathtt{b}$ is a Boolean term.
 \begin{small}
@@ -809,9 +808,9 @@ where $\mathtt{b}$ is a Boolean term.
 \chapter{Yices~2 Architecture}
 \label{architecture-chapter}
 
-Yices~2 has a modular architecture.  Users can select a specific
-combination of theory solvers for their needs using the API or the
-\texttt{yices} executable.  With the API, users can maintain several
+Yices~2 has a modular architecture.  You can select a specific
+combination of theory solvers for your needs using the API or the
+\texttt{yices} executable.  With the API, you can maintain several
 independent contexts in parallel, possibly each using different
 solvers and settings.
 
@@ -856,7 +855,7 @@ particular,  the  internalizer rewrites  all  formulas in  conjunctive
 normal form, which is used by the internal SAT solver.
 \begin{figure}
 \begin{center}
-\includegraphics[width=13cm]{toplevel-arch}
+\includegraphics[width=10cm]{toplevel-arch}
 \end{center}
 \caption{Top-level Yices~2 Architecture}
 \label{top-level-architecture}
@@ -868,16 +867,15 @@ normal form, which is used by the internal SAT solver.
 
 In Yices~2, it is possible to select a different solver (or
 combination of solvers) for the problem of interest. Each context can
-thus be configured for a specific class of formulas. For example, one
-can use a solver specialized for linear arithmetic, or use a solver
-that supports the full Yices~2
-language. Figure~\ref{solver-architecture} shows the architecture of
-the most general solver available in Yices~2. A major component of all
-solvers is a SAT solver based on the Conflict-Driven Clause Learning
-(CDCL) procedure. The SAT solver is coupled with one or more so-called
-\emph{theory solvers}. Each theory solver implements a decision
-procedure for a particular theory.  Currently, Yices~2 includes four
-main theory solvers:
+thus be configured for a specific class of formulas. For example, you
+can use a solver specialized for linear arithmetic, or a solver that
+supports the full Yices~2 language. Figure~\ref{solver-architecture}
+shows the architecture of the most general solver available in
+Yices~2. A major component of all solvers is a SAT solver based on the
+Conflict-Driven Clause Learning (CDCL) procedure. The SAT solver is
+coupled with one or more so-called \emph{theory solvers}. Each theory
+solver implements a decision procedure for a particular theory.
+Currently, Yices~2 includes four main theory solvers:
 \begin{itemize}
 \item The \emph{UF Solver} deals with the theory of uninterpreted
   functions with equality\footnote{UF stands for uninterpreted
@@ -901,7 +899,7 @@ UF solver.
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=12cm]{yices2-arch}
+\includegraphics[width=10cm]{yices2-arch}
 \end{center}
 \caption{Solver Components}
 \label{solver-architecture}
@@ -924,25 +922,26 @@ global consistency. The other solvers (for arithmetic, arrays, and
 bitvectors) communicate only with the central UF solver and never
 directly with each other.  This property considerably simplifies the
 design and implementation of theory solvers.  More details on the
-theory combination method implemented by Yices are given in a tool
-paper presented at CAV2014~\cite{Dutertre:cav2014}.
+theory-combination method implemented by Yices are given in a tool
+paper~\cite{Dutertre:cav2014}.
 
 \section{Context Configurations}
 \label{features}
 
-A context can be configured for different usage scenarios. The basic
-operations supported by a context include:
+A context can be configured to use different solvers and to support
+different usage scenarios. The basic operations on a context
+include:
 \begin{itemize}
-\item Asserting one or more formulas
-\item Checking satisfiability of the set of assertions
-\item Building a model if the assertions are satisfiable
+\item asserting one or more formulas
+\item checking satisfiability of the set of assertions
+\item building a model if the assertions are satisfiable
 \end{itemize}
-In  addition, a  context can  be  configured to  support addition  and
-removal of assertions  using a push/pop mechanism.  In  this case, the
-context  maintains  a  stack  of assertions  organized  in  successive
-levels.  The  push operation  starts a new  level and pop  removes all
-assertions at the  top level.  Thus, push can be  thought as setting a
-backtracking point  and pop restores  the context state to  a previous
+Optionally, a context can support addition and removal of assertions
+using a push/pop mechanism.  In this case, the context maintains a
+stack of assertions organized in successive levels.  The push
+operation starts a new level, and the pop operation removes all
+assertions at the top level.  Thus, push can be thought as setting a
+backtracking point and pop restores the context state to a previous
 backtracking point.
 
 Support for  push and pop induces  some overhead and  may disable some
@@ -967,9 +966,9 @@ set of  features supported by a  context by selecting  a specific {\em
   supports the push and pop operations. Assertions are organized in a
   stack as explained previously.
 \item The last mode is {\em interactive\/}. This mode provides the
-  same functionalities as {\em push-pop\/}. In addition, the context
-  is configured to recover gracefully when a check operation times out
-  or is interrupted.
+  same functionalities as {\em push-pop\/} but the context is
+  configured to recover gracefully when a check operation times out or
+  is interrupted.
 \end{itemize}
 
 
@@ -1066,14 +1065,14 @@ command line as follows:
 \end{verbatim}
 \end{small}
 Since the file does not use \texttt{push} and \texttt{pop}, and it
-contains only one call to \texttt{(check)}, one can select the mode
+contains only one call to \texttt{(check)}, we can select the mode
 \texttt{one-shot}:
 \begin{small}
 \begin{verbatim}
       yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
 \end{verbatim}
 \end{small}
-To get a more detailed output, give option \texttt{--verbose}:
+`To get a more detailed output, we can give option \texttt{--verbose}:
 \begin{small}
 \begin{verbatim}
       yices --verbose examples/bv_test2.ys
@@ -1096,7 +1095,7 @@ options are supported.
   \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
 
   Yices recognizes the logics defined at \url{http://www.smtlib.org}
-  (as of December 2012).  Option \texttt{--logic=NONE} configures
+  (as of July 2014).  Option \texttt{--logic=NONE} configures
   \texttt{yices} for propositional logic.
 
   By default---that is, if no logic is given---\texttt{yices} includes
@@ -1616,7 +1615,7 @@ Equalities and disequalities are written as follows
 \end{verbatim}
 \end{small}
 where \texttt{<t1>} and \texttt{<t2>} are two terms of compatible
-types. These operators are binary. Unlike SMTLIB~2, Yices does not
+types. These operators are binary. Unlike SMT-LIB~2, Yices does not
 allow one to write \texttt{(= x y z t u)}. On the other hand, Yices
 includes an $n$-ary \texttt{distinct} operator (for $n\geq 2$) that
 generalizes disequality. The Boolean term
