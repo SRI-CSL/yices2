@@ -24,6 +24,10 @@
 {\end{list}}
 \newcommand*\optionlabel[1]{\hspace\labelsep\texttt{#1}}
 
+%%
+%% hyphen in Math mode for things like (bool-to-bv ...)
+%%
+\mathchardef\mhyphen="2D
 
 \begin{document}
 \begin{titlepage}
@@ -143,7 +147,7 @@ After this, compiling and installing Yices uses the following standard steps:
 \begin{small}
 \begin{verbatim}
    ./configure
-   make
+   make -j
    sudo make install
 \end{verbatim}
 \end{small}
@@ -181,7 +185,10 @@ solvers are currently included:
 The Yices library and header files allows you to use Yices via its
 API, as explained in Chapter~\ref{yices-api}.
 
-
+The source distribution includes source code for the above four
+solvers and for the library. It also includes documentation for the
+source, more examples and regression tests, various scripts and
+utilities, and the \LaTeX\ source for this manual.
 
 
 \section{Library Dependencies}
@@ -327,8 +334,9 @@ via the Yices mailing lists:
 \item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
   questions about Yices usage or installation.
 
-   This mailing list is moderated, but you do not need to register to
-   post to it.
+  This mailing list is moderated, but you do not need to register to
+  post to it. You can register to this mailing list if you're
+  intersted in helping others.
 
 \item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
 
@@ -663,6 +671,7 @@ subvectors. Other operators are defined in the theory QF\_BV of
 SMT-LIB (cf.~\url{http://www.smtlib.org}); all of them are supported
 by Yices~2.
 
+
 \begin{table}
 %% \renewcommand{\arraystretch}{1}
 \begin{tabular}{|l|l|}
@@ -738,7 +747,7 @@ extract bits $i$ down to $j$ \\
 
 \medskip\noindent
 The semantics of all the bitvector operators is defined in the
-SMT-LIB~1.2 standard.  Yices~2 follows the standard except for the
+SMT-LIB standard.  Yices~2 follows the standard except for the
 case of division by zero.  In SMT-LIB, the result of a division by
 zero is an unspecified value, but one must ensure that the division
 operators are functional. In other words, SMT-LIB does not specify the
@@ -771,17 +780,39 @@ a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{
 \end{eqnarray*}
 \end{description}
 
+\medskip\noindent Beside the SMT-LIB operations, Yices includes two
+operators to convert between arrays of Booleans and bitvectors. These
+operators were introduced in Yices~2.2.2.
+\begin{itemize}
+\item $(\mathtt{bool\mhyphen to\mhyphen bv}\ b_1 \ldots b_n)$ is the
+  bitvector obtained by concatenating $n$ Boolean terms
+  $b_1,\ldots,b_n$. The high-order bit is $b_1$ and the low-order bit
+  is $b_n$.  For example, the expression
+$$(\mathtt{bool\mhyphen to\mhyphen bv}\ \mathtt{true}\ \mathtt{false}\ \mathtt{false}\ \mathtt{false})$$
+is the same as the bitvector constant $\mathtt{0b1000}$.
+\item $(\mathtt{bit}\ a\ i)$ extracts the $i$-th bit of bitvector $a$
+  as a Boolean term. If $a$ has $n$ bits, then $i$ must be an index
+  between $0$ and $n-1$. The low-order bit has index 0, and the high-order bit has index $n-1$.
+For example, we have
+\begin{eqnarray*}
+(\mathtt{bit}\ (\mathtt{bool\mhyphen to\mhyphen bv}\ \mathtt{false}\ \mathtt{b}\ \mathtt{true}\ \mathtt{true})\ 2) & = & \mathtt{b},
+\end{eqnarray*}
+where $\mathtt{b}$ is a Boolean term.
+\begin{small}
+\end{small}
+\end{itemize}
+
 
 
 
 \chapter{Yices~2 Architecture}
 \label{architecture-chapter}
 
-Yices~2  is based  on  a  modular architecture.   Users  can select  a
-specific combination of  theory solvers for their needs  using the API
-or the  \texttt{yices} executable.  With the  API, users  can maintain
-several  independent   contexts  in  parallel,  possibly   each  using
-different solvers and settings.
+Yices~2 has a modular architecture.  Users can select a specific
+combination of theory solvers for their needs using the API or the
+\texttt{yices} executable.  With the API, users can maintain several
+independent contexts in parallel, possibly each using different
+solvers and settings.
 
 \section{Main Components}
 
@@ -818,12 +849,14 @@ of Yices~2, divided into the three main modules. Each context consists
 of  two separate  components:  The {\em  solver\/}  employs a  Boolean
 satisfiability solver and  decision procedures for determining whether
 the   formulas  asserted   in  the   context  are   satisfiable.   The
-\emph{internalizer\/} converts  the format  used by the  term database
-into  the internal  format used  by  the solver.   In particular,  the
-internalizer rewrites  all formulas in conjunctive  normal form, which
-is used by the internal SAT solver.
+\emph{simplifier/internalizer\/} component converts the format used by
+the term  database into  the internal format  used by the  solver.  In
+particular,  the  internalizer rewrites  all  formulas in  conjunctive
+normal form, which is used by the internal SAT solver.
 \begin{figure}
-\includegraphics[width=13.8cm]{yices2-toplevel}
+\begin{center}
+\includegraphics[width=13cm]{toplevel-arch}
+\end{center}
 \caption{Top-level Yices~2 Architecture}
 \label{top-level-architecture}
 \end{figure}
@@ -858,15 +891,17 @@ main theory solvers:
 \item  The \emph{Array  Solver}  implements a  decision procedure  for
   McCarthy's theory of arrays.
 \end{itemize}
-In addition, two arithmetic solvers can be used in place of the
-Simplex-based solver for integer or real difference logic. These
-solvers implement a decision procedure based on the Floyd-Warshall
-algorithm. These solvers are more specialized and limited than the
-Simplex-based solver. They must be used standalone; they cannot be
-combined with the UF solver.
+Two arithmetic solvers can be used in place of the Simplex-based
+solver for integer or real difference logic. These solvers implement a
+decision procedure based on the Floyd-Warshall algorithm. These
+solvers are more specialized and limited than the Simplex-based
+solver. They must be used standalone; they cannot be combined with the
+UF solver.
 
 \begin{figure}
-\includegraphics[width=12cm]{yices2-architecture}
+\begin{center}
+\includegraphics[width=12cm]{yices2-arch}
+\end{center}
 \caption{Solver Components}
 \label{solver-architecture}
 \end{figure}
@@ -881,13 +916,15 @@ specialized  for pure  bitvector problems,  or for  problems combining
 uninterpreted  functions,  arrays,  and  bitvectors (by  removing  the
 arithmetic solver).
 
-Yices~2  combines  several  theory   solvers  using  the  Nelson-Oppen
-method~\cite{NelsonOppen79}.   The UF  solver  is  essential for  this
-purpose;  it  coordinates the  different  theory  solvers and  ensures
-global  consistency. The  other solvers  (for arithmetic,  arrays, and
-bitvectors)  communicate only  with the  central UF  solver and  never
-directly with  each other.  This property  considerably simplifies the
-design and implementation of theory solvers.
+Yices~2 combines several theory solvers using the Nelson-Oppen
+method~\cite{NelsonOppen79}.  The UF solver is essential for this
+purpose; it coordinates the different theory solvers and ensures
+global consistency. The other solvers (for arithmetic, arrays, and
+bitvectors) communicate only with the central UF solver and never
+directly with each other.  This property considerably simplifies the
+design and implementation of theory solvers.  More details on the
+theory combination method implemented by Yices are given in a tool
+paper presented at CAV2014~\cite{Dutertre:cav2014}.
 
 \section{Context Configurations}
 \label{features}
