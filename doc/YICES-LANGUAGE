@@ -418,9 +418,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
       m)  Conversion between Boolean and bitvector terms
 
           (bool-to-bv b_1 ... b_n): build a bitvector from n Boolean terms
-          the result is a bitvector of n bits equal to [b_n .... b_1]:
-          - b_1 = low-order bit
-          - b_n = high-order bit
+          the result is a bitvector of n bits equal to [b_1 .... b_n]:
+          - b_1 = high-order bit
+          - b_n = low-order bit
 
           (bit u i): extract the i-th bit of bitvector u (as a Boolean term)
 	  - if u has type (bitvector n) then i must be an integer constant
