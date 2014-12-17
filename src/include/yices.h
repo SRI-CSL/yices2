@@ -1970,6 +1970,11 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *   and t_0 ... t_n are either all arithemtic terms or all
  *   bitvector terms
  *
+ * - the number of terms in a sum/bitvector sum or a product
+ *   is always positive, but it may be equal to 1. For
+ *   example, the expression (- x) is internally represented
+ *   as a sum with one monomial (-1 * x).
+ * 
  * The following function check the structure of a term_t.
  * They return 0 for false, 1 for true.
  *
