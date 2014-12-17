@@ -1229,6 +1229,9 @@ and~\ref{syntax:expressions}.
             | ( help )
             | ( help <symbol> )
             | ( help <string> )
+            | ( ef-solve )
+            | ( export-to-dimacs <string> )
+            | ( show-implicant )
             | EOS
 
    <immediate-value> ::=
@@ -1360,42 +1363,44 @@ Table~\ref{syntax:keywords}.
 \begin{small}
 \begin{center}
 \begin{tt}
-\begin{tabular}{|p{3.2cm}|p{3.2cm}|p{3.2cm}|}
+\begin{tabular}{|p{3.4cm}|p{3.4cm}|p{3.4cm}|}
 \hline
 * & + & - \\
 -> & / & /= \\
 < & <= & <=> \\
  = & => & > \\
 >= & \verb|^| & and \\
-assert & bitvector & bool \\
-bv-add & bv-and & bv-ashift-right\\
-bv-ashr & bv-comp & bv-concat \\
-bv-div & bv-extract & bv-ge \\
-bv-gt & bv-le & bv-lshr \\
-bv-lt & bv-mul & bv-nand \\
-bv-neg & bv-nor & bv-not \\
-bv-or & bv-pow & bv-redand \\
-bv-redor & bv-rem & bv-repeat \\
-bv-rotate-left & bv-rotate-right & bv-sdiv\\
-bv-sge & bv-sgt & bv-shift-left0 \\
-bv-shift-left1 & bv-shift-right0 & bv-shift-right1 \\
-bv-shl & bv-sign-extend & bv-sle\\
- bv-slt & bv-smod & bv-srem \\
-bv-sub & bv-xnor & bv-xor \\
-bv-zero-extend & check & define \\
-define-type & distinct & dump-context\\
-echo  & eval & exists \\
-exit & false & forall \\
-help & if & include \\
-int & ite & lambda \\
-let & mk-bv & mk-tuple \\
- not & or & pop \\
-push & real & reset \\
-reset-stats & scalar & select \\
-set-param & set-timeout & show-model \\
-show-param & show-params & show-stats \\
-true & tuple & tuple-update \\
-update & xor &   \\
+assert & bit & bitvector \\
+bool & bool-to-bv & bv-add \\
+bv-and & bv-ashift-right & bv-ashr\\
+bv-comp & bv-concat & bv-div \\
+bv-extract & bv-ge & bv-gt \\
+bv-le & bv-lshr & bv-lt \\
+bv-mul & bv-nand & bv-neg \\
+bv-nor & bv-not & bv-or \\
+bv-pow & bv-redand & bv-redor \\
+bv-rem & bv-repeat & bv-rotate-left \\
+bv-rotate-right & bv-sdiv & bv-sge \\
+bv-sgt & bv-shift-left0 & bv-shift-left1 \\
+bv-shift-right0 & bv-shift-right1 & bv-shl \\
+bv-sign-extend & bv-sle & bv-slt \\
+bv-smod & bv-srem & bv-sub \\
+bv-xnor & bv-xor & bv-zero-extend \\
+check & define & define-type \\
+distinct & dump-context & echo  \\
+ef-solve & eval & exists \\
+exit & export-to-dimacs & false \\
+forall & help & if \\
+include & int & ite \\
+lambda & let & mk-bv \\
+mk-tuple & not & or \\
+pop & push & real \\
+reset & reset-stats & scalar \\
+select & set-param & set-timeout \\
+show-implicant & show-model & show-param \\
+show-params & show-stats & true \\
+tuple & tuple-update & update \\
+xor &  &  \\
 \hline
 \end{tabular}
 \end{tt}
@@ -1983,6 +1988,57 @@ usual, one can also apply the equality and disequality operators to
 two bitvectors of the same size.
 
 
+\subsubsection*{Conversions Between Booleans and Bitvectors}
+
+Two operations, listed in Table~\ref{bitvectors6},  convert Booleans 
+to bitvectors and conversely.
+
+\begin{table}[h]
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{5cm}|l|}
+\hline
+Syntax & Meaning \\
+\hline
+\texttt{(bool-to-bv b1 ... bn)} & Booleans to bitvector \\
+\texttt{(bit u i)} & Bit extraction\\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operators (Conversions)}
+\label{bitvectors6}
+\end{table}
+
+
+\medskip\noindent
+Operator \texttt{bool-to-bv} builds a bitvector from $n$ Boolean
+terms $b_1$, \ldots, $b_n$.  The result is a bitvector of $n$ bits
+equal to the concatenation of $b_1$, \ldots, $b_n$. The high-order
+bit is $b_1$ and the low-order bit is $b_n$. For example,
+\begin{small}
+\begin{verbatim}
+   (bool-to-bv true true false false)
+\end{verbatim}
+\end{small}
+is equal to the bitvector constant \texttt{0b1100}.
+
+\medskip\noindent 
+Expression \texttt{(bit u i)} is the $i$-th bit of bitvector
+\texttt{u} as a Boolean. If \texttt{u} is a bitvector of $n$ bits then 
+the index \texttt{i} must be an integer constant between 0 and $n-1$.
+The lower-order bit has index 0 and the high-order bit has index $n-1$.
+For example, we have
+\begin{small}
+\begin{verbatim}
+   (bit 0b1100 3) = true
+   (bit 0b1100 2) = true
+   (bit 0b1100 1) = false
+   (bit 0b1100 0) = false
+\end{verbatim}
+\end{small}
+
+
 \subsubsection*{Tuples}
 
 A tuple term can be constructed using \texttt{(mk-tuple t1 ... t\_n)}
@@ -2324,6 +2380,61 @@ The result is displayed as a function specification such as:
 \end{small}
 Yices creates an internal name of the form \texttt{fun!<number>} to
 display the function value.
+
+\subsubsection*{Implicants}
+
+If a set of assertions is satisfiable, one can construct an implicant
+for them. The implicant is a set of literals $l_1,\ldots,l_n$ (i.e.,
+atoms or negations of atoms) such that the conjunct $l_1 \wedge \ldots
+\wedge l_n$ is satisfiable and implies the assertions. To compute such
+an implicant, Yices first construct a model $M$ of the assertions then
+construct the implicant from the model: all the literals $l_i$ are
+true in $M$.
+
+\begin{figure}
+\begin{footnotesize}
+\begin{center}
+\begin{tabular}{c|c}
+\multicolumn{1}{c}{Input} & \multicolumn{1}{c}{Implicant~~~~} \\[0.4em]
+
+\begin{minipage}[t]{6.2cm}
+\begin{verbatim}
+(define x::int)
+(define y::int)
+(define z::int)
+(assert (distinct x y z))
+(assert (or (> x (+ z (* 2 y)))
+            (< x (- z (* 2 y)))))
+(check)
+(show-implicant)
+\end{verbatim}
+\end{minipage}~~
+&
+~~~\begin{minipage}[t]{6cm}
+\begin{verbatim}
+(< (+ (* -1 y) z) 0)
+(< (+ (* -1 x) (* 2 y) z) 0)
+(< (+ (* -1 x) y) 0)
+\end{verbatim}
+\end{minipage}
+\end{tabular}
+\end{center}
+\end{footnotesize}
+\caption{Implicant}
+\label{implicant-format}
+\end{figure}
+
+\medskip\noindent The command to do display an implicant is
+\texttt{(show-implicant)}. It can be used only when Yices is executed
+in mode \texttt{one-shot}. Like \texttt{(show-model)}, it can be used
+after a call to \texttt{(check)} that returns \texttt{sat}. The
+implicant is displayed as a list of literals, one per
+line. Figure~\ref{implicant-format} shows an example. The assertion
+\texttt{(distinct x y z)} is not considered atomic in this case. The
+implicant includes two literals equivalent to $z < y\ \wedge\ y < x$,
+which implies that $x$, $y$, and $z$ are distinct.
+
+
 
 \subsubsection*{Parameters}
 

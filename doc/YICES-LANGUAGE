@@ -85,8 +85,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	reset		dump-context	exit	echo	include
 	show-model	eval		set-param	show-param
 	show-params     show-stats      reset-stats     set-timeout
-        dump-context    help            ef-solve        export-to-dimacs
-
+        help            ef-solve        export-to-dimacs
+	show-implicant
 
 
 2) Syntax
@@ -120,6 +120,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( help <string> )
 	    | ( ef-solve )
 	    | ( export-to-dimacs <string> )
+	    | ( show-implicant )
             | EOS
 
 
@@ -506,6 +507,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
        the DIMACS CNF format. <string> is a file name where the result is
        written.
 
+   (show-implicant): show an implicant built from the model.
+       The implicant is a list of literals that are true in the current model,
+       and the conjunction of these literals implies the assertions.
 
 
 6) Parameters

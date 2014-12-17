@@ -1414,7 +1414,7 @@ static const help_record_t help_data[] = {
     "Show an implicant build from the model",
     "The implicant is list of literals (atoms or negation of atoms)\n"
     "that are all true in the current model and the conjunction\n"
-    "of these literals imply the assertion.\n",
+    "of these literals implies the assertion.\n",
     NULL },
 
   // ef-flatten-iff: index 146
