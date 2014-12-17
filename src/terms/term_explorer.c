@@ -149,12 +149,17 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
  * Check the class of term t
  * - t must be a valid term in table
  * 
- * Note: negative terms are composite
+ * Note: negative terms are composite, except false_term
  */
 bool term_is_atomic(term_table_t *table, term_t t) {
   term_kind_t kind;
 
   assert(good_term(table, t));
+
+  if (index_of(t) == bool_const) {
+    assert(t == false_term || t == true_term);
+    return true;
+  }
 
   kind = term_kind(table, t);
   return is_pos_term(t) && atomic_term_flag[kind];
@@ -164,6 +169,11 @@ bool term_is_composite(term_table_t *table, term_t t) {
   term_kind_t kind;
 
   assert(good_term(table, t));
+
+  if (index_of(t) == bool_const) {
+    assert(t == false_term || t == true_term);
+    return false;
+  }
 
   kind = term_kind(table, t);
   return is_neg_term(t) || composite_term_flag[kind];
@@ -241,9 +251,12 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
 
   assert(good_term(table, t));
 
-  result = 0; // prevent bogus GCC warning
+  result = 0; // prevents bogus GCC warning
 
-  if (is_neg_term(t)) {
+  if (index_of(t) == bool_const) {
+    assert(t == false_term || t == true_term);
+    result = 0;
+  } else if (is_neg_term(t)) {
     result = 1;
   } else {
 

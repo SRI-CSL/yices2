@@ -5710,11 +5710,20 @@ EXPORTED term_t yices_term_child(term_t t, int32_t i) {
  * Get the argument and index of a projection
  */
 EXPORTED int32_t yices_proj_index(term_t t) {
+  int32_t idx;
+
   if (! check_good_term(&manager, t) ||
       ! check_projection(&terms, t)) {
     return -1;
   }
-  return proj_term_index(&terms, t);
+  idx = proj_term_index(&terms, t);
+
+  // for tuple projection: the internal index is between 0 and n-1
+  // but the API uses an index between 1 and n
+  if (term_kind(&terms, t) == SELECT_TERM) {
+    idx ++;
+  }
+  return idx;
 }
 
 EXPORTED term_t yices_proj_arg(term_t t) {

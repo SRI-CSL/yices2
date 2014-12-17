@@ -124,7 +124,7 @@ typedef enum term_constructor {
   // atomic terms
   YICES_BOOL_CONSTANT,       // boolean constant
   YICES_ARITH_CONSTANT,      // rational constant
-  YICES_BV_CONSTANT,         // generic bitvector constant (more than 64 bits)
+  YICES_BV_CONSTANT,         // bitvector constant
   YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
   YICES_VARIABLE,            // variable in quantifiers
   YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound)

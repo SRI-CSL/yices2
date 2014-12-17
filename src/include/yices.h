@@ -1630,8 +1630,10 @@ __YICES_DLLSPEC__ extern term_t yices_redcomp(term_t t1, term_t t2);
 
 /*
  * Convert an array of boolean terms arg[0 ... n-1] into
- * a bitvector term.
- *
+ * a bitvector term of n bits
+ * - arg[0] = low-order bit of the result
+ * - arg[n-1] = high-order bit
+ * 
  * Error report:
  * if n == 0
  *    code = POS_INT_REQUIRED
@@ -1652,6 +1654,9 @@ __YICES_DLLSPEC__ extern term_t yices_bvarray(uint32_t n, const term_t arg[]);
 
 /*
  * Extract bit i of vector t (as a boolean)
+ * - if t is a bitvector of n bits, then i must be between 0 and n-1
+ * - the low-order bit of t has index 0
+ * - the high-order bit of t has index (n-1)
  *
  * Error report:
  * if t is invalid
@@ -1941,19 +1946,17 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
 
 
 /*
- * Term structure:
+ * Internal term structure:
  *
  * - atomic terms are Boolean, bitvector, arithmetic constants,
  *   and variables and uninterpreted terms (i.e., terms that
  *   don't have subterms)
  *
  * - composite terms are of the form
- *    (constructor, number-of-childern, list-of-children)
+ *    (constructor, number-of-children, list-of-children)
  *
  * - projection terms are of the form
  *    (constructor, index, child)
- *   where the constructor is either a tuple-select or 
- *   a bit-extract
  *
  * - a sum is a term of the form 
  *      a_0 t_0 + ... + a_n t_n
@@ -1967,15 +1970,88 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *
  * - a product is a term of the form t_0^d_0 x ... x t_n ^d_n
  *   where d_0 ... d_n are positive exponents,
- *   and t_0 ... t_n are either all arithemtic terms or all
+ *   and t_0 ... t_n are either all arithmetic terms or all
  *   bitvector terms
  *
- * - the number of terms in a sum/bitvector sum or a product
+ * - the number of terms in a sum, bitvector sum, or product
  *   is always positive, but it may be equal to 1. For
  *   example, the expression (- x) is internally represented
  *   as a sum with one monomial (-1 * x).
- * 
- * The following function check the structure of a term_t.
+ *
+ *
+ * Composite terms:
+ *
+ *   if-then-else: (if c t1 t2)
+ *   - three children
+ *   - the first child is the condition c
+ *   - the second child is the 'then' part t1
+ *   - the third child is the 'else' part  t2
+ *
+ *   function application:  (apply f t1 .. t_n)
+ *   - n+1 children if f has arity n
+ *   - the first child is the function f
+ *   - the other children are the arguments t_1 ... t_n
+ *
+ *   function update: (update f t1 .. t_n v)
+ *   - n+2 children if f has arity n
+ *   - the first child is the function f
+ *   - the next n children = arguments
+ *   - last children = new value
+ *
+ *   tuple: (tuple t1 ... t_n)
+ *
+ *   equality: (eq t1 t2)
+ *
+ *   distinct: (distinct t1 ... t_n)
+ *
+ *   forall: (forall x_1 ... x_n p)
+ *   - the variables are the n first children
+ *   - the body p is the last child
+ *
+ *   lambda: (lambda x_1 ... x_n t)
+ *   - the variables are the n first children
+ *   - the body t is the last child
+ *
+ *   negation: (not t)
+ *
+ *   disjunction: (or t1 ... t_n)
+ *
+ *   exclusive or: (xor t1 ... t_n)
+ *
+ *   bit array: (bv-array t1 ... t_n)
+ *   - each t_i is a Boolean term
+ *   - this uses little-endian form: the first child is the
+ *     low-order bit, the last child is the high-order bit.
+ *
+ *   bitvector operators:
+ *     (bvdiv  t1 t2)    unsigned division
+ *     (bvrem  t1 t2)    unsigned remainder
+ *     (bvsdiv t1 t2)    signed division
+ *     (bvsrem t1 t2)    signed remainder (rounding to 0)
+ *     (bvsmod t1 t2)    signed remainder (rounding to -infinity)
+ *     (bvshl  t1 t2)    shift left
+ *     (bvlshr t1 t2)    logical shift right
+ *     (bvashr t1 t2)    arithmetic shift right
+ *     (bvge   t1 t2)    unsigned comparison: (t1 >= t2)
+ *     (bvsge  t1 t2)    signed comparison: (t1 >= t2)
+ *
+ *   arithmetic atom:
+ *     (ge t1 t2)   t1 >= t2 
+ *
+ *
+ * Projection terms:
+ *
+ *   tuple projection:  (select i t)
+ *   - the child t is a tuple term (of type tau_1 x ... x tau_n)
+ *   - i is an index between 1 and n
+ *
+ *   bit selection:  (bit i t)
+ *   - the child t is a bitvector term of n bits
+ *   - i is an index between 0 and n-1
+ */
+
+/*
+ * The following functions check the structure of a term_t.
  * They return 0 for false, 1 for true.
  *
  * If t is not a valid term, then the functions return 0
@@ -1992,11 +2068,63 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
 
 
 /*
- * Constructor for term t:
- * - the type 'term_constructor_t' is an enumeration defined in yices_types.h
+ * Constructor of term t:
+ * - if t is a valid term, the function returns one of the following codes
+ *   defined in yices_types.h:
+ *
+ *   if t is atomic:
+ *
+ *    YICES_BOOL_CONSTANT        boolean constant
+ *    YICES_ARITH_CONSTANT       rational constant
+ *    YICES_BV_CONSTANT          bitvector constant
+ *    YICES_SCALAR_CONSTANT      constant of uninterpreted/scalar
+ *    YICES_VARIABLE             variable in quantifiers/lambda terms
+ *    YICES_UNINTERPRETED_TERM   global variables
+ *
+ *   if t is a composite terms:
+ *
+ *    YICES_ITE_TERM             if-then-else
+ *    YICES_APP_TERM             application of an uninterpreted function
+ *    YICES_UPDATE_TERM          function update
+ *    YICES_TUPLE_TERM           tuple constructor
+ *    YICES_EQ_TERM              equality
+ *    YICES_DISTINCT_TERM        (distinct t_1 ... t_n)
+ *    YICES_FORALL_TERM          quantifier
+ *    YICES_LAMBDA_TERM          lambda
+ *    YICES_NOT_TERM             (not t)
+ *    YICES_OR_TERM              n-ary OR
+ *    YICES_XOR_TERM             n-ary XOR
+ *
+ *    YICES_BV_ARRAY             array of boolean terms
+ *    YICES_BV_DIV               unsigned division
+ *    YICES_BV_REM               unsigned remainder
+ *    YICES_BV_SDIV              signed division
+ *    YICES_BV_SREM              remainder in signed division (rounding to 0)
+ *    YICES_BV_SMOD              remainder in signed division (rounding to -infinity)
+ *    YICES_BV_SHL               shift left (padding with 0)
+ *    YICES_BV_LSHR              logical shift right (padding with 0)
+ *    YICES_BV_ASHR              arithmetic shift right (padding with sign bit)
+ *    YICES_BV_GE_ATOM           unsigned bitvector comparison: (t1 >= t2)
+ *    YICES_BV_SGE_ATOM          signed bitvector comparison (t1 >= t2)
+ *
+ *    YICES_ARITH_GE_ATOM        arithmetic comparison (t1 >= t2)
+ *  
+ *   if t is a projection
+ *
+ *    YICES_SELECT_TERM          tuple projection
+ *    YICES_BIT_TERM             bit-select: extract the i-th bit of a bitvector
+ *
+ *   if t is a sum
+ *
+ *    YICES_BV_SUM               sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
+ *    YICES_ARITH_SUM            sum of pairs a * t where a is a rational (and t is an arithmetic term)
+ *
+ *  if t is a product
+ *
+ *    YICES_POWER_PRODUCT         power products: (t1^d1 * ... * t_n^d_n)
  *
  * If t is not a valid term, the function returns a negative number,
- * (i.e., YICES_CONSTRUCTOR_ERROR) and set the error report.
+ * (i.e., YICES_CONSTRUCTOR_ERROR) and sets the error report.
  *    code = INVALID_TERM
  *    term1 = t
  */
@@ -2231,8 +2359,8 @@ __YICES_DLLSPEC__ extern uint32_t yices_num_posref_types(void);
  * The function silently ignores any term t[i] or any type tau[j] that's not valid.
  */
 __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t nt,
-						    const type_t tau[], uint32_t ntau,
-						    int32_t keep_named);
+                                                    const type_t tau[], uint32_t ntau,
+                                                    int32_t keep_named);
 
 
 
@@ -3430,14 +3558,14 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *  -1 means that the generalization failed.
  */
 __YICES_DLLSPEC__ extern int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-							yices_gen_mode_t mode, term_vector_t *v);
+                                                        yices_gen_mode_t mode, term_vector_t *v);
 
 
 /*
  * Compute a generalization of mdl for the conjunct (a[0] /\ ... /\ a[n-1])
  */
 __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-							      yices_gen_mode_t mode, term_vector_t *v);
+                                                              yices_gen_mode_t mode, term_vector_t *v);
 
 
 
@@ -3519,7 +3647,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
-						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+                                                     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
 
 
 
