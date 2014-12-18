@@ -397,7 +397,7 @@ static const help_record_t help_data[] = {
     "Distinct",
     "   [expr1] ... [expr_k] must have compatible types\n"
     "\n"
-    "   (distinct t1 ... tk) is true if t1 ... tk are pairwise distinct\n",
+    "   (distinct t1 ... tk) is true if t1 ... tk are all different\n",
     NULL },
 
   // mk-tuple: index 35
@@ -425,7 +425,7 @@ static const help_record_t help_data[] = {
     "\n"
     "   (tuple-update t1 i e) is the tuple equal to t1 but with the i-th\n"
     "   component replaced by e\n",
-    "(tuple-update (mk-tuple x y) 2 1)   is equal to (mk-tuple x 1)\n" },
+    "(tuple-update (mk-tuple x y) 2 1)  is equal to (mk-tuple x 1)\n" },
 
   // update: index 38
   { HGENERIC,
@@ -550,14 +550,14 @@ static const help_record_t help_data[] = {
   // <=: index 55
   { HARITHMETIC,
     "(<= [expr1] [expr2])",
-    "Less than or equal",
+    "Less than or equal to",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
   // >=: index 56
   { HARITHMETIC,
     "(>= [expr1] [expr2])",
-    "Greater than or equal",
+    "Greater than or equal to",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
@@ -810,7 +810,7 @@ static const help_record_t help_data[] = {
     "\n"
     "(bv-zero-extend x n) adds n zero bits to the left of x\n",
     "(bv-zero-extend 0b011010 3) is equal to 0b000011010\n"
-    "(bv-zero-extend 0b111010 3) is equal to 0b000011010\n"
+    "(bv-zero-extend 0b111010 3) is equal to 0b000111010\n"
     "(bv-zero-extend 0b111010 0) is equal to 0b111010\n" },
 
   // bv-div: index 85
@@ -821,8 +821,8 @@ static const help_record_t help_data[] = {
     "\n"
     "(bv-div x y) is the quotient in the unsigned division of x by y\n"
     "\n"
-    "If y is 0b0...0 then the result is 0b1....1 (i.e., the largest unsigned\n"
-    "integer representable using n bits\n",
+    "If y is 0b0...0 then the result is 0b1...1 (i.e., the largest unsigned\n"
+    "integer representable using n bits)\n",
     "(bv-div 0b10001 0b00101)  is equal to 0b00011  (i.e., 17 div 5 = 3)\n" },
 
   // bv-rem: index 86
@@ -831,7 +831,7 @@ static const help_record_t help_data[] = {
     "Remainder in unsigned bitvector division",
     "   [expr1] and [expr2] must be bitvectors of the same size\n"
     "\n"
-    "(bv-rem x y) is the quotient in the unsigned division of x by y\n"
+    "(bv-rem x y) is the remainder in the unsigned division of x by y\n"
     "\n"
     "If y is 0b0...0 then the result is x\n"
     "(bv-rem 0b10001 0b00101)  is equal to 0b00010  (i.e., 17 mod 5 = 2)\n" },
@@ -855,7 +855,7 @@ static const help_record_t help_data[] = {
     "Remainder in signed bitvector division (rounding to 0)",
     "   [expr1] and [expr2] must be bitvectors of the same size\n"
     "\n"
-    "(bv-srem x y) is the quotient of the signed division of x by y\n"
+    "(bv-srem x y) is the remainder of the signed division of x by y\n"
     "x and y are interpreted as integers in 2s complement representation\n"
     "\n"
     "If y is 0b0...0 then the result is x\n",
@@ -867,7 +867,7 @@ static const help_record_t help_data[] = {
     "Remainder in signed bitvector division (rounding to -infinity)",
     "   [expr1] and [expr2] must be bitvectors of the same size\n"
     "\n"
-    "(bv-srem x y) is the quotient of the signed division of x by y\n"
+    "(bv-srem x y) is the remainder of the signed division of x by y\n"
     "x and y are interpreted as integers in 2s complement representation\n"
     "\n"
     "If y is 0b0...0 then the result is x\n",
@@ -909,7 +909,7 @@ static const help_record_t help_data[] = {
   // bv-ge: index 93
   { HBITVECTOR,
     "(bv-ge [expr1] [expr2])",
-    "Unsigned bitvector comparison: greater than or equal",
+    "Unsigned bitvector comparison: greater than or equal to",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-ge x y) is true if x >= y when x and y are interpreted as unsigned integers\n",
@@ -927,7 +927,7 @@ static const help_record_t help_data[] = {
   // bv-le: index 95
   { HBITVECTOR,
     "(bv-le [expr1] [expr2])",
-    "Unsigned bitvector comparison: less than or equal",
+    "Unsigned bitvector comparison: less than or equal to",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-le x y) is true if x <= y when x and y are interpreted as unsigned integers\n",
@@ -936,7 +936,7 @@ static const help_record_t help_data[] = {
   // bv-lt: index 96
   { HBITVECTOR,
     "(bv-lt [expr1] [expr2])",
-    "Unsigned bitvector comparison: less than or equal",
+    "Unsigned bitvector comparison: less than",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-lt x y) is true if x < y when x and y are interpreted as unsigned integers\n",
@@ -945,7 +945,7 @@ static const help_record_t help_data[] = {
   // bv-sge: index 97
   { HBITVECTOR,
     "(bv-sge [expr1] [expr2])",
-    "Signed bitvector comparison: greater than or equal",
+    "Signed bitvector comparison: greater than or equal to",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-sge x y) is true if x >= y when x and y are interpreted as signed integers\n"
@@ -965,7 +965,7 @@ static const help_record_t help_data[] = {
   // bv-sle: index 99
   { HBITVECTOR,
     "(bv-sle [expr1] [expr2])",
-    "Signed bitvector comparison: less than or equal",
+    "Signed bitvector comparison: less than or equal to",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-sle x y) is true if x <= y when x and y are interpreted as signed integers\n"
@@ -975,7 +975,7 @@ static const help_record_t help_data[] = {
   // bv-slt: index 100
   { HBITVECTOR,
     "(bv-slt [expr1] [expr2])",
-    "Signed bitvector comparison: less than or equal",
+    "Signed bitvector comparison: less than",
     "   [expr1] and [expr2] must be a bitvectors of the same size\n"
     "\n"
     "(bv-slt x y) is true if x < y when x and y are interpreted as signed integers\n"
@@ -989,7 +989,7 @@ static const help_record_t help_data[] = {
     "Enable/disable variable elimination",
     "If this parameter is true, Yices will simplify assertions by eliminating\n"
     "redundant variables\n",
-    "(and (= x (g a)) (/= (f x) (f b)))   is simplified to (/= (f (g a)) (f b))\n" },
+    "(and (= x (g a)) (/= (f x) (f b))) is simplified to (/= (f (g a)) (f b))\n" },
 
   // arith-elim: index 102
   { HPARAM,
@@ -997,14 +997,14 @@ static const help_record_t help_data[] = {
     "Enable/disable simplification by Gaussian elimination",
     "If this parameter is true, then Yices attempts to eliminate variables\n"
     "in arithmetic constraints\n",
-    "In an assertion such as (= (+ x (* 3 y) 4) 0)  Yices eliminates 'x' or 'y'\n" },
+    "In an assertion such as (= (+ x (* 3 y) 4) 0) Yices eliminates 'x' or 'y'\n" },
 
   // flatten: index 103
   { HPARAM,
     "(set-param flatten [boolean])",
     "Enable/disable flattening of disjunctions",
     "If this parameter is true, Yices will flatten nested 'or' and 'and'\n",
-    "(or (or a b c) (or a d e))  is rewritten to (or a b c d e)\n" },
+    "(or (or a b c) (or a d e)) is rewritten to (or a b c d e)\n" },
 
   // learn-eq: index 104
   { HPARAM,
@@ -1126,7 +1126,7 @@ static const help_record_t help_data[] = {
     "randomly. Parameter 'randomness' determines the fraction of random\n"
     "decisions.\n",
     "(set-param randomness 0)     always select decision variables based on activity\n"
-    "(set-param randomness 0.02)  1% of decisions are random\n" },
+    "(set-param randomness 0.02)  2% of decisions are random\n" },
 
   // random-seed: index 116
   { HPARAM,
@@ -1413,7 +1413,7 @@ static const help_record_t help_data[] = {
     "(show-implicant)",
     "Show an implicant build from the model",
     "The implicant is list of literals (atoms or negation of atoms)\n"
-    "that are all true in the current model and the conjunction\n"
+    "that are all true in the current model and such that the conjunction\n"
     "of these literals implies the assertion.\n",
     NULL },
 
