@@ -961,13 +961,13 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
      No generalization means that G_i(x) is just the constraint (x = x_i).
 
-     In generalization by substitution G_i(x) is the constraint  not P(x, y_i)
+     In generalization by substitution G_i(x) is the constraint  (not P(x, y_i))
 
-     In generalization by projection, we first compute an implicant for not P(x, y)
-     from the model defined by (x_i, y_i). The implicant is a set of literals
-     involving variables x and y. Then a cheap form of quantifier elimination
-     is applied to these literals to eliminate the variables y. G_i(x) is the
-     result of this quantifier-elimination procedure.
+     In generalization by projection, we first compute an implicant of 
+     (not P(x, y)) from the model defined by (x_i, y_i). This implicant is a
+     conjunction of literals involving variables x and y. Then a cheap form of
+     quantifier elimination is applied to these literals to eliminate the 
+     variables y. G_i(x) is the result of this quantifier-elimination procedure.
          
      The default setting for 'ef-gen-mode' is 'auto'. In this mode, Yices uses
      model-based quantifier elimination if the universal variables y contain
