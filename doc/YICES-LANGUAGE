@@ -880,11 +880,18 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 6.7) Parameters for the Exists/Forall Solver
 
-     The following parameters determine how iff and if-then-else are processed.
+     The following parameters are used by the exists/forall solver
 
        ef-flatten-iff        Boolean       Enable flattening of iff
    
        ef-flatten-ite        Boolean       Enable flattening of if-then-else terms
+
+       ef-max-iters          Integer       Maximal number of iterations
+
+       ef-gen-mode                         Generalization mode
+
+       ef-max-samples        Integer       Maximal number of samples for learning
+                                           initial constraints
 
 
      If ef-flatten-iff is true, then the following rewriting rules are
@@ -938,6 +945,9 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
          (set-param ef-max-iters 1000).
 
+     If the limit is reached without a solution, then (ef-solve) 
+     returns 'unknown'.
+
 
      Parameter 'ef-gen-mode' specifies the generalization algorithm
      for constructing G_i(x) in each iteration.
@@ -962,3 +972,10 @@ The following parameters can be set using (set-param ...) and examined using (sh
      The default setting for 'ef-gen-mode' is 'auto'. In this mode, Yices uses
      model-based quantifier elimination if the universal variables y contain
      arithmetic variables. Otherwise, Yices uses generalization by substitution.
+
+
+     Parameter 'ef-max-samples' is used by a heuristic to learn the initial
+     constraints C_0(x)  on the existential variables. The heuristic is
+     based on sampling (random) values for the universal variables y and
+     substituting these values for y in P(x, y). Parameter ex-max-samples
+     is an upper bound on the number of samples in this process.
