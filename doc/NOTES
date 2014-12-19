@@ -31,8 +31,8 @@ The source code is organized as follows:
 
   src/io:           Support for input output, including parsing and pretty printing.
 
-  src/parser_utils:   Data structures common to all front-end tools, including support
-                      for parsing and stack-based construction of terms and types.
+  src/parser_utils: Data structures common to all front-end tools, including support
+                    for parsing and stack-based construction of terms and types.
 
   src/frontend:     Main binaries. Each front-end supports a different input language.
 
@@ -54,7 +54,6 @@ src/solvers contains a subdirectory for each solver:
   src/solvers/floyd_warshall: Specialized solvers for difference logic
 
 
-
 front_ends contains a subdirectory for each main binary
 
   src/frontend/yices:    Main binary (supports the Yices language and Exists/Forall solving)
@@ -62,9 +61,6 @@ front_ends contains a subdirectory for each main binary
   src/frontend/smt1:     yices-smt (supports SMT-LIB 1.2)
 
   src/frontend/smt2:     yices-smt2 (supports SMT-LIB 2.0)
-
-
-
 
 
 
@@ -557,7 +553,8 @@ full_subst.c               [x --> f(y), y --> a + b] removes both x and y. It's
 elim_subst.h:            Extends full_subst: it builds a full_subst object from
 elim_subst.c             a set of literals and a set of variables to eliminates.
 
-
+term_explorer.h:	 Make the internal term representation accessible via
+term_explorer.c          the API.
 
 
 
@@ -602,6 +599,10 @@ models.c                - optionally: a model can also include a substitution ta
 model_eval.h:           Evaluator: compute the (concrete) value of a term in a model
 model_eval.c
 
+model_queries.h:        Queries: get the values of one or more terms in a model,
+model_queries.c         also implement more efficient functions to check whether
+                        a formula or set of formulas is true in a model.
+
 val_to_term.h:		Convert concrete values to constant terms (in terms.h)
 val_to_term.c
 
@@ -627,12 +628,13 @@ arith_projection.c      (Fourier-Motzkin + a specialized form of Virtual
 projection.h:		Model-based Quantifier Elimination (general)
 projection.c
 
+generalization.h:       Generalize from a model/counterexample.
+generalization.c
 
 
 
 4) SOLVERS
    -------
-
 
 4.1) Core/SAT solver
      ----------------
@@ -731,8 +733,8 @@ rdl_fw_printer.c
         --------------
 
 arith_vartable.h:       Table of arithmetic variables: maps variables to a definition
-arith_vartable.c        - uses hash-consing, has support for push/pop/reset, supports non-linear polynomials as
-                        definitions
+arith_vartable.c        - uses hash-consing, has support for push/pop/reset, supports 
+                        non-linear polynomials as definitions
 
 arith_atomtable.h:      Table of arithmetic atoms: supported atoms are (x >= c), (x <= c) or (x == c)
 arith_atomtable.c       where x is a variable and c is a rational constant
@@ -984,6 +986,9 @@ yval.c
 reader.h:               Object for reading from files or strings
 reader.c                keeps track of position (line/column number) and stores
                         a current character.
+
+writer.h:		Wrapper that provide uniform functions to write to
+writer.c                a file or a string buffer.
 
 pretty_printer.h:       Pretty printer core (Oppen-style implementation).
 pretty_printer.c

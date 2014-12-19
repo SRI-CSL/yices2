@@ -293,7 +293,6 @@ extra_src_c := \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
-	solvers/egraph/egraph_eq_stats.c \
 	solvers/egraph/egraph_printer.c \
 	solvers/floyd_warshall/idl_fw_printer.c \
 	solvers/floyd_warshall/rdl_fw_printer.c \
