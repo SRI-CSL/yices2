@@ -878,3 +878,87 @@ The following parameters can be set using (set-param ...) and examined using (sh
      reconciliation procedure.
 
 
+6.7) Parameters for the Exists/Forall Solver
+
+     The following parameters determine how iff and if-then-else are processed.
+
+       ef-flatten-iff        Boolean       Enable flattening of iff
+   
+       ef-flatten-ite        Boolean       Enable flattening of if-then-else terms
+
+
+     If ef-flatten-iff is true, then the following rewriting rules are
+     applied to the assertions when (ef-solve) is called:
+
+       In a disjunction, (iff p q) is converted to  (or (and p q) (and (not p) (not q)))
+
+       In a conjunction, (iff p q) is converted to  (and (=> p q) (=> q p))
+
+
+     If ef-flatten-ite is true, the following rules are applied
+
+       In a disjunction, (ite p q r) is converted to (or (and p q) (and (not p) r))
+
+       In a conjunction, (ite p q r) is converted to (and (=> p q) (=> (not p) r))
+
+
+    An exists/forall problem is of the following form 
+
+        Exists x. Forall y. P(x, y)
+
+    where x and y represents lists of variables and P(x, y) is quantifier free.
+    The generic algorithm for solving such problems is as follows:
+
+         i := 0
+         C_0(x) := learned initial constraints on x
+         repeat
+           find x_i that satisfies C_i(x)
+           if no such x_i is found
+              return unsat
+
+           find y_i that satisfies 'not P(x_i, y)'
+           if no such y_i is found
+              then x_i is a solution 
+              return sat
+
+           generalize from y_i:
+           compute a new constraint G_i(x) such that  
+              1) G_i(x_i) is true
+              2) G_i(x) => (Exist y. not P(x, y))
+
+           prepare for the next iteration:
+           C_i+1(x) := C_i(x) and not G_i(x)
+           i := i+1
+
+         end
+
+     Parameter 'ex-max-iters' puts a limit on the number of times the
+     'repeat' loop above is executed.  By default, the limit is 100.
+     It can be increased to say 1000 as follows
+
+         (set-param ef-max-iters 1000).
+
+
+     Parameter 'ef-gen-mode' specifies the generalization algorithm
+     for constructing G_i(x) in each iteration.
+     Four modes are possible:
+
+         none         --> no generalization
+         substitution --> generalization by substitution
+         projection   --> model-based quantifier elimination
+         auto         --> either substitution or projection depending on
+                          the type of the universal variables y.
+
+     No generalization means that G_i(x) is just the constraint (x = x_i).
+
+     In generalization by substitution G_i(x) is the constraint  not P(x, y_i)
+
+     In generalization by projection, we first compute an implicant for not P(x, y)
+     from the model defined by (x_i, y_i). The implicant is a set of literals
+     involving variables x and y. Then a cheap form of quantifier elimination
+     is applied to these literals to eliminate the variables y. G_i(x) is the
+     result of this quantifier-elimination procedure.
+         
+     The default setting for 'ef-gen-mode' is 'auto'. In this mode, Yices uses
+     model-based quantifier elimination if the universal variables y contain
+     arithmetic variables. Otherwise, Yices uses generalization by substitution.

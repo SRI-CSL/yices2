@@ -625,7 +625,7 @@ at position $i_1,\ldots, i_n$.
 The full Yices~2 language has a few more operators not described here,
 and  it includes  existential  and universal  quantifiers.  We do  not
 describe the  type-checking rules  for quantifiers here  since Yices~2
-does not have a solver for quantified formulas at this point.
+has limited support for quantified formulas at this point.
 
 
 \section{Theories}
@@ -1081,6 +1081,86 @@ contains only one call to \texttt{(check)}, we can select the mode
 
 \section{Exists/Forall Problems}
 
+\begin{figure}
+\begin{footnotesize}
+\begin{verbatim}
+    (define x::real)
+
+    (assert 
+      (forall (y::real)
+         (=> (and (< (* -1 y) 0) (< (+ -10 y) 0))
+             (< (+ -7 (* -2 x) y) 0))))
+
+    (ef-solve)
+    (show-model)
+\end{verbatim}
+\end{footnotesize}
+\caption{Example Exists/Forall Problem}
+\label{example:ef}
+\end{figure}
+
+Yices can solve a restricted class of quantified problems, known as
+\emph{exists/forall problems\/}. As the name indicates, such
+problems are of the following general form:
+$$\exists x_1,\ldots,x_n:\forall
+y_1,\ldots,y_m: P(x_1,\ldots,x_n,y_1,\ldots,y_m).$$ In many
+applications, the goal to find values $a_1,\ldots,a_n$ for the
+existentially quantified variables $x_1,\ldots,x_n$ such that the
+following formula $$\forall
+y_1,\ldots,y_m: P(a_1,\ldots,a_n,y_1\ldots,y_m)$$ is valid.
+
+\medskip\noindent
+Yices can solve such problems when the quantified variables
+$x_1,\ldots,x_n$ and $y_1,\ldots,y_m$ either have finite type or are
+real variables. The algorithm implemented in Yices and an example
+application are described in~\cite{Gascon+etal:fmcad2014}.
+
+\medskip\noindent Figure~\ref{example:ef} shows how exists/forall
+problems are specified in the Yices language. Global declarations,
+such as the uninterpreted constant \texttt{x} in the figure,
+correspond to the existential variables.  Constraints are then stated
+as assertions be of the form \texttt{(forall (y ...) P)} where
+\texttt{y ...} are universal variables. It is allowed to have several
+assertions of this form, as well as quantifier-free constraints on the
+global variables.
+
+\medskip\noindent
+The command \texttt{(ef-solve)} invokes the exists/forall solver. This
+commands is similar to \texttt{(check)}. It reports \texttt{sat} if
+the problem is satisfiable, \texttt{unsat} if it is not, or
+\texttt{unknown} if the solver does not terminate within a fixed
+number of iterations. If \texttt{(ef-solve)} returns \texttt{sat},
+then we can display the solution it has found using \texttt{(show-model)}.
+This is illustrated in Figure~\ref{example:ef}.
+
+\medskip\noindent
+To run \texttt{yices} on this example, we must give option
+\texttt{--mode=ef} on the command line:
+\begin{small}
+\begin{verbatim}
+      yices --mode=ef test.ys
+\end{verbatim}
+\end{small}
+This will produce the following output:
+\begin{small}
+\begin{verbatim}
+      sat
+      (= x 2)
+\end{verbatim}
+\end{small}
+The first line is the result of \texttt{(ef-solve)}. The second line
+is the model, which just shows the value of the global variable
+\texttt{x}. 
+
+\medskip\noindent
+As previously, we can get more detailed output by using
+option \texttt{--verbose}:
+\begin{small}
+\begin{verbatim}
+      yices --mode=ef --verbose test.ys
+\end{verbatim}
+\end{small}
+It is also possible to specify a logic on the command-line.
 
 
 
