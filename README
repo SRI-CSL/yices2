@@ -20,7 +20,6 @@ a bug, or to get more information about Yices, please visit our
 website at http://yices.csl.sri.com.
 
 
-
 PREREQUISITES
 -------------
 
@@ -39,8 +38,6 @@ To build the manual, you also need:
 - the latexmk tool
 
 
-
-
 QUICK INSTALLATION
 ------------------
 
@@ -50,20 +47,35 @@ Do this:
   make
   sudo make install
 
-
 This will install binaries and libraries in /usr/local/
 You can change the installation location by giving option 
   --prefix=... to the ./configure script.
 
-
 For more explanations, please check doc/COMPILING.
-
 
 
 WINDOWS BUILD
 -------------
 
-We recommend compiling using Cygwin. This is explained in
-doc/COMPILING.
+We recommend compiling using Cygwin. If you want a version that works
+natively on Windows (i.e., does not depend on the Cygwin DLLs), you
+can compile from Cygwin using the MinGW cross-compilers. This is
+explained in doc/COMPILING.
 
+
+DOCUMENTATION
+-------------
+
+To build the manual from the source, type
+
+   make doc
+
+This will build ./doc/manual/manual.pdf.
+
+Other documentation is in the ./doc directory:
+
+- doc/COMPILING explains the compilation process and options in detail.
+- doc/NOTES gives an overview of the source code.
+- doc/YICES-LANGUAGE explains the syntax of the Yices language, and
+  describes commands, functions, and heuristic parameters.
 
