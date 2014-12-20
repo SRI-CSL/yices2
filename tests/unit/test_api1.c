@@ -899,5 +899,7 @@ int main(void) {
 
   yices_exit();
 
+  printf("All tests succeeded\n");
+  
   return 0;
 }

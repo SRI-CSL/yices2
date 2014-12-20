@@ -269,7 +269,9 @@ int main(void) {
   test_bvconst_mpz("-0b10101010101010101010101010");
   test_bvconst_mpz("123456789012345678901234567890");
   test_bvconst_mpz("-123456789012345678901234567890");
-
   yices_exit();
+
+  printf("All tests succeeded\n");
+  
   return 0;
 }

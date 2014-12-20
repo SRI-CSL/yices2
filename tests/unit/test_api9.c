@@ -283,5 +283,7 @@ int main(void) {
   test_pp_terms();
   yices_exit();
 
+  printf("All tests succeeded\n");
+  
   return 0;
 }

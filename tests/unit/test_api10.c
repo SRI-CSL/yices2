@@ -403,8 +403,9 @@ int main(void) {
     test_substitution(4, v, s, test[i]);
   }
 
-
   yices_exit();
 
+  printf("All tests succeeded\n");
+  
   return 0;
 }

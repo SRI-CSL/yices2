@@ -1332,5 +1332,7 @@ int main(void) {
   delete_store();
   yices_exit();
 
+  printf("All tests succeeded\n");
+  
   return 0;
 }

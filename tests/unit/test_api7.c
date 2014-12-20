@@ -383,7 +383,6 @@ int main(void) {
   yices_exit();
 
   printf("All tests succeeded\n");
-  fflush(stdout);
-
+  
   return 0;
 }

@@ -193,5 +193,7 @@ int main(void) {
   test_terms();
   yices_exit();
 
+  printf("All tests succeeded\n");
+  
   return 0;
 }
