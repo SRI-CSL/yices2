@@ -3313,18 +3313,18 @@ Running the program should print something like this:
    Testing Yices 2.2.0 (x86_64-unknown-linux-gnu, release)
 \end{verbatim}
 \end{small}
-If you have a Yices distribution dynamically linked against GMP, make
-sure to install GMP on your system.  If the Yices library is installed
-in a non-standard location, you may also need to set environment
-variable \texttt{LD\_LIBRARY\_PATH} (or \texttt{DYLD\_LIBRARY\_PATH} on
-Mac~OS~X).
+If you have build a version of Yices that's dynamically linked against
+GMP, make sure to install GMP on your system.  If the Yices library is
+installed in a non-standard location, you may also need to set
+environment variable \texttt{LD\_LIBRARY\_PATH} (or
+\texttt{DYLD\_LIBRARY\_PATH} on Mac~OS~X).
 
 
 \section{Basic API Usage}
 
 The distribution includes a few simple examples that illustrate basic
 use of the Yices library. The code fragments shown in this section
-come from file \texttt{example/example1.c} included in the
+come from file \texttt{examples/example1.c} included in the
 distribution.
 
 \subsection*{Global Initialization}

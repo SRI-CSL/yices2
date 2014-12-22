@@ -1,0 +1,11 @@
+{% extends "basic/layout.html" %}
+
+{% block rootrellink %}
+         <li><a href="{{ pathto('index') }}">Home</a>&nbsp;&bull;&nbsp;</li>
+         <li><a href="{{ pathto('search') }}">Search</a></li>
+{% endblock %}
+
+{# put the sidebar before the body #}
+{% block sidebar1 %}{{ sidebar() }}{% endblock %}
+{% block sidebar2 %}{% endblock %}
+

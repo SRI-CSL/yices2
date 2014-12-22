@@ -1,8 +1,7 @@
+.. _yices_language:
+
 Yices Input Language
 ====================
-
-Syntax
-------
 
 The language grammar is shown below
 
@@ -32,6 +31,9 @@ The language grammar is shown below
 	   : | ( help )
            : | ( help <symbol> )
            : | ( help <string> )
+           : | ( ef-solve )
+           : | ( export-to-dimacs <string> )
+           : | ( show-implicant )
            :
    typedef :   `type`
            : | ( scalar <symbol> ... <symbol> )
