@@ -122,8 +122,7 @@ dd {
   color: #060;
 }
 
-dt:target,
-.highlight {
+dt:target, .highlighted {
   background-color: #fbe54e;
 }
 
