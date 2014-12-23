@@ -1,6 +1,8 @@
 /**
  * Alternate Sphinx design
  * Originally created by Armin Ronacher for Werkzeug, adapted by Georg Brandl.
+ *
+ * Further modified by Bruno Dutertre for Yices.
  */
 
 body {
@@ -171,28 +173,6 @@ h3 {
   color: #1A419d;
 }
 
-h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
-  color: black!important;
-}
-
-h1 a.anchor, h2 a.anchor, h3 a.anchor, h4 a.anchor, h5 a.anchor, h6 a.anchor {
-  display: none;
-  margin: 0 0 0 0.3em;
-  padding: 0 0.2em 0 0.2em;
-  color: #aaa!important;
-}
-
-h1:hover a.anchor, h2:hover a.anchor, h3:hover a.anchor, h4:hover a.anchor,
-h5:hover a.anchor, h6:hover a.anchor {
-  display: inline;
-}
-
-h1 a.anchor:hover, h2 a.anchor:hover, h3 a.anchor:hover, h4 a.anchor:hover,
-h5 a.anchor:hover, h6 a.anchor:hover {
-  color: #777;
-  background-color: #eee;
-}
-
 table {
   border-collapse: collapse;
   margin: 0 -0.5em 0 -0.5em;
@@ -202,12 +182,10 @@ table td, table th {
   padding: 0.2em 0.5em 0.2em 0.5em;
 }
 
-
 div.document {
   background-color: white;
   text-align: left;
 }
-
 div.documentwrapper {
   width: 100%;
 }
@@ -256,10 +234,8 @@ div.related ul li a {
 }
 
 div.related ul li a:hover {
-/*  color: #3CA8E7;*/
   color: #2491CF;
 }
-
 
 div.bodywrapper {
   margin: 0 240px 0 0;
@@ -288,7 +264,6 @@ div.body a:hover {
   color: #2491CF;
 }
 
-
 div.sphinxsidebar {
   margin: 0;
   padding: 0.5em 15px 15px 0;
@@ -306,6 +281,10 @@ div.sphinxsidebar h4, div.sphinxsidebar h3 {
   background-color: #AFC1C4;
 }
 
+div.sphinxsidebar h3 a {
+  color: white;
+}
+
 div.sphinxsidebar ul {
   padding-left: 1.5em;
   margin-top: 7px;
@@ -316,6 +295,7 @@ div.sphinxsidebar ul {
 
 div.sphinxsidebar ul ul {
   list-style: square;
+  color: #1A41A8;
   margin-left: 20px;
 }
 
