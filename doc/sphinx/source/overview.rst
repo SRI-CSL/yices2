@@ -9,23 +9,23 @@ The Yices API is defined in three header files:
   - :file:`yices_types.h` defines the types and data structures used in the API
   - :file:`yices_limits.h` defines hard-coded limits
 
-For a standard installation of Yices, these files are in director :file:`/usr/local/include`.
+For a standard installation of Yices, these files are in directory :file:`/usr/local/include`.
 
-To use the APi, you shoud add::
+To use the API, you should add::
 
   #include <yices.h>
 
 in your code, and link with the Yices library using option ``-lyices``.
 
-Several functions in the API take GMP numbers (e.g., ``mpq_t`` or ``mpz_t``)
-as arguments. To use these functions, make sure to include the GMP header
-first, *before* you include ``yices.h``::
+Several functions in the API take GMP numbers (e.g., ``mpq_t`` or
+``mpz_t``) as arguments. To use these functions, make sure to include
+the GMP header *before* you include ``yices.h`` as in::
 
   #include <gmp.h>
   #include <yices>
 
 .. note:: Yices requires the C99 header ``<stdint.h>``.
-   This C99 header may not be available on old versions of Microsoft's Visual
+   This header may not be available on old versions of Microsoft's Visual
    Studio. If it is missing, open-source versions of :file:`stdint.h` can be 
    downloaded at
 
@@ -60,10 +60,12 @@ location, give appropriate flags to the compilation command. For example::
 
   gcc -I${HOME}/yices-2.3.0/include -L${HOME}/yices-2.3.0/lib minimal.c -o minimal -lyices
 
-Running the program shoud print something like this::
+Running the program should print something like this::
 
   Testing Yices 2.3.0 (x86_64-unknown-linux-gnu, release)
 
 You may need to play with environment variable ``LD_LIBRARY_PATH`` (or
 ``DYLD_LIBRARY_PATH`` on Mac OS X) if the runtime Yices library is not
 found.
+
+..  LocalWords:  APi

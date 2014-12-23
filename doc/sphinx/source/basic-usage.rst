@@ -13,7 +13,7 @@ satisfiable.
 Global Initialization
 ---------------------
 
-Before doing anything with Yices, make sure to initializa all internal
+Before doing anything with Yices, make sure to initialize all internal
 data structures by calling function :c:func:`yices_init`. To avoid
 memory leaks, you should also call :c:func:`yices_exit` at the end of
 your code to free all the memory that Yices has allocated internally.
@@ -58,7 +58,7 @@ This has two effects:
   2. The symbol table will map the strings ``"x"`` and ``"y"`` to the
      terms ``x`` and ``y``, respectively.
 
-We can now build more complex term by using constructors such as 
+We can now build a more complex term by using constructors such as
 :c:func:`yices_arith_geq0_atom` and :c:func:`yices_and3`::
 
    term_t f = yices_and3(yices_arith_geq0_atom(x),
@@ -97,11 +97,11 @@ This uses the pretty-printing function :c:func:`yices_pp_term`. The
 first argument to this function is the output file (here we use
 ``stdout``).  The second argument is the term to print. The other
 three parameters define the pretty-printing area (in this example, a
-rectangle of 80 columns and 70 lines).
+rectangle of 80 columns and 20 lines).
 
 The example also illustrates the use of the error-reporting functions.
-Most functions in the API return a negative number, or another special
-value, to report an error. An internal data structure stores an error
+Most functions in the API return a negative number---or another special
+value such as :c:data:`NULL`---to report an error. An internal data structure stores an error
 code and other diagnostic information about the most recent
 error. Function :c:func:`yices_print_error` reads this data and
 prints an error message.
@@ -151,8 +151,6 @@ context. Function :c:func:`yices_check_context` returns a code of type
 :c:type:`smt_status_t`:
  
    - :c:data:`STATUS_SAT` means that the context is satisfiable.
-
-     One can then construct and examine a model from the context.
 
    - :c:data:`STATUS_UNSAT` means that the context is not satisfiable.
 

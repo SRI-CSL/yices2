@@ -6,13 +6,27 @@
 Yices API's documentation
 =========================
 
+Basics
+------
+
+.. toctree::
+   :maxdepth: 1
+
+   overview.rst
+   basic-usage.rst
+
+API Reference
+-------------
 
 .. toctree::
    :maxdepth: 2
 
-   overview.rst
-   basic-usage.rst
+   version-data.rst
+   global-initialization.rst
    yices-language.rst
+
+Index and Search
+----------------
 
 * :ref:`genindex`
 * :ref:`search`
