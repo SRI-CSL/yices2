@@ -91,6 +91,24 @@ tt.xref {
   border: 0;
 }
 
+code.descname {
+  background-color: transparent;
+  font-weight: bold;
+  font-size: 1.2em;
+  border: 0;
+}
+
+code.descclassname {
+  background-color: transparent;
+  border: 0;
+}
+
+code.xref {
+  background-color: transparent;
+  font-weight: bold;
+  border: 0;
+}
+
 a tt {
   background-color: transparent;
   font-weight: bold;
