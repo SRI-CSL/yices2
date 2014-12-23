@@ -1,4 +1,6 @@
-{% extends "basic/layout.html" %}
+{%- extends "basic/layout.html" %}
+
+{%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
 
 {% block rootrellink %}
          <li><a href="{{ pathto('index') }}">Home</a>&nbsp;&bull;&nbsp;</li>

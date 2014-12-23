@@ -244,7 +244,8 @@ div.related ul li {
 
 div.related ul li.right {
   float: right;
-  margin-right: 5px;
+  margin-right: 0px;
+  text-transform: capitalize;
 }
 
 div.related ul li a {
