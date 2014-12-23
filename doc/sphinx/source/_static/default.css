@@ -240,6 +240,7 @@ div.related ul li a:hover {
 div.bodywrapper {
   margin: 0 240px 0 0;
   border-right: 1px solid #ccc;
+  min-height: 350px;
 }
 
 div.body {
