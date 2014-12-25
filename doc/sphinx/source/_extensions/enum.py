@@ -141,5 +141,5 @@ class ExtCDomain(CDomain):
 
 
 def setup(app):
-  app.require_sphinx('1.0')
+  app.require_sphinx('1.3')
   app.override_domain(ExtCDomain)
