@@ -221,7 +221,9 @@ It can be compiled as follows::
 
   gcc example1.c -o example1 -lyices
 
-Then running this example should produce something like this::
+Then running this example should produce something like this:
+
+.. code-block:: none
 
   Formula f
   (and (>= x 0) (>= y 0) (= (+ -100 x y) 0))
@@ -233,8 +235,4 @@ Then running this example should produce something like this::
   (= y 100)
   Value of x = 0
   Value of y = 100
-
-
-
-
 

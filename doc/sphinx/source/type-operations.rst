@@ -8,5 +8,5 @@ Operations on Types
 Construction
 ------------
 
-Access to the Internal Representation
--------------------------------------
+Internal Type Representation
+----------------------------

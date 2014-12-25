@@ -27,7 +27,9 @@ a:hover {
 }
 
 pre {
-  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace; */
+  font-family: "Lucida Console", Monaco, monospace;
+/*  font-family: "Courier New", Courier, monospace; */
   font-size: 0.95em;
   letter-spacing: 0.015em;
   line-height: 120%;
@@ -42,7 +44,9 @@ pre a {
 }
 
 cite, code, tt {
-  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;*/
+  font-family: "Lucida Console", Monaco, monospace;
+/*  font-family: "Courier New", Courier, monospace; */
   font-size: 0.95em;
   letter-spacing: 0.01em;
   background-color: #f2f2f2;
@@ -524,3 +528,7 @@ ul.keywordmatches li.goodmatch a {
   font-weight: bold;
 }
 
+div.toctree-wrapper ul {
+  margin-top: 0px;
+  margin-bottom: 0px;
+}

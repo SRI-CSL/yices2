@@ -16,5 +16,5 @@ Arithmetic Terms
 
 .. _access_to_term_representation:
 
-Access to the Internal Representation
--------------------------------------
+Internal Term Representation
+----------------------------
