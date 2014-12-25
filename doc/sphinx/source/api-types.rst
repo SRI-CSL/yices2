@@ -119,7 +119,7 @@ Contexts
 
      typedef struct ctx_config_s ctx_config_t;
 
-   When a context is created, it is possible to configue it to use
+   When a context is created, it is possible to configure it to use
    a specific solver or combination of solvers. It is also possible
    to specify whether or not the context supports features such as
    backtracking and removal of formula (via a push/pop mechanism).
@@ -157,7 +157,6 @@ Contexts
    A context can be in one of the following states:
 
    .. c:enum:: STATUS_IDLE
-      :noindex:
 
       This is the initial state.
 
@@ -183,11 +182,11 @@ Contexts
 
    .. c:enum:: STATUS_SAT
 
-      State entered when the search terminats and the assertions are satisfiable.
+      State entered when the search terminates and the assertions are satisfiable.
 
    .. c:enum:: STATUS_UNSAT
 
-      State entered when the search terminats and the assertions are not satisfiable.
+      State entered when the search terminates and the assertions are not satisfiable.
 
    .. c:enum:: STATUS_INTERRUPTED
 
