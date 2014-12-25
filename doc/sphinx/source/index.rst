@@ -23,6 +23,8 @@ API Reference
 
    version-data.rst
    global-initialization.rst
+   api-types.rst
+   vectors.rst
    yices-language.rst
 
 Index and Search

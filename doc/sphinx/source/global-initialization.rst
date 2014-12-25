@@ -1,5 +1,7 @@
 .. highlight:: c
 
+.. _global_initialization:
+
 Global Initialization and Cleanup
 =================================
 

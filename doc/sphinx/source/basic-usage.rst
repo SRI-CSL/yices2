@@ -1,7 +1,9 @@
+.. highlight:: c
+
+.. _basic_api_usage:
+
 Basic API Usage
 ===============
-
-.. highlight:: c
 
 The Yices distribution includes a few example source files that
 illustrate basic use of the Yices library. The code fragments in this
@@ -101,7 +103,7 @@ rectangle of 80 columns and 20 lines).
 
 The example also illustrates the use of the error-reporting functions.
 Most functions in the API return a negative number---or another special
-value such as :c:data:`NULL`---to report an error. An internal data structure stores an error
+value such as :c:macro:`NULL`---to report an error. An internal data structure stores an error
 code and other diagnostic information about the most recent
 error. Function :c:func:`yices_print_error` reads this data and
 prints an error message.
@@ -150,11 +152,11 @@ function :c:func:`yices_assert_formula` asserts a formula in the
 context. Function :c:func:`yices_check_context` returns a code of type
 :c:type:`smt_status_t`:
  
-   - :c:data:`STATUS_SAT` means that the context is satisfiable.
+   - :c:enum:`STATUS_SAT` means that the context is satisfiable.
 
-   - :c:data:`STATUS_UNSAT` means that the context is not satisfiable.
+   - :c:enum:`STATUS_UNSAT` means that the context is not satisfiable.
 
-   - :c:data:`STATUS_UNKNOWN` means that the context's status could
+   - :c:enum:`STATUS_UNKNOWN` means that the context's status could
      not be determined.
 
 Other codes are error conditions.
