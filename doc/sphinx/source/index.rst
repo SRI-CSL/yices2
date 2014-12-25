@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Yices API's documentation
-=========================
+Content
+=======
 
 Basics
 ------
@@ -19,12 +19,31 @@ API Reference
 -------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    version-data.rst
    global-initialization.rst
    api-types.rst
    vectors.rst
+
+.. toctree::
+   :maxdepth: 2
+
+   type-operations.rst
+   term-operations.rst
+
+.. toctree::
+   :maxdepth: 1
+
+   misc-operations.rst
+
+
+Appendix
+--------
+
+.. toctree::
+   :maxdepth: 1
+
    yices-language.rst
 
 Index and Search

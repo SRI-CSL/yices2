@@ -18,9 +18,7 @@ used at compile-time for checking the Yices version.
  
      Patch level
 
-These three constants correspond to the version number, revision
-number, and patch level. For Yices 2.3.0, they are defined as
-follows::
+For Yices 2.3.0, they are defined as follows::
 
    #define __YICES_VERSION            2
    #define __YICES_VERSION_MAJOR      3
@@ -33,7 +31,7 @@ The same information is available in the following constant string.
    Version as a string is of the form "2.3.0". It includes the version number,
    followed by the revision number, and the patch level.
 
-More details on the Yices library are given by three constant strings:
+More details on are given by three constant strings:
 
 .. c:var:: const char* yices_build_arch
 

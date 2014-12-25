@@ -2,8 +2,8 @@
 
 .. _basic_api_usage:
 
-Basic API Usage
-===============
+Basic Usage
+===========
 
 The Yices distribution includes a few example source files that
 illustrate basic use of the Yices library. The code fragments in this
