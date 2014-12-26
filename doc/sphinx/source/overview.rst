@@ -5,6 +5,9 @@
 Overview
 ========
 
+This section explains how to install Yices and compile and link your code
+with the Yices library.
+
 Installation
 ------------
 
@@ -16,14 +19,14 @@ Installing from the Source
 
 Compiling Yices from the source requires the `GNU Multiple
 Precision <http://gmplib.org>`_ library (GMP) and the `gperf
-<http://www.gnu.org/software/gperf>`_ Utility.
-Assuming you have both GMP and gperf, then building and installing
+<http://www.gnu.org/software/gperf>`_ utility.
+Assuming you have both, then building and installing
 Yices is straightforward:
 
 .. code-block:: sh
 
    ./configure
-   make
+   make -j
    sudo make install
 
 This installs the binaries in :file:`/usr/local/bin`, the header files
@@ -130,4 +133,3 @@ You may need to play with environment variable ``LD_LIBRARY_PATH`` (or
 ``DYLD_LIBRARY_PATH`` on Mac OS X) if the runtime Yices library is not
 found.
 
-..  LocalWords:  APi

@@ -12,8 +12,8 @@ Basics
 .. toctree::
    :maxdepth: 1
 
-   overview.rst
-   basic-usage.rst
+   overview
+   basic-usage
 
 API Reference
 -------------
@@ -21,21 +21,21 @@ API Reference
 .. toctree::
    :maxdepth: 1
 
-   version-data.rst
-   global-initialization.rst
-   api-types.rst
-   vectors.rst
+   version-data
+   global-initialization
+   api-types
+   vectors
 
 .. toctree::
    :maxdepth: 2
 
-   type-operations.rst
-   term-operations.rst
+   type-operations
+   term-operations
 
 .. toctree::
    :maxdepth: 1
 
-   misc-operations.rst
+   misc-operations
 
 
 Appendix
@@ -44,7 +44,7 @@ Appendix
 .. toctree::
    :maxdepth: 1
 
-   yices-language.rst
+   yices-language
 
 Index and Search
 ----------------
