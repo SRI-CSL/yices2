@@ -72,13 +72,13 @@ static void simple_test(void) {
 
   /*
    * To check whether f is satisfiable
-   * - fist build a context
+   * - first build a context
    * - assert f in the context
    * - call check_context
    * - if check_context returns SAT, build a model
    *   and make queries about the model.
    */
-  context_t *ctx = yices_new_context(NULL);  // NULL means ''use default configuration'
+  context_t *ctx = yices_new_context(NULL);  // NULL means 'use default configuration'
   code = yices_assert_formula(ctx, f);
   if (code < 0) {
     fprintf(stderr, "Assert failed: code = %"PRId32", error = %"PRId32"\n", code, yices_error_code());
