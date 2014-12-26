@@ -8,5 +8,5 @@ Operations on Types
 Construction
 ------------
 
-Internal Type Representation
-----------------------------
+Access to Type Components
+-------------------------

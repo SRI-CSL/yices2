@@ -3,7 +3,7 @@
 {%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
 
 {% block rootrellink %}
-         <li><a href="../index.html">Home</a>&nbsp;&bull;&nbsp;</li>
+         <li><a href="{{ pathto(master_doc) }}">{{ shorttitle|e }}</a>&nbsp;&bull;&nbsp;</li>
          <li><a href="{{ pathto('search') }}">Search</a></li>
 {% endblock %}
 
