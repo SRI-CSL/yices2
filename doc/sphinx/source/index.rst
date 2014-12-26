@@ -24,6 +24,8 @@ API Reference
    version-data
    global-initialization
    api-types
+   hard-limits
+   error-reports
    vectors
 
 .. toctree::
@@ -36,7 +38,6 @@ API Reference
    :maxdepth: 1
 
    misc-operations
-
 
 Appendix
 --------

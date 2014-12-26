@@ -1,4 +1,8 @@
+:tocdepth: 2
+
 .. highlight:: c
+
+.. _version_data:
 
 Version Information
 ===================

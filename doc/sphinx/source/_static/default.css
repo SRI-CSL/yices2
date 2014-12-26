@@ -324,10 +324,6 @@ div.sphinxsidebar ul ul {
   margin-left: 20px;
 }
 
-div.sphinxsidebar ul ul ul {
-  display: none;
-}
-
 div.sphinxsidebar p {
   margin-left: 3px;
 }
@@ -534,7 +530,3 @@ ul.keywordmatches li.goodmatch a {
   font-weight: bold;
 }
 
-div.toctree-wrapper ul {
-  margin-top: 0px;
-  margin-bottom: 0px;
-}

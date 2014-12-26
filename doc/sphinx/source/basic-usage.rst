@@ -1,3 +1,5 @@
+:tocdepth: 2
+
 .. highlight:: c
 
 .. _basic_api_usage:

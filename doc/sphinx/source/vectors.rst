@@ -1,3 +1,5 @@
+:tocdepth: 2
+
 .. highlight:: c
 
 .. _vectors:
@@ -5,20 +7,21 @@
 Operations on Vectors
 =====================
 
-Several functions in the API return arrays of terms, types, or value
+Several functions in the API return a set of terms, types, or value
 descriptors in a vector object. The vector structures are defined in
 :file:`yices_types.h` and explained in :ref:`api_types`.
 
-Before calling any function that fills in a vector ``v``. The vector
-must be initialized using a function ``yices_init_.._vector``.  When
-the vector is no longer used, it must be deleted by a call to a
-function ``yices_delete_.._vector``. It is also possible to empty the
-vector using function ``yices_reset_.._vector``
+Before calling any function that fills in a vector *v*, the vector
+must be initialized first and when the vector is no longer used, it
+must be deleted to avoid memory leaks.  It is also possible to empty
+the vector using a reset function.
 
-A typical use pattern is then as follows::
+The following code fragment illustrates the typical use pattern for a
+term vector. The pattern is the same for the other types of vectors::
 
   term_vector_t v;
 
+  // initialize v
   yices_init_term_vector(&v);
 
   // call a function that fills in vector v
@@ -31,11 +34,21 @@ A typical use pattern is then as follows::
      // do something with v.data[i]
   }
   
+  // delete v
   yices_delete_term_vector(&v);
 
+.. note:: 
 
-Type Vectors
-------------
+   Unlike the data structures that are internal to Yices (e.g.,
+   contexts and models), a vector *v* is not freed by a call to
+   :c:func:`yices_exit` or :c:func:`yices_reset`.
+
+The operations for initializing, deleting, and resetting vectors are
+listed in the next sections.
+
+
+Type Vectors 
+-------------
 
 .. c:function:: void yices_init_type_vector(type_vector_t *v)
 

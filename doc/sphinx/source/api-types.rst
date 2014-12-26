@@ -591,6 +591,7 @@ Models
    See :c:func:`yices_generalize_model` for more details. 
       
 
+.. _error_types:
 
 Error Reports
 -------------
