@@ -67,15 +67,15 @@ We can now build a more complex term by using constructors such as
                          yices_arith_geq0_atom(y),
                          yices_arith_eq_atom(yices_add(x, y), yices_int32(100)));
 
-The resulting term ``f`` is the formula ``(x>=0 and y>=0 and x+y=10)``. An alternative 
-approach is to parse a string::
+The resulting term ``f`` is the formula ``(x>=0 and y>=0 and x+y=10)``.
+
+We can also build terms by parsing a string::
 
    term_t f_var = yices_parse_term("(and (>= x 0) (>= y 0) (= (+ x y) 100))");
 
 The input to :c:func:`yices_parse_term` must be an expression in the
-Yices syntax (see :ref:`yices_language`). Because we have assigned
-names to the terms ``x`` and ``y``, the parser interprets the two
-symbols ``"x"`` and ``"y"`` by relying on the symbol table.
+Yices syntax (see :ref:`yices_language`). The parser relies on the
+symbol table to interpret the two symbols ``"x"`` and ``"y"``. 
 
 
 Pretty Printing
@@ -169,8 +169,9 @@ Building and Querying a Model
 -----------------------------
 
 If :c:func:`yices_check_context` returns :c:data:`STATUS_SAT` (or
-:c:data:`STATUS_UNKNOWN`), we can construct a model of the
-asserted formulas and print it::
+:c:data:`STATUS_UNKNOWN`), we can construct a model of the asserted
+formulas by calling :c:func:`yices_get_model`. We then display the
+model using :c:func:`yices_pp_model`::
 
   model_t* model = yices_get_model(ctx, true);
   if (model == NULL) {
@@ -180,7 +181,7 @@ asserted formulas and print it::
     printf("Model\n");
     code = yices_pp_model(stdout, model, 80, 4, 0);
 
-Then, we can query the model to get the value of the two terms ``x`` and ``y``::
+Then, we query the model to get the value of the two terms ``x`` and ``y``::
 
     int32_t v;
     // get the value of x

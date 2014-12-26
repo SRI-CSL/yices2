@@ -5,13 +5,71 @@
 Overview
 ========
 
+Installation
+------------
+
+Yices 2 can be downloaded at http://yices.csl.sri.com. You can either get a source
+distribution or a binary distribution for Linux, Mac OS X, or Windows.
+
+Installing from the Source
+..........................
+
+Compiling Yices from the source requires the `GNU Multiple
+Precision <http://gmplib.org>`_ library (GMP) and the `gperf
+<http://www.gnu.org/software/gperf>`_ Utility.
+Assuming you have both GMP and gperf, then building and installing
+Yices is straightforward:
+
+.. code-block:: sh
+
+   ./configure
+   make
+   sudo make install
+
+This installs the binaries in :file:`/usr/local/bin`, the header files
+in :file:`/usr/local/include`, and the library in
+:file:`/usr/local/lib`. You can change the installation location by
+giving the option ``--prefix=<directory>`` to the
+``configure`` script.
+
+For a detailed explanation of the build process and options, check the
+file :file:`doc/COMPILING` included in the distribution.
+
+
+Binary Distribution
+...................
+
+The binary distributions contain pre-compiled binaries and
+library. These distributions are self-contained. They are linked
+statically against GMP.
+
+To complete installation on Linux or Mac OS X, the distributions
+include a shell script to install the binaries, headers, and library
+in :file:`/usr/local`. You can run this scripts as follows:
+
+.. code-block:: sh
+
+   sudo ./install-yices
+
+If you want a different installation directory, type
+
+.. code-block:: sh
+
+   ./install-yices <directory>
+
+(use *sudo* if required).
+
+
+Headers and Compilation
+-----------------------
+
 The Yices API is defined in three header files:
 
   - :file:`yices.h` declares all functions and constants
   - :file:`yices_types.h` defines the types and data structures used in the API
   - :file:`yices_limits.h` defines hard-coded limits
 
-For a standard installation of Yices, these files are in directory :file:`/usr/local/include`.
+For a standard installation, these files are in directory :file:`/usr/local/include`.
 
 To use the API, you should add::
 
@@ -62,7 +120,9 @@ location, give appropriate flags to the compilation command. For example::
 
   gcc -I${HOME}/yices-2.3.0/include -L${HOME}/yices-2.3.0/lib minimal.c -o minimal -lyices
 
-Running the program should print something like this::
+Running the program should print something like this:
+
+.. code-block:: none
 
   Testing Yices 2.3.0 (x86_64-unknown-linux-gnu, release)
 

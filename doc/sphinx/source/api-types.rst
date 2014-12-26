@@ -2,8 +2,8 @@
 
 .. _api_types:
 
-C Types
-=======
+API Types
+=========
 
 The following types are defined in :file:`yices_types.h` and are used
 by the API.
@@ -41,8 +41,7 @@ Yices Types
        type_t *data;
      }
 
-   A type vector *v* stores a variable-sized array of :c:type:`type_t`
-   elements:
+   A type vector *v* stores a variable-sized array of types:
 
    - *v.capacity* is the full size of array *v.data*
 
@@ -59,12 +58,13 @@ Yices Terms
 
 .. c:type:: term_t
 
-   All term constructors return objects of type :c:type:`term_t`, defined
+   All term constructors return objects of type :c:type:`term_t`, which is defined
    as follows::
 
      typedef int32_t term_t;
 
-   A :c:type:`term_t` is an index in a global term table.
+   Internally, Yices stores terms in a global term table and an object of type 
+   :c:type:`term_t` is an index in this table.
 
 .. c:macro:: NULL_TERM
 
@@ -83,8 +83,7 @@ Yices Terms
        type_t *data;
      }
 
-   A term vector *v* stores a variable-sized array of :c:type:`term_t`
-   elements:
+   A term vector *v* stores a variable-sized array of terms:
 
    - *v.capacity* is the full size of array *v.data*
 
@@ -146,7 +145,7 @@ Yices Terms
 
    Atomic terms include constants, variables, and uninterpreted terms
    (i.e., all terms that do not have subterms). For such terms,
-   function :c:func:`yices_term_constructor` returns on of the
+   function :c:func:`yices_term_constructor` returns one of the
    following codes:
 
    .. c:enum:: YICES_BOOL_CONSTANT
@@ -171,7 +170,7 @@ Yices Terms
 
    .. c:enum:: YICES_UNINTERPRETED_TERM
 
-      Uninterpreted terms (i.e., global variables).
+      Uninterpreted terms (i.e., global variables)
 
    Composite terms are defined by a constructor and a list of children terms.
    They can have one of the following constructors:
@@ -230,7 +229,7 @@ Yices Terms
 
    .. c:enum:: YICES_BV_REM
 
-      Remainder in an unsigned bitvector division
+      Remainder in the unsigned bitvector division
 
    .. c:enum:: YICES_BV_SDIV
 
@@ -238,12 +237,12 @@ Yices Terms
 
    .. c:enum:: YICES_BV_SREM
 
-      Remainder in a signed bitvector division
+      Remainder in the signed bitvector division
 
    .. c:enum:: YICES_BV_SMOD
 
-      Remainder in signed bitvector division, with rounding to minus
-      infinity
+      Remainder in the signed bitvector division with rounding to
+      minus infinity
 
    .. c:enum:: YICES_BV_SHL
 
@@ -283,35 +282,36 @@ Yices Terms
 
    .. c:enum:: YICES_BV_SUM
 
-      Sum of the form ``a_0 t_0 + ... + a_n t_n`` where
+      Sum of the form *a_0 t_0 + ... + a_n t_n* where
 
-        - all coefficients a_i are bitvector constants
+        - all the coefficients *a_i* are bitvector constants
 
-        - all terms t_i (except possibly t_0) are bitvector terms
+        - all the terms *t_i* (except possibly *t_0*) are bitvector terms
 
       All terms and coefficients have the same size (i.e., same number of bits).
 
-      As a special case,  t_0 may be :c:macro:`NULL_TERM` to encode a constant term.
-      In this case, the sum can be interpreted as ``a_0 + a_1 t_1 + ... + a_n t_n``
+      As a special case, *t_0* may be equal :c:macro:`NULL_TERM` to
+      encode a constant term.  In this case, the sum can be
+      interpreted as *a_0 + a_1 t_1 + ... + a_n t_n*.
 
    .. c:enum:: YICES_ARITH_SUM
 
-      Sum of the form ``a_0 t_0 + ... + a_n t_n`` where
+      Sum of the form *a_0 t_0 + ... + a_n t_n* where
 
-        - all coefficients are rational constants
+        - the coefficients are rational constants
 
-        - all terms t_i (except possibly t_0) are arithmetic terms
+        - all the terms *t_i* (except possibly *t_0*) are arithmetic terms
 
-      As in :c:enum:`YICES_BV_SUM`, the term t_0 may be :c:macro:`NULL_TERM` to
+      As in :c:enum:`YICES_BV_SUM`, the term *t_0* may be :c:macro:`NULL_TERM` to
       encode a constant term.
 
    .. c:enum:: YICES_POWER_PRODUCT
 
-      Products of the form ``t_0^d_0 x ... x t_n^d_n`` where
+      Products of the form *t_0^d_0 ... t_n^d_n* where
 
-        - all exponents d_i are positive integers
+        - the exponents *d_i* are positive integers
 
-        - the terms t_i are either all arithmetic terms or all bitvector terms
+        - the terms *t_i* are either all arithmetic terms or all bitvector terms
 
    The last code is used to report errors:
 
@@ -335,7 +335,7 @@ Contexts
    A context is a central data structure in Yices. A context stores a
    set or formulas to check for satisfiability. The API includes
    function to initialize and configure contexts, assert formulas in a
-   context, check satisfiability, and construct models.
+   context, check satisfiability, and construct models from a context.
 
 .. c:type:: ctx_config_t
 
@@ -343,12 +343,12 @@ Contexts
 
      typedef struct ctx_config_s ctx_config_t;
 
-   When a context is created, it is possible to configure it to use
-   a specific solver or combination of solvers. It is also possible
-   to specify whether or not the context supports features such as
-   backtracking and removal of formula (via a push/pop mechanism).
+   When a context is created, it can be configured to use a specific
+   solver or combination of solvers. One can also specify whether or
+   not the context supports features such as backtracking and removal
+   of formula (via a push/pop mechanism).
 
-   A :c:type:`ctx_config_t` object is a descriptor that defines
+   A :c:type:`ctx_config_t` object is a descriptor that defines a
    context configuration. It is an opaque data structure that lists
    the solvers to use and the features supported by the context.
 
@@ -358,11 +358,11 @@ Contexts
 
      typedef struct param_s param_t;
 
-   A parameter record stores various parameters that control heuristics
-   used by the solvers. For example, heuristic parameters specify the
-   restart strategy employed by the CDCL SAT solver. Other parameters
-   control the branching heuristics, or the generation of theory lemmas
-   by the Simplex-based arithmetic solver.
+   A parameter record stores various parameters that control the
+   heuristics used by the solvers. For example, heuristic parameters
+   can specify the restart strategy employed by the CDCL SAT solver. Other
+   parameters control the branching heuristics, or the generation of
+   theory lemmas by the Simplex-based arithmetic solver.
 
 .. c:type:: smt_status_t
 
@@ -378,11 +378,13 @@ Contexts
        STATUS_ERROR
      } smt_status_t;
 
-   A context can be in one of the following states:
+   The type :c:type:`smt_status_t` represents the possible states of a
+   context. It is also the type returned by functions that check
+   whether a context is satisfiable. The following codes are defined:
 
    .. c:enum:: STATUS_IDLE
 
-      This is the initial state.
+      This is the initial context state.
 
       In this state, it is possible to assert formulas in the context.
       After assertions, the state may change to :c:enum:`STATUS_UNSAT` if
@@ -425,8 +427,6 @@ Contexts
       This is an error code. It is returned by functions that operate on a
       context when the operation cannot be performed.
 
-   The functions that check for satisfiability return one of the above codes.
-
 
 Models
 ------
@@ -437,9 +437,7 @@ Models
 
      typedef struct model_s model_t;
 
-   A model is a mapping from uninterpreted terms to constant values
-   that can be atomic values, constant tuples, or functions.
-
+   A model is a mapping from uninterpreted terms to constant values.
    Models can be constructed from a context after checking that the
    context is satisfiable, or using an explicit model-construction
    function.
@@ -555,7 +553,7 @@ Models
 
    It is used by function :c:func:`yices_val_expand_function`, which expands a function node.
 
-   Section :ref:`vectors` explain how to initialize, reset, and delete these vectors.
+   Section :ref:`vectors` explains how to initialize, reset, and delete these vectors.
 
 .. c:type:: yices_gen_mode_t
 
@@ -599,4 +597,507 @@ Error Reports
 
 .. c:type:: error_code_t
 
+   When a function in the API fails for some reason, it returns a
+   special value (typically a negative value or the :c:macro:`NULL`
+   pointer) and stores an error code in a global error report. The
+   following error codes are defined:
+
+   .. c:enum:: NO_ERROR
+
+      Everything is fine.
+
+   Errors in type or term constructors
+
+   .. c:enum:: INVALID_TYPE
+
+      Invalid type argument (not a valid index in the internal type table).
+
+   .. c:enum:: INVALID_TERM
+
+      Invalid term argument (not a valid index in the internal term table).
+
+   .. c:enum:: INVALID_CONSTANT_INDEX
+
+      Attempt to create a constant of uninterpreted type with a negative index,
+      or a constant of scalar type with an index that's larger than the type cardinality.
+
+   .. c:enum:: INVALID_TUPLE_INDEX
+
+      Components of a tuple are indexed from 1 to N. Operations that
+      extract or update a tuple component uses this error code if they are given
+      an index outside the interval [1 .. N].
+
+   .. c:enum:: INVALID_RATIONAL_FORMAT
+
+      The input to :c:func:`yices_parse_rational` does not have the right format.
+
+   .. c:enum:: INVALID_FLOAT_FORMAT
+
+      The input to :c:func:`yices_parse_float` does not have the right format.
+
+   .. c:enum:: INVALID_BVBIN_FORMAT
+
+      The input to :c:func:`yices_parse_bvbin` does not have the right format.
+
+   .. c:enum:: INVALID_BVHEX_FORMAT
+
+      The input to :c:func:`yices_parse_bvhex` does not have the right format.
+
+   .. c:enum:: INVALID_BITSHIFT
+
+      Invalid shift amount for a bitvector shift or rotate operation.
+
+   .. c:enum:: INVALID_BVEXTRACT
+
+      Invalid indices given to function :c:func:`yices_bvextract`.
+
+   .. c:enum:: INVALID_BITEXTRACT
+
+      Invalid index given to function :c:func:`yices_bitextract`.
+
+   .. c:enum:: TOO_MANY_ARGUMENTS
+
+      Attempt to create a type or term of arity larger :c:macro:`YICES_MAX_ARITY`
+
+   .. c:enum:: TOO_MANY_VARS
+
+      Attempt to create a quantified or lambda term with more than :c:macro:`YICES_MAX_VARS`
+      variables.
+
+   .. c:enum:: MAX_BVSIZE_EXCEEDED
+
+      Attempt to create a bitvector type or term with more than :c:macro:`YICES_MAX_BVSIZE` bits.
+
+   .. c:enum:: DEGREE_OVERFLOW
+
+      Attempt to create a polynomial of degree higher than :c:macro:`YICES_MAX_DEGREE`.
+
+   .. c:enum:: DIVISION_BY_ZERO
+
+      Zero divider in a rational constant.
+
+   .. c:enum:: POS_INT_REQUIRED
+
+      Bad integer argument: the function expects a positive argument.
+
+   .. c:enum:: NONNEG_INT_REQUIRED
+
+      Bad integer argument: the function expects a non-negative argument.
+
+   .. c:enum:: SCALAR_OR_UTYPE_REQUIRED
+
+      Bad type argument: the function expects either an uninterpreted type or a scalar type.
+
+   .. c:enum:: FUNCTION_REQUIRED
+
+      Bad term argument: a term of function type is expected.
+
+   .. c:enum:: TUPLE_REQUIRED
+
+      Bad term argument: a term of tuple type is expected.
+
+   .. c:enum:: VARIABLE_REQUIRED
+
+      Bad term argument: a variable is expected. Some functions also report this error
+      when they expect an argument that can either be a variable or an uninterpreted term.
+
+   .. c:enum:: ARITHTERM_REQUIRED
+
+      Bad term argument: an arithmetic term (of type Int or Real) is expected.
+
+   .. c:enum:: BITVECTOR_REQUIRED
+
+      Bad term argument: a bitvector term is expected.
+
+   .. c:enum:: SCALAR_TERM_REQUIRED
+
+      Bad term argument: a term of scalar type is expected.
+
+   .. c:enum:: WRONG_NUMBER_OF_ARGUMENTS
+
+      Wrong number of arguments in a function application or function
+      update.
+
+   .. c:enum:: TYPE_MISMATCH
+
+      Type error in various term constructor.
+
+   .. c:enum:: INCOMPATIBLE_TYPES
+
+      Error in functions that require terms of compatible types. The
+      `Yices manual <http://yices.csl.sri.com/papers/manual.pdf>`_
+      explains what this means.
+
+   .. c:enum:: DUPLICATE_VARIABLE
+
+      Error in quantifier or lambda term constructors: the same
+      variable occurs twice or more.
+
+   .. c:enum:: EMPTY_BITVECTOR
+
+      Attempt to create a bitvector term of type (bitvector 0).
+
+   .. c:enum:: ARITHCONSTANT_REQUIRED
+
+      Invalid term: an arithmetic constant is expected.
+
+   .. c:enum:: INVALID_MACRO
+
+      Error in an SMT-LIB 2 type constructors (i.e., type macros). Type macros
+      are not exposed in the API.
+
+   .. c:enum:: TOO_MANY_MACRO_PARAMS
+
+      Too many parameters in a type macros. Type macros are not
+      exposed in the API.
+
+   .. c:enum:: TYPE_VAR_REQUIRED
+
+      Error in a type-macro constructor: a type variable is expected.
+      Type variables and macros are used to support the SMT-LIB 2 type parameters,
+      and are not exposed in the API.
+
+   .. c:enum:: DUPLICATE_TYPE_VAR
+
+      Error in a type-macro constructor: the same type variable occurs several time.
+      Type variables and macros are used to support the SMT-LIB 2 type parameters,
+      and are not exposed in the API.
+
+   .. c:enum:: BVTYPE_REQUIRED
+
+      Bad type parameter: a bitvector type is expected.
+
+   .. c:enum:: BAD_TERM_DECREF
+
+      Error in reference counting: attempt to decrement the reference counter of
+      a term when the counter is already zero.
+
+   .. c:enum:: BAD_TYPE_DECREF
+
+      Error in reference counting: attempt to decrement the reference counter of
+      a type when the counter is already zero.
+
+   .. c:enum:: INVALID_TYPE_OP
+
+      Error in functions that extract the components of a type.
+
+   .. c:enum:: INVALID_TERM_OP
+
+      Error in functions that extract the components of a terms.
+
+
+   Errors in a parsing function
+
+   .. c:enum:: INVALID_TOKEN
+
+      Error in the lexer
+
+   .. c:enum:: SYNTAX_ERROR
+
+      Syntax error
+
+   .. c:enum:: UNDEFINED_TYPE_NAME
+
+      A name is not defined in the symbol table for types
+
+   .. c:enum:: UNDEFINED_TERM_NAME
+
+      A name is not defined in the symbol table for terms 
+
+   .. c:enum:: REDEFINED_TYPE_NAME
+
+      Attempt to redefine an existing type name
+
+   .. c:enum:: REDEFINED_TERM_NAME
+
+      Attempt to redefine an existing term name
+
+   .. c:enum:: DUPLICATE_NAME_IN_SCALAR
+
+      A scalar-type definition contains the same element name twice (or more)
+
+   .. c:enum:: DUPLICATE_VAR_NAME
+
+      Error in quantifiers or lambda term defition: the same variable name occurs twice or more
+
+   .. c:enum:: INTEGER_OVERFLOW
+
+      Integer constant too large to be converted to a signed 32bit integer
+
+   .. c:enum:: INTEGER_REQUIRED
+
+      Rational constant provided when an integer is expected
+
+   .. c:enum:: RATIONAL_REQUIRED
+
+      Invalid argument: a rational constant is expected
+
+   .. c:enum:: SYMBOL_REQUIRED
+
+      Error in a definition or local declaration: a symbol is expected
+
+   .. c:enum:: TYPE_REQUIRED
+
+      Error in a definition or declaration: a type is expected
+
+   .. c:enum:: NON_CONSTANT_DIVISOR
+
+      Attempt to divide by a non-constant arithmetic term
+
+   .. c:enum:: NEGATIVE_BVSIZE
+
+      Error while parsing ``(bitvector size)``: the size is negative
+
+   .. c:enum:: INVALID_BVCONSTANT
+
+      Error while parsing ``(mk-bv size value)``: the vale is negative
+
+   .. c:enum:: TYPE_MISMATCH_IN_DEF
+
+      Error in a term definition: the term value does not have the declared type
+
+   .. c:enum:: ARITH_ERROR
+
+      Error in an arithmetic operation: an argument is not an arithmetic term
+
+   .. c:enum:: BVARITH_ERROR
+
+      Error in a bitvector operation: an argument is not a bitvector
+
+
+   Errors in a context operation:
+
+   .. c:enum:: CTX_FREE_VAR_IN_FORMULA
+
+      An assertion contains free variables      
+
+   .. c:enum:: CTX_LOGIC_NOT_SUPPORTED
+
+      An assertion is not in a logic for which the context was configured
+
+   .. c:enum:: CTX_UF_NOT_SUPPORTED
+
+      An assertion contains uninterpreted functions but the context does not support them.
+
+   .. c:enum:: CTX_ARITH_NOT_SUPPORTED
+
+      An assertion contains arithmetic terms but the context does not support arithmetic.
+
+   .. c:enum:: CTX_BV_NOT_SUPPORTED
+
+      An assertion contains bitvector terms but the context does not support bitvectors.
+
+   .. c:enum:: CTX_ARRAYS_NOT_SUPPORTED
+
+      An assertion contains array or function updates but the context does not support arrays.
+
+   .. c:enum:: CTX_QUANTIFIERS_NOT_SUPPORTED
+
+      An assertion contains quantifiers but the context does not support them.
+
+   .. c:enum:: CTX_LAMBDAS_NOT_SUPPORTED
+
+      An assertion contains lanbda terms but the context does not support them.
+
+   .. c:enum:: CTX_NONLINEAR_ARITH_NOT_SUPPORTED
+
+      An assertion contains non-linear polynomials but the context supports only linear arithmetic.
+
+   .. c:enum:: CTX_FORMULA_NOT_IDL
+
+      The context is configured for integer difference logic but an assertion is not in this
+      fragment.
+
+   .. c:enum:: CTX_FORMULA_NOT_RDL
+
+      The context is configured for real difference logic but an assertion is not in this
+      fragment.
+
+   .. c:enum:: CTX_TOO_MANY_ARITH_VARS
+
+      An internal limit of the arithmetic solver is exceeded.
+
+   .. c:enum:: CTX_TOO_MANY_ARITH_ATOMS
+
+      An internal limit of the arithmetic solver is exceeded.
+
+   .. c:enum:: CTX_TOO_MANY_BV_VARS
+
+      An internal limit of the bitvector solver is exceeded.
+
+   .. c:enum:: CTX_TOO_MANY_BV_ATOMS
+
+      An internal limit of the bitvector solver is exceeded.
+
+   .. c:enum:: CTX_ARITH_SOLVER_EXCEPTION
+
+      General error reported by the arithmetic solver.
+
+   .. c:enum:: CTX_BV_SOLVER_EXCEPTION
+
+      General error reported by the bitvector solver.
+
+   .. c:enum:: CTX_ARRAY_SOLVER_EXCEPTION
+
+      General error reported by the array/function solver.
+
+   .. c:enum:: CTX_INVALID_OPERATION
+
+      Invalid operation on a context: the context is in a state that
+      does not allow the operation to be performed.
+
+   .. c:enum:: CTX_OPERATION_NOT_SUPPORTED
+
+      Invalid operation on a context: the context is not configured to support
+      this operation.
+
+   Errors in context configuration or settings of search parameters
+
+   .. c:enum:: CTX_INVALID_CONFIG
+
+      Reported by :c:func:`yices_new_context` if the requested
+      configuration is not supported. This means that the combination
+      of solvers does not implement the set of features requested.
+
+   .. c:enum:: CTX_UNKNOWN_PARAMETER
+
+      Invalid parameter name.
+
+   .. c:enum:: CTX_INVALID_PARAMETER_VALUE
+
+      Invalid value for a parameter.
+
+   .. c:enum:: CTX_UNKNOWN_LOGIC
+
+      A logic name is not recognized.
+
+
+   Errors in functions that evaluate terms in a model
+
+   .. c:enum:: EVAL_UNKNOWN_TERM
+
+      The model does not assign a value to the specified term.
+
+   .. c:enum:: EVAL_FREEVAR_IN_TERM
+
+      A term value cannot be computed because the term contains free variables.
+
+   .. c:enum:: EVAL_QUANTIFIER
+
+      A term value cannot be computed because the term contains quantifiers.
+
+   .. c:enum:: EVAL_LAMBDA
+
+      A term value cannot be computed because the term contains lambdas.
+
+   .. c:enum:: EVAL_FAILED
+
+      A term value cannot be computed for another reason.
+
+   .. c:enum:: EVAL_OVERFLOW
+
+      The value of a term is known but it does not fit in the given
+      variable. For example, :c:func:`yices_get_int32_value` will
+      report this error if the term value does not fit in a signed,
+      32bit integer.
+
+   .. c:enum:: EVAL_CONVERSION_FAILED
+
+      Failed to convert the value of a term in model into a constant term.
+      This error can be reported by :c:func:`yices_get_value_as_term` and 
+      :c:func:`yices_term_array_value`.
+
+   .. c:enum:: EVAL_NO_IMPLICANT
+
+      Error reported by :c:func:`yices_implicant_for_formula` and variants,
+      when the input formula is false in the model.
+
+   Errors in model construction and generalization
+
+   .. c:enum:: MDL_UNINT_REQUIRED
+
+      Invalid map for :c:func:`yices_model_from_map`: an element in the domain is 
+      not an uninterpreted term.
+
+   .. c:enum:: MDL_CONSTANT_REQUIRED
+
+      Invalid map for :c:func:`yices_model_from_map`: an element in the range is
+      not a constant term.
+
+   .. c:enum:: MDL_DUPLICATE_VAR
+
+      Invalid map for :c:func:`yices_model_from_map`: the domain contains duplicate terms.
+
+   .. c:enum:: MDL_FTYPE_NOT_ALLOWED
+
+      Invalid map for :c:func:`yices_model_from_map`: one element in the domain
+      has a function type.
+
+   .. c:enum:: MDL_CONSTRUCTION_FAILED
+
+      Function :c:func:`yices_model_from_map` failed for some other reason.
+  
+   .. c:enum:: MDL_GEN_TYPE_NOT_SUPPORTED
+
+      Model generalization failed because variables to eliminate have a type that's not
+      supported.
+
+   .. c:enum:: MDL_GEN_NONLINEAR
+
+      Model generalization failed because the input formula(s) include non-linear arithmetic.
+
+   .. c:enum:: MDL_GEN_FAILED
+
+      Model generalization failed for some other reason.
+
+   Errors in functions that query or expand the value of a node in a DAG
+
+   .. c:enum:: YVAL_INVALID_OP
+ 
+      Invalid operation on a value descriptor (node in the model DAG).
+
+   .. c:enum:: YVAL_OVERFLOW
+
+      The value of a leaf node does not fit in the given input variable.
+
+   Input/output error
+
+   .. c:enum:: OUTPUT_ERROR
+
+      Error when attempting to write to a stream. This error can be reported
+      by the pretty-printing functions if they fail to write to the specified 
+      file.
+
+   Catch-all code for any other error
+
+   .. c:enum:: INTERNAL_EXCEPTION
+
+      If you ever see this error code, please send a bug report at
+      yices-bugs@csl.sri.com.
+
 .. c:type:: error_report_t
+
+   A global record stores information about the errors reported by the API.
+   The data includes the error code as defined previously (cf :c:type:`error_report_t`)
+   and additional information that can be used for diagnosis::
+
+     typedef struct error_report_s {
+       error_code_t code;
+       uint32_t line;
+       uint32_t column;
+       term_t term1;
+       type_t type1;
+       term_t term2;
+       type_t type2;
+       int64_t badval;
+     } error_report_t;
+
+   The *code* is always set. The other meaningful fields depend on the error code:
+
+   - the parsing functions :c:func:`yices_parse_type` and :c:func:`yices_parse_term`
+     set the *line* and *column* fields to help locate the error in the input string.
+
+   - the field *badval* is set when an incorrect integer argument is provided
+
+   - the other fields are set by terms and type constructors
+

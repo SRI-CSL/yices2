@@ -43,7 +43,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Yices API'
+project = u'Yices'
 copyright = u'2014, SRI International'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -115,7 +115,7 @@ html_theme_options = {}
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = "Yices 2.3.0 API Documentation"
+html_title = "Yices 2.3.0 Documentation"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 html_short_title = "Yices 2.3.0"
@@ -226,7 +226,7 @@ latex_documents = [
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-#latex_logo = None
+latex_logo = '_static/logo3.pdf'
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.

@@ -195,6 +195,10 @@ h3 {
   color: #1A419d;
 }
 
+div.body h3 {
+  font-style: italic;
+}
+
 table {
   border-collapse: collapse;
   margin: 0 -0.5em 0 -0.5em;
@@ -262,7 +266,7 @@ div.related ul li a:hover {
 div.bodywrapper {
   margin: 0 240px 0 0;
   border-right: 1px solid #ccc;
-  min-height: 350px;
+  min-height: 370px;
 }
 
 div.body {
