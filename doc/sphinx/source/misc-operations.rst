@@ -4,14 +4,14 @@
 
 .. _miscellaneous_operations:
 
-Miscellaneous Operations on Types and Terms
-===========================================
+Miscellaneous Operations
+========================
 
-Term and Type Names
--------------------
+Names
+-----
 
-Parsing Terms and Types
------------------------
+Parsing
+-------
 
 Substitutions
 -------------

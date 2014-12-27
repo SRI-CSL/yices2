@@ -4,8 +4,8 @@
 
 .. _vectors:
 
-Operations on Vectors
-=====================
+Vectors
+=======
 
 Several functions in the API return a set of terms, types, or value
 descriptors in a vector object. The vector structures are defined in

@@ -4,8 +4,8 @@
 
 .. _context_operations:
 
-Operations on Contexts
-======================
+Contexts
+========
 
 Creation and Configuration
 --------------------------

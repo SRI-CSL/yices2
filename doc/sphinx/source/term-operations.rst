@@ -4,17 +4,17 @@
 
 .. _term_operations:
 
-Operations on Terms
-===================
+Terms
+=====
 
-Generic Terms
--------------
-
-Bitvector Terms
----------------
+Generic Term Constructors
+-------------------------
 
 Arithmetic Terms
 ----------------
+
+Bitvector Terms
+---------------
 
 .. _access_to_term_representation:
 

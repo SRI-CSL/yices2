@@ -4,8 +4,8 @@
 
 .. _type_operations:
 
-Operations on Types
-===================
+Types
+=====
 
 Yices includes primitive types for Booleans, integers, reals, and
 bitvectors. Other atomic types can be created by declaring new
