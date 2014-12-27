@@ -8,7 +8,7 @@ Error Reporting
 ===============
 
 When an API function is called with incorrect arguments or when an
-error occurs for whatever reason, then the function returns a special
+error occurs for whatever reason, the function returns a special
 value---which is typically a negative integer or the :c:macro:`NULL`
 pointer---and stores information about the error in a global variable
 of type :c:type:`error_report_t`. The error report stores an error

@@ -14,8 +14,8 @@ system includes tuple and function types.
 
 The API provides functions for accessing the primitive types, creating
 uninterpreted and scalar types, and for building tuple and function
-types, and various functions for examining types.
-
+types. The API also includes various functions for examining types.
+Functions for printing types are documented in :ref:`pretty_printing`.
 
 Type Constructors
 -----------------
@@ -41,7 +41,7 @@ Constructors for primitive types:
 
 .. c:function:: type_t  yices_bv_type(uint32_t size)
 
-   Constructor for bitvector types.
+   Constructs a bitvector type
 
    **Parameter**
 
@@ -67,7 +67,7 @@ Constructors for uninterpreted and scalar types:
 
 .. c:function:: type_t yices_new_scalar_type(uint32_t card)
 
-   Creates a new scalar type.
+   Creates a new scalar type
 
    **Parameter**
 
@@ -83,7 +83,7 @@ Constructors for uninterpreted and scalar types:
 
 .. c:function:: type_t yices_new_uninterpreted_type(void)
 
-   Creates a new uninterpreted type.
+   Creates a new uninterpreted type
 
 
 For tuple types, the API includes a general constructor for tuple

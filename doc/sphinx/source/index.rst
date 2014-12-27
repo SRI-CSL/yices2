@@ -33,11 +33,11 @@ API Reference
 
    type-operations
    term-operations
-
-.. toctree::
-   :maxdepth: 1
-
    misc-operations
+   context-operations
+   model-operations
+   pretty-printing
+
 
 Appendix
 --------

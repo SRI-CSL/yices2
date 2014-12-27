@@ -9,7 +9,7 @@ Basic Usage
 
 The Yices distribution includes a few example source files that
 illustrate basic use of the Yices library. The code fragments in this
-section are from file :file:`examples/example1.c`. This file shows how
+section are from file :file:`examples/example1.c`. This example shows how
 to initialize Yices, construct and print terms, create a context and
 assert formulas, and build and query a model when a context is
 satisfiable.
@@ -56,10 +56,10 @@ makes sense to give a name to both the terms ``x`` and ``y``::
 This has two effects:
 
   1. The pretty printer will use the names ``"x"`` and ``"y"`` when
-     printing these two terms. Otherwise, it would use construct names
+     printing these two terms. Otherwise, it would construct names
      such ``"t!3"`` and ``"t!4"``.
 
-  2. The symbol table will map the strings ``"x"`` and ``"y"`` to the
+  2. The symbol table maps the strings ``"x"`` and ``"y"`` to the
      terms ``x`` and ``y``, respectively.
 
 We can now build a more complex term by using constructors such as
@@ -67,7 +67,8 @@ We can now build a more complex term by using constructors such as
 
    term_t f = yices_and3(yices_arith_geq0_atom(x),
                          yices_arith_geq0_atom(y),
-                         yices_arith_eq_atom(yices_add(x, y), yices_int32(100)));
+                         yices_arith_eq_atom(yices_add(x, y),
+                                             yices_int32(100)));
 
 The resulting term ``f`` is the formula ``(x>=0 and y>=0 and x+y=10)``.
 

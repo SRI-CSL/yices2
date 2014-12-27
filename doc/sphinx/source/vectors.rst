@@ -11,10 +11,10 @@ Several functions in the API return a set of terms, types, or value
 descriptors in a vector object. The vector structures are defined in
 :file:`yices_types.h` and explained in :ref:`api_types`.
 
-Before calling any function that fills in a vector *v*, the vector
-must be initialized first and when the vector is no longer used, it
-must be deleted to avoid memory leaks.  It is also possible to empty
-the vector using a reset function.
+Before calling a function that fills in a vector *v*, the vector must
+be initialized. When the vector is no longer used, it must be deleted
+to avoid memory leaks.  It is also possible to empty the vector using
+a reset function.
 
 The following code fragment illustrates the typical use pattern for a
 term vector. The pattern is the same for the other types of vectors::

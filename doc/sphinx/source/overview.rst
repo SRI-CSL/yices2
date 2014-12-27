@@ -89,9 +89,9 @@ the GMP header *before* you include ``yices.h`` as in::
   #include <gmp.h>
   #include <yices>
 
-.. note:: Yices requires the C99 header ``<stdint.h>``.
+.. note:: Yices requires the C99 header ``stdint.h``.
    This header may not be available on old versions of Microsoft's Visual
-   Studio. If it is missing, open-source versions of :file:`stdint.h` can be 
+   Studio. If it is missing, open-source versions of ``stdint.h`` can be 
    downloaded at
 
    - https://code.google.com/p/msinttypes (for Visual Studio only)
@@ -123,7 +123,8 @@ should compile with::
 Other compilers than GCC can be used. If Yices is installed in a different
 location, give appropriate flags to the compilation command. For example::
 
-  gcc -I${HOME}/yices-2.3.0/include -L${HOME}/yices-2.3.0/lib minimal.c -o minimal -lyices
+  gcc -I${HOME}/yices-2.3.0/include -L${HOME}/yices-2.3.0/lib \
+     minimal.c -o minimal -lyices
 
 Running the program should print something like this:
 
