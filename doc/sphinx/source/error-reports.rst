@@ -29,7 +29,7 @@ The following functions give access to the error report.
 
    This resets the global error code to :c:enum:`NO_ERROR` (i.e., 0)
 
-.. c:function:: int32_t yices_print_error(FILE *f)
+.. c:function:: int32_t yices_print_error(FILE* f)
 
    This function converts the current error code and error report
    structure into an error message, then it prints the message on

@@ -7,10 +7,10 @@
 Hard-coded Limits
 =================
 
-The internal data representation used by Yices impose various limits
-on the size of the term and type table and on the size of composite
-terms. Several macros defined in header file :file:`yices_limits.h`
-specify these limits. These are mostly theoretical limits, and should
+The internal data representation used by Yices imposes various limits
+on the size of the term and type table, and on the size of composite
+terms. Macros defined in header file :file:`yices_limits.h` specify
+these limits. These are mostly theoretical limits, and should be
 beyond what Yices can actually store and process.
 
 .. c:macro:: YICES_MAX_TYPES

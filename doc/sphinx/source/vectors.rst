@@ -50,16 +50,16 @@ listed in the next sections.
 Type Vectors 
 -------------
 
-.. c:function:: void yices_init_type_vector(type_vector_t *v)
+.. c:function:: void yices_init_type_vector(type_vector_t* v)
 
    Initialize type vector *v*. This allocates an array *v->data* with a default
    capacity and sets *v->size* to 0.
 
-.. c:function:: void yices_reset_type_vector(type_vector_t *v)
+.. c:function:: void yices_reset_type_vector(type_vector_t* v)
 
    Reset type vector *v*. This sets *v->size* to 0.
 
-.. c:function:: void yices_delete_type_vector(type_vector_t *v)
+.. c:function:: void yices_delete_type_vector(type_vector_t* v)
 
    Delete type vector *v*. This frees array *v->data*.
 
@@ -67,16 +67,16 @@ Type Vectors
 Term Vectors
 ------------
 
-.. c:function:: void yices_init_term_vector(term_vector_t *v)
+.. c:function:: void yices_init_term_vector(term_vector_t* v)
 
    Initialize term vector *v*. This allocates an array *v->data* with a default
    capacity and sets *v->size* to 0.
 
-.. c:function:: void yices_reset_term_vector(term_vector_t *v)
+.. c:function:: void yices_reset_term_vector(term_vector_t* v)
 
    Reset term vector *v*. This sets *v->size* to 0.
 
-.. c:function:: void yices_delete_term_vector(term_vector_t *v)
+.. c:function:: void yices_delete_term_vector(term_vector_t* v)
 
    Delete term vector *v*. This frees array *v->data*.
 
@@ -84,16 +84,16 @@ Term Vectors
 Vectors of Node Descriptors
 ---------------------------
 
-.. c:function:: void yices_init_yval_vector(yval_vector_t *v)
+.. c:function:: void yices_init_yval_vector(yval_vector_t* v)
 
    Initialize vector *v*. This allocates an array *v->data* with a default
    capacity and sets *v->size* to 0.
 
-.. c:function:: void yices_reset_yval_vector(yval_vector_t *v)
+.. c:function:: void yices_reset_yval_vector(yval_vector_t* v)
 
    Reset vector *v*. This sets *v->size* to 0.
 
-.. c:function:: void yices_delete_yval_vector(yval_vector_t *v)
+.. c:function:: void yices_delete_yval_vector(yval_vector_t* v)
 
    Delete vector *v*. This frees array *v->data*.
 

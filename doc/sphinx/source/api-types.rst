@@ -150,7 +150,7 @@ Yices Terms
 
    .. c:enum:: YICES_BOOL_CONSTANT
 
-      Boolean constants: true and false
+      Boolean constants
 
    .. c:enum:: YICES_ARITH_CONSTANT
 
@@ -530,7 +530,7 @@ Models
         yval_tag_t node_tag;
       } yval_t;
 
-   The *node_id* is a non-negative integer and all nodes in the DAG have 
+   The *node_id* is a non-negative integer; all the nodes have
    different *node_ids*. The API includes functions for extracting the
    value encoded in a leaf node and for collecting the children of a
    non-leaf nodes.
@@ -551,7 +551,7 @@ Models
    - *size* is the number of nodes stored in *data*
    - *data* is a dynamically allocated array.
 
-   It is used by function :c:func:`yices_val_expand_function`, which expands a function node.
+   This type is used by function :c:func:`yices_val_expand_function`, which expands a function node.
 
    Section :ref:`vectors` explains how to initialize, reset, and delete these vectors.
 
@@ -607,6 +607,7 @@ Error Reports
 
       Everything is fine.
 
+
    Errors in type or term constructors
 
    .. c:enum:: INVALID_TYPE
@@ -624,9 +625,9 @@ Error Reports
 
    .. c:enum:: INVALID_TUPLE_INDEX
 
-      Components of a tuple are indexed from 1 to N. Operations that
-      extract or update a tuple component uses this error code if they are given
-      an index outside the interval [1 .. N].
+      Components of a tuple are indexed from 1 to N. This error code
+      signals that an operation to extract or update a tuple
+      component was given an index outside the interval [1 .. N].
 
    .. c:enum:: INVALID_RATIONAL_FORMAT
 
@@ -658,12 +659,12 @@ Error Reports
 
    .. c:enum:: TOO_MANY_ARGUMENTS
 
-      Attempt to create a type or term of arity larger :c:macro:`YICES_MAX_ARITY`
+      Attempt to create a type or term of arity larger than :c:macro:`YICES_MAX_ARITY`
 
    .. c:enum:: TOO_MANY_VARS
 
-      Attempt to create a quantified or lambda term with more than :c:macro:`YICES_MAX_VARS`
-      variables.
+      Attempt to create a quantified term or a lambda term with more
+      than :c:macro:`YICES_MAX_VARS` variables.
 
    .. c:enum:: MAX_BVSIZE_EXCEEDED
 
@@ -736,7 +737,7 @@ Error Reports
 
    .. c:enum:: EMPTY_BITVECTOR
 
-      Attempt to create a bitvector term of type (bitvector 0).
+      Attempt to create a bitvector term of type *(bitvector 0)*.
 
    .. c:enum:: ARITHCONSTANT_REQUIRED
 
@@ -780,14 +781,14 @@ Error Reports
 
    .. c:enum:: INVALID_TYPE_OP
 
-      Error in functions that extract the components of a type.
+      Error in a type-exploration function.
 
    .. c:enum:: INVALID_TERM_OP
 
-      Error in functions that extract the components of a terms.
+      Error in a term-exploration function.
 
 
-   Errors in a parsing function
+   Errors in parsing functions
 
    .. c:enum:: INVALID_TOKEN
 
@@ -866,7 +867,7 @@ Error Reports
       Error in a bitvector operation: an argument is not a bitvector
 
 
-   Errors in a context operation:
+   Errors in context operations
 
    .. c:enum:: CTX_FREE_VAR_IN_FORMULA
 
@@ -952,7 +953,7 @@ Error Reports
       Invalid operation on a context: the context is not configured to support
       this operation.
 
-   Errors in context configuration or settings of search parameters
+   Errors in context configuration
 
    .. c:enum:: CTX_INVALID_CONFIG
 
@@ -973,7 +974,7 @@ Error Reports
       A logic name is not recognized.
 
 
-   Errors in functions that evaluate terms in a model
+   Errors in evaluation functions
 
    .. c:enum:: EVAL_UNKNOWN_TERM
 
@@ -1013,6 +1014,7 @@ Error Reports
       Error reported by :c:func:`yices_implicant_for_formula` and variants,
       when the input formula is false in the model.
 
+
    Errors in model construction and generalization
 
    .. c:enum:: MDL_UNINT_REQUIRED
@@ -1051,7 +1053,8 @@ Error Reports
 
       Model generalization failed for some other reason.
 
-   Errors in functions that query or expand the value of a node in a DAG
+
+   Errors in node query functions
 
    .. c:enum:: YVAL_INVALID_OP
  
@@ -1061,6 +1064,7 @@ Error Reports
 
       The value of a leaf node does not fit in the given input variable.
 
+
    Input/output error
 
    .. c:enum:: OUTPUT_ERROR
@@ -1069,6 +1073,7 @@ Error Reports
       by the pretty-printing functions if they fail to write to the specified 
       file.
 
+
    Catch-all code for any other error
 
    .. c:enum:: INTERNAL_EXCEPTION
@@ -1076,10 +1081,11 @@ Error Reports
       If you ever see this error code, please send a bug report at
       yices-bugs@csl.sri.com.
 
+
 .. c:type:: error_report_t
 
    A global record stores information about the errors reported by the API.
-   The data includes the error code as defined previously (cf :c:type:`error_report_t`)
+   The data includes the error code as defined previously (cf. :c:type:`error_code_t`)
    and additional information that can be used for diagnosis::
 
      typedef struct error_report_s {

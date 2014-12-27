@@ -14,7 +14,7 @@ Installation
 ------------
 
 Yices 2 can be downloaded at http://yices.csl.sri.com. You can either get a source
-distribution or a binary distribution for Linux, Mac OS X, or Windows.
+distribution, or a binary distribution for Linux, Mac OS X, or Windows.
 
 Installing from the Source
 ..........................
@@ -45,12 +45,12 @@ Binary Distribution
 ...................
 
 The binary distributions contain pre-compiled binaries and
-library. These distributions are self-contained. They are linked
-statically against GMP.
+library. These distributions are self-contained. The binaries and
+libraries are linked statically against GMP.
 
 The binary distributions for Linux and Mac OS X include a shell script
 to install the binaries, headers, and library in
-:file:`/usr/local`. You can run this scripts as follows:
+:file:`/usr/local`. You can run this script as follows:
 
 .. code-block:: sh
 

@@ -23,8 +23,8 @@ API Reference
 
    version-data
    global-initialization
-   api-types
    hard-limits
+   api-types
    error-reports
    vectors
 
