@@ -161,6 +161,15 @@ dl.glossary dt {
   font-size: 1.1em;
 }
 
+dl.function dt code.descname {
+  margin-left: 0.2em;
+  margin-right: 0.1em;
+}
+
+dl.var dt code.descname {
+  margin-left: 0.2em;
+}
+
 .first {
   margin-top: 0 !important;
 }

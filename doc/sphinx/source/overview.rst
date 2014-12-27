@@ -48,9 +48,9 @@ The binary distributions contain pre-compiled binaries and
 library. These distributions are self-contained. They are linked
 statically against GMP.
 
-To complete installation on Linux or Mac OS X, the distributions
-include a shell script to install the binaries, headers, and library
-in :file:`/usr/local`. You can run this scripts as follows:
+The binary distributions for Linux and Mac OS X include a shell script
+to install the binaries, headers, and library in
+:file:`/usr/local`. You can run this scripts as follows:
 
 .. code-block:: sh
 
@@ -62,7 +62,7 @@ If you want a different installation directory, type
 
    ./install-yices <directory>
 
-(use *sudo* if required).
+(use *sudo* if necessary).
 
 
 Headers and Compilation

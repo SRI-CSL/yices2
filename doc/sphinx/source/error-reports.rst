@@ -21,7 +21,7 @@ The following functions give access to the error report.
    Returns the global error code. The result is 0 if there's no error,
    or a positive constant that identifies the error type otherwise.
 
-.. c:function:: error_report_t *yices_error_report(void)
+.. c:function:: error_report_t* yices_error_report(void)
  
    This returns a pointer to the global error report.
 
