@@ -7,6 +7,8 @@
 Miscellaneous Operations
 ========================
 
+.. _names:
+
 Names
 -----
 

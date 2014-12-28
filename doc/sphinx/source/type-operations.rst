@@ -17,13 +17,33 @@ uninterpreted and scalar types, and for building tuple and function
 types. The API also includes various functions for examining types.
 Functions for printing types are documented in :ref:`pretty_printing`.
 
-Type Constructors
------------------
-
 All type constructors return an object of type :c:type:`type_t`, which
 is either a type or the special value :c:macro:`NULL_TYPE` if there is
 an error. For error diagnostic, use the functions documented in
 section :ref:`error_reports`.
+
+**Generic error reports**
+
+  - All functions set the error report as follows if they receive a
+    type parameter *tau* that is not valid:
+ 
+    -- error code: :c:enum:`INVALID_TYPE`
+
+    -- type1 := *tau* (i.e., the invalid type)
+
+  - If an integer parameter must be positive, the functions will
+    report the following error when the input is zero:
+
+     -- error code: :c:enum:`POS_INT_REQUIRED`
+
+     -- badval := 0
+
+
+Other error reports are possible. They are listed for each function.
+
+
+Type Constructors
+-----------------
 
 Constructors for primitive types:
 
@@ -50,12 +70,6 @@ Constructors for primitive types:
 
    **Error report**
 
-   - if *size* is 0:
-
-     -- error code: :c:enum:`POS_INT_REQUIRED`
-
-     -- badval := 0
-
    - if *size* is more than :c:macro:`YICES_MAX_BVSIZE`:
 
      -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
@@ -72,14 +86,6 @@ Constructors for uninterpreted and scalar types:
    **Parameter**
 
    - *card* is the type cardinality. It must be positive.
-
-   **Error report**
-
-   - if *card* is zero:
-
-     -- error code: :c:enum:`POS_INT_REQUIRED`
-
-     -- badval := 0
 
 .. c:function:: type_t yices_new_uninterpreted_type(void)
 
@@ -104,24 +110,11 @@ tuple types with a small number of components.
   
    **Error report**
 
-   - if *n* is zero:
-
-     -- error code: :c:enum:`POS_INT_REQUIRED`
-
-     -- badval := 0
-
    - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
      -- badval := *n*
-
-   - if one element *tau[i]* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := *tau[i]*
-   
 
 .. c:function:: type_t yices_tuple_type1(type_t tau1)
 
@@ -129,23 +122,17 @@ tuple types with a small number of components.
 
    This function is equivalent to :c:func:`yices_tuple_type` with *n=1*.
 
-   It may produce an error report if *tau1* is not a valid type.
-
 .. c:function:: type_t yices_tuple_type2(type_t tau1, type_t tau2)
 
    Creates the tuple type *(tuple tau1 tau2)*
 
    This functionis equivalent to :c:func:`yices_tuple_type` with *n=2*.
 
-   It may produce an error report if *tau1* or *tau2* is not a valid type.
-
 .. c:function:: type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3)
 
    Creates the tuple type *(tuple tau1 tau2 tau3)*
 
    This function is equivalent to :c:func:`yices_tuple_type` with *n=3*.
-
-   It may produce an error report if a parameter is not a valid type.
 
 
 The API includes a general constructor for function types of arbitrary arity, and more convenient 
@@ -167,23 +154,11 @@ variants for small arities.
 
    **Error report**
 
-   - if *n* is zero:
-
-     -- error code: :c:enum:`POS_INT_REQUIRED`
-
-     -- badval := 0
-
    - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
      -- badval := *n*
-
-   - if *range* or *dom[i]* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := either *range* or *dom[i]*
    
 .. c:function:: type_t yices_function_type1(type_t tau1, type_t range)
  
@@ -191,15 +166,11 @@ variants for small arities.
 
    This function is equivalent to :c:func:`yices_function_type` with *n=1*.
 
-   It may report an error if *tau1* or *range* is not a valid type.
-
 .. c:function:: type_t yices_function_type2(type_t tau1, type_t tau2, type_t range)
 
    Creates the binary function type: *(-> tau1 tau2 range*)
 
    This function is equivalent to :c:func:`yices_function_type` with *n=2*.
-
-   It may report an error if *tau1*, *tau2*, or *range* is not a valid type.
 
 .. c:function:: type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range)
 
@@ -207,7 +178,6 @@ variants for small arities.
 
    This function is equivalent to :c:func:`yices_function_type` with *n=3*.
 
-   It may report an error if *tau1*, *tau2*, *tau3*, or *range* is not a valid type.
 
 
 Tests on Types
@@ -260,15 +230,8 @@ The next function checks the subtyping relation:
 .. c:function:: int32_t yices_test_subtype(type_t tau, type_t sigma)
 
    Checks whether *tau* is a subtype of *sigma*. The function returns 1 for true and 0 for false.
+   If *tau* or *sigma* is not a valid type, the function returns false and sets the error report.
 
-   **Error report**
-
-   - if *tau* or *sigma* is not a valid type, the function returns false
-     and sets the error report as follows:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := either *tau* or *sigma*
 
 
 Access to Type Components
@@ -282,12 +245,6 @@ The following functions give access to attributes and components of a type.
 
    **Error report**
 
-   - if *tau* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := *tau*
-
    - if *tau* is not a bitvector type:
 
      -- error code: :c:enum:`BVTYPE_REQUIRED`
@@ -297,15 +254,9 @@ The following functions give access to attributes and components of a type.
 
 .. c:function:: uint32_t yices_scalar_type_card(type_t tau)
 
-   Returns the cardinality of type *tau* (or 0 if there's an error).
+   Returns the cardinality of type *tau*, or 0 if there's an error.
 
    **Error report**
-
-   - if *tau* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := *tau*
 
    - if *tau* is not a scalar type:
 
@@ -314,21 +265,13 @@ The following functions give access to attributes and components of a type.
 
 .. c:function:: int32_t yices_type_num_children(type_t tau)
 
-   Number of children of type *tau* (or -1 if there's an error).
+   Number of children of type *tau*. or -1 if there's an error.
 
    - if *tau* is a tuple type *(tuple tau_1 ... tau_n)*, the function returns *n*
 
    - if *tau* is a function type *(-> tau_1 ... tau_n sigma)*, the function returns *n+1*
 
    - if *tau* is any other type, the function returns 0
-
-   **Error report**
-   
-   - if *tau* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := *tau*
 
 
 .. c:function:: type_t yices_type_child(type_t tau, int32_t i)
@@ -347,12 +290,6 @@ The following functions give access to attributes and components of a type.
    - for any other type, the function returns :c:enum:`NULL_TYPE` as the type has no chidlren.
 
    **Error report**
-
-   - if *tau* is not a valid type:
-
-     -- error code: :c:enum:`INVALID_TYPE`
-
-     -- type1 := *tau*
 
    - if *i* is negative or larger than the number of children - 1
 
