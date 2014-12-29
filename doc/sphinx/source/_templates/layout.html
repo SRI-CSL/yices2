@@ -3,8 +3,8 @@
 {%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
 
 {% block rootrellink %}
-         <li><a href="{{ pathto(master_doc) }}">{{ shorttitle|e }}</a>&nbsp;&bull;&nbsp;</li>
-         <li><a href="{{ pathto('search') }}">Search</a></li>
+         <li class="left"><a href="{{ pathto(master_doc) }}">{{ shorttitle|e }}</a>&nbsp;&bull;&nbsp;</li>
+         <li class="left"><a href="{{ pathto('search') }}">Search</a></li>
 {% endblock %}
 
 {# put the sidebar before the body #}

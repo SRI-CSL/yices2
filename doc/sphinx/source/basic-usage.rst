@@ -112,8 +112,8 @@ error. Function :c:func:`yices_print_error` reads this data and
 prints an error message.
 
 
-Building a Context and Checking Satisfiability
-----------------------------------------------
+Checking Satisfiability
+-----------------------
 
 To check whether formula ``f`` is satisfiable, we create a fresh
 context, assert ``f`` in this context, then call function :c:func:`yices_check_context`::
