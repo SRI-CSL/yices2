@@ -45,23 +45,21 @@ Other error reports are possible. They are listed for each function.
 Type Constructors
 -----------------
 
-Constructors for primitive types:
-
 .. c:function:: type_t  yices_bool_type(void)
 
-   Returns the Boolean type
+   Returns the Boolean type.
 
 .. c:function:: type_t  yices_int_type(void)
 
-   Returns the integer type
+   Returns the integer type.
 
 .. c:function:: type_t  yices_real_type(void)
 
-   Returns the real type
+   Returns the real type.
 
 .. c:function:: type_t  yices_bv_type(uint32_t size)
 
-   Constructs a bitvector type
+   Constructs a bitvector type.
 
    **Parameter**
 
@@ -77,11 +75,9 @@ Constructors for primitive types:
      -- badval := *size*
 
 
-Constructors for uninterpreted and scalar types:
-
 .. c:function:: type_t yices_new_scalar_type(uint32_t card)
 
-   Creates a new scalar type
+   Creates a new scalar type.
 
    **Parameter**
 
@@ -89,16 +85,12 @@ Constructors for uninterpreted and scalar types:
 
 .. c:function:: type_t yices_new_uninterpreted_type(void)
 
-   Creates a new uninterpreted type
+   Creates a new uninterpreted type.
 
-
-For tuple types, the API includes a general constructor for tuple
-types of arbitrary size, and variants that are more convenient for
-tuple types with a small number of components.
 
 .. c:function:: type_t yices_tuple_type(uint32_t n, const type_t tau[])
 
-   Creates the tuple type: *(tuple tau[0] ... tau[n-1])*
+   Creates the tuple type: *(tuple tau[0] ... tau[n-1])*.
 
    **Parameters**
 
@@ -118,29 +110,26 @@ tuple types with a small number of components.
 
 .. c:function:: type_t yices_tuple_type1(type_t tau1)
 
-   Creates the tuple type *(tuple tau1)*
+   Creates the tuple type *(tuple tau1)*.
 
    This function is equivalent to :c:func:`yices_tuple_type` with *n=1*.
 
 .. c:function:: type_t yices_tuple_type2(type_t tau1, type_t tau2)
 
-   Creates the tuple type *(tuple tau1 tau2)*
+   Creates the tuple type *(tuple tau1 tau2)*.
 
-   This functionis equivalent to :c:func:`yices_tuple_type` with *n=2*.
+   This function is equivalent to :c:func:`yices_tuple_type` with *n=2*.
 
 .. c:function:: type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3)
 
-   Creates the tuple type *(tuple tau1 tau2 tau3)*
+   Creates the tuple type *(tuple tau1 tau2 tau3)*.
 
    This function is equivalent to :c:func:`yices_tuple_type` with *n=3*.
 
 
-The API includes a general constructor for function types of arbitrary arity, and more convenient 
-variants for small arities.
-
 .. c:function:: type_t yices_function_type(uint32_t n, const type_t dom[], type_t range)
 
-   Creates the function type *(-> dom[0] ... dom[n-1] range)*
+   Creates the function type *(-> dom[0] ... dom[n-1] range)*.
 
    **Parameters**
 
@@ -162,19 +151,19 @@ variants for small arities.
    
 .. c:function:: type_t yices_function_type1(type_t tau1, type_t range)
  
-   Creates the unary function type: *(-> tau1 range*)
+   Creates the unary function type: *(-> tau1 range*).
 
    This function is equivalent to :c:func:`yices_function_type` with *n=1*.
 
 .. c:function:: type_t yices_function_type2(type_t tau1, type_t tau2, type_t range)
 
-   Creates the binary function type: *(-> tau1 tau2 range*)
+   Creates the binary function type: *(-> tau1 tau2 range*).
 
    This function is equivalent to :c:func:`yices_function_type` with *n=2*.
 
 .. c:function:: type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range)
 
-   Creates the ternary function type: *(-> tau1 tau2 tau3 range*)
+   Creates the ternary function type: *(-> tau1 tau2 tau3 range*).
 
    This function is equivalent to :c:func:`yices_function_type` with *n=3*.
 
@@ -184,53 +173,55 @@ Tests on Types
 --------------
 
 The following functions check a property of a type *tau*. They return
-0 for false and 1 for true.  If *tau* is not a valid type, these
-functions return false (i.e., 0) and set the error report (error code:
-:c:enum:`INVALID_TYPE`).
+0 for false and 1 for true. 
+
+If *tau* is not a valid type, these functions return false (i.e., 0)
+and set the error report (error code: :c:enum:`INVALID_TYPE`).
 
 .. c:function:: int32_t yices_type_is_bool(type_t tau)
 
-   Checks whether *tau* is the Boolean type
+   Checks whether *tau* is the Boolean type.
 
 .. c:function:: int32_t yices_type_is_int(type_t tau)
 
-   Checks whether *tau* is the integer type
+   Checks whether *tau* is the integer type.
 
 .. c:function:: int32_t yices_type_is_real(type_t tau)
 
-   Checks whether *tau* is the real type
+   Checks whether *tau* is the real type.
 
 .. c:function:: int32_t yices_type_is_arithmetic(type_t tau)
 
-   Checks whether *tau* is an arithmetic type (i.e., either integer or real)
+   Checks whether *tau* is an arithmetic type (i.e., either integer or real).
 
 .. c:function:: int32_t yices_type_is_bitvector(type_t tau)
 
-   Checks whether *tau* is a bitector type
+   Checks whether *tau* is a bitector type.
 
 .. c:function:: int32_t yices_type_is_scalar(type_t tau)
 
-   Checks whether *tau* is a scalar type
+   Checks whether *tau* is a scalar type.
 
 .. c:function:: int32_t yices_type_is_uninterpreted(type_t tau)
 
-   Checks whether *tau* is uninterpreted
+   Checks whether *tau* is uninterpreted.
 
 .. c:function:: int32_t yices_type_is_tuple(type_t tau)
 
-   Checks whether *tau* is a tuple type
+   Checks whether *tau* is a tuple type.
 
 .. c:function:: int32_t yices_type_is_function(type_t tau)
 
-   Checks whether *tau* is a function type
+   Checks whether *tau* is a function type.
 
-
-The next function checks the subtyping relation:
 
 .. c:function:: int32_t yices_test_subtype(type_t tau, type_t sigma)
 
-   Checks whether *tau* is a subtype of *sigma*. The function returns 1 for true and 0 for false.
-   If *tau* or *sigma* is not a valid type, the function returns false and sets the error report.
+   Checks whether *tau* is a subtype of *sigma*.
+
+   The function returns 1 for true and 0 for false. If *tau* or
+   *sigma* is not a valid type, the function returns false and sets
+   the error report.
 
 
 
@@ -278,19 +269,24 @@ The following functions give access to attributes and components of a type.
 
    Returns the *i*-th child of type *tau*.
 
-   - if *tau* has *n* children (as returned by :c:func:`yices_type_num_children`) then
-     the index *i* must be in the interval [0 .. *n* - 1].
+   - if *tau* has *n* children then index *i* must be in the interval [0 .. *n-1*].
 
-   - for a tuple type *(tuple tau_1 ... tau_n)*, the first child (with index *i* = 0) is *tau_1*
-     and the last child (with index *i* = *n* - 1) is *tau_n*.
+   - for a tuple type *(tuple tau_1 ... tau_n)*,
 
-   - for a function type *(-> tau_1 ... tau_n sigma)*, the first child (with index *i* = 0) is *tau_1*,
-     and the last child (with index *i* = *n*) is *sigma*.
+     -- the first child (with index *i= 0*) is *tau_1*
+
+     -- the last child (with index *i=n-1*) is *tau_n*.
+
+   - for a function type *(-> tau_1 ... tau_n sigma)*,
+
+     -- the first child (with index *i=0*) is *tau_1*,
+
+     -- the last child (with index *i=n*) is *sigma*.
 
    - for any other type, the function returns :c:enum:`NULL_TYPE` as the type has no chidlren.
 
    **Error report**
 
-   - if *i* is negative or larger than the number of children - 1
+   - if *i* is negative or larger than the number of children minus one:
 
      -- error code: :c:enum:`INVALID_TYPE_OP`

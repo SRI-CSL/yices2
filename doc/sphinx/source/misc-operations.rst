@@ -7,10 +7,12 @@
 Miscellaneous Operations
 ========================
 
-.. _names:
+.. _names_api:
 
 Names
 -----
+
+.. _parsing_api:
 
 Parsing
 -------
