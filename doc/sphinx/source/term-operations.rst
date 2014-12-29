@@ -85,8 +85,8 @@ term representation.
 
 
 
-Generic Term Constructors
--------------------------
+General Constructors
+--------------------
 
 .. c:function:: term_t yices_new_uninterpreted_term(type_t tau)
 
@@ -776,6 +776,146 @@ Arithmetic Terms
 
 Bitvector Terms
 ---------------
+
+.. c:function:: term_t yices_bvconst_uint32(uint32_t n, uint32_t x)
+
+.. c:function:: term_t yices_bvconst_uint64(uint32_t n, uint64_t x)
+
+.. c:function:: term_t yices_bvconst_int32(uint32_t n, int32_t x)
+
+.. c:function:: term_t yices_bvconst_int64(uint32_t n, int64_t x)
+
+.. c:function:: term_t yices_bvconst_mpz(uint32_t n, const mpz_t x)
+
+.. c:function:: term_t yices_bvconst_zero(uint32_t n)
+
+.. c:function:: term_t yices_bvconst_one(uint32_t n)
+
+.. c:function:: term_t yices_bvconst_minus_one(uint32_t n)
+
+.. c:function:: term_t yices_bvconst_from_array(uint32_t n, const int32_t a[])
+
+.. c:function:: term_t yices_parse_bvbin(const char *s)
+
+.. c:function:: term_t yices_parse_bvhex(const char *s)
+
+.. c:function:: term_t yices_bvadd(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvadd(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsub(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvneg(term_t t1)
+
+.. c:function:: term_t yices_bvmul(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsquare(term_t t1)
+
+.. c:function:: term_t yices_bvpower(term_t t1, uint32_t d)
+
+.. c:function:: term_t yices_bvdiv(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvrem(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsdiv(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsrem(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsmod(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvnot(term_t t1)
+
+.. c:function:: term_t yices_bvnand(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvnor(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvxnor(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvshl(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvlshr(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvashr(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvand(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_bvor(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_bvxor(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_bvand2(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvor2(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvxor2(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvand3(term_t t1, term_t t2, term_t t3)
+
+.. c:function:: term_t yices_bvor3(term_t t1, term_t t2, term_t t3)
+
+.. c:function:: term_t yices_bvxor3(term_t t1, term_t t2, term_t t3)
+
+.. c:function:: term_t yices_bvsum(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_bvproduct(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_shift_left0(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_shift_left1(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_shift_right0(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_shift_right1(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_ashift_right(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_rotate_left(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_rotate_right(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_bvextract(term_t t, uint32_t i, uint32_t j)
+
+.. c:function:: term_t yices_bvconcat2(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvconcat(uint32_t n, const term_t t[])
+
+.. c:function:: term_t yices_bvrepeat(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_sign_extend(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_zero_extend(term_t t, uint32_t n)
+
+.. c:function:: term_t yices_redand(term_t t)
+
+.. c:function:: term_t yices_redor(term_t t)
+
+.. c:function:: term_t yices_redcomp(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvarray(uint32_t n, const term_t arg[])
+
+.. c:function:: term_t yices_bitextract(term_t t, uint32_t i)
+
+.. c:function:: term_t yices_bveq_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvneq_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvge_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvgt_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvle_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvlt_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsge_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsgt_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvsle_atom(term_t t1, term_t t2)
+
+.. c:function:: term_t yices_bvslt_atom(term_t t1, term_t t2)
+
+
 
 .. _access_to_term_representation:
 

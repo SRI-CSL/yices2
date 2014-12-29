@@ -35,6 +35,7 @@ pre {
   padding: 0.5em;
   border: 1px solid #ccc;
   background-color: #f8f8f8;
+  overflow: auto;
 }
 
 pre a {
@@ -298,6 +299,26 @@ div.body a:hover {
   color: #2491CF;
 }
 
+div.footer {
+  background-color: #fff;
+  color: black;
+  padding: 3px 8px 3px 20px;
+  clear: both;
+  font-size: 0.8em;
+  text-align: right;
+}
+
+div.footer a {
+  text-decoration: underline;
+}
+
+div.pagination {
+  margin-top: 2em;
+  padding-top: 0.5em;
+  border-top: 1px solid black;
+  text-align: center;
+}
+
 div.sphinxsidebar {
   margin: 0;
   padding: 0.5em 15px 15px 0;
@@ -335,26 +356,6 @@ div.sphinxsidebar ul ul {
 
 div.sphinxsidebar p {
   margin-left: 3px;
-}
-
-div.footer {
-  background-color: #fff;
-  color: black;
-  padding: 3px 8px 3px 20px;
-  clear: both;
-  font-size: 0.8em;
-  text-align: right;
-}
-
-div.footer a {
-  text-decoration: underline;
-}
-
-div.pagination {
-  margin-top: 2em;
-  padding-top: 0.5em;
-  border-top: 1px solid black;
-  text-align: center;
 }
 
 div.sphinxsidebar ul.toc {

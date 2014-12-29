@@ -72,7 +72,7 @@ We can now build a more complex term by using constructors such as
 
 The resulting term ``f`` is the formula ``(x>=0 and y>=0 and x+y=10)``.
 
-We can also build terms by parsing a string::
+We can also build the same term by parsing a string::
 
    term_t f_var = yices_parse_term("(and (>= x 0) (>= y 0) (= (+ x y) 100))");
 
