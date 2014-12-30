@@ -99,7 +99,7 @@ All functions in this section may report the following errors.
     -- term1 := *t*
 
   - If a bitvector constructor expects two bitvector arguments of the same size,
-    it will report the following errors if the arguments size are different:
+    it will report the following errors if the argument sizes are different:
 
     -- error code: :c:enum:`INCOMPATIBLE_TYPES`
 
@@ -577,6 +577,50 @@ Boolean Terms
 
    - *arg* must be a Boolean term
 
+.. c:function:: term_t yices_and(uint32_t n, term_t arg[])
+
+   Constructs the conjunction *(and arg[0] ... arg[n-1])*
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive and no mode than :c:macro:`YICES_MAX_ARITY`.
+
+   - *arg* must be an array of *n* Boolean terms
+
+   **Error report**
+
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
+
+     -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
+
+     -- badval: *n*
+
+   **Warning**
+
+   -  array *arg* may be modified.
+    
+.. c:function:: term_t yices_and2(term_t t1, term_t t2)
+
+   Constructs the term *(and t1 t2)*
+ 
+   This function is equivalent to :c:func:`yices_and` with *n=2*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be Boolean terms
+
+
+.. c:function:: term_t yices_and3(term_t t1, term_t t2, term_t t3)
+
+   Constructs the term *(and t1 t2 t3)*
+ 
+   This function is equivalent to :c:func:`yices_and` with *n=3*.
+
+   **Parameters**
+
+   - *t1*, *t2*, and *t3* must be Boolean terms
+
+
 .. c:function:: term_t yices_or(uint32_t n, term_t arg[])
 
    Constructs the disjunction *(or arg[0] ... arg[n-1])*
@@ -616,50 +660,6 @@ Boolean Terms
    Constructs the term *(or t1 t2 t3)*
  
    This function is equivalent to :c:func:`yices_or` with *n=3*.
-
-   **Parameters**
-
-   - *t1*, *t2*, and *t3* must be Boolean terms
-
-
-.. c:function:: term_t yices_and(uint32_t n, term_t arg[])
-
-   Constructs the conjunction *(and arg[0] ... arg[n-1])*
-
-   **Parameters**
-
-   - *n* is the number of arguments. It must be positive and no mode than :c:macro:`YICES_MAX_ARITY`.
-
-   - *arg* must be an array of *n* Boolean terms
-
-   **Error report**
-
-   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
-
-     -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
-
-     -- badval: *n*
-
-   **Warning**
-
-   -  array *arg* may be modified.
-    
-.. c:function:: term_t yices_and2(term_t t1, term_t t2)
-
-   Constructs the term *(and t1 t2)*
- 
-   This function is equivalent to :c:func:`yices_and` with *n=2*.
-
-   **Parameters**
-
-   - *t1* and *t2* must be Boolean terms
-
-
-.. c:function:: term_t yices_and3(term_t t1, term_t t2, term_t t3)
-
-   Constructs the term *(and t1 t2 t3)*
- 
-   This function is equivalent to :c:func:`yices_and` with *n=3*.
 
    **Parameters**
 
@@ -1016,7 +1016,7 @@ Arithmetic Terms
 
    **Error report**
 
-   - If a denumerator *den[i]* is zero:
+   - If a denominator *den[i]* is zero:
 
      -- error code: :c:enum:`DIVISION_BY_ZERO`
 
@@ -1340,7 +1340,7 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvneg(term_t t1)
 
-   Returns the 2s complement oppositve of *t1*.
+   Returns the 2s complement opposite of *t1*.
 
 .. c:function:: term_t yices_bvmul(term_t t1, term_t t2)
 
@@ -1352,7 +1352,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if the product would have degree more than :c:macro:`YICES_MAX_DEGREE`
+   - if (degree of *t1* + degree of *t2*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1364,7 +1364,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if the square would have degree more than :c:macro:`YICES_MAX_DEGREE`
+   - if (2 * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1372,51 +1372,320 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvpower(term_t t1, uint32_t d)
 
+   Bitvector exponentiation: raises *t1* to power *d*.
+
+   If *d* is 0, the result is *0b0...01*, even if *t1* is the zero constant.
+
+   **Error report**
+
+   - if (*d* * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code := :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := (*d* * degree of *t1*)
+   
+
+.. c:function:: term_t yices_bvsum(uint32_t n, const term_t t[])
+
+   Returns the bitvector sum *(bv-add t[0] ... t[n-1])*.
+
+   This function generalizes :c:func:`yices_bvadd` to an arbitrary
+   number of arguments.
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive.
+
+   - *t* must be an array of *n* bitvector terms. All the elements of *t* must
+     have the same type (i.e., the same number of bits).
+
+   If *n=1*, this function returns *t[0]*, otherwise, it builds a sum.
+
+
+.. c:function:: term_t yices_bvproduct(uint32_t n, const term_t t[])
+
+   Returns the bitvector product *(bv-mul t[0] ... t[n-1])*.
+
+   This function generalizes :c:func:`yices_bvmul` to an arbitrary number 
+   of arguments.
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive.
+
+   - *t* must be an array of *n* bitvector terms. All the elements of *t* must
+     have the same type (i.e., the same number of bits).
+
+   If *n=1*, this function returns *t[0]*, otherwise, it builds a product.
+
+   **Error report**
+
+   - if the degree is too large:
+
+     -- error code: :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := degree
+
+
 .. c:function:: term_t yices_bvdiv(term_t t1, term_t t2)
 
+   Quotient in the unsigned bitvector division.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   The two vectors are interpreted as unsigned integers (represented
+   with *n* bits) and the results is the smallest integer that 
+   can be represented with *n* bits, and is less than or equal to *t1/t2*.
+
+   For division by zero, Yices uses the following convention:
+
+   .. code-block:: none
+
+        (bv-div t1 0b00...0) = 0b11...1
+
+      
 .. c:function:: term_t yices_bvrem(term_t t1, term_t t2)
+
+   Remainder in the unsigned division.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   The remainder satisfies the following equality:
+
+   .. code-block:: none
+
+        (bv-rem t1 t2) = (bv-sub t1 (bv-mul (bv-div t1 t2) t2))
+
+   If *t2* is zero, this gives:
+
+   .. code-block:: none
+
+        (bv-rem t1 0b00...0) = t1
 
 .. c:function:: term_t yices_bvsdiv(term_t t1, term_t t2)
 
+   Quotient in the signed bitvector division.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   The two bitvectors *t1* and *t2* are interpreted as signed integers
+   of *n* bits in 2s complement representation. This signed division
+   rounds the quotient toward zero.
+
+   - If *t1/t2* is positive and *t2* isn't zero, then *(bv-sdiv t1
+     t2)* is positive. It is the largest integer that can be
+     represented using *n* bits and is less than or equal to *t1/t2*.
+
+   - If *t1/t2* is negative and *t2* isn't zero, then (*bv-sdiv t1
+     t2)* is negative. It is the smallest integer that can be
+     represented using *n* bits and is more than or equal to *t1/t2*.
+
+   When *t2* is zero, Yices uses the following convention:
+
+   - If *t1* is negative then
+
+     .. code-block:: none 
+ 
+           (bv-sdiv t1 0b00...00) = 0b00...01
+
+   - If *t1* is positive or zero
+
+     .. code-block:: none 
+
+          (bv-sdiv t1 0b00...00) = 0b11...11
+
+
 .. c:function:: term_t yices_bvsrem(term_t t1, term_t t2)
+
+   Remainder in the signed division.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   The remainder satisfies the following equality:
+
+   .. code-block:: none
+
+        (bv-srem t1 t2) = (bv-sub t1 (bv-mul (bv-sdiv t1 t2) t2))
+
+   If *t2* is zero, this gives:
+
+   .. code-block:: none
+
+        (bv-srem t1 0b00...0) = t1
+
 
 .. c:function:: term_t yices_bvsmod(term_t t1, term_t t2)
 
+   Remainder in the *floor* division.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   The two bitvectors *t1* and *t2* are interpreted as signed integers
+   of *n* bits in 2s complement representation.  This function returns
+   the remainder in the signed division of *t1* by *t2* with rounding
+   to minus infinity.
+
+   If *t2* is non-zero, the quotient *q* in this division is the
+   largest signed integer that can be represented with *n* bits and is
+   less than or equal to *t1/t2*.
+
+   Then *(bv-smod t1 t2)* is defined by
+
+   .. code-block:: none
+
+        (bv-smod t1 t2) = (bv-sub t1 (bv-mul q t2))
+
+   If *t2* is zero, this gives
+
+   .. code-block:: none
+
+        (bv-srem t1 0b00...0) = t1
+
+
 .. c:function:: term_t yices_bvnot(term_t t1)
 
-.. c:function:: term_t yices_bvnand(term_t t1, term_t t2)
+   Returns the bitwise negation of *t1*.
+
+.. c:function:: term_t yices_bvand(uint32_t n, const term_t t[])
+
+   Returns the bitwise and *(bv-and t[0] ... t[n-1])*.
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive.
+
+   - *t* must be an array of *n* bitvector terms. All the elements of *t* must
+     have the same type (i.e., the same number of bits).
+
+.. c:function:: term_t yices_bvand2(term_t t1, term_t t2)
+
+   Returns the bitwise and *(bv-and t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvand` with *n=2*.
+
+.. c:function:: term_t yices_bvand3(term_t t1, term_t t2, term_t t3)
+
+   Returns the bitwise and *(bv-and t1 t2 t3)*.
+
+   **Parameters**
+
+   - *t1*, *t2*, and *t3* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvand` with *n=3*.
+
+.. c:function:: term_t yices_bvor(uint32_t n, const term_t t[])
+
+   Returns the bitwise or *(bv-or t[0] ... t[n-1])*.
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive.
+
+   - *t* must be an array of *n* bitvector terms. All the elements of *t* must
+     have the same type (i.e., the same number of bits).
+
+.. c:function:: term_t yices_bvor2(term_t t1, term_t t2)
+
+   Returns the bitwise or *(bv-or t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvor` with *n=2*.
+
+.. c:function:: term_t yices_bvor3(term_t t1, term_t t2, term_t t3)
+
+   Returns the bitwise or *(bv-or t1 t2 t3)*.
+
+   **Parameters**
+
+   - *t1*, *t2*, and *t3* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvor` with *n=3*.
+
+.. c:function:: term_t yices_bvxor(uint32_t n, const term_t t[])
+
+   Returns the bitwise exclusive or *(bv-xor t[0] ... t[n-1])*.
+
+   **Parameters**
+
+   - *n* is the number of arguments. It must be positive.
+
+   - *t* must be an array of *n* bitvector terms. All the elements of *t* must
+     have the same type (i.e., the same number of bits).
+
+.. c:function:: term_t yices_bvxor2(term_t t1, term_t t2)
+
+   Returns the bitwise exclusive or *(bv-xor t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvxor` with *n=2*.
+
+.. c:function:: term_t yices_bvxor3(term_t t1, term_t t2, term_t t3)
+
+   Returns the bitwise exclusive or *(bv-xor t1 t2 t3)*.
+
+   **Parameters**
+
+   - *t1*, *t2*, and *t3* must be bitvector terms of the same type.
+
+   This function is equivalent to :c:func:`yices_bvxor` with *n=3*.
+
+
+.. c:function:: term_t yices_bvnand(term_t t1, term_t t2)   
+
+   Returns the bitwise *NAND* of *t1* and *t2*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+ 
+   The result is the bitwise negation of *(bv-and *t1* *t2*).
 
 .. c:function:: term_t yices_bvnor(term_t t1, term_t t2)
 
+   Returns the bitwise *NOR* of *t1* and *t2*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+ 
+   The result is the bitwise negation of *(bv-or *t1* *t2*).
+
 .. c:function:: term_t yices_bvxnor(term_t t1, term_t t2)
+
+   Returns the bitwise *XNOR* of *t1* and *t2*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+ 
+   The result is the bitwise negation of *(bv-xor t1 t2)*.
+
 
 .. c:function:: term_t yices_bvshl(term_t t1, term_t t2)
 
 .. c:function:: term_t yices_bvlshr(term_t t1, term_t t2)
 
 .. c:function:: term_t yices_bvashr(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvand(uint32_t n, const term_t t[])
-
-.. c:function:: term_t yices_bvor(uint32_t n, const term_t t[])
-
-.. c:function:: term_t yices_bvxor(uint32_t n, const term_t t[])
-
-.. c:function:: term_t yices_bvand2(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvor2(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvxor2(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvand3(term_t t1, term_t t2, term_t t3)
-
-.. c:function:: term_t yices_bvor3(term_t t1, term_t t2, term_t t3)
-
-.. c:function:: term_t yices_bvxor3(term_t t1, term_t t2, term_t t3)
-
-.. c:function:: term_t yices_bvsum(uint32_t n, const term_t t[])
-
-.. c:function:: term_t yices_bvproduct(uint32_t n, const term_t t[])
 
 .. c:function:: term_t yices_shift_left0(term_t t, uint32_t n)
 

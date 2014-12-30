@@ -181,7 +181,7 @@ Yices Terms
 
    .. c:enum:: YICES_APP_TERM
 
-      Application of an unintepreted function
+      Application of an uninterpreted function
 
    .. c:enum:: YICES_UPDATE_TERM
 
@@ -821,7 +821,7 @@ Error Reports
 
    .. c:enum:: DUPLICATE_VAR_NAME
 
-      Error in quantifiers or lambda term defition: the same variable name occurs twice or more.
+      Error in quantifiers or lambda term definition: the same variable name occurs twice or more.
 
    .. c:enum:: INTEGER_OVERFLOW
 
@@ -898,7 +898,7 @@ Error Reports
 
    .. c:enum:: CTX_LAMBDAS_NOT_SUPPORTED
 
-      An assertion contains lanbda terms but the context does not support them.
+      An assertion contains lambda terms but the context does not support them.
 
    .. c:enum:: CTX_NONLINEAR_ARITH_NOT_SUPPORTED
 

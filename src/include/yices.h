@@ -1345,7 +1345,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
  *
  * The general form takes an array t[0 ...n-1] as argument (n must be positive).
  * - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
- * -Special forms are provided for convenience for n=2 and 3.
+ * - special forms are provided for convenience for n=2 and 3.
  *
  * These function return NULL_TERM if there's an error.
  *

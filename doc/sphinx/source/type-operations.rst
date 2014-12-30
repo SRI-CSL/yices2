@@ -196,7 +196,7 @@ and set the error report (error code: :c:enum:`INVALID_TYPE`).
 
 .. c:function:: int32_t yices_type_is_bitvector(type_t tau)
 
-   Checks whether *tau* is a bitector type.
+   Checks whether *tau* is a bitvector type.
 
 .. c:function:: int32_t yices_type_is_scalar(type_t tau)
 
@@ -283,7 +283,7 @@ The following functions give access to attributes and components of a type.
 
      -- the last child (with index *i=n*) is *sigma*.
 
-   - for any other type, the function returns :c:enum:`NULL_TYPE` as the type has no chidlren.
+   - for any other type, the function returns :c:enum:`NULL_TYPE` as the type has no children.
 
    **Error report**
 
