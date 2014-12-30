@@ -56,9 +56,9 @@
 // FOR EXPORT TO DIMACS
 #include "solvers/bv/dimacs_printer.h"
 // FOR EF-SOLVER
-#include "solvers/exists_forall/ef_analyze.h"
-#include "solvers/exists_forall/ef_problem.h"
-#include "solvers/exists_forall/efsolver.h"
+#include "exists_forall/ef_analyze.h"
+#include "exists_forall/ef_problem.h"
+#include "exists_forall/efsolver.h"
 
 #include "context/context.h"
 #include "model/models.h"

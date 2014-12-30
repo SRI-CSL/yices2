@@ -12,31 +12,32 @@ SOURCE CODE OVERVIEW
 
 
 The source code is organized as follows:
+ 
+  src/utils:          Utilities and generic data structures
 
-  src/utils:        Utilities and generic data structures
+  src/terms:          Internal representation of terms and types, including functions and
+                      data structures for building/normalizing/simplifying terms.
 
-  src/terms:        Internal representation of terms and types, including functions and
-                    data structures for building/normalizing/simplifying terms.
+  src/models:         Data structures related to building, querying, and manipulating models.
+                      (A model stored mapping from terms to concreted values.)
 
-  src/models:       Data structures related to building, querying, and manipulating models.
-                    (A model stored mapping from terms to concreted values.)
+  src/solvers:        CDCL-based SAT solvers +  theory solvers
 
-  src/solvers:      CDCL-based SAT solvers +  theory solvers + solver for 
-                    exists/forall problems.
+  src/context:        Support for creating and manipulating contexts and for simplification
+                      and preprocessing of assertions.
 
-  src/context:      Support for creating and manipulating contexts and for simplification
-                    and preprocessing of assertions.
+  src/exists_forall:  Solver for exists/forall problems
+  
+  src/api:            Functions and data structures needed to implement the Yices API.
 
-  src/api:          Functions and data structures needed to implement the Yices API.
+  src/io:             Support for input output, including parsing and pretty printing.
 
-  src/io:           Support for input output, including parsing and pretty printing.
+  src/parser_utils:   Data structures common to all front-end tools, including support
+                      for parsing and stack-based construction of terms and types.
 
-  src/parser_utils: Data structures common to all front-end tools, including support
-                    for parsing and stack-based construction of terms and types.
+  src/frontend:       Main binaries. Each front-end supports a different input language.
 
-  src/frontend:     Main binaries. Each front-end supports a different input language.
-
-  src/include:      Header files that specify the Yices API.
+  src/include:        Header files that specify the Yices API.
 
 
 src/solvers contains a subdirectory for each solver:

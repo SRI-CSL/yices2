@@ -44,7 +44,7 @@
 #include "utils/int_hash_sets.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
-#include "solvers/exists_forall/ef_problem.h"
+#include "exists_forall/ef_problem.h"
 
 
 /*

@@ -100,6 +100,9 @@ base_src_c := \
 	context/internalization_table.c \
 	context/pseudo_subst.c \
 	context/symmetry_breaking.c \
+	exists_forall/ef_analyze.c \
+	exists_forall/ef_problem.c \
+	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
@@ -153,9 +156,6 @@ base_src_c := \
 	solvers/egraph/egraph_explanations.c \
 	solvers/egraph/egraph_utils.c \
 	solvers/egraph/theory_explanations.c \
-	solvers/exists_forall/ef_analyze.c \
-	solvers/exists_forall/ef_problem.c \
-	solvers/exists_forall/efsolver.c \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \

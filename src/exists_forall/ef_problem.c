@@ -13,7 +13,7 @@
 
 #include "utils/memalloc.h"
 #include "utils/index_vectors.h"
-#include "solvers/exists_forall/ef_problem.h"
+#include "exists_forall/ef_problem.h"
 
 /*
  * Initialization: all empty

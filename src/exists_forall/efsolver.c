@@ -18,7 +18,7 @@
 #include <inttypes.h>
 
 #include "utils/index_vectors.h"
-#include "solvers/exists_forall/efsolver.h"
+#include "exists_forall/efsolver.h"
 #include "terms/term_substitution.h"
 #include "model/literal_collector.h"
 #include "model/projection.h"

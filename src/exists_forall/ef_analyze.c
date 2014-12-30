@@ -18,7 +18,7 @@
 #include <assert.h>
 
 #include "terms/term_utils.h"
-#include "solvers/exists_forall/ef_analyze.h"
+#include "exists_forall/ef_analyze.h"
 #include "terms/term_sets.h"
 #include "terms/elim_subst.h"
 

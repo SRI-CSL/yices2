@@ -74,9 +74,9 @@ MKVERSION=./utils/make_source_version
 srcdir = src
 srcsubdirs = \
     include io terms utils solvers solvers/floyd_warshall solvers/funs \
-    solvers/bv solvers/egraph solvers/exists_forall solvers/cdcl \
+    solvers/bv solvers/egraph solvers/cdcl \
     solvers/simplex parser_utils model scratch api frontend frontend/smt1 \
-    frontend/dimacs frontend/yices frontend/smt2 context
+    frontend/dimacs frontend/yices frontend/smt2 context exists_forall 
 
 testdir = tests/unit
 regressdir = tests/regress
