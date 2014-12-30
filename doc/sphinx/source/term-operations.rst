@@ -1442,7 +1442,7 @@ Bitvector Terms
    - *t1* and *t2* must be bitvector terms of the same type.
 
    The two vectors are interpreted as unsigned integers (represented
-   with *n* bits) and the results is the smallest integer that 
+   with *n* bits) and the results is the largest integer that 
    can be represented with *n* bits, and is less than or equal to *t1/t2*.
 
    For division by zero, Yices uses the following convention:
@@ -1664,7 +1664,7 @@ Bitvector Terms
 
    - *t1* and *t2* must be bitvector terms of the same type.
  
-   The result is the bitwise negation of *(bv-and *t1* *t2*).
+   The result is the bitwise negation of *(bv-and t1 t2)*.
 
 .. c:function:: term_t yices_bvnor(term_t t1, term_t t2)
 
@@ -1674,7 +1674,7 @@ Bitvector Terms
 
    - *t1* and *t2* must be bitvector terms of the same type.
  
-   The result is the bitwise negation of *(bv-or *t1* *t2*).
+   The result is the bitwise negation of *(bv-or t1 t2)*.
 
 .. c:function:: term_t yices_bvxnor(term_t t1, term_t t2)
 
