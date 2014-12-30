@@ -25,4 +25,12 @@
  */
 extern int32_t print_error(FILE *f);
 
+/*
+ * Construct an error message and return it as a string.
+ * - the returned string must be freed when no-longer needed
+ *   by calling safe_free.
+ */
+extern char* error_string(void);
+
+
 #endif  /* __YICES_ERROR_H */

@@ -169,6 +169,15 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
 __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
 
 
+/*
+ * Build a string from the current error code + error report structure.
+ *
+ * The returned string must be freed when no-longer used by calling
+ * yices_free_string.
+ */
+__YICES_DLLSPEC__ extern char *yices_error_string(void);
+
+
 
 /********************************
  *  VECTORS OF TERMS AND TYPES  *

@@ -937,6 +937,14 @@ EXPORTED int32_t yices_print_error(FILE *f) {
 
 
 /*
+ * Build an error string
+ */
+EXPORTED char *yices_error_string(void) {
+  return error_string();
+}
+
+
+/*
  * Reset the internal term/types/pprod tables
  */
 void yices_reset_tables(void) {
