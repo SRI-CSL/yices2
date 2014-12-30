@@ -39,8 +39,8 @@ Global Initialization and Cleanup
    it must be freed when it is no longer used by calling
    this function.
 
-.. note::
+   .. note::
 
-   The strings returned by Yices are not automatically freed by functions
-   :c:func:`yices_exit` or :c:func:`yices_reset`.
+      The strings returned by Yices are not automatically freed by functions
+      :c:func:`yices_exit` or :c:func:`yices_reset`.
 

@@ -290,7 +290,7 @@ Yices Terms
 
       All terms and coefficients have the same size (i.e., same number of bits).
 
-      As a special case, *t_0* may be equal :c:macro:`NULL_TERM` to
+      As a special case, *t_0* may be equal to :c:macro:`NULL_TERM` to
       encode a constant term.  In this case, the sum can be
       interpreted as *a_0 + a_1 t_1 + ... + a_n t_n*.
 
@@ -348,9 +348,9 @@ Contexts
    not the context supports features such as backtracking and removal
    of formulas (via a push/pop mechanism).
 
-   A :c:type:`ctx_config_t` object is a descriptor that defines a
-   context configuration. It is an opaque data structure that lists
-   the solvers to use and the features supported by the context.
+   A :c:type:`ctx_config_t` object describes a context
+   configuration. It is an opaque data structure that lists the
+   solvers to use and the features supported by the context.
 
 .. c:type:: param_t
 
@@ -378,7 +378,7 @@ Contexts
        STATUS_ERROR
      } smt_status_t;
 
-   The type :c:type:`smt_status_t` represents the possible states of a
+   The type :c:type:`smt_status_t` enumerates the possible states of a
    context. It is also the type returned by functions that check
    whether a context is satisfiable. The following codes are defined:
 
@@ -412,7 +412,11 @@ Contexts
 
    .. c:enum:: STATUS_UNSAT
 
-      State entered when the search terminates and the assertions are not satisfiable.
+      State entered when the assertions are known to be unsatisfiable.
+
+      An unsatisfiability can be detected either when a formula is
+      asserted (if the inconsistency is detected by formula
+      simplification), or when the search terminates.
 
    .. c:enum:: STATUS_INTERRUPTED
 

@@ -32,22 +32,30 @@ The same information is available in the following constant string.
 
 .. c:var:: const char* yices_version
 
-   Version as a string of the form "2.3.0". The string includes the version number,
-   followed by the revision number and the patch level.
+   Version as a string.
+
+   The string includes the version number, followed by the revision
+   number and the patch level, as in "2.3.0".
 
 More details are given by three constant strings:
 
 .. c:var:: const char* yices_build_arch
 
-   Build architecture as a string like ``"x86_64-unknown-linux-gnu"``.
-   This specifies the processor and operating system for which the
-   Yices library was built.
+   Build architecture. 
+
+   This is a string like ``"x86_64-unknown-linux-gnu"`` that
+   specifies the processor and operating system for which the Yices
+   library was built.
 
 .. c:var:: const char* yices_build_mode
 
-   Build mode. Typical values are ``"release"`` for a normal build, or
-   ``"debug"`` if the library was built with debug symbols.
+   Build mode.
+
+   Typical values are ``"release"`` for a normal build, or ``"debug"``
+   if the library was built with debug symbols.
 
 .. c:var:: const char* yices_build_data
 
-   Build date in the format ``"Year-Month-Day"`` (as in ``"2014-12-20"``).
+   Build date.
+
+   This string uses the format ``"Year-Month-Day"``, as in ``"2014-12-20"``.

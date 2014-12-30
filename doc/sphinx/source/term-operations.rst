@@ -15,7 +15,7 @@ are explained in the `manual
 
 All term constructors return an object of type :c:type:`term_t`. They
 check their arguments, perform type checking, and return
-:c:macro:`NULL_TERM` if there's error. The functions listed in Section
+:c:macro:`NULL_TERM` if there's an error. The functions listed in Section
 :ref:`error_reports` can then be used to diagnose the error or print
 an error message. 
 
@@ -86,7 +86,7 @@ All functions in this section may report the following errors.
   - Several constructors have a parameter that specifies a bitvector
     size (i.e., number of bits). This number *n* must be positive and no more
     than :c:macro:`YICES_MAX_BVSIZE`. If *n* is more than this limit, the
-    following error is reported:q
+    following error is reported:
 
     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
 
@@ -98,8 +98,8 @@ All functions in this section may report the following errors.
 
     -- term1 := *t*
 
-  - If a bitvector constructor expects two bitvector arguments of the same size,
-    it will report the following errors if the argument sizes are different:
+  - Many constructors require bitvector arguments of the same size. They
+    report the following error if the argument sizes are different:
 
     -- error code: :c:enum:`INCOMPATIBLE_TYPES`
 
@@ -177,10 +177,11 @@ General Constructors
    This function creates constants of uninterpreted or scalar
    types. Within each such type, the constants are identified by a
    non-negative index *i*. Two constants with distinct indices are
-   distinct terms. A scalar type *tau* has finite cardinality so the
-   number of constants of type *tau* is limited. There is no
-   restriction on the number of constants of type *tau* if *tau* is an
-   uninterpreted type.
+   semantically distinct terms.
+
+   A scalar type *tau* has finite cardinality so the number of
+   constants of type *tau* is limited. There is no such restriction
+   if *tau* is an uninterpreted type.
 
 .. c:function:: term_t yices_ite(term_t c, term_t t1, term_t t2)
 
@@ -255,9 +256,11 @@ General Constructors
 
    - *arg[0] ... arg[n-1]*: arguments
 
-   The parameter *n* must be equal to the arity of function *fun*, and the arguments *arg[0] ... arg[n-1]* 
-   must have types that match the function signature. More precisely, if *fun* has type *(-> tau_1 ... tau_n sigma)*
-   then *arg[i]*'s type must be a subtype of *tau_(i+1)*.
+   The parameter *n* must be equal to the arity of function *fun*, and
+   the arguments *arg[0] ... arg[n-1]* must have types that match the
+   function signature. More precisely, if *fun* has type *(-> tau_1
+   ... tau_n sigma)* then *arg[i]*'s type must be a subtype of
+   *tau_(i+1)*.
 
    **Error report**
 
@@ -303,7 +306,7 @@ General Constructors
 
 .. c:function:: term_t yices_tuple(uint32_t n, const term_t arg[])
 
-   Returns the tuple term *(tuple arg[0] ... arg[n-1])*
+   Returns the tuple term *(tuple arg[0] ... arg[n-1])*.
 
    **Parameters**
 
@@ -322,21 +325,21 @@ General Constructors
 
 .. c:function:: term_t yices_pair(term_t t1, term_t t2)
 
-   Returns the pair *(tuple t1 t2)*
+   Returns the pair *(tuple t1 t2)*.
 
    This function is equivalent to :c:func:`yices_tuple` with *n=2*.
 
 
 .. c:function:: term_t yices_triple(term_t t1, term_t t2, term_t t3)
 
-   Returns the triple *(tuple t1 t2 t3)*
+   Returns the triple *(tuple t1 t2 t3)*.
 
    This function is equivalent to :c:func:`yices_tuple` with *n=3*.
 
 
 .. c:function:: term_t yices_select(uint32_t i, term_t t)
 
-   Returns the term *(select t i)*
+   Returns the term *(select t i)*.
 
    This function extracts the *i*-th component of a tuple *t*. 
 
@@ -443,7 +446,7 @@ General Constructors
 
 .. c:function:: term_t yices_update1(term_t fun, term_t arg1, term_t v)
 
-   Creates the function update *(update fun (arg1) v)*
+   Creates the function update *(update fun (arg1) v)*.
 
    This constructor is equivalent to :c:func:`yices_update` for
    functions of arity *n=1* (or single-dimensional arrays).
@@ -451,7 +454,7 @@ General Constructors
 
 .. c:function:: term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t v)
 
-   Creates the function update *(update fun (arg1 arg2) v)*
+   Creates the function update *(update fun (arg1 arg2) v)*.
 
    This constructor is equivalent to :c:func:`yices_update` for
    functions of arity *n=2* (or two-dimensional arrays).
@@ -459,7 +462,7 @@ General Constructors
 
 .. c:function:: term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t v)
 
-   Creates the function update *(update fun (arg1 arg2 arg3) v)*
+   Creates the function update *(update fun (arg1 arg2 arg3) v)*.
 
    This constructor is equivalent to :c:func:`yices_update` for
    functions of arity *n=3* (or three-dimensional arrays).
@@ -467,7 +470,7 @@ General Constructors
 
 .. c:function:: term_t yices_forall(uint32_t n, term_t var[], term_t body)
 
-   Creates the quantified term: *(forall (var[0] ... var[n-1]): body)*
+   Creates the quantified term: *(forall (var[0] ... var[n-1]): body)*.
 
    **Parameters**
 
@@ -508,7 +511,7 @@ General Constructors
 
 .. c:function:: term_t yices_exists(uint32_t n, term_t var[], term_t body)
 
-   Creates the quantified term *(exists (var[0] ... var[n-1]) body)*
+   Creates the quantified term *(exists (var[0] ... var[n-1]) body)*.
 
    This function is similar to :c:func:`yices_forall`. The parameters
    must satisfy the same constraints, and the possible error reports
@@ -520,15 +523,17 @@ General Constructors
 
 .. c:function:: term_t yices_lambda(uint32_t n, const term_t var[], term_t body)
 
-   Creates the lambda term *(lambda (var[0] ... var[n-1]) body)*
+   Creates the lambda term *(lambda (var[0] ... var[n-1]) body)*.
 
    **Parameters**
 
-   - *n* is the number of variables. It must be positive and no mode than :c:enum:`YICES_MAX_VARS`
+   - *n* is the number of variables.
 
    - *var* is an array of *n* variables.
 
    - *body* can be any term
+
+   The parameter *n* mut be positive and no more than :c:enum:`YICES_MAX_VARS`
 
    As in constructors :c:func:`yices_forall` and
    :c:func:`yices_exists`, all the elements in array *var* must be
@@ -579,11 +584,11 @@ Boolean Terms
 
 .. c:function:: term_t yices_and(uint32_t n, term_t arg[])
 
-   Constructs the conjunction *(and arg[0] ... arg[n-1])*
+   Constructs the conjunction *(and arg[0] ... arg[n-1])*.
 
    **Parameters**
 
-   - *n* is the number of arguments. It must be positive and no mode than :c:macro:`YICES_MAX_ARITY`.
+   - *n* is the number of arguments. It must be positive and no more than :c:macro:`YICES_MAX_ARITY`.
 
    - *arg* must be an array of *n* Boolean terms
 
@@ -601,7 +606,7 @@ Boolean Terms
     
 .. c:function:: term_t yices_and2(term_t t1, term_t t2)
 
-   Constructs the term *(and t1 t2)*
+   Constructs the term *(and t1 t2)*.
  
    This function is equivalent to :c:func:`yices_and` with *n=2*.
 
@@ -612,7 +617,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_and3(term_t t1, term_t t2, term_t t3)
 
-   Constructs the term *(and t1 t2 t3)*
+   Constructs the term *(and t1 t2 t3)*.
  
    This function is equivalent to :c:func:`yices_and` with *n=3*.
 
@@ -623,11 +628,11 @@ Boolean Terms
 
 .. c:function:: term_t yices_or(uint32_t n, term_t arg[])
 
-   Constructs the disjunction *(or arg[0] ... arg[n-1])*
+   Constructs the disjunction *(or arg[0] ... arg[n-1])*.
 
    **Parameters**
 
-   - *n* is the number of arguments. It must be positive and no mode than :c:macro:`YICES_MAX_ARITY`.
+   - *n* is the number of arguments. It must be positive and no more than :c:macro:`YICES_MAX_ARITY`.
 
    - *arg* must be an array of *n* Boolean terms
 
@@ -646,7 +651,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_or2(term_t t1, term_t t2)
 
-   Constructs the term *(or t1 t2)*
+   Constructs the term *(or t1 t2)*.
  
    This function is equivalent to :c:func:`yices_or` with *n=2*.
 
@@ -657,7 +662,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_or3(term_t t1, term_t t2, term_t t3)
 
-   Constructs the term *(or t1 t2 t3)*
+   Constructs the term *(or t1 t2 t3)*.
  
    This function is equivalent to :c:func:`yices_or` with *n=3*.
 
@@ -668,11 +673,11 @@ Boolean Terms
 
 .. c:function:: term_t yices_xor(uint32_t n, term_t arg[])
 
-   Constructs the exclusive or *(xor arg[0] ... arg[n-1])*
+   Constructs the exclusive or *(xor arg[0] ... arg[n-1])*.
 
    **Parameters**
 
-   - *n* is the number of arguments. It must be positive and no mode than :c:macro:`YICES_MAX_ARITY`.
+   - *n* is the number of arguments. It must be positive and no more than :c:macro:`YICES_MAX_ARITY`.
 
    - *arg* must be an array of *n* Boolean terms
 
@@ -691,7 +696,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_xor2(term_t t1, term_t t2)
 
-   Constructs the term *(xor t1 t2)*
+   Constructs the term *(xor t1 t2)*.
  
    This function is equivalent to :c:func:`yices_xor` with *n=2*.
 
@@ -701,7 +706,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_xor3(term_t t1, term_t t2, term_t t3)
 
-   Constructs the term *(xor t1 t2 t3)*
+   Constructs the term *(xor t1 t2 t3)*.
  
    This function is equivalent to :c:func:`yices_xor` with *n=3*.
 
@@ -712,7 +717,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_iff(term_t t1, term_t t2)
 
-   Constructs the equivalence *(<=> t1 t2)*
+   Constructs the equivalence *(<=> t1 t2)*.
 
    **Parameters**
 
@@ -721,7 +726,7 @@ Boolean Terms
 
 .. c:function:: term_t yices_implies(term_t t1, term_t t2)
 
-   Constructs the implication *(=> t1 t2)*  (i.e. *t1 implies t2*)
+   Constructs the implication *(=> t1 t2)*  (i.e. *t1 implies t2*).
 
    **Parameters**
 
@@ -754,7 +759,7 @@ Arithmetic Terms
 
    - If *den* is zero:
 
-     -- error code: :c:enum:DIVISION_BY_ZERO
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
 
 .. c:function:: term_t yices_rational64(int64_t num, uint64_t den)
 
@@ -766,7 +771,7 @@ Arithmetic Terms
 
    - If *den* is zero:
 
-     -- error code: :c:enum:DIVISION_BY_ZERO
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
 
 .. c:function:: term_t yices_mpz(const mpz_t z)
 
@@ -839,7 +844,8 @@ Arithmetic Terms
 
      -- the ``<exp>`` can be either ``e`` or ``E``
 
-     For example, ``"+1.04e5"`` or ``"-4E-3"`` and valid input to this function.
+     For example, ``"+1.04e5"`` or ``"-4E-3"`` are valid input for
+     this function.
 
    The string is converted to a rational or integer constant. Yices
    does not use floating point numbers internally.
@@ -853,19 +859,19 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_add(term_t t1, term_t t2)
 
-   Returns the sum *(+ t1 t2)*
+   Returns the sum *(+ t1 t2)*.
 
 .. c:function:: term_t yices_sub(term_t t1, term_t t2)
 
-   Returns the difference *(- t1 t2)*
+   Returns the difference *(- t1 t2)*.
 
 .. c:function:: term_t yices_neg(term_t t1)
 
-   Returns the opposite of *t1*: *(- t1)*
+   Returns the opposite of *t1*.
 
 .. c:function:: term_t yices_mul(term_t t1, term_t t2)
 
-   Returns the product *(\* t1 t2)*
+   Returns the product *(\* t1 t2)*.
 
    **Error report**
 
@@ -877,7 +883,7 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_square(term_t t1)
 
-   Returns the square of *t1*
+   Returns the square of *t1*.
 
    - If the result has degree *n* that's more than :c:macro:`YICES_MAX_DEGREE`
 
@@ -887,7 +893,7 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_power(term_t t1, uint32_t d)
 
-   Raises *t1* to power *d*
+   Raises *t1* to power *d*.
 
    When *d* is zero, this function returns the constant *1* even if *t1* is zero.
 
@@ -926,7 +932,7 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_sum(uint32_t n, const term_t t[])
 
-   Constructs the sum *(+ t[0] ... t[n-1])*
+   Constructs the sum *(+ t[0] ... t[n-1])*.
 
    **Parameters**
 
@@ -940,7 +946,7 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_product(uint32_t n, const term_t t[])
 
-   Constructs the product *(\* t[0] ... t[n-1])*
+   Constructs the product *(\* t[0] ... t[n-1])*.
 
    **Parameters**
 
@@ -1022,7 +1028,7 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[])
 
-   Creates the linear polynomial *(+ (\* z[0] t[0]) ... (\* z[n-1] t[n-1])*
+   Creates the linear polynomial *(+ (\* z[0] t[0]) ... (\* z[n-1] t[n-1])*,
 
    where the coefficients *z[i]* are GMP integers.
 
@@ -1059,51 +1065,51 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_arith_eq_atom(term_t t1, term_t t2)
 
-   Creates the arithmetic equality *(= t1 t2)*
+   Creates the arithmetic equality *(= t1 t2)*.
 
 .. c:function:: term_t yices_arith_neq_atom(term_t t1, term_t t2)
 
-   Creates the arithmetic disequality *(/= t1 t2)*
+   Creates the arithmetic disequality *(/= t1 t2)*.
 
 .. c:function:: term_t yices_arith_geq_atom(term_t t1, term_t t2)
 
-   Creates the inequality *(>= t1 t2)*
+   Creates the inequality *(>= t1 t2)*.
 
 .. c:function:: term_t yices_arith_leq_atom(term_t t1, term_t t2)
 
-   Creates the inequality *(<= t1 t2)*
+   Creates the inequality *(<= t1 t2)*.
 
 .. c:function:: term_t yices_arith_gt_atom(term_t t1, term_t t2)
 
-   Creates the inequality *(> t1 t2)*
+   Creates the inequality *(> t1 t2)*.
 
 .. c:function:: term_t yices_arith_lt_atom(term_t t1, term_t t2)
 
-   Creates the inequality *(< t1 t2)*
+   Creates the inequality *(< t1 t2)*.
 
 .. c:function:: term_t yices_arith_eq0_atom(term_t t)
 
-   Creates the equality *(= t 0)*
+   Creates the equality *(= t 0)*.
 
 .. c:function:: term_t yices_arith_neq0_atom(term_t t)
 
-   Creates the disequality *(/= t 0)*
+   Creates the disequality *(/= t 0)*.
 
 .. c:function:: term_t yices_arith_geq0_atom(term_t t)
 
-   Creates the inequality *(>= t 0)*
+   Creates the inequality *(>= t 0)*.
 
 .. c:function:: term_t yices_arith_leq0_atom(term_t t)
 
-   Creates the inequality *(<= t 0)*
+   Creates the inequality *(<= t 0)*.
 
 .. c:function:: term_t yices_arith_gt0_atom(term_t t)
 
-   Creates the inequality *(> t 0)*
+   Creates the inequality *(> t 0)*.
 
 .. c:function:: term_t yices_arith_lt0_atom(term_t t)
 
-   Creates the inequality *(< t 0)*
+   Creates the inequality *(< t 0)*.
 
 
 
