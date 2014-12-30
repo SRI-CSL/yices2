@@ -120,6 +120,20 @@ __YICES_DLLSPEC__ extern void yices_exit(void);
 __YICES_DLLSPEC__ extern void yices_reset(void);
 
 
+/*
+ * Delete a string returned by yices
+ *
+ * Several functions construct and return a string:
+ * - yices_error_string
+ * - yices_type_to_string
+ * - yices_term_to_string
+ * - yices_model_to_string
+ *
+ * The returned string must be freed when it's no longer used by
+ * calling this function.
+ */
+__YICES_DLLSPEC__ extern void yices_free_string(char *s);
+
 
 
 /*********************
@@ -176,27 +190,6 @@ __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
  * yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_error_string(void);
-
-
-
-/*********************
- *  STRING DELETION  *
- ********************/
-
-/*
- * Delete a string returned by yices
- *
- * Several functions construct and return a string:
- * - yices_error_string
- * - yices_type_to_string
- * - yices_term_to_string
- * - yices_model_to_string
- *
- * The returned string must be freed when it's no longer used by
- * calling this function.
- */
-__YICES_DLLSPEC__ extern void yices_free_string(char *s);
-
 
 
 

@@ -40,3 +40,10 @@ The following functions give access to the error report.
    variable *errno* and functions such as *perror* and relatives can
    be used for diagnostic.
 
+.. c:function:: char* yices_error_string(void)
+
+   This function builds an error message from the current error
+   code and error-report structure, and returns it as a string.
+
+   To avoid memory leaks, the returned string must be freed when it is
+   no longer used by calling :c:func:`yices_free_string`.

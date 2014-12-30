@@ -22,7 +22,7 @@ is either a type or the special value :c:macro:`NULL_TYPE` if there is
 an error. For error diagnostic, use the functions documented in
 section :ref:`error_reports`.
 
-**Generic error reports**
+**Common error reports**
 
   - All functions set the error report as follows if they receive a
     type parameter *tau* that is not valid:
@@ -68,7 +68,7 @@ Type Constructors
 
    **Error report**
 
-   - if *size* is more than :c:macro:`YICES_MAX_BVSIZE`:
+   - If *size* is more than :c:macro:`YICES_MAX_BVSIZE`:
 
      -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
 
@@ -102,7 +102,7 @@ Type Constructors
   
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -143,7 +143,7 @@ Type Constructors
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -236,7 +236,7 @@ The following functions give access to attributes and components of a type.
 
    **Error report**
 
-   - if *tau* is not a bitvector type:
+   - If *tau* is not a bitvector type:
 
      -- error code: :c:enum:`BVTYPE_REQUIRED`
 
@@ -249,7 +249,7 @@ The following functions give access to attributes and components of a type.
 
    **Error report**
 
-   - if *tau* is not a scalar type:
+   - If *tau* is not a scalar type:
 
      -- error code: :c:enum:`INVALID_TYPE_OP`
 
@@ -258,18 +258,18 @@ The following functions give access to attributes and components of a type.
 
    Number of children of type *tau*. or -1 if there's an error.
 
-   - if *tau* is a tuple type *(tuple tau_1 ... tau_n)*, the function returns *n*
+   - If *tau* is a tuple type *(tuple tau_1 ... tau_n)*, the function returns *n*
 
-   - if *tau* is a function type *(-> tau_1 ... tau_n sigma)*, the function returns *n+1*
+   - If *tau* is a function type *(-> tau_1 ... tau_n sigma)*, the function returns *n+1*
 
-   - if *tau* is any other type, the function returns 0
+   - If *tau* is any other type, the function returns 0
 
 
 .. c:function:: type_t yices_type_child(type_t tau, int32_t i)
 
    Returns the *i*-th child of type *tau*.
 
-   - if *tau* has *n* children then index *i* must be in the interval [0 .. *n-1*].
+   - If *tau* has *n* children then index *i* must be in the interval [0 .. *n-1*].
 
    - for a tuple type *(tuple tau_1 ... tau_n)*,
 
@@ -287,6 +287,6 @@ The following functions give access to attributes and components of a type.
 
    **Error report**
 
-   - if *i* is negative or larger than the number of children minus one:
+   - If *i* is negative or larger than the number of children minus one:
 
      -- error code: :c:enum:`INVALID_TYPE_OP`

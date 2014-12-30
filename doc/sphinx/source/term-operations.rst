@@ -19,7 +19,7 @@ check their arguments, perform type checking, and return
 :ref:`error_reports` can then be used to diagnose the error or print
 an error message. 
 
-If there's no error, the constructors apply rewriting and simplication
+If there's no error, the constructors apply rewriting and simplification
 procedures, then return an index in the global term table maintained
 within Yices. This index uniquely identifies the resulting term.
 Since Yices uses hash consing, two terms that are syntactically
@@ -30,7 +30,7 @@ same index.
              array is not declared as ``const term_t a[]`` then the
              function may modify the array.
 
-**Generic error reports**
+**Common error reports**
 
 All functions in this section may report the following errors.
 
@@ -71,9 +71,45 @@ All functions in this section may report the following errors.
 
   - If an integer parameter that must be positive is given the value zero:
 
-    -- error code :c:enum:`POS_INT_REQUIRED`
+    -- error code: :c:enum:`POS_INT_REQUIRED`
 
     -- badval := 0
+
+  - The arithmetic constructors expect arguments of type integer or real.
+    If they are given a term *t* of a different type, they report the
+    following error:
+
+    -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+    -- term1 := *t*
+
+  - Several constructors have a parameter that specifies a bitvector
+    size (i.e., number of bits). This number *n* must be positive and no more
+    than :c:macro:`YICES_MAX_BVSIZE`. If *n* is more than this limit, the
+    following error is reported:q
+
+    -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+    -- badval := *n*
+
+  - When a bitvector constructor is given a term *t* that's not a bitvector:
+
+    -- error code: :c:enum:`BITVECTOR_REQUIRED`
+
+    -- term1 := *t*
+
+  - If a bitvector constructor expects two bitvector arguments of the same size,
+    it will report the following errors if the arguments size are different:
+
+    -- error code: :c:enum:`INCOMPATIBLE_TYPES`
+
+    -- term1 := one argument
+
+    -- type1 := type of *term1*
+
+    -- term2 := the other argument
+
+    -- type2 := type of *term2*
 
 Other error reports may be produced by the term constructors.
 They are indicated after the function signature.
@@ -124,13 +160,13 @@ General Constructors
 
    **Error report**
 
-   - if *tau* is not scalar or uninterpreted
+   - If *tau* is not scalar or uninterpreted
 
      -- error code: :c:enum:`SCALAR_OR_UTYPE_REQUIRED`
 
      -- type1 := *tau*
 
-   - if *i* is negative or too large for type *tau*
+   - If *i* is negative or too large for type *tau*
 
      -- error code: :c:enum:`INVALID_CONSTANT_INDEX`
 
@@ -187,7 +223,7 @@ General Constructors
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -225,13 +261,13 @@ General Constructors
 
    **Error report**
 
-   - if *fun* does not have function type
+   - If *fun* does not have function type
 
      -- error code: :c:enum:`FUNCTION_REQUIRED`
  
      -- term1 := *fun*
 
-   - if *n* is different from *fun*'s arity
+   - If *n* is different from *fun*'s arity
 
      -- error code: :c:enum:`WRONG_NUMBER_OF_ARGUMENTS`
 
@@ -277,7 +313,7 @@ General Constructors
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -312,13 +348,13 @@ General Constructors
 
    **Error report**
 
-   - if *t* is does not have tuple type
+   - If *t* is does not have tuple type
 
      -- error code: :c:enum:`TUPLE_REQUIRED`
 
      -- term1 := *t*
 
-   - if *i* is zero or larger than N:
+   - If *i* is zero or larger than N:
 
      -- error code: :c:enum:`INVALID_TUPLE_INDEX`
 
@@ -340,17 +376,17 @@ General Constructors
 
    - *i* must be an index between 1 and N, where N is the number of components in *t*
 
-   - if *t*'s type is *(tuple tau_1 .. tau_i .. tau_n)* then *v*'s type must be a subtype of *tau_i*
+   - If *t*'s type is *(tuple tau_1 .. tau_i .. tau_n)* then *v*'s type must be a subtype of *tau_i*
 
    **Error report**
 
-   - if *t* does not have a tuple type
+   - If *t* does not have a tuple type
 
      -- error code: :c:enum:`TUPLE_REQUIRED`
 
      -- term1 := *t*
 
-   - if *i* is zero or larger than N:
+   - If *i* is zero or larger than N:
 
      -- error code: :c:enum:`INVALID_TUPLE_INDEX`
 
@@ -358,7 +394,7 @@ General Constructors
 
      -- badval := *i*    
 
-   - if *v*'s type is incorrect, the error code is :c:enum:`TYPE_MISMATCH`
+   - If *v*'s type is incorrect, the error code is :c:enum:`TYPE_MISMATCH`
 
 
 .. c:function:: term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t v)
@@ -384,13 +420,13 @@ General Constructors
 
    **Error report**
 
-   - if *fun* does not have function type
+   - If *fun* does not have function type
 
      -- error code: :c:enum:`FUNCTION_REQUIRED`
 
      -- term1 := *fun*
 
-   - if *n* is different from *fun*'s arity
+   - If *n* is different from *fun*'s arity
 
      -- error code: :c:enum:`WRONG_NUMBER_OF_ARGUMENTS`
 
@@ -448,19 +484,19 @@ General Constructors
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_VARS`:
+   - If *n* is more than :c:macro:`YICES_MAX_VARS`:
 
      -- error code: :c:enum:`TOO_MANY_VARS`
 
      -- badval := *n*
 
-   - if one *var[i]* is not a variable:
+   - If one *var[i]* is not a variable:
 
      -- error code: :c:enum:`VARIABLE_REQUIRED`
 
      -- term1 := *var[i]*
 
-   - if a variable *x* occurs twice in array *var*:
+   - If a variable *x* occurs twice in array *var*:
 
      -- error code: :c:enum:`DUPLICATE_VARIABLE`
 
@@ -474,8 +510,9 @@ General Constructors
 
    Creates the quantified term *(exists (var[0] ... var[n-1]) body)*
 
-   This function is similar to :c:func:`yices_forall`. The parameters must
-   satisfy the same constraints and the possible error reports are the same.
+   This function is similar to :c:func:`yices_forall`. The parameters
+   must satisfy the same constraints, and the possible error reports
+   are the same.
 
    **Warning**
 
@@ -500,19 +537,19 @@ General Constructors
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_VARS`:
+   - If *n* is more than :c:macro:`YICES_MAX_VARS`:
 
      -- error code: :c:enum:`TOO_MANY_VARS`
 
      -- badval := *n*
 
-   - if one *var[i]* is not a variable:
+   - If one *var[i]* is not a variable:
 
      -- error code: :c:enum:`VARIABLE_REQUIRED`
 
      -- term1 := *var[i]*
 
-   - if a variable *x* occurs twice in array *var*:
+   - If a variable *x* occurs twice in array *var*:
 
      -- error code: :c:enum:`DUPLICATE_VARIABLE`
 
@@ -552,7 +589,7 @@ Boolean Terms
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -597,7 +634,7 @@ Boolean Terms
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -641,7 +678,7 @@ Boolean Terms
 
    **Error report**
 
-   - if *n* is more than :c:macro:`YICES_MAX_ARITY`:
+   - If *n* is more than :c:macro:`YICES_MAX_ARITY`:
 
      -- error code: :c:enum:`TOO_MANY_ARGUMENTS`
 
@@ -697,80 +734,376 @@ Arithmetic Terms
 
 .. c:function:: term_t yices_zero(void)
 
+   Returns the integer constant 0.
+
 .. c:function:: term_t yices_int32(int32_t val)
+
+   Converts *val* to a constant integer term.
 
 .. c:function:: term_t yices_int64(int64_t val)
 
+   Converts *val* to a constant integer term.
+
 .. c:function:: term_t yices_rational32(int32_t num, uint32_t den)
+
+   Creates the rational constant *num/den*.
+
+   The parameter *den* must be positive.
+
+   **Error report**
+
+   - If *den* is zero:
+
+     -- error code: :c:enum:DIVISION_BY_ZERO
 
 .. c:function:: term_t yices_rational64(int64_t num, uint64_t den)
 
+   Creates the rational constant *num/den*.
+
+   The parameter *den* must be positive.
+
+   **Error report**
+
+   - If *den* is zero:
+
+     -- error code: :c:enum:DIVISION_BY_ZERO
+
 .. c:function:: term_t yices_mpz(const mpz_t z)
 
+   Converts the GMP integer *z* into a constant integer term.
+
+   **Note**
+
+   - This function is not declared unless you include :file:`gmp.h`
+     before :file:`yices.h` in your code::
+
+         #include <gmp.h>
+         #include <yices.h>
+
+ 
 .. c:function:: term_t yices_mpq(const mpq_t q)
+
+   Converts the GMP rational *q* into a constant rational term.
+
+   The parameter *q* must be in canonical form (cf. the GMP
+   documentation). 
+
+   Like the previous function, you must include :file:`gmp.h` before
+   :file:`yices.h` to ensure that this function is declared.
 
 .. c:function:: term_t yices_parse_rational(const char *s)
 
+   Converts string *s* into a rational or integer term.
+
+   **Parameter**
+
+   - The string *s* must be in the following format:
+
+      .. code-block:: none
+
+            <sign> <digits>/<digits>
+         or <sign> <digits>
+
+     -- the ``<sign>`` can be either ``+`` or ``-`` or nothing
+
+     -- and ``<digits>`` must be a sequence of decimal digits.
+
+     For example, ``"+1230/8939"``, ``"1/4"``, and ``"-10000"`` are in this format.
+
+   **Error report**
+
+   - If *s* is not in the right format:
+
+     -- error code: :c:enum:`INVALID_RATIONAL_FORMAT`
+
+   - If the denominator is zero:
+
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
+
+
 .. c:function:: term_t yices_parse_float(const char *s)
+
+   Converts string *s* into a rational or integer term.
+
+   **Parameter**
+
+   - The string *s* must be in the following floating-point format:
+
+      .. code-block:: none
+
+             <sign><digits>.<digits>
+         or  <sign><digits><exp><sign><digits>
+         or  <sign><digits>.<digits><exp><sign><digits>
+
+     -- the ``<sign>`` can be either ``+`` or ``-`` or nothing
+
+     -- the ``<exp>`` can be either ``e`` or ``E``
+
+     For example, ``"+1.04e5"`` or ``"-4E-3"`` and valid input to this function.
+
+   The string is converted to a rational or integer constant. Yices
+   does not use floating point numbers internally.
+
+   **Error report**
+
+   - If *s* is not in the right format:
+
+     -- error code: :c:enum:`INVALID_FLOAT_FORMAT`
 
 
 .. c:function:: term_t yices_add(term_t t1, term_t t2)
 
+   Returns the sum *(+ t1 t2)*
+
 .. c:function:: term_t yices_sub(term_t t1, term_t t2)
+
+   Returns the difference *(- t1 t2)*
 
 .. c:function:: term_t yices_neg(term_t t1)
 
+   Returns the opposite of *t1*: *(- t1)*
+
 .. c:function:: term_t yices_mul(term_t t1, term_t t2)
+
+   Returns the product *(\* t1 t2)*
+
+   **Error report**
+
+   - If the result has degree *n* that's more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code: :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := *n*
 
 .. c:function:: term_t yices_square(term_t t1)
 
+   Returns the square of *t1*
+
+   - If the result has degree *n* that's more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code: :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := *n*
+
 .. c:function:: term_t yices_power(term_t t1, uint32_t d)
+
+   Raises *t1* to power *d*
+
+   When *d* is zero, this function returns the constant *1* even if *t1* is zero.
+
+   **Error report**
+
+   - If the result has degree *n* that's more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code: :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := *n*
+
+.. c:function:: term_t yices_division(term_t t1, term_t t2)
+
+   Constructs the quotient *(/ t1 t2)*.
+ 
+   **Parameters**
+
+   - *t1* must be an arithmetic term
+
+   - *t2* must be a non-zero arithmetic constant
+
+   Yices does not support division by non-constant terms.
+
+   **Error report**
+
+   - If *t2* is not a constant:
+
+     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
+
+     -- term1 := *t2*
+
+   - If *t2* is zero:
+
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
 
 
 .. c:function:: term_t yices_sum(uint32_t n, const term_t t[])
 
-.. c:function:: term_t yices_division(term_t t1, term_t t2)
+   Constructs the sum *(+ t[0] ... t[n-1])*
+
+   **Parameters**
+
+   - *n* is the size of array *t*
+
+   - *t* must be an array of *n* arithmetic terms
+
+   This generalizes function :c:func:`yices_add` to *n* arguments. The
+   array may be empty (i.e., *n* may be zero), in which case, the
+   function returns *0*.
 
 .. c:function:: term_t yices_product(uint32_t n, const term_t t[])
 
+   Constructs the product *(\* t[0] ... t[n-1])*
+
+   **Parameters**
+
+   - *n* is the size of array *t*
+
+   - *t* must be an array of *n* arithmetic terms
+
+   This generalizes function :c:func:`yices_mul` to *n* arguments.
+   If *n* is zero, the function returns *1*.
 
 .. c:function:: term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[])
 
+   Creates the linear polynomial *(+ (\* a[0] t[0]) ... (\* a[n-1] t[n-1))*.
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *a* must be an array of *n* integer coefficients (of 32bits)
+
+   - *t* must be an array of *n* arithmetic terms
+
 .. c:function:: term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[])
+
+   Creates the linear polynomial *(+ (\* a[0] t[0]) ... (\* a[n-1] t[n-1))*.
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *a* must be an array of *n* integer coefficients (of 64bits)
+
+   - *t* must be an array of *n* arithmetic terms
+
 
 .. c:function:: term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[])
 
+   Creates the linear polynomial *(+ (\* a[0] t[0]) ... (\* a[n-1] t[n-1))*,
+
+   where coefficient *a[i]* is given by *num[i]/den[i]*.   
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *num* and *den* must be two arrays of *n* integers (of 32bits)
+
+   - *t* must be an array of *n* arithmetic terms
+
+   - no element of array *den* can be zero
+
+   **Error report**
+
+   - If a denominator *den[i]* is zero:
+
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
+
 .. c:function:: term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[])
+
+   Creates the linear polynomial *(+ (\* a[0] t[0]) ... (\* a[n-1] t[n-1))*,
+
+   where coefficient *a[i]* is given by *num[i]/den[i]*.   
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *num* and *den* must be two arrays of *n* integers (of 64bits)
+
+   - *t* must be an array of *n* arithmetic terms
+
+   - no element of array *den* can be zero
+
+   **Error report**
+
+   - If a denumerator *den[i]* is zero:
+
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
 
 .. c:function:: term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[])
 
+   Creates the linear polynomial *(+ (\* z[0] t[0]) ... (\* z[n-1] t[n-1])*
+
+   where the coefficients *z[i]* are GMP integers.
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *z* must be an array of *n* GMP integers
+
+   - *t* must be an array of *n* arithmetic terms
+
+   This function is not declared unless you include :file:`gmp.h` before
+   :file:`yices.h` in your code. See :c:func:`yices_mpz`.
+
 .. c:function:: term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[])
 
+   Creates the linear polynomial *(+ (\* q[0] t[0]) ... (\* q[n-1] t[n-1])*
+
+   where the coefficients *q[i]* are GMP rationals.
+
+   **Parameters**
+
+   - *n* is the number of terms in the sum
+
+   - *q* must be an array of *n* GMP rationals
+
+   - *t* must be an array of *n* arithmetic terms
+
+   - all the elements of *q* must be canonicalized
+
+   Like the previous function, you must include the header
+   :file:`gmp.h` before including :file:`yices.h` to ensure that
+   this function is declared.
 
 .. c:function:: term_t yices_arith_eq_atom(term_t t1, term_t t2)
 
+   Creates the arithmetic equality *(= t1 t2)*
+
 .. c:function:: term_t yices_arith_neq_atom(term_t t1, term_t t2)
+
+   Creates the arithmetic disequality *(/= t1 t2)*
 
 .. c:function:: term_t yices_arith_geq_atom(term_t t1, term_t t2)
 
+   Creates the inequality *(>= t1 t2)*
+
 .. c:function:: term_t yices_arith_leq_atom(term_t t1, term_t t2)
+
+   Creates the inequality *(<= t1 t2)*
 
 .. c:function:: term_t yices_arith_gt_atom(term_t t1, term_t t2)
 
+   Creates the inequality *(> t1 t2)*
+
 .. c:function:: term_t yices_arith_lt_atom(term_t t1, term_t t2)
 
+   Creates the inequality *(< t1 t2)*
 
 .. c:function:: term_t yices_arith_eq0_atom(term_t t)
 
+   Creates the equality *(= t 0)*
+
 .. c:function:: term_t yices_arith_neq0_atom(term_t t)
+
+   Creates the disequality *(/= t 0)*
 
 .. c:function:: term_t yices_arith_geq0_atom(term_t t)
 
+   Creates the inequality *(>= t 0)*
+
 .. c:function:: term_t yices_arith_leq0_atom(term_t t)
+
+   Creates the inequality *(<= t 0)*
 
 .. c:function:: term_t yices_arith_gt0_atom(term_t t)
 
+   Creates the inequality *(> t 0)*
+
 .. c:function:: term_t yices_arith_lt0_atom(term_t t)
+
+   Creates the inequality *(< t 0)*
 
 
 
@@ -779,37 +1112,263 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvconst_uint32(uint32_t n, uint32_t x)
 
+   Converts unsigned 32bit integer *x* into a bitvector constant.
+
+   **Parameters**
+
+   - *n* is the number of bits in the constant.
+
+   - *x* is the value.
+
+   The parameter *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   If *n* is less than 32, then the value *x* is truncated to *n* bits
+   (i.e., the result is formed by taking the *n* least significant
+   bits of *x*).
+
+   If *n* is more than 32, then the value *x* is zero-extended to *n* bits.
+
 .. c:function:: term_t yices_bvconst_uint64(uint32_t n, uint64_t x)
+
+   Converts unsigned 64bit integer *x* into a bitvector constant.
+
+   **Parameters**
+
+   - *n* is the number of bits in the constant.
+
+   - *x* is the value.
+
+   The parameter *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   If *n* is less than 64, then the value *x* is truncated to *n* bits
+   (i.e., the result is formed by taking the *n* least significant
+   bits of *x*).
+
+   If *n* is more than 64, then the value *x* is zero-extended to *n* bits.
 
 .. c:function:: term_t yices_bvconst_int32(uint32_t n, int32_t x)
 
+   Converts signed 32bit integer *x* into a bitvector constant.
+
+   **Parameters**
+
+   - *n* is the number of bits in the constant.
+
+   - *x* is the value.
+
+   The parameter *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   If *n* is less than 32, then the value *x* is truncated to *n* bits
+   (i.e., the result is formed by taking the *n* least significant
+   bits of *x*).
+
+   If *n* is more than 32, then the value *x* is sign-extended to *n* bits.
+
 .. c:function:: term_t yices_bvconst_int64(uint32_t n, int64_t x)
+
+   Converts signed 64bit integer *x* into a bitvector constant.
+
+   **Parameters**
+
+   - *n* is the number of bits in the constant.
+
+   - *x* is the value.
+
+   The parameter *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   If *n* is less than 64, then the value *x* is truncated to *n* bits
+   (i.e., the result is formed by taking the *n* least significant
+   bits of *x*).
+
+   If *n* is more than 64, then the value *x* is sign-extended to *n* bits.
 
 .. c:function:: term_t yices_bvconst_mpz(uint32_t n, const mpz_t x)
 
+   Converts GMP integer *x* into a bitvector constant.
+
+   **Parameters**
+
+   - *n* is the number of bits.
+
+   - *x* is the value.
+
+   The number *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   The GMP integer *x* is interpreted as a signed number in 2's complement.
+
+   - If *x* has fewer than *n* bits, then the value is sign-extended.
+
+   - If *x* has more than *n* bits, then the result is formed by taking the
+     *n* least significant bits of *x*.
+
+   This function is not declared unless you include :file:`gmp.h` before
+   :file:`yices.h` in your code. See :c:func:`yices_mpz`.
+
 .. c:function:: term_t yices_bvconst_zero(uint32_t n)
+
+   Constructs the zero bitvector of *n* bits.
+
+   All bits of the results are set to 0.
+
+   **Parameter**
+
+   - *n* is the number of bits.
+
+     It must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`
 
 .. c:function:: term_t yices_bvconst_one(uint32_t n)
 
+   Constructs the bitvector constant 1.
+
+   The least significant bit of the result is 1 and all other bits
+   are 0.
+
+   **Parameter**
+
+   - *n* is the number of bits.
+
+     It must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`
+
 .. c:function:: term_t yices_bvconst_minus_one(uint32_t n)
+
+   Constructs the bitvector constant equal to -1 in 2s complement representation.
+
+   All the bits in the result are set to 1.
+
+   **Parameter**
+
+   - *n* is the number of bits.
+
+     It must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`
+
 
 .. c:function:: term_t yices_bvconst_from_array(uint32_t n, const int32_t a[])
 
+   Constructs a bitvector constant from an array of integers.
+
+   **Parameters**
+
+   - *n* is the number of bits
+
+   - *a* must be an array of *n* integers
+
+   Parameter *n* must be positive and no more than :c:macro:`YICES_MAX_BVSIZE`.
+
+   The bits are indexed from 0 (least significant bit) to *n-1* (most significant bit),
+   and the result is defined as follows:
+
+   - bit *i* of the result is 0 if *a[i]* is 0.
+
+   - bit *i* of the result is 1 if *a[i]* is not 0.
+
 .. c:function:: term_t yices_parse_bvbin(const char *s)
+
+   Constructs a bitvector constant from a string in binary format.
+
+   **Parameter**
+
+   - *s* must be a ``'\0'``-terminated string that contains only
+     the characters ``'0'`` and ``'1'``.
+
+   The first character of *s* is the most-significant bit in the result,
+   and the last character is the least-significant bit.
+
+   The size of the result (number of bits) is the same as the length of string *s*.
+
+   For example, ``yices_parse_bvbin("00001")`` returns the same term as
+   ``yices_bvconst_one(5)``.
+
+   **Error report**
+
+   - if *s* is empty or contains characters other than ``'0'`` or ``'1'``:
+
+     -- error code: :c:enum:`INVALID_BVBIN_FORMAT`
+
+   - if *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE` characters):
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := length of *s*
 
 .. c:function:: term_t yices_parse_bvhex(const char *s)
 
-.. c:function:: term_t yices_bvadd(term_t t1, term_t t2)
+   Constructs a bitvector constant from a string in hexadecimal format.
+
+   **Parameter**
+
+   - *s* must be a ``'\0'``-terminated string that contains only
+     the characters ``'0'`` to ``'9'`` or ``'a'`` to ``'f'`` or ``'A'`` to ``'F'``.
+
+   If *s* is a string of length *n*, then the result is a bitvector
+   of *4\* n* bits.
+
+   The first character of *s* defines the four most significant bits
+   of the result, and the last character gives the four least
+   significant bits.
+
+   For example, ``yices_parse_bvhex("A7")`` returns the same term
+   as ``yices_parse_bvbin("10100111")``.
+
+   **Error report**
+
+   - if *s* is empty or contains non-hexadecimal characters:
+
+     -- error code: :c:enum:`INVALID_BVHEX_FORMAT`
+
+   - if *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE`/4 characters):
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := 4 * (length of *s*)
+
 
 .. c:function:: term_t yices_bvadd(term_t t1, term_t t2)
+
+   Returns the bitvector sum *(bv-add t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
 
 .. c:function:: term_t yices_bvsub(term_t t1, term_t t2)
 
+   Returns the bitvector difference *(bv-sub t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
 .. c:function:: term_t yices_bvneg(term_t t1)
+
+   Returns the 2s complement oppositve of *t1*.
 
 .. c:function:: term_t yices_bvmul(term_t t1, term_t t2)
 
+   Returns the bitvector product *(bv-mul t1 t2)*.
+
+   **Parameters**
+
+   - *t1* and *t2* must be bitvector terms of the same type.
+
+   **Error report**
+
+   - if the product would have degree more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code := :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := degree of *t1* + degree of *t2*  
+
 .. c:function:: term_t yices_bvsquare(term_t t1)
+
+   Returns the product  *(bv-mul t1 t1)*.
+
+   **Error report**
+
+   - if the square would have degree more than :c:macro:`YICES_MAX_DEGREE`
+
+     -- error code := :c:enum:`DEGREE_OVERFLOW`
+
+     -- badval := twice the degree of *t1*
 
 .. c:function:: term_t yices_bvpower(term_t t1, uint32_t d)
 

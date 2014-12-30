@@ -333,20 +333,20 @@ Contexts
      typedef struct context_s context_t;
 
    A context is a central data structure in Yices. A context stores a
-   set or formulas to check for satisfiability. The API includes
+   set of formulas to check for satisfiability. The API includes
    function to initialize and configure contexts, assert formulas in a
    context, check satisfiability, and construct models from a context.
 
 .. c:type:: ctx_config_t
 
-   Context configuration record::
+   Context-configuration record::
 
      typedef struct ctx_config_s ctx_config_t;
 
    When a context is created, it can be configured to use a specific
    solver or combination of solvers. One can also specify whether or
    not the context supports features such as backtracking and removal
-   of formula (via a push/pop mechanism).
+   of formulas (via a push/pop mechanism).
 
    A :c:type:`ctx_config_t` object is a descriptor that defines a
    context configuration. It is an opaque data structure that lists
@@ -496,8 +496,14 @@ Models
 
       Mappings of the form [tuple -> value] used to represent functions 
 
-   In a model, all functions are defined by a finite set of mappings,
-   and a default value. For example, if we have
+   The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`, :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
+   and :c:enum:`YVAL_SCALAR` are attached to leaf nodes in the DAG. The non-leaf nodes have
+   tags :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and :c:enum:`YVAL_MAPPING`.
+
+   The nodes with tag :c:enum:`YVAL_MAPPING` are auxiliary nodes that
+   occur in the definition of functions.  In a model, all function
+   values are defined by a finite set of mappings, and a default
+   value. For example, if we have
 
       - *f(0, 0) = 0*
 
@@ -509,15 +515,15 @@ Models
 
    then *f* is represented as follows:
 
-      - mappings:
+      - set of mappings:
          | [0, 0 -> 0]
          | [0, 1 -> 1]
          | [1, 0 -> 1]
 
-      - default value = 2
+      - default value: 2
 
-   In the DAG, there is a node for *f*, a node for the default value,
-   and three nodes for each of the three mappings.
+   The DAG contains a node for *f*, a node for the default value, and
+   three nodes for each of the three mappings.
 
 
 .. c:type:: yval_t
@@ -600,15 +606,13 @@ Error Reports
 
    When a function in the API fails for some reason, it returns a
    special value (typically a negative value or the :c:macro:`NULL`
-   pointer) and stores an error code in a global error report. The
-   following error codes are defined:
+   pointer) and stores an error code in a global record of type :c:type:`error_report_t`.
+
+   The following error codes are defined:
 
    .. c:enum:: NO_ERROR
 
       Everything is fine.
-
-
-   Errors in type or term constructors
 
    .. c:enum:: INVALID_TYPE
 
@@ -787,95 +791,90 @@ Error Reports
 
       Error in a term-exploration function.
 
-
-   Errors in parsing functions
-
    .. c:enum:: INVALID_TOKEN
 
-      Error in the lexer
+      Error in the lexer.
 
    .. c:enum:: SYNTAX_ERROR
 
-      Syntax error
+      Syntax error.
 
    .. c:enum:: UNDEFINED_TYPE_NAME
 
-      A name is not defined in the symbol table for types
+      A name is not defined in the symbol table for types.
 
    .. c:enum:: UNDEFINED_TERM_NAME
 
-      A name is not defined in the symbol table for terms 
+      A name is not defined in the symbol table for terms.
 
    .. c:enum:: REDEFINED_TYPE_NAME
 
-      Attempt to redefine an existing type name
+      Attempt to redefine an existing type name.
 
    .. c:enum:: REDEFINED_TERM_NAME
 
-      Attempt to redefine an existing term name
+      Attempt to redefine an existing term name.
 
    .. c:enum:: DUPLICATE_NAME_IN_SCALAR
 
-      A scalar-type definition contains the same element name twice (or more)
+      A scalar-type definition contains the same element name twice (or more).
 
    .. c:enum:: DUPLICATE_VAR_NAME
 
-      Error in quantifiers or lambda term defition: the same variable name occurs twice or more
+      Error in quantifiers or lambda term defition: the same variable name occurs twice or more.
 
    .. c:enum:: INTEGER_OVERFLOW
 
-      Integer constant too large to be converted to a signed 32bit integer
+      Integer constant can't be converted to a signed 32bit integer.
 
    .. c:enum:: INTEGER_REQUIRED
 
-      Rational constant provided when an integer is expected
+      Rational constant provided when an integer is expected.
 
    .. c:enum:: RATIONAL_REQUIRED
 
-      Invalid argument: a rational constant is expected
+      Invalid argument: a rational constant is expected.
 
    .. c:enum:: SYMBOL_REQUIRED
 
-      Error in a definition or local declaration: a symbol is expected
+      Error in a definition or local declaration: a symbol is expected.
 
    .. c:enum:: TYPE_REQUIRED
 
-      Error in a definition or declaration: a type is expected
+      Error in a definition or declaration: a type is expected.
 
    .. c:enum:: NON_CONSTANT_DIVISOR
 
-      Attempt to divide by a non-constant arithmetic term
+      Attempt to divide by a non-constant arithmetic term.
 
    .. c:enum:: NEGATIVE_BVSIZE
 
-      Error while parsing ``(bitvector size)``: the size is negative
+      Error while parsing ``(bitvector size)``: the size is negative.
 
    .. c:enum:: INVALID_BVCONSTANT
 
-      Error while parsing ``(mk-bv size value)``: the vale is negative
+      Error while parsing ``(mk-bv size value)``: the vale is negative.
 
    .. c:enum:: TYPE_MISMATCH_IN_DEF
 
-      Error in a term definition: the term value does not have the declared type
+      Error in a term definition: the term value does not have the declared type.
 
    .. c:enum:: ARITH_ERROR
 
-      Error in an arithmetic operation: an argument is not an arithmetic term
+      Error in an arithmetic operation: an argument is not an arithmetic term.
 
    .. c:enum:: BVARITH_ERROR
 
-      Error in a bitvector operation: an argument is not a bitvector
+      Error in a bitvector operation: an argument is not a bitvector.
 
-
-   Errors in context operations
 
    .. c:enum:: CTX_FREE_VAR_IN_FORMULA
 
-      An assertion contains free variables      
+      An assertion contains free variables.
 
    .. c:enum:: CTX_LOGIC_NOT_SUPPORTED
 
-      An assertion is not in a logic for which the context was configured
+      An assertion is not in a logic for which the context was configured.
 
    .. c:enum:: CTX_UF_NOT_SUPPORTED
 
@@ -953,8 +952,6 @@ Error Reports
       Invalid operation on a context: the context is not configured to support
       this operation.
 
-   Errors in context configuration
-
    .. c:enum:: CTX_INVALID_CONFIG
 
       Reported by :c:func:`yices_new_context` if the requested
@@ -972,9 +969,6 @@ Error Reports
    .. c:enum:: CTX_UNKNOWN_LOGIC
 
       A logic name is not recognized.
-
-
-   Errors in evaluation functions
 
    .. c:enum:: EVAL_UNKNOWN_TERM
 
@@ -1015,8 +1009,6 @@ Error Reports
       when the input formula is false in the model.
 
 
-   Errors in model construction and generalization
-
    .. c:enum:: MDL_UNINT_REQUIRED
 
       Invalid map for :c:func:`yices_model_from_map`: an element in the domain is 
@@ -1054,8 +1046,6 @@ Error Reports
       Model generalization failed for some other reason.
 
 
-   Errors in node query functions
-
    .. c:enum:: YVAL_INVALID_OP
  
       Invalid operation on a value descriptor (node in the model DAG).
@@ -1064,21 +1054,23 @@ Error Reports
 
       The value of a leaf node does not fit in the given input variable.
 
-
-   Input/output error
-
    .. c:enum:: OUTPUT_ERROR
 
       Error when attempting to write to a stream. This error can be reported
       by the pretty-printing functions if they fail to write to the specified 
       file.
 
+      If this error is reported, then system variables and functions
+      (e.g., ``errno``, ``perror``, ``strerror``) can be used for
+      diagnosis.
 
-   Catch-all code for any other error
 
    .. c:enum:: INTERNAL_EXCEPTION
 
+      Catch-all code for any other error.
+
       If you ever see this error code, please send a bug report at
+
       yices-bugs@csl.sri.com.
 
 
