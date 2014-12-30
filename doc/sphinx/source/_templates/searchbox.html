@@ -29,15 +29,11 @@ hideOrShow = function() {
   if ( $(window).width() > 900 ) {
     if (! showingBox) {
       $('#searchbox').show();
-      console.log("resize event: showing");
-      console.log($(window).width());
       showingBox = true;
     } 
   } else {
     if (showingBox) {
       $('#searchbox').hide();
-      console.log("resize event: hiding");
-      console.log($(window).width());
       showingBox = false;
     } 
   }
