@@ -56,8 +56,11 @@ All functions in this section may report the following errors.
 
     -- type1 := *tau* (i.e., the expected type)
 
-  - Some functions expect arguments of compatible types. If parameters
-    *t1* and *t2* do not have compatible types the error report is:
+  - Some functions expect arguments of compatible types. In
+    particular, many bitvector constructors require bitvector
+    arguments of the same size (i.e., the same number of bits). If two
+    arguments *t1* and *t2* do not have compatible types the error
+    report is:
 
     -- error code: :c:enum:`INCOMPATIBLE_TYPES`
 
@@ -98,26 +101,9 @@ All functions in this section may report the following errors.
 
     -- term1 := *t*
 
-  - Many constructors require bitvector arguments of the same size. They
-    report the following error if the argument sizes are different:
-
-    -- error code: :c:enum:`INCOMPATIBLE_TYPES`
-
-    -- term1 := one argument
-
-    -- type1 := type of *term1*
-
-    -- term2 := the other argument
-
-    -- type2 := type of *term2*
-
 Other error reports may be produced by the term constructors.
 They are indicated after the function signature.
 
-The next four sections present generic constructors, then constructors
-for Boolean, arithmetic, and bitvector terms. The last section
-documents functions to extract term attributes and access the internal
-term representation.
 
 
 
@@ -533,7 +519,7 @@ General Constructors
 
    - *body* can be any term
 
-   The parameter *n* mut be positive and no more than :c:enum:`YICES_MAX_VARS`
+   The parameter *n* must be positive and no more than :c:enum:`YICES_MAX_VARS`
 
    As in constructors :c:func:`yices_forall` and
    :c:func:`yices_exists`, all the elements in array *var* must be
@@ -895,7 +881,7 @@ Arithmetic Terms
 
    Raises *t1* to power *d*.
 
-   When *d* is zero, this function returns the constant *1* even if *t1* is zero.
+   When *d* is zero, this function returns the constant 1 even if *t1* is zero.
 
    **Error report**
 
@@ -942,7 +928,7 @@ Arithmetic Terms
 
    This generalizes function :c:func:`yices_add` to *n* arguments. The
    array may be empty (i.e., *n* may be zero), in which case, the
-   function returns *0*.
+   function returns 0.
 
 .. c:function:: term_t yices_product(uint32_t n, const term_t t[])
 
@@ -955,7 +941,7 @@ Arithmetic Terms
    - *t* must be an array of *n* arithmetic terms
 
    This generalizes function :c:func:`yices_mul` to *n* arguments.
-   If *n* is zero, the function returns *1*.
+   If *n* is zero, the function returns 1.
 
 .. c:function:: term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[])
 
@@ -1237,7 +1223,7 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvconst_minus_one(uint32_t n)
 
-   Constructs the bitvector constant equal to -1 in 2s complement representation.
+   Constructs the bitvector constant equal to -1 in 2's complement representation.
 
    All the bits in the result are set to 1.
 
@@ -1286,11 +1272,11 @@ Bitvector Terms
 
    **Error report**
 
-   - if *s* is empty or contains characters other than ``'0'`` or ``'1'``:
+   - If *s* is empty or contains characters other than ``'0'`` or ``'1'``:
 
      -- error code: :c:enum:`INVALID_BVBIN_FORMAT`
 
-   - if *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE` characters):
+   - If *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE` characters):
 
      -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
 
@@ -1317,11 +1303,11 @@ Bitvector Terms
 
    **Error report**
 
-   - if *s* is empty or contains non-hexadecimal characters:
+   - If *s* is empty or contains non-hexadecimal characters:
 
      -- error code: :c:enum:`INVALID_BVHEX_FORMAT`
 
-   - if *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE`/4 characters):
+   - If *s* is too long (more than :c:macro:`YICES_MAX_BVSIZE`/4 characters):
 
      -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
 
@@ -1346,7 +1332,7 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvneg(term_t t1)
 
-   Returns the 2s complement opposite of *t1*.
+   Returns the 2's complement opposite of *t1*.
 
 .. c:function:: term_t yices_bvmul(term_t t1, term_t t2)
 
@@ -1358,7 +1344,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if (degree of *t1* + degree of *t2*) is more than :c:macro:`YICES_MAX_DEGREE`
+   - If (degree of *t1* + degree of *t2*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1370,7 +1356,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if (2 * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
+   - If (2 * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1384,7 +1370,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if (*d* * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
+   - If (*d* * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1426,7 +1412,7 @@ Bitvector Terms
 
    **Error report**
 
-   - if the degree is too large:
+   - If the degree is too large:
 
      -- error code: :c:enum:`DEGREE_OVERFLOW`
 
@@ -1481,7 +1467,7 @@ Bitvector Terms
    - *t1* and *t2* must be bitvector terms of the same type.
 
    The two bitvectors *t1* and *t2* are interpreted as signed integers
-   of *n* bits in 2s complement representation. This signed division
+   of *n* bits in 2's complement representation. This signed division
    rounds the quotient toward zero.
 
    - If *t1/t2* is positive and *t2* isn't zero, then *(bv-sdiv t1
@@ -1537,7 +1523,7 @@ Bitvector Terms
    - *t1* and *t2* must be bitvector terms of the same type.
 
    The two bitvectors *t1* and *t2* are interpreted as signed integers
-   of *n* bits in 2s complement representation.  This function returns
+   of *n* bits in 2's complement representation.  This function returns
    the remainder in the signed division of *t1* by *t2* with rounding
    to minus infinity.
 
@@ -1687,67 +1673,573 @@ Bitvector Terms
    The result is the bitwise negation of *(bv-xor t1 t2)*.
 
 
-.. c:function:: term_t yices_bvshl(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvlshr(term_t t1, term_t t2)
-
-.. c:function:: term_t yices_bvashr(term_t t1, term_t t2)
-
 .. c:function:: term_t yices_shift_left0(term_t t, uint32_t n)
+
+   Bitvector shift left by a constant, padding with 0.
+
+   This shifts bitvector *t* by *n* bits to the left, and sets the
+   least significant bits to 0. 
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b11111      0      0b11111
+         0b11111      2      0b11100
+         0b11111      5      0b00000
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
 
 .. c:function:: term_t yices_shift_left1(term_t t, uint32_t n)
 
+   Bitvector shift left by a constant, padding with 1.
+
+   This shifts bitvector *t* by *n* bits to the left, and sets the
+   least significant bits to 1. 
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b00000      0      0b00000
+         0b00000      2      0b00011
+         0b00000      5      0111111
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
+
 .. c:function:: term_t yices_shift_right0(term_t t, uint32_t n)
+
+   Bitvector shift right by a constant, padding with 0.
+
+   This shifts bitvector *t* by *n* bits to the right, and sets the
+   most significant bits to 0. 
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b11111      0      0b11111
+         0b11111      2      0b00111
+         0b11111      5      0b00000
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
 
 .. c:function:: term_t yices_shift_right1(term_t t, uint32_t n)
 
+   Bitvector shift right by a constant, padding with 1.
+
+   This shifts bitvector *t* by *n* bits to the right, and sets the
+   most significant bits to 1. 
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b00000      0      0b00000
+         0b00000      2      0b11000
+         0b00000      5      0111111
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
+
 .. c:function:: term_t yices_ashift_right(term_t t, uint32_t n)
+
+   Bitvector arithmetic shift right by a constant.
+
+   This shifts bitvector *t* by *n* bits to the right, and
+   sets the most significant bits of the result to the same
+   value as *t*'s sign (i.e., the most significant bit of *t*).
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b01111      2      0b00011
+         0b01111      5      0b00000
+         0b10111      2      0b11101
+         0b10111      5      0b11111
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
+
 
 .. c:function:: term_t yices_rotate_left(term_t t, uint32_t n)
 
+   Bitvector rotate left by a constant.
+
+   This rotates bitvector *t* to the left by *n* bits.
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   If *n* is either 0 or *m*, the result is equal to *t*.
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b01010      0      0b01010
+         0b01010      1      0b10100
+         0b01010      2      0b01001
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
+
+
 .. c:function:: term_t yices_rotate_right(term_t t, uint32_t n)
+
+   Bitvector rotate right by a constant.
+
+   This rotates bitvector *t* to the right by *n* bits.
+
+   **Parameters**
+
+   - If *t* is a bitvector of *m* bits then parameter *n* must
+     be between 0 and *m*.
+
+   If *n* is either 0 or *m*, the result is equal to *t*.
+
+   **Examples**
+
+        ========= ========= =========
+           *t*       *n*      result
+        ========= ========= =========
+         0b01010      0      0b01010
+         0b01010      1      0b00101
+         0b01010      2      0b10010
+        ========= ========= =========
+
+   **Error report**
+
+   - If *n* is more than the number of bits in *t*:
+
+     -- error code: :c:enum:`INVALID_BITSHIFT`
+
+     -- badval := *n*   
+
+
+
+.. c:function:: term_t yices_bvshl(term_t t1, term_t t2)
+
+   Bitvector shift left.
+
+   This shifts bitvector *t1* to the left by the amount specified by *t2*.
+   The least significant bits of the result are set to 0.
+
+   **Parameters**
+
+   - *t1* and *t2* must be two bitvectors of the same type
+
+   If *n* is the number of bits in both *t1* and *t2*, then bitvector
+   *t2* is interpreted as an unsigned integer of *n* bits that specifies
+   the shift amount. If *t2*'s value is more than *n-1*, then
+   the result is the bitvector ``0b00...00``.
+
+
+.. c:function:: term_t yices_bvlshr(term_t t1, term_t t2)
+
+   Bitvector logical shift right.
+
+   This shifts bitvector *t1* to the right by the amount specified by *t2*.
+   The most significant bits of the result are set to 0.
+
+   **Parameters**
+
+   - *t1* and *t2* must be two bitvectors of the same type
+
+   If *n* is the number of bits in both *t1* and *t2*, then bitvector
+   *t2* is interpreted as an unsigned integer of *n* bits that specifies
+   the shift amount. If *t2*'s value is more than *n-1*, then
+   the result is the bitvector ``0b00...00``.
+
+
+.. c:function:: term_t yices_bvashr(term_t t1, term_t t2)
+
+   Bitvector arithmetic shift right.
+
+   This shifts bitvector *t1* to the right by the amount specified by *t2*.
+   The most significant bits of the result are equal to *t1*'s sign bit (i.e.,
+   the most significant bit of *t1*).
+
+   **Parameters**
+
+   - *t1* and *t2* must be two bitvectors of the same type
+
+   If *n* is the number of bits in both *t1* and *t2*, then bitvector
+   *t2* is interpreted as an unsigned integer of *n* bits that specifies
+   the shift amount. If *t2*'s value is more than *n-1*, then
+   the result is either the bitvector ``0b11...11`` if *t1* is negative,
+   or the bitvector ``0b00...00`` if *t1* is positive or null.
 
 .. c:function:: term_t yices_bvextract(term_t t, uint32_t i, uint32_t j)
 
-.. c:function:: term_t yices_bvconcat2(term_t t1, term_t t2)
+   Extracts a subvector from bitvector *t*.
 
-.. c:function:: term_t yices_bvconcat(uint32_t n, const term_t t[])
+   **Parameters**
 
-.. c:function:: term_t yices_bvrepeat(term_t t, uint32_t n)
+   - *t* must be a bitvector term
 
-.. c:function:: term_t yices_sign_extend(term_t t, uint32_t n)
+   - *i* and *j* must satisfy the constraint *i <= j <= n-1* where *n*
+     is the number of bits in *t*
 
-.. c:function:: term_t yices_zero_extend(term_t t, uint32_t n)
+   The result is a bitvector of *1 + j - i* bits, formed by taking bits *i* to *j*
+   of *t*. The least significant bit of the result is the *i*-th bit of *t*, and the
+   most significant bit is the *j*-th bit of *t*.
 
-.. c:function:: term_t yices_redand(term_t t)
+   **Examples**
+ 
+      ========= ======= ======= =========
+        *t*       *i*     *j*     result
+      ========= ======= ======= =========
+       0b10010     0       2     0b010
+       0b10010     2       4     0b100
+       0b10010     1       4     0b1001
+      ========= ======= ======= =========
 
-.. c:function:: term_t yices_redor(term_t t)
+   **Error report**
 
-.. c:function:: term_t yices_redcomp(term_t t1, term_t t2)
+   - If the constraint *i <= j <= n-1* does not hold
+  
+     -- error code: :c:enum:`INVALID_BVEXTRACT`
 
-.. c:function:: term_t yices_bvarray(uint32_t n, const term_t arg[])
 
 .. c:function:: term_t yices_bitextract(term_t t, uint32_t i)
 
+   Extracts the *i*-th bit of bitvector *t*.
+
+   **Parameters**
+
+   - *i* must be an index between 0 and *n-1*, where *n* is the number
+     of bits of *t*.
+
+   The result is a Boolean term.
+
+   **Error report**
+
+   - If *i* is too large:
+
+     -- error code: :c:enum:`INVALID_BITEXTRACT`
+
+
+.. c:function:: term_t yices_bvconcat(uint32_t n, const term_t t[])
+
+   Bitvector concatenation: *(bv-concat t[0] ... t[n-1])*
+
+   **Parameters**
+
+   - *n* is the number of arguments
+
+   - *t* must be an array of *n* bitvector terms
+
+   Parameter *n* must be positive.
+
+   The array *t* lists the elements to concatenate from left to right:
+   the most significant bits of the result are given by *t[0]* and the
+   least significant bits are formed by *t[n-1]*.  For example, if we
+   have *n=3* and *t[0] = 0b000*, *t[1] = 0b111*, and *t[2] = 0b01*,
+   then the result is *0b00011101*.
+ 
+   **Error report**
+
+   - If the size of the result would be more than :c:macro:`YICES_MAX_BVSIZE`
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := sum of the sizes of the vectors *t[i]*
+
+.. c:function:: term_t yices_bvconcat2(term_t t1, term_t t2)
+
+   Concatenation of *t1* and *t2*.
+
+   This function is equivalent to :c:func:`yices_bvconcat` with *n=2*.
+
+   The left part (most significant bits) is *t1* and the right part
+   (least significant bits) is *t2*.
+
+.. c:function:: term_t yices_bvrepeat(term_t t, uint32_t n)
+
+   Repeated concatenation.
+
+   This concatenates *t* with itself *n* times.
+
+   The result is a bitvector of *n\*m* bits, where *m* is the number of bits in *t*.
+   If *n=1* the result is ``t``; if *n=2*, it is the same as ``yices_bvconcat2(t, t)``,
+   and so forth.
+
+   **Parameters**
+
+   - the integer *n* must be positive
+
+   **Error report** 
+
+   - If *n* * (number of bits of *t*) is more than :c:macro:`YICES_MAX_BVSIZE`
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := *n* * (number of bits of *t*)
+
+.. c:function:: term_t yices_sign_extend(term_t t, uint32_t n)
+
+   Sign extension.
+
+   This adds *n* copies of *t*'s sign bit to the left of *t*.
+
+   **Error report**
+
+   - If *n* + (number of bits of *t*) is more than :c:macro:`YICES_MAX_BVSIZE`
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := *n* + (number of bits of *t*)
+
+
+.. c:function:: term_t yices_zero_extend(term_t t, uint32_t n)
+
+   Zero extension.
+
+   This adds *n* zero bits to the left of *t*.
+
+   **Error report**
+
+   - If *n* + (number of bits of *t*) is more than :c:macro:`YICES_MAX_BVSIZE`
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := *n* + (number of bits of *t*)
+
+
+.. c:function:: term_t yices_redand(term_t t)
+
+   And reduction.
+
+   This returns a bitvector of one bit equal to the conjunction of all
+   bits of *t*.
+
+   If we denote by *b[n-1] ... b[0]* the *n* bits of *b*, then bit 0
+   of the result is *(and b[0] ... b[n-1])*.
+
+.. c:function:: term_t yices_redor(term_t t)
+
+   Or reduction.
+
+   This returns a bitvector of one bit equal to the disjunction of all
+   bits of *t*.
+
+   If we denote by *b[n-1] ... b[0]* the *n* bits of *b*, then bit 0
+   of the result is *(or b[0] ... b[n-1])*.
+
+.. c:function:: term_t yices_redcomp(term_t t1, term_t t2)
+
+   Bitwise equality reduction.
+
+   This function returns *(bv-redand (bv-xnor t1 t2))*. 
+
+   The result is a bitvector of one bit equal to 1 if *t1* and *t2* are equal,
+   and to 0 otherwise.
+
+   **Parameters**
+
+   - *t1* and *t2* must be two bitvectors of the same size.
+
+.. c:function:: term_t yices_bvarray(uint32_t n, const term_t arg[])
+
+   Converts a array of Boolean terms into a bitvector.
+
+   **Parameters**
+
+   - *n* is the number of bits in the result
+
+   - *arg* must be an array of *n* Boolean terms
+
+   Parameter *n* must be positive and no more than
+   :c:macro:`YICES_MAX_BVSIZE`. The least significant bit is *arg[0]*
+   and the most significant bit is *arg[n-1]*.
+
+   **Error report**
+
+   - If *n* is too large:
+
+     -- error code: :c:enum:`MAX_BVSIZE_EXCEEDED`
+
+     -- badval := *n*
+
 .. c:function:: term_t yices_bveq_atom(term_t t1, term_t t2)
+
+   Bivector equality.
+
+   This returns the Boolean term *(= t1 t2)*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
 
 .. c:function:: term_t yices_bvneq_atom(term_t t1, term_t t2)
 
+   Bivector disequality.
+
+   This returns the Boolean term *(/= t1 t2)*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
 .. c:function:: term_t yices_bvge_atom(term_t t1, term_t t2)
+
+   Bitvector unsigned inequality: *t1* greater than or equal to *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as unsigned integers of *n* bits
+   and the result is the atom *(>= t1 t2)*.
 
 .. c:function:: term_t yices_bvgt_atom(term_t t1, term_t t2)
 
+   Bitvector unsigned inequality: *t1* greater than *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as unsigned integers of *n* bits
+   and the result is the atom *(> t1 t2)*.
+
 .. c:function:: term_t yices_bvle_atom(term_t t1, term_t t2)
+
+   Bitvector unsigned inequality: *t1* less than or equal to *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as unsigned integers of *n* bits
+   and the result is the atom *(<= t1 t2)*.
 
 .. c:function:: term_t yices_bvlt_atom(term_t t1, term_t t2)
 
+   Bitvector unsigned inequality: *t1* less than *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as unsigned integers of *n* bits
+   and the result is the atom *(< t1 t2)*.
+
 .. c:function:: term_t yices_bvsge_atom(term_t t1, term_t t2)
+
+   Bitvector signed inequality: *t1* greater than or equal to *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as signed integers of *n* bits in
+   2's complement representation and the result is the atom *(>= t1 t2)*.
 
 .. c:function:: term_t yices_bvsgt_atom(term_t t1, term_t t2)
 
+   Bitvector signed inequality: *t1* greater then *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as signed integers of *n* bits in
+   2's complement representation and the result is the atom *(> t1 t2)*.
+
 .. c:function:: term_t yices_bvsle_atom(term_t t1, term_t t2)
 
+   Bitvector signed inequality: *t1* less than or equal to *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as signed integers of *n* bits in
+   2's complement representation and the result is the atom *(<= t1 t2)*.
+
 .. c:function:: term_t yices_bvslt_atom(term_t t1, term_t t2)
+
+   Bitvector signed inequality: *t1* less than *t2*.
+
+   **Parameters**
+ 
+   - *t1* and *t2* must be bitvector of the same type
+
+   Both bitvectors are interpreted as signed integers of *n* bits in
+   2's complement representation and the result is the atom *(< t1 t2)*.
 
 
 

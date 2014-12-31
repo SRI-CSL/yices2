@@ -70,7 +70,17 @@ We can now build a more complex term by using constructors such as
                          yices_arith_eq_atom(yices_add(x, y),
                                              yices_int32(100)));
 
-The resulting term ``f`` is the formula ``(x>=0 and y>=0 and x+y=10)``.
+.. only:: format_html
+
+   .. role:: raw-html(raw)
+      :format: html
+
+   The resulting term ``f`` is the formula :raw-html:`<em>x &ge; 0 &#x22C0; y &ge; 0 &#x22C0; x+y=10</em>`.
+
+.. only:: not format_html
+
+   The resulting term ``f`` is the formula :math:`x \ge 0 \wedge y \ge 0 \wedge x+y=10`.
+
 
 We can also build the same term by parsing a string::
 

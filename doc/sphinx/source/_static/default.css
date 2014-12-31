@@ -17,6 +17,12 @@ body {
   min-width: 740px;
 }
 
+span.raw-html {
+  font-family: "Latin Modern Math", "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.1em;
+}
+
 a {
   text-decoration: none;
   color: #1A41A8;
@@ -288,6 +294,10 @@ div.body ul {
 
 div.body blockquote {
   margin-left: 0px;
+}
+
+div.body blockquote table {
+  margin-left: 3em;
 }
 
 div.body a {
