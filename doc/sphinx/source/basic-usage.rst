@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. include:: macros
+
 .. highlight:: c
 
 .. _basic_api_usage:
@@ -71,9 +73,6 @@ We can now build a more complex term by using constructors such as
                                              yices_int32(100)));
 
 .. only:: format_html
-
-   .. role:: raw-html(raw)
-      :format: html
 
    The resulting term ``f`` is the formula :raw-html:`<em>x &ge; 0 &#x22C0; y &ge; 0 &#x22C0; x+y=10</em>`.
 

@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. include:: macros
+
 .. highlight:: c
 
 .. _term_operations:
@@ -218,7 +220,7 @@ General Constructors
 
    **Warning**
 
-   -  array *arg* may be modified.
+   -  Array *arg* may be modified.
     
 
 .. c:function:: term_t yices_application(term_t fun, uint32_t n, const term_t arg[])
@@ -244,9 +246,9 @@ General Constructors
 
    The parameter *n* must be equal to the arity of function *fun*, and
    the arguments *arg[0] ... arg[n-1]* must have types that match the
-   function signature. More precisely, if *fun* has type *(-> tau_1
-   ... tau_n sigma)* then *arg[i]*'s type must be a subtype of
-   *tau_(i+1)*.
+   function signature. More precisely, if *fun* has
+   type (-> |tau|\ |_1| |...| |tau|\ |_n| |sigma|) then *arg[i]*'s type must 
+   be a subtype of |tau|\ |_i+1|.
 
    **Error report**
 
@@ -365,7 +367,8 @@ General Constructors
 
    - *i* must be an index between 1 and N, where N is the number of components in *t*
 
-   - If *t*'s type is *(tuple tau_1 .. tau_i .. tau_n)* then *v*'s type must be a subtype of *tau_i*
+   - If *t*'s type is *(tuple* |tau|\ |_1| |...| |tau|\ |_i| |...| |tau|\ |_n| *)* then *v*'s type 
+     must be a subtype of |tau|\ |_i|
 
    **Error report**
 
@@ -404,8 +407,8 @@ General Constructors
    - *v* is a term (the new value)
 
    As in :c:func:`yices_application`, the arguments *arg[0] ... arg[n-1]* must have
-   types that match the signature of *fun*. In addition, the new value *v* must
-   have a type that's a subtype of the function range.
+   types that match the signature of *fun*. In addition, *v*'s type must be a subtype of 
+   the function range.
 
    **Error report**
 
@@ -456,7 +459,7 @@ General Constructors
 
 .. c:function:: term_t yices_forall(uint32_t n, term_t var[], term_t body)
 
-   Creates the quantified term: *(forall (var[0] ... var[n-1]): body)*.
+   Creates the quantified term: *(forall (var[0] ... var[n-1]) body)*.
 
    **Parameters**
 
@@ -493,7 +496,7 @@ General Constructors
 
    **Warning**
 
-   - array *var* may be modified.
+   - Array *var* may be modified.
 
 .. c:function:: term_t yices_exists(uint32_t n, term_t var[], term_t body)
 
@@ -505,7 +508,7 @@ General Constructors
 
    **Warning**
 
-   - array *var* may be modified.
+   - Array *var* may be modified.
 
 .. c:function:: term_t yices_lambda(uint32_t n, const term_t var[], term_t body)
 
@@ -588,7 +591,7 @@ Boolean Terms
 
    **Warning**
 
-   -  array *arg* may be modified.
+   -  Array *arg* may be modified.
     
 .. c:function:: term_t yices_and2(term_t t1, term_t t2)
 
@@ -632,7 +635,7 @@ Boolean Terms
 
    **Warning**
 
-   -  array *arg* may be modified.
+   -  Array *arg* may be modified.
     
 
 .. c:function:: term_t yices_or2(term_t t1, term_t t2)
@@ -677,7 +680,7 @@ Boolean Terms
 
    **Warning**
 
-   -  array *arg* may be modified.
+   -  Array *arg* may be modified.
     
 
 .. c:function:: term_t yices_xor2(term_t t1, term_t t2)
@@ -982,7 +985,7 @@ Arithmetic Terms
 
    - *t* must be an array of *n* arithmetic terms
 
-   - no element of array *den* can be zero
+   - No element of array *den* can be zero
 
    **Error report**
 
@@ -1004,7 +1007,7 @@ Arithmetic Terms
 
    - *t* must be an array of *n* arithmetic terms
 
-   - no element of array *den* can be zero
+   - No element of array *den* can be zero
 
    **Error report**
 
@@ -1043,7 +1046,7 @@ Arithmetic Terms
 
    - *t* must be an array of *n* arithmetic terms
 
-   - all the elements of *q* must be canonicalized
+   - All the elements of *q* must be canonicalized
 
    Like the previous function, you must include the header
    :file:`gmp.h` before including :file:`yices.h` to ensure that
@@ -1799,7 +1802,7 @@ Bitvector Terms
 
    This shifts bitvector *t* by *n* bits to the right, and
    sets the most significant bits of the result to the same
-   value as *t*'s sign (i.e., the most significant bit of *t*).
+   value as *t*'s sign bit (i.e., the most significant bit of *t*).
 
    **Parameters**
 
@@ -1836,6 +1839,8 @@ Bitvector Terms
 
    - If *t* is a bitvector of *m* bits then parameter *n* must
      be between 0 and *m*.
+
+   **Examples**
 
    If *n* is either 0 or *m*, the result is equal to *t*.
 
@@ -2038,7 +2043,7 @@ Bitvector Terms
 
    **Parameters**
 
-   - the integer *n* must be positive
+   - The integer *n* must be positive
 
    **Error report** 
 
@@ -2247,3 +2252,195 @@ Bitvector Terms
 
 Access to Term Components
 -------------------------
+
+The internal term representation distiguishes between the following classes of terms:
+
+1) **Atomic terms** include constants of Boolean, bitvector,
+   arithmetic, scalar, and uninterpreted types, and variables and
+   uninterpreted terms.
+
+2) **Composite terms** are terms represented by an operator tag and a
+   list of children.  For example an if-then-else term *(ite c t1 t2)*
+   is composite. Its tag is the term-constructor
+   :c:enum:`YICES_ITE_TERM` and its three children are the terms *c*,
+   *t1*, and *t2*.
+
+3) **Projections** represent tuple projection and extraction of a bit
+   from a bitvector, which are constructed by functions
+   :c:func:`yices_select` and :c:func:`yices_bitextract`,
+   respectively. Internally, such terms consists of an integer index
+   and a term (either a tuple or a bitvector term).
+
+4) **Arithmetic sums** are used to build arithmetic polynomials.
+   Such a sum is of the form
+
+   .. container:: centered
+
+        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
+
+   where the coefficients *a*\ |_0| |...| *a*\ |_n| are rational constants
+   and the terms *t*\ |_0| |...| *t*\ |_n| are all arithmetic terms.
+
+   Term *t*\ |_0| may be equal to :c:macro:`NULL_TERM`. In such a case,
+   the product *a*\ |_0| *t*\ |_0| is replaced by the constant *a*\ |_0|,
+   and the sum is
+
+   .. container:: centered
+
+        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
+
+
+5) **Bitvector sums** are used to build bitvector polynomials.  A
+   bitvector sum is similar to an arithmetic sum but the coefficients
+   are bitvector constants. It is of the form
+
+   .. container:: centered
+
+        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
+
+   where the coefficients *a*\ |_0| |...| *a*\ |_n| are bitvector constants and
+   the terms *t*\ |_0| |...| *t*\ |_n| are bitvector terms. All the coefficients
+   and terms have the same number of bits.
+
+   As previously, *t*\ |_0| may be equal to :c:macro:`NULL_TERM` to encode
+   the sum:
+
+   .. container:: centered
+
+        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
+
+
+6) **Products** are also used to build arithmetic and bitvector polynomials.
+   A product is of the form
+
+   .. container:: centered
+
+        *t*\ |_0|\ ^\ *d*\ |_0| |times| |...| |times| *t*\ |_n|\ ^\ *d*\ |_n|
+
+   where the exponents *d*\ |_0| |...| *d*\ |_n| are positive
+   integers, and the terms *t*\ |_0| |...| *t*\ |_n| are either all arithmetic
+   terms or all bitvector terms of the same type.
+
+
+The number of terms in a sum or product is always positive, but it may be
+equal to one. For example, the expression (|-| *u*) is represented internally
+as an arithmetic sum with a single monomial ( -1 ) |times| *u*.
+
+
+
+.. c:function:: type_t yices_type_of_term(term_t t)
+
+   Returns the type of term *t*.
+
+   This function returns :c:macro:`NULL_TYPE` if *t* is not a valid type.
+
+.. c:function:: int32_t yices_term_is_bool(term_t t)
+
+   Checks whether *t* is Boolean term.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_int(term_t t)
+
+   Checks whether *t* has type integer.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_real(term_t t)
+
+   Checks whether *t* has type real.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+   This function checks the actual type of *t* and does not take
+   subtyping into account. It returns false if *t* has integer type.
+
+.. c:function:: int32_t yices_term_is_arithmetic(term_t t)
+
+   Checks whether *t* is an arithmetic term.
+
+   This function returns 1 (for true) if *t* has either integer or real type.
+   It returns 0 otherwise. If *t* is not a valid term, the function returns 
+   0 and sets the error report.
+
+.. c:function:: int32_t yices_term_is_bitvector(term_t t)
+
+   Checks whether *t* has a bitvector type.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_scalar(term_t t)
+
+   Checks whether *t* has a scalar or uninterpreted type.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_tuple(term_t t)
+
+   Checks whether *t* has a tuple type.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_function(term_t t)
+
+   Checks whether *t* has a function type.
+
+   This function returns 1 for true and 0 for false. It also returns 0
+   if *t* is not a valid term and sets the error report.
+
+.. c:function:: uint32_t yices_term_bitsize(term_t t)
+
+   Returns the number of bits of term *t*.
+
+   This function returns 0 if there's an error, either because *t* is not
+   valid or does not have bitvector type.
+
+.. c:function:: int32_t  yices_term_is_ground(term_t t)
+
+   Checks whether term *t* is ground.
+
+   Returns 1 if *t* does not contain free variables, 0 otherwise.
+   It also returns 0 if *t* is not a valid term and sets the error report.
+
+.. c:function:: int32_t yices_term_is_atomic(term_t t)
+
+.. c:function:: int32_t yices_term_is_composite(term_t t)
+
+.. c:function:: int32_t yices_term_is_projection(term_t t)
+
+.. c:function:: int32_t yices_term_is_sum(term_t t)
+
+.. c:function:: int32_t yices_term_is_bvsum(term_t t)
+
+.. c:function:: int32_t yices_term_is_product(term_t t)
+
+.. c:function:: term_constructor_t yices_term_constructor(term_t t)
+
+.. c:function:: int32_t yices_term_num_children(term_t t)
+
+.. c:function:: term_t yices_term_child(term_t t, int32_t i)
+
+.. c:function:: int32_t yices_proj_index(term_t t)
+
+.. c:function:: term_t yices_proj_arg(term_t t)
+
+.. c:function:: int32_t yices_bool_const_value(term_t t, int32_t *val)
+
+.. c:function:: int32_t yices_bv_const_value(term_t t, int32_t val[])
+
+.. c:function:: int32_t yices_scalar_const_value(term_t t, int32_t *val)
+
+.. c:function:: int32_t yices_rational_const_value(term_t t, mpq_t q)
+
+.. c:function:: int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
+
+.. c:function:: int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
+
+.. c:function:: int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp)
+

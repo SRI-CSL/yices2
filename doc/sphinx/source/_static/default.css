@@ -19,8 +19,11 @@ body {
 
 span.raw-html {
   font-family: "Latin Modern Math", "Times New Roman", serif;
-  font-style: italic;
   font-size: 1.1em;
+}
+
+div.centered {
+  text-align: center;
 }
 
 a {

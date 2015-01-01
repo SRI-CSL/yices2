@@ -1,3 +1,5 @@
+.. include:: macros
+
 .. highlight:: c
 
 .. _api_types:
@@ -282,36 +284,37 @@ Yices Terms
 
    .. c:enum:: YICES_BV_SUM
 
-      Sum of the form *a_0 t_0 + ... + a_n t_n* where
+      Sum of the form *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n| where
 
-        - all the coefficients *a_i* are bitvector constants
+        - all the coefficients *a*\ |_i| are bitvector constants
 
-        - all the terms *t_i* (except possibly *t_0*) are bitvector terms
+        - all the terms *t*\ |_i| (except possibly *t*\ |_0|) are bitvector terms
 
       All terms and coefficients have the same size (i.e., same number of bits).
 
-      As a special case, *t_0* may be equal to :c:macro:`NULL_TERM` to
+      As a special case, *t*\ |_0| may be equal to :c:macro:`NULL_TERM` to
       encode a constant term.  In this case, the sum can be
-      interpreted as *a_0 + a_1 t_1 + ... + a_n t_n*.
+      interpreted as *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
 
    .. c:enum:: YICES_ARITH_SUM
 
-      Sum of the form *a_0 t_0 + ... + a_n t_n* where
+      Sum of the form *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n| where
 
         - the coefficients are rational constants
 
-        - all the terms *t_i* (except possibly *t_0*) are arithmetic terms
+        - all the terms *t*\ |_i| (except possibly *t*\ |_0|) are arithmetic terms
 
-      As in :c:enum:`YICES_BV_SUM`, the term *t_0* may be :c:macro:`NULL_TERM` to
+      As in :c:enum:`YICES_BV_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
       encode a constant term.
 
    .. c:enum:: YICES_POWER_PRODUCT
 
-      Products of the form *t_0^d_0 ... t_n^d_n* where
 
-        - the exponents *d_i* are positive integers
+      Products of the form *t*\ |_0|\ ^\ *d*\ |_0| |times| |...| |times| *t*\ |_n|\ ^\ *d*\ |_n| where
 
-        - the terms *t_i* are either all arithmetic terms or all bitvector terms
+        - the exponents *d*\ |_i| are positive integers
+
+        - the terms *t*\ |_i| are either all arithmetic terms or all bitvector terms
 
    The last code is used to report errors:
 

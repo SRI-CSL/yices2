@@ -34,9 +34,9 @@ section :ref:`error_reports`.
   - If an integer parameter must be positive, the functions will
     report the following error when the input is zero:
 
-     -- error code: :c:enum:`POS_INT_REQUIRED`
+    -- error code: :c:enum:`POS_INT_REQUIRED`
 
-     -- badval := 0
+    -- badval := 0
 
 
 Other error reports are possible. They are listed for each function.
@@ -269,21 +269,21 @@ The following functions give access to attributes and components of a type.
 
    Returns the *i*-th child of type *tau*.
 
-   - If *tau* has *n* children then index *i* must be in the interval [0 .. *n-1*].
+   - If *tau* has *n* children then index *i* must be in the interval [0 ... *n-1*].
 
-   - for a tuple type *(tuple tau_1 ... tau_n)*,
+   - For a tuple type *(tuple tau_1 ... tau_n)*,
 
      -- the first child (with index *i= 0*) is *tau_1*
 
      -- the last child (with index *i=n-1*) is *tau_n*.
 
-   - for a function type *(-> tau_1 ... tau_n sigma)*,
+   - For a function type *(-> tau_1 ... tau_n sigma)*,
 
      -- the first child (with index *i=0*) is *tau_1*,
 
      -- the last child (with index *i=n*) is *sigma*.
 
-   - for any other type, the function returns :c:enum:`NULL_TYPE` as the type has no children.
+   - For any other type, the function returns :c:enum:`NULL_TYPE` as the type has no children.
 
    **Error report**
 

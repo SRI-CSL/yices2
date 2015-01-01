@@ -1,0 +1,28 @@
+.. role:: raw-html(raw)
+   :format: html
+
+.. |times| unicode:: &#xD7;
+
+.. |ge| unicode:: &#x2265;
+
+.. |le| unicode:: &#x2264;
+
+.. |...| unicode:: &#x2026;
+
+.. |-| unicode:: &#x2212;
+
+.. |tau| unicode:: &#x3C4;
+
+.. |sigma| unicode:: &#x3C3;
+
+.. |_0| replace:: :sub:`0`
+
+.. |_1| replace:: :sub:`1`
+
+.. |_n| replace:: :sub:`n`
+
+.. |_i| replace:: :sub:`i`
+
+.. |_i+1| replace:: :sub:`i+1`
+
+
