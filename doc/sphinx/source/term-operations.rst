@@ -1359,7 +1359,7 @@ Bitvector Terms
 
    **Error report**
 
-   - If (2 * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
+   - If (2 |times| degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
@@ -1373,11 +1373,11 @@ Bitvector Terms
 
    **Error report**
 
-   - If (*d* * degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
+   - If (*d* |times| degree of *t1*) is more than :c:macro:`YICES_MAX_DEGREE`
 
      -- error code := :c:enum:`DEGREE_OVERFLOW`
 
-     -- badval := (*d* * degree of *t1*)
+     -- badval := (*d* |times| degree of *t1*)
    
 
 .. c:function:: term_t yices_bvsum(uint32_t n, const term_t t[])
