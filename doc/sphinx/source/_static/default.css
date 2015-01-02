@@ -17,13 +17,40 @@ body {
   min-width: 740px;
 }
 
-span.raw-html {
-  font-family: "Latin Modern Math", "Times New Roman", serif;
-  font-size: 1.1em;
+p {
+  margin: 0.8em 0 0.5em 0;
 }
 
-div.centered {
+p.rubric {
+  font-weight: bold;
+}
+
+p.logo {
   text-align: center;
+}
+
+.first {
+  margin-top: 0 !important;
+}
+
+h1 {
+  margin: 0;
+  padding: 0.7em 0 0.3em 0;
+  font-size: 1.5em;
+  color: #1A419d;
+}
+
+h2 {
+  margin: 1.3em 0 0.2em 0;
+  font-size: 1.35em;
+  padding: 0;
+  color: #1A419d;
+}
+
+h3 {
+  margin: 1em 0 -0.3em 0;
+  font-size: 1.2em;
+  color: #1A419d;
 }
 
 a {
@@ -33,89 +60,6 @@ a {
 
 a:hover {
   color: #2491CF;
-}
-
-pre {
-/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace; */
-  font-family: "Lucida Console", Monaco, monospace;
-  font-size: 0.95em;
-  letter-spacing: 0.015em;
-  line-height: 120%;
-  padding: 0.5em;
-  border: 1px solid #ccc;
-  background-color: #f8f8f8;
-  overflow: auto;
-}
-
-pre a {
-  color: inherit;
-  text-decoration: underline;
-}
-
-cite, code, tt {
-/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;*/
-  font-family: "Lucida Console", Monaco, monospace;
-  font-size: 0.95em;
-  letter-spacing: 0.01em;
-  background-color: #f2f2f2;
-  border-bottom: 1px solid #ddd;
-  color: #333;
-}
-
-hr {
-  border: 1px solid #abc;
-  margin: 2em;
-}
-
-td.linenos pre {
-  padding: 0.5em 0;
-  border: 0;
-  background-color: transparent;
-  color: #aaa;
-}
-
-table.highlighttable {
-  margin-left: 0.5em;
-}
-
-table.highlighttable td {
-  padding: 0 0.5em 0 0.5em;
-}
-
-tt.descname {
-  background-color: transparent;
-  font-weight: bold;
-  font-size: 1.1em;
-  border: 0;
-}
-
-tt.descclassname {
-  background-color: transparent;
-  border: 0;
-}
-
-tt.xref {
-  background-color: transparent;
-  font-weight: bold;
-  border: 0;
-}
-
-code.descname {
-  background-color: transparent;
-  font-weight: bold;
-  font-size: 1.1em;
-  border: 0;
-}
-
-code.descclassname {
-  background-color: transparent;
-  border: 0;
-}
-
-code.xref {
-  background-color: transparent;
-  font-weight: bold;
-  border: 0;
 }
 
 a tt {
@@ -180,40 +124,66 @@ dl.var dt code.descname {
   margin-left: 0.2em;
 }
 
-.first {
-  margin-top: 0 !important;
+pre {
+/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace; */
+  font-family: "Lucida Console", Monaco, monospace;
+  font-size: 0.95em;
+  letter-spacing: 0.015em;
+  line-height: 120%;
+  padding: 0.5em;
+  border: 1px solid #ccc;
+  background-color: #f8f8f8;
+  overflow: auto;
 }
 
-p {
-  margin: 0.8em 0 0.5em 0;
+pre a {
+  color: inherit;
+  text-decoration: underline;
 }
 
-p.rubric {
+td.linenos pre {
+  padding: 0.5em 0;
+  border: 0;
+  background-color: transparent;
+  color: #aaa;
+}
+
+cite, code, tt {
+/*  font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;*/
+  font-family: "Lucida Console", Monaco, monospace;
+  font-size: 0.95em;
+  letter-spacing: 0.01em;
+  background-color: #f2f2f2;
+  border-bottom: 1px solid #ddd;
+  color: #333;
+}
+
+code.descname, tt.descname {
+  background-color: transparent;
   font-weight: bold;
+  font-size: 1.1em;
+  border: 0;
 }
 
-h1 {
-  margin: 0;
-  padding: 0.7em 0 0.3em 0;
-  font-size: 1.5em;
-  color: #1A419d;
+code.descclassname, tt.descclassname {
+  background-color: transparent;
+  border: 0;
 }
 
-h2 {
-  margin: 1.3em 0 0.2em 0;
-  font-size: 1.35em;
-  padding: 0;
-  color: #1A419d;
+code.xref, tt.xref {
+  background-color: transparent;
+  font-weight: bold;
+  border: 0;
 }
 
-h3 {
-  margin: 1em 0 -0.3em 0;
-  font-size: 1.2em;
-  color: #1A419d;
+hr {
+  border: 1px solid #abc;
+  margin: 2em;
 }
 
-div.body h3 {
-  font-style: italic;
+span.raw-html {
+  font-family: "Latin Modern Math", "Times New Roman", serif;
+  font-size: 1.1em;
 }
 
 table {
@@ -225,16 +195,69 @@ table td, table th {
   padding: 0.2em 0.5em 0.2em 0.5em;
 }
 
+table.highlighttable {
+  margin-left: 0.5em;
+}
+
+table.highlighttable td {
+  padding: 0 0.5em 0 0.5em;
+}
+
 div.document {
   background-color: white;
   text-align: left;
 }
+
 div.documentwrapper {
   width: 100%;
 }
 
+div.bodywrapper {
+  margin: 0 240px 0 0;
+  border-right: 1px solid #ccc;
+  min-height: 370px;
+}
+
+div.body {
+  margin: 0;
+  padding: 0.5em 20px 20px 20px;
+}
+
+div.body ul {
+  list-style: square;
+}
+
+div.body blockquote {
+  margin-left: 0px;
+}
+
+div.body blockquote table {
+  margin-left: 3em;
+}
+
+div.body a {
+  text-decoration: underline;
+  color: #1A41A8;
+}
+
+div.body a:hover {
+  color: #2491CF;
+}
+
+div.body h3 {
+  font-style: italic;
+}
+
+div.body ol {
+  padding-left: 30px;
+}
+
 div.clearer {
   clear: both;
+}
+
+div.centered {
+  text-align: center;
 }
 
 div.related {
@@ -277,38 +300,6 @@ div.related ul li a {
 }
 
 div.related ul li a:hover {
-  color: #2491CF;
-}
-
-div.bodywrapper {
-  margin: 0 240px 0 0;
-  border-right: 1px solid #ccc;
-  min-height: 370px;
-}
-
-div.body {
-  margin: 0;
-  padding: 0.5em 20px 20px 20px;
-}
-
-div.body ul {
-  list-style: square;
-}
-
-div.body blockquote {
-  margin-left: 0px;
-}
-
-div.body blockquote table {
-  margin-left: 3em;
-}
-
-div.body a {
-  text-decoration: underline;
-  color: #1A41A8;
-}
-
-div.body a:hover {
   color: #2491CF;
 }
 
@@ -401,10 +392,6 @@ div.sphinxsidebar ul ul ul {
   display: none;
 }
 
-p.logo {
-  text-align: center;
-}
-
 div.admonition, div.warning {
   font-size: 0.9em;
   margin: 1em 0 0 0;
@@ -437,7 +424,7 @@ div.warning {
 
 div.warning p.admonition-title {
   background-color: #CF0000;
-   border-bottom-color: #940000;
+  border-bottom-color: #940000;
 }
 
 div.admonition ul, div.admonition ol,
@@ -453,31 +440,6 @@ div.versioninfo {
   padding: 8px;
   line-height: 1.3em;
   font-size: 0.9em;
-}
-
-
-a.headerlink {
-  color: #c60f0f!important;
-  font-size: 1em;
-  margin-left: 6px;
-  padding: 0 4px 0 4px;
-  text-decoration: none!important;
-  visibility: hidden;
-}
-
-h1:hover > a.headerlink,
-h2:hover > a.headerlink,
-h3:hover > a.headerlink,
-h4:hover > a.headerlink,
-h5:hover > a.headerlink,
-h6:hover > a.headerlink,
-dt:hover > a.headerlink {
-  visibility: visible;
-}
-
-a.headerlink:hover {
-  background-color: #ccc;
-  color: white!important;
 }
 
 table.indextable td {
@@ -499,6 +461,14 @@ table.indextable tr.cap {
   background-color: #f2f2f2;
 }
 
+table.contentstable {
+  width: 90%;
+}
+
+table.contentstable p.biglink {
+  line-height: 150%;
+}
+
 img.toggler {
   margin-right: 3px;
   margin-top: 3px;
@@ -511,14 +481,6 @@ img.inheritance {
 
 form.pfform {
   margin: 10px 0 20px 0;
-}
-
-table.contentstable {
-  width: 90%;
-}
-
-table.contentstable p.biglink {
-  line-height: 150%;
 }
 
 a.biglink {
