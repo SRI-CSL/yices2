@@ -142,7 +142,7 @@ static void test_names(void) {
    * Now c will be printed as 
    *   (or t!3 b)
    *
-   * and yices_get_term_by_name("c") returns NULL_TERM
+   * and yices_get_term_by_name("c") returns NULL
    */
   yices_clear_term_name(a);
   yices_clear_term_name(c);
