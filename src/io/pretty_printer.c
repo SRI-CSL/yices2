@@ -1639,9 +1639,9 @@ void pp_push_token(pp_t *pp, void *tk) {
 
 /*
  * Flush: process all tokens in the formatter's queue.
- * Then print a new line.
+ * - if new_line is true, also print '\n'
  */
-void flush_pp(pp_t *pp) {
+void flush_pp(pp_t *pp, bool new_line) {
   printer_t *p;
 
   // empty the formatter's queues
@@ -1657,7 +1657,10 @@ void flush_pp(pp_t *pp) {
   pp->formatter.depth = 0;
 
   // start a new line
-  pp_fputc(p, '\n');
+  if (new_line) {
+    pp_fputc(p, '\n');
+  }
+
   p->no_space = true;
   p->no_break = true;
   p->full_line = false;

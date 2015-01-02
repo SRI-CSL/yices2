@@ -79,6 +79,17 @@ extern int close_writer(writer_t *writer);
 
 
 /*
+ * Check the type of writer
+ */
+static inline bool is_stream_writer(writer_t *writer) {
+  return writer->is_stream;
+}
+
+static inline bool is_string_writer(writer_t *writer) {
+  return !writer->is_stream;
+}
+
+/*
  * Extract the string constructed by writer
  * - this must be a string writer
  * - the returned string is  '\0'-terminated

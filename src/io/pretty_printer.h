@@ -727,6 +727,17 @@ extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 		    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
 
 
+/*
+ * Check the writer type: either a stream or a string writer.
+ */
+static inline bool is_stream_pp(pp_t *pp) {
+  return is_stream_writer(&pp->printer.writer);
+}
+
+static inline bool is_string_pp(pp_t *pp) {
+  return is_string_writer(&pp->printer.writer);
+}
+
 
 /*
  * Process token tk.
@@ -737,8 +748,9 @@ extern void pp_push_token(pp_t *pp, void *tk);
 /*
  * Flush the printer: empty the internal queues and print
  * the pending tokens. Reset the line counter to 0.
+ * - if new_line is true, also print '\n'
  */
-extern void flush_pp(pp_t *pp);
+extern void flush_pp(pp_t *pp, bool new_line);
 
 
 /*

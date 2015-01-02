@@ -131,7 +131,7 @@ static void test1(pp_t *pp) {
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_atomic(atoms + 3)); // ddd
   pp_push_token(pp, tag_close(closes + 0));
-  flush_pp(pp);
+  flush_pp(pp, true);
 }
 
 /*
@@ -145,7 +145,7 @@ static void test2(pp_t *pp) {
   pp_push_token(pp, tag_atomic(atoms + 5)); // fff
   pp_push_token(pp, tag_atomic(atoms + 6)); // g
   pp_push_token(pp, tag_close(closes + 0));
-  flush_pp(pp);
+  flush_pp(pp, true);
 }
 
 /*
@@ -161,7 +161,7 @@ static void test3(pp_t *pp) {
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_close(closes + 0));
-  flush_pp(pp);
+  flush_pp(pp, true);
 }
 
 
@@ -179,7 +179,7 @@ static void test4(pp_t *pp) {
   pp_push_token(pp, tag_atomic(atoms + 7)); // h
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_close(closes + 0));
-  flush_pp(pp);
+  flush_pp(pp, true);
 }
 
 
