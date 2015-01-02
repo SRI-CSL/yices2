@@ -482,11 +482,15 @@ void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
 
 
 /*
- * Flush: print everything pending + a newline
- * - then reset the line counter to 0
+ * Flush: print everything pending
+ * - if the printer is writing to file, print a newline
+ * - reset the line counter to 0
  */
 void flush_yices_pp(yices_pp_t *printer) {
-  flush_pp(&printer->pp);
+  bool nl;
+
+  nl = is_stream_pp(&printer->pp);
+  flush_pp(&printer->pp, nl);
 }
 
 /*
@@ -504,12 +508,12 @@ char *yices_pp_get_string(yices_pp_t *printer, uint32_t *len) {
 
 /*
  * Flush then delete a pretty printer
- * - if flush is true, print everything pending + a newline
+ * - if flush is true, print everything pending 
  * - then free all memory used
  */
 void delete_yices_pp(yices_pp_t *printer, bool flush) {
   if (flush) {
-    flush_pp(&printer->pp);
+    flush_yices_pp(printer);
   }
   delete_pp(&printer->pp);
   delete_objstore(&printer->open_store);
