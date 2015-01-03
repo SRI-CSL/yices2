@@ -290,3 +290,23 @@ The following functions give access to attributes and components of a type.
    - If *i* is negative or larger than the number of children minus one:
 
      -- error code: :c:enum:`INVALID_TYPE_OP`
+
+
+.. c:function:: int32_t yices_type_children(type_t tau, type_vector_t *v)
+
+   Collects the children of a type.
+
+   The children of type *tau* are collected in vector *v*. The vector
+   must be initialized first using function :c:func:`yices_init_type_vector`.
+
+   If *tau* is not a valid type, this function returns -1, sets the error
+   report, and leaves *v* unchanged.
+
+   Otherwise, the children are stored in *v* in the same order as given
+   by :c:func:`yices_type_child`.
+
+   - *v->size* is the number of children of *tau*
+
+   - *v->data[i]* contains the *i*-th child.
+
+   If *tau* is an atomic type, the *v->size* is set to 0 and *v->data* is empty.

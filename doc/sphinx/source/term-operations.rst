@@ -2248,85 +2248,8 @@ Bitvector Terms
 
 
 
-.. _access_to_term_representation:
-
-Access to Term Components
--------------------------
-
-The internal term representation distiguishes between the following classes of terms:
-
-1) **Atomic terms** include constants of Boolean, bitvector,
-   arithmetic, scalar, and uninterpreted types, and variables and
-   uninterpreted terms.
-
-2) **Composite terms** are terms represented by an operator tag and a
-   list of children.  For example an if-then-else term *(ite c t1 t2)*
-   is composite. Its tag is the term-constructor
-   :c:enum:`YICES_ITE_TERM` and its three children are the terms *c*,
-   *t1*, and *t2*.
-
-3) **Projections** represent tuple projection and extraction of a bit
-   from a bitvector, which are constructed by functions
-   :c:func:`yices_select` and :c:func:`yices_bitextract`,
-   respectively. Internally, such terms consists of an integer index
-   and a term (either a tuple or a bitvector term).
-
-4) **Arithmetic sums** are used to build arithmetic polynomials.
-   Such a sum is of the form
-
-   .. container:: centered
-
-        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
-
-   where the coefficients *a*\ |_0| |...| *a*\ |_n| are rational constants
-   and the terms *t*\ |_0| |...| *t*\ |_n| are all arithmetic terms.
-
-   Term *t*\ |_0| may be equal to :c:macro:`NULL_TERM`. In such a case,
-   the product *a*\ |_0| *t*\ |_0| is replaced by the constant *a*\ |_0|,
-   and the sum is
-
-   .. container:: centered
-
-        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
-
-
-5) **Bitvector sums** are used to build bitvector polynomials.  A
-   bitvector sum is similar to an arithmetic sum but the coefficients
-   are bitvector constants. It is of the form
-
-   .. container:: centered
-
-        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
-
-   where the coefficients *a*\ |_0| |...| *a*\ |_n| are bitvector constants and
-   the terms *t*\ |_0| |...| *t*\ |_n| are bitvector terms. All the coefficients
-   and terms have the same number of bits.
-
-   As previously, *t*\ |_0| may be equal to :c:macro:`NULL_TERM` to encode
-   the sum:
-
-   .. container:: centered
-
-        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
-
-
-6) **Products** are also used to build arithmetic and bitvector polynomials.
-   A product is of the form
-
-   .. container:: centered
-
-        *t*\ |_0|\ ^\ *d*\ |_0| |times| |...| |times| *t*\ |_n|\ ^\ *d*\ |_n|
-
-   where the exponents *d*\ |_0| |...| *d*\ |_n| are positive
-   integers, and the terms *t*\ |_0| |...| *t*\ |_n| are either all arithmetic
-   terms or all bitvector terms of the same type.
-
-
-The number of terms in a sum or product is always positive, but it may be
-equal to one. For example, the expression (|-| *u*) is represented internally
-as an arithmetic sum with a single monomial ( -1 ) |times| *u*.
-
-
+Term Properties
+---------------
 
 .. c:function:: type_t yices_type_of_term(term_t t)
 
@@ -2407,6 +2330,87 @@ as an arithmetic sum with a single monomial ( -1 ) |times| *u*.
 
    Returns 1 if *t* does not contain free variables, 0 otherwise.
    It also returns 0 if *t* is not a valid term and sets the error report.
+
+
+.. _access_to_term_representation:
+
+Access to Term Components
+-------------------------
+
+The internal term representation distiguishes between the following classes of terms:
+
+1) **Atomic terms** include constants of Boolean, bitvector,
+   arithmetic, scalar, and uninterpreted types, and variables and
+   uninterpreted terms.
+
+2) **Composite terms** are terms represented by an operator tag and a
+   list of children.  For example an if-then-else term *(ite c t1 t2)*
+   is composite. Its tag is the term-constructor
+   :c:enum:`YICES_ITE_TERM` and its three children are the terms *c*,
+   *t1*, and *t2*.
+
+3) **Projections** represent tuple projection and extraction of a bit
+   from a bitvector, which are constructed by functions
+   :c:func:`yices_select` and :c:func:`yices_bitextract`,
+   respectively. Internally, such terms consists of an integer index
+   and a term (either a tuple or a bitvector term).
+
+4) **Arithmetic sums** are used to build arithmetic polynomials.
+   An arithmeitc sum is of the form
+
+   .. container:: centered
+
+        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
+
+   where the coefficients *a*\ |_0| |...| *a*\ |_n| are rational constants
+   and the terms *t*\ |_0| |...| *t*\ |_n| are all arithmetic terms.
+
+   Term *t*\ |_0| may be equal to :c:macro:`NULL_TERM`. In such a case,
+   the product *a*\ |_0| *t*\ |_0| is replaced by the constant *a*\ |_0|,
+   and the sum is
+
+   .. container:: centered
+
+        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
+
+
+5) **Bitvector sums** are used to build bitvector polynomials.  A
+   bitvector sum is similar to an arithmetic sum but the coefficients
+   are bitvector constants. It is of the form
+
+   .. container:: centered
+
+        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
+
+   where the coefficients *a*\ |_0| |...| *a*\ |_n| are bitvector constants and
+   the terms *t*\ |_0| |...| *t*\ |_n| are bitvector terms. All the coefficients
+   and terms have the same number of bits.
+
+   As previously, *t*\ |_0| may be equal to :c:macro:`NULL_TERM` to encode
+   the sum:
+
+   .. container:: centered
+
+        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
+
+
+6) **Products** are also used to build arithmetic and bitvector polynomials.
+   A product is of the form
+
+   .. container:: centered
+
+        *t*\ |_0|\ ^\ *d*\ |_0| |times| |...| |times| *t*\ |_n|\ ^\ *d*\ |_n|
+
+   where the exponents *d*\ |_0| |...| *d*\ |_n| are positive
+   integers, and the terms *t*\ |_0| |...| *t*\ |_n| are either all arithmetic
+   terms or all bitvector terms of the same type.
+
+The number of terms in a sum or product is always positive, but it may be
+equal to one. For example, the expression (|-| *u*) is represented internally
+as an arithmetic sum with a single monomial ( -1 ) |times| *u*.
+
+
+
 
 .. c:function:: int32_t yices_term_is_atomic(term_t t)
 

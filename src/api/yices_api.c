@@ -1207,6 +1207,13 @@ EXPORTED void yices_reset_type_vector(type_vector_t *v) {
 }
 
 
+/*
+ * Add data at the end of a vector
+ */
+static inline void type_vector_push(type_vector_t *v, type_t tau) {
+  ivector_push((ivector_t *) v, tau);
+}
+
 
 
 /******************
@@ -2220,7 +2227,6 @@ static bool check_good_model_map(term_manager_t *mngr, uint32_t n, const term_t 
 
 
 
-
 /*
  * Check that all elements in var are uninterpreted and have a simple type (for model generalization)
  * - for now, simple means either Boolean, or bit-vector, or real, or a scalar type
@@ -2392,7 +2398,6 @@ EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
 }
 
 
-
 EXPORTED type_t yices_function_type1(type_t tau1, type_t range) {
   if (! check_good_type(&types, tau1) ||
       ! check_good_type(&types, range)) {
@@ -2430,7 +2435,6 @@ EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type
 
 
 
-
 /*
  * Type macros and constructors
  */
@@ -2441,7 +2445,6 @@ EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type
 type_t yices_type_variable(uint32_t id) {
   return type_variable(&types, id);
 }
-
 
 /*
  * Create a type constructor:
@@ -5540,6 +5543,37 @@ EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
 
 
 
+/*
+ * Collect all the childern in vector *v
+ * - returns -1 for error, 0 if all fine.
+ */
+EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
+  tuple_type_t *tup;
+  function_type_t *fun;
+  uint32_t i, n;
+
+  if (! check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  v->size = 0;  
+  if (is_tuple_type(&types, tau)) {
+    tup = tuple_type_desc(&types, tau);
+    n = tup->nelem;
+    for (i=0; i<n; i++) {
+      type_vector_push(v, tup->elem[i]);
+    }
+  } else if (is_function_type(&types, tau)) {
+    fun = function_type_desc(&types, tau);
+    n = fun->ndom;
+    for (i=0; i<n; i++) {
+      type_vector_push(v, fun->domain[i]);
+    }
+    type_vector_push(v, fun->range);
+  }
+
+  return 0;
+}
 
 
 

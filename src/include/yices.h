@@ -438,6 +438,10 @@ __YICES_DLLSPEC__ extern int32_t yices_type_num_children(type_t tau);
  * - i must be in 0 and n-1 where n = yices_type_num_children(tau)
  * - returns NULL_TYPE if there's an error
  *
+ * For a function type (-> tau_1 ... tau_n sigma), the first n
+ * children are tau_1 ... tau_n (indexed from 0 to n-1) and the last
+ * child is sigma (with index i=n).
+ *
  * Error report:
  * if tau is not a valid type
  *   code = INVALID_TYPE
@@ -448,6 +452,23 @@ __YICES_DLLSPEC__ extern int32_t yices_type_num_children(type_t tau);
 __YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, int32_t i);
 
 
+/*
+ * Collect all the children to type tau in vector *v
+ * - v must be initialized by calling yices_init_type_vector
+ * - if tau is not valid, the function returns -1 and leaves *v unchanged
+ * - otherwise, the children are stored in *v:
+ *    v->size = number of children
+ *    v->data[0 ... v->size-1] = the children
+ *
+ * The children are stored in the same order as given by yices_type_child:
+ *    v->data[i] = child of index i.
+ *
+ * Error report:
+ * if tau is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ */
+__YICES_DLLSPEC__ extern int32_t yices_type_children(type_t tau, type_vector_t *v);
 
 
 /***********************
