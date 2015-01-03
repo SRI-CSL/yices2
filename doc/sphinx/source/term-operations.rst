@@ -1690,13 +1690,13 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b11111      0      0b11111
-         0b11111      2      0b11100
-         0b11111      5      0b00000
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*    result
+        ========= ===== =========
+         0b11111    0    0b11111
+         0b11111    2    0b11100
+         0b11111    5    0b00000
+        ========= ===== =========
 
    **Error report**
 
@@ -1720,13 +1720,13 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b00000      0      0b00000
-         0b00000      2      0b00011
-         0b00000      5      0111111
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*    result
+        ========= ===== =========
+         0b00000    0    0b00000
+         0b00000    2    0b00011
+         0b00000    5    0111111
+        ========= ===== =========
 
    **Error report**
 
@@ -1750,13 +1750,13 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b11111      0      0b11111
-         0b11111      2      0b00111
-         0b11111      5      0b00000
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*    result
+        ========= ===== =========
+         0b11111    0    0b11111
+         0b11111    2    0b00111
+         0b11111    5    0b00000
+        ========= ===== =========
 
    **Error report**
 
@@ -1780,13 +1780,13 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b00000      0      0b00000
-         0b00000      2      0b11000
-         0b00000      5      0111111
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*   result
+        ========= ===== =========
+         0b00000    0    0b00000
+         0b00000    2    0b11000
+         0b00000    5    0111111
+        ========= ===== =========
 
    **Error report**
 
@@ -1811,14 +1811,14 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b01111      2      0b00011
-         0b01111      5      0b00000
-         0b10111      2      0b11101
-         0b10111      5      0b11111
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*   result
+        ========= ===== =========
+         0b01111    2    0b00011
+         0b01111    5    0b00000
+         0b10111    2    0b11101
+         0b10111    5    0b11111
+        ========= ===== =========
 
    **Error report**
 
@@ -1844,13 +1844,13 @@ Bitvector Terms
 
    If *n* is either 0 or *m*, the result is equal to *t*.
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b01010      0      0b01010
-         0b01010      1      0b10100
-         0b01010      2      0b01001
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*   result
+        ========= ===== =========
+         0b01010    0    0b01010
+         0b01010    1    0b10100
+         0b01010    2    0b01001
+        ========= ===== =========
 
    **Error report**
 
@@ -1876,13 +1876,13 @@ Bitvector Terms
 
    **Examples**
 
-        ========= ========= =========
-           *t*       *n*      result
-        ========= ========= =========
-         0b01010      0      0b01010
-         0b01010      1      0b00101
-         0b01010      2      0b10010
-        ========= ========= =========
+        ========= ===== =========
+           *t*     *n*   result
+        ========= ===== =========
+         0b01010    0    0b01010
+         0b01010    1    0b00101
+         0b01010    2    0b10010
+        ========= ===== =========
 
    **Error report**
 
@@ -1963,13 +1963,13 @@ Bitvector Terms
 
    **Examples**
  
-      ========= ======= ======= =========
-        *t*       *i*     *j*     result
-      ========= ======= ======= =========
-       0b10010     0       2     0b010
-       0b10010     2       4     0b100
-       0b10010     1       4     0b1001
-      ========= ======= ======= =========
+      ========= ===== ===== =========
+        *t*      *i*   *j*   result
+      ========= ===== ===== =========
+       0b10010    0     2    0b010
+       0b10010    2     4    0b100
+       0b10010    1     4    0b1001
+      ========= ===== ===== =========
 
    **Error report**
 
@@ -2337,7 +2337,7 @@ Term Properties
 Access to Term Components
 -------------------------
 
-The internal term representation distiguishes between the following classes of terms:
+The internal term representation distinguishes between the following classes of terms:
 
 1) **Atomic terms** include constants of Boolean, bitvector,
    arithmetic, scalar, and uninterpreted types, and variables and
@@ -2356,7 +2356,7 @@ The internal term representation distiguishes between the following classes of t
    and a term (either a tuple or a bitvector term).
 
 4) **Arithmetic sums** are used to build arithmetic polynomials.
-   An arithmeitc sum is of the form
+   An arithmetic sum is of the form
 
    .. container:: centered
 
@@ -2409,42 +2409,346 @@ The number of terms in a sum or product is always positive, but it may be
 equal to one. For example, the expression (|-| *u*) is represented internally
 as an arithmetic sum with a single monomial ( -1 ) |times| *u*.
 
+Every term has a label of type :c:type:`term_constructor_t` that
+identifies the class of the term and its constructor. Section :ref:`types_for_terms`
+lists all the constructors and explains their roles.
 
 
+Structure of Composite Terms
+............................
+
+The following table lists the constructors of composite terms.
+
+    ================================ ===========================
+     Constructor                      Term
+    ================================ ===========================
+     :c:enum:`YICES_ITE_TERM`         (ite c t1 t2)
+     :c:enum:`YICES_APP_TERM`         (apply f t1 ... tn)
+     :c:enum:`YICES_UPDATE_TERM`      (update f t1 ... tn v)
+     :c:enum:`YICES_TUPLE_TERM`       (tuple t1 ... tn)
+     :c:enum:`YICES_EQ_TERM`          (eq t1 t2)
+     :c:enum:`YICES_DISTINCT_TERM`    (distinct t1 ... tn)
+     :c:enum:`YICES_FORALL_TERM`      (forall v1 ... vn t)
+     :c:enum:`YICES_LAMBDA_TERM`      (lambda v1 ... vn t)
+     :c:enum:`YICES_NOT_TERM`         (not t)
+     :c:enum:`YICES_OR_TERM`          (or t1 ... tn)
+     :c:enum:`YICES_XOR_TERM`         (xor t1 ... tn)
+     :c:enum:`YICES_BV_ARRAY`         (bv-array t1 ... tn)
+     :c:enum:`YICES_BV_DIV`           (bv-div t1 t2)
+     :c:enum:`YICES_BV_REM`           (bv-rem t1 t2)
+     :c:enum:`YICES_BV_SDIV`          (bv-sdiv t1 t2)
+     :c:enum:`YICES_BV_SREM`          (bv-srem t1 t2)
+     :c:enum:`YICES_BV_SMOD`          (bv-smod t1 t2)
+     :c:enum:`YICES_BV_SHL`           (bv-shl t1 t2)
+     :c:enum:`YICES_BV_LSHR`          (bv-lshr t1 t2)
+     :c:enum:`YICES_BV_ASHR`          (bv-ashr t1 t2)
+     :c:enum:`YICES_BV_GE_ATOM`       (bv-ge t1 t2)
+     :c:enum:`YICES_BV_SGE_ATOM`      (bv-sge t1 t2)
+     :c:enum:`YICES_ARITH_GE_ATOM`    (>= t1 t2)
+    ================================ ===========================
+
+   **Notes**
+
+      The children of a composite term are indexed starting from 0.  The
+      indexing corresponds to the left-to-right order in the above
+      table. For example an if-then-else term has three children indexed
+      from 0 to 2. The first child is the condition *c*, the next child
+      is the then part *t1*, and the last child is the else part *t2*.
+
+      The first child in a function application is the function, the other
+      children are the arguments. The first child of a function update is
+      the function, the next *n* children are the arguments, and the last child
+      is the new value *v*.
+  
+      For *forall* and *lambda* terms, the first *n* children are the
+      variables and the last child is the body *t*.
+
+      In the construct *(bv-array t1 ... tn)*, the *n* children are
+      Boolean terms listed in little-endian form. The first child *t1* is
+      the least significant bit and the last child *tn* is the most
+      significant bit.
+
+Projection Terms
+................
+
+There are two types of projection terms to represent projection of a tuple
+and extraction of a bit from a bitvector.
+
+    ================================ ===========================
+     Constructor                      Term
+    ================================ ===========================
+     :c:enum:`YICES_SELECT_TERM`      (select t i)
+     :c:enum:`YICES_BIT_TERM`         (bit i t)
+    ================================ ===========================
+
+For a term of the form *(select t i)*, the child *t* is a tuple and *i* is
+an index. If the *t* has type (*tuple* |tau|\ |_1| |...| |tau|\ |_n|)
+then the index is between 1 and *n*. See :c:func:`yices_select`.
+
+For a term of the form *(bit i t)*, the child *t* is a bitvector and *i* is
+an index. If *t* is a bitvector of *n* bits, then *i* is between 0 and *n-1*.
+Index 0 refers to the least significant bit of *t* and index *n-1* refers to
+the most significant bit. See :c:func:`yices_bitextract`.
+
+Functions
+.........
+
+The following functions give access to the class, constructors,
+children, and other components of a term. As usual, these functions
+set the error report to :c:enum:`INVALID_TERM` if the argument is not
+a valid term.
 
 .. c:function:: int32_t yices_term_is_atomic(term_t t)
 
+   Checks whether a term is atomic.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
+
 .. c:function:: int32_t yices_term_is_composite(term_t t)
+
+   Checks whether a term is composite.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
 
 .. c:function:: int32_t yices_term_is_projection(term_t t)
 
+   Checks whether a term is a projection.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
+
 .. c:function:: int32_t yices_term_is_sum(term_t t)
+
+   Checks whether a term is an arithmetic sum.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
 
 .. c:function:: int32_t yices_term_is_bvsum(term_t t)
 
+   Checks whether a term is a bitvector sum.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
+
 .. c:function:: int32_t yices_term_is_product(term_t t)
+
+   Checks whether a term is a product.
+
+   This function returns 1 for true and 0 for false.  If *t* is not a
+   valid term, the function returns 0 and sets the error report.
 
 .. c:function:: term_constructor_t yices_term_constructor(term_t t)
 
+   Constructor of a term.
+
+   This function returns the constructor of term *t*. If *t* is not
+   a valid term, it returns :c:enum:`YICES_CONSTRUCTOR_ERROR`.
+
 .. c:function:: int32_t yices_term_num_children(term_t t)
 
+   Number of children of a term.
+
+   - if *t* is atomic, this function returns 0.
+
+   - if *t* is composite, it returns the number of children.
+
+   - if *t* is a projection, the function returns 1.
+
+   - if *t* is a sum, the function returns the number of summands.
+
+   - if *t* is a product, the function returns the number of factors in the product.
+
+   - otherwise, *t* is not valid; the function returns -1.
+   
 .. c:function:: term_t yices_term_child(term_t t, int32_t i)
+
+   Child of a composite term.
+
+   The function returns the *i*-th child of composite term *t* or
+   :c:macro:`NULL_TERM` if there's an error.
+
+   **Parameters**
+
+   - *t* must be a composite term
+
+   - *i* must be an index between 0 and *n-1*, where *n* is the number of children of *t*
+
+   **Error report**
+
+   - if *t* is not a composite term or *i* is not a valid index for term *t*
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
 
 .. c:function:: int32_t yices_proj_index(term_t t)
 
+   Index of a projection term.
+
+   Term *t* must either be a tuple select *(select u i)* or a bit extract *(bit i u)*.
+   This function returns the index *i* or -1 if there's an error.
+
+   **Error report**
+
+   - if *t* is not a projection
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
 .. c:function:: term_t yices_proj_arg(term_t t)
+
+   Child of a projection term.
+
+   Term *t* must either be a tuple select *(select u i)* or a bit extract *(bit i u)*.
+   This function returns the child *u* or :c:macro:`NULL_TERM` if there's an error.
+
+   **Error report**
+
+   - if *t* is not a projection
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
 
 .. c:function:: int32_t yices_bool_const_value(term_t t, int32_t *val)
 
+   Value of a Boolean constant.
+
+   This function returns -1 and leaves *\*val* unchanged if *t* is
+   not a Boolean constant. Otherwise, it stores the value of *t* in
+   variable *\*val* (0 means false and 1 means true), and returns 0.
+
+   **Error report**
+
+   - if *t* is not a Boolean constant
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
 .. c:function:: int32_t yices_bv_const_value(term_t t, int32_t val[])
+
+   Value of a bitvector constant.
+
+   This function stores the value of *t* in array *val*. If *t* is a
+   bitvector of *n* bits, then *val* must be large enough to store *n*
+   integers. The *n* bits of *t* are stored in array *val*. Element
+   *val[i]* is either 0 or 1. The least significant bit is stored in
+   *val[0]* and the most significant bit is stored in *val[n-1]*.
+
+   The function returns -1 and leaves *val* unchanged if there's an error.
+   It returns 0 if *t* is a bitvector constant.
+
+   **Error report**
+
+   - if *t* is not a bitvector constant
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
 
 .. c:function:: int32_t yices_scalar_const_value(term_t t, int32_t *val)
 
+   Index of a constant of scalar or uninterpreted type. 
+
+   Constants of scalar and uninterpreted types are identified by an
+   integer index (cf. :c:func:`yices_constant`). This function stores the
+   index of constant *t* in *\*val*.
+
+   The function returns -1 if there's an error and leaves *\*val* unchanged. Otherwise, it returns 0.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_SCALAR_CONSTANT`
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
 .. c:function:: int32_t yices_rational_const_value(term_t t, mpq_t q)
+
+   Value of a rational constant.
+
+   This function copies the value of rational constant *t* in the GMP rational *q*.
+   The GMP rational *q* must be initialized (check the GMP documentation).
+
+   If *t* is not a rational constant, the function returns -1 and leaves *q* unchanged.
+   Otherwise it returns 0.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_ARITH_CONSTANT`
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
+   **Note**
+
+   To make sure that this function is declared, you must include :file:`gmp.h` before
+   :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
 
 .. c:function:: int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
 
+   Component of an arithmetic sum.
+
+   An arithmetic sum *t* is of the form *a*\ |_0| *t*\ |_0| + |...| +
+   *a*\ |_n| *t*\ |_n|.  This function copies the coefficient *a*\ |_i|
+   in the GMP rational *coeff* and it copies *t*\ |_i| in variable
+   *\*term*.
+
+   As a special case, the returned *\*term* may be equal to
+   :c:macro:`NULL_TERM`. This may happen for *i=0*. In such a case,
+   the sum is of the form *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| +
+   *a*\ |_n| *t*\ |_n|.
+
+   This function returns -1 if *t* is not an arithmetic sum or if the
+   index *i* is too large. It returns 0 otherwise.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_ARITH_SUM` or if *i* is too large
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
+   **Note**
+
+   To make sure that this function is declared, you must include :file:`gmp.h` before
+   :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
 .. c:function:: int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
 
+   Component of a bitvector sum.
+
+   A bitvector sum *t* is of the form *a*\ |_0| *t*\ |_0| + |...| +
+   *a*\ |_n| *t*\ |_n|. This function copies the coefficient *a*\ |_i|
+   in array *val* and it copies *t*\ |_i| in *\*term*.
+
+   If *t* is a bitvector term of *m* bits, then array *val* must be large enough
+   to store *m* integers. The *m* bits of coefficients *a*\ |_i| are copied in
+   *val[0]* |...| *val[m-1]*; *val[0]* is the least significant bit and *val[m-1]* is
+   the most significant bit of *a*\ |_i|.
+
+   As a special case, the returned *\*term* may be equal to
+   :c:macro:`NULL_TERM`. This may happen for *i=0*. In such a case,
+   the sum is of the form *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| +
+   *a*\ |_n| *t*\ |_n|.
+   
+   This function returns -1 if *t* is not an arithmetic sum or if the
+   index *i* is too large. It returns 0 otherwise.
+      
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_BV_SUM` or if *i* is too large
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
+
 .. c:function:: int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp)
+
+   Component of a power product.
+
+   A product *t* is of the form  *t*\ |_0|\ ^\ *d*\ |_0| |times| |...| |times| *t*\ |_n|\ ^\ *d*\ |_n|.
+   This function stores the term *t*\ |_i| into *\*term* and the exponent *d*\ |_i| into *\*exp*.
+
+   The function returns -1 if *t* is not a product or if the index *i* is too large.
+   It returns 0 otherwise.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_BV_SUM` or if *i* is too large
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
 

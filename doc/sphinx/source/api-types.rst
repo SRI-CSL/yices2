@@ -55,6 +55,8 @@ Yices Types
    type vectors. See :ref:`vectors`.
 
 
+.. _types_for_terms:
+
 Yices Terms
 -----------
 
@@ -94,6 +96,8 @@ Yices Terms
    - *v.data* is a dynamically allocated array that contains the elements
 
    See :ref:`vectors`.
+
+.. _term_constructors:
 
 .. c:type:: term_constructor_t
 
@@ -598,7 +602,7 @@ Models
 
    .. c:enum:: YICES_GEN_BY_PROJ
 
-      Generalization by projection. This is a hybrid of Fourier-Motkzin elimination
+      Generalization by projection. This is a hybrid of Fourier-Motzkin elimination
       and a model-based variant of virtual term substitution.
 
    See :c:func:`yices_generalize_model` for more details. 
