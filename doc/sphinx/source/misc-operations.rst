@@ -302,8 +302,8 @@ Garbage Collection
 ------------------
 
 By default, Yices never deletes any terms or types. All the terms and
-types returned by the type or term constructors can always be used by
-the application. There's no explicit term or type deletion function.
+types returned by the constructors can always be used by the
+application. There's no explicit term or type deletion function.
 
 If you want to delete terms or types that are no longer useful, you
 must make an explicit call to the garbage collector by calling
@@ -343,14 +343,14 @@ The set of roots is constructed as follows:
         - :c:func:`yices_decref_term`
 
       When :c:func:`yices_garbage_collect` is called, all the terms or
-      types with a positive reference counter is added to the set of
+      types with a positive reference counter are added to the set of
       roots. If the functions above are never called, then all the
       terms and types are considered to have a reference count of
       zero.
 
-      Note that decrementing a reference counter to zero does not
-      delete anything. The terms and types are not deleted until
-      function :c:func:`yices_garbage_collect` is called.
+      Just decrementing a reference counter to zero does not delete
+      anything yet. The terms and types are not deleted until function
+      :c:func:`yices_garbage_collect` is called.
 
 
 .. c:function:: uint32_t yices_num_types(void)
@@ -427,7 +427,7 @@ The set of roots is constructed as follows:
    set of roots and will not be deleted.
 
    If *tau* is not :c:macro:`NULL`, then all the elements *tau[0 ... ntau-1]* are added to
-   the set of root will not be deleted.
+   the set of roots and will not be deleted.
 
    If *keep_named* is non-zero (i.e., true) then all the terms and types accessible via
    the symbol tables are also preserved. See :ref:`names_api`.
