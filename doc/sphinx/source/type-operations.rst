@@ -309,4 +309,4 @@ The following functions give access to attributes and components of a type.
 
    - *v->data[i]* contains the *i*-th child.
 
-   If *tau* is an atomic type, the *v->size* is set to 0 and *v->data* is empty.
+   If *tau* is an atomic type, then *v->size* is set to 0 and *v->data* is empty.

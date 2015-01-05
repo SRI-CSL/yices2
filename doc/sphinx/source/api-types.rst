@@ -616,7 +616,7 @@ Error Reports
 .. c:type:: error_code_t
 
    When a function in the API fails for some reason, it returns a
-   special value (typically a negative value or the :c:macro:`NULL`
+   special value (typically a negative number or the :c:macro:`NULL`
    pointer) and stores an error code in a global record of type :c:type:`error_report_t`.
 
    The following error codes are defined:
@@ -636,7 +636,7 @@ Error Reports
    .. c:enum:: INVALID_CONSTANT_INDEX
 
       Attempt to create a constant of uninterpreted type with a negative index,
-      or a constant of scalar type with an index that's larger than the type cardinality.
+      or a constant of scalar type with an index that's larger than the type's cardinality.
 
    .. c:enum:: INVALID_TUPLE_INDEX
 
