@@ -32,12 +32,11 @@ Global Initialization and Cleanup
 
 .. c:function:: void yices_free_string(char *s)
 
-   Free a string *s* returned by Yices.
+   Frees a string *s* returned by Yices.
 
-   Several API functions build a return a character string.
-   This string is allocated by Yices. To avoid memory leaks,
-   it must be freed when it is no longer used by calling
-   this function.
+   Several API functions build and return a character string that is
+   allocated by Yices. To avoid memory leaks, this string must be
+   freed when it is no longer used by calling this function.
 
    .. note::
 

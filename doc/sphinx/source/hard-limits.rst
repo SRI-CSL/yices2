@@ -55,4 +55,4 @@ beyond what Yices can actually store and process.
 
 .. rubric:: Footnotes:
 
-.. [#f1] Constant :c:macro:`UINT32_MAX` is equal to 4294967291 (i.e., 2^32-1).
+.. [#f1] Constant :c:macro:`UINT32_MAX` is equal to 4294967295 (i.e., 2^32 -1).
