@@ -21,9 +21,9 @@ first call to :c:func:`yices_set_term_name` or
 :c:func:`yices_set_type_name`.
 
 In addition, Yices maintains two symbol tables that maps names to
-terms and types, respectively. The name spaces for types and terms
-are disjoint. The term or type to which a name refers can be changed,
-and Yices provides a scoping mechanism:
+terms and names to types, respectively. The name spaces for types and
+terms are disjoint. The term or type to which a name refers can be
+changed, and Yices provides a scoping mechanism:
 
 - When function ``yices_set_term_name(t, name)`` is called, then the
   previous mapping for ``name`` (if any) is hidden and now ``name`` refers
@@ -36,7 +36,7 @@ and Yices provides a scoping mechanism:
 Functions :c:func:`yices_set_type_name` and
 :c:func:`yices_remove_type_name` behave in the same way.
 
-File :file:`examples/names.c` included in the distributions,
+File :file:`examples/names.c` included in the distributions
 illustrates these functions. You can also download it :download:`here <_static/names.c>`.
    
 
@@ -57,9 +57,9 @@ Type Names
 
    If *tau* does not have a base name yet, then *name* is stored as base name for *tau*.
 
-   If *name* currently refers to a type, then this current mapping is hidden.
-
-   Then the mapping from *name* to *tau* is recorded in the symbol table for types.
+   If *name* currently refers to a type, then this current mapping is
+   hidden, then the mapping from *name* to *tau* is recorded in the
+   symbol table for types.
 
    Yices makes an internal copy of the string *name*.
 
@@ -69,42 +69,42 @@ Type Names
      Otherwise, the function returns 0.
 
 
-.. c:function:: yices_get_type_name(type_t tau)
+.. c:function:: const char* yices_get_type_name(type_t tau)
 
    Retrieves the base name of a type.
 
    This function returns NULL if the type *tau* is invalid or has no
    base name. Otherwise it returns the base name of *tau*.
 
-.. c:function:: yices_get_type_by_name(const char *name)
+.. c:function:: type_t yices_get_type_by_name(const char *name)
 
    Gets a type by its name.
 
    This function returns the type mapped to *name* or :c:macro:`NULL_TYPE`
    if nothing is mapped to *name* in the symbol table.
 
-.. c:function:: yices_remove_type_name(const char *name)
+.. c:function:: void yices_remove_type_name(const char *name)
 
    Removes the current mapping of name from the symbol table for types.
 
    This function has no effect if *name* does not refer to any type.
 
-   Otherwise, the current mapping of *name* is removed. If the *name*
-   was previously mapped to another type, then this previous mapping
-   is restored.
+   Otherwise, the current mapping of *name* is removed. If *name* was
+   previously mapped to another type, then this previous mapping is
+   restored.
 
 .. c:function:: int32_t yices_clear_type_name(type_t tau)
 
    Removes the base name of a type.
 
-   If *tau* is not a valid type, then this function returns -1,
-   and sets the error report. Otherwise, it returns 0.
+   If *tau* is not a valid type, this function returns -1, and sets
+   the error report. Otherwise, it returns 0.
 
    If type *tau* does not have a base name, this function does nothing
    and returns 0.
 
-   Otherwise, mapping from *tau*'s base name to *tau* is removed from
-   the symbol table then *tau*'s base name is removed.
+   Otherwise, the mapping from *tau*'s base name to *tau* is removed
+   from the symbol table and *tau*'s base name is removed.
 
 
 Term Names
@@ -134,21 +134,21 @@ Term Names
      Otherwise, the function returns 0.
 
 
-.. c:function:: yices_get_term_name(term_t t)
+.. c:function:: const char* yices_get_term_name(term_t t)
 
    Retrieves the base name of a term.
 
    This function returns NULL if the term *t* is invalid or has no
    base name. Otherwise it returns the base name of *t*.
 
-.. c:function:: yices_get_term_by_name(const char *name)
+.. c:function:: term_t yices_get_term_by_name(const char *name)
 
    Gets a term by its name.
 
    This function returns the term mapped to *name* or :c:macro:`NULL_TERM`
    if nothing is mapped to *name* in the symbol table.
 
-.. c:function:: yices_remove_term_name(const char *name)
+.. c:function:: void yices_remove_term_name(const char *name)
 
    Removes the current mapping of name from the symbol table for terms.
 
@@ -216,7 +216,7 @@ by other terms. A substitution is defined by two term arrays of the same size:
 
   If the same term occurs several times in *var[i]* then the last occurrence counts.
   For example, if *v[0] = x* and *v[1] = x* then *x* is mapped to *map[1]* in the
-  substitution, not to *map[0]*.
+  substitution, not to *map[0]* (unless *x* occurs in the rest of the array *var*).
 
 
 .. c:function:: term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t)
@@ -324,14 +324,14 @@ The set of roots is constructed as follows:
 2) In addition, more roots can be specified using any of the following
    mechanisms (they can be combined).
 
-   - give a list of root terms and types as arguments to :c:func:`yices_garbage_collect`.
+   - Give a list of root terms and types as arguments to :c:func:`yices_garbage_collect`.
 
-   - set parameter ``keep_named`` to true when calling :c:func:`yices_garbage_collect`.
+   - Set parameter ``keep_named`` to true when calling :c:func:`yices_garbage_collect`.
 
      If this flag is true, all the terms and types that are stored in
      the symbol tables are added to the set of roots.
 
-   - maintain reference counts for individual terms and types, using
+   - Maintain reference counts for individual terms and types, using
      the functions:
 
         - :c:func:`yices_incref_type`
@@ -349,7 +349,7 @@ The set of roots is constructed as follows:
       zero.
 
       Just decrementing a reference counter to zero does not delete
-      anything yet. The terms and types are not deleted until function
+      anything. The terms and types are not deleted until function
       :c:func:`yices_garbage_collect` is called.
 
 

@@ -2414,6 +2414,31 @@ identifies the class of the term and its constructor. Section :ref:`types_for_te
 lists all the constructors and explains their roles.
 
 
+Atomic Terms
+............
+
+Atomic terms are labeled with the following constructors.
+
+    ==================================== ===========================
+     Constructor                          Term
+    ==================================== ===========================
+     :c:enum:`YICES_BOOL_CONSTANT`        Boolean constant
+     :c:enum:`YICES_ARITH_CONSTANT`       Arithmetic constant
+     :c:enum:`YICES_BV_CONSTANT`          Bitvector constant
+     :c:enum:`YICES_SCALAR_CONSTANT`      Scalar/unint constant
+     :c:enum:`YICES_VARIABLE`             Variable
+     :c:enum:`YICES_UNINTERPRETED_TERM`   Uninterpreted term
+    ==================================== ===========================
+
+
+The API provides functions to obtain the value of a constant. For
+arithmetic constant, the value is given as a GMP rational. For a
+bitvector constant, the value is an array of 0/1 integers; the number
+of bits in this array is given by :c:func:`yices_term_bitsize`.  The
+value of a constant of scalar or uninterpreted type is an integer
+index (cf. :c:func:`yices_constant`).
+
+
 Structure of Composite Terms
 ............................
 
@@ -2489,6 +2514,24 @@ For a term of the form *(bit i t)*, the child *t* is a bitvector and *i* is
 an index. If *t* is a bitvector of *n* bits, then *i* is between 0 and *n-1*.
 Index 0 refers to the least significant bit of *t* and index *n-1* refers to
 the most significant bit. See :c:func:`yices_bitextract`.
+
+
+Polynomials
+...........
+
+Sums and power products have the following constructors.
+
+    ================================ ===========================
+     Constructor                      Term
+    ================================ ===========================
+     :c:enum:`YICES_ARITH_SUM`        Arithmetic sum
+     :c:enum:`YICES_BV_SUM`           Bitvector sum
+     :c:enum:`YICES_POWER_PRODUCT`    Power product
+    ================================ ===========================
+
+Functions are available to extract the monomials of a sum (as pairs
+(coefficient |times| term)) and the factors of a product (as pairs
+(term, exponent)).
 
 Functions
 .........
@@ -2748,7 +2791,7 @@ a valid term.
 
    **Error report**
 
-   - if *t*'s constructor is not :c:enum:`YICES_BV_SUM` or if *i* is too large
+   - if *t*'s constructor is not :c:enum:`YICES_POWER_PRODUCT` or if *i* is too large
 
      -- error code: :c:enum:`INVALID_TERM_OP`
 
