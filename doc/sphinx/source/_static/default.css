@@ -21,7 +21,7 @@ p {
   margin: 0.8em 0 0.5em 0;
 }
 
-p.rubric {
+p.rubric, p.caption {
   font-weight: bold;
 }
 
@@ -82,6 +82,15 @@ a code {
 
 a code:hover {
   color: #2491CF;
+}
+
+div.align-center {
+  display: block;
+  margin-top: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 2em;
+  text-align: center;
 }
 
 dl {
