@@ -3756,8 +3756,6 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  * Convert model to a string using the pretty printer.
  * - width, height, offset define the print area
  *
- * Returns NULL on error and sets the error report.
- *
  * Returns a '\0'-terminated string otherwise. This string must be deleted
  * when no longer needed by calling yices_free_string.
  */

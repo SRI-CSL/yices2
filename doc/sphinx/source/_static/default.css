@@ -84,7 +84,7 @@ a code:hover {
   color: #2491CF;
 }
 
-div.align-center {
+div.figure {
   display: block;
   margin-top: 1em;
   margin-left: auto;
@@ -548,4 +548,8 @@ ul.keywordmatches li.goodmatch a {
 
 @media only screen and (max-width: 400px) {
   div.related ul li.left { display: none; }
+}
+
+@media only screen and (max-width: 450px) {
+  div.figure img { width: 100%; }
 }
