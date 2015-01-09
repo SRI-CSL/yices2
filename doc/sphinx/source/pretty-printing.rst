@@ -52,7 +52,7 @@ as follows:
         (>= (+ 1 x18 x19) 0) (>= (+ 1 x0 x19) 0))
 
 
-When the ares is too small, the result is truncated:
+When the area is too small, the result is truncated:
 
 .. code-block:: none
 

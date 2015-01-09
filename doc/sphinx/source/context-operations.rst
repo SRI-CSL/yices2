@@ -15,100 +15,174 @@ satisfiable. If they are, a model can be constructed from the context.
 Yices allows several context to be created and manipulated
 independently. The API provides functions for
 
-1) creating and configuring a context
+- creating and configuring a context
 
-2) asserting formulas in a context
+- asserting formulas in a context
 
-3) checking whether a context is satisfiable
+- checking whether a context is satisfiable
 
-4) building a model from a satisfiable context
+- building a model from a satisfiable context
 
-5) deleting a context
+- deleting a context
 
-A push/pop mechanism allows one to organize the assertions in a stack
-to support incremental solving and backtracking.
-
-
-
+A context can be configured to support a push/pop mechanism, which
+organizes the assertions in a stack to support incremental solving and
+backtracking.
 
 
 
 Creation and Configuration
 --------------------------
 
-When a context is created, it is possible to configure it to use a
-specific solver or a specific combination of solvers.  It is also
-possible to specify whether or not the context should support
-features such as push and pop.
+The simplest way to create a context is as follows::
 
-The following theory solvers are currently available:
+   context_t *ctx = yices_new_context(NULL);
 
-- egraph (solver for uninterpreted functions)
+This creates a new context in the default configuration. This context
+includes theory solvers for linear arithmetic, bitvector,
+uninterpreted functions, and arrays. The context supports the push/pop
+mechanism and the arithmetic solver can handle mixed integer real
+linear arithmetic.
 
-- bitvector solver
+To use a more specialized set of solvers, one can configure the
+context for a specific logic. Here is an example::
 
-- array solver
+   ctx_config_t *config = yices_new_config();
+   yices_default_config_for_logic(config, "QF_LRA");
+   context_t *ctx = yices_new_context(config);
 
-- solver for linear arithmetic based on simplex
+In this case, we pass a non-NULL configuration descriptor to function
+:c:func:`yices_new_context` to specify the logic we want to support.
+Logics are identified by their SMT-LIB name. In this example, QF_LRA
+means quantifier-free linear real arithmetic. This configuration
+creates a context with a single theory solver, namely, the
+simplex-based solver for linear arithmetic. As previously, this solver
+supports the push/pop mechanism.
 
-- solver for integer difference logic (based on Floyd-Warshall)
+If the push and pop features are not needed, we can modify the configuration
+as follows::
 
-- solver for real difference logic (also based on Floyd-Warshall)
+   ctx_config_t *config = yices_new_config();
+   yices_default_config_for_logic(config, "QF_LRA");
+   yices_set_config(config, "mode", "one-shot");
+   context_t *ctx = yices_new_context(config);
 
-The following combinations of theory solvers can be used:
+The call to :c:func:`yices_set_config` changes the context's mode of
+operation from the default (i.e., support for push and pop) to a more
+restricted mode where push and pop are not supported. In this mode,
+the context can use aggressive simplification and preprocessing
+procedures, which can improve solver performance.
 
-- no solvers at all
 
-- egraph alone
+The general process to configure a context is as follows:
 
-- bitvector solver alone
+1) allocate a configuration descriptor by a call to :c:func:`yices_new_config`.
 
-- simplex solver alone
+2) set configuration parameters by repeated calls to :c:func:`yices_set_config` or by
+   calling :c:func:`yices_default_config_for_logic`.
 
-- integer Floyd-Warshall solver alone
+3) create one or more contexts with this configuration by passing the descriptor to
+   function :c:func:`yices_new_context`
 
-- real Floyd-Warshall solver alone
+4) delete the configuration descriptor when it is no longer needed.
 
-- egraph + bitvector solver
 
-- egraph + simplex solver
+Configuration parameters specify the theory solvers to use, the
+arithmetic fragment, and the context's operating mode.
 
-- egraph + array solver
 
-- egraph + bitvector + array solver
+**Solver Combinations**
 
-- egraph + simplex + array solver
+Currently the following theory solvers are available:
 
-- egraph + simplex + bitvector + array solver
+   ============================= =============================
+    Solver name                    Theory
+   ============================= =============================
+    egraph                         uninterpreted functions
+    array solver                   arrays + extensionality
+    simplex                        linear arithmetic
+    integer Floyd-Warshall (IFW)   integer difference logic
+    real Floyd-Warshall (RFW)      real difference logic
+    bitvector                      bitvector theory
+   ============================= =============================
+   
 
-If no solvers are used, the context can deal only with Boolean
-formulas.
+A configuration selects a subset of these solvers. Not all
+combinations make sense. For example, there can be only one arithmetic
+solver so it's not possible to have both a Floyd-Warshal solver and
+the Simplex solver in the same context. The following table lists the
+combinations of theory solvers currently supported by Yices.
 
-When the simplex solver is used, it's also possible to
-specify which arithmetic fragment is intended, namely:
+   +-----------------------------------------------+
+   |  Combination                                  |
+   +===============================================+
+   |  no solvers at all                            |
+   +-----------------------------------------------+
+   |  egraph alone                                 |
+   +-----------------------------------------------+
+   |  bitvector alone                              |
+   +-----------------------------------------------+
+   |  simplex alone                                |
+   +-----------------------------------------------+
+   |  IFW alone                                    |
+   +-----------------------------------------------+
+   |  RFW alone                                    |
+   +-----------------------------------------------+
+   |  egraph + bitvector                           |
+   +-----------------------------------------------+
+   |  egraph + array solver                        |
+   +-----------------------------------------------+
+   |  egraph + simplex solver                      |
+   +-----------------------------------------------+
+   |  egraph + bitvector + array solver            |
+   +-----------------------------------------------+
+   |  egraph + simplex + array solver              |
+   +-----------------------------------------------+
+   |  egraph + bitvector + simplex + array solver  |
+   +-----------------------------------------------+
 
-- integer difference logic              (IDL)
 
-- real difference logic                 (RDL)
+If no solvers are used, the context can deal only with Boolean formulas.
 
-- real linear arithmetic                (LRA)
 
-- integer linear arithmetic             (LIA)
+**Arithmetic Fragment**
 
-- mixed integer/real linear arithmetic  (LIRA)
+When the simplex solver is used, it is also possible to specify
+an arithmetic fragment:
+
+   ============ ==========================================
+     Fragment     Meaning
+   ============ ==========================================
+     IDL          Integer Difference Logic
+     RDL          Real Difference Logic
+     LRA          Real Linear Arithmetic
+     LIA          Integer Linear Arithmetic
+     LIRA         Mixed Linear Arithmetic (Integer/Real)
+   ============ ==========================================
+
+The arithmetic fragment is ignored if there is no arithemtic solver at
+all, or if the arithmetic solver is one of the Floyd-Warshall solvers.
+
+
+
+**Operating Mode**
+
 
 In addition to the solver combination, a context can be configured
-for different usages:
+for different usages.
 
-- one-shot mode: check satisfiability of one set of formulas
+   ==================== =================================================
+     Mode                 Meaning
+   ==================== =================================================
+     ONE-SHOT             Check satisfiability of one set of assertions
+     MULTI-CHECKS         Repeated calls to assert/check are allowed
+     PUSH-POP             Push and Pop are supported
+     INTERACTIVE          Gracefully recovers from interrupted searches
+   ==================== =================================================
 
-- multiple checks: repeated calls to assert/check are allowed
+These four different modes are explained in the Yices manual.
 
-- push/pop: push and pop are supported (implies multiple checks)
-
-- clean interrupts are supported (implies push/pop)
-
-Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
+Currently, the Floyd-Warshall solvers can only be used in mode ONE-SHOT.
 
 By default, a new solver is configured as follows:
 
