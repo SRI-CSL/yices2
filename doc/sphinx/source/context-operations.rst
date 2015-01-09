@@ -7,6 +7,32 @@
 Contexts
 ========
 
+Contexts are one of the most important data structures in Yices. A
+context contains one or more solvers and provides functions for
+manipulating assertions and for checking whether these assertions are
+satisfiable. If they are, a model can be constructed from the context.
+
+Yices allows several context to be created and manipulated
+independently. The API provides functions for
+
+1) creating and configuring a context
+
+2) asserting formulas in a context
+
+3) checking whether a context is satisfiable
+
+4) building a model from a satisfiable context
+
+5) deleting a context
+
+A push/pop mechanism allows one to organize the assertions in a stack
+to support incremental solving and backtracking.
+
+
+
+
+
+
 Creation and Configuration
 --------------------------
 

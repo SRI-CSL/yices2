@@ -7,7 +7,14 @@
 Miscellaneous Operations
 ========================
 
+This section describes functions for assigning names to terms and
+types and for building terms and types by parsing expressions in the
+Yices language. It also documents term substitutions and support for
+garbage collection.
+
+
 .. _names_api:
+
 
 Names
 -----
