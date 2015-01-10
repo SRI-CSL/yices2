@@ -46,6 +46,7 @@ Appendix
    :maxdepth: 1
 
    yices-language
+   smt-logics
 
 Index and Search
 ----------------
