@@ -12,7 +12,7 @@ context contains one or more solvers and provides functions for
 manipulating assertions and for checking whether these assertions are
 satisfiable. If they are, a model can be constructed from the context.
 
-Yices allows several context to be created and manipulated
+Yices allows several contexts to be created and manipulated
 independently. The API provides functions for
 
 - creating and configuring a context
@@ -39,9 +39,9 @@ The simplest way to create a context is as follows::
    context_t *ctx = yices_new_context(NULL);
 
 This creates a new context in the default configuration. This context
-includes theory solvers for linear arithmetic, bitvector,
+includes theory solvers for linear arithmetic, bitvectors,
 uninterpreted functions, and arrays. The context supports the push/pop
-mechanism and the arithmetic solver can handle mixed integer real
+mechanism and the arithmetic solver can handle mixed integer and real
 linear arithmetic.
 
 To use a more specialized set of solvers, one can configure the
@@ -50,22 +50,24 @@ context for a specific logic. Here is an example::
    ctx_config_t *config = yices_new_config();
    yices_default_config_for_logic(config, "QF_LRA");
    context_t *ctx = yices_new_context(config);
+   yices_free_config(config)
 
 In this case, we pass a non-NULL configuration descriptor to function
-:c:func:`yices_new_context` to specify the logic that we want to
-support.  Logics are identified by their SMT-LIB name. In this
-example, QF_LRA means quantifier-free linear real arithmetic. This
-configuration creates a context with a single theory solver, namely,
-the simplex-based solver for linear arithmetic. As previously, the
-context supports the push/pop mechanism.
+:c:func:`yices_new_context` to specify the logic. Logics are
+identified by their SMT-LIB name. In this example, QF_LRA means
+quantifier-free linear real arithmetic. This configuration creates a
+context with a single theory solver, namely, the simplex-based solver
+for linear arithmetic. As previously, the context supports the
+push/pop mechanism.
 
-If the push and pop features are not needed, we can modify the configuration
+If the push and pop features are not needed, we can change the configuration
 as follows::
 
    ctx_config_t *config = yices_new_config();
    yices_default_config_for_logic(config, "QF_LRA");
    yices_set_config(config, "mode", "one-shot");
    context_t *ctx = yices_new_context(config);
+   yices_free_config(config)
 
 The call to :c:func:`yices_set_config` changes the context's mode of
 operation from the default (i.e., support for push and pop) to a more
@@ -84,7 +86,7 @@ The general process to configure a context is as follows:
 3) create one or more contexts with this configuration by passing the descriptor to
    function :c:func:`yices_new_context`
 
-4) delete the configuration descriptor when it is no longer needed.
+4) delete the configuration descriptor when it is no longer needed using :c:func:`yices_free_config`.
 
 
 Configuration parameters specify the theory solvers to use, the
@@ -162,9 +164,9 @@ an arithmetic fragment:
      LIRA         Mixed Linear Arithmetic (Integer/Real)
    ============ ==========================================
 
-The arithmetic fragment is ignored if there is no arithemtic solver at
-all, or if the arithmetic solver is one of the Floyd-Warshall solvers.
-The default fragment is LIRA.
+The arithmetic fragment is ignored if there is no arithmetic solver or
+if the arithmetic solver is one of the Floyd-Warshall solvers.  The
+default fragment is LIRA.
 
 
 **Operating Mode**
@@ -189,12 +191,14 @@ for different usages.
      push-pop. In addition, the context can recover gracefully if a
      search is interrupted.
 
-The default mode is push-pop. in the first two modes, Yices employs
-more aggressive simplifications when processing assertions, which can
-lead to better performance. In the interactive mode, the current state
-of the context is saved before each call to :c:func:`yices_check_context`.
-This introduces overhead, but the context can be restored to a clean
-state if the search is interrupted.
+In the first two modes, Yices employs more aggressive simplifications
+when processing assertions, which can lead to better performance. In
+the interactive mode, the current state of the context is saved before
+each call to :c:func:`yices_check_context`.  This introduces overhead,
+but the context can be restored to a clean state if the search is
+interrupted.
+
+The default mode is push-pop.
 
 Currently, the Floyd-Warshall solvers can only be used in mode one-shot.
 
@@ -255,9 +259,10 @@ arithmetic fragment and the operating mode:
 A configuration descriptor also stores a logic flag, which can either
 be *unknown* (i.e., no logic specified), or the name of an SMT-LIB
 logic, or the special name *NONE*. If this logic flag is set (i.e.,
-not *unknown*), it takes precedence over the solver parameters listed
-in the previous table. The solver combination is determined by the logic.
-The special logic name *NONE* means no theory solvers.
+not *unknown*), it takes precedence over the four solver-selection
+parameters listed in the previous table. The solver combination is
+determined by the logic.  The special logic name *NONE* means no
+theory solvers.
 
 If the logic is QF_IDL or QF_RDL and the mode is one-shot, then one
 can set the arith-solver to *auto*. In this setting, the actual
@@ -321,8 +326,10 @@ parameters and logic.
 
    - *logic* must be either the name of a logic or the string ``"NONE"``
 
-   A logic name must be given as a string, using the SMT-LIB conventions.
-   The logics recognized and supported by Yices are listed in :ref:`smt_logics`.
+   If *logic* is ``"NONE"`` then no theory solvers are included, and
+   the context can only process purely Boolean assertions. Otherwse
+   *logic* must be the name of an SMT-LIB logic.  The logics
+   recognized and supported by Yices are listed in :ref:`smt_logics`.
 
    If the logic is unrecognized or unsupported, the function leaves
    the configuration record unchanged and returns -1.  It returns 0
