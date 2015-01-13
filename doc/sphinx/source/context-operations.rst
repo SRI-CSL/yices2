@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. include:: macros
+
 .. highlight:: c
 
 .. _context_operations:
@@ -206,12 +208,10 @@ Currently, the Floyd-Warshall solvers can only be used in mode one-shot.
 Configuration Descriptor
 ........................
 
-To specify a context configuration other than the default, one must
-pass a configuration descriptor to function yices_new_context. A
-configuration descriptor is a record that stores operating mode,
-arithmetic fragment, and solver combination. 
+A configuration descriptor is a record that stores operating mode,
+arithmetic fragment, and solver combination.
 
-The record stores four configuration parameters that describe the theory solvers:
+Four configuration parameters describe the theory solvers:
 
    +--------------+---------------+---------------------------------------+
    | Name         | Value         |  Meaning                              |
@@ -243,7 +243,7 @@ The record stores four configuration parameters that describe the theory solvers
    +--------------+---------------+---------------------------------------+
 
 
-Two more parameters in the configuration descriptor specifies the
+Two more parameters in the configuration descriptor specify the
 arithmetic fragment and the operating mode:
 
    +--------------------+-----------------------------------------------------+
@@ -389,21 +389,96 @@ Context Creation and Deletion
    the memory allocated to this context.
 
    .. note:: If this function is not called, Yices will automatically free
-             the context on a call to :c:func:`yices_exit`.
+             the context on a call to :c:func:`yices_exit` or :c:func:`yices_reset`.
 
 
 
 Preprocessing Options
 .....................
 
+Several options determine the simplifications performed when formulas
+are asserted. It is best to leave these unchanged, but in case you
+need fine control, the following functions selectively enable or
+disable a preprocessing option.
+
+The current options include:
+
+   +----------------------+---------------------------------------------------------+
+   | Option               | Meaning                                                 |
+   +======================+=========================================================+
+   | var-elim             | Eliminate variables by substitution                     |
+   +----------------------+---------------------------------------------------------+
+   | arith-elim           | Enable Gaussian elimination                             |
+   +----------------------+---------------------------------------------------------+
+   | bvarith-elim         | Variable elimination for bitvector arithmetic           |
+   +----------------------+---------------------------------------------------------+
+   | eager-arith-lemmmas  | Eager lemma generation for the Simplex solver           |
+   +----------------------+---------------------------------------------------------+
+   | flatten              | Flattening of nested (or ...)                           |
+   +----------------------+---------------------------------------------------------+
+   | learn-eq             | Heuristic to learn equalities in QF_UF problems         |
+   +----------------------+---------------------------------------------------------+
+   | keep-ite             | Keep if-then-else terms in the egraph                   |
+   +----------------------+---------------------------------------------------------+
+   | break-symmetries     | Heuristic to detect and break symmetries in             |
+   |                      | QF_UF problems                                          |
+   +----------------------+---------------------------------------------------------+
+   | assert-ite-bounds    | Attempt to learn and assert upper/lower bounds          |
+   |                      | on if-then-else terms                                   |
+   +----------------------+---------------------------------------------------------+
+
+
+If *eager-arith-lemmas* is enabled, the Simplex solver will eagerly generate lemmas such
+as (x |ge| 1) |implies| (x |ge| 0), that is, lemmas that involve two atoms that contain
+the same variable. See [DdM2006]_ for more details. 
+
+The *flatten* option converts a term such as (or (or a b) (or b c d)) to (or a b c d).
+
+The *break-symmetries* option enables symmetry breaking as described in [DFMW2011]_
+
+If *assert-ite-bounds* is enabled, Yices tries to compute upper and
+lower bounds on arithmetic if-then-else terms, and asserts these
+bounds. For example, if *t* is defined as *(ite c 10 (ite d 3 20))*
+then the context will include the bounds: 3 |le| t |le| 30.
+
+
 .. c:function:: int32_t yices_context_enable_option(context_t* ctx, const char* option)
 
+   Enables a preprocessing option.
+
+   **Parameters**
+
+   - *ctx* context
+
+   - *option*: option name
+
+   The option name must be given as a string, as listed in the previous table.
+
+   For example to enable symmetry breaking::
+
+     yices_context_enable_option(ctx, "break-symmetries");
+
+   This function returns -1 if the option is not recognized, or 0 otherwise.
+
+   **Error report**
+
+   - if the option is not recognized:
+ 
+     -- error code: :c:enum:`CTX_UNKNOWN_PARAMETER`
+
+
 .. c:function:: int32_t yices_context_disable_option(context_t* ctx, const char* option)
+
+   Disables a preprocessing option.
+ 
+   The parameters and error conditions are the same as for :c:func:`yices_context_enable_option`.
 
 
 
 Assertions and Satisfiability Checks
 ------------------------------------
+
+
 
 .. c:function:: smt_status_t yices_context_status(context_t* ctx)
 
@@ -437,3 +512,5 @@ Search Parameters
 .. c:function:: int32_t yices_set_param(param_t* p, const char* name, const char* value)
 
 .. c:function:: void yices_free_param_record(param_t* param)
+
+

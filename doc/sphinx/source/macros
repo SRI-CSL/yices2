@@ -7,6 +7,14 @@
 
 .. |le| unicode:: &#x2264;
 
+.. |and| unicode:: &#x2227;
+
+.. |or| unicode:: &#x2228;
+
+.. |implies| unicode:: &#x27F9;
+
+.. |iff| unicode:: &#x21D4;
+
 .. |...| unicode:: &#x2026;
 
 .. |-| unicode:: &#x2212;
@@ -14,6 +22,8 @@
 .. |tau| unicode:: &#x3C4;
 
 .. |sigma| unicode:: &#x3C3;
+
+.. |e'| unicode:: &#x00e9;
 
 .. |_0| replace:: :sub:`0`
 
@@ -24,5 +34,4 @@
 .. |_i| replace:: :sub:`i`
 
 .. |_i+1| replace:: :sub:`i+1`
-
 

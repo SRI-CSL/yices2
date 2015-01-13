@@ -47,6 +47,8 @@ Appendix
 
    yices-language
    smt-logics
+   references
+
 
 Index and Search
 ----------------
