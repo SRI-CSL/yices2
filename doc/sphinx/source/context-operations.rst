@@ -80,15 +80,15 @@ procedures, which can improve solver performance.
 
 The general process to configure a context is as follows:
 
-1) allocate a configuration descriptor by a call to :c:func:`yices_new_config`.
+1) Allocate a configuration descriptor by a call to :c:func:`yices_new_config`.
 
-2) set configuration parameters by repeated calls to :c:func:`yices_set_config` or by
+2) Set configuration parameters by repeated calls to :c:func:`yices_set_config` or by
    calling :c:func:`yices_default_config_for_logic`.
 
-3) create one or more contexts with this configuration by passing the descriptor to
+3) Create one or more contexts with this configuration by passing the descriptor to
    function :c:func:`yices_new_context`
 
-4) delete the configuration descriptor when it is no longer needed using :c:func:`yices_free_config`.
+4) Delete the configuration descriptor when it is no longer needed using :c:func:`yices_free_config`.
 
 
 Configuration parameters specify the theory solvers to use, the
@@ -260,7 +260,7 @@ A configuration descriptor also stores a logic flag, which can either
 be *unknown* (i.e., no logic specified), or the name of an SMT-LIB
 logic, or the special name *NONE*. If this logic flag is set (i.e.,
 not *unknown*), it takes precedence over the four solver-selection
-parameters listed in the previous table. The solver combination is
+parameters listed in the previous table; the solver combination is
 determined by the logic.  The special logic name *NONE* means no
 theory solvers.
 
@@ -277,7 +277,7 @@ parameters and logic.
 
 .. c:function:: ctx_config_t* yices_new_config(void)
 
-   Allocates a new context configuration record.
+   Allocates a context-configuration record.
 
    This functions returns a new configuration record, initialized for the default
    configuration.
@@ -318,7 +318,7 @@ parameters and logic.
 
 .. c:function:: int32_t yices_default_config_for_logic(ctx_config_t* config, const char* logic)
 
-   Prepares a context-configuration for a specified logic.
+   Prepares a context configuration for a specified logic.
 
    **Parameters**
 
@@ -327,7 +327,7 @@ parameters and logic.
    - *logic* must be either the name of a logic or the string ``"NONE"``
 
    If *logic* is ``"NONE"`` then no theory solvers are included, and
-   the context can only process purely Boolean assertions. Otherwse
+   the context can only process purely Boolean assertions. Otherwise
    *logic* must be the name of an SMT-LIB logic.  The logics
    recognized and supported by Yices are listed in :ref:`smt_logics`.
 
@@ -408,11 +408,11 @@ The current options include:
    +======================+=========================================================+
    | var-elim             | Eliminate variables by substitution                     |
    +----------------------+---------------------------------------------------------+
-   | arith-elim           | Enable Gaussian elimination                             |
+   | arith-elim           | Gaussian elimination                                    |
    +----------------------+---------------------------------------------------------+
    | bvarith-elim         | Variable elimination for bitvector arithmetic           |
    +----------------------+---------------------------------------------------------+
-   | eager-arith-lemmmas  | Eager lemma generation for the Simplex solver           |
+   | eager-arith-lemmas   | Eager lemma generation for the Simplex solver           |
    +----------------------+---------------------------------------------------------+
    | flatten              | Flattening of nested (or ...)                           |
    +----------------------+---------------------------------------------------------+
@@ -428,18 +428,18 @@ The current options include:
    +----------------------+---------------------------------------------------------+
 
 
-If *eager-arith-lemmas* is enabled, the Simplex solver will eagerly generate lemmas such
-as (x |ge| 1) |implies| (x |ge| 0), that is, lemmas that involve two atoms that contain
-the same variable. See [DdM2006]_ for more details. 
+   If *eager-arith-lemmas* is enabled, the Simplex solver will eagerly generate lemmas such
+   as (x |ge| 1) |implies| (x |ge| 0), that is, lemmas that involve two atoms that contain
+   the same variable. See [DdM2006]_ for more details. 
 
-The *flatten* option converts a term such as (or (or a b) (or b c d)) to (or a b c d).
+   The *flatten* option converts a term such as (or (or a b) (or b c d)) to (or a b c d).
 
-The *break-symmetries* option enables symmetry breaking as described in [DFMW2011]_.
+   The *break-symmetries* option enables symmetry breaking as described in [DFMW2011]_.
 
-If *assert-ite-bounds* is enabled, Yices tries to compute upper and
-lower bounds on arithmetic if-then-else terms, and asserts these
-bounds. For example, if *t* is defined as *(ite c 10 (ite d 3 20))*
-then the context will include the bounds: 3 |le| t |le| 20.
+   If *assert-ite-bounds* is enabled, Yices tries to compute upper and
+   lower bounds on arithmetic if-then-else terms, and asserts these
+   bounds. For example, if *t* is defined as *(ite c 10 (ite d 3 20))*
+   then the context will include the bounds: 3 |le| t |le| 20.
 
 
 .. c:function:: int32_t yices_context_enable_option(context_t* ctx, const char* option)

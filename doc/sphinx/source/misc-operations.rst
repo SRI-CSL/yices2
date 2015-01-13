@@ -287,14 +287,14 @@ by other terms. A substitution is defined by two term arrays of the same size:
  
    - *t* is an array of *m* terms.
 
-   The constraints of *var* and *map* are the same as in function :c:func:`yices_subst_term`.
+   The constraints on *var* and *map* are the same as in function :c:func:`yices_subst_term`.
 
    This function applies the substitution defined by *var* and *map*
    to the *m* terms of *t*.  The result is stored in place in array *t*.
    Assuming there's no error, this function has the same effect as the loop::
 
        for (i=0; i<m; i++) {
-         t[i] = yices_subst_array(n, var, map, t[i]);
+         t[i] = yices_subst_term(n, var, map, t[i]);
        }
 
    But it is more efficient to call :c:func:`yices_subst_term_array`
