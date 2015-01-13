@@ -1,3 +1,4 @@
+
 :tocdepth: 2
 
 .. include:: macros
@@ -477,36 +478,305 @@ The current options include:
 Assertions and Satisfiability Checks
 ------------------------------------
 
-
+Once a context is initialized, the following functions can be used to
+assert formulas, check satisfiability, and query the context's status.
 
 .. c:function:: smt_status_t yices_context_status(context_t* ctx)
 
+   Returns a context's status.
+
+   An internal flag stores the context's current state. This function
+   reads this flag and returns it.
+
+   The possible returned values are (see :c:type:`smt_status_t`):
+
+   - :c:enum:`STATUS_IDLE`. This is the initial state.
+
+     In this state, it is possible to assert formulas. The state may
+     then change to :c:enum:`STATUS_UNSAT` if the assertions are
+     trivially unsatisfiable Otherwise, the state remains
+     :c:enum:`STATUS_IDLE`.
+
+   - :c:enum:`STATUS_SEARCHING`. This is the context state during search.
+
+     The context enters this state on a call to :c:func:`yices_check_context` and remains
+     in this state until the solver completes or the search is interrupted.
+
+   - :c:enum:`STATUS_SAT`, :c:enum:`STATUS_UNSAT`, :c:enum:`STATUS_UNKNOWN`.
+
+     These are the states after a search completes. :c:enum:`STATUS_UNKNOWN` means
+     that the search was inconclusive, which may happen if the solver is not complete.
+
+   - :c:enum:`STATUS_INTERRUPTED`.
+
+     This state is entered if a search is interrupted.
+
+
+  
 .. c:function:: int32_t yices_assert_formula(context_t* ctx, term_t t)
 
-.. c:function:: int32_t int32_t yices_assert_formulas(context_t* ctx, uint32_t n, const term_t t[])
+   Asserts a formula.
+
+   This function asserts formula *t* in context *ctx*.
+
+   The term *t* must be Boolean.
+
+   The context *ctx* must be in one of the following states:
+   :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_UNSAT`,
+   :c:enum:`STATUS_SAT`, or :c:enum:`STATUS_UNKNOWN`.
+
+   - if the current state is :c:enum:`STATUS_UNSAT`, this function does nothing.
+
+   - otherwise, the formula *t* is simplified and asserted in the context. The context's state
+     is then changed to :c:enum:`STATUS_UNSAT` if the assertion simplifies to false, or to
+     :c:enum:`STATUS_IDLE` otherwise.
+
+   If the context is in mode *one-shot*, this function fails if the state is either
+   :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
+
+   The function returns 0 if there's no error, or -1 otherwise.
+
+   **Error report**
+
+   - if *t* is invalid
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := t
+
+   - if *t* is not Boolean
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+     -- term1 := t
+
+     -- type1 := bool
+
+   - if *ctx*'s state is :c:enum:`STATUS_INTERRUPTED`
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+   - if *ctx*'s mode is *one-shot* and *ctx*'s state is neither :c:enum:`STATUS_IDLE` nor :c:enum:`STATUS_UNSAT`
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED` 
+
+   Other error codes are possible if *t* is outside the logic supported by the context.
+   See :ref:`error_types`.
+   
+
+.. c:function:: int32_t yices_assert_formulas(context_t* ctx, uint32_t n, const term_t t[])
+
+   Asserts an array of formula.
+
+   This function add assertions *t[0]* |...| *t[n-1]* to *ctx*.
+
+   **Parameters**
+
+   - *n* is the number of formulas to assert
+
+   - *t* must be an array of *n* Boolean terms.
+
+   The context must be in state :c:enum:`STATUS_IDLE`,
+   :c:enum:`STATUS_UNSAT`, :c:enum:`STATUS_SAT`, or
+   :c:enum:`STATUS_UNKNOWN`.
+
+   This function is equivalent to calling
+   :c:func:`yices_assert_formula` with input *(and t[0] ... t[n-1])*.
+   In particular, if *n* is 0, this function is equivalent to
+   asserting true in *ctx*.
+
+   The returned value and error conditions are as in :c:func:`yices_assert_formulas`.
+
 
 .. c:function:: smt_status_t yices_check_context(context_t* ctx, const param_t* params)
 
+   Checks whether a context is satisfiable.
+
+   **Parameters**
+
+   - *ctx* is a context
+ 
+   - *params* is an optional pointer to a search-parameter structure
+
+   The *params* data structure can be used to control the heuristics
+   used by the solvers. If *params* is :c:macro:`NULL`, default settings
+   are used.
+
+
+   This function's behavior and returned value depend on *ctx*'s current state.
+
+   - If the state is :c:enum:`STATUS_SAT`, :c:enum:`STATUS_UNSAT`, or :c:enum:`STATUS_UNKNOWN`,
+     the function just returns this status.
+
+   - If the state is :c:enum:`STATUS_IDLE`, then the context's solver
+     (as defined by the context's configuration) searches for a
+     satisfying assignment to all the assertions stored in *ctx*.
+     If *params* is not :c:macro:`NULL`, the solver uses the
+     heuristic parameters specified by *params*.
+
+     Then the function returns one of the following codes:
+
+     - :c:enum:`STATUS_UNSAT`: the context is not satisfiable.
+
+     - :c:enum:`STATUS_SAT`: the context is satisfiable.
+
+     - :c:enum:`STATUS_UNKNOWN`: the solver can't prove whether the context is 
+       satisfiable or not.
+
+     - :c:enum:`STATUS_INTERRUPTED`: the search was interrupted by a
+       call to :c:func:`yices_stop_search`.
+
+     This returned value is also stored as the context's status flag, with the following exception:
+
+     - If the context is configured for mode *interactive* and the search is interrupted,
+       then the function returns :c:enum:`STATUS_INTERRUPTED` but the context's state is
+       restored to what it was before the call to :c:func:`yices_check_context`, and the
+       internal status flag is reset to  :c:enum:`STATUS_IDLE`.
+       
+   - If *ctx* is in another state, the function
+     returns :c:enum:`STATUS_ERROR`.
+
+   **Error report**
+ 
+   - if *ctx*'s states is wrong:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+
 .. c:function:: void yices_stop_search(context_t* ctx)
 
-.. c:function:: int32_t yices_assert_blocking_clause(context* ctx)
+   Interrupts the search.
+
+   This function can be called from a signal handler to stop the
+   search after at call to :c:func:`yices_check_context`. If the
+   context's state is :c:enum:`STATUS_SEARCHING` then the search is
+   interrupted, otherwise the function does nothing.
+
+   .. note:: If the search is interrupted and the context's mode is
+             not *interactive* then the context's enters state
+             :c:enum:`STATUS_INTERRUPTED`. 
+               
+  
+.. c:function:: void yices_reset_context(context_t* ctx)
+
+   Resets a context.
+
+   This function removes all the assertions stored in *ctx* and resets
+   the context's state to :c:enum:`STATUS_IDLE`.
+   
+
+.. c:function:: int32_t yices_assert_blocking_clause(context_t* ctx)
+
+   Adds a blocking clause.
+
+   This function is intended to enumerate different models for a set
+   of assertions.
+
+   - If *ctx*'s status is either :c:enum:`STATUS_SAT` or
+     :c:enum:`STATUS_UNKNOWN`, then a new clause is asserted in *ctx*
+     to remove the current truth assignment.  After this clause is
+     added, the next call to :c:func:`yices_check_context` will either
+     produce a different truth assignment (hence a different model) or
+     return :c:enum:`STATUS_UNSAT`.
+    
+     After adding the clause, the context's state is updated to either
+     :c:enum:`STATUS_IDLE` (if the clause is not empty) or to
+     :c:enum:`STATUS_UNSAT` if the blocking clause is empty.
+
+
+   - If *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`,
+     the function reports an error.
+
+   This function is not supported if the context's mode is *one-shot*.
+
+   The returned value is 0 if the operation succeeds or -1 otherwise.
+
+   **Error report**
+
+   - if *ctx*'s status is different from :c:enum:`STATUS_SAT` and :c:enum:`STATUS_UNKNOWN`
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+   - if *ctx*'s mode is *one-shot*
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+
 
 
 Push and Pop
 ------------
 
-.. c:function:: void yices_reset_context(context_t* ctx)
+If a context is configured to support push and pop (i.e., if the mode
+is either *push-pop* or *interactive*) then the context maintains a
+stack of assertions organized in levels.The push operation starts a
+new level and the pop operation removes all assertions added at the
+current level. Push can be thought of as setting a backtracking point
+and pop restores the context's state to a previous backtracking point.
+
+Initially, the assertion level is zero. Any assertions added at level
+zero cannot be retracted. For example, any formula asserted before the
+first call to :c:func:`yices_push` is part of the context and cannot be
+removed by :c:func:`yices_pop`.
 
 .. c:function:: int32_t yices_push(context_t* ctx)
 
+   Marks a backtracking point.
+
+   This function starts a new assertion level. The *ctx* must be
+   configured to support push and pop, and its status must be either
+   :c:enum:`STATUS_IDLE`, or :c:enum:`STATUS_SAT`, or
+   :c:enum:`STATUS_UNKNOWN`.
+
+   The function returns 0 if the operation succeeds or -1 otherwise.
+
+   **Error report**
+
+   - if *ctx* is not configured for push and pop:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - if *ctx* supports push and pop but its status is :c:enum:`STATUS_UNSAT`,
+     :c:enum:`STATUS_SEARCHING`, or :c:enum:`STATUS_INTERRUPTED`:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+    
 .. c:function:: int32_t yices_pop(context_t* ctx)
 
+   Backtracks.
+
+   This function removes all assertions at the current level (i.e.,
+   restores the context's state to what it was at the matching call to
+   :c:func:`yices_push`), then decrements the assertion level. It
+   fails if the current assertion level is zero.
+
+   The function returns 0 if the operation succeeds or -1 otherwise.
+
+   **Error report**
+
+   - if *ctx* is not configured for push and pop:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - if *ctx*'s status is :c:enum:`STATUS_SEARCHING` or if the assertion level is zero:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
 
 Search Parameters
 -----------------
 
+
+A parameter record stores search parameters and options that control
+the heuritics used by a solver. It is created by calling
+:c:func:`yices_new_param_record`.  Individual parameters can be set
+using fucntion :c:func:`yices_set_param`. The record can then be
+passed as argument to function :c:func:`yices_check_context`. When the
+record is no longer needed, it can be deleted by
+:c:func:`yices_free_param_record`.
+
 .. c:function:: param_t* yices_new_param_record(void)
+
+   
 
 .. c:function:: int32_t yices_set_param(param_t* p, const char* name, const char* value)
 

@@ -453,7 +453,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, int32_t i);
 
 
 /*
- * Collect all the children to type tau in vector *v
+ * Collect all the children of type tau in vector *v
  * - v must be initialized by calling yices_init_type_vector
  * - if tau is not valid, the function returns -1 and leaves *v unchanged
  * - otherwise, the children are stored in *v:
@@ -469,6 +469,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, int32_t i);
  *   type1 = tau
  */
 __YICES_DLLSPEC__ extern int32_t yices_type_children(type_t tau, type_vector_t *v);
+
 
 
 /***********************
@@ -2753,7 +2754,7 @@ __YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
  * - if the context is not configured to support push/pop
  *   code = CTX_OPERATION_NOT_SUPPORTED
  * - if there's no matching push (i.e., the context stack is empty)
- *   or if the context's status is STATUS_SEARCHING or STATUS_INTERRUPTED
+ *   or if the context's status is STATUS_SEARCHING
  *   code = CTX_INVALID_OPERATION
  */
 __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
@@ -2936,7 +2937,7 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  * the solver.
  *
  * A parameter structure is created by calling
- * - yices_new_param_structure(void)
+ * - yices_new_param_record(void)
  * This returns a parameter structure initialized with default
  * settings.
  *
