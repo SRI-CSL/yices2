@@ -434,12 +434,12 @@ the same variable. See [DdM2006]_ for more details.
 
 The *flatten* option converts a term such as (or (or a b) (or b c d)) to (or a b c d).
 
-The *break-symmetries* option enables symmetry breaking as described in [DFMW2011]_
+The *break-symmetries* option enables symmetry breaking as described in [DFMW2011]_.
 
 If *assert-ite-bounds* is enabled, Yices tries to compute upper and
 lower bounds on arithmetic if-then-else terms, and asserts these
 bounds. For example, if *t* is defined as *(ite c 10 (ite d 3 20))*
-then the context will include the bounds: 3 |le| t |le| 30.
+then the context will include the bounds: 3 |le| t |le| 20.
 
 
 .. c:function:: int32_t yices_context_enable_option(context_t* ctx, const char* option)
@@ -472,7 +472,6 @@ then the context will include the bounds: 3 |le| t |le| 30.
    Disables a preprocessing option.
  
    The parameters and error conditions are the same as for :c:func:`yices_context_enable_option`.
-
 
 
 Assertions and Satisfiability Checks
