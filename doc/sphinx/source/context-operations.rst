@@ -322,7 +322,7 @@ parameters and logic.
 
    **Parameters**
 
-   - *config* must be a pointer to a configuration parameter returned by :c:func:`yices_new_config`
+   - *config* must be a pointer to a configuration record returned by :c:func:`yices_new_config`
 
    - *logic* must be either the name of a logic or the string ``"NONE"``
 
