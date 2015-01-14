@@ -14,8 +14,9 @@ and theory solvers. They can be set using function :c:func:`yices_set_param`.
 SAT Solver Parameters
 ---------------------
 
-Yices uses a CDCL SAT solver, similar to Minisat and Picosat. The following parameters
-affect heuristics used by this SAT solver.
+Yices uses a CDCL SAT solver, similar to Minisat [ES2003]_ and Picosat
+[Bie2008]_.  The following parameters affect heuristics used by this
+SAT solver.
 
 
 Restart Heuristics
@@ -162,7 +163,7 @@ determines whether *x* is set to true or false.
   |                +-------------+----------------------------------------------+
   |                | negative    | Always set *x* to false                      |
   |                +-------------+----------------------------------------------+
-  |                | positive    | Always set *x* to true                      |
+  |                | positive    | Always set *x* to true                       |
   |                +-------------+----------------------------------------------+
   |                | theory      | Use default is *x* is a pure Boolean,        |
   |                |             | delegate to the theory solver otherwise      |

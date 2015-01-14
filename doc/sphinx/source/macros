@@ -11,6 +11,8 @@
 
 .. |or| unicode:: &#x2228;
 
+.. |not| unicode:: &#x00AC;
+
 .. |implies| unicode:: &#x27F9;
 
 .. |iff| unicode:: &#x21D4;
@@ -23,7 +25,64 @@
 
 .. |sigma| unicode:: &#x3C3;
 
-.. |e'| unicode:: &#x00e9;
+
+.. |a`| unicode:: &#x00E0;
+
+.. |a'| unicode:: &#x00E1;
+
+.. |a^| unicode:: &#x00E2;
+
+.. |a~| unicode:: &#x00E3;
+
+.. |a"| unicode:: &#x00E4;
+
+.. |a^o| unicode:: &#x00E5;
+
+.. |ae| unicode:: &#x00E6;
+
+.. |c,| unicode:: &#x00E7;
+
+.. |e`| unicode:: &#x00E8;
+
+.. |e'| unicode:: &#x00E9;
+
+.. |e^| unicode:: &#x00EA;
+
+.. |e"| unicode:: &#x00EB;
+
+.. |i`| unicode:: &#x00EC;
+
+.. |i'| unicode:: &#x00ED;
+
+.. |i^| unicode:: &#x00EE;
+
+.. |i"| unicode:: &#x00EF;
+
+.. |eth| unicode:: &#x00F0;
+
+.. |n~| unicode:: &#x00F1;
+
+.. |o`| unicode:: &#x00F2;
+
+.. |o'| unicode:: &#x00F3;
+
+.. |o^| unicode:: &#x00F4;
+
+.. |o~| unicode:: &#x00F5;
+
+.. |o"| unicode:: &#x00F6;
+
+.. |o/| unicode:: &#x00F8;
+
+.. |u`| unicode:: &#x00F9;
+
+.. |u'| unicode:: &#x00FA;
+
+.. |u^| unicode:: &#x00FB;
+
+.. |u"| unicode:: &#x00FC;
+
+.. |c'| unicode:: &#x0107;
 
 .. |_0| replace:: :sub:`0`
 
