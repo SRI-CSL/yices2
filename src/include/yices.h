@@ -2969,7 +2969,7 @@ __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
  *
  * Error codes:
  * - CTX_UNKNOWN_PARAMETER if pname is not a known parameter name
- * - CRX_INVALID_PARAMETER_VALUE if value is not valid for the parameter
+ * - CTX_INVALID_PARAMETER_VALUE if value is not valid for the parameter
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, const char *value);
 

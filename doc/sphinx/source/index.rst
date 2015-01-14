@@ -47,6 +47,7 @@ Appendix
 
    yices-language
    smt-logics
+   parameters
    references
 
 

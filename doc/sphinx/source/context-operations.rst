@@ -776,10 +776,53 @@ record is no longer needed, it can be deleted by
 
 .. c:function:: param_t* yices_new_param_record(void)
 
-   
+   Allocates a parameter record.
+
+   This returns a (pointer to) a record initialized with default settings.
+
+   The record is allocated internally by Yices. It must be freed when
+   no-longer used by calling :c:func:`yices_free_param_record`.
 
 .. c:function:: int32_t yices_set_param(param_t* p, const char* name, const char* value)
 
+   Sets a search parameter.
+
+   **Parameters**
+
+   - *p* must be a record returned by :c:func:`yices_new_param_record`.
+
+   - *name* is a parameter name
+
+   - *value* is the value for this parameter
+
+   Both *name* and *value* must be given as ``'\0'``-terminated strings.
+   Here are a few examples::
+
+     yices_set_param(p, "branching", "negative");   // branching heuristic
+     yices_set_param(p, "randomness", "0.02");      // 2% of random decisions
+     yices_set_param(p, "max-interface-eqs", "20");
+
+   The full list of search parameters and possible values for each is given
+   in file :file:`doc/YICES-LANGUAGE` included in the distributions.
+
+   This function returns -1 if there's an error, or 0 otherwise.
+
+   **Error report**
+
+   - if *name* is not a known parameter
+
+     -- error code: :c:enum:`CTX_UNKNOWN_PARAMETER`
+
+   - if *value* is not valid for the parameter *name*
+
+     -- error code: :c:enum:`CTX_INVALID_PARAMETER_VALUE`      
+
+
 .. c:function:: void yices_free_param_record(param_t* param)
 
+   Deletes a parameter record.
 
+   *param* must be a record returned by :c:func:`yices_new_param_record`.
+
+   This function frees the memory allocated to this record.
+   
