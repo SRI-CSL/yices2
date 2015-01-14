@@ -7,7 +7,7 @@ References
 
 .. [DFMW2011] David D\ |e'|\ harbe, Pascal Fontaine, Stephan Merz, and Bruno Woltzenlogel Paleo,
               `Exploiting Symmetry in SMT Problems <http://www.loria.fr/~fontaine/Deharbe6b.pdf>`_, 
-              in Automated Deduction (CADE 23), LNCS 6803. pp. 222--236. Springer, Heideldberg, 2011. 
+              in Automated Deduction (CADE 23), LNCS 6803. pp. 222--236. Springer, Heidelberg, 2011. 
 
 .. [DdM2006]  Bruno Dutertre and Leonardo de Moura, 
               `A Fast Linear Arithmetic Solver for DPLL(T) <http://yices.csl.sri.com/papers/cav06.pdf>`_,

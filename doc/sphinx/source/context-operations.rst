@@ -767,9 +767,9 @@ Search Parameters
 
 
 A parameter record stores search parameters and options that control
-the heuritics used by a solver. It is created by calling
+the heuristics used by a solver. It is created by calling
 :c:func:`yices_new_param_record`.  Individual parameters can be set
-using fucntion :c:func:`yices_set_param`. The record can then be
+using function :c:func:`yices_set_param`. The record can then be
 passed as argument to function :c:func:`yices_check_context`. When the
 record is no longer needed, it can be deleted by
 :c:func:`yices_free_param_record`.

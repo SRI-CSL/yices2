@@ -162,7 +162,7 @@ determines whether *x* is set to true or false.
   |                +-------------+----------------------------------------------+
   |                | negative    | Always set *x* to false                      |
   |                +-------------+----------------------------------------------+
-  |                | positive    | Always set *x* tor true                      |
+  |                | positive    | Always set *x* to true                      |
   |                +-------------+----------------------------------------------+
   |                | theory      | Use default is *x* is a pure Boolean,        |
   |                |             | delegate to the theory solver otherwise      |
