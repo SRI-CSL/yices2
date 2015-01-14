@@ -11,7 +11,7 @@ Contexts
 ========
 
 Contexts are one of the most important data structures in Yices. A
-context contains one or more solvers and provides functions for
+context contains one or more solvers and supports operations for
 manipulating assertions and for checking whether these assertions are
 satisfiable. If they are, a model can be constructed from the context.
 
