@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. include:: macros
+
 .. _search_parameters:
 
 Search Parameters
@@ -96,21 +98,20 @@ The deletion procedure uses the following parameter.
 To control clause deletion, Yices uses the same strategy as Minisat
 and other SAT solvers.
 
-- Each learned clause has an activity score that decays
-  geometrically.  After each conflict, the activity of all clauses
-  not involved in this conflict is reduced by a factor equal to
-  clause-decay (by default it's 0.999).  A smaller clause-decay
-  causes clauses activity do go down faster.
+- Each learned clause has an activity score that decays geometrically.
+  After each conflict, the activity of all clauses not involved in
+  this conflict is reduced by a factor equal to clause-decay (by
+  default it's 0.999).  A smaller value accelerates the decay.
 
-- To trigger clause deletion: the solver uses a threshold = reduction-bound
+- To trigger clause deletion: the solver uses a reduction-bound
 
-  1) Initially the bound is set via:
+  1) Initially the bound is set as follows:
 
      .. code-block:: none
 
 	reduction-bound = max(r-threshold, r-fraction * number of clauses in initial problem)
 
-  2) During the search:
+  2) During the search, the bound determines when clauses are deleted:
 
      .. code-block:: none
 
@@ -118,7 +119,7 @@ and other SAT solvers.
         delete low-activity clauses
         reduction-bound  := r-factor * reduction-bound
 
-     The deletion attempts to remove approximately half of the learned clauses.
+     The deletion removes approximately half of the learned clauses.
 
 
 Decision heuristic
@@ -146,14 +147,12 @@ Two parameters affect the choice of unassigned variable:
 The var-decay controls how fast variable activities go down. A smaller number
 makes variable activities decay faster.
 
-The randomness parameter specifies how much random decisions are made during the search.
+The randomness parameter specifies how many random decisions are made during the search.
 For example, if randomness is 0.1, approximately 10% of the decision variables are
 picked randomly (and 90% of the decision variables are selected based on activity).
 
- 
-
-Once a decision variable 'x' is selected, the branching mode
-determines whether 'x' is set to true or false.
+Once a decision variable *x* is selected, the branching mode
+determines whether *x* is set to true or false.
 
   +----------------+-------------+----------------------------------------------+
   | Parameter	   | Value       |  Meaning                                     |
@@ -161,34 +160,33 @@ determines whether 'x' is set to true or false.
   +================+=============+==============================================+
   | branching      | default     | Default branching (as in RSAT)               |
   |                +-------------+----------------------------------------------+
-  |                | negative    | Always set 'x' to false                      |
+  |                | negative    | Always set *x* to false                      |
   |                +-------------+----------------------------------------------+
-  |                | positive    | Always set 'x' tor true                      |
+  |                | positive    | Always set *x* tor true                      |
   |                +-------------+----------------------------------------------+
-  |                | theory      | Use default is 'x' is a pure Boolean,        |
+  |                | theory      | Use default is *x* is a pure Boolean,        |
   |                |             | delegate to the theory solver otherwise      |
   |                +-------------+----------------------------------------------+
-  |                | th-neg      | Set 'x' to false if it's a pure Boolean,     |
+  |                | th-neg      | Set *x* to false if it's a pure Boolean,     |
   |                |             | delegate to the theory solver otherwise      |
   |                +-------------+----------------------------------------------+
-  |                | th-pos      | Set 'x' to true if it's a pure Boolean,      |
+  |                | th-pos      | Set *x* to true if it's a pure Boolean,      |
   |                |             | delegate to the theory solver otherwise      |
   +----------------+-------------+----------------------------------------------+
 
 The default branching heuristic is standard. It uses a cache to remember the last
-value assigned to each Boolean variable (either true or false). When 'x' is picked
+value assigned to each Boolean variable (either true or false). When *x* is picked
 as decision variable, then it is assigned the cached value (i.e., the last value
-assigned to 'x'). At the beginning of the search, 'x' may not have a value yet.
-In this case, the decision is to set 'x' to  faslse.
+assigned to *x*). At the beginning of the search, *x* may not have a value yet.
+In this case, the decision is to set *x* to  false.
 
-Delegating to the theory solver, means asking the theory solver to
-evaluate the atom attached to 'x' in the theory solver's current model
-then branching accordingly. This is supported by the Egraph and by the
-Simplex solver.  For example, if 'x' is attached to arithmetic atom
-(<= n 4), then the Simplex solver examines the value of 'n' in its
-current variable assignment.  If this value is more than 4, the decision
-is 'x := false', otherwise, it's  'x := true'.
-
+Delegating to the theory solver means asking the theory solver to
+evaluate the atom attached to *x* in the current model then branching
+accordingly. This is supported by the egraph and by the Simplex
+solver.  For example, if *x* is attached to arithmetic atom (*n* |le|
+*4*), then the Simplex solver examines the value of *n* in its current
+variable assignment.  If this value is more than 4, then *x* is set to
+*false*, otherwise, *x* is set to *true*.
 
 
 
@@ -201,83 +199,88 @@ the SAT solver. The heuristics attempt to discover useful theory
 lemmas and convert them into clauses. Three types of theory lemmas
 are considered.
 
-1) Generic lemmas: Theory solvers communicate with the CDCL SAT
+1) **Generic lemmas** Theory solvers communicate with the CDCL SAT
    solver by generating so-called theory explanations. By default,
    these theory explanations are temporary. Optionally, Yices can
    convert these theory explanations into clauses (thus making them
    permanent).
 
 
-2) Simplex lemmas: If the Simplex solver contains atoms (<= n 4) and
-   (<= n 3) then a valid theory lemma is that (<= n 3) implies (<= n 4).
+2) **Simplex lemmas** If the Simplex solver contains atoms (*n* |le| *4*) and
+   (*n* |le| *3*) then a valid theory lemma  (*n* |le| *3*) |implies| (*n* |le| *4*),
+   which can be added as a clause to the SAT solver. Such a lemma is generated
+   when assertions are processed if option *eager-arith-lemma* is active. 
+   See :c:func:`yices_context_enable_option`.
 
-   So we can add the following clause:
 
-       (or (not (<= n 3)) (<= n 4))
+3) **Ackermann Lemmas** If the egraph contains terms *(F x y)* and
+   *(F x z)* then we can add the following lemma
 
+   .. container:: lemma
 
-3) Ackermann Lemmas: If the Egraph contains terms (F x y) and
-   (F x z) then we can add the following lemma
+      *y* = *z*  |implies| *(F x y)* = *(F x z)*
 
-        y = z  implies (F x y) = (F x z)
+   This is a known as Ackermann's lemma for the terms *(F x y)* and *(F x z)*.
 
-   This is a known as Ackermann's lemma for the terms (F x y) and (F x z).
-
-   Yices uses a variant of this lemmas for predicates. If the Egraph
-   contains (P x) and (P y) where P is an uninterpreted predicate
-   (i.e., (P x) and (P y) are Boolean), then the corresponding Ackermann
+   Yices uses a variant of this lemmas for predicates. If the egraph
+   contains *(P x)* and *(P y)* where P is an uninterpreted predicate
+   (i.e., *(P x)* and *(P y)* are Boolean), then the corresponding Ackermann
    lemma is written as two clauses:
 
-        x = y and (P x) implies (P y)
-        x = y and (P y) implies (P x)
+   .. container:: lemma
+
+      *x* = *y* |and| *(P x)* |implies| *(P y)*
+
+      *x* = *y* |and| *(P y)* |implies| *(P x)*
 
 
    Generating Ackermann lemmas may require creating new equality atoms.
-   For example in
+   For example, in the clause
 
-        y = z implies (F x y) = (F x z):
+   .. container:: lemma
 
-   Yices may have to create as many as two atoms: the atom (y = z) and
-   the atom ((F x y) = (F x z)).  Too many of these can overwhelm the
-   Egraph. So Yices provides parameters to control the number of
-   new equality atoms generated by the Ackermann lemmas heuristics.
+        *y* = *z*  |implies| *(F x y)* = *(F x z)*,
+
+   Yices may have to create as two new atoms: the atom (*y* = *z*) and
+   the atom (*(F x y)* = *(F x z)*).  Too many of these can overwhelm the
+   egraph so Yices provides parameters to control the number of
+   new equality atoms generated by Ackermann lemmas.
 
 
-
-The following parameters control lemma generation.
+The following parameters control generic lemma and Ackermann lemma generation.
 
 
   +------------------------+-------------+----------------------------------------------+
   | Parameter	           | Type        |  Meaning                                     |
   | Name                   |             |                                              |
   +========================+=============+==============================================+
-  | cache-tclauses         | Boolean     | enables the generation of                    |
+  | cache-tclauses         | Boolean     | Enables the generation of                    |
   |                        |             | generic lemmas                               |
   +------------------------+-------------+----------------------------------------------+
-  | tclause-size           | Integer     | bound on the size of generic lemmas          |
+  | tclause-size           | Integer     | Bound on the size of generic lemmas          |
   +------------------------+-------------+----------------------------------------------+
-  | dyn-ack	           | Boolean     | enables the generation of Ackermann lemmas   |
+  | dyn-ack	           | Boolean     | Enables the generation of Ackermann lemmas   |
   |                        |             | for non-Boolean terms                        |
   +------------------------+-------------+----------------------------------------------+
-  | max-ack	           | Integer     | bound on the number of Ackermann lemmas      |
+  | max-ack	           | Integer     | Bound on the number of Ackermann lemmas      |
   |                        |             | generated (for non-Boolean terms)            |
   +------------------------+-------------+----------------------------------------------+
-  | dyn-ack-threshold      | Integer     | heuristic threshold: A lower value causes    |
+  | dyn-ack-threshold      | Integer     | Heuristic threshold: A lower value causes    |
   |                        |             | more lemmas to be generated                  |
   +------------------------+-------------+----------------------------------------------+
-  | dyn-bool-ack           | Boolean     | enables the generation of Ackermann lemmas   |
+  | dyn-bool-ack           | Boolean     | Enables the generation of Ackermann lemmas   |
   |                        |             | for Boolean terms                            |
   +------------------------+-------------+----------------------------------------------+
-  | max-bool-ack           | Integer     | bound on the number of Boolean Ackermann     |
+  | max-bool-ack           | Integer     | Bound on the number of Boolean Ackermann     |
   |                        |             | lemmas generated                             |
   +------------------------+-------------+----------------------------------------------+
-  | dyn-bool-ack-threshold | Integer     | heuristic threshold: as above. Lower values  |
+  | dyn-bool-ack-threshold | Integer     | Heuristic threshold: as above. Lower values  |
   |                        |             | make lemma generation more aggressive        |
   +------------------------+-------------+----------------------------------------------+
-  | aux-eq-quota	   | Integer     | limit on the number of equalities created    |
+  | aux-eq-quota	   | Integer     | Limit on the number of equalities created    |
   |                        |             | for Ackermann lemmas                         |
   +------------------------+-------------+----------------------------------------------+
-  | aux-eq-ratio           | Float       | another factor to limit the number of        |
+  | aux-eq-ratio           | Float       | Another factor to limit the number of        |
   |                        |             | equalities created                           |
   +------------------------+-------------+----------------------------------------------+
 
@@ -293,7 +296,9 @@ The limit on the number of new equality atoms is set to
 
     max(aux-eq-quota, num-terms * aux-eq-ratio)
 
-where num-terms is the the total number of terms in the Egraph.
+where num-terms is the the total number of terms in the egraph. When
+this limit is reached, Ackermann lemmas will not be added if they
+require creating new equality atoms.
 
 
 
@@ -301,35 +306,34 @@ where num-terms is the the total number of terms in the Egraph.
 Simplex Parameters
 ------------------
 
-The Simplex-base solver uses the following parameters
+The Simplex-based solver uses the following parameters.
 
-
-   eager-lemmas	      	   Boolean	   enable/disable the generation of lemmas in the Simplex
-   			   		   solver. If this parameter is true, then the Simplex
-					   solver will generate lemmas of the form
-
-					   	  (x >= a) => (x >= b)
-
-                                           where a and b are constants, and a > b.
-
-
-   simplex-prop		   Boolean	   enable/disable theory propagation in the Simplex solver
-
-   prop-threshold	   Integer	   bound on the number of variables in rows of the simplex
-   			   		   tableau. If a row contains more than this number, it's
-					   not considered during theory propagation.
-
-   simplex-adjust	   Boolean 	   use a heuristic to adjust the simplex model
-
-   bland-threhsold	   Integer	   number of pivoting steps before activation of Bland's
-   			   		   pivoting rule
-
-   icheck		   Boolean 	   enable periodic checking for integer feasibility
-   			   		   If this flag is false, checking for integer feasibility
-					   is done only at the end of the search.
-
-   icheck-period           Integer	   if icheck is true, this parameter specifies how often the
-   			   		   integer-feasibility check is called.
+  +------------------------+-------------+----------------------------------------------+
+  | Parameter	           | Type        |  Meaning                                     |
+  | Name                   |             |                                              |
+  +========================+=============+==============================================+
+  | simplex-prop           | Boolean	 |  Enables theory propagation in the Simplex   |
+  |                        |             |  solver                                      |
+  +------------------------+-------------+----------------------------------------------+
+  | prop-threshold         | Integer     | Bound on the number of variables in rows     |
+  |                        |             | of the simplex tableau: if a row contains    |
+  |                        |             | more than this number of variables, it's     |
+  |                        |             | not considered during theory propagation.    |
+  +------------------------+-------------+----------------------------------------------+
+  | simplex-adjust         | Boolean 	 | Uses a heuristic to adjust the simplex model |
+  +------------------------+-------------+----------------------------------------------+
+  | bland-threhsold        | Integer     | Number of pivoting steps before activation   |
+  |                        |             | of Bland's pivoting rule                     |
+  +------------------------+-------------+----------------------------------------------+
+  | icheck                 | Boolean     | Enables periodic checking for integer        |
+  |                        |             | feasibility If this flag is false, checking  |
+  |                        |             | for integer feasibility is done only at the  |
+  |                        |             | end of the search.                           |
+  +------------------------+-------------+----------------------------------------------+
+  | icheck-period          | Integer     | If icheck is true, this parameter specifies  |
+  |                        |             | how often the integer-feasibility check is   |
+  |                        |             | called.                                      |
+  +------------------------+-------------+----------------------------------------------+
 
 
 
@@ -338,43 +342,67 @@ Array-solver Parameters
 
 The array solver uses the following parameters.
 
-    max-update-conflicts   Integer	   Bound on the number of 'update axioms' instantiated per
-    			   		   call to the array solver's final
+  +------------------------+-------------+----------------------------------------------+
+  | Parameter	           | Type        |  Meaning                                     |
+  | Name                   |             |                                              |
+  +========================+=============+==============================================+
+  | max-update-conflicts   | Integer     | Bound on the number of 'update axioms'       |
+  |                        |             | instantiated per call to the array solver's  |
+  |                        |             | final check                                  |
+  +------------------------+-------------+----------------------------------------------+
+  | max-extensionality	   | Integer     | Bound on the number of extensionality axioms |
+  |                        |             | instantiated per call to the arrays solver's |
+  |                        |             | final check.                                 |
+  +------------------------+-------------+----------------------------------------------+
 
-    max-extensionality	   Integer         Bound on the number of extensionality axioms instantiated
-    			   		   per call to the arrays solver's final check.
 
 
 Model Reconciliation Parameters
 -------------------------------
-
-
-
-     max-interface-eqs	   Integer	   Bound on the number of interface equalities created per
-     			   		   call to the Egraph's final check.
-
 
 Final check is called when the search completes. In this state,
 all Boolean atoms are assigned a value and all solvers have a
 local model that assigns values to variables managed by each
 solver. A model-reconciliation procedure is then called to check
 whether these local models are compatible: if two variables
-x and y are shared between the Egraph and a theory solver, then
-both the egraph and the solver must agree on whether x and y are
-equal. If they are not, then Yices instantiates an interface
-lemma for 'x' and 'y', to force agreement. Semantically, such a
-lemmas encodes the rule
+*x* and *y* are shared between the egraph and a theory solver, then
+both the egraph and the solver must agree on whether *x* and *y* are
+equal.
 
-      'x == y' in the theory solver implies (eq x y) is true in the Egraph
+If they are not, then Yices instantiate an interface lemma for *x* and
+*y*, to force agreement. Semantically, such a lemmas encodes the rule
 
-For example, if x and y are shared between the Egraph and the Simplex solver,
-Yices will generate the lemma
+.. container:: lemma
 
-      ((eq x y) or (< x y) or (< y x))
+   *x = y* in the theory solver implies *x = y*  in the egraph
 
-where (eq x y) is an Equality atom in the Egraph and (< x y) and
-(< y x) are arithmetic atoms in the Simplex solver.
+For example, if *x* and *y* are shared between the egraph and the Simplex solver,
+then the interface lemma for *x* and *y* is
 
-max-interface-eqs is a bound on the number of such reconciliation lemmas.
-At most max-interface-eqs lemmas are created for each call to the model
-reconciliation procedure.
+.. container:: lemma
+
+   (*x* =  *y*) |or| (*x* < *y*) |or| (*y* < *x*)
+
+where (*x* = *y*) is an equality atom in the egraph and (*x* < *y*) and
+(*y* < *x*) are arithmetic atoms in the Simplex solver.
+
+Optionally, before generating any interface lemma, Yices can attempt
+to modify the egraph to locally solve the conflicts. This procedure is
+explained in [Dut2014]_. We call it the *optimistic*
+model-reconciliation procedure.
+
+
+Model reconciliation is controlled by two parameters.
+
+  +------------------------+-------------+----------------------------------------------+
+  | Parameter	           | Type        |  Meaning                                     |
+  | Name                   |             |                                              |
+  +========================+=============+==============================================+
+  | optimistic-final-check | Boolean     | Enable the optimistic model-reconciliation   |
+  |                        |             | procedure                                    |
+  +------------------------+-------------+----------------------------------------------+
+  | max-interface-eqs	   | Integer     | Bound on the number of interface lemmas      |
+  |                        |             | in each call to final check                  |
+  +------------------------+-------------+----------------------------------------------+
+
+

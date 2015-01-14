@@ -803,7 +803,7 @@ record is no longer needed, it can be deleted by
      yices_set_param(p, "max-interface-eqs", "20");
 
    The full list of search parameters and possible values for each is given
-   in file :file:`doc/YICES-LANGUAGE` included in the distributions.
+   in Section :ref:`search_parameters`.
 
    This function returns -1 if there's an error, or 0 otherwise.
 

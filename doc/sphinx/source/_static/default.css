@@ -273,6 +273,10 @@ div.centered {
   text-align: center;
 }
 
+div.lemma {
+  margin-left: 4em;
+}
+
 div.related {
   background-color: #e5e5e5;
   color: #1A41A8;
