@@ -109,10 +109,10 @@ officially part of SMT-LIB.
    +------------+----------------------------------------------+
    | Logic name | Description                                  |
    +============+==============================================+
-   | QF_ALRA    | Arrays and Linear Real Arithemtic            |
+   | QF_ALRA    | Arrays and Linear Real Arithmetic            |
    |            |                                              |
    +------------+----------------------------------------------+
-   | QF_ALIRA   | Arrays and Mixed Linear Arithemtic           |
+   | QF_ALIRA   | Arrays and Mixed Linear Arithmetic           |
    |            |                                              |
    +------------+----------------------------------------------+
    | QF_AUF     | Arrays and Uninterpreted Functions           |

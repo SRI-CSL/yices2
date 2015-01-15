@@ -2215,7 +2215,7 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvsgt_atom(term_t t1, term_t t2)
 
-   Bitvector signed inequality: *t1* greater then *t2*.
+   Bitvector signed inequality: *t1* greater than *t2*.
 
    **Parameters**
  

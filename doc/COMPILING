@@ -13,7 +13,6 @@ to build binary distributions (with or without GMP).
 
 
 
-
 CONTENT AND DIRECTORY STRUCTURE
 -------------------------------
 
@@ -206,7 +205,7 @@ NOTE: the --with-pic-gmp is useful only if your want to build a static
 
 To set the platform to something else than the default, give option
 
-   --build=<platform>
+   --build=<platform>  or  --host=<platform>
 
 to ./configure. This will store compilation flags for this platform in
 file './configs/make.include.<platform>'. Then this configuration file
