@@ -59,12 +59,12 @@ In this case, we pass a non-NULL configuration descriptor to function
 :c:func:`yices_new_context` to specify the logic. Logics are
 identified by their SMT-LIB name. In this example, QF_LRA means
 quantifier-free linear real arithmetic. This configuration creates a
-context with a single theory solver, namely, the simplex-based solver
+context with a single theory solver, namely, the Simplex-based solver
 for linear arithmetic. As previously, the context supports the
 push/pop mechanism.
 
-If the push and pop features are not needed, we can change the configuration
-as follows::
+If push and pop are not needed, we can change the configuration as
+follows::
 
    ctx_config_t *config = yices_new_config();
    yices_default_config_for_logic(config, "QF_LRA");
@@ -75,7 +75,7 @@ as follows::
 The call to :c:func:`yices_set_config` changes the context's mode of
 operation from the default (i.e., support for push and pop) to a more
 restricted mode where push and pop are not supported. In this mode,
-the context can use aggressive simplification and preprocessing
+the context can use more aggressive simplification and preprocessing
 procedures, which can improve solver performance.
 
 
@@ -92,11 +92,14 @@ The general process to configure a context is as follows:
 4) Delete the configuration descriptor when it is no longer needed using :c:func:`yices_free_config`.
 
 
+Configuration Parameters
+........................
+
 Configuration parameters specify the theory solvers to use, the
 arithmetic fragment, and the context's operating mode.
 
 
-**Solver Combinations**
+**Theory Solvers**
 
 Currently the following theory solvers are available:
 
@@ -154,8 +157,8 @@ the array solver (last row in the table).
 
 **Arithmetic Fragment**
 
-When the simplex solver is used, it is also possible to specify
-an arithmetic fragment:
+When the Simplex solver is used, it is possible to specify an
+arithmetic fragment:
 
    ============ ==========================================
      Fragment     Meaning
@@ -488,7 +491,7 @@ assert formulas, check satisfiability, and query the context's status.
    An internal flag stores the context's current state. This function
    reads this flag and returns it.
 
-   The possible returned values are (see :c:type:`smt_status_t`):
+   The returned value is one of the following codes:
 
    - :c:enum:`STATUS_IDLE`. This is the initial state.
 
@@ -511,6 +514,7 @@ assert formulas, check satisfiability, and query the context's status.
 
      This state is entered if a search is interrupted.
 
+   These codes are defined in :file:`yices_types.h` (see :c:type:`smt_status_t`).
 
   
 .. c:function:: int32_t yices_assert_formula(context_t* ctx, term_t t)
@@ -598,8 +602,8 @@ assert formulas, check satisfiability, and query the context's status.
    - *params* is an optional pointer to a search-parameter structure
 
    The *params* data structure can be used to control the heuristics
-   used by the solvers. If *params* is :c:macro:`NULL`, default settings
-   are used.
+   used by the solvers. See :ref:`params`. If *params* is
+   :c:macro:`NULL`, default settings are used.
 
 
    This function's behavior and returned value depend on *ctx*'s current state.
@@ -713,17 +717,17 @@ new level and the pop operation removes all assertions added at the
 current level. Push can be thought of as setting a backtracking point
 and pop restores the context's state to a previous backtracking point.
 
-Initially, the assertion level is zero. Any assertions added at level
-zero cannot be retracted. For example, any formula asserted before the
-first call to :c:func:`yices_push` is part of the context and cannot be
-removed by :c:func:`yices_pop`.
+Initially, the assertion level is zero.  Assertions at level zero
+cannot be retracted. For example, any formula asserted before the
+first call to :c:func:`yices_push` is part of the context and cannot
+be removed by :c:func:`yices_pop`.
 
 .. c:function:: int32_t yices_push(context_t* ctx)
 
    Marks a backtracking point.
 
    This function starts a new assertion level. The *ctx* must be
-   configured to support push and pop, and its status must be either
+   configured to support push and pop, and its state must be either
    :c:enum:`STATUS_IDLE`, or :c:enum:`STATUS_SAT`, or
    :c:enum:`STATUS_UNKNOWN`.
 
@@ -761,6 +765,8 @@ removed by :c:func:`yices_pop`.
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
+
+.. _params:
 
 Search Parameters
 -----------------
