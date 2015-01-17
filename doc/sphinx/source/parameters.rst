@@ -2,10 +2,10 @@
 
 .. include:: macros
 
-.. _search_parameters:
+.. _heuristic_parameters:
 
-Search Parameters
-=================
+Heuristic Parameters
+====================
 
 Several parameters control the heuristics used by the Yices SAT solver
 and theory solvers. They can be set using function :c:func:`yices_set_param`.

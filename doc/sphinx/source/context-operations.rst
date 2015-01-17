@@ -771,7 +771,6 @@ be removed by :c:func:`yices_pop`.
 Search Parameters
 -----------------
 
-
 A parameter record stores search parameters and options that control
 the heuristics used by a solver. It is created by calling
 :c:func:`yices_new_param_record`.  Individual parameters can be set
@@ -809,7 +808,7 @@ record is no longer needed, it can be deleted by
      yices_set_param(p, "max-interface-eqs", "20");
 
    The full list of search parameters and possible values for each is given
-   in Section :ref:`search_parameters`.
+   in Section :ref:`heuristic_parameters`.
 
    This function returns -1 if there's an error, or 0 otherwise.
 
