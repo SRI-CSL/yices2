@@ -7,18 +7,133 @@
 Models
 ======
 
+If a context is satisfiable, Yices can build a model of the context's
+assertions. Functions are provided to extract the values of terms in a
+model. Atomic values (e.g., integer or bitvector constants) can be
+obtained directly. Non-atomic values---that is, tuples or
+functions---are represented internally as nodes in a DAG. The API
+includes functions to explore this DAG and get the values of tuples or
+functions.
+
+
 Model Construction
 ------------------
 
 .. c:function:: model_t* yices_get_model(context_t* ctx, int32_t keep_subst)
 
+   Builds a model from a satisfiable context.
+
+   If there's an error, the function returns :c:macro:`NULL`. Otherwise, it
+   constructs a model of the assertions in *ctx* and returns a pointer to this
+   model. The model must be deleted when it is no longer used by calling
+   :c:func:`yices_free_model`.
+
+   **Parameters**
+
+   - *ctx*: context
+
+   - *keep_subst*: flag to indicates whether the model should include
+     eliminated variables
+
+   The context's status must be either :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
+   
+   When assertions are added to a context, the simplification
+   procedures may eliminate variables by substitution (see
+   :c:func:`yices_context_enable_option`). If *keep_subst* is true
+   (i.e. non-zero), then this function will keep track of eliminated
+   variables and include their value in the model. If *keep_subst* if false 
+   (i.e., zero), then the model does not include the eliminated variables.
+
+   It is better to set *keep_susbt* to true. The only reason not to do
+   it is to save the memory and computation cost of storing the
+   eliminated variables and their values. This cost is usually low but
+   there are exceptions.
+
+   **Error report**
+
+   - if *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+  
+
 .. c:function:: model_t* yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 
+   Builds a model from a term-to-term mapping.
+
+   **Parameters**
+
+   - *n*: number of terms in arrays *var* and *map*
+
+   - *var*: array of *n* uninterpreted terms
+
+   - *map*: array of *n* constant terms
+
+   The two arrays *var* and *map* define the mapping: *map[i]* is the
+   value of term *var[i]* in the model. There must not be duplicates
+   in array *var*, and the type of term *map[i]* must be a subtype of
+   *var[i]*'s type.
+
+   Currently, function types are not supported. Every term in *map[i]*
+   must either be an atomic constant, or a tuple of atomic constants,
+   or a tuple or tuples, etc. The term *var[i]* cannot have a function type.
+
+   This function returns :c:macro:`NULL` if something goes wrong. It
+   allocates and creates a model otherwise, and returns a pointer to
+   this model. When the model is no longer used, it must be deleted
+   by calling :c:func:`yices_free_model`.
+
+   **Error report**
+
+   - if a term in *var* or *map* is not valid:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := the invalid term
+
+   - if *map[i]*'s type is not a subtype of *var[i]*'s type:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+     -- term1 := *map[i]*
+
+     -- type1 := type of *var[i]* (expected type)
+
+   - if *var[i]* is not an uninterpreted term:
+
+     -- error code: :c:enum:`MDL_UNINT_REQUIRED`
+
+   - if *map[i]* is not a constant:
+
+     -- error code: :c:enum:`MDL_CONSTANT_REQUIRED`
+
+   - if *var* contains duplicate terms:
+
+     -- error code: :c:enum:`MDL_DUPLICATE_VAR`
+
+   - if *map[i]* has function type or has a function subterm:
+
+     -- error code: :c:enum:`MDL_FTYPE_NOT_ALLOWED`
+
+   - if the construction fails for some other reason:
+
+     -- error code: :c:enum:`MDL_CONSTRUCTION_FAILED`
+
 .. c:function::  void yices_free_model(model_t* mdl)
+
+   Deletes a model.
+
+   This function deletes model *mdl*, which must be a pointer returned
+   by either :c:func:`yices_get_model` or :c:func:`yices_model_from_map`.
+
+   .. note:: If this function is not called, Yices will automatically free
+             the model on a call to :c:func:`yices_exit` or :c:func:`yices_reset`.
+
 
 
 Value of a Term in a Model
 --------------------------
+
+The following functions give access to the value of a term in a model.
 
 Atomic Values
 .............

@@ -35,7 +35,7 @@ The same information is available in the following constant string.
    Version as a string.
 
    The string includes the version number, followed by the revision
-   number and the patch level, as in "2.3.0".
+   number and the patch level, as in ``"2.3.0"``.
 
 More details are given by three constant strings:
 

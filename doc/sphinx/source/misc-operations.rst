@@ -23,7 +23,7 @@ It is possible to assign names to terms and types, and later retrieve
 a term or a type by its name.
 
 For each term and type, Yices stores a *base name* that's used for
-pretty printing. Initially, the base name is NULL.  It is set on the
+pretty printing. Initially, the base name is :c:macro:`NULL`.  It is set on the
 first call to :c:func:`yices_set_term_name` or
 :c:func:`yices_set_type_name`.
 
@@ -80,8 +80,8 @@ Type Names
 
    Retrieves the base name of a type.
 
-   This function returns NULL if the type *tau* is invalid or has no
-   base name. Otherwise it returns the base name of *tau*.
+   This function returns :c:macro:`NULL` if the type *tau* is invalid
+   or has no base name. Otherwise it returns the base name of *tau*.
 
 .. c:function:: type_t yices_get_type_by_name(const char *name)
 
@@ -145,7 +145,7 @@ Term Names
 
    Retrieves the base name of a term.
 
-   This function returns NULL if the term *t* is invalid or has no
+   This function returns :c:macro:`NULL` if the term *t* is invalid or has no
    base name. Otherwise it returns the base name of *t*.
 
 .. c:function:: term_t yices_get_term_by_name(const char *name)

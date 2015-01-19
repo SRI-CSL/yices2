@@ -19,7 +19,7 @@ API Reference
 -------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    version-data
    global-initialization
@@ -27,10 +27,6 @@ API Reference
    api-types
    error-reports
    vectors
-
-.. toctree::
-   :maxdepth: 2
-
    type-operations
    term-operations
    misc-operations
