@@ -31,9 +31,9 @@ The following functions give access to the error report.
 
 .. c:function:: int32_t yices_print_error(FILE* f)
 
-   This function converts the current error code and error report
-   structure into an error message, then it prints the message on
-   output stream *f*. This stream must be writable.
+   This function converts the current error code and error report into
+   an error message, then it prints the message on output stream
+   *f*. This stream must be writable.
 
    The function returns -1 if there is an error while writing to *f*,
    or 0 if there's no error. In case of write error, the standard C

@@ -87,7 +87,7 @@ Several functions in the API take GMP numbers (e.g., ``mpq_t`` or
 the GMP header *before* you include ``yices.h`` as in::
 
   #include <gmp.h>
-  #include <yices>
+  #include <yices.h>
 
 .. note:: Yices requires the C99 header ``stdint.h``.
    This header may not be available on old versions of Microsoft's Visual

@@ -386,7 +386,7 @@ Contexts
      } smt_status_t;
 
    The type :c:type:`smt_status_t` enumerates the possible states of a
-   context. It is also the type returned by functions that check
+   context. It is also the type returned by the function that checks
    whether a context is satisfiable. The following codes are defined:
 
    .. c:enum:: STATUS_IDLE
@@ -402,9 +402,9 @@ Contexts
 
       This is the state during search.
 
-      A context enters this state after a call to one of the *check* functions.
-      It remains in this state until either the solver completes or the
-      search is interrupted.
+      A context enters this state after a call function
+      :c:func:`yices_check_context`.  It remains in this state until
+      either the solver completes or the search is interrupted.
       
    .. c:enum:: STATUS_UNKNOWN
 

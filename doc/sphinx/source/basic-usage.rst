@@ -74,7 +74,7 @@ We can now build a more complex term by using constructors such as
 
 .. only:: format_html
 
-   The resulting term ``f`` is the formula :raw-html:`<em>x &ge; 0 &#x2227; y &ge; 0 &#x2227; x+y=10</em>`.
+   The resulting term ``f`` is the formula :raw-html:`<em>x &ge; 0 &#x2227; y &ge; 0 &#x2227; x+y=100</em>`.
 
 .. only:: not format_html
 
@@ -99,11 +99,11 @@ Here is a simple function for printing a term on standard output::
     int32_t code;
 
     code = yices_pp_term(stdout, term, 80, 20, 0);
-     if (code < 0) {
-       // An error occurred
-       fprintf(stderr, "Error in print_term: ");
-       yices_print_error(stderr);
-       exit(1);
+    if (code < 0) {
+      // An error occurred
+      fprintf(stderr, "Error in print_term: ");
+      yices_print_error(stderr);
+      exit(1);
     }
   }
 
