@@ -3749,6 +3749,24 @@ static void undo_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_
 }
 
 
+/*
+ * Hack: to ensure that undo_thvar_equality works when a conflict is detected
+ * by check_atom_propagation, we merge the lists of atoms for Boolean variables v1 and v2.
+ */
+static void fixup_atom_lists(egraph_t *egraph, bvar_t v1, bvar_t v2) {
+  atom_t *atm1, *atm2;
+  smt_core_t *core;
+
+  core = egraph->core;
+
+  assert(core != NULL && bvar_has_atom(core, v1) && bvar_has_atom(core, v2));
+
+  atm1 = get_bvar_atom(core, v1);
+  atm2 = get_bvar_atom(core, v2);
+
+  merge_atom_lists(atm1, atm2);
+}
+
 
 
 /*********************
@@ -4296,6 +4314,18 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
       t = egraph_next(egraph, t);
       if (! check_atom_propagation(egraph, t)) {
         // conflict
+
+	/*
+	 * HACK/BUG FIX: this fixes a bug reported by Dorus Peelen.
+	 *
+	 * Before returning false, we must merge the atoms of v1 and v2
+	 * otherwise the backtracking will fail (it will call undo_thvar_equality,
+	 * and that function requires the lists of atoms of v1 and v2 to be merged.
+	 */
+	v1 = egraph->classes.thvar[c1];
+	v2 = egraph->classes.thvar[c2];
+        assert(v1 != null_thvar && v2 != null_thvar);
+	fixup_atom_lists(egraph, v1, v2);
         return false;
       }
     } while (t != t2);
@@ -4322,13 +4352,13 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     if (v2 != null_thvar) {
       v1 = egraph->classes.thvar[c1];
       if (v1 != null_thvar) {
-        propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
+	propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
       } else {
-        egraph->classes.thvar[c1] = v2;
+	egraph->classes.thvar[c1] = v2;
       }
     }
   }
-
+  
   return true;
 }
 
