@@ -133,30 +133,250 @@ Model Construction
 Value of a Term in a Model
 --------------------------
 
-The following functions give access to the value of a term in a model.
+The following functions give access to the value of a term in a
+model. For terms of atomic types, the value can be extracted
+directly. Non-atomic valued (i.e., tuples or functions) can be
+extracted by traversing the model's DAG.
+
+
 
 Atomic Values
 .............
 
+The functions in this section evaluate a term *t* in a model and
+return its value. They return -1 if there's an error or 0 otherwise.
+
+They can all report the following error codes if the evaluation fails:
+
+   - If *t* is not a valid term:
+ 
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := *t*
+
+   - If *t*'s value defined in the model:
+
+     -- error code: :c:enum:`EVAL_UNKNOWN_TERM`
+
+   - If *t* contains free variables:
+
+     -- error code :c:enum:`EVAL_FREEVAR_IN_TERM`
+
+   - If *t* contains quantifiers:
+
+     -- error code :c:enum:`EVAL_QUANTIFIER`
+
+   - If *t* contains lambda terms:
+
+     -- error code :c:enum:`EVAL_LAMBDA`
+
+   - If the evaluation fails for other reasons:
+
+     -- error code :c:enum:`EVAL_FAILED`
+
+Other error codes are possible, depending on the function.
+
+
 .. c:function:: int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val)
 
+   Value of a Boolean term.
+
+   This function stores the value of term *t* in *mdl* in variable
+   *\*val* as either 0 (for false) or 1 (for true). It returns 0 if
+   the value can be computed.
+
+   If *t*'s value can't be computed or if *t* is not a Boolean term, the function
+   leaves *\*val* unchanged, updates the error report, and returns -1.
+
+   **Error report**
+
+   - if *t* is not a Boolean term:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+     -- term1 := *t*
+ 
+     -- type1 := Bool type
+
+ 
 .. c:function:: int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val)
+
+   Value of an integer (32bits).
+
+   This function stores the value of *t* in model *mdl* in variable
+   *\*val*. It fails and returns -1 if *t*'s value can't be computed,
+   or if it is not an integer, or if it is too large or too small to
+   be represented as a 32bit signed integer.
+
+   **Error report**
+
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   - If *t*'s value is not an integer or does not fit in 32bits:
+
+     -- error code: :c:enum:`EVAL_OVERFLOW`
+
 
 .. c:function:: int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val)
 
+   Value as an integer (64bits).
+
+   This function is similar to :c:func:`yices_get_int64_value` but it succeeds if *t*'s
+   value can be represented as a 64bit signed integer.
+
 .. c:function:: int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den)
+
+   Value as a rational (32bits).
+
+   This function computes the value of *t* in *mdl* and returns it as
+   a rational number.  The numerator is stored in *\*num* and the
+   denominator is stored in *\*den*. If *t*'s value can't be computed
+   or does not fit in this representation, the function returns -1 and
+   leaves both *\*num* and *\*den* unchanged.
+
+   **Error report**
+  
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   - If *t*'s value can't be represented as a 32bit numerator divided by a 32bit numerator:
+
+     -- error code: :c:enum:`EVAL_OVERFLOW`
+
 
 .. c:function:: int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den)
 
+   Value as a rational (64bits).
+
+   This function is similar to :c:func:`yices_get_rational32_value`
+   except that it uses a 64bit numerator and a 64bit denominator.
+
 .. c:function:: int32_t yices_get_double_value(model_t *mdl, term_t t, double *val)
+
+   Value as a floating point number.
+
+   This function stores the value of *t* in *mdl* in the
+   floating-point variable *\*val*.  It fails (and returns -1) if
+   *t*'s value can't be computed or if *t* is not an arithmetic
+   term. It returns 0 otherwise.
+
+    **Error report**
+  
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
 
 .. c:function:: int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val)
 
+   Value as a GMP integer.
+
+   This function store *t*'s value in the GMP integer *val*. The
+   variable *val* must be initialized (see the GMP documentation). This function
+   fails if *t*'s value can't be computed or if it's not an integer.
+
+    **Error report**
+  
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   - If *t*'s value is not an integer
+
+     -- error code: :c:enum:`EVAL_OVERFLOW`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code, as in::
+
+         #include <gmp.h>
+         #include <yices.h>
+
+
 .. c:function:: int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val)
+
+   Value as a GMP rational.
+
+   This function store *t*'s value in the GMP rational *val*. The
+   variable *val* must be initialized (see the GMP documentation). This function
+   fails if *t*'s value can't be computed or if *t* is not an arithmetic term.
+
+   **Error report**
+
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   **Note**
+
+   Like :c:func:`yices_get_mpz_value`, this function is declared if
+   header file :file:`gmp.h` is included before :file:`yices.h`.
 
 .. c:function:: int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[])
 
+   Value of a bitvector term.
+
+   This function computes *t*'s value in *mdl* and stores it in array
+   *val*. The value is returned using the little-endian
+   convention: the least significant bit is stored in *val[0]* and the
+   most significant bit is stored in *val[n-1]* (where *n* is the
+   number of bits). The array *val* must be large enough to store
+   these *n* bits.
+
+   The number of bits in *t* can be found by calling :c:func:`yices_term_bitsize`.
+
+   The function fails if *t*'s value can't be computed or if *t* is
+   not a bitvector term. It leaves *val* unchanged and returns -1 in
+   this case. Otherwise, it returns 0.
+
+   **Error report**
+
+   - If *t* is not a bitvector term:
+
+     -- error code: :c:enum:`BITVECTOR_REQUIRED`
+
+     -- term1 := *t*.
+
 .. c:function:: int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val)
+
+   Value of a scalar or uninterpreted term.
+
+   The value of *t* is returned as an integer index in *\*val*. The index has the same
+   meaning as in function :c:func:`yices_constant`:
+
+   - If *t* has type *tau* and *tau* is a scalar type of cardinaility *n* then
+     *\*val* is an integer between 0 and *n-1*.
+
+   - If *t* has an uninterpreted type, then the returned index can be
+     any non-negative integer.
+
+   The returned index is a unique identifier. If two terms *t1* and *t2* are not
+   equal in the model *mdl* then their values are distinct integer indices.
+
+   The function returns -1 if there's an error or 0 othewise.
+
+   **Error report**
+
+   - If *t* does not have a scalar or uninterpreted type:
+
+     -- error code: :c:enum:`SCALAR_TERM_REQUIRED`
+
+     -- term1 := *t*
+
 
 
 General Values
