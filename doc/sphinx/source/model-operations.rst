@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. include:: macros
+
 .. highlight:: c
 
 .. _model_operations:
@@ -381,6 +383,69 @@ Other error codes are possible, depending on the function.
 
 General Values
 ..............
+
+The preceding functions are sufficient to extract atomic values from a
+model. In the general case, the value of a term in a model may be a
+tuple or a function. To deal with this general case, Yices provides
+functions to access values as nodes in a DAG. To obtain the value of a
+term *t*, the first step is to get the value as a node reference by
+calling function :c:func:`yices_get_value`. Then one can explore the
+DAG rooted at this node. 
+
+Within a model, each node has a unique identifier (which is an
+integer) and a tag that specifies the node type. All DAG-exploration
+functions store this information in a record of type :c:type:`yval_t`
+defined as follows::
+
+   typedef struct yval_s {
+     int32_t node_id;
+     yval_tag_t node_tag;
+   } yval_t;
+
+Distinct nodes in a model have distinct node_ids. The type
+:c:type:`yval_tag_t` lists the possible tags of a node.
+
+Leaf nodes represent atomic values. They can have the following tags:
+
+   - :c:enum:`YVAL_BOOL`: Boolean value
+
+   - :c:enum:`YVAL_RATIONAL`: Rational or integer constants
+
+   - :c:enum:`YVAL_BV`: Bitvector constant
+
+   - :c:enum:`YVAL_SCALAR`: Constants of scalar or uninterpreted types.
+
+The following tags are used for non-leaf nodes:
+
+   - :c:enum:`YVAL_TUPLE`: Tuple of constants
+
+   - :c:enum:`YVAL_FUNCTION`: Function descriptor
+
+   - :c:enum:`YVAL_MAPPING`: Mapping
+
+An node of tag :c:enum:`YVAL_MAPPING` is an intermediate node used in
+function descriptors. For a function *f* with *n* arguments, a mapping
+is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n| |->| v]).
+The *n* nodes k\ |_1| |...| k\ |_n| define a point in *f*'s domain,
+and the mapping specifies that the value of *f* at this point is
+represented by node *v*. In a Yices model, all functions have a simple
+form. They are defined by a finite enumeration of
+mappings---corresponding to distinct points in the function's
+domain--- and a default node that specifies the function value for all
+other points not listed in the mappings.
+
+For example, consider the function *f* such that:
+
+.. code-block:: none
+
+   f(0, 0) = 0
+   f(3, 1) = 1
+   f(x, y) = -2 in all other cases.
+
+Then such a function can be represented in the model using four nodes.
+
+
+
 
 .. c:function:: int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val)
 

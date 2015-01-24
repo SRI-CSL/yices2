@@ -505,7 +505,7 @@ Models
  
    .. c:enum:: YVAL_MAPPING
 
-      Mappings of the form [tuple -> value] used to represent functions 
+      Mappings of the form [tuple |->| value] used to represent functions 
 
    The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`, :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
    and :c:enum:`YVAL_SCALAR` are attached to leaf nodes in the DAG. The non-leaf nodes have
@@ -527,9 +527,9 @@ Models
    then *f* is represented as follows:
 
       - set of mappings:
-         | [0, 0 -> 0]
-         | [0, 1 -> 1]
-         | [1, 0 -> 1]
+         | [0, 0 |->| 0]
+         | [0, 1 |->| 1]
+         | [1, 0 |->| 1]
 
       - default value: 2
 
