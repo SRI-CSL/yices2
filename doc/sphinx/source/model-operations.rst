@@ -182,11 +182,11 @@ Other error codes are possible, depending on the function.
    Value of a Boolean term.
 
    This function stores the value of term *t* in *mdl* in variable
-   *\*val* as either 0 (for false) or 1 (for true). It returns 0 if
-   the value can be computed.
+   *\*val* as either 0 (for false) or 1 (for true).
 
    If *t*'s value can't be computed or if *t* is not a Boolean term, the function
-   leaves *\*val* unchanged, updates the error report, and returns -1.
+   leaves *\*val* unchanged, updates the error report, and returns -1. Otherwise,
+   it returns 0.
 
    **Error report**
 
