@@ -425,7 +425,7 @@ The following tags are used for non-leaf nodes:
 
 An node of tag :c:enum:`YVAL_MAPPING` is an intermediate node used in
 function descriptors. For a function *f* with *n* arguments, a mapping
-is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n| |->| v]).
+is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n| |->| v ]).
 The *n* nodes k\ |_1| |...| k\ |_n| define a point in *f*'s domain,
 and the mapping specifies that the value of *f* at this point is
 represented by node *v*. In a Yices model, all functions have a simple
