@@ -140,15 +140,9 @@ model. For terms of atomic types, the value can be extracted
 directly. Non-atomic valued (i.e., tuples or functions) can be
 extracted by traversing the model's DAG.
 
-
-
-Atomic Values
-.............
-
-The functions in this section evaluate a term *t* in a model and
-return its value. They return -1 if there's an error or 0 otherwise.
-
-They can all report the following error codes if the evaluation fails:
+Many functions in this section attempt to evaluate a term *t* in a
+model. If the value can't be computed, these functions return -1 and
+report one of the following errors:
 
    - If *t* is not a valid term:
  
@@ -156,7 +150,7 @@ They can all report the following error codes if the evaluation fails:
 
      -- term1 := *t*
 
-   - If *t*'s value defined in the model:
+   - If *t*'s value is not defined in the model:
 
      -- error code: :c:enum:`EVAL_UNKNOWN_TERM`
 
@@ -178,6 +172,12 @@ They can all report the following error codes if the evaluation fails:
 
 Other error codes are possible, depending on the function.
 
+
+
+Atomic Values
+.............
+
+The following functions return the value of an atomic term.
 
 .. c:function:: int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val)
 
@@ -203,7 +203,7 @@ Other error codes are possible, depending on the function.
  
 .. c:function:: int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val)
 
-   Value of an integer (32bits).
+   Value of an integer (32 bits).
 
    This function stores the value of *t* in model *mdl* in variable
    *\*val*. It fails and returns -1 if *t*'s value can't be computed,
@@ -218,21 +218,21 @@ Other error codes are possible, depending on the function.
 
      -- term1 := *t*
 
-   - If *t*'s value is not an integer or does not fit in 32bits:
+   - If *t*'s value is not an integer or does not fit in 32 bits:
 
      -- error code: :c:enum:`EVAL_OVERFLOW`
 
 
 .. c:function:: int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val)
 
-   Value as an integer (64bits).
+   Value as an integer (64 bits).
 
    This function is similar to :c:func:`yices_get_int64_value` but it succeeds if *t*'s
    value can be represented as a 64bit signed integer.
 
 .. c:function:: int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den)
 
-   Value as a rational (32bits).
+   Value as a rational (32 bits).
 
    This function computes the value of *t* in *mdl* and returns it as
    a rational number.  The numerator is stored in *\*num* and the
@@ -255,14 +255,14 @@ Other error codes are possible, depending on the function.
 
 .. c:function:: int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den)
 
-   Value as a rational (64bits).
+   Value as a rational (64 bits).
 
    This function is similar to :c:func:`yices_get_rational32_value`
    except that it uses a 64bit numerator and a 64bit denominator.
 
 .. c:function:: int32_t yices_get_double_value(model_t *mdl, term_t t, double *val)
 
-   Value as a floating point number.
+   Value as a floating-point number.
 
    This function stores the value of *t* in *mdl* in the
    floating-point variable *\*val*.  It fails (and returns -1) if
@@ -389,8 +389,8 @@ model. In the general case, the value of a term in a model may be a
 tuple or a function. To deal with this general case, Yices provides
 functions to access values as nodes in a DAG. To obtain the value of a
 term *t*, the first step is to get the value as a node reference by
-calling function :c:func:`yices_get_value`. Then one can explore the
-DAG rooted at this node. 
+calling function :c:func:`yices_get_value`, then the value can be
+constructed by exploring the sub-DAG rooted at this node.
 
 Within a model, each node has a unique identifier (which is an
 integer) and a tag that specifies the node type. All DAG-exploration
@@ -417,22 +417,30 @@ Leaf nodes represent atomic values. They can have the following tags:
 
 The following tags are used for non-leaf nodes:
 
-   - :c:enum:`YVAL_TUPLE`: Tuple of constants
+   - :c:enum:`YVAL_TUPLE`: Constant tuple
 
    - :c:enum:`YVAL_FUNCTION`: Function descriptor
 
    - :c:enum:`YVAL_MAPPING`: Mapping
 
-An node of tag :c:enum:`YVAL_MAPPING` is an intermediate node used in
-function descriptors. For a function *f* with *n* arguments, a mapping
-is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n| |->| v ]).
-The *n* nodes k\ |_1| |...| k\ |_n| define a point in *f*'s domain,
-and the mapping specifies that the value of *f* at this point is
-represented by node *v*. In a Yices model, all functions have a simple
-form. They are defined by a finite enumeration of
-mappings---corresponding to distinct points in the function's
-domain--- and a default node that specifies the function value for all
-other points not listed in the mappings.
+A node of tag :c:enum:`YVAL_TUPLE` has *n* children nodes, each
+representing the value of a tuple component.  For example, tuple *(1,
+true, 0b00)* is represented by a node with three children. The first
+child is an atomic node with tag :c:enum:`YVAL_RATIONAL` and value *1*;
+the second child has tag :c:enum:`YVAL_BOOL` and value *true*; and
+the third child has tag :c:enum:`YVAL_BV` and value *0b00*.
+
+A node of tag :c:enum:`YVAL_FUNCTION` represents a function. In a
+Yices model, all functions have a simple form. They are defined by a
+finite enumeration of mappings that specify the function value at
+distinct points in its domain, and a default value for all other
+points in the function daomain. Each mapping in the enumeration is
+represented by a node of tag :c:enum:`YVAL_MAPPING`.  For a function
+*f* with *n* arguments, such a mapping is a tuple of *n+1* nodes
+(written [ k\ |_1| |...| k\ |_n| |->| v ]).  The *n* nodes k\ |_1|
+|...| k\ |_n| define a point in *f*'s domain, and the mapping
+specifies that the value of *f* at this point is represented by node
+*v*.
 
 For example, consider the function *f* such that:
 
@@ -442,54 +450,164 @@ For example, consider the function *f* such that:
    f(3, 1) = 1
    f(x, y) = -2 in all other cases.
 
-Then such a function can be represented in the model using four nodes.
-
+Then the node that represents this function has three children. Two
+children are mapping nodes for [ 0, 0 |->| 0 ] and [ 3, 1 |->| 1 ], and
+the third child is an atomic node representing the default value -2. 
 
 
 
 .. c:function:: int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val)
 
+   Value as a node reference.
+
+   This function evaluates *t* in model *mdl*. If this succeeds, it
+   stores a node descriptor for *t*'s value in the record *\*val*:
+
+    - *val->node_id* contains the node id
+
+    - *val->node_tag* contains the tag
+
+   The function returns 0 in this case.
+
+   If *t*'s evaluation fails, the function returns -1 and
+   leaves *\*val* unchanged.
+
+From the tag and id stored in *\*val*, the following functions provide
+more more information about the node and give access to the node's
+value (if it is a leaf node) or to its children (if it is not a leaf
+node).
+
 .. c:function:: int32_t yices_val_is_int32(model_t *mdl, const yval_t *v)
+
+   Checks whether a node's value is a signed 32bit integer.
+
+   This function returns true (i.e., 1) if *v->node_tag* is
+   :c:enum:`YVAL_RATIONAL` and the node value is an integer that can
+   be represented using 32 bits. It returns false (i.e., 0) if the tag
+   is not :c:enum:`YVAL_RATIONAL` or if the value does not fit into a
+   signed 32bit integer.
+
+   See also :c:func:`yices_val_get_int32`.
 
 .. c:function:: int32_t yices_val_is_int64(model_t *mdl, const yval_t *v)
 
+   Checks whether a node's value is a signed 64bit integer.
+
+   This function is similar to :c:func:`yices_val_is_int32` except that it
+   returns true if the node has tag :c:enum:`YVAL_RATIONAL` and its value
+   is an integer that can be represented using 64 bits.
+
+   See also :c:func:`yices_val_get_int64`.
+
 .. c:function:: int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v)
+ 
+   Checks whether a node's value is a 32bit rational.
+
+   This function returns true if the node described by *\*v* has tag
+   :c:enum:`YVAL_RATIONAL` and if its value can be written as a 32bit
+   signed numerator divided by a 32bit unsigned denominator. If returns false otherwise.
+
+   See also :c:func:`yices_val_get_rational32`.
 
 .. c:function:: int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v)
 
+   Checks whether a node's value is a 64bit rational.
+
+   This function returns true if the node described by *\*v* has tag
+   :c:enum:`YVAL_RATIONAL` and if its value can be written as a 64bit
+   signed numerator divided by a 64bit unsigned denominator. If returns false otherwise.
+
+   See also :c:func:`yices_val_get_rational64`.
+
 .. c:function:: int32_t yices_val_is_integer(model_t *mdl, const yval_t *v)
+
+   Checks whether a node's value is an integer.
+
+   This function returns true if the node described by *\*v* has tag
+   :c:enum:`YVAL_RATIONAL` and the node's value is an integer. It
+   returns false otherwise.
+
+   See also :c:func:`yices_val_get_mpz`.
 
 .. c:function:: uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v)
 
+   Number of bits in a bitvector constant node.
+
+   If the node described by *\*v* has tag :c:enum:`YVAL_BV`, then this function 
+   returns the number of bits in the node's value. Otherwise, it returns 0.
+
+   See also :c:func:`yices_val_get_bv`.
+
 .. c:function:: uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v)
+
+   Number of components in a tuple node.
+
+   If the node described by *\*v* has tag :c:enum:`YVAL_TUPLE`, then
+   this function returns the number of components in the tuple (i.e.,
+   the number of children of the node). It returns 0 otherwise.
+
+   See also :c:func:`yices_val_expand_tuple`.
 
 .. c:function:: uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v)
 
+   Arity of a mapping node.
+
+   If the node described by *\*v* has tag :c:enum:`YVAL_MAPPING`, then this function
+   returns the node's arity. Otherwise, it returns 0.
+
+   See also :c:func:`yices_val_expand_mapping`.
+
 .. c:function:: int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val)
+
+   Value of a Boolean node.
 
 .. c:function:: int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val)
 
+   Value of an integer node (32 bits).
+
 .. c:function:: int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val)
+
+   Value of an integer node (64 bits).
 
 .. c:function:: int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den)
 
+   Value of a rational node (32 bits).
+
 .. c:function:: int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den)
+
+   Value of a rational node (64 bits).
 
 .. c:function:: int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val)
 
+   Node value as a floating-point number.
+
 .. c:function:: int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val)
+
+   Node value as a GMP integer.
 
 .. c:function:: int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val)
 
+   Node value as a GMP rational.
+
 .. c:function:: int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[])
+
+   Value of a bitvector node.
 
 .. c:function:: int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau)
 
+   Value of a scalar node.
+
 .. c:function:: int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[])
+
+   Components of a tuple node.
 
 .. c:function:: int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v)
 
+   Components of a function node.
+
 .. c:function:: int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val)
+
+   Components of a mapping node.
 
 
 Values as Terms
