@@ -779,8 +779,8 @@ Arithmetic Terms
 
    Converts the GMP rational *q* into a constant rational term.
 
-   The parameter *q* must be in canonical form (cf. the GMP
-   documentation). 
+   The parameter *q* must be in canonical form (cf. the `GMP
+   <http://gmplib.org>`_ documentation).
 
    Like the previous function, you must include :file:`gmp.h` before
    :file:`yices.h` to ensure that this function is declared.
@@ -2705,8 +2705,9 @@ a valid term.
 
    Value of a rational constant.
 
-   This function copies the value of rational constant *t* in the GMP rational *q*.
-   The GMP rational *q* must be initialized (check the GMP documentation).
+   This function copies the value of rational constant *t* in the GMP
+   rational *q*.  The GMP rational *q* must be initialized (check the
+   `GMP <http://gmplib.org>`_ documentation).
 
    If *t* is not a rational constant, the function returns -1 and leaves *q* unchanged.
    Otherwise it returns 0.

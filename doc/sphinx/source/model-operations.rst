@@ -42,14 +42,15 @@ Model Construction
    When assertions are added to a context, the simplification
    procedures may eliminate variables by substitution (see
    :c:func:`yices_context_enable_option`). If *keep_subst* is true
-   (i.e. non-zero), then this function will keep track of eliminated
-   variables and include their value in the model. If *keep_subst* if false 
-   (i.e., zero), then the model does not include the eliminated variables.
+   (i.e. non-zero), then :c:func:`yices_get_model` keeps track of
+   eliminated variables so that their values can be computed. If
+   *keep_subst* if false (i.e., zero), then the model does not include
+   the eliminated variables.
 
    It is better to set *keep_susbt* to true. The only reason not to do
    it is to save the memory and computation cost of storing the
-   eliminated variables and their values. This cost is usually low but
-   there are exceptions.
+   eliminated variables. This cost is usually low but there are
+   exceptions.
 
    **Error report**
 
@@ -75,14 +76,15 @@ Model Construction
    in array *var*, and the type of term *map[i]* must be a subtype of
    *var[i]*'s type.
 
-   Currently, function types are not supported. Every term in *map[i]*
-   must either be an atomic constant, or a tuple of atomic constants,
-   or a tuple or tuples, etc. The term *var[i]* cannot have a function type.
-
    This function returns :c:macro:`NULL` if something goes wrong. It
    allocates and creates a model otherwise, and returns a pointer to
    this model. When the model is no longer used, it must be deleted
    by calling :c:func:`yices_free_model`.
+
+   Currently, function types are not supported. Every term in *map[i]*
+   must either be an atomic constant, or a tuple of atomic constants,
+   or a tuple or tuples of constants, and so forth. The term *var[i]*
+   cannot have a function type.
 
    **Error report**
 
@@ -135,10 +137,10 @@ Model Construction
 Value of a Term in a Model
 --------------------------
 
-The following functions give access to the value of a term in a
-model. For terms of atomic types, the value can be extracted
-directly. Non-atomic valued (i.e., tuples or functions) can be
-extracted by traversing the model's DAG.
+The following functions compute the value of a term in a model. For
+terms of atomic types, the value can be extracted directly. Non-atomic
+valued (i.e., tuples or functions) can be extracted by traversing the
+model's DAG.
 
 Many functions in this section attempt to evaluate a term *t* in a
 model. If the value can't be computed, these functions return -1 and
@@ -207,8 +209,8 @@ The following functions return the value of an atomic term.
 
    This function stores the value of *t* in model *mdl* in variable
    *\*val*. It fails and returns -1 if *t*'s value can't be computed,
-   or if it is not an integer, or if it is too large or too small to
-   be represented as a 32bit signed integer.
+   if it is not an integer, or if it is too large or too small to be
+   represented as a 32bit signed integer.
 
    **Error report**
 
@@ -283,8 +285,9 @@ The following functions return the value of an atomic term.
    Value as a GMP integer.
 
    This function store *t*'s value in the GMP integer *val*. The
-   variable *val* must be initialized (see the GMP documentation). This function
-   fails if *t*'s value can't be computed or if it's not an integer.
+   variable *val* must be initialized (see the `GMP
+   <http://gmplib.org>`_ documentation). This function fails if *t*'s
+   value can't be computed or if it's not an integer.
 
     **Error report**
   
@@ -312,8 +315,9 @@ The following functions return the value of an atomic term.
    Value as a GMP rational.
 
    This function store *t*'s value in the GMP rational *val*. The
-   variable *val* must be initialized (see the GMP documentation). This function
-   fails if *t*'s value can't be computed or if *t* is not an arithmetic term.
+   variable *val* must be initialized (see the `GMP
+   <http://gmplib.org>`_ documentation). This function fails if *t*'s
+   value can't be computed or if *t* is not an arithmetic term.
 
    **Error report**
 
@@ -360,7 +364,7 @@ The following functions return the value of an atomic term.
    The value of *t* is returned as an integer index in *\*val*. The index has the same
    meaning as in function :c:func:`yices_constant`:
 
-   - If *t* has type *tau* and *tau* is a scalar type of cardinaility *n* then
+   - If *t* has type *tau* and *tau* is a scalar type of cardinality *n* then
      *\*val* is an integer between 0 and *n-1*.
 
    - If *t* has an uninterpreted type, then the returned index can be
@@ -369,7 +373,7 @@ The following functions return the value of an atomic term.
    The returned index is a unique identifier. If two terms *t1* and *t2* are not
    equal in the model *mdl* then their values are distinct integer indices.
 
-   The function returns -1 if there's an error or 0 othewise.
+   The function returns -1 if there's an error or 0 otherwise.
 
    **Error report**
 
@@ -385,17 +389,15 @@ General Values
 ..............
 
 The preceding functions are sufficient to extract atomic values from a
-model. In the general case, the value of a term in a model may be a
-tuple or a function. To deal with this general case, Yices provides
-functions to access values as nodes in a DAG. To obtain the value of a
-term *t*, the first step is to get the value as a node reference by
-calling function :c:func:`yices_get_value`, then the value can be
-constructed by exploring the sub-DAG rooted at this node.
+model, but the value of a term may be a tuple or a function. To deal
+with the general case, Yices provides functions to access values as
+nodes in a DAG. Function :c:func:`yices_get_value` returns a node
+descriptor and the value can be constructed by exploring the DAG
+rooted at this node.
 
-Within a model, each node has a unique identifier (which is an
-integer) and a tag that specifies the node type. All DAG-exploration
-functions store this information in a record of type :c:type:`yval_t`
-defined as follows::
+Within a model, each node has an integer identifier and a tag that
+specifies the node type. All DAG-exploration functions store this
+information in a record of type :c:type:`yval_t` defined as follows::
 
    typedef struct yval_s {
      int32_t node_id;
@@ -413,7 +415,7 @@ Leaf nodes represent atomic values. They can have the following tags:
 
    - :c:enum:`YVAL_BV`: Bitvector constant
 
-   - :c:enum:`YVAL_SCALAR`: Constants of scalar or uninterpreted types.
+   - :c:enum:`YVAL_SCALAR`: Constants of scalar or uninterpreted type
 
 The following tags are used for non-leaf nodes:
 
@@ -431,16 +433,15 @@ the second child has tag :c:enum:`YVAL_BOOL` and value *true*; and
 the third child has tag :c:enum:`YVAL_BV` and value *0b00*.
 
 A node of tag :c:enum:`YVAL_FUNCTION` represents a function. In a
-Yices model, all functions have a simple form. They are defined by a
-finite enumeration of mappings that specify the function value at
-distinct points in its domain, and a default value for all other
-points in the function daomain. Each mapping in the enumeration is
-represented by a node of tag :c:enum:`YVAL_MAPPING`.  For a function
-*f* with *n* arguments, such a mapping is a tuple of *n+1* nodes
-(written [ k\ |_1| |...| k\ |_n| |->| v ]).  The *n* nodes k\ |_1|
-|...| k\ |_n| define a point in *f*'s domain, and the mapping
-specifies that the value of *f* at this point is represented by node
-*v*.
+model, all functions have a simple form. They are defined by a finite
+enumeration of mappings that specify the function value at distinct
+points in its domain, and a default value for all other points in the
+domain. Each mapping in the enumeration is represented by a node of
+tag :c:enum:`YVAL_MAPPING`.  For a function *f* with *n* arguments, a
+mapping is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n|
+|->| v ]).  The *n* nodes k\ |_1| |...| k\ |_n| define a point in
+*f*'s domain, and the value of *f* at this point is represented by
+node *v*.
 
 For example, consider the function *f* such that:
 
@@ -472,10 +473,9 @@ the third child is an atomic node representing the default value -2.
    If *t*'s evaluation fails, the function returns -1 and
    leaves *\*val* unchanged.
 
-From the tag and id stored in *\*val*, the following functions provide
-more more information about the node and give access to the node's
-value (if it is a leaf node) or to its children (if it is not a leaf
-node).
+The following functions provide more information about the node and give
+access the node's value (if it is a leaf node) or to its children (if it
+is not a leaf node).
 
 .. c:function:: int32_t yices_val_is_int32(model_t *mdl, const yval_t *v)
 
@@ -552,8 +552,10 @@ node).
 
    Arity of a mapping node.
 
-   If the node described by *\*v* has tag :c:enum:`YVAL_MAPPING`, then this function
-   returns the node's arity. Otherwise, it returns 0.
+   If the node described by *\*v* has tag :c:enum:`YVAL_MAPPING`, then
+   this function returns the node's arity (i.e, if the node stores a
+   mapping [ k\ |_1| |...| k\ |_n| |->| v ], then the function returrns
+   *n*). Otherwise, it returns 0.
 
    See also :c:func:`yices_val_expand_mapping`.
 
