@@ -8690,11 +8690,11 @@ EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims,
   v->size = 0;
   switch (mode) {
   case YICES_GEN_BY_SUBST:
-    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_substitution(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_projection(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
     break;
 
   default:
