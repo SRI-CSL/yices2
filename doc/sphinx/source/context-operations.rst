@@ -52,7 +52,7 @@ context for a specific logic. Here is an example::
    ctx_config_t *config = yices_new_config();
    yices_default_config_for_logic(config, "QF_LRA");
    context_t *ctx = yices_new_context(config);
-   yices_free_config(config)
+   yices_free_config(config);
 
 In this case, we pass a non-NULL configuration descriptor to function
 :c:func:`yices_new_context` to specify the logic. Logics are
@@ -69,7 +69,7 @@ follows::
    yices_default_config_for_logic(config, "QF_LRA");
    yices_set_config(config, "mode", "one-shot");
    context_t *ctx = yices_new_context(config);
-   yices_free_config(config)
+   yices_free_config(config);
 
 The call to :c:func:`yices_set_config` changes the context's mode of
 operation from the default (i.e., support for push and pop) to a more
