@@ -2,8 +2,6 @@
 
 .. highlight:: c
 
-.. _overview:
-
 Overview
 ========
 
@@ -45,7 +43,7 @@ Binary Distribution
 ...................
 
 The binary distributions contain pre-compiled binaries and
-library. These distributions are self-contained. The binaries and
+libraries. These distributions are self-contained. The binaries and
 libraries are linked statically against GMP.
 
 The binary distributions for Linux and Mac OS X include a shell script
@@ -70,17 +68,19 @@ Headers and Compilation
 
 The Yices API is defined in three header files:
 
-  - :file:`yices.h` declares all functions and constants
-  - :file:`yices_types.h` defines the types and data structures used in the API
-  - :file:`yices_limits.h` defines hard-coded limits
+ - :file:`yices.h` declares all functions and constants
+
+ - :file:`yices_types.h` defines the types and data structures used in the API
+
+ - :file:`yices_limits.h` defines hard-coded limits
 
 For a standard installation, these files are in directory :file:`/usr/local/include`.
 
-To use the API, you should add::
+To use the API, you should add the following line to your code::
 
   #include <yices.h>
 
-in your code, and link with the Yices library using option ``-lyices``.
+and link with the Yices library using option ``-lyices``.
 
 Several functions in the API take GMP numbers (e.g., ``mpq_t`` or
 ``mpz_t``) as arguments. To use these functions, make sure to include

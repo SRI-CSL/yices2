@@ -390,10 +390,10 @@ General Values
 
 The preceding functions are sufficient to extract atomic values from a
 model, but the value of a term may be a tuple or a function. To deal
-with the general case, Yices provides functions to access values as
-nodes in a DAG. Function :c:func:`yices_get_value` returns a node
-descriptor and the value can be constructed by exploring the DAG
-rooted at this node.
+with the general case, Yices provides functions to access values by
+exploring the model DAG. Function :c:func:`yices_get_value` evaluates
+a term and returns a node descriptor from which the term value can be
+constructed.
 
 Within a model, each node has an integer identifier and a tag that
 specifies the node type. All DAG-exploration functions store this

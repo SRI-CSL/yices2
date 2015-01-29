@@ -2472,26 +2472,26 @@ The following table lists the constructors of composite terms.
      :c:enum:`YICES_ARITH_GE_ATOM`    (>= t1 t2)
     ================================ ===========================
 
-   **Notes**
+**Notes**
 
-      The children of a composite term are indexed starting from 0.  The
-      indexing corresponds to the left-to-right order in the above
-      table. For example an if-then-else term has three children indexed
-      from 0 to 2. The first child is the condition *c*, the next child
-      is the then part *t1*, and the last child is the else part *t2*.
+The children of a composite term are indexed starting from 0.  The
+indexing corresponds to the left-to-right order in the above
+table. For example an if-then-else term has three children indexed
+from 0 to 2. The first child is the condition *c*, the next child
+is the then part *t1*, and the last child is the else part *t2*.
 
-      The first child in a function application is the function, the other
-      children are the arguments. The first child of a function update is
-      the function, the next *n* children are the arguments, and the last child
-      is the new value *v*.
+The first child in a function application is the function, the other
+children are the arguments. The first child of a function update is
+the function, the next *n* children are the arguments, and the last child
+is the new value *v*.
   
-      For *forall* and *lambda* terms, the first *n* children are the
-      variables and the last child is the body *t*.
+For *forall* and *lambda* terms, the first *n* children are the
+variables and the last child is the body *t*.
 
-      In the construct *(bv-array t1 ... tn)*, the *n* children are
-      Boolean terms listed in little-endian form. The first child *t1* is
-      the least significant bit and the last child *tn* is the most
-      significant bit.
+In the construct *(bv-array t1 ... tn)*, the *n* children are
+Boolean terms listed in little-endian form. The first child *t1* is
+the least significant bit and the last child *tn* is the most
+significant bit.
 
 Projection Terms
 ................

@@ -10,17 +10,17 @@ Version Information
 The following macros are defined in :file:`yices.h`. They can be
 used at compile time for checking the Yices version.
 
-  .. c:macro:: __YICES_VERSION
+.. c:macro:: __YICES_VERSION
 
-     Version number
+   Version number
 
-  .. c:macro:: __YICES_VERSION_MAJOR
+.. c:macro:: __YICES_VERSION_MAJOR
 
-     Revision number
+   Revision number
 
-  .. c:macro:: __YICES_VERSION_PATCHLEVEL
+.. c:macro:: __YICES_VERSION_PATCHLEVEL
  
-     Patch level
+   Patch level
 
 For Yices 2.3.0, they are defined as follows::
 

@@ -219,11 +219,11 @@ by other terms. A substitution is defined by two term arrays of the same size:
 
     The variable or uninterpreted term in *var[i]* is replaced by the term *map[i]*.
 
-  The types must be consistent: *map[i]*'s type must be a subtype of *var[i]*'s type.
+The types must be consistent: *map[i]*'s type must be a subtype of *var[i]*'s type.
 
-  If the same term occurs several times in *var[i]* then the last occurrence counts.
-  For example, if *v[0] = x* and *v[1] = x* then *x* is mapped to *map[1]* in the
-  substitution, not to *map[0]* (unless *x* occurs in the rest of the array *var*).
+If the same term occurs several times in *var[i]* then the last occurrence counts.
+For example, if *v[0] = x* and *v[1] = x* then *x* is mapped to *map[1]* in the
+substitution, not to *map[0]* (unless *x* occurs in the rest of the array *var*).
 
 
 .. c:function:: term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t)
@@ -349,15 +349,15 @@ The set of roots is constructed as follows:
 
         - :c:func:`yices_decref_term`
 
-      When :c:func:`yices_garbage_collect` is called, all the terms or
-      types with a positive reference counter are added to the set of
-      roots. If the functions above are never called, then all the
-      terms and types are considered to have a reference count of
-      zero.
+     When :c:func:`yices_garbage_collect` is called, all the terms or
+     types with a positive reference counter are added to the set of
+     roots. If the functions above are never called, then all the
+     terms and types are considered to have a reference count of
+     zero.
 
-      Just decrementing a reference counter to zero does not delete
-      anything. The terms and types are not deleted until function
-      :c:func:`yices_garbage_collect` is called.
+     Just decrementing a reference counter to zero does not delete
+     anything. The terms and types are not deleted until function
+     :c:func:`yices_garbage_collect` is called.
 
 
 .. c:function:: uint32_t yices_num_types(void)
