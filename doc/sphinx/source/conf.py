@@ -33,7 +33,7 @@ needs_sphinx = '1.0'
 #
 # mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
 #
-extensions = ['enum', 'sphinx.ext.pngmath']
+extensions = ['enum']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -290,6 +290,6 @@ texinfo_documents = [
 
 epub_author = u'Bruno Dutertre'
 
-epub_theme_options = { 'footer' : False }
+epub_theme_options = { 'footer' : 'false', 'relbar1' : 'false' }
 
 epub_exclude_files = ['search.html']
