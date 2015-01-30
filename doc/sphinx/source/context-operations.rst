@@ -560,6 +560,7 @@ assert formulas, check satisfiability, and query the context's status.
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
    - if *ctx*'s mode is *one-shot* and *ctx*'s state is neither :c:enum:`STATUS_IDLE` nor :c:enum:`STATUS_UNSAT`
+
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED` 
 
    Other error codes are possible if *t* is outside the logic supported by the context.

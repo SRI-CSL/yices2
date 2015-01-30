@@ -200,21 +200,21 @@ the SAT solver. The heuristics attempt to discover useful theory
 lemmas and convert them into clauses. Three types of theory lemmas
 are considered.
 
-1) **Generic lemmas** Theory solvers communicate with the CDCL SAT
+1) **Generic lemmas:** Theory solvers communicate with the CDCL SAT
    solver by generating so-called theory explanations. By default,
    these theory explanations are temporary. Optionally, Yices can
    convert these theory explanations into clauses (thus making them
    permanent).
 
 
-2) **Simplex lemmas** If the Simplex solver contains atoms (*n* |le| *4*) and
+2) **Simplex lemmas:** If the Simplex solver contains atoms (*n* |le| *4*) and
    (*n* |le| *3*) then a valid theory lemma  (*n* |le| *3*) |implies| (*n* |le| *4*),
    which can be added as a clause to the SAT solver. Such a lemma is generated
    when assertions are processed if option *eager-arith-lemma* is active. 
    See :c:func:`yices_context_enable_option`.
 
 
-3) **Ackermann Lemmas** If the egraph contains terms *(F x y)* and
+3) **Ackermann lemmas:** If the egraph contains terms *(F x y)* and
    *(F x z)* then we can add the following lemma
 
    .. container:: lemma
