@@ -438,6 +438,10 @@ div.centered {
   text-align: center;
 }
 
+div.lemma {
+  margin-left: 4em;
+}
+
 
 
 /* -- code displays --------------------------------------------------------- */
@@ -473,10 +477,6 @@ div.code-block-caption span.caption-number {
 }
 
 div.code-block-caption span.caption-text {
-}
-
-div.container {
-    padding: 1em 1em 0;
 }
 
 div.container div.highlight {
