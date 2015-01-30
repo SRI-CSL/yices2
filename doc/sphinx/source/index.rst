@@ -46,10 +46,11 @@ Appendix
    parameters
    references
 
+.. only:: builder_html
 
-Index and Search
-----------------
+   Index and Search
+   ----------------
 
-* :ref:`genindex`
-* :ref:`search`
+   * :ref:`genindex`
+   * :ref:`search`
 

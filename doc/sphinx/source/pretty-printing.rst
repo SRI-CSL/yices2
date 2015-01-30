@@ -13,6 +13,7 @@ Pretty Printing
 
 .. figure:: _static/ppbox2.svg
    :width: 400px
+   :alt: Rectangle print area
 
    Display Area
 
