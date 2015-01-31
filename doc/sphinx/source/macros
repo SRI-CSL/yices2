@@ -7,6 +7,10 @@
 
 .. |le| unicode:: &#x2264;
 
+.. |>=| unicode:: &#x2265;
+
+.. |<=| unicode:: &#x2264;
+
 .. |and| unicode:: &#x2227;
 
 .. |or| unicode:: &#x2228;

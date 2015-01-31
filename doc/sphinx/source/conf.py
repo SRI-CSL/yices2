@@ -292,4 +292,9 @@ epub_author = u'Bruno Dutertre'
 
 epub_theme_options = { 'footer' : 'false', 'relbar1' : 'false' }
 
-epub_exclude_files = ['search.html']
+epub_exclude_files = ['search.html', '_static/basic.css', '_static/default.css', '_static/example1.c',
+  '_static/favicon.ico', '_static/logo3.pdf', '_static/names.c', '_static/test_pp.c',
+  '_static/ajax-loader.gif', '_static/comment-bright.png', '_static/comment-close.png',
+  '_static/comment.png', '_static/down-pressed.png', '_static/down.png',
+  '_static/minus.png', '_static/plus.png', '_static/up-pressed.png', '_static/up.png'
+]

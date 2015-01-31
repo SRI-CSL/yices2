@@ -6,8 +6,8 @@ SMT Logics
 ==========
 
 The following table lists the names of all the official SMT-LIB logics
-listed at http://smt-lib.org (as of January 2015) and indicates whether
-Yices supports them. Currently, Yices supports all the quantifier-free
+at http://smt-lib.org (as of January 2015) and indicates whether Yices
+supports  them.  Currently,  Yices supports  all  the  quantifier-free
 SMT-LIB logics that do not involve nonlinear arithmetic.
 
 

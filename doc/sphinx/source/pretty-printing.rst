@@ -153,7 +153,7 @@ explanation.
 
    - *horiz* is a Boolean flag that specifies the layout
 
-   If *horiz* is true (i.e., not zero) the function attempts to print several terms, separated by a space,
+   If *horiz* is true (i.e., not zero) the function attempts to print several terms, separated by spaces,
    on each line of the display areas: 
 
    .. code-block:: none

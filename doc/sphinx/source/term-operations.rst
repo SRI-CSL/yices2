@@ -1954,7 +1954,7 @@ Bitvector Terms
 
    - *t* must be a bitvector term
 
-   - *i* and *j* must satisfy the constraint *i <= j <= n-1* where *n*
+   - *i* and *j* must satisfy the constraint *i* |<=| *j* |<=| *n-1* where *n*
      is the number of bits in *t*
 
    The result is a bitvector of *1 + j - i* bits, formed by taking bits *i* to *j*
@@ -1973,7 +1973,7 @@ Bitvector Terms
 
    **Error report**
 
-   - If the constraint *i <= j <= n-1* does not hold
+   - If the constraint *i* |<=| *j* |<=| *n-1* does not hold
   
      -- error code: :c:enum:`INVALID_BVEXTRACT`
 

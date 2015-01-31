@@ -571,7 +571,7 @@ assert formulas, check satisfiability, and query the context's status.
 
    Asserts an array of formula.
 
-   This function add assertions *t[0]* |...| *t[n-1]* to *ctx*.
+   This function adds assertions *t[0]* |...| *t[n-1]* to *ctx*.
 
    **Parameters**
 
@@ -657,7 +657,9 @@ assert formulas, check satisfiability, and query the context's status.
 
    .. note:: If the search is interrupted and the context's mode is
              not *interactive* then the context's enters state
-             :c:enum:`STATUS_INTERRUPTED`. 
+             :c:enum:`STATUS_INTERRUPTED`. The only way to recover is
+             then to call :c:func:`yices_reset_context` or
+             :c:func:`yices_pop` (assuming the context supports push and pop).
                
   
 .. c:function:: void yices_reset_context(context_t* ctx)

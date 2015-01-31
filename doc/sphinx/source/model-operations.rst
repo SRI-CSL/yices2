@@ -58,6 +58,11 @@ Model Construction
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
   
+   **Note**
+
+   The returned model captures a snapshot of the context's current
+   state. Future operations on *ctx* (including deleting or resetting
+   *ctx*) do not change the model.
 
 .. c:function:: model_t* yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 
@@ -185,8 +190,8 @@ The following functions return the value of an atomic term.
 
    Value of a Boolean term.
 
-   This function stores the value of term *t* in *mdl* in variable
-   *\*val* as either 0 (for false) or 1 (for true).
+   This function computes the value of term *t* in *mdl* and stores
+   the result in *\*val* as either 0 (for false) or 1 (for true).
 
    If *t*'s value can't be computed or if *t* is not a Boolean term, the function
    leaves *\*val* unchanged, updates the error report, and returns -1. Otherwise,
@@ -207,10 +212,10 @@ The following functions return the value of an atomic term.
 
    Value of an integer (32 bits).
 
-   This function stores the value of *t* in model *mdl* in variable
-   *\*val*. It fails and returns -1 if *t*'s value can't be computed,
-   if it is not an integer, or if it is too large or too small to be
-   represented as a 32bit signed integer.
+   This function computes the value of *t* in model *mdl* and stores
+   it in *\*val*. It fails and returns -1 if *t*'s value can't be
+   computed, if it is not an integer, or if it is too large or too
+   small to be represented as a 32bit signed integer.
 
    **Error report**
 
@@ -435,9 +440,9 @@ the third child has tag :c:enum:`YVAL_BV` and value *0b00*.
 A node of tag :c:enum:`YVAL_FUNCTION` represents a function. In a
 model, all functions have a simple form. They are defined by a finite
 enumeration of mappings that specify the function value at distinct
-points in its domain, and a default value for all other points in the
-domain. Each mapping in the enumeration is represented by a node of
-tag :c:enum:`YVAL_MAPPING`.  For a function *f* with *n* arguments, a
+points in its domain, and a default value for all other points. Each
+mapping in the enumeration is represented by a node of tag
+:c:enum:`YVAL_MAPPING`.  For a function *f* with *n* arguments, a
 mapping is a tuple of *n+1* nodes (written [ k\ |_1| |...| k\ |_n|
 |->| v ]).  The *n* nodes k\ |_1| |...| k\ |_n| define a point in
 *f*'s domain, and the value of *f* at this point is represented by

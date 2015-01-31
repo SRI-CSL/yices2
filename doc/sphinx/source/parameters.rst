@@ -178,7 +178,7 @@ determines whether *x* is set to true or false.
 The default branching heuristic is standard. It uses a cache to remember the last
 value assigned to each Boolean variable (either true or false). When *x* is picked
 as decision variable, then it is assigned the cached value (i.e., the last value
-assigned to *x*). At the beginning of the search, *x* may not have a value yet.
+assigned to *x*). At the beginning of the search, *x* may not have had a value yet.
 In this case, the decision is to set *x* to  false.
 
 Delegating to the theory solver means asking the theory solver to
@@ -297,9 +297,9 @@ The limit on the number of new equality atoms is set to
 
     max(aux-eq-quota, num-terms * aux-eq-ratio)
 
-where num-terms is the the total number of terms in the egraph. When
-this limit is reached, Ackermann lemmas will not be added if they
-require creating new equality atoms.
+where num-terms is the the total number of terms initially present in
+the egraph. When this limit is reached, Ackermann lemmas will not be
+added if they require creating new equality atoms.
 
 
 
@@ -375,7 +375,7 @@ If they are not, then Yices instantiate an interface lemma for *x* and
 
 .. container:: lemma
 
-   *x = y* in the theory solver implies *x = y*  in the egraph
+   *x = y* in the theory solver implies *x = y*  in the egraph.
 
 For example, if *x* and *y* are shared between the egraph and the Simplex solver,
 then the interface lemma for *x* and *y* is

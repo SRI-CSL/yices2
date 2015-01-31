@@ -148,6 +148,7 @@ span.linkdescr {
 table.indextable td {
     text-align: left;
     vertical-align: top;
+    font-size: 0.8em;
 }
 
 table.indextable dl, table.indextable dd {
@@ -358,7 +359,7 @@ dd {
 }
 
 dt:target, .highlighted {
-    background-color: #ddd;
+   background-color: #fbe54e;
 }
 
 dl.glossary dt {
@@ -446,11 +447,15 @@ div.lemma {
 
 /* -- code displays --------------------------------------------------------- */
 
-pre {
+pre, tt, code, samp, kbd {
     font-family: monospace;
+}
+
+pre {
     overflow: auto;
     overflow-y: hidden;
 }
+
 
 td.linenos pre {
     padding: 5px 0px;
@@ -467,10 +472,6 @@ table.highlighttable td {
     padding: 0 0.5em 0 0.5em;
 }
 
-code {
-    font-family: monospace;
-}
-
 div.code-block-caption span.caption-number {
     padding: 0.1em 0.3em;
     font-style: italic;
@@ -480,7 +481,7 @@ div.code-block-caption span.caption-text {
 }
 
 div.container div.highlight {
-    margin: 0;
+  margin: 0;
 }
 
 code.descname {

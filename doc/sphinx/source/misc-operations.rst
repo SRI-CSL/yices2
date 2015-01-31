@@ -188,7 +188,7 @@ must be a type or term expression in the Yices language
 (cf. :ref:`yices_language`).  The input string must be terminated by
 ``'\0'``.  If a symbol occurs in the string, its value (either as a
 term or a type, depending on the context) is retrieved in the symbol
-tables for terms or types.
+table for terms or types.
 
 The parsing functions return :c:macro:`NULL_TYPE` or
 :c:macro:`NULL_TERM` if there's an error, including a syntax error.
@@ -317,9 +317,9 @@ must make an explicit call to the garbage collector by calling
 function :c:func:`yices_garbage_collect`.
 
 Yices uses a mark-and-sweep garbage collector. Given a set of root
-terms and types that must be preserved, Yices marks the roots and
-all the terms and types on which the roots depend.  After this
-marking phase, all unmarked terms and types are deleted. 
+terms and types that must be preserved, Yices marks the roots then
+recursively marks all the terms and types on which the roots depend.
+After this marking phase, all unmarked terms and types are deleted.
 
 The set of roots is constructed as follows:
 
