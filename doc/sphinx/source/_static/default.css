@@ -541,7 +541,7 @@ ul.keywordmatches li.goodmatch a {
   body { margin-left: 30px; margin-right: 30px; min-width: 700px; }
   div.bodywrapper { margin: 10px 0 5px 0; border-right: 0; border-top: 1px solid #ccc; }
   div.localtoc { display: none; }
-  div.sphinxsidebar { float: none; padding: 0; display: inline-block; width: 100%; border: 1px solid; }
+  div.sphinxsidebar { float: none; padding: 0; display: inline-block; width: 100%; }
   div.sphinxsidebar h4 { display: inline; color: black; background-color: white; border: 0;}
   div.sphinxsidebar p.topless { display: inline; margin-right: 1em; }
   div.previoustopic { float: left; }
