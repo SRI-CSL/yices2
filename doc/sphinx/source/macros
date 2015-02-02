@@ -21,6 +21,10 @@
 
 .. |iff| unicode:: &#x21D4;
 
+.. |exists| unicode:: &#x2203;
+
+.. |forall| unicode:: &#x2200;
+
 .. |...| unicode:: &#x2026;
 
 .. |-| unicode:: &#x2212;

@@ -335,7 +335,7 @@ Contexts
 
 .. c:type:: context_t
 
-   Opaque type of context::
+   Opaque type of contexts::
 
      typedef struct context_s context_t;
 
@@ -716,7 +716,7 @@ Error Reports
    .. c:enum:: VARIABLE_REQUIRED
 
       Bad term argument: a variable is expected. Some functions also report this error
-      when they expect an argument that can either be a variable or an uninterpreted term.
+      when they expect an argument that can be either a variable or an uninterpreted term.
 
    .. c:enum:: ARITHTERM_REQUIRED
 
@@ -757,28 +757,6 @@ Error Reports
    .. c:enum:: ARITHCONSTANT_REQUIRED
 
       Invalid term: an arithmetic constant is expected.
-
-   .. c:enum:: INVALID_MACRO
-
-      Error in an SMT-LIB 2 type constructors (i.e., type macros). Type macros
-      are not exposed in the API.
-
-   .. c:enum:: TOO_MANY_MACRO_PARAMS
-
-      Too many parameters in a type macros. Type macros are not
-      exposed in the API.
-
-   .. c:enum:: TYPE_VAR_REQUIRED
-
-      Error in a type-macro constructor: a type variable is expected.
-      Type variables and macros are used to support the SMT-LIB 2 type parameters,
-      and are not exposed in the API.
-
-   .. c:enum:: DUPLICATE_TYPE_VAR
-
-      Error in a type-macro constructor: the same type variable occurs several time.
-      Type variables and macros are used to support the SMT-LIB 2 type parameters,
-      and are not exposed in the API.
 
    .. c:enum:: BVTYPE_REQUIRED
 
@@ -1083,6 +1061,10 @@ Error Reports
       If you ever see this error code, please send a bug report at
 
       yices-bugs@csl.sri.com.
+
+   A few more error codes are defined in :file:`yices_types.h`. They
+   are related to type macros that Yices uses to support the SMT-LIB 2
+   sort constructors. Type macros are not exposed in the API.
 
 
 .. c:type:: error_report_t

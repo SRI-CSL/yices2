@@ -8163,6 +8163,29 @@ EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
   return n;  
 }
 
+/*
+ * Arity of a function node
+ */
+EXPORTED uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_t id;
+  uint32_t n;
+
+  n = 0;
+  if (v->node_tag == YVAL_FUNCTION) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id)) {
+      if (object_is_function(vtbl, id)) {
+	n = vtbl_function(vtbl, id)->arity;
+      } else if (object_is_update(vtbl, id)) {
+	n = vtbl_update(vtbl, id)->arity;
+      }
+    }
+  }
+
+  return n;
+}
 
 /*
  * Extract value of a leaf node

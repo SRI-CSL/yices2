@@ -49,7 +49,7 @@ is constructed using function
 :c:func:`yices_new_uninterpreted_term`.
 
 It is possible to assign a name to any term by calling
-:c:func:`yices_set_term_name`.  Since we want to print terms, it
+:c:func:`yices_set_term_name`.  Since we want to print some terms, it
 makes sense to give a name to both the terms ``x`` and ``y``::
 
    yices_set_term_name(x, "x");
@@ -59,7 +59,7 @@ This has two effects:
 
   1. The pretty printer will use the names ``"x"`` and ``"y"`` when
      printing these two terms. Otherwise, it would construct names
-     such ``"t!3"`` and ``"t!4"``.
+     such as ``"t!3"`` and ``"t!4"``.
 
   2. The symbol table maps the strings ``"x"`` and ``"y"`` to the
      terms ``x`` and ``y``, respectively.
@@ -234,7 +234,7 @@ It can be compiled as follows::
 
   gcc example1.c -o example1 -lyices
 
-Then running this example should produce something like this:
+Running this example should produce something like this:
 
 .. code-block:: none
 

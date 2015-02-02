@@ -3306,6 +3306,14 @@ __YICES_DLLSPEC__ extern uint32_t yices_val_mapping_arity(model_t *mdl, const yv
 
 
 /*
+ * Arity of a function node. This function returns 0 if v has tag
+ * other than YVAL_FUNCTION, otherwise it returns the function's
+ * arity (i.e., the number of parameters that the function takes).
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v);
+
+
+/*
  * Get the value of a Boolean node v.
  * - returns 0 if there's no error and store the v's value in *val:
  *   *val is either 0 (for false) or 1 (for true).

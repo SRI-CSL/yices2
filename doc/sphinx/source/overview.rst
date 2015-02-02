@@ -5,8 +5,8 @@
 Overview
 ========
 
-This section explains how to install Yices, and compile and link your code
-with the Yices library.
+This section explains how to install Yices, and how to compile and
+link your code with the Yices library.
 
 Installation
 ------------

@@ -462,6 +462,7 @@ div.versioninfo {
 table.indextable td {
   text-align: left;
   vertical-align: top;
+  font-size: 0.8em;
 }
 
 table.indextable dl, table.indextable dd {
@@ -556,6 +557,7 @@ ul.keywordmatches li.goodmatch a {
 
 @media only screen and (max-width: 400px) {
   div.related ul li.left { display: none; }
+  div.body ul { padding-left: 14px; }
 }
 
 @media only screen and (max-width: 450px) {

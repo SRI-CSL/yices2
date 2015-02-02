@@ -289,7 +289,7 @@ The following functions return the value of an atomic term.
 
    Value as a GMP integer.
 
-   This function store *t*'s value in the GMP integer *val*. The
+   This function stores *t*'s value in the GMP integer *val*. The
    variable *val* must be initialized (see the `GMP
    <http://gmplib.org>`_ documentation). This function fails if *t*'s
    value can't be computed or if it's not an integer.
@@ -319,7 +319,7 @@ The following functions return the value of an atomic term.
 
    Value as a GMP rational.
 
-   This function store *t*'s value in the GMP rational *val*. The
+   This function stores *t*'s value in the GMP rational *val*. The
    variable *val* must be initialized (see the `GMP
    <http://gmplib.org>`_ documentation). This function fails if *t*'s
    value can't be computed or if *t* is not an arithmetic term.
@@ -553,13 +553,22 @@ is not a leaf node).
 
    See also :c:func:`yices_val_expand_tuple`.
 
+.. c:function:: uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v)
+
+   Arity of a function node.
+
+   If the node described by *\*v* has tag :c:enum:`YVAL_FUNCTION`, then this
+   function returns the function's arity (i.e., number of parameters to the function).
+   If the node has another tag, this function returns 0.
+
+
 .. c:function:: uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v)
 
    Arity of a mapping node.
 
    If the node described by *\*v* has tag :c:enum:`YVAL_MAPPING`, then
    this function returns the node's arity (i.e, if the node stores a
-   mapping [ k\ |_1| |...| k\ |_n| |->| v ], then the function returrns
+   mapping [ k\ |_1| |...| k\ |_n| |->| v ], then the function returns
    *n*). Otherwise, it returns 0.
 
    See also :c:func:`yices_val_expand_mapping`.
@@ -568,53 +577,245 @@ is not a leaf node).
 
    Value of a Boolean node.
 
+   This function checks whether node *v* has tag
+   :c:enum:`YVAL_BOOL`. If so, it stores the node's value into *\*val*
+   and returns 0. Otherwise, it returns -1 and leaves *\*val*
+   unchanged.
+
+   **Error report**
+
+   - If the node is not Boolean 
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+
 .. c:function:: int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val)
 
    Value of an integer node (32 bits).
+
+   This function checks whether node *v* has tag
+   :c:enum:`YVAL_RATIONAL` and whether its value can be represented as
+   a 32bit signed integer.  If so, it stores the node's value into
+   *\*val* and returns 0. Otherwise, it returns -1 and leaves *\*val*
+   unchanged.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   - If the node's value does not fit in a 32bit integer:
+
+     -- error code: :c:enum:`YVAL_OVERFLOW`
+
 
 .. c:function:: int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val)
 
    Value of an integer node (64 bits).
 
+   This function is similar to :c:func:`yices_val_get_int32` except
+   that it succeeds if the node's value fits in a 64bit signed integer.
+
 .. c:function:: int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den)
 
    Value of a rational node (32 bits).
+
+   This function checks whether node *v* has tag
+   :c:enum:`YVAL_RATIONAL` and whether its value can be represented as
+   a 32bit numerator divided by a 32bit denominator.  If so, it stores
+   the numerator in *\*num* and the denominator in *\*den* and returns 0.
+   Otherwise, it returns -1 and leaves *\*num* and *\*den* unchanged.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   - If the node's value does not fit num/den:
+
+     -- error code: :c:enum:`YVAL_OVERFLOW`
+
 
 .. c:function:: int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den)
 
    Value of a rational node (64 bits).
 
+   This function is similar to :c:func:`yices_val_get_rational32` except that it succeeds if the node's value
+   can be represented as a 64bit numerator divided by a 64bit denominator.
+
 .. c:function:: int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val)
 
    Node value as a floating-point number.
+
+   This function checks whether node *\*v* has tag
+   :c:enum:`YVAL_RATIONAL`. If so it converts the node's value to a
+   double-precision floating point number and stores it in *\*val*.
+   The function returns 0 in this case, If *\*v* has a different tag,
+   the function returns -1 and leaves *\*double* unchanged.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
 
 .. c:function:: int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val)
 
    Node value as a GMP integer.
 
+   This function checks whether node *\*v* has tag
+   :c:enum:`YVAL_RATIONAL` and if its value is an integer. If so, it
+   copies the node value in the GMP integer *val* and
+   returns 0. Otherwise, it leaves *val* unchanged and returns -1.
+
+   The variable *val* must be initialized (see the `GMP
+   <http://gmplib.org>`_ documentation).
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   - If the node's value is not an integer:
+
+     -- error code: :c:enum:`YVAL_OVERFLOW`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+
 .. c:function:: int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val)
 
    Node value as a GMP rational.
+
+   This function checks whether node *v* has tag :c:enum:`YVAL_RATIONAL`. If so,
+   it copies the node's value in the GMP rational *val* and returns 0. Otherwise,
+   it leaves *val* unchanged and returns -1.
+
+   The variable *val* must be initialized (see the `GMP
+   <http://gmplib.org>`_ documentation).
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
 
 .. c:function:: int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[])
 
    Value of a bitvector node.
 
+   This function checks whether node *v* has tag :c:enum:`YVAL_BV`. If
+   so, it copies the node value into array *val* and
+   returns 0. Otherwise, it leaves *val* unchanged and returns -1.
+
+   The array *val* must be large enough to store *n* integers, where
+   *n* is the number of bits in the bitvector value. The number of
+   bits can be found by calling function :c:func:`yices_val_bitsize`.
+   The value is returned using the little-endian convention: the
+   least-significant bit is stored in *val[0]* and the most
+   significant bit is in *val[n-1]*.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+   
+
 .. c:function:: int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau)
 
    Value of a scalar node.
+
+   This function checks whether *v* has tag :c:enum:`YVAL_SCALAR`. If
+   so, it copies the node's value (an integer index) into *\*val* and
+   the node's type into *\*tau*. The function returns 0 in this
+   case. It returns -1 and leaves *\*val* and *\*tau* unchanged
+   otherwise.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_SCALAR`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
 
 .. c:function:: int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[])
 
    Components of a tuple node.
 
+   If node *v* has tag :c:enum:`YVAL_TUPLE`, then this function copies the node's children into
+   array *child*. The array must be large enough to store all children descriptors. The number of
+   children is given by function :c:func:`yices_val_tuple_arity`. The first child is stored in
+   *child[0]* and the last child is in *child[n-1]* where *n* is the node's arity.
+
+   The function returns 0 if *v*'s tag is :c:enum:`YVAL_TUPLE` or -1 otherwise.
+
+   **Error report**
+
+   - If node *v* does not have tag :c:enum:`YVAL_TUPLE`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+
 .. c:function:: int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v)
 
-   Components of a function node.
+   Components of a function node.		
+
+   If node *f* has tag :c:enum:`YVAL_FUNCTION`, this function extracts the node's components:
+
+   - the default node for *f* is stored in *\*def*
+
+   - the set of mappings for *f* is copied in vector *v*
+
+   The vector must be initialized by calling
+   :c:func:`yices_init_yval_vector`. The function sets *v->size* to
+   the number of mappings for *f* and it copies the mapping nodes into
+   *v->data[0]* |...| *v->data[v->size-1]*. All the nodes in the
+   vector have tag :c:enum:`YVAL_MAPPING` and have the same arity as
+   the function node *f*.
+
+   The function returns 0 if there's no error, or -1 if *f*'s tag is not :c:enum:`YVAL_FUNCTION`.
+
+   **Error report**
+
+   - If node *f* does not have tag :c:enum:`YVAL_FUNCTION`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
 
 .. c:function:: int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val)
 
    Components of a mapping node.
+
+   This function checks whether *m* has tag :c:enum:`YVAL_MAPPING`. If
+   so, it copies the node's components in array *tup* and in *val*.
+   The function returns 0 in this case. It returns -1 and leaves *tup*
+   and *val* unchanged otherwise.
+
+   For a mapping [ k\ |_1| |...| k\ |_n| |->| v ], the nodes k\ |_1|
+   |...| k\ |_n| are copied in *tup[0]* to *tup[n-1]*, and the node v
+   is copied into *\*val*. Array *tup* must be large enough to store
+   the *n* node descriptors. The arity *n* can be found by calling
+   :c:func:`yices_val_mapping_arity` (or using :c:func:`yices_val_function_arity`).
+
+   **Error report**
+
+   - If node *m* does not have tag :c:enum:`YVAL_MAPPING`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
 
 
 Values as Terms
@@ -622,18 +823,209 @@ Values as Terms
 
 .. c:function:: term_t yices_get_value_as_term(model_t *mdl, term_t t)
 
+   Value as a constant term.
+
+   This function evaluates term *t* in model *mdl* and returns *t*'s
+   value as a constant term.
+
+   For a term *t* of atomic types, this function is equivalent to extracting *t*'s value
+   then converting it to a constant:
+
+   - If *t* is a Boolean term, the returned value is either true or false, as
+     constructed by :c:func:`yices_true` or :c:func:`yices_false`.
+
+   - If *t* is an arithmetic term, the returned value is constant term as
+     constructed with :c:func:`yices_mpq`.
+
+   - If *t* has uninterpreted or scalar type, the returned value is a constant
+     term of that type as built by function :c:func:`yices_constant`.
+
+   - If *t* is a bitvector term, the returned value is a bitvector
+     constant as built with :c:func:`yices_bvconst_from_array`.
+
+   If *t* is a tuple, then the function returns a constant tuple.
+
+   Function types are not supported. The function fails and returns :c:enum:`NULL_TERM`
+   if *t* has a function type. It also returns :c:enum:`NULL_TERM` if *t*'s value can't
+   be computed.
+
+   **Error report**
+
+   - If *t*'s value can't be converted to a constant term:
+
+     -- error code: :c:enum:`EVAL_CONVERSION_FAILED`
+
+     This happens if *t* has a function type or if *t* has tuple type
+     and some subterm of *t* has a function type.
+
 .. c:function:: int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[])
 
+   Values as constant terms.
+
+   This function computes the values of terms *a[0 ... n-1]*, converts these values to constant terms,
+   and stores the results in array *b*.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *n*: size of arrays *a* and *b*
+
+   - *a*: array of *n* terms
+
+   - *b*: array to store the result as *n* constant terms.
+
+   This function has the same behavior as calling :c:func:`yices_get_value_as_term` *n* times.
+   It returns 0 if all values can be computed, or -1 if there's an error. The possible error
+   codes are the same as for :c:func:`yices_get_value_as_term`.
 
 
-Implicants and Model Generalization
------------------------------------
+Implicants
+----------
 
 .. c:function:: int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v)
 
+   Computes an implicant.
+
+   This function constructs an implicant of *t* based on model *mdl*. Term *t* must be a Boolean
+   term that's true in *mdl*. The implicant is a list of Boolean terms a\ |_1| |...| a\ |_n| such that
+   
+   - a\ |_i| is a literal (atom or negation of an atom)
+
+   - a\ |_i| is true in *mdl*
+
+   - the conjunction (a\ |_1| |and| |...| |and| a\ |_n|) implies *t*
+
+   The implicant is returned in vector *v*, which must be initialized by :c:func:`yices_init_term_vector`:
+
+   - *v->size* stores the number of literals in the implicant (i.e., *n*).
+
+   - *v->data[0]* |...| *v->data[n-1]* store the *n* literals
+
+   The function  returns 0 if the implicant can be computed. Otherwise, it returns -1 and resets
+   *v* to the empty vector (i.e., it sets *v->size* to 0).
+   
+   **Error report**
+
+   - if *t* is not a valid term
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := *t*
+
+   - if *t* is not a Boolean term
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+     -- term1 := *t*
+
+     -- type1 := Bool type
+
+   - if *t* is false in the model
+
+     -- error code: :c:enum:`EVAL_NO_IMPLICANT`
+
+   Other errors are possible if *t* or a subterm of *t* can't be evaluated. These are the same
+   error codes as for any term-evaluation function.
+
 .. c:function:: int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v)
+
+   Implicant for an array of formulas.
+
+   This function constructs an implicant for the conjunction of formulas *a[0]* |and| ... |and| *a[n-1]*. 
+   The result is stored in vector *v* as explained for :c:func:`yices_implicant_for_formula`. This function
+   has returns 0 if the implicant can be constructed or -1 otherwise. It has the same behavior and reports
+   the same errors as :c:func:`yices_implicant_for_formula`.
+
+
+Model Generalization
+--------------------
+
+Given a model for a formula *F(X, Y)*, the following two functions compute a formula *G(X)* that generalizes
+the model. The formula  *G(X)* satisfies two properties:
+
+  1) *G(X)* is true in the model
+
+  2) *G(X)* implies (|exists| *y* *F(x, y)*)
+
+
+Yices supports two generalization methods:
+
+  - **Generalization by substitution:** This is the simplest method. It eliminates the
+    variables *Y* by replacing them by their values in the model.
+
+  - **Generalization by projection:** This first computes an implicant of formula *F(X, Y)*
+    then eliminates the *Y* variables from this implicant by projection. The projection is
+    a cheap form of quantifier elimination. It is a hybrid a Fourier-Motzkin elimination
+    and virtual term substitution.
+
+The two generalization functions take a parameter that specifies the generalization method.
+This parameter takes a value of type :c:type:`yices_gen_mode_t`:
+
+  - :c:enum:`YICES_GEN_BY_SUBST` selects generalization by substitution;
+
+  - :c:enum:`YICES_GEN_BY_PROJ` selects generalization by projection;
+
+  - :c:enum:`YICES_GEN_DEFAULT` automatically chooses the
+    generalization method based on the type of variables to
+    eliminate. If any variable to eliminate is an arithmetic variable,
+    then generalization by projection is used. Otherwise, the default
+    is generalization by substitution.
 
 .. c:function:: int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
 
+   Model generalization for a single formula.
+
+   This function computes a generalization of *mdl* for formula *t*.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *t*: Boolean term that's true in *mdl*
+
+   - *nelims*: number of variables to eliminate
+
+   - *elim*: variables to eliminate
+
+   - *mode*: generalization method
+
+   - *v*: term vector to store the result
+
+   Every term in array *elim* must be an uninterpreted term (cf. :c:func:`yices_new_uninterpreted_term`),
+   of type Boolean, Real, or bitvector.
+
+   The generalization formula *G(X)* is returned in vector *v*. The vector must be initialized
+   using :c:func:`yices_init_term_vector`. *G(X)* is the conjunction of all formulas in *v*:
+
+   - *v->size*: number of formulas returned
+
+   - *v->data[0]* |...| *v->data[v->size-1]* contain the formulas themselves
+
+   If *mode* is :c:enum:`YICES_GEN_BY_PROJ` then every formula in *v* is guaranteed to be a literal.
+
+   The function returns 0 if the generalization succeeds or -1 if there's an error.
+
 .. c:function:: int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
+
+   Model generalization for an array of formulas.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *n*: number of formulas in array *a*
+
+   - *a*: array of *n* Boolean term that are true in *mdl*
+
+   - *nelims*: number of variables to eliminate
+
+   - *elim*: variables to eliminate
+
+   - *mode*: generalization method
+
+   - *v*: term vector to store the result
+
+   This function is equivalent to calling :c:func:`yices_generalize_model` with
+   argument (*a[0]* |and| |...| |and| *a[n-1]*).
 
