@@ -579,7 +579,7 @@ Models
    elimination. It constructs a formula *G(X)* such that
  
    - *G(X)* is true in the model
-   - *G(X)* implies *(Exists Y : F(X, Y))*
+   - *G(X)* implies (exists *Y* *F(X, Y)*)
 
    The type :c:type:`yices_gen_mode_t` lists the different
    generalization methods implemented in Yices::

@@ -966,7 +966,7 @@ the model. The formula  *G(X)* satisfies two properties:
 
   1) *G(X)* is true in the model
 
-  2) *G(X)* implies (|exists| *y* *F(x, y)*)
+  2) *G(X)* implies (exists *y* *F(x, y)*)
 
 
 Yices supports two generalization methods:
