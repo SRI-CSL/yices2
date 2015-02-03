@@ -1,13 +1,25 @@
 {%- extends "!layout.html" %}
 
 {%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
+{%- set home = "http://yices.csl.sri.com" %}
+{%- set logowitdth = 175 %}
+{%- set logoheight = 49 %}
 
-{% block rootrellink %}
-         <li class="left"><a href="{{ pathto(master_doc) }}">{{ shorttitle|e }}</a>&nbsp;&bull;&nbsp;</li>
+{%- block rootrellink %}
+         <li class="left"><a href="{{ home }}">Home</a>&nbsp;&bull;&nbsp;</li>
          <li class="left"><a href="{{ pathto('search') }}">Search</a></li>
-{% endblock %}
+{%- endblock %}
 
 {# put the sidebar before the body #}
 {% block sidebar1 %}{{ sidebar() }}{% endblock %}
 {% block sidebar2 %}{% endblock %}
+
+{# fix the logo #}
+{%- block sidebarlogo %}
+{%- if logo %}
+<p class="logo"><a href="{{ home }}">
+    <img class="logo" witdh="{{ logowidth }}" height="{{ logoheight }}" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
+</a></p>
+{%- endif %}
+{%- endblock %}
 
