@@ -207,8 +207,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
 
+
 3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
-     and sigma are types. This is the typed of functions of domain
+     and sigma are types. This is the type of functions of domain
      tau_1 x ... x tau_n and range sigma.
 
      There's no distinct array type constructor. Arrays are functions.
@@ -272,9 +273,11 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 4.4) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
 
-     projection: (select <tuple> i) is the i-th component of term
+     projection: (select <tuple> i) is the i-th component of the term <tuple>.
+
           <tuple> must have type (tuple tau_1 ... tau_n)
-      and i must be between 1 and n
+
+     and i must be between 1 and n
 
      tuple update: (tuple-update <tuple> i <term>) is <tuple> with
      the i-th component replaced by <term>
@@ -348,9 +351,13 @@ This is a summary of the commands and input language of the Yices 2 solver.
         Requires 0 <= j <= i <= (size of x) - 1.
 
 
-     f) bv-concat takes two arguments
+     f) bv-concat takes one or more arguments.
+
+        Example: (bv-concat 0b000 0b111 0b00001) is the same as 0b00011100001
+ 
 
      g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
+
 
      h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
         (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)
@@ -364,6 +371,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
         (bv-lt x y): x < y
 
         x and y are interpreted as non-negative integers (both must have the same size)
+
 
      j) signed bit-vector comparisons
 
@@ -444,7 +452,6 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (define-type name <type-definition>) : create a new type called 'name' equal
                                           to the <type-definition>
 
-
    (define name :: <type>): create a new uninterpreted constant (i.e., global variable) of the
                             given <type> called <name>
 
@@ -473,7 +480,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (echo <string>):  prints <string> on stdout
 
    (include <string>):  <string> must be the name of a file that contains Yices commands
-   	    		this reads and execute all the commands in that file
+   	    		this reads and executes all the commands in that file
 
    (set-param <parameter-name> <parameter-value>):
                  assign a value to one parameter (parameters control simplification
@@ -951,6 +958,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
      Parameter 'ef-gen-mode' specifies the generalization algorithm
      for constructing G_i(x) in each iteration.
+
      Four modes are possible:
 
          none         --> no generalization
@@ -977,5 +985,5 @@ The following parameters can be set using (set-param ...) and examined using (sh
      Parameter 'ef-max-samples' is used by a heuristic to learn the initial
      constraints C_0(x)  on the existential variables. The heuristic is
      based on sampling (random) values for the universal variables y and
-     substituting these values for y in P(x, y). Parameter ex-max-samples
+     substituting these values for y in P(x, y). Parameter ef-max-samples
      is an upper bound on the number of samples in this process.

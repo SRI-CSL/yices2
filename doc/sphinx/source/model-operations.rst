@@ -64,6 +64,7 @@ Model Construction
    state. Future operations on *ctx* (including deleting or resetting
    *ctx*) do not change the model.
 
+
 .. c:function:: model_t* yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 
    Builds a model from a term-to-term mapping.
@@ -76,10 +77,12 @@ Model Construction
 
    - *map*: array of *n* constant terms
 
-   The two arrays *var* and *map* define the mapping: *map[i]* is the
-   value of term *var[i]* in the model. There must not be duplicates
-   in array *var*, and the type of term *map[i]* must be a subtype of
-   *var[i]*'s type.
+   The two arrays *var* and *map* define the mapping. Every element of
+   array *var* must be an uninterpreted term; every element of array
+   *map* must be a constant term. The constant *map[i]* specifies the
+   value of *var[i]* in the resulting model. There must not be
+   duplicates in array *var*, and the type of term *map[i]* must be a
+   subtype of *var[i]*'s type.
 
    This function returns :c:macro:`NULL` if something goes wrong. It
    allocates and creates a model otherwise, and returns a pointer to
@@ -126,6 +129,7 @@ Model Construction
    - if the construction fails for some other reason:
 
      -- error code: :c:enum:`MDL_CONSTRUCTION_FAILED`
+
 
 .. c:function::  void yices_free_model(model_t* mdl)
 
@@ -184,8 +188,6 @@ Other error codes are possible, depending on the function.
 Atomic Values
 .............
 
-The following functions return the value of an atomic term.
-
 .. c:function:: int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val)
 
    Value of a Boolean term.
@@ -215,7 +217,7 @@ The following functions return the value of an atomic term.
    This function computes the value of *t* in model *mdl* and stores
    it in *\*val*. It fails and returns -1 if *t*'s value can't be
    computed, if it is not an integer, or if it is too large or too
-   small to be represented as a 32bit signed integer.
+   small to be represented as a signed 32bit integer.
 
    **Error report**
 
@@ -234,8 +236,9 @@ The following functions return the value of an atomic term.
 
    Value as an integer (64 bits).
 
-   This function is similar to :c:func:`yices_get_int64_value` but it succeeds if *t*'s
-   value can be represented as a 64bit signed integer.
+   This function is similar to :c:func:`yices_get_int32_value` but it succeeds if *t*'s
+   value can be represented as a signed 64bit integer.
+
 
 .. c:function:: int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den)
 
@@ -267,14 +270,15 @@ The following functions return the value of an atomic term.
    This function is similar to :c:func:`yices_get_rational32_value`
    except that it uses a 64bit numerator and a 64bit denominator.
 
+
 .. c:function:: int32_t yices_get_double_value(model_t *mdl, term_t t, double *val)
 
    Value as a floating-point number.
 
-   This function stores the value of *t* in *mdl* in the
-   floating-point variable *\*val*.  It fails (and returns -1) if
-   *t*'s value can't be computed or if *t* is not an arithmetic
-   term. It returns 0 otherwise.
+   This function computes the value of *t* in *mdl*, converts it to a
+   floating-point number, and stores the result in variable *\*val*.
+   It fails (and returns -1) if *t*'s value can't be computed or if
+   *t* is not an arithmetic term. It returns 0 otherwise.
 
     **Error report**
   
@@ -337,6 +341,7 @@ The following functions return the value of an atomic term.
    Like :c:func:`yices_get_mpz_value`, this function is declared if
    header file :file:`gmp.h` is included before :file:`yices.h`.
 
+
 .. c:function:: int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[])
 
    Value of a bitvector term.
@@ -362,11 +367,12 @@ The following functions return the value of an atomic term.
 
      -- term1 := *t*.
 
+
 .. c:function:: int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val)
 
    Value of a scalar or uninterpreted term.
 
-   The value of *t* is returned as an integer index in *\*val*. The index has the same
+   The value of *t* is returned as an integer index in *\*val*. This index has the same
    meaning as in function :c:func:`yices_constant`:
 
    - If *t* has type *tau* and *tau* is a scalar type of cardinality *n* then
@@ -401,17 +407,17 @@ a term and returns a node descriptor from which the term value can be
 constructed.
 
 Within a model, each node has an integer identifier and a tag that
-specifies the node type. All DAG-exploration functions store this
-information in a record of type :c:type:`yval_t` defined as follows::
+specifies the node's type. All DAG-exploration functions store this
+information in records of type :c:type:`yval_t` defined as follows::
 
    typedef struct yval_s {
      int32_t node_id;
      yval_tag_t node_tag;
    } yval_t;
 
-Distinct nodes in a model have distinct node_ids. The type
-:c:type:`yval_tag_t` lists the possible tags of a node.
+Distinct nodes in a model have distinct node_ids.
 
+The type :c:type:`yval_tag_t` lists the possible tags of a node.
 Leaf nodes represent atomic values. They can have the following tags:
 
    - :c:enum:`YVAL_BOOL`: Boolean value
@@ -421,6 +427,7 @@ Leaf nodes represent atomic values. They can have the following tags:
    - :c:enum:`YVAL_BV`: Bitvector constant
 
    - :c:enum:`YVAL_SCALAR`: Constants of scalar or uninterpreted type
+
 
 The following tags are used for non-leaf nodes:
 
@@ -461,6 +468,20 @@ children are mapping nodes for [ 0, 0 |->| 0 ] and [ 3, 1 |->| 1 ], and
 the third child is an atomic node representing the default value -2. 
 
 
+To support partially-defined values, the following tag is also defined:
+
+   - :c:enum:`YVAL_UNKNOWN`: Unknown value
+
+A node with this tag may be returned as the default value of a
+function *f*. In such a case, the model stores a finite list of
+mappings for *f* but does not assign a value to *f* outside the points
+listed in the mappings.
+
+
+The DAG-exploration API includes a function that returns the node
+for a term value, functions that provide information about a node,
+functions that return the value of leaf nodes, and functions that return 
+the children of non-leaf nodes.
 
 .. c:function:: int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val)
 
@@ -478,9 +499,6 @@ the third child is an atomic node representing the default value -2.
    If *t*'s evaluation fails, the function returns -1 and
    leaves *\*val* unchanged.
 
-The following functions provide more information about the node and give
-access the node's value (if it is a leaf node) or to its children (if it
-is not a leaf node).
 
 .. c:function:: int32_t yices_val_is_int32(model_t *mdl, const yval_t *v)
 
@@ -887,8 +905,10 @@ Implicants
 
    Computes an implicant.
 
-   This function constructs an implicant of *t* based on model *mdl*. Term *t* must be a Boolean
-   term that's true in *mdl*. The implicant is a list of Boolean terms a\ |_1| |...| a\ |_n| such that
+   This function constructs an implicant of *t* based on model
+   *mdl*. The term *t* must be a Boolean term that's true in
+   *mdl*. The implicant is a list of Boolean terms a\ |_1| |...| a\
+   |_n| such that
    
    - a\ |_i| is a literal (atom or negation of an atom)
 
