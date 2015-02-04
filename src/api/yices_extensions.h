@@ -502,12 +502,21 @@ extern void yices_set_default_params(param_t *params, smt_logic_t logic, context
 extern void yices_default_params_for_context(context_t *ctx, param_t *params);
 
 
-
 /*
  * Allocate a new model (initialized and empty)
  * - keep_subst = whether to support alias_map (cf. models.h)
  */
 extern model_t *yices_new_model(bool keep_subst);
+
+
+/*
+ * Convert an internalization error code to a yices error
+ * - code = negative code returned by direct call to assert_formula
+ *   or assert_formulas
+ * - this function stores an equivalent error code in the global
+ *   error_code data structure.
+ */
+extern void yices_internalization_error(int32_t code);
 
 
 /*

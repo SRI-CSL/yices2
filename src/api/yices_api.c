@@ -7078,6 +7078,14 @@ static inline void convert_internalization_error(int32_t code) {
 
 
 /*
+ * Exports the previous function for front-end tools
+ */
+void yices_internalization_error(int32_t code) {
+  convert_internalization_error(code);
+}
+
+
+/*
  * Assert formula t in ctx
  * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
  * - t must be a boolean term

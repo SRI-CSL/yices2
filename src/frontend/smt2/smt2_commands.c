@@ -2435,6 +2435,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   case STATUS_IDLE:
     code = assert_formula(g->ctx, t);
     if (code < 0) {
+      yices_internalization_error(code);
       print_yices_error(true);
     } else {
       report_success();
