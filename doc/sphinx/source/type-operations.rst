@@ -271,19 +271,19 @@ The following functions give access to attributes and components of a type.
 
    Returns the *i*-th child of type *tau*.
 
-   - If *tau* has *n* children then index *i* must be in the interval [0 ... *n-1*].
+   - If *tau* has *n* children then index *i* must be in the interval [0 ... *n*-1].
 
    - For a tuple type (tuple |tau|\ |_1| |...| |tau|\ |_n|),
 
-     -- the first child (with index *i= 0*) is |tau|\ |_1|,
+     -- the first child (with index *i*\ =0) is |tau|\ |_1|,
 
-     -- the last child (with index *i=n-1*) is |tau|\ |_n|.
+     -- the last child (with index *i*\ =\ *n*-1) is |tau|\ |_n|.
 
    - For a function type (-> |tau|\ |_1| |...| |tau|\ |_n| |sigma|\ ),
 
-     -- the first child (with index *i=0*) is |tau|\ |_1|,
+     -- the first child (with index *i*\ =0) is |tau|\ |_1|,
 
-     -- the last child (with index *i=n*) is |sigma|.
+     -- the last child (with index *i*\ =\ *n*) is |sigma|.
 
    - For any other type, the function returns :c:enum:`NULL_TYPE` as the type has no children.
 
@@ -299,7 +299,7 @@ The following functions give access to attributes and components of a type.
    Collects the children of a type.
 
    The children of type *tau* are collected in vector *v*. The vector
-   must be initialized first using function :c:func:`yices_init_type_vector`.
+   must be initialized first by calling function :c:func:`yices_init_type_vector`.
 
    If *tau* is not a valid type, this function returns -1, sets the error
    report, and leaves *v* unchanged.

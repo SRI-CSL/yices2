@@ -230,7 +230,7 @@ Four configuration parameters describe the theory solvers:
    | array-solver | none          |  no array solver                      |
    |              +---------------+---------------------------------------+
    |              | default       |  use the array solver                 |
-   +--------------+---------------+---------------------------------------+       
+   +--------------+---------------+---------------------------------------+
    | arith-solver | none          |  no arithmetic solver                 |
    |              +---------------+---------------------------------------+
    |              | ifw           |  integer Floyd-Warshall               |
@@ -250,14 +250,14 @@ Two more parameters in the configuration descriptor specify the
 arithmetic fragment and the operating mode:
 
    +--------------------+-----------------------------------------------------+
-   | Name               |  Possible values                                    |          
+   | Name               |  Possible values                                    |
    +====================+=====================================================+
    | arith-fragment     |  IDL, RDL, LRA, LIA, or LIRA                        |
    +--------------------+-----------------------------------------------------+
    | mode               |  one-shot, multi-checks, push-pop, or interactive   |
    +--------------------+-----------------------------------------------------+
 
-  
+
 
 A configuration descriptor also stores a logic flag, which can either
 be *unknown* (i.e., no logic specified), or the name of an SMT-LIB

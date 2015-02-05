@@ -278,7 +278,7 @@ General Constructors
 
    Returns the term *(fun arg1 arg2)*.
 
-   This function applies binary function *fun* to the *arg1* and *arg2*. 
+   This function applies binary function *fun* to the terms *arg1* and *arg2*. 
 
    It is equivalent to :c:func:`yices_application` with *n=2*.
 
@@ -294,7 +294,7 @@ General Constructors
 
 .. c:function:: term_t yices_tuple(uint32_t n, const term_t arg[])
 
-   Returns the tuple term *(tuple arg[0] ... arg[n-1])*.
+   Returns the tuple term *(mk-tuple arg[0] ... arg[n-1])*.
 
    **Parameters**
 
@@ -313,14 +313,14 @@ General Constructors
 
 .. c:function:: term_t yices_pair(term_t t1, term_t t2)
 
-   Returns the pair *(tuple t1 t2)*.
+   Returns the pair *(mk-tuple t1 t2)*.
 
    This function is equivalent to :c:func:`yices_tuple` with *n=2*.
 
 
 .. c:function:: term_t yices_triple(term_t t1, term_t t2, term_t t3)
 
-   Returns the triple *(tuple t1 t2 t3)*.
+   Returns the triple *(mk-tuple t1 t2 t3)*.
 
    This function is equivalent to :c:func:`yices_tuple` with *n=3*.
 
@@ -1295,7 +1295,7 @@ Bitvector Terms
      the characters ``'0'`` to ``'9'`` or ``'a'`` to ``'f'`` or ``'A'`` to ``'F'``.
 
    If *s* is a string of length *n*, then the result is a bitvector
-   of *4\* n* bits.
+   of *4\*n* bits.
 
    The first character of *s* defines the four most significant bits
    of the result, and the last character gives the four least
@@ -2118,7 +2118,7 @@ Bitvector Terms
 
 .. c:function:: term_t yices_bvarray(uint32_t n, const term_t arg[])
 
-   Converts a array of Boolean terms into a bitvector.
+   Converts an array of Boolean terms into a bitvector.
 
    **Parameters**
 
@@ -2259,7 +2259,7 @@ Term Properties
 
 .. c:function:: int32_t yices_term_is_bool(term_t t)
 
-   Checks whether *t* is Boolean term.
+   Checks whether *t* is a Boolean term.
 
    This function returns 1 for true and 0 for false. It also returns 0
    if *t* is not a valid term and sets the error report.

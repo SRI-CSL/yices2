@@ -102,7 +102,7 @@ Yices Terms
 .. c:type:: term_constructor_t
 
    This type gives access to the internal term representation used by
-   Yices.  It enumerates the term constructors used internally, and is
+   Yices.  It enumerates the term constructors used internally, and it is
    the return type of function :c:func:`yices_term_constructor`. ::
 
     typedef enum term_constructor {
@@ -391,7 +391,7 @@ Contexts
 
    .. c:enum:: STATUS_IDLE
 
-      This is the initial context state.
+      Initial context state.
 
       In this state, it is possible to assert formulas in the context.
       After assertions, the state may change to :c:enum:`STATUS_UNSAT` if
@@ -400,7 +400,7 @@ Contexts
 
    .. c:enum:: STATUS_SEARCHING
 
-      This is the state during search.
+      State during search.
 
       A context enters this state after a call function
       :c:func:`yices_check_context`.  It remains in this state until
@@ -842,7 +842,7 @@ Error Reports
 
    .. c:enum:: INVALID_BVCONSTANT
 
-      Error while parsing ``(mk-bv size value)``: the vale is negative.
+      Error while parsing ``(mk-bv size value)``: the value is negative.
 
    .. c:enum:: TYPE_MISMATCH_IN_DEF
 

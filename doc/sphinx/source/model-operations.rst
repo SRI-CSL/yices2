@@ -91,7 +91,7 @@ Model Construction
 
    Currently, function types are not supported. Every term in *map[i]*
    must either be an atomic constant, or a tuple of atomic constants,
-   or a tuple or tuples of constants, and so forth. The term *var[i]*
+   or a tuple of tuples of constants, and so forth. The term *var[i]*
    cannot have a function type.
 
    **Error report**
@@ -148,7 +148,7 @@ Value of a Term in a Model
 
 The following functions compute the value of a term in a model. For
 terms of atomic types, the value can be extracted directly. Non-atomic
-valued (i.e., tuples or functions) can be extracted by traversing the
+values (i.e., tuples or functions) can be extracted by traversing the
 model's DAG.
 
 Many functions in this section attempt to evaluate a term *t* in a
@@ -775,7 +775,7 @@ the children of non-leaf nodes.
    Components of a tuple node.
 
    If node *v* has tag :c:enum:`YVAL_TUPLE`, then this function copies the node's children into
-   array *child*. The array must be large enough to store all children descriptors. The number of
+   array *child*. The array must be large enough to store all the children descriptors. The number of
    children is given by function :c:func:`yices_val_tuple_arity`. The first child is stored in
    *child[0]* and the last child is in *child[n-1]* where *n* is the node's arity.
 

@@ -208,7 +208,7 @@ are considered.
 
 
 2) **Simplex lemmas:** If the Simplex solver contains atoms (*n* |le| *4*) and
-   (*n* |le| *3*) then a valid theory lemma  (*n* |le| *3*) |implies| (*n* |le| *4*),
+   (*n* |le| *3*) then a valid theory lemma  is (*n* |le| *3*) |implies| (*n* |le| *4*),
    which can be added as a clause to the SAT solver. Such a lemma is generated
    when assertions are processed if option *eager-arith-lemma* is active. 
    See :c:func:`yices_context_enable_option`.

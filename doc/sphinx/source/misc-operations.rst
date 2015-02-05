@@ -175,7 +175,7 @@ Term Names
    If term *t* does not have a base name, this function does nothing
    and returns 0.
 
-   Otherwise, mapping from *t*'s base name to *t* is removed from
+   Otherwise, the mapping from *t*'s base name to *t* is removed from
    the symbol table then *t*'s base name is removed.
 
 .. _parsing_api:

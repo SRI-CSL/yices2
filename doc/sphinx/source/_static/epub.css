@@ -301,12 +301,15 @@ th {
 }
 
 table.citation {
-    border-left: solid 1px gray;
     margin-left: 1px;
 }
 
 table.citation td {
     border-bottom: none;
+}
+
+table.citation td.label {
+    width: 6em;
 }
 
 /* -- figures --------------------------------------------------------------- */
