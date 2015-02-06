@@ -553,7 +553,7 @@ ul.keywordmatches li.goodmatch a {
   div.sphinxsidebar { display: none; }
 }
 
-@media only screen and (max-width: 400px) {
+@media only screen and (max-width: 420px) {
   div.related ul li.left { display: none; }
   div.body ul { padding-left: 14px; }
 }
