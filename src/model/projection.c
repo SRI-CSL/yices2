@@ -19,6 +19,12 @@
 #include "model/model_queries.h"
 #include "model/val_to_term.h"
 
+#define TRACE 1
+
+#if TRACE
+#include <inttypes.h>
+#include "io/term_printer.h"
+#endif
 
 #ifndef NDEBUG
 // check whether x is a variable
@@ -467,6 +473,11 @@ static void proj_process_arith_literals(projector_t *proj) {
   term_t x;
   int32_t code;
 
+#if TRACE
+  printf("--> Process arith_literals\n");
+  fflush(stdout);
+#endif
+
   proj_build_arith_proj(proj);
 
   /*
@@ -500,6 +511,12 @@ static void proj_process_arith_literals(projector_t *proj) {
   aproj_close_var_set(aproj);
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
+#if TRACE
+  printf("--> input literal[%"PRIu32"]: \n", i);
+  print_term_full(stdout, terms, proj->arith_literals.data[i]);
+  printf("\n");
+  fflush(stdout);
+#endif
     code = aproj_add_constraint(aproj, proj->arith_literals.data[i]);
     if (code < 0) {
       // Literal not supported by aproj
@@ -512,6 +529,18 @@ static void proj_process_arith_literals(projector_t *proj) {
   // Collect the result in proj->arith_literals
   ivector_reset(&proj->arith_literals);
   aproj_get_formula_vector(aproj, &proj->arith_literals);
+
+#if TRACE
+  printf("\n--> projection result:\n");
+  n = proj->arith_literals.size;
+  for (i=0; i<n; i++) {
+    printf("--> output literal[%"PRIu32"]: \n", i);
+    print_term_full(stdout, terms, proj->arith_literals.data[i]);
+    printf("\n");
+  }
+  printf("\n\n");
+  fflush(stdout);
+#endif
 
  done:
   proj_delete_arith_proj(proj);

@@ -11,21 +11,94 @@
 #include <assert.h>
 
 #include "utils/memalloc.h"
+#include "utils/ptr_vectors.h"
+#include "utils/ptr_array_sort2.h"
 #include "terms/rba_buffer_terms.h"
 #include "model/arith_projection.h"
 
+#define TRACE 0
+
+#if TRACE
+#include <inttypes.h>
+#include "io/term_printer.h"
+#endif
 
 /*
  * CONSTRAINT DESCRIPTORS
  */
 
+#if TRACE
+static void print_aproj_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
+  bool negative;
+  bool abs_one;
+
+  negative = q_is_neg(coeff);
+  if (negative) {
+    if (first) {
+      fprintf(f, "-");
+      if (x != const_idx) {
+        fprintf(f, " ");
+      }
+    } else {
+      fprintf(f, " - ");
+    }
+    abs_one = q_is_minus_one(coeff);
+  } else {
+    if (! first) {
+      fprintf(f, " + ");
+    }
+    abs_one = q_is_one(coeff);
+  }
+
+  if (x == const_idx) {
+    q_print_abs(f, coeff);
+  } else {
+    if (! abs_one) {
+      q_print_abs(f, coeff);
+      fprintf(f, "*");
+    }
+    fprintf(f, "x!%"PRId32, x);
+  }
+}
+
+static void print_aproj_constraint(FILE *f, aproj_constraint_t *c) {
+  uint32_t i, n;
+  bool first;
+
+  fprintf(f, "constraint[%"PRIu32"]: (", c->id);
+  n = c->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_aproj_monomial(f, &c->mono[i].coeff, c->mono[i].var, first);
+      first = false;
+    }
+  }
+
+  switch (c->tag) {
+  case APROJ_GT:
+    fputs(" > 0)", f);
+    break;
+  case APROJ_GE:
+    fputs(" >= 0)", f);
+    break;
+  case APROJ_EQ:
+    fputs(" = 0)", f);
+    break;
+  }
+}
+#endif
+
 /*
  * Create a new constraint from the content of buffer
  * - buffer must be normalized (and non-zero)
  * - tag = constraint type
+ * - id = identifier
  * Side effect: reset buffer
  */
-static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_tag_t tag) {
+static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_tag_t tag, uint32_t id) {
   aproj_constraint_t *tmp;
   monomial_t *p;
   uint32_t i, n;
@@ -36,6 +109,7 @@ static aproj_constraint_t *make_aproj_constraint(poly_buffer_t *buffer, aproj_ta
     out_of_memory();
   }
   tmp = (aproj_constraint_t *) safe_malloc(sizeof(aproj_constraint_t) + (n+1) * sizeof(monomial_t));
+  tmp->id = id;
   tmp->tag = tag;
   tmp->nterms = n;
   p = poly_buffer_mono(buffer);
@@ -661,6 +735,7 @@ void init_arith_projector(arith_projector_t *proj, term_manager_t *mngr, uint32_
   proj->manager = mngr;
   init_aproj_vtbl(&proj->vtbl, n, m);
   proj->constraints = NULL;
+  proj->next_id = 0;
   init_poly_buffer(&proj->buffer);
   init_poly_buffer(&proj->buffer2);
   q_init(&proj->q1);
@@ -901,9 +976,16 @@ static void add_constraint_from_buffer(arith_projector_t *proj, poly_buffer_t *b
     assert(trivial_constraint_in_buffer(buffer, tag));
     reset_poly_buffer(buffer);
   } else {
-    c = make_aproj_constraint(buffer, tag);
+    c = make_aproj_constraint(buffer, tag, proj->next_id);
     assert(aproj_good_constraint(proj, c));
     aproj_add_cnstr(proj, c);
+#if TRACE
+    printf("--> adding constraint\n");
+    print_aproj_constraint(stdout, c);
+    printf("\n");
+    fflush(stdout);
+#endif
+    proj->next_id ++;
   }
 }
 
@@ -1630,6 +1712,7 @@ static void aproj_substitute_buffer(arith_projector_t *proj, poly_buffer_t *b, i
 
 /*
  * Find constraint with minimal value in vecctor v
+ * - break ties using the constraint with the smallest id
  */
 static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector_t *v) {
   rational_t *q_min, *q;
@@ -1652,6 +1735,9 @@ static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector
 
     if (q_lt(q, q_min)) {
       q_set(q_min, q); // q_min := q
+      min = c;
+    } else if (q_eq(q_min, q) && c->id < min->id) {
+      // tie breaking rule: c has lowe id than min
       min = c;
     }
   }
@@ -1704,20 +1790,36 @@ void aproj_eliminate(arith_projector_t *proj) {
   while (! generic_heap_is_empty(var_heap)) {
     i = generic_heap_get_min(var_heap);
 
+#if TRACE
+    printf("Eliminating variable %"PRId32"\n", i);
+#endif
+
     switch (aproj_var_group(&proj->vtbl, i)) {
     case APROJ_TRIVIAL:
+#if TRACE
+      printf(" trivial variable\n");
+#endif
       aproj_remove_all_constraints_on_var(proj, i);
       break;
 
     case APROJ_SUBST:
+#if TRACE
+      printf(" substitution\n");
+#endif
       aproj_elim_var_subst(proj, i);
       break;
 
     case APROJ_CHEAP:
+#if TRACE
+      printf(" Fourier-Motzkin\n");
+#endif
       aproj_fourier_motzkin(proj, i);
       break;
 
     case APROJ_EXPENSIVE:
+#if TRACE
+      printf(" Virtual substitution\n");
+#endif
       aproj_virtual_subst(proj, i);
       break;
     }
@@ -1786,8 +1888,23 @@ static term_t aproj_convert_constraint(arith_projector_t *proj, aproj_constraint
  *
  * So the set of constraints after in proj->constraint is equivalent to 
  * the conjunction of formulas added to v.
+ *
+ * To ensure determinism/reproducibility, we sort the constraints of
+ * proj in increasing order of ids. We do this because the ptr_set
+ * implementation (used for the set of constraints) is based on a hash
+ * of the pointer values. In different runs, the pointers may differ
+ * even though the constraints are the same. So, in different calls to
+ * this function or in different executions, the same set of
+ * constraints may be stored in different orders in proj->constraints.
  */
+
+// comparison function for sorting: c1 and c2  are two constraints
+static bool cmp_id(void *ignored, void *c1, void *c2) {
+  return ((aproj_constraint_t *) c1)-> id < ((aproj_constraint_t *) c2)->id;
+}
+
 void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v) {
+  pvector_t aux;
   ptr_set_t *set;
   aproj_constraint_t *c;
   uint32_t i, n;
@@ -1795,14 +1912,28 @@ void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v) {
 
   set = proj->constraints;
   if (set != NULL) {
+    // first pass: collect all constraints in vector aux  
+    init_pvector(&aux, 32);
     n = set->size;
     for (i=0; i<n; i++) {
       c = set->data[i];
       if (live_ptr_elem(c)) {
-	t = aproj_convert_constraint(proj, c);
-	ivector_push(v, t);
+	pvector_push(&aux, c);
       }
     }
+
+    // sort the vector aux
+    ptr_array_sort2(aux.data, aux.size, NULL, cmp_id);
+
+    // convert the constraints to terms
+    n = aux.size;
+    for (i=0; i<n; i++) {
+      c = aux.data[i];
+      t = aproj_convert_constraint(proj, c);
+      ivector_push(v, t);
+    }
+
+    delete_pvector(&aux);
   }
 }
 

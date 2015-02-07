@@ -125,6 +125,7 @@ typedef enum {
 
 /*
  * Arithmetic constraint:
+ * - id = constraint id
  * - tag = constraint type
  * - nterms = number of monomials
  * - mono = array of nterms + 1 monomials
@@ -132,8 +133,12 @@ typedef enum {
  * - the monomials are ordered by increasing variable index
  * - mono[nterms] contains the end marker max_idx
  * - const_idx = 0 denotes the constant
+ *
+ * The id is used to break ties and ensure determinism.
+ * - the id is a counter incremented with every new constraint
  */
 typedef struct aproj_constraint_s {
+  uint32_t id;
   aproj_tag_t tag;
   uint32_t nterms;
   monomial_t mono[0]; // real size = nterms+1
@@ -214,6 +219,9 @@ typedef struct arith_projector_s {
   term_manager_t *manager;
   aproj_vtbl_t vtbl;
   ptr_set_t *constraints;
+  
+  // counter for constraint ids
+  uint32_t next_id;
 
   // buffers
   poly_buffer_t buffer;
