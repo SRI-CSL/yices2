@@ -19,7 +19,7 @@
 #include "model/model_queries.h"
 #include "model/val_to_term.h"
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 #include <inttypes.h>
