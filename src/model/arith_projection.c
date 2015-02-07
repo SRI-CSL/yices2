@@ -414,7 +414,7 @@ static void aproj_vtbl_add_var(aproj_vtbl_t *table, term_t x, bool to_elim, rati
 /*
  * Complete table: after all variables have been added.
  * - all variables in [1 ... nelims - 1] are to be eliminated
- * - all variables in [nelems .. nvars - 1] are to be kept
+ * - all variables in [nelims .. nvars - 1] are to be kept
  * - for all variable i, we add the mapping term_of[i] --> i
  *   in table->tmap
  * - then we add all variables to eliminate to the heap
@@ -1340,7 +1340,7 @@ static void aproj_subst_constraint(arith_projector_t *proj, aproj_constraint_t *
  * Apply substitution defined by eq to all constraints that contain i,
  * then remove all constraints on i.
  * - i = variable to eliminate
- * - i must have coeffficient 1 in eq
+ * - i must have coefficient 1 in eq
  * - eq must not occur in proj->vtbl.cnstr[i]
  */
 static void aproj_substitute_eq(arith_projector_t *proj, aproj_constraint_t *eq, int32_t i) {
@@ -1471,7 +1471,7 @@ static void aproj_normalize_inequality(arith_projector_t *proj, aproj_constraint
  *   - the set cnstr[i] and counters for i are reset
  *
  * - in every constraint of pos_vector, i has coefficient +1
- *   in every constranit of neg_vector, i has coefficient -1
+ *   in every constraint of neg_vector, i has coefficient -1
  *
  */
 static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i) {
@@ -1598,7 +1598,7 @@ static void aproj_fourier_motzkin(arith_projector_t *proj, int32_t i) {
  * Every constraint in neg_vector is of the form (- i + q) > or >= 0.
  *
  * We search for c in pos_vector whose value is minimal in the model and
- * for d in neg_vector whose value is miniimal. This gives us two constraints:
+ * for d in neg_vector whose value is minimal. This gives us two constraints:
  *    c:   (i + p) >= 0
  *    d:  (-i + q) >= 0
  * All constraints on i are true in the model, so we know
@@ -1612,7 +1612,7 @@ static void aproj_fourier_motzkin(arith_projector_t *proj, int32_t i) {
 #if 0
 /*
  * Apply the substitution defined by buffer b to constraint c.
- * - i = variable to subtitute
+ * - i = variable to substitute
  * - i must occur in c
  * - b must be normalized and contain a polynomial of the form i - p
  *   (interpreted as i := p)
@@ -1711,7 +1711,7 @@ static void aproj_substitute_buffer(arith_projector_t *proj, poly_buffer_t *b, i
 
 
 /*
- * Find constraint with minimal value in vecctor v
+ * Find constraint with minimal value in vector v
  * - break ties using the constraint with the smallest id
  */
 static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector_t *v) {
@@ -1737,7 +1737,7 @@ static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector
       q_set(q_min, q); // q_min := q
       min = c;
     } else if (q_eq(q_min, q) && c->id < min->id) {
-      // tie breaking rule: c has lowe id than min
+      // tie breaking rule: c has lower id than min
       min = c;
     }
   }
@@ -1746,7 +1746,7 @@ static aproj_constraint_t *aproj_min_constraint(arith_projector_t *proj, pvector
 }
 
 /*
- * Eliminiate i by virtual substitution
+ * Eliminate i by virtual substitution
  */
 static void aproj_virtual_subst(arith_projector_t *proj, int32_t i) {
   aproj_constraint_t *pos, *neg;

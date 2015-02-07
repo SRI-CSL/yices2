@@ -196,7 +196,7 @@ static void proj_build_val_subst(projector_t *proj) {
     return;
   }
 
-  // build the subsitution: evar[i] is mapped to v->data[i]
+  // build the substitution: evar[i] is mapped to v->data[i]
   tmp = (term_subst_t *) safe_malloc(sizeof(term_subst_t));
   init_term_subst(tmp, proj->mngr, n, proj->evars, v->data);
   proj->val_subst = tmp;

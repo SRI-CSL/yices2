@@ -19,7 +19,7 @@
  *
  * The quantifier elimination is based on substitution (for Boolean
  * variables) and on arithmetic elimination using a mix of
- * substitution, Fourier-Motkin, and Virtual Term Subsitution (as
+ * substitution, Fourier-Motkin, and Virtual Term Substitution (as
  * implemented in arith_projection).
  */
 
@@ -135,7 +135,7 @@ extern void projector_add_literal(projector_t *proj, term_t t);
  * - v is not reset
  *
  * The function returns an error code if something goes wrong
- * and leaves v untcouched. Otherwise, it returns PROJ_NO_ERROR.
+ * and leaves v untouched. Otherwise, it returns PROJ_NO_ERROR.
  */
 extern proj_flag_t run_projector(projector_t *proj, ivector_t *v);
 

@@ -5544,7 +5544,7 @@ EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
 
 
 /*
- * Collect all the childern in vector *v
+ * Collect all the children in vector *v
  * - returns -1 for error, 0 if all fine.
  */
 EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
@@ -8611,7 +8611,7 @@ EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a
  * - INVALID_TERM         if t is not valid
  * - TYPE_MISMATCH        if t is not a Boolean term
  * - EVAL_FREEVAR_IN_TERM if t contains free variables
- * - EVAL_QUANTIIFIER     if t containts quantifiers
+ * - EVAL_QUANTIIFIER     if t contains quantifiers
  * - EVAL_LAMBDA          if t contains a lambda
  * - EVAL_NO_IMPLICANT    if t is false in  mdl
  * - EVAL_FAILED          if the function fails for some other reason

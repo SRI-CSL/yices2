@@ -124,7 +124,7 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
   }
 
 
-  // build the substition: elim[i] := aux.data[i]
+  // build the substitution: elim[i] := aux.data[i]
   // then apply it to f[0 ... n-1]
   code = 0;
   init_term_subst(&subst, mngr, nelims, elim, aux.data);

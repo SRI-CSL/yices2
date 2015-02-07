@@ -15,7 +15,7 @@
  * - tries to open the file with mode "w"
  * - returns -1 if the file can't be opened.
  *   set print_failed to true and store the errno
- * - returns 0 otherwise (print_failes is false and errno is 0)
+ * - returns 0 otherwise (print_failed is false and errno is 0)
  */
 int32_t init_file_writer(writer_t *writer, const char *filename) {
   FILE *f;

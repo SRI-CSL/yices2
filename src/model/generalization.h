@@ -82,7 +82,7 @@ enum {
  * - the generalization is returned in vector v (v is not reset, 
  *   the result formulas are added to v)
  *
- * There are two main variants forgeneralization by substitution or by projection
+ * There are two main variants for generalization by substitution or by projection
  * - the generic form: generalize_model applies generalization by projection
  *   if some variables to eliminate are arithmetic variables. It uses
  *   generalization by substitution otherwise.

@@ -69,7 +69,7 @@
  * false_term.  In some cases, we attempt to reduce a Boolean term to a
  * literal other than true_term or false_term.
  *
- * The selection is detemined by the flag bool_are_terms:
+ * The selection is determined by the flag bool_are_terms:
  * - if this flag is true, then we consider the following terms as atomic:
  *      Boolean constants
  *      Boolean variables
