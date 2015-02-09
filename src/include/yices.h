@@ -3416,7 +3416,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yv
  *    -1 if f's value can't be evaluated (then an error code is set)
  *
  * Error codes:
- * - same as yices_get_bool_val
+ * - same as yices_get_bool_value
  */
 __YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
 
@@ -3429,7 +3429,7 @@ __YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
  *    -1 if one f[i] can't be evaluated (and f[0 ... i-1] are all true)
  *
  * Error codes:
- * - same as yices_get_bool_val
+ * - same as yices_get_bool_value
  *
  * NOTE: if n>1, it's more efficient to call this function once than to
  * call the previous function n times.

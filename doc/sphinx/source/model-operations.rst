@@ -408,7 +408,7 @@ Value of Formulas
    This function checks whether *f* is true in *mdl*. It returns 1 if *f* is true in the model,
    0 if *f* is false in the model, or -1 if *f* is not a Boolean term or if it can't be evaluated.
 
-   This function reports the same error codes as :c:func:`yices_get_bool_var`.
+   This function reports the same error codes as :c:func:`yices_get_bool_value`.
 
 .. c:function:: int32_t yices_formulas_true_in_model(model_t* mdl, uint32_t n, const term_t f[])
 
@@ -418,7 +418,7 @@ Value of Formulas
    1 if all *f[i]*s are true, 0 if an *f[i]* is false, or -1 of an *f[i]* is not Boolean or can't be
    evaluated.
 
-   This function reports the same errors as :c:func:`yices_get_bool_var`.
+   This function reports the same errors as :c:func:`yices_get_bool_value`.
 
    It is more efficient to call this function that to call
    :c:func:`yices_formula_true_in_model` *n* times.
