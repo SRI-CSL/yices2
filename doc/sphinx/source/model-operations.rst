@@ -209,6 +209,8 @@ Atomic Values
  
      -- type1 := Bool type
 
+   See also :c:func:`yices_formula_true_in_model` and :c:func:`yices_formulas_true_in_model`.
+
  
 .. c:function:: int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val)
 
@@ -393,6 +395,33 @@ Atomic Values
      -- error code: :c:enum:`SCALAR_TERM_REQUIRED`
 
      -- term1 := *t*
+
+
+
+Value of Formulas
+.................
+
+.. c:function:: int32_t yices_formula_true_in_model(model_t* mdl, term_t f)
+
+   Checks whether a formula is true in a model.
+
+   This function checks whether *f* is true in *mdl*. It returns 1 if *f* is true in the model,
+   0 if *f* is false in the model, or -1 if *f* is not a Boolean term or if it can't be evaluated.
+
+   This function reports the same error codes as :c:func:`yices_get_bool_var`.
+
+.. c:function:: int32_t yices_formulas_true_in_model(model_t* mdl, uint32_t n, const term_t f[])
+
+   Checks whether an array of formulas is true in a model.
+
+   This function checks whether the formulas *f[0]* to *f[n-1]* are all true in *mdl*. It returns
+   1 if all *f[i]*s are true, 0 if an *f[i]* is false, or -1 of an *f[i]* is not Boolean or can't be
+   evaluated.
+
+   This function reports the same errors as :c:func:`yices_get_bool_var`.
+
+   It is more efficient to call this function that to call
+   :c:func:`yices_formula_true_in_model` *n* times.
 
 
 
