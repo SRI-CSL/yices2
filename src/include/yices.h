@@ -1708,7 +1708,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvarray(uint32_t n, const term_t arg[]);
  *    code = INVALID_TERM
  *    term1 = t
  * if t is not a bitvector term
- *    code = BITVECTOR_REQUIRES
+ *    code = BITVECTOR_REQUIRED
  *    term1 = t
  * if i >= t's bitsize
  *    code = INVALID_BITEXTRACT
