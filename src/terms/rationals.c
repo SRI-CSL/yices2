@@ -548,6 +548,7 @@ static inline void q_prepare(rational_t *r) {
 void q_set_mpz(rational_t *r, const mpz_t z) {
   q_prepare(r);
   mpq_set_z(bank_q[r->num], z);
+  q_normalize(r);
 }
 
 
@@ -557,6 +558,7 @@ void q_set_mpz(rational_t *r, const mpz_t z) {
 void q_set_mpq(rational_t *r, const mpq_t q) {
   q_prepare(r);
   mpq_set(bank_q[r->num], q);
+  q_normalize(r);
 }
 
 

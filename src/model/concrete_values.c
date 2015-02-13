@@ -1264,7 +1264,7 @@ static bool canonical_array(value_table_t *table, value_t *a, uint32_t n) {
 typedef struct {
   int_hobj_t m;
   value_table_t *table;
-  rational_t v;
+  rational_t *v;
 } rational_hobj_t;
 
 typedef struct {
@@ -1340,7 +1340,7 @@ typedef struct {
  */
 static uint32_t hash_rational_value(rational_hobj_t *o) {
   uint32_t h_num, h_den;
-  q_hash_decompose(&o->v, &h_num, &h_den);
+  q_hash_decompose(o->v, &h_num, &h_den);
   return jenkins_hash_mix2(h_num, h_den);
 }
 
@@ -1387,7 +1387,7 @@ static bool equal_rational_value(rational_hobj_t *o, value_t i) {
   value_table_t *table;
 
   table = o->table;
-  return table->kind[i] == RATIONAL_VALUE && q_eq(&table->desc[i].rational, &o->v);
+  return table->kind[i] == RATIONAL_VALUE && q_eq(&table->desc[i].rational, o->v);
 }
 
 static bool equal_const_value(const_hobj_t *o, value_t i) {
@@ -1511,7 +1511,7 @@ static value_t build_rational_value(rational_hobj_t *o) {
   i = allocate_object(table);
   table->kind[i] = RATIONAL_VALUE;
   q_init(&table->desc[i].rational);
-  q_set(&table->desc[i].rational, &o->v);
+  q_set(&table->desc[i].rational, o->v);
   set_bit(table->canonical, i);
 
   return i;
@@ -1700,7 +1700,7 @@ static value_t build_update_value(update_hobj_t *o) {
 static rational_hobj_t rational_hobj = {
   { (hobj_hash_t) hash_rational_value, (hobj_eq_t) equal_rational_value, (hobj_build_t) build_rational_value },
   NULL,
-  { 0, 1}, // represents rational zero
+  NULL,
 };
 
 static const_hobj_t const_hobj = {
@@ -1749,7 +1749,7 @@ static update_hobj_t update_hobj = {
  */
 value_t vtbl_mk_rational(value_table_t *table, rational_t *v) {
   rational_hobj.table = table;
-  q_set(&rational_hobj.v, v);
+  rational_hobj.v = v;
 
   return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
 }
@@ -1758,10 +1758,18 @@ value_t vtbl_mk_rational(value_table_t *table, rational_t *v) {
  * Return a rational constant equal to i
  */
 value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
-  rational_hobj.table = table;
-  q_set32(&rational_hobj.v, i);
+  rational_t aux;
+  value_t k;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  q_init(&aux);
+  q_set32(&aux, i);
+  rational_hobj.table = table;
+  rational_hobj.v = &aux;
+
+  k = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  q_clear(&aux);
+
+  return k;
 }
 
 
@@ -2204,16 +2212,24 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
  */
 value_t vtbl_find_rational(value_table_t *table, rational_t *v) {
   rational_hobj.table = table;
-  q_set(&rational_hobj.v, v);
+  rational_hobj.v = v;
 
   return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
 }
 
 value_t vtbl_find_int32(value_table_t *table, int32_t x) {
-  rational_hobj.table = table;
-  q_set32(&rational_hobj.v, x);
+  rational_t aux;
+  value_t k;
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  q_init(&aux);
+  q_set32(&aux, x);
+  rational_hobj.table = table;
+  rational_hobj.v = &aux;
+
+  k = int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  q_clear(&aux);
+
+  return k;
 }
 
 /*

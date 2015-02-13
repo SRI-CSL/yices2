@@ -72,7 +72,7 @@ static inline int32_t gen_convert_error(int32_t error) {
 }
 
 static inline int32_t gen_implicant_error(int32_t error) {
-  assert(MDL_EVAL_FAILED <= error && error <= MDL_EVAL_FORMULA_FALSE);
+  assert(MDL_EVAL_FORMULA_FALSE <= error && error <= MDL_EVAL_INTERNAL_ERROR);
   return error;
 }
 
