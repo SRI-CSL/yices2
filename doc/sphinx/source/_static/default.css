@@ -12,9 +12,14 @@ body {
   text-align: center;
   background-color: #fff;
   color: black;
-  padding: 0;
-  margin: 10px 80px 0px 80px;
+  padding-left: 20px;
+  padding-right: 20px;
+  margin-top: 10px;
+  margin-bottom: 0px;
+  margin-left: auto;
+  margin-right: auto;
   min-width: 740px;
+  max-width: 1080px;
 }
 
 p {
@@ -536,7 +541,7 @@ ul.keywordmatches li.goodmatch a {
 }
 
 @media only screen and (min-width: 760px) and (max-width: 900px) {
-  body { margin-left: 30px; margin-right: 30px; min-width: 700px; }
+  body { margin-left: 30px; margin-right: 30px; min-width: 700px; padding: 0; }
   div.bodywrapper { margin: 10px 0 5px 0; border-right: 0; border-top: 1px solid #ccc; }
   div.localtoc { display: none; }
   div.sphinxsidebar { float: none; padding: 0; display: inline-block; width: 100%; }
@@ -547,7 +552,7 @@ ul.keywordmatches li.goodmatch a {
 }
 
 @media only screen and (max-width: 759px) {
-  body { margin-left: 3%; margin-right: 3%; min-width: 0; }
+  body { margin-left: 3%; margin-right: 3%; min-width: 0; padding: 0; }
   p.logo { text-align: left; }
   div.bodywrapper { margin: 0; border: 0; }
   div.sphinxsidebar { display: none; }
