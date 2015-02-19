@@ -177,17 +177,17 @@ void delete_timeout(void) {
  * - handler for a timer queue
  * - handler for a timer
  */
-HANDLE timer_queue;
-HANDLE timer;
+static HANDLE timer_queue;
+static HANDLE timer;
 
 
 /*
  * Callback function for the timer
- * - to nothing id the timeout is not active
+ * - do nothing if the timeout is not active
  * - otherwise change the state to fired and
  *   call the handler.
  */
-VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
+static VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
   if (the_timeout.state == TIMEOUT_ACTIVE) {
     the_timeout.state = TIMEOUT_FIRED;
     the_timeout.handler(the_timeout.param);

@@ -2249,6 +2249,7 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
     tau = term_type(terms, var[i]);
     switch (type_kind(types, tau)) {
     case BOOL_TYPE:
+    case INT_TYPE:
     case REAL_TYPE:
     case BITVECTOR_TYPE:
     case SCALAR_TYPE:

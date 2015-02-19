@@ -34,17 +34,23 @@
 
 
 /*
- * Check whether one term in v[0 ... n-1] has arithmetic type
+ * Split the array of variables v into discrete and real variables
+ * - n = number of variables in v
+ * - all variables of type REAL are added to vector reals
+ * - all other variables are added to discretes
  */
-static bool array_has_arith_term(term_table_t *terms, uint32_t n, const term_t v[]) {
+static void split_elim_array(term_table_t *terms, uint32_t n, const term_t v[], ivector_t *reals, ivector_t *discretes) {
   uint32_t i;
+  term_t t;
 
   for (i=0; i<n; i++) {
-    if (is_arithmetic_term(terms, v[i])) {
-      return true;
+    t = v[i];
+    if (is_real_term(terms, t)) {
+      ivector_push(reals, t);
+    } else {
+      ivector_push(discretes, t);
     }
   }
-  return false;
 }
 
 
@@ -83,23 +89,22 @@ static inline int32_t gen_projection_error(proj_flag_t error) {
 
 
 /*
- * Generalization by substitution
+ * Generalization by substitution: core procedure
  * - mdl = model
  * - mngr = relevant term manager
- * - f[0 ... n-1] = formula true in the model
  * - elim[0 ... nelim -1] = variables to eliminate
- * - v = result vector
+ * - on entry to the function, v must contain the formulas to project
+ * - the result is returned in place (in vector v)
  *
  * - returned code: 0 if no error, an error code otherwise
  * - error codes are listed in generalization.h
  */
-int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[], 
-				  uint32_t nelims, const term_t elim[], ivector_t *v) {
+static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v) {
   term_subst_t subst;
   ivector_t aux;
   term_table_t *terms;
   int32_t code;
-  uint32_t k;
+  uint32_t k, n;
   term_t t;
 
   // get the value of elim[i] in aux.data[i]
@@ -125,16 +130,17 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
 
 
   // build the substitution: elim[i] := aux.data[i]
-  // then apply it to f[0 ... n-1]
+  // then apply it to every term in vector v
   code = 0;
   init_term_subst(&subst, mngr, nelims, elim, aux.data);
+  n = v->size;
   for (k=0; k<n; k++) {
-    t = apply_term_subst(&subst, f[k]);
+    t = apply_term_subst(&subst, v->data[k]);
+    v->data[k] = t;
     if (t < 0) {
       code = GEN_PROJ_ERROR_IN_SUBST;
       break;
     }
-    ivector_push(v, t);
   }
   delete_term_subst(&subst);
 
@@ -145,28 +151,32 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
 }
 
 
+
 /*
- * Generalize by projection:
+ * Generalization by projection: core procedure
  * - compute an implicant then project the implicant
  * - mdl = model
  * - mngr = relevant term manager
- * - f[0 ... n-1] = formulas true in mdl
  * - elim[0 ... nelims-1] = variables to eliminate
+ * - on entry to the function, v must contain the formuals to project
+ *   the result is returned in place (in vector v)
+ *
+ * Return code: 0 if no error, an error code otherwise
  */
-int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v) {
+static int32_t gen_model_by_proj(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v) {
   ivector_t implicant;
   int32_t code;
   proj_flag_t pflag;
 
   init_ivector(&implicant, 10);
-  code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, n, f, &implicant);
+  code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, v->size, v->data, &implicant);
   if (code < 0) {
     // implicant construction failed
     code = gen_implicant_error(code);
     goto done;
   }
- 
+  
+  ivector_reset(v); // reset v to collect the projection result
   code = 0;
   pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, v);
   if (pflag != PROJ_NO_ERROR) {
@@ -177,28 +187,82 @@ int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, 
   delete_ivector(&implicant);
 
   return code;
+  
 }
 
 
 
 /*
- * Generalize mdl: select between gen_by_projection and gen_by_substitution depending
- * on the variables to eliminate.
+ * Generalization by substitution
+ * - mdl = model
+ * - mngr = relevant term manager
+ * - f[0 ... n-1] = formula true in the model
+ * - elim[0 ... nelim -1] = variables to eliminate
+ * - v = result vector
+ *
+ * - returned code: 0 if no error, an error code otherwise
+ * - error codes are listed in generalization.h
+ */
+int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[], 
+				  uint32_t nelims, const term_t elim[], ivector_t *v) {
+
+  ivector_copy(v, f, n);
+  assert(v->size == n);
+  return gen_model_by_subst(mdl, mngr, nelims, elim, v);
+}
+
+
+/*
+ * Generalize by projection:
+ * - compute an implicant then project the implicant
+ * - mdl = model
+ * - mngr = relevant term manager
+ * - f[0 ... n-1] = formulas true in mdl
+ * - elim[0 ... nelims-1] = variables to eliminate
+ * - v = result vector
+ *
+ * - returned code: 0 if no error, an error code otherwise
+ * - error codes are listed in generalization.h
+ */
+int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+				uint32_t nelims, const term_t elim[], ivector_t *v) {
+  ivector_copy(v, f, n);
+  assert(v->size == n);
+  return gen_model_by_proj(mdl, mngr, nelims, elim, v);
+}
+
+
+
+/*
+ * Generalize mdl: two passes:
+ * - 1) eliminate the discrete variables by substitution
+ * - 2) use projection to eliminate the real variables
  */
 int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 			 uint32_t nelims, const term_t elim[], ivector_t *v) {
   term_table_t *terms;
+  ivector_t discretes;
+  ivector_t reals;
   int32_t code;
 
+  // if n == 0, there's nothing to do
   code =0;
   if (n > 0) {
-    // if n == 0, there's nothing to do
     terms = term_manager_get_terms(mngr);
-    if (array_has_arith_term(terms, nelims, elim)) {
-      code = gen_model_by_projection(mdl, mngr, n, f, nelims, elim, v);
-    } else {
-      code = gen_model_by_substitution(mdl, mngr, n, f, nelims, elim, v);
+    init_ivector(&reals, 10);
+    init_ivector(&discretes, 10);
+    split_elim_array(terms, nelims, elim, &reals, &discretes);
+   
+    ivector_copy(v, f, n);
+    if (discretes.size > 0) {
+      code = gen_model_by_subst(mdl, mngr, discretes.size, discretes.data, v);
     }
+    if (code == 0 && reals.size > 0) {
+      code = gen_model_by_proj(mdl, mngr, reals.size, reals.data, v);
+    }
+
+    delete_ivector(&reals);
+    delete_ivector(&discretes);
   }
 
   return code;
