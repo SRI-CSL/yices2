@@ -1,9 +1,10 @@
 {%- extends "!layout.html" %}
+
 {%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
 {%- set home = "http://yices.csl.sri.com" %}
 {%- set logowidth = 175 %}
 {%- set logoheight = 49 %}
-{%- set metatags = '<meta name="viewport" content="width=device-width, initial-scale=1">' %}
+{%- set metatags = '<meta name="viewport" content="width=device-width, initial-scale=1"></meta>' %}
 
 {%- block rootrellink %}
          <li class="left"><a href="{{ pathto(master_doc) }}">Table of Content</a>&nbsp;&bull;&nbsp;</li>

@@ -38,20 +38,11 @@ To build the manual, you also need:
 - the latexmk tool
 
 
-To build the on-line documentation, you need to install the Sphinx
-python pacakge. The simplest method is:
-
-  sudo easy_install -U Sphinx
-
-Sphinx 1.3.x or better is needed.
-
-
 QUICK INSTALLATION
 ------------------
 
 Do this:
 
-  autoconf
   ./configure
   make
   sudo make install
@@ -88,15 +79,3 @@ Other documentation is in the ./doc directory:
 - doc/YICES-LANGUAGE explains the syntax of the Yices language, and
   describes commands, functions, and heuristic parameters.
 
-
-To build the Sphinx documentation:
-
-  cd doc/sphinx
-  make html
-
-This will build the documentation in build/html (within directory
-doc/sphinx). You can also do:
-
-  make epub
-
-and you'll have the doc in build/epub/Yices.ebup.
