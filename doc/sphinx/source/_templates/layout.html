@@ -4,7 +4,9 @@
 {%- set home = "http://yices.csl.sri.com" %}
 {%- set logowidth = 175 %}
 {%- set logoheight = 49 %}
-{%- set metatags = '<meta name="viewport" content="width=device-width, initial-scale=1"></meta>' %}
+{%- if builder == 'html' %}
+  {%- set metatags = '<meta name="viewport" content="width=device-width, initial-scale=1" />' %}
+{%- endif %}
 
 {%- block rootrellink %}
          <li class="left"><a href="{{ pathto(master_doc) }}">Table of Content</a>&nbsp;&bull;&nbsp;</li>
