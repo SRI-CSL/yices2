@@ -195,6 +195,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
 
   init_objstore(&dag->leaf_store, sizeof(bvc_leaf_t), 500);
   init_objstore(&dag->zero_store, sizeof(bvc_zero_t), 100);
+  init_objstore(&dag->constant_store, sizeof(bvc_constant_t), 100);
   init_objstore(&dag->offset_store, sizeof(bvc_offset_t), 500);
   init_objstore(&dag->mono_store, sizeof(bvc_mono_t), 500);
   init_objstore(&dag->prod_store, sizeof(bvc_prod_t) + PROD_STORE_LEN * sizeof(varexp_t), 100);
@@ -269,6 +270,12 @@ static void delete_descriptor(bvc_header_t *d) {
   case BVC_ZERO:
     break;
 
+  case BVC_CONSTANT:
+    if (d->bitsize > 64) {
+      bvconst_free(bvconst_node(d)->value.w, (d->bitsize + 31) >> 5);
+    }
+    break;
+
   case BVC_OFFSET:
     if (d->bitsize > 64) {
       bvconst_free(offset_node(d)->constant.w, (d->bitsize + 31) >> 5);
@@ -325,6 +332,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
 
   delete_objstore(&dag->leaf_store);
   delete_objstore(&dag->zero_store);
+  delete_objstore(&dag->constant_store);
   delete_objstore(&dag->offset_store);
   delete_objstore(&dag->mono_store);
   delete_objstore(&dag->prod_store);
@@ -365,6 +373,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
 
   reset_objstore(&dag->leaf_store);
   reset_objstore(&dag->zero_store);
+  reset_objstore(&dag->constant_store);
   reset_objstore(&dag->offset_store);
   reset_objstore(&dag->mono_store);
   reset_objstore(&dag->prod_store);
@@ -396,6 +405,10 @@ static inline bvc_leaf_t *alloc_leaf(bvc_dag_t *dag) {
 
 static inline bvc_zero_t *alloc_zero(bvc_dag_t *dag) {
   return (bvc_zero_t *) objstore_alloc(&dag->zero_store);
+}
+
+static inline bvc_constant_t *alloc_bvconst(bvc_dag_t *dag) {
+  return (bvc_constant_t *) objstore_alloc(&dag->constant_store);
 }
 
 static inline bvc_offset_t *alloc_offset(bvc_dag_t *dag) {
@@ -453,6 +466,13 @@ static inline void free_zero(bvc_dag_t *dag, bvc_zero_t *d) {
   objstore_free(&dag->zero_store, d);
 }
 
+static inline void free_bvconst(bvc_dag_t *dag, bvc_constant_t *d) {
+  if (d->header.bitsize > 64) {
+    bvconst_free(d->value.w, (d->header.bitsize + 31) >> 5);
+  }
+  objstore_free(&dag->constant_store, d);
+}
+
 static void free_offset(bvc_dag_t *dag, bvc_offset_t *d) {
   if (d->header.bitsize > 64) {
     bvconst_free(d->constant.w, (d->header.bitsize + 31) >> 5);
@@ -497,6 +517,10 @@ static void free_descriptor(bvc_dag_t *dag, bvc_header_t *d) {
 
   case BVC_ZERO:
     free_zero(dag, zero_node(d));
+    break;
+
+  case BVC_CONSTANT:
+    free_bvconst(dag, bvconst_node(d));
     break;
 
   case BVC_OFFSET:
@@ -566,6 +590,7 @@ static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
     break;
 
   case BVC_ZERO:
+  case BVC_CONSTANT:
     return true;
 
   case BVC_OFFSET:
@@ -686,6 +711,57 @@ static bvnode_t bvc_dag_mk_zero(bvc_dag_t *dag, uint32_t bitsize) {
 
   return q;
 }
+
+
+/*
+ * Create a constant node
+ * - a = constant (normalized modulo 2^bitsize)
+ * - a must not be zero
+ */
+static bvnode_t bvc_dag_mk_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize) {
+  bvc_constant_t *d;
+  bvnode_t q;
+
+  assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize) && a != 0);
+
+  d = alloc_bvconst(dag);
+  d->header.tag = BVC_CONSTANT;
+  d->header.bitsize = bitsize;
+
+  q = bvc_dag_add_node(dag, &d->header);
+
+  // elementary node
+  list_add(dag->list, BVC_DAG_ELEM_LIST, q);
+
+  return q;
+}
+
+static bvnode_t bvc_dag_mk_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) {
+  bvc_constant_t *d;
+  uint32_t *c;
+  uint32_t k;
+  bvnode_t q;
+
+  assert(bitsize > 64);
+
+  // make a copy of a: a must be normalized and non-zero
+  k = (bitsize + 31) >> 5;
+  c = bvconst_alloc(k);
+  bvconst_set(c, k, a);
+  assert(bvconst_is_normalized(c, bitsize) && bvconst_is_nonzero(c, k));
+
+  d = alloc_bvconst(dag);
+  d->header.tag = BVC_CONSTANT;
+  d->header.bitsize = bitsize;
+  
+  q = bvc_dag_add_node(dag, &d->header);
+
+  // elementary node
+  list_add(dag->list, BVC_DAG_ELEM_LIST, q);
+
+  return q;
+}
+
 
 
 /*
@@ -906,6 +982,21 @@ typedef struct bvc_zero_hobj_s {
   uint32_t bitsize;
 } bvc_zero_hobj_t;
 
+typedef struct bvc_const64_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  uint64_t c;
+  uint32_t bitsize;
+} bvc_const64_hobj_t;
+
+typedef struct bvc_const_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  uint32_t *c;
+  uint32_t bitsize;
+} bvc_const_hobj_t;
+
+
 // same struct for both offset/mono with 64bit constant
 typedef struct bvc64_hobj_s {
   int_hobj_t m;
@@ -950,6 +1041,20 @@ static uint32_t hash_bvc_leaf_hobj(bvc_leaf_hobj_t *p) {
 
 static uint32_t hash_bvc_zero_hobj(bvc_zero_hobj_t *p) {
   return jenkins_hash_uint32(p->bitsize);
+}
+
+static uint32_t hash_bvc_const64_hobj(bvc_const64_hobj_t *p) {
+  uint32_t a;
+
+  a = jenkins_hash_uint64(p->c);
+  return jenkins_hash_pair(a, p->bitsize, 0x38e89caf);
+}
+
+static uint32_t hash_bvc_const_hobj(bvc_const_hobj_t *p) {
+  uint32_t a;
+
+  a = bvconst_hash(p->c, p->bitsize);
+  return jenkins_hash_pair(a, p->bitsize, 0xeefa345a);
 }
 
 static uint32_t hash_bvc_offset64_hobj(bvc64_hobj_t *p) {
@@ -1010,6 +1115,32 @@ static bool eq_bvc_zero_hobj(bvc_zero_hobj_t *p, bvnode_t i) {
 
   d = p->dag->desc[i];
   return d->tag == BVC_ZERO && d->bitsize == p->bitsize;
+}
+
+static bool eq_bvc_const64_hobj(bvc_const64_hobj_t *p, bvnode_t i) {
+  bvc_header_t *d;
+  bvc_constant_t *o;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_CONSTANT || d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = bvconst_node(d);
+  return o->value.c == p->c;
+}
+
+static bool eq_bvc_const_hobj(bvc_const_hobj_t *p, bvnode_t i) {
+  bvc_header_t *d;
+  bvc_constant_t *o;
+  uint32_t k;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_CONSTANT || d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = bvconst_node(d);
+  k = (d->bitsize + 31) >> 5;
+  return bvconst_eq(o->value.w, p->c, k);
 }
 
 static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, bvnode_t i) {
@@ -1125,6 +1256,14 @@ static bvnode_t build_bvc_zero_hobj(bvc_zero_hobj_t *p) {
   return bvc_dag_mk_zero(p->dag, p->bitsize);
 }
 
+static bvnode_t build_bvc_const64_hobj(bvc_const64_hobj_t *p) {
+  return bvc_dag_mk_const64(p->dag, p->c, p->bitsize);
+}
+
+static bvnode_t build_bvc_const_hobj(bvc_const_hobj_t *p) {
+  return bvc_dag_mk_const(p->dag, p->c, p->bitsize);
+}
+
 static bvnode_t build_bvc_offset64_hobj(bvc64_hobj_t *p) {
   return bvc_dag_mk_offset64(p->dag, p->c, p->nocc, p->bitsize);
 }
@@ -1163,6 +1302,18 @@ static bvc_zero_hobj_t bvc_zero_hobj = {
   { (hobj_hash_t) hash_bvc_zero_hobj, (hobj_eq_t) eq_bvc_zero_hobj,
     (hobj_build_t) build_bvc_zero_hobj },
   NULL, 0
+};
+
+static bvc_const64_hobj_t bvc_const64_hobj = {
+  { (hobj_hash_t) hash_bvc_const64_hobj, (hobj_eq_t) eq_bvc_const64_hobj,
+    (hobj_build_t) build_bvc_const64_hobj },
+  NULL, 0, 0
+};
+
+static bvc_const_hobj_t bvc_const_hobj = {
+  { (hobj_hash_t) hash_bvc_const_hobj, (hobj_eq_t) eq_bvc_const_hobj,
+    (hobj_build_t) build_bvc_const_hobj },
+  NULL, NULL, 0
 };
 
 static bvc64_hobj_t bvc_offset64_hobj = {
@@ -1216,6 +1367,20 @@ static bvnode_t bvc_dag_get_zero(bvc_dag_t *dag, uint32_t bitsize) {
   bvc_zero_hobj.dag = dag;
   bvc_zero_hobj.bitsize = bitsize;
   return int_htbl_get_obj(&dag->htbl, &bvc_zero_hobj.m);
+}
+
+static bvnode_t bvc_dag_get_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize) {
+  bvc_const64_hobj.dag = dag;
+  bvc_const64_hobj.c = a;
+  bvc_const64_hobj.bitsize = bitsize;
+  return int_htbl_get_obj(&dag->htbl, &bvc_const64_hobj.m);
+}
+
+static bvnode_t bvc_dag_get_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) {
+  bvc_const_hobj.dag = dag;
+  bvc_const_hobj.c = a;
+  bvc_const_hobj.bitsize = bitsize;
+  return int_htbl_get_obj(&dag->htbl, &bvc_const_hobj.m);
 }
 
 static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
@@ -1961,6 +2126,7 @@ static void remove_from_uses(bvc_dag_t *dag, bvnode_t i, bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
   case BVC_ZERO:
+  case BVC_CONSTANT:
     break;
 
   case BVC_OFFSET:
@@ -2081,6 +2247,7 @@ static void replace_node_in_desc(bvc_header_t *d, bvnode_t i, node_occ_t n) {
   case BVC_LEAF:
   case BVC_ALIAS:
   case BVC_ZERO:
+  case BVC_CONSTANT:
     // should not happen
     assert(false);
     break;

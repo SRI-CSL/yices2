@@ -99,12 +99,12 @@ typedef struct bvc_s {
 
 /*
  * Initialization:
- * - vtol = the attached variable table
+ * - vtbl = the attached variable table
  * - mtbl = the attached merge table
  * - elemexp is initially empty
  * - cmap has default initial size (cf. int_hash_map)
  */
-extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtol, mtbl_t *mtbl);
+extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl);
 
 /*
  * Free all memory
