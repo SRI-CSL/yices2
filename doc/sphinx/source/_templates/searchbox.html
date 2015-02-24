@@ -23,21 +23,25 @@
     </p>
 </div>
 <script type="text/javascript">
-showingBox = false;
+var showingBox = false;
 
-hideOrShow = function() {
-  if ( $(window).width() > 900 ) {
-    if (! showingBox) {
-      $('#searchbox').show();
-      showingBox = true;
-    } 
-  } else {
-    if (showingBox) {
-      $('#searchbox').hide();
-      showingBox = false;
-    } 
+var hideOrShow = function() {
+  var searchBox = document.getElementById("searchbox");
+  var width = window.innerWidth;
+  if (searchBox) {
+    if ( width > 900 ) {
+      if (! showingBox) {
+        searchBox.style.display="inherit";
+        showingBox = true;
+      } 
+    } else {
+      if (showingBox) {
+       searchBox.style.display="none";
+       showingBox = false;
+      }
+    }
   }
-}
+};
 
 hideOrShow();
 
