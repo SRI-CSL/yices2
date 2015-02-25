@@ -727,6 +727,7 @@ static bvnode_t bvc_dag_mk_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize)
   d = alloc_bvconst(dag);
   d->header.tag = BVC_CONSTANT;
   d->header.bitsize = bitsize;
+  d->value.c = a;
 
   q = bvc_dag_add_node(dag, &d->header);
 
@@ -753,6 +754,7 @@ static bvnode_t bvc_dag_mk_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) 
   d = alloc_bvconst(dag);
   d->header.tag = BVC_CONSTANT;
   d->header.bitsize = bitsize;
+  d->value.w = c;
   
   q = bvc_dag_add_node(dag, &d->header);
 
@@ -1479,6 +1481,18 @@ static inline node_occ_t bvc_dag_zero(bvc_dag_t *dag, uint32_t bitsize) {
 
 
 /*
+ * Non-zero constant nodes
+ */
+static inline node_occ_t bvc_dag_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize) {
+  return bvp(bvc_dag_get_const64(dag, a, bitsize));
+}
+
+static inline node_occ_t bvc_dag_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) {
+  return bvp(bvc_dag_get_const(dag, a, bitsize));
+}
+
+
+/*
  * Get a node mapped to x
  * - if there's none, create the node [leaf x] and return it
  */
@@ -1823,6 +1837,9 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   if (n == 0) {
     // empty sum
     r = bvc_dag_zero(dag, bitsize);
+  } else if (n == 1 && bvpoly_buffer_var(buffer, 0) == const_idx) {
+    // constant
+    r = bvc_dag_const64(dag, bvpoly_buffer_coeff64(buffer, 0), bitsize);
   } else {
     i = 0;
     if (bvpoly_buffer_var(buffer, 0) == const_idx) {
@@ -1866,6 +1883,8 @@ static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
 
   if (n == 0) {
     r = bvc_dag_zero(dag, bitsize);
+  } else if (n == 1 && bvpoly_buffer_var(buffer, 0) == const_idx) {
+    r = bvc_dag_const(dag, bvpoly_buffer_coeff(buffer, 0), bitsize);
   } else {
     i = 0;
     if (bvpoly_buffer_var(buffer, 0) == const_idx) {
@@ -1900,7 +1919,27 @@ static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
 /*
  * Add a * node to buffer
  */
-static void bvpoly_buffer_add64(bvpoly_buffer_t *buffer, uint64_t a, node_occ_t n) {
+static void bvpoly_buffer_add64(bvc_dag_t *dag, bvpoly_buffer_t *buffer, uint64_t a, node_occ_t n) {
+  bvc_constant_t *d;
+  bvnode_t k;
+
+  if (bvc_dag_occ_is_zero(dag, n)) {
+    return;
+  }
+
+  if (bvc_dag_occ_is_constant(dag, n)) {
+    k = node_of_occ(n);
+    d = bvc_dag_node_constant(dag, k);
+    assert(d->header.bitsize <= 64);
+
+    if (sign_of_occ(n) == 1) {
+      bvpoly_buffer_submul_const64(buffer, d->value.c, a);
+    } else {
+      bvpoly_buffer_addmul_const64(buffer, d->value.c, a);
+    }
+    return;
+  }
+
   if (sign_of_occ(n) == 1) {
     bvpoly_buffer_sub_mono64(buffer, unsigned_occ(n), a);
   } else {
@@ -1908,7 +1947,27 @@ static void bvpoly_buffer_add64(bvpoly_buffer_t *buffer, uint64_t a, node_occ_t 
   }
 }
 
-static void bvpoly_buffer_add(bvpoly_buffer_t *buffer, uint32_t *a, node_occ_t n) {
+static void bvpoly_buffer_add(bvc_dag_t *dag, bvpoly_buffer_t *buffer, uint32_t *a, node_occ_t n) {
+  bvc_constant_t *d;
+  bvnode_t k;
+
+  if (bvc_dag_occ_is_zero(dag, n)) {
+    return;
+  }
+
+  if (bvc_dag_occ_is_constant(dag, n)) {
+    k = node_of_occ(n);
+    d = bvc_dag_node_constant(dag, k);
+    assert(d->header.bitsize <= 64);
+
+    if (sign_of_occ(n) == 1) {
+      bvpoly_buffer_submul_constant(buffer, d->value.w, a);
+    } else {
+      bvpoly_buffer_addmul_constant(buffer, d->value.w, a);
+    }
+    return;
+  }
+  
   if (sign_of_occ(n) == 1) {
     bvpoly_buffer_sub_monomial(buffer, unsigned_occ(n), a);
   } else {
@@ -1939,7 +1998,6 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
   bvpoly_buffer_t *buffer;
   uint32_t i, n, bitsize;
 
-
   n = p->nterms;
   bitsize = p->bitsize;
   assert(bitsize <= 64);
@@ -1953,9 +2011,7 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
     i ++;
   }
   while (i < n) {
-    if (!bvc_dag_occ_is_zero(dag, a[i])) {
-      bvpoly_buffer_add64(buffer, p->mono[i].coeff, a[i]);
-    }
+    bvpoly_buffer_add64(dag, buffer, p->mono[i].coeff, a[i]);
     i ++;
   }
   normalize_bvpoly_buffer(buffer);
@@ -1980,9 +2036,7 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
     i ++;
   }
   while (i < n) {
-    if (!bvc_dag_occ_is_zero(dag, a[i])) {
-      bvpoly_buffer_add(buffer, p->mono[i].coeff, a[i]);
-    }
+    bvpoly_buffer_add(dag, buffer, p->mono[i].coeff, a[i]);
     i ++;
   }
   normalize_bvpoly_buffer(buffer);
@@ -2011,9 +2065,7 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
       i ++;
     }
     while (i < n) {
-      if (!bvc_dag_occ_is_zero(dag, a[i])) {
-	bvpoly_buffer_add64(buffer, bvpoly_buffer_coeff64(b, i), a[i]);
-      }
+      bvpoly_buffer_add64(dag, buffer, bvpoly_buffer_coeff64(b, i), a[i]);
       i ++;
     }
     normalize_bvpoly_buffer(buffer);
@@ -2026,9 +2078,7 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
       i ++;
     }
     while (i < n) {
-      if (!bvc_dag_occ_is_zero(dag, a[i])) {
-	bvpoly_buffer_add(buffer, bvpoly_buffer_coeff(b, i), a[i]);
-      }
+      bvpoly_buffer_add(dag, buffer, bvpoly_buffer_coeff(b, i), a[i]);
       i ++;
     }
     normalize_bvpoly_buffer(buffer);
