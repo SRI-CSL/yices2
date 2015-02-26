@@ -101,7 +101,8 @@ devhelp:
 
 epub:
 	$(SPHINXBUILD) -b epub $(ALLSPHINXOPTS) $(BUILDDIR)/epub
-	@echo
+	@echo "Cleaning up "
+	cleanup-epub.sh $(BUILDDIR)/epub
 	@echo "Build finished. The epub file is in $(BUILDDIR)/epub."
 
 latex:
