@@ -113,7 +113,7 @@ static void print_help(const char *progname) {
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
 	 "\n"
-	 "For bug reports and ohter information, please see http://yices.csl.sri.com/\n");
+	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
