@@ -503,7 +503,7 @@ char *smt_token_to_string(smt_token_t tk) {
  * - read all characters until either EOF or closing "
  * escape sequence \" can occur within the string
  *
- * Buffer contains the string literal without the doublequotes
+ * Buffer contains the string literal without the double quotes
  */
 static smt_token_t smt_read_string(lexer_t *lex) {
   reader_t *rd;

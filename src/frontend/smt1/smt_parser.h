@@ -20,7 +20,7 @@
  *
  * We keep track of whether any function or predicate is declared
  * (with non-zero arity). This helps detecting incorrect/misleading
- * logic labels (e.g. the bcnscheduling benchmakrs are in QF_UFIDL but
+ * logic labels (e.g. the bcnscheduling benchmarks are in QF_UFIDL but
  * they are actually pure QF_IDL. They don't have functions or
  * predicates.
  */

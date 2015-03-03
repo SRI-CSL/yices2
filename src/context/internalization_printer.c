@@ -103,7 +103,7 @@ void print_term_intern(FILE *f, intern_tbl_t *tbl, term_t t) {
         fputc('\n', f);
       }
     } else {
-      fputs("          not internalzed\n", f);
+      fputs("          not internalized\n", f);
     }
   }
 }
@@ -167,7 +167,7 @@ void print_intern_mapping(FILE *f, intern_tbl_t *tbl) {
 
 
 /*
- * Variant formatting for subsitutions
+ * Variant formatting for substitutions
  */
 void print_intern_substitution2(FILE *f, intern_tbl_t *tbl) {
   term_table_t *terms;

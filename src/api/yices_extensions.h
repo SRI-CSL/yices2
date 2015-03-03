@@ -392,7 +392,7 @@ extern bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b);
  *
  * In all cases, the function set the error report and
  * return false if there's an overflow:
- *   code = DEGREE_OVEFLOW
+ *   code = DEGREE_OVERFLOW
  *   badval = degree of the product
  *
  * All return true if there's no overflow.
@@ -466,7 +466,7 @@ extern harray_t *yices_free_vars_of_term(term_t t);
 
 
 /*
- * CONTEXT INITILIZATION
+ * CONTEXT INITIALIZATION
  */
 
 /*

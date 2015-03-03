@@ -385,7 +385,7 @@ static bool false_eq(term_table_t *table, term_t t1, term_t t2) {
 /*
  * Check whether t is of the following forms
  * - false term
- * - disjuction: (or t1 ... tn)
+ * - disjunction: (or t1 ... tn)
  * - equality (x == constant) or (constant == x)
  * - boolean equivalence: (x == true) or (x == false)
  *
@@ -748,7 +748,7 @@ static inline void reset_ctx_subst(ctx_subst_t *s) {
 
 /*
  * Get the term mapped to t in s
- * - raise an exception (bu longjmp(s->env, -1) if something goes wrong
+ * - raise an exception (by longjmp(s->env, -1) if something goes wrong
  *   (i.e., t is not in the QF_UF fragment)
  */
 static term_t ctx_subst(ctx_subst_t *s, term_t t);
@@ -1040,7 +1040,7 @@ static void make_cycle(ctx_subst_t *s, term_t *c, uint32_t n) {
 
 /*
  * Check whether the assertions in ctx are invariant with respect
- * to permutations of the contants in array c
+ * to permutations of the constants in array c
  * - n = size of c (must be >= 2)
  * - use s to build the substitutions
  */
@@ -1477,8 +1477,8 @@ static void update_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
 
 /*
  * Select a term t from s->candidates then remove t from the candidate set.
- * - heuristic: terms with lower cost are prefered, in case of ties (equal costs)
- *   t is prefered over u if t is a constant and u is not
+ * - heuristic: terms with lower cost are preferred, in case of ties (equal costs)
+ *   t is preferred over u if t is a constant and u is not
  * - return NULL_TERM if nothing is found
  */
 static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {

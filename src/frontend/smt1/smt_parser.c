@@ -1283,7 +1283,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case push_b17_goto_s0:
       /*
-       * This is talen in :extrapreds ((P T1 ... Tn))
+       * This is taken in :extrapreds ((P T1 ... Tn))
        * but not in :extrapreds ((P))
        * so it indicates predicates with arity > 0.
        */

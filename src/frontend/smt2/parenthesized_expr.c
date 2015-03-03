@@ -170,7 +170,7 @@ static char *cblock_alloc(etk_queue_t *queue, uint32_t n) {
     queue->free &= ~(uint32_t)7;
   } else if (n <= DEF_CBLOCK_SIZE) {
     /*
-     * Add a bew block
+     * Add a new block
      */
     blk = new_cblock(DEF_CBLOCK_SIZE);
     p = blk->data;
@@ -308,7 +308,7 @@ int32_t token_sibling(etk_queue_t *queue, int32_t i) {
 
 /*
  * Collect all children of i in vector v
- * - i must be the start of a valie expression
+ * - i must be the start of a valid expression
  * - v must be initialized and empty (if not empty, the children
  *   are added to v).
  */

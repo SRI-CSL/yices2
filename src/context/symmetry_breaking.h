@@ -97,7 +97,7 @@ typedef struct rng_vector_s {
  * To check whether a set of assertions is invariant by permutations
  * of a set of constants {c_0. ,,, c_n}, we check invariance for
  * - the permutation that swaps c_0 and c_1
- * - the cicular permuation c_0 := c_1, ...., c_n := c_0
+ * - the circular permutation c_0 := c_1, ...., c_n := c_0
  *
  * We need to apply such substitutions in the assertion context (i,e.,
  * by taking into account the internalization table). We use the following
@@ -195,7 +195,7 @@ typedef struct sym_breaker_sets_s {
   uint32_t num_candidates;
   uint32_t candidate_size;
 
-  // auxilairy vector to compute constants of a term
+  // auxiliary vector to compute constants of a term
   ivector_t aux;
 } sym_breaker_sets_t;
 
@@ -294,4 +294,4 @@ extern void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s);
 
 
 
-#endif /* __SYMMETTY_BREAKING_H */
+#endif /* __SYMMETRY_BREAKING_H */

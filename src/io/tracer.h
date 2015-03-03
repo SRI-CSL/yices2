@@ -119,7 +119,7 @@ extern void tnewline(tracer_t *trace, uint32_t level);
 /*
  * Pretty printing:
  * - the tracer->pp object is created and initialized on the
- *   first call to one of these functions (provided tracer->vlevle >= level)
+ *   first call to one of these functions (provided tracer->vlevel >= level)
  */
 
 /*

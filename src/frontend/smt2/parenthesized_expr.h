@@ -148,7 +148,7 @@ extern void delete_etk_queue(etk_queue_t *queue);
 
 /*
  * Reset: remove all tokens
- * - also deleted all blocks but one
+ * - also delete all blocks but one
  */
 extern void reset_etk_queue(etk_queue_t *queue);
 

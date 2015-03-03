@@ -145,7 +145,7 @@ static void eval_smt2_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
 /*
  * ((_ rotate_left i)  bv) is mapped to [mk-rotate-left i bv]
- * - the defaut mk-rotate-left expect arguments in the other order
+ * - the default mk-rotate-left expect arguments in the other order
  */
 static void check_smt2_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BV_ROTATE_LEFT);
@@ -174,7 +174,7 @@ static void eval_smt2_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32
 
 /*
  * ((_ rotate_right i)  bv) is mapped to [mk-rotate-right i bv]
- * - the defaut mk-rotate-left expect arguments in the other order
+ * - the default mk-rotate-left expect arguments in the other order
  */
 static void check_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BV_ROTATE_RIGHT);
@@ -332,7 +332,7 @@ static void eval_smt2_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * Arithmetic comparisions are all chainable.
+ * Arithmetic comparisons are all chainable.
  * For example,  (< t1 t2 ... t_n) is (and (< t1 t2) (< t2 t3)  ... (< t_{n-1} t_n))
  */
 
@@ -1088,7 +1088,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
 
 /*
  * All functions below are variants of push_symbol
- * - s = string, n = its length, loc = location in the inpit
+ * - s = string, n = its length, loc = location in the input
  * - if s denotes a built-in operation, then we push the opcode
  *   otherwise, we push a generic version (e.g., MK_APPLY) if available.
  */
@@ -1366,7 +1366,7 @@ void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
 
 /*
- * Symbol as a sort cconstructor
+ * Symbol as a sort constructor
  * (<symbol> <sort> .,, <sort>)
  */
 void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
@@ -1576,7 +1576,7 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
 
 /*
- * Symbol in qualified epression
+ * Symbol in qualified expression
  *  (as <symbol> <sort> )
  */
 void tstack_push_qual_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
@@ -1638,7 +1638,7 @@ void tstack_push_qual_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) 
     break;
 
   case SMT2_KEY_UNKNOWN:
-    // uninterprted function
+    // uninterpreted function
     tstack_push_opcode(stack, MK_APPLY, loc);
     tstack_push_term_by_name(stack, s, loc);
     break;

@@ -10,7 +10,7 @@
  */
 
 /*
- * The condition is required to be a Boolean combination of unintpreted terms (e.g.,
+ * The condition is required to be a Boolean combination of uninterpreted terms (e.g.,
  * something like (and x (not y)) where x and y are Boolean variables).
  *
  * If we have several clauses of the form
@@ -92,7 +92,7 @@ typedef struct cond_def_s {
 /*
  * Data structure to collect conditional definitions
  * - pointers to the relevant context and term table
- * - cdefs = vector of conditional definitons
+ * - cdefs = vector of conditional definitions
  * - store = for building sets
  * - collector = for finding Boolean variables
  * - cache = for constructing truth-tables
@@ -137,7 +137,7 @@ extern void delete_cond_def_collector(cond_def_collector_t *c);
 
 /*
  * Attempt to convert f to a conjunction of conditional definitions
- * - add the defintions to c->cdefs
+ * - add the definitions to c->cdefs
  */
 extern void extract_conditional_definitions(cond_def_collector_t *c, term_t f);
 

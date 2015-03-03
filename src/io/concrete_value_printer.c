@@ -477,7 +477,7 @@ static void vtbl_pp_function_header(yices_pp_t *printer, value_table_t *table, v
 
 /*
  * Print the function c
- * - if show_default is true, also print the default falue
+ * - if show_default is true, also print the default value
  */
 void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default) {
   value_fun_t *fun;

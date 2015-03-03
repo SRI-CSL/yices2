@@ -188,7 +188,7 @@ extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, con
  *
  * Function arch_for_logic returns -1 if we don't support the logic.
  * For IDL and RDL, arch_for_logic returns CTX_ARCH_SPLX (because the
- * alternaive solvers IFW and RFW don't support push and pop).
+ * alternative solvers IFW and RFW don't support push and pop).
  */
 extern int32_t arch_for_logic(smt_logic_t code);
 

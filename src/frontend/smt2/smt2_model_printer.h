@@ -30,7 +30,7 @@ extern void smt2_pp_model(yices_pp_t *printer, model_t *model);
 
 /*
  * Full model: same as above but also print the value
- * of terms that are stored in the mdodle's alias_map/
+ * of terms that are stored in the model's alias_map.
  */
 extern void smt2_pp_full_model(yices_pp_t *printer, model_t *model);
 

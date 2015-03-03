@@ -4961,7 +4961,7 @@ int32_t assert_blocking_clause(context_t *ctx) {
 
 
 /********************************
- *  GARABGE COLLECTION SUPPORT  *
+ *  GARBAGE COLLECTION SUPPORT  *
  *******************************/
 
 /*

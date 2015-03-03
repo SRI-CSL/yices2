@@ -952,7 +952,7 @@ static void print_yices_error(bool full) {
     break;
 
   case CTX_TOO_MANY_ARITH_VARS:
-    print_out("too many variables for the arithemtic solver");
+    print_out("too many variables for the arithmetic solver");
     break;
 
   case CTX_TOO_MANY_ARITH_ATOMS:

@@ -40,7 +40,7 @@
  *   mixed difference logic. So we have eight arithmetic codes:
  *   IDL, RDL, LIA, LRA, LIRA, NIA, NRA, NIRA
  *
- * AX + UF can be combined with BV and with one of the arithemtic fragments
+ * AX + UF can be combined with BV and with one of the arithmetic fragments
  * (except that we don't have AIDL and ARDL?).
  *
  * Then, for each logic, we have a quantifier-free variant.
@@ -65,13 +65,13 @@ typedef enum smt_logic {
 
   //  Arrays + some other theory
   ABV,         // arrays + bitvectors
-  ALIA,        // arrays + linear integer arithmeic
+  ALIA,        // arrays + linear integer arithmetic
   ALRA,        // arrays + linear real arithmetic
   ALIRA,       // arrays + mixed linear arithmetic
   ANIA,        // arrays + non-linear integer arithmetic
   ANRA,        // arrays + non-linear real arithmetic
   ANIRA,       // arrays + mixed/non-linear arithmetic
-  AUF,         // arrays + uinterpreted functions
+  AUF,         // arrays + uninterpreted functions
 
   //  Uninterpreted function + another theory
   UFBV,        // uninterpreted functions + bitvectors
@@ -110,13 +110,13 @@ typedef enum smt_logic {
 
   //  Arrays + some other theory
   QF_ABV,      // arrays + bitvectors
-  QF_ALIA,     // arrays + linear integer arithmeic
+  QF_ALIA,     // arrays + linear integer arithmetic
   QF_ALRA,     // arrays + linear real arithmetic
   QF_ALIRA,    // arrays + mixed linear arithmetic
   QF_ANIA,     // arrays + non-linear integer arithmetic
   QF_ANRA,     // arrays + non-linear real arithmetic
   QF_ANIRA,    // arrays + mixed/non-linear arithmetic
-  QF_AUF,      // arrays + uinterpeted functions
+  QF_AUF,      // arrays + uninterpreted functions
 
   //  Uninterpreted function + another theory
   QF_UFBV,     // uninterpreted functions + bitvectors
@@ -179,7 +179,7 @@ extern smt_logic_t smt_logic_code(const char *logic_name);
 /*
  * Convert a string to an arithmetic-fragment code
  * - the name must be something like "IDL" or "LIRA"
- * - reutrn ARITH_NONE if the name is not recognized
+ * - return ARITH_NONE if the name is not recognized
  */
 extern arith_fragment_t arith_fragment_code(const char *name);
 

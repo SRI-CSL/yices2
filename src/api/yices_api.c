@@ -4436,7 +4436,7 @@ EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
  * Shift or rotation by an integer constant n
  * - shift_left0 sets the low-order bits to zero
  * - shift_left1 sets the low-order bits to one
- * - shift_rigth0 sets the high-order bits to zero
+ * - shift_right0 sets the high-order bits to zero
  * - shift_right1 sets the high-order bits to one
  * - ashift_right is arithmetic shift, it copies the sign bit &
  * - rotate_left: circular rotation
@@ -8612,7 +8612,7 @@ EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a
  * - INVALID_TERM         if t is not valid
  * - TYPE_MISMATCH        if t is not a Boolean term
  * - EVAL_FREEVAR_IN_TERM if t contains free variables
- * - EVAL_QUANTIIFIER     if t contains quantifiers
+ * - EVAL_QUANTIFIER     if t contains quantifiers
  * - EVAL_LAMBDA          if t contains a lambda
  * - EVAL_NO_IMPLICANT    if t is false in  mdl
  * - EVAL_FAILED          if the function fails for some other reason

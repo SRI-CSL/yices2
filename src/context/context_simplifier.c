@@ -1988,7 +1988,7 @@ static void process_aux_eq(context_t *ctx, term_t eq) {
 /*
  * Process the auxiliary equalities:
  * - if substitution is not enabled, then all aux equalities are added to top_eqs
- * - otherwise, cheap substitutions are performand and candidate substitutions
+ * - otherwise, cheap substitutions are performed and candidate substitutions
  *   are added to subst_eqs.
  *
  * This function raises an exception via longjmp if a contradiction is detected.

@@ -791,7 +791,7 @@ void pp_separator(yices_pp_t *printer, const char *s) {
 /*
  * Quoted string:
  * - open_quote = character before the string (or '\0' if nothing needed)
- * - close_quote = charcater after the string (or '\0' if nothing needed)
+ * - close_quote = character after the string (or '\0' if nothing needed)
  *
  * Examples
  *   pp_qstring(printer, '"', '"', "abcde") will print "abcde" (quotes included)

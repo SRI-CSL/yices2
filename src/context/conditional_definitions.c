@@ -752,7 +752,7 @@ static void cond_def_explore(cond_def_collector_t *c, term_t f) {
 /*
  * Attempt to convert f to a conjunction of conditional definitions
  * - id = index to identify f
- * - add the defintions to c->cdefs
+ * - add the definitions to c->cdefs
  */
 void extract_conditional_definitions(cond_def_collector_t *c, term_t f) {
   ivector_reset(&c->assumptions);
@@ -1473,7 +1473,7 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
 
 /*
  * Sort the conditional definitions:
- * - we want all defintions with the same variable to be adjacent in c->cdefs
+ * - we want all definitions with the same variable to be adjacent in c->cdefs
  */
 // comparison function: return true if d1 < d2 in this ordering
 static bool cdef_lt(void *data, void *d1, void *d2) {
@@ -1499,7 +1499,7 @@ void analyze_conditional_definitions(cond_def_collector_t *c) {
       assert(i == j);
 
       /*
-       * find segment: [i ... j-1]: that containts all defs with the
+       * find segment: [i ... j-1]: that contains all defs with the
        * same variable x
        */
       x = a[i]->term;

@@ -77,7 +77,7 @@ struct param_s {
    *   the theory solver or a theory implication
    * - a theory implication is considered for caching if it's involved
    *   in a conflict resolution
-   * - parmeter tclause_size controls the lemma size: only theory lemmas
+   * - parameter tclause_size controls the lemma size: only theory lemmas
    *   of size <= tclause_size are turned into learned clauses
    */
   double   var_decay;       // decay factor for variable activity

@@ -170,7 +170,7 @@ static uint32_t timeout;
 static char *filename;
 
 /*
- * If this flag is true, no search paramters was given on the command line,
+ * If this flag is true, no search parameters was given on the command line,
  * so the default should be used.
  */
 static bool use_default_params;
@@ -2001,7 +2001,7 @@ static int process_benchmark(char *filename) {
   /*
    * Cleanup and return code
    *
-   * To cleanup aftere an error: jump to cleanup_context if the error
+   * To cleanup after an error: jump to cleanup_context if the error
    * is detected after the context is initialized or to cleanup_benchmark
    * if the error is detected before the context is initialized.
    */

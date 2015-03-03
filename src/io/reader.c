@@ -225,7 +225,7 @@ static int file_reader_next_wchar(reader_t *reader) {
 
 
 /*
- * Experimental: try to support wide chararcters (UTF-8)
+ * Experimental: try to support wide characters (UTF-8)
  */
 int32_t init_wide_file_reader(reader_t *reader, const char *filename) {
     FILE *f;

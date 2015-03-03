@@ -438,9 +438,9 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
  * If ctx status is IDLE:
  * - the function calls 'start_search' and does one round of propagation.
  * - if this results in UNSAT, the function returns UNSAT
- * - if the precheck is interrupted, the function returns INTERRRUPTED
+ * - if the precheck is interrupted, the function returns INTERRUPTED
  * - otherwise the function returns UNKNOWN and sets the status to
- *   UNKWOWN.
+ *   UNKNOWN.
  *
  * IMPORTANT: call smt_clear or smt_cleanup to restore the context to
  * IDLE before doing anything else with this context.

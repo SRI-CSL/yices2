@@ -16,7 +16,7 @@
  * Examples:
  * - a rational number such as -1/2 must be written (/ (- 1) 2)
  * - a bitvector constant must be printed as #b01..00
- * - abstact constant must be have a name that starts with @
+ * - abstract constant must be have a name that starts with @
  *
  * This module implements the same functions as concrete_value_printer,
  * but with the SMT2 syntax.

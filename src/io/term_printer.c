@@ -489,7 +489,7 @@ static const char * const tag2string[] = {
 
 
 /*
- * Recusively print term t: if level <= 0, don't expand term that have a name
+ * Recursively print term t: if level <= 0, don't expand term that have a name
  */
 static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level);
 

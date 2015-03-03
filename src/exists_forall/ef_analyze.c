@@ -63,7 +63,7 @@ static void ef_clause_add_guarantee(ef_clause_t *cl, term_t t) {
 }
 
 /*
- * Add a[0 ... n-1] to the exitential or universal variables
+ * Add a[0 ... n-1] to the existential or universal variables
  */
 static void ef_clause_add_evars(ef_clause_t *cl, term_t *a, uint32_t n) {
   if (n > 0) {
@@ -561,7 +561,7 @@ static void ef_analyze_power_product(ef_analyzer_t *ef, pprod_t *p) {
 
 
 /*
- * Polynomials: skipt the constant part if any
+ * Polynomials: skip the constant part if any
  */
 static void ef_analyze_poly(ef_analyzer_t *ef, polynomial_t *p) {
   uint32_t i, n;
@@ -830,7 +830,7 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
 /*
  * Decompose term t into an Exist/Forall clause
  * - t is rewritten to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
- *   where x = uninterpreted constants of t (existentials)
+ *   where x = uninterpreted constants of t (existential variable)
  *     and y = free variables of t (universal variables)
  * - f_ite, f_iff: optional flattening flags
  * - A_i = any term that contains only the y variables
@@ -889,7 +889,7 @@ static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool
  * with free variables in terms, we convert variables to uninterpreted
  * terms (of the same type and name).
  *
- * This is done by building a substitution that maps variables to thier
+ * This is done by building a substitution that maps variables to their
  * clones.
  */
 
@@ -918,7 +918,7 @@ static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
 
 /*
  * Replace all elements of v by their clones
- * - all elements must be variabale
+ * - all elements must be variable
  */
 static void ef_clone_uvar_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
   uint32_t i;

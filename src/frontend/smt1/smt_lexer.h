@@ -38,7 +38,7 @@ enum smt_token {
 
   // numerals: more permissive than SMT LIB, we allow
   // rationals as <optional_sign><digits> or <optional_sign><digits>/<digits>
-  // floats as <optional_sigm><digits>.<digits>
+  // floats as <optional_sign><digits>.<digits>
   SMT_TK_RATIONAL, SMT_TK_FLOAT,
 
   // bitvector constants "bv<digits>" (size is determined by the theory (e.g., QF_UFBV[32])

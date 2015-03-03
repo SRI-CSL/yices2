@@ -91,7 +91,7 @@ typedef enum {
  * PSEUDO_INVERSE is based on Brummayer's thesis (Boolector stuff)
  * - not implemented yet
  *
- * ITE_BOUNDS: for a special if-then-else termt t (i.e., if-then-else
+ * ITE_BOUNDS: for a special if-then-else term t (i.e., if-then-else
  * term with constant leaves), compute the lower and upper bound on t
  * and assert that t is between these two bounds. Example: for t =
  * (ite c 0 1), assert (0 <= t <= 1), and similar for nested
@@ -774,7 +774,7 @@ extern void context_pop(context_t *ctx);
 /*
  * The following functions are implemented in context_simplifier.c.
  * They can be used by any procedure that processes assertions but does
- * not depend on the solvers instantiated in a conterxt.
+ * not depend on the solvers instantiated in a context.
  */
 
 /*
@@ -898,7 +898,7 @@ extern bool term_is_false(context_t *ctx, term_t t);
  * Check whether (t1 == t2) can be simplified to an existing term
  * (including true_term or false_term).
  * - t1 and t2 must be Boolean terms
- * - return NULL_TERM if no simplifcation is found
+ * - return NULL_TERM if no simplification is found
  */
 extern term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2);
 
@@ -922,7 +922,7 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
  *   disequalities by disjunctions of strict inequalities:
  *    (i.e., rewrite x!= 0 to (or (< x 0) (> x 0))
  *
- * The function applies flattenning to composite term or:
+ * The function applies flattening to composite term or:
  * - or must be of the form (or t1 .... tn)
  * - v must be empty
  * - flattening is applied recursively to t1 ... t_n
@@ -1008,7 +1008,7 @@ extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
 /*
  * Process the auxiliary equalities:
  * - if substitution is not enabled, then all aux equalities are added to top_eqs
- * - otherwise, cheap substitutions are performand and candidate substitutions
+ * - otherwise, cheap substitutions are performed and candidate substitutions
  *   are added to subst_eqs.
  *
  * This function raises an exception via longjmp if a contradiction os detected.
@@ -1020,7 +1020,7 @@ extern void process_aux_eqs(context_t *ctx);
  * Process all candidate substitutions after flattening and processing of
  * auxiliary equalities.
  * - the candidate substitutions are in ctx->subst_eqs
- * - all elemenst of subst_eqs must be equality terms asserted true
+ * - all elements of subst_eqs must be equality terms asserted true
  *   and of the form (= x t) for some variable x.
  * - converts these equalities into substitutions, as long as this
  *   can be done without creating substitution cycles.
@@ -1121,8 +1121,8 @@ extern void analyze_diff_logic(context_t *ctx, bool idl);
 /*
  * Break symmetries for uf theory: this is based on the following paper:
  *
- *   David Delharbe, Pascal Fontaine, Stephan Merz, and Bruno Woltzenlogel Paleo
- *   Exploiting Summetry in SMT Problems, CADE 2011
+ *   David Deharbe, Pascal Fontaine, Stephan Merz, and Bruno Woltzenlogel Paleo
+ *   Exploiting Symmetry in SMT Problems, CADE 2011
  *
  * Summary:
  * - search for clauses of the form (or (= t c0) ... (= t c_n))
