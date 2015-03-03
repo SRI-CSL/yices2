@@ -830,7 +830,7 @@ particle_t get_new_particle(pstore_t *store, type_t tau) {
  * we can define the successor and predecessor (succ(a), pre(a)) of any
  * element a of type tau[0] x ... x tau[n-1] in the lexicographic order
  * (except the first and last elements). To find an element not in
- *  a[0 ... p-1], we search for a[i] such that a' = suc(a[i]) or pre(a[i])
+ *  a[0 ... p-1], we search for a[i] such that a' = succ(a[i]) or pre(a[i])
  * is not in the array then we return a'
  *
  * Lexicographic order: for all elements in set[tau], we assign

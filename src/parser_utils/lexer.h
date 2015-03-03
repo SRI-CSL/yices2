@@ -40,7 +40,7 @@ typedef int32_t token_t;
  *
  * String buffer is shared by all lexers in the stack.
  * Keywords is a hash table for storing the keywords. (Removed,
- * we now use a perfect hash table, generated using gperf).
+ * we now use a perfect hash function, generated using gperf).
  */
 typedef struct lexer_s lexer_t;
 

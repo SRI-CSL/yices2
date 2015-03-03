@@ -58,7 +58,7 @@ typedef enum {
  *     arith_literals = arithmetic literals
  *     gen_literals = everything else
  * - for arithmetic literals, we must collect the arithmetic
- *   variables to keep. We store them in set avars_to_kepp 
+ *   variables to keep. We store them in set avars_to_keep
  *   and vector arith_vars.
  *
  * To report errors/exceptions:

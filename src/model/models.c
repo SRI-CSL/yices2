@@ -179,7 +179,7 @@ void model_add_substitution(model_t *model, term_t t, term_t u) {
 /*
  * Iteration: call f(aux, t) for every term t stored in the model
  * - this includes every t in model->map (term mapped to a value)
- * - if all is true, then the iterator is appleid to every t in the domain
+ * - if all is true, then the iterator is applied to every t in the domain
  *   of model->alias (term mapped to another term)
  * - f must not have side effects on model
  */

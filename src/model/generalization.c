@@ -158,7 +158,7 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
  * - mdl = model
  * - mngr = relevant term manager
  * - elim[0 ... nelims-1] = variables to eliminate
- * - on entry to the function, v must contain the formuals to project
+ * - on entry to the function, v must contain the formulas to project
  *   the result is returned in place (in vector v)
  *
  * Return code: 0 if no error, an error code otherwise

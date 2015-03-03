@@ -1550,7 +1550,7 @@ static uint32_t elem_bitsize(tstack_t *stack, stack_elem_t *e) {
 /*
  * Get the i-th bit of element e
  * - e must be a bitvector element
- * - i must statisfy 0 <= i < n (where n = bitsize of e)
+ * - i must satisfy 0 <= i < n (where n = bitsize of e)
  */
 static term_t elem_bit_select(tstack_t *stack, stack_elem_t *e, uint32_t i) {
   term_t  t;

@@ -45,7 +45,7 @@
  *   if n <= 31 then max_val = 2^n-1,
  *   if n >= 32, max_val = UINT32_MAX = 2^32-1
  *   valid values are in the interval [0 ... max_val]
- * - fresh_vals = array where store the fresh values
+ * - fresh_vals = array where we store the fresh values
  * - fsize = size of that array
  * - nfresh = number of elements in fresh_vals
  *

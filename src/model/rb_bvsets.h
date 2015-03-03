@@ -79,7 +79,7 @@ static inline void rb_bvset_add(rb_bvset_t *set, uint32_t x) {
 
 /*
  * Check whether x is present in set
- * - x must be in the interal [0 ... set->max_val]
+ * - x must be in the interval [0 ... set->max_val]
  */
 static inline bool rb_bvset_member(rb_bvset_t *set, uint32_t x) {
   assert(x <= set->max_val);

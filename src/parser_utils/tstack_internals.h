@@ -14,7 +14,7 @@
  * are declared here and implemented in term_stack.c.
  *
  * They should be used only for defining new term stack operations or
- * modifung existing term stack operations.
+ * modifying existing term stack operations.
  *
  * To add or change an operation, define two functions
  * - void check_some_op(tstack_t *stack, stack_elem_t *e, uint32_t n)
@@ -77,7 +77,7 @@ extern void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg);
 
 /*
  * Check whether cond is true (cond should be a constraint on the number of elements
- * on the top frame). If cond is fasle, raise execption INVALID_FRAME.
+ * on the top frame). If cond is false, raise exception INVALID_FRAME.
  */
 extern void check_size(tstack_t *stack, bool cond);
 
@@ -105,7 +105,7 @@ extern void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, 
  * Check whether all names in a list of variable bindings are distinct
  * - names are in f[0] .. f[n-1]
  * - all must be  bindings (tag == TAG_BINDING)
- * if the test fails, raise exception DUPLICATTE_VAR_NAME
+ * if the test fails, raise exception DUPLICATE_VAR_NAME
  */
 extern void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n);
 
@@ -114,7 +114,7 @@ extern void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
  * Check whether all names in a list of type variables are distinct
  * - names are in f[0] .. f[n-1]
  * - all must be have tag == TAG_TYPE_BINDING
- * if the test fails, raise exception DUPLICATTE_TYPE_VAR_NAME
+ * if the test fails, raise exception DUPLICATE_TYPE_VAR_NAME
  */
 extern void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n);
 
@@ -245,7 +245,7 @@ extern void bvl_set_slice_elem(tstack_t *stack, bvlogic_buffer_t *b, uint32_t i,
 // add e to the right of b (i.e., high-order bits are from b, low-order bits from e)
 extern void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e);
 
-// bitwsie operations
+// bitwise operations
 extern void bvand_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e);
 extern void bvor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e);
 extern void bvxor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e);

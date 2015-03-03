@@ -25,7 +25,7 @@ void init_val_converter(val_converter_t *convert, value_table_t *vtbl, term_tabl
 
   init_int_hmap(&convert->cache, 0); // default hmap size
   init_istack(&convert->stack);
-  // conver->env not initialized
+  // convert->env not initialized
 }
 
 

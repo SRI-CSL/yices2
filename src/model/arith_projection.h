@@ -311,7 +311,7 @@ extern void aproj_close_var_set(arith_projector_t *proj);
  *   is true in the model.
  * - the literals (distinct t1 ... tn) and (not (distinct t1 ... tn))
  *   are rejected with error code NOT_ARITH_LITERAL, even if t1 ... t_n
- *   are arithemtic terms.
+ *   are arithmetic terms.
  */
 extern int32_t aproj_add_constraint(arith_projector_t *proj, term_t c);
 

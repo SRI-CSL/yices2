@@ -2399,7 +2399,7 @@ void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32
 
 
 /*
- * Build object of a typle type d and index i
+ * Build object of a tuple type d and index i
  */
 static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i) {
   value_t buffer[10];
