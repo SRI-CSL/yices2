@@ -19,9 +19,9 @@ The source code is organized as follows:
                       data structures for building/normalizing/simplifying terms.
 
   src/models:         Data structures related to building, querying, and manipulating models.
-                      (A model stored mapping from terms to concreted values.)
+                      (A model stores a mapping from terms to concreted values.)
 
-  src/solvers:        CDCL-based SAT solvers +  theory solvers
+  src/solvers:        CDCL-based SAT solvers + theory solvers
 
   src/context:        Support for creating and manipulating contexts and for simplification
                       and preprocessing of assertions.
