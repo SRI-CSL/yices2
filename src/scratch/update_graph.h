@@ -126,7 +126,7 @@ typedef struct ugraph_stats_s {
  * Graph:
  * - for each node x, we keep:
  *   class[x] = the corresponding egraph
- *   egdes[x] = vector of outgoing edges from that node
+ *   edges[x] = vector of outgoing edges from that node
  *     tag[x] = the lambda tag (as defined in the egraph ltag_table)
  *    mark[x] = one bit: 1 means x has been visited
  * - the set of edges is stored in a pointer vector (cf. pointer_vectors.h)
@@ -196,7 +196,7 @@ extern void delete_ugraph(update_graph_t *ugraph);
  * - ugraph must be initialized and empty
  * - one node is created for each egraph class that has function type
  * - for each update term b = (update a ... ) that's in the congruence
- *   table (congruence root),  we create two egdes:
+ *   table (congruence root),  we create two edges:
  *   a direct edge from node[class[a]] to node[class[b]]
  *   a reverse edge from node[class[b]] to node[class[a]]
  */

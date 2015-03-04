@@ -131,7 +131,7 @@ extern void dimacs_print_term_map_array(FILE *f, context_t *ctx, term_t *a, uint
  */
 
 /*
- * Print the term map for every uinterpreted term present in ctx->intern_tbl
+ * Print the term map for every uninterpreted term present in ctx->intern_tbl
  * then print the core
  */
 extern void dimacs_print_bvcontext(FILE *f, context_t *ctx);

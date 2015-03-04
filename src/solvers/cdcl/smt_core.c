@@ -58,7 +58,7 @@ static void check_lemma(smt_core_t *s, uint32_t n, literal_t *a);
 /*
  * PARAMETERS FOR THE PSEUDO RANDOM NUMBER GENERATOR
  *
- * We  use the same linear congruence as in prgn.h,
+ * We  use the same linear congruence as in prng.h,
  * but we use a local implementation so that different
  * solvers can use different seeds.
  */
@@ -550,7 +550,7 @@ static void reset_heap(var_heap_t *heap) {
   }
   heap->heap_last = 0;
 
-  // reset actitivity parameters: this makes a difference (2010/08/10)
+  // reset activity parameters: this makes a difference (2010/08/10)
   heap->act_increment = INIT_VAR_ACTIVITY_INCREMENT;
   heap->inv_act_decay = 1/VAR_DECAY_FACTOR;
 }
@@ -1436,7 +1436,7 @@ static void test_eq_conflict(smt_core_t *s) {
  * - mode = to select optional features
  * This creates the predefined "constant" variable and the true/false literals
  *
- * The clause and variable activity increments, and the randonmess
+ * The clause and variable activity increments, and the randomness
  * parameters are set to their default values
  */
 void init_smt_core(smt_core_t *s, uint32_t n, void *th,
@@ -3463,7 +3463,7 @@ static void resolve_conflict(smt_core_t *s) {
   assert(unresolved > 0);
 
   /*
-   * Scan the assignement stack from top to bottom and process the
+   * Scan the assignment stack from top to bottom and process the
    * antecedent of all marked literals:
    * - all the literals processed have decision_level == conflict_level
    * - the code works if unresolved == 1 (which may happen for theory conflicts)
@@ -4357,7 +4357,7 @@ void reduce_clause_database(smt_core_t *s) {
   act_threshold = s->cla_inc/n;
 
   // prepare for deletion: all non-locked clauses, with activity less
-  // than activitiy_threshold are marked for deletion.
+  // than activity_threshold are marked for deletion.
   for (i=0; i<n/2; i++) {
     if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(s, v[i])) {
       mark_for_removal(v[i]);
@@ -5799,7 +5799,7 @@ void smt_partial_restart(smt_core_t *s) {
       ax = s->heap.activity[x];
 
       /*
-       * search for the first level i whose deicision level has
+       * search for the first level i whose decision level has
        * activity less than ax, then backtrack to level i-1.
        */
       n = s->decision_level;

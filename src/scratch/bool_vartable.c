@@ -407,7 +407,7 @@ static void extend_equiv_queue(equiv_queue_t *queue) {
 
 
 /*
- * Add equality l1 == l2 to the quueue
+ * Add equality l1 == l2 to the queue
  */
 static void push_equiv(equiv_queue_t *queue, literal_t l1, literal_t l2) {
   uint32_t i;

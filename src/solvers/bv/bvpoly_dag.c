@@ -1560,7 +1560,7 @@ node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bi
  *
  * Reference:
  *  Dempster & McLeod, Constant integer multiplication using minimum adders,
- *  IEE Proceedings, Cicuits, Devices & Systems, vol. 141, Issue 5, pp. 407-413,
+ *  IEE Proceedings, Circuits, Devices & Systems, vol. 141, Issue 5, pp. 407-413,
  *  October 1994
  */
 node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
@@ -1992,7 +1992,8 @@ static void bvpoly_buffer_add(bvc_dag_t *dag, bvpoly_buffer_t *buffer, uint32_t 
  * The DAG for p = (b0 + b_1 a[1] + .... + b_k a[k]) is
  *    [offset b0 [sum [mono b_1 a[1]] ... [mono b_k a[k]]]].
  *
- * Special case: if the sum cancels returns a zero_node.
+ * Special cases: if the sum cancels returns a zero_node. Also
+ * check whether the sum is a constant.
  */
 node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
   bvpoly_buffer_t *buffer;

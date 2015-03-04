@@ -685,7 +685,7 @@ void build_ugraph(update_graph_t *ugraph) {
  *   3) there's a path from node(f) to node(g) that contains no edge
  *      opaque for a
  *
- * For g = (lamdba .. b ..), we add an instance of path => (apply f t1 ... tn) = b
+ * For g = (lambda .. b ..), we add an instance of path => (apply f t1 ... tn) = b
  * if there's a path from node(f) to node(g) that doesn't contain an edge
  * opaque to a.
  */
@@ -803,7 +803,7 @@ static composite_t *find_lambda_term(update_graph_t *ugraph, int32_t y) {
 
   lambda = egraph_class_thvar(egraph, c);
   if (lambda >= 0) {
-    // lamdba is an egraph term
+    // lambda is an egraph term
     d = egraph_term_body(egraph, lambda);
     assert(composite_body(d) && composite_kind(d) == COMPOSITE_LAMBDA);
   }
@@ -877,7 +877,7 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
         // direct edge of the form g := (update f ...) for f in class[x]
         y = node_of_term(ugraph, u->id);
       } else {
-        // reverse egde: f := (update g ...) for f in class[x]
+        // reverse edge: f := (update g ...) for f in class[x]
         u = untag_ptr(u);
         y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
@@ -1012,7 +1012,7 @@ static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue
         // direct edge of the form g := (update f ...) for f in class[x]
         y = node_of_term(ugraph, u->id);
       } else {
-        // reverse egde: f := (update g ...) for f in class[x]
+        // reverse edge: f := (update g ...) for f in class[x]
         y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
 

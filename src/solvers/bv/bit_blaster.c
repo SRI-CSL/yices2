@@ -2951,7 +2951,7 @@ void bit_blaster_make_bvmul(bit_blaster_t *s, literal_t *a, literal_t *b, litera
 
 
 /*
- * EXPERIMENTAL: VARIANT IMPLEMENTAITON OF BVMUL
+ * EXPERIMENTAL: VARIANT IMPLEMENTATION OF BVMUL
  */
 
 /*
@@ -3004,7 +3004,7 @@ static void bit_blaster_column_product(bit_blaster_t *s, literal_t *sum, literal
   }
 
   /*
-   * now add a[k].b[0] tp sum
+   * now add a[k].b[0] to sum
    * and assert that bit k of the sum = literal mapped to d
    */
   rmap = s->remap;

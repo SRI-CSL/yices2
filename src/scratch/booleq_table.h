@@ -21,7 +21,7 @@
  *
  * Given l := (xor a b)
  * - if l is neg_lit(x), we convert the constraint to (not l) := (xor (not a) b)
- * - after this sterp we can assume the constraint is of the form
+ * - after this step we can assume the constraint is of the form
  *      pos_lit(x) := (xor a b), which is equivalent to
  *      pos_lit(x) := (eq (not a) b)
  * - we then store the pair {a, b} in def[x]

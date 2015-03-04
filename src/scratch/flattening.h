@@ -68,7 +68,7 @@
  * - manager = term manager
  * - queue = terms to visit (BFS)
  * - cache = terms already visited
- * - resu = vector of conjuntcs or disjuncts
+ * - resu = vector of conjuncts or disjuncts
  */
 typedef struct flattener_s {
   term_table_t *terms;

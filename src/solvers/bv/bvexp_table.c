@@ -168,7 +168,7 @@ void reset_bvexp_table(bvexp_table_t *table) {
 
   /*
    * The two aux buffers must be deleted first since their content may become
-   * invalid pointers afer the reset_objstore calls. Just calling
+   * invalid pointers after the reset_objstore calls. Just calling
    * bvarith..._prepare is not enough as it keeps the end_marker in
    * table->aux/table->aux64.
    */

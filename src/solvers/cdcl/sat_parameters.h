@@ -42,7 +42,7 @@
 /*
  * Restart parameters:
  * - Minisat-style: start with RESTART_THRESHOLD then increase geometrically
- * - Picosat-style: innner loop/outer loop both use geometric progression
+ * - Picosat-style: inner loop/outer loop both use geometric progression
  *   the inner loop counter is reset to RESTART_THRESHOLD on every
  *   iteration of the outer loop
  * - Luby style: use the sequence 1, 1, 2, 1 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...

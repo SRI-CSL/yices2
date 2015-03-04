@@ -555,9 +555,9 @@ typedef struct atom_table_s {
  *
  * 13) void clear(void *solver)
  *   - new function added June 12, 2014. Whenever smt_clear is called
- *     the smt_core progates it to the theory solver by calling this function.
+ *     the smt_core propagates it to the theory solver by calling this function.
  *     Smt_clear is called in a state where solver->status is SAT or UNKNOWN,
- *     the theory solver must restore its internal state to what it was on enty
+ *     the theory solver must restore its internal state to what it was on entry
  *     to the previous call to final_check (this should be used by the Egraph
  *     to remove all temporary equalities introduced during model reconciliation).
  *
@@ -1484,7 +1484,7 @@ static inline bval_t bvar_base_value(smt_core_t *s, bvar_t x) {
 /*
  * Get the polarity bit of x = low-order bit of value[x]
  * - if x is assigned, polarity = current value (0 means true, 1 means false)
- * - if x is unassigned, polarity = preferrred value
+ * - if x is unassigned, polarity = preferred value
  */
 static inline uint32_t bvar_polarity(smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
@@ -1630,7 +1630,7 @@ extern void smt_restart(smt_core_t *s);
 
 
 /*
- * Variant of retart: attempt to reuse the assignment trail
+ * Variant of restart: attempt to reuse the assignment trail
  * - find the unassigned variable x of highest activity
  * - keep all current decisions that have a higher activity than x
  */
@@ -1638,7 +1638,7 @@ extern void smt_partial_restart(smt_core_t *s);
 
 
 /*
- * Another variant of retart: attempt to reuse the assignment trail
+ * Another variant of restart: attempt to reuse the assignment trail
  * - find the unassigned variable x of highest activity
  * - keep all current decision levels that have at least one
  *   variable with a higher activity than x

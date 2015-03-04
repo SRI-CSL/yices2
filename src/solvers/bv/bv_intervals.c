@@ -469,7 +469,7 @@ static void bv_interval_sub_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
  * - sa = sign of a0 before the operation
  * - n = number of bits in a and b
  * - overflow: if (a0 >= 0) and (b < 0) and (a < 0)
- * - undeflow: if (a0 < 0) and (b >= 0) and (a >= 0)
+ * - underflow: if (a0 < 0) and (b >= 0) and (a >= 0)
  */
 static inline bool sub_overflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 0, sign bit of b = 1, sign bit of a = 1

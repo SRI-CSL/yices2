@@ -3862,7 +3862,7 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
      */
 
     // in bvpoly64_is_simple, we follow the roots
-    // this coudl cause looping so we force exit when d == 0
+    // this could cause looping so we force exit when d == 0
     d --;
 
     // x should be a root in mtbl

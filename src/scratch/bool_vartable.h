@@ -350,7 +350,7 @@ extern bvar_t bool_vartable_add_atom(bool_vartable_t *table, uint8_t tag, uint32
  * - for make_gate2, b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
  *
  * The gate is normalized and simplified. But the simplifications do
- * not take equivalnce classes into account. (e.g., l1 is not replaced
+ * not take equivalence classes into account. (e.g., l1 is not replaced
  * by the root of its equivalence class).
  */
 extern literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3);

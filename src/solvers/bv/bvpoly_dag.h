@@ -36,7 +36,7 @@
 
 
 /*
- * There are seveb types of nodes:
+ * There are seven types of nodes:
  * - [leaf x] where x is a bitvector variable
  * - [zero]
  * - [constant a] where a is a non-zero constant

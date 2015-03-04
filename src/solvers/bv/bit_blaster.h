@@ -566,7 +566,7 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  *   q = (bvsdiv a b): quotient
  *   r = (bvsrem a b): remainder
  * If r is NULL only the first part is asserted.
- * If q is NULL only the secont equality is asserted.
+ * If q is NULL only the second equality is asserted.
  *
  * This asserts a = b * q + r
  * with the following constraints on r:
