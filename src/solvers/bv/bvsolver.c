@@ -6889,6 +6889,7 @@ void bv_solver_reset(bv_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->bitblasted = false;
+  solver->bbptr = 0;
 }
 
 
