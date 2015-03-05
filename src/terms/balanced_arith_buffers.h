@@ -38,7 +38,7 @@
  * - index 0 = null_node)is a marker for leaves
  * - other nodes have an index between 1 and nterms
  *
- * The tree is represented using three arrasy:
+ * The tree is represented using three arrays:
  * - mono[i] = monomial for node i
  * - child[i] = pair of children:
  *   child[i][0] = left child, child[i][1] = right child
@@ -51,7 +51,7 @@
  * - nterms = total number of terms
  * - free_list = start of the free list (or null_node)
  * - root = id of the root node (or null_node for the empty tree)
- * - ptbl = pprod table for constuction of power products
+ * - ptbl = pprod table for construction of power products
  * - stack = vector used for balancing = path form root to a new node
  *
  * The arrays are used as follows:
@@ -596,7 +596,7 @@ extern polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v);
 /*
  * Check whether b is an integral polynomial
  * (i.e., all variables and coefficients are integer)
- * - this uses a function poihter var_is_int to check the type of all
+ * - this uses a function pointer var_is_int to check the type of all
  *   variables:
  * - for every variable x, var_is_int(aux, x) must return true if x is
  *   integer, false if x is real.

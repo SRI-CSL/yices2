@@ -680,7 +680,7 @@ static void fun_solver_delete_fresh_hmap(fun_solver_t *solver) {
  **************************************/
 
 /*
- * Edge descriptor of egde i
+ * Edge descriptor of edge i
  */
 static inline fun_edge_t *get_edge(fun_edgetable_t *table, int32_t i) {
   assert(0 <= i && i < table->nedges);

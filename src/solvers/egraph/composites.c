@@ -1217,7 +1217,7 @@ void delete_congruence_table(congruence_table_t *tbl) {
  * Store composite d in a clean data array
  * - mask = size of data - 1
  * - d->hash is the hash code of d
- * data must not contain any deleted_eterms and must have at least one empty slot
+ * data must not contain any deleted eterms and must have at least one empty slot
  */
 static void congruence_table_clean_copy(composite_t **data, composite_t *d, uint32_t mask) {
   uint32_t j;

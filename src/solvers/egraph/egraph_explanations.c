@@ -380,7 +380,7 @@ static eterm_t common_ancestor(egraph_t *egraph, eterm_t t1, eterm_t t2) {
  * 3) l does not cause a circularity in the explanation
  *
  * To check condition 3: we keep track of the edge index that triggers
- * a theory propagation from the egraph to the core: that's an egde
+ * a theory propagation from the egraph to the core: that's an edge
  * that causes merging of a class c with the Boolean constant class.
  * This causes all terms in c's class to be mapped to true or false,
  * and corresponding literals to be propagated in the smt_core.
@@ -448,7 +448,7 @@ static literal_t literal_for_eq(egraph_t *egraph, occ_t x, occ_t y) {
  * Explanation for (x == y) or (x == (not y)) when x and y are in the same class.
  * - if short_cuts are enabled, search for a literal l that's equivalent to (x == y)
  *   and add it to vector v
- * - it short_cuts are disabled, or no l is found, use symmatry/transitivity:
+ * - it short_cuts are disabled, or no l is found, use symmetry/transitivity:
  *   find a path between x and y, mark all unmarked edges on that path
  */
 static void explain_eq(egraph_t *egraph, occ_t x, occ_t y, ivector_t *v) {
@@ -1069,7 +1069,7 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
 
 /*
  * Build explanation for (t1 == t2): requires class[t1] == class[t2]
- * - id = edge index: all egdes used in building the explanation must have index < id
+ * - id = edge index: all edges used in building the explanation must have index < id
  */
 void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t id, ivector_t *v) {
   assert(egraph_equal_occ(egraph, t1, t2));

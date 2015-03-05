@@ -391,7 +391,7 @@ static inline void resize_idl_graph(idl_graph_t *graph, uint32_t n) {
 
 
 /*
- * Get number of egdes and saved cells
+ * Get number of edges and saved cells
  */
 static inline uint32_t idl_graph_num_edges(idl_graph_t *graph) {
   return graph->edges.top;
@@ -558,7 +558,7 @@ static void idl_graph_explain_path(idl_graph_t *graph, int32_t x, int32_t y, ive
  * For debugging: check consistency of the matrix
  * - cell[x, x].id must be zero and cell[x, x].val must be 0
  * For all x != y:
- * - cell[x, y].id must be -1 or between 1 and number of egdes -1
+ * - cell[x, y].id must be -1 or between 1 and number of edges -1
  * - if cell[x, y].id == i and i != 1 then
  *   let u = source of edge i and v = target of edge i
  *   we must have

@@ -1068,7 +1068,7 @@ void bvconst_lshr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
 
 
 /*
- * Arithemtic shift right: (a >> b)
+ * Arithmetic shift right: (a >> b)
  * - store the result in *bv and normalize
  * - n = number of bits in a and b
  */

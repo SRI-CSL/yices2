@@ -35,7 +35,7 @@ extern void print_rdl_const(FILE *f, rdl_const_t *c);
 extern void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t x);
 
 /*
- * Atom in format: [<boolvar> := (x - y <= const)
+ * Atom in format: [<boolvar> := (x - y <= const)]
  */
 extern void print_rdl_atom(FILE *f, rdl_atom_t *atom);
 extern void print_rdl_atoms(FILE *f, rdl_solver_t *rdl);

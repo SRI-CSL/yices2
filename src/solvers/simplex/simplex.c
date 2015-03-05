@@ -98,7 +98,7 @@ static void show_heap(FILE *f, simplex_solver_t *solver);
 /*
  * PARAMETERS FOR THE PSEUDO RANDOM NUMBER GENERATOR
  *
- * We  use the same linear congruence as in prgn.h,
+ * We  use the same linear congruence as in prng.h,
  * but we use a local implementation so that different
  * solvers can use different seeds.
  */
@@ -4370,7 +4370,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   loops = 0;
 
   /*
-   * Bland threhsold: adjust it based on the number of variables
+   * Bland threshold: adjust it based on the number of variables
    */
   bthreshold = solver->bland_threshold;
   if (solver->vtbl.nvars > 10000) {
@@ -6342,7 +6342,7 @@ static bool simplex_dsolver_add_row(simplex_solver_t *solver, dsolver_t *dioph, 
  * Run the diophantine system solver on the current tableau
  * - return false if a conflict is found
  * - return true otherwise
- * - set solver->recheck to true if bound-stregthening requires a call to make_feasible
+ * - set solver->recheck to true if bound-strengthening requires a call to make_feasible
  */
 static bool simplex_dsolver_check(simplex_solver_t *solver) {
   dsolver_t *dioph;
@@ -7777,8 +7777,8 @@ static void simplex_remove_dead_eterms(simplex_solver_t *solver) {
 
 /*
  * Number of active variables = all variables x whose
- * definition p is not a simple prolynomial.
- * For all these variables, the matrix containts a row of
+ * definition p is not a simple polynomial.
+ * For all these variables, the matrix contains a row of
  * the form x - p = 0.  If x is alive, this row must be kept
  * when we backtrack.
  */
@@ -7850,13 +7850,13 @@ void simplex_pop(simplex_solver_t *solver) {
    *
    * undo = trail object saved on entry to the current base_level
    * undo->n_bounds = number of bounds in bstack on entry to base_level
-   * undo->n_assertions = number of assertions in asssertion_queue on
+   * undo->n_assertions = number of assertions in assertion_queue on
    *                  entry to current base_level
    *
    * If simplex_pop is called without a simplex_check then the
    * preconditions of simplex_backtrack may not hold. We may have
    *     bstack->fix_ptr  < undo->n_bounds
-   *     bstack->prop_ptr < unod->n_bounds
+   *     bstack->prop_ptr < undo->n_bounds
    *     assertion_queue->prop_ptr < assertion_queue->n_assertions.
    *
    * In such a case, we fix the fix/prop_ptr before calling
@@ -8268,7 +8268,7 @@ void delete_simplex_solver(simplex_solver_t *solver) {
  * Save egraph assertions in the assertion queue
  * - x1 and x2: become equal after the egraph merge two classes c1 and c2
  *   such that thvar[c1] = x1 and thvar[c2] = x2
- * - id = index of the egraph egde that caused c1 and c2 to be merged
+ * - id = index of the egraph edge that caused c1 and c2 to be merged
  */
 void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2));
@@ -10390,7 +10390,7 @@ static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r) {
   }
 
   if (! xq_is_zero(&check)) {
-    printf("---> ERROR: row[%"PRIu32"] not satified\n", r);
+    printf("---> ERROR: row[%"PRIu32"] not satisfied\n", r);
     fflush(stdout);
   }
   xq_clear(&check);

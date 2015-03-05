@@ -138,7 +138,7 @@ extern void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, int32_t x, uint3
 extern void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
 extern void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
 
-// no coeffients
+// no coefficients
 extern void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x);
 extern void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x);
 

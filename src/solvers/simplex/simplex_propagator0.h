@@ -708,7 +708,7 @@ static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivecto
     solver->stats.num_prop_lemmas += n;
 
   } else {
-    // save the explanaton in the arena and add an end marker
+    // save the explanation in the arena and add an end marker
     expl = (literal_t *) arena_alloc(&solver->arena, (m+1) * sizeof(literal_t));
     for (i=0; i<m; i++) {
       expl[i] = w->data[i];

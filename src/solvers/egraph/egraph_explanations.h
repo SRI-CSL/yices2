@@ -78,7 +78,7 @@ extern void gen_ndprop_antecedent(egraph_t *egraph, composite_t *d, occ_t t1, oc
  * add these literals to v. v is not reset.
  * _ id = edge index to ensure causality of short cuts
  * - t1 and t2 must be have the same label
- * - id = egde that merges t1 and t2
+ * - id = edge that merges t1 and t2
  */
 extern void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t id, ivector_t *v);
 
@@ -93,7 +93,7 @@ extern void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_
  * - t1 and t2 must be terms attached to theory variables x1 and x2 in a satellite solver.
  * - the equality x1 == x2 must have been propagated to the satellite solver via
  *   the satellite's assert_equality function.
- * - id = egde that caused t1 and t2's classes to be merged (passed to the satellite
+ * - id = edge that caused t1 and t2's classes to be merged (passed to the satellite
  *   solver's assert_equality)
  * - explanation literals are added to vector v
  */

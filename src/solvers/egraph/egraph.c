@@ -248,7 +248,7 @@ static void extend_eterm_table(eterm_table_t *tbl) {
 /*
  * Allocate a new term with the following initialization:
  * - body = cmp
- * - egde = null_edge
+ * - edge = null_edge
  * - thvar = null_var
  * - label = null_label
  * - successor = itself
@@ -359,7 +359,7 @@ static ltag_desc_t *new_ltag_desc(uint32_t n, type_t *dom) {
   if (n > MAX_LTAG_DESC_ARITY) {
     /*
      * This should never happen since n <= YICES_MAX_ARITY < MAX_LTAG_DESC_ARITY.
-     * But we mwy change this one day.
+     * But we may change this one day.
      */
     out_of_memory();
   }
@@ -3113,7 +3113,7 @@ static void egraph_add_type_constraints(egraph_t *egraph, eterm_t t, type_t tau)
   case TUPLE_TYPE:
     sk = pos_occ(egraph_skolem_term(egraph, tau));
     if (egraph->presearch) {
-      // before start search: assert the axiom direclty
+      // before start search: assert the axiom directly
       assert(egraph->decision_level == egraph->base_level);
       k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), sk);
       egraph->stack.etag[k] = EXPL_AXIOM;
@@ -4334,7 +4334,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   /*
    * Deal with theory variables of c1 and c2:
    * - if c2 has a theory var v2 but not c1, set v2 as theory var of c1
-   * - if both have a theory variable, proagate equality (v1 == v2) to theory solvers
+   * - if both have a theory variable, propagate equality (v1 == v2) to theory solvers
    * - check the explanation for i before propagating to the theory solver
    *   if the equality i was propagated from Simplex or BV solver, there's no point
    *   sending v1 == v2 to this solver (and doing so pauses a circularity problem).
@@ -5130,7 +5130,7 @@ bool egraph_propagate(egraph_t *egraph) {
     }
 
 
-    // To detect equalities propagated from the theroy solvers (i.e., the simplex
+    // To detect equalities propagated from the theory solvers (i.e., the simplex
     // solver for now).
     k = egraph->stack.top;
 
@@ -5704,7 +5704,7 @@ static void egraph_undo_reconcile_attempt(egraph_t *egraph, uint32_t k) {
 /*
  * Collect an interface equality (t1 == t2) when reconciliation fails
  * - source = edge that started the reconciliation
- * - i = conflict egde
+ * - i = conflict edge
  */
 static void collect_interface_pair(egraph_t *egraph, int32_t source, int32_t i) {
   equeue_elem_t *e;

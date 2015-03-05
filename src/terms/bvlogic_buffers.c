@@ -667,7 +667,7 @@ static void bvlogic_buffer_xor_term_array(bvlogic_buffer_t *b, term_table_t *tab
  * CONCATENATION
  *
  * left/right refer to b written in big-endian form: (b[n-1] ... b[0])
- * if v = v[m-1] ... v[0] is the added to b, then
+ * if v = v[m-1] ... v[0] is the vector added to b, then
  * - concat_left: v[m-1]...v[0] is added to the left of  b[n-1]
  * - concat_right: v[m-1]...v[0] is added to the right of  b[0]
  */
@@ -1056,7 +1056,7 @@ static uint32_t shift_amount(uint32_t *c, uint32_t n, uint32_t m) {
     if (c[i] != 0) return n;
   }
 
-  // the shift amount is s: truncate to m if s is too laree
+  // the shift amount is s: truncate to m if s is too large
   return (s < m) ? s : m;
 }
 

@@ -240,7 +240,7 @@ extern void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t 
 /*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)
  * - c must be of the form (apply f i_1 ... i_n)
- *   d must be of fhe form (apply g j_i ... j_m)
+ *   d must be of the form (apply g j_i ... j_m)
  * - return true if n == m and label[i_1] = label[j_1], ..., label[i_n] = label[j_m]
  */
 extern bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label);

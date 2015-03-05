@@ -270,7 +270,7 @@ typedef struct fun_solver_s {
    * (Note: all variables have the same type).
    * - base_value[i] can be an egraph class of type sigma: in this
    *   case. We set base_value[i] = label of some class (>= 0)
-   * - base_value[i] can be a fresh object of type sigam (i.e., a fresh
+   * - base_value[i] can be a fresh object of type sigma (i.e., a fresh
    *   particle in the pstore. We encode this by setting base_value[i] = -(k+1)
    *   for some non-negative index k.
    *

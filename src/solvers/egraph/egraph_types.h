@@ -854,7 +854,7 @@ typedef struct egraph_trail_stack_s {
  * ---------------------------------
  *
  * In final check, the egraph and satellite solver attempt to build consistent
- * modesl. If that fails, interface equalities must be generated. The egraph
+ * models. If that fails, interface equalities must be generated. The egraph
  * currently supports to variant implementations of final_check, that use
  * different functions provided by the satellite solvers.
  *
@@ -884,7 +884,7 @@ typedef struct egraph_trail_stack_s {
  * Experimental final_check: this variant implements a more flexible
  * interface generation algorithms. The egraph attempts to resolve
  * conflict by merging classes. If that fails, it asks the satellite
- * solver to generate interface lemmmas. To support this, the
+ * solver to generate interface lemmas. To support this, the
  * satellite solvers must implement the following functions:
  *
  * 6a) void prepare_model(void *solver)
@@ -1179,7 +1179,7 @@ typedef struct fun_egraph_interface_s {
  * work properly, we must assign a value to all classes of type tau
  * before attempting to create fresh values of type tau. To do this,
  * we sort the classes by rank when rank c = depth of c's type:
- * - all atomitc types have depth 0
+ * - all atomic types have depth 0
  * - a function or tuple type has positive depth equal to 1 + max depth
  *   of the types it depends on.
  * Then we assign values to classes in increasing order of type depth.
@@ -1390,7 +1390,7 @@ struct egraph_s {
   ivector_t expl_vector;      // vector of literals for conflict/explanations
   pvector_t cmp_vector;       // generic vector to store composites
   ivector_t aux_buffer;       // generic buffer used in term construction
-  int_stack_t istack;         // generic stack for recursive processsing
+  int_stack_t istack;         // generic stack for recursive processing
 
 
   /*
@@ -1485,7 +1485,7 @@ struct egraph_s {
  * If that's enabled, max_boolackermann is a bound on the number of lemmas generated.
  *
  * OPTIMISTIC_FCHECK selects the experimental version of final_check instead of the
- * baseline verion.
+ * baseline version.
  *
  * In addition, aux_eq_quota is a bound on the total number of new equalities allowed
  * for ackermann lemmas.

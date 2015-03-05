@@ -380,7 +380,7 @@ static inline void clear_rba_mono(mono_t *m) {
 
 
 /*
- * Inialize buffer
+ * Initialize buffer
  */
 void init_rba_buffer(rba_buffer_t *b, pprod_table_t *ptbl) {
   uint32_t n;

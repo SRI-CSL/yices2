@@ -305,7 +305,7 @@ extern void bvarith_buffer_add_const_times_const(bvarith_buffer_t *b, uint32_t *
 
 
 /*
- * Subtract a * c to b
+ * Subtract a * c from b
  */
 extern void bvarith_buffer_sub_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c);
 

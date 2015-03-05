@@ -12,7 +12,7 @@
 
 /*
  * Each element in the table stores statistics
- * about a pair of theory veriables x[0] and x[1]
+ * about a pair of theory variables x[0] and x[1]
  * - currently we keep:
  * - the number of times, the egraph propagates (x[0] == x[1])
  * - the number of times, the egraph propagates (x[0] != x[1])
