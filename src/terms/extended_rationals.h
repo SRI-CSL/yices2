@@ -208,7 +208,7 @@ static inline void xq_set(xrational_t *r, xrational_t *r1) {
 }
 
 /*
- * Assgin -r1 to r
+ * Assign -r1 to r
  */
 static inline void xq_set_neg(xrational_t *r, xrational_t *r1) {
   q_set_neg(&r->main, &r1->main);

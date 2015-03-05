@@ -55,7 +55,7 @@ extern void extend_pvector(pvector_t *v);
 /*
  * Make v large enough for n elements:
  * - increase the capacity if needed
- * - kepp the size and content unchanged.
+ * - keep the size and content unchanged.
  */
 extern void resize_pvector(pvector_t *v, uint32_t n);
 

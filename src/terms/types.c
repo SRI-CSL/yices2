@@ -1585,10 +1585,10 @@ void delete_type_matcher(type_matcher_t *matcher) {
 
 
 /*
- * Contraint code for (sigma, eq):
+ * Constraint code for (sigma, eq):
  * - low-order bit = 1 --> equality constraint
  * - low-order bit = 0 --> type inclusion constraint
- * - rest of the 32tbit integer is sigma
+ * - rest of the 32bit integer is sigma
  */
 static inline int32_t mk_constraint_code(type_t sigma, bool eq) {
   int32_t k;
@@ -1627,7 +1627,7 @@ static inline type_t arg_of_constraint(int32_t k) {
  * Check whether constraint codes k1 and k2 are compatible
  * - at least one of k1 and k2 must be non-negative
  * - if so return the code for the conjunction of k1 and k2
- * - oftherwise return -1
+ * - otherwise return -1
  */
 static int32_t merge_constraints(type_matcher_t *matcher, int32_t k1, int32_t k2) {
   type_t sigma1, sigma2, sigma;
@@ -1722,7 +1722,7 @@ static void type_matcher_set_constraint(type_matcher_t *matcher, type_t tau, int
  *
  * Each a[i] should be a type to be matched with b[i]
  * - if eq is true, we want exact matching
- * - if eq is fasle, we want b[i] \subtype of a[i]
+ * - if eq is false, we want b[i] \subtype of a[i]
  *
  * - return false if the matching fails, true otherwise
  */
@@ -1762,7 +1762,7 @@ static bool match_function_types(type_matcher_t *matcher, function_type_t *tau, 
 
 /*
  * For instance types: we force equality
- * - e.g., List[X] is a substype of List[Y] iff (List[X] == List[Y]) iff (X == Y)
+ * - e.g., List[X] is a subtype of List[Y] iff (List[X] == List[Y]) iff (X == Y)
  */
 static bool match_instance_types(type_matcher_t *matcher, instance_type_t *tau, instance_type_t *sigma) {
   assert(tau->cid != sigma->cid || tau->arity == sigma->arity);

@@ -70,7 +70,7 @@
  *   or for the longest strictly decreasing run
  *     A[K] > A[K+1 > ... > A[M-1] <= A[M]
  * - this gives us a run A[K ... M-1]
- *   if the run is striclty decreasing, reverse its elements
+ *   if the run is strictly decreasing, reverse its elements
  *   to turn it into an increasing run.
  * - if the run is too short (i.e., M - K <= min_run)
  *   then extend it by sorting A[K .. M-1, ... K + min_run - 1]

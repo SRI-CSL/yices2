@@ -144,7 +144,7 @@ static void full_subst_remove_map(full_subst_t *subst, term_t x) {
  * same mark)
  *
  * - if subst->remove_cycles is false, then the function just detects cycles.
- * - if subst->remove_cylces is true, then it removes cycles by
+ * - if subst->remove_cycles is true, then it removes cycles by
  *   removing [x := t] from the map, for the first x that causes a cycle.
  *
  */

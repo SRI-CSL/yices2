@@ -35,7 +35,7 @@ extern void *safe_realloc(void *ptr, size_t size) __attribute__ ((malloc));
  * Safer free: used to check whether ptr is NULL before calling free.
  *
  * Updated to just call free. The check is redundant on most
- * systes, The C99 standard specifies that free shall have no effect
+ * systems. The C99 standard specifies that free shall have no effect
  * if ptr is NULL.
  *
  */

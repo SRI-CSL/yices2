@@ -14,7 +14,7 @@
  * variable set is stored as an array of terms, sorted in increasing
  * order.  We use int_array_hsets for hash-consing of the sets of
  * variables: so if t1 and t2 have the same set of variables,
- * we have varsets(t1) == varset(t2) (pointer equality).
+ * we have varset(t1) == varset(t2) (pointer equality).
  */
 
 #ifndef __FREE_VAR_COLLECTOR_H

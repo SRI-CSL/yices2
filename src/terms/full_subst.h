@@ -13,7 +13,7 @@
  * A full substitution is intended to remove uninterpreted terms from
  * a formula or a term. It's a mapping from uninterpreted terms to
  * terms: { x_1 := t_1, ...., x_n := t_n }. It's allowed for x_i to
- * occur in t_j as long as this does not cause subsitution cycles.
+ * occur in t_j as long as this does not cause substitution cycles.
  *
  * Unlike the standard substitution (in term_substitution.h), applying
  * a full substitution to t removes all instances of x_1, ..., x_n.

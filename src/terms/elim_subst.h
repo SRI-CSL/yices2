@@ -61,13 +61,13 @@ extern void delete_elim_subst(elim_subst_t *subst);
  *   P            turned to P == true for a Boolean variable P
  *   (NOT P)      turned to P == false
  *
- *   (EQ t u) where t and u are uninterpreted or Boolean temrs
+ *   (EQ t u) where t and u are uninterpreted or Boolean terms
  *   (NOT (eq t u)) if t and u are Boolean
  *   (ARITH_BINEQ t u): (t == u) for arithmetic terms t and u
  *   (ARITH_EQ t):      (t == 0) for an arithmetic term t
  *   (BV_EQ_ATOM t u)   (t == u) for bivector terms t and u
  *
- * If check_cycles is true, we also check for subsitution cycles before
+ * If check_cycles is true, we also check for substitution cycles before
  * adding [y --> t] to the full_susbt, and returns false if there's a cycle.
  */
 extern bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles);
@@ -75,7 +75,7 @@ extern bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles)
 
 /*
  * Simpler variant: this does the same thing as elim_subst_try_map,
- * but it skips arithmetic equaltiies and pure Boolean literals.
+ * but it skips arithmetic equalities and pure Boolean literals.
  *
  * Literals that may be accepted are then:
  *   (EQ t u) where t and u are uninterpreted or Boolean

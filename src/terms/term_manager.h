@@ -584,7 +584,7 @@ extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, 
 
 
 /*
- * Support for elimating arithmetic variables:
+ * Support for eliminating arithmetic variables:
  * - given a polynomial p and a term t that occurs in p,
  *   construct the polynomial q such that (t == q) is equivalent to (p == 0)
  *   (i.e., write p as a.t + r and construct  q :=  -r/a).

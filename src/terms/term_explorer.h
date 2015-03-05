@@ -15,7 +15,7 @@
  *      this includes constant of atomic types +
  *      variables and uninterpreted terms
  *   2) composite terms:
- *      all terms of the form (term-constructor, num-childern, list of children)
+ *      all terms of the form (term-constructor, num-children, list of children)
  *   3) projections:
  *      terms of the from (proj-operator, index, child)
  *      this includes tuple projection and bit-extract

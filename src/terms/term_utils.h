@@ -316,7 +316,7 @@ extern bool term_subsumes_array(term_table_t *tbl, term_t t1, uint32_t n, term_t
  * - otherwise returns false, and leave *x and *a unchanged.
  *
  * The following cases are handled:
- * - t is (eq a x) where x and a have unintepreted types
+ * - t is (eq a x) where x and a have uninterpreted types
  * - t is (arith-bineq x a) or (arith-eq0 x)
  * - t is (bveq x a)
  */

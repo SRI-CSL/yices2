@@ -158,7 +158,7 @@ extern void poly_buffer_submul_monarray(poly_buffer_t *buffer, monomial_t *p, ui
 
 
 /*
- * Same operations with p givesn as a polynomial object
+ * Same operations with p given as a polynomial object
  */
 static inline  void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p) {
   poly_buffer_add_monarray(buffer, p->mono, p->nterms);

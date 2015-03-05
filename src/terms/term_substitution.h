@@ -103,7 +103,7 @@ extern void reset_term_subst(term_subst_t *subst);
  * - the new mapping must not conflict with the current mapping in subst
  *   (i.e., v[i] must not be mapped to anything in subst->map)
  * - all v[i] must be distinct
- * - the type of t[i] must be a substype of v[i]'s type
+ * - the type of t[i] must be a subtype of v[i]'s type
  * - if the reset flag is true, also resets the cache.
  */
 extern void extend_term_subst(term_subst_t *subst, uint32_t n, const term_t *v, const term_t *t, bool reset);
@@ -138,7 +138,7 @@ extern term_t term_subst_var_mapping(term_subst_t *subst, term_t v);
  * - every variable or uninterpreted that's in subst->map is added to vector d
  * - d is reset first
  */
-extern void term_subst_domain(term_subst_t *subt, ivector_t *d);
+extern void term_subst_domain(term_subst_t *subst, ivector_t *d);
 
 
 /*

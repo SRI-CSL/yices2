@@ -383,7 +383,7 @@ static bool ptr_set_is_full(ptr_set_t *set) {
 /*
  * Add p to the set *s.
  * - p must be distinct from NULL and from DELETED_PTR_ELEM
- * - if *s is NULL, this fucntion creates a new set of
+ * - if *s is NULL, this function creates a new set of
  *   default size that contains the singleton { p } and stores
  *   this new set in *s.
  * - if *s is non NULL, then p is added to the set pointed

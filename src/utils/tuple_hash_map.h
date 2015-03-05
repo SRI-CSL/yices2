@@ -142,7 +142,7 @@ extern void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]);
  * Garbage collection
  * - f must be a function that indicates whether a record should be kept or not
  * - aux is an auxiliary pointer passed as argument to f
- * The function scans the hash tabe and calls f(aux, r) for every record r
+ * The function scans the hash table and calls f(aux, r) for every record r
  * in the table. If f returns false, r is deleted, otherwise, r is kept.
  */
 typedef bool (*tuple_hmap_keep_fun_t)(void *aux, tuple_hmap_rec_t *r);

@@ -77,7 +77,7 @@ typedef struct ipart_s {
   uint32_t size;         // size of the records array, always a power of 2
   uint32_t nelems;       // number of used records
   uint32_t resize_threshold; // controls when resizing occurs
-  uint32_t csize;        // size of the arrray classes
+  uint32_t csize;        // size of the array classes
   uint32_t nclasses;     // number of classes
 
   // customization: function pointers

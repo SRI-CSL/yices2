@@ -62,7 +62,7 @@ extern void reset_cset(cset_t *s);
 
 /*
  * Set the domain size to n
- * - s->dzize must be 0 (i.e., just after reset or init)
+ * - s->dsize must be 0 (i.e., just after reset or init)
  * - n must be positive
  * - s is set to the empty or full set
  */

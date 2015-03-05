@@ -79,7 +79,7 @@ static bool move_to_buffer(stable_sorter_t *sorter, uint32_t i, uint32_t j) {
 
 
 /*
- * Mimimal run size for an array of size n:
+ * Minimal run size for an array of size n:
  * - returns n if n < 64
  * - returns 32 if n is a power of two
  * - returns a number between 33 and 64 otherwise =
@@ -321,7 +321,7 @@ static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint3
 
 /*
  * Merge runs data[i ... j-1] and data[j .. k-1]  when (j - i) <= (k - j)
- * - copy the first run data[i ... j-1] into the temporarty buffer then merge
+ * - copy the first run data[i ... j-1] into the temporary buffer then merge
  *   the buffer and data[j ... k-1] into data[i ... k-1]
  * - defaults to low_mem_merge in a large enough temp buffer can't be allocated
  */

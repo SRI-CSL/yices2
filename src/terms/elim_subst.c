@@ -289,7 +289,7 @@ bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles) {
     }
     break;
 
-  case ARITH_BINEQ_ATOM: // (t1 == t2): two arithemtic terms
+  case ARITH_BINEQ_ATOM: // (t1 == t2): two arithmetic terms
   case BV_EQ_ATOM:       // (t1 == t2): two bitvector terms
     if (is_pos_term(f)) {
       eq = composite_term_desc(terms, f);

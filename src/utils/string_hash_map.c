@@ -116,7 +116,7 @@ void reset_strmap(strmap_t *hmap) {
  * Make a copy of r in a clean array data
  * - r->hash must be the hash of r->key
  * - mask = size of data - 1
- * - there must be room ub data
+ * - there must be room for data in r
  */
 static void strmap_clean_copy(strmap_rec_t *data, strmap_rec_t *r, uint32_t mask) {
   uint32_t i;

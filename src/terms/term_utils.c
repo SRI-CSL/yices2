@@ -1846,7 +1846,7 @@ static void delete_arith_cnstr(arith_constraint_t *cnstr) {
  *
  * When this function is called, we know that p occurs in an
  * atom of the form (p == 0) or (p >= 0). Then we can assume
- * that p is not a constant polynomial (otherwise the aotm would
+ * that p is not a constant polynomial (otherwise the atom would
  * be reduced to true or false  by the term manager).
  */
 static void arith_cnstr_set_poly(arith_constraint_t *cnstr, polynomial_t *p) {

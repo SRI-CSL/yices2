@@ -452,7 +452,7 @@ uint32_t pprod_var_degree(pprod_t *p, int32_t x) {
 
 
 /*
- * Build a vaprod object by making a copy of a
+ * Build a pprod object by making a copy of a
  * - a must be normalized
  * - n = length of a
  * - n must be less than PPROD_MAX_LENGTH
