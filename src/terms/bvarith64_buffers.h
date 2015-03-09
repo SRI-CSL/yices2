@@ -32,6 +32,7 @@
 #include <assert.h>
 
 #include "utils/object_stores.h"
+#include "terms/bv_constants.h"
 #include "terms/pprod_table.h"
 #include "terms/bv64_polynomials.h"
 
@@ -170,10 +171,15 @@ extern bool bvarith64_buffer_is_constant(bvarith64_buffer_t *b);
 
 /*
  * Read the constant term of b as a 64bit integer.
- * - b's bitsize must be between 1 and 64
  * - b must be normalized
  */
 extern uint64_t bvarith64_buffer_get_constant64(bvarith64_buffer_t *b);
+
+/*
+ * Copy the constant term of b into c
+ * - b must be normalized
+ */
+extern void bvarith64_buffer_copy_constant(bvarith64_buffer_t *b, bvconstant_t *c);
 
 
 /*

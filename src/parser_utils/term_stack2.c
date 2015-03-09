@@ -2442,6 +2442,10 @@ void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
     bvconstant_copy_term(c, e->val.term);
     break;
 
+  case TAG_BVARITH64_BUFFER:
+    bvarith64_buffer_copy_constant(e->val.bvarith64_buffer, c);
+    break;
+
   case TAG_BVARITH_BUFFER:
     bvarith_buffer_copy_constant(e->val.bvarith_buffer, c);
     break;

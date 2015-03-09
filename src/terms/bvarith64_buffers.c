@@ -197,6 +197,20 @@ uint64_t bvarith64_buffer_get_constant64(bvarith64_buffer_t *b) {
 
 
 /*
+ * Copy the constant term of b into c
+ * - b must be nomralized
+ */
+void bvarith64_buffer_copy_constant(bvarith64_buffer_t *b, bvconstant_t *c) {
+  uint64_t a;
+
+  assert(b->bitsize > 0);
+
+  a = bvarith64_buffer_get_constant64(b);
+  bvconstant_copy64(c, b->bitsize, a);
+}
+
+
+/*
  * Main monomial = monomial whose pp is the main term
  * - b must be normalized and non zero
  * - this returns the last element in b's monomial list
