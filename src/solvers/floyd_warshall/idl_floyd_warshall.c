@@ -2273,10 +2273,8 @@ literal_t idl_create_poly_eq_atom(idl_solver_t *solver, polynomial_t *p, thvar_t
 
   b = &solver->buffer;
   triple = &solver->triple;
-  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
-      ! q_is_int32(&triple->constant)) {
-    // exception: either p is not convertible to an IDL polynomial
-    // or the constant is too large
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // exception: p is not convertible to an IDL polynomial
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
