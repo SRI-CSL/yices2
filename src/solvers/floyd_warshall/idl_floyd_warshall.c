@@ -1967,6 +1967,19 @@ static literal_t idl_eq_from_triple(idl_solver_t *solver, dl_triple_t *d) {
 
   x = d->target;
   y = d->source;
+
+  /*
+   * Check for trivial equality: we do this before attempting
+   * to  convert the constant to int32.
+   */
+  if (x == y) {
+    if (q_is_zero(&d->constant)) {
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  }
+
   if (! q_get32(&d->constant, &c)) {
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
@@ -1974,13 +1987,6 @@ static literal_t idl_eq_from_triple(idl_solver_t *solver, dl_triple_t *d) {
   /*
    * d is (x - y + c)
    */
-  if (x == y) {
-    if (c == 0) {
-      return true_literal;
-    } else {
-      return false_literal;
-    }
-  }
 
   // a nil_vertex in triples denote 'zero'
   if (x < 0) {
@@ -2009,16 +2015,20 @@ static literal_t idl_ge_from_triple(idl_solver_t *solver, dl_triple_t *d) {
 
   x = d->target;
   y = d->source;
-  if (! q_get32(&d->constant, &c)) {
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
 
+  /*
+   * Trivial case: don't convert the constant to int32
+   */
   if (x == y) {
-    if (c >= 0) {
+    if (q_is_nonneg(&d->constant)) {
       return true_literal;
     } else {
       return false_literal;
     }
+  }
+
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
   if (x < 0) {
@@ -2043,18 +2053,20 @@ static void idl_assert_triple_eq(idl_solver_t *solver, dl_triple_t *d, bool tt) 
 
   x = d->target;
   y = d->source;
-  if (! q_get32(&d->constant, &c)) {
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
 
-  // d is (x - y + c)
   if (x == y) {
-    if ((c == 0) != tt) {
+    // trivial case
+    if (q_is_zero(&d->constant) != tt) {
       solver->unsat_before_search = true;
     }
     return;
   }
 
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  // d is (x - y + c)
   if (x < 0) {
     x = idl_get_zero_vertex(solver);
   } else if (y < 0) {
@@ -2088,17 +2100,19 @@ static void idl_assert_triple_ge(idl_solver_t *solver, dl_triple_t *d, bool tt) 
 
   x = d->target;
   y = d->source;
-  if (! q_get32(&d->constant, &c)) {
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
 
-  // d is (x - y + c)
   if (x == y) {
-    if ((c >= 0) != tt) {
+    // trivial case
+    if (q_is_nonneg(&d->constant) != tt) {
       solver->unsat_before_search = true;
     }
     return;
   }
+
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+  // d is (x - y + c)
 
   if (x < 0) {
     x = idl_get_zero_vertex(solver);
@@ -2284,10 +2298,8 @@ literal_t idl_create_poly_ge_atom(idl_solver_t *solver, polynomial_t *p, thvar_t
 
   b = &solver->buffer;
   triple = &solver->triple;
-  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
-      ! q_is_int32(&triple->constant)) {
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
     // exception: either p is not convertible to an IDL polynomial
-    // or the constant is too large
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
@@ -2333,10 +2345,8 @@ void idl_assert_poly_eq_axiom(idl_solver_t *solver, polynomial_t *p, thvar_t *ma
 
   b = &solver->buffer;
   triple = &solver->triple;
-  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
-      ! q_is_int32(&triple->constant)) {
-    // exception: either p is not convertible to an IDL polynomial
-    // or the constant is too large
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // exception: p is not convertible to an IDL polynomial
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
@@ -2356,10 +2366,8 @@ void idl_assert_poly_ge_axiom(idl_solver_t *solver, polynomial_t *p, thvar_t *ma
 
   b = &solver->buffer;
   triple = &solver->triple;
-  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
-      ! q_is_int32(&triple->constant)) {
-    // exception: either p is not convertible to an IDL polynomial
-    // or the constant is too large
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // exception:  p is not convertible to an IDL polynomial
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
@@ -2402,19 +2410,20 @@ void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, thvar_t v, t
 
   x = triple->target;
   y = triple->source;
-  if (! q_get32(&triple->constant, &d)) {
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
+  // v == w is equivalent to (x - y + triple.constant) == 0
 
-  // v == w is equivalent to (x - y + d) == 0
   if (x == y) {
-    if (d != 0) {
-      // (x - y + d) == 0 is false
+    if (q_is_nonzero(&triple->constant)) {
+      // (x - y + constant) == 0 is false
       add_unit_clause(solver->core, not(c));
     }
     return;
   }
 
+  // convert the constant to int32_t d:
+  if (! q_get32(&triple->constant, &d)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
 
   if (x < 0) {
     x = idl_get_zero_vertex(solver);
@@ -2455,17 +2464,19 @@ void idl_assert_clause_vareq_axiom(idl_solver_t *solver, uint32_t n, literal_t *
 
   x = triple->target;
   y = triple->source;
-  if (! q_get32(&triple->constant, &d)) {
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
 
-  // v == w is equivalent to (x - y + d) == 0
+  // v == w is equivalent to (x - y + constant) == 0
   if (x == y) {
-    if (d != 0) {
+    if (q_is_nonzero(&triple->constant)) {
       // (x - y + d) == 0 is false
       add_clause(solver->core, n, c);
     }
     return;
+  }
+
+  // convert constant to a 32bit integer
+  if (! q_get32(&triple->constant, &d)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
   if (x < 0) {

@@ -31,7 +31,7 @@
 
 #define TRACE_SYM_BREAKING 0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE_SYM_BREAKING
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2785,6 +2785,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
   uint32_t i, n;
   int32_t idx;
   term_t r;
+  int32_t code;
 
   assert(is_boolean_term(ctx->terms, t));
 
@@ -2863,7 +2864,8 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
   return;
 
  abort:
-  longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
+  code = idl ? FORMULA_NOT_IDL : FORMULA_NOT_RDL;
+  longjmp(ctx->env, code);
 }
 
 
@@ -2891,7 +2893,7 @@ static void analyze_diff_logic_vector(context_t *ctx, dl_data_t *stats, ivector_
  *
  * - if all assertions are in IDL or RDL.
  *   the statistics are stored in ctx->dl_profile.
- * - raise an exception 'LOGIC_NOT_SUPPORTED' otherwise.
+ * - raise an exception (either FORMULA_NOT_IDL or FORMULA_NOT_RDL) otherwise.
  *
  * This function is used to decide whether to use simplex or a
  * specialized solver when the architecture is CTX_AUTO_IDL or

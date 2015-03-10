@@ -4502,9 +4502,13 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      *   substitutions.
      */
 
-    // optional processing
     switch (ctx->arch) {
     case CTX_ARCH_EG:
+      /*
+       * UF problem: we must process subst_eqs last since the
+       * preprocessing may add new equalities in aux_eqs that may end
+       * up in subst_eqs after the call to process_aux_eqs.
+       */
       if (context_breaksym_enabled(ctx)) {
 	break_uf_symmetries(ctx);
       }
@@ -4514,19 +4518,39 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       if (ctx->aux_eqs.size > 0) {
 	process_aux_eqs(ctx);
       }
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       break;
 
     case CTX_ARCH_AUTO_IDL:
+      /*
+       * For difference logic, we must process the subst_eqs first
+       * (otherwise analyze_diff_logic may give wrong results).
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
       break;
 
     case CTX_ARCH_AUTO_RDL:
+      /*
+       * Difference logic, we must process the subst_eqs first
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
       break;
 
     case CTX_ARCH_SPLX:
+      /*
+       * Simplex like EG may add aux_atoms so we must process
+       * subst_eqs last here.
+       */
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
 	process_conditional_definitions(ctx);
@@ -4536,18 +4560,20 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
 	if (ctx->aux_atoms.size > 0) {
 	  process_aux_atoms(ctx);
 	}
+	if (ctx->subst_eqs.size > 0) {
+	  context_process_candidate_subst(ctx);
+	}
       }
       break;
 
     default:
+      /*
+       * Process the candidate variable substitutions if any
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       break;
-    }
-
-    /*
-     * Process the candidate variable substitutions if any
-     */
-    if (ctx->subst_eqs.size > 0) {
-      context_process_candidate_subst(ctx);
     }
 
     /*
