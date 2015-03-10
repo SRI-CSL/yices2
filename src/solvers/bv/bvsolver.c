@@ -4513,7 +4513,7 @@ static thvar_t map_const_times_product(bv_solver_t *solver, uint32_t nbits, pp_b
     return x;
   }
 
-  if (p->len == 1 && bvconst_is_one(c, w)) {
+  if (p->len == 1 && p->prod[0].exp == 1 && bvconst_is_one(c, w)) {
     x = p->prod[0].var;
     return x;
   }
