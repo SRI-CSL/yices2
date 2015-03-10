@@ -4560,9 +4560,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
 	if (ctx->aux_atoms.size > 0) {
 	  process_aux_atoms(ctx);
 	}
-	if (ctx->subst_eqs.size > 0) {
-	  context_process_candidate_subst(ctx);
-	}
+      }
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
       }
       break;
 
