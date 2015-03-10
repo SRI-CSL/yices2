@@ -4548,7 +4548,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
 
     case CTX_ARCH_SPLX:
       /*
-       * Simplex like EG may add aux_atoms so we must process
+       * Simplex, like EG, may add aux_atoms so we must process
        * subst_eqs last here.
        */
       // more optional processing
