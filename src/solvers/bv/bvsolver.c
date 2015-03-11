@@ -3358,7 +3358,7 @@ static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_i
         bvconst_normalize(intv->low, n);
       }
     }
-    assert(bv_interval_is_normalized(intv) && bvconst_le(intv->low, intv->high, n));
+    assert(bv_interval_is_normalized(intv) && bvconst_sle(intv->low, intv->high, n));
   }
 }
 
