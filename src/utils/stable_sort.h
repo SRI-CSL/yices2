@@ -43,12 +43,23 @@
  *   d[n-1] > 0  (last segment is non empty)
  *   d[n-2] > d[n-1]
  *   d[n-3] > d[n-2] + d[n-1]
- *     ...
- *   d[0]   > d[1] + ... + d[n-1]
+ *   d[n-4] > d[n-3] + d[n-2]
+ *     ..
+ *     d[0] > d[1] + d[2]
  *
- * It follows that d[i] >= 2^(n-i-1) and K = d[0] + ... + d[n-1] >= 2^n
+ * The minimal sizes of these n segments are then
+ *   d[n-1] = 1
+ *   d[n-2] = d[n-1] + 1
+ *    ...
+ *    d[0] = d[1] + d[2] + 1
+ *
+ * For n=44, we get
+ *    d[43] = 1
+ *    ...
+ *    d[0] = 1836311902
+ * and the sum of these sizes is 4807526929, which is larger than 2^32.
  * The maximal array size we can handle is 2^32-1 so we need no more than
- * 32 segments. We use a fixed size array or 33 elements to store s[0] ... s[n].
+ * 44 segments. We use a fixed size array or 45 elements to store s[0] ... s[n].
  *
  * The algorithm works as follows:
  * 1) initially, set K=0, n=0, s[0] = 0.
@@ -83,7 +94,7 @@
  * ---------------
  * - we keep a pointer to the array A
  * - the ordering function cmp
- * - the stack seg of 33 indices + the number of segments n
+ * - the stack seg of 45 indices + the number of segments n
  * - an auxiliary array used when merging successive runs
  *   (its size is at most N/2)
  */
@@ -118,7 +129,7 @@
  */
 
 // maximal number of runs/segments
-#define MAX_SEGMENTS 34
+#define MAX_SEGMENTS 45
 
 // size of the fixed buffer b:
 #define FIXED_BUFFER_SIZE 256

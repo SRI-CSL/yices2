@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "utils/cputime.h"
 #include "utils/stable_sort.h"
@@ -225,12 +226,12 @@ static void random_array2(pair_t **a, uint32_t n) {
 
 static void almost_increasing_array(pair_t **a, uint32_t n) {
   increasing_array(a, n);
-  swap_elements(a, n, n/10);
+  swap_elements(a, n, n/20);
 }
 
 static void almost_decreasing_array(pair_t **a, uint32_t n) {
   decreasing_array(a, n);
-  swap_elements(a, n, n/10);
+  swap_elements(a, n, n/20);
 }
 
 static void down_up_down_array(pair_t **a, uint32_t n) {
@@ -244,13 +245,64 @@ static void down_up_down_array(pair_t **a, uint32_t n) {
 }
 
 /*
+ * For checking the balance_runs code: (based on paper by de Gouw et al).
+ * - make run stores 0 .....0 1 starting at index i. n = size of the run
+ */
+static void make_run(pair_t **a, uint32_t i, uint32_t n) {
+  uint32_t j;
+
+  assert(n > 0);
+
+  j = i+n-1;
+  while (i < j) {
+    a[i]->key = 0;
+    i ++;
+  }
+  a[j]->key = 1;
+}
+
+static void balance_test_array(pair_t **a, uint32_t n) {
+  if (n > 1100) {
+    make_run(a, 0, 480);
+    make_run(a, 480, 320);
+    make_run(a, 800, 100);
+    make_run(a, 900, 80);
+    make_run(a, 980, 120);
+    make_run(a, 1100, n - 1100);
+  } else {
+    down_up_down_array(a, n);
+  }
+}
+
+
+/*
+ * Minimal run size for an array of size n:
+ * - returns n if n < 64
+ * - returns 32 if n is a power of two
+ * - returns a number between 33 and 64 otherwise =
+ *   1 + the 6 high order bits of n
+ *
+ * This function is copied from stable_sort.c
+ */
+static uint32_t min_run(uint32_t n) {
+  uint32_t r;
+
+  r = 0;
+  while (n >= 64) {
+    r |= n & 1u;
+    n >>= 1;
+  }
+  return n + r;
+}
+
+/*
  * Tests: array of size n
  * - base = array of n pairs
  */
 static void test_sorting(stable_sorter_t *sorter, pair_t **a, pair_t *base, uint32_t n) {
   uint32_t i;
 
-  printf("**** TEST SORT: ARRAY SIZE %"PRIu32" ****\n", n);
+  printf("**** TEST SORT: ARRAY SIZE %"PRIu32" (min_run = %"PRIu32") ****\n", n, min_run(n));
   fflush(stdout);
 
   for (i=0; i<n; i++) {
@@ -293,6 +345,15 @@ static void test_sorting(stable_sorter_t *sorter, pair_t **a, pair_t *base, uint
   down_up_down_array(a, n);
   test_sort(sorter, a, n);
   down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+
+  balance_test_array(a, n);
+  test_sort(sorter, a, n);
+  balance_test_array(a, n);
+  test_sort(sorter, a, n);
+  balance_test_array(a, n);
+  test_sort(sorter, a, n);
+  balance_test_array(a, n);
   test_sort(sorter, a, n);
 
   random_array(a, n);
@@ -343,7 +404,7 @@ static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {
   pair_t *aux;
   uint32_t i;
 
-  printf("**** TEST SORT: %"PRIu32" ELEMENTS ****\n", n);
+  printf("**** TEST SORT: ARRAY SIZE %"PRIu32" (min_run = %"PRIu32") ****\n", n, min_run(n));
   fflush(stdout);
 
   tmp = (pair_t **) malloc(n * sizeof(pair_t *));
@@ -376,6 +437,39 @@ static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {
 
   almost_increasing_array(tmp, n);
   test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
 
   almost_decreasing_array(tmp, n);
   test_sort2("mostly decreasing array", sorter, tmp, n);

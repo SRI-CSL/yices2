@@ -510,8 +510,53 @@ static void push_segment(stable_sorter_t *sorter, uint32_t i) {
 
 
 /*
+ * For debugging: check that the segments are balanced
+ */
+#ifndef NDEBUG
+static inline uint32_t seglen(stable_sorter_t *sorter, uint32_t i) {
+  assert(i < sorter->nsegs);
+  return sorter->seg[i+1] - sorter->seg[i];
+}
+
+static bool balanced_sorter(stable_sorter_t *sorter) {
+  uint32_t i, n;
+
+  n = sorter->nsegs;
+
+  if (n >= 3) {
+    for (i=0; i<n-2; i++) {
+      if (seglen(sorter, i) <= seglen(sorter, i+1) + seglen(sorter, i+2)) {
+	// segment i is too short
+	return false;
+      }
+    }    
+  }
+
+  if (n >= 2 && seglen(sorter, n-2) <= seglen(sorter, n-1)) {
+    // segment n-1 too short
+    return false;
+  }
+
+  if (n >= 1 && seglen(sorter, n-1) == 0) {
+    return false;
+  }
+
+  return true;
+}
+#endif
+
+
+
+/*
  * Balance the stack to ensure the invariant:
- *  size of segment i > sum of the sizes of segment i+1 ... nsegs-1
+ * - d[i] > d[i+1] + d[i+2] for i = 0 to n-3
+ * - d[n-2] >  d[n-1]
+ * where n = number of segments.
+ *
+ * This function is based on the 'merge_collapse' procedure in
+ * timsort.  merge_collapse was found to be buggy by Stijn de Gouw et
+ * al. (http://envisage-project.eu).  I've fixed it as suggested by de
+ * Gouw et al.
  */
 static void balance_runs(stable_sorter_t *sorter) {
   uint32_t n, a, b, c, d;
@@ -529,33 +574,45 @@ static void balance_runs(stable_sorter_t *sorter) {
     assert(a < b && b < c && c < d && d <= sorter->nelems);
 
     /*
-     * the last three runs are [a .. b-1][b .. c-1][c .. d-1]
+     * The last three runs are [a .. b-1][b .. c-1][c .. d-1]
      * let A = b - a = size of the left segment
      *     B = c - b = size of the middle segment
      *     C = d - c = size of the right segment
-     *     B+C = d - b
      *
-     * if A <= B+C
+     * let A0 be the size of the segment before a (if any) or +infinity
+     * otherwise.
+     *
+     * if A <= B+C || A0 <= A+B
      *   if A < C
      *      merge left and middle segments
      *   else
-     *      merge middle and right segments.
+     *      merge middle and right segments
+     * else if C <= D
+     *    merge middle and right segments
+     * else
+     *    we're done: A0>A+B, A>B+C, C>D hold
      */
-    if (b - a > d - b) break;
-
-    if (b - a < d - c) {
-      // merge left and middle
-      merge_runs(sorter, a, b, c);
-      sorter->seg[n-2] = c;
-    } else {
+    if ((b - a <= d - b) || (n >= 4 && (a - sorter->seg[n-4] <= c - a))) { 
+      if (b - a < d - c) {
+	// merge left and middle
+	merge_runs(sorter, a, b, c);
+	sorter->seg[n-2] = c;
+      } else {
+	// merge middle and right
+	merge_runs(sorter, b, c, d);
+	c = b;
+      }
+    } else if (c - b <= d - c) {
       // merge middle and right
       merge_runs(sorter, b, c, d);
       c = b;
+    } else {
+      goto done;
     }
 
-    b = a;
-    sorter->seg[n-1] = d;
     n --;
+    b = a;
+    sorter->seg[n] = d;
 
     assert(n >= 2 && b == sorter->seg[n-2] && c == sorter->seg[n-1] && d == sorter->seg[n]);
   }
@@ -570,6 +627,7 @@ static void balance_runs(stable_sorter_t *sorter) {
     n --;
   }
 
+ done:
   sorter->nsegs = n;
 }
 
@@ -635,6 +693,7 @@ void apply_sorter(stable_sorter_t *sorter, void **a, uint32_t n) {
      */
     push_segment(sorter, j);
     balance_runs(sorter);
+    assert(balanced_sorter(sorter));
     i = j;
   }
 
