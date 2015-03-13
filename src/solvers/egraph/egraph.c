@@ -3823,6 +3823,7 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
       c2 = egraph_class(egraph, t2);
       v2 = egraph->classes.thvar[c2];
       if (v1 != null_thvar && v2 != null_thvar) {
+	assert(v1 != v2);
         propagate_satellite_disequality(egraph, i, v1, v2, atom);
       }
 
@@ -4358,7 +4359,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
       }
     }
   }
-  
+
   return true;
 }
 
