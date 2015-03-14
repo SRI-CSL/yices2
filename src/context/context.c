@@ -4919,7 +4919,7 @@ void context_clear(context_t *ctx) {
  * - it's possible to have ctx->core.base_level = ctx->base_level + 1
  * - this happens because start_search in smt_core does an internal smt_push
  *   to allow the core to be restored to a clean state if search is interrupted.
- * - if search is not interrupted and the search return UNSAT, then we're
+ * - if search is not interrupted and the search returns UNSAT, then we're
  *   in a state with core base level = context base level + 1.
  */
 void context_clear_unsat(context_t *ctx) {
