@@ -189,5 +189,4 @@
 (check)
 
 (push)
-(echo "CRASH NEXT\n")
 (check)

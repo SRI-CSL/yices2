@@ -143,7 +143,6 @@
 
 (push)
 (assert (= |next.cy!1!0| |next.cy!1!3|))
-(echo "\n*** CREATED HERE ***\n")
 (check)
 
 (push)
@@ -154,5 +153,4 @@
 (push)
 (assert (= |next.round| 2))
 
-(echo "\n*** CRASH HERE ***\n")
 (check)

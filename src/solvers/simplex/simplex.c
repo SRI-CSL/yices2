@@ -7166,8 +7166,15 @@ void simplex_start_search(simplex_solver_t *solver) {
   /*
    * If start_search is called after pop and without an intervening
    * start_internalization, then matrix_ready and tableau_ready are both false.
-   * We force restore matrix here. This does nothing if the matrix is ready.
+   *
+   * If start_search is called after push and without an intervening
+   * start_internalization, then tableau_ready may be true and matrix_ready
+   * false.
+   *
+   * We force restore reset_tableau and restore_matrix here. 
+   * This does nothing if the tableau is already reset and the matrix is ready.
    */
+  simplex_reset_tableau(solver);
   simplex_restore_matrix(solver);
 
   assert(solver->matrix_ready && !solver->tableau_ready);
@@ -7664,7 +7671,6 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
      * within simplex_pop because the context may be known to
      * be UNSAT before make_feasible or init_assignment have
      * been called.
-     *
      *
      * TODO: Fix this.
      */
