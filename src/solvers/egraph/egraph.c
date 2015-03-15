@@ -12,7 +12,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include <stdio.h>
 #include <inttypes.h>
 
 #include "utils/bit_tricks.h"
@@ -33,6 +32,8 @@
 #define TRACE_FCHECK 0
 
 #if TRACE || TRACE_FCHECK
+
+#include <stdio.h>
 
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
@@ -5140,11 +5141,6 @@ bool egraph_propagate(egraph_t *egraph) {
 #if TRACE
   printf("---> EGRAPH PROPAGATE [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
          egraph->decision_level, egraph->core->stats.decisions);
-
-  if (egraph->decision_level == 24 && egraph->core->stats.decisions == 26) {
-    printf("*** HERE ***\n");
-    fflush(stdout);
-  }
 #endif
 
   do {
