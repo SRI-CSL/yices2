@@ -2568,11 +2568,17 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
     return false;
   }
 
+
+  /*
+   * We must count x and y as variables, even the atom simplifies to true or false,
+   * because the diff logic solver will still create a variable for x or y.
+   * Also, we must count zero_term too for the same reason.
+   */
+  count_dl_var(ctx, stats, x);
+  count_dl_var(ctx, stats, y);
+
   // if x == y, we ignore the atom. It will simplify to true or false anyway.
   if (x != y) {
-    count_dl_var(ctx, stats, x); // we must count zero_term as a variable
-    count_dl_var(ctx, stats, y); // same thing
-
     /*
      * stats->sum_const is intended to be an upper bound on the
      * longest path in the difference-logic graph.
@@ -2695,6 +2701,16 @@ static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t
   }
 
   normalize_poly_buffer(aux);
+
+  /*
+   * The QF_RDL theory, as defined by SMT-LIB, allows constraints of
+   * the form (<= (- (* a x) (* a y)) b) where a and b are integer
+   * constants. We allow rationals here and we also allow 
+   * constraints like that for QF_IDL (provided b/a is an integer).
+   */
+  if (! poly_buffer_is_zero(aux)) {
+    (void) poly_buffer_make_monic(aux);
+  }
 
   return check_dl_poly_buffer(ctx, stats, aux, idl);
 }
