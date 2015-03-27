@@ -939,6 +939,18 @@ static void print_yices_error(bool full) {
     unsupported_construct("quantifiers are");
     break;
 
+  case CTX_SCALAR_NOT_SUPPORTED:
+    unsupported_construct("scalar types are");
+    break;
+
+  case CTX_TUPLE_NOT_SUPPORTED:
+    unsupported_construct("tuples are");
+    break;
+
+  case CTX_UTYPE_NOT_SUPPORTED:
+    unsupported_construct("uninterpreted sorts are");
+    break;
+
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
     unsupported_construct("non-linear arithmetic is");
     break;

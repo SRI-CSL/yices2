@@ -931,6 +931,18 @@ Error Reports
 
       General error reported by the array/function solver.
 
+   .. c:enum:: CTX_SCALAR_NOT_SUPPORTED
+
+      An assertion contains terms of scalar type but the context does not support them.
+
+   .. c:enum:: CTX_TUPLE_NOT_SUPPORTED
+
+      An assertion contains terms of tuple type but the context does not support them.
+
+   .. c:enum:: CTX_UTYPE_NOT_SUPPORTED
+
+      An assertion contains terms of uninterpreted type but the context does not support them.
+
    .. c:enum:: CTX_INVALID_OPERATION
 
       Invalid operation on a context: the context is in a state that

@@ -182,6 +182,42 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
 }
 
 
+/*
+ * Internalization error for term t 
+ * - t can't be processed because there's no egraph
+ * - the error code depends on t's type
+ */
+static int32_t uf_error_code(context_t *ctx, term_t t) {
+  int32_t code;
+
+  assert(! context_has_egraph(ctx));
+
+  switch (term_type_kind(ctx->terms, t)) {
+  case UNINTERPRETED_TYPE:
+    code = UTYPE_NOT_SUPPORTED;
+    break;
+      
+  case SCALAR_TYPE:
+    code = SCALAR_NOT_SUPPORTED;
+    break;
+
+  case FUNCTION_TYPE:
+    code = UF_NOT_SUPPORTED;
+    break;
+
+  case TUPLE_TYPE:
+    code = TUPLE_NOT_SUPPORTED;
+    break;
+
+  default:
+    assert(false);
+    code = INTERNAL_ERROR;
+    break;
+  }
+
+  return code;
+}
+
 
 /***********************************************
  *  CONVERSION OF COMPOSITES TO EGRAPH TERMS   *
@@ -1224,7 +1260,7 @@ static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *disti
     l = make_bv_distinct(ctx, n, a);
 
   } else {
-    longjmp(ctx->env, UF_NOT_SUPPORTED);
+    longjmp(ctx->env, uf_error_code(ctx, distinct->arg[0]));
   }
 
   free_istack_array(&ctx->istack, a);
@@ -1568,7 +1604,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
   thvar_t x;
 
   if (! context_has_egraph(ctx)) {
-    exception = UF_NOT_SUPPORTED;
+    exception = uf_error_code(ctx, t);
     goto abort;
   }
 
@@ -2867,7 +2903,7 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
     assert_bv_distinct(ctx, n, a, tt);
 
   } else {
-    longjmp(ctx->env, UF_NOT_SUPPORTED);
+    longjmp(ctx->env, uf_error_code(ctx, distinct->arg[0]));
   }
 
   free_istack_array(&ctx->istack, a);

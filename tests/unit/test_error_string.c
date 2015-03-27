@@ -9,7 +9,7 @@
 /*
  * All the error codes defined in yices_types.h
  */
-#define NUM_CODES 106
+#define NUM_CODES 109
 
 static const error_code_t all_codes[NUM_CODES] = {
   NO_ERROR,
@@ -92,6 +92,9 @@ static const error_code_t all_codes[NUM_CODES] = {
   CTX_ARITH_SOLVER_EXCEPTION,
   CTX_BV_SOLVER_EXCEPTION,
   CTX_ARRAY_SOLVER_EXCEPTION,
+  CTX_SCALAR_NOT_SUPPORTED,
+  CTX_TUPLE_NOT_SUPPORTED,
+  CTX_UTYPE_NOT_SUPPORTED,
   CTX_INVALID_OPERATION,
   CTX_OPERATION_NOT_SUPPORTED,
   CTX_INVALID_CONFIG,
@@ -117,7 +120,8 @@ static const error_code_t all_codes[NUM_CODES] = {
   MDL_GEN_NONLINEAR,
   MDL_GEN_FAILED,
   OUTPUT_ERROR,
-  INTERNAL_EXCEPTION
+  INTERNAL_EXCEPTION,
+  0000
 };
 
 static const char* const all_names[NUM_CODES] = {
@@ -162,7 +166,6 @@ static const char* const all_names[NUM_CODES] = {
   "BVTYPE_REQUIRED",
   "BAD_TERM_DECREF",
   "BAD_TYPE_DECREF",
-  "INVALID_TYPE_OP",
   "INVALID_TERM_OP",
   "INVALID_TOKEN",
   "SYNTAX_ERROR",
@@ -201,6 +204,9 @@ static const char* const all_names[NUM_CODES] = {
   "CTX_ARITH_SOLVER_EXCEPTION",
   "CTX_BV_SOLVER_EXCEPTION",
   "CTX_ARRAY_SOLVER_EXCEPTION",
+  "CTX_SCALAR_NOT_SUPPORTED",
+  "CTX_TUPLE_NOT_SUPPORTED",
+  "CTX_UTYPE_NOT_SUPPORTED",
   "CTX_INVALID_OPERATION",
   "CTX_OPERATION_NOT_SUPPORTED",
   "CTX_INVALID_CONFIG",

@@ -296,31 +296,31 @@ int32_t print_error(FILE *f) {
     break;
 
   case CTX_UF_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support uninterpreted functions\n");
+    code = fprintf(f, "the context does not support uninterpreted functions\n");
     break;
 
   case CTX_ARITH_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support arithmetic\n");
+    code = fprintf(f, "the context does not support arithmetic\n");
     break;
 
   case CTX_BV_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support bitvectors\n");
+    code = fprintf(f, "the context does not support bitvectors\n");
     break;
 
   case CTX_ARRAYS_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support arrays or function equalities\n");
+    code = fprintf(f, "the context does not support arrays or function equalities\n");
     break;
 
   case CTX_QUANTIFIERS_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support quantifiers\n");
+    code = fprintf(f, "the context does not support quantifiers\n");
     break;
 
   case CTX_LAMBDAS_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support lambda terms\n");
+    code = fprintf(f, "the context does not support lambda terms\n");
     break;
 
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
-    code = fprintf(f, "context does not support non-linear arithmetic\n");
+    code = fprintf(f, "the context does not support non-linear arithmetic\n");
     break;
 
   case CTX_FORMULA_NOT_IDL:
@@ -357,6 +357,18 @@ int32_t print_error(FILE *f) {
 
   case CTX_ARRAY_SOLVER_EXCEPTION:
     code = fprintf(f, "array solver exception\n");
+    break;
+
+  case CTX_SCALAR_NOT_SUPPORTED:
+    code = fprintf(f, "the context does not support scalar types\n");
+    break;
+
+  case CTX_TUPLE_NOT_SUPPORTED:
+    code = fprintf(f, "the context does not support tuples\n");
+    break;
+
+  case CTX_UTYPE_NOT_SUPPORTED:
+    code = fprintf(f, "the context does not support uninterpreted types\n");
     break;
 
   case CTX_INVALID_OPERATION:
@@ -757,31 +769,31 @@ char *error_string(void) {
     break;
 
   case CTX_UF_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support uninterpreted functions");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support uninterpreted functions");
     break;
 
   case CTX_ARITH_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support arithmetic");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support arithmetic");
     break;
 
   case CTX_BV_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support bitvectors");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support bitvectors");
     break;
 
   case CTX_ARRAYS_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support arrays or function equalities");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support arrays or function equalities");
     break;
 
   case CTX_QUANTIFIERS_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support quantifiers");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support quantifiers");
     break;
 
   case CTX_LAMBDAS_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support lambda terms");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support lambda terms");
     break;
 
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "context does not support non-linear arithmetic");
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support non-linear arithmetic");
     break;
 
   case CTX_FORMULA_NOT_IDL:
@@ -818,6 +830,18 @@ char *error_string(void) {
 
   case CTX_ARRAY_SOLVER_EXCEPTION:
     nchar = snprintf(buffer, BUFFER_SIZE, "array solver exception");
+    break;
+
+  case CTX_SCALAR_NOT_SUPPORTED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support scalar types");
+    break;
+
+  case CTX_TUPLE_NOT_SUPPORTED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support tuples");
+    break;
+
+  case CTX_UTYPE_NOT_SUPPORTED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support uninterpreted types");
     break;
 
   case CTX_INVALID_OPERATION:
