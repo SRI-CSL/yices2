@@ -123,14 +123,14 @@ should compile with::
 Other compilers than GCC can be used. If Yices is installed in a different
 location, give appropriate flags to the compilation command. For example::
 
-  gcc -I${HOME}/yices-2.3.0/include -L${HOME}/yices-2.3.0/lib \
+  gcc -I${HOME}/yices-2.3.1/include -L${HOME}/yices-2.3.1/lib \
      minimal.c -o minimal -lyices
 
 Running the program should print something like this:
 
 .. code-block:: none
 
-  Testing Yices 2.3.0 (x86_64-unknown-linux-gnu, release)
+  Testing Yices 2.3.1 (x86_64-unknown-linux-gnu, release)
 
 You may need to play with environment variable ``LD_LIBRARY_PATH`` (or
 ``DYLD_LIBRARY_PATH`` on Mac OS X) if the runtime Yices library is not
