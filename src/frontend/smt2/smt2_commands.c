@@ -1443,6 +1443,9 @@ static void show_funsolver_stats(fun_solver_t *solver) {
 
 static void show_simplex_stats(simplex_solver_t *solver) {
   simplex_collect_statistics(solver);
+  print_out(" :simplex-init-vars %"PRIu32"\n", simplex_num_init_vars(solver));
+  print_out(" :simplex-init-rows %"PRIu32"\n", simplex_num_init_rows(solver));
+  print_out(" :simplex-init-atoms %"PRIu32"\n", simplex_num_init_atoms(solver));
   print_out(" :simplex-vars %"PRIu32"\n", simplex_num_vars(solver));
   print_out(" :simplex-rows %"PRIu32"\n", simplex_num_rows(solver));
   print_out(" :simplex-atoms %"PRIu32"\n", simplex_num_atoms(solver));

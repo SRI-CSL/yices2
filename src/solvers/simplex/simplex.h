@@ -403,18 +403,35 @@ extern void simplex_collect_statistics(simplex_solver_t *solver);
 
 
 /*
- * Statistics on problem size
+ * Statistics on problem size (at the start of search)
+ * - these are set on a call to simplex_start_search
  */
-static inline uint32_t simplex_num_vars(simplex_solver_t *solver) {
+static inline uint32_t simplex_num_init_vars(simplex_solver_t *solver) {
   return solver->stats.num_init_vars;
 }
 
-static inline uint32_t simplex_num_rows(simplex_solver_t *solver) {
+static inline uint32_t simplex_num_init_rows(simplex_solver_t *solver) {
   return solver->stats.num_init_rows;
 }
 
-static inline uint32_t simplex_num_atoms(simplex_solver_t *solver) {
+static inline uint32_t simplex_num_init_atoms(simplex_solver_t *solver) {
   return solver->stats.num_atoms;
+}
+
+
+/*
+ * Problem size
+ */
+static inline uint32_t simplex_num_vars(simplex_solver_t *solver) {
+  return solver->vtbl.nvars;
+}
+
+static inline uint32_t simplex_num_rows(simplex_solver_t *solver) {
+  return solver->matrix.nrows;
+}
+
+static inline uint32_t simplex_num_atoms(simplex_solver_t *solver) {
+  return solver->atbl.natoms;
 }
 
 
