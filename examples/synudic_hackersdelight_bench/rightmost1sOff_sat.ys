@@ -1,0 +1,666 @@
+(set-param ef-max-iters 20000)
+;; Line type declarations
+(define-type lineType (scalar block_Lx_line_0 block_Lone_line_0 block_l1_line_0 block_l1_line_1 block_l1_line_2 block_l1_line_3 block_spec_line_0))
+;; Function type declarations
+(define-type funcType (scalar bvand bvor bvxor bvshr bvadd bvsub bvnot bvneg bvone identity average))
+;; Definition of (Dom, Int)
+(define-type dom (bitvector 5))
+(define fbvadd:: (-> dom dom dom) (lambda (x::dom y::dom) (bv-add x y)))
+(define faverage:: (-> dom dom) (lambda (x::dom) (ite (bit x 0) (ite (bit x 1) (ite (bit x 2) (ite (bit x 3) (mk-bv 5 0) (bv-and x (mk-bv 5 16))) (bv-and x (mk-bv 5 24))) (bv-and x (mk-bv 5 28))) (ite (bit x 1) (ite (bit x 2) (ite (bit x 3) (mk-bv 5 0) (bv-and x (mk-bv 5 16))) (bv-and x (mk-bv 5 24))) (ite (bit x 2) (ite (bit x 3) (mk-bv 5 0) (bv-and x (mk-bv 5 16))) (mk-bv 5 0))))))
+(define fbvor:: (-> dom dom dom) (lambda (x::dom y::dom) (bv-or x y)))
+(define fbvnot:: (-> dom dom) (lambda (x::dom) (bv-not x)))
+(define fbvxor:: (-> dom dom dom) (lambda (x::dom y::dom) (bv-xor x y)))
+(define fbvsub:: (-> dom dom dom) (lambda (x::dom y::dom) (bv-sub x y)))
+(define fbvshr:: (-> dom dom) (lambda (x::dom) (bv-ashr x (mk-bv 5 1))))
+(define fbvand:: (-> dom dom dom) (lambda (x::dom y::dom) (bv-and x y)))
+(define fbvone:: (-> dom dom) (lambda (x::dom) (mk-bv 5 1)))
+(define fidentity:: (-> dom dom) (lambda (x::dom) x))
+(define fbvneg:: (-> dom dom) (lambda (x::dom) (bv-neg x)))
+;; Definition of (Typ, Intt)
+(define-type typ bool)
+(define tbvadd:: (-> typ typ typ bool) (lambda (x::typ y::typ z::typ) (= z (or x y))))
+(define taverage:: (-> typ typ bool) (lambda (x::typ y::typ) true))
+(define tbvor:: (-> typ typ typ bool) (lambda (x::typ y::typ z::typ) (= z (or x y))))
+(define tbvnot:: (-> typ typ bool) (lambda (x::typ y::typ) (= y x)))
+(define tbvxor:: (-> typ typ typ bool) (lambda (x::typ y::typ z::typ) (= z (or x y))))
+(define tbvsub:: (-> typ typ typ bool) (lambda (x::typ y::typ z::typ) (= z (or x y))))
+(define tbvshr:: (-> typ typ bool) (lambda (x::typ y::typ) (= y x)))
+(define tbvand:: (-> typ typ typ bool) (lambda (x::typ y::typ z::typ) (= z (or x y))))
+(define tbvone:: (-> typ typ bool) (lambda (x::typ y::typ) (= y false)))
+(define tidentity:: (-> typ typ bool) (lambda (x::typ y::typ) (= y x)))
+(define tbvneg:: (-> typ typ bool) (lambda (x::typ y::typ) (= y x)))
+
+        
+;; Declaration of existential variables (lines, line inputs, and line function)
+        
+(define block_Lx_line_0_input_line_0 :: lineType)
+(define block_Lx_line_0_input_line_1 :: lineType)
+(define block_Lx_line_0_input_line_2 :: lineType)
+(define block_Lx_line_0_typ_value :: typ)
+(define block_Lx_line_0_function :: funcType)
+(define block_Lone_line_0_input_line_0 :: lineType)
+(define block_Lone_line_0_input_line_1 :: lineType)
+(define block_Lone_line_0_input_line_2 :: lineType)
+(define block_Lone_line_0_typ_value :: typ)
+(define block_Lone_line_0_function :: funcType)
+(define block_l1_line_0_input_line_0 :: lineType)
+(define block_l1_line_0_input_line_1 :: lineType)
+(define block_l1_line_0_input_line_2 :: lineType)
+(define block_l1_line_1_input_line_0 :: lineType)
+(define block_l1_line_1_input_line_1 :: lineType)
+(define block_l1_line_1_input_line_2 :: lineType)
+(define block_l1_line_2_input_line_0 :: lineType)
+(define block_l1_line_2_input_line_1 :: lineType)
+(define block_l1_line_2_input_line_2 :: lineType)
+(define block_l1_line_3_input_line_0 :: lineType)
+(define block_l1_line_3_input_line_1 :: lineType)
+(define block_l1_line_3_input_line_2 :: lineType)
+(define block_l1_line_0_typ_value :: typ)
+(define block_l1_line_1_typ_value :: typ)
+(define block_l1_line_2_typ_value :: typ)
+(define block_l1_line_3_typ_value :: typ)
+(define block_l1_line_0_function :: funcType)
+(define block_l1_line_1_function :: funcType)
+(define block_l1_line_2_function :: funcType)
+(define block_l1_line_3_function :: funcType)
+(define block_spec_line_0_input_line_0 :: lineType)
+(define block_spec_line_0_input_line_1 :: lineType)
+(define block_spec_line_0_input_line_2 :: lineType)
+(define block_spec_line_0_typ_value :: typ)
+(define block_spec_line_0_function :: funcType)
+        
+;; Typ initialization for constants
+        
+
+        
+;; Block Typ Constraints
+        
+(assert
+  (and
+    (or (= block_Lx_line_0_typ_value true))
+  )
+)
+(assert
+  (and
+    (or
+      (and
+        (= block_Lone_line_0_function bvone)
+        (or
+          (and (= block_Lone_line_0_input_line_0 block_Lx_line_0) (tbvone block_Lx_line_0_typ_value block_Lone_line_0_typ_value))
+        )
+      )
+    )
+  )
+)
+(assert
+  (and
+    (or
+      (and
+        (= block_l1_line_0_function bvand)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (tbvand block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_0_function bvor)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (tbvor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_0_function bvxor)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (tbvxor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_0_function bvshr)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (tbvshr block_Lx_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_0_function bvadd)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lone_line_0) (tbvadd block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_0_function bvsub)
+        (or
+          (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lone_line_0) (tbvsub block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_0_typ_value))
+        )
+      )
+    )
+    (or
+      (and
+        (= block_l1_line_1_function bvand)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvand block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvand block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvand block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvand block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_1_function bvor)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_1_function bvxor)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvxor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvxor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (tbvxor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_1_function bvshr)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (tbvshr block_Lx_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (tbvshr block_l1_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_1_function bvadd)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (tbvadd block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_1_function bvsub)
+        (or
+          (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (tbvsub block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_1_typ_value))
+          (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_1_typ_value))
+        )
+      )
+    )
+    (or
+      (and
+        (= block_l1_line_2_function bvand)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvand block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvand block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvand block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvand block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvand block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvand block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvand block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvand block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvand block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_2_function bvor)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvor block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvor block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvor block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvor block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvor block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_2_function bvxor)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvxor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvxor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvxor block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvxor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvxor block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (tbvxor block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (tbvxor block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_2_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_2_function bvshr)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (tbvshr block_Lx_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (tbvshr block_l1_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (tbvshr block_l1_line_1_typ_value block_l1_line_2_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_2_function bvadd)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvadd block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_1_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_2_function bvsub)
+        (or
+          (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvsub block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+          (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_1_typ_value block_Lone_line_0_typ_value block_l1_line_2_typ_value))
+        )
+      )
+    )
+    (or
+      (and
+        (= block_l1_line_3_function bvand)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvand block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvand block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvand block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvand block_Lx_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvand block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvand block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvand block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvand block_l1_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvand block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvand block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvand block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvand block_l1_line_1_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvand block_l1_line_2_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvand block_l1_line_2_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvand block_l1_line_2_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvand block_l1_line_2_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_3_function bvor)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvor block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvor block_Lx_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvor block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvor block_l1_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvor block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvor block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvor block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvor block_l1_line_1_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvor block_l1_line_2_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvor block_l1_line_2_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvor block_l1_line_2_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvor block_l1_line_2_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_3_function bvxor)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvxor block_Lx_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvxor block_Lx_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvxor block_Lx_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvxor block_Lx_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_0_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvxor block_l1_line_0_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvxor block_l1_line_0_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvxor block_l1_line_0_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_1_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvxor block_l1_line_1_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvxor block_l1_line_1_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvxor block_l1_line_1_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (tbvxor block_l1_line_2_typ_value block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (tbvxor block_l1_line_2_typ_value block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (tbvxor block_l1_line_2_typ_value block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (tbvxor block_l1_line_2_typ_value block_l1_line_2_typ_value block_l1_line_3_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_3_function bvshr)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (tbvshr block_Lx_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (tbvshr block_l1_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (tbvshr block_l1_line_1_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (tbvshr block_l1_line_2_typ_value block_l1_line_3_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_3_function bvadd)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvadd block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_1_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvadd block_l1_line_2_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+        )
+      )
+      (and
+        (= block_l1_line_3_function bvsub)
+        (or
+          (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvsub block_Lx_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_0_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_1_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+          (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lone_line_0) (tbvsub block_l1_line_2_typ_value block_Lone_line_0_typ_value block_l1_line_3_typ_value))
+        )
+      )
+    )
+  )
+)
+(assert
+  (and
+    (or
+      (and
+        (= block_spec_line_0_function average)
+        (or
+          (and (= block_spec_line_0_input_line_0 block_Lx_line_0) (taverage block_Lx_line_0_typ_value block_spec_line_0_typ_value))
+        )
+      )
+    )
+  )
+)
+        
+(assert
+  (forall(
+    block_Lx_line_0_dom_value :: dom
+    block_Lone_line_0_dom_value :: dom
+    block_l1_line_0_dom_value :: dom
+    block_l1_line_1_dom_value :: dom
+    block_l1_line_2_dom_value :: dom
+    block_l1_line_3_dom_value :: dom
+    block_spec_line_0_dom_value :: dom
+    )
+        
+      (=>
+        
+        ;; Block Dom Constraints
+        
+        (and
+        
+        
+          (and
+            (or
+              (and
+                (= block_Lone_line_0_function bvone)
+                (or
+                  (and (= block_Lone_line_0_input_line_0 block_Lx_line_0) (= block_Lone_line_0_dom_value (fbvone block_Lx_line_0_dom_value)))
+                )
+              )
+            )
+          )
+        
+        
+          (and
+            (or
+              (and
+                (= block_l1_line_0_function bvand)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (= block_l1_line_0_dom_value (fbvand block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_0_function bvor)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (= block_l1_line_0_dom_value (fbvor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_0_function bvxor)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lx_line_0) (= block_l1_line_0_dom_value (fbvxor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_0_function bvshr)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_dom_value (fbvshr block_Lx_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_0_function bvadd)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lone_line_0) (= block_l1_line_0_dom_value (fbvadd block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_0_function bvsub)
+                (or
+                  (and (= block_l1_line_0_input_line_0 block_Lx_line_0) (= block_l1_line_0_input_line_1 block_Lone_line_0) (= block_l1_line_0_dom_value (fbvsub block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+            )
+            (or
+              (and
+                (= block_l1_line_1_function bvand)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvand block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvand block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_1_function bvor)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_1_function bvxor)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvxor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvxor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_l1_line_0) (= block_l1_line_1_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_1_function bvshr)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_dom_value (fbvshr block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_dom_value (fbvshr block_l1_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_1_function bvadd)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (= block_l1_line_1_dom_value (fbvadd block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (= block_l1_line_1_dom_value (fbvadd block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_1_function bvsub)
+                (or
+                  (and (= block_l1_line_1_input_line_0 block_Lx_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (= block_l1_line_1_dom_value (fbvsub block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_1_input_line_0 block_l1_line_0) (= block_l1_line_1_input_line_1 block_Lone_line_0) (= block_l1_line_1_dom_value (fbvsub block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+            )
+            (or
+              (and
+                (= block_l1_line_2_function bvand)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvand block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvand block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvand block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvand block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvand block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_2_function bvor)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvor block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvor block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvor block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_2_function bvxor)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvxor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvxor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvxor block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_0) (= block_l1_line_2_dom_value (fbvxor block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_l1_line_1) (= block_l1_line_2_dom_value (fbvxor block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_2_function bvshr)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_dom_value (fbvshr block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_dom_value (fbvshr block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_dom_value (fbvshr block_l1_line_1_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_2_function bvadd)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvadd block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvadd block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvadd block_l1_line_1_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_2_function bvsub)
+                (or
+                  (and (= block_l1_line_2_input_line_0 block_Lx_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvsub block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_0) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvsub block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_2_input_line_0 block_l1_line_1) (= block_l1_line_2_input_line_1 block_Lone_line_0) (= block_l1_line_2_dom_value (fbvsub block_l1_line_1_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+            )
+            (or
+              (and
+                (= block_l1_line_3_function bvand)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvand block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvand block_Lx_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvand block_l1_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvand block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvand block_l1_line_1_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_2_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvand block_l1_line_2_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvand block_l1_line_2_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvand block_l1_line_2_dom_value block_l1_line_2_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_3_function bvor)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvor block_Lx_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvor block_l1_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvor block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvor block_l1_line_1_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_2_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvor block_l1_line_2_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvor block_l1_line_2_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvor block_l1_line_2_dom_value block_l1_line_2_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_3_function bvxor)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvxor block_Lx_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvxor block_Lx_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_0_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvxor block_l1_line_0_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_1_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_1_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvxor block_l1_line_1_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvxor block_l1_line_1_dom_value block_l1_line_2_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_2_dom_value block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_0) (= block_l1_line_3_dom_value (fbvxor block_l1_line_2_dom_value block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_1) (= block_l1_line_3_dom_value (fbvxor block_l1_line_2_dom_value block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_l1_line_2) (= block_l1_line_3_dom_value (fbvxor block_l1_line_2_dom_value block_l1_line_2_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_3_function bvshr)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_dom_value (fbvshr block_Lx_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_dom_value (fbvshr block_l1_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_dom_value (fbvshr block_l1_line_1_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_dom_value (fbvshr block_l1_line_2_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_3_function bvadd)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvadd block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvadd block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvadd block_l1_line_1_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvadd block_l1_line_2_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+              (and
+                (= block_l1_line_3_function bvsub)
+                (or
+                  (and (= block_l1_line_3_input_line_0 block_Lx_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvsub block_Lx_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_0) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvsub block_l1_line_0_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_1) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvsub block_l1_line_1_dom_value block_Lone_line_0_dom_value)))
+                  (and (= block_l1_line_3_input_line_0 block_l1_line_2) (= block_l1_line_3_input_line_1 block_Lone_line_0) (= block_l1_line_3_dom_value (fbvsub block_l1_line_2_dom_value block_Lone_line_0_dom_value)))
+                )
+              )
+            )
+          )
+        
+        
+          (and
+            (or
+              (and
+                (= block_spec_line_0_function average)
+                (or
+                  (and (= block_spec_line_0_input_line_0 block_Lx_line_0) (= block_spec_line_0_dom_value (faverage block_Lx_line_0_dom_value)))
+                )
+              )
+            )
+          )
+        
+        
+        )
+        
+        ;; Requirement (ensure)
+        
+        (= block_l1_line_3_dom_value block_spec_line_0_dom_value)
+        
+      )
+        
+  )
+        
+)
+        
+(ef-solve)
