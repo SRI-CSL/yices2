@@ -193,7 +193,7 @@ static void show_values(FILE *f, arith_projector_t *proj) {
 /*
  * All constraints in ptr_set s
  */
-static void show_constraint_set(FILE *f, aproj_vtbl_t *vtbl, ptr_set_t *s) {
+static void show_constraint_set(FILE *f, aproj_vtbl_t *vtbl, ptr_set2_t *s) {
   uint32_t i, n;
   aproj_constraint_t *c;
 

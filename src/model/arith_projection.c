@@ -23,10 +23,10 @@
 #include "io/term_printer.h"
 #endif
 
+
 /*
  * CONSTRAINT DESCRIPTORS
  */
-
 #if TRACE
 static void print_aproj_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
   bool negative;
@@ -209,6 +209,36 @@ static bool aproj_var_coeff_is_minus_one(aproj_constraint_t *c, int32_t i) {
 #endif
 
 
+/*
+ * HASH FUNCTION
+ */
+
+/*
+ * Hash function to interface with ptr_set2
+ * - aux is ignored,
+ * - p is a constraint descriptor
+ */
+static uint32_t jenkins_hash_constraint(void *aux, void *p) {
+  uint32_t x;
+
+  x = ((aproj_constraint_t *) p)->id;
+
+  x = (x + 0x7ed55d16) + (x<<12);
+  x = (x ^ 0xc761c23c) ^ (x>>19);
+  x = (x + 0x165667b1) + (x<<5);
+  x = (x + 0xd3a2646c) ^ (x<<9);
+  x = (x + 0xfd7046c5) + (x<<3);
+  x = (x ^ 0xb55a4f09) ^ (x>>16);
+
+  return x;
+}
+
+/*
+ * Descriptor for the hash function
+ */
+static const ptr_set2_hash_t hash_desc = {
+  jenkins_hash_constraint, NULL
+};
 
 
 /*
@@ -256,7 +286,7 @@ static void init_aproj_vtbl(aproj_vtbl_t *table, uint32_t n, uint32_t m) {
   table->term_of = (term_t *) safe_malloc(n * sizeof(term_t));
   table->val = (rational_t *) safe_malloc(n * sizeof(rational_t));
 
-  table->cnstr = (ptr_set_t **) safe_malloc(m * sizeof(ptr_set_t *));
+  table->cnstr = (ptr_set2_t **) safe_malloc(m * sizeof(ptr_set2_t *));
   table->score = (aproj_score_t *) safe_malloc(m * sizeof(aproj_score_t));
 
   // var index 0 is reserved for the constant idx
@@ -302,7 +332,7 @@ static void increase_aproj_vtbl_esize(aproj_vtbl_t *table) {
     n = table->size;
   }
   table->esize = n;
-  table->cnstr = (ptr_set_t **) safe_realloc(table->cnstr, n * sizeof(ptr_set_t *));
+  table->cnstr = (ptr_set2_t **) safe_realloc(table->cnstr, n * sizeof(ptr_set2_t *));
   table->score = (aproj_score_t *) safe_realloc(table->score, n * sizeof(aproj_score_t));
 }
 
@@ -322,7 +352,7 @@ static void reset_aproj_vtbl(aproj_vtbl_t *table) {
 
   n = table->nelims;
   for (i=0; i<n; i++) {
-    free_ptr_set(table->cnstr[i]);
+    free_ptr_set2(table->cnstr[i]);
   }
 
   reset_generic_heap(&table->heap);
@@ -345,7 +375,7 @@ static void delete_aproj_vtbl(aproj_vtbl_t *table) {
   }
   n = table->nelims;
   for (i=0; i<n; i++) {
-    free_ptr_set(table->cnstr[i]);
+    free_ptr_set2(table->cnstr[i]);
   }
   delete_generic_heap(&table->heap);
   delete_int_hmap(&table->tmap);
@@ -480,7 +510,7 @@ static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constrai
   assert(aproj_is_var_to_elim(vtbl, i));
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
 
-  ptr_set_add(vtbl->cnstr + i, c); // add c to vtbl->cnstr[i]
+  ptr_set2_add(vtbl->cnstr + i, &hash_desc, c); // add c to vtbl->cnstr[i]
   if (c->tag == APROJ_EQ) {
     vtbl->score[i].eq_count ++;
   } else {
@@ -506,9 +536,9 @@ static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_const
 
   assert(aproj_is_var_to_elim(vtbl, i));
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
-  assert(ptr_set_member(vtbl->cnstr[i], c)); // c must occur in cnstr[i]
+  assert(ptr_set2_member(vtbl->cnstr[i], &hash_desc, c)); // c must occur in cnstr[i]
 	 
-  ptr_set_remove(vtbl->cnstr + i, c);
+  ptr_set2_remove(vtbl->cnstr + i, &hash_desc, c);
   if (c->tag == APROJ_EQ) {
     assert(vtbl->score[i].eq_count > 0);
     vtbl->score[i].eq_count --;
@@ -753,7 +783,7 @@ static void cnstr_free_iterator(void *aux, void *p) {
 }
 
 static void free_constraints(arith_projector_t *proj) {
-  ptr_set_iterate(proj->constraints, NULL, cnstr_free_iterator);
+  ptr_set2_iterate(proj->constraints, NULL, cnstr_free_iterator);
 }
 
 /*
@@ -764,7 +794,7 @@ static void free_constraints(arith_projector_t *proj) {
 void reset_arith_projector(arith_projector_t *proj) {
   reset_aproj_vtbl(&proj->vtbl);
   free_constraints(proj);
-  free_ptr_set(proj->constraints);
+  free_ptr_set2(proj->constraints);
   proj->constraints = NULL;
   reset_poly_buffer(&proj->buffer);
   reset_poly_buffer(&proj->buffer2);
@@ -781,7 +811,7 @@ void reset_arith_projector(arith_projector_t *proj) {
 void delete_arith_projector(arith_projector_t *proj) {
   delete_aproj_vtbl(&proj->vtbl);
   free_constraints(proj);
-  free_ptr_set(proj->constraints);
+  free_ptr_set2(proj->constraints);
   proj->constraints = NULL;
   delete_poly_buffer(&proj->buffer);
   delete_poly_buffer(&proj->buffer2);
@@ -829,7 +859,7 @@ static void aproj_add_cnstr(arith_projector_t *proj, aproj_constraint_t *c) {
   uint32_t i, n;
   int32_t x;
 
-  ptr_set_add(&proj->constraints, c);
+  ptr_set2_add(&proj->constraints, &hash_desc, c);
 
   vtbl = &proj->vtbl;
   n = c->nterms;
@@ -847,7 +877,7 @@ static void aproj_remove_cnstr(arith_projector_t *proj, aproj_constraint_t *c) {
   uint32_t i, n;
   int32_t x;
 
-  ptr_set_remove(&proj->constraints, c);
+  ptr_set2_remove(&proj->constraints, &hash_desc, c);
 
   vtbl = &proj->vtbl;
   n = c->nterms;
@@ -1211,7 +1241,7 @@ static void aproj_remove_cnstr_var(arith_projector_t *proj, aproj_constraint_t *
   uint32_t i, n;
   int32_t x;
 
-  ptr_set_remove(&proj->constraints, c);
+  ptr_set2_remove(&proj->constraints, &hash_desc, c);
 
   vtbl = &proj->vtbl;
   n = c->nterms;
@@ -1231,7 +1261,7 @@ static void aproj_remove_cnstr_var(arith_projector_t *proj, aproj_constraint_t *
  *   of all variables, except i.
  */
 static void aproj_detach_all_constraints_on_var(arith_projector_t *proj, int32_t i) {
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c;
   uint32_t k, n;
 
@@ -1255,7 +1285,7 @@ static void aproj_detach_all_constraints_on_var(arith_projector_t *proj, int32_t
  * ELIMINATION OF TRIVIAL VARIABLES
  */
 static void aproj_remove_all_constraints_on_var(arith_projector_t *proj, int32_t i) {
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c;
   uint32_t k, n;
 
@@ -1272,7 +1302,7 @@ static void aproj_remove_all_constraints_on_var(arith_projector_t *proj, int32_t
       }
     }
 
-    free_ptr_set(set);
+    free_ptr_set2(set);
     aproj_cleanup_var_data(&proj->vtbl, i);
   }
 }
@@ -1344,7 +1374,7 @@ static void aproj_subst_constraint(arith_projector_t *proj, aproj_constraint_t *
  * - eq must not occur in proj->vtbl.cnstr[i]
  */
 static void aproj_substitute_eq(arith_projector_t *proj, aproj_constraint_t *eq, int32_t i) {
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c;
   uint32_t k, n;
 
@@ -1362,7 +1392,7 @@ static void aproj_substitute_eq(arith_projector_t *proj, aproj_constraint_t *eq,
   }
 
   // clean up: delete the set and reset the counters
-  free_ptr_set(set);
+  free_ptr_set2(set);
   aproj_cleanup_var_data(&proj->vtbl, i);
 }
 
@@ -1374,10 +1404,9 @@ static void aproj_substitute_eq(arith_projector_t *proj, aproj_constraint_t *eq,
  *   the returned constraint is removed form i's set and from proj->constraint)
  */
 static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c, *d;
   uint32_t k, n, size;
-
 
   assert(aproj_is_var_to_elim(&proj->vtbl, i) && proj->vtbl.score[i].eq_count > 0);
 
@@ -1392,6 +1421,7 @@ static aproj_constraint_t *aproj_pick_eq(arith_projector_t *proj, int32_t i) {
     d = set->data[k];
     if (live_ptr_elem(d) && d->tag == APROJ_EQ && d->nterms < size) {
       c = d;
+      size = d->nterms;
     }
   }
 
@@ -1475,7 +1505,7 @@ static void aproj_normalize_inequality(arith_projector_t *proj, aproj_constraint
  *
  */
 static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i) {
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c;
   uint32_t k, n;
 
@@ -1502,7 +1532,7 @@ static void aproj_prepare_inequalities_on_var(arith_projector_t *proj, int32_t i
 	 proj->neg_vector.size == proj->vtbl.score[i].neg_count);
 
   // cleanup
-  free_ptr_set(set);
+  free_ptr_set2(set);
   aproj_cleanup_var_data(&proj->vtbl, i);
 }
 
@@ -1888,52 +1918,24 @@ static term_t aproj_convert_constraint(arith_projector_t *proj, aproj_constraint
  *
  * So the set of constraints after in proj->constraint is equivalent to 
  * the conjunction of formulas added to v.
- *
- * To ensure determinism/reproducibility, we sort the constraints of
- * proj in increasing order of ids. We do this because the ptr_set
- * implementation (used for the set of constraints) is based on a hash
- * of the pointer values. In different runs, the pointers may differ
- * even though the constraints are the same. So, in different calls to
- * this function or in different executions, the same set of
- * constraints may be stored in different orders in proj->constraints.
  */
 
-// comparison function for sorting: c1 and c2  are two constraints
-static bool cmp_id(void *ignored, void *c1, void *c2) {
-  return ((aproj_constraint_t *) c1)-> id < ((aproj_constraint_t *) c2)->id;
-}
-
 void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v) {
-  pvector_t aux;
-  ptr_set_t *set;
+  ptr_set2_t *set;
   aproj_constraint_t *c;
   uint32_t i, n;
   term_t t;
 
   set = proj->constraints;
   if (set != NULL) {
-    // first pass: collect all constraints in vector aux  
-    init_pvector(&aux, 32);
     n = set->size;
     for (i=0; i<n; i++) {
       c = set->data[i];
       if (live_ptr_elem(c)) {
-	pvector_push(&aux, c);
+	t = aproj_convert_constraint(proj, c);
+	ivector_push(v, t);
       }
     }
-
-    // sort the vector aux
-    ptr_array_sort2(aux.data, aux.size, NULL, cmp_id);
-
-    // convert the constraints to terms
-    n = aux.size;
-    for (i=0; i<n; i++) {
-      c = aux.data[i];
-      t = aproj_convert_constraint(proj, c);
-      ivector_push(v, t);
-    }
-
-    delete_pvector(&aux);
   }
 }
 

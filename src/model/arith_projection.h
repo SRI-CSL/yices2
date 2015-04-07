@@ -87,7 +87,7 @@
 
 #include "utils/int_vectors.h"
 #include "utils/generic_heap.h"
-#include "utils/ptr_sets.h"
+#include "utils/ptr_sets2.h"
 #include "utils/ptr_vectors.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
@@ -188,7 +188,7 @@ typedef struct aproj_vtbl_s {
   rational_t *val;
 
   // additional data for the variables to eliminate
-  ptr_set_t **cnstr;
+  ptr_set2_t **cnstr;
   aproj_score_t *score;
 
   // heap
@@ -218,7 +218,7 @@ typedef struct arith_projector_s {
   term_table_t *terms;
   term_manager_t *manager;
   aproj_vtbl_t vtbl;
-  ptr_set_t *constraints;
+  ptr_set2_t *constraints;
   
   // counter for constraint ids
   uint32_t next_id;

@@ -243,6 +243,7 @@ base_src_c := \
 	utils/ptr_partitions.c \
 	utils/ptr_queues.c \
 	utils/ptr_sets.c \
+	utils/ptr_sets2.c \
 	utils/ptr_stack.c \
 	utils/ptr_vectors.c \
 	utils/refcount_int_arrays.c \

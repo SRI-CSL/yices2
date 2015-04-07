@@ -121,7 +121,6 @@ static const error_code_t all_codes[NUM_CODES] = {
   MDL_GEN_FAILED,
   OUTPUT_ERROR,
   INTERNAL_EXCEPTION,
-  0000
 };
 
 static const char* const all_names[NUM_CODES] = {
