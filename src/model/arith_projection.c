@@ -1919,7 +1919,6 @@ static term_t aproj_convert_constraint(arith_projector_t *proj, aproj_constraint
  * So the set of constraints after in proj->constraint is equivalent to 
  * the conjunction of formulas added to v.
  */
-
 void aproj_get_formula_vector(arith_projector_t *proj, ivector_t *v) {
   ptr_set2_t *set;
   aproj_constraint_t *c;
