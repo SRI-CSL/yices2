@@ -151,7 +151,6 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
 }
 
 
-
 /*
  * Generalization by projection: core procedure
  * - compute an implicant then project the implicant

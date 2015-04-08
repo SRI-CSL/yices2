@@ -512,10 +512,10 @@ static void proj_process_arith_literals(projector_t *proj) {
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
 #if TRACE
-  printf("--> input literal[%"PRIu32"]: \n", i);
-  print_term_full(stdout, terms, proj->arith_literals.data[i]);
-  printf("\n");
-  fflush(stdout);
+    printf("--> input literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
+    print_term_full(stdout, terms, proj->arith_literals.data[i]);
+    printf("\n");
+    fflush(stdout);
 #endif
     code = aproj_add_constraint(aproj, proj->arith_literals.data[i]);
     if (code < 0) {
@@ -534,7 +534,7 @@ static void proj_process_arith_literals(projector_t *proj) {
   printf("\n--> projection result:\n");
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
-    printf("--> output literal[%"PRIu32"]: \n", i);
+    printf("--> output literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
     print_term_full(stdout, terms, proj->arith_literals.data[i]);
     printf("\n");
   }
