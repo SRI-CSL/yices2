@@ -33,6 +33,10 @@
  *   2^rank[r] and all elements in the class are uninterpreted. It's
  *   possible to merge the class of r with another class.
  *
+ *   The table is a partial map. The domain is defined by the set of 
+ *   terms r such that type[r] != NULL_TYPE. If type[r] is NULL_TYPE
+ *   then r is considered to be a root.
+ *
  * - a non-root i must be an uninterpreted term index and map[i] is the
  *   parent of i in the union-find tree.
  *

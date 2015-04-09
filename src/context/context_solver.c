@@ -694,9 +694,11 @@ void context_build_model(model_t *model, context_t *ctx) {
   terms = ctx->terms;
   n = intern_tbl_num_terms(&ctx->intern);
   for (i=1; i<n; i++) { // first real term has index 1 (i.e. true_term)
-    t = pos_occ(i);
-    if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-      build_term_value(ctx, model, t);
+    if (good_term_idx(terms, i)) {
+      t = pos_occ(i);
+      if (term_kind(terms, t) == UNINTERPRETED_TERM) {
+	build_term_value(ctx, model, t);
+      }
     }
   }
 

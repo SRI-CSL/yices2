@@ -34,7 +34,12 @@
  *   that r is an uninterpreted term and is not mapped to any object
  *   yet (i.e., map[r] = NULL). The class of r has size >= 2^rank[r]
  *   and all elements in the class are uninterpreted. It's possible to
- *   merge the r's class with another class.
+ *   merge r's class with another class.
+ *
+ *   The table is a partial map. The domain is defined by the set of 
+ *   terms r such that type[r] != NULL_TYPE. If type[r] is NULL_TYPE,
+ *   then r is implicitly considered to be a root (cf. intern_tbl_is_root
+ *   and intern_tbl_get_root).
  *
  * - a non-root i must be an uninterpreted term index and map[i] is the
  *   parent of i in the union-find tree.
@@ -147,7 +152,7 @@ static inline uint32_t intern_tbl_num_terms(intern_tbl_t *tbl) {
  * Check whether t is in the table
  */
 static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
-  assert(good_term(tbl->terms, t));
+  assert(good_term(tbl->terms, t));  
   return ai32_read(&tbl->type, index_of(t)) != NULL_TYPE;
 }
 
