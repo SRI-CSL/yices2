@@ -20,21 +20,22 @@
  * include either gmp32.h or gmp64.h
  *
  * NOTE: This file is not expected/intended to work on other systems
- * than MacOS X. The tests (ULONG_MAX == UINT32_MAX) and (ULONG_MAX ==
- * UINT64_MAX) are not portable. They should work on MacOS X but they
- * do not work on Windows for example.
+ * than MacOS X. The tests (ULONG_MAX == 0xFFFFFFFFu) and (ULONG_MAX
+ * == 0xFFFFFFFFFFFFFFFFu) may not evaluate properly depending on the
+ * preprocessor. The C standard says that constant expressions in #if
+ * and #elif are evaluated as if all unsigned constants have type
+ * uintmax_t (defined in <stdint.h>).
  */
 
 #ifndef __GMP_HACK_H
 #define __GMP_HACK_H
 
-#include <stdint.h>
 #include <limits.h>
 
-#if (ULONG_MAX == UINT32_MAX)
+#if (ULONG_MAX == 0xFFFFFFFFu)
 // #warning "including 32bit '<gmp.h>'"
 #include <gmp32.h>
-#elif (ULONG_MAX == UINT64_MAX)
+#elif (ULONG_MAX == 0xFFFFFFFFFFFFFFFFu)
 // #warning "including 64bit '<gmp.h>'"
 #include <gmp64.h>
 #else
