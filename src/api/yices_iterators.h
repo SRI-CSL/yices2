@@ -12,12 +12,12 @@
 #ifndef __YICES_ITERATORS_H
 #define __YICES_ITERATORS_H
 
-#include "terms/balanced_arith_buffers.h"
-#include "terms/bvarith_buffers.h"
-#include "terms/bvarith64_buffers.h"
-#include "terms/bvlogic_buffers.h"
+#include "context/context_types.h"
 #include "model/models.h"
-#include "context/context.h"
+#include "terms/balanced_arith_buffers.h"
+#include "terms/bvarith64_buffers.h"
+#include "terms/bvarith_buffers.h"
+#include "terms/bvlogic_buffers.h"
 
 /*
  * Every iteration function takes an auxiliary pointer aux

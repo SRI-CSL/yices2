@@ -20,7 +20,7 @@
 
 #include <stdio.h>
 
-#include "context/context.h"
+#include "context/context_types.h"
 
 extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);

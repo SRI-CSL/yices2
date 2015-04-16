@@ -1,0 +1,505 @@
+/*
+ * The Yices SMT Solver. Copyright 2014 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+/*
+ * UTILITIES TO ACCESS CONTEXT STRUCTURES
+ */
+
+#ifndef __CONTEXT_UTILS_H
+#define __CONTEXT_UTILS_H
+
+#include "context/context_types.h"
+
+
+/*
+ * SUBST AND MARK VECTOR
+ */
+
+/*
+ * If variable elimination is enabled, then ctx->subst is used to
+ * store candidate substitutions before we check for substitution
+ * cycles. The mark vector is used to mark terms during cycle detection.
+ */
+
+/*
+ * Return ctx->subst. Allocate and initialize it if necessary.
+ */
+extern pseudo_subst_t *context_get_subst(context_t *ctx);
+
+/*
+ * Free ctx->subst (if it's not NULL)
+ */ 
+extern void context_free_subst(context_t *ctx);
+
+
+/*
+ * Return ctx->marks. Allocate and initialize it if necessary.
+ */
+extern mark_vector_t *context_get_marks(context_t *ctx);
+
+
+/*
+ * Free the mark vector if non-NULL
+ */ 
+extern void context_free_marks(context_t *ctx);
+
+
+/*
+ * INTERNAL CACHES AND AUXILIARY STRUCTURES
+ */
+
+/*
+ * There are two internal caches for visiting terms.
+ * - the 'cache' uses a bitvector implementation and should be
+ *   better for operations that visit many terms.
+ * - the 'small_cache' uses a hash table and should be better
+ *   for operations that visit a small number of terms.
+ *
+ * There are three buffers for internal construction of polynomials
+ * - arith_buffer is more expensive (requires more memory) but
+ *   it supports more operations (e.g., term constructors in yices_api.c
+ *   take arith_buffers as arguments).
+ * - poly_buffer is a cheaper data structure, but it does not support
+ *   all the operations
+ * - aux_poly is even cheaper, but it's for direct construction only
+ */
+
+/*
+ * Allocate/reset/free the small cache
+ * - the cache is allocated and initialized on the first call to get_small_cache
+ * - reset and free do nothing if the cache is not allocated
+ */
+extern int_hset_t *context_get_small_cache(context_t *ctx);
+extern void context_reset_small_cache(context_t *ctx);
+extern void context_free_small_cache(context_t *ctx);
+
+
+/*
+ * Allocate/free the cache
+ * - same conventions as for the small_cache
+ */
+extern int_bvset_t *context_get_cache(context_t *ctx);
+extern void context_free_cache(context_t *ctx);
+
+
+/*
+ * Buffers for polynomials
+ */
+extern rba_buffer_t *context_get_arith_buffer(context_t *ctx);
+extern void context_free_arith_buffer(context_t *ctx);
+
+extern poly_buffer_t *context_get_poly_buffer(context_t *ctx);
+extern void context_free_poly_buffer(context_t *ctx);
+extern void context_reset_poly_buffer(context_t *ctx);
+
+
+/*
+ * Allocate the auxiliary polynomial buffer and make it large enough
+ * for n monomials.
+ */
+extern polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n);
+
+/*
+ * Free the auxiliary polynomial
+ */
+extern void context_free_aux_poly(context_t *ctx);
+
+
+
+/*
+ * EQUALITY CACHE
+ */
+
+/*
+ * If lift-if is enabled then arithmetic equalities
+ *  (eq (ite c t1 t2) u) are rewritten to (ite c (eq t1 u) (eq t2 u))
+ * We don't create new terms (eq t1 u) or (eq t2 u). Instead, we store
+ * the internalization of equalities (eq t1 u) in the eq_cache:
+ * This cache maps pairs of terms <t, u> to a literal l (such that
+ * l is the internalization of (t == u)).
+ *
+ * The following functions operate on this cache: reset/free/push/pop
+ * do nothing if the cache does not exist.
+ */
+extern pmap2_t *context_get_eq_cache(context_t *ctx);
+extern void context_free_eq_cache(context_t *ctx);
+extern void context_eq_cache_push(context_t *ctx);
+extern void context_eq_cache_pop(context_t *ctx);
+
+static inline void context_reset_eq_cache(context_t *ctx) {
+  context_free_eq_cache(ctx);
+}
+
+
+/*
+ * Check what's mapped to (t1, t2) in the internal eq_cache.
+ * - return null_literal if nothing is mapped to (t1, t2) (or if the cache does not exit)
+ */
+extern literal_t find_in_eq_cache(context_t *ctx, term_t t1, term_t t2);
+
+
+/*
+ * Add the mapping (t1, t2) --> l to the equality cache.
+ * - allocate and initialize the cache if needed.
+ * - the pair (t1, t2) must not be in the cache already.
+ * - l must be different from null_literal
+ */
+extern void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l);
+
+
+/*
+ * AUXILIARY ATOMS
+ */
+
+/*
+ * Simplification procedrures can add equalities to the aux_eq vector
+ * or atoms to the aux_atom vector. These vectors can then be processed
+ * later by the internalization/flatteining procedures.
+ */
+
+/*
+ * Auxiliary equalities:
+ * - add a new equality (x == y) in the aux_eq vector.
+ * - this is useful for simplification procedures that are executed after
+ *   assertion flattening (e.g., symmetry breaking).
+ * - the auxiliary equalities can then be processed by process_aux_eqs
+ */
+extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
+
+
+/*
+ * Auxiliary atoms:
+ * - add atom a to the aux_atoms vector
+ * - the auxiliary atom can be processed later by process_aux_atoms
+ */
+extern void add_aux_atom(context_t *ctx, term_t atom);
+
+
+
+/*
+ * DIFFERENCE-LOGIC DATA
+ */
+
+/*
+ * Difference-logic profile:
+ * - allocate and initialize the structure if it does not exist
+ */
+extern dl_data_t *context_get_dl_profile(context_t *ctx);
+
+/*
+ * Free the profile record if it's not NULL
+ */
+extern void context_free_dl_profile(context_t *ctx);
+
+
+/*
+ * TESTS
+ */
+
+/*
+ * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
+ * in the internalization table.
+ * - t must be a root in the internalization table
+ */
+extern bool term_is_true(context_t *ctx, term_t t);
+extern bool term_is_false(context_t *ctx, term_t t);
+
+
+/*
+ * OPTIONS/SUPPORTED FEATURES
+ */
+
+/*
+ * Set or clear preprocessing options
+ */
+static inline void enable_variable_elimination(context_t *ctx) {
+  ctx->options |= VARELIM_OPTION_MASK;
+}
+
+static inline void disable_variable_elimination(context_t *ctx) {
+  ctx->options &= ~VARELIM_OPTION_MASK;
+}
+
+static inline void enable_or_flattening(context_t *ctx) {
+  ctx->options |= FLATTENOR_OPTION_MASK;
+}
+
+static inline void disable_or_flattening(context_t *ctx) {
+  ctx->options &= ~FLATTENOR_OPTION_MASK;
+}
+
+static inline void enable_diseq_and_or_flattening(context_t *ctx) {
+  ctx->options |= FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK;
+}
+
+static inline void disable_diseq_and_or_flattening(context_t *ctx) {
+  ctx->options &= ~(FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK);
+}
+
+static inline void enable_eq_abstraction(context_t *ctx) {
+  ctx->options |= EQABSTRACT_OPTION_MASK;
+}
+
+static inline void disable_eq_abstraction(context_t *ctx) {
+  ctx->options &= ~EQABSTRACT_OPTION_MASK;
+}
+
+static inline void enable_arith_elimination(context_t *ctx) {
+  ctx->options |= ARITHELIM_OPTION_MASK;
+}
+
+static inline void disable_arith_elimination(context_t *ctx) {
+  ctx->options &= ~ARITHELIM_OPTION_MASK;
+}
+
+static inline void enable_keep_ite(context_t *ctx) {
+  ctx->options |= KEEP_ITE_OPTION_MASK;
+}
+
+static inline void disable_keep_ite(context_t *ctx) {
+  ctx->options &= ~KEEP_ITE_OPTION_MASK;
+}
+
+static inline void enable_bvarith_elimination(context_t *ctx) {
+  ctx->options |= BVARITHELIM_OPTION_MASK;
+}
+
+static inline void disable_bvarith_elimination(context_t *ctx) {
+  ctx->options &= ~BVARITHELIM_OPTION_MASK;
+}
+
+static inline void enable_symmetry_breaking(context_t *ctx) {
+  ctx->options |= BREAKSYM_OPTION_MASK;
+}
+
+static inline void disable_symmetry_breaking(context_t *ctx) {
+  ctx->options &= ~BREAKSYM_OPTION_MASK;
+}
+
+static inline void enable_pseudo_inverse_simplification(context_t *ctx) {
+  ctx->options |= PSEUDO_INVERSE_OPTION_MASK;
+}
+
+static inline void disable_pseudo_inverse_simplification(context_t *ctx) {
+  ctx->options &= ~PSEUDO_INVERSE_OPTION_MASK;
+}
+
+static inline void enable_assert_ite_bounds(context_t *ctx) {
+  ctx->options |= ITE_BOUNDS_OPTION_MASK;
+}
+
+static inline void disable_assert_ite_bounds(context_t *ctx) {
+  ctx->options &= ~ITE_BOUNDS_OPTION_MASK;
+}
+
+static inline void enable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options |= CONDITIONAL_DEF_OPTION_MASK;
+}
+
+static inline void disable_cond_def_preprocessing(context_t *ctx) {
+  ctx->options &= ~CONDITIONAL_DEF_OPTION_MASK;
+}
+
+
+
+/*
+ * Check which options are enabled
+ */
+static inline bool context_var_elim_enabled(context_t *ctx) {
+  return (ctx->options & VARELIM_OPTION_MASK) != 0;
+}
+
+static inline bool context_flatten_or_enabled(context_t *ctx) {
+  return (ctx->options & FLATTENOR_OPTION_MASK) != 0;
+}
+
+static inline bool context_flatten_diseq_enabled(context_t *ctx) {
+  return (ctx->options & FLATTENDISEQ_OPTION_MASK) != 0;
+}
+
+static inline bool context_eq_abstraction_enabled(context_t *ctx) {
+  return (ctx->options & EQABSTRACT_OPTION_MASK) != 0;
+}
+
+static inline bool context_arith_elim_enabled(context_t *ctx) {
+  return (ctx->options & ARITHELIM_OPTION_MASK) != 0;
+}
+
+static inline bool context_keep_ite_enabled(context_t *ctx) {
+  return (ctx->options & KEEP_ITE_OPTION_MASK) != 0;
+}
+
+static inline bool context_bvarith_elim_enabled(context_t *ctx) {
+  return (ctx->options & BVARITHELIM_OPTION_MASK) != 0;
+}
+
+static inline bool context_breaksym_enabled(context_t *ctx) {
+  return (ctx->options & BREAKSYM_OPTION_MASK) != 0;
+}
+
+static inline bool context_pseudo_inverse_enabled(context_t *ctx) {
+  return (ctx->options & PSEUDO_INVERSE_OPTION_MASK) != 0;
+}
+
+static inline bool context_ite_bounds_enabled(context_t *ctx) {
+  return (ctx->options & ITE_BOUNDS_OPTION_MASK) != 0;
+}
+
+static inline bool context_cond_def_preprocessing_enabled(context_t *ctx) {
+  return (ctx->options & CONDITIONAL_DEF_OPTION_MASK) != 0;
+}
+
+static inline bool context_has_preprocess_options(context_t *ctx) {
+  return (ctx->options & PREPROCESSING_OPTIONS_MASK) != 0;
+}
+
+static inline bool context_dump_enabled(context_t *ctx) {
+  return (ctx->options & DUMP_OPTION_MASK) != 0;
+}
+
+static inline bool splx_eager_lemmas_enabled(context_t *ctx) {
+  return (ctx->options & SPLX_EGRLMAS_OPTION_MASK) != 0;
+}
+
+static inline bool splx_periodic_icheck_enabled(context_t *ctx) {
+  return (ctx->options & SPLX_ICHECK_OPTION_MASK) != 0;
+}
+
+static inline bool splx_eqprop_enabled(context_t *ctx) {
+  return (ctx->options & SPLX_EQPROP_OPTION_MASK) != 0;
+}
+
+
+/*
+ * Provisional: set/clear/test dump mode
+ */
+static inline void enable_dump(context_t *ctx) {
+  ctx->options |= DUMP_OPTION_MASK;
+}
+
+static inline void disable_dump(context_t *ctx) {
+  ctx->options &= ~DUMP_OPTION_MASK;
+}
+
+// Lax mode
+static inline void enable_lax_mode(context_t *ctx) {
+  ctx->options |= LAX_OPTION_MASK;
+}
+
+static inline void disable_lax_mode(context_t *ctx) {
+  ctx->options &= ~LAX_OPTION_MASK;
+}
+
+static inline bool context_in_strict_mode(context_t *ctx) {
+  return (ctx->options & LAX_OPTION_MASK) == 0;
+}
+
+
+/*
+ * Supported theories
+ */
+static inline bool context_allows_uf(context_t *ctx) {
+  return (ctx->theories & UF_MASK) != 0;
+}
+
+static inline bool context_allows_bv(context_t *ctx) {
+  return (ctx->theories & BV_MASK) != 0;
+}
+
+static inline bool context_allows_idl(context_t *ctx) {
+  return (ctx->theories & IDL_MASK) != 0;
+}
+
+static inline bool context_allows_rdl(context_t *ctx) {
+  return (ctx->theories & RDL_MASK) != 0;
+}
+
+static inline bool context_allows_lia(context_t *ctx) {
+  return (ctx->theories & LIA_MASK) != 0;
+}
+
+static inline bool context_allows_lra(context_t *ctx) {
+  return (ctx->theories & LRA_MASK) != 0;
+}
+
+static inline bool context_allows_lira(context_t *ctx) {
+  return (ctx->theories & LIRA_MASK) != 0;
+}
+
+static inline bool context_allows_nlarith(context_t *ctx) {
+  return (ctx->theories & NLIRA_MASK) != 0;
+}
+
+static inline bool context_allows_fun_updates(context_t *ctx) {
+  return (ctx->theories & FUN_UPDT_MASK) != 0;
+}
+
+static inline bool context_allows_extensionality(context_t *ctx) {
+  return (ctx->theories & FUN_EXT_MASK) != 0;
+}
+
+static inline bool context_allows_quantifiers(context_t *ctx) {
+  return (ctx->theories & QUANT_MASK) != 0;
+}
+
+
+/*
+ * Check which solvers are present
+ */
+static inline bool context_has_egraph(context_t *ctx) {
+  return ctx->egraph != NULL;
+}
+
+static inline bool context_has_arith_solver(context_t *ctx) {
+  return ctx->arith_solver != NULL;
+}
+
+static inline bool context_has_bv_solver(context_t *ctx) {
+  return ctx->bv_solver != NULL;
+}
+
+static inline bool context_has_fun_solver(context_t *ctx) {
+  return ctx->fun_solver != NULL;
+}
+
+
+
+/*
+ * Get the difference-logic profile record (only useful for contexts
+ * with architecture CTX_ARCH_AUTO_IDL or CTX_ARCH_AUTO_RDL).
+ */
+static inline dl_data_t *get_diff_logic_profile(context_t *ctx) {
+  return ctx->dl_profile;
+}
+
+
+/*
+ * Optional features
+ */
+static inline bool context_supports_multichecks(context_t *ctx) {
+  return (ctx->options & MULTICHECKS_OPTION_MASK) != 0;
+}
+
+static inline bool context_supports_pushpop(context_t *ctx) {
+  return (ctx->options & PUSHPOP_OPTION_MASK) != 0;
+}
+
+static inline bool context_supports_cleaninterrupt(context_t *ctx) {
+  return (ctx->options & CLEANINT_OPTION_MASK) != 0;
+}
+
+
+/*
+ * Read the mode flag
+ */
+static inline context_mode_t context_get_mode(context_t *ctx) {
+  return ctx->mode;
+}
+
+
+#endif /* __CONTEXT_UTILS_H */
+

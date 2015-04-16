@@ -73,7 +73,7 @@
 #include "solvers/floyd_warshall/dl_vartable.h"
 
 #include "solvers/cdcl/smt_core.h"
-#include "context/context.h"
+#include "context/context_types.h"
 
 
 /***********

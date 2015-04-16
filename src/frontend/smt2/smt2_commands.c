@@ -33,6 +33,7 @@
 #include "frontend/smt2/smt2_printer.h"
 #include "frontend/smt2/smt2_model_printer.h"
 #include "model/model_eval.h"
+#include "context/context.h"
 
 // for statistics
 #include "solvers/funs/fun_solver.h"
@@ -40,7 +41,6 @@
 #include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
-#include "context/context.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 

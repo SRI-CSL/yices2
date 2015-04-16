@@ -19,8 +19,10 @@
 #include <stdio.h>
 
 #include "context/context.h"
-#include "solvers/simplex/simplex.h"
+#include "context/internalization_codes.h"
+#include "model/models.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/simplex/simplex.h"
 
 
 

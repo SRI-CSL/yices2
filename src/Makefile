@@ -95,6 +95,7 @@ base_src_c := \
 	context/context_simplifier.c \
 	context/context_solver.c \
 	context/context_statistics.c \
+	context/context_utils.c \
 	context/eq_abstraction.c \
 	context/eq_learner.c \
 	context/internalization_table.c \

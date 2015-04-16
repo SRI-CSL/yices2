@@ -116,7 +116,7 @@
 
 #include "api/smt_logic_codes.h"
 #include "api/search_parameters.h"
-#include "context/context.h"
+#include "context/context_types.h"
 #include "io/tracer.h"
 #include "exists_forall/ef_problem.h"
 

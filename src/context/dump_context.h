@@ -14,7 +14,7 @@
 #define __DUMP_CONTEXT_H
 
 #include <stdio.h>
-#include "context/context.h"
+#include "context/context_types.h"
 
 /*
  * Print ctx into file f

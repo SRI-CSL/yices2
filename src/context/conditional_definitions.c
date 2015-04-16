@@ -11,13 +11,13 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/ptr_array_sort2.h"
-#include "terms/term_utils.h"
+#include "context/conditional_definitions.h"
+#include "context/context_utils.h"
 #include "terms/rba_buffer_terms.h"
 #include "terms/term_manager.h"
-
-#include "conditional_definitions.h"
+#include "terms/term_utils.h"
+#include "utils/memalloc.h"
+#include "utils/ptr_array_sort2.h"
 
 
 #define TRACE 0

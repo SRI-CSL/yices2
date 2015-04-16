@@ -20,9 +20,9 @@
 #ifndef __YICES_GLOBALS_H
 #define __YICES_GLOBALS_H
 
-#include "terms/term_manager.h"
 #include "parser_utils/term_stack2.h"
 #include "terms/free_var_collector.h"
+#include "terms/term_manager.h"
 
 typedef struct yices_globals_s {
   type_table_t *types;     // type table

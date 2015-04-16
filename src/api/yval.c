@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "api/yval.h"
+#include "utils/memalloc.h"
 
 
 /*

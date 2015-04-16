@@ -12,9 +12,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "io/term_printer.h"
-#include "context/internalization_printer.h"
 #include "context/context_printer.h"
+#include "context/internalization_printer.h"
+#include "io/term_printer.h"
 
 
 

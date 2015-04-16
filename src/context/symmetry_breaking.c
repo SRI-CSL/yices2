@@ -15,6 +15,8 @@
 #include "utils/int_array_sort.h"
 #include "utils/ptr_array_sort2.h"
 #include "utils/memalloc.h"
+#include "context/context_utils.h"
+#include "context/internalization_codes.h"
 #include "context/symmetry_breaking.h"
 
 #define TRACE 0

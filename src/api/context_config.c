@@ -12,9 +12,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/string_utils.h"
 #include "api/context_config.h"
-
+#include "utils/string_utils.h"
 
 
 /*

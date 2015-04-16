@@ -22,8 +22,7 @@
 #include "utils/csets.h"
 #include "terms/term_manager.h"
 
-#include "context/context.h"
-
+#include "context/context_types.h"
 
 
 /*

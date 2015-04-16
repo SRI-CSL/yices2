@@ -33,45 +33,45 @@
 #include <string.h>
 #include <errno.h>
 
-#include "utils/refcount_strings.h"
-#include "utils/string_utils.h"
-#include "utils/dl_lists.h"
-#include "utils/int_array_sort.h"
-#include "utils/sparse_arrays.h"
-
-#include "terms/bv64_constants.h"
-#include "terms/rba_buffer_terms.h"
-#include "terms/bvarith_buffer_terms.h"
-#include "terms/bvarith64_buffer_terms.h"
-#include "terms/types.h"
-#include "terms/term_manager.h"
-#include "terms/term_substitution.h"
-#include "terms/term_explorer.h"
-#include "terms/term_utils.h"
-
-#include "context/context.h"
-
-#include "model/models.h"
-#include "model/model_queries.h"
-#include "model/val_to_term.h"
-#include "model/map_to_model.h"
-#include "model/literal_collector.h"
-#include "model/generalization.h"
-
 #include "api/context_config.h"
 #include "api/search_parameters.h"
 #include "api/yices_error.h"
 #include "api/yices_extensions.h"
-#include "api/yices_iterators.h"
 #include "api/yices_globals.h"
+#include "api/yices_iterators.h"
 #include "api/yval.h"
 
-#include "io/type_printer.h"
-#include "io/term_printer.h"
-#include "io/model_printer.h"
-#include "io/yices_pp.h"
+#include "context/context.h"
 
 #include "frontend/yices/yices_parser.h"
+
+#include "io/model_printer.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "io/yices_pp.h"
+
+#include "model/generalization.h"
+#include "model/literal_collector.h"
+#include "model/map_to_model.h"
+#include "model/model_queries.h"
+#include "model/models.h"
+#include "model/val_to_term.h"
+
+#include "terms/bv64_constants.h"
+#include "terms/bvarith64_buffer_terms.h"
+#include "terms/bvarith_buffer_terms.h"
+#include "terms/rba_buffer_terms.h"
+#include "terms/term_explorer.h"
+#include "terms/term_manager.h"
+#include "terms/term_substitution.h"
+#include "terms/term_utils.h"
+#include "terms/types.h"
+
+#include "utils/dl_lists.h"
+#include "utils/int_array_sort.h"
+#include "utils/refcount_strings.h"
+#include "utils/sparse_arrays.h"
+#include "utils/string_utils.h"
 
 #include "yices.h"
 

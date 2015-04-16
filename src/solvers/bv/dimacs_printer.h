@@ -18,7 +18,7 @@
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/bv/remap_table.h"
 #include "solvers/bv/bvsolver_types.h"
-#include "context/context.h"
+#include "context/context_types.h"
 
 
 /*

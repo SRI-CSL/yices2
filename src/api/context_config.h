@@ -35,7 +35,7 @@
 #include <stdint.h>
 
 #include "api/smt_logic_codes.h"
-#include "context/context.h"
+#include "context/context_types.h"
 
 
 
@@ -52,7 +52,7 @@
  *    ARITH_NIA
  *    ARITH_NIRA
  *
- * The possible modes are defined in context.h:
+ * The possible modes are defined in context_types.h:
  *    CTX_MODE_ONECHECK
  *    CTX_MODE_MULTICHECKS
  *    CTX_MODE_PUSHPOP

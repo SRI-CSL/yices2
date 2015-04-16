@@ -17,6 +17,7 @@
 #include <inttypes.h>
 
 #include "context/conditional_definitions.h"
+#include "context/context_utils.h"
 #include "io/term_printer.h"
 #include "utils/int_array_sort.h"
 #include "yices.h"

@@ -13,13 +13,13 @@
 #include <inttypes.h>
 
 #include "context/context.h"
-#include "solvers/simplex/simplex.h"
+#include "context/context_statistics.h"
+#include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
-#include "solvers/bv/bvsolver.h"
+#include "solvers/simplex/simplex.h"
 
-#include "context/context_statistics.h"
 
 /*
  * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING

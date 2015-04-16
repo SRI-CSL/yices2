@@ -17,10 +17,10 @@
 #ifndef __YICES_EXTENSIONS_H
 #define __YICES_EXTENSIONS_H
 
-#include "utils/int_array_hsets.h"
-#include "terms/terms.h"
+#include "context/context_types.h"
 #include "terms/bvlogic_buffers.h"
-#include "context/context.h"
+#include "terms/terms.h"
+#include "utils/int_array_hsets.h"
 
 
 /*

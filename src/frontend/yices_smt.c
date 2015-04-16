@@ -30,7 +30,9 @@
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
+
 #include "context/context.h"
+#include "context/context_printer.h"
 
 #include "io/concrete_value_printer.h"
 #include "io/term_printer.h"
@@ -42,7 +44,6 @@
 #include "solvers/bv/bvsolver_printer.h"
 #include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
-#include "context/context_printer.h"
 
 #include "solvers/simplex/simplex.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"

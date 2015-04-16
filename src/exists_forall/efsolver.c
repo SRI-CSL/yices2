@@ -22,6 +22,7 @@
 #include "terms/term_substitution.h"
 #include "model/literal_collector.h"
 #include "model/projection.h"
+#include "context/context.h"
 
 #include "yices.h"
 

@@ -31,7 +31,7 @@
 
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph.h"
-#include "context/context.h"
+#include "context/context_types.h"
 
 
 

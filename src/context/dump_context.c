@@ -19,6 +19,8 @@
 #include "solvers/bv/bvsolver_printer.h"
 #include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
+#include "context/context.h"
+#include "context/context_utils.h"
 #include "context/context_printer.h"
 #include "context/dump_context.h"
 

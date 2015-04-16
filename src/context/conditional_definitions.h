@@ -36,13 +36,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "context/context_types.h"
 #include "utils/int_array_hsets.h"
 #include "utils/int_vectors.h"
-#include "utils/ptr_vectors.h"
 #include "utils/ptr_stack.h"
+#include "utils/ptr_vectors.h"
 #include "utils/simple_cache.h"
-
-#include "context/context.h"
 
 
 /*

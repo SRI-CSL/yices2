@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "memalloc.h"
+#include "utils/memalloc.h"
 
 /*
  * Descriptor: hash function + aux pointer

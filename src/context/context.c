@@ -9,16 +9,18 @@
  * ASSERTION CONTEXT
  */
 
-#include "utils/memalloc.h"
-#include "terms/term_utils.h"
-#include "terms/poly_buffer_terms.h"
-
 #include "context/context.h"
+#include "context/context_simplifier.h"
+#include "context/context_utils.h"
+#include "context/internalization_codes.h"
+#include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
-#include "solvers/simplex/simplex.h"
 #include "solvers/funs/fun_solver.h"
-#include "solvers/bv/bvsolver.h"
+#include "solvers/simplex/simplex.h"
+#include "terms/poly_buffer_terms.h"
+#include "terms/term_utils.h"
+#include "utils/memalloc.h"
 
 
 #define TRACE 0
@@ -3733,54 +3735,11 @@ static const uint32_t mode2options[NUM_MODES] = {
 
 
 
-/******************
- *  EMPTY SOLVER  *
- *****************/
+
 
 /*
- * We need an empty theory solver for initializing
- * the core if the architecture is NOSOLVERS.
+ * SIMPLEX OPTIONS
  */
-static void donothing(void *solver) {
-}
-
-static void null_backtrack(void *solver, uint32_t backlevel) {
-}
-
-static bool null_propagate(void *solver) {
-  return true;
-}
-
-static fcheck_code_t null_final_check(void *solver) {
-  return FCHECK_SAT;
-}
-
-static th_ctrl_interface_t null_ctrl = {
-  donothing,        // start_internalization
-  donothing,        // start_search
-  null_propagate,   // propagate
-  null_final_check, // final check
-  donothing,        // increase_decision_level
-  null_backtrack,   // backtrack
-  donothing,        // push
-  donothing,        // pop
-  donothing,        // reset
-  donothing,        // clear
-};
-
-
-// for the smt interface, nothing should be called since there are no atoms
-static th_smt_interface_t null_smt = {
-  NULL, NULL, NULL, NULL, NULL,
-};
-
-
-
-
-
-/*********************
- *  SIMPLEX OPTIONS  *
- ********************/
 
 /*
  * Which version of the arithmetic solver is present
@@ -3851,6 +3810,52 @@ void disable_splx_eqprop(context_t *ctx) {
     simplex_disable_eqprop(ctx->arith_solver);
   }
 }
+
+
+
+
+/******************
+ *  EMPTY SOLVER  *
+ *****************/
+
+/*
+ * We need an empty theory solver for initializing
+ * the core if the architecture is NOSOLVERS.
+ */
+static void donothing(void *solver) {
+}
+
+static void null_backtrack(void *solver, uint32_t backlevel) {
+}
+
+static bool null_propagate(void *solver) {
+  return true;
+}
+
+static fcheck_code_t null_final_check(void *solver) {
+  return FCHECK_SAT;
+}
+
+static th_ctrl_interface_t null_ctrl = {
+  donothing,        // start_internalization
+  donothing,        // start_search
+  null_propagate,   // propagate
+  null_final_check, // final check
+  donothing,        // increase_decision_level
+  null_backtrack,   // backtrack
+  donothing,        // push
+  donothing,        // pop
+  donothing,        // reset
+  donothing,        // clear
+};
+
+
+// for the smt interface, nothing should be called since there are no atoms
+static th_smt_interface_t null_smt = {
+  NULL, NULL, NULL, NULL, NULL,
+};
+
+
 
 
 

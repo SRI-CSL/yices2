@@ -19,9 +19,9 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "yices.h"
-#include "utils/memalloc.h"
 #include "api/yices_globals.h"
+#include "utils/memalloc.h"
+#include "yices.h"
 
 
 int32_t print_error(FILE *f) {

@@ -13,6 +13,7 @@
 #include <stdio.h>
 
 #include "io/term_printer.h"
+#include "context/internalization_codes.h"
 #include "solvers/bv/dimacs_printer.h"
 
 

@@ -12,11 +12,10 @@
 #include <float.h>
 #include <assert.h>
 
-#include "utils/string_utils.h"
-
-#include "solvers/simplex/simplex.h"
-#include "solvers/funs/fun_solver.h"
 #include "api/search_parameters.h"
+#include "solvers/funs/fun_solver.h"
+#include "solvers/simplex/simplex.h"
+#include "utils/string_utils.h"
 
 
 
