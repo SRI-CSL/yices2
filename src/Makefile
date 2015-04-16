@@ -329,7 +329,7 @@ bin_src_c := \
 #
 # Auto-generated version file
 #
-version_c := api/yices_version.c
+version_c := api/yices_$(YICES_MODE)_version.c
 
 #
 # All auto-generated files
@@ -729,11 +729,14 @@ frontend/smt2/smt2_hash_symbols.h: frontend/smt2/smt2_symbols.txt
 #
 # Object files
 #
+$(version_obj): $(version_c)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $(version_c) -o $(version_obj)
+
 $(objdir)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
 
-$(static_version_obj): api/yices_version.c
-	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c api/yices_version.c -o $(static_version_obj)
+$(static_version_obj): $(version_c)
+	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c $(version_c) -o $(static_version_obj)
 
 $(static_objdir)/%.o: %.c
 	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@

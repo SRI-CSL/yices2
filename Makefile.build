@@ -4,7 +4,7 @@
 #                                                                       #
 #  This program may only be used subject to the noncommercial end user  #
 #  license agreement which is downloadable along with this program.     #
-#########################################################################                
+#########################################################################
 
 
 #
@@ -226,7 +226,7 @@ static-bin: build_subdirs version
 # are copied into yices_version.c.
 #
 version:
-	$(MKVERSION) $(template) src/api/yices_version.c $(YICES_VERSION) $(YICES_MODE) $(ARCH)
+	$(MKVERSION) $(template) src/api/yices_$(YICES_MODE)_version.c $(YICES_VERSION) $(YICES_MODE) $(ARCH)
 
 .PHONY: version
 
