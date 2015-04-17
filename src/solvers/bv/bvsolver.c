@@ -3340,9 +3340,10 @@ static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_i
     if (bvconst_is_nonzero(b, k)) {
       if (bvconst_tst_bit(b, n-1)) {
         // negative divider
-        // b + 1 <= (bvserm x y) <= -(b+1)
+        // b + 1 <= (bvsrem x y) <= -(b+1)
         bvconst_set(intv->low, k, b);
         bvconst_add_one(intv->low, k);
+        bvconst_normalize(intv->low, n); // b+1 needs normalizing if b is -1
         bvconst_set(intv->high, k, intv->low);
         bvconst_negate(intv->high, k);
         bvconst_normalize(intv->high, n);
@@ -3351,6 +3352,7 @@ static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_i
         // -(b-1) <= (bvsrem x y) <= b-1
         bvconst_set(intv->high, k, b);
         bvconst_sub_one(intv->high, k);
+	assert(bvconst_is_normalized(intv->high, n));
         bvconst_set(intv->low, k, intv->high);
         bvconst_negate(intv->low, k);
         bvconst_normalize(intv->low, n);

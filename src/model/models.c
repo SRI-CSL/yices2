@@ -13,8 +13,8 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "utils/memalloc.h"
 #include "model/models.h"
+#include "utils/memalloc.h"
 
 
 /*
