@@ -29,6 +29,7 @@
 #define __EGRAPH_ASSERTION_QUEUES_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <limits.h>
 #include <assert.h>
 

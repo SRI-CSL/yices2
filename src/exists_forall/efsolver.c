@@ -17,12 +17,12 @@
 
 #include <inttypes.h>
 
-#include "utils/index_vectors.h"
+#include "context/context.h"
 #include "exists_forall/efsolver.h"
-#include "terms/term_substitution.h"
 #include "model/literal_collector.h"
 #include "model/projection.h"
-#include "context/context.h"
+#include "terms/term_substitution.h"
+#include "utils/index_vectors.h"
 
 #include "yices.h"
 

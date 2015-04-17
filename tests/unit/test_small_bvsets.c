@@ -8,8 +8,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "utils/bitvectors.h"
 #include "model/small_bvsets.h"
+#include "utils/bitvectors.h"
 
 #ifdef MINGW
 

@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "context/eq_abstraction.h"
+#include "utils/memalloc.h"
 
 
 /*

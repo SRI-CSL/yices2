@@ -12,9 +12,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "terms/term_utils.h"
-#include "yices.h"
 #include "api/yices_globals.h"
+#include "terms/term_utils.h"
+
+#include "yices.h"
 
 #define NUM_TERMS     5
 #define NUM_CONSTANTS 3

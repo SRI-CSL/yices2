@@ -11,8 +11,8 @@
 
 #include <string.h>
 
-#include "utils/memalloc.h"
 #include "frontend/smt2/parenthesized_expr.h"
+#include "utils/memalloc.h"
 
 
 /*

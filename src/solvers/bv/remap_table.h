@@ -16,9 +16,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "solvers/cdcl/smt_core.h"
 #include "utils/bitvectors.h"
 #include "utils/refcount_int_arrays.h"
-#include "solvers/cdcl/smt_core.h"
 
 
 /*

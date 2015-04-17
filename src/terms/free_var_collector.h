@@ -23,12 +23,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/ptr_hash_map.h"
-#include "utils/int_array_hsets.h"
-#include "utils/int_vectors.h"
-#include "utils/int_hash_sets.h"
-#include "utils/ptr_stack.h"
 #include "terms/terms.h"
+#include "utils/int_array_hsets.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_hash_map.h"
+#include "utils/ptr_stack.h"
 
 
 /*

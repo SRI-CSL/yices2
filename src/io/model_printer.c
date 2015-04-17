@@ -13,11 +13,10 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "utils/int_vectors.h"
-#include "model/model_eval.h"
 #include "io/concrete_value_printer.h"
 #include "io/model_printer.h"
-
+#include "model/model_eval.h"
+#include "utils/int_vectors.h"
 
 
 /*

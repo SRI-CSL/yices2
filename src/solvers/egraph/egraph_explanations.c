@@ -42,15 +42,14 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "solvers/egraph/composites.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_types.h"
+#include "solvers/egraph/egraph_utils.h"
+#include "solvers/egraph/theory_explanations.h"
 #include "utils/bit_tricks.h"
 #include "utils/int_vectors.h"
 #include "utils/memalloc.h"
-
-#include "solvers/egraph/egraph_types.h"
-#include "solvers/egraph/egraph_utils.h"
-#include "solvers/egraph/egraph.h"
-#include "solvers/egraph/composites.h"
-#include "solvers/egraph/theory_explanations.h"
 
 
 #if 0
@@ -58,8 +57,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "smt_core_printer.h"
-#include "egraph_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/egraph/egraph_printer.h"
 
 #endif
 

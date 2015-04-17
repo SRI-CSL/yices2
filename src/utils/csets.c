@@ -11,9 +11,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/bit_tricks.h"
 #include "utils/csets.h"
+#include "utils/memalloc.h"
 
 
 

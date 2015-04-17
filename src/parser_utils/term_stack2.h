@@ -53,10 +53,10 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "utils/arena.h"
-#include "terms/terms.h"
 #include "frontend/smt2/attribute_values.h"
 #include "terms/bvlogic_buffers.h"
+#include "terms/terms.h"
+#include "utils/arena.h"
 
 
 /*

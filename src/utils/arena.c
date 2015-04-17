@@ -13,8 +13,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
 #include "utils/arena.h"
+#include "utils/memalloc.h"
 
 
 #ifndef NDEBUG

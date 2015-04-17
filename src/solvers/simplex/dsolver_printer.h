@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "solvers/simplex/matrices.h"
 #include "solvers/simplex/diophantine_systems.h"
+#include "solvers/simplex/matrices.h"
 
 
 /*

@@ -15,9 +15,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "solvers/egraph/egraph_types.h"
 #include "solvers/egraph/composites.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "solvers/egraph/egraph_types.h"
 #include "utils/arena.h"
 
 

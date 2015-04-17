@@ -34,11 +34,11 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "model/concrete_values.h"
+#include "solvers/egraph/egraph_base_types.h"
+#include "terms/types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "terms/types.h"
-#include "solvers/egraph/egraph_base_types.h"
-#include "model/concrete_values.h"
 
 
 /*

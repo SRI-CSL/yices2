@@ -23,9 +23,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 #define TRACE 0

@@ -16,9 +16,9 @@
 #include <assert.h>
 #include <gmp.h>
 
-#include "utils/assert_utils.h"
-#include "terms/rationals.h"
 #include "terms/mpq_aux.h"
+#include "terms/rationals.h"
+#include "utils/assert_utils.h"
 
 #define MAX_NUMERATOR (INT32_MAX>>1)
 #define MIN_NUMERATOR (-MAX_NUMERATOR)

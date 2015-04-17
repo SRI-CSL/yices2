@@ -9,9 +9,8 @@
  * STACK OF DISEQUALITIES
  */
 
-
-#include "utils/memalloc.h"
 #include "solvers/egraph/diseq_stacks.h"
+#include "utils/memalloc.h"
 
 /*
  * Initialize the disequality stack

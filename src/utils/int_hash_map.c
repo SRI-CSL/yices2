@@ -13,8 +13,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/int_hash_map.h"
+#include "utils/memalloc.h"
 
 
 /*

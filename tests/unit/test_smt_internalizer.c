@@ -10,32 +10,27 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-
+#include "api/context_config.h"
 #include "api/smt_logic_codes.h"
+#include "api/yices_globals.h"
+#include "context/context.h"
+#include "context/context_printer.h"
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
-#include "context/context.h"
-#include "api/context_config.h"
-
 #include "io/term_printer.h"
 #include "io/type_printer.h"
+#include "solvers/bv/bvsolver.h"
+#include "solvers/bv/bvsolver_printer.h"
+#include "solvers/cdcl/gates_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/egraph/egraph_printer.h"
 #include "solvers/floyd_warshall/idl_fw_printer.h"
 #include "solvers/floyd_warshall/rdl_fw_printer.h"
 #include "solvers/simplex/simplex_printer.h"
-#include "solvers/bv/bvsolver_printer.h"
-#include "solvers/egraph/egraph_printer.h"
-#include "solvers/cdcl/smt_core_printer.h"
-#include "context/context_printer.h"
-#include "solvers/cdcl/gates_printer.h"
-
-// TEMPORARY: for bv_solver_bitblast
-#include "solvers/bv/bvsolver.h"
-
 #include "utils/command_line.h"
-#include "api/yices_globals.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
 

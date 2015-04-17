@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "utils/symbol_tables.h"
 #include "utils/refcount_strings.h"
+#include "utils/symbol_tables.h"
 
 #ifdef MINGW
 static inline long int random(void) {

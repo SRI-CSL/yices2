@@ -14,8 +14,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/generic_heap.h"
+#include "utils/memalloc.h"
 
 
 /*

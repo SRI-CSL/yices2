@@ -12,10 +12,10 @@
 #include <assert.h>
 #include <float.h>
 
-#include "utils/prng.h"
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
 #include "solvers/simplex/simplex_prop_table.h"
+#include "utils/index_vectors.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 /*

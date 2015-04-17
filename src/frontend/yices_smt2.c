@@ -23,13 +23,11 @@
 // EXPERIMENT
 #include <locale.h>
 
-#include "utils/command_line.h"
-
-
+#include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
 #include "frontend/smt2/smt2_term_stack.h"
-#include "frontend/smt2/smt2_commands.h"
+#include "utils/command_line.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"

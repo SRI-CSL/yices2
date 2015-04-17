@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/int_queues.h"
+#include "utils/memalloc.h"
 
 
 /*

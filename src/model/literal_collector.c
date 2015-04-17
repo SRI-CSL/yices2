@@ -41,8 +41,8 @@
 
 #include <stdbool.h>
 
-#include "utils/int_array_sort2.h"
 #include "model/literal_collector.h"
+#include "utils/int_array_sort2.h"
 
 
 /*

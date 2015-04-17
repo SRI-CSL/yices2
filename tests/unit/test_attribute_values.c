@@ -11,11 +11,11 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "terms/rationals.h"
-#include "terms/bv_constants.h"
-#include "terms/bv64_constants.h"
-#include "utils/memalloc.h"
 #include "frontend/smt2/attribute_values.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/rationals.h"
+#include "utils/memalloc.h"
 
 #ifdef MINGW
 static inline int random(void) {

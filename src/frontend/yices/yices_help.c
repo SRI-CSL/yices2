@@ -14,9 +14,8 @@
 #include <string.h>
 #include <assert.h>
 
-#include "utils/int_vectors.h"
 #include "frontend/yices/yices_help.h"
-
+#include "utils/int_vectors.h"
 
 
 /*

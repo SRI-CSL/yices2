@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "terms/bv_constants.h"
 #include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
 
 /*
  * Test shift a by b: both stored as 64bit integers

@@ -13,6 +13,7 @@
 #include <assert.h>
 
 #include "utils/memalloc.h"
+
 #include "yices_exit_codes.h"
 
 

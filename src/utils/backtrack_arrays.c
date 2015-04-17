@@ -13,8 +13,8 @@
 
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
 #include "utils/backtrack_arrays.h"
+#include "utils/memalloc.h"
 
 
 /*

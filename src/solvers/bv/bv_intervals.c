@@ -9,10 +9,8 @@
  * INTERVALS OF BIT-VECTOR VALUES
  */
 
-#include "utils/memalloc.h"
 #include "solvers/bv/bv_intervals.h"
-
-
+#include "utils/memalloc.h"
 
 /*
  * AUXILIARY BUFFERS

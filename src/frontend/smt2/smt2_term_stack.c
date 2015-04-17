@@ -17,14 +17,14 @@
 
 #include <string.h>
 
-#include "yices.h"
 #include "api/yices_extensions.h"
-
 #include "frontend/smt2/attribute_values.h"
-#include "parser_utils/tstack_internals.h"
+#include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_term_stack.h"
-#include "frontend/smt2/smt2_commands.h"
+#include "parser_utils/tstack_internals.h"
+
+#include "yices.h"
 
 
 /*

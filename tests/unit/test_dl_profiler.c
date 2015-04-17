@@ -11,18 +11,17 @@
 #include <inttypes.h>
 
 
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-
-#include "io/term_printer.h"
-#include "io/type_printer.h"
 #include "api/smt_logic_codes.h"
 #include "api/yices_globals.h"
+#include "context/context.h"
+#include "context/context_printer.h"
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
-#include "context/context.h"
-#include "context/context_printer.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"

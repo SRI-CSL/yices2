@@ -30,13 +30,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/egraph_base_types.h"
+#include "terms/rationals.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "solvers/cdcl/smt_core.h"
-#include "terms/rationals.h"
-#include "solvers/egraph/egraph_base_types.h"
 
 
 /*

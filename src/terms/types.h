@@ -53,12 +53,12 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/tagged_pointers.h"
-#include "utils/int_hash_tables.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_map2.h"
-#include "utils/tuple_hash_map.h"
+#include "utils/int_hash_tables.h"
 #include "utils/symbol_tables.h"
+#include "utils/tagged_pointers.h"
+#include "utils/tuple_hash_map.h"
 
 #include "yices_types.h"
 

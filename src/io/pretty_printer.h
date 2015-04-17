@@ -68,10 +68,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "utils/tagged_pointers.h"
-#include "utils/ptr_vectors.h"
-#include "utils/ptr_queues.h"
 #include "io/writer.h"
+#include "utils/ptr_queues.h"
+#include "utils/ptr_vectors.h"
+#include "utils/tagged_pointers.h"
 
 
 /*

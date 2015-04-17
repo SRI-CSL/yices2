@@ -9,8 +9,8 @@
  * SORT AN ARRAY OF POINTERS WITH USER-SUPPLIED ORDER
  */
 
-#include "utils/ptr_array_sort2.h"
 #include "utils/prng.h"
+#include "utils/ptr_array_sort2.h"
 
 static void qsort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp);
 

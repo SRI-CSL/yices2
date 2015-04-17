@@ -22,14 +22,15 @@
 
 #include <gmp.h>
 
-#include "yices.h"
-
 #include "api/yices_globals.h"
 #include "io/type_printer.h"
 #include "io/term_printer.h"
 #include "terms/rationals.h"
 #include "terms/bv64_constants.h"
 #include "terms/bv_constants.h"
+
+#include "yices.h"
+
 
 
 /*

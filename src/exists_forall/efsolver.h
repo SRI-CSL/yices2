@@ -112,14 +112,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "yices_types.h"
 
-#include "api/smt_logic_codes.h"
 #include "api/search_parameters.h"
+#include "api/smt_logic_codes.h"
 #include "context/context_types.h"
-#include "io/tracer.h"
 #include "exists_forall/ef_problem.h"
+#include "io/tracer.h"
 
+#include "yices_types.h"
 
 
 /*

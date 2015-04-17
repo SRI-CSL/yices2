@@ -42,8 +42,8 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
 #include "solvers/simplex/matrices.h"
+#include "utils/memalloc.h"
 
 
 

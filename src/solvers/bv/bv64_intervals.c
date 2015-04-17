@@ -9,8 +9,8 @@
  * INTERVALS FOR BIT-VECTOR VALUES
  */
 
-#include "terms/bv_constants.h"
 #include "solvers/bv/bv64_intervals.h"
+#include "terms/bv_constants.h"
 
 
 /*

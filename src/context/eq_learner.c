@@ -19,6 +19,7 @@
 #if TRACE
 
 #include <stdio.h>
+
 #include "io/term_printer.h"
 
 

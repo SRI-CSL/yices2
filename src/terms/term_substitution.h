@@ -28,12 +28,12 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "utils/int_vectors.h"
-#include "utils/int_stack.h"
-#include "utils/int_hash_map.h"
-#include "terms/subst_cache.h"
 #include "terms/renaming_context.h"
+#include "terms/subst_cache.h"
 #include "terms/term_manager.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_stack.h"
+#include "utils/int_vectors.h"
 
 
 /*

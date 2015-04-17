@@ -9,10 +9,10 @@
  * BUFFER FOR ARITHMETIC OPERATIONS USING RED-BLACK TREES
  */
 
-#include "utils/bit_tricks.h"
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "terms/balanced_arith_buffers.h"
+#include "utils/bit_tricks.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 /*

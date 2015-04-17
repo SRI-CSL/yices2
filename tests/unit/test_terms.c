@@ -17,15 +17,14 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "utils/refcount_strings.h"
-#include "terms/pprod_table.h"
-#include "terms/bv_constants.h"
-#include "terms/bv64_constants.h"
-#include "terms/types.h"
-#include "terms/terms.h"
-
 #include "io/term_printer.h"
 #include "io/type_printer.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/pprod_table.h"
+#include "terms/terms.h"
+#include "terms/types.h"
+#include "utils/refcount_strings.h"
 
 
 /*

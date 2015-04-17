@@ -13,8 +13,8 @@
 #ifndef __EQ_LEARNER_H
 #define __EQ_LEARNER_H
 
-#include "terms/terms.h"
 #include "context/eq_abstraction.h"
+#include "terms/terms.h"
 #include "utils/ptr_hash_map.h"
 
 

@@ -10,8 +10,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "solvers/cdcl/smt_core.h"
+#include "utils/memalloc.h"
 
 
 /*

@@ -33,14 +33,13 @@
 
 #include <stdint.h>
 
-#include "utils/int_vectors.h"
-#include "utils/int_hash_map.h"
-#include "utils/int_bv_sets.h"
+#include "solvers/bv/bv_vartable.h"
+#include "solvers/bv/bvpoly_dag.h"
 #include "solvers/bv/merge_table.h"
 #include "terms/bvpoly_buffers.h"
-#include "solvers/bv/bv_vartable.h"
-
-#include "solvers/bv/bvpoly_dag.h"
+#include "utils/int_bv_sets.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_vectors.h"
 
 
 /*

@@ -13,8 +13,8 @@
 #include <string.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/int_hash_sets.h"
+#include "utils/memalloc.h"
 
 /*
  * For debugging: check whether n is a power of two

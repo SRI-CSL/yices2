@@ -10,14 +10,14 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-#include "parser_utils/tstack_internals.h"
-
+#include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
 #include "frontend/smt2/smt2_term_stack.h"
-#include "frontend/smt2/smt2_commands.h"
+#include "parser_utils/tstack_internals.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
+
 #include "yices.h"
 #include "yices_exit_codes.h"
 

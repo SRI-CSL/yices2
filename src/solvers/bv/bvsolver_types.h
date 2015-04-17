@@ -34,27 +34,23 @@
 #include <stdint.h>
 #include <setjmp.h>
 
-#include "utils/int_vectors.h"
-#include "terms/bvpoly_buffers.h"
-#include "terms/power_products.h"
-#include "solvers/bv/remap_table.h"
+#include "context/context_types.h"
 #include "solvers/bv/bit_blaster.h"
-#include "solvers/bv/merge_table.h"
-#include "solvers/egraph/egraph_assertion_queues.h"
-#include "utils/cache.h"
-
-#include "solvers/bv/bv_vartable.h"
 #include "solvers/bv/bv_atomtable.h"
 #include "solvers/bv/bv_intervals.h"
+#include "solvers/bv/bv_vartable.h"
 #include "solvers/bv/bvconst_hmap.h"
 #include "solvers/bv/bvexp_table.h"
 #include "solvers/bv/bvpoly_compiler.h"
-
+#include "solvers/bv/merge_table.h"
+#include "solvers/bv/remap_table.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph.h"
-#include "context/context_types.h"
-
-
+#include "solvers/egraph/egraph_assertion_queues.h"
+#include "terms/bvpoly_buffers.h"
+#include "terms/power_products.h"
+#include "utils/cache.h"
+#include "utils/int_vectors.h"
 
 
 

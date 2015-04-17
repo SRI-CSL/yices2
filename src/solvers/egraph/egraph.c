@@ -14,18 +14,17 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "utils/bit_tricks.h"
-#include "utils/memalloc.h"
+#include "io/tracer.h"
+#include "solvers/egraph/composites.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_explanations.h"
+#include "solvers/egraph/egraph_utils.h"
 #include "solvers/egraph/theory_explanations.h"
-#include "utils/ptr_partitions.h"
+#include "utils/bit_tricks.h"
 #include "utils/hash_functions.h"
 #include "utils/index_vectors.h"
-#include "io/tracer.h"
-
-#include "solvers/egraph/composites.h"
-#include "solvers/egraph/egraph_utils.h"
-#include "solvers/egraph/egraph_explanations.h"
-#include "solvers/egraph/egraph.h"
+#include "utils/memalloc.h"
+#include "utils/ptr_partitions.h"
 
 
 #define TRACE 0

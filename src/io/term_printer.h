@@ -15,8 +15,8 @@
 #include <stdio.h>
 
 #include "io/yices_pp.h"
-#include "terms/terms.h"
 #include "terms/bvlogic_buffers.h"
+#include "terms/terms.h"
 
 
 /*

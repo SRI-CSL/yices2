@@ -14,9 +14,9 @@
 
 #include <stdint.h>
 
+#include "terms/power_products.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "terms/power_products.h"
 
 
 /*

@@ -11,9 +11,9 @@
 
 #include <assert.h>
 
+#include "terms/free_var_collector.h"
 #include "utils/int_array_sort.h"
 #include "utils/ptr_array_sort.h"
-#include "terms/free_var_collector.h"
 
 
 /*

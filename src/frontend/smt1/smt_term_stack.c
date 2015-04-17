@@ -18,10 +18,11 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "yices.h"
 #include "api/yices_extensions.h"
-#include "parser_utils/tstack_internals.h"
 #include "frontend/smt1/smt_term_stack.h"
+#include "parser_utils/tstack_internals.h"
+
+#include "yices.h"
 
 
 /*

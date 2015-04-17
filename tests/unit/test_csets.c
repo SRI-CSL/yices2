@@ -10,9 +10,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/int_array_sort.h"
 #include "utils/csets.h"
+#include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
 
 #ifdef MINGW
 static inline long int random(void) {

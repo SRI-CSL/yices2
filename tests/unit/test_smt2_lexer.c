@@ -12,8 +12,8 @@
 #include <assert.h>
 
 #include "frontend/smt2/smt2_lexer.h"
-#include "utils/command_line.h"
 #include "include/yices_exit_codes.h"
+#include "utils/command_line.h"
 
 static lexer_t lexer;
 

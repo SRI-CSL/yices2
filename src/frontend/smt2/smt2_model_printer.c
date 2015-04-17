@@ -14,10 +14,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "utils/int_vectors.h"
-#include "model/model_eval.h"
-#include "frontend/smt2/smt2_printer.h"
 #include "frontend/smt2/smt2_model_printer.h"
+#include "frontend/smt2/smt2_printer.h"
+#include "model/model_eval.h"
+#include "utils/int_vectors.h"
 
 
 /*

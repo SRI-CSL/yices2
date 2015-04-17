@@ -9,11 +9,10 @@
  * Hash table to store mapping from variables to bit-vector constants
  */
 
-#include "utils/memalloc.h"
+#include "solvers/bv/bvconst_hmap.h"
 #include "terms/bv64_constants.h"
 #include "terms/bv_constants.h"
-
-#include "solvers/bv/bvconst_hmap.h"
+#include "utils/memalloc.h"
 
 
 /*

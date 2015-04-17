@@ -10,11 +10,11 @@
  */
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/ptr_vectors.h"
-#include "utils/ptr_array_sort2.h"
-#include "terms/rba_buffer_terms.h"
 #include "model/arith_projection.h"
+#include "terms/rba_buffer_terms.h"
+#include "utils/memalloc.h"
+#include "utils/ptr_array_sort2.h"
+#include "utils/ptr_vectors.h"
 
 #define TRACE 0
 

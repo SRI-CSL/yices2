@@ -28,8 +28,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "utils/hash_functions.h"
 #include "terms/arith_buffers.h"
+#include "utils/hash_functions.h"
 
 
 

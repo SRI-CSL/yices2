@@ -9,9 +9,9 @@
  * TABLE OF ATOMS FOR THE BITVECTOR SOLVER
  */
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/bv/bv_atomtable.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 /*

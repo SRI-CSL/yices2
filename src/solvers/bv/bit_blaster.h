@@ -15,10 +15,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/int_vectors.h"
-#include "solvers/cdcl/gates_hash_table.h"
 #include "solvers/bv/remap_table.h"
+#include "solvers/cdcl/gates_hash_table.h"
 #include "solvers/cdcl/smt_core.h"
+#include "utils/int_vectors.h"
 
 
 

@@ -12,10 +12,10 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include "utils/memalloc.h"
 #include "io/term_printer.h"
-#include "io/type_printer.h"
 #include "io/tracer.h"
+#include "io/type_printer.h"
+#include "utils/memalloc.h"
 
 
 /*

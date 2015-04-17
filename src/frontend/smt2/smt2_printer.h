@@ -27,8 +27,8 @@
 
 #include <stdbool.h>
 
-#include "model/concrete_values.h"
 #include "io/yices_pp.h"
+#include "model/concrete_values.h"
 
 
 /*

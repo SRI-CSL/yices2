@@ -12,8 +12,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "model/fresh_value_maker.h"
+#include "utils/memalloc.h"
 
 
 /*

@@ -5,8 +5,8 @@
  * license agreement which is downloadable along with this program.
  */
 
-#include "utils/memalloc.h"
 #include "terms/term_sets.h"
+#include "utils/memalloc.h"
 
 
 /*

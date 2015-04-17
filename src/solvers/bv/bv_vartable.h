@@ -33,13 +33,12 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/refcount_int_arrays.h"
-#include "utils/int_hash_tables.h"
-#include "terms/bvpoly_buffers.h"
-#include "terms/power_products.h"
-
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph_base_types.h"
+#include "terms/bvpoly_buffers.h"
+#include "terms/power_products.h"
+#include "utils/int_hash_tables.h"
+#include "utils/refcount_int_arrays.h"
 
 
 

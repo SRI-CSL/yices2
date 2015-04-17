@@ -13,8 +13,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "smt_core_printer.h"
 #include "bool_vartable.h"
+#include "smt_core_printer.h"
 
 
 /*

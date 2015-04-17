@@ -14,6 +14,7 @@
 #include <inttypes.h>
 
 #include "api/context_config.h"
+
 #include "yices.h"
 
 

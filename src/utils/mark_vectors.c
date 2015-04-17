@@ -11,8 +11,8 @@
 
 #include <string.h>
 
-#include "utils/memalloc.h"
 #include "utils/mark_vectors.h"
+#include "utils/memalloc.h"
 
 
 /*

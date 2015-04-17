@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "terms/term_substitution.h"
+#include "utils/memalloc.h"
 
 /*
  * Check whether t is either a variable or an uninterpreted term

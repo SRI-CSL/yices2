@@ -22,8 +22,8 @@
 
 #endif
 
-#include "utils/memalloc.h"
 #include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 #include "utils/symbol_tables.h"
 
 

@@ -18,10 +18,10 @@
 #include <ctype.h>
 
 #include "terms/bv_constants.h"
-#include "utils/object_stores.h"
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "utils/bit_tricks.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "utils/object_stores.h"
 
 
 

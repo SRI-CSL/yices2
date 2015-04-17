@@ -12,11 +12,11 @@
 #include <setjmp.h>
 #include <inttypes.h>
 
+#include "frontend/smt2/smt2_commands.h"
+#include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parse_tables.h"
 #include "frontend/smt2/smt2_parser.h"
-#include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_term_stack.h"
-#include "frontend/smt2/smt2_commands.h"
 
 /*
  * Short cuts to save typing

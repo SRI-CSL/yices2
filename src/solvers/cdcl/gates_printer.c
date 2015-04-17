@@ -11,8 +11,8 @@
 
 #include <inttypes.h>
 
-#include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/cdcl/gates_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 
 static const char * const boolop2string[] = {

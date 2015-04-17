@@ -14,6 +14,7 @@
 #define __DUMP_CONTEXT_H
 
 #include <stdio.h>
+
 #include "context/context_types.h"
 
 /*

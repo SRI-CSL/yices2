@@ -84,9 +84,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "solvers/cdcl/smt_core_base_types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "solvers/cdcl/smt_core_base_types.h"
 
 
 /*

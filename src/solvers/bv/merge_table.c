@@ -9,8 +9,8 @@
  * MERGE TABLE: STORE EQUIVALENCE CLASSES OF VARIABLES
  */
 
-#include "utils/memalloc.h"
 #include "solvers/bv/merge_table.h"
+#include "utils/memalloc.h"
 
 
 /*

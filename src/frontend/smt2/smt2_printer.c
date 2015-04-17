@@ -11,8 +11,8 @@
 
 #include <inttypes.h>
 
-#include "io/type_printer.h"
 #include "frontend/smt2/smt2_printer.h"
+#include "io/type_printer.h"
 
 
 /*

@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/int_stack.h"
+#include "utils/memalloc.h"
 
 /*
  * Allocate and initialize a block of size n

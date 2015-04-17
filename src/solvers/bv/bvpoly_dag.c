@@ -11,15 +11,14 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/bit_tricks.h"
+#include "solvers/bv/bvpoly_dag.h"
 #include "terms/bv64_constants.h"
-#include "utils/index_vectors.h"
+#include "utils/bit_tricks.h"
 #include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
 #include "utils/int_array_sort.h"
 #include "utils/int_array_sort2.h"
-
-#include "solvers/bv/bvpoly_dag.h"
+#include "utils/memalloc.h"
 
 
 

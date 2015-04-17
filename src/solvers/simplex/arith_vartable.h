@@ -42,16 +42,13 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/int_hash_tables.h"
-#include "utils/index_vectors.h"
-#include "utils/bitvectors.h"
-
-#include "terms/power_products.h"
-#include "terms/polynomials.h"
 #include "solvers/egraph/egraph_base_types.h"
 #include "terms/extended_rationals.h"
-
-
+#include "terms/polynomials.h"
+#include "terms/power_products.h"
+#include "utils/bitvectors.h"
+#include "utils/index_vectors.h"
+#include "utils/int_hash_tables.h"
 
 
 /********************

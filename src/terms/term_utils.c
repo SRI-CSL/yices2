@@ -12,32 +12,13 @@
 
 #include <assert.h>
 
+#include "terms/bv64_constants.h"
+#include "terms/term_utils.h"
+#include "utils/int_array_sort.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_vectors.h"
 #include "utils/memalloc.h"
 #include "utils/prng.h"
-#include "terms/bv64_constants.h"
-#include "utils/int_array_sort.h"
-#include "utils/int_vectors.h"
-#include "utils/int_hash_sets.h"
-#include "terms/term_utils.h"
-
-#if 0
-
-#include <stdio.h>
-#include <inttypes.h>
-#include "term_printer.h"
-
-static void print_finite_domain(FILE *f, term_table_t *tbl, finite_domain_t *d) {
-  uint32_t i, n;
-
-  n = d->nelems;
-  fputs("[", f);
-  for (i=0; i<n; i++) {
-    if (i > 0) fputs(" ", f);
-    print_term(f, tbl, d->data[i]);
-  }
-  fputs("]", f);
-}
-#endif
 
 #if 0
 

@@ -22,17 +22,17 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include "utils/int_vectors.h"
-#include "utils/object_stores.h"
 #include "utils/int_bv_sets.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
+#include "utils/int_vectors.h"
+#include "utils/object_stores.h"
 
-#include "terms/bv_constants.h"
-#include "terms/power_products.h"
 #include "terms/bv64_polynomials.h"
+#include "terms/bv_constants.h"
 #include "terms/bv_polynomials.h"
 #include "terms/bvpoly_buffers.h"
+#include "terms/power_products.h"
 
 
 /*

@@ -15,14 +15,13 @@
 #include <stdint.h>
 #include <setjmp.h>
 
-#include "utils/int_vectors.h"
-#include "utils/int_queues.h"
-#include "utils/int_hash_sets.h"
-#include "utils/int_stack.h"
-#include "utils/csets.h"
-#include "terms/term_manager.h"
-
 #include "context/context_types.h"
+#include "terms/term_manager.h"
+#include "utils/csets.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_queues.h"
+#include "utils/int_stack.h"
+#include "utils/int_vectors.h"
 
 
 /*

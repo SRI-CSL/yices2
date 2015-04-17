@@ -14,9 +14,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 #ifndef NDEBUG

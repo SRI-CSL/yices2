@@ -24,9 +24,9 @@
  * - a vector of atoms indices (all the atoms whose variable is v)
  */
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/simplex/arith_vartable.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 

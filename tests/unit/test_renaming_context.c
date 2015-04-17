@@ -14,10 +14,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "terms/types.h"
 #include "terms/pprod_table.h"
-#include "terms/terms.h"
 #include "terms/renaming_context.h"
+#include "terms/terms.h"
+#include "terms/types.h"
 
 
 /*

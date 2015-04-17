@@ -64,11 +64,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "terms/rationals.h"
 #include "terms/polynomials.h"
-#include "utils/object_stores.h"
-#include "utils/generic_heap.h"
+#include "terms/rationals.h"
 #include "utils/bitvectors.h"
+#include "utils/generic_heap.h"
+#include "utils/object_stores.h"
 
 
 /*

@@ -13,8 +13,8 @@
 #include <stdint.h>
 #include <gmp.h>
 
-#include "terms/rationals.h"
 #include "io/yices_pp.h"
+#include "terms/rationals.h"
 
 // pretty printer
 static yices_pp_t printer;

@@ -14,8 +14,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "solvers/bv/remap_table.h"
+#include "utils/memalloc.h"
 
 
 #ifdef MINGW

@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "utils/memalloc.h"
 #include "utils/object_stores.h"

@@ -12,15 +12,15 @@
 #ifndef __SAT_SOLVER_H
 #define __SAT_SOLVER_H
 
-
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
-#include "utils/tag_map.h"
 #include "utils/stable_sort.h"
+#include "utils/tag_map.h"
 
 
 /************************************

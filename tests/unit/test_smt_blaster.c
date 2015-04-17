@@ -14,22 +14,17 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-
 #include "api/smt_logic_codes.h"
+#include "api/yices_globals.h"
+#include "context/context.h"
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
-#include "context/context.h"
-
-#include "solvers/bv/dimacs_printer.h"
-
-// TEMPORARY: for bv_solver_bitblast
 #include "solvers/bv/bvsolver.h"
-
-#include "api/yices_globals.h"
+#include "solvers/bv/dimacs_printer.h"
 #include "utils/command_line.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
 

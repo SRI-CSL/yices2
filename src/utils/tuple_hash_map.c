@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 #include "utils/tuple_hash_map.h"
 
 

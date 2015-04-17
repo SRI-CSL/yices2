@@ -21,7 +21,6 @@
 #include "utils/memalloc.h"
 
 
-
 /*
  * Stack operations
  */

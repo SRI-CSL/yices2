@@ -28,8 +28,8 @@
 
 #include <stdint.h>
 
-#include "terms/terms.h"
 #include "model/concrete_values.h"
+#include "terms/terms.h"
 #include "utils/int_hash_map.h"
 
 #include "yices_types.h"

@@ -13,6 +13,7 @@
 #define __SMT2_PARSER_H
 
 #include <stdio.h>
+
 #include "parser_utils/parser.h"
 
 /*

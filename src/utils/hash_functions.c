@@ -6,6 +6,8 @@
  */
 
 #include <string.h>
+#include <stddef.h>
+
 #include "utils/hash_functions.h"
 
 /*

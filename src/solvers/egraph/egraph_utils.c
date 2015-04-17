@@ -9,8 +9,8 @@
  * UTILITIES: ACCESS TO INTERNAL EGRAPH STRUCTURES
  */
 
-#include "utils/int_hash_map.h"
 #include "solvers/egraph/egraph_utils.h"
+#include "utils/int_hash_map.h"
 
 /*
  * Allocate and initialize the internal imap

@@ -11,9 +11,9 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
-#include "model/arith_projection.h"
 #include "api/yices_globals.h"
+#include "model/arith_projection.h"
+#include "utils/memalloc.h"
 #include "yices.h"
 
 #ifdef MINGW

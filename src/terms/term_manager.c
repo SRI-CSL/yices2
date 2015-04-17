@@ -12,19 +12,18 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "terms/bit_term_conversion.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/bvarith64_buffer_terms.h"
+#include "terms/bvarith_buffer_terms.h"
+#include "terms/rba_buffer_terms.h"
+#include "terms/term_manager.h"
+#include "terms/term_utils.h"
+#include "utils/bit_tricks.h"
 #include "utils/int_array_sort.h"
 #include "utils/int_vectors.h"
 #include "utils/memalloc.h"
-#include "utils/bit_tricks.h"
-#include "terms/rba_buffer_terms.h"
-#include "terms/bvarith_buffer_terms.h"
-#include "terms/bvarith64_buffer_terms.h"
-#include "terms/bv64_constants.h"
-#include "terms/bv_constants.h"
-#include "terms/bit_term_conversion.h"
-#include "terms/term_utils.h"
-
-#include "terms/term_manager.h"
 
 
 

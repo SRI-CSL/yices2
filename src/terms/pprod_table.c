@@ -11,9 +11,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "terms/pprod_table.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 

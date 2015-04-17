@@ -21,9 +21,9 @@
 #ifndef __GATES_MANAGER_H
 #define __GATES_MANAGER_H
 
-#include "utils/int_vectors.h"
-#include "solvers/cdcl/smt_core.h"
 #include "solvers/cdcl/gates_hash_table.h"
+#include "solvers/cdcl/smt_core.h"
+#include "utils/int_vectors.h"
 
 
 /*

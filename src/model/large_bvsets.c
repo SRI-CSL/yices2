@@ -15,10 +15,10 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
-#include "utils/prng.h"
 #include "model/large_bvsets.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 /*
  * Initialize a large set for bitsize n

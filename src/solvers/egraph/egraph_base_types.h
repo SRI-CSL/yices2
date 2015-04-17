@@ -14,6 +14,9 @@
 #ifndef __EGRAPH_BASE_TYPES_H
 #define __EGRAPH_BASE_TYPES_H
 
+#include <stdint.h>
+#include <stddef.h>
+
 #include "solvers/cdcl/smt_core_base_types.h"
 
 

@@ -20,15 +20,14 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "utils/refcount_strings.h"
+#include "api/yices_extensions.h"
+#include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parse_tables.h"
 #include "frontend/smt1/smt_parser.h"
-#include "frontend/smt1/smt_lexer.h"
-
 #include "parser_utils/term_stack_error.h"
+#include "utils/refcount_strings.h"
 
 #include "yices.h"
-#include "api/yices_extensions.h"
 
 
 /*

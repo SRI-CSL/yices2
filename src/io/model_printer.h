@@ -24,9 +24,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "terms/terms.h"
-#include "model/models.h"
 #include "io/yices_pp.h"
+#include "model/models.h"
+#include "terms/terms.h"
 
 
 /*

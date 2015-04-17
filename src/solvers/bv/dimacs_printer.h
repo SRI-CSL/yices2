@@ -15,10 +15,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "solvers/cdcl/smt_core.h"
-#include "solvers/bv/remap_table.h"
-#include "solvers/bv/bvsolver_types.h"
 #include "context/context_types.h"
+#include "solvers/bv/bvsolver_types.h"
+#include "solvers/bv/remap_table.h"
+#include "solvers/cdcl/smt_core.h"
 
 
 /*

@@ -27,8 +27,8 @@
  */
 
 #include "terms/bv64_constants.h"
-#include "utils/hash_functions.h"
 #include "terms/bvarith64_buffers.h"
+#include "utils/hash_functions.h"
 
 
 

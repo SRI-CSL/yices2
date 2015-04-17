@@ -13,10 +13,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "terms/types.h"
 #include "model/abstract_values.h"
 #include "model/fun_maps.h"
 #include "model/fun_trees.h"
+#include "terms/types.h"
 
 static type_table_t types;
 static pstore_t store;

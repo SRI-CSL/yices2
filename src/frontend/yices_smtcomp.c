@@ -22,14 +22,14 @@
 #include <inttypes.h>
 #include <gmp.h>
 
+#include "api/context_config.h"
+#include "api/smt_logic_codes.h"
+#include "api/yices_globals.h"
+#include "context/context.h"
 #include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_parser.h"
 #include "frontend/smt1/smt_term_stack.h"
-#include "context/context.h"
-#include "api/smt_logic_codes.h"
-#include "api/context_config.h"
 
-#include "api/yices_globals.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
 
@@ -51,24 +51,24 @@
 #define CHECK_MODEL 0
 
 #if COMMAND_LINE_OPTIONS
-#include "utils/timeout.h"
 #include "io/model_printer.h"
 #include "utils/command_line.h"
+#include "utils/timeout.h"
 #if CHECK_MODEL
-#include "model/model_eval.h"
 #include "io/term_printer.h"
+#include "model/model_eval.h"
 #endif
 #endif
 
 #if SHOW_STATISTICS || COMMAND_LINE_OPTIONS
+#include "solvers/simplex/simplex.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
-#include "solvers/simplex/simplex.h"
 #endif
 
 #if SHOW_STATISTICS
-#include "solvers/funs/fun_solver.h"
 #include "solvers/bv/bvsolver.h"
+#include "solvers/funs/fun_solver.h"
 #endif
 
 

@@ -12,9 +12,9 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
 #include "utils/hash_functions.h"
 #include "utils/int_array_hsets.h"
+#include "utils/memalloc.h"
 
 
 

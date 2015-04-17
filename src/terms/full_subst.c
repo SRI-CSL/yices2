@@ -9,8 +9,8 @@
  * FULL SUBSTITUTION
  */
 
-#include "terms/term_substitution.h"
 #include "terms/full_subst.h"
+#include "terms/term_substitution.h"
 
 /*
  * Marks for cycle detection

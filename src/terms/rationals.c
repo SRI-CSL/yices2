@@ -16,7 +16,6 @@
  * gmp rationals (mpq_t).
  */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -27,9 +26,9 @@
 #include <errno.h>
 #include <gmp.h>
 
-#include "utils/memalloc.h"
 #include "terms/rationals.h"
 #include "utils/gcd.h"
+#include "utils/memalloc.h"
 
 
 

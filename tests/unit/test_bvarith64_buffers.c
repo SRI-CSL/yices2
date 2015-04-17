@@ -11,10 +11,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "utils/object_stores.h"
-#include "terms/pprod_table.h"
 #include "terms/bv64_constants.h"
 #include "terms/bvarith64_buffers.h"
+#include "terms/pprod_table.h"
+#include "utils/object_stores.h"
 
 /*
  * Display power products

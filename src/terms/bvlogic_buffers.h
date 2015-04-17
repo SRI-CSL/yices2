@@ -36,8 +36,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "terms/bv_constants.h"
 #include "terms/bit_expr.h"
+#include "terms/bv_constants.h"
 #include "terms/terms.h"
 
 

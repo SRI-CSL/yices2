@@ -12,8 +12,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "io/term_printer.h"
 #include "context/internalization_codes.h"
+#include "io/term_printer.h"
 #include "solvers/bv/dimacs_printer.h"
 
 

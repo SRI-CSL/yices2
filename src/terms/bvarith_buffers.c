@@ -28,6 +28,7 @@
 
 #include "terms/bvarith_buffers.h"
 #include "utils/hash_functions.h"
+
 #include "yices_limits.h"
 
 

@@ -12,12 +12,12 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "utils/prng.h"
-#include "utils/memalloc.h"
-#include "terms/bv_constants.h"
 #include "terms/bv64_constants.h"
-#include "utils/hash_functions.h"
+#include "terms/bv_constants.h"
 #include "terms/bvpoly_buffers.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 /***********************

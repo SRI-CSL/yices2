@@ -16,10 +16,10 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/prng.h"
 #include "model/fun_maps.h"
 #include "utils/int_powers.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 /************************

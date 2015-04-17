@@ -22,9 +22,9 @@
 
 #include <assert.h>
 
-#include "utils/prng.h"
-#include "utils/hash_functions.h"
 #include "terms/polynomials.h"
+#include "utils/hash_functions.h"
+#include "utils/prng.h"
 
 
 /*********************

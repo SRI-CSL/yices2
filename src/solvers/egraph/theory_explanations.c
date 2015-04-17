@@ -12,10 +12,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/int_array_sort.h"
-#include "utils/prng.h"
 #include "solvers/egraph/theory_explanations.h"
+#include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 /*

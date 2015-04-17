@@ -9,10 +9,10 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
-#include "terms/bv_constants.h"
 #include "terms/bit_expr.h"
+#include "terms/bv_constants.h"
 #include "terms/bvlogic_buffers.h"
+#include "utils/memalloc.h"
 
 
 

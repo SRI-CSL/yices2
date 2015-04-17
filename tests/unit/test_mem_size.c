@@ -11,8 +11,8 @@
 
 #include <stdio.h>
 
-#include "utils/memsize.h"
 #include "utils/memalloc.h"
+#include "utils/memsize.h"
 
 int main() {
   double size;

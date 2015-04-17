@@ -27,9 +27,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/int_vectors.h"
 #include "utils/int_array_hsets.h"
 #include "utils/int_bv_sets.h"
+#include "utils/int_vectors.h"
 
 
 /*

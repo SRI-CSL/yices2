@@ -15,14 +15,13 @@
 
 #include "utils/int_vectors.h"
 #include "utils/string_buffers.h"
-
-#include "include/yices.h"
 #include "api/yices_globals.h"
-#include "io/yices_pp.h"
-#include "io/type_printer.h"
-#include "io/term_printer.h"
-
 #include "context/internalization_table.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "io/yices_pp.h"
+
+#include "yices.h"
 
 #ifdef MINGW
 static inline long int random(void) {

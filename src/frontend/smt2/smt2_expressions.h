@@ -21,9 +21,9 @@
 
 #include <stdint.h>
 
+#include "frontend/smt2/parenthesized_expr.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "io/yices_pp.h"
-#include "frontend/smt2/parenthesized_expr.h"
 
 
 /*

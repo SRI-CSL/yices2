@@ -10,13 +10,12 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
-#include "utils/int_partitions.h"
-#include "utils/index_vectors.h"
-#include "utils/int_vectors.h"
-
 #include "solvers/simplex/offset_equalities.h"
+#include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
+#include "utils/int_partitions.h"
+#include "utils/int_vectors.h"
+#include "utils/memalloc.h"
 
 
 

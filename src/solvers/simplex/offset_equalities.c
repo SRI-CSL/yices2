@@ -12,9 +12,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
 #include "solvers/simplex/offset_equalities.h"
+#include "utils/index_vectors.h"
+#include "utils/memalloc.h"
 
 
 /*

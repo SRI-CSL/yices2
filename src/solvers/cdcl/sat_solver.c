@@ -17,16 +17,14 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
-#include "utils/int_array_sort.h"
-#include "utils/prng.h"
-
-#include "solvers/cdcl/sat_solver.h"
 #include "solvers/cdcl/sat_parameters.h"
+#include "solvers/cdcl/sat_solver.h"
+#include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 #define DEBUG 0
 #define TRACE 0
-
 
 
 /*

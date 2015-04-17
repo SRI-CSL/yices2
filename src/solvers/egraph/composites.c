@@ -8,10 +8,11 @@
 /*
  * Operations on composite objects
  */
+#include <stddef.h>
 
-#include "utils/memalloc.h"
 #include "solvers/egraph/composites.h"
 #include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
 
 
 

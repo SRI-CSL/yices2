@@ -9,12 +9,11 @@
  * VARIABLE TABLE FOR BITVECTOR SOLVER
  */
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
+#include "solvers/bv/bv_vartable.h"
 #include "terms/bv64_constants.h"
 #include "terms/bv_constants.h"
-
-#include "solvers/bv/bv_vartable.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 /*

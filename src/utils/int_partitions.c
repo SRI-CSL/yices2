@@ -13,9 +13,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/index_vectors.h"
 #include "utils/int_partitions.h"
+#include "utils/memalloc.h"
 
 
 /*

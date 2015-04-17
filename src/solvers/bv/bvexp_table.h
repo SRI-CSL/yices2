@@ -17,10 +17,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "terms/bvarith_buffers.h"
-#include "terms/bvarith64_buffers.h"
-#include "utils/int_hash_tables.h"
 #include "solvers/bv/bv_vartable.h"
+#include "terms/bvarith64_buffers.h"
+#include "terms/bvarith_buffers.h"
+#include "utils/int_hash_tables.h"
 
 
 /*

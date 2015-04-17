@@ -15,8 +15,8 @@
 
 #include <gmp.h>
 
-#include "terms/bv_constants.h"
 #include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
 
 
 /*

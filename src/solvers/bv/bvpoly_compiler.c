@@ -12,9 +12,9 @@
 
 #include <assert.h>
 
-#include "utils/bit_tricks.h"
-#include "terms/bv64_constants.h"
 #include "solvers/bv/bvpoly_compiler.h"
+#include "terms/bv64_constants.h"
+#include "utils/bit_tricks.h"
 
 
 #define TRACE 0

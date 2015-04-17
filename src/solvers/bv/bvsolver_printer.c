@@ -11,14 +11,14 @@
 
 #include <inttypes.h>
 
+#include "solvers/bv/bvsolver.h"
+#include "solvers/bv/bvsolver_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/egraph/egraph_printer.h"
 #include "terms/bv64_constants.h"
 #include "terms/bv_constants.h"
 #include "utils/index_vectors.h"
 
-#include "solvers/cdcl/smt_core_printer.h"
-#include "solvers/egraph/egraph_printer.h"
-#include "solvers/bv/bvsolver.h"
-#include "solvers/bv/bvsolver_printer.h"
 
 /*
  * VARIABLE TABLE

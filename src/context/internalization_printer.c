@@ -12,13 +12,13 @@
 #include <assert.h>
 #include <inttypes.h>
 
+
 #include "context/internalization_codes.h"
+#include "context/internalization_printer.h"
 #include "io/term_printer.h"
 #include "io/type_printer.h"
-#include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
-
-#include "context/internalization_printer.h"
+#include "solvers/egraph/egraph_printer.h"
 
 
 /*

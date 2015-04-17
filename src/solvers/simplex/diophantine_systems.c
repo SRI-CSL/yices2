@@ -12,11 +12,11 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include "solvers/simplex/diophantine_systems.h"
+#include "terms/poly_buffer.h"
+#include "utils/int_bags.h"
 #include "utils/memalloc.h"
 #include "utils/ptr_queues.h"
-#include "utils/int_bags.h"
-#include "terms/poly_buffer.h"
-#include "solvers/simplex/diophantine_systems.h"
 
 
 /*

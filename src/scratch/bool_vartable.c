@@ -11,12 +11,11 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
+#include "scratch/bool_vartable.h"
 #include "utils/bit_tricks.h"
 #include "utils/hash_functions.h"
 #include "utils/int_array_sort.h"
-#include "scratch/bool_vartable.h"
-
+#include "utils/memalloc.h"
 
 
 /*

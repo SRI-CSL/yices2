@@ -36,9 +36,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "solvers/egraph/egraph_types.h"
 #include "utils/bitvectors.h"
 #include "utils/ptr_partitions.h"
-#include "solvers/egraph/egraph_types.h"
 
 
 /*

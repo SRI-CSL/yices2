@@ -15,8 +15,8 @@
 #include <assert.h>
 
 #include "solvers/cdcl/gates_hash_table.h"
-#include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/cdcl/gates_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 
 /*

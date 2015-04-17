@@ -12,12 +12,12 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
-#include "terms/term_sets.h"
 #include "model/arith_projection.h"
-#include "model/projection.h"
 #include "model/model_queries.h"
+#include "model/projection.h"
 #include "model/val_to_term.h"
+#include "terms/term_sets.h"
+#include "utils/memalloc.h"
 
 #define TRACE 0
 

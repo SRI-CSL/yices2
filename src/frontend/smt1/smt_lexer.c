@@ -17,8 +17,8 @@
  * from input file smt_keywords.txt
  */
 
-#include "frontend/smt1/smt_lexer.h"
 #include "frontend/smt1/smt_hash_keywords.h"
+#include "frontend/smt1/smt_lexer.h"
 
 /*
  * Keywords and attributes

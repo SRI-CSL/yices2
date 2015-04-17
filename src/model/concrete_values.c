@@ -12,11 +12,11 @@
 
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
+#include "model/concrete_values.h"
+#include "terms/bv64_constants.h"
 #include "utils/hash_functions.h"
 #include "utils/int_array_sort.h"
-#include "terms/bv64_constants.h"
-#include "model/concrete_values.h"
+#include "utils/memalloc.h"
 
 
 

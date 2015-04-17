@@ -47,13 +47,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/bitvectors.h"
-#include "utils/object_stores.h"
-#include "utils/int_vectors.h"
-#include "terms/rationals.h"
-#include "terms/polynomials.h"
-#include "terms/poly_buffer.h"
 #include "solvers/egraph/egraph_base_types.h"
+#include "terms/poly_buffer.h"
+#include "terms/polynomials.h"
+#include "terms/rationals.h"
+#include "utils/bitvectors.h"
+#include "utils/int_vectors.h"
+#include "utils/object_stores.h"
 
 
 /*

@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "model/fresh_value_maker.h"
-#include "io/type_printer.h"
 #include "io/concrete_value_printer.h"
+#include "io/type_printer.h"
+#include "model/fresh_value_maker.h"
 
 static type_table_t types;
 static value_table_t vtbl;

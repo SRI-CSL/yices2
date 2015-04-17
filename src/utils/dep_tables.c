@@ -9,9 +9,9 @@
  * DEPENDENCY TABLES
  */
 
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
 #include "utils/dep_tables.h"
+#include "utils/index_vectors.h"
+#include "utils/memalloc.h"
 
 /*
  * Initialization:

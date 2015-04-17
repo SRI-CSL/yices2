@@ -10,9 +10,9 @@
  */
 
 
-#include "utils/memalloc.h"
-#include "utils/int_vectors.h"
 #include "utils/int_array_sort.h"
+#include "utils/int_vectors.h"
+#include "utils/memalloc.h"
 
 
 /*

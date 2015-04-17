@@ -15,8 +15,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "terms/bv_constants.h"
 #include "solvers/bv/bv_intervals.h"
+#include "terms/bv_constants.h"
 
 #ifdef MINGW
 static inline long int random(void) {

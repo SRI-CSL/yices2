@@ -11,16 +11,14 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "terms/bv64_constants.h"
 #include "solvers/bv/bv64_intervals.h"
-#include "utils/int_powers.h"
-#include "utils/refcount_int_arrays.h"
+#include "solvers/bv/bvsolver.h"
+#include "terms/bv64_constants.h"
 #include "utils/index_vectors.h"
 #include "utils/int_partitions.h"
-
-
-#include "solvers/bv/bvsolver.h"
+#include "utils/int_powers.h"
+#include "utils/memalloc.h"
+#include "utils/refcount_int_arrays.h"
 
 
 #define TRACE 0
@@ -32,10 +30,10 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/bv/bvsolver_printer.h"
-#include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/gates_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/egraph/egraph_printer.h"
 
 #endif
 

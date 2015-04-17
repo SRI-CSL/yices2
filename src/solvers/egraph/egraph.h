@@ -10,9 +10,9 @@
 
 #include <assert.h>
 
+#include "solvers/egraph/egraph_explanations.h"
 #include "solvers/egraph/egraph_types.h"
 #include "solvers/egraph/egraph_utils.h"
-#include "solvers/egraph/egraph_explanations.h"
 
 
 

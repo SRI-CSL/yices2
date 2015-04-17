@@ -10,7 +10,6 @@
  */
 
 #include "utils/memalloc.h"
-
 #include "utils/sparse_arrays.h"
 
 

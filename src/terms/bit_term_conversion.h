@@ -21,9 +21,9 @@
 #ifndef __BIT_TERM_CONVERSION_H
 #define __BIT_TERM_CONVERSION_H
 
-#include "utils/int_vectors.h"
 #include "terms/bit_expr.h"
 #include "terms/terms.h"
+#include "utils/int_vectors.h"
 
 
 /*

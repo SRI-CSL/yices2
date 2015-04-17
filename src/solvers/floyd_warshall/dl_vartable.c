@@ -10,9 +10,9 @@
  */
 
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/floyd_warshall/dl_vartable.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 /*

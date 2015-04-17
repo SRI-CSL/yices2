@@ -17,10 +17,10 @@
 
 #include <assert.h>
 
-#include "terms/term_utils.h"
 #include "exists_forall/ef_analyze.h"
-#include "terms/term_sets.h"
 #include "terms/elim_subst.h"
+#include "terms/term_sets.h"
+#include "terms/term_utils.h"
 
 #include "yices.h"
 

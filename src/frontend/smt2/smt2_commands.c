@@ -25,32 +25,30 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "utils/refcount_strings.h"
-#include "frontend/smt2/attribute_values.h"
-#include "api/smt_logic_codes.h"
-#include "frontend/smt2/smt2_lexer.h"
-#include "frontend/smt2/smt2_commands.h"
-#include "frontend/smt2/smt2_printer.h"
-#include "frontend/smt2/smt2_model_printer.h"
-#include "model/model_eval.h"
-#include "context/context.h"
-
-// for statistics
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
-#include "solvers/bv/bvsolver.h"
-#include "solvers/floyd_warshall/idl_floyd_warshall.h"
-#include "solvers/floyd_warshall/rdl_floyd_warshall.h"
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-
-// for direct context configuration
 #include "api/context_config.h"
+#include "api/smt_logic_codes.h"
+#include "api/yices_extensions.h"
+#include "api/yices_globals.h"
+#include "context/context.h"
+#include "frontend/smt2/attribute_values.h"
+#include "frontend/smt2/smt2_commands.h"
+#include "frontend/smt2/smt2_lexer.h"
+#include "frontend/smt2/smt2_model_printer.h"
+#include "frontend/smt2/smt2_printer.h"
+#include "model/model_eval.h"
+#include "utils/refcount_strings.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
-#include "api/yices_extensions.h"
-#include "api/yices_globals.h"
+
+// for statistics
+#include "solvers/bv/bvsolver.h"
+#include "solvers/floyd_warshall/idl_floyd_warshall.h"
+#include "solvers/floyd_warshall/rdl_floyd_warshall.h"
+#include "solvers/funs/fun_solver.h"
+#include "solvers/simplex/simplex.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
 
 
 //// PROVISIONAL

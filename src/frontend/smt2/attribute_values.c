@@ -7,8 +7,8 @@
 
 #include <string.h>
 
-#include "utils/memalloc.h"
 #include "frontend/smt2/attribute_values.h"
+#include "utils/memalloc.h"
 
 
 /*

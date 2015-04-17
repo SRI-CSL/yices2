@@ -27,10 +27,10 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
+#include "terms/bit_expr.h"
 #include "utils/hash_functions.h"
 #include "utils/int_array_sort.h"
-#include "terms/bit_expr.h"
+#include "utils/memalloc.h"
 
 
 /*

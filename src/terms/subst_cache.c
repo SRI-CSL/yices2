@@ -10,10 +10,11 @@
  */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "terms/subst_cache.h"
+#include "utils/memalloc.h"
 
 
 

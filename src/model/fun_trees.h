@@ -46,11 +46,11 @@
 #ifndef __FUN_TREES_H
 #define __FUN_TREES_H
 
-#include "utils/int_vectors.h"
-#include "utils/object_stores.h"
-#include "terms/types.h"
 #include "model/abstract_values.h"
 #include "model/fun_maps.h"
+#include "terms/types.h"
+#include "utils/int_vectors.h"
+#include "utils/object_stores.h"
 
 
 /*

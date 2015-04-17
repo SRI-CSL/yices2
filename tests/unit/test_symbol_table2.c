@@ -16,9 +16,9 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "utils/symbol_tables.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
+#include "utils/symbol_tables.h"
 
 static char buffer[1000];
 static char **words;

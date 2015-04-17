@@ -16,8 +16,8 @@
 #include <setjmp.h>
 
 #include "model/models.h"
-#include "utils/int_stack.h"
 #include "utils/int_hash_map.h"
+#include "utils/int_stack.h"
 
 
 /*

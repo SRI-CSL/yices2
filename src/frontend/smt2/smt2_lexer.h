@@ -19,8 +19,8 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include "parser_utils/lexer.h"
 #include "api/smt_logic_codes.h"
+#include "parser_utils/lexer.h"
 
 
 /*

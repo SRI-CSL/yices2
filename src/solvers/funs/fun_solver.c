@@ -25,18 +25,17 @@
 
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
-#include "utils/pointer_vectors.h"
-#include "utils/ptr_array_sort2.h"
-#include "utils/int_array_sort2.h"
-#include "utils/ptr_partitions.h"
-#include "utils/hash_functions.h"
-#include "utils/int_hash_classes.h"
 #include "io/tracer.h"
-
 #include "model/fun_trees.h"
 #include "solvers/funs/fun_solver.h"
+#include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
+#include "utils/int_array_sort2.h"
+#include "utils/int_hash_classes.h"
+#include "utils/memalloc.h"
+#include "utils/pointer_vectors.h"
+#include "utils/ptr_array_sort2.h"
+#include "utils/ptr_partitions.h"
 
 
 #define TRACE 0

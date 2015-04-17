@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <gmp.h>
 
-#include "utils/object_stores.h"
 #include "io/pretty_printer.h"
 #include "terms/rationals.h"
+#include "utils/object_stores.h"
 #include "utils/string_buffers.h"
 
 

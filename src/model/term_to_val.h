@@ -15,10 +15,10 @@
 #include <stdint.h>
 #include <setjmp.h>
 
-#include "utils/int_stack.h"
-#include "utils/int_hash_map.h"
-#include "terms/terms.h"
 #include "model/concrete_values.h"
+#include "terms/terms.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_stack.h"
 
 /*
  * Error codes: -1 means null_value so we start with -2

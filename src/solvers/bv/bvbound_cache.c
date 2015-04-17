@@ -19,11 +19,12 @@
  */
 
 #include <stdbool.h>
+#include <stddef.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
-#include "terms/bv_constants.h"
 #include "solvers/bv/bvbound_cache.h"
+#include "terms/bv_constants.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 /*

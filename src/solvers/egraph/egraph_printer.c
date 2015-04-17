@@ -11,16 +11,15 @@
 
 #include <inttypes.h>
 
-#include "utils/int_hash_sets.h"
-#include "utils/int_array_sort.h"
-#include "utils/prng.h"
-#include "utils/ptr_vectors.h"
-#include "solvers/egraph/theory_explanations.h"
-#include "solvers/egraph/egraph_utils.h"
-
 #include "io/type_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "solvers/egraph/egraph_utils.h"
+#include "solvers/egraph/theory_explanations.h"
+#include "utils/int_array_sort.h"
+#include "utils/int_hash_sets.h"
+#include "utils/prng.h"
+#include "utils/ptr_vectors.h"
 
 
 

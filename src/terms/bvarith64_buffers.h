@@ -31,10 +31,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "utils/object_stores.h"
+#include "terms/bv64_polynomials.h"
 #include "terms/bv_constants.h"
 #include "terms/pprod_table.h"
-#include "terms/bv64_polynomials.h"
+#include "utils/object_stores.h"
 
 
 /*

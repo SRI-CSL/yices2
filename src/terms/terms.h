@@ -144,19 +144,18 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/bitvectors.h"
-#include "utils/int_vectors.h"
-#include "utils/ptr_vectors.h"
-#include "utils/int_hash_tables.h"
-#include "utils/int_hash_map.h"
-#include "utils/ptr_hash_map.h"
-#include "utils/symbol_tables.h"
-
-#include "terms/types.h"
-#include "terms/pprod_table.h"
 #include "terms/balanced_arith_buffers.h"
-#include "terms/bvarith_buffers.h"
 #include "terms/bvarith64_buffers.h"
+#include "terms/bvarith_buffers.h"
+#include "terms/pprod_table.h"
+#include "terms/types.h"
+#include "utils/bitvectors.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_hash_tables.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_hash_map.h"
+#include "utils/ptr_vectors.h"
+#include "utils/symbol_tables.h"
 
 
 /*

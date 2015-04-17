@@ -13,16 +13,16 @@
 
 #include <inttypes.h>
 
+#include "io/tracer.h"
+#include "solvers/egraph/theory_explanations.h"
+#include "solvers/simplex/simplex.h"
+#include "terms/rational_hash_maps.h"
 #include "utils/assert_utils.h"
 #include "utils/bitvectors.h"
-#include "utils/dprng.h"
-#include "utils/int_hash_classes.h"
-#include "utils/hash_functions.h"
-#include "terms/rational_hash_maps.h"
 #include "utils/dep_tables.h"
-#include "solvers/egraph/theory_explanations.h"
-#include "io/tracer.h"
-#include "solvers/simplex/simplex.h"
+#include "utils/dprng.h"
+#include "utils/hash_functions.h"
+#include "utils/int_hash_classes.h"
 
 
 /*

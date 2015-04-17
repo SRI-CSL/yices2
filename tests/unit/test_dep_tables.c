@@ -9,8 +9,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "utils/index_vectors.h"
 #include "utils/dep_tables.h"
+#include "utils/index_vectors.h"
 
 #ifdef MINGW
 

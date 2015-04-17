@@ -10,10 +10,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "terms/types.h"
 #include "io/type_printer.h"
-#include "utils/refcount_strings.h"
+#include "terms/types.h"
 #include "utils/int_vectors.h"
+#include "utils/refcount_strings.h"
 
 /*
  * GLOBAL VARIABLES

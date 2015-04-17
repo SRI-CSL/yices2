@@ -231,25 +231,23 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "model/abstract_values.h"
+#include "model/concrete_values.h"
+#include "model/fresh_value_maker.h"
+#include "model/fun_maps.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/egraph_base_types.h"
 #include "utils/arena.h"
-#include "utils/object_stores.h"
+#include "utils/cache.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_hash_tables.h"
+#include "utils/int_partitions.h"
+#include "utils/int_stack.h"
 #include "utils/int_vectors.h"
+#include "utils/object_stores.h"
+#include "utils/ptr_partitions.h"
 #include "utils/ptr_vectors.h"
 #include "utils/use_vectors.h"
-#include "utils/int_hash_tables.h"
-#include "utils/int_hash_map.h"
-#include "utils/int_stack.h"
-#include "utils/cache.h"
-#include "utils/ptr_partitions.h"
-#include "utils/int_partitions.h"
-
-#include "solvers/egraph/egraph_base_types.h"
-#include "model/concrete_values.h"
-#include "model/abstract_values.h"
-#include "model/fun_maps.h"
-#include "model/fresh_value_maker.h"
-
-#include "solvers/cdcl/smt_core.h"
 
 
 

@@ -9,9 +9,9 @@
  * QUERIES TO GET THE VALUE OF ONE OR MORE TERMS IN A MODEL
  */
 
-#include "utils/memalloc.h"
 #include "model/model_eval.h"
 #include "model/model_queries.h"
+#include "utils/memalloc.h"
 
 
 /*

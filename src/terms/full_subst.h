@@ -60,12 +60,12 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
+#include "terms/term_manager.h"
+#include "terms/terms.h"
+#include "utils/int_hash_map.h"
 #include "utils/int_stack.h"
 #include "utils/int_vectors.h"
 #include "utils/mark_vectors.h"
-#include "utils/int_hash_map.h"
-#include "terms/terms.h"
-#include "terms/term_manager.h"
 
 
 /*

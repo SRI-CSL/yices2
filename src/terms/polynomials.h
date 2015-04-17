@@ -24,10 +24,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "terms/rationals.h"
 #include "terms/polynomial_common.h"
-#include "utils/memalloc.h"
+#include "terms/rationals.h"
 #include "utils/int_vectors.h"
+#include "utils/memalloc.h"
 
 
 /*

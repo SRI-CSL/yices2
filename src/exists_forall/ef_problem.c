@@ -11,9 +11,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
 #include "exists_forall/ef_problem.h"
+#include "utils/index_vectors.h"
+#include "utils/memalloc.h"
 
 /*
  * Initialization: all empty

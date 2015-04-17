@@ -11,9 +11,9 @@
  * indices are assumed non-negative,
  */
 
-#include "utils/prng.h"
-#include "utils/memalloc.h"
 #include "terms/subst_context.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 /*

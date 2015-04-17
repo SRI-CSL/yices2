@@ -27,10 +27,10 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/index_vectors.h"
 #include "terms/term_utils.h"
 #include "terms/variable_renaming.h"
+#include "utils/index_vectors.h"
+#include "utils/memalloc.h"
 
 
 /*

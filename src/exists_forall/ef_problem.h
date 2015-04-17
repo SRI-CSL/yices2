@@ -46,8 +46,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/int_vectors.h"
 #include "terms/term_manager.h"
+#include "utils/int_vectors.h"
 
 
 /*

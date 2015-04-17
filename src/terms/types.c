@@ -12,11 +12,11 @@
 #include <string.h>
 #include <assert.h>
 
-#include "yices_limits.h"
+#include "terms/types.h"
+#include "utils/hash_functions.h"
 #include "utils/memalloc.h"
 #include "utils/refcount_strings.h"
-#include "utils/hash_functions.h"
-#include "terms/types.h"
+#include "yices_limits.h"
 
 
 /*

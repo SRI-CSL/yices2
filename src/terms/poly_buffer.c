@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "terms/poly_buffer.h"
+#include "utils/memalloc.h"
 
 
 /*

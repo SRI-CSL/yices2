@@ -123,29 +123,27 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "utils/int_vectors.h"
-#include "utils/ptr_vectors.h"
-#include "utils/int_heap.h"
-#include "utils/cache.h"
+#include "context/context_types.h"
+#include "solvers/cdcl/gates_manager.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/diseq_stacks.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_assertion_queues.h"
+#include "solvers/simplex/arith_atomtable.h"
+#include "solvers/simplex/arith_vartable.h"
+#include "solvers/simplex/diophantine_systems.h"
+#include "solvers/simplex/matrices.h"
+#include "solvers/simplex/offset_equalities.h"
+#include "terms/extended_rationals.h"
+#include "terms/poly_buffer.h"
+#include "terms/polynomials.h"
+#include "terms/rationals.h"
 #include "utils/arena.h"
 #include "utils/bitvectors.h"
-#include "terms/rationals.h"
-#include "terms/extended_rationals.h"
-#include "terms/polynomials.h"
-
-#include "solvers/simplex/arith_vartable.h"
-#include "solvers/simplex/arith_atomtable.h"
-#include "terms/poly_buffer.h"
-#include "solvers/simplex/matrices.h"
-#include "solvers/simplex/diophantine_systems.h"
-#include "solvers/egraph/egraph_assertion_queues.h"
-#include "solvers/egraph/diseq_stacks.h"
-#include "solvers/simplex/offset_equalities.h"
-
-#include "solvers/cdcl/smt_core.h"
-#include "solvers/cdcl/gates_manager.h"
-#include "solvers/egraph/egraph.h"
-#include "context/context_types.h"
+#include "utils/cache.h"
+#include "utils/int_heap.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_vectors.h"
 
 
 /*******************

@@ -16,8 +16,8 @@
 #include <stdio.h>
 #include <gmp.h>
 
-#include "terms/rationals.h"
 #include "terms/bv_constants.h"
+#include "terms/rationals.h"
 
 /*
  * A character array data of the given size

@@ -15,14 +15,13 @@
 #include <inttypes.h>
 
 
+#include "api/yices_globals.h"
 #include "solvers/cdcl/smt_core.h"
-#include "solvers/egraph/egraph.h"
-
-#include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_printer.h"
 
 #include "yices.h"
-#include "api/yices_globals.h"
 
 
 

@@ -9,10 +9,10 @@
  * Table to store bitvector variable definition in expanded form.
  */
 
-#include "utils/memalloc.h"
-#include "utils/int_powers.h"
-#include "terms/bv64_constants.h"
 #include "solvers/bv/bvexp_table.h"
+#include "terms/bv64_constants.h"
+#include "utils/int_powers.h"
+#include "utils/memalloc.h"
 
 
 /*

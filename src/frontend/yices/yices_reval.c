@@ -24,53 +24,39 @@
 #include <signal.h>
 #include <inttypes.h>
 
-#include "yices_exit_codes.h"
-
-#include "frontend/yices/yices_lexer.h"
-#include "frontend/yices/yices_parser.h"
-
-#include "parser_utils/term_stack2.h"
-#include "parser_utils/tstack_internals.h"
-#include "frontend/yices/yices_tstack_ops.h"
-
-#include "utils/cputime.h"
-#include "utils/memsize.h"
-#include "utils/command_line.h"
-#include "utils/timeout.h"
-#include "terms/rationals.h"
-
-#include "utils/string_utils.h"
-#include "api/smt_logic_codes.h"
-#include "frontend/yices/arith_solver_codes.h"
 #include "api/context_config.h"
-
-
-// FOR DUMP
+#include "api/smt_logic_codes.h"
+#include "api/yices_extensions.h"
+#include "api/yices_globals.h"
+#include "context/context.h"
 #include "context/dump_context.h"
-
-// FOR STATISTICS
-#include "solvers/simplex/simplex.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/bv/bvsolver.h"
-
-// FOR EXPORT TO DIMACS
-#include "solvers/bv/dimacs_printer.h"
-
-// FOR EF-SOLVER
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/ef_problem.h"
 #include "exists_forall/efsolver.h"
-
-#include "context/context.h"
-#include "model/models.h"
-#include "model/model_eval.h"
+#include "frontend/yices/arith_solver_codes.h"
+#include "frontend/yices/yices_help.h"
+#include "frontend/yices/yices_lexer.h"
+#include "frontend/yices/yices_parser.h"
+#include "frontend/yices/yices_reval.h"
+#include "frontend/yices/yices_tstack_ops.h"
 #include "io/concrete_value_printer.h"
+#include "model/model_eval.h"
+#include "model/models.h"
+#include "parser_utils/term_stack2.h"
+#include "parser_utils/tstack_internals.h"
+#include "solvers/bv/bvsolver.h"
+#include "solvers/bv/dimacs_printer.h"
+#include "solvers/funs/fun_solver.h"
+#include "solvers/simplex/simplex.h"
+#include "terms/rationals.h"
+#include "utils/command_line.h"
+#include "utils/cputime.h"
+#include "utils/memsize.h"
+#include "utils/string_utils.h"
+#include "utils/timeout.h"
 
 #include "yices.h"
-#include "api/yices_globals.h"
-#include "api/yices_extensions.h"
-#include "frontend/yices/yices_help.h"
-#include "frontend/yices/yices_reval.h"
+#include "yices_exit_codes.h"
 
 
 

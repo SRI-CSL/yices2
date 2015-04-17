@@ -31,10 +31,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "terms/rationals.h"
-#include "utils/int_hash_tables.h"
 #include "solvers/egraph/egraph_base_types.h"
 #include "terms/poly_buffer.h"
+#include "terms/rationals.h"
+#include "utils/int_hash_tables.h"
 
 
 /*

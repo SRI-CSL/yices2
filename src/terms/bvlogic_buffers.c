@@ -11,10 +11,10 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "terms/bit_term_conversion.h"
 #include "terms/bv64_constants.h"
 #include "terms/bvlogic_buffers.h"
+#include "utils/memalloc.h"
 
 
 

@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "model/term_to_val.h"
 #include "model/map_to_model.h"
+#include "model/term_to_val.h"
 
 
 

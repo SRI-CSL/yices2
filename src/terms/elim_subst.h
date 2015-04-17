@@ -25,9 +25,9 @@
 
 #include <stdbool.h>
 
-#include "utils/int_vectors.h"
-#include "utils/int_hash_sets.h"
 #include "terms/full_subst.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_vectors.h"
 
 
 typedef struct elim_subst_s {

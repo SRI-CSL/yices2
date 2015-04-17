@@ -26,10 +26,10 @@
 
 #include <stdint.h>
 
+#include "terms/polynomials.h"
+#include "terms/pprod_table.h"
 #include "terms/rationals.h"
 #include "utils/object_stores.h"
-#include "terms/pprod_table.h"
-#include "terms/polynomials.h"
 
 
 /*

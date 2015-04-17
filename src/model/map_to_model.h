@@ -25,8 +25,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "terms/terms.h"
 #include "model/models.h"
+#include "terms/terms.h"
 
 
 /*

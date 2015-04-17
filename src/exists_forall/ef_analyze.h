@@ -39,12 +39,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/int_queues.h"
-#include "utils/int_vectors.h"
-#include "utils/int_hash_sets.h"
+#include "exists_forall/ef_problem.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
-#include "exists_forall/ef_problem.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_queues.h"
+#include "utils/int_vectors.h"
 
 
 /*

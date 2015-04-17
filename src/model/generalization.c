@@ -26,9 +26,9 @@
 
 #include <assert.h>
 
-#include "model/projection.h"
 #include "model/generalization.h"
 #include "model/model_queries.h"
+#include "model/projection.h"
 #include "model/val_to_term.h"
 #include "terms/term_substitution.h"
 

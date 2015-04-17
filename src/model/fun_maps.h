@@ -21,9 +21,9 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "utils/int_vectors.h"
 #include "model/abstract_values.h"
 #include "solvers/egraph/egraph_base_types.h"
+#include "utils/int_vectors.h"
 
 /*
  * Map object = array of pairs

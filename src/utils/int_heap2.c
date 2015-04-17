@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/int_heap2.h"
+#include "utils/memalloc.h"
 
 
 

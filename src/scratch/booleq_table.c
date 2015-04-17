@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "scratch/booleq_table.h"
+#include "utils/memalloc.h"
 
 
 /*

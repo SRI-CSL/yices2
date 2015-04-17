@@ -9,10 +9,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "utils/string_buffers.h"
-#include "utils/memalloc.h"
-#include "terms/rationals.h"
 #include "terms/bv_constants.h"
+#include "terms/rationals.h"
+#include "utils/memalloc.h"
+#include "utils/string_buffers.h"
 
 static string_buffer_t buffer;
 

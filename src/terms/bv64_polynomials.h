@@ -33,8 +33,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
 #include "terms/polynomial_common.h"
+#include "utils/memalloc.h"
 
 /*
  * Polynomial structure:

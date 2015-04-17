@@ -15,8 +15,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "utils/ptr_sets.h"
 #include "utils/cputime.h"
+#include "utils/ptr_sets.h"
 
 /*
  * Check that the counters s->nelems and s->ndeleted are correct

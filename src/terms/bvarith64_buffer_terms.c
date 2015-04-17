@@ -11,8 +11,8 @@
 
 #include <assert.h>
 
-#include "utils/int_powers.h"
 #include "terms/bvarith64_buffer_terms.h"
+#include "utils/int_powers.h"
 
 
 /*

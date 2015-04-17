@@ -19,20 +19,18 @@
 #include <assert.h>
 #include <string.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
-#include "terms/bv_constants.h"
-#include "terms/bv64_constants.h"
-
-#include "terms/rba_buffer_terms.h"
-#include "terms/bvarith_buffer_terms.h"
-#include "terms/bvarith64_buffer_terms.h"
-
-#include "yices.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
-
 #include "parser_utils/term_stack2.h"
+#include "terms/bv64_constants.h"
+#include "terms/bv_constants.h"
+#include "terms/bvarith64_buffer_terms.h"
+#include "terms/bvarith_buffer_terms.h"
+#include "terms/rba_buffer_terms.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+
+#include "yices.h"
 
 
 #ifndef NDEBUG

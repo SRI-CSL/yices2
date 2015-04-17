@@ -13,10 +13,10 @@
 #include <stddef.h>
 #include <float.h>
 
-#include "utils/memalloc.h"
-#include "utils/int_array_sort.h"
-#include "utils/gcd.h"
 #include "solvers/cdcl/smt_core.h"
+#include "utils/gcd.h"
+#include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
 
 
 #define TRACE 0

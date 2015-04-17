@@ -50,8 +50,8 @@
  * of 'i' is '(not t)'.
  */
 
-#include "utils/memalloc.h"
 #include "context/internalization_table.h"
+#include "utils/memalloc.h"
 
 
 /*

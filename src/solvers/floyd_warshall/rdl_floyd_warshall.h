@@ -62,18 +62,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <setjmp.h>
 
+#include "context/context_types.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/floyd_warshall/dl_vartable.h"
+#include "terms/poly_buffer.h"
+#include "terms/rationals.h"
+#include "utils/arena.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "utils/arena.h"
 #include "utils/int_vectors.h"
-#include "terms/rationals.h"
-#include "terms/poly_buffer.h"
-#include "solvers/floyd_warshall/dl_vartable.h"
-
-#include "solvers/cdcl/smt_core.h"
-#include "context/context_types.h"
 
 
 

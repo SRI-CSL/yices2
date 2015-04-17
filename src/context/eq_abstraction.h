@@ -27,8 +27,8 @@
 
 #include <stdint.h>
 
-#include "utils/int_vectors.h"
 #include "terms/terms.h"
+#include "utils/int_vectors.h"
 
 
 /*

@@ -13,9 +13,9 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "terms/rationals.h"
-#include "terms/polynomials.h"
 #include "solvers/simplex/matrices.h"
+#include "terms/polynomials.h"
+#include "terms/rationals.h"
 
 
 

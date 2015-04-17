@@ -24,11 +24,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "terms/polynomials.h"
+#include "terms/pprod_table.h"
+#include "terms/rationals.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
-#include "terms/rationals.h"
-#include "terms/pprod_table.h"
-#include "terms/polynomials.h"
 
 
 /*

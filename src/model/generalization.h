@@ -29,12 +29,12 @@
 
 #include <stdint.h>
 
-#include "model/models.h"
-#include "terms/term_manager.h"
-#include "model/model_eval.h"
 #include "model/literal_collector.h"
-#include "model/val_to_term.h"
+#include "model/model_eval.h"
+#include "model/models.h"
 #include "model/projection.h"
+#include "model/val_to_term.h"
+#include "terms/term_manager.h"
 
 /*
  * Error codes

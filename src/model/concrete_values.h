@@ -39,13 +39,13 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "terms/types.h"
-#include "terms/rationals.h"
-#include "utils/bitvectors.h"
 #include "terms/bv_constants.h"
+#include "terms/rationals.h"
+#include "terms/types.h"
+#include "utils/bitvectors.h"
+#include "utils/int_hash_tables.h"
 #include "utils/int_queues.h"
 #include "utils/int_vectors.h"
-#include "utils/int_hash_tables.h"
 
 
 /*

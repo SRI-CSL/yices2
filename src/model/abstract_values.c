@@ -29,10 +29,10 @@
 
 #include <stdbool.h>
 
-#include "utils/prng.h"
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "model/abstract_values.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
+#include "utils/prng.h"
 
 
 

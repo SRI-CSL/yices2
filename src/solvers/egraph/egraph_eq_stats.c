@@ -10,12 +10,12 @@
  * SATELLITE SOLVER
  */
 
-
 #include <stdbool.h>
+#include <stddef.h>
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
 #include "solvers/egraph/egraph_eq_stats.h"
+#include "utils/memalloc.h"
 
 
 

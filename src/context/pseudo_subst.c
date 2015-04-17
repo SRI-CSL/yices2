@@ -11,9 +11,9 @@
 
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "context/pseudo_subst.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 

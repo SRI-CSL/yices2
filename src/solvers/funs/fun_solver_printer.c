@@ -11,10 +11,10 @@
 
 #include <inttypes.h>
 
-#include "utils/pointer_vectors.h"
 #include "io/type_printer.h"
 #include "solvers/egraph/egraph_printer.h"
 #include "solvers/funs/fun_solver_printer.h"
+#include "utils/pointer_vectors.h"
 
 
 

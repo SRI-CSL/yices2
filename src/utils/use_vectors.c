@@ -10,6 +10,7 @@
  */
 
 #include <assert.h>
+
 #include "utils/memalloc.h"
 #include "utils/use_vectors.h"
 

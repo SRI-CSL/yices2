@@ -11,9 +11,9 @@
 
 #include <inttypes.h>
 
-#include "terms/rationals.h"
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/floyd_warshall/rdl_fw_printer.h"
+#include "terms/rationals.h"
 
 
 /*

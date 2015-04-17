@@ -10,8 +10,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "terms/types.h"
 #include "io/type_printer.h"
+#include "terms/types.h"
 #include "utils/refcount_strings.h"
 
 #ifdef MINGW

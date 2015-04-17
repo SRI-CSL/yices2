@@ -75,10 +75,10 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "terms/terms.h"
+#include "utils/backtrack_arrays.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
-#include "utils/backtrack_arrays.h"
-#include "terms/terms.h"
 
 
 /*

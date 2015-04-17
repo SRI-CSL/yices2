@@ -35,8 +35,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "utils/int_vectors.h"
 #include "utils/int_hash_tables.h"
+#include "utils/int_vectors.h"
 
 
 /*

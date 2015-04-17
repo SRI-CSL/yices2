@@ -23,13 +23,12 @@
 #include <inttypes.h>
 
 #include "solvers/cdcl/sat_solver.h"
+#include "utils/command_line.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
-#include "utils/command_line.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
-
 
 
 /*

@@ -15,8 +15,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "utils/memalloc.h"
 #include "utils/cputime.h"
+#include "utils/memalloc.h"
 
 #ifdef MINGW
 

@@ -13,12 +13,11 @@
 #include <setjmp.h>
 #include <inttypes.h>
 
-#include "frontend/yices/yices_tstack_ops.h"
+#include "api/yices_globals.h"
+#include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parse_tables.h"
 #include "frontend/yices/yices_parser.h"
-#include "frontend/yices/yices_lexer.h"
-#include "api/yices_globals.h"
-
+#include "frontend/yices/yices_tstack_ops.h"
 #include "parser_utils/term_stack_error.h"
 
 

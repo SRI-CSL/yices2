@@ -11,13 +11,12 @@
 
 #include <assert.h>
 
+#include "scratch/update_graph.h"
+#include "solvers/egraph/composites.h"
+#include "solvers/egraph/egraph.h"
 #include "utils/memalloc.h"
 #include "utils/pointer_vectors.h"
 #include "utils/tagged_pointers.h"
-
-#include "solvers/egraph/composites.h"
-#include "solvers/egraph/egraph.h"
-#include "scratch/update_graph.h"
 
 
 

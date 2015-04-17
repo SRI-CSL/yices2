@@ -15,9 +15,9 @@
 #include <stdio.h>
 
 #include "api/yices_globals.h"
-#include "parser_utils/term_stack2.h"
 #include "io/term_printer.h"
 #include "io/type_printer.h"
+#include "parser_utils/term_stack2.h"
 #include "yices.h"
 
 

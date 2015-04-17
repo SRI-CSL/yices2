@@ -22,16 +22,15 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "context/context_types.h"
+#include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/diseq_stacks.h"
+#include "solvers/egraph/egraph.h"
 #include "terms/types.h"
+#include "utils/bitvectors.h"
+#include "utils/int_hash_map2.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
-#include "utils/bitvectors.h"
-#include "solvers/egraph/diseq_stacks.h"
-#include "utils/int_hash_map2.h"
-
-#include "solvers/cdcl/smt_core.h"
-#include "solvers/egraph/egraph.h"
-#include "context/context_types.h"
 
 
 

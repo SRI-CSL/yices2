@@ -23,8 +23,8 @@
  * - a boolean variable (mapped to the atom in the smt-core)
  */
 
-#include "utils/memalloc.h"
 #include "solvers/simplex/arith_atomtable.h"
+#include "utils/memalloc.h"
 
 
 /*

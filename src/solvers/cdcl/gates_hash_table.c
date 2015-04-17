@@ -14,9 +14,9 @@
 #include <stddef.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
-#include "utils/hash_functions.h"
 #include "solvers/cdcl/gates_hash_table.h"
+#include "utils/hash_functions.h"
+#include "utils/memalloc.h"
 
 
 

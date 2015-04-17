@@ -17,8 +17,8 @@
 #include <assert.h>
 
 #include "solvers/egraph/egraph_types.h"
-#include "utils/use_vectors.h"
 #include "utils/arena.h"
+#include "utils/use_vectors.h"
 
 
 /*******************

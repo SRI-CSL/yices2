@@ -13,11 +13,11 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "utils/assert_utils.h"
-#include "terms/types.h"
-#include "terms/rationals.h"
-#include "model/concrete_values.h"
 #include "io/concrete_value_printer.h"
+#include "model/concrete_values.h"
+#include "terms/rationals.h"
+#include "terms/types.h"
+#include "utils/assert_utils.h"
 
 static type_table_t types;
 static value_table_t vtbl;

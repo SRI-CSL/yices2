@@ -18,10 +18,11 @@
  */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
-#include "utils/memalloc.h"
 #include "utils/cache.h"
+#include "utils/memalloc.h"
 
 
 

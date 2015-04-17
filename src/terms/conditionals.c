@@ -12,9 +12,9 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "utils/memalloc.h"
-#include "terms/term_utils.h"
 #include "terms/conditionals.h"
+#include "terms/term_utils.h"
+#include "utils/memalloc.h"
 
 /*
  * Initialize:

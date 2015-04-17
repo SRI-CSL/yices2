@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "utils/union_find.h"
 #include "utils/memalloc.h"
+#include "utils/union_find.h"
 
 #ifdef MINGW
 

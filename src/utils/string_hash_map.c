@@ -10,11 +10,12 @@
  */
 
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
 
+#include "utils/hash_functions.h"
 #include "utils/memalloc.h"
 #include "utils/refcount_strings.h"
-#include "utils/hash_functions.h"
 #include "utils/string_hash_map.h"
 
 

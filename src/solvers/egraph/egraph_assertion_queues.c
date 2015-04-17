@@ -23,8 +23,8 @@
  */
 
 
-#include "utils/memalloc.h"
 #include "solvers/egraph/egraph_assertion_queues.h"
+#include "utils/memalloc.h"
 
 
 /*

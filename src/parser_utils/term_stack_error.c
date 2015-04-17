@@ -20,14 +20,12 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "frontend/yices/yices_tstack_ops.h"
 #include "api/yices_error.h"
-#include "yices_exit_codes.h"
-#include "yices.h"
-
+#include "frontend/yices/yices_tstack_ops.h"
 #include "parser_utils/term_stack_error.h"
 
-
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 /*

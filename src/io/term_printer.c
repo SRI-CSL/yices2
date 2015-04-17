@@ -13,9 +13,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "terms/bv64_constants.h"
-#include "io/type_printer.h"
 #include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "terms/bv64_constants.h"
 
 
 /*

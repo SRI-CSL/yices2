@@ -200,14 +200,15 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
-#include "utils/int_vectors.h"
-#include "utils/generic_heap.h"
-#include "utils/ptr_heap.h"
-#include "utils/int_heap2.h"
-#include "terms/rationals.h"
-#include "terms/polynomials.h"
 #include "terms/poly_buffer.h"
+#include "terms/polynomials.h"
+#include "terms/rationals.h"
+#include "utils/generic_heap.h"
+#include "utils/int_heap2.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_heap.h"
 
 
 /*

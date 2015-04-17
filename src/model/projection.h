@@ -28,10 +28,10 @@
 
 #include <stdint.h>
 
-#include "model/models.h"
 #include "model/arith_projection.h"
-#include "terms/term_manager.h"
+#include "model/models.h"
 #include "terms/elim_subst.h"
+#include "terms/term_manager.h"
 #include "terms/term_substitution.h"
 #include "utils/int_vectors.h"
 

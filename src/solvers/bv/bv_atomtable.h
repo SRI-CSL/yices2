@@ -23,10 +23,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
-#include "utils/int_hash_tables.h"
 #include "solvers/egraph/egraph_base_types.h"
+#include "utils/int_hash_tables.h"
 
 
 /*

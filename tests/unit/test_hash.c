@@ -10,8 +10,8 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "utils/hash_functions.h"
 #include "utils/cputime.h"
+#include "utils/hash_functions.h"
 
 
 #define N 2048

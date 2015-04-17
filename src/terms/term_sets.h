@@ -19,8 +19,8 @@
 
 #include <stdint.h>
 
-#include "utils/int_hash_sets.h"
 #include "terms/terms.h"
+#include "utils/int_hash_sets.h"
 
 
 /*

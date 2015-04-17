@@ -69,12 +69,11 @@
  * we want to allow the user to give different names to t and (not t).
  */
 
+#include "terms/bv64_constants.h"
+#include "terms/terms.h"
+#include "utils/hash_functions.h"
 #include "utils/memalloc.h"
 #include "utils/refcount_strings.h"
-#include "utils/hash_functions.h"
-#include "terms/bv64_constants.h"
-
-#include "terms/terms.h"
 
 
 /*

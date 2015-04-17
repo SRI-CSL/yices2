@@ -17,8 +17,8 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "utils/string_utils.h"
 #include "utils/command_line.h"
+#include "utils/string_utils.h"
 
 
 /*

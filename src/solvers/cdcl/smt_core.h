@@ -40,11 +40,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
+#include "io/tracer.h"
 #include "solvers/cdcl/smt_core_base_types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
-#include "io/tracer.h"
+
 #include "yices_types.h"
 
 

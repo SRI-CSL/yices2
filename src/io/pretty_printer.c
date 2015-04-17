@@ -14,8 +14,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include "utils/memalloc.h"
 #include "io/pretty_printer.h"
+#include "utils/memalloc.h"
 
 
 /*

@@ -85,13 +85,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "utils/int_vectors.h"
+#include "terms/poly_buffer.h"
+#include "terms/term_manager.h"
+#include "terms/terms.h"
 #include "utils/generic_heap.h"
+#include "utils/int_vectors.h"
 #include "utils/ptr_sets2.h"
 #include "utils/ptr_vectors.h"
-#include "terms/terms.h"
-#include "terms/term_manager.h"
-#include "terms/poly_buffer.h"
 
 
 /*
