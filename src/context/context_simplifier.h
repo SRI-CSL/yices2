@@ -21,12 +21,9 @@
 #include "context/context_types.h"
 
 
-
-
 /*
  * SIMPLIFICATION
  */
-
 
 /*
  * Check whether (t1 == t2) can be simplified to an existing term
@@ -288,7 +285,7 @@ extern void context_free_conditional(context_t *ctx, conditional_t *d);
  *   where c_1 ... c_n are pairwise disjoint
  *
  * - if one of c_i is true, the function returns a_i
- * - if all c_i's are false, the function returns d
+ * - if all c_i's are false, the function returns b
  * - in all other cases, the function returns NULL_TERM
  */
 extern term_t simplify_conditional(context_t *ctx, conditional_t *d);

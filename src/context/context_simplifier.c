@@ -41,10 +41,6 @@
 
 
 
-
-
-
-
 /*****************************
  *  FORMULA SIMPLIFICATION   *
  ****************************/
@@ -2502,7 +2498,7 @@ term_t simplify_conditional(context_t *ctx, conditional_t *d) {
       result = d->pair[i].val;
       goto done;
     }
-    all_false = (all_false &&  term_is_false(ctx, d->pair[i].cond));
+    all_false &= term_is_false(ctx, d->pair[i].cond);
   }
 
   if (all_false) {
