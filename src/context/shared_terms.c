@@ -270,6 +270,22 @@ bool term_is_shared(sharing_map_t *map, term_t t) {
   assert(good_term_idx(map->terms, i));
 
   r = int_hmap_find(&map->hmap, i);
+  return r != NULL && r->val == bool_const;
+}
+
+
+/*
+ * Check whether t occurs once
+ * - this returns false if t is not in the map or if t has been visited more than once
+ */
+bool term_is_unshared(sharing_map_t *map, term_t t) {
+  int_hmap_pair_t *r;
+  int32_t i;
+
+  i = index_of(t);
+  assert(good_term_idx(map->terms, i));
+
+  r = int_hmap_find(&map->hmap, i);
   return r != NULL && r->val != bool_const;
 }
 

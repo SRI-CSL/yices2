@@ -84,6 +84,13 @@ extern bool term_is_shared(sharing_map_t *map, term_t t);
 
 
 /*
+ * Check whether t occurs once
+ * - this returns false if t is not in the map or if t has been visited more than once
+ */
+extern bool term_is_unshared(sharing_map_t *map, term_t t);
+
+
+/*
  * Get the unique parent of t
  * - if t has been seen only once, this returns t's parent as stored in map->hamp
  * - if t has not been seen at all, this returns NULL_TERM
