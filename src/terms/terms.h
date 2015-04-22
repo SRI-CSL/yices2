@@ -271,11 +271,11 @@ typedef enum {
  *
  * The boolean constant true is built-in and always has index 1.
  * This gives two terms:
- * - true_term = pos_occ(bool_const) = 2
- * - false_term = neg_occ(bool_const) = 3
+ * - true_term = pos_term(bool_const) = 2
+ * - false_term = neg_term(bool_const) = 3
  *
  * The constant 0 is also built-in and always has index 2
- * - so zero_term = pos_occ(zero_const) = 4
+ * - so zero_term = pos_term(zero_const) = 4
  */
 enum {
   // indices

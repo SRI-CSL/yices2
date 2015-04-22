@@ -100,6 +100,7 @@ base_src_c := \
 	context/eq_learner.c \
 	context/internalization_table.c \
 	context/pseudo_subst.c \
+	context/shared_terms.c \
 	context/symmetry_breaking.c \
 	exists_forall/ef_analyze.c \
 	exists_forall/ef_problem.c \

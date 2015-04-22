@@ -15,7 +15,7 @@
 /*
  * In compact representation, polynomials are represented
  * as arrays of monomials. Each monomial is a pair
- * (coefficient, variable indices), where coefficients are rationals
+ * (coefficient, variable index), where coefficients are rationals
  * or bitvector constants.
  *
  * Special variable indices are used:
