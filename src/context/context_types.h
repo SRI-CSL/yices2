@@ -19,6 +19,7 @@
 #include "api/smt_logic_codes.h"
 #include "context/internalization_table.h"
 #include "context/pseudo_subst.h"
+#include "context/shared_terms.h"
 #include "io/tracer.h"
 #include "solvers/cdcl/gates_manager.h"
 #include "solvers/cdcl/smt_core.h"
@@ -628,6 +629,9 @@ struct context_s {
   ivector_t aux_vector;
   int_queue_t queue;
   int_stack_t istack;
+
+  // data about shared subterms
+  sharing_map_t sharing;
 
   // store for the conditional descriptors
   object_store_t cstore;

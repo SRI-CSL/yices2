@@ -20,11 +20,20 @@ void init_sharing_map(sharing_map_t *map, intern_tbl_t *intern) {
   map->terms = intern->terms;
 }
 
+
 /*
  * Delete the whole thing
  */
 void delete_sharing_map(sharing_map_t *map) {
   delete_int_hmap(&map->hmap);
+}
+
+
+/*
+ * Reset: emtpty the hmap
+ */
+void reset_sharing_map(sharing_map_t *map) {
+  int_hmap_reset(&map->hmap);
 }
 
 /*

@@ -4151,7 +4151,7 @@ static void add_lemma(smt_core_t *s, uint32_t n, literal_t *a) {
  * Add all queued lemmas to the database.
  * - this may cause backtracking
  * - a conflict clause may be recorded
- * If so, conflict resolution must called outside this function
+ * If so, conflict resolution must be called outside this function
  */
 static void add_all_lemmas(smt_core_t *s) {
   lemma_block_t *tmp;
@@ -5627,9 +5627,8 @@ void smt_process(smt_core_t *s) {
  * - call the final_check function of the theory solver
  * - if that creates new variables or lemmas or report a conflict
  *   then smt_process is called
- * - return false if more processing is required,
- *   return true if the theory solver does not trigger anything more.
- * - if the result is true then the whole thing is SAT/UNKNOWN
+ * - otherwise the core status is updated to SAT or UNKNOWN and the search
+ *   is done.
  */
 void smt_final_check(smt_core_t *s) {
   assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);

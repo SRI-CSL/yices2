@@ -4329,6 +4329,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_int_queue(&ctx->queue, 0);
   init_istack(&ctx->istack);
+  init_sharing_map(&ctx->sharing, &ctx->intern);
   init_objstore(&ctx->cstore, sizeof(conditional_t), 32);
 
   ctx->subst = NULL;
@@ -4406,6 +4407,7 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->aux_vector);
   delete_int_queue(&ctx->queue);
   delete_istack(&ctx->istack);
+  delete_sharing_map(&ctx->sharing);
   delete_objstore(&ctx->cstore);
 
   context_free_subst(ctx);
@@ -4450,6 +4452,7 @@ void reset_context(context_t *ctx) {
   ivector_reset(&ctx->aux_vector);
   int_queue_reset(&ctx->queue);
   reset_istack(&ctx->istack);
+  reset_sharing_map(&ctx->sharing);
   reset_objstore(&ctx->cstore);
 
   context_free_subst(ctx);
@@ -4506,6 +4509,21 @@ void context_pop(context_t *ctx) {
 /****************************
  *   ASSERTIONS AND CHECK   *
  ***************************/
+
+/*
+ * Build the sharing data
+ * - processes all the assertions in vectors top_eqs, top_atoms, top_formulas
+ * - this function should be called after building the substitutions
+ */
+static void context_build_sharing_data(context_t *ctx) {
+  sharing_map_t *map;
+
+  map = &ctx->sharing;
+  reset_sharing_map(map);
+  sharing_map_add_terms(map, ctx->top_eqs.data, ctx->top_eqs.size);
+  sharing_map_add_terms(map, ctx->top_atoms.data, ctx->top_atoms.size);
+  sharing_map_add_terms(map, ctx->top_formulas.data, ctx->top_formulas.size);
+}
 
 /*
  * Flatten and internalize assertions a[0 ... n-1]
@@ -4616,6 +4634,11 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       }
       break;
     }
+
+    /*
+     * Sharing
+     */
+    context_build_sharing_data(ctx);
 
     /*
      * Notify the core + solver(s)
@@ -4833,6 +4856,7 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
   ivector_reset(&ctx->top_interns);
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
+  ivector_reset(&ctx->aux_atoms);
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -4849,9 +4873,13 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
      *   substitutions.
      */
 
-    // optional processing
     switch (ctx->arch) {
     case CTX_ARCH_EG:
+      /*
+       * UF problem: we must process subst_eqs last since the
+       * preprocessing may add new equalities in aux_eqs that may end
+       * up in subst_eqs after the call to process_aux_eqs.
+       */
       if (context_breaksym_enabled(ctx)) {
 	break_uf_symmetries(ctx);
       }
@@ -4861,34 +4889,63 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
       if (ctx->aux_eqs.size > 0) {
 	process_aux_eqs(ctx);
       }
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       break;
 
     case CTX_ARCH_AUTO_IDL:
+      /*
+       * For difference logic, we must process the subst_eqs first
+       * (otherwise analyze_diff_logic may give wrong results).
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
       break;
 
     case CTX_ARCH_AUTO_RDL:
+      /*
+       * Difference logic, we must process the subst_eqs first
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
       break;
 
+    case CTX_ARCH_SPLX:
+      /*
+       * Simplex, like EG, may add aux_atoms so we must process
+       * subst_eqs last here.
+       */
+      // more optional processing
+      if (context_cond_def_preprocessing_enabled(ctx)) {
+	process_conditional_definitions(ctx);
+	if (ctx->aux_eqs.size > 0) {
+	  process_aux_eqs(ctx);
+	}
+	if (ctx->aux_atoms.size > 0) {
+	  process_aux_atoms(ctx);
+	}
+      }
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
+      break;
+      
     default:
+      /*
+       * Process the candidate variable substitutions if any
+       */
+      if (ctx->subst_eqs.size > 0) {
+	context_process_candidate_subst(ctx);
+      }
       break;
     }
-
-    /*
-     * Process the candidate variable substitutions if any
-     */
-    if (ctx->subst_eqs.size > 0) {
-      context_process_candidate_subst(ctx);
-    }
-
-    // more optional processing
-    if (context_cond_def_preprocessing_enabled(ctx)) {
-      process_conditional_definitions(ctx);
-    }
-
 
     code = CTX_NO_ERROR;
 

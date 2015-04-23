@@ -2624,7 +2624,7 @@ static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0,
 
   i = 0;
 
-  // c0 := 0 (also make sure c0 has the right size
+  // c0 := 0 (also make sure c0 has the right size)
   bvconstant_set_all_zero(c0, nbits);
 
   // deal with the constant of p if any

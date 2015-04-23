@@ -6842,7 +6842,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   case CTX_ARCH_BV:
     // flattening makes things worse for QF_BV
-    disable_diseq_and_or_flattening(ctx);
+    //    disable_diseq_and_or_flattening(ctx); FOR TESTING THE SHARING STUFF (2015/04/22)
     break;
 
   case CTX_ARCH_SPLX:

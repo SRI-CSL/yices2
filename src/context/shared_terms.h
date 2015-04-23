@@ -56,10 +56,17 @@ typedef struct sharing_map_s {
  */
 extern void init_sharing_map(sharing_map_t *map, intern_tbl_t *intern);
 
+
 /*
  * Delete the whole thing
  */
 extern void delete_sharing_map(sharing_map_t *map);
+
+
+/*
+ * Reset: empty the hmap
+ */
+extern void reset_sharing_map(sharing_map_t *map);
 
 
 /*

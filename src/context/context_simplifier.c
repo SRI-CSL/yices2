@@ -1651,8 +1651,9 @@ static void flatten_or_process_queue(context_t *ctx, ivector_t *v) {
     // apply substitutions
     t = intern_tbl_get_root(&ctx->intern, t);
 
-    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
-      // t is already internalized, keep it as is
+    if (intern_tbl_root_is_mapped(&ctx->intern, t) || 
+	term_is_shared(&ctx->sharing, t)) {
+      // t is already internalized or is a shared term, keep it as is
       ivector_push(v, t);
     } else {
       terms = ctx->terms;
