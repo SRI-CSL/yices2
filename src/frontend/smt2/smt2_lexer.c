@@ -893,7 +893,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
     if (c != ';') break;
     // comments: read everything until the end of the line or EOF
     do {
-      c= reader_next_char(rd);;
+      c = reader_next_char(rd);
     } while (c != '\n' && c != EOF);
   }
 
