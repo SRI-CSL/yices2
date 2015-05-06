@@ -287,7 +287,7 @@ bool term_is_shared(sharing_map_t *map, term_t t) {
  * Check whether t occurs once
  * - this returns false if t is not in the map or if t has been visited more than once
  */
-bool term_is_unshared(sharing_map_t *map, term_t t) {
+bool term_is_not_shared(sharing_map_t *map, term_t t) {
   int_hmap_pair_t *r;
   int32_t i;
 

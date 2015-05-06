@@ -4947,6 +4947,11 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
       break;
     }
 
+    /*
+     * Sharing
+     */
+    context_build_sharing_data(ctx);
+
     code = CTX_NO_ERROR;
 
   } else {

@@ -2386,7 +2386,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       print_yices_error(true);
       return;
     }
-    pp_context(g->out, g->ctx);
+    //    pp_context(g->out, g->ctx);
+    print_context(g->out, g->ctx);
 #endif
   }
 

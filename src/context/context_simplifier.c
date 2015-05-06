@@ -1657,9 +1657,7 @@ static void flatten_or_process_queue(context_t *ctx, ivector_t *v) {
     } else {
       terms = ctx->terms;
       kind = term_kind(terms, t);
-      //      if (is_pos_term(t) && kind == OR_TERM) {
-      // TESTING whether it helps to keep shared OR subterms
-      if (is_pos_term(t) && kind == OR_TERM && !term_is_shared(&ctx->sharing, t)) {
+      if (is_pos_term(t) && kind == OR_TERM) {
 	// add t's children to the queue
 	or = or_term_desc(terms, t);
 	n = or->arity;

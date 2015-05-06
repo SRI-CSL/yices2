@@ -14,6 +14,7 @@
 
 #include "context/context_printer.h"
 #include "context/internalization_printer.h"
+#include "context/shared_terms.h"
 #include "io/term_printer.h"
 
 
@@ -101,7 +102,7 @@ static void print_term_vector(FILE *f, term_table_t *tbl, char *name, ivector_t 
   for (i=0; i<n; i++) {
     fprintf(f, "%s[%"PRIu32"]: ", name, i);
     print_term_desc(f, tbl, v->data[i]);
-    fputs("\n\n", f);
+    fputs("\n", f);
   }
 }
 
@@ -136,7 +137,51 @@ void print_context_intern_mapping(FILE *f, context_t *ctx) {
   print_intern_mapping(f, &ctx->intern);
 }
 
+/*
+ * Shared
+ */
+void print_context_sharing(FILE *f, context_t *ctx) {
+  sharing_map_t *map;
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t, p;
 
+  map = &ctx->sharing;
+  terms = ctx->terms;
+
+  n = intern_tbl_num_terms(map->intern);
+  for (i=1; i<n; i++) {
+    if (good_term_idx(terms, i)) {
+      t = pos_occ(i);
+      p = unique_parent(map, t);
+      if (p == true_term) {
+	print_term_id(f, t);
+	fprintf(f, " --> shared\n");
+      } else if (p != NULL_TERM) {
+	print_term_id(f, t);
+	fprintf(f, " --> not shared: parent = ");
+	print_term_id(f, p);
+	fprintf(f, "\n");
+      }
+    }
+  }
+}
+
+
+/*
+ * Result of flattening
+ */
+void print_context(FILE *f, context_t *ctx) {
+  fputs("--- Term table ---\n", f);
+  print_term_table(f, ctx->terms);
+  fputs("\n\n--- Assertions ---\n", f);
+  print_context_top_interns(f, ctx);
+  print_context_top_eqs(f, ctx);
+  print_context_top_atoms(f, ctx);
+  print_context_top_formulas(f, ctx);
+  fputs("\n\n--- Sharing ---\n", f);
+  print_context_sharing(f, ctx);
+}
 
 
 
@@ -185,6 +230,29 @@ static void pp_term_vector(yices_pp_t *printer, term_table_t *terms, ivector_t *
   pp_term_array(printer, terms, v->data, v->size);
 }
 
+
+#if 0
+/*
+ * Show sharing information
+ */
+static void pp_term_sharing(yices_pp_t *printer, sharing_map_t *map) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t;
+
+  terms = map->terms;
+  n = intern_tbl_num_terms(map->intern);
+  for (i=1; i<n; i++) {
+    if (good_term_idx(terms, i)) {
+      t = pos_occ(i);
+      if (term_is_shared(map, t)) {
+	pp_term_full(printer, terms, t);
+	flush_yices_pp(printer);
+      }
+    }
+  }
+}
+#endif
 
 /*
  * Pretty print the result of flattening + variable elimination
