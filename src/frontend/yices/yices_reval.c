@@ -777,15 +777,6 @@ static void process_command_line(int argc, char *argv[]) {
     }
   }
 
-  /*
-   * Create the tracer object: stderr and with verbosity level = 4
-   */
-  if (verbose) {
-    tracer = (tracer_t *) safe_malloc(sizeof(tracer_t));
-    init_trace(tracer);
-    set_trace_vlevel(tracer, 4);
-  }
-
   return;
 
  quick_exit:
@@ -3648,6 +3639,15 @@ int yices_main(int argc, char *argv[]) {
   } else if (init_yices_file_lexer(&lexer, input_filename) < 0) {
     perror(input_filename);
     exit(YICES_EXIT_FILE_NOT_FOUND);
+  }
+
+  /*
+   * Create the tracer object: stderr and with verbosity level = 4
+   */
+  if (verbose) {
+    tracer = (tracer_t *) safe_malloc(sizeof(tracer_t));
+    init_trace(tracer);
+    set_trace_vlevel(tracer, 4);
   }
 
   /*
