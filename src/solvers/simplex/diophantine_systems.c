@@ -1840,6 +1840,19 @@ static void dsolver_deactivate_column(dsolver_t *solver, dcolumn_t *c) {
   }
 }
 
+/*
+ * Empty the heap of active columns after interrupt:
+ * - put back all the columns into the columns vector
+ */
+static void flush_active_columns(dsolver_t *solver) {
+  dcolumn_t *c;
+
+  for (;;) {
+    c = ptr_heap_get_elem(&solver->active_columns);
+    if (c == NULL) break;
+    dsolver_deactivate_column(solver, c);
+  }
+}
 
 
 /*
@@ -1916,8 +1929,10 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
 
     // Check for interrupts in this loop
     if (solver->status == DSOLVER_INTERRUPTED) {
-      reset_ptr_heap(heap);
+      // clean up to avoid memory leak
       solver->aux_column = aux;
+      dsolver_deactivate_column(solver, c1);
+      flush_active_columns(solver);
       return;
     }
   }
