@@ -6380,7 +6380,8 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
   // run the diophantine solver
   dsolver_simplify(dioph);
-  if (! dsolver_is_feasible(dioph)) {
+  switch (dsolver_is_feasible(dioph)) {
+  case DSOLVER_SOLVED_UNSAT:
     /*
      * get the set of unsat rows in aux_vector
      * then build a conflict for these rows
@@ -6393,15 +6394,21 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
     return false;
 
+  case DSOLVER_SOLVED_SAT:
+    // Try to strengthen the bounds
+    dsolver_build_general_solution(dioph);
+    //  dsolver_print_gen_solution(stdout, dioph);
+    //  fflush(stdout);
+    return strengthen_integer_bounds(solver, dioph);
+
+  case DSOLVER_INTERRUPTED:
+    return true;
+
+  default:
+    assert(false);
+    return true;
   }
 
-  // Try to strengthen the bounds
-  dsolver_build_general_solution(dioph);
-
-  //  dsolver_print_gen_solution(stdout, dioph);
-  //  fflush(stdout);
-
-  return strengthen_integer_bounds(solver, dioph);
 }
 
 
@@ -7273,6 +7280,19 @@ void simplex_start_search(simplex_solver_t *solver) {
 }
 
 
+/*
+ * Stop the search: sets flag solver->interrupted to true and 
+ * stops the diophantine solver if it's active.
+ * - the solver->interrupted flag is set to false by start_search
+ * - currently, the interrupted flag is checked in every iteration
+ *   of the make feasible procedure
+ */
+void simplex_stop_search(simplex_solver_t *solver) {
+  solver->interrupted = true;
+  if (solver->dsolver != NULL) {
+    dsolver_stop_search(solver->dsolver);
+  }
+}
 
 
 

@@ -301,14 +301,13 @@ extern void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t 
 extern void simplex_start_search(simplex_solver_t *solver);
 
 /*
- * Stop the search: this just sets flag solver->interrupted to true.
- * - this flag is set to false by start_search
+ * Stop the search: sets flag solver->interrupted to true and 
+ * stops the diophantine solver if it's active.
+ * - the solver->interrupted flag is set to false by start_search
  * - currently, the interrupted flag is checked in every iteration
  *   of the make feasible procedure
  */
-static inline void simplex_stop_search(simplex_solver_t *solver) {
-  solver->interrupted = true;
-}
+extern void simplex_stop_search(simplex_solver_t *solver);
 
 /*
  * Assert atom attached to literal l

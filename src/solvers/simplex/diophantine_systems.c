@@ -22,7 +22,6 @@
 /*
  * Set TRACE to 1 to enable tracing
  */
-
 #define TRACE 0
 
 #if TRACE
@@ -1862,6 +1861,7 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
 
   c1 = ptr_heap_get_min(heap);
   assert(active_row(c1) == r);
+
   while (! ptr_heap_is_empty(heap)) {
 #if 1
     /*
@@ -1913,6 +1913,13 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
     aux = c1;
     c1 = c2;
     clear_column(aux);
+
+    // Check for interrupts in this loop
+    if (solver->status == DSOLVER_INTERRUPTED) {
+      reset_ptr_heap(heap);
+      solver->aux_column = aux;
+      return;
+    }
   }
 
   // c1 is the new solved column
@@ -1987,6 +1994,11 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
 
     // restore the rows
     dsolver_restore_rows_to_process(solver);
+
+    // Check for interrupts in this loop
+    if (solver->status == DSOLVER_INTERRUPTED) {
+      return true;
+    }
   }
 
 #if TRACE
@@ -2014,10 +2026,9 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
  * - return true if the system is satisfiable
  * - return false otherwise
  */
-bool dsolver_is_feasible(dsolver_t *solver) {
+dsolver_status_t dsolver_is_feasible(dsolver_t *solver) {
   generic_heap_t *to_process;
   int32_t i;
-  uint32_t loops;
 
   assert(solver->status == DSOLVER_READY || solver->status == DSOLVER_SIMPLIFIED);
   dsolver_rosser_init(solver);
@@ -2036,39 +2047,31 @@ bool dsolver_is_feasible(dsolver_t *solver) {
 
   solver->num_process_rows = 0;
   solver->num_reduce_ops = 0;
+  solver->status = DSOLVER_SEARCHING;  // to detect interruptions
 
-  loops = 0;
   to_process = &solver->rows_to_process;
   while (! generic_heap_is_empty(to_process)) {
     i = generic_heap_get_min(to_process);
-    loops ++;
-    if ((loops & 0xFFF) == 0) {
-      printf("+");
-      fflush(stdout);
-    }
     if (! dsolver_process_row(solver, i)) {
       solver->status = DSOLVER_SOLVED_UNSAT;
       solver->unsat_row = i;
       reset_generic_heap(to_process);
+
 #if TRACE
       dsolver_print_status(stdout, solver);
 #endif
-      if (loops > 0xFFF) {
-	printf("\n");
-	fflush(stdout);
-      }
-      return false;
+      goto done;
+    }
+
+    if (solver->status == DSOLVER_INTERRUPTED) {
+      goto done;
     }
   }
 
   solver->status = DSOLVER_SOLVED_SAT;
 
-  if (loops > 0xFFF) {
-    printf("\n");
-    fflush(stdout);
-  }
-
-  return true;
+ done:
+  return solver->status;
 }
 
 
@@ -2583,14 +2586,15 @@ static void dsolver_build_unsat_set(dsolver_t *solver, ivector_t *v) {
 void dsolver_unsat_rows(dsolver_t *solver, ivector_t *v) {
   switch (solver->status) {
   case DSOLVER_READY:
+  case DSOLVER_SIMPLIFIED:
+  case DSOLVER_SEARCHING:
+  case DSOLVER_SOLVED_SAT:
+  case DSOLVER_INTERRUPTED:
     break;
   case DSOLVER_TRIV_UNSAT:
   case DSOLVER_GCD_UNSAT:
     // the unsat row is unsatisfiable by itself
     ivector_push_row_id(solver, v, solver->unsat_row);
-    break;
-  case DSOLVER_SIMPLIFIED:
-  case DSOLVER_SOLVED_SAT:
     break;
   case DSOLVER_SOLVED_UNSAT:
     // need to construct the explanation
