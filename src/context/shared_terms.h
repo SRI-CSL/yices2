@@ -27,6 +27,7 @@
 #include "context/internalization_table.h"
 #include "terms/terms.h"
 #include "utils/int_hash_map.h"
+#include "utils/int_queues.h"
 
 
 /*
@@ -37,6 +38,7 @@
  *   hmap[i] = bool_const if i has more than one occurrence
  * - intern = pointer to the relevant internalization table
  * - terms = pointer to the relevant term table
+ * - queue for exploring terms
  *
  * We use bool_const as a marker for terms seen more than once.
  * The hmap is based on term indices so it can't distinguish between
@@ -46,6 +48,7 @@ typedef struct sharing_map_s {
   int_hmap_t hmap;
   term_table_t *terms;
   intern_tbl_t *intern;
+  int_queue_t queue;
 } sharing_map_t;
 
 
