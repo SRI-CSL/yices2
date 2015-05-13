@@ -210,6 +210,20 @@ extern bool term_is_false(context_t *ctx, term_t t);
 
 
 /*
+ * Given a descriptor  (ite c t e), checks whether it
+ * contains nested if-then-elses (i.e., whether t or e
+ * are themselves if-then-else terms).
+ *
+ * This takes the substitution/internalization table into account:
+ * - if t or e is already internalized, it's not considered an if-then-else
+ * - otherwise t and e are replaced by their root in the internalization
+ *   table
+ */
+extern bool ite_is_deep(context_t *ctx, composite_term_t *ite);
+
+
+
+/*
  * OPTIONS/SUPPORTED FEATURES
  */
 

@@ -186,6 +186,7 @@ base_src_c := \
 	terms/extended_rationals.c \
 	terms/free_var_collector.c \
 	terms/full_subst.c \
+	terms/ite_stack.c \
 	terms/mpq_aux.c \
 	terms/poly_buffer.c \
 	terms/poly_buffer_terms.c \
