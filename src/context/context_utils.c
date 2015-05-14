@@ -503,20 +503,21 @@ bool term_is_false(context_t *ctx, term_t t) {
 
 
 /*
- * Checks whether ite contains nested if-then-elses
+ * Check whether x is an if-then-else term
  */
-
-// checks whether x is an if-then-else term not internalized
-// follow the substitution table
-static inline bool is_ite_child(context_t *ctx, term_t x) {
+bool term_is_ite(context_t *ctx, term_t x) {
   x = intern_tbl_get_root(&ctx->intern, x);
   return is_pos_term(x) && is_ite_term(ctx->terms, x) && 
     !intern_tbl_root_is_mapped(&ctx->intern, x);
 }
 
+
+/*
+ * Checks whether ite contains nested if-then-elses
+ */
 bool ite_is_deep(context_t *ctx, composite_term_t *ite) {
   assert(ite->arity == 3);
-  return is_ite_child(ctx, ite->arg[1]) || is_ite_child(ctx, ite->arg[2]);
+  return term_is_ite(ctx, ite->arg[1]) || term_is_ite(ctx, ite->arg[2]);
 }
 
 

@@ -11,7 +11,9 @@
 
 /*
  * We store a stack of composite_terms. Each of them is an if-then-else
- * descriptor (so it has arity three) + a path = stack of 0 or 1 integers.
+ * descriptor (so it has arity three). We also stoe a path = a stack of 
+ * 0 or 1 integers.
+ *
  * This represents nested if-then-elses as follows:
  * - bottom element = (ite c0 t0 e0)
  *   first path value = either 0 or 1
@@ -20,9 +22,10 @@
  * - next element = (ite c1 t1 e1) 
  *   path value = either 0 or 1
  *
- * Thus we can see this as a tree of if-then-else nodes with root (ite c0 t0 e0).
- * The path values define a branch in this tree and we provide operation to 
- * get the current leaf (last term on the branch) and move to the next branch.
+ * Thus, we can see this as a tree of if-then-else nodes with root
+ * (ite c0 t0 e0).  The path defines a branch in this tree and we
+ * provide operation to get the current leaf (last term on the branch)
+ * and move to the next branch.
  */
 
 #ifndef __ITE_STACK_H

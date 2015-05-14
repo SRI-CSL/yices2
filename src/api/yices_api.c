@@ -6820,6 +6820,10 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   enable_bvarith_elimination(ctx);
   enable_assert_ite_bounds(ctx);
 
+  // FOR TESTING OF ITE-FLATTENING
+  //  enable_ite_flattening(ctx);
+  //
+
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
     if (logic == QF_LIA || logic == QF_LIRA) {
@@ -6847,17 +6851,15 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
     break;
 
   case CTX_ARCH_SPLX:
-    /// PROVISIONAL. FOR BENCHMARKING WITH ASSERT_ITE_BOUNDS
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
     break;
 
   case CTX_ARCH_EGSPLX:
   case CTX_ARCH_EGFUNSPLX:
-    /// PROVISIONAL. FOR BENCHMARKING WITH ASSERT_ITE_BOUNDS
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
-    enable_splx_eqprop(ctx);
+    enable_splx_eqprop(ctx);    
     break;
 
   default:

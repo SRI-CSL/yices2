@@ -210,6 +210,12 @@ extern bool term_is_false(context_t *ctx, term_t t);
 
 
 /*
+ * Check whether t is not internalized and of the form (ite c a b) 
+ * - takes the substitution into account
+ */
+extern bool term_is_ite(context_t *ctx, term_t t);
+
+/*
  * Given a descriptor  (ite c t e), checks whether it
  * contains nested if-then-elses (i.e., whether t or e
  * are themselves if-then-else terms).
@@ -318,6 +324,14 @@ static inline void disable_cond_def_preprocessing(context_t *ctx) {
   ctx->options &= ~CONDITIONAL_DEF_OPTION_MASK;
 }
 
+static inline void enable_ite_flattening(context_t *ctx) {
+  ctx->options |= FLATTEN_ITE_OPTION_MASK;
+}
+
+static inline void disable_ite_flattening(context_t *ctx) {
+  ctx->options &= ~FLATTEN_ITE_OPTION_MASK;
+}
+
 
 
 /*
@@ -365,6 +379,10 @@ static inline bool context_ite_bounds_enabled(context_t *ctx) {
 
 static inline bool context_cond_def_preprocessing_enabled(context_t *ctx) {
   return (ctx->options & CONDITIONAL_DEF_OPTION_MASK) != 0;
+}
+
+static inline bool context_ite_flattening_enabled(context_t *ctx) {
+  return (ctx->options & FLATTEN_ITE_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {

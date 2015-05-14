@@ -79,6 +79,8 @@ typedef enum {
  *   pseudo-inverse tricks
  * - CONDITIONAL_DEF: attempt to detect and use assertions of the form
  *     (condition => (term = constant))
+ * - FLATTEN_ITE: avoid intermediate variables when converting nested
+ *   if-then-else terms
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
  *
@@ -112,12 +114,13 @@ typedef enum {
 #define PSEUDO_INVERSE_OPTION_MASK      0x1000
 #define ITE_BOUNDS_OPTION_MASK          0x2000
 #define CONDITIONAL_DEF_OPTION_MASK     0x4000
+#define FLATTEN_ITE_OPTION_MASK         0x8000
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
   EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
   BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK|\
-  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK)
+  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK|FLATTEN_ITE_OPTION_MASK)
 
 // SIMPLEX OPTIONS
 #define SPLX_EGRLMAS_OPTION_MASK  0x1000000

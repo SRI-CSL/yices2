@@ -13,6 +13,7 @@
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
 #include "context/internalization_codes.h"
+#include "context/ite_flattener.h"
 #include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
@@ -380,6 +381,86 @@ static occ_t map_conditional_to_eterm(context_t *ctx, conditional_t *c, type_t t
 
 
 /*
+ * Auxiliary function for flattening if-then-else
+ * - v contains a conjunction of n literals: l0 /\ ... /\ l_n
+ * - we something like (l0 /\ ... /\ l_n implies (x = y))
+ *   (i.e., (not l0) \/ ... \/ (not l_n) \/ (x = y)
+ * - this function negates all the literals in place
+ */
+static void ite_prepare_antecedents(ivector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    v->data[i] = not(v->data[i]);
+  }
+}
+
+
+/*
+ * Convert nested if-then-else to  an egraph term
+ * - ite = term of the form (ite c1 t1 t2)
+ * - c = internalization of c1
+ * - tau = type of the term (ite c1 t1 t2)
+ */
+static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal_t c, type_t tau) {
+  ite_flattener_t flattener;
+  ivector_t *buffer;
+  term_t x;
+  occ_t u, v;
+  literal_t l;
+
+  u = pos_occ(make_egraph_variable(ctx, tau));
+
+  init_ite_flattener(&flattener);
+  ite_flattener_push(&flattener, ite, c);
+
+  while (ite_flattener_is_nonempty(&flattener)) {
+    x = ite_flattener_leaf(&flattener);
+    x = intern_tbl_get_root(&ctx->intern, x);
+
+    /*
+     * x is the current leaf
+     */
+    if (is_pos_term(x) && is_ite_term(ctx->terms, x) && 
+	!intern_tbl_root_is_mapped(&ctx->intern, x)) {
+      /*
+       * if x is of the form (ite c a b) and not internalized already,
+       * we push (ite c a b) on the flattener.
+       */
+      ite = ite_term_desc(ctx->terms, x);
+      assert(ite->arity == 3);
+      c = internalize_to_literal(ctx, ite->arg[0]);
+      // TODO: deal with c == true_literal/false_literal?
+      ite_flattener_push(&flattener, ite, c);
+    } else {
+      /*
+       * Add the clause [branch conditions => v = u]
+       * - we check first whether the branch condition is false
+       */
+      if (ite_flattener_branch_is_live(&flattener)) {
+	v = internalize_to_eterm(ctx, x);
+	l = egraph_make_eq(ctx->egraph, u, v);
+
+	buffer = &ctx->aux_vector;
+	assert(buffer->size == 0);
+	ite_flattener_get_clause(&flattener, buffer);
+	ite_prepare_antecedents(buffer);
+	ivector_push(buffer, l);
+	add_clause(ctx->core, buffer->size, buffer->data);
+	ivector_reset(buffer);
+      }
+      ite_flattener_next_branch(&flattener);
+    }
+  }
+
+  delete_ite_flattener(&flattener);
+
+  return u;
+}
+
+
+/*
  * Convert (ite c t1 t2) to an egraph term
  * - tau = type of (ite c t1 t2)
  */
@@ -403,6 +484,10 @@ static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau)
   }
   if (c == false_literal) {
     return internalize_to_eterm(ctx, ite->arg[2]);
+  }
+
+  if (context_ite_flattening_enabled(ctx)) {
+    return flatten_ite_to_eterm(ctx, ite, c, tau);
   }
 
   u2 = internalize_to_eterm(ctx, ite->arg[1]);
