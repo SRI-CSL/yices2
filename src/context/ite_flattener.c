@@ -96,3 +96,18 @@ bool ite_flattener_branch_is_live(ite_flattener_t *f) {
   }
   return true;
 }
+
+
+/*
+ * Check whether the last literal on the branch is false
+ * - the tree must not be empty
+ */
+bool ite_flattener_last_lit_false(ite_flattener_t *f) {
+  uint32_t i;
+
+  assert(f->clause.size > 0);
+
+  i = f->clause.size - 1;
+  return f->clause.data[i] == false_literal;
+}
+

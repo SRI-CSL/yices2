@@ -416,6 +416,13 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
   ite_flattener_push(&flattener, ite, c);
 
   while (ite_flattener_is_nonempty(&flattener)) {
+    if (ite_flattener_last_lit_false(&flattener)) {
+      // dead branch
+      ite_flattener_next_branch(&flattener);
+      continue;
+    }
+    assert(ite_flattener_branch_is_live(&flattener));
+
     x = ite_flattener_leaf(&flattener);
     x = intern_tbl_get_root(&ctx->intern, x);
 
@@ -425,31 +432,28 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
     if (is_pos_term(x) && is_ite_term(ctx->terms, x) && 
 	!intern_tbl_root_is_mapped(&ctx->intern, x)) {
       /*
-       * if x is of the form (ite c a b) and not internalized already,
+       * x is of the form (ite c a b) and not internalized already,
        * we push (ite c a b) on the flattener.
        */
       ite = ite_term_desc(ctx->terms, x);
       assert(ite->arity == 3);
       c = internalize_to_literal(ctx, ite->arg[0]);
-      // TODO: deal with c == true_literal/false_literal?
       ite_flattener_push(&flattener, ite, c);
     } else {
       /*
-       * Add the clause [branch conditions => v = u]
-       * - we check first whether the branch condition is false
+       * Add the clause [branch conditions => x = u]
        */
-      if (ite_flattener_branch_is_live(&flattener)) {
-	v = internalize_to_eterm(ctx, x);
-	l = egraph_make_eq(ctx->egraph, u, v);
+      v = internalize_to_eterm(ctx, x);
+      l = egraph_make_eq(ctx->egraph, u, v);
 
-	buffer = &ctx->aux_vector;
-	assert(buffer->size == 0);
-	ite_flattener_get_clause(&flattener, buffer);
-	ite_prepare_antecedents(buffer);
-	ivector_push(buffer, l);
-	add_clause(ctx->core, buffer->size, buffer->data);
-	ivector_reset(buffer);
-      }
+      buffer = &ctx->aux_vector;
+      assert(buffer->size == 0);
+      ite_flattener_get_clause(&flattener, buffer);
+      ite_prepare_antecedents(buffer);
+      ivector_push(buffer, l);
+      add_clause(ctx->core, buffer->size, buffer->data);
+      ivector_reset(buffer);
+
       ite_flattener_next_branch(&flattener);
     }
   }

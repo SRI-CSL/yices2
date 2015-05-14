@@ -103,6 +103,13 @@ extern bool ite_flattener_branch_is_live(ite_flattener_t *f);
 
 
 /*
+ * Check whether the last literal on the branch is false
+ * - the tree must not be empty
+ */
+extern bool ite_flattener_last_lit_false(ite_flattener_t *f);
+
+
+/*
  * Export the current clause
  * - adds all the literals into vector v
  * - the vector v is not reset
