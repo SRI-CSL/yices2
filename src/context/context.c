@@ -427,10 +427,18 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
     x = intern_tbl_get_root(&ctx->intern, x);
 
     /*
-     * x is the current leaf
+     * x is the current leaf.
+     * If it's (ite ...) then we can expand the tree by pushing x.
+     *
+     * Heuristic: we don't do it if x is a shared term or if it's
+     * already internalized.
+     * - we also need a cutoff since the number of branches grows
+     *   exponentially.
      */
-    if (is_pos_term(x) && is_ite_term(ctx->terms, x) && 
-	!intern_tbl_root_is_mapped(&ctx->intern, x)) {
+    if (is_pos_term(x) && 
+	is_ite_term(ctx->terms, x) && 
+	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
+	term_is_not_shared(&ctx->sharing, x)) {
       /*
        * x is of the form (ite c a b) and not internalized already,
        * we push (ite c a b) on the flattener.
@@ -701,6 +709,72 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
 
 
 /*
+ * Convert nested if-then-else to  an arithmetic variable
+ * - ite = term of the form (ite c1 t1 t2)
+ * - c = internalization of c1
+ * - is_int = true if the if-then-else term is integer (otherwise it's real)
+ */
+static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, literal_t c, bool is_int) {
+  ite_flattener_t flattener;
+  ivector_t *buffer;
+  term_t x;
+  thvar_t u, v;
+
+  u = ctx->arith.create_var(ctx->arith_solver, is_int);
+
+  init_ite_flattener(&flattener);
+  ite_flattener_push(&flattener, ite, c);
+
+  while (ite_flattener_is_nonempty(&flattener)) {
+    if (ite_flattener_last_lit_false(&flattener)) {
+      // dead branch
+      ite_flattener_next_branch(&flattener);      
+      continue;
+    }
+    assert(ite_flattener_branch_is_live(&flattener));
+
+    x = ite_flattener_leaf(&flattener);
+    x = intern_tbl_get_root(&ctx->intern, x);
+
+    /*
+     * x is the current leaf
+     * If x is of the form (ite c a b) we can push (ite c a b) on the flattener.
+     *
+     * Heuristics: don't push the term if x is already internalized or if it's
+     * shared.
+     */
+    if (is_pos_term(x) && 
+	is_ite_term(ctx->terms, x) && 
+	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
+	term_is_not_shared(&ctx->sharing, x)) {
+      ite = ite_term_desc(ctx->terms, x);
+      assert(ite->arity == 3);
+      c = internalize_to_literal(ctx, ite->arg[0]);
+      ite_flattener_push(&flattener, ite, c);
+    } else {
+      /*
+       * Add the clause [branch conditions => x = u]
+       */
+      v = internalize_to_arith(ctx, x);
+
+      buffer = &ctx->aux_vector;
+      assert(buffer->size == 0);
+      ite_flattener_get_clause(&flattener, buffer);
+      ite_prepare_antecedents(buffer);
+      // assert [buffer \/ v = u]
+      ctx->arith.assert_clause_vareq_axiom(ctx->arith_solver, buffer->size, buffer->data, v, u);
+      ivector_reset(buffer);
+
+      ite_flattener_next_branch(&flattener);
+    }
+  }
+
+  delete_ite_flattener(&flattener);
+
+  return u;
+}
+
+/*
  * Convert if-then-else to an arithmetic variable
  * - if is_int is true, the if-then-else term is integer
  * - otherwise, it's real
@@ -726,6 +800,11 @@ static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_i
   if (c == false_literal) {
     return internalize_to_arith(ctx, ite->arg[2]);
   }
+
+  if (context_ite_flattening_enabled(ctx)) {
+    return flatten_ite_to_arith(ctx, ite, c, is_int);
+  }
+
 
   /*
    * no simplification: create a fresh variable v and assert (c ==> v = t1)
