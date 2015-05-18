@@ -1428,6 +1428,9 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
 
 
 
+/*
+ * ARITHMETIC IF-THEN-ELSE
+ */
 
 /*
  * PUSH IF INSIDE INTEGER POLYNOMIALS
@@ -1647,6 +1650,79 @@ static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_
 }
 
 
+/*
+ * OFFSET ITE
+ */
+
+/*
+ * Auxiliary function: builds t + (ite c k1 k2)
+ * - if is_int is true then both k1 and k2 are assumed to be integer
+ *   so (ite c k1 k2) has type int
+ * - otherwise (ite c k1 k2) has type real
+ */
+static term_t mk_offset_ite(term_manager_t *manager, term_t t, type_t c, term_t k1, term_t k2, bool is_int) {
+  term_table_t *tbl;
+  rba_buffer_t *b;
+  type_t tau;
+  term_t ite;
+
+  tbl = manager->terms;
+  b  = term_manager_get_arith_buffer(manager);
+
+  tau = is_int ? int_type(tbl->types) : real_type(tbl->types);
+  ite = ite_term(tbl, tau, c, k1, k2); // (ite c k1 k2)
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t);
+  rba_buffer_add_term(b, tbl, ite); // t + (ite c k1 k2)
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+/*
+ * Attempt to apply the offset rule to (ite c t e):
+ * 1) If t is of the form (k + e), builds  e + (ite c k 0)
+ * 2) If e is of the form (k + t), builds  t + (ite c 0 k)
+ * 3) Otherwise returns NULL_TERM
+ */
+static term_t try_offset_ite(term_manager_t *manager, term_t c, term_t t, term_t e) {
+  term_table_t *tbl;
+  polynomial_t *p;
+  rational_t *k;
+  term_t offset;
+  bool is_int;
+
+  tbl = manager->terms;
+  k = &manager->r0;
+
+  if (term_kind(tbl, t) == ARITH_POLY) {
+    p = poly_term_desc(tbl, t);
+    if (polynomial_is_const_plus_var(p, e)) {
+      // t is e + k for some non-zero constant k
+      // --> e + (ite c k 0)
+      monarray_constant(p->mono, k);
+      is_int = q_is_integer(k);
+      offset = arith_constant(tbl, k);
+      return mk_offset_ite(manager, e, c, offset, zero_term, is_int);
+    }
+  }
+
+  if (term_kind(tbl, e) == ARITH_POLY) {
+    p = poly_term_desc(tbl, e);
+    if (polynomial_is_const_plus_var(p, t)) {
+      // e is t + k for some non-zero constant k
+      // --> t + (ite c 0 k)
+      monarray_constant(p->mono, k);
+      is_int = q_is_integer(k);
+      offset = arith_constant(tbl, k);
+      return mk_offset_ite(manager, t, c, zero_term, offset, is_int);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+
 
 /*
  * PUSH IF INSIDE ARRAY/FUNCTION UPDATES
@@ -1827,11 +1903,16 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
     aux = t; t = e; e = aux;
   }
 
-  // check whether both sides are integer polynomials
-  if (is_integer_type(tau)
-      && term_kind(manager->terms, t) == ARITH_POLY
-      && term_kind(manager->terms, e) == ARITH_POLY) {
-    return mk_integer_polynomial_ite(manager, c, t, e);
+  // rewriting of arithmetic if-then-elses
+  if (is_arithmetic_type(tau)) {
+    if (is_integer_type(tau) && 
+	term_kind(manager->terms, t) == ARITH_POLY && 
+	term_kind(manager->terms, e) == ARITH_POLY) {
+      return mk_integer_polynomial_ite(manager, c, t, e);
+    }
+
+    aux = try_offset_ite(manager, c, t, e);
+    if (aux != NULL_TERM) return aux;
   }
 
   // check for array updates

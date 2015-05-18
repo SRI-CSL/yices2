@@ -247,7 +247,7 @@ extern void monarray_gcd(monomial_t *p, rational_t *gcd);
  * 1) If p and q are two polynomials and c is a boolean term, we
  *    may want to rewrite (ite c p q) to r + (ite c p' q') where
  *    r is the common part of p and q (i.e., r is the sum of
- *    all monomials then occur both in p and q).
+ *    all monomials that occur in both p and q).
  *
  * 2) Then if p' and q' can be factored into (a.p'') and (a.q''),
  *    respectively, then we way further rewrite
