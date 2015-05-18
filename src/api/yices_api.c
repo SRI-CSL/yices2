@@ -6819,10 +6819,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
   enable_assert_ite_bounds(ctx);
-
-  // FOR TESTING OF ITE-FLATTENING
-  //  enable_ite_flattening(ctx);
-  //
+  enable_ite_flattening(ctx);
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
@@ -7310,7 +7307,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA) {
+    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA || logic == QF_UFIDL) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
