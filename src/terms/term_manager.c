@@ -1698,7 +1698,7 @@ static term_t try_offset_ite(term_manager_t *manager, term_t c, term_t t, term_t
     p = poly_term_desc(tbl, t);
     if (polynomial_is_const_plus_var(p, e)) {
       // t is e + k for some non-zero constant k
-      // --> e + (ite c k 0)
+      // (ite c t e) --> e + (ite c k 0)
       monarray_constant(p->mono, k);
       is_int = q_is_integer(k);
       offset = arith_constant(tbl, k);
@@ -1710,7 +1710,7 @@ static term_t try_offset_ite(term_manager_t *manager, term_t c, term_t t, term_t
     p = poly_term_desc(tbl, e);
     if (polynomial_is_const_plus_var(p, t)) {
       // e is t + k for some non-zero constant k
-      // --> t + (ite c 0 k)
+      // (ite c t e) --> t + (ite c 0 k)
       monarray_constant(p->mono, k);
       is_int = q_is_integer(k);
       offset = arith_constant(tbl, k);
