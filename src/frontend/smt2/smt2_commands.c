@@ -51,7 +51,9 @@
 #include "utils/memsize.h"
 
 
-//// PROVISIONAL
+/*
+ * DUMP CONTEXT: FOR TESTING/DEBUGGING
+ */
 
 #define DUMP_CTX 0
 
@@ -210,7 +212,84 @@ static void dump(const char *filename, context_t *ctx) {
 
 #endif
 
-////
+
+/*
+ * FOR TESTING: BITBLAST THEN EXPORT TO DIMACS
+ */
+
+#define EXPORT_TO_DIMACS 0
+
+#if EXPORT_TO_DIMACS
+
+#include "solvers/bv/dimacs_printer.h"
+
+/*
+ * Export ctx content in DIMACS format
+ * - s = file name
+ */
+static void do_export(context_t *ctx, const char *s) {
+  FILE *f;
+
+  f = fopen(s, "w");
+  if (f == NULL) {
+    perror(s);
+    exit(YICES_EXIT_SYSTEM_ERROR);
+  } else {
+    dimacs_print_bvcontext(f, ctx);
+    fclose(f);
+  }
+}
+
+/*
+ * Force bitblasting then export
+ * - s = filename
+ * - ctx's status must be IDLE when this is called
+ */
+static void bitblast_then_export(context_t *ctx, const char *s) {
+  smt_status_t stat;
+
+  assert(context_status(ctx) == STATUS_IDLE);
+  stat = precheck_context(ctx);
+  switch (stat) {
+  case STATUS_UNKNOWN:
+  case STATUS_UNSAT:
+    do_export(ctx, s);
+    break;
+
+  case STATUS_INTERRUPTED:
+    fprintf(stderr, "Export to dimacs interrupted\n");
+    break;
+
+  default:
+    fprintf(stderr, "Unexpected context status after pre-check\n");
+    break;
+  }
+}
+
+
+
+/*
+ * Export the delayed assertions
+ * - ctx = context
+ * - a = array of n formulas (the assertions)
+ * - s = filename
+ */
+static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, const char *s) {
+  int32_t code;
+
+  code = CTX_OPERATION_NOT_SUPPORTED;
+  if (ctx->logic == QF_BV && ctx->mode == CTX_MODE_ONECHECK) {
+    code = yices_assert_formulas(ctx, n, a);
+    if (code == 0) {
+      bitblast_then_export(ctx, s);
+    }
+  }
+  return code;
+}
+
+
+
+#endif
 
 
 
@@ -2375,6 +2454,15 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     default:
       bad_status_bug(g->err);
       break;
+    }
+#elif EXPORT_TO_DIMACS
+    /*
+     * TESTING: EXPORT TO DIMACS
+     */
+    code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, "yices-bv.cnf");
+    if (code < 0) {
+      print_yices_error(true);
+      return;
     }
 #else
     /*
