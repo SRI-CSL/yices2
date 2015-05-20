@@ -59,16 +59,16 @@
 
 #if DUMP_CTX
 
-#include "term_printer.h"
-#include "type_printer.h"
-#include "idl_fw_printer.h"
-#include "rdl_fw_printer.h"
-#include "simplex_printer.h"
-#include "bvsolver_printer.h"
-#include "egraph_printer.h"
-#include "smt_core_printer.h"
-#include "context_printer.h"
-#include "gates_printer.h"
+#include "io/term_printer.h"
+#include "io/type_printer.h"
+#include "solvers/floyd_warshall/idl_fw_printer.h"
+#include "solvers/floyd_warshall/rdl_fw_printer.h"
+#include "solvers/simplex/simplex_printer.h"
+#include "solvers/bv/bvsolver_printer.h"
+#include "solvers/egraph/egraph_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
+#include "solvers/cdcl/gates_printer.h"
+#include "context/context_printer.h"
 
 
 /*
@@ -2424,8 +2424,10 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       print_yices_error(true);
       return;
     }
+#if DUMP_CTX
     //    yices_print_presearch_stats(stderr, g->ctx);
-    //    dump("yices2intern.dmp", g->ctx);
+    dump("yices2intern.dmp", g->ctx);
+#endif
 
     init_search_parameters(g);
     if (g->random_seed != 0) {
@@ -2474,8 +2476,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       print_yices_error(true);
       return;
     }
-    //    pp_context(g->out, g->ctx);
-    print_context(g->out, g->ctx);
+    pp_context(g->out, g->ctx);
+    //    print_context(g->out, g->ctx);
 #endif
   }
 
