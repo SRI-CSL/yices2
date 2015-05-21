@@ -6428,7 +6428,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   thvar_t x;
 
 #if TRACE_BB
-  printf("\n---> make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
+  printf("\n--- make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
          " integer-invalid vars\n", solver->core->decision_level, solver->core->stats.decisions,
          simplex_num_integer_invalid_vars(solver));
 #endif
@@ -6445,10 +6445,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   solver->stats.num_make_intfeasible ++;
 
 #if TRACE_INTFEAS
-  printf("--- make integer feasible %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"] ---\n",
+  printf("\nMAKE INTEGER FEASIBLE %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
 	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
-  //  print_simplex_bounds(stdout, solver);
-  //  printf("\n\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
   fflush(stdout);
 #endif
 
@@ -6480,6 +6483,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 #endif
     tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
 
+#if TRACE_INTFEAS
+    printf("---> unsat by diophantine solver\n\nDONE\n");
+    fflush(stdout);
+#endif
     return false;
   } else if (solver->recheck) {
     /*
@@ -6495,6 +6502,11 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
       tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
 
       solver->stats.num_recheck_conflicts ++;
+
+#if TRACE_INTFEAS
+      printf("---> unsat by bound strengthening\n\nDONE\n");
+      fflush(stdout);
+#endif
       return false;
 
     } else {
@@ -6542,6 +6554,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 	  v->size, x, simplex_branch_score(solver, x));
 #if TRACE_INTFEAS
   print_branch_candidates(stdout, solver, v);
+  printf("\n\nDONE\n");
+  fflush(stdout);
 #endif
   ivector_reset(v);
 

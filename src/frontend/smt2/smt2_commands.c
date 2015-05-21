@@ -54,7 +54,6 @@
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
-
 #define DUMP_CTX 0
 
 #if DUMP_CTX
@@ -2426,6 +2425,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
 #if DUMP_CTX
     //    yices_print_presearch_stats(stderr, g->ctx);
+    //    pp_context(g->out, g->ctx);
     dump("yices2intern.dmp", g->ctx);
 #endif
 
