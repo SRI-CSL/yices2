@@ -2557,7 +2557,18 @@ literal_t egraph_make_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   // simplify
   if (t1 == t2) return true_literal;
 
-  if (egraph->base_level == egraph->decision_level) {
+  /*
+   * Careful: if we're in the reconcile_mode at the base level
+   * we can't check for equality/disequality here using egraph_equal_occ or
+   * egraph_check_diseq. That's because there may be tentative equalities
+   * in the egraph at this point (so egraph_equal_occ and egraph_check_diseq
+   * may give incorrect results).
+   *
+   * The test for reconcile_mode was missing. Bug reported by Martin Gabris.
+   */
+  //  if (egraph->base_level == egraph->decision_level) {
+  if (egraph->base_level == egraph->decision_level 
+      && (! egraph->reconcile_mode || egraph->stack.top == egraph->reconcile_neqs)) {
     if (egraph_equal_occ(egraph, t1, t2)) {
       return true_literal;
     } else if (egraph_check_diseq(egraph, t1, t2)) {
@@ -6031,7 +6042,10 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   uint32_t i, max_eqs;
 
 #if TRACE_FCHECK
-  printf("---> EGRAPH: final check (experimental)\n");
+  printf("---> EGRAPH: final check (experimental)\n\n");
+  print_egraph_terms(stdout, egraph);
+  printf("\n\n");
+  print_egraph_root_classes_details(stdout, egraph);
   fflush(stdout);
 #endif
 
@@ -6091,6 +6105,13 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 
 
   } else if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
+#if TRACE_FCHECK
+    printf("---> EGRAPH: final check: after reconcile\n\n");
+    print_egraph_terms(stdout, egraph);
+    printf("\n\n");
+    print_egraph_root_classes_details(stdout, egraph);
+    fflush(stdout);
+#endif
     /*
      * bv/arith models are consistent with the egraph:
      * deal with the array solver
@@ -6134,6 +6155,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
+  //  if (egraph->base_level == egraph->decision_level || egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
   if (egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
     return baseline_final_check(egraph);
   } else {
