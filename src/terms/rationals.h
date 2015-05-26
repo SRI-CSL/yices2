@@ -286,7 +286,6 @@ extern void q_integer_div(rational_t *r1, rational_t *r2);
 extern void q_integer_rem(rational_t *r1, rational_t *r2);
 
 
-
 /*
  * Generalized LCM: compute the smallest non-negative rational q
  * such that q/r1 is an integer and q/r2 is an integer.
@@ -295,6 +294,12 @@ extern void q_integer_rem(rational_t *r1, rational_t *r2);
  */
 extern void q_generalized_lcm(rational_t *r1, rational_t *r2);
 
+/*
+ * Generalized GCD: compute the largest positive rational q
+ * such that r1/q and r2/q are both integer.
+ * - the result is stored in r2
+ */
+extern void q_generalized_gcd(rational_t *r1, rational_t *r2);
 
 
 /*
@@ -378,41 +383,41 @@ extern bool q_opposite(rational_t *r1, rational_t *r2);
 /*
  * Tests on rational r
  */
-static inline bool q_is_zero(rational_t *r) {
+static inline bool q_is_zero(const rational_t *r) {
   return r->den == 0 ? mpq_is_zero(bank_q[r->num]) : r->num == 0;
 }
 
-static inline bool q_is_nonzero(rational_t *r) {
+static inline bool q_is_nonzero(const rational_t *r) {
   return r->den == 0 ? mpq_is_nonzero(bank_q[r->num]) : r->num != 0;
 }
 
-static inline bool q_is_one(rational_t *r) {
+static inline bool q_is_one(const rational_t *r) {
   return (r->den == 1 && r->num == 1) ||
     (r->den == 0 && mpq_is_one(bank_q[r->num]));
 }
 
-static inline bool q_is_minus_one(rational_t *r) {
+static inline bool q_is_minus_one(const rational_t *r) {
   return (r->den == 1 && r->num == -1) ||
     (r->den == 0 && mpq_is_minus_one(bank_q[r->num]));
 }
 
-static inline bool q_is_pos(rational_t *r) {
+static inline bool q_is_pos(const rational_t *r) {
   return (r->den > 0 ?  r->num > 0 : mpq_is_pos(bank_q[r->num]));
 }
 
-static inline bool q_is_nonneg(rational_t *r) {
+static inline bool q_is_nonneg(const rational_t *r) {
   return (r->den > 0 ?  r->num >= 0 : mpq_is_nonneg(bank_q[r->num]));
 }
 
-static inline bool q_is_neg(rational_t *r) {
+static inline bool q_is_neg(const rational_t *r) {
   return (r->den > 0 ?  r->num < 0 : mpq_is_neg(bank_q[r->num]));
 }
 
-static inline bool q_is_nonpos(rational_t *r) {
+static inline bool q_is_nonpos(const rational_t *r) {
   return (r->den > 0 ?  r->num <= 0 : mpq_is_nonpos(bank_q[r->num]));
 }
 
-static inline bool q_is_integer(rational_t *r) {
+static inline bool q_is_integer(const rational_t *r) {
   return (r->den == 1) || (r->den == 0 && mpq_is_integer(bank_q[r->num]));
 }
 

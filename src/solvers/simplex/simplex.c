@@ -4102,14 +4102,14 @@ static void conflict_set_for_decrease(simplex_solver_t *solver, row_t *row, thva
  *   (lb_flag[x] = 1 iff val[x] = lower bound on x and
  *    ub_flag[x] = 1 iff val[x] = upper bound on x)
  *
+ * This invariant is maintained by this function.
+ *
  * Result:
  * - if the function returns true, then the array val contains an assignment
  *   that satisfies all constraints. The heap solver->infeasible_vars is empty.
  * - if the function returns false, then invariant above is still satisfied
  *   in addition, a conflict set is stored in solver->expl_queue and every
  *   bound index is solver->expl_queue is marked.
- *
- * This precondition/invariant is maintained by this function.
  */
 static bool simplex_check_feasible(simplex_solver_t *solver) {
   matrix_t *matrix;
@@ -5667,6 +5667,7 @@ static bool simplex_has_integer_vars(simplex_solver_t *solver) {
   return num_integer_vars(&solver->vtbl) > 1;
 }
 
+
 /*
  * Check whether the system mixes integer and non-integer variables
  */
@@ -5675,7 +5676,6 @@ static bool simplex_is_mixed_system(simplex_solver_t *solver) {
   k = num_integer_vars(&solver->vtbl);
   return 1 < k && k < num_arith_vars(&solver->vtbl);
 }
-
 
 
 /*
@@ -5689,7 +5689,6 @@ static int32_t find_real_var_in_row(simplex_solver_t *solver, row_t *row) {
   arith_vartable_t *vtbl;
   uint32_t i, n;
   thvar_t x;
-
 
   vtbl = &solver->vtbl;
   n = row->size;
