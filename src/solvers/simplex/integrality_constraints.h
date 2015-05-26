@@ -143,7 +143,7 @@ typedef struct int_constraint_s {
   // constant term in fixed sum
   rational_t constant;
 
-  // auxiliary buffers
+  // auxiliary rationals
   rational_t num_gcd;        // gcd of numerators
   rational_t den_lcm;        // lcm of denominators
   rational_t gcd;            // gcd := num_gcd/den_lcm

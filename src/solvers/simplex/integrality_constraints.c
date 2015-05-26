@@ -136,6 +136,7 @@ void init_int_constraint(int_constraint_t *cnstr) {
   q_init(&cnstr->num_gcd);
   q_init(&cnstr->den_lcm);
   q_init(&cnstr->gcd);
+  q_init(&cnstr->fixed_constant);
   q_init(&cnstr->period);
   q_init(&cnstr->phase);
   q_init(&cnstr->q0);
