@@ -645,7 +645,7 @@ static void add_upper_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
 
 /*
  * Add the lower bounds of all monomials in p
- * - all monomials must have an upper bound
+ * - all monomials must have a loweer bound
  * - the result is stored in b
  */
 static void add_lower_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b) {

@@ -5851,6 +5851,29 @@ static void print_branch_candidates(FILE *f, simplex_solver_t *solver, ivector_t
 
 #endif
 
+#ifndef NDEBUG
+/*
+ * For debugging: check that all the integer variables that don't have an integer value
+ * are basic.
+ */
+static bool non_integer_vars_are_basic(simplex_solver_t *solver) {
+  arith_vartable_t *vtbl;
+  uint32_t i, n;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (arith_var_is_int(vtbl, i) && ! arith_var_value_is_int(vtbl, i) && 
+	matrix_is_nonbasic_var(&solver->matrix, i)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+#endif
+
 /*
  * Collect all basic, integer variables that don't have an integer value
  * in the current assignment
@@ -5916,6 +5939,171 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   }
 }
 
+/*
+ * Check whether we can compute a lower or upper bound on x using the row where x is basic
+ * - x must be a basic variable
+ * - if lower is true, this checks for a lower bound. Otherwise the function checks
+ *   for an upper bound.
+ *
+ * The row is of the form  x + sum of monomials == 0
+ * - we can derive a lower bound on x if all the monomials have an upper bound
+ *   (namely x >= - sum of monomials' upper bounds)
+ * - we can derive an upper bound on x if all the monomials have a lower bound 
+ *   (namely x <= - sum of monomials' lower bounds)
+ */
+static bool simplex_check_derived_bound_on_var(simplex_solver_t *solver, thvar_t x, bool lower) {
+  arith_vartable_t *vtbl;
+  row_t *row;
+  int32_t k;
+  uint32_t i, n;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+
+  k = matrix_basic_row(&solver->matrix, x);
+  assert(k >= 0); // i.e., x is a basic variable
+  row = matrix_row(&solver->matrix, k);
+
+  n = row->size;
+  for (i=0; i<n; i++) {
+    y = row->data[i].c_idx;
+    if (y >= 0 && y != x) {
+      /*
+       * monomial a * y where a = row->data[i].coeff
+       * - if lower is true, we check whether a * y has an upper bound
+       *   (i.e., a>0 and y has an upper bound or a<0 and y has a lower bound)
+       * - if lower is false, we check whether a * y has a lower bound
+       *   (i.e., a>0 and y has a lower bound or a>0 and y has an upper bound)
+       */
+      if (q_is_pos(&row->data[i].coeff) == lower) {
+	k = arith_var_upper_index(vtbl, y);
+      } else {
+	k = arith_var_lower_index(vtbl, y);
+      }
+      if (k < 0) return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+ * Compute the derived lower or upper bound on x
+ * - x must be a basic variable
+ * - if lower is true, this computes the lower bound, otherwise the function computes
+ *   the upper bound on x.
+ * - the bound is returned in b
+ */
+static void simplex_get_derived_bound_on_var(simplex_solver_t *solver, thvar_t x, bool lower, xrational_t *b) {
+  arith_vartable_t *vtbl;
+  row_t *row;
+  int32_t k;
+  uint32_t i, n;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+
+  k = matrix_basic_row(&solver->matrix, x);
+  assert(k >= 0); // i.e., x is a basic variable
+  row = matrix_row(&solver->matrix, k);
+
+  xq_clear(b);
+
+  n = row->size;
+  for (i=0; i<n; i++) {
+    y = row->data[i].c_idx;
+    if (y >= 0 && y != x) {
+      // monomial a * y where a = row->data[i].coeff
+      if (q_is_pos(&row->data[i].coeff) == lower) {
+	k = arith_var_upper_index(vtbl, y); 
+      } else {
+	k = arith_var_lower_index(vtbl, y);
+      }
+      assert(k >= 0);
+      xq_addmul(b, solver->bstack.bound + k, &row->data[i].coeff);
+    }
+  }
+
+  xq_neg(b);
+}
+
+
+/*
+ * Check whether x has an upper bound
+ * - if so, add the bound to diff
+ * - x must be an integer basic variable..
+ */
+static bool simplex_branch_var_add_ub(simplex_solver_t *solver, thvar_t x, rational_t *diff) {
+  xrational_t *bound;
+  xrational_t *ub;
+  bool derived, has_ub;
+  int32_t u;
+
+  assert(arith_var_is_int(&solver->vtbl, x) && matrix_is_basic_var(&solver->matrix, x));
+
+  bound = &solver->bound;
+
+  derived = simplex_check_derived_bound_on_var(solver, x, false); 
+  if (derived) {
+    simplex_get_derived_bound_on_var(solver, x, false, bound);
+    //    xq_floor(bound); // since x is an integer
+  }
+
+  u = arith_var_upper_index(&solver->vtbl, x);
+  if (u >= 0) {
+    ub = solver->bstack.bound + u; // upper bound on x in the bound stack
+  }
+
+  has_ub = false;
+  if (derived && (u < 0 || q_lt(&bound->main, &ub->main))) {
+    q_add(diff, &bound->main);
+    has_ub = true;
+  } else if (u >= 0) {
+    q_add(diff, &ub->main);
+    has_ub = true;
+  }
+
+  return has_ub;
+}
+
+/*
+ * Check whether x has a lower bound
+ * - if so, subtract the bound from diff
+ * - x must be an integer basic variable..
+ */
+static bool simplex_branch_var_sub_lb(simplex_solver_t *solver, thvar_t x, rational_t *diff) {
+  xrational_t *bound;
+  xrational_t *lb;
+  bool derived, has_lb;
+  int32_t l;
+
+  assert(arith_var_is_int(&solver->vtbl, x) && matrix_is_basic_var(&solver->matrix, x));
+
+  bound = &solver->bound;
+
+  derived = simplex_check_derived_bound_on_var(solver, x, true);
+  if (derived) {
+    simplex_get_derived_bound_on_var(solver, x, true, bound);
+    //    xq_ceil(bound); // since x is an integer
+  }
+
+  l = arith_var_lower_index(&solver->vtbl, x);
+  if (l >= 0) {
+    lb = solver->bstack.bound + l; // lower bound on x in the bound stack
+  }
+
+  has_lb = false;
+  if (derived && (l < 0 || q_gt(&bound->main, &lb->main))) {
+    q_sub(diff, &bound->main);
+    has_lb = true;
+  } else if (l >= 0) {
+    q_sub(diff, &lb->main);
+    has_lb = true;
+  }
+
+  return has_lb;
+}
+
 
 
 /*
@@ -5927,7 +6115,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
 #define MAX_BRANCH_SCORE UINT32_MAX
 #define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
 
-static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
+// older version
+static uint32_t simplex_branch_score_old(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
   int32_t l, u;
   uint32_t s;
@@ -5954,6 +6143,39 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   return HALF_MAX_BRANCH_SCORE;
 }
 
+// new version: use derived bounds on x if available
+static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
+  rational_t *diff;
+  bool has_lb, has_ub;
+  uint32_t s;
+
+  diff = &solver->aux;
+  q_clear(diff);
+  has_ub = simplex_branch_var_add_ub(solver, x, diff);
+  //  assert(q_is_integer(diff));
+  has_lb = simplex_branch_var_sub_lb(solver, x, diff);
+  //  assert(q_is_integer(diff));
+
+  if (has_ub && has_lb) {
+    q_normalize(diff);
+    assert(q_is_nonneg(diff));
+    // diff = upper bound - lower bound
+    if (q_is_smallint(diff)) {
+      s = q_get_smallint(diff);
+      if (s < HALF_MAX_BRANCH_SCORE) {
+	return s;
+      }
+    }
+    return HALF_MAX_BRANCH_SCORE;    
+  } else if (has_ub || has_lb) {
+    // at least one bound
+    return HALF_MAX_BRANCH_SCORE + 1;
+  } else {
+    // no bounds
+    return MAX_BRANCH_SCORE;
+  }
+}
+
 
 /*
  * Select a branch variable of v: pick the one with smallest score.
@@ -5962,6 +6184,16 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
 static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
   uint32_t i, n, best_score, score, k;
   thvar_t x, best_var;
+
+#if TRACE_INTFEAS
+  printf("\nSELECT BRANCH VARIABLE\n\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
 
   best_score = MAX_BRANCH_SCORE;
   best_var = null_thvar;
@@ -6591,6 +6823,7 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
 
 /*
  * Go through a row and extract an integrality constraint from it.
+ * - all variables in the row must be integer or fixed
  */
 static bool test_integrality_in_row(simplex_solver_t *solver, int_constraint_t *checker, row_t *row) {
   arith_vartable_t *vtbl;
@@ -6638,8 +6871,12 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
   thvar_t x;
   uint32_t i, n;
   bool feasible;
+  bool pure_integer;
 
   feasible = true;
+
+  pure_integer = ! simplex_is_mixed_system(solver);
+
   init_int_constraint(&checker);
   vtbl = &solver->vtbl;
   matrix = &solver->matrix;
@@ -6648,11 +6885,13 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
     x = matrix_basic_var(matrix, i);
     if (arith_var_is_int(vtbl, x) && !arith_var_value_is_int(vtbl, x)) {
       row = matrix->row[i];
-      feasible = test_integrality_in_row(solver, &checker, row);
-      if (! feasible) {
-	break;
+      if (pure_integer || matrix_row_is_integral(solver, row)) {
+	feasible = test_integrality_in_row(solver, &checker, row);
+	if (! feasible) {
+	  break;
+	}
+	reset_int_constraint(&checker);
       }
-      reset_int_constraint(&checker);
     }
   }
 
@@ -6710,10 +6949,33 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   if (simplex_is_mixed_system(solver)) {
     make_integer_vars_nonbasic(solver);
   }
+
+#if TRACE_INTFEAS
+  printf("\nMOVED NON-INTEGER VARIABLES TO THE BASIS\n\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
   // assign an integer value to all non-basic variables
   if (! assign_integers_to_nonbasic_vars(solver)) {
     abort();
   }
+
+#if TRACE_INTFEAS
+  printf("\nASSIGNED INTEGER VALUES TO NON_BASIC INTEGER VARIABLES\n\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
+  assert(non_integer_vars_are_basic(solver));
 
 #if DEBUG
   check_assignment(solver);
@@ -6726,7 +6988,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    */
   solver->recheck = false;
   if (!simplex_integrality_check(solver)) {
-    tprintf(solver->core->trace, 10, "(unsat by integrality test)\n");
+    tprintf(solver->core->trace, 8, "(unsat by integrality test)\n");
     return false;
   } else if (solver->recheck) {
     /*
@@ -6734,7 +6996,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
      */
     simplex_fix_nonbasic_assignment(solver);
     if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 0, "(unsat by integer bound strengthening)\n");
+      tprintf(solver->core->trace, 10, "(unsat by integer bound strengthening)\n");
       solver->stats.num_recheck_conflicts ++;
       return false;
     }
