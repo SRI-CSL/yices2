@@ -381,10 +381,41 @@ static bool test_feasibility_condition(int_constraint_t *cnstr) {
   return q_integer_divides(&cnstr->q1, &cnstr->q0);
 }
 
+
+/*
+ * Degenerate case: if all variables are fixed, we compute the sum of the
+ * fixed terms and we check whether that's an integer.
+ */
+static bool degenerate_int_constraint_is_feasible(int_constraint_t *cnstr, ivector_t *v) {
+  rational_t *s, *val;
+  monomial_t *fixed;
+  uint32_t i, n;
+  int32_t x;
+
+  assert(cnstr->sum_nterms == 0);
+  s = &cnstr->fixed_constant;
+  q_set(s, &cnstr->constant);
+
+  fixed = cnstr->fixed_sum;
+  val = cnstr->fixed_val;
+  n = cnstr->fixed_nterms;
+  for (i=0; i<n; i++) {
+    x = fixed[i].var;
+    ivector_push(v, x);
+    q_addmul(s, &fixed[i].coeff, &val[i]);
+  }
+  
+  return q_is_integer(s);
+}
+
+
 /*
  * Check feasibility
  */
 bool int_constraint_is_feasible(int_constraint_t *cnstr, ivector_t *v) {
+  if (cnstr->sum_nterms == 0) {
+    return degenerate_int_constraint_is_feasible(cnstr, v);
+  }
   int_constraint_build_gcd(cnstr);
   int_constraint_build_fixed_constant(cnstr, v);
   return test_feasibility_condition(cnstr);

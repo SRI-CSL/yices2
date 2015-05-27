@@ -15,6 +15,7 @@
 
 #include "io/tracer.h"
 #include "solvers/egraph/theory_explanations.h"
+#include "solvers/simplex/integrality_constraints.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/rational_hash_maps.h"
 #include "utils/assert_utils.h"
@@ -24,6 +25,9 @@
 #include "utils/hash_functions.h"
 #include "utils/int_hash_classes.h"
 
+
+///// FOR TESTING ONLY
+#include "solvers/simplex/int_constraint_printer.h"
 
 /*
  * To enable general trace, set TRACE to 1
@@ -6461,6 +6465,204 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 }
 
 
+/*
+ * TEST OF THE INTEGRALITY CONSTRAINT CODE
+ */
+
+#if 0
+/*
+ * Print a list of variables
+ */
+static void show_vars(simplex_solver_t *solver, thvar_t *a, uint32_t n) {
+  uint32_t i;
+  thvar_t x;
+
+  if (n == 0) {
+    printf("[]");
+  } else {
+    x = a[0];
+    printf("[");
+    print_simplex_var(stdout, solver, x);
+    for (i=1; i<n; i++) {
+      x = a[i];
+      printf(" ");
+      print_simplex_var(stdout, solver, x);
+    }
+    printf("]");
+  }
+}
+#endif
+
+/*
+ * Conflict explanation when an integrality constraint is not feasible.
+ * - the explanation is a list of fixed variables stored in array a
+ * - n = number of elements of this array.
+ */
+static void build_integrality_conflict(simplex_solver_t *solver, thvar_t *a, uint32_t n) {
+  ivector_t *v;
+  uint32_t i;
+
+  // Collect bound indices in solver->expl_queue
+  v = &solver->expl_queue;
+  assert(v->size == 0);
+
+  for (i=0; i<n; i++) {
+    explain_fixed_variable(solver, a[i], v);
+  }
+
+  // Build the explanation into solver->expl_vector
+  v = &solver->expl_vector;
+  ivector_reset(v);
+  simplex_build_explanation(solver, v);
+
+  // turn v into a clause and add null-literal as terminator
+  convert_expl_to_clause(v);
+  ivector_push(v, null_literal);
+
+  // record v as a conflict
+  record_theory_conflict(solver->core, v->data);
+
+  solver->stats.num_gcd_conflicts ++;
+}
+
+static bool process_integrality_constraint(simplex_solver_t *solver, int_constraint_t *checker) {
+  ivector_t v;
+#if 0
+  rational_t *p, *q;
+  uint32_t i, n;
+  thvar_t x;
+#endif
+  bool feasible;
+
+#if 0
+  printf("==== Integrality constraint ====\n");
+  print_int_constraint(stdout, solver, checker);
+  fflush(stdout);
+
+  init_ivector(&v, 10);
+  feasible = int_constraint_is_feasible(checker, &v);
+  if (feasible) {
+    printf("Feasible\n");
+  } else {
+    printf("Not feasible\n");
+    printf("Conflict vars: ");
+    show_vars(solver, v.data, v.size);
+    printf("\n");
+    fflush(stdout);
+  }
+
+  if (feasible) {
+    n = int_constraint_num_terms(checker);
+    for (i=0; i<n; i++) {
+      ivector_reset(&v);
+      int_constraint_period_of_var(checker, i, &v);
+      x = int_constraint_get_var(checker, i);
+      p = int_constraint_period(checker);
+      q = int_constraint_phase(checker);
+      printf("Variable ");
+      print_simplex_var(stdout, solver, x);
+      printf(": period = ");
+      q_print(stdout, p);
+      printf(", phase = ");
+      q_print(stdout, q);
+      printf("\n");
+      printf("  antecedents: ");
+      show_vars(solver, v.data, v.size);
+      printf("\n");
+    }
+  }
+
+  delete_ivector(&v);
+
+  printf("=====\n\n");
+  fflush(stdout);
+#endif
+
+  init_ivector(&v, 10);
+  feasible = int_constraint_is_feasible(checker, &v);
+  if (!feasible) {
+    build_integrality_conflict(solver, v.data, v.size);
+  }
+  delete_ivector(&v);
+
+  return feasible;
+}
+
+
+/*
+ * Go through a row and extract an integrality constraint from it.
+ */
+static bool test_integrality_in_row(simplex_solver_t *solver, int_constraint_t *checker, row_t *row) {
+  arith_vartable_t *vtbl;
+  uint32_t i, n;
+  thvar_t x;
+  rational_t *q;
+
+  vtbl = &solver->vtbl;
+  n = row->size;
+  for (i=0; i<n; i++) {
+    x = row->data[i].c_idx;
+    if (x >= 0) {
+      q = &row->data[i].coeff;
+      if (arith_var_is_int(vtbl, x)) {
+	/*
+	 * Integer variable: we skip it if it has an integer coefficient.
+	 */
+	if (!q_is_integer(q)) {
+	  if (simplex_fixed_variable(solver, x)) {
+	    // x is fixed
+	    int_constraint_add_fixed_mono(checker, q, x, true, fixed_variable_value(solver, x));
+	  } else {
+	    // x is free
+	    int_constraint_add_mono(checker, q, x);
+	  }
+	}
+      } else {
+	/*
+	 * Not an integer variable: it must be fixed
+	 */
+	assert(simplex_fixed_variable(solver, x));
+	int_constraint_add_fixed_mono(checker, q, x, false, fixed_variable_value(solver, x));
+      }
+    }
+  }
+
+  return process_integrality_constraint(solver, checker);
+}
+
+static bool simplex_integrality_check(simplex_solver_t *solver) {
+  int_constraint_t checker;
+  matrix_t *matrix;
+  arith_vartable_t *vtbl;
+  row_t *row;
+  thvar_t x;
+  uint32_t i, n;
+  bool feasible;
+
+  feasible = true;
+  init_int_constraint(&checker);
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+  n = matrix->nrows;
+  for (i=0; i<n; i++) {
+    x = matrix_basic_var(matrix, i);
+    if (arith_var_is_int(vtbl, x) && !arith_var_value_is_int(vtbl, x)) {
+      row = matrix->row[i];
+      feasible = test_integrality_in_row(solver, &checker, row);
+      if (! feasible) {
+	break;
+      }
+      reset_int_constraint(&checker);
+    }
+  }
+
+  delete_int_constraint(&checker);
+
+  return feasible;
+}
+
+
+
 
 /*
  * FINAL CHECK
@@ -6517,6 +6719,42 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   check_assignment(solver);
   check_vartags(solver);
 #endif
+
+
+  /*
+   * TEST
+   */
+  solver->recheck = false;
+  if (!simplex_integrality_check(solver)) {
+    tprintf(solver->core->trace, 10, "(unsat by integrality test)\n");
+    return false;
+  } else if (solver->recheck) {
+    /*
+     * Strengthened bound requires rechecking feasibility
+     */
+    simplex_fix_nonbasic_assignment(solver);
+    if (! simplex_make_feasible(solver) ) {
+      tprintf(solver->core->trace, 0, "(unsat by integer bound strengthening)\n");
+      solver->stats.num_recheck_conflicts ++;
+      return false;
+    }
+
+    // Since pivoting may have occurred we need to prepare for b&b
+
+    // move non-integer variables to the basis
+    if (simplex_is_mixed_system(solver)) {
+      make_integer_vars_nonbasic(solver);
+    }
+    // assign an integer value to all non-basic variables
+    if (! assign_integers_to_nonbasic_vars(solver)) {
+      abort();
+    }
+  }
+  /*
+   * END OF TEST
+   */
+
+
 
   /*
    * Check for unsatisfiability using dsolver

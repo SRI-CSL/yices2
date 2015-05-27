@@ -2542,13 +2542,12 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
 }
 
 
-
-
 literal_t egraph_make_pred(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
   eterm_t t;
   t = egraph_apply_term(egraph, f, n, a);
   return egraph_term2literal(egraph, t);
 }
+
 
 literal_t egraph_make_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   occ_t aux;

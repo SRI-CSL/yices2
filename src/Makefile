@@ -304,6 +304,7 @@ extra_src_c := \
 	solvers/floyd_warshall/rdl_fw_printer.c \
 	solvers/funs/fun_solver_printer.c \
 	solvers/simplex/dsolver_printer.c \
+	solvers/simplex/int_constraint_printer.c \
 	solvers/simplex/simplex_printer.c \
 	solvers/simplex/simplex_prop_table.c \
 	terms/arith_buffers.c \
