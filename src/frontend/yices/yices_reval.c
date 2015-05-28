@@ -2272,13 +2272,22 @@ static void show_simplex_stats(simplex_stats_t *stat) {
   printf(" reduced tricho. lemmas  : %"PRIu32"\n", stat->num_reduced_tricho);
   if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
     printf("Integer arithmetic\n");
+    printf("Integer arithmetic\n");
     printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    printf(" branch & bound          : %"PRIu32"\n", stat->num_branch_atoms);
-    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_gcd_conflicts);
+    printf(" branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
+    printf("bound strengthening\n");
+    printf(" conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
+    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);
+    printf("integrality tests\n");
+    printf(" conflicts               : %"PRIu32"\n", stat->num_itest_conflicts);
+    printf(" bound conflicts         : %"PRIu32"\n", stat->num_itest_bound_conflicts);
+    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_itest_recheck_conflicts);
+    printf("diohpantine solver\n");
+    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_dioph_gcd_conflicts);
     printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
     printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_recheck_conflicts);
+    printf(" bound conflicts         : %"PRIu32"\n", stat->num_dioph_bound_conflicts);
+    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_dioph_recheck_conflicts);
   }
 }
 

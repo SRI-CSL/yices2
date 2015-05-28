@@ -470,7 +470,7 @@ static inline uint32_t simplex_num_branch_and_bound(simplex_solver_t *solver) {
 }
 
 static inline uint32_t simplex_num_gcd_conflicts(simplex_solver_t *solver) {
-  return solver->stats.num_gcd_conflicts;
+  return solver->stats.num_dioph_gcd_conflicts + solver->stats.num_itest_conflicts;
 }
 
 static inline uint32_t simplex_num_dioph_checks(simplex_solver_t *solver) {
@@ -482,11 +482,15 @@ static inline uint32_t simplex_num_dioph_conflicts(simplex_solver_t *solver) {
 }
 
 static inline uint32_t simplex_num_bound_conflicts(simplex_solver_t *solver) {
-  return solver->stats.num_bound_conflicts;
+  return solver->stats.num_bound_conflicts + solver->stats.num_itest_bound_conflicts 
+    + solver->stats.num_dioph_bound_conflicts;
 }
 
 static inline uint32_t simplex_num_recheck_conflicts(simplex_solver_t *solver) {
-  return solver->stats.num_recheck_conflicts;
+  return solver->stats.num_bound_recheck_conflicts 
+    + solver->stats.num_itest_recheck_conflicts 
+    + solver->stats.num_dioph_recheck_conflicts;
+
 }
 
 

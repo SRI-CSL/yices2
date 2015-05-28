@@ -113,12 +113,20 @@ static void show_simplex_stats(FILE *f, simplex_stats_t *stat) {
   if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
     fprintf(f, "Integer arithmetic\n");
     fprintf(f, " make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    fprintf(f, " branch & bound          : %"PRIu32"\n", stat->num_branch_atoms);
-    fprintf(f, " gcd conflicts           : %"PRIu32"\n", stat->num_gcd_conflicts);
+    fprintf(f, " branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
+    fprintf(f, "bound strengthening\n");
+    fprintf(f, " conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
+    fprintf(f, " recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);
+    fprintf(f, "integrality tests\n");
+    fprintf(f, " conflicts               : %"PRIu32"\n", stat->num_itest_conflicts);
+    fprintf(f, " bound conflicts         : %"PRIu32"\n", stat->num_itest_bound_conflicts);
+    fprintf(f, " recheck conflicts       : %"PRIu32"\n", stat->num_itest_recheck_conflicts);
+    fprintf(f, "diohpantine solver\n");
+    fprintf(f, " gcd conflicts           : %"PRIu32"\n", stat->num_dioph_gcd_conflicts);
     fprintf(f, " dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
     fprintf(f, " dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    fprintf(f, " bound conflicts         : %"PRIu32"\n", stat->num_bound_conflicts);
-    fprintf(f, " recheck conflicts       : %"PRIu32"\n", stat->num_recheck_conflicts);
+    fprintf(f, " bound conflicts         : %"PRIu32"\n", stat->num_dioph_bound_conflicts);
+    fprintf(f, " recheck conflicts       : %"PRIu32"\n", stat->num_dioph_recheck_conflicts);
   }
 }
 

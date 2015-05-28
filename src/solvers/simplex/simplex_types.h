@@ -629,14 +629,19 @@ typedef struct simplex_stats_s {
   uint32_t num_conflicts;
 
   // stats on integer arithmetic solver
-  uint32_t num_make_intfeasible; // calls to make_integer_feasible
-  uint32_t num_branch_atoms;     // new branch&bound atoms created
-  uint32_t num_extended_branch;  // more general branch atoms
-  uint32_t num_gcd_conflicts;    // failed GCD tests
-  uint32_t num_dioph_checks;     // number of calls to dsolver_check
-  uint32_t num_dioph_conflicts;  // number of dsolver unsat
-  uint32_t num_bound_conflicts;  // unsat by bound strengthening
-  uint32_t num_recheck_conflicts;  // unsat after recheck
+  uint32_t num_make_intfeasible;        // calls to make_integer_feasible
+  uint32_t num_bound_conflicts;         // unsat by ordinary bound strengthening
+  uint32_t num_bound_recheck_conflicts; // unsat by bound strengthening + recheck
+  uint32_t num_itest_conflicts;         // unsat by the integrality test
+  uint32_t num_itest_bound_conflicts;   // unsat by itest bound strengthening
+  uint32_t num_itest_recheck_conflicts; // unsat by itest bounds + recheck
+  uint32_t num_dioph_checks;            // number of calls to dsolver_check
+  uint32_t num_dioph_gcd_conflicts;     // failed GCD tests in dsolver
+  uint32_t num_dioph_conflicts;         // number of dsolver unsat
+  uint32_t num_dioph_bound_conflicts;   // unset by dioph bound strengthening
+  uint32_t num_dioph_recheck_conflicts; // unsat after dioph bounds + recheck
+
+  uint32_t num_branch_atoms;            // new branch&bound atoms created
 
 } simplex_stats_t;
 
@@ -811,6 +816,7 @@ typedef struct simplex_solver_s {
   rational_t gcd;
   xrational_t bound;
   xrational_t delta;
+  xrational_t xq0;         // general purpose buffer
 
   ivector_t expl_vector;   // vector of literals for conflicts/explanations
   ivector_t expl_queue;    // vector used as a queue for building explanations
