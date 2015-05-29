@@ -1532,8 +1532,19 @@ static void show_simplex_stats(simplex_solver_t *solver) {
       simplex_num_dioph_checks(solver) > 0) {
     print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
     print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
-    print_out(" :simplex-gcd-conflicts %"PRIu32"\n", simplex_num_gcd_conflicts(solver));
-    print_out(" :simplex-diophantine-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
+    // bound strenthening
+    print_out(" :simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
+    print_out(" :simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
+    // integrality test
+    print_out(" :simplex-itest-conflicts %"PRIu32"\n", simplex_num_itest_conflicts(solver));
+    print_out(" :simplex-itest-bound-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
+    print_out(" :simplex-itest-recheck-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
+    // diophantine solver
+    print_out(" :simplex-gcd-conflicts %"PRIu32"\n", simplex_num_dioph_gcd_conflicts(solver));
+    print_out(" :simplex-dioph-checks %"PRIu32"\n", simplex_num_dioph_checks(solver));
+    print_out(" :simplex-dioph-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
+    print_out(" :simplex-dioph-bound-conflicts %"PRIu32"\n", simplex_num_dioph_bound_conflicts(solver));
+    print_out(" :simplex-dioph-recheck-conflicts %"PRIu32"\n", simplex_num_dioph_recheck_conflicts(solver));
   }
 }
 

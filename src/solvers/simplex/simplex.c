@@ -7182,13 +7182,148 @@ static void build_integrality_conflict(simplex_solver_t *solver, thvar_t *a, uin
   record_theory_conflict(solver->core, v->data);
 }
 
+
+/*
+ * Build the antecedent for a bound derived from an integer constraint.
+ * An integer constraint may imply a bound on x when we know that
+ *  (x - T) is a multiple of Q.
+ * The integrality constraint code computes the relevant Q and T for x.
+ * The constraint "Q divides (x - T)" has an explanation given as
+ * a set of fixed variables.
+ *
+ * This function collects the bound indices that explain why these
+ * variables are fixed.
+ *
+ * Input:
+ * - a = array of n fixed variables
+ * - v = vector in which the bounds are added.
+ */
+static void collect_fixed_vars_antecedents(simplex_solver_t *solver, thvar_t *a, uint32_t n, ivector_t *v) {
+  uint32_t i;
+
+  assert(a != v->data);
+
+  for (i=0; i<n; i++) {
+    explain_fixed_variable(solver, a[i], v);
+  }
+}
+
+
+/*
+ * Attempt to strengthen the bounds on x, when we know
+ * x = period * n + phase for some integer n.
+ * - v = explanation for this constraint (as an array of fixed variables)
+ * - returns false if the new bound causes a conflict
+ * - returns true otherwise (may also set the global flag solver->recheck to true)
+ */
+static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
+					   rational_t *period, rational_t *phase, ivector_t *v) {
+  ivector_t *antecedents;
+  xrational_t *bound;
+  rational_t *aux;
+  int32_t k;
+  bool ok, antecedents_ready;
+
+  assert(q_is_pos(period));
+  assert(arith_var_is_int(&solver->vtbl, x));
+
+  antecedents = &solver->aux_vector;
+  assert(antecedents->size == 0 && antecedents != v);
+  antecedents_ready = false;
+
+  bound = &solver->bound;
+  aux = &solver->aux;
+  ok = true;
+
+  k = arith_var_lower_index(&solver->vtbl, x);
+  if (k >= 0) {
+    /*
+     * Let L = current lower bound on x, P = period, and B = phase. 
+     * We have:
+     *  1) x >= L
+     *  2) there's an integer k such that (x = B + P k).
+     * This implies
+     *    (B + P k >= L) so k >= (L - B)/P and then k >= ceil((L - B)/P)
+     * This gives the derived bound
+     *   x >= B + P * ceil((L - B)/P).
+     *
+     * If (L - B)/P is not an integer, then B + P * ceil((L - B)/P) > L,
+     * so the derived bound is stronger than L.
+     *
+     */
+    assert(xq_is_integer(solver->bstack.bound + k)); // because x is an integer
+    q_set(aux, &solver->bstack.bound[k].main);  // L
+    q_sub(aux, phase);
+    q_div(aux, period);  // aux is (L - B)/P
+    if (! q_is_integer(aux)) {
+      /*
+       * strengthen the lower bound on x
+       */
+      q_ceil(aux);
+      q_mul(aux, period);
+      q_add(aux, phase);   // aux is B + P * ceil((L - B)/P)
+      assert(q_gt(aux, &solver->bstack.bound[k].main));
+
+      collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
+      antecedents_ready = true;
+      xq_set_q(bound, aux);
+      ok = simplex_add_derived_lower_bound(solver, x, bound, antecedents);
+      if (! ok) goto done;
+    }
+    
+  }
+
+  k = arith_var_upper_index(&solver->vtbl, x);
+  if (k >= 0) {
+    /*
+     * Let U = current upper bound x. We have
+     *  1) x <= U
+     *  2) x = B + P k
+     * So  k <= floor((U - B)/P).
+     *
+     * The derived bound is then x <= B + P * floor((U - B)/P).
+     * If that's less than U, we add it as upper bound on x.
+     */
+    assert(xq_is_integer(solver->bstack.bound + k));
+    q_set(aux, &solver->bstack.bound[k].main); // U
+    q_sub(aux, phase);
+    q_div(aux, period); // aux is (U - B)/P
+    if (!q_is_integer(aux)) {
+      /*
+       * Derived bound smaller than U
+       */
+      q_floor(aux);
+      q_mul(aux, period);
+      q_add(aux, phase);
+      assert(q_lt(aux, &solver->bstack.bound[k].main));
+
+      if (!antecedents_ready) {
+	collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
+      }
+      xq_set_q(bound, aux);
+      ok = simplex_add_derived_upper_bound(solver, x, bound, antecedents);
+    }
+  }
+
+ done:
+  // Must always clean up the aux_vector
+  ivector_reset(antecedents);
+
+  return ok;
+}
+
+
+/*
+ * Process a constraint stored in checker
+ * - first check feasibility
+ * - it this succeeds, try bound strengthening on all integer variables
+ *   in checker that are not fixed.
+ */
 static bool process_integrality_constraint(simplex_solver_t *solver, int_constraint_t *checker) {
   ivector_t v;
-#if 0
   rational_t *p, *q;
   uint32_t i, n;
   thvar_t x;
-#endif
   bool feasible;
 
 #if 0
@@ -7239,8 +7374,36 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
   feasible = int_constraint_is_feasible(checker, &v);
   if (!feasible) {
     build_integrality_conflict(solver, v.data, v.size);
+    tprintf(solver->core->trace, 10, "(unsat by integrality test)\n");
     solver->stats.num_itest_conflicts ++;
+
+  } else {
+
+    // THIS IS BUGGY: SKIP IT
+    goto done;
+
+    // Try bound strengthening
+    n = int_constraint_num_terms(checker);
+    for (i=0; i<n; i++) {
+      x = int_constraint_get_var(checker, i);
+      // if x is free, there's no bound to improve
+      if (! simplex_free_variable(solver, x)) {
+	ivector_reset(&v);
+	int_constraint_period_of_var(checker, i, &v);
+	p = int_constraint_period(checker);
+	q = int_constraint_phase(checker);
+	feasible = simplex_integer_derived_bounds(solver, x, p, q, &v);
+	if (!feasible) {
+	  solver->stats.num_itest_bound_conflicts ++;
+	  tprintf(solver->core->trace, 10, "(unsat by integer bound strengthening)\n");
+	  goto done;
+	}
+      }
+    }
+
   }
+
+ done:
   delete_ivector(&v);
 
   return feasible;
@@ -7420,7 +7583,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
      */
     simplex_fix_nonbasic_assignment(solver);
     if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(unsat by integer bound strengthening)\n");
+      tprintf(solver->core->trace, 10, "(unsat after integer bound strengthening)\n");
       solver->stats.num_itest_recheck_conflicts ++;
       return false;
     }
