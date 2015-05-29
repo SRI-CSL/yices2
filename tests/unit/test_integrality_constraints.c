@@ -218,6 +218,77 @@ static void show_constraint_details(FILE *f, int_constraint_t *cnstr) {
 
 
 /*
+ * Some checks on period/phase computations for variable k
+ */
+
+/*
+ * Sum of all fixed terms
+ */
+static void sum_of_fixed_terms(int_constraint_t *cnstr, rational_t *sum) {
+  uint32_t i, n;
+
+  q_clear(sum);
+  n = cnstr->fixed_nterms;
+  for (i=0; i<n; i++) {
+    q_addmul(sum, cnstr->fixed_val + i, &cnstr->fixed_sum[i].coeff);
+  }
+}
+
+/*
+ * Get a value of of variable k that satisfies the constraints.
+ * - the constraint is (a * var[k] + other vars + fixed sum) is an integer
+ * - so a possible solution is to set all non-fixed vars to (z - fixed_sum)/a
+ */
+static void get_solution_for_var(int_constraint_t *cnstr, uint32_t k, rational_t *val, int32_t z) {
+  rational_t qz;
+
+  assert(k < cnstr->sum_nterms);
+
+  q_init(&qz);
+
+  q_set32(&qz, z);
+  sum_of_fixed_terms(cnstr, val);
+  q_neg(val);
+  q_add(val, &qz);
+  q_div(val, &cnstr->sum[k].coeff);
+
+  q_clear(&qz);
+}
+ 
+
+/*
+ * Check whether cnstr => var[k] = period * integer + phase
+ */
+static void check_period_and_phase(int_constraint_t *cnstr, uint32_t k, rational_t *period, rational_t *phase) {
+  rational_t test_val;
+  int32_t x, z;  
+
+  q_init(&test_val);
+
+  x = int_constraint_get_var(cnstr, k);
+
+  for (z = -10; z < 10; z++) {
+    get_solution_for_var(cnstr, k, &test_val, z);
+    q_sub(&test_val, phase);  // value - phase 
+    if (q_divides(period, &test_val)) {
+      printf("  passed test for %s = ", var[x].name);
+      q_print(stdout, &test_val);
+      printf("\n");
+    } else {
+      printf("*** BUG ***");
+      printf("  failed test for %s = ", var[x].name);
+      q_print(stdout, &test_val);
+      printf("\n");
+      fflush(stdout);
+      exit(1);
+    }
+  }
+
+  q_clear(&test_val);
+}
+
+
+/*
  * Test the period/phase computation
  */
 static void test_periods_and_phases(int_constraint_t *cnstr) {
@@ -242,6 +313,7 @@ static void test_periods_and_phases(int_constraint_t *cnstr) {
     printf("\n");
     printf("  antecedents: ");
     show_varnames(stdout, v.data, v.size);
+    check_period_and_phase(cnstr, i, p, q);
   }
 
   delete_ivector(&v);

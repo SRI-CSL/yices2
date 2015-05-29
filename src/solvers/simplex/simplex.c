@@ -7150,6 +7150,23 @@ static void show_vars(simplex_solver_t *solver, thvar_t *a, uint32_t n) {
     printf("]");
   }
 }
+
+static void show_array_of_bound_ids(ivector_t *a) {
+  uint32_t i, n;
+
+  n = a->size;
+  if (n == 0) {
+    printf("[]");
+  } else {
+    printf("[%"PRId32, a->data[0]);
+    for (i=1; i<n; i++) {
+      printf(" %"PRId32, a->data[i]);
+    }
+    printf("]");
+  }
+  
+}
+
 #endif
 
 /*
@@ -7200,11 +7217,21 @@ static void build_integrality_conflict(simplex_solver_t *solver, thvar_t *a, uin
  */
 static void collect_fixed_vars_antecedents(simplex_solver_t *solver, thvar_t *a, uint32_t n, ivector_t *v) {
   uint32_t i;
+  thvar_t x;
+  int32_t l, u;
 
   assert(a != v->data);
 
   for (i=0; i<n; i++) {
-    explain_fixed_variable(solver, a[i], v);
+    x = a[i];
+    assert(simplex_fixed_variable(solver, x));
+
+    l = arith_var_lower_index(&solver->vtbl, x);
+    u = arith_var_upper_index(&solver->vtbl, x);
+    assert(l >= 0 && u >= 0);
+
+    ivector_push(v, l);
+    ivector_push(v, u);
   }
 }
 
@@ -7255,6 +7282,7 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
     q_set(aux, &solver->bstack.bound[k].main);  // L
     q_sub(aux, phase);
     q_div(aux, period);  // aux is (L - B)/P
+    q_normalize(aux);
     if (! q_is_integer(aux)) {
       /*
        * strengthen the lower bound on x
@@ -7262,12 +7290,43 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_ceil(aux);
       q_mul(aux, period);
       q_add(aux, phase);   // aux is B + P * ceil((L - B)/P)
+      q_normalize(aux);
       assert(q_gt(aux, &solver->bstack.bound[k].main));
 
+#if 0
+      printf("---> Strengthening lower bound on ");
+      print_simplex_var(stdout, solver, x);
+      printf("\n");
+      printf("  current value: ");
+      print_simplex_var_value(stdout, solver, x);
+      printf("\n");
+      printf("  current bounds: ");
+      print_simplex_var_bounds(stdout, solver, x);
+      printf("  period: ");
+      q_print(stdout, period);
+      printf("\n");
+      printf("  phase: ");
+      q_print(stdout, phase);
+      printf("\n");
+      printf("  derived lower bound: ");
+      q_print(stdout, aux);
+      printf("\n");
+#endif
       collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       antecedents_ready = true;
       xq_set_q(bound, aux);
       ok = simplex_add_derived_lower_bound(solver, x, bound, antecedents);
+
+#if 0
+      printf("  new bounds: ");
+      print_simplex_var_bounds(stdout, solver, x);
+      printf("  antecedents: ");
+      show_array_of_bound_ids(antecedents);
+      printf("\n\n");
+      fflush(stdout);
+
+#endif
+
       if (! ok) goto done;
     }
     
@@ -7288,6 +7347,7 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
     q_set(aux, &solver->bstack.bound[k].main); // U
     q_sub(aux, phase);
     q_div(aux, period); // aux is (U - B)/P
+    q_normalize(aux);
     if (!q_is_integer(aux)) {
       /*
        * Derived bound smaller than U
@@ -7295,13 +7355,43 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_floor(aux);
       q_mul(aux, period);
       q_add(aux, phase);
+      q_normalize(aux);
       assert(q_lt(aux, &solver->bstack.bound[k].main));
 
+#if 0
+      printf("---> Strengthening upper bound on ");
+      print_simplex_var(stdout, solver, x);
+      printf("\n");
+      printf("  current value: ");
+      print_simplex_var_value(stdout, solver, x);
+      printf("\n");
+      printf("  current_bounds: ");
+      print_simplex_var_bounds(stdout, solver, x);
+      printf("  period: ");
+      q_print(stdout, period);
+      printf("\n");
+      printf("  phase: ");
+      q_print(stdout, phase);
+      printf("\n");
+      printf("  derived upper bound: ");
+      q_print(stdout, aux);
+      printf("\n");
+#endif
       if (!antecedents_ready) {
 	collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       }
       xq_set_q(bound, aux);
       ok = simplex_add_derived_upper_bound(solver, x, bound, antecedents);
+
+#if 0
+      printf("  new bounds: ");
+      print_simplex_var_bounds(stdout, solver, x);
+      printf("  antecedents: ");
+      show_array_of_bound_ids(antecedents);
+      printf("\n\n");
+      fflush(stdout);
+
+#endif
     }
   }
 
@@ -7309,8 +7399,81 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
   // Must always clean up the aux_vector
   ivector_reset(antecedents);
 
+#if 0
+  if (!ok) {
+    printf("---> Bound conflict\n\n");
+    fflush(stdout);
+  }
+#endif
+
   return ok;
 }
+
+
+
+#ifndef NDEBUG
+/*
+ * Some checks on period/phase computations for variable k
+ */
+
+/*
+ * Sum of all fixed terms
+ */
+static void sum_of_fixed_terms(int_constraint_t *cnstr, rational_t *sum) {
+  uint32_t i, n;
+
+  q_clear(sum);
+  n = cnstr->fixed_nterms;
+  for (i=0; i<n; i++) {
+    q_addmul(sum, cnstr->fixed_val + i, &cnstr->fixed_sum[i].coeff);
+  }
+}
+
+/*
+ * Get a value of of variable k that satisfies the constraints.
+ * - the constraint is (a * var[k] + other vars + fixed sum) is an integer
+ * - so a possible solution is to set all non-fixed vars to (z - fixed_sum)/a
+ */
+static void get_solution_for_var(int_constraint_t *cnstr, uint32_t k, rational_t *val, int32_t z) {
+  rational_t qz;
+
+  assert(k < cnstr->sum_nterms);
+
+  q_init(&qz);
+
+  q_set32(&qz, z);
+  sum_of_fixed_terms(cnstr, val);
+  q_neg(val);
+  q_add(val, &qz);
+  q_div(val, &cnstr->sum[k].coeff);
+
+  q_clear(&qz);
+}
+ 
+
+/*
+ * Check whether cnstr => var[k] = period * integer + phase holds
+ */
+static bool plausible_period_and_phase(int_constraint_t *cnstr, uint32_t k, rational_t *period, rational_t *phase) {
+  rational_t test_val;
+  int32_t z;  
+
+  q_init(&test_val);
+
+  for (z = -10; z < 10; z++) {
+    get_solution_for_var(cnstr, k, &test_val, z);
+    q_sub(&test_val, phase);  // value - phase 
+    if (! q_divides(period, &test_val)) {      
+      return false;
+    }
+  }
+
+  q_clear(&test_val);
+
+  return true;
+}
+
+#endif
 
 
 /*
@@ -7379,9 +7542,6 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
 
   } else {
 
-    // THIS IS BUGGY: SKIP IT
-    goto done;
-
     // Try bound strengthening
     n = int_constraint_num_terms(checker);
     for (i=0; i<n; i++) {
@@ -7392,6 +7552,8 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
 	int_constraint_period_of_var(checker, i, &v);
 	p = int_constraint_period(checker);
 	q = int_constraint_phase(checker);
+	assert(plausible_period_and_phase(checker, i, p, q));
+
 	feasible = simplex_integer_derived_bounds(solver, x, p, q, &v);
 	if (!feasible) {
 	  solver->stats.num_itest_bound_conflicts ++;
@@ -7435,7 +7597,7 @@ static bool test_integrality_in_row(simplex_solver_t *solver, int_constraint_t *
 	    // x is fixed
 	    int_constraint_add_fixed_mono(checker, q, x, true, fixed_variable_value(solver, x));
 	  } else {
-	    // x is free
+	    // x is not fixed
 	    int_constraint_add_mono(checker, q, x);
 	  }
 	}
@@ -7624,6 +7786,36 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
       // Since pivoting may have occurred we need to prepare for the next step
       prepare_for_integer_solving(solver);
     }
+  } else {
+    /*
+     * There may be strengthened bounds but everything is still feasible
+     * - we force fix_ptr to bstack.top (otherwise, things may break
+     *   because the invariant fix_ptr == top is expected to hold)
+     */
+    solver->bstack.fix_ptr = solver->bstack.top;
+  }
+
+  /*
+   * STRENGTHEN THE BOUNDS AGAIN BEFORE BRANCH&BOUND
+   */
+  solver->recheck = false;
+  if (! simplex_strengthen_bounds(solver)) {
+    tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
+    solver->stats.num_bound_conflicts ++;
+    return false;
+  } else if (solver->recheck) {
+    /*
+     * Strengthened bounds require rechecking feasibility
+     */
+    simplex_fix_nonbasic_assignment(solver);
+    if (! simplex_make_feasible(solver) ) {
+      tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
+      solver->stats.num_bound_recheck_conflicts ++;
+      return false;
+    }
+
+    // Since pivoting may have occurred we need to prepare for the next step
+    prepare_for_integer_solving(solver);
   } else {
     /*
      * There may be strengthened bounds but everything is still feasible
@@ -8514,7 +8706,12 @@ bool simplex_propagate(simplex_solver_t *solver) {
     if (simplex_option_enabled(solver, SIMPLEX_PROPAGATION)) {
       solver->recheck = false;
 
-      feasible = simplex_do_propagation(solver);
+      if (false) {
+	feasible = simplex_do_propagation(solver);
+      } else {
+	feasible = simplex_strengthen_bounds(solver);
+      }
+      
       if (! feasible) goto done;
 
       if (solver->recheck) {
