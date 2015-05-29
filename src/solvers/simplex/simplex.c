@@ -6581,22 +6581,30 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
 
   if (has_ub && has_lb) {
     q_normalize(diff);
-    assert(q_is_nonneg(diff));
-    // diff = upper bound - lower bound
-    if (q_is_smallint(diff)) {
+    /*
+     * The derived bounds could be in conflict (because we don't do
+     * exhaustive bound strengthening in strengthen bounds). In
+     * such a case, we have diff < 0. We give x a score of 0.
+     */
+    if (q_is_neg(diff)) {
+      s = 0;
+    } else if (q_is_smallint(diff)) {
       s = q_get_smallint(diff);
-      if (s < HALF_MAX_BRANCH_SCORE) {
-	return s;
+      if (s > HALF_MAX_BRANCH_SCORE) {
+	s = HALF_MAX_BRANCH_SCORE;
       }
+    } else {
+      s = HALF_MAX_BRANCH_SCORE;    
     }
-    return HALF_MAX_BRANCH_SCORE;    
   } else if (has_ub || has_lb) {
     // at least one bound
-    return HALF_MAX_BRANCH_SCORE + 1;
+    s = HALF_MAX_BRANCH_SCORE + 1;
   } else {
     // no bounds
-    return MAX_BRANCH_SCORE;
+    s = MAX_BRANCH_SCORE;
   }
+
+  return s;
 }
 
 
