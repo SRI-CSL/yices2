@@ -7745,7 +7745,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    */
   solver->recheck = false;
   if (!simplex_integrality_check(solver)) {
-    tprintf(solver->core->trace, 8, "(unsat by integrality test)\n");
     return false;
   } else if (solver->recheck) {
     /*
@@ -8714,7 +8713,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
     if (simplex_option_enabled(solver, SIMPLEX_PROPAGATION)) {
       solver->recheck = false;
 
-      if (false) {
+      if (true) {
 	feasible = simplex_do_propagation(solver);
       } else {
 	feasible = simplex_strengthen_bounds(solver);
