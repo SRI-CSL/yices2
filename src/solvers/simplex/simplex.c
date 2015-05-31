@@ -7767,16 +7767,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
      */
     solver->bstack.fix_ptr = solver->bstack.top;
   }
-  /*
-   * END OF TEST
-   */
-
 
   /*
    * THIRD STEP: TRY DIOPHANTINE SOLVER
+   * DISABLE FOR TESTING
    */
   solver->recheck = false;
-  if (! simplex_dsolver_check(solver)) {
+  if (false && ! simplex_dsolver_check(solver)) {
     // unsat detected by diophantine solver
     tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
     return false;
