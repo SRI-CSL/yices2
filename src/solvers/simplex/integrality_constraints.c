@@ -438,12 +438,14 @@ int32_t int_constraint_get_var(int_constraint_t *cnstr, uint32_t i) {
  * The GCD is gcd(1, a_1, ..., a_n)/lcm(1, b_1, ..., b_n),
  * which simplifies to 1/lcm(1, b_1,...,b_n).
  *
+ * Then we have a_i/b_i x_i = GCD * some integer + sum of fixed terms
+ * So the period for x_i is (GCD/(a_i/b_i)) = GCD * b_i / a_i.
+ *
  * Result:
  *   cnstr->den_lcm = lcm(1, b_1, ..., b_n)
- *   cnstr->gcd = 1/lcm(1, b_1, ..., b_n) * (b_i/a_i)
+ *   cnstr->gcd = 1/lcm(1, b_1, ..., b_n)
+ *   cnstr->period = 1/lcm(1, b_1, ..., b_n) / (a_i/b_i)
  *
- * We store the period in cnstr->gcd so that build_fixed_constant works
- * properly.
  */
 static void int_constraint_build_var_period(int_constraint_t *cnstr, uint32_t i) {
   rational_t *l, *aux;
@@ -465,10 +467,62 @@ static void int_constraint_build_var_period(int_constraint_t *cnstr, uint32_t i)
     }
   }
 
-  aux = &cnstr->sum[i].coeff; // coefficient a_i/b_i
+  // set gcd to 1/l
   q_set_one(&cnstr->gcd);
   q_div(&cnstr->gcd, l);
-  q_div(&cnstr->gcd, aux);
+
+  // set period to gcd/(a_i/b_i)
+  q_set(&cnstr->period, &cnstr->gcd);
+  aux = &cnstr->sum[i].coeff; // coefficient a_i/b_i
+  q_div(&cnstr->period, aux);
+}
+
+
+/*
+ * Compute the phase for a variable x_i
+ * - assumes cnstr->period contains the period of x_i
+ * - the phase = - (sum of all constant terms)/(a_i/b_i)
+ *   where a_i/b_i is the coefficient of x_i
+ *
+ * Optimization: if term (a_j/b_j) * x_j occurs in the fixed sum
+ * where x_j is an integer and (a_j/b_j)/(a_i/b_i) is a multiple
+ * of the period, when we skip this term.
+ */
+static void int_constraint_build_var_phase(int_constraint_t *cnstr, uint32_t i, ivector_t *v) {
+  rational_t *s, *val, *c, *aux;
+  monomial_t *fixed;
+  uint32_t j, n;
+  int32_t x;
+
+  assert(i < cnstr->sum_nterms);
+
+  c = &cnstr->sum[i].coeff; // coefficient of i = a[i]/b[i]
+
+  aux = &cnstr->q0;  // to store intermediate coefficients: (a[j]/b[j])/c
+
+
+  // compute the sum of all fixed_terms/c
+  s = &cnstr->phase;
+  q_set(s, &cnstr->constant);
+  q_div(s, c);
+
+  fixed = cnstr->fixed_sum;
+  val = cnstr->fixed_val;
+  n = cnstr->fixed_nterms;
+  for (j=0; j<n; j++) {
+    q_set(aux, &fixed[j].coeff);
+    q_div(aux, c);  // scaled coefficient
+    if (cnstr->is_int[j] && q_divides(&cnstr->period, aux)) {
+      // skip this term
+      continue;
+    }
+    x = fixed[j].var;
+    ivector_push(v, x);
+    q_addmul(s, aux, &val[j]);
+  }
+
+  q_neg(s); // negate
+  q_normalize(s);
 }
 
 
@@ -492,23 +546,11 @@ static void q_generalized_rem(rational_t *a, const rational_t *b, rational_t *au
  * - period and phase are stored in cnstr->period and cnstr->phase
  */
 void int_constraint_period_of_var(int_constraint_t *cnstr, uint32_t i, ivector_t *v) {
-  rational_t *c;
-
   assert(i < cnstr->sum_nterms);
   int_constraint_build_var_period(cnstr, i);
-  int_constraint_build_fixed_constant(cnstr, v);
-
-  c = &cnstr->sum[i].coeff; // c is a[i]/b[i]
-  assert(q_is_nonzero(c));
-
-  // period is already in gcd
-  q_set(&cnstr->period, &cnstr->gcd);
-
-  // phase is - fixed-constant/c
-  q_set_neg(&cnstr->phase, &cnstr->fixed_constant);
-  q_div(&cnstr->phase, c);
+  int_constraint_build_var_phase(cnstr, i, v);
 
   // normalize the phase
-  q_generalized_rem(&cnstr->phase, &cnstr->gcd, &cnstr->q0);
+  q_generalized_rem(&cnstr->phase, &cnstr->period, &cnstr->q0);
 }
 

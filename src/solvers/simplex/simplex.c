@@ -6538,6 +6538,7 @@ static bool simplex_branch_var_sub_lb(simplex_solver_t *solver, thvar_t x, ratio
 #define MAX_BRANCH_SCORE UINT32_MAX
 #define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
 
+#if 0
 // older version
 static uint32_t simplex_branch_score_old(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
@@ -6565,6 +6566,7 @@ static uint32_t simplex_branch_score_old(simplex_solver_t *solver, thvar_t x) {
 
   return HALF_MAX_BRANCH_SCORE;
 }
+#endif
 
 // new version: use derived bounds on x if available
 static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
@@ -7440,7 +7442,8 @@ static void sum_of_fixed_terms(int_constraint_t *cnstr, rational_t *sum) {
 /*
  * Get a value of of variable k that satisfies the constraints.
  * - the constraint is (a * var[k] + other vars + fixed sum) is an integer
- * - so a possible solution is to set all non-fixed vars to (z - fixed_sum)/a
+ * - so a possible solution is to set all other vars to zero
+ * - and var[k] is (z - fixed_sum)/a
  */
 static void get_solution_for_var(int_constraint_t *cnstr, uint32_t k, rational_t *val, int32_t z) {
   rational_t qz;
@@ -7468,10 +7471,28 @@ static bool plausible_period_and_phase(int_constraint_t *cnstr, uint32_t k, rati
 
   q_init(&test_val);
 
-  for (z = -10; z < 10; z++) {
+  for (z = -20; z <= 20; z++) {
     get_solution_for_var(cnstr, k, &test_val, z);
     q_sub(&test_val, phase);  // value - phase 
-    if (! q_divides(period, &test_val)) {      
+    if (! q_divides(period, &test_val)) {
+
+#if 0
+      printf("--- plausible_period_and_phase failed ---\n");
+      printf("period = ");
+      q_print(stdout, period);
+      printf("\n");
+      printf("phase = ");
+      q_print(stdout, phase);
+      printf("\n");
+      printf("test z = %"PRId32"\n", z);
+      printf("test_val = ");
+      q_print(stdout, &test_val);
+      printf("\n\n");
+      fflush(stdout);
+
+      assert(false);
+#endif
+
       return false;
     }
   }
@@ -7773,7 +7794,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * DISABLE FOR TESTING
    */
   solver->recheck = false;
-  if (false && ! simplex_dsolver_check(solver)) {
+  if (! simplex_dsolver_check(solver)) {
     // unsat detected by diophantine solver
     tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
     return false;
