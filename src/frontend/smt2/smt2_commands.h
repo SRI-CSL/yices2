@@ -96,10 +96,12 @@ enum smt2_errors {
 
   SMT2_SYMBOL_REDEF_SORT,                  // name not allowed in (declare-sort <name> ...)  or (define-sort <name> ...)
   SMT2_SYMBOL_REDEF_FUN,                   // name not allowed in (define-fun <name> ..) or (declare-fun <name> ...)
+
+  SMT2_TERM_NOT_INTEGER,                   // type error for (to_real xxx) when xxx is not an integer expression
 };
 
 
-#define NUM_SMT2_EXCEPTIONS (SMT2_SYMBOL_REDEF_FUN+1)
+#define NUM_SMT2_EXCEPTIONS (SMT2_TERM_NOT_INTEGER+1)
 
 
 /*
@@ -153,11 +155,12 @@ enum smt2_opcodes {
   SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
   SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
   SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
-  // not implemented yet
+  // more arithmetic operators
+  SMT2_MK_TO_REAL,
+  // more of them: not implemented yet
   SMT2_MK_DIV,
   SMT2_MK_MOD,
   SMT2_MK_ABS,
-  SMT2_MK_TO_REAL,
   SMT2_MK_TO_INT,
   SMT2_MK_IS_INT,
   SMT2_MK_DIVISIBLE,

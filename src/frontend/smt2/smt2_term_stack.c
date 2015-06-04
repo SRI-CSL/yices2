@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "api/yices_extensions.h"
+#include "api/yices_globals.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -100,6 +101,49 @@ static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
 static void check_term(tstack_t *stack, term_t t) {
   if (t == NULL_TERM) report_yices_error(stack);
 }
+
+
+
+/*
+ * Check whether a stack element is an integer term
+ * - raise exception SMT2_TERM_NOT_INTEGER if not
+ */
+static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
+  rational_t *q;
+  rba_buffer_t *b;
+  term_t t;
+
+  switch (e->tag) {
+  case TAG_RATIONAL:
+    q = &e->val.rational;
+    if (!q_is_integer(q)) {
+      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
+    }
+    break;
+
+  case TAG_TERM:
+    t = e->val.term;
+    if (! is_integer_term(__yices_globals.terms, t)) {
+      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
+    }
+    break;
+
+  case TAG_ARITH_BUFFER:
+    b = e->val.arith_buffer;
+    if (! arith_poly_is_integer(__yices_globals.terms, b)) {
+      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
+    }
+    break;
+
+  default:
+    raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
+    break;
+  }
+}
+
+
+
+
 
 
 /*
@@ -503,6 +547,22 @@ static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 
+/*
+ * NEW OPERATORS FOR MIXED AND INTEGER ARITHMETIC.
+ */
+
+/*
+ * [to_real x]: x must be an integer. We treat is as a no-op
+ */
+static void check_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_TO_REAL);
+  check_size(stack, n == 1);
+  check_integer_term(stack, f);
+}
+
+static void eval_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  copy_result_and_pop_frame(stack, f);
+}
 
 
 /*
@@ -2119,10 +2179,11 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_SORTED_APPLY, false, eval_smt2_sorted_apply, check_smt2_sorted_apply);
   tstack_add_op(stack, SMT2_SORTED_INDEXED_APPLY, false, eval_smt2_sorted_indexed_apply, check_smt2_sorted_indexed_apply);
 
+  tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_smt2_to_real, check_smt2_to_real);
+
   tstack_add_op(stack, SMT2_MK_DIV, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_MK_MOD, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_MK_ABS, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_not_supported, check_not_supported);

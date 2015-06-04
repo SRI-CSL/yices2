@@ -41,7 +41,7 @@ extern void term_stack_smt_error(FILE *f, const char *name, tstack_t *tstack, ts
 
 /*
  * Function to call when an internal error is detected.
- * - it aborts with an error message and request for a bug report.
+ * - it aborts with an error message and requests a bug report.
  */
 extern void report_bug(const char *s) __attribute__ ((noreturn));
 

@@ -1163,6 +1163,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "invalid :named attribute (name is already used)",  // SMT2_NAMED_SYMBOL_REUSED
   NULL,                                 // SMT2_SYMBOL_REDEF_SORT
   NULL,                                 // SMT2_SYMBOL_REDEF_FUN
+  NULL,                                 // SMT2_TERM_NOT_INTEGER
 };
 
 
@@ -1297,11 +1298,14 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "function application", // SMT2_INDEXED_APPLY
   "sort qualifier",       // SMT2_SORTED_APPLY
   "sort qualifier",       // SMT2_SORTED_INDEXED_APPLY
+
+  // more arithmetic stuff
+  "to_real",              // SMT2_MK_TO_REAL
+
   // operations not supported
   "div",                  // SMT2_MK_DIV
   "mod",                  // SMT2_MK_MOD
   "abs",                  // SMT2_MK_ABS
-  "to_real",              // SMT2_MK_TO_REAL
   "to_int",               // SMT2_MK_TO_INT
   "is_int",               // SMT2_MK_IS_INT
   "divisible",            // SMT2_MK_DIVISIBLE
@@ -1418,7 +1422,10 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case SMT2_MISSING_PATTERN:
   case SMT2_TYPE_ERROR_IN_QUAL:
   case SMT2_QUAL_NOT_IMPLEMENTED:
-    print_out("%s", exception_string[exception]);
+    break;
+
+  case SMT2_TERM_NOT_INTEGER:
+    print_out("invalid argument in %s: not an integer",  opcode_string[tstack->error_op]);    
     break;
 
   case TSTACK_STRINGS_ARE_NOT_TERMS:
