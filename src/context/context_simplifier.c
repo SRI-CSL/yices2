@@ -724,6 +724,10 @@ static bool visit(context_t *ctx, term_t t) {
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
       result = visit(ctx, integer_value_for_idx(terms, i));
       break;
 
@@ -739,6 +743,9 @@ static bool visit(context_t *ctx, term_t t) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -964,6 +971,16 @@ static void flatten_arith_geq0(context_t *ctx, term_t r, bool tt) {
   } else {
     ivector_push(&ctx->top_atoms, signed_term(r, tt));
   }
+}
+
+// r is (is-int t)
+static void flatten_arith_is_int(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_atoms, signed_term(r, tt));
+}
+
+// r is (divides t1 t2)
+static void flatten_arith_divides(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_atoms, signed_term(r, tt));
 }
 
 // r is (bvge t1 t2) for two bitvector terms t1 and t2
@@ -1281,9 +1298,14 @@ void flatten_assertion(context_t *ctx, term_t f) {
       case ARITH_CONSTANT:
       case BV64_CONSTANT:
       case BV_CONSTANT:
+      case ARITH_FLOOR:
+      case ARITH_CEIL:
+      case ARITH_ABS:
       case UPDATE_TERM:
       case TUPLE_TERM:
       case LAMBDA_TERM:
+      case ARITH_DIV:
+      case ARITH_MOD:
       case BV_ARRAY:
       case BV_DIV:
       case BV_REM:
@@ -1322,6 +1344,11 @@ void flatten_assertion(context_t *ctx, term_t f) {
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_geq0(ctx, r, tt);
         break;
+
+      case ARITH_IS_INT_ATOM:
+        intern_tbl_map_root(intern, r, bool2code(tt));
+        flatten_arith_is_int(ctx, r, tt);
+	break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -1364,6 +1391,11 @@ void flatten_assertion(context_t *ctx, term_t f) {
         flatten_arith_eq(ctx, r, tt);
         break;
 
+      case ARITH_DIVIDES_ATOM:
+        intern_tbl_map_root(intern, r, bool2code(tt));
+        flatten_arith_divides(ctx, r, tt);
+        break;
+	
       case BV_EQ_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_bveq(ctx, r, tt);

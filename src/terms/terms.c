@@ -48,6 +48,15 @@
  *      bv_ge t1 t2 (unsigned comparison: t1 >= t2)
  *      bv_sge t1 t2 (signed comparison: t1 >= t2)
  *
+ * 8) more arithmetic operators (defined in SMTLIB2)
+ *    - floor x
+ *    - ceil x
+ *    - abs x
+ *    - div x y
+ *    - mod x y
+ *    - divides x y: y is a multiple of y
+ *    - is_int x: true if x is an integer
+ *
  * Every term is an index t in a global term table,
  * where 0 <= t <= 2^30. The two term occurrences
  * t+ and t- are encoded on 32bits (signed integer) with
@@ -1537,6 +1546,10 @@ static void delete_term(term_table_t *table, int32_t i) {
   case VARIABLE:
   case ARITH_EQ_ATOM:
   case ARITH_GE_ATOM:
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
     // The descriptor is an integer nothing to delete.
     h = hash_integer_term(table->kind[i], table->type[i], table->desc[i].integer);
     break;
@@ -1548,6 +1561,9 @@ static void delete_term(term_table_t *table, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_DIV:
+  case ARITH_MOD:
+  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -1759,6 +1775,10 @@ static void delete_term_descriptors(term_table_t *table) {
     case POWER_PRODUCT:
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
     case SELECT_TERM:
     case BIT_TERM:
       break;
@@ -1774,6 +1794,9 @@ static void delete_term_descriptors(term_table_t *table) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV64_CONSTANT:
     case BV_CONSTANT:
     case BV_ARRAY:
@@ -2194,6 +2217,23 @@ static term_t binary_term(term_table_t *table, term_kind_t tag, type_t tau, term
 
 
 /*
+ * One-argument term: defined by (tag, tau, t)
+ */
+static term_t unary_term(term_table_t *table, term_kind_t tag, type_t tau, term_t t) {
+  int32_t i;
+
+  integer_hobj.tbl = table;
+  integer_hobj.tag = tag;
+  integer_hobj.tau = tau;
+  integer_hobj.id = t;
+
+  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
+
+  return pos_term(i);
+}
+
+
+/*
  * Equality (eq left right)
  */
 term_t eq_term(term_table_t *table, term_t left, term_t right) {
@@ -2360,16 +2400,7 @@ term_t arith_constant(term_table_t *table, rational_t *a) {
  * Atom t == 0 for an arithmetic term t
  */
 term_t arith_eq_atom(term_table_t *table, term_t t) {
-  int32_t i;
-
-  integer_hobj.tbl = table;
-  integer_hobj.tag = ARITH_EQ_ATOM;
-  integer_hobj.tau = bool_type(table->types);
-  integer_hobj.id = t;
-
-  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
-
-  return pos_term(i);
+  return unary_term(table, ARITH_EQ_ATOM, bool_type(table->types), t);
 }
 
 
@@ -2377,18 +2408,8 @@ term_t arith_eq_atom(term_table_t *table, term_t t) {
  * Atom (t >= 0) for an arithmetic term t
  */
 term_t arith_geq_atom(term_table_t *table, term_t t) {
-  int32_t i;
-
-  integer_hobj.tbl = table;
-  integer_hobj.tag = ARITH_GE_ATOM;
-  integer_hobj.tau = bool_type(table->types);
-  integer_hobj.id = t;
-
-  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
-
-  return pos_term(i);
+  return unary_term(table, ARITH_GE_ATOM, bool_type(table->types), t);
 }
-
 
 
 /*
@@ -2397,6 +2418,61 @@ term_t arith_geq_atom(term_table_t *table, term_t t) {
 term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right) {
   return binary_term(table, ARITH_BINEQ_ATOM, bool_type(table->types), left, right);
 }
+
+
+/*
+ * Test for integrality: (is_int x)
+ */
+term_t arith_is_int(term_table_t *table, term_t x) {
+  return unary_term(table, ARITH_IS_INT_ATOM, bool_type(table->types), x);
+}
+
+/*
+ * Floor and ceiling: the result has type int
+ */
+term_t arith_floor(term_table_t *table, term_t x) {
+  return unary_term(table, ARITH_FLOOR, int_type(table->types), x);
+}
+
+term_t arith_ceil(term_table_t *table, term_t x) {
+  return unary_term(table, ARITH_CEIL, int_type(table->types), x);
+}
+
+/*
+ * Absolute value: the result has the same type as x
+ */
+term_t arith_abs(term_table_t *table, term_t x) {
+  type_t tau;
+
+  tau = term_type(table, x);
+  return unary_term(table, ARITH_ABS, tau, x);
+}
+
+/*
+ * (div x y): the result has type int
+ */
+term_t arith_div(term_table_t *table, term_t x, term_t y) {
+  return binary_term(table, ARITH_DIV, int_type(table->types), x, y);
+}
+
+/*
+ * (mod x y) = x - y * (div x y)
+ * So the result has type int if both x and y are integers
+ */
+term_t arith_mod(term_table_t *table, term_t x, term_t y) {
+  type_t tau;
+
+  tau = is_integer_term(table, x) ? term_type(table, y) : real_type(table->types);
+  return binary_term(table, ARITH_MOD, tau, x, y);
+}
+
+/*
+ * Test whether x divides y
+ */
+term_t arith_divides(term_table_t *table, term_t x, term_t y) {
+  return binary_term(table, ARITH_DIVIDES_ATOM, bool_type(table->types), x, y);
+}
+
 
 
 /*
@@ -3210,6 +3286,10 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
 
   case ARITH_EQ_ATOM:
   case ARITH_GE_ATOM:
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
     // i has a single subterm stored in desc[i].integer
     mark_and_explore_term(table, ptr, table->desc[i].integer);
     break;
@@ -3225,6 +3305,9 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_DIV:
+  case ARITH_MOD:
+  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:

@@ -1061,6 +1061,113 @@ __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
 
 
 /*
+ * Integer division and modulo
+ *
+ * t1 must an arithmetic term
+ * t2 must be a non-zero zero arithmetic constant
+ *
+ * The semantics is as defined in SMT-LIB 2.0 (theory Ints),
+ * except that t1 and t2 are not required to be integer and that
+ * we don't allow t2 to be zero.
+ *
+ * The functions (div t1 t2) and (mod t1 t2) satisfy two constraints:
+ *    t1 = (div t1 t2) * t2 + (mod t1 t2)
+ *    0 <= (mod t1 t2) < (abs t2)
+ *
+ * The functions return NULL_TERM if there's an error.
+ *
+ * Error report:
+ * if t1 or t2 is not valid
+ *    code = INVALID_TERM
+ *    term1 = t1 or t2
+ * if t1 is not an arithmetic term
+ *    code = ARITHTERM_REQUIRED
+ *    term1 = t1
+ * if t2 is not an arithmetic constant
+ *    code = ARITHCONSTANT_REQUIRED
+ *    term1 = t2
+ * if t2 is zero
+ *    code = DIVISION_BY_ZERO
+ */
+__YICES_DLLSPEC__ extern term_t yices_idiv(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_imod(term_t t1, term_t t2);
+
+
+/*
+ * Divisibility test:
+ *
+ * t1 must be an arihtmetic constant.
+ * t2 must be an arithmetic term.
+ *
+ * This function constructs the atom (divides t1 t2). 
+ * The semantics is 
+ *   (divides t1 t2) IFF (there is an integer k such that t2 = k * t1)
+ *
+ * The functions return NULL_TERM if there's an error.
+ *
+ * Error report:
+ * if t1 or t2 is not valid
+ *    code = INVALID_TERM
+ *    term1 = t1 or t2
+ * if t1 is not an arithmetic term
+ *    code = ARITHTERM_REQUIRED
+ *    term1 = t1
+ * if t2 is not an arithmetic constant
+ *    code = ARITHCONSTANT_REQUIRED
+ *    term1 = t2
+ */
+__YICES_DLLSPEC__ extern term_t yices_divides_atom(term_t t1, term_t t2);
+
+
+/*
+ * Integrality test:
+ *
+ * t must be an arithmetic term.
+ *
+ * This function constructs the atom (is-int t) as defined in
+ * SMT-LIB 2: (is-int t) is true iff t is an integer. Also, we have
+ * (is-int t) iff (divides 1 t).
+ *
+ * The function returns NULL_TERM if there's an error.
+ *
+ * Error report:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not an arithmetic term
+ *    code = ARITHTERM_REQUIRED
+ *    term1 = t
+ *
+ */
+__YICES_DLLSPEC__ extern term_t yices_is_int_atom(term_t t);
+
+
+/*
+ * Absolute value, floor, ceiling
+ *
+ * t must be an arithmetic term
+ *
+ * floor t is the largest integer that's less than or equal to t
+ * ceiling t is the smallest integer that's greater than or equal to t
+ * The functions return NULL_TERM if there's an error.
+ *
+ * Error report:
+ * if t is not valid
+ *    code = INVALID_TERM
+ *    term1 = t
+ * if t is not an arithmetic term
+ *    code = ARITHTERM_REQUIRED
+ *    term1 = t
+ */
+__YICES_DLLSPEC__ extern term_t yices_abs(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_floor(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
+
+
+
+
+
+/*
  * POLYNOMIALS
  */
 

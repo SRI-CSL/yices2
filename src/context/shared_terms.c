@@ -174,6 +174,10 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
 
   case ARITH_EQ_ATOM:
   case ARITH_GE_ATOM:
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
     sharing_map_process_occurrence(map, index_of(integer_value_for_idx(map->terms, i)), i);
     break;
 
@@ -189,6 +193,9 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_DIV:
+  case ARITH_MOD:
+  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:

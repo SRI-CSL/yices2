@@ -1205,6 +1205,10 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
       push_term(queue, cache, arith_atom_arg(terms, r));
       break;
 
@@ -1218,6 +1222,9 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:

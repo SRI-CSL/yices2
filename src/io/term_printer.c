@@ -443,7 +443,7 @@ void print_term_name(FILE *f, term_table_t *tbl, term_t t) {
 /*
  * Table to convert term_kind to string
  */
-static const char * const tag2string[] = {
+static const char * const tag2string[NUM_TERM_KINDS] = {
   "unused",
   "reserved",
   "constant",
@@ -454,6 +454,10 @@ static const char * const tag2string[] = {
   "uninterpreted",
   "arith-eq",
   "arith-ge",
+  "is-int",
+  "floor",
+  "ceil",
+  "abs"
   "ite",
   "s-ite",
   "app", // function application
@@ -466,6 +470,9 @@ static const char * const tag2string[] = {
   "or",
   "xor",
   "arith-bineq",
+  "div",
+  "mod",
+  "divides",
   "bv-array",
   "bvdiv",
   "bvrem",
@@ -769,6 +776,22 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
     }
     break;
 
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
+    if (name != NULL && level <= 0) {
+      fputs(name, f);
+    } else {
+      fputc('(', f);
+      fputs(tag2string[tbl->kind[i]], f);
+      fputc(' ', f);
+      print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
+      fputc(')', f);
+    }
+    break;
+
+    
   case APP_TERM:
     if (name != NULL && level <= 0) {
       fputs(name, f);
@@ -788,6 +811,9 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_DIV:
+  case ARITH_MOD:
+  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -1334,6 +1360,17 @@ void print_term_table(FILE *f, term_table_t *tbl) {
         fputs(" 0)", f);
         break;
 
+      case ARITH_IS_INT_ATOM:
+      case ARITH_FLOOR:
+      case ARITH_CEIL:
+      case ARITH_ABS:
+	fputc('(', f);
+	fputs(tag2string[tbl->kind[i]], f);
+	fputc(' ', f);
+	print_id_or_constant(f, tbl, tbl->desc[i].integer);
+	fputc(')', f);
+	break;
+
       case APP_TERM:
         print_app(f, tbl, tbl->desc[i].ptr);
         break;
@@ -1349,6 +1386,9 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case OR_TERM:
       case XOR_TERM:
       case ARITH_BINEQ_ATOM:
+      case ARITH_DIV:
+      case ARITH_MOD:
+      case ARITH_DIVIDES_ATOM:
       case BV_ARRAY:
       case BV_DIV:
       case BV_REM:
@@ -1440,6 +1480,17 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
     fputs("(arith-ge ", f);
     print_id_or_constant(f, tbl, tbl->desc[i].integer);
     fputs(" 0)", f);
+    break;
+
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
+    fputc('(', f);
+    fputs(tag2string[tbl->kind[i]], f);
+    fputc(' ', f);
+    print_id_or_constant(f, tbl, tbl->desc[i].integer);
+    fputc(')', f);
     break;
 
   case APP_TERM:
@@ -1566,6 +1617,10 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
 
   PP_OPEN_EQ,        //  ARITH_EQ_ATOM
   PP_OPEN_GE,        //  ARITH_GE_ATOM
+  PP_OPEN_IS_INT,    //  ARITH_IS_INT_ATOM
+  PP_OPEN_FLOOR,     //  ARITH_FLOOR
+  PP_OPEN_CEIL,      //  ARITH_CEIL
+  PP_OPEN_ABS,       //  ARITH_ABS
 
   PP_OPEN_ITE,       //  ITE_TERM
   PP_OPEN_ITE,       //  ITE_SPECIAL
@@ -1579,6 +1634,9 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_OR,        //  OR_TERM
   PP_OPEN_XOR,       //  XOR_TERM
   PP_OPEN_EQ,        //  ARITH_BINEQ_ATOM
+  PP_OPEN_IDIV,      //  ARITH_DIV
+  PP_OPEN_IMOD,      //  ARITH_MOD
+  PP_OPEN_DIVIDES,   //  ARITH_DIVIDES_ATOM
   PP_OPEN_BV_ARRAY,  //  BV_ARRAY
   PP_OPEN_BV_DIV,    //  BV_DIV
   PP_OPEN_BV_REM,    //  BV_REM
@@ -2085,6 +2143,18 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     pp_close_block(printer, true);
     break;
 
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS:
+    op = term_kind2block[tbl->kind[i]];
+    if (!polarity) pp_open_block(printer, PP_OPEN_NOT);
+    pp_open_block(printer, op);
+    pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1, true);
+    pp_close_block(printer, true);
+    if (!polarity) pp_close_block(printer, true);
+    break;
+
   case FORALL_TERM:
     pp_forall_term(printer, tbl, tbl->desc[i].ptr, level - 1, polarity);
     break;
@@ -2123,6 +2193,9 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case TUPLE_TERM:
   case DISTINCT_TERM:
   case XOR_TERM:
+  case ARITH_DIV:
+  case ARITH_MOD:
+  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:

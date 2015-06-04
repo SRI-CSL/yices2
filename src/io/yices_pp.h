@@ -171,6 +171,15 @@ typedef enum {
   PP_OPEN_BV_SGE,
   PP_OPEN_BV_SLT,
 
+  // more arithmetic stuff
+  PP_OPEN_IS_INT,
+  PP_OPEN_FLOOR,
+  PP_OPEN_CEIL,
+  PP_OPEN_ABS,
+  PP_OPEN_IDIV,
+  PP_OPEN_IMOD,
+  PP_OPEN_DIVIDES,
+
   // blocks used in pp_model
   PP_OPEN_FUNCTION,   // (function ...)
   PP_OPEN_TYPE,       // (type ..)
@@ -179,7 +188,6 @@ typedef enum {
   PP_OPEN_CONST_DEF,  // (constant i of <type>)
   PP_OPEN_UNINT_DEF,  // (unint i of <type>)
   PP_OPEN_VAR_DEF,    // (var i of <type>)
-
 } pp_open_type_t;
 
 #define NUM_PP_OPENS ((uint32_t) (PP_OPEN_VAR_DEF + 1))

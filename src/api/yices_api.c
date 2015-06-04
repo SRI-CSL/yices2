@@ -3360,6 +3360,108 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
 
 
 
+/***************************
+ *  DIV/MOD AND RELATIVES  *
+ **************************/
+
+EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
+  rational_t *q;
+
+  if (! check_good_term(&manager, t1) ||
+      ! check_good_term(&manager, t2) ||
+      ! check_arith_term(&manager, t1) ||
+      ! check_arith_constant(&manager, t2)) {
+    return NULL_TERM;
+  }
+
+  q = rational_term_desc(&terms, t2);
+  if (q_is_zero(q)) {
+    error.code = DIVISION_BY_ZERO;
+    return NULL_TERM;
+  }
+
+  return mk_arith_div(&manager, t1, t2);
+}
+
+EXPORTED term_t yices_imod(term_t t1, term_t t2) {
+  rational_t *q;
+
+  if (! check_good_term(&manager, t1) ||
+      ! check_good_term(&manager, t2) ||
+      ! check_arith_term(&manager, t1) ||
+      ! check_arith_constant(&manager, t2)) {
+    return NULL_TERM;
+  }
+
+  q = rational_term_desc(&terms, t2);
+  if (q_is_zero(q)) {
+    error.code = DIVISION_BY_ZERO;
+    return NULL_TERM;
+  }
+
+  return mk_arith_mod(&manager, t1, t2);
+}
+
+/*
+ * Divisibility test: check whether t1 divides t2
+ */
+EXPORTED term_t yices_divides_atom(term_t t1, term_t t2) {
+  if (! check_good_term(&manager, t1) ||
+      ! check_good_term(&manager, t2) ||
+      ! check_arith_constant(&manager, t1) ||
+      ! check_arith_term(&manager, t2)) {
+    return NULL_TERM;
+  }
+
+  return mk_arith_divides(&manager, t1, t2);
+}
+
+/*
+ * Integer test
+ */
+EXPORTED term_t yices_is_int_atom(term_t t) {
+  if (! check_good_term(&manager, t) ||
+      ! check_arith_term(&manager, t)) {
+    return NULL_TERM;
+  }
+
+  return mk_arith_is_int(&manager, t);
+}
+
+
+/*
+ * ABS/FLOOR/CEIL
+ */
+EXPORTED term_t yices_abs(term_t t) {
+  if (! check_good_term(&manager, t) ||
+      ! check_arith_term(&manager, t)) {
+    return NULL_TERM;
+  }
+
+  return mk_arith_abs(&manager, t);
+}
+
+EXPORTED term_t yices_floor(term_t t) {
+  if (! check_good_term(&manager, t) ||
+      ! check_arith_term(&manager, t)) {
+    return NULL_TERM;
+  }
+
+  return mk_arith_floor(&manager, t);
+}
+
+EXPORTED term_t yices_ceil(term_t t) {
+  if (! check_good_term(&manager, t) ||
+      ! check_arith_term(&manager, t)) {
+    return NULL_TERM;
+  }
+
+  return mk_arith_ceil(&manager, t);
+}
+
+
+
+
 
 /*******************
  *   POLYNOMIALS   *

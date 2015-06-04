@@ -73,6 +73,8 @@
  *    structure to represent most composite terms.
  *
  * July 2012: Added lambda terms.
+ *
+ * June 2015: div/mod/abs and friends
  */
 
 /*
@@ -114,6 +116,18 @@
  *      bv_eq t1 t2
  *      bv_ge t1 t2 (unsigned comparison: t1 >= t2)
  *      bv_sge t1 t2 (signed comparison: t1 >= t2)
+ *
+ * 8) more arithmetic operators (defined in SMTLIB2)
+ *    - floor x
+ *    - ceil x
+ *    - abs x
+ *    - div x y
+ *    - mod x y
+ *    - divides x y: y is a multiple of y
+ *    - is_int x: true if x is an integer
+ *
+ *   In div and mod, we support only constant dividers y.
+ *   For divides x y, x must be a rational constant.
  *
  * Every term is an index t in a global term table,
  * where 0 <= t <= 2^30. There are two term occurrences
@@ -218,33 +232,40 @@ typedef enum {
   /*
    * Composites
    */
-  ARITH_EQ_ATOM,    // atom t == 0
-  ARITH_GE_ATOM,    // atom t >= 0
+  ARITH_EQ_ATOM,      // atom t == 0
+  ARITH_GE_ATOM,      // atom t >= 0
+  ARITH_IS_INT_ATOM,  // atom (is_int x)
+  ARITH_FLOOR,        // floor x
+  ARITH_CEIL,         // ceil x
+  ARITH_ABS,          // absolute value
 
-  ITE_TERM,         // if-then-else
-  ITE_SPECIAL,      // special if-then-else term (NEW: EXPERIMENTAL)
-  APP_TERM,         // application of an uninterpreted function
-  UPDATE_TERM,      // function update
-  TUPLE_TERM,       // tuple constructor
-  EQ_TERM,          // equality
-  DISTINCT_TERM,    // distinct t_1 ... t_n
-  FORALL_TERM,      // quantifier
-  LAMBDA_TERM,      // lambda
-  OR_TERM,          // n-ary OR
-  XOR_TERM,         // n-ary XOR
-  ARITH_BINEQ_ATOM, // equality: (t1 == t2)  (between two arithmetic terms)
-  BV_ARRAY,         // array of boolean terms
-  BV_DIV,           // unsigned division
-  BV_REM,           // unsigned remainder
-  BV_SDIV,          // signed division
-  BV_SREM,          // remainder in signed division (rounding to 0)
-  BV_SMOD,          // remainder in signed division (rounding to -infinity)
-  BV_SHL,           // shift left (padding with 0)
-  BV_LSHR,          // logical shift right (padding with 0)
-  BV_ASHR,          // arithmetic shift right (padding with sign bit)
-  BV_EQ_ATOM,       // equality: (t1 == t2)
-  BV_GE_ATOM,       // unsigned comparison: (t1 >= t2)
-  BV_SGE_ATOM,      // signed comparison (t1 >= t2)
+  ITE_TERM,           // if-then-else
+  ITE_SPECIAL,        // special if-then-else term (NEW: EXPERIMENTAL)
+  APP_TERM,           // application of an uninterpreted function
+  UPDATE_TERM,        // function update
+  TUPLE_TERM,         // tuple constructor
+  EQ_TERM,            // equality
+  DISTINCT_TERM,      // distinct t_1 ... t_n
+  FORALL_TERM,        // quantifier
+  LAMBDA_TERM,        // lambda
+  OR_TERM,            // n-ary OR
+  XOR_TERM,           // n-ary XOR
+  ARITH_BINEQ_ATOM,   // equality: (t1 == t2)  (between two arithmetic terms)
+  ARITH_DIV,          // division: (div x y) as defined in SMT-LIB 2
+  ARITH_MOD,          // remainder: (mod x y) is y - x * (div x y)
+  ARITH_DIVIDES_ATOM, // divisibility test: (divides x y) is true if y = n * x for an integer n
+  BV_ARRAY,           // array of boolean terms
+  BV_DIV,             // unsigned division
+  BV_REM,             // unsigned remainder
+  BV_SDIV,            // signed division
+  BV_SREM,            // remainder in signed division (rounding to 0)
+  BV_SMOD,            // remainder in signed division (rounding to -infinity)
+  BV_SHL,             // shift left (padding with 0)
+  BV_LSHR,            // logical shift right (padding with 0)
+  BV_ASHR,            // arithmetic shift right (padding with sign bit)
+  BV_EQ_ATOM,         // equality: (t1 == t2)
+  BV_GE_ATOM,         // unsigned comparison: (t1 >= t2)
+  BV_SGE_ATOM,        // signed comparison (t1 >= t2)
 
   SELECT_TERM,      // tuple projection
   BIT_TERM,         // bit-select
@@ -598,6 +619,31 @@ extern term_t arith_geq_atom(term_table_t *table, term_t t);
  */
 extern term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right);
 
+
+/*
+ * More arithmetic operations
+ * - is_int(x): true if x is an integer
+ * - floor and ceiling
+ * - absolute value
+ * - div(x, y)
+ * - mod(x, y)
+ * - divides(x, y): x divides y
+ *
+ * Intended semantics for div and mod:
+ * - if y > 0 then div(x, y) is floor(x/y)
+ * - if y < 0 then div(x, y) is ceil(x/y)
+ * - 0 <= rem(x, y) < y
+ * - x = y * div(x, y) + rem(x, y)
+ * These operations are defined for any x and non-zero y.
+ * They are not required to be integers.
+ */
+extern term_t arith_is_int(term_table_t *table, term_t x);
+extern term_t arith_floor(term_table_t *table, term_t x);
+extern term_t arith_ceil(term_table_t *table, term_t x);
+extern term_t arith_abs(term_table_t *table, term_t x);
+extern term_t arith_div(term_table_t *table, term_t x, term_t y);
+extern term_t arith_mod(term_table_t *table, term_t x, term_t y);
+extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
 
 
 /*
@@ -1288,6 +1334,11 @@ static inline term_t composite_term_arg(term_table_t *table, term_t t, uint32_t 
   return composite_term_desc(table, t)->arg[i];
 }
 
+// argument of a unary term t
+static inline term_t unary_term_arg(term_table_t *table, term_t t) {
+  return integer_value_for_idx(table, index_of(t));
+}
+
 // index of a select term t
 static inline uint32_t select_term_index(term_table_t *table, term_t t) {
   return select_term_desc(table, t)->idx;
@@ -1322,6 +1373,29 @@ static inline term_t arith_eq_arg(term_table_t *table, term_t t) {
 
 static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_GE_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+/*
+ * Other unary terms
+ */
+static inline term_t arith_is_int_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_IS_INT_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_floor_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FLOOR);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_ceil_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_CEIL);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_abs_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_ABS);
   return integer_value_for_idx(table, index_of(t));
 }
 
@@ -1383,6 +1457,21 @@ static inline composite_term_t *xor_term_desc(term_table_t *table, term_t t) {
 
 static inline composite_term_t *arith_bineq_atom_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_BINEQ_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_div_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_DIV);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_mod_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_MOD);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_divides_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_DIVIDES_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 

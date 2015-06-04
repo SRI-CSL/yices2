@@ -642,6 +642,10 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
       ef_push_unsigned_term(ef, arith_atom_arg(terms, t));
       break;
 
@@ -655,6 +659,9 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:

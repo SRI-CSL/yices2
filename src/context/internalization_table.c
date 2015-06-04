@@ -559,6 +559,10 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
       bfs_visit_term(tbl, integer_value_for_idx(terms, x));
       break;
 
@@ -574,6 +578,9 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:

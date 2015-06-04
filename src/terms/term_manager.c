@@ -2621,6 +2621,41 @@ term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b) {
 
 
 
+/*
+ * ARITHMETIC FUNCTIONS
+ */
+
+/*
+ * No rewriting or simplification for now
+ */
+term_t mk_arith_is_int(term_manager_t *manager, term_t t) {
+  return arith_is_int(manager->terms, t);
+}
+
+term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
+  return arith_div(manager->terms, t1, t2);
+}
+
+term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2) {
+  return arith_mod(manager->terms, t1, t2);   
+}
+
+term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
+  return arith_divides(manager->terms, t1, t2);
+}
+
+term_t mk_arith_abs(term_manager_t *manager, term_t t) {
+  return arith_abs(manager->terms, t);
+}
+
+term_t mk_arith_floor(term_manager_t *manager, term_t t) {
+  return arith_floor(manager->terms, t);
+}
+
+term_t mk_arith_ceil(term_manager_t *manager, term_t t) {
+  return arith_ceil(manager->terms, t);  
+}
+
 
 
 

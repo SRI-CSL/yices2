@@ -384,6 +384,21 @@ extern term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b);   // b < 
 
 
 /*
+ * More arithmetic constructs for div/mod and mixed arithmetic
+ * - these are to support SMT-LIB 2 operators
+ */
+extern term_t mk_arith_is_int(term_manager_t *manager, term_t t);              // is_int t
+extern term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2);     // (div t1 t2)
+extern term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2);     // (mod t1 t2)
+extern term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2); // t1 divides t2
+
+extern term_t mk_arith_abs(term_manager_t *manager, term_t t);    // absolute value of t
+extern term_t mk_arith_floor(term_manager_t *manager, term_t t);  // largest integer <= t
+extern term_t mk_arith_ceil(term_manager_t *manager, term_t t);   // smallest integer >= t
+
+
+
+/*
  * BITVECTOR TERMS AND ATOMS
  */
 

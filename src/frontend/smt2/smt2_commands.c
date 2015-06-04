@@ -2316,6 +2316,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
       result = needs_egraph(seen, arith_atom_arg(terms, t));
       break;
 
@@ -2326,6 +2330,9 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:

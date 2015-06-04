@@ -25,6 +25,10 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   true,  // UNINTERPRETED_TERM
   false, // ARITH_EQ_ATOM
   false, // ARITH_GE_ATOM
+  false, // ARITH_IS_INT_ATOM
+  false, // ARITH_FLOOR
+  false, // ARITH_CEIL
+  false, // ARITH_ABS
   false, // ITE_TERM
   false, // ITE_SPECIAL
   false, // APP_TERM
@@ -37,6 +41,9 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // OR_TERM
   false, // XOR_TERM
   false, // ARITH_BINEQ_ATOM
+  false, // ARITH_DIV
+  false, // ARITH_MOD
+  false, // ARITH_DIVIDES
   false, // BV_ARRAY
   false, // BV_DIV
   false, // BV_REM
@@ -68,6 +75,10 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   false, // UNINTERPRETED_TERM
   true,  // ARITH_EQ_ATOM
   true,  // ARITH_GE_ATOM
+  true,  // ARITH_IS_INT_ATOM
+  true,  // ARITH_FLOOR
+  true,  // ARITH_CEIL
+  true,  // ARITH_ABS
   true,  // ITE_TERM
   true,  // ITE_SPECIAL
   true,  // APP_TERM
@@ -80,6 +91,9 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // OR_TERM
   true,  // XOR_TERM
   true,  // ARITH_BINEQ_ATOM
+  true,  // ARITH_DIV
+  true,  // ARITH_MOD
+  true,  // ARITH_DIVIDES
   true,  // BV_ARRAY
   true,  // BV_DIV
   true,  // BV_REM
@@ -112,6 +126,10 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_UNINTERPRETED_TERM, // UNINTERPRETED_TERM
   YICES_EQ_TERM,            // ARITH_EQ_ATOM
   YICES_ARITH_GE_ATOM,      // ARITH_GE_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_IS_INT_ATOM  TBD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_FLOOR        TBD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_CEIL         TBD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_ABS          TBD
   YICES_ITE_TERM,           // ITE_TERM
   YICES_ITE_TERM,           // ITE_SPECIAL
   YICES_APP_TERM,           // APP_TERM
@@ -124,6 +142,9 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_OR_TERM,            // OR_TERM
   YICES_XOR_TERM,           // XOR_TERM
   YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIV          TBD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_MOD          TBD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIVIDES_ATOM TBD  
   YICES_BV_ARRAY,           // BV_ARRAY
   YICES_BV_DIV,             // BV_DIV
   YICES_BV_REM,             // BV_REM
@@ -280,6 +301,13 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
       result = 2;
       break;
 
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
+      result = 1;
+      break;
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case APP_TERM:
@@ -292,6 +320,9 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_DIV:
+    case ARITH_MOD:
+    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -358,6 +389,14 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
       } else {
 	result = zero_term; // second child is always zero
       }
+      break;
+
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
+      assert(i == 0);
+      result = unary_term_arg(table, t);
       break;
 
     default:

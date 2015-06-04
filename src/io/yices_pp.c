@@ -87,7 +87,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 40
+#define NUM_STANDARD_BLOCKS 47
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -128,6 +128,13 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_BV_LT, "bv-lt" },
   { PP_OPEN_BV_SGE, "bv-sge" },
   { PP_OPEN_BV_SLT, "bv-slt" },
+  { PP_OPEN_IS_INT, "is-int" },
+  { PP_OPEN_FLOOR, "floor" },
+  { PP_OPEN_CEIL, "ceil" },
+  { PP_OPEN_ABS, "abs" },
+  { PP_OPEN_IDIV, "div" },
+  { PP_OPEN_IMOD, "mod" },
+  { PP_OPEN_IMOD, "divides" },
   { PP_OPEN_TYPE, "type" },
   { PP_OPEN_DEFAULT, "default" },
 };
