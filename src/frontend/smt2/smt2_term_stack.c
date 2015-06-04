@@ -552,7 +552,7 @@ static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  */
 
 /*
- * [to_real x]: x must be an integer. We treat is as a no-op
+ * [to_real x]: x must be an integer. We treat this operation as a no-op.
  */
 static void check_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_TO_REAL);
