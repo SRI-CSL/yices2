@@ -54,7 +54,7 @@
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
-#define DUMP_CTX 1
+#define DUMP_CTX 0
 
 #if DUMP_CTX
 
@@ -2508,7 +2508,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 }
 
 
-#if 0
+#if 1
 /*
  * FOR TESTING/DEBUGGING: PRINT ALL DELAYED ASSERTIONS
  */
@@ -3815,7 +3815,7 @@ void smt2_check_sat(void) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
 	// PROVISIONAL
-	//	show_delayed_assertions(&__smt2_globals);
+	show_delayed_assertions(&__smt2_globals);
 	check_delayed_assertions(&__smt2_globals);
       }
     } else {

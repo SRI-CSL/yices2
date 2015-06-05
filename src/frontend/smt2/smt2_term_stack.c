@@ -643,26 +643,28 @@ static void eval_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * In SMTLIB2, both x and y should be integers. We accept reals too.
  *
  * Also, in SMTLIB2, it's allowed to write (div x1 x2 ... x_n).
- * That's interpreted as ((..(div (div x1 x2) x3)... x_n)). We don't
- * do that here.
+ * That's interpreted as ((..(div (div x1 x2) x3)... x_n)).
  */
 static void check_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_DIV);
-  check_size(stack, n == 2);
+  check_size(stack, n >= 2);
 
   fprintf(stderr, "div\n");
 }
 
 static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2, t;
+  term_t t1, t2;
+  uint32_t i;
 
   t1 = get_term(stack, f);
-  t2 = get_term(stack, f+1);
-  t = yices_idiv(t1, t2);
-  check_term(stack, t);
-  
+  for (i=1; i<n; i++) {
+    t2 = get_term(stack, f+i);
+    t1 = yices_idiv(t1, t2);
+    check_term(stack, t1);
+  }
+
   tstack_pop_frame(stack);
-  set_term_result(stack, t);
+  set_term_result(stack, t1);
 }
 
 
