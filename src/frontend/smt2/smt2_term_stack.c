@@ -559,7 +559,7 @@ static void check_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 1);
   check_integer_term(stack, f);
 
-  fprintf(stderr, "to_real\n");
+  //  fprintf(stderr, "to_real\n");
 }
 
 static void eval_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -574,7 +574,7 @@ static void check_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_TO_INT);
   check_size(stack, n == 1);
 
-  fprintf(stderr, "to_int\n");
+  //  fprintf(stderr, "to_int\n");
 }
 
 static void eval_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -596,7 +596,7 @@ static void check_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_IS_INT);
   check_size(stack, n == 1);
 
-  fprintf(stderr, "is_int\n");
+  //  fprintf(stderr, "is_int\n");
 }
 
 static void eval_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -632,7 +632,7 @@ static void eval_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 
-  fprintf(stderr, "abs\n");
+  //  fprintf(stderr, "abs\n");
 }
 
 
@@ -649,7 +649,7 @@ static void check_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_DIV);
   check_size(stack, n >= 2);
 
-  fprintf(stderr, "div\n");
+  //  fprintf(stderr, "div\n");
 }
 
 static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -678,7 +678,7 @@ static void check_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_MOD);
   check_size(stack, n == 2);
 
-  fprintf(stderr, "mod\n");
+  //  fprintf(stderr, "mod\n");
 }
 
 static void eval_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -704,7 +704,7 @@ static void check_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_DIVISIBLE);
   check_size(stack, n == 2);
 
-  fprintf(stderr, "divisible\n");
+  //  fprintf(stderr, "divisible\n");
 }
 
 static void eval_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
