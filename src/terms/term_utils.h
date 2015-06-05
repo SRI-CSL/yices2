@@ -80,6 +80,14 @@ extern bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t);
 
 
 /*
+ * Check whether all elements in t's domain are non-positive
+ * - t must be a special if-then-else of arithmetic type
+ * - the domain of t is computed if required
+ */
+extern bool term_has_nonpos_finite_domain(term_table_t *tbl, term_t t);
+
+
+/*
  * Check whether all elements in t's domain are negative
  * - t must be a special if-then-else term of arithmetic type
  * - the domain of t is computed if required
@@ -144,6 +152,16 @@ extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a,
 extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a);
 
 
+/*
+ * INTEGRALITY CHECK
+ */
+
+/*
+ * Check whether t can't be an integer.
+ * This is incomplete.
+ * - returns true if t is a non-integer rational
+ */
+extern bool arith_term_is_not_integer(term_table_t *tbl, term_t t);
 
 
 /*
@@ -157,6 +175,15 @@ extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t 
  * - return false otherwise
  */
 extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t);
+
+
+/*
+ * Check whether t is negative or null. This is incomplete and
+ * deals only with simple cases.
+ * - return true if the checks can determine that t <= 0
+ * - return false otherwise
+ */
+extern bool arith_term_is_nonpos(term_table_t *tbl, term_t t);
 
 
 /*

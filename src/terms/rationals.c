@@ -1467,6 +1467,25 @@ bool q_divides(const rational_t *r1, const rational_t *r2) {
 }
 
 
+/***********************************
+ *  SMT2 version of (divides x y)  *
+ **********************************/
+
+/*
+ * (divides r1 r2) is (exist (n::int) r2 = n * r1)
+ *
+ * This is the same as q_divides(r1, r2) except that the
+ * definition allows r1 to be zero. In this case,
+ *  (divides 0 r2) is (r2 == 0)
+ */
+bool q_smt2_divides(const rational_t *r1, const rational_t *r2) {
+  if (q_is_zero(r1)) {
+    return q_is_zero(r2);
+  } else {
+    return q_divides(r1, r2);
+  }
+}
+
 
 
 
@@ -1550,6 +1569,77 @@ void q_generalized_gcd(rational_t *r1, rational_t *r2) {
 }
 
 
+/**********************
+ *  SMT2 DIV AND MOD  *
+ *********************/
+
+/*
+ * SMT-LIB 2.0 definitions for div and mod:
+ * - if y > 0 then div(x, y) is floor(x/y)
+ * - if y < 0 then div(x, y) is ceil(x/y)
+ * - 0 <= mod(x, y) < y
+ * - x = y * div(x, y) + mod(x, y)
+ * These operations are defined for any x and non-zero y.
+ * The terms x and y are not required to be integers.
+ *
+ * - q_smt2_div(q, x, y) stores (div x y) in q
+ * - q_smt2_mod(q, x, y) stores (mod x y) in q
+ *
+ * For both functions, y must not be zero.
+ */
+void q_smt2_div(rational_t *q, const rational_t *x, const rational_t *y) {
+  assert(q_is_nonzero(y));
+
+  q_set(q, x);
+  q_div(q, y); // q := x/y
+  if (q_is_pos(y)) {
+    q_floor(q);  // round down
+  } else {
+    q_ceil(q);  // round up
+  }
+}
+
+/*
+ * For debugging: check that 0 <= r < abs(y)
+ */
+#ifndef NDEBUG
+static bool plausible_mod(const rational_t *r, const rational_t *y) {
+  rational_t aux;
+  bool ok;
+
+  assert(q_is_nonzero(y));
+  
+  q_init(&aux);
+  if (q_is_pos(y)) {
+    q_set(&aux, y);
+  } else {
+    q_set_neg(&aux, y);
+  }
+  q_normalize(&aux);
+
+  ok = q_is_nonneg(r) && q_lt(r, &aux);
+
+  q_clear(&aux);
+
+  return ok;
+}
+#endif
+
+
+void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y) {
+  assert(q_is_nonzero(y));
+
+  q_smt2_div(q, x, y); // q := (div x y)
+  q_mul(q, y);         // q := y * (div x y)
+  q_sub(q, x);         // q := - x + y * (div x y)
+  q_neg(q);            // q := x - y * (div x y) = (mod x y)
+
+  assert(plausible_mod(q, y));
+}
+
+
+
+
 
 /*****************
  *  COMPARISONS  *
@@ -1561,7 +1651,7 @@ void q_generalized_gcd(rational_t *r1, rational_t *r2) {
  * - returns 0 if r1 = r2
  * - returns a positive number if r1 > r2
  */
-int q_cmp(rational_t *r1, rational_t *r2) {
+int q_cmp(const rational_t *r1, const rational_t *r2) {
   int64_t num;
 
   if (r1->den == 1 && r2->den == 1) {
@@ -1588,7 +1678,7 @@ int q_cmp(rational_t *r1, rational_t *r2) {
 /*
  * Compare r1 and num/den
  */
-int q_cmp_int32(rational_t *r1, int32_t num, uint32_t den) {
+int q_cmp_int32(const rational_t *r1, int32_t num, uint32_t den) {
   int64_t nn;
 
   if (r1->den == 0) {
@@ -1599,7 +1689,7 @@ int q_cmp_int32(rational_t *r1, int32_t num, uint32_t den) {
   }
 }
 
-int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den) {
+int q_cmp_int64(const rational_t *r1, int64_t num, uint64_t den) {
   mpq_set_int64(q0, num, den);
   mpq_canonicalize(q0);
   if (r1->den == 0) {
@@ -1614,7 +1704,7 @@ int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den) {
 /*
  * Check whether r1 and r2 are opposite
  */
-bool q_opposite(rational_t *r1, rational_t *r2) {
+bool q_opposite(const rational_t *r1, const rational_t *r2) {
   rational_t aux;
   bool result;
 

@@ -302,6 +302,28 @@ extern void q_generalized_lcm(rational_t *r1, rational_t *r2);
 extern void q_generalized_gcd(rational_t *r1, rational_t *r2);
 
 
+
+/*
+ * SMT2 Versions of division and mod
+ *
+ * Intended semantics for div and mod:
+ * - if y > 0 then div(x, y) is floor(x/y)
+ * - if y < 0 then div(x, y) is ceil(x/y)
+ * - 0 <= mod(x, y) < y
+ * - x = y * div(x, y) + mod(x, y)
+ * These operations are defined for any x and non-zero y.
+ * The terms x and y are not required to be integers.
+ *
+ * - q_smt2_div(q, x, y) stores (div x y) in q
+ * - q_smt2_mod(q, x, y) stores (mod x y) in q
+ *
+ * For both functions, y must not be zero.
+ */
+extern void q_smt2_div(rational_t *q, const rational_t *x, const rational_t *y);
+extern void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y);
+
+
+
 /*
  * TESTS: DO NOT MODIFY THE ARGUMENT(S)
  */
@@ -326,7 +348,7 @@ static inline int q_sgn(rational_t *r) {
  * - returns 0 if r1 = r2
  * - returns a positive number if r1 > r2
  */
-extern int q_cmp(rational_t *r1, rational_t *r2);
+extern int q_cmp(const rational_t *r1, const rational_t *r2);
 
 
 /*
@@ -336,8 +358,8 @@ extern int q_cmp(rational_t *r1, rational_t *r2);
  * - returns 0 if r1 = num/den
  * - returns a positive number if r1 > num/den
  */
-extern int q_cmp_int32(rational_t *r1, int32_t num, uint32_t den);
-extern int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den);
+extern int q_cmp_int32(const rational_t *r1, int32_t num, uint32_t den);
+extern int q_cmp_int64(const rational_t *r1, int64_t num, uint64_t den);
 
 
 /*
@@ -349,27 +371,27 @@ extern int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den);
  * - q_eq(r1, r2) is nonzero iff r1 = r2
  * - q_neq(r1, r2) is nonzero iff r1 != r2
  */
-static inline bool q_le(rational_t *r1, rational_t *r2) {
+static inline bool q_le(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) <= 0;
 }
 
-static inline bool q_lt(rational_t *r1, rational_t *r2) {
+static inline bool q_lt(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) < 0;
 }
 
-static inline bool q_ge(rational_t *r1, rational_t *r2) {
+static inline bool q_ge(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) >= 0;
 }
 
-static inline bool q_gt(rational_t *r1, rational_t *r2) {
+static inline bool q_gt(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) > 0;
 }
 
-static inline bool q_eq(rational_t *r1, rational_t *r2) {
+static inline bool q_eq(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) == 0;
 }
 
-static inline bool q_neq(rational_t *r1, rational_t *r2) {
+static inline bool q_neq(const rational_t *r1, const rational_t *r2) {
   return q_cmp(r1, r2) != 0;
 }
 
@@ -377,7 +399,7 @@ static inline bool q_neq(rational_t *r1, rational_t *r2) {
 /*
  * Check whether r1 and r2 are opposite (i.e., r1 + r2 = 0)
  */
-extern bool q_opposite(rational_t *r1, rational_t *r2);
+extern bool q_opposite(const rational_t *r1, const rational_t *r2);
 
 
 /*
@@ -441,6 +463,13 @@ extern bool q_integer_divides(rational_t *r1, const rational_t *r2);
  */
 extern bool q_divides(const rational_t *r1, const rational_t *r2);
 
+
+/*
+ * SMT2 version:
+ * - if t1 is non-zero, return true iff (r2/r1) is an integer
+ * - if t1 is zero, return true iff r2 is zero
+ */
+extern bool q_smt2_divides(const rational_t *r1, const rational_t *r2);
 
 
 

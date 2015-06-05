@@ -2626,36 +2626,278 @@ term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b) {
  */
 
 /*
- * No rewriting or simplification for now
+ * Auxiliary function: compute -t
+ */
+static term_t mk_arith_opposite(term_manager_t *manager, term_t t) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  tbl = manager->terms;
+  b = term_manager_get_arith_buffer(manager);
+  reset_rba_buffer(b);
+  rba_buffer_sub_term(b, tbl, t); // b := -t
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+/*
+ * (is_int t):
+ *
+ * Simplifications:
+ *  if t has type integer --> true
+ *  if t is a non-integer term --> false
+ *  (is_int (abs t)) --> (is_int t)
+ *
+ * Could do more with polynomials
  */
 term_t mk_arith_is_int(term_manager_t *manager, term_t t) {
-  return arith_is_int(manager->terms, t);
+  term_table_t *tbl;
+
+  tbl = manager->terms;
+  if (is_integer_term(tbl, t)) {
+    return true_term;
+  }
+  if (arith_term_is_not_integer(tbl, t)) {
+    return false_term;
+  }
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_ABS:
+    t = arith_abs_arg(tbl, t);
+    break;
+    
+    // MORE TO BE DONE
+  default:
+    break;
+  }
+
+  return arith_is_int(tbl, t);
 }
 
-term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
-  return arith_div(manager->terms, t1, t2);
-}
-
-term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2) {
-  return arith_mod(manager->terms, t1, t2);   
-}
-
-term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
-  return arith_divides(manager->terms, t1, t2);
-}
-
+/*
+ * (abs t):
+ *
+ * Simplifications:
+ * - if t is known to be non-negative --> t
+ * - if t is known to be negative --> (- t)
+ * - the first rule ensures (abs (abs t)) --> (abs t)
+ */
 term_t mk_arith_abs(term_manager_t *manager, term_t t) {
-  return arith_abs(manager->terms, t);
+  term_table_t *tbl;
+
+  tbl = manager->terms;
+
+  if (arith_term_is_nonneg(tbl, t)) return t;
+
+  if (arith_term_is_nonpos(tbl, t)) return mk_arith_opposite(manager, t);
+
+  return arith_abs(tbl, t);
 }
 
+
+/*
+ * (floor t) and (ceil t)
+ * - if t is an integer --> t
+ * - otherwise, build the term.
+ *
+ * Could do more: rewrite t as <integer> + <rest> then
+ *  (floor t) = <integer> + (floor <rest>)
+ *  (ceil t) = <integer> + (ceil <rest>)
+ * Not clear whether that would help.
+ */
 term_t mk_arith_floor(term_manager_t *manager, term_t t) {
-  return arith_floor(manager->terms, t);
+  term_table_t *tbl;
+
+  tbl = manager->terms;
+  if (is_integer_term(tbl, t)) return t;
+
+  return arith_floor(tbl, t);
 }
 
 term_t mk_arith_ceil(term_manager_t *manager, term_t t) {
+  term_table_t *tbl;
+
+  tbl = manager->terms;
+  if (is_integer_term(tbl, t)) return t;
+
   return arith_ceil(manager->terms, t);  
 }
 
+
+/*
+ * DIV and MOD
+ *
+ * Intended semantics for div and mod:
+ * - if y > 0 then div(x, y) is floor(x/y)
+ * - if y < 0 then div(x, y) is ceil(x/y)
+ * - 0 <= rem(x, y) < y
+ * - x = y * div(x, y) + rem(x, y)
+ * These operations are defined for any x and non-zero y.
+ * The terms x and y are not required to be integers.
+ */
+
+
+/*
+ * Division and mod of two rationals
+ * - q2 is the divisor
+ */
+static term_t arith_constant_div(term_manager_t *manager, rational_t *q1, rational_t *q2) {
+  rational_t *aux;
+
+  aux = &manager->r0;
+  q_smt2_div(aux, q1, q2);
+  q_normalize(aux);
+
+  return arith_constant(manager->terms, aux);
+}
+
+static term_t arith_constant_mod(term_manager_t *manager, rational_t *q1, rational_t *q2) {
+  rational_t *aux;
+  
+  aux = &manager->r0;
+  q_smt2_mod(aux, q1, q2);
+  q_normalize(aux);
+
+  return arith_constant(manager->terms, aux);
+}
+
+
+/*
+ * Division and mod: t2 must be a non-zero rational constant
+ *
+ * Simplifications:
+ *    (div x  1) -->   x if x is an integer
+ *    (div x -1) --> - x if x is an integer
+ *
+ *    (mod x  1) -->   0 if x is an integer
+ *    (mod x -1) -->   0 if x is an integer
+ */
+term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
+  term_table_t *tbl;
+  rational_t *q;
+  term_t t;
+
+  tbl = manager->terms;
+  assert(term_kind(tbl, t2) == ARITH_CONSTANT);
+
+  q = rational_term_desc(tbl, t2);
+  assert(q_is_nonzero(q));
+
+  if (q_is_one(q) && is_integer_term(tbl, t1)) {
+    t = t1;
+
+  } else if (q_is_minus_one(q) && is_integer_term(tbl, t1)) {
+    t = mk_arith_opposite(manager, t1); // - t1
+
+  } else {
+    
+    switch (term_kind(tbl, t1)) {
+    case ARITH_CONSTANT:
+      t = arith_constant_div(manager, rational_term_desc(tbl, t1), q);
+      break;
+
+    default:
+      t = arith_div(tbl, t1, t2);
+      break;
+    }
+  }
+
+  return t;
+}
+
+term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2) {
+  term_table_t *tbl;
+  rational_t *q;
+  term_t t;
+
+  tbl = manager->terms;
+  assert(term_kind(tbl, t2) == ARITH_CONSTANT);
+
+  q = rational_term_desc(tbl, t2);
+  assert(q_is_nonzero(q));
+
+  if ((q_is_one(q) || q_is_minus_one(q)) && is_integer_term(tbl, t1)) {
+    t = zero_term;
+  } else {
+    switch (term_kind(tbl, t1)) {
+    case ARITH_CONSTANT:
+      t = arith_constant_mod(manager, rational_term_desc(tbl, t1), q);
+      break;
+
+    default:
+      t = arith_mod(tbl, t1, t2);
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+/*
+ * DIVISIBILITY TEST
+ */
+
+/*
+ * Force divisor to be positive: build -q
+ */
+static term_t neg_rational(term_manager_t *manager, rational_t *q) {
+  rational_t *aux;
+
+  aux = &manager->r0;
+  q_set_neg(aux, q);
+  q_normalize(aux);
+
+  return arith_constant(manager->terms, aux);
+}
+
+/*
+ * t1 must be a rational constant
+ *
+ * Simplifications:
+ *    (divides 0 t2) ---> (t2 == 0)
+ *    (divides 1 t2) ---> (is_int t2)
+ *   (divides -1 t2) ---> (is_int t2)
+ *
+ * If t1 is negative:
+ *   (divides t1 t2) ---> (divides (- t1) t2)
+ */
+term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
+  term_table_t *tbl;
+  rational_t *q;
+  term_t t;
+
+  tbl = manager->terms;
+  assert(term_kind(tbl, t1) == ARITH_CONSTANT);
+
+  q = rational_term_desc(tbl, t1); 
+
+  if (q_is_zero(q)) {
+    t = mk_arith_eq0_atom(tbl, t2);
+  } else if (q_is_one(q) || q_is_minus_one(q)) {
+    t = mk_arith_is_int(manager, t2);
+  } else {
+
+    switch (term_kind(tbl, t2)) {
+    case ARITH_CONSTANT:
+      t = false_term;
+      if (q_divides(q, rational_term_desc(tbl, t2))) {
+	t = true_term;
+      }
+      break;
+      
+    default:
+      // force t1 to be positive
+      if (q_is_neg(q)) {
+	t1 = neg_rational(manager, q);
+      }
+      t = arith_divides(tbl, t1, t2);
+      break;
+    }
+  }
+
+  return t;
+}
 
 
 

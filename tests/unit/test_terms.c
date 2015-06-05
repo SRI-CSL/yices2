@@ -971,6 +971,215 @@ static term_t test_arith_bineq(term_t a, term_t b, char *name) {
   return x;
 }
 
+
+/*
+ * More arithmetic operators
+ */
+static term_t test_arith_is_int(term_t a, char *name) {
+  term_t x, y;
+
+  printf("Testing: (arith-is-int ");
+  print_term_name(stdout, &terms, a);
+  printf("): ");
+
+  x = arith_is_int(&terms, a);
+  if (! check_term_integer(x, ARITH_IS_INT_ATOM, bool_type(&types), a)) {
+    constructor_failed();
+  }
+
+  y = arith_is_int(&terms, a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+static term_t test_arith_floor(term_t a, char *name) {
+  term_t x, y;
+
+  printf("Testing: (floor ");
+  print_term_name(stdout, &terms, a);
+  printf("): ");
+
+  x = arith_floor(&terms, a);
+  if (! check_term_integer(x, ARITH_FLOOR, int_type(&types), a)) {
+    constructor_failed();
+  }
+
+  y = arith_floor(&terms, a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
+static term_t test_arith_ceil(term_t a, char *name) {
+  term_t x, y;
+
+  printf("Testing: (ceil ");
+  print_term_name(stdout, &terms, a);
+  printf("): ");
+
+  x = arith_ceil(&terms, a);
+  if (! check_term_integer(x, ARITH_CEIL, int_type(&types), a)) {
+    constructor_failed();
+  }
+
+  y = arith_ceil(&terms, a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
+static term_t test_arith_abs(type_t tau, term_t a, char *name) {
+  term_t x, y;
+
+  printf("Testing: (abs ");
+  print_term_name(stdout, &terms, a);
+  printf("): ");
+
+  x = arith_abs(&terms, a);
+  if (! check_term_integer(x, ARITH_ABS, tau, a)) {
+    constructor_failed();
+  }
+
+  y = arith_abs(&terms, a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+static term_t test_arith_div(term_t a, term_t b, char *name) {
+  term_t x, y;
+
+  printf("Testing: (div ");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf("): ");
+
+  x = arith_div(&terms, a, b);
+  if (! check_composite2(x, ARITH_DIV, int_type(&types), a, b)) {
+    constructor_failed();
+  }
+
+  y = arith_div(&terms, a, b);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
+static term_t test_arith_mod(type_t tau, term_t a, term_t b, char *name) {
+  term_t x, y;
+
+  printf("Testing: (mod ");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf("): ");
+
+  x = arith_mod(&terms, a, b);
+  if (! check_composite2(x, ARITH_MOD, tau, a, b)) {
+    constructor_failed();
+  }
+
+  y = arith_mod(&terms, a, b);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
+static term_t test_arith_divides(term_t a, term_t b, char *name) {
+  term_t x, y;
+
+  printf("Testing: (divides ");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf("): ");
+
+  x = arith_divides(&terms, a, b);
+  if (! check_composite2(x, ARITH_DIVIDES_ATOM, bool_type(&types), a, b)) {
+    constructor_failed();
+  }
+
+  y = arith_divides(&terms, a, b);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
+
+
+
+
+
 static term_t test_bvarray4(term_t a, term_t b, term_t c, term_t d, char *name) {
   term_t aux[4];
   term_t x, y;
@@ -1832,6 +2041,30 @@ static void test_composites(void) {
   (void) test_arith_eq(unint[4], NULL);
   (void) test_arith_geq(unint[3], NULL);
   (void) test_arith_bineq(unint[2], unint[5], NULL);
+  (void) test_arith_is_int(unint[2], NULL);
+  (void) test_arith_is_int(unint[4], NULL);
+  (void) test_arith_floor(unint[3], NULL);
+  (void) test_arith_floor(unint[5], NULL);
+  (void) test_arith_ceil(unint[3], NULL);
+  (void) test_arith_ceil(unint[5], NULL);
+  (void) test_arith_abs(type[1], unint[2], NULL); // integer
+  (void) test_arith_abs(type[2], unint[4], NULL); // real
+
+  (void) test_arith_div(unint[2], unint[3], NULL);
+  (void) test_arith_div(unint[2], unint[4], NULL);
+  (void) test_arith_div(unint[5], unint[3], NULL);
+  (void) test_arith_div(unint[5], unint[4], NULL);
+
+  (void) test_arith_mod(type[1], unint[2], unint[3], NULL); // integer
+  (void) test_arith_mod(type[2], unint[2], unint[4], NULL); // real
+  (void) test_arith_mod(type[2], unint[5], unint[3], NULL); // real
+  (void) test_arith_mod(type[2], unint[5], unint[4], NULL); // real
+
+  (void) test_arith_divides(unint[2], unint[3], NULL);
+  (void) test_arith_divides(unint[2], unint[4], NULL);
+  (void) test_arith_divides(unint[5], unint[3], NULL);
+  (void) test_arith_divides(unint[5], unint[4], NULL);
+
   (void) test_bvarray4(true_term, true_term, true_term, false_term, NULL);
   (void) test_bvdiv(type[4], unint[7], unint[7], NULL);
   (void) test_bvrem(type[4], unint[7], unint[7], NULL);

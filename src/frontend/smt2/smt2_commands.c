@@ -54,7 +54,7 @@
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
-#define DUMP_CTX 0
+#define DUMP_CTX 1
 
 #if DUMP_CTX
 
@@ -1301,8 +1301,6 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
 
   // more arithmetic stuff
   "to_real",              // SMT2_MK_TO_REAL
-
-  // operations not supported
   "div",                  // SMT2_MK_DIV
   "mod",                  // SMT2_MK_MOD
   "abs",                  // SMT2_MK_ABS

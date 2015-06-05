@@ -147,6 +147,84 @@ static value_t eval_arith_ge(evaluator_t *eval, term_t t) {
   return vtbl_mk_bool(eval->vtbl, q_is_nonneg(vtbl_rational(eval->vtbl, v)));
 }
 
+/*
+ * Arithmetic atom: (is_int t)
+ */
+static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_term(eval, t);
+  return vtbl_mk_bool(eval->vtbl, q_is_integer(vtbl_rational(eval->vtbl, v)));
+}
+
+
+/*
+ * Arithmetic term: (floor t)
+ */
+static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
+  rational_t q;
+  value_t v;
+
+  v = eval_term(eval, t);
+  assert(object_is_rational(eval->vtbl, v));
+  
+  q_init(&q);
+  q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_floor(&q);
+  q_normalize(&q);
+
+  v = vtbl_mk_rational(eval->vtbl, &q);
+
+  q_clear(&q);
+
+  return v;
+}
+
+
+/*
+ * Arithmetic term: (ceil t)
+ */
+static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
+  rational_t q;
+  value_t v;
+
+  v = eval_term(eval, t);
+  assert(object_is_rational(eval->vtbl, v));
+  
+  q_init(&q);
+  q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_ceil(&q);
+  q_normalize(&q);
+
+  v = vtbl_mk_rational(eval->vtbl, &q);
+
+  q_clear(&q);
+
+  return v;
+}
+
+
+/*
+ * Arithmetic term: (abs t)
+ */
+static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
+  rational_t q;
+  value_t v;
+
+  v = eval_term(eval, t);
+  assert(object_is_rational(eval->vtbl, v));
+  
+  q_init(&q);
+  q_set_abs(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_normalize(&q);
+
+  v = vtbl_mk_rational(eval->vtbl, &q);
+
+  q_clear(&q);
+
+  return v;
+}
+
 
 /*
  * Arithmetic atom: v1 == v2
@@ -162,6 +240,71 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
          object_is_rational(eval->vtbl, v2));
 
   return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
+}
+
+
+/*
+ * Arithmetic term: (div v1 v2)
+ */
+static value_t eval_arith_div(evaluator_t *eval, composite_term_t *d) {
+  rational_t q;
+  value_t v1, v2, o;
+  
+  assert(d->arity == 2);
+
+  v1 = eval_term(eval, d->arg[0]);
+  v2 = eval_term(eval, d->arg[1]);
+  
+  q_init(&q);
+  q_smt2_div(&q, vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+  q_normalize(&q);
+
+  o = vtbl_mk_rational(eval->vtbl, &q);
+
+  q_clear(&q);
+
+  return o;
+}
+
+
+/*
+ * Arithmetic term: (mod v1 v2)
+ */
+static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
+  rational_t q;
+  value_t v1, v2, o;
+  
+  assert(d->arity == 2);
+
+  v1 = eval_term(eval, d->arg[0]);
+  v2 = eval_term(eval, d->arg[1]);
+  
+  q_init(&q);
+  q_smt2_mod(&q, vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+  q_normalize(&q);
+
+  o = vtbl_mk_rational(eval->vtbl, &q);
+
+  q_clear(&q);
+
+  return o;
+}
+
+
+/*
+ * Arithmetic term: (divides v1 v2)
+ */
+static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
+  value_t v1, v2;
+  bool divides;
+  
+  assert(d->arity == 2);
+
+  v1 = eval_term(eval, d->arg[0]);
+  v2 = eval_term(eval, d->arg[1]);
+  divides = q_smt2_divides(vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+
+  return vtbl_mk_bool(eval->vtbl, divides);
 }
 
 
@@ -1008,6 +1151,22 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_arith_ge(eval, arith_ge_arg(terms, t));
         break;
 
+      case ARITH_IS_INT_ATOM:
+	v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
+	break;
+
+      case ARITH_FLOOR:
+	v = eval_arith_floor(eval, arith_floor_arg(terms, t));
+	break;
+
+      case ARITH_CEIL:
+	v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
+	break;
+
+      case ARITH_ABS:
+	v = eval_arith_abs(eval, arith_abs_arg(terms, t));
+	break;
+
       case ITE_TERM:
       case ITE_SPECIAL:
         v = eval_ite(eval, ite_term_desc(terms, t));
@@ -1055,6 +1214,18 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       case ARITH_BINEQ_ATOM:
         v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
         break;
+
+      case ARITH_DIV:
+	v = eval_arith_div(eval, arith_div_term_desc(terms, t));
+	break;
+
+      case ARITH_MOD:
+	v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
+	break;
+
+      case ARITH_DIVIDES_ATOM:
+	v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
+	break;
 
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));

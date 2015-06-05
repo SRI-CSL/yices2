@@ -457,7 +457,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "is-int",
   "floor",
   "ceil",
-  "abs"
+  "abs",
   "ite",
   "s-ite",
   "app", // function application

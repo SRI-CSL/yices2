@@ -558,11 +558,166 @@ static void check_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_TO_REAL);
   check_size(stack, n == 1);
   check_integer_term(stack, f);
+
+  fprintf(stderr, "to_real\n");
 }
 
 static void eval_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   copy_result_and_pop_frame(stack, f);
 }
+
+
+/*
+ * [to_int x] (is the same as (floor x)
+ */
+static void check_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_TO_INT);
+  check_size(stack, n == 1);
+
+  fprintf(stderr, "to_int\n");
+}
+
+static void eval_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t;
+
+  t = get_term(stack, f);
+  t = yices_floor(t);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * [is_int x]
+ */
+static void check_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_IS_INT);
+  check_size(stack, n == 1);
+
+  fprintf(stderr, "is_int\n");
+}
+
+static void eval_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t;
+
+  t = get_term(stack, f);
+  t = yices_is_int_atom(t);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * [abs x]
+ *
+ * In SMTLIB2, (abs x) is defined only for integers. We don't check for this,
+ * and we accept (abs x) for any arithmetic x.
+ */
+static void check_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_IS_INT);
+  check_size(stack, n == 1);
+}
+
+static void eval_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t;
+
+  t = get_term(stack, f);
+  t = yices_abs(t);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+
+  fprintf(stderr, "abs\n");
+}
+
+
+/*
+ * [div x y]
+ * - y must be a non-zero constant
+ *
+ * In SMTLIB2, both x and y should be integers. We accept reals too.
+ *
+ * Also, in SMTLIB2, it's allowed to write (div x1 x2 ... x_n).
+ * That's interpreted as ((..(div (div x1 x2) x3)... x_n)). We don't
+ * do that here.
+ */
+static void check_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_DIV);
+  check_size(stack, n == 2);
+
+  fprintf(stderr, "div\n");
+}
+
+static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t1, t2, t;
+
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_idiv(t1, t2);
+  check_term(stack, t);
+  
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * [mod x y]
+ * - y must be a non-zero constant
+ *
+ * In SMTLIB2, both x and y should be integers. We accept reals too.
+ */
+static void check_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_MOD);
+  check_size(stack, n == 2);
+
+  fprintf(stderr, "mod\n");
+}
+
+static void eval_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t1, t2, t;
+
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_imod(t1, t2);
+  check_term(stack, t);
+  
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * [divisible x y] (i.e.,  whether y is a multiple of x)
+ * - x must be a constant
+ *
+ * In SMTLIB2, both x and y should be integers. We accept reals too.
+ */
+static void check_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_DIVISIBLE);
+  check_size(stack, n == 2);
+
+  fprintf(stderr, "divisible\n");
+}
+
+static void eval_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t1, t2, t;
+
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_divides_atom(t1, t2);
+  check_term(stack, t);
+  
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
 
 
 /*
@@ -1737,15 +1892,18 @@ void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *l
 
 
 
+
 /*
  * PLACE-HOLDERS FOR UNSUPPORTED FUNCTIONS
  */
+#if 0
 static void check_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   raise_exception(stack, f, TSTACK_OP_NOT_IMPLEMENTED);
 }
 
 static void eval_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
+#endif
 
 
 /*
@@ -2180,11 +2338,10 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_SORTED_INDEXED_APPLY, false, eval_smt2_sorted_indexed_apply, check_smt2_sorted_indexed_apply);
 
   tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_smt2_to_real, check_smt2_to_real);
-
-  tstack_add_op(stack, SMT2_MK_DIV, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_MOD, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_ABS, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_DIV, false, eval_smt2_div, check_smt2_div);
+  tstack_add_op(stack, SMT2_MK_MOD, false, eval_smt2_mod, check_smt2_mod);
+  tstack_add_op(stack, SMT2_MK_ABS, false, eval_smt2_abs, check_smt2_abs);
+  tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_smt2_to_int, check_smt2_to_int);
+  tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_smt2_is_int, check_smt2_is_int);
+  tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_smt2_divisible, check_smt2_divisible);
 }

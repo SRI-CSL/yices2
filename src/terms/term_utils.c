@@ -257,6 +257,26 @@ static bool finite_domain_is_nonneg(term_table_t *tbl, finite_domain_t *d) {
 
 
 /*
+ * Check whether all elements in domain d are <= 0
+ * - d must be an arithmetic domain (i.e., all elements in d are rational constants)
+ */
+static bool finite_domain_is_nonpos(term_table_t *tbl, finite_domain_t *d) {
+  uint32_t i, n;
+  term_t t;
+
+  n = d->nelems;
+  for (i=0; i<n; i++) {
+    t = d->data[i];
+    if (q_is_pos(rational_term_desc(tbl, t))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
  * Check whether all elements in domain d are negative
  * - d must be an arithmetic domain
  */
@@ -268,6 +288,26 @@ static bool finite_domain_is_neg(term_table_t *tbl, finite_domain_t *d) {
   for (i=0; i<n; i++) {
     t = d->data[i];
     if (q_is_nonneg(rational_term_desc(tbl, t))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether all elements in domain d are non-integer
+ * - d must be an arithmetic domain
+ */
+static bool finite_domain_has_no_integers(term_table_t *tbl, finite_domain_t *d) {
+  uint32_t i, n;
+  term_t t;
+
+  n = d->nelems;
+  for (i=0; i<n; i++) {
+    t = d->data[i];
+    if (q_is_integer(rational_term_desc(tbl, t))) {
       return false;
     }
   }
@@ -290,6 +330,19 @@ bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t) {
 
 
 /*
+ * Check whether all elements in t's domain are non-positive
+ * - t must be a special if-then-else of arithmetic type
+ * - the domain of t is computed if required
+ */
+bool term_has_nonpos_finite_domain(term_table_t *tbl, term_t t) {
+  finite_domain_t *d;
+
+  d = special_ite_get_finite_domain(tbl, t);
+  return finite_domain_is_nonpos(tbl, d);
+}
+
+
+/*
  * Check whether all elements in t's domain are negative
  * - t must be a special if-then-else term of arithmetic type
  * - the domain of t is computed if required
@@ -299,6 +352,17 @@ bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {
 
   d = special_ite_get_finite_domain(tbl, t);
   return finite_domain_is_neg(tbl, d);
+}
+
+
+/*
+ * Check whether all elements in t's domain are non-integer
+ */
+bool term_has_non_integer_finite_domain(term_table_t *tbl, term_t t) {
+  finite_domain_t *d;
+
+  d = special_ite_get_finite_domain(tbl, t);
+  return finite_domain_has_no_integers(tbl, d);
 }
 
 
@@ -630,6 +694,68 @@ static bool disequal_bitarray_bvconst(composite_term_t *a, bvconst_term_t *c) {
 
 
 
+/*************************
+ *  CHECK NON-INTEGERS   *
+ ************************/
+
+/*
+ * Check whether p is of the form constant + sum of integer monomials
+ * where the constant is a non-integer rational.
+ */
+static bool non_integer_polynomial(term_table_t *tbl, polynomial_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  if (n >= 1 && p->mono[0].var == const_idx && !q_is_integer(&p->mono[0].coeff)) {
+    // p has a non-integer constant term
+    for (i=1; i<n; i++) {
+      if (!is_integer_term(tbl, p->mono[i].var) ||
+	  !q_is_integer(&p->mono[i].coeff)) {
+	return false; // not an integer monomial 
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Check whether t can't be an integer.
+ * This is incomplete.
+ * - returns true if t is a non-integer rational
+ */
+bool arith_term_is_not_integer(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    return !q_is_integer(rational_term_desc(tbl, t));
+
+  case ARITH_ABS:
+    // x not an integer IMPLIES (abs x) not an integer
+    return arith_term_is_not_integer(tbl, arith_abs_arg(tbl, t));
+
+  case ARITH_POLY:
+    return non_integer_polynomial(tbl, poly_term_desc(tbl, t));
+
+  case ITE_SPECIAL:
+    return term_has_non_integer_finite_domain(tbl, t);
+
+  default:
+    return false;
+  }
+}
+
+/*
+ * Cheaper form: test whether x is a non-integer constant
+ * - incomplete
+ */
+static bool is_non_integer_term(term_table_t *tbl, term_t x) {
+  return term_kind(tbl, x) == ARITH_CONSTANT && !q_is_integer(rational_term_desc(tbl, x));
+}
+
+
 
 
 /******************************
@@ -647,16 +773,6 @@ static inline bool disequal_constant_terms(term_t x, term_t y) {
 
 static inline bool disequal_boolean_terms(term_t x, term_t y) {
   return opposite_bool_terms(x, y);
-}
-
-
-
-/*
- * Test whether x can't be an integer
- * - incomplete
- */
-static bool is_non_integer_term(term_table_t *tbl, term_t x) {
-  return term_kind(tbl, x) == ARITH_CONSTANT && !q_is_integer(rational_term_desc(tbl, x));
 }
 
 
@@ -991,6 +1107,50 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
 
   case ARITH_POLY:
     return polynomial_is_nonneg(poly_term_desc(tbl, t));
+
+  case ARITH_ABS:
+  case ARITH_MOD:
+    return true;
+
+  case ARITH_FLOOR:
+    // (floor t) >= 0 IFF t >= 0
+    return arith_term_is_nonneg(tbl, arith_floor_arg(tbl, t));
+
+  case ARITH_CEIL:
+    // t>=0 IMPLIES (ceil t) >= 0
+    return arith_term_is_nonneg(tbl, arith_ceil_arg(tbl, t));
+
+  default:
+    return false;
+  }
+}
+
+/*
+ * Check whether t is negative or null. This is incomplete and
+ * deals only with simple cases.
+ * - return true if the checks can determine that t <= 0
+ * - return false otherwise
+ */
+bool arith_term_is_nonpos(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    return q_is_nonpos(rational_term_desc(tbl, t));
+
+  case ITE_SPECIAL:
+    return term_has_nonpos_finite_domain(tbl, t);
+
+  case ARITH_POLY:
+    return polynomial_is_nonpos(poly_term_desc(tbl, t));
+
+  case ARITH_FLOOR:
+    // t <= 0 IMPLIES (floor t) <= 0
+    return arith_term_is_nonpos(tbl, arith_floor_arg(tbl, t));
+
+  case ARITH_CEIL:
+    // (ceil t) <= 0 IFF t <= 0
+    return arith_term_is_nonpos(tbl, arith_ceil_arg(tbl, t));
 
   default:
     return false;
