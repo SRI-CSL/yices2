@@ -31,7 +31,7 @@
 
 #define TRACE_SYM_BREAKING 0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE_SYM_BREAKING || 1
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE_SYM_BREAKING
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1163,6 +1163,7 @@ static void push_common_factors(context_t *ctx, term_t r) {
 
   n = v->size;
 
+#if 0
   if (n > 0) {
     printf("--- common factors of r = %"PRId32" ---\n", r);
     init_yices_pp(&printer, stdout, NULL, PP_VMODE, 0);
@@ -1177,7 +1178,7 @@ static void push_common_factors(context_t *ctx, term_t r) {
 
     delete_yices_pp(&printer, true);
   }
-
+#endif
 
   for (i=0; i<n; i++) {
     int_queue_push(&ctx->queue, v->data[i]);
