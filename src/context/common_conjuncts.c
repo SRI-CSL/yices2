@@ -183,7 +183,6 @@ void bfs_get_disjuncts(bfs_explorer_t *explorer, term_t f, ivector_t *v) {
   ivector_reset(v);
   bfs_explorer_push_term(explorer, f);
   bfs_collect_disjuncts(explorer, v);
-  int_array_sort(v->data, v->size);
 }
 
 
