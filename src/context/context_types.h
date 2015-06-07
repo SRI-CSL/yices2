@@ -17,6 +17,7 @@
 #include <setjmp.h>
 
 #include "api/smt_logic_codes.h"
+#include "context/common_conjuncts.h"
 #include "context/internalization_table.h"
 #include "context/pseudo_subst.h"
 #include "context/shared_terms.h"
@@ -81,6 +82,7 @@ typedef enum {
  *     (condition => (term = constant))
  * - FLATTEN_ITE: avoid intermediate variables when converting nested
  *   if-then-else terms
+ * - FACTOR_TOP_OR: extract common factors from top-level disjuncts
  *
  * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
  *
@@ -115,12 +117,14 @@ typedef enum {
 #define ITE_BOUNDS_OPTION_MASK          0x2000
 #define CONDITIONAL_DEF_OPTION_MASK     0x4000
 #define FLATTEN_ITE_OPTION_MASK         0x8000
+#define FACTOR_OR_OPTION_MASK           0x10000
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
   EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
   BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK|\
-  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK|FLATTEN_ITE_OPTION_MASK)
+  ITE_BOUNDS_OPTION_MASK|CONDITIONAL_DEF_OPTION_MASK|FLATTEN_ITE_OPTION_MASK|\
+  FACTOR_OR_OPTION_MASK)
 
 // SIMPLEX OPTIONS
 #define SPLX_EGRLMAS_OPTION_MASK  0x1000000
@@ -645,6 +649,7 @@ struct context_s {
   int_bvset_t *cache;
   int_hset_t *small_cache;
   pmap2_t *eq_cache;
+  bfs_explorer_t *explorer;
 
   // buffer to store difference-logic data
   dl_data_t *dl_profile;

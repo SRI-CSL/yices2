@@ -1872,7 +1872,7 @@ double q_get_double(rational_t *r) {
 /*
  * Print r
  */
-void q_print(FILE *f, rational_t *r) {
+void q_print(FILE *f, const rational_t *r) {
   if (r->den == 0) {
     mpq_out_str(f, 10, bank_q[r->num]);
   } else if (r->den != 1) {
@@ -1885,7 +1885,7 @@ void q_print(FILE *f, rational_t *r) {
 /*
  * Print r's absolute value
  */
-void q_print_abs(FILE *f, rational_t *r) {
+void q_print_abs(FILE *f, const rational_t *r) {
   mpq_ptr q;
   int32_t abs_num;
 
@@ -1929,7 +1929,7 @@ void q_print_abs(FILE *f, rational_t *r) {
  *  so  ((uint32_t) r->num) + HASH_MODULUS = (2^32 + r->num) + HASH_MODULUS
  * gives the correct result.
  */
-uint32_t q_hash_numerator(rational_t *r) {
+uint32_t q_hash_numerator(const rational_t *r) {
   if (r->den == 0) {
     return (uint32_t) mpz_fdiv_ui(mpq_numref(bank_q[r->num]), HASH_MODULUS);
   } else if (r->num >= 0) {
@@ -1939,14 +1939,14 @@ uint32_t q_hash_numerator(rational_t *r) {
   }
 }
 
-uint32_t q_hash_denominator(rational_t *r) {
+uint32_t q_hash_denominator(const rational_t *r) {
   if (r->den == 0) {
     return (uint32_t) mpz_fdiv_ui(mpq_denref(bank_q[r->num]), HASH_MODULUS);
   }
   return r->den;
 }
 
-void q_hash_decompose(rational_t *r, uint32_t *h_num, uint32_t *h_den) {
+void q_hash_decompose(const rational_t *r, uint32_t *h_num, uint32_t *h_den) {
   if (r->den == 0) {
     *h_num = (uint32_t) mpz_fdiv_ui(mpq_numref(bank_q[r->num]), HASH_MODULUS);
     *h_den = (uint32_t) mpz_fdiv_ui(mpq_denref(bank_q[r->num]), HASH_MODULUS);

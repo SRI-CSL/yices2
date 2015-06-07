@@ -429,6 +429,69 @@ void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l) {
 }
 
 
+/*
+ * FACTORING OF DISJUNCTS
+ */
+
+/*
+ * Return the explorer data structure
+ * - allocate and initialize it if needed
+ */
+bfs_explorer_t *context_get_explorer(context_t *ctx) {
+  bfs_explorer_t *tmp;
+
+  tmp = ctx->explorer;  
+  if (tmp == NULL) {
+    tmp = (bfs_explorer_t *) safe_malloc(sizeof(bfs_explorer_t));
+    init_bfs_explorer(tmp, ctx->terms);
+    ctx->explorer = tmp;
+  }
+
+  return tmp;
+}
+
+/*
+ * Free the explorer if it's not NULL
+ */
+void context_free_explorer(context_t *ctx) {
+  bfs_explorer_t *tmp;
+
+  tmp = ctx->explorer;
+  if (tmp != NULL) {
+    delete_bfs_explorer(tmp);
+    safe_free(tmp);
+    ctx->explorer = NULL;
+  }
+}
+
+
+/*
+ * Reset the explorer if it's not NULL
+ */
+void context_reset_explorer(context_t *ctx) {
+  bfs_explorer_t *tmp;
+
+  tmp = ctx->explorer;
+  if (tmp != NULL) {
+    reset_bfs_explorer(tmp);
+  }
+}
+
+/*
+ * Get the common factors of term t
+ * - this checks whether t is of the form (or (and  ..) (and ..) ...))
+ *   and stores all terms that occur in each conjuncts into vector v
+ * - example: if t is (or (and A B) (and A C D)) then A is stored in v
+ * - if t is not (OR ...) then t is added to v
+ */
+void context_factor_disjunction(context_t *ctx, term_t t, ivector_t *v) {
+  bfs_explorer_t *explorer;
+
+  explorer = context_get_explorer(ctx);
+  bfs_factor_disjunction(explorer, t, v);
+}
+
+
 
 /*
  * DIFFERENCE-LOGIC DATA

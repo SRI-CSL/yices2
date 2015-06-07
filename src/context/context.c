@@ -4505,6 +4505,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->cache = NULL;
   ctx->small_cache = NULL;
   ctx->eq_cache = NULL;
+  ctx->explorer = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -4583,6 +4584,7 @@ void delete_context(context_t *ctx) {
   context_free_cache(ctx);
   context_free_small_cache(ctx);
   context_free_eq_cache(ctx);
+  context_free_explorer(ctx);
 
   context_free_dl_profile(ctx);
   context_free_arith_buffer(ctx);
@@ -4627,6 +4629,7 @@ void reset_context(context_t *ctx) {
   context_free_marks(ctx);
   context_reset_small_cache(ctx);
   context_reset_eq_cache(ctx);
+  context_reset_explorer(ctx);
 
   context_free_arith_buffer(ctx);
   context_reset_poly_buffer(ctx);

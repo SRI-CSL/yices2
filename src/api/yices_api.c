@@ -6920,8 +6920,6 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   enable_eq_abstraction(ctx);
   enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
-  enable_assert_ite_bounds(ctx);
-  enable_ite_flattening(ctx);
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
@@ -6930,9 +6928,12 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
     }
   }
 
+  // Special preprocessing
   if (logic == QF_LRA) {
-    // FOR TESTING ONLY
     enable_cond_def_preprocessing(ctx);
+  }
+  if (logic == QF_LIRA) {
+    enable_or_factoring(ctx);
   }
 
   switch (arch) {
@@ -6945,13 +6946,15 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   case CTX_ARCH_BV:
     // flattening makes things worse for QF_BV
-    //    disable_diseq_and_or_flattening(ctx); FOR TESTING THE SHARING STUFF (2015/04/22)
+    //   disable_diseq_and_or_flattening(ctx); FOR TESTING THE SHARING STUFF (2015/04/22)
     enable_diseq_and_or_flattening(ctx); // FOR TESTING THE SHARING STUFF (2015/04/22)
     break;
 
   case CTX_ARCH_SPLX:
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
+    enable_assert_ite_bounds(ctx);
+    enable_ite_flattening(ctx);
     break;
 
   case CTX_ARCH_EGSPLX:
@@ -6959,6 +6962,14 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
     enable_splx_eqprop(ctx);    
+    enable_assert_ite_bounds(ctx);
+    enable_ite_flattening(ctx);
+    break;
+
+  case CTX_ARCH_EGBV:
+  case CTX_ARCH_EGFUNBV:
+    // no ite_flattening (TO BE CONFIRMED)
+    enable_diseq_and_or_flattening(ctx);
     break;
 
   default:

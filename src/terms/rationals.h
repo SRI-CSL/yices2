@@ -551,8 +551,8 @@ extern double q_get_double(rational_t *r);
  * Print r on stream f.
  * q_print_abs prints the absolute value
  */
-extern void q_print(FILE *f, rational_t *r);
-extern void q_print_abs(FILE *f, rational_t *r);
+extern void q_print(FILE *f, const rational_t *r);
+extern void q_print_abs(FILE *f, const rational_t *r);
 
 
 /*
@@ -565,9 +565,9 @@ extern void q_print_abs(FILE *f, rational_t *r);
  * - hash_denominator(r) = denominator MOD bigprime
  * where bigprime is the largest prime number smaller than 2^32.
  */
-extern uint32_t q_hash_numerator(rational_t *r);
-extern uint32_t q_hash_denominator(rational_t *r);
-extern void q_hash_decompose(rational_t *r, uint32_t *h_num, uint32_t *h_den);
+extern uint32_t q_hash_numerator(const rational_t *r);
+extern uint32_t q_hash_denominator(const rational_t *r);
+extern void q_hash_decompose(const rational_t *r, uint32_t *h_num, uint32_t *h_den);
 
 
 

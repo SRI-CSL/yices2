@@ -152,6 +152,38 @@ extern void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l);
 
 
 /*
+ * FACTORING OF DISJUNCTS
+ */
+
+/*
+ * Return the explorer data structure
+ * - allocate and initialize it if needed
+ */
+extern bfs_explorer_t *context_get_explorer(context_t *ctx);
+
+/*
+ * Free the explorer if it's not NULL
+ */
+extern void context_free_explorer(context_t *ctx);
+
+/*
+ * Reset it if it's not NULL
+ */
+extern void context_reset_explorer(context_t *ctx);
+
+/*
+ * Get the common factors of term t
+ * - this checks whether t is of the form (or (and  ..) (and ..) ...))
+ *   and stores all terms that occur in each conjuncts into vector v
+ * - example: if t is (or (and A B) (and A C D)) then A is stored in v
+ * - if t is not (OR ...) then t is added to v
+ *
+ * This allocates and initializes ctx->explorer if needed
+ */
+extern void context_factor_disjunction(context_t *ctx, term_t t, ivector_t *v);
+
+
+/*
  * AUXILIARY ATOMS
  */
 
@@ -332,6 +364,14 @@ static inline void disable_ite_flattening(context_t *ctx) {
   ctx->options &= ~FLATTEN_ITE_OPTION_MASK;
 }
 
+static inline void enable_or_factoring(context_t *ctx) {
+  ctx->options |= FACTOR_OR_OPTION_MASK;
+}
+
+static inline void disable_or_factoring(context_t *ctx) {
+  ctx->options &= ~FACTOR_OR_OPTION_MASK;
+}
+
 
 
 /*
@@ -383,6 +423,10 @@ static inline bool context_cond_def_preprocessing_enabled(context_t *ctx) {
 
 static inline bool context_ite_flattening_enabled(context_t *ctx) {
   return (ctx->options & FLATTEN_ITE_OPTION_MASK) != 0;
+}
+
+static inline bool context_or_factoring_enabled(context_t *ctx) {
+  return (ctx->options & FACTOR_OR_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {

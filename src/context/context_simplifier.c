@@ -13,7 +13,6 @@
  * in context.c. Moved them to this new module created in February 2013.
  */
 
-#include "context/common_conjuncts.h"
 #include "context/conditional_definitions.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
@@ -1146,24 +1145,15 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
 }
 
 
+#if 0
 /*
- * TEST: search for common factors of an or
- * - push them in the queue for further flattening
+ * Display the results of factoring r
  */
-static void push_common_factors(context_t *ctx, term_t r) {
-  bfs_explorer_t explorer;
+static void show_common_factors(context_t *ctx, term_t r, ivector_t *v) {
   yices_pp_t printer;
-  ivector_t *v;
   uint32_t i, n;
 
-  v = &ctx->aux_vector;
-  init_bfs_explorer(&explorer, ctx->terms);
-  bfs_factor_disjunction(&explorer, r, v);
-  delete_bfs_explorer(&explorer);
-
   n = v->size;
-
-#if 0
   if (n > 0) {
     printf("--- common factors of r = %"PRId32" ---\n", r);
     init_yices_pp(&printer, stdout, NULL, PP_VMODE, 0);
@@ -1178,8 +1168,26 @@ static void push_common_factors(context_t *ctx, term_t r) {
 
     delete_yices_pp(&printer, true);
   }
+}
+
 #endif
 
+/*
+ * Search for common factors of an or
+ * - push them in the queue for further flattening
+ */
+static void push_common_factors(context_t *ctx, term_t r) {
+  ivector_t *v;
+  uint32_t i, n;
+
+  v = &ctx->aux_vector;
+  context_factor_disjunction(ctx, r, v);
+
+#if 0
+  show_common_factors(ctx, r, v);
+#endif
+
+  n = v->size;
   for (i=0; i<n; i++) {
     int_queue_push(&ctx->queue, v->data[i]);
   }
@@ -1195,8 +1203,10 @@ static void flatten_or(context_t *ctx, term_t r, bool tt) {
   uint32_t i, n;
 
   if (tt) {
-    push_common_factors(ctx, r);
     ivector_push(&ctx->top_formulas, r);
+    if (context_or_factoring_enabled(ctx)) {
+      push_common_factors(ctx, r);
+    }
   } else {
     d = or_term_desc(ctx->terms, r);
     n = d->arity;

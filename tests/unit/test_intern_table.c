@@ -1379,6 +1379,8 @@ static void test_subst(intern_tbl_t *tbl) {
     } else {
       printf("invaid constant substitution\n");
     }
+#if 0
+    // removed intern_tbl_valid_subst from the code
   } else {
     if (is_pos_term(x) && intern_tbl_valid_subst(tbl, x, t)) {
       printf("good substitution\n");
@@ -1386,6 +1388,8 @@ static void test_subst(intern_tbl_t *tbl) {
     } else {
       printf("invalid substitution\n");
     }
+#endif
+
   }
 }
 

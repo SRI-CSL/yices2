@@ -269,7 +269,9 @@ extern void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x);
  */
 extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
 
+#if 0
 
+// NOT USED
 /*
  * Check whether the substitution [r1 := r2] is valid
  * - both r1 and r2 must be roots and they must have compatible types.
@@ -281,7 +283,7 @@ extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
  * NOTE: if r2 is a constant, the next function should be used instead.
  */
 extern bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
-
+#endif
 
 /*
  * Check whether the substitution [r1 := r2] is valid.
@@ -309,8 +311,6 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
  * This adds either the substitution [r1 := r2] or [r2 := r1]
  */
 extern void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2);
-
-
 
 /*
  * SUPPORT FOR GARBAGE COLLECTION

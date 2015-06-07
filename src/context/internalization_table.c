@@ -130,6 +130,8 @@ void intern_tbl_pop(intern_tbl_t *tbl) {
 }
 
 
+#if 0
+// NOT USED
 /*
  * Get the internal cache.
  * Allocate and initialize it if needed.
@@ -146,7 +148,6 @@ static int_hset_t *intern_tbl_get_cache(intern_tbl_t *tbl) {
   return tmp;
 }
 
-
 /*
  * Same thing for the internal queue
  */
@@ -162,6 +163,7 @@ static int_queue_t *intern_tbl_get_queue(intern_tbl_t *tbl) {
   return tmp;
 }
 
+#endif
 
 
 
@@ -405,6 +407,10 @@ void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x) {
 }
 
 
+
+#if 0
+
+// NOT USED
 
 /*
  * CYCLE DETECTION
@@ -654,7 +660,7 @@ bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   return intern_tbl_root_is_free(tbl, r1) && ! bfs_occurs_check(tbl, r1, r2);
 }
 
-
+#endif
 
 /*
  * Check whether the substitution [r1 := r2] is valid.
