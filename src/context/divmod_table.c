@@ -76,6 +76,8 @@ static void delete_divmod_bank(divmod_bank_t *bank) {
     cleanup_divmod_block(bank->block[i]);
     safe_free(bank->block[i]);
   }
+  safe_free(bank->block);
+  bank->block = NULL;
 }
 
 

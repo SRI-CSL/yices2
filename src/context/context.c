@@ -652,7 +652,6 @@ static void context_store_diff_poly(polynomial_t *p, thvar_t *map, thvar_t x, th
 }
 
 
-
 /*
  * Same thing for the polynomial (x - y - 1)
  */
@@ -698,6 +697,24 @@ static void context_store_div_lower_bound(polynomial_t *p, thvar_t *map, thvar_t
   q_set_one(&p->mono[0].coeff);    // coeff of x = 1
   p->mono[1].var = 2;
   q_set_neg(&p->mono[1].coeff, k); // coeff of y = -k
+  p->mono[2].var = max_idx;
+
+  map[0] = x;
+  map[1] = y;
+}
+
+
+/*
+ * For converting (divides k x), we use (divides k x) <=> (x <= k * (div x k))
+ * or (k * y - x >= 0) for y = (div x k).
+ * We store the polynomial - x + k * y.
+ */
+static void context_store_divides_constraint(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y, const rational_t *k) {
+  p->nterms = 2;
+  p->mono[0].var = 1;
+  q_set_minus_one(&p->mono[0].coeff);  // coeff of x = -1
+  p->mono[1].var = 2;
+  q_set(&p->mono[1].coeff, k);         // coeff of y = k
   p->mono[2].var = max_idx;
 
   map[0] = x;
@@ -957,11 +974,6 @@ static void assert_mod_axioms(context_t *ctx, thvar_t x, thvar_t y, thvar_t d, c
     ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
   }
 }
-
-
-
-
-
 
 
 
@@ -2194,6 +2206,68 @@ static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
 }
 
 
+/*
+ * DIVIDES AND IS_INT ATOMS
+ */
+
+/*
+ * We use the rules
+ * - (is_int x)    <=> (x <= floor(x))
+ * - (divides k x) <=> (x <= k * div(x, k))
+ */
+
+// atom (is_int t)
+static literal_t map_arith_is_int_to_literal(context_t *ctx, term_t t) {
+  polynomial_t *p;
+  thvar_t map[2];
+  thvar_t x, y;
+  literal_t l;
+
+  x = internalize_to_arith(ctx, t);
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    l = true_literal;
+  } else {
+    // we convert (is_int x) to (x <= floor(x))
+    y = get_floor(ctx, x); // y is floor x
+    p = context_get_aux_poly(ctx, 3);
+    context_store_diff_poly(p, map, y, x); // (p, map) := (y - x)
+    // atom (x <= y) is the same as (p >= 0)
+    l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
+  }
+
+  return l;
+}
+
+// atom (divides k t)  we assume k != 0
+static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *divides) {
+  rational_t k;
+  polynomial_t *p;
+  thvar_t map[2];
+  thvar_t x, y;
+  term_t d;
+  literal_t l;
+
+  assert(divides->arity == 2);
+
+  // make a copy of divides->arg[0] in k
+  q_init(&k);
+  d = divides->arg[0];
+  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
+  q_set(&k, rational_term_desc(ctx->terms, d));
+  assert(q_is_nonzero(&k));
+
+  x = internalize_to_arith(ctx, divides->arg[1]); // this is t
+  y = get_div(ctx, x, &k);  // y := (div x k)
+  p = context_get_aux_poly(ctx, 3);
+  context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
+  // atom (x <= k * y) is (p >= 0)
+  l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
+
+  q_clear(&k);
+
+  return l;
+}
+
 
 /*
  * BITVECTOR ATOMS
@@ -2898,6 +2972,10 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       l = map_xor_to_literal(ctx, xor_term_desc(terms, r));
       break;
 
+    case ARITH_IS_INT_ATOM:
+      l = map_arith_is_int_to_literal(ctx, arith_is_int_arg(terms, r));
+      break;
+
     case ARITH_EQ_ATOM:
       l = map_arith_eq_to_literal(ctx, arith_eq_arg(terms, r));
       break;
@@ -2908,6 +2986,10 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
 
     case ARITH_BINEQ_ATOM:
       l = map_arith_bineq_to_literal(ctx, arith_bineq_atom_desc(terms, r));
+      break;
+
+    case ARITH_DIVIDES_ATOM:
+      l = map_arith_divides_to_literal(ctx, arith_divides_atom_desc(terms, r));
       break;
 
     case APP_TERM:
@@ -3812,8 +3894,6 @@ static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
 }
 
 
-
-
 /*
  * Top-level binary equality: (eq t u)
  * - both t and u are arithmetic terms
@@ -3824,6 +3904,80 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
   assert(eq->arity == 2);
   assert_arith_bineq(ctx, eq->arg[0], eq->arg[1], tt);
 }
+
+
+
+/*
+ * Top-level (is_int t)
+ * - t is an arithmetic term
+ * - if tt is true, assert (t <= (floor t))
+ * - if tt is false, asssert (t > (floor t))
+ *
+ * NOTE: instead of asserting (t <= (floor t)) we could create a fresh
+ * integer variable z and assert (t = z).
+ */
+static void assert_toplevel_arith_is_int(context_t *ctx, term_t t, bool tt) {
+  polynomial_t *p;
+  thvar_t map[2];
+  thvar_t x, y;
+
+  x = internalize_to_arith(ctx, t);
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    if (!tt) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+  } else {
+    // x is not an integer variable
+    y = get_floor(ctx, x); // y := (floor x)
+    p = context_get_aux_poly(ctx, 3);
+    context_store_diff_poly(p, map, y, x); // (p, map) stores (y - x)
+    // assert either (p >= 0) --> (x <= floor(x))
+    // or (p < 0) --> (x > (floor x)
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, tt);
+  }
+}
+
+
+/*
+ * Top-level (divides k t)
+ * - if tt is true, assert (t <= (div t k))
+ * - if tt is false, asssert (t > (div t k))
+ *
+ * We assume (k != 0) since (divides 0 t) is rewritten to (t == 0) by
+ * the term manager.
+ *
+ * NOTE: instead of asserting (t <= (div t k)) we could create a fresh
+ * integer variable z and assert (t = k * z).
+ */
+static void assert_toplevel_arith_divides(context_t *ctx, composite_term_t *divides, bool tt) {
+  rational_t k;
+  polynomial_t *p;
+  thvar_t map[2];
+  thvar_t x, y;
+  term_t d;
+  
+  assert(divides->arity == 2);
+
+  // copy the divider
+  q_init(&k);
+  d = divides->arg[0];
+  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
+  q_set(&k, rational_term_desc(ctx->terms, d));
+  assert(q_is_nonzero(&k));
+
+  x = internalize_to_arith(ctx, divides->arg[1]);
+  y = get_div(ctx, x, &k);  // y := (div x k);
+  p = context_get_aux_poly(ctx, 3);
+  context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
+
+  // if tt, assert (p >= 0) <=> x <= k * y
+  // if not tt, assert (p < 0) <=> x > k * y
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, tt);
+
+  q_clear(&k);
+}
+
+
 
 
 
@@ -4157,6 +4311,10 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   case EQ_TERM:
     assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
     break;
+    
+  case ARITH_IS_INT_ATOM:
+    assert_toplevel_arith_is_int(ctx, arith_is_int_arg(terms, t), tt);
+    break;
 
   case ARITH_EQ_ATOM:
     assert_toplevel_arith_eq(ctx, arith_eq_arg(terms, t), tt);
@@ -4168,6 +4326,10 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
 
   case ARITH_BINEQ_ATOM:
     assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
+    break;
+ 
+  case ARITH_DIVIDES_ATOM:
+    assert_toplevel_arith_divides(ctx, arith_divides_atom_desc(terms, t), tt);
     break;
 
   case APP_TERM:
@@ -4283,6 +4445,10 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
       assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
       break;
 
+    case ARITH_IS_INT_ATOM:
+      assert_toplevel_arith_is_int(ctx, arith_is_int_arg(terms, t), tt);
+      break;
+
     case ARITH_EQ_ATOM:
       assert_toplevel_arith_eq(ctx, arith_eq_arg(terms, t), tt);
       break;
@@ -4293,6 +4459,10 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
 
     case ARITH_BINEQ_ATOM:
       assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
+      break;
+
+    case ARITH_DIVIDES_ATOM:
+      assert_toplevel_arith_divides(ctx, arith_divides_atom_desc(terms, t), tt);
       break;
 
     case APP_TERM:
