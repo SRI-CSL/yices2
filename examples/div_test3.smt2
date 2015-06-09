@@ -1,0 +1,6 @@
+(set-logic QF_LIA)
+(declare-fun x () Int)
+(assert (and (= (div x 5) 2) (not (= x 10))))
+(check-sat)
+(get-model)
+(get-value (x (div x 5) (mod x 5)))

@@ -1,0 +1,6 @@
+(set-logic QF_LIA)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= x (+ y (* 5 (div x 5)))))
+(assert (not (= y (mod x 5))))
+(check-sat)

@@ -1,0 +1,5 @@
+(set-logic QF_LIRA)
+(declare-fun x () Real)
+(declare-fun y () Int)
+(assert (and (<= y x) (< x (+ 1 y)) (distinct y (to_int x))))
+(check-sat)

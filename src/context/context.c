@@ -652,24 +652,6 @@ static void context_store_diff_poly(polynomial_t *p, thvar_t *map, thvar_t x, th
 }
 
 
-/*
- * Same thing for the polynomial (x - y + 1)
- */
-static void context_store_diff_plus_one_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
-  p->nterms = 3;
-  p->mono[0].var = const_idx;
-  q_set_one(&p->mono[0].coeff); // constant = +1
-  p->mono[1].var = 1;
-  q_set_one(&p->mono[1].coeff); // coeff of x = 1
-  p->mono[2].var = 2;
-  q_set_minus_one(&p->mono[2].coeff);  // coeff of y = -1
-  p->mono[3].var = max_idx;
-
-  map[0] = null_thvar; // constant
-  map[1] = x;
-  map[2] = y;
-}
-
 
 /*
  * Same thing for the polynomial (x - y - 1)
@@ -677,9 +659,9 @@ static void context_store_diff_plus_one_poly(polynomial_t *p, thvar_t *map, thva
 static void context_store_diff_minus_one_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
   p->nterms = 3;
   p->mono[0].var = const_idx;
-  q_set_minus_one(&p->mono[0].coeff); // constant = -1
+  q_set_minus_one(&p->mono[0].coeff);  // constant = -1
   p->mono[1].var = 1;
-  q_set_one(&p->mono[1].coeff); // coeff of x = 1
+  q_set_one(&p->mono[1].coeff);        // coeff of x = 1
   p->mono[2].var = 2;
   q_set_minus_one(&p->mono[2].coeff);  // coeff of y = -1
   p->mono[3].var = max_idx;
@@ -848,8 +830,8 @@ static void assert_floor_axioms(context_t *ctx, thvar_t x, thvar_t y) {
   context_store_diff_poly(p, map, y, x);
   ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
 
-  // assert (y - x + 1 < 0) <=> (not (y - x + 1) >= 0)
-  context_store_diff_plus_one_poly(p, map, y, x);
+  // assert (y - x - 1 < 0) <=> (not (y - x - 1) >= 0)
+  context_store_diff_minus_one_poly(p, map, y, x);
   ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
 }
 

@@ -1,0 +1,6 @@
+(set-logic QF_LIA)
+(declare-fun x () Int)
+(assert (< (div x (- 7)) (- 3)))
+(check-sat)
+(get-model)
+(get-value (x (div x (- 7)) (mod x (- 7))))

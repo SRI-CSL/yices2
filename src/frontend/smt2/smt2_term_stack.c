@@ -618,7 +618,7 @@ static void eval_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * and we accept (abs x) for any arithmetic x.
  */
 static void check_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_IS_INT);
+  check_op(stack, SMT2_MK_ABS);
   check_size(stack, n == 1);
 }
 
