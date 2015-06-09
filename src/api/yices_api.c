@@ -6904,7 +6904,6 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
  *  CONTEXT OPERATIONS   *
  ************************/
 
-
 /*
  * Set the default preprocessing options for a context
  * - logic = logic code (or SMT_UNKNOWN)
@@ -7404,12 +7403,9 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
   case CTX_ARCH_BV:
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     params->fast_restart = true;
-    params->c_factor = 1.1;
-    params->d_factor = 1.1;
-    params->randomness = 0.0;
-    // EXPERIMENTAL: FASTER RESTARTS
     params->c_factor = 1.05;
     params->d_factor = 1.05;
+    params->randomness = 0.0;
     break;
 
   case CTX_ARCH_EGSPLX:       // egraph+simplex
@@ -7436,13 +7432,10 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     params->fast_restart = true;
-    params->c_factor = 1.1;
-    params->d_factor = 1.1;
-    params->randomness = 0.0;
-    params->max_interface_eqs = 15;
-    // EXPERIMENTAL: FASTER RESTARTS
     params->c_factor = 1.05;
     params->d_factor = 1.05;
+    params->randomness = 0.0;
+    params->max_interface_eqs = 15;
     break;
 
   case CTX_ARCH_IFW:

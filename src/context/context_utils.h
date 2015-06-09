@@ -151,6 +151,73 @@ extern literal_t find_in_eq_cache(context_t *ctx, term_t t1, term_t t2);
 extern void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l);
 
 
+
+/*
+ * DIV/MOD TABLE
+ */
+
+/*
+ * Initialization/reset/deletion and push/pop
+ * - get_divmod_table allocates and initializes the table if needed.
+ * - free/reset/push/pop do nothing if the table does not exist.
+ */
+extern divmod_tbl_t *context_get_divmod_table(context_t *ctx);
+extern void context_free_divmod_table(context_t *ctx);
+extern void context_reset_divmod_table(context_t *ctx);
+extern void context_divmod_table_push(context_t *ctx);
+extern void context_divmod_table_pop(context_t *ctx);
+
+
+/*
+ * Check whether the record for (floor x) is in the table.
+ * If so return the theory variable mapped to (floor x).
+ * If not return null_thvar
+ * Also returns null_thvar if the table does not exist.
+ */
+extern thvar_t context_find_var_for_floor(context_t *ctx, thvar_t x);
+
+
+/*
+ * Check whether the record for (ceil x) is in the table.
+ * If so return the theory variable mapped to (ceil x).
+ * If not return null_thvar
+ * Also returns null_thvar if the table does not exist.
+ */
+extern thvar_t context_find_var_for_ceil(context_t *ctx, thvar_t x);
+
+/*
+ * Check whether the record for (div x k) is in the table.
+ * If so return the theory variable mapped to (div x k).
+ * If not return null_thvar.
+ * Also returns null_thvar if the table does not exist.
+ */
+extern thvar_t context_find_var_for_div(context_t *ctx, thvar_t x, const rational_t *k);
+
+
+/*
+ * Add record for (floor x):
+ * - y = theory variable for (floor x)
+ * - this creates the table if needed.
+ */
+extern void context_record_floor(context_t *ctx, thvar_t x, thvar_t y);
+
+
+/*
+ * Same thing for (ceil x)
+ * - y = theory variable for (ceil x)
+ */
+extern void context_record_ceil(context_t *ctx, thvar_t x, thvar_t y);
+
+
+/*
+ * Same thing for (div x k)
+ * - y = theory variable for (div x k)
+ */
+extern void context_record_div(context_t *ctx, thvar_t x, const rational_t *k, thvar_t y);
+
+
+
+
 /*
  * FACTORING OF DISJUNCTS
  */

@@ -18,6 +18,7 @@
 
 #include "api/smt_logic_codes.h"
 #include "context/common_conjuncts.h"
+#include "context/divmod_table.h"
 #include "context/internalization_table.h"
 #include "context/pseudo_subst.h"
 #include "context/shared_terms.h"
@@ -241,7 +242,7 @@ enum {
  *    - this must create a theory variable equal to q and return it (no eterm attached)
  *
  * 3) thvar_t create_poly(void *solver, polynomial_t *p, thvar_t *map)
- *    - this must return a theory variable equal to p with variable renamed as
+ *    - this must return a theory variable equal to p with variables renamed as
  *      defined by map
  *    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n,
  *       where t_0 is either the special marker const_idx (= 0) or an arithmetic term
@@ -347,6 +348,13 @@ enum {
  *    - notify solver that M is no longer needed.
  *
  *
+ * Queries about variables
+ * -----------------------
+ *
+ * 21) bool arith_var_is_int(void *solver, thvar_t x):
+ *     - return true if x is an integer variable, false otherwise.
+ *
+ * 
  * Exception mechanism
  * -------------------
  * When the solver is created and initialized it's given a pointer b to a jmp_buf internal to
@@ -384,6 +392,8 @@ typedef void (*build_model_fun_t)(void *solver);
 typedef void (*free_model_fun_t)(void *solver);
 typedef bool (*arith_val_in_model_fun_t)(void *solver, thvar_t x, rational_t *v);
 
+typedef bool (*arith_var_is_int_fun_t)(void *solver, thvar_t x);
+
 typedef struct arith_interface_s {
   create_arith_var_fun_t create_var;
   create_arith_const_fun_t create_const;
@@ -410,6 +420,8 @@ typedef struct arith_interface_s {
   build_model_fun_t build_model;
   free_model_fun_t free_model;
   arith_val_in_model_fun_t value_in_model;
+
+  arith_var_is_int_fun_t arith_var_is_int;
 } arith_interface_t;
 
 
@@ -649,6 +661,7 @@ struct context_s {
   int_bvset_t *cache;
   int_hset_t *small_cache;
   pmap2_t *eq_cache;
+  divmod_tbl_t *divmod_table;
   bfs_explorer_t *explorer;
 
   // buffer to store difference-logic data

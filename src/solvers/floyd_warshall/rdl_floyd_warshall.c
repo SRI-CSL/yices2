@@ -3012,6 +3012,17 @@ bool rdl_value_in_model(rdl_solver_t *solver, thvar_t x, rational_t *v) {
 }
 
 
+/*
+ * Interface function: check whether x is an integer variable.
+ */
+bool rdl_var_is_integer(rdl_solver_t *solver, thvar_t x) {
+  assert(0 <= x && x < solver->vtbl.nvars);
+  return false;
+}
+
+
+
+
 
 /****************************
  *  INTERFACE DESCRIPTORS   *
@@ -3075,6 +3086,8 @@ static arith_interface_t rdl_intern = {
   (build_model_fun_t) rdl_build_model,
   (free_model_fun_t) rdl_free_model,
   (arith_val_in_model_fun_t) rdl_value_in_model,
+
+  (arith_var_is_int_fun_t) rdl_var_is_integer,
 };
 
 

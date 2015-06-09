@@ -447,7 +447,7 @@ static void divmod_htbl_remove(divmod_htbl_t *table, divmod_rec_t *d) {
   assert(is_power_of_two(table->size));
 
   mask = table->size - 1;
-  i = divmod_hash(d->tag, d->var, &d->q);
+  i = divmod_hash(d->tag, d->var, &d->q) & mask;
   while (table->data[i] != d) {
     i ++;
     i &= mask;

@@ -39,6 +39,7 @@
 
 
 
+
 /**********************
  *  INTERNALIZATION   *
  *********************/
@@ -54,6 +55,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t);
 static literal_t internalize_to_literal(context_t *ctx, term_t t);
 static thvar_t internalize_to_arith(context_t *ctx, term_t t);
 static thvar_t internalize_to_bv(context_t *ctx, term_t t);
+
 
 
 /****************************************
@@ -627,6 +629,360 @@ static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
 
 
 
+/***************************************
+ *  AXIOMS FOR DIV/MOD/FLOOR/CEIL/ABS  *
+ **************************************/
+
+/*
+ * Auxiliary function: p and map to represent (x - y)
+ * - in polynomial p, only the coefficients are relevant
+ * - map[0] stores x and map[1] stores y
+ * - both p map must be large enough (at least 2 elements)
+ */
+static void context_store_diff_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
+  p->nterms = 2;
+  p->mono[0].var = 1;
+  q_set_one(&p->mono[0].coeff);       // coeff of x = 1 
+  p->mono[1].var = 2;
+  q_set_minus_one(&p->mono[1].coeff); // coeff of y = -1
+  p->mono[2].var = max_idx; // end marker
+
+  map[0] = x;
+  map[1] = y;
+}
+
+
+/*
+ * Same thing for the polynomial (x - y + 1)
+ */
+static void context_store_diff_plus_one_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
+  p->nterms = 3;
+  p->mono[0].var = const_idx;
+  q_set_one(&p->mono[0].coeff); // constant = +1
+  p->mono[1].var = 1;
+  q_set_one(&p->mono[1].coeff); // coeff of x = 1
+  p->mono[2].var = 2;
+  q_set_minus_one(&p->mono[2].coeff);  // coeff of y = -1
+  p->mono[3].var = max_idx;
+
+  map[0] = null_thvar; // constant
+  map[1] = x;
+  map[2] = y;
+}
+
+
+/*
+ * Same thing for the polynomial (x - y - 1)
+ */
+static void context_store_diff_minus_one_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
+  p->nterms = 3;
+  p->mono[0].var = const_idx;
+  q_set_minus_one(&p->mono[0].coeff); // constant = -1
+  p->mono[1].var = 1;
+  q_set_one(&p->mono[1].coeff); // coeff of x = 1
+  p->mono[2].var = 2;
+  q_set_minus_one(&p->mono[2].coeff);  // coeff of y = -1
+  p->mono[3].var = max_idx;
+
+  map[0] = null_thvar; // constant
+  map[1] = x;
+  map[2] = y;
+}
+
+
+/*
+ * Same thing for the polynomial (x + y)
+ */
+static void context_store_sum_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
+  p->nterms = 2;
+  p->mono[0].var = 1;
+  q_set_one(&p->mono[0].coeff); // coeff of x = 1
+  p->mono[1].var = 2;
+  q_set_one(&p->mono[1].coeff); // coeff of y = 1
+  p->mono[2].var = max_idx;
+
+  map[0] = x;
+  map[1] = y;
+}
+
+
+/*
+ * The lower bound on y = (div x k)  is (k * y <= x) or (x - k * y >= 0)
+ * We store the polynomial x - k * y
+ */
+static void context_store_div_lower_bound(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y, const rational_t *k) {
+  p->nterms = 2;
+  p->mono[0].var = 1;
+  q_set_one(&p->mono[0].coeff);    // coeff of x = 1
+  p->mono[1].var = 2;
+  q_set_neg(&p->mono[1].coeff, k); // coeff of y = -k
+  p->mono[2].var = max_idx;
+
+  map[0] = x;
+  map[1] = y;
+}
+
+/*
+ * Upper bound on y = (div x k) when both x and y are integer:
+ * We have x <= k * y + |k| - 1 or (-x + k y + |k| - 1 >= 0).
+ *
+ * We store the polynomial - x + k y + |k| - 1
+ *
+ * NOTE: we don't normalize the constant (|k| - 1) to zero if |k| = 1.
+ * This is safe as the simplex solver does not care.
+ */
+static void context_store_integer_div_upper_bound(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y, const rational_t *k) {
+  p->nterms = 3;
+  p->mono[0].var = const_idx;
+  q_set_abs(&p->mono[0].coeff, k);
+  q_sub_one(&p->mono[0].coeff);        // constant term = |k| - 1
+  p->mono[1].var = 1;
+  q_set_minus_one(&p->mono[1].coeff);  // coeff of x = -1
+  p->mono[2].var = 2;
+  q_set(&p->mono[2].coeff, k);         // coeff of y = k
+  p->mono[3].var = max_idx;
+
+  map[0] = null_thvar;
+  map[1] = x;
+  map[2] = y;
+}
+
+/*
+ * Upper bound on y = (div x k) when x or k is not an integer.
+ * We have x < k * y + |k| or x - k*y - |k| < 0 or (not (x - k*y - |k| >= 0))
+ *
+ * We store the polynomial x - ky - |k|
+ */
+static void context_store_rational_div_upper_bound(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y, const rational_t *k) {
+  p->nterms = 3;
+  p->mono[0].var = const_idx;
+  q_set_abs(&p->mono[0].coeff, k);
+  q_neg(&p->mono[0].coeff);           // constant term: -|k|
+  p->mono[1].var = 1;
+  q_set_one(&p->mono[1].coeff);       // coeff of x = +1
+  p->mono[2].var = 2;
+  q_set_neg(&p->mono[1].coeff, k);    // coeff of y = -k
+  p->mono[3].var = max_idx;
+
+  map[0] = null_thvar;
+  map[1] = x;
+  map[2] = y;
+}
+
+
+/*
+ * Polynomial x - y + k d (for asserting y = k * (div y k) + (mod y k)
+ * - d is assumed to be (div y k)
+ * - x is assumed to be (mod y k)
+ */
+static void context_store_divmod_eq(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y, thvar_t d, const rational_t *k) {
+  p->nterms = 3;
+  p->mono[0].var = 1;
+  q_set_one(&p->mono[0].coeff);       // coefficient of x = 1
+  p->mono[1].var = 2;
+  q_set_minus_one(&p->mono[1].coeff); // coefficient of y = -1
+  p->mono[2].var = 3;
+  q_set(&p->mono[2].coeff, k);        // coefficient of d = k
+  p->mono[3].var = max_idx;
+
+  map[0] = x;
+  map[1] = y;
+  map[2] = d;
+}
+
+
+/*
+ * Bound on x = (mod y k) assuming x and k are integer:
+ * - the bound is x <= |k| - 1 (i.e., |k| - 1 - x >= 0) 
+ *   so we construct |k| - 1 - x 
+ */
+static void context_store_integer_mod_bound(polynomial_t *p, thvar_t *map, thvar_t x, const rational_t *k) {
+  p->nterms = 2;
+  p->mono[0].var = const_idx;
+  q_set_abs(&p->mono[0].coeff, k);
+  q_sub_one(&p->mono[0].coeff);        // constant = |k| - 1
+  p->mono[1].var = 1;
+  q_set_minus_one(&p->mono[1].coeff);  // coeff of x = -1
+  p->mono[2].var = max_idx;
+
+  map[0] = null_thvar;
+  map[1] = x;
+}
+
+
+/*
+ * Bound on x = (mod y k) when x or k are rational
+ * - the bound is x < |k| or x - |k| < 0 or (not (x - |k| >= 0))
+ *   so we construct x - |k|
+ */
+static void context_store_rational_mod_bound(polynomial_t *p, thvar_t *map, thvar_t x, const rational_t *k) {
+  p->nterms = 2;
+  p->mono[0].var = const_idx;
+  q_set_abs(&p->mono[0].coeff, k);
+  q_neg(&p->mono[0].coeff);            // constant = -|k|
+  p->mono[1].var = 1;
+  q_set_one(&p->mono[1].coeff);        // coeff of x = +1
+  p->mono[2].var = max_idx;
+
+  map[0] = null_thvar;
+  map[1] = x;
+}
+
+
+/*
+ * Assert constraints for x := floor(y)
+ * - both x and y are variables in the arithmetic solver
+ * - x has type integer
+ *
+ * We assert (x <= y && y < x+1)
+ */
+static void assert_floor_axioms(context_t *ctx, thvar_t x, thvar_t y) {
+  polynomial_t *p;
+  thvar_t map[3];
+
+  assert(ctx->arith.arith_var_is_int(ctx->arith_solver, x));
+
+  p = context_get_aux_poly(ctx, 4);
+  
+  // assert (y - x >= 0)
+  context_store_diff_poly(p, map, y, x);
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
+
+  // assert (y - x + 1 < 0) <=> (not (y - x + 1) >= 0)
+  context_store_diff_plus_one_poly(p, map, y, x);
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
+}
+
+
+/*
+ * Assert constraints for x == ceil(y)
+ * - both x and y are variables in the arithmetic solver
+ * - x has type integer
+ *
+ * We assert (x - 1 < y && y <= x)
+ */
+static void assert_ceil_axioms(context_t *ctx, thvar_t x, thvar_t y) {
+  polynomial_t *p;
+  thvar_t map[3];
+
+  assert(ctx->arith.arith_var_is_int(ctx->arith_solver, x));
+
+  p = context_get_aux_poly(ctx, 4);
+
+  // assert (x - y >= 0)
+  context_store_diff_poly(p, map, x, y);
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
+
+  // assert (x - y - 1 < 0) <=> (not (x - y - 1) >= 0)
+  context_store_diff_minus_one_poly(p, map, x, y);
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
+}
+
+
+/*
+ * Assert constraints for x == abs(y)
+ * - x and y must be variables in the arithmetic solver
+ *
+ * We assert (x >= 0) AND ((x == y) or (x == -y))
+ */
+static void assert_abs_axioms(context_t *ctx, thvar_t x, thvar_t y) {
+  polynomial_t *p;
+  thvar_t map[2];
+  literal_t l1, l2;
+
+  // assert (x >= 0)
+  ctx->arith.assert_ge_axiom(ctx->arith_solver, x, true);
+
+  // create l1 := (x == y)
+  l1 = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
+
+  // create l2 := (x == -y) that is (x + y == 0)
+  p = context_get_aux_poly(ctx, 3);
+  context_store_sum_poly(p, map, x, y);
+  l2 = ctx->arith.create_poly_eq_atom(ctx->arith_solver, p, map);
+
+  // assert (or l1 l2)
+  add_binary_clause(ctx->core, l1, l2);
+}
+
+
+/*
+ * Constraints for x == (div y k)
+ * - x and y must be variables in the arithmetic solver
+ * - x must be an integer variable
+ * - k is a non-zero rational constant
+ *
+ * If k and y are integer, we assert
+ *   k * x <= y <= k * x + |k| - 1
+ *
+ * Otherwise, we assert
+ *   k * x <= y < k * x + |k|
+ */
+static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const rational_t *k) {
+  polynomial_t *p;
+  thvar_t map[3];
+
+  p = context_get_aux_poly(ctx, 4);  
+
+  // assert k*x <= y (i.e., y - k*x >= 0)
+  context_store_div_lower_bound(p, map, y, x, k);
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
+
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, y) && q_is_integer(k)) {
+    // y and k are both integer
+    // assert y <= k*x + |k| - 1 (i.e., - y + k x + |k| - 1 >= 0)
+    context_store_integer_div_upper_bound(p, map, y, x, k);
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
+    
+  } else {
+    // assert y < k*x + |k| (i.e., y - k*x - |k| < 0) or (not (y - k*x - |k| >= 0))
+    context_store_rational_div_upper_bound(p, map, y, x, k);
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
+  }  
+}
+
+
+/*
+ * Constraints for x == (mod y k)
+ * - d must be the variable equal to (div y k)
+ * - x and y must be variables in the arithmetic solver
+ * - k is a non-zero rational constant.
+ *
+ * We assert x = y - k * d (i.e., (mod y k) = x - k * (div y k))
+ * and 0 <= x < |k|.
+ */
+static void assert_mod_axioms(context_t *ctx, thvar_t x, thvar_t y, thvar_t d, const rational_t *k) {
+  polynomial_t *p;
+  thvar_t map[3];
+
+  p = context_get_aux_poly(ctx, 4);
+
+  // assert y = k * d + x (i.e., x - y + k *d = 0)
+  context_store_divmod_eq(p, map, x, y, d, k);
+  ctx->arith.assert_poly_eq_axiom(ctx->arith_solver, p, map, true);
+
+  // assert x >= 0
+  ctx->arith.assert_ge_axiom(ctx->arith_solver, x, true);
+
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x) && q_is_integer(k)) {
+    // both x and |k| are integer
+    // assert x <= |k| - 1, i.e., -x + |k| - 1 >= 0
+    context_store_integer_mod_bound(p, map, x, k);
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
+  } else {
+    // assert x < |k|, i.e., x - |k| <0, i.e., (not (x - |k| >= 0))
+    context_store_rational_mod_bound(p, map, x, k);
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
+  }
+}
+
+
+
+
+
+
+
+
 /******************************************************
  *  CONVERSION OF COMPOSITES TO ARITHMETIC VARIABLES  *
  *****************************************************/
@@ -927,6 +1283,179 @@ static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
   free_istack_array(&ctx->istack, a);
 
   return x;
+}
+
+
+/*
+ * Auxiliary function: return y := (floor x) 
+ * - check the divmod table first.
+ *   If there's a record for (floor x), return the corresponding variable. 
+ * - Otherwise, create a fresh integer variable y,
+ *   assert the axioms for y = (floor x)
+ *   add a record to the divmod table and return y.
+ */
+static thvar_t get_floor(context_t *ctx, thvar_t x) {
+  thvar_t y;
+
+  y = context_find_var_for_floor(ctx, x);
+  if (y == null_thvar) {
+    y = ctx->arith.create_var(ctx->arith_solver, true); // y is an integer variable
+    assert_floor_axioms(ctx, y, x); // assert y = floor(x)
+    context_record_floor(ctx, x, y); // save the mapping y --> floor(x)
+  }
+
+  return y;
+}
+
+
+/*
+ * Return y := (div x k)
+ * - check the divmod table first
+ * - if (div x k) has already been processed, return the corresponding variable
+ * - otherwise create a new variable y, assert the axioms for y = (div x k)
+ *   add a record in the divmod table, and return y.
+ */
+static thvar_t get_div(context_t *ctx, thvar_t x, const rational_t *k) {
+  bool is_int;
+  thvar_t y;
+
+  y = context_find_var_for_div(ctx, x, k);
+  if (y == null_thvar) {
+    // create y := (div x k)
+    // y is an integer if both x and k are integer
+    is_int = q_is_integer(k) && ctx->arith.arith_var_is_int(ctx->arith_solver, x);
+    y = ctx->arith.create_var(ctx->arith_solver, is_int);
+    assert_div_axioms(ctx, y, x, k);
+    context_record_div(ctx, x, k, y);
+  }
+
+  return y;
+}
+
+
+
+/*
+ * Convert (floor t) to an arithmetic variable
+ */
+static thvar_t map_floor_to_arith(context_t *ctx, term_t t) {
+  thvar_t x, y;
+
+  x = internalize_to_arith(ctx, t);
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    // x is integer so (floor x) = x
+    y = x;
+  } else {
+    y = get_floor(ctx, x);
+  }
+
+  return y;
+}
+
+
+/*
+ * Convert (ceil t) to an arithmetic variable
+ */
+static thvar_t map_ceil_to_arith(context_t *ctx, term_t t) {
+  thvar_t x, y;
+
+  x = internalize_to_arith(ctx, t);
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    // x is integer so (ceil x) = x
+    y = x;
+  } else {
+    y = context_find_var_for_ceil(ctx, x);
+    if (y == null_thvar) {
+      y = ctx->arith.create_var(ctx->arith_solver, true); // y is an integer variable
+      assert_ceil_axioms(ctx, y, x); // assert y = ceil(x)
+      context_record_ceil(ctx, x, y); // save the mapping y --> ceil(x)
+    }
+  }
+
+  return y;
+}
+
+
+/*
+ * Convert (abs t) to an arithmetic variable
+ */
+static thvar_t map_abs_to_arith(context_t *ctx, term_t t) {
+  thvar_t x, y;
+  bool is_int;
+
+  x = internalize_to_arith(ctx, t);
+  is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, x);
+  y = ctx->arith.create_var(ctx->arith_solver, is_int); // y := abs(x) has the same type as x
+  assert_abs_axioms(ctx, y, x);
+
+  return y;
+}
+
+
+/*
+ * Convert (div t1 t2) to an arithmetic variable.
+ * - t2 must be a non-zero arithmetic constant
+ */
+static thvar_t map_div_to_arith(context_t *ctx, composite_term_t *div) {
+  rational_t k;
+  thvar_t x, y;
+  term_t d;
+
+  assert(div->arity == 2);
+
+  x = internalize_to_arith(ctx, div->arg[0]); // t1
+
+  // We make a copy of the divider into k
+  q_init(&k);
+  d = div->arg[1];
+  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
+  q_set(&k, rational_term_desc(ctx->terms, d));
+
+  assert(q_is_nonzero(&k));
+
+  y = get_div(ctx, x, &k);
+
+  q_clear(&k);
+
+  return y;
+}
+
+
+/*
+ * Convert (mod t1 t2) to an arithmetic variable
+ * - t2 must be a non-zero constant
+ */
+static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
+  rational_t k;
+  thvar_t x, y, r;
+  term_t d;
+  bool is_int;
+
+  assert(mod->arity == 2);
+
+  x = internalize_to_arith(ctx, mod->arg[0]);
+
+  // copy the divider into k
+  q_init(&k);
+  d = mod->arg[1];
+  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
+  q_set(&k, rational_term_desc(ctx->terms, d));
+
+  // get y := (div x k)
+  assert(q_is_nonzero(&k));
+  y = get_div(ctx, x, &k);
+  
+  /*
+   * r := (mod x k) is x - k * y
+   * r is an integer if x and k are integer
+   * y is an integer iff x and k are integer
+   */
+  is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, y);
+  r = ctx->arith.create_var(ctx->arith_solver, is_int);
+  assert_mod_axioms(ctx, r, x, y, &k);
+
+  q_clear(&k);
+
+  return r;
 }
 
 
@@ -1439,9 +1968,6 @@ static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *disti
 }
 
 
-/*
- * ARITHMETIC ATOMS
- */
 
 /*
  * Arithmetic atom: p == 0
@@ -2028,6 +2554,21 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
+    case ARITH_FLOOR:
+      x = map_floor_to_arith(ctx, arith_floor_arg(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case ARITH_CEIL:
+      x = map_ceil_to_arith(ctx, arith_ceil_arg(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case ARITH_ABS:
+      x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;      
+
     case ITE_TERM:
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
@@ -2047,6 +2588,16 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
       x = egraph_term_base_thvar(ctx->egraph, term_of_occ(u));
       assert(x != null_thvar);
+      break;
+
+    case ARITH_DIV:
+      x = map_div_to_arith(ctx, arith_div_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      break;
+
+    case ARITH_MOD:
+      x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
       break;
 
     case SELECT_TERM:
@@ -4505,6 +5056,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->cache = NULL;
   ctx->small_cache = NULL;
   ctx->eq_cache = NULL;
+  ctx->divmod_table = NULL;
   ctx->explorer = NULL;
 
   ctx->dl_profile = NULL;
@@ -4584,6 +5136,7 @@ void delete_context(context_t *ctx) {
   context_free_cache(ctx);
   context_free_small_cache(ctx);
   context_free_eq_cache(ctx);
+  context_free_divmod_table(ctx);
   context_free_explorer(ctx);
 
   context_free_dl_profile(ctx);
@@ -4629,6 +5182,7 @@ void reset_context(context_t *ctx) {
   context_free_marks(ctx);
   context_reset_small_cache(ctx);
   context_reset_eq_cache(ctx);
+  context_reset_divmod_table(ctx);
   context_reset_explorer(ctx);
 
   context_free_arith_buffer(ctx);
@@ -4659,6 +5213,7 @@ void context_push(context_t *ctx) {
   gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   context_eq_cache_push(ctx);
+  context_divmod_table_push(ctx);
 
   ctx->base_level ++;
 }
@@ -4669,6 +5224,7 @@ void context_pop(context_t *ctx) {
   gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   context_eq_cache_pop(ctx);
+  context_divmod_table_pop(ctx);
 
   ctx->base_level --;
 }

@@ -240,6 +240,7 @@ extern divmod_rec_t *divmod_table_get(divmod_tbl_t *tbl, divmod_tag_t tag, int32
  * - floor x: tag = floor, var = x, q = one
  * - ceil x:  tag = ceil,  var = x, q = one 
  * - div x a: tag = floor or ceil, var = x, q = a
+ *   For div, the tag is floor is a>0 and ceil if a<0.
  */
 static inline divmod_rec_t *divmod_table_find_floor(divmod_tbl_t *tbl, int32_t x) {
   return divmod_table_find(tbl, DIVMOD_FLOOR_TAG, x, &tbl->one);

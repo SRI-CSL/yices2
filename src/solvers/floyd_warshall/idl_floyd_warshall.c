@@ -2688,6 +2688,13 @@ bool idl_value_in_model(idl_solver_t *solver, thvar_t x, rational_t *v) {
 }
 
 
+/*
+ * Interface function: check whether x is an integer variable.
+ */
+bool idl_var_is_integer(idl_solver_t *solver, thvar_t x) {
+  assert(0 <= x && x < solver->vtbl.nvars);
+  return true;
+}
 
 
 /***************************
@@ -2753,6 +2760,8 @@ static arith_interface_t idl_intern = {
   (build_model_fun_t) idl_build_model,
   (free_model_fun_t) idl_free_model,
   (arith_val_in_model_fun_t) idl_value_in_model,
+
+  (arith_var_is_int_fun_t) idl_var_is_integer,
 };
 
 

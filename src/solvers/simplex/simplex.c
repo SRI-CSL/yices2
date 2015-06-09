@@ -11397,6 +11397,13 @@ bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v) 
 
 
 
+/*
+ * Get the type of variable x
+ */
+bool simplex_var_is_integer(simplex_solver_t *solver, int32_t x) {
+  return arith_var_is_int(&solver->vtbl, x);
+}
+
 
 
 /****************
@@ -11413,12 +11420,10 @@ void simplex_collect_statistics(simplex_solver_t *solver) {
 
 
 
-
-
-
 /******************************
  *  INTERFACE TO THE CONTEXT  *
  *****************************/
+
 
 static arith_interface_t simplex_context = {
   (create_arith_var_fun_t) simplex_create_var,
@@ -11446,6 +11451,8 @@ static arith_interface_t simplex_context = {
   (build_model_fun_t) simplex_build_model,
   (free_model_fun_t) simplex_free_model,
   (arith_val_in_model_fun_t) simplex_value_in_model,
+
+  (arith_var_is_int_fun_t) simplex_var_is_integer,
 };
 
 

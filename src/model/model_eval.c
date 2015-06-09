@@ -17,6 +17,15 @@
 
 
 /*
+ * Wrapper for q_clear to avoid compilation warnings
+ * (some versions of GCC complain about inlining q_clear)
+ */
+static void clear_rational(rational_t *q) {
+  q_clear(q);
+}
+
+
+/*
  * Initialize eval for the given model
  */
 void init_evaluator(evaluator_t *eval, model_t *model) {
@@ -175,7 +184,7 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
 
   v = vtbl_mk_rational(eval->vtbl, &q);
 
-  q_clear(&q);
+  clear_rational(&q);
 
   return v;
 }
@@ -198,7 +207,7 @@ static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
 
   v = vtbl_mk_rational(eval->vtbl, &q);
 
-  q_clear(&q);
+  clear_rational(&q);
 
   return v;
 }
@@ -220,7 +229,7 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
 
   v = vtbl_mk_rational(eval->vtbl, &q);
 
-  q_clear(&q);
+  clear_rational(&q);
 
   return v;
 }
@@ -261,7 +270,7 @@ static value_t eval_arith_div(evaluator_t *eval, composite_term_t *d) {
 
   o = vtbl_mk_rational(eval->vtbl, &q);
 
-  q_clear(&q);
+  clear_rational(&q);
 
   return o;
 }
@@ -285,7 +294,7 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
 
   o = vtbl_mk_rational(eval->vtbl, &q);
 
-  q_clear(&q);
+  clear_rational(&q);
 
   return o;
 }
@@ -330,7 +339,7 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
 
   o = vtbl_mk_rational(eval->vtbl, &prod);
 
-  q_clear(&prod);
+  clear_rational(&prod);
 
   return o;
 }
@@ -361,7 +370,7 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
   // convert sum to an object
   v = vtbl_mk_rational(eval->vtbl, &sum);
 
-  q_clear(&sum);
+  clear_rational(&sum);
 
   return v;
 }

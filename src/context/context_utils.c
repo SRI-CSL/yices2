@@ -430,6 +430,173 @@ void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l) {
 
 
 /*
+ * DIV/MOD TABLE
+ */
+
+/*
+ * Return the table. Allocate and initialize it if needed.
+ */
+divmod_tbl_t *context_get_divmod_table(context_t *ctx) {
+  divmod_tbl_t *tmp;
+
+  tmp = ctx->divmod_table;
+  if (tmp == NULL) {
+    tmp = (divmod_tbl_t *) safe_malloc(sizeof(divmod_tbl_t));
+    init_divmod_table(tmp);
+    divmod_table_set_level(tmp, ctx->base_level);
+    ctx->divmod_table = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Free the table
+ */
+void context_free_divmod_table(context_t *ctx) {
+  divmod_tbl_t *tmp;
+
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    delete_divmod_table(tmp);
+    safe_free(tmp);
+    ctx->divmod_table = NULL;
+  }
+}
+
+
+/*
+ * Push/pop/reset
+ */
+void context_divmod_table_push(context_t *ctx) {
+  divmod_tbl_t *tmp;
+
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    divmod_table_push(tmp);
+  }
+}
+
+void context_divmod_table_pop(context_t *ctx) {
+  divmod_tbl_t *tmp;
+
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    divmod_table_pop(tmp);
+  }
+}
+
+void context_reset_divmod_table(context_t *ctx) {
+  divmod_tbl_t *tmp;
+
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    reset_divmod_table(tmp);
+  }
+}
+
+
+/*
+ * Find records in the table:
+ * - three functions for floor/ceil/div
+ * - all find functions return null_thvar if the table does not exist or
+ *   if the relevant record is not in the table.
+ */
+thvar_t context_find_var_for_floor(context_t *ctx, thvar_t x) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+  thvar_t y;
+
+  y = null_thvar;
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    r = divmod_table_find_floor(tmp, x);
+    if (r != NULL) {
+      y = r->val;
+    }
+  }
+
+  return y;
+}
+
+thvar_t context_find_var_for_ceil(context_t *ctx, thvar_t x) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+  thvar_t y;
+
+  y = null_thvar;
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    r = divmod_table_find_ceil(tmp, x);
+    if (r != NULL) {
+      y = r->val;
+    }
+  }
+
+  return y;
+}
+
+thvar_t context_find_var_for_div(context_t *ctx, thvar_t x, const rational_t *k) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+  thvar_t y;
+
+  y = null_thvar;
+  tmp = ctx->divmod_table;
+  if (tmp != NULL) {
+    r = divmod_table_find_div(tmp, x, k);
+    if (r != NULL) {
+      y = r->val;
+    }
+  }
+
+  return y;
+}
+
+
+/*
+ * Add records in the table:
+ * - three functions for floor/ceil/div
+ * - all three functions initialize the table if needed
+ */
+
+// record for y = (floor x)
+void context_record_floor(context_t *ctx, thvar_t x, thvar_t y) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+
+  tmp = context_get_divmod_table(ctx);
+  r = divmod_table_get_floor(tmp, x);
+  assert(r->val < 0);
+  r->val = y;
+}
+
+// record for y = (ceil x)
+void context_record_ceil(context_t *ctx, thvar_t x, thvar_t y) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+
+  tmp = context_get_divmod_table(ctx);
+  r = divmod_table_get_ceil(tmp, x);
+  assert(r->val < 0);
+  r->val = y;
+}
+
+// record for y = (div x k)
+void context_record_div(context_t *ctx, thvar_t x, const rational_t *k, thvar_t y) {
+  divmod_tbl_t *tmp;
+  divmod_rec_t *r;
+
+  tmp = context_get_divmod_table(ctx);
+  r = divmod_table_get_div(tmp, x, k);
+  assert(r->val < 0);
+  r->val = y;
+}
+
+
+
+/*
  * FACTORING OF DISJUNCTS
  */
 
