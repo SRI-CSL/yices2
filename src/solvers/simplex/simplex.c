@@ -6676,7 +6676,7 @@ static bool make_column_integral(simplex_solver_t *solver, thvar_t x) {
   if (empty_interval(&interval)) {
     // no multiple of period between the two bounds
 #if 0
-    printf("     can't fix\n");
+    printf("     empty interval: can't fix\n");
     fflush(stdout);
 #endif
 
@@ -6747,7 +6747,13 @@ static bool make_column_integral(simplex_solver_t *solver, thvar_t x) {
 #endif
 
     ok = true;
+    goto done;
   }
+
+#if 0
+  printf("     can't fix\n");
+  fflush(stdout);
+#endif
 
  done:
   delete_interval(&interval);
@@ -6780,7 +6786,7 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   matrix = &solver->matrix;
 
   n = vtbl->nvars;
-  for (i=1; i<n; i++) {
+  for (i=0; i<n; i++) {
     if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
       if (! make_column_integral(solver, i)) {
 	return false;
@@ -8174,8 +8180,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   prepare_for_integer_solving(solver);
 
   if (simplex_try_naive_integer_search(solver)) {
-    printf("(feasible: naive search)\n");
-    fflush(stdout);
+    //    printf("(feasible: naive search)\n");
+    //    fflush(stdout);
     tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
     return true;
   }
