@@ -824,6 +824,16 @@ static smt2_token_t smt2_read_symbol(lexer_t *lex) {
 
 
 /*
+ * Hack to tolerate non-ASCII characters in some SMT-LIB benchmarks.
+ * This is a hack as we don't check whether the byte sequences
+ * are valid UTF-8 encodings. We also may report incorrect error
+ * locations (the column count maintained in the reader is not correct).
+ */
+static inline bool ok_char(int c) {
+  return isspace(c) || c>=32;
+}
+
+/*
  * Read a quoted symbol: any sequence of characters delimited by '|'
  * - exceptions: no '\' allowed in the symbol
  * - all characters between '|' must be printable
@@ -849,8 +859,8 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
 
   for (;;) {
     c = reader_next_char(rd);
-    if (c == '|' || c == '\\' ||
-        (!isprint(c) && !isspace(c))) {
+    if (c == '|' || c == '\\' || !ok_char(c)) { 
+      //    (!isprint(c) && !isspace(c))) { // HACK TO PARSE BENCHMARKS
       // either the terminator '|' or a character not allowed in quoted symbols
       break;
     }
