@@ -26,9 +26,6 @@
 #include "utils/int_hash_classes.h"
 
 
-///// FOR TESTING ONLY
-#include "solvers/simplex/int_constraint_printer.h"
-
 /*
  * To enable general trace, set TRACE to 1
  * To enable the debugging code, set DEBUG to 1
@@ -726,6 +723,14 @@ static bool singleton_interval(interval_t *s) {
 }
 
 
+/*
+ * Check whether the interval is empty
+ */
+static bool empty_interval(interval_t *s) {
+  return s->has_ub && s->has_lb && xq_gt(&s->lb, &s->ub);
+}
+
+
 #ifndef NDEBUG
 /*
  * For debugging: check whether delta is between s->lb and s->ub
@@ -734,6 +739,7 @@ static bool sample_in_interval(interval_t *s, rational_t *delta) {
   return (!s->has_lb || xq_le_q(&s->lb, delta)) && (!s->has_ub || xq_ge_q(&s->ub, delta));
 }
 #endif
+
 
 /*
  * Prepare the interval s for sampling:
@@ -5802,6 +5808,8 @@ static bool simplex_strengthen_bounds(simplex_solver_t *solver) {
 }
 
 
+
+
 /******************************
  *  PROPAGATOR INCLUDED HERE  *
  *****************************/
@@ -6239,7 +6247,7 @@ static bool assign_integers_to_nonbasic_vars(simplex_solver_t *solver) {
         ! arith_var_value_is_int(vtbl, i)) {
       /*
        * update value[i] to the ceil and set ub tag if needed
-       * (since value[i] is not an integer and upper bound on i is an integer,
+       * (since value[i] is not an integer and upper the bound on i is an integer,
        * ceil[value[i]] is within bounds).
        */
       xq_set(aux, arith_var_value(vtbl, i));
@@ -6280,6 +6288,7 @@ static bool non_integer_vars_are_basic(simplex_solver_t *solver) {
 }
 
 #endif
+
 
 /*
  * Prepare for integer solving:
@@ -6362,12 +6371,447 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
 
 
 
+/*
+ * NAIVE GREEDY SEARCH
+ */
 
+/*
+ * Naive search: attempt to make all the colums in the tableau integral
+ * by adjusting the values of the non-basic variables.
+ */
+
+/*
+ * Check whether the basic variable in row r is an integer variable
+ */
+static inline bool row_has_integer_basic_var(matrix_t *matrix, arith_vartable_t *vtbl, int32_t r) {
+  thvar_t x;
+
+  assert(0 <= r && r < matrix->nrows);
+  x = matrix_basic_var(matrix, r);
+  assert(x >= 0);
+  return arith_var_is_int(vtbl, x);
+}
+
+/*
+ * For debugging: go through the column of variable x
+ * check that all elements a_i.x in this column are integer
+ */
+static bool column_is_integral(simplex_solver_t *solver, thvar_t x) {
+  xrational_t prod;
+  arith_vartable_t *vtbl;
+  matrix_t *matrix;
+  column_t *col;
+  uint32_t i, n;
+  int32_t r, j;
+  bool all_int;
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+
+  assert(matrix_is_nonbasic_var(matrix, x));
+
+  all_int = true;
+
+  xq_init(&prod);
+  col = matrix_column(matrix, x);
+  if (col != NULL) {
+    n = col->size;
+    for (i=0; i<n; i++) {
+      r = col->data[i].r_idx;
+      if (r >= 0 && row_has_integer_basic_var(matrix, vtbl, r)) {
+	j = col->data[i].r_ptr;
+	xq_set(&prod, arith_var_value(vtbl, x));
+	xq_mul(&prod, matrix_coeff(matrix, r, j));
+	// prod is val[x] * coeff of x in row r
+	if (! xq_is_integer(&prod)) {
+	  all_int = false;
+	  break;
+	}
+      }
+    }
+  
+  }
+
+  xq_clear(&prod);
+  
+  return all_int;
+}
 
 
 
 /*
- * BRANCH & BOUND
+ * Compute a period for x
+ * - the column of x contains coefficients { a_1, ...., a_n }.
+ * - we want to ensure a_1 * x .... a_n * x are all integers
+ * - so x must be a multiple of 1/a_1, ...., 1/a_n
+ *
+ * If x is an integer variable, this function computes the 
+ *  lcm of { 1, 1/a_1, ..., 1/a_n }
+ * If x is not an integer variable, it computes the 
+ *  lcm of { 1/a_1, ..., 1/a_n }
+ */
+static void lcm_in_column(simplex_solver_t *solver, rational_t *lcm, thvar_t x) {
+  rational_t inv_a;
+  arith_vartable_t *vtbl;
+  matrix_t *matrix;
+  column_t *col;
+  uint32_t i, n;
+  int32_t r, j;
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+
+  assert(matrix_is_nonbasic_var(matrix, x));
+
+  q_clear(lcm);
+  if (arith_var_is_int(vtbl, x)) {
+    q_set_one(lcm);
+  }
+
+  col = matrix_column(matrix, x);
+  assert(col != NULL);
+
+  q_init(&inv_a);
+
+  n = col->size;
+  for (i=0; i<n; i++) {
+    r = col->data[i].r_idx;
+    if (r >= 0 && row_has_integer_basic_var(matrix, vtbl, r)) {
+      // x occurs in row r with coefficient a
+      j = col->data[i].r_ptr;
+      q_set(&inv_a, matrix_coeff(matrix, r, j));
+      assert(q_is_nonzero(&inv_a));
+      q_inv(&inv_a);
+      if (q_is_zero(lcm)) {
+	q_set(lcm, &inv_a);
+      } else {
+	q_generalized_lcm(lcm, &inv_a);
+      }
+    }
+  }
+  
+  q_clear(&inv_a);
+}
+
+
+/*
+ * Compute a safe delta interval for x
+ * - the interval stores: a lower bound L, an upper bound U
+ * - this defines a set of deltas for x: { d | L <= d && d <= U }
+ * - for any delta in this interval, updating 
+ *      val[x] to val[x] + delta
+ *   maintains feasibility.
+ */
+static void safe_adjust_interval(simplex_solver_t *solver, interval_t *s, thvar_t x) {
+  xrational_t aux;
+  arith_vartable_t *vtbl;
+  matrix_t *matrix;
+  column_t *col;
+  rational_t *a;
+  uint32_t i, n;
+  int32_t r, j;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+
+  xq_init(&aux);
+
+  assert(matrix_is_nonbasic_var(matrix, x));
+
+  /*
+   * Initialize the interval:
+   * - period = not used
+   * - lower bound on delta = lower bound on x - value of x
+   * - upper bound on delta = upper bound on x - value of x
+   */
+  j = arith_var_lower_index(vtbl, x);
+  if (j >= 0) {
+    xq_set(&aux, &solver->bstack.bound[j]); // lower bound on x
+    xq_sub(&aux, arith_var_value(vtbl, x));
+    interval_update_lb(s, &aux);
+  }
+  j = arith_var_upper_index(vtbl, x);
+  if (j >= 0) {
+    xq_set(&aux, &solver->bstack.bound[j]); // upper bound on x
+    xq_sub(&aux, arith_var_value(vtbl, x));
+    interval_update_ub(s, &aux);
+  }
+
+  assert(! empty_interval(s));
+
+  // refine the bounds based on x's column
+  col = matrix_column(matrix, x);
+  assert(col != NULL);
+  n = col->size;
+  for (i=0; i<n; i++) {
+    r = col->data[i].r_idx;
+    if (r >= 0) {
+      j = col->data[i].r_ptr;
+      a = matrix_coeff(matrix, r, j);
+      y = matrix_basic_var(matrix, r);
+      assert(y >= 0 && q_is_nonzero(a));
+
+      /*
+       * Update the interval using the bounds on y,
+       *
+       * We have y + ... + a x + ... = 0, so moving val[x] 
+       * to val[x] + delta changes val[y] to val[y] - a * delta.
+       */
+      j = arith_var_lower_index(vtbl, y);
+      if (j >= 0) {
+	/*
+	 * L := lower bound on y:
+	 * if a > 0, we want delta <= (val[y] - L)/a
+	 * if a < 0, we want delta >= (val[y] - L)/a
+	 */
+	xq_set(&aux, arith_var_value(vtbl, y));
+	xq_sub(&aux, &solver->bstack.bound[j]);
+	xq_div(&aux, a);   // aux is (val[y] - L)/a
+	if (q_is_pos(a)) {
+	  interval_update_ub(s, &aux);
+	} else {
+	  interval_update_lb(s, &aux);
+	}
+      }
+
+      j = arith_var_upper_index(vtbl, y);
+      if (j >= 0) {
+	/*
+	 * U := upper bound on y:
+	 * if a > 0, we want delta >= (val[y] - U)/a
+	 * if a < 0, we want delta <= (val[y] - U)/a
+	 */
+	xq_set(&aux, arith_var_value(vtbl, y));
+	xq_sub(&aux, &solver->bstack.bound[j]);
+	xq_div(&aux, a);  // aux is (val[y] - U)/a
+	if (q_is_pos(a)) {
+	  interval_update_lb(s, &aux);
+	} else {
+	  interval_update_ub(s, &aux);
+	}
+      }
+
+      assert(! empty_interval(s));
+    }
+  }
+
+  xq_clear(&aux);
+}
+
+
+/*
+ * Try to adjust the value of non-basic variable x to make x's column integral,
+ * while preserving all the bounds
+ * - x must be a non-basic, integer variable
+ * - x must have an integer value in the assignment
+ * - returns false if that's not possible
+ * - returns true and update the variable assignment otherwise
+ */
+static bool make_column_integral(simplex_solver_t *solver, thvar_t x) {
+  interval_t interval;
+  xrational_t newval;
+  arith_vartable_t *vtbl;
+  bool x_is_int, ok;
+
+  vtbl = &solver->vtbl;
+  x_is_int = arith_var_is_int(vtbl, x);
+  ok = false;
+
+  init_interval(&interval);
+  xq_init(&newval);
+
+  // Get period
+  lcm_in_column(solver, &interval.period, x);
+  if (q_is_zero(&interval.period)) {
+    /*
+     * x is a non-integer variable 
+     * and no integer basic variable depend on x
+     * no need to touch x.
+     */
+    assert(!x_is_int);
+    assert(column_is_integral(solver, x));
+
+    ok = true;
+    goto done;
+  }
+
+  // Get bounds
+  safe_adjust_interval(solver, &interval, x);
+  if (interval.has_lb) {
+    xq_add(&interval.lb, arith_var_value(vtbl, x));
+    if (x_is_int) {
+      xq_ceil(&interval.lb);
+    }
+  }
+  if (interval.has_ub) {
+    xq_add(&interval.ub, arith_var_value(vtbl, x));
+    if (x_is_int) {
+      xq_floor(&interval.ub);
+    }
+  }
+
+#if 0
+  printf("---> make column integral: var = i!%"PRId32"\n", x);
+  if (interval.has_lb) {
+    printf("     lower bound: ");
+    xq_print(stdout, &interval.lb);
+    printf("\n");
+  } else {
+    printf("     no lower bound\n");
+  }
+  if (interval.has_ub) {
+    printf("     upper bound: ");
+    xq_print(stdout, &interval.ub);
+    printf("\n");
+  } else {
+    printf("     no upper bound\n");
+  }
+  printf("     period: ");
+  q_print(stdout, &interval.period);
+  printf("\n");
+  fflush(stdout);
+#endif
+  
+  if (empty_interval(&interval)) {
+    // no multiple of period between the two bounds
+#if 0
+    printf("     can't fix\n");
+    fflush(stdout);
+#endif
+
+    goto done;
+  }
+
+  
+  xq_set(&newval, arith_var_value(vtbl, x));
+  xq_div(&newval, &interval.period);
+  xq_floor(&newval);
+  xq_mul(&newval, &interval.period);
+
+  assert(xq_le(&newval, arith_var_value(vtbl, x)));
+
+  /*
+   * newval is a multiple of period and we have
+   *   newval <= val[x] < newval + period
+   */
+  if (xq_eq(&newval, arith_var_value(vtbl, x))) {
+    // no change needed
+    assert(column_is_integral(solver, x));
+
+#if 0
+    printf("     column already integral\n");
+    fflush(stdout);
+#endif
+
+    ok = true;
+    goto done;
+  }
+
+  // check whether newval works
+  if (!interval.has_lb || xq_le(&interval.lb, &newval)) {
+    // we can update x to newval
+    update_non_basic_var_value(solver, x, &newval);
+    simplex_set_bound_flags(solver, x);
+
+    assert(column_is_integral(solver, x));
+    assert(int_heap_is_empty(&solver->infeasible_vars));
+    assert(value_satisfies_bounds(solver, x));
+
+#if 0
+    printf("     update value to ");
+    xq_print(stdout, &newval);
+    printf("\n");
+    fflush(stdout);
+#endif
+
+    ok = true;
+    goto done;
+  }
+
+  // check whether newval + period works
+  xq_add_q(&newval, &interval.period);
+  if (!interval.has_ub || xq_ge(&interval.ub, &newval)) {
+    update_non_basic_var_value(solver, x, &newval);
+    simplex_set_bound_flags(solver, x);
+
+    assert(column_is_integral(solver, x));
+    assert(int_heap_is_empty(&solver->infeasible_vars));
+    assert(value_satisfies_bounds(solver, x));
+
+#if 0
+    printf("     update value to ");
+    xq_print(stdout, &newval);
+    printf("\n");
+    fflush(stdout);
+#endif
+
+    ok = true;
+  }
+
+ done:
+  delete_interval(&interval);
+  xq_clear(&newval);
+
+  return ok;
+}
+
+
+/*
+ * Test this code
+ */
+static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
+  arith_vartable_t *vtbl;
+  matrix_t *matrix;
+  uint32_t i, n;
+
+#if 0
+  printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
+	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
+      if (! make_column_integral(solver, i)) {
+	return false;
+      }
+    }
+  }
+
+#if DEBUG
+  check_assignment(solver);
+  check_vartags(solver);
+#endif
+
+  assert(simplex_assignment_integer_valid(solver));
+
+#if 0
+  printf("\nNAIVE INTEGER SEARCH WORKED\n\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
+  return true;
+}
+
+
+
+/*
+ * BRANCHING
  */
 
 #if TRACE_INTFEAS
@@ -7135,7 +7579,7 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
 
 /*
- * TEST OF THE INTEGRALITY CONSTRAINT CODE
+ * CHEAPER INTEGRALITY CONSTRAINTS
  */
 
 #if 0
@@ -7729,6 +8173,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
   prepare_for_integer_solving(solver);
 
+  if (simplex_try_naive_integer_search(solver)) {
+    printf("(feasible: naive search)\n");
+    fflush(stdout);
+    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
+    return true;
+  }
+
 
   /*
    * FIRST STEP: STRENGTHEN THE BOUNDS IF POSSIBLE
@@ -7789,9 +8240,9 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     solver->bstack.fix_ptr = solver->bstack.top;
   }
 
+
   /*
    * THIRD STEP: TRY DIOPHANTINE SOLVER
-   * DISABLE FOR TESTING
    */
   solver->recheck = false;
   if (! simplex_dsolver_check(solver)) {
