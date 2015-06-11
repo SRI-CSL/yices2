@@ -3434,7 +3434,7 @@ static void simplex_check_fixed_vars(simplex_solver_t *solver) {
  * Set the ub/lb flags for a variable x
  */
 static void simplex_set_bound_flags(simplex_solver_t *solver, thvar_t x) {
-  uint32_t t;
+  uint8_t t;
 
   t = arith_var_tag(&solver->vtbl, x);
   t &= ~(AVARTAG_ATLB_MASK | AVARTAG_ATUB_MASK); // clear both bits
@@ -3444,6 +3444,20 @@ static void simplex_set_bound_flags(simplex_solver_t *solver, thvar_t x) {
   if (variable_at_upper_bound(solver, x)) {
     t |= AVARTAG_ATUB_MASK;
   }
+  set_arith_var_tag(&solver->vtbl, x, t);
+}
+
+
+/*
+ * Clear both flags
+ */
+static void simplex_clear_bound_flags(simplex_solver_t *solver, thvar_t x) {
+  uint8_t t;
+
+  assert(!variable_at_lower_bound(solver, x) && !variable_at_upper_bound(solver, x));
+
+  t = arith_var_tag(&solver->vtbl, x);
+  t &= ~(AVARTAG_ATLB_MASK | AVARTAG_ATUB_MASK); // clear both bits
   set_arith_var_tag(&solver->vtbl, x, t);
 }
 
@@ -3529,7 +3543,9 @@ static void simplex_init_assignment(simplex_solver_t *solver) {
         xq_set(v, bound + i);
         simplex_set_bound_flags(solver, x);
       } else {
+	// we must clear the tags here (because they could be wrong after pop)
         xq_clear(v);
+	simplex_clear_bound_flags(solver, x);
       }
     }
   }
@@ -6392,6 +6408,7 @@ static inline bool row_has_integer_basic_var(matrix_t *matrix, arith_vartable_t 
   return arith_var_is_int(vtbl, x);
 }
 
+#ifndef NDEBUG
 /*
  * For debugging: go through the column of variable x
  * check that all elements a_i.x in this column are integer
@@ -6436,7 +6453,7 @@ static bool column_is_integral(simplex_solver_t *solver, thvar_t x) {
   
   return all_int;
 }
-
+#endif
 
 
 /*
