@@ -10828,7 +10828,7 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
    * Search for delta := shift of x's value that maximizes
    * the number of classes in xq_hmap
    */
-  for (i=0; i<MAX_SHIFT_CANDIDATES; i++) { // try at most 20 candidates
+  for (i=0; i<MAX_SHIFT_CANDIDATES; i++) { // try at most 5 candidates
     if (! simplex_get_shift_candidate(&delta, &solver->dprng, interval, i)) break;
 
     assert(sample_in_interval(interval, &delta));
