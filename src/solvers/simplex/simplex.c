@@ -6397,6 +6397,40 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
  */
 
 /*
+ * Heuristic: check whether the problem looks underconstrained
+ * - we count the number of variables with no upper or no lower bound
+ */
+static uint32_t num_unconstrained_vars(simplex_solver_t *solver) {
+  arith_vartable_t *vtbl;
+  uint32_t i, n, count;
+
+  count = 0;
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    if (arith_var_lower_index(vtbl, i) < 0 || 
+	arith_var_upper_index(vtbl, i) < 0) {
+      count ++;
+    }
+  }
+
+  return count;
+}
+
+static bool underconstrained(simplex_solver_t *solver) {
+  uint32_t n, p;
+
+  p = num_unconstrained_vars(solver);
+  n = solver->vtbl.nvars;
+  if (n > 20) {
+    return p >= n - (n/20);
+  } else {
+    return p >= n - 1;
+  }
+}
+
+
+/*
  * Check whether the basic variable in row r is an integer variable
  */
 static inline bool row_has_integer_basic_var(matrix_t *matrix, arith_vartable_t *vtbl, int32_t r) {
@@ -6781,7 +6815,7 @@ static bool make_column_integral(simplex_solver_t *solver, thvar_t x) {
 
 
 /*
- * Test this code
+ * Naive search
  */
 static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   arith_vartable_t *vtbl;
@@ -6789,14 +6823,16 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   uint32_t i, n;
 
 #if 0
-  printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
-  print_simplex_matrix(stdout, solver);
-  print_simplex_bounds(stdout, solver);
-  printf("\n");
-  print_simplex_assignment(stdout, solver);
-  printf("\n\n");
-  fflush(stdout);
+  if (solter->stats.num_make_intfeasible == 1) {
+    printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
+	   solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
+    print_simplex_matrix(stdout, solver);
+    print_simplex_bounds(stdout, solver);
+    printf("\n");
+    print_simplex_assignment(stdout, solver);
+    printf("\n\n");
+    fflush(stdout);
+  }
 #endif
 
   vtbl = &solver->vtbl;
@@ -8163,6 +8199,7 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
 static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
+  uint32_t nbounds;
 
 #if TRACE_BB
   printf("\n--- make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
@@ -8195,14 +8232,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 #endif
 
   prepare_for_integer_solving(solver);
-
-  if (simplex_try_naive_integer_search(solver)) {
-    //    printf("(feasible: naive search)\n");
-    //    fflush(stdout);
-    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
-    return true;
-  }
-
 
   /*
    * FIRST STEP: STRENGTHEN THE BOUNDS IF POSSIBLE
@@ -8263,7 +8292,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     solver->bstack.fix_ptr = solver->bstack.top;
   }
 
-
   /*
    * THIRD STEP: TRY DIOPHANTINE SOLVER
    */
@@ -8297,6 +8325,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   /*
    * STRENGTHEN THE BOUNDS AGAIN BEFORE BRANCH&BOUND
    */
+  nbounds = solver->bstack.top;
   solver->recheck = false;
   if (! simplex_strengthen_bounds(solver)) {
     tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
@@ -8325,33 +8354,46 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   /*
-   * STRENGTHEN THE BOUNDS AGAIN BEFORE BRANCH&BOUND
+   * TRY OUR LUCK
    */
-  solver->recheck = false;
-  if (! simplex_strengthen_bounds(solver)) {
-    tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
-    solver->stats.num_bound_conflicts ++;
-    return false;
-  } else if (solver->recheck) {
-    /*
-     * Strengthened bounds require rechecking feasibility
-     */
-    simplex_fix_nonbasic_assignment(solver);
-    if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
-      solver->stats.num_bound_recheck_conflicts ++;
-      return false;
-    }
+  if (underconstrained(solver) && simplex_try_naive_integer_search(solver)) {
+    printf("(feasible: naive search)\n");
+    fflush(stdout);
+    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
+    return true;
+  }
 
-    // Since pivoting may have occurred we need to prepare for the next step
-    prepare_for_integer_solving(solver);
-  } else {
+  if (solver->bstack.top > nbounds) {
     /*
-     * There may be strengthened bounds but everything is still feasible
-     * - we force fix_ptr to bstack.top (otherwise, things may break
-     *   because the invariant fix_ptr == top is expected to hold)
+     * LAST ROUND PRODUCED MORE BOUNDS. LET"S DO IT ONCE MORE.
      */
-    solver->bstack.fix_ptr = solver->bstack.top;
+    solver->recheck = false;
+
+    if (! simplex_strengthen_bounds(solver)) {
+      tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
+      solver->stats.num_bound_conflicts ++;
+      return false;
+    } else if (solver->recheck) {
+      /*
+       * Strengthened bounds require rechecking feasibility
+       */
+      simplex_fix_nonbasic_assignment(solver);
+      if (! simplex_make_feasible(solver) ) {
+	tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
+	solver->stats.num_bound_recheck_conflicts ++;
+	return false;
+      }
+
+      // Since pivoting may have occurred we need to prepare for the next step
+      prepare_for_integer_solving(solver);
+    } else {
+      /*
+       * There may be strengthened bounds but everything is still feasible
+       * - we force fix_ptr to bstack.top (otherwise, things may break
+       *   because the invariant fix_ptr == top is expected to hold)
+       */
+      solver->bstack.fix_ptr = solver->bstack.top;
+    }
   }
 
 

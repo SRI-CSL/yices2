@@ -7416,6 +7416,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
+    params->use_optimistic_fcheck = true;
     if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA || logic == QF_UFIDL) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
@@ -7436,6 +7437,10 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->d_factor = 1.05;
     params->randomness = 0.0;
     params->max_interface_eqs = 15;
+    if (logic == QF_UFBV) {
+      // randomness helps for the SMT benchmarks
+      params->randomness = 0.02;
+    }
     break;
 
   case CTX_ARCH_IFW:
