@@ -6921,9 +6921,12 @@ static bool make_column_integral(simplex_solver_t *solver, thvar_t x) {
  * Naive search
  */
 static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
+  ivector_t aux;
   arith_vartable_t *vtbl;
   matrix_t *matrix;
-  uint32_t i, n;
+  uint32_t i, j, n;
+  thvar_t x;
+  bool ok;
 
 #if 0
   printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
@@ -6939,17 +6942,10 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   vtbl = &solver->vtbl;
   matrix = &solver->matrix;
 
+  init_ivector(&aux, 20);
+  
   n = vtbl->nvars;
-
-#if 0
-  for (i=0; i<n; i++) {
-    if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
-      show_column_data(solver, i);
-    }
-  }
-  printf("\n\n");
-  fflush(stdout);
-#endif
+  ok = true;
 
   //  for (i=0; i<n; i++) {
   i = n;
@@ -6957,17 +6953,33 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
     i --;
     if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
       if (! make_column_integral(solver, i)) {
-	return false;
+	ivector_push(&aux, i);
       }
     }
   }
+
+  while (aux.size > 0 && ok) {
+    j = 0;
+    n = aux.size;
+    for (i=0; i<n; i++) {
+      x = aux.data[i];
+      if (!make_column_integral(solver, x)) {
+	aux.data[j] = x;
+	j ++;
+      }
+    }
+    ivector_shrink(&aux, j);
+    ok = (j < n);
+  }
+
+  delete_ivector(&aux);
 
 #if DEBUG
   check_assignment(solver);
   check_vartags(solver);
 #endif
 
-  assert(simplex_assignment_integer_valid(solver));
+  assert(!ok || simplex_assignment_integer_valid(solver));
 
 #if 0
   printf("\nNAIVE INTEGER SEARCH WORKED\n\n");
@@ -6979,7 +6991,7 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   fflush(stdout);
 #endif
 
-  return true;
+  return ok;
 }
 
 
@@ -8349,16 +8361,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   prepare_for_integer_solving(solver);
 
   /*
-   * TRY OUR LUCK
-   */
-  if (underconstrained(solver) && simplex_try_naive_integer_search(solver)) {
-    //    printf("(feasible: naive search)\n");
-    //    fflush(stdout);
-    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
-    return true;
-  }
-
-  /*
    * FIRST STEP: STRENGTHEN THE BOUNDS IF POSSIBLE
    */
   solver->recheck = false;
@@ -8481,11 +8483,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   /*
    * TRY OUR LUCK
    */
-  if (underconstrained(solver) && simplex_try_naive_integer_search(solver)) {
-    //    printf("(feasible: naive search)\n");
-    //    fflush(stdout);
-    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
-    return true;
+  if (underconstrained(solver)) {
+    if (simplex_try_naive_integer_search(solver)) {
+      printf("(feasible: naive search)\n");
+      fflush(stdout);
+      tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
+      return true;
+    }
   }
 
   if (solver->bstack.top > nbounds) {
