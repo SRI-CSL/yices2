@@ -6651,6 +6651,109 @@ static void safe_adjust_interval(simplex_solver_t *solver, interval_t *s, thvar_
 }
 
 
+#if 0
+/*
+ * For testing: display data about column x
+ */
+static void show_column_data(simplex_solver_t *solver, thvar_t x) {
+  interval_t interval;
+  xrational_t newval;
+  arith_vartable_t *vtbl;
+  bool x_is_int;
+
+  vtbl = &solver->vtbl;
+  x_is_int = arith_var_is_int(vtbl, x);
+
+  init_interval(&interval);
+  xq_init(&newval);
+
+  // Get period
+  lcm_in_column(solver, &interval.period, x);
+  if (q_is_zero(&interval.period)) {
+    /*
+     * x is a non-integer variable 
+     * and no integer basic variable depend on x
+     * no need to touch x.
+     */
+    assert(!x_is_int);
+    assert(column_is_integral(solver, x));
+    goto done;
+  }
+
+  // Get bounds
+  safe_adjust_interval(solver, &interval, x);
+  if (interval.has_lb) {
+    xq_add(&interval.lb, arith_var_value(vtbl, x));
+    if (x_is_int) {
+      xq_ceil(&interval.lb);
+    }
+  }
+  if (interval.has_ub) {
+    xq_add(&interval.ub, arith_var_value(vtbl, x));
+    if (x_is_int) {
+      xq_floor(&interval.ub);
+    }
+  }
+
+#if 0
+  printf("---> column of var = i!%"PRId32"\n", x);
+  if (interval.has_lb) {
+    printf("     lower bound: ");
+    xq_print(stdout, &interval.lb);
+    printf("\n");
+  } else {
+    printf("     no lower bound\n");
+  }
+  if (interval.has_ub) {
+    printf("     upper bound: ");
+    xq_print(stdout, &interval.ub);
+    printf("\n");
+  } else {
+    printf("     no upper bound\n");
+  }
+  printf("     period: ");
+  q_print(stdout, &interval.period);
+  printf("\n");
+  fflush(stdout);
+#endif
+  
+  if (empty_interval(&interval)) {
+    // no multiple of period between the two bounds
+#if 0
+    printf("     empty interval: can't fix\n");
+    fflush(stdout);
+#endif
+    goto done;
+  }
+
+  
+  xq_set(&newval, arith_var_value(vtbl, x));
+  xq_div(&newval, &interval.period);
+  xq_floor(&newval);
+  xq_mul(&newval, &interval.period);
+
+  assert(xq_le(&newval, arith_var_value(vtbl, x)));
+
+  /*
+   * newval is a multiple of period and we have
+   *   newval <= val[x] < newval + period
+   */
+  if (xq_eq(&newval, arith_var_value(vtbl, x))) {
+    // no change needed
+    assert(column_is_integral(solver, x));
+#if 0
+    printf("     column already integral\n");
+    fflush(stdout);
+#endif
+  }
+
+ done:
+  delete_interval(&interval);
+  xq_clear(&newval);
+}
+
+#endif
+
 /*
  * Try to adjust the value of non-basic variable x to make x's column integral,
  * while preserving all the bounds
@@ -6823,23 +6926,35 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   uint32_t i, n;
 
 #if 0
-  if (solter->stats.num_make_intfeasible == 1) {
-    printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	   solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
-    print_simplex_matrix(stdout, solver);
-    print_simplex_bounds(stdout, solver);
-    printf("\n");
-    print_simplex_assignment(stdout, solver);
-    printf("\n\n");
-    fflush(stdout);
-  }
+  printf("\nNAIVE INTEGER SEARCH %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
+	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
 #endif
 
   vtbl = &solver->vtbl;
   matrix = &solver->matrix;
 
   n = vtbl->nvars;
+
+#if 0
   for (i=0; i<n; i++) {
+    if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
+      show_column_data(solver, i);
+    }
+  }
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
+  //  for (i=0; i<n; i++) {
+  i = n;
+  while (i > 0) {
+    i --;
     if (matrix_is_nonbasic_var(matrix, i) && matrix_column(matrix, i) != NULL) {
       if (! make_column_integral(solver, i)) {
 	return false;
@@ -8234,6 +8349,16 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   prepare_for_integer_solving(solver);
 
   /*
+   * TRY OUR LUCK
+   */
+  if (underconstrained(solver) && simplex_try_naive_integer_search(solver)) {
+    //    printf("(feasible: naive search)\n");
+    //    fflush(stdout);
+    tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
+    return true;
+  }
+
+  /*
    * FIRST STEP: STRENGTHEN THE BOUNDS IF POSSIBLE
    */
   solver->recheck = false;
@@ -8357,8 +8482,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * TRY OUR LUCK
    */
   if (underconstrained(solver) && simplex_try_naive_integer_search(solver)) {
-    printf("(feasible: naive search)\n");
-    fflush(stdout);
+    //    printf("(feasible: naive search)\n");
+    //    fflush(stdout);
     tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
     return true;
   }
