@@ -6947,7 +6947,6 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   n = vtbl->nvars;
   ok = true;
 
-  //  for (i=0; i<n; i++) {
   i = n;
   while (i > 0) {
     i --;
@@ -6982,13 +6981,15 @@ static bool simplex_try_naive_integer_search(simplex_solver_t *solver) {
   assert(!ok || simplex_assignment_integer_valid(solver));
 
 #if 0
-  printf("\nNAIVE INTEGER SEARCH WORKED\n\n");
-  print_simplex_matrix(stdout, solver);
-  print_simplex_bounds(stdout, solver);
-  printf("\n");
-  print_simplex_assignment(stdout, solver);
-  printf("\n\n");
-  fflush(stdout);
+  if (ok) {
+    printf("\nNAIVE INTEGER SEARCH WORKED\n\n");
+    print_simplex_matrix(stdout, solver);
+    print_simplex_bounds(stdout, solver);
+    printf("\n");
+    print_simplex_assignment(stdout, solver);
+    printf("\n\n");
+    fflush(stdout);
+  }
 #endif
 
   return ok;
@@ -8485,8 +8486,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    */
   if (underconstrained(solver)) {
     if (simplex_try_naive_integer_search(solver)) {
-      printf("(feasible: naive search)\n");
-      fflush(stdout);
       tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
       return true;
     }
