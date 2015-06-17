@@ -75,7 +75,7 @@
  *
  * GLOBAL FLAGS:
  * - interactive: true if no input file is given on the command line
- * - verbose: boolean flag for now (could use a verbosity level??)
+ * - verbosity: verbosity level
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
  *   in the interactive mode).
@@ -108,7 +108,7 @@ static uint32_t include_depth;
 
 static bool interactive;
 static bool done;
-static bool verbose;
+static int32_t verbosity;
 static tracer_t *tracer;
 
 static uint32_t timeout;
@@ -466,10 +466,10 @@ enum {
   mode_option,
   version_flag,
   help_flag,
-  verbose_flag,
+  verbosity_option,
 };
 
-#define NUM_OPTIONS (verbose_flag+1)
+#define NUM_OPTIONS (verbosity_option+1)
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "logic", '\0', MANDATORY_STRING, logic_option },
@@ -477,7 +477,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mode", '\0', MANDATORY_STRING, mode_option },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
-  { "verbose", 'v', FLAG_OPTION, verbose_flag },
+  { "verbosity", 'v', MANDATORY_INT, verbosity_option },
 };
 
 
@@ -506,7 +506,8 @@ static void print_help(char *progname) {
   printf("Options:\n"
          "  --version, -V             Display version and exit\n"
          "  --help, -h                Display this information\n"
-         "  --verbose, -v             Run in verbose mode\n"
+	 "  --verbosity=<level>       Set verbosity level (default = 0)\n"
+	 "           -v <level>\n"
          "  --logic=<name>            Configure for the given logic\n"
          "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
          "                                    or 'NONE' for propositional logic\n"
@@ -594,13 +595,14 @@ static void process_command_line(int argc, char *argv[]) {
   cmdline_elem_t elem;
   int32_t arch_code;
   int32_t mode_code;
+  int32_t v;
 
   // set all options to their default value
   input_filename = NULL;
   logic_name = NULL;
   arith_name = NULL;
   mode_name = NULL;
-  verbose = false;
+  verbosity = 0;
   tracer = NULL;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
@@ -676,8 +678,13 @@ static void process_command_line(int argc, char *argv[]) {
         print_help(parser.command_name);
         goto quick_exit;
 
-      case verbose_flag:
-        verbose = true;
+      case verbosity_option:
+	v = elem.i_value;
+	if (v < 0) {
+	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
+	  goto bad_usage;
+	}
+        verbosity = v;
         break;
 
       default:
@@ -807,7 +814,7 @@ static void sigint_handler(int signum) {
 #endif
 
   assert(context != NULL);
-  if (verbose) {
+  if (verbosity > 0) {
     fprintf(stderr, "\nInterrupted by signal %d\n", signum);
     fflush(stderr);
   }
@@ -829,7 +836,7 @@ static void sigint_handler(int signum) {
  * Other interrupts: exit with code INTERRUPTED
  */
 static void default_handler(int signum) {
-  if (verbose) {
+  if (verbosity > 0) {
     fprintf(stderr, "\nInterrupted by signal %d\n", signum);
     fflush(stderr);
   }
@@ -1001,7 +1008,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
  * Report that the previous command was executed (if verbose)
  */
 static void print_ok(void) {
-  if (verbose && interactive && include_depth == 0) {
+  if (verbosity > 0 && interactive && include_depth == 0) {
     fprintf(stderr, "ok\n");
     fflush(stderr);
   }
@@ -1016,7 +1023,7 @@ static void print_internalization_code(int32_t code) {
   if (code == TRIVIALLY_UNSAT) {
     fprintf(stderr, "unsat\n");
     fflush(stderr);
-  } else if (verbose && code == CTX_NO_ERROR) {
+  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
     code = - code;
@@ -1746,7 +1753,7 @@ static void yices_exit_cmd(void) {
     parser_pop_lexer(&parser);
     include_depth --;
   } else {
-    if (verbose) {
+    if (verbosity > 0) {
       fputs("exiting\n", stderr);
       fflush(stderr);
     }
@@ -2612,7 +2619,7 @@ static void timeout_handler(void *data) {
   assert(data == context && context != NULL);
   if (context_status(data) == STATUS_SEARCHING) {
     context_stop_search(data);
-    if (verbose) {
+    if (verbosity > 0) {
       fputs("\nTimeout\n", stderr);
       fflush(stderr);
     }
@@ -2893,7 +2900,7 @@ static void print_ef_status(void) {
 
   assert(efsolver != NULL && efdone);
 
-  if (verbose) {
+  if (verbosity > 0) {
     printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
   }
 
@@ -2907,7 +2914,7 @@ static void print_ef_status(void) {
   case EF_STATUS_INTERRUPTED:
     fputs(ef_status2string[stat], stdout);
     fputc('\n', stdout);
-    if (verbose) {
+    if (verbosity > 0) {
       if (stat == EF_STATUS_SAT) {
         print_ef_solution(stdout, efsolver);
         fputc('\n', stdout);
@@ -3651,12 +3658,12 @@ int yices_main(int argc, char *argv[]) {
   }
 
   /*
-   * Create the tracer object: stderr and with verbosity level = 4
+   * Create the tracer object
    */
-  if (verbose) {
+  if (verbosity > 0) {
     tracer = (tracer_t *) safe_malloc(sizeof(tracer_t));
     init_trace(tracer);
-    set_trace_vlevel(tracer, 4);
+    set_trace_vlevel(tracer, verbosity);
   }
 
   /*
@@ -3669,7 +3676,7 @@ int yices_main(int argc, char *argv[]) {
   init_ef_params();
 
   init_parser(&parser, &lexer, &stack);
-  if (verbose) {
+  if (verbosity > 0) {
     print_version(stderr);
   }
 
