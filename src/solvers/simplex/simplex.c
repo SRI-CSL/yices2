@@ -7035,6 +7035,26 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
   }
 }
 
+/*
+ * Remove x from vector v
+ */
+static void remove_var(ivector_t *v, int32_t x) {
+  uint32_t i, n, j;
+  int32_t y;
+
+  j = 0;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    y = v->data[i];
+    if (y != x) {
+      v->data[j] = y;
+      j ++;
+    }
+  }
+
+  ivector_shrink(v, j);
+}
+
 
 /*
  * Create branch & bound atom for a variable x.
@@ -8328,6 +8348,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
   uint32_t nbounds;
+  uint32_t i, n;
 
 #if TRACE_BB
   printf("\n--- make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
@@ -8545,10 +8566,17 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   /*
    * Create a branch atom
    */
-  x = select_branch_variable(solver, v);
-  tprintf(solver->core->trace, 10,
-	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
-	  v->size, x, simplex_branch_score(solver, x));
+  n = v->size;
+  if (n > 10) {
+    n = 10;
+  }
+  for (i=0; i<n; i++) {
+    x = select_branch_variable(solver, v);
+    tprintf(solver->core->trace, 10,
+	    "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
+	    v->size, x, simplex_branch_score(solver, x));
+    remove_var(v, x);
+  }
 #if TRACE_INTFEAS
   print_branch_candidates(stdout, solver, v);
   printf("\n\nDONE\n");
