@@ -8575,8 +8575,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     tprintf(solver->core->trace, 10,
 	    "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
 	    v->size, x, simplex_branch_score(solver, x));
+    create_branch_atom(solver, x);
     remove_var(v, x);
   }
+
 #if TRACE_INTFEAS
   print_branch_candidates(stdout, solver, v);
   printf("\n\nDONE\n");
@@ -8585,7 +8587,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_reset(v);
 
   assert(x != null_thvar);
-  create_branch_atom(solver, x);
 
   return false;
 }
