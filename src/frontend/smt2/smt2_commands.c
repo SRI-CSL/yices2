@@ -2017,12 +2017,35 @@ static void print_kw_symbol_pair(const char *keyword, const char *value) {
 
 static const char * const string_bool[2] = { "false", "true" };
 
+#if 0
+// not used
 static void print_kw_boolean_pair(const char *keyword, bool value) {
   print_kw_symbol_pair(keyword, string_bool[value]);
 }
 
 static void print_kw_uint32_pair(const char *keyword, uint32_t value) {
   print_out("(%s %"PRIu32")\n", keyword, value);
+}
+
+#endif
+
+/*
+ * Print value
+ */
+static void print_string_value(const char *value) {
+  print_out("\"%s\"\n", value);
+}
+
+static void print_symbol_value(const char *value) {
+  print_out("%s\n", value);
+}
+
+static void print_boolean_value(bool value) {
+  print_symbol_value(string_bool[value]);
+}
+
+static void print_uint32_value(uint32_t value) {
+  print_out("%"PRIu32"\n", value);
 }
 
 
@@ -3409,15 +3432,15 @@ void smt2_get_option(const char *name) {
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
   case SMT2_KW_PRINT_SUCCESS:
-    print_kw_boolean_pair(name, g->print_success);
+    print_boolean_value(g->print_success);
     break;
 
   case SMT2_KW_PRODUCE_MODELS:
-    print_kw_boolean_pair(name, g->produce_models);
+    print_boolean_value(g->produce_models);
     break;
 
   case SMT2_KW_PRODUCE_ASSIGNMENTS:
-    print_kw_boolean_pair(name, g->produce_assignments);
+    print_boolean_value(g->produce_assignments);
     break;
 
   case SMT2_KW_REGULAR_OUTPUT:
@@ -3426,7 +3449,7 @@ void smt2_get_option(const char *name) {
       assert(g->out == stdout);
       s = "stdout";
     }
-    print_kw_string_pair(name, s);
+    print_string_value(s);
     break;
 
   case SMT2_KW_DIAGNOSTIC_OUTPUT:
@@ -3435,19 +3458,19 @@ void smt2_get_option(const char *name) {
       assert(g->err == stderr);
       s = "stderr";
     }
-    print_kw_string_pair(name, s);
+    print_string_value(s);
     break;
 
   case SMT2_KW_RANDOM_SEED:
-    print_kw_uint32_pair(name, g->random_seed);
+    print_uint32_value(g->random_seed);
     break;
 
   case SMT2_KW_VERBOSITY:
-    print_kw_uint32_pair(name, g->verbosity);
+    print_uint32_value(g->verbosity);
     break;
 
   case SMT2_KW_GLOBAL_DECLS:
-    print_kw_boolean_pair(name, g->global_decls);
+    print_boolean_value(g->global_decls);
     break;
 
   case SMT2_KW_EXPAND_DEFINITIONS:
