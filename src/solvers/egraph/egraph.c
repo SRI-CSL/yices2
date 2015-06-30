@@ -2223,8 +2223,11 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
    * If decision_level == base_level and base_level > 0, we'll also
    * have to reanalyze d on the next call to egraph_pop.  This will
    * force d to be removed from the parent vector and congruence table.
+   *
+   * We also have to do this if we're in reconcile_mode (since we may have to
+   * backtrack and undo the provisional equalities added by model reconciliation).
    */
-  if (egraph->decision_level > 0) {
+  if (egraph->decision_level > 0 || egraph->reconcile_mode) {
     undo_stack_push_ptr(&egraph->undo, d, tag);
   }
 }
