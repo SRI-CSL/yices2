@@ -90,6 +90,9 @@ enum yices_token {
   // conversions between bitvectors and Booleans
   TK_BOOL_TO_BV, TK_BIT,
 
+  // more arithmetic functions (inherited from SMT-LIB2 Ints theory)
+  TK_FLOOR, TK_CEIL, TK_ABS, TK_IDIV, TK_MOD, TK_DIVIDES, TK_IS_INT, 
+
   // unrecognized tokens or other errors
   TK_OPEN_STRING, TK_EMPTY_BVCONST, TK_EMPTY_HEXCONST,
   TK_INVALID_NUM, TK_ZERO_DIVISOR, TK_ERROR,

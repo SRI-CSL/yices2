@@ -100,6 +100,9 @@ function-keyword ::=
         +       -       *       /       ^
         <       <=      >       >=
 
+        abs     div     mod     floor   ceil
+        divides         is_int
+
         mk-bv   bv-add  bv-sub  bv-mul  bv-neg  bv-pow
         bv-not  bv-and  bv-or   bv-xor  
         bv-shift-left0  bv-shift-left1  bv-shift-right0 bv-shift-right1

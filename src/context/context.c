@@ -93,11 +93,26 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 
 /*
+ * For debugging: check that the arith solver agrees that x has type tau
+ */
+#ifndef NDEBUG
+static bool arithvar_has_right_type(context_t *ctx, thvar_t x, type_t tau) {
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    return is_integer_type(tau);
+  } else {
+    return is_real_type(tau);
+  }
+}
+#endif
+
+/*
  * Convert arithmetic variable x to an egraph term
  * - tau = type of x (int or real)
  */
 static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
   eterm_t u;
+
+  assert(arithvar_has_right_type(ctx, x, tau));
 
   u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
   if (u == null_eterm) {
@@ -760,7 +775,7 @@ static void context_store_rational_div_upper_bound(polynomial_t *p, thvar_t *map
   p->mono[1].var = 1;
   q_set_one(&p->mono[1].coeff);       // coeff of x = +1
   p->mono[2].var = 2;
-  q_set_neg(&p->mono[1].coeff, k);    // coeff of y = -k
+  q_set_neg(&p->mono[2].coeff, k);    // coeff of y = -k
   p->mono[3].var = max_idx;
 
   map[0] = null_thvar;
@@ -1310,15 +1325,12 @@ static thvar_t get_floor(context_t *ctx, thvar_t x) {
  *   add a record in the divmod table, and return y.
  */
 static thvar_t get_div(context_t *ctx, thvar_t x, const rational_t *k) {
-  bool is_int;
   thvar_t y;
 
   y = context_find_var_for_div(ctx, x, k);
   if (y == null_thvar) {
     // create y := (div x k)
-    // y is an integer if both x and k are integer
-    is_int = q_is_integer(k) && ctx->arith.arith_var_is_int(ctx->arith_solver, x);
-    y = ctx->arith.create_var(ctx->arith_solver, is_int);
+    y = ctx->arith.create_var(ctx->arith_solver, true); // y is an integer
     assert_div_axioms(ctx, y, x, k);
     context_record_div(ctx, x, k, y);
   }
@@ -2421,6 +2433,23 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 	//        add_type_constraints(ctx, u, tau);
         break;
 
+      case ARITH_FLOOR:
+	assert(is_integer_type(tau));
+	x = map_floor_to_arith(ctx, arith_floor_arg(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, tau);
+	break;
+
+      case ARITH_CEIL:
+	assert(is_integer_type(tau));
+	x = map_ceil_to_arith(ctx, arith_ceil_arg(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, tau);
+	break;
+
+      case ARITH_ABS:
+	x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, tau);
+	break;
+
       case ITE_TERM:
       case ITE_SPECIAL:
         u = map_ite_to_eterm(ctx, ite_term_desc(terms, r), tau);
@@ -2430,6 +2459,17 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
         u = map_apply_to_eterm(ctx, app_term_desc(terms, r), tau);
         break;
 
+      case ARITH_DIV:
+	assert(is_integer_type(tau));
+	x = map_div_to_arith(ctx, arith_div_term_desc(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, tau); // (div t u) has type int
+	break;
+
+      case ARITH_MOD:
+	x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, tau);
+	break;
+	
       case TUPLE_TERM:
         u = map_tuple_to_eterm(ctx, tuple_term_desc(terms, r), tau);
         break;

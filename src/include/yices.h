@@ -1070,9 +1070,11 @@ __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
  * except that t1 and t2 are not required to be integer and that
  * we don't allow t2 to be zero.
  *
- * The functions (div t1 t2) and (mod t1 t2) satisfy two constraints:
+ * The functions (div t1 t2) and (mod t1 t2) satisfy the following
+ * constraints:
  *    t1 = (div t1 t2) * t2 + (mod t1 t2)
  *    0 <= (mod t1 t2) < (abs t2)
+ *    (div t1 t2) is an integer
  *
  * The functions return NULL_TERM if there's an error.
  *

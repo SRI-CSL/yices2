@@ -86,8 +86,15 @@ bv-smod,                TK_BV_SMOD
 bv-redor,               TK_BV_REDOR
 bv-redand,              TK_BV_REDAND
 bv-comp,                TK_BV_COMP
-bool-to-bv,             TK_BOOL_TO_BV,
-bit,                    TK_BIT,
+bool-to-bv,             TK_BOOL_TO_BV
+bit,                    TK_BIT
+floor,                  TK_FLOOR
+ceil,                   TK_CEIL
+abs,                    TK_ABS
+div,                    TK_IDIV
+mod,                    TK_MOD
+divides,                TK_DIVIDES
+is-int,                 TK_IS_INT
 let,                    TK_LET
 define-type,            TK_DEFINE_TYPE
 define,                 TK_DEFINE

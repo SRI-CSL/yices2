@@ -137,6 +137,15 @@ static keyword_t yices_keywords[] = {
   { "bool-to-bv", TK_BOOL_TO_BV },
   { "bit", TK_BIT},
 
+  // more arithmetic functions
+  { "floor", TK_FLOOR },
+  { "ceil", TK_CEIL },
+  { "abs", TK_ABS },
+  { "div", TK_IDIV },
+  { "mod", TK_MOD },
+  { "divides", TK_DIVIDES },
+  { "is-int", TK_IS_INT },
+
   // other keywords
   { "let", TK_LET },
   { "define-type", TK_DEFINE_TYPE },

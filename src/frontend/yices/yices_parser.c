@@ -1053,6 +1053,48 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto loop;
 
+    case floor_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_FLOOR, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case ceil_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_CEIL, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case abs_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_ABS, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case idiv_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_IDIV, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case mod_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_MOD, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case divides_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_DIVIDES, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case is_int_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_IS_INT, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
     case update_next_push_e5_goto_e0:
       tstack_push_op(tstack, MK_UPDATE, &loc);
       parser_push_state(stack, e5);

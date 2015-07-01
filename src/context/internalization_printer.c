@@ -36,7 +36,7 @@ static void print_intern_code(FILE *f, int32_t x, type_table_t *types, type_t ta
     } else if (is_integer_type(tau)) {
       fprintf(f, "i!%"PRId32, code2thvar(x));
     } else if (is_real_type(tau)) {
-      fprintf(f, "x!%"PRId32, code2thvar(x));
+      fprintf(f, "z!%"PRId32, code2thvar(x));
     } else {
       assert(is_bv_type(types, tau));
       fprintf(f, "u!%"PRId32, code2thvar(x));

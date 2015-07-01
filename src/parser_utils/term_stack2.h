@@ -438,6 +438,14 @@ enum base_opcodes {
   MK_BOOL_TO_BV,      // [mk-bool-to-bv <bool> .... <bool>]
   MK_BIT,             // [mk-bit <bv> <index>]
 
+  MK_FLOOR,           // [mk-floor <arith> ]
+  MK_CEIL,            // [mk-ceil <arith> ]
+  MK_ABS,             // [mk-abs <arith> ]
+  MK_IDIV,            // [mk-idiv <arith> <arith> ]
+  MK_MOD,             // [mk-idiv <arith> <arith> ]
+  MK_DIVIDES,         // [mk-divides <arith> <arith> ]
+  MK_IS_INT,          // [mk-is-int <arith> ]
+
   // collect result
   BUILD_TERM,         // [build-term <term> ]
   BUILD_TYPE,         // [build-type <type> ]
