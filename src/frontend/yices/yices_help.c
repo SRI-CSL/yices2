@@ -1474,11 +1474,102 @@ static const help_record_t help_data[] = {
     "per universal constraints. If the bound is 0, learning is disabled).\n",
     NULL },
 
-  // END MARKER: index 151
+  // abs: index 151
+  { HARITHMETIC,
+    "(abs [expr])",
+    "Absolute value",
+    "   [expr] must be an arithmetic expression\n",
+    NULL },
+
+  // floor: index 152
+  { HARITHMETIC,
+    "(floor [expr])",
+    "Floor",
+    "   [expr] must be an arithmetic expression\n"
+    "\n"
+    "(floor x) is the largest integer smaller than or equal to x.\n"
+    "We then have (floor x) <= x < (floor x) + 1.\n",
+    NULL },
+
+  // ceil: index 153
+  { HARITHMETIC,
+    "(ceil [expr])",
+    "Ceiling",
+    "   [expr] must be an arithmetic expression\n"
+    "\n"
+    "(ceil x) is the smallest integer larger than or equal to x.\n"
+    "We then have (ceil x) - 1 < x <= (ceil x).\n",
+    NULL },
+
+  // div: index 154
+  { HARITHMETIC,
+    "(div [expr] [divider])",
+    "Integer division",
+    "   [expr] must be an arithmetic expression\n"
+    "   [divider] must be a non-zero arithmetic constant\n"
+    "\n"
+    "The divider and remainder are defined as follows:\n"
+    "\n"
+    "   (div x q) is an integer\n"
+    "   x = (div x q) * q + (mod x q)\n"
+    "   0 <= (mod x q) < (abs q)\n"
+    "\n"
+    "This implies that (div x q) = (ceil (/ x q)) if q is positive,\n"
+    "and (div x q) = (floor (/ x q)) is q is negative.\n"
+    "\n"
+    "Note: x and q are not required to be integer.\n",
+    "(div  5  3) =  1\n"
+    "(div  5 -3) = -2\n"
+    "(div -5  3) = -1\n"
+    "(div -5 -3) -  2\n" },
+
+  // mod: index 155
+  { HARITHMETIC,
+    "(mod [expr] [divider])",
+    "Remainder in integer division",
+    "   [expr] must be an arithmetic expression\n"
+    "   [divider] must be a non-zero arithmetic constant\n"
+    "\n"
+    "The remainder is defined by (mod x q) = x - q * (div x q).\n"
+    "It is non-negative and smaller than (abs q):\n"
+    "\n"
+    "    0 <= (mod x q) < (abs q).\n"
+    "\n"
+    "Try '(help div)' for more details.\n",
+    "(mod  5  3) = 2\n"
+    "(mod  5 -3) = 1\n"
+    "(mod -5  3) = 1\n"
+    "(mod -5 -3) = 2\n" },
+
+  // divides: index 156
+  { HARITHMETIC,
+    "(divides [constant] [expr])",
+    "Divisibility test",
+    "   [constant] must be an arithmetic constant\n"
+    "   [expr] must be an arithmetic expression\n"
+    "\n"
+    "The atom (divides q x) is true iff x is an integer multiple of q.\n"
+    "\n"
+    "Note: q and x are not required to be integer.\n",
+    "(divides 1/3 1)   is true\n"
+    "(divides 1/3 0.5) is false\n"
+    "(divides 0 0)     is true\n"
+    "(divides 0 x)     is false for any non-zero x\n" },
+
+  // is-int: index 157
+  { HARITHMETIC,
+    "(is-int [expr])",
+    "Integrality test",
+    "   [expr] must be an arithmetic expression\n"
+    "\n"
+    "The atom (is-int x) is true iff x is an integer.\n",
+    NULL },
+
+  // END MARKER: index 158
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 151
+#define END_HELP_DATA 158
 
 
 
@@ -1820,6 +1911,7 @@ static const help_index_t help_index[] = {
   { "=>", NULL, 46, help_basic },
   { ">", NULL, 54, help_basic },
   { ">=", NULL, 56, help_basic },
+  { "abs", NULL, 151, help_basic },
   { "and", NULL, 42, help_basic },
   { "arith-elim", NULL, 102, help_basic },
   { "arithmetic", "Arithmetic Operators", HARITHMETIC, help_for_category },
@@ -1881,6 +1973,7 @@ static const help_index_t help_index[] = {
   { "c-factor", NULL, 108, help_basic },
   { "c-threshold", NULL, 107, help_basic },
   { "cache-tclauses", NULL, 119, help_basic },
+  { "ceil", NULL, 153, help_basic },
   { "check", NULL, 5, help_basic },
   { "clause-decay", NULL, 118, help_basic },
   { "commands", "Command Summary", HCOMMAND, help_for_category },
@@ -1889,6 +1982,8 @@ static const help_index_t help_index[] = {
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
   { "distinct", NULL, 34, help_basic },
+  { "div", NULL, 154, help_basic },
+  { "divides", NULL, 156, help_basic },
   { "dyn-ack", NULL, 121, help_basic },
   { "dyn-ack-threshold", NULL, 127, help_basic },
   { "dyn-bool-ack", NULL, 122, help_basic },
@@ -1907,6 +2002,7 @@ static const help_index_t help_index[] = {
   { "false", NULL, 40, help_basic },
   { "fast-restarts", NULL, 106, help_basic },
   { "flatten", NULL, 103, help_basic },
+  { "floor", NULL, 152, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
   { "help", "Show help", 20, help_variant },
   { "icheck", NULL, 135, help_basic },
@@ -1915,6 +2011,7 @@ static const help_index_t help_index[] = {
   { "include", NULL, 11, help_basic },
   { "index", index_string, 0, help_special },
   { "int", NULL, 24, help_basic },
+  { "is-int", NULL, 157, help_basic },
   { "ite", NULL, 30, help_basic },
   { "keep-ite", NULL, 105, help_basic },
   { "learn-eq", NULL, 104, help_basic },
@@ -1925,6 +2022,7 @@ static const help_index_t help_index[] = {
   { "max-update-conflicts", NULL, 137, help_basic },
   { "mk-bv", NULL, 57, help_basic },
   { "mk-tuple", NULL, 35, help_basic },
+  { "mod", NULL, 155, help_basic },
   { "not", NULL, 43, help_basic },
   { "optimistic-fcheck", NULL, 140, help_basic },
   { "or", NULL, 41, help_basic },

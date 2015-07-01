@@ -213,10 +213,10 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 36
-#define BSIZE 303
+#define BSIZE 310
 
 // Default values for each state
-static const uint32_t default_value[NSTATES] = {
+static const uint8_t default_value[NSTATES] = {
   error_rpar_expected,
   error_lpar_expected,
   error,
@@ -258,9 +258,9 @@ static const uint32_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
-     7,   5,   2,  55,   8,  47,   6, 142, 144,  42,
-    16,  21, 152, 167,  22, 145, 145, 147, 139, 147,
-   166, 150, 168, 162, 171, 173,
+     7,   5,   2,  55,   8,  47,   6, 149, 151,  42,
+    16,  21, 159, 174,  22, 152, 152, 154, 146, 154,
+   173, 157, 175, 169, 178, 180,
 };
 
 // Check table
@@ -282,20 +282,20 @@ static const uint8_t check[BSIZE] = {
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  17,  18,  25,  26,  27,  28,  29,  31,
-    17,  22,  18,  18,  18,  18,  22,  22,  22,  22,
-    22,  23,  23,  23,  23,  23,  30,  32,  22,  22,
-    33,  34,  35,  35,  30,  36,  36,  36,  36,  36,
-    36,  36,  36,  36,  36,  23,  23,  23,  23,  23,
+    13,  13,  13,  13,  13,  13,  13,  13,  13,  17,
+    18,  25,  26,  27,  28,  29,  31,  17,  22,  18,
+    18,  18,  18,  22,  22,  22,  22,  22,  23,  23,
+    23,  23,  23,  30,  32,  22,  22,  33,  34,  35,
+    35,  30,  36,  36,  36,  36,  36,  36,  36,  36,
+    36,  36,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
     23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
-    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
-    23,  36,  36,  36,  36,  36,  36,  36,  36,  36,
-    36,  36,  36,
+    23,  23,  23,  23,  23,  23,  23,  23,  36,  36,
+    36,  36,  36,  36,  36,  36,  36,  36,  36,  36,
 };
 
 // Value table
@@ -393,6 +393,13 @@ static const uint8_t value[BSIZE] = {
   scalar_next_goto_td2,
   tuple_next_push_t6_goto_t0,
   arrow_next_push_t6_push_t0_goto_t0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
+  symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,
@@ -604,7 +611,6 @@ static const uint8_t value[BSIZE] = {
   error,
   error,
 };
-
 
 
 #endif /* __YICES_PARSE_TABLES_H */
