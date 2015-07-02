@@ -112,7 +112,7 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_MINUS, "-" },
   { PP_OPEN_GE, ">=" },
   { PP_OPEN_LT, "<" },
-  { PP_OPEN_BV_ARRAY, "bit-array" },
+  { PP_OPEN_BV_ARRAY, "bool-to-bv" },
   { PP_OPEN_BV_SUM, "bv-add" },
   { PP_OPEN_BV_PROD, "bv-mul" },
   { PP_OPEN_BV_POWER, "bv-pow" },

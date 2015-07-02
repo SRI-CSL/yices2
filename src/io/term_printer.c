@@ -473,7 +473,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "div",
   "mod",
   "divides",
-  "bv-array",
+  "bool-to-bv",
   "bvdiv",
   "bvrem",
   "bvsdiv",
@@ -1772,6 +1772,28 @@ static void pp_lambda_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
 
 
 /*
+ * Update:
+ * - to be consistent with Yices syntax, we print [update f [i1 ... in] new_value]
+ */
+static void pp_update_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level) {
+  uint32_t i, n;
+
+  n = d->arity;
+
+  assert(n >= 3);
+  pp_open_block(printer, PP_OPEN_UPDATE);
+  pp_term_recur(printer, tbl, d->arg[0], level, true); // f
+  pp_open_block(printer, PP_OPEN_PAR);
+  for (i=1; i<n-1; i++) {
+    pp_term_recur(printer, tbl, d->arg[i], level, true); // i_1 to i_{n-1} 
+  }
+  pp_close_block(printer, true);
+  pp_term_recur(printer, tbl, d->arg[n-1], level, true); // new_value
+  pp_close_block(printer, true);
+}
+
+
+/*
  * Binary atom: depending on the polarity, we use different 'op'
  * - example: (eq t1 t2) is printed as (= t1 t2) in positive context
  *                                  or (/= t1 t2) in a negative context
@@ -2189,10 +2211,14 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
     break;
 
+  case UPDATE_TERM:
+    assert(polarity);
+    pp_update_term(printer, tbl, tbl->desc[i].ptr, level - 1);
+    break;
+
   case APP_TERM:
   case ITE_TERM:
   case ITE_SPECIAL:
-  case UPDATE_TERM:
   case TUPLE_TERM:
   case DISTINCT_TERM:
   case XOR_TERM:
