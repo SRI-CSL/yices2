@@ -154,6 +154,15 @@ typedef enum term_constructor {
   YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
   YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
   YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
+
+
+  YICES_ABS,                 // absolute value
+  YICES_CEIL,                // ceil
+  YICES_FLOOR,               // floor
+  YICES_IDIV,                // integer division
+  YICES_IMOD,                // modulo
+  YICES_IS_INT_ATOM,         // integrality test: (is-int t)
+  YICES_DIVIDES_ATOM,        // divisibility test: (divides t1 t2)
   
   // projections
   YICES_SELECT_TERM,         // tuple projection

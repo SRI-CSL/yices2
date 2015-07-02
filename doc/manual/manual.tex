@@ -1748,7 +1748,7 @@ support constraints such as \texttt{(= x y z t u)}. On the other hand,
 Yices includes an $n$-ary \texttt{distinct} operator that generalizes
 disequality.
 
-\pagebreak
+%% \pagebreak
 \medskip\noindent
 The Boolean term
 \begin{small}
@@ -2522,7 +2522,7 @@ for any \texttt{x} different from \texttt{0} and \texttt{1}.
 \label{model-format}
 \end{figure}
 
-\pagebreak
+%% \pagebreak
 
 \medskip\noindent
 Command
@@ -3025,9 +3025,6 @@ arithmetic expression. This should not be a problem, as any properly
 typed SMT-LIB~2.0 arithmetic expression is also type-correct for
 Yices.
 
-\medskip\noindent Yices does not yet support the operators
-\texttt{div}, \texttt{mod}, and \texttt{abs} defined in the SMT-LIB
-theory \texttt{Ints}. This will be added in future releases.
 
 \subsubsection*{Bitvectors}
 
@@ -3112,7 +3109,7 @@ interactive use, but impractical when reading large input files (such
 as the SMT-LIB benchmarks at \url{http://www.smtlib.org}). These
 input files typically contain long sequences of declarations and
 definitions, and printing \texttt{success} after each of them is not
-useful or informative, and can generate hundreds of thousands even
+useful or informative, and can generate hundreds of thousands if not
 millions of lines of output.  Like other solvers, Yices avoids these
 issues by setting \texttt{:print-success} to \texttt{false} by default,
 unless command-line option \texttt{--interactive} is given.

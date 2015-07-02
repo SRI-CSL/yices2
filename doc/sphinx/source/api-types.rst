@@ -138,6 +138,13 @@ Yices Terms
       YICES_BV_GE_ATOM,
       YICES_BV_SGE_ATOM,
       YICES_ARITH_GE_ATOM,
+      YICES_ABS,
+      YICES_CEIL,
+      YICES_FLOOR,
+      YICES_IDIV,
+      YICES_IMOD,
+      YICES_IS_INT_ATOM,
+      YICES_DIVIDES_ATOM,
       // projections
       YICES_SELECT_TERM,
       YICES_BIT_TERM,
@@ -273,6 +280,34 @@ Yices Terms
    .. c:enum:: YICES_ARITH_GE_ATOM
 
       Arithmetic inequality (greater than or equal to)
+
+   .. c:enum:: YICES_ABS
+
+      Absoloute value
+
+   .. c:enum:: YICES_CEIL
+
+      Ceiling (i.e., rounding up to an integer)
+
+   .. c:enum:: YICES_FLOOR
+
+      Floor (i.e., rounding down to an integer)
+
+   .. c:enum:: YICES_IDIV
+
+      Integer division
+
+   .. c:enum:: YICES_IMOD
+
+      Modulo
+
+   .. c:enum:: YICES_IS_INT_ATOM
+
+      Integrality test
+
+   .. c:enum:: YICES_DIVIDES_ATOM
+
+      Divisibility test
 
    Two special constructors are used for projection and bit extraction:
 

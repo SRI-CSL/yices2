@@ -1052,6 +1052,90 @@ Arithmetic Terms
    :file:`gmp.h` before including :file:`yices.h` to ensure that
    this function is declared.
 
+.. c:function:: term_t yices_abs(term_t t)
+
+   Absolute value: *(abs t)*
+
+   **Parameter**
+
+   - *t* must be an arithmetic term
+
+
+.. c:function:: term_t yices_floor(term_t t)
+
+   Floor: *(floor t)*
+
+   **Parameter**
+
+   - *t* must be an arithmetic term
+
+   The resulting term has integer type. It denotes the largest integer that's 
+   smaller than or equal to *t*.
+
+
+.. c:function:: term_t yices_ceil(term_t t)
+
+   Ceiling: *(ceil t)*
+
+   **Parameter**
+
+   - *t* must be an arithmetic term
+
+   The resulting term has integer type. It denotes the smallest integer that's 
+   larger than or equal to *t*.
+
+
+.. c:function:: term_t yices_idiv(term_t t1, term_t t2)
+
+   Integer division *(div t1 t2)*
+
+   **Parameters**
+
+   - *t1* must be an arithmetic term
+
+   - *t2* must be a non-zero arithmetic constant
+
+   The resulting term has type integer.
+
+   If *t2* is positive, then *(div t1 t2)* is equal to *(floor (/ t1 t2))*.
+
+   If *t2* is negative, then *(div t1 t2)* is equal to *(ceil (/ t1 t2))*.
+
+
+   **Error report**
+
+   - If *t2* is not an arithmetic constant:
+
+     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
+
+   - If *t2* is zero:
+   
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
+
+
+.. c:function:: term_t yices_imod(term_t t1, term_t t2)
+
+   Modulo: *(mod t1 t2)*
+
+   **Parameters**
+
+   - *t1* must be an arithmetic term
+
+   - *t2* must be a non-zero arithmetic constant
+
+   The resulting term is equal to *(- t1 (\* t2 (div t1 t2)))*.
+
+   **Error report**
+
+   - If *t2* is not an arithmetic constant:
+
+     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
+
+   - If *t2* is zero:
+   
+     -- error code: :c:enum:`DIVISION_BY_ZERO`
+
+
 .. c:function:: term_t yices_arith_eq_atom(term_t t1, term_t t2)
 
    Creates the arithmetic equality *(= t1 t2)*.
@@ -1100,6 +1184,32 @@ Arithmetic Terms
 
    Creates the inequality *(< t 0)*.
 
+
+.. c:function:: term_t yices_divides_atom(term_t t1, term_t t2)
+
+   Divisibility test: *(divides t1 t2)*
+
+   **Parameters**
+
+   - *t1* must be an arithmetic constant
+
+   - *t2* must be an arithmetic term
+
+   This constructs the Boolean term *(divides t1 t2)*, which is true
+   iff *t2* is of the form *n.t2* for some integer *n*.
+
+   **Error report**
+
+   - if *t1* is not an arithmetic constant:
+
+     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
+
+.. c:function:: term_t yices_is_int_atom(term_t t)
+
+   Integrality test
+
+   This constructs the atom *(is-int t)*, which is true iff *t* is an
+   integer.
 
 
 Bitvector Terms
@@ -2470,6 +2580,13 @@ The following table lists the constructors of composite terms.
      :c:enum:`YICES_BV_GE_ATOM`       (bv-ge t1 t2)
      :c:enum:`YICES_BV_SGE_ATOM`      (bv-sge t1 t2)
      :c:enum:`YICES_ARITH_GE_ATOM`    (>= t1 t2)
+     :c:enum:`YICES_ABS`              (abs t)
+     :c:enum:`YICES_CEIL`             (ceil t)
+     :c:enum:`YICES_FLOOR`            (floor t)
+     :c:enum:`YICES_IDIV`             (div t1 t2)
+     :c:enum:`YICES_IMOD`             (mod t1 t2)
+     :c:enum:`YICES_IS_INT_ATOM`      (is-int t)
+     :c:enum:`YICES_DIVIDES_ATOM`     (divides t1 t2)
     ================================ ===========================
 
 **Notes**

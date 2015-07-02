@@ -126,10 +126,10 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_UNINTERPRETED_TERM, // UNINTERPRETED_TERM
   YICES_EQ_TERM,            // ARITH_EQ_ATOM
   YICES_ARITH_GE_ATOM,      // ARITH_GE_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_IS_INT_ATOM  TBD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_FLOOR        TBD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_CEIL         TBD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_ABS          TBD
+  YICES_IS_INT_ATOM,        // ARITH_IS_INT_ATOM
+  YICES_FLOOR,              // ARITH_FLOOR
+  YICES_CEIL,               // ARITH_CEIL
+  YICES_ABS,                // ARITH_ABS
   YICES_ITE_TERM,           // ITE_TERM
   YICES_ITE_TERM,           // ITE_SPECIAL
   YICES_APP_TERM,           // APP_TERM
@@ -142,9 +142,9 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_OR_TERM,            // OR_TERM
   YICES_XOR_TERM,           // XOR_TERM
   YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIV          TBD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_MOD          TBD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIVIDES_ATOM TBD  
+  YICES_IDIV,               // ARITH_DIV
+  YICES_IMOD,               // ARITH_MOD
+  YICES_DIVIDES_ATOM,       // ARITH_DIVIDES_ATOM
   YICES_BV_ARRAY,           // BV_ARRAY
   YICES_BV_DIV,             // BV_DIV
   YICES_BV_REM,             // BV_REM
