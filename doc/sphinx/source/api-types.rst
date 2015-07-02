@@ -283,15 +283,15 @@ Yices Terms
 
    .. c:enum:: YICES_ABS
 
-      Absoloute value
+      Absolute value
 
    .. c:enum:: YICES_CEIL
 
-      Ceiling (i.e., rounding up to an integer)
+      Ceiling (i.e., rounding up to the nearest integer)
 
    .. c:enum:: YICES_FLOOR
 
-      Floor (i.e., rounding down to an integer)
+      Floor (i.e., rounding down to the nearest integer)
 
    .. c:enum:: YICES_IDIV
 
