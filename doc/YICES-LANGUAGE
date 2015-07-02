@@ -70,6 +70,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	+	-	*	/	^
 	<	<=	>	>=
 
+        abs     floor   ceil    div     mod     divides to-int
+
 	mk-bv	bv-add	bv-sub	bv-mul	bv-neg  bv-pow
 	bv-not	bv-and	bv-or	bv-xor	bv-nand	bv-nor	bv-xnor
 	bv-shift-left0 	bv-shift-left1	bv-shift-right0	bv-shift-right1
@@ -270,8 +272,67 @@ This is a summary of the commands and input language of the Yices 2 solver.
      (and the generic = and /= operations).
 
 
+4.4) More arithmetic operations:
 
-4.4) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
+       (abs x)        absolute value of x
+ 
+       (floor x)      largest integer less than or equal to x
+       (ceil x)       smallest integer more than or equal to x
+
+       (div x k)      integer division by a constant k
+       (mod x k)      modulo operation
+
+       (divides k x)  divisibility test
+       (is-int x)     integrality test
+
+
+      Floor and ceiling satisfy the following constraints:
+
+          (floor x) <= x < (floor x) + 1
+
+       (ceil x) - 1 <= x < (ceil x)
+
+
+      For the division and modulo operations, the divider k must be
+      a non-zero arithmetic constant. The division and remainder are
+      defined as follows:
+
+        (div x k) is an integer
+
+        x = (div x k) * k  + (mod x k)
+
+        0 <= (mod x k) < (abs k)
+
+      Another way to look at this is:
+
+        (div x k) = (floor (/ x k))   if k > 0
+        (div x k) =  (ceil (/ x k))   if k < 0
+
+      This follows the SMT-LIB convention for the theory Ints, except
+      that the Yices versions are not restricted to integers. Both div
+      and mod are defined for any real x and non-zero constant k. 
+      For example,  (div 1/3 1/6)  is  2.
+     
+
+      The atom (divides k x) is true if x is an integer multiple of k,
+      that is, we have:
+
+          (divides k x)  iff  (exists (n::int) x = k * n)
+
+      The divider k must be a constant (but it can be zero). If k is zero,
+      (divides k x) is true iff x is zero. As in the div/mod operations,
+      both k and x can be any real, not only integer.
+
+      The atom (is-int x) it true if x is an integer. It can be defined
+      using any of the following equivalences:
+
+          (is-int x)   iff  (divides 1 x)
+          (is-int x)   iff  (= x (floor x))
+          (is-int x)   iff  (= x (ceil x)) 
+
+
+
+4.5) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
 
      projection: (select <tuple> i) is the i-th component of the term <tuple>.
 
@@ -283,10 +344,10 @@ This is a summary of the commands and input language of the Yices 2 solver.
      the i-th component replaced by <term>
 
 
-4.5) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
+4.6) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
 
 
-4.6) bitvector functions:
+4.7) bitvector functions:
 
      a) bitvector constant from an integer
 

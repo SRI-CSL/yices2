@@ -29,6 +29,15 @@
 %%
 \mathchardef\mhyphen="2D
 
+%%
+%% Macros for naturals, integers, reals
+%%
+\newcommand{\integers}{\ensuremath{\mathbb{Z}}}
+\newcommand{\naturals}{\ensuremath{\mathbb{N}}}
+\newcommand{\reals}{\ensuremath{\mathbb{R}}}
+\newcommand{\rationals}{\ensuremath{\mathbb{Q}}}
+
+
 \begin{document}
 \begin{titlepage}
 \date{\today}
@@ -38,7 +47,7 @@ SRI International\\
 Menlo Park CA 94025 USA
 }
 \title{\bf Yices Manual\\[1em]
-Version 2.3}
+Version 2.4}
 \end{titlepage}
 
 \maketitle
@@ -290,6 +299,8 @@ SMT-LIB.
 \textsf{QF\_IDL} & \desc{Integer Difference Logic}  & yes \\
 \hline
 \textsf{QF\_LIA} & \desc{Linear Integer Arithmetic}  & yes \\
+\hline
+\textsf{QF\_LIRA} & \desc{Mixed Linear Arithmetic}  & yes \\
 \hline
 \textsf{QF\_LRA} & \desc{Linear Real Arithmetic}  & yes \\
 \hline
@@ -635,6 +646,7 @@ language includes the standard arithmetic  operators and a rich set of
 bitvector operators.
 
 \subsection{Arithmetic}
+\label{arithmetic-general}
 
 Arithmetic constants  are arbitrary precision integers  and rationals.
 Although  Yices  uses  exact  arithmetic, rational  constants  can  be
@@ -656,6 +668,24 @@ The  language  allows nonlinear  polynomials  but  this  is not  fully
 supported  by  the tool  at  this  time.  Yices~2 can  solve  problems
 involving  real and  integer linear  arithmetic, but  it does  not yet
 include a solver for nonlinear arithmetic.
+
+
+\medskip\noindent
+We've added more arithmetic operations in Yices 2.4:
+\begin{itemize}
+\item \texttt{abs}: absolute value
+\item \texttt{floor}, \texttt{ceil}: integer floor and ceiling
+\item \texttt{div}, \texttt{mod}: integer division and modulo
+\item \texttt{divides}, \texttt{is-int}: check for divisibility and integrality
+\end{itemize}
+These operations have the usual meaning. As in the SMT-LIB Ints theory, 
+the division and modulo operations are defined by the following constraints:
+$$(\mathtt{div}\ k\ x)\in \integers$$
+$$x~=~k.(\mathtt{div}\ k\ x) + (\mathtt{mod}\ k\ x)$$
+$$0~\leq~(\mathtt{mod}\ k\ x)~< |k|.$$ But the Yices~2 operations
+differ from SMT-LIB in two points. First, Yices require the divider
+$k$ to be a {\em non-zero constant\/}. Second, Yices allows both $x$
+and $k$ to be arbitrary reals, not just integers.
 
 
 \subsection{Bitvectors}
@@ -1072,10 +1102,10 @@ contains only one call to \texttt{(check)}, we can select the mode
       yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
 \end{verbatim}
 \end{small}
-`To get a more detailed output, we can give option \texttt{--verbose}:
+`To get a more detailed output, we can give a non-zero verbosity level:
 \begin{small}
 \begin{verbatim}
-      yices --verbose examples/bv_test2.ys
+      yices --verbosity=4 examples/bv_test2.ys
 \end{verbatim}
 \end{small}
 
@@ -1154,10 +1184,10 @@ is the model, which just shows the value of the global variable
 
 \medskip\noindent
 As previously, we can get more detailed output by using
-option \texttt{--verbose}:
+option \texttt{--verbosity=<level>}:
 \begin{small}
 \begin{verbatim}
-      yices --mode=ef --verbose test.ys
+      yices --mode=ef --verbosity=5 test.ys
 \end{verbatim}
 \end{small}
 It is also possible to specify a logic on the command-line.
@@ -1278,7 +1308,7 @@ options are supported.
 
 \item[--help, -h] Print a summary of options
 
-\item[--verbose, -v] Run in verbose mode
+\item[--verbosity=<level>, -v <level>] Run in verbose mode.
 \end{options}
 As indicated in this list, some options can be given either in a long
 form (like \texttt{--verbose}) or in an equivalent short from (like
@@ -1460,38 +1490,40 @@ Table~\ref{syntax:keywords}.
 -> & / & /= \\
 < & <= & <=> \\
  = & => & > \\
->= & \verb|^| & and \\
-assert & bit & bitvector \\
-bool & bool-to-bv & bv-add \\
-bv-and & bv-ashift-right & bv-ashr\\
-bv-comp & bv-concat & bv-div \\
-bv-extract & bv-ge & bv-gt \\
-bv-le & bv-lshr & bv-lt \\
-bv-mul & bv-nand & bv-neg \\
-bv-nor & bv-not & bv-or \\
-bv-pow & bv-redand & bv-redor \\
-bv-rem & bv-repeat & bv-rotate-left \\
-bv-rotate-right & bv-sdiv & bv-sge \\
-bv-sgt & bv-shift-left0 & bv-shift-left1 \\
-bv-shift-right0 & bv-shift-right1 & bv-shl \\
-bv-sign-extend & bv-sle & bv-slt \\
-bv-smod & bv-srem & bv-sub \\
-bv-xnor & bv-xor & bv-zero-extend \\
-check & define & define-type \\
-distinct & dump-context & echo  \\
-ef-solve & eval & exists \\
-exit & export-to-dimacs & false \\
-forall & help & if \\
-include & int & ite \\
+>= & \verb|^| & abs \\
+and & assert & bit \\
+bitvector & bool & bool-to-bv \\
+bv-add & bv-and & bv-ashift-right\\
+bv-ashr & bv-comp & bv-concat \\
+bv-div  & bv-extract & bv-ge \\
+bv-gt  & bv-le & bv-lshr \\
+bv-lt  & bv-mul & bv-nand \\
+bv-neg & bv-nor & bv-not\\
+bv-or  & bv-pow & bv-redand \\
+bv-redor & bv-rem & bv-repeat \\
+bv-rotate-left & bv-rotate-right & bv-sdiv \\
+bv-sge & bv-sgt & bv-shift-left0 \\
+bv-shift-left1 & bv-shift-right0 & bv-shift-right1 \\
+bv-shl & bv-sign-extend & bv-sle \\
+bv-slt & bv-smod & bv-srem \\
+bv-sub & bv-xnor & bv-xor \\
+bv-zero-extend & ceil & check \\
+define & define-type & distinct \\
+div & divides & dump-context \\
+echo  & ef-solve & eval \\
+exists & exit & export-to-dimacs \\
+false & floor & forall \\
+help & if & include \\
+int & is-int & ite \\
 lambda & let & mk-bv \\
-mk-tuple & not & or \\
-pop & push & real \\
-reset & reset-stats & scalar \\
-select & set-param & set-timeout \\
-show-implicant & show-model & show-param \\
-show-params & show-stats & true \\
-tuple & tuple-update & update \\
-xor &  &  \\
+mk-tuple & mod & not \\
+or & pop & push \\
+real & reset & reset-stats \\
+scalar & select & set-param \\
+set-timeout & show-implicant & show-model \\
+show-param & show-params & show-stats\\
+true & tuple & tuple-update \\
+update & xor &  \\
 \hline
 \end{tabular}
 \end{tt}
@@ -1762,11 +1794,7 @@ with Boolean terms. If \texttt{t1} and \texttt{t2} are Boolean
 then \texttt{(= t1 t2)} is the same as \texttt{(<=> t1 t2)},
 and \texttt{(/= t1 t2)} is the same as \texttt{(xor t1 t2)}.
 
-\subsubsection*{Arithmetic}
-
-Arithmetic constants can be written in decimal, as rationals, or using
-floating point notation. Internally, Yices uses exact rational
-arithmetic and it represents all arithmetic constants as rationals.
+\subsubsection*{Basic Arithmetic}
 
 \begin{table}[h]
 \begin{small}
@@ -1794,6 +1822,10 @@ Syntax & \multicolumn{2}{|c|}{Meaning} \\
 \label{Arithmetic-Operations}
 \end{table}
 
+Arithmetic constants can be written in decimal, as rationals, or using
+the floating point notation. Internally, Yices uses exact rational
+arithmetic and it represents all arithmetic constants as rationals.
+
 \medskip\noindent
 The usual arithmetic operations and comparison operators are
 summarized in Table~\ref{Arithmetic-Operations}. One can freely mix
@@ -1801,10 +1833,54 @@ terms of real and integer types in all operations. The exponent $k$ in
 \texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
 divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
 
+
 \medskip\noindent
 The Yices language includes more than linear arithmetic, but this is
 for future extensions. Currently, Yices does not include solvers for
 non-linear arithmetic (cf. Section~\ref{solvers}).
+
+\subsubsection*{Arithmetic Functions}
+
+Other arithmetic operations defined in Yices are listed in Table~\ref{Arithmetic-Functions}.
+The operations \texttt{abs}, \texttt{floor}, and \texttt{ceil} have the usual meaning:
+\begin{itemize}
+\item \texttt{(abs x)} is the absolute value of \texttt{x}.
+\item \texttt{(floor x)} is the largest integer less than or equal to \texttt{x}.
+\item \texttt{(ceil x)} is the smallest integer larger than or equal to \texttt{x}.
+\end{itemize}
+For integer division and modulo, Yices uses the SMT-LIB conventions (see
+Section~\ref{arithmetic-general}), except that the divider \texttt{k}
+must be a non-zero constant and that both \texttt{div} and
+\texttt{mod} are defined over the reals, not just the integers.
+Division by a non-constant term is not supported.
+
+\medskip\noindent
+In the divisibility test \texttt{(divides k x)}, the divider
+\texttt{k} must be a rational constant but it can be zero. The term
+\texttt{x} can be any real.
+
+
+\begin{table}[h]
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{3.4cm}|l|}
+\hline Syntax & Meaning \\ 
+\hline
+\texttt{(abs x)} & absolute value \\ 
+\texttt{(floor x)} & floor \\
+\texttt{(ceil x)} & ceiling \\ 
+\hline
+\texttt{(div x k)} & integer division \\
+\texttt{(mod x k)} & modulo \\ 
+\texttt{(divides k x)} & divisibility test\\ 
+\texttt{(is-int x)} & integrality test\\ 
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Arithmetic Functions}
+\label{Arithmetic-Functions}
+\end{table}
 
 \subsubsection*{Bitvectors Constants}
 
