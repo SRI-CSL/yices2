@@ -3,7 +3,7 @@
 #                                                                       #
 #  This program may only be used subject to the noncommercial end user  #
 #  license agreement which is downloadable along with this program.     #
-#########################################################################                
+#########################################################################
 
 #
 # Top-level Makefile
@@ -36,8 +36,8 @@ YICES_TOP_DIR=$(shell pwd)
 # - P should not work anymore with libyices 2.1.0 or 3.0.0
 #
 MAJOR = 2
-MINOR = 3
-PATCH_LEVEL = 1
+MINOR = 4
+PATCH_LEVEL = 0
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 
