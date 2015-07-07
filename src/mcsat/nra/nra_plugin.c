@@ -716,8 +716,10 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
     case VALUE_LIBPOLY: {
       fprintf(out, "x%zu = ", x_lp);
       const lp_value_t* x_value_lp = &x_value->lp_value;
+#ifndef NDEBUG
       const lp_value_t* x_value_lp_in_assignment = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
       assert(lp_value_cmp(x_value_lp, x_value_lp_in_assignment) == 0);
+#endif
       if (lp_value_is_rational(x_value_lp)) {
         lp_rational_t q;
         lp_rational_construct(&q);

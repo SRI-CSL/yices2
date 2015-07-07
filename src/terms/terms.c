@@ -3404,6 +3404,11 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
     mark_and_explore_term(table, ptr, table->desc[i].integer);
     break;
 
+  case ARITH_ROOT_ATOM:
+    // i is a root atom
+    mark_root_atom(table, ptr, table->desc[i].ptr);
+    break;
+
   case ITE_TERM:
   case APP_TERM:
   case UPDATE_TERM:

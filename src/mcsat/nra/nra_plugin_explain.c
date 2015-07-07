@@ -445,6 +445,7 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
   return root_atom;
 }
 
+#ifndef NDEBUG
 static
 bool ensure_true(plugin_context_t* ctx, term_t literal) {
   term_t atom = unsigned_term(literal);
@@ -469,6 +470,7 @@ bool ensure_true(plugin_context_t* ctx, term_t literal) {
   return ok;
 }
 
+#endif
 
 /**
  * Lift from bottom of the projection map: generate intervals that contain

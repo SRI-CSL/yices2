@@ -389,6 +389,7 @@ void mcsat_bump_variable(mcsat_solver_t* mcsat, variable_t x, uint32_t factor) {
   var_queue_bump_variable(&mcsat->var_queue, x, factor);
 }
 
+#if 0
 static inline
 void mcsat_bump_variables_vector(mcsat_solver_t* mcsat, const ivector_t* vars) {
   uint32_t i;
@@ -396,6 +397,7 @@ void mcsat_bump_variables_vector(mcsat_solver_t* mcsat, const ivector_t* vars) {
     mcsat_bump_variable(mcsat, vars->data[i], 1);
   }
 }
+#endif
 
 static inline
 void mcsat_bump_variables_mset(mcsat_solver_t* mcsat, const int_mset_t* vars) {

@@ -1123,6 +1123,7 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
   case ARITH_ROOT_ATOM:
     // TODO
     assert(false);
+    result = NULL_TERM;
     break;
 
   case ARITH_IS_INT_ATOM:
