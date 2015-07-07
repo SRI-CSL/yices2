@@ -1599,6 +1599,10 @@ static void show_ctx_stats(context_t *ctx) {
   if (context_has_bv_solver(ctx)) {
     show_bvsolver_stats(ctx->bv_solver);
   }
+
+  if (ctx->mcsat != NULL) {
+    mcsat_show_stats(ctx->mcsat, __smt2_globals.out);
+  }
 }
 
 
@@ -2193,7 +2197,9 @@ static void init_smt2_context(smt2_globals_t *g) {
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
-  if (g->benchmark_mode) {
+  if (g->mcsat) {
+    arch = CTX_ARCH_MCSAT;
+  } else if (g->benchmark_mode) {
     // change mode and arch for QF_IDL/QF_RDL
     mode = CTX_MODE_ONECHECK;
     switch (logic) {
@@ -2212,7 +2218,7 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
   assert(g->ctx != NULL);
-  if (g->verbosity > 0) {
+  if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
 }
@@ -2342,6 +2348,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
     case ARITH_CEIL:
     case ARITH_ABS:
       result = needs_egraph(seen, arith_atom_arg(terms, t));
+      break;
+
+    case ARITH_ROOT_ATOM:
+      result = needs_egraph(seen, arith_root_atom_desc(terms, t)->p);
       break;
 
     case ITE_TERM:
@@ -2580,7 +2590,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     }
     context_clear(g->ctx);
     assert(context_status(g->ctx) == STATUS_IDLE);
-    // fall through intended
+    // fall-through intended
 
   case STATUS_IDLE:
     code = assert_formula(g->ctx, t);
@@ -2662,7 +2672,7 @@ static void ctx_push(smt2_globals_t *g) {
     }
     context_clear(g->ctx);
     assert(context_status(g->ctx) == STATUS_IDLE);
-    // fall through intended
+    // fall-through intended
 
   case STATUS_IDLE:
     context_push(g->ctx);
@@ -3121,6 +3131,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->global_decls = false;
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
+  g->mcsat = false;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -3240,6 +3251,17 @@ void smt2_set_verbosity(uint32_t k) {
   __smt2_globals.verbosity = k;
   update_trace_verbosity(&__smt2_globals);
 }
+
+/*
+ * Enable a trace tag for tracing
+ */
+void smt2_enable_trace_tag(const char* tag) {
+  tracer_t* tracer;
+
+  tracer = get_tracer(&__smt2_globals);
+  enable_trace_tag(tracer, tag);
+}
+
 
 /*
  * Display all statistics
@@ -4135,4 +4157,11 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
  */
 void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
   // TBD
+}
+
+/*
+ * Enables the mcsat solver.
+ */
+void smt2_enable_mcsat() {
+  __smt2_globals.mcsat = true;
 }

@@ -381,6 +381,41 @@ extern term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b);  // b >=
 extern term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b);  // b <= 0
 extern term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b);   // b > 0
 extern term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b);   // b < 0
+extern term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b);   // b == 0
+
+
+/*
+ * Arithmetic root atom.
+ */
+extern term_t mk_arith_root_atom(term_manager_t* manager, uint32_t k, term_t x, term_t p, root_atom_rel_t r);
+
+/*
+ * Arithmetic root atom (b is a buffer that can be cleared and used for computation).
+ */
+extern term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r);
+
+
+/*
+ * Arithmetic root atoms.
+ */
+extern term_t mk_arith_root_atom_lt(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+extern term_t mk_arith_root_atom_leq(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+extern term_t mk_arith_root_atom_eq(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+extern term_t mk_arith_root_atom_neq(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+extern term_t mk_arith_root_atom_gt(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+extern term_t mk_arith_root_atom_geq(term_manager_t *manager, uint32_t k, term_t x, term_t p);
+
+
+/*
+ * Arithmetic root atoms (direct versions).
+ */
+extern term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+
 
 
 /*

@@ -180,6 +180,9 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case ARITH_ABS:
     sharing_map_process_occurrence(map, index_of(integer_value_for_idx(map->terms, i)), i);
     break;
+  case ARITH_ROOT_ATOM:
+    assert(false);
+    break;
 
   case ITE_TERM:
   case ITE_SPECIAL:

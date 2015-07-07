@@ -1397,6 +1397,10 @@ void flatten_assertion(context_t *ctx, term_t f) {
         flatten_arith_geq0(ctx, r, tt);
         break;
 
+      case ARITH_ROOT_ATOM:
+        intern_tbl_map_root(intern, r, bool2code(tt));
+        break;
+
       case ARITH_IS_INT_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_is_int(ctx, r, tt);

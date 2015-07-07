@@ -34,6 +34,7 @@ typedef struct tracer_s {
   uint32_t vlevel;
   bool print_failed;     // true if printing fails
   int err_code;          // copy of errno when failure was reported
+  pvector_t trace_tags;  // list of tags
 } tracer_t;
 
 
@@ -46,6 +47,7 @@ static inline void init_trace(tracer_t *tracer) {
   tracer->vlevel = 0;
   tracer->print_failed = false;
   tracer->err_code = 0;
+  init_pvector(&tracer->trace_tags, 5);
 }
 
 
@@ -56,6 +58,12 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
   tracer->vlevel = level;
 }
 
+/*
+ * Enable a tag to trace.
+ */
+static inline void enable_trace_tag(tracer_t *tracer, const char* tag) {
+  pvector_push(&tracer->trace_tags, strdup(tag));
+}
 
 /*
  * Check whether the verbosity level is at least lvl
@@ -65,6 +73,11 @@ static inline bool tracing(tracer_t *tracer, uint32_t lvl) {
   return tracer != NULL && tracer->vlevel >= lvl;
 }
 
+/*
+ * Check whether the tracing tag has been enabled.
+ * - return false if trace is NULL;
+ */
+bool tracing_tag(tracer_t *tracer, const char *tag);
 
 /*
  * Change output file:

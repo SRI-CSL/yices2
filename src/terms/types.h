@@ -93,6 +93,7 @@ typedef enum {
   INSTANCE_TYPE,
 } type_kind_t;
 
+#define NUM_TYPE_KINDS (INSTANCE_TYPE+1)
 
 /*
  * Ids of the predefined types

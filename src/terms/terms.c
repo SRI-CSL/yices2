@@ -272,6 +272,26 @@ static int32_t new_select_term(term_table_t *table, term_kind_t tag, type_t tau,
 }
 
 
+/*
+ * Root object:
+ * - k = root index
+ * - x = variable
+ * - p = polynomial in x
+ * - r = relation
+ */
+static root_atom_t* new_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+  root_atom_t *atom;
+
+  atom = (root_atom_t *) safe_malloc(sizeof(root_atom_t));
+  atom->k = k;
+  atom->x = x;
+  atom->p = p;
+  atom->r = r;
+
+  return atom;
+}
+
+
 
 
 /*
@@ -539,6 +559,14 @@ static inline uint32_t hash_select_term(term_kind_t tag, uint32_t k, term_t t) {
 
 
 /*
+ * Root atoms: (k, x, p, r)
+ */
+static inline uint32_t hash_root_atom(uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+  return jenkins_hash_quad(k, x, p, r, 0xdededede);
+}
+
+
+/*
  * Power product: since the pprod-table already does hash consing,
  * a power product r is uniquely identified by its address.
  */
@@ -720,6 +748,23 @@ typedef struct {
 
 
 /*
+ * Select term
+ * - k = root index
+ * - x = main variable
+ * - p = the polynomial (in x) whose root is being compared
+ * - r = the relation
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  uint32_t k;
+  term_t x;
+  term_t p;
+  root_atom_rel_t r;
+} root_atom_hobj_t;
+
+
+/*
  * Power product
  * - tau = type (can be int, real, or bitvector)
  * - r = power product
@@ -833,6 +878,10 @@ static uint32_t hash_lambda_hobj(lambda_term_hobj_t *o) {
 
 static uint32_t hash_select_hobj(select_term_hobj_t *o) {
   return hash_select_term(o->tag, o->k, o->arg);
+}
+
+static uint32_t hash_root_atom_hobj(root_atom_hobj_t *o) {
+  return hash_root_atom(o->k, o->x, o->p, o->r);
 }
 
 static uint32_t hash_pprod_hobj(pprod_term_hobj_t *o) {
@@ -985,6 +1034,20 @@ static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
   return d->idx == o->k && d->arg == o->arg;
 }
 
+static bool eq_root_atom_hobj(root_atom_hobj_t *o, int32_t i) {
+  term_table_t *table;
+  root_atom_t *r;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  if (table->kind[i] != ARITH_ROOT_ATOM) return false;
+
+  r = table->desc[i].ptr;
+  return r->k == o->k && r->p == o->p && r->r == o->r && r->x == o->x;
+}
+
+
 static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
@@ -1109,6 +1172,13 @@ static int32_t build_select_hobj(select_term_hobj_t *o) {
   return new_select_term(o->tbl, o->tag, o->tau, o->k, o->arg);
 }
 
+static int32_t build_root_atom_hobj(root_atom_hobj_t *o) {
+  root_atom_t* r;
+
+  r = new_root_atom(o->tbl, o->k, o->x, o->p, o->r);
+  return new_ptr_term(o->tbl, ARITH_ROOT_ATOM, bool_type(o->tbl->types), r);
+}
+
 static int32_t build_pprod_hobj(pprod_term_hobj_t *o) {
   return new_ptr_term(o->tbl, POWER_PRODUCT, o->tau, o->r);
 }
@@ -1212,6 +1282,13 @@ static lambda_term_hobj_t lambda_hobj = {
 static select_term_hobj_t select_hobj = {
   { (hobj_hash_t) hash_select_hobj, (hobj_eq_t) eq_select_hobj,
     (hobj_build_t) build_select_hobj },
+  NULL,
+  0, 0, 0, 0,
+};
+
+static root_atom_hobj_t root_atom_hobj = {
+  { (hobj_hash_t) hash_root_atom_hobj, (hobj_eq_t) eq_root_atom_hobj,
+    (hobj_build_t) build_root_atom_hobj },
   NULL,
   0, 0, 0, 0,
 };
@@ -1509,6 +1586,7 @@ void clear_term_name(term_table_t *table, term_t t) {
 static void delete_term(term_table_t *table, int32_t i) {
   composite_term_t *d;
   select_term_t *s;
+  root_atom_t* r;
   bvconst_term_t *c;
   bvconst64_term_t *c64;
   uint32_t h, n;
@@ -1628,6 +1706,13 @@ static void delete_term(term_table_t *table, int32_t i) {
     // Select terms: nothing to delete.
     s = &table->desc[i].select;
     h = hash_select_term(table->kind[i], s->idx, s->arg);
+    break;
+
+  case ARITH_ROOT_ATOM:
+    // Root atoms: nothing to delete
+    r = table->desc[i].ptr;
+    h = hash_root_atom(r->k, r->x, r->p, r->r);
+    safe_free(r);
     break;
 
   case POWER_PRODUCT:
@@ -1797,6 +1882,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case ARITH_DIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
+    case ARITH_ROOT_ATOM:
     case BV64_CONSTANT:
     case BV_CONSTANT:
     case BV_ARRAY:
@@ -2473,6 +2559,24 @@ term_t arith_divides(term_table_t *table, term_t x, term_t y) {
   return binary_term(table, ARITH_DIVIDES_ATOM, bool_type(table->types), x, y);
 }
 
+
+
+/*
+ * Root constraint x r root_k(p).
+ */
+term_t arith_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+  int32_t i;
+
+  root_atom_hobj.tbl = table;
+  root_atom_hobj.k = k;
+  root_atom_hobj.x = x;
+  root_atom_hobj.p = p;
+  root_atom_hobj.r = r;
+
+  i = int_htbl_get_obj(&table->htbl, &root_atom_hobj.m);
+
+  return pos_term(i);
+}
 
 
 /*
@@ -3212,6 +3316,12 @@ static void mark_composite_term(term_table_t *table, int32_t ptr, composite_term
 // subterm of d
 static inline void mark_select_term(term_table_t *table, int32_t ptr, select_term_t *d) {
   mark_and_explore_term(table, ptr, d->arg);
+}
+
+// root atoms
+static inline void mark_root_atom(term_table_t *table, int32_t ptr, root_atom_t *r) {
+  // x should be in p, so no need to explore
+  mark_and_explore_term(table, ptr, r->p);
 }
 
 // variables in polynomials

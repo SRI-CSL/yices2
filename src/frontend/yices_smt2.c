@@ -51,9 +51,12 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
+static bool mcsat;
 static bool show_stats;
 static int32_t verbosity;
 static char *filename;
+
+static pvector_t trace_tags;
 
 
 /****************************
@@ -67,9 +70,11 @@ typedef enum optid {
   verbosity_opt,        // set verbosity on the command line
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
+  mcsat_opt,            // enable mcsat
+  trace_opt,            // enable a trace tag
 } optid_t;
 
-#define NUM_OPTIONS (interactive_opt+1)
+#define NUM_OPTIONS (trace_opt+1)
 
 /*
  * Option descriptors
@@ -81,6 +86,8 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
+  { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
 
@@ -110,6 +117,7 @@ static void print_help(const char *progname) {
 	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
+         "    --mcsat                 Use the MCSat solver"
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -136,8 +144,11 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
+  mcsat = false;
   show_stats = false;
   verbosity = 0;
+
+  init_pvector(&trace_tags, 5);
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -189,6 +200,14 @@ static void parse_command_line(int argc, char *argv[]) {
       case interactive_opt:
 	interactive = true;
 	break;
+
+      case mcsat_opt:
+        mcsat = true;
+        break;
+
+      case trace_opt:
+        pvector_push(&trace_tags, elem.s_value);
+        break;
       }
       break;
 
@@ -295,6 +314,7 @@ static void force_utf8(void) {
 
 int main(int argc, char *argv[]) {
   int32_t code;
+  uint32_t i;
 
   parse_command_line(argc, argv);
   force_utf8();
@@ -319,6 +339,15 @@ int main(int argc, char *argv[]) {
   if (verbosity > 0) {
     smt2_set_verbosity(verbosity);
   }
+  if (trace_tags.size > 0) {
+    for (i = 0; i < trace_tags.size; ++ i) {
+      smt2_enable_trace_tag(trace_tags.data[i]);
+    }
+  }
+  if (mcsat) {
+    smt2_enable_mcsat();
+  }
+
 
   while (smt2_active()) {
     if (interactive) {
@@ -341,6 +370,7 @@ int main(int argc, char *argv[]) {
     smt2_show_stats();
   }
 
+  delete_pvector(&trace_tags);
   delete_parser(&parser);
   close_lexer(&lexer);
   delete_tstack(&stack);

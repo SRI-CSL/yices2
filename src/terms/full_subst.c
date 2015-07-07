@@ -288,6 +288,11 @@ static bool fsubst_explore(full_subst_t *subst, int32_t i) {
     result = fsubst_visit(subst, integer_value_for_idx(terms, i));
     break;
 
+  case ARITH_ROOT_ATOM:
+    // TODO: not sure what substituion means yet
+    assert(false);
+    break;
+
   case ITE_TERM:
   case ITE_SPECIAL:
   case APP_TERM:
@@ -580,6 +585,13 @@ static term_t full_subst_arith_ge(full_subst_t *subst, term_t t) {
 
   s = full_subst(subst, t);
   return mk_arith_term_geq0(subst->mngr, s);
+}
+
+// root atom
+static term_t full_subst_arith_root_atom(full_subst_t *subst, root_atom_t* r) {
+  // TODO: what does this even mean?
+  assert(false);
+  return NULL_TERM;
 }
 
 // is_int t
@@ -1155,6 +1167,11 @@ static term_t full_subst_composite(full_subst_t *subst, term_t t) {
 
   case ARITH_ABS:
     s = full_subst_arith_abs(subst, arith_abs_arg(terms, t));
+    break;
+
+  case ARITH_ROOT_ATOM:
+    // TODO:
+    s = full_subst_arith_root_atom(subst, arith_root_atom_desc(terms, t));
     break;
 
   case ITE_TERM:

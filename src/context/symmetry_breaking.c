@@ -1212,6 +1212,10 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
       push_term(queue, cache, arith_atom_arg(terms, r));
       break;
 
+    case ARITH_ROOT_ATOM:
+      // ignore it
+      break;
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case APP_TERM:

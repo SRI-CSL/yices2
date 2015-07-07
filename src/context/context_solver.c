@@ -339,6 +339,11 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   fun_solver_t *fsolver;
   uint32_t quota;
 
+  if (ctx->mcsat != NULL) {
+    mcsat_solve(ctx->mcsat, params);
+    return mcsat_status(ctx->mcsat);
+  }
+
   core = ctx->core;
   egraph = ctx->egraph;
 

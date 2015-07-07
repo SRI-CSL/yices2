@@ -677,7 +677,7 @@ static term_t arith_buffer_to_term(term_table_t *tbl, rba_buffer_t *b) {
       // term or power product
       t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
     } else {
-    // can't simplify
+      // can't simplify
       t = arith_poly(tbl, b);
     }
   } else {
@@ -2066,89 +2066,7 @@ static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t) {
  *   and return the atom (t == 0).
  */
 term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b) {
-  term_table_t *tbl;
-  mono_t *m[2], *m1, *m2;
-  pprod_t *r1, *r2;
-  rational_t *r0;
-  term_t t1, t2, t;
-  uint32_t n;
-
-  assert(b->ptbl == manager->pprods);
-
-  tbl = manager->terms;
-
-  n = b->nterms;
-  if (n == 0) {
-    // b is zero
-    t = true_term;
-
-  } else if (n == 1) {
-    /*
-     * b is a1 * r1 with a_1 != 0
-     * (a1 * r1 == 0) is false if r1 is the empty product
-     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwise
-     */
-    m1 = rba_buffer_root_mono(b);
-    r1 = m1->prod;
-    assert(q_is_nonzero(&m1->coeff));
-    if (r1 == empty_pp) {
-      t = false_term;
-    } else {
-      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
-      t = mk_arith_eq0_atom(tbl, t1); // atom r1 = 0
-    }
-
-  } else if (n == 2) {
-    /*
-     * b is a1 * r1 + a2 * r2
-     * Simplifications:
-     * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
-     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
-     */
-    rba_buffer_monomial_pair(b, m);
-    m1 = m[0];
-    m2 = m[1];
-    r1 = m1->prod;
-    r2 = m2->prod;
-    assert(q_is_nonzero(&m1->coeff) && q_is_nonzero(&m2->coeff));
-
-    r0 = &manager->r0;
-
-    if (r1 == empty_pp) {
-      q_set_neg(r0, &m1->coeff);
-      q_div(r0, &m2->coeff);  // r0 is -a1/a2
-      t1 = arith_constant(tbl, r0);
-      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-      t = mk_arith_bineq_atom(tbl, t1, t2);
-
-    } else {
-      q_set(r0, &m1->coeff);
-      q_add(r0, &m2->coeff);
-      if (q_is_zero(r0)) {
-        t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
-        t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-        t = mk_arith_bineq_atom(tbl, t1, t2);
-
-      } else {
-        // no simplification
-        t = arith_poly(tbl, b);
-        t = arith_eq_atom(tbl, t);
-      }
-    }
-
-  } else {
-    /*
-     * more than 2 monomials: don't simplify
-     */
-    t = arith_poly(tbl, b);
-    t = arith_eq_atom(tbl, t);
-  }
-
-
-  reset_rba_buffer(b);
-  assert(good_term(tbl, t) && is_boolean_term(tbl, t));
-
-  return t;
+  return mk_direct_arith_eq0(manager->terms, b);
 }
 
 
@@ -2210,6 +2128,101 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
   return arith_geq_atom(tbl, t);
 }
 
+
+/*
+ * Construct the atom (b == 0) then reset b.
+ *
+ * Normalize b first.
+ * - simplify to true if b is the zero polynomial
+ * - simplify to false if b is constant and non-zero
+ * - rewrite to (t1 == t2) if that's possible.
+ * - otherwise, create a polynomial term t from b
+ *   and return the atom (t == 0).
+ */
+term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
+  mono_t *m[2], *m1, *m2;
+  pprod_t *r1, *r2;
+  rational_t r0;
+  term_t t1, t2, t;
+  uint32_t n;
+
+  assert(b->ptbl == tbl->pprods);
+
+  n = b->nterms;
+  if (n == 0) {
+    // b is zero
+    t = true_term;
+
+  } else if (n == 1) {
+    /*
+     * b is a1 * r1 with a_1 != 0
+     * (a1 * r1 == 0) is false if r1 is the empty product
+     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwise
+     */
+    m1 = rba_buffer_root_mono(b);
+    r1 = m1->prod;
+    assert(q_is_nonzero(&m1->coeff));
+    if (r1 == empty_pp) {
+      t = false_term;
+    } else {
+      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
+      t = mk_arith_eq0_atom(tbl, t1); // atom r1 = 0
+    }
+
+  } else if (n == 2) {
+    /*
+     * b is a1 * r1 + a2 * r2
+     * Simplifications:
+     * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
+     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
+     */
+    rba_buffer_monomial_pair(b, m);
+    m1 = m[0];
+    m2 = m[1];
+    r1 = m1->prod;
+    r2 = m2->prod;
+    assert(q_is_nonzero(&m1->coeff) && q_is_nonzero(&m2->coeff));
+
+    q_init(&r0);
+
+    if (r1 == empty_pp) {
+      q_set_neg(&r0, &m1->coeff);
+      q_div(&r0, &m2->coeff);  // r0 is -a1/a2
+      t1 = arith_constant(tbl, &r0);
+      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
+      t = mk_arith_bineq_atom(tbl, t1, t2);
+
+    } else {
+      q_set(&r0, &m1->coeff);
+      q_add(&r0, &m2->coeff);
+      if (q_is_zero(&r0)) {
+        t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
+        t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
+        t = mk_arith_bineq_atom(tbl, t1, t2);
+
+      } else {
+        // no simplification
+        t = arith_poly(tbl, b);
+        t = arith_eq_atom(tbl, t);
+      }
+    }
+
+    q_clear(&r0);
+
+  } else {
+    /*
+     * more than 2 monomials: don't simplify
+     */
+    t = arith_poly(tbl, b);
+    t = arith_eq_atom(tbl, t);
+  }
+
+
+  reset_rba_buffer(b);
+  assert(good_term(tbl, t) && is_boolean_term(tbl, t));
+
+  return t;
+}
 
 
 /*
@@ -2487,7 +2500,7 @@ term_t mk_arith_geq(term_manager_t *manager, term_t t1, term_t t2) {
  * Derived atoms
  */
 
-// t1 != t2  -->  not (t1 == t2
+// t1 != t2  -->  not (t1 == t2)
 term_t mk_arith_neq(term_manager_t *manager, term_t t1, term_t t2) {
   return opposite_term(mk_arith_eq(manager, t1, t2));
 }
@@ -2620,6 +2633,182 @@ term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b) {
 }
 
 
+/*
+ * Make root atom.
+ */
+term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buffer_t *p_b, root_atom_rel_t r) {
+  uint32_t degree = rba_buffer_degree(p_b);
+  uint32_t degree_x = rba_buffer_var_degree(p_b, x);
+  uint32_t n;
+  rational_t root;
+  term_t p, root_term, result = NULL_TERM;
+  polynomial_t* p_poly;
+
+  (void)degree_x;
+  assert(degree > 0);
+  assert(k < degree_x);
+
+  if (degree == 1) {
+    // Special case, these are just regular inequalities:
+    // p = ax + b, solve p = 0, x = -b/a, resulting in x r -b/a
+    n = p_b->nterms;
+    assert(n > 0);
+    if (n == 1) {
+      // p = ax => root is 0
+      // reuse p_b buffer for x
+      reset_rba_buffer(p_b);
+      switch (r) {
+      case ROOT_ATOM_LT:
+        rba_buffer_add_term(p_b, terms, x);
+        result = mk_direct_arith_lt0(terms, p_b);
+        break;
+      case ROOT_ATOM_LEQ:
+        rba_buffer_add_term(p_b, terms, x);
+        result = mk_direct_arith_leq0(terms, p_b);
+        break;
+      case ROOT_ATOM_EQ:
+        result = mk_arith_eq0_atom(terms, x);
+        break;
+      case ROOT_ATOM_NEQ:
+        result = mk_arith_eq0_atom(terms, x);
+        result = opposite_term(result);
+        break;
+      case ROOT_ATOM_GEQ:
+        rba_buffer_add_term(p_b, terms, x);
+        result = mk_direct_arith_geq0(terms, p_b);
+        break;
+      case ROOT_ATOM_GT:
+        rba_buffer_add_term(p_b, terms, x);
+        result = mk_direct_arith_gt0(terms, p_b);
+        break;
+      }
+    } else {
+      // p = ax + b => root is -b/a
+      // we might still be multivariate, so have to check
+      // we are degree 1, so we can have:
+      // - one term, i.e. a*x
+      // - two terms, i.e. a*x + b, but not a*x + b*y
+      // - three terms or more is not univariate
+      p = mk_direct_arith_term(terms, p_b);
+      assert(term_kind(terms, p) == ARITH_POLY);
+      p_poly = poly_term_desc(terms, p);
+      if (p_poly->nterms <= 2) {
+        if (p_poly->nterms == 1 || p_poly->mono[0].var == const_idx || p_poly->mono[1].var == const_idx) {
+
+          q_init(&root);
+          if (p_poly->nterms == 2) {
+            // ax + b
+            if (p_poly->mono[0].var == const_idx) {
+              q_set(&root, &p_poly->mono[0].coeff);
+              q_div(&root, &p_poly->mono[1].coeff);
+            } else {
+              assert(p_poly->mono[1].var == const_idx);
+              q_set(&root, &p_poly->mono[1].coeff);
+              q_div(&root, &p_poly->mono[0].coeff);
+            }
+            q_neg(&root);
+          } else {
+            // ax, root = 0
+          }
+
+          // reuse p_b buffer for x
+          reset_rba_buffer(p_b);
+
+          switch (r) {
+          case ROOT_ATOM_LT:
+            rba_buffer_add_term(p_b, terms, x);
+            rba_buffer_sub_const(p_b, &root);
+            result = mk_direct_arith_lt0(terms, p_b);
+            break;
+          case ROOT_ATOM_LEQ:
+            rba_buffer_add_term(p_b, terms, x);
+            rba_buffer_sub_const(p_b, &root);
+            result = mk_direct_arith_leq0(terms, p_b);
+            break;
+          case ROOT_ATOM_EQ:
+            root_term = arith_constant(terms, &root);
+            result = mk_arith_bineq_atom(terms, x, root_term);
+            break;
+          case ROOT_ATOM_NEQ:
+            root_term = arith_constant(terms, &root);
+            result = mk_arith_bineq_atom(terms, x, root_term);
+            result = opposite_term(result);
+            break;
+          case ROOT_ATOM_GEQ:
+            rba_buffer_add_term(p_b, terms, x);
+            rba_buffer_sub_const(p_b, &root);
+            result = mk_direct_arith_geq0(terms, p_b);
+            break;
+          case ROOT_ATOM_GT:
+            rba_buffer_add_term(p_b, terms, x);
+            rba_buffer_sub_const(p_b, &root);
+            result = mk_direct_arith_gt0(terms, p_b);
+            break;
+          }
+        } else {
+          // not linear univariate
+          result = arith_root_atom(terms, k, x, p, r);
+        }
+      } else {
+        // not linear univariate
+        result = arith_root_atom(terms, k, x, p, r);
+      }
+    }
+  } else {
+    term_t p = mk_direct_arith_term(terms, p_b);
+    result = arith_root_atom(terms, k, x, p, r);
+  }
+
+  return result;
+}
+
+term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, terms, p);
+  return mk_arith_root_atom_aux(terms, k, x, b, r);
+}
+
+term_t mk_arith_root_atom(term_manager_t* manager, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+  rba_buffer_t *b;
+  b = term_manager_get_arith_buffer(manager);
+  return mk_direct_arith_root_atom(b, manager->terms, k, x, p, r);
+}
+
+term_t mk_arith_root_atom_lt(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+  return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_LT);
+}
+
+term_t mk_arith_root_atom_leq(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+  return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_LEQ);
+}
+
+term_t mk_arith_root_atom_eq(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_EQ);
+}
+
+term_t mk_arith_root_atom_neq(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+  return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_NEQ);
+}
+
+term_t mk_arith_root_atom_gt(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+  return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_GT);
+}
+
+term_t mk_arith_root_atom_geq(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
+  return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_GEQ);
+}
+
+term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LT);
+}
+
+term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LEQ);
+}
+
+term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_EQ);
+}
 
 /*
  * ARITHMETIC FUNCTIONS
@@ -2899,6 +3088,17 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
   return t;
 }
 
+term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_NEQ);
+}
+
+term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GT);
+}
+
+term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GEQ);
+}
 
 
 /****************

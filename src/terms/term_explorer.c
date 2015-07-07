@@ -29,6 +29,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // ARITH_FLOOR
   false, // ARITH_CEIL
   false, // ARITH_ABS
+  false, // ARITH_ROOT_ATOM
   false, // ITE_TERM
   false, // ITE_SPECIAL
   false, // APP_TERM
@@ -79,6 +80,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // ARITH_FLOOR
   true,  // ARITH_CEIL
   true,  // ARITH_ABS
+  true,  // ARITH_ROOT_ATOM
   true,  // ITE_TERM
   true,  // ITE_SPECIAL
   true,  // APP_TERM
@@ -130,6 +132,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_FLOOR,              // ARITH_FLOOR
   YICES_CEIL,               // ARITH_CEIL
   YICES_ABS,                // ARITH_ABS
+  YICES_ARITH_ROOT_ATOM,    // ARITH_ROOT_ATOM
   YICES_ITE_TERM,           // ITE_TERM
   YICES_ITE_TERM,           // ITE_SPECIAL
   YICES_APP_TERM,           // APP_TERM
@@ -297,6 +300,12 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
       // internally, these are terms of the form t==0 or t >= 0
+      // to be uniform, we report them as binary operators
+      result = 2;
+      break;
+
+    case ARITH_ROOT_ATOM:
+      // internally, these are terms of the form x r p for root index k
       // to be uniform, we report them as binary operators
       result = 2;
       break;

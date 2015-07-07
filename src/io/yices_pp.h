@@ -153,6 +153,7 @@ typedef enum {
   PP_OPEN_MINUS,
   PP_OPEN_GE,
   PP_OPEN_LT,
+  PP_OPEN_ROOT_ATOM,
 
   PP_OPEN_BV_ARRAY,
   PP_OPEN_BV_SUM,

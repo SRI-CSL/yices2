@@ -120,6 +120,32 @@ base_src_c := \
 	io/type_printer.c \
 	io/yices_pp.c \
 	io/writer.c \
+	mcsat/tracing.c \
+	mcsat/solver.c \
+	mcsat/variable_db.c \
+	mcsat/variable_queue.c \
+	mcsat/value.c \
+	mcsat/model.c \
+	mcsat/trail.c \
+	mcsat/conflict.c \
+	mcsat/gc.c \
+	mcsat/utils/int_mset.c \
+	mcsat/utils/int_lset.c \
+	mcsat/utils/scope_holder.c \
+	mcsat/utils/statistics.c \
+	mcsat/eq/eq_plugin.c \
+	mcsat/bool/clause_db.c \
+	mcsat/bool/cnf.c \
+	mcsat/bool/bcp_watch_manager.c \
+	mcsat/bool/bool_plugin.c \
+	mcsat/nra/nra_plugin.c \
+	mcsat/nra/nra_plugin_internal.c \
+	mcsat/nra/nra_plugin_explain.c \
+	mcsat/nra/libpoly_utils.c \
+	mcsat/nra/poly_constraint.c \
+	mcsat/nra/feasible_set_db.c \
+	mcsat/ite/ite_plugin.c \
+	mcsat/watch_list_manager.c \
 	model/abstract_values.c \
 	model/arith_projection.c \
 	model/concrete_values.c \

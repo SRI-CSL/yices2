@@ -297,7 +297,7 @@ typedef struct smt2_cmd_stats_s {
  * - we delay the processing of assertions until the call to check_sat().
  *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
- * The solver is initialized in incremental node by calling init_smt2(false, ..).
+ * The solver is initialized in incremental mode by calling init_smt2(false, ..).
  * In this mode, push/pop are supported. Some preprocessing is disabled
  * (e.g., symmetry breaking).
  *
@@ -332,6 +332,9 @@ typedef struct smt2_globals_s {
 
   // logic name
   char *logic_name;
+
+  // set to true to use the mcsat solver
+  bool mcsat;
 
   // output/diagnostic channels
   FILE *out;                  // default = stdout
@@ -417,6 +420,11 @@ extern void init_smt2(bool benchmark, bool print_success);
  */
 extern void smt2_set_verbosity(uint32_t k);
 
+/*
+ * Enable a trace tag for tracing.
+ * - must be called after init_smt2
+ */
+void smt2_enable_trace_tag(const char* tag);
 
 /*
  * Show all statistics on the
@@ -698,6 +706,9 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  */
 extern void smt2_tstack_error(tstack_t *stack, int32_t exception);
 
-
+/*
+ * Enable the mcsat solver.
+ */
+extern void smt2_enable_mcsat();
 
 #endif /* __SMT2_COMMANDS_H */

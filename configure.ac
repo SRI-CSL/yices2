@@ -510,6 +510,13 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 #
 
 #
+# Check for the libpoly library
+#
+AC_CHECK_LIB([poly],[lp_init], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
+AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not found. Try to set CPPFLAGS ***])])
+
+
+#
 # Restore CFLAGS
 #
 CFLAGS=$saved_cflags

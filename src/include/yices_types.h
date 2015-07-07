@@ -154,6 +154,7 @@ typedef enum term_constructor {
   YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
   YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
   YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
+  YICES_ARITH_ROOT_ATOM,     // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
 
 
   YICES_ABS,                 // absolute value

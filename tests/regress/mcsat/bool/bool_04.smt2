@@ -1,0 +1,7 @@
+(set-logic QF_UF)
+(set-info :smt-lib-version 2.0)
+(declare-fun x () Bool)
+(declare-fun y () Bool)
+(assert (= x y))
+(check-sat)
+(exit)
