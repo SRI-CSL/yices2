@@ -233,7 +233,9 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-STATIC_LIBS := $(STATIC_GMP) $(subst -lgmp,,$(LIBS))
+# Also, we want $(STATIC_GMP) last in this list
+#
+STATIC_LIBS := $(subst -lgmp,,$(LIBS)) $(STATIC_GMP) 
 
 
 # Dependency file
