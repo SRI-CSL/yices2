@@ -119,7 +119,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_NOSOLVERS,  // NONE
 
   -1,                  // AX
-  -1,                  // BV
+  CTX_ARCH_BV,         // BV  same as QF_BV
   -1,                  // IDL
   -1,                  // LIA
   -1,                  // LRA
