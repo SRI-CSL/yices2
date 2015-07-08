@@ -106,7 +106,7 @@ fi
 
 
 dnl
-dnl Check whether the C compliler accepts the flag -fno-stack-protector
+dnl Check whether the C compiler accepts the flag -fno-stack-protector
 dnl -------------------------------------------------------------------
 dnl
 dnl Several Linux distributions (also Darwin) come with GCC that has
@@ -119,7 +119,7 @@ dnl compiling Yices in release mode. However, this flag is not supported
 dnl by older versions of GCC (e.g., gcc-4.0.x don't seem to have it)
 dnl
 dnl The following test attempts to determine whether the C compiler
-dnl supports -fno-stack-protector. If it does we set variable
+dnl supports -fno-stack-protector. If it does, we set variable
 dnl NO_STACK_PROTECTOR to -fno-stack-protector.  Otherwise, we leave
 dnl NO_STACK_PROTECTOR empty
 dnl
@@ -164,7 +164,7 @@ dnl   PIC_GMP = full path to a libgmp.a that's PIC code
 dnl   PIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' header file compatible with PIC_GMP
 dnl                         is located
 dnl
-dnl By default, the configure script search for a usable STATIC_GMP in default
+dnl By default, the configure script searches for a usable STATIC_GMP in default
 dnl locations and set PIC_GMP to the same thing as STATIC_GMP.
 dnl
 dnl If the configure script does not find STATIC_GMP or if the defaults are
@@ -503,7 +503,7 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 #   ./install-sh*)
 #      curdir=`pwd`
 #      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***])
+#     AC_MSG_WARN([*** MKDIR_P is relative: converting $MKDIR_P to $new_mkdir_p ***])
 #     MKDIR_P=$new_mkdir_p
 #     ;;
 # esac
