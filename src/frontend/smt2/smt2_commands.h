@@ -336,6 +336,9 @@ typedef struct smt2_globals_s {
   // set to true to use the mcsat solver
   bool mcsat;
 
+  // set to true to use the exists_forall solver
+  bool efmode;
+
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr

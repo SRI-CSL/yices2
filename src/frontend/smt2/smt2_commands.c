@@ -2197,7 +2197,12 @@ static void init_smt2_context(smt2_globals_t *g) {
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
-  if (g->mcsat) {
+  // check to see if we are in efmode 
+  g->efmode = logic_has_quantifiers(logic);
+
+  if(g->efmode){
+    mode = CTX_MODE_ONECHECK;
+  } else  if (g->mcsat) {
     arch = CTX_ARCH_MCSAT;
   } else if (g->benchmark_mode) {
     // change mode and arch for QF_IDL/QF_RDL
@@ -3132,6 +3137,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
+  g->efmode = false;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
