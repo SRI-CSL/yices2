@@ -19,8 +19,8 @@
 
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
-#include "utils/stable_sort.h"
 #include "utils/tag_map.h"
+#include "utils/stable_sort.h"
 
 
 /************************************
@@ -193,6 +193,20 @@ struct clause_s {
   link_t link[2];
   literal_t cl[0];
 };
+
+/* TODO: move that */
+typedef struct watch_block_s {
+	clause_t *cl;
+  uint32_t i;
+  uint32_t deleted;
+} watch_block_t;
+
+typedef struct watch_s {
+	size_t capacity;
+	size_t size;
+	size_t nb_deleted;
+	watch_block_t *block;
+} watch_t;
 
 
 #define INSTRUMENT_CLAUSES 0
@@ -517,6 +531,7 @@ typedef struct solver_stats_s {
  *
  * - other arrays for constructing and simplifying learned clauses
  */
+
 typedef struct sat_solver_s {
   uint32_t status;            // UNSOLVED, SAT, OR UNSAT
 
@@ -561,6 +576,7 @@ typedef struct sat_solver_s {
   uint8_t *value;
   literal_t **bin;             // array of literal vectors
   link_t *watch;               // array of watch lists
+  watch_t *watchnew;
 
   /* Heap */
   var_heap_t heap;

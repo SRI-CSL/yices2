@@ -26,6 +26,62 @@
 #define DEBUG 0
 #define TRACE 0
 
+/* TODO: move that */
+void watch_init(watch_t *w) {
+  w->block = safe_malloc(sizeof(watch_block_t));
+  w->capacity = 1;
+  w->size = 0;
+}
+
+uint32_t watch_is_deleted(watch_block_t * block) {
+  return block->deleted == 1;
+}
+
+void watch_shrink(watch_t *w) {
+  size_t i, j;
+  
+  if(4 * w->nb_deleted <= w->size) {
+    return;
+  }
+  
+  j = 0;
+  for (i = 0; i < w->size; i++) {
+    if (! watch_is_deleted(w->block + i)) {
+      w->block[j] = w->block[i];
+      j++;
+    }
+  }
+  w->size = j; 
+}
+
+void watch_add(uint32_t i, clause_t *cl, watch_t *w) {
+  assert(w->size < w->capacity);
+  if(w->size +1 == w->capacity) {
+    /* need to expand block[] */
+    w->capacity += w->capacity;
+    w->block = (watch_block_t *) safe_realloc(w->block, w->capacity * sizeof(watch_block_t));
+  }
+  assert(w->size+1 < w->capacity);
+  watch_block_t *block = &(w->block[w->size]);
+  block->cl = cl;
+  block->i = i;
+  block->deleted = 0;
+  w->size++;
+}
+
+void watch_delete(watch_t *w, watch_block_t *block) {
+  assert(block->deleted == 0);
+  w->nb_deleted++;
+  block->deleted = 1;
+}
+
+clause_t *watch_clause_of(watch_block_t *block) {
+  return block->cl;
+}
+
+uint32_t watch_idx_of(watch_block_t *block) {
+  return block->i;
+}
 
 /*
  * Internal checks
@@ -1005,6 +1061,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->value[-1] = val_undef_false;
   solver->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   solver->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
+  solver->watchnew = (watch_t *) safe_malloc(lsize * sizeof(watch_t));
 
   // Heap
   init_heap(&solver->heap, size);
@@ -1072,6 +1129,10 @@ void delete_sat_solver(sat_solver_t *solver) {
   }
   safe_free(solver->bin);
   safe_free(solver->watch);
+  for (i=0; i<n; i++) {
+    safe_free(solver->watchnew[i].block);
+  }
+  safe_free(solver->watchnew);
 
   delete_heap(&solver->heap);
   delete_stack(&solver->stack);
@@ -1113,6 +1174,7 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   solver->value = tmp + 2;
   solver->bin = (literal_t **) safe_realloc(solver->bin, lsize * sizeof(literal_t *));
   solver->watch = (link_t *) safe_realloc(solver->watch, lsize * sizeof(link_t));
+  solver->watchnew = (watch_t *) safe_realloc(solver->watchnew, lsize * sizeof(watch_t));
 
   extend_heap(&solver->heap, new_size);
   extend_stack(&solver->stack, new_size);
@@ -1159,6 +1221,8 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     solver->bin[l1] = NULL;
     solver->watch[l0] = NULL_LINK;
     solver->watch[l1] = NULL_LINK;
+    watch_init(solver->watchnew + l0);
+    watch_init(solver->watchnew + l1);
   }
 
   solver->nb_vars += n;
@@ -1197,6 +1261,8 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
   solver->bin[l1] = NULL;
   solver->watch[l0] = NULL_LINK;
   solver->watch[l1] = NULL_LINK;
+  watch_init(solver->watchnew + l0);
+  watch_init(solver->watchnew + l1);
 
   solver->nb_vars ++;
   solver->nb_lits += 2;
@@ -1302,9 +1368,15 @@ static void add_clause_core(sat_solver_t *solver, uint32_t n, literal_t *lit) {
   // set watch literals
   l = lit[0];
   solver->watch[l] = cons(0, cl, solver->watch[l]);
+  watch_add(0, cl, solver->watchnew + l);
+  assert(clause_of(solver->watch[l]) == watch_clause_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
+  assert(idx_of(solver->watch[l]) == watch_idx_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
 
   l = lit[1];
   solver->watch[l] = cons(1, cl, solver->watch[l]);
+  watch_add(1, cl, solver->watchnew + l);
+  assert(clause_of(solver->watch[l]) == watch_clause_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
+  assert(idx_of(solver->watch[l]) == watch_idx_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
 
   // update number of clauses
   solver->nb_clauses ++;
@@ -1468,9 +1540,15 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
   // insert cl into the watched lists
   l = lit[0];
   solver->watch[l] = cons(0, cl, solver->watch[l]);
+  watch_add(0, cl, solver->watchnew + l);
+  assert(clause_of(solver->watch[l]) == watch_clause_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
+  assert(idx_of(solver->watch[l]) == watch_idx_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
 
   l = lit[1];
   solver->watch[l] = cons(1, cl, solver->watch[l]);
+  watch_add(1, cl, solver->watchnew + l);
+  assert(clause_of(solver->watch[l]) == watch_clause_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
+  assert(idx_of(solver->watch[l]) == watch_idx_of(solver->watchnew[l].block + solver->watchnew[l].size - 1));
 
   // increase clause counter
   solver->nb_clauses ++;
@@ -1518,6 +1596,20 @@ static void cleanup_watch_list(link_t *list) {
   *list = NULL_LINK; // end of list
 }
 
+static void cleanup_watchnew_list(watch_t *w) {
+  size_t i;
+  clause_t *cl;
+  
+  for(i=0; i<w->size; i++) {
+    if(watch_is_deleted(w->block + i)) {
+      continue;
+    }
+    cl = watch_clause_of(w->block + i);
+    if(is_clause_to_be_deleted(cl)) {
+      watch_delete(w, w->block + i);
+    }
+  }
+}
 
 /*
  * Update all watch lists: remove all clauses marked for deletion.
@@ -1528,6 +1620,7 @@ static void cleanup_watch_lists(sat_solver_t *solver) {
   n = solver->nb_lits;
   for (i=0; i<n; i ++) {
     cleanup_watch_list(solver->watch + i);
+    cleanup_watchnew_list(solver->watchnew + i);
   }
 }
 
@@ -2000,22 +2093,32 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, liter
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
-static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list) {
+static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list, watch_t *w) {
   bval_t v1;
   clause_t *cl;
   link_t link;
   uint32_t k, i;
   literal_t l1, l, *b;
+  int32_t j = w->size - 1;
 
   assert(val == sol->value);
 
   link = *list;
-  while (link != NULL_LINK) {
-    i = idx_of(link);
-    cl = clause_of(link);
+  while ((link != NULL_LINK) && (j >= 0)) {
+    while(watch_is_deleted(w->block + j)) {
+      j--;
+      assert(j>=0);
+    }
+  
+  
+    i = watch_idx_of(w->block + j);
+    cl = watch_clause_of(w->block + j);
+    assert(i == idx_of(link));
+    assert(cl == clause_of(link));
     l1 = get_other_watch(cl, i);
     v1 = val[l1];
 
+    //TODO: translate to watchnew
     assert(next_of(link) == cl->link[i]);
     assert(cdr_ptr(link) == cl->link + i);
 
@@ -2026,6 +2129,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
       *list = link;
       list = cl->link + i;
       link = cl->link[i];
+      j--;
 
     } else {
       /*
@@ -2052,7 +2156,11 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
 
         // insert cl in watch[l] list and move to the next clause
         link = cl->link[i];
+        watch_delete(w, w->block + j);
         sol->watch[l] = cons(i, cl, sol->watch[l]);
+        watch_add(i, cl, sol->watchnew + l);
+        assert(clause_of(sol->watch[l]) == watch_clause_of(sol->watchnew[l].block + sol->watchnew[l].size - 1));
+        assert(   idx_of(sol->watch[l]) ==    watch_idx_of(sol->watchnew[l].block + sol->watchnew[l].size - 1));
 
       } else {
         /*
@@ -2072,6 +2180,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
           *list = link;
           list = cl->link + i;
           link = cl->link[i];
+          j--;
 
         } else {
           // v1 == val_false: conflict found
@@ -2082,6 +2191,11 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
       }
     }
   }
+  assert(link == NULL_LINK);
+  while((j>=0) && watch_is_deleted(w->block + j)) {
+    j--;
+  }
+  assert(j < 0);
 
   *list = NULL_LINK;
 
@@ -2114,7 +2228,8 @@ static int32_t propagation(sat_solver_t *sol) {
       }
     }
 
-    code = propagation_via_watched_list(sol, sol->value, sol->watch + l);
+    code = propagation_via_watched_list(sol, sol->value, sol->watch + l, sol->watchnew + l);
+    watch_shrink(sol->watchnew + l);
     if (code != no_conflict) {
       return code;
     }
@@ -3224,8 +3339,17 @@ static int32_t indicator(bval_t v, bval_t c) {
 static void check_watch_list(sat_solver_t *sol, literal_t l, clause_t *cl) {
   link_t lnk;
 
+  #if 0
   for (lnk = sol->watch[l]; lnk != NULL_LINK; lnk = next_of(lnk)) {
     if (clause_of(lnk) == cl) {
+      return;
+    }
+  }
+  #endif
+  
+  size_t i;
+  for(i=0; i<sol->watchnew.cl_nb; i++) {
+    if (sol->watchnew.cl[i] == cl) {
       return;
     }
   }
