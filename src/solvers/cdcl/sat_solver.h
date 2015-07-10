@@ -19,8 +19,8 @@
 
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
-#include "utils/tag_map.h"
 #include "utils/stable_sort.h"
+#include "utils/tag_map.h"
 
 
 /************************************
@@ -187,24 +187,19 @@ enum {
 
 typedef struct clause_s clause_t;
 
-typedef size_t link_t;
-
 struct clause_s {
-  link_t link[2];
   literal_t cl[0];
 };
 
 /* TODO: move that */
 typedef struct watch_block_s {
-	clause_t *cl;
+  clause_t *cl;
   uint32_t i;
-  uint32_t deleted;
 } watch_block_t;
 
 typedef struct watch_s {
 	size_t capacity;
 	size_t size;
-	size_t nb_deleted;
 	watch_block_t *block;
 } watch_t;
 
@@ -269,49 +264,6 @@ typedef struct learned_clause_s {
 } learned_clause_t;
 
 #endif
-
-
-/*
- * Tagging/untagging of link pointers
- */
-#define LINK_TAG ((size_t) 0x1)
-#define NULL_LINK ((link_t) 0)
-
-static inline link_t mk_link(clause_t *c, uint32_t i) {
-  assert((i & ~LINK_TAG) == 0 && (((size_t) c) & LINK_TAG) == 0);
-  return (link_t)(((size_t) c) | ((size_t) i));
-}
-
-static inline clause_t *clause_of(link_t lnk) {
-  return (clause_t *)(lnk & ~LINK_TAG);
-}
-
-static inline uint32_t idx_of(link_t lnk) {
-  return (uint32_t)(lnk & LINK_TAG);
-}
-
-static inline link_t next_of(link_t lnk) {
-  return clause_of(lnk)->link[idx_of(lnk)];
-}
-
-/*
- * return a new link lnk0 such that
- * - clause_of(lnk0) = c
- * - idx_of(lnk0) = i
- * - next_of(lnk0) = lnk
- */
-static inline link_t cons(uint32_t i, clause_t *c, link_t lnk) {
-  assert(i <= 1);
-  c->link[i] = lnk;
-  return mk_link(c, i);
-}
-
-static inline link_t *cdr_ptr(link_t lnk) {
-  return clause_of(lnk)->link + idx_of(lnk);
-}
-
-
-
 
 
 
@@ -575,8 +527,7 @@ typedef struct sat_solver_s {
   /* Literal-indexed arrays */
   uint8_t *value;
   literal_t **bin;             // array of literal vectors
-  link_t *watch;               // array of watch lists
-  watch_t *watchnew;
+  watch_t *watchnew;           // array of watch arrays
 
   /* Heap */
   var_heap_t heap;
