@@ -43,6 +43,10 @@
 #include "io/tracer.h"
 #include "frontend/smt2/smt2_expressions.h"
 
+#include "exists_forall/ef_analyze.h"
+#include "exists_forall/ef_problem.h"
+#include "exists_forall/efsolver.h"
+
 
 /*
  * New exception codes
@@ -338,7 +342,16 @@ typedef struct smt2_globals_s {
 
   // set to true to use the exists_forall solver
   bool efmode;
+  // problem built from the delayed assertions
+  ef_prob_t *efprob;
+  // ef solver
+  ef_solver_t *efsolver;
+  // result from ef_analyze of  the conversion to exists/forall
+  ef_code_t efcode;
+  // have we solved already?
+  bool efdone;
 
+  
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr

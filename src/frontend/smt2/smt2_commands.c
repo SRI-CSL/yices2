@@ -2197,12 +2197,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
-  // check to see if we are in efmode 
-  g->efmode = logic_has_quantifiers(logic);
-
-  if(g->efmode){
-    mode = CTX_MODE_ONECHECK;
-  } else  if (g->mcsat) {
+  if (g->mcsat) {
     arch = CTX_ARCH_MCSAT;
   } else if (g->benchmark_mode) {
     // change mode and arch for QF_IDL/QF_RDL
@@ -2450,7 +2445,6 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
     }
   }
 }
-
 
 /*
  * Check satisfiability of all assertions
@@ -3136,8 +3130,17 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->global_decls = false;
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
+
   g->mcsat = false;
+
+  //ef globals
   g->efmode = false;
+  g->efprob = NULL;
+  g->efsolver = NULL;
+  g->efcode = EF_NO_ERROR;
+  g->efdone = false;
+
+  
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -3696,15 +3699,20 @@ void smt2_set_logic(const char *name) {
     tprintf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
+  // check to see if we are in efmode 
+  __smt2_globals.efmode = logic_has_quantifiers(code);
+
+  
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
   __smt2_globals.logic_name = clone_string(name);
   string_incref(__smt2_globals.logic_name);
 
+
   /*
    * In incremental mode: initialize the context
    */
-  if (! __smt2_globals.benchmark_mode) {
+  if (! __smt2_globals.efmode && ! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
   }
