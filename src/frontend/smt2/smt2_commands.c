@@ -3702,6 +3702,11 @@ void smt2_set_logic(const char *name) {
   // check to see if we are in efmode 
   __smt2_globals.efmode = logic_has_quantifiers(code);
 
+  if(__smt2_globals.efmode && ! __smt2_globals.benchmark_mode) {
+    print_error("exists forall mode not allowed in incremental mode");
+    return;
+  }
+  
   
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
@@ -3712,7 +3717,7 @@ void smt2_set_logic(const char *name) {
   /*
    * In incremental mode: initialize the context
    */
-  if (! __smt2_globals.efmode && ! __smt2_globals.benchmark_mode) {
+  if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
   }
