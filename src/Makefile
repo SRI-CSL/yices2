@@ -681,16 +681,16 @@ endif
 #
 # LIBS for compiling in static mode
 #
-# We need to remove -lgmp from LIBS in static mode, otherwise adding
+# We need to remove -lgmp and -lpoly from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 # We also use $(NOGMP_LIBS) to build yices_sat.
 #
 # Important: make sure the GMP library is last (if some
 # archives/libraries in NOGMP_LIBS depend on GMP).
 #
-NOGMP_LIBS := $(subst -lgmp,,$(LIBS))
-STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_GMP)
-PIC_LIBS := $(NOGMP_LIBS) $(PIC_GMP)
+NOGMP_LIBS := $(subst,-lpoly,,$(subst -lgmp,,$(LIBS)))
+STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
+PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
 
 
