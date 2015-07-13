@@ -261,6 +261,23 @@ typedef struct smt2_stack_s {
 #define DEF_SMT2_STACK_SIZE 128
 #define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
 
+/*
+ * Parameters for the EF solver
+ * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in
+ *   ef_analyze
+ * - gen_mode = generalization method
+ * - max_samples = number of samples (max) used in start (0 means no presampling)
+ * - max_iters = bound on the outher iteration in efsolver
+ */
+typedef struct ef_param_s {
+  bool flatten_iff;
+  bool flatten_ite;
+  ef_gen_option_t gen_mode;
+  uint32_t max_samples;
+  uint32_t max_iters;
+} ef_param_t;
+
+
 
 /*
  * Statistics: keep track of the number of commands
@@ -340,7 +357,9 @@ typedef struct smt2_globals_s {
   // set to true to use the mcsat solver
   bool mcsat;
 
-  // set to true to use the exists_forall solver
+  // exists_forall fields
+  ef_param_t ef_parameters;
+  // true indicates we will be using the exists_forall solver
   bool efmode;
   // problem built from the delayed assertions
   ef_prob_t *efprob;
