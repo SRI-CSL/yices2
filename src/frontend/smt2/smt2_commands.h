@@ -358,9 +358,9 @@ typedef struct smt2_globals_s {
   bool mcsat;
 
   // exists_forall fields
-  ef_param_t ef_parameters;
   // true indicates we will be using the exists_forall solver
   bool efmode;
+  ef_param_t ef_parameters;
   // problem built from the delayed assertions
   ef_prob_t *efprob;
   // ef solver

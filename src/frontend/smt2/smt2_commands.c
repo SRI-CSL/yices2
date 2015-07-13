@@ -3730,9 +3730,6 @@ void smt2_set_logic(const char *name) {
   __smt2_globals.efmode = logic_has_quantifiers(code);
 
   // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
-  if(__smt2_globals.efmode){ assert(__smt2_globals.benchmark_mode); }
-
-  
   if(__smt2_globals.efmode && ! __smt2_globals.benchmark_mode) {
     print_error("exists forall mode not allowed in incremental mode");
     return;
@@ -3898,7 +3895,7 @@ void smt2_assert(term_t t) {
 
 
 
-/* not sure what the smt2 equivalent of yices_efsolve_cmd; looks to be smt2_check_sat */
+/* not sure what the smt2 equivalent of yices_efsolve_cmd; looks to be smt2_check_sat. YES */
 /* These look like they need to live on their own, they also appear in yices_reval.c  */
 
 /*
@@ -4097,6 +4094,8 @@ static void efsolve_cmd(smt2_globals_t *g) {
 }
 
 
+
+
 /*
  * Check satisfiability of the current set of assertions
  */
@@ -4108,7 +4107,9 @@ void smt2_check_sat(void) {
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       if(__smt2_globals.efmode){
-	print_error("check_sat is not supported by the exist/forall solver");
+
+	efsolve_cmd(&__smt2_globals);
+	
       } else if (__smt2_globals.frozen) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
