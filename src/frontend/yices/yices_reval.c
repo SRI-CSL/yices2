@@ -1199,20 +1199,6 @@ static void delete_ctx(void) {
   context = NULL;
 }
 
-
-/*
- * Initialize the ef_parameters to default values
-static void init_ef_params(void) {
-  ef_parameters.flatten_iff = false;
-  ef_parameters.flatten_ite = false;
-  ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
-  ef_parameters.max_samples = 5;
-  ef_parameters.max_iters = 100;
-}
-*/
-
-
-
 /***************************************
  *  UTILITIES TO DEAL WITH PARAMETERS  *
  **************************************/
@@ -2399,19 +2385,7 @@ static void yices_help_cmd(const char *topic) {
  */
 static void yices_reset_cmd(void) {
   if (efmode) {
-    //FIXME
-    if (ef_client_globals.efprob != NULL) {
-      delete_ef_prob(ef_client_globals.efprob);
-      safe_free(ef_client_globals.efprob);
-      ef_client_globals.efprob = NULL;
-    }
-    if (ef_client_globals.efsolver != NULL) {
-      delete_ef_solver(ef_client_globals.efsolver);
-      safe_free(ef_client_globals.efsolver);
-      ef_client_globals.efsolver = NULL;
-    }
-    ef_client_globals.efdone = false;
-    
+    delete_ef_client(&ef_client_globals);
     ivector_reset(&delayed_assertions);
     model = NULL;
   } else {

@@ -44,9 +44,12 @@ void delete_ef_client(ef_client_t *ef_client) {
   if (ef_client->efprob != NULL) {
     delete_ef_prob(ef_client->efprob);
     safe_free(ef_client->efprob);
+    ef_client->efprob = NULL;
   }
   if (ef_client->efsolver != NULL) {
     delete_ef_solver(ef_client->efsolver);
     safe_free(ef_client->efsolver);
+    ef_client->efsolver = NULL;
   }
+  ef_client->efdone = false;
 }
