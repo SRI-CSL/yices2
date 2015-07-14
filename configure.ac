@@ -551,7 +551,7 @@ dnl set run_ok to "yes" if the program executes and exits with 0.
 dnl set run_ok to "no" otherwise.
 dnl
 dnl libpoly must be the full-path name to the library to test.
-dnl includedir must be a directory with 'poly/polynomial.h' can be found.
+dnl includedir must be a directory with 'poly/polyn.h' can be found.
 dnl libs may contain GMP libraries to use
 dnl
 AC_DEFUN([CSL_CHECK_LIBPOLY],
@@ -575,13 +575,10 @@ AC_MSG_CHECKING([whether $1 is usable])
 #
 AC_RUN_IFELSE(
 [AC_LANG_PROGRAM([[
-#include <poly/polynomial.h>
-
-lp_polynomial_t *tst;
+#include <poly/poly.h>
 ]],
 [[
-tst = lp_polynomial_alloc();
-lp_polynomial_delete(tst);
+lp_init();
 ]])
 
 ],run_ok=yes,run_ok=no,run_ok=no)
