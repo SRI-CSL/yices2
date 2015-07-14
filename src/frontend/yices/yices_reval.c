@@ -30,9 +30,6 @@
 #include "api/yices_globals.h"
 #include "context/context.h"
 #include "context/dump_context.h"
-#include "exists_forall/ef_analyze.h"
-#include "exists_forall/ef_problem.h"
-#include "exists_forall/efsolver.h"
 #include "exists_forall/ef_client.h"
 #include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
@@ -125,8 +122,8 @@ static context_arch_t arch;
 static context_mode_t mode;
 static bool iflag;
 static bool qflag;
-static bool efmode;
-static bool efdone;
+
+
 
 /*
  * Context, model, and solver parameters
@@ -135,17 +132,8 @@ static context_t *context;
 static model_t *model;
 static param_t parameters;
 
-/*
- * Support for exists/forall
- * - efprob = problem built from the dealyed assertions
- * - efsolver = solver
- * - efcode = result of the conversion to exists/forall
- *   (as returned by ef_analyze). This code is meaningful
- *   only if efprob != NULL.
- */
-static ef_prob_t *efprob;
-static ef_solver_t *efsolver;
-static ef_code_t efcode;
+/* flag to indicate we are in exists forall mode. */
+static bool efmode;
 
 
 /*
@@ -183,24 +171,10 @@ typedef struct ctx_param_s {
 
 static ctx_param_t ctx_parameters;
 
-
 /*
- * Parameters for the EF solver
- * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in
- *   ef_analyze
- * - gen_mode = generalization method
- * - max_samples = number of samples (max) used in start (0 means no presampling)
- * - max_iters = bound on the outher iteration in efsolver
-typedef struct ef_param_s {
-  bool flatten_iff;
-  bool flatten_ite;
-  ef_gen_option_t gen_mode;
-  uint32_t max_samples;
-  uint32_t max_iters;
-} ef_param_t;
-*/
-
-static ef_param_t ef_parameters;
+ * The exists forall client globals
+ */
+static ef_client_t ef_client_globals;
 
 
 /*******************
@@ -1228,7 +1202,6 @@ static void delete_ctx(void) {
 
 /*
  * Initialize the ef_parameters to default values
- */
 static void init_ef_params(void) {
   ef_parameters.flatten_iff = false;
   ef_parameters.flatten_ite = false;
@@ -1236,7 +1209,7 @@ static void init_ef_params(void) {
   ef_parameters.max_samples = 5;
   ef_parameters.max_iters = 100;
 }
-
+*/
 
 
 
@@ -1712,23 +1685,23 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_EF_FLATTEN_IFF:
-    show_bool_param(param2string[p], ef_parameters.flatten_iff, n);
+    show_bool_param(param2string[p], ef_client_globals.ef_parameters.flatten_iff, n);
     break;
 
   case PARAM_EF_FLATTEN_ITE:
-    show_bool_param(param2string[p], ef_parameters.flatten_ite, n);
+    show_bool_param(param2string[p], ef_client_globals.ef_parameters.flatten_ite, n);
     break;
 
   case PARAM_EF_GEN_MODE:
-    show_string_param(param2string[p], efgen2string[ef_parameters.gen_mode], n);
+    show_string_param(param2string[p], efgen2string[ef_client_globals.ef_parameters.gen_mode], n);
     break;
 
   case PARAM_EF_MAX_SAMPLES:
-    show_pos32_param(param2string[p], ef_parameters.max_samples, n);
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_samples, n);
     break;
 
   case PARAM_EF_MAX_ITERS:
-    show_pos32_param(param2string[p], ef_parameters.max_iters, n);
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_iters, n);
     break;
 
   case PARAM_UNKNOWN:
@@ -2133,35 +2106,35 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_EF_FLATTEN_IFF:
     if (param_val_to_bool(param, val, &tt)) {
-      ef_parameters.flatten_iff = tt;
+      ef_client_globals.ef_parameters.flatten_iff = tt;
       print_ok();
     }
     break;
 
   case PARAM_EF_FLATTEN_ITE:
     if (param_val_to_bool(param, val, &tt)) {
-      ef_parameters.flatten_ite = tt;
+      ef_client_globals.ef_parameters.flatten_ite = tt;
       print_ok();
     }
     break;
 
   case PARAM_EF_GEN_MODE:
     if (param_val_to_genmode(param, val, &g)) {
-      ef_parameters.gen_mode = g;
+      ef_client_globals.ef_parameters.gen_mode = g;
       print_ok();;
     }
     break;
 
   case PARAM_EF_MAX_SAMPLES:
     if (param_val_to_nonneg32(param, val, &n)) {
-      ef_parameters.max_samples = n;
+      ef_client_globals.ef_parameters.max_samples = n;
       print_ok();
     }
     break;
 
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n)) {
-      ef_parameters.max_iters = n;
+      ef_client_globals.ef_parameters.max_iters = n;
       print_ok();
     }
     break;
@@ -2426,19 +2399,21 @@ static void yices_help_cmd(const char *topic) {
  */
 static void yices_reset_cmd(void) {
   if (efmode) {
-    if (efprob != NULL) {
-      delete_ef_prob(efprob);
-      safe_free(efprob);
-      efprob = NULL;
+    //FIXME
+    if (ef_client_globals.efprob != NULL) {
+      delete_ef_prob(ef_client_globals.efprob);
+      safe_free(ef_client_globals.efprob);
+      ef_client_globals.efprob = NULL;
     }
-    if (efsolver != NULL) {
-      delete_ef_solver(efsolver);
-      safe_free(efsolver);
-      efsolver = NULL;
+    if (ef_client_globals.efsolver != NULL) {
+      delete_ef_solver(ef_client_globals.efsolver);
+      safe_free(ef_client_globals.efsolver);
+      ef_client_globals.efsolver = NULL;
     }
+    ef_client_globals.efdone = false;
+    
     ivector_reset(&delayed_assertions);
     model = NULL;
-    efdone = false;
   } else {
     if (model != NULL) {
       free_model(model);
@@ -2549,7 +2524,7 @@ static void yices_assert_cmd(term_t f) {
    * If efmode is true, we add f to the delayed assertions vector
    */
   if (efmode) {
-    if (efdone) {
+    if (ef_client_globals.efdone) {
       report_error("more assertions are not allowed after (ef-solve)");
     } else if (yices_term_is_bool(f)) {
       ivector_push(&delayed_assertions, f);
@@ -2781,11 +2756,11 @@ static bool context_has_model(const char *cmd_name) {
  */
 static void yices_showmodel_cmd(void) {
   if (efmode) {
-    if (efdone) {
-      assert(efsolver != NULL);
-      if (efsolver->status == EF_STATUS_SAT) {
-	assert(efsolver->exists_model != NULL);
-	if (yices_pp_model(stdout, efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
+    if (ef_client_globals.efdone) {
+      assert(ef_client_globals.efsolver != NULL);
+      if (ef_client_globals.efsolver->status == EF_STATUS_SAT) {
+	assert(ef_client_globals.efsolver->exists_model != NULL);
+	if (yices_pp_model(stdout, ef_client_globals.efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
 	  report_system_error("stdout");
 	}
 	fflush(stdout);
@@ -2844,11 +2819,11 @@ static void show_val_in_model(model_t *model, term_t t) {
  */
 static void yices_eval_cmd(term_t t) {
   if (efmode) {
-    if (efdone) {
-      assert(efsolver != NULL);
-      if (efsolver->status == EF_STATUS_SAT) {
-	assert(efsolver->exists_model != NULL);
-	show_val_in_model(efsolver->exists_model, t);
+    if (ef_client_globals.efdone) {
+      assert(ef_client_globals.efsolver != NULL);
+      if (ef_client_globals.efsolver->status == EF_STATUS_SAT) {
+	assert(ef_client_globals.efsolver->exists_model != NULL);
+	show_val_in_model(ef_client_globals.efsolver->exists_model, t);
       } else {
 	fputs("(ef-solve) did not find a solution. No model\n", stderr);
 	fflush(stderr);
@@ -2880,13 +2855,15 @@ static void build_ef_problem(void) {
 
   assert(efmode);
 
-  if (efprob == NULL) {
+  if (ef_client_globals.efprob == NULL) {
     v = &delayed_assertions;
 
-    efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
+    ef_client_globals.efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
     init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(efprob, __yices_globals.manager);
-    efcode = ef_analyze(&analyzer, efprob, v->size, v->data, ef_parameters.flatten_ite, ef_parameters.flatten_iff);
+    init_ef_prob(ef_client_globals.efprob, __yices_globals.manager);
+    ef_client_globals.efcode = ef_analyze(&analyzer, ef_client_globals.efprob, v->size, v->data,
+					  ef_client_globals.ef_parameters.flatten_ite,
+					  ef_client_globals.ef_parameters.flatten_iff);
     delete_ef_analyzer(&analyzer);
   }
 }
@@ -2899,14 +2876,14 @@ static void print_ef_status(void) {
   ef_status_t stat;
   int32_t error;
 
-  assert(efsolver != NULL && efdone);
+  assert(ef_client_globals.efsolver != NULL && ef_client_globals.efdone);
 
   if (verbosity > 0) {
-    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
+    printf("ef-solve: %"PRIu32" iterations\n", ef_client_globals.efsolver->iters);
   }
 
-  stat = efsolver->status;
-  error = efsolver->error_code;
+  stat = ef_client_globals.efsolver->status;
+  error = ef_client_globals.efsolver->error_code;
 
   switch (stat) {
   case EF_STATUS_SAT:
@@ -2917,7 +2894,7 @@ static void print_ef_status(void) {
     fputc('\n', stdout);
     if (verbosity > 0) {
       if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
+        print_ef_solution(stdout, ef_client_globals.efsolver);
         fputc('\n', stdout);
       }
     }
@@ -2960,23 +2937,25 @@ static void print_ef_status(void) {
 static void yices_efsolve_cmd(void) {
   if (efmode) {
     build_ef_problem();
-    if (efcode != EF_NO_ERROR) {
+    if (ef_client_globals.efcode != EF_NO_ERROR) {
       // error in preprocessing
-      print_ef_analyze_code(efcode);
+      print_ef_analyze_code(ef_client_globals.efcode);
     } else {
-      if (! efdone) {
-	assert(efsolver == NULL);
-	efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
-	init_ef_solver(efsolver, efprob, logic_code, arch);
+      if (! ef_client_globals.efdone) {
+	assert(ef_client_globals.efsolver == NULL);
+	ef_client_globals.efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
+	init_ef_solver(ef_client_globals.efsolver, ef_client_globals.efprob, logic_code, arch);
 	if (tracer != NULL) {
-	  ef_solver_set_trace(efsolver, tracer);
+	  ef_solver_set_trace(ef_client_globals.efsolver, tracer);
 	}
 	/*
 	 * If the problem has real variables, we force GEN_BY_PROJ
 	 */
-	ef_solver_check(efsolver, &parameters, ef_parameters.gen_mode,
-			ef_parameters.max_samples, ef_parameters.max_iters);
-	efdone = true;
+	ef_solver_check(ef_client_globals.efsolver, &parameters,
+			ef_client_globals.ef_parameters.gen_mode,
+			ef_client_globals.ef_parameters.max_samples,
+			ef_client_globals.ef_parameters.max_iters);
+	ef_client_globals.efdone = true;
       }
       print_ef_status();
     }
@@ -3061,14 +3040,14 @@ static void export_ef_problem(const char *s) {
   int code;
 
   build_ef_problem();
-  if (efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(efcode);
+  if (ef_client_globals.efcode != EF_NO_ERROR) {
+    print_ef_analyze_code(ef_client_globals.efcode);
   } else {
-    assert(efprob != NULL);
+    assert(ef_client_globals.efprob != NULL);
 
     // convert the ef-problem to a conjunction of formulas
     init_ivector(&all_ef, 10);
-    ef_prob_collect_conjuncts(efprob, &all_ef);
+    ef_prob_collect_conjuncts(ef_client_globals.efprob, &all_ef);
 
     // assert these in a temporary context
     aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
@@ -3674,17 +3653,14 @@ int yices_main(int argc, char *argv[]) {
   yices_init();
   init_yices_tstack(&stack);
   init_parameter_name_table();
-  init_ef_params();
+
+  init_ef_client(&ef_client_globals);
+  
 
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
     print_version(stderr);
   }
-
-  efprob = NULL;
-  efsolver = NULL;
-  efcode = EF_NO_ERROR;
-  efdone = false;
 
   if (efmode) {
     context = NULL;
@@ -3733,14 +3709,7 @@ int yices_main(int argc, char *argv[]) {
    * Clean up
    */
   if (efmode) {
-    if (efprob != NULL) {
-      delete_ef_prob(efprob);
-      safe_free(efprob);
-    }
-    if (efsolver != NULL) {
-      delete_ef_solver(efsolver);
-      safe_free(efsolver);
-    }
+      delete_ef_client(&ef_client_globals);
   } else {
     delete_ctx();
   }

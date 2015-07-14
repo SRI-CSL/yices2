@@ -36,9 +36,10 @@ typedef struct ef_param_s {
   uint32_t max_iters;
 } ef_param_t;
 
-
-
-
+/*
+ * These are essentially the old ef globals found in yices_reval and smt2_command.
+ *
+ */
 typedef struct ef_client_s {
   ef_param_t ef_parameters;
   // problem built from the delayed assertions
@@ -50,6 +51,14 @@ typedef struct ef_client_s {
   // have we solved already?
   bool efdone;
 } ef_client_t;
+
+
+extern void init_ef_client(ef_client_t *ef_client);
+
+extern void delete_ef_client(ef_client_t *ef_client);
+
+
+
 
 
 
