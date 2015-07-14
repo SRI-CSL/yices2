@@ -495,7 +495,7 @@ ifeq ($(POSIXOS),cygwin)
   static_libyices_dynamic=$(static_bindir)/$(libyices_dll)
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW
+  CPPFLAGS := $(CPPFLAGS) -DMINGW -D__USE_MINGW_ANSI_STDIO
   PIC=
   STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
@@ -573,13 +573,11 @@ else
 CFLAGS += -Wall -Winline -Wredundant-decls
 endif
 
+#
+# Format string issues on Windows/mingw
+#
 ifeq ($(POSIXOS),mingw)
-  ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   # For compilation on mingw using the -mno-cygwin flag,
-   # we disable -Wformat warning because mingw uses non-standard
-   # formats in printf that cause useless warnings.
-   CFLAGS += -Wno-format
-  endif
+  CFLAGS += -Wno-format
 endif
 
 
