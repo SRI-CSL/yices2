@@ -23,6 +23,11 @@
 #include "utils/tag_map.h"
 
 
+//TODO:move
+#define BLOCKER 0
+#define SOMETIMES_FULL_RESTART 0
+#define SHRINK_WATCH_VECTORS 0
+
 /************************************
  *  BOOLEAN VARIABLES AND LITERALS  *
  ***********************************/
@@ -193,8 +198,10 @@ struct clause_s {
 
 /* TODO: move that */
 typedef struct watch_block_s {
-  clause_t *cl;
-  uint32_t i;
+  size_t pack;
+  #if BLOCKER
+  literal_t blocker;
+  #endif
 } watch_block_t;
 
 typedef struct watch_s {
