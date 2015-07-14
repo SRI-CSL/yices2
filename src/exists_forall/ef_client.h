@@ -161,7 +161,10 @@ extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
  *
  */
 
+/*
+ * bug report
+ */
 
-
+extern void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...);
 
 #endif /* __EF_CLIENT_H */

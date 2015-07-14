@@ -894,34 +894,6 @@ static void report_negative_timeout(int32_t val) {
 
 
 /*
- * BUG in Yices: Print an error message then exit
- */
-static void report_bug(const char *format, ...) {
-  va_list p;
-
-  fprintf(stderr, "\n*************************************************************\n");
-  fprintf(stderr, "FATAL ERROR: ");
-  va_start(p, format);
-  vfprintf(stderr, format, p);
-  va_end(p);
-  fprintf(stderr, "\n\nPlease report this bug to yices-bugs@csl.sri.com.\n");
-  fprintf(stderr, "To help us diagnose this problem, please include the\n"
-                  "following information in your bug report:\n\n");
-  fprintf(stderr, "  Yices version: %s\n", yices_version);
-  fprintf(stderr, "  Build date: %s\n", yices_build_date);
-  fprintf(stderr, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Thank you for your help.\n");
-  fprintf(stderr, "*************************************************************\n\n");
-  fflush(stderr);
-
-  exit(YICES_EXIT_INTERNAL_ERROR);
-}
-
-
-
-
-/*
  * Report that the previous command was executed (if verbose)
  */
 static void print_ok(void) {
@@ -968,12 +940,12 @@ static void report_eval_error(int32_t code) {
     break;
 
   case MDL_EVAL_INTERNAL_ERROR:
-    report_bug("Internal error in 'eval'");
+    freport_bug(stderr, "Internal error in 'eval'");
     break;
 
   case MDL_EVAL_FREEVAR_IN_TERM:
   default:
-    report_bug("Unexpected error code %"PRId32" in 'eval'", code);
+    freport_bug(stderr,"Unexpected error code %"PRId32" in 'eval'", code);
     break;
   }
 }
@@ -1001,7 +973,7 @@ static void report_show_implicant_error(error_code_t code) {
   case EVAL_CONVERSION_FAILED:
   case EVAL_NO_IMPLICANT:
   default:
-    report_bug("Unexpected error code %"PRId32" in 'show-implicant'", code);
+    freport_bug(stderr,"Unexpected error code %"PRId32" in 'show-implicant'", code);
     break;
   }
 }
@@ -1603,7 +1575,7 @@ static void show_param(yices_param_t p, uint32_t n) {
 
   case PARAM_UNKNOWN:
   default:
-    report_bug("invalid parameter id in 'show_param'");
+    freport_bug(stderr,"invalid parameter id in 'show_param'");
     break;
   }
 }
@@ -2347,7 +2319,7 @@ static void yices_push_cmd(void) {
     case STATUS_INTERRUPTED:
     default:
       // should not happen
-      report_bug("unexpected context status in 'push'");
+      freport_bug(stderr,"unexpected context status in 'push'");
       break;
     }
   }
@@ -2391,7 +2363,7 @@ static void yices_pop_cmd(void) {
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
     default:
-      report_bug("unexpected context status in 'pop'");
+      freport_bug(stderr,"unexpected context status in 'pop'");
       break;
     }
   }
@@ -2464,7 +2436,7 @@ static void yices_assert_cmd(term_t f) {
       case STATUS_INTERRUPTED:
       default:
 	// should not happen
-	report_bug("unexpected context status in 'assert'");
+	freport_bug(stderr,"unexpected context status in 'assert'");
 	break;
       }
     }
@@ -2586,7 +2558,7 @@ static void yices_check_cmd(void) {
   case STATUS_INTERRUPTED:
   default:
     // this should not happen
-    report_bug("unexpected context status in 'check'");
+    freport_bug(stderr,"unexpected context status in 'check'");
     break;
   }
 }
@@ -2628,7 +2600,7 @@ static bool context_has_model(const char *cmd_name) {
   case STATUS_INTERRUPTED:
   default:
     // this should not happen
-    report_bug("unexpected context status in '%s'", cmd_name);
+    freport_bug(stderr,"unexpected context status in '%s'", cmd_name);
     break;
   }
 
@@ -2827,7 +2799,7 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
     break;
 
   default:
-    report_bug("unexpected context status after pre-check");
+    freport_bug(stderr,"unexpected context status after pre-check");
     break;
   }
 }
@@ -2945,7 +2917,7 @@ static void yices_show_implicant_cmd(void) {
 	if (yices_error_code() == OUTPUT_ERROR) {
 	  report_system_error("stdout");
 	} else {
-	  report_bug("invalid term in 'show-implicant'");
+	  freport_bug(stderr, "invalid term in 'show-implicant'");
 	}
       }
       fflush(stdout);

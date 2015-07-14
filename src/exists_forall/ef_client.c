@@ -17,12 +17,15 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <inttypes.h>
 
 #include "api/yices_globals.h"
 
 #include "exists_forall/ef_client.h"
 
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 /*
  * Initialize the ef_parameters to default values
@@ -142,7 +145,7 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
       print_error("EF solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
-      report_bug(err);
+      freport_bug(err, "EF solver failed: internal error");
     }
     break;
 
@@ -159,11 +162,38 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
   case EF_STATUS_ERROR:
   case EF_STATUS_IDLE:
   case EF_STATUS_SEARCHING:
-    fprintf(stderr, "ef-status: %s\n", ef_status2string[stat]);
-    report_bug(err);
+    freport_bug(err, "ef-status: %s\n", ef_status2string[stat]);
     break;
 
   }
 }
+
+
+
+
+void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
+  va_list p;
+
+  fprintf(fp, "\n*************************************************************\n");
+  fprintf(fp, "FATAL ERROR: ");
+  va_start(p, format);
+  vfprintf(fp, format, p);
+  va_end(p);
+  fprintf(fp, "\n*************************************************************\n");
+  fprintf(fp, "Please report this bug to yices-bugs@csl.sri.com.\n");
+  fprintf(fp, "To help us diagnose this problem, please include the\n"
+                  "following information in your bug report:\n\n");
+  fprintf(fp, "  Yices version: %s\n", yices_version);
+  fprintf(fp, "  Build date: %s\n", yices_build_date);
+  fprintf(fp, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
+  fprintf(fp, "\n");
+  fprintf(fp, "Thank you for your help.\n");
+  fprintf(fp, "*************************************************************\n\n");
+  fflush(fp);
+
+  exit(YICES_EXIT_INTERNAL_ERROR);
+}
+
+
 
 

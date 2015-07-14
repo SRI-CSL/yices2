@@ -727,25 +727,6 @@ static void __attribute__((noreturn)) failed_output(void) {
 }
 
 
-/*
- * bug report
- */
-static void __attribute__((noreturn)) report_bug(FILE *f) {
-  fprintf(f, "\n*************************************************************\n");
-  fprintf(f, "Please report this bug to yices-bugs@csl.sri.com.\n");
-  fprintf(f, "To help us diagnose this problem, please include the\n"
-                  "following information in your bug report:\n\n");
-  fprintf(f, "  Yices version: %s\n", yices_version);
-  fprintf(f, "  Build date: %s\n", yices_build_date);
-  fprintf(f, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
-  fprintf(f, "\n");
-  fprintf(f, "Thank you for your help.\n");
-  fprintf(f, "*************************************************************\n\n");
-  fflush(f);
-
-  exit(YICES_EXIT_INTERNAL_ERROR);
-}
-
 
 
 /*
@@ -1088,7 +1069,7 @@ static void print_yices_error(bool full) {
   default:
     print_out("BUG detected");
     if (full) close_error();
-    report_bug(__smt2_globals.err);
+    freport_bug(__smt2_globals.err, "smt2_commands");
     break;
   }
 
@@ -1450,7 +1431,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   default:
     print_out("FATAL ERROR");
     close_error();
-    report_bug(__smt2_globals.err);
+    freport_bug(__smt2_globals.err, "smt2_commands");
     break;
   }
 
@@ -1465,7 +1446,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
 static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
   print_error("Internal error: unexpected context status");
   flush_out();
-  report_bug(f);
+  freport_bug(f, "Internal error: unexpected context status");
 }
 
 /*
@@ -2107,7 +2088,7 @@ static void print_aval(smt2_globals_t *g, aval_t val) {
     break;
 
   case ATTR_DELETED:
-    report_bug(g->err);
+    freport_bug(g->err, "smt2_commands: attribute deleted");
     break;
   }
 }
@@ -2772,7 +2753,7 @@ static model_t *get_model(smt2_globals_t *g) {
       case STATUS_INTERRUPTED:
       default:
 	print_out("BUG: unexpected context status");
-	report_bug(__smt2_globals.err);
+	freport_bug(__smt2_globals.err, "BUG: unexpected context status");
 	break;
       }
     }
@@ -2966,7 +2947,7 @@ static void show_assignment(smt2_globals_t *g) {
     case STATUS_INTERRUPTED:
     default:
       print_out("BUG: unexpected context status");
-      report_bug(__smt2_globals.err);
+      freport_bug(__smt2_globals.err, "BUG: unexpected context status");
       break;
     }
   }
@@ -3027,17 +3008,17 @@ static void check_stack(smt2_globals_t *g) {
     }
     if (sum != stack->levels) {
       print_error("Invalid stack: levels don't match");
-      report_bug(g->err);
+      freport_bug(g->err, "Invalid stack: levels don't match");
     }
 
     if (context_base_level(g->ctx) + g->pushes_after_unsat != stack->top) {
       print_error("Invalid stack: push counters don't match");
-      report_bug(g->err);
+      freport_bug(g->err, "Internal error: unexpected context status");
     }
 
     if (g->pushes_after_unsat > 0 && context_status(g->ctx) != STATUS_UNSAT) {
       print_error("Invalid stack: push_after_unsat is positive but context is not unsat");
-      report_bug(g->err);
+      freport_bug(g->err, "Invalid stack: push_after_unsat is positive but context is not unsat");
     }
   }
 }
@@ -3098,7 +3079,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
       case STATUS_INTERRUPTED:
       default:
 	print_out("BUG: unexpected context status");
-	report_bug(__smt2_globals.err);
+	freport_bug(__smt2_globals.err, "BUG: unexpected context status");
 	break;
       }
     }
