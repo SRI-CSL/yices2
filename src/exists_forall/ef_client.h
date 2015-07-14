@@ -20,6 +20,39 @@
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/efsolver.h"
 
+
+/*
+ * Table to convert  smt_status to a string
+ */
+static const char* const status2string[] = {
+  "idle",
+  "searching",
+  "unknown",
+  "sat",
+  "unsat",
+  "interrupted",
+};
+
+
+
+/*
+ * Table to convert  ef-solver status to a string
+ */
+static const char* const ef_status2string[] = {
+  "idle",
+  "searching",
+  "unknown",
+  "sat",
+  "unsat",
+  "interrupted",
+  "subst error",
+  "tval error",
+  "check error",
+  "assert error",
+  "error",
+};
+
+
 /*
  * Parameters for the EF solver
  * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in

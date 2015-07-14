@@ -182,37 +182,6 @@ static ef_client_t ef_client_globals;
  ******************/
 
 /*
- * Table to convert  smt_status to a string
- */
-static const char* const status2string[] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
-};
-
-
-/*
- * Same thing for ef-solver status
- */
-static const char* const ef_status2string[] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
-  "subst error",
-  "tval error",
-  "check error",
-  "assert error",
-  "error",
-};
-
-
-/*
  * Search parameters and internalization options can be set individually
  * using the command (set-param <name> <value>).
  *

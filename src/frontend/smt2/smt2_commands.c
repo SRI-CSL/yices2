@@ -1468,20 +1468,9 @@ static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
   report_bug(f);
 }
 
-
-
 /*
  * PRINT STATUS AND STATISTICS
  */
-static const char * const status2string[] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
-  "error",
-};
 
 static void show_status(smt_status_t status) {
   print_out("%s\n", status2string[status]);
@@ -3897,23 +3886,6 @@ void smt2_assert(term_t t) {
 
 /* not sure what the smt2 equivalent of yices_efsolve_cmd; looks to be smt2_check_sat. YES */
 /* These look like they need to live on their own, they also appear in yices_reval.c  */
-
-/*
- * Same thing for ef-solver status
- */
-static const char* const ef_status2string[] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
-  "subst error",
-  "tval error",
-  "check error",
-  "assert error",
-  "error",
-};
 
 /*
  * Conversion of EF preprocessing codes to string
