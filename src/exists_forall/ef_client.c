@@ -16,6 +16,8 @@
 #endif
 
 #include <assert.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #include "api/yices_globals.h"
 
@@ -80,3 +82,88 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
     delete_ef_analyzer(&analyzer);
   }
 }
+
+/*
+ * Print the translation code returned by assert
+ */
+void print_internalization_code(int32_t code, uint32_t verbosity) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
+  if (code == TRIVIALLY_UNSAT) {
+    fprintf(stderr, "unsat\n");
+    fflush(stderr);
+  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
+    //FIXME
+    //report_success();
+    //print_ok();
+  } else if (code < 0) {
+    code = - code;
+    print_error(code2error[code]);
+  }
+}
+
+
+/*
+ * Print the efsolver status
+ */
+void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
+  ef_status_t stat;
+  int32_t error;
+  ef_solver_t *efsolver;
+
+  efsolver = efc->efsolver;
+
+  assert(efsolver != NULL && efc->efdone);
+
+  if (verbosity > 0) {
+    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
+  }
+
+  stat = efsolver->status;
+  error = efsolver->error_code;
+
+  switch (stat) {
+  case EF_STATUS_SAT:
+  case EF_STATUS_UNKNOWN:
+  case EF_STATUS_UNSAT:
+  case EF_STATUS_INTERRUPTED:
+    fputs(ef_status2string[stat], stdout);
+    fputc('\n', stdout);
+    if (verbosity > 0) {
+      if (stat == EF_STATUS_SAT) {
+        print_ef_solution(stdout, efsolver);
+        fputc('\n', stdout);
+      }
+    }
+    fflush(stdout);
+    break;
+
+  case EF_STATUS_SUBST_ERROR:
+    if (error == -1) {
+      print_error("EF solver failed: degree overflow in substitution");
+    } else {
+      assert(error == -2);
+      report_bug(err);
+    }
+    break;
+
+  case EF_STATUS_ASSERT_ERROR:
+    assert(error < 0);
+    print_internalization_code(error, verbosity);
+    break;
+
+  case EF_STATUS_MDL_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:
+  case EF_STATUS_PROJECTION_ERROR:
+  case EF_STATUS_TVAL_ERROR:
+  case EF_STATUS_CHECK_ERROR:
+  case EF_STATUS_ERROR:
+  case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+    fprintf(stderr, "ef-status: %s\n", ef_status2string[stat]);
+    report_bug(err);
+    break;
+
+  }
+}
+
+

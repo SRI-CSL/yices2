@@ -52,6 +52,33 @@ static const char* const ef_status2string[] = {
   "error",
 };
 
+/*
+ * Conversion of internalization code to an error message
+ */
+static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
+  "no error",
+  "internal error",
+  "type error",
+  "formula contains free variables",
+  "logic not supported",
+  "the context does not support uninterpreted functions",
+  "the context does not support scalar types",
+  "the context does not support tuples",
+  "the context does not support uninterpreted types",
+  "the context does not support arithmetic",
+  "the context does not support bitvectors",
+  "the context does not support function equalities",
+  "the context does not support quantifiers",
+  "the context does not support lambdas",
+  "not an IDL formula",
+  "not an RDL formula",
+  "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
+  "arithmetic solver exception",
+  "bitvector solver exception",
+};
+
 
 /*
  * Conversion of EF preprocessing codes to string
@@ -110,17 +137,22 @@ extern void delete_ef_client(ef_client_t *ef_client);
  */
 extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 
+/*
+ * Print the translation code returned by assert
+ */
+extern void print_internalization_code(int32_t code, uint32_t verbosity);
 
+/*
+ * Print the efsolver status
+ */
+extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
 
 /* FIXME: things Ian thinks should go here. */
 
-//static void print_ef_analyze_code(ef_code_t code);
-
 //yices_eval_cmd
 
-//print_ef_status
-
 //yices_efsolve_cmd(void)
+
 
 
 

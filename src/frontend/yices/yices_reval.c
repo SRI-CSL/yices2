@@ -919,33 +919,6 @@ static void report_bug(const char *format, ...) {
 }
 
 
-/*
- * Conversion of internalization code to an error message
- */
-static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error",
-  "internal error",
-  "type error",
-  "formula contains free variables",
-  "logic not supported",
-  "the context does not support uninterpreted functions",
-  "the context does not support scalar types",
-  "the context does not support tuples",
-  "the context does not support uninterpreted types",
-  "the context does not support arithmetic",
-  "the context does not support bitvectors",
-  "the context does not support function equalities",
-  "the context does not support quantifiers",
-  "the context does not support lambdas",
-  "not an IDL formula",
-  "not an RDL formula",
-  "non-linear arithmetic not supported",
-  "too many variables for the arithmetic solver",
-  "too many atoms for the arithmetic solver",
-  "arithmetic solver exception",
-  "bitvector solver exception",
-};
-
 
 
 /*
@@ -955,23 +928,6 @@ static void print_ok(void) {
   if (verbosity > 0 && interactive && include_depth == 0) {
     fprintf(stderr, "ok\n");
     fflush(stderr);
-  }
-}
-
-
-/*
- * Print the translation code returned by assert
- */
-static void print_internalization_code(int32_t code) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
-  if (code == TRIVIALLY_UNSAT) {
-    fprintf(stderr, "unsat\n");
-    fflush(stderr);
-  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
-    print_ok();
-  } else if (code < 0) {
-    code = - code;
-    report_error(code2error[code]);
   }
 }
 
@@ -2488,7 +2444,7 @@ static void yices_assert_cmd(term_t f) {
 	  } else {
 	    code = assert_formula(context, f);
 	  }
-	  print_internalization_code(code);
+	  print_internalization_code(code, verbosity);
 	} else {
 	  report_error("type error in assert: boolean term required");
 	}
@@ -2590,7 +2546,7 @@ static void yices_check_cmd(void) {
     } else {
       code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
       if (code < 0) {
-	print_internalization_code(code);
+	print_internalization_code(code, verbosity);
 	return;
       }
     }
@@ -2779,67 +2735,6 @@ static void yices_eval_cmd(term_t t) {
 
 
 
-/*
- * Print the efsolver status
- */
-static void print_ef_status(void) {
-  ef_status_t stat;
-  int32_t error;
-
-  assert(ef_client_globals.efsolver != NULL && ef_client_globals.efdone);
-
-  if (verbosity > 0) {
-    printf("ef-solve: %"PRIu32" iterations\n", ef_client_globals.efsolver->iters);
-  }
-
-  stat = ef_client_globals.efsolver->status;
-  error = ef_client_globals.efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, ef_client_globals.efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      report_error("EF solver failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      report_bug("EF solver: substitution failed");
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_code(error);
-    break;
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_PROJECTION_ERROR:
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    fprintf(stderr, "ef-status: %s\n", ef_status2string[stat]);
-    report_bug("EF solver: unexpected status");
-    break;
-
-  }
-}
-
 
 /*
  * New command: ef-solve
@@ -2867,7 +2762,7 @@ static void yices_efsolve_cmd(void) {
 			ef_client_globals.ef_parameters.max_iters);
 	ef_client_globals.efdone = true;
       }
-      print_ef_status();
+      print_ef_status(&ef_client_globals, verbosity, stderr);
     }
 
   } else {
@@ -2965,7 +2860,7 @@ static void export_ef_problem(const char *s) {
     disable_bvarith_elimination(aux);
     code = assert_formulas(aux, all_ef.size, all_ef.data);
     if (code < 0) {
-      print_internalization_code(code);
+      print_internalization_code(code, verbosity);
     } else {
       bitblast_then_export(aux, s);
     }
@@ -2988,7 +2883,7 @@ static void export_delayed_assertions(const char *s) {
   disable_bvarith_elimination(aux);
   code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
   if (code < 0) {
-    print_internalization_code(code);
+    print_internalization_code(code, verbosity);
   } else {
     bitblast_then_export(aux, s);
   }

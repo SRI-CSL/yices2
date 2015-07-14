@@ -3852,50 +3852,6 @@ void smt2_assert(term_t t) {
 
 
 /*
- * Conversion of internalization code to an error message
- */
-static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error",
-  "internal error",
-  "type error",
-  "formula contains free variables",
-  "logic not supported",
-  "the context does not support uninterpreted functions",
-  "the context does not support scalar types",
-  "the context does not support tuples",
-  "the context does not support uninterpreted types",
-  "the context does not support arithmetic",
-  "the context does not support bitvectors",
-  "the context does not support function equalities",
-  "the context does not support quantifiers",
-  "the context does not support lambdas",
-  "not an IDL formula",
-  "not an RDL formula",
-  "non-linear arithmetic not supported",
-  "too many variables for the arithmetic solver",
-  "too many atoms for the arithmetic solver",
-  "arithmetic solver exception",
-  "bitvector solver exception",
-};
-
-/*
- * Print the translation code returned by assert
- */
-static void print_internalization_code(int32_t code) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
-  if (code == TRIVIALLY_UNSAT) {
-    fprintf(stderr, "unsat\n");
-    fflush(stderr);
-  } else if (__smt2_globals.verbosity > 0 && code == CTX_NO_ERROR) {
-    //print_ok();
-  } else if (code < 0) {
-    code = - code;
-    print_error(code2error[code]);
-  }
-}
-
-
-/*
  * Print the translation code returned by ef_analyze
  */
 static void print_ef_analyze_code(ef_code_t code) {
@@ -3904,69 +3860,6 @@ static void print_ef_analyze_code(ef_code_t code) {
   }
 }
 
-/*
- * Print the efsolver status
- */
-static void print_ef_status(smt2_globals_t *g) {
-  ef_status_t stat;
-  int32_t error;
-  ef_solver_t *efsolver;
-
-  efsolver = g->ef_client_globals.efsolver;
-
-  assert(efsolver != NULL && g->ef_client_globals.efdone);
-
-  if (g->verbosity > 0) {
-    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
-  }
-
-  stat = efsolver->status;
-  error = efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (g->verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      print_error("EF solver failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      report_bug(g->err);
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_code(error);
-    break;
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_PROJECTION_ERROR:
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    fprintf(stderr, "ef-status: %s\n", ef_status2string[stat]);
-    report_bug(g->err);
-    break;
-
-  }
-}
 
 
 static void efsolve_cmd(smt2_globals_t *g) {
@@ -3992,7 +3885,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
 			efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
 	efc->efdone = true;
       }
-      print_ef_status(g);
+      print_ef_status(efc, g->verbosity, g->err);
     }
 
   } else {
