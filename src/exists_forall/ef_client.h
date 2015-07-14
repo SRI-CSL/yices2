@@ -34,8 +34,6 @@ static const char* const status2string[] = {
 };
 
 
-
-
 /*
  * Parameters for the EF solver
  * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in
