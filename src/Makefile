@@ -108,6 +108,7 @@ base_src_c := \
 	exists_forall/ef_analyze.c \
 	exists_forall/ef_problem.c \
 	exists_forall/efsolver.c \
+	exists_forall/ef_client.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \

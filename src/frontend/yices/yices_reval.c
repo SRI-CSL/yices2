@@ -33,6 +33,7 @@
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/ef_problem.h"
 #include "exists_forall/efsolver.h"
+#include "exists_forall/ef_client.h"
 #include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
 #include "frontend/yices/yices_lexer.h"
@@ -190,7 +191,6 @@ static ctx_param_t ctx_parameters;
  * - gen_mode = generalization method
  * - max_samples = number of samples (max) used in start (0 means no presampling)
  * - max_iters = bound on the outher iteration in efsolver
- */
 typedef struct ef_param_s {
   bool flatten_iff;
   bool flatten_ite;
@@ -198,6 +198,7 @@ typedef struct ef_param_s {
   uint32_t max_samples;
   uint32_t max_iters;
 } ef_param_t;
+*/
 
 static ef_param_t ef_parameters;
 

@@ -43,10 +43,13 @@
 #include "io/tracer.h"
 #include "frontend/smt2/smt2_expressions.h"
 
+/* these are superfluous now that ef_client.h is in da house 
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/ef_problem.h"
 #include "exists_forall/efsolver.h"
+*/
 
+#include "exists_forall/ef_client.h"
 
 /*
  * New exception codes
@@ -260,24 +263,6 @@ typedef struct smt2_stack_s {
 
 #define DEF_SMT2_STACK_SIZE 128
 #define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
-
-/*
- * Parameters for the EF solver
- * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in
- *   ef_analyze
- * - gen_mode = generalization method
- * - max_samples = number of samples (max) used in start (0 means no presampling)
- * - max_iters = bound on the outher iteration in efsolver
- */
-typedef struct ef_param_s {
-  bool flatten_iff;
-  bool flatten_ite;
-  ef_gen_option_t gen_mode;
-  uint32_t max_samples;
-  uint32_t max_iters;
-} ef_param_t;
-
-
 
 /*
  * Statistics: keep track of the number of commands
