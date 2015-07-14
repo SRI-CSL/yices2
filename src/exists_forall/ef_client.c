@@ -28,6 +28,65 @@
 #include "yices_exit_codes.h"
 
 /*
+ * Conversion of EF preprocessing codes to string
+ */
+static const char * const efcode2error[NUM_EF_CODES] = {
+  "no error",
+  "assertions contain uninterpreted functions",
+  "invalid quantifier nesting (not an exists/forall problem)",
+  "non-atomic universal variables",
+  "non-atomic existential variables",
+  "internal error",
+};
+
+
+/*
+ * Table to convert  ef-solver status to a string
+ */
+static const char* const ef_status2string[] = {
+  "idle",
+  "searching",
+  "unknown",
+  "sat",
+  "unsat",
+  "interrupted",
+  "subst error",
+  "tval error",
+  "check error",
+  "assert error",
+  "error",
+};
+
+/*
+ * Conversion of internalization code to an error message
+ */
+static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
+  "no error",
+  "internal error",
+  "type error",
+  "formula contains free variables",
+  "logic not supported",
+  "the context does not support uninterpreted functions",
+  "the context does not support scalar types",
+  "the context does not support tuples",
+  "the context does not support uninterpreted types",
+  "the context does not support arithmetic",
+  "the context does not support bitvectors",
+  "the context does not support function equalities",
+  "the context does not support quantifiers",
+  "the context does not support lambdas",
+  "not an IDL formula",
+  "not an RDL formula",
+  "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
+  "arithmetic solver exception",
+  "bitvector solver exception",
+};
+
+
+
+/*
  * Initialize the ef_parameters to default values
  * We need to be able to tweak these parameters in a similar fashion to yices_reval.
  */
