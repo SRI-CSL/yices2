@@ -154,7 +154,12 @@ extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
 //yices_efsolve_cmd(void)
 
 
-
+/* 
+ * FIXME frontend/common.[ch] might be a good place to put things like report_bug print_ok report_success etc.
+ * Once we decide what the right names are.
+ * Here we should only have things directly related to exists forall.
+ *
+ */
 
 
 
