@@ -1,5 +1,5 @@
 /*
- * The Yices SMT Solver. Copyright 2014 SRI International.
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
  * This program may only be used subject to the noncommercial end user
  * license agreement which is downloadable along with this program.
@@ -3831,18 +3831,6 @@ void smt2_assert(term_t t) {
 }
 
 
-
-/*
- * Print the translation code returned by ef_analyze
- */
-static void print_ef_analyze_code(ef_code_t code) {
-  if (code != EF_NO_ERROR) {
-    print_error(efcode2error[code]);
-  }
-}
-
-
-
 static void efsolve_cmd(smt2_globals_t *g) {
   ef_client_t *efc;
   if (g->efmode) {
@@ -4072,31 +4060,6 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  */
 
 /*
- * Exists-Forall case; could be incorporated into get_model if desired.
- */
-static inline model_t *get_ef_model(void){
-  ef_client_t *efc;
-  ef_solver_t *efsolver;
-
-  efc = &__smt2_globals.ef_client_globals;
-  
-  if (efc->efdone) {
-    efsolver = efc->efsolver;
-    assert(efsolver != NULL);
-    if (efsolver->status == EF_STATUS_SAT) {
-      assert(efsolver->exists_model != NULL);
-      return efsolver->exists_model;
-    } else {
-      print_error("(ef-solve) did not find a solution. No model\n");
-    }
-  } else {
-    print_error("Can't build a model. Call (ef-solve) first.\n");
-  }
-  return NULL;
-}
-
-
-/*
  * Show the model if any
  */
 void smt2_get_model(void) {
@@ -4107,7 +4070,7 @@ void smt2_get_model(void) {
 
     if(__smt2_globals.efmode){
       
-      mdl = get_ef_model();
+      mdl = ef_get_model(&__smt2_globals.ef_client_globals);
       
     } else {
       

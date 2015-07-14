@@ -1,5 +1,5 @@
 /*
- * The Yices SMT Solver. Copyright 2014 SRI International.
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
  * This program may only be used subject to the noncommercial end user
  * license agreement which is downloadable along with this program.
@@ -902,19 +902,6 @@ static void print_ok(void) {
     fflush(stderr);
   }
 }
-
-
-/*
- * Print the translation code returned by ef_analyze
- */
-static void print_ef_analyze_code(ef_code_t code) {
-  if (code == EF_NO_ERROR) {
-    print_ok();
-  } else {
-    report_error(efcode2error[code]);
-  }
-}
-
 
 
 /*
@@ -2612,26 +2599,15 @@ static bool context_has_model(const char *cmd_name) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
-  ef_solver_t *efsolver;
+  model_t *mdl;
+  
   if (efmode) {
-    if (ef_client_globals.efdone) {
-      efsolver = ef_client_globals.efsolver;
-      assert(efsolver != NULL);
-      if (efsolver->status == EF_STATUS_SAT) {
-	assert(efsolver->exists_model != NULL);
-	if (yices_pp_model(stdout, efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
-	  report_system_error("stdout");
-	}
-	fflush(stdout);
-      } else {
-	fputs("(ef-solve) did not find a solution. No model\n", stderr);
-	fflush(stderr);
+    mdl = ef_get_model(&ef_client_globals);
+    if(mdl != NULL){
+      if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
+	report_system_error("stdout");
       }
-    } else {
-      fputs("Can't build a model. Call (ef-solve) first.\n", stderr);
-      fflush(stderr);
     }
-
   } else if (context_has_model("show-model")) {
     // model_print(stdout, model);
     // model_print_full(stdout, model);
@@ -2677,35 +2653,23 @@ static void show_val_in_model(model_t *model, term_t t) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  ef_solver_t *efsolver;
+  model_t *mdl;
+  
   if (efmode) {
-    if (ef_client_globals.efdone) {
-      efsolver = ef_client_globals.efsolver;
-      assert(efsolver != NULL);
-      if (efsolver->status == EF_STATUS_SAT) {
-	assert(efsolver->exists_model != NULL);
-	show_val_in_model(efsolver->exists_model, t);
-      } else {
-	fputs("(ef-solve) did not find a solution. No model\n", stderr);
-	fflush(stderr);
-      }
-
-    } else {
-      fputs("No model. Call (ef-solve) first\n", stderr);
+    mdl = ef_get_model(&ef_client_globals);
+    if(mdl != NULL){
+      show_val_in_model(mdl, t);
     }
-
   } else if (context_has_model("eval")) {
     show_val_in_model(model, t);
   }
-}
 
+}
 
 
 /*
  * EF SOLVER
  */
-
-
 
 
 /*

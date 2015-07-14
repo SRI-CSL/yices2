@@ -143,9 +143,24 @@ extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 extern void print_internalization_code(int32_t code, uint32_t verbosity);
 
 /*
+ * Print the translation code returned by ef_analyze
+ */
+extern void print_ef_analyze_code(ef_code_t code);
+
+
+/*
  * Print the efsolver status
  */
 extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
+
+/*
+ * Exists-Forall case. Fetch model.
+ */
+extern model_t *ef_get_model(ef_client_t *efc);
+
+
+
+
 
 /* FIXME: things Ian thinks should go here. */
 
@@ -166,5 +181,7 @@ extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
  */
 
 extern void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...);
+
+
 
 #endif /* __EF_CLIENT_H */

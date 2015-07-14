@@ -104,6 +104,20 @@ void print_internalization_code(int32_t code, uint32_t verbosity) {
   }
 }
 
+/*
+ * Print the translation code returned by ef_analyze
+ */
+void print_ef_analyze_code(ef_code_t code) {
+  if (code == EF_NO_ERROR) {
+    //FIXME
+    //report_success()
+    //print_ok();
+  } else {
+    print_error(efcode2error[code]);
+  }
+}
+
+
 
 /*
  * Print the efsolver status
@@ -168,6 +182,24 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
   }
 }
 
+
+model_t *ef_get_model(ef_client_t *efc){
+  ef_solver_t *efsolver;
+
+  if (efc->efdone) {
+    efsolver = efc->efsolver;
+    assert(efsolver != NULL);
+    if (efsolver->status == EF_STATUS_SAT) {
+      assert(efsolver->exists_model != NULL);
+      return efsolver->exists_model;
+    } else {
+      print_error("(ef-solve) did not find a solution. No model\n");
+    }
+  } else {
+    print_error("Can't build a model. Call (ef-solve) first.\n");
+  }
+  return NULL;
+}
 
 
 
