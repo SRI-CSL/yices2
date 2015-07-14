@@ -159,15 +159,9 @@ extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
 extern model_t *ef_get_model(ef_client_t *efc);
 
 
-
-
-
-/* FIXME: things Ian thinks should go here. */
-
-//yices_eval_cmd
-
-//yices_efsolve_cmd(void)
-
+extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
+		     smt_logic_t logic_code, context_arch_t arch,
+		     uint32_t verbosity, tracer_t *tracer, FILE *err);
 
 /* 
  * FIXME frontend/common.[ch] might be a good place to put things like report_bug print_ok report_success etc.
@@ -175,6 +169,13 @@ extern model_t *ef_get_model(ef_client_t *efc);
  * Here we should only have things directly related to exists forall.
  *
  */
+
+
+/*
+ * Formatted error: like printf but add the prefix and close
+ */
+extern void fprint_error(FILE* fp, const char *format, ...);
+
 
 /*
  * bug report

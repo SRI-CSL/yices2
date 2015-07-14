@@ -100,7 +100,7 @@ void print_internalization_code(int32_t code, uint32_t verbosity) {
     //print_ok();
   } else if (code < 0) {
     code = - code;
-    print_error(code2error[code]);
+    fprint_error(stderr, code2error[code]);
   }
 }
 
@@ -113,7 +113,7 @@ void print_ef_analyze_code(ef_code_t code) {
     //report_success()
     //print_ok();
   } else {
-    print_error(efcode2error[code]);
+    fprint_error(stderr, efcode2error[code]);
   }
 }
 
@@ -156,7 +156,7 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
 
   case EF_STATUS_SUBST_ERROR:
     if (error == -1) {
-      print_error("EF solver failed: degree overflow in substitution");
+      fprint_error(err, "EF solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
       freport_bug(err, "EF solver failed: internal error");
@@ -193,15 +193,50 @@ model_t *ef_get_model(ef_client_t *efc){
       assert(efsolver->exists_model != NULL);
       return efsolver->exists_model;
     } else {
-      print_error("(ef-solve) did not find a solution. No model\n");
+      fprint_error(stderr, "(ef-solve) did not find a solution. No model\n");
     }
   } else {
-    print_error("Can't build a model. Call (ef-solve) first.\n");
+    fprint_error(stderr, "Can't build a model. Call (ef-solve) first.\n");
   }
   return NULL;
 }
 
+void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters, smt_logic_t logic_code, context_arch_t arch,
+	      uint32_t verbosity, tracer_t *tracer, FILE *err) {
+  build_ef_problem(efc, assertions);
+  if (efc->efcode != EF_NO_ERROR) {
+    // error in preprocessing
+    print_ef_analyze_code(efc->efcode);
+  } else {
+    if (! efc->efdone) {
+      assert(efc->efsolver == NULL);
+      efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
+      init_ef_solver(efc->efsolver, efc->efprob, logic_code, arch);
+      if (tracer != NULL) {
+	ef_solver_set_trace(efc->efsolver, tracer);
+      }
+      /*
+       * If the problem has real variables, we force GEN_BY_PROJ
+       */
+      ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
+		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
+      efc->efdone = true;
+    }
+    print_ef_status(efc, verbosity, err);
+  }
+}
 
+void fprint_error(FILE* fp, const char *format, ...) {
+  va_list p;
+  //FIXME
+  //open_error();
+  va_start(p, format);
+  if (vfprintf(fp, format, p) < 0) {
+    //failed_output();
+  }
+  va_end(p);
+  //close_error();
+}
 
 void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
   va_list p;
