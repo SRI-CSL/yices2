@@ -976,20 +976,6 @@ static void print_internalization_code(int32_t code) {
 }
 
 
-
-/*
- * Conversion of EF preprocessing codes to string
- */
-static const char * const efcode2error[NUM_EF_CODES] = {
-  "no error",
-  "assertions contain uninterpreted functions",
-  "invalid quantifier nesting (not an exists/forall problem)",
-  "non-atomic universal variables",
-  "non-atomic existential variables",
-  "internal error",
-};
-
-
 /*
  * Print the translation code returned by ef_analyze
  */
@@ -2698,12 +2684,14 @@ static bool context_has_model(const char *cmd_name) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
+  ef_solver_t *efsolver;
   if (efmode) {
     if (ef_client_globals.efdone) {
-      assert(ef_client_globals.efsolver != NULL);
-      if (ef_client_globals.efsolver->status == EF_STATUS_SAT) {
-	assert(ef_client_globals.efsolver->exists_model != NULL);
-	if (yices_pp_model(stdout, ef_client_globals.efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
+      efsolver = ef_client_globals.efsolver;
+      assert(efsolver != NULL);
+      if (efsolver->status == EF_STATUS_SAT) {
+	assert(efsolver->exists_model != NULL);
+	if (yices_pp_model(stdout, efsolver->exists_model, 140, UINT32_MAX, 0) < 0) {
 	  report_system_error("stdout");
 	}
 	fflush(stdout);
@@ -2761,12 +2749,14 @@ static void show_val_in_model(model_t *model, term_t t) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
+  ef_solver_t *efsolver;
   if (efmode) {
     if (ef_client_globals.efdone) {
-      assert(ef_client_globals.efsolver != NULL);
-      if (ef_client_globals.efsolver->status == EF_STATUS_SAT) {
-	assert(ef_client_globals.efsolver->exists_model != NULL);
-	show_val_in_model(ef_client_globals.efsolver->exists_model, t);
+      efsolver = ef_client_globals.efsolver;
+      assert(efsolver != NULL);
+      if (efsolver->status == EF_STATUS_SAT) {
+	assert(efsolver->exists_model != NULL);
+	show_val_in_model(efsolver->exists_model, t);
       } else {
 	fputs("(ef-solve) did not find a solution. No model\n", stderr);
 	fflush(stderr);
@@ -2787,29 +2777,6 @@ static void yices_eval_cmd(term_t t) {
  * EF SOLVER
  */
 
-/*
- * Build the EF-problem descriptor from the set of delayed assertions
- * - do nothing if efprob exists already
- * - store the internalization code in the global efcode flag
- */
-static void build_ef_problem(void) {
-  ef_analyzer_t analyzer;
-  ivector_t *v;
-
-  assert(efmode);
-
-  if (ef_client_globals.efprob == NULL) {
-    v = &delayed_assertions;
-
-    ef_client_globals.efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
-    init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(ef_client_globals.efprob, __yices_globals.manager);
-    ef_client_globals.efcode = ef_analyze(&analyzer, ef_client_globals.efprob, v->size, v->data,
-					  ef_client_globals.ef_parameters.flatten_ite,
-					  ef_client_globals.ef_parameters.flatten_iff);
-    delete_ef_analyzer(&analyzer);
-  }
-}
 
 
 /*
@@ -2879,7 +2846,7 @@ static void print_ef_status(void) {
  */
 static void yices_efsolve_cmd(void) {
   if (efmode) {
-    build_ef_problem();
+    build_ef_problem(&ef_client_globals, &delayed_assertions);
     if (ef_client_globals.efcode != EF_NO_ERROR) {
       // error in preprocessing
       print_ef_analyze_code(ef_client_globals.efcode);
@@ -2982,7 +2949,7 @@ static void export_ef_problem(const char *s) {
   ivector_t all_ef;
   int code;
 
-  build_ef_problem();
+  build_ef_problem(&ef_client_globals, &delayed_assertions);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
     print_ef_analyze_code(ef_client_globals.efcode);
   } else {

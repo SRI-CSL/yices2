@@ -17,6 +17,8 @@
 
 #include <assert.h>
 
+#include "api/yices_globals.h"
+
 #include "exists_forall/ef_client.h"
 
 
@@ -52,4 +54,29 @@ void delete_ef_client(ef_client_t *ef_client) {
     ef_client->efsolver = NULL;
   }
   ef_client->efdone = false;
+}
+
+
+/*
+ * Build the EF-problem descriptor from the set of delayed assertions
+ * - do nothing if efprob exists already
+ * - store the internalization code in the global efcode flag
+ */
+void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
+  ef_analyzer_t analyzer;
+  ivector_t *v;
+
+  assert(efmode);
+
+  if (efc->efprob == NULL) {
+    v = assertions;
+
+    efc->efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
+    init_ef_analyzer(&analyzer, __yices_globals.manager);
+    init_ef_prob(efc->efprob, __yices_globals.manager);
+    efc->efcode = ef_analyze(&analyzer, efc->efprob, v->size, v->data,
+			     efc->ef_parameters.flatten_ite,
+			     efc->ef_parameters.flatten_iff);
+    delete_ef_analyzer(&analyzer);
+  }
 }

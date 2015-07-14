@@ -3112,31 +3112,10 @@ static void explain_unknown_status(smt2_globals_t *g) {
  */
 
 /*
- * Initialize the ef_parameters to default values
- * We need to be able to tweak these parameters in a similar fasion to yices_reval.
- */
-static inline void init_ef_params(smt2_globals_t *g){
-  g->ef_parameters.flatten_iff = false;
-  g->ef_parameters.flatten_ite = false;
-  g->ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
-  g->ef_parameters.max_samples = 5;
-  g->ef_parameters.max_iters = 100;
-}
-
-static inline void init_ef_globals(smt2_globals_t *g) {
-  g->efmode = false;
-  g->efprob = NULL;
-  g->efsolver = NULL;
-  g->efcode = EF_NO_ERROR;
-  g->efdone = false;
-  init_ef_params(g);
-}
-
-/*
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
-  init_ef_globals(g);
+  init_ef_client(&g->ef_client_globals);
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
@@ -3189,18 +3168,6 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->frozen = false;
 }
 
-
-static inline void delete_ef_globals(smt2_globals_t *g) {
-  if (g->efprob != NULL) {
-    delete_ef_prob(g->efprob);
-    safe_free(g->efprob);
-  }
-  if (g->efsolver != NULL) {
-    delete_ef_solver(g->efsolver);
-    safe_free(g->efsolver);
-  }
-}
-
 /*
  * Cleanup: close out and err if different from the defaults
  * - delete all internal structures (except avtbl)
@@ -3220,7 +3187,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     g->model = NULL;
   }
   if(g->efmode){
-    delete_ef_globals(g);
+    delete_ef_client(&g->ef_client_globals);
   }
   delete_ivector(&g->assertions);
 
@@ -3864,7 +3831,7 @@ void smt2_assert(term_t t) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (__smt2_globals.benchmark_mode) {
-	if(__smt2_globals.efmode && __smt2_globals.efdone){
+	if(__smt2_globals.efmode && __smt2_globals.ef_client_globals.efdone){
 	  print_error("more assertions are not allowed after solving");
 	} else if (__smt2_globals.frozen) {
 	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
@@ -3883,21 +3850,6 @@ void smt2_assert(term_t t) {
 }
 
 
-
-/* not sure what the smt2 equivalent of yices_efsolve_cmd; looks to be smt2_check_sat. YES */
-/* These look like they need to live on their own, they also appear in yices_reval.c  */
-
-/*
- * Conversion of EF preprocessing codes to string
- */
-static const char * const efcode2error[NUM_EF_CODES] = {
-  "no error",
-  "assertions contain uninterpreted functions",
-  "invalid quantifier nesting (not an exists/forall problem)",
-  "non-atomic universal variables",
-  "non-atomic existential variables",
-  "internal error",
-};
 
 /*
  * Conversion of internalization code to an error message
@@ -3953,42 +3905,23 @@ static void print_ef_analyze_code(ef_code_t code) {
 }
 
 /*
- * Build the EF-problem descriptor from the set of delayed assertions
- * - do nothing if efprob exists already
- * - store the internalization code in the global efcode flag
- */
-static void build_ef_problem(smt2_globals_t *g) {
-  ef_analyzer_t analyzer;
-  ivector_t *v;
-
-  assert(g->efmode);
-
-  if (g->efprob == NULL) {
-    v = &g->assertions;
-
-    g->efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
-    init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(g->efprob, __yices_globals.manager);
-    g->efcode = ef_analyze(&analyzer, g->efprob, v->size, v->data, g->ef_parameters.flatten_ite, g->ef_parameters.flatten_iff);
-    delete_ef_analyzer(&analyzer);
-  }
-}
-
-/*
  * Print the efsolver status
  */
 static void print_ef_status(smt2_globals_t *g) {
   ef_status_t stat;
   int32_t error;
+  ef_solver_t *efsolver;
 
-  assert(g->efsolver != NULL && g->efdone);
+  efsolver = g->ef_client_globals.efsolver;
+
+  assert(efsolver != NULL && g->ef_client_globals.efdone);
 
   if (g->verbosity > 0) {
-    printf("ef-solve: %"PRIu32" iterations\n", g->efsolver->iters);
+    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
   }
 
-  stat = g->efsolver->status;
-  error = g->efsolver->error_code;
+  stat = efsolver->status;
+  error = efsolver->error_code;
 
   switch (stat) {
   case EF_STATUS_SAT:
@@ -3999,7 +3932,7 @@ static void print_ef_status(smt2_globals_t *g) {
     fputc('\n', stdout);
     if (g->verbosity > 0) {
       if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, g->efsolver);
+        print_ef_solution(stdout, efsolver);
         fputc('\n', stdout);
       }
     }
@@ -4037,25 +3970,27 @@ static void print_ef_status(smt2_globals_t *g) {
 
 
 static void efsolve_cmd(smt2_globals_t *g) {
+  ef_client_t *efc;
   if (g->efmode) {
-    build_ef_problem(g);
-    if (g->efcode != EF_NO_ERROR) {
+    efc = &g->ef_client_globals;
+    build_ef_problem(efc, &g->assertions);
+    if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
-      print_ef_analyze_code(g->efcode);
+      print_ef_analyze_code(efc->efcode);
     } else {
-      if (! g->efdone) {
-	assert(g->efsolver == NULL);
-	g->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
-	init_ef_solver(g->efsolver, g->efprob, g->logic_code, arch_for_logic(g->logic_code));
+      if (! efc->efdone) {
+	assert(efc->efsolver == NULL);
+	efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
+	init_ef_solver(efc->efsolver, efc->efprob, g->logic_code, arch_for_logic(g->logic_code));
 	if (g->tracer != NULL) {
-	  ef_solver_set_trace(g->efsolver, g->tracer);
+	  ef_solver_set_trace(efc->efsolver, g->tracer);
 	}
 	/*
 	 * If the problem has real variables, we force GEN_BY_PROJ
 	 */
-	ef_solver_check(g->efsolver, &parameters, g->ef_parameters.gen_mode,
-			g->ef_parameters.max_samples, g->ef_parameters.max_iters);
-	g->efdone = true;
+	ef_solver_check(efc->efsolver, &parameters, efc->ef_parameters.gen_mode,
+			efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
+	efc->efdone = true;
       }
       print_ef_status(g);
     }
@@ -4266,10 +4201,13 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  * Exists-Forall case; could be incorporated into get_model if desired.
  */
 static inline model_t *get_ef_model(void){
+  ef_client_t *efc;
   ef_solver_t *efsolver;
 
-  if (__smt2_globals.efdone) {
-    efsolver = __smt2_globals.efsolver;
+  efc = &__smt2_globals.ef_client_globals;
+  
+  if (efc->efdone) {
+    efsolver = efc->efsolver;
     assert(efsolver != NULL);
     if (efsolver->status == EF_STATUS_SAT) {
       assert(efsolver->exists_model != NULL);

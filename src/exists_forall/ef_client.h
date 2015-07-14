@@ -54,6 +54,19 @@ static const char* const ef_status2string[] = {
 
 
 /*
+ * Conversion of EF preprocessing codes to string
+ */
+static const char * const efcode2error[NUM_EF_CODES] = {
+  "no error",
+  "assertions contain uninterpreted functions",
+  "invalid quantifier nesting (not an exists/forall problem)",
+  "non-atomic universal variables",
+  "non-atomic existential variables",
+  "internal error",
+};
+
+
+/*
  * Parameters for the EF solver
  * - flatten_iff, flatten_ite: control flattening of iff and if-then-else in
  *   ef_analyze
@@ -90,9 +103,24 @@ extern void init_ef_client(ef_client_t *ef_client);
 
 extern void delete_ef_client(ef_client_t *ef_client);
 
+/*
+ * Build the EF-problem descriptor from the set of delayed assertions
+ * - do nothing if efprob exists already
+ * - store the internalization code in the global efcode flag
+ */
+extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 
 
 
+/* FIXME: things Ian thinks should go here. */
+
+//static void print_ef_analyze_code(ef_code_t code);
+
+//yices_eval_cmd
+
+//print_ef_status
+
+//yices_efsolve_cmd(void)
 
 
 

@@ -345,6 +345,9 @@ typedef struct smt2_globals_s {
   // exists_forall fields
   // true indicates we will be using the exists_forall solver
   bool efmode;
+  ef_client_t ef_client_globals;
+
+  /*
   ef_param_t ef_parameters;
   // problem built from the delayed assertions
   ef_prob_t *efprob;
@@ -354,7 +357,7 @@ typedef struct smt2_globals_s {
   ef_code_t efcode;
   // have we solved already?
   bool efdone;
-
+  */
   
   // output/diagnostic channels
   FILE *out;                  // default = stdout
