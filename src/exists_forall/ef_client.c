@@ -130,8 +130,6 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
   ef_analyzer_t analyzer;
   ivector_t *v;
 
-  assert(efmode);
-
   if (efc->efprob == NULL) {
     v = assertions;
 
