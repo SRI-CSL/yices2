@@ -90,34 +90,34 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
  * Initialize the ef_parameters to default values
  * We need to be able to tweak these parameters in a similar fashion to yices_reval.
  */
-static inline void init_ef_params(ef_client_t *ef_client){
-  ef_client->ef_parameters.flatten_iff = false;
-  ef_client->ef_parameters.flatten_ite = false;
-  ef_client->ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
-  ef_client->ef_parameters.max_samples = 5;
-  ef_client->ef_parameters.max_iters = 100;
+static inline void init_ef_params(ef_client_t *efc){
+  efc->ef_parameters.flatten_iff = false;
+  efc->ef_parameters.flatten_ite = false;
+  efc->ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
+  efc->ef_parameters.max_samples = 5;
+  efc->ef_parameters.max_iters = 100;
 }
 
-void init_ef_client(ef_client_t *ef_client) {
-  init_ef_params(ef_client);
-  ef_client->efprob = NULL;
-  ef_client->efsolver = NULL;
-  ef_client->efcode = EF_NO_ERROR;
-  ef_client->efdone = false;
+void init_ef_client(ef_client_t *efc) {
+  init_ef_params(efc);
+  efc->efprob = NULL;
+  efc->efsolver = NULL;
+  efc->efcode = EF_NO_ERROR;
+  efc->efdone = false;
 }
 
-void delete_ef_client(ef_client_t *ef_client) {
-  if (ef_client->efprob != NULL) {
-    delete_ef_prob(ef_client->efprob);
-    safe_free(ef_client->efprob);
-    ef_client->efprob = NULL;
+void delete_ef_client(ef_client_t *efc) {
+  if (efc->efprob != NULL) {
+    delete_ef_prob(efc->efprob);
+    safe_free(efc->efprob);
+    efc->efprob = NULL;
   }
-  if (ef_client->efsolver != NULL) {
-    delete_ef_solver(ef_client->efsolver);
-    safe_free(ef_client->efsolver);
-    ef_client->efsolver = NULL;
+  if (efc->efsolver != NULL) {
+    delete_ef_solver(efc->efsolver);
+    safe_free(efc->efsolver);
+    efc->efsolver = NULL;
   }
-  ef_client->efdone = false;
+  efc->efdone = false;
 }
 
 
