@@ -202,7 +202,12 @@ static void parse_command_line(int argc, char *argv[]) {
 	break;
 
       case mcsat_opt:
+#if HAVE_MCSAT
         mcsat = true;
+#else
+	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+	exit(YICES_EXIT_USAGE);
+#endif
         break;
 
       case trace_opt:

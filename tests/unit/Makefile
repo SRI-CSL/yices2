@@ -91,7 +91,7 @@ ifeq ($(POSIXOS),cygwin)
   LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL
+  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL -D__USE_MINGW_ANSI_STDIO
   PIC=
   STATIC=-static
   LDFLAGS += -Wl,--stack,8388608
@@ -137,15 +137,7 @@ endif
 #
 CFLAGS += -Wall -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
-  ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   #
-   # compilation on mingw using the -mno-cygwin flag
-   # We disable -Wformat because mingw uses non-standard
-   # formats in printf/fprintf that do not seem to be
-   # understood by gcc and cause useless warnings.
-   #
-   CFLAGS += -Wno-format
-  endif
+  CFLAGS += -Wno-format
 endif
 
 
@@ -233,7 +225,9 @@ endif
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 #
-STATIC_LIBS := $(STATIC_GMP) $(subst -lgmp,,$(LIBS))
+# Also, we want $(STATIC_GMP) last in this list
+#
+STATIC_LIBS := $(subst -lgmp,,$(LIBS)) $(STATIC_GMP) 
 
 
 # Dependency file

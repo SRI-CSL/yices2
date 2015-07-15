@@ -1,5 +1,5 @@
 dnl========================================================================
-dnl The Yices SMT Solver. Copyright 2014 SRI International.
+dnl The Yices SMT Solver. Copyright 2015 SRI International.
 dnl
 dnl This program may only be used subject to the noncommercial end user
 dnl license agreement which is downloadable along with this program.
@@ -60,7 +60,8 @@ AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_INSTALL
 
-AC_PROG_CC
+AC_PROG_CC_C99
+
 AC_PROG_RANLIB
 AC_PROG_EGREP
 AC_CHECK_TOOL(LD,ld,ld)
@@ -106,7 +107,7 @@ fi
 
 
 dnl
-dnl Check whether the C compliler accepts the flag -fno-stack-protector
+dnl Check whether the C compiler accepts the flag -fno-stack-protector
 dnl -------------------------------------------------------------------
 dnl
 dnl Several Linux distributions (also Darwin) come with GCC that has
@@ -119,7 +120,7 @@ dnl compiling Yices in release mode. However, this flag is not supported
 dnl by older versions of GCC (e.g., gcc-4.0.x don't seem to have it)
 dnl
 dnl The following test attempts to determine whether the C compiler
-dnl supports -fno-stack-protector. If it does we set variable
+dnl supports -fno-stack-protector. If it does, we set variable
 dnl NO_STACK_PROTECTOR to -fno-stack-protector.  Otherwise, we leave
 dnl NO_STACK_PROTECTOR empty
 dnl
@@ -164,7 +165,7 @@ dnl   PIC_GMP = full path to a libgmp.a that's PIC code
 dnl   PIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' header file compatible with PIC_GMP
 dnl                         is located
 dnl
-dnl By default, the configure script search for a usable STATIC_GMP in default
+dnl By default, the configure script searches for a usable STATIC_GMP in default
 dnl locations and set PIC_GMP to the same thing as STATIC_GMP.
 dnl
 dnl If the configure script does not find STATIC_GMP or if the defaults are
@@ -184,7 +185,7 @@ AC_ARG_WITH([static-gmp],
     else
       static_libgmp=$withval
     fi
-   ]
+   ],
    [])
 
 static_includegmp=""
@@ -196,7 +197,7 @@ AC_ARG_WITH([static-gmp-include-dir],
     else
       static_includegmp=$withval
     fi
-   ]
+   ],
    [])
 
 
@@ -208,7 +209,7 @@ AC_ARG_WITH([pic-gmp],
     else
       pic_libgmp=$withval
     fi
-   ]
+   ],
    [])
 
 pic_includegmp=""
@@ -220,50 +221,172 @@ AC_ARG_WITH([pic-gmp-include-dir],
     else
       pic_includegmp=$withval
     fi
-   ]
+   ],
+   [])
+
+
+dnl
+dnl Options for mcsat and the libpoly library
+dnl -----------------------------------------
+dnl --enable-mcsat: add support for MCSAT 
+dnl
+dnl If mcsat is emabled, we provide options to specify
+dnl the static libraries, using the same conventions as for GMP.
+dnl
+use_mcsat="no"
+AC_ARG_ENABLE([mcsat],
+   [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the libpoly library.])],
+   [if test "$enableval" = yes ; then 
+      use_mcsat="yes"
+      AC_MSG_NOTICE([Enabling support for MCSAT])
+    fi],
+   [])
+
+
+static_lpoly=""
+AC_ARG_WITH([static-libpoly],
+   [AS_HELP_STRING([--with-static-libpoly=<path>],[Full path to libpoly.a])],
+   [if test $use_mcsat == "no" ; then
+      AC_MSG_WARN([Ignoring option --with-static-libpoly since MCSAT support is disabled])
+    else 
+      if test "x$withval" == x; then
+        AC_MSG_WARN([--with-static-poly was used but no path was given. Using defaults])
+      else
+        static_lpoly=$withval
+      fi
+    fi
+   ],
+   [])
+
+static_includelpoly=""
+AC_ARG_WITH([static-libpoly-include-dir],
+   [AS_HELP_STRING([--with-static-libpoly-include-dir=<directory>],
+            [Path to include files compatible with libpoly.a (e.g., /usr/local/include)])],
+   [if test $use_mcsat == "no" ; then
+      AC_MSG_WARN([Ignoring option --with-static-libpoly-include-dir since MCSAT support is disabled])
+    else 
+      if test "x$withval" == x; then
+         AC_MSG_WARN([--with-static-libpoly-include-dir was used but no directory was given. Using defaults])
+      else
+        static_includelpoly=$withval
+      fi
+    fi
+   ],
+   [])
+
+
+pic_lpoly=""
+AC_ARG_WITH([pic-libpoly],
+   [AS_HELP_STRING([--with-pic-libpoly=<path>],[Full path to a relocatable libpoly.a])],
+   [if test $use_mcsat == "no" ; then
+      AC_MSG_WARN([Ignoring option --with-pic-libpoly since MCSAT support is disabled])
+    else 
+      if test "x$withval" == x; then
+         AC_MSG_WARN([--with-pic-libpoly was used but no path was given. Using defaults])
+      else
+         pic_lpoly=$withval
+      fi
+    fi
+   ],
+   [])
+
+pic_includelpoly=""
+AC_ARG_WITH([pic-libpoly-include-dir],
+   [AS_HELP_STRING([--with-pic-libpoly-include-dir=<directory>],
+            [Path to include files compatible with the relocatable libpoly.a])],
+   [if test $use_mcsat == "no" ; then
+      AC_MSG_WARN([Ignoring option --with-pic-libpoly-include-dir since MCSAT support is disabled])
+    else
+      if test "x$withval" == x; then
+         AC_MSG_WARN([--with-pic-libpoly-include-dir was used but no directory was given. Using defaults])
+      else
+         pic_includelpoly=$withval
+      fi
+    fi
+   ],
    [])
 
 
 
-
 dnl
-dnl CSL_CHECK_GMP_HEADER(includedir,option)
-dnl ----------------------------------------
-dnl check whether 'gmp.h' is present in includedir
-dnl set variable $testincludedir to includedir if so
-dnl exit otherwise.
-dnl if includedir is empty, just set testincludedir to empty string too
+dnl CSL_COLLECT_LIBRARY_PATHS
+dnl -------------------------
+dnl Sets variable search_libs to a default list of directories in which to search for libraries.
+dnl The list include /usr/local/lib /usr/lib /lib + directories found by 
+dnl ld --verbose + LD_LIBRARY_PATH + DYLD_LIBRARY_PATH + LDFLAGS if non-empty.
 dnl
-dnl option must be the '--with-...-include-dir from which includedir was given
-dnl it's used to print the error message.
-dnl
-AC_DEFUN([CSL_CHECK_GMP_HEADER],
+AC_DEFUN([CSL_COLLECT_LIBRARY_PATHS],
 [
-testincludedir=""
-if test "x$1" != x; then
-   if test -d $1 ; then
-     if test -f $1/gmp.h; then
-        testincludedir=$1
-     else
-        AC_MSG_ERROR([*** gmp.h not found in $1. Check option $2 ***])
-     fi
-  else
-     AC_MSG_ERROR([*** directory $1 not found. Check option $2 ***])
-  fi
+#
+# Some (non-GNU) versions of ld do not recognize --verbose
+#
+# Also, some versions of GNU ld have things like SEARCH_DIR(=/usr/local/lib32)
+# and the '=' causes us trouble.
+#
+# man ld says
+#   If searchdir begins with "=", then the "=" will be replaced by the
+#   sysroot prefix, a path specified when the linker is configured.
+#
+# We ignore this here. If the search dir starts with =, we remove =
+#
+# NOTE: this sed command uses \? which, is a GNU extension.
+#
+if ld --verbose > /dev/null 2>&1; then
+   base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?=\?,,g' -e 's,\"\?);,,g' | sed -e 's,SEARCH_DIR(\",,g' -e 's,\");,,g' `
+else
+   base_libs=""
 fi
+#
+# Add LD_LIBRARY_PATH or DYLD_LIBRARY_PATH if they are defined
+#
+if test "x$LD_LIBRARY_PATH" != x; then
+   aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
+else
+   if test "x$DYLD_LIBRARY_PATH" != x; then
+      aux_libs=`echo $DYLD_LIBRARY_PATH | sed -e 's,:, ,g'`
+   else
+      aux_libs=""
+   fi
+fi
+search_libs="$aux_libs $base_libs /usr/local/lib /usr/lib /lib"
+#
+# Add other libraries from $LDFLAGS
+#
+prev_l_opt=false
+for ld_arg in $LDFLAGS; do
+  if test "$prev_l_opt" = "true"; then
+     search_libs=" $ld_arg $search_libs"
+  else
+     if test "$ld_arg" = "-L"; then
+        prev_l_opt=true
+     else
+        libprefix=`echo $ld_arg | cut -c -2`
+        body=`echo $ld_arg | cut -c 3-`
+        if test "$libprefix" = "-L"; then
+          search_libs=" $body $search_libs"
+        else
+          libprefix=`echo $ld_arg | cut -c -15`
+          body=`echo $ld_arg | cut -c 16-`
+          if test "$libprefix" = "--library-path"; then
+            search_libs=" $body $search_libs"
+          fi
+        fi
+     fi
+  fi
+done
 ])
 
 
 dnl
-dnl CSL_CHECK_LIBGMP_PATH(path,option)
+dnl CSL_CHECK_LIB_PATH(path,option)
 dnl ----------------------------------
-dnl path should be the full path to a static GMP library.
+dnl path should be the full path to a static library.
 dnl this checks whether the given file exists. Print an
 dnl error and exit otherwise.
 dnl
 dnl If the test succeeds, set variable testlib to path
 dnl
-AC_DEFUN([CSL_CHECK_LIBGMP_PATH],
+AC_DEFUN([CSL_CHECK_LIB_PATH],
 [
 testlib=""
 AC_MSG_CHECKING([for $1])
@@ -275,6 +398,35 @@ else
   AC_MSG_ERROR([*** $1 was not found: Check option $2 ***])
 fi
 ])
+
+
+dnl
+dnl CSL_CHECK_HEADER(header,includedir,option)
+dnl ----------------------------------------
+dnl check whether a header file like 'gmp.h' is present in includedir
+dnl set variable $testincludedir to includedir if so
+dnl exit otherwise.
+dnl if includedir is empty, just set testincludedir to empty string too
+dnl
+dnl option must be the '--with-...-include-dir from which includedir was given
+dnl it's used to print the error message.
+dnl
+AC_DEFUN([CSL_CHECK_HEADER],
+[
+testincludedir=""
+if test "x$2" != x; then
+   if test -d "$2" ; then
+     if test -f "$2/$1" ; then
+        testincludedir="$2"
+     else
+        AC_MSG_ERROR([*** $1 not found in $2. Check option $3 ***])
+     fi
+  else
+     AC_MSG_ERROR([*** directory $2 not found. Check option $3 ***])
+  fi
+fi
+])
+
 
 
 dnl
@@ -331,7 +483,7 @@ LIBS=$save_libs
 
 
 dnl
-dnl CSL_CHECK_STATIC_GMP(ligmp,includedir)
+dnl CSL_CHECK_STATIC_GMP(libgmp,includedir)
 dnl ------------------------------------
 dnl try to find the full path to a usable libgmp.a, use $1 if not empty.
 dnl if $2 is not empty, then the checks are compiled with -I$2
@@ -342,68 +494,12 @@ dnl
 AC_DEFUN([CSL_CHECK_STATIC_GMP],
 [
 AC_MSG_NOTICE([Trying to find a usable ligmp.a])
-CSL_CHECK_GMP_HEADER($2,--with-static-gmp-include-dir)
+CSL_CHECK_HEADER([gmp.h],$2,--with-static-gmp-include-dir)
 #
 # if $1 is not given, search for it in library paths
 #
 if test -z "$1"; then
-   #
-   # Some (non-GNU) versions of ld do not recognize --verbose
-   #
-   # Also, some versions of GNU ld have things like SEARCH_DIR(=/usr/local/lib32)
-   # and the '=' causes us trouble.
-   #
-   # man ld says
-   #   If searchdir begins with "=", then the "=" will be replaced by the
-   #   sysroot prefix, a path specified when the linker is configured.
-   #
-   # We ignore this here. If the search dir starts with =, we remove =
-   #
-   # NOTE: this sed command uses \? which, is a GNU extension.
-   #
-   if ld --verbose > /dev/null 2>&1; then
-      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?=\?,,g' -e 's,\"\?);,,g' | sed -e 's,SEARCH_DIR(\",,g' -e 's,\");,,g' `
-   else
-      base_libs=""
-   fi
-   #
-   # Add LD_LIBRARY_PATH or DYLD_LIBRARY_PATH if they are defined
-   #
-   if test "x$LD_LIBRARY_PATH" != x; then
-      aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
-   else
-      if test "x$DYLD_LIBRARY_PATH" != x; then
-         aux_libs=`echo $DYLD_LIBRARY_PATH | sed -e 's,:, ,g'`
-      else
-         aux_libs=""
-      fi
-   fi
-   search_libs="$aux_libs $base_libs /usr/local/lib /usr/lib /lib"
-   #
-   # Add other libraries from $LDFLAGS
-   #
-   prev_l_opt=false
-   for ld_arg in $LDFLAGS; do
-     if test "$prev_l_opt" = "true"; then
-        search_libs=" $ld_arg $search_libs"
-     else
-        if test "$ld_arg" = "-L"; then
-           prev_l_opt=true
-        else
-           libprefix=`echo $ld_arg | cut -c -2`
-           body=`echo $ld_arg | cut -c 3-`
-           if test "$libprefix" = "-L"; then
-             search_libs=" $body $search_libs"
-           else
-             libprefix=`echo $ld_arg | cut -c -15`
-             body=`echo $ld_arg | cut -c 16-`
-             if test "$libprefix" = "--library-path"; then
-               search_libs=" $body $search_libs"
-             fi
-           fi
-        fi
-     fi
-   done
+   CSL_COLLECT_LIBRARY_PATHS
    #
    # now $search_libs contains all the directories to search
    #
@@ -430,7 +526,7 @@ else
   # User gave option --with-static-gmp=xxx
   # Check whether the specified xxx actually works
   #
-  CSL_CHECK_LIBGMP_PATH($1,--with-static-gmp)
+  CSL_CHECK_LIB_PATH($1,--with-static-gmp)
   CSL_CHECK_GMP($testlib,$testincludedir)
   if test $run_ok = yes; then
      STATIC_GMP=$testlib
@@ -447,15 +543,122 @@ fi
 
 
 
+dnl
+dnl CSL_CHECK_LIBPOLY(libpoly,includedir,libs)
+dnl ------------------------------------------
+dnl attempt to compile and run a test program that calls libpoly
+dnl set run_ok to "yes" if the program executes and exits with 0.
+dnl set run_ok to "no" otherwise.
+dnl
+dnl libpoly must be the full-path name to the library to test.
+dnl includedir must be a directory with 'poly/polyn.h' can be found.
+dnl libs may contain GMP libraries to use
+dnl
+AC_DEFUN([CSL_CHECK_LIBPOLY],
+[
+save_cppflags=$CPPFLAGS
+save_libs=$LIBS
+#
+# Add the -I option to CPPFLAGS
+# Add $1 then $3 to LIBS
+#
+if test "x$2" != x ; then
+   CPPFLAGS="-I$2 $CPPFLAGS"
+fi
+LIBS="$1"
+if test "x$3" != x ; then
+   LIBS="$LIBS $3"
+fi
+AC_MSG_CHECKING([whether $1 is usable])
+#
+# Test program
+#
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[
+#include <poly/poly.h>
+]],
+[[
+lp_init();
+]])
+
+],run_ok=yes,run_ok=no,run_ok=no)
+AC_MSG_RESULT([$run_ok])
+#
+# restore CPPFLAGS and LIBS
+#
+CPPFLAGS=$save_cppflags
+LIBS=$save_libs
+])
+
+
+dnl
+dnl CSL_CHECK_STATIC_LIBPOLY(libpoly,includedir)
+dnl --------------------------------------------
+dnl Try to find a usable libpoly.a.
+dnl If $1 is not empty, it's assumed to be the full path to libpoly.a
+dnl If $2 is not empty, it's assumed to be the path to the
+dnl corresponding include directory (i.e., the relevant headers are
+dnl assumed to be in $2/poly/...
+dnl If $3 is not empty, it's the GMP library to use
+dnl
+dnl If the test succeeds. then this macro sets STATIC_LIBPOLY to
+dnl the full path for libpoly.a and STATIC_LIBPOLY_INCLUDE_DIR to $2.
+dnl
+AC_DEFUN([CSL_CHECK_STATIC_LIBPOLY],
+[
+AC_MSG_NOTICE([Searching for a usable libpoly.a])
+CSL_CHECK_HEADER([poly/polynomial.h],$2,--with-static-libpoly-include-dir)
+#
+# If $1 is empty search for it in the 
+#
+if test -z "$1" ; then
+   CSL_COLLECT_LIBRARY_PATHS
+   #
+   # $search_libs contains the directories to search
+   #
+   AC_MSG_NOTICE([Searching in $search_libs])
+   for ldir in $search_libs ; do
+      AC_MSG_CHECKING([for libpoly.a in $ldir])
+      if test -f $ldir/libpoly.a ; then
+         AC_MSG_RESULT(found)
+         testlib=$ldir/libpoly.a
+         CSL_CHECK_LIBPOLY($testlib,$testincludedir,$3)
+         if test $run_ok = yes ; then
+            STATIC_LIBPOLY=$testlib
+            STATIC_LIBPOLY_INCLUDE_DIR=$testincludedir
+            break
+         fi
+      else
+         AC_MSG_RESULT(no)
+      fi
+   done
+#
+else
+  # got --with-static-libpoly=xxxx
+  CSL_CHECK_LIB_PATH($1,--with-static-libpoly)
+  CSL_CHECK_LIBPOLY($testlib,$testincludedir,$3)
+  if test $run_ok = yes; then
+     STATIC_LIBPOLY=$testlib
+     STATIC_LIBPOLY_INCLUDE_DIR=$testincludedir
+  else
+     AC_MSG_ERROR([*** $1 does not appear to be usable: check option --with-static-libpoly ***])
+  fi
+fi
+
+if test "x$STATIC_LIBPOLY" = x; then
+   AC_MSG_WARN([*** No usable libpoly.a library was found ***])
+fi
+])
+
 
 #
-# CHECK GMP LIBRARIES
-# -------------------
+# CHECK LIBRARIES
+# ---------------
 #
 AC_LANG([C])
 
 #
-# We must search for the static version first
+# We must search for the static versions first
 # since other tests may modify $LIBS and $CPPFLAGS
 #
 STATIC_GMP=""
@@ -475,8 +678,8 @@ if test "x$pic_libgmp" != x ; then
   #
   # --with-pic-gmp was given on the command line
   #
-  CSL_CHECK_GMP_HEADER($pic_includegmp,--with-pic-gmp-include-dir)
-  CSL_CHECK_LIBGMP_PATH($pic_libgmp,--with-pic-gmp)
+  CSL_CHECK_HEADER([gmp.h],$pic_includegmp,--with-pic-gmp-include-dir)
+  CSL_CHECK_LIB_PATH($pic_libgmp,--with-pic-gmp)
   CSL_CHECK_GMP($testlib,$testincludedir)
   if test $run_ok = yes; then
     PIC_GMP=$testlib
@@ -486,6 +689,57 @@ if test "x$pic_libgmp" != x ; then
   fi
 fi
 
+#
+# MCSAT SUPPORT
+# -------------
+ENABLE_MCSAT="$use_mcsat"
+AC_SUBST(ENABLE_MCSAT)
+
+#
+# libpoly.a
+#
+STATIC_LIBPOLY=""
+STATIC_LIBPOLY_INCLUDE_DIR=""
+AC_SUBST(STATIC_LIBPOLY)
+AC_SUBST(STATIC_LIBPOLY_INCLUDE_DIR)
+if test $use_mcsat = yes ; then
+  if test "x$STATIC_GMP" = x ; then
+    auxlibs="-lgmp"
+  else
+    auxlibs="$STATIC_GMP"
+  fi
+  CSL_CHECK_STATIC_LIBPOLY($static_lpoly,$static_includelpoly,$auxlibs)
+fi
+
+#
+# Position-independent static version of LIBPOLY
+#
+PIC_LIBPOLY="$STATIC_LIBPOLY"
+PIB_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
+AC_SUBST(PIC_LIBPOLY)
+AC_SUBST(PIC_LIBPOLY_INCLUDE_DIR)
+if test $use_mcsat = yes ; then
+  if test "x$pic_lpoly" != x ; then
+     CSL_CHECK_HEADER([poly/polynomial.h],$pic_includelpoly,--with-pic-libpoly-include-dir)
+     CSL_CHECK_LIB_PATH($pic_lpoly,--with-pic-lpoly)
+     if test "x$PIC_GMP" != x ; then
+        auxlibs="$PIC_GMP"
+     else
+       if test "x$STATIC_GMP" != x ; then 
+         auxlibs="$STATIC_GMP"
+       else
+         auxlibs="-lgmp"
+       fi
+     fi
+     CSL_CHECK_STATIC_LIBPOLY($pic_lpoly,$pic_includelpoly,$auxlibs)
+     if test $run_ok = yes; then
+       PIC_LIBPOLY=$testlib
+       PIC_LIBPOLY_INCLUDE_DIR=$testincludedir
+     else
+       AC_MSG_ERROR([*** $testlib does not appear to be usable: check option --with-pic-libpoly ***])
+     fi
+  fi
+fi
 
 #
 # Default GMP
@@ -493,6 +747,13 @@ fi
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
 
+
+#
+# Default libpoly
+#
+if test $use_mcsat = yes ; then 
+   AC_CHECK_LIB([poly],[lp_init], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
+fi
 
 #
 # Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
@@ -503,17 +764,14 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 #   ./install-sh*)
 #      curdir=`pwd`
 #      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***])
+#     AC_MSG_WARN([*** MKDIR_P is relative: converting $MKDIR_P to $new_mkdir_p ***])
 #     MKDIR_P=$new_mkdir_p
 #     ;;
 # esac
 #
 
-#
-# Check for the libpoly library
-#
-AC_CHECK_LIB([poly],[lp_init], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
-AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not found. Try to set CPPFLAGS ***])])
+
+dnl AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not found. Try to set CPPFLAGS ***])])
 
 
 #

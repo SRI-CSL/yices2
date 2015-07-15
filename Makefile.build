@@ -606,6 +606,14 @@ show-details:
 	@ echo "  PIC_GMP = $(PIC_GMP)"
 	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
 	@ echo
+	@ echo "  ENABLE_MCSAT = $(ENABLE_MCSAT)"
+	@ echo
+	@ echo "  STATIC_LIBPOLY = $(STATIC_LIBPOLY)"
+	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
+	@ echo
+	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
+	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
+	@ echo
 
 
 .PHONY: show-details
