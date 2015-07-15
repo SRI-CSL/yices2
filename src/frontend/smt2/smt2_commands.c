@@ -727,8 +727,6 @@ static void __attribute__((noreturn)) failed_output(void) {
 }
 
 
-
-
 /*
  * OUTPUT FUNCTIONS
  */

@@ -258,6 +258,7 @@ typedef struct smt2_stack_s {
 #define DEF_SMT2_STACK_SIZE 128
 #define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
 
+
 /*
  * Statistics: keep track of the number of commands
  * executed so far.
