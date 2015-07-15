@@ -122,7 +122,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_BV,         // BV  same as QF_BV
   -1,                  // IDL
   -1,                  // LIA
-  -1,                  // LRA
+  CTX_ARCH_SPLX,       // LRA same as QF_LRA
   -1,                  // LIRA
   -1,                  // NIA
   -1,                  // NRA
