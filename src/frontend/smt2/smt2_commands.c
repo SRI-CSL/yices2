@@ -3648,10 +3648,14 @@ void smt2_set_logic(const char *name) {
   // check to see if we are in efmode 
   __smt2_globals.efmode = logic_has_quantifiers(code);
 
-  // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
-  if(__smt2_globals.efmode && ! __smt2_globals.benchmark_mode) {
-    fprint_error(__smt2_globals.out, "exists forall mode not allowed in incremental mode");
-    return;
+  if(__smt2_globals.efmode){
+    // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
+    if( ! __smt2_globals.benchmark_mode) {
+      fprint_error(__smt2_globals.out, "exists forall mode not allowed in incremental mode");
+      return;
+    }
+    //we are in efmode; better set the search parameters ...
+    yices_set_default_params(&parameters, code, arch_for_logic(code));
   }
   
   
@@ -3666,7 +3670,8 @@ void smt2_set_logic(const char *name) {
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
-  }
+  } 
+
 
   report_success();
 }
