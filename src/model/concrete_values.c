@@ -18,6 +18,10 @@
 #include "utils/int_array_sort.h"
 #include "utils/memalloc.h"
 
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
+
 
 
 /************************
@@ -724,6 +728,14 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
     case RATIONAL_VALUE:
       q_clear(&table->desc[i].rational);
       break;
+    case ALGEBRAIC_VALUE:
+#ifdef HAVE_MCSAT
+      lp_algebraic_number_destruct(table->desc[i].ptr);
+      safe_free(table->desc[i].ptr);
+#else
+      assert(false);
+#endif
+      break;
     case UNINTERPRETED_VALUE:
       delete_value_unint(table->desc[i].ptr);
       break;
@@ -1270,6 +1282,12 @@ typedef struct {
 typedef struct {
   int_hobj_t m;
   value_table_t *table;
+  void *a;
+} algebraic_hobj_t;
+
+typedef struct {
+  int_hobj_t m;
+  value_table_t *table;
   type_t tau;
   int32_t id;
 } const_hobj_t;
@@ -1344,6 +1362,12 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
   return jenkins_hash_mix2(h_num, h_den);
 }
 
+static uint32_t hash_algebraic_value(void *a) {
+  // Can't hash, internal representation can change and they are not canonical
+  // We just return 0 and hope for the best
+  return 0;
+}
+
 static uint32_t hash_const_value(const_hobj_t *o) {
   return jenkins_hash_pair(o->tau, o->id, 0x417a6eca);
 }
@@ -1388,6 +1412,19 @@ static bool equal_rational_value(rational_hobj_t *o, value_t i) {
 
   table = o->table;
   return table->kind[i] == RATIONAL_VALUE && q_eq(&table->desc[i].rational, o->v);
+}
+
+static bool equal_algebraic_value(algebraic_hobj_t *o, value_t i) {
+#ifdef HAVE_MCSAT
+  value_table_t *table;
+
+  table = o->table;
+  return table->kind[i] == ALGEBRAIC_VALUE && lp_algebraic_number_cmp(table->desc[i].ptr, o->a) == 0;
+#else
+  assert(false);
+  return false;
+#endif
+
 }
 
 static bool equal_const_value(const_hobj_t *o, value_t i) {
@@ -1516,6 +1553,23 @@ static value_t build_rational_value(rational_hobj_t *o) {
 
   return i;
 }
+
+static value_t build_algebraic_value(algebraic_hobj_t *o) {
+#ifdef HAVE_MCSAT
+  value_table_t *table;
+  value_t i;
+
+  table = o->table;
+  i = allocate_object(table);
+  table->kind[i] = ALGEBRAIC_VALUE;
+  table->desc[i].ptr = safe_malloc(sizeof(lp_algebraic_number_t));
+  lp_algebraic_number_construct_copy(table->desc[i].ptr, o->a);
+  clr_bit(table->canonical, i);
+
+  return i;
+#endif
+}
+
 
 static value_t build_const_value(const_hobj_t *o) {
   value_table_t *table;
@@ -1703,6 +1757,12 @@ static rational_hobj_t rational_hobj = {
   NULL,
 };
 
+static algebraic_hobj_t algebraic_hobj = {
+  { (hobj_hash_t) hash_algebraic_value, (hobj_eq_t) equal_algebraic_value, (hobj_build_t) build_algebraic_value },
+  NULL,
+  NULL,
+};
+
 static const_hobj_t const_hobj = {
   { (hobj_hash_t) hash_const_value, (hobj_eq_t) equal_const_value, (hobj_build_t) build_const_value },
   NULL,
@@ -1772,6 +1832,20 @@ value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
   return k;
 }
 
+
+/*
+ * Copy of the algebraic number
+ */
+value_t vtbl_mk_algebraic(value_table_t *table, void* a) {
+#ifdef HAVE_MCSAT
+  algebraic_hobj.table = table;
+  algebraic_hobj.a = a;
+
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &algebraic_hobj);
+#else
+  return null_value;
+#endif
+}
 
 
 /*
@@ -2231,6 +2305,17 @@ value_t vtbl_find_int32(value_table_t *table, int32_t x) {
 
   return k;
 }
+
+/*
+ * Check whether the algebraic number is in the table.
+ */
+value_t vtbl_find_algebraic(value_table_t *table, void* a) {
+  algebraic_hobj.table = table;
+  algebraic_hobj.a = a;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &algebraic_hobj);
+}
+
 
 /*
  * Check presence of a bitvector constant defined by array of n integers:

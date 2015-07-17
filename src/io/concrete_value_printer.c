@@ -10,6 +10,9 @@
  */
 
 #include <inttypes.h>
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
 
 #include "io/concrete_value_printer.h"
 #include "io/type_printer.h"
@@ -32,6 +35,12 @@ static inline void vtbl_print_bool(FILE *f, int32_t b) {
 
 static inline void vtbl_print_rational(FILE *f, rational_t *v) {
   q_print(f, v);
+}
+
+static inline void vtbl_print_algebraic(FILE *f, void *v) {
+#ifdef HAVE_MCSAT
+  lp_algebraic_number_print(v, f);
+#endif
 }
 
 static inline void vtbl_print_bitvector(FILE *f, value_bv_t *b) {
@@ -147,6 +156,9 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     break;
   case RATIONAL_VALUE:
     vtbl_print_rational(f, &table->desc[c].rational);
+    break;
+  case ALGEBRAIC_VALUE:
+    vtbl_print_algebraic(f, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     vtbl_print_bitvector(f, table->desc[c].ptr);
@@ -428,6 +440,9 @@ void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case RATIONAL_VALUE:
     pp_rational(printer, &table->desc[c].rational);
+    break;
+  case ALGEBRAIC_VALUE:
+    pp_algebraic(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     vtbl_pp_bitvector(printer, table->desc[c].ptr);

@@ -139,6 +139,20 @@ void string_buffer_append_uint32(string_buffer_t *s, uint32_t x) {
   s->index += n;
 }
 
+void string_buffer_append_double(string_buffer_t *s, double x) {
+  int32_t n, size;
+
+  size = 0;
+  do {
+    size += 100;
+    string_buffer_extend(s, size);
+    n = snprintf(s->data + s->index, size, "%f", x);
+    assert(n > 0);
+  } while (n >= s->size);
+
+  s->index += n;
+}
+
 void string_buffer_append_mpz(string_buffer_t *s, mpz_t z) {
   uint32_t n;
   char *s0;

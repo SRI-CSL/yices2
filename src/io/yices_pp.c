@@ -10,7 +10,9 @@
  */
 
 #include <string.h>
-
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
 #include "io/yices_pp.h"
 
 
@@ -248,6 +250,11 @@ static void build_uint32(string_buffer_t *b, uint32_t x) {
   string_buffer_close(b);
 }
 
+static void build_double(string_buffer_t *b, double x) {
+  string_buffer_append_double(b, x);
+  string_buffer_close(b);
+}
+
 static void build_mpz(string_buffer_t *b, mpz_t z) {
   string_buffer_append_mpz(b, z);
   string_buffer_close(b);
@@ -367,6 +374,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_UINT32_ATOM:
     build_uint32(buffer, atm->data.u32);
+    s = buffer->data;
+    break;
+  case PP_DOUBLE_ATOM:
+    build_double(buffer, atm->data.dbl);
     s = buffer->data;
     break;
   case PP_RATIONAL_ATOM:
@@ -741,6 +752,28 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   q_set(&atom->data.rat, q);
 
   pp_push_token(&printer->pp, tk);
+}
+
+void pp_algebraic(yices_pp_t *printer, void *a) {
+#ifdef HAVE_MCSAT
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  double a_value = lp_algebraic_number_to_double(a);
+
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_double(buffer, a_value);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_DOUBLE_ATOM);
+  atom->data.dbl = a_value;
+  pp_push_token(&printer->pp, tk);
+#endif
 }
 
 

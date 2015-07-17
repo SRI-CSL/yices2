@@ -65,6 +65,12 @@ int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
 
 /*
+ * Add the model to the yices model
+ */
+void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
+
+
+/*
  * Set the tracer for the solver.
  */
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer);

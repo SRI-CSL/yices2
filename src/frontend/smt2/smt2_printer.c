@@ -64,6 +64,10 @@ static void smt2_pp_rational(yices_pp_t *printer, rational_t *q) {
   q_clear(&den);
 }
 
+static void smt2_pp_algebraic(yices_pp_t *printer, void *a) {
+  pp_algebraic(printer, a);
+}
+
 
 /*
  * For uninterpreted constants: always print an abstract name
@@ -99,6 +103,9 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case RATIONAL_VALUE:
     smt2_pp_rational(printer, &table->desc[c].rational);
+    break;
+  case ALGEBRAIC_VALUE:
+    smt2_pp_algebraic(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     smt2_pp_bitvector(printer, table->desc[c].ptr);

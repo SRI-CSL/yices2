@@ -127,7 +127,7 @@
 		</configuration>
 		<configuration configurationName="devel"/>
 		<configuration configurationName="debug">
-			<resource resourceType="PROJECT" workspacePath="/mices"/>
+			<resource resourceType="FOLDER" workspacePath="/yices2/build"/>
 		</configuration>
 		<configuration configurationName="release"/>
 	</storageModule>

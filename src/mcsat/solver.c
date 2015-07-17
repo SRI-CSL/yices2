@@ -8,6 +8,9 @@
 #include "mcsat/solver.h"
 
 #include "context/context.h"
+#include "model/models.h"
+#include "model/concrete_values.h"
+#include "io/concrete_value_printer.h"
 
 #include "mcsat/variable_db.h"
 #include "mcsat/variable_queue.h"
@@ -1498,4 +1501,80 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
 
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out) {
   statistics_print(&mcsat->stats, out);
+}
+
+void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
+
+  value_table_t* vtbl = model_get_vtbl(model);
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+    trace_printf(mcsat->ctx->trace, "mcsat_build_model()\n");
+  }
+
+  // Just copy the trail into the model
+  uint32_t i;
+  ivector_t* trail_elements = &mcsat->trail->elements;
+  for (i = 0; i < trail_elements->size; ++ i) {
+    variable_t x = trail_elements->data[i];
+    term_t x_term = variable_db_get_term(mcsat->var_db, x);
+    term_kind_t x_kind = term_kind(mcsat->terms, x_term);
+    if (x_kind == UNINTERPRETED_TERM) {
+
+      if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+        trace_printf(mcsat->ctx->trace, "var = ");
+        trace_term_ln(mcsat->ctx->trace, mcsat->terms, x_term);
+      }
+
+      // Get mcsat value (have to case to remove const because yices api doesn't care for const)
+      mcsat_value_t* x_value_mcsat = (mcsat_value_t*) trail_get_value(mcsat->trail, x);
+
+      if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+        trace_printf(mcsat->ctx->trace, "value = ");
+        mcsat_value_print(x_value_mcsat, trace_out(mcsat->ctx->trace));
+        trace_printf(mcsat->ctx->trace, "\n");
+      }
+
+      // Setup the yices value
+      value_t x_value = null_value;
+      switch (x_value_mcsat->type) {
+      case VALUE_BOOLEAN:
+        x_value = vtbl_mk_bool(vtbl, x_value_mcsat->b);
+        break;
+      case VALUE_RATIONAL:
+        x_value = vtbl_mk_rational(vtbl, &x_value_mcsat->q);
+        break;
+      case VALUE_LIBPOLY:
+        if (lp_value_is_rational(&x_value_mcsat->lp_value)) {
+          lp_rational_t lp_q;
+          lp_rational_construct(&lp_q);
+          lp_value_get_rational(&x_value_mcsat->lp_value, &lp_q);
+          rational_t q;
+          q_init(&q);
+          q_set_mpq(&q, &lp_q);
+          x_value = vtbl_mk_rational(vtbl, &q);
+          q_clear(&q);
+          lp_rational_destruct(&lp_q);
+        } else {
+          if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+            trace_printf(mcsat->ctx->trace, "value_algebraic = ");
+            lp_algebraic_number_print(&x_value_mcsat->lp_value.value.a, trace_out(mcsat->ctx->trace));
+            trace_printf(mcsat->ctx->trace, "\n");
+          }
+          x_value = vtbl_mk_algebraic(vtbl, &x_value_mcsat->lp_value.value.a);
+        }
+        break;
+      default:
+        assert(false);
+      }
+
+      if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+        trace_printf(mcsat->ctx->trace, "value = ");
+        vtbl_print_object(trace_out(mcsat->ctx->trace), vtbl, x_value);
+        trace_printf(mcsat->ctx->trace, "\n");
+      }
+
+      // Add to model
+      model_map_term(model, x_term, x_value);
+    }
+  }
 }
