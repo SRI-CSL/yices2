@@ -1,5 +1,6 @@
-YICES_SMT2=valgrind --leak-check=full --show-leak-kinds=all ../../bin/yices_smt2
-YICES_MAIN=valgrind --leak-check=full --show-leak-kinds=all ../../bin/yices_main  --mode=ef --logic=QF_BV
+#valgrind --leak-check=full --show-leak-kinds=all 
+YICES_SMT2=../../bin/yices_smt2
+YICES_MAIN=../../bin/yices_main  --mode=ef --logic=QF_BV
 VERBOSITY=--verbosity=0
 
 all: 1y 1s 1fy 1fs 23y 23s 24y 24s alury alurs dy ds aluy alus

@@ -31,6 +31,7 @@
 #include "context/context.h"
 #include "context/dump_context.h"
 #include "exists_forall/ef_client.h"
+#include "frontend/common.h"
 #include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
 #include "frontend/yices/yices_lexer.h"
@@ -2403,7 +2404,7 @@ static void yices_assert_cmd(term_t f) {
 	  } else {
 	    code = assert_formula(context, f);
 	  }
-	  print_internalization_code(code, verbosity, ef_client_globals.client);
+	  print_internalization_code(code, verbosity);
 	} else {
 	  report_error("type error in assert: boolean term required");
 	}
@@ -2505,7 +2506,7 @@ static void yices_check_cmd(void) {
     } else {
       code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
       if (code < 0) {
-	print_internalization_code(code, verbosity, ef_client_globals.client);
+	print_internalization_code(code, verbosity);
 	return;
       }
     }
@@ -2607,10 +2608,10 @@ static model_t *ef_get_model(ef_client_t *efc){
       assert(efsolver->exists_model != NULL);
       return efsolver->exists_model;
     } else {
-      fprint_error(stderr, efc->client, "(ef-solve) did not find a solution. No model\n");
+      fprint_error(stderr, "(ef-solve) did not find a solution. No model\n");
     }
   } else {
-    fprint_error(stderr, efc->client, "Can't build a model. Call (ef-solve) first.\n");
+    fprint_error(stderr, "Can't build a model. Call (ef-solve) first.\n");
   }
   return NULL;
 }
@@ -2780,7 +2781,7 @@ static void export_ef_problem(const char *s) {
 
   build_ef_problem(&ef_client_globals, &delayed_assertions);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(ef_client_globals.efcode, ef_client_globals.client);
+    print_ef_analyze_code(ef_client_globals.efcode);
   } else {
     assert(ef_client_globals.efprob != NULL);
 
@@ -2794,7 +2795,7 @@ static void export_ef_problem(const char *s) {
     disable_bvarith_elimination(aux);
     code = assert_formulas(aux, all_ef.size, all_ef.data);
     if (code < 0) {
-      print_internalization_code(code, verbosity, ef_client_globals.client);
+      print_internalization_code(code, verbosity);
     } else {
       bitblast_then_export(aux, s);
     }
@@ -2817,7 +2818,7 @@ static void export_delayed_assertions(const char *s) {
   disable_bvarith_elimination(aux);
   code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
   if (code < 0) {
-    print_internalization_code(code, verbosity, ef_client_globals.client);
+    print_internalization_code(code, verbosity);
   } else {
     bitblast_then_export(aux, s);
   }
