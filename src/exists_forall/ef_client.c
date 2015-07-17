@@ -85,6 +85,13 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 };
 
 
+static void report_ok(frontend_t client){
+  switch(client){
+  case YICES_MAIN: print_ok(); break;
+  case YICES_SMT2: report_success(); break;
+  }
+}
+
 
 /*
  * Initialize the ef_parameters to default values
@@ -98,7 +105,8 @@ static inline void init_ef_params(ef_client_t *efc){
   efc->ef_parameters.max_iters = 100;
 }
 
-void init_ef_client(ef_client_t *efc) {
+void init_ef_client(frontend_t client, ef_client_t *efc) {
+  efc->client = client;
   init_ef_params(efc);
   efc->efprob = NULL;
   efc->efsolver = NULL;
@@ -146,31 +154,27 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
 /*
  * Print the translation code returned by assert
  */
-void print_internalization_code(int32_t code, uint32_t verbosity) {
+void print_internalization_code(int32_t code, uint32_t verbosity, frontend_t client) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     fprintf(stderr, "unsat\n");
     fflush(stderr);
   } else if (verbosity > 0 && code == CTX_NO_ERROR) {
-    //FIXME
-    //report_success();
-    //print_ok();
+    report_ok(client);
   } else if (code < 0) {
     code = - code;
-    fprint_error(stderr, code2error[code]);
+    fprint_error(stderr, client, code2error[code]);
   }
 }
 
 /*
  * Print the translation code returned by ef_analyze
  */
-void print_ef_analyze_code(ef_code_t code) {
+void print_ef_analyze_code(ef_code_t code, frontend_t client) {
   if (code == EF_NO_ERROR) {
-    //FIXME
-    //report_success()
-    //print_ok();
+    report_ok(client);
   } else {
-    fprint_error(stderr, efcode2error[code]);
+    fprint_error(stderr, client, efcode2error[code]);
   }
 }
 
@@ -213,16 +217,16 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
 
   case EF_STATUS_SUBST_ERROR:
     if (error == -1) {
-      fprint_error(err, "EF solver failed: degree overflow in substitution");
+      fprint_error(err, efc->client, "EF solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
-      freport_bug(err, "EF solver failed: internal error");
+      freport_bug(err, efc->client, "EF solver failed: internal error");
     }
     break;
 
   case EF_STATUS_ASSERT_ERROR:
     assert(error < 0);
-    print_internalization_code(error, verbosity);
+    print_internalization_code(error, verbosity, efc->client);
     break;
 
   case EF_STATUS_MDL_ERROR:
@@ -250,10 +254,10 @@ model_t *ef_get_model(ef_client_t *efc){
       assert(efsolver->exists_model != NULL);
       return efsolver->exists_model;
     } else {
-      fprint_error(stderr, "(ef-solve) did not find a solution. No model\n");
+      fprint_error(stderr, efc->client, "(ef-solve) did not find a solution. No model\n");
     }
   } else {
-    fprint_error(stderr, "Can't build a model. Call (ef-solve) first.\n");
+    fprint_error(stderr, efc->client, "Can't build a model. Call (ef-solve) first.\n");
   }
   return NULL;
 }
@@ -263,7 +267,7 @@ void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters, smt_
   build_ef_problem(efc, assertions);
   if (efc->efcode != EF_NO_ERROR) {
     // error in preprocessing
-    print_ef_analyze_code(efc->efcode);
+    print_ef_analyze_code(efc->efcode, efc->client);
   } else {
     if (! efc->efdone) {
       assert(efc->efsolver == NULL);
@@ -283,7 +287,7 @@ void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters, smt_
   }
 }
 
-void fprint_error(FILE* fp, const char *format, ...) {
+void fprint_error(FILE* fp, frontend_t client, const char *format, ...) {
   va_list p;
   //FIXME
   //open_error();

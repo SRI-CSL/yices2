@@ -896,7 +896,7 @@ static void report_negative_timeout(int32_t val) {
 /*
  * Report that the previous command was executed (if verbose)
  */
-static void print_ok(void) {
+void print_ok(void) {
   if (verbosity > 0 && interactive && include_depth == 0) {
     fprintf(stderr, "ok\n");
     fflush(stderr);
@@ -2403,7 +2403,7 @@ static void yices_assert_cmd(term_t f) {
 	  } else {
 	    code = assert_formula(context, f);
 	  }
-	  print_internalization_code(code, verbosity);
+	  print_internalization_code(code, verbosity, ef_client_globals.client);
 	} else {
 	  report_error("type error in assert: boolean term required");
 	}
@@ -2505,7 +2505,7 @@ static void yices_check_cmd(void) {
     } else {
       code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
       if (code < 0) {
-	print_internalization_code(code, verbosity);
+	print_internalization_code(code, verbosity, ef_client_globals.client);
 	return;
       }
     }
@@ -2759,7 +2759,7 @@ static void export_ef_problem(const char *s) {
 
   build_ef_problem(&ef_client_globals, &delayed_assertions);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(ef_client_globals.efcode);
+    print_ef_analyze_code(ef_client_globals.efcode, ef_client_globals.client);
   } else {
     assert(ef_client_globals.efprob != NULL);
 
@@ -2773,7 +2773,7 @@ static void export_ef_problem(const char *s) {
     disable_bvarith_elimination(aux);
     code = assert_formulas(aux, all_ef.size, all_ef.data);
     if (code < 0) {
-      print_internalization_code(code, verbosity);
+      print_internalization_code(code, verbosity, ef_client_globals.client);
     } else {
       bitblast_then_export(aux, s);
     }
@@ -2796,7 +2796,7 @@ static void export_delayed_assertions(const char *s) {
   disable_bvarith_elimination(aux);
   code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
   if (code < 0) {
-    print_internalization_code(code, verbosity);
+    print_internalization_code(code, verbosity, ef_client_globals.client);
   } else {
     bitblast_then_export(aux, s);
   }
@@ -3372,7 +3372,7 @@ int yices_main(int argc, char *argv[]) {
   init_yices_tstack(&stack);
   init_parameter_name_table();
 
-  init_ef_client(&ef_client_globals);
+  init_ef_client(YICES_MAIN, &ef_client_globals);
   
 
   init_parser(&parser, &lexer, &stack);

@@ -27,4 +27,9 @@ extern int yices_main(int argc, char *argv[]);
 extern int run_yices(void);
 
 
+/*
+ *  Sigh.
+ */
+extern void print_ok(void);
+
 #endif

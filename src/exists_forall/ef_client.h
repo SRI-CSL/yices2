@@ -20,6 +20,7 @@
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/efsolver.h"
 
+typedef enum frontends { YICES_MAIN, YICES_SMT2 } frontend_t;
 
 /*
  * Table to convert  smt_status to a string
@@ -55,6 +56,9 @@ typedef struct ef_param_s {
  *
  */
 typedef struct ef_client_s {
+  //our client frontend 
+  frontend_t client;
+  // the ef parameters
   ef_param_t ef_parameters;
   // problem built from the delayed assertions
   ef_prob_t *efprob;
@@ -67,7 +71,7 @@ typedef struct ef_client_s {
 } ef_client_t;
 
 
-extern void init_ef_client(ef_client_t *ef_client);
+extern void init_ef_client(frontend_t client, ef_client_t *ef_client);
 
 extern void delete_ef_client(ef_client_t *ef_client);
 
@@ -81,12 +85,12 @@ extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 /*
  * Print the translation code returned by assert
  */
-extern void print_internalization_code(int32_t code, uint32_t verbosity);
+extern void print_internalization_code(int32_t code, uint32_t verbosity, frontend_t client);
 
 /*
  * Print the translation code returned by ef_analyze
  */
-extern void print_ef_analyze_code(ef_code_t code);
+extern void print_ef_analyze_code(ef_code_t code, frontend_t client);
 
 
 /*
@@ -113,9 +117,9 @@ extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameter
 
 
 /*
- * Formatted error: like printf but add the prefix and close
+ * Formatted error: like printf but add the prefix and close (client arg indicates who is calling it yices_reval or yices_smt2).
  */
-extern void fprint_error(FILE* fp, const char *format, ...);
+extern void fprint_error(FILE* fp, frontend_t client, const char *format, ...);
 
 
 /*

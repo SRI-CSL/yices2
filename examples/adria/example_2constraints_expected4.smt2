@@ -2,7 +2,7 @@
 (set-logic BV)
 
 ;; (set-option :branching positive)
-(set-option :ef-max-iters 100000000)
+;; (set-option :ef-max-iters 100000000)
 
 (declare-fun fresh_value_in124_v1 () Bool)
 (declare-fun fresh_value_in125_v1 () Bool)

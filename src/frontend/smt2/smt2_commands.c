@@ -758,7 +758,7 @@ static inline void flush_out(void) {
 /*
  * Report success
  */
-static void report_success(void) {
+void report_success(void) {
   if (__smt2_globals.print_success) {
     print_out("success\n");
     flush_out();
@@ -1426,7 +1426,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
  * Bug report: unexpected status
  */
 static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
-  fprint_error(__smt2_globals.out, "Internal error: unexpected context status");
+  fprint_error(__smt2_globals.out,  __smt2_globals.ef_client_globals.client, "Internal error: unexpected context status");
   flush_out();
   freport_bug(f, "Internal error: unexpected context status");
 }
@@ -1824,7 +1824,7 @@ static void set_boolean_option(smt2_globals_t *g, const char *name, aval_t value
   if (aval_is_boolean(g->avtbl, value, flag)) {
     report_success();
   } else {
-    fprint_error(g->out, "option %s requires a Boolean value", name);
+    fprint_error(g->out, g->ef_client_globals.client, "option %s requires a Boolean value", name);
   }
 }
 
@@ -1842,16 +1842,16 @@ static void set_uint32_option(smt2_globals_t *g, const char *name, aval_t value,
   q_init(&aux);
   if (aval_is_rational(g->avtbl, value, &aux) && q_is_integer(&aux)) {
     if (q_is_neg(&aux)) {
-      fprint_error(g->out, "option %s must be non-negative", name);
+      fprint_error(g->out, g->ef_client_globals.client, "option %s must be non-negative", name);
     } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX){
       assert(x >= 0);
       *result = (uint32_t) x;
       report_success();
     } else {
-      fprint_error(g->out, "integer overflow: value must be at most %"PRIu32, UINT32_MAX);
+      fprint_error(g->out, g->ef_client_globals.client, "integer overflow: value must be at most %"PRIu32, UINT32_MAX);
     }
   } else {
-    fprint_error(g->out, "option %s requires an integer value", name);
+    fprint_error(g->out, g->ef_client_globals.client, "option %s requires an integer value", name);
   }
   q_clear(&aux);
 }
@@ -1872,7 +1872,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
     if (strcmp(file_name, "stdout") != 0) {
       f = fopen(file_name, "a"); // append
       if (f == NULL) {
-	fprint_error(g->out, "can't open file %s", file_name);
+	fprint_error(g->out, g->ef_client_globals.client, "can't open file %s", file_name);
 	return;
       }
     }
@@ -1885,7 +1885,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
     g->out = f;
     report_success();
   } else {
-    fprint_error(g->out, "option %s requires a string value", name);
+    fprint_error(g->out, g->ef_client_globals.client, "option %s requires a string value", name);
   }
 }
 
@@ -1905,7 +1905,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
     if (strcmp(file_name, "stderr") != 0) {
       f = fopen(file_name, "a"); // append
       if (f == NULL) {
-	fprint_error(g->out, "can't open file %s", file_name);
+	fprint_error(g->out, g->ef_client_globals.client, "can't open file %s", file_name);
 	return;
       }
     }
@@ -1919,7 +1919,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
     update_trace_file(g);
     report_success();
   } else {
-    fprint_error(g->out, "option %s requires a string value", name);
+    fprint_error(g->out, g->ef_client_globals.client, "option %s requires a string value", name);
   }
 }
 
@@ -1937,7 +1937,7 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
   q_init(&aux);
   if (aval_is_rational(g->avtbl, value, &aux) && q_is_integer(&aux)) {
     if (q_is_neg(&aux)) {
-      fprint_error(g->out, "option %s must be non-negative", name);
+      fprint_error(g->out, g->ef_client_globals.client, "option %s must be non-negative", name);
     } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX) {
       /*
        * x = verbosity level
@@ -1946,10 +1946,10 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
       update_trace_verbosity(g);
       report_success();
     } else {
-      fprint_error(g->out, "integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
+      fprint_error(g->out, g->ef_client_globals.client, "integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
     }
   } else {
-    fprint_error(g->out, "option %s requires an integer value", name);
+    fprint_error(g->out, g->ef_client_globals.client, "option %s requires an integer value", name);
   }
   q_clear(&aux);
 }
@@ -2095,8 +2095,10 @@ static void print_kw_value_pair(smt2_globals_t *g, const char *name, aval_t val)
  * - if not print an error
  */
 static bool check_logic(void) {
-  if (__smt2_globals.logic_code == SMT_UNKNOWN) {
-    fprint_error(__smt2_globals.out, "no logic set");
+  smt2_globals_t *g;
+  g = &__smt2_globals;
+  if (g->logic_code == SMT_UNKNOWN) {
+    fprint_error(g->out, g->ef_client_globals.client, "no logic set");
     return false;
   }
   return true;
@@ -2108,8 +2110,10 @@ static bool check_logic(void) {
  * - if it is, print (error "...") and return false
  */
 static bool option_can_be_set(const char *option_name) {
-  if (__smt2_globals.logic_code != SMT_UNKNOWN) {
-    fprint_error(__smt2_globals.out, "option %s can't be set now. It must be set before (set-logic ...)", option_name);
+  smt2_globals_t *g;
+  g = &__smt2_globals;
+  if (g->logic_code != SMT_UNKNOWN) {
+    fprint_error(g->out, g->ef_client_globals.client, "option %s can't be set now. It must be set before (set-logic ...)", option_name);
     return false;
   }
   return true;
@@ -2705,9 +2709,9 @@ static model_t *get_model(smt2_globals_t *g) {
       assert(g->benchmark_mode);
 
       if (!g->frozen) {
-	fprint_error(g->out, "can't build a model. Call (check-sat) first");
+	fprint_error(g->out, g->ef_client_globals.client, "can't build a model. Call (check-sat) first");
       } else if (g->trivially_unsat) {
-	fprint_error(g->out, "the context is unsatisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
       } else {
 	assert(g->assertions.size == 0);
 	// no assertions: build a trivial model
@@ -2724,11 +2728,11 @@ static model_t *get_model(smt2_globals_t *g) {
 	break;
 
       case STATUS_UNSAT:
-	fprint_error(g->out, "the context is unsatisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
 	break;
 
       case STATUS_IDLE:
-	fprint_error(g->out, "can't build a model. Call (check-sat) first");
+	fprint_error(g->out, g->ef_client_globals.client, "can't build a model. Call (check-sat) first");
 	break;
 
       case STATUS_SEARCHING:
@@ -2897,9 +2901,9 @@ static void show_assignment(smt2_globals_t *g) {
     assert(g->benchmark_mode);
 
     if (!g->frozen) {
-      fprint_error(g->out, "can't build the assignment. Call (check-sat) first");
+      fprint_error(g->out, g->ef_client_globals.client, "can't build the assignment. Call (check-sat) first");
     } else if (g->trivially_unsat) {
-      fprint_error(g->out, "the context is unsatisfiable");
+      fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
     } else {
       assert(g->assertions.size == 0);
       // trivially sat
@@ -2918,11 +2922,11 @@ static void show_assignment(smt2_globals_t *g) {
       break;
 
     case STATUS_UNSAT:
-      fprint_error(g->out, "the context is unsatisfiable");
+      fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
       break;
 
     case STATUS_IDLE:
-      fprint_error(g->out, "can't build the assignment. Call (check-sat) first");
+      fprint_error(g->out, g->ef_client_globals.client, "can't build the assignment. Call (check-sat) first");
       break;
 
     case STATUS_SEARCHING:
@@ -2989,17 +2993,20 @@ static void check_stack(smt2_globals_t *g) {
       sum += stack->data[i].multiplicity;
     }
     if (sum != stack->levels) {
-      fprint_error(g->out, "Invalid stack: levels don't match");
+      //FIXME seems repetitive
+      fprint_error(g->out, g->ef_client_globals.client, "Invalid stack: levels don't match");
       freport_bug(g->out, "Invalid stack: levels don't match");
     }
 
     if (context_base_level(g->ctx) + g->pushes_after_unsat != stack->top) {
-      fprint_error(g->out, "Invalid stack: push counters don't match");
+      //FIXME seems repetitive
+      fprint_error(g->out, g->ef_client_globals.client, "Invalid stack: push counters don't match");
       freport_bug(g->out, "Internal error: unexpected context status");
     }
 
     if (g->pushes_after_unsat > 0 && context_status(g->ctx) != STATUS_UNSAT) {
-      fprint_error(g->out, "Invalid stack: push_after_unsat is positive but context is not unsat");
+      //FIXME seems repetitive
+      fprint_error(g->out, g->ef_client_globals.client, "Invalid stack: push_after_unsat is positive but context is not unsat");
       freport_bug(g->out, "Invalid stack: push_after_unsat is positive but context is not unsat");
     }
   }
@@ -3031,12 +3038,12 @@ static void explain_unknown_status(smt2_globals_t *g) {
       assert(g->benchmark_mode);
 
       if (!g->frozen) {
-	fprint_error(g->out, "can't tell until you call (check-sat)");
+	fprint_error(g->out, g->ef_client_globals.client, "can't tell until you call (check-sat)");
       } else if (g->trivially_unsat) {
-	fprint_error(g->out, "the context is unsatisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
       } else {
 	assert(g->assertions.size == 0);
-	fprint_error(g->out, "the context is satisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is satisfiable");
       }
     } else {
       switch (context_status(g->ctx)) {
@@ -3046,15 +3053,15 @@ static void explain_unknown_status(smt2_globals_t *g) {
 	break;
 
       case STATUS_SAT:
-	fprint_error(g->out, "the context is satisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is satisfiable");
 	break;
 
       case STATUS_UNSAT:
-	fprint_error(g->out, "the context is unsatisfiable");
+	fprint_error(g->out, g->ef_client_globals.client, "the context is unsatisfiable");
 	break;
 
       case STATUS_IDLE:
-	fprint_error(g->out, "can't tell until you call (check-sat)");
+	fprint_error(g->out, g->ef_client_globals.client, "can't tell until you call (check-sat)");
 	break;
 
       case STATUS_SEARCHING:
@@ -3078,7 +3085,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
-  init_ef_client(&g->ef_client_globals);
+  init_ef_client(YICES_SMT2, &g->ef_client_globals);
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
@@ -3285,7 +3292,7 @@ void smt2_silent_exit(void) {
  */
 void smt2_get_assertions(void) {
   if (check_logic()) {
-    fprint_error(__smt2_globals.out, "get-assertions is not supported");
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "get-assertions is not supported");
   }
 }
 
@@ -3313,7 +3320,7 @@ void smt2_get_assignment(void) {
  */
 void smt2_get_proof(void) {
   if (check_logic()) {
-    fprint_error(__smt2_globals.out, "get-proof is not supported");
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "get-proof is not supported");
   }
 }
 
@@ -3323,7 +3330,7 @@ void smt2_get_proof(void) {
  */
 void smt2_get_unsat_core(void) {
   if (check_logic()) {
-    fprint_error(__smt2_globals.out, "get-unsat-core is not supported");
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "get-unsat-core is not supported");
   }
 }
 
@@ -3505,7 +3512,7 @@ void smt2_get_info(const char *name) {
     if (has_info(g, name, &value)) {
       print_kw_value_pair(g, name, value);
     } else {
-      fprint_error(__smt2_globals.out, "no info for %s", name);
+      fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "no info for %s", name);
     }
     break;
   }
@@ -3607,7 +3614,7 @@ void smt2_set_info(const char *name, aval_t value) {
   case SMT2_KW_VERSION:
   case SMT2_KW_REASON_UNKNOWN:
   case SMT2_KW_ALL_STATISTICS:
-    fprint_error(__smt2_globals.out, "can't overwrite %s", name);
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "can't overwrite %s", name);
     break;
 
   default:
@@ -3626,18 +3633,18 @@ void smt2_set_logic(const char *name) {
   smt_logic_t code;
 
   if (__smt2_globals.logic_code != SMT_UNKNOWN) {
-    fprint_error(__smt2_globals.out, "the logic is already set");
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "the logic is already set");
     return;
   }
 
   code = smt_logic_code(name);
   if (code == SMT_UNKNOWN) {
-    fprint_error(__smt2_globals.out, "unknown logic: %s", name);
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "unknown logic: %s", name);
     return;
   }
 
   if (! logic_is_supported(code)) {
-    fprint_error(__smt2_globals.out, "logic %s is not supported", name);
+    fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "logic %s is not supported", name);
     return;
   }
 
@@ -3651,7 +3658,7 @@ void smt2_set_logic(const char *name) {
   if(__smt2_globals.efmode){
     // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
     if( ! __smt2_globals.benchmark_mode) {
-      fprint_error(__smt2_globals.out, "exists forall mode not allowed in incremental mode");
+      fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "exists forall mode not allowed in incremental mode");
       return;
     }
     //we are in efmode; better set the search parameters ...
@@ -3700,7 +3707,7 @@ void smt2_push(uint32_t n) {
   if (check_logic()) {
     g = &__smt2_globals;
     if (g->benchmark_mode) {
-      fprint_error(__smt2_globals.out, "push is not allowed in non-incremental mode");
+      fprint_error(g->out, g->ef_client_globals.client, "push is not allowed in non-incremental mode");
     } else {
       if (n > 0) {
 	/*
@@ -3731,25 +3738,27 @@ void smt2_pop(uint32_t n) {
   smt2_push_rec_t *r;
   uint32_t m;
 
-  __smt2_globals.stats.num_pop ++;
-  __smt2_globals.stats.num_commands ++;
-  tprint_calls("pop", __smt2_globals.stats.num_pop);
+  g = &__smt2_globals;
+
+  g->stats.num_pop ++;
+  g->stats.num_commands ++;
+  
+  tprint_calls("pop", g->stats.num_pop);
 
   if (check_logic()) {
-    if (__smt2_globals.benchmark_mode) {
-      fprint_error(__smt2_globals.out, "pop is not allowed in non-incremental mode");
+    if (g->benchmark_mode) {
+      fprint_error(g->out, g->ef_client_globals.client, "pop is not allowed in non-incremental mode");
     } else if (n == 0) {
       // do nothing
       report_success();
     } else {
-      g = &__smt2_globals;
       if (n > g->stack.levels) {
 	if (g->stack.levels > 1) {
-	  fprint_error(__smt2_globals.out, "can't pop more than %"PRIu64" levels", g->stack.levels);
+	  fprint_error(g->out, g->ef_client_globals.client, "can't pop more than %"PRIu64" levels", g->stack.levels);
 	} else if (g->stack.levels > 0) {
-	  fprint_error(__smt2_globals.out, "can't pop more than one level");
+	  fprint_error(g->out, g->ef_client_globals.client, "can't pop more than one level");
 	} else {
-	  fprint_error(__smt2_globals.out, "pop not allowed at the bottom level");
+	  fprint_error(g->out, g->ef_client_globals.client, "pop not allowed at the bottom level");
 	}
       } else {
 	m = 0; // number of levels removed
@@ -3798,41 +3807,47 @@ void smt2_pop(uint32_t n) {
  * - if t is a :named assertion then it should be recorded for unsat-core
  */
 void smt2_assert(term_t t) {
-  __smt2_globals.stats.num_assert ++;
-  __smt2_globals.stats.num_commands ++;
-  tprint_calls("assert", __smt2_globals.stats.num_assert);
+  smt2_globals_t *g;
+
+  g = &__smt2_globals;
+
+  g->stats.num_assert ++;
+  g->stats.num_commands ++;
+  tprint_calls("assert", g->stats.num_assert);
 
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
-      if (__smt2_globals.benchmark_mode) {
-	if(__smt2_globals.efmode && __smt2_globals.ef_client_globals.efdone){
-	  fprint_error(__smt2_globals.out, "more assertions are not allowed after solving");
-	} else if (__smt2_globals.frozen) {
-	  fprint_error(__smt2_globals.out, "assertions are not allowed after (check-sat) in non-incremental mode");
+      if (g->benchmark_mode) {
+	if(g->efmode && g->ef_client_globals.efdone){
+	  fprint_error(g->out, g->ef_client_globals.client, "more assertions are not allowed after solving");
+	} else if (g->frozen) {
+	  fprint_error(g->out, g->ef_client_globals.client, "assertions are not allowed after (check-sat) in non-incremental mode");
 	} else {
-	  add_delayed_assertion(&__smt2_globals, t);
+	  add_delayed_assertion(g, t);
 	  report_success();
 	}
       } else {
-	add_assertion(&__smt2_globals, t);
+	add_assertion(g, t);
       }
     } else {
       // not a Boolean term
-      fprint_error(__smt2_globals.out, "type error in assert: Boolean term required");
+      fprint_error(g->out, g->ef_client_globals.client, "type error in assert: Boolean term required");
     }
   }
 }
 
 static void efsolve_cmd(smt2_globals_t *g) {
   ef_client_t *efc;
-  if (g->efmode) {
+  efc = &g->ef_client_globals;
 
-    efc = &g->ef_client_globals;
+  if (g->efmode) {
 
     ef_solve(efc, &g->assertions, &parameters, g->logic_code, arch_for_logic(g->logic_code), g->verbosity, g->tracer, g->err);
 
   } else {
-    fprint_error(__smt2_globals.out, "(ef-solve) not supported.");
+
+    fprint_error(g->out, efc->client, "(ef-solve) not supported.");
+
   }
 }
 
@@ -3854,7 +3869,7 @@ void smt2_check_sat(void) {
 	efsolve_cmd(&__smt2_globals);
 	
       } else if (__smt2_globals.frozen) {
-	fprint_error(__smt2_globals.out, "multiple calls to (check-sat) are not allowed in non-incremental mode");
+	fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
 	//	show_delayed_assertions(&__smt2_globals);
 	check_delayed_assertions(&__smt2_globals);
@@ -4004,10 +4019,10 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
      */
     if (yices_get_term_by_name(name) != NULL_TERM) {
       if (symbol_needs_quotes(name)) {
-	fprint_error(__smt2_globals.out, "Invalid definition: can't (define |%s| ...) and use |%s| in a :named annotation",
+	fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "Invalid definition: can't (define |%s| ...) and use |%s| in a :named annotation",
 		    name, name);
       } else {
-	fprint_error(__smt2_globals.out, "Invalid definition: can't (define %s ...) and use %s in a :named annotation",
+	fprint_error(__smt2_globals.out, __smt2_globals.ef_client_globals.client, "Invalid definition: can't (define %s ...) and use %s in a :named annotation",
 		    name, name);
       }
       return;
@@ -4079,7 +4094,7 @@ void smt2_reset(void) {
   if (check_logic()) {
     g = &__smt2_globals;
     if (g->benchmark_mode) {
-      fprint_error(__smt2_globals.out, "reset is not allowed in non-incremental mode");
+      fprint_error(g->out, g->ef_client_globals.client, "reset is not allowed in non-incremental mode");
     } else {
       /*
        * Reset context, model and internal stacks

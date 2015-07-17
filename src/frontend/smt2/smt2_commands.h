@@ -680,6 +680,9 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
  * ERROR REPORTING
  */
 
+/*  success */
+extern void report_success(void);
+  
 /*
  * Syntax error
  * - lex = lexer
