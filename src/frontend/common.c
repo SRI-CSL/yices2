@@ -151,11 +151,11 @@ void print_internalization_code(int32_t code, uint32_t verbosity) {
 /*
  * Print the translation code returned by ef_analyze
  */
-void print_ef_analyze_code(ef_code_t code) {
+void print_ef_analyze_code(ef_code_t code, FILE *err) {
   if (code == EF_NO_ERROR) {
     //    report_ok(client);
   } else {
-    fprint_error(stderr, efcode2error[code]);
+    fprint_error(err, efcode2error[code]);
   }
 }
 

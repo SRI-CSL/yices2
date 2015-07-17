@@ -45,7 +45,7 @@ extern void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, 
  * Print stuff
  */
 extern void print_internalization_code(int32_t code, uint32_t verbosity);
-extern void print_ef_analyze_code(ef_code_t code);
+extern void print_ef_analyze_code(ef_code_t code, FILE *err);
 extern void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err);
 extern void fprint_error(FILE* fp, const char *format, ...);
 

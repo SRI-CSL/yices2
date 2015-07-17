@@ -2688,9 +2688,24 @@ static void yices_eval_cmd(term_t t) {
  */
 static void yices_efsolve_cmd(void) {
   if (efmode) {
-    ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, verbosity, tracer, stderr);
+    
+
+    ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
+
+    if (ef_client_globals.efcode != EF_NO_ERROR) {
+      
+      // error in preprocessing
+      print_ef_analyze_code(ef_client_globals.efcode, stderr);
+      
+    } else {
+      
+      print_ef_status(&ef_client_globals, verbosity, stderr);
+    }
+
   } else {
+
     report_error("(ef-solve) not supported. Use option --mode=ef");
+
   }
 }
 
@@ -2770,7 +2785,7 @@ static void export_ef_problem(const char *s) {
 
   build_ef_problem(&ef_client_globals, &delayed_assertions);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(ef_client_globals.efcode);
+    print_ef_analyze_code(ef_client_globals.efcode, stderr);
   } else {
     assert(ef_client_globals.efprob != NULL);
 

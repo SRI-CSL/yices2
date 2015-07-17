@@ -3843,7 +3843,16 @@ static void efsolve_cmd(smt2_globals_t *g) {
 
   if (g->efmode) {
 
-    ef_solve(efc, &g->assertions, &parameters, g->logic_code, arch_for_logic(g->logic_code), g->verbosity, g->tracer, g->err);
+    ef_solve(efc, &g->assertions, &parameters, g->logic_code, arch_for_logic(g->logic_code), g->tracer);
+
+    if (efc->efcode != EF_NO_ERROR) {
+      // error in preprocessing
+      print_ef_analyze_code(efc->efcode, g->out);
+      
+    } else {
+      print_ef_status(efc, g->verbosity, g->out);
+    }
+    
 
   } else {
 

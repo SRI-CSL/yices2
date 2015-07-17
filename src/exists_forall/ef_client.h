@@ -66,10 +66,9 @@ extern void delete_ef_client(ef_client_t *ef_client);
  */
 extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 
-extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
-		     smt_logic_t logic_code, context_arch_t arch,
-		     uint32_t verbosity, tracer_t *tracer, FILE *err);
 
+extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
+		     smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer);
 
 /* code to indicate why ef_get_model returned NULL */
 

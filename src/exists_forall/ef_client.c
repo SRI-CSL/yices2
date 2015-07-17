@@ -115,28 +115,22 @@ model_t *ef_get_model(ef_client_t *efc, int32_t* code){
 
 
 
-void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters, smt_logic_t logic_code, context_arch_t arch,
-	      uint32_t verbosity, tracer_t *tracer, FILE *err) {
+void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
+	      smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer) {
   build_ef_problem(efc, assertions);
-  if (efc->efcode != EF_NO_ERROR) {
-    // error in preprocessing
-    //    print_ef_analyze_code(efc->efcode, efc->client);
-  } else {
-    if (! efc->efdone) {
-      assert(efc->efsolver == NULL);
-      efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
-      init_ef_solver(efc->efsolver, efc->efprob, logic_code, arch);
-      if (tracer != NULL) {
-	ef_solver_set_trace(efc->efsolver, tracer);
-      }
-      /*
-       * If the problem has real variables, we force GEN_BY_PROJ
-       */
-      ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
-		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
-      efc->efdone = true;
+  if ( (efc->efcode != EF_NO_ERROR) &&  ! efc->efdone) {
+    assert(efc->efsolver == NULL);
+    efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
+    init_ef_solver(efc->efsolver, efc->efprob, logic_code, arch);
+    if (tracer != NULL) {
+      ef_solver_set_trace(efc->efsolver, tracer);
     }
-    //    print_ef_status(efc, verbosity, err);
+    /*
+     * If the problem has real variables, we force GEN_BY_PROJ
+     */
+    ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
+		    efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
+    efc->efdone = true;
   }
 }
 
