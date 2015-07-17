@@ -27,6 +27,12 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 
+//for print_ok
+#include "frontend/yices/yices_reval.h"
+//for report_success
+#include "frontend/smt2/smt2_commands.h"
+
+
 /*
  * Conversion of EF preprocessing codes to string
  */
@@ -220,7 +226,7 @@ void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
       fprint_error(err, efc->client, "EF solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
-      freport_bug(err, efc->client, "EF solver failed: internal error");
+      freport_bug(err, "EF solver failed: internal error");
     }
     break;
 
