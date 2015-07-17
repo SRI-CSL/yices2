@@ -3656,6 +3656,12 @@ void smt2_set_logic(const char *name) {
     }
     //we are in efmode; better set the search parameters ...
     yices_set_default_params(&parameters, code, arch_for_logic(code));
+
+#if 1
+    // hard-coded branching + max_ef_iterations for testing on Adria's problems
+    parameters.branching = BRANCHING_POSITIVE;
+    __smt2_globals.ef_client_globals.ef_parameters.max_iters = 100000000;
+#endif
   }
   
   

@@ -3427,7 +3427,7 @@ int yices_main(int argc, char *argv[]) {
    * Clean up
    */
   if (efmode) {
-      delete_ef_client(&ef_client_globals);
+    delete_ef_client(&ef_client_globals);
   } else {
     delete_ctx();
   }
