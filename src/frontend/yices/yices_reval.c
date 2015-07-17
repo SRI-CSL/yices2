@@ -966,6 +966,109 @@ static void report_show_implicant_error(error_code_t code) {
   }
 }
 
+void fprint_error(FILE* fp, const char *format, ...) {
+  va_list p;
+  //FIXME
+  //open_error();
+  va_start(p, format);
+  if (vfprintf(fp, format, p) < 0) {
+    //failed_output();
+  }
+  va_end(p);
+  //close_error();
+}
+
+
+/*
+ * Print the translation code returned by assert
+ */
+void print_internalization_code(int32_t code, uint32_t verbosity) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
+  if (code == TRIVIALLY_UNSAT) {
+    fprintf(stderr, "unsat\n");
+    fflush(stderr);
+  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
+    //    report_ok(client);
+  } else if (code < 0) {
+    code = - code;
+    fprint_error(stderr, code2error[code]);
+  }
+}
+
+/*
+ * Print the translation code returned by ef_analyze
+ */
+void print_ef_analyze_code(ef_code_t code, FILE *err) {
+  if (code == EF_NO_ERROR) {
+    //    report_ok(client);
+  } else {
+    fprint_error(err, efcode2error[code]);
+  }
+}
+
+/*
+ * Print the efsolver status
+ */
+void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
+  ef_status_t stat;
+  int32_t error;
+  ef_solver_t *efsolver;
+
+  efsolver = efc->efsolver;
+
+  assert(efsolver != NULL && efc->efdone);
+
+  if (verbosity > 0) {
+    printf("exist forall solver: %"PRIu32" iterations\n", efsolver->iters);
+  }
+
+  stat = efsolver->status;
+  error = efsolver->error_code;
+
+  switch (stat) {
+  case EF_STATUS_SAT:
+  case EF_STATUS_UNKNOWN:
+  case EF_STATUS_UNSAT:
+  case EF_STATUS_INTERRUPTED:
+    fputs(ef_status2string[stat], stdout);
+    fputc('\n', stdout);
+    if (verbosity > 0) {
+      if (stat == EF_STATUS_SAT) {
+        print_ef_solution(stdout, efsolver);
+        fputc('\n', stdout);
+      }
+    }
+    fflush(stdout);
+    break;
+
+  case EF_STATUS_SUBST_ERROR:
+    if (error == -1) {
+      fprint_error(err, "exist forall solver failed: degree overflow in substitution");
+    } else {
+      assert(error == -2);
+      freport_bug(err, "exist forall solver failed: internal error");
+    }
+    break;
+
+  case EF_STATUS_ASSERT_ERROR:
+    assert(error < 0);
+    print_internalization_code(error, verbosity);
+    break;
+
+  case EF_STATUS_MDL_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:
+  case EF_STATUS_PROJECTION_ERROR:
+  case EF_STATUS_TVAL_ERROR:
+  case EF_STATUS_CHECK_ERROR:
+  case EF_STATUS_ERROR:
+  case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+    freport_bug(err, "ef-status: %s\n", ef_status2string[stat]);
+    break;
+
+  }
+}
+
 
 /***************************
  *  MODEL ALLOCATION/FREE  *
@@ -2687,8 +2790,8 @@ static void yices_eval_cmd(term_t t) {
  * New command: ef-solve
  */
 static void yices_efsolve_cmd(void) {
+
   if (efmode) {
-    
 
     ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
 
@@ -2698,16 +2801,18 @@ static void yices_efsolve_cmd(void) {
       print_ef_analyze_code(ef_client_globals.efcode, stderr);
       
     } else {
-      
-      print_ef_status(&ef_client_globals, verbosity, stderr);
-    }
 
-  } else {
+      print_ef_status(&ef_client_globals, verbosity, stderr);
+      
+    } 
+
+  }  else {
 
     report_error("(ef-solve) not supported. Use option --mode=ef");
-
+    
   }
 }
+
 
 
 
