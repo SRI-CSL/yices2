@@ -105,10 +105,10 @@ core_src_c := \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
 	context/symmetry_breaking.c \
+	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
 	exists_forall/ef_problem.c \
 	exists_forall/efsolver.c \
-	exists_forall/ef_client.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
@@ -316,6 +316,7 @@ extra_src_c := \
 	context/context_printer.c \
 	context/dump_context.c \
 	context/internalization_printer.c \
+	frontend/common.c \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \

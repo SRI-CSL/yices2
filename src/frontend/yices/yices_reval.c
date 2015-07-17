@@ -2594,6 +2594,27 @@ static bool context_has_model(const char *cmd_name) {
   return has_model;
 }
 
+/*
+ * Model from the ef client
+ */
+static model_t *ef_get_model(ef_client_t *efc){
+  ef_solver_t *efsolver;
+
+  if (efc->efdone) {
+    efsolver = efc->efsolver;
+    assert(efsolver != NULL);
+    if (efsolver->status == EF_STATUS_SAT) {
+      assert(efsolver->exists_model != NULL);
+      return efsolver->exists_model;
+    } else {
+      fprint_error(stderr, efc->client, "(ef-solve) did not find a solution. No model\n");
+    }
+  } else {
+    fprint_error(stderr, efc->client, "Can't build a model. Call (ef-solve) first.\n");
+  }
+  return NULL;
+}
+
 
 /*
  * Build model if needed and display it
@@ -3372,7 +3393,7 @@ int yices_main(int argc, char *argv[]) {
   init_yices_tstack(&stack);
   init_parameter_name_table();
 
-  init_ef_client(YICES_MAIN, &ef_client_globals);
+  init_ef_client(&ef_client_globals);
   
 
   init_parser(&parser, &lexer, &stack);

@@ -2751,6 +2751,28 @@ static model_t *get_model(smt2_globals_t *g) {
 
 
 /*
+ * Model from the ef client
+ */
+static model_t *ef_get_model(ef_client_t *efc){
+  ef_solver_t *efsolver;
+
+  if (efc->efdone) {
+    efsolver = efc->efsolver;
+    assert(efsolver != NULL);
+    if (efsolver->status == EF_STATUS_SAT) {
+      assert(efsolver->exists_model != NULL);
+      return efsolver->exists_model;
+    } else {
+      fprint_error(stderr, efc->client, "(ef-solve) did not find a solution. No model\n");
+    }
+  } else {
+    fprint_error(stderr, efc->client, "Can't build a model. Call (ef-solve) first.\n");
+  }
+  return NULL;
+}
+
+
+/*
  * Print value (<SMT2-expression> <value>)
  * - printer = pretty printer object
  * - vtbl = value table where v is stored
@@ -3085,7 +3107,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
-  init_ef_client(YICES_SMT2, &g->ef_client_globals);
+  init_ef_client(&g->ef_client_globals);
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
