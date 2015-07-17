@@ -2596,39 +2596,22 @@ static bool context_has_model(const char *cmd_name) {
 }
 
 /*
- * Model from the ef client
- */
-static model_t *ef_get_model(ef_client_t *efc){
-  ef_solver_t *efsolver;
-
-  if (efc->efdone) {
-    efsolver = efc->efsolver;
-    assert(efsolver != NULL);
-    if (efsolver->status == EF_STATUS_SAT) {
-      assert(efsolver->exists_model != NULL);
-      return efsolver->exists_model;
-    } else {
-      fprint_error(stderr, "(ef-solve) did not find a solution. No model\n");
-    }
-  } else {
-    fprint_error(stderr, "Can't build a model. Call (ef-solve) first.\n");
-  }
-  return NULL;
-}
-
-
-/*
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
   model_t *mdl;
+  int32_t code;
   
   if (efmode) {
-    mdl = ef_get_model(&ef_client_globals);
+    code = 0;
+    mdl = ef_get_model(&ef_client_globals, &code);
     if(mdl != NULL){
       if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
 	report_system_error("stdout");
       }
+    } else {
+      fputs(efmodelcode2error[code], stderr);
+      fflush(stderr);
     }
   } else if (context_has_model("show-model")) {
     // model_print(stdout, model);
@@ -2676,11 +2659,17 @@ static void show_val_in_model(model_t *model, term_t t) {
  */
 static void yices_eval_cmd(term_t t) {
   model_t *mdl;
-  
+  int32_t code;
+
+
   if (efmode) {
-    mdl = ef_get_model(&ef_client_globals);
+    code = 0;
+    mdl = ef_get_model(&ef_client_globals, &code);
     if(mdl != NULL){
       show_val_in_model(mdl, t);
+    } else {
+      fputs(efmodelcode2error[code], stderr);
+      fflush(stderr);
     }
   } else if (context_has_model("eval")) {
     show_val_in_model(model, t);

@@ -83,6 +83,38 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
   }
 }
 
+
+const char * const efmodelcode2error[] = {
+  "No error.\n"
+  "No model, did not find a solution.\n"
+  "Can't build a model. Call the exists forall solver first.\n"
+};
+
+/*
+ * Model from the ef client; if there is no model, code  will indicate the reason.
+ */
+model_t *ef_get_model(ef_client_t *efc, int32_t* code){
+  ef_solver_t *efsolver;
+
+  assert(code != NULL);
+    
+  if (efc->efdone) {
+    efsolver = efc->efsolver;
+    assert(efsolver != NULL);
+    if (efsolver->status == EF_STATUS_SAT) {
+      assert(efsolver->exists_model != NULL);
+      return efsolver->exists_model;
+    } else {
+      *code = 1;
+    }
+  } else {
+    *code = 2;
+  }
+  return NULL;
+}
+
+
+
 void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters, smt_logic_t logic_code, context_arch_t arch,
 	      uint32_t verbosity, tracer_t *tracer, FILE *err) {
   build_ef_problem(efc, assertions);

@@ -71,5 +71,14 @@ extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameter
 		     uint32_t verbosity, tracer_t *tracer, FILE *err);
 
 
+/* code to indicate why ef_get_model returned NULL */
+
+extern const char * const efmodelcode2error[];
+
+/*
+ * Model from the ef client; if there is no model, code  will indicate the reason.
+ */
+extern model_t *ef_get_model(ef_client_t *efc, int32_t* code);
+
 
 #endif /* __EF_CLIENT_H */

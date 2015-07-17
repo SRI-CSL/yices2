@@ -2752,28 +2752,6 @@ static model_t *get_model(smt2_globals_t *g) {
 
 
 /*
- * Model from the ef client
- */
-static model_t *ef_get_model(ef_client_t *efc){
-  ef_solver_t *efsolver;
-
-  if (efc->efdone) {
-    efsolver = efc->efsolver;
-    assert(efsolver != NULL);
-    if (efsolver->status == EF_STATUS_SAT) {
-      assert(efsolver->exists_model != NULL);
-      return efsolver->exists_model;
-    } else {
-      fprint_error(stderr, "(ef-solve) did not find a solution. No model\n");
-    }
-  } else {
-    fprint_error(stderr, "Can't build a model. Call (ef-solve) first.\n");
-  }
-  return NULL;
-}
-
-
-/*
  * Print value (<SMT2-expression> <value>)
  * - printer = pretty printer object
  * - vtbl = value table where v is stored
@@ -4071,27 +4049,39 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  * EXTENSIONS/NON-STANDARD COMMANDS
  */
 
+
+
 /*
  * Show the model if any
  */
 void smt2_get_model(void) {
   yices_pp_t printer;
   model_t *mdl;
+  int32_t code;
 
   if (check_logic()) {
 
+    code = 0;
+
     if(__smt2_globals.efmode){
+
       
-      mdl = ef_get_model(&__smt2_globals.ef_client_globals);
-      
+      mdl = ef_get_model(&__smt2_globals.ef_client_globals, &code);
+
     } else {
       
       mdl = get_model(&__smt2_globals);
-      
+
     }
-    
-    if (mdl == NULL) return;
-    
+
+    if (mdl == NULL){
+      if(__smt2_globals.efmode){
+	fputs(efmodelcode2error[code], stderr);
+	fflush(stderr);
+      }
+      return;
+    }
+      
     init_pretty_printer(&printer, &__smt2_globals);
     smt2_pp_full_model(&printer, mdl);
     delete_yices_pp(&printer, true);
