@@ -1,10 +1,10 @@
 /*
- * var_queue.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Jun 10, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/variable_queue.h"
 
 #include <float.h>
@@ -283,4 +283,3 @@ void var_queue_gc_sweep(var_queue_t* queue, const gc_info_t* gc_vars) {
 
   delete_ivector(&vars);
 }
-

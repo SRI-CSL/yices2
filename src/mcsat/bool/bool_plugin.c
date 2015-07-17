@@ -1,10 +1,10 @@
 /*
- * bool_plugin.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 13, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/bool/bool_plugin.h"
 
 #include "mcsat/bool/clause_db.h"

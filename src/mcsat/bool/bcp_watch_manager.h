@@ -1,10 +1,10 @@
 /*
- * bcp_watch_manager.h
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Jun 3, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #ifndef BCP_WATCH_MANAGER_H_
 #define BCP_WATCH_MANAGER_H_
 

@@ -1,10 +1,10 @@
 /*
- * libpoly_utils.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Feb 3, 2015
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/nra/libpoly_utils.h"
 #include "mcsat/nra/nra_plugin_internal.h"
 #include "mcsat/tracing.h"

@@ -503,7 +503,7 @@ libyices_def=libyices.def
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
-  CPPFLAGS=-DHAVE_MCSAT
+  CPPFLAGS+=-DHAVE_MCSAT
 endif
 
 

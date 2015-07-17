@@ -1,10 +1,10 @@
 /*
- * nra_plugin.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Feb 1, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include <poly/polynomial.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_db.h>

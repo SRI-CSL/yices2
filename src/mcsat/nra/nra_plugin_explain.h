@@ -1,10 +1,10 @@
 /*
- * nra_plugin_explain.h
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 28, 2015
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #pragma once
 
 #include "nra_plugin_internal.h"

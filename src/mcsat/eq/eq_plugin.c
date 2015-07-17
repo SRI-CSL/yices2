@@ -1,10 +1,10 @@
 /*
- * eq_plugin.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 20, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/eq/eq_plugin.h"
 
 #include "mcsat/bool/clause_db.h"
@@ -139,5 +139,3 @@ plugin_t* eq_plugin_allocator() {
   plugin->plugin_interface.gc_sweep          = eq_plugin_gc_collect;
   return (plugin_t*) plugin;
 }
-
-

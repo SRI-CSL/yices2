@@ -574,7 +574,7 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   table->nobjects = 0;
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (value_desc_t *) safe_malloc(n * sizeof(value_desc_t));
-  table->canonical = allocate_bitvector(n);
+  table->canonical = allocate_bitvector0(n);
 
   table->type_table = ttbl;
   init_int_htbl(&table->htbl, 0);
@@ -613,7 +613,7 @@ static void extend_value_table(value_table_t *table) {
   table->size = n;
   table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
   table->desc = (value_desc_t *) safe_realloc(table->desc, n * sizeof(value_desc_t));
-  table->canonical = extend_bitvector(table->canonical, n);
+  table->canonical = extend_bitvector0(table->canonical, n, table->size);
 }
 
 

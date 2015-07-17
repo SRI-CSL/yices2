@@ -1,10 +1,10 @@
 /*
- * bool_plugin_types.h
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 30, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #ifndef BOOL_PLUGIN_TYPES_H_
 #define BOOL_PLUGIN_TYPES_H_
 
