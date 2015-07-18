@@ -124,8 +124,6 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 
-
-
 /*
  * Context, model, and solver parameters
  */
@@ -171,6 +169,7 @@ typedef struct ctx_param_s {
 } ctx_param_t;
 
 static ctx_param_t ctx_parameters;
+
 
 /*
  * The exists forall client globals
@@ -897,12 +896,42 @@ static void report_negative_timeout(int32_t val) {
 /*
  * Report that the previous command was executed (if verbose)
  */
-void print_ok(void) {
+static void print_ok(void) {
   if (verbosity > 0 && interactive && include_depth == 0) {
     fprintf(stderr, "ok\n");
     fflush(stderr);
   }
 }
+
+
+/*
+ * Print the translation code returned by assert
+ */
+static void print_internalization_code(int32_t code) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
+  if (code == TRIVIALLY_UNSAT) {
+    fprintf(stderr, "unsat\n");
+    fflush(stderr);
+  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
+    print_ok();
+  } else if (code < 0) {
+    code = - code;
+    report_error(code2error[code]);
+  }
+}
+
+
+/*
+ * Print the translation code returned by ef_analyze
+ */
+static void print_ef_analyze_code(ef_code_t code) {
+  if (code == EF_NO_ERROR) {
+    print_ok();
+  } else {
+    report_error(efcode2error[code]);
+  }
+}
+
 
 
 /*
@@ -965,110 +994,6 @@ static void report_show_implicant_error(error_code_t code) {
     break;
   }
 }
-
-void fprint_error(FILE* fp, const char *format, ...) {
-  va_list p;
-  //FIXME
-  //open_error();
-  va_start(p, format);
-  if (vfprintf(fp, format, p) < 0) {
-    //failed_output();
-  }
-  va_end(p);
-  //close_error();
-}
-
-
-/*
- * Print the translation code returned by assert
- */
-void print_internalization_code(int32_t code, uint32_t verbosity) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
-  if (code == TRIVIALLY_UNSAT) {
-    fprintf(stderr, "unsat\n");
-    fflush(stderr);
-  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
-    //    report_ok(client);
-  } else if (code < 0) {
-    code = - code;
-    fprint_error(stderr, code2error[code]);
-  }
-}
-
-/*
- * Print the translation code returned by ef_analyze
- */
-void print_ef_analyze_code(ef_code_t code, FILE *err) {
-  if (code == EF_NO_ERROR) {
-    //    report_ok(client);
-  } else {
-    fprint_error(err, efcode2error[code]);
-  }
-}
-
-/*
- * Print the efsolver status
- */
-void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
-  ef_status_t stat;
-  int32_t error;
-  ef_solver_t *efsolver;
-
-  efsolver = efc->efsolver;
-
-  assert(efsolver != NULL && efc->efdone);
-
-  if (verbosity > 0) {
-    printf("exist forall solver: %"PRIu32" iterations\n", efsolver->iters);
-  }
-
-  stat = efsolver->status;
-  error = efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      fprint_error(err, "exist forall solver failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      freport_bug(err, "exist forall solver failed: internal error");
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_code(error, verbosity);
-    break;
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_PROJECTION_ERROR:
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    freport_bug(err, "ef-status: %s\n", ef_status2string[stat]);
-    break;
-
-  }
-}
-
 
 /***************************
  *  MODEL ALLOCATION/FREE  *
@@ -2507,7 +2432,7 @@ static void yices_assert_cmd(term_t f) {
 	  } else {
 	    code = assert_formula(context, f);
 	  }
-	  print_internalization_code(code, verbosity);
+	  print_internalization_code(code);
 	} else {
 	  report_error("type error in assert: boolean term required");
 	}
@@ -2609,7 +2534,7 @@ static void yices_check_cmd(void) {
     } else {
       code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
       if (code < 0) {
-	print_internalization_code(code, verbosity);
+	print_internalization_code(code);
 	return;
       }
     }
@@ -2698,6 +2623,7 @@ static bool context_has_model(const char *cmd_name) {
   return has_model;
 }
 
+
 /*
  * Build model if needed and display it
  */
@@ -2785,6 +2711,68 @@ static void yices_eval_cmd(term_t t) {
  * EF SOLVER
  */
 
+/*
+ * Print the efsolver status
+ */
+void print_ef_status(void) {
+  ef_status_t stat;
+  int32_t error;
+  ef_solver_t *efsolver;
+
+  efsolver = ef_client_globals.efsolver;
+
+  assert(efsolver != NULL && ef_client_globals.efdone);
+
+  if (verbosity > 0) {
+    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
+  }
+
+  stat = efsolver->status;
+  error = efsolver->error_code;
+
+  switch (stat) {
+  case EF_STATUS_SAT:
+  case EF_STATUS_UNKNOWN:
+  case EF_STATUS_UNSAT:
+  case EF_STATUS_INTERRUPTED:
+    fputs(ef_status2string[stat], stdout);
+    fputc('\n', stdout);
+    if (verbosity > 0) {
+      if (stat == EF_STATUS_SAT) {
+        print_ef_solution(stdout, efsolver);
+        fputc('\n', stdout);
+      }
+    }
+    fflush(stdout);
+    break;
+
+  case EF_STATUS_SUBST_ERROR:
+    if (error == -1) {
+      report_error("ef-solve failed: degree overflow in substitution");
+    } else {
+      assert(error == -2);
+      freport_bug(stderr, "ef-solve failed: internal error");
+    }
+    break;
+
+  case EF_STATUS_ASSERT_ERROR:
+    assert(error < 0);
+    print_internalization_code(error);
+    break;
+
+  case EF_STATUS_MDL_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:
+  case EF_STATUS_PROJECTION_ERROR:
+  case EF_STATUS_TVAL_ERROR:
+  case EF_STATUS_CHECK_ERROR:
+  case EF_STATUS_ERROR:
+  case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+    freport_bug(stderr, "ef-status: %s\n", ef_status2string[stat]);
+    break;
+
+  }
+}
 
 /*
  * New command: ef-solve
@@ -2798,11 +2786,11 @@ static void yices_efsolve_cmd(void) {
     if (ef_client_globals.efcode != EF_NO_ERROR) {
       
       // error in preprocessing
-      print_ef_analyze_code(ef_client_globals.efcode, stderr);
+      print_ef_analyze_code(ef_client_globals.efcode);
       
     } else {
 
-      print_ef_status(&ef_client_globals, verbosity, stderr);
+      print_ef_status();
       
     } 
 
@@ -2890,7 +2878,7 @@ static void export_ef_problem(const char *s) {
 
   build_ef_problem(&ef_client_globals, &delayed_assertions);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(ef_client_globals.efcode, stderr);
+    print_ef_analyze_code(ef_client_globals.efcode);
   } else {
     assert(ef_client_globals.efprob != NULL);
 
@@ -2904,7 +2892,7 @@ static void export_ef_problem(const char *s) {
     disable_bvarith_elimination(aux);
     code = assert_formulas(aux, all_ef.size, all_ef.data);
     if (code < 0) {
-      print_internalization_code(code, verbosity);
+      print_internalization_code(code);
     } else {
       bitblast_then_export(aux, s);
     }
@@ -2927,7 +2915,7 @@ static void export_delayed_assertions(const char *s) {
   disable_bvarith_elimination(aux);
   code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
   if (code < 0) {
-    print_internalization_code(code, verbosity);
+    print_internalization_code(code);
   } else {
     bitblast_then_export(aux, s);
   }
