@@ -1567,6 +1567,8 @@ static value_t build_algebraic_value(algebraic_hobj_t *o) {
   clr_bit(table->canonical, i);
 
   return i;
+#else
+  return null_value;
 #endif
 }
 
