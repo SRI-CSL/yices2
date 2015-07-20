@@ -177,229 +177,6 @@ static ctx_param_t ctx_parameters;
 static ef_client_t ef_client_globals;
 
 
-/*******************
- *  GLOBAL TABLES  *
- ******************/
-
-/*
- * Search parameters and internalization options can be set individually
- * using the command (set-param <name> <value>).
- *
- * We use an integer code to identify the parameters + a table of
- * parameter names in lexicographic order. Each parameter
- * is described in context.h.
- *
- * New: added the EF solver parameters.
- */
-typedef enum yices_param {
-  // internalization options
-  PARAM_VAR_ELIM,
-  PARAM_ARITH_ELIM,
-  PARAM_BVARITH_ELIM,
-  PARAM_FLATTEN,
-  PARAM_LEARN_EQ,
-  PARAM_KEEP_ITE,
-  // restart parameters
-  PARAM_FAST_RESTARTS,
-  PARAM_C_THRESHOLD,
-  PARAM_C_FACTOR,
-  PARAM_D_THRESHOLD,
-  PARAM_D_FACTOR,
-  // clause deletion heuristic
-  PARAM_R_THRESHOLD,
-  PARAM_R_FRACTION,
-  PARAM_R_FACTOR,
-  // branching heuristic
-  PARAM_VAR_DECAY,
-  PARAM_RANDOMNESS,
-  PARAM_RANDOM_SEED,
-  PARAM_BRANCHING,
-  // learned clauses
-  PARAM_CLAUSE_DECAY,
-  PARAM_CACHE_TCLAUSES,
-  PARAM_TCLAUSE_SIZE,
-  // egraph parameters
-  PARAM_DYN_ACK,
-  PARAM_DYN_BOOL_ACK,
-  PARAM_OPTIMISTIC_FCHECK,
-  PARAM_MAX_ACK,
-  PARAM_MAX_BOOL_ACK,
-  PARAM_AUX_EQ_QUOTA,
-  PARAM_AUX_EQ_RATIO,
-  PARAM_DYN_ACK_THRESHOLD,
-  PARAM_DYN_BOOL_ACK_THRESHOLD,
-  PARAM_MAX_INTERFACE_EQS,
-  // simplex parameters
-  PARAM_EAGER_LEMMAS,
-  PARAM_SIMPLEX_PROP,
-  PARAM_SIMPLEX_ADJUST,
-  PARAM_PROP_THRESHOLD,
-  PARAM_BLAND_THRESHOLD,
-  PARAM_ICHECK,
-  PARAM_ICHECK_PERIOD,
-  // array solver parameters
-  PARAM_MAX_UPDATE_CONFLICTS,
-  PARAM_MAX_EXTENSIONALITY,
-  // EF solver
-  PARAM_EF_FLATTEN_IFF,
-  PARAM_EF_FLATTEN_ITE,
-  PARAM_EF_GEN_MODE,
-  PARAM_EF_MAX_SAMPLES,
-  PARAM_EF_MAX_ITERS,
-  // error
-  PARAM_UNKNOWN
-} yices_param_t;
-
-
-#define NUM_PARAMETERS PARAM_UNKNOWN
-
-static const char * const param_names[NUM_PARAMETERS] = {
-  "arith-elim",
-  "aux-eq-quota",
-  "aux-eq-ratio",
-  "bland-threshold",
-  "branching",
-  "bvarith-elim",
-  "c-factor",
-  "c-threshold",
-  "cache-tclauses",
-  "clause-decay",
-  "d-factor",
-  "d-threshold",
-  "dyn-ack",
-  "dyn-ack-threshold",
-  "dyn-bool-ack",
-  "dyn-bool-ack-threshold",
-  "eager-lemmas",
-  "ef-flatten-iff",
-  "ef-flatten-ite",
-  "ef-gen-mode",
-  "ef-max-iters",
-  "ef-max-samples",
-  "fast-restarts",
-  "flatten",
-  "icheck",
-  "icheck-period",
-  "keep-ite",
-  "learn-eq",
-  "max-ack",
-  "max-bool-ack",
-  "max-extensionality",
-  "max-interface-eqs",
-  "max-update-conflicts",
-  "optimistic-fcheck",
-  "prop-threshold",
-  "r-factor",
-  "r-fraction",
-  "r-threshold",
-  "random-seed",
-  "randomness",
-  "simplex-adjust",
-  "simplex-prop",
-  "tclause-size",
-  "var-decay",
-  "var-elim",
-};
-
-// corresponding parameter codes in order
-static const yices_param_t param_code[NUM_PARAMETERS] = {
-  PARAM_ARITH_ELIM,
-  PARAM_AUX_EQ_QUOTA,
-  PARAM_AUX_EQ_RATIO,
-  PARAM_BLAND_THRESHOLD,
-  PARAM_BRANCHING,
-  PARAM_BVARITH_ELIM,
-  PARAM_C_FACTOR,
-  PARAM_C_THRESHOLD,
-  PARAM_CACHE_TCLAUSES,
-  PARAM_CLAUSE_DECAY,
-  PARAM_D_FACTOR,
-  PARAM_D_THRESHOLD,
-  PARAM_DYN_ACK,
-  PARAM_DYN_ACK_THRESHOLD,
-  PARAM_DYN_BOOL_ACK,
-  PARAM_DYN_BOOL_ACK_THRESHOLD,
-  PARAM_EAGER_LEMMAS,
-  PARAM_EF_FLATTEN_IFF,
-  PARAM_EF_FLATTEN_ITE,
-  PARAM_EF_GEN_MODE,
-  PARAM_EF_MAX_ITERS,
-  PARAM_EF_MAX_SAMPLES,
-  PARAM_FAST_RESTARTS,
-  PARAM_FLATTEN,
-  PARAM_ICHECK,
-  PARAM_ICHECK_PERIOD,
-  PARAM_KEEP_ITE,
-  PARAM_LEARN_EQ,
-  PARAM_MAX_ACK,
-  PARAM_MAX_BOOL_ACK,
-  PARAM_MAX_EXTENSIONALITY,
-  PARAM_MAX_INTERFACE_EQS,
-  PARAM_MAX_UPDATE_CONFLICTS,
-  PARAM_OPTIMISTIC_FCHECK,
-  PARAM_PROP_THRESHOLD,
-  PARAM_R_FACTOR,
-  PARAM_R_FRACTION,
-  PARAM_R_THRESHOLD,
-  PARAM_RANDOM_SEED,
-  PARAM_RANDOMNESS,
-  PARAM_SIMPLEX_ADJUST,
-  PARAM_SIMPLEX_PROP,
-  PARAM_TCLAUSE_SIZE,
-  PARAM_VAR_DECAY,
-  PARAM_VAR_ELIM,
-};
-
-
-
-/*
- * Names of each branching mode (in lexicographic order)
- */
-#define NUM_BRANCHING_MODES 6
-
-static const char * const branching_modes[NUM_BRANCHING_MODES] = {
-  "default",
-  "negative",
-  "positive",
-  "th-neg",
-  "th-pos",
-  "theory",
-};
-
-static const branch_t branching_code[NUM_BRANCHING_MODES] = {
-  BRANCHING_DEFAULT,
-  BRANCHING_NEGATIVE,
-  BRANCHING_POSITIVE,
-  BRANCHING_TH_NEG,
-  BRANCHING_TH_POS,
-  BRANCHING_THEORY,
-};
-
-
-
-/*
- * Names of the generalization modes for the EF solver
- */
-#define NUM_EF_GEN_MODES 4
-
-static const char * const ef_gen_modes[NUM_EF_GEN_MODES] = {
-  "auto",
-  "none",
-  "projection",
-  "substitution",
-};
-
-static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
-  EF_GEN_AUTO_OPTION,
-  EF_NOGEN_OPTION,
-  EF_GEN_BY_PROJ_OPTION,
-  EF_GEN_BY_SUBST_OPTION,
-};
-
-
-
-
-
 /**************************
  *  COMMAND-LINE OPTIONS  *
  *************************/
@@ -1107,253 +884,12 @@ static void delete_ctx(void) {
  * and branching code to branching name. One more table
  * for converting from EF generalization codes to strings.
  */
+
+#define NUM_EF_GEN_MODES 4
+
 static const char *param2string[NUM_PARAMETERS];
 static const char *branching2string[NUM_BRANCHING_MODES];
 static const char *efgen2string[NUM_EF_GEN_MODES];
-
-/*
- * Argument to the setparam command encodes an immediate value
- * - the tag is given by the enumeration below
- * - PARAM_VAL_ERROR means an unexpected value was pushed
- * - the value is either a pointer to rational or a symbol
- */
-typedef enum param_val_enum {
-  PARAM_VAL_FALSE,
-  PARAM_VAL_TRUE,
-  PARAM_VAL_RATIONAL,
-  PARAM_VAL_SYMBOL,
-  PARAM_VAL_ERROR,
-} param_val_enum_t;
-
-typedef struct param_val_s {
-  param_val_enum_t tag;
-  union {
-    rational_t *rational;
-    char *symbol;
-  } val;
-} param_val_t;
-
-
-
-
-/*
- * Initialize the table [parameter id --> string]
- * and [branching mode --> string]
- * and [ef gen code --> string]
- */
-static void init_parameter_name_table(void) {
-  uint32_t i, j;
-  const char *name;
-
-  for (i=0; i<NUM_PARAMETERS; i++) {
-    name = param_names[i];
-    j = param_code[i];
-    param2string[j] = name;
-  }
-
-  for (i=0; i<NUM_BRANCHING_MODES; i++) {
-    name = branching_modes[i];
-    j = branching_code[i];
-    branching2string[j] = name;
-  }
-
-  for (i=0; i<NUM_EF_GEN_MODES; i++) {
-    name = ef_gen_modes[i];
-    j = ef_gen_code[i];
-    efgen2string[j] = name;
-  }
-}
-
-
-/*
- * Search for a parameter of the given name
- * - use binary search in the param_names table
- * - return PARAM_UNKNOWN if there's no parameter with that name
- */
-static yices_param_t find_param(const char *name) {
-  int32_t i;
-
-  i = binary_search_string(name, param_names, NUM_PARAMETERS);
-  if (i >= 0) {
-    assert(i < NUM_PARAMETERS);
-    return param_code[i];
-  } else {
-    return PARAM_UNKNOWN;
-  }
-}
-
-
-/*
- * Convert a parameter value to boolean, int32, float, etc.
- * - name = parameter name, used for error reporting.
- * - return true if the conversion works
- * - return false otherwise (and print an error message)
- */
-static bool param_val_to_bool(const char *name, const param_val_t *v, bool *value) {
-  bool code;
-
-  code = true;
-  if (v->tag == PARAM_VAL_FALSE) {
-    *value = false;
-  } else if (v->tag == PARAM_VAL_TRUE) {
-    *value = true;
-  } else {
-    report_invalid_param_value(name, "boolean required");
-    code = false;
-  }
-  return code;
-}
-
-static bool param_val_to_int32(const char *name, const param_val_t *v, int32_t *value) {
-  rational_t *q;
-
-  if (v->tag == PARAM_VAL_RATIONAL) {
-    q = v->val.rational;
-    if (q_is_smallint(q)) {
-      *value = q_get_smallint(q);
-      return true;
-    } else if (q_is_integer(q)) {
-      report_invalid_param_value(name, "integer overflow");
-      return false;
-    }
-    // if q is a rational: same error as not a number
-  }
-
-  report_invalid_param_value(name, "integer required");
-
-  return false;
-}
-
-static bool param_val_to_pos32(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
-    if (*value > 0) return true;
-    report_invalid_param_value(name, "must be positive");
-  }
-  return false;
-}
-
-static bool param_val_to_pos16(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
-    if (1 <= *value && *value <= UINT16_MAX) {
-      return true;
-    }
-    report_invalid_param_value(name, "must be between 1 and 2^16");
-  }
-  return false;
-}
-
-static bool param_val_to_nonneg32(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
-    if (*value >= 0) return true;
-    report_invalid_param_value(name, "cannot be negative");
-  }
-  return false;
-}
-
-static bool param_val_to_float(const char *name, const param_val_t *v, double *value) {
-  mpq_t aux;
-
-  if (v->tag == PARAM_VAL_RATIONAL) {
-    mpq_init(aux);
-    q_get_mpq(v->val.rational, aux);
-    /*
-     * NOTE: the GMP documentation says that conversion to double
-     * may raise a hardware trap (overflow, underflow, etc.) on
-     * some systems. We ignore this here.
-     */
-    *value = mpq_get_d(aux);
-    mpq_clear(aux);
-    return true;
-  } else {
-    report_invalid_param_value(name, "number required");
-    return false;
-  }
-}
-
-static bool param_val_to_posfloat(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
-    if (*value > 0.0) return true;
-    report_invalid_param_value(name, "must be positive");
-  }
-  return false;
-}
-
-// ratio: number between 0 and 1 (inclusive)
-static bool param_val_to_ratio(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
-    if (0 <= *value && *value <= 1.0) return true;
-    report_invalid_param_value(name, "must be between 0 and 1");
-  }
-  return false;
-}
-
-// factor: must be at least 1
-static bool param_val_to_factor(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
-    if (1.0 <= *value) return true;
-    report_invalid_param_value(name, "must be at least 1");
-  }
-  return false;
-}
-
-
-
-
-/*
- * Special case: branching mode
- * - allowed modes are 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos'
- */
-static bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value) {
-  int32_t i;
-
-  if (v->tag == PARAM_VAL_SYMBOL) {
-    i = binary_search_string(v->val.symbol, branching_modes, NUM_BRANCHING_MODES);
-    if (i >= 0) {
-      assert(i < NUM_BRANCHING_MODES);
-      *value = branching_code[i];
-      return true;
-    }
-  }
-
-  report_error("invalid branching mode");
-  fputs("valid modes are", stderr);
-  for (i=0; i<NUM_BRANCHING_MODES; i++) {
-    fprintf(stderr, " '%s'", branching_modes[i]);
-  }
-  fputc('\n', stderr);
-
-  return false;
-}
-
-
-
-/*
- * EF generalization mode
- * - allowed modes are "none" or "substitution"
- * - we use a general implementation so that we can add more modes later
- */
-static bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value) {
-  int32_t i;
-
-  if (v->tag == PARAM_VAL_SYMBOL) {
-    i = binary_search_string(v->val.symbol, ef_gen_modes, NUM_EF_GEN_MODES);
-    if (i >= 0) {
-      assert(i < NUM_EF_GEN_MODES);
-      *value = ef_gen_code[i];
-      return true;
-    }
-  }
-
-  report_error("invalid generalization mode");
-  fputs("possible modes are", stderr);
-  for (i=0; i<NUM_EF_GEN_MODES; i++) {
-    fprintf(stderr, " '%s'", ef_gen_modes[i]);
-  }
-  fputc('\n', stderr);
-
-  return false;
-}
-
 
 /*
  * Print a parameter name and its value
@@ -1651,10 +1187,13 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   double x;
   branch_t b;
   ef_gen_option_t g;
+  char* reason;
 
+  reason = NULL;
+  
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.var_elim = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1668,7 +1207,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_ARITH_ELIM:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.arith_elim = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1682,7 +1221,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_BVARITH_ELIM:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.bvarith_elim = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1696,7 +1235,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_FLATTEN:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.flatten_or = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1710,7 +1249,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_LEARN_EQ:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.eq_abstraction = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1724,7 +1263,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_KEEP_ITE:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.keep_ite = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1738,182 +1277,182 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_FAST_RESTARTS:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.fast_restart = tt;
       print_ok();
     }
     break;
 
   case PARAM_C_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.c_threshold = n;
       print_ok();
     }
     break;
 
   case PARAM_C_FACTOR:
-    if (param_val_to_factor(param, val, &x)) {
+    if (param_val_to_factor(param, val, &x, &reason)) {
       parameters.c_factor = x;
       print_ok();
     }
     break;
 
   case PARAM_D_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.d_threshold = n;
       print_ok();
     }
     break;
 
   case PARAM_D_FACTOR:
-    if (param_val_to_factor(param, val, &x)) {
+    if (param_val_to_factor(param, val, &x, &reason)) {
       parameters.d_factor = x;
       print_ok();
     }
     break;
 
   case PARAM_R_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.r_threshold = n;
       print_ok();
     }
     break;
 
   case PARAM_R_FRACTION:
-    if (param_val_to_ratio(param, val, &x)) {
+    if (param_val_to_ratio(param, val, &x, &reason)) {
       parameters.r_fraction = x;
       print_ok();
     }
     break;
 
   case PARAM_R_FACTOR:
-    if (param_val_to_factor(param, val, &x)) {
+    if (param_val_to_factor(param, val, &x, &reason)) {
       parameters.r_factor = x;
       print_ok();
     }
     break;
 
   case PARAM_VAR_DECAY:
-    if (param_val_to_ratio(param, val, &x)) {
+    if (param_val_to_ratio(param, val, &x, &reason)) {
       parameters.var_decay = x;
       print_ok();
     }
     break;
 
   case PARAM_RANDOMNESS:
-    if (param_val_to_ratio(param, val, &x)) {
+    if (param_val_to_ratio(param, val, &x, &reason)) {
       parameters.randomness = x;
       print_ok();
     }
     break;
 
   case PARAM_RANDOM_SEED:
-    if (param_val_to_int32(param, val, &n)) {
+    if (param_val_to_int32(param, val, &n, &reason)) {
       parameters.random_seed = (uint32_t) n;
       print_ok();
     }
     break;
 
   case PARAM_BRANCHING:
-    if (param_val_to_branching(param, val, &b)) {
+    if (param_val_to_branching(param, val, &b, &reason)) {
       parameters.branching = b;
       print_ok();
     }
     break;
 
   case PARAM_CLAUSE_DECAY:
-    if (param_val_to_ratio(param, val, &x)) {
+    if (param_val_to_ratio(param, val, &x, &reason)) {
       parameters.clause_decay = x;
       print_ok();
     }
     break;
 
   case PARAM_CACHE_TCLAUSES:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.cache_tclauses = tt;
       print_ok();
     }
     break;
 
   case PARAM_TCLAUSE_SIZE:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.tclause_size = n;
       print_ok();
     }
     break;
 
   case PARAM_DYN_ACK:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.use_dyn_ack = tt;
       print_ok();
     }
     break;
 
   case PARAM_DYN_BOOL_ACK:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.use_bool_dyn_ack = tt;
       print_ok();
     }
     break;
 
   case PARAM_OPTIMISTIC_FCHECK:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.use_optimistic_fcheck = tt;
       print_ok();
     }
     break;
 
   case PARAM_MAX_ACK:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_ackermann = n;
       print_ok();
     }
     break;
 
   case PARAM_MAX_BOOL_ACK:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_boolackermann = n;
       print_ok();
     }
     break;
 
   case PARAM_AUX_EQ_QUOTA:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.aux_eq_quota = n;
       print_ok();
     }
     break;
 
   case PARAM_AUX_EQ_RATIO:
-    if (param_val_to_posfloat(param, val, &x)) {
+    if (param_val_to_posfloat(param, val, &x, &reason)) {
       parameters.aux_eq_ratio = x;
       print_ok();
     }
     break;
 
   case PARAM_DYN_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n)) {
+    if (param_val_to_pos16(param, val, &n, &reason)) {
       parameters.dyn_ack_threshold = (uint16_t) n;
       print_ok();
     }
     break;
 
   case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n)) {
+    if (param_val_to_pos16(param, val, &n, &reason)) {
       parameters.dyn_bool_ack_threshold = (uint16_t) n;
       print_ok();
     }
     break;
 
   case PARAM_MAX_INTERFACE_EQS:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_interface_eqs = n;
       print_ok();
     }
     break;
 
   case PARAM_EAGER_LEMMAS:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.splx_eager_lemmas = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1927,35 +1466,35 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_SIMPLEX_PROP:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.use_simplex_prop = tt;
       print_ok();
     }
     break;
 
   case PARAM_SIMPLEX_ADJUST:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       parameters.adjust_simplex_model = tt;
       print_ok();
     }
     break;
 
   case PARAM_PROP_THRESHOLD:
-    if (param_val_to_nonneg32(param, val, &n)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       parameters.max_prop_row_size = n;
       print_ok();
     }
     break;
 
   case PARAM_BLAND_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.bland_threshold = n;
       print_ok();
     }
     break;
 
   case PARAM_ICHECK:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.splx_periodic_icheck = tt;
       if (context != NULL) {
 	if (tt) {
@@ -1969,56 +1508,56 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     break;
 
   case PARAM_ICHECK_PERIOD:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.integer_check_period = n;
       print_ok();
     }
     break;
 
   case PARAM_MAX_UPDATE_CONFLICTS:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_update_conflicts = n;
       print_ok();
     }
     break;
 
   case PARAM_MAX_EXTENSIONALITY:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_extensionality = n;
       print_ok();
     }
     break;
 
   case PARAM_EF_FLATTEN_IFF:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ef_client_globals.ef_parameters.flatten_iff = tt;
       print_ok();
     }
     break;
 
   case PARAM_EF_FLATTEN_ITE:
-    if (param_val_to_bool(param, val, &tt)) {
+    if (param_val_to_bool(param, val, &tt, &reason)) {
       ef_client_globals.ef_parameters.flatten_ite = tt;
       print_ok();
     }
     break;
 
   case PARAM_EF_GEN_MODE:
-    if (param_val_to_genmode(param, val, &g)) {
+    if (param_val_to_genmode(param, val, &g, &reason)) {
       ef_client_globals.ef_parameters.gen_mode = g;
       print_ok();;
     }
     break;
 
   case PARAM_EF_MAX_SAMPLES:
-    if (param_val_to_nonneg32(param, val, &n)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       ef_client_globals.ef_parameters.max_samples = n;
       print_ok();
     }
     break;
 
   case PARAM_EF_MAX_ITERS:
-    if (param_val_to_pos32(param, val, &n)) {
+    if (param_val_to_pos32(param, val, &n, &reason)) {
       ef_client_globals.ef_parameters.max_iters = n;
       print_ok();
     }
@@ -2028,6 +1567,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   default:
     report_invalid_param(param);
     break;
+  }
+  if (reason != NULL){
+    report_invalid_param_value(param, reason);
   }
 }
 

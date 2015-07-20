@@ -17,6 +17,7 @@
 #include <inttypes.h>
 
 #include "api/yices_globals.h"
+#include "utils/string_utils.h"
 #include "frontend/common.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -127,29 +128,6 @@ void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
 /***************************************
  *  UTILITIES TO DEAL WITH PARAMETERS  *
  **************************************/
-
-/*
- * Argument to the setparam command encodes an immediate value
- * - the tag is given by the enumeration below
- * - PARAM_VAL_ERROR means an unexpected value was pushed
- * - the value is either a pointer to rational or a symbol
- */
-typedef enum param_val_enum {
-  PARAM_VAL_FALSE,
-  PARAM_VAL_TRUE,
-  PARAM_VAL_RATIONAL,
-  PARAM_VAL_SYMBOL,
-  PARAM_VAL_ERROR,
-} param_val_enum_t;
-
-typedef struct param_val_s {
-  param_val_enum_t tag;
-  union {
-    rational_t *rational;
-    char *symbol;
-  } val;
-} param_val_t;
-
 
 /*
  * Parameter names: using the Yices conventions
@@ -397,33 +375,33 @@ bool param_val_to_int32(const char *name, const param_val_t *v, int32_t *value, 
   return false;
 }
 
-bool param_val_to_pos32(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
+bool param_val_to_pos32(const char *name, const param_val_t *v, int32_t *value, char **reason) {
+  if (param_val_to_int32(name, v, value, reason)) {
     if (*value > 0) return true;
-    report_invalid_param_value(name, "must be positive");
+    *reason = "must be positive";
   }
   return false;
 }
 
-bool param_val_to_pos16(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
+bool param_val_to_pos16(const char *name, const param_val_t *v, int32_t *value, char **reason) {
+  if (param_val_to_int32(name, v, value, reason)) {
     if (1 <= *value && *value <= UINT16_MAX) {
       return true;
     }
-    report_invalid_param_value(name, "must be between 1 and 2^16");
+    *reason = "must be between 1 and 2^16";
   }
   return false;
 }
 
-bool param_val_to_nonneg32(const char *name, const param_val_t *v, int32_t *value) {
-  if (param_val_to_int32(name, v, value)) {
+bool param_val_to_nonneg32(const char *name, const param_val_t *v, int32_t *value, char **reason) {
+  if (param_val_to_int32(name, v, value, reason)) {
     if (*value >= 0) return true;
-    report_invalid_param_value(name, "cannot be negative");
+    *reason = "cannot be negative";
   }
   return false;
 }
 
-bool param_val_to_float(const char *name, const param_val_t *v, double *value) {
+bool param_val_to_float(const char *name, const param_val_t *v, double *value, char **reason) {
   mpq_t aux;
 
   if (v->tag == PARAM_VAL_RATIONAL) {
@@ -438,33 +416,33 @@ bool param_val_to_float(const char *name, const param_val_t *v, double *value) {
     mpq_clear(aux);
     return true;
   } else {
-    report_invalid_param_value(name, "number required");
+    *reason = "number required";
     return false;
   }
 }
 
-bool param_val_to_posfloat(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
+bool param_val_to_posfloat(const char *name, const param_val_t *v, double *value, char **reason) {
+  if (param_val_to_float(name, v, value, reason)) {
     if (*value > 0.0) return true;
-    report_invalid_param_value(name, "must be positive");
+    *reason = "must be positive";
   }
   return false;
 }
 
 // ratio: number between 0 and 1 (inclusive)
-bool param_val_to_ratio(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
+bool param_val_to_ratio(const char *name, const param_val_t *v, double *value, char **reason) {
+  if (param_val_to_float(name, v, value, reason)) {
     if (0 <= *value && *value <= 1.0) return true;
-    report_invalid_param_value(name, "must be between 0 and 1");
+    *reason = "must be between 0 and 1";
   }
   return false;
 }
 
 // factor: must be at least 1
-bool param_val_to_factor(const char *name, const param_val_t *v, double *value) {
-  if (param_val_to_float(name, v, value)) {
+bool param_val_to_factor(const char *name, const param_val_t *v, double *value, char **reason) {
+  if (param_val_to_float(name, v, value, reason)) {
     if (1.0 <= *value) return true;
-    report_invalid_param_value(name, "must be at least 1");
+    *reason = "must be at least 1";
   }
   return false;
 }
@@ -476,7 +454,7 @@ bool param_val_to_factor(const char *name, const param_val_t *v, double *value) 
  * Special case: branching mode
  * - allowed modes are 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos'
  */
-bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value) {
+bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value, char **reason) {
   int32_t i;
 
   if (v->tag == PARAM_VAL_SYMBOL) {
@@ -487,6 +465,7 @@ bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *va
       return true;
     }
   }
+  *reason = "must be one of 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos";
 
   return false;
 }
@@ -498,7 +477,7 @@ bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *va
  * - allowed modes are "none" or "substitution"
  * - we use a general implementation so that we can add more modes later
  */
-bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value) {
+bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason) {
   int32_t i;
 
   if (v->tag == PARAM_VAL_SYMBOL) {
@@ -509,6 +488,7 @@ bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_
       return true;
     }
   }
+  *reason = "must be one of 'none' 'substitution'";
 
   return false;
 }
