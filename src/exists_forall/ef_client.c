@@ -26,20 +26,8 @@
 #include "yices_exit_codes.h"
 
 
-/*
- * Initialize the ef_parameters to default values
- * We need to be able to tweak these parameters in a similar fashion to yices_reval.
- */
-static inline void init_ef_params(ef_client_t *efc){
-  efc->ef_parameters.flatten_iff = false;
-  efc->ef_parameters.flatten_ite = false;
-  efc->ef_parameters.gen_mode = EF_GEN_AUTO_OPTION;
-  efc->ef_parameters.max_samples = 5;
-  efc->ef_parameters.max_iters = 100;
-}
-
 void init_ef_client(ef_client_t *efc) {
-  init_ef_params(efc);
+  init_ef_params(&efc->ef_parameters);
   efc->efprob = NULL;
   efc->efsolver = NULL;
   efc->efcode = EF_NO_ERROR;

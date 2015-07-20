@@ -107,6 +107,7 @@ core_src_c := \
 	context/symmetry_breaking.c \
 	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
+	exists_forall/ef_parameters.c \
 	exists_forall/ef_problem.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
