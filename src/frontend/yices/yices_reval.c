@@ -1409,28 +1409,28 @@ static void show_string_param(const char *name, const char *value, uint32_t n) {
 static void show_param(yices_param_t p, uint32_t n) {
   switch (p) {
   case PARAM_VAR_ELIM:
-    show_bool_param(param2string[p], context_var_elim_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.var_elim, n);
     break;
 
   case PARAM_ARITH_ELIM:
-    show_bool_param(param2string[p], context_arith_elim_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.arith_elim, n);
     break;
 
   case PARAM_BVARITH_ELIM:
-    show_bool_param(param2string[p], context_bvarith_elim_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.bvarith_elim, n);
     break;
 
   case PARAM_FLATTEN:
     // this activates both flatten or and flatten diseq.
-    show_bool_param(param2string[p], context_flatten_or_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.flatten_or, n);
     break;
 
   case PARAM_LEARN_EQ:
-    show_bool_param(param2string[p], context_eq_abstraction_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.eq_abstraction, n);
     break;
 
   case PARAM_KEEP_ITE:
-    show_bool_param(param2string[p], context_keep_ite_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.keep_ite, n);
     break;
 
   case PARAM_FAST_RESTARTS:
@@ -1534,7 +1534,7 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_EAGER_LEMMAS:
-    show_bool_param(param2string[p], splx_eager_lemmas_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.splx_eager_lemmas, n);
     break;
 
   case PARAM_SIMPLEX_PROP:
@@ -1554,7 +1554,7 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_ICHECK:
-    show_bool_param(param2string[p], splx_periodic_icheck_enabled(context), n);
+    show_bool_param(param2string[p], ctx_parameters.splx_periodic_icheck, n);
     break;
 
   case PARAM_ICHECK_PERIOD:
@@ -2714,7 +2714,7 @@ static void yices_eval_cmd(term_t t) {
 /*
  * Print the efsolver status
  */
-void print_ef_status(void) {
+static void print_ef_status(void) {
   ef_status_t stat;
   int32_t error;
   ef_solver_t *efsolver;

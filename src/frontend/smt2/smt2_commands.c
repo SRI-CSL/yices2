@@ -1078,7 +1078,7 @@ static void print_yices_error(bool full) {
 /*
  * Print the translation code returned by assert
  */
-void print_internalization_code(int32_t code, uint32_t verbosity) {
+static void print_internalization_code(int32_t code, uint32_t verbosity) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
     fprintf(stderr, "unsat\n");
@@ -1094,7 +1094,7 @@ void print_internalization_code(int32_t code, uint32_t verbosity) {
 /*
  * Print the translation code returned by ef_analyze
  */
-void print_ef_analyze_code(ef_code_t code, FILE *err) {
+static void print_ef_analyze_code(ef_code_t code, FILE *err) {
   if (code == EF_NO_ERROR) {
     //    report_ok(client);
   } else {
@@ -1104,7 +1104,7 @@ void print_ef_analyze_code(ef_code_t code, FILE *err) {
 /*
  * Print the efsolver status
  */
-void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
+static void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
   ef_status_t stat;
   int32_t error;
   ef_solver_t *efsolver;
