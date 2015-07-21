@@ -3624,66 +3624,61 @@ void smt2_get_info(const char *name) {
  * Checks if the option should be passed to the yices frontend.
  * In other words returns true in the name begins with ":yices:"
  * if so then it also stores the remainder of the string in *option.
- *
  */
 #define YICES_SMT2_PREFIX  ":yices-"
 
 static bool is_yices_option(const char *name, const char **option){
-  int len;
+  size_t len;
 
   len = strlen(YICES_SMT2_PREFIX);
-
   if (strncmp(name, YICES_SMT2_PREFIX, len) == 0){
     *option = &name[len];
     return true;
-  }
-  
+  }  
   return false;
-
 }
 
-static bool aval2param_val(aval_t avalue, param_val_t *param_val){
+/*
+ * Attempt to convert value to a parameter value:
+ * - if this can't be done, store PARAM_ERROR in param_val
+ */
+static void aval2param_val(aval_t avalue, param_val_t *param_val){
   smt2_globals_t *g;
   rational_t *rational;
   char* symbol;
-  bool bool_aval;
   
   g = &__smt2_globals;
 
-  switch (aval_tag(g->avtbl, avalue)) {
-    
+  switch (aval_tag(g->avtbl, avalue)) {    
   case ATTR_RATIONAL:
     rational = aval_rational(g->avtbl, avalue);
     param_val->tag = PARAM_VAL_RATIONAL;
     param_val->val.rational = rational;
-    return true;
+    break;
     
   case ATTR_SYMBOL:
-    if(aval_is_boolean(g->avtbl, avalue, &bool_aval)){
-      if(bool_aval){
-	param_val->tag = PARAM_VAL_TRUE;
-      } else {
-	param_val->tag = PARAM_VAL_FALSE;
-      }
+    symbol = aval_symbol(g->avtbl, avalue);
+    // We use the SMT2 conventions here: True/False are capitalized
+    if (strcmp(symbol, "True") == 0) {
+      param_val->tag = PARAM_VAL_TRUE;
+    } else if (strcmp(symbol, "False") == 0) {
+      param_val->tag = PARAM_VAL_FALSE;
     } else {
-      symbol = aval_symbol(g->avtbl, avalue);
       param_val->tag = PARAM_VAL_SYMBOL;
       param_val->val.symbol = symbol;
     }
-    return true;
+    break;
 
   case ATTR_STRING:
   case ATTR_BV:
   case ATTR_LIST:
+    param_val->tag = PARAM_VAL_ERROR;
     break;
     
   case ATTR_DELETED:
     freport_bug(g->err, "smt2_commands: attribute deleted");
     break;
   }
-  
-  return false;
-  
 }
 
 static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params) {
@@ -3696,8 +3691,7 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   //keep track of those we punt on
   bool unsupported;
 
-  unsupported = false;
-  
+  unsupported = false;  
   reason = NULL;
   
   switch (find_param(param)) {
@@ -3709,7 +3703,6 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   case PARAM_KEEP_ITE:
     unsupported = true;
     break;
-
 
   case PARAM_FAST_RESTARTS:
     if (param_val_to_bool(param, val, &tt, &reason)) {
@@ -3938,7 +3931,6 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       ef_params->max_iters = n;
-
     }
     break;
 
@@ -3947,9 +3939,14 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     unsupported = true;
     break;
   }
-  if (reason != NULL || unsupported){
+
+  if (unsupported){
     unsupported_option();
     flush_out();
+  } else if (reason != NULL) {
+    print_error("in (set-option "YICES_SMT2_PREFIX"%s ...): %s", param, reason);
+  } else {
+    report_success();
   }
 }
 
@@ -3977,80 +3974,74 @@ void smt2_set_option(const char *name, aval_t value) {
   
   g = &__smt2_globals;
 
-  if(is_yices_option(name, &yices_option)){
+  n = kwlen(name);
+  kw = smt2_string_to_keyword(name, n);
 
-    if(aval2param_val(value, &param_val)){
-      
+  switch (kw) {
+  case SMT2_KW_PRINT_SUCCESS:
+    // required
+    set_boolean_option(g, name, value, &g->print_success);
+    break;
+
+  case SMT2_KW_PRODUCE_MODELS:
+    // optional: if true, get-value can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_models);
+    }
+    break;
+
+  case SMT2_KW_PRODUCE_ASSIGNMENTS:
+    // optional: if true, get-assignment can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_assignments);
+    }
+    break;
+
+  case SMT2_KW_REGULAR_OUTPUT:
+    // required
+    set_output_file(g, name, value);
+    break;
+
+  case SMT2_KW_DIAGNOSTIC_OUTPUT:
+    // required
+    set_error_file(g, name, value);
+    break;
+
+  case SMT2_KW_RANDOM_SEED:
+    // optional
+    set_uint32_option(g, name, value, &g->random_seed);
+    break;
+
+  case SMT2_KW_VERBOSITY:
+    // optional
+    set_verbosity(g, name, value);
+    break;
+
+  case SMT2_KW_GLOBAL_DECLS:
+    // non-standard option (same as MathSAT)
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->global_decls);
+    }
+    break;
+
+  case SMT2_KW_EXPAND_DEFINITIONS:
+  case SMT2_KW_INTERACTIVE_MODE:
+  case SMT2_KW_PRODUCE_PROOFS:
+  case SMT2_KW_PRODUCE_UNSAT_CORES:
+    unsupported_option();
+    flush_out();
+    break;
+
+  default:
+    // may be a Yices option
+    if (is_yices_option(name, &yices_option)) {
+      aval2param_val(value, &param_val);
       yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters);
-
     } else {
-
       unsupported_option();
       flush_out();
-
     }
-
-  } else {
-  
-    n = kwlen(name);
-    kw = smt2_string_to_keyword(name, n);
-
-    switch (kw) {
-    case SMT2_KW_PRINT_SUCCESS:
-      // required
-      set_boolean_option(g, name, value, &g->print_success);
-      break;
-
-    case SMT2_KW_PRODUCE_MODELS:
-      // optional: if true, get-value can be used
-      if (option_can_be_set(name)) {
-	set_boolean_option(g, name, value, &g->produce_models);
-      }
-      break;
-
-    case SMT2_KW_PRODUCE_ASSIGNMENTS:
-      // optional: if true, get-assignment can be used
-      if (option_can_be_set(name)) {
-	set_boolean_option(g, name, value, &g->produce_assignments);
-      }
-      break;
-
-    case SMT2_KW_REGULAR_OUTPUT:
-      // required
-      set_output_file(g, name, value);
-      break;
-
-    case SMT2_KW_DIAGNOSTIC_OUTPUT:
-      // required
-      set_error_file(g, name, value);
-      break;
-
-    case SMT2_KW_RANDOM_SEED:
-      // optional
-      set_uint32_option(g, name, value, &g->random_seed);
-      break;
-
-    case SMT2_KW_VERBOSITY:
-      // optional
-      set_verbosity(g, name, value);
-      break;
-
-    case SMT2_KW_GLOBAL_DECLS:
-      // non-standard option (same as MathSAT)
-      if (option_can_be_set(name)) {
-	set_boolean_option(g, name, value, &g->global_decls);
-      }
-      break;
-
-    case SMT2_KW_EXPAND_DEFINITIONS:
-    case SMT2_KW_INTERACTIVE_MODE:
-    case SMT2_KW_PRODUCE_PROOFS:
-    case SMT2_KW_PRODUCE_UNSAT_CORES:
-    default:
-      unsupported_option();
-      flush_out();
-      break;
-    }
+    break;
   }
 }
 
