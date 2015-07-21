@@ -1,10 +1,10 @@
 /*
- * gc.h
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Aug 26, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #ifndef MCSAT_GC_H_
 #define MCSAT_GC_H_
 

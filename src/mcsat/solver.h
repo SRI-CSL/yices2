@@ -1,10 +1,10 @@
 /*
- * solver.h
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 1, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #ifndef MCSAT_SOLVER_H_
 #define MCSAT_SOLVER_H_
 
@@ -63,6 +63,12 @@ int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f
  *               are used.
  */
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
+
+/*
+ * Add the model to the yices model
+ */
+void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
+
 
 /*
  * Set the tracer for the solver.

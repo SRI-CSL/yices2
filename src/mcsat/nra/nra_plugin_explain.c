@@ -1,10 +1,10 @@
 /*
- * nra_plugin_explain.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 28, 2015
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "nra_plugin_explain.h"
 #include "nra_plugin_internal.h"
 #include "poly_constraint.h"
@@ -779,4 +779,3 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const
   // Remove the projection map
   lp_projection_map_destruct(&projection_map);
 }
-

@@ -1,10 +1,10 @@
 /*
- * proof_rule.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 5, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/proof_rule.h"
 
 #include <string.h>
@@ -26,5 +26,3 @@ void proof_rule_construct(proof_rule_t* rule, clause_db_t* db, const char* name)
 void proof_rule_destruct(proof_rule_t* rule) {
   free(rule->name);
 }
-
-

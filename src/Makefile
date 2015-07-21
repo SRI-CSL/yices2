@@ -506,7 +506,7 @@ libyices_def=libyices.def
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
-  CPPFLAGS=-DHAVE_MCSAT
+  CPPFLAGS+=-DHAVE_MCSAT
 endif
 
 
@@ -700,6 +700,12 @@ endif
 #
 ifneq ($(STATIC_GMP_INCLUDE_DIR),)
   STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
+else
+  STATIC_CPPFLAGS := $(CPPFLAGS)
+endif
+
+ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
+  STATIC_CPPFLAGS := -I$(STATIC_LIBPOLY_INCLUDE_DIR) $(CPPFLAGS)
 else
   STATIC_CPPFLAGS := $(CPPFLAGS)
 endif

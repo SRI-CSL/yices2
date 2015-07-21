@@ -1,4 +1,11 @@
 /*
+ * The Yices SMT Solver. Copyright 2015 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+
+ /*
  * This is placeholder to replace mcsat/solver.c when
  * Yices is compiled witout mcsat support.
  *
@@ -40,4 +47,7 @@ void mcsat_set_tracer(mcsat_solver_t *mcsat, tracer_t *tracer) {
 }
 
 void mcsat_show_stats(mcsat_solver_t *mcsat, FILE *out) {
+}
+
+void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 }

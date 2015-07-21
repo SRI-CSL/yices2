@@ -1,10 +1,10 @@
 /*
- * clause_db.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: May 5, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/bool/clause_db.h"
 #include "utils/ptr_vectors.h"
 #include "utils/int_array_sort.h"
@@ -302,4 +302,3 @@ bool clause_db_is_clause_vector(const clause_db_t* db, const ivector_t* clauses,
   }
   return true;
 }
-

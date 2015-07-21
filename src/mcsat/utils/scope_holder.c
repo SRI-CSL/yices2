@@ -1,10 +1,10 @@
 /*
- * scope_holder.c
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- *  Created on: Aug 19, 2014
- *      Author: dejan
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
-
+ 
 #include "mcsat/utils/scope_holder.h"
 
 #include <stdarg.h>
