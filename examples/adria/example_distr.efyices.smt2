@@ -2,7 +2,8 @@
 (set-logic BV)
 
 
-(set-option :yices:ef-max-iters 100000)
+(set-option :yices-ef-max-iters 100000)
+
 
 (declare-fun fresh_value_addsub_fn_0__v1 () Bool)
 (declare-fun fresh_value_addsub_fn_1__v1 () Bool)

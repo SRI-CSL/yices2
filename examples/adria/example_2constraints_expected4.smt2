@@ -1,8 +1,8 @@
 ;; example_2constraints_expected4.ys converted to the SMT-LIB2 notation
 (set-logic BV)
 
-;; (set-option :yices:branching positive)
-(set-option :yices:ef-max-iters 100000000)
+;; (set-option :yices-branching positive)
+(set-option :yices-ef-max-iters 100000000)
 
 (declare-fun fresh_value_in124_v1 () Bool)
 (declare-fun fresh_value_in125_v1 () Bool)

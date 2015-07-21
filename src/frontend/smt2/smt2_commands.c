@@ -3626,13 +3626,18 @@ void smt2_get_info(const char *name) {
  * if so then it also stores the remainder of the string in *option.
  *
  */
-#define YICES_SMT2_PREFIX  ":yices:"
+#define YICES_SMT2_PREFIX  ":yices-"
 
 static bool is_yices_option(const char *name, const char **option){
-  if (strcmp(name, YICES_SMT2_PREFIX) == 0){
-    *option = &name[strlen(YICES_SMT2_PREFIX) + 1];
+  int len;
+
+  len = strlen(YICES_SMT2_PREFIX);
+
+  if (strncmp(name, YICES_SMT2_PREFIX, len) == 0){
+    *option = &name[len];
     return true;
-  } 
+  }
+  
   return false;
 
 }
@@ -3655,6 +3660,7 @@ void smt2_set_option(const char *name, aval_t value) {
 
   if(is_yices_option(name, &yices_option)){
 
+    fprintf(stderr, "Here with %s!!\n", yices_option);
 
     return;
   }
