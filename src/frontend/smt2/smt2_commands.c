@@ -3622,7 +3622,7 @@ void smt2_get_info(const char *name) {
 
 /*
  * Checks if the option should be passed to the yices frontend.
- * In other words returns true in the name begins with ":yices:"
+ * In other words returns true in the name begins with ":yices-"
  * if so then it also stores the remainder of the string in *option.
  *
  */
