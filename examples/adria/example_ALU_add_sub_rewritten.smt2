@@ -2,7 +2,7 @@
 (set-logic BV)
 
 
-;;(set-option :branching positive)
+(set-option :yices:branching positive)
 
 (declare-fun fresh_value_in124_v1 () Bool)
 (declare-fun fresh_value_in125_v1 () Bool)

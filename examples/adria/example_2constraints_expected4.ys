@@ -1,4 +1,4 @@
-;; xs(set-param branching positive)
+;; (set-param branching positive)
 (set-param ef-max-iters 100000000)
 
 (define fresh_value_in124_v1::bool)

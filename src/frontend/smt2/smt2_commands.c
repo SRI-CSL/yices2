@@ -3619,6 +3619,24 @@ void smt2_get_info(const char *name) {
 }
 
 
+
+/*
+ * Checks if the option should be passed to the yices frontend.
+ * In other words returns true in the name begins with ":yices:"
+ * if so then it also stores the remainder of the string in *option.
+ *
+ */
+#define YICES_SMT2_PREFIX  ":yices:"
+
+static bool is_yices_option(const char *name, const char **option){
+  if (strcmp(name, YICES_SMT2_PREFIX) == 0){
+    *option = &name[strlen(YICES_SMT2_PREFIX) + 1];
+    return true;
+  } 
+  return false;
+
+}
+
 /*
  * Set an option:
  * - name = option name (keyword)
@@ -3631,8 +3649,17 @@ void smt2_set_option(const char *name, aval_t value) {
   smt2_globals_t *g;
   smt2_keyword_t kw;
   uint32_t n;
-
+  const char* yices_option;
+  
   g = &__smt2_globals;
+
+  if(is_yices_option(name, &yices_option)){
+
+
+    return;
+  }
+
+  
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
 

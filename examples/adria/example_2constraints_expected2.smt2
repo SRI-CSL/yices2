@@ -1,8 +1,8 @@
 ;; example_2constraints_expected2.ys converted to the SMT-LIB2 notation
 (set-logic BV)
 
-(set-option :branching positive)
-(set-option :fast-restarts false)
+(set-option :yices:branching positive)
+(set-option :yices:fast-restarts false)
 
 (declare-fun fresh_value_in124_v1 () Bool)
 (declare-fun fresh_value_in125_v1 () Bool)
