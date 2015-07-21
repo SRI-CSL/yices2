@@ -11,6 +11,9 @@
  * Mostly based on Minisat but with different data structures.
  */
 
+#define DEBUG 0
+#define TRACE 0
+
 #include <assert.h>
 #include <stddef.h>
 #include <float.h>
@@ -23,35 +26,68 @@
 #include "utils/memalloc.h"
 #include "utils/prng.h"
 
-#define DEBUG 0
-#define TRACE 0
 
 /** TODO: move that && add some useful comments*/
-void watch_init(watch_t *w) {
-  w->block = safe_malloc(sizeof(watch_block_t));
-  w->capacity = 1;
+static inline uint32_t get_cv_size(clause_t **v);
+
+
+static void watch_init(watch_t *w) {
+  w->capacity = 2;
+  w->block = safe_malloc(w->capacity * sizeof(watch_block_t));
   w->size = 0;
 }
 
-static void watch_add(size_t i, clause_t *cl, watch_t *w) {
+
+static void watch_expand(watch_t *w, uint32_t add_size) {
   assert(w->size < w->capacity);
-  if(w->size +1 == w->capacity) {
-    /* need to expand block[] */
+  if(w->size + add_size >= w->capacity) {
+    /* need to expand block */
     w->capacity += w->capacity;
+    assert(w->size + add_size < w->capacity);
     w->block = (watch_block_t *) safe_realloc(w->block, w->capacity * sizeof(watch_block_t));
   }
+}
+
+
+static void watch_add_binary(literal_t l, watch_t *w) {
+  watch_expand(w, 1);
   assert(w->size+1 < w->capacity);
-  watch_block_t *block = &(w->block[w->size]);
-  assert( (((size_t)cl) & 0b11U) == 0);
-  assert(i < 2);
-  block->pack = ((size_t)cl) + i;
-  #if BLOCKER
-  block->blocker = cl->cl[1-i];
-  #endif
+
+  watch_block_t _l = (watch_block_t) l;
+  _l <<= 2;
+  watch_block_t attr = (watch_block_t) 0b10;
+  w->block[w->size] = _l | attr;
+  assert(w->block[w->size] >> 2 == l);
   w->size++;
 }
 
-static void watch_delete(watch_t *w, size_t i) {
+
+static void watch_add_large(uint32_t i, const clause_t *cl, watch_t *w) {
+  watch_expand(w, 1);
+  assert(w->size+1 < w->capacity);
+  
+  assert( (((size_t)cl) & 0b11U) == 0);
+  assert(i < 2);
+  w->block[w->size] = ((size_t)cl) | i;
+  w->size++;
+}
+
+
+static void watch_add(sat_solver_t *sol, const clause_t *cl) {
+  const literal_t *b = cl->cl;
+  assert(b[0] >= 0);
+  assert(b[1] >= 0);
+  if(0 > 1 && b[2] < 0) {
+    watch_add_binary(b[0], sol->watchnew + b[1]);
+    watch_add_binary(b[1], sol->watchnew + b[0]);
+  } else {
+    watch_add_large(0, cl, sol->watchnew + b[0]);
+    watch_add_large(1, cl, sol->watchnew + b[1]);
+  }
+}
+
+
+static void watch_delete(watch_t *w, uint32_t i) {
   assert(w->size > 0);
   assert(w->size > i);
 
@@ -59,7 +95,22 @@ static void watch_delete(watch_t *w, size_t i) {
   if(w->size > i) {
     w->block[i] = w->block[w->size];
   }
+}
 
+
+static void watch_move(watch_t *old_watch_list, uint32_t i, watch_t *new_watch_list) {
+  watch_block_t block = old_watch_list->block[i];
+  watch_delete(old_watch_list, i);
+
+  watch_expand(new_watch_list, 1);
+  new_watch_list->block[new_watch_list->size] = block;
+  new_watch_list->size++;
+}
+
+/*
+ * Auxiliary function: reset watch list
+ */
+static void watch_reset_list(watch_t *w) {
   #if SHRINK_WATCH_VECTORS
   size_t new_capacity = w->capacity / 4;
   if(w->size < new_capacity) {
@@ -67,28 +118,51 @@ static void watch_delete(watch_t *w, size_t i) {
     w->capacity = new_capacity;
   }
   #endif
+
+  w->size = 0;
 }
 
-static inline clause_t *watch_clause_of(watch_block_t *block) {
-  return (clause_t *) (block->pack & (~((size_t)0b11U)));
+
+/*
+ * Reset all watch lists
+ */
+static void watch_reset_lists(sat_solver_t *solver) {
+  uint32_t n = solver->nb_lits;
+  for (uint32_t i=0; i<n; i ++) {
+    watch_reset_list(solver->watchnew + i);
+  }
 }
 
-static inline size_t watch_idx_of(watch_block_t *block) {
-  return block->pack & ((size_t)1U);
+
+static void watch_regenerate(sat_solver_t *sol) {
+  watch_reset_lists(sol);
+  clause_t **v = sol->problem_clauses;
+  uint32_t n = get_cv_size(v);
+  for (size_t i=0; i<n; i++) {
+    watch_add(sol, v[i]);
+  }
+  v = sol->learned_clauses;
+  n = get_cv_size(v);
+  for (size_t i=0; i<n; i++) {
+    watch_add(sol, v[i]);
+  }
+  sol->watch_status = watch_status_ok;
+}
+
+static inline clause_t *watch_clause_of(watch_block_t block) {
+  return (clause_t *) (block & (~((size_t)0b11U)));
+}
+
+static inline size_t watch_idx_of(watch_block_t block) {
+  return block & ((size_t)1U);
 }
 
 /*
- * Internal checks
+ * Invalidate watch lists
  */
-#if DEBUG
-
-static void check_literal_vector(literal_t *v);
-static void check_propagation(sat_solver_t *sol);
-static void check_marks(sat_solver_t *sol);
-static void check_top_var(sat_solver_t *sol, bvar_t x);
-
-#endif
-
+static inline void watch_lists_invalidate(sat_solver_t *solver) {
+  solver->watch_status = watch_status_regenerate;
+}
 
 
 
@@ -150,30 +224,30 @@ static inline void multiply_activity(clause_t *cl, float scale) {
 /*
  * Mark a clause cl for deletion
  */
-static inline void mark_for_deletion(clause_t *cl) {
+static inline void mark_for_deletion(sat_solver_t *solver, clause_t *cl) {
   cl->cl[0] = cl->cl[1];
+  watch_lists_invalidate(solver);
 }
 
 /*
  * Check whether the clause is to be deleted
  */
-static inline bool is_clause_to_be_deleted(clause_t *cl) {
+static inline bool is_clause_to_be_deleted(const clause_t *cl) {
   return cl->cl[0] == cl->cl[1];
 }
 
 /*
  * Clause length
  */
-static uint32_t clause_length(clause_t *cl) {
-  literal_t *a;
-
-  a = cl->cl + 2;
+static uint32_t clause_length(const clause_t *cl) {
+  const literal_t *a = cl->cl + 2;
   while (*a >= 0) {
     a ++;
   }
 
   return a - cl->cl;
 }
+
 
 /*
  * Allocate and initialize a new clause (not a learned clause)
@@ -196,6 +270,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
   return result;
 }
 
+
 /*
  * Delete clause cl
  * cl must be a non-learned clause, allocated via the previous function.
@@ -204,6 +279,7 @@ static inline void delete_clause(clause_t *cl) {
   safe_free(cl);
 }
 
+
 /*
  * Allocate and initialize a new learned clause
  * \param len = number of literals
@@ -211,7 +287,7 @@ static inline void delete_clause(clause_t *cl) {
  * The watched pointers are not initialized.
  * The activity is initialized to 0.0
  */
-static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
+static clause_t *new_learned_clause(uint32_t len, const literal_t *lit) {
   learned_clause_t *tmp;
   clause_t *result;
   uint32_t i;
@@ -229,6 +305,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   return result;
 }
 
+
 /*
  * Delete learned clause cl
  * cl must have been allocated via the new_learned_clause function
@@ -236,7 +313,6 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
 static inline void delete_learned_clause(clause_t *cl) {
   safe_free(learned(cl));
 }
-
 
 
 /*
@@ -284,12 +360,14 @@ static clause_t **new_clause_vector(uint32_t n) {
   return tmp->data;
 }
 
+
 /*
  * Clean up: free memory used by v
  */
 static void delete_clause_vector(clause_t **v) {
   safe_free(cv_header(v));
 }
+
 
 /*
  * Add clause cl at the end of vector *v. Assumes *v has been initialized.
@@ -339,91 +417,6 @@ static void shrink_clause_vector(clause_t ***v) {
 
 
 
-/**********************
- *  LITERAL VECTORS   *
- *********************/
-
-/*
- * When used to store binary clauses literal vectors are initially
- * NULL.  Memory is allocated on the first addition and literal
- * vectors are terminated by -1.
- *
- * For a vector v of size i, the literals are stored
- * in v[0],...,v[i-1], and v[i] = -1
- */
-
-/*
- * Size and capacity of a literal vector v
- */
-static inline literal_vector_t *lv_header(literal_t *v) {
-  return (literal_vector_t *)(((char *) v) - offsetof(literal_vector_t, data));
-}
-
-static inline uint32_t get_lv_size(literal_t *v) {
-  return lv_header(v)->size;
-}
-
-static inline void set_lv_size(literal_t *v, uint32_t sz) {
-  lv_header(v)->size = sz;
-}
-
-/*
- * Add literal l at the end of vector *v
- * - allocate a fresh vector if *v == NULL
- * - resize *v if *v is full.
- * - add -1 terminator after l.
- */
-static void add_literal_to_vector(literal_t **v, literal_t l) {
-  literal_vector_t *vector;
-  literal_t *d;
-  uint32_t i, n;
-
-  d = *v;
-  if (d == NULL) {
-    i = 0;
-    n = DEF_LITERAL_VECTOR_SIZE;
-    vector = (literal_vector_t *)
-      safe_malloc(sizeof(literal_vector_t) + n * sizeof(literal_t));
-    vector->capacity = n;
-    d = vector->data;
-    *v = d;
-  } else {
-    vector = lv_header(d);
-    i = vector->size;
-    n = vector->capacity;
-    if (i >= n - 1) {
-      n ++;
-      n += n>>1; // new cap = 50% more than old capacity
-      vector = (literal_vector_t *)
-        safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
-      vector->capacity = n;
-      d = vector->data;
-      *v = d;
-    }
-  }
-
-  assert(i + 1 < vector->capacity);
-
-  d[i] = l;
-  d[i+1] = null_literal;
-  vector->size = i+1;
-}
-
-
-/*
- * Delete literal vector v
- */
-static void delete_literal_vector(literal_t *v) {
-  if (v != NULL) {
-    safe_free(lv_header(v));
-  }
-}
-
-
-
-
-
-
 /***********
  *  STACK  *
  **********/
@@ -440,12 +433,14 @@ static void init_stack(sol_stack_t *s, uint32_t nvar) {
   s->nlevels = DEFAULT_NLEVELS;
 }
 
+
 /*
  * Extend the size: nvar = new size
  */
 static void extend_stack(sol_stack_t *s, uint32_t nvar) {
   s->lit = (literal_t *) safe_realloc(s->lit, nvar * sizeof(literal_t));
 }
+
 
 /*
  * Extend the level_index array by 50%
@@ -459,6 +454,7 @@ static void increase_stack_levels(sol_stack_t *s) {
   s->nlevels = n;
 }
 
+
 /*
  * Free memory used by stack s
  */
@@ -466,6 +462,7 @@ static void delete_stack(sol_stack_t *s) {
   free(s->lit);
   free(s->level_index);
 }
+
 
 /*
  * Push literal l on top of stack s
@@ -476,7 +473,6 @@ static void push_literal(sol_stack_t *s, literal_t l) {
   s->lit[i] = l;
   s->top = i + 1;
 }
-
 
 
 
@@ -519,6 +515,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   heap->inv_act_decay = 1/VAR_DECAY_FACTOR;
 }
 
+
 /*
  * Extend the heap for n variables
  */
@@ -541,6 +538,7 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
   }
 }
 
+
 /*
  * Free the heap
  */
@@ -549,7 +547,6 @@ static void delete_heap(var_heap_t *heap) {
   safe_free(heap->heap_index);
   safe_free(heap->heap);
 }
-
 
 
 /*
@@ -653,7 +650,6 @@ static void update_down(var_heap_t *heap) {
 }
 
 
-
 /*
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
@@ -694,6 +690,7 @@ static bvar_t heap_get_top(var_heap_t *heap) {
 
   return top;
 }
+
 
 /*
  * Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD
@@ -758,7 +755,6 @@ static void cleanup_heap(sat_solver_t *sol) {
     update_down(heap);
   }
 }
-
 
 
 
@@ -1002,6 +998,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->subsumed_literals = 0;
 }
 
+
 /*
  * Allocate and initialize a solver
  * size = initial size of the variable arrays
@@ -1050,8 +1047,8 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->value = (uint8_t *) safe_malloc((lsize + 2) * sizeof(uint8_t)) + 2;
   solver->value[-2] = val_undef_false;
   solver->value[-1] = val_undef_false;
-  solver->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   solver->watchnew = (watch_t *) safe_malloc(lsize * sizeof(watch_t));
+  solver->watch_status = watch_status_ok;
 
   // Heap
   init_heap(&solver->heap, size);
@@ -1115,10 +1112,6 @@ void delete_sat_solver(sat_solver_t *solver) {
   safe_free(solver->value - 2);
   n = solver->nb_lits;
   for (i=0; i<n; i++) {
-    delete_literal_vector(solver->bin[i]);
-  }
-  safe_free(solver->bin);
-  for (i=0; i<n; i++) {
     safe_free(solver->watchnew[i].block);
   }
   safe_free(solver->watchnew);
@@ -1131,7 +1124,6 @@ void delete_sat_solver(sat_solver_t *solver) {
 
   delete_stable_sorter(&solver->sorter);
 }
-
 
 
 
@@ -1161,7 +1153,6 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   tmp = solver->value - 2;
   tmp = (uint8_t *) safe_realloc(tmp, (lsize + 2) * sizeof(uint8_t));
   solver->value = tmp + 2;
-  solver->bin = (literal_t **) safe_realloc(solver->bin, lsize * sizeof(literal_t *));
   solver->watchnew = (watch_t *) safe_realloc(solver->watchnew, lsize * sizeof(watch_t));
 
   extend_heap(&solver->heap, new_size);
@@ -1170,13 +1161,10 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
 
 
 /*
- * Add n variables
+ * Add n variables; Returns the first added variable
  */
-void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
-  uint32_t nvars, new_size, i;
-  literal_t l0, l1;
-
-  nvars = solver->nb_vars;
+bvar_t sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
+  uint32_t nvars = solver->nb_vars;
 
   if (nvars + n < nvars) {
     // arithmetic overflow: too many variables
@@ -1184,7 +1172,7 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
   }
 
   if (nvars + n > solver->vsize) {
-    new_size = solver->vsize + 1;
+    uint32_t new_size = solver->vsize + 1;
     new_size += new_size >> 1;
     if (new_size < nvars + n) {
       new_size = nvars + n;
@@ -1193,65 +1181,34 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     assert(nvars + n <= solver->vsize);
   }
 
-  for (i=nvars; i<nvars+n; i++) {
+  for (uint32_t i=nvars; i<nvars+n; i++) {
     clr_bit(solver->mark, i);
 
     solver->level[i] = UINT32_MAX;
     solver->antecedent[i] = mk_literal_antecedent(null_literal);
-    l0 = pos_lit(i);
-    l1 = neg_lit(i);
+    literal_t l0 = pos_lit(i);
+    literal_t l1 = neg_lit(i);
 
     // preferred polarity = false
     solver->value[l0] = val_undef_false;
     solver->value[l1] = val_undef_true;
 
-    solver->bin[l0] = NULL;
-    solver->bin[l1] = NULL;
     watch_init(solver->watchnew + l0);
     watch_init(solver->watchnew + l1);
   }
 
   solver->nb_vars += n;
   solver->nb_lits += 2 * n;
-}
 
+  return nvars;
+}
 
 
 /*
  * Allocate and return a fresh boolean variable
  */
 bvar_t sat_solver_new_var(sat_solver_t *solver) {
-  uint32_t new_size, i;
-  literal_t l0, l1;
-
-  i = solver->nb_vars;
-  if (i >= solver->vsize) {
-    new_size = solver->vsize + 1;
-    new_size += new_size >> 1;
-    sat_solver_extend(solver, new_size);
-    assert(i < solver->vsize);
-  }
-
-  clr_bit(solver->mark, i);
-
-  solver->level[i] = UINT32_MAX;
-  solver->antecedent[i] = mk_literal_antecedent(null_literal);
-  l0 = pos_lit(i);
-  l1 = neg_lit(i);
-
-  // preferred polarity = false
-  solver->value[l0] = val_undef_false;
-  solver->value[l1] = val_undef_true;
-
-  solver->bin[l0] = NULL;
-  solver->bin[l1] = NULL;
-  watch_init(solver->watchnew + l0);
-  watch_init(solver->watchnew + l1);
-
-  solver->nb_vars ++;
-  solver->nb_lits += 2;
-
-  return i;
+  return sat_solver_add_vars(solver, 1);
 }
 
 
@@ -1288,6 +1245,7 @@ void sat_solver_add_empty_clause(sat_solver_t *solver) {
   solver->status = status_unsat;
 }
 
+
 /*
  * Add unit clause { l }: push l on the assignment stack
  * or set status to unsat if l is already false
@@ -1314,52 +1272,46 @@ void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l) {
 }
 
 /*
- * Add clause { l0, l1 }
- */
-void sat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) {
-#if TRACE
-  printf("---> Add binary clause: { %d %d }\n", l0, l1);
-#endif
-
-  assert(0 <= l0 && l0 < solver->nb_lits);
-  assert(0 <= l1 && l1 < solver->nb_lits);
-
-  add_literal_to_vector(solver->bin + l0, l1);
-  add_literal_to_vector(solver->bin + l1, l0);
-
-  solver->nb_bin_clauses ++;
-}
-
-/*
- * Add an n-literal clause when n >= 3
+ * Add an n-literal clause when n >= 2
  */
 static void add_clause_core(sat_solver_t *solver, uint32_t n, literal_t *lit) {
-  clause_t *cl;
-  literal_t l;
+  assert(n >= 2);
 
 #ifndef NDEBUG
   // check that all literals are valid
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
+  for (uint32_t i=0; i<n; i++) {
     assert(0 <= lit[i] && lit[i] < solver->nb_lits);
   }
 #endif
 
-  cl = new_clause(n, lit);
+  clause_t *cl = new_clause(n, lit);
   add_clause_to_vector(&solver->problem_clauses, cl);
 
   // set watch literals
-  l = lit[0];
-  watch_add(0, cl, solver->watchnew + l);
-
-  l = lit[1];
-  watch_add(1, cl, solver->watchnew + l);
+  watch_add(solver, cl);
 
   // update number of clauses
-  solver->nb_clauses ++;
+  if(n > 2) {
+    solver->nb_clauses ++;
+  } else {
+    solver->nb_bin_clauses ++;
+  }
+
   solver->stats.prob_literals += n;
 }
+
+
+/*
+ * Add clause { l0, l1 }
+ */
+void sat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) {
+  literal_t lit[2];
+
+  lit[0] = l0;
+  lit[1] = l1;
+  add_clause_core(solver, 2, lit);
+}
+
 
 /*
  * Add three-literal clause {l0, l1, l2}
@@ -1388,7 +1340,6 @@ void sat_solver_add_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
     sat_solver_add_empty_clause(solver);
   }
 }
-
 
 
 /*
@@ -1424,7 +1375,6 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
   }
   n = j; // new clause size
 
-
   /*
    * Remove false literals/check for a true literal
    */
@@ -1447,7 +1397,6 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
 
   sat_solver_add_clause(solver, n, lit);
 }
-
 
 
 
@@ -1501,12 +1450,9 @@ static inline void decay_clause_activities(sat_solver_t *solver) {
  * - lit[1] must be a literal with second highest decision level
  */
 static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
-  clause_t *cl;
-  literal_t l;
-
   // Create and add a new learned clause.
   // Set its activity to current cla_inc
-  cl = new_learned_clause(n, lit);
+  clause_t *cl = new_learned_clause(n, lit);
   add_clause_to_vector(&solver->learned_clauses, cl);
   increase_clause_activity(solver, cl);
 
@@ -1516,11 +1462,7 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
 #endif
 
   // insert cl into the watched lists
-  l = lit[0];
-  watch_add(0, cl, solver->watchnew + l);
-
-  l = lit[1];
-  watch_add(1, cl, solver->watchnew + l);
+  watch_add(solver, cl);
 
   // increase clause counter
   solver->nb_clauses ++;
@@ -1528,8 +1470,6 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
 
   return cl;
 }
-
-
 
 
 
@@ -1546,36 +1486,6 @@ static void sort_learned_clauses(sat_solver_t *solver) {
 
   v = solver->learned_clauses;
   apply_sorter(&solver->sorter,  (void **) v, get_cv_size(v));
-}
-
-
-/*
- * Auxiliary function: follow clause vector
- * Remove all clauses marked for deletion
- */
- static void cleanup_watch_list(watch_t *w) {
-  int32_t i;
-  clause_t *cl;
-
-  for (i = w->size-1; i>=0; i--) {
-    cl = watch_clause_of(w->block + i);
-    if(is_clause_to_be_deleted(cl)) {
-      watch_delete(w, i);
-    }
-  }
-}
-
-
-/*
- * Update all watch lists: remove all clauses marked for deletion.
- */
-static void cleanup_watch_lists(sat_solver_t *solver) {
-  uint32_t i, n;
-
-  n = solver->nb_lits;
-  for (i=0; i<n; i ++) {
-    cleanup_watch_list(solver->watchnew + i);
-  }
 }
 
 
@@ -1604,9 +1514,6 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 
   v = solver->learned_clauses;
   n = get_cv_size(v);
-
-  // clean up all the watch-literal lists
-  cleanup_watch_lists(solver);
 
   // do the real deletion
   solver->stats.learned_literals = 0;
@@ -1657,7 +1564,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
    */
   for (i=0; i<n/2; i++) {
     if (! clause_is_locked(solver, v[i])) {
-      mark_for_deletion(v[i]);
+      mark_for_deletion(solver, v[i]);
     }
   }
 
@@ -1665,14 +1572,13 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
   act_threshold = solver->cla_inc/n;
   for (i = n/2; i<n; i++) {
     if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
-      mark_for_deletion(v[i]);
+      mark_for_deletion(solver, v[i]);
     }
   }
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;
 }
-
 
 
 
@@ -1703,7 +1609,7 @@ static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
       break;
 
     case val_true:
-      mark_for_deletion(cl);
+      mark_for_deletion(solver, cl);
       return;
 
     case val_false:
@@ -1739,9 +1645,6 @@ static void simplify_clause_set(sat_solver_t *solver) {
   n = get_cv_size(v);
   for (i=0; i<n; i++) simplify_clause(solver, v[i]);
   solver->stats.learned_literals = solver->stats.aux_literals;
-
-  // cleanup the watched literal lists
-  cleanup_watch_lists(solver);
 
   // remove simplified problem clauses
   v = solver->problem_clauses;
@@ -1780,80 +1683,6 @@ static void simplify_clause_set(sat_solver_t *solver) {
 
 
 /*
- * Clean up a binary-clause vector v
- * - assumes that v is non-null
- * - remove all literals of v that are assigned
- * - for each deleted literal, increment sol->stats.aux_literals.
- */
-static void cleanup_binary_clause_vector(sat_solver_t *solver, literal_t *v) {
-  uint32_t i, j;
-  literal_t l;
-
-  i = 0;
-  j = 0;
-  do {
-    l = v[i++];
-    if (lit_is_unassigned(solver, l)) { //keep l
-      v[j ++] = l;
-    }
-  } while (l >= 0); // end-marker is copied too
-
-  solver->stats.aux_literals += i - j;
-  set_lv_size(v, j - 1);
-}
-
-
-/*
- * Simplify all binary vectors affected by the current assignment
- * - scan the literals in the stack from sol->simplify_bottom to sol->stack.top
- * - remove all the binary clauses that contain one such literal
- * - free the binary watch vectors
- */
-static void simplify_binary_vectors(sat_solver_t *solver) {
-  uint32_t i, j, n;
-  literal_t l0, *v0, l1;
-
-  solver->stats.aux_literals = 0;   // counts the number of literals removed
-  for (i = solver->simplify_bottom; i < solver->stack.top; i++) {
-    l0 = solver->stack.lit[i];
-
-    // remove all binary clauses that contain l0
-    v0 = solver->bin[l0];
-    if (v0 != NULL) {
-      n = get_lv_size(v0);
-      for (j=0; j<n; j++) {
-        l1 = v0[j];
-        if (lit_is_unassigned(solver, l1)) {
-          // sol->bin[l1] is non null.
-          assert(solver->bin[l1] != NULL);
-          cleanup_binary_clause_vector(solver, solver->bin[l1]);
-        }
-      }
-
-      delete_literal_vector(v0);
-      solver->bin[l0] = NULL;
-      solver->stats.aux_literals += n;
-    }
-
-    // remove all binary clauses that contain not(l0)
-    l0 = not(l0);
-    v0 = solver->bin[l0];
-    if (v0 != NULL) {
-      solver->stats.aux_literals += get_lv_size(v0);
-      delete_literal_vector(v0);
-      solver->bin[l0] = NULL;
-    }
-  }
-
-  solver->stats.aux_literals /= 2;
-  solver->stats.bin_clauses_deleted += solver->stats.aux_literals;
-  solver->nb_bin_clauses -= solver->stats.aux_literals;
-
-  solver->stats.aux_literals = 0;
-}
-
-
-/*
  * Simplify all the database: problem clauses, learned clauses,
  * and binary clauses.
  *
@@ -1866,7 +1695,6 @@ static void simplify_clause_database(sat_solver_t *solver) {
 
   solver->stats.simplify_calls ++;
   simplify_clause_set(solver);
-  simplify_binary_vectors(solver);
 }
 
 
@@ -1923,7 +1751,6 @@ static void decide_variable(sat_solver_t *solver, bvar_t x) {
 }
 
 
-
 /*
  * Assign literal l to true and attach antecedent a.
  */
@@ -1963,6 +1790,7 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
  *   record a pointer to short_buffer.
  */
 
+#if 0
 /*
  * Record a two-literal conflict: clause {l0, l1} is false
  */
@@ -1976,6 +1804,7 @@ static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t
   solver->short_buffer[2] = end_clause;
   solver->conflict = solver->short_buffer;
 }
+#endif
 
 
 /*
@@ -2003,51 +1832,12 @@ static void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
 
 
 /*
- * Propagation via binary clauses:
- * - sol = solver
- * - val = literal value array (must be sol->value)
- * - l0 = literal (must be false in the current assignment)
- * - v = array of literals terminated by -1 (must be sol->bin[l])
- * v must be != NULL
- * Code returned is either no_conflict or binary_conflict
- */
-static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, literal_t l0, literal_t *v) {
-  literal_t l1;
-  bval_t v1;
-
-  assert(v != NULL && val == sol->value);
-  assert(sol->bin[l0] == v && lit_val(sol, l0) == val_false);
-
-  for (;;) {
-    // Search for non-true literals in v
-    // This terminates since val[end_marker] = VAL_UNDEF
-    do {
-      l1 = *v ++;
-      //  v1 = lit_val(sol, l1);
-      v1 = val[l1];
-    } while (v1 == val_true);
-
-    if (l1 < 0) break; // end_marker
-
-    if (is_unassigned_val(v1)) {
-      implied_literal(sol, l1, mk_literal_antecedent(l0));
-    } else {
-      record_binary_conflict(sol, l0, l1);
-      return binary_conflict;
-    }
-  }
-
-  return no_conflict;
-}
-
-
-/*
  * Propagation via the watched lists of a literal l0.
  * - sol = solver
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
-static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t *w) {
+static inline int propagation_via_watched_list(sat_solver_t *sol, literal_t l0, const uint8_t *val, watch_t *w) {
   literal_t l, *b;
 
   assert(val == sol->value);
@@ -2060,8 +1850,8 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t
     }
     #endif
 
-    uint32_t i = watch_idx_of(w->block + j);
-    clause_t *cl = watch_clause_of(w->block + j);
+    uint32_t i = watch_idx_of(w->block[j]);
+    clause_t *cl = watch_clause_of(w->block[j]);
     literal_t l1 = get_other_watch(cl, i);
 
     /*
@@ -2075,7 +1865,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t
     #endif
       /*
        * Search for a new watched literal in cl.
-       * The loop terminates since cl->cl terminates with an end marked
+       * The loop terminates since cl->cl terminates with an end marker
        * and val[end_marker] == val_undef.
        */
       uint32_t k = 1;
@@ -2095,19 +1885,17 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t
         b[k] = b[i];
         b[i] = l;
 
-        // insert cl in watch[l] and move to the next clause
-        watch_delete(w, j);
-        watch_add(i, cl, sol->watchnew + l);
+        // delete cl from w, insert in watch[l] and move to the next clause
+        watch_move(w, j, sol->watchnew + l);
 
       } else {
         /*
          * All literals of cl, except possibly l1, are false
          */
         #if BLOCKER
-        if (is_unassigned_val(val[l1])) {
-        #else
-        if (is_unassigned_val(v1)) {
+        bval_t v1 = val[l1];
         #endif
+        if (is_unassigned_val(v1)) {
           // l1 is implied
           implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
@@ -2128,6 +1916,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t
   return no_conflict;
 }
 
+
 /*
  * Full propagation: until either the propagation queue is empty,
  * or a conflict is found
@@ -2137,24 +1926,12 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, watch_t
  * Variant gave bad experimental results. Reverted to previous method.
  */
 static int32_t propagation(sat_solver_t *sol) {
-  literal_t *queue;
-  literal_t l, *bin;
   uint32_t i;
-  int32_t code;
-
-  queue = sol->stack.lit;
+  literal_t *queue = sol->stack.lit;
 
   for (i = sol->stack.prop_ptr; i < sol->stack.top; i++) {
-    l = not(queue[i]);
-    bin = sol->bin[l];
-    if (bin != NULL) {
-      code = propagation_via_bin_vector(sol, sol->value, l, bin);
-      if (code != no_conflict) {
-        return code;
-      }
-    }
-
-    code = propagation_via_watched_list(sol, sol->value, sol->watchnew + l);
+    literal_t l = not(queue[i]);
+    int32_t code = propagation_via_watched_list(sol, l, sol->value, sol->watchnew + l);
     if (code != no_conflict) {
       return code;
     }
@@ -2434,17 +2211,12 @@ static void simplify_learned_clause(sat_solver_t *sol) {
 }
 
 
-
-
 /*
  * Check whether var x is unmarked
  */
 static inline bool is_var_unmarked(sat_solver_t *sol, bvar_t x) {
   return tst_bit(sol->mark, x) == 0;
 }
-
-#if DEBUG
-#endif
 
 /*
  * Set mark for literal l
@@ -2895,6 +2667,10 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 
   for (;;) {
 
+    if(sol->watch_status == watch_status_regenerate) {
+      watch_regenerate(sol);
+    }
+
     code = propagation(sol);
 
     if (code == no_conflict) {
@@ -3035,10 +2811,8 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   check_propagation(sol);
 #endif
 
-  if (sol->nb_unit_clauses > 0) {
-    simplify_clause_database(sol);
-    sol->simplify_bottom = sol->stack.top;
-  }
+  simplify_clause_database(sol);
+  sol->simplify_bottom = sol->stack.top;
 
   /*
    * restart strategy based on picosat

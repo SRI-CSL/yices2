@@ -25,8 +25,9 @@
 
 //TODO:move
 #define BLOCKER 0
-#define SOMETIMES_FULL_RESTART 0
+#define SOMETIMES_FULL_RESTART 1
 #define SHRINK_WATCH_VECTORS 0
+#define INSTRUMENT_CLAUSES 0
 
 /************************************
  *  BOOLEAN VARIABLES AND LITERALS  *
@@ -197,12 +198,7 @@ struct clause_s {
 };
 
 /* TODO: move that */
-typedef struct watch_block_s {
-  size_t pack;
-  #if BLOCKER
-  literal_t blocker;
-  #endif
-} watch_block_t;
+typedef size_t watch_block_t;
 
 typedef struct watch_s {
 	size_t capacity;
@@ -210,8 +206,11 @@ typedef struct watch_s {
 	watch_block_t *block;
 } watch_t;
 
+enum {
+  watch_status_ok = 0,
+  watch_status_regenerate = 1,
+};
 
-#define INSTRUMENT_CLAUSES 0
 
 #if INSTRUMENT_CLAUSES
 
@@ -533,8 +532,8 @@ typedef struct sat_solver_s {
 
   /* Literal-indexed arrays */
   uint8_t *value;
-  literal_t **bin;             // array of literal vectors
-  watch_t *watchnew;           // array of watch arrays
+  watch_t *watchnew;            // array of watch arrays
+  uint32_t watch_status;        // watch arrays status
 
   /* Heap */
   var_heap_t heap;
@@ -610,9 +609,9 @@ extern void sat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
 extern void delete_sat_solver(sat_solver_t *solver);
 
 /*
- * Add n fresh variables
+ * Add n fresh variables and return the index of the first
  */
-extern void sat_solver_add_vars(sat_solver_t *solver, uint32_t n);
+extern bvar_t sat_solver_add_vars(sat_solver_t *solver, uint32_t n);
 
 /*
  * Allocate a fresh boolean variable and return its index
@@ -709,6 +708,20 @@ extern void get_allvars_assignment(sat_solver_t *solver, bval_t *val);
  * - a must be have size >= solver->nb_vars
  */
 extern uint32_t get_true_literals(sat_solver_t *solver, literal_t *a);
+
+
+
+/*
+ * INTERNAL CHECKS
+ */
+#if DEBUG
+
+static void check_literal_vector(literal_t *v);
+static void check_propagation(sat_solver_t *sol);
+static void check_marks(sat_solver_t *sol);
+static void check_top_var(sat_solver_t *sol, bvar_t x);
+
+#endif
 
 
 #if INSTRUMENT_CLAUSES
