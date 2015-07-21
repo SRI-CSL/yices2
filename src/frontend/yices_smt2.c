@@ -31,6 +31,7 @@
 
 #include "yices.h"
 #include "yices_exit_codes.h"
+#include "common.h"
 
 
 /*
@@ -341,6 +342,9 @@ int main(int argc, char *argv[]) {
   init_smt2(!incremental, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
+
+  init_parameter_name_table();
+
   if (verbosity > 0) {
     smt2_set_verbosity(verbosity);
   }
