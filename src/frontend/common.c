@@ -323,7 +323,6 @@ void init_parameter_name_table(void) {
  */
 yices_param_t find_param(const char *name) {
   int32_t i;
-
   i = binary_search_string(name, param_names, NUM_PARAMETERS);
   if (i >= 0) {
     assert(i < NUM_PARAMETERS);

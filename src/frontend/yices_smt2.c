@@ -344,7 +344,7 @@ int main(int argc, char *argv[]) {
   init_parser(&parser, &lexer, &stack);
 
   init_parameter_name_table();
-
+  
   if (verbosity > 0) {
     smt2_set_verbosity(verbosity);
   }

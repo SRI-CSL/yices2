@@ -693,7 +693,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
  * REQUIRED INFO
  */
 static const char *yices_name = "Yices";
-static const char *yices_authors = "Bruno Dutertre";
+static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović";
 static const char *error_behavior = "immediate-exit";
 
 /*
@@ -3642,10 +3642,328 @@ static bool is_yices_option(const char *name, const char **option){
 
 }
 
+static bool aval2param_val(aval_t avalue, param_val_t *param_val){
+  smt2_globals_t *g;
+  rational_t *rational;
+  char* symbol;
+  bool bool_aval;
+  
+  g = &__smt2_globals;
+
+  switch (aval_tag(g->avtbl, avalue)) {
+    
+  case ATTR_RATIONAL:
+    rational = aval_rational(g->avtbl, avalue);
+    param_val->tag = PARAM_VAL_RATIONAL;
+    param_val->val.rational = rational;
+    return true;
+    
+  case ATTR_SYMBOL:
+    if(aval_is_boolean(g->avtbl, avalue, &bool_aval)){
+      if(bool_aval){
+	param_val->tag = PARAM_VAL_TRUE;
+      } else {
+	param_val->tag = PARAM_VAL_FALSE;
+      }
+    } else {
+      symbol = aval_symbol(g->avtbl, avalue);
+      param_val->tag = PARAM_VAL_SYMBOL;
+      param_val->val.symbol = symbol;
+    }
+    return true;
+
+  case ATTR_STRING:
+  case ATTR_BV:
+  case ATTR_LIST:
+    break;
+    
+  case ATTR_DELETED:
+    freport_bug(g->err, "smt2_commands: attribute deleted");
+    break;
+  }
+  
+  return false;
+  
+}
+
+static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params) {
+  bool tt;
+  int32_t n;
+  double x;
+  branch_t b;
+  ef_gen_option_t g;
+  char* reason;
+  //keep track of those we punt on
+  bool unsupported;
+
+  unsupported = false;
+  
+  reason = NULL;
+  
+  switch (find_param(param)) {
+  case PARAM_VAR_ELIM:
+  case PARAM_ARITH_ELIM:
+  case PARAM_BVARITH_ELIM:
+  case PARAM_FLATTEN:
+  case PARAM_LEARN_EQ:
+  case PARAM_KEEP_ITE:
+    unsupported = true;
+    break;
+
+
+  case PARAM_FAST_RESTARTS:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.fast_restart = tt;
+    }
+    break;
+
+  case PARAM_C_THRESHOLD:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.c_threshold = n;
+    }
+    break;
+
+  case PARAM_C_FACTOR:
+    if (param_val_to_factor(param, val, &x, &reason)) {
+      parameters.c_factor = x;
+    }
+    break;
+
+  case PARAM_D_THRESHOLD:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.d_threshold = n;
+    }
+    break;
+
+  case PARAM_D_FACTOR:
+    if (param_val_to_factor(param, val, &x, &reason)) {
+      parameters.d_factor = x;
+    }
+    break;
+
+  case PARAM_R_THRESHOLD:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.r_threshold = n;
+    }
+    break;
+
+  case PARAM_R_FRACTION:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      parameters.r_fraction = x;
+    }
+    break;
+
+  case PARAM_R_FACTOR:
+    if (param_val_to_factor(param, val, &x, &reason)) {
+      parameters.r_factor = x;
+    }
+    break;
+
+  case PARAM_VAR_DECAY:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      parameters.var_decay = x;
+    }
+    break;
+
+  case PARAM_RANDOMNESS:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      parameters.randomness = x;
+    }
+    break;
+
+  case PARAM_RANDOM_SEED:
+    if (param_val_to_int32(param, val, &n, &reason)) {
+      parameters.random_seed = (uint32_t) n;
+    }
+    break;
+
+  case PARAM_BRANCHING:
+    if (param_val_to_branching(param, val, &b, &reason)) {
+      parameters.branching = b;
+    }
+    break;
+
+  case PARAM_CLAUSE_DECAY:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      parameters.clause_decay = x;
+    }
+    break;
+
+  case PARAM_CACHE_TCLAUSES:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.cache_tclauses = tt;
+    }
+    break;
+
+  case PARAM_TCLAUSE_SIZE:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.tclause_size = n;
+    }
+    break;
+
+  case PARAM_DYN_ACK:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.use_dyn_ack = tt;
+    }
+    break;
+
+  case PARAM_DYN_BOOL_ACK:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.use_bool_dyn_ack = tt;
+    }
+    break;
+
+  case PARAM_OPTIMISTIC_FCHECK:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.use_optimistic_fcheck = tt;
+    }
+    break;
+
+  case PARAM_MAX_ACK:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.max_ackermann = n;
+    }
+    break;
+
+  case PARAM_MAX_BOOL_ACK:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.max_boolackermann = n;
+    }
+    break;
+
+  case PARAM_AUX_EQ_QUOTA:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.aux_eq_quota = n;
+    }
+    break;
+
+  case PARAM_AUX_EQ_RATIO:
+    if (param_val_to_posfloat(param, val, &x, &reason)) {
+      parameters.aux_eq_ratio = x;
+    }
+    break;
+
+  case PARAM_DYN_ACK_THRESHOLD:
+    if (param_val_to_pos16(param, val, &n, &reason)) {
+      parameters.dyn_ack_threshold = (uint16_t) n;
+    }
+    break;
+
+  case PARAM_DYN_BOOL_ACK_THRESHOLD:
+    if (param_val_to_pos16(param, val, &n, &reason)) {
+      parameters.dyn_bool_ack_threshold = (uint16_t) n;
+    }
+    break;
+
+  case PARAM_MAX_INTERFACE_EQS:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.max_interface_eqs = n;
+    }
+    break;
+
+  case PARAM_EAGER_LEMMAS:
+    unsupported = true;
+    break;
+
+  case PARAM_SIMPLEX_PROP:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.use_simplex_prop = tt;
+    }
+    break;
+
+  case PARAM_SIMPLEX_ADJUST:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      parameters.adjust_simplex_model = tt;
+    }
+    break;
+
+  case PARAM_PROP_THRESHOLD:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      parameters.max_prop_row_size = n;
+    }
+    break;
+
+  case PARAM_BLAND_THRESHOLD:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.bland_threshold = n;
+    }
+    break;
+
+  case PARAM_ICHECK:
+    unsupported = true;
+    break;
+
+  case PARAM_ICHECK_PERIOD:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.integer_check_period = n;
+    }
+    break;
+
+  case PARAM_MAX_UPDATE_CONFLICTS:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.max_update_conflicts = n;
+    }
+    break;
+
+  case PARAM_MAX_EXTENSIONALITY:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.max_extensionality = n;
+    }
+    break;
+
+  case PARAM_EF_FLATTEN_IFF:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ef_params->flatten_iff = tt;
+    }
+    break;
+
+  case PARAM_EF_FLATTEN_ITE:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ef_params->flatten_ite = tt;
+    }
+    break;
+
+  case PARAM_EF_GEN_MODE:
+    if (param_val_to_genmode(param, val, &g, &reason)) {
+      ef_params->gen_mode = g;
+    }
+    break;
+
+  case PARAM_EF_MAX_SAMPLES:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      ef_params->max_samples = n;
+    }
+    break;
+
+  case PARAM_EF_MAX_ITERS:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_params->max_iters = n;
+
+    }
+    break;
+
+  case PARAM_UNKNOWN:
+  default:
+    unsupported = true;
+    break;
+  }
+  if (reason != NULL || unsupported){
+    unsupported_option();
+    flush_out();
+  }
+}
+
+
+
+
 /*
  * Set an option:
  * - name = option name (keyword)
- * - value = value (stored in the attribute_value table)
+ * - value = value (either stored in:
+ * 
+ *  the parameters struct
+ *  the ef_parametrs struct, or
+ *  the attribute_value table)
  *
  * SMT2 allows the syntax (set-option :keyword). In such a case,
  * this function is called with value = NULL_VALUE (i.e., -1).
@@ -3655,75 +3973,84 @@ void smt2_set_option(const char *name, aval_t value) {
   smt2_keyword_t kw;
   uint32_t n;
   const char* yices_option;
+  param_val_t param_val;
   
   g = &__smt2_globals;
 
   if(is_yices_option(name, &yices_option)){
 
-    fprintf(stderr, "Here with %s!!\n", yices_option);
+    if(aval2param_val(value, &param_val)){
+      
+      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters);
 
-    return;
-  }
+    } else {
 
+      unsupported_option();
+      flush_out();
+
+    }
+
+  } else {
   
-  n = kwlen(name);
-  kw = smt2_string_to_keyword(name, n);
+    n = kwlen(name);
+    kw = smt2_string_to_keyword(name, n);
 
-  switch (kw) {
-  case SMT2_KW_PRINT_SUCCESS:
-    // required
-    set_boolean_option(g, name, value, &g->print_success);
-    break;
+    switch (kw) {
+    case SMT2_KW_PRINT_SUCCESS:
+      // required
+      set_boolean_option(g, name, value, &g->print_success);
+      break;
 
-  case SMT2_KW_PRODUCE_MODELS:
-    // optional: if true, get-value can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_models);
+    case SMT2_KW_PRODUCE_MODELS:
+      // optional: if true, get-value can be used
+      if (option_can_be_set(name)) {
+	set_boolean_option(g, name, value, &g->produce_models);
+      }
+      break;
+
+    case SMT2_KW_PRODUCE_ASSIGNMENTS:
+      // optional: if true, get-assignment can be used
+      if (option_can_be_set(name)) {
+	set_boolean_option(g, name, value, &g->produce_assignments);
+      }
+      break;
+
+    case SMT2_KW_REGULAR_OUTPUT:
+      // required
+      set_output_file(g, name, value);
+      break;
+
+    case SMT2_KW_DIAGNOSTIC_OUTPUT:
+      // required
+      set_error_file(g, name, value);
+      break;
+
+    case SMT2_KW_RANDOM_SEED:
+      // optional
+      set_uint32_option(g, name, value, &g->random_seed);
+      break;
+
+    case SMT2_KW_VERBOSITY:
+      // optional
+      set_verbosity(g, name, value);
+      break;
+
+    case SMT2_KW_GLOBAL_DECLS:
+      // non-standard option (same as MathSAT)
+      if (option_can_be_set(name)) {
+	set_boolean_option(g, name, value, &g->global_decls);
+      }
+      break;
+
+    case SMT2_KW_EXPAND_DEFINITIONS:
+    case SMT2_KW_INTERACTIVE_MODE:
+    case SMT2_KW_PRODUCE_PROOFS:
+    case SMT2_KW_PRODUCE_UNSAT_CORES:
+    default:
+      unsupported_option();
+      flush_out();
+      break;
     }
-    break;
-
-  case SMT2_KW_PRODUCE_ASSIGNMENTS:
-    // optional: if true, get-assignment can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_assignments);
-    }
-    break;
-
-  case SMT2_KW_REGULAR_OUTPUT:
-    // required
-    set_output_file(g, name, value);
-    break;
-
-  case SMT2_KW_DIAGNOSTIC_OUTPUT:
-    // required
-    set_error_file(g, name, value);
-    break;
-
-  case SMT2_KW_RANDOM_SEED:
-    // optional
-    set_uint32_option(g, name, value, &g->random_seed);
-    break;
-
-  case SMT2_KW_VERBOSITY:
-    // optional
-    set_verbosity(g, name, value);
-    break;
-
-  case SMT2_KW_GLOBAL_DECLS:
-    // non-standard option (same as MathSAT)
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->global_decls);
-    }
-    break;
-
-  case SMT2_KW_EXPAND_DEFINITIONS:
-  case SMT2_KW_INTERACTIVE_MODE:
-  case SMT2_KW_PRODUCE_PROOFS:
-  case SMT2_KW_PRODUCE_UNSAT_CORES:
-  default:
-    unsupported_option();
-    flush_out();
-    break;
   }
 }
 
@@ -3794,14 +4121,8 @@ void smt2_set_logic(const char *name) {
     }
     //we are in efmode; better set the search parameters ...
     yices_set_default_params(&parameters, code, arch_for_logic(code));
-
-#if 1
-    // hard-coded branching + max_ef_iterations for testing on Adria's problems
-    parameters.branching = BRANCHING_POSITIVE;
-    __smt2_globals.ef_client_globals.ef_parameters.max_iters = 100000000;
-#endif
+    
   }
-  
   
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
