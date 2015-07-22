@@ -26,6 +26,18 @@
 #include "utils/memalloc.h"
 #include "utils/prng.h"
 
+/*
+ * INTERNAL CHECKS
+ */
+#if DEBUG
+
+static void check_literal_vector(literal_t *v);
+static void check_propagation(sat_solver_t *sol);
+static void check_marks(sat_solver_t *sol);
+static void check_top_var(sat_solver_t *sol, bvar_t x);
+
+#endif
+
 
 /** TODO: move that && add some useful comments*/
 static inline uint32_t get_cv_size(clause_t **v);
@@ -162,7 +174,7 @@ static inline uint32_t watch_attr_of(watch_block_t block) {
 }
 
 static inline literal_t watch_lit_of(watch_block_t block) {
-  return block >> 2;
+  return (literal_t) (block >> 2);
 }
 
 /*
@@ -204,15 +216,18 @@ static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
 /*
  * Get pointer to learned_clause in which clause cl is embedded.
  */
-static inline learned_clause_t *learned(const clause_t *cl) {
+static inline learned_clause_t *learned(clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
+}
+static inline const learned_clause_t *learned_const(const clause_t *cl) {
+  return (const learned_clause_t *)(((const char *)cl) - offsetof(learned_clause_t, clause));
 }
 
 /*
  * Activity of a learned clause
  */
 static inline float get_activity(const clause_t *cl) {
-  return learned(cl)->activity;
+  return learned_const(cl)->activity;
 }
 
 /*
@@ -253,7 +268,7 @@ static uint32_t clause_length(const clause_t *cl) {
     a ++;
   }
 
-  return a - cl->cl;
+  return (uint32_t) (a - cl->cl);
 }
 
 
@@ -329,7 +344,7 @@ static inline void delete_learned_clause(clause_t *cl) {
  * - the function must return true if we prefer to keep c2
  *   rather than c1 (i.e., c1's score is worse than c2's score).
  */
-static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
+static bool clause_cmp(const void *aux __attribute__ ((unused)), const void *c1, const void *c2) {
   return get_activity(c1) <= get_activity(c2);
 }
 
@@ -1030,7 +1045,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->nb_bin_clauses = 0;
 
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
-  solver->inv_cla_decay = 1/CLAUSE_DECAY_FACTOR;
+  solver->inv_cla_decay = ((float)1) / ((float)CLAUSE_DECAY_FACTOR);
 
   solver->decision_level = 0;
   solver->backtrack_level = 0;
@@ -1080,7 +1095,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
 /*
  * Set the prng seed
  */
-void sat_solver_set_seed(sat_solver_t *solver, uint32_t s) {
+void sat_solver_set_seed(sat_solver_t *solver __attribute__ ((unused)), uint32_t s) {
   random_seed(s);
 }
 
@@ -1577,7 +1592,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
   }
 
   // Delete more
-  act_threshold = solver->cla_inc/n;
+  act_threshold = solver->cla_inc/(float)n;
   for (i = n/2; i<n; i++) {
     if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
       mark_for_deletion(solver, v[i]);
@@ -2666,7 +2681,7 @@ static uint32_t next_snapshot;
  */
 static inline void deal_conflict(sat_solver_t *sol) {
   analyze_conflict(sol);
-  
+
   backtrack(sol, sol->backtrack_level);
   literal_t *b = sol->buffer.data;
   uint32_t n = sol->buffer.size;

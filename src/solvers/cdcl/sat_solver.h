@@ -202,8 +202,8 @@ struct clause_s {
 typedef size_t watch_block_t;
 
 typedef struct watch_s {
-	size_t capacity;
-	size_t size;
+	uint32_t capacity;
+	uint32_t size;
 	watch_block_t *block;
 } watch_t;
 
@@ -709,20 +709,6 @@ extern void get_allvars_assignment(sat_solver_t *solver, bval_t *val);
  * - a must be have size >= solver->nb_vars
  */
 extern uint32_t get_true_literals(sat_solver_t *solver, literal_t *a);
-
-
-
-/*
- * INTERNAL CHECKS
- */
-#if DEBUG
-
-static void check_literal_vector(literal_t *v);
-static void check_propagation(sat_solver_t *sol);
-static void check_marks(sat_solver_t *sol);
-static void check_top_var(sat_solver_t *sol, bvar_t x);
-
-#endif
 
 
 #if INSTRUMENT_CLAUSES
