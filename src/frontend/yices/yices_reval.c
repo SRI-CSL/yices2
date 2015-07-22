@@ -888,8 +888,6 @@ static void delete_ctx(void) {
 #define NUM_EF_GEN_MODES 4
 
 static const char *param2string[NUM_PARAMETERS];
-static const char *branching2string[NUM_BRANCHING_MODES];
-static const char *efgen2string[NUM_EF_GEN_MODES];
 
 /*
  * Print a parameter name and its value

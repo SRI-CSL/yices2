@@ -35,6 +35,10 @@ extern const char* const ef_status2string[];
  */
 extern const char * const code2error[];
 
+extern const char *branching2string[];
+
+extern const char *efgen2string[];
+
 /*
  * Ask for a bug report
  */

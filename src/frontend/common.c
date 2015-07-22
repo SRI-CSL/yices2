@@ -276,15 +276,16 @@ static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
   EF_GEN_BY_SUBST_OPTION,
 };
 
-
 /*
  * Tables for converting parameter id to parameter name
  * and branching code to branching name. One more table
  * for converting from EF generalization codes to strings.
  */
 static const char *param2string[NUM_PARAMETERS];
-static const char *branching2string[NUM_BRANCHING_MODES];
-static const char *efgen2string[NUM_EF_GEN_MODES];
+
+const char *branching2string[NUM_BRANCHING_MODES];
+
+const char *efgen2string[NUM_EF_GEN_MODES];
 
 
 /*

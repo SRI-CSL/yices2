@@ -2111,6 +2111,14 @@ static void print_uint32_value(uint32_t value) {
   print_out("%"PRIu32"\n", value);
 }
 
+static void print_float_value(double value) {
+  if (value < 1.0) {
+    print_out("%.4f\n", value);
+  } else {
+    print_out("%.2f\n", value);
+  }
+}
+
 
 /*
  * Print attribute values
@@ -3478,6 +3486,8 @@ void smt2_get_value(term_t *a, uint32_t n) {
 }
 
 
+
+
 /*
  * Wrapper around strlen:
  * - strlen(s) has type size_t, which may be larger than 32bits
@@ -3498,6 +3508,206 @@ static uint32_t kwlen(const char *s) {
   return (uint32_t) l;
 }
 
+/*
+ * Checks if the option should be passed to the yices frontend.
+ * In other words returns true in the name begins with ":yices-"
+ * if so then it also stores the remainder of the string in *option.
+ */
+#define YICES_SMT2_PREFIX  ":yices-"
+
+static bool is_yices_option(const char *name, const char **option){
+  uint32_t len;
+
+  len = strlen(YICES_SMT2_PREFIX);
+  if (strncmp(name, YICES_SMT2_PREFIX, len) == 0){
+    *option = &name[len];
+    return true;
+  }  
+  return false;
+}
+
+
+/*
+ * Shows the value of the yices option, and returns true, if supported.
+ * If not supported it simply returns false.
+ *
+ */
+static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
+  bool supported;
+
+  supported = true;
+  
+  switch (p) {
+  case PARAM_VAR_ELIM:
+  case PARAM_ARITH_ELIM:
+  case PARAM_BVARITH_ELIM:
+  case PARAM_FLATTEN:
+  case PARAM_LEARN_EQ:
+  case PARAM_KEEP_ITE:
+    supported = false;
+    break;
+    
+  case PARAM_FAST_RESTARTS:
+    print_boolean_value(parameters.fast_restart);
+    break;
+
+  case PARAM_C_THRESHOLD:
+    print_uint32_value(parameters.c_threshold);
+    break;
+
+  case PARAM_C_FACTOR:
+    print_float_value(parameters.c_factor);
+    break;
+
+  case PARAM_D_THRESHOLD:
+    print_uint32_value(parameters.d_threshold);
+    break;
+
+  case PARAM_D_FACTOR:
+    print_float_value(parameters.c_factor);
+    break;
+
+  case PARAM_R_THRESHOLD:
+    print_uint32_value(parameters.r_threshold);
+    break;
+
+  case PARAM_R_FRACTION:
+    print_float_value(parameters.r_fraction);
+    break;
+
+  case PARAM_R_FACTOR:
+    print_float_value(parameters.r_factor);
+    break;
+
+  case PARAM_VAR_DECAY:
+    print_float_value(parameters.var_decay);
+    break;
+
+  case PARAM_RANDOMNESS:
+    print_float_value(parameters.randomness);
+    break;
+
+  case PARAM_RANDOM_SEED:
+    print_uint32_value(parameters.random_seed);
+    break;
+
+  case PARAM_BRANCHING:
+    print_string_value(branching2string[parameters.branching]);
+    break;
+
+  case PARAM_CLAUSE_DECAY:
+    print_float_value(parameters.clause_decay);
+    break;
+
+  case PARAM_CACHE_TCLAUSES:
+    print_boolean_value(parameters.cache_tclauses);
+    break;
+
+  case PARAM_TCLAUSE_SIZE:
+    print_uint32_value(parameters.tclause_size);
+    break;
+
+  case PARAM_DYN_ACK:
+    print_boolean_value(parameters.use_dyn_ack);
+    break;
+
+  case PARAM_DYN_BOOL_ACK:
+    print_boolean_value(parameters.use_bool_dyn_ack);
+    break;
+
+  case PARAM_OPTIMISTIC_FCHECK:
+    print_boolean_value(parameters.use_optimistic_fcheck);
+    break;
+
+  case PARAM_MAX_ACK:
+    print_uint32_value(parameters.max_ackermann);
+    break;
+
+  case PARAM_MAX_BOOL_ACK:
+    print_uint32_value(parameters.max_boolackermann);
+    break;
+
+  case PARAM_AUX_EQ_QUOTA:
+    print_uint32_value(parameters.aux_eq_quota);
+    break;
+
+  case PARAM_AUX_EQ_RATIO:
+    print_float_value(parameters.aux_eq_ratio);
+    break;
+
+  case PARAM_DYN_ACK_THRESHOLD:
+    print_uint32_value((uint32_t) parameters.dyn_ack_threshold);
+    break;
+
+  case PARAM_DYN_BOOL_ACK_THRESHOLD:
+    print_uint32_value((uint32_t) parameters.dyn_bool_ack_threshold);
+    break;
+
+  case PARAM_MAX_INTERFACE_EQS:
+    print_uint32_value(parameters.max_interface_eqs);
+    break;
+
+  case PARAM_EAGER_LEMMAS:
+  case PARAM_ICHECK:
+    supported = false;
+    break;
+
+  case PARAM_SIMPLEX_PROP:
+    print_boolean_value(parameters.use_simplex_prop);
+    break;
+
+  case PARAM_SIMPLEX_ADJUST:
+    print_boolean_value(parameters.adjust_simplex_model);
+    break;
+
+  case PARAM_PROP_THRESHOLD:
+    print_uint32_value(parameters.max_prop_row_size);
+    break;
+
+  case PARAM_BLAND_THRESHOLD:
+    print_uint32_value(parameters.bland_threshold);
+    break;
+
+  case PARAM_ICHECK_PERIOD:
+    print_uint32_value(parameters.integer_check_period);
+    break;
+
+  case PARAM_MAX_UPDATE_CONFLICTS:
+    print_uint32_value(parameters.max_update_conflicts);
+    break;
+
+  case PARAM_MAX_EXTENSIONALITY:
+    print_uint32_value(parameters.max_extensionality);
+    break;
+
+  case PARAM_EF_FLATTEN_IFF:
+    print_boolean_value(ef_params->flatten_iff);
+    break;
+
+  case PARAM_EF_FLATTEN_ITE:
+    print_boolean_value(ef_params->flatten_ite);
+    break;
+
+  case PARAM_EF_GEN_MODE:
+    print_string_value(efgen2string[ef_params->gen_mode]);
+    break;
+
+  case PARAM_EF_MAX_SAMPLES:
+    print_uint32_value(ef_params->max_samples);
+    break;
+
+  case PARAM_EF_MAX_ITERS:
+    print_uint32_value(ef_params->max_iters);
+    break;
+
+  case PARAM_UNKNOWN:
+  default:
+    freport_bug(stderr,"invalid parameter id in 'yices_get_option'");
+    break;
+  }
+
+  return supported;
+}
 
 /*
  * Get the value of an option
@@ -3508,7 +3718,9 @@ void smt2_get_option(const char *name) {
   char *s;
   smt2_keyword_t kw;
   uint32_t n;
-
+  const char* yices_option;
+  yices_param_t p;
+  
   g = &__smt2_globals;
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
@@ -3560,10 +3772,22 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRODUCE_PROOFS:
   case SMT2_KW_PRODUCE_UNSAT_CORES:
   default:
-    unsupported_option();
+    // may be a Yices option
+    if (is_yices_option(name, &yices_option)) {
+      p = find_param(yices_option);
+      if (p != PARAM_UNKNOWN) {
+	assert(0 <= p && p < NUM_PARAMETERS);
+	if(! yices_get_option(p, &g->ef_client_globals.ef_parameters)){
+	  unsupported_option();
+	}
+      } else {
+	unsupported_option();
+      }
+    } else {
+      unsupported_option();
+    }
     break;
   }
-
   flush_out();
 }
 
@@ -3619,24 +3843,6 @@ void smt2_get_info(const char *name) {
 }
 
 
-
-/*
- * Checks if the option should be passed to the yices frontend.
- * In other words returns true in the name begins with ":yices-"
- * if so then it also stores the remainder of the string in *option.
- */
-#define YICES_SMT2_PREFIX  ":yices-"
-
-static bool is_yices_option(const char *name, const char **option){
-  size_t len;
-
-  len = strlen(YICES_SMT2_PREFIX);
-  if (strncmp(name, YICES_SMT2_PREFIX, len) == 0){
-    *option = &name[len];
-    return true;
-  }  
-  return false;
-}
 
 /*
  * Attempt to convert value to a parameter value:
