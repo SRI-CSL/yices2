@@ -2661,6 +2661,37 @@ static void partial_restart_var(sat_solver_t *sol) {
 static uint32_t next_snapshot;
 #endif
 
+/*
+ * Analyse the conflict and add the learned clause
+ */
+static inline void deal_conflict(sat_solver_t *sol) {
+  analyze_conflict(sol);
+  
+  backtrack(sol, sol->backtrack_level);
+  literal_t *b = sol->buffer.data;
+  uint32_t n = sol->buffer.size;
+  literal_t l = b[0];
+
+  /* Add the learned clause and set the implied literal (UIP) */
+  if (n >= 3) {
+    clause_t *cl = add_learned_clause(sol, n, b);
+    implied_literal(sol, l, mk_clause0_antecedent(cl));
+#if INSTRUMENT_CLAUSES
+    // EXPERIMENTAL
+    learned_clause_prop(sol, cl);
+#endif
+
+  } else if (n == 2) {
+    sat_solver_add_binary_clause(sol, l, b[1]);
+    implied_literal(sol, l, mk_literal_antecedent(b[1]));
+
+  } else {
+    assert(n > 0);
+
+    sat_solver_add_unit_clause(sol, l);
+  }
+}
+
 
 /*
  * Search until the given number of conflict is reached.
@@ -2668,15 +2699,9 @@ static uint32_t next_snapshot;
  * - conflict_bound: number of conflict
  * output: status_sat, status_unsolved, or status_unsat
  */
-solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
-  int32_t code;
-  literal_t l, *b;
-  bvar_t x;
-  uint32_t nb_conflicts, n;
-  clause_t *cl;
-
+static solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
   sol->stats.starts ++;
-  nb_conflicts = 0;
+  uint32_t nb_conflicts = 0;
 
   for (;;) {
 
@@ -2684,7 +2709,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       watch_regenerate(sol);
     }
 
-    code = propagation(sol);
+    int32_t code = propagation(sol);
 
     if (code == no_conflict) {
 #if DEBUG
@@ -2692,10 +2717,6 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 #endif
 
       if (nb_conflicts >= conflict_bound) {
-        if (sol->decision_level > 0) {
-          // restart
-          partial_restart_var(sol);
-        }
         return status_unsolved;
       }
 
@@ -2736,7 +2757,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         //  sol->reduce_threshold += INCR_REDUCE_THRESHOLD;
       }
 
-      x = select_variable(sol);
+      bvar_t x = select_variable(sol);
       if (x < 0) {
         sol->status = status_sat;
         return status_sat;
@@ -2757,33 +2778,11 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       }
 
       // Otherwise: deal with the conflict
-      analyze_conflict(sol);
-
-      backtrack(sol, sol->backtrack_level);
-      b = sol->buffer.data;
-      n = sol->buffer.size;
-      l = b[0];
-
-      // Add the learned clause and set the implied literal (UIP)
-      if (n >= 3) {
-        cl = add_learned_clause(sol, n, b);
-        implied_literal(sol, l, mk_clause0_antecedent(cl));
-#if INSTRUMENT_CLAUSES
-        // EXPERIMENTAL
-        learned_clause_prop(sol, cl);
-#endif
-
-      } else if (n == 2) {
-        sat_solver_add_binary_clause(sol, l, b[1]);
-        implied_literal(sol, l, mk_literal_antecedent(b[1]));
-
-      } else {
-        assert(n > 0);
-
-        sat_solver_add_unit_clause(sol, l);
-        if (sol->status == status_unsat) {
-          return status_unsat;
-        }
+      deal_conflict(sol);
+      
+      // Learned clause can have made it unsat
+      if (sol->status == status_unsat) {
+        return status_unsat;
       }
 
       decay_var_activities(&sol->heap);
@@ -2792,28 +2791,54 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
   }
 }
 
+/*
+ * Display nice statistics about the current progress
+ * It repeats the header frequently
+ */
+static void report_status(sat_solver_t *sol, uint32_t threshold, bool verbose) {
+  static unsigned int i = 0;
+  if (verbose) {
+    if(i++ % 0x40 == 0) {
+      fprintf(stderr, "---------------------------------------------------------------------------------\n");
+      fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
+      fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
+      fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    }
+    fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
+            #if LUBY
+            threshold, sol->reduce_threshold,
+            #elif PICO
+            d_threshold, sol->reduce_threshold,
+            #endif
+             sol->nb_bin_clauses,
+            get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
+            get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
+            ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
+    fflush(stderr);
+  }
+}
 
 
 /*
  * Solve procedure
  */
 solver_status_t solve(sat_solver_t *sol, bool verbose) {
-  int32_t code;
-  //  uint32_t c_threshold, d_threshold;
+  #if PICO
+  uint32_t c_threshold, d_threshold;
+  #elif LUBY
   uint32_t u, v, threshold;
+  #endif
 
   if (sol->status == status_unsat) return status_unsat;
 
 #if DEBUG
-  uint32_t i;
-
   check_marks(sol);
-  for (i=0; i<sol->nb_lits; i++) {
+  for (uint32_t i=0; i<sol->nb_lits; i++) {
     check_literal_vector(sol->bin[i]);
   }
 #endif
 
-  code = propagation(sol);
+  int32_t code = propagation(sol);
 
   if (code != no_conflict) {
     sol->status = status_unsat;
@@ -2859,34 +2884,17 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   next_snapshot = 10000;
 #endif
 
-  if (verbose) {
-    fprintf(stderr, "---------------------------------------------------------------------------------\n");
-    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
-    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
-    fprintf(stderr, "---------------------------------------------------------------------------------\n");
-
-    fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
-            //  d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,              // PICO
-            threshold, sol->reduce_threshold, sol->nb_bin_clauses,  // LUBY
-            get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
-            get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
-            ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
-    fflush(stderr);
-  }
+  report_status(sol, threshold, verbose);
 
   do {
-#if DEBUG
+    #if DEBUG
     check_marks(sol);
-#endif
-    //    code = sat_search(sol, c_threshold);  // PICO
-    code = sat_search(sol, threshold);     // LUBY
+    #endif
 
-#if DEBUG
-    check_marks(sol);
-#endif
-
-#if 1
+    #if LUBY
     // Luby sequence
+    code = sat_search(sol, threshold);
+    
     if ((u & -u) == v) {
       u ++;
       v = 1;
@@ -2894,36 +2902,26 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
       v <<= 1;
     }
     threshold = v * LUBY_INTERVAL;
-    if (verbose) {
-      fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
-              threshold, sol->reduce_threshold, sol->nb_bin_clauses,
-              get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
-              get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
-              ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
-      fflush(stderr);
-    }
-#endif
-
-#if 0
+    report_status(sol, threshold, verbose);
+    #elif PICO
     // picosat-style sequence
+    code = sat_search(sol, c_threshold);
+    
     c_threshold = (uint32_t)(c_threshold * RESTART_FACTOR);  // multiply by 1.1
     if (c_threshold >= d_threshold) {
       c_threshold = INITIAL_RESTART_THRESHOLD;
       d_threshold = (uint32_t)(d_threshold * RESTART_FACTOR);
-      if (verbose) {
-        fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n",
-                d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
-                get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
-                get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
-                ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
-        fflush(stderr);
-      }
+      report_status(sol, c_threshold, verbose);
       if (d_threshold > MAX_DTHRESHOLD) {
         d_threshold = MAX_DTHRESHOLD;
       }
     }
-#endif
-
+    #endif
+    
+    if (sol->decision_level > 0) {
+      // restart
+      partial_restart_var(sol);
+    }
 
   } while (code == status_unsolved);
 
@@ -2934,8 +2932,6 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 
   return code;
 }
-
-
 
 
 /*
@@ -2972,8 +2968,6 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
 
   return n;
 }
-
-
 
 
 
