@@ -2285,6 +2285,12 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
   assert(g->ctx != NULL);
+  
+  //FIXME: SS Seal of Approval required.
+  yices_default_params_for_context(g->ctx, &parameters);
+  save_ctx_params(g->ctx);
+
+
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
@@ -3539,12 +3545,28 @@ static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
   
   switch (p) {
   case PARAM_VAR_ELIM:
+    print_boolean_value(ctx_parameters.var_elim);
+    break;
+
   case PARAM_ARITH_ELIM:
+    print_boolean_value(ctx_parameters.arith_elim);
+    break;
+
   case PARAM_BVARITH_ELIM:
+    print_boolean_value(ctx_parameters.bvarith_elim);
+    break;
+
   case PARAM_FLATTEN:
+    // this activates both flatten or and flatten diseq.
+    print_boolean_value(ctx_parameters.flatten_or);
+    break;
+
   case PARAM_LEARN_EQ:
+    print_boolean_value(ctx_parameters.eq_abstraction);
+    break;
+
   case PARAM_KEEP_ITE:
-    supported = false;
+    print_boolean_value(ctx_parameters.keep_ite);
     break;
     
   case PARAM_FAST_RESTARTS:
@@ -3648,8 +3670,11 @@ static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
     break;
 
   case PARAM_EAGER_LEMMAS:
+    print_boolean_value(ctx_parameters.splx_eager_lemmas);
+    break;
+
   case PARAM_ICHECK:
-    supported = false;
+    print_boolean_value(ctx_parameters.splx_periodic_icheck);
     break;
 
   case PARAM_SIMPLEX_PROP:
@@ -3894,6 +3919,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   branch_t b;
   ef_gen_option_t g;
   char* reason;
+  context_t *context; 
+    
   //keep track of those we punt on
   bool unsupported;
 
@@ -3902,12 +3929,87 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.var_elim = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_variable_elimination(context);
+	} else {
+	  disable_variable_elimination(context);
+	}
+      }
+    }
+    break;
+
   case PARAM_ARITH_ELIM:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.arith_elim = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_arith_elimination(context);
+	} else {
+	  disable_arith_elimination(context);
+	}
+      }
+    }
+    break;
+
   case PARAM_BVARITH_ELIM:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.bvarith_elim = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_bvarith_elimination(context);
+	} else {
+	  disable_bvarith_elimination(context);
+	}
+      }
+    }
+    break;
+
   case PARAM_FLATTEN:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.flatten_or = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_diseq_and_or_flattening(context);
+	} else {
+	  disable_diseq_and_or_flattening(context);
+	}
+      }
+    }
+    break;
+
   case PARAM_LEARN_EQ:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.eq_abstraction = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_eq_abstraction(context);
+	} else {
+	  disable_eq_abstraction(context);
+	}
+      }
+    }
+    break;
+
   case PARAM_KEEP_ITE:
-    unsupported = true;
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.keep_ite = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_keep_ite(context);
+	} else {
+	  disable_keep_ite(context);
+	}
+      }
+    }
     break;
 
   case PARAM_FAST_RESTARTS:
@@ -4061,7 +4163,17 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     break;
 
   case PARAM_EAGER_LEMMAS:
-    unsupported = true;
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.splx_eager_lemmas = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_splx_eager_lemmas(context);
+	} else {
+	  disable_splx_eager_lemmas(context);
+	}
+      }
+    }
     break;
 
   case PARAM_SIMPLEX_PROP:
@@ -4089,7 +4201,17 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     break;
 
   case PARAM_ICHECK:
-    unsupported = true;
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ctx_parameters.splx_periodic_icheck = tt;
+      context = __smt2_globals.ctx;
+      if (context != NULL) {
+	if (tt) {
+	  enable_splx_periodic_icheck(context);
+	} else {
+	  disable_splx_periodic_icheck(context);
+	}
+      }
+    }
     break;
 
   case PARAM_ICHECK_PERIOD:
@@ -4317,9 +4439,8 @@ void smt2_set_logic(const char *name) {
       return;
     }
     //we are in efmode; better set the search parameters ...
-    yices_set_default_params(&parameters, code, arch_for_logic(code));
-    
-  }
+    default_ctx_params(code, arch_for_logic(code), &parameters);
+  } 
   
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;

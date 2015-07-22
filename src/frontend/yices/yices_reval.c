@@ -151,24 +151,6 @@ static ivector_t delayed_assertions;
 static double ready_time, check_process_time;
 
 
-/*
- * More parameters for preprocessing and simplifications
- * - these parameters are stored in the context but
- *   we want to keep a copy when esolver is true (since then
- *   context is NULL).
- */
-typedef struct ctx_param_s {
-  bool var_elim;
-  bool arith_elim;
-  bool bvarith_elim;
-  bool flatten_or;
-  bool eq_abstraction;
-  bool keep_ite;
-  bool splx_eager_lemmas;
-  bool splx_periodic_icheck;
-} ctx_param_t;
-
-static ctx_param_t ctx_parameters;
 
 
 /*
@@ -804,41 +786,6 @@ static void free_model(model_t *model) {
  ***************************/
 
 /*
- * Copy the context's parameters into ctx_params
- */
-static void save_ctx_params(void) {
-  assert(context != NULL);
-  ctx_parameters.var_elim = context_var_elim_enabled(context);
-  ctx_parameters.arith_elim = context_arith_elim_enabled(context);
-  ctx_parameters.bvarith_elim = context_bvarith_elim_enabled(context);
-  ctx_parameters.flatten_or = context_flatten_or_enabled(context);
-  ctx_parameters.eq_abstraction = context_eq_abstraction_enabled(context);
-  ctx_parameters.keep_ite = context_keep_ite_enabled(context);
-  ctx_parameters.splx_eager_lemmas = splx_eager_lemmas_enabled(context);
-  ctx_parameters.splx_periodic_icheck = splx_periodic_icheck_enabled(context);
-}
-
-
-/*
- * If there's no context: use some defaults for both ctx_parameters and parameters
- * - arch + logic are derived from the command-line options
- */
-static void default_ctx_params(smt_logic_t logic, context_arch_t arch) {
-  ctx_parameters.var_elim = true;
-  ctx_parameters.arith_elim = true;
-  ctx_parameters.bvarith_elim = true;
-  ctx_parameters.flatten_or = true;
-  ctx_parameters.eq_abstraction = true;
-  ctx_parameters.keep_ite = false;
-  ctx_parameters.splx_eager_lemmas = false;
-  ctx_parameters.splx_periodic_icheck = false;
-
-  //  init_params_to_defaults(&parameters);
-  yices_set_default_params(&parameters, logic_code, arch);
-}
-
-
-/*
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
@@ -852,7 +799,7 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
   model = NULL;
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_default_params_for_context(context, &parameters);
-  save_ctx_params();
+  save_ctx_params(context);
   if (tracer != NULL) {
     context_set_trace(context, tracer);
   }
@@ -3042,7 +2989,7 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params(logic_code, arch);
+    default_ctx_params(logic_code, arch, &parameters);
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }

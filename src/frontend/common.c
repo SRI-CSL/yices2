@@ -17,10 +17,59 @@
 #include <inttypes.h>
 
 #include "api/yices_globals.h"
+#include "api/yices_extensions.h"
 #include "utils/string_utils.h"
 #include "frontend/common.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
+
+#include "context/context_utils.h"
+
+
+/*
+ * Parameters for preprocessing and simplifications
+ * - these parameters are stored in the context but
+ *   we want to keep a copy when exists forall solver is used (since then
+ *   context is NULL).
+ */
+ctx_param_t ctx_parameters;
+
+/*
+ * Copy the context's parameters into ctx_params
+ */
+void save_ctx_params(context_t *context) {
+  assert(context != NULL);
+  ctx_parameters.var_elim = context_var_elim_enabled(context);
+  ctx_parameters.arith_elim = context_arith_elim_enabled(context);
+  ctx_parameters.bvarith_elim = context_bvarith_elim_enabled(context);
+  ctx_parameters.flatten_or = context_flatten_or_enabled(context);
+  ctx_parameters.eq_abstraction = context_eq_abstraction_enabled(context);
+  ctx_parameters.keep_ite = context_keep_ite_enabled(context);
+  ctx_parameters.splx_eager_lemmas = splx_eager_lemmas_enabled(context);
+  ctx_parameters.splx_periodic_icheck = splx_periodic_icheck_enabled(context);
+}
+
+
+/*
+ * If there's no context: use some defaults for both ctx_parameters and parameters
+ * - arch + logic are derived from the command-line options
+ */
+void default_ctx_params(smt_logic_t logic, context_arch_t arch, param_t *parameters) {
+  ctx_parameters.var_elim = true;
+  ctx_parameters.arith_elim = true;
+  ctx_parameters.bvarith_elim = true;
+  ctx_parameters.flatten_or = true;
+  ctx_parameters.eq_abstraction = true;
+  ctx_parameters.keep_ite = false;
+  ctx_parameters.splx_eager_lemmas = false;
+  ctx_parameters.splx_periodic_icheck = false;
+
+  //  init_params_to_defaults(&parameters);
+  yices_set_default_params(parameters, logic, arch);
+}
+
+
+
 
 
 /*

@@ -16,6 +16,25 @@
 #include "exists_forall/ef_client.h"
 
 /*
+ * Parameters for preprocessing and simplifications
+ * - these parameters are stored in the context but
+ *   we want to keep a copy when exists forall solver is used (since then
+ *   context is NULL).
+ */
+typedef struct ctx_param_s {
+  bool var_elim;
+  bool arith_elim;
+  bool bvarith_elim;
+  bool flatten_or;
+  bool eq_abstraction;
+  bool keep_ite;
+  bool splx_eager_lemmas;
+  bool splx_periodic_icheck;
+} ctx_param_t;
+
+extern ctx_param_t ctx_parameters;
+
+/*
  * Table to convert  smt_status to a string
  */
 extern const char* const status2string[];
@@ -184,5 +203,16 @@ extern bool param_val_to_branching(const char *name, const param_val_t *v, branc
  */
 extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
 
+
+/*
+ * Copy the context's parameters into ctx_params
+ */
+extern void save_ctx_params(context_t *context);
+
+/*
+ * If there's no context: use some defaults for both ctx_parameters and parameters
+ * - arch + logic are derived from the command-line options
+ */
+extern void default_ctx_params(smt_logic_t logic, context_arch_t arch, param_t *parameters);
 
 #endif /* __FRONTEND_COMMON_H */
