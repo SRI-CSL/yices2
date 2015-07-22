@@ -77,7 +77,7 @@ static void watch_add(sat_solver_t *sol, const clause_t *cl) {
   const literal_t *b = cl->cl;
   assert(b[0] >= 0);
   assert(b[1] >= 0);
-  if(0 > 1 && b[2] < 0) {
+  if(b[2] < 0) {
     watch_add_binary(b[0], sol->watchnew + b[1]);
     watch_add_binary(b[1], sol->watchnew + b[0]);
   } else {
@@ -153,8 +153,16 @@ static inline clause_t *watch_clause_of(watch_block_t block) {
   return (clause_t *) (block & (~((size_t)0b11U)));
 }
 
-static inline size_t watch_idx_of(watch_block_t block) {
-  return block & ((size_t)1U);
+static inline uint32_t watch_idx_of(watch_block_t block) {
+  return block & ((uint32_t)1U);
+}
+
+static inline uint32_t watch_attr_of(watch_block_t block) {
+  return block & ((uint32_t)0b11U);
+}
+
+static inline literal_t watch_lit_of(watch_block_t block) {
+  return block >> 2;
 }
 
 /*
@@ -1790,7 +1798,6 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
  *   record a pointer to short_buffer.
  */
 
-#if 0
 /*
  * Record a two-literal conflict: clause {l0, l1} is false
  */
@@ -1804,7 +1811,6 @@ static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t
   solver->short_buffer[2] = end_clause;
   solver->conflict = solver->short_buffer;
 }
-#endif
 
 
 /*
@@ -1834,6 +1840,7 @@ static void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
 /*
  * Propagation via the watched lists of a literal l0.
  * - sol = solver
+ * - l0  = literal
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
@@ -1843,74 +1850,80 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, literal_t l0, 
   assert(val == sol->value);
 
   for (int32_t j = w->size - 1; j >= 0; j--) {
-    #if BLOCKER
-    literal_t blocker = w->block[j].blocker;
-    if(val[blocker] == val_true) {
-      continue;
-    }
-    #endif
 
-    uint32_t i = watch_idx_of(w->block[j]);
-    clause_t *cl = watch_clause_of(w->block[j]);
-    literal_t l1 = get_other_watch(cl, i);
-
-    /*
-     * Skip clause cl if it's already true
-     */
-    #if BLOCKER
-    if ((blocker == l1) || (val[l1] != val_true)) {
-    #else
-    bval_t v1 = val[l1];
-    if (v1 != val_true) {
-    #endif
-      /*
-       * Search for a new watched literal in cl.
-       * The loop terminates since cl->cl terminates with an end marker
-       * and val[end_marker] == val_undef.
-       */
-      uint32_t k = 1;
-      b = cl->cl;
-      do {
-        k ++;
-        l = b[k];
-      } while (val[l] == val_false);
-
-      if (l >= 0) {
-        /*
-         * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
-         * make l a new watched literal
-         * - swap b[i] and b[k]
-         * - insert cl into l's watched vector
-         */
-        b[k] = b[i];
-        b[i] = l;
-
-        // delete cl from w, insert in watch[l] and move to the next clause
-        watch_move(w, j, sol->watchnew + l);
-
+    uint32_t attr = watch_attr_of(w->block[j]);
+    if(attr == 0b10) {
+      /* binary clause */
+      literal_t l1 = watch_lit_of(w->block[j]);
+      bval_t v1 = val[l1];
+      if(v1 == val_true) {
+        continue;
+      } else if(v1 == val_false) {
+        record_binary_conflict(sol, l0, l1);
+        return binary_conflict;
       } else {
-        /*
-         * All literals of cl, except possibly l1, are false
-         */
-        #if BLOCKER
-        bval_t v1 = val[l1];
-        #endif
-        if (is_unassigned_val(v1)) {
-          // l1 is implied
-          implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
+        implied_literal(sol, l1, mk_literal_antecedent(l0));
+      }
+    } else if(attr == 0b11) {
+      assert(0);
+    } else {
+      /* large clause */
+      uint32_t i = watch_idx_of(w->block[j]);
+      clause_t *cl = watch_clause_of(w->block[j]);
+      literal_t l1 = get_other_watch(cl, i);
 
-#if INSTRUMENT_CLAUSES
-          if (l == end_learned) {
-            learned_clause_prop(sol, cl);
-          }
-#endif
+      /*
+       * Skip clause cl if it's already true
+       */
+      bval_t v1 = val[l1];
+      if (v1 != val_true) {
+        /*
+         * Search for a new watched literal in cl.
+         * The loop terminates since cl->cl terminates with an end marker
+         * and val[end_marker] == val_undef.
+         */
+        uint32_t k = 1;
+        b = cl->cl;
+        do {
+          k ++;
+          l = b[k];
+        } while (val[l] == val_false);
+
+        if (l >= 0) {
+          /*
+           * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
+           * make l a new watched literal
+           * - swap b[i] and b[k]
+           * - insert cl into l's watched vector
+           */
+          b[k] = b[i];
+          b[i] = l;
+
+          // delete cl from w, insert in watch[l] and move to the next clause
+          watch_move(w, j, sol->watchnew + l);
+
         } else {
-          // v1 == val_false: conflict found
-          record_clause_conflict(sol, cl);
-          return clause_conflict;
+          /*
+           * All literals of cl, except possibly l1, are false
+           */
+          if (is_unassigned_val(v1)) {
+            // l1 is implied
+            implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
+
+            #if INSTRUMENT_CLAUSES
+            if (l == end_learned) {
+              learned_clause_prop(sol, cl);
+            }
+            #endif
+          } else {
+            // v1 == val_false: conflict found
+            record_clause_conflict(sol, cl);
+            return clause_conflict;
+          }
         }
       }
     }
+
   }
 
   return no_conflict;
