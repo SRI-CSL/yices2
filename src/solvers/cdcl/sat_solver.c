@@ -2713,6 +2713,7 @@ static inline void deal_conflict(sat_solver_t *sol) {
  * - sol: solver
  * - conflict_bound: number of conflict
  * output: status_sat, status_unsolved, or status_unsat
+ * !! if output is status_unsolved, propagation must have been fully done
  */
 static solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
   sol->stats.starts ++;
@@ -2735,25 +2736,10 @@ static solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         return status_unsolved;
       }
 
-      // At level 0: mark literals + simplify
-      if (sol->decision_level == 0) {
-        mark_level0_literals(sol);
-
-        if (sol->stack.top > sol->simplify_bottom &&
-            sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
-
-#if TRACE
-          printf("---> Simplify\n");
-          printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
-          printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
-#endif
-
-          simplify_clause_database(sol);
-          sol->simplify_bottom = sol->stack.top;
-          sol->simplify_props = sol->stats.propagations;
-          sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
-        }
-      }
+    // At level 0: mark literals
+    if (sol->decision_level == 0) {
+      mark_level0_literals(sol);
+    }
 
 #if INSTRUMENT_CLAUSES
       if (sol->stats.conflicts >= next_snapshot) {
@@ -2838,13 +2824,9 @@ static void report_status(sat_solver_t *sol, uint32_t threshold, bool verbose) {
  * Solve procedure
  */
 solver_status_t solve(sat_solver_t *sol, bool verbose) {
-  #if PICO
-  uint32_t c_threshold, d_threshold;
-  #elif LUBY
-  uint32_t u, v, threshold;
-  #endif
-
-  if (sol->status == status_unsat) return status_unsat;
+  if (sol->status == status_unsat) {
+    return status_unsat;
+  }
 
 #if DEBUG
   check_marks(sol);
@@ -2872,19 +2854,19 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
    */
   // c_threshold = number of conflicts in each iteration
   // increased by RETART_FACTOR after each iteration
-#if 0
-  c_threshold = INITIAL_RESTART_THRESHOLD;
-  d_threshold = INITIAL_RESTART_THRESHOLD;
-#endif
+  #if PICO
+  uint32_t c_threshold = INITIAL_RESTART_THRESHOLD;
+  uint32_t d_threshold = INITIAL_RESTART_THRESHOLD;
+  #endif
 
   /*
    * Restart strategy: Luby sequence
    */
-#if 1
-  u = 1;
-  v = 1;
-  threshold = LUBY_INTERVAL;
-#endif
+  #if LUBY
+  uint32_t u = 1;
+  uint32_t v = 1;
+  uint32_t threshold = LUBY_INTERVAL;
+  #endif
 
   /*
    * Reduce strategy: like minisat
@@ -2906,10 +2888,36 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     check_marks(sol);
     #endif
 
+    if (sol->decision_level > 0) {
+      // restart
+      partial_restart_var(sol);
+    }
+
+    // At level 0: simplify
+    if (sol->decision_level == 0) {
+      if (sol->stack.top > sol->simplify_bottom &&
+          sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
+
+        #if TRACE
+        printf("---> Simplify\n");
+        printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
+        printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
+        #endif
+
+
+
+        simplify_clause_database(sol);
+
+        sol->simplify_bottom = sol->stack.top;
+        sol->simplify_props = sol->stats.propagations;
+        sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+      }
+    }
+
     #if LUBY
-    // Luby sequence
+    /* Luby sequence */
     code = sat_search(sol, threshold);
-    
+
     if ((u & -u) == v) {
       u ++;
       v = 1;
@@ -2919,7 +2927,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     threshold = v * LUBY_INTERVAL;
     report_status(sol, threshold, verbose);
     #elif PICO
-    // picosat-style sequence
+    /* picosat-style sequence */
     code = sat_search(sol, c_threshold);
     
     c_threshold = (uint32_t)(c_threshold * RESTART_FACTOR);  // multiply by 1.1
@@ -2932,12 +2940,6 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
       }
     }
     #endif
-    
-    if (sol->decision_level > 0) {
-      // restart
-      partial_restart_var(sol);
-    }
-
   } while (code == status_unsolved);
 
   if (verbose) {
