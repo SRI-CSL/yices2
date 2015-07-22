@@ -52,6 +52,16 @@
 #include "utils/memsize.h"
 
 
+
+/*
+ * Parameters for preprocessing and simplifications
+ * - these parameters are stored in the context but
+ *   we want to keep a copy when exists forall solver is used (since then
+ *   context is NULL).
+ */
+static ctx_param_t ctx_parameters;
+
+
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
@@ -2288,7 +2298,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   
   //FIXME: SS Seal of Approval required.
   yices_default_params_for_context(g->ctx, &parameters);
-  save_ctx_params(g->ctx);
+  save_ctx_params(&ctx_parameters, g->ctx);
 
 
   if (g->verbosity > 0 || g->tracer != NULL) {
@@ -4438,8 +4448,6 @@ void smt2_set_logic(const char *name) {
       print_error("exists forall mode not allowed in incremental mode");
       return;
     }
-    //we are in efmode; better set the search parameters ...
-    default_ctx_params(code, arch_for_logic(code), &parameters);
   } 
   
   smt2_lexer_activate_logic(code);
@@ -4453,7 +4461,10 @@ void smt2_set_logic(const char *name) {
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
-  } 
+  } else {
+    //we are in benchmark_mode; better set the search parameters ...
+    default_ctx_params(&ctx_parameters, code, arch_for_logic(code), &parameters);
+  }
 
   report_success();
 }

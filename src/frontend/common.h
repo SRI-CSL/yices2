@@ -32,7 +32,6 @@ typedef struct ctx_param_s {
   bool splx_periodic_icheck;
 } ctx_param_t;
 
-extern ctx_param_t ctx_parameters;
 
 /*
  * Table to convert  smt_status to a string
@@ -207,12 +206,12 @@ extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_
 /*
  * Copy the context's parameters into ctx_params
  */
-extern void save_ctx_params(context_t *context);
+extern void save_ctx_params(ctx_param_t *ctx_parameters, context_t *context);
 
 /*
  * If there's no context: use some defaults for both ctx_parameters and parameters
  * - arch + logic are derived from the command-line options
  */
-extern void default_ctx_params(smt_logic_t logic, context_arch_t arch, param_t *parameters);
+extern void default_ctx_params(ctx_param_t *ctx_parameters, smt_logic_t logic, context_arch_t arch, param_t *parameters);
 
 #endif /* __FRONTEND_COMMON_H */

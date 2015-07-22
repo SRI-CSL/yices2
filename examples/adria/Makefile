@@ -1,6 +1,7 @@
-#valgrind --leak-check=full --show-leak-kinds=all 
-YICES_SMT2=../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2
-YICES_MAIN=../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_main  --mode=ef --logic=QF_BV
+#VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
+VALGRIND=
+YICES_SMT2=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2
+YICES_MAIN=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_main  --mode=ef --logic=QF_BV
 VERBOSITY=--verbosity=0
 
 all: 1y 1s 1fy 1fs 23y 23s 24y 24s alury alurs dy ds aluy alus

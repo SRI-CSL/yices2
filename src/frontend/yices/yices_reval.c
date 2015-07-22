@@ -151,7 +151,13 @@ static ivector_t delayed_assertions;
 static double ready_time, check_process_time;
 
 
-
+/*
+ * Parameters for preprocessing and simplifications
+ * - these parameters are stored in the context but
+ *   we want to keep a copy when exists forall solver is used (since then
+ *   context is NULL).
+ */
+static ctx_param_t ctx_parameters;
 
 /*
  * The exists forall client globals
@@ -799,7 +805,7 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
   model = NULL;
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_default_params_for_context(context, &parameters);
-  save_ctx_params(context);
+  save_ctx_params(&ctx_parameters, context);
   if (tracer != NULL) {
     context_set_trace(context, tracer);
   }
@@ -2989,7 +2995,7 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params(logic_code, arch, &parameters);
+    default_ctx_params(&ctx_parameters, logic_code, arch, &parameters);
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }
