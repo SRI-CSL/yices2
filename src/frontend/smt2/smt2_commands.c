@@ -1960,7 +1960,7 @@ static void set_uint32_option(smt2_globals_t *g, const char *name, aval_t value,
   if (aval_is_rational(g->avtbl, value, &aux) && q_is_integer(&aux)) {
     if (q_is_neg(&aux)) {
       print_error("option %s must be non-negative", name);
-    } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX){
+    } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX) {
       assert(x >= 0);
       *result = (uint32_t) x;
       report_success();
@@ -3277,7 +3277,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     yices_free_model(g->model);
     g->model = NULL;
   }
-  if(g->efmode){
+  if (g->efmode) {
     delete_ef_client(&g->ef_client_globals);
   }
   delete_ivector(&g->assertions);
@@ -3530,11 +3530,11 @@ static uint32_t kwlen(const char *s) {
  */
 #define YICES_SMT2_PREFIX  ":yices-"
 
-static bool is_yices_option(const char *name, const char **option){
+static bool is_yices_option(const char *name, const char **option) {
   uint32_t len;
 
   len = strlen(YICES_SMT2_PREFIX);
-  if (strncmp(name, YICES_SMT2_PREFIX, len) == 0){
+  if (strncmp(name, YICES_SMT2_PREFIX, len) == 0) {
     *option = &name[len];
     return true;
   }  
@@ -3811,7 +3811,7 @@ void smt2_get_option(const char *name) {
       p = find_param(yices_option);
       if (p != PARAM_UNKNOWN) {
 	assert(0 <= p && p < NUM_PARAMETERS);
-	if(! yices_get_option(p, &g->ef_client_globals.ef_parameters)){
+	if (! yices_get_option(p, &g->ef_client_globals.ef_parameters)) {
 	  unsupported_option();
 	}
       } else {
@@ -3882,7 +3882,7 @@ void smt2_get_info(const char *name) {
  * Attempt to convert value to a parameter value:
  * - if this can't be done, store PARAM_ERROR in param_val
  */
-static void aval2param_val(aval_t avalue, param_val_t *param_val){
+static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   smt2_globals_t *g;
   rational_t *rational;
   char* symbol;
@@ -4277,7 +4277,7 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     break;
   }
 
-  if (unsupported){
+  if (unsupported) {
     unsupported_option();
     flush_out();
   } else if (reason != NULL) {
@@ -4440,10 +4440,9 @@ void smt2_set_logic(const char *name) {
 
   // check to see if we are in efmode 
   __smt2_globals.efmode = logic_has_quantifiers(code);
-
-  if(__smt2_globals.efmode){
+  if (__smt2_globals.efmode) {
     // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
-    if( ! __smt2_globals.benchmark_mode) {
+    if (! __smt2_globals.benchmark_mode) {
       print_error("exists forall mode not allowed in incremental mode");
       return;
     }
@@ -4462,7 +4461,7 @@ void smt2_set_logic(const char *name) {
     init_search_parameters(&__smt2_globals);
     save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
   } else {
-    //we are in benchmark_mode; better set the search parameters ...
+    // we are in benchmark_mode; better set the search parameters ...
     default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code));
   }
 
@@ -4598,7 +4597,7 @@ void smt2_assert(term_t t) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (g->benchmark_mode) {
-	if(g->efmode && g->ef_client_globals.efdone){
+	if (g->efmode && g->ef_client_globals.efdone) {
 	  print_error("more assertions are not allowed after solving");
 	} else if (g->frozen) {
 	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
@@ -4653,10 +4652,8 @@ void smt2_check_sat(void) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
-      if(__smt2_globals.efmode){
-
-	efsolve_cmd(&__smt2_globals);
-	
+      if (__smt2_globals.efmode) {
+	efsolve_cmd(&__smt2_globals);	
       } else if (__smt2_globals.frozen) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
@@ -4846,22 +4843,15 @@ void smt2_get_model(void) {
   int32_t code;
 
   if (check_logic()) {
-
     code = 0;
-
-    if(__smt2_globals.efmode){
-
-      
+    if (__smt2_globals.efmode) {      
       mdl = ef_get_model(&__smt2_globals.ef_client_globals, &code);
-
-    } else {
-      
+    } else {      
       mdl = get_model(&__smt2_globals);
-
     }
 
-    if (mdl == NULL){
-      if(__smt2_globals.efmode){
+    if (mdl == NULL) {
+      if (__smt2_globals.efmode) {
 	fputs(efmodelcode2error[code], stderr);
 	fflush(stderr);
       }
