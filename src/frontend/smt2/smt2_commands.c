@@ -2294,16 +2294,15 @@ static void init_smt2_context(smt2_globals_t *g) {
   }
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
-  assert(g->ctx != NULL);
-  
-  //FIXME: SS Seal of Approval required.
-  yices_default_params_for_context(g->ctx, &parameters);
-  save_ctx_params(&ctx_parameters, g->ctx);
-
-
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
+
+  /*
+   * TODO: override the default context options based on
+   * ctx_parameters.  I don't want to do it now (2015/07/22). If we
+   * make a mistake, we could get a major performance loss.
+   */
 }
 
 
@@ -4461,9 +4460,10 @@ void smt2_set_logic(const char *name) {
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
+    save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
   } else {
     //we are in benchmark_mode; better set the search parameters ...
-    default_ctx_params(&ctx_parameters, code, arch_for_logic(code), &parameters);
+    default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code));
   }
 
   report_success();

@@ -6,7 +6,7 @@
  */
 
 /*
- * Various strings/error messages used by both the Yices and SMT2 frontends.
+ * Common functions used by both the Yices and SMT2 frontends.
  */
 #ifndef __FRONTEND_COMMON_H
 #define __FRONTEND_COMMON_H
@@ -14,24 +14,6 @@
 #include <stdio.h>
 
 #include "exists_forall/ef_client.h"
-
-/*
- * Parameters for preprocessing and simplifications
- * - these parameters are stored in the context but
- *   we want to keep a copy when exists forall solver is used (since then
- *   context is NULL).
- */
-typedef struct ctx_param_s {
-  bool var_elim;
-  bool arith_elim;
-  bool bvarith_elim;
-  bool flatten_or;
-  bool eq_abstraction;
-  bool keep_ite;
-  bool splx_eager_lemmas;
-  bool splx_periodic_icheck;
-} ctx_param_t;
-
 
 /*
  * Table to convert  smt_status to a string
@@ -178,6 +160,9 @@ extern yices_param_t find_param(const char *name);
  * - name = parameter name, used for error reporting.
  * - return true if the conversion works
  * - return false otherwise and returns an error message/string in *reason
+ *
+ * ratio means a floating point number in the interval [0.0 .. 1.0]
+ * factor means a floating point number larger than or equal to 1.0
  */
 extern bool param_val_to_bool(const char *name, const param_val_t *v, bool *value, char **reason);
 extern bool param_val_to_int32(const char *name, const param_val_t *v, int32_t *value, char **reason);
@@ -203,15 +188,33 @@ extern bool param_val_to_branching(const char *name, const param_val_t *v, branc
 extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
 
 
+
 /*
- * Copy the context's parameters into ctx_params
+ * Preprocessing and simplification options
+ * - each boolean flag corresponds to a preprocessing option defined in 
+ *   context_types.h. This is not complete. There are more options.
+ */
+typedef struct ctx_param_s {
+  bool var_elim;
+  bool arith_elim;
+  bool bvarith_elim;
+  bool flatten_or;
+  bool eq_abstraction;
+  bool keep_ite;
+  bool splx_eager_lemmas;
+  bool splx_periodic_icheck;
+} ctx_param_t;
+
+
+/*
+ * Copy the context's parameters into ctx_parameters
  */
 extern void save_ctx_params(ctx_param_t *ctx_parameters, context_t *context);
 
 /*
- * If there's no context: use some defaults for both ctx_parameters and parameters
- * - arch + logic are derived from the command-line options
+ * Store some defaults for both ctx_parameters and parameters based on the logic and architecture
  */
-extern void default_ctx_params(ctx_param_t *ctx_parameters, smt_logic_t logic, context_arch_t arch, param_t *parameters);
+extern void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_logic_t logic, context_arch_t arch);
+
 
 #endif /* __FRONTEND_COMMON_H */

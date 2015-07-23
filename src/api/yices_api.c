@@ -6922,9 +6922,6 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
-    if (logic == QF_LIA || logic == QF_LIRA) {
-      enable_splx_eager_lemmas(ctx);
-    }
   }
 
   // Special preprocessing
@@ -6977,6 +6974,9 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   }
 
 }
+
+
+
 
 
 /*

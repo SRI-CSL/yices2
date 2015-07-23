@@ -2995,7 +2995,7 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params(&ctx_parameters, logic_code, arch, &parameters);
+    default_ctx_params(&ctx_parameters, &parameters, logic_code, arch);
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }
