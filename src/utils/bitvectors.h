@@ -110,7 +110,7 @@ static inline void set_bit(byte_t *bv, uint32_t i) {
   byte_t mask;
 
   j = i >> 3;
-  mask = 1 << (i & 0x7);
+  mask = (byte_t) (1 << (i & 0x7));
   bv[j] |= mask;
 }
 
@@ -122,8 +122,8 @@ static inline void clr_bit(byte_t *bv, uint32_t i) {
   byte_t mask;
 
   j = i >> 3;
-  mask = 1 << (i & 0x7);
-  bv[j] &= ~mask;
+  mask = (byte_t) (1 << (i & 0x7));
+  bv[j] &= (byte_t)~mask;
 }
 
 
@@ -135,11 +135,11 @@ static inline void assign_bit_old(byte_t *bv, uint32_t i, bool bit) {
   byte_t mask;
 
   j = i >> 3;
-  mask = 1 << (i & 0x7);
+  mask = (byte_t) (1 << (i & 0x7));
   if (bit) {
     bv[j] |= mask;
   } else {
-    bv[j] &= ~mask;
+    bv[j] &= (byte_t)~mask;
   }
 }
 
@@ -149,8 +149,8 @@ static inline void assign_bit(byte_t *bv, uint32_t i, bool bit) {
   byte_t x, mask;
 
   j = (i >> 3);
-  mask = 1 << (i & 0x7);
-  x = ((byte_t) bit) << (i & 0x7);
+  mask = (byte_t) (1 << (i & 0x7));
+  x = (byte_t) (((byte_t) bit) << (i & 0x7));
   bv[j] ^= (bv[j] ^ x) & mask;
 }
 
@@ -163,7 +163,7 @@ static inline void flip_bit(byte_t *bv, uint32_t i) {
   byte_t mask;
 
   j = i >> 3;
-  mask = 1 << (i & 0x7);
+  mask = (byte_t) (1 << (i & 0x7));
   bv[j] ^= mask;
 }
 
@@ -175,7 +175,7 @@ static inline bool tst_bit(byte_t *bv, uint32_t i) {
   byte_t mask;
 
   j = i >> 3;
-  mask = 1 << (i & 0x7);
+  mask = (byte_t) (1 << (i & 0x7));
   return bv[j] & mask; // converted to bool
 }
 

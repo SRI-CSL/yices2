@@ -40,9 +40,17 @@ static void check_top_var(sat_solver_t *sol, bvar_t x);
 
 
 /** TODO: move that && add some useful comments*/
+/*****************
+ *  WATCH LISTS  *
+ *****************/
+
 static inline uint32_t get_cv_size(clause_t **v);
+static uint32_t clause_length(const clause_t *cl);
 
 
+/*
+ * Initialize a watch list
+ */
 static void watch_init(watch_t *w) {
   w->capacity = 2;
   w->block = safe_malloc(w->capacity * sizeof(watch_block_t));
@@ -50,20 +58,26 @@ static void watch_init(watch_t *w) {
 }
 
 
+/*
+ * Expand the watch list (if needed) to be able to fit add_size
+ * new elements
+ */
 static void watch_expand(watch_t *w, uint32_t add_size) {
   assert(w->size < w->capacity);
   if(w->size + add_size >= w->capacity) {
     /* need to expand block */
     w->capacity += w->capacity;
-    assert(w->size + add_size < w->capacity);
     w->block = (watch_block_t *) safe_realloc(w->block, w->capacity * sizeof(watch_block_t));
   }
+  assert(w->size + add_size < w->capacity);
 }
 
 
+/*
+ * Add a binary clause to the watch list
+ */
 static void watch_add_binary(literal_t l, watch_t *w) {
   watch_expand(w, 1);
-  assert(w->size+1 < w->capacity);
 
   watch_block_t _l = (watch_block_t) l;
   _l <<= 2;
@@ -74,9 +88,11 @@ static void watch_add_binary(literal_t l, watch_t *w) {
 }
 
 
-static void watch_add_large(uint32_t i, const clause_t *cl, watch_t *w) {
+/*
+ * Add a regular clause to the watch list (can be a binary clause)
+ */
+static void watch_add_regular(uint32_t i, const clause_t *cl, watch_t *w) {
   watch_expand(w, 1);
-  assert(w->size+1 < w->capacity);
   
   assert( (((size_t)cl) & 0b11U) == 0);
   assert(i < 2);
@@ -85,6 +101,9 @@ static void watch_add_large(uint32_t i, const clause_t *cl, watch_t *w) {
 }
 
 
+/*
+ * Set up the watched literals for the clause cl
+ */
 static void watch_add(sat_solver_t *sol, const clause_t *cl) {
   const literal_t *b = cl->cl;
   assert(b[0] >= 0);
@@ -93,23 +112,30 @@ static void watch_add(sat_solver_t *sol, const clause_t *cl) {
     watch_add_binary(b[0], sol->watchnew + b[1]);
     watch_add_binary(b[1], sol->watchnew + b[0]);
   } else {
-    watch_add_large(0, cl, sol->watchnew + b[0]);
-    watch_add_large(1, cl, sol->watchnew + b[1]);
+    watch_add_regular(0, cl, sol->watchnew + b[0]);
+    watch_add_regular(1, cl, sol->watchnew + b[1]);
   }
 }
 
 
+/*
+ * Delete the i-th block from the watch list 
+ */
 static void watch_delete(watch_t *w, uint32_t i) {
   assert(w->size > 0);
   assert(w->size > i);
 
   w->size--;
   if(w->size > i) {
-    w->block[i] = w->block[w->size];
+    /* replace the deleted block with the last one */
+    w->block[i] = w->block[w->size]; 
   }
 }
 
 
+/*
+ * Move a block to a new watch-list
+ */
 static void watch_move(watch_t *old_watch_list, uint32_t i, watch_t *new_watch_list) {
   watch_block_t block = old_watch_list->block[i];
   watch_delete(old_watch_list, i);
@@ -119,12 +145,13 @@ static void watch_move(watch_t *old_watch_list, uint32_t i, watch_t *new_watch_l
   new_watch_list->size++;
 }
 
+
 /*
- * Auxiliary function: reset watch list
+ * Reset watch list
  */
 static void watch_reset_list(watch_t *w) {
   #if SHRINK_WATCH_VECTORS
-  size_t new_capacity = w->capacity / 4;
+  uint32_t new_capacity = w->capacity / 4;
   if(w->size < new_capacity) {
     w->block = (watch_block_t *) safe_realloc(w->block, new_capacity * sizeof(watch_block_t));
     w->capacity = new_capacity;
@@ -146,11 +173,14 @@ static void watch_reset_lists(sat_solver_t *solver) {
 }
 
 
+/*
+ * Reset and rebuild all watch lists
+ */
 static void watch_regenerate(sat_solver_t *sol) {
   watch_reset_lists(sol);
   clause_t **v = sol->problem_clauses;
   uint32_t n = get_cv_size(v);
-  for (size_t i=0; i<n; i++) {
+  for (uint32_t i=0; i<n; i++) {
     watch_add(sol, v[i]);
   }
   v = sol->learned_clauses;
@@ -160,6 +190,15 @@ static void watch_regenerate(sat_solver_t *sol) {
   }
   sol->watch_status = watch_status_ok;
 }
+
+
+/*
+ * Invalidate watch lists
+ */
+static inline void watch_lists_invalidate(sat_solver_t *solver) {
+  solver->watch_status = watch_status_regenerate;
+}
+
 
 static inline clause_t *watch_clause_of(watch_block_t block) {
   return (clause_t *) (block & (~((size_t)0b11U)));
@@ -177,18 +216,11 @@ static inline literal_t watch_lit_of(watch_block_t block) {
   return (literal_t) (block >> 2);
 }
 
-/*
- * Invalidate watch lists
- */
-static inline void watch_lists_invalidate(sat_solver_t *solver) {
-  solver->watch_status = watch_status_regenerate;
-}
 
 
-
-/*
- * CLAUSES AND LEARNED CLAUSES
- */
+/*******************************
+ * CLAUSES AND LEARNED CLAUSES *
+ *******************************/
 
 /*
  * Get first watched literal of cl
@@ -245,14 +277,6 @@ static inline void multiply_activity(clause_t *cl, float scale) {
 }
 
 /*
- * Mark a clause cl for deletion
- */
-static inline void mark_for_deletion(sat_solver_t *solver, clause_t *cl) {
-  cl->cl[0] = cl->cl[1];
-  watch_lists_invalidate(solver);
-}
-
-/*
  * Check whether the clause is to be deleted
  */
 static inline bool is_clause_to_be_deleted(const clause_t *cl) {
@@ -260,9 +284,24 @@ static inline bool is_clause_to_be_deleted(const clause_t *cl) {
 }
 
 /*
+ * Mark a clause cl for deletion
+ */
+static inline void mark_for_deletion(sat_solver_t *solver, clause_t *cl) {
+  #if 0
+  assert(!is_clause_to_be_deleted(cl));
+  /* Do not try to assert this. simplify_clause() calls us with invalid clauses */
+  #endif
+  cl->cl[0] = cl->cl[1];
+  watch_lists_invalidate(solver);
+}
+
+
+/*
  * Clause length
  */
 static uint32_t clause_length(const clause_t *cl) {
+  assert(cl->cl[0] >= 0);
+  assert(cl->cl[1] >= 0);
   const literal_t *a = cl->cl + 2;
   while (*a >= 0) {
     a ++;
@@ -1532,21 +1571,18 @@ static bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
  * Delete all clauses that are marked for deletion
  */
 static void delete_learned_clauses(sat_solver_t *solver) {
-  uint32_t i, j, n;
-  clause_t **v;
-
-  v = solver->learned_clauses;
-  n = get_cv_size(v);
+  clause_t **v = solver->learned_clauses;
+  uint32_t   n = get_cv_size(v);
 
   // do the real deletion
   solver->stats.learned_literals = 0;
 
-  j = 0;
-  for (i = 0; i<n; i++) {
+  uint32_t j = 0;
+  for (uint32_t i = 0; i<n; i++) {
     if (is_clause_to_be_deleted(v[i])) {
-#if INSTRUMENT_CLAUSES
+      #if INSTRUMENT_CLAUSES
       learned_clause_deletion(solver, v[i]);
-#endif
+      #endif
       delete_learned_clause(v[i]);
     } else {
       solver->stats.learned_literals += clause_length(v[i]);
@@ -1556,9 +1592,8 @@ static void delete_learned_clauses(sat_solver_t *solver) {
   }
 
   // set new size of the learned clause vector
-  set_cv_size(solver->learned_clauses, j);
+  set_cv_size(v, j);
   solver->nb_clauses -= (n - j);
-
   solver->stats.learned_clauses_deleted += (n - j);
 }
 
@@ -1610,17 +1645,40 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
  *******************************************/
 
 /*
+ * Delete all clauses that are marked for deletion
+ */
+static void delete_problem_clauses(sat_solver_t *solver) {
+  clause_t **v = solver->problem_clauses;
+  uint32_t   n = get_cv_size(v);
+
+  // do the real deletion
+  uint32_t j = 0;
+  for (uint32_t i = 0; i<n; i++) {
+    if (is_clause_to_be_deleted(v[i])) {
+      delete_clause(v[i]);
+    } else {
+      v[j] = v[i];
+      j ++;
+    }
+  }
+
+  // set new size of the clause vector
+  set_cv_size(v, j);
+  solver->nb_clauses -= (n - j);
+  solver->stats.prob_clauses_deleted += (n - j);
+}
+
+/*
  * Simplify clause cl, given the current literal assignment
  * - mark cl for deletion if it's true
  * - otherwise remove the false literals
  * The watched literals are unchanged.
  */
 static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
-  uint32_t i, j;
   literal_t l;
-
-  i = 0;
-  j = 0;
+  
+  uint32_t i = 0;
+  uint32_t j = 0;
   do {
     l = cl->cl[i];
     i ++;
@@ -1641,7 +1699,7 @@ static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
   } while (l >= 0);
 
   solver->stats.aux_literals += j - 1;
-  // could migrate cl to two-literal if j is 3??
+  assert(j >= 3);
 }
 
 
@@ -1652,54 +1710,34 @@ static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
  * DANGER: this is sound only if done at level 0.
  */
 static void simplify_clause_set(sat_solver_t *solver) {
-  uint32_t i, j, n;
+  uint32_t i, n;
   clause_t **v;
 
   // simplify problem clauses
   solver->stats.aux_literals = 0;
   v = solver->problem_clauses;
   n = get_cv_size(v);
-  for (i=0; i<n; i++) simplify_clause(solver, v[i]);
+  for (i=0; i<n; i++) {
+    assert(!is_clause_to_be_deleted(v[i]));
+    simplify_clause(solver, v[i]);
+  }
   solver->stats.prob_literals = solver->stats.aux_literals;
 
   // simplify learned clauses
   solver->stats.aux_literals = 0;
   v = solver->learned_clauses;
   n = get_cv_size(v);
-  for (i=0; i<n; i++) simplify_clause(solver, v[i]);
+  for (i=0; i<n; i++) {
+    assert(!is_clause_to_be_deleted(v[i]));
+    simplify_clause(solver, v[i]);
+  }
   solver->stats.learned_literals = solver->stats.aux_literals;
 
   // remove simplified problem clauses
-  v = solver->problem_clauses;
-  n = get_cv_size(v);
-  j = 0;
-  for (i=0; i<n; i++) {
-    if (is_clause_to_be_deleted(v[i])) {
-      delete_clause(v[i]);
-    } else {
-      v[j] = v[i];
-      j ++;
-    }
-  }
-  set_cv_size(v, j);
-  solver->nb_clauses -= n - j;
-  solver->stats.prob_clauses_deleted += n - j;
+  delete_problem_clauses(solver);
 
   // remove simplified learned clauses
-  v = solver->learned_clauses;
-  n = get_cv_size(v);
-  j = 0;
-  for (i=0; i<n; i++) {
-    if (is_clause_to_be_deleted(v[i])) {
-      delete_learned_clause(v[i]);
-    } else {
-      v[j] = v[i];
-      j ++;
-    }
-  }
-  set_cv_size(v, j);
-  solver->nb_clauses -= n - j;
-  solver->stats.learned_clauses_deleted += n - j;
+  delete_learned_clauses(solver);
 
   shrink_clause_vector(&solver->problem_clauses);
 }
@@ -2820,6 +2858,189 @@ static void report_status(sat_solver_t *sol, uint32_t threshold, bool verbose) {
 }
 
 
+#if ZMAGIC
+//TODO : move && comment so it does not looks like it is some dark magic
+static uint64_t z_steps = 0;
+static uint32_t z_r = 1;
+
+static int z_resolve(const clause_t *cl1, const literal_t l, const clause_t *cl2) {
+  const literal_t *b1 = cl1->cl;
+  const literal_t *b2 = cl2->cl;
+  size_t k1 = 0;
+  size_t k2 = 0;
+  literal_t l1 = b1[0];
+  literal_t l2 = b2[0];
+
+  if(l1 == l) {
+    l1 = b1[++k1];
+  }
+  if(l2 == not(l)) {
+    l2 = b2[++k2];
+  }
+  /* l1/2 cannot be <0; would be unit clause */
+
+  for (;;) {
+    if(l1 == not(l2)) {
+      return 0;
+    }
+    if(l1 <= l2) {
+      l1 = b1[++k1];
+      if(l1 == l) {
+        l1 = b1[++k1];
+      }
+      if(l1 < 0) {
+        break;
+      }
+    } else {
+      l2 = b2[++k2];
+      if(l2 == not(l)) {
+        l2 = b2[++k2];
+      }
+      if(l2 < 0) {
+        break;
+      }
+    }
+  }
+  z_steps += k1+k2;
+  return 1;
+}
+
+
+static int compare_lit(const void * a, const void * b) {
+  return ( *(literal_t*)a - *(literal_t*)b );
+}
+
+typedef struct z_list_s {
+  clause_t * cl;
+  struct z_list_s * next;
+} z_list_t;
+
+typedef struct z_corr_s {
+ z_list_t * list;
+} z_corr_t;
+
+static void z_add(z_corr_t *w, literal_t l, clause_t *cl) {
+  z_list_t *p = safe_malloc(sizeof(z_list_t));
+  p->cl = cl;
+  p->next = w[l].list;
+  w[l].list = p;
+}
+
+static int z_simp2b(const z_corr_t *w, literal_t l, const clause_t *cl) {
+  z_list_t *z = w[not(l)].list;
+  while(z != NULL) {
+    if(!is_clause_to_be_deleted(z->cl)) {
+      if(z_resolve(cl, l, z->cl)) {
+        return 0;
+      }
+    }
+    z = z->next;
+  }
+  return 1;
+}
+
+
+static void z_simp1(sat_solver_t *sol) {
+  //fprintf(stderr, "S");
+  uint64_t limit = sol->stats.propagations >> 2;
+  uint32_t n = sol->nb_lits;
+  static uint32_t i=0;
+
+  if(z_r == 0) {
+    return;
+  }
+
+  if(z_steps + 3* sol->stats.prob_literals > limit) {
+    return;
+  }
+
+  /* sorting + z_corr creation + z_corr free */
+  z_steps += 3 * sol->stats.prob_literals;
+
+  clause_t **vo = sol->problem_clauses;
+
+  uint32_t m = get_cv_size(vo);
+  clause_t **v = malloc(m* sizeof(clause_t *));
+
+  // probably not the best idea
+  for (size_t j=0; j<m; j++) {
+    uint32_t cll = clause_length(vo[j]);
+    v[j] = new_clause(cll, vo[j]->cl);
+    qsort(v[j]->cl, cll, sizeof(literal_t), compare_lit);
+  }
+  //watch_lists_invalidate(sol);
+
+  z_corr_t *w = safe_malloc(n*sizeof(clause_t *));
+  for (uint32_t j=0; j<n; j++) {
+    w[j].list = NULL;
+  }
+
+  for (size_t j=0; j<m; j++) {
+    literal_t *b = v[j]->cl;
+    literal_t l = b[0];
+    int32_t k = 0;
+    while (l >= 0) {
+      z_add(w, l, v[j]);
+      l = b[++k];
+    }
+  }
+
+  uint32_t oldi=i;
+  uint32_t nbd=0;
+  for (; i<n; i+=2) {
+    if(z_steps > limit) {
+      //fprintf(stderr, "/");
+      break;
+    }
+
+    z_list_t *z = w[i].list;
+    uint64_t z_steps_local = 0;
+    while(z != NULL) {
+      if( (!is_clause_to_be_deleted(z->cl)) && (clause_length(z->cl) > 2) ) {
+        if(z_simp2b(w, i, z->cl)) {
+          mark_for_deletion(sol, z->cl);
+          //fprintf(stderr, "=");
+          nbd++;
+        }
+      }
+      z = z->next;
+      z_steps_local++;
+    }
+    z_steps += z_steps_local + z_steps_local;
+  }
+
+  fprintf(stderr, "[%u_%u-%u]", nbd, i-oldi, n);
+
+  if(i >= n) {
+    z_r = 0;
+    i = 0;
+  }
+
+  for (size_t j=0; j<m; j++) {
+    if(is_clause_to_be_deleted(v[j])) {
+      mark_for_deletion(sol, vo[j]);
+    }
+    delete_clause(v[j]);
+  }
+  free(v);
+
+  if(nbd > 0) {
+    delete_problem_clauses(sol);
+  }
+
+  for (uint32_t j=0; j<n; j++) {
+    z_list_t *z = w[j].list;
+    while(z != NULL) {
+      z_list_t *y = z;
+      z = z->next;
+      safe_free(y);
+    }
+  }
+  safe_free(w);
+  //fprintf(stderr, "E\n");
+}
+#endif
+
 /*
  * Solve procedure
  */
@@ -2895,22 +3116,29 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 
     // At level 0: simplify
     if (sol->decision_level == 0) {
-      if (sol->stack.top > sol->simplify_bottom &&
-          sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
+      if (sol->stack.top > sol->simplify_bottom) {
+          if(sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
 
-        #if TRACE
-        printf("---> Simplify\n");
-        printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
-        printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
+          #if TRACE
+          printf("---> Simplify\n");
+          printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
+          printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
+          #endif
+
+          simplify_clause_database(sol);
+
+          #if ZMAGIC
+          z_r = 1; //TODO
+          #endif
+
+          sol->simplify_bottom = sol->stack.top;
+          sol->simplify_props = sol->stats.propagations;
+          sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+        }
+      } else {
+        #if ZMAGIC
+        if(1) z_simp1(sol);
         #endif
-
-
-
-        simplify_clause_database(sol);
-
-        sol->simplify_bottom = sol->stack.top;
-        sol->simplify_props = sol->stats.propagations;
-        sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
       }
     }
 
