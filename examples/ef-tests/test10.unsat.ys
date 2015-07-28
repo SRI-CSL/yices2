@@ -1,0 +1,6 @@
+(define x::real)
+(define y::real)
+(define z::real)
+
+(assert (forall (t::real) (distinct x y z t)))
+(ef-solve)

@@ -1,0 +1,5 @@
+(define x::real)
+(assert (forall (y::real) (=> (> y 0) (< x y))))
+(ef-solve)
+(show-model)
+
