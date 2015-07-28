@@ -412,8 +412,11 @@ static-tarfile: $(distributions) doc
 #   $(dist_dir)/lib     into $(libdir)
 #   $(dist_dir)/include into $(includedir)
 #
-# Note: bindir, libdir, includedir are set by the configure script,
-# and are imported from $(YICES_MAKE_INCLUDE)
+# Note: the default bindir, libdir, includedir are set by the
+# configure script, and are imported from $(YICES_MAKE_INCLUDE).
+# These defaults can be changed by using 'make install prefix=...'
+#
+# We also (try to) support the DESTDIR convention.
 #
 # The reason we don't want to force compilation in 'make install' is
 # that we typically need to do 'sudo make install' but we don't want
@@ -424,37 +427,37 @@ static-tarfile: $(distributions) doc
 install: install-$(POSIXOS)
 
 install-default: $(build_dir) $(dist_dir)
-	$(MKDIR_P) $(bindir)
-	$(MKDIR_P) $(libdir)
-	$(MKDIR_P) $(includedir)
-	$(INSTALL) -m 664 $(dist_dir)/include/* $(includedir)
-	$(INSTALL) $(dist_dir)/bin/* $(bindir)
-	$(INSTALL) $(dist_dir)/lib/* $(libdir)
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(libdir)
+	$(MKDIR_P) $(DESTDIR)$(includedir)
+	$(INSTALL) -m 664 $(dist_dir)/include/* $(DESTDIR)$(includedir)
+	$(INSTALL) $(dist_dir)/bin/* $(DESTDIR)$(bindir)
+	$(INSTALL) $(dist_dir)/lib/* $(DESTDIR)$(libdir)
 
 install-darwin: install-default
-	(cd $(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
+	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
 
 install-solaris: install-default
-	$(LDCONFIG) -n $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
+	$(LDCONFIG) -n $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
 
 install-linux install-unix: install-default
-	$(LDCONFIG) -n $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
+	$(LDCONFIG) -n $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
 
-# on FreeBSD: the library file is libyices.so.X.Y and lconfig does not take -n
+# on FreeBSD: the library file is libyices.so.X.Y and ldconfig does not take -n
 install-freebsd: install-default
-	$(LDCONFIG) -m $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
+	$(LDCONFIG) -m $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
 
 
 #
 # cygwin and mingw install: copy the DLLs in $(bindir)
 #
 install-cygwin: $(build_dir) $(dist_dir)
-	$(MKDIR_P) $(bindir)
-	$(MKDIR_P) $(libdir)
-	$(MKDIR_P) $(includedir)
-	$(INSTALL) -m 664 $(dist_dir)/include/* $(includedir)
-	$(INSTALL) $(dist_dir)/bin/* $(bindir)
-	$(INSTALL) $(dist_dir)/lib/*.a $(libdir)
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(libdir)
+	$(MKDIR_P) $(DESTDIR)$(includedir)
+	$(INSTALL) -m 664 $(dist_dir)/include/* $(DESTDIR)$(includedir)
+	$(INSTALL) $(dist_dir)/bin/* $(DESTDIR)$(bindir)
+	$(INSTALL) $(dist_dir)/lib/*.a $(DESTDIR)$(libdir)
 
 install-mingw: install-cygwin
 
