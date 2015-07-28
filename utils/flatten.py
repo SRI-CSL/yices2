@@ -17,7 +17,6 @@ def flatten_dir(prefix, directory):
         return
     else:
         files = os.listdir(directory)
-        print files
         for file in files:
             path = os.path.join(directory, file)
             if os.path.isdir(path):

@@ -1094,7 +1094,7 @@ static void print_internalization_code(int32_t code, uint32_t verbosity) {
     fprintf(stderr, "unsat\n");
     fflush(stderr);
   } else if (verbosity > 0 && code == CTX_NO_ERROR) {
-    //    report_ok(client);
+
   } else if (code < 0) {
     code = - code;
     print_error(code2error[code]);
@@ -1106,7 +1106,7 @@ static void print_internalization_code(int32_t code, uint32_t verbosity) {
  */
 static void print_ef_analyze_code(ef_code_t code, FILE *err) {
   if (code == EF_NO_ERROR) {
-    //    report_ok(client);
+
   } else {
     print_error(efcode2error[code]);
   }
@@ -1547,6 +1547,8 @@ static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
   flush_out();
   freport_bug(f, "Internal error: unexpected context status");
 }
+
+
 
 /*
  * PRINT STATUS AND STATISTICS
@@ -2129,7 +2131,6 @@ static void print_float_value(double value) {
   }
 }
 
-
 /*
  * Print attribute values
  */
@@ -2294,6 +2295,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   }
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
+  assert(g->ctx != NULL);
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
@@ -3499,8 +3501,6 @@ void smt2_get_value(term_t *a, uint32_t n) {
     ivector_reset(values);
   }
 }
-
-
 
 
 /*
