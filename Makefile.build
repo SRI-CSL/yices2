@@ -416,7 +416,8 @@ static-tarfile: $(distributions) doc
 # configure script, and are imported from $(YICES_MAKE_INCLUDE).
 # These defaults can be changed by using 'make install prefix=...'
 #
-# We also (try to) support the DESTDIR convention.
+# We also (try to) support the DESTDIR convention (todo: fix the
+# ldconfig call if DESTDIR is non-null?)
 #
 # The reason we don't want to force compilation in 'make install' is
 # that we typically need to do 'sudo make install' but we don't want
