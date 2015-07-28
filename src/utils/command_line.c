@@ -71,7 +71,7 @@ void init_cmdline_parser(cmdline_parser_t *p,
  * If so return a pointer to what follows s1 into s2.
  * If not return NULL.
  */
-static char *check_prefix(char *s1, char *s2) {
+static char *check_prefix(const char *s1, char *s2) {
   char c1, c2;
 
   for (;;) {

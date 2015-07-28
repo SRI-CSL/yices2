@@ -445,15 +445,15 @@ static void yices_usage(char *progname) {
 /*
  * Name of options k in the options table
  */
-static inline char *opt_name(optid_t k) {
+static inline const char *opt_name(optid_t k) {
   return options[k].name;
 }
 
 /*
  * Name of option that select branching mode b
  */
-static char *branching_name(branch_t b) {
-  char *name;
+static const char *branching_name(branch_t b) {
+  const char *name;
 
   name = NULL;
   switch (b) {
