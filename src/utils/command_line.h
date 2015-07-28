@@ -72,7 +72,7 @@ typedef enum option_type {
  * - key is the option id
  */
 typedef struct option_desc_s {
-  char *name;
+  const char *name;
   char abbrev;
   uint8_t type;
   uint16_t key;

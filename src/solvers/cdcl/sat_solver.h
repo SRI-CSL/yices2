@@ -199,8 +199,10 @@ struct clause_s {
   literal_t cl[0];
 };
 
+typedef uint32_t clause_idx_t;
+
 /* TODO: move that */
-typedef size_t watch_block_t;
+typedef uint32_t watch_block_t;
 
 typedef struct watch_s {
 	uint32_t capacity;
@@ -524,6 +526,9 @@ typedef struct sat_solver_s {
   solver_stats_t stats;
 
   /* Clause database */
+  void *clause_base_pointer;
+  uint32_t clause_pool_size;
+  uint32_t clause_pool_capacity;
   clause_t **problem_clauses;
   clause_t **learned_clauses;
 

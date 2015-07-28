@@ -46,6 +46,8 @@ static void check_top_var(sat_solver_t *sol, bvar_t x);
 
 static inline uint32_t get_cv_size(clause_t **v);
 static uint32_t clause_length(const clause_t *cl);
+static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli);
+static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl);
 
 
 /*
@@ -79,6 +81,7 @@ static void watch_expand(watch_t *w, uint32_t add_size) {
 static void watch_add_binary(literal_t l, watch_t *w) {
   watch_expand(w, 1);
 
+  assert(sizeof(literal_t) <= sizeof(watch_block_t));
   watch_block_t _l = (watch_block_t) l;
   _l <<= 2;
   watch_block_t attr = (watch_block_t) 0b10;
@@ -91,12 +94,13 @@ static void watch_add_binary(literal_t l, watch_t *w) {
 /*
  * Add a regular clause to the watch list (can be a binary clause)
  */
-static void watch_add_regular(uint32_t i, const clause_t *cl, watch_t *w) {
+static void watch_add_regular(uint32_t i, clause_idx_t cli, watch_t *w) {
   watch_expand(w, 1);
-  
-  assert( (((size_t)cl) & 0b11U) == 0);
+
+  assert(sizeof(clause_idx_t) <= sizeof(watch_block_t));
+  assert( (((watch_block_t)cli) & 0b11U) == 0);
   assert(i < 2);
-  w->block[w->size] = ((size_t)cl) | i;
+  w->block[w->size] = ((watch_block_t)cli) | i;
   w->size++;
 }
 
@@ -104,7 +108,8 @@ static void watch_add_regular(uint32_t i, const clause_t *cl, watch_t *w) {
 /*
  * Set up the watched literals for the clause cl
  */
-static void watch_add(sat_solver_t *sol, const clause_t *cl) {
+static void watch_add(sat_solver_t *sol, clause_idx_t cli) {
+  const clause_t *cl = clause_of_idx(sol, cli);
   const literal_t *b = cl->cl;
   assert(b[0] >= 0);
   assert(b[1] >= 0);
@@ -112,8 +117,8 @@ static void watch_add(sat_solver_t *sol, const clause_t *cl) {
     watch_add_binary(b[0], sol->watchnew + b[1]);
     watch_add_binary(b[1], sol->watchnew + b[0]);
   } else {
-    watch_add_regular(0, cl, sol->watchnew + b[0]);
-    watch_add_regular(1, cl, sol->watchnew + b[1]);
+    watch_add_regular(0, cli, sol->watchnew + b[0]);
+    watch_add_regular(1, cli, sol->watchnew + b[1]);
   }
 }
 
@@ -181,12 +186,12 @@ static void watch_regenerate(sat_solver_t *sol) {
   clause_t **v = sol->problem_clauses;
   uint32_t n = get_cv_size(v);
   for (uint32_t i=0; i<n; i++) {
-    watch_add(sol, v[i]);
+    watch_add(sol, idx_of_clause(sol, v[i]));
   }
   v = sol->learned_clauses;
   n = get_cv_size(v);
   for (size_t i=0; i<n; i++) {
-    watch_add(sol, v[i]);
+    watch_add(sol, idx_of_clause(sol, v[i]));
   }
   sol->watch_status = watch_status_ok;
 }
@@ -200,8 +205,8 @@ static inline void watch_lists_invalidate(sat_solver_t *solver) {
 }
 
 
-static inline clause_t *watch_clause_of(watch_block_t block) {
-  return (clause_t *) (block & (~((size_t)0b11U)));
+static inline clause_t *watch_clause_of(sat_solver_t *sol, watch_block_t block) {
+  return clause_of_idx(sol, (block & (~((watch_block_t)0b11U))) );
 }
 
 static inline uint32_t watch_idx_of(watch_block_t block) {
@@ -310,6 +315,57 @@ static uint32_t clause_length(const clause_t *cl) {
   return (uint32_t) (a - cl->cl);
 }
 
+//TODO
+static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli) {
+  return (clause_t *) ((char *)sol->clause_base_pointer + cli);
+}
+
+static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
+  assert((size_t)sol->clause_base_pointer < (size_t)cl);
+  clause_idx_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
+  assert(diff < UINT32_MAX);
+  clause_idx_t cli = diff;
+  return cli;
+}
+
+static inline learned_clause_t *learned_clause_of_idx(sat_solver_t *sol, clause_idx_t cl) {
+  return (learned_clause_t *) ((char *)sol->clause_base_pointer + cl);
+}
+
+static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len) {
+  assert((clause_len & 0b11) == 0);
+  uint32_t len = (uint32_t) sizeof(uint32_t) + (uint32_t) clause_len;
+  //TODO : check overflow;
+  if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+    sol->clause_pool_capacity += sol->clause_pool_capacity >> 1;
+    if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+      sol->clause_pool_capacity = sol->clause_pool_size + len;
+    }
+    //TODO:TEMPORARY
+    sol->clause_pool_capacity = 0x20000000; //512Mo
+    if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+      printf("NOMEM!!!\n");
+      exit(1);
+    }
+    sol->clause_base_pointer = safe_realloc(sol->clause_base_pointer, sol->clause_pool_capacity);
+  }
+  
+  clause_idx_t idx = sol->clause_pool_size;
+  
+  sol->clause_pool_size += len;
+  
+  uint32_t * result = (uint32_t *) ((char *)sol->clause_base_pointer + idx);
+  result[0] = len;
+  assert((idx & 0b11) == 0);
+  return idx + 4U;
+  clause_of_idx(sol, idx + 4);
+}
+
+static void clause_free(void *cl) {
+  uint32_t *block = (uint32_t *) cl;
+  block[-1] = 0;
+}
+
 
 /*
  * Allocate and initialize a new clause (not a learned clause)
@@ -317,17 +373,15 @@ static uint32_t clause_length(const clause_t *cl) {
  * \param lit = array of len literals
  * The watched pointers are not initialized
  */
-static clause_t *new_clause(uint32_t len, literal_t *lit) {
-  clause_t *result;
+static clause_idx_t new_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) {
+  clause_idx_t result = clause_malloc(sol, sizeof(clause_t) + sizeof(literal_t) + 
+                                           len * sizeof(literal_t));
+  clause_t *res = clause_of_idx(sol, result);
   uint32_t i;
-
-  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) +
-                                    len * sizeof(literal_t));
-
   for (i=0; i<len; i++) {
-    result->cl[i] = lit[i];
+    res->cl[i] = lit[i];
   }
-  result->cl[i] = end_clause; // end marker: not a learned clause
+  res->cl[i] = end_clause; // end marker: not a learned clause
 
   return result;
 }
@@ -338,7 +392,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
  * cl must be a non-learned clause, allocated via the previous function.
  */
 static inline void delete_clause(clause_t *cl) {
-  safe_free(cl);
+  clause_free(cl);
 }
 
 
@@ -349,22 +403,20 @@ static inline void delete_clause(clause_t *cl) {
  * The watched pointers are not initialized.
  * The activity is initialized to 0.0
  */
-static clause_t *new_learned_clause(uint32_t len, const literal_t *lit) {
-  learned_clause_t *tmp;
-  clause_t *result;
-  uint32_t i;
-
-  tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) +
+static clause_idx_t new_learned_clause(sat_solver_t *sol, uint32_t len, const literal_t *lit) {
+  clause_idx_t tmp_idx = clause_malloc(sol, sizeof(learned_clause_t) + sizeof(literal_t) +
                                          len * sizeof(literal_t));
+  learned_clause_t *tmp = learned_clause_of_idx(sol, tmp_idx);
   tmp->activity = 0.0;
-  result = &(tmp->clause);
+  clause_t *result = &(tmp->clause);
 
+  uint32_t i;
   for (i=0; i<len; i++) {
     result->cl[i] = lit[i];
   }
   result->cl[i] = end_learned; // end marker: learned clause
 
-  return result;
+  return tmp_idx + sizeof(learned_clause_t);
 }
 
 
@@ -373,7 +425,7 @@ static clause_t *new_learned_clause(uint32_t len, const literal_t *lit) {
  * cl must have been allocated via the new_learned_clause function
  */
 static inline void delete_learned_clause(clause_t *cl) {
-  safe_free(learned(cl));
+  clause_free(learned(cl));
 }
 
 
@@ -1096,6 +1148,9 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   init_stats(&solver->stats);
 
   // Clause database
+  solver->clause_base_pointer = NULL;
+  solver->clause_pool_size = 0U;
+  solver->clause_pool_capacity = 0U;
   solver->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
 
@@ -1336,30 +1391,31 @@ void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l) {
 /*
  * Add an n-literal clause when n >= 2
  */
-static void add_clause_core(sat_solver_t *solver, uint32_t n, literal_t *lit) {
+static void add_clause_core(sat_solver_t *sol, uint32_t n, literal_t *lit) {
   assert(n >= 2);
 
 #ifndef NDEBUG
   // check that all literals are valid
   for (uint32_t i=0; i<n; i++) {
-    assert(0 <= lit[i] && lit[i] < solver->nb_lits);
+    assert(0 <= lit[i] && lit[i] < sol->nb_lits);
   }
 #endif
 
-  clause_t *cl = new_clause(n, lit);
-  add_clause_to_vector(&solver->problem_clauses, cl);
+  clause_idx_t cli = new_clause(sol, n, lit);
+  clause_t *cl = clause_of_idx(sol, cli);
+  add_clause_to_vector(&sol->problem_clauses, cl);
 
   // set watch literals
-  watch_add(solver, cl);
+  watch_add(sol, cli);
 
   // update number of clauses
   if(n > 2) {
-    solver->nb_clauses ++;
+    sol->nb_clauses ++;
   } else {
-    solver->nb_bin_clauses ++;
+    sol->nb_bin_clauses ++;
   }
 
-  solver->stats.prob_literals += n;
+  sol->stats.prob_literals += n;
 }
 
 
@@ -1514,7 +1570,8 @@ static inline void decay_clause_activities(sat_solver_t *solver) {
 static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
   // Create and add a new learned clause.
   // Set its activity to current cla_inc
-  clause_t *cl = new_learned_clause(n, lit);
+  clause_idx_t cli = new_learned_clause(solver, n, lit);
+  clause_t *cl = clause_of_idx(solver, cli);
   add_clause_to_vector(&solver->learned_clauses, cl);
   increase_clause_activity(solver, cl);
 
@@ -1524,7 +1581,7 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
 #endif
 
   // insert cl into the watched lists
-  watch_add(solver, cl);
+  watch_add(solver, cli);
 
   // increase clause counter
   solver->nb_clauses ++;
@@ -1922,7 +1979,7 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, literal_t l0, 
     } else {
       /* large clause */
       uint32_t i = watch_idx_of(w->block[j]);
-      clause_t *cl = watch_clause_of(w->block[j]);
+      clause_t *cl = watch_clause_of(sol, w->block[j]);
       literal_t l1 = get_other_watch(cl, i);
 
       /*
@@ -2905,6 +2962,21 @@ static int z_resolve(const clause_t *cl1, const literal_t l, const clause_t *cl2
   return 1;
 }
 
+static clause_t *new_clause_old(uint32_t len, literal_t *lit) {
+  clause_t *result;
+  uint32_t i;
+
+  result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) +
+                                    len * sizeof(literal_t));
+
+  for (i=0; i<len; i++) {
+    result->cl[i] = lit[i];
+  }
+  result->cl[i] = end_clause; // end marker: not a learned clause
+
+  return result;
+}
+
 
 static int compare_lit(const void * a, const void * b) {
   return ( *(literal_t*)a - *(literal_t*)b );
@@ -2965,7 +3037,7 @@ static void z_simp1(sat_solver_t *sol) {
   // probably not the best idea
   for (size_t j=0; j<m; j++) {
     uint32_t cll = clause_length(vo[j]);
-    v[j] = new_clause(cll, vo[j]->cl);
+    v[j] = new_clause_old(cll, vo[j]->cl);
     qsort(v[j]->cl, cll, sizeof(literal_t), compare_lit);
   }
   //watch_lists_invalidate(sol);
@@ -2985,7 +3057,7 @@ static void z_simp1(sat_solver_t *sol) {
     }
   }
 
-  uint32_t oldi=i;
+  //uint32_t oldi=i;
   uint32_t nbd=0;
   for (; i<n; i+=2) {
     if(z_steps > limit) {
@@ -3009,7 +3081,7 @@ static void z_simp1(sat_solver_t *sol) {
     z_steps += z_steps_local + z_steps_local;
   }
 
-  fprintf(stderr, "[%u_%u-%u]", nbd, i-oldi, n);
+  //fprintf(stderr, "[%u_%u-%u]", nbd, i-oldi, n);
 
   if(i >= n) {
     z_r = 0;
@@ -3020,7 +3092,7 @@ static void z_simp1(sat_solver_t *sol) {
     if(is_clause_to_be_deleted(v[j])) {
       mark_for_deletion(sol, vo[j]);
     }
-    delete_clause(v[j]);
+    safe_free(v[j]);
   }
   free(v);
 
