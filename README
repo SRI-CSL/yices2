@@ -1,6 +1,6 @@
 ======================================================================
 
- The Yices SMT Solver. Copyright 2014 SRI International.
+ The Yices SMT Solver. Copyright 2015 SRI International.
 
  This program may only be used subject to the noncommercial end user
  license agreement which is downloadable along with this program.
@@ -14,9 +14,9 @@ CONTENT
 This distribution includes the source of Yices, documentation,
 tests, and examples.
 
-Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, at the
-Computer Science Laboratory, SRI International. To contact us, report
-a bug, or to get more information about Yices, please visit our
+Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian Mason
+at the Computer Science Laboratory, SRI International. To contact us,
+report a bug, or to get more information about Yices, please visit our
 website at http://yices.csl.sri.com.
 
 
@@ -70,6 +70,32 @@ We recommend compiling using Cygwin. If you want a version that works
 natively on Windows (i.e., does not depend on the Cygwin DLLs), you
 can compile from Cygwin using the MinGW cross-compilers. This is
 explained in doc/COMPILING.
+
+
+
+SUPPORT FOR NON-LINEAR ARITHMETIC
+---------------------------------
+
+This release has experimental support for non-linear real arithmetic,
+but it is not enabled by default. If you want non-linear arithmetic,
+follow these instructions:
+
+1) Install SRI's library for polynomial manipulation. It's available
+   on github (https://github.com/SRI-CSL/libpoly).
+
+2) After you've installed libpoly, try this in the toplevel Yices
+   directory:
+
+    autoconf
+    ./configure --enable-mcsat
+    make
+    sudo make install
+
+   You may need to provide LDFLAGS/CPPFLAGS if ./configure fails to
+   find the libpoly library. Other options may be useful too.  Try
+   ./configure --help to see what's there.
+
+
 
 
 DOCUMENTATION
