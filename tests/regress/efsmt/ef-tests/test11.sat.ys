@@ -1,0 +1,22 @@
+(set-param ef-max-iters 2049)
+(set-param ef-max-samples 0)
+(set-param ef-gen-mode projection)
+
+(define y::(bitvector 12))
+(assert
+  (forall (x0::(bitvector 12))
+    (or (/= (bit y 11) (bit (bv-add x0 x0) 11))
+        (/= (bit y 10) (bit (bv-add x0 x0) 10))
+        (/= (bit y 9) (bit (bv-add x0 x0) 9))
+        (/= (bit y 8) (bit (bv-add x0 x0) 8))
+        (/= (bit y 7) (bit (bv-add x0 x0) 7))
+        (/= (bit y 6) (bit (bv-add x0 x0) 6))
+        (/= (bit y 5) (bit (bv-add x0 x0) 5))
+        (/= (bit y 4) (bit (bv-add x0 x0) 4))
+        (/= (bit y 3) (bit (bv-add x0 x0) 3))
+        (/= (bit y 2) (bit (bv-add x0 x0) 2))
+        (/= (bit y 1) (bit (bv-add x0 x0) 1))
+        (/= (bit y 0) (bit (bv-add x0 x0) 0)))))
+
+(ef-solve)
+
