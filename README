@@ -63,16 +63,6 @@ You can change the installation location by giving option
 For more explanations, please check doc/COMPILING.
 
 
-WINDOWS BUILD
--------------
-
-We recommend compiling using Cygwin. If you want a version that works
-natively on Windows (i.e., does not depend on the Cygwin DLLs), you
-can compile from Cygwin using the MinGW cross-compilers. This is
-explained in doc/COMPILING.
-
-
-
 SUPPORT FOR NON-LINEAR ARITHMETIC
 ---------------------------------
 
@@ -96,6 +86,13 @@ follow these instructions:
    ./configure --help to see what's there.
 
 
+WINDOWS BUILDS
+--------------
+
+We recommend compiling using Cygwin. If you want a version that works
+natively on Windows (i.e., does not depend on the Cygwin DLLs), you
+can compile from Cygwin using the MinGW cross-compilers. This is
+explained in doc/COMPILING.
 
 
 DOCUMENTATION
