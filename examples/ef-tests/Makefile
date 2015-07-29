@@ -1,7 +1,7 @@
 #VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
 VALGRIND=
-YICES_SMT2=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2
-YICES_MAIN=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_main  --mode=ef
+YICES_SMT2=${VALGRIND} ../../build/x86_64-unknown-linux-gnu-debug/bin/yices_smt2
+YICES_MAIN=${VALGRIND} ../../build/x86_64-unknown-linux-gnu-debug/bin/yices_main  --mode=ef
 VERBOSITY=--verbosity=0
 
 BV_TESTS=test11.sat test11b.sat test11c.sat
