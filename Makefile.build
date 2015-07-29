@@ -416,8 +416,7 @@ static-tarfile: $(distributions) doc
 # configure script, and are imported from $(YICES_MAKE_INCLUDE).
 # These defaults can be changed by using 'make install prefix=...'
 #
-# We also (try to) support the DESTDIR convention (todo: fix the
-# ldconfig call if DESTDIR is non-null?)
+# We also (try to) support the DESTDIR convention.
 #
 # The reason we don't want to force compilation in 'make install' is
 # that we typically need to do 'sudo make install' but we don't want
@@ -435,6 +434,11 @@ install-default: $(build_dir) $(dist_dir)
 	$(INSTALL) $(dist_dir)/bin/* $(DESTDIR)$(bindir)
 	$(INSTALL) $(dist_dir)/lib/* $(DESTDIR)$(libdir)
 
+
+ifeq ($(DESTDIR),)
+#
+# DESTDIR is empty, we create symbolic links and run ldconfig as part of install
+#
 install-darwin: install-default
 	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
 
@@ -447,6 +451,14 @@ install-linux install-unix: install-default
 # on FreeBSD: the library file is libyices.so.X.Y and ldconfig does not take -n
 install-freebsd: install-default
 	$(LDCONFIG) -m $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
+
+else
+#
+# DESTDIR is non-empty: skip the symbolic links and ldconfig
+#
+install-darwin install-solaris install-linux install-unix install-freebsd: install-default
+ 
+endif
 
 
 #
