@@ -394,51 +394,6 @@ enum {
   generic_tag = 3,
 };
 
-static inline uint32_t antecedent_tag(antecedent_t a) {
-  return a & 0x3;
-}
-
-static inline literal_t literal_antecedent(antecedent_t a) {
-  return (literal_t) (a>>2);
-}
-
-static inline clause_t *clause_antecedent(antecedent_t a) {
-  return (clause_t *) (a & ~((size_t) 0x3));
-}
-
-// clause index: 0 or 1, low order bit of a
-static inline uint32_t clause_index(antecedent_t a) {
-  return (uint32_t) (a & 0x1);
-}
-
-static inline void *generic_antecedent(antecedent_t a) {
-  return (void *) (a & ~((size_t) 0x3));
-}
-
-static inline antecedent_t mk_literal_antecedent(literal_t l) {
-  return (((size_t) l) << 2) | literal_tag;
-}
-
-static inline antecedent_t mk_clause0_antecedent(clause_t *cl) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | clause0_tag;
-}
-
-static inline antecedent_t mk_clause1_antecedent(clause_t *cl) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | clause1_tag;
-}
-
-static inline antecedent_t mk_clause_antecedent(clause_t *cl, int32_t index) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | (index & 1);
-}
-
-static inline antecedent_t mk_generic_antecedent(void *g) {
-  assert((((size_t) g) & 0x3) == 0);
-  return ((size_t) g) | generic_tag;
-}
-
 
 
 /*
@@ -505,6 +460,14 @@ typedef struct sat_solver_s {
   uint32_t nb_clauses;        // Number of clauses with at least 3 literals
   uint32_t nb_unit_clauses;   // Number of unit clauses
   uint32_t nb_bin_clauses;    // Number of binary clauses
+  
+  /* Clause database */
+  void *clause_base_pointer;
+  uint64_t clause_pool_size;
+  uint64_t clause_pool_deleted;
+  uint64_t clause_pool_capacity;
+  clause_t **problem_clauses;
+  clause_t **learned_clauses;
 
   /* Activity increments and decays for learned clauses */
   float cla_inc;              // Clause activity increment
@@ -524,13 +487,6 @@ typedef struct sat_solver_s {
 
   /* Statistics */
   solver_stats_t stats;
-
-  /* Clause database */
-  void *clause_base_pointer;
-  uint32_t clause_pool_size;
-  uint32_t clause_pool_capacity;
-  clause_t **problem_clauses;
-  clause_t **learned_clauses;
 
   /* Variable-indexed arrays */
   antecedent_t *antecedent;
@@ -560,7 +516,6 @@ typedef struct sat_solver_s {
   /* Sorter: used in deletion of learned clauses */
   stable_sorter_t sorter;
 } sat_solver_t;
-
 
 
 

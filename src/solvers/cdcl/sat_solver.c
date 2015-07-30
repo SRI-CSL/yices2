@@ -10,6 +10,36 @@
  *
  * Mostly based on Minisat but with different data structures.
  */
+ 
+ 
+ //TODO:Temporary -- debugging is funnier with colours
+     #define COLORS
+     #ifdef COLORS
+        #define KRST "\x1B[00m"
+        #define KBLD "\x1B[1m"
+        #define KITC "\x1B[3m"
+        #define KBLK "\x1B[5m"
+        #define KRED "\x1B[31m"
+        #define KGRN "\x1B[32m"
+        #define KYLW "\x1B[33m"
+        #define KBLU "\x1B[34m"
+        #define KMAJ "\x1B[35m"
+        #define KCYN "\x1B[36m"
+        #define KWHT "\x1B[37m"
+    #else
+        #define KRST ""
+        #define KBLD ""
+        #define KBLK ""
+        #define KRED ""
+        #define KGRN ""
+        #define KYLW ""
+        #define KBLU ""
+        #define KMAJ ""
+        #define KCYN ""
+        #define KWHT ""
+    #endif
+
+
 
 #define DEBUG 0
 #define TRACE 0
@@ -223,6 +253,60 @@ static inline literal_t watch_lit_of(watch_block_t block) {
 
 
 
+/*****************
+ *  ANTECEDENTS  *
+ *****************/
+
+static inline uint32_t antecedent_tag(antecedent_t a) {
+  return a & 0x3;
+}
+
+static inline literal_t literal_antecedent(antecedent_t a) {
+  return (literal_t) (a>>2);
+}
+
+static inline clause_t *clause_antecedent(sat_solver_t *sol, antecedent_t a) {
+  return (clause_t *) clause_of_idx(sol, (clause_idx_t) (a & ~((size_t) 0x3)));
+}
+
+// clause index: 0 or 1, low order bit of a
+static inline uint32_t clause_index(antecedent_t a) {
+  return (uint32_t) (a & 0x1);
+}
+
+static inline void *generic_antecedent(antecedent_t a) {
+  return (void *) (a & ~((size_t) 0x3));
+}
+
+static inline antecedent_t mk_literal_antecedent(literal_t l) {
+  return (((size_t) l) << 2) | literal_tag;
+}
+
+static inline antecedent_t mk_clause0_antecedent(sat_solver_t *sol, clause_t *cl) {
+  clause_idx_t cli = idx_of_clause(sol, cl);
+  assert((((size_t) cli) & 0x3) == 0);
+  return ((size_t) cli) | clause0_tag;
+}
+
+static inline antecedent_t mk_clause1_antecedent(sat_solver_t *sol, clause_t *cl) {
+  clause_idx_t cli = idx_of_clause(sol, cl);
+  assert((((size_t) cli) & 0x3) == 0);
+  return ((size_t) cli) | clause1_tag;
+}
+
+static inline antecedent_t mk_clause_antecedent(sat_solver_t *sol, clause_t *cl, int32_t index) {
+  clause_idx_t cli = idx_of_clause(sol, cl);
+  assert((((size_t) cli) & 0x3) == 0);
+  return ((size_t) cli) | (index & 1);
+}
+
+static inline antecedent_t mk_generic_antecedent(void *g) {
+  assert((((size_t) g) & 0x3) == 0);
+  return ((size_t) g) | generic_tag;
+}
+
+
+
 /*******************************
  * CLAUSES AND LEARNED CLAUSES *
  *******************************/
@@ -317,14 +401,15 @@ static uint32_t clause_length(const clause_t *cl) {
 
 //TODO
 static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli) {
+  assert(cli < sol->clause_pool_size);
   return (clause_t *) ((char *)sol->clause_base_pointer + cli);
 }
 
 static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
   assert((size_t)sol->clause_base_pointer < (size_t)cl);
-  clause_idx_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
+  size_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
   assert(diff < UINT32_MAX);
-  clause_idx_t cli = diff;
+  clause_idx_t cli = (clause_idx_t) diff;
   return cli;
 }
 
@@ -332,38 +417,140 @@ static inline learned_clause_t *learned_clause_of_idx(sat_solver_t *sol, clause_
   return (learned_clause_t *) ((char *)sol->clause_base_pointer + cl);
 }
 
-static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len) {
+typedef enum clause_type {
+  type_problem_clause = 0,
+  type_learned_clause = 1,
+} clause_type_t;
+
+typedef struct clause_malloc_s {
+  uint8_t deleted;
+  uint8_t type;
+  uint16_t len;
+  int clause[0];
+} clause_malloc_t;
+
+static inline clause_malloc_t *clause_malloc_block(void *cl) {
+  return (clause_malloc_t *)(((char *)cl) - offsetof(clause_malloc_t, clause));
+}
+
+static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len, clause_type_t learned) {
   assert((clause_len & 0b11) == 0);
-  uint32_t len = (uint32_t) sizeof(uint32_t) + (uint32_t) clause_len;
-  //TODO : check overflow;
+  uint64_t len = offsetof(clause_malloc_t, clause) + clause_len;
   if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-    sol->clause_pool_capacity += sol->clause_pool_capacity >> 1;
+    sol->clause_pool_capacity += sol->clause_pool_capacity;
     if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
       sol->clause_pool_capacity = sol->clause_pool_size + len;
     }
+    
+    /* Overflow check */
+    if(sol->clause_pool_capacity > 0x100000000) {
+      sol->clause_pool_capacity = 0x100000000;
+      if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+        out_of_memory();
+      }
+    }
+
+    #if 0
     //TODO:TEMPORARY
-    sol->clause_pool_capacity = 0x20000000; //512Mo
+    sol->clause_pool_capacity = 0x80000000; //2Go
     if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-      printf("NOMEM!!!\n");
+      fprintf(stderr, "NOMEM!!!\n");
       exit(1);
     }
+    #endif
+    
+    void *old_clause_base_pointer = sol->clause_base_pointer;    
     sol->clause_base_pointer = safe_realloc(sol->clause_base_pointer, sol->clause_pool_capacity);
+    
+    
+    //fprintf(stderr, KCYN "{%08zx %08zx %lu}\n" KRST, (size_t) old_clause_base_pointer, (size_t) sol->clause_base_pointer, sol->clause_pool_capacity/1024);
+    
+    /* Fix clause pointers */
+    clause_t **v = sol->problem_clauses;
+    uint32_t n = get_cv_size(v);
+    for (uint32_t i=0; i<n; i++) {
+      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
+    }
+    v = sol->learned_clauses;
+    n = get_cv_size(v);
+    for (uint32_t i=0; i<n; i++) {
+      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
+    }  
   }
   
-  clause_idx_t idx = sol->clause_pool_size;
-  
+  clause_idx_t idx = (clause_idx_t) sol->clause_pool_size;
+  assert((idx & 0b11) == 0);
+
+  //fprintf(stderr, "&" KCYN "%lu" KRST "-" KRED "%lu" KRST, sol->clause_pool_size/4, sol->clause_pool_size/4+len/4);
   sol->clause_pool_size += len;
   
-  uint32_t * result = (uint32_t *) ((char *)sol->clause_base_pointer + idx);
-  result[0] = len;
-  assert((idx & 0b11) == 0);
-  return idx + 4U;
-  clause_of_idx(sol, idx + 4);
+  clause_malloc_t * block = (clause_malloc_t *) ((char *)sol->clause_base_pointer + idx);
+  block->deleted = 0;
+  block->type = (uint8_t) learned;
+  if(len > UINT16_MAX) {
+    out_of_memory();
+  }
+  block->len = (uint16_t)len;
+  
+  return idx + (clause_idx_t) offsetof(clause_malloc_t, clause);
 }
 
-static void clause_free(void *cl) {
-  uint32_t *block = (uint32_t *) cl;
-  block[-1] = 0;
+static void clause_free(sat_solver_t *sol, void *cl) {
+  clause_malloc_t *block = clause_malloc_block(cl);
+  assert(block->deleted == 0);
+  block->deleted = 1;
+  sol->clause_pool_deleted += block->len;
+}
+
+
+static void shrink_clause_pool(sat_solver_t *sol) {
+  uint32_t *p = sol->clause_base_pointer;
+  //TODO: Do DPI and make the block len smaller if the clause was shrinked  
+
+  /* Shrink the pool */
+  /* Correct problem&learned clauses offsets */
+  assert((offsetof(clause_malloc_t,  clause) & 0b11UL) == 0UL);
+  assert((offsetof(learned_clause_t, clause) & 0b11UL) == 0UL);
+  uint32_t size = (uint32_t) sol->clause_pool_size/4;
+  clause_idx_t i = 0;
+  clause_idx_t j = 0;
+  clause_t **pv = sol->problem_clauses;
+  clause_t **lv = sol->learned_clauses;
+  uint32_t pk=0;
+  uint32_t lk=0;
+  
+  while(i < size) {
+    //fprintf(stderr, "$" KGRN "%u" KRST "-" KBLD KYLW "%u" KRST, i, j);
+    clause_malloc_t *q = (clause_malloc_t *) (p + i);
+    assert(q->len > 3);
+    if(q->deleted == 1) {
+      //fprintf(stderr, KBLD KBLU "@" KRST);
+      i += (clause_idx_t) (q->len/4) ;
+    } else {
+      uint32_t limit = (uint32_t) (q->len/4);
+      if(q->type == type_problem_clause) {
+        assert(idx_of_clause(sol, pv[pk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
+        pv[pk++] = clause_of_idx(sol, 4*j + (clause_idx_t) offsetof(clause_malloc_t, clause));
+      } else {
+        //fprintf(stderr, KBLD KRED "!%d" KRST, q->type);
+        assert(q->type == type_learned_clause);
+        #if 0
+        /* Learned clauses are sorted. Cannot assert this */
+        assert(idx_of_clause(sol, lv[lk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
+        #endif
+        lv[lk++] = clause_of_idx(sol, 4*j + (clause_idx_t) (offsetof(clause_malloc_t, clause) + offsetof(learned_clause_t, clause)));
+      }
+      for(uint32_t k=0; k < limit; k++) {
+        p[j++] = p[i++];
+      }
+    }
+  }
+  assert(get_cv_size(pv) == pk);
+  assert(get_cv_size(lv) == lk);
+  sol->clause_pool_size = 4*j;
+  sol->clause_pool_deleted = 0;
+  watch_lists_invalidate(sol);
+  //fprintf(stderr, KBLD KRED "*%lu" KRST, sol->clause_pool_size/4);
 }
 
 
@@ -375,7 +562,7 @@ static void clause_free(void *cl) {
  */
 static clause_idx_t new_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) {
   clause_idx_t result = clause_malloc(sol, sizeof(clause_t) + sizeof(literal_t) + 
-                                           len * sizeof(literal_t));
+                                           len * sizeof(literal_t), type_problem_clause);
   clause_t *res = clause_of_idx(sol, result);
   uint32_t i;
   for (i=0; i<len; i++) {
@@ -391,8 +578,8 @@ static clause_idx_t new_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) 
  * Delete clause cl
  * cl must be a non-learned clause, allocated via the previous function.
  */
-static inline void delete_clause(clause_t *cl) {
-  clause_free(cl);
+static inline void delete_clause(sat_solver_t *sol, clause_t *cl) {
+  clause_free(sol, cl);
 }
 
 
@@ -405,7 +592,7 @@ static inline void delete_clause(clause_t *cl) {
  */
 static clause_idx_t new_learned_clause(sat_solver_t *sol, uint32_t len, const literal_t *lit) {
   clause_idx_t tmp_idx = clause_malloc(sol, sizeof(learned_clause_t) + sizeof(literal_t) +
-                                         len * sizeof(literal_t));
+                                         len * sizeof(literal_t), type_learned_clause);
   learned_clause_t *tmp = learned_clause_of_idx(sol, tmp_idx);
   tmp->activity = 0.0;
   clause_t *result = &(tmp->clause);
@@ -416,7 +603,7 @@ static clause_idx_t new_learned_clause(sat_solver_t *sol, uint32_t len, const li
   }
   result->cl[i] = end_learned; // end marker: learned clause
 
-  return tmp_idx + sizeof(learned_clause_t);
+  return tmp_idx + (clause_idx_t) sizeof(learned_clause_t);
 }
 
 
@@ -424,8 +611,8 @@ static clause_idx_t new_learned_clause(sat_solver_t *sol, uint32_t len, const li
  * Delete learned clause cl
  * cl must have been allocated via the new_learned_clause function
  */
-static inline void delete_learned_clause(clause_t *cl) {
-  clause_free(learned(cl));
+static inline void delete_learned_clause(sat_solver_t *sol, clause_t *cl) {
+  clause_free(sol, learned(cl));
 }
 
 
@@ -1150,6 +1337,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   // Clause database
   solver->clause_base_pointer = NULL;
   solver->clause_pool_size = 0U;
+  solver->clause_pool_deleted = 0U;
   solver->clause_pool_capacity = 0U;
   solver->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
@@ -1205,7 +1393,7 @@ void delete_sat_solver(sat_solver_t *solver) {
   cl = solver->problem_clauses;
   n = get_cv_size(cl);
   for (i=0; i<n; i++) {
-    delete_clause(cl[i]);
+    delete_clause(solver, cl[i]);
   }
   delete_clause_vector(cl);
 
@@ -1215,10 +1403,10 @@ void delete_sat_solver(sat_solver_t *solver) {
 #if INSTRUMENT_CLAUSES
     learned_clause_deletion(solver, cl[i]);
 #endif
-    delete_learned_clause(cl[i]);
+    delete_learned_clause(solver, cl[i]);
   }
   delete_clause_vector(cl);
-
+  safe_free(solver->clause_base_pointer);
 
   // var-indexed arrays
   safe_free(solver->antecedent);
@@ -1618,9 +1806,9 @@ static bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
   l1 = get_second_watch(cl);
 
   return (lit_is_assigned(solver, l0) &&
-          solver->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
+          solver->antecedent[var_of(l0)] == mk_clause0_antecedent(solver, cl))
     || (lit_is_assigned(solver, l1) &&
-          solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
+          solver->antecedent[var_of(l1)] == mk_clause1_antecedent(solver, cl));
 }
 
 
@@ -1640,7 +1828,7 @@ static void delete_learned_clauses(sat_solver_t *solver) {
       #if INSTRUMENT_CLAUSES
       learned_clause_deletion(solver, v[i]);
       #endif
-      delete_learned_clause(v[i]);
+      delete_learned_clause(solver, v[i]);
     } else {
       solver->stats.learned_literals += clause_length(v[i]);
       v[j] = v[i];
@@ -1712,7 +1900,7 @@ static void delete_problem_clauses(sat_solver_t *solver) {
   uint32_t j = 0;
   for (uint32_t i = 0; i<n; i++) {
     if (is_clause_to_be_deleted(v[i])) {
-      delete_clause(v[i]);
+      delete_clause(solver, v[i]);
     } else {
       v[j] = v[i];
       j ++;
@@ -2018,7 +2206,7 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, literal_t l0, 
            */
           if (is_unassigned_val(v1)) {
             // l1 is implied
-            implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
+            implied_literal(sol, l1, mk_clause_antecedent(sol, cl, i^1));
 
             #if INSTRUMENT_CLAUSES
             if (l == end_learned) {
@@ -2209,7 +2397,7 @@ static bool analyze_antecedents(sat_solver_t *sol, literal_t l, uint32_t sgn) {
   switch (antecedent_tag(a)) {
   case clause0_tag:
   case clause1_tag:
-    c = clause_antecedent(a)->cl;
+    c = clause_antecedent(sol, a)->cl;
     i = clause_index(a);
     // other watched literal
     assert(c[i] == not(l));
@@ -2467,7 +2655,7 @@ static void analyze_conflict(sat_solver_t *sol) {
         switch (antecedent_tag(a)) {
         case clause0_tag:
         case clause1_tag:
-          cl = clause_antecedent(a);
+          cl = clause_antecedent(sol, a);
           i = clause_index(a);
           c = cl->cl;
           assert(c[i] == b);
@@ -2785,7 +2973,7 @@ static inline void deal_conflict(sat_solver_t *sol) {
   /* Add the learned clause and set the implied literal (UIP) */
   if (n >= 3) {
     clause_t *cl = add_learned_clause(sol, n, b);
-    implied_literal(sol, l, mk_clause0_antecedent(cl));
+    implied_literal(sol, l, mk_clause0_antecedent(sol, cl));
 #if INSTRUMENT_CLAUSES
     // EXPERIMENTAL
     learned_clause_prop(sol, cl);
@@ -2918,8 +3106,11 @@ static void report_status(sat_solver_t *sol, uint32_t threshold, bool verbose) {
 #if ZMAGIC
 //TODO : move && comment so it does not looks like it is some dark magic
 static uint64_t z_steps = 0;
+
+//Simplifications to do
 static uint32_t z_r = 1;
 
+// If returns 0, resolvant is trivially true
 static int z_resolve(const clause_t *cl1, const literal_t l, const clause_t *cl2) {
   const literal_t *b1 = cl1->cl;
   const literal_t *b2 = cl2->cl;
@@ -3011,12 +3202,107 @@ static int z_simp2b(const z_corr_t *w, literal_t l, const clause_t *cl) {
   return 1;
 }
 
+static int inprocessing_subsume(const z_corr_t *w, literal_t l, const clause_t *cl) {
+  return 0;
+}
 
-static void z_simp1(sat_solver_t *sol) {
+static uint32_t inprocessing_bce(sat_solver_t *sol, z_corr_t *occ, uint64_t limit) {
+  static uint32_t i=0;
+  //uint32_t oldi=i;
+  uint32_t n = sol->nb_lits;
+  uint32_t nb_deleted=0;
+  for (; i<n; i+=2) {
+    if(z_steps > limit) {
+      //fprintf(stderr, "/");
+      break;
+    }
+
+    z_list_t *z = occ[i].list;
+    uint64_t z_steps_local = 0;
+    while(z != NULL) {
+      if( (!is_clause_to_be_deleted(z->cl)) && (z->cl->cl[2] >= 0) ) {
+        if(z_simp2b(occ, i, z->cl)) {
+          mark_for_deletion(sol, z->cl);
+          //fprintf(stderr, "=");
+          nb_deleted++;
+        }
+      }
+      z = z->next;
+      z_steps_local++;
+    }
+    z_steps += z_steps_local + z_steps_local;
+  }
+
+  //fprintf(stderr, "[%u_%u-%u]", nbd, i-oldi, n);
+
+  if(i >= n) {
+    z_r &= ~1;
+    i -= n;
+    i ^= 1U;    
+    assert(i <= 1);
+  }
+
+  return nb_deleted;
+}
+
+static uint32_t inprocessing_plr(sat_solver_t *sol, z_corr_t *occ) {
+  uint32_t n = sol->nb_lits;
+  uint32_t nb_deleted=0;
+  for (uint32_t l=0; l<n; l+=2) {
+    z_list_t *z  = occ[l].list;
+    z_list_t *zn = occ[not(l)].list;
+    if(z != NULL && zn != NULL) {
+      continue;
+    }
+    if(z == NULL && zn == NULL) {
+      continue;
+    }
+    if(z == NULL) {
+      z = zn;
+      l = not(l);
+    }
+    assert(z != NULL);
+    assign_literal(sol, l);
+    while(z != NULL) {
+      if(!is_clause_to_be_deleted(z->cl)) {
+        mark_for_deletion(sol, z->cl);
+        //fprintf(stderr, "=");
+        nb_deleted++;
+      }
+      z = z->next;
+    }
+  }
+  //fprintf(stderr, "&%u|", nb_deleted);
+
+  return nb_deleted;
+}
+
+static uint32_t inprocessing_sub(sat_solver_t *sol, z_corr_t *occ, uint64_t limit) {
+  uint32_t n = sol->nb_lits;
+  uint32_t nb_deleted=0;
+  for (uint32_t l=0; l<n; l++) {
+    z_list_t *z  = occ[l].list;
+    while(z != NULL) {
+      if(!is_clause_to_be_deleted(z->cl)) {
+        if(inprocessing_subsume(occ, l, z->cl)) {
+          mark_for_deletion(sol, z->cl);
+          //fprintf(stderr, "=");
+          nb_deleted++;
+        }
+      }
+      z = z->next;
+    }
+  }
+  fprintf(stderr, "&%u|", nb_deleted);
+
+  return nb_deleted;
+}
+
+static void inprocessing(sat_solver_t *sol) {
   //fprintf(stderr, "S");
   uint64_t limit = sol->stats.propagations >> 2;
   uint32_t n = sol->nb_lits;
-  static uint32_t i=0;
+  
 
   if(z_r == 0) {
     return;
@@ -3029,6 +3315,7 @@ static void z_simp1(sat_solver_t *sol) {
   /* sorting + z_corr creation + z_corr free */
   z_steps += 3 * sol->stats.prob_literals;
 
+  //Build occurences lists
   clause_t **vo = sol->problem_clauses;
 
   uint32_t m = get_cv_size(vo);
@@ -3040,7 +3327,6 @@ static void z_simp1(sat_solver_t *sol) {
     v[j] = new_clause_old(cll, vo[j]->cl);
     qsort(v[j]->cl, cll, sizeof(literal_t), compare_lit);
   }
-  //watch_lists_invalidate(sol);
 
   z_corr_t *w = safe_malloc(n*sizeof(clause_t *));
   for (uint32_t j=0; j<n; j++) {
@@ -3057,37 +3343,24 @@ static void z_simp1(sat_solver_t *sol) {
     }
   }
 
-  //uint32_t oldi=i;
-  uint32_t nbd=0;
-  for (; i<n; i+=2) {
-    if(z_steps > limit) {
-      //fprintf(stderr, "/");
-      break;
-    }
-
-    z_list_t *z = w[i].list;
-    uint64_t z_steps_local = 0;
-    while(z != NULL) {
-      if( (!is_clause_to_be_deleted(z->cl)) && (clause_length(z->cl) > 2) ) {
-        if(z_simp2b(w, i, z->cl)) {
-          mark_for_deletion(sol, z->cl);
-          //fprintf(stderr, "=");
-          nbd++;
-        }
-      }
-      z = z->next;
-      z_steps_local++;
-    }
-    z_steps += z_steps_local + z_steps_local;
+  uint32_t nb_deleted = 0;
+  
+  if(z_r & 1) {
+    nb_deleted += inprocessing_bce(sol, w, limit);
   }
-
-  //fprintf(stderr, "[%u_%u-%u]", nbd, i-oldi, n);
-
-  if(i >= n) {
-    z_r = 0;
-    i = 0;
+  
+  if(z_r & 2) {
+    nb_deleted += inprocessing_plr(sol, w);
+    z_r &= ~2;
+    z_steps += n; 
   }
-
+  
+  if(z_r & 4) {
+    assert(0);
+    nb_deleted += inprocessing_sub(sol, w, limit);
+  }
+  
+  
   for (size_t j=0; j<m; j++) {
     if(is_clause_to_be_deleted(v[j])) {
       mark_for_deletion(sol, vo[j]);
@@ -3096,7 +3369,7 @@ static void z_simp1(sat_solver_t *sol) {
   }
   free(v);
 
-  if(nbd > 0) {
+  if(nb_deleted > 0) {
     delete_problem_clauses(sol);
   }
 
@@ -3200,7 +3473,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
           simplify_clause_database(sol);
 
           #if ZMAGIC
-          z_r = 1; //TODO
+          z_r |= 0b11; //TODO
           #endif
 
           sol->simplify_bottom = sol->stack.top;
@@ -3209,8 +3482,11 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
         }
       } else {
         #if ZMAGIC
-        if(1) z_simp1(sol);
+        if(1) inprocessing(sol);
         #endif
+        if(sol->clause_pool_deleted * 4U > sol->clause_pool_size) {
+          shrink_clause_pool(sol);
+        }
       }
     }
 
