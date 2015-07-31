@@ -12,8 +12,6 @@
 #include <inttypes.h>
 
 #include "solvers/cdcl/smt_core_printer.h"
-#include "utils/int_array_sort.h"
-#include "utils/int_vectors.h"
 
 
 static const char * const bval2string[] = {
