@@ -575,10 +575,20 @@ AC_MSG_CHECKING([whether $1 is usable])
 #
 AC_RUN_IFELSE(
 [AC_LANG_PROGRAM([[
-#include <poly/poly.h>
+#include <poly/variable_db.h>
+#include <poly/variable_order.h>
+#include <poly/polynomial_context.h>
+#include <poly/polynomial.h>
 ]],
 [[
-lp_init();
+lp_variable_db_t* var_db = lp_variable_db_new();
+lp_variable_order_t* var_order = lp_variable_order_new();
+lp_polynomial_context_t* ctx = lp_polynomial_context_new(lp_Z, var_db, var_order);
+lp_polynomial_t* p = lp_polynomial_new(ctx);
+lp_polynomial_delete(p);
+lp_polynomial_context_detach(ctx);
+lp_variable_order_detach(var_order);
+lp_variable_db_detach(var_db);
 ]])
 
 ],run_ok=yes,run_ok=no,run_ok=no)
@@ -752,7 +762,7 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 # Default libpoly
 #
 if test $use_mcsat = yes ; then 
-   AC_CHECK_LIB([poly],[lp_init], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
+   AC_CHECK_LIB([poly],[lp_polynomial_new], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
 fi
 
 #
