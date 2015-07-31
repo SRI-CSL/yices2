@@ -12,6 +12,8 @@
 #include <inttypes.h>
 
 #include "solvers/cdcl/smt_core_printer.h"
+#include "utils/int_array_sort.h"
+#include "utils/int_vectors.h"
 
 
 static const char * const bval2string[] = {
@@ -84,6 +86,7 @@ void print_literal(FILE *f, literal_t l) {
   }
 }
 
+
 /*
  * Clause
  */
@@ -129,6 +132,7 @@ void print_clause(FILE *f, clause_t *cl) {
 }
 
 
+
 /*
  * Print unit clauses = all the literals in core->stack[0 .. core->nb_units-1]
  */
@@ -167,6 +171,39 @@ void print_litarray(FILE *f, uint32_t n, literal_t *a) {
   }
   fputc('}', f);
 }
+
+
+#if 0
+/*
+ * Variant of print_clause: sort the literals first
+ */
+void print_clause_sorted(FILE *f, clause_t *cl) {
+  ivector_t v;
+  uint32_t i;
+  literal_t l;
+
+  init_ivector(&v, 10);
+
+  if (cl->cl[0] < 0 || cl->cl[1] < 0) {
+    ivector_push(&v, - cl->cl[0]);
+    ivector_push(&v, - cl->cl[1]);
+  } else {
+    ivector_push(&v, cl->cl[0]);
+    ivector_push(&v, cl->cl[1]);
+  }
+  i = 2;
+  l = cl->cl[i];
+  while (l >= 0) {
+    ivector_push(&v, l);
+    i ++;
+    l = cl->cl[i];
+  }
+  int_array_sort(v.data, v.size);
+  print_litarray(f, v.size, v.data);
+
+  delete_ivector(&v);      
+}
+#endif
 
 
 /*

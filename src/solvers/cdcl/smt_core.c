@@ -779,6 +779,7 @@ static void rescale_var_activities(var_heap_t *heap, uint32_t n) {
 }
 
 
+
 /*****************
  *  TRAIL STACK  *
  ****************/
@@ -1969,6 +1970,7 @@ static void assign_literal(smt_core_t *s, literal_t l) {
   printf("---> DPLL:   Assigning literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
 #endif
   assert(0 <= l && l < s->nlits);
   assert(literal_is_unassigned(s, l));
@@ -2023,6 +2025,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   printf("\n---> DPLL:   Decision: literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
 #endif
 }
 
@@ -2041,6 +2044,7 @@ static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   printf("---> DPLL:   Implied literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
 #endif
 
   s->stats.propagations ++;
@@ -2070,6 +2074,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   printf("---> DPLL:   Theory prop ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
 #endif
 
   s->stats.propagations ++;
@@ -2296,6 +2301,7 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
 
 #if TRACE
   printf("---> DPLL:   Backtracking to level %"PRIu32"\n\n", back_level);
+  fflush(stdout);
 #endif
 
   assert(s->base_level <= back_level && back_level < s->decision_level);
@@ -2361,6 +2367,7 @@ static void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
   printf(", ");
   print_literal(stdout, l1);
   printf("}\n");
+  fflush(stdout);
 #endif
 
   assert(! s->theory_conflict);
@@ -2394,6 +2401,7 @@ static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
     ll = cl->cl[i];
   }
   printf("}\n");
+  fflush(stdout);
 #endif
 
   assert(! s->theory_conflict);
@@ -2430,6 +2438,7 @@ void record_theory_conflict(smt_core_t *s, literal_t *a) {
   }
   printf("}\n");
 #endif
+  fflush(stdout);
 
 #if DEBUG
   check_theory_conflict(s, a);
@@ -2808,6 +2817,7 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
   printf(" ");
   print_literal(stdout, l2);
   printf(" }\n");
+  fflush(stdout);
 #endif
 
   add_literal_to_vector(s->bin + l1, l2);
@@ -2843,6 +2853,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     print_literal(stdout, a[i]);
   }
   printf(" }\n\n");
+  fflush(stdout);
 #endif
 
   l0 = a[0];
@@ -2861,6 +2872,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
       printf("---> DPLL:   Add learned unit clause: { ");
       print_literal(stdout, l0);
       printf(" }\n");
+      fflush(stdout);
 #endif
       assign_literal(s, l0);
       s->nb_unit_clauses ++;
@@ -2943,6 +2955,7 @@ static bool try_cache_theory_clause(smt_core_t *s, uint32_t n, literal_t *a) {
       printf(" ");
       print_literal(stdout, a[1]);
       printf(" }\n");
+      fflush(stdout);
 #endif
       return true;
     }
@@ -2986,6 +2999,7 @@ static bool try_cache_theory_clause(smt_core_t *s, uint32_t n, literal_t *a) {
       print_literal(stdout, a[i]);
     }
     printf(" }\n");
+    fflush(stdout);
 #endif
 
     // create the new clause with l0 and l1 as watched literals
@@ -3283,6 +3297,7 @@ static void simplify_learned_clause(smt_core_t *s) {
     print_literal(stdout, b[i]);
   }
   printf(" }\n");
+  fflush(stdout);
 #endif
 
   // remove the subsumed literals
@@ -3636,6 +3651,7 @@ static clause_t *new_problem_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     print_literal(stdout, a[i]);
   }
   printf(" }\n");
+  fflush(stdout);
 #endif
 
   cl = new_clause(n, a);
@@ -3665,6 +3681,7 @@ static void add_simplified_unit_clause(smt_core_t *s, literal_t l) {
   printf("---> DPLL:   Add unit clause: { ");
   print_literal(stdout, l);
   printf(" }\n");
+  fflush(stdout);
 #endif
 
   if (s->inconsistent && s->decision_level > s->base_level) {
@@ -3940,6 +3957,7 @@ static void record_empty_conflict(smt_core_t *s) {
 
 #if TRACE
   printf("---> DPLL:   Add empty clause: {}\n");
+  fflush(stdout);
 #endif
   s->inconsistent = true;
   s->conflict_buffer[0] = end_clause;
@@ -3975,6 +3993,7 @@ void add_unit_clause(smt_core_t *s, literal_t l) {
   printf("---> DPLL:   Add unit clause: { ");
   print_literal(stdout, l);
   printf(" }\n");
+  fflush(stdout);
 #endif
 
   assert(0 <= l && l < s->nlits);
@@ -4026,6 +4045,7 @@ void add_clause_unsafe(smt_core_t *s, uint32_t n, literal_t *a) {
 #if TRACE
   else {
     printf("---> DPLL:   Skipped true clause\n");
+    fflush(stdout);
   }
 #endif
 }
@@ -4069,6 +4089,7 @@ void add_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 #if TRACE
   else {
     printf("---> DPLL:   Skipped true clause\n");
+    fflush(stdout);
   }
 #endif
 
@@ -4141,6 +4162,7 @@ static void add_lemma(smt_core_t *s, uint32_t n, literal_t *a) {
 #if TRACE
   else {
     printf("---> DPLL:   Skipped true lemma\n");
+    fflush(stdout);
   }
 #endif
 

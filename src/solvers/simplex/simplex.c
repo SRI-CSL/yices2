@@ -2582,8 +2582,12 @@ static void add_eq_or_diseq_axiom(simplex_solver_t *solver, bool tt) {
         printf("---> adding clause: ");
         print_binary_clause(stdout, not(l1), not(l2));
         printf("\n");
-        print_simplex_atomdef(stdout, solver, var_of(l1));
-        print_simplex_atomdef(stdout, solver, var_of(l2));
+	if (var_of(l1) != const_bvar) {
+	  print_simplex_atomdef(stdout, solver, var_of(l1));
+	}
+	if (var_of(l2) != const_bvar) {
+	  print_simplex_atomdef(stdout, solver, var_of(l2));
+	}
 #endif
 
     } else if (l == true_literal) {
@@ -5638,7 +5642,7 @@ static bool better_bound(xrational_t *b1, xrational_t *b2, bool lower) {
 
 
 /*
- * Computes a derived bound on variable x and asserts its if it's better than the current bound on x
+ * Computes a derived bound on variable x and asserts it if it's better than the current bound on x
  * - if lower is true, this attempts to add a lower bound
  * - if lower is false, this attempts to add an upper bound.
  * - returns false if the new bound causes a conflict (and adds a theory conflict in the core)
@@ -7953,8 +7957,16 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_print(stdout, aux);
       printf("\n");
 #endif
+      /*
+       * Antecedents for the new bound:
+       * - we have (x >= Current bound) AND (x = B + P * some integer) => (x >= New bound)
+       * - and fixed vars => (x = B + P * some integer)
+       * So the antecendents for the new bounds are
+       * - the antecedents for the fixed vars + the current bound
+       */
       collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       antecedents_ready = true;
+      ivector_push(antecedents, k); // index for (x >= current bound)
       xq_set_q(bound, aux);
       ok = simplex_add_derived_lower_bound(solver, x, bound, antecedents);
 
@@ -7967,10 +7979,15 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       fflush(stdout);
 
 #endif
-
+      /*
+       * cleanup the antecedents vector: we want to remove the index k
+       * since the vector may be used again if we can strengthen the
+       * upper bound on x
+       */
+      ivector_pop(antecedents); 
       if (! ok) goto done;
-    }
-    
+
+    }    
   }
 
   k = arith_var_upper_index(&solver->vtbl, x);
@@ -8018,9 +8035,16 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_print(stdout, aux);
       printf("\n");
 #endif
+
+      /*
+       * As above: antecedents for the derived bounds = current bound +
+       * antecedents for the fixed variables.
+       */
       if (!antecedents_ready) {
 	collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       }
+      ivector_push(antecedents, k);
+
       xq_set_q(bound, aux);
       ok = simplex_add_derived_upper_bound(solver, x, bound, antecedents);
 
