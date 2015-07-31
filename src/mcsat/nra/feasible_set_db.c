@@ -160,6 +160,7 @@ void feasible_set_db_delete(feasible_set_db_t* db) {
   uint32_t i;
   // Start from 1, 0 is special.
   for (i = 1; i < db->memory_size; ++ i) {
+    safe_free(db->memory[i].reasons);
     lp_feasibility_set_t* s1 = db->memory[i].feasible_set;
     lp_feasibility_set_t* s2 = db->memory[i].reason_feasible_set;
     lp_feasibility_set_delete(s1);

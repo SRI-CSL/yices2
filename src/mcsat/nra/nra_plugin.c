@@ -68,7 +68,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->feasible_set_db = feasible_set_db_new(ctx);
 
   // lipoly init
-  lp_init();
   nra->lp_data.lp_var_db = lp_variable_db_new();
   nra->lp_data.lp_var_order = lp_variable_order_new();
   nra->lp_data.lp_var_order_size = 0;
