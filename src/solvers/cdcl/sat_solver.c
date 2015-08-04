@@ -56,6 +56,8 @@
 #include "utils/memalloc.h"
 #include "utils/prng.h"
 
+
+
 /*
  * INTERNAL CHECKS
  */
@@ -69,16 +71,22 @@ static void check_top_var(sat_solver_t *sol, bvar_t x);
 #endif
 
 
-/** TODO: move that && add some useful comments*/
-/*****************
- *  WATCH LISTS  *
- *****************/
+
+/******************
+ *  DECLARATIONS  *
+ ******************/
 
 static inline uint32_t get_cv_size(clause_t **v);
 static uint32_t clause_length(const clause_t *cl);
 static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli);
 static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl);
 
+
+
+/** TODO: explain structure (look for binary issue before)*/
+/*****************
+ *  WATCH LISTS  *
+ *****************/
 
 /*
  * Initialize a watch list
@@ -184,7 +192,7 @@ static void watch_move(watch_t *old_watch_list, uint32_t i, watch_t *new_watch_l
 /*
  * Reset watch list
  */
-static void watch_reset_list(watch_t *w) {
+static inline void watch_reset_list(watch_t *w) {
   #if SHRINK_WATCH_VECTORS
   uint32_t new_capacity = w->capacity / 4;
   if(w->size < new_capacity) {
@@ -200,7 +208,7 @@ static void watch_reset_list(watch_t *w) {
 /*
  * Reset all watch lists
  */
-static void watch_reset_lists(sat_solver_t *solver) {
+static inline void watch_reset_lists(sat_solver_t *solver) {
   uint32_t n = solver->nb_lits;
   for (uint32_t i=0; i<n; i ++) {
     watch_reset_list(solver->watchnew + i);
@@ -307,7 +315,155 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
 
 
 
-/*******************************
+/***************
+ * CLAUSE POOL *
+ ***************/
+ 
+//TODO
+static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli) {
+  assert(cli < sol->clause_pool_size);
+  return (clause_t *) ((char *)sol->clause_base_pointer + cli);
+}
+
+static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
+  assert((size_t)sol->clause_base_pointer < (size_t)cl);
+  size_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
+  assert(diff < UINT32_MAX);
+  clause_idx_t cli = (clause_idx_t) diff;
+  return cli;
+}
+
+static inline learned_clause_t *learned_clause_of_idx(sat_solver_t *sol, clause_idx_t cl) {
+  return (learned_clause_t *) ((char *)sol->clause_base_pointer + cl);
+}
+
+typedef enum clause_type {
+  type_problem_clause = 0,
+  type_learned_clause = 1,
+} clause_type_t;
+
+typedef struct clause_malloc_s {
+  //TODO: bad since len&0b11 == 0
+  uint8_t deleted : 1;
+  uint8_t type : 1;
+  uint32_t len : 30;
+  int clause[0];
+} clause_malloc_t;
+
+static inline clause_malloc_t *clause_malloc_block(void *cl) {
+  return (clause_malloc_t *)(((char *)cl) - offsetof(clause_malloc_t, clause));
+}
+
+static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len, clause_type_t learned) {
+  assert((clause_len & 0b11) == 0);
+  uint64_t len = offsetof(clause_malloc_t, clause) + clause_len;
+  assert((len & 0b11ULL) == 0);
+  if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+    sol->clause_pool_capacity += sol->clause_pool_capacity;
+    if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+      sol->clause_pool_capacity = sol->clause_pool_size + len;
+    }
+    
+    /* Overflow check */
+    if(sol->clause_pool_capacity > 0x100000000) {
+      sol->clause_pool_capacity = 0x100000000;
+      if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
+        out_of_memory();
+      }
+    }
+
+    void *old_clause_base_pointer = sol->clause_base_pointer;    
+    sol->clause_base_pointer = safe_realloc(sol->clause_base_pointer, sol->clause_pool_capacity);
+    
+    /* Fix clause pointers */
+    clause_t **v = sol->problem_clauses;
+    uint32_t n = get_cv_size(v);
+    for (uint32_t i=0; i<n; i++) {
+      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
+    }
+    v = sol->learned_clauses;
+    n = get_cv_size(v);
+    for (uint32_t i=0; i<n; i++) {
+      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
+    }  
+  }
+  
+  clause_idx_t idx = (clause_idx_t) sol->clause_pool_size;
+  assert((idx & 0b11) == 0);
+
+  sol->clause_pool_size += len;
+  
+  clause_malloc_t * block = (clause_malloc_t *) ((char *)sol->clause_base_pointer + idx);
+  block->deleted = 0;
+  assert(learned <= 1);
+  block->type = learned&1;
+  if(len > UINT32_MAX / 4) { //30 bits
+    out_of_memory();
+  }
+  block->len = ((uint32_t)len)&0x3FFFFFFF;
+  
+  return idx + (clause_idx_t) offsetof(clause_malloc_t, clause);
+}
+
+static void clause_free(sat_solver_t *sol, void *cl) {
+  clause_malloc_t *block = clause_malloc_block(cl);
+  assert(block->deleted == 0);
+  block->deleted = 1;
+  sol->clause_pool_deleted += block->len;
+}
+
+//Call only at level 0
+static void shrink_clause_pool(sat_solver_t *sol) {
+  uint32_t *p = sol->clause_base_pointer;
+  //TODO: Do DPI and make the block len smaller if the clause was shrinked  
+
+  /* Shrink the pool */
+  /* Correct problem&learned clauses offsets */
+  assert((offsetof(clause_malloc_t,  clause) & 0b11UL) == 0UL);
+  assert((offsetof(learned_clause_t, clause) & 0b11UL) == 0UL);
+  uint32_t size = (uint32_t) sol->clause_pool_size/4;
+  clause_idx_t i = 0;
+  clause_idx_t j = 0;
+  clause_t **pv = sol->problem_clauses;
+  clause_t **lv = sol->learned_clauses;
+  uint32_t pk = 0;
+  uint32_t lk = 0;
+  
+  while(i < size) {
+    clause_malloc_t *q = (clause_malloc_t *) (p + i);
+    assert(q->len > 3);
+    assert((q->len & 0b11) == 0);
+    if(q->deleted == 1) {
+      i += (clause_idx_t) (q->len/4) ;
+    } else {
+      uint32_t limit = (uint32_t) (q->len/4);
+      if(q->type == type_problem_clause) {
+        assert(idx_of_clause(sol, pv[pk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
+        pv[pk++] = clause_of_idx(sol, 4*j + (clause_idx_t) offsetof(clause_malloc_t, clause));
+      } else {
+        assert(q->type == type_learned_clause);
+        #if 0
+        /* Learned clauses are sorted. Cannot assert this */
+        assert(idx_of_clause(sol, lv[lk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
+        #endif
+        lv[lk++] = clause_of_idx(sol, 4*j + (clause_idx_t) (offsetof(clause_malloc_t, clause) + offsetof(learned_clause_t, clause)));
+      }
+      for(clause_idx_t k=0; k < limit; k++) {
+        p[j++] = p[i++];
+      }
+    }
+  }
+  assert(get_cv_size(pv) == pk);
+  assert(get_cv_size(lv) == lk);
+  assert(sol->clause_pool_size - sol->clause_pool_deleted == 4*j);
+  sol->clause_pool_size = 4*j;
+  sol->clause_pool_deleted = 0;
+  watch_lists_invalidate(sol);
+}
+
+
+ 
+ /*******************************
  * CLAUSES AND LEARNED CLAUSES *
  *******************************/
 
@@ -399,159 +555,6 @@ static uint32_t clause_length(const clause_t *cl) {
   return (uint32_t) (a - cl->cl);
 }
 
-//TODO
-static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli) {
-  assert(cli < sol->clause_pool_size);
-  return (clause_t *) ((char *)sol->clause_base_pointer + cli);
-}
-
-static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
-  assert((size_t)sol->clause_base_pointer < (size_t)cl);
-  size_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
-  assert(diff < UINT32_MAX);
-  clause_idx_t cli = (clause_idx_t) diff;
-  return cli;
-}
-
-static inline learned_clause_t *learned_clause_of_idx(sat_solver_t *sol, clause_idx_t cl) {
-  return (learned_clause_t *) ((char *)sol->clause_base_pointer + cl);
-}
-
-typedef enum clause_type {
-  type_problem_clause = 0,
-  type_learned_clause = 1,
-} clause_type_t;
-
-typedef struct clause_malloc_s {
-  uint8_t deleted;
-  uint8_t type;
-  uint16_t len;
-  int clause[0];
-} clause_malloc_t;
-
-static inline clause_malloc_t *clause_malloc_block(void *cl) {
-  return (clause_malloc_t *)(((char *)cl) - offsetof(clause_malloc_t, clause));
-}
-
-static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len, clause_type_t learned) {
-  assert((clause_len & 0b11) == 0);
-  uint64_t len = offsetof(clause_malloc_t, clause) + clause_len;
-  if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-    sol->clause_pool_capacity += sol->clause_pool_capacity;
-    if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-      sol->clause_pool_capacity = sol->clause_pool_size + len;
-    }
-    
-    /* Overflow check */
-    if(sol->clause_pool_capacity > 0x100000000) {
-      sol->clause_pool_capacity = 0x100000000;
-      if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-        out_of_memory();
-      }
-    }
-
-    #if 0
-    //TODO:TEMPORARY
-    sol->clause_pool_capacity = 0x80000000; //2Go
-    if(sol->clause_pool_size + len >= sol->clause_pool_capacity) {
-      fprintf(stderr, "NOMEM!!!\n");
-      exit(1);
-    }
-    #endif
-    
-    void *old_clause_base_pointer = sol->clause_base_pointer;    
-    sol->clause_base_pointer = safe_realloc(sol->clause_base_pointer, sol->clause_pool_capacity);
-    
-    
-    //fprintf(stderr, KCYN "{%08zx %08zx %lu}\n" KRST, (size_t) old_clause_base_pointer, (size_t) sol->clause_base_pointer, sol->clause_pool_capacity/1024);
-    
-    /* Fix clause pointers */
-    clause_t **v = sol->problem_clauses;
-    uint32_t n = get_cv_size(v);
-    for (uint32_t i=0; i<n; i++) {
-      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
-    }
-    v = sol->learned_clauses;
-    n = get_cv_size(v);
-    for (uint32_t i=0; i<n; i++) {
-      v[i] = (clause_t *) ((size_t) v[i] + (size_t) sol->clause_base_pointer - (size_t) old_clause_base_pointer);
-    }  
-  }
-  
-  clause_idx_t idx = (clause_idx_t) sol->clause_pool_size;
-  assert((idx & 0b11) == 0);
-
-  //fprintf(stderr, "&" KCYN "%lu" KRST "-" KRED "%lu" KRST, sol->clause_pool_size/4, sol->clause_pool_size/4+len/4);
-  sol->clause_pool_size += len;
-  
-  clause_malloc_t * block = (clause_malloc_t *) ((char *)sol->clause_base_pointer + idx);
-  block->deleted = 0;
-  block->type = (uint8_t) learned;
-  if(len > UINT16_MAX) {
-    out_of_memory();
-  }
-  block->len = (uint16_t)len;
-  
-  return idx + (clause_idx_t) offsetof(clause_malloc_t, clause);
-}
-
-static void clause_free(sat_solver_t *sol, void *cl) {
-  clause_malloc_t *block = clause_malloc_block(cl);
-  assert(block->deleted == 0);
-  block->deleted = 1;
-  sol->clause_pool_deleted += block->len;
-}
-
-
-static void shrink_clause_pool(sat_solver_t *sol) {
-  uint32_t *p = sol->clause_base_pointer;
-  //TODO: Do DPI and make the block len smaller if the clause was shrinked  
-
-  /* Shrink the pool */
-  /* Correct problem&learned clauses offsets */
-  assert((offsetof(clause_malloc_t,  clause) & 0b11UL) == 0UL);
-  assert((offsetof(learned_clause_t, clause) & 0b11UL) == 0UL);
-  uint32_t size = (uint32_t) sol->clause_pool_size/4;
-  clause_idx_t i = 0;
-  clause_idx_t j = 0;
-  clause_t **pv = sol->problem_clauses;
-  clause_t **lv = sol->learned_clauses;
-  uint32_t pk=0;
-  uint32_t lk=0;
-  
-  while(i < size) {
-    //fprintf(stderr, "$" KGRN "%u" KRST "-" KBLD KYLW "%u" KRST, i, j);
-    clause_malloc_t *q = (clause_malloc_t *) (p + i);
-    assert(q->len > 3);
-    if(q->deleted == 1) {
-      //fprintf(stderr, KBLD KBLU "@" KRST);
-      i += (clause_idx_t) (q->len/4) ;
-    } else {
-      uint32_t limit = (uint32_t) (q->len/4);
-      if(q->type == type_problem_clause) {
-        assert(idx_of_clause(sol, pv[pk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
-        pv[pk++] = clause_of_idx(sol, 4*j + (clause_idx_t) offsetof(clause_malloc_t, clause));
-      } else {
-        //fprintf(stderr, KBLD KRED "!%d" KRST, q->type);
-        assert(q->type == type_learned_clause);
-        #if 0
-        /* Learned clauses are sorted. Cannot assert this */
-        assert(idx_of_clause(sol, lv[lk]) == 4*i + (clause_idx_t) offsetof(clause_malloc_t, clause));
-        #endif
-        lv[lk++] = clause_of_idx(sol, 4*j + (clause_idx_t) (offsetof(clause_malloc_t, clause) + offsetof(learned_clause_t, clause)));
-      }
-      for(uint32_t k=0; k < limit; k++) {
-        p[j++] = p[i++];
-      }
-    }
-  }
-  assert(get_cv_size(pv) == pk);
-  assert(get_cv_size(lv) == lk);
-  sol->clause_pool_size = 4*j;
-  sol->clause_pool_deleted = 0;
-  watch_lists_invalidate(sol);
-  //fprintf(stderr, KBLD KRED "*%lu" KRST, sol->clause_pool_size/4);
-}
 
 
 /*
@@ -603,6 +606,7 @@ static clause_idx_t new_learned_clause(sat_solver_t *sol, uint32_t len, const li
   }
   result->cl[i] = end_learned; // end marker: learned clause
 
+  assert(tmp_idx + (clause_idx_t) sizeof(learned_clause_t) == idx_of_clause(sol, &(tmp->clause)));
   return tmp_idx + (clause_idx_t) sizeof(learned_clause_t);
 }
 
@@ -1528,7 +1532,7 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
 #endif
   assert(0 <= l && l < solver->nb_lits);
 
-  assert(! lit_is_assigned(solver, l));
+  assert(lit_is_unassigned(solver, l));
   assert(solver->decision_level == 0);
 
   push_literal(&solver->stack, l);
@@ -2917,23 +2921,6 @@ static void partial_restart_var(sat_solver_t *sol) {
   assert(sol->decision_level > 0);
   cleanup_heap(sol);
 
-  #if SOMETIMES_FULL_RESTART
-  //TODO: comment
-  static uint32_t count = 0;
-  static uint32_t limit = 1;
-
-  if((count & limit) != 0)
-  {
-    limit <<= 1;
-    #if DEBUG
-    assert(limit != 0);
-    #endif
-    backtrack(sol, 0);
-    return;
-  }
-  count++;
-  #endif
-
   if (heap_is_empty(&sol->heap)) {
     backtrack(sol, 0); // full restart
   } else {
@@ -2948,6 +2935,24 @@ static void partial_restart_var(sat_solver_t *sol) {
         break;
       }
     }
+  }
+}
+
+static void restart(sat_solver_t *sol) {
+  static uint64_t count = 0;
+  static uint64_t limit = 1;
+  
+  /* Forces full restart in somes cases to enable simplification and garbage collection */
+
+  //TODO: Force full restart if we really need to garbage collect
+  count++;  
+  if((count & limit) != 0)
+  {
+    limit <<= 1;
+    assert(limit != 0);
+    backtrack(sol, 0);
+  } else {
+    partial_restart_var(sol);
   }
 }
 
@@ -3019,10 +3024,10 @@ static solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         return status_unsolved;
       }
 
-    // At level 0: mark literals
-    if (sol->decision_level == 0) {
-      mark_level0_literals(sol);
-    }
+      // At level 0: mark literals
+      if (sol->decision_level == 0) {
+        mark_level0_literals(sol);
+      }
 
 #if INSTRUMENT_CLAUSES
       if (sol->stats.conflicts >= next_snapshot) {
@@ -3179,7 +3184,7 @@ typedef struct z_list_s {
 } z_list_t;
 
 typedef struct z_corr_s {
- z_list_t * list;
+  z_list_t * list;
 } z_corr_t;
 
 static void z_add(z_corr_t *w, literal_t l, clause_t *cl) {
@@ -3249,6 +3254,7 @@ static uint32_t inprocessing_plr(sat_solver_t *sol, z_corr_t *occ) {
   uint32_t n = sol->nb_lits;
   uint32_t nb_deleted=0;
   for (uint32_t l=0; l<n; l+=2) {
+    assert(not(l) == (l^1));
     z_list_t *z  = occ[l].list;
     z_list_t *zn = occ[not(l)].list;
     if(z != NULL && zn != NULL) {
@@ -3260,19 +3266,26 @@ static uint32_t inprocessing_plr(sat_solver_t *sol, z_corr_t *occ) {
     if(z == NULL) {
       z = zn;
       l = not(l);
+    } else {
+      assert(zn == NULL);
     }
     assert(z != NULL);
-    assign_literal(sol, l);
+
+    int found = 0;
     while(z != NULL) {
       if(!is_clause_to_be_deleted(z->cl)) {
         mark_for_deletion(sol, z->cl);
-        //fprintf(stderr, "=");
+        fprintf(stderr, "=");
+        found = 1;
         nb_deleted++;
       }
       z = z->next;
     }
+    if(found) {
+      //assign_literal(sol, l); //Cannot do this with BCE
+    }
   }
-  //fprintf(stderr, "&%u|", nb_deleted);
+  //fprintf(stderr, "&%u|\n", nb_deleted);
 
   return nb_deleted;
 }
@@ -3328,7 +3341,7 @@ static void inprocessing(sat_solver_t *sol) {
     qsort(v[j]->cl, cll, sizeof(literal_t), compare_lit);
   }
 
-  z_corr_t *w = safe_malloc(n*sizeof(clause_t *));
+  z_corr_t *w = safe_malloc(n*sizeof(z_corr_t));
   for (uint32_t j=0; j<n; j++) {
     w[j].list = NULL;
   }
@@ -3349,11 +3362,13 @@ static void inprocessing(sat_solver_t *sol) {
     nb_deleted += inprocessing_bce(sol, w, limit);
   }
   
+  #if 0
   if(z_r & 2) {
     nb_deleted += inprocessing_plr(sol, w);
     z_r &= ~2;
     z_steps += n; 
   }
+  #endif
   
   if(z_r & 4) {
     assert(0);
@@ -3455,11 +3470,11 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     #endif
 
     if (sol->decision_level > 0) {
-      // restart
-      partial_restart_var(sol);
+      /* restart */
+      restart(sol);
     }
 
-    // At level 0: simplify
+    /* At level 0: simplify */
     if (sol->decision_level == 0) {
       if (sol->stack.top > sol->simplify_bottom) {
           if(sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {

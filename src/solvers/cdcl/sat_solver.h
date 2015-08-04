@@ -23,11 +23,15 @@
 #include "utils/tag_map.h"
 
 
-//TODO:move
+/*******************
+ *  BUILD OPTIONS  *
+ *******************/
+
 #define ZMAGIC 1
-#define SOMETIMES_FULL_RESTART 1
 #define SHRINK_WATCH_VECTORS 0
 #define INSTRUMENT_CLAUSES 0
+
+/* Restart strategy: choose one of them */
 #define PICO 0
 #define LUBY 1
 
