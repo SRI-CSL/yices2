@@ -212,9 +212,10 @@ typedef struct ctx_param_s {
 extern void save_ctx_params(ctx_param_t *ctx_parameters, context_t *context);
 
 /*
- * Store some defaults for both ctx_parameters and parameters based on the logic and architecture
+ * Store some defaults for both ctx_parameters and parameters based on the logic, architecture, and mode
  */
-extern void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_logic_t logic, context_arch_t arch);
+extern void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters,
+			       smt_logic_t logic, context_arch_t arch, context_mode_t mode);
 
 
 #endif /* __FRONTEND_COMMON_H */

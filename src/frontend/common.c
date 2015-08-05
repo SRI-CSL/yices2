@@ -499,10 +499,10 @@ bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_
 
 
 /*
- * Set defaults for both ctx_parameters and parameters based on the logic/architecture and iflag/qflag
+ * Set defaults for both ctx_parameters and parameters based on the logic/architecture/mode and iflag/qflag
  * - this tries to give the same settings as 'yices_create_context'
  */
-void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_logic_t logic, context_arch_t arch) {
+void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_logic_t logic, context_arch_t arch, context_mode_t mode) {
   bool iflag;
 
   assert(ctx_parameters != NULL);
@@ -524,7 +524,7 @@ void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_lo
     }
   }
 
-  yices_set_default_params(parameters, logic, arch);
+  yices_set_default_params(parameters, logic, arch, mode);
 }
 
 

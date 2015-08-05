@@ -141,6 +141,7 @@ static void parse_command_line(int argc, char *argv[]) {
   cmdline_elem_t elem;
   optid_t k;
   int32_t v;
+  int code;
 
   filename = NULL;
   incremental = false;
@@ -165,7 +166,8 @@ static void parse_command_line(int argc, char *argv[]) {
       } else {
 	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
 	print_usage(parser.command_name);
-	exit(YICES_EXIT_USAGE);
+	code = YICES_EXIT_USAGE;
+	goto exit;
       }
       break;
 
@@ -174,11 +176,13 @@ static void parse_command_line(int argc, char *argv[]) {
       switch (k) {
       case show_version_opt:
 	print_version();
-	exit(YICES_EXIT_SUCCESS);
+	code = YICES_EXIT_SUCCESS;
+	goto exit;
 
       case show_help_opt:
 	print_help(parser.command_name);
-	exit(YICES_EXIT_SUCCESS);
+	code = YICES_EXIT_SUCCESS;
+	goto exit;
 
       case show_stats_opt:
 	show_stats = true;
@@ -189,7 +193,8 @@ static void parse_command_line(int argc, char *argv[]) {
 	if (v < 0) {
 	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
 	  print_usage(parser.command_name);
-	  exit(YICES_EXIT_USAGE);
+	  code = YICES_EXIT_USAGE;
+	  goto exit;
 	}
 	verbosity = v;
 	break;
@@ -207,7 +212,8 @@ static void parse_command_line(int argc, char *argv[]) {
         mcsat = true;
 #else
 	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-	exit(YICES_EXIT_USAGE);
+	code = YICES_EXIT_USAGE;
+	goto exit;
 #endif
         break;
 
@@ -220,7 +226,8 @@ static void parse_command_line(int argc, char *argv[]) {
     case cmdline_error:
       cmdline_print_error(&parser, &elem);
       fprintf(stderr, "Try %s --help for more information\n", parser.command_name);
-      exit(YICES_EXIT_USAGE);
+      code = YICES_EXIT_USAGE;
+      goto exit;
     }
   }
 
@@ -230,6 +237,12 @@ static void parse_command_line(int argc, char *argv[]) {
     interactive = false;
   }
   return;
+
+ exit:
+  // cleanup then exit
+  // code is either YICES_EXIST_SUCCESS or YICES_EXIT_USAGE.
+  delete_pvector(&trace_tags);
+  exit(code);
 }
 
 /********************
