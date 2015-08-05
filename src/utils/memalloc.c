@@ -20,8 +20,8 @@
 /*
  * Fatal error: out of memory
  */
-void out_of_memory() {
-  fprintf(stderr, "Out of memory\n");
+void _out_of_memory(const char *file, const char *func, unsigned int line) {
+  fprintf(stderr, "Out of memory in %s:%s:L%u \n", file, func, line);
   exit(YICES_EXIT_OUT_OF_MEMORY);
 }
 

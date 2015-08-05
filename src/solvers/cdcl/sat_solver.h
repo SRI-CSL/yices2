@@ -27,13 +27,33 @@
  *  BUILD OPTIONS  *
  *******************/
 
-#define ZMAGIC 1
 #define SHRINK_WATCH_VECTORS 0
 #define INSTRUMENT_CLAUSES 0
+
+/* Inprocessing */
+  /* Master switch */
+  #define INPROCESSING 1
+
+  #define BOOLEAN_CLAUSE_ELIMINATION 1
+  #define PURE_LITERAL 0
+  #define SUBSUMPTION 1
+
+  #define INPR_OCC_LIST 1
+  #define INPR_OCC_VECT 0
 
 /* Restart strategy: choose one of them */
 #define PICO 0
 #define LUBY 1
+
+/* END OF CONFIGURATION */
+
+#if (PICO && LUBY) ||  (!PICO && !LUBY)
+  #error Need PICO xor LUBY
+#endif
+
+#if (INPR_OCC_LIST && INPR_OCC_VECT) ||  (!INPR_OCC_LIST && !INPR_OCC_VECT)
+  #error Need INPR_OCC_LIST xor INPR_OCC_VECT
+#endif
 
 /************************************
  *  BOOLEAN VARIABLES AND LITERALS  *
@@ -464,7 +484,7 @@ typedef struct sat_solver_s {
   uint32_t nb_clauses;        // Number of clauses with at least 3 literals
   uint32_t nb_unit_clauses;   // Number of unit clauses
   uint32_t nb_bin_clauses;    // Number of binary clauses
-  
+
   /* Clause database */
   void *clause_base_pointer;
   uint64_t clause_pool_size;
@@ -501,6 +521,9 @@ typedef struct sat_solver_s {
   uint8_t *value;
   watch_t *watchnew;            // array of watch arrays
   uint32_t watch_status;        // watch arrays status
+
+  /* Inprocessing */
+  uint32_t inpr_status;         // simplifications to do
 
   /* Heap */
   var_heap_t heap;

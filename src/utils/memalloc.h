@@ -22,7 +22,8 @@
  * Print an error message then call exit(YICES_EXIT_OUT_OF_MEMORY)
  * - this exit code is defined in yices_exit_codes.h
  */
-extern void out_of_memory(void) __attribute__ ((noreturn));
+#define out_of_memory() (_out_of_memory(__FILE__, __func__, __LINE__))
+extern void _out_of_memory(const char *file, const char *func, unsigned int line) __attribute__ ((noreturn));
 
 /*
  * Wrappers for malloc/realloc.
