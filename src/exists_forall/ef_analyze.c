@@ -936,7 +936,7 @@ static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool
  * - otherwise, create a clone for x and add the map [x --> clone]
  *   to ef_subst.
  */
-static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
+static term_t ef_clone_variable(ef_analyzer_t *ef, term_t x) {
   term_t clone;
 
   assert(term_kind(ef->terms, x) == VARIABLE);
@@ -957,11 +957,11 @@ static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
  * Replace all elements of v by their clones
  * - all elements must be variable
  */
-static void ef_clone_uvar_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
+static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    v[i] = ef_clone_uvar(ef, v[i]);
+    v[i] = ef_clone_variable(ef, v[i]);
   }
 }
 
@@ -1131,7 +1131,9 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
 
   } else {
     // convert all uvars to clones and make ground
-    ef_clone_uvar_array(ef, c->uvars.data, c->uvars.size);
+    ef_clone_variable_array(ef, c->uvars.data, c->uvars.size);
+    // convert all evars to clones and make ground
+    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
     ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
