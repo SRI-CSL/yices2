@@ -114,7 +114,8 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
-  init_int_hset(&ef->existentials, 128);  // maybe 128 is too small?
+  init_int_hset(&ef->existentials, 128);        // maybe 128 is too small?
+  init_int_hmap(&ef->existential_clones, 128);  // maybe 128 is too small?
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -131,6 +132,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
   int_hset_reset(&ef->existentials);
+  int_hmap_reset(&ef->existential_clones);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
@@ -147,6 +149,7 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
   delete_int_hset(&ef->existentials);
+  delete_int_hmap(&ef->existential_clones);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
@@ -930,6 +933,7 @@ static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool
  * clones.
  */
 
+
 /*
  * Return the clone of variable x:
  * - if x is already in ef->subst's domain, return what's mapped to x
@@ -1119,13 +1123,19 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
  *             G := (OR G_1(x, y) ... G_k(x, y))
  *    then convert all instances of universal variables to uninterpreted terms.
  *    So both A and G are ground terms.
- *    Then we add the universal constrains (forall y: A => G) to prob.
+ *    Then we add the universal constraint (forall y: A => G) to prob.
  */
 static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
   term_t a, g;
 
   if (c->uvars.size == 0) {
     // no universal variables
+
+    // convert all evars to clones and make ground
+    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
+    t = ef_make_ground(ef, t);
+
+    //add condition
     ef_prob_add_condition(prob, t);
     ef_prob_add_evars(prob, c->evars.data, c->evars.size);
 

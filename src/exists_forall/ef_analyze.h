@@ -42,9 +42,11 @@
 #include "exists_forall/ef_problem.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
+#include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
 #include "utils/int_vectors.h"
+
 
 
 /*
@@ -91,6 +93,7 @@ typedef struct ef_analyzer_s {
   ivector_t flat;
   ivector_t disjuncts;
   int_hset_t existentials;
+  int_hmap_t existential_clones;
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;
