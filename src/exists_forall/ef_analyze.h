@@ -77,8 +77,9 @@ typedef struct ef_clause_s {
  * - cache = set of already visited terms
  * - flat = vector of assertions (result of flattening)
  * - disjuncts = vector of formula (or-flattening of assertions)
- * - evars = vector to collect existential variables (uninterpreted terms)
- * - uvars = vector to collect universal variables (variables)
+ * - existentials = the set of existential variables (variables);
+ * - evars = reusable vector to collect existential variables (no longer just uninterpreted terms)
+ * - uvars = reusable vector to collect universal variables (variables)
  * - aux, aux2 = auxiliary general-purpose vectors
  */
 typedef struct ef_analyzer_s {
@@ -89,6 +90,7 @@ typedef struct ef_analyzer_s {
   int_hset_t cache;
   ivector_t flat;
   ivector_t disjuncts;
+  int_hset_t existentials;
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;

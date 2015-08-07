@@ -22,6 +22,8 @@
 #include "terms/term_sets.h"
 #include "terms/term_utils.h"
 
+#include "io/term_printer.h"
+
 #include "yices.h"
 
 
@@ -112,6 +114,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
+  init_int_hset(&ef->existentials, 128);  // maybe 128 is too small?
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -127,6 +130,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   int_hset_reset(&ef->cache);
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
+  int_hset_reset(&ef->existentials);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
@@ -142,6 +146,7 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_int_hset(&ef->cache);
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
+  delete_int_hset(&ef->existentials);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
@@ -253,6 +258,16 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
   }
 }
 
+/*
+ * Add a[0 ... n-1] to the existential 
+ */
+static void ef_analyzer_add_evars(ef_analyzer_t *ef, term_t *a, uint32_t n) {
+  uint32_t i;
+  for(i = 0; i < n; i++){
+    int_hset_add(&ef->existentials, a[i]);
+  }
+}
+
 
 /*
  * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
@@ -353,6 +368,18 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
 	 */
 	ef_push_term(ef, d->arg[n-1]);
 	continue;
+      } else {
+	/* the existential case 
+	 * t is (NOT (FORALL x_0 ... x_k : body)
+	 * body is the last argument in the term descriptor
+	 */
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
+	ef_analyzer_add_evars(ef, d->arg, n-1);
+	ef_push_term(ef, opposite_term(d->arg[n-1]));
+	continue;
+	
       }
       break;
 
@@ -599,6 +626,17 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
   }
 }
 
+static bool memq(int32_t v, ivector_t *ivec){
+  uint32_t i;
+  for(i = 0; i < ivec->size; i++){
+    if(ivec->data[i] == v){
+      return true;
+    }
+  }
+  return false;
+}
+
+
 
 /*
  * Collect variables of t and check that it's quantifier free
@@ -610,12 +648,13 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
 static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   term_table_t *terms;
   int_queue_t *queue;
+  ivector_t existential_vars;
 
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
   terms = ef->terms;
   queue = &ef->queue;
-
+  
   ivector_reset(uvar);
   ivector_reset(evar);
 
@@ -633,7 +672,11 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       break;
 
     case VARIABLE:
-      ivector_push(uvar, t);
+      if(int_hset_member(ef->existentials, t)){
+	  ivector_push(evar, t);
+	} else {
+	  ivector_push(uvar, t);
+	}
       break;
 
     case UNINTERPRETED_TERM:
