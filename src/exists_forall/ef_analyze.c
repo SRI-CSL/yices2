@@ -115,7 +115,6 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
   init_int_hset(&ef->existentials, 128);        // maybe 128 is too small?
-  init_int_hmap(&ef->existential_clones, 128);  // maybe 128 is too small?
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -132,7 +131,6 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
   int_hset_reset(&ef->existentials);
-  int_hmap_reset(&ef->existential_clones);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
@@ -149,7 +147,6 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
   delete_int_hset(&ef->existentials);
-  delete_int_hmap(&ef->existential_clones);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
