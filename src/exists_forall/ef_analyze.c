@@ -626,18 +626,6 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
   }
 }
 
-static bool memq(int32_t v, ivector_t *ivec){
-  uint32_t i;
-  for(i = 0; i < ivec->size; i++){
-    if(ivec->data[i] == v){
-      return true;
-    }
-  }
-  return false;
-}
-
-
-
 /*
  * Collect variables of t and check that it's quantifier free
  * - return true if t is quantifier free
@@ -648,7 +636,6 @@ static bool memq(int32_t v, ivector_t *ivec){
 static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   term_table_t *terms;
   int_queue_t *queue;
-  ivector_t existential_vars;
 
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
@@ -672,7 +659,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       break;
 
     case VARIABLE:
-      if(int_hset_member(ef->existentials, t)){
+      if(int_hset_member(&ef->existentials, t)){
 	  ivector_push(evar, t);
 	} else {
 	  ivector_push(uvar, t);
