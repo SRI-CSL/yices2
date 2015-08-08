@@ -240,7 +240,7 @@ static void parse_command_line(int argc, char *argv[]) {
 
  exit:
   // cleanup then exit
-  // code is either YICES_EXIST_SUCCESS or YICES_EXIT_USAGE.
+  // code is either YICES_EXIT_SUCCESS or YICES_EXIT_USAGE.
   delete_pvector(&trace_tags);
   exit(code);
 }
