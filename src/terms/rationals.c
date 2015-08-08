@@ -1823,6 +1823,25 @@ bool q_fits_int64(rational_t *r) {
 
 
 
+/*
+ * Size estimate
+ * - r must be an integer
+ * - this returns approximately the number of bits to represent r
+ */
+uint32_t q_size(rational_t *r) {
+  size_t n;
+
+  n = 32;
+  if (r->den == 0) {
+    n = mpz_size(mpq_numref(bank_q[r->num])) * mp_bits_per_limb;
+    if (n > (size_t) UINT32_MAX) {
+      n = UINT32_MAX;
+    }
+  }
+  return (uint32_t) n;
+}
+
+
 
 /*
  * Convert r to a GMP integer

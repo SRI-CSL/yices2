@@ -533,8 +533,6 @@ static dcolumn_t *column_sub(dcolumn_t *d, dcolumn_t *c1, dcolumn_t *c2) {
 
 
 
-
-
 /*************************
  *   ELIMINATION VECTOR  *
  ************************/
@@ -665,7 +663,6 @@ static bool active_rows_compare(dsolver_t *solver, int32_t i, int32_t j) {
          solver->row[i] != NULL && solver->row[j] != NULL);
   return ibag_nelems(solver->row[i]) < ibag_nelems(solver->row[j]);
 }
-
 
 
 /*
@@ -1693,6 +1690,44 @@ void dsolver_simplify(dsolver_t *solver) {
  ***********************/
 
 /*
+ * Column cost = size of its largest element
+ */
+static uint32_t column_cost(dcolumn_t *c) {
+  uint32_t i, n, cost, k;
+
+  cost = 0;
+  n = c->nelems;
+  for (i=0; i<n; i++) {
+    k = q_size(&c->data[i].coeff);
+    if (k > cost) {
+      cost = k;
+    }
+  }
+
+  return cost;
+}
+
+
+/*
+ * Update the size estimate:
+ * - this is used as a heuristic to stop the algorithms if the 
+ *   coefficients become too big
+ */
+static void update_size(dsolver_t *solver, dcolumn_t *c) {
+  uint32_t s;
+
+  s = column_cost(c);
+  if (s > solver->max_coeff_size) {
+    solver->max_coeff_size = s;
+  }
+  s = c->nelems;
+  if (s > solver->max_column_size) {
+    solver->max_column_size = s;
+  }
+}
+
+
+/*
  * Initialize:
  * - the solver status must be READY or SIMPLIFIED
  * - the indices of non-empty rows are added to the rows_to_process heap
@@ -1709,7 +1744,7 @@ static void dsolver_rosser_init(dsolver_t *solver) {
   assert(generic_heap_is_empty(&solver->rows_to_process));
 
   n = solver->nrows;
-
+  
   // initialize the counters (we must do this before adding the identity matrix)
   solver->main_rows = n;
   solver->nsolved = 0;
@@ -1822,10 +1857,13 @@ static void dsolver_restore_rows_to_process(dsolver_t *solver) {
  * Deactivate column c:
  * - attach it to the row vectors
  * - put it back into solver->columns
+ * - update the size estimate
  */
 static void dsolver_deactivate_column(dsolver_t *solver, dcolumn_t *c) {
   uint32_t i, n;
   int32_t k, c_idx;
+
+  update_size(solver, c);
 
   c_idx = solver->col_idx[c->var];
   assert(0 <= c_idx && c_idx < solver->ncolumns && solver->column[c_idx] == NULL);
@@ -1839,6 +1877,7 @@ static void dsolver_deactivate_column(dsolver_t *solver, dcolumn_t *c) {
     c->data[i].r_ptr = ibag_add(solver->row + k, c_idx);
   }
 }
+
 
 /*
  * Empty the heap of active columns after interrupt:
@@ -1854,6 +1893,47 @@ static void flush_active_columns(dsolver_t *solver) {
   }
 }
 
+
+/*
+ * Heuristic to stop reduce_columns
+ * - stop if either dsolver_stop_search was called
+ *   or the problem looks too expensive
+ * - side effect: sets status to DSOLVER_UNSOLVED
+ */
+static bool dsolver_should_stop(dsolver_t *solver) {
+  uint64_t tmp;
+
+  switch (solver->status) {
+  case DSOLVER_INTERRUPTED:
+    // dsolver_stop_search was called
+    return true;
+
+  case DSOLVER_SEARCHING:
+    // to estimate the cost, we use max_coeff_size and max_column_size
+    tmp = solver->max_coeff_size * solver->max_column_size;
+    if (tmp > (uint64_t) 64000) {
+#if 0
+      printf("stopped dsolver: coeff size = %"PRIu32", column size = %"PRIu32", reduce_ops = %"PRIu32"\n",
+	     solver->max_coeff_size, solver->max_column_size, solver->num_reduce_ops);
+      fflush(stdout);
+#endif
+      solver->status = DSOLVER_UNSOLVED;
+      return true;
+    }
+
+#if 0
+    if ((solver->num_reduce_ops & 0x3FFF) == 0) {
+      printf("dsolver: nrows = %"PRIu32", ncolumns = %"PRIu32", coeff size = %"PRIu32", column size = %"PRIu32", reduce_ops = %"PRIu32"\n",
+	     solver->nrows, solver->ncolumns, solver->max_coeff_size, solver->max_column_size, solver->num_reduce_ops);
+      fflush(stdout);
+    }
+#endif
+    // fall-through intended
+
+  default:
+    return false;
+  }
+}
 
 /*
  * Reduce the columns in active_columns until only one is left
@@ -1927,14 +2007,15 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
     c1 = c2;
     clear_column(aux);
 
-    // Check for interrupts in this loop
-    if (solver->status == DSOLVER_INTERRUPTED) {
+    // Check for abort in this loop
+    if (dsolver_should_stop(solver)) {
       // clean up to avoid memory leak
       solver->aux_column = aux;
       dsolver_deactivate_column(solver, c1);
       flush_active_columns(solver);
       return;
     }
+
   }
 
   // c1 is the new solved column
@@ -1968,6 +2049,8 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
 
 /*
  * Process row r
+ * - return false if the system is unsat: the constant of row r
+ *   is not reduced to 0. So the row is of the form 
  * - return true if the constant for row r can be reduced to 0
  * - return false otherwise (means the whole system is unsat)
  */
@@ -1976,7 +2059,6 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
   dcolumn_t *c;
   int32_t k;
   uint32_t i, n;
-
 
 #if TRACE
   printf("---> Rosser: process row %"PRId32"\n", r);
@@ -2010,8 +2092,10 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
     // restore the rows
     dsolver_restore_rows_to_process(solver);
 
-    // Check for interrupts in this loop
-    if (solver->status == DSOLVER_INTERRUPTED) {
+    // Check for abort
+    if (solver->status != DSOLVER_SEARCHING) {
+      assert(solver->status == DSOLVER_INTERRUPTED ||
+	     solver->status == DSOLVER_UNSOLVED);
       return true;
     }
   }
@@ -2021,7 +2105,8 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
   //  dsolver_print_main_rows(stdout, solver);
   //  dsolver_print_sol_rows(stdout, solver);
   //  dsolver_print_elim_rows(stdout, solver);
-  dsolver_print_rows_to_process(stdout, solver);
+  //  dsolver_print_rows_to_process(stdout, solver);
+  
 #endif
 
 
@@ -2064,6 +2149,8 @@ dsolver_status_t dsolver_is_feasible(dsolver_t *solver) {
 
   solver->num_process_rows = 0;
   solver->num_reduce_ops = 0;
+  solver->max_coeff_size = 0;
+  solver->max_column_size = 0;
   solver->status = DSOLVER_SEARCHING;  // to detect interruptions
 
   to_process = &solver->rows_to_process;
@@ -2077,13 +2164,27 @@ dsolver_status_t dsolver_is_feasible(dsolver_t *solver) {
 #if TRACE
       dsolver_print_status(stdout, solver);
 #endif
+
+#if 0
+      printf("dsolver done: nrows = %"PRIu32", ncolumns = %"PRIu32", coeff size = %"PRIu32", column size = %"PRIu32", reduce_ops = %"PRIu32"\n",
+	     solver->nrows, solver->ncolumns, solver->max_coeff_size, solver->max_column_size, solver->num_reduce_ops);
+      fflush(stdout);
+#endif
       goto done;
     }
 
-    if (solver->status == DSOLVER_INTERRUPTED) {
+    if (solver->status != DSOLVER_SEARCHING) {
+      assert(solver->status == DSOLVER_INTERRUPTED ||
+	     solver->status == DSOLVER_UNSOLVED);
       goto done;
     }
   }
+
+#if 0
+  printf("dsolver done: nrows = %"PRIu32", ncolumns = %"PRIu32", coeff size = %"PRIu32", column size = %"PRIu32", reduce_ops = %"PRIu32"\n",
+	 solver->nrows, solver->ncolumns, solver->max_coeff_size, solver->max_column_size, solver->num_reduce_ops);
+  fflush(stdout);
+#endif
 
   solver->status = DSOLVER_SOLVED_SAT;
 
@@ -2606,6 +2707,7 @@ void dsolver_unsat_rows(dsolver_t *solver, ivector_t *v) {
   case DSOLVER_SIMPLIFIED:
   case DSOLVER_SEARCHING:
   case DSOLVER_SOLVED_SAT:
+  case DSOLVER_UNSOLVED:
   case DSOLVER_INTERRUPTED:
     break;
   case DSOLVER_TRIV_UNSAT:

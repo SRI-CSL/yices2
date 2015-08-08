@@ -520,6 +520,16 @@ extern bool q_fits_int64(rational_t *r); // r is a/b where a is int64, b is uint
 
 
 /*
+ * Size estimate
+ * - this returns approximately the number of bits to represent r's numerator
+ * - this may not be exact (typically rounded up to a multiple of 32)
+ * - also if r is really really big, this function may return 
+ *   UINT32_MAX (not very likely!)
+ */
+extern uint32_t q_size(rational_t *r);
+
+
+/*
  * CONVERSION TO GMP OBJECTS
  */
 
