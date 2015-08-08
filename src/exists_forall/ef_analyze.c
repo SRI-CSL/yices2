@@ -80,16 +80,6 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
 }
 
 /*
- * Add a[0 ... n-1] to the existential 
- */
-static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
-  uint32_t i;
-  for(i = 0; i < n; i++){
-    int_hset_add(&ef->existentials, a[i]);
-  }
-}
-
-/*
  * Print a clause
  */
 void print_ef_clause(FILE *f, ef_clause_t *cl) {
@@ -121,7 +111,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
-  init_int_hset(&ef->existentials, 128);        // maybe 128 is too small?
+  init_int_hset(&ef->existentials, 128);        // 128; too small? too big?
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -160,6 +150,16 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
 }
 
 
+
+/*
+ * Add a[0 ... n-1] to the existentials in an analyzer 
+ */
+static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
+  uint32_t i;
+  for(i = 0; i < n; i++){
+    int_hset_add(&ef->existentials, a[i]);
+  }
+}
 
 /*
  * FLATTENING OPERATIONS
@@ -356,14 +356,14 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
       break;
 
     case FORALL_TERM:
-      d = forall_term_desc(terms, t);
-      n = d->arity;
-      assert(n >= 2);
       if (is_pos_term(t)) {
 	//if we are on the first pass we punt on foralls
 	if (toplevel){
 	  break;
 	} 
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
 	/*
 	 * t is (FORALL x_0 ... x_k : body)
 	 * body is the last argument in the term descriptor
@@ -375,6 +375,9 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
 	if ( ! toplevel){
 	  break;
 	}
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
 	/* the existential case 
 	 * t is (NOT (FORALL x_0 ... x_k : body)
 	 * body is the last argument in the term descriptor
