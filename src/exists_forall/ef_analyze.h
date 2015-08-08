@@ -47,7 +47,6 @@
 #include "utils/int_vectors.h"
 
 
-
 /*
  * EF clause = a disjunction of formulas: assumptions and guarantees
  * - formulas that contain only universal variables (no existential variables)
@@ -78,7 +77,7 @@ typedef struct ef_clause_s {
  * - cache = set of already visited terms
  * - flat = vector of assertions (result of flattening)
  * - disjuncts = vector of formula (or-flattening of assertions)
- * - existentials = the set of existential variables (variables);
+ * - existentials = the set of existential variables (variables)
  * - evars = reusable vector to collect existential variables (no longer just uninterpreted terms)
  * - uvars = reusable vector to collect universal variables (variables)
  * - aux, aux2 = auxiliary general-purpose vectors

@@ -22,8 +22,6 @@
 #include "terms/term_sets.h"
 #include "terms/term_utils.h"
 
-#include "io/term_printer.h"
-
 #include "yices.h"
 
 
@@ -81,6 +79,15 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
   }
 }
 
+/*
+ * Add a[0 ... n-1] to the existential 
+ */
+static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
+  uint32_t i;
+  for(i = 0; i < n; i++){
+    int_hset_add(&ef->existentials, a[i]);
+  }
+}
 
 /*
  * Print a clause
@@ -258,24 +265,15 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
   }
 }
 
-/*
- * Add a[0 ... n-1] to the existential 
- */
-static void ef_analyzer_add_evars(ef_analyzer_t *ef, term_t *a, uint32_t n) {
-  uint32_t i;
-  for(i = 0; i < n; i++){
-    int_hset_add(&ef->existentials, a[i]);
-  }
-}
-
 
 /*
  * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
+ * - toplevel: true means we can handle exists, false we can handle foralls
  * - store the result in resu
  * - f_ite: if true, also flatten any Boolean if-then-else
  *   f_iff: if true, also flatten any iff term
  */
-static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivector_t *resu) {
+static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, bool f_ite, bool f_iff, ivector_t *resu) {
   term_table_t *terms;
   int_queue_t *queue;
   composite_term_t *d;
@@ -358,10 +356,14 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
       break;
 
     case FORALL_TERM:
+      d = forall_term_desc(terms, t);
+      n = d->arity;
+      assert(n >= 2);
       if (is_pos_term(t)) {
-	d = forall_term_desc(terms, t);
-	n = d->arity;
-	assert(n >= 2);
+	//if we are on the first pass we punt on foralls
+	if (toplevel){
+	  break;
+	} 
 	/*
 	 * t is (FORALL x_0 ... x_k : body)
 	 * body is the last argument in the term descriptor
@@ -369,20 +371,19 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
 	ef_push_term(ef, d->arg[n-1]);
 	continue;
       } else {
+	//if we are not on the first pass we punt on exists
+	if ( ! toplevel){
+	  break;
+	}
 	/* the existential case 
 	 * t is (NOT (FORALL x_0 ... x_k : body)
 	 * body is the last argument in the term descriptor
 	 */
-	d = forall_term_desc(terms, t);
-	n = d->arity;
-	assert(n >= 2);
-	ef_analyzer_add_evars(ef, d->arg, n-1);
+	ef_analyzer_add_existentials(ef, d->arg, n-1);
 	ef_push_term(ef, opposite_term(d->arg[n-1]));
 	continue;
-	
-      }
-      break;
-
+      } 
+      
     default:
       break;
     }
@@ -414,18 +415,38 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
  * it is kept as is in the ef->flat vector.
  */
 static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
-  uint32_t i;
-
+  uint32_t i, m;
+  int32_t *vd;
+  
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
     ef_push_term(ef, a[i]);
   }
-  ef_flatten_forall_conjuncts(ef, f_ite, f_iff, v);
+
+  /* FIRST PASS */
+  //do the exists
+  ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
+    
+  //reset queue and cache (queue should be empty, cache usually isn't)
+  assert(int_queue_is_empty(&ef->queue));
+  
+  int_hset_reset(&ef->cache);
+  
+  //push v into the queue 'n cache, then reset v
+  m = v->size;
+  vd = v->data;
+  for (i=0; i<m; i++) {
+    ef_push_term(ef, vd[i]);
+  }
+  ivector_reset(v);
+
+  /* SECOND PASS */
+  //do the foralls
+  ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
+
 }
-
-
 
 /*
  * FLATTENING OF DISJUNCTIONS
@@ -625,6 +646,7 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
     i++;
   }
 }
+
 
 /*
  * Collect variables of t and check that it's quantifier free
@@ -929,7 +951,6 @@ static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool
  * This is done by building a substitution that maps variables to their
  * clones.
  */
-
 
 /*
  * Return the clone of variable x:
