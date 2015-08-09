@@ -428,6 +428,13 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
     ef_push_term(ef, a[i]);
   }
 
+  /*
+   * Another more efficient algorithm would be to push the foralls onto a defered queue
+   * when toplevel is true. leaving ef->flat to accumulate. then in the second pass
+   * push the defereds onto the ef->queue and do a second pass.
+   *
+   */
+
   /* FIRST PASS */
   //do the exists
   ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
