@@ -1956,7 +1956,6 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
   assert(active_row(c1) == r);
 
   while (! ptr_heap_is_empty(heap)) {
-#if 1
     /*
      * NOTE: it helps a lot to reduce the constant vector inside this loop
      * to prevent the constant coefficient from blowing up.
@@ -1977,7 +1976,6 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
         clear_column(aux);
       }
     }
-#endif
 
     solver->num_reduce_ops ++;
 

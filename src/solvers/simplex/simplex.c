@@ -5840,6 +5840,9 @@ static bool simplex_strengthen_bounds(simplex_solver_t *solver) {
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Several rounds of strengthening
  * - MAX_STRENGTHEN_ITERS  = maximal number of rounds
@@ -5860,7 +5863,7 @@ static bool simplex_strengthen_bounds_iter(simplex_solver_t *solver) {
   return true;
 }
 
-
+#endif
 
 
 /******************************
@@ -7139,10 +7142,10 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
 #define MAX_BRANCH_SCORE UINT32_MAX
 #define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
 
-#if 1
+#if 0
 
 /*
- * Simple version: use current boounds on x
+ * Simple version: use current bounds on x
  */
 static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
@@ -7174,9 +7177,8 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
 #else
 
 /*
- * New version: try to learn new bounds on x first (by bound strengthening
+ * New version: try to learn new bounds on x first (by bound strengthening)
  */
-
 
 /*
  * Check whether x has an upper bound
@@ -8477,13 +8479,15 @@ static bool simplex_intfeas_diophantine_check(simplex_solver_t *solver) {
   return intfeas_wrapper(solver, "diophantine solver", simplex_dsolver_check);
 }
 
+#if 0
+// NOT USED
 /*
- * Iterated bound strengtherning
+ * Iterated bound strengthening
  */
 static bool simplex_intfeas_iter_strengthening(simplex_solver_t *solver) {
   return intfeas_wrapper(solver, "strengthening", simplex_strengthen_bounds_iter);
 }
-
+#endif
 
 /*
  * Check whether the current set of constraints is integer feasible
@@ -8535,6 +8539,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   if (! simplex_intfeas_strengthening(solver)) return false;
   if (! simplex_intfeas_integrality_constraints(solver)) return false;
   if (! simplex_intfeas_diophantine_check(solver)) return false;
+  if (! simplex_intfeas_strengthening(solver)) return false;
 
   /*
    * TRY OUR LUCK
@@ -8550,7 +8555,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * If we've learned new bounds in the previous phases,
    * try more rounds of bound strengthening.
    */
-  if (solver->bstack.top > nbounds && !simplex_intfeas_iter_strengthening(solver)) {
+  if (solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
     return false;
   }
 
