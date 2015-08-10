@@ -2,6 +2,7 @@
 VALGRIND=
 YICES_SMT2=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-release/bin/yices_smt2
 YICES_MAIN=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-release/bin/yices_main  --mode=ef
+CVC4=cvc4 --produce-models
 VERBOSITY=--verbosity=0
 
 BV_TESTS=test11.sat test11b.sat test11c.sat
@@ -17,6 +18,7 @@ check_bv:
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
+	    ${CVC4} $${test}.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 
@@ -27,6 +29,7 @@ check_lra:
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
+	    ${CVC4} $${test}.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 

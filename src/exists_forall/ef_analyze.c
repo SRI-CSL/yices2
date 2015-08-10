@@ -441,6 +441,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 
   /* FIRST PASS: do the exists */
   ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
+
     
   //push the foralls into the queue (they are already in the cache)
   foralls = &ef->foralls;
@@ -452,7 +453,6 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 
   /* SECOND PASS: do the foralls */
   ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
-
 }
 
 /*
@@ -975,22 +975,26 @@ static term_t ef_clone_variable(ef_analyzer_t *ef, term_t x) {
     clone = variable_to_unint(ef->terms, x);
     extend_term_subst1(&ef->subst, x, clone, false);
   }
-
+  
   assert(term_kind(ef->terms, clone) == UNINTERPRETED_TERM);
-
+  
   return clone;
 }
 
 
 /*
- * Replace all elements of v by their clones
- * - all elements must be variable
+ * Replace all elements of v that are variables by their clones
+ * - all elements must be either variables or uninterpreted constants
  */
 static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
   uint32_t i;
-
+  term_t orig;
+  
   for (i=0; i<n; i++) {
-    v[i] = ef_clone_variable(ef, v[i]);
+    orig = v[i];
+    if(term_kind(ef->terms, orig) == VARIABLE){
+      v[i] = ef_clone_variable(ef, orig);
+    }
   }
 }
 
