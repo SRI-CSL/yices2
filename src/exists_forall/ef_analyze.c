@@ -112,7 +112,8 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
-  init_int_hset(&ef->existentials, 128);        // 128; too small? too big?
+  init_ivector(&ef->foralls, 64);
+  init_int_hset(&ef->existentials, 32);       
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -128,6 +129,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   int_hset_reset(&ef->cache);
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
+  ivector_reset(&ef->foralls);
   int_hset_reset(&ef->existentials);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
@@ -144,6 +146,7 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_int_hset(&ef->cache);
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
+  delete_ivector(&ef->foralls);
   delete_int_hset(&ef->existentials);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
@@ -358,9 +361,10 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
 
     case FORALL_TERM:
       if (is_pos_term(t)) {
-	//if we are on the first pass we punt on foralls
+	//if we are on the first pass we defer foralls
 	if (toplevel){
-	  break;
+	  ivector_push(&ef->foralls, t);
+	  continue;
 	} 
 	d = forall_term_desc(terms, t);
 	n = d->arity;
@@ -415,12 +419,18 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
  *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
+ *  We make two passes. In the first pass (when toplevel is true) we handle exists, and push 
+ *  any foralls onto a defered queue, leaving ef->flat to accumulate. Then in the second pass
+ *  push the defered foralls onto the ef->queue and do a second pass.
+ *
+ *
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
 static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
-  uint32_t i, m;
-  int32_t *vd;
+  uint32_t i, fsize;
+  ivector_t *foralls;
+  int32_t *fdata;
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
@@ -429,15 +439,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
     ef_push_term(ef, a[i]);
   }
 
-  /*
-   * Another more efficient algorithm would be to push the foralls onto a defered queue
-   * when toplevel is true. leaving ef->flat to accumulate. then in the second pass
-   * push the defereds onto the ef->queue and do a second pass.
-   *
-   */
-
-  /* FIRST PASS */
-  //do the exists
+  /* FIRST PASS: do the exists */
   ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
     
   //reset queue and cache (queue should be empty, cache usually isn't)
@@ -445,16 +447,15 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   
   int_hset_reset(&ef->cache);
   
-  //push v into the queue 'n cache, then reset v
-  m = v->size;
-  vd = v->data;
-  for (i=0; i<m; i++) {
-    ef_push_term(ef, vd[i]);
+  //push the foralls into the queue 'n cache
+  foralls = &ef->foralls;
+  fdata = foralls->data;
+  fsize = foralls->size;
+  for (i=0; i<fsize; i++) {
+    ef_push_term(ef, fdata[i]);
   }
-  ivector_reset(v);
 
-  /* SECOND PASS */
-  //do the foralls
+  /* SECOND PASS: do the foralls */
   ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
 
 }
