@@ -81,7 +81,7 @@ typedef struct ef_clause_s {
  * - existentials = the set of existential variables (variables)
  * - evars = reusable vector to collect existential variables (no longer just uninterpreted terms)
  * - uvars = reusable vector to collect universal variables (variables)
- * - aux, aux2 = auxiliary general-purpose vectors
+ * - aux = auxiliary general-purpose vectors
  */
 typedef struct ef_analyzer_s {
   term_table_t *terms;

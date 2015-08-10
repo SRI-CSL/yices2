@@ -442,17 +442,12 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   /* FIRST PASS: do the exists */
   ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
     
-  //reset queue and cache (queue should be empty, cache usually isn't)
-  assert(int_queue_is_empty(&ef->queue));
-  
-  int_hset_reset(&ef->cache);
-  
-  //push the foralls into the queue 'n cache
+  //push the foralls into the queue (they are already in the cache)
   foralls = &ef->foralls;
   fdata = foralls->data;
   fsize = foralls->size;
   for (i=0; i<fsize; i++) {
-    ef_push_term(ef, fdata[i]);
+    int_queue_push(&ef->queue, fdata[i]);
   }
 
   /* SECOND PASS: do the foralls */
