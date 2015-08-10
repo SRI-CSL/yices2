@@ -79,6 +79,7 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
   }
 }
 
+
 /*
  * Print a clause
  */

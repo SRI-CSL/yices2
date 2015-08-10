@@ -5,17 +5,18 @@
 (set-option :yices-ef-gen-mode projection)
 (set-option :yices-ef-flatten-iff False)
 
+(declare-fun y0 () Bool)
+(declare-fun y1 () Bool)
+(declare-fun y2 () Bool)
+(declare-fun y3 () Bool)
+(declare-fun y4 () Bool)
+(declare-fun y5 () Bool)
+
 (define-fun mk-bit ((x Bool)) (_ BitVec 1) 
    (ite x #b1 #b0))
 
 (assert
- (exists ((y0 Bool)
-	  (y1 Bool)     
-	  (y2 Bool)
-	  (y3 Bool)
-	  (y4 Bool)
-	  (y5 Bool)
-	  (y6 Bool)
+ (exists ((y6 Bool)
 	  (y7 Bool)
 	  (y8 Bool)
 	  (y9 Bool)

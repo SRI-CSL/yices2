@@ -16,6 +16,7 @@ check_bv:
 	    ${YICES_MAIN} ${VERBOSITY} --mode=ef  --logic=BV $${test}.ys ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
+	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 
@@ -25,6 +26,7 @@ check_lra:
 	    ${YICES_MAIN} ${VERBOSITY} --mode=ef  --logic=LRA $${test}.ys ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
+	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 
