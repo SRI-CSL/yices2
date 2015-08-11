@@ -34,7 +34,7 @@ def flatten_file(prefix, file, source):
 def main(args):
 
     if len(args) < 2:
-        print 'Usage: {0} <dirs>'.format(args[0])
+        print 'Usage: {0} <dir>'.format(args[0])
     else:
         flatten_dir(args[1], args[1])
 
