@@ -34,12 +34,15 @@
   /* Master switch */
   #define INPROCESSING 1
 
+  /* Profile inprocessing */
+  #define INPROCESSING_PROF 2
+
   #define BOOLEAN_CLAUSE_ELIMINATION 1
   #define PURE_LITERAL 0
   #define SUBSUMPTION 1
 
-  #define INPR_OCC_LIST 1
-  #define INPR_OCC_VECT 0
+  #define INPR_OCC_LIST 0
+  #define INPR_OCC_VECT 1
 
 /* Restart strategy: choose one of them */
 #define PICO 0
@@ -523,7 +526,21 @@ typedef struct sat_solver_s {
   uint32_t watch_status;        // watch arrays status
 
   /* Inprocessing */
+  #if INPROCESSING
   uint32_t inpr_status;         // simplifications to do
+  #if INPROCESSING_PROF
+  uint32_t inpr_del_glb;
+  uint32_t inpr_del_bce;
+  uint32_t inpr_del_plr;
+  uint32_t inpr_del_sub;
+  struct timespec inpr_spent_sat; //global start time
+  struct timespec inpr_spent_glb;
+  struct timespec inpr_spent_bld; //building time
+  struct timespec inpr_spent_bce;
+  struct timespec inpr_spent_plr;
+  struct timespec inpr_spent_sub;
+  #endif
+  #endif
 
   /* Heap */
   var_heap_t heap;

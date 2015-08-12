@@ -11,36 +11,6 @@
  * Mostly based on Minisat but with different data structures.
  */
 
-
- //TODO:Temporary -- debugging is funnier with colours
-     #define COLORS
-     #ifdef COLORS
-        #define KRST "\x1B[00m"
-        #define KBLD "\x1B[1m"
-        #define KITC "\x1B[3m"
-        #define KBLK "\x1B[5m"
-        #define KRED "\x1B[31m"
-        #define KGRN "\x1B[32m"
-        #define KYLW "\x1B[33m"
-        #define KBLU "\x1B[34m"
-        #define KMAJ "\x1B[35m"
-        #define KCYN "\x1B[36m"
-        #define KWHT "\x1B[37m"
-    #else
-        #define KRST ""
-        #define KBLD ""
-        #define KBLK ""
-        #define KRED ""
-        #define KGRN ""
-        #define KYLW ""
-        #define KBLU ""
-        #define KMAJ ""
-        #define KCYN ""
-        #define KWHT ""
-    #endif
-
-
-
 #define DEBUG 0
 #define TRACE 0
 
@@ -49,12 +19,15 @@
 #include <float.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <time.h>
 
 #include "solvers/cdcl/sat_parameters.h"
 #include "solvers/cdcl/sat_solver.h"
 #include "utils/int_array_sort.h"
 #include "utils/memalloc.h"
 #include "utils/prng.h"
+#include "utils/colors.h"
+#include "utils/timespec.h"
 
 
 
@@ -1347,7 +1320,21 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
 
   /* Inprocessing */
-  solver->inpr_status = 0b111; //TODO inpr_flag_bce | inpr_flag_plr | inpr_flag_sub; 
+  #if INPROCESSING
+  solver->inpr_status = 0b111; //TODO inpr_flag_bce | inpr_flag_plr | inpr_flag_sub;
+  #if INPROCESSING_PROF
+  solver->inpr_del_glb = 0U;
+  solver->inpr_del_bce = 0U;
+  solver->inpr_del_plr = 0U;
+  solver->inpr_del_sub = 0U;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &(solver->inpr_spent_sat));
+  solver->inpr_spent_glb = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
+  solver->inpr_spent_bld = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
+  solver->inpr_spent_bce = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
+  solver->inpr_spent_plr = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
+  solver->inpr_spent_sub = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
+  #endif
+  #endif
 
   /* Variable-indexed arrays: not initialized */
   solver->antecedent = (antecedent_t *) safe_malloc(size * sizeof(antecedent_t));
@@ -2741,22 +2728,18 @@ static clause_t *new_clause_old(uint32_t len, literal_t *lit) {
   return result;
 }
 
-
-static int compare_lit(const void * a, const void * b) {
-  return ( *(literal_t*)a - *(literal_t*)b );
-}
-
 #if INPR_OCC_LIST
-typedef struct z_list_s {
-  clause_t * cl;
-  struct z_list_s * next;
-} z_list_t;
+typedef struct occ_list_elem_s {
+  clause_t *cl;
+  struct occ_list_elem_s *next;
+} occ_list_elem_t;
 
-typedef struct z_corr_s {
-  z_list_t * list;
-} z_corr_t;
+typedef struct occ_list_s {
+  occ_list_elem_t *list;
+  uint32_t size;
+} occ_list_t;
 
-typedef z_corr_t* occ_t;
+typedef occ_list_t* occ_t;
 
 #elif INPR_OCC_VECT
 static inline int is_power_of_two(uint32_t i) {
@@ -2779,44 +2762,29 @@ typedef enum inpr_flag {
 } inpr_flag_t;
 
 
-
 static void occ_add(occ_t occ, literal_t l, clause_t *cl) {
   #if INPR_OCC_LIST
-  z_list_t *p = safe_malloc(sizeof(z_list_t));
+  occ_list_elem_t *p = safe_malloc(sizeof(occ_list_elem_t));
   p->cl = cl;
   p->next = occ[l].list;
   occ[l].list = p;
+  occ[l].size++;
   #elif INPR_OCC_VECT
   occ_vect_t *occv = occ + l;
   occv->size++;
   if(is_power_of_two(occv->size)) {
-    occv->cl = safe_realloc(occv->cl, 2*occv->size*sizeof(clause_t *)); //TODO: try other factor
+    occv->cl = safe_realloc(occv->cl, 2*occv->size*sizeof(clause_t *));
   }
   occv->cl[occv->size - 1] = cl;
   #endif
 }
 
 #if INPR_OCC_LIST
-static inline uint32_t occ_size(const z_list_t *z) {
-  uint32_t k = 0;
-  while(z != NULL) {
-    k++;
-    z = z->next;
-  }
-  return k;
+static inline uint32_t occ_size(const occ_list_t *occl) {
+  return occl->size;
 }
-
-static inline uint32_t occ_size_bounded(const z_list_t *z, uint32_t max) {
-  uint32_t k = 0;
-  while((z != NULL) && (k < max)) {
-    k++;
-    z = z->next;
-  }
-  return k;
-}
-
 #elif INPR_OCC_VECT
-static uint32_t occ_vect_size(const occ_vect_t *occv) {
+static uint32_t occ_size(const occ_vect_t *occv) {
   return occv->size;
 }
 #endif
@@ -2867,19 +2835,20 @@ static int inprocessing_resolve(const clause_t *cl1, const literal_t l, const cl
 
 static int inprocessing_bce_sub(const occ_t occ, literal_t l, const clause_t *cl) {
   #if INPR_OCC_LIST
-  z_list_t *z = occ[not(l)].list;
-  while(z != NULL) {
-    if(!is_clause_to_be_deleted(z->cl)) {
-      if(inprocessing_resolve(cl, l, z->cl)) {
+  occ_list_elem_t *occe = occ[not(l)].list;
+  while(occe != NULL) {
+    if(!is_clause_to_be_deleted(occe->cl)) {
+      if(inprocessing_resolve(cl, l, occe->cl)) {
         return 0;
       }
     }
-    z = z->next;
+    occe = occe->next;
   }
   #elif INPR_OCC_VECT
   const occ_vect_t *occv = occ + not(l);
-  uint32_t size = occ_vect_size(occv);
-  for(uint32_t i=0; i<size; i++) {
+  uint32_t size = occ_size(occv);
+  //for(uint32_t i=0; i<size; i++) {
+  for(int32_t i=size-1; i>=0; i--) {
     if(!is_clause_to_be_deleted(occv->cl[i])) {
       if(inprocessing_resolve(cl, l, occv->cl[i])) {
         return 0;
@@ -2892,7 +2861,10 @@ static int inprocessing_bce_sub(const occ_t occ, literal_t l, const clause_t *cl
 
 
 static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
-  static uint32_t i=0;
+  static uint32_t i=0; //TODO
+  #if INPROCESSING_PROF > 1
+  uint32_t oldi = i;
+  #endif
   uint32_t n = sol->nb_lits;
   uint32_t nb_deleted=0;
   for (; i<n; i+=2) {
@@ -2902,21 +2874,23 @@ static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
 
     uint64_t steps_local = 0;
     #if INPR_OCC_LIST
-    z_list_t *z = occ[i].list;
-    while(z != NULL) {
-      if( (!is_clause_to_be_deleted(z->cl)) && (z->cl->cl[2] >= 0) ) {
-        if(inprocessing_bce_sub(occ, i, z->cl)) {
-          mark_for_deletion(sol, z->cl);
+    occ_list_elem_t *occe = occ[i].list;
+    while(occe != NULL) {
+      clause_t *cl = occe->cl;
+      if( (!is_clause_to_be_deleted(cl)) && (cl->cl[2] >= 0) ) {
+        if(inprocessing_bce_sub(occ, i, cl)) {
+          mark_for_deletion(sol, cl);
           nb_deleted++;
         }
       }
-      z = z->next;
+      occe = occe->next;
       steps_local++;
     }
     #elif INPR_OCC_VECT
     occ_vect_t *occv = occ + i;
-    uint32_t size = occ_vect_size(occv);
-    for(uint32_t j=0; j<size; j++) {
+    uint32_t size = occ_size(occv);
+    //for(uint32_t j=0; j<size; j++) {
+    for(int32_t j=size-1; j>=0; j--) {
       clause_t * cl = occv->cl[j];
       if( (!is_clause_to_be_deleted(cl)) && (cl->cl[2] >= 0) ) {
         if(inprocessing_bce_sub(occ, i, cl)) {
@@ -2930,6 +2904,10 @@ static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
     z_steps += steps_local;
   }
 
+  #if INPROCESSING_PROF > 1
+  fprintf(stderr, KCYN "*%u" KRST, (100*(i-oldi)) / n);
+  #endif
+
   if(i >= n) {
     sol->inpr_status &= ~1U;
     i -= n;
@@ -2942,7 +2920,7 @@ static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
 #endif
 
 #if PURE_LITERAL
-static uint32_t inprocessing_plr(sat_solver_t *sol, z_corr_t *occ) {
+static uint32_t inprocessing_plr(sat_solver_t *sol, occ_list_t *occ) {
   uint32_t n = sol->nb_lits;
   uint32_t nb_deleted=0;
   for (uint32_t l=0; l<n; l+=2) {
@@ -2990,7 +2968,7 @@ static int inprocessing_subsume(const clause_t *cl1, const clause_t *cl2) {
   uint32_t k2 = 0;
   literal_t l1 = b1[0];
   literal_t l2 = b2[0];
-  uint32_t ret = -1;
+  int32_t ret = -1;
 
   for (;;) {
     if(l1 < 0) {
@@ -3019,9 +2997,13 @@ static int inprocessing_subsume(const clause_t *cl1, const clause_t *cl2) {
   return ret;
 }
 
-static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t **v, clause_t **vo, occ_t occ, uint64_t limit) {
+static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t **v, occ_t occ, uint64_t limit) {
+  static uint32_t i=0; //TODO
+  #if INPROCESSING_PROF > 1
+  uint32_t oldi=i;
+  #endif
   uint32_t nb_deleted=0;
-  for (uint32_t i=0; i<m; i++) {
+  for (; i<m; i++) {
     if(z_steps > limit) {
       break;
     }
@@ -3031,19 +3013,11 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
       continue;
     }
     literal_t pivot = b[0];
-    #if INPR_OCC_LIST
-    uint32_t  pivotsize = occ_size(occ[b[0]].list);
-    #elif INPR_OCC_VECT
-    uint32_t  pivotsize = occ_vect_size(occ + b[0]);
-    #endif
+    uint32_t  pivotsize = occ_size(occ+ pivot);
     uint32_t k = 1;
     while(b[k] >= 0) {
-      #if INPR_OCC_LIST
-      uint32_t new_size = occ_size_bounded(occ[b[k]].list, pivotsize);
-      #elif INPR_OCC_VECT
-      uint32_t new_size = occ_vect_size(occ + b[k]);
-      #endif
-      z_steps += new_size;
+      uint32_t new_size = occ_size(occ + b[k]);
+      z_steps += 1; // TODO: new_size instead of 1
       if(new_size < pivotsize) {
         pivot = b[k];
         pivotsize = new_size;
@@ -3051,11 +3025,10 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
       k++;
     }
 
-    uint64_t steps_local = 0;
     #if INPR_OCC_LIST
-    z_list_t *z  = occ[pivot].list;
-    while(z != NULL) {
-      clause_t *cl2 = z->cl;
+    occ_list_elem_t *occe = occ[pivot].list;
+    while(occe != NULL) {
+      clause_t *cl2 = occe->cl;
       if((!is_clause_to_be_deleted(cl)) && (cl2 != cl)) {
         int32_t s = inprocessing_subsume(cl, cl2);
         if(s >= 0) {
@@ -3071,13 +3044,13 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
           nb_deleted++;
         }
       }
-      steps_local++;
-      z = z->next;
+      occe = occe->next;
     }
     #elif INPR_OCC_VECT
     occ_vect_t *occv = occ + pivot;
-    uint32_t size = occ_vect_size(occv);
-    for(uint32_t j=0; j<size; j++) {
+    uint32_t size = occ_size(occv);
+    //for(uint32_t j=0; j<size; j++) {
+    for(int32_t j=size-1; j>=0; j--) {
       clause_t *cl2 = occv->cl[j];
       if((!is_clause_to_be_deleted(cl)) && (cl2 != cl)) {
         int32_t s = inprocessing_subsume(cl, cl2);
@@ -3094,13 +3067,20 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
           nb_deleted++;
         }
       }
-      steps_local++;
     }
     #endif
 
-    z_steps += steps_local;
+    z_steps += pivotsize;
   }
-  //fprintf(stderr, KCYN "[%u]" KRST, nb_deleted);
+
+  #if INPROCESSING_PROF > 1
+  fprintf(stderr, KGRN "&%u" KRST, (100*(i-oldi)) / m);
+  #endif
+
+  if(i >= m) {
+    sol->inpr_status &= ~4U;
+    i = 0;
+  }
 
   return nb_deleted;
 }
@@ -3118,6 +3098,11 @@ static void inprocessing(sat_solver_t *sol) {
     return;
   }
 
+  #if INPROCESSING_PROF
+  struct timespec time_glob1, time_glob2, time_glob3;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob1);
+  #endif
+
   /* sorting + z_corr creation + z_corr free */
   z_steps += 3 * sol->stats.prob_literals;
 
@@ -3131,13 +3116,19 @@ static void inprocessing(sat_solver_t *sol) {
   for (size_t i=0; i<m; i++) {
     uint32_t cll = clause_length(vo[i]);
     v[i] = new_clause_old(cll, vo[i]->cl);
-    qsort(v[i]->cl, cll, sizeof(literal_t), compare_lit);
+    assert(sizeof(literal_t) == sizeof(int32_t));
+    int_array_sort(v[i]->cl, cll);
   }
 
+  #if INPROCESSING_PROF
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob3);
+  #endif
+
   #if INPR_OCC_LIST
-  z_corr_t *occ = safe_malloc(n*sizeof(z_corr_t));
-  for (uint32_t j=0; j<n; j++) {
-    occ[j].list = NULL;
+  occ_t occ = safe_malloc(n*sizeof(occ_list_t));
+  for (uint32_t i=0; i<n; i++) {
+    occ[i].list = NULL;
+    occ[i].size = 0;
   }
   #elif INPR_OCC_VECT
   occ_t occ = safe_malloc(n*sizeof(occ_vect_t));
@@ -3157,12 +3148,27 @@ static void inprocessing(sat_solver_t *sol) {
     }
   }
 
+  #if INPROCESSING_PROF
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob2);
+  ts_add(&(sol->inpr_spent_bld), ts_diff(time_glob3, time_glob2));
+  #endif
+
   uint32_t nb_deleted = 0;
 
   do {
     #if BOOLEAN_CLAUSE_ELIMINATION
     if(sol->inpr_status & inpr_flag_bce) {
-      nb_deleted += inprocessing_bce(sol, occ, limit);
+      #if INPROCESSING_PROF
+      struct timespec time_1, time_2;
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_1);
+      #endif
+      uint32_t nb_deleted_local = inprocessing_bce(sol, occ, limit);
+      nb_deleted += nb_deleted_local;
+      #if INPROCESSING_PROF
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_2);
+      sol->inpr_del_bce += nb_deleted_local;
+      ts_add(&(sol->inpr_spent_bce), ts_diff(time_1, time_2));
+      #endif
     }
     if(z_steps > limit) {
       break;
@@ -3182,15 +3188,24 @@ static void inprocessing(sat_solver_t *sol) {
 
     #if SUBSUMPTION
     if(sol->inpr_status & inpr_flag_sub) {
-      nb_deleted += inprocessing_subsumption(sol, m, v, vo, occ, limit);
-      sol->inpr_status &= ~4U;
+      #if INPROCESSING_PROF
+      struct timespec time_1, time_2;
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_1);
+      #endif
+      uint32_t nb_deleted_local = inprocessing_subsumption(sol, m, v, occ, limit);
+      nb_deleted += nb_deleted_local;
+      #if INPROCESSING_PROF
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_2);
+      sol->inpr_del_sub += nb_deleted_local;
+      ts_add(&(sol->inpr_spent_sub), ts_diff(time_1, time_2));
+      #endif
     }
+
     if(z_steps > limit) {
       break;
     }
     #endif
   } while(0);
-
 
   for (size_t i=0; i<m; i++) {
     if(is_clause_to_be_deleted(v[i])) {
@@ -3204,23 +3219,25 @@ static void inprocessing(sat_solver_t *sol) {
     delete_problem_clauses(sol);
   }
 
-  
-  
-  
   for (uint32_t i=0; i<n; i++) {
     #if INPR_OCC_LIST
-    z_list_t *z = occ[i].list;
-    while(z != NULL) {
-      z_list_t *y = z;
-      z = z->next;
-      safe_free(y);
+    occ_list_elem_t *occe = occ[i].list;
+    while(occe != NULL) {
+      occ_list_elem_t *occe_old = occe;
+      occe = occe->next;
+      safe_free(occe_old);
     }
     #elif INPR_OCC_VECT
     safe_free(occ[i].cl);
     #endif
   }
   safe_free(occ);
-  
+
+  #if INPROCESSING_PROF
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob2);
+  sol->inpr_del_glb += nb_deleted;
+  ts_add(&(sol->inpr_spent_glb), ts_diff(time_glob1, time_glob2));
+  #endif
 }
 #endif
 
@@ -3274,7 +3291,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
    * Check the variables in [heap->vmax ... heap->size - 1]
    */
   x = solver->heap.vmax;
-  while (x < solver->heap.size) {
+  while (x < (bvar_t) solver->heap.size) {
     if (var_is_unassigned(solver, x)) {
       solver->stats.decisions ++;
       solver->heap.vmax = x+1;
@@ -3789,7 +3806,7 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
   literal_t l;
 
   n = 0;
-  for (l = 0; l<solver->nb_lits; l++) {
+  for (l = 0; l< (literal_t)solver->nb_lits; l++) {
     if (lit_val(solver, l) == val_true) {
       a[n] = l;
       n ++;

@@ -21,11 +21,14 @@
 #include <ctype.h>
 #include <signal.h>
 #include <inttypes.h>
+#include <time.h>
 
 #include "solvers/cdcl/sat_solver.h"
 #include "utils/command_line.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
+#include "utils/colors.h"
+#include "utils/timespec.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -218,7 +221,7 @@ static int build_instance(char *filename) {
       literal = read_literal(f, nvars);
       if (literal < 0) break;
 
-      if (l_idx >= buffer_size) expand_buffer();
+      if (l_idx >= (int)buffer_size) expand_buffer();
       clause[l_idx] = literal;
       l_idx ++;
     }
@@ -411,6 +414,28 @@ static void show_stats(solver_stats_t *stat) {
   fprintf(stderr, "deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
+#if INPROCESSING && INPROCESSING_PROF
+//TODO
+static inline unsigned int ts_perc(timespec_t *time)
+{
+    uint64_t t = 1000000000ULL * ((uint64_t)time->tv_sec)                 + ((uint64_t)time->tv_nsec);
+    uint64_t g = 1000000000ULL * ((uint64_t)solver.inpr_spent_sat.tv_sec) + ((uint64_t)solver.inpr_spent_sat.tv_nsec);
+    uint64_t r = (100*t)/g;
+    if(r == 99)  { r = 98;}
+    if(r >= 100) { r = 99;}
+    return (unsigned int)r;
+}
+
+
+static void inpr_print(const char*s, uint32_t del, struct timespec time)
+{
+    unsigned int p = ts_perc(&(time));
+    unsigned int m = (unsigned int)(time.tv_nsec / 1000000UL);
+    fprintf(stderr, "[%s|%06u_%03lu.%03u-%s%02u%%" KRST "]" KRST, s, del, time.tv_sec, m, (p>5) ? KRED : "", p);
+}
+
+
+#endif
 
 static void print_results(void) {
   solver_stats_t *stat;
@@ -431,6 +456,22 @@ static void print_results(void) {
     }
     fprintf(stderr, "\n\n");
   }
+
+  #if INPROCESSING && INPROCESSING_PROF
+  struct timespec now;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &now);
+  solver.inpr_spent_sat = ts_diff(solver.inpr_spent_sat, now);
+  if(solver.inpr_spent_sat.tv_sec > 0) {
+    uint64_t nb_clauses_tot = solver.stats.prob_clauses_deleted + solver.nb_clauses + solver.nb_bin_clauses;
+    char * display_name = input_filename + ((input_filename[20] == 's') ?  + 33 : 37); //TODO
+    fprintf(stderr, "%s[TOT:%.10s|%07lu_%03lu.%03lu"  "]" KRST, (solver.inpr_spent_sat.tv_sec > 10) ? KBLD : "", display_name, nb_clauses_tot, solver.inpr_spent_sat.tv_sec, solver.inpr_spent_sat.tv_nsec/1000000UL);
+    inpr_print("GLB", solver.inpr_del_glb, solver.inpr_spent_glb);
+    //inpr_print("BLD",                   0, solver.inpr_spent_bld);
+    inpr_print("BCE", solver.inpr_del_bce, solver.inpr_spent_bce);
+    inpr_print("SUB", solver.inpr_del_sub, solver.inpr_spent_sub);
+    fprintf(stderr, "\n");
+  }
+  #endif
 
   if (resu == status_sat) {
     printf("sat\n");
