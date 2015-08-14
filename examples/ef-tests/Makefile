@@ -1,7 +1,7 @@
-#VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
-VALGRIND=
-YICES_SMT2=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-release/bin/yices_smt2
-YICES_MAIN=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-release/bin/yices_main  --mode=ef
+VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
+#VALGRIND=
+YICES_SMT2=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2
+YICES_MAIN=${VALGRIND} ../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_main  --mode=ef
 CVC4=cvc4 --produce-models
 VERBOSITY=--verbosity=0
 
@@ -14,22 +14,14 @@ all: check_bv check_lra
 check_bv: 
 	for test in ${BV_TESTS} ; do \
 	    echo "<$${test}>\n"; \
-	    ${YICES_MAIN} ${VERBOSITY} --mode=ef  --logic=BV $${test}.ys ; \
-	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
-	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
-	    ${CVC4} $${test}.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 
 check_lra:
 	for test in ${LRA_TESTS} ; do \
 	    echo "<$${test}>\n"; \
-	    ${YICES_MAIN} ${VERBOSITY} --mode=ef  --logic=LRA $${test}.ys ; \
-	    ${YICES_SMT2} ${VERBOSITY} $${test}.smt2 ; \
 	    ${YICES_SMT2} ${VERBOSITY} $${test}.exists.smt2 ; \
-	    ${YICES_SMT2} ${VERBOSITY} $${test}.mixed.smt2 ; \
-	    ${CVC4} $${test}.smt2 ; \
 	    echo "</$${test}>\n"; \
         done
 
