@@ -6,16 +6,32 @@ CVC4=cvc4 --produce-models
 Z3=/Users/iam/Repositories/z3/build/z3
 VERBOSITY=--verbosity=0
 
+EASY_4_YICES=00 01 02 03 04 05 06 11
 
-LIA_TESTS=01 02 03 04 05 06 08
+HARD_4_YICES=07 09 10
 
-HARD_4_YICES=07
+FATAL_4_YICES=08
 
 
-all: check_lia
+all: easy
 
-check_lia:
-	for test in ${LIA_TESTS} ; do \
+easy:
+	for test in ${EASY_4_YICES} ; do \
+	    echo "<example_$${test}>"; \
+            ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
+	    echo "</example_$${test}>\n"; \
+        done
+
+hard:
+	for test in ${HARD_4_YICES} ; do \
+	    echo "<example_$${test}>"; \
+            ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
+	    echo "</example_$${test}>\n"; \
+        done
+
+
+fatal:
+	for test in ${FATAL_4_YICES} ; do \
 	    echo "<example_$${test}>"; \
             ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
 	    echo "</example_$${test}>\n"; \
