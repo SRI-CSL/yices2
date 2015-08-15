@@ -19,8 +19,8 @@
 
 #include "context/context.h"
 #include "exists_forall/efsolver.h"
-#include "model/literal_collector.h"
-#include "model/projection.h"
+#include "model/literal_collector.h"    //get_implicant     (pre qf normalization)
+#include "model/projection.h"           //project_literals  (quantifier elimination)
 #include "terms/term_substitution.h"
 #include "utils/index_vectors.h"
 

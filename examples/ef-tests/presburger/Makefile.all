@@ -1,0 +1,22 @@
+#VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
+VALGRIND=
+YICES_SMT2=${VALGRIND} ../../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2
+YICES_MAIN=${VALGRIND} ../../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_main  --mode=ef
+CVC4=cvc4 --produce-models
+Z3=/Users/iam/Repositories/z3/build/z3
+VERBOSITY=--verbosity=0
+
+
+LIA_TESTS=01 02 03 04 05 06
+
+all: check_lia
+
+check_lia:
+	for test in ${LIA_TESTS} ; do \
+	    echo "<example_$${test}>"; \
+            ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
+	    ${CVC4} example_$${test}.smt2 ; \
+	    ${Z3} example_$${test}.smt2 ; \
+	    echo "</example_$${test}>\n"; \
+        done
+
