@@ -10,6 +10,6 @@
 		  (exists ((z Int))
 			  (and (< w z)
 			       (<= z (+ w 11))
-			       ((_ divisible 11) (+ x y z))))))))
+			       ((_ divisible 11) (+ x (+ y z)))))))))
 (check-sat)
 (exit)
