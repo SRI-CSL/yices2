@@ -7,7 +7,7 @@ Z3=/Users/iam/Repositories/z3/build/z3
 VERBOSITY=--verbosity=0
 
 
-LIA_TESTS=01 02 03 04 05 06
+LIA_TESTS=01 02 03 04 05 06 07
 
 all: check_lia
 
