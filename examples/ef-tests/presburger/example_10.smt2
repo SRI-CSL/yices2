@@ -6,10 +6,14 @@
 
 (assert
  (not (forall ((x Int) (y Int) (w Int))
-	      (=> (and (not ((_ divisible 11) x)) (not ((_ divisible 11) y)))
-		  (exists ((z Int))
-			  (and (< w z)
-			       (<= z (+ w 11))
-			       ((_ divisible 11) (+ x y z))))))))
+	      (=> (and (not ((_ divisible 5) x)) (not ((_ divisible 5) y)))
+		  (or
+		   ((_ divisible 5) (+ x y)) 
+		   ((_ divisible 5) (+ x (* 2 y)))
+		   ((_ divisible 5) (+ (* 2 x) y)) 
+		   ((_ divisible 5) (+ (* 2 x) (* 3 y)))
+		   ((_ divisible 5) (+ (* 3 x) (* 2 y)))
+		   )))))
+
 (check-sat)
 (exit)
