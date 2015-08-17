@@ -116,7 +116,7 @@ void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
 	ef_solver_set_trace(efc->efsolver, tracer);
       }
       /*
-       * If the problem has real variables, we force GEN_BY_PROJ
+       * If the problem has integer or real variables, we force GEN_BY_PROJ
        */
       ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
 		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);

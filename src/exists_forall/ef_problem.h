@@ -51,7 +51,7 @@
 
 
 /*
- * Descriptor for a forall constraint
+ * Descriptor for a universal constraint
  */
 typedef struct ef_cnstr_s {
   term_t *evars;     // existential variables
