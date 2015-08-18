@@ -151,7 +151,7 @@ dnl On systems where -fPIC is not the default, we must build
 dnl a specific version of GMP from the source, using option CFLAG=-fPIC.
 dnl
 dnl To build dynamic executables and libraries without GMP included,
-dnl we need a a dynamic version of the GMP library (e.g., /usr/local/libgmp.so).
+dnl we need a a dynamic version of the GMP library (e.g., /usr/local/lib/libgmp.so).
 dnl
 dnl On mingw and cygwin, dynamic and static GMP libraries do not coexist well.
 dnl They must be installed in different locations and use different gmp.h files.
@@ -166,7 +166,7 @@ dnl   PIC_GMP_INCLUDE_DIR = directory where a 'gmp.h' header file compatible wit
 dnl                         is located
 dnl
 dnl By default, the configure script searches for a usable STATIC_GMP in default
-dnl locations and set PIC_GMP to the same thing as STATIC_GMP.
+dnl locations and sets PIC_GMP to the same thing as STATIC_GMP.
 dnl
 dnl If the configure script does not find STATIC_GMP or if the defaults are
 dnl incorrect, the right libraries can be given as options to ./configure:
@@ -381,10 +381,10 @@ dnl
 dnl CSL_CHECK_LIB_PATH(path,option)
 dnl ----------------------------------
 dnl path should be the full path to a static library.
-dnl this checks whether the given file exists. Print an
+dnl this checks whether the given file exists. Prints an
 dnl error and exit otherwise.
 dnl
-dnl If the test succeeds, set variable testlib to path
+dnl If the test succeeds, set variable testlib to path.
 dnl
 AC_DEFUN([CSL_CHECK_LIB_PATH],
 [
@@ -493,7 +493,7 @@ dnl
 dnl
 AC_DEFUN([CSL_CHECK_STATIC_GMP],
 [
-AC_MSG_NOTICE([Trying to find a usable ligmp.a])
+AC_MSG_NOTICE([Trying to find a usable libgmp.a])
 CSL_CHECK_HEADER([gmp.h],$2,--with-static-gmp-include-dir)
 #
 # if $1 is not given, search for it in library paths
