@@ -7,16 +7,40 @@ Z3=/Users/iam/Repositories/z3/build/z3
 VERBOSITY=--verbosity=0
 
 
-LIA_TESTS=01 02 03 04 05 06
+EASY_4_YICES=00 01 02 03 04 05 06 11 12
 
-all: check_lia
+HARD_4_YICES=07 09 10 13 
 
-check_lia:
-	for test in ${LIA_TESTS} ; do \
+FATAL_4_YICES=08
+
+
+all: easy
+
+easy:
+	for test in ${EASY_4_YICES} ; do \
 	    echo "<example_$${test}>"; \
             ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
 	    ${CVC4} example_$${test}.smt2 ; \
 	    ${Z3} example_$${test}.smt2 ; \
 	    echo "</example_$${test}>\n"; \
         done
+
+hard:
+	for test in ${HARD_4_YICES} ; do \
+	    echo "<example_$${test}>"; \
+            ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
+	    ${CVC4} example_$${test}.smt2 ; \
+	    ${Z3} example_$${test}.smt2 ; \
+	    echo "</example_$${test}>\n"; \
+        done
+
+fatal:
+	for test in ${FATAL_4_YICES} ; do \
+	    echo "<example_$${test}>"; \
+            ${YICES_SMT2} ${VERBOSITY} example_$${test}.smt2 ; \
+	    ${CVC4} example_$${test}.smt2 ; \
+	    ${Z3} example_$${test}.smt2 ; \
+	    echo "</example_$${test}>\n"; \
+        done
+
 

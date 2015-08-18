@@ -3,6 +3,7 @@
 (set-info :smt-lib-version 2.0)
 (set-info :status unsat)
 
+;; (< x 100) (< y 100) (< 0 x) (< 0 y)
 
 (assert
  (not (forall ((x Int) (y Int))

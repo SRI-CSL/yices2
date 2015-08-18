@@ -556,6 +556,48 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
   }
 }
 
+// (div t1 t2)
+static term_t lit_collector_visit_arith_div(lit_collector_t *collect, term_t t, composite_term_t *div) {
+  term_t t1, t2;
+
+  assert(div->arity == 2);
+  t1 = lit_collector_visit(collect, div->arg[0]);
+  t2 = lit_collector_visit(collect, div->arg[1]);
+  if (t1 != div->arg[0] || t2 != div->arg[1]) {
+    t = mk_arith_div(collect->manager, t1, t2);
+  }
+
+  return t;
+}
+
+// (mod t1 t2)
+static term_t lit_collector_visit_arith_mod(lit_collector_t *collect, term_t t, composite_term_t *mod) {
+  term_t t1, t2;
+
+  assert(mod->arity == 2);
+  t1 = lit_collector_visit(collect, mod->arg[0]);
+  t2 = lit_collector_visit(collect, mod->arg[1]);
+  if (t1 != mod->arg[0] || t2 != mod->arg[1]) {
+    t = mk_arith_mod(collect->manager, t1, t2);
+  }
+
+  return t;
+}
+
+// t is (divides k u)
+static term_t lit_collector_visit_arith_divides_atom(lit_collector_t *collect, term_t t, composite_term_t *divides) {
+  term_t k, u, v;
+
+  assert(divides->arity == 2);
+  k = divides->arg[0];
+  u = divides->arg[1];
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_divides(collect->manager, k, v);
+  }
+  return register_atom(collect, t);
+}
+
 
 /*
  * (distinct t1 ... t_n)
@@ -697,6 +739,51 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
   }
   return register_atom(collect, t);
 }
+
+// t is (is_int u)
+static term_t lit_collector_visit_arith_is_int(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_is_int(collect->manager, v);
+  }
+  return register_atom(collect, t);
+}
+
+// t is (floor u)
+static term_t lit_collector_visit_arith_floor(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_floor(collect->manager, v);
+  }
+  return t;
+}
+
+// t is (ceil u)
+static term_t lit_collector_visit_arith_ceil(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_ceil(collect->manager, v);
+  }
+  return t;
+}
+
+// t is (abs u)
+static term_t lit_collector_visit_arith_abs(lit_collector_t *collect, term_t t, term_t u) {
+  term_t v;
+
+  v = lit_collector_visit(collect, u);
+  if (v != u) {
+    t = mk_arith_abs(collect->manager, v);
+  }
+  return t;
+}
+
 
 // (ite c t1 t2)
 static term_t lit_collector_visit_ite(lit_collector_t *collect, term_t t, composite_term_t *ite) {
@@ -1210,6 +1297,26 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       u = lit_collector_visit_ge_atom(collect, t, arith_ge_arg(terms, t));
       break;
 
+    case ARITH_IS_INT_ATOM:
+      u = lit_collector_visit_arith_is_int(collect, t, arith_is_int_arg(terms, t));
+      break;
+
+    case ARITH_FLOOR:
+      u = lit_collector_visit_arith_floor(collect, t, arith_floor_arg(terms, t));
+      break;
+
+    case ARITH_CEIL:
+      u = lit_collector_visit_arith_ceil(collect, t, arith_ceil_arg(terms, t));
+      break;
+
+    case ARITH_ABS:
+      u = lit_collector_visit_arith_abs(collect, t, arith_ceil_arg(terms, t));
+      break;
+
+      /* 
+	ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
+      */
+      
     case ITE_TERM:
     case ITE_SPECIAL:
       u = lit_collector_visit_ite(collect, t, ite_term_desc(terms, t));
@@ -1253,6 +1360,18 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
 
     case ARITH_BINEQ_ATOM:
       u = lit_collector_visit_arith_bineq(collect, t, arith_bineq_atom_desc(terms, t));
+      break;
+
+    case ARITH_DIV:
+      u = lit_collector_visit_arith_div(collect, t, arith_div_term_desc(terms, t));
+      break;
+      
+    case ARITH_MOD:
+      u = lit_collector_visit_arith_mod(collect, t, arith_mod_term_desc(terms, t));
+      break;
+
+    case ARITH_DIVIDES_ATOM:
+      u = lit_collector_visit_arith_divides_atom(collect, t, arith_divides_atom_desc(terms, t));
       break;
 
     case BV_ARRAY:
@@ -1330,6 +1449,7 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
     case UNUSED_TERM:
     case RESERVED_TERM:
     default:
+      fprintf(stderr, "lit_collector_visit %d\n", term_kind(terms, t));
       assert(false);
       longjmp(collect->env, MDL_EVAL_INTERNAL_ERROR);
       break;

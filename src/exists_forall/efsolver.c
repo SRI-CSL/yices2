@@ -852,10 +852,20 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   }
   solver->full_model = mdl;
 
-  // Compute the implicant
+
+  // Constraint
   cnstr = solver->prob->cnstr + i;
-  a[0] = cnstr->assumption;
-  a[1] = opposite_term(cnstr->guarantee);
+  a[0] = cnstr->assumption;                 // B(y)
+  a[1] = opposite_term(cnstr->guarantee);   // not C(x, y)
+
+
+#if 0
+  printf("Constraint\n");
+  yices_pp_term_array(stdout, 2, a, 120, UINT32_MAX, 0, 0);
+  printf("(%"PRIu32" literals)\n", 2);
+#endif
+
+  // Compute the implicant
   v = &solver->implicant;
   ivector_reset(v);
   code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
