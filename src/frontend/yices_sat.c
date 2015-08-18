@@ -266,6 +266,8 @@ enum {
   help_flag,
   verbose_flag,
   model_flag,
+  //TODO: remove
+  caopt, cbopt, ccopt,
   seed_opt,
 };
 
@@ -276,6 +278,10 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
+  //TODO: remove
+  { "ca", 'a', MANDATORY_INT, caopt },
+  { "cb", 'b', MANDATORY_INT, cbopt },
+  { "cc", 'c', MANDATORY_INT, ccopt },
   { "seed", 's', MANDATORY_INT, seed_opt },
 };
 
@@ -367,9 +373,21 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case seed_opt:
-	seed_given = true;
-	seed_value = elem.i_value;
-	break;
+        seed_given = true;
+        seed_value = elem.i_value;
+        break;
+
+      //TODO: remove
+      case caopt:
+        solver.inpr_cst_a = elem.i_value;
+        break;
+      case cbopt:
+        solver.inpr_cst_b = elem.i_value;
+        break;
+      case ccopt:
+        solver.inpr_cst_c = elem.i_value;
+        break;
+
       }
       break;
 
@@ -411,29 +429,82 @@ static void show_stats(solver_stats_t *stat) {
   fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   fprintf(stderr, "deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  fprintf(stderr, "deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
 #if INPROCESSING && INPROCESSING_PROF
 //TODO
-static inline unsigned int ts_perc(timespec_t *time)
+static inline unsigned int ts_perc(timespec_t time, timespec_t base)
 {
-    uint64_t t = 1000000000ULL * ((uint64_t)time->tv_sec)                 + ((uint64_t)time->tv_nsec);
-    uint64_t g = 1000000000ULL * ((uint64_t)solver.inpr_spent_sat.tv_sec) + ((uint64_t)solver.inpr_spent_sat.tv_nsec);
-    uint64_t r = (100*t)/g;
+    uint64_t t = 1000000000ULL * ((uint64_t)time.tv_sec) + ((uint64_t)time.tv_nsec);
+    uint64_t g = 1000000000ULL * ((uint64_t)base.tv_sec) + ((uint64_t)base.tv_nsec);
+    uint64_t r = (g==0) ? 0 : (100*t)/g;
     if(r == 99)  { r = 98;}
     if(r >= 100) { r = 99;}
     return (unsigned int)r;
 }
 
+static int inpr_print_totl(char *buf, int bufi) {
 
-static void inpr_print(const char*s, uint32_t del, struct timespec time)
-{
-    unsigned int p = ts_perc(&(time));
-    unsigned int m = (unsigned int)(time.tv_nsec / 1000000UL);
-    fprintf(stderr, "[%s|%06u_%03lu.%03u-%s%02u%%" KRST "]" KRST, s, del, time.tv_sec, m, (p>5) ? KRED : "", p);
+  uint64_t nb_clauses_tot = solver.nb_clauses + solver.stats.prob_clauses_deleted;
+  int resu = solver.status;
+
+  if(solver.inpr_spent_sat.tv_sec > 10) {
+    bufi += sprintf(buf + bufi, KBLD);
+  }
+  bufi += sprintf(buf + bufi, "[TOT");
+  if((input_filename[18] == 'h') && (input_filename[17] == 't') && (input_filename[15] == 'n') && (input_filename[14] == 'k')) {
+    //todo:hack
+    char * display_name = input_filename + ((input_filename[20] == 's') ?  + 33 : 37);
+    bufi += sprintf(buf + bufi, ":%.10s", display_name);
+  }
+  bufi += sprintf(buf + bufi, "|%07lu_", nb_clauses_tot);
+  if (resu == status_sat || resu == status_unsat) {
+    bufi += sprintf(buf + bufi, "%03lu.%03lu", solver.inpr_spent_sat.tv_sec, solver.inpr_spent_sat.tv_nsec/1000000UL);
+  } else {
+    bufi += sprintf(buf + bufi, KRED "UNKNOWN" KRST);
+  }
+  if(solver.inpr_spent_sat.tv_sec > 10) {
+    bufi += sprintf(buf + bufi, KBLD);
+  }
+  bufi += sprintf(buf + bufi, "]" KRST);
+  return bufi;
 }
 
+static int inpr_print_simp(char *buf, int bufi, const char*s, int32_t del, timespec_t time, timespec_t base)
+{
+    unsigned int p = ts_perc(time, base);
+    unsigned int m = (unsigned int)(time.tv_nsec / 1000000UL);
+    bufi += sprintf(buf + bufi, "[%s|", s);
+    if(del >= 0) {
+      if(del > 100) {
+        bufi += sprintf(buf + bufi, KGRN);
+      }
+      bufi += sprintf(buf + bufi, "%06u" KRST "_", del);
+    }
+    bufi += sprintf(buf + bufi, "%03lu.%03u-%s%02u%%" KRST "]" KRST, time.tv_sec, m, (p>5) ? KRED : "", p);
+    return bufi;
+}
+
+static int inpr_print_time(char *buf, int bufi, const char*s, timespec_t cpy, timespec_t bld, timespec_t frb, timespec_t rep, timespec_t base)
+{
+    unsigned int p;
+    bufi += sprintf(buf + bufi, "[%s|", s);
+
+    p = ts_perc(cpy, base);
+    bufi += sprintf(buf + bufi, "%s%02u%%-" KRST, (p>42) ? KRED : "", p);
+
+    p = ts_perc(bld, base);
+    bufi += sprintf(buf + bufi, "%s%02u%%-" KRST, (p>42) ? KRED : "", p);
+
+    p = ts_perc(frb, base);
+    bufi += sprintf(buf + bufi, "%s%02u%%-" KRST, (p>42) ? KRED : "", p);
+
+    p = ts_perc(rep, base);
+    bufi += sprintf(buf + bufi, "%s%02u%%"  KRST, (p>42) ? KRED : "", p);
+
+    bufi += sprintf(buf + bufi, "]" KRST);
+    return bufi;
+}
 
 #endif
 
@@ -462,14 +533,14 @@ static void print_results(void) {
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &now);
   solver.inpr_spent_sat = ts_diff(solver.inpr_spent_sat, now);
   if(solver.inpr_spent_sat.tv_sec > 0) {
-    uint64_t nb_clauses_tot = solver.stats.prob_clauses_deleted + solver.nb_clauses + solver.nb_bin_clauses;
-    char * display_name = input_filename + ((input_filename[20] == 's') ?  + 33 : 37); //TODO
-    fprintf(stderr, "%s[TOT:%.10s|%07lu_%03lu.%03lu"  "]" KRST, (solver.inpr_spent_sat.tv_sec > 10) ? KBLD : "", display_name, nb_clauses_tot, solver.inpr_spent_sat.tv_sec, solver.inpr_spent_sat.tv_nsec/1000000UL);
-    inpr_print("GLB", solver.inpr_del_glb, solver.inpr_spent_glb);
-    //inpr_print("BLD",                   0, solver.inpr_spent_bld);
-    inpr_print("BCE", solver.inpr_del_bce, solver.inpr_spent_bce);
-    inpr_print("SUB", solver.inpr_del_sub, solver.inpr_spent_sub);
-    fprintf(stderr, "\n");
+    char buf[0x1000];
+    int bufi = 0;
+    bufi = inpr_print_totl(buf, bufi);
+    bufi = inpr_print_simp(buf, bufi, "GLB", solver.inpr_del_glb, solver.inpr_spent_glb, solver.inpr_spent_sat);
+    bufi = inpr_print_time(buf, bufi, "BLD", solver.inpr_spent_cpy, solver.inpr_spent_bld, solver.inpr_spent_frb, solver.inpr_spent_rep, solver.inpr_spent_glb);
+    bufi = inpr_print_simp(buf, bufi, "BCE", solver.inpr_del_bce, solver.inpr_spent_bce, solver.inpr_spent_glb);
+    bufi = inpr_print_simp(buf, bufi, "SUB", solver.inpr_del_sub, solver.inpr_spent_sub, solver.inpr_spent_glb);
+    fprintf(stderr, "%s\n", buf);
   }
   #endif
 

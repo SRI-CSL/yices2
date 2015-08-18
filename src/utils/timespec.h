@@ -17,13 +17,13 @@ typedef struct timespec timespec_t;
  */
 static inline timespec_t ts_diff(timespec_t start, timespec_t end)
 {
-	struct timespec temp;
-	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000L+end.tv_nsec-start.tv_nsec;
+	timespec_t temp;
+	if ((end.tv_nsec-start.tv_nsec) < 0) {
+		temp.tv_sec  = end.tv_sec - start.tv_sec-1;
+		temp.tv_nsec = 1000000000L + end.tv_nsec-start.tv_nsec;
 	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+		temp.tv_sec  = end.tv_sec  - start.tv_sec;
+		temp.tv_nsec = end.tv_nsec - start.tv_nsec;
 	}
 	return temp;
 }
@@ -32,7 +32,7 @@ static inline timespec_t ts_diff(timespec_t start, timespec_t end)
 /*
  * Add 'delta' to 'base'
  */
-static inline void ts_add(struct timespec *base, struct timespec delta)
+static inline void ts_add(timespec_t *base, timespec_t delta)
 {
     base->tv_sec  += delta.tv_sec;
     base->tv_nsec += delta.tv_nsec;

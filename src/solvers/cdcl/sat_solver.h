@@ -34,15 +34,16 @@
   /* Master switch */
   #define INPROCESSING 1
 
-  /* Profile inprocessing */
-  #define INPROCESSING_PROF 2
+  /* Profile inprocessing 0:none 1:global report 2:inside report */
+  /* EXPERIMENTAL */
+  #define INPROCESSING_PROF 1
 
   #define BOOLEAN_CLAUSE_ELIMINATION 1
   #define PURE_LITERAL 0
   #define SUBSUMPTION 1
 
-  #define INPR_OCC_LIST 0
-  #define INPR_OCC_VECT 1
+  #define INPR_OCC_LIST 1
+  #define INPR_OCC_VECT 0
 
 /* Restart strategy: choose one of them */
 #define PICO 0
@@ -218,6 +219,7 @@ enum {
 enum {
   end_clause = -1,  // end of problem clause
   end_learned = -2, // end of learned clause
+  end_temp = -3, // end of temporary clause
 };
 
 typedef struct clause_s clause_t;
@@ -442,7 +444,6 @@ typedef struct solver_stats_s {
 
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
-  uint64_t bin_clauses_deleted;      // number of binary clauses deleted
 
   uint64_t literals_before_simpl;
   uint64_t subsumed_literals;
@@ -484,7 +485,7 @@ typedef struct sat_solver_s {
   uint32_t vsize;             // Size of the variable arrays (>= nb_vars)
   uint32_t lsize;             // size of the literal arrays (>= nb_lits)
 
-  uint32_t nb_clauses;        // Number of clauses with at least 3 literals
+  uint32_t nb_clauses;        // Number of clauses with at least 2 literals
   uint32_t nb_unit_clauses;   // Number of unit clauses
   uint32_t nb_bin_clauses;    // Number of binary clauses
 
@@ -527,18 +528,28 @@ typedef struct sat_solver_s {
 
   /* Inprocessing */
   #if INPROCESSING
+  //TODO; rm these 3
+  uint64_t inpr_cst_a;
+  uint64_t inpr_cst_b;
+  uint64_t inpr_cst_c;
+
   uint32_t inpr_status;         // simplifications to do
+  void    *inpr_temp_pool;      // temporary clause pool
+  uint32_t inpr_pool_next_free; // next available slot in the temporary clause pool
   #if INPROCESSING_PROF
   uint32_t inpr_del_glb;
   uint32_t inpr_del_bce;
   uint32_t inpr_del_plr;
   uint32_t inpr_del_sub;
-  struct timespec inpr_spent_sat; //global start time
-  struct timespec inpr_spent_glb;
-  struct timespec inpr_spent_bld; //building time
-  struct timespec inpr_spent_bce;
-  struct timespec inpr_spent_plr;
-  struct timespec inpr_spent_sub;
+  struct timespec inpr_spent_sat; //solver start time
+  struct timespec inpr_spent_glb; //inprocessing global
+  struct timespec inpr_spent_cpy; //copy clauses
+  struct timespec inpr_spent_bld; //building occurences lists
+  struct timespec inpr_spent_frb; //free built occ
+  struct timespec inpr_spent_rep; //report deleted to vo
+  struct timespec inpr_spent_bce; //BCE
+  struct timespec inpr_spent_plr; //PLR
+  struct timespec inpr_spent_sub; //SUB
   #endif
   #endif
 
