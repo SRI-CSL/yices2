@@ -740,7 +740,7 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
   return register_atom(collect, t);
 }
 
-// t is (is_int u)
+// t is (is_int u)  FIXME: this should be simplifiable using the model
 static term_t lit_collector_visit_arith_is_int(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
@@ -773,7 +773,7 @@ static term_t lit_collector_visit_arith_ceil(lit_collector_t *collect, term_t t,
   return t;
 }
 
-// t is (abs u)
+// t is (abs u)  FIXME: this should be simplifiable using the model
 static term_t lit_collector_visit_arith_abs(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
