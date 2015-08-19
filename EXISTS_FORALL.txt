@@ -1,0 +1,65 @@
+Ians notes.
+
+0. test examples should be unsat.
+
+Presburger (Cooper)
+
+
+1.  In get_implicant we need to ensure we have the reduced set of atomic formula,
+then given the conjuncts:
+
+J0, ..., JN
+
+we need to compute, for each uvar y:
+
+- k = lcm(C) where C  = { c |  cy occurs in a Ji }
+
+
+- normalize the coefficients of y to be 1 and add the k-divisibility to the normalized set:
+
+(*) J0_y, ...., JN_y,   k|y
+
+then compute:
+
+- the A[y] set      { e |  either (y < e)  or (y = e - 1)  or (y != e) is a Ji_y }
+
+- the B[y] set      { e |  either (e < y)  or (y = e + 1)  or (y != e) is a Ji_y }
+
+- delta             lcm({ d |  (d|x + e) or (d!|x + e)  is a Ji_y })
+
+Using these we can deterime whether we use the
+
+(-*) The P_{-\infinity} Cooper equivalence
+
+or
+
+(+*) The P_{+\infinity} Cooper equivalence
+
+If |A[y]| < |B[y]| we use the (+*).
+
+If |B[y]| < |A[y]| we use the (-*).
+
+If |B[y]| = |A[y]| we take as smaller the one with the fewer free variables,
+
+if that doesn't decide we pick the first.
+
+Having choosen between (-*) and (+*) we then have to find which disjunct
+is true in the model. Note that each disjunct is closely related in form
+to the conjunction of (*).
+
+To determine the valid disjunct will require testing validity in the model of:
+
+- 1 <= j <= delta instantiations: P_{-\infinity}[y/j] or P_{+\infinity}[y/j] according to the choice of
+(-*) or (+*).
+
+- 1 <= j <= delta, b in |A[y]|  (|B[y]| respectively) instantiations: P[b + (-)j]
+
+
+
+
+
+
+
+2. DETAILS. So processing the Ji to accumulate the necessary information will
+require having a good handle on what form the Ji actually take. What
+simplifications Bruuno has already done, and what to bail on.
