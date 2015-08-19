@@ -729,7 +729,8 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
 
 
 
-// t is (u >= 0)
+// t is (u >= 0)  FIXME: if u is an Int & we are Coopering we need
+// to convert this to (u + 1 > 0). Can we determine if u is an Int?
 static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
@@ -740,7 +741,7 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
   return register_atom(collect, t);
 }
 
-// t is (is_int u)  FIXME: this should be simplifiable using the model
+// t is (is_int u)  FIXME: this could/should be simplifiable using the model
 static term_t lit_collector_visit_arith_is_int(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 

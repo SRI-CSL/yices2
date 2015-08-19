@@ -859,7 +859,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   a[1] = opposite_term(cnstr->guarantee);   // not C(x, y)
 
 
-#if 0
+#if 1
   printf("Constraint\n");
   yices_pp_term_array(stdout, 2, a, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", 2);
@@ -875,7 +875,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
     return NULL_TERM;
   }
 
-#if 0
+#if 1
   printf("Implicant\n");
   yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", v->size);
@@ -885,14 +885,22 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   w = &solver->projection;
   ivector_reset(w);
   n = ef_constraint_num_uvars(cnstr);
+
+#if 1
+  printf("(%"PRIu32" universals)\n", n);
+  yices_pp_term_array(stdout, n, cnstr->uvars, 120, UINT32_MAX, 0, 0);
+#endif
+
+  
   pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w);
+
   if (pflag != PROJ_NO_ERROR) {
     solver->status = EF_STATUS_PROJECTION_ERROR;
     solver->error_code = pflag;
     return NULL_TERM;
   }
 
-#if 0
+#if 1
   printf("Projection\n");
   yices_pp_term_array(stdout, w->size, w->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", w->size);

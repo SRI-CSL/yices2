@@ -7,9 +7,6 @@
 (assert
  (not (forall ((x0 Int) (x1 Int) (x2 Int))
 	      (=> (and (not ((_ divisible 11) x0)) (not ((_ divisible 11) x1)))
-		  (exists ((y Int))
-			  (and (< x2 y)
-			       (<= y (+ x2 11))
-			       ((_ divisible 11) (+ x0 (+ x1 y)))))))))
+		  (exists ((y Int)) ((_ divisible 11) (+ x0 (+ x1 y))))))))
 (check-sat)
 (exit)
