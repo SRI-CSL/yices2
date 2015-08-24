@@ -15,6 +15,7 @@
 #include "model/arith_projection.h"
 #include "model/model_queries.h"
 #include "model/projection.h"
+#include "model/presburger.h"
 #include "model/val_to_term.h"
 #include "terms/term_sets.h"
 #include "utils/memalloc.h"
@@ -107,6 +108,9 @@ void init_projector(projector_t *proj, model_t *mdl, term_manager_t *mngr, uint3
   proj->elim_subst = NULL;
   proj->arith_proj = NULL;
   proj->val_subst = NULL;
+
+  proj->is_presburger = true;  
+  
 }
 
 
@@ -156,6 +160,21 @@ static void proj_build_arith_proj(projector_t *proj) {
   tmp = (arith_projector_t *) safe_malloc(sizeof(arith_projector_t));
   init_arith_projector(tmp, proj->mngr, 0, 0);
   proj->arith_proj = tmp;
+}
+
+/*
+ * Allocate and initialize presburger projector
+ * - use default sizes
+ * - no variables are added to the projector
+ */
+static void proj_build_presburger_proj(projector_t *proj) {
+  presburger_t *tmp;
+
+  assert(proj->presburger == NULL);
+
+  tmp = (presburger_t *) safe_malloc(sizeof(presburger_t));
+  init_presburger_projector(tmp, proj->mngr, 0, 0);
+  proj->presburger = tmp;
 }
 
 
@@ -227,6 +246,14 @@ static void proj_delete_arith_proj(projector_t *proj) {
     delete_arith_projector(proj->arith_proj);
     safe_free(proj->arith_proj);
     proj->arith_proj = NULL;
+  }
+}
+
+static void proj_delete_presburger_proj(projector_t *proj) {
+  if (proj->presburger != NULL) {
+    delete_presburger_projector(proj->presburger);
+    safe_free(proj->presburger);
+    proj->presburger = NULL;
   }
 }
 
@@ -369,7 +396,14 @@ static void proj_add_arith_literal(projector_t *proj, term_t t) {
 void projector_add_literal(projector_t *proj, term_t t) {
   assert(true_formula(proj, t));
 
+  
   if (is_arithmetic_literal(proj->terms, t)) {
+
+    //see if we are still on song for cooperdom
+    if ( proj->is_presburger && ! is_presburger_literal(proj->terms, t)) {
+      proj->is_presburger = false;
+    }
+    
     /*
      * NOTE: (distinct ...) is not considered an arithmetic literal
      * cf. terms/terms.h so if t is ever a (distinct u1 ... u_n ) it will be
@@ -381,7 +415,6 @@ void projector_add_literal(projector_t *proj, term_t t) {
     ivector_push(&proj->gen_literals, t);
   }
 }
-
 
 
 /*
@@ -466,6 +499,18 @@ static void proj_push_arith_var(projector_t *proj, term_t x, bool to_elim) {
 }
 
 
+static void proj_push_presburger_var(projector_t *proj, term_t x, bool to_elim) {
+  rational_t *q;
+  value_t v;
+
+  assert(proj->presburger != NULL);
+
+  v = model_get_term_value(proj->mdl, x);
+  q = vtbl_rational(model_get_vtbl(proj->mdl), v);
+  presburger_add_var(proj->presburger, x, to_elim, q);
+}
+
+
 static void proj_process_arith_literals(projector_t *proj) {
   arith_projector_t *aproj;
   term_table_t *terms;
@@ -474,7 +519,7 @@ static void proj_process_arith_literals(projector_t *proj) {
   int32_t code;
 
 #if TRACE
-  printf("--> Process arith_literals\n");
+  printf("[1]  --> Process arith_literals\n");
   fflush(stdout);
 #endif
 
@@ -512,7 +557,7 @@ static void proj_process_arith_literals(projector_t *proj) {
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
 #if TRACE
-    printf("--> input literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
+    printf("[1]  --> input literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
     print_term_full(stdout, terms, proj->arith_literals.data[i]);
     printf("\n");
     fflush(stdout);
@@ -531,10 +576,10 @@ static void proj_process_arith_literals(projector_t *proj) {
   aproj_get_formula_vector(aproj, &proj->arith_literals);
 
 #if TRACE
-  printf("\n--> projection result:\n");
+  printf("\n[1]  --> projection result:\n");
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
-    printf("--> output literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
+    printf("[1]  --> output literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
     print_term_full(stdout, terms, proj->arith_literals.data[i]);
     printf("\n");
   }
@@ -545,6 +590,88 @@ static void proj_process_arith_literals(projector_t *proj) {
  done:
   proj_delete_arith_proj(proj);
 }
+
+
+static void proj_process_presburger_literals(projector_t *proj) {
+  presburger_t *pres;
+  term_table_t *terms;
+  uint32_t i, j, n;
+  term_t x;
+  int32_t code;
+
+#if TRACE
+  printf("[1]  --> Process presburger_literals\n");
+  fflush(stdout);
+#endif
+
+  proj_build_presburger_proj(proj);
+
+  /*
+   * Pass all arithmetic variables in proj->evars to the presburger projector
+   * and remove them from proj->evars.
+   */
+  terms = proj->terms;
+  n = proj->num_evars;
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (is_integer_term(terms, x)) {
+      proj_push_presburger_var(proj, x, true);
+    } else {
+      proj->evars[j] = x;
+      j ++;
+    }
+  }
+  proj->num_evars = j;
+
+  // Pass all variables from proj->avars to the arith_projector
+  n = proj->arith_vars.size;
+  for(i=0; i<n; i++) {
+    x = proj->arith_vars.data[i];
+    assert(is_arithmetic_term(terms, x));
+    proj_push_presburger_var(proj, x, false);
+  }
+
+  // Process the presburger literals
+  pres = proj->presburger;
+  //aproj_close_var_set(pres);
+  n = proj->arith_literals.size;
+  for (i=0; i<n; i++) {
+#if TRACE
+    printf("[1]  --> input literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
+    print_term_full(stdout, terms, proj->arith_literals.data[i]);
+    printf("\n");
+    fflush(stdout);
+#endif
+    code = presburger_add_constraint(pres, proj->arith_literals.data[i]);
+    if (code < 0) {
+      // Literal not supported by pres
+      proj_error(proj, PROJ_ERROR_BAD_PRESBURGER_LITERAL, code);
+      goto done;
+    }
+  }
+  presburger_eliminate(pres);
+  
+  // Collect the result in proj->arith_literals
+  ivector_reset(&proj->arith_literals);
+  presburger_get_formula_vector(pres, &proj->arith_literals);
+
+#if TRACE
+  printf("\n[1]  --> projection result:\n");
+  n = proj->arith_literals.size;
+  for (i=0; i<n; i++) {
+    printf("[1]  --> output literal[%"PRIu32"]: (%"PRId32")\n", i, proj->arith_literals.data[i]);
+    print_term_full(stdout, terms, proj->arith_literals.data[i]);
+    printf("\n");
+  }
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
+ done:
+  proj_delete_presburger_proj(proj);
+}
+
 
 
 
@@ -610,14 +737,18 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
     proj_elim_by_substitution(proj);
   }
   if (proj->flag == NO_ERROR && proj->arith_literals.size > 0) {
-    proj_process_arith_literals(proj);
+    if(false && proj->is_presburger){
+      proj_process_presburger_literals(proj);
+    } else {
+      proj_process_arith_literals(proj);
+    }
   }
-  if (proj->flag == NO_ERROR && proj->num_evars > 0) {
+  if (proj->flag == NO_ERROR && proj->num_evars > 0) {  
     // some variables were not eliminated in the first two phases
     // replace them by their value in the model
     proj_elim_by_model_value(proj);
-  }
-
+  } 
+  
   if (proj->flag == NO_ERROR) {
     /*
      * Copy the results in v

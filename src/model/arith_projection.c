@@ -753,7 +753,7 @@ static bool aproj_cheaper_var(void *table, int32_t x, int32_t y) {
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
  * - m = initial esize (number of variables to eliminate)
- * - m must be no more than m
+ * - n must be no more than m
  *
  * Parameters n and m specify the initial size and esize
  * - if n is 0, the default size and esize are used (m should be 0 too)

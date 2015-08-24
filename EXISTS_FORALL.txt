@@ -5,19 +5,28 @@ Ians notes.
 Presburger (Cooper)
 
 
-1.  In get_implicant we need to ensure we have the reduced set of atomic formula,
-then given the conjuncts:
+1.  In get_implicant we need to ensure we have the reduced set of atomic formula
+(in particular <= should be eliminated, as well as distinct (c.f. projector_add_literal).)
+Also would be good to know that we only have Int variables in the fray.
+
+
+2. Then given the conjuncts
 
 J0, ..., JN
 
-we need to compute, for each uvar y:
+and uvars
+
+y0, ..., yM0
+
+passed in to project_literals
+
+we need to compute, for a well chosen uvar y:
 
 - k = lcm(C) where C  = { c |  cy occurs in a Ji }
 
-
 - normalize the coefficients of y to be 1 and add the k-divisibility to the normalized set:
 
-(*) J0_y, ...., JN_y,   k|y
+(*) J0_y, ...., JN_y,  k|y
 
 then compute:
 
@@ -55,11 +64,31 @@ To determine the valid disjunct will require testing validity in the model of:
 - 1 <= j <= delta, b in |A[y]|  (|B[y]| respectively) instantiations: P[b + (-)j]
 
 
+This gives rise to a new set of conjuncts and uvars
 
+J0, ..., JN
 
+y0, ..., yM
+
+where M1 < M0  for the process to continue.
 
 
 
 2. DETAILS. So processing the Ji to accumulate the necessary information will
 require having a good handle on what form the Ji actually take. What
-simplifications Bruuno has already done, and what to bail on.
+simplifications Bruno has already done, and what to bail on.
+
+
+3. project_literals gore:
+
+
+Given
+
+J0, ...., JN
+
+and
+
+y
+
+
+

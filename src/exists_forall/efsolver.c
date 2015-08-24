@@ -860,7 +860,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
 
 
 #if 1
-  printf("Constraint\n");
+  printf("Constraint:\n");
   yices_pp_term_array(stdout, 2, a, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", 2);
 #endif
@@ -876,7 +876,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   }
 
 #if 1
-  printf("Implicant\n");
+  printf("Implicant:\n");
   yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", v->size);
 #endif
@@ -901,7 +901,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   }
 
 #if 1
-  printf("Projection\n");
+  printf("Projection:\n");
   yices_pp_term_array(stdout, w->size, w->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", w->size);
 #endif

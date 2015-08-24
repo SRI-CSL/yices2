@@ -29,6 +29,7 @@
 #include <stdint.h>
 
 #include "model/arith_projection.h"
+#include "model/presburger.h"
 #include "model/models.h"
 #include "terms/elim_subst.h"
 #include "terms/term_manager.h"
@@ -46,6 +47,7 @@ typedef enum {
   PROJ_ERROR_IN_CONVERT = -3,
   PROJ_ERROR_IN_SUBST = -4,
   PROJ_ERROR_BAD_ARITH_LITERAL = -5,
+  PROJ_ERROR_BAD_PRESBURGER_LITERAL = -6,
 } proj_flag_t;
 
 
@@ -98,6 +100,10 @@ typedef struct projector_s {
   elim_subst_t *elim_subst;
   arith_projector_t *arith_proj;
   term_subst_t *val_subst;
+
+  //cooper playground
+  bool is_presburger;
+  presburger_t *presburger;
 
 } projector_t;
 

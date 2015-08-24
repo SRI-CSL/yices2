@@ -467,7 +467,7 @@ static term_t lit_collector_visit_formula(lit_collector_t *collect, term_t t) {
  *   we replace (u /= 0) by either (u < 0) or (u > 0) depending
  *   on the sign of u in the model.
  */
-static term_t lit_collector_visit_eq_atom(lit_collector_t *collect, term_t t, term_t u) {
+static term_t lit_collector_visit_arith_eq_atom(lit_collector_t *collect, term_t t, term_t u) {
   term_t v, r;
   int sgn;
 
@@ -584,7 +584,7 @@ static term_t lit_collector_visit_arith_mod(lit_collector_t *collect, term_t t, 
   return t;
 }
 
-// t is (divides k u)
+// t is (divides k u)  FIXME: should we enforce conditions on divides->arg[0]? visit it?
 static term_t lit_collector_visit_arith_divides_atom(lit_collector_t *collect, term_t t, composite_term_t *divides) {
   term_t k, u, v;
 
@@ -729,9 +729,8 @@ static term_t lit_collector_visit_eq(lit_collector_t *collect, term_t t, composi
 
 
 
-// t is (u >= 0)  FIXME: if u is an Int & we are Coopering we need
-// to convert this to (u + 1 > 0). Can we determine if u is an Int?
-static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, term_t u) {
+// t is (u >= 0)  
+static term_t lit_collector_visit_arith_ge_atom(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
   v = lit_collector_visit(collect, u);
@@ -741,7 +740,7 @@ static term_t lit_collector_visit_ge_atom(lit_collector_t *collect, term_t t, te
   return register_atom(collect, t);
 }
 
-// t is (is_int u)  FIXME: this could/should be simplifiable using the model
+// t is (is_int u)  
 static term_t lit_collector_visit_arith_is_int(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
@@ -774,7 +773,7 @@ static term_t lit_collector_visit_arith_ceil(lit_collector_t *collect, term_t t,
   return t;
 }
 
-// t is (abs u)  FIXME: this should be simplifiable using the model
+// t is (abs u)  
 static term_t lit_collector_visit_arith_abs(lit_collector_t *collect, term_t t, term_t u) {
   term_t v;
 
@@ -1291,11 +1290,11 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case ARITH_EQ_ATOM:
-      u = lit_collector_visit_eq_atom(collect, t, arith_eq_arg(terms, t));
+      u = lit_collector_visit_arith_eq_atom(collect, t, arith_eq_arg(terms, t));
       break;
 
     case ARITH_GE_ATOM:
-      u = lit_collector_visit_ge_atom(collect, t, arith_ge_arg(terms, t));
+      u = lit_collector_visit_arith_ge_atom(collect, t, arith_ge_arg(terms, t));
       break;
 
     case ARITH_IS_INT_ATOM:
@@ -1311,13 +1310,9 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       break;
 
     case ARITH_ABS:
-      u = lit_collector_visit_arith_abs(collect, t, arith_ceil_arg(terms, t));
+      u = lit_collector_visit_arith_abs(collect, t, arith_abs_arg(terms, t));
       break;
 
-      /* 
-	ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
-      */
-      
     case ITE_TERM:
     case ITE_SPECIAL:
       u = lit_collector_visit_ite(collect, t, ite_term_desc(terms, t));
@@ -1350,6 +1345,8 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
     case LAMBDA_TERM:
       longjmp(collect->env, MDL_EVAL_LAMBDA);
       break;
+
+      //ARITH_ROOT_ATOM should get its very longjmp 
 
     case OR_TERM:
       u = lit_collector_visit_or_formula(collect, t, or_term_desc(terms, t));
@@ -1450,7 +1447,7 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
     case UNUSED_TERM:
     case RESERVED_TERM:
     default:
-      fprintf(stderr, "lit_collector_visit %d\n", term_kind(terms, t));
+      //iam: fprintf(stderr, "lit_collector_visit %d\n", term_kind(terms, t));
       assert(false);
       longjmp(collect->env, MDL_EVAL_INTERNAL_ERROR);
       break;
