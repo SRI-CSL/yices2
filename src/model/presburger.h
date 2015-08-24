@@ -17,6 +17,46 @@
 #include "terms/term_manager.h"
 
 /*
+ * Tags for identifying the constraint types
+ *   PRES_GT           = 0       strict inequality (poly > 0)
+ *   PRES_GE           = 1       non-strict inequality  (poly >= 0)
+ *   PRES_EQ           = 2       equality   (poly = 0)
+ *   PRES_POS_DIVIDES  = 3       divides    + (k | poly)
+ *   PRES_NEG_DIVIDES  = 4       divides    - (k | poly)
+ *
+ */
+typedef enum {
+  PRES_GT           = 0,
+  PRES_GE           = 1,
+  PRES_EQ           = 2,
+  PRES_POS_DIVIDES  = 3,
+  PRES_NEG_DIVIDES  = 4,
+} pres_tag_t;
+
+
+/*
+ * Presburger constraint:
+ * - id = constraint id
+ * - tag = constraint type
+ * - nterms = number of monomials
+ * - mono = array of nterms + 1 monomials
+ * we use the same conventions as in polynomials.h:
+ * - the monomials are ordered by increasing variable index
+ * - mono[nterms] contains the end marker max_idx
+ * - const_idx = 0 denotes the constant
+ *
+ * - the id is a counter incremented with every new constraint
+ */
+typedef struct presburger_constraint_s {
+  uint32_t id;
+  pres_tag_t tag;
+  uint32_t nterms;
+  monomial_t mono[0]; // real size = nterms+1
+} presburger_constraint_t;
+
+#define MAX_APROJ_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(aproj_constraint_t))/sizeof(monomial_t)) - 1)
+
+/*
  * Error codes for presburger_add_constraint
  * - a term is rejected if it's not a presburger literal
  * - or if it's an arithmetic disequality (e.g., (not (= x y)))
@@ -27,7 +67,6 @@ enum {
   PRES_ERROR_ARITH_DISEQ = -2,
   PRES_ERROR_FALSE_LITERAL = -3,
 };
-
 
 /*
  * Presburger projector data structure:
@@ -91,7 +130,7 @@ extern void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, ratio
  *    (ARITH_DIVIDES_ATOM k t)
  *    (NOT (ARITH_DIVIDES_ATOM k t))
  *   where t, t1, t2 are either variables declared in proj or linear
- *   polynomials in variables declared in proj
+ *   polynomials in variables declared in proj, and k is an integer constant.
  * - c must be true in the model specified by calls to presburger_add_var
  * - no variables can be added after this function is called
  *
@@ -107,7 +146,7 @@ extern void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, ratio
  * - the error checks are not exhaustive: we don't check whether c
  *   is true in the model.
  * - the literals (distinct t1 ... tn) and (not (distinct t1 ... tn))
- *   are rejected with error code NOT_ARITH_LITERAL, even if t1 ... t_n
+ *   are rejected with error code NOT_PRESBURGER_LITERAL, even if t1 ... t_n
  *   are arithmetic terms.
  */
 extern int32_t presburger_add_constraint(presburger_t *pres, term_t c);
