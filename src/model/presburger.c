@@ -13,6 +13,95 @@
 #include "model/presburger.h"
 
 
+#define TRACE 1
+
+#if TRACE
+#include <inttypes.h>
+#include "io/term_printer.h"
+#endif
+
+
+/*
+ * CONSTRAINT DESCRIPTORS
+ */
+#if TRACE
+static void print_presburger_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
+  bool negative;
+  bool abs_one;
+
+  negative = q_is_neg(coeff);
+  if (negative) {
+    if (first) {
+      fprintf(f, "-");
+      if (x != const_idx) {
+        fprintf(f, " ");
+      }
+    } else {
+      fprintf(f, " - ");
+    }
+    abs_one = q_is_minus_one(coeff);
+  } else {
+    if (! first) {
+      fprintf(f, " + ");
+    }
+    abs_one = q_is_one(coeff);
+  }
+
+  if (x == const_idx) {
+    q_print_abs(f, coeff);
+  } else {
+    if (! abs_one) {
+      q_print_abs(f, coeff);
+      fprintf(f, "*");
+    }
+    fprintf(f, "x!%"PRId32, x);
+  }
+}
+
+static void print_presburger_constraint(FILE *f, presburger_constraint_t *c) {
+  uint32_t i, n;
+  bool first;
+
+  fprintf(f, "constraint[%"PRIu32"]: (", c->id);
+  n = c->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_presburger_monomial(f, &c->mono[i].coeff, c->mono[i].var, first);
+      first = false;
+    }
+  }
+
+  switch (c->tag) {
+  case PRES_GT:
+    fputs(" > 0)", f);
+    break;
+  case PRES_GE:
+    fputs(" >= 0)", f);
+    break;
+  case PRES_EQ:
+    fputs(" = 0)", f);
+    break;
+  case PRES_POS_DIVIDES:
+    fputs(" = 0 mod ", f);
+    q_print_abs(f, c->divisor);
+    fputs(")", f);
+    break;
+  case PRES_NEG_DIVIDES:
+    fputs(" != 0 mod ", f);
+    q_print_abs(f, c->divisor);
+    fputs(")", f);
+    break;
+
+
+    
+  }
+}
+#endif
+
+
 //Currently relying on the parser or literal collector or (?) to enforce the presburger conditions on
 //multiplications.
 bool is_presburger_literal(term_table_t *terms, term_t t) {
@@ -53,6 +142,75 @@ bool is_presburger_literal(term_table_t *terms, term_t t) {
 
 
 
+/*
+ * Create a new constraint from the content of buffer
+ * - buffer must be normalized (and non-zero)
+ * - tag = constraint type
+ * - if tag is a DIVIDES then we initialize the divisor slot
+ * Side effect: reset buffer
+ */
+static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer, presburger_tag_t tag) {
+  presburger_constraint_t *tmp;
+  monomial_t *p;
+  uint32_t i, n;
+
+  n = poly_buffer_nterms(buffer);
+  assert(n > 0);
+  if (n > MAX_PRESBURGER_CONSTRAINT_SIZE) {
+    out_of_memory();
+  }
+  tmp = (presburger_constraint_t *) safe_malloc(sizeof(presburger_constraint_t) + (n+1) * sizeof(monomial_t));
+  tmp->id = 0; // set when it gets added to the constraint pvector
+  tmp->tag = tag;
+  tmp->nterms = n;
+  p = poly_buffer_mono(buffer);
+  for (i=0; i<n; i++) {
+    tmp->mono[i].var = p[i].var;
+    q_init(&tmp->mono[i].coeff);
+    q_set(&tmp->mono[i].coeff, &p[i].coeff);
+  }
+  tmp->mono[i].var = max_idx; // end marker
+  reset_poly_buffer(buffer);
+
+  //if we are a divisor constraint initialize the divisor slot
+  if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
+    tmp->divisor = (rational_t *) safe_malloc(sizeof(rational_t));
+    q_init(tmp->divisor);
+  }
+  return tmp;
+}
+
+
+/*
+ * Delete a constraint descriptor
+ */
+static void free_presburger_constraint(presburger_constraint_t *c) {
+  clear_monarray(c->mono, c->nterms);
+  if(c->divisor != NULL){
+    q_clear(c->divisor);
+    safe_free(c->divisor);
+    c->divisor = NULL;	 
+  }
+  safe_free(c);
+}
+
+/*
+ * Frees all the constraints in pres, and resets the constraints pvector
+ */
+static void free_constraints(presburger_t *pres){
+  uint32_t i;
+  presburger_constraint_t *c;
+  pvector_t *constraints;
+
+  constraints = &pres->constraints; 
+  for(i = 0; i < constraints->size; i++){
+    c = (presburger_constraint_t *) constraints->data[i];
+    free_presburger_constraint(c);
+  }
+  pvector_reset(constraints);
+  
+}
+
 
 
 /*
@@ -61,20 +219,29 @@ bool is_presburger_literal(term_table_t *terms, term_t t) {
  * - n = initial size (total number of variables)
  * - m = initial esize (number of variables to eliminate)
  * - n must be no more than m
- *
+ * - nc = number of constraints
  */
-void init_presburger_projector(presburger_t *proj, term_manager_t *mngr, uint32_t n, uint32_t m) {
-  proj->terms = term_manager_get_terms(mngr);
-  proj->manager = mngr;
+void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t m, uint32_t nc) {
+  pres->terms = term_manager_get_terms(mngr);
+  pres->manager = mngr;
+
+  init_pvector(&pres->constraints, nc);
+
+  init_poly_buffer(&pres->buffer);
 
 }
+
+
 
 
 /*
  * Reset:
  */
-void reset_presburger_projector(presburger_t *proj) {
+void reset_presburger_projector(presburger_t *pres) {
 
+  free_constraints(pres);
+
+  reset_poly_buffer(&pres->buffer);
 
 }
 
@@ -82,8 +249,13 @@ void reset_presburger_projector(presburger_t *proj) {
 /*
  * Delete: free memory
  */
-void delete_presburger_projector(presburger_t *proj) {
+void delete_presburger_projector(presburger_t *pres) {
 
+  free_constraints(pres);
+
+  delete_pvector(&pres->constraints);
+  
+  delete_poly_buffer(&pres->buffer);
 
 }
 
@@ -92,6 +264,41 @@ void delete_presburger_projector(presburger_t *proj) {
 void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *q){
 
 
+}
+
+
+static void presburger_add_cnstr(presburger_t *pres, presburger_constraint_t *c) {
+  pvector_t *constraints;
+
+  constraints = &pres->constraints; 
+  c->id = constraints->size;
+  pvector_push(&pres->constraints, c);
+}
+
+/*
+ * Normalize buffer then build a constraint from its content and add the
+ * constraint.
+ * - tag = the constraint type.
+ */
+static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer, presburger_tag_t tag, rational_t* divisor) {
+  presburger_constraint_t *c;
+
+  normalize_poly_buffer(buffer);
+  if (poly_buffer_is_constant(buffer)) {
+    // trivial constraint
+    //assert(trivial_constraint_in_buffer(buffer, tag));
+    reset_poly_buffer(buffer);
+  } else {
+    c = make_presburger_constraint(buffer, tag);
+    //assert(presburger_good_constraint(pres, c));
+    presburger_add_cnstr(pres, c);
+#if TRACE
+    printf("--> adding constraint\n");
+    print_presburger_constraint(stdout, c);
+    printf("\n");
+    fflush(stdout);
+#endif
+  }
 }
 
 
@@ -140,15 +347,12 @@ static void presburger_add_var_lt_zero(presburger_t *pres, term_t t) {
 
 // constraint p == 0
 static void presburger_add_poly_eq_zero(presburger_t *pres, polynomial_t *p) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
-
-  aproj_buffer_add_poly(buffer, &proj->vtbl, p);
-  add_constraint_from_buffer(proj, buffer, APROJ_EQ);
-  */
+  poly_buffer_add_poly(buffer, p);
+  add_constraint_from_buffer(pres, buffer, PRES_EQ, NULL);
 }
 
 // constraint p >= 0

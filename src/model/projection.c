@@ -173,7 +173,7 @@ static void proj_build_presburger_proj(projector_t *proj) {
   assert(proj->presburger == NULL);
 
   tmp = (presburger_t *) safe_malloc(sizeof(presburger_t));
-  init_presburger_projector(tmp, proj->mngr, 0, 0);
+  init_presburger_projector(tmp, proj->mngr, 0, 0, 0);
   proj->presburger = tmp;
 }
 

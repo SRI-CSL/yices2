@@ -15,6 +15,9 @@
 
 #include "terms/terms.h"
 #include "terms/term_manager.h"
+#include "terms/poly_buffer.h"
+
+#include "utils/ptr_vectors.h"
 
 /*
  * Tags for identifying the constraint types
@@ -31,12 +34,12 @@ typedef enum {
   PRES_EQ           = 2,
   PRES_POS_DIVIDES  = 3,
   PRES_NEG_DIVIDES  = 4,
-} pres_tag_t;
+} presburger_tag_t;
 
 
 /*
  * Presburger constraint:
- * - id = constraint id
+ * - id = constraint id (it's index in the constraints pvector)
  * - tag = constraint type
  * - nterms = number of monomials
  * - mono = array of nterms + 1 monomials
@@ -51,13 +54,13 @@ typedef enum {
  */
 typedef struct presburger_constraint_s {
   uint32_t id;
-  pres_tag_t tag;
+  presburger_tag_t tag;
   uint32_t nterms;
   monomial_t mono[0];   // real size = nterms+1
   rational_t *divisor;  // non-null only when tag is either PRES_POS_DIVIDES, or  PRES_NEG_DIVIDES.
 } presburger_constraint_t;
 
-#define MAX_APROJ_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(aproj_constraint_t))/sizeof(monomial_t)) - 1)
+#define MAX_PRESBURGER_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(presburger_constraint_t))/sizeof(monomial_t)) - 1)
 
 /*
  * Error codes for presburger_add_constraint
@@ -79,6 +82,11 @@ typedef struct presburger_s {
   term_table_t *terms;
   term_manager_t *manager;
 
+  pvector_t constraints;
+
+  // buffers
+  poly_buffer_t buffer;
+
 } presburger_t;
 
 
@@ -90,9 +98,10 @@ extern bool is_presburger_literal(term_table_t *table, term_t t);
  * - n = initial size (total number of variables)
  * - m = initial esize (number of variables to eliminate)
  * - n must be no more than m
+ * - nc = number of constraints
  *
  */
-extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t m);
+extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t m, uint32_t nc);
 
 
 /*
