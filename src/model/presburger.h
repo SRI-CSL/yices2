@@ -44,6 +44,8 @@ typedef enum {
  * - the monomials are ordered by increasing variable index
  * - mono[nterms] contains the end marker max_idx
  * - const_idx = 0 denotes the constant
+ * - divisor; used if the constraint is a divides ±(k | u)
+ *   stores the value of k
  *
  * - the id is a counter incremented with every new constraint
  */
@@ -51,7 +53,8 @@ typedef struct presburger_constraint_s {
   uint32_t id;
   pres_tag_t tag;
   uint32_t nterms;
-  monomial_t mono[0]; // real size = nterms+1
+  monomial_t mono[0];   // real size = nterms+1
+  rational_t *divisor;  // non-null only when tag is either PRES_POS_DIVIDES, or  PRES_NEG_DIVIDES.
 } presburger_constraint_t;
 
 #define MAX_APROJ_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(aproj_constraint_t))/sizeof(monomial_t)) - 1)

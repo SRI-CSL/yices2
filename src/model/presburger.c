@@ -37,7 +37,7 @@ bool is_presburger_literal(term_table_t *terms, term_t t) {
     retval = is_integer_term(terms, args->arg[0]) && is_integer_term(terms, args->arg[1]);
     break;
     
-  case ARITH_DIVIDES_ATOM:      //(k | u)
+  case ARITH_DIVIDES_ATOM:      //±(k | u)
     args = arith_divides_atom_desc(terms, t);
     k = args->arg[0];
     u = args->arg[1];
@@ -316,9 +316,9 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
 
   case ARITH_DIVIDES_ATOM:
     if (is_neg_term(c)) {
-      presburger_add_arith_divides(pres, arith_bineq_atom_desc(terms, c), false);
+      presburger_add_arith_divides(pres, arith_divides_atom_desc(terms, c), false);
     } else {
-      presburger_add_arith_divides(pres, arith_bineq_atom_desc(terms, c), true);
+      presburger_add_arith_divides(pres, arith_divides_atom_desc(terms, c), true);
     }
     break;
 
