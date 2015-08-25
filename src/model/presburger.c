@@ -290,7 +290,18 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
     reset_poly_buffer(buffer);
   } else {
     c = make_presburger_constraint(buffer, tag);
+
+    if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
+
+      assert(divisor != NULL);
+
+      q_set(c->divisor, divisor);
+
+      
+    }
+    
     //assert(presburger_good_constraint(pres, c));
+
     presburger_add_cnstr(pres, c);
 #if TRACE
     printf("--> adding constraint\n");
@@ -304,45 +315,38 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
 
 /*
  * Build and add a constraint
- * - convert term ids to internal variables
  */
 // constraint t == 0
 static void presburger_add_var_eq_zero(presburger_t *pres, term_t t) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  aproj_buffer_add_var(buffer, &proj->vtbl, t);
-  add_constraint_from_buffer(proj, buffer, APROJ_EQ);
-  */
+  poly_buffer_add_var(buffer, t);
+  add_constraint_from_buffer(pres, buffer, PRES_EQ, NULL);
 }
 
 // constraint t >= 0
 static void presburger_add_var_geq_zero(presburger_t *pres, term_t t) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  aproj_buffer_add_var(buffer, &proj->vtbl, t);
-  add_constraint_from_buffer(proj, buffer, APROJ_GE);
-  */
+  poly_buffer_add_var(buffer, t);
+  add_constraint_from_buffer(pres, buffer, PRES_GE, NULL);
 }
 
 // constraint t < 0 (converted to -t > 0)
 static void presburger_add_var_lt_zero(presburger_t *pres, term_t t) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  aproj_buffer_sub_var(buffer, &proj->vtbl, t);
-  add_constraint_from_buffer(proj, buffer, APROJ_GT);
-  */
+  poly_buffer_sub_var(buffer, t);
+  add_constraint_from_buffer(pres, buffer, PRES_GT, NULL);
 }
 
 // constraint p == 0
@@ -357,34 +361,29 @@ static void presburger_add_poly_eq_zero(presburger_t *pres, polynomial_t *p) {
 
 // constraint p >= 0
 static void presburger_add_poly_geq_zero(presburger_t *pres, polynomial_t *p) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  aproj_buffer_add_poly(buffer, &proj->vtbl, p);
-  add_constraint_from_buffer(proj, buffer, APROJ_GE);
-  */
+  poly_buffer_add_poly(buffer, p);
+  add_constraint_from_buffer(pres, buffer, PRES_GE, NULL);
 }
 
 // constraint p < 0 (converted to -p > 0)
 static void presburger_add_poly_lt_zero(presburger_t *pres, polynomial_t *p) {
-  /*
   poly_buffer_t *buffer;
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  aproj_buffer_sub_poly(buffer, &proj->vtbl, p);
-  add_constraint_from_buffer(proj, buffer, APROJ_GT);
-  */
+  poly_buffer_sub_poly(buffer, p);
+  add_constraint_from_buffer(pres, buffer, PRES_GT, NULL);
 }
 
 
 // constraint (eq t1 t2)
 static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq) {
-  /*
   poly_buffer_t *buffer;
   term_table_t *terms;
   term_t t1, t2;
@@ -393,21 +392,21 @@ static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq)
   t1 = eq->arg[0];
   t2 = eq->arg[1];
 
-  buffer = &proj->buffer;
+  buffer = &pres->buffer;
   assert(poly_buffer_is_zero(buffer));
 
-  terms = proj->terms;
+  terms = pres->terms;
   switch (term_kind(terms, t1)) {
   case ARITH_CONSTANT:    
     poly_buffer_add_const(buffer, rational_term_desc(terms, t1));
     break;
 
   case ARITH_POLY:
-    aproj_buffer_add_poly(buffer, &proj->vtbl, poly_term_desc(terms, t1));
+    poly_buffer_add_poly(buffer, poly_term_desc(terms, t1));
     break;
 
   default:
-    aproj_buffer_add_var(buffer, &proj->vtbl, t1);
+    poly_buffer_add_var(buffer, t1);
     break;
   }
 
@@ -417,21 +416,50 @@ static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq)
     break;
 
   case ARITH_POLY:
-    aproj_buffer_sub_poly(buffer, &proj->vtbl, poly_term_desc(terms, t2));
+    poly_buffer_sub_poly(buffer, poly_term_desc(terms, t2));
     break;
 
   default:
-    aproj_buffer_sub_var(buffer, &proj->vtbl, t2);
+    poly_buffer_sub_var(buffer, t2);
     break;
   }
-  add_constraint_from_buffer(proj, buffer, APROJ_EQ);
-  */
+  add_constraint_from_buffer(pres, buffer, PRES_EQ, NULL);
 }
 
 // constraint (t1 | t2) 
-static void presburger_add_arith_divides(presburger_t *pres, composite_term_t *eq, bool positive) {
+static void presburger_add_arith_divides(presburger_t *pres, composite_term_t *divides, bool positive) {
+  poly_buffer_t *buffer;
+  term_table_t *terms;
+  term_t k, u;
 
+  terms = pres->terms;
+  
+  assert(divides->arity == 2);
 
+  k = divides->arg[0];
+  u = divides->arg[1];
+
+  assert(is_constant_term(terms, k) && is_integer_term(terms, k));
+
+  buffer = &pres->buffer;
+  assert(poly_buffer_is_zero(buffer));
+
+  switch (term_kind(terms, u)) {
+  case ARITH_CONSTANT:
+    //FIXME: this should not happen I don't think
+    poly_buffer_add_const(buffer, rational_term_desc(terms, u));
+    break;
+
+  case ARITH_POLY:
+    poly_buffer_add_poly(buffer, poly_term_desc(terms, u));
+    break;
+
+  default:
+    poly_buffer_add_var(buffer, u);
+    break;
+  }
+
+  add_constraint_from_buffer(pres, buffer, positive ? PRES_POS_DIVIDES : PRES_NEG_DIVIDES, rational_term_desc(terms, k));
 }
 
 /*
@@ -443,9 +471,9 @@ static void presburger_add_arith_divides(presburger_t *pres, composite_term_t *e
  *    (NOT (ARITH_GE_ATOM t))
  *    (ARITH_DIVIDES_ATOM k t)
  *    (NOT (ARITH_DIVIDES_ATOM k t))
- *   where t, t1, t2 are either variables declared in proj or linear
- *   polynomials in variables declared in proj, and k is an integer constant.
- * - c must be true in the model specified by calls to aproj_add_var
+ *   where t, t1, t2 are either variables declared in pres or linear
+ *   polynomials in variables declared in pres, and k is an integer constant.
+ * - c must be true in the model specified by calls to presburger_add_var
  * - no variables can be added after this function is called
  *
  * Return code:

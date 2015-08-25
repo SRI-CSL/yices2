@@ -591,6 +591,9 @@ static term_t lit_collector_visit_arith_divides_atom(lit_collector_t *collect, t
   assert(divides->arity == 2);
   k = divides->arg[0];
   u = divides->arg[1];
+
+  assert(is_constant_term(collect->terms, k) && is_integer_term(collect->terms, k));
+  
   v = lit_collector_visit(collect, u);
   if (v != u) {
     t = mk_arith_divides(collect->manager, k, v);
