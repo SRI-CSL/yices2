@@ -20,6 +20,47 @@
 #include "io/term_printer.h"
 #endif
 
+/* PRESBURGER SANITY CHECKER */
+
+//Currently relying on the parser or literal collector or (?) to enforce the presburger conditions on
+//multiplications.
+bool is_presburger_literal(term_table_t *terms, term_t t) {
+  bool retval;
+  term_t u, k; 
+  composite_term_t *args;
+  
+  switch (term_kind(terms, t)) {
+
+  case ARITH_EQ_ATOM:           //(u = 0)
+    u = arith_eq_arg(terms, t);
+    retval = is_integer_term(terms, u);
+    break;
+
+  case ARITH_GE_ATOM:           //(u >= 0)   
+    u = arith_ge_arg(terms, t);
+    retval = is_integer_term(terms, u);
+    break;
+    
+  case ARITH_BINEQ_ATOM:        //(u0 = u1)
+    args = arith_bineq_atom_desc(terms, t);
+    retval = is_integer_term(terms, args->arg[0]) && is_integer_term(terms, args->arg[1]);
+    break;
+    
+  case ARITH_DIVIDES_ATOM:      //±(k | u)
+    args = arith_divides_atom_desc(terms, t);
+    k = args->arg[0];
+    u = args->arg[1];
+    retval = is_constant_term(terms, k) && is_integer_term(terms, k) && is_integer_term(terms, u);
+    break;
+
+  default:
+    retval = false;
+  }
+  
+  return retval;
+}
+
+
 
 /*
  * CONSTRAINT DESCRIPTORS
@@ -102,45 +143,6 @@ static void print_presburger_constraint(FILE *f, presburger_constraint_t *c) {
 #endif
 
 
-//Currently relying on the parser or literal collector or (?) to enforce the presburger conditions on
-//multiplications.
-bool is_presburger_literal(term_table_t *terms, term_t t) {
-  bool retval;
-  term_t u, k; 
-  composite_term_t *args;
-  
-  switch (term_kind(terms, t)) {
-
-  case ARITH_EQ_ATOM:           //(u = 0)
-    u = arith_eq_arg(terms, t);
-    retval = is_integer_term(terms, u);
-    break;
-
-  case ARITH_GE_ATOM:           //(u >= 0)   
-    u = arith_ge_arg(terms, t);
-    retval = is_integer_term(terms, u);
-    break;
-    
-  case ARITH_BINEQ_ATOM:        //(u0 = u1)
-    args = arith_bineq_atom_desc(terms, t);
-    retval = is_integer_term(terms, args->arg[0]) && is_integer_term(terms, args->arg[1]);
-    break;
-    
-  case ARITH_DIVIDES_ATOM:      //±(k | u)
-    args = arith_divides_atom_desc(terms, t);
-    k = args->arg[0];
-    u = args->arg[1];
-    retval = is_constant_term(terms, k) && is_integer_term(terms, k) && is_integer_term(terms, u);
-    break;
-
-  default:
-    retval = false;
-  }
-  
-  return retval;
-}
-
-
 
 /*
  * Create a new constraint from the content of buffer
@@ -211,24 +213,162 @@ static void free_constraints(presburger_t *pres){
   
 }
 
+/*
+ * VARIABLE TABLE
+ */
+
+
+/*
+ * Initialize table:
+ * - n = initial size of arrays variables and values
+ * If n is 0, then default size is used.
+ */
+static void init_presburger_vtbl(presburger_vtbl_t *table, uint32_t n) {
+  if (n == 0) {
+    n = DEF_PRESBURGER_VTBL_SIZE;
+  } 
+  
+  if (n > MAX_PRESBURGER_VTBL_SIZE) {
+    out_of_memory();
+  }
+
+  table->nvars = 0;
+  table->nelims = 0;
+  table->size = n;
+
+  init_ivector(&table->eliminables, 0);
+
+  table->variables = (term_t *) safe_malloc(n * sizeof(term_t));
+  table->values = (rational_t *) safe_malloc(n * sizeof(rational_t));
+
+  init_int_hmap(&table->vmap, 0);
+}
+
+
+/*
+ * Increase the size of arrays variables and values
+ */
+static void increase_presburger_vtbl_size(presburger_vtbl_t *table) {
+  uint32_t n;
+
+  n = table->size + 1;
+  n += n>>1; // about 50% larger
+  if (n > MAX_PRESBURGER_VTBL_SIZE) {
+    out_of_memory();
+  }
+  table->size = n;
+  table->variables = (term_t *) safe_realloc(table->variables, n * sizeof(term_t));
+  table->values = (rational_t *) safe_realloc(table->values, n * sizeof(rational_t));
+}
+
+/*
+ * Empty table
+ */
+static void reset_presburger_vtbl(presburger_vtbl_t *table) {
+  uint32_t i, n;
+
+  assert(table->nvars >= 0);
+
+  // free the rationals
+  n = table->nvars;
+  for (i=0; i<n; i++) {
+    q_clear(table->values + i);
+  }
+
+  ivector_reset(&table->eliminables);
+  
+  int_hmap_reset(&table->vmap);
+  
+  table->nvars = 0;
+  table->nelims = 0;
+}
+
+
+/*
+ * Delete
+ */
+static void delete_presburger_vtbl(presburger_vtbl_t *table) {
+  uint32_t i, n;
+  
+  n = table->nvars;
+  for (i=0; i<n; i++) {
+    q_clear(table->values + i);
+  }
+
+  delete_ivector(&table->eliminables);
+  
+  delete_int_hmap(&table->vmap);
+
+  safe_free(table->variables);
+  safe_free(table->values);
+
+
+  table->variables = NULL;
+  table->values = NULL;
+}
+
+
+/*
+ * Add a new variable x to table
+ * - q = value for x
+ * - to_elim: if true, x is added to the eliminables
+ * - since we don't know all variables yet, we don't add the
+ *   mapping from x --> idx in table->vmap.
+ */
+static void presburger_vtbl_add_var(presburger_vtbl_t *table, term_t x, bool to_elim, rational_t *q) {
+  uint32_t i;
+
+  // make room for a new variable
+  i = table->nvars;
+  if (i == table->size) {
+    increase_presburger_vtbl_size(table);
+  }
+  assert(i < table->size);
+  table->nvars = i+1;
+  q_init(table->values + i);
+
+  table->variables[i] = x;
+  q_set(table->values + i, q);
+  
+  if (to_elim) {
+    table->nelims ++;
+    ivector_push(&table->eliminables, x);
+  }
+  
+}
+
+
+/*
+ * Complete table: after all variables have been added.
+ * - for each variable x, we add the mapping x --> i in table->vmap (where variables[i] = x)
+ */
+static void close_presburger_vtbl(presburger_vtbl_t *vtbl) {
+  int_hmap_pair_t *d;
+  uint32_t i, n;
+  term_t x;
+
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    x = vtbl->variables[i];
+    d = int_hmap_get(&vtbl->vmap, x);
+    assert(d->val < 0);
+    d->val = i;
+  }
+}
 
 
 /*
  * Initialize proj
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
- * - m = initial esize (number of variables to eliminate)
- * - n must be no more than m
- * - nc = number of constraints
+ * - c = number of constraints
  */
-void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t m, uint32_t nc) {
+void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t c) {
   pres->terms = term_manager_get_terms(mngr);
   pres->manager = mngr;
-
-  init_pvector(&pres->constraints, nc);
-
+  init_presburger_vtbl(&pres->vtbl, n);
+  init_pvector(&pres->constraints, c);
   init_poly_buffer(&pres->buffer);
-
 }
 
 
@@ -240,6 +380,8 @@ void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_
 void reset_presburger_projector(presburger_t *pres) {
 
   free_constraints(pres);
+
+  reset_presburger_vtbl(&pres->vtbl);
 
   reset_poly_buffer(&pres->buffer);
 
@@ -253,6 +395,8 @@ void delete_presburger_projector(presburger_t *pres) {
 
   free_constraints(pres);
 
+  delete_presburger_vtbl(&pres->vtbl);
+
   delete_pvector(&pres->constraints);
   
   delete_poly_buffer(&pres->buffer);
@@ -262,10 +406,19 @@ void delete_presburger_projector(presburger_t *pres) {
 
 
 void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *q){
-
-
+  assert(good_term(pres->terms, x) && pres->constraints.size == 0);
+  presburger_vtbl_add_var(&pres->vtbl, x, to_elim, q);
 }
 
+/*
+ * Close the set of variables and prepare for addition of constraints.
+ * - this function must be called once all variables have been added
+ *   and before adding the first constraint.
+ 
+ */
+void presburger_close_var_set(presburger_t *pres) {
+  close_presburger_vtbl(&pres->vtbl);
+}
 
 static void presburger_add_cnstr(presburger_t *pres, presburger_constraint_t *c) {
   pvector_t *constraints;
@@ -274,6 +427,66 @@ static void presburger_add_cnstr(presburger_t *pres, presburger_constraint_t *c)
   c->id = constraints->size;
   pvector_push(&pres->constraints, c);
 }
+
+
+
+/*
+ * For debugging: check that the constraint defined by buffer/tag
+ * is trivially true.
+ */
+#ifndef NDEBUG
+static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t tag) {
+  bool r;
+
+  assert(poly_buffer_is_constant(buffer));
+  r = false;
+  switch (tag) {
+  case PRES_GT:
+    r = poly_buffer_is_pos_constant(buffer);
+    break;
+  case PRES_GE:
+    r = poly_buffer_is_nonneg_constant(buffer);
+    break;
+  case PRES_EQ:
+    r = poly_buffer_is_zero(buffer);
+    break;
+  case PRES_POS_DIVIDES:
+  case PRES_NEG_DIVIDES:
+    r = true; //FIXME
+    break;
+  }
+
+  return r;
+}
+
+/*
+ * Check whether c is true in the model
+static bool presburger_good_constraint(presburger_t *pres, presburger_constraint_t *c) {
+  rational_t aux;
+  bool result;
+
+  result = false;
+
+  q_init(&aux);
+  presburger_eval_cnstr_in_model(&pres->vtbl, &aux, c);
+  switch (c->tag) {
+  case APROJ_GE:
+    result = q_is_nonneg(&aux);
+    break;
+  case APROJ_GT:
+    result = q_is_pos(&aux);
+    break;
+  case APROJ_EQ:
+    result = q_is_zero(&aux);
+    break;
+  }
+  q_clear(&aux);
+
+  return result;
+}
+ */
+
+#endif
 
 /*
  * Normalize buffer then build a constraint from its content and add the
@@ -286,7 +499,7 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
   normalize_poly_buffer(buffer);
   if (poly_buffer_is_constant(buffer)) {
     // trivial constraint
-    //assert(trivial_constraint_in_buffer(buffer, tag));
+    assert(trivial_constraint_in_buffer(buffer, tag));
     reset_poly_buffer(buffer);
   } else {
     c = make_presburger_constraint(buffer, tag);

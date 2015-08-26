@@ -74,6 +74,37 @@ enum {
   PRES_ERROR_FALSE_LITERAL = -3,
 };
 
+
+/*
+ * An impoverished version Bruno's vtbl.
+ * Not really sure why we don't just keep the model.
+ *
+ */
+typedef struct presburger_vtbl_s {
+  uint32_t nvars;   // number of variables
+  uint32_t nelims;  // variables to eliminate
+  uint32_t size;    // size of arrays variables and values (nvars <= size)
+
+  // the variables we are going to eliminate
+  ivector_t eliminables;
+ 
+  // data for *all* variables (both to_elim and to_keep)
+  term_t *variables;
+  rational_t *values;
+
+  
+  // mapping a variable to its index in the variables array
+  // which should also be the index of it's value in the values
+  // array
+  int_hmap_t vmap;
+} presburger_vtbl_t;
+
+
+#define MAX_PRESBURGER_VTBL_SIZE (UINT32_MAX/sizeof(presburger_vtbl_t))   
+#define DEF_PRESBURGER_VTBL_SIZE 20
+
+
+
 /*
  * Presburger projector data structure:
  * - pointers to the relevant term table and term manager
@@ -81,6 +112,8 @@ enum {
 typedef struct presburger_s {
   term_table_t *terms;
   term_manager_t *manager;
+
+  presburger_vtbl_t vtbl;
 
   pvector_t constraints;
 
@@ -96,12 +129,10 @@ extern bool is_presburger_literal(term_table_t *table, term_t t);
  * Initialize projector
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
- * - m = initial esize (number of variables to eliminate)
- * - n must be no more than m
- * - nc = number of constraints
+ * - c = number of constraints
  *
  */
-extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t m, uint32_t nc);
+extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t c);
 
 
 /*
@@ -129,6 +160,14 @@ extern void delete_presburger_projector(presburger_t *pres);
  *   declared before the first call to presburger_add_constraint 
  */
 extern void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *q);
+
+/*
+ * Close the set of variables and prepare for addition of constraints.
+ * - this function must be called once all variables have been added
+ *   and before adding the first constraint.
+ 
+ */
+extern void presburger_close_var_set(presburger_t *pres);
 
 
 /*

@@ -173,7 +173,7 @@ static void proj_build_presburger_proj(projector_t *proj) {
   assert(proj->presburger == NULL);
 
   tmp = (presburger_t *) safe_malloc(sizeof(presburger_t));
-  init_presburger_projector(tmp, proj->mngr, 0, 0, 0);
+  init_presburger_projector(tmp, proj->mngr, 0, 0);
   proj->presburger = tmp;
 }
 
@@ -634,7 +634,7 @@ static void proj_process_presburger_literals(projector_t *proj) {
 
   // Process the presburger literals
   pres = proj->presburger;
-  //aproj_close_var_set(pres);
+  presburger_close_var_set(pres);
   n = proj->arith_literals.size;
   for (i=0; i<n; i++) {
 #if TRACE

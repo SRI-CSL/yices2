@@ -199,7 +199,7 @@ typedef struct aproj_vtbl_s {
 } aproj_vtbl_t;
 
 
-#define MAX_APROJ_VTBL_SIZE (UINT32_MAX/sizeof(aproj_score_t))
+#define MAX_APROJ_VTBL_SIZE (UINT32_MAX/sizeof(aproj_score_t))   //FIXME: why aproj_score_t and not aproj_vtbl_t?
 #define DEF_APROJ_VTBL_SIZE 20
 #define DEF_APROJ_VTBL_ESIZE 20
 
