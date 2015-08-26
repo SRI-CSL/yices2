@@ -266,8 +266,6 @@ enum {
   help_flag,
   verbose_flag,
   model_flag,
-  //TODO: remove
-  caopt, cbopt, ccopt,
   seed_opt,
 };
 
@@ -278,10 +276,6 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
-  //TODO: remove
-  { "ca", 'a', MANDATORY_INT, caopt },
-  { "cb", 'b', MANDATORY_INT, cbopt },
-  { "cc", 'c', MANDATORY_INT, ccopt },
   { "seed", 's', MANDATORY_INT, seed_opt },
 };
 
@@ -376,18 +370,6 @@ static void parse_command_line(int argc, char *argv[]) {
         seed_given = true;
         seed_value = elem.i_value;
         break;
-
-      //TODO: remove
-      case caopt:
-        solver.inpr_cst_a = elem.i_value;
-        break;
-      case cbopt:
-        solver.inpr_cst_b = elem.i_value;
-        break;
-      case ccopt:
-        solver.inpr_cst_c = elem.i_value;
-        break;
-
       }
       break;
 
@@ -432,7 +414,7 @@ static void show_stats(solver_stats_t *stat) {
 }
 
 #if INPROCESSING && INPROCESSING_PROF
-//TODO
+/* Experimental */
 static inline unsigned int ts_perc(timespec_t time, timespec_t base)
 {
     uint64_t t = 1000000000ULL * ((uint64_t)time.tv_sec) + ((uint64_t)time.tv_nsec);
@@ -453,7 +435,6 @@ static int inpr_print_totl(char *buf, int bufi) {
   }
   bufi += sprintf(buf + bufi, "[TOT");
   if((input_filename[18] == 'h') && (input_filename[17] == 't') && (input_filename[15] == 'n') && (input_filename[14] == 'k')) {
-    //todo:hack
     char * display_name = input_filename + ((input_filename[20] == 's') ?  + 33 : 37);
     bufi += sprintf(buf + bufi, ":%.10s", display_name);
   }
@@ -532,7 +513,7 @@ static void print_results(void) {
   struct timespec now;
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &now);
   solver.inpr_spent_sat = ts_diff(solver.inpr_spent_sat, now);
-  if(solver.inpr_spent_sat.tv_sec > 0) {
+  if(solver.inpr_spent_sat.tv_sec >= 0) {
     char buf[0x1000];
     int bufi = 0;
     bufi = inpr_print_totl(buf, bufi);

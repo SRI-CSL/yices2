@@ -36,14 +36,21 @@
 
   /* Profile inprocessing 0:none 1:global report 2:inside report */
   /* EXPERIMENTAL */
-  #define INPROCESSING_PROF 1
+  #define INPROCESSING_PROF 0
 
-  #define BOOLEAN_CLAUSE_ELIMINATION 1
+  /* Enable Blocked Clause Elimination */
+  #define BLOCKED_CLAUSE_ELIMINATION 1
+  /* Enable Pure Literal Rule */
   #define PURE_LITERAL 0
+  /* Enable Subsumption */
   #define SUBSUMPTION 1
 
-  #define INPR_OCC_LIST 1
-  #define INPR_OCC_VECT 0
+  /* Data structure for occurrences lists */
+  #define INPR_OCC_LIST 0
+  #define INPR_OCC_VECT 1
+
+  /* If defined, temporary clauses will have a length header */
+  #define INPR_TMP_CL_LEN 0
 
 /* Restart strategy: choose one of them */
 #define PICO 0
@@ -55,8 +62,14 @@
   #error Need PICO xor LUBY
 #endif
 
-#if (INPR_OCC_LIST && INPR_OCC_VECT) ||  (!INPR_OCC_LIST && !INPR_OCC_VECT)
-  #error Need INPR_OCC_LIST xor INPR_OCC_VECT
+#if INPROCESSING
+  #if (INPR_OCC_LIST && INPR_OCC_VECT) ||  (!INPR_OCC_LIST && !INPR_OCC_VECT)
+    #error Need INPR_OCC_LIST xor INPR_OCC_VECT
+  #endif
+
+  #if BLOCKED_CLAUSE_ELIMINATION && PURE_LITERAL
+    #error Cannot have BLOCKED_CLAUSE_ELIMINATION && PURE_LITERAL
+  #endif
 #endif
 
 /************************************
@@ -230,15 +243,36 @@ struct clause_s {
 
 typedef uint32_t clause_idx_t;
 
-/* TODO: move that */
+/***************
+ * WATCH LISTS *
+ ***************/
+
+/* Meta-type holding a watch information
+   if(watch_block & )b11 == 0b10) {
+    Binary watched clause
+    watch_block >> 2 holds the other literal
+   } else if(watch_block & 0b11 == 0b11) {
+    unused
+   } else {
+    Regular watched clause
+    The watched litteral of this list is at position 'i = watch_block & 0b1'
+    The pointer to the clause is 'watch_block - i'
+   }
+*/
 typedef uint32_t watch_block_t;
 
+/* Watch list.
+ * - capacity = size allocated for block
+ * - size     = size used in block
+ * - block    = informations about the clauses
+ */
 typedef struct watch_s {
 	uint32_t capacity;
 	uint32_t size;
 	watch_block_t *block;
 } watch_t;
 
+/* Holds information about wether to rebuild the watch_lists before using them */
 enum {
   watch_status_ok = 0,
   watch_status_regenerate = 1,
@@ -303,6 +337,48 @@ typedef struct learned_clause_s {
 } learned_clause_t;
 
 #endif
+
+
+
+/****************
+ * INPROCESSING *
+ ****************/
+#if INPR_OCC_LIST
+typedef struct occ_list_elem_s {
+  clause_t *cl;
+  struct occ_list_elem_s *next;
+} occ_list_elem_t;
+
+typedef struct occ_list_s {
+  occ_list_elem_t *list;
+  uint32_t size;
+} occ_list_t;
+
+typedef occ_list_t occ_meta_t;
+#elif INPR_OCC_VECT
+
+typedef struct occ_vect_s {
+  clause_t **cl;
+  uint32_t size;
+} occ_vect_t;
+
+typedef occ_vect_t occ_meta_t;
+#endif
+
+typedef occ_meta_t* occ_t;
+
+typedef enum inpr_flag {
+  inpr_flag_bce = 1,
+  inpr_flag_plr = 2,
+  inpr_flag_sub = 4,
+} inpr_flag_t;
+
+typedef struct temp_clause_s {
+  #if INPR_TMP_CL_LEN
+  uint32_t len;
+  #endif
+  clause_t clause;
+} temp_clause_t;
 
 
 
@@ -487,7 +563,7 @@ typedef struct sat_solver_s {
 
   uint32_t nb_clauses;        // Number of clauses with at least 2 literals
   uint32_t nb_unit_clauses;   // Number of unit clauses
-  uint32_t nb_bin_clauses;    // Number of binary clauses
+  uint32_t nb_bin_clauses;    // Number of binary clauses. Warning: true only after the initial problem has been loaded
 
   /* Clause database */
   void *clause_base_pointer;
@@ -528,7 +604,6 @@ typedef struct sat_solver_s {
 
   /* Inprocessing */
   #if INPROCESSING
-  //TODO; rm these 3
   uint64_t inpr_cst_a;
   uint64_t inpr_cst_b;
   uint64_t inpr_cst_c;
@@ -536,6 +611,12 @@ typedef struct sat_solver_s {
   uint32_t inpr_status;         // simplifications to do
   void    *inpr_temp_pool;      // temporary clause pool
   uint32_t inpr_pool_next_free; // next available slot in the temporary clause pool
+
+  uint64_t inpr_steps;          // steps
+
+  uint32_t inpr_bce_i;          // static index for BCE
+  uint32_t inpr_sub_i;          // static index for SUB
+
   #if INPROCESSING_PROF
   uint32_t inpr_del_glb;
   uint32_t inpr_del_bce;

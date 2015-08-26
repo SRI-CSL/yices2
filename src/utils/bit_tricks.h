@@ -218,6 +218,15 @@ static inline uint32_t popcount64(uint64_t x) {
 
 #endif
 
+static inline int is_power_of_two32(uint32_t i) {
+  assert(i >= 1);
+  return popcount32(i) == 1;
+}
+
+static inline int is_power_of_two64(uint64_t i) {
+  assert(i >= 1);
+  return popcount64(i) == 1;
+}
 
 static inline uint32_t binlog(uint32_t x) {
   uint32_t k;
