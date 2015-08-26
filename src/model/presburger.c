@@ -429,13 +429,48 @@ static void presburger_add_cnstr(presburger_t *pres, presburger_constraint_t *c)
 }
 
 
+static int32_t presburger_index_of_term(presburger_vtbl_t *vtbl, term_t x) {
+  int_hmap_pair_t *d;
+
+  d = int_hmap_find(&vtbl->vmap, x);
+  assert(d != NULL && d->val > 0 && d->val < vtbl->nvars);
+  return d->val;
+}
+
+
+/*
+ * Get value of x in the model.
+ */
+static inline rational_t *presburger_var_val(presburger_vtbl_t *vtbl, term_t x) {
+  int32_t idx = presburger_index_of_term(vtbl, x);
+  
+  return vtbl->values + idx;
+}
+
+/*
+ * Evaluate c->mono in the model
+ * - store the result in val
+ */
+static void presburger_eval_cnstr_in_model(presburger_vtbl_t *vtbl, rational_t *val, presburger_constraint_t *c) {
+  uint32_t i, n;
+  term_t x;
+
+  q_clear(val);
+  n = c->nterms;
+  for (i=0; i<n; i++) {
+    x = c->mono[i].var;
+    q_addmul(val, &c->mono[i].coeff, presburger_var_val(vtbl, x));
+  }  
+}
+
 
 /*
  * For debugging: check that the constraint defined by buffer/tag
  * is trivially true.
  */
 #ifndef NDEBUG
-static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t tag) {
+static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t tag, rational_t* divisor) {
+  rational_t aux;
   bool r;
 
   assert(poly_buffer_is_constant(buffer));
@@ -452,7 +487,11 @@ static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t
     break;
   case PRES_POS_DIVIDES:
   case PRES_NEG_DIVIDES:
-    r = true; //FIXME
+    q_init(&aux);
+    q_set(&aux, &buffer->mono[0].coeff);
+    q_integer_rem(&aux, divisor);
+    r = q_is_zero(&aux);
+    if (tag == PRES_NEG_DIVIDES){ r = !r; }
     break;
   }
 
@@ -461,30 +500,37 @@ static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t
 
 /*
  * Check whether c is true in the model
+ */
 static bool presburger_good_constraint(presburger_t *pres, presburger_constraint_t *c) {
   rational_t aux;
   bool result;
-
+  presburger_tag_t tag;
+  
   result = false;
-
+  tag = c->tag;
+  
   q_init(&aux);
   presburger_eval_cnstr_in_model(&pres->vtbl, &aux, c);
-  switch (c->tag) {
-  case APROJ_GE:
+  switch (tag) {
+  case PRES_GE:
     result = q_is_nonneg(&aux);
     break;
-  case APROJ_GT:
+  case PRES_GT:
     result = q_is_pos(&aux);
     break;
-  case APROJ_EQ:
+  case PRES_EQ:
     result = q_is_zero(&aux);
     break;
+  case PRES_POS_DIVIDES:
+  case PRES_NEG_DIVIDES:
+    q_integer_rem(&aux, c->divisor);
+    result = q_is_zero(&aux);
+    if (tag == PRES_NEG_DIVIDES){ result = !result; }
   }
   q_clear(&aux);
-
+  
   return result;
 }
- */
 
 #endif
 
@@ -499,7 +545,7 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
   normalize_poly_buffer(buffer);
   if (poly_buffer_is_constant(buffer)) {
     // trivial constraint
-    assert(trivial_constraint_in_buffer(buffer, tag));
+    assert(trivial_constraint_in_buffer(buffer, tag, divisor));
     reset_poly_buffer(buffer);
   } else {
     c = make_presburger_constraint(buffer, tag);
@@ -510,6 +556,9 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
 
       q_set(c->divisor, divisor);
 
+      q_normalize(c->divisor);
+
+      assert(q_is_integer(c->divisor));
       
     }
     
