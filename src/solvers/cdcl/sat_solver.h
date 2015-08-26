@@ -31,9 +31,10 @@
 #define INSTRUMENT_CLAUSES 0
 
 /* Inprocessing */
-  /* Master switch */
-  #define INPROCESSING 1
+/* Master switch */
+#define INPROCESSING 1
 
+<<<<<<< HEAD
   /* Profile inprocessing 0:none 1:global report 2:inside report */
   /* EXPERIMENTAL */
   #define INPROCESSING_PROF 0
@@ -51,6 +52,27 @@
 
   /* If defined, temporary clauses will have a length header */
   #define INPR_TMP_CL_LEN 0
+=======
+/* Profile inprocessing 0:none 1:global report 2:inside report */
+/* EXPERIMENTAL */
+/*
+ * BD: the profiling uses clock_gettime, which does not exists on
+ * MACOS and on Windows. So we disable profiling for these platforms.
+ * TODO: check FreeBSD and cygwin?
+ */
+#if defined(MACOSX) || defined(MINGW)
+#define INPROCESSING_PROF 0
+#else
+#define INPROCESSING_PROF 1
+#endif
+
+#define BOOLEAN_CLAUSE_ELIMINATION 1
+#define PURE_LITERAL 0
+#define SUBSUMPTION 1
+
+#define INPR_OCC_LIST 1
+#define INPR_OCC_VECT 0
+>>>>>>> cef05a101b77672e29727249b5e1959ae78f40fd
 
 /* Restart strategy: choose one of them */
 #define PICO 0

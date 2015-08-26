@@ -255,10 +255,6 @@ static inline uint32_t clause_index(antecedent_t a) {
   return (uint32_t) (a & 0x1);
 }
 
-static inline void *generic_antecedent(antecedent_t a) {
-  return (void *) (a & ~((size_t) 0x3));
-}
-
 static inline antecedent_t mk_literal_antecedent(literal_t l) {
   return (((size_t) l) << 2) | literal_tag;
 }
@@ -279,11 +275,6 @@ static inline antecedent_t mk_clause_antecedent(sat_solver_t *sol, clause_t *cl,
   clause_idx_t cli = idx_of_clause(sol, cl);
   assert((((size_t) cli) & 0x3) == 0);
   return ((size_t) cli) | (index & 1);
-}
-
-static inline antecedent_t mk_generic_antecedent(void *g) {
-  assert((((size_t) g) & 0x3) == 0);
-  return ((size_t) g) | generic_tag;
 }
 
 
@@ -2748,9 +2739,12 @@ static temp_clause_t *temp_clause_malloc(sat_solver_t *sol, size_t clause_len) {
   return temp_clause_of_temp_idx(sol, idx);
 }
 
+<<<<<<< HEAD
 static inline const temp_clause_t *temped(const clause_t *cl) {
   return (const temp_clause_t *)(((const char *)cl) - offsetof(temp_clause_t, clause));
 }
+=======
+>>>>>>> cef05a101b77672e29727249b5e1959ae78f40fd
 
 static clause_t *new_temporary_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) {
   temp_clause_t *tmp = (temp_clause_t *) temp_clause_malloc(sol, sizeof(temp_clause_t) + sizeof(literal_t) +
