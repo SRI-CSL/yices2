@@ -454,11 +454,24 @@ static inline rational_t *presburger_var_val(presburger_vtbl_t *vtbl, term_t x) 
   return vtbl->values + idx;
 }
 
+static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, monomial_t* mono, uint32_t nterms){
+  uint32_t i;
+  term_t x;
+  q_clear(val);
+  for (i=0; i<nterms; i++) {
+    x = mono[i].var;
+    q_addmul(val, &mono[i].coeff, presburger_var_val(vtbl, x));
+  }  
+}
+
 /*
  * Evaluate c->mono in the model
  * - store the result in val
  */
 static void presburger_eval_cnstr_in_model(presburger_vtbl_t *vtbl, rational_t *val, presburger_constraint_t *c) {
+  eval_polynomial_in_model(vtbl, val, c->mono, c->nterms);
+
+  /*
   uint32_t i, n;
   term_t x;
 
@@ -468,6 +481,7 @@ static void presburger_eval_cnstr_in_model(presburger_vtbl_t *vtbl, rational_t *
     x = c->mono[i].var;
     q_addmul(val, &c->mono[i].coeff, presburger_var_val(vtbl, x));
   }  
+  */
 }
 
 
@@ -999,7 +1013,7 @@ static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constr
  * - in the case of VAR_DV  we merely compute q_lcm(lcm, k), thus altering the lcm passed in.
  *
  */
-static bool cooperize(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, cooper_t* kind, polynomial_t **poly, rational_t* lcm){
+static bool cooperize_constraint(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, cooper_t* kind, polynomial_t **poly, rational_t* lcm){
   presburger_tag_t tag;
   rational_t *coeff;
   bool positive;
@@ -1047,13 +1061,136 @@ static bool cooperize(poly_buffer_t *buffer, const presburger_constraint_t *cons
 }
 
 
+
+static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **glb, rational_t* glbv, polynomial_t **lub, rational_t* lubv, polynomial_t **poly, rational_t *delta){
+  poly_buffer_t *buffer;
+  pvector_t *constraints;
+  int32_t i, nconstraints;
+  presburger_constraint_t *constraint;
+  cooper_t kind;
+  presburger_vtbl_t *vtbl;
+  rational_t val;
+  polynomial_t *tmppoly;
+  
+  vtbl = &pres->vtbl;
+
+  buffer = &pres->buffer;
+  constraints = &pres->constraints;
+  nconstraints = constraints->size;
+  
+  reset_poly_buffer(buffer);
+  q_init(&val);
+  
+  //go through the constraints
+  for(i = 0; i < nconstraints; i++){
+    constraint = (presburger_constraint_t *)constraints->data[i];
+    if(!cooperize_constraint(buffer, constraint, y, &kind, &tmppoly, &delta)){
+      //shouldn't happen; need to set a flag, cleanup, and exit
+      assert(false);
+    }
+    switch(kind){
+
+      //nothing to do in these cases
+    case VAR_NONE:
+    case VAR_DV:
+      break;
+
+      
+    case VAR_LT:
+      // poly is an upper bound
+      eval_polynomial_in_model(vtbl, &val, tmppoly->mono, tmppoly->nterms);
+      if(*lub == NULL){
+	*lub = tmppoly;
+	q_set(lubv, &val);
+      } else {
+	if(q_lt(&val, lubv)){
+	  // poly is the new lub
+	  
+
+
+	} else {
+	  // current lub still good; just clean up
+
+	}
+      }
+      break;
+      
+    case VAR_GT:
+      // poly is a lower bound
+      
+    case VAR_EQ:
+      // y = poly; our work is almost over
+      
+    default:
+      assert(false);
+    }
+
+    q_clear(&val);
+  }
+  
+  
+}
+
+static void presburger_solve_and_replace(presburger_t *pres, term_t y, polynomial_t **glb, rational_t* glbv, polynomial_t **lub, rational_t* lubv, polynomial_t **poly, rational_t *delta){
+  
+  if((glb == NULL) && (lub == NULL) && (poly == NULL)){
+    //no trivial solution nor upper and lower bounds; need to find a solution near 0. 
+    
+    
+  } else if(poly != NULL){
+    //found a trivial solution:  y = poly
+    
+    
+  } else if(glb != NULL){
+    //got a lower bound; need to find a solution just above it 
+    
+    
+  } else {
+    //got an upper bound; need to find a solution just below it
+    
+
+  }
+  
+}
+
+
 /*
  * Apply the variable elimination procedure
  * - no variable or constraint can be added after this function is called.
  */
 void presburger_eliminate(presburger_t *pres){
-
-
+  term_t y;
+  ivector_t *eliminables;
+  presburger_vtbl_t *vtbl;
+  rational_t delta, glbv, lubv;
+  cooper_t kind;
+  polynomial_t *glb, *lub, *poly;
+  
+  vtbl = &pres->vtbl;
+  eliminables = &vtbl->eliminables;
+  
+  q_init(&delta);
+  q_set_one(&delta);
+  
+  glb = NULL;
+  q_init(&glbv);
+  
+  lub = NULL;
+  q_init(&lubv);
+  
+  poly = NULL;
+  
+  while(eliminables->size > 0){
+    
+    y = ivector_pop2(eliminables);
+    
+    presburger_normalize(pres, y);
+    
+    presburger_cooperize(pres, y, &glb, &glbv, &lub, &lubv, &poly, &delta);
+    
+    presburger_solve_and_replace(pres, y, &glb, &glbv, &lub, &lubv, &poly, &delta);
+    
+  }
 }
 
 
