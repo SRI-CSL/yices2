@@ -37,6 +37,24 @@ typedef enum {
   PRES_NEG_DIVIDES  = 4,
 } presburger_tag_t;
 
+/*
+ * Tags for identifying the Cooper form of a constraint.
+ *
+ *  VAR_LT   y < e
+ *  VAR_GT   e < y
+ *  VAR_EQ   y = e
+ *  VAR_PD   d | y + r
+ *  VAR_ND   not (d | y + r)
+ *
+ */
+typedef enum {
+  VAR_NONE = -1,
+  VAR_LT   =  0,
+  VAR_GT   =  1,
+  VAR_EQ   =  2,
+  VAR_DV   =  3,
+} cooper_t;
+
 
 /*
  * Presburger constraint:

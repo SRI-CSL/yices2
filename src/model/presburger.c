@@ -872,7 +872,6 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
   int32_t i;
   uint32_t nterms;
   monomial_t *mono;   
-  presburger_tag_t tag;
   
   //first determine the factor by which we need to multiply by.
   
@@ -903,12 +902,14 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
   //if it is a divibility constraint the divisor needs to be scaled too.
   divisor = constraint->divisor;
   if (divisor != NULL){
+
+    assert((constraint->tag == PRES_POS_DIVIDES) || (constraint->tag == PRES_NEG_DIVIDES));
+
     q_mul(divisor, &factor);
   }
   
   q_clear(&factor);
 }
-
 
 /* convert all the contraints in pres to the form where the the coeff of
  * y is plus or minus one.
@@ -951,6 +952,98 @@ static void presburger_normalize(presburger_t *pres, term_t y){
 
   q_clear(&lcm);
 
+}
+
+static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, bool positive){
+  uint32_t i, nterms;
+  monomial_t *mono;   
+  term_t var;
+
+  
+  nterms = constraint->nterms;
+  mono = constraint->mono;
+  
+  
+  if(positive){
+    //subtract all non-y monomials in constraint from the buffer
+    for(i = 0; i < nterms; i++){
+      var = mono[i].var;
+      if (var != y){
+	poly_buffer_sub_monomial(buffer, var, &mono[i].coeff);
+      }
+    }
+  } else {
+    //add all the non-y monomials in constraint to the buffer
+    for(i = 0; i < nterms; i++){
+      var = mono[i].var;
+      if (var != y){
+	poly_buffer_add_monomial(buffer, var, &mono[i].coeff);
+      }
+    }
+  }
+  
+
+  return poly_buffer_get_poly(buffer);
+}
+
+/*
+ * Cooperizes the constraint (leaving it unchanged). Should always return true.
+ * If it returns true, then 
+ * - kind will contain the form of the cooper term:  
+ *   VAR_NONE: y does not occur in the constraint
+ *   VAR_LT: y < e  
+ *   VAR_GT: e < y  
+ *   VAR_EQ: y = e or 
+ *   VAR_DV: ±(k | y + r)
+ * - in the case of  VAR_LT, VAR_GT, or VAR_EQ poly will contain the corresponding polynomial term e
+ * - in the case of VAR_DV  we merely compute q_lcm(lcm, k), thus altering the lcm passed in.
+ *
+ */
+static bool cooperize(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, cooper_t* kind, polynomial_t **poly, rational_t* lcm){
+  presburger_tag_t tag;
+  rational_t *coeff;
+  bool positive;
+    
+  assert((kind != NULL) && (poly != NULL) && (lcm != NULL) && q_is_pos(lcm));
+  
+  if( ! has_coefficient(constraint, y, &coeff)){
+    *kind = VAR_NONE;
+    return true;
+  }
+
+  positive = q_is_pos(coeff);
+  
+  tag = constraint->tag;
+
+  
+  switch(tag){
+
+
+  case PRES_GT:
+  case PRES_GE:
+    *kind = positive ? VAR_GT : VAR_LT;
+    *poly = extract_poly(buffer, constraint, y, positive);
+    return true;
+    
+  case PRES_EQ:
+    *kind = VAR_EQ;
+    *poly = extract_poly(buffer, constraint, y, positive);
+    return true;
+
+  case PRES_POS_DIVIDES:
+  case PRES_NEG_DIVIDES:
+    q_lcm(lcm, constraint->divisor);
+    if(! q_is_pos(lcm) ){ q_neg(lcm); }
+    *kind = VAR_DV;
+    return true;
+
+  default: return false;
+
+
+  }
+
+  return true;
+  
 }
 
 
