@@ -2739,9 +2739,11 @@ static temp_clause_t *temp_clause_malloc(sat_solver_t *sol, size_t clause_len) {
   return temp_clause_of_temp_idx(sol, idx);
 }
 
+#if INPR_TMP_CL_LEN
 static inline const temp_clause_t *temped(const clause_t *cl) {
   return (const temp_clause_t *)(((const char *)cl) - offsetof(temp_clause_t, clause));
 }
+#endif
 
 static clause_t *new_temporary_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) {
   temp_clause_t *tmp = (temp_clause_t *) temp_clause_malloc(sol, sizeof(temp_clause_t) + sizeof(literal_t) +
