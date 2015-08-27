@@ -18,6 +18,7 @@
 #include "terms/poly_buffer.h"
 
 #include "utils/ptr_vectors.h"
+#include "utils/int_hash_sets.h"
 
 /*
  * Tags for identifying the constraint types
@@ -77,7 +78,6 @@ enum {
 
 /*
  * An impoverished version Bruno's vtbl.
- * Not really sure why we don't just keep the model.
  *
  */
 typedef struct presburger_vtbl_s {
@@ -87,6 +87,8 @@ typedef struct presburger_vtbl_s {
 
   // the variables we are going to eliminate
   ivector_t eliminables;
+  int_hset_t elims;
+
  
   // data for *all* variables (both to_elim and to_keep)
   term_t *variables;

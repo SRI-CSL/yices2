@@ -237,7 +237,8 @@ static void init_presburger_vtbl(presburger_vtbl_t *table, uint32_t n) {
   table->size = n;
 
   init_ivector(&table->eliminables, 0);
-
+  init_int_hset(&table->elims, 0);
+  
   table->variables = (term_t *) safe_malloc(n * sizeof(term_t));
   table->values = (rational_t *) safe_malloc(n * sizeof(rational_t));
 
@@ -276,6 +277,7 @@ static void reset_presburger_vtbl(presburger_vtbl_t *table) {
   }
 
   ivector_reset(&table->eliminables);
+  int_hset_reset(&table->elims);
   
   int_hmap_reset(&table->vmap);
   
@@ -296,6 +298,7 @@ static void delete_presburger_vtbl(presburger_vtbl_t *table) {
   }
 
   delete_ivector(&table->eliminables);
+  delete_int_hset(&table->elims);
   
   delete_int_hmap(&table->vmap);
 
@@ -311,7 +314,7 @@ static void delete_presburger_vtbl(presburger_vtbl_t *table) {
 /*
  * Add a new variable x to table
  * - q = value for x
- * - to_elim: if true, x is added to the eliminables
+ * - to_elim: if true, x is added to the eliminables and elims
  * - since we don't know all variables yet, we don't add the
  *   mapping from x --> idx in table->vmap.
  */
@@ -331,8 +334,10 @@ static void presburger_vtbl_add_var(presburger_vtbl_t *table, term_t x, bool to_
   q_set(table->values + i, q);
   
   if (to_elim) {
+    assert(!int_hset_member(&table->elims, x));
     table->nelims ++;
     ivector_push(&table->eliminables, x);
+    int_hset_add(&table->elims, x);
   }
   
 }
@@ -354,6 +359,8 @@ static void close_presburger_vtbl(presburger_vtbl_t *vtbl) {
     assert(d->val < 0);
     d->val = i;
   }
+
+  int_hset_close(&vtbl->elims);
 }
 
 
@@ -562,7 +569,7 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
       
     }
     
-    //assert(presburger_good_constraint(pres, c));
+    assert(presburger_good_constraint(pres, c));
 
     presburger_add_cnstr(pres, c);
 #if TRACE
@@ -825,6 +832,126 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
   return code;
 }
 
+/*
+ * Checks to see if the constraint mentions y, and if so returns true and stores it's coefficient in value.
+ * If not returns false, and leaves value untouched.
+ * - constraint to check
+ * - y a variable
+ * - value a non-null pointer to a rational pointer
+ */
+static bool has_coefficient(presburger_constraint_t *constraint, term_t y, rational_t** value){
+  int32_t i;
+  uint32_t nterms;
+  monomial_t *mono;   
+
+  assert(value != NULL);
+
+  nterms = constraint->nterms;
+  mono = constraint->mono;
+
+  for(i = 0; i < nterms; i++){
+    if (mono[i].var == y){
+      *value = &mono[i].coeff;
+      return true;
+    }
+  }
+  return false;
+
+}
+
+
+/*
+ *  Scales the constraint so that the coefficient of y would be lcm; then sets the
+ *  actual coefficient of y to be 1. This is the normalization phase of Cooper's 
+ *  algorithm.
+ *
+ */
+static void scale_constraint(presburger_constraint_t *constraint, term_t y, rational_t* lcm){
+  rational_t factor;
+  rational_t *aux, *coeff, *divisor;
+  int32_t i;
+  uint32_t nterms;
+  monomial_t *mono;   
+  presburger_tag_t tag;
+  
+  //first determine the factor by which we need to multiply by.
+  
+  if (has_coefficient(constraint, y, &coeff)){
+    q_init(&factor);
+    q_set(&factor, lcm);
+    q_div(&factor, coeff);
+    //keep it positive
+    if (q_is_neg(&factor)){ q_neg(&factor); }
+  }
+
+  nterms = constraint->nterms;
+  mono = constraint->mono;
+  
+  for(i = 0; i < nterms; i++){
+    aux = &mono[i].coeff;
+    if (mono[i].var == y){
+      if (q_is_neg(aux)){
+	q_set_minus_one(aux);
+      } else {
+	q_set_one(aux);
+      }
+    } else {
+      q_mul(aux, &factor);
+    }
+  }
+
+  //if it is a divibility constraint the divisor needs to be scaled too.
+  divisor = constraint->divisor;
+  if (divisor != NULL){
+    q_mul(divisor, &factor);
+  }
+  
+  q_clear(&factor);
+}
+
+
+/* convert all the contraints in pres to the form where the the coeff of
+ * y is plus or minus one.
+ * - y must be in the eliminables 
+ */
+static void presburger_normalize(presburger_t *pres, term_t y){
+  rational_t lcm;
+  rational_t *rp;
+  pvector_t *constraints;
+  int32_t i, nconstraints;
+  presburger_constraint_t *constraint;
+  
+  assert(int_hset_member(&pres->vtbl.elims, y));
+
+  constraints = &pres->constraints;
+  nconstraints = constraints->size;
+  q_init(&lcm);
+  q_set_one(&lcm);
+
+  //pass one: compute the lcm of the coeffs of y
+  for(i = 0; i < nconstraints; i++){
+    constraint = (presburger_constraint_t *)constraints->data[i];
+    rp = NULL;
+    if(has_coefficient(constraint, y, &rp)){
+      q_lcm(&lcm, rp);
+      if (q_is_neg(&lcm)){ q_neg(&lcm); } //FIXME: is this needed. 
+    }
+  }
+  
+  
+  if( ! q_is_one(&lcm)){
+
+    //pass two: scale the constraints accordingly, and set the coefficient of y to 1.
+    for(i = 0; i < nconstraints; i++){
+      constraint = (presburger_constraint_t *)constraints->data[i];
+      scale_constraint(constraint, y, &lcm);
+    }
+
+  }
+
+  q_clear(&lcm);
+
+}
 
 
 /*
