@@ -434,10 +434,6 @@ static int inpr_print_totl(char *buf, int bufi) {
     bufi += sprintf(buf + bufi, KBLD);
   }
   bufi += sprintf(buf + bufi, "[TOT");
-  if((input_filename[18] == 'h') && (input_filename[17] == 't') && (input_filename[15] == 'n') && (input_filename[14] == 'k')) {
-    char * display_name = input_filename + ((input_filename[20] == 's') ?  + 33 : 37);
-    bufi += sprintf(buf + bufi, ":%.10s", display_name);
-  }
   bufi += sprintf(buf + bufi, "|%07lu_", nb_clauses_tot);
   if (resu == status_sat || resu == status_unsat) {
     bufi += sprintf(buf + bufi, "%03lu.%03lu", solver.inpr_spent_sat.tv_sec, solver.inpr_spent_sat.tv_nsec/1000000UL);

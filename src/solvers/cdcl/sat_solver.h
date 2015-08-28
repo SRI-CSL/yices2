@@ -43,7 +43,7 @@
   */
   #define INPROCESSING_PROF 0
 
-  /* Enable Blocked Clause Elimination */
+  /* Enable Blocked Clause Elimination | Warning: only equisatisfiable! (Todo: add a flipping stack)*/
   #define BLOCKED_CLAUSE_ELIMINATION 1
   /* Enable Pure Literal Rule */
   #define PURE_LITERAL 0
@@ -253,6 +253,27 @@ struct clause_s {
 };
 
 typedef uint32_t clause_idx_t;
+
+
+
+/***************
+ * CLAUSE POOL *
+ ***************/
+
+typedef enum clause_type {
+  type_problem_clause = 0,
+  type_learned_clause = 1,
+} clause_type_t;
+
+typedef struct clause_malloc_s {
+  //TODO: could be improved since len&0b11 == 0
+  uint8_t deleted : 1;
+  uint8_t type : 1;
+  uint32_t len : 30;
+  int clause[0];
+} clause_malloc_t;
+
+
 
 /***************
  * WATCH LISTS *

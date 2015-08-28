@@ -37,7 +37,6 @@
  */
 #if DEBUG
 
-static void check_literal_vector(literal_t *v);
 static void check_propagation(sat_solver_t *sol);
 static void check_marks(sat_solver_t *sol);
 static void check_top_var(sat_solver_t *sol, bvar_t x);
@@ -283,12 +282,17 @@ static inline antecedent_t mk_clause_antecedent(sat_solver_t *sol, clause_t *cl,
  * CLAUSE POOL *
  ***************/
 
-//TODO: comment
+/*
+ * Return the clause pointer from the clause index
+ */
 static inline clause_t *clause_of_idx(sat_solver_t *sol, clause_idx_t cli) {
   assert(cli < sol->clause_pool_size);
   return (clause_t *) ((char *)sol->clause_base_pointer + cli);
 }
 
+/*
+ * Return the clause index from the clause pointer
+ */
 static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
   assert((size_t)sol->clause_base_pointer < (size_t)cl);
   size_t diff = ((char *) cl) - ((char *)sol->clause_base_pointer);
@@ -297,27 +301,25 @@ static inline clause_idx_t idx_of_clause(sat_solver_t *sol, clause_t *cl) {
   return cli;
 }
 
+/*
+ * Return the learned clause pointer from the clause index
+ */
 static inline learned_clause_t *learned_clause_of_idx(sat_solver_t *sol, clause_idx_t cl) {
   return (learned_clause_t *) ((char *)sol->clause_base_pointer + cl);
 }
 
-typedef enum clause_type {
-  type_problem_clause = 0,
-  type_learned_clause = 1,
-} clause_type_t;
-
-typedef struct clause_malloc_s {
-  //TODO: could be improved since len&0b11 == 0
-  uint8_t deleted : 1;
-  uint8_t type : 1;
-  uint32_t len : 30;
-  int clause[0];
-} clause_malloc_t;
-
+/*
+ * Return the block pointer from the clause pointer
+ */
 static inline clause_malloc_t *clause_malloc_block(void *cl) {
   return (clause_malloc_t *)(((char *)cl) - offsetof(clause_malloc_t, clause));
 }
 
+/*
+ * Allocate a new clause
+ *  len: full length of the clause
+ *  learned: type of the clause
+ */
 static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len, clause_type_t learned) {
   assert((clause_len & 0b11) == 0);
   uint64_t len = offsetof(clause_malloc_t, clause) + clause_len;
@@ -360,15 +362,19 @@ static clause_idx_t clause_malloc(sat_solver_t *sol, size_t clause_len, clause_t
   clause_malloc_t * block = (clause_malloc_t *) ((char *)sol->clause_base_pointer + idx);
   block->deleted = 0;
   assert(learned <= 1);
-  block->type = learned&1;
+  block->type = learned&1; /* Set the block type */
   if(len > UINT32_MAX / 4) { /* 30 bits */
     out_of_memory();
   }
-  block->len = ((uint32_t)len)&0x3FFFFFFF;
+  block->len = ((uint32_t)len)&0x3FFFFFFF; /* Set the block length */
 
   return idx + (clause_idx_t) offsetof(clause_malloc_t, clause);
 }
 
+
+/*
+ * Free a clause from the pool
+ */
 static void clause_free(sat_solver_t *sol, void *cl) {
   clause_malloc_t *block = clause_malloc_block(cl);
   assert(block->deleted == 0);
@@ -376,7 +382,14 @@ static void clause_free(sat_solver_t *sol, void *cl) {
   sol->clause_pool_deleted += block->len;
 }
 
-//Call only at level 0
+
+/*
+ * Shrink the clause pool
+ * Remove freed clauses and fix indices
+ *
+ * Call only at level 0
+ * TODO: Do DPI and make the block len smaller if the clause was shrinked (difficult to do due to the learned clause header... )
+ */
 static void shrink_clause_pool(sat_solver_t *sol) {
   assert(sol->decision_level == 0);
   uint32_t *p = sol->clause_base_pointer;
@@ -1289,6 +1302,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   }
 
   #if INPROCESSING
+  /* TODO: Rewrite the 'scheduler' for inprocessing and tune it correctly */
   solver->inpr_cst_a = 10;
   solver->inpr_cst_b = 10;
   solver->inpr_cst_c = 50;
@@ -2720,14 +2734,20 @@ static void analyze_conflict(sat_solver_t *sol) {
  ******************/
 
 #if INPROCESSING
-//TODO: comment
 
 /* TEMPORARY CLAUSES */
+
+/*
+ * Return the temp clause pointer from the temp clause index
+ */
 static inline temp_clause_t *temp_clause_of_temp_idx(sat_solver_t *sol, clause_idx_t cli) {
   assert(cli < sol->inpr_pool_next_free);
   return (temp_clause_t *) ((char *)sol->inpr_temp_pool + cli);
 }
 
+/*
+ * Allocate space in the temporary pool
+ */
 static temp_clause_t *temp_clause_malloc(sat_solver_t *sol, size_t clause_len) {
   assert((clause_len & 0b11) == 0);
 
@@ -2740,11 +2760,18 @@ static temp_clause_t *temp_clause_malloc(sat_solver_t *sol, size_t clause_len) {
 }
 
 #if INPR_TMP_CL_LEN
+/*
+ * Get the temporary clause pointer form the clause pointer
+ */
 static inline const temp_clause_t *temped(const clause_t *cl) {
   return (const temp_clause_t *)(((const char *)cl) - offsetof(temp_clause_t, clause));
 }
 #endif
 
+
+/*
+ * Create a new temporary clause
+ */
 static clause_t *new_temporary_clause(sat_solver_t *sol, uint32_t len, literal_t *lit) {
   temp_clause_t *tmp = (temp_clause_t *) temp_clause_malloc(sol, sizeof(temp_clause_t) + sizeof(literal_t) +
                                     len * sizeof(literal_t));
@@ -2763,6 +2790,9 @@ static clause_t *new_temporary_clause(sat_solver_t *sol, uint32_t len, literal_t
   return result;
 }
 
+/*
+ * Temporary clause length
+ */
 static inline uint32_t temp_clause_length(const clause_t *cl) {
   #if INPR_TMP_CL_LEN
   return temped(cl)->len;
@@ -2772,8 +2802,12 @@ static inline uint32_t temp_clause_length(const clause_t *cl) {
 }
 
 
-/* OCCURENCES LISTS */
+/* OCCURRENCES LISTS */
+
 #if INPR_OCC_LIST
+/*
+ * Init the pool for the elements of the lists
+ */
 static void * occ_init(size_t nb_elems) {
   uint32_t header_size = (uint32_t) sizeof(uint32_t);
   uint32_t *p = safe_malloc(header_size + 2* nb_elems * sizeof(occ_list_elem_t));
@@ -2781,6 +2815,9 @@ static void * occ_init(size_t nb_elems) {
   return p;
 }
 
+/*
+ * Add clause 'cl' to the occurrence list of literal 'l'
+ */
 static void occ_add(char *occ_base, occ_t occ, literal_t l, clause_t *cl) {
   uint32_t * occ_base_prime = (uint32_t *) occ_base;
   uint32_t next_free = occ_base_prime[0];
@@ -2793,6 +2830,9 @@ static void occ_add(char *occ_base, occ_t occ, literal_t l, clause_t *cl) {
   occ[l].size++;
 }
 #elif INPR_OCC_VECT
+/*
+ * Add clause 'cl' to the occurrence list of literal 'l'
+ */
 static void occ_add(occ_t occ, literal_t l, clause_t *cl) {
   occ_vect_t *occv = occ + l;
   occv->size++;
@@ -2803,13 +2843,18 @@ static void occ_add(occ_t occ, literal_t l, clause_t *cl) {
 }
 #endif
 
+/*
+ * Return the size of an occurrence list
+ */
 static inline uint32_t occ_size(const occ_meta_t *occm) {
   return occm->size;
 }
 
 /* INPROCESSING RULES */
 #if BLOCKED_CLAUSE_ELIMINATION
-// If returns 0, resolvant is trivially true
+/*
+ * If returns 0, resolvant of 'cl1' and 'cl2' on 'l' is trivially true
+ */
 static int inprocessing_resolve(sat_solver_t *sol, const clause_t *cl1, const literal_t l, const clause_t *cl2) {
   const literal_t *b1 = cl1->cl;
   const literal_t *b2 = cl2->cl;
@@ -2878,7 +2923,10 @@ static int inprocessing_bce_sub(sat_solver_t *sol, const occ_t occ, literal_t l,
   return 1;
 }
 
-
+/*
+ * Performs Blocked Clause Elimination on the temporary clauses
+ * TODO: Add a flipping stack to have a valid SAT model at the end
+ */
 static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
   uint32_t i = sol->inpr_bce_i;
   #if INPROCESSING_PROF > 1
@@ -2939,6 +2987,9 @@ static uint32_t inprocessing_bce(sat_solver_t *sol, occ_t occ, uint64_t limit) {
 
 
 #if PURE_LITERAL
+/*
+ * Performs Pure Literal Rule on the temporary clauses
+ */
 static uint32_t inprocessing_plr(sat_solver_t *sol, occ_list_t *occ) {
   uint32_t n = sol->nb_lits;
   uint32_t nb_deleted=0;
@@ -2996,6 +3047,13 @@ static uint32_t inprocessing_plr(sat_solver_t *sol, occ_list_t *occ) {
 #endif
 
 #if SUBSUMPTION
+/*
+ * Check if clause 'cl1' subsumes clause 'cl2'
+ * Return values 'ret':
+ *  -2 : nothing was found
+ *  -1 : clause 'cl1' subsumes clause 'cl2'
+ *  >=0: you can remove literal 'ret' from clause 'cl1' (self-subsumption case)
+ */
 static int inprocessing_subsume(sat_solver_t *sol, const clause_t *cl1, const clause_t *cl2) {
   #if INPR_TMP_CL_LEN
   if(temp_clause_length(cl1) > temp_clause_length(cl2))
@@ -3037,6 +3095,11 @@ static int inprocessing_subsume(sat_solver_t *sol, const clause_t *cl1, const cl
   return ret;
 }
 
+/*
+ * Performs Subsumption and Self-subsumption on the temporary clauses
+  TODO: Try to copy the clause vector and sort clauses by length
+  TODO: Add a good filter to avoid using inprocessing_subsume unnecessarily 
+*/
 static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t **v, occ_t occ, uint64_t limit) {
   uint32_t i = sol->inpr_sub_i;
   #if INPROCESSING_PROF > 1
@@ -3073,6 +3136,7 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
         int32_t s = inprocessing_subsume(sol, cl, cl2);
         if(s >= 0) {
           #if 0
+          /* TODO: write the next function and find a way to report it in the real clause DB */
           remove_lit_from_clause(z->cl, sl);
           nb_deleted++;
           if(b[s] == pivot) {
@@ -3127,14 +3191,20 @@ static uint32_t inprocessing_subsumption(sat_solver_t *sol, uint32_t m, clause_t
 }
 #endif
 
+/*
+ * Main function for inprocessing
+ * Call only at level 0
+ */
 static void inprocessing(sat_solver_t *sol) {
+  assert(sol->decision_level == 0);
   uint64_t limit = (sol->stats.propagations * sol->inpr_cst_a) / 10;
   uint32_t n = sol->nb_lits;
 
-  if(sol->inpr_status == 0) {
+  if(sol->inpr_status == 0) { /* No rule to apply */
     return;
   }
 
+  /* Threshold */
   if(sol->inpr_steps + (100+sol->inpr_cst_b)* sol->stats.prob_literals > limit) {
     return;
   }
@@ -3144,7 +3214,7 @@ static void inprocessing(sat_solver_t *sol) {
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob1);
   #endif
 
-  /* sorting + z_corr creation + z_corr free */
+  /* Cost of the creation and deletion of the occurrence lists */
   sol->inpr_steps += 100 * sol->stats.prob_literals;
 
   uint64_t tmp_left  = limit - sol->inpr_steps;
@@ -3152,7 +3222,7 @@ static void inprocessing(sat_solver_t *sol) {
   uint64_t tmp_limit_bce = sol->inpr_steps + tmp_time_bce;
   uint64_t tmp_time_sub = tmp_left - tmp_time_bce;
 
-  //Build occurences lists
+  /* Init the temporary pool */
   clause_t **vo = sol->problem_clauses;
 
   uint32_t m = get_cv_size(vo);
@@ -3163,6 +3233,7 @@ static void inprocessing(sat_solver_t *sol) {
   sol->inpr_temp_pool = safe_malloc(temp_pool_capacity);
   sol->inpr_pool_next_free = 0;
 
+  /* Copy the problem clauses */
   for (size_t i=0; i<m; i++) {
     uint32_t cll = clause_length(vo[i]);
     v[i] = new_temporary_clause(sol, cll, vo[i]->cl);
@@ -3175,6 +3246,7 @@ static void inprocessing(sat_solver_t *sol) {
   ts_add(&(sol->inpr_spent_cpy), ts_diff(time_glob1, time_glob2));
   #endif
 
+  /* Build occurrences lists */
   #if INPR_OCC_LIST
   occ_t occ = safe_malloc(n*sizeof(occ_list_t));
   for (uint32_t i=0; i<n; i++) {
@@ -3215,6 +3287,7 @@ static void inprocessing(sat_solver_t *sol) {
 
   uint32_t nb_deleted = 0;
 
+  /* Call the different rules */
   do {
     #if BLOCKED_CLAUSE_ELIMINATION
     if(sol->inpr_status & inpr_flag_bce) {
@@ -3282,6 +3355,7 @@ static void inprocessing(sat_solver_t *sol) {
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time_glob2);
   #endif
 
+  /* Delete occurrence lists */
   #if INPR_OCC_LIST
   safe_free(occ_pool);
   #elif INPR_OCC_VECT
@@ -3296,6 +3370,7 @@ static void inprocessing(sat_solver_t *sol) {
   ts_add(&(sol->inpr_spent_frb), ts_diff(time_glob2, time_glob3));
   #endif
 
+  /* Report results in the problem clauses and delete temporary clauses */
   if(nb_deleted > 0) {
     uint32_t deleted_literals = 0;
     for (size_t i=0; i<m; i++) {
@@ -3720,9 +3795,6 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 
 #if DEBUG
   check_marks(sol);
-  for (uint32_t i=0; i<sol->nb_lits; i++) {
-    check_literal_vector(sol->bin[i]);
-  }
 #endif
 
   int32_t code = propagation(sol);
@@ -3803,6 +3875,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
           sol->simplify_bottom = sol->stack.top;
           sol->simplify_props = sol->stats.propagations;
           sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+          /* FIXME: Results are better with 2 * sol->nb_bin_clauses, but nb_bin_clauses is not accurate */
         }
       } else {
         #if INPROCESSING
@@ -3894,14 +3967,6 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
 
 #if DEBUG
 
-/*
- * Inline functions used only here: they can cause compilation warning
- * (clang is getting picky)
- */
-static inline uint32_t get_lv_capacity(literal_t *v) {
-  return lv_header(v)->capacity;
-}
-
 static inline bool is_var_marked(sat_solver_t *sol, bvar_t x) {
   return tst_bit(sol->mark, x) != 0;
 }
@@ -3926,81 +3991,50 @@ static void check_top_var(sat_solver_t *solver, bvar_t x) {
   }
 }
 
-/*
- * Check literal vector
- */
-static void check_literal_vector(literal_t *v) {
-  uint32_t i, n;
-
-  if (v != NULL) {
-    n = get_lv_size(v);
-    i = get_lv_capacity(v);
-    if (n > i - 1) {
-      printf("ERROR: overflow in literal vector %p: size = %u, capacity = %u\n",
-             v, n, i);
-    } else {
-      for (i=0; i<n; i++) {
-        if (v[i] < 0) {
-          printf("ERROR: negative literal %d in vector %p at index %u (size = %u)\n",
-                 v[i], v, i, n);
-        }
-      }
-      if (v[i] != null_literal) {
-        printf("ERROR: missing terminator in vector %p (size = %u)\n", v, n);
-      }
-    }
-  }
-}
 
 /*
  * Check propagation results
  */
-static void check_propagation_bin(sat_solver_t *sol, literal_t l0) {
-  literal_t l1, *v;
-
-  v = sol->bin[l0];
-
-  if (v == NULL || lit_val(sol,l0) != val_false) return;
-
-  l1 = *v ++;
-  while (l1 >= 0) {
-    if (lit_is_unassigned(sol,l1)) {
-      printf("ERROR: missed propagation. Binary clause {%d, %d}\n", l0, l1);
-    } else if (lit_val(sol,l1) == val_false) {
-      printf("ERROR: missed conflict. Binary clause {%d, %d}\n", l0, l1);
-    }
-    l1 = *v ++;
-  }
-}
-
 static int32_t indicator(bval_t v, bval_t c) {
   return (v == c) ? 1 : 0;
 }
 
 static void check_watch_list(sat_solver_t *sol, literal_t l, clause_t *cl) {
-  size_t i;
+  watch_t *w = sol->watchnew;
 
-  for (i=0; i<sol->watchnew.cl_nb; i++) {
-    if (sol->watchnew.cl[i] == cl) {
-      return;
+  for (size_t i=0; i<w->size; i++) {
+    switch (w->block[i] & 0b11) {
+      case 0b00:
+      case 0b01:
+        if(watch_clause_of(sol, w->block[i]) == cl) {
+          return;
+        }
+        break;
+      case 0b10:
+        if(watch_lit_of(w->block[i]) == cl->cl[0] ||
+           watch_lit_of(w->block[i]) == cl->cl[1]    ) {
+          return;
+        }
+        break;
+      case 0b11:
+        printf("ERROR: bad watch list block\n");
+        break;
     }
   }
 
-  printf("ERROR: missing watch, literal = %d, clause = %p\n", l, clause_of(lnk));
+  printf("ERROR: missing watch, literal = %d, clause = %p\n", l, cl);
 }
 
 
 static void check_propagation_clause(sat_solver_t *sol, clause_t *cl) {
   literal_t l0, l1, l;
   literal_t *d;
-  uint8_t *val;
   int32_t nf, nt, nu;
   uint32_t i;
 
   nf = 0;
   nt = 0;
   nu = 0;
-  val = sol->value;
 
   l0 = get_first_watch(cl);
   nf += indicator(lit_val(sol, l0), val_false);
@@ -4056,21 +4090,16 @@ static void check_propagation_clause(sat_solver_t *sol, clause_t *cl) {
 }
 
 static void check_propagation(sat_solver_t *sol) {
-  literal_t l0;
-  uint32_t i, n;
+  uint32_t n;
   clause_t **v;
-
-  for (l0=0; l0<sol->nb_lits; l0++) {
-    check_propagation_bin(sol, l0);
-  }
 
   v = sol->problem_clauses;
   n = get_cv_size(v);
-  for (i=0; i<n; i++) check_propagation_clause(sol, v[i]);
+  for (uint32_t i=0; i<n; i++) check_propagation_clause(sol, v[i]);
 
   v = sol->learned_clauses;
   n = get_cv_size(v);
-  for (i=0; i<n; i++) check_propagation_clause(sol, v[i]);
+  for (uint32_t i=0; i<n; i++) check_propagation_clause(sol, v[i]);
 }
 
 
