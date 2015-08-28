@@ -584,11 +584,12 @@ static term_t lit_collector_visit_arith_mod(lit_collector_t *collect, term_t t, 
   return t;
 }
 
-// t is (divides k u)  FIXME: should we enforce conditions on divides->arg[0]? visit it?
+// t is (divides k u)
 static term_t lit_collector_visit_arith_divides_atom(lit_collector_t *collect, term_t t, composite_term_t *divides) {
   term_t k, u, v;
 
   assert(divides->arity == 2);
+
   k = divides->arg[0];
   u = divides->arg[1];
 

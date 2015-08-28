@@ -5,8 +5,6 @@
  * license agreement which is downloadable along with this program.
  */
 
-
-
 #ifndef __PRESBURGER_H
 #define __PRESBURGER_H
 
@@ -19,6 +17,7 @@
 
 #include "utils/ptr_vectors.h"
 #include "utils/int_hash_sets.h"
+
 
 /*
  * Tags for identifying the constraint types
@@ -56,17 +55,16 @@ typedef enum {
 } cooper_tag_t;
 
 typedef struct cooper_s {
-
+  //the greatest lower bound and its value
   polynomial_t *glb;
   rational_t glbv;
-
+  //the least upper bound and its value
   polynomial_t *lub;
   rational_t lubv;
-
+  //an exact solution if we have one
   polynomial_t *poly;
-
+  //the lcm of the divides constants
   rational_t delta;
-
 } cooper_t;
 
 
@@ -89,8 +87,8 @@ typedef struct presburger_constraint_s {
   uint32_t id;
   presburger_tag_t tag;
   uint32_t nterms;
-  monomial_t mono[0];   // real size = nterms+1
   rational_t *divisor;  // non-null only when tag is either PRES_POS_DIVIDES, or  PRES_NEG_DIVIDES.
+  monomial_t mono[0];   // real size = nterms+1
 } presburger_constraint_t;
 
 #define MAX_PRESBURGER_CONSTRAINT_SIZE (((UINT32_MAX-sizeof(presburger_constraint_t))/sizeof(monomial_t)) - 1)
@@ -107,7 +105,6 @@ enum {
   PRES_ERROR_FALSE_LITERAL = -3,
 };
 
-
 /*
  * An impoverished version Bruno's vtbl.
  *
@@ -121,12 +118,10 @@ typedef struct presburger_vtbl_s {
   ivector_t eliminables;
   int_hset_t elims;
 
- 
   // data for *all* variables (both to_elim and to_keep)
   term_t *variables;
   rational_t *values;
 
-  
   // mapping a variable to its index in the variables array
   // which should also be the index of it's value in the values
   // array
@@ -145,14 +140,10 @@ typedef struct presburger_vtbl_s {
 typedef struct presburger_s {
   term_table_t *terms;
   term_manager_t *manager;
-
   presburger_vtbl_t vtbl;
-
   pvector_t constraints;
-
   // buffers
   poly_buffer_t buffer;
-
 } presburger_t;
 
 
@@ -163,7 +154,6 @@ extern bool is_presburger_literal(term_table_t *table, term_t t);
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
  * - c = number of constraints
- *
  */
 extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t c);
 
@@ -198,7 +188,6 @@ extern void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, ratio
  * Close the set of variables and prepare for addition of constraints.
  * - this function must be called once all variables have been added
  *   and before adding the first constraint.
- 
  */
 extern void presburger_close_var_set(presburger_t *pres);
 
@@ -243,7 +232,6 @@ extern int32_t presburger_add_constraint(presburger_t *pres, term_t c);
 extern void presburger_eliminate(presburger_t *pres);
 
 
-
 /*
  * Collect the result as a vector of formulas
  * - every constraint in proj->constraint is converted to a Boolean
@@ -262,8 +250,5 @@ extern void presburger_get_formula_vector(presburger_t *pres, ivector_t *v);
  *   that do not contain the eliminated variables.
  */
 extern term_t presburger_get_formula(presburger_t *pres);
-
-
-
 
 #endif /* __PRESBURGER_H */
