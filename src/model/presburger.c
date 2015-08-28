@@ -1190,18 +1190,15 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
   
 }
 
-static void presburger_solve_and_replace(presburger_t *pres, term_t y, cooper_t *cooper){
+static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *cooper, rational_t *val){
   poly_buffer_t *solution;
-  rational_t value_of_solution;
-  
+  polynomial_t *result;
   presburger_vtbl_t *vtbl;
   rational_t yval;
   rational_t tmp;
   
   vtbl = &pres->vtbl;
   solution = &pres->buffer;
-
-  q_init(&value_of_solution);
 
   
   q_init(&yval);
@@ -1210,52 +1207,53 @@ static void presburger_solve_and_replace(presburger_t *pres, term_t y, cooper_t 
  
   reset_poly_buffer(solution);
 
-    if(cooper->poly != NULL){
-      //found a trivial solution:  y = poly
-
-      poly_buffer_add_poly(solution, cooper->poly);
-      q_set(&value_of_solution, &yval);
-
+  if(cooper->poly != NULL){
+    //found a trivial solution:  y = poly
+    
+    poly_buffer_add_poly(solution, cooper->poly);
+    q_set(&val, &yval);
+    
   } else if((cooper->glb == NULL) && (cooper->lub == NULL) && (cooper->poly == NULL)){
-
-      //no trivial solution nor upper and lower bounds; need to find a solution near 0.
-      if(q_is_neg(&yval)){
-	q_sub(&value_of_solution, &yval);
-      } else {
-	q_add(&value_of_solution, &yval);
-      }
-      q_integer_rem(&value_of_solution, &cooper->delta);
-      poly_buffer_add_const(solution, &value_of_solution);
+    
+    //no trivial solution nor upper and lower bounds; need to find a solution near 0.
+    if(q_is_neg(&yval)){
+      q_sub(&val, &yval);
+    } else {
+      q_add(&val, &yval);
+    }
+    q_integer_rem(&val, &cooper->delta);
+    poly_buffer_add_const(solution, &val);
     
     
   } else if(cooper->glb != NULL){
-
-      //got a lower bound; need to find a solution just above it 
-      q_add(&value_of_solution, &yval);
-      q_sub(&value_of_solution, &cooper->glbv);
-      q_integer_rem(&value_of_solution, &cooper->delta);
-      q_add(&value_of_solution, &cooper->glbv);
-
-      poly_buffer_add_poly(solution, cooper->glb);
-      poly_buffer_add_const(solution, &value_of_solution);
-
+    
+    //got a lower bound; need to find a solution just above it 
+    q_add(&val, &yval);
+    q_sub(&val, &cooper->glbv);
+    q_integer_rem(&val, &cooper->delta);
+    q_add(&val, &cooper->glbv);
+    
+    poly_buffer_add_poly(solution, cooper->glb);
+    poly_buffer_add_const(solution, &val);
+    
     
   } else {
-
-      //got an upper bound; need to find a solution just below it
-      q_init(&tmp);
-      q_set(&tmp, &cooper->lubv);
-      q_set(&value_of_solution, &cooper->lubv);
-      q_integer_rem(&tmp, &cooper->delta);
-      q_sub(&value_of_solution, &tmp);
-  
-      poly_buffer_add_poly(solution, cooper->lub);
-      poly_buffer_sub_const(solution, &tmp);
-
-      q_clear(&tmp);
-
+    
+    //got an upper bound; need to find a solution just below it
+    q_init(&tmp);
+    q_set(&tmp, &cooper->lubv);
+    q_set(&val, &cooper->lubv);
+    q_integer_rem(&tmp, &cooper->delta);
+    q_sub(&val, &tmp);
+    
+    poly_buffer_add_poly(solution, cooper->lub);
+    poly_buffer_sub_const(solution, &tmp);
+    
+    q_clear(&tmp);
+    
   }
 
+  
     
   
 }
@@ -1269,13 +1267,17 @@ void presburger_eliminate(presburger_t *pres){
   term_t y;
   ivector_t *eliminables;
   presburger_vtbl_t *vtbl;
-
+  rational_t value_of_solution;
+  polynomial_t *solution;
+  
   cooper_t cooper;
   
   vtbl = &pres->vtbl;
   eliminables = &vtbl->eliminables;
+  q_init(&value_of_solution);
   
   while(eliminables->size > 0){
+
     y = ivector_pop2(eliminables);
     
     presburger_normalize(pres, y);
@@ -1284,8 +1286,10 @@ void presburger_eliminate(presburger_t *pres){
     
     presburger_cooperize(pres, y, &cooper);
     
-    presburger_solve_and_replace(pres, y, &cooper);
+    solution = presburger_solve(pres, y, &cooper, &value_of_solution);
 
+
+    
     delete_cooper(&cooper);
     
   }
