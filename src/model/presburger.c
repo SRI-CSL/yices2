@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "model/presburger.h"
+#include "terms/rba_buffer_terms.h"
 
 
 #define TRACE 1
@@ -1256,16 +1257,89 @@ void presburger_eliminate(presburger_t *pres){
 
 
 /*
+ * CONVERT CONSTRAINTS BACK TO TERMS
+ */
+
+/*
+ * Convert constraint c to a term
+ */
+static term_t presburger_convert_constraint(presburger_t *pres, presburger_constraint_t *c) {
+  rba_buffer_t *buffer;
+  uint32_t i, n;
+  int32_t x;
+  term_t t, k, u;
+
+  buffer = term_manager_get_arith_buffer(pres->manager);
+  reset_rba_buffer(buffer);
+
+  n = c->nterms;
+  i = 0;
+  if (c->mono[0].var == const_idx) {
+    // constant
+    rba_buffer_add_const(buffer, &c->mono[0].coeff);
+    i ++;
+  }
+  while (i < n) {
+    x = c->mono[i].var;
+    rba_buffer_add_const_times_term(buffer, pres->terms, &c->mono[i].coeff, x);
+    i ++;
+  }
+
+  t = NULL_TERM; // prevent GCC warning
+
+  switch (c->tag) {
+  case PRES_GT:
+    t = mk_arith_gt0(pres->manager, buffer);
+    break;
+
+  case PRES_GE:
+    t = mk_arith_geq0(pres->manager, buffer);
+    break;
+
+  case PRES_EQ:
+    t = mk_arith_eq0(pres->manager, buffer);
+    break;
+
+  case PRES_POS_DIVIDES:
+  case PRES_NEG_DIVIDES:
+    k = mk_arith_constant(pres->manager,  c->divisor);
+    u = mk_arith_term(pres->manager, buffer);
+    t = mk_arith_divides(pres->manager, k, u);
+    if (c->tag == PRES_NEG_DIVIDES){
+      t = opposite_term(t);
+    }
+    break;
+
+  }
+
+  return t;
+}
+
+
+
+/*
  * Collect the result as a vector of formulas
- * - every constraint in proj->constraint is converted to a Boolean
+ * - every constraint in pres->constraint is converted to a Boolean
  *   term that's added to vector v
  * - v is not reset
  *
- * So the set of constraints after in proj->constraint is equivalent to 
+ * So the set of constraints after in pres->constraint is equivalent to 
  * the conjunction of formulas added to v.
  */
 void presburger_get_formula_vector(presburger_t *pres, ivector_t *v){
+  int32_t i, nconstraints;
+  pvector_t *constraints;
+  presburger_constraint_t *constraint;
+  term_t t;
 
+  constraints = &pres->constraints;
+  nconstraints = constraints->size;
+  //go through the constraints
+  for(i = 0; i < nconstraints; i++){
+    constraint = (presburger_constraint_t *)constraints->data[i];
+    t = presburger_convert_constraint(pres, constraint);
+    ivector_push(v, t);
+  }
 
 }
 
