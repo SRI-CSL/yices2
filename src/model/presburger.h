@@ -53,6 +53,20 @@ typedef enum {
   VAR_GT   =  1,
   VAR_EQ   =  2,
   VAR_DV   =  3,
+} cooper_tag_t;
+
+typedef struct cooper_s {
+
+  polynomial_t *glb;
+  rational_t glbv;
+
+  polynomial_t *lub;
+  rational_t lubv;
+
+  polynomial_t *poly;
+
+  rational_t delta;
+  
 } cooper_t;
 
 
@@ -122,7 +136,6 @@ typedef struct presburger_vtbl_s {
 
 #define MAX_PRESBURGER_VTBL_SIZE (UINT32_MAX/sizeof(presburger_vtbl_t))   
 #define DEF_PRESBURGER_VTBL_SIZE 20
-
 
 
 /*
