@@ -74,7 +74,6 @@ static void init_cooper(cooper_t *cooper){
 
   q_init(&cooper->delta);
   q_set_one(&cooper->delta);
-  
 
 }
 
@@ -98,7 +97,7 @@ static void delete_cooper(cooper_t *cooper){
     free_polynomial(cooper->poly);
     cooper->poly = NULL;
   }
-
+  
   q_clear(&cooper->delta);
 }
 
@@ -1192,24 +1191,72 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
 }
 
 static void presburger_solve_and_replace(presburger_t *pres, term_t y, cooper_t *cooper){
+  poly_buffer_t *solution;
+  rational_t value_of_solution;
   
-  if((cooper->glb == NULL) && (cooper->lub == NULL) && (cooper->poly == NULL)){
-    //no trivial solution nor upper and lower bounds; need to find a solution near 0. 
-    
-    
-  } else if(cooper->poly != NULL){
-    //found a trivial solution:  y = poly
+  presburger_vtbl_t *vtbl;
+  rational_t yval;
+  rational_t tmp;
+  
+  vtbl = &pres->vtbl;
+  solution = &pres->buffer;
+
+  q_init(&value_of_solution);
+
+  
+  q_init(&yval);
+  q_set(&yval, presburger_var_val(vtbl, y));
+  
+ 
+  reset_poly_buffer(solution);
+
+    if(cooper->poly != NULL){
+      //found a trivial solution:  y = poly
+
+      poly_buffer_add_poly(solution, cooper->poly);
+      q_set(&value_of_solution, &yval);
+
+  } else if((cooper->glb == NULL) && (cooper->lub == NULL) && (cooper->poly == NULL)){
+
+      //no trivial solution nor upper and lower bounds; need to find a solution near 0.
+      if(q_is_neg(&yval)){
+	q_sub(&value_of_solution, &yval);
+      } else {
+	q_add(&value_of_solution, &yval);
+      }
+      q_integer_rem(&value_of_solution, &cooper->delta);
+      poly_buffer_add_const(solution, &value_of_solution);
     
     
   } else if(cooper->glb != NULL){
-    //got a lower bound; need to find a solution just above it 
-    
+
+      //got a lower bound; need to find a solution just above it 
+      q_add(&value_of_solution, &yval);
+      q_sub(&value_of_solution, &cooper->glbv);
+      q_integer_rem(&value_of_solution, &cooper->delta);
+      q_add(&value_of_solution, &cooper->glbv);
+
+      poly_buffer_add_poly(solution, cooper->glb);
+      poly_buffer_add_const(solution, &value_of_solution);
+
     
   } else {
-    //got an upper bound; need to find a solution just below it
-    
+
+      //got an upper bound; need to find a solution just below it
+      q_init(&tmp);
+      q_set(&tmp, &cooper->lubv);
+      q_set(&value_of_solution, &cooper->lubv);
+      q_integer_rem(&tmp, &cooper->delta);
+      q_sub(&value_of_solution, &tmp);
+  
+      poly_buffer_add_poly(solution, cooper->lub);
+      poly_buffer_sub_const(solution, &tmp);
+
+      q_clear(&tmp);
 
   }
+
+    
   
 }
 

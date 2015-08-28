@@ -66,7 +66,7 @@ typedef struct cooper_s {
   polynomial_t *poly;
 
   rational_t delta;
-  
+
 } cooper_t;
 
 
