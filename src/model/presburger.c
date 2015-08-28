@@ -73,6 +73,7 @@ static void init_cooper(cooper_t *cooper){
   cooper->poly = NULL;
 
   q_init(&cooper->delta);
+  q_set_one(&cooper->delta);
   
 
 }
@@ -1100,7 +1101,7 @@ static bool cooperize_constraint(poly_buffer_t *buffer, presburger_constraint_t 
 
 
 
-static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **glb, rational_t* glbv, polynomial_t **lub, rational_t* lubv, polynomial_t **poly, rational_t *delta){
+static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper){
   poly_buffer_t *buffer;
   pvector_t *constraints;
   int32_t i, nconstraints;
@@ -1108,7 +1109,7 @@ static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **gl
   cooper_tag_t kind;
   presburger_vtbl_t *vtbl;
   rational_t val;
-  polynomial_t *tmppoly;
+  polynomial_t *poly;
   
   vtbl = &pres->vtbl;
 
@@ -1117,12 +1118,11 @@ static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **gl
   nconstraints = constraints->size;
   
   reset_poly_buffer(buffer);
-  q_init(&val);
   
   //go through the constraints
   for(i = 0; i < nconstraints; i++){
     constraint = (presburger_constraint_t *)constraints->data[i];
-    if(!cooperize_constraint(buffer, constraint, y, &kind, &tmppoly, delta)){
+    if(!cooperize_constraint(buffer, constraint, y, &kind, &poly, &cooper->delta)){
       //shouldn't happen; need to set a flag, cleanup, and exit
       assert(false);
     }
@@ -1136,26 +1136,48 @@ static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **gl
       
     case VAR_LT:
       // poly is an upper bound
-      eval_polynomial_in_model(vtbl, &val, tmppoly->mono, tmppoly->nterms);
-      if(*lub == NULL){
-	*lub = tmppoly;
-	q_set(lubv, &val);
+      q_init(&val);
+      eval_polynomial_in_model(vtbl, &val, poly->mono, poly->nterms);
+      if(cooper->lub == NULL){
+	cooper->lub = poly;
+	q_set(&cooper->lubv, &val);
       } else {
-	if(q_lt(&val, lubv)){
+	if(q_lt(&val, &cooper->lubv)){
 	  // poly is the new lub
-	  free_polynomial(*lub);
-	  *lub = tmppoly;
-	  q_set(lubv, &val);
+	  free_polynomial(cooper->lub);
+	  cooper->lub = poly;
+	  q_set(&cooper->lubv, &val);
 	} else {
 	  // current lub still good; just clean up
-	  free_polynomial(tmppoly);
-	  tmppoly = NULL;
+	  free_polynomial(poly);
+	  poly = NULL;
 	}
       }
+      q_clear(&val);
       break;
       
     case VAR_GT:
       // poly is a lower bound
+      q_init(&val);
+      eval_polynomial_in_model(vtbl, &val, poly->mono, poly->nterms);
+      if(cooper->glb == NULL){
+	cooper->glb = poly;
+	q_set(&cooper->glbv, &val);
+      } else {
+	if(q_gt(&val, &cooper->glbv)){
+	  // poly is the new glb
+	  free_polynomial(cooper->glb);
+	  cooper->glb = poly;
+	  q_set(&cooper->glbv, &val);
+	} else {
+	  // current glb still good; just clean up
+	  free_polynomial(poly);
+	  poly = NULL;
+	}
+      }
+      q_clear(&val);
+      break;
+    
       
     case VAR_EQ:
       // y = poly; our work is almost over
@@ -1164,23 +1186,22 @@ static void presburger_cooperize(presburger_t *pres, term_t y, polynomial_t **gl
       assert(false);
     }
 
-    q_clear(&val);
   }
   
   
 }
 
-static void presburger_solve_and_replace(presburger_t *pres, term_t y, polynomial_t **glb, rational_t* glbv, polynomial_t **lub, rational_t* lubv, polynomial_t **poly, rational_t *delta){
+static void presburger_solve_and_replace(presburger_t *pres, term_t y, cooper_t *cooper){
   
-  if((glb == NULL) && (lub == NULL) && (poly == NULL)){
+  if((cooper->glb == NULL) && (cooper->lub == NULL) && (cooper->poly == NULL)){
     //no trivial solution nor upper and lower bounds; need to find a solution near 0. 
     
     
-  } else if(poly != NULL){
+  } else if(cooper->poly != NULL){
     //found a trivial solution:  y = poly
     
     
-  } else if(glb != NULL){
+  } else if(cooper->glb != NULL){
     //got a lower bound; need to find a solution just above it 
     
     
@@ -1201,32 +1222,24 @@ void presburger_eliminate(presburger_t *pres){
   term_t y;
   ivector_t *eliminables;
   presburger_vtbl_t *vtbl;
-  rational_t delta, glbv, lubv;
-  polynomial_t *glb, *lub, *poly;
+
+  cooper_t cooper;
   
   vtbl = &pres->vtbl;
   eliminables = &vtbl->eliminables;
   
-  q_init(&delta);
-  q_set_one(&delta);
-  
-  glb = NULL;
-  q_init(&glbv);
-  
-  lub = NULL;
-  q_init(&lubv);
-  
-  poly = NULL;
-  
   while(eliminables->size > 0){
-    
     y = ivector_pop2(eliminables);
     
     presburger_normalize(pres, y);
+
+    init_cooper(&cooper);
     
-    presburger_cooperize(pres, y, &glb, &glbv, &lub, &lubv, &poly, &delta);
+    presburger_cooperize(pres, y, &cooper);
     
-    presburger_solve_and_replace(pres, y, &glb, &glbv, &lub, &lubv, &poly, &delta);
+    presburger_solve_and_replace(pres, y, &cooper);
+
+    delete_cooper(&cooper);
     
   }
 }
