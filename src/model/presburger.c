@@ -864,15 +864,20 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
 static bool has_coefficient(presburger_constraint_t *constraint, term_t y, rational_t** value) {
   int32_t i;
   uint32_t nterms;
-
+  term_t var;
+  
   assert(value != NULL);
 
   nterms = constraint->nterms;
 
   for(i = 0; i < nterms; i++){
-    if (constraint->mono[i].var == y){
+    var = constraint->mono[i].var;
+    if (var == y){
       *value = &constraint->mono[i].coeff;
       return true;
+    }
+    if(var > y){  //FIXME: is this correct?
+      return false;
     }
   }
   return false;
@@ -1213,11 +1218,46 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
   return result;
 }
 
+/*
+ * Replaces all occurrences of the variable y by the polynomial solution in the constraint.
+ * If y does not appear ut returns the original constraint. Otherwise it constructs a new one.
+ */
 static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pres, term_t y, polynomial_t *solution, presburger_constraint_t *c){
+  poly_buffer_t *buffer;
+  rational_t *coeff;
+  uint32_t i, nterms;
+  presburger_constraint_t *retval;
+  
+  buffer = &pres->buffer;
+  reset_poly_buffer(buffer);
 
-  return c;
+  if(has_coefficient(c, y, &coeff)){
+    assert(q_is_one(coeff) || q_is_minus_one(coeff));
+
+    nterms = c->nterms;
+    for(i = 0; i < nterms; i++){
+
+      if (c->mono[i].var == y){
+	if(q_is_one(coeff)){
+	  poly_buffer_add_poly(buffer, solution);
+	} else {
+	  poly_buffer_sub_poly(buffer, solution);
+	}
+      } else {
+	poly_buffer_add_monomial(buffer,  c->mono[i].var, &c->mono[i].coeff);
+      }
+    }
+    normalize_poly_buffer(buffer);
+    retval = make_presburger_constraint(buffer, c->tag);
+  } else {
+    retval = c;
+  }
+  return retval;
 }
 
+/*
+ * Replaces all occurrences of the variable y by the polynomial solution in the constraints.
+ */
 static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solution){
   int32_t i, nconstraints;
   pvector_t *constraints;
