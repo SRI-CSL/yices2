@@ -1193,6 +1193,7 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
     q_add(val, &yval);
     q_sub(val, &cooper->glbv);
     q_integer_rem(val, &cooper->delta);
+    //FIXME: if val is zero we need to make it delta (or as Dejan suggested search for the smallest?)
     q_add(val, &cooper->glbv);
     
     poly_buffer_add_poly(solution, cooper->glb);
@@ -1205,6 +1206,7 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
     q_set(&tmp, &cooper->lubv);
     q_set(val, &cooper->lubv);
     q_integer_rem(&tmp, &cooper->delta);
+    //FIXME: if tmp is zero we need to make it delta (or as Dejan suggested search for the smallest?)
     q_sub(val, &tmp);
     
     poly_buffer_add_poly(solution, cooper->lub);
