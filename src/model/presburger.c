@@ -1256,9 +1256,11 @@ static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pre
     }
     normalize_poly_buffer(buffer);
     retval = make_presburger_constraint(buffer, c->tag);
+    assert(presburger_good_constraint(pres, retval));
   } else {
     retval = c;
   }
+  
   return retval;
 }
 
