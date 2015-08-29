@@ -201,6 +201,11 @@ static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer
   tmp->id = 0; // set when it gets added to the constraint pvector
   tmp->tag = tag;
   tmp->nterms = n;
+  //if we are a divisor constraint initialize the divisor slot
+  if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
+    tmp->divisor = (rational_t *) safe_malloc(sizeof(rational_t));
+    q_init(tmp->divisor);
+  }
   p = poly_buffer_mono(buffer);
   for (i=0; i<n; i++) {
     tmp->mono[i].var = p[i].var;
@@ -209,12 +214,6 @@ static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer
   }
   tmp->mono[i].var = max_idx; // end marker
   reset_poly_buffer(buffer);
-
-  //if we are a divisor constraint initialize the divisor slot
-  if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
-    tmp->divisor = (rational_t *) safe_malloc(sizeof(rational_t));
-    q_init(tmp->divisor);
-  }
   return tmp;
 }
 
@@ -1214,6 +1213,30 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
   return result;
 }
 
+static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pres, term_t y, polynomial_t *solution, presburger_constraint_t *c){
+
+  return c;
+}
+
+static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solution){
+  int32_t i, nconstraints;
+  pvector_t *constraints;
+  presburger_constraint_t *old_constraint;
+  presburger_constraint_t *new_constraint;
+
+  constraints = &pres->constraints;
+  nconstraints = constraints->size;
+
+  //go through the constraints
+  for(i = 0; i < nconstraints; i++){
+    old_constraint = (presburger_constraint_t *)constraints->data[i];
+    new_constraint = presburger_subst_in_constraint(pres, y, solution, old_constraint);
+    if(old_constraint != new_constraint){  
+      constraints->data[i] = new_constraint;
+      free_presburger_constraint(old_constraint);
+    }
+  }
+}
 
 /*
  * Apply the variable elimination procedure
@@ -1247,7 +1270,7 @@ void presburger_eliminate(presburger_t *pres){
 
 
     //eliminate y in favor of the above solution
-    
+    presburger_subst(pres, y, solution);
     
     delete_cooper(&cooper);
     
