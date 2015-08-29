@@ -976,8 +976,7 @@ static void presburger_normalize(presburger_t *pres, term_t y) {
 }
 
 
-//FIXME: if it it PRES_GE we need to turn it into a strict VAR_LT or  VAR_GT.
-static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, bool positive, bool strict){
+static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, bool positive, bool isge){
   uint32_t i, nterms;
   term_t var;
   rational_t one;
@@ -995,7 +994,7 @@ static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constr
 	poly_buffer_sub_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
       }
     }
-    if(!strict){ poly_buffer_sub_const(buffer, &one); }
+    if (isge){ poly_buffer_sub_const(buffer, &one); }
   } else {
     //add all the non-y monomials in constraint to the buffer
     for(i = 0; i < nterms; i++){
@@ -1004,7 +1003,7 @@ static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constr
 	poly_buffer_add_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
       }
     }
-    if(!strict){ poly_buffer_add_const(buffer, &one); }
+    if (isge){ poly_buffer_add_const(buffer, &one); }
   }
   q_clear(&one);
   normalize_poly_buffer(buffer);
@@ -1045,12 +1044,12 @@ static bool cooperize_constraint(poly_buffer_t *buffer, presburger_constraint_t 
   case PRES_GT:
   case PRES_GE:
     *kind = positive ? VAR_GT : VAR_LT;
-    *poly = extract_poly(buffer, constraint, y, positive, tag != PRES_GE);
+    *poly = extract_poly(buffer, constraint, y, positive, tag == PRES_GE);
     return true;
     
   case PRES_EQ:
     *kind = VAR_EQ;
-    *poly = extract_poly(buffer, constraint, y, positive, true);
+    *poly = extract_poly(buffer, constraint, y, positive, false);
     return true;
 
   case PRES_POS_DIVIDES:
