@@ -54,6 +54,15 @@ typedef enum {
   VAR_DV   =  3,
 } cooper_tag_t;
 
+/*
+ * In the elimination of y we keep track of:
+ * - lub, the (strict) least upper bound on y
+ * - lubv, the value of the lub in the model
+ * - glb, the (strict) greatest lower bound on y
+ * - glbv, the value of the blb in the model
+ * - poly, and exact solution "y = poly" if there is such a constraint
+ * - delta, the lcm of all the (in)divisibility constraints.
+ */
 typedef struct cooper_s {
   //the greatest lower bound and its value
   polynomial_t *glb;
@@ -106,7 +115,7 @@ enum {
 };
 
 /*
- * An impoverished version Bruno's vtbl.
+ * An impoverished version Bruno's arith_proj vtbl.
  *
  */
 typedef struct presburger_vtbl_s {
@@ -146,7 +155,11 @@ typedef struct presburger_s {
   poly_buffer_t buffer;
 } presburger_t;
 
-
+/*
+ * Check that the term in question is indeed a presburger literal.
+ * The most likely reason this would fail is that the term contained
+ * Real variables or constants.
+ */
 extern bool is_presburger_literal(term_table_t *table, term_t t);
 
 /*

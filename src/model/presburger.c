@@ -61,7 +61,10 @@ bool is_presburger_literal(term_table_t *terms, term_t t) {
 }
 
 
-/* Does the obvious */
+/* 
+ * Initializes the bounds. Note that a set of constraints need
+ * not actually have any such bounds, so they start out NULL.
+ */
 static void init_cooper(cooper_t *cooper) {
 
   cooper->glb = NULL;
@@ -78,7 +81,9 @@ static void init_cooper(cooper_t *cooper) {
 }
 
 
-/* Does the obvious */
+/* 
+ * This is the same as resetting. Things return to the initial state 
+*/
 static void delete_cooper(cooper_t *cooper) {
 
   if (cooper->glb != NULL) {
@@ -205,6 +210,8 @@ static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer
   if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
     tmp->divisor = (rational_t *) safe_malloc(sizeof(rational_t));
     q_init(tmp->divisor);
+  } else {
+    tmp->divisor = NULL;
   }
   p = poly_buffer_mono(buffer);
   for (i=0; i<n; i++) {
@@ -466,7 +473,8 @@ static int32_t presburger_index_of_term(presburger_vtbl_t *vtbl, term_t x) {
   int_hmap_pair_t *d;
 
   d = int_hmap_find(&vtbl->vmap, x);
-  assert(d != NULL && d->val > 0 && d->val < vtbl->nvars);
+
+  assert(d != NULL && d->val >= 0 && d->val < vtbl->nvars);
   return d->val;
 }
 
@@ -486,7 +494,11 @@ static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, m
   q_clear(val);
   for (i=0; i<nterms; i++) {
     x = mono[i].var;
-    q_addmul(val, &mono[i].coeff, presburger_var_val(vtbl, x));
+    if(x == const_idx){
+      q_add(val, &mono[i].coeff);
+    } else {
+      q_addmul(val, &mono[i].coeff, presburger_var_val(vtbl, x));
+    }
   }  
 }
 
@@ -1198,7 +1210,10 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
     q_add(val, &yval);
     q_sub(val, &cooper->glbv);
     q_integer_rem(val, &cooper->delta);
-    //FIXME: if val is zero we need to make it delta (or as Dejan suggested search for the smallest?)
+    //if val is zero we need to make it delta (or as Dejan suggested search for the smallest?)
+    if(q_is_zero(val)){
+      q_set(val, &cooper->delta);
+    }
     q_add(val, &cooper->glbv);
     
     poly_buffer_add_poly(solution, cooper->glb);
@@ -1211,7 +1226,10 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
     q_set(&tmp, &cooper->lubv);
     q_set(val, &cooper->lubv);
     q_integer_rem(&tmp, &cooper->delta);
-    //FIXME: if tmp is zero we need to make it delta (or as Dejan suggested search for the smallest?)
+    //if tmp is zero we need to make it delta (or as Dejan suggested search for the smallest?)
+    if(q_is_zero(&tmp)){
+      q_set(&tmp, &cooper->delta);
+    }
     q_sub(val, &tmp);
     
     poly_buffer_add_poly(solution, cooper->lub);

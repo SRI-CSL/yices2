@@ -737,7 +737,7 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
     proj_elim_by_substitution(proj);
   }
   if (proj->flag == NO_ERROR && proj->arith_literals.size > 0) {
-    if(false && proj->is_presburger){
+    if(proj->is_presburger){
       proj_process_presburger_literals(proj);
     } else {
       proj_process_arith_literals(proj);
