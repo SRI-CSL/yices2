@@ -39,12 +39,34 @@ For a detailed explanation of the build process and options, check the
 file :file:`doc/COMPILING` included in the distribution.
 
 
+MCSAT and Nonlinear Arithmetic
+..............................
+
+Yices now includes a new solver for nonlinear arithmetic based on the
+Model Constructing Satisfiability Calculus (MCSAT). This solver depends
+on an external library available at
+https://github.com/SRI-CSL/libpoly. It you need nonlinear arithmetic
+and want to compile Yices from the source, you must install this libpoly
+library first. Then, compile Yices with MCSAT support as follows:
+
+.. code-block:: sh
+
+   ./configure --enable-mcsat
+   make -j
+   sudo make install
+
+You may need to set CPPFLAGS and LDFLAGS if the libpoly library is not
+in a standard location.
+
+
+
 Binary Distribution
 ...................
 
 The binary distributions contain pre-compiled binaries and
 libraries. These distributions are self-contained. The binaries and
-libraries are linked statically against GMP.
+libraries are linked statically against GMP and libpoly. They include
+support for nonlinear arithmetic and MCSAT.
 
 The binary distributions for Linux and Mac OS X include a shell script
 to install the binaries, headers, and library in

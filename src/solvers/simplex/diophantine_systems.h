@@ -286,6 +286,7 @@ typedef struct delim_vector_s {
  * - SEARCHING: on entry to dsolver_is_feasible
  * - SOLVED_SAT: the system was solved and a solution was found
  * - SOLVED_UNSAT: the system has been solved and it's not SAT
+ * - UNSOLVED: the solver gave up (search was too expensive)
  * - INTERRUPTED: the search was stopped
  * For all UNSAT states, then unsat_row is the internal index of a row
  * where unsatisfiability was detected. For GCD_UNSAT or TRIV_UNSAT, this is
@@ -299,6 +300,7 @@ typedef enum dsolver_status {
   DSOLVER_SEARCHING,
   DSOLVER_SOLVED_SAT,
   DSOLVER_SOLVED_UNSAT,
+  DSOLVER_UNSOLVED,
   DSOLVER_INTERRUPTED,
 } dsolver_status_t;
 
@@ -339,6 +341,15 @@ typedef struct dsolver_s {
    */
   uint32_t num_reduce_ops;
   uint32_t num_process_rows;
+
+  /*
+   * Size estimates:
+   * - max_coeff_size = approximately the number of bits in
+   *   the largest coefficient of the matrix.
+   * - max_column_size = largest column
+   */
+  uint32_t max_coeff_size;
+  uint32_t max_column_size;
 
   /*
    * Status and unsat-row index
@@ -565,6 +576,7 @@ extern void dsolver_simplify(dsolver_t *solver);
  * - returned code is the status:
  *   DSOLVER_SOLVED_SAT if the system is satisfiable
  *   DSOLVER_SOLVED_UNSAT if the system is unsat
+ *   DSOLVER_UNSOLVED if the search is too expensive
  *   DSOLVER_INTERRUPTED if the call is interrupted
  * 
  * - if the search is not interrupted other functions below can be

@@ -10,7 +10,9 @@
  */
 
 #include <string.h>
-
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
 #include "io/yices_pp.h"
 
 
@@ -87,7 +89,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 47
+#define NUM_STANDARD_BLOCKS 48
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -137,6 +139,7 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_DIVIDES, "divides" },
   { PP_OPEN_TYPE, "type" },
   { PP_OPEN_DEFAULT, "default" },
+  { PP_OPEN_ROOT_ATOM, "arith-root-atom" },
 };
 
 
@@ -244,6 +247,11 @@ static void build_int32(string_buffer_t *b, int32_t x) {
 
 static void build_uint32(string_buffer_t *b, uint32_t x) {
   string_buffer_append_uint32(b, x);
+  string_buffer_close(b);
+}
+
+static void build_double(string_buffer_t *b, double x) {
+  string_buffer_append_double(b, x);
   string_buffer_close(b);
 }
 
@@ -366,6 +374,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_UINT32_ATOM:
     build_uint32(buffer, atm->data.u32);
+    s = buffer->data;
+    break;
+  case PP_DOUBLE_ATOM:
+    build_double(buffer, atm->data.dbl);
     s = buffer->data;
     break;
   case PP_RATIONAL_ATOM:
@@ -740,6 +752,28 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   q_set(&atom->data.rat, q);
 
   pp_push_token(&printer->pp, tk);
+}
+
+void pp_algebraic(yices_pp_t *printer, void *a) {
+#ifdef HAVE_MCSAT
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  double a_value = lp_algebraic_number_to_double(a);
+
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_double(buffer, a_value);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_DOUBLE_ATOM);
+  atom->data.dbl = a_value;
+  pp_push_token(&printer->pp, tk);
+#endif
 }
 
 

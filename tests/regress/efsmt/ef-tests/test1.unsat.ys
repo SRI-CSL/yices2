@@ -1,0 +1,3 @@
+(define x::real)
+(assert (forall (y::real) (> x y)))
+(ef-solve)

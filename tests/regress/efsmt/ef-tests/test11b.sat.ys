@@ -1,0 +1,23 @@
+(set-param ef-max-iters 2048)
+(set-param ef-gen-mode projection)
+(set-param ef-flatten-iff false)
+
+(define y0::bool)
+(define y1::bool)
+(define y2::bool)
+(define y3::bool)
+(define y4::bool)
+(define y5::bool)
+(define y6::bool)
+(define y7::bool)
+(define y8::bool)
+(define y9::bool)
+(define y10::bool)
+(define y11::bool)
+
+(assert 
+ (let ((y (bool-to-bv y11 y10 y9 y8 y7 y6 y5 y4 y3 y2 y1 y0)))
+   (forall (x0::(bitvector 12)) (/= y (bv-add x0 x0)))))
+
+(ef-solve)
+

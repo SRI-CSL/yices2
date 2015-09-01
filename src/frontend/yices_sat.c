@@ -63,6 +63,18 @@ static uint32_t buffer_size;
 
 
 /*
+ * Read until the end of the line
+ */
+static void finish_line(FILE *f) {
+  int c;
+
+  do {
+    c = getc(f);
+  } while (c != '\n');
+}
+
+
+/*
  * Buffer allocation
  */
 #define MAX_CLAUSE_SIZE (UINT32_MAX/sizeof(literal_t))
@@ -180,24 +192,29 @@ static int build_instance(char *filename) {
   }
 
   s = fgets(line, MAX_LINE, f);
-  l = 1; /* line number */
-
   if (s == NULL) {
     fprintf(stderr, "%s: empty file\n", filename);
     fclose(f);
     return FORMAT_ERROR;
   }
+  if (strlen(s) == MAX_LINE-1) {
+    finish_line(f);
+  }
+  l = 1; /* line number */
+
 
   /* skip empty lines and comments */
   while (*s == 'c' || *s == '\n') {
     s = fgets(line, MAX_LINE, f);
-    l ++;
-
     if (s == NULL) {
       fprintf(stderr, "Format error: file %s, line %d\n", filename, l);
       fclose(f);
       return FORMAT_ERROR;
     }
+    if (strlen(s) == MAX_LINE-1) {
+      finish_line(f);
+    }
+    l ++;    
   }
 
   /* read problem size */

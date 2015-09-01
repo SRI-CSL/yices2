@@ -1579,6 +1579,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->prng = SPLX_PRNG_SEED;
 
   solver->integer_solving = false;
+  solver->enable_dfeas = false;
   solver->check_counter = 0;
   solver->check_period = SIMPLEX_DEFAULT_CHECK_PERIOD;
   solver->last_branch_atom = null_bvar;
@@ -2582,8 +2583,12 @@ static void add_eq_or_diseq_axiom(simplex_solver_t *solver, bool tt) {
         printf("---> adding clause: ");
         print_binary_clause(stdout, not(l1), not(l2));
         printf("\n");
-        print_simplex_atomdef(stdout, solver, var_of(l1));
-        print_simplex_atomdef(stdout, solver, var_of(l2));
+	if (var_of(l1) != const_bvar) {
+	  print_simplex_atomdef(stdout, solver, var_of(l1));
+	}
+	if (var_of(l2) != const_bvar) {
+	  print_simplex_atomdef(stdout, solver, var_of(l2));
+	}
 #endif
 
     } else if (l == true_literal) {
@@ -5511,7 +5516,7 @@ static bool simplex_row_implies_bound_on_var(simplex_solver_t *solver, row_t *ro
 
   /*
    * If lower is true, this loop checks whether all monomials other than a.x
-   * have an un upper bound. If lower is false, it checks whehter all monomials
+   * have an un upper bound. If lower is false, it checks whether all monomials
    * other than a.x have a lower bound.
    */
   n = row->size;
@@ -5638,7 +5643,18 @@ static bool better_bound(xrational_t *b1, xrational_t *b2, bool lower) {
 
 
 /*
- * Computes a derived bound on variable x and asserts its if it's better than the current bound on x
+ * Test whether the basic variable in row r has a bound (lower or upper)
+ */
+static bool base_var_has_bound(simplex_solver_t *solver, int32_t r) {
+  thvar_t x;
+
+  x = matrix_basic_var(&solver->matrix, r);
+  return arith_var_upper_index(&solver->vtbl, x) >= 0 || arith_var_lower_index(&solver->vtbl, x) >= 0;
+}
+
+
+/*
+ * Computes a derived bound on variable x and asserts it if it's better than the current bound on x
  * - if lower is true, this attempts to add a lower bound
  * - if lower is false, this attempts to add an upper bound.
  * - returns false if the new bound causes a conflict (and adds a theory conflict in the core)
@@ -5670,7 +5686,7 @@ static bool simplex_strengthen_bound_on_var(simplex_solver_t *solver, thvar_t x,
     n = col->size;
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
-      if (r >= 0) {
+      if (r >= 0 && base_var_has_bound(solver, r)) {
 	row = matrix_row(&solver->matrix, r);
 	ptr = col->data[i].r_ptr;
 	// x occurs in row r at index ptr
@@ -5682,7 +5698,7 @@ static bool simplex_strengthen_bound_on_var(simplex_solver_t *solver, thvar_t x,
 	    best_ptr = ptr;
 	    xq_set(bound, aux);
 	  }
-	}       
+	}
       }
     }
 
@@ -5824,6 +5840,30 @@ static bool simplex_strengthen_bounds(simplex_solver_t *solver) {
 }
 
 
+#if 0
+
+// NOT USED
+/*
+ * Several rounds of strengthening
+ * - MAX_STRENGTHEN_ITERS  = maximal number of rounds
+ * - the function returns false if bound strengthening caused a conflict
+ */
+#define MAX_STRENGTHEN_ITERS 2
+
+static bool simplex_strengthen_bounds_iter(simplex_solver_t *solver) {
+  uint32_t nb, i;
+
+  for (i=0; i<MAX_STRENGTHEN_ITERS; i++) {
+    nb = solver->bstack.top;
+    if (!simplex_strengthen_bounds(solver)) return false;
+    // quit if the last round didn't find any new bound
+    if (nb == solver->bstack.top) break;
+  }
+
+  return true;
+}
+
+#endif
 
 
 /******************************
@@ -7038,17 +7078,28 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 
 /*
  * Create branch & bound atom for a variable x.
- * - we use (x >= ceil(value[x])), which must be a new atom
+ * - if x has a lower and an upper bound: l <= x <= u,
+ *   we use the midpoint. The branch atom is (x >= ceil((l+u)/2)).
+ * - otherwise, we use (x >= ceil(value[x])).
  */
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
-  int32_t new_idx;
+  int32_t new_idx, lb, ub;
   literal_t l;
 
   assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
 
   bound = &solver->bound;
-  xq_set(bound, arith_var_value(&solver->vtbl, x));
+  lb = arith_var_lower_index(&solver->vtbl, x);
+  ub = arith_var_upper_index(&solver->vtbl, x);
+  if (lb >= 0 && ub >= 0) {
+    xq_set(bound, solver->bstack.bound + lb);
+    xq_add(bound, solver->bstack.bound + ub);
+    q_set32(&solver->aux, 2);
+    xq_div(bound, &solver->aux);
+  } else {
+    xq_set(bound, arith_var_value(&solver->vtbl, x));
+  }
   xq_ceil(bound);
   assert(xq_is_integer(bound));
 
@@ -7081,6 +7132,53 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   }
 }
 
+
+/*
+ * Heuristic for selecting branching variable
+ * - try to select the most constrained variable
+ * - the score for x is (upper bound - lower bound) if that's small enough
+ * - return MAX_BRANCH_SCORE if x has zero or one bounds
+ */
+#define MAX_BRANCH_SCORE UINT32_MAX
+#define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
+
+#if 0
+
+/*
+ * Simple version: use current bounds on x
+ */
+static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
+  rational_t *diff;
+  int32_t l, u;
+  uint32_t s;
+
+  diff = &solver->aux;
+  l = arith_var_lower_index(&solver->vtbl, x);
+  u = arith_var_upper_index(&solver->vtbl, x);
+  if (l < 0 && u < 0) {
+    return MAX_BRANCH_SCORE;
+  } else if (l < 0 || u < 0) {
+    return HALF_MAX_BRANCH_SCORE + 1;
+  }
+  q_set(diff, &solver->bstack.bound[u].main);
+  q_sub(diff, &solver->bstack.bound[l].main);
+  q_normalize(diff);
+  // diff = upper bound - lower bound
+  if (q_is_smallint(diff)) {
+    s = q_get_smallint(diff);
+    if (s < HALF_MAX_BRANCH_SCORE) {
+      return s;
+    }
+  }
+
+  return HALF_MAX_BRANCH_SCORE;
+}
+
+#else
+
+/*
+ * New version: try to learn new bounds on x first (by bound strengthening)
+ */
 
 /*
  * Check whether x has an upper bound
@@ -7159,46 +7257,6 @@ static bool simplex_branch_var_sub_lb(simplex_solver_t *solver, thvar_t x, ratio
 }
 
 
-
-/*
- * Heuristic for selecting branching variable
- * - try to select the most constrained variable
- * - the score for x is (upper bound - lower bound) if that's small enough
- * - return MAX_BRANCH_SCORE if x has zero or one bounds
- */
-#define MAX_BRANCH_SCORE UINT32_MAX
-#define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
-
-#if 0
-// older version
-static uint32_t simplex_branch_score_old(simplex_solver_t *solver, thvar_t x) {
-  rational_t *diff;
-  int32_t l, u;
-  uint32_t s;
-
-  diff = &solver->aux;
-  l = arith_var_lower_index(&solver->vtbl, x);
-  u = arith_var_upper_index(&solver->vtbl, x);
-  if (l < 0 && u < 0) {
-    return MAX_BRANCH_SCORE;
-  } else if (l < 0 || u < 0) {
-    return HALF_MAX_BRANCH_SCORE + 1;
-  }
-  q_set(diff, &solver->bstack.bound[u].main);
-  q_sub(diff, &solver->bstack.bound[l].main);
-  q_normalize(diff);
-  // diff = upper bound - lower bound
-  if (q_is_smallint(diff)) {
-    s = q_get_smallint(diff);
-    if (s < HALF_MAX_BRANCH_SCORE) {
-      return s;
-    }
-  }
-
-  return HALF_MAX_BRANCH_SCORE;
-}
-#endif
-
 // new version: use derived bounds on x if available
 static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
@@ -7240,13 +7298,12 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   return s;
 }
 
+#endif
+
 
 /*
  * Select a branch variable of v: pick the one with smallest score.
  * Break ties randomly.
- *
- * TODO: if we call simplex_strengthen_bounds before selecting the
- * branch variables then we can use 'simplex_branch_score_old'.
  */
 static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
   uint32_t i, n, best_score, score, k;
@@ -7696,6 +7753,12 @@ static bool simplex_dsolver_add_row(simplex_solver_t *solver, dsolver_t *dioph, 
  * - return false if a conflict is found
  * - return true otherwise
  * - set solver->recheck to true if bound-strengthening requires a call to make_feasible
+ *
+ * Heuristics:
+ * - dsolver_is_feasible can be very slow and expensive.
+ * - we call it only if solver->enable_dfeas is true
+ * - if dsolver_is_feasible is interrupted or gives up, we set enable_dfeas to false
+ *   (so dsolver_is_feasible will be skipped on the next call).
  */
 static bool simplex_dsolver_check(simplex_solver_t *solver) {
   dsolver_t *dioph;
@@ -7724,10 +7787,10 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
   }
 
   /*
-   * HACK: don't call dsolver_is_feasible if we have too many variables.
-   * (because dsolver_is_feasible can easily blow up)
+   * Don't call dsolver_is_feasible if enable_dfeas is false.
    */
-  if (dioph->nvars > 2000) return true;
+  if (! solver->enable_dfeas) return true;
+  //  if (dioph->nvars > 2000) return true;
 
   solver->stats.num_dioph_checks ++;
 
@@ -7755,13 +7818,14 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     return strengthen_integer_bounds(solver, dioph);
 
   case DSOLVER_INTERRUPTED:
+  case DSOLVER_UNSOLVED:
+    solver->enable_dfeas = false;
     return true;
 
   default:
     assert(false);
     return true;
   }
-
 }
 
 
@@ -7953,8 +8017,16 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_print(stdout, aux);
       printf("\n");
 #endif
+      /*
+       * Antecedents for the new bound:
+       * - we have (x >= Current bound) AND (x = B + P * some integer) => (x >= New bound)
+       * - and fixed vars => (x = B + P * some integer)
+       * So the antecendents for the new bounds are
+       * - the antecedents for the fixed vars + the current bound
+       */
       collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       antecedents_ready = true;
+      ivector_push(antecedents, k); // index for (x >= current bound)
       xq_set_q(bound, aux);
       ok = simplex_add_derived_lower_bound(solver, x, bound, antecedents);
 
@@ -7967,10 +8039,15 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       fflush(stdout);
 
 #endif
-
+      /*
+       * cleanup the antecedents vector: we want to remove the index k
+       * since the vector may be used again if we can strengthen the
+       * upper bound on x
+       */
+      ivector_pop(antecedents); 
       if (! ok) goto done;
-    }
-    
+
+    }    
   }
 
   k = arith_var_upper_index(&solver->vtbl, x);
@@ -8018,9 +8095,16 @@ static bool simplex_integer_derived_bounds(simplex_solver_t *solver, thvar_t x,
       q_print(stdout, aux);
       printf("\n");
 #endif
+
+      /*
+       * As above: antecedents for the derived bounds = current bound +
+       * antecedents for the fixed variables.
+       */
       if (!antecedents_ready) {
 	collect_fixed_vars_antecedents(solver, v->data, v->size, antecedents);
       }
+      ivector_push(antecedents, k);
+
       xq_set_q(bound, aux);
       ok = simplex_add_derived_upper_bound(solver, x, bound, antecedents);
 
@@ -8319,6 +8403,93 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
  */
 
 /*
+ * Each step (implemented by the wrapper functions) starts from
+ * a feasible tableau. It then tests for integer infeasibility using
+ * one of the techniques above, possibly generates new bounds,
+ * then attempt to restore the tableau to be feasible.
+ */
+
+/*
+ * Generic wrapper: 
+ * - f is a check function
+ * - name is the proceduce name
+ *
+ * Assumptions on f:
+ * - f(solver) returns false if there's a conflict and generates
+ *   a conflict explanation.
+ * - f may also generate new bounds and set solver->recheck to true
+ * - in such a case, the wrapper attempts to restore a feasible tableau.
+ */
+static bool intfeas_wrapper(simplex_solver_t *solver, const char *name, bool (*f)(simplex_solver_t *)) {
+  uint32_t nbounds;
+
+  nbounds = solver->bstack.top;
+  solver->recheck = false;
+  if (! f(solver)) {
+    tprintf(solver->core->trace, 10, "(unsat by %s)\n", name);
+    solver->stats.num_bound_conflicts ++;
+    return false;
+  } else {
+    tprintf(solver->core->trace, 10, "(%s: %"PRIu32" new bounds)\n", name, solver->bstack.top - nbounds);
+    if (solver->recheck) {
+      /*
+       * Strengthened bounds require rechecking feasibility
+       */
+      simplex_fix_nonbasic_assignment(solver);
+      if (! simplex_make_feasible(solver) ) {
+	tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
+	solver->stats.num_bound_recheck_conflicts ++;
+	return false;
+      }
+
+      // Since pivoting may have occurred we need to prepare for the next step
+      prepare_for_integer_solving(solver);
+    } else {
+      /*
+       * There may be strengthened bounds but everything is still feasible
+       * - we force fix_ptr to bstack.top (otherwise, things may break
+       *   because the invariant fix_ptr == top is expected to hold)
+       */
+      solver->bstack.fix_ptr = solver->bstack.top;
+    }
+  }
+
+  return true;  
+}
+
+
+/*
+ * Bound strengthening
+ */
+static bool simplex_intfeas_strengthening(simplex_solver_t *solver) {
+  return intfeas_wrapper(solver, "strengthening", simplex_strengthen_bounds);
+}
+
+/*
+ * Cheap integrality test
+ */
+static bool simplex_intfeas_integrality_constraints(simplex_solver_t *solver) {
+  return intfeas_wrapper(solver, "integrality check", simplex_integrality_check);
+}
+
+/*
+ * Dioophantine solver
+ */
+static bool simplex_intfeas_diophantine_check(simplex_solver_t *solver) {
+  return intfeas_wrapper(solver, "diophantine solver", simplex_dsolver_check);
+}
+
+#if 0
+// NOT USED
+/*
+ * Iterated bound strengthening
+ */
+static bool simplex_intfeas_iter_strengthening(simplex_solver_t *solver) {
+  return intfeas_wrapper(solver, "strengthening", simplex_strengthen_bounds_iter);
+}
+#endif
+
+/*
  * Check whether the current set of constraints is integer feasible
  * - return true if it is
  * - if it is not, do something about it and return false.
@@ -8346,7 +8517,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
   solver->stats.num_make_intfeasible ++;
 
-  tprintf(solver->core->trace, 10, "\n(testing integer feasibility)\n");
+  tprintf(solver->core->trace, 10, "(testing integer feasibility)\n");
 
 #if TRACE_INTFEAS
   printf("\nMAKE INTEGER FEASIBLE %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
@@ -8362,124 +8533,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   prepare_for_integer_solving(solver);
 
   /*
-   * FIRST STEP: STRENGTHEN THE BOUNDS IF POSSIBLE
-   */
-  solver->recheck = false;
-  if (! simplex_strengthen_bounds(solver)) {
-    tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
-    solver->stats.num_bound_conflicts ++;
-    return false;
-  } else if (solver->recheck) {
-    /*
-     * Strengthened bounds require rechecking feasibility
-     */
-    simplex_fix_nonbasic_assignment(solver);
-    if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
-      solver->stats.num_bound_recheck_conflicts ++;
-      return false;
-    }
-
-    // Since pivoting may have occurred we need to prepare for the next step
-    prepare_for_integer_solving(solver);
-  } else {
-    /*
-     * There may be strengthened bounds but everything is still feasible
-     * - we force fix_ptr to bstack.top (otherwise, things may break
-     *   because the invariant fix_ptr == top is expected to hold)
-     */
-    solver->bstack.fix_ptr = solver->bstack.top;
-  }
-
-
-  /*
-   * SECOND STEP: USE INTEGRALITY CONSTRAINTS
-   */
-  solver->recheck = false;
-  if (!simplex_integrality_check(solver)) {
-    return false;
-  } else if (solver->recheck) {
-    /*
-     * Strengthened bound requires rechecking feasibility
-     */
-    simplex_fix_nonbasic_assignment(solver);
-    if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(unsat after integer bound strengthening)\n");
-      solver->stats.num_itest_recheck_conflicts ++;
-      return false;
-    }
-
-    // Since pivoting may have occurred we need to prepare for b&b
-    prepare_for_integer_solving(solver);
-  } else {
-    /*
-     * There may be strengthened bounds but everything is still feasible
-     * - we force fix_ptr to bstack.top (otherwise, things may break
-     *   because the invariant fix_ptr == top is expected to hold)
-     */
-    solver->bstack.fix_ptr = solver->bstack.top;
-  }
-
-  /*
-   * THIRD STEP: TRY DIOPHANTINE SOLVER
-   */
-  solver->recheck = false;
-  if (! simplex_dsolver_check(solver)) {
-    // unsat detected by diophantine solver
-    tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
-    return false;
-  } else if (solver->recheck) {
-    /*
-     * Strengthened bounds require rechecking feasibility
-     */
-    simplex_fix_nonbasic_assignment(solver);
-    if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(unsat by dioph bound strengthening)\n");
-      solver->stats.num_dioph_recheck_conflicts ++;
-      return false;
-    } else {
-      // Since pivoting may have occurred we need to prepare for the next step
-      prepare_for_integer_solving(solver);
-    }
-  } else {
-    /*
-     * There may be strengthened bounds but everything is still feasible
-     * - we force fix_ptr to bstack.top (otherwise, things may break
-     *   because the invariant fix_ptr == top is expected to hold)
-     */
-    solver->bstack.fix_ptr = solver->bstack.top;
-  }
-
-  /*
-   * STRENGTHEN THE BOUNDS AGAIN BEFORE BRANCH&BOUND
+   * Try bound strengthening + integrality test + diophantine check
    */
   nbounds = solver->bstack.top;
-  solver->recheck = false;
-  if (! simplex_strengthen_bounds(solver)) {
-    tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
-    solver->stats.num_bound_conflicts ++;
-    return false;
-  } else if (solver->recheck) {
-    /*
-     * Strengthened bounds require rechecking feasibility
-     */
-    simplex_fix_nonbasic_assignment(solver);
-    if (! simplex_make_feasible(solver) ) {
-      tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
-      solver->stats.num_bound_recheck_conflicts ++;
-      return false;
-    }
-
-    // Since pivoting may have occurred we need to prepare for the next step
-    prepare_for_integer_solving(solver);
-  } else {
-    /*
-     * There may be strengthened bounds but everything is still feasible
-     * - we force fix_ptr to bstack.top (otherwise, things may break
-     *   because the invariant fix_ptr == top is expected to hold)
-     */
-    solver->bstack.fix_ptr = solver->bstack.top;
-  }
+  if (! simplex_intfeas_strengthening(solver)) return false;
+  if (! simplex_intfeas_integrality_constraints(solver)) return false;
+  if (! simplex_intfeas_diophantine_check(solver)) return false;
+  if (! simplex_intfeas_strengthening(solver)) return false;
 
   /*
    * TRY OUR LUCK
@@ -8491,37 +8551,12 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     }
   }
 
-  if (solver->bstack.top > nbounds) {
-    /*
-     * LAST ROUND PRODUCED MORE BOUNDS. LET"S DO IT ONCE MORE.
-     */
-    solver->recheck = false;
-
-    if (! simplex_strengthen_bounds(solver)) {
-      tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
-      solver->stats.num_bound_conflicts ++;
-      return false;
-    } else if (solver->recheck) {
-      /*
-       * Strengthened bounds require rechecking feasibility
-       */
-      simplex_fix_nonbasic_assignment(solver);
-      if (! simplex_make_feasible(solver) ) {
-	tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
-	solver->stats.num_bound_recheck_conflicts ++;
-	return false;
-      }
-
-      // Since pivoting may have occurred we need to prepare for the next step
-      prepare_for_integer_solving(solver);
-    } else {
-      /*
-       * There may be strengthened bounds but everything is still feasible
-       * - we force fix_ptr to bstack.top (otherwise, things may break
-       *   because the invariant fix_ptr == top is expected to hold)
-       */
-      solver->bstack.fix_ptr = solver->bstack.top;
-    }
+  /*
+   * If we've learned new bounds in the previous phases,
+   * try more rounds of bound strengthening.
+   */
+  if (solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
+    return false;
   }
 
 
@@ -9241,7 +9276,9 @@ void simplex_start_search(simplex_solver_t *solver) {
   solver->last_conflict_row = -1;
 
   // integer solving flags
+  // enable_dfeas is used in simplex_dsolver_check
   solver->integer_solving = false;
+  solver->enable_dfeas = true;
   if (simplex_has_integer_vars(solver) && simplex_option_enabled(solver, SIMPLEX_ICHECK)) {
 #if TRACE
     printf("---> icheck active\n");
@@ -10014,6 +10051,7 @@ void simplex_reset(simplex_solver_t *solver) {
   solver->last_conflict_row = -1;
   solver->recheck = false;
   solver->integer_solving = false;
+  solver->enable_dfeas = false;
 
   if (solver->dsolver != NULL) {
     reset_dsolver(solver->dsolver);

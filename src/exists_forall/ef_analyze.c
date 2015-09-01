@@ -112,6 +112,8 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
+  init_ivector(&ef->foralls, 64);
+  init_int_hset(&ef->existentials, 32);       
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -127,6 +129,8 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   int_hset_reset(&ef->cache);
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
+  ivector_reset(&ef->foralls);
+  int_hset_reset(&ef->existentials);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
@@ -142,12 +146,24 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_int_hset(&ef->cache);
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
+  delete_ivector(&ef->foralls);
+  delete_int_hset(&ef->existentials);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
 }
 
 
+
+/*
+ * Add a[0 ... n-1] to the existentials in an analyzer 
+ */
+static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
+  uint32_t i;
+  for(i = 0; i < n; i++){
+    int_hset_add(&ef->existentials, a[i]);
+  }
+}
 
 /*
  * FLATTENING OPERATIONS
@@ -256,11 +272,12 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
 
 /*
  * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
+ * - toplevel: true means we can handle exists, false we can handle foralls
  * - store the result in resu
  * - f_ite: if true, also flatten any Boolean if-then-else
  *   f_iff: if true, also flatten any iff term
  */
-static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivector_t *resu) {
+static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, bool f_ite, bool f_iff, ivector_t *resu) {
   term_table_t *terms;
   int_queue_t *queue;
   composite_term_t *d;
@@ -344,6 +361,11 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
 
     case FORALL_TERM:
       if (is_pos_term(t)) {
+	//if we are on the first pass we defer foralls
+	if (toplevel){
+	  ivector_push(&ef->foralls, t);
+	  continue;
+	} 
 	d = forall_term_desc(terms, t);
 	n = d->arity;
 	assert(n >= 2);
@@ -353,9 +375,23 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
 	 */
 	ef_push_term(ef, d->arg[n-1]);
 	continue;
-      }
-      break;
-
+      } else {
+	//if we are not on the first pass we punt on exists
+	if ( ! toplevel){
+	  break;
+	}
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
+	/* the existential case 
+	 * t is (NOT (FORALL x_0 ... x_k : body)
+	 * body is the last argument in the term descriptor
+	 */
+	ef_analyzer_add_existentials(ef, d->arg, n-1);
+	ef_push_term(ef, opposite_term(d->arg[n-1]));
+	continue;
+      } 
+      
     default:
       break;
     }
@@ -383,22 +419,41 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
  *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
+ *  We make two passes. In the first pass (when toplevel is true) we handle exists, and push 
+ *  any foralls onto a defered queue, leaving ef->flat to accumulate. Then in the second pass
+ *  push the defered foralls onto the ef->queue and do a second pass.
+ *
+ *
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
 static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
-  uint32_t i;
-
+  uint32_t i, fsize;
+  ivector_t *foralls;
+  int32_t *fdata;
+  
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
     ef_push_term(ef, a[i]);
   }
-  ef_flatten_forall_conjuncts(ef, f_ite, f_iff, v);
+
+  /* FIRST PASS: do the exists */
+  ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
+
+    
+  //push the foralls into the queue (they are already in the cache)
+  foralls = &ef->foralls;
+  fdata = foralls->data;
+  fsize = foralls->size;
+  for (i=0; i<fsize; i++) {
+    int_queue_push(&ef->queue, fdata[i]);
+  }
+
+  /* SECOND PASS: do the foralls */
+  ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
 }
-
-
 
 /*
  * FLATTENING OF DISJUNCTIONS
@@ -615,7 +670,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
 
   terms = ef->terms;
   queue = &ef->queue;
-
+  
   ivector_reset(uvar);
   ivector_reset(evar);
 
@@ -633,7 +688,11 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       break;
 
     case VARIABLE:
-      ivector_push(uvar, t);
+      if(int_hset_member(&ef->existentials, t)){
+	  ivector_push(evar, t);
+	} else {
+	  ivector_push(uvar, t);
+	}
       break;
 
     case UNINTERPRETED_TERM:
@@ -906,7 +965,7 @@ static ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool
  * - otherwise, create a clone for x and add the map [x --> clone]
  *   to ef_subst.
  */
-static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
+static term_t ef_clone_variable(ef_analyzer_t *ef, term_t x) {
   term_t clone;
 
   assert(term_kind(ef->terms, x) == VARIABLE);
@@ -916,22 +975,26 @@ static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
     clone = variable_to_unint(ef->terms, x);
     extend_term_subst1(&ef->subst, x, clone, false);
   }
-
+  
   assert(term_kind(ef->terms, clone) == UNINTERPRETED_TERM);
-
+  
   return clone;
 }
 
 
 /*
- * Replace all elements of v by their clones
- * - all elements must be variable
+ * Replace all elements of v that are variables by their clones
+ * - all elements must be either variables or uninterpreted constants
  */
-static void ef_clone_uvar_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
+static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
   uint32_t i;
-
+  term_t orig;
+  
   for (i=0; i<n; i++) {
-    v[i] = ef_clone_uvar(ef, v[i]);
+    orig = v[i];
+    if(term_kind(ef->terms, orig) == VARIABLE){
+      v[i] = ef_clone_variable(ef, orig);
+    }
   }
 }
 
@@ -1089,19 +1152,27 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
  *             G := (OR G_1(x, y) ... G_k(x, y))
  *    then convert all instances of universal variables to uninterpreted terms.
  *    So both A and G are ground terms.
- *    Then we add the universal constrains (forall y: A => G) to prob.
+ *    Then we add the universal constraint (forall y: A => G) to prob.
  */
 static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
   term_t a, g;
 
   if (c->uvars.size == 0) {
     // no universal variables
+
+    // convert all evars to clones and make ground
+    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
+    t = ef_make_ground(ef, t);
+
+    //add condition
     ef_prob_add_condition(prob, t);
     ef_prob_add_evars(prob, c->evars.data, c->evars.size);
 
   } else {
     // convert all uvars to clones and make ground
-    ef_clone_uvar_array(ef, c->uvars.data, c->uvars.size);
+    ef_clone_variable_array(ef, c->uvars.data, c->uvars.size);
+    // convert all evars to clones and make ground
+    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
     ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 

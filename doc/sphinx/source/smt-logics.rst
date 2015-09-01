@@ -7,8 +7,9 @@ SMT Logics
 
 The following table lists the names of all the official SMT-LIB logics
 at http://smt-lib.org (as of January 2015) and indicates whether Yices
-supports  them.  Currently,  Yices supports  all  the  quantifier-free
-SMT-LIB logics that do not involve nonlinear arithmetic.
+supports them.  Currently, Yices supports most quantifier-free SMT-LIB
+logics. Nonlinear real arithmetic is supported by using the MCSAT
+solver of Yices.
 
 
    +------------+----------------------------------------------+------------+
@@ -68,7 +69,7 @@ SMT-LIB logics that do not involve nonlinear arithmetic.
    | QF_NIA     | Nonlinear Integer Arithmetic                 | No         |
    |            |                                              |            |
    +------------+----------------------------------------------+------------+
-   | QF_NRA     | Nonlinear Real Arithmetic                    | No         |
+   | QF_NRA     | Nonlinear Real Arithmetic                    | Yes        |
    |            |                                              |            |
    +------------+----------------------------------------------+------------+
    | QF_RDL     | Real Difference Logic                        | Yes        |

@@ -94,6 +94,7 @@ typedef enum {
   UNKNOWN_VALUE,
   BOOLEAN_VALUE,
   RATIONAL_VALUE,
+  ALGEBRAIC_VALUE,
   BITVECTOR_VALUE,
   TUPLE_VALUE,
   UNINTERPRETED_VALUE,
@@ -385,6 +386,11 @@ extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 
 
 /*
+ * Algebraic number (make a copy).
+ */
+extern value_t vtbl_mk_algebraic(value_table_t *table, void* a);
+
+/*
  * Bit-vector constant: input is an array of n integers
  * - bit i is 0 if a[i] == 0
  * - bit i is 1 if a[i] != 0
@@ -525,6 +531,9 @@ extern bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2])
 // rationals
 extern value_t vtbl_find_rational(value_table_t *table, rational_t *v);
 extern value_t vtbl_find_int32(value_table_t *table, int32_t x);
+
+// algebraic
+extern value_t vtbl_find_algebraic(value_table_t *table, void* a);
 
 // constants of scalar or uninterpreted type
 extern value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id);
@@ -756,6 +765,10 @@ static inline bool object_is_boolean(value_table_t *table, value_t v) {
 
 static inline bool object_is_rational(value_table_t *table, value_t v) {
   return object_kind(table, v) == RATIONAL_VALUE;
+}
+
+static inline bool object_is_algebraic(value_table_t *table, value_t v) {
+  return object_kind(table, v) == ALGEBRAIC_VALUE;
 }
 
 static inline bool object_is_integer(value_table_t *table, value_t v) {

@@ -1,6 +1,6 @@
 ======================================================================
 
- The Yices SMT Solver. Copyright 2014 SRI International.
+ The Yices SMT Solver. Copyright 2015 SRI International.
 
  This program may only be used subject to the noncommercial end user
  license agreement which is downloadable along with this program.
@@ -52,6 +52,30 @@ You can change the installation location by giving option
   --prefix=... to the ./configure script.
 
 For more explanations, please check doc/COMPILING.
+
+
+
+SUPPORT FOR NON-LINEAR ARITHMETIC
+---------------------------------
+
+This release has experimental support for non-linear real arithmetic,
+but it is not enabled by default. If you want non-linear arithmetic,
+follow these instructions:
+
+1) Install SRI's library for polynomial manipulation. It's available
+   on github (https://github.com/SRI-CSL/libpoly).
+
+2) After you've installed libpoly, configure yices with the
+   flag '--enable-mcsat', then build Yices as usual:
+
+    ./configure --enable-mcsat
+    make
+    sudo make install
+
+   You may need to provide LDFLAGS/CPPFLAGS if ./configure fails to
+   find the libpoly library. Other options may be useful too.  Try
+   ./configure --help to see what's there.
+
 
 
 WINDOWS BUILD

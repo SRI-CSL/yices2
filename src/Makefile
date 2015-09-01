@@ -83,7 +83,7 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 #
 # Source files for the dynamic library (libyices.so)
 #
-base_src_c := \
+core_src_c := \
 	api/context_config.c \
 	api/search_parameters.c \
 	api/smt_logic_codes.c \
@@ -105,7 +105,9 @@ base_src_c := \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
 	context/symmetry_breaking.c \
+	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
+	exists_forall/ef_parameters.c \
 	exists_forall/ef_problem.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
@@ -265,6 +267,45 @@ base_src_c := \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c
 
+
+#
+# Optional: mcsat solver
+#
+mcsat_src_c := \
+	mcsat/tracing.c \
+	mcsat/solver.c \
+	mcsat/variable_db.c \
+	mcsat/variable_queue.c \
+	mcsat/value.c \
+	mcsat/model.c \
+	mcsat/trail.c \
+	mcsat/conflict.c \
+	mcsat/gc.c \
+	mcsat/utils/int_mset.c \
+	mcsat/utils/int_lset.c \
+	mcsat/utils/scope_holder.c \
+	mcsat/utils/statistics.c \
+	mcsat/eq/eq_plugin.c \
+	mcsat/bool/clause_db.c \
+	mcsat/bool/cnf.c \
+	mcsat/bool/bcp_watch_manager.c \
+	mcsat/bool/bool_plugin.c \
+	mcsat/nra/nra_plugin.c \
+	mcsat/nra/nra_plugin_internal.c \
+	mcsat/nra/nra_plugin_explain.c \
+	mcsat/nra/libpoly_utils.c \
+	mcsat/nra/poly_constraint.c \
+	mcsat/nra/feasible_set_db.c \
+	mcsat/ite/ite_plugin.c \
+	mcsat/watch_list_manager.c
+
+#
+# Fake mcsat module: do nothing. Used to make the compilation go through.
+#
+no_mcsat_src_c := \
+	mcsat/no_mcsat.c
+
+
 #
 # Other source files for libyices.a
 # That's all the code needed by the main binaries
@@ -276,6 +317,7 @@ extra_src_c := \
 	context/context_printer.c \
 	context/dump_context.c \
 	context/internalization_printer.c \
+	frontend/common.c \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
@@ -320,6 +362,19 @@ extra_src_c := \
 	utils/timeout.c \
 	utils/union_find.c
 
+
+#
+# base: core + mcsat if MCSAT is enabled or core + fake mcsat
+# 
+ifeq ($(ENABLE_MCSAT),yes)
+base_src_c := $(core_src_c) $(mcsat_src_c)
+else
+base_src_c := $(core_src_c) $(no_mcsat_src_c)
+endif
+
+#
+# all sources: base + extra
+#
 src_c := $(base_src_c) $(extra_src_c)
 
 
@@ -448,6 +503,14 @@ libyices_def=libyices.def
 ###########################
 
 #
+# Whether we have support for mcsat
+#
+ifeq ($(ENABLE_MCSAT),yes)
+  CPPFLAGS+=-DHAVE_MCSAT
+endif
+
+
+#
 # OS-dependent compilation flags + which dynamic libraries to build
 #    libyices_dynamic = dynamic library for make lib
 #    static_libyices_dynamic = dynamic library for make static-lib
@@ -469,7 +532,7 @@ ifeq ($(POSIXOS),cygwin)
   static_libyices_dynamic=$(static_bindir)/$(libyices_dll)
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW
+  CPPFLAGS := $(CPPFLAGS) -DMINGW -D__USE_MINGW_ANSI_STDIO
   PIC=
   STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
@@ -547,13 +610,11 @@ else
 CFLAGS += -Wall -Winline -Wredundant-decls
 endif
 
+#
+# Format string issues on Windows/mingw
+#
 ifeq ($(POSIXOS),mingw)
-  ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   # For compilation on mingw using the -mno-cygwin flag,
-   # we disable -Wformat warning because mingw uses non-standard
-   # formats in printf that cause useless warnings.
-   CFLAGS += -Wno-format
-  endif
+  CFLAGS += -Wno-format
 endif
 
 
@@ -643,6 +704,12 @@ else
   STATIC_CPPFLAGS := $(CPPFLAGS)
 endif
 
+ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
+  STATIC_CPPFLAGS := -I$(STATIC_LIBPOLY_INCLUDE_DIR) $(CPPFLAGS)
+else
+  STATIC_CPPFLAGS := $(CPPFLAGS)
+endif
+
 ifeq ($(POSIXOS),cygwin)
   STATIC_CPPFLAGS += -DNOYICES_DLL
 else
@@ -655,13 +722,16 @@ endif
 #
 # LIBS for compiling in static mode
 #
-# We need to remove -lgmp from LIBS in static mode, otherwise adding
+# We need to remove -lgmp and -lpoly from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
 # We also use $(NOGMP_LIBS) to build yices_sat.
 #
-NOGMP_LIBS := $(subst -lgmp,,$(LIBS))
-STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
-PIC_LIBS := $(PIC_GMP) $(NOGMP_LIBS)
+# Important: make sure the GMP library is last (if some
+# archives/libraries in NOGMP_LIBS depend on GMP).
+#
+NOGMP_LIBS := $(subst,-lpoly,,$(subst -lgmp,,$(LIBS)))
+STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
+PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
 
 
@@ -1067,6 +1137,10 @@ clean:
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo "  PIC_GMP = $(PIC_GMP)"
 	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
-	@ echo
+	@ echo "  ENABLE_MCSAT = $(ENABLE_MCSAT)"
+	@ echo "  STATIC_LIBPOLY = $(STATIC_LIBPOLY)"
+	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
+	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
+	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
 
 

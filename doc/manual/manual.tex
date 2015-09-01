@@ -212,19 +212,25 @@ source. For more information, please visit the GMP website
 \url{http://gmplib.org}. GMP is distributed under the LGPLv3 License,
 reproduced in Appendix~\ref{gmp-license}.
 
+Since release 2.4.0, Yices has optional support for nonlinear real
+arithmetic, using the Model Constructing Satisfiability Calculus
+(MCSAT)~\cite{deMouraJovanovic:nla:2012,deMouraJovanovic:MCSAT:2013,Jovanovic-etal:MCSATb:2013}. This
+depends on an external library for operations on polynomials which is
+available at~\url{https://github.com/SRI-CSL/libpoly}.
+
 
 \section{Supported Logics}
 
-The current  Yices~2 release supports quantifier-free  combinations of
-linear integer  and real  arithmetic, uninterpreted  function, arrays,
+The current Yices~2 release supports quantifier-free combinations of
+linear integer and real arithmetic, uninterpreted function, arrays,
 and bitvectors. Currently, Yices~2 supports all SMT-LIB logics that do
-not  involve  quantifiers or  nonlinear  arithmetic  as summarized  in
-Table~\ref{supported-logics}.  The meaning of  the logics and theories
-in    this   table    is    explained   at    the   SMT-LIB    website
-(\url{http://www.smtlib.org}).  In  addition, Yices~2 supports  a more
-general set of array operations  than required by SMT-LIB, and Yices~2
-has support  for tuple and  enumeration types,  which are not  part of
-SMT-LIB.
+not involve quantifiers as summarized in Table~\ref{supported-logics}.
+Yices~2 includes a solver for non-linear real arithmeitce
+The meaning of the logics and theories in this table is explained at
+the SMT-LIB website (\url{http://www.smtlib.org}).  In addition,
+Yices~2 supports a more general set of array operations than required
+by SMT-LIB, and Yices~2 has support for tuple and enumeration types,
+which are not part of SMT-LIB.
 
 %% ALIA
 %% AUFLIA
@@ -306,7 +312,7 @@ SMT-LIB.
 \hline
 \textsf{QF\_NIA} & \desc{Nonlinear Integer Arithmetic}  & no \\
 \hline
-\textsf{QF\_NRA} & \desc{Nonlinear Real Arithmetic}  & no \\
+\textsf{QF\_NRA} & \desc{Nonlinear Real Arithmetic}  & yes \\
 \hline
 \textsf{QF\_RDL} & \desc{Real Difference Logic}  & yes \\
 \hline
@@ -955,6 +961,7 @@ design and implementation of theory solvers.  More details on the
 theory-combination method implemented by Yices are given in a tool
 paper~\cite{Dutertre:cav2014}.
 
+
 \section{Context Configurations}
 \label{features}
 
@@ -1001,6 +1008,20 @@ set of  features supported by a  context by selecting  a specific {\em
   is interrupted.
 \end{itemize}
 
+
+\section{MCSAT}
+\label{mcsat}
+
+Since version~2.4.0, Yices includes another solver that uses a
+different approach and architecture. This new solver is based on the
+Model Constructing Satisfiability Calculus (MCSAT), and it is
+currently dedicated to quantifier-free nonlinear real arithmetic. The
+theory and implementation of MCSAT is discussed in several
+publications~\cite{Jovanovic-etal:MCSATb:2013,deMouraJovanovic:MCSAT:2013}.
+Currently, this solver can process input written the SMT-LIB~2.0
+notation. It does not support as many features as the CDCL-based
+solver described in the previous section. In particular, the MCSAT
+solver does not yet support incremental solving (i.e., push and pop).
 
 
 \chapter{Yices Tool}
@@ -1183,8 +1204,7 @@ is the model, which just shows the value of the global variable
 \texttt{x}. 
 
 \medskip\noindent
-As previously, we can get more detailed output by using
-option \texttt{--verbosity=<level>}:
+As previously, we can get more detailed output by increasing the verbosity:
 \begin{small}
 \begin{verbatim}
       yices --mode=ef --verbosity=5 test.ys
@@ -1311,8 +1331,8 @@ options are supported.
 \item[--verbosity=<level>, -v <level>] Run in verbose mode.
 \end{options}
 As indicated in this list, some options can be given either in a long
-form (like \texttt{--verbose}) or in an equivalent short from (like
-\texttt{-v}). In all cases the long and short forms are equivalent.
+form (like \texttt{--verbosity=4}) or in an equivalent short from (like
+\texttt{-v 4}). In all cases the long and short forms are equivalent.
 
 \section{Input Language}
 
@@ -1854,11 +1874,11 @@ must be a non-zero constant and that both \texttt{div} and
 \texttt{mod} are defined over the reals, not just the integers.
 Division by a non-constant term is not supported.
 
-\medskip\noindent
-In the divisibility test \texttt{(divides k x)}, the divider
-\texttt{k} must be a rational constant but it can be zero. The term
-\texttt{x} can be any real.
-
+\medskip\noindent In the divisibility test \texttt{(divides k x)}, the
+divider \texttt{k} must be a rational constant but it can be zero. The
+term \texttt{x} can be any real. The atom \texttt{(divides k x)} is
+true if there exists an integer $n\in\integers$ such that $\mathtt{x} = n
+\mathtt{k}$.
 
 \begin{table}[h]
 \begin{small}
@@ -2976,7 +2996,19 @@ before accepting commands from standard input. In addition, option
 that would otherwise be executed silently (as required
 by~\cite{SMTLIB20:2012}).
 
-\medskip \noindent
+\medskip\noindent The \texttt{yices-smt2} tool can process problems in
+quantifier-free nonlinear real arithmetic (QF\_NRA). This requires
+selecting the MCSAT solver of Yices by giving the option
+\texttt{--mcsat} on the command line:
+\begin{small}
+\begin{verbatim}
+   yices-smt2 --mcsat <input file>
+\end{verbatim}
+\end{small}
+
+
+\subsubsection*{Command-line Options}
+
 Here is the full list of command-line options supported by
 \texttt{yices-smt2}.
 \begin{options}
@@ -2994,6 +3026,12 @@ Here is the full list of command-line options supported by
    This flag has no effect if \texttt{yices-smt2} is called with an
    \texttt{input-file}. Otherwise, this flag sets the
    \texttt{:print-success} option to \texttt{true}.
+
+\item[--mcsat] Use the MCSAT solver.
+
+   This flag selects the MCSAT solver of Yices instead of the default
+   CDCL-based solver. This flag is required for nonlinear arithmetic
+   problems.
 
 \item[--stats, -s] Display statistics on exit.
 

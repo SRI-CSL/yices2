@@ -42,6 +42,7 @@ typedef enum pp_atom_type {
   PP_FALSE_ATOM,      // false
   PP_INT32_ATOM,      // signed integer
   PP_UINT32_ATOM,     // unsigned integer
+  PP_DOUBLE_ATOM,     // double number
   PP_RATIONAL_ATOM,   // rational
   PP_BV64_ATOM,       // bitvector constant stored in a 64bit unsigned integer
   PP_BV_ATOM,         // bitvector constant stored in an array of words
@@ -95,6 +96,7 @@ typedef struct pp_atom_s {
     pp_id_t id;
     int32_t i32;
     uint32_t u32;
+    double dbl;
     rational_t rat;
     pp_bv64_t bv64;
     pp_bv_t bv;
@@ -153,6 +155,7 @@ typedef enum {
   PP_OPEN_MINUS,
   PP_OPEN_GE,
   PP_OPEN_LT,
+  PP_OPEN_ROOT_ATOM,
 
   PP_OPEN_BV_ARRAY,
   PP_OPEN_BV_SUM,
@@ -342,6 +345,7 @@ extern void pp_uint32(yices_pp_t *printer, uint32_t x);
 extern void pp_mpz(yices_pp_t *printer, mpz_t z);
 extern void pp_mpq(yices_pp_t *printer, mpq_t q);
 extern void pp_rational(yices_pp_t *printer, rational_t *q);
+extern void pp_algebraic(yices_pp_t *printer, void *a);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 

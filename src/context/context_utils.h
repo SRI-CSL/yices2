@@ -609,6 +609,9 @@ static inline bool context_has_fun_solver(context_t *ctx) {
   return ctx->fun_solver != NULL;
 }
 
+static inline bool context_has_mcsat(context_t *ctx) {
+  return ctx->mcsat != NULL;
+}
 
 
 /*

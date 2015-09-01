@@ -238,6 +238,7 @@ typedef enum {
   ARITH_FLOOR,        // floor x
   ARITH_CEIL,         // ceil x
   ARITH_ABS,          // absolute value
+  ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
 
   ITE_TERM,           // if-then-else
   ITE_SPECIAL,        // special if-then-else term (NEW: EXPERIMENTAL)
@@ -330,6 +331,34 @@ typedef struct select_term_s {
   uint32_t idx;
   term_t arg;
 } select_term_t;
+
+
+/*
+ * Comparison relations for arithmetic root atoms..
+ */
+typedef enum {
+  ROOT_ATOM_LT,
+  ROOT_ATOM_LEQ,
+  ROOT_ATOM_EQ,
+  ROOT_ATOM_NEQ,
+  ROOT_ATOM_GEQ,
+  ROOT_ATOM_GT
+} root_atom_rel_t;
+
+
+/*
+ * Arithmetic root constraint:
+ * - an integer root index
+ * - a variable x
+ * - a polynomial p(x, ...)
+ * - the relation x r root_k(p)
+ */
+typedef struct root_atom_s {
+  uint32_t k;
+  term_t x;
+  term_t p;
+  root_atom_rel_t r;
+} root_atom_t;
 
 
 /*
@@ -619,6 +648,10 @@ extern term_t arith_geq_atom(term_table_t *table, term_t t);
  */
 extern term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right);
 
+/*
+ * Root constraint x r root_k(p).
+ */
+extern term_t arith_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root_atom_rel_t r);
 
 /*
  * More arithmetic operations
@@ -644,7 +677,6 @@ extern term_t arith_abs(term_table_t *table, term_t x);
 extern term_t arith_div(term_table_t *table, term_t x, term_t y);
 extern term_t arith_mod(term_table_t *table, term_t x, term_t y);
 extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
-
 
 /*
  * Check whether b stores an integer polynomial
@@ -1077,6 +1109,11 @@ static inline select_term_t *select_for_idx(term_table_t *table, int32_t i) {
   return &table->desc[i].select;
 }
 
+static inline root_atom_t *root_atom_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (root_atom_t *) table->desc[i].ptr;
+}
+
 static inline pprod_t *pprod_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (pprod_t *) table->desc[i].ptr;
@@ -1376,6 +1413,11 @@ static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
+static inline root_atom_t *arith_root_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_ROOT_ATOM);
+  return root_atom_for_idx(table, index_of(t));
+}
+
 /*
  * Other unary terms
  */
@@ -1398,7 +1440,6 @@ static inline term_t arith_abs_arg(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_ABS);
   return integer_value_for_idx(table, index_of(t));
 }
-
 
 
 /*

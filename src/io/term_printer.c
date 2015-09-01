@@ -458,6 +458,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "floor",
   "ceil",
   "abs",
+  "arith-root-atom",
   "ite",
   "s-ite",
   "app", // function application
@@ -545,6 +546,37 @@ static void print_select_term(FILE *f, term_table_t *tbl, term_kind_t tag, selec
   print_term_recur(f, tbl, d->arg, level);
   fprintf(f, " %"PRIu32")", idx);
 }
+
+// root atom
+static void print_root_atom_term(FILE *f, term_table_t *tbl, root_atom_t *r, int32_t level) {
+  fprintf(f, "(%s ", tag2string[ARITH_ROOT_ATOM]);
+  switch (r->k) {
+  case ROOT_ATOM_LT:
+    fprintf(f, "<");
+    break;
+  case ROOT_ATOM_LEQ:
+    fprintf(f, "<=");
+    break;
+  case ROOT_ATOM_EQ:
+    fprintf(f, "=");
+    break;
+  case ROOT_ATOM_NEQ:
+    fprintf(f, "!=");
+    break;
+  case ROOT_ATOM_GEQ:
+    fprintf(f, ">=");
+    break;
+  case ROOT_ATOM_GT:
+    fprintf(f, ">");
+    break;
+  }
+  fprintf(f, " %"PRIu32" ", r->k);
+  print_term_recur(f, tbl, r->x, level);
+  fprintf(f, " ");
+  print_term_recur(f, tbl, r->p, level);
+  fprintf(f, ")");
+}
+
 
 // polynomial
 static void print_mono_recur(FILE *f, term_table_t *tbl, rational_t *coeff, int32_t x, bool first, int32_t level) {
@@ -773,6 +805,14 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
       fputs("(arith-ge ", f);
       print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
       fputs(" 0)", f);
+    }
+    break;
+
+  case ARITH_ROOT_ATOM:
+    if (name != NULL && level <= 0) {
+      fputs(name, f);
+    } else {
+      print_root_atom_term(f, tbl, tbl->desc[i].ptr, level - 1);
     }
     break;
 
@@ -1113,6 +1153,37 @@ static void print_select(FILE *f, term_table_t *tbl, term_kind_t tag, select_ter
   fprintf(f, "(%s ", tag2string[tag]);
   print_id_or_constant(f, tbl, d->arg);
   fprintf(f, " %"PRIu32")", idx);
+}
+
+
+// root atom: printed as (arith-root-atom r k x p )
+static void print_root_atom(FILE *f, term_table_t *tbl, root_atom_t *r) {
+  fprintf(f, "(%s ", tag2string[ARITH_ROOT_ATOM]);
+  switch (r->k) {
+  case ROOT_ATOM_LT:
+    fprintf(f, "<");
+    break;
+  case ROOT_ATOM_LEQ:
+    fprintf(f, "<=");
+    break;
+  case ROOT_ATOM_EQ:
+    fprintf(f, "=");
+    break;
+  case ROOT_ATOM_NEQ:
+    fprintf(f, "!=");
+    break;
+  case ROOT_ATOM_GEQ:
+    fprintf(f, ">=");
+    break;
+  case ROOT_ATOM_GT:
+    fprintf(f, ">");
+    break;
+  }
+  fprintf(f, " %"PRIu32" ", r->k);
+  print_id_or_constant(f, tbl, r->x);
+  fprintf(f, " ");
+  print_id_or_constant(f, tbl, r->p);
+  fprintf(f, ")");
 }
 
 // power product
@@ -1482,6 +1553,10 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
     fputs(" 0)", f);
     break;
 
+  case ARITH_ROOT_ATOM:
+    print_root_atom(f, tbl, tbl->desc[i].ptr);
+    break;
+
   case ARITH_IS_INT_ATOM:
   case ARITH_FLOOR:
   case ARITH_CEIL:
@@ -1624,6 +1699,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_FLOOR,     //  ARITH_FLOOR
   PP_OPEN_CEIL,      //  ARITH_CEIL
   PP_OPEN_ABS,       //  ARITH_ABS
+  PP_OPEN_ROOT_ATOM, //  ARITH_ROOT_ATOM
 
   PP_OPEN_ITE,       //  ITE_TERM
   PP_OPEN_ITE,       //  ITE_SPECIAL
@@ -1916,6 +1992,40 @@ static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t t
   pp_close_block(printer, true);
 }
 
+
+// root atoms
+static void pp_root_atom(yices_pp_t *printer, term_table_t *tbl, root_atom_t *r, int32_t level) {
+  pp_open_block(printer, PP_OPEN_ROOT_ATOM);
+
+  switch (r->r) {
+  case ROOT_ATOM_LT:
+    pp_string(printer, "<");
+    break;
+  case ROOT_ATOM_LEQ:
+    pp_string(printer, "<=");
+    break;
+  case ROOT_ATOM_EQ:
+    pp_string(printer, "=");
+    break;
+  case ROOT_ATOM_NEQ:
+    pp_string(printer, "!=");
+    break;
+  case ROOT_ATOM_GEQ:
+    pp_string(printer, ">=");
+    break;
+  case ROOT_ATOM_GT:
+    pp_string(printer, ">");
+    break;
+  }
+
+  pp_uint32(printer, r->k);
+  pp_term_recur(printer, tbl, r->x, level, true);
+  pp_term_recur(printer, tbl, r->p, level, true);
+  pp_close_block(printer, true);
+}
+
+
+
 // exponent (^ x d) or (bv-pow x d)
 static void pp_exponent(yices_pp_t *printer, term_table_t *tbl, term_t x, uint32_t d, int32_t level) {
   pp_open_type_t op;
@@ -2167,6 +2277,13 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     pp_int32(printer, 0);
     pp_close_block(printer, true);
     break;
+
+  case ARITH_ROOT_ATOM:
+    if (!polarity) pp_open_block(printer, PP_OPEN_NOT);
+    pp_root_atom(printer, tbl, tbl->desc[i].ptr, level - 1);
+    if (!polarity) pp_close_block(printer, true);
+    break;
+
 
   case ARITH_IS_INT_ATOM:
   case ARITH_FLOOR:

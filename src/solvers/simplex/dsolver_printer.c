@@ -27,6 +27,8 @@ static const char * const status2string[] = {
   "simplified",
   "satisfiable",
   "unsat",
+  "unsolved",
+  "interrupted"
 };
 
 

@@ -72,11 +72,35 @@ void set_trace_file(tracer_t *tracer, FILE *f) {
  * Close the file (unless it's stderr)
  */
 void delete_trace(tracer_t *tracer) {
+  uint32_t i;
+
   if (tracer->file != stderr) {
     fclose(tracer->file);
   }
   tracer_delete_pp(tracer);
   tracer->file = NULL;
+
+  for (i = 0; i < tracer->trace_tags.size; ++ i) {
+    free(tracer->trace_tags.data[i]);
+  }
+  delete_pvector(&tracer->trace_tags);
+}
+
+
+
+/*
+ * Check whether the tracing tag has been enabled.
+ * - return false if trace is NULL;
+ */
+bool tracing_tag(tracer_t *tracer, const char *tag) {
+  uint32_t i;
+  if (tracer == NULL) return false;
+  for (i = 0; i < tracer->trace_tags.size; ++ i) {
+    if (strcmp(tag, tracer->trace_tags.data[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 

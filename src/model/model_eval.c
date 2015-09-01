@@ -106,6 +106,17 @@ static void eval_cache_map(evaluator_t *eval, term_t t, value_t v) {
  */
 static value_t eval_term(evaluator_t *eval, term_t t);
 
+/*
+ * Attempt to get a rational value for v
+ * - fails with a longjmp if v is an algebraic number
+ */
+static rational_t *eval_get_rational(evaluator_t *eval, value_t v) {
+  if (object_is_algebraic(eval->vtbl, v)) {
+    longjmp(eval->env, MDL_EVAL_FAILED);
+  }
+  return vtbl_rational(eval->vtbl, v);
+}
+
 
 /*
  * Evaluate terms t[0 ... n-1] and store the result in a[0 .. n-1]
@@ -142,7 +153,7 @@ static value_t eval_arith_eq(evaluator_t *eval, term_t t) {
   value_t v;
 
   v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_rational(eval->vtbl, v)));
+  return vtbl_mk_bool(eval->vtbl, q_is_zero(eval_get_rational(eval, v)));
 }
 
 
@@ -153,7 +164,7 @@ static value_t eval_arith_ge(evaluator_t *eval, term_t t) {
   value_t v;
 
   v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_nonneg(vtbl_rational(eval->vtbl, v)));
+  return vtbl_mk_bool(eval->vtbl, q_is_nonneg(eval_get_rational(eval, v)));
 }
 
 /*
@@ -163,7 +174,7 @@ static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
   value_t v;
 
   v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_integer(vtbl_rational(eval->vtbl, v)));
+  return vtbl_mk_bool(eval->vtbl, q_is_integer(eval_get_rational(eval, v)));
 }
 
 
@@ -178,7 +189,7 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
   assert(object_is_rational(eval->vtbl, v));
   
   q_init(&q);
-  q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_set(&q, eval_get_rational(eval, v)); // q := value of t
   q_floor(&q);
   q_normalize(&q);
 
@@ -201,7 +212,7 @@ static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
   assert(object_is_rational(eval->vtbl, v));
   
   q_init(&q);
-  q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_set(&q, eval_get_rational(eval, v)); // q := value of t
   q_ceil(&q);
   q_normalize(&q);
 
@@ -224,7 +235,7 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
   assert(object_is_rational(eval->vtbl, v));
   
   q_init(&q);
-  q_set_abs(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+  q_set_abs(&q, eval_get_rational(eval, v)); // q := value of t
   q_normalize(&q);
 
   v = vtbl_mk_rational(eval->vtbl, &q);
@@ -265,7 +276,7 @@ static value_t eval_arith_div(evaluator_t *eval, composite_term_t *d) {
   v2 = eval_term(eval, d->arg[1]);
   
   q_init(&q);
-  q_smt2_div(&q, vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+  q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
   q_normalize(&q);
 
   o = vtbl_mk_rational(eval->vtbl, &q);
@@ -289,7 +300,7 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
   v2 = eval_term(eval, d->arg[1]);
   
   q_init(&q);
-  q_smt2_mod(&q, vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+  q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
   q_normalize(&q);
 
   o = vtbl_mk_rational(eval->vtbl, &q);
@@ -311,7 +322,7 @@ static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
 
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
-  divides = q_smt2_divides(vtbl_rational(eval->vtbl, v1), vtbl_rational(eval->vtbl, v2));
+  divides = q_smt2_divides(eval_get_rational(eval, v1), eval_get_rational(eval, v2));
 
   return vtbl_mk_bool(eval->vtbl, divides);
 }
@@ -334,7 +345,7 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
     t = p->prod[i].var;
     o = eval_term(eval, t);
     // prod[i] is v ^ k so q := q * (o ^ k)
-    q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
+    q_mulexp(&prod, eval_get_rational(eval, o), p->prod[i].exp);
   }
 
   o = vtbl_mk_rational(eval->vtbl, &prod);
@@ -363,7 +374,7 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
       q_add(&sum, &p->mono[i].coeff);
     } else {
       v = eval_term(eval, t);
-      q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
+      q_addmul(&sum, &p->mono[i].coeff, eval_get_rational(eval, v)); // sum := sum + coeff * aux
     }
   }
 

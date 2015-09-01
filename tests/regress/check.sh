@@ -31,6 +31,9 @@ fi
 regress_dir=$1
 bin_dir=$2
 
+# Make sure fatal errors go to stderr
+export LIBC_FATAL_STDERR_=1
+
 #
 # System-dependent configuration
 #
@@ -62,7 +65,12 @@ timefile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
 fail=0
 pass=0
 
-for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys'` ; do
+if [[ -z "$REGRESS_FILTER" ]];
+then
+	REGRESS_FILTER="." 
+fi
+
+for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' | grep $REGRESS_FILTER | sort`; do
 
     echo -n $file
 

@@ -6922,9 +6922,6 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
-    if (logic == QF_LIA || logic == QF_LIRA) {
-      enable_splx_eager_lemmas(ctx);
-    }
   }
 
   // Special preprocessing
@@ -6977,6 +6974,9 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   }
 
 }
+
+
+
 
 
 /*
@@ -7375,9 +7375,10 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
 
 
 /*
- * Set default search parameters based on architecture and logic
+ * Set default search parameters based on architecture, logic, and mode
+ * - the parameter settings are based on SMT-LIB2 benchmarks
  */
-void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t arch) {
+void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t arch, context_mode_t mode) {
   init_params_to_defaults(params);
   switch (arch) {
   case CTX_ARCH_EG:
@@ -7424,7 +7425,12 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
-    if (logic == QF_UFLIA || logic == QF_UFLIRA) {
+
+    /*
+     * For QF_UFLIA: optimistic_fcheck works better on the incremental benchmarks
+     * but it's worse on the non-incremental benchmarks.
+     */
+    if ((logic == QF_UFLIA || logic == QF_UFLIRA) && mode == CTX_MODE_ONECHECK) {
       params->use_optimistic_fcheck = false;
     }
     break;
@@ -7480,7 +7486,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
 void yices_default_params_for_context(context_t *ctx, param_t *params) {
-  yices_set_default_params(params, ctx->logic, ctx->arch);
+  yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
 }
 
 
