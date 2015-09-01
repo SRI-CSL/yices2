@@ -1050,219 +1050,6 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 
 
-/***********************************
- *  STATISTICS ON LEARNED CLAUSES  *
- **********************************/
-
-#if INSTRUMENT_CLAUSES
-
-/*
- * Global statistics record
- */
-static learned_clauses_stats_t stat_buffer = {
-  NULL, 0, 0, NULL,
-};
-
-#define SBUFFER_SIZE 20000
-
-
-/*
- * Level map for computing glue
- */
-static tag_map_t lvl;
-
-
-/*
- * Initialize the buffer
- */
-void init_learned_clauses_stats(FILE *f) {
-  stat_buffer.data = (lcstat_t *) safe_malloc(SBUFFER_SIZE * sizeof(lcstat_t));
-  stat_buffer.nrecords = 0;
-  stat_buffer.size = SBUFFER_SIZE;
-  stat_buffer.file = f;
-  init_tag_map(&lvl, 100);
-}
-
-
-/*
- * Flush the buffer: save all in the file then reset nrecords to 0
- */
-static void flush_stat_buffer(void) {
-  FILE *f;
-  lcstat_t *d;
-  uint32_t i, n;
-
-  d = stat_buffer.data;
-  f = stat_buffer.file;
-  n = stat_buffer.nrecords;
-  for (i=0; i<n; i++) {
-    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n",
-            d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos,
-            d->base_glue, d->min_glue, d->glue);
-    d ++;
-  }
-  fflush(f);
-  stat_buffer.nrecords = 0;
-}
-
-
-/*
- * Add r to the buffer
- */
-static void stat_buffer_push(lcstat_t *r) {
-  uint32_t i;
-
-  if (stat_buffer.data != NULL) {
-    i = stat_buffer.nrecords;
-    if (i == stat_buffer.size) {
-      flush_stat_buffer();
-      i = 0;
-    }
-    assert(i < stat_buffer.size);
-    stat_buffer.data[i] = *r;
-    stat_buffer.nrecords = i+1;
-  }
-}
-
-
-/*
- * Save all statistics into the statistics file
- */
-void flush_learned_clauses_stats(void) {
-  if (stat_buffer.data != NULL) {
-    flush_stat_buffer();
-    safe_free(stat_buffer.data);
-    stat_buffer.data = NULL;
-    delete_tag_map(&lvl);
-  }
-}
-
-
-/*
- * Compute the glue score of clause cl
- * If cl is {l1, ... l_n} then the glue score is the number
- * of distinct levels in level[l1], ...., level[l_n].
- *
- * NOTE: we use solver->level[var_of(l)] even if l is not currently
- * assigned. Since level[x] is not reset when we backtrack,
- * it keeps the last decision level at which x was assigned.
- */
-static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
-  literal_t *a;
-  literal_t l;
-  uint32_t k, n;
-
-  a = cl->cl;
-  n = 0;
-  for (;;) {
-    l = *a ++;
-    if (l < 0) break;
-    k = solver->level[var_of(l)];
-    if (tag_map_read(&lvl, k) == 0) {
-      // level k not seen before
-      tag_map_write(&lvl, k, 1);
-      n ++;
-    }
-  }
-
-  clear_tag_map(&lvl);
-
-  return n;
-}
-
-/*
- * Initialize a learned clause statistics
- * - n = number of conflicts acts as the clause id
- * - we also set last_prop and last_reso to n to ensure that
- *   creation <= last_prop and creation <= last_reso
- */
-static void learned_clause_created(sat_solver_t *solver, clause_t *cl) {
-  learned_clause_t *tmp;
-  uint32_t n;
-
-  n = solver->stats.conflicts;
-
-  tmp = learned(cl);
-  tmp->stat.creation = n;
-  tmp->stat.deletion = 0;
-  tmp->stat.props = 0;
-  tmp->stat.last_prop = n;
-  tmp->stat.resos = 0;
-  tmp->stat.last_reso = n;
-
-  n = glue_score(solver, cl);
-
-  tmp->stat.base_glue = n;
-  tmp->stat.glue = n;
-  tmp->stat.min_glue = n;
-}
-
-
-/*
- * Update the resolution statistics
- */
-static void learned_clause_reso(sat_solver_t *solver, clause_t *cl) {
-  learned_clause_t *tmp;
-
-  tmp = learned(cl);
-  tmp->stat.resos ++;
-  tmp->stat.last_reso = solver->stats.conflicts;
-}
-
-
-/*
- * Update the propagation statistics
- */
-static void learned_clause_prop(sat_solver_t *solver, clause_t *cl) {
-  learned_clause_t *tmp;
-
-  tmp = learned(cl);
-  tmp->stat.props ++;
-  tmp->stat.last_prop = solver->stats.conflicts;
-}
-
-
-/*
- * Deletion: update glue then record statistics
- */
-static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
-  learned_clause_t *tmp;
-  uint32_t n;
-
-  tmp = learned(cl);
-  tmp->stat.deletion = solver->stats.conflicts;
-  n = glue_score(solver, cl);
-  tmp->stat.glue = n;
-  if (tmp->stat.min_glue > n) {
-    tmp->stat.min_glue = n;
-  }
-  stat_buffer_push(&tmp->stat);
-
-  // reset the props and reso counters
-  tmp->stat.props = 0;
-  tmp->stat.resos = 0;
-}
-
-
-/*
- * Snapshot: collect data about the current set of learned clauses
- * then export that.
- * - HACK: we call learned_clause_deletion.
- */
-static void snapshot(sat_solver_t *solver) {
-  clause_t **cl;
-  uint32_t i, n;
-
-  cl = solver->learned_clauses;
-  n = get_cv_size(cl);
-  for (i=0; i<n; i++) {
-    learned_clause_deletion(solver, cl[i]);
-  }
-  flush_stat_buffer();
-}
-
-
-#endif
 
 
 /******************************************
@@ -1420,9 +1207,6 @@ void delete_sat_solver(sat_solver_t *solver) {
   cl = solver->learned_clauses;
   n = get_cv_size(cl);
   for (i=0; i<n; i++) {
-#if INSTRUMENT_CLAUSES
-    learned_clause_deletion(solver, cl[i]);
-#endif
     delete_learned_clause(solver, cl[i]);
   }
   delete_clause_vector(cl);
@@ -1782,11 +1566,6 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
   add_clause_to_vector(&solver->learned_clauses, cl);
   increase_clause_activity(solver, cl);
 
-  // statistics
-#if INSTRUMENT_CLAUSES
-  learned_clause_created(solver, cl);
-#endif
-
   // insert cl into the watched lists
   watch_add(solver, cli);
 
@@ -1844,9 +1623,6 @@ static void delete_learned_clauses(sat_solver_t *solver) {
   uint32_t j = 0;
   for (uint32_t i = 0; i<n; i++) {
     if (is_clause_to_be_deleted(v[i])) {
-      #if INSTRUMENT_CLAUSES
-      learned_clause_deletion(solver, v[i]);
-      #endif
       delete_learned_clause(solver, v[i]);
     } else {
       solver->stats.learned_literals += clause_length(v[i]);
@@ -2227,11 +2003,6 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, literal_t l0, 
             // l1 is implied
             implied_literal(sol, l1, mk_clause_antecedent(sol, cl, i^1));
 
-            #if INSTRUMENT_CLAUSES
-            if (l == end_learned) {
-              learned_clause_prop(sol, cl);
-            }
-            #endif
           } else {
             // v1 == val_false: conflict found
             record_clause_conflict(sol, cl);
@@ -2643,9 +2414,6 @@ static void analyze_conflict(sat_solver_t *sol) {
    */
   if (l == end_learned) {
     increase_clause_activity(sol, sol->false_clause);
-#if INSTRUMENT_CLAUSES
-    learned_clause_reso(sol, sol->false_clause);
-#endif
   }
 
   /*
@@ -2691,9 +2459,6 @@ static void analyze_conflict(sat_solver_t *sol) {
           }
           if (l == end_learned) {
             increase_clause_activity(sol, cl);
-#if INSTRUMENT_CLAUSES
-            learned_clause_reso(sol, cl);
-#endif
           }
           break;
 
@@ -3635,13 +3400,6 @@ static void restart(sat_solver_t *sol) {
 
 
 /*
- * TEMPORARY
- */
-#if INSTRUMENT_CLAUSES
-static uint32_t next_snapshot;
-#endif
-
-/*
  * Analyse the conflict and add the learned clause
  */
 static inline void deal_conflict(sat_solver_t *sol) {
@@ -3656,11 +3414,6 @@ static inline void deal_conflict(sat_solver_t *sol) {
   if (n >= 3) {
     clause_t *cl = add_learned_clause(sol, n, b);
     implied_literal(sol, l, mk_clause0_antecedent(sol, cl));
-#if INSTRUMENT_CLAUSES
-    // EXPERIMENTAL
-    learned_clause_prop(sol, cl);
-#endif
-
   } else if (n == 2) {
     sat_solver_add_binary_clause(sol, l, b[1]);
     implied_literal(sol, l, mk_literal_antecedent(b[1]));
@@ -3705,15 +3458,6 @@ static solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (sol->decision_level == 0) {
         mark_level0_literals(sol);
       }
-
-      #if INSTRUMENT_CLAUSES
-      if (sol->stats.conflicts >= next_snapshot) {
-        snapshot(sol);
-        do {
-          next_snapshot += 10000;
-        } while (next_snapshot < sol->stats.conflicts);
-      }
-      #endif
 
       // Delete half the learned clauses if the threshold is reached
       // then increase the threshold
@@ -3838,10 +3582,6 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   if (sol->reduce_threshold < MIN_REDUCE_THRESHOLD) {
     sol->reduce_threshold = MIN_REDUCE_THRESHOLD;
   }
-
-#if INSTRUMENT_CLAUSES
-  next_snapshot = 10000;
-#endif
 
   report_status(sol, threshold, verbose);
 

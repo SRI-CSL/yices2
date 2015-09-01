@@ -222,14 +222,7 @@ enum {
  *   are the watched literals.
  * Learned clauses have the same components as a clause
  * and an activity, i.e., a float used by the clause-deletion
- * heuristic. (Because of alignment and padding, this wastes 32bits
- * on a 64bit machine....)
- *
- * Linked lists:
- * - a link lnk is a pointer to a clause cl
- *   the low-order bits of lnk encode whether the next link is
- *   in cl->link[0] or cl->link[1]
- * - this is compatible with the tagged pointers used as antecedents.
+ * heuristic. 
  *
  * SPECIAL CODING: to distinguish between learned clauses and problem
  * clauses, the end marker is different.
@@ -238,9 +231,6 @@ enum {
  *
  * A solver stores a value for these two end_markers: it must
  * always be equal to VAL_UNDEF.
- *
- * CLAUSE DELETION: to mark a clause for deletion, cl[0] and cl[1]
- * are set to the same value.
  */
 
 enum {
@@ -320,70 +310,22 @@ enum {
 };
 
 
-#if INSTRUMENT_CLAUSES
-
 /*
- * Instrumentation for learned clauses
- * - creation = number of conflicts when the clause was created
- * - deletion = number of conflicts when the clause is deleted
- * - props = number of propagations involving that clause
- * - last_prop = last time the clause caused a propagation
- * - resos = number of times the clause is used in resolution
- * - last_reso = last time the clause was involved in a resolution step
- * - base_glue = glue score at creation
- * - glue = last computed glue
- * - min_glue = minimal of all glues so far
- */
-typedef struct lcstats_s {
-  uint32_t creation;
-  uint32_t deletion;
-  uint32_t props;
-  uint32_t last_prop;
-  uint32_t resos;
-  uint32_t last_reso;
-  uint32_t base_glue;
-  uint32_t glue;
-  uint32_t min_glue;
-} lcstat_t;
-
-
-typedef struct learned_clause_s {
-  lcstat_t stat;
-  float activity;
-  clause_t clause;
-} learned_clause_t;
-
-
-/*
- * Statistics array for learned clauses
- * - each element stores the stat record of a clause. It's set when
- *   the clause is deleted.
- */
-typedef struct learned_clauses_stats_s {
-  lcstat_t *data;
-  uint32_t nrecords;
-  uint32_t size;
-  FILE *file;
-} learned_clauses_stats_t;
-
-
-#else
-
-/*
- * No instrumentation of learned clauses
+ * Learned clauses
  */
 typedef struct learned_clause_s {
   float activity;
   clause_t clause;
 } learned_clause_t;
 
-#endif
+
 
 
 
 /****************
  * INPROCESSING *
  ****************/
+
 #if INPR_OCC_LIST
 typedef struct occ_list_elem_s {
   clause_t *cl;
