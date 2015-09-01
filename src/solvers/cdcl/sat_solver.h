@@ -23,6 +23,7 @@
 #include "utils/tag_map.h"
 
 
+
 /*******************
  *  BUILD OPTIONS  *
  *******************/
@@ -34,28 +35,28 @@
 /* Master switch */
 #define INPROCESSING 1
 
-  /* Profile inprocessing 0:none 1:global report 2:inside report */
-  /* EXPERIMENTAL */
-  /*
-   * BD: the profiling uses clock_gettime, which does not exists on
-   * MACOS and on Windows. So we disable profiling for these platforms.
-   * TODO: check FreeBSD and cygwin?
-  */
-  #define INPROCESSING_PROF 0
+/* Profile inprocessing 0:none 1:global report 2:inside report */
+/* EXPERIMENTAL */
+/*
+ * BD: the profiling uses clock_gettime, which does not exists on
+ * MACOS and on Windows. So we disable profiling for these platforms.
+ * TODO: check FreeBSD and cygwin?
+ */
+#define INPROCESSING_PROF 0
 
-  /* Enable Blocked Clause Elimination | Warning: only equisatisfiable! (Todo: add a flipping stack)*/
-  #define BLOCKED_CLAUSE_ELIMINATION 1
-  /* Enable Pure Literal Rule */
-  #define PURE_LITERAL 0
-  /* Enable Subsumption */
-  #define SUBSUMPTION 1
+/* Enable Blocked Clause Elimination | Warning: only equisatisfiable! (Todo: add a flipping stack)*/
+#define BLOCKED_CLAUSE_ELIMINATION 1
+/* Enable Pure Literal Rule */
+#define PURE_LITERAL 0
+/* Enable Subsumption */
+#define SUBSUMPTION 1
 
-  /* Data structure for occurrences lists */
-  #define INPR_OCC_LIST 0
-  #define INPR_OCC_VECT 1
+/* Data structure for occurrences lists */
+#define INPR_OCC_LIST 0
+#define INPR_OCC_VECT 1
 
-  /* If defined, temporary clauses will have a length header */
-  #define INPR_TMP_CL_LEN 0
+/* If defined, temporary clauses will have a length header */
+#define INPR_TMP_CL_LEN 0
 
 /* Restart strategy: choose one of them */
 #define PICO 0
@@ -82,6 +83,8 @@
     #error Cannot have BLOCKED_CLAUSE_ELIMINATION && PURE_LITERAL
   #endif
 #endif
+
+
 
 /************************************
  *  BOOLEAN VARIABLES AND LITERALS  *
@@ -279,32 +282,38 @@ typedef struct clause_malloc_s {
  * WATCH LISTS *
  ***************/
 
-/* Meta-type holding a watch information
-   if(watch_block & )b11 == 0b10) {
-    Binary watched clause
-    watch_block >> 2 holds the other literal
+/* 
+   Meta-type holding a watch information
+
+   if(watch_block & b11 == 0b10) {
+     Binary watched clause
+     watch_block >> 2 holds the other literal
    } else if(watch_block & 0b11 == 0b11) {
-    unused
+     unused
    } else {
-    Regular watched clause
-    The watched litteral of this list is at position 'i = watch_block & 0b1'
-    The pointer to the clause is 'watch_block - i'
+     Regular watched clause
+     The watched litteral of this list is at position 'i = watch_block & 0b1'
+     The pointer to the clause is 'watch_block - i'
    }
+
 */
 typedef uint32_t watch_block_t;
 
-/* Watch list.
+/*
+ * Watch list.
  * - capacity = size allocated for block
  * - size     = size used in block
  * - block    = informations about the clauses
  */
 typedef struct watch_s {
-	uint32_t capacity;
-	uint32_t size;
-	watch_block_t *block;
+  uint32_t capacity;
+  uint32_t size;
+  watch_block_t *block;
 } watch_t;
 
-/* Holds information about wether to rebuild the watch_lists before using them */
+/* 
+ * Holds information about wether to rebuild the watch_lists before using them 
+ */
 enum {
   watch_status_ok = 0,
   watch_status_regenerate = 1,
