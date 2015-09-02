@@ -27,7 +27,7 @@
 #include "yices.h"
 
 
-
+#define EF_VERBOSE 0
 
 /*
  * PRINT STUFF
@@ -777,7 +777,7 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
   assert(n == solver->uvalue_aux.size);
   ivector_add(v, solver->uvalue_aux.data, n);
 
-#if 0
+#if EF_VERBOSE
   printf("Full map\n");
   print_full_map(stdout, solver);
   fflush(stdout);
@@ -859,7 +859,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   a[1] = opposite_term(cnstr->guarantee);   // not C(x, y)
 
 
-#if 1
+#if EF_VERBOSE
   printf("Constraint:\n");
   yices_pp_term_array(stdout, 2, a, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", 2);
@@ -875,7 +875,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
     return NULL_TERM;
   }
 
-#if 1
+#if EF_VERBOSE
   printf("Implicant:\n");
   yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", v->size);
@@ -886,7 +886,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   ivector_reset(w);
   n = ef_constraint_num_uvars(cnstr);
 
-#if 1
+#if EF_VERBOSE
   printf("(%"PRIu32" universals)\n", n);
   yices_pp_term_array(stdout, n, cnstr->uvars, 120, UINT32_MAX, 0, 0);
 #endif
@@ -900,7 +900,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
     return NULL_TERM;
   }
 
-#if 1
+#if EF_VERBOSE
   printf("Projection:\n");
   yices_pp_term_array(stdout, w->size, w->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", w->size);
@@ -1062,7 +1062,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
-#if 0
+#if EF_VERBOSE
       printf("Counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
@@ -1127,7 +1127,7 @@ static void ef_solver_search(ef_solver_t *solver) {
 	  ef_prob_num_constraints(solver->prob),
 	  ef_prob_num_evars(solver->prob),
 	  ef_prob_num_uvars(solver->prob));
-#if 0
+#if EF_VERBOSE
   printf("\nConditions on the exists variables:\n");
   yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -1144,7 +1144,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
-#if 0
+#if EF_VERBOSE
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);

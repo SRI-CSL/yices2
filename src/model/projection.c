@@ -20,7 +20,7 @@
 #include "terms/term_sets.h"
 #include "utils/memalloc.h"
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 #include <inttypes.h>
