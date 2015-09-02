@@ -35,12 +35,11 @@
 /* Master switch */
 #define INPROCESSING 1
 
-/* Profile inprocessing 0:none 1:global report 2:inside report */
-/* EXPERIMENTAL */
-/*
- * BD: the profiling uses clock_gettime, which does not exists on
- * MACOS and on Windows. So we disable profiling for these platforms.
- * TODO: check FreeBSD and cygwin?
+/* 
+ * Profile inprocessing:
+ * - 0: none
+ * - 1: global report
+ * - 2: inside report
  */
 #define INPROCESSING_PROF 0
 
