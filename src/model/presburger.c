@@ -579,6 +579,26 @@ static bool presburger_good_constraint(presburger_t *pres, presburger_constraint
   return result;
 }
 
+/*
+ * Check whether all the constraints are true in the model
+ */
+static bool presburger_good(presburger_t *pres){
+  int32_t i, nconstraints;
+  pvector_t *constraints;
+  presburger_constraint_t *constraint;
+  constraints = &pres->constraints;
+  nconstraints = constraints->size;
+
+  //go through the constraints
+  for(i = 0; i < nconstraints; i++){
+    constraint = (presburger_constraint_t *)constraints->data[i];
+    if( ! presburger_good_constraint(pres, constraint) ){ return false; }
+  }
+
+  return true;
+}
+
+
 #endif
 
 /*
@@ -952,15 +972,15 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
  * y is plus or minus one.
  * - y must be in the eliminables 
  *
- *  FIXME: I think we need to add the extra divisibility contraint *and*
- *         update the value of y in the model (vtbl).
  */
 static void presburger_normalize(presburger_t *pres, term_t y) {
   rational_t lcm;
   rational_t *rp;
   pvector_t *constraints;
-  int32_t i, nconstraints;
+  int32_t yindex, i, nconstraints;
   presburger_constraint_t *constraint;
+  poly_buffer_t *buffer;
+  presburger_vtbl_t *vtbl;
   
   assert(int_hset_member(&pres->vtbl.elims, y));
 
@@ -980,13 +1000,29 @@ static void presburger_normalize(presburger_t *pres, term_t y) {
   
   if( ! q_is_one(&lcm)){
 
-    //pass two: scale the constraints accordingly, and set the coefficient of y to 1.
+    //pass two:
+    // scale the constraints accordingly, and set the coefficient of y to 1.
     for(i = 0; i < nconstraints; i++){
       constraint = (presburger_constraint_t *)constraints->data[i];
       scale_constraint(constraint, y, &lcm);
     }
+    
+    // update the value of y in the vtbl to lcm * old_value
+    vtbl = &pres->vtbl;
+    yindex = presburger_index_of_term(vtbl, y);
+    q_mul(&vtbl->values[yindex], &lcm);
+    
+    // add the constraint that lcm divides y
+    buffer = &pres->buffer;
+    assert(poly_buffer_is_zero(buffer));
+    poly_buffer_add_var(buffer, y);
+    add_constraint_from_buffer(pres, buffer, PRES_POS_DIVIDES, &lcm);
+
+    // assert that all the constraints are still good
+    assert(presburger_good(pres));
 
   }
+  
   q_clear(&lcm);
 }
 
