@@ -218,6 +218,13 @@ void bvconstant_set_bitsize(bvconstant_t *b, uint32_t n) {
   if (b->arraysize < k) {
     b->data = (uint32_t *) safe_realloc(b->data, k * sizeof(uint32_t));
     b->arraysize = k;
+#ifndef NDBEBUG
+    /*
+     * To prevent false alarms from valgrind, just make sure it's
+     * all initialized.
+     */
+    bvconst_clear(b->data, k);
+#endif
   }
   b->bitsize = n;
   b->width = k;
@@ -1636,6 +1643,8 @@ bool bvconst_sle(const uint32_t *a, const uint32_t *b, uint32_t n) {
  */
 uint32_t bvconst_hash(const uint32_t *a, uint32_t n) {
   uint32_t k;
+
+  assert(bvconst_is_normalized(a, n));
 
   k = (n + 31) >> 5;
   return jenkins_hash_array(a, k, 0x741a8d7a + n);
