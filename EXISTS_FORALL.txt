@@ -92,3 +92,55 @@ y
 
 
 
+
+4.  The Presburger elimination procedure is based upon the following
+fact that can be gleaned from the proof of correctness of Cooper's
+algorithm.  In the sequel we have a model A (and an implicit variable
+assignment), a variable y, and a set of literals (which are all true
+in A) of the following form:
+
+a.  y < U_i              i in I_a
+
+b.  y > L_i              i in I_b
+
+c.  y = S_i              i in I_c
+
+d.  f_i | y + r_i          i in I_d
+
+e.  not( n_i | y + p_i )   i in I_e
+
+Since we are attempting to eliminate y, we assume that I_c is
+empty, otherwise we don't have much work to do.
+
+We let:
+
+U  = Min { U_i | i in I_a under the ordering induced by A }
+
+L  = Max { L_i | i in I_b under the ordering induced by A }
+
+delta = lcm { f_i | i in I_d } U { n_i | i in I_e }
+
+Delta = { (f_i | y + r_i)  |  i in I_d } U { not( n_i | y + p_i ) |  i in I_e }
+
+Then:
+
+(*) Delta[y]   iff  Delta[y + c*delta]
+
+So we have three cases:
+
+- I_a and I_b are both empty.
+
+- I_a is empty but I_b is not.
+
+- I_a is not empty.
+
+Choose B as follows: in the first case take B to be 0, in the second case B to be L
+and in the third case take B to be U.
+
+In each case we can find a  k  in { 1, ...., delta } such that
+
+Delta[B + k]   in the first two cases, and
+
+Detla[B - k] in the third.
+
+

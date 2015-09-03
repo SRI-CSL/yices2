@@ -951,6 +951,9 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
 /* convert all the contraints in pres to the form where the the coeff of
  * y is plus or minus one.
  * - y must be in the eliminables 
+ *
+ *  FIXME: I think we need to add the extra divisibility contraint *and*
+ *         update the value of y in the model (vtbl).
  */
 static void presburger_normalize(presburger_t *pres, term_t y) {
   rational_t lcm;
