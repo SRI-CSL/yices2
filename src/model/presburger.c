@@ -503,15 +503,6 @@ static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, m
 }
 
 /*
- * Evaluate c->mono in the model
- * - store the result in val
- */
-static void presburger_eval_cnstr_in_model(presburger_vtbl_t *vtbl, rational_t *val, presburger_constraint_t *c) {
-  eval_polynomial_in_model(vtbl, val, c->mono, c->nterms);
-}
-
-
-/*
  * For debugging: check that the constraint defined by buffer/tag
  * is trivially true.
  */
@@ -544,6 +535,16 @@ static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t
 
   return r;
 }
+
+/*
+ * Evaluate c->mono in the model
+ * - store the result in val
+ */
+static void presburger_eval_cnstr_in_model(presburger_vtbl_t *vtbl, rational_t *val, presburger_constraint_t *c) {
+  eval_polynomial_in_model(vtbl, val, c->mono, c->nterms);
+}
+
+
 
 /*
  * Check whether c is true in the model
@@ -1141,6 +1142,7 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
     if(!cooperize_constraint(buffer, constraint, y, &kind, &poly, &cooper->delta)){
       //shouldn't happen; need to set a flag, cleanup, and exit
       assert(false);
+      return;
     }
     switch(kind){
 
