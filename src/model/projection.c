@@ -654,8 +654,8 @@ proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, con
   for (i=0; i<n; i++) {
     projector_add_literal(&proj, a[i]);
     if (proj.flag < 0) {
-      // record the error code
-      // currently this happens of the literal a[i] is non-linear
+      // record the error code: currently, the only possible error is
+      // that literal a[i] is a non-linear arithmetic constraint.
       code = proj.flag;
       goto abort;
     }
