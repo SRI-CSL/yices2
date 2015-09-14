@@ -303,7 +303,7 @@ static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
 }
 
 
-// either add t or its variable if t is a polynomial
+// either add t or its variables if t is a polynomial
 // non-linear terms are not supported here
 static void proj_add_arith_term(projector_t *proj, term_t t) {
   term_table_t *terms;
