@@ -37,6 +37,7 @@
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
 #include "model/model_eval.h"
+#include "model/projection.h"
 #include "utils/refcount_strings.h"
 
 #include "yices.h"
@@ -1085,32 +1086,25 @@ static void print_yices_error(bool full) {
   if (full) close_error();
 }
 
-/*
- * Print the translation code returned by assert
- */
-static void print_internalization_code(int32_t code, uint32_t verbosity) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
-  if (code == TRIVIALLY_UNSAT) {
-    fprintf(stderr, "unsat\n");
-    fflush(stderr);
-  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
 
-  } else if (code < 0) {
-    code = - code;
-    print_error(code2error[code]);
-  }
+/*
+ * Print an internalization error code
+ */
+static void print_internalization_error(int32_t code) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
+  code = - code;
+  print_error(code2error[code]);
 }
 
 /*
- * Print the translation code returned by ef_analyze
+ * Print the error code returned by ef_analyze
  */
-static void print_ef_analyze_code(ef_code_t code, FILE *err) {
-  if (code == EF_NO_ERROR) {
-
-  } else {
-    print_error(efcode2error[code]);
-  }
+static void print_ef_analyze_error(ef_code_t code, FILE *err) {
+  assert(code != EF_NO_ERROR);
+  print_error(efcode2error[code]);
 }
+
+
 /*
  * Print the efsolver status
  */
@@ -1151,24 +1145,31 @@ static void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
       print_error("exist forall solver failed: degree overflow in substitution");
     } else {
       assert(error == -2);
-      freport_bug(err, "exist forall solver failed: internal error");
+      freport_bug(err, "exist forall solver failed: substitution error");
     }
     break;
 
   case EF_STATUS_ASSERT_ERROR:
     assert(error < 0);
-    print_internalization_code(error, verbosity);
+    print_internalization_error(error);
+    break;
+
+  case EF_STATUS_PROJECTION_ERROR:
+    if (error == PROJ_ERROR_NON_LINEAR) {
+      print_error("exists forall solver failed: non-linear arithmetic is not supported");
+    } else {
+      freport_bug(err, "exists forall solver failed: projection error");
+    }
     break;
 
   case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_PROJECTION_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:    
   case EF_STATUS_TVAL_ERROR:
   case EF_STATUS_CHECK_ERROR:
   case EF_STATUS_ERROR:
   case EF_STATUS_IDLE:
   case EF_STATUS_SEARCHING:
-    freport_bug(err, "ef-status: %s\n", ef_status2string[stat]);
+    freport_bug(err, "exists forall solver failed: unexpected status: %s\n", ef_status2string[stat]);
     break;
 
   }
@@ -4625,7 +4626,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
-      print_ef_analyze_code(efc->efcode, g->out);
+      print_ef_analyze_error(efc->efcode, g->out);
       
     } else {
       print_ef_status(efc, g->verbosity, g->out);

@@ -123,6 +123,8 @@ extern void delete_projector(projector_t *proj);
 /*
  * Add literal t to the projector
  * - t must be true in the model
+ * - sets proj->flag to PROJ_ERROR_NON_LINEAR if t is a non-linear constraint
+ *   (e.g., t is p >= 0 or p == 0 where p is non-linear).
  */
 extern void projector_add_literal(projector_t *proj, term_t t);
 

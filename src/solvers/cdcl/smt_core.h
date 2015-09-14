@@ -819,9 +819,11 @@ typedef enum smt_status {
   STATUS_SAT,
   STATUS_UNSAT,
   STATUS_INTERRUPTED,
+  STATUS_ERROR, // not used by the context operations/only by yices_api
 } smt_status_t;
 #endif
 
+#define NUM_SMT_STATUSES (STATUS_ERROR+1)
 
 /*
  * Optional features: stored as bits in the solver option_flag

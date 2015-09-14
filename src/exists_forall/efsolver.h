@@ -171,6 +171,7 @@ typedef enum ef_status {
   EF_STATUS_ERROR,             // any other internal error
 } ef_status_t;
 
+#define NUM_EF_STATUSES (EF_STATUS_ERROR+1)
 
 /*
  * error_code below can be used for diagnostic

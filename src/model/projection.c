@@ -303,7 +303,7 @@ static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
 }
 
 
-// either add t or it's variable if t is a polynomial
+// either add t or its variable if t is a polynomial
 // non-linear terms are not supported here
 static void proj_add_arith_term(projector_t *proj, term_t t) {
   term_table_t *terms;
@@ -653,8 +653,16 @@ proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, con
   init_projector(&proj, mdl, mngr, nvars, var);
   for (i=0; i<n; i++) {
     projector_add_literal(&proj, a[i]);
+    if (proj.flag < 0) {
+      // record the error code
+      // currently this happens of the literal a[i] is non-linear
+      code = proj.flag;
+      goto abort;
+    }
   }
   code = run_projector(&proj, v);
+
+ abort:
   delete_projector(&proj);
 
   return code;

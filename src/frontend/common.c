@@ -29,13 +29,14 @@
 /*
  * Table to convert  smt_status to a string
  */
-const char* const status2string[] = {
+const char* const status2string[NUM_SMT_STATUSES] = {
   "idle",
   "searching",
   "unknown",
   "sat",
   "unsat",
   "interrupted",
+  "error",
 };
 
 
@@ -55,18 +56,22 @@ const char * const efcode2error[NUM_EF_CODES] = {
 /*
  * Table to convert  ef-solver status to a string
  */
-const char* const ef_status2string[] = {
+const char* const ef_status2string[NUM_EF_STATUSES] = {
   "idle",
   "searching",
   "unknown",
   "sat",
   "unsat",
   "interrupted",
+  // error codes:
   "subst error",
   "tval error",
   "check error",
   "assert error",
-  "error",
+  "model error",
+  "implicant error", 
+  "projection error",
+  "status error",
 };
 
 /*

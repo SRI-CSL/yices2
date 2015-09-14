@@ -41,6 +41,7 @@
 #include "io/concrete_value_printer.h"
 #include "model/model_eval.h"
 #include "model/models.h"
+#include "model/projection.h"
 #include "parser_utils/term_stack2.h"
 #include "parser_utils/tstack_internals.h"
 #include "solvers/bv/bvsolver.h"
@@ -2253,15 +2254,23 @@ static void print_ef_status(void) {
     print_internalization_code(error);
     break;
 
+  case EF_STATUS_PROJECTION_ERROR:
+    if (error == PROJ_ERROR_NON_LINEAR) {
+      report_error("ef-solve failed: non-linear arithmetic is not supported");
+    } else {
+      freport_bug(stderr, "ef-solve failed: projection error");
+    }
+    break;
+
+
   case EF_STATUS_MDL_ERROR:
   case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_PROJECTION_ERROR:
   case EF_STATUS_TVAL_ERROR:
   case EF_STATUS_CHECK_ERROR:
   case EF_STATUS_ERROR:
   case EF_STATUS_IDLE:
   case EF_STATUS_SEARCHING:
-    freport_bug(stderr, "ef-status: %s\n", ef_status2string[stat]);
+    freport_bug(stderr, "ef-solve failed: unexpected status: %s\n", ef_status2string[stat]);
     break;
 
   }
