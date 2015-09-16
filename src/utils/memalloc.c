@@ -38,6 +38,7 @@ void *safe_malloc(size_t size) {
 
   tmp = malloc(size);
   if (tmp == NULL && size > 0) {
+    //  if (tmp == NULL) {
     out_of_memory();
   }
 

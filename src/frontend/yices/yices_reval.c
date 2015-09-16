@@ -829,19 +829,10 @@ static void delete_ctx(void) {
   context = NULL;
 }
 
+
 /***************************************
  *  UTILITIES TO DEAL WITH PARAMETERS  *
  **************************************/
-
-/*
- * Tables for converting parameter id to parameter name
- * and branching code to branching name. One more table
- * for converting from EF generalization codes to strings.
- */
-
-#define NUM_EF_GEN_MODES 4
-
-static const char *param2string[NUM_PARAMETERS];
 
 /*
  * Print a parameter name and its value
