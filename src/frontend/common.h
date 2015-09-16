@@ -35,8 +35,15 @@ extern const char* const ef_status2string[];
  */
 extern const char * const code2error[];
 
-extern const char *branching2string[];
 
+
+/*
+ * Tables for converting parameter id to parameter name
+ * and branching code to branching name. One more table
+ * for converting from EF generalization codes to strings.
+ */
+extern const char *param2string[];
+extern const char *branching2string[];
 extern const char *efgen2string[];
 
 /*

@@ -1016,8 +1016,16 @@ static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t 
     tprintf(solver->trace, 4, "(EF: candidate rejected: failed constraint %"PRIu32")\n", i);
     break;
 
-  default:
+  case STATUS_UNSAT:
     tprintf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
+    break;
+
+  case STATUS_INTERRUPTED:
+    tprintf(solver->trace, 4, "(EF: candidate check was interrupted)\n");
+    break;
+
+  default:
+    tprintf(solver->trace, 4, "(EF: error in candidate check for constraint %"PRIu32")\n", i);
     break;
   }
 }

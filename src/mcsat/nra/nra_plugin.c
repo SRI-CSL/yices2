@@ -1027,7 +1027,7 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
     term_t atom = unsigned_term(literal);
     variable_t atom_var = variable_db_get_variable_if_exists(nra->ctx->var_db, atom);
     assert(atom_var != variable_null);
-    if (!nra_plugin_get_unit_info(nra, atom_var) == CONSTRAINT_UNIT) {
+    if (nra_plugin_get_unit_info(nra, atom_var) != CONSTRAINT_UNIT) {
       // Not unit
       unit = false;
     } else {
