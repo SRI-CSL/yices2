@@ -65,10 +65,11 @@ typedef uint32_t literal_t;
 
 
 /*
- * Maximal number of boolean variables
+ * Maximal number of boolean variables.
+ * That's also the maximal size of any clause.
  */
 #define MAX_VARIABLES (UINT32_MAX >> 2)
-
+#define MAX_CLAUSE_SIZE MAX_VARIABLES
 
 /*
  * Conversions from variables to literals
@@ -204,13 +205,6 @@ typedef struct clause_pool_s {
 
 // clause index
 typedef uint32_t cidx_t;
-
-
-/*
- * Initial capacity of a pool = 262144 elements = 1 Mb.
- */
-#define DEF_CLAUSE_POOL_CAPACITY 262144
-#define MAX_CLAUSE_POOL_CAPACITY MAX_ARRAY32_SIZE
 
 
 #ifndef NDEBUG
