@@ -19,6 +19,45 @@
 /*
  * CLAUSE POOL
  */
+
+/*
+ * Initial capacity of a pool = 262144 elements = 1 Mb.
+ */
+#define DEF_CLAUSE_POOL_CAPACITY 262144
+#define MAX_CLAUSE_POOL_CAPACITY (MAX_ARRAY32_SIZE & ~3)
+
+/*
+ * Capacity increase:
+ * cap += ((cap >> 1) + (cap >> 6) + (cap >> 7) + 2048) & ~3
+ *
+ * Since the intiail capacity is 262144, we get an increasing
+ * sequence: 262144, 401408, 613568,  ..., 4265187980,
+ * which gets us close to 2^32.  The next increase after that
+ * causes an arithmetic overflow.
+ */
+static inline uint32_t pool_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + (cap >> 6) + (cap >> 7) + 2048) & ~3;
+}
+
+/*
+ * Invariant we want to maintain
+ */
+#ifndef NDEBUG
+static bool is_multiple_of_four(uint32_t x) {
+  return (x & 3) == 0;
+}
+
+static bool clause_pool_invariant(clause_pool_t *pool) {
+  return 
+    pool->learned <= pool->size &&
+    pool->size <= pool->capacity &&
+    pool->available == pool->capacity - pool->size &&
+    is_multiple_of_four(pool->learned) &&
+    is_multiple_of_four(pool->size) &&
+    is_multiple_of_four(pool->capacity);
+}
+#endif
+
 static void init_clause_pool(clause_pool_t *pool) {
   uint32_t *tmp;
 
@@ -32,9 +71,12 @@ static void init_clause_pool(clause_pool_t *pool) {
   pool->size = 0;
   pool->capacity = DEF_CLAUSE_POOL_CAPACITY;
   pool->available = DEF_CLAUSE_POOL_CAPACITY;
+
+  assert(clause_pool_invariant(pool));
 }
 
 static void delete_clause_pool(clause_pool_t *pool) {
+  assert(clause_pool_invariant(pool));
   free(pool->data);
   pool->data = NULL;
 }
@@ -48,25 +90,17 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
   uint32_t min_cap, cap, increase;
   uint32_t *tmp;
 
+  assert(clause_pool_invariant(pool));
+
   min_cap = pool->size + n;
   if (min_cap < n || min_cap > MAX_CLAUSE_POOL_CAPACITY) {
     // can't make the pool large enough
     out_of_memory();
   }
 
-  /*
-   * cap is initially 262144.
-   *
-   * In each iteration of the loop we do
-   *   cap += ((cap >> 1) + (cap >> 6) + (cap >> 7) + 2048) & ~3U
-   *
-   * This forms the series: 262144, 401408, 613568. ..., 4265187980,
-   * which gets us close to 2^32-1.  The next iteration after that
-   * causes an arithmetic overflow.
-   */
   cap = pool->capacity;
   do {
-    increase = ((cap >> 1) + (cap >> 6) + (cap >> 7) + 2048) & ~3U;
+    increase = pool_cap_increase(cap);
     cap += increase;
     if (cap < increase) { // arithmetic overfow
       cap = MAX_CLAUSE_POOL_CAPACITY;
@@ -81,6 +115,8 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
   pool->data = tmp;
   pool->capacity = cap;
   pool->available = cap - pool->size;
+
+  assert(clause_pool_invariant(pool));
 }
 
 
@@ -89,6 +125,8 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
  */
 static cidx_t clause_pool_alloc(clause_pool_t *pool, uint32_t n) {
   cidx_t i;
+
+  assert(clause_pool_invariant(pool));
 
   n = (n + 3) & ~3; // round up to the next multiple of 4
   if (n > pool->available) {
@@ -100,8 +138,35 @@ static cidx_t clause_pool_alloc(clause_pool_t *pool, uint32_t n) {
   pool->size += n;
   pool->available -= n;
 
+  assert(clause_pool_invariant(pool));
+
   return i;
 }
+
+
+/*
+ * Add a clause of n literals to the pool:
+ * - l[0 ... n-1] = the literals
+ * - return the clause idx
+ * There must not be duplicates or complementary literals in l
+ */
+static cidx_t clause_pool_add_clause(clause_pool_t *pool, uint32_t n, literal_t *l) {
+  clause_t *clause;
+  cidx_t cidx;
+  uint32_t i;
+
+  assert(n <= MAX_CLAUSE_SIZE);
+
+  cidx = clause_pool_alloc(pool, n+2);
+  clause = clause_of_idx(pool, cidx);
+  clause->len = n;
+  clause->aux.d = 0;
+  for (i=0; i<n; i++) {
+    clause->c[i] = l[i];
+  }
+  return cidx;
+}
+
 
 
 /*
