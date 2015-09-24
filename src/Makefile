@@ -362,6 +362,7 @@ extra_src_c := \
 	solvers/bv/bvsolver_printer.c \
 	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/gates_printer.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
