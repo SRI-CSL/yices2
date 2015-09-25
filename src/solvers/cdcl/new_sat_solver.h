@@ -169,11 +169,28 @@ static inline bool true_preferred(bval_t val) {
  * Each clause is identified by an index i:
  * - data[i]   is the clause length
  * - data[i+1] is the auxiliary data
- * - data[i+2 ... i+n+2] = array of n literals, where n = data[i] = clause length
+ * - data[i+2] is the first watched literal
+ * - data[i+3] is the second watched literal
+ * - data[i+4 ... i+n+2] = rest of the clause = array of n-2 literals
+ *   where n = data[i] = clause length.
  *
- * We ensure that each clause starts at an index that's a multiple of 4.
- * This ensures that header + two watched literals are in the same cache 
- * line (CHECK THIS).
+ * Each clause starts at an index that's a multiple of 4. This ensures
+ * that header + two watched literals are in the same cache line
+ * (CHECK THIS). 
+ *
+ * If a clause starts at index i, the next clause starts
+ * at index j = ((i + data[i] + 2 + 3) & ~3). That's i + length of the
+ * clause + size of the header rounded up to the next multiple of 4.
+ *
+ * Simplification/in-processing may delete or shrink a clause. This
+ * introduces gaps in the data array.  To deal with these gaps, we add
+ * padding blocks. A padding block at index i is a block of unused
+ * elements in the array.  Its length is a multiple of four.  The
+ * first two elements of a padding block are as follows: 
+ * - data[i] = 0
+ * - data[i+1] = length of the padding block.
+ * This distinguishes padding blocks from clauses since a clause starts with 
+ * data[i] >= 2.
  */
 
 // clause structure

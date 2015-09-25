@@ -153,6 +153,7 @@ core_src_c := \
 	solvers/bv/bv_vartable.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
+	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
 	solvers/cdcl/smt_core.c \
