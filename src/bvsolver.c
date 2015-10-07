@@ -2755,7 +2755,7 @@ static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0,
 
   i = 0;
 
-  // c0 := 0 (also make sure c0 has the right size
+  // c0 := 0 (also make sure c0 has the right size)
   bvconstant_set_all_zero(c0, nbits);
 
   // deal with the constant of p if any
@@ -3471,9 +3471,10 @@ static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_i
     if (bvconst_is_nonzero(b, k)) {
       if (bvconst_tst_bit(b, n-1)) {
         // negative divider
-        // b + 1 <= (bvserm x y) <= -(b+1)
+        // b + 1 <= (bvsrem x y) <= -(b+1)
         bvconst_set(intv->low, k, b);
-        bvconst_add_one(intv->low, k);
+        bvconst_add_one(intv->low, k); 	// b+1 needs normalizing if b is -1
+        bvconst_normalize(intv->low, n);
         bvconst_set(intv->high, k, intv->low);
         bvconst_negate(intv->high, k);
         bvconst_normalize(intv->high, n);
@@ -3482,12 +3483,13 @@ static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_i
         // -(b-1) <= (bvsrem x y) <= b-1
         bvconst_set(intv->high, k, b);
         bvconst_sub_one(intv->high, k);
+	assert(bvconst_is_normalized(intv->high, n));
         bvconst_set(intv->low, k, intv->high);
         bvconst_negate(intv->low, k);
         bvconst_normalize(intv->low, n);
       }
     }
-    assert(bv_interval_is_normalized(intv) && bvconst_le(intv->low, intv->high, n));
+    assert(bv_interval_is_normalized(intv) && bvconst_sle(intv->low, intv->high, n));
   }
 }
 
@@ -4646,7 +4648,7 @@ static thvar_t map_const_times_product(bv_solver_t *solver, uint32_t nbits, pp_b
     return x;
   }
 
-  if (p->len == 1 && bvconst_is_one(c, w)) {
+  if (p->len == 1 && p->prod[0].exp == 1 && bvconst_is_one(c, w)) {
     x = p->prod[0].var;
     return x;
   }
@@ -6411,6 +6413,7 @@ void bv_solver_reset(bv_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->bitblasted = false;
+  solver->bbptr = 0;
 }
 
 

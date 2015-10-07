@@ -27,6 +27,7 @@ static void print_bvvar_power(FILE *f, varexp_t *p) {
   }
 }
 
+
 static void print_bv_product(FILE *f, pprod_t *p) {
   uint32_t i, n;
 
@@ -696,11 +697,28 @@ static void print_leaf_node(FILE *f, bvc_leaf_t *d) {
   fputc(']', f);
 }
 
+static void print_zero_node(FILE *f, bvc_zero_t *d) {
+  fprintf(f, "[ZERO %"PRIu32" bits]", d->header.bitsize);  
+}
+
+static void print_constant_node(FILE *f, bvc_constant_t *d) {
+  uint32_t n;
+
+  n = d->header.bitsize;
+  fputs("[CONSTANT ", f);
+  if (n <= 64) {
+    bvconst64_print(f, d->value.c, n);
+  } else {
+    bvconst_print(f, d->value.w, n);
+  }
+  fputc(']', f);
+}
+
 static void print_offset_node(FILE *f, bvc_offset_t *d) {
   uint32_t n;
 
   n = d->header.bitsize;
-  fprintf(f, "[OFFSET ");
+  fputs("[OFFSET ", f);
   if (n <= 64) {
     bvconst64_print(f, d->constant.c, n);
   } else {
@@ -715,7 +733,7 @@ static void print_mono_node(FILE *f, bvc_mono_t *d) {
   uint32_t n;
 
   n = d->header.bitsize;
-  fprintf(f, "[MONO ");
+  fputs("[MONO ", f);
   if (n <= 64) {
     bvconst64_print(f, d->coeff.c, n);
   } else {
@@ -729,7 +747,7 @@ static void print_mono_node(FILE *f, bvc_mono_t *d) {
 static void print_prod_node(FILE *f, bvc_prod_t *d) {
   uint32_t i, n;
 
-  fprintf(f, "[PROD" );
+  fputs("[PROD", f );
   n = d->len;
   for (i=0; i<n; i++) {
     fputc(' ', f);
@@ -744,7 +762,7 @@ static void print_prod_node(FILE *f, bvc_prod_t *d) {
 static void print_sum_node(FILE *f, bvc_sum_t *d) {
   uint32_t i, n;
 
-  fprintf(f, "[SUM" );
+  fputs("[SUM", f );
   n = d->len;
   for (i=0; i<n; i++) {
     fputc(' ', f);
@@ -754,7 +772,7 @@ static void print_sum_node(FILE *f, bvc_sum_t *d) {
 }
 
 static void print_alias_node(FILE *f, bvc_alias_t *d) {
-  fprintf(f, "[ALIAS ");
+  fputs("[ALIAS ", f);
   print_nocc(f, d->alias);
   fputc(']', f);
 }
@@ -763,6 +781,14 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
     print_leaf_node(f, leaf_node(d));
+    break;
+
+  case BVC_ZERO:
+    print_zero_node(f, zero_node(d));
+    break;
+
+  case BVC_CONSTANT:
+    print_constant_node(f, bvconst_node(d));
     break;
 
   case BVC_OFFSET:

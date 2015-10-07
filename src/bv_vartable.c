@@ -1147,8 +1147,10 @@ thvar_t get_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
 }
 
 
-thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
   bvop_hobj_t hobj;
+  uint32_t nvars;
+  thvar_t i;
 
   hobj.m.hash = (hobj_hash_t) hash_bvadd_hobj;
   hobj.m.eq = (hobj_eq_t) eq_bvadd_hobj;
@@ -1157,11 +1159,18 @@ thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
   hobj.left = x;
   hobj.right = y;
   hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
   bvop_hobj_t hobj;
+  uint32_t nvars;
+  thvar_t i;
 
   hobj.m.hash = (hobj_hash_t) hash_bvsub_hobj;
   hobj.m.eq = (hobj_eq_t) eq_bvsub_hobj;
@@ -1170,11 +1179,18 @@ thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
   hobj.left = x;
   hobj.right = y;
   hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y, bool *new_var) {
   bvop_hobj_t hobj;
+  uint32_t nvars;
+  thvar_t i;
 
   hobj.m.hash = (hobj_hash_t) hash_bvmul_hobj;
   hobj.m.eq = (hobj_eq_t) eq_bvmul_hobj;
@@ -1183,11 +1199,18 @@ thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
   hobj.left = x;
   hobj.right = y;
   hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
-thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x) {
+thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x, bool *new_var) {
   bvop_hobj_t hobj;
+  uint32_t nvars;
+  thvar_t i;
 
   hobj.m.hash = (hobj_hash_t) hash_bvneg_hobj;
   hobj.m.eq = (hobj_eq_t) eq_bvneg_hobj;
@@ -1196,7 +1219,12 @@ thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x) {
   hobj.left = x;
   hobj.right = null_thvar;
   hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &hobj.m);
+
+  nvars = table->nvars;
+  i = int_htbl_get_obj(&table->htbl, &hobj.m);
+  *new_var = table->nvars > nvars;
+
+  return i;
 }
 
 

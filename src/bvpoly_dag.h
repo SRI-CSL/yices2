@@ -29,17 +29,19 @@
 
 
 /*
- * There are five types of nodes:
+ * There are seven types of nodes:
  * - [leaf x] where x is a bitvector variable
+ * - [zero]
+ * - [constant a] where a is a non-zero constant
  * - [offset a0 n1] denotes (a0 + n1)
  * - [mono   a0 n1] denotes (a0 * n1)
  * - [prod  n1^d1 ... n_k^d_k] denotes a power product
  * - [sum  n1 + ... + n_k]
  * Where a0 is a constant, and n_t is a node occurrence.
  *
- * The leaf nodes correspond to expressions that don't need
- * compilation (i.e., [leaf x] is compiled to variable x).
- * The other nodes are expressions to be compiled.
+ * The [leaf x] nodes correspond to expressions that don't need
+ * compilation (i.e., [leaf x] is compiled to variable x).  The other
+ * nodes are expressions to be compiled.
  *
  * A node occurrence encodes bvneg:
  * - given a node index i, then bvp(i) denotes +i
@@ -72,6 +74,8 @@
  * - other nodes
  *
  * A node is elementary if it is of the following forms:
+ *   [zero]
+ *   [constant a]
  *   [offset a  n]      where n is a leaf
  *   [mono   a * n]     where n is a leaf
  *   [prod n1 * n2]     where n1 and n2 are leaves
@@ -139,6 +143,8 @@ static inline node_occ_t unsigned_occ(node_occ_t n) {
  */
 typedef enum bvc_tag {
   BVC_LEAF,
+  BVC_ZERO,
+  BVC_CONSTANT,
   BVC_OFFSET,
   BVC_MONO,
   BVC_PROD,
@@ -155,6 +161,19 @@ typedef struct bvc_leaf_s {
   bvc_header_t header;
   int32_t  map; //  variable the leaf is compiled to
 } bvc_leaf_t;
+
+// zero: no attributes except the bitsize
+typedef struct bvc_zero_s {
+  bvc_header_t header;
+} bvc_zero_t;
+
+typedef struct bvc_constant_s {
+  bvc_header_t header;
+  union {
+    uint64_t c;
+    uint32_t *w;
+  } value;
+} bvc_constant_t;
 
 typedef struct bvc_offset_s {
   bvc_header_t header;
@@ -227,6 +246,14 @@ static inline bool node_is_leaf(bvc_header_t *d) {
   return d->tag == BVC_LEAF;
 }
 
+static inline bool node_is_zero(bvc_header_t *d) {
+  return d->tag == BVC_ZERO;
+}
+
+static inline bool node_is_constant(bvc_header_t *d) {
+  return d->tag == BVC_CONSTANT;
+}
+
 static inline bool node_is_offset(bvc_header_t *d) {
   return d->tag == BVC_OFFSET;
 }
@@ -250,6 +277,16 @@ static inline bool node_is_alias(bvc_header_t *d) {
 static inline bvc_leaf_t *leaf_node(bvc_header_t *d) {
   assert(node_is_leaf(d));
   return (bvc_leaf_t *) d;
+}
+
+static inline bvc_zero_t *zero_node(bvc_header_t *d) {
+  assert(node_is_zero(d));
+  return (bvc_zero_t *) d;
+}
+
+static inline bvc_constant_t *bvconst_node(bvc_header_t *d) {
+  assert(node_is_constant(d));
+  return (bvc_constant_t *) d;
 }
 
 static inline bvc_offset_t *offset_node(bvc_header_t *d) {
@@ -314,6 +351,8 @@ typedef struct bvc_dag_s {
 
   // stores for descriptor allocation
   object_store_t leaf_store;
+  object_store_t zero_store;
+  object_store_t constant_store;
   object_store_t offset_store;
   object_store_t mono_store;
   object_store_t prod_store;  // for binary products
@@ -384,6 +423,16 @@ static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, bvnode_t n) {
   return node_is_leaf(dag->desc[n]);
 }
 
+static inline bool bvc_dag_node_is_zero(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_zero(dag->desc[n]);
+}
+
+static inline bool bvc_dag_node_is_constant(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_constant(dag->desc[n]);
+}
+
 static inline bool bvc_dag_node_is_offset(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_offset(dag->desc[n]);
@@ -412,6 +461,16 @@ static inline bool bvc_dag_node_is_alias(bvc_dag_t *dag, bvnode_t n) {
 static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return leaf_node(dag->desc[n]);
+}
+
+static inline bvc_zero_t *bvc_dag_node_zero(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return zero_node(dag->desc[n]);
+}
+
+static inline bvc_constant_t *bvc_dag_node_constant(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return bvconst_node(dag->desc[n]);
 }
 
 static inline bvc_offset_t *bvc_dag_node_offset(bvc_dag_t *dag, bvnode_t n) {
@@ -445,6 +504,14 @@ static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_leaf(dag, node_of_occ(n));
 }
 
+static inline bool bvc_dag_occ_is_zero(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_is_zero(dag, node_of_occ(n));
+}
+
+static inline bool bvc_dag_occ_is_constant(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_is_constant(dag, node_of_occ(n));
+}
+
 static inline bool bvc_dag_occ_is_offset(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_offset(dag, node_of_occ(n));
 }
@@ -465,12 +532,6 @@ static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_alias(dag, node_of_occ(n));
 }
 
-
-
-/*
- * Occurrence count for node i
- */
-extern uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i);
 
 
 /*
@@ -581,23 +642,6 @@ extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
 
 
 /*
- * Construct a sum node q
- * - a = array of n node occurrences
- * - n must be positive
- *
- * If n == 1, this returns a[0].
- * Otherwise, a is sorted and a node q := [sum a[0] ... a[n-1]] is created
- */
-extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
-
-
-/*
- * Sum n1, n2: node_of_occ(n1) and node_of_occ(n2) must be different
- */
-extern node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
-
-
-/*
  * Construct a power product node q
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
@@ -612,9 +656,14 @@ extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint3
 
 
 /*
- * Product n1 * n2
+ * Construct a sum node q
+ * - a = array of n node occurrences
+ * - n must be positive
+ *
+ * If n == 1, this returns a[0].
+ * Otherwise, a is sorted and a node q := [sum a[0] ... a[n-1]] is created
  */
-extern node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
+extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
 
 
 /*
