@@ -35,7 +35,7 @@ static void random_terms(uint32_t n, term_t *a) {
   }
 }
 
-static int bool_rank(x) {
+static int bool_rank(term_t x) {
   return x;
 }
 
