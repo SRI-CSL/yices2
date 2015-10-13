@@ -14,12 +14,24 @@
 #ifndef __MEMALLOC_H
 #define __MEMALLOC_H
 
-#include <stddef.h>
+#include <setjmp.h>
 #include <stdlib.h>
 
 
 /*
- * Print an error message then call exit(YICES_EXIT_OUT_OF_MEMORY)
+ * Pointer to a jmp-buffer to catch out-of-memory exceptions.
+ * - if this pointer is not NULL then the function out_of_memory
+ *   calls longjmp(*out_of_mem, -1)
+ * - if this pointer is NULL, then out_of_memory will print an
+ *   error message on stderr then call exit(YICES_EXIT_OUT_OF_MEMORY).
+ * - it's the responsibility of the callers to setup and clean the
+ *   
+ */
+extern jmp_buf *out_of_mem;
+
+/*
+ * Either calls longjmp(out_of_mem, -1) or prints an error message then
+ * calls exit(YICES_EXIT_OUT_OF_MEMORY)
  * - this exit code is defined in yices_exit_codes.h
  */
 extern void out_of_memory(void) __attribute__ ((noreturn));

@@ -12,6 +12,7 @@
 #ifndef __POINTER_VECTORS_H
 #define __POINTER_VECTORS_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>

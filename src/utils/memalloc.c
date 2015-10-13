@@ -17,10 +17,16 @@
 #include "yices_exit_codes.h"
 
 
+jmp_buf *out_of_mem = NULL;
+
+
 /*
  * Fatal error: out of memory
  */
-void out_of_memory() {
+void out_of_memory(void) {
+  if (out_of_mem != NULL) {
+    longjmp(*out_of_mem, -1);
+  }
   fprintf(stderr, "Out of memory\n");
   exit(YICES_EXIT_OUT_OF_MEMORY);
 }

@@ -15,6 +15,7 @@
 #ifndef __INT_BAGS_H
 #define __INT_BAGS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "utils/memalloc.h"
