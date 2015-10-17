@@ -955,6 +955,17 @@ void yices_reset_tables(void) {
 }
 
 
+
+/*
+ * Install a call back function that will be invoked
+ * if Yices runs out of memory.
+ * - if this callback returns, the process is killed
+ */
+EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
+  __out_of_mem_callback = callback;
+}
+
+
 /***********************
  *  BUFFER ALLOCATION  *
  **********************/
