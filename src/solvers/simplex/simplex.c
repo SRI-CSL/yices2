@@ -7193,6 +7193,8 @@ static bool simplex_branch_var_add_ub(simplex_solver_t *solver, thvar_t x, ratio
 
   assert(arith_var_is_int(&solver->vtbl, x) && matrix_is_basic_var(&solver->matrix, x));
 
+  ub = NULL; // Some versions of GCC give a warning otherwise
+
   bound = &solver->bound;
 
   derived = simplex_basic_var_has_derived_bound(solver, x, false);
@@ -7230,6 +7232,8 @@ static bool simplex_branch_var_sub_lb(simplex_solver_t *solver, thvar_t x, ratio
   int32_t l;
 
   assert(arith_var_is_int(&solver->vtbl, x) && matrix_is_basic_var(&solver->matrix, x));
+
+  lb = NULL; // Some versions of GCC give a warning otherwise
 
   bound = &solver->bound;
 
