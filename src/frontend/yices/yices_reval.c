@@ -24,6 +24,29 @@
 #include <signal.h>
 #include <inttypes.h>
 
+
+#if defined(MINGW)
+/*
+ * We call isatty(STDIN_FILENO) to check whether stdin is a terminal.
+ *
+ * On Windows, isatty is called _isatty and there's no STDIN_FILENO.
+ *
+ * NOTE: the windows function _isatty doesn't have the same behavior
+ * as isatty on Unix. It returns a non-zero value if the file
+ * descriptor is associated with a character device (which is true of
+ * terminals but of other files too).
+ */
+#include <io.h>
+#define STDIN_FILENO (_fileno(stdin))
+static inline int isatty(int fd) {
+  return _isatty(fd);
+}
+#else
+// Should work on all Unix variants
+#include <unistd.h>
+#endif
+
+
 #include "api/context_config.h"
 #include "api/smt_logic_codes.h"
 #include "api/yices_extensions.h"
@@ -68,13 +91,17 @@
 /*
  * PARSING/TERM CONSTRUCTION
  * - input_filename: name of the input file.
- *   If input_filename is NULL, we run in interactive mode and get input from stdin.
+ *   If input_filename is NULL, we get input from stdin.
+ *   If stdin is a terminal, we also set the interactive flag to true
  * - lexer, parser, term_stack: to process the input commands
  * - include_depth = number of nested (include ...) commands being processed
  * - tracer: initialized to (stderr, 2) in verbose mode (otherwise NULL)
  *
  * GLOBAL FLAGS:
- * - interactive: true if no input file is given on the command line
+ * - interactive: true if the input is stdin and stdin is a terminal
+ *   (well on Windows we can't tell for sure).
+ *   If this flag is true, we print a prompt before reading input,
+ *   and we don't exit on error.
  * - verbosity: verbosity level
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
@@ -2961,7 +2988,7 @@ int yices_main(int argc, char *argv[]) {
 
   if (input_filename == NULL) {
     init_yices_stdin_lexer(&lexer);
-    interactive = true;
+    interactive = isatty(STDIN_FILENO);
   } else if (init_yices_file_lexer(&lexer, input_filename) < 0) {
     perror(input_filename);
     exit(YICES_EXIT_FILE_NOT_FOUND);
@@ -3046,7 +3073,7 @@ int yices_main(int argc, char *argv[]) {
 
 
   delete_parser(&parser);
-  if (interactive) {
+  if (input_filename == NULL) {
     // keep stdin open
     close_lexer_only(&lexer);
   } else {
