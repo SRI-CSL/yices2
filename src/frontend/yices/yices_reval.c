@@ -29,7 +29,10 @@
 /*
  * We call isatty(STDIN_FILENO) to check whether stdin is a terminal.
  *
- * On Windows, isatty is called _isatty and there's no STDIN_FILENO.
+ * On Windows/MINGW, isatty is called _isatty. The macro STDIN_FILENO
+ * appears to be defined in mingw/include/stdio.h. Not clear whether
+ * it exists in Windows?  There is a function isatty declared in io.h,
+ * but it is deprecated.
  *
  * NOTE: the windows function _isatty doesn't have the same behavior
  * as isatty on Unix. It returns a non-zero value if the file
@@ -37,10 +40,11 @@
  * terminals but of other files too).
  */
 #include <io.h>
+#ifndef STDIN_FILENO
 #define STDIN_FILENO (_fileno(stdin))
-static inline int isatty(int fd) {
-  return _isatty(fd);
-}
+#endif
+#define isatty _isatty
+
 #else
 // Should work on all Unix variants
 #include <unistd.h>
