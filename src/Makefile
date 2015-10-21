@@ -134,6 +134,7 @@ core_src_c := \
 	model/model_eval.c \
 	model/model_queries.c \
 	model/models.c \
+	model/presburger.c \
 	model/projection.c \
 	model/term_to_val.c \
 	model/val_to_term.c \

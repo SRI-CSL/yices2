@@ -256,7 +256,7 @@ static bool aproj_cheaper_var(void *table, int32_t x, int32_t y);
  * Initialize table:
  * - n = initial size of arrays term_of and val
  * - m = initial size of arrays cnstr and score
- * If n is 0, them default sizes are used.
+ * If n is 0, then default sizes are used.
  * If n is positive and m is 0, then the default esize is used unless it's 
  * larger than n. If the default is more than n, then the initial esize is 
  * set to n.
@@ -753,7 +753,7 @@ static bool aproj_cheaper_var(void *table, int32_t x, int32_t y) {
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
  * - m = initial esize (number of variables to eliminate)
- * - m must be no more than m
+ * - n must be no more than m
  *
  * Parameters n and m specify the initial size and esize
  * - if n is 0, the default size and esize are used (m should be 0 too)

@@ -199,7 +199,7 @@ typedef struct aproj_vtbl_s {
 } aproj_vtbl_t;
 
 
-#define MAX_APROJ_VTBL_SIZE (UINT32_MAX/sizeof(aproj_score_t))
+#define MAX_APROJ_VTBL_SIZE (UINT32_MAX/sizeof(aproj_score_t))   
 #define DEF_APROJ_VTBL_SIZE 20
 #define DEF_APROJ_VTBL_ESIZE 20
 
@@ -240,7 +240,7 @@ typedef struct arith_projector_s {
  * - mngr = relevant term manager
  * - n = initial size (total number of variables)
  * - m = initial esize (number of variables to eliminate)
- * - m must be no more than m
+ * - n must be no more than m
  *
  * Parameters n and m specify the initial size and esize
  * - if n is 0, the default size and esize are used (m should be 0 too)

@@ -3981,13 +3981,13 @@ static void assert_toplevel_arith_is_int(context_t *ctx, term_t t, bool tt) {
 
 /*
  * Top-level (divides k t)
- * - if tt is true, assert (t <= (div t k))
- * - if tt is false, asssert (t > (div t k))
+ * - if tt is true, assert (t <= k * (div t k))
+ * - if tt is false, assert (t > k * (div t k))
  *
  * We assume (k != 0) since (divides 0 t) is rewritten to (t == 0) by
  * the term manager.
  *
- * NOTE: instead of asserting (t <= (div t k)) we could create a fresh
+ * NOTE: instead of asserting (t <= k * (div t k)) we could create a fresh
  * integer variable z and assert (t = k * z).
  */
 static void assert_toplevel_arith_divides(context_t *ctx, composite_term_t *divides, bool tt) {

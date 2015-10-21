@@ -19,15 +19,15 @@
 
 #include "context/context.h"
 #include "exists_forall/efsolver.h"
-#include "model/literal_collector.h"
-#include "model/projection.h"
+#include "model/literal_collector.h"    //get_implicant     (pre qf normalization)
+#include "model/projection.h"           //project_literals  (quantifier elimination)
 #include "terms/term_substitution.h"
 #include "utils/index_vectors.h"
 
 #include "yices.h"
 
 
-
+#define EF_VERBOSE 0
 
 /*
  * PRINT STUFF
@@ -777,7 +777,7 @@ static void ef_build_full_map(ef_solver_t *solver, uint32_t i) {
   assert(n == solver->uvalue_aux.size);
   ivector_add(v, solver->uvalue_aux.data, n);
 
-#if 0
+#if EF_VERBOSE
   printf("Full map\n");
   print_full_map(stdout, solver);
   fflush(stdout);
@@ -852,10 +852,20 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   }
   solver->full_model = mdl;
 
-  // Compute the implicant
+
+  // Constraint
   cnstr = solver->prob->cnstr + i;
-  a[0] = cnstr->assumption;
-  a[1] = opposite_term(cnstr->guarantee);
+  a[0] = cnstr->assumption;                 // B(y)
+  a[1] = opposite_term(cnstr->guarantee);   // not C(x, y)
+
+
+#if EF_VERBOSE
+  printf("Constraint:\n");
+  yices_pp_term_array(stdout, 2, a, 120, UINT32_MAX, 0, 0);
+  printf("(%"PRIu32" literals)\n", 2);
+#endif
+
+  // Compute the implicant
   v = &solver->implicant;
   ivector_reset(v);
   code = get_implicant(mdl, solver->prob->manager, LIT_COLLECTOR_ALL_OPTIONS, 2, a, v);
@@ -865,8 +875,8 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
     return NULL_TERM;
   }
 
-#if 0
-  printf("Implicant\n");
+#if EF_VERBOSE
+  printf("Implicant:\n");
   yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", v->size);
 #endif
@@ -875,15 +885,23 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   w = &solver->projection;
   ivector_reset(w);
   n = ef_constraint_num_uvars(cnstr);
+
+#if EF_VERBOSE
+  printf("(%"PRIu32" universals)\n", n);
+  yices_pp_term_array(stdout, n, cnstr->uvars, 120, UINT32_MAX, 0, 0);
+#endif
+
+  
   pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w);
+
   if (pflag != PROJ_NO_ERROR) {
     solver->status = EF_STATUS_PROJECTION_ERROR;
     solver->error_code = pflag;
     return NULL_TERM;
   }
 
-#if 0
-  printf("Projection\n");
+#if EF_VERBOSE
+  printf("Projection:\n");
   yices_pp_term_array(stdout, w->size, w->data, 120, UINT32_MAX, 0, 0);
   printf("(%"PRIu32" literals)\n", w->size);
 #endif
@@ -1052,7 +1070,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
-#if 0
+#if EF_VERBOSE
       printf("Counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
@@ -1117,7 +1135,7 @@ static void ef_solver_search(ef_solver_t *solver) {
 	  ef_prob_num_constraints(solver->prob),
 	  ef_prob_num_evars(solver->prob),
 	  ef_prob_num_uvars(solver->prob));
-#if 0
+#if EF_VERBOSE
   printf("\nConditions on the exists variables:\n");
   yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -1134,7 +1152,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
-#if 0
+#if EF_VERBOSE
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);
