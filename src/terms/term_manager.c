@@ -4001,12 +4001,11 @@ static void bvarray_copy_constant64(ivector_t *v, uint32_t n, uint64_t c) {
 
 
 /*
- * Check whether v + a * x can be converted to (v | (x << k))  for some k
- * - a must be an array of n boolean terms
- * - v must contain a bitvector constant (represented as an array of
- *   integers, each equal to true_term or false_term)
- * - return true if that can be done and update v to (v | (x << k))
+ * Check whether v + c * a can be converted to (v | (a << k))  for some k
+ * - return true if that can be done and update v to (v | (a << k))
  * - otherwise, return false and keep v unchanged
+ * - a must be an array of n boolean terms
+ * - v must also contain n boolean terms
  */
 static bool bvarray_check_addmul(ivector_t *v, uint32_t n, uint32_t *c, term_t *a) {
   uint32_t i, w;
@@ -4022,7 +4021,9 @@ static bool bvarray_check_addmul(ivector_t *v, uint32_t n, uint32_t *c, term_t *
     return false;
   }
 
-  // c is 2^k; check whether v + (a << k) is equal to v | (a << k)
+  // c is 2^k so (c * a) is equal to (a << k)
+  // check whether we can convert the addition into a bitwise or, 
+  // that is, check whether  (v + (a << k)) is equal to (v | (a << k))
   assert(0 <= k && k < n);
   for (i=k; i<n; i++) {
     if (v->data[i] != false_term && a[i-k] != false_term) {
@@ -4135,7 +4136,7 @@ static term_t convert_bvarith_to_bvarray(term_manager_t *manager, bvarith_buffer
 
     assert(bv->arity == n);
 
-    // try to convert coeff * v into shift + bitwise or
+    // try to convert coeff * bv into shift + bitwise or
     if (! bvarray_check_addmul(v, n, m->coeff, bv->arg)) {
       return NULL_TERM;  // conversion failed
     }
@@ -4179,7 +4180,7 @@ static term_t convert_bvarith64_to_bvarray(term_manager_t *manager, bvarith64_bu
 
     assert(bv->arity == n);
 
-    // try to convert coeff * v into shift + bitwise or
+    // try to convert coeff * bv into shift + bitwise or
     if (! bvarray_check_addmul64(v, n, m->coeff, bv->arg)) {
       return NULL_TERM;  // conversion failed
     }

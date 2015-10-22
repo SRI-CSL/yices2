@@ -7194,9 +7194,6 @@ static inline bool is_root_var(bv_solver_t *solver, thvar_t x) {
 
 
 #if 0
-// NOT USED
-#endif
-#if 0
 
 /*
  * For testing: print the parent vectors of all variables in vector v
