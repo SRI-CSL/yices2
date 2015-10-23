@@ -13,27 +13,12 @@
 /*
  * The source for Jenkins's mix and hash functions is
  * at http://www.burtleburtle.net/bob/hash/index.html.
- * We use functions from Jenkins's lookup2.c and lookup3.c
- * (both are Public Domain).
+ * We use functions from Jenkins's lookup3.c
+ * (which is Public Domain).
  *
  * int_hash_sets.c uses another hash function from Bob Jenkins's web
  * site.
  */
-
-/* Jenkins's lookup2.c code */
-#define mix(a, b, c)                \
-{                                   \
-  a -= b; a -= c; a ^= (c>>13);     \
-  b -= c; b -= a; b ^= (a<<8);      \
-  c -= a; c -= b; c ^= (b>>13);     \
-  a -= b; a -= c; a ^= (c>>12);     \
-  b -= c; b -= a; b ^= (a<<16);     \
-  c -= a; c -= b; c ^= (b>>5);      \
-  a -= b; a -= c; a ^= (c>>3);      \
-  b -= c; b -= a; b ^= (a<<10);     \
-  c -= a; c -= b; c ^= (b>>15);     \
-}
-
 
 /* Jenkins's lookup3 code */
 #define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
@@ -61,77 +46,10 @@
 
 
 /*
- * Variant of Jenkins's original lookup2 hash function
- * for null-terminated strings.
+ * Variant of jenkins's orignal hash function for null-terminated string
+ * using the lookup3 mixx and final.
  */
 uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed) {
-  uint32_t a, b, c, x;
-
-  a = b = 0x9e3779b9;
-  c = seed;
-
-  for (;;) {
-    x = *s ++;
-    if (x == 0) return c;
-    a += x;
-    a <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    a += x;
-    a <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    a += x;
-    a <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    a += x;
-
-    x = *s ++;
-    if (x == 0) break;
-    b += x;
-    b <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    b += x;
-    b <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    b += x;
-    b <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    b += x;
-
-    x = *s ++;
-    if (x == 0) break;
-    c += x;
-    c <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    c += x;
-    c <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    c += x;
-    c <<= 8;
-    x = *s ++;
-    if (x == 0) break;
-    c += x;
-
-    mix(a, b, c);
-  }
-
-  mix(a, b, c);
-
-  return c;
-}
-
-
-/*
- * Another variant using the lookup3 mixx and final.
- */
-uint32_t jenkins_hash_byte_var2(const uint8_t *s, uint32_t seed) {
   uint32_t a, b, c, x;
 
   a = b = 0x9e3779b9;

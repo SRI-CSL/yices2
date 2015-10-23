@@ -126,6 +126,72 @@ static uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
 }
 
 
+/*
+ * Variant of Jenkins's original lookup2 hash function
+ * for null-terminated strings.
+ */
+static uint32_t jenkins_hash_byte_var1(const uint8_t *s, uint32_t seed) {
+  uint32_t a, b, c, x;
+
+  a = b = 0x9e3779b9;
+  c = seed;
+
+  for (;;) {
+    x = *s ++;
+    if (x == 0) return c;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+
+    mix(a, b, c);
+  }
+
+  mix(a, b, c);
+
+  return c;
+}
 
 
 
@@ -269,25 +335,26 @@ static void words_from_file(char *filename) {
   str = fgets(buffer, 99, f);
   while (str != NULL) {
     len = strlen(str);
-    // remove \n if present
-    if (str[len - 1] == '\n') {
-      len --;
-      str[len] = '\0';
+    if (len > 0) {
+      // remove \n if present
+      if (str[len - 1] == '\n') {
+	len --;
+	str[len] = '\0';
+      }
+      tmp = (char *) malloc(len + 1);
+      if (tmp == NULL) {
+	fprintf(stderr, "malloc failed after %"PRIu32" words; skipping the rest of the file.\n", i);
+	break;
+      }
+      strcpy(tmp, str);
+      if (i == n) {
+	n += 100;
+	words = (char **) realloc(words, n * sizeof(char *));
+	size_words = n;
+      }
+      words[i] = tmp;
+      i ++;
     }
-    tmp = (char *) malloc(len + 1);
-    if (tmp == NULL) {
-      fprintf(stderr, "malloc failed after %"PRIu32" words; skipping the rest of the file.\n", i);
-      break;
-    }
-    strcpy(tmp, str);
-    if (i == n) {
-      n += 100;
-      words = (char **) realloc(words, n * sizeof(char *));
-      size_words = n;
-    }
-    words[i] = tmp;
-    i ++;
-
     str = fgets(buffer, 99, f);
   }
   fclose(f);
@@ -336,20 +403,21 @@ static void file_test(char *filename) {
   for (i=0; i<100000; i++) {
     for (j=0; j<N; j++) stat[j] = 0;
     for (j=0; j<n_words; j++) {
-      h = jenkins_hash_byte_var((uint8_t *) words[j], 0x17838abc) & MASK;
+      h = jenkins_hash_byte_var1((uint8_t *) words[j], 0x17838abc) & MASK;
       stat[h] ++;
     }
   }
   runtime = get_cpu_time() - runtime;
 
-  printf("\nJenkins hash variant: %.4f\n\n", runtime);
+  printf("\nJenkins hash variant1: %.4f\n\n", runtime);
   histogram();
 
   runtime = get_cpu_time();
   for (i=0; i<100000; i++) {
     for (j=0; j<N; j++) stat[j] = 0;
     for (j=0; j<n_words; j++) {
-      h = jenkins_hash_byte_var2((uint8_t *) words[j], 0x17838abc) & MASK;
+      // this variant is in src/utils/hash_functions.c
+      h = jenkins_hash_byte_var((uint8_t *) words[j], 0x17838abc) & MASK;
       stat[h] ++;
     }
   }
