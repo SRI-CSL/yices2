@@ -28,11 +28,12 @@ static inline int random(void) {
 #endif
 
 
-#define N 1024
+#define N 262144
 #define MASK (N - 1)
+#define HIST 1000
 
 static int stat[N];
-static int hist[30];
+static int hist[HIST];
 static char buffer[1000];
 
 static char **words;
@@ -43,7 +44,7 @@ static uint32_t size_words;
 /*
  * Simple hash for strings
  */
-uint32_t hash_string(char *s) {
+static uint32_t hash_string(char *s) {
   uint32_t h, x;
 
   h = 0;
@@ -76,10 +77,6 @@ uint32_t hash_string(char *s) {
   c -= a; c -= b; c ^= (b>>15);     \
 }
 
-
-/*
- * Original Jenkins hash function
- */
 static uint32_t jenkins_hash_byte_ori(char *k, uint32_t len, uint32_t initval) {
   uint32_t a, b, c, n;
 
@@ -122,11 +119,13 @@ static uint32_t jenkins_hash_byte_ori(char *k, uint32_t len, uint32_t initval) {
 /*
  * Hash of a character string.
  */
-uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
+static uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
   uint32_t n;
   n = strlen(s);
   return jenkins_hash_byte_ori(s, n, seed);
 }
+
+
 
 
 
@@ -138,7 +137,7 @@ uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
 static void histogram() {
   int i, j, last, over;
 
-  for (i=0; i<30; i++) {
+  for (i=0; i<HIST; i++) {
     hist[i] = 0;
   }
   over = 0;
@@ -146,7 +145,7 @@ static void histogram() {
 
   for (i=0; i<N; i++) {
     j = stat[i];
-    if (j >= 30) {
+    if (j >= HIST) {
       over ++;
     } else {
       hist[j] ++;
@@ -342,7 +341,20 @@ static void file_test(char *filename) {
     }
   }
   runtime = get_cpu_time() - runtime;
+
   printf("\nJenkins hash variant: %.4f\n\n", runtime);
+  histogram();
+
+  runtime = get_cpu_time();
+  for (i=0; i<100000; i++) {
+    for (j=0; j<N; j++) stat[j] = 0;
+    for (j=0; j<n_words; j++) {
+      h = jenkins_hash_byte_var2((uint8_t *) words[j], 0x17838abc) & MASK;
+      stat[h] ++;
+    }
+  }
+  runtime = get_cpu_time() - runtime;
+  printf("\nJenkins hash variant2: %.4f\n\n", runtime);
   histogram();
 }
 

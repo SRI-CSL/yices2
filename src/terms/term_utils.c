@@ -464,51 +464,95 @@ static void bitarray_lower_bound_unsigned(composite_term_t *a, bvconstant_t *c) 
 
 
 /*
+ * Find the number significant bits of a (in 2s complement)
+ * - returns m if a is the sign-extension of a smaller b of m bits
+ *   or n otherwise
+ * - a is an array of n Boolean terms
+ * - a[n-1] is the sign bit
+ * - this searches for the largest m <= n such that a[m-1] is not equal to a[n-1].
+ */
+static uint32_t bitarray_significant_bits(composite_term_t *a) {
+  uint32_t n;
+  term_t sign;
+
+  assert(a->arity > 0);
+
+  n = a->arity - 1;
+  sign = a->arg[n]; // sign bit
+  while (n > 0) {
+    if (a->arg[n - 1] != sign) break;
+    n --;
+  }
+  return n + 1;
+}
+
+
+/*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
- *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[n-1]
+ * - a is an array of n bits. 
+ * - Let m be the number of significant bits in a, then we have
+ *   1 <= m <= n
+ *   bits a[m-1] .... a[n-1] are all equal (sign extension)
+ *   a = a[0] + 2 a[1] + ... + 2^(m-2) a[m-2] - 2^(m-1) a[m-1]
+ *
  * upper bound:
- *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0
- *   replace the sign bit a[n-1] by 0 unless a[n-1] = 1.
+ *   for i=0 to m-2, replace a[i] by 1 if a[i] != 0
+ *   for i=m-1 to n-1, replace a[i] by 0 unless a[i] = 1.
+ *
  * lower bound:
- *   for i=0 to n-2, replace a[i] by 0 if a[i] != 1
- *   replace the sign bit a[n-1] by 1 unless a[n-1] = 0.
+ *   for i=0 to m-2, replace a[i] by 0 if a[i] != 1
+ *   for i=m-1 to n-1, replace a[i] by 1 unless a[i] = 0.
  */
 static void bitarray_upper_bound_signed(composite_term_t *a, bvconstant_t *c) {
-  uint32_t i, n;
+  uint32_t i, n, m;
 
   assert(a->arity > 0);
 
   n = a->arity;
   bvconstant_set_all_one(c, n);
 
-  for (i=0; i<n-1; i++) {
+  m = bitarray_significant_bits(a);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a->arg[i] == false_term) {
       bvconst_clr_bit(c->data, i);
     }
   }
 
+  // all bits from a->arg[i] to a->arg[n-1] are the same
   if (a->arg[i] != true_term) {
-    bvconst_clr_bit(c->data, i);
+    while (i < n) {
+      bvconst_clr_bit(c->data, i);
+      i ++;
+    }
   }
 }
 
 
 static void bitarray_lower_bound_signed(composite_term_t *a, bvconstant_t *c) {
-  uint32_t i, n;
+  uint32_t i, n, m;
 
   assert(a->arity > 0);
 
   n = a->arity;
   bvconstant_set_all_zero(c, n);
 
-  for (i=0; i<n-1; i++) {
+  m = bitarray_significant_bits(a);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a->arg[i] == true_term) {
       bvconst_set_bit(c->data, i);
     }
   }
 
+  // all bits from a->arg[i] to a->arg[n-1] are the same
   if (a->arg[i] != false_term) {
-    bvconst_set_bit(c->data, i);
+    while (i < n) {
+      bvconst_set_bit(c->data, i);
+      i ++;
+    }
   }
 }
 
@@ -566,30 +610,42 @@ static uint64_t bitarray_lower_bound_unsigned64(composite_term_t *a) {
 
 /*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
- *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[n-1]
+ *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[m-1]
+ *   where m = number of significant bits in a.
+ *
  * upper bound:
- *   for i=0 to n-2, replace a[i] by 1 if a[i] != 0
- *   replace the sign bit a[n-1] by 0 unless a[n-1] = 1.
+ *   for i=0 to m-2, replace a[i] by 1 if a[i] != 0
+ *   for i=m-1 to n-1, replace a[i] by 0 unless a[i] = 1.
+ *
  * lower bound:
- *   for i=0 to n-2, replace a[i] by 0 if a[i] != 1
- *   replace the sign bit a[n-1] by 1 unless a[n-1] = 0.
+ *   for i=0 to m-2, replace a[i] by 0 if a[i] != 1
+ *   for i=m-1 to n-1, replace a[i] by 1 unless a[i] = 0.
  */
 static uint64_t bitarray_upper_bound_signed64(composite_term_t *a) {
   uint64_t c;
-  uint32_t i, n;
+  uint32_t i, n, m;
 
   assert(0 < a->arity && a->arity <= 64);
 
   n = a->arity;
   c = mask64(n); // c = 0001...1
-  for (i=0; i<n-1; i++) {
+
+  m = bitarray_significant_bits(a);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a->arg[i] == false_term) {
       c = clr_bit64(c, i);
     }
   }
 
+  // i is equal to m-1
+  // All bits from a->arg[m-1] to a->arg[n-1] are the same
   if (a->arg[i] != true_term) {
-    c = clr_bit64(c, i); // clear the sign bit
+    while (i < n) {
+      c = clr_bit64(c, i);
+      i ++;
+    }
   }
 
   return c;
@@ -598,21 +654,29 @@ static uint64_t bitarray_upper_bound_signed64(composite_term_t *a) {
 
 static uint64_t bitarray_lower_bound_signed64(composite_term_t *a) {
   uint64_t c;
-  uint32_t i, n;
+  uint32_t i, n, m;
 
   assert(0 < a->arity && a->arity <= 64);
 
   n = a->arity;
   c = 0;
 
-  for (i=0; i<n-1; i++) {
+  m = bitarray_significant_bits(a);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a->arg[i] == true_term) {
       c = set_bit64(c, i);
     }
   }
 
+  // i is equal to m-1.
+  // All bits from a->arg[m-1] to a->arg[n-1] are the same
   if (a->arg[i] != false_term) {
-    c = set_bit64(c, i); // set the sign bit
+    while (i < n) {
+      c = set_bit64(c, i);
+      i ++;
+    }
   }
 
   return c;

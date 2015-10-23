@@ -12,10 +12,9 @@
 
 /*
  * The source for Jenkins's mix and hash functions is
- * http://www.burtleburtle.net/bob/hash/index.html
- *
- * The specific function below is lookup2.c (this is Public Domain)
- * http://www.burtleburtle.net/bob/c/lookup2.c
+ * at http://www.burtleburtle.net/bob/hash/index.html.
+ * We use functions from Jenkins's lookup2.c and lookup3.c
+ * (both are Public Domain).
  *
  * int_hash_sets.c uses another hash function from Bob Jenkins's web
  * site.
@@ -59,7 +58,6 @@
   b ^= a; b -= rot(a,14); \
   c ^= b; c -= rot(b,24); \
 }
-
 
 
 /*
@@ -128,6 +126,74 @@ uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed) {
 
   return c;
 }
+
+
+/*
+ * Another variant using the lookup3 mixx and final.
+ */
+uint32_t jenkins_hash_byte_var2(const uint8_t *s, uint32_t seed) {
+  uint32_t a, b, c, x;
+
+  a = b = 0x9e3779b9;
+  c = seed;
+
+  for (;;) {
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+    a <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    a += x;
+
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+    b <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    b += x;
+
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+    c <<= 8;
+    x = *s ++;
+    if (x == 0) break;
+    c += x;
+
+    mixx(a, b, c);
+  }
+
+  final(a, b, c);
+
+  return c;
+}
+
 
 
 /*
