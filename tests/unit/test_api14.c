@@ -104,7 +104,7 @@ static void oom_handler(void) {
 
 int main(void) {
   jmp_buf buffer;
-  uint32_t n;
+  volatile uint32_t n;
   term_t t;
 
   env = NULL;

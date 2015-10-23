@@ -2980,6 +2980,30 @@ static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 
 /*
+ * Number of significant bits in a
+ * - a is an array of n literals
+ * - this searches for the largest m such that a[m-2] /= a[n-1]
+ *
+ * This is used to deal with sign-extension. If a is equal to
+ * (sign-extend k b) where b has m bits, then this function returns m
+ * (or something smaller than m).
+ */
+static uint32_t bitarray_num_significant_bits(literal_t *a, uint32_t n) {
+  literal_t sign;
+
+  assert(0 < n);
+
+  n --;
+  sign = a[n]; // sign bit
+  while (n > 0) {
+    if (a[n - 1] != sign) break;
+    n --;
+  }
+  return n + 1;
+}
+
+
+/*
  * Compute a lower and upper bound on a bitarray a
  * - n = number of bits in a. n must be no more than 64
  * - the bounds are returned in intv
@@ -3007,15 +3031,25 @@ static void bitarray_bounds_unsigned64(literal_t *a, uint32_t n, bv64_interval_t
   intv->nbits = n;
 }
 
+
+/*
+ * Bounds on a, when interpreted as a sign integer in 2s complement representation.
+ * This checks whether a is of the form (sign-extend ... b) to get more
+ * precise bounds.  (cf. term_utils.c for more details).
+ */
 static void bitarray_bounds_signed64(literal_t *a, uint32_t n, bv64_interval_t *intv) {
   uint64_t low, high;
-  uint32_t i;
+  uint32_t i, m;
 
   assert(0 < n && n <= 64);
 
   low = 0;
   high = mask64(n);   // all bits equal to 1
-  for (i=0; i<n-1; i++) {
+
+  m = bitarray_num_significant_bits(a, n);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a[i] == false_literal) {
       high = clr_bit64(high, i);
     } else if (a[i] == true_literal) {
@@ -3023,12 +3057,17 @@ static void bitarray_bounds_signed64(literal_t *a, uint32_t n, bv64_interval_t *
     }
   }
 
-  // test the sign bit
-  if (a[i] != true_literal) { // sign bit may be 0
-    high = clr_bit64(high, i);
+  // All the bits from m-1 to n-1 are the same; they are equal to a[n-1].
+
+  if (a[n-1] != true_literal) { // the sign bit may be 0
+    for (i=m-1; i<n; i++) {
+      high = clr_bit64(high, i);
+    }
   }
-  if (a[i] != false_literal) { // sign bit may be 1
-    low = set_bit64(low, i);
+  if (a[i] != false_literal) { // the sign bit may be 1
+    for (i=m-1; i<n; i++) {
+      low = set_bit64(low, i);
+    }
   }
 
   assert(signed64_ge(high, low, n) && low == norm64(low, n) && high == norm64(high, n));
@@ -3056,16 +3095,26 @@ static void bitarray_bounds_unsigned(literal_t *a, uint32_t n, bv_interval_t *in
       bvconst_clr_bit(intv->high, i);
     }
   }
+
+  assert(bvconst_is_normalized(intv->low, n) && 
+	 bvconst_is_normalized(intv->high, n) &&
+	 bvconst_le(intv->low, intv->high, n));
 }
 
+/*
+ * Same for a interpreted as a signed integer.
+ */
 static void bitarray_bounds_signed(literal_t *a, uint32_t n, bv_interval_t *intv) {
-  uint32_t i;
+  uint32_t i, m;
 
   assert(n > 64);
 
   bv_triv_interval_s(intv, n); // intv->low = 0b100000, intv->high = 0b011111
 
-  for (i=0; i<n-1; i++) {
+  m = bitarray_num_significant_bits(a, n);
+  assert(0 < m && m <= n);
+
+  for (i=0; i<m-1; i++) {
     if (a[i] == true_literal) {
       bvconst_set_bit(intv->low, i);
     } else if (a[i] == false_literal) {
@@ -3073,12 +3122,21 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bv_interval_t *intv
     }
   }
 
-  // sign bit
-  if (a[i] == false_literal) {   // the sign bit is 0
-    bvconst_clr_bit(intv->low, i);
-  } else if (a[i] == true_literal) {  // the sign bit is 1
-    bvconst_set_bit(intv->high, i);
+  // All the bits from m-1 to n-1 are the same; they are equal to a[n-1].
+  if (a[n-1] != true_literal) { // the sign bit may be 0
+    for (i=m-1; i<n; i++) {
+      bvconst_clr_bit(intv->high, i);
+    }
   }
+  if (a[i] != false_literal) { // the sign bit may be 1
+    for (i=m-1; i<n; i++) {
+      bvconst_set_bit(intv->low, i);
+    }
+  }
+
+  assert(bvconst_is_normalized(intv->low, n) && 
+	 bvconst_is_normalized(intv->high, n) &&
+	 bvconst_sle(intv->low, intv->high, n));
 }
 
 

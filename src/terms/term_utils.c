@@ -648,6 +648,8 @@ static uint64_t bitarray_upper_bound_signed64(composite_term_t *a) {
     }
   }
 
+  assert(c == norm64(c, n));
+
   return c;
 }
 
@@ -678,6 +680,9 @@ static uint64_t bitarray_lower_bound_signed64(composite_term_t *a) {
       i ++;
     }
   }
+
+  assert(c == norm64(c, n));
+
 
   return c;
 }
