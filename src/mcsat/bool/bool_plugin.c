@@ -172,6 +172,12 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
     ctx_trace_term(bp->ctx, term);
   }
 
+  // Ignore non-Boolean terms
+  if (term_type_kind(bp->ctx->terms, term) != BOOL_TYPE) {
+    assert(term_kind(bp->ctx->terms, term) == ITE_TERM);
+    return;
+  }
+
   // Convert to CNF
   cnf_convert(&bp->cnf, term, &bp->clauses_to_add);
 

@@ -32,13 +32,24 @@ void ite_plugin_destruct(plugin_t* plugin) {
 }
 
 void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
-  ite_plugin_t* ite = (ite_plugin_t*) plugin;
-  (void)ite;
+  ite_plugin_t* ite_plugin = (ite_plugin_t*) plugin;
 
-  if (ctx_trace_enabled(ite->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(ite->ctx, "ite_plugin_new_term_notify: ");
-    ctx_trace_term(ite->ctx, term);
+  if (ctx_trace_enabled(ite_plugin->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(ite_plugin->ctx, "ite_plugin_new_term_notify: ");
+    ctx_trace_term(ite_plugin->ctx, term);
   }
+
+  assert(term_kind(ite_plugin->ctx->terms, term) == ITE_TERM);
+
+  variable_db_t* var_db = ite_plugin->ctx->var_db;
+  composite_term_t* ite_desc = ite_term_desc(ite_plugin->ctx->terms, term);
+
+  // Get the ITE variables
+  variable_t ite, c, t_true, t_false;
+  ite = variable_db_get_variable(var_db, term);
+  c = variable_db_get_variable(var_db, ite_desc->arg[0]);
+  t_true = variable_db_get_variable(var_db, ite_desc->arg[1]);
+  t_false = variable_db_get_variable(var_db, ite_desc->arg[2]);
 }
 
 void ite_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
@@ -126,6 +137,6 @@ plugin_t* ite_plugin_allocator() {
   plugin->plugin_interface.push                = ite_plugin_push;
   plugin->plugin_interface.pop                 = ite_plugin_pop;
   plugin->plugin_interface.gc_mark             = ite_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep          = ite_plugin_gc_collect;
+  plugin->plugin_interface.gc_sweep            = ite_plugin_gc_collect;
   return (plugin_t*) plugin;
 }
