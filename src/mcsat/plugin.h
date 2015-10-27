@@ -97,6 +97,11 @@ struct trail_token_s {
    * Report a conflict.
    */
   void (*conflict) (trail_token_t* token);
+
+  /**
+   * Add a top-level lemma that will stay for the current user level.
+   */
+  void (*lemma) (trail_token_t* token, term_t lemma);
 };
 
 /**

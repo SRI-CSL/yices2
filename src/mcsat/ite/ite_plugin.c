@@ -6,7 +6,7 @@
  */
  
 #include "mcsat/ite/ite_plugin.h"
-
+#include "terms/term_manager.h"
 #include "mcsat/tracing.h"
 
 typedef struct {
@@ -17,18 +17,21 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
+  /** A term manager */
+  term_manager_t tm;
+
 } ite_plugin_t;
 
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
-
   ite->ctx = ctx;
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
+  init_term_manager(&ite->tm, ctx->terms);
 }
 
 void ite_plugin_destruct(plugin_t* plugin) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
-  (void)ite;
+  delete_term_manager(&ite->tm);
 }
 
 void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
@@ -41,15 +44,29 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
 
   assert(term_kind(ite_plugin->ctx->terms, term) == ITE_TERM);
 
-  variable_db_t* var_db = ite_plugin->ctx->var_db;
-  composite_term_t* ite_desc = ite_term_desc(ite_plugin->ctx->terms, term);
+  // Ignore the Boolean ITE terms
+  if (term_type_kind(ite_plugin->ctx->terms, term) == BOOL_TYPE) {
+    return;
+  }
 
-  // Get the ITE variables
-  variable_t ite, c, t_true, t_false;
-  ite = variable_db_get_variable(var_db, term);
-  c = variable_db_get_variable(var_db, ite_desc->arg[0]);
-  t_true = variable_db_get_variable(var_db, ite_desc->arg[1]);
-  t_false = variable_db_get_variable(var_db, ite_desc->arg[2]);
+  // Get the ITE parts
+  composite_term_t* ite_desc = ite_term_desc(ite_plugin->ctx->terms, term);
+  term_t c = ite_desc->arg[0];
+  term_t t_true = ite_desc->arg[1];
+  term_t t_false = ite_desc->arg[2];
+
+  // Make the lemmas
+  term_manager_t* tm = &ite_plugin->tm;
+  term_t eq_true = mk_eq(tm, term, t_true);
+  term_t eq_false = mk_eq(tm, term, t_false);
+  term_t imp1 = mk_implies(tm, c, eq_true);
+  term_t imp2 = mk_implies(tm, opposite_term(c), eq_false);
+  term_t disj = mk_binary_or(tm, eq_true, eq_false);
+
+  // Send off the lemmas
+  prop->lemma(prop, imp1);
+  prop->lemma(prop, imp2);
+  prop->lemma(prop, disj);
 }
 
 void ite_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
