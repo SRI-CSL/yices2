@@ -157,6 +157,9 @@ struct mcsat_solver_s {
   /** Plugin the reported a conflict */
   mcsat_plugin_context_t* plugin_in_conflict;
 
+  /** Lemmas reported by plugins  */
+  ivector_t plugin_lemmas;
+
   /** Number of plugins */
   uint32_t plugins_count;
 
@@ -328,12 +331,28 @@ void trail_token_conflict(trail_token_t* token) {
   tk->ctx->mcsat->trail->inconsistent = true;
 }
 
+static
+void trail_token_lemma(trail_token_t* token, term_t lemma) {
+  plugin_trail_token_t* tk = (plugin_trail_token_t*) token;
+
+  if (ctx_trace_enabled(&tk->ctx->ctx, "trail::lemma")) {
+    ctx_trace_printf(&tk->ctx->ctx, "plugin %s reporting a lemma\n", tk->ctx->plugin_name);
+  }
+
+  tk->used ++;
+
+  // Remember the lemma
+  ivector_push(&tk->ctx->mcsat->plugin_lemmas, lemma);
+}
+
+
 /** Concstruct the trail token */
 static inline
 void trail_token_construct(plugin_trail_token_t* token, mcsat_plugin_context_t* ctx, variable_t x) {
   token->token_interface.add = trail_token_add;
   token->token_interface.add_at_level = trail_token_add_at_level;
   token->token_interface.conflict = trail_token_conflict;
+  token->token_interface.lemma = trail_token_lemma;
   token->ctx = ctx;
   token->x = x;
   token->used = 0;
@@ -574,6 +593,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
 
   // Plugin vectors
   mcsat->plugins_count = 0;
+  mcsat->plugin_in_conflict = 0;
 
   // Construct the evaluator
   mcsat_evaluator_construct(&mcsat->evaluator, mcsat);
@@ -584,6 +604,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat->pending_requests_all.restart = false;
   mcsat->pending_requests_all.gc_calls = false;
   mcsat->pending_requests = false;
+
+  // Lemmas vector
+  init_ivector(&mcsat->plugin_lemmas, 0);
 
   // Construct stats
   statistics_construct(&mcsat->stats);
@@ -617,7 +640,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   variable_db_destruct(mcsat->var_db);
   safe_free(mcsat->var_db);
   var_queue_destruct(&mcsat->var_queue);
-
+  delete_ivector(&mcsat->plugin_lemmas);
   statistics_destruct(&mcsat->stats);
 }
 
@@ -951,6 +974,11 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
     trace_term_ln(mcsat->ctx->trace, mcsat->terms, f);
   }
 
+  // If we're unsat, no more assertions
+  if (mcsat->status == STATUS_UNSAT) {
+    return;
+  }
+
   (*mcsat->solver_stats.assertions) ++;
 
   assert(trail_is_at_base_level(mcsat->trail));
@@ -966,9 +994,27 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 
   // Assert the formula
   if (f_pos == f) {
-    trail_add_propagation(mcsat->trail, f_pos_var, &mcsat_value_true, MCSAT_MAX_PLUGINS, mcsat->trail->decision_level);
+    // f = true
+    if (!trail_has_value(mcsat->trail, f_pos_var)) {
+      trail_add_propagation(mcsat->trail, f_pos_var, &mcsat_value_true, MCSAT_MAX_PLUGINS, mcsat->trail->decision_level);
+    } else {
+      // If negative already, we're inconsistent
+      if (!trail_get_boolean_value(mcsat->trail, f_pos_var)) {
+        mcsat->status = STATUS_UNSAT;
+        return;
+      }
+    }
   } else {
-    trail_add_propagation(mcsat->trail, f_pos_var, &mcsat_value_false, MCSAT_MAX_PLUGINS, mcsat->trail->decision_level);
+    // f = false
+    if (!trail_has_value(mcsat->trail, f_pos_var)) {
+      trail_add_propagation(mcsat->trail, f_pos_var, &mcsat_value_false, MCSAT_MAX_PLUGINS, mcsat->trail->decision_level);
+    } else {
+      // If positive already, we're inconsistent
+      if (trail_get_boolean_value(mcsat->trail, f_pos_var)) {
+        mcsat->status = STATUS_UNSAT;
+        return;
+      }
+    }
   }
 
   // Do propagation
@@ -1403,6 +1449,11 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   uint32_t restart_resource;
   luby_t luby;
 
+  // If we're already unsat, just return
+  if (mcsat->status == STATUS_UNSAT) {
+    return;
+  }
+
   // Remember existing terms
   mcsat->terms_size_on_solver_entry = mcsat->terms->nelems;
 
@@ -1495,6 +1546,12 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
   for (i = 0; i < n; ++ i) {
     mcsat_assert_formula(mcsat, f[i]);
   }
+
+  // Add any lemmas that were added
+  for (i = 0; i < mcsat->plugin_lemmas.size; ++ i) {
+    mcsat_assert_formula(mcsat, mcsat->plugin_lemmas.data[i]);
+  }
+  ivector_reset(&mcsat->plugin_lemmas);
 
   return CTX_NO_ERROR;
 }

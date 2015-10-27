@@ -87,10 +87,18 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
     lp_trace_enable("polynomial::expensive");
   }
 
+  // Atoms
   ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
+
+  // Terms
+  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT);
+  ctx->request_term_notification_by_kind(ctx, ARITH_POLY);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
+
+  // Types
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
   ctx->request_decision_calls(ctx, REAL_TYPE);
 
