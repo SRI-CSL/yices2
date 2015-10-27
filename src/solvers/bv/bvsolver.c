@@ -3058,13 +3058,12 @@ static void bitarray_bounds_signed64(literal_t *a, uint32_t n, bv64_interval_t *
   }
 
   // All the bits from m-1 to n-1 are the same; they are equal to a[n-1].
-
   if (a[n-1] != true_literal) { // the sign bit may be 0
     for (i=m-1; i<n; i++) {
       high = clr_bit64(high, i);
     }
   }
-  if (a[i] != false_literal) { // the sign bit may be 1
+  if (a[n-1] != false_literal) { // the sign bit may be 1
     for (i=m-1; i<n; i++) {
       low = set_bit64(low, i);
     }
@@ -3128,7 +3127,7 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bv_interval_t *intv
       bvconst_clr_bit(intv->high, i);
     }
   }
-  if (a[i] != false_literal) { // the sign bit may be 1
+  if (a[n-1] != false_literal) { // the sign bit may be 1
     for (i=m-1; i<n; i++) {
       bvconst_set_bit(intv->low, i);
     }
