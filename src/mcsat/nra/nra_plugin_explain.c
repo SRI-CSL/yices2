@@ -397,8 +397,7 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
 
   term_t root_atom = NULL_TERM;
 
-  term_table_t* terms = map->nra->ctx->terms;
-  rba_buffer_t* buffer = &map->nra->buffer;
+  term_manager_t* tm = &map->nra->tm;
 
   size_t p_deg = lp_polynomial_degree(p);
   if (p_deg == 1 && lp_polynomial_lc_is_constant(p)) {
@@ -407,29 +406,26 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
     // x r -b/a  [ a is positive ]
     // ax + b r 0
 
-    reset_rba_buffer(buffer);
     term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
-    rba_buffer_add_term(buffer, terms, p_term);
 
     switch (r) {
     case ROOT_ATOM_LT:
-      root_atom = mk_direct_arith_lt0(terms, buffer);
+      root_atom = mk_arith_term_lt0(tm, p_term);
       break;
     case ROOT_ATOM_LEQ:
-      root_atom = mk_direct_arith_leq0(terms, buffer);
+      root_atom = mk_arith_term_leq0(tm, p_term);
       break;
     case ROOT_ATOM_EQ:
-      root_atom = mk_direct_arith_eq0(terms, buffer);
+      root_atom = mk_arith_term_eq0(tm, p_term);
       break;
     case ROOT_ATOM_NEQ:
-      root_atom = mk_direct_arith_eq0(terms, buffer);
-      root_atom = opposite_term(root_atom);
+      root_atom = mk_arith_term_neq0(tm, p_term);
       break;
     case ROOT_ATOM_GEQ:
-      root_atom = mk_direct_arith_geq0(terms, buffer);
+      root_atom = mk_arith_term_geq0(tm, p_term);
       break;
     case ROOT_ATOM_GT:
-      root_atom = mk_direct_arith_gt0(terms, buffer);
+      root_atom = mk_arith_term_gt0(tm, p_term);
       break;
     default:
       assert(false);
@@ -439,7 +435,7 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
     variable_t x_var = nra_plugin_get_variable_from_lp_variable(map->nra, x);
     term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
     term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
-    root_atom = mk_direct_arith_root_atom(buffer, terms, root_index, x_term, p_term, r);
+    root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
   }
 
   return root_atom;

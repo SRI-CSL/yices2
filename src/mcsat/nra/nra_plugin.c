@@ -105,6 +105,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, INT_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
+  init_term_manager(&nra->tm, nra->ctx->terms);
 
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
@@ -133,6 +134,7 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_assignment_delete(nra->lp_data.lp_assignment);
 
   delete_rba_buffer(&nra->buffer);
+  delete_term_manager(&nra->tm);
 }
 
 static

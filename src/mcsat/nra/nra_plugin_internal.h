@@ -15,6 +15,8 @@
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/nra/feasible_set_db.h"
 
+#include "terms/term_manager.h"
+
 typedef struct poly_constraint_db_struct poly_constraint_db_t;
 typedef struct poly_constraint_struct poly_constraint_t;
 
@@ -104,6 +106,9 @@ typedef struct {
 
   /** Arithmetic buffer for computation */
   rba_buffer_t buffer;
+
+  /** Local term manager */
+  term_manager_t tm;
 
 } nra_plugin_t;
 
