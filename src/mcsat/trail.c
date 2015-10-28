@@ -67,12 +67,7 @@ void trail_print(const mcsat_trail_t* trail, FILE* out) {
       fprintf(out, "\n");
     }
 
-    term_t var_term = variable_db_get_term(trail->var_db, var);
-    yices_pp_t printer;
-    init_yices_pp(&printer, out, NULL, PP_HMODE, 0);
-    pp_term_full(&printer, trail->var_db->terms, var_term);
-    flush_pp(&printer.pp, false);
-    delete_yices_pp(&printer, false);
+    variable_db_print_variable(trail->var_db, var, out);
 
     switch (var_type) {
     case DECISION:

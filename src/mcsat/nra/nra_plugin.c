@@ -566,7 +566,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     if (TRACK_VAR(var) || TRACK_CONSTRAINT(var)) {
       fprintf(stderr, "Processing assignment of %d in the trail.\n", var);
     }
-    if (variable_db_is_real(var_db, var)) {
+    if (variable_db_is_real(var_db, var) || variable_db_is_int(var_db, var)) {
       // Real variables, detect if the constraint is unit
       nra_plugin_process_variable_assignment(nra, prop, var);
     } else if (nra_plugin_get_unit_info(nra, var) == CONSTRAINT_UNIT) {
@@ -915,7 +915,7 @@ void nra_plugin_pop(plugin_t* plugin) {
     // The variable to undo
     variable_t x = ivector_last(&nra->processed_variables);
     ivector_pop(&nra->processed_variables);
-    assert(variable_db_is_real(nra->ctx->var_db, x));
+    assert(variable_db_is_real(nra->ctx->var_db, x) || variable_db_is_int(nra->ctx->var_db, x));
     if (TRACK_VAR(x)) {
       fprintf(stderr, "Undoing tracked variable unit status.\n");
     }

@@ -189,6 +189,11 @@ void nra_plugin_add_lp_variable(nra_plugin_t* nra, variable_t mcsat_var) {
   if (var_name == NULL) {
     var_name = buffer;
     sprintf(var_name, "#%d", t);
+    if (ctx_trace_enabled(nra->ctx, "nra::vars")) {
+      ctx_trace_printf(nra->ctx, "%s -> ", var_name);
+      variable_db_print_variable(nra->ctx->var_db, mcsat_var, ctx_trace_out(nra->ctx));
+      ctx_trace_printf(nra->ctx, "\n");
+    }
   }
 
   // Make the variable
