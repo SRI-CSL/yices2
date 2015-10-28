@@ -26,6 +26,7 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->ctx = ctx;
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
   init_term_manager(&ite->tm, ctx->terms);
 }
 
@@ -42,7 +43,7 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
     ctx_trace_term(ite_plugin->ctx, term);
   }
 
-  assert(term_kind(ite_plugin->ctx->terms, term) == ITE_TERM);
+  assert(term_kind(ite_plugin->ctx->terms, term) == ITE_TERM || term_kind(ite_plugin->ctx->terms, term) == ITE_SPECIAL);
 
   // Ignore the Boolean ITE terms
   if (term_type_kind(ite_plugin->ctx->terms, term) == BOOL_TYPE) {

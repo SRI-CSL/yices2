@@ -98,9 +98,11 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_POLY);
   ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
 
-  // Types
+  // Types (we add INT because it's there for ITEs over int constants)
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
+  ctx->request_term_notification_by_type(ctx, INT_TYPE);
   ctx->request_decision_calls(ctx, REAL_TYPE);
+  ctx->request_decision_calls(ctx, INT_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
 
