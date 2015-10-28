@@ -93,7 +93,7 @@ uint32_t variable_db_size(const variable_db_t* var_db);
 bool variable_db_is_boolean(const variable_db_t* var_db, variable_t x);
 
 /** Returns true if the type of the variable is real */
-bool variable_db_is_integer(const variable_db_t* var_db, variable_t x);
+bool variable_db_is_int(const variable_db_t* var_db, variable_t x);
 
 /** Returns true if the type of the variable is integer */
 bool variable_db_is_real(const variable_db_t* var_db, variable_t x);
