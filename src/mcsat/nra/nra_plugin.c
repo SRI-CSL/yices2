@@ -106,6 +106,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
   init_term_manager(&nra->tm, nra->ctx->terms);
+  nra->tm.simplify_ite = false;
 
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);

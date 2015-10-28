@@ -1086,7 +1086,7 @@ static void add_le_atom(context_t *ctx, term_t t, term_t u) {
   assert(b != NULL && rba_buffer_is_zero(b));
   rba_buffer_add_term(b, ctx->terms, t);
   rba_buffer_sub_term(b, ctx->terms, u);   // b is t - u
-  a = mk_direct_arith_leq0(ctx->terms, b); // a is (t - u <= 0)
+  a = mk_direct_arith_leq0(ctx->terms, b, true); // a is (t - u <= 0)
 
   add_aux_atom(ctx, a);
 

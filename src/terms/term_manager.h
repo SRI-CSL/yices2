@@ -49,6 +49,9 @@
  * - r0: rational buffer
  * - bv0, bv1, bv2: buffers to store bitvector constants
  * - vector0: vector of integers
+ *
+ * Options:
+ * - simplify_ite = true if ite simplication is enabled
  */
 typedef struct term_manager_s {
   term_table_t *terms;
@@ -69,6 +72,8 @@ typedef struct term_manager_s {
   bvconstant_t bv1;
   bvconstant_t bv2;
   ivector_t vector0;
+
+  bool simplify_ite;
 } term_manager_t;
 
 
@@ -376,12 +381,13 @@ extern term_t mk_arith_lt(term_manager_t *manager, term_t t1, term_t t2);   // t
  * Variants: direct construction/simplification from a term table
  * These functions normalize b then create an atom
  * - side effect: b is reset
+ * If simplify_ite is true, simplifications are enabled
  */
-extern term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b);  // b >= 0
-extern term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b);  // b <= 0
-extern term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b);   // b > 0
-extern term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b);   // b < 0
-extern term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b);   // b == 0
+extern term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);  // b >= 0
+extern term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);  // b <= 0
+extern term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);   // b > 0
+extern term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);   // b < 0
+extern term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);   // b == 0
 
 
 /*
@@ -392,7 +398,7 @@ extern term_t mk_arith_root_atom(term_manager_t* manager, uint32_t k, term_t x, 
 /*
  * Arithmetic root atom (b is a buffer that can be cleared and used for computation).
  */
-extern term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r);
+extern term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r, bool simplify_ite);
 
 
 /*
@@ -409,12 +415,12 @@ extern term_t mk_arith_root_atom_geq(term_manager_t *manager, uint32_t k, term_t
 /*
  * Arithmetic root atoms (direct versions).
  */
-extern term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
-extern term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
-extern term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
-extern term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
-extern term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
-extern term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p);
+extern term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
+extern term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
+extern term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
+extern term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
+extern term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
+extern term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite);
 
 
 

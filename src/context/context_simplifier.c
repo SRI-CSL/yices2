@@ -1646,7 +1646,7 @@ static term_t lt0_atom(context_t *ctx, term_t t) {
   assert(b != NULL && rba_buffer_is_zero(b));
 
   rba_buffer_add_term(b, ctx->terms, t);
-  return mk_direct_arith_lt0(ctx->terms, b);
+  return mk_direct_arith_lt0(ctx->terms, b, true);
 }
 
 /*
@@ -1661,7 +1661,7 @@ static term_t gt0_atom(context_t *ctx, term_t t) {
   assert(b != NULL && rba_buffer_is_zero(b));
 
   rba_buffer_add_term(b, ctx->terms, t);
-  return mk_direct_arith_gt0(ctx->terms, b);
+  return mk_direct_arith_gt0(ctx->terms, b, true);
 }
 
 
@@ -1679,7 +1679,7 @@ static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
   assert(b != NULL && rba_buffer_is_zero(b));
   rba_buffer_add_term(b, ctx->terms, t);
   rba_buffer_sub_term(b, ctx->terms, u);
-  return mk_direct_arith_lt0(ctx->terms, b);
+  return mk_direct_arith_lt0(ctx->terms, b, true);
 }
 
 

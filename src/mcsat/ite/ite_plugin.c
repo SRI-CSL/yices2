@@ -28,6 +28,7 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
   ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
   init_term_manager(&ite->tm, ctx->terms);
+  ite->tm.simplify_ite = false;
 }
 
 void ite_plugin_destruct(plugin_t* plugin) {

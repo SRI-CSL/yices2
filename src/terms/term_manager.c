@@ -54,6 +54,8 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   init_bvconstant(&manager->bv1);
   init_bvconstant(&manager->bv2);
   init_ivector(&manager->vector0, 10);
+
+  manager->simplify_ite = true;
 }
 
 
@@ -1904,7 +1906,7 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
   }
 
   // rewriting of arithmetic if-then-elses
-  if (is_arithmetic_type(tau)) {
+  if (manager->simplify_ite && is_arithmetic_type(tau)) {
     if (is_integer_type(tau) && 
 	term_kind(manager->terms, t) == ARITH_POLY && 
 	term_kind(manager->terms, e) == ARITH_POLY) {
@@ -2010,7 +2012,7 @@ static term_t check_arith_eq0_simplifies(term_table_t *tbl, term_t t) {
  * for two arithmetic terms t1 and t2.
  * - try simplification and normalize first
  */
-static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
+static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool simplify_ite) {
   term_t aux;
 
   assert(is_arithmetic_term(tbl, t1) && is_arithmetic_term(tbl, t2));
@@ -2019,9 +2021,11 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
     return false_term;
   }
 
-  aux = check_aritheq_simplifies(tbl, t1, t2);
-  if (aux != NULL_TERM) {
-    return aux;
+  if (simplify_ite) {
+    aux = check_aritheq_simplifies(tbl, t1, t2);
+    if (aux != NULL_TERM) {
+      return aux;
+    }
   }
 
   // normalize: put the smallest term on the left
@@ -2037,7 +2041,7 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
  * Auxiliary function: builds equality (t == 0)
  * - try to simplify and normalize then build (arith-eq0 t)
  */
-static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t) {
+static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
     term_t aux;
 
   assert(is_arithmetic_term(tbl, t));
@@ -2046,9 +2050,11 @@ static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t) {
     return false_term;
   }
 
-  aux = check_arith_eq0_simplifies(tbl, t);
-  if (aux != NULL_TERM) {
-    return aux;
+  if (simplify_ite) {
+    aux = check_arith_eq0_simplifies(tbl, t);
+    if (aux != NULL_TERM) {
+      return aux;
+    }
   }
 
   return arith_eq_atom(tbl, t); // (t == 0)
@@ -2066,7 +2072,7 @@ static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t) {
  *   and return the atom (t == 0).
  */
 term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b) {
-  return mk_direct_arith_eq0(manager->terms, b);
+  return mk_direct_arith_eq0(manager->terms, b, manager->simplify_ite);
 }
 
 
@@ -2111,7 +2117,7 @@ static term_t check_arithge_simplifies(term_table_t *tbl, term_t t) {
  * Build the atom (t >= 0)
  * - try simplifications first
  */
-static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
+static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
   term_t aux;
 
   assert(is_arithmetic_term(tbl, t));
@@ -2120,9 +2126,11 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
     return true_term;
   }
 
-  aux = check_arithge_simplifies(tbl, t);
-  if (aux != NULL_TERM) {
-    return aux;
+  if (simplify_ite) {
+    aux = check_arithge_simplifies(tbl, t);
+    if (aux != NULL_TERM) {
+      return aux;
+    }
   }
 
   return arith_geq_atom(tbl, t);
@@ -2139,7 +2147,7 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
  * - otherwise, create a polynomial term t from b
  *   and return the atom (t == 0).
  */
-term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
+term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite) {
   mono_t *m[2], *m1, *m2;
   pprod_t *r1, *r2;
   rational_t r0;
@@ -2166,7 +2174,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
       t = false_term;
     } else {
       t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
-      t = mk_arith_eq0_atom(tbl, t1); // atom r1 = 0
+      t = mk_arith_eq0_atom(tbl, t1, simplify_ite); // atom r1 = 0
     }
 
   } else if (n == 2) {
@@ -2190,7 +2198,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
       q_div(&r0, &m2->coeff);  // r0 is -a1/a2
       t1 = arith_constant(tbl, &r0);
       t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-      t = mk_arith_bineq_atom(tbl, t1, t2);
+      t = mk_arith_bineq_atom(tbl, t1, t2, simplify_ite);
 
     } else {
       q_set(&r0, &m1->coeff);
@@ -2198,7 +2206,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
       if (q_is_zero(&r0)) {
         t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
         t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-        t = mk_arith_bineq_atom(tbl, t1, t2);
+        t = mk_arith_bineq_atom(tbl, t1, t2, simplify_ite);
 
       } else {
         // no simplification
@@ -2232,7 +2240,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b) {
  * - simplify to true or false if b is a constant
  * - otherwise build a term t from b and return the atom (t >= 0)
  */
-term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
+term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite) {
   mono_t *m;
   pprod_t *r;
   term_t t;
@@ -2258,7 +2266,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
         t = true_term;
       } else {
         t = pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
-        t = mk_arith_geq_atom(tbl, t); // r >= 0
+        t = mk_arith_geq_atom(tbl, t, simplify_ite); // r >= 0
       }
     } else {
       // a < 0
@@ -2267,7 +2275,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
       } else {
         q_set_minus_one(&m->coeff); // force a := -1
         t = arith_poly(tbl, b);
-        t = mk_arith_geq_atom(tbl, t);
+        t = mk_arith_geq_atom(tbl, t, simplify_ite);
       }
     }
 
@@ -2275,7 +2283,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
     // no simplification (for now).
     // could try to reduce the coefficients?
     t = arith_poly(tbl, b);
-    t = mk_arith_geq_atom(tbl, t);
+    t = mk_arith_geq_atom(tbl, t, simplify_ite);
   }
 
   reset_rba_buffer(b);
@@ -2289,7 +2297,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
  * Same thing: using a manager
  */
 term_t mk_arith_geq0(term_manager_t *manager, rba_buffer_t *b) {
-  return mk_direct_arith_geq0(manager->terms, b);
+  return mk_direct_arith_geq0(manager->terms, b, manager->simplify_ite);
 }
 
 
@@ -2456,7 +2464,7 @@ term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_arithmetic_term(manager->terms, t1) &&
          is_arithmetic_term(manager->terms, t2));
 
-  if (false && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
+  if (false && manager->simplify_ite && check_for_lift_if(manager->terms, t1, t2, &tmp)) {
     if (true) {
       return mk_lifted_aritheq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
     } else {
@@ -2617,26 +2625,27 @@ term_t mk_arith_term_lt0(term_manager_t *manager, term_t t) {
  * Variant: use a term table
  */
 // b <= 0  -->  (- b) >= 0
-term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b) {
+term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite) {
   rba_buffer_negate(b);
-  return mk_direct_arith_geq0(tbl, b);
+  return mk_direct_arith_geq0(tbl, b, simplify_ite);
 }
 
 // b > 0  -->  not (b <= 0)
-term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b) {
-  return opposite_term(mk_direct_arith_leq0(tbl, b));
+term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite) {
+  return opposite_term(mk_direct_arith_leq0(tbl, b, simplify_ite));
 }
 
 // b < 0  -->  not (b >= 0)
-term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b) {
-  return opposite_term(mk_direct_arith_geq0(tbl, b));
+term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite) {
+  return opposite_term(mk_direct_arith_geq0(tbl, b, simplify_ite));
 }
 
 
 /*
  * Make root atom.
  */
-term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buffer_t *p_b, root_atom_rel_t r) {
+static
+term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buffer_t *p_b, root_atom_rel_t r, bool simplify_ite) {
   uint32_t degree = rba_buffer_degree(p_b);
   uint32_t degree_x = rba_buffer_var_degree(p_b, x);
   uint32_t n;
@@ -2660,26 +2669,26 @@ term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buf
       switch (r) {
       case ROOT_ATOM_LT:
         rba_buffer_add_term(p_b, terms, x);
-        result = mk_direct_arith_lt0(terms, p_b);
+        result = mk_direct_arith_lt0(terms, p_b, simplify_ite);
         break;
       case ROOT_ATOM_LEQ:
         rba_buffer_add_term(p_b, terms, x);
-        result = mk_direct_arith_leq0(terms, p_b);
+        result = mk_direct_arith_leq0(terms, p_b, simplify_ite);
         break;
       case ROOT_ATOM_EQ:
-        result = mk_arith_eq0_atom(terms, x);
+        result = mk_arith_eq0_atom(terms, x, simplify_ite);
         break;
       case ROOT_ATOM_NEQ:
-        result = mk_arith_eq0_atom(terms, x);
+        result = mk_arith_eq0_atom(terms, x, simplify_ite);
         result = opposite_term(result);
         break;
       case ROOT_ATOM_GEQ:
         rba_buffer_add_term(p_b, terms, x);
-        result = mk_direct_arith_geq0(terms, p_b);
+        result = mk_direct_arith_geq0(terms, p_b, simplify_ite);
         break;
       case ROOT_ATOM_GT:
         rba_buffer_add_term(p_b, terms, x);
-        result = mk_direct_arith_gt0(terms, p_b);
+        result = mk_direct_arith_gt0(terms, p_b, simplify_ite);
         break;
       }
     } else {
@@ -2718,31 +2727,31 @@ term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buf
           case ROOT_ATOM_LT:
             rba_buffer_add_term(p_b, terms, x);
             rba_buffer_sub_const(p_b, &root);
-            result = mk_direct_arith_lt0(terms, p_b);
+            result = mk_direct_arith_lt0(terms, p_b, simplify_ite);
             break;
           case ROOT_ATOM_LEQ:
             rba_buffer_add_term(p_b, terms, x);
             rba_buffer_sub_const(p_b, &root);
-            result = mk_direct_arith_leq0(terms, p_b);
+            result = mk_direct_arith_leq0(terms, p_b, simplify_ite);
             break;
           case ROOT_ATOM_EQ:
             root_term = arith_constant(terms, &root);
-            result = mk_arith_bineq_atom(terms, x, root_term);
+            result = mk_arith_bineq_atom(terms, x, root_term, simplify_ite);
             break;
           case ROOT_ATOM_NEQ:
             root_term = arith_constant(terms, &root);
-            result = mk_arith_bineq_atom(terms, x, root_term);
+            result = mk_arith_bineq_atom(terms, x, root_term, simplify_ite);
             result = opposite_term(result);
             break;
           case ROOT_ATOM_GEQ:
             rba_buffer_add_term(p_b, terms, x);
             rba_buffer_sub_const(p_b, &root);
-            result = mk_direct_arith_geq0(terms, p_b);
+            result = mk_direct_arith_geq0(terms, p_b, simplify_ite);
             break;
           case ROOT_ATOM_GT:
             rba_buffer_add_term(p_b, terms, x);
             rba_buffer_sub_const(p_b, &root);
-            result = mk_direct_arith_gt0(terms, p_b);
+            result = mk_direct_arith_gt0(terms, p_b, simplify_ite);
             break;
           }
         } else {
@@ -2762,16 +2771,16 @@ term_t mk_arith_root_atom_aux(term_table_t* terms, uint32_t k, term_t x, rba_buf
   return result;
 }
 
-term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
+term_t mk_direct_arith_root_atom(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, root_atom_rel_t r, bool simplify_ite) {
   reset_rba_buffer(b);
   rba_buffer_add_term(b, terms, p);
-  return mk_arith_root_atom_aux(terms, k, x, b, r);
+  return mk_arith_root_atom_aux(terms, k, x, b, r, simplify_ite);
 }
 
 term_t mk_arith_root_atom(term_manager_t* manager, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
   rba_buffer_t *b;
   b = term_manager_get_arith_buffer(manager);
-  return mk_direct_arith_root_atom(b, manager->terms, k, x, p, r);
+  return mk_direct_arith_root_atom(b, manager->terms, k, x, p, r, manager->simplify_ite);
 }
 
 term_t mk_arith_root_atom_lt(term_manager_t *manager, uint32_t k, term_t x, term_t p) {
@@ -2798,16 +2807,16 @@ term_t mk_arith_root_atom_geq(term_manager_t *manager, uint32_t k, term_t x, ter
   return mk_arith_root_atom(manager, k, x, p, ROOT_ATOM_GEQ);
 }
 
-term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LT);
+term_t mk_direct_arith_root_atom_lt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LT, simplify_ite);
 }
 
-term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LEQ);
+term_t mk_direct_arith_root_atom_leq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_LEQ, simplify_ite);
 }
 
-term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_EQ);
+term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_EQ, simplify_ite);
 }
 
 /*
@@ -3062,7 +3071,7 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
   q = rational_term_desc(tbl, t1); 
 
   if (q_is_zero(q)) {
-    t = mk_arith_eq0_atom(tbl, t2);
+    t = mk_arith_eq0_atom(tbl, t2, manager->simplify_ite);
   } else if (q_is_one(q) || q_is_minus_one(q)) {
     t = mk_arith_is_int(manager, t2);
   } else {
@@ -3088,16 +3097,16 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
   return t;
 }
 
-term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_NEQ);
+term_t mk_direct_arith_root_atom_neq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_NEQ, simplify_ite);
 }
 
-term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GT);
+term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GT, simplify_ite);
 }
 
-term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p) {
-  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GEQ);
+term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
+  return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GEQ, simplify_ite);
 }
 
 
