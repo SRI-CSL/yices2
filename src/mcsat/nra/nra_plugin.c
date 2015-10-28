@@ -584,7 +584,7 @@ static
 void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_token, bool must) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
-  assert(variable_db_is_real(nra->ctx->var_db, x));
+  assert(variable_db_is_real(nra->ctx->var_db, x) || variable_db_is_int(nra->ctx->var_db, x));
 
   // Get the feasibility set
   lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
