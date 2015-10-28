@@ -1498,7 +1498,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
         goto conflict;
       } else {
         mcsat->status = STATUS_SAT;
-        trail_print(mcsat->trail, stderr);
         return;
       }
     }
