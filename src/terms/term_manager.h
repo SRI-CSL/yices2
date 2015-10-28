@@ -567,7 +567,7 @@ extern term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2);   // t1 <
  * - a is an array of n arithmetic terms
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  *
- * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * IMPORTANT: make sure the total degree is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
 extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a);
@@ -579,7 +579,7 @@ extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, co
  * - nbits = number of bits in each term of a
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  *
- * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * IMPORTANT: make sure the total degree is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
 extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits);
@@ -591,7 +591,7 @@ extern term_t mk_bvarith64_pprod(term_manager_t *manager, pprod_t *p, uint32_t n
  * - nbits = number of bits in each term of a
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  *
- * IMPORTANT: make sure the total degree overflow is no more than YICES_MAX_DEGREE
+ * IMPORTANT: make sure the total degree is no more than YICES_MAX_DEGREE
  * before calling this function.
  */
 extern term_t mk_bvarith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a, uint32_t nbits);
