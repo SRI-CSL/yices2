@@ -93,13 +93,13 @@ static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
-    if (arith_term_is_nonneg(terms, x) &&
+    if (arith_term_is_nonneg(terms, x, true) &&
         arith_term_is_negative(terms, y)) {
       return d->arg[0];
     }
 
     if (arith_term_is_negative(terms, x) &&
-        arith_term_is_nonneg(terms, y)) {
+        arith_term_is_nonneg(terms, y, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -176,11 +176,11 @@ static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
-    if (x == t2 && disequal_arith_terms(terms, y, t2)) {
+    if (x == t2 && disequal_arith_terms(terms, y, t2, true)) {
       return d->arg[0];
     }
 
-    if (y == t2 && disequal_arith_terms(terms, x, t2)) {
+    if (y == t2 && disequal_arith_terms(terms, x, t2, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -191,11 +191,11 @@ static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
-    if (x == t1 && disequal_arith_terms(terms, y, t1)) {
+    if (x == t1 && disequal_arith_terms(terms, y, t1, true)) {
       return d->arg[0];
     }
 
-    if (y == t1 && disequal_arith_terms(terms, x, t1)) {
+    if (y == t1 && disequal_arith_terms(terms, x, t1, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -2697,12 +2697,12 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
     ite = ite_term_desc(terms, t);
     assert(ite->arity == 3);
 
-    if (disequal_terms(terms, k, ite->arg[1])) {
+    if (disequal_terms(terms, k, ite->arg[1], true)) {
       // (t == k) is (not c) and (t == b)
       ivector_push(v, opposite_term(ite->arg[0]));
       t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
 
-    } else if (disequal_terms(terms, k, ite->arg[2])) {
+    } else if (disequal_terms(terms, k, ite->arg[2], true)) {
       // (t == k) is c and (t == a)
       ivector_push(v, ite->arg[0]);
       t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);

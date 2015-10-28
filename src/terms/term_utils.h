@@ -126,7 +126,7 @@ extern void term_finite_domain_bounds(term_table_t *tbl, term_t t, term_t *lb, t
  * - if the function returns true, then x and y can't be equal in any interpretation
  * - if it returns false, we don't know.
  */
-extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
+extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite);
 
 
 /*
@@ -135,13 +135,13 @@ extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
  * - two arithmetic terms
  */
 extern bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y);
-extern bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y);
+extern bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite);
 
 
 /*
  * Check whether a[i] can't equal b[i] for all i in 0 .. n-1
  */
-extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const term_t *b);
+extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const term_t *b, bool check_ite);
 
 
 /*
@@ -149,7 +149,7 @@ extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a,
  * this can be expensive: quadratic cost,
  * but should fail quickly on most examples
  */
-extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a);
+extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a, bool check_ite);
 
 
 /*
@@ -174,7 +174,7 @@ extern bool arith_term_is_not_integer(term_table_t *tbl, term_t t);
  * - return true if the checks can determine that t >= 0
  * - return false otherwise
  */
-extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t);
+extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t, bool check_ite);
 
 
 /*
@@ -183,7 +183,7 @@ extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t);
  * - return true if the checks can determine that t <= 0
  * - return false otherwise
  */
-extern bool arith_term_is_nonpos(term_table_t *tbl, term_t t);
+extern bool arith_term_is_nonpos(term_table_t *tbl, term_t t, bool check_ite);
 
 
 /*

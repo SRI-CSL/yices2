@@ -860,7 +860,7 @@ static inline bool disequal_boolean_terms(term_t x, term_t y) {
  *
  * TODO? we could do more when (x - y) is a polynomial with integer variables.
  */
-bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
+bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite) {
   term_kind_t kx, ky;
 
   if (is_integer_term(tbl, x) && is_non_integer_term(tbl, y)) {
@@ -878,16 +878,18 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
     return x != y; // because of hash consing.
   }
 
-  if (kx == ARITH_CONSTANT && ky == ITE_SPECIAL) {
-    return ! term_is_in_finite_domain(tbl, y, x);
-  }
+  if (check_ite) {
+    if (kx == ARITH_CONSTANT && ky == ITE_SPECIAL) {
+      return ! term_is_in_finite_domain(tbl, y, x);
+    }
 
-  if (kx == ITE_SPECIAL && ky == ARITH_CONSTANT) {
-    return !term_is_in_finite_domain(tbl, x, y);
-  }
+    if (kx == ITE_SPECIAL && ky == ARITH_CONSTANT) {
+      return !term_is_in_finite_domain(tbl, x, y);
+    }
 
-  if (kx == ITE_SPECIAL && ky == ITE_SPECIAL) {
-    return terms_have_disjoint_finite_domains(tbl, x, y);
+    if (kx == ITE_SPECIAL && ky == ITE_SPECIAL) {
+      return terms_have_disjoint_finite_domains(tbl, x, y);
+    }
   }
 
   if (kx == ARITH_POLY && ky == ARITH_POLY) {
@@ -1043,7 +1045,7 @@ bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
  * Tuple terms x and y are trivially distinct if they have components
  * x_i and y_i that are trivially distinct.
  */
-static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
+static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite) {
   composite_term_t *tuple_x, *tuple_y;
   uint32_t i, n;
 
@@ -1053,7 +1055,7 @@ static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
   n = tuple_x->arity;
   assert(n == tuple_y->arity);
   for (i=0; i<n; i++) {
-    if (disequal_terms(tbl, tuple_x->arg[i], tuple_y->arg[i])) {
+    if (disequal_terms(tbl, tuple_x->arg[i], tuple_y->arg[i], check_ite)) {
       return true;
     }
   }
@@ -1065,7 +1067,7 @@ static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
  * (update f x1 ... xn a) is trivially distinct from (update f x1 ... xn b)
  * if a is trivially distinct from b.
  */
-static bool disequal_update_terms(term_table_t *tbl, term_t x, term_t y) {
+static bool disequal_update_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite) {
   composite_term_t *update_x, *update_y;
   int32_t i, n;
 
@@ -1080,14 +1082,14 @@ static bool disequal_update_terms(term_table_t *tbl, term_t x, term_t y) {
     if (update_x->arg[i] != update_y->arg[i]) return false;
   }
 
-  return disequal_terms(tbl, update_x->arg[i], update_y->arg[i]);
+  return disequal_terms(tbl, update_x->arg[i], update_y->arg[i], check_ite);
 }
 
 
 /*
  * Top level check: x and y must be valid terms of compatible types
  */
-bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
+bool disequal_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite) {
   term_kind_t kind;
 
   if (is_boolean_term(tbl, x)) {
@@ -1097,7 +1099,7 @@ bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
 
   if (is_arithmetic_term(tbl, x)) {
     assert(is_arithmetic_term(tbl, y));
-    return disequal_arith_terms(tbl, x, y);
+    return disequal_arith_terms(tbl, x, y, check_ite);
   }
 
   if (is_bitvector_term(tbl, x)) {
@@ -1116,9 +1118,9 @@ bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
   case CONSTANT_TERM:
     return disequal_constant_terms(x, y);
   case TUPLE_TERM:
-    return disequal_tuple_terms(tbl, x, y);
+    return disequal_tuple_terms(tbl, x, y, check_ite);
   case UPDATE_TERM:
-    return disequal_update_terms(tbl, x, y);
+    return disequal_update_terms(tbl, x, y, check_ite);
   default:
     return false;
   }
@@ -1127,11 +1129,11 @@ bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
 
 
 // check whether a[i] cannot be equal to b[i] for one i
-bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const term_t *b) {
+bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const term_t *b, bool check_ite) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (disequal_terms(tbl, a[i], b[i])) return true;
+    if (disequal_terms(tbl, a[i], b[i], check_ite)) return true;
   }
 
   return false;
@@ -1139,12 +1141,12 @@ bool disequal_term_arrays(term_table_t *tbl, uint32_t n, const term_t *a, const 
 
 // check whether all elements of a are disequal
 // this is expensive: quadratic cost, but should fail quickly on most examples
-bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a) {
+bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a, bool check_ite) {
   uint32_t i, j;
 
   for (i=0; i<n; i++) {
     for (j=i+1; j<n; j++) {
-      if (! disequal_terms(tbl, a[i], a[j])) return false;
+      if (! disequal_terms(tbl, a[i], a[j], check_ite)) return false;
     }
   }
 
@@ -1164,7 +1166,7 @@ bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, const term_t *a) {
  * - return true if the checks can determine that t >= 0
  * - return false otherwise
  */
-bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
+bool arith_term_is_nonneg(term_table_t *tbl, term_t t, bool check_ite) {
   assert(is_arithmetic_term(tbl, t));
 
   switch (term_kind(tbl, t)) {
@@ -1172,7 +1174,7 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
     return q_is_nonneg(rational_term_desc(tbl, t));
 
   case ITE_SPECIAL:
-    return term_has_nonneg_finite_domain(tbl, t);
+    return check_ite && term_has_nonneg_finite_domain(tbl, t);
 
   case ARITH_POLY:
     return polynomial_is_nonneg(poly_term_desc(tbl, t));
@@ -1183,11 +1185,11 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
 
   case ARITH_FLOOR:
     // (floor t) >= 0 IFF t >= 0
-    return arith_term_is_nonneg(tbl, arith_floor_arg(tbl, t));
+    return arith_term_is_nonneg(tbl, arith_floor_arg(tbl, t), check_ite);
 
   case ARITH_CEIL:
     // t>=0 IMPLIES (ceil t) >= 0
-    return arith_term_is_nonneg(tbl, arith_ceil_arg(tbl, t));
+    return arith_term_is_nonneg(tbl, arith_ceil_arg(tbl, t), check_ite);
 
   default:
     return false;
@@ -1200,7 +1202,7 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
  * - return true if the checks can determine that t <= 0
  * - return false otherwise
  */
-bool arith_term_is_nonpos(term_table_t *tbl, term_t t) {
+bool arith_term_is_nonpos(term_table_t *tbl, term_t t, bool check_ite) {
   assert(is_arithmetic_term(tbl, t));
 
   switch (term_kind(tbl, t)) {
@@ -1208,18 +1210,18 @@ bool arith_term_is_nonpos(term_table_t *tbl, term_t t) {
     return q_is_nonpos(rational_term_desc(tbl, t));
 
   case ITE_SPECIAL:
-    return term_has_nonpos_finite_domain(tbl, t);
+    return check_ite && term_has_nonpos_finite_domain(tbl, t);
 
   case ARITH_POLY:
     return polynomial_is_nonpos(poly_term_desc(tbl, t));
 
   case ARITH_FLOOR:
     // t <= 0 IMPLIES (floor t) <= 0
-    return arith_term_is_nonpos(tbl, arith_floor_arg(tbl, t));
+    return arith_term_is_nonpos(tbl, arith_floor_arg(tbl, t), check_ite);
 
   case ARITH_CEIL:
     // (ceil t) <= 0 IFF t <= 0
-    return arith_term_is_nonpos(tbl, arith_ceil_arg(tbl, t));
+    return arith_term_is_nonpos(tbl, arith_ceil_arg(tbl, t), check_ite);
 
   default:
     return false;

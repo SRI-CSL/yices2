@@ -1447,7 +1447,7 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
 	  if (table[k] == NULL_TERM) {
 	    table[k] = d->value;
 	  } else if (table[k] != d->value) {
-	    assert(table[k] == -2 || disequal_terms(c->terms, d->value, table[k]));
+	    assert(table[k] == -2 || disequal_terms(c->terms, d->value, table[k], true));
 	    table[k] = -2;
 	  }
 	}

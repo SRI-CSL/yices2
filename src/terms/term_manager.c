@@ -1954,10 +1954,10 @@ static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) 
     d = ite_term_desc(tbl, t1);
     x = d->arg[1];
     y = d->arg[2];
-    if (x == t2 && disequal_arith_terms(tbl, y, t2)) {
+    if (x == t2 && disequal_arith_terms(tbl, y, t2, true)) {
       return d->arg[0];
     }
-    if (y == t2 && disequal_arith_terms(tbl, x, t2)) {
+    if (y == t2 && disequal_arith_terms(tbl, x, t2, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -1967,10 +1967,10 @@ static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) 
     d = ite_term_desc(tbl, t2);
     x = d->arg[1];
     y = d->arg[2];
-    if (x == t1 && disequal_arith_terms(tbl, y, t1)) {
+    if (x == t1 && disequal_arith_terms(tbl, y, t1, true)) {
       return d->arg[0];
     }
-    if (y == t1 && disequal_arith_terms(tbl, x, t1)) {
+    if (y == t1 && disequal_arith_terms(tbl, x, t1, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -2017,7 +2017,7 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool 
 
   assert(is_arithmetic_term(tbl, t1) && is_arithmetic_term(tbl, t2));
 
-  if (disequal_arith_terms(tbl, t1, t2)) {
+  if (disequal_arith_terms(tbl, t1, t2, simplify_ite)) {
     return false_term;
   }
 
@@ -2098,13 +2098,13 @@ static term_t check_arithge_simplifies(term_table_t *tbl, term_t t) {
     x = d->arg[1];
     y = d->arg[2];
 
-    if (arith_term_is_nonneg(tbl, x) &&
+    if (arith_term_is_nonneg(tbl, x, true) &&
         arith_term_is_negative(tbl, y)) {
       return d->arg[0];
     }
 
     if (arith_term_is_negative(tbl, x) &&
-        arith_term_is_nonneg(tbl, y)) {
+        arith_term_is_nonneg(tbl, y, true)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -2122,7 +2122,7 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t, bool simplify_ite) 
 
   assert(is_arithmetic_term(tbl, t));
 
-  if (arith_term_is_nonneg(tbl, t)) {
+  if (arith_term_is_nonneg(tbl, t, simplify_ite)) {
     return true_term;
   }
 
@@ -2885,9 +2885,9 @@ term_t mk_arith_abs(term_manager_t *manager, term_t t) {
 
   tbl = manager->terms;
 
-  if (arith_term_is_nonneg(tbl, t)) return t;
+  if (arith_term_is_nonneg(tbl, t, manager->simplify_ite)) return t;
 
-  if (arith_term_is_nonpos(tbl, t)) return mk_arith_opposite(manager, t);
+  if (arith_term_is_nonpos(tbl, t, manager->simplify_ite)) return mk_arith_opposite(manager, t);
 
   return arith_abs(tbl, t);
 }
@@ -3152,7 +3152,7 @@ term_t mk_eq(term_manager_t *manager, term_t t1, term_t t2) {
 
   // general case
   if (t1 == t2) return true_term;
-  if (disequal_terms(tbl, t1, t2)) {
+  if (disequal_terms(tbl, t1, t2, manager->simplify_ite)) {
     return false_term;
   }
 
@@ -3194,7 +3194,7 @@ term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
 
   // general case
   if (t1 == t2) return false_term;
-  if (disequal_terms(tbl, t1, t2)) {
+  if (disequal_terms(tbl, t1, t2, manager->simplify_ite)) {
     return true_term;
   }
 
@@ -3330,7 +3330,7 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, const ter
       return update->arg[n+1];
     }
 
-    if (disequal_term_arrays(tbl, n, update->arg + 1, arg)) {
+    if (disequal_term_arrays(tbl, n, update->arg + 1, arg, manager->simplify_ite)) {
       // ((update f (a_1 ... a_n) v) x_1 ... x_n) ---> (f x_1 ... x_n)
       // repeat simplification if f is an update term again
       fun = update->arg[0];
@@ -3544,7 +3544,7 @@ term_t mk_distinct(term_manager_t *manager, uint32_t n, term_t arg[]) {
   }
 
   // WARNING: THIS CAN BE EXPENSIVE
-  if (pairwise_disequal_terms(manager->terms, n, arg)) {
+  if (pairwise_disequal_terms(manager->terms, n, arg, manager->simplify_ite)) {
     return true_term;
   }
 

@@ -396,7 +396,6 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
   assert(lp_polynomial_lc_sgn(p) > 0);
 
   term_t root_atom = NULL_TERM;
-
   term_manager_t* tm = &map->nra->tm;
 
   size_t p_deg = lp_polynomial_degree(p);
@@ -437,6 +436,8 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
     term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
     root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
   }
+
+  assert(term_kind(tm->terms, root_atom) != CONSTANT_TERM);
 
   return root_atom;
 }
