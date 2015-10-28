@@ -337,6 +337,7 @@ void trail_token_lemma(trail_token_t* token, term_t lemma) {
 
   if (ctx_trace_enabled(&tk->ctx->ctx, "trail::lemma")) {
     ctx_trace_printf(&tk->ctx->ctx, "plugin %s reporting a lemma\n", tk->ctx->plugin_name);
+    ctx_trace_term(&tk->ctx->ctx, lemma);
   }
 
   tk->used ++;
@@ -1497,6 +1498,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
         goto conflict;
       } else {
         mcsat->status = STATUS_SAT;
+        trail_print(mcsat->trail, stderr);
         return;
       }
     }
