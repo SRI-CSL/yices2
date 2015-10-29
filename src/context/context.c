@@ -965,6 +965,10 @@ static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const ration
  *
  * We assert x = y - k * d (i.e., (mod y k) = x - k * (div y k))
  * and 0 <= x < |k|.
+ *
+ * NOTE: The 0 <= x < |k| part is redundant. It's implied by the
+ * div_axioms for d = (div y k). It's cheap enough that I can't
+ * see a problem with adding it anyway (it's just an interval for x).
  */
 static void assert_mod_axioms(context_t *ctx, thvar_t x, thvar_t y, thvar_t d, const rational_t *k) {
   polynomial_t *p;
@@ -1450,13 +1454,13 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
   // get y := (div x k)
   assert(q_is_nonzero(&k));
   y = get_div(ctx, x, &k);
-  
+
   /*
-   * r := (mod x k) is x - k * y
-   * r is an integer if x and k are integer
-   * y is an integer iff x and k are integer
+   * r := (mod x k) is x - k * y where y is an integer.
+   * If both x and k are integer, then r has integer type. Otherwise,
+   * r is a real variable.
    */
-  is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, y);
+  is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, x) && q_is_integer(&k);
   r = ctx->arith.create_var(ctx->arith_solver, is_int);
   assert_mod_axioms(ctx, r, x, y, &k);
 

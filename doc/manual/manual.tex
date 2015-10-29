@@ -686,9 +686,9 @@ We've added more arithmetic operations in Yices 2.4:
 \end{itemize}
 These operations have the usual meaning. As in the SMT-LIB Ints theory, 
 the division and modulo operations are defined by the following constraints:
-$$(\mathtt{div}\ k\ x)\in \integers$$
-$$x~=~k.(\mathtt{div}\ k\ x) + (\mathtt{mod}\ k\ x)$$
-$$0~\leq~(\mathtt{mod}\ k\ x)~< |k|.$$ But the Yices~2 operations
+$$(\mathtt{div}\ x\ k)\in \integers$$
+$$x~=~k.(\mathtt{div}\ x\ k) + (\mathtt{mod}\ x\ k)$$
+$$0~\leq~(\mathtt{mod}\ x\ k)~< |k|.$$ But the Yices~2 operations
 differ from SMT-LIB in two points. First, Yices require the divider
 $k$ to be a {\em non-zero constant\/}. Second, Yices allows both $x$
 and $k$ to be arbitrary reals, not just integers.
