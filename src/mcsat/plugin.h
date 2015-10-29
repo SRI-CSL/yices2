@@ -76,6 +76,14 @@ struct plugin_context_s {
   /** Compare the heuristic values of the given variables */
   int (*cmp_variables) (plugin_context_t* self, variable_t x, variable_t y);
 
+  /**
+   * Request a split in the current context, i.e. add a lemma
+   *   (l1 or ... or ln)
+   * for li in split_literals. The literals are terms and they should constitute
+   * a valid lemma.
+   */
+  void (*request_split) (plugin_context_t* self, ivector_t* split_literals);
+
 };
 
 /** Token to add entries to the trail */
@@ -102,6 +110,7 @@ struct trail_token_s {
    * Add a top-level lemma that will stay for the current user level.
    */
   void (*lemma) (trail_token_t* token, term_t lemma);
+
 };
 
 /**

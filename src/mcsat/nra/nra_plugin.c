@@ -108,6 +108,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_term_manager(&nra->tm, nra->ctx->terms);
   nra->tm.simplify_ite = false;
 
+  int_mset_construct(&nra->int_variables_in_conflict);
+
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
 }
@@ -133,6 +135,8 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_variable_order_detach(nra->lp_data.lp_var_order);
   lp_variable_db_detach(nra->lp_data.lp_var_db);
   lp_assignment_delete(nra->lp_data.lp_assignment);
+
+  int_mset_destruct(&nra->int_variables_in_conflict);
 
   delete_rba_buffer(&nra->buffer);
   delete_term_manager(&nra->tm);
@@ -317,6 +321,60 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 }
 
 static
+void nra_plugin_split_on_int_variable(nra_plugin_t* nra, variable_t x) {
+  lp_value_t v;
+  lp_value_construct_none(&v);
+  lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
+  assert(!lp_value_is_integer(&v));
+
+  // Split on x <= floor(value) || x >= ceil(value)
+  lp_integer_t v_floor, v_ceiling;
+  lp_integer_construct(&v_floor);
+  lp_integer_construct(&v_ceiling);
+  lp_value_floor(&v, &v_floor);
+  lp_value_ceiling(&v, &v_ceiling);
+
+  // Yices versions of the floor and ceiling
+  rational_t v_floor_rat, v_ceiling_rat;
+  rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
+  rational_construct_from_lp_integer(&v_ceiling_rat, &v_ceiling);
+  term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
+  term_t v_ceiling_term = mk_arith_constant(&nra->tm, &v_ceiling_rat);
+
+
+  // Construct the lemma
+  ivector_t split;
+  term_t x_term = variable_db_get_term(nra->ctx->var_db, x);
+  init_ivector(&split, 0);
+  ivector_push(&split, mk_arith_leq(&nra->tm, x_term, v_floor_term));
+  ivector_push(&split, mk_arith_geq(&nra->tm, x_term, v_ceiling_term));
+
+  // Add the split
+  nra->ctx->request_split(nra->ctx, &split);
+
+  // Remove temps
+  delete_ivector(&split);
+  lp_integer_destruct(&v_ceiling);
+  lp_integer_destruct(&v_floor);
+  lp_value_destruct(&v);
+}
+
+static
+void nra_plugin_process_int_splits(nra_plugin_t* nra) {
+  uint32_t i;
+
+  if (trail_is_consistent(nra->ctx->trail)) {
+    const ivector_t* int_vars = int_mset_get_list(&nra->int_variables_in_conflict);
+    for (i = 0; i < int_vars->size; ++ i) {
+      nra_plugin_split_on_int_variable(nra, int_vars->data[i]);
+    }
+  }
+
+  // Clear the splits
+  int_mset_clear(&nra->int_variables_in_conflict);
+}
+
+static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
   bool feasible;
@@ -367,6 +425,17 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     // If the intervals are empty, we have a conflict
     if (!feasible) {
       nra_plugin_report_conflict(nra, prop, x);
+    }
+
+    // If the variable is integer, check that is has an integer solution
+    if (variable_db_is_int(nra->ctx->var_db, x) && !int_mset_contains(&nra->int_variables_in_conflict, x)) {
+      lp_value_t v;
+      lp_value_construct_none(&v);
+      lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
+      if (!lp_value_is_integer(&v)) {
+        int_mset_add(&nra->int_variables_in_conflict, x);
+      }
+      lp_value_destruct(&v);
     }
 
   }
@@ -578,6 +647,9 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     }
   }
 
+  // Process any integer conflicts
+  nra_plugin_process_int_splits(nra);
+
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
     nra_plugin_check_assignment(nra);
   }
@@ -608,7 +680,7 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
   // Pick a value from the set
   lp_value_t x_value;
   lp_rational_t x_value_default;
-  lp_rational_construct_from_int(&x_value_default, 1, 2);
+  lp_rational_construct_from_int(&x_value_default, 0, 1);
   lp_value_construct(&x_value, LP_VALUE_RATIONAL, &x_value_default);
   // lp_value_construct_zero(&x_value);
   lp_rational_destruct(&x_value_default);
@@ -652,6 +724,10 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
     // Make an mcsat value
     mcsat_value_t value;
     mcsat_value_construct_lp_value(&value, &x_value);
+
+    if (variable_db_is_int(nra->ctx->var_db, x)) {
+      assert(lp_value_is_integer(&x_value));
+    }
 
     // Decide the value
     decide_token->add(decide_token, x, &value);

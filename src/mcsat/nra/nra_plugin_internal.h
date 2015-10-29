@@ -110,6 +110,9 @@ typedef struct {
   /** Local term manager */
   term_manager_t tm;
 
+  /** Integer variables that are in conflict */
+  int_mset_t int_variables_in_conflict;
+
 } nra_plugin_t;
 
 /**
