@@ -425,19 +425,18 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     // If the intervals are empty, we have a conflict
     if (!feasible) {
       nra_plugin_report_conflict(nra, prop, x);
-    }
-
-    // If the variable is integer, check that is has an integer solution
-    if (variable_db_is_int(nra->ctx->var_db, x) && !int_mset_contains(&nra->int_variables_in_conflict, x)) {
-      lp_value_t v;
-      lp_value_construct_none(&v);
-      lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
-      if (!lp_value_is_integer(&v)) {
-        int_mset_add(&nra->int_variables_in_conflict, x);
+    } else {
+      // If the variable is integer, check that is has an integer solution
+      if (variable_db_is_int(nra->ctx->var_db, x) && !int_mset_contains(&nra->int_variables_in_conflict, x)) {
+        lp_value_t v;
+        lp_value_construct_none(&v);
+        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
+        if (!lp_value_is_integer(&v)) {
+          int_mset_add(&nra->int_variables_in_conflict, x);
+        }
+        lp_value_destruct(&v);
       }
-      lp_value_destruct(&v);
     }
-
   }
 }
 

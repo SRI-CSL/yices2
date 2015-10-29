@@ -929,10 +929,11 @@ void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
 static
 void mcsat_process_splits(mcsat_solver_t* mcsat) {
   uint32_t i;
-
   for (i = 0; i < mcsat->plugin_splits.size; ++ i) {
     ivector_t* split = mcsat->plugin_splits.data[i];
     mcsat_add_lemma(mcsat, split);
+    delete_ivector(split);
+    safe_free(split);
   }
   pvector_reset(&mcsat->plugin_splits);
 }
@@ -969,6 +970,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
         trace_printf(mcsat->ctx->trace, "splits\n");
       }
       mcsat_process_splits(mcsat);
+      mcsat->pending_requests_all.split = false;
     }
 
     // All services
