@@ -32,9 +32,9 @@ void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
   conflict->elements_free_list = conflict_element_ref_null;
 
   init_int_hmap(&conflict->var_to_element_map, 0);
-  int_mset_construct(&conflict->vars);
-  int_mset_construct(&conflict->vars_all);
-  int_mset_construct(&conflict->disjuncts);
+  int_mset_construct(&conflict->vars, variable_null);
+  int_mset_construct(&conflict->vars_all, variable_null);
+  int_mset_construct(&conflict->disjuncts, NULL_TERM);
 
   conflict->level = 0;
   conflict->top_level_vars = 0;
@@ -158,7 +158,7 @@ void conflict_remove_variable(conflict_t* conflict, variable_t var) {
   level = trail_get_level(conflict->trail, var);
 
   // Reduce the variable map
-  int_mset_remove(&conflict->vars, var);
+  int_mset_remove_one(&conflict->vars, var);
   if (level == conflict->level && !int_mset_contains(&conflict->vars, var)) {
     conflict->top_level_vars --;
   }
@@ -262,7 +262,7 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
   }
 
   // Construct of temps
-  int_mset_construct(&disjunct_vars);
+  int_mset_construct(&disjunct_vars, variable_null);
 
   // Get the variables
   conflict_disjunct_get_variables(conflict, disjunct, &disjunct_vars);
@@ -319,7 +319,7 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
   assert(int_mset_contains(&conflict->disjuncts, disjunct));
 
   // Construct temps
-  int_mset_construct(&disjunct_vars);
+  int_mset_construct(&disjunct_vars, variable_null);
 
   // Get the variables
   conflict_disjunct_get_variables(conflict, disjunct, &disjunct_vars);
@@ -331,7 +331,7 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
   }
 
   // Remove from the set of disjuncts
-  int_mset_remove(&conflict->disjuncts, disjunct);
+  int_mset_remove_all(&conflict->disjuncts, disjunct);
 
   // Destruction of temps
   int_mset_destruct(&disjunct_vars);

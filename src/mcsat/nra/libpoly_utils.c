@@ -227,6 +227,11 @@ void lp_integer_assign_yices_rational(lp_integer_t* lp_p, lp_integer_t* lp_q, co
   lp_integer_construct_from_yices_rational(lp_p, lp_q, q);
 }
 
+void rational_construct_from_lp_integer(rational_t* q, const lp_integer_t* lp_z) {
+  q_init(q);
+  q_set_mpz(q, lp_z);
+}
+
 typedef struct {
   nra_plugin_t* nra;
   rba_buffer_t* b;
@@ -303,3 +308,4 @@ term_t lp_polynomial_to_yices_term(nra_plugin_t* nra, const lp_polynomial_t* lp_
 
   return result;
 }
+

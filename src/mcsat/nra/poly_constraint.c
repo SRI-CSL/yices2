@@ -319,19 +319,24 @@ const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variab
     fprintf(stderr, "\n");
   }
 
-  assert(poly_constraint_db_check(db));
+  // assert(poly_constraint_db_check(db));
   int_hmap_pair_t* find;
   find = int_hmap_find(&db->var_to_constraint_map, constraint_var);
   assert(find != NULL);
   assert(find->val < db->constraints.size);
   poly_constraint_t* constraint = db->constraints.data[find->val];
-  assert(poly_constraint_ok(constraint));
-  assert(poly_constraint_db_check(db));
+  // assert(poly_constraint_ok(constraint));
+  // assert(poly_constraint_db_check(db));
   return constraint;
 }
 
 void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var) {
-  assert(poly_constraint_db_check(db));
+  // assert(poly_constraint_db_check(db));
+
+  if (int_hmap_find(&db->var_to_constraint_map, constraint_var) != NULL) {
+    // Already added
+    return;
+  }
 
   term_t t1, t2;
   term_kind_t kind;
@@ -463,7 +468,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   pvector_push(&db->constraints, cstr);
   int_hmap_add(&db->var_to_constraint_map, constraint_var, index);
 
-  assert(poly_constraint_db_check(db));
+  // assert(poly_constraint_db_check(db));
 }
 
 const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level) {
