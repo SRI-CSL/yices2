@@ -11,28 +11,32 @@
 #include <stddef.h>
 #include <assert.h>
 
-void int_mset_construct(int_mset_t* set) {
+void int_mset_construct(int_mset_t* set, uint32_t null_element) {
   init_int_hmap(&set->count_map, 0);
+  init_int_hmap(&set->element_list_position, 0);
   init_ivector(&set->element_list, 0);
   set->is_compact = true;
   set->size = 0;
+  set->null_element = null_element;
 }
 
 void int_mset_destruct(int_mset_t* set) {
   delete_int_hmap(&set->count_map);
+  delete_int_hmap(&set->element_list_position);
   delete_ivector(&set->element_list);
 }
 
 void int_mset_add(int_mset_t* set, int32_t x) {
   int_hmap_pair_t* find_x;
 
+  assert(x != set->null_element);
+
   find_x = int_hmap_find(&set->count_map, x);
   if (find_x == NULL) {
-    // first time
     int_hmap_add(&set->count_map, x, 1);
+    int_hmap_add(&set->element_list_position, x, set->element_list.size);
     ivector_push(&set->element_list, x);
   } else {
-    // it was already there
     find_x->val ++;
   }
 
@@ -49,20 +53,50 @@ uint32_t int_mset_contains(const int_mset_t* set, int32_t x) {
   else return find_x->val;
 }
 
-void int_mset_remove(int_mset_t* set, int32_t x) {
+void int_mset_remove_all(int_mset_t* set, int32_t x) {
   int_hmap_pair_t* find_x;
 
   assert(int_mset_contains(set, x) > 0);
 
+  // Remove from the count_map
   find_x = int_hmap_find(&set->count_map, x);
   set->size -= find_x->val;
-  find_x->val = 0;
-  set->is_compact = false;
+  int_hmap_erase(&set->count_map, find_x);
 
+  // Remove from the position map
+  find_x = int_hmap_find(&set->element_list_position, x);
+  set->element_list.data[find_x->val] = set->null_element;
+  int_hmap_erase(&set->element_list_position, find_x);
+
+  // Not compact anymore
+  set->is_compact = false;
+}
+
+void int_mset_remove_one(int_mset_t* set, int32_t x) {
+  int_hmap_pair_t* find_x;
+
+  assert(int_mset_contains(set, x) > 0);
+
+  // Remove from the count_map
+  find_x = int_hmap_find(&set->count_map, x);
+  set->size --;
+  find_x->val --;
+
+  // Remove from the position map
+  if (find_x->val == 0) {
+    int_hmap_erase(&set->count_map, find_x);
+    find_x = int_hmap_find(&set->element_list_position, x);
+    set->element_list.data[find_x->val] = set->null_element;
+    int_hmap_erase(&set->element_list_position, find_x);
+  }
+
+  // Not compact anymore
+  set->is_compact = false;
 }
 
 void int_mset_clear(int_mset_t* set) {
   int_hmap_reset(&set->count_map);
+  int_hmap_reset(&set->element_list_position);
   ivector_reset(&set->element_list);
   set->is_compact = true;
 }
@@ -72,7 +106,7 @@ void int_mset_compact(int_mset_t* set) {
   int32_t x;
   for (keep = 0, i = 0; i < set->element_list.size; ++ i) {
     x = set->element_list.data[i];
-    if (int_mset_contains(set, x)) {
+    if (x != set->null_element && int_mset_contains(set, x)) {
       set->element_list.data[keep ++] = x;
     }
   }

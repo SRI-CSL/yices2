@@ -203,6 +203,9 @@ struct mcsat_solver_s {
 };
 
 static
+void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma);
+
+static
 void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.assertions = statistics_new_uint32(&mcsat->stats, "mcsat::assertions");
   mcsat->solver_stats.conflicts = statistics_new_uint32(&mcsat->stats, "mcsat::conflicts");
@@ -740,7 +743,7 @@ static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
   int_mset_t to_notify;
   ivector_t* to_notify_list;
 
-  int_mset_construct(&to_notify);
+  int_mset_construct(&to_notify, MCSAT_MAX_PLUGINS);
 
   while (!int_queue_is_empty(&mcsat->registration_queue)) {
     // Next term to register
@@ -1066,7 +1069,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
 /**
  * Add a lemma (a disjunction). Each lemma needs to lead to some progress. This
  * means that:
- *  * literal should evaluate to true
+ *  * no literal should evaluate to true
  *  * if only one literal is false, it should be propagated by one of the plugins
  *  * if more then one literals is false, one of them should be decided to true
  *    by one of the plugins
@@ -1173,7 +1176,7 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
     weight = lemma->size;
     break;
   case LEMMA_WEIGHT_GLUE:
-    int_mset_construct(&levels);
+    int_mset_construct(&levels, UINT32_MAX);
     for (i = 0; i < lemma->size; ++ i) {
       atom = unsigned_term(lemma->data[i]);
       atom_var = variable_db_get_variable_if_exists(mcsat->var_db, atom);

@@ -160,9 +160,9 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_SPLX,       // QF_LIA
   CTX_ARCH_SPLX,       // QF_LRA
   CTX_ARCH_SPLX,       // QF_LIRA
-  -1,                  // QF_NIA
+  CTX_ARCH_MCSAT,      // QF_NIA
   CTX_ARCH_MCSAT,      // QF_NRA
-  -1,                  // QF_NIRA
+  CTX_ARCH_MCSAT,      // QF_NIRA
   CTX_ARCH_SPLX,       // QF_RDL
   CTX_ARCH_EG,         // QF_UF
   CTX_ARCH_EGFUNBV,    // QF_ABV

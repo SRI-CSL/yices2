@@ -829,7 +829,7 @@ void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   clause_ref_t clause, clause_reloc;
 
   // Clauses
-  int_mset_construct(&vars_undefined);
+  int_mset_construct(&vars_undefined, variable_null);
   clause_db_gc_sweep(&bp->clause_db, &bp->gc_clauses, &vars_undefined);
   cnf_gc_sweep(&bp->cnf, &bp->gc_clauses, &vars_undefined);
   int_mset_destruct(&vars_undefined);

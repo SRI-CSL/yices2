@@ -42,6 +42,11 @@ void lp_integer_construct_from_yices_rational(lp_integer_t* lp_p, lp_integer_t* 
 void lp_integer_assign_yices_rational(lp_integer_t* lp_p, lp_integer_t* lp_q, const rational_t* q);
 
 /**
+ * Construct a yices rational from lp_integer.
+ */
+void rational_construct_from_lp_integer(rational_t* q, const lp_integer_t* lp_z);
+
+/**
  * Get yices term from polynomial.
  */
 term_t lp_polynomial_to_yices_term(nra_plugin_t* nra, const lp_polynomial_t* lp_p);
