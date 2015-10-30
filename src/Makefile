@@ -178,6 +178,7 @@ core_src_c := \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \
 	terms/bit_term_conversion.c \
+	terms/bv64_sign_abstraction.c \
 	terms/bv64_constants.c \
 	terms/bv64_polynomials.c \
 	terms/bvarith64_buffers.c \
