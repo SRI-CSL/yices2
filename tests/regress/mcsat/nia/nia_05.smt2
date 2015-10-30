@@ -12,6 +12,5 @@
 (assert (= (* z z) (+ (* x x) (* y y))))
 
 (check-sat)
-(get-model)
 
 (exit)
