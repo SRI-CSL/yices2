@@ -812,7 +812,9 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): core:\n");
     for (i = 0; i < core.size; ++ i) {
       ctx_trace_printf(nra->ctx, "[%zu] (", i);
-      mcsat_value_print(trail_get_value(nra->ctx->trail, core.data[i]), ctx_trace_out(nra->ctx));
+      if (trail_has_value(nra->ctx->trail, core.data[i])) {
+        mcsat_value_print(trail_get_value(nra->ctx->trail, core.data[i]), ctx_trace_out(nra->ctx));
+      }
       ctx_trace_printf(nra->ctx, "): ");
       ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, core.data[i]));
     }
@@ -850,6 +852,15 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
   poly_constraint_db_add(nra->constraint_db, constraint_var);
   const poly_constraint_t* poly_cstr = poly_constraint_db_get(nra->constraint_db, constraint_var);
+
+  // Check if the constraint is in Boolean conflict
+  if (trail_has_value(nra->ctx->trail, constraint_var)) {
+    if (trail_get_boolean_value(nra->ctx->trail, constraint_var) == negated) {
+      // Constraint value is false, so we just add the original
+      ivector_push(conflict, opposite_term(constraint));
+      return false;
+    }
+  }
 
   // Compute the feasible set
   lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, nra->lp_data.lp_assignment, negated);
@@ -919,7 +930,19 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
 
     // Get the first value from the left
     const lp_feasibility_set_t* x_feasible = feasible_set_db_get(nra->feasible_set_db, x);
+    if (ctx_trace_enabled(nra->ctx, "nia")) {
+      ctx_trace_printf(nra->ctx, "x = ");
+      variable_db_print_variable(nra->ctx->var_db, x, ctx_trace_out(nra->ctx));
+      ctx_trace_printf(nra->ctx, "\nx_feasible = ");
+      lp_feasibility_set_print(x_feasible, ctx_trace_out(nra->ctx));
+      ctx_trace_printf(nra->ctx, "\n");
+    }
     lp_feasibility_set_pick_first_value(x_feasible, &v);
+    if (ctx_trace_enabled(nra->ctx, "nia")) {
+      ctx_trace_printf(nra->ctx, "v = ");
+      lp_value_print(&v, ctx_trace_out(nra->ctx));
+      ctx_trace_printf(nra->ctx, "\n");
+    }
     assert(!lp_value_is_integer(&v));
 
     // Get the floor
@@ -934,6 +957,7 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
 
     // Remove temp
     lp_integer_destruct(&v_floor);
+    q_clear(&v_floor_rat);
 
     // The constraint
     term_t x_leq_floor = mk_arith_leq(&nra->tm, x_term, v_floor_term);
@@ -956,6 +980,7 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
 
     // Remove temp
     lp_integer_destruct(&v_ceil);
+    q_clear(&v_ceil_rat);
 
     // The constraint
     term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
@@ -978,6 +1003,10 @@ static
 void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): START");
+  }
+
   int_mset_t pos, neg;
   int_mset_construct(&pos, variable_null);
   int_mset_construct(&neg, variable_null);
@@ -992,6 +1021,14 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
 
   int_mset_destruct(&pos);
   int_mset_destruct(&neg);
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    uint32_t i;
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): END");
+    for (i = 0; i < conflict->size; ++ i) {
+      ctx_trace_term(nra->ctx, conflict->data[i]);
+    }
+  }
 }
 
 static
