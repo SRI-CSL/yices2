@@ -701,7 +701,36 @@ void lp_projection_map_lift(lp_projection_map_t* map, ivector_t* out) {
 
 }
 
-void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
+static
+bool constraint_has_value(const mcsat_trail_t* trail, const int_mset_t* pos, const int_mset_t* neg, variable_t constraint) {
+  if (trail_has_value(trail, constraint)) {
+    return true;
+  }
+  if (int_mset_contains(pos, constraint)) {
+    return true;
+  }
+  if (int_mset_contains(neg, constraint)) {
+    return true;
+  }
+  return false;
+}
+
+static
+bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, const int_mset_t* neg, variable_t constraint) {
+  if (trail_has_value(trail, constraint)) {
+    return trail_get_boolean_value(trail, constraint);
+  }
+  if (int_mset_contains(pos, constraint)) {
+    return true;
+  }
+  if (int_mset_contains(neg, constraint)) {
+    return false;
+  }
+  assert(false);
+}
+
+void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
+    const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
 
   if (TRACK_VAR(nra->conflict_variable)) {
     fprintf(stderr, "Explaining tracked variable\n.");
@@ -740,7 +769,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const
   uint32_t core_i;
   for (core_i = 0; core_i < core->size; ++ core_i) {
     variable_t constraint_var = core->data[core_i];
-    assert(trail_has_value(nra->ctx->trail, constraint_var));
+    assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
     const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
     lp_projection_map_add(&projection_map, p);
@@ -765,8 +794,8 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const
   for (core_i = 0; core_i < core->size; ++ core_i) {
     variable_t constraint_var = core->data[core_i];
     term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
-    assert(trail_has_value(nra->ctx->trail, constraint_var));
-    bool constraint_value = trail_get_value(nra->ctx->trail, constraint_var)->b;
+    assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
+    bool constraint_value = constraint_get_value(nra->ctx->trail, pos, neg, constraint_var);
     if (!constraint_value) {
       constraint_term = opposite_term(constraint_term);
     }

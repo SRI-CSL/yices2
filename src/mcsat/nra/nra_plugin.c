@@ -793,7 +793,8 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
 }
 
 static
-void nra_plugin_get_real_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
+void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
+    variable_t x, ivector_t* conflict) {
   size_t i;
 
   if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
@@ -822,7 +823,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, variable_t x, ivector_t* co
   }
 
   // Project
-  nra_plugin_explain_conflict(nra, &core, &lemma_reasons, conflict);
+  nra_plugin_explain_conflict(nra, pos, neg, &core, &lemma_reasons, conflict);
 
   if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): conflict:\n");
@@ -841,7 +842,8 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, variable_t x, ivector_t* co
  * Check consistency of given constraint. If inconsistent it returns the conflict.
  */
 static
-bool nra_plugin_speculate_constraint(nra_plugin_t* nra, variable_t x, term_t constraint, ivector_t* conflict) {
+bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mset_t* neg,
+    variable_t x, term_t constraint, ivector_t* conflict) {
 
   term_t constraint_atom = unsigned_term(constraint);
   bool negated = constraint != constraint_atom;
@@ -855,12 +857,19 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, variable_t x, term_t con
   // Update the infeasible intervals
   bool feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
 
+  // Add to assumptions
+  if (negated) {
+    int_mset_add(neg, constraint_var);
+  } else {
+    int_mset_add(pos, constraint_var);
+  }
+
   // If not feasible, get the conflict
   if (!feasible) {
     // Get the real conflict
     ivector_t constraint_conflict;
     init_ivector(&constraint_conflict, 0);
-    nra_plugin_get_real_conflict(nra, x, &constraint_conflict);
+    nra_plugin_get_real_conflict(nra, pos, neg, x, &constraint_conflict);
 
     // Copy the conflict (except the assumption into the conflict)
     uint32_t i;
@@ -872,11 +881,21 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, variable_t x, term_t con
     delete_ivector(&constraint_conflict);
   }
 
+  // Remove from assumptions not feasible
+  if (!feasible) {
+    if (negated) {
+      int_mset_remove_one(neg, constraint_var);
+    } else {
+      int_mset_remove_one(pos, constraint_var);
+    }
+  }
+
   return feasible;
 }
 
 static
-void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
+void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t* neg,
+    variable_t x, ivector_t* conflict) {
 
   // We have an int conflict on x
 
@@ -921,10 +940,9 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* con
 
     // Get the conflict
     feasible_set_db_push(nra->feasible_set_db);
-    bool feasible = nra_plugin_speculate_constraint(nra, x, x_leq_floor, conflict);
+    bool feasible = nra_plugin_speculate_constraint(nra, pos, neg, x, x_leq_floor, conflict);
     assert(!feasible);
     feasible_set_db_pop(nra->feasible_set_db);
-
 
     // Get the ceiling
     lp_integer_t v_ceil;
@@ -941,8 +959,7 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* con
 
     // The constraint
     term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
-    feasible = nra_plugin_speculate_constraint(nra, x, x_geq_ceil, conflict);
-
+    feasible = nra_plugin_speculate_constraint(nra, pos, neg, x, x_geq_ceil, conflict);
 
     // If not feasible, we're done
     if (!feasible) {
@@ -961,13 +978,20 @@ static
 void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
+  int_mset_t pos, neg;
+  int_mset_construct(&pos, variable_null);
+  int_mset_construct(&neg, variable_null);
+
   if (nra->conflict_variable != variable_null) {
-    nra_plugin_get_real_conflict(nra, nra->conflict_variable, conflict);
+    nra_plugin_get_real_conflict(nra, &pos, &neg, nra->conflict_variable, conflict);
   } else if (nra->conflict_variable_int != variable_null) {
-    nra_plugin_get_int_conflict(nra, nra->conflict_variable_int, conflict);
+    nra_plugin_get_int_conflict(nra, &pos, &neg, nra->conflict_variable_int, conflict);
   } else {
     assert(false);
   }
+
+  int_mset_destruct(&pos);
+  int_mset_destruct(&neg);
 }
 
 static

@@ -12,5 +12,11 @@
 
 /**
  * Explain the core in the conflict. Core is a set of constraint variables,
- * and conflict will a set if terms. */
-void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict);
+ * and conflict will a set if terms.
+ *
+ * pos: set of positive assumptions (to extend the trail)
+ * neg: set of negative assumptions (to extend the trail)
+ *
+ * */
+void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
+    const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict);
