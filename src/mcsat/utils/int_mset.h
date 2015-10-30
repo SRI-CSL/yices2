@@ -17,8 +17,12 @@
 typedef struct {
   /** Map from elements to the number of times they appear */
   int_hmap_t count_map;
+  /** Map from elements to their index in the element list */
+  int_hmap_t element_list_position;
   /** List of all elements that appear in the collection. */
   ivector_t element_list;
+  /** Null element to use in the list for removed elements */
+  uint32_t null_element;
   /** Is the list of elements compact (no non-existants elements)? */
   bool is_compact;
   /** Size of the set (total number with repeats) */
@@ -26,7 +30,7 @@ typedef struct {
 } int_mset_t;
 
 /** Construct the set */
-void int_mset_construct(int_mset_t* set);
+void int_mset_construct(int_mset_t* set, uint32_t null_element);
 
 /** Add an element */
 void int_mset_add(int_mset_t* set, int32_t x);

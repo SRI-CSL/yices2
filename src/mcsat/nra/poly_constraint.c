@@ -333,6 +333,11 @@ const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variab
 void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var) {
   // assert(poly_constraint_db_check(db));
 
+  if (int_hmap_find(&db->var_to_constraint_map, constraint_var) != NULL) {
+    // Already added
+    return;
+  }
+
   term_t t1, t2;
   term_kind_t kind;
   term_t constraint_var_term;

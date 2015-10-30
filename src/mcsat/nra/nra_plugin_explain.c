@@ -711,7 +711,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const ivector_t* core, const
     ctx_trace_printf(nra->ctx, "nra_plugin_explain_conflict()\n");
     uint32_t i;
     int_mset_t variables;
-    int_mset_construct(&variables);
+    int_mset_construct(&variables, variable_null);
     for (i = 0; i < core->size; ++ i) {
       term_t core_i_t = variable_db_get_term(nra->ctx->var_db, core->data[i]);
       nra_plugin_get_literal_variables(nra, core_i_t, &variables);

@@ -160,9 +160,6 @@ struct mcsat_solver_s {
   /** Lemmas reported by plugins  */
   ivector_t plugin_lemmas;
 
-  /** Split added by plugins */
-  pvector_t plugin_splits;
-
   /** Number of plugins */
   uint32_t plugins_count;
 
@@ -173,7 +170,6 @@ struct mcsat_solver_s {
   struct {
     bool restart;
     bool gc_calls;
-    bool split;
   } pending_requests_all;
 
   /** Any pending requests */
@@ -455,20 +451,6 @@ int mcsat_plugin_context_cmp_variables(plugin_context_t* self, variable_t x, var
 }
 
 static
-void mcsat_plugin_context_request_split(plugin_context_t* self, ivector_t* split_literals) {
-  mcsat_plugin_context_t* mctx;
-  mctx = (mcsat_plugin_context_t*) self;
-
-  ivector_t* split_literals_copy = safe_malloc(sizeof(ivector_t));
-  init_ivector(split_literals_copy, 0);
-  ivector_swap(split_literals, split_literals_copy);
-  pvector_push(&mctx->mcsat->plugin_splits, split_literals_copy);
-
-  mctx->mcsat->pending_requests_all.split = true;
-  mctx->mcsat->pending_requests = true;
-}
-
-static
 void mcsat_plugin_context_propagation_calls(plugin_context_t* self) {
 
 }
@@ -497,7 +479,6 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.request_gc = mcsat_plugin_context_gc;
   ctx->ctx.bump_variable = mcsat_plugin_context_bump_variable;
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
-  ctx->ctx.request_split = mcsat_plugin_context_request_split;
   ctx->mcsat = mcsat;
   ctx->plugin_i = plugin_i;
   ctx->plugin_name = plugin_name;
@@ -626,14 +607,10 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
 
   mcsat->pending_requests_all.restart = false;
   mcsat->pending_requests_all.gc_calls = false;
-  mcsat->pending_requests_all.split = false;
   mcsat->pending_requests = false;
 
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
-
-  // Splits vector
-  init_pvector(&mcsat->plugin_splits, 0);
 
   // Construct stats
   statistics_construct(&mcsat->stats);
@@ -668,7 +645,6 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   safe_free(mcsat->var_db);
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
-  delete_pvector(&mcsat->plugin_splits);
   statistics_destruct(&mcsat->stats);
 }
 
@@ -767,7 +743,7 @@ static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
   int_mset_t to_notify;
   ivector_t* to_notify_list;
 
-  int_mset_construct(&to_notify);
+  int_mset_construct(&to_notify, MCSAT_MAX_PLUGINS);
 
   while (!int_queue_is_empty(&mcsat->registration_queue)) {
     // Next term to register
@@ -927,18 +903,6 @@ void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
 }
 
 static
-void mcsat_process_splits(mcsat_solver_t* mcsat) {
-  uint32_t i;
-  for (i = 0; i < mcsat->plugin_splits.size; ++ i) {
-    ivector_t* split = mcsat->plugin_splits.data[i];
-    mcsat_add_lemma(mcsat, split);
-    delete_ivector(split);
-    safe_free(split);
-  }
-  pvector_reset(&mcsat->plugin_splits);
-}
-
-static
 void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
   if (mcsat->pending_requests) {
@@ -962,15 +926,6 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat_gc(mcsat);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
-    }
-
-    // Splits
-    if (mcsat->pending_requests_all.split) {
-      if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
-        trace_printf(mcsat->ctx->trace, "splits\n");
-      }
-      mcsat_process_splits(mcsat);
-      mcsat->pending_requests_all.split = false;
     }
 
     // All services
@@ -1221,7 +1176,7 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
     weight = lemma->size;
     break;
   case LEMMA_WEIGHT_GLUE:
-    int_mset_construct(&levels);
+    int_mset_construct(&levels, UINT32_MAX);
     for (i = 0; i < lemma->size; ++ i) {
       atom = unsigned_term(lemma->data[i]);
       atom_var = variable_db_get_variable_if_exists(mcsat->var_db, atom);

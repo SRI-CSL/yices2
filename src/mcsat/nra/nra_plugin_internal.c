@@ -223,3 +223,9 @@ void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable
   nra->conflict_variable = variable;
   (*nra->stats.conflicts) ++;
 }
+
+void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
+  prop->conflict(prop);
+  nra->conflict_variable_int = variable;
+  (*nra->stats.conflicts_int) ++;
+}

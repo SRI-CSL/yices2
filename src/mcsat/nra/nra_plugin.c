@@ -32,6 +32,7 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   // Add statistics
   nra->stats.propagations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::propagations");
   nra->stats.conflicts = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts");
+  nra->stats.conflicts_int = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts_int");
   nra->stats.constraints_attached = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_attached");
 }
 
@@ -108,8 +109,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_term_manager(&nra->tm, nra->ctx->terms);
   nra->tm.simplify_ite = false;
 
-  int_mset_construct(&nra->int_variables_in_conflict);
-
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
 }
@@ -135,8 +134,6 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_variable_order_detach(nra->lp_data.lp_var_order);
   lp_variable_db_detach(nra->lp_data.lp_var_db);
   lp_assignment_delete(nra->lp_data.lp_assignment);
-
-  int_mset_destruct(&nra->int_variables_in_conflict);
 
   delete_rba_buffer(&nra->buffer);
   delete_term_manager(&nra->tm);
@@ -231,7 +228,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
   // The vector to collect variables
   int_mset_t t_variables;
-  int_mset_construct(&t_variables);
+  int_mset_construct(&t_variables, variable_null);
   bool is_constraint = nra_plugin_get_literal_variables(nra, t, &t_variables);
 
   // Setup the constraint
@@ -321,60 +318,6 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 }
 
 static
-void nra_plugin_split_on_int_variable(nra_plugin_t* nra, variable_t x) {
-  lp_value_t v;
-  lp_value_construct_none(&v);
-  lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
-  assert(!lp_value_is_integer(&v));
-
-  // Split on x <= floor(value) || x >= ceil(value)
-  lp_integer_t v_floor, v_ceiling;
-  lp_integer_construct(&v_floor);
-  lp_integer_construct(&v_ceiling);
-  lp_value_floor(&v, &v_floor);
-  lp_value_ceiling(&v, &v_ceiling);
-
-  // Yices versions of the floor and ceiling
-  rational_t v_floor_rat, v_ceiling_rat;
-  rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
-  rational_construct_from_lp_integer(&v_ceiling_rat, &v_ceiling);
-  term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
-  term_t v_ceiling_term = mk_arith_constant(&nra->tm, &v_ceiling_rat);
-
-
-  // Construct the lemma
-  ivector_t split;
-  term_t x_term = variable_db_get_term(nra->ctx->var_db, x);
-  init_ivector(&split, 0);
-  ivector_push(&split, mk_arith_leq(&nra->tm, x_term, v_floor_term));
-  ivector_push(&split, mk_arith_geq(&nra->tm, x_term, v_ceiling_term));
-
-  // Add the split
-  nra->ctx->request_split(nra->ctx, &split);
-
-  // Remove temps
-  delete_ivector(&split);
-  lp_integer_destruct(&v_ceiling);
-  lp_integer_destruct(&v_floor);
-  lp_value_destruct(&v);
-}
-
-static
-void nra_plugin_process_int_splits(nra_plugin_t* nra) {
-  uint32_t i;
-
-  if (trail_is_consistent(nra->ctx->trail)) {
-    const ivector_t* int_vars = int_mset_get_list(&nra->int_variables_in_conflict);
-    for (i = 0; i < int_vars->size; ++ i) {
-      nra_plugin_split_on_int_variable(nra, int_vars->data[i]);
-    }
-  }
-
-  // Clear the splits
-  int_mset_clear(&nra->int_variables_in_conflict);
-}
-
-static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
   bool feasible;
@@ -427,14 +370,8 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
       nra_plugin_report_conflict(nra, prop, x);
     } else {
       // If the variable is integer, check that is has an integer solution
-      if (variable_db_is_int(nra->ctx->var_db, x) && !int_mset_contains(&nra->int_variables_in_conflict, x)) {
-        lp_value_t v;
-        lp_value_construct_none(&v);
-        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
-        if (!lp_value_is_integer(&v)) {
-          int_mset_add(&nra->int_variables_in_conflict, x);
-        }
-        lp_value_destruct(&v);
+      if (variable_db_is_int(nra->ctx->var_db, x)) {
+        nra_plugin_report_int_conflict(nra, prop, x);
       }
     }
   }
@@ -646,9 +583,6 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     }
   }
 
-  // Process any integer conflicts
-  nra_plugin_process_int_splits(nra);
-
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
     nra_plugin_check_assignment(nra);
   }
@@ -759,7 +693,7 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
 
   // Variables in the conflict
   int_mset_t core_vars;
-  int_mset_construct(&core_vars);
+  int_mset_construct(&core_vars, variable_null);
 
   // The trail
   const mcsat_trail_t* trail = nra->ctx->trail;
@@ -851,16 +785,9 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
   int_mset_destruct(&core_vars);
 }
 
-
 static
-void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
-
+void nra_plugin_get_real_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
   size_t i;
-
-  nra_plugin_t* nra = (nra_plugin_t*) plugin;
-
-  // Variable in conflict
-  variable_t x = nra->conflict_variable;
 
   if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): ");
@@ -900,6 +827,133 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
 
   // Remove temps
   delete_ivector(&core);
+
+}
+
+/**
+ * Check consistency of given constraint. If inconsistent it returns the conflict.
+ */
+static
+bool nra_plugin_speculate_constraint(nra_plugin_t* nra, variable_t x, term_t constraint, ivector_t* conflict) {
+
+  term_t constraint_atom = unsigned_term(constraint);
+  bool negated = constraint != constraint_atom;
+  variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
+  poly_constraint_db_add(nra->constraint_db, constraint_var);
+  const poly_constraint_t* poly_cstr = poly_constraint_db_get(nra->constraint_db, constraint_var);
+
+  // Compute the feasible set
+  lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, nra->lp_data.lp_assignment, negated);
+
+  // Update the infeasible intervals
+  feasible_set_db_push(nra->feasible_set_db);
+  bool feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
+
+  // If not feasible, get the conflict
+  if (!feasible) {
+    // Get the real conflict
+    ivector_t constraint_conflict;
+    init_ivector(&constraint_conflict, 0);
+    nra_plugin_get_real_conflict(nra, x, &constraint_conflict);
+
+    // Copy the conflict (except the assumption into the conflict)
+    uint32_t i;
+    for (i = 0; i < constraint_conflict.size; ++ i) {
+      if (constraint_conflict.data[i] != constraint) {
+        ivector_push(conflict, constraint_conflict.data[i]);
+      }
+    }
+    delete_ivector(&constraint_conflict);
+  }
+
+  return feasible;
+}
+
+static
+void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
+
+  // We have an int conflict on x
+
+  // That means that the feasible set is of the form
+  //   I1    I2   I3 I4  I5
+  //   ( )   ()   ( )()  ()
+  //
+  // Where each Ik doesn't allow an integer value.
+  //
+  // We do the splits manually and collect the explanation
+
+  lp_value_t v;
+  lp_value_construct_none(&v);
+
+  term_t x_term = variable_db_get_term(nra->ctx->var_db, x);
+
+  // We'll be making changes, remember state
+  feasible_set_db_push(nra->feasible_set_db);
+
+  for (;;) {
+
+    // Get the first value from the left
+    const lp_feasibility_set_t* x_feasible = feasible_set_db_get(nra->feasible_set_db, x);
+    lp_feasibility_set_pick_first_value(x_feasible, &v);
+    assert(!lp_value_is_integer(&v));
+
+    // Get the floor
+    lp_integer_t v_floor;
+    lp_integer_construct(&v_floor);
+    lp_value_floor(&v, &v_floor);
+
+    // Yices versions of the floor
+    rational_t v_floor_rat;
+    rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
+    term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
+
+    // The constraint
+    term_t x_leq_floor = mk_arith_leq(&nra->tm, x_term, v_floor_term);
+
+    // Get the conflict
+    feasible_set_db_push(nra->feasible_set_db);
+    bool feasible = nra_plugin_speculate_constraint(nra, x, x_leq_floor, conflict);
+    assert(feasible);
+    feasible_set_db_pop(nra->feasible_set_db);
+
+    // Get the ceiling
+    lp_integer_t v_ceil;
+    lp_integer_construct(&v_ceil);
+    lp_value_ceiling(&v, &v_ceil);
+
+    // Yices versions of the ceiling
+    rational_t v_ceil_rat;
+    rational_construct_from_lp_integer(&v_ceil_rat, &v_ceil);
+    term_t v_ceil_term = mk_arith_constant(&nra->tm, &v_ceil_rat);
+
+    // The constraint
+    term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
+    feasible = nra_plugin_speculate_constraint(nra, x, x_geq_ceil, conflict);
+
+    // If not feasible, we're done
+    if (!feasible) {
+      break;
+    }
+  }
+
+  // Undo feasibility changes
+  feasible_set_db_pop(nra->feasible_set_db);
+
+  // Remove tempss
+  lp_value_destruct(&v);
+}
+
+static
+void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+
+  if (nra->conflict_variable != variable_null) {
+    nra_plugin_get_real_conflict(nra, nra->conflict_variable, conflict);
+  } else if (nra->conflict_variable_int != variable_null) {
+    nra_plugin_get_int_conflict(nra, nra->conflict_variable_int, conflict);
+  } else {
+    assert(false);
+  }
 }
 
 static
@@ -1042,6 +1096,10 @@ void nra_plugin_pop(plugin_t* plugin) {
 
   // Pop the feasibility
   feasible_set_db_pop(nra->feasible_set_db);
+
+  // Unset the conflict
+  nra->conflict_variable = variable_null;
+  nra->conflict_variable_int = variable_null;
 
   // We undid last decision, so we're back to normal
   nra->last_decided_and_unprocessed = variable_null;

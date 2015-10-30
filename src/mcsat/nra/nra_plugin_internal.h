@@ -63,6 +63,9 @@ typedef struct {
   /** The conflict variable (one with empty feasible set) */
   variable_t conflict_variable;
 
+  /** The conflict variable (one with empty int feasible set) */
+  variable_t conflict_variable_int;
+
   /** Variables processed in propagation */
   ivector_t processed_variables;
 
@@ -75,6 +78,7 @@ typedef struct {
   struct {
     uint32_t* propagations;
     uint32_t* conflicts;
+    uint32_t* conflicts_int;
     uint32_t* constraints_attached;
   } stats;
 
@@ -109,9 +113,6 @@ typedef struct {
 
   /** Local term manager */
   term_manager_t tm;
-
-  /** Integer variables that are in conflict */
-  int_mset_t int_variables_in_conflict;
 
 } nra_plugin_t;
 
@@ -157,3 +158,6 @@ variable_t nra_plugin_get_unit_var(nra_plugin_t* nra, variable_t constraint);
 
 /** Report a conflict (variable is the one with an empty feasible set) */
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
+
+/** Report a conflict (variable is the one with an empty int feasible set) */
+void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
