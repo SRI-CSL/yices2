@@ -371,7 +371,14 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     } else {
       // If the variable is integer, check that is has an integer solution
       if (variable_db_is_int(nra->ctx->var_db, x)) {
-        nra_plugin_report_int_conflict(nra, prop, x);
+        // Check if there is an integer value
+        lp_value_t v;
+        lp_value_construct_none(&v);
+        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
+        if (!lp_value_is_integer(&v)) {
+          nra_plugin_report_int_conflict(nra, prop, x);
+        }
+        lp_value_destruct(&v);
       }
     }
   }
@@ -846,7 +853,6 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, variable_t x, term_t con
   lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, nra->lp_data.lp_assignment, negated);
 
   // Update the infeasible intervals
-  feasible_set_db_push(nra->feasible_set_db);
   bool feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
 
   // If not feasible, get the conflict
@@ -907,14 +913,18 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* con
     rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
     term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
 
+    // Remove temp
+    lp_integer_destruct(&v_floor);
+
     // The constraint
     term_t x_leq_floor = mk_arith_leq(&nra->tm, x_term, v_floor_term);
 
     // Get the conflict
     feasible_set_db_push(nra->feasible_set_db);
     bool feasible = nra_plugin_speculate_constraint(nra, x, x_leq_floor, conflict);
-    assert(feasible);
+    assert(!feasible);
     feasible_set_db_pop(nra->feasible_set_db);
+
 
     // Get the ceiling
     lp_integer_t v_ceil;
@@ -926,9 +936,13 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, variable_t x, ivector_t* con
     rational_construct_from_lp_integer(&v_ceil_rat, &v_ceil);
     term_t v_ceil_term = mk_arith_constant(&nra->tm, &v_ceil_rat);
 
+    // Remove temp
+    lp_integer_destruct(&v_ceil);
+
     // The constraint
     term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
     feasible = nra_plugin_speculate_constraint(nra, x, x_geq_ceil, conflict);
+
 
     // If not feasible, we're done
     if (!feasible) {

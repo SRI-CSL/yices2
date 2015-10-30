@@ -158,7 +158,7 @@ void conflict_remove_variable(conflict_t* conflict, variable_t var) {
   level = trail_get_level(conflict->trail, var);
 
   // Reduce the variable map
-  int_mset_remove(&conflict->vars, var);
+  int_mset_remove_one(&conflict->vars, var);
   if (level == conflict->level && !int_mset_contains(&conflict->vars, var)) {
     conflict->top_level_vars --;
   }
@@ -331,7 +331,7 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
   }
 
   // Remove from the set of disjuncts
-  int_mset_remove(&conflict->disjuncts, disjunct);
+  int_mset_remove_all(&conflict->disjuncts, disjunct);
 
   // Destruction of temps
   int_mset_destruct(&disjunct_vars);

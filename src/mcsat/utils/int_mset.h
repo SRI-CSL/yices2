@@ -36,7 +36,10 @@ void int_mset_construct(int_mset_t* set, uint32_t null_element);
 void int_mset_add(int_mset_t* set, int32_t x);
 
 /** Remove an element (all occurances) */
-void int_mset_remove(int_mset_t* set, int32_t x);
+void int_mset_remove_all(int_mset_t* set, int32_t x);
+
+/** Remove an element (one occurance) */
+void int_mset_remove_one(int_mset_t* set, int32_t x);
 
 /** Returns the number of occurances */
 uint32_t int_mset_contains(const int_mset_t* set, int32_t x);
