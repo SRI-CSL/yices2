@@ -109,6 +109,9 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_term_manager(&nra->tm, nra->ctx->terms);
   nra->tm.simplify_ite = false;
 
+  nra->conflict_variable = variable_null;
+  nra->conflict_variable_int = variable_null;
+
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
 }
@@ -370,13 +373,13 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
       nra_plugin_report_conflict(nra, prop, x);
     } else {
       // If the variable is integer, check that is has an integer solution
-      if (variable_db_is_int(nra->ctx->var_db, x)) {
+      if (nra->conflict_variable_int == variable_null && variable_db_is_int(nra->ctx->var_db, x)) {
         // Check if there is an integer value
         lp_value_t v;
         lp_value_construct_none(&v);
         lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
         if (!lp_value_is_integer(&v)) {
-          nra_plugin_report_int_conflict(nra, prop, x);
+          nra->conflict_variable_int = x;
         }
         lp_value_destruct(&v);
       }
@@ -588,6 +591,10 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // Process any unit constraints
       nra_plugin_process_unit_constraint(nra, prop, var);
     }
+  }
+
+  if (trail_is_consistent(trail) && nra->conflict_variable_int != variable_null) {
+    nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
   }
 
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {

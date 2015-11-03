@@ -727,6 +727,7 @@ bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
     return false;
   }
   assert(false);
+  return false;
 }
 
 void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
