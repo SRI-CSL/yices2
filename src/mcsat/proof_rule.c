@@ -24,5 +24,5 @@ void proof_rule_construct(proof_rule_t* rule, clause_db_t* db, const char* name)
 }
 
 void proof_rule_destruct(proof_rule_t* rule) {
-  free(rule->name);
+  safe_free(rule->name);
 }

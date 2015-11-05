@@ -62,7 +62,7 @@ static congruence_table_t tbl;
 /*
  * Initialize the labels
  */
-static void init_labels() {
+static void init_labels(void) {
   label[0] = pos_label(0); // true
   label[a] = neg_label(0);
   label[b] = pos_label(0);
@@ -110,7 +110,7 @@ static composite_t *lambda(occ_t x, int32_t tag) {
   return new_lambda_composite(x, tag);
 }
 
-static void build_composites() {
+static void build_composites(void) {
   composite[0] = pair(pos_occ(a), neg_occ(a));
   composite[0]->id = 100;
   composite[1] = pair(pos_occ(a), pos_occ(a));
@@ -321,7 +321,7 @@ static void test_congruences(uint32_t n) {
   fflush(stdout);
 }
 
-int main() {
+int main(void) {
   init_labels();
   init_sign_buffer(&sgn);
   init_congruence_table(&tbl, 1);

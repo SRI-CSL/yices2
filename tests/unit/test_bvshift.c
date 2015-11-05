@@ -822,7 +822,7 @@ static void all_bvashr_tests(void) {
 
 
 
-int main() {
+int main(void) {
   all_bvshl_tests();
   all_bvlshr_tests();
   all_bvashr_tests();

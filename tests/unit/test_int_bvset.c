@@ -54,7 +54,7 @@ static void print_set(int_bvset_t *s) {
 }
 
 
-int main() {
+int main(void) {
   uint32_t x, i, n;
 
   printf("\n"

@@ -377,10 +377,7 @@ static void test_divides(void) {
 
 
 
-
-
-
-int main() {
+int main(void) {
   init_rationals();
   printf("MAX_NUM = %d\n", MAX_NUMERATOR);
   printf("MIN_NUM = %d\n", MIN_NUMERATOR);

@@ -66,7 +66,7 @@ static void print_closed_set(int_hset_t *s) {
   }
 }
 
-int main() {
+int main(void) {
   uint32_t x, i, n;
 
   printf("Initial set\n");

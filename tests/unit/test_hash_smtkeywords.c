@@ -148,7 +148,7 @@ uint32_t hash_string(char *s) {
   return h;
 }
 
-int main() {
+int main(void) {
   int32_t i;
   uint32_t h, n;
   char *s;

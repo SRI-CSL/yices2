@@ -126,7 +126,7 @@ uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
  * Hack: we print the value of h to stop a GCC warning (variable h set
  * but not used).
  */
-int main() {
+int main(void) {
   int i, n;
   uint32_t h;
   double runtime;

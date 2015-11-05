@@ -47,7 +47,7 @@ static void default_stbl_finalizer(stbl_rec_t *r) {
 /*
  * Allocate and initialize a bank
  */
-static stbl_bank_t *stbl_alloc_bank() {
+static stbl_bank_t *stbl_alloc_bank(void) {
   stbl_bank_t *b;
   uint32_t i;
 

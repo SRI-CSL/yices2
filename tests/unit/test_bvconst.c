@@ -49,7 +49,7 @@ static void random_vector(int32_t *v, int32_t n) {
   }
 }
 
-static void alloc_constants() {
+static void alloc_constants(void) {
   uint32_t i;
 
   init_bvconstants();
@@ -77,7 +77,7 @@ static void alloc_constants() {
   e[1] = 1;
 }
 
-static void free_constants() {
+static void free_constants(void) {
   //  safe_free(a);
   //  safe_free(b);
   //  safe_free(c);
@@ -140,7 +140,7 @@ static void test_set_extend(uint32_t size1, uint32_t size2) {
 }
 
 
-int main() {
+int main(void) {
   int32_t i, j, n;
 
   alloc_constants();

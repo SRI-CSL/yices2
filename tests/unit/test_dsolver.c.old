@@ -40,7 +40,7 @@ static void print_unsat_rows(void) {
   printf("\n");
 }
 
-int main() {
+int main(void) {
   rational_t a;
   int32_t r0;
   bool feasible;

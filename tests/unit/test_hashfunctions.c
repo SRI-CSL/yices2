@@ -200,7 +200,7 @@ static uint32_t jenkins_hash_byte_var1(const uint8_t *s, uint32_t seed) {
  * - input stat[x] = number of elements whose hash code is equal to x
  * - hist[i] = number of elements x such that stat[x] = i
  */
-static void histogram() {
+static void histogram(void) {
   int i, j, last, over;
 
   for (i=0; i<HIST; i++) {
@@ -233,7 +233,7 @@ static void histogram() {
 
 #if 0
 // Not used anymore
-static void show_stats() {
+static void show_stats(void) {
   int sum, max, min, sum_squares, i;
   double mean, var;
 
@@ -362,7 +362,7 @@ static void words_from_file(char *filename) {
   n_words = i;
 }
 
-static void clear_words() {
+static void clear_words(void) {
   uint32_t j;
 
   for (j=0; j<n_words; j++) free(words[j]);

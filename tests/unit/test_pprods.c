@@ -85,7 +85,7 @@ static void print_pprod0(FILE *f, pprod_t *p) {
 static pp_buffer_t buffer;
 static pprod_t *p[NUM_PRODS];
 
-int main() {
+int main(void) {
   pprod_t *p1, *p2;
   uint32_t i, j;
   int32_t cmp;

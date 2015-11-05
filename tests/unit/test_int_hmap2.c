@@ -175,7 +175,7 @@ static int_hmap2_t hmap;
 /*
  * Run the tests
  */
-int main() {
+int main(void) {
   // init/reset/delete test
   init_int_hmap2(&hmap, 0);
   printf("*** Initial map ***\n");

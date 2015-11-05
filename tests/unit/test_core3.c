@@ -594,7 +594,7 @@ static void handler(int signum) {
  * Set the signal handler: to print statistics on
  * SIGINT, SIGABRT, SIGXCPU
  */
-static void init_handler() {
+static void init_handler(void) {
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW

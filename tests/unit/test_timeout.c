@@ -113,7 +113,7 @@ static void test_timeout(uint32_t *c, uint32_t n, uint32_t timeout) {
  */
 static uint32_t counter[64];
 
-int main() {
+int main(void) {
   uint32_t n;
   uint32_t time;
 

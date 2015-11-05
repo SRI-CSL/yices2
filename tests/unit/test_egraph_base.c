@@ -201,7 +201,7 @@ static void test2(void) {
 }
 
 
-int main() {
+int main(void) {
   yices_init();
   test1();
   test2();

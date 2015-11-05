@@ -370,7 +370,6 @@ int main(int argc, char *argv[]) {
     smt2_enable_mcsat();
   }
 
-
   while (smt2_active()) {
     if (interactive) {
       // prompt

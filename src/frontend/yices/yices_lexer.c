@@ -186,7 +186,7 @@ static char *token_string[NUM_YICES_TOKENS];
 /*
  * Initialize token2string table
  */
-static void init_token2string() {
+static void init_token2string(void) {
   keyword_t *kw;
 
   // keywords

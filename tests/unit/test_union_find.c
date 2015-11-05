@@ -84,7 +84,7 @@ static void print_partition(partition_t *p) {
 static int32_t aux[N];
 
 
-int main() {
+int main(void) {
   uint32_t i;
   int32_t x, y, rx, ry;
 

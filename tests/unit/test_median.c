@@ -206,7 +206,7 @@ static void run_test(int32_t *a, uint32_t n) {
 static int32_t test[ASIZE+1];
 
 
-int main() {
+int main(void) {
   uint32_t i, size;
 
   // small arrays

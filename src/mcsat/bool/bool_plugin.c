@@ -900,8 +900,8 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   }
 }
 
-plugin_t* bool_plugin_allocator() {
-  bool_plugin_t* plugin = malloc(sizeof(bool_plugin_t));
+plugin_t* bool_plugin_allocator(void) {
+  bool_plugin_t* plugin = safe_malloc(sizeof(bool_plugin_t));
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = bool_plugin_construct;
   plugin->plugin_interface.destruct            = bool_plugin_destruct;

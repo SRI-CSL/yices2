@@ -66,7 +66,7 @@ static state_desc_t state[NSTATES];
 /*
  * Initialization
  */
-static void init_state_descriptors() {
+static void init_state_descriptors(void) {
   int i;
   edge_t *tmp;
 
@@ -145,7 +145,7 @@ static void set_descriptors(triple_t *l) {
 /*
  * Print the descriptors
  */
-static void print_descriptors() {
+static void print_descriptors(void) {
   int i, j, n;
   edge_t *e;
 
@@ -175,7 +175,7 @@ static char * *val;
  * Allocate tables check and val, with initial size = 2*NTOKENS
  * Set all defaults in deval
  */
-static void init_tables() {
+static void init_tables(void) {
   int i, n;
 
   for (i=0; i<NSTATES; i++) {
@@ -200,7 +200,7 @@ static void init_tables() {
 /*
  * Extend the tables: make then twice as large
  */
-static void extend_tables() {
+static void extend_tables(void) {
   int i, n;
 
   n = 2 * val_size;
@@ -282,7 +282,7 @@ static void find_base(state_t i) {
 /*
  * Build the full tables
  */
-static void build_tables() {
+static void build_tables(void) {
   state_t i;
 
   init_tables();
@@ -295,7 +295,7 @@ static void build_tables() {
 /*
  * Print the tables
  */
-static void print_tables() {
+static void print_tables(void) {
   int i, maxbase, size;
 
   maxbase = base[0];
@@ -377,7 +377,7 @@ static char *get_desc_val(state_t i, token_t t) {
   return desc->def;
 }
 
-static void check_tables() {
+static void check_tables(void) {
   int i, j, n;
   char *v1, *v2;
 
@@ -399,7 +399,7 @@ static void check_tables() {
   }
 }
 
-int main() {
+int main(void) {
   init_state_descriptors();
   set_descriptors(triples);  
   print_descriptors();

@@ -158,7 +158,7 @@ static void random_tests(pseudo_subst_t *subst, uint32_t n) {
 
 static pseudo_subst_t subst;
 
-int main() {
+int main(void) {
   init_pseudo_subst(&subst, 1);
   printf("=== INITIAL TABLE ===\n");
   print_subst(&subst);

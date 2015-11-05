@@ -127,7 +127,7 @@ static uint32_t rank[50];
 static bddvar_t var[50];
 
 
-int main() {
+int main(void) {
   uint32_t i, n, m;
 
   n = 6;

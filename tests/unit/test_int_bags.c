@@ -78,7 +78,7 @@ static int32_t *bag;
 /*
  * Test add and remove
  */
-int main() {
+int main(void) {
   uint32_t i;
   int32_t k;
 

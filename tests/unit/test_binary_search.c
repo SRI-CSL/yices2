@@ -177,7 +177,7 @@ static void speed_test_sequential_search(int32_t *a, uint32_t n) {
 
 
 
-int main() {
+int main(void) {
   int32_t *a;
   uint32_t n;
 

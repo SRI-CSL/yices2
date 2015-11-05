@@ -76,7 +76,7 @@ static void words_from_file(const char *filename) {
   exit(1);
 }
 
-static void clear_words() {
+static void clear_words(void) {
   uint32_t j;
 
   for (j=0; j<n_words; j++) free(words[j]);

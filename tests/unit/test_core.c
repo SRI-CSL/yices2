@@ -176,7 +176,7 @@ static th_smt_interface_t null_smt = {
 
 static smt_core_t core;
 
-int main() {
+int main(void) {
   literal_t l;
 
   // Initialize nothing

@@ -11,6 +11,6 @@
 #include "mcsat/plugin.h"
 
 /** Allocate a new nra plugin and setup the plugin-interface method */
-plugin_t* nra_plugin_allocator();
+plugin_t* nra_plugin_allocator(void);
 
 #endif /* NRA_PLUGIN_H_ */

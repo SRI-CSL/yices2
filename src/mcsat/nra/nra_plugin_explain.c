@@ -701,6 +701,7 @@ void lp_projection_map_lift(lp_projection_map_t* map, ivector_t* out) {
 
 }
 
+#ifndef NDEBUG
 static
 bool constraint_has_value(const mcsat_trail_t* trail, const int_mset_t* pos, const int_mset_t* neg, variable_t constraint) {
   if (trail_has_value(trail, constraint)) {
@@ -714,6 +715,7 @@ bool constraint_has_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
   }
   return false;
 }
+#endif
 
 static
 bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, const int_mset_t* neg, variable_t constraint) {

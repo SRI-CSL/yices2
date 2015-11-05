@@ -28,7 +28,7 @@ static uint32_t random_u32(void) {
   return ((a << 4) & (uint32_t) 0xFFFF0000) | (b & (uint32_t) 0xFFFF);
 }
 
-int main() {
+int main(void) {
   FILE *f;
   int i;
 

@@ -104,7 +104,7 @@ static void test_list2(void) {
 }
 
 
-int main() {
+int main(void) {
   init_rationals();
   mpz_init(z0);
   mpz_set_str(z0, "12345678900987654321", 10);

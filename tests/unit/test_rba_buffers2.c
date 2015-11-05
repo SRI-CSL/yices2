@@ -423,7 +423,7 @@ static void test2(void) {
 }
 
 
-int main() {
+int main(void) {
   init_globals();
   test1();
   printf("\n\n");

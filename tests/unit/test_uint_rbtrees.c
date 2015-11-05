@@ -308,7 +308,7 @@ static void test_rotations(rbtree_t *tree) {
 /*
  * Run tests
  */
-int main() {
+int main(void) {
   init_rbtree(&tree, 10); // use small size to trigger resizing
 
   printf("--- After init ---\n");

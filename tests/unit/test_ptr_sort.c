@@ -141,7 +141,7 @@ static void *a[100];
 
 
 
-int main() {
+int main(void) {
   uint32_t n;
 
   for (n=0; n <= 100; n += 20) {

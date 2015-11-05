@@ -95,7 +95,7 @@ static void print_queue(void) {
 /*
  * Test queue
  */
-int main() {
+int main(void) {
   uint32_t i, n;
 
   init_eassertion_queue(&queue);

@@ -9,8 +9,8 @@
  * INTERVAL ARITHMETIC FOR SIGNED BITVECTORS
  */
 
-#ifndef __BV64_SIGN_ABSTRACTION_H
-#define __BV64_SIGN_ABSTRACTION_H
+#ifndef __BV64_INTERVAL_ABSTRACTION_H
+#define __BV64_INTERVAL_ABSTRACTION_H
 
 /*
  * Given an n-bit vector u = u[n-1] ... u[0], then we denote by
@@ -37,28 +37,27 @@
  *
  * In general, we want to reduce the size of arithmetic operation such
  * as bvadd and bvmul, by using k bits instead of n when that doesn't
- * lose precision. In general, give a polynomial p of n bits, we can
- * compute the number of significant bits in p. If that's less than n,
- * then we can convert p to (sign-extend k p') where p' is similar to
- * p but with smaller-size operations.
+ * lose precision. Given a polynomial p of n bits, we can compute the
+ * number of significant bits in p. If that's less than n, then we can
+ * convert p to (sign-extend k p') where p' is similar to p but with
+ * smaller-size operations.
  *
  * To compute the number of significant bits in a bitvector term u, we
  * construct an abstraction:
  *
- *   alpha(u) = [k, s, l, h]
+ *   alpha(u) = [k, s, low, highh]
  *
- * where k+1 = number of significant bits in u
- *         s = sign bit of u
- *   l and h are two constants such that 0 <= l <= h <= 2^k -1
+ * where
+ * - k = number of significant bits in u (including the sign bit)
+ * - s = sign bit
+ * - low and high define an interval that contains bv2int(u).
+ * - both low and high have k significant bits and k is between 1 and 64.
  *
- * This is intended to mean that bv2int(u) is equal to (v - 2^k s) for
- * some k-bit vector v such that l <= v <= h.
- *
- * This gives us an interval for bv2int(u):
- * - if s is zero, we get         l <= bv2int(u) <= h
- * - if s is one,  we get (l - 2^k) <= bv2int(u) <= (h - 2^k)
- * - otherwise,    we get (l - 2^k) <= bv2int(u) <= h           
- *
+ * Conversely, the concretization of [k, s, low, high] is the set of all
+ * bitvectors u such that:
+ * - u has k significant bits
+ * - low <= u <= high
+ * - u's sign bit is equal to s
  */
 
 
@@ -73,13 +72,12 @@
 typedef struct bv64_abs_s {
   uint32_t nbits;  // number of significant bits - 1
   int32_t  sign;   // sign bit
-  uint64_t low;    // lower bound
-  uint64_t high;   // upper bound
+  int64_t low;     // lower bound
+  int64_t high;    // upper bound
 } bv64_abs_t;
 
 /*
- * For the sign bit we use the same conventions as in the smt core
- * sat solver:
+ * For the sign bit we use the same conventions as in the smt_core
  *  sign = null_literal (i.e., -1) means that the sign bit is unknown
  *  sign = true_literal (i.e.,  0) means that the sign bit is '1'
  *  sign = false_literal (i.e., 1) means that the sign bit is '0'
@@ -91,13 +89,6 @@ enum {
   sign_one = 0,  // i.e., true_literal
   sign_zero = 1, // i.e., false_literal
 };
-
-static inline int32_t negate_sign(int32_t s) {
-  assert(s >= 0);
-  return s ^ 1;
-}
-
-
 
 /*
  * Abstraction of a constant c.
@@ -137,14 +128,19 @@ extern void bv64_abs_array(bv64_abs_t *a, int32_t zero, const int32_t *u, uint32
 
 
 /*
- * Abstraction for binary operations: (a + b), (a - b), (a * b), (a ^ d)
- * - all functions return false if the result requires more than 64bits
- * - otherwise, the result is stored in a and the functions returns true.
+ * Abstraction for (- a): 
+ * - the result is stored in place
  */
-extern bool bv64_abs_add(bv64_abs_t *a, const bv64_abs_t *b);
-extern bool bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b);
-extern bool bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b);
-extern bool bv64_abs_power(bv64_abs_t *a, uint32_t d);
+extern void bv64_abs_negate(bv64_abs_t *a);
+
+/*
+ * Abstraction for binary operations: (a + b), (a - b), (a * b), (a ^ d)
+ * - the result is stored in a
+ */
+extern void bv64_abs_add(bv64_abs_t *a, const bv64_abs_t *b);
+extern void bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b);
+extern void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b);
+extern void bv64_abs_power(bv64_abs_t *a, uint32_t d);
 
 
-#endif /* __BV64_SIGN_ABSTRACTION_H */
+#endif /* __BV64_INTERVAL_ABSTRACTION_H */

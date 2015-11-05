@@ -62,7 +62,7 @@ void gc_info_new_level(gc_info_t* gc);
 uint32_t gc_info_get_level_size(const gc_info_t* gc);
 
 /** Get marked objects */
-ivector_t* gc_info_get_leve_marked();
+ivector_t* gc_info_get_level_marked(void);
 
 /** Check if the object is marked */
 bool gc_info_is_marked(const gc_info_t* gc, int32_t obj);

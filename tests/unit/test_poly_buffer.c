@@ -133,7 +133,7 @@ static void random_rational(rational_t *a) {
 /*
  * Tests
  */
-int main() {
+int main(void) {
   rational_t alpha;
   uint32_t n;
   int32_t v;

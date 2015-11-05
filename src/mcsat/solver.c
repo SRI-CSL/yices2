@@ -525,7 +525,7 @@ void mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator
   // The index of the plugin
   uint32_t plugin_i = mcsat->plugins_count;
   // Allocate the request
-  mcsat_plugin_context_t* plugin_ctx = malloc(sizeof(mcsat_plugin_context_t));
+  mcsat_plugin_context_t* plugin_ctx = safe_malloc(sizeof(mcsat_plugin_context_t));
   mcsat_plugin_context_construct(plugin_ctx, mcsat, plugin_i, plugin_name);
   // Construct the plugin
   plugin->construct(plugin, (plugin_context_t*) plugin_ctx);
@@ -565,7 +565,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat->var_db_notify.new_variable = mcsat_new_variable_notify;
 
   // The variable database
-  mcsat->var_db = malloc(sizeof(variable_db_t));
+  mcsat->var_db = safe_malloc(sizeof(variable_db_t));
   variable_db_construct(mcsat->var_db, mcsat->terms, mcsat->types, mcsat->ctx->trace);
   variable_db_add_new_variable_listener(mcsat->var_db, (variable_db_new_variable_notify_t*)&mcsat->var_db_notify);
 
@@ -573,7 +573,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   init_ivector(&mcsat->assertion_vars, 0);
 
   // The trail
-  mcsat->trail = malloc(sizeof(mcsat_trail_t));
+  mcsat->trail = safe_malloc(sizeof(mcsat_trail_t));
   trail_construct(mcsat->trail, mcsat->var_db);
 
   // Variable registration queue

@@ -297,7 +297,7 @@ static void test3(void) {
 /*
  * Main test
  */
-int main() {
+int main(void) {
   test1();
   test2();
   test3();

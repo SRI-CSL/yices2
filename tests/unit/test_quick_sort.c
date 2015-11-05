@@ -397,7 +397,7 @@ static void compare(int32_t *a, int32_t n) {
 }
 
 
-int main() {
+int main(void) {
   int32_t *a;
   int32_t n, j;
 

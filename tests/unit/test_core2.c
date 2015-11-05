@@ -583,7 +583,7 @@ static void handler(int signum) {
  * SIGINT, SIGABRT, SIGALRM, SIGXCPU
  * (the latter two don't exist on mingw)
  */
-static void init_handler() {
+static void init_handler(void) {
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW

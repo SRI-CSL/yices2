@@ -119,7 +119,7 @@ struct trail_token_s {
  * - Setup all the interface methods
  * - All other construction goes into the construct method
  */
-typedef plugin_t* (*plugin_allocator_t) ();
+typedef plugin_t* (*plugin_allocator_t) (void);
 
 struct plugin_s {
 

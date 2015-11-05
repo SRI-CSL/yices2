@@ -23,7 +23,7 @@ static void print_arena(arena_t *a) {
 
 static arena_t arena;
 
-int main() {
+int main(void) {
   void *tst;
 
   init_arena(&arena);

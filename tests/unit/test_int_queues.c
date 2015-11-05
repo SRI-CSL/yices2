@@ -46,7 +46,7 @@ static void print_queue_data(int_queue_t *q) {
   printf("\n");
 }
 
-int main() {
+int main(void) {
   int32_t x;
 
   init_int_queue(&q, 2);

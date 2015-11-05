@@ -243,7 +243,7 @@ static void test_addmul(int32_t num1, uint32_t den1, int32_t num2, uint32_t den2
 
 
 
-static void assignment_tests() {
+static void assignment_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -270,7 +270,7 @@ static void addition_test(int32_t num1, uint32_t den1) {
   }
 }
 
-static void addition_tests() {
+static void addition_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -298,7 +298,7 @@ static void subtraction_test(int32_t num1, uint32_t den1) {
   }
 }
 
-static void subtraction_tests() {
+static void subtraction_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -328,7 +328,7 @@ static void product_test(int32_t num1, uint32_t den1) {
   }
 }
 
-static void product_tests() {
+static void product_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -356,7 +356,7 @@ static void division_test(int32_t num1, uint32_t den1) {
   }
 }
 
-static void division_tests() {
+static void division_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -385,7 +385,7 @@ static void addmul_test(int32_t num1, uint32_t den1) {
   }
 }
 
-static void addmul_tests() {
+static void addmul_tests(void) {
   int32_t i, j, a;
   uint32_t b;
 
@@ -401,7 +401,7 @@ static void addmul_tests() {
 
 
 
-int main() {
+int main(void) {
   int32_t i;
 
   init_rationals();

@@ -37,7 +37,7 @@ static void print_stack(ptr_stack_t *stack) {
   printf("\n");
 }
 
-int main() {
+int main(void) {
   void **a1, **a2, **a3, **a4;
 
   printf("=== Initialization ===\n");

@@ -41,7 +41,7 @@ static mpq_t q0;
 
 static uint32_t *bv0;
 
-int main() {
+int main(void) {
   int32_t x, y;
   uint32_t a, b, n;
   char c;

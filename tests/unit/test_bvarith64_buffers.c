@@ -412,7 +412,7 @@ static void test2(uint32_t n) {
 }
 
 
-int main() {
+int main(void) {
   init_globals();
 
   test1(5);

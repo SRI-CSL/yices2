@@ -4973,6 +4973,6 @@ void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
 /*
  * Enables the mcsat solver.
  */
-void smt2_enable_mcsat() {
+void smt2_enable_mcsat(void) {
   __smt2_globals.mcsat = true;
 }

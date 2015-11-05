@@ -94,7 +94,7 @@ static void catcher2(void) {
 }
 
 
-int main() {
+int main(void) {
   catcher();
   catcher2();
   return 0;

@@ -44,7 +44,7 @@ static void print_map(ptr_hmap_t *map) {
 }
 
 
-int main() {
+int main(void) {
   ptr_hmap_pair_t *d;
   int32_t i;
 

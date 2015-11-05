@@ -191,7 +191,7 @@ static void test_constants(void) {
 }
 
 
-int main() {
+int main(void) {
   init_tables();
   test_constants();
   delete_tables();

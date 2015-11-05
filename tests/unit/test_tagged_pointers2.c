@@ -54,7 +54,7 @@ static void test_ptr(void *x) {
 }
 
 
-int main() {
+int main(void) {
   int32_t a;
   uint32_t b;
   void *c;

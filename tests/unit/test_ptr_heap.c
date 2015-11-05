@@ -135,7 +135,7 @@ static void run_test(uint32_t n) {
 /*
  * Run some tests
  */
-int main() {
+int main(void) {
   uint32_t i;
 
   init_ptr_heap(&heap, 0, (ptr_heap_cmp_fun_t) compare);

@@ -1519,7 +1519,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EF_GEN_MODE:
     if (param_val_to_genmode(param, val, &g, &reason)) {
       ef_client_globals.ef_parameters.gen_mode = g;
-      print_ok();;
+      print_ok();
     }
     break;
 

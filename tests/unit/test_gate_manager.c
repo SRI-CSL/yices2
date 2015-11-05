@@ -1026,7 +1026,7 @@ static void test4(gate_manager_t *m) {
 static smt_core_t core;
 static gate_manager_t manager;
 
-int main() {
+int main(void) {
   init_sat_solver(&core);
   init_gate_manager(&manager, &core);
 

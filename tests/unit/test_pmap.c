@@ -33,7 +33,7 @@ static void print_map(pmap_t *map) {
 }
 
 
-int main() {
+int main(void) {
   pmap_rec_t *d;
   char *fake;
   int32_t i;

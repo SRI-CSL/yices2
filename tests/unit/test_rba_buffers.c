@@ -339,7 +339,7 @@ static void test_remove(rba_buffer_t *b, pprod_t *p) {
 
 static pprod_t *test[NUM_TESTS];
 
-static int32_t random_var() {
+static int32_t random_var(void) {
   return random() & 0xFFFF;
 }
 

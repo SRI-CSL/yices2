@@ -140,8 +140,8 @@ void ite_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   }
 }
 
-plugin_t* ite_plugin_allocator() {
-  ite_plugin_t* plugin = malloc(sizeof(ite_plugin_t));
+plugin_t* ite_plugin_allocator(void) {
+  ite_plugin_t* plugin = safe_malloc(sizeof(ite_plugin_t));
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = ite_plugin_construct;
   plugin->plugin_interface.destruct            = ite_plugin_destruct;

@@ -322,7 +322,7 @@ static void pp_types(void) {
 }
 
 
-int main() {
+int main(void) {
   init_types();
   show_types("Initial types");
   random_types(50);

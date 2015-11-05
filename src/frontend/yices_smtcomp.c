@@ -667,7 +667,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
 /*
  * Statistics + result, after the search
  */
-static void print_results() {
+static void print_results(void) {
   smt_core_t *core;
   egraph_t *egraph;
   simplex_solver_t *simplex;
@@ -737,7 +737,7 @@ static void print_results() {
 /*
  * STATISTICS DISABLED: JUST PRINT THE RESULT
  */
-static void print_results() {
+static void print_results(void) {
   uint32_t resu;
 
   resu = context.core->status;

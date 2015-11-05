@@ -157,14 +157,14 @@ static void delete_allocator(bvconst_allocator_t *s) {
 /*
  * Initialization: prepare global store
  */
-void init_bvconstants() {
+void init_bvconstants(void) {
   init_allocator(&allocator);
 }
 
 /*
  * Cleanup: free the store
  */
-void cleanup_bvconstants() {
+void cleanup_bvconstants(void) {
   delete_allocator(&allocator);
 }
 

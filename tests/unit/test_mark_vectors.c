@@ -149,7 +149,7 @@ static void test2(uint32_t n) {
   delete_mark_vector(&vector);
 }
 
-int main() {
+int main(void) {
   test1();
   test2(20);
   test2(10000);

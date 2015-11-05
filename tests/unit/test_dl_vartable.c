@@ -354,7 +354,7 @@ static void test_add_diff(dl_vartable_t *table) {
  */
 static dl_vartable_t table;
 
-int main() {
+int main(void) {
   uint32_t i;
 
   init_rationals();

@@ -141,7 +141,7 @@ static bvarith64_buffer_t b1, b2;
 static bvarith_buffer_t c1, c2;
 
 
-int main() {
+int main(void) {
   thvar_t x, y, z;
 
   init_bvconstants();

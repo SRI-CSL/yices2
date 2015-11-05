@@ -266,7 +266,7 @@ static void decreasing_test(uint32_t n) {
 
 
 
-int main() {
+int main(void) {
   int n;
 
   random_test(0);

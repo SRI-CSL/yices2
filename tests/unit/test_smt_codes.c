@@ -169,7 +169,7 @@ static const char *const code2string[NUM_SMT_LOGICS+1] = {
   "UNKNOWN"
 };
 
-int main() {
+int main(void) {
   uint32_t i;
   smt_logic_t code;
 

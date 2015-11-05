@@ -50,7 +50,7 @@ static inline void check_result(mpq_t q) {}
  * Initialization: allocate and initialize the
  * global variables.
  */
-void init_mpq_aux() {
+void init_mpq_aux(void) {
 #if 0
   printf("GMP Version %s\n", gmp_version);
   printf("bits per limb: %d\n\n", mp_bits_per_limb);
@@ -75,7 +75,7 @@ void init_mpq_aux() {
 /*
  * Cleanup
  */
-void cleanup_mpq_aux() {
+void cleanup_mpq_aux(void) {
   mpz_clear(z0);
 
 #ifdef DEBUG

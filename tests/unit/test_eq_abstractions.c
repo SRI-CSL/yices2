@@ -361,7 +361,7 @@ static void test_joins(void) {
 }
 
 
-int main() {
+int main(void) {
   init_epartition_manager(&mngr);
   printf("--- Init ---\n");
   print_manager();

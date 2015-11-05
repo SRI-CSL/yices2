@@ -166,7 +166,7 @@ static void normalize_array(uint32_t n) {
 }
 
 
-int main() {
+int main(void) {
   int i;
 
   for (i=0; i<20; i++) {

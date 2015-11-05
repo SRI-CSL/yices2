@@ -21,7 +21,7 @@ static void display_bitvector(byte_t *bv, int32_t n) {
   printf("\n");
 }
 
-int main() {
+int main(void) {
   byte_t *bv;
   int32_t i;
 

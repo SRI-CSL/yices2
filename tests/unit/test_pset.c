@@ -55,7 +55,7 @@ static int32_t test_values[40] = {
 };
 
 
-int main() {
+int main(void) {
   int32_t a, b;
   uint32_t i, n;
 

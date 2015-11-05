@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-int main() {
+int main(void) {
   uint32_t n;
   uint64_t aux, mask, neg;
 

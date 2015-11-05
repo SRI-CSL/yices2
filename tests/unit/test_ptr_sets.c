@@ -155,7 +155,7 @@ static void init_test_data(void) {
 }
 
 
-int main() {
+int main(void) {
   ptr_set_t *test;
   uint32_t i;
 

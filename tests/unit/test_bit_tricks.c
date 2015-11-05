@@ -102,7 +102,7 @@ static inline uint32_t naive_popcount64(uint64_t x) {
 #define N 500000000
 #define X (1<<31)
 
-int main() {
+int main(void) {
   uint32_t i, n;
   uint64_t x;
   double c, d;

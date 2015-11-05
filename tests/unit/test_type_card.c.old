@@ -34,7 +34,7 @@ static void test(type_t tau, char *name) {
 }
 
 
-int main() {
+int main(void) {
   type_t b, i, r, u, bv1, bv10, bv31, bv32, bv33, scal1, scal4, scal23;
   type_t aux[10];
   type_t fun1, fun2, fun3, tup1, tup2;

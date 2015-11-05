@@ -53,7 +53,7 @@ static char *code2string[NUM_TSTACK_ERRORS] = {
 static tstack_t stack;
 static loc_t loc;
 
-int main() {
+int main(void) {
   int exception;
   type_t tau;
   term_t t;

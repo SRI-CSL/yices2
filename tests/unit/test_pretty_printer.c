@@ -189,7 +189,7 @@ static void test4(pp_t *pp) {
  */
 static pp_t pp;
 
-int main() {
+int main(void) {
   uint32_t w;
 
   init_tokens();

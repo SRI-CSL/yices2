@@ -1191,7 +1191,7 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
 /*
  * Statistics + result, after the search
  */
-static void print_results() {
+static void print_results(void) {
   smt_core_t *core;
   egraph_t *egraph;
   simplex_solver_t *simplex;
@@ -1255,7 +1255,7 @@ static void print_results() {
 /*
  * Statistics on problem size, before the search
  */
-static void print_presearch_stats() {
+static void print_presearch_stats(void) {
   smt_core_t *core;
   egraph_t *egraph;
 
@@ -1625,7 +1625,7 @@ static void handler(int signum) {
  * Set the signal handler: to print statistics on
  * SIGINT, SIGABRT, SIGXCPU
  */
-static void init_handler() {
+static void init_handler(void) {
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW

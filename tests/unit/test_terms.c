@@ -2270,7 +2270,7 @@ static void test_names(void) {
 
 
 
-int main() {
+int main(void) {
   init_globals();
   init_global_types();
 

@@ -386,7 +386,7 @@ static void test3(void) {
 
 
 
-int main() {
+int main(void) {
   test1();
   test2();
   test3();

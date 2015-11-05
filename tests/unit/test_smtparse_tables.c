@@ -216,7 +216,7 @@ static char* action2string[] = {
 };
 
 
-int main() {
+int main(void) {
   int32_t s, tk;
   lexer_t lex;
 

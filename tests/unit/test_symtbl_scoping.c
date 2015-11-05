@@ -152,7 +152,6 @@ static void random_tests(uint32_t n) {
 }
 
 
-
 int main(void) {
   uint32_t i;
 

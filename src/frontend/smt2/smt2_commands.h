@@ -715,6 +715,6 @@ extern void smt2_tstack_error(tstack_t *stack, int32_t exception);
 /*
  * Enable the mcsat solver.
  */
-extern void smt2_enable_mcsat();
+extern void smt2_enable_mcsat(void);
 
 #endif /* __SMT2_COMMANDS_H */

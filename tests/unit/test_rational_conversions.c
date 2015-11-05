@@ -308,7 +308,7 @@ static void test4(void) {
 }
 
 
-int main() {
+int main(void) {
   init_rationals();
   test1();
   test2();

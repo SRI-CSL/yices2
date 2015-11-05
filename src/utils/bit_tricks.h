@@ -14,9 +14,16 @@
  *   of x that's not 0
  * - x must be nonzero
  *
+ * uint32_t clz(uint32_t x): number of leading zeros in x
+ * - x must be nonzero
+ *
  * uint32_t ctz64(uint64_t x):
  * - return the index (between 0 and 63) of the lowest-order bit
  *   of x that's not 0
+ * - x must be nonzero
+ *
+ * uint32_t clz64(uint64_t x):
+ * - number of leading zeros in x
  * - x must be nonzero
  *
  * uint32_t binlog(uint32_t x): return the smallest k such that
@@ -184,6 +191,19 @@ static inline uint32_t clz(uint32_t x) {
 
   assert(x != 0);
   m = 0x80000000u;
+  i = 0;
+  while ((x & m) == 0) {
+    i ++;
+    m >>= 1;
+  }
+  return i;
+}
+
+static inline uint32_t clz64(uint64_t x) {
+  uint64_t m, i;
+
+  assert(x != 0);
+  m = 0x8000000000000000u;
   i = 0;
   while ((x & m) == 0) {
     i ++;

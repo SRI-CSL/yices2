@@ -118,7 +118,7 @@ static void all_tests(void) {
 }
 
 
-int main() {
+int main(void) {
   yices_init();
   all_tests();
   yices_exit();

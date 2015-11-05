@@ -453,7 +453,7 @@ static void test6(void) {
 
 
 
-int main() {
+int main(void) {
   init_type_table(&types, 10);
   init_pstore(&store, &types);
 

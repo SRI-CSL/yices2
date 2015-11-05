@@ -14,7 +14,7 @@
 #include "utils/memalloc.h"
 #include "utils/memsize.h"
 
-int main() {
+int main(void) {
   double size;
   void *ptr;
 

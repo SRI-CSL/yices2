@@ -197,7 +197,7 @@ static void test_big_big(void) {
   q_clear(&c);
 }
 
-int main() {
+int main(void) {
   init_rationals();
   test_small_small();
   test_big_small();

@@ -230,7 +230,7 @@ static void print_lemmas(lemma_queue_t *queue) {
   }
 }
 
-int main() {
+int main(void) {
   uint32_t i;
 
   // initialize lemma c

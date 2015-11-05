@@ -368,7 +368,7 @@ static void random_pivot(matrix_t *matrix) {
 }
 
 
-int main() {
+int main(void) {
   uint32_t i;
 
   init_rationals();

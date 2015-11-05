@@ -108,7 +108,7 @@ static void resize_bank(uint32_t n) {
 /*
  * Free the bank
  */
-static void clear_bank() {
+static void clear_bank(void) {
   uint32_t i, n;
 
   n = bank_capacity;
@@ -130,7 +130,7 @@ static inline int32_t free_list_next(int32_t i) {
 /*
  * Allocate an mpq number: return the index
  */
-static int32_t alloc_mpq() {
+static int32_t alloc_mpq(void) {
   int32_t n;
 
   n = bank_free;
@@ -188,7 +188,7 @@ static uint32_t string_buffer_length;
 
 #define INITIAL_BANK_CAPACITY 1024
 
-void init_rationals() {
+void init_rationals(void) {
   init_mpq_aux();
   init_bank(INITIAL_BANK_CAPACITY);
   string_buffer = NULL;
@@ -197,7 +197,7 @@ void init_rationals() {
   mpq_init2(q0, 64);
 }
 
-void cleanup_rationals() {
+void cleanup_rationals(void) {
   cleanup_mpq_aux();
   clear_bank();
   safe_free(string_buffer);
@@ -205,7 +205,7 @@ void cleanup_rationals() {
   mpq_clear(q0);
 }
 
-static void division_by_zero() {
+static void division_by_zero(void) {
   fprintf(stderr, "\nRationals: division by zero\n");
   abort();
 }

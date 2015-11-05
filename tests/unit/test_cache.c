@@ -319,7 +319,7 @@ static void test2(void) {
   delete_cache(&cache);
 }
 
-int main() {
+int main(void) {
   test1();
   test2();
   return 0;

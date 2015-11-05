@@ -11,6 +11,6 @@
 #include "mcsat/plugin.h"
 
 /** Allocate a new bool plugin and setup the plugin-interface method */
-plugin_t* eq_plugin_allocator();
+plugin_t* eq_plugin_allocator(void);
 
 #endif /* EQ_PLUGIN_H_ */

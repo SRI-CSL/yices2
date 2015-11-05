@@ -357,7 +357,7 @@ static void print_heap(var_heap_t *heap, char *msg) {
   printf("\n");
 }
 
-int main() {
+int main(void) {
   bvar_t x;
   uint32_t i;
 

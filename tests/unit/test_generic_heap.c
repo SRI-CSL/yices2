@@ -136,7 +136,7 @@ static bool test_cmp(void *data, int32_t x, int32_t y) {
 
 
 
-int main() {
+int main(void) {
   uint32_t i, n;
 
   init_generic_heap(&heap, 5, 5, test_cmp, NULL);

@@ -129,7 +129,7 @@ static void test_heap(int_heap_t *heap) {
 
 
 
-int main() {
+int main(void) {
   uint32_t i, n;
 
   init_int_heap(&heap, 5, 5);

@@ -48,13 +48,13 @@
  * Initialization: allocate and initialize the
  * global variables.
  */
-extern void init_mpq_aux();
+extern void init_mpq_aux(void);
 
 
 /*
  * Cleanup: delete global variables and free memory
  */
-extern void cleanup_mpq_aux();
+extern void cleanup_mpq_aux(void);
 
 
 

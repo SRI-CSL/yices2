@@ -11,6 +11,6 @@
 #include "mcsat/plugin.h"
 
 /** Allocate a new bool plugin and setup the plugin-interface method */
-plugin_t* ite_plugin_allocator();
+plugin_t* ite_plugin_allocator(void);
 
 #endif /* ITE_PLUGIN_H_ */
