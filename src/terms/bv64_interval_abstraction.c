@@ -59,6 +59,66 @@ static bool bv64_abs_consistent(bv64_abs_t *a) {
 #endif
 
 
+
+/*
+ * Arithmetic on signed k-bit constants with overflow indicator
+ */
+
+// min integer = -2^(k-1)
+static inline int64_t min_int(uint32_t k) {
+  assert(1 <= k && k <= 64);
+  return - (int64_t)(((uint64_t) 1) << (k -1));
+}
+
+// max integer = 2^(k-1) - 1
+static inline int64_t max_int(uint32_t k) {
+  assert(1 <= k && k <= 64);
+  return (int64_t)((((uint64_t) 1) << (k -1)) - 1);
+}
+
+// check whether x has k significant bits
+static inline bool fits_k_bits(int64_t x, uint32_t k) {
+  return min_int(k) <= x && x <= max_int(k);
+}
+
+// opposite of x: set overflow to true if the result requires k+1 bits
+static inline int64_t opposite(int64_t x, uint32_t k, bool *overflow) {
+  assert(fits_k_bits(x, k));
+  *overflow = (x == min_int(k));
+  return -x;
+}
+
+// sum: x + y
+static int64_t sum(int64_t x, int64_t y, uint32_t k, bool *overflow) {
+  int64_t s;
+
+  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
+
+  s = x + y;
+  if (k < 64) {
+    *overflow = !fits_k_bits(s, k);
+  } else {
+    *overflow = (x<0 && y<0 && s>0) || (x>0 && y>0 && s<0);
+  }
+  return s;
+}
+
+// diff: x - y
+static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
+  int64_t d;
+
+  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
+  d = x - y;
+  if (k < 64) {
+    *overflow = !fits_k_bits(d, k);
+  } else {
+    *overflow = (x < 0 && y > 0 && d > 0) || (x > 0 && y < 0 && d < 0);
+  }
+
+  return d;
+}
+
+
 /*
  * Abstraction of a constant c.
  * - n = number of bits in c
@@ -150,12 +210,6 @@ static inline int32_t negate_sign(int32_t s) {
   return s ^ 1;
 }
 
-// build 2^k
-static inline int64_t power2(uint32_t k) {
-  assert(k <= 63);
-  return (int64_t)(((uint64_t) 1) << k);
-}
-
 
 
 /*
@@ -209,7 +263,7 @@ void bv64_abs_array(bv64_abs_t *a, int32_t zero, const int32_t *u, uint32_t n) {
    */
   assert(k <= 63);
 
-  s_min = - power2(k); // -2^k
+  s_min = min_int(k+1); // -2^(k)
   s_max = 0;
   if (s == zero) {
     s_min = s_max; // both are 0
@@ -245,15 +299,15 @@ void bv64_abs_array(bv64_abs_t *a, int32_t zero, const int32_t *u, uint32_t n) {
  * Abstraction for (- a): 
  * - the result is stored in place
  */
-void bv64_abs_negate(bv64_abs_t *a) {
+void bv64_abs_negate(bv64_abs_t *a) {  
+  int64_t low, high;
   uint32_t k;
+  bool overflow;
 
   k = a->nbits;
 
-  assert(1 <= k && k <= 64);
-
-  if (a->low == - power2(k-1)) {
-    // - a->low does not fit on k bits (it's 2^(k-1))
+  high = opposite(a->low, k, &overflow);
+  if (overflow) {
     k ++;
     if (k > 64) {
       bv64_top_abs(a);
@@ -261,12 +315,15 @@ void bv64_abs_negate(bv64_abs_t *a) {
     }
   } 
 
+  low = - a->high;
+  assert(fits_k_bits(low, k));
+
   a->nbits = k;
-  a->low = - a->high;
-  a->high = a->low;
-  if (a->low >= 0) {
+  a->low = low;
+  a->high = high;
+  if (low >= 0) {
     a->sign = sign_zero;
-  } else if (a->high < 0) {
+  } else if (high < 0) {
     a->sign = sign_one;
   } else {
     // the new interval [-high, -low] contains 0 so we've lost
@@ -279,18 +336,90 @@ void bv64_abs_negate(bv64_abs_t *a) {
 
 
 /*
- * Abstraction for binary operations: (a + b), (a - b), (a * b), (a ^ d)
+ * Abstraction for (a + b)
  * - the result is stored in a
+ *
+ * If a->sign == b->sign then the sign is preserved
+ * (also if a->sign is sign_undef)
  */
 void bv64_abs_add(bv64_abs_t *a, const bv64_abs_t *b) {
+  int64_t low, high;
+  uint32_t k;
+  bool low_overflow, high_overflow;
+
+  k = a->nbits;
+  high = sum(a->high, b->high, k, &high_overflow);
+  low = sum(a->low, b->low, k, &low_overflow);
+  if (high_overflow || low_overflow) {
+    k ++;
+    if (k > 64) {
+      bv64_top_abs(a);
+      return;
+    }
+  }
+
+  a->nbits = k;
+  a->low = low;
+  a->high = high;
+
+  if (low >= 0) {
+    a->sign = sign_zero;
+  } else if (high < 0) {
+    a->sign = sign_one;
+  } else if (a->sign != b->sign) {
+    a->sign = sign_undef;
+  }
+  
+  assert(bv64_abs_consistent(a));
 }
 
+/*
+ * Abstraction for (a - b)
+ * - the result is stored in a
+ *
+ * If a and b have opposite signs then the result
+ * has the same sign as a.
+ */
 void bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b) {
+  int64_t low, high;
+  uint32_t k;
+  bool low_overflow, high_overflow;
+
+  k = a->nbits;
+  high = diff(a->high, b->low, k, &high_overflow);
+  low = diff(a->low, b->high, k, &low_overflow);
+  if (high_overflow || low_overflow) {
+    k ++;
+    if (k > 64) {
+      bv64_top_abs(a);
+      return;
+    }
+  }
+
+  a->nbits = k;
+  a->low = low;
+  a->high = high;
+
+  if (low >= 0) {
+    a->sign = sign_zero;
+  } else if (high < 0) {
+    a->sign = sign_one;
+  } else if (a->sign != negate_sign(b->sign)) {
+    a->sign = sign_undef;
+  }
+  
+  assert(bv64_abs_consistent(a));
 }
 
+
+/*
+ * Abstraction for (a * b)
+ */
 void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
+  // TDB
 }
 
 void bv64_abs_power(bv64_abs_t *a, uint32_t d) {
+  // TDB
 }
 
