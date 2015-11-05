@@ -37,7 +37,7 @@ Here is the corresponding code from :file:`examples/example1.c`::
 Type and Term Construction
 --------------------------
 
-The following code fragment builds two uninterpreted terms ``x`` and ``y`` or type ``int``::
+The following code fragment builds two uninterpreted terms ``x`` and ``y`` of type ``int``::
 
    type_t int_type = yices_int_type();
    term_t x = yices_new_uninterpreted_term(int_type);

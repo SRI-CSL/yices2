@@ -1035,13 +1035,13 @@ Error Reports
 
    .. c:enum:: EVAL_CONVERSION_FAILED
 
-      Failed to convert the value of a term in model into a constant term.
+      Failed to convert the value of a term in a model into a constant term.
       This error can be reported by :c:func:`yices_get_value_as_term` and 
       :c:func:`yices_term_array_value`.
 
    .. c:enum:: EVAL_NO_IMPLICANT
 
-      Error reported by :c:func:`yices_implicant_for_formula` and variants,
+      Error reported by :c:func:`yices_implicant_for_formula` and variants
       when the input formula is false in the model.
 
 

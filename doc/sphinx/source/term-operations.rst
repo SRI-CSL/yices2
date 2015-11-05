@@ -930,7 +930,7 @@ Arithmetic Terms
    - *t* must be an array of *n* arithmetic terms
 
    This generalizes function :c:func:`yices_add` to *n* arguments. The
-   array may be empty (i.e., *n* may be zero), in which case, the
+   array may be empty (i.e., *n* may be zero), in which case the
    function returns 0.
 
 .. c:function:: term_t yices_product(uint32_t n, const term_t t[])

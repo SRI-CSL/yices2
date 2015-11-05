@@ -161,7 +161,7 @@ explanation.
       a[0] a[1] ... a[k]
       a[k+1] ... a[n-1]
 
-   Otherwise (i.e., if *horiz=0*) the terms are printed one above the other:
+   Otherwise (i.e., if *horiz=0*) the terms are printed one below the other:
 
    .. code-block:: none
 
