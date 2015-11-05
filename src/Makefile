@@ -452,7 +452,7 @@ static_binaries := $(addprefix $(static_bindir)/,$(notdir $(bin_src_c:%.c=%$(EXE
 # the library has full versioned name libyices.so.2.X.Y
 # soname: libyices.so.2.X
 #
-# For Free BSD: the convention seems to call the file libyices.so.2.X
+# For Free BSD: the convention seems to be libyices.so.2.X
 #
 ifeq ($(POSIXOS),freebsd)
 libyices_so := libyices.so.$(MAJOR).$(MINOR)

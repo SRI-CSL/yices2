@@ -422,7 +422,7 @@ static-tarfile: $(distributions) doc
 # that we typically need to do 'sudo make install' but we don't want
 # to compile with 'sudo make binary-distribution'.  That can easily
 # fail if the source and build directory or file permissions are
-# wrong or lead to other problems.
+# wrong, or lead to other problems.
 #
 install: install-$(POSIXOS)
 
@@ -456,8 +456,7 @@ else
 #
 # DESTDIR is non-empty: skip the symbolic links and ldconfig
 #
-install-darwin install-solaris install-linux install-unix install-freebsd: install-default
- 
+install-darwin install-solaris install-linux install-unix install-freebsd: install-default 
 endif
 
 
