@@ -11,57 +11,11 @@
 #include "terms/bv64_interval_abstraction.h"
 #include "utils/int_powers.h"
 
-#ifndef NDEBUG
-/*
- * Number of significant bits in x
- * - if the result is k then -2^(k-1) <= x < 2^(k-1)
- */
-static uint32_t num_significant_bits(int64_t x) {
-  int64_t low, high;
-  uint32_t k;
-
-  low = INT64_MIN/2;
-  high = -low;
-  k = 64;
-  while (low <= x && x < high) {
-    low /= 2;
-    high /= 2;
-    k --;
-  }
-  return k;
-}
-
-static bool bv64_consistent_sign(bv64_abs_t *a) {
-  if (a->low >= 0) {
-    return a->sign == sign_zero;
-  } else if (a->high < 0) {
-    return a->sign == sign_one;
-  } else {
-    return true;
-  }
-}
-
-static bool bv64_consistent_nbits(bv64_abs_t *a) {
-  uint32_t k, lk, hk;
-
-  k = a->nbits;
-  lk = num_significant_bits(a->low);
-  assert(1 <= lk && lk <= 64);
-  hk = num_significant_bits(a->high);
-  assert(1 <= lk && lk <= 64);
-
-  return (k == lk && k >= hk) || (k == hk && k >= lk);
-}
-
-static bool bv64_abs_consistent(bv64_abs_t *a) {
-  return bv64_consistent_sign(a) && bv64_consistent_nbits(a);
-}
-#endif
 
 
 
 /*
- * Arithmetic on signed k-bit constants with overflow indicator
+ * ARITHMETIC ON SIGNED K-BIT CONSTANTS
  */
 
 // min integer = -2^(k-1)
@@ -117,6 +71,185 @@ static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
 
   return d;
 }
+
+
+/*
+ * Auxiliary function:
+ * - a is an array of 4 unsigned 32bit integers
+ *   that represents a[0] + 2^32 a[1] + 2^64 a[2] + 2^96 a[3]
+ * - this function adds the product x * y * 2^(32 * i) to a
+ */
+static void add_mul(uint32_t a[4], uint32_t x, uint32_t y, uint32_t i) {
+  uint64_t p;
+
+  assert(i <= 2);
+  p = ((uint64_t) x) * y;
+  while (i < 4) {
+    p += a[i];
+    a[i] = (uint32_t) (p & 0xFFFFFFFF);
+    p >>= 32;
+    i ++;
+  }
+}
+
+/*
+ * Product x.y
+ * - both are arbitrary int64_t
+ * - overflow is set if the result has more than 64bits
+ */
+static int64_t mul(int64_t x, int64_t y, bool *overflow) {
+  uint32_t result[4];
+  uint64_t abs_x, abs_y, c, d;
+  uint32_t x0, x1, y0, y1;
+
+  abs_x = (x < 0) ? (uint64_t) (- x) : x;
+  abs_y = (y < 0) ? (uint64_t) (- y) : y;
+
+  x0 = abs_x & 0xFFFFFFFF;
+  x1 = abs_x >> 32;
+  y0 = abs_y & 0xFFFFFFFF;
+  y1 = abs_y >> 32;
+
+  result[0] = 0;
+  result[1] = 0;
+  result[2] = 0;
+  result[3] = 0;
+
+  add_mul(result, x0, y0, 0);
+  add_mul(result, x0, y1, 1);
+  add_mul(result, x1, y0, 1);
+  add_mul(result, x1, y1, 2);
+
+  c = result[0] + (((uint64_t) result[1]) << 32);
+  d = result[2] + (((uint64_t) result[3]) << 32);
+
+  if ((x < 0 && y < 0) || (x >= 0 && y >= 0)) {
+    *overflow = (d != 0) || (c > (uint64_t) INT64_MAX);
+    return c;
+  } else {
+    *overflow = (d != 0) || (c > (uint64_t) (- INT64_MIN));    
+    return - (int64_t) c;
+  }
+}
+
+
+/*
+ * Max of xy and uv
+ */
+static int64_t max_mul(int64_t x, int64_t y, int64_t u, int64_t v, bool *overflow) {
+  int64_t p, q;
+
+  p = mul(x, y, overflow);
+  if (! *overflow) {
+    q = mul(u, v, overflow);
+    if (p < q) p = q;
+  }
+  return p;
+}
+
+
+/*
+ * Min of xy and uv
+ */
+static int64_t min_mul(int64_t x, int64_t y, int64_t u, int64_t v, bool *overflow) {
+  int64_t p, q;
+
+  p = mul(x, y, overflow);
+  if (! *overflow) {
+    q = mul(u, v, overflow);
+    if (p > q) p = q;
+  }
+  return p;
+}
+
+/*
+ * x^d
+ */
+static int64_t power(int64_t x, uint32_t d, bool *overflow) {
+  int64_t y;
+
+  y = 1;
+  *overflow = false;
+
+  while (d != 0) {
+    if ((d & 1) != 0) {
+      y = mul(y, x, overflow); // y := y * x
+      if (*overflow) break;
+    }
+    d >>= 1;
+    if (d > 0) {
+      x = mul(x, x, overflow); // x := x * x 
+      if (*overflow) break;
+    }
+  }
+
+  return y;
+}
+
+/*
+ * Number of significant bits in x
+ * - if the result is k then -2^(k-1) <= x < 2^(k-1)
+ */
+static uint32_t num_significant_bits(int64_t x) {
+  int64_t low, high;
+  uint32_t k;
+
+  low = INT64_MIN/2;
+  high = -low;
+  k = 64;
+  while (low <= x && x < high) {
+    low /= 2;
+    high /= 2;
+    k --;
+  }
+  return k;
+}
+
+
+/*
+ * Number of bits to represent the interval [low, high]
+ */
+static uint32_t interval_bitsize(int64_t low, int64_t high) {
+  uint32_t kl, kh;
+
+  kl = num_significant_bits(low);
+  kh = num_significant_bits(high);
+  return (kl < kh) ? kh : kl;
+}
+
+
+
+#ifndef NDEBUG
+/*
+ * Consistency checks
+ */
+static bool bv64_consistent_sign(bv64_abs_t *a) {
+  if (a->low >= 0) {
+    return a->sign == sign_zero;
+  } else if (a->high < 0) {
+    return a->sign == sign_one;
+  } else {
+    return true;
+  }
+}
+
+static bool bv64_consistent_nbits(bv64_abs_t *a) {
+  uint32_t k, lk, hk;
+
+  k = a->nbits;
+  lk = num_significant_bits(a->low);
+  assert(1 <= lk && lk <= 64);
+  hk = num_significant_bits(a->high);
+  assert(1 <= lk && lk <= 64);
+
+  return (k == lk && k >= hk) || (k == hk && k >= lk);
+}
+
+static bool bv64_abs_consistent(bv64_abs_t *a) {
+  return bv64_consistent_sign(a) && bv64_consistent_nbits(a);
+}
+#endif
+
 
 
 /*
@@ -416,10 +549,117 @@ void bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b) {
  * Abstraction for (a * b)
  */
 void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
-  // TDB
+  int64_t low, high;
+  bool ovlow, ovhigh;
+  int32_t sign;
+
+  // a is [L1, H1], b is [L2, H2]
+  if (a->sign == sign_zero) {
+    if (b->sign == sign_zero) {
+      // 0 <= [L1, H1] and 0 <= [L2, H2], the result is [L1.L2, H1.H2]
+      low = mul(a->low, b->low, &ovlow);
+      high = mul(a->high, b->high, &ovhigh);
+      sign = sign_zero;
+    } else if (b->sign == sign_one) {
+      // 0 <= [L1, H1] and [L2, H2] < 0, the result is [H1.L2, L1.H2]
+      low = mul(a->high, b->low, &ovlow);
+      high = mul(a->low, b->high, &ovhigh);
+      sign = (a->low == 0) ? sign_undef : sign_one;
+    } else {
+      // 0 <= [L1, H1] and L2 < 0 <= H2, the result is [H1.L2, H1.H2]
+      low = mul(a->high, b->low, &ovlow);
+      high = mul(a->high, b->high, &ovhigh);
+      sign = (a->low == 0) ? sign_undef : b->sign;
+    }
+  } else if (a->sign == sign_one) {
+    if (b->sign == sign_zero) {
+      // [L1, H1] < 0 and 0 <= [L2, H2], the result is [L1.H2, H1.L2]
+      low = mul(a->low, b->high, &ovlow);
+      high = mul(a->high, b->low, &ovhigh);
+      sign = (b->low == 0) ? sign_undef : sign_one;
+    } else if (b->sign == sign_one) {
+      // [L1, H1] < 0 and [L2, H2] < 0, the result is [H1.H2, L1.L2]
+      low = mul(a->high, b->high, &ovlow);
+      high = mul(a->low, b->low, &ovhigh);
+      sign = sign_zero;
+    } else {
+      // [L1, H1] < 0 and L2 < 0 <= H2, the result is [L1.H2, L1.L2]
+      low = mul(a->low, b->high, &ovlow);
+      high = mul(a->low, b->low, &ovhigh);
+      sign = sign_undef;
+    }
+  } else {
+    if (b->sign == sign_zero) {
+      // L1 < 0 <= H1 and 0 <= [L2, H2], the result is [L1.H2, H1.H2]
+      low = mul(a->low, b->high, &ovlow);
+      high = mul(a->high, b->high, &ovhigh); 
+      sign = a->sign;
+    } else if (b->sign == sign_one) {
+      // L1 < 0 <= H1 and [L2, H2] < 0, the result is [H1.L2, L1.L2]
+      low = mul(a->high, b->low, &ovlow);
+      high = mul(a->low, b->low, &ovhigh);
+      sign = sign_undef;
+    } else if (b->sign == a->sign && a->sign != sign_undef) {
+      // L1 < 0 <= H1 and L2 < 0 <= H2, both vectors have the same sign
+      // the result is [0, max(L1.L2, H1.H2)]
+      low = 0; 
+      ovlow = false;
+      high = max_mul(a->low, b->low, a->high, b->high, &ovhigh);
+      sign = sign_zero;
+    } else if (b->sign == negate_sign(a->sign) && b->sign != sign_undef) {
+      // L1 < 0 <= H1 and L2 < 0 <= H2, vectors of opposite signs
+      // the result is [min(L1.H2, H1.L2), 0]
+      low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
+      high = 0;
+      ovhigh = false;
+      sign = sign_undef;
+    } else {
+      // L1 < 0 <= H1 and L2 < 0 <= H2,
+      // the result is [min(L1.H2, H1.L2), max(L1.L2, H1.H2)]
+      low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
+      high = max_mul(a->low, b->low, a->high, b->high, &ovhigh);
+      sign = sign_undef;
+    }
+  }
+
+  if (ovlow || ovhigh) {
+    bv64_top_abs(a);
+  } else {
+    a->low = low;
+    a->high = high;
+    a->sign = sign;
+    a->nbits = interval_bitsize(low, high);
+  }
+
+  assert(bv64_abs_consistent(a));
 }
 
+
+/*
+ * Abstraction for a^d
+ */
 void bv64_abs_power(bv64_abs_t *a, uint32_t d) {
-  // TDB
+  int64_t low, high;
+  bool ovlow, ovhigh;
+  
+  assert(bv64_abs_consistent(a));
+
+  low = power(a->low, d, &ovlow);
+  high = power(a->high, d, &ovhigh);
+  
+  if (ovlow || ovhigh) {
+    bv64_top_abs(a);
+  } else {
+    // for odd powers, the sign is unchanged.
+    // for even powers, the sign is zero.
+    if ((d & 1) == 0) {
+      a->sign = sign_zero;
+    }
+    a->low = low;
+    a->high = high;
+    a->nbits = interval_bitsize(low, high);
+  }
+
+  assert(bv64_abs_consistent(a));
 }
 
