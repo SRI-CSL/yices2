@@ -13,7 +13,6 @@
 
 
 
-
 /*
  * ARITHMETIC ON SIGNED K-BIT CONSTANTS
  */
@@ -127,7 +126,9 @@ static int64_t mul(int64_t x, int64_t y, bool *overflow) {
     *overflow = (d != 0) || (c > (uint64_t) INT64_MAX);
     return c;
   } else {
-    *overflow = (d != 0) || (c > (uint64_t) (- INT64_MIN));    
+    // we use the fact that -INT64_MIN == INT64_MIN
+    // (assuming 2s complement arithmetic)
+    *overflow = (d != 0) || (c > (uint64_t) INT64_MIN);
     return - (int64_t) c;
   }
 }
