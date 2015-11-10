@@ -15,181 +15,6 @@
 
 
 /*
- * ARITHMETIC ON SIGNED K-BIT CONSTANTS
- */
-
-// min integer = -2^(k-1)
-static inline int64_t min_int(uint32_t k) {
-  assert(1 <= k && k <= 64);
-  return - (int64_t)(((uint64_t) 1) << (k -1));
-}
-
-// max integer = 2^(k-1) - 1
-static inline int64_t max_int(uint32_t k) {
-  assert(1 <= k && k <= 64);
-  return (int64_t)((((uint64_t) 1) << (k -1)) - 1);
-}
-
-// check whether x has k significant bits
-static inline bool fits_k_bits(int64_t x, uint32_t k) {
-  return min_int(k) <= x && x <= max_int(k);
-}
-
-// opposite of x: set overflow to true if the result requires k+1 bits
-static inline int64_t opposite(int64_t x, uint32_t k, bool *overflow) {
-  assert(fits_k_bits(x, k));
-  *overflow = (x == min_int(k));
-  return -x;
-}
-
-// sum: x + y
-static int64_t sum(int64_t x, int64_t y, uint32_t k, bool *overflow) {
-  int64_t s;
-
-  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
-
-  s = x + y;
-  if (k < 64) {
-    *overflow = !fits_k_bits(s, k);
-  } else {
-    *overflow = (x < 0 &&  y < 0 && s >= 0) || (x >= 0 && y >= 0 && s < 0);
-  }
-  return s;
-}
-
-// diff: x - y
-static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
-  int64_t d;
-
-  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
-  d = x - y;
-  if (k < 64) {
-    *overflow = !fits_k_bits(d, k);
-  } else {
-    *overflow = (x < 0 && y >= 0 && d >= 0) || (x >= 0 && y < 0 && d < 0);
-  }
-
-  return d;
-}
-
-
-/*
- * Auxiliary function:
- * - a is an array of 4 unsigned 32bit integers
- *   that represents a[0] + 2^32 a[1] + 2^64 a[2] + 2^96 a[3]
- * - this function adds the product x * y * 2^(32 * i) to a
- */
-static void add_mul(uint32_t a[4], uint32_t x, uint32_t y, uint32_t i) {
-  uint64_t p;
-
-  assert(i <= 2);
-  p = ((uint64_t) x) * y;
-  while (i < 4) {
-    p += a[i];
-    a[i] = (uint32_t) (p & 0xFFFFFFFF);
-    p >>= 32;
-    i ++;
-  }
-}
-
-/*
- * Product x.y
- * - both are arbitrary int64_t
- * - overflow is set if the result has more than 64bits
- */
-static int64_t mul(int64_t x, int64_t y, bool *overflow) {
-  uint32_t result[4];
-  uint64_t abs_x, abs_y, c, d;
-  uint32_t x0, x1, y0, y1;
-
-  abs_x = (x < 0) ? (uint64_t) (- x) : x;
-  abs_y = (y < 0) ? (uint64_t) (- y) : y;
-
-  x0 = abs_x & 0xFFFFFFFF;
-  x1 = abs_x >> 32;
-  y0 = abs_y & 0xFFFFFFFF;
-  y1 = abs_y >> 32;
-
-  result[0] = 0;
-  result[1] = 0;
-  result[2] = 0;
-  result[3] = 0;
-
-  add_mul(result, x0, y0, 0);
-  add_mul(result, x0, y1, 1);
-  add_mul(result, x1, y0, 1);
-  add_mul(result, x1, y1, 2);
-
-  c = result[0] + (((uint64_t) result[1]) << 32);
-  d = result[2] + (((uint64_t) result[3]) << 32);
-
-  if ((x < 0 && y < 0) || (x >= 0 && y >= 0)) {
-    *overflow = (d != 0) || (c > (uint64_t) INT64_MAX);
-    return c;
-  } else {
-    // we use the fact that -INT64_MIN == INT64_MIN
-    // (assuming 2s complement arithmetic)
-    *overflow = (d != 0) || (c > (uint64_t) INT64_MIN);
-    return - (int64_t) c;
-  }
-}
-
-
-/*
- * Max of xy and uv
- */
-static int64_t max_mul(int64_t x, int64_t y, int64_t u, int64_t v, bool *overflow) {
-  int64_t p, q;
-
-  p = mul(x, y, overflow);
-  if (! *overflow) {
-    q = mul(u, v, overflow);
-    if (p < q) p = q;
-  }
-  return p;
-}
-
-
-/*
- * Min of xy and uv
- */
-static int64_t min_mul(int64_t x, int64_t y, int64_t u, int64_t v, bool *overflow) {
-  int64_t p, q;
-
-  p = mul(x, y, overflow);
-  if (! *overflow) {
-    q = mul(u, v, overflow);
-    if (p > q) p = q;
-  }
-  return p;
-}
-
-/*
- * x^d
- */
-static int64_t power(int64_t x, uint32_t d, bool *overflow) {
-  int64_t y;
-
-  y = 1;
-  *overflow = false;
-
-  while (d != 0) {
-    if ((d & 1) != 0) {
-      y = mul(y, x, overflow); // y := y * x
-      if (*overflow) break;
-    }
-    d >>= 1;
-    if (d > 0) {
-      x = mul(x, x, overflow); // x := x * x 
-      if (*overflow) break;
-    }
-  }
-
-  return y;
-}
-
-
-/*
  * EXACT ARITHMETIC USING GMP NUMBERS
  */
 
@@ -288,6 +113,210 @@ static bool mpz_fits(mpz_t z, uint32_t k) {
   return fits;
 }
 
+
+
+/*
+ * ARITHMETIC ON SIGNED K-BIT CONSTANTS
+ */
+
+/*
+ * These functions are copied from bv64_interval_abstraction.c
+ */
+// min integer = -2^(k-1)
+static inline int64_t min_int(uint32_t k) {
+  assert(1 <= k && k <= 64);
+  return - (int64_t)(((uint64_t) 1) << (k -1));
+}
+
+// max integer = 2^(k-1) - 1
+static inline int64_t max_int(uint32_t k) {
+  assert(1 <= k && k <= 64);
+  return (int64_t)((((uint64_t) 1) << (k -1)) - 1);
+}
+
+// check whether x has k significant bits
+static inline bool fits_k_bits(int64_t x, uint32_t k) {
+  return min_int(k) <= x && x <= max_int(k);
+}
+
+// opposite of x: set overflow to true if the result requires k+1 bits
+static inline int64_t opposite(int64_t x, uint32_t k, bool *overflow) {
+  assert(fits_k_bits(x, k));
+  *overflow = (x == min_int(k));
+  return -x;
+}
+
+// sum: x + y
+static int64_t sum(int64_t x, int64_t y, uint32_t k, bool *overflow) {
+  int64_t s;
+
+  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
+
+  s = x + y;
+  if (k < 64) {
+    *overflow = !fits_k_bits(s, k);
+  } else {
+    *overflow = (x < 0 &&  y < 0 && s >= 0) || (x >= 0 && y >= 0 && s < 0);
+  }
+  return s;
+}
+
+// diff: x - y
+static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
+  int64_t d;
+
+  assert(fits_k_bits(x, k) && fits_k_bits(y, k));
+  d = x - y;
+  if (k < 64) {
+    *overflow = !fits_k_bits(d, k);
+  } else {
+    *overflow = (x < 0 && y >= 0 && d >= 0) || (x >= 0 && y < 0 && d < 0);
+  }
+
+  return d;
+}
+
+
+/*
+ * Auxiliary function:
+ * - a is an array of 4 unsigned 32bit integers
+ *   that represents a[0] + 2^32 a[1] + 2^64 a[2] + 2^96 a[3]
+ * - this function adds the product x * y * 2^(32 * i) to a
+ */
+static void add_mul(uint32_t a[4], uint32_t x, uint32_t y, uint32_t i) {
+  uint64_t p;
+
+  assert(i <= 2);
+  p = ((uint64_t) x) * y;
+  while (i < 4) {
+    p += a[i];
+    a[i] = (uint32_t) (p & 0xFFFFFFFF);
+    p >>= 32;
+    i ++;
+  }
+}
+
+#ifndef NDEBUG
+// same as mpz_set_int64 for unsigned int
+static void mpz_set_uint64(mpz_t z, uint64_t x) {
+  mpz_set_ui(z, (x >> 32));
+  mpz_mul_2exp(z, z, 32);
+  mpz_add_ui(z, z, (uint32_t) x);
+}
+
+static void mpz_mul_uint64(mpz_t z, uint64_t x) {
+  mpz_t aux;
+
+  mpz_init(aux);
+  mpz_set_uint64(aux, x);
+  mpz_mul(z, z, aux);
+  mpz_clear(aux);
+}
+
+// store a[0] + 2^32 a[1] + 2^64 a[2] + 2^96 a[3] into z
+static void mpz_set_uint128(mpz_t z, uint32_t a[4]) {
+  mpz_set_ui(z, a[3]);
+  mpz_mul_2exp(z, z, 32);
+  mpz_add_ui(z, z, a[2]);
+  mpz_mul_2exp(z, z, 32);
+  mpz_add_ui(z, z, a[1]);
+  mpz_mul_2exp(z, z, 32);
+  mpz_add_ui(z, z, a[0]);
+}
+
+/*
+ * Check the result of mul:
+ * - a is expected to contain the result of x * y
+ */
+static bool good_mul(uint32_t a[4], uint64_t x, uint64_t y) {
+  mpz_t p, q;
+  bool eq;
+
+  mpz_init(p);
+  mpz_init(q);
+
+  mpz_set_uint64(p, x);
+  mpz_mul_uint64(p, y);
+
+  mpz_set_uint128(q, a);
+  eq = (mpz_cmp(p, q) == 0);
+
+  mpz_clear(q);
+  mpz_clear(p);
+
+  return eq;
+}
+#endif
+
+/*
+ * Product x.y
+ * - both are arbitrary int64_t
+ * - overflow is set if the result has more than 64bits
+ */
+static int64_t mul(int64_t x, int64_t y, bool *overflow) {
+  uint32_t result[4];
+  uint64_t abs_x, abs_y, c, d;
+  uint32_t x0, x1, y0, y1;
+
+  abs_x = (x < 0) ? (uint64_t) (- x) : x;
+  abs_y = (y < 0) ? (uint64_t) (- y) : y;
+
+  x0 = abs_x & 0xFFFFFFFF;
+  x1 = abs_x >> 32;
+  y0 = abs_y & 0xFFFFFFFF;
+  y1 = abs_y >> 32;
+
+  result[0] = 0;
+  result[1] = 0;
+  result[2] = 0;
+  result[3] = 0;
+
+  add_mul(result, x0, y0, 0);
+  add_mul(result, x0, y1, 1);
+  add_mul(result, x1, y0, 1);
+  add_mul(result, x1, y1, 2);
+
+  assert(good_mul(result, abs_x, abs_y));
+
+  c = result[0] + (((uint64_t) result[1]) << 32);
+  d = result[2] + (((uint64_t) result[3]) << 32);
+
+  if ((x < 0 && y < 0) || (x >= 0 && y >= 0)) {
+    *overflow = (d != 0) || (c > (uint64_t) INT64_MAX);
+    return c;
+  } else {
+    // we use the fact that -INT64_MIN == INT64_MIN
+    // (assuming 2s complement arithmetic)
+    *overflow = (d != 0) || (c > (uint64_t) INT64_MIN);
+    return - (int64_t) c;
+  }
+}
+
+
+
+/*
+ * x^d
+ */
+static int64_t power(int64_t x, uint32_t d, bool *overflow) {
+  int64_t y;
+
+  y = 1;
+  *overflow = false;
+
+  while (d != 0) {
+    if ((d & 1) != 0) {
+      y = mul(y, x, overflow); // y := y * x
+      if (*overflow) break;
+    }
+    d >>= 1;
+    if (d > 0) {
+      x = mul(x, x, overflow); // x := x * x 
+      if (*overflow) break;
+    }
+  }
+
+  return y;
+}
 
 
 /*
@@ -398,43 +427,10 @@ static void test_opp(int64_t x, uint32_t n) {
   mpz_clear(tst);
 }
 
-static void test_opposite(uint32_t n) {
-  int64_t min, max;
-  int64_t x;
-
-  printf("\nTesting opposite: %"PRIu32" bits\n", n);
-  min = min_int(n);
-  max = max_int(n);
-  printf("min = %"PRId64", max = %"PRId64"\n", min, max);
-
-  if (n <= 6) {
-    for (x=min; x<= max; x++) {
-      test_opp(x, n);
-    }
-  } else {
-    test_opp(min, n);
-    test_opp(min+1, n);
-    test_opp(min+2, n);
-    test_opp(min/2, n);
-    test_opp(-(max/2), n);
-    test_opp(-2, n);
-    test_opp(-1, n);
-    test_opp(0, n);
-    test_opp(1, n);
-    test_opp(2, n);
-    test_opp(max/2, n);
-    test_opp(-(min/2), n);
-    test_opp(max-2, n);
-    test_opp(max-1, n);
-    test_opp(max, n);
-  }
-}
-
-
 /*
  * add/sub
  */
-static void test_add_sub(int64_t x, int64_t y, uint32_t n) {
+static void test_add(int64_t x, int64_t y, uint32_t n) {
   mpz_t tst;
   int64_t z;
   bool overflow;
@@ -471,6 +467,18 @@ static void test_add_sub(int64_t x, int64_t y, uint32_t n) {
     mpz_check_fit(tst, n);
   }
 
+  mpz_clear(tst);
+}
+
+static void test_sub(int64_t x, int64_t y, uint32_t n) {
+  mpz_t tst;
+  int64_t z;
+  bool overflow;
+
+  assert(fits_k_bits(x, n) && fits_k_bits(y, n));
+
+  mpz_init(tst);
+
   z = diff(x, y, n, &overflow);
   printf("diff(%"PRId64", %"PRId64") = %"PRId64, x, y, z);
   if (overflow) {
@@ -499,36 +507,117 @@ static void test_add_sub(int64_t x, int64_t y, uint32_t n) {
     mpz_check_fit(tst, n);
   }
 
+  mpz_clear(tst);
+}
 
-  z = diff(y, x, n, &overflow);
-  printf("diff(%"PRId64", %"PRId64") = %"PRId64, y, x, z);
+/*
+ * product x * y
+ */
+static void test_mul(int64_t x, int64_t y, uint32_t n) {
+  mpz_t tst;
+  int64_t z;
+  bool overflow;
+
+  assert(fits_k_bits(x, n) && fits_k_bits(y, n));
+
+  mpz_init(tst);
+
+  z = mul(x, y, &overflow);
+  printf("mul(%"PRId64", %"PRId64") = %"PRId64, x, y, z);
   if (overflow) {
     printf(" ---> overflow\n");
-    if (n<64 && !fits_k_bits(z, n+1)) {
-      printf("*** BUG ***\n");
-      exit(1);
-    }
   } else {
     printf("\n");
-    if (!fits_k_bits(z, n)) {
-      printf("*** BUG ***\n");
-      exit(1);
-    }
   }
 
-  mpz_set_int64(tst, y);
-  mpz_sub_int64(tst, x);
-  if (n < 64) {
-    mpz_check_eq(tst, z);
-  }
+  mpz_set_int64(tst, x);
+  mpz_mul_int64(tst, y);
   if (overflow) {
-    mpz_check_overflow(tst, n);
-    mpz_check_fit(tst, n+1);
+    mpz_check_overflow(tst, 64);
   } else {
-    mpz_check_fit(tst, n);
+    mpz_check_fit(tst, 64);
+    mpz_check_eq(tst, z);
   }
 
   mpz_clear(tst);
+}
+
+
+/*
+ * Power: x^d
+ */
+static void test_power(int64_t x, uint32_t n, uint32_t d) {
+  mpz_t tst;
+  int64_t z;
+  bool overflow;
+
+  assert(fits_k_bits(x, n));
+
+  mpz_init(tst);
+
+  z = power(x, d, &overflow);
+  printf("power(%"PRId64", %"PRId32") = %"PRId64, x, d, z);
+  if (overflow) {
+    printf(" ---> overflow\n");
+  } else {
+    printf("\n");
+  }
+
+  mpz_set_int64(tst, x);
+  mpz_pow_ui(tst, tst, d);
+  if (overflow) {
+    mpz_check_overflow(tst, 64);
+  } else {
+    mpz_check_fit(tst, 64);
+    mpz_check_eq(tst, z);
+  }
+
+  mpz_clear(tst);
+}
+
+
+
+/*
+ * Test operations: n = number of bits
+ */
+static void test_opposite(uint32_t n) {
+  int64_t min, max;
+  int64_t x;
+
+  printf("\nTesting opposite: %"PRIu32" bits\n", n);
+  min = min_int(n);
+  max = max_int(n);
+  printf("min = %"PRId64", max = %"PRId64"\n", min, max);
+
+  if (n <= 6) {
+    for (x=min; x<= max; x++) {
+      test_opp(x, n);
+    }
+  } else {
+    test_opp(min, n);
+    test_opp(min+1, n);
+    test_opp(min+2, n);
+    test_opp(min/2, n);
+    test_opp(-(max/2), n);
+    test_opp(-2, n);
+    test_opp(-1, n);
+    test_opp(0, n);
+    test_opp(1, n);
+    test_opp(2, n);
+    test_opp(max/2, n);
+    test_opp(-(min/2), n);
+    test_opp(max-2, n);
+    test_opp(max-1, n);
+    test_opp(max, n);
+  }
+}
+
+
+
+static void test_add_sub(int64_t x, int64_t y, uint32_t n) {
+  test_add(x, y, n);
+  test_sub(x, y, n);
+  test_sub(y, x, n);
 }
 
 static void sample_add_sub(int64_t x, uint32_t n) {
@@ -570,7 +659,7 @@ static void test_add_subs(uint32_t n) {
       }
     }
   } else if (n <= 6) {
-    for (x=min; x<= max; x++) {
+    for (x=min; x<=max; x++) {
       sample_add_sub(x, n);
     }
   } else {
@@ -585,6 +674,110 @@ static void test_add_subs(uint32_t n) {
     sample_add_sub(max-2, n);
     sample_add_sub(max-1, n);
     sample_add_sub(max, n);
+  }
+}
+
+static void sample_mul(int64_t x, uint32_t n) {
+  int64_t min, max;
+
+  min = min_int(n);
+  max = max_int(n);
+
+  test_mul(x, min, n);
+  test_mul(x, min+1, n);
+  test_mul(x, min+2, n);
+  test_mul(x, min/2, n);
+  test_mul(x, min/3, n);
+  test_mul(x, min/4, n);
+  test_mul(x, -2, n);
+  test_mul(x, -1, n);
+  test_mul(x, 0, n);
+  test_mul(x, 1, n);
+  test_mul(x, 2, n);
+  test_mul(x, max/4, n);
+  test_mul(x, max/3, n);
+  test_mul(x, max/2, n);
+  test_mul(x, max-2, n);
+  test_mul(x, max-1, n);
+  test_mul(x, max, n);  
+}
+
+static void test_product(uint32_t n) {
+  int64_t min, max;
+  int64_t x,  y;
+
+  printf("\nTesting mul: %"PRIu32" bits\n", n);
+  min = min_int(n);
+  max = max_int(n);
+
+  if (n <= 4) {
+    for (x=min; x<=max; x++) {
+      for (y=min; y<=max; y++) {
+	test_mul(x, y, n);
+      }
+    }
+  } else if (n <= 6) {
+    for (x=min; x<=max; x++) {
+      sample_mul(x, n);
+    }
+  } else {
+    sample_mul(min, n);
+    sample_mul(min+1, n);
+    sample_mul(min+2, n);
+    sample_mul(min/2, n);
+    sample_mul(min/3, n);
+    sample_mul(min/4, n);
+    sample_mul(-2, n);
+    sample_mul(-1, n);
+    sample_mul(0, n);
+    sample_mul(1, n);
+    sample_mul(2, n);
+    sample_mul(max/4, n);
+    sample_mul(max/3, n);
+    sample_mul(max/2, n);
+    sample_mul(max-2, n);
+    sample_mul(max-1, n);
+    sample_mul(max, n);
+  }
+}
+
+static void test_powers_of_x(int64_t x, uint32_t n) {
+  uint32_t d;
+
+  for (d=0; d<8; d++) {
+    test_power(x, n, d);
+  }  
+}
+
+
+static void test_powers(uint32_t n) {
+  int64_t min, max;
+  int64_t x;
+
+  printf("\nTesting powers: %"PRIu32" bits\n\n", n);
+
+  min = min_int(n);
+  max = max_int(n);
+    if (n <= 6) {
+    for (x=min; x<= max; x++) {
+      test_powers_of_x(x, n);
+    }
+  } else {
+    test_powers_of_x(min, n);
+    test_powers_of_x(min+1, n);
+    test_powers_of_x(min+2, n);
+    test_powers_of_x(min/2, n);
+    test_powers_of_x(-(max/2), n);
+    test_powers_of_x(-2, n);
+    test_powers_of_x(-1, n);
+    test_powers_of_x(0, n);
+    test_powers_of_x(1, n);
+    test_powers_of_x(2, n);
+    test_powers_of_x(max/2, n);
+    test_powers_of_x(-(min/2), n);
+    test_powers_of_x(max-2, n);
+    test_powers_of_x(max-1, n);
+    test_powers_of_x(max, n);
   }
 }
 
@@ -613,6 +806,25 @@ int main(void) {
   test_add_subs(63);
   test_add_subs(64);
 
+  for (n=1; n<=6; n++) {
+    test_product(n);
+  }
+  test_product(10);
+  test_product(31);
+  test_product(32);
+  test_product(33);
+  test_product(63);
+  test_product(64);
+
+  for (n=1; n<=6; n++) {
+    test_powers(n);
+  }
+  test_powers(10);
+  test_powers(31);
+  test_powers(32);
+  test_powers(33);
+  test_powers(63);
+  test_powers(64);
 
   return 0;
 }

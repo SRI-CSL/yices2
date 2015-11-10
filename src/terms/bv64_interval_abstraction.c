@@ -51,7 +51,7 @@ static int64_t sum(int64_t x, int64_t y, uint32_t k, bool *overflow) {
   if (k < 64) {
     *overflow = !fits_k_bits(s, k);
   } else {
-    *overflow = (x<0 && y<0 && s>0) || (x>0 && y>0 && s<0);
+    *overflow = (x < 0 && y < 0 && s >= 0) || (x >= 0 && y >= 0 && s < 0);
   }
   return s;
 }
@@ -65,7 +65,7 @@ static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
   if (k < 64) {
     *overflow = !fits_k_bits(d, k);
   } else {
-    *overflow = (x < 0 && y > 0 && d > 0) || (x > 0 && y < 0 && d < 0);
+    *overflow = (x < 0 && y >= 0 && d >= 0) || (x >= 0 && y < 0 && d < 0);
   }
 
   return d;

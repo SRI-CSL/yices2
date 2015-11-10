@@ -19,12 +19,9 @@
 #ifndef NDEBUG
 
 /*
- * For debugging: check alignment
+ * For debugging: check alignment.
+ * We want pointers aligned to multiples of 8.
  */
-static bool size_is_multiple_of_eight(size_t x) {
-  return (x & ((size_t) 7)) == 0;
-}
-
 static bool ptr_is_aligned(void *p) {
   uintptr_t x;
 
