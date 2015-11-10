@@ -329,7 +329,7 @@ static void pmap2_htbl_clean_copy(pmap2_rec_t **a, pmap2_rec_t *e, uint32_t mask
  * PMAP2_DELETED. (We use the fact that NULL = 0 and PMAP2_DELETED = 1.
  */
 static inline bool live_record(pmap2_rec_t *e) {
-  return (((size_t) e) >> 1) != 0;
+  return (((uintptr_t) e) >> 1) != 0;
 }
 
 

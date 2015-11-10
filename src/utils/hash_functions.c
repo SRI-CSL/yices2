@@ -251,7 +251,7 @@ uint32_t jenkins_hash_uint64(uint64_t x) {
  * Hash code for an arbitrary pointer p
  */
 uint32_t jenkins_hash_ptr(const void *p) {
-  return jenkins_hash_uint64((uint64_t) ((size_t) p));
+  return jenkins_hash_uint64((uint64_t) ((uintptr_t) p));
 }
 
 

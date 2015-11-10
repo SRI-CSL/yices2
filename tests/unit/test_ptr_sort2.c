@@ -31,7 +31,7 @@ static inline long int random(void) {
  * Create a random pointer
  */
 static void *random_pointer(void) {
-  return (void *) ((size_t) random());
+  return (void *) ((uintptr_t) random());
 }
 
 
@@ -124,7 +124,7 @@ static void check_sorted(void **a, uint32_t n) {
  * Comparison function
  */
 static bool cmp_ptr(void *data, void *x, void *y) {
-  return x < y;
+  return ((uintptr_t) x) < ((uintptr_t) y);
 }
 
 

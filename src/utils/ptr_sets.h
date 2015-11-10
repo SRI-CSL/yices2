@@ -82,7 +82,7 @@ static inline void free_ptr_set(ptr_set_t *s) {
  * Check whether p != NULL && p != DELETED_PTR_ELEM
  */
 static inline bool live_ptr_elem(void *p) {
-  return (((size_t) p) >> 1) != (size_t) 0;
+  return (((uintptr_t) p) >> 1) != (uintptr_t) 0;
 }
 
 

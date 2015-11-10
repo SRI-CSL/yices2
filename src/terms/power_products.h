@@ -104,7 +104,7 @@ typedef struct {
 /*
  * End marker: all bits are one
  */
-#define end_pp ((pprod_t *) ~((size_t) 0))
+#define end_pp ((pprod_t *) ~((uintptr_t) 0))
 
 /*
  * Variable x encoded as a power product

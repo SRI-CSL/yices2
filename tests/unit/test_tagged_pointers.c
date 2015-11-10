@@ -13,7 +13,7 @@
 
 #include "utils/assert_utils.h"
 
-typedef size_t tptr_t;
+typedef uintptr_t tptr_t;
 
 typedef enum tag_e {
   tag00 = 0,
@@ -39,22 +39,22 @@ static inline uint32_t untag_uint(tptr_t p) {
 }
 
 static inline void *untag_ptr(tptr_t p) {
-  return (void*) (p & ~ ((size_t) 0x3));
+  return (void*) (p & ~ ((uintptr_t) 0x3));
 }
 
 static inline tptr_t tag_ptr(void *x, tag_t tg) {
-  assert((((size_t) x) & 0x3) == 0);
-  return ((size_t) x) | tg;
+  assert((((uintptr_t) x) & 0x3) == 0);
+  return ((uintptr_t) x) | tg;
 }
 
 static inline tptr_t tag_int(int32_t x, tag_t tg) {
   assert(MIN_TAGINT <= x && x < MAX_TAGINT);
-  return (((size_t) x) << 2) | tg;
+  return (((uintptr_t) x) << 2) | tg;
 }
 
 static inline tptr_t tag_uint(uint32_t x, tag_t tg) {
   assert(x < MAX_TAGUINT);
-  return (((size_t) x) << 2) | tg;
+  return (((uintptr_t) x) << 2) | tg;
 }
 
 

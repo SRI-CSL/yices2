@@ -357,7 +357,7 @@ static void divmod_htbl_clean_copy(divmod_rec_t **a, divmod_rec_t *d, uint32_t m
  */
 static inline bool divmod_live_record(divmod_rec_t *d) {
   // return d != NULL && d != DIVMOD_DELETED;
-  return (((size_t) d) >> 1) != 0;
+  return (((uintptr_t) d) >> 1) != 0;
 }
 
 

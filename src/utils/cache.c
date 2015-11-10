@@ -295,11 +295,11 @@ static void cache_htbl_clean_copy(cache_elem_t **data, cache_elem_t *e, uint32_t
 
 /*
  * Check whether pointer e is not NULL or DELETED_ELEM
- * - HACK: we rely on ((size_t) NULL) == 0 and
- *  ((size_t) DELETED_ELEM) == 1
+ * - HACK: we rely on ((uintptr_t) NULL) == 0 and
+ *  ((uintptr_t) DELETED_ELEM) == 1
  */
 static inline bool live_element(cache_elem_t *e) {
-  return (((size_t) e) >> 1) != 0;
+  return (((uintptr_t) e) >> 1) != 0;
 }
 
 

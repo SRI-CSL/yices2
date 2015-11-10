@@ -97,7 +97,7 @@ enum {
 
 typedef struct clause_s clause_t;
 
-typedef size_t link_t;
+typedef uintptr_t link_t;
 
 struct clause_s {
   link_t link[2];
@@ -113,12 +113,12 @@ typedef struct learned_clause_s {
 /*
  * Tagging/untagging of link pointers
  */
-#define LINK_TAG ((size_t) 0x1)
+#define LINK_TAG ((uintptr_t) 0x1)
 #define NULL_LINK ((link_t) 0)
 
 static inline link_t mk_link(clause_t *c, uint32_t i) {
-  assert((i & ~LINK_TAG) == 0 && (((size_t) c) & LINK_TAG) == 0);
-  return (link_t)(((size_t) c) | ((size_t) i));
+  assert((i & ~LINK_TAG) == 0 && (((uintptr_t) c) & LINK_TAG) == 0);
+  return (link_t)(((uintptr_t) c) | ((uintptr_t) i));
 }
 
 static inline clause_t *clause_of(link_t lnk) {
@@ -284,7 +284,7 @@ typedef struct {
  * - tag = 10: literal
  * - tag = 11: generic explanation from a theory solver
  */
-typedef size_t antecedent_t;
+typedef uintptr_t antecedent_t;
 
 enum {
   clause0_tag = 0,
@@ -302,7 +302,7 @@ static inline literal_t literal_antecedent(antecedent_t a) {
 }
 
 static inline clause_t *clause_antecedent(antecedent_t a) {
-  return (clause_t *) (a & ~((size_t) 0x3));
+  return (clause_t *) (a & ~((uintptr_t) 0x3));
 }
 
 // clause index: 0 or 1, low order bit of a
@@ -311,31 +311,31 @@ static inline uint32_t clause_index(antecedent_t a) {
 }
 
 static inline void *generic_antecedent(antecedent_t a) {
-  return (void *) (a & ~((size_t) 0x3));
+  return (void *) (a & ~((uintptr_t) 0x3));
 }
 
 static inline antecedent_t mk_literal_antecedent(literal_t l) {
-  return (((size_t) l) << 2) | literal_tag;
+  return (((uintptr_t) l) << 2) | literal_tag;
 }
 
 static inline antecedent_t mk_clause0_antecedent(clause_t *cl) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | clause0_tag;
+  assert((((uintptr_t) cl) & 0x3) == 0);
+  return ((uintptr_t) cl) | clause0_tag;
 }
 
 static inline antecedent_t mk_clause1_antecedent(clause_t *cl) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | clause1_tag;
+  assert((((uintptr_t) cl) & 0x3) == 0);
+  return ((uintptr_t) cl) | clause1_tag;
 }
 
 static inline antecedent_t mk_clause_antecedent(clause_t *cl, int32_t idx) {
-  assert((((size_t) cl) & 0x3) == 0);
-  return ((size_t) cl) | (idx & 1);
+  assert((((uintptr_t) cl) & 0x3) == 0);
+  return ((uintptr_t) cl) | (idx & 1);
 }
 
 static inline antecedent_t mk_generic_antecedent(void *g) {
-  assert((((size_t) g) & 0x3) == 0);
-  return ((size_t) g) | generic_tag;
+  assert((((uintptr_t) g) & 0x3) == 0);
+  return ((uintptr_t) g) | generic_tag;
 }
 
 
@@ -346,11 +346,11 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
  *   keep the two lower bits 00
  */
 static inline void *mk_i32_expl(int32_t x) {
-  return (void *) (((size_t) ((uint32_t) x))<<2);
+  return (void *) (((uintptr_t) ((uint32_t) x))<<2);
 }
 
 static inline int32_t i32_of_expl(void *g) {
-  return (int32_t) (((size_t) g) >> 2);
+  return (int32_t) (((uintptr_t) g) >> 2);
 }
 
 

@@ -288,11 +288,11 @@ static void egeq_htbl_clean_copy(egeq_elem_t **data, egeq_elem_t *e, uint32_t ma
 
 /*
  * Check whether pointer e is not NULL or DELETED_EG_ELEM
- * - HACK: we rely on ((size_t) NULL) == 0 and
- *  ((size_t) DELETED_EG_ELEM) == 1
+ * - HACK: we rely on ((uintptr_t) NULL) == 0 and
+ *  ((uintptr_t) DELETED_EG_ELEM) == 1
  */
 static inline bool live_element(egeq_elem_t *e) {
-  return (((size_t) e) >> 1) != 0;
+  return (((uintptr_t) e) >> 1) != 0;
 }
 
 

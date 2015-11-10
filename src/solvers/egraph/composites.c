@@ -1236,7 +1236,7 @@ static void congruence_table_clean_copy(composite_t **data, composite_t *d, uint
  * Check whether a pointer is non-deleted and non-null
  */
 static inline bool live_ptr(composite_t *d) {
-  return (((size_t) d) & ~((size_t) 1)) != 0;
+  return (((uintptr_t) d) & ~((uintptr_t) 1)) != 0;
 }
 
 

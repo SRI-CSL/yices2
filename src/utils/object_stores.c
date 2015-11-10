@@ -26,12 +26,21 @@ static bool size_is_multiple_of_eight(size_t x) {
 }
 
 static bool ptr_is_aligned(void *p) {
-  return size_is_multiple_of_eight((size_t) p);
+  uintptr_t x;
+
+  x = (uintptr_t) p;
+  return (x & (uintptr_t) 7) == 0;
 }
 
 // p <= q here
 static bool offset_is_aligned(void *p, void *q) {
-  return size_is_multiple_of_eight(((size_t) q) - ((size_t) p));
+  uintptr_t x, y;
+
+  x = (uintptr_t) p;
+  y = (uintptr_t) q;
+  assert(x <= y);
+
+  return ((y - x) & (uintptr_t) 7) == 0;
 }
 
 #endif

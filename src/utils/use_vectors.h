@@ -60,13 +60,13 @@ typedef enum uv_tag {
   free_tag = 3,   // empty entry: tag = 0b11
 } uv_tag_t;
 
-#define TAG_MASK ((size_t) 0x3)
+#define TAG_MASK ((uintptr_t) 0x3)
 
 /*
  * Get the tag of p
  */
 static inline uv_tag_t entry_tag(void *p) {
-  return ((size_t) p) & TAG_MASK;
+  return ((uintptr_t) p) & TAG_MASK;
 }
 
 /*
@@ -86,19 +86,19 @@ static inline bool empty_entry(void *p) {
 
 
 static inline int32_t entry2index(void *p) {
-  return ((int32_t)((size_t) p)) >> 2;
+  return ((int32_t)((uintptr_t) p)) >> 2;
 }
 
 static inline void *index2entry(int32_t idx) {
-  return (void *) (((size_t) (idx << 2)) | free_tag);
+  return (void *) (((uintptr_t) (idx << 2)) | free_tag);
 }
 
 static inline void *unmark_entry(void *p) {
-  return (void*)(((size_t) p) & ~TAG_MASK);
+  return (void*)(((uintptr_t) p) & ~TAG_MASK);
 }
 
 static inline void *mark_entry(void *p) {
-  return (void*)(((size_t) p) | mark_tag);
+  return (void*)(((uintptr_t) p) | mark_tag);
 }
 
 

@@ -86,7 +86,7 @@ static uint32_t hash_ptr_int(void *p, int32_t k) {
   uint64_t aux;
   uint32_t x, y, z;
 
-  aux = (uint64_t) (((size_t) p) >> 3) ^ (((uint64_t) 0x98765432) << 32);
+  aux = (uint64_t) (((uintptr_t) p) >> 3) ^ (((uint64_t) 0x98765432) << 32);
 
   x = (uint32_t) k;
   y = (uint32_t) (aux >> 32);

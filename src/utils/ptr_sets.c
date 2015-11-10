@@ -33,9 +33,9 @@ static uint32_t hash_ptr(void *p) {
   /*
    * we first convert p to uin64_t tmp 
    * because something like ((size_t) p) >> 32
-   * is undefined operation if size_t is 32bits.
+   * is an undefined operation if size_t is 32bits.
    */
-  tmp = (size_t) p;
+  tmp = (uint64_t) p;
   a = (uint32_t) tmp;         // lower 32bits
   b = (uint32_t) (tmp >> 32); // higher order bits
   c = 0xa783fadd;   // seed

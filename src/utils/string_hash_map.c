@@ -65,10 +65,10 @@ void init_strmap(strmap_t *hmap, uint32_t n) {
 /*
  * Check whether key is valid (i.e., not NULL or DELETED_KEY)
  */
-#define MASK_TAG ((size_t) 3)
+#define MASK_TAG ((uintptr_t) 3)
 
 static inline bool valid_key(const char *key) {
-  return (((size_t) key) & ~MASK_TAG) != ((size_t) NULL);
+  return (((uintptr_t) key) & ~MASK_TAG) != ((uintptr_t) NULL);
 }
 
 
