@@ -407,3 +407,68 @@ Model reconciliation is controlled by two parameters.
   +------------------------+-------------+----------------------------------------------+
 
 
+Parameters Used by the Exists/Forall Solver
+-------------------------------------------
+
+Yices includes a solver for exists/forall problems, that is, problems of the form
+
+.. container:: lemma
+
+   |exists| x\ |_1| |...| x\ |_n| |forall| y\ |_1| |...| y\ |_m| P(x\ |_1| |...| x\ |_n|, y\ |_1| |...| y\ |_m|)
+
+
+The algorithm used by Yices is explained in [Dut2015]_. It repeatedly
+attempts to guess values for the existential variables x\ |_1| |...|
+x\ |_n|, then checks whether these guesses are correct, by searching for
+a counterexample in the variables y\ |_1| |...| y\ |_m|.
+
+The following parameters control this algorithm.
+
+  +------------------------+-------------+-------------------------------------------------+
+  | Parameter	           | Type        |  Meaning                                        |
+  | Name                   |             |                                                 |
+  +========================+=============+=================================================+
+  | ef-max-iters           | Integer     | Maximal number of iterations (this is a bound   |
+  |                        |             | on the number of guesses before Yices gives up) |
+  +------------------------+-------------+-------------------------------------------------+
+  | ef-gen-mode            | Enum        | Selects the model-based generalization method   |
+  |                        |             | (see below).                                    |
+  +------------------------+-------------+-------------------------------------------------+
+  | ef-max-samples         | Integer     | Limit on the number of samples used in the      |
+  |                        |             | exists/forall solver's initializatio            |
+  +------------------------+-------------+-------------------------------------------------+
+  | ef-flatten-iff         | Boolean     | Preprocessing option                            |
+  +------------------------+-------------+-------------------------------------------------+
+  | ef-flatten-ite         | Boolean     | Preprocessing option                            |
+  +------------------------+-------------+-------------------------------------------------+
+
+The generalization mode can take one of the following values:
+
+  - none: no generalization is used
+
+  - substitution: generalization by substitution
+
+  - projection: model-based projection
+
+  - auto: automatic. This is either generalization by substitution or model-based projection
+    depending on the type of the universal variables.
+
+The default setting is 'auto'. In this mode, Yices uses model-based projection if the
+problems has arithmetic variables (i.e., integer or real-valued). Otherwise, it uses
+generalization by substitution. See [Dut2015]_ and the references therein for more
+details on model generalization.
+
+Parameter ef-max-samples is used in the algorithm's initialization. In
+this phase, Yices heuristically learns initial constraints on the existential
+variables *x*. This is done by sampling values of the universal
+variables *y*. The parameter is a bound on the number of these
+samples.
+
+
+The parameters ef-flatten-iff and ef-flatten-ite enable or disable
+flattening of if-and-only-if and if-then-else terms, respectively.
+
+Flattening *(<=> p q)* rewrites the term to *(and (=> p q) (=> q p))*
+
+Flattening *(ite c p q)* rewrites the term to *(and (=> c p) (=> (not c) q)*
+
