@@ -136,9 +136,9 @@ static inline int64_t max_int(uint32_t k) {
  * Create a set of intervals for bitvectors of n bits
  * - store them in array a
  * - n must be at least 4
- * - this creates 22 intervals
+ * - this creates 26 intervals
  */
-static void make_interval_set(bv64_abs_t a[22], uint32_t n) {
+static void make_interval_set(bv64_abs_t a[26], uint32_t n) {
   int64_t min, max;
 
   assert(n >= 4 && n <= 64);
@@ -179,6 +179,11 @@ static void make_interval_set(bv64_abs_t a[22], uint32_t n) {
   make_interval(a+19, -4, 5, 2);
   make_interval(a+20, -4, 5, 2^1);
   make_interval(a+21, -4, 5, 10);
+
+  make_interval(a+22, -5, 4, sign_undef);
+  make_interval(a+23, -5, 4, 2);
+  make_interval(a+24, -5, 4, 2^1);
+  make_interval(a+25, -5, 4, 10);
 }
 
 
@@ -243,6 +248,20 @@ static void test_mul(const bv64_abs_t *a, const bv64_abs_t *b) {
   show_interval(stdout, &aux);
 }
 
+static void test_power(const bv64_abs_t *a, uint32_t d) {
+  bv64_abs_t aux;
+
+  printf("test power:\n");
+  printf("  input = ");
+  show_interval(stdout, a);
+  printf("  exponent = %"PRIu32"\n", d);
+
+  aux = *a;
+  bv64_abs_power(&aux, d);
+  printf("  result = ");
+  show_interval(stdout, &aux);
+}
+
 
 /*
  * Run tests for all elements of array a
@@ -275,16 +294,28 @@ static void run_tests(const bv64_abs_t *a, uint32_t n) {
       test_mul(a+i, a+j);
     }
   }
+
+  printf("\n");
+  for (i=0; i<n; i++) {
+    for (j=0; j<7; j++) {
+      test_power(a+i, j);
+    }
+  }
 }
 
 
 /*
  * Global array for testing
  */
-static bv64_abs_t tst[22];
+static bv64_abs_t tst[26];
 
 int main(void) {
-  make_interval_set(tst, 4);
-  run_tests(tst, 22);
+  uint32_t i;
+
+  for (i=4; i<=64; i+=4) {
+    make_interval_set(tst, i);
+    run_tests(tst, 26);
+  }
+
   return 0;
 }

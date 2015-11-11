@@ -254,7 +254,7 @@ static bool bv64_consistent_nbits(bv64_abs_t *a) {
 }
 
 static bool bv64_abs_consistent(bv64_abs_t *a) {
-  return bv64_consistent_sign(a) && bv64_consistent_nbits(a);
+  return a->low <= a->high && bv64_consistent_sign(a) && bv64_consistent_nbits(a);
 }
 #endif
 
@@ -662,23 +662,47 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
  */
 void bv64_abs_power(bv64_abs_t *a, uint32_t d) {
   int64_t low, high;
+  uint64_t abs_l;
   bool ovlow, ovhigh;
+  int32_t sign;  
   
   assert(bv64_abs_consistent(a));
 
-  low = power(a->low, d, &ovlow);
-  high = power(a->high, d, &ovhigh);
-  
+  if ((d & 1) == 0) {
+    // even power: the result is non-negative
+    sign = sign_zero;
+    if (a->sign == sign_zero) {
+      // 0 <= [L, H]: result is [L^d, H^d]
+      low = power(a->low, d, &ovlow);
+      high = power(a->high, d, &ovhigh);      
+    } else if (a->sign == sign_one) {
+      // [L, H] < 0: result is [H^d, L^d]
+      low = power(a->high, d, &ovlow);
+      high = power(a->low, d, &ovhigh);
+    } else {
+      // L < 0 <= H, the result is [0, max(L^d, H^d)]
+      low = 0;
+      ovlow = false;
+      // set high to either L or H, whichever has largest absolute value
+      // then compute high^d
+      abs_l = - a->low;
+      high = (abs_l < (uint64_t) a->high) ? a->high : a->low;
+      high = power(high, d, &ovhigh);
+    }
+    
+  } else {
+    // odd power: the sing is unchanged
+    low = power(a->low, d, &ovlow);
+    high = power(a->high, d, &ovhigh);
+    sign = a->sign;
+  }
+
   if (ovlow || ovhigh) {
     bv64_top_abs(a);
   } else {
-    // for odd powers, the sign is unchanged.
-    // for even powers, the sign is zero.
-    if ((d & 1) == 0) {
-      a->sign = sign_zero;
-    }
     a->low = low;
     a->high = high;
+    a->sign = sign;
     a->nbits = interval_bitsize(low, high);
   }
 
