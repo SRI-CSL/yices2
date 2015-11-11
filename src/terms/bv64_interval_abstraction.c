@@ -73,6 +73,13 @@ static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
 
 
 /*
+ * Max of two bitsizes
+ */
+static inline uint32_t max(uint32_t x, uint32_t y) {
+  return (x > y) ? x : y;
+}
+
+/*
  * Auxiliary function:
  * - a is an array of 4 unsigned 32bit integers
  *   that represents a[0] + 2^32 a[1] + 2^64 a[2] + 2^96 a[3]
@@ -345,6 +352,21 @@ static inline int32_t negate_sign(int32_t s) {
 }
 
 
+/*
+ * Check whether a is the interval [0,0]
+ */
+static inline bool bv64_abs_is_zero(const bv64_abs_t *a) {
+  return a->low == 0 && a->high == 0;
+}
+
+
+/*
+ * Check whether a and b have opposite signs
+ */
+static inline bool bv64_abs_opposite_signs(const bv64_abs_t *a, const bv64_abs_t *b) {
+  return a->sign >= 0 && b->sign == negate_sign(a->sign);
+}
+
 
 /*
  * Abstraction of an array u of n bits.
@@ -440,19 +462,14 @@ void bv64_abs_negate(bv64_abs_t *a) {
 
   k = a->nbits;
 
-  high = opposite(a->low, k, &overflow);
-  if (overflow) {
-    k ++;
-    if (k > 64) {
-      bv64_top_abs(a);
-      return;
-    }
-  } 
-
   low = - a->high;
-  assert(fits_k_bits(low, k));
+  high = opposite(a->low, k, &overflow);
+  if (overflow && k >= 64) {
+    bv64_top_abs(a);
+    return;
+  }
 
-  a->nbits = k;
+  a->nbits = interval_bitsize(low, high);
   a->low = low;
   a->high = high;
   if (low >= 0) {
@@ -481,18 +498,15 @@ void bv64_abs_add(bv64_abs_t *a, const bv64_abs_t *b) {
   uint32_t k;
   bool low_overflow, high_overflow;
 
-  k = a->nbits;
+  k = max(a->nbits, b->nbits);
   high = sum(a->high, b->high, k, &high_overflow);
   low = sum(a->low, b->low, k, &low_overflow);
-  if (high_overflow || low_overflow) {
-    k ++;
-    if (k > 64) {
-      bv64_top_abs(a);
-      return;
-    }
+  if ((high_overflow || low_overflow) && k >= 64) {
+    bv64_top_abs(a);
+    return;
   }
 
-  a->nbits = k;
+  a->nbits = interval_bitsize(low, high);
   a->low = low;
   a->high = high;
 
@@ -519,18 +533,15 @@ void bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b) {
   uint32_t k;
   bool low_overflow, high_overflow;
 
-  k = a->nbits;
+  k = max(a->nbits, b->nbits);
   high = diff(a->high, b->low, k, &high_overflow);
   low = diff(a->low, b->high, k, &low_overflow);
-  if (high_overflow || low_overflow) {
-    k ++;
-    if (k > 64) {
-      bv64_top_abs(a);
-      return;
-    }
+  if ((high_overflow || low_overflow) && k >= 64) {
+    bv64_top_abs(a);
+    return;
   }
 
-  a->nbits = k;
+  a->nbits = interval_bitsize(low, high);
   a->low = low;
   a->high = high;
 
@@ -538,7 +549,7 @@ void bv64_abs_sub(bv64_abs_t *a, const bv64_abs_t *b) {
     a->sign = sign_zero;
   } else if (high < 0) {
     a->sign = sign_one;
-  } else if (a->sign != negate_sign(b->sign)) {
+  } else if (bv64_abs_opposite_signs(a, b)) {
     a->sign = sign_undef;
   }
   
@@ -553,6 +564,16 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
   int64_t low, high;
   bool ovlow, ovhigh;
   int32_t sign;
+
+  // special cases: a = [0,0] or b = [0,0]
+  if (bv64_abs_is_zero(a)) {
+    return;    
+  }
+  if (bv64_abs_is_zero(b)) {
+    bv64_abs_zero(a);
+    return;
+  }
+
 
   // a is [L1, H1], b is [L2, H2]
   if (a->sign == sign_zero) {
@@ -607,7 +628,7 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
       ovlow = false;
       high = max_mul(a->low, b->low, a->high, b->high, &ovhigh);
       sign = sign_zero;
-    } else if (b->sign == negate_sign(a->sign) && b->sign != sign_undef) {
+    } else if (bv64_abs_opposite_signs(a, b)) {
       // L1 < 0 <= H1 and L2 < 0 <= H2, vectors of opposite signs
       // the result is [min(L1.H2, H1.L2), 0]
       low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
