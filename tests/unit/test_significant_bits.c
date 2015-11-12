@@ -156,5 +156,12 @@ int main(void) {
   test_significant_bits(-0x80, 8);
   test_significant_bits(-0x8, 4);
 
+  test_significant_bits(0x7FFFFF, 24);
+  test_significant_bits(0x7FFFF, 20);
+  test_significant_bits(0x7FFF, 16);
+  test_significant_bits(0x7FF, 12);
+  test_significant_bits(0x7F, 8);
+  test_significant_bits(0x7, 4);
+
   return 0;
 }
