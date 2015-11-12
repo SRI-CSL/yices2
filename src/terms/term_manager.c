@@ -4287,6 +4287,30 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
 }
 
 
+#if 0
+/*
+ * PROVISIONAL FOR TESTING
+ */
+#include <inttypes.h>
+#include <stdio.h>
+
+static void test_width(term_manager_t *manager, term_t t) {
+  bv64_abs_t abs;
+  uint32_t n;
+
+  bv64_abstract_term(manager->terms, t, &abs);
+  n = term_bitsize(manager->terms, t);
+  if (bv64_abs_precise(&abs, n)) {
+    printf("---> non-trivial abstraction for term t%"PRId32" (%"PRIu32" bits)\n", t, n);
+    printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
+    fflush(stdout);
+  }
+}
+#else
+static inline void test_width(term_manager_t *manager, term_t t) {
+}
+#endif
+
 
 /*
  * Normalize b then convert it to a term and reset b
@@ -4331,10 +4355,13 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
     t = bv64_poly(manager->terms, b);
   }
 
+
  done:
   bvarith64_buffer_prepare(b, 32); // reset b, any positive n would do
   assert(is_bitvector_term(manager->terms, t) &&
          term_bitsize(manager->terms, t) == n);
+
+  test_width(manager, t);
 
   return t;
 }

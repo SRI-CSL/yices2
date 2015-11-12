@@ -107,6 +107,26 @@ extern void bv64_abs_minus_one(bv64_abs_t *a);
 
 
 /*
+ * Full interval for bitvectors of n bits
+ * - the sign is set to undef
+ */
+extern void bv64_abs_default(bv64_abs_t *a, uint32_t n);
+
+
+/*
+ * Checks whether a is more precise than the full interval of n bits
+ * - this returns true if a->nbits < n or a->low > 2^(n-1) or 
+ *   a->high < 2^(n-1)-1 or a->sign != undef
+ */
+extern bool bv64_abs_precise(bv64_abs_t *a, uint32_t n);
+
+// converse
+static inline bool bv64_abs_imprecise(bv64_abs_t *a, uint32_t n) {
+  return !bv64_abs_precise(a, n);
+}
+
+
+/*
  * Abstraction of an array u of n bits.
  * - n must be positive and no more thant 64
  *
@@ -132,6 +152,12 @@ extern void bv64_abs_array(bv64_abs_t *a, int32_t zero, const int32_t *u, uint32
  * - the result is stored in place
  */
 extern void bv64_abs_negate(bv64_abs_t *a);
+
+/*
+ * Abstraction for a * c where c is a constant
+ * - n = number of bits in c
+ */
+extern void bv64_abs_mul_const(bv64_abs_t *a, uint64_t c, uint32_t n);
 
 /*
  * Abstraction for binary operations: (a + b), (a - b), (a * b), (a ^ d)

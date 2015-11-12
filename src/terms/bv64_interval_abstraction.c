@@ -331,6 +331,31 @@ void bv64_abs_minus_one(bv64_abs_t *a) {
 
 
 /*
+ * Default interval when we know nothing (except the number of bits).
+ */
+void bv64_abs_default(bv64_abs_t *a, uint32_t n) {
+  assert(1 <= n && n <= 64);
+
+  a->nbits = n;
+  a->sign = sign_undef;
+  a->low = min_int(n);
+  a->high = max_int(n);
+
+  assert(bv64_abs_consistent(a));
+}
+
+/*
+ * Checks whether a is more precise than the full interval of n bits
+ */
+bool bv64_abs_precise(bv64_abs_t *a, uint32_t n) {
+  assert(bv64_abs_consistent(a));
+
+  return a->nbits<n || 
+    (a->nbits == n && (a->low > min_int(n) || a->high < max_int(n) || a->sign != sign_undef));
+}
+
+
+/*
  * Least precise interval
  */
 static void bv64_top_abs(bv64_abs_t *a) {
@@ -487,6 +512,60 @@ void bv64_abs_negate(bv64_abs_t *a) {
 
 
 /*
+ * Abstraction for (a * c) where c is an n-bit constant
+ */
+void bv64_abs_mul_const(bv64_abs_t *a, uint64_t c, uint32_t n) {
+  int64_t low, high, sc;
+  bool ovlow, ovhigh;
+  uint32_t k;
+
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+
+  // special case
+  if (c == 0) {
+    bv64_abs_zero(a);
+    return;
+  }
+
+
+  k = n-1;
+  // sign extend c to a 64bit constant
+  if (tst_bit64(c, k)) {
+    sc = (int64_t) (c | ~mask64(n)); // sign extend
+    assert(sc < 0);
+    low = mul(a->high, sc, &ovlow);
+    high = mul(a->low, sc, &ovhigh);
+  } else {
+    sc = (int64_t) c;
+    assert(sc > 0);
+    low = mul(a->low, sc, &ovlow);
+    high = mul(a->high, sc, &ovhigh);
+  }
+
+  if (ovlow || ovhigh) {
+    bv64_top_abs(a);
+    return;
+  } 
+
+  a->nbits = interval_bitsize(low, high);
+  a->low = low;
+  a->high = high;
+  if (low >= 0) {
+    a->sign = sign_zero;
+  } else if (high < 0) {
+    a->sign = sign_one;
+  } else if (c < 0) {
+    // [low, high] contains 0 so even if we knew a's sign
+    // we've lost the information
+    a->sign = sign_undef;
+  }
+  // if c>0, we keep a->sign unchanged
+
+  assert(bv64_abs_consistent(a));
+}
+
+
+/*
  * Abstraction for (a + b)
  * - the result is stored in a
  *
@@ -520,6 +599,7 @@ void bv64_abs_add(bv64_abs_t *a, const bv64_abs_t *b) {
   
   assert(bv64_abs_consistent(a));
 }
+
 
 /*
  * Abstraction for (a - b)
@@ -573,7 +653,6 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
     bv64_abs_zero(a);
     return;
   }
-
 
   // a is [L1, H1], b is [L2, H2]
   if (a->sign == sign_zero) {

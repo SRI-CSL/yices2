@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "terms/bv64_interval_abstraction.h"
 #include "terms/bv_constants.h"
 #include "terms/terms.h"
 
@@ -300,6 +301,22 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
  * NOTE: v may be modified event if the function returns false
  */
 extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
+
+
+
+/*
+ * INTERVAL ABSTRACTION FOR BITVECTORS
+ */
+
+/*
+ * All functions compute an interval for some bitvector term
+ * - the term must have no more than 64bits
+ * - the result is stored in the interval descriptor a
+ * - a contains lower/upper bounds, number of bits, sign bit 
+ *   (cf. bv64_interval_abstraction.h)
+ */
+extern void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a);
+
 
 
 
