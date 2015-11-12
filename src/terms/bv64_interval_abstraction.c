@@ -554,12 +554,12 @@ void bv64_abs_mul_const(bv64_abs_t *a, uint64_t c, uint32_t n) {
     a->sign = sign_zero;
   } else if (high < 0) {
     a->sign = sign_one;
-  } else if (c < 0) {
+  } else if (sc < 0) {
     // [low, high] contains 0 so even if we knew a's sign
     // we've lost the information
     a->sign = sign_undef;
   }
-  // if c>0, we keep a->sign unchanged
+  // if sc>0, we keep a->sign unchanged
 
   assert(bv64_abs_consistent(a));
 }

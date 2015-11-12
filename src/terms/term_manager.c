@@ -4287,7 +4287,7 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
 }
 
 
-#if 0
+#if 1
 /*
  * PROVISIONAL FOR TESTING
  */
