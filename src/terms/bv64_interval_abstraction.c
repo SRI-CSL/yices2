@@ -347,7 +347,7 @@ void bv64_abs_default(bv64_abs_t *a, uint32_t n) {
 /*
  * Checks whether a is more precise than the full interval of n bits
  */
-bool bv64_abs_precise(bv64_abs_t *a, uint32_t n) {
+bool bv64_abs_nontrivial(bv64_abs_t *a, uint32_t n) {
   assert(bv64_abs_consistent(a));
 
   return a->nbits<n || 

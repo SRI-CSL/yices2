@@ -1988,26 +1988,26 @@ bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
  */
 static bool bv64_mulpower_abs(term_table_t *tbl, term_t t, uint32_t d, uint32_t n, bv64_abs_t *a) {
   bv64_abs_t aux;
-  bool precise;
+  bool nontrivial;
 
   assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
   assert(1 <= n && n <= 64 && d >= 1);
 
   bv64_abstract_term(tbl, t, &aux);
-  precise = bv64_abs_precise(&aux, n);
-  if (d>1 && precise) {
+  nontrivial = bv64_abs_nontrivial(&aux, n);
+  if (d>1 && nontrivial) {
     bv64_abs_power(&aux, d);
-    precise = bv64_abs_precise(&aux, n);
+    nontrivial = bv64_abs_nontrivial(&aux, n);
   }
-  if (precise) {
+  if (nontrivial) {
     bv64_abs_mul(a, &aux);
-    precise = bv64_abs_precise(a, n);
+    nontrivial = bv64_abs_nontrivial(a, n);
   }
-  if (!precise) {
+  if (!nontrivial) {
     bv64_abs_default(a, n);
   }
 
-  return precise;
+  return nontrivial;
 }
 
 
@@ -2021,26 +2021,26 @@ static bool bv64_mulpower_abs(term_table_t *tbl, term_t t, uint32_t d, uint32_t 
  */
 static bool bv64_addmul_abs(term_table_t *tbl, term_t t, uint64_t c, uint32_t n, bv64_abs_t *a) {
   bv64_abs_t aux;
-  bool precise;
+  bool nontrivial;
 
   assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
   assert(1 <= n && n <= 64 && c == norm64(c, n));
 
   bv64_abstract_term(tbl, t, &aux);
-  precise = bv64_abs_precise(&aux, n);
-  if (c != 1 && precise) {
+  nontrivial = bv64_abs_nontrivial(&aux, n);
+  if (c != 1 && nontrivial) {
     bv64_abs_mul_const(&aux, c, n);
-    precise = bv64_abs_precise(&aux, n);
+    nontrivial = bv64_abs_nontrivial(&aux, n);
   }
-  if (precise) {
+  if (nontrivial) {
     bv64_abs_add(a, &aux);
-    precise = bv64_abs_precise(a, n);
+    nontrivial = bv64_abs_nontrivial(a, n);
   }
-  if (!precise) {
+  if (!nontrivial) {
     bv64_abs_default(a, n);
   }
 
-  return precise;
+  return nontrivial;
 }
 
 
@@ -2051,7 +2051,7 @@ static bool bv64_addmul_abs(term_table_t *tbl, term_t t, uint64_t c, uint32_t n,
  *
  * NOTE: we assume that no term in the power product is zero.
  */
-static void bv64_abs_power_product(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a) {
+void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a) {
   uint32_t i, n;
 
   bv64_abs_one(a);
@@ -2070,7 +2070,7 @@ static void bv64_abs_power_product(term_table_t *tbl, pprod_t *p, uint32_t nbits
  * - stops as soon as the abstraction is too imprecise
  * - nbits = number of bits
  */
-static void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a) {
+void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a) {
   uint32_t i, n;
 
   assert(p->bitsize == nbits);
@@ -2118,7 +2118,7 @@ void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a) {
     break;
 
   case POWER_PRODUCT:
-    bv64_abs_power_product(tbl, pprod_term_desc(tbl, t), n, a);
+    bv64_abs_pprod(tbl, pprod_term_desc(tbl, t), n, a);
     break;
 
   case BV64_POLY:

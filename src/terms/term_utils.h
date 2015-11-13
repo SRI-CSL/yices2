@@ -309,14 +309,22 @@ extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v)
  */
 
 /*
- * All functions compute an interval for some bitvector term
- * - the term must have no more than 64bits
+ * Interval for bitvector t
+ * - t must have no more than 64bits
  * - the result is stored in the interval descriptor a
  * - a contains lower/upper bounds, number of bits, sign bit 
  *   (cf. bv64_interval_abstraction.h)
  */
 extern void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a);
 
+
+/*
+ * Abstraction of polynomial or power product
+ * - nbits = number of bits (must be between 1 amnd 64)
+ * - the result is stored in the interval descriptor a
+ */
+extern void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a);
+extern void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a);
 
 
 

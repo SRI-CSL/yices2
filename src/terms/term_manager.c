@@ -3963,6 +3963,41 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 }
 
 
+#if 0
+
+/*
+ * Zero extend and sign extend term t to n bits
+ * - t must be a bitvector of less than n bits
+ * - n = number of bits in the result
+ */
+static term_t mk_zero_extend_term(term_manager_t *manager, term_t t, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  assert(is_bitvector_term(manager->terms, t) && 
+	 term_bitsize(manager->terms, t) < n);
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_term(b, manager->terms, t);
+  bvlogic_buffer_zero_extend(b, n);
+  
+  return mk_bvlogic_term(manager, b);
+}
+
+static term_t mk_sign_extend_term(term_manager_t *manager, term_t t, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  assert(is_bitvector_term(manager->terms, t) && 
+	 term_bitsize(manager->terms, t) < n);
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_term(b, manager->terms, t);
+  bvlogic_buffer_sign_extend(b, n);
+
+  return mk_bvlogic_term(manager, b);
+}
+
+#endif
+
 
 /***************************
  *  BITVECTOR POLYNOMIALS  *
@@ -4287,7 +4322,7 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
 }
 
 
-#if 0
+#if 1
 /*
  * PROVISIONAL FOR TESTING
  */
@@ -4300,7 +4335,7 @@ static void test_width(term_manager_t *manager, term_t t) {
 
   bv64_abstract_term(manager->terms, t, &abs);
   n = term_bitsize(manager->terms, t);
-  if (bv64_abs_precise(&abs, n)) {
+  if (bv64_abs_nontrivial(&abs, n)) {
     printf("---> non-trivial abstraction for term t%"PRId32" (%"PRIu32" bits)\n", t, n);
     printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
     fflush(stdout);
@@ -4311,6 +4346,25 @@ static inline void test_width(term_manager_t *manager, term_t t) {
 }
 #endif
 
+
+/*
+ * Construct a power-product term:
+ * - n = number of bits (must be between 1 anad 64)
+ * - p = power product
+ */
+static term_t mk_pprod64_term(term_manager_t *manager, uint32_t n, pprod_t *p) {
+  bv64_abs_t abs;
+
+  assert(1 <= n && n <= 64);
+  bv64_abs_pprod(manager->terms, p, n, &abs);
+  if (bv64_abs_nontrivial(&abs, n)) {
+    printf("---> reducible power product: %"PRIu32" bits\n", n);
+    printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
+    fflush(stdout);
+  }
+
+  return pprod_term(manager->terms, p);    
+}
 
 /*
  * Normalize b then convert it to a term and reset b
@@ -4343,8 +4397,8 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
     }
     if (m->coeff == 1) {
       // power product
-      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(manager->terms, r);
-      test_width(manager, t);
+      //      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(manager->terms, r);
+      t = pp_is_var(r) ? var_of_pp(r) : mk_pprod64_term(manager, n, r);
       goto done;
     }
   }

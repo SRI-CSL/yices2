@@ -118,11 +118,11 @@ extern void bv64_abs_default(bv64_abs_t *a, uint32_t n);
  * - this returns true if a->nbits < n or a->low > 2^(n-1) or 
  *   a->high < 2^(n-1)-1 or a->sign != undef
  */
-extern bool bv64_abs_precise(bv64_abs_t *a, uint32_t n);
+extern bool bv64_abs_nontrivial(bv64_abs_t *a, uint32_t n);
 
 // converse
-static inline bool bv64_abs_imprecise(bv64_abs_t *a, uint32_t n) {
-  return !bv64_abs_precise(a, n);
+static inline bool bv64_abs_trivial(bv64_abs_t *a, uint32_t n) {
+  return !bv64_abs_trivial(a, n);
 }
 
 
