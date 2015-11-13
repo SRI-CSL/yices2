@@ -4287,7 +4287,7 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
 }
 
 
-#if 1
+#if 0
 /*
  * PROVISIONAL FOR TESTING
  */
@@ -4344,6 +4344,7 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
     if (m->coeff == 1) {
       // power product
       t = pp_is_var(r) ? var_of_pp(r) : pprod_term(manager->terms, r);
+      test_width(manager, t);
       goto done;
     }
   }
@@ -4353,6 +4354,7 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
   if (t == NULL_TERM) {
     // conversion failed: build a bvpoly
     t = bv64_poly(manager->terms, b);
+    test_width(manager, t);
   }
 
 
@@ -4360,8 +4362,6 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
   bvarith64_buffer_prepare(b, 32); // reset b, any positive n would do
   assert(is_bitvector_term(manager->terms, t) &&
          term_bitsize(manager->terms, t) == n);
-
-  test_width(manager, t);
 
   return t;
 }
