@@ -1994,18 +1994,19 @@ static bool bv64_mulpower_abs(term_table_t *tbl, term_t t, uint32_t d, uint32_t 
   assert(1 <= n && n <= 64 && d >= 1);
 
   bv64_abstract_term(tbl, t, &aux);
-  if (d>1 && bv64_abs_precise(&aux, n)) {
+  precise = bv64_abs_precise(&aux, n);
+  if (d>1 && precise) {
     bv64_abs_power(&aux, d);
+    precise = bv64_abs_precise(&aux, n);
   }
-  if (bv64_abs_precise(&aux, n)) {
+  if (precise) {
     bv64_abs_mul(a, &aux);
+    precise = bv64_abs_precise(a, n);
+  }
+  if (!precise) {
+    bv64_abs_default(a, n);
   }
 
-  precise = true;
-  if (bv64_abs_imprecise(a, n)) {
-    bv64_abs_default(a, n);
-    precise = false;
-  }
   return precise;
 }
 
@@ -2026,18 +2027,19 @@ static bool bv64_addmul_abs(term_table_t *tbl, term_t t, uint64_t c, uint32_t n,
   assert(1 <= n && n <= 64 && c == norm64(c, n));
 
   bv64_abstract_term(tbl, t, &aux);
-  if (c != 1 && bv64_abs_precise(&aux, n)) {
+  precise = bv64_abs_precise(&aux, n);
+  if (c != 1 && precise) {
     bv64_abs_mul_const(&aux, c, n);
+    precise = bv64_abs_precise(&aux, n);
   }
-  if (bv64_abs_precise(&aux, n)) {
+  if (precise) {
     bv64_abs_add(a, &aux);
+    precise = bv64_abs_precise(a, n);
+  }
+  if (!precise) {
+    bv64_abs_default(a, n);
   }
 
-  precise = true;
-  if (bv64_abs_precise(a, n)) {
-    bv64_abs_default(a, n);
-    precise = false;
-  }
   return precise;
 }
 
