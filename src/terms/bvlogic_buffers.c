@@ -1222,7 +1222,7 @@ static void bvlogic_buffer_concat_right_abs64(bvlogic_buffer_t *b, term_table_t 
   }
   
   m = a->nbits - 1;
-  for (i=0; i<n; i++) {
+  for (i=0; i<m; i++) {
     bit[i] = node_table_alloc_select(b->nodes, i, t);
   }
   s = get_abs64_sign_bit(b->nodes, table, a->sign, t, i);
