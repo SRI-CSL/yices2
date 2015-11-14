@@ -31,11 +31,11 @@ static uint32_t hash_ptr(void *p) {
   uint32_t a, b, c;
 
   /*
-   * we first convert p to uin64_t tmp 
+   * we first convert p to uint64_t
    * because something like ((size_t) p) >> 32
    * is an undefined operation if size_t is 32bits.
    */
-  tmp = (uint64_t) p;
+  tmp = (uint64_t) ((uintptr_t) p);
   a = (uint32_t) tmp;         // lower 32bits
   b = (uint32_t) (tmp >> 32); // higher order bits
   c = 0xa783fadd;   // seed
