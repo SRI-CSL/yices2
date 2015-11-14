@@ -3963,7 +3963,7 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 }
 
 
-#if 0
+#if 1
 
 /*
  * Zero extend and sign extend term t to n bits
@@ -4322,7 +4322,7 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
 }
 
 
-#if 1
+#if 0
 /*
  * PROVISIONAL FOR TESTING
  */
@@ -4348,22 +4348,78 @@ static inline void test_width(term_manager_t *manager, term_t t) {
 
 
 /*
+ * Truncate term t to n bits
+ */
+static term_t truncate_bv_term(term_manager_t *manager, uint32_t n, term_t t) {
+  bvlogic_buffer_t *b;
+
+  assert(is_bitvector_term(manager->terms, t) && term_bitsize(manager->terms, t) >= n && n>0);
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_slice_term(b, manager->terms, 0, n-1, t);
+
+  return mk_bvlogic_term(manager, b);
+}
+
+/*
+ * Truncate p to n bits
+ */
+static pprod_t *truncate_pprod(term_manager_t *manager, uint32_t n, pprod_t *p) {
+  pp_buffer_t buffer;
+  pprod_t *r;
+  uint32_t i, k;
+  term_t t;
+
+  k = p->len;
+
+  init_pp_buffer(&buffer, k);
+  for (i=0; i<k; i++) {
+    t = truncate_bv_term(manager, n, p->prod[i].var);
+    pp_buffer_mul_varexp(&buffer, t, p->prod[i].exp);
+  }
+  pp_buffer_normalize(&buffer);
+  r = pprod_from_buffer(manager->pprods, &buffer);
+  delete_pp_buffer(&buffer);
+
+  return r;
+}
+
+/*
  * Construct a power-product term:
- * - n = number of bits (must be between 1 anad 64)
+ * - n = number of bits (must be between 1 and 64)
  * - p = power product
  */
 static term_t mk_pprod64_term(term_manager_t *manager, uint32_t n, pprod_t *p) {
   bv64_abs_t abs;
+  pprod_t *r;
+  term_t t;
 
   assert(1 <= n && n <= 64);
   bv64_abs_pprod(manager->terms, p, n, &abs);
+
+#if 0
   if (bv64_abs_nontrivial(&abs, n)) {
     printf("---> reducible power product: %"PRIu32" bits\n", n);
     printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
     fflush(stdout);
   }
+#endif
 
-  return pprod_term(manager->terms, p);    
+  if (abs.nbits < n) {
+    r = truncate_pprod(manager, abs.nbits, p);
+    t = pprod_term(manager->terms, r);
+    if (false && abs.sign == sign_zero) {
+      // for this to make sense, we must enable the experimental code
+      // in bvlogic_buffer + maybe revise bvlogic_buffer_get_var
+      t = mk_zero_extend_term(manager, t, n);
+    } else {
+      t = mk_sign_extend_term(manager, t, n);
+    }
+  } else {
+    t = pprod_term(manager->terms, p);
+  }
+
+  return t;
 }
 
 /*

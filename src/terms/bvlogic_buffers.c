@@ -312,6 +312,10 @@ void bvlogic_buffer_set_low_mask(bvlogic_buffer_t *b, uint32_t k, uint32_t n) {
 }
 
 
+#if 0
+
+// EXPERIMENTAL
+
 /*
  * Store term t into b using t's interval abstraction
  * - n = number of bits in t
@@ -388,6 +392,7 @@ void bvlogic_buffer_set_pprod(bvlogic_buffer_t *b, term_table_t *table, term_t t
   }
 }
 
+#endif
 
 
 /*
@@ -480,6 +485,9 @@ void bvlogic_buffer_set_slice_term_array(bvlogic_buffer_t *b, term_table_t *tabl
 }
 
 
+#if 0
+
+// EXPERIMENTAL
 
 /*
  * Slice of t, using t's interval abstraction.
@@ -568,6 +576,8 @@ void bvlogic_buffer_set_slice_pprod(bvlogic_buffer_t *b, term_table_t *table, ui
     bvlogic_buffer_set_slice_bv(b, i, j, t);
   }
 }
+
+#endif
 
 
 /*
@@ -1511,6 +1521,8 @@ void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     bvlogic_buffer_set_term_array(b, table, d->arity, d->arg);
     break;
 
+#if 0
+    // EXPERIMENTAL
   case BV64_POLY:
     bvlogic_buffer_set_bvpoly64(b, table, t, bvpoly64_for_idx(table, i));
     break;
@@ -1519,6 +1531,8 @@ void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     n = bitsize_for_idx(table, i);
     bvlogic_buffer_set_pprod(b, table, t, pprod_for_idx(table, i), n);
     break;
+
+#endif
 
   default:
     n = bitsize_for_idx(table, i);
@@ -1559,6 +1573,8 @@ void bvlogic_buffer_set_slice_term(bvlogic_buffer_t *b, term_table_t *table, uin
     bvlogic_buffer_set_slice_term_array(b, table, i, j, d->arg);
     break;
 
+#if 0
+    // EXPERIMENTAL
   case BV64_POLY:
     bvlogic_buffer_set_slice_bvpoly64(b, table, i, j, t, bvpoly64_for_idx(table, k));
     break;
@@ -1566,6 +1582,7 @@ void bvlogic_buffer_set_slice_term(bvlogic_buffer_t *b, term_table_t *table, uin
   case POWER_PRODUCT:
     bvlogic_buffer_set_slice_pprod(b, table, i, j, t, pprod_for_idx(table, k));
     break;
+#endif
     
   default:
     assert(j < bitsize_for_idx(table, k));
