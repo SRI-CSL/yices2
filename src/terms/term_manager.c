@@ -44,6 +44,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   manager->bvarith_buffer = NULL;
   manager->bvarith64_buffer = NULL;
   manager->bvlogic_buffer = NULL;
+  manager->pp_buffer = NULL;
 
   manager->bvarith_store = NULL;
   manager->bvarith64_store = NULL;
@@ -165,6 +166,19 @@ bvlogic_buffer_t *term_manager_get_bvlogic_buffer(term_manager_t *manager) {
   return tmp;
 }
 
+pp_buffer_t *term_manager_get_pp_buffer(term_manager_t *manager) {
+  pp_buffer_t *tmp;
+
+  tmp = manager->pp_buffer;
+  if (tmp == NULL) {
+    tmp = (pp_buffer_t *) safe_malloc(sizeof(pp_buffer_t));
+    init_pp_buffer(tmp, 8);
+    manager->pp_buffer = tmp;
+  }
+
+  return tmp;
+}
+
 
 /*
  * Delete all: free memory
@@ -201,7 +215,6 @@ static void term_manager_free_bvarith64_store(term_manager_t *manager) {
     manager->bvarith64_store = NULL;
   }
 }
-
 
 static void term_manager_free_arith_buffer(term_manager_t *manager) {
   rba_buffer_t *tmp;
@@ -247,12 +260,23 @@ static void term_manager_free_bvlogic_buffer(term_manager_t *manager) {
   }
 }
 
+static void term_manager_free_pp_buffer(term_manager_t *manager) {
+  pp_buffer_t *tmp;
+
+  tmp = manager->pp_buffer;
+  if (tmp != NULL) {
+    delete_pp_buffer(tmp);
+    safe_free(tmp);
+    manager->pp_buffer = NULL;
+  }
+}
 
 void delete_term_manager(term_manager_t *manager) {
   term_manager_free_arith_buffer(manager);
   term_manager_free_bvarith_buffer(manager);
   term_manager_free_bvarith64_buffer(manager);
   term_manager_free_bvlogic_buffer(manager);
+  term_manager_free_pp_buffer(manager);
 
   term_manager_free_bvarith_store(manager);
   term_manager_free_bvarith64_store(manager);
@@ -3966,23 +3990,10 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 #if 1
 
 /*
- * Zero extend and sign extend term t to n bits
+ * Sign extend term t to n bits
  * - t must be a bitvector of less than n bits
  * - n = number of bits in the result
  */
-static term_t mk_zero_extend_term(term_manager_t *manager, term_t t, uint32_t n) {
-  bvlogic_buffer_t *b;
-
-  assert(is_bitvector_term(manager->terms, t) && 
-	 term_bitsize(manager->terms, t) < n);
-
-  b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, manager->terms, t);
-  bvlogic_buffer_zero_extend(b, n);
-  
-  return mk_bvlogic_term(manager, b);
-}
-
 static term_t mk_sign_extend_term(term_manager_t *manager, term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
@@ -4365,21 +4376,22 @@ static term_t truncate_bv_term(term_manager_t *manager, uint32_t n, term_t t) {
  * Truncate p to n bits
  */
 static pprod_t *truncate_pprod(term_manager_t *manager, uint32_t n, pprod_t *p) {
-  pp_buffer_t buffer;
+  pp_buffer_t *buffer;
   pprod_t *r;
   uint32_t i, k;
   term_t t;
 
   k = p->len;
 
-  init_pp_buffer(&buffer, k);
+  buffer = term_manager_get_pp_buffer(manager);
+  assert(buffer->len == 0);
   for (i=0; i<k; i++) {
     t = truncate_bv_term(manager, n, p->prod[i].var);
-    pp_buffer_mul_varexp(&buffer, t, p->prod[i].exp);
+    pp_buffer_mul_varexp(buffer, t, p->prod[i].exp);
   }
-  pp_buffer_normalize(&buffer);
-  r = pprod_from_buffer(manager->pprods, &buffer);
-  delete_pp_buffer(&buffer);
+  pp_buffer_normalize(buffer);
+  r = pprod_from_buffer(manager->pprods, buffer);
+  pp_buffer_reset(buffer);
 
   return r;
 }
@@ -4408,13 +4420,7 @@ static term_t mk_pprod64_term(term_manager_t *manager, uint32_t n, pprod_t *p) {
   if (abs.nbits < n) {
     r = truncate_pprod(manager, abs.nbits, p);
     t = pprod_term(manager->terms, r);
-    if (false && abs.sign == sign_zero) {
-      // for this to make sense, we must enable the experimental code
-      // in bvlogic_buffer + maybe revise bvlogic_buffer_get_var
-      t = mk_zero_extend_term(manager, t, n);
-    } else {
-      t = mk_sign_extend_term(manager, t, n);
-    }
+    t = mk_sign_extend_term(manager, t, n);
   } else {
     t = pprod_term(manager->terms, p);
   }

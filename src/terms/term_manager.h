@@ -44,6 +44,7 @@
  * - bvarith_buffer = for bit-vector polynomials
  * - bvarith64_buffer = for bit-vector polynomials (64bit coefficients)
  * - bvlogic_buffer = for other bit-vector constructs
+ * - pp_buffer = for power products
  *
  * Auxiliary objects:
  * - r0: rational buffer
@@ -62,6 +63,7 @@ typedef struct term_manager_s {
   bvarith_buffer_t *bvarith_buffer;
   bvarith64_buffer_t *bvarith64_buffer;
   bvlogic_buffer_t *bvlogic_buffer;
+  pp_buffer_t *pp_buffer;
 
   object_store_t *bvarith_store;
   object_store_t *bvarith64_store;
@@ -139,8 +141,7 @@ extern rba_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager);
 extern bvarith_buffer_t *term_manager_get_bvarith_buffer(term_manager_t *manager);
 extern bvarith64_buffer_t *term_manager_get_bvarith64_buffer(term_manager_t *manager);
 extern bvlogic_buffer_t *term_manager_get_bvlogic_buffer(term_manager_t *manager);
-
-
+extern pp_buffer_t *term_manager_get_pp_buffer(term_manager_t *manager);
 
 
 /*
