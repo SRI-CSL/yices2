@@ -33,15 +33,6 @@ static const int32_t mode[NUM_MODES] = {
   CTX_MODE_PUSHPOP,
 };
 
-static const char * const solver_type_names[NUM_SOLVER_TYPES] = {
-  "dpllt",
-  "mcsat"
-};
-
-static const int32_t solver_type[NUM_SOLVER_TYPES] = {
-  CTX_SOLVER_TYPE_DPLLT,
-  CTX_SOLVER_TYPE_MCSAT
-};
 
 /*
  * Solver codes
@@ -70,7 +61,6 @@ static const int32_t solver_code[NUM_SOLVER_CODES] = {
  */
 typedef enum ctx_config_key {
   CTX_CONFIG_KEY_MODE,
-  CTX_CONFIG_KEY_SOLVER_TYPE,
   CTX_CONFIG_KEY_ARITH_FRAGMENT,
   CTX_CONFIG_KEY_UF_SOLVER,
   CTX_CONFIG_KEY_ARRAY_SOLVER,
@@ -87,7 +77,6 @@ static const char *const config_key_names[NUM_CONFIG_KEYS] = {
   "array-solver",
   "bv-solver",
   "mode",
-  "solver-type",
   "uf-solver",
 };
 
@@ -97,7 +86,6 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_ARRAY_SOLVER,
   CTX_CONFIG_KEY_BV_SOLVER,
   CTX_CONFIG_KEY_MODE,
-  CTX_CONFIG_KEY_SOLVER_TYPE,
   CTX_CONFIG_KEY_UF_SOLVER,
 };
 
@@ -160,9 +148,9 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_SPLX,       // QF_LIA
   CTX_ARCH_SPLX,       // QF_LRA
   CTX_ARCH_SPLX,       // QF_LIRA
-  CTX_ARCH_MCSAT,      // QF_NIA
-  CTX_ARCH_MCSAT,      // QF_NRA
-  CTX_ARCH_MCSAT,      // QF_NIRA
+  -1,                  // QF_NIA
+  -1,                  // QF_NRA
+  -1,                  // QF_NIRA
   CTX_ARCH_SPLX,       // QF_RDL
   CTX_ARCH_EG,         // QF_UF
   CTX_ARCH_EGFUNBV,    // QF_ABV
@@ -219,7 +207,6 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
  */
 static const ctx_config_t default_config = {
   CTX_MODE_PUSHPOP,       // mode
-  CTX_SOLVER_TYPE_DPLLT,  // DPLLT solver
   SMT_UNKNOWN,            // logic
   CTX_CONFIG_DEFAULT,     // uf
   CTX_CONFIG_DEFAULT,     // array
@@ -333,15 +320,6 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
       r = -2;
     } else {
       config->mode = v;
-    }
-    break;
-
-  case CTX_CONFIG_KEY_SOLVER_TYPE:
-    v = parse_as_keyword(value, solver_type_names, solver_type, NUM_SOLVER_TYPES);
-    if (v < 0) {
-      r = -2;
-    } else {
-      config->solver_type = v;
     }
     break;
 
@@ -540,11 +518,6 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
   int32_t a, r;
 
   r = 0; // default return code
-
-  if (config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
-    *arch = CTX_ARCH_MCSAT;
-    goto done;
-  }
 
   logic_code = config->logic;
   if (logic_code != SMT_UNKNOWN) {

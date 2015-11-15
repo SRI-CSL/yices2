@@ -23,8 +23,6 @@
 #include "terms/term_utils.h"
 #include "utils/memalloc.h"
 
-#include "mcsat/solver.h"
-
 #define TRACE 0
 
 #if TRACE
@@ -4589,8 +4587,6 @@ static const uint32_t arch2theories[NUM_ARCH] = {
 
   IDL_MASK,                    //  CTX_ARCH_AUTO_IDL
   RDL_MASK,                    //  CTX_ARCH_AUTO_RDL
-
-  UF_MASK|ARITH_MASK|FUN_MASK  //  CTX_ARCH_MCSAT
 };
 
 
@@ -4607,7 +4603,6 @@ static const uint32_t arch2theories[NUM_ARCH] = {
 #define RFW    0x8
 #define BVSLVR 0x10
 #define FSLVR  0x20
-#define MCSAT  0x40
 
 static const uint8_t arch_components[NUM_ARCH] = {
   0,                        //  CTX_ARCH_NOSOLVERS
@@ -4627,8 +4622,6 @@ static const uint8_t arch_components[NUM_ARCH] = {
 
   0,                        //  CTX_ARCH_AUTO_IDL
   0,                        //  CTX_ARCH_AUTO_RDL
-
-  MCSAT                     //  CTX_ARCH_MCSAT
 };
 
 
@@ -4796,15 +4789,6 @@ static void create_egraph(context_t *ctx) {
   egraph = (egraph_t *) safe_malloc(sizeof(egraph_t));
   init_egraph(egraph, ctx->types);
   ctx->egraph = egraph;
-}
-
-
-/*
- * Create and initialize the mcsat solver
- */
-static void create_mcsat(context_t *ctx) {
-  assert(ctx->mcsat == NULL);
-  ctx->mcsat = mcsat_new(ctx);
 }
 
 
@@ -5096,11 +5080,6 @@ static void init_solvers(context_t *ctx) {
     create_egraph(ctx);
   }
 
-  // Create mcsat
-  if (solvers & MCSAT) {
-    create_mcsat(ctx);
-  }
-
   // Arithmetic solver
   if (solvers & SPLX) {
     create_simplex_solver(ctx, false);
@@ -5141,14 +5120,7 @@ static void init_solvers(context_t *ctx) {
      */
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
-  } else if (solvers == MCSAT) {
-    /*
-     * MCsat solver only, we create the core, but never use it.
-     */
-    assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
-    init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
   }
-
 
   /*
    * Optimization: if the arch is NOSOLVERS or BV then we set bool_only in the core
@@ -5197,7 +5169,7 @@ static inline bool valid_mode(context_mode_t mode) {
 }
 
 static inline bool valid_arch(context_arch_t arch) {
-  return CTX_ARCH_NOSOLVERS <= arch && arch <= CTX_ARCH_MCSAT;
+  return CTX_ARCH_NOSOLVERS <= arch && arch <= CTX_ARCH_AUTO_RDL;
 }
 #endif
 
@@ -5234,7 +5206,6 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    */
   ctx->core = (smt_core_t *) safe_malloc(sizeof(smt_core_t));
   ctx->egraph = NULL;
-  ctx->mcsat = NULL;
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
@@ -5316,12 +5287,6 @@ void delete_context(context_t *ctx) {
     ctx->core = NULL;
   }
 
-  if (ctx->mcsat != NULL) {
-    mcsat_destruct(ctx->mcsat);
-    safe_free(ctx->mcsat);
-    ctx->mcsat = NULL;
-  }
-
   if (ctx->egraph != NULL) {
     delete_egraph(ctx->egraph);
     safe_free(ctx->egraph);
@@ -5388,10 +5353,6 @@ void reset_context(context_t *ctx) {
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
-  if (ctx->mcsat != NULL) {
-    mcsat_reset(ctx->mcsat);
-  }
-
   reset_gate_manager(&ctx->gate_manager);
 
   reset_intern_tbl(&ctx->intern);
@@ -5435,9 +5396,6 @@ void context_set_trace(context_t *ctx, tracer_t *trace) {
   assert(ctx->trace == NULL);
   ctx->trace = trace;
   smt_core_set_trace(ctx->core, trace);
-  if (ctx->mcsat != NULL) {
-    mcsat_set_tracer(ctx->mcsat, trace);
-  }
 }
 
 
@@ -5447,9 +5405,6 @@ void context_set_trace(context_t *ctx, tracer_t *trace) {
 void context_push(context_t *ctx) {
   assert(context_supports_pushpop(ctx));
   smt_push(ctx->core);  // propagates to all solvers
-  if (ctx->mcsat != NULL) {
-    mcsat_push(ctx->mcsat);
-  }
   gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   context_eq_cache_push(ctx);
@@ -5461,9 +5416,6 @@ void context_push(context_t *ctx) {
 void context_pop(context_t *ctx) {
   assert(context_supports_pushpop(ctx) && ctx->base_level > 0);
   smt_pop(ctx->core);   // propagates to all solvers
-  if (ctx->mcsat != NULL) {
-    mcsat_pop(ctx->mcsat);
-  }
   gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   context_eq_cache_pop(ctx);
@@ -5722,10 +5674,6 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
          smt_status(ctx->core) == STATUS_IDLE);
-
-  if (ctx->mcsat != NULL) {
-    return mcsat_assert_formulas(ctx->mcsat, n, f);
-  }
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {

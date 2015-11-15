@@ -52,7 +52,6 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
-static bool mcsat;
 static bool show_stats;
 static int32_t verbosity;
 static char *filename;
@@ -71,7 +70,6 @@ typedef enum optid {
   verbosity_opt,        // set verbosity on the command line
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
-  mcsat_opt,            // enable mcsat
   trace_opt,            // enable a trace tag
 } optid_t;
 
@@ -87,7 +85,6 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
-  { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
@@ -118,7 +115,6 @@ static void print_help(const char *progname) {
 	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
-         "    --mcsat                 Use the MCSat solver\n"
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -146,7 +142,6 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
-  mcsat = false;
   show_stats = false;
   verbosity = 0;
 
@@ -206,16 +201,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case interactive_opt:
 	interactive = true;
 	break;
-
-      case mcsat_opt:
-#if HAVE_MCSAT
-        mcsat = true;
-#else
-	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-	code = YICES_EXIT_USAGE;
-	goto exit;
-#endif
-        break;
 
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
@@ -365,9 +350,6 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < trace_tags.size; ++ i) {
       smt2_enable_trace_tag(trace_tags.data[i]);
     }
-  }
-  if (mcsat) {
-    smt2_enable_mcsat();
   }
 
   while (smt2_active()) {

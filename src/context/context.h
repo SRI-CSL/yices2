@@ -263,11 +263,7 @@ extern int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f);
  *  STATUS_INTERRUPTED
  */
 static inline smt_status_t context_status(context_t *ctx) {
-  if (ctx->arch == CTX_ARCH_MCSAT) {
-    return mcsat_status(ctx->mcsat);
-  } else {
-    return smt_status(ctx->core);
-  }
+  return smt_status(ctx->core);
 }
 
 

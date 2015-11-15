@@ -76,8 +76,7 @@ srcsubdirs = \
     include io terms utils solvers solvers/floyd_warshall solvers/funs \
     solvers/bv solvers/egraph solvers/cdcl \
     solvers/simplex parser_utils model scratch api frontend frontend/smt1 \
-    frontend/dimacs frontend/yices frontend/smt2 context exists_forall \
-    mcsat mcsat/eq  mcsat/bool mcsat/ite mcsat/nra mcsat/utils 
+    frontend/dimacs frontend/yices frontend/smt2 context exists_forall
 
 testdir = tests/unit
 regressdir = tests/regress
@@ -621,13 +620,6 @@ show-details:
 	@ echo "  PIC_GMP = $(PIC_GMP)"
 	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
 	@ echo
-	@ echo "  ENABLE_MCSAT = $(ENABLE_MCSAT)"
-	@ echo
-	@ echo "  STATIC_LIBPOLY = $(STATIC_LIBPOLY)"
-	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
-	@ echo
-	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
-	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
 	@ echo
 
 

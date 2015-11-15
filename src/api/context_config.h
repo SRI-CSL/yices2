@@ -86,7 +86,6 @@ typedef enum solver_code {
  */
 struct ctx_config_s {
   context_mode_t        mode;
-  context_solver_type_t solver_type;
   smt_logic_t           logic;
   solver_code_t         uf_config;
   solver_code_t         array_config;

@@ -334,9 +334,6 @@ typedef struct smt2_globals_s {
   // logic name
   char *logic_name;
 
-  // set to true to use the mcsat solver
-  bool mcsat;
-
   // exists_forall fields
   // true indicates we will be using the exists_forall solver
   bool efmode;
@@ -712,9 +709,5 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  */
 extern void smt2_tstack_error(tstack_t *stack, int32_t exception);
 
-/*
- * Enable the mcsat solver.
- */
-extern void smt2_enable_mcsat(void);
 
 #endif /* __SMT2_COMMANDS_H */

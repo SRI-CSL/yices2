@@ -1,7 +1,0 @@
-(set-logic QF_NIA)
-(set-info :smt-lib-version 2.0)
-(declare-fun x () Int)
-(declare-fun y () Int)
-(assert (= (+ (* x x) (* y y)) 1))
-(check-sat)
-(exit)

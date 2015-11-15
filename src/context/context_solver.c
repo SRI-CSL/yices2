@@ -339,11 +339,6 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   fun_solver_t *fsolver;
   uint32_t quota;
 
-  if (ctx->mcsat != NULL) {
-    mcsat_solve(ctx->mcsat, params);
-    return mcsat_status(ctx->mcsat);
-  }
-
   core = ctx->core;
   egraph = ctx->egraph;
 
@@ -677,7 +672,7 @@ void context_build_model(model_t *model, context_t *ctx) {
   uint32_t i, n;
   term_t t;
 
-  assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN || mcsat_status(ctx->mcsat) == STATUS_SAT);
+  assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN);
 
   /*
    * First build assignments in the satellite solvers
@@ -695,13 +690,6 @@ void context_build_model(model_t *model, context_t *ctx) {
    */
   if (context_has_egraph(ctx)) {
     egraph_build_model(ctx->egraph, model_get_vtbl(model));
-  }
-
-  /*
-   * Construct the mcsat model.
-   */
-  if (context_has_mcsat(ctx)) {
-    mcsat_build_model(ctx->mcsat, model);
   }
 
   // scan the internalization table

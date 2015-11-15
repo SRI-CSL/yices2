@@ -37,7 +37,6 @@
 #include "utils/mark_vectors.h"
 #include "utils/pair_hash_map2.h"
 
-#include "mcsat/solver.h"
 
 /***********************
  *  OPTIONAL FEATURES  *
@@ -65,16 +64,6 @@ typedef enum {
 
 #define NUM_MODES (CTX_MODE_INTERACTIVE+1)
 
-
-/*
- * Possible solver classes.
- */
-typedef enum {
-  CTX_SOLVER_TYPE_DPLLT,
-  CTX_SOLVER_TYPE_MCSAT
-} context_solver_type_t;
-
-#define NUM_SOLVER_TYPES (CTX_SOLVER_TYPE_MCSAT+1)
 
 /*
  * More bit masks for enabling/disabling simplification
@@ -174,12 +163,10 @@ typedef enum {
 
   CTX_ARCH_AUTO_IDL,     // either simplex or integer floyd-warshall
   CTX_ARCH_AUTO_RDL,     // either simplex or real floyd-warshall
-
-  CTX_ARCH_MCSAT         // mcsat solver
 } context_arch_t;
 
 
-#define NUM_ARCH (CTX_ARCH_MCSAT+1)
+#define NUM_ARCH (CTX_ARCH_AUTO_RDL+1)
 
 
 /*
@@ -629,7 +616,6 @@ struct context_s {
   // core and theory solvers
   smt_core_t *core;
   egraph_t *egraph;
-  mcsat_solver_t *mcsat;
   void *arith_solver;
   void *bv_solver;
   void *fun_solver;

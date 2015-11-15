@@ -1,7 +1,0 @@
-(set-logic QF_NRA)
-(set-info :smt-lib-version 2.0)
-(declare-fun x () Real)
-(declare-fun b () Bool)
-(assert (< x (ite b (+ x 1) (- x 1))))
-(check-sat)
-(exit)

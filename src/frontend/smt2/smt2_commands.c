@@ -1672,9 +1672,6 @@ static void show_ctx_stats(context_t *ctx) {
     show_bvsolver_stats(ctx->bv_solver);
   }
 
-  if (ctx->mcsat != NULL) {
-    mcsat_show_stats(ctx->mcsat, __smt2_globals.out);
-  }
 }
 
 
@@ -2276,9 +2273,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
-  if (g->mcsat) {
-    arch = CTX_ARCH_MCSAT;
-  } else if (g->benchmark_mode) {
+  if (g->benchmark_mode) {
     // change mode and arch for QF_IDL/QF_RDL
     mode = CTX_MODE_ONECHECK;
     switch (logic) {
@@ -3214,7 +3209,6 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->global_decls = false;
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
-  g->mcsat = false;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -4970,9 +4964,3 @@ void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
   // TBD
 }
 
-/*
- * Enables the mcsat solver.
- */
-void smt2_enable_mcsat(void) {
-  __smt2_globals.mcsat = true;
-}

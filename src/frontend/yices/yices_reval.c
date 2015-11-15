@@ -491,16 +491,6 @@ static void process_command_line(int argc, char *argv[]) {
     arch = (context_arch_t) arch_code;
     iflag = iflag_for_logic(logic_code);
     qflag = qflag_for_logic(logic_code);
-
-#if !HAVE_MCSAT
-    // fail here: MCSAT not built
-    if (arch == CTX_ARCH_MCSAT) {
-      fprintf(stderr, "%s: logic %s is not supported; %s was not compiled with mcsat support\n",
-	      parser.command_name, logic_name, parser.command_name);
-      exit(YICES_EXIT_ERROR);
-    }
-#endif
-
     break;
   }
 
@@ -508,10 +498,7 @@ static void process_command_line(int argc, char *argv[]) {
    * Set the mode
    */
   if (mode_code < 0) {
-    if (arch == CTX_ARCH_MCSAT) {
-      // PROVISIONAL: MCSAT DOES NOT SUPPORT PUSH-POP YET
-      mode = CTX_MODE_ONECHECK;
-    } else if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
       // Floyd-Warshall or 'Auto' --> mode must be one-shot
       mode = CTX_MODE_ONECHECK;
     } else if (input_filename != NULL) {
@@ -534,11 +521,6 @@ static void process_command_line(int argc, char *argv[]) {
         fprintf(stderr, "%s: the Floyd-Warshall solvers support only mode='one-shot'\n", parser.command_name);
         goto bad_usage;
       }
-    }
-    if (arch == CTX_ARCH_MCSAT && mode_code != CTX_MODE_ONECHECK) {
-      // PROVISIONAL: MCSAT DOESN'T HAVE PUSH-POP YET
-      fprintf(stderr, "%s: the nonlinear solver supports only mode='one-shot'\n", parser.command_name);
-      goto bad_usage;
     }
   }
 

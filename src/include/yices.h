@@ -2665,9 +2665,6 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    | "interactive"       |  like push-pop, but with automatic context clean
  *                    |                     |  up when search is interrupted.
  *   ----------------------------------------------------------------------------------------
- *    "solver-type"   | "dpllt"             | DPLL(T) style solver (default)
- *                    | "mcsat"             | MCSat style solver
- *   ----------------------------------------------------------------------------------------
  *    "uf-solver"     | "default"           |  the uf-solver is included (i.e., the egraph)
  *                    | "none"              |  no uf-solver
  *   ----------------------------------------------------------------------------------------
