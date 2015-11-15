@@ -414,26 +414,76 @@ static term_t term_is_bit0(term_table_t *tbl, term_t b) {
   return NULL_TERM;
 }
 
+/*
+ * Convert abstraction sign to a term
+ * - return NULL_TERM is sign is undef
+ */
+static term_t abs64sign_to_term(int32_t sign) {
+  term_t t;
+
+  t = NULL_TERM;
+  if (sign == sign_zero) {
+    t = false_term;
+  } else if (sign == sign_one) {
+    t = true_term;
+  } else if (sign != sign_undef) {
+    // sign is a Boolean term
+    t = sign;
+  }
+
+  return t;
+}
 
 /*
- * Check whether a is of the form (bit 0 x) ... (bit n-1 x)
+ * Check whether a is equal to an existing term x
  * - if so return x
  * - otherwise return NULL_TERM
+ *
+ * This checks whether a[0] ... a[n-1] are of the form
+ *   (bit 0 x) (bit 1 x) ... (bit n-1 x), 
+ * where x is a term of n bits.
  */
 static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
-  term_t x;
-  uint32_t i;
+  bv64_abs_t abs;
+  term_t x, s;
+  uint32_t i, m;
 
   assert(n > 0);
 
   x = term_is_bit0(tbl, a[0]);
-  if (x == NULL_TERM) return x;
+  if (x == NULL_TERM || term_bitsize(tbl, x) != n) {
+    return NULL_TERM;
+  }
 
-  for (i=1; i<n; i++) {
+  bv64_abstract_term(tbl, x, &abs);
+  assert(0 < abs.nbits && abs.nbits <= n);
+  m = abs.nbits - 1;
+  for (i=1; i<m; i++) {
     if (! term_is_bit_i(tbl, a[i], i, x)) {
       return NULL_TERM;
     }
   }
+
+  // check whether the a[i+1, .., n-1] contain the sign bit of x
+  s = abs64sign_to_term(abs.sign);
+  if (s != NULL_TERM) {
+    // the sign bit is s
+    while (i<n) {
+      if (a[i] != s) {
+	return NULL_TERM;
+      }
+      i ++;
+    }
+  } else {
+    // the sign bit is (select x m)
+    while (i<n) {
+      if (! term_is_bit_i(tbl, a[i], m, x)) {
+	return NULL_TERM;
+      }
+      i ++;
+    }
+  }
+    
 
   return x;
 }
@@ -463,7 +513,7 @@ static term_t bvarray_get_term(term_manager_t *manager, const term_t *a, uint32_
   } else {
     // try to convert to an existing t
     t = bvarray_get_var(terms, a, n);
-    if (t == NULL_TERM || term_bitsize(terms, t) != n) {
+    if (t == NULL_TERM) {
       t = bvarray_term(terms, n, a);
     }
   }
