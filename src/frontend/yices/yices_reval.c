@@ -58,7 +58,6 @@
 #include "context/context.h"
 #include "context/dump_context.h"
 #include "frontend/common.h"
-#include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
@@ -114,13 +113,11 @@
  *
  * COMMAND-LINE OPTIONS:
  * - logic_name: logic to use (option --logic=xxx)
- * - arith_name: arithmetic solver to use (option --arith-solver=xxx)
  * - mode_name:  option --mode=xxx
  *   by default, these are NULL
  *
  * CONTEXT CONFIGURATION
  * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
- * - arith_code = code for the arithemtic solver (default is ARITH_SIMPLEX)
  * - mode_code = code for the mode (the default depends on the solver/logic)
  * - iflag = true if the integer solver is required
  * - qflag = true if support for quantifiers is required
@@ -140,11 +137,9 @@ static uint32_t timeout;
 static bool timeout_initialized;
 
 static char *logic_name;
-static char *arith_name;
 static char *mode_name;
 
 static smt_logic_t logic_code;
-static arith_code_t arith_code;
 static context_arch_t arch;
 static context_mode_t mode;
 static bool iflag;
@@ -173,7 +168,6 @@ static ivector_t delayed_assertions;
  */
 static double ready_time, check_process_time;
 
-
 /*
  * Parameters for preprocessing and simplifications
  * - these parameters are stored in the context but
@@ -183,13 +177,13 @@ static double ready_time, check_process_time;
 static ctx_param_t ctx_parameters;
 
 
+
 /**************************
  *  COMMAND-LINE OPTIONS  *
  *************************/
 
 enum {
   logic_option,
-  arith_option,
   mode_option,
   version_flag,
   help_flag,
@@ -200,7 +194,6 @@ enum {
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "logic", '\0', MANDATORY_STRING, logic_option },
-  { "arith-solver", '\0', MANDATORY_STRING, arith_option },
   { "mode", '\0', MANDATORY_STRING, mode_option },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
@@ -238,11 +231,8 @@ static void print_help(char *progname) {
          "  --logic=<name>            Configure for the given logic\n"
          "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
          "                                    or 'NONE' for propositional logic\n"
-         "  --arith-solver=<solver>   Select the arithmetic solver\n"
-         "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
          "  --mode=<mode>             Select the usage mode\n"
-         "                             <mode> maybe 'one-shot' or 'multi-checks' or 'interactive'\n"
-	 "                                    or 'push-pop' or 'ef'\n"
+         "                             <mode> maybe 'one-shot' or 'multi-checks' or 'interactive' or 'push-pop\n"
 	 "\n"
 	 "The mode are as follows:\n"
 	 "\n"
@@ -258,10 +248,6 @@ static void print_help(char *progname) {
 	 "\n"
 	 "  interactive: like push-pop. In addition, Yices restores the context\n"
 	 "    to a clean state if (check) is interrupted\n"
-	 "\n"
-	 "  ef: enable the exist-forall solver\n"
-	 "    In this mode, (ef-solve) can be used\n"
-	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"
          "\n"
          "For reporting bugs and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -299,9 +285,9 @@ static int32_t context_mode_code(const char *name) {
 
 /*
  * Processing of the command-line flags
- * - set input_filename, logic_name, and arith_name
+ * - set input_filename and logic_name
  *   input_filename = NULL means no filename on the command line
- *   same thing for logic_name and arith_name.
+ *   same thing for logic_name
  * - deal with --help, --version or with errors
  */
 static void process_command_line(int argc, char *argv[]) {
@@ -314,12 +300,10 @@ static void process_command_line(int argc, char *argv[]) {
   // set all options to their default value
   input_filename = NULL;
   logic_name = NULL;
-  arith_name = NULL;
   mode_name = NULL;
   verbosity = 0;
   tracer = NULL;
   logic_code = SMT_UNKNOWN;
-  arith_code = ARITH_SIMPLEX;
   mode_code = -1; // means not set
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
@@ -351,20 +335,6 @@ static void process_command_line(int argc, char *argv[]) {
           }
         } else if (strcmp(logic_name, elem.s_value) != 0) {
           fprintf(stderr, "%s: only one logic can be specified\n", parser.command_name);
-          goto bad_usage;
-        }
-        break;
-
-      case arith_option:
-        if (arith_name == NULL) {
-          arith_name = elem.s_value;
-          arith_code = arith_solver_code(arith_name);
-          if (arith_code == ARITH_UNKNOWN) {
-            fprintf(stderr, "%s: invalid arithmetic solver %s\n", parser.command_name, arith_name);
-            goto bad_usage;
-          }
-        } else if (strcmp(arith_name, elem.s_value) != 0) {
-          fprintf(stderr, "%s: only one arithmetic solver can be specified\n", parser.command_name);
           goto bad_usage;
         }
         break;
@@ -413,43 +383,11 @@ static void process_command_line(int argc, char *argv[]) {
   }
 
  done:
-  /*
-   * convert logic and arith solver codes to context architecture + mode
-   * also set iflag and qflag
-   */
   switch (logic_code) {
   case SMT_UNKNOWN:
-    if (arith_code == ARITH_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
-      goto bad_usage;
-    }
     // use default settings
-    arch = CTX_ARCH_EGFUNSPLXBV;
+    arch = CTX_ARCH_BV;
     iflag = true;
-    qflag = false;
-    break;
-
-  case QF_IDL:
-    if (arith_code == ARITH_SIMPLEX) {
-      arch = CTX_ARCH_SPLX;
-    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
-      arch = CTX_ARCH_IFW;
-    } else {
-      arch = CTX_ARCH_AUTO_IDL;
-    }
-    iflag = false; // not relevant in IDL
-    qflag = false;
-    break;
-
-  case QF_RDL:
-    if (arith_code == ARITH_SIMPLEX) {
-      arch = CTX_ARCH_SPLX;
-    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
-      arch = CTX_ARCH_RFW;
-    } else {
-      arch = CTX_ARCH_AUTO_RDL;
-    }
-    iflag = false;
     qflag = false;
     break;
 
@@ -470,10 +408,7 @@ static void process_command_line(int argc, char *argv[]) {
    * Set the mode
    */
   if (mode_code < 0) {
-    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
-      // Floyd-Warshall or 'Auto' --> mode must be one-shot
-      mode = CTX_MODE_ONECHECK;
-    } else if (input_filename != NULL) {
+    if (input_filename != NULL) {
       mode = CTX_MODE_PUSHPOP; // non-interactive
     } else {
       mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
@@ -481,12 +416,6 @@ static void process_command_line(int argc, char *argv[]) {
   } else {
     assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
     mode = (context_mode_t) mode_code;
-    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
-      if (mode != CTX_MODE_ONECHECK) {
-        fprintf(stderr, "%s: the Floyd-Warshall solvers support only mode='one-shot'\n", parser.command_name);
-        goto bad_usage;
-      }
-    }
   }
 
   return;
