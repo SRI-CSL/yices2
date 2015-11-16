@@ -47,10 +47,6 @@ extern bv_interface_t *bv_solver_bv_interface(bv_solver_t *solver);
 extern th_ctrl_interface_t *bv_solver_ctrl_interface(bv_solver_t *solver);
 extern th_smt_interface_t *bv_solver_smt_interface(bv_solver_t *solver);
 
-// egraph-specific interfaces
-extern th_egraph_interface_t *bv_solver_egraph_interface(bv_solver_t *solver);
-extern bv_egraph_interface_t *bv_solver_bv_egraph_interface(bv_solver_t *solver);
-
 
 
 /*

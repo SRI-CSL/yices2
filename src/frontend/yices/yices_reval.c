@@ -66,7 +66,6 @@
 #include "io/concrete_value_printer.h"
 #include "model/model_eval.h"
 #include "model/models.h"
-#include "model/projection.h"
 #include "parser_utils/term_stack2.h"
 #include "parser_utils/tstack_internals.h"
 #include "solvers/bv/bvsolver.h"

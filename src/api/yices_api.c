@@ -50,9 +50,8 @@
 #include "io/type_printer.h"
 #include "io/yices_pp.h"
 
-#include "model/generalization.h"
-#include "model/literal_collector.h"
 #include "model/map_to_model.h"
+#include "model/model_eval.h"
 #include "model/model_queries.h"
 #include "model/models.h"
 #include "model/val_to_term.h"
@@ -5461,9 +5460,9 @@ EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const ter
 /*
  * Convert a negative evaluation code v to
  * the corresponding yices error code.
- * - v is a code returned by eval_in_model or get_implicant
+ * - v is a code returned by eval_in_model
  */
-#define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FORMULA_FALSE) + 1)
+#define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FAILED) + 1)
 
 static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   NO_ERROR,              // v = 0
@@ -5474,7 +5473,6 @@ static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-5)
   EVAL_LAMBDA,           // v = MDL_EVAL_LAMBDA (-6)
   EVAL_FAILED,           // v = MDL_EVAL_FAILED (-7)
-  EVAL_NO_IMPLICANT,     // v = MDL_EVAL_FALSE (-8)
 };
 
 static inline error_code_t yices_eval_error(int32_t v) {

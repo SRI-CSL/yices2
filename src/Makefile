@@ -116,19 +116,14 @@ core_src_c := \
 	io/yices_pp.c \
 	io/writer.c \
 	model/abstract_values.c \
-	model/arith_projection.c \
 	model/concrete_values.c \
 	model/fresh_value_maker.c \
 	model/fun_maps.c \
 	model/fun_trees.c \
-	model/generalization.c \
-	model/literal_collector.c \
 	model/map_to_model.c \
 	model/model_eval.c \
 	model/model_queries.c \
 	model/models.c \
-	model/presburger.c \
-	model/projection.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
 	parser_utils/lexer.c \
@@ -171,8 +166,6 @@ core_src_c := \
 	terms/full_subst.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
-	terms/poly_buffer.c \
-	terms/poly_buffer_terms.c \
 	terms/polynomials.c \
 	terms/power_products.c \
 	terms/pprod_table.c \

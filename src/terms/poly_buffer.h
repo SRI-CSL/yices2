@@ -23,7 +23,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "solvers/simplex/matrices.h"
 #include "terms/polynomials.h"
 
 
