@@ -61,14 +61,12 @@
 #endif
 
 #if SHOW_STATISTICS || COMMAND_LINE_OPTIONS
-#include "solvers/simplex/simplex.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 #endif
 
 #if SHOW_STATISTICS
 #include "solvers/bv/bvsolver.h"
-#include "solvers/funs/fun_solver.h"
 #endif
 
 
@@ -348,17 +346,6 @@ static void parse_command_line(int argc, char *argv[]) {
  *  EXTRA OUTPUT FOR VERBOSE MODE  *
  **********************************/
 
-#if COMMAND_LINE_OPTIONS || SHOW_STATISTICS
-/*
- * Get the arithmetic solver
- */
-static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
-  assert(context_has_simplex_solver(ctx));
-  return (simplex_solver_t *) ctx->arith_solver;
-}
-
-#endif
-
 #if COMMAND_LINE_OPTIONS
 
 /*
@@ -388,25 +375,10 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
  */
 static void print_presearch_stats(FILE *f) {
   smt_core_t *core;
-  egraph_t *egraph;
 
   core = context.core;
-  egraph = context.egraph;
-
   fprintf(f, "boolean variables       : %"PRIu32"\n", core->nvars);
   fprintf(f, "atoms                   : %"PRIu32"\n", core->atoms.natoms);
-  if (egraph != NULL) {
-    fprintf(f, "egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-    fprintf(f, "app/update reductions   : %"PRIu32"\n", egraph->stats.app_reductions);
-  }
-
-  if (context_has_simplex_solver(&context)) {
-    fprintf(f, "arithmetic solver       : Simplex\n");
-  } else if (context_has_idl_solver(&context)) {
-    fprintf(f, "arithmetic solver       : IDL Floyd-Warshall\n");
-  } else if (context_has_rdl_solver(&context)) {
-    fprintf(f, "arithmetic solver       : RDL Floyd-Warshall\n");
-  }
   fprintf(f, "\n");
   fflush(f);
 }
@@ -420,114 +392,6 @@ static void print_presearch_stats(FILE *f) {
  *   is mysterious.
  */
 static void print_options(FILE *f, context_t *ctx) {
-#if 0
-  simplex_solver_t *simplex;
-
-  if (context_has_preprocess_options(ctx)) {
-    fprintf(f, "Preprocessing:");
-    if (context_var_elim_enabled(ctx)) {
-      fprintf(f, " --var-elim");
-    }
-    if (context_flatten_or_enabled(ctx)) {
-      fprintf(f, " --flatten-or");
-    }
-    if (context_flatten_diseq_enabled(ctx)) {
-      fprintf(f, " --flatten-diseq");
-    }
-    if (context_eq_abstraction_enabled(ctx)) {
-      fprintf(f, " --learn-eq");
-    }
-    if (context_breaksym_enabled(ctx)) {
-      fprintf(f, " --break-symmetries");
-    }
-    if (context_arith_elim_enabled(ctx)) {
-      fprintf(f, " --arith-elim");
-    }
-    if (context_bvarith_elim_enabled(ctx)) {
-      fprintf(f, " --bvarith-elim");
-    }
-    if (context_keep_ite_enabled(ctx)) {
-      fprintf(f, " --keep-ite");
-    }
-    fprintf(f, "\n");
-  }
-
-  if (context_has_arith_solver(ctx)) {
-    fprintf(f, "Arithmetic: ");
-    if (context_has_simplex_solver(ctx)) {
-      fprintf(f, " --simplex");
-      simplex = context_get_simplex_solver(ctx);
-      if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
-        fprintf(f, " --eager-lemmas");
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) ||
-          params.use_simplex_prop) {
-        fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
-          params.adjust_simplex_model) {
-        fprintf(f, " --simplex-ajust-model");
-      }
-      fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
-      fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
-    } else if (context_has_rdl_solver(ctx) || context_has_idl_solver(ctx)) {
-      fprintf(f, " --floyd-warshall");
-    }
-    fprintf(f, "\n");
-  }
-
-  if (context_has_egraph(ctx)) {
-    fprintf(f, "Egraph: ");
-    if (params.use_dyn_ack || params.use_bool_dyn_ack) {
-      if (params.use_dyn_ack) {
-        fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32,
-                params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
-      }
-      if (params.use_bool_dyn_ack) {
-        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32,
-                params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
-      }
-      fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio);
-    }
-    fprintf(f, " --max-interface-eqs=%"PRIu32"\n", params.max_interface_eqs);
-  }
-
-  if (context_has_fun_solver(ctx)) {
-    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n",
-            params.max_update_conflicts, params.max_extensionality);
-  }
-
-  if (params.fast_restart || params.cache_tclauses || params.branching != BRANCHING_DEFAULT) {
-    fprintf(f, "Core: ");
-    if (params.fast_restart) {
-      fprintf(f, " --fast-restarts");
-    }
-    if (params.cache_tclauses) {
-      fprintf(f, " --cache-tclauses --tclause-size=%"PRIu32, params.tclause_size);
-    }
-    switch (params.branching) {
-    case BRANCHING_DEFAULT:
-      break;
-    case BRANCHING_NEGATIVE:
-      fprintf(f, " --neg-branching");
-      break;
-    case BRANCHING_POSITIVE:
-      fprintf(f, " --pos-branching");
-      break;
-    case BRANCHING_THEORY:
-      fprintf(f, " --theory-branching");
-      break;
-    case BRANCHING_TH_NEG:
-      fprintf(f, " --th-neg-branching");
-      break;
-    case BRANCHING_TH_POS:
-      fprintf(f, " --th-pos-branching");
-      break;
-    }
-    fprintf(f, "\n");
-  }
-  fprintf(f, "\n");
-#endif
 }
 
 #endif
@@ -565,86 +429,6 @@ static void show_stats(dpll_stats_t *stat) {
   fprintf(stderr, " deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
-
-/*
- * Egraph statistics
- */
-static void show_egraph_stats(egraph_stats_t *stat) {
-  fprintf(stderr, "Egraph\n");
-  fprintf(stderr, " eq from simplex         : %"PRIu32"\n", stat->eq_props);
-  fprintf(stderr, " prop. to core           : %"PRIu32"\n", stat->th_props);
-  fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->th_conflicts);
-  fprintf(stderr, " non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
-  fprintf(stderr, " auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
-  fprintf(stderr, " dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
-  fprintf(stderr, " other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
-  fprintf(stderr, " final checks            : %"PRIu32"\n", stat->final_checks);
-  fprintf(stderr, " interface equalities    : %"PRIu32"\n", stat->interface_eqs);
-}
-
-
-/*
- * Array/function solver statistics
- */
-static void show_funsolver_stats(fun_solver_stats_t *stat) {
-  fprintf(stderr, "Arrays\n");
-  fprintf(stderr, " init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  fprintf(stderr, " init. edges             : %"PRIu32"\n", stat->num_init_edges);
-  fprintf(stderr, " update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
-  fprintf(stderr, " update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
-  fprintf(stderr, " extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
-}
-
-
-/*
- * Simplex statistics
- */
-static void show_simplex_stats(simplex_stats_t *stat) {
-  fprintf(stderr, "Simplex\n");
-  fprintf(stderr, " init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  fprintf(stderr, " init. rows              : %"PRIu32"\n", stat->num_init_rows);
-  fprintf(stderr, " init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  fprintf(stderr, " end atoms               : %"PRIu32"\n", stat->num_end_atoms);
-  fprintf(stderr, " elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
-  fprintf(stderr, " elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
-  fprintf(stderr, " fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
-  fprintf(stderr, " rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
-  fprintf(stderr, " fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
-  fprintf(stderr, " rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
-  fprintf(stderr, " rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
-  fprintf(stderr, " calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
-  fprintf(stderr, " pivots                  : %"PRIu32"\n", stat->num_pivots);
-  fprintf(stderr, " bland-rule activations  : %"PRIu32"\n", stat->num_blands);
-  fprintf(stderr, " simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
-  fprintf(stderr, " prop. to core           : %"PRIu32"\n", stat->num_props);
-  fprintf(stderr, " derived bounds          : %"PRIu32"\n", stat->num_bound_props);
-  fprintf(stderr, " productive propagations : %"PRIu32"\n", stat->num_prop_expl);
-  fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->num_conflicts);
-  fprintf(stderr, " interface lemmas        : %"PRIu32"\n", stat->num_interface_lemmas);
-  fprintf(stderr, " reduced inter. lemmas   : %"PRIu32"\n", stat->num_reduced_inter_lemmas);
-  fprintf(stderr, " trichotomy lemmas       : %"PRIu32"\n", stat->num_tricho_lemmas);
-  fprintf(stderr, " reduced tricho. lemmas  : %"PRIu32"\n", stat->num_reduced_tricho);
-  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
-    fprintf(stderr, "Integer arithmetic\n");
-    fprintf(stderr, " make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    fprintf(stderr, " branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
-    fprintf(stderr, "bound strengthening\n");
-    fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
-    fprintf(stderr, " recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);
-    fprintf(stderr, "integrality tests\n");
-    fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->num_itest_conflicts);
-    fprintf(stderr, " bound conflicts         : %"PRIu32"\n", stat->num_itest_bound_conflicts);
-    fprintf(stderr, " recheck conflicts       : %"PRIu32"\n", stat->num_itest_recheck_conflicts);
-    fprintf(stderr, "diohpantine solver\n");
-    fprintf(stderr, " gcd conflicts           : %"PRIu32"\n", stat->num_dioph_gcd_conflicts);
-    fprintf(stderr, " dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
-    fprintf(stderr, " dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    fprintf(stderr, " bound conflicts         : %"PRIu32"\n", stat->num_dioph_bound_conflicts);
-    fprintf(stderr, " recheck conflicts       : %"PRIu32"\n", stat->num_dioph_recheck_conflicts);
-  }
-}
-
-
 /*
  * Bitvector solver statistics
  */
@@ -669,9 +453,6 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
  */
 static void print_results(void) {
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
   uint32_t resu;
   double mem_used;
 
@@ -686,25 +467,6 @@ static void print_results(void) {
     show_stats(&core->stats);
     fprintf(stderr, " boolean variables       : %"PRIu32"\n", core->nvars);
     fprintf(stderr, " atoms                   : %"PRIu32"\n", core->atoms.natoms);
-
-    egraph = context.egraph;
-    if (egraph != NULL) {
-      show_egraph_stats(&egraph->stats);
-      fprintf(stderr, " egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-      fprintf(stderr, " egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
-      if (context_has_fun_solver(&context)) {
-        fsolver = context.fun_solver;
-        show_funsolver_stats(&fsolver->stats);
-      }
-    }
-
-    if (context_has_simplex_solver(&context)) {
-      simplex = context_get_simplex_solver(&context);
-      if (simplex != NULL) {
-        simplex_collect_statistics(simplex);
-        show_simplex_stats(&simplex->stats);
-      }
-    }
 
     if (context_has_bv_solver(&context)) {
       show_bvsolver_stats(context.bv_solver);
@@ -893,29 +655,6 @@ static void timeout_handler(void *p) {
 
 
 /*
- * PROVISIONAL: FOR TESTING OF IMPLICANT CONSTRUCTION
- */
-static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
-  term_vector_t v;
-  int32_t code;
-
-  yices_init_term_vector(&v);
-  code = yices_implicant_for_formulas(mdl, bench->nformulas, bench->formulas, &v);
-  if (code < 0) {
-    fprintf(f, "\n*** GET IMPLICANT FAILED ***\n");
-    yices_print_error(f);
-    fflush(f);
-  } else {
-    fprintf(f, "\nIMPLICANT:\n");
-    yices_pp_term_array(f, v.size, v.data, 120, UINT32_MAX, 0, 0);
-    fflush(f);
-  }
-
-  yices_delete_term_vector(&v);
-}
-
-
-/*
  * MAIN SOLVER FUNCTION
  * - parse input file (assumed to be in SMT-LIB format)
  * - solve benchmark
@@ -923,9 +662,6 @@ static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
  */
 static int process_benchmark(void) {
   int32_t code;
-  context_arch_t arch;
-  bool need_icheck;   // true if simplex needs integer check
-  bool qflag;         // true if quantifier support is needed
   smt_logic_t logic;  // logic code read from the file
 #if COMMAND_LINE_OPTIONS
   double mem_used;
@@ -990,40 +726,11 @@ static int process_benchmark(void) {
    */
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
-
-    // HACK: fix incorrect logic labels (for QF_UFIDL)
-    if (logic == QF_UFIDL && !bench.has_uf) {
-      fprintf(stderr, "Warning: logic should be QF_IDL\n");
-      logic = QF_IDL;
-    }
-
-    code = arch_for_logic(logic);
-    if (code < 0) {
+    if (logic != QF_BV) {
       print_internalization_code(LOGIC_NOT_SUPPORTED);
       code = YICES_EXIT_ERROR;
       goto cleanup_benchmark;
     }
-
-    switch (logic) {
-    case QF_IDL:
-      arch = CTX_ARCH_AUTO_IDL;
-      need_icheck = false;
-      qflag = false;
-      break;
-
-    case QF_RDL:
-      arch = CTX_ARCH_AUTO_RDL;
-      need_icheck = false;
-      qflag = false;
-      break;
-
-    default:
-      arch = (context_arch_t) code;
-      need_icheck = iflag_for_logic(logic);
-      qflag = qflag_for_logic(logic);
-      break;
-    }
-
   } else {
     printf("unknown\n");
     printf("No logic specified\n");
@@ -1035,8 +742,17 @@ static int process_benchmark(void) {
    * Initialize the context and set internalization options
    * and global search options
    */
+
+  // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+  //    enable_diseq_and_or_flattening(&context);  flatten makes things worse
   init_params_to_defaults(&params);
-  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, CTX_ARCH_BV, false);
+  enable_variable_elimination(&context);
+  enable_bvarith_elimination(&context);
+  params.fast_restart = true;
+  params.randomness = 0.0;
+  params.c_factor = 1.05;
+  params.d_factor = 1.05;
 
 #if COMMAND_LINE_OPTIONS
   if (verbose) {
@@ -1047,115 +763,6 @@ static int process_benchmark(void) {
 #endif
 
   context_exists = true;
-  switch (arch) {
-  case CTX_ARCH_EG:
-    // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
-    //    enable_variable_elimination(&context); // this helps if symmetry breaking is used
-    enable_eq_abstraction(&context);
-    enable_symmetry_breaking(&context);
-    params.use_bool_dyn_ack = true;
-    params.use_dyn_ack = true;
-    //    params.max_ackermann = 100;
-    params.cache_tclauses = true;
-    params.tclause_size = 12;
-    break;
-
-  case CTX_ARCH_SPLX:
-    // options: --flatten --theory-branching --cache-tclauses --arith-elim --var-elim
-    enable_variable_elimination(&context);
-    enable_arith_elimination(&context);
-    enable_diseq_and_or_flattening(&context);
-    params.branching = BRANCHING_THEORY;
-    params.cache_tclauses = true;
-    params.tclause_size = 8;
-    if (need_icheck) {
-      enable_splx_periodic_icheck(&context);
-      if (logic == QF_LIA) {
-        // TESTS for yices_smtcomp8 on QF_LIA
-        enable_splx_eager_lemmas(&context);
-        params.use_simplex_prop = true;
-        params.tclause_size = 20;
-      }
-    }
-    break;
-
-  case CTX_ARCH_BV:
-    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    //    enable_diseq_and_or_flattening(&context);  flatten makes things worse
-    enable_variable_elimination(&context);
-    enable_bvarith_elimination(&context);
-    params.fast_restart = true;
-    params.c_factor = 1.1;
-    params.d_factor = 1.1;
-    params.randomness = 0.0;
-    // EXPERIMENT: faster restarts
-    params.c_factor = 1.05;
-    params.d_factor = 1.05;
-    break;
-
-  case CTX_ARCH_EGFUN:        // egraph+array/function theory
-    enable_diseq_and_or_flattening(&context);
-    enable_variable_elimination(&context);
-    break;
-
-  case CTX_ARCH_EGSPLX:       // egraph+simplex
-  case CTX_ARCH_EGFUNSPLX:    // egraph+fun+simplex
-    enable_variable_elimination(&context);
-    enable_arith_elimination(&context);
-    enable_diseq_and_or_flattening(&context);
-    params.use_dyn_ack = true;
-    params.use_bool_dyn_ack = true;
-    params.use_simplex_prop = true;
-    params.adjust_simplex_model = true;
-    params.cache_tclauses = true;
-    params.tclause_size = 8;
-    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA) {
-      params.branching = BRANCHING_NEGATIVE;
-      params.max_interface_eqs = 15;
-    } else {
-      params.branching = BRANCHING_THEORY;
-      params.max_interface_eqs = 30;
-    }
-    if (need_icheck) {
-      enable_splx_periodic_icheck(&context);
-    }
-    if (logic == QF_UFLIA || logic == QF_UFLIRA) {
-      params.use_optimistic_fcheck = false;
-    }
-    enable_splx_eqprop(&context);
-    break;
-
-  case CTX_ARCH_EGBV:         // egraph+bitvector solver
-  case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
-    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    enable_diseq_and_or_flattening(&context);
-    enable_variable_elimination(&context);
-    enable_bvarith_elimination(&context);
-    params.fast_restart = true;
-    params.c_factor = 1.1;
-    params.d_factor = 1.1;
-    params.randomness = 0.0;
-    params.max_interface_eqs = 15;
-    // TESTING: 2012/09/13
-    params.max_update_conflicts = 50;
-    break;
-
-  case CTX_ARCH_AUTO_IDL:
-    // nothing required
-    break;
-
-  case CTX_ARCH_AUTO_RDL:
-    // preprocessing option: --flatten is used by both FW and SPLX
-    enable_diseq_and_or_flattening(&context);
-    enable_variable_elimination(&context);
-    enable_arith_elimination(&context);
-    break;
-
-  default:
-    enable_variable_elimination(&context);
-    enable_diseq_and_or_flattening(&context);
-    break;
-  }
 
   /*
    * Assert and internalize
@@ -1168,51 +775,6 @@ static int process_benchmark(void) {
   }
 
   if (code != TRIVIALLY_UNSAT) {
-
-    /*
-     * Adjust the search parameters for AUTO_IDL or AUTO_RDL
-     */
-    switch (arch) {
-    case CTX_ARCH_AUTO_IDL:
-      if (context_has_idl_solver(&context)) {
-        // IDL/Floyd-Warshall: --flatten --cache-tclauses --fast-restarts
-        params.cache_tclauses = true;
-        params.tclause_size = 8;
-        params.fast_restart = true;
-
-      } else {
-        assert(context_has_simplex_solver(&context));
-        // SIMPLEX: --split-eqs --theory-branching --cache-tclauses
-        params.branching = BRANCHING_THEORY;
-        params.cache_tclauses = true;
-        params.tclause_size = 8;
-        // if equalities are present also enable --simplex-prop
-        if (get_diff_logic_profile(&context)->num_eqs >= 10) {
-          params.use_simplex_prop = true;
-        }
-      }
-      break;
-
-    case CTX_ARCH_AUTO_RDL:
-      if (context_has_rdl_solver(&context)) {
-        // RDL/Floyd-Warshall: --cache-tclauses --fast-restarts --tclause-size=20
-        params.cache_tclauses = true;
-        params.tclause_size = 20;
-        params.fast_restart = true;
-      } else {
-        assert(context_has_simplex_solver(&context));
-        // SIMPLEX: --theory-branching  --flatten --split-eqs
-        params.branching = BRANCHING_THEORY;
-        // test for version 1826
-        params.cache_tclauses = true;
-        params.tclause_size = 20;
-        params.use_simplex_prop = true;
-      }
-      break;
-
-    default:
-      break;
-    }
 
 #if COMMAND_LINE_OPTIONS
     /*
@@ -1251,7 +813,6 @@ static int process_benchmark(void) {
       printf("\n");
       if (full_model) {
         model_print_full(stdout, model);
-	show_implicant(stdout, model, &bench);
       } else {
         model_print(stdout, model);
       }

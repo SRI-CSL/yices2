@@ -40,14 +40,6 @@
 #include "solvers/bv/bvsolver.h"
 #include "solvers/bv/bvsolver_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
-#include "solvers/egraph/egraph_printer.h"
-#include "solvers/floyd_warshall/idl_floyd_warshall.h"
-#include "solvers/floyd_warshall/idl_fw_printer.h"
-#include "solvers/floyd_warshall/rdl_floyd_warshall.h"
-#include "solvers/floyd_warshall/rdl_fw_printer.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
-#include "solvers/simplex/simplex_printer.h"
 
 #include "utils/command_line.h"
 #include "utils/cputime.h"
@@ -137,7 +129,6 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 static bool var_elim;
 static bool flatten_or;
 static bool learn_eq;
-static bool break_sym;
 static bool arith_elim;
 static bool bvarith_elim;
 static bool keep_ite;
@@ -146,28 +137,9 @@ static bool dump_internalization;
 static bool show_model;
 
 /*
- * Simplex options not in params_t
- */
-static bool eager_lemmas;
-
-
-/*
- * Which arithmetic solver to use
- */
-typedef enum {
-  ARITH_SOLVER_AUTOMATIC,
-  ARITH_SOLVER_FLOYD_WARSHALL,
-  ARITH_SOLVER_SIMPLEX,
-} arith_solver_t;
-
-static arith_solver_t arith_solver;
-
-
-/*
  * Timeout value in seconds (0 means no timeout)
  */
 static uint32_t timeout;
-
 
 /*
  * Filename given on the command line
@@ -187,7 +159,7 @@ static param_t params;
 
 
 /*
- * COMMAND LINE OPTIONS AND FLAGS
+ * COMMAND-LINE OPTIONS AND FLAGS
  */
 typedef enum optid {
   show_version_opt,           // print version and exit
@@ -195,11 +167,10 @@ typedef enum optid {
 
   // Internalization
   var_elim_opt,               // apply var elimination during internalization
-  flatten_opt,                // flatten or and disequality terms
-  learneq_opt,                // learn UF equalities
-  breaksym_opt,               // break symmetries in UF
   arith_elim_opt,             // eliminate arithmetic variables
   bvarith_elim_opt,           // simplification of bitvector arithmetic expressions
+  flatten_opt,                // flatten or and disequality terms
+  learneq_opt,                // learn UF equalities
   keep_ite_opt,               // keep term if-then-else in the egraph
 
   // Debug,
@@ -233,31 +204,6 @@ typedef enum optid {
 
   // Clause learning
   clause_decay_opt,           // decay factor for learned clause
-  cache_tclause_opt,          // enable autolearn from theory solver
-  tclause_size_opt,           // maximal size of clauses learned from the theory solver
-
-  // Egraph parameters
-  dyn_ack_opt,                // dynamic ackermann for non-boolean
-  dyn_boolack_opt,            // dynamic ackermann for boolean terms
-  max_ackermann_opt,          // limit for non-boolean dynamic ackermann trick
-  max_boolackermann_opt,      // limit for boolean dynamic ackermann trick
-  aux_eq_quota_opt,           // max number of equalities created by ackermann
-  aux_eq_ratio_opt,           // increase ratio
-  max_interface_eqs_opt,      // max number or interface equalities in each final_check
-
-  // Arithmetic
-  use_floyd_warshall,         // IDL or RDL solver
-  use_simplex,                // Simplex solver
-  simplex_eager_lemmas,       // generate simple lemmas eagerly
-  simplex_prop_enabled,       // enable row-based propagation
-  simplex_prop_threshold,     // max size of rows in propagation table
-  simplex_adjust_model,       // enable optimized model reconciliation (egraph + simplex)
-  simplex_bland_threshold,    // threshold that triggers activation of Bland's rule
-  simplex_check_period,       // for integer arithmetic: period of calls to integer_check
-
-  // Array solver
-  max_update_conflicts,       // max instances of the update axiom per round
-  max_extensionality,         // max instances of the extensionality axiom per round
 
   // Timeout
   timeout_opt,                // give a timeout
@@ -276,7 +222,6 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "var-elim", '\0', FLAG_OPTION, var_elim_opt },
   { "flatten", '\0', FLAG_OPTION, flatten_opt },
   { "learn-eq", '\0', FLAG_OPTION, learneq_opt },
-  { "break-symmetries", '\0', FLAG_OPTION, breaksym_opt },
   { "arith-elim", '\0', FLAG_OPTION, arith_elim_opt },
   { "bvarith-elim", '\0', FLAG_OPTION, bvarith_elim_opt },
   { "keep-ite", '\0', FLAG_OPTION, keep_ite_opt },
@@ -306,28 +251,6 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "th-pos-branching", '\0', FLAG_OPTION, theory_pos_branching_opt },
 
   { "clause-decay", '\0', MANDATORY_FLOAT, clause_decay_opt },
-  { "cache-tclauses", '\0', FLAG_OPTION, cache_tclause_opt },
-  { "tclause-size", '\0', MANDATORY_INT, tclause_size_opt },
-
-  { "dyn-ack", '\0', FLAG_OPTION, dyn_ack_opt },
-  { "dyn-bool-ack", '\0', FLAG_OPTION, dyn_boolack_opt },
-  { "max-ack", '\0', MANDATORY_INT, max_ackermann_opt },
-  { "max-bool-ack", '\0', MANDATORY_INT, max_boolackermann_opt },
-  { "aux-eq-quota", '\0', MANDATORY_INT, aux_eq_quota_opt },
-  { "aux-eq-ratio", '\0', MANDATORY_FLOAT, aux_eq_ratio_opt },
-  { "max-interface-eqs", '\0', MANDATORY_INT, max_interface_eqs_opt },
-
-  { "floyd-warshall", '\0', FLAG_OPTION, use_floyd_warshall },
-  { "simplex", '\0', FLAG_OPTION, use_simplex },
-  { "eager-lemmas", '\0', FLAG_OPTION, simplex_eager_lemmas },
-  { "simplex-prop", '\0', FLAG_OPTION, simplex_prop_enabled },
-  { "prop-threshold", '\0', MANDATORY_INT, simplex_prop_threshold },
-  { "simplex-adjust-model", '\0', FLAG_OPTION, simplex_adjust_model },
-  { "bland-threshold", '\0', MANDATORY_INT, simplex_bland_threshold },
-  { "icheck-period", '\0', MANDATORY_INT, simplex_check_period },
-
-  { "max-update-conflicts", '\0', MANDATORY_INT, max_update_conflicts },
-  { "max-extensionality", '\0', MANDATORY_INT, max_extensionality },
 
   { "timeout", 't', MANDATORY_INT, timeout_opt },
 };
@@ -376,8 +299,8 @@ static void yices_help(char *progname) {
          "    --var-elim\n"
          "    --flatten\n"
          "    --learn-eq\n"
-	 "    --break-symmetries\n"
          "    --arith-elim\n"
+         "    --bvarith-elim\n"
          "    --keep-ite\n"
          "  Model construction\n"
          "    --show-model\n"
@@ -405,28 +328,6 @@ static void yices_help(char *progname) {
          "    --th-pos-branching\n"
          "  Clause-learning heuristic\n"
          "    --clause-decay=<float>\n"
-         "    --cache-tclauses\n"
-         "    --tclause-size\n"
-         "  Egraph options:\n"
-         "    --dyn-ack\n"
-         "    --dyn-bool-ack\n"
-         "    --max-ack=<int>\n"
-         "    --max-bool-ack=<int>\n"
-         "    --aux-eq-quota=<int>\n"
-         "    --aux-eq-ratio=<float>\n"
-         "    --max-interface-eqs=<int>\n"
-         "  Arithmetic:\n"
-         "   --floyd-warshall\n"
-         "   --simplex\n"
-         "   --eager-lemmas\n"
-         "   --simplex-prop\n"
-         "   --prop-threshold\n"
-         "   --simplex-adjust-model\n"
-         "   --bland-threshold\n"
-         "   --icheck-period\n"
-         "  Array solver options:\n"
-         "   --max-update-conflicts=<int>\n"
-         "   --max-extensionality=<int>\n"
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -496,7 +397,6 @@ static void check_parameters(char *progname) {
   var_elim = opt_set[var_elim_opt];
   flatten_or = opt_set[flatten_opt];
   learn_eq = opt_set[learneq_opt];
-  break_sym = opt_set[breaksym_opt];
   arith_elim = opt_set[arith_elim_opt];
   bvarith_elim = opt_set[bvarith_elim_opt];
   keep_ite = opt_set[keep_ite_opt];
@@ -513,90 +413,6 @@ static void check_parameters(char *progname) {
     }
     timeout = v;
   }
-
-
-  // specified arithmetic solver: use automatic by default
-  arith_solver = ARITH_SOLVER_AUTOMATIC;
-  if (opt_set[use_floyd_warshall] && opt_set[use_simplex]) {
-    fprintf(stderr, "%s: can't use both Simplex and Floyd-Warshall solvers\n", progname);
-    goto error;
-  }
-  if (opt_set[use_floyd_warshall]) {
-    arith_solver = ARITH_SOLVER_FLOYD_WARSHALL;
-  }
-  if (opt_set[use_simplex]) {
-    arith_solver = ARITH_SOLVER_SIMPLEX;
-  }
-
-  // simplex-specific options
-  eager_lemmas = opt_set[simplex_eager_lemmas];
-
-  // simplex-propagation
-  if (opt_set[simplex_prop_enabled]) {
-    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_prop_enabled));
-      goto error;
-    }
-    params.use_simplex_prop = true;
-    use_default_params = false;
-  }
-
-  if (opt_set[simplex_prop_threshold]) {
-    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_prop_threshold));
-      goto error;
-    }
-    if (! params.use_simplex_prop) {
-      fprintf(stderr, "%s: %s requires %s to be set\n", progname, opt_name(simplex_prop_threshold), opt_name(simplex_prop_enabled));
-      goto error;
-    }
-    v = opt_val[simplex_prop_threshold].i_value;
-    if (v < 0) {
-      fprintf(stderr, "%s: %s can't be negative\n", progname, opt_name(simplex_prop_threshold));
-      goto error;
-    }
-    params.max_prop_row_size = v;
-    use_default_params = false;
-  }
-
-  // Other simplex parameters
-  if (opt_set[simplex_bland_threshold]) {
-    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_bland_threshold));
-      goto error;
-    }
-    v = opt_val[simplex_bland_threshold].i_value;
-    if (v <= 0) {
-      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(simplex_prop_threshold));
-      goto error;
-    }
-    params.bland_threshold = v;
-    use_default_params = false;
-  }
-
-  if (opt_set[simplex_check_period]) {
-    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_check_period));
-      goto error;
-    }
-    v = opt_val[simplex_check_period].i_value;
-    if (v <= 0) {
-      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(simplex_check_period));
-      goto error;
-    }
-    params.integer_check_period = v;
-    use_default_params = false;
-  }
-
-  if (opt_set[simplex_adjust_model]) {
-    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_adjust_model));
-      goto error;
-    }
-    params.adjust_simplex_model = true;
-    use_default_params = false;
-  }
-
 
   // Restart parameters
   if (opt_set[fast_restart_opt]) {
@@ -776,127 +592,6 @@ static void check_parameters(char *progname) {
     use_default_params = false;
   }
 
-  if (opt_set[cache_tclause_opt]) {
-    params.cache_tclauses = true;
-    params.tclause_size = 8;
-    use_default_params = false;
-  }
-
-  if (opt_set[tclause_size_opt]) {
-    if (params.cache_tclauses) {
-      v = opt_val[tclause_size_opt].i_value;
-      if (v < 0) {
-        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(tclause_size_opt));
-        goto error;
-      }
-      params.tclause_size = v;
-      use_default_params = false;
-    }
-  }
-
-  // Egraph options
-  if (opt_set[dyn_ack_opt]) {
-    params.use_dyn_ack = true;
-    // use default max_ackermann, aux_eq_ratio, aux_eq_quota from context_solver.c
-    use_default_params = false;
-  }
-
-  if (opt_set[dyn_boolack_opt]) {
-    params.use_bool_dyn_ack = true;
-    use_default_params = false;
-  }
-
-  if (opt_set[max_ackermann_opt]) {
-    if (params.use_dyn_ack) {
-      v = opt_val[max_ackermann_opt].i_value;
-      if (v < 0) {
-        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_ackermann_opt));
-        goto error;
-      }
-      params.max_ackermann = v;
-    } else {
-      fprintf(stderr, "%s: %s requires %s\n", progname, opt_name(max_ackermann_opt), opt_name(dyn_ack_opt));
-      goto error;
-    }
-  }
-
-  if (opt_set[max_boolackermann_opt]) {
-    if (params.use_bool_dyn_ack) {
-      v = opt_val[max_boolackermann_opt].i_value;
-      if (v < 0) {
-        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_boolackermann_opt));
-        goto error;
-      }
-      params.max_boolackermann = v;
-    } else {
-      fprintf(stderr, "%s: %s requires %s\n", progname, opt_name(max_boolackermann_opt),
-              opt_name(dyn_boolack_opt));
-      goto error;
-    }
-  }
-
-  if (opt_set[aux_eq_quota_opt]) {
-    if (params.use_dyn_ack || params.use_bool_dyn_ack) {
-      v = opt_val[aux_eq_quota_opt].i_value;
-      if (v < 0) {
-        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_quota_opt));
-        goto error;
-      }
-      params.aux_eq_quota = v;
-    } else {
-      fprintf(stderr, "%s: %s requires %s or %s\n", progname, opt_name(aux_eq_quota_opt),
-              opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
-      goto error;
-    }
-  }
-
-  if (opt_set[aux_eq_ratio_opt]) {
-    if (params.use_dyn_ack || params.use_bool_dyn_ack) {
-      x = opt_val[aux_eq_ratio_opt].d_value;
-      if (x <= 0.0) {
-        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_ratio_opt));
-        goto error;
-      }
-      params.aux_eq_ratio = x;
-    } else {
-      fprintf(stderr, "%s: %s requires %s or %s\n", progname, opt_name(aux_eq_ratio_opt),
-              opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
-      goto error;
-    }
-  }
-
-  if (opt_set[max_interface_eqs_opt]) {
-    v = opt_val[max_interface_eqs_opt].i_value;
-    if (v < 1) {
-      fprintf(stderr, "%s: %s must be at least one\n", progname, opt_name(max_interface_eqs_opt));
-      goto error;
-    }
-    params.max_interface_eqs = v;
-    use_default_params = false;
-  }
-
-
-  // Array solver options
-  if (opt_set[max_update_conflicts]) {
-    v = opt_val[max_update_conflicts].i_value;
-    if (v < 1) {
-      fprintf(stderr, "%s: %s must be at least one\n", progname, opt_name(max_update_conflicts));
-      goto error;
-    }
-    params.max_update_conflicts = v;
-    use_default_params = false;
-  }
-
-  if (opt_set[max_extensionality]) {
-    v = opt_val[max_extensionality].i_value;
-    if (v < 1) {
-      fprintf(stderr, "%s: %s must be at least one\n", progname, opt_name(max_update_conflicts));
-      goto error;
-    }
-    params.max_extensionality = v;
-    use_default_params = false;
-  }
-
   return;
 
  error:
@@ -957,7 +652,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case var_elim_opt:
       case flatten_opt:
       case learneq_opt:
-      case breaksym_opt:
       case arith_elim_opt:
       case bvarith_elim_opt:
       case keep_ite_opt:
@@ -970,14 +664,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case theory_branching_opt:
       case theory_neg_branching_opt:
       case theory_pos_branching_opt:
-      case cache_tclause_opt:
-      case dyn_ack_opt:
-      case dyn_boolack_opt:
-      case use_floyd_warshall:
-      case use_simplex:
-      case simplex_eager_lemmas:
-      case simplex_prop_enabled:
-      case simplex_adjust_model:
         break;
 
         // integer parameters
@@ -985,16 +671,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case d_threshold_opt:
       case r_threshold_opt:
       case randomseed_opt:
-      case tclause_size_opt:
-      case max_ackermann_opt:
-      case max_boolackermann_opt:
-      case aux_eq_quota_opt:
-      case max_interface_eqs_opt:
-      case simplex_prop_threshold:
-      case simplex_bland_threshold:
-      case simplex_check_period:
-      case max_update_conflicts:
-      case max_extensionality:
       case timeout_opt:
         opt_val[k].i_value = elem.i_value;
         break;
@@ -1007,7 +683,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case var_decay_opt:
       case randomness_opt:
       case clause_decay_opt:
-      case aux_eq_ratio_opt:
         opt_val[k].d_value = elem.d_value;
         break;
       }
@@ -1082,85 +757,6 @@ static void show_stats(dpll_stats_t *stat) {
 }
 
 /*
- * Egraph statistics
- */
-static void show_egraph_stats(egraph_stats_t *stat) {
-  printf("Egraph\n");
-  printf(" eq from simplex         : %"PRIu32"\n", stat->eq_props);
-  printf(" app/update reductions   : %"PRIu32"\n", stat->app_reductions);
-  printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
-  printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);
-  printf(" non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
-  printf(" auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
-  printf(" dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
-  printf(" other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
-  printf(" final checks            : %"PRIu32"\n", stat->final_checks);
-  printf(" interface equalities    : %"PRIu32"\n", stat->interface_eqs);
-}
-
-/*
- * Array/function solver statistics
- */
-static void show_funsolver_stats(fun_solver_stats_t *stat) {
-  printf("Arrays\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. edges             : %"PRIu32"\n", stat->num_init_edges);
-  printf(" update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
-  printf(" update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
-  printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
-}
-
-/*
- * Simplex statistics
- */
-static void show_simplex_stats(simplex_stats_t *stat) {
-  printf("Simplex\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
-  printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);
-  printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
-  printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
-  printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
-  printf(" rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
-  printf(" fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
-  printf(" rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
-  printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
-  printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
-  printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
-  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
-  printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
-  //  printf(" propagation lemmas      : %"PRIu32"\n", stat->num_prop_lemmas);  (it's always zero)
-  printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
-  printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
-  printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
-  printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
-  printf(" interface lemmas        : %"PRIu32"\n", stat->num_interface_lemmas);
-  printf(" reduced inter. lemmas   : %"PRIu32"\n", stat->num_reduced_inter_lemmas);
-  printf(" trichotomy lemmas       : %"PRIu32"\n", stat->num_tricho_lemmas);
-  printf(" reduced tricho. lemmas  : %"PRIu32"\n", stat->num_reduced_tricho);
-  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
-    printf("Integer arithmetic\n");
-    printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    printf(" branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
-    printf("bound strengthening\n");
-    printf(" conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);
-    printf("integrality tests\n");
-    printf(" conflicts               : %"PRIu32"\n", stat->num_itest_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_itest_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_itest_recheck_conflicts);
-    printf("diohpantine solver\n");
-    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_dioph_gcd_conflicts);
-    printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
-    printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_dioph_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_dioph_recheck_conflicts);
-  }
-}
-
-
-/*
  * Bitvector solver statistics
  */
 static void show_bvsolver_stats(bv_solver_t *solver) {
@@ -1178,24 +774,11 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
 }
 
 
-
-/*
- * Get the arithmetic solver
- */
-static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
-  assert(context_has_simplex_solver(ctx));
-  return (simplex_solver_t *) ctx->arith_solver;
-}
-
-
 /*
  * Statistics + result, after the search
  */
 static void print_results(void) {
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
   uint32_t resu;
   double mem_used;
 
@@ -1210,24 +793,6 @@ static void print_results(void) {
   show_stats(&core->stats);
   printf(" boolean variables       : %"PRIu32"\n", core->nvars);
   printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
-
-  egraph = context.egraph;
-  if (egraph != NULL) {
-    show_egraph_stats(&egraph->stats);
-    printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-    if (context_has_fun_solver(&context)) {
-      fsolver = context.fun_solver;
-      show_funsolver_stats(&fsolver->stats);
-    }
-  }
-
-  if (context_has_simplex_solver(&context)) {
-    simplex = context_get_simplex_solver(&context);
-    if (simplex != NULL) {
-      simplex_collect_statistics(simplex);
-      show_simplex_stats(&simplex->stats);
-    }
-  }
 
   if (context_has_bv_solver(&context)) {
     show_bvsolver_stats(context.bv_solver);
@@ -1257,27 +822,11 @@ static void print_results(void) {
  */
 static void print_presearch_stats(void) {
   smt_core_t *core;
-  egraph_t *egraph;
 
   core = context.core;
-  egraph = context.egraph;
-
 
   printf("boolean variables       : %"PRIu32"\n", core->nvars);
   printf("atoms                   : %"PRIu32"\n", core->atoms.natoms);
-  if (egraph != NULL) {
-    printf("egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-    printf("app/update reductions   : %"PRIu32"\n", egraph->stats.app_reductions);
-  }
-
-  if (context_has_simplex_solver(&context)) {
-    printf("arithmetic solver       : Simplex\n");
-  } else if (context_has_idl_solver(&context)) {
-    printf("arithmetic solver       : IDL Floyd-Warshall\n");
-  } else if (context_has_rdl_solver(&context)) {
-    printf("arithmetic solver       : RDL Floyd-Warshall\n");
-  }
-
   printf("\n");
   fflush(stdout);
 }
@@ -1287,8 +836,6 @@ static void print_presearch_stats(void) {
  * Print parameters and settings
  */
 static void print_options(FILE *f, context_t *ctx) {
-  simplex_solver_t *simplex;
-
   if (context_has_preprocess_options(ctx)) {
     fprintf(f, "Preprocessing:");
     if (context_var_elim_enabled(ctx)) {
@@ -1303,9 +850,6 @@ static void print_options(FILE *f, context_t *ctx) {
     if (context_eq_abstraction_enabled(ctx)) {
       fprintf(f, " --learn-eq");
     }
-    if (context_breaksym_enabled(ctx)) {
-      fprintf(f, " --learn-eq");
-    }
     if (context_arith_elim_enabled(ctx)) {
       fprintf(f, " --arith-elim");
     }
@@ -1318,56 +862,10 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "\n");
   }
 
-  if (context_has_arith_solver(ctx)) {
-    fprintf(f, "Arithmetic: ");
-    if (context_has_simplex_solver(ctx)) {
-      fprintf(f, " --simplex");
-      simplex = context_get_simplex_solver(ctx);
-      if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
-        fprintf(f, " --eager-lemmas");
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) ||
-          params.use_simplex_prop) {
-        fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
-      }
-      if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
-          params.adjust_simplex_model) {
-        fprintf(f, " --simplex-adjust-model");
-      }
-      fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
-      fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
-    } else if (context_has_rdl_solver(ctx) || context_has_idl_solver(ctx)) {
-      fprintf(f, " --floyd-warshall");
-    }
-    fprintf(f, "\n");
-  }
-
-  if (context_has_egraph(ctx)) {
-    fprintf(f, "Egraph: ");
-    if (params.use_dyn_ack || params.use_bool_dyn_ack) {
-      if (params.use_dyn_ack) {
-        fprintf(f, " --dyn-ack --max-ack=%"PRIu32, params.max_ackermann);
-      }
-      if (params.use_bool_dyn_ack) {
-        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32, params.max_boolackermann);
-      }
-      fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f", params.aux_eq_quota, params.aux_eq_ratio);
-    }
-    fprintf(f, " --max-interface-eqs=%"PRIu32"\n", params.max_interface_eqs);
-  }
-
-  if (context_has_fun_solver(ctx)) {
-    fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n",
-            params.max_update_conflicts, params.max_extensionality);
-  }
-
-  if (params.fast_restart || params.cache_tclauses || params.branching != BRANCHING_DEFAULT) {
+  if (params.fast_restart || params.branching != BRANCHING_DEFAULT) {
     fprintf(f, "Core: ");
     if (params.fast_restart) {
       fprintf(f, " --fast-restarts");
-    }
-    if (params.cache_tclauses) {
-      fprintf(f, " --cache-tclauses --tclause-size=%"PRIu32, params.tclause_size);
     }
     switch (params.branching) {
     case BRANCHING_DEFAULT:
@@ -1551,36 +1049,6 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
     dump_internalization_table(dump, context);
   }
 
-  if (context_has_egraph(context)) {
-    fprintf(dump, "\n==== TYPE TABLE ====\n");
-    print_type_table(dump, __yices_globals.types);
-    fprintf(dump, "\n==== EGRAPH TERMS ====\n");
-    print_egraph_terms(dump, context->egraph);
-    //    fprintf(dump, "\n==== EGRAPH CLASSES ====\n");
-    //    print_egraph_root_classes_details(dump, context->egraph);
-    fprintf(dump, "\n==== EGRAPH ATOMS ====\n");
-    print_egraph_atoms(dump, context->egraph);
-
-  }
-
-  if (context_has_idl_solver(context)) {
-    fprintf(dump, "\n==== IDL ATOMS ====\n");
-    print_idl_atoms(dump, context->arith_solver);
-  } else if (context_has_rdl_solver(context)) {
-    fprintf(dump, "\n==== RDL ATOMS ====\n");
-  } else if (context_has_simplex_solver(context)) {
-    fprintf(dump, "\n==== SIMPLEX VARIABLES ====\n");
-    print_simplex_vars(dump, context->arith_solver);
-    fprintf(dump, "\n==== SIMPLEX ATOMS ====\n");
-    print_simplex_atoms(dump, context->arith_solver);
-    fprintf(dump, "\n==== MATRIX ====\n");
-    print_simplex_matrix(dump, context->arith_solver);
-    fprintf(dump, "\n==== BOUNDS ====\n");
-    print_simplex_bounds(dump, context->arith_solver);
-    fprintf(dump, "\n==== ASSIGNMENT ====\n");
-    print_simplex_assignment(dump, context->arith_solver);
-  }
-
   if (context_has_bv_solver(context)) {
     bv = context->bv_solver;
     fprintf(dump, "\n==== BVSOLVER PARTITION ====\n");
@@ -1758,134 +1226,11 @@ static int process_benchmark(char *filename) {
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
     switch (logic) {
-    case QF_ALIA:
-    case QF_AUFLIA:
-      /*
-       * Arrays + uf + simplex
-       */
-      arch = CTX_ARCH_EGFUNSPLX;
-      break;
-
-    case QF_AX:
-      /*
-       * Egraph + array solver
-       */
-      arch = CTX_ARCH_EGFUN;
-      break;
-
-    case QF_IDL:
-      /*
-       * Default for QF_IDL: automatic
-       * unless --simplex or --floyd-warshall was given on the command line
-       */
-      switch (arith_solver) {
-      case ARITH_SOLVER_AUTOMATIC:
-        arch = CTX_ARCH_AUTO_IDL;
-        break;
-      case ARITH_SOLVER_SIMPLEX:
-        arch = CTX_ARCH_SPLX;
-        break;
-      case ARITH_SOLVER_FLOYD_WARSHALL:
-        arch = CTX_ARCH_IFW;
-        break;
-      }
-      break;
-
-    case QF_RDL:
-      /*
-       * Default for QF_RDL: automatic
-       * unless --simplex or --floyd-warshall was given on the command line
-       */
-      switch (arith_solver) {
-      case ARITH_SOLVER_AUTOMATIC:
-        arch = CTX_ARCH_AUTO_RDL;
-        break;
-      case ARITH_SOLVER_SIMPLEX:
-        arch = CTX_ARCH_SPLX;
-        break;
-      case ARITH_SOLVER_FLOYD_WARSHALL:
-        arch = CTX_ARCH_RFW;
-        break;
-      }
-      break;
-
-    case QF_UF:
-      /*
-       * Egraph only
-       */
-      arch = CTX_ARCH_EG;
-      break;
-
-
-    case QF_LRA:
-      /*
-       * SIMPLEX only
-       */
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_LIA:
-      /*
-       * SIMPLEX only, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_UFIDL:
-      /*
-       * Some SMT-LIB benchmarks labeled as QF_UFIDL are actually
-       * pure IDL so we allow IDL floyd-warshall here.
-       * The default is EGRAPH + SIMPLEX.
-       */
-      switch (arith_solver) {
-      case ARITH_SOLVER_AUTOMATIC:
-      case ARITH_SOLVER_SIMPLEX:
-        arch = CTX_ARCH_EGSPLX;
-        break;
-      case ARITH_SOLVER_FLOYD_WARSHALL:
-        arch = CTX_ARCH_IFW;
-        break;
-      }
-      break;
-
-    case QF_UFLRA:
-      /*
-       * EGRAPH + SIMPLEX
-       */
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_UFLIA:
-    case QF_UFLIRA:
-      /*
-       * EGRAPH + SIMPLEX, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_ABV:
-    case QF_AUFBV:
-      /*
-       * EGRAPH + BITVECTOR + ARRAY solver
-       */
-      arch = CTX_ARCH_EGFUNBV;
-      break;
-
-    case QF_UFBV:
-      /*
-       * EGRAPH + BITVECTOR solver
-       */
-      arch = CTX_ARCH_EGBV;
-      break;
-
     case QF_BV:
       /*
        * Pure bit-vector problem
        */
       arch = CTX_ARCH_BV;
-      //      arch = CTX_ARCH_EGBV;
       break;
 
     default:
@@ -1915,12 +1260,6 @@ static int process_benchmark(char *filename) {
   if (flatten_or) {
     enable_diseq_and_or_flattening(&context);
   }
-  if (learn_eq && arch == CTX_ARCH_EG) {
-    enable_eq_abstraction(&context);
-  }
-  if (break_sym && arch == CTX_ARCH_EG) {
-    enable_symmetry_breaking(&context);
-  }
   if (arith_elim) {
     enable_arith_elimination(&context);
   }
@@ -1929,12 +1268,6 @@ static int process_benchmark(char *filename) {
   }
   if (keep_ite) {
     enable_keep_ite(&context);
-  }
-  if (eager_lemmas) {
-    enable_splx_eager_lemmas(&context);
-  }
-  if (need_icheck) {
-    enable_splx_periodic_icheck(&context);
   }
   if (dump_context) {
     context.options |= DUMP_OPTION_MASK;

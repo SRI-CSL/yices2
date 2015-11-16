@@ -10,10 +10,9 @@
 
 typedef enum state_s {
   r0, 
-  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14, c15,
-  td0, td1, td2, td3,
-  t0, t1, t4, t6,
-  e0, e1, e3, e5, e7, e10, e11, e12, e14, e15, e16, e17, e19, e20,
+  c0, c1, c2, c3, c6, c7, c9, c11, c12, c13, c14, c15,
+  t0, t1, t4,
+  e0, e1, e3, e15, e16, e17, e19, e20,
 } state_t;
 
 typedef struct {
@@ -30,6 +29,7 @@ typedef struct {
 enum actions {
   next_goto_c1,
   empty_command,
+
   exit_next_goto_r0,
   check_next_goto_r0,
   push_next_goto_r0,
@@ -51,44 +51,31 @@ enum actions {
   showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
   help_next_goto_c15,
-  efsolve_next_goto_r0,    // New command: (ef-solve)
-  export_next_goto_c3,     // New command: (export-to-dimacs filename)
-  implicant_next_goto_r0,  // New command: (show-implicant)
-  typename_next_goto_c10,  // token must be a free typename (TK_SYMBOL)
-  string_next_goto_r0,     // string argument to echo, include, help, export
-  termname_next_goto_c7,   // token must be a free termname (TK_SYMBOL)
+  export_next_goto_c3,           // New command: (export-to-dimacs filename)
+  typename_next_push_r0_goto_t0, // token must be a free typename (TK_SYMBOL)
+  string_next_goto_r0,           // string argument to echo, include, help, export
+  termname_next_goto_c7,         // token must be a free termname (TK_SYMBOL)
   next_push_c9_goto_t0,
-  symbol_next_goto_c12,    // in (set-param <symbol> ...)
-  true_next_goto_r0,       // in (set-param ... true)
-  false_next_goto_r0,      // in (set-param ... false)
-  float_next_goto_r0,      // in (set-param ... <float>)
-  symbol_next_goto_r0,     // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
-  ret,                     // return
+  symbol_next_goto_c12,          // in (set-param <symbol> ...)
+  true_next_goto_r0,             // in (set-param ... true)
+  false_next_goto_r0,            // in (set-param ... false)
+  float_next_goto_r0,            // in (set-param ... <float>)
+  symbol_next_goto_r0,           // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
+  ret,                           // return
   push_r0_goto_e0,
-  push_r0_goto_td0,
 
-  int_return,
-  real_return,
   bool_return,
-  typesymbol_return,      // TK_SYMBOL bound to a type
-  next_goto_td1,
-  scalar_next_goto_td2,
-  bitvector_next_goto_t4,
-  tuple_next_push_t6_goto_t0,
-  arrow_next_push_t6_push_t0_goto_t0,
-  termname_next_goto_td3,  // free termane in scalar definition
-
+  typesymbol_return,             // TK_SYMBOL bound to a type
   next_goto_t1,
+  bitvector_next_goto_t4,
   rational_next_goto_r0,
-  push_t6_goto_t0,
 
   true_return,
   false_return,
   rational_return,
-  float_return,
   bvbin_return,
   bvhex_return,
-  termsymbol_return,     // TK_SYMBOL bound to a term
+  termsymbol_return,             // TK_SYMBOL bound to a term
   next_goto_e1,
 
   // all function keywords
@@ -102,18 +89,6 @@ enum actions {
   xor_next_push_e3_goto_e0,
   iff_next_push_e3_goto_e0,
   implies_next_push_e3_goto_e0,
-  mk_tuple_next_push_e3_goto_e0,
-  select_next_push_e3_goto_e0,
-  update_tuple_next_push_e3_goto_e0,
-  add_next_push_e3_goto_e0,
-  sub_next_push_e3_goto_e0,
-  mul_next_push_e3_goto_e0,
-  div_next_push_e3_goto_e0,
-  pow_next_push_e3_goto_e0,
-  lt_next_push_e3_goto_e0,
-  le_next_push_e3_goto_e0,
-  gt_next_push_e3_goto_e0,
-  ge_next_push_e3_goto_e0,
   mk_bv_next_push_e3_goto_e0,
   bv_add_next_push_e3_goto_e0,
   bv_sub_next_push_e3_goto_e0,
@@ -160,35 +135,16 @@ enum actions {
   bv_comp_next_push_e3_goto_e0,
   bool_to_bv_next_push_e3_goto_e0,
   bit_next_push_e3_goto_e0,
-  floor_next_push_e3_goto_e0,
-  ceil_next_push_e3_goto_e0,
-  abs_next_push_e3_goto_e0,
-  idiv_next_push_e3_goto_e0,
-  mod_next_push_e3_goto_e0,
-  divides_next_push_e3_goto_e0,
-  is_int_next_push_e3_goto_e0,
   
-  update_next_push_e5_goto_e0,
-  forall_next_goto_e10,
-  exists_next_goto_e10,
-  lambda_next_goto_e10,
   let_next_goto_e15,
-  push_e3_push_e0_goto_e0,
 
   push_e3_goto_e0,
-  next_push_e7_goto_e0,
-  next_push_r0_goto_e0,
-  push_e7_goto_e0,
-  next_goto_e11,
-  e11_varname_next_goto_e12,       // first var decl in quantifiers
-  next_push_e14_goto_t0,
-  e14_varname_next_goto_e12,       // var decl in quantifier except the first one
-  e14_next_push_r0_goto_e0,        // end of var decls
 
   next_goto_e16,
   next_goto_e17,
   termname_next_push_e19_goto_e0,  // name in binding 
   next_goto_e20,
+  next_push_r0_goto_e0,
 
   error_lpar_expected,
   error_symbol_expected,
@@ -206,10 +162,6 @@ static triple_t triples[] = {
 
   { c1, TK_EXIT, "exit_next_goto_r0" },
   { c1, TK_CHECK, "check_next_goto_r0" },
-  { c1, TK_PUSH, "push_next_goto_r0" },
-  { c1, TK_POP, "pop_next_goto_r0" },
-  { c1, TK_RESET, "reset_next_goto_r0" },
-  { c1, TK_DUMP_CONTEXT, "dump_context_next_goto_r0" },
   { c1, TK_ECHO, "echo_next_goto_c3" },
   { c1, TK_INCLUDE, "include_next_goto_c3" },
   { c1, TK_ASSERT, "assert_next_push_r0_goto_e0" },
@@ -217,19 +169,21 @@ static triple_t triples[] = {
   { c1, TK_DEFINE, "defterm_next_goto_c6" },
   { c1, TK_SHOW_MODEL, "showmodel_next_goto_r0" },
   { c1, TK_EVAL, "eval_next_push_r0_goto_e0" },
+  { c1, TK_PUSH, "push_next_goto_r0" },
+  { c1, TK_POP, "pop_next_goto_r0" },
+  { c1, TK_RESET, "reset_next_goto_r0" },
+  { c1, TK_DUMP_CONTEXT, "dump_context_next_goto_r0" },
   { c1, TK_SET_PARAM, "setparam_next_goto_c11" },
-  { c1, TK_SHOW_PARAM, "showparam_next_goto_c13" },
   { c1, TK_SHOW_PARAMS, "showparams_next_goto_r0" },
+  { c1, TK_SHOW_PARAM, "showparam_next_goto_c13" },
   { c1, TK_SHOW_STATS, "showstats_next_goto_r0" },
-  { c1, TK_SHOW_TIMEOUT, "showtimeout_next_goto_r0" },
   { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
+  { c1, TK_SHOW_TIMEOUT, "showtimeout_next_goto_r0" },
   { c1, TK_SET_TIMEOUT, "settimeout_next_goto_c14" },
   { c1, TK_HELP, "help_next_goto_c15" },
-  { c1, TK_EF_SOLVE, "efsolve_next_goto_r0" },
   { c1, TK_EXPORT_TO_DIMACS, "export_next_goto_c3" },
-  { c1, TK_SHOW_IMPLICANT, "implicant_next_goto_r0" },
 
-  { c2, TK_SYMBOL, "typename_next_goto_c10" },
+  { c2, TK_SYMBOL, "typename_next_push_r0_goto_t0" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c3, TK_STRING, "string_next_goto_r0" },
@@ -243,9 +197,6 @@ static triple_t triples[] = {
 
   { c9, TK_RP, "ret" },
   { c9, DEFAULT_TOKEN, "push_r0_goto_e0" },
-
-  { c10, TK_RP, "ret" },
-  { c10, DEFAULT_TOKEN, "push_r0_goto_td0" },
 
   { c11, TK_SYMBOL, "symbol_next_goto_c12" },
   { c11, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -282,21 +233,10 @@ static triple_t triples[] = {
   { c15, TK_SET_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_SHOW_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_HELP, "symbol_next_goto_r0" },
-  { c15, TK_EF_SOLVE, "symbol_next_goto_r0" },
   { c15, TK_EXPORT_TO_DIMACS, "symbol_next_goto_r0" },
-  { c15, TK_SHOW_IMPLICANT, "symbol_next_goto_r0" },
-  { c15, TK_UPDATE, "symbol_next_goto_r0" },
-  { c15, TK_FORALL, "symbol_next_goto_r0" },
-  { c15, TK_EXISTS, "symbol_next_goto_r0" },
-  { c15, TK_LAMBDA, "symbol_next_goto_r0" },
   { c15, TK_LET, "symbol_next_goto_r0" },
   { c15, TK_BOOL, "symbol_next_goto_r0" },
-  { c15, TK_INT, "symbol_next_goto_r0" },
-  { c15, TK_REAL, "symbol_next_goto_r0" },
   { c15, TK_BITVECTOR, "symbol_next_goto_r0" },
-  { c15, TK_SCALAR, "symbol_next_goto_r0" },
-  { c15, TK_TUPLE, "symbol_next_goto_r0" },
-  { c15, TK_ARROW, "symbol_next_goto_r0" },
   { c15, TK_TRUE, "symbol_next_goto_r0" },
   { c15, TK_FALSE, "symbol_next_goto_r0" },
   { c15, TK_IF, "symbol_next_goto_r0" },
@@ -310,18 +250,6 @@ static triple_t triples[] = {
   { c15, TK_XOR, "symbol_next_goto_r0" },
   { c15, TK_IFF, "symbol_next_goto_r0" },
   { c15, TK_IMPLIES, "symbol_next_goto_r0" },
-  { c15, TK_MK_TUPLE, "symbol_next_goto_r0" },
-  { c15, TK_SELECT, "symbol_next_goto_r0" },
-  { c15, TK_UPDATE_TUPLE, "symbol_next_goto_r0" },
-  { c15, TK_ADD, "symbol_next_goto_r0" },
-  { c15, TK_SUB, "symbol_next_goto_r0" },
-  { c15, TK_MUL, "symbol_next_goto_r0" },
-  { c15, TK_DIV, "symbol_next_goto_r0" },
-  { c15, TK_POW, "symbol_next_goto_r0" },
-  { c15, TK_LT, "symbol_next_goto_r0" },
-  { c15, TK_LE, "symbol_next_goto_r0" },
-  { c15, TK_GT, "symbol_next_goto_r0" },
-  { c15, TK_GE, "symbol_next_goto_r0" },
   { c15, TK_MK_BV, "symbol_next_goto_r0" },
   { c15, TK_BV_ADD, "symbol_next_goto_r0" },
   { c15, TK_BV_SUB, "symbol_next_goto_r0" },
@@ -368,54 +296,22 @@ static triple_t triples[] = {
   { c15, TK_BV_COMP, "symbol_next_goto_r0" },
   { c15, TK_BOOL_TO_BV, "symbol_next_goto_r0" },
   { c15, TK_BIT, "symbol_next_goto_r0" },
-  { c15, TK_FLOOR, "symbol_next_goto_r0" },
-  { c15, TK_CEIL, "symbol_next_goto_r0" },
-  { c15, TK_ABS, "symbol_next_goto_r0" },
-  { c15, TK_IDIV, "symbol_next_goto_r0" },
-  { c15, TK_MOD, "symbol_next_goto_r0" },
-  { c15, TK_DIVIDES, "symbol_next_goto_r0" },
-  { c15, TK_IS_INT, "symbol_next_goto_r0" },
   { c15, TK_SYMBOL, "symbol_next_goto_r0" },
   { c15, TK_STRING, "string_next_goto_r0" },
   { c15, TK_RP, "ret" },
 
-  { td0, TK_INT, "int_return" },
-  { td0, TK_REAL, "real_return" },
-  { td0, TK_BOOL, "bool_return" },
-  { td0, TK_SYMBOL, "typesymbol_return" },
-  { td0, TK_LP, "next_goto_td1" },
-
-  { td1, TK_SCALAR, "scalar_next_goto_td2" },
-  { td1, TK_BITVECTOR, "bitvector_next_goto_t4" },
-  { td1, TK_TUPLE, "tuple_next_push_t6_goto_t0" },
-  { td1, TK_ARROW, "arrow_next_push_t6_push_t0_goto_t0" },
-
-  { td2, TK_SYMBOL, "termname_next_goto_td3" },
-  { td2, DEFAULT_TOKEN, "error_symbol_expected" },
-
-  { td3, TK_RP, "ret" },
-  { td3, TK_SYMBOL, "termname_next_goto_td3" },
-
-  { t0, TK_INT, "int_return" },
-  { t0, TK_REAL, "real_return" },
   { t0, TK_BOOL, "bool_return" },
   { t0, TK_SYMBOL, "typesymbol_return" },
   { t0, TK_LP, "next_goto_t1" },
 
   { t1, TK_BITVECTOR, "bitvector_next_goto_t4" },
-  { t1, TK_TUPLE, "tuple_next_push_t6_goto_t0" },
-  { t1, TK_ARROW, "arrow_next_push_t6_push_t0_goto_t0" },
 
   { t4, TK_NUM_RATIONAL, "rational_next_goto_r0" },
   { t4, DEFAULT_TOKEN, "error_rational_expected" },
 
-  { t6, TK_RP, "ret" },
-  { t6, DEFAULT_TOKEN, "push_t6_goto_t0" },
-
   { e0, TK_TRUE, "true_return" },
   { e0, TK_FALSE, "false_return" },
   { e0, TK_NUM_RATIONAL, "rational_return" },
-  { e0, TK_NUM_FLOAT, "float_return" },
   { e0, TK_BV_CONSTANT, "bvbin_return" },
   { e0, TK_HEX_CONSTANT, "bvhex_return" },
   { e0, TK_SYMBOL, "termsymbol_return" },
@@ -432,18 +328,6 @@ static triple_t triples[] = {
   { e1, TK_XOR, "xor_next_push_e3_goto_e0" },
   { e1, TK_IFF, "iff_next_push_e3_goto_e0" },
   { e1, TK_IMPLIES, "implies_next_push_e3_goto_e0" },
-  { e1, TK_MK_TUPLE, "mk_tuple_next_push_e3_goto_e0" },
-  { e1, TK_SELECT, "select_next_push_e3_goto_e0" },
-  { e1, TK_UPDATE_TUPLE, "update_tuple_next_push_e3_goto_e0" },
-  { e1, TK_ADD, "add_next_push_e3_goto_e0" },
-  { e1, TK_SUB, "sub_next_push_e3_goto_e0" },
-  { e1, TK_MUL, "mul_next_push_e3_goto_e0" },
-  { e1, TK_DIV, "div_next_push_e3_goto_e0" },
-  { e1, TK_POW, "pow_next_push_e3_goto_e0" },
-  { e1, TK_LT, "lt_next_push_e3_goto_e0" },
-  { e1, TK_LE, "le_next_push_e3_goto_e0" },
-  { e1, TK_GT, "gt_next_push_e3_goto_e0" },
-  { e1, TK_GE, "ge_next_push_e3_goto_e0" },
   { e1, TK_MK_BV, "mk_bv_next_push_e3_goto_e0" },
   { e1, TK_BV_ADD, "bv_add_next_push_e3_goto_e0" },
   { e1, TK_BV_SUB, "bv_sub_next_push_e3_goto_e0" },
@@ -490,41 +374,11 @@ static triple_t triples[] = {
   { e1, TK_BV_COMP, "bv_comp_next_push_e3_goto_e0" },
   { e1, TK_BOOL_TO_BV, "bool_to_bv_next_push_e3_goto_e0" },
   { e1, TK_BIT, "bit_next_push_e3_goto_e0" },
-  { e1, TK_FLOOR, "floor_next_push_e3_goto_e0" },
-  { e1, TK_CEIL, "ceil_next_push_e3_goto_e0" },
-  { e1, TK_ABS, "abs_next_push_e3_goto_e0" },
-  { e1, TK_IDIV, "idiv_next_push_e3_goto_e0" },
-  { e1, TK_MOD, "mod_next_push_e3_goto_e0" },
-  { e1, TK_DIVIDES, "divides_next_push_e3_goto_e0" },
-  { e1, TK_IS_INT, "is_int_next_push_e3_goto_e0" },
 
-  { e1, TK_UPDATE, "update_next_push_e5_goto_e0" },
-  { e1, TK_FORALL, "forall_next_goto_e10" },
-  { e1, TK_EXISTS, "exists_next_goto_e10" },
-  { e1, TK_LAMBDA, "lambda_next_goto_e10" },
   { e1, TK_LET, "let_next_goto_e15" },
-  { e1, DEFAULT_TOKEN, "push_e3_push_e0_goto_e0" },
 
   { e3, TK_RP, "ret" },
   { e3, DEFAULT_TOKEN, "push_e3_goto_e0" },
-
-  { e5, TK_LP, "next_push_e7_goto_e0" },
-  { e5, DEFAULT_TOKEN, "error_lpar_expected" },
-
-  { e7, TK_RP, "next_push_r0_goto_e0" },
-  { e7, DEFAULT_TOKEN, "push_e7_goto_e0" },
-
-  { e10, TK_LP, "next_goto_e11" },
-  { e10, DEFAULT_TOKEN, "error_lpar_expected" },
-
-  { e11, TK_SYMBOL, "e11_varname_next_goto_e12" },
-  { e11, DEFAULT_TOKEN, "error_symbol_expected" },
-
-  { e12, TK_COLON_COLON, "next_push_e14_goto_t0" },
-  { e12, DEFAULT_TOKEN, "error_colon_colon_expected" },
-
-  { e14, TK_RP, "e14_next_push_r0_goto_e0" },
-  { e14, TK_SYMBOL, "e14_varname_next_goto_e12" },
 
   { e15, TK_LP, "next_goto_e16" },
   { e15, DEFAULT_TOKEN, "error_lpar_expected" },

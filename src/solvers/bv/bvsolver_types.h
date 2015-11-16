@@ -45,8 +45,6 @@
 #include "solvers/bv/merge_table.h"
 #include "solvers/bv/remap_table.h"
 #include "solvers/cdcl/smt_core.h"
-#include "solvers/egraph/egraph.h"
-#include "solvers/egraph/egraph_assertion_queues.h"
 #include "terms/bvpoly_buffers.h"
 #include "terms/power_products.h"
 #include "utils/cache.h"
@@ -268,7 +266,6 @@ typedef struct bv_solver_s {
    * Attached smt core + egraph
    */
   smt_core_t *core;
-  egraph_t *egraph;
 
   /*
    * Base level and decision level
@@ -311,11 +308,6 @@ typedef struct bv_solver_s {
   bvc_t *compiler;
   bit_blaster_t *blaster;
   remap_table_t *remap;
-
-  /*
-   * Queue of egraph assertions
-   */
-  eassertion_queue_t egraph_queue;
 
   /*
    * Cache for lemmas: allocated on demand

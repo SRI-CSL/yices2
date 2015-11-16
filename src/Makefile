@@ -91,7 +91,6 @@ core_src_c := \
 	api/yices_error.c \
 	api/yval.c \
 	context/common_conjuncts.c \
-	context/conditional_definitions.c \
 	context/context.c \
 	context/context_simplifier.c \
 	context/context_solver.c \
@@ -104,12 +103,6 @@ core_src_c := \
 	context/ite_flattener.c \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
-	context/symmetry_breaking.c \
-	exists_forall/ef_client.c \
-	exists_forall/ef_analyze.c \
-	exists_forall/ef_parameters.c \
-	exists_forall/ef_problem.c \
-	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
@@ -157,24 +150,6 @@ core_src_c := \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
 	solvers/cdcl/smt_core.c \
-	solvers/egraph/composites.c \
-	solvers/egraph/diseq_stacks.c \
-	solvers/egraph/egraph_assertion_queues.c \
-	solvers/egraph/egraph.c \
-	solvers/egraph/egraph_explanations.c \
-	solvers/egraph/egraph_utils.c \
-	solvers/egraph/theory_explanations.c \
-	solvers/floyd_warshall/dl_vartable.c \
-	solvers/floyd_warshall/idl_floyd_warshall.c \
-	solvers/floyd_warshall/rdl_floyd_warshall.c \
-	solvers/funs/fun_solver.c \
-	solvers/simplex/arith_atomtable.c \
-	solvers/simplex/arith_vartable.c \
-	solvers/simplex/diophantine_systems.c \
-	solvers/simplex/integrality_constraints.c \
-	solvers/simplex/matrices.c \
-	solvers/simplex/offset_equalities.c \
-	solvers/simplex/simplex.c \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \
 	terms/bit_term_conversion.c \
@@ -285,14 +260,6 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
-	frontend/smt2/parenthesized_expr.c \
-	frontend/smt2/smt2_commands.c \
-	frontend/smt2/smt2_expressions.c \
-	frontend/smt2/smt2_lexer.c \
-	frontend/smt2/smt2_model_printer.c \
-	frontend/smt2/smt2_parser.c \
-	frontend/smt2/smt2_printer.c \
-	frontend/smt2/smt2_term_stack.c \
 	frontend/yices/arith_solver_codes.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
@@ -307,14 +274,6 @@ extra_src_c := \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
-	solvers/egraph/egraph_printer.c \
-	solvers/floyd_warshall/idl_fw_printer.c \
-	solvers/floyd_warshall/rdl_fw_printer.c \
-	solvers/funs/fun_solver_printer.c \
-	solvers/simplex/dsolver_printer.c \
-	solvers/simplex/int_constraint_printer.c \
-	solvers/simplex/simplex_printer.c \
-	solvers/simplex/simplex_prop_table.c \
 	terms/arith_buffers.c \
 	utils/command_line.c \
 	utils/cputime.c \
@@ -340,7 +299,6 @@ bin_src_c := \
 	frontend/yices_main.c \
 	frontend/yices_sat.c \
 	frontend/yices_smt.c \
-	frontend/yices_smt2.c \
 	frontend/yices_smtcomp.c \
 
 #
@@ -355,10 +313,7 @@ auto_generated := \
 	$(vesion_c) \
 	api/yices_version.c \
 	frontend/yices/yices_hash_keywords.h \
-	frontend/smt1/smt_hash_keywords.h \
-	frontend/smt2/smt2_hash_tokens.h \
-	frontend/smt2/smt2_hash_keywords.h \
-	frontend/smt2/smt2_hash_symbols.h
+	frontend/smt1/smt_hash_keywords.h
 
 #
 # Dependencies and object files
@@ -732,24 +687,6 @@ frontend/smt1/smt_hash_keywords.h: frontend/smt1/smt_keywords.txt
 	$(GPERF) -C -L ANSI-C -W smt_kw --output-file=frontend/smt1/smt_hash_keywords.h \
 	--lookup-function-name=in_smt_kw frontend/smt1/smt_keywords.txt
 
-#
-# Tables for SMT2:
-# - we want to include three hash functions in the same file (smt2_lexer.c)
-# - for this to work,
-#   we need to give different names to the hash function (option -H ...)
-#   we can't use -G and we must give -E
-#
-frontend/smt2/smt2_hash_tokens.h: frontend/smt2/smt2_tokens.txt
-	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=frontend/smt2/smt2_hash_tokens.h \
-	--lookup-function-name=in_smt2_tk frontend/smt2/smt2_tokens.txt
-
-frontend/smt2/smt2_hash_keywords.h: frontend/smt2/smt2_keywords.txt
-	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=frontend/smt2/smt2_hash_keywords.h \
-	--lookup-function-name=in_smt2_kw frontend/smt2/smt2_keywords.txt
-
-frontend/smt2/smt2_hash_symbols.h: frontend/smt2/smt2_symbols.txt
-	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=frontend/smt2/smt2_hash_symbols.h \
-	--lookup-function-name=in_smt2_sym frontend/smt2/smt2_symbols.txt
 
 #
 # Object files
@@ -973,7 +910,6 @@ dist: bin lib
 	mkdir $(distdir)/bin
 	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
-	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
@@ -981,7 +917,6 @@ dist: bin lib
 ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	rm -f $(distdir)/lib/libyices.a
 endif
@@ -993,7 +928,6 @@ static-dist: static-bin static-lib
 	mkdir $(static_distdir)/bin
 	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
 	mkdir $(static_distdir)/lib
@@ -1001,7 +935,6 @@ static-dist: static-bin static-lib
 ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	rm -f $(static_distdir)/lib/libyices.a
 endif

@@ -45,10 +45,6 @@
 
 // for statistics
 #include "solvers/bv/bvsolver.h"
-#include "solvers/floyd_warshall/idl_floyd_warshall.h"
-#include "solvers/floyd_warshall/rdl_floyd_warshall.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 
@@ -72,61 +68,10 @@ static ctx_param_t ctx_parameters;
 
 #include "io/term_printer.h"
 #include "io/type_printer.h"
-#include "solvers/floyd_warshall/idl_fw_printer.h"
-#include "solvers/floyd_warshall/rdl_fw_printer.h"
-#include "solvers/simplex/simplex_printer.h"
 #include "solvers/bv/bvsolver_printer.h"
-#include "solvers/egraph/egraph_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/cdcl/gates_printer.h"
 #include "context/context_printer.h"
-
-
-/*
- * Print the egraph state
- */
-static void dump_egraph(FILE *f, egraph_t *egraph) {
-  fprintf(f, "\n--- Egraph Variables ---\n");
-  print_egraph_terms(f, egraph);
-  fprintf(f, "\n--- Egraph Atoms ---\n");
-  print_egraph_atoms(f, egraph);
-}
-
-
-/*
- * Print the arithmetic solver state
- */
-static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
-  fprintf(f, "\n--- IDL Variables ---\n");
-  print_idl_var_table(f, idl);
-  fprintf(f, "\n--- IDL Atoms ---\n");
-  print_idl_atoms(f, idl);
-  fprintf(f, "\n--- IDL Constraints ---\n");
-  print_idl_axioms(f, idl);
-  fprintf(f, "\n");
-}
-
-static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
-  fprintf(f, "\n--- RDL Variables ---\n");
-  print_rdl_var_table(f, rdl);
-  fprintf(f, "\n--- RDL Atoms ---\n");
-  print_rdl_atoms(f, rdl);
-  fprintf(f, "\n--- RDL Constraints ---\n");
-  print_rdl_axioms(f, rdl);
-  fprintf(f, "\n");
-}
-
-static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
-  fprintf(f, "\n--- Simplex Variables ---\n");
-  print_simplex_vars(f, simplex);
-  fprintf(f, "\n--- Simplex Atoms ---\n");
-  print_simplex_atoms(f, simplex);
-  fprintf(f, "\n--- Simplex Tableau ---\n");
-  print_simplex_matrix(f, simplex);
-  fprintf(f, "\n--- Simplex Bounds ---\n");
-  print_simplex_bounds(f, simplex);
-  fprintf(f, "\n");
-}
 
 
 /*
@@ -162,37 +107,13 @@ static void dump_context(FILE *f, context_t *ctx) {
   fprintf(f, "\n--- Internalization ---\n");
   print_context_intern_mapping(f, ctx);
 
-  if (context_has_egraph(ctx)) {
-    dump_egraph(f, ctx->egraph);
-  }
-
-  if (context_has_arith_solver(ctx)) {
-    if (context_has_idl_solver(ctx)) {
-      dump_idl_solver(f, ctx->arith_solver);
-    } else if (context_has_rdl_solver(ctx)) {
-      dump_rdl_solver(f, ctx->arith_solver);
-    } else {
-      assert(context_has_simplex_solver(ctx));
-      dump_simplex_solver(f, ctx->arith_solver);
-    }
-  }
-
   if (context_has_bv_solver(ctx)) {
     dump_bv_solver(f, ctx->bv_solver);
   }
 
-  /*
-   * If arch is still AUTO_IDL or AUTO_RDL,
-   * then flattening + simplification returned unsat
-   * but the core is not initialized
-   * so we can't print the clauses.
-   */
-  if (ctx->arch != CTX_ARCH_AUTO_IDL &&
-      ctx->arch != CTX_ARCH_AUTO_RDL) {
-    fprintf(f, "--- Clauses ---\n");
-    print_clauses(f, ctx->core);
-    fprintf(f, "\n");
-  }
+  fprintf(f, "--- Clauses ---\n");
+  print_clauses(f, ctx->core);
+  fprintf(f, "\n");
 
 
 #if 0
@@ -1577,69 +1498,11 @@ static void show_core_stats(smt_core_t *core) {
   print_out(" :theory-propagations %"PRIu32"\n", num_theory_propagations(core));
 }
 
-static void show_egraph_stats(egraph_t *egraph) {
-  print_out(" :egraph-terms %"PRIu32"\n", egraph_num_terms(egraph));
-  print_out(" :egraph-atoms %"PRIu32"\n", egraph_num_atoms(egraph));
-  print_out(" :egraph-conflicts %"PRIu32"\n", egraph_num_conflicts(egraph));
-  print_out(" :egraph-ackermann-lemmas %"PRIu32"\n", egraph_all_ackermann(egraph));
-  print_out(" :egraph-final-checks %"PRIu32"\n", egraph_num_final_checks(egraph));
-  print_out(" :egraph-interface-lemmas %"PRIu32"\n", egraph_num_interface_eqs(egraph));
-}
-
-static void show_funsolver_stats(fun_solver_t *solver) {
-  print_out(" :array-vars %"PRIu32"\n", fun_solver_num_vars(solver));
-  print_out(" :array-edges %"PRIu32"\n", fun_solver_num_edges(solver));
-  print_out(" :array-update1-axioms %"PRIu32"\n", fun_solver_num_update1_axioms(solver));
-  print_out(" :array-update2-axioms %"PRIu32"\n", fun_solver_num_update2_axioms(solver));
-  print_out(" :array-extensionality-axioms %"PRIu32"\n", fun_solver_num_extensionality_axioms(solver));
-}
-
-static void show_simplex_stats(simplex_solver_t *solver) {
-  simplex_collect_statistics(solver);
-  print_out(" :simplex-init-vars %"PRIu32"\n", simplex_num_init_vars(solver));
-  print_out(" :simplex-init-rows %"PRIu32"\n", simplex_num_init_rows(solver));
-  print_out(" :simplex-init-atoms %"PRIu32"\n", simplex_num_init_atoms(solver));
-  print_out(" :simplex-vars %"PRIu32"\n", simplex_num_vars(solver));
-  print_out(" :simplex-rows %"PRIu32"\n", simplex_num_rows(solver));
-  print_out(" :simplex-atoms %"PRIu32"\n", simplex_num_atoms(solver));
-  print_out(" :simplex-pivots %"PRIu32"\n", simplex_num_pivots(solver));
-  print_out(" :simplex-conflicts %"PRIu32"\n", simplex_num_conflicts(solver));
-  print_out(" :simplex-interface-lemmas %"PRIu32"\n", simplex_num_interface_lemmas(solver));
-  if (simplex_num_make_integer_feasible(solver) > 0 ||
-      simplex_num_dioph_checks(solver) > 0) {
-    print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
-    print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
-    // bound strenthening
-    print_out(" :simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
-    print_out(" :simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
-    // integrality test
-    print_out(" :simplex-itest-conflicts %"PRIu32"\n", simplex_num_itest_conflicts(solver));
-    print_out(" :simplex-itest-bound-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    print_out(" :simplex-itest-recheck-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    // diophantine solver
-    print_out(" :simplex-gcd-conflicts %"PRIu32"\n", simplex_num_dioph_gcd_conflicts(solver));
-    print_out(" :simplex-dioph-checks %"PRIu32"\n", simplex_num_dioph_checks(solver));
-    print_out(" :simplex-dioph-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
-    print_out(" :simplex-dioph-bound-conflicts %"PRIu32"\n", simplex_num_dioph_bound_conflicts(solver));
-    print_out(" :simplex-dioph-recheck-conflicts %"PRIu32"\n", simplex_num_dioph_recheck_conflicts(solver));
-  }
-}
-
 static void show_bvsolver_stats(bv_solver_t *solver) {
   print_out(" :bvsolver-vars %"PRIu32"\n", bv_solver_num_vars(solver));
   print_out(" :bvsolver-atoms %"PRIu32"\n", bv_solver_num_atoms(solver));
   print_out(" :bvsolver-equiv-lemmas %"PRIu32"\n", bv_solver_equiv_lemmas(solver));
   print_out(" :bvsolver-interface-lemmas %"PRIu32"\n", bv_solver_interface_lemmas(solver));
-}
-
-static void show_idl_fw_stats(idl_solver_t *solver) {
-  print_out(" :idl-solver-vars %"PRIu32"\n", idl_num_vars(solver));
-  print_out(" :idl-solver-atoms %"PRIu32"\n", idl_num_atoms(solver));
-}
-
-static void show_rdl_fw_stats(rdl_solver_t *solver) {
-  print_out(" :rdl-solver-vars %"PRIu32"\n", rdl_num_vars(solver));
-  print_out(" :rdl-solver-atoms %"PRIu32"\n", rdl_num_atoms(solver));
 }
 
 
@@ -1649,24 +1512,6 @@ static void show_rdl_fw_stats(rdl_solver_t *solver) {
 static void show_ctx_stats(context_t *ctx) {
   assert(ctx->core != NULL);
   show_core_stats(ctx->core);
-
-  if (context_has_egraph(ctx)) {
-    show_egraph_stats(ctx->egraph);
-  }
-
-  if (context_has_fun_solver(ctx)) {
-    show_funsolver_stats(ctx->fun_solver);
-  }
-  if (context_has_arith_solver(ctx)) {
-    if (context_has_simplex_solver(ctx)) {
-      show_simplex_stats(ctx->arith_solver);
-    } else if (context_has_idl_solver(ctx)) {
-      show_idl_fw_stats(ctx->arith_solver);
-    } else {
-      assert(context_has_rdl_solver(ctx));
-      show_rdl_fw_stats(ctx->arith_solver);
-    }
-  }
 
   if (context_has_bv_solver(ctx)) {
     show_bvsolver_stats(ctx->bv_solver);
@@ -2251,7 +2096,6 @@ static void unsupported_option(void) {
 /*
  * CONTEXT INITIALIZATION
  */
-
 
 /*
  * Allocate and initialize the context based on g->logic
@@ -3625,110 +3469,6 @@ static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
     print_float_value(parameters.clause_decay);
     break;
 
-  case PARAM_CACHE_TCLAUSES:
-    print_boolean_value(parameters.cache_tclauses);
-    break;
-
-  case PARAM_TCLAUSE_SIZE:
-    print_uint32_value(parameters.tclause_size);
-    break;
-
-  case PARAM_DYN_ACK:
-    print_boolean_value(parameters.use_dyn_ack);
-    break;
-
-  case PARAM_DYN_BOOL_ACK:
-    print_boolean_value(parameters.use_bool_dyn_ack);
-    break;
-
-  case PARAM_OPTIMISTIC_FCHECK:
-    print_boolean_value(parameters.use_optimistic_fcheck);
-    break;
-
-  case PARAM_MAX_ACK:
-    print_uint32_value(parameters.max_ackermann);
-    break;
-
-  case PARAM_MAX_BOOL_ACK:
-    print_uint32_value(parameters.max_boolackermann);
-    break;
-
-  case PARAM_AUX_EQ_QUOTA:
-    print_uint32_value(parameters.aux_eq_quota);
-    break;
-
-  case PARAM_AUX_EQ_RATIO:
-    print_float_value(parameters.aux_eq_ratio);
-    break;
-
-  case PARAM_DYN_ACK_THRESHOLD:
-    print_uint32_value((uint32_t) parameters.dyn_ack_threshold);
-    break;
-
-  case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    print_uint32_value((uint32_t) parameters.dyn_bool_ack_threshold);
-    break;
-
-  case PARAM_MAX_INTERFACE_EQS:
-    print_uint32_value(parameters.max_interface_eqs);
-    break;
-
-  case PARAM_EAGER_LEMMAS:
-    print_boolean_value(ctx_parameters.splx_eager_lemmas);
-    break;
-
-  case PARAM_ICHECK:
-    print_boolean_value(ctx_parameters.splx_periodic_icheck);
-    break;
-
-  case PARAM_SIMPLEX_PROP:
-    print_boolean_value(parameters.use_simplex_prop);
-    break;
-
-  case PARAM_SIMPLEX_ADJUST:
-    print_boolean_value(parameters.adjust_simplex_model);
-    break;
-
-  case PARAM_PROP_THRESHOLD:
-    print_uint32_value(parameters.max_prop_row_size);
-    break;
-
-  case PARAM_BLAND_THRESHOLD:
-    print_uint32_value(parameters.bland_threshold);
-    break;
-
-  case PARAM_ICHECK_PERIOD:
-    print_uint32_value(parameters.integer_check_period);
-    break;
-
-  case PARAM_MAX_UPDATE_CONFLICTS:
-    print_uint32_value(parameters.max_update_conflicts);
-    break;
-
-  case PARAM_MAX_EXTENSIONALITY:
-    print_uint32_value(parameters.max_extensionality);
-    break;
-
-  case PARAM_EF_FLATTEN_IFF:
-    print_boolean_value(ef_params->flatten_iff);
-    break;
-
-  case PARAM_EF_FLATTEN_ITE:
-    print_boolean_value(ef_params->flatten_ite);
-    break;
-
-  case PARAM_EF_GEN_MODE:
-    print_string_value(efgen2string[ef_params->gen_mode]);
-    break;
-
-  case PARAM_EF_MAX_SAMPLES:
-    print_uint32_value(ef_params->max_samples);
-    break;
-
-  case PARAM_EF_MAX_ITERS:
-    print_uint32_value(ef_params->max_iters);
-    break;
-
   case PARAM_UNKNOWN:
   default:
     freport_bug(stderr,"invalid parameter id in 'yices_get_option'");
@@ -3921,11 +3661,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   int32_t n;
   double x;
   branch_t b;
-  ef_gen_option_t g;
   char* reason;
   context_t *context; 
-    
-  //keep track of those we punt on
   bool unsupported;
 
   unsupported = false;  
@@ -4091,178 +3828,6 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   case PARAM_CLAUSE_DECAY:
     if (param_val_to_ratio(param, val, &x, &reason)) {
       parameters.clause_decay = x;
-    }
-    break;
-
-  case PARAM_CACHE_TCLAUSES:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.cache_tclauses = tt;
-    }
-    break;
-
-  case PARAM_TCLAUSE_SIZE:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.tclause_size = n;
-    }
-    break;
-
-  case PARAM_DYN_ACK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_dyn_ack = tt;
-    }
-    break;
-
-  case PARAM_DYN_BOOL_ACK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_bool_dyn_ack = tt;
-    }
-    break;
-
-  case PARAM_OPTIMISTIC_FCHECK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_optimistic_fcheck = tt;
-    }
-    break;
-
-  case PARAM_MAX_ACK:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_ackermann = n;
-    }
-    break;
-
-  case PARAM_MAX_BOOL_ACK:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_boolackermann = n;
-    }
-    break;
-
-  case PARAM_AUX_EQ_QUOTA:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.aux_eq_quota = n;
-    }
-    break;
-
-  case PARAM_AUX_EQ_RATIO:
-    if (param_val_to_posfloat(param, val, &x, &reason)) {
-      parameters.aux_eq_ratio = x;
-    }
-    break;
-
-  case PARAM_DYN_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_ack_threshold = (uint16_t) n;
-    }
-    break;
-
-  case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_bool_ack_threshold = (uint16_t) n;
-    }
-    break;
-
-  case PARAM_MAX_INTERFACE_EQS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_interface_eqs = n;
-    }
-    break;
-
-  case PARAM_EAGER_LEMMAS:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_eager_lemmas = tt;
-      context = __smt2_globals.ctx;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
-      }
-    }
-    break;
-
-  case PARAM_SIMPLEX_PROP:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_simplex_prop = tt;
-    }
-    break;
-
-  case PARAM_SIMPLEX_ADJUST:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.adjust_simplex_model = tt;
-    }
-    break;
-
-  case PARAM_PROP_THRESHOLD:
-    if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      parameters.max_prop_row_size = n;
-    }
-    break;
-
-  case PARAM_BLAND_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.bland_threshold = n;
-    }
-    break;
-
-  case PARAM_ICHECK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_periodic_icheck = tt;
-      context = __smt2_globals.ctx;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
-      }
-    }
-    break;
-
-  case PARAM_ICHECK_PERIOD:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.integer_check_period = n;
-    }
-    break;
-
-  case PARAM_MAX_UPDATE_CONFLICTS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_update_conflicts = n;
-    }
-    break;
-
-  case PARAM_MAX_EXTENSIONALITY:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_extensionality = n;
-    }
-    break;
-
-  case PARAM_EF_FLATTEN_IFF:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_params->flatten_iff = tt;
-    }
-    break;
-
-  case PARAM_EF_FLATTEN_ITE:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_params->flatten_ite = tt;
-    }
-    break;
-
-  case PARAM_EF_GEN_MODE:
-    if (param_val_to_genmode(param, val, &g, &reason)) {
-      ef_params->gen_mode = g;
-    }
-    break;
-
-  case PARAM_EF_MAX_SAMPLES:
-    if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      ef_params->max_samples = n;
-    }
-    break;
-
-  case PARAM_EF_MAX_ITERS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      ef_params->max_iters = n;
     }
     break;
 

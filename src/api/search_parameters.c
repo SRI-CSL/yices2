@@ -13,8 +13,7 @@
 #include <assert.h>
 
 #include "api/search_parameters.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
+#include "solvers/cdcl/smt_core.h"
 #include "utils/string_utils.h"
 
 
@@ -74,44 +73,6 @@
 #define DEFAULT_BRANCHING  BRANCHING_DEFAULT
 
 /*
- * The default EGRAPH parameters are defined in egraph_types.h
- * - DEFAULT_MAX_ACKERMANN = 1000
- * - DEFAULT_MAX_BOOLACKERMANN = 600000
- * - DEFAULT_AUX_EQ_QUOTA = 100
- * - DEFAULT_ACKERMANN_THRESHOLD = 8
- * - DEFAULT_BOOLACK_THRESHOLD = 8
- * - DEFAULT_MAX_INTERFACE_EQS = 200
- *
- * The dynamic ackermann heuristic is disabled for both
- * boolean and non-boolean terms.
- */
-#define DEFAULT_USE_DYN_ACK           false
-#define DEFAULT_USE_BOOL_DYN_ACK      false
-#define DEFAULT_USE_OPTIMISTIC_FCHECK true
-#define DEFAULT_AUX_EQ_RATIO          0.3
-
-
-/*
- * Default SIMPLEX parameters defined in simplex_types.h
- * - SIMPLEX_DEFAULT_BLAND_THRESHOLD = 1000
- * - SIMPLEX_DEFAULT_PROP_ROW_SIZE = 30
- * - SIMPLEX_DEFAULT_CHECK_PERIOD = infinity
- * - propagation is disabled by default
- * - model adjustment is also disabled
- * - integer check is disabled too
- */
-#define DEFAULT_SIMPLEX_PROP_FLAG     false
-#define DEFAULT_SIMPLEX_ADJUST_FLAG   false
-#define DEFAULT_SIMPLEX_ICHECK_FLAG   false
-
-/*
- * Default parameters for the array solver (defined in fun_solver.h
- * - MAX_UPDATE_CONFLICTS = 20
- * - MAX_EXTENSIONALITY = 1
- */
-
-
-/*
  * All default parameters
  */
 static param_t default_settings = {
@@ -130,29 +91,6 @@ static param_t default_settings = {
   DEFAULT_RANDOM_SEED,
   DEFAULT_BRANCHING,
   DEFAULT_CLAUSE_DECAY,
-  DEFAULT_CACHE_TCLAUSES,
-  DEFAULT_TCLAUSE_SIZE,
-
-  DEFAULT_USE_DYN_ACK,
-  DEFAULT_USE_BOOL_DYN_ACK,
-  DEFAULT_USE_OPTIMISTIC_FCHECK,
-  DEFAULT_MAX_ACKERMANN,
-  DEFAULT_MAX_BOOLACKERMANN,
-  DEFAULT_AUX_EQ_QUOTA,
-  DEFAULT_AUX_EQ_RATIO,
-  DEFAULT_ACKERMANN_THRESHOLD,
-  DEFAULT_BOOLACK_THRESHOLD,
-  DEFAULT_MAX_INTERFACE_EQS,
-
-  DEFAULT_SIMPLEX_PROP_FLAG,
-  DEFAULT_SIMPLEX_ADJUST_FLAG,
-  DEFAULT_SIMPLEX_ICHECK_FLAG,
-  SIMPLEX_DEFAULT_PROP_ROW_SIZE,
-  SIMPLEX_DEFAULT_BLAND_THRESHOLD,
-  SIMPLEX_DEFAULT_CHECK_PERIOD,
-
-  DEFAULT_MAX_UPDATE_CONFLICTS,
-  DEFAULT_MAX_EXTENSIONALITY,
 };
 
 
@@ -186,104 +124,41 @@ typedef enum param_key {
   PARAM_BRANCHING,
   // learned clauses
   PARAM_CLAUSE_DECAY,
-  PARAM_CACHE_TCLAUSES,
-  PARAM_TCLAUSE_SIZE,
-  // egraph parameters
-  PARAM_DYN_ACK,
-  PARAM_DYN_BOOL_ACK,
-  PARAM_OPTIMISTIC_FCHECK,
-  PARAM_MAX_ACK,
-  PARAM_MAX_BOOL_ACK,
-  PARAM_AUX_EQ_QUOTA,
-  PARAM_AUX_EQ_RATIO,
-  PARAM_DYN_ACK_THRESHOLD,
-  PARAM_DYN_BOOL_ACK_THRESHOLD,
-  PARAM_MAX_INTERFACE_EQS,
-  // simplex parameters
-  PARAM_SIMPLEX_PROP,
-  PARAM_SIMPLEX_ADJUST,
-  PARAM_SIMPLEX_ICHECK,
-  PARAM_PROP_THRESHOLD,
-  PARAM_BLAND_THRESHOLD,
-  PARAM_ICHECK_PERIOD,
-  // array solver
-  PARAM_MAX_UPDATE_CONFLICTS,
-  PARAM_MAX_EXTENSIONALITY,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
+#define NUM_PARAM_KEYS (PARAM_CLAUSE_DECAY+1)
 
 // parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
-  "aux-eq-quota",
-  "aux-eq-ratio",
-  "bland-threshold",
   "branching",
   "c-factor",
   "c-threshold",
-  "cache-tclauses",
   "clause-decay",
   "d-factor",
   "d-threshold",
-  "dyn-ack",
-  "dyn-ack-threshold",
-  "dyn-bool-ack",
-  "dyn-bool-ack-threshold",
   "fast-restarts",
-  "icheck",
-  "icheck-period",
-  "max-ack",
-  "max-bool-ack",
-  "max-extensionality",
-  "max-interface-eqs",
-  "max-update-conflicts",
-  "optimistic-final-check",
-  "prop-threshold",
   "r-factor",
   "r-fraction",
   "r-threshold",
   "random-seed",
   "randomness",
-  "simplex-adjust",
-  "simplex-prop",
-  "tclause-size",
   "var-decay",
 };
 
 // corresponding parameter codes in order
 static const int32_t param_code[NUM_PARAM_KEYS] = {
-  PARAM_AUX_EQ_QUOTA,
-  PARAM_AUX_EQ_RATIO,
-  PARAM_BLAND_THRESHOLD,
   PARAM_BRANCHING,
   PARAM_C_FACTOR,
   PARAM_C_THRESHOLD,
-  PARAM_CACHE_TCLAUSES,
   PARAM_CLAUSE_DECAY,
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
-  PARAM_DYN_ACK,
-  PARAM_DYN_ACK_THRESHOLD,
-  PARAM_DYN_BOOL_ACK,
-  PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_FAST_RESTART,
-  PARAM_SIMPLEX_ICHECK,
-  PARAM_ICHECK_PERIOD,
-  PARAM_MAX_ACK,
-  PARAM_MAX_BOOL_ACK,
-  PARAM_MAX_EXTENSIONALITY,
-  PARAM_MAX_INTERFACE_EQS,
-  PARAM_MAX_UPDATE_CONFLICTS,
-  PARAM_OPTIMISTIC_FCHECK,
-  PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,
   PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
-  PARAM_SIMPLEX_ADJUST,
-  PARAM_SIMPLEX_PROP,
-  PARAM_TCLAUSE_SIZE,
   PARAM_VAR_DECAY,
 };
 
@@ -549,127 +424,6 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_double_param(value, &x, 0.0, 1.0);
     if (r == 0) {
       parameters->clause_decay = (float) x;
-    }
-    break;
-
-  case PARAM_CACHE_TCLAUSES:
-    r = set_bool_param(value, &parameters->cache_tclauses);
-    break;
-
-  case PARAM_TCLAUSE_SIZE:
-    r = set_int32_param(value, &z, 2, INT32_MAX);
-    if (r == 0) {
-      parameters->tclause_size = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_DYN_ACK:
-    r = set_bool_param(value, &parameters->use_dyn_ack);
-    break;
-
-  case PARAM_DYN_BOOL_ACK:
-    r = set_bool_param(value, &parameters->use_bool_dyn_ack);
-    break;
-
-  case PARAM_OPTIMISTIC_FCHECK:
-    r = set_bool_param(value, &parameters->use_optimistic_fcheck);
-    break;
-
-  case PARAM_MAX_ACK:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->max_ackermann = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_MAX_BOOL_ACK:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->max_boolackermann = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_AUX_EQ_QUOTA:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->aux_eq_quota = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_AUX_EQ_RATIO:
-    r = set_double_param(value, &x, 0.0, (double) FLT_MAX);
-    if (r == 0) {
-      if (x > 0.0) {
-        parameters->aux_eq_ratio = (float) x;
-      } else {
-        r = -2;
-      }
-    }
-    break;
-
-  case PARAM_DYN_ACK_THRESHOLD:
-    r = set_int32_param(value, &z, 1, (int32_t) UINT16_MAX);
-    if (r == 0) {
-      parameters->dyn_ack_threshold = (uint16_t) z;
-    }
-    break;
-
-
-  case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    r = set_int32_param(value, &z, 1, (int32_t) UINT16_MAX);
-    if (r == 0) {
-      parameters->dyn_bool_ack_threshold = (uint16_t) z;
-    }
-    break;
-
-  case PARAM_MAX_INTERFACE_EQS:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->max_interface_eqs = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_SIMPLEX_PROP:
-    r = set_bool_param(value, &parameters->use_simplex_prop);
-    break;
-
-  case PARAM_SIMPLEX_ADJUST:
-    r = set_bool_param(value, &parameters->adjust_simplex_model);
-    break;
-
-  case PARAM_SIMPLEX_ICHECK:
-    r = set_bool_param(value, &parameters->integer_check);
-    break;
-
-  case PARAM_PROP_THRESHOLD:
-    r = set_int32_param(value, &z, 0, INT32_MAX);
-    if (r == 0) {
-      parameters->max_prop_row_size = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_BLAND_THRESHOLD:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->bland_threshold = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_ICHECK_PERIOD:
-    r = set_int32_param(value, &parameters->integer_check_period, 1, INT32_MAX);
-    break;
-
-  case PARAM_MAX_UPDATE_CONFLICTS:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->max_update_conflicts = (uint32_t) z;
-    }
-    break;
-
-  case PARAM_MAX_EXTENSIONALITY:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
-    if (r == 0) {
-      parameters->max_extensionality = (uint32_t) z;
     }
     break;
 

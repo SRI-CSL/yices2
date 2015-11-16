@@ -125,36 +125,31 @@ static void syntax_error(lexer_t *lex, int32_t expected_token) {
 
 
 
+/*
+ * Operators not supported by this version
+ */
+static void bv_error(lexer_t *lex) {
+  reader_t *rd;
+
+  rd = &lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  } else {
+    fprintf(stderr, "Error: ");
+  }
+  fprintf(stderr, "non-bitvector expression %s (line %"PRId32", column %"PRId32")\n",
+	  tkval(lex), lex->tk_line, lex->tk_column);
+
+  fflush(stderr);
+}
+
+
+
 /*********************************
  *  PREDEFINED TERMS AND TYPES   *
  ********************************/
 
-/*
- * Warning: yices-1.0.xx incorrectly maps Array1 and Array to [int -> int]
- * New types added for smt2008: Index, Element, Array for QF_AX
- *
- * In smt2008, the keyword "Array" may denote either arrays of type [int -> int]
- * or arrays of type [index -> element], depending on the theory.
- * HACK: to deal with this, we assign the built-in type array to either int_array or
- * ax_array, depending on the logic.
- */
 typedef struct builtins_s {
-  // types for QF_UF
-  type_t utype;  // uninterpreted type
-
-  // types for QF_AX
-  type_t index_type; // uninterpreted (for QF_AX)
-  type_t elem_type;  // uninterpreted (for QF_AX)
-  type_t ax_array;   // [index -> elem]
-
-  // types for QF_AUFIDL/QF_AUFLIA/QF_ALIA
-  type_t int_array;  // [int -> int]
-  type_t array1; // [int -> real]
-  type_t array2; // [int -> array1]
-
-  // the array type, dependent on the logic
-  type_t array;
-
   // bitvector constants
   term_t bit0;   // 0b0
   term_t bit1;   // 0b1
@@ -169,25 +164,6 @@ typedef struct builtins_s {
  * - this is changed by the parser after it sees "QF_AX"
  */
 static void init_smt_builtins(builtins_t *b) {
-  type_t d;
-
-  // QF_UF type
-  b->utype = yices_new_uninterpreted_type();
-
-  // QF_AX types
-  b->index_type = yices_new_uninterpreted_type();
-  b->elem_type = yices_new_uninterpreted_type();
-  d = b->index_type;
-  b->ax_array = yices_function_type(1, &d, b->elem_type);
-
-  // Other array types
-  d = yices_int_type();
-  b->int_array = yices_function_type(1, &d, d);
-  b->array1 = yices_function_type(1, &d, yices_real_type());
-  b->array2 = yices_function_type(1, &d, b->array1);
-
-  b->array = b->int_array;
-
   // Bitvector constants
   b->bit0 = yices_bvconst64_term(1, 0);
   b->bit1 = yices_bvconst64_term(1, 1);
@@ -497,33 +473,12 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       state = parser_pop_state(stack);
       goto loop;
 
-      /*
-       * U is no longer a keyword: removed
-       */
-      //case u_next_return:
-      //      tstack_push_type(tstack, builtins.utype, &loc);
-      //      state = parser_pop_state(stack);
-      //      goto loop;
-
     case int_next_return:
-      tstack_push_int_type(tstack, &loc);
-      state = parser_pop_state(stack);
-      goto loop;
-
     case real_next_return:
-      tstack_push_real_type(tstack, &loc);
-      state = parser_pop_state(stack);
-      goto loop;
-
     case array1_next_return:
-      tstack_push_type(tstack, builtins.array1, &loc);
-      state = parser_pop_state(stack);
-      goto loop;
-
     case array2_next_return:
-      tstack_push_type(tstack, builtins.array2, &loc);
-      state = parser_pop_state(stack);
-      goto loop;
+      bv_error(lex);
+      goto cleanup;
 
     case sortsymbol_next_return:
       tstack_push_type_by_name(tstack, tkval(lex), &loc);
@@ -553,34 +508,12 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case array_return:
-      // old-style array: [int -> int]
-      tstack_push_type(tstack, builtins.array, &loc);
-      state = parser_pop_state(stack);
-      goto skip_token;
-
     case next_goto_s6: // array[n:m] = (-> (bitvector n) (bitvector m))
-      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
-      tstack_push_op(tstack, MK_BV_TYPE, &loc);
-      tstack_push_rational(tstack, tkval(lex), &loc); // n
-      tstack_eval(tstack);
-      state = s6;
-      goto loop;
-
     case next_goto_s7:
-      state = s7;
-      goto loop;
-
     case next_goto_s8:  // rest of array[n:m] (i.e., m)
-      tstack_push_op(tstack, MK_BV_TYPE, &loc);
-      tstack_push_rational(tstack, tkval(lex), &loc); // m
-      tstack_eval(tstack);
-      state = s8;
-      goto loop;
-
     case bvarray_next_return: // build the array type
-      tstack_eval(tstack);
-      state = parser_pop_state(stack);
-      goto loop;
+      bv_error(lex);
+      goto cleanup;
 
     case termsymbol_next_return:
       tstack_push_term_by_name(tstack, tkval(lex), &loc);
@@ -651,70 +584,18 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case add_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_ADD, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case sub_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_SUB, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case mul_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_MUL, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case div_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_DIVISION, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case tilde_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_NEG, &loc); // unary minus
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case lt_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_LT, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case le_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_LE, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case gt_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_GT, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case ge_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_GE, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case select_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_APPLY, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
-
     case store_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_UPDATE, &loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto loop;
+      bv_error(lex);
+      goto cleanup;
 
     case bvadd_next_push_f3_goto_f0:
       tstack_push_op(tstack, MK_BV_ADD, &loc);
@@ -982,14 +863,9 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case exists_next_goto_f20:
-      tstack_push_op(tstack, MK_EXISTS, &loc);
-      state = f20;
-      goto loop;
-
     case forall_next_goto_f20:
-      tstack_push_op(tstack, MK_FORALL, &loc);
-      state = f20;
-      goto loop;
+      bv_error(lex);
+      goto cleanup;
 
     case push_f5_goto_bt0:
       parser_push_state(stack, f5);
@@ -1015,11 +891,8 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case applyfun_push_f3_goto_f0:
       // function application with saved symbol as uninterpreted function
-      tstack_push_op(tstack, MK_APPLY, &saved_loc);
-      tstack_push_term_by_name(tstack, saved_symbol.data, &saved_loc);
-      parser_push_state(stack, f3);
-      state = f0;
-      goto skip_token;
+      bv_error(lex);
+      goto cleanup;
 
     case next_return_noapply: // f27
       state = parser_pop_state(stack);
@@ -1081,21 +954,10 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case next_goto_f21: // open par in forall/exists
-      state = f21;
-      goto loop;
-
     case var_next_push_f23_goto_s0: // var in quantifier
-      tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc); // var name
-      parser_push_state(stack, f23);
-      state = s0;
-      goto loop;
-
     case next_goto_f24:
-      // eval previous DECLARE_VAR
-      tstack_eval(tstack);
-      state = f24;
-      goto loop;
+      bv_error(lex);
+      goto cleanup;
 
     case next_goto_f25:
       state = f25;
@@ -1196,19 +1058,11 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case logicname_next_goto_b8:
       set_logic_name(bench, lex);
-      smt_lexer_activate_logic(smt_logic_code(bench->logic_name));
-      if (strcmp(bench->logic_name, "QF_UF") == 0) {
-        // declare the predefined type "U"
-        yices_set_type_name(builtins.utype, "U");
-      } else if (strcmp(bench->logic_name, "QF_AX") == 0) {
-        /*
-         * remap the predefined type "Array" to ax_array
-         * declare the types Index and Element
-         */
-        builtins.array = builtins.ax_array;
-        yices_set_type_name(builtins.index_type, "Index");
-        yices_set_type_name(builtins.elem_type, "Element");
+      if (strcmp(bench->logic_name, "QF_BV") != 0) {
+	fprintf(stderr, "Logic not supported: %s\n", bench->logic_name);
+	goto cleanup;
       }
+      smt_lexer_activate_logic(QF_BV);
       state = b8;
       goto loop;
 
@@ -1262,7 +1116,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       // new predicate name
       tstack_push_op(tstack, DEFINE_TERM, &loc);
       tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
+      //      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
       // mk_fun_type with no domain and range boolean does the right thing
       state = b17;
       goto loop;
@@ -1270,7 +1124,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
     case next_goto_b19:
       // declare predicate
       tstack_push_bool_type(tstack, &loc);
-      tstack_eval(tstack); // construct the type
+      //      tstack_eval(tstack); // construct the type
       tstack_eval(tstack); // evaluate DEFINE_TERM
       state = b19;
       goto loop;
@@ -1303,7 +1157,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       // new predicate name
       tstack_push_op(tstack, DEFINE_TERM, &loc);
       tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
+      //      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
       // mk_fun_type with no domain does the right thing
       parser_push_state(stack, b24);
       state = s0;
@@ -1311,7 +1165,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case next_goto_b25:
       // declare function or constant
-      tstack_eval(tstack); // construct the type
+      //      tstack_eval(tstack); // construct the type
       tstack_eval(tstack); // evaluate DEFINE_TERM
       state = b25;
       goto loop;

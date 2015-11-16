@@ -26,8 +26,7 @@
  *
  * - comments start with ; and extend to the end of the line
  *
- * 2013/12/12: added ef-solve token
- * 2014/03: added export-to-dimancs and show-implicants
+ * 2014/03: added export-to-dimancs
  */
 
 #ifndef __YICES_LEXER_H
@@ -45,11 +44,10 @@ enum yices_token {
   TK_PUSH, TK_POP, TK_RESET, TK_DUMP_CONTEXT, TK_EXIT,
   TK_ECHO, TK_INCLUDE, TK_SHOW_MODEL, TK_EVAL, TK_SET_PARAM,
   TK_SHOW_PARAM, TK_SHOW_PARAMS, TK_SHOW_STATS, TK_RESET_STATS,
-  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP, TK_EF_SOLVE,
-  TK_EXPORT_TO_DIMACS, TK_SHOW_IMPLICANT,
+  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP, TK_EXPORT_TO_DIMACS,
 
   // term constructors
-  TK_UPDATE, TK_FORALL, TK_EXISTS, TK_LAMBDA, TK_LET,
+  TK_LET,
 
   // separators and end-of-stream
   TK_LP, TK_RP, TK_COLON_COLON, TK_EOS,
@@ -61,15 +59,11 @@ enum yices_token {
   TK_SYMBOL,
 
   // type keywords
-  TK_BOOL, TK_INT, TK_REAL, TK_BITVECTOR, TK_SCALAR, TK_TUPLE, TK_ARROW,
+  TK_BOOL, TK_BITVECTOR,
 
   // term keywords
   TK_TRUE, TK_FALSE, TK_IF, TK_ITE, TK_EQ, TK_DISEQ, TK_DISTINCT,
-  TK_OR, TK_AND, TK_NOT, TK_XOR, TK_IFF, TK_IMPLIES, TK_MK_TUPLE,
-  TK_SELECT, TK_UPDATE_TUPLE,
-
-  // arithmetic keywords
-  TK_ADD, TK_SUB, TK_MUL, TK_DIV, TK_POW, TK_LT, TK_LE, TK_GT, TK_GE,
+  TK_OR, TK_AND, TK_NOT, TK_XOR, TK_IFF, TK_IMPLIES,
 
   // bitvector keywords
   TK_MK_BV, TK_BV_ADD, TK_BV_SUB, TK_BV_MUL, TK_BV_NEG, TK_BV_POW,
@@ -89,9 +83,6 @@ enum yices_token {
 
   // conversions between bitvectors and Booleans
   TK_BOOL_TO_BV, TK_BIT,
-
-  // more arithmetic functions (inherited from SMT-LIB2 Ints theory)
-  TK_FLOOR, TK_CEIL, TK_ABS, TK_IDIV, TK_MOD, TK_DIVIDES, TK_IS_INT, 
 
   // unrecognized tokens or other errors
   TK_OPEN_STRING, TK_EMPTY_BVCONST, TK_EMPTY_HEXCONST,

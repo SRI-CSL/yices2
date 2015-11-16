@@ -405,25 +405,15 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c15;
       goto loop;
 
-    case efsolve_next_goto_r0:   // New command: (ef-solve)
-      tstack_push_op(tstack, EFSOLVE_CMD, &loc);
-      state = r0;
-      goto loop;
-
     case export_next_goto_c3:    // New command: (export-to-dimacs <filename>)
       tstack_push_op(tstack, EXPORT_CMD, &loc);
       state = c3;
       goto loop;
 
-    case implicant_next_goto_r0: // New command: (show-implicant)
-      tstack_push_op(tstack, SHOW_IMPLICANT_CMD, &loc);
-      state = r0;
-      goto loop;
-
-    case typename_next_goto_c10:
+    case typename_next_push_r0_goto_t0:
       // token must be a free typename (TK_SYMBOL)
       tstack_push_free_typename(tstack, tkval(lex), tklen(lex), &loc);
-      state = c10;
+      state = t0;
       goto loop;
 
     case string_next_goto_r0:
@@ -485,29 +475,6 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto skip_token;
 
-    case push_r0_goto_td0:
-      parser_push_state(stack, r0);
-      state = td0;
-      goto skip_token;
-
-    case int_return:
-      tstack_push_int_type(tstack, &loc);
-      assert(! parser_stack_is_empty(stack));
-      state = parser_pop_state(stack);
-      if (state == done) {
-        goto the_end;
-      }
-      goto loop;
-
-    case real_return:
-      tstack_push_real_type(tstack, &loc);
-      assert(! parser_stack_is_empty(stack));
-      state = parser_pop_state(stack);
-      if (state == done) {
-        goto the_end;
-      }
-      goto loop;
-
     case bool_return:
       tstack_push_bool_type(tstack, &loc);
       assert(! parser_stack_is_empty(stack));
@@ -527,13 +494,8 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       }
       goto loop;
 
-    case next_goto_td1:
-      state = td1;
-      goto loop;
-
-    case scalar_next_goto_td2:
-      tstack_push_op(tstack, MK_SCALAR_TYPE, &loc);
-      state = td2;
+    case next_goto_t1:
+      state = t1;
       goto loop;
 
     case bitvector_next_goto_t4:
@@ -541,38 +503,10 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = t4;
       goto loop;
 
-    case tuple_next_push_t6_goto_t0:
-      tstack_push_op(tstack, MK_TUPLE_TYPE, &loc);
-      parser_push_state(stack, t6);
-      state = t0;
-      goto loop;
-
-    case arrow_next_push_t6_push_t0_goto_t0:
-      tstack_push_op(tstack, MK_FUN_TYPE, &loc);
-      parser_push_state(stack, t6);
-      parser_push_state(stack, t0);
-      state = t0;
-      goto loop;
-
-    case termname_next_goto_td3:
-      // free termane in scalar definition
-      tstack_push_free_termname(tstack, tkval(lex), tklen(lex), &loc);
-      state = td3;
-      goto loop;
-
-    case next_goto_t1:
-      state = t1;
-      goto loop;
-
     case rational_next_goto_r0:
       tstack_push_rational(tstack, tkval(lex), &loc);
       state = r0;
       goto loop;
-
-    case push_t6_goto_t0:
-      parser_push_state(stack, t6);
-      state = t0;
-      goto skip_token;
 
     case true_return:
       tstack_push_true(tstack, &loc);
@@ -594,15 +528,6 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case rational_return:
       tstack_push_rational(tstack, tkval(lex), &loc);
-      assert(! parser_stack_is_empty(stack));
-      state = parser_pop_state(stack);
-      if (state == done) {
-        goto the_end;
-      }
-      goto loop;
-
-    case float_return:
-      tstack_push_float(tstack, tkval(lex), &loc);
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
@@ -701,78 +626,6 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case implies_next_push_e3_goto_e0:
       tstack_push_op(tstack, MK_IMPLIES, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case mk_tuple_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_TUPLE, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case select_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_SELECT, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case update_tuple_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_TUPLE_UPDATE, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case add_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_ADD, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case sub_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_SUB, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case mul_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_MUL, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case div_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_DIVISION, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case pow_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_POW, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case lt_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_LT, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case le_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_LE, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case gt_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_GT, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case ge_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_GE, &loc);
       parser_push_state(stack, e3);
       state = e0;
       goto loop;
@@ -1053,133 +906,15 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto loop;
 
-    case floor_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_FLOOR, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case ceil_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_CEIL, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case abs_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_ABS, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case idiv_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_IDIV, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case mod_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_MOD, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case divides_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_DIVIDES, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case is_int_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_IS_INT, &loc);
-      parser_push_state(stack, e3);
-      state = e0;
-      goto loop;
-
-    case update_next_push_e5_goto_e0:
-      tstack_push_op(tstack, MK_UPDATE, &loc);
-      parser_push_state(stack, e5);
-      state = e0;
-      goto loop;
-
-    case forall_next_goto_e10:
-      tstack_push_op(tstack, MK_FORALL, &loc);
-      state = e10;
-      goto loop;
-
-    case exists_next_goto_e10:
-      tstack_push_op(tstack, MK_EXISTS, &loc);
-      state = e10;
-      goto loop;
-
-    case lambda_next_goto_e10:
-      tstack_push_op(tstack, MK_LAMBDA, &loc);
-      state = e10;
-      goto loop;
-
     case let_next_goto_e15:
       tstack_push_op(tstack, LET, &loc);
       state = e15;
       goto loop;
 
-    case push_e3_push_e0_goto_e0:
-      // uninterpreted function
-      tstack_push_op(tstack, MK_APPLY, &loc);
-      parser_push_state(stack, e3);
-      parser_push_state(stack, e0);
-      state = e0;
-      goto skip_token;
-
     case push_e3_goto_e0:
       parser_push_state(stack, e3);
       state = e0;
       goto skip_token;
-
-    case next_push_e7_goto_e0:
-      parser_push_state(stack, e7);
-      state = e0;
-      goto loop;
-
-    case next_push_r0_goto_e0:
-      parser_push_state(stack, r0);
-      state = e0;
-      goto loop;
-
-    case push_e7_goto_e0:
-      parser_push_state(stack, e7);
-      state = e0;
-      goto skip_token;
-
-    case next_goto_e11:
-      state = e11;
-      goto loop;
-
-    case e11_varname_next_goto_e12:
-      // first var decl in quantifiers
-      tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
-      state = e12;
-      goto loop;
-
-    case next_push_e14_goto_t0:
-      parser_push_state(stack, e14);
-      state = t0;
-      goto loop;
-
-    case e14_varname_next_goto_e12:
-      // var decl in quantifier except the first one
-      tstack_eval(tstack); // eval previous binding
-      // prepare for next var decl
-      tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
-      state = e12;
-      goto loop;
-
-    case e14_next_push_r0_goto_e0:
-      // end of var decls
-      tstack_eval(tstack); // eval last binding
-      parser_push_state(stack, r0);
-      state = e0;
-      goto loop;
 
     case next_goto_e16:
       state = e16;
@@ -1201,6 +936,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       // end of let binding: evaluate the binding
       tstack_eval(tstack);
       state = e20;
+      goto loop;
+
+    case next_push_r0_goto_e0:
+      parser_push_state(stack, r0);
+      state = e0;
       goto loop;
 
     case error_lpar_expected:
@@ -1289,7 +1029,7 @@ type_t parse_yices_type(parser_t *parser, FILE *err) {
   loc.line = 0;
   loc.column = 0;
   tstack_push_op(parser->tstack, BUILD_TYPE, &loc);
-  if (yices_parse(parser, td0, err) < 0) {
+  if (yices_parse(parser, t0, err) < 0) {
     return NULL_TYPE;
   }
 

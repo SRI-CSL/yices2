@@ -20,8 +20,7 @@ Grammar
 -------
 
  command  ::= 
-          ( define-type <symbol> )
-        | ( define-type <symbol> <typedef> )
+          ( define-type <symbol> <type> )
         | ( define <symbol> :: <type> )
         | ( define <symbol> :: <type> <expression> )
         | ( assert <expression> )
@@ -45,9 +44,7 @@ Grammar
         | ( help )
         | ( help <string> )
         | ( help <symbol> )
-        | ( ef-solve )
         | ( export-to-dimacs <string> )
-        | ( show-implicant )
         | EOS
 
 immediate-value :: = 
@@ -57,32 +54,19 @@ immediate-value :: =
         | symbol
 
 
-typedef ::= 
-          <type>
-        | ( scalar <symbol-list> )
-
 symbol-list ::=  <symbol> | <symbol> <symbol-list>
 
 type ::= 
-          int
-        | real
-        | bool
+           bool
         | ( bitvector <rational> )
-        | ( tuple <type-list> )
-        | ( -> <type> <type-list> )
 
 expression ::=
          true
        | false
        | <rational>
-       | <float>
        | <binary bv>
        | <hexa bv>
        | <symbol>
-       | ( update <expression> ( <expression-list> ) <expression> )
-       | ( forall ( <var-decl-list> ) <expression> )
-       | ( exists ( <var-decl-list> ) <expression> )
-       | ( lambda ( <var-decl-list> ) <expression> )
        | ( let ( <binding-list> ) <expression> )
        | ( <function> <expression-list> )
 
@@ -94,14 +78,6 @@ function-keyword ::=
         if      ite     =       /=      distinct
 
         or      and     not     xor     <=>     =>
-
-        mk-tuple        select  tuple-update
-
-        +       -       *       /       ^
-        <       <=      >       >=
-
-        abs     div     mod     floor   ceil
-        divides         is_int
 
         mk-bv   bv-add  bv-sub  bv-mul  bv-neg  bv-pow
         bv-not  bv-and  bv-or   bv-xor  
@@ -167,9 +143,7 @@ c1       define-type            c2
          show-param             c13
          set-timeout            c14
          help                   c15
-         ef-solve               c4
          export-to-dimacs       c3
-         show-implicant         c4
 c2       <symbol>               c10
 c3       <string>               c4 
 c4       )                      DONE
@@ -180,7 +154,7 @@ c8       [parse-type]           c9
 c9       )                      DONE
          [parse-expression]     c4
 c10      )                      DONE
-         [parse-typedef]        c4
+         [parse-type]           c4
 c11      <symbol>               c12
 c12      true                   c4
          false                  c4
@@ -193,42 +167,15 @@ c15      <symbol>               c4
          <string>               c4
          )                      DONE
 
-parse-typedef: share states t2, t3, t4 with parse-type
-- initial-state = td0
-- transition table
-td0      int                   DONE
-         real                  DONE
-         bool                  DONE
-         <symbol>              DONE
-         (                     td1
-td1      scalar                td2
-         bit-vector            t4
-         tuple                 t2
-         ->                    t3
-td2      <symbol>              td3
-td3      <symbol>              td3
-         )                     DONE
-td4      <rational>            td5
-td5      )                     DONE
-
-
 parse-type:
 - initial state = t0
 - transition table
-t0      int                    DONE
-        real                   DONE
-        bool                   DONE
+t0      bool                   DONE
         <symbol>               DONE
         (                      t1
 t1      bitvector              t4
-        tuple                  t2
-        ->                     t3
-t2      [parse-type]           t6
-t3      [parse-type]           t2
 t4      <rational>             t5
 t5      )                      DONE
-t6      )                      DONE
-        [parse-type]           t6
 
 
 
@@ -239,33 +186,16 @@ e0      (                      e1
         true                   DONE
         false                  DONE
         <rational>             DONE
-        <float>                DONE
         <binary bv>            DONE
         <hexa bv>              DONE
         <symbol>               DONE
 e1      <function-keyword>     e2
-        update                 e4
-        forall                 e10
-        exists                 e10
-        lambda                 e10
         let                    e15
-        [parse-expression]     e2
 e2      [parse-expression]     e3
 e3      )                      DONE
         [parse-expression]     e3
-e4      [parse-expression]     e5
-e5      (                      e6
-e6      [parse-expression]     e7
-e7      )                      e8
-        [parse-expression]     e7
 e8      [parse-expression]     e9
 e9      )                      DONE
-e10     (                      e11
-e11     <symbol>               e12
-e12     ::                     e13
-e13     [parse-type]           e14
-e14     )                      e8
-        <symbol>               e12
 e15     (                      e16
 e16     (                      e17
 e17     <symbol>               e18
@@ -387,16 +317,13 @@ c1       exit           next; goto r0
          show-timeout   next; goto r0
          set-timeout    next; goto c14
          help           next; goto c15
-         ef-solve       next; goto r0
-         show-implicant next; goto r0
-c2       <symbol>       next; goto c10
+	 export         next; goto r0
+c2       <symbol>       next; push r0; goto t0
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7
 c7       ::             next; push c9; goto t0
 c9       )              return
          _              push r0; goto e0
-c10      )              return
-         _              push r0; goto td0
 c11      <symbol>       next; goto c12
 c12      true           next; goto r0
          false          next; goto r0
@@ -410,56 +337,23 @@ c15      <symbol>       next; goto r0
          ...            next; goto r0      --> treat all keywords as symbols here
          )              return
 
-td0      int            return
-         real           return
-         bool           return
-         <symbol>       return
-         (              next; goto td1
-td1      scalar         next; goto td2
-         bitvector      next; goto t4
-         tuple          next; push t6; goto t0
-         ->             next; push t6; push t0; goto t0
-td2      <symbol>       next; goto td3
-td3      )              return
-         <symbol>       next;
-
-t0       int            return
-         real           return
-         bool           return
+t0       bool           return
          <symbol>       return
          (              next; goto t1
 t1       bitvector      next; goto t4
-         tuple          next; push t6; goto t0
-         ->             next; push t6; push t0; goto t0
 t4       <rational>     next; goto r0
-t6       )              return
-         _              push t6; goto t0
 
 e0       true           return
          false          return
          <rational>     return
-         <float>        return
          <binary bv>    return
          <hexa bv>      return
          <symbol>       return
          (              next; goto e1
 e1       <function-kw>  next; push e3; goto e0
-         update         next; push e5; goto e0
-         forall         next; goto e10
-         exists         next; goto e10
-         lambda         next; goto e10
          let            next; goto e15
-         _              push e3; push e0; goto e0
 e3       )              return
          _              push e3; goto e0
-e5       (              next; push e7; goto e0
-e7       )              next; push r0; goto e0
-         _              push e7; goto e0
-e10      (              next; goto e11
-e11      <symbol>       next; goto e12
-e12      ::             next; push e14; goto t0
-e14      )              next; push r0; goto e0
-         <symbol>       next; goto e12
 e15      (              next; goto e16
 e16      (              next; goto e17
 e17      <symbol>       next; push e19; goto e0

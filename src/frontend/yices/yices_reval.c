@@ -57,7 +57,6 @@
 #include "api/yices_globals.h"
 #include "context/context.h"
 #include "context/dump_context.h"
-#include "exists_forall/ef_client.h"
 #include "frontend/common.h"
 #include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
@@ -73,9 +72,6 @@
 #include "parser_utils/tstack_internals.h"
 #include "solvers/bv/bvsolver.h"
 #include "solvers/bv/dimacs_printer.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
-#include "terms/rationals.h"
 #include "utils/command_line.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
@@ -128,8 +124,6 @@
  * - mode_code = code for the mode (the default depends on the solver/logic)
  * - iflag = true if the integer solver is required
  * - qflag = true if support for quantifiers is required
- * - efmode = true to enable the exists/forall solver
- * - efdone = true after the first call to efsolve
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -163,9 +157,6 @@ static context_t *context;
 static model_t *model;
 static param_t parameters;
 
-/* flag to indicate we are in exists forall mode. */
-static bool efmode;
-
 
 /*
  * If mode = one-shot or ef
@@ -190,11 +181,6 @@ static double ready_time, check_process_time;
  *   context is NULL).
  */
 static ctx_param_t ctx_parameters;
-
-/*
- * The exists forall client globals
- */
-static ef_client_t ef_client_globals;
 
 
 /**************************
@@ -290,17 +276,6 @@ static void print_usage(char *progname) {
 }
 
 /*
- * Parse a mode string:
- * - return a code form CTX_MODE_ONECHEK to CTX_MODE_INTERACTIVE
- *   or the special code EFSOLVER_MODE
- * - return -1 if the mode is not recognized
- */
-enum {
-  EFSOLVER_MODE = 10,
-};
-
-
-/*
  * Parse a mode:
  * - return -1 if the mode is not recognized
  */
@@ -316,8 +291,6 @@ static int32_t context_mode_code(const char *name) {
     x = CTX_MODE_PUSHPOP;
   } else if (strcmp(name, "multi-checks") == 0) {
     x = CTX_MODE_MULTICHECKS;
-  } else if (strcmp(name, "ef") == 0) {
-    x = EFSOLVER_MODE;
   }
 
   return x;
@@ -348,7 +321,6 @@ static void process_command_line(int argc, char *argv[]) {
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
   mode_code = -1; // means not set
-  efmode = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -506,13 +478,6 @@ static void process_command_line(int argc, char *argv[]) {
     } else {
       mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
     }
-  } else if (mode_code == EFSOLVER_MODE) {
-    /*
-     * EF-Solver enabled:
-     * we set mode to ONE_CHECK so that assertions get added to the delayed_assertion vector
-     */
-    mode = CTX_MODE_ONECHECK;
-    efmode = true;
   } else {
     assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
     mode = (context_mode_t) mode_code;
@@ -717,18 +682,6 @@ static void print_internalization_code(int32_t code) {
 }
 
 
-/*
- * Print the translation code returned by ef_analyze
- */
-static void print_ef_analyze_code(ef_code_t code) {
-  if (code == EF_NO_ERROR) {
-    print_ok();
-  } else {
-    report_error(efcode2error[code]);
-  }
-}
-
-
 
 /*
  * Error code from eval_in_model:
@@ -763,33 +716,6 @@ static void report_eval_error(int32_t code) {
   }
 }
 
-/*
- * Error code from show-implicant
- */
-static void report_show_implicant_error(error_code_t code) {
-  switch (code) {
-  case EVAL_UNKNOWN_TERM:
-    report_error("eval failed: encountered term undefined in the model\n");
-    break;
-
-  case EVAL_QUANTIFIER:
-    report_error("eval failed: quantified terms\n");
-    break;
-
-  case EVAL_LAMBDA:
-    report_error("eval failed: lambda terms\n");
-    break;
-
-  case EVAL_FREEVAR_IN_TERM:
-  case EVAL_OVERFLOW:
-  case EVAL_FAILED:
-  case EVAL_CONVERSION_FAILED:
-  case EVAL_NO_IMPLICANT:
-  default:
-    freport_bug(stderr,"Unexpected error code %"PRId32" in 'show-implicant'", code);
-    break;
-  }
-}
 
 /***************************
  *  MODEL ALLOCATION/FREE  *
@@ -994,110 +920,6 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_float_param(param2string[p], parameters.clause_decay, n);
     break;
 
-  case PARAM_CACHE_TCLAUSES:
-    show_bool_param(param2string[p], parameters.cache_tclauses, n);
-    break;
-
-  case PARAM_TCLAUSE_SIZE:
-    show_pos32_param(param2string[p], parameters.tclause_size, n);
-    break;
-
-  case PARAM_DYN_ACK:
-    show_bool_param(param2string[p], parameters.use_dyn_ack, n);
-    break;
-
-  case PARAM_DYN_BOOL_ACK:
-    show_bool_param(param2string[p], parameters.use_bool_dyn_ack, n);
-    break;
-
-  case PARAM_OPTIMISTIC_FCHECK:
-    show_bool_param(param2string[p], parameters.use_optimistic_fcheck, n);
-    break;
-
-  case PARAM_MAX_ACK:
-    show_pos32_param(param2string[p], parameters.max_ackermann, n);
-    break;
-
-  case PARAM_MAX_BOOL_ACK:
-    show_pos32_param(param2string[p], parameters.max_boolackermann, n);
-    break;
-
-  case PARAM_AUX_EQ_QUOTA:
-    show_pos32_param(param2string[p], parameters.aux_eq_quota, n);
-    break;
-
-  case PARAM_AUX_EQ_RATIO:
-    show_float_param(param2string[p], parameters.aux_eq_ratio, n);
-    break;
-
-  case PARAM_DYN_ACK_THRESHOLD:
-    show_pos32_param(param2string[p], (uint32_t) parameters.dyn_ack_threshold, n);
-    break;
-
-  case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    show_pos32_param(param2string[p], (uint32_t) parameters.dyn_bool_ack_threshold, n);
-    break;
-
-  case PARAM_MAX_INTERFACE_EQS:
-    show_pos32_param(param2string[p], parameters.max_interface_eqs, n);
-    break;
-
-  case PARAM_EAGER_LEMMAS:
-    show_bool_param(param2string[p], ctx_parameters.splx_eager_lemmas, n);
-    break;
-
-  case PARAM_SIMPLEX_PROP:
-    show_bool_param(param2string[p], parameters.use_simplex_prop, n);
-    break;
-
-  case PARAM_SIMPLEX_ADJUST:
-    show_bool_param(param2string[p], parameters.adjust_simplex_model, n);
-    break;
-
-  case PARAM_PROP_THRESHOLD:
-    show_pos32_param(param2string[p], parameters.max_prop_row_size, n);
-    break;
-
-  case PARAM_BLAND_THRESHOLD:
-    show_pos32_param(param2string[p], parameters.bland_threshold, n);
-    break;
-
-  case PARAM_ICHECK:
-    show_bool_param(param2string[p], ctx_parameters.splx_periodic_icheck, n);
-    break;
-
-  case PARAM_ICHECK_PERIOD:
-    show_pos32_param(param2string[p], parameters.integer_check_period, n);
-    break;
-
-  case PARAM_MAX_UPDATE_CONFLICTS:
-    show_pos32_param(param2string[p], parameters.max_update_conflicts, n);
-    break;
-
-  case PARAM_MAX_EXTENSIONALITY:
-    show_pos32_param(param2string[p], parameters.max_extensionality, n);
-    break;
-
-  case PARAM_EF_FLATTEN_IFF:
-    show_bool_param(param2string[p], ef_client_globals.ef_parameters.flatten_iff, n);
-    break;
-
-  case PARAM_EF_FLATTEN_ITE:
-    show_bool_param(param2string[p], ef_client_globals.ef_parameters.flatten_ite, n);
-    break;
-
-  case PARAM_EF_GEN_MODE:
-    show_string_param(param2string[p], efgen2string[ef_client_globals.ef_parameters.gen_mode], n);
-    break;
-
-  case PARAM_EF_MAX_SAMPLES:
-    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_samples, n);
-    break;
-
-  case PARAM_EF_MAX_ITERS:
-    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_iters, n);
-    break;
-
   case PARAM_UNKNOWN:
   default:
     freport_bug(stderr,"invalid parameter id in 'show_param'");
@@ -1159,7 +981,6 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   int32_t n;
   double x;
   branch_t b;
-  ef_gen_option_t g;
   char* reason;
 
   reason = NULL;
@@ -1340,202 +1161,6 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     }
     break;
 
-  case PARAM_CACHE_TCLAUSES:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.cache_tclauses = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_TCLAUSE_SIZE:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.tclause_size = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_DYN_ACK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_dyn_ack = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_DYN_BOOL_ACK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_bool_dyn_ack = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_OPTIMISTIC_FCHECK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_optimistic_fcheck = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_MAX_ACK:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_ackermann = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_MAX_BOOL_ACK:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_boolackermann = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_AUX_EQ_QUOTA:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.aux_eq_quota = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_AUX_EQ_RATIO:
-    if (param_val_to_posfloat(param, val, &x, &reason)) {
-      parameters.aux_eq_ratio = x;
-      print_ok();
-    }
-    break;
-
-  case PARAM_DYN_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_ack_threshold = (uint16_t) n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_bool_ack_threshold = (uint16_t) n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_MAX_INTERFACE_EQS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_interface_eqs = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EAGER_LEMMAS:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_eager_lemmas = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
-      }
-      print_ok();
-    }
-    break;
-
-  case PARAM_SIMPLEX_PROP:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_simplex_prop = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_SIMPLEX_ADJUST:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.adjust_simplex_model = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_PROP_THRESHOLD:
-    if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      parameters.max_prop_row_size = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_BLAND_THRESHOLD:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.bland_threshold = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_ICHECK:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_periodic_icheck = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
-      }
-      print_ok();
-    }
-    break;
-
-  case PARAM_ICHECK_PERIOD:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.integer_check_period = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_MAX_UPDATE_CONFLICTS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_update_conflicts = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_MAX_EXTENSIONALITY:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_extensionality = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EF_FLATTEN_IFF:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_client_globals.ef_parameters.flatten_iff = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EF_FLATTEN_ITE:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_client_globals.ef_parameters.flatten_ite = tt;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EF_GEN_MODE:
-    if (param_val_to_genmode(param, val, &g, &reason)) {
-      ef_client_globals.ef_parameters.gen_mode = g;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EF_MAX_SAMPLES:
-    if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      ef_client_globals.ef_parameters.max_samples = n;
-      print_ok();
-    }
-    break;
-
-  case PARAM_EF_MAX_ITERS:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
-      ef_client_globals.ef_parameters.max_iters = n;
-      print_ok();
-    }
-    break;
-
   case PARAM_UNKNOWN:
   default:
     report_invalid_param(param);
@@ -1605,73 +1230,6 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
-static void show_egraph_stats(egraph_stats_t *stat) {
-  printf("Egraph\n");
-  printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
-  printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);
-  printf(" non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
-  printf(" auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
-  printf(" dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
-  printf(" other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
-  printf(" final checks            : %"PRIu32"\n", stat->final_checks);
-  printf(" interface equalities    : %"PRIu32"\n", stat->interface_eqs);
-}
-
-static void show_funsolver_stats(fun_solver_stats_t *stat) {
-  printf("Arrays\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. edges             : %"PRIu32"\n", stat->num_init_edges);
-  printf(" update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
-  printf(" update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
-  printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
-}
-
-static void show_simplex_stats(simplex_stats_t *stat) {
-  printf("Simplex\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
-  printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);
-  printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
-  printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
-  printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
-  printf(" rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
-  printf(" fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
-  printf(" rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
-  printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
-  printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
-  printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
-  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
-  printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
-  printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
-  printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
-  printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
-  printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
-  printf(" interface lemmas        : %"PRIu32"\n", stat->num_interface_lemmas);
-  printf(" reduced inter. lemmas   : %"PRIu32"\n", stat->num_reduced_inter_lemmas);
-  printf(" trichotomy lemmas       : %"PRIu32"\n", stat->num_tricho_lemmas);
-  printf(" reduced tricho. lemmas  : %"PRIu32"\n", stat->num_reduced_tricho);
-  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
-    printf("Integer arithmetic\n");
-    printf("Integer arithmetic\n");
-    printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    printf(" branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
-    printf("bound strengthening\n");
-    printf(" conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);
-    printf("integrality tests\n");
-    printf(" conflicts               : %"PRIu32"\n", stat->num_itest_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_itest_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_itest_recheck_conflicts);
-    printf("diohpantine solver\n");
-    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_dioph_gcd_conflicts);
-    printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
-    printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_dioph_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_dioph_recheck_conflicts);
-  }
-}
-
 static void show_bvsolver_stats(bv_solver_t *solver) {
   printf("Bit-vectors\n");
   printf(" variables               : %"PRIu32"\n", bv_solver_num_vars(solver));
@@ -1687,9 +1245,6 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
 
 static void yices_showstats_cmd(void) {
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
   double run_time;
   double mem_used;
 
@@ -1698,36 +1253,17 @@ static void yices_showstats_cmd(void) {
     run_time = 0.0;
   }
 
-  if (!efmode) {
-    core = context->core;
+  core = context->core;
 
-    show_stats(&core->stats);
-    printf(" boolean variables       : %"PRIu32"\n", core->nvars);
-    printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
+  show_stats(&core->stats);
+  printf(" boolean variables       : %"PRIu32"\n", core->nvars);
+  printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
 
-    egraph = context->egraph;
-    if (egraph != NULL) {
-      show_egraph_stats(&egraph->stats);
-      printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-      printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
-      if (context_has_fun_solver(context)) {
-	fsolver = context->fun_solver;
-	show_funsolver_stats(&fsolver->stats);
-      }
-    }
-
-    if (context_has_simplex_solver(context)) {
-      simplex = (simplex_solver_t *) context->arith_solver;
-      simplex_collect_statistics(simplex);
-      show_simplex_stats(&simplex->stats);
-    }
-
-    if (context_has_bv_solver(context)) {
-      show_bvsolver_stats(context->bv_solver);
-    }
-    fputc('\n', stdout);
-    printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
+  if (context_has_bv_solver(context)) {
+    show_bvsolver_stats(context->bv_solver);
   }
+  fputc('\n', stdout);
+  printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
 
   printf("Total runtime            : %.4f s\n", run_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -1776,12 +1312,8 @@ static void yices_showtimeout_cmd(void) {
 
 
 static void yices_dump_cmd(void) {
-  if (efmode) {
-    report_error("(dump-context) is not supported by the exists/forall solver");
-  } else {
-    assert(context != NULL);
-    dump_context(stdout, context);
-  }
+  assert(context != NULL);
+  dump_context(stdout, context);
 }
 
 
@@ -1798,18 +1330,12 @@ static void yices_help_cmd(const char *topic) {
  * Reset
  */
 static void yices_reset_cmd(void) {
-  if (efmode) {
-    delete_ef_client(&ef_client_globals);
-    ivector_reset(&delayed_assertions);
+  if (model != NULL) {
+    free_model(model);
     model = NULL;
-  } else {
-    if (model != NULL) {
-      free_model(model);
-      model = NULL;
-    }
-    ivector_reset(&delayed_assertions);
-    reset_context(context);
   }
+  ivector_reset(&delayed_assertions);
+  reset_context(context);
   print_ok();
 }
 
@@ -1818,9 +1344,7 @@ static void yices_reset_cmd(void) {
  * Push
  */
 static void yices_push_cmd(void) {
-  if (efmode) {
-    report_error("(push) is not supported by the exists/forall solver");
-  } else if (! context_supports_pushpop(context)) {
+  if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else {
     switch (context_status(context)) {
@@ -1862,9 +1386,7 @@ static void yices_push_cmd(void) {
  * Pop
  */
 static void yices_pop_cmd(void) {
-  if (efmode) {
-    report_error("(pop) is not supported by the exists/forall solver");
-  } else if (! context_supports_pushpop(context)) {
+  if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else if (context_base_level(context) == 0) {
     report_error("pop not allowed at bottom level");
@@ -1908,68 +1430,53 @@ static void yices_assert_cmd(term_t f) {
   smt_status_t status;
   int32_t code;
 
-  /*
-   * If efmode is true, we add f to the delayed assertions vector
-   */
-  if (efmode) {
-    if (ef_client_globals.efdone) {
-      report_error("more assertions are not allowed after (ef-solve)");
-    } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
-      print_ok();
-    } else {
-      report_error("type error in assert: boolean term required");
-    }
-
+  status = context_status(context);
+  if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
+    report_error("more assertions are not allowed");
   } else {
-    status = context_status(context);
-    if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
-      report_error("more assertions are not allowed");
-    } else {
-      switch (status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
-	// cleanup then return to the idle state
-	if (model != NULL) {
-	  free_model(model);
-	  model = NULL;
-	}
-	context_clear(context);
-	assert(context_status(context) == STATUS_IDLE);
-	// fall-through intended
-
-      case STATUS_IDLE:
-	if (yices_term_is_bool(f)) {
-	  if (mode == CTX_MODE_ONECHECK) {
-	    // delayed assertion
-	    ivector_push(&delayed_assertions, f);
-	    code = CTX_NO_ERROR;
-	  } else {
-	    code = assert_formula(context, f);
-	  }
-	  print_internalization_code(code);
-	} else {
-	  report_error("type error in assert: boolean term required");
-	}
-	break;
-
-      case STATUS_UNSAT:
-	// cannot take more assertions
-	if (context_base_level(context) == 0) {
-	  fputs("The context is unsat. Try (reset).\n", stderr);
-	} else {
-	  fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
-	}
-	fflush(stderr);
-	break;
-
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
-      default:
-	// should not happen
-	freport_bug(stderr,"unexpected context status in 'assert'");
-	break;
+    switch (status) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      // cleanup then return to the idle state
+      if (model != NULL) {
+	free_model(model);
+	model = NULL;
       }
+      context_clear(context);
+      assert(context_status(context) == STATUS_IDLE);
+      // fall-through intended
+
+    case STATUS_IDLE:
+      if (yices_term_is_bool(f)) {
+	if (mode == CTX_MODE_ONECHECK) {
+	  // delayed assertion
+	  ivector_push(&delayed_assertions, f);
+	  code = CTX_NO_ERROR;
+	} else {
+	  code = assert_formula(context, f);
+	}
+	print_internalization_code(code);
+      } else {
+	report_error("type error in assert: boolean term required");
+      }
+      break;
+
+    case STATUS_UNSAT:
+      // cannot take more assertions
+      if (context_base_level(context) == 0) {
+	fputs("The context is unsat. Try (reset).\n", stderr);
+      } else {
+	fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
+      }
+      fflush(stderr);
+      break;
+
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // should not happen
+      freport_bug(stderr,"unexpected context status in 'assert'");
+      break;
     }
   }
 }
@@ -2043,16 +1550,12 @@ static void yices_check_cmd(void) {
   int code;
 
   if (mode == CTX_MODE_ONECHECK) {
-    if (efmode) {
-      report_error("(check) is not supported by the exist/forall solver");
+    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    if (code < 0) {
+      print_internalization_code(code);
       return;
-    } else {
-      code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
-      if (code < 0) {
-	print_internalization_code(code);
-	return;
-      }
     }
+
   }
 
   stat = context_status(context);
@@ -2096,7 +1599,7 @@ static void yices_check_cmd(void) {
 
 
 /*
- * Helper function for show-model, eval, and show-implicant:
+ * Helper function for show-model and eval.
  * - return true if the context's status is SAT or UNKNOWN
  *   also build the model if it does not exist
  * - return false and print an error message if the status
@@ -2143,21 +1646,7 @@ static bool context_has_model(const char *cmd_name) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
-  model_t *mdl;
-  int32_t code;
-  
-  if (efmode) {
-    code = 0;
-    mdl = ef_get_model(&ef_client_globals, &code);
-    if(mdl != NULL){
-      if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
-	report_system_error("stdout");
-      }
-    } else {
-      fputs(efmodelcode2error[code], stderr);
-      fflush(stderr);
-    }
-  } else if (context_has_model("show-model")) {
+  if (context_has_model("show-model")) {
     // model_print(stdout, model);
     // model_print_full(stdout, model);
     if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
@@ -2202,129 +1691,18 @@ static void show_val_in_model(model_t *model, term_t t) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  model_t *mdl;
-  int32_t code;
-
-
-  if (efmode) {
-    code = 0;
-    mdl = ef_get_model(&ef_client_globals, &code);
-    if(mdl != NULL){
-      show_val_in_model(mdl, t);
-    } else {
-      fputs(efmodelcode2error[code], stderr);
-      fflush(stderr);
-    }
-  } else if (context_has_model("eval")) {
+  if (context_has_model("eval")) {
     show_val_in_model(model, t);
   }
-
 }
 
-
-/*
- * EF SOLVER
- */
-
-/*
- * Print the efsolver status
- */
-static void print_ef_status(void) {
-  ef_status_t stat;
-  int32_t error;
-  ef_solver_t *efsolver;
-
-  efsolver = ef_client_globals.efsolver;
-
-  assert(efsolver != NULL && ef_client_globals.efdone);
-
-  if (verbosity > 0) {
-    printf("ef-solve: %"PRIu32" iterations\n", efsolver->iters);
-  }
-
-  stat = efsolver->status;
-  error = efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      report_error("ef-solve failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      freport_bug(stderr, "ef-solve failed: internal error");
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_code(error);
-    break;
-
-  case EF_STATUS_PROJECTION_ERROR:
-    if (error == PROJ_ERROR_NON_LINEAR) {
-      report_error("ef-solve failed: non-linear arithmetic is not supported");
-    } else {
-      freport_bug(stderr, "ef-solve failed: projection error");
-    }
-    break;
-
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    freport_bug(stderr, "ef-solve failed: unexpected status: %s\n", ef_status2string[stat]);
-    break;
-
-  }
-}
 
 /*
  * New command: ef-solve
  */
 static void yices_efsolve_cmd(void) {
-
-  if (efmode) {
-
-    ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
-
-    if (ef_client_globals.efcode != EF_NO_ERROR) {
-      
-      // error in preprocessing
-      print_ef_analyze_code(ef_client_globals.efcode);
-      
-    } else {
-
-      print_ef_status();
-      
-    } 
-
-  }  else {
-
-    report_error("(ef-solve) not supported. Use option --mode=ef");
-    
-  }
+  report_error("(ef-solve) not supported.\n");
 }
-
-
 
 
 
@@ -2389,44 +1767,6 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
 
 
 /*
- * Export the assertions --> use the ef_analyzer first
- * - then add all the assertions into a temporary context
- * - we disable variable elimination (could check the global parameters
- *   and do this optionally?)
- */
-static void export_ef_problem(const char *s) {
-  context_t *aux;
-  ivector_t all_ef;
-  int code;
-
-  build_ef_problem(&ef_client_globals, &delayed_assertions);
-  if (ef_client_globals.efcode != EF_NO_ERROR) {
-    print_ef_analyze_code(ef_client_globals.efcode);
-  } else {
-    assert(ef_client_globals.efprob != NULL);
-
-    // convert the ef-problem to a conjunction of formulas
-    init_ivector(&all_ef, 10);
-    ef_prob_collect_conjuncts(ef_client_globals.efprob, &all_ef);
-
-    // assert these in a temporary context
-    aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
-    disable_variable_elimination(aux);
-    disable_bvarith_elimination(aux);
-    code = assert_formulas(aux, all_ef.size, all_ef.data);
-    if (code < 0) {
-      print_internalization_code(code);
-    } else {
-      bitblast_then_export(aux, s);
-    }
-
-    yices_free_context(aux);
-    delete_ivector(&all_ef);
-  }
-}
-
-
-/*
  * Export the delayed assertions
  */
 static void export_delayed_assertions(const char *s) {
@@ -2453,9 +1793,7 @@ static void yices_export_cmd(const char *s) {
   switch (logic_code) {
   case NONE:
   case QF_BV:
-    if (efmode) {
-      export_ef_problem(s);
-    } else if (mode == CTX_MODE_ONECHECK) {
+    if (mode == CTX_MODE_ONECHECK) {
       export_delayed_assertions(s);
     } else {
       assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
@@ -2475,39 +1813,6 @@ static void yices_export_cmd(const char *s) {
 
 }
 
-
-/*
- * Implicant computation
- */
-static void yices_show_implicant_cmd(void) {
-  term_vector_t v;
-  int32_t code;
-
-  if (efmode) {
-    report_error("(show-implicant) is not supported by the exists/forall solver");
-  } else if (mode != CTX_MODE_ONECHECK) {
-    report_error("(show-implicant) is not supported. Use --mode=one-shot");
-  } else if (context_has_model("show-implicant")) {
-    yices_init_term_vector(&v);
-    code = yices_implicant_for_formulas(model, delayed_assertions.size, delayed_assertions.data, &v);
-    if (code < 0) {
-      report_show_implicant_error(yices_error_code());
-    } else {
-      if (yices_pp_term_array(stdout, v.size, v.data, 140, UINT32_MAX, 0, 0) < 0) {
-	/*
-	 * Error in pp_term_array
-	 */
-	if (yices_error_code() == OUTPUT_ERROR) {
-	  report_system_error("stdout");
-	} else {
-	  freport_bug(stderr, "invalid term in 'show-implicant'");
-	}
-      }
-      fflush(stdout);
-    }
-    yices_delete_term_vector(&v);
-  }
-}
 
 
 /*************************
@@ -2915,20 +2220,6 @@ static void eval_export_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   no_result(stack);
 }
 
-/*
- * [show-implicant]
- */
-static void check_showimplicant_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SHOW_IMPLICANT_CMD);
-  check_size(stack, n == 0);
-}
-
-static void eval_showimplicant_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  yices_show_implicant_cmd();
-  tstack_pop_frame(stack);
-  no_result(stack);
-}
-
 
 /*
  * Initialize the term stack and add these commmands
@@ -2957,7 +2248,6 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, HELP_CMD, false, eval_help_cmd, check_help_cmd);
   tstack_add_op(stack, EFSOLVE_CMD, false, eval_efsolve_cmd, check_efsolve_cmd);
   tstack_add_op(stack, EXPORT_CMD, false, eval_export_cmd, check_export_cmd);
-  tstack_add_op(stack, SHOW_IMPLICANT_CMD, false, eval_showimplicant_cmd, check_showimplicant_cmd);
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }
 
@@ -3014,21 +2304,12 @@ int yices_main(int argc, char *argv[]) {
   init_yices_tstack(&stack);
   init_parameter_name_table();
 
-  init_ef_client(&ef_client_globals);
-  
-
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
     print_version(stderr);
   }
 
-  if (efmode) {
-    context = NULL;
-    model = NULL;
-    default_ctx_params(&ctx_parameters, &parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
-  } else {
-    init_ctx(logic_code, arch, mode, iflag, qflag);
-  }
+  init_ctx(logic_code, arch, mode, iflag, qflag);
   ready_time = get_cpu_time();
 
   /*
@@ -3068,13 +2349,7 @@ int yices_main(int argc, char *argv[]) {
   /*
    * Clean up
    */
-  if (efmode) {
-    delete_ef_client(&ef_client_globals);
-  } else {
-    delete_ctx();
-  }
-
-
+  delete_ctx();
   delete_parser(&parser);
   if (input_filename == NULL) {
     // keep stdin open

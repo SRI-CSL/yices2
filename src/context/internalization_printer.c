@@ -18,7 +18,6 @@
 #include "io/term_printer.h"
 #include "io/type_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
-#include "solvers/egraph/egraph_printer.h"
 
 
 /*
@@ -27,16 +26,10 @@
 static void print_intern_code(FILE *f, int32_t x, type_table_t *types, type_t tau) {
   if (! code_is_valid(x)) {
     fprintf(f, "code %"PRId32, x);
-  } else if (code_is_eterm(x)) {
-    print_occurrence(f, code2occ(x));
   } else {
     assert(code_is_var(x));
     if (is_boolean_type(tau)) {
       print_literal(f, code2literal(x));
-    } else if (is_integer_type(tau)) {
-      fprintf(f, "i!%"PRId32, code2thvar(x));
-    } else if (is_real_type(tau)) {
-      fprintf(f, "z!%"PRId32, code2thvar(x));
     } else {
       assert(is_bv_type(types, tau));
       fprintf(f, "u!%"PRId32, code2thvar(x));
@@ -48,8 +41,6 @@ static void print_intern_code(FILE *f, int32_t x, type_table_t *types, type_t ta
 static void print_opposite_code(FILE *f, int32_t x) {
   if (! code_is_valid(x)) {
     fprintf(f, "code %"PRId32, x);
-  } else if (code_is_eterm(x)) {
-    print_occurrence(f, opposite_occ(code2occ(x)));
   } else {
     assert(code_is_var(x));
     print_literal(f, not(code2literal(x)));

@@ -44,12 +44,7 @@
 static keyword_t yices_keywords[] = {
   // type keywords
   { "bool", TK_BOOL },
-  { "int", TK_INT },
-  { "real", TK_REAL },
   { "bitvector", TK_BITVECTOR },
-  { "scalar", TK_SCALAR },
-  { "tuple", TK_TUPLE },
-  { "->", TK_ARROW },
 
   // term keywords
   { "true", TK_TRUE },
@@ -66,24 +61,6 @@ static keyword_t yices_keywords[] = {
   { "xor", TK_XOR },
   { "<=>", TK_IFF },
   { "=>", TK_IMPLIES },
-  { "mk-tuple", TK_MK_TUPLE },
-  { "select", TK_SELECT },
-  { "tuple-update", TK_UPDATE_TUPLE },
-  { "update", TK_UPDATE },
-  { "forall", TK_FORALL },
-  { "exists", TK_EXISTS },
-  { "lambda", TK_LAMBDA },
-
-  // arithmetic keywords
-  { "+", TK_ADD },
-  { "-", TK_SUB },
-  { "*", TK_MUL },
-  { "/", TK_DIV },
-  { "^", TK_POW },
-  { "<", TK_LT },
-  { "<=", TK_LE },
-  { ">", TK_GT },
-  { ">=", TK_GE },
 
   // bitvector keywords
   { "mk-bv", TK_MK_BV },
@@ -137,15 +114,6 @@ static keyword_t yices_keywords[] = {
   { "bool-to-bv", TK_BOOL_TO_BV },
   { "bit", TK_BIT},
 
-  // more arithmetic functions
-  { "floor", TK_FLOOR },
-  { "ceil", TK_CEIL },
-  { "abs", TK_ABS },
-  { "div", TK_IDIV },
-  { "mod", TK_MOD },
-  { "divides", TK_DIVIDES },
-  { "is-int", TK_IS_INT },
-
   // other keywords
   { "let", TK_LET },
   { "define-type", TK_DEFINE_TYPE },
@@ -169,9 +137,7 @@ static keyword_t yices_keywords[] = {
   { "set-timeout", TK_SET_TIMEOUT },
   { "show-timeout", TK_SHOW_TIMEOUT },
   { "help", TK_HELP },
-  { "ef-solve", TK_EF_SOLVE },
   { "export-to-dimacs", TK_EXPORT_TO_DIMACS },
-  { "show-implicant", TK_SHOW_IMPLICANT },
 
   // end-marker
   { NULL, 0 },

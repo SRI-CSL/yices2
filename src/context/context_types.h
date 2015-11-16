@@ -89,12 +89,6 @@ typedef enum {
  * PSEUDO_INVERSE is based on Brummayer's thesis (Boolector stuff)
  * - not implemented yet
  *
- * ITE_BOUNDS: for a special if-then-else term t (i.e., if-then-else
- * term with constant leaves), compute the lower and upper bound on t
- * and assert that t is between these two bounds. Example: for t =
- * (ite c 0 1), assert (0 <= t <= 1), and similar for nested
- * if-then-elses.
- *
  * Options passed to the simplex solver when it's created
  * - EAGER_LEMMAS
  * - ENABLE_ICHECK
@@ -220,211 +214,6 @@ enum {
 
 
 
-
-/**************************
- *  ARITHMETIC INTERFACE  *
- *************************/
-
-/*
- * An arithmetic solver must implement the following internalization functions:
- *
- * Term constructors
- * -----------------
- * A term in the arithmetic solver is identified by an integer index (arithmetic variable).
- *
- * 1) thvar_t create_var(void *solver, bool is_int)
- *    - this must return the index of a new arithmetic variable (no eterm attached)
- *    - if is_int is true, that variable must have integer type, otherwise, it must
- *      be a real.
- *
- * 2) thvar_t create_const(void *solver, rational_t *q)
- *    - this must create a theory variable equal to q and return it (no eterm attached)
- *
- * 3) thvar_t create_poly(void *solver, polynomial_t *p, thvar_t *map)
- *    - this must return a theory variable equal to p with variables renamed as
- *      defined by map
- *    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n,
- *       where t_0 is either the special marker const_idx (= 0) or an arithmetic term
- *         and t_1 ... t_n are arithmetic terms
- *    - map is an array of n+1 theory variables:
- *      map[i] = the theory variable x_i mapped to t_i (with the convention that const_idx
- *               is always mapped to null_thvar)
- *    - the solver must return a theory variable y equal to a_0 x_0 + ... + a_n x_n
- *
- * 4) thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
- *    - must return a theory variable equal to r with variables defined by map
- *    - r if of the form t_0^d_0 x ... x t_n^d_n where t_0 ... t_n are arithmetic
- *      terms
- *    - map is an array of n+1 variables: map[i] = variable x_i mapped to t_i
- *    - the solver must return an arithmetic variable y equal to (x_0^d_0 x ... x x_n^d_n)
- *
- *
- * Atom constructors
- * -----------------
- *
- * 5) literal_t create_eq_atom(void *solver, thvar_t x)
- *    - must create the atom (x == 0) and return the corresponding literal
- *    - x is an existing theory variable in solver
- *
- * 6) literal_t create_ge_atom(void *solver, thvar_t x)
- *    - must create the atom (x >= 0) and return the corresponding literal
- *    - x is an existing theory variable in solver
- *
- * 7) literal_t create_poly_eq_atom(void *solver, polynomial_t *p, thvar_t *map)
- *    - must create the atom (p == 0) and return the corresponding literal
- *    - p and map are as in create_poly
- *
- * 8) literal_t create_poly_ge_atom(void *solver, polynomial_t *p, thvar_t *map)
- *    - must create the atom (p >= 0) and return the corresponding literal
- *    - p and map are as in create_poly
- *
- * 9) literal_t create_vareq_atom(void *solver, thvar_t x, thvar_t y)
- *    - create the atom x == y where x and y are two existing variables in solver
- *
- *
- * Assertion of top-level axioms
- * -----------------------------
- *
- * 10) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
- *     - if tt assert (x == 0) otherwise assert (x != 0)
- *
- * 11) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
- *     - if tt assert (x >= 0) otherwise assert (x < 0)
- *
- * 12) void assert_poly_eq_axiom(void *solver, polynomial_t *p, thvar_t *map, bool tt)
- *     - if tt assert (p == 0) otherwise assert (p != 0)
- *     - p and map are as in create_poly
- *
- * 13) void assert_poly_ge_axiom(void *solver, polynomial_t *p, thvar_t *map, bool tt)
- *     - if tt assert (p >= 0) otherwise assert (p < 0)
- *     - p and map are as in create_poly
- *
- * 14) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
- *     - if tt assert x == y, otherwise assert x != y
- *
- * 15) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
- *     - assert (c implies x == y) as an axiom
- *     - this is used to convert if-then-else equalities:
- *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
- *
- * 15b) void assert_clause_vareq_axiom(void *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y)
- *     - assert (c[0] \/ ... \/ c[n-1] \/ x == y)
- *
- * Egraph connection
- * -----------------
- *
- * 16) void attach_eterm(void *solver, thvar_t v, eterm_t t)
- *    - attach egraph term t to theory variable v
- *    - this function may be omitted for standalone solvers (no egraph is used in that case)
- *
- * 17) eterm_t eterm_of_var(void *solver, thvar_t v)
- *    - must return the eterm t attached to v (if any) or null_eterm if v has no term attached
- *    - this function may be omitted for standalone solvers (no egraph)
- *
- * NOTE: these functions are also used by the egraph. They are required only if
- * the context includes both the egraph and the arithmetic solver.
- *
- *
- * Model construction
- * ------------------
- *
- * The following functions are used when the solver reaches SAT (or UNKNOWN).
- * First, build_model is called. The solver must construct an assignment M from variables to
- * rationals at that point. Then, the context can query for the value of a variable x in M.
- * If the solver cannot assign a rational value to x, it can signal this when value_in_model
- * is called. M must not be changed until the context calls free_model.
- *
- * 18) void build_model(void *solver)
- *    - build a model M: maps variable to rationals.
- *     (or do nothing if the solver does not support model construction).
- *
- * 19) bool value_in_model(void *solver, thvar_t x, rational_t *v)
- *    - must return true and copy the value of x in M into v if that value is available.
- *    - return false otherwise (e.g., if model construction is not supported by
- *    solver or x has an irrational value).
- *
- * 20) void free_model(void *solver)
- *    - notify solver that M is no longer needed.
- *
- *
- * Queries about variables
- * -----------------------
- *
- * 21) bool arith_var_is_int(void *solver, thvar_t x):
- *     - return true if x is an integer variable, false otherwise.
- *
- * 
- * Exception mechanism
- * -------------------
- * When the solver is created and initialized it's given a pointer b to a jmp_buf internal to
- * the context. If the solver fails in some way during internalization, it can call
- * longjmp(*b, error_code) to interrupt the internalization and return control to the
- * context. For arithmetic solvers, the following error codes should be used:
- *
- *   FORMULA_NOT_IDL         (the solver supports only integer difference logic)
- *   FORMULA_NOT_RDL         (the solver supports only real difference logic)
- *   FORMULA_NOT_LINEAR      (the solver supports only linear arithmetic)
- *   TOO_MANY_ARITH_VARS     (solver limit is reached)
- *   TOO_MANY_ARITH_ATOMS    (solver limit is reached)
- *   ARITHSOLVER_EXCEPTION   (any other failure)
- *
- */
-typedef thvar_t (*create_arith_var_fun_t)(void *solver, bool is_int);
-typedef thvar_t (*create_arith_const_fun_t)(void *solver, rational_t *q);
-typedef thvar_t (*create_arith_poly_fun_t)(void *solver, polynomial_t *p, thvar_t *map);
-typedef thvar_t (*create_arith_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *map);
-
-typedef literal_t (*create_arith_atom_fun_t)(void *solver, thvar_t x);
-typedef literal_t (*create_arith_patom_fun_t)(void *solver, polynomial_t *p, thvar_t *map);
-typedef literal_t (*create_arith_vareq_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
-
-typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
-typedef void (*assert_arith_paxiom_fun_t)(void *solver, polynomial_t *p, thvar_t *map, bool tt);
-typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
-typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
-typedef void (*assert_arith_clause_vareq_axiom_fun_t)(void* solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y);
-
-typedef void    (*attach_eterm_fun_t)(void *solver, thvar_t v, eterm_t t);
-typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
-
-typedef void (*build_model_fun_t)(void *solver);
-typedef void (*free_model_fun_t)(void *solver);
-typedef bool (*arith_val_in_model_fun_t)(void *solver, thvar_t x, rational_t *v);
-
-typedef bool (*arith_var_is_int_fun_t)(void *solver, thvar_t x);
-
-typedef struct arith_interface_s {
-  create_arith_var_fun_t create_var;
-  create_arith_const_fun_t create_const;
-  create_arith_poly_fun_t create_poly;
-  create_arith_pprod_fun_t create_pprod;
-
-  create_arith_atom_fun_t create_eq_atom;
-  create_arith_atom_fun_t create_ge_atom;
-  create_arith_patom_fun_t create_poly_eq_atom;
-  create_arith_patom_fun_t create_poly_ge_atom;
-  create_arith_vareq_atom_fun_t create_vareq_atom;
-
-  assert_arith_axiom_fun_t assert_eq_axiom;
-  assert_arith_axiom_fun_t assert_ge_axiom;
-  assert_arith_paxiom_fun_t assert_poly_eq_axiom;
-  assert_arith_paxiom_fun_t assert_poly_ge_axiom;
-  assert_arith_vareq_axiom_fun_t assert_vareq_axiom;
-  assert_arith_cond_vareq_axiom_fun_t assert_cond_vareq_axiom;
-  assert_arith_clause_vareq_axiom_fun_t assert_clause_vareq_axiom;
-
-  attach_eterm_fun_t attach_eterm;
-  eterm_of_var_fun_t eterm_of_var;
-
-  build_model_fun_t build_model;
-  free_model_fun_t free_model;
-  arith_val_in_model_fun_t value_in_model;
-
-  arith_var_is_int_fun_t arith_var_is_int;
-} arith_interface_t;
-
-
-
 /********************************
  *  BITVECTOR SOLVER INTERFACE  *
  *******************************/
@@ -531,6 +320,11 @@ typedef void (*assert_bv_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool t
 typedef void (*set_bit_fun_t)(void *solver, thvar_t x, uint32_t i, bool tt);
 typedef bool (*bv_val_in_model_fun_t)(void *solver, thvar_t x, bvconstant_t *v);
 
+typedef void    (*attach_eterm_fun_t)(void *solver, thvar_t v, eterm_t t);
+typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
+typedef void (*build_model_fun_t)(void *solver);
+typedef void (*free_model_fun_t)(void *solver);
+
 typedef struct bv_interface_s {
   create_bv_var_fun_t create_var;
   create_bv_const_fun_t create_const;
@@ -569,31 +363,6 @@ typedef struct bv_interface_s {
 
 
 
-/******************************
- *  DIFFERENCE LOGIC PROFILE  *
- *****************************/
-
-/*
- * For difference logic, we can use either the simplex solver
- * or a specialized Floyd-Warshall solver. The decision is
- * based on the following parameters:
- * - density = number of atoms / number of variables
- * - sum_const = sum of the absolute values of all constants in the
- *   difference logic atoms
- * - num_eqs = number of equalities (among all atoms)
- * dl_data stores the relevant data
- */
-typedef struct dl_data_s {
-  rational_t sum_const;
-  uint32_t num_vars;
-  uint32_t num_atoms;
-  uint32_t num_eqs;
-} dl_data_t;
-
-
-
-
-
 /**************
  *  CONTEXT   *
  *************/
@@ -615,13 +384,9 @@ struct context_s {
 
   // core and theory solvers
   smt_core_t *core;
-  egraph_t *egraph;
-  void *arith_solver;
   void *bv_solver;
-  void *fun_solver;
 
   // solver internalization interfaces
-  arith_interface_t arith;
   bv_interface_t bv;
 
   // input are all from the following tables (from yices_globals.h)
@@ -660,20 +425,9 @@ struct context_s {
   int_bvset_t *cache;
   int_hset_t *small_cache;
   pmap2_t *eq_cache;
-  divmod_tbl_t *divmod_table;
   bfs_explorer_t *explorer;
 
-  // buffer to store difference-logic data
-  dl_data_t *dl_profile;
-
-  // buffers for arithmetic simplification/internalization
-  rba_buffer_t *arith_buffer;
-  poly_buffer_t *poly_buffer;
-  polynomial_t *aux_poly;
-  uint32_t aux_poly_size;  // number of monomials in aux_poly
-
   // auxiliary buffers for model construction
-  rational_t aux;
   bvconstant_t bv_buffer;
 
   // for exception handling

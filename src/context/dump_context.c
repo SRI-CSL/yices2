@@ -18,66 +18,14 @@
 #include "solvers/bv/bvsolver_printer.h"
 #include "solvers/cdcl/gates_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
-#include "solvers/egraph/egraph_printer.h"
-#include "solvers/floyd_warshall/idl_fw_printer.h"
-#include "solvers/floyd_warshall/rdl_fw_printer.h"
-#include "solvers/simplex/simplex_printer.h"
 
 #ifndef NDEBUG
 #include "api/yices_globals.h"
 #endif
 
 /*
- * Dump: print all internal tables
- * + the egraph/core and theory solvers
+ * Print internal tables
  */
-static void dump_egraph(FILE *f, egraph_t *egraph) {
-  fprintf(f, "\n--- Egraph Variables ---\n");
-  print_egraph_terms(f, egraph);
-  fprintf(f, "\n--- Egraph Atoms ---\n");
-  print_egraph_atoms(f, egraph);
-#ifndef DEBUG
-  fprintf(f, "\n--- Egraph Classes ---\n");
-  print_egraph_root_classes(f, egraph);
-#endif
-}
-
-static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
-  fprintf(f, "\n--- IDL Variables ---\n");
-  print_idl_var_table(f, idl);
-  fprintf(f, "\n--- IDL Atoms ---\n");
-  print_idl_atoms(f, idl);
-  fprintf(f, "\n--- IDL Constraints ---\n");
-  print_idl_axioms(f, idl);
-}
-
-static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
-  fprintf(f, "\n--- RDL Variables ---\n");
-  print_rdl_var_table(f, rdl);
-  fprintf(f, "\n--- RDL Atoms ---\n");
-  print_rdl_atoms(f, rdl);
-  fprintf(f, "\n--- RDL Constraints ---\n");
-  print_rdl_axioms(f, rdl);
-}
-
-static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
-  fprintf(f, "\n--- Simplex ---\n");
-#ifndef NDEBUG
-  print_simplex_flags(f, simplex);
-  fprintf(f, "\n");
-#endif
-  print_simplex_vars(f, simplex);
-#ifndef NDEBUG
-  print_simplex_saved_rows(f, simplex);
-#endif
-  print_simplex_atoms(f, simplex);
-  fprintf(f, "\n--- Tableau ---\n");
-  print_simplex_matrix(f, simplex);
-  fprintf(f, "---  Bounds ---\n");
-  print_simplex_bounds(f, simplex);
-  fprintf(f, "\n");
-}
-
 static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
 #ifndef NDEBUG
   fprintf(f, "\n--- Bitvector Partition ---\n");
@@ -121,21 +69,6 @@ void dump_context(FILE *f, context_t *context) {
   fprintf(f, "\n--- Gates ---\n");
   print_gate_table(f, &context->gate_manager.htbl);
 #endif
-
-  if (context_has_egraph(context)) {
-    dump_egraph(f, context->egraph);
-  }
-
-  if (context_has_arith_solver(context)) {
-    if (context_has_idl_solver(context)) {
-      dump_idl_solver(f, context->arith_solver);
-    } else if (context_has_rdl_solver(context)) {
-      dump_rdl_solver(f, context->arith_solver);
-    } else {
-      assert(context_has_simplex_solver(context));
-      dump_simplex_solver(f, context->arith_solver);
-    }
-  }
 
   if (context_has_bv_solver(context)) {
     dump_bv_solver(f, context->bv_solver);

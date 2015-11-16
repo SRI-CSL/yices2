@@ -26,7 +26,6 @@
 #include "terms/bv_constants.h"
 #include "terms/bvarith64_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
-#include "terms/rba_buffer_terms.h"
 #include "utils/hash_functions.h"
 #include "utils/memalloc.h"
 
@@ -181,7 +180,6 @@ static void alloc_tstack(tstack_t *stack, uint32_t nops) {
 
   init_bvconstant(&stack->bvconst_buffer);
 
-  stack->abuffer = NULL;
   stack->bva64buffer = NULL;
   stack->bvabuffer = NULL;
   stack->bvlbuffer = NULL;
@@ -258,17 +256,10 @@ static stack_elem_t *tstack_get_topelem(tstack_t *stack) {
  * multiplicity index.
  *
  * If op is BIND, then top-op must be LET.
- * If op is DECLARE_VAR, then top-op must be MK_EXISTS or MK_FORALL or MK_LAMBDA
  *
- * For all operators except BIND, DECLARE_VAR, and DECLARE_TYPE_VAR,
- * we also open a new scope in the arena. For BIND the arena scope
- * remains the one open by the enclosing LET. For DECLARE_VAR, it's
- * the one of the enclosing FORALL, EXISTS, or LAMBDA. For
- * DECLARE_TYPE_VAR, it's also the one open by the enclosing operator
- * (must be something like SMT LIB 2's define-sort).
- *
- * NOTE: in SMT-LIB 2, we can have DECLARE_VAR inside a define-fun
- * operation.
+ * For all operators except BIND, we also open a new scope in the
+ * arena. For BIND the arena scope remains the one open by the
+ * enclosing LET.
  */
 void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
   uint32_t i;
@@ -299,7 +290,7 @@ void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
   stack->top_op = op;
   stack->frame = i;
 
-  if (op != BIND && op != DECLARE_VAR && op != DECLARE_TYPE_VAR) {
+  if (op != BIND) {
     // mark start of new scope
     arena_push(&stack->mem);
   }
@@ -348,8 +339,7 @@ void tstack_push_str(tstack_t *stack, tag_t tag, char *s, uint32_t n, loc_t *loc
  * For define-type or define term: push a name s on the stack.
  *
  * These functions are like push_symbol but they raise an exception if
- * name is already used (TSTACK_TYPENAME_REDEF, TSTACK_TERMNAME_REDEF,
- * or TSTACK_MACRO_REDEF)
+ * name is already used (TSTACK_TYPENAME_REDEF or TSTACK_TERMNAME_REDEF).
  */
 void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   if (yices_get_type_by_name(s) != NULL_TYPE) {
@@ -364,25 +354,6 @@ void tstack_push_free_termname(tstack_t *stack, char *s, uint32_t n, loc_t *loc)
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
 }
-
-void tstack_push_free_macroname(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_macro_by_name(s) >= 0) {
-    push_exception(stack, loc, s, TSTACK_MACRO_REDEF);
-  }
-  tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
-}
-
-/*
- * Variant: raise exception (TSTACK_TYPENAME_REDEF) if s is already
- * used either as a type or as a macro name
- */
-void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_type_by_name(s) != NULL_TYPE || yices_get_macro_by_name(s) >= 0) {
-    push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
-  }
-  tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
-}
-
 
 /*
  * Convert a string to a rational and push that
@@ -551,19 +522,6 @@ void tstack_push_term_by_name(tstack_t *stack, char *s, loc_t *loc) {
   e->loc = *loc;
 }
 
-void tstack_push_macro_by_name(tstack_t *stack, char *s, loc_t *loc) {
-  stack_elem_t *e;
-  int32_t id;
-
-  id = yices_get_macro_by_name(s);
-  if (id < 0) push_exception(stack, loc, s, TSTACK_UNDEF_MACRO);
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_MACRO;
-  e->val.macro = id;
-  e->loc = *loc;
-}
-
 
 /*
  * Push primitive types or terms
@@ -574,24 +532,6 @@ void tstack_push_bool_type(tstack_t *stack, loc_t *loc) {
   e = tstack_get_topelem(stack);
   e->tag = TAG_TYPE;
   e->val.type = yices_bool_type();
-  e->loc = *loc;
-}
-
-void tstack_push_int_type(tstack_t *stack, loc_t *loc) {
-  stack_elem_t *e;
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_TYPE;
-  e->val.type = yices_int_type();
-  e->loc = *loc;
-}
-
-void tstack_push_real_type(tstack_t *stack, loc_t *loc) {
-  stack_elem_t *e;
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_TYPE;
-  e->val.type = yices_real_type();
   e->loc = *loc;
 }
 
@@ -649,15 +589,6 @@ void tstack_push_type(tstack_t *stack, type_t tau, loc_t *loc) {
   e->loc = *loc;
 }
 
-void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc) {
-  stack_elem_t *e;
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_MACRO;
-  e->val.macro = id;
-  e->loc = *loc;
-}
-
 
 /**********************
  *  INTERNAL BUFFERS  *
@@ -666,29 +597,11 @@ void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc) {
 /*
  * Invariant we want to maintain:
  * - stack->abuffer is either NULL or it's pointing to the last
- *   arithmetic_buffer allocated and that buffer does not occur in the stack.
+ *   buffer allocated and that buffer does not occur in the stack.
  * - if an element in the stack has tag = TAG_ARITH_BUFFER
  *   then its value is a pointer to an arithmetic buffer != stack->abuffer.
  * Same thing for stack->bvabuffer and stack->bvlbuffer.
  */
-
-/*
- * Get the internal buffers (or allocate a new one)
- */
-rba_buffer_t *tstack_get_abuffer(tstack_t *stack) {
-  rba_buffer_t *tmp;
-
-  tmp = stack->abuffer;
-  if (tmp == NULL) {
-    tmp = yices_new_arith_buffer();
-    stack->abuffer = tmp;
-  } else {
-    reset_rba_buffer(tmp);
-  }
-  assert(rba_buffer_is_zero(tmp));
-  return tmp;
-}
-
 bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bitsize) {
   bvarith64_buffer_t *tmp;
 
@@ -742,15 +655,6 @@ bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack) {
 /*
  * Free or recycle a buffer
  */
-static void recycle_abuffer(tstack_t *stack, rba_buffer_t *b) {
-  if (stack->abuffer == NULL) {
-    reset_rba_buffer(b);
-    stack->abuffer = b;
-  } else if (stack->abuffer != b) {
-    yices_free_arith_buffer(b);
-  }
-}
-
 static void recycle_bva64buffer(tstack_t *stack, bvarith64_buffer_t *b) {
   if (stack->bva64buffer == NULL) {
     bvarith64_buffer_prepare(b, 32); // any non-zero value would work
@@ -832,9 +736,6 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
       aval_decref(stack->avtbl, e->val.aval);
     }
     break;
-  case TAG_ARITH_BUFFER:
-    recycle_abuffer(stack, e->val.arith_buffer);
-    break;
   case TAG_BVARITH64_BUFFER:
     recycle_bva64buffer(stack, e->val.bvarith64_buffer);
     break;
@@ -889,8 +790,7 @@ void tstack_reset(tstack_t *stack) {
  * Remove the elements above the top-frame index
  * (i.e. all the parameters in the top frame, but not the operator)
  *
- * If top-op is not BIND or DECLARE_VAR or DECLARE_TYPE_VAR, also
- * close the arena scope.
+ * If top-op is not BIND also close the arena scope.
  */
 void tstack_pop_frame(tstack_t *stack) {
   uint32_t i, n;
@@ -915,7 +815,7 @@ void tstack_pop_frame(tstack_t *stack) {
   }
   stack->top = n;
 
-  if (op != BIND && op != DECLARE_VAR && op != DECLARE_TYPE_VAR) {
+  if (op != BIND) {
     arena_pop(&stack->mem);
   }
 }
@@ -956,7 +856,7 @@ void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v) {
   }
   stack->top = n;
 
-  if (op != BIND && op != DECLARE_VAR && op != DECLARE_TYPE_VAR) {
+  if (op != BIND) {
     arena_pop(&stack->mem);
   }
 }
@@ -982,18 +882,6 @@ void set_type_result(tstack_t *stack, type_t tau) {
   e = stack->elem + (stack->top - 1);
   e->tag = TAG_TYPE;
   e->val.type = tau;
-}
-
-// b must be equal to stack->abuffer. We reset stack->abuffer to NULL
-void set_arith_result(tstack_t *stack, rba_buffer_t *b) {
-  stack_elem_t *e;
-
-  assert(b == stack->abuffer);
-  stack->abuffer = NULL;
-
-  e = stack->elem + (stack->top - 1);
-  e->tag = TAG_ARITH_BUFFER;
-  e->val.arith_buffer = b;
 }
 
 // b must be stack->bva64buffer
@@ -1291,25 +1179,6 @@ static bool check_duplicate_string(tagged_string_t *a, int32_t n, char *s) {
 
 
 /*
- * Check whether all names in a scalar-type definition are distinct
- * - names are in f[0] .. f[n-1]
- * - all are symbols
- */
-static void check_distinct_scalar_names(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
-  tagged_string_t check[n];
-
-  // check for duplicate strings in the sequence
-  for (i=0; i<n; i++) {
-    assert(f[i].tag == TAG_SYMBOL);
-    if (check_duplicate_string(check, i, f[i].val.string)) {
-      raise_exception(stack, f+i, TSTACK_DUPLICATE_SCALAR_NAME);
-    }
-  }
-}
-
-
-/*
  * Check whether all names in a list of variable bindings are distinct
  * - names are in f[0] .. f[n-1]
  * - all are bindings
@@ -1384,14 +1253,6 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     t = yices_bvconst_term(e->val.bv.bitsize, e->val.bv.data);
     break;
 
-  case TAG_RATIONAL:
-    t = yices_rational_term(&e->val.rational);
-    break;
-
-  case TAG_ARITH_BUFFER:
-    t = arith_buffer_get_term(e->val.arith_buffer);
-    break;
-
   case TAG_BVARITH64_BUFFER:
     t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
     break;
@@ -1433,64 +1294,6 @@ int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
     raise_exception(stack, e, TSTACK_NOT_AN_INTEGER);
   }
 }
-
-
-/*
- * Support for division: return a rational constant equal to den
- * provided den is constant and non-zero
- */
-rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
-  rational_t *d;
-  term_t t;
-  rba_buffer_t *c;
-  term_table_t *terms;
-  mono_t *m;
-
-  switch (den->tag) {
-  case TAG_RATIONAL:
-    d = &den->val.rational;
-    if (q_is_zero(d)) {
-      raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
-    }
-    break;
-
-  case TAG_TERM:
-    terms = __yices_globals.terms;
-    t = den->val.term;
-    if (term_kind(terms, t) == ARITH_CONSTANT) {
-      d = rational_term_desc(terms, t);
-      if (q_is_zero(d)) {
-        raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
-      }
-    } else if (is_arithmetic_term(terms, t)) {
-      raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);
-    } else {
-      raise_exception(stack, den, TSTACK_ARITH_ERROR);
-    }
-    break;
-
-  case TAG_ARITH_BUFFER:
-    c = den->val.arith_buffer;
-    if (rba_buffer_is_constant(c)) {
-      m = rba_buffer_get_constant_mono(c);
-      if (m == NULL) {
-        assert(rba_buffer_is_zero(c));
-        raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
-      }
-      d = &m->coeff;
-    } else {
-      raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);
-    }
-    break;
-
-  default:
-    raise_exception(stack, den, TSTACK_ARITH_ERROR);
-    break;
-  }
-
-  return d;
-}
-
 
 
 /*
@@ -1607,147 +1410,6 @@ static void check_bv_term(tstack_t *stack, stack_elem_t *e, uint32_t n) {
   }
   if (term_bitsize(__yices_globals.terms, t) != n) {
     raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
-  }
-}
-
-
-
-/*
- * ARITHMETIC
- */
-
-/*
- * Add arithmetic element e to buffer b. Raise an exception if e is not
- * arithmetic or if the operation fails.
- */
-void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
-  switch (e->tag) {
-  case TAG_RATIONAL:
-    rba_buffer_add_const(b, &e->val.rational);
-    break;
-
-  case TAG_TERM:
-    if (! yices_check_arith_term(e->val.term)) {
-      report_yices_error(stack);
-    }
-    rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
-    break;
-
-  case TAG_ARITH_BUFFER:
-    rba_buffer_add_buffer(b, e->val.arith_buffer);
-    break;
-
-  default:
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-    break;
-  }
-}
-
-
-/*
- * Negate element e (in place). Raise an exception if e is not an arithmetic term.
- */
-void neg_elem(tstack_t *stack, stack_elem_t *e) {
-  rba_buffer_t *b;
-  term_table_t *terms;
-  term_t t;
-
-  switch (e->tag) {
-  case TAG_RATIONAL:
-    q_neg(&e->val.rational);
-    break;
-
-  case TAG_TERM:
-    t = e->val.term;
-    terms = __yices_globals.terms;
-    if (! yices_check_arith_term(t)) {
-      report_yices_error(stack);
-    }
-    if (term_kind(terms, t) == ARITH_CONSTANT) {
-      // overwrite e: replace it by -(t's value)
-      e->tag = TAG_RATIONAL;
-      q_init(&e->val.rational);
-      q_set_neg(&e->val.rational, rational_term_desc(terms, t));
-    } else {
-      // compute -b
-      b = tstack_get_abuffer(stack);
-      assert(rba_buffer_is_zero(b));
-      rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
-      // overwrite e
-      e->tag = TAG_ARITH_BUFFER;
-      e->val.arith_buffer = b;
-      // reset stack->abuffer to NULL (cf. set_arith_result)
-      assert(b == stack->abuffer);
-      stack->abuffer = NULL;
-    }
-    break;
-
-  case TAG_ARITH_BUFFER:
-    rba_buffer_negate(e->val.arith_buffer);
-    break;
-
-  default:
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-    break;
-  }
-}
-
-
-/*
- * Subtract element e from buffer b.
- */
-void sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
-  switch (e->tag) {
-  case TAG_RATIONAL:
-    rba_buffer_sub_const(b, &e->val.rational);
-    break;
-
-  case TAG_TERM:
-    if (! yices_check_arith_term(e->val.term)) {
-      report_yices_error(stack);
-    }
-    rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
-    break;
-
-  case TAG_ARITH_BUFFER:
-    rba_buffer_sub_buffer(b, e->val.arith_buffer);
-    break;
-
-  default:
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-    break;
-  }
-}
-
-
-/*
- * Product
- */
-void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
-  switch (e->tag) {
-  case TAG_RATIONAL:
-    rba_buffer_mul_const(b, &e->val.rational);
-    break;
-
-  case TAG_TERM:
-    if (! yices_check_arith_term(e->val.term) ||
-        ! yices_check_mul_term(b, e->val.term)) {
-      report_yices_error(stack);
-    }
-    rba_buffer_mul_term(b, __yices_globals.terms, e->val.term);
-    break;
-
-  case TAG_ARITH_BUFFER:
-    if (! yices_check_mul_buffer(b, e->val.arith_buffer)) {
-      // degree overflow
-      report_yices_error(stack);
-    }
-    rba_buffer_mul_buffer(b, e->val.arith_buffer);
-    break;
-
-  default:
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-    break;
   }
 }
 
@@ -2752,12 +2414,11 @@ void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
  */
 
 /*
- * [define-type <symbol> ]
  * [define-type <symbol> <type> ]
  */
 static void check_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, DEFINE_TYPE);
-  check_size(stack, (n == 1 || n == 2));
+  check_size(stack, n == 2);
   check_tag(stack, f, TAG_SYMBOL);
   if (n == 2) check_tag(stack, f+1, TAG_TYPE);
 }
@@ -2765,11 +2426,7 @@ static void check_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   type_t tau;
 
-  if (n == 1) {
-    tau = yices_new_uninterpreted_type();
-  } else {
-    tau = f[1].val.type;
-  }
+  tau = f[1].val.type;
   yices_set_type_name(tau, f[0].val.string);
 
   tstack_pop_frame(stack);
@@ -2831,55 +2488,6 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [declare-var <string> <type>] --> [<string> <var>]
- */
-static void check_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, DECLARE_VAR);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_SYMBOL);
-  check_tag(stack, f+1, TAG_TYPE);
-}
-
-static void eval_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau;
-  term_t var;
-  char *name;
-
-  name = f[0].val.string;
-  tau = f[1].val.type;
-  var = yices_new_variable(tau);
-
-  yices_set_term_name(var, name);
-  tstack_pop_frame(stack);
-  set_binding_result(stack, var, name);
-}
-
-
-/*
- * [declare-type-var <symbol> ] --> [type_binding <symbol> <type-var]
- */
-static void check_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, DECLARE_TYPE_VAR);
-  check_size(stack, n == 1);
-  check_tag(stack, f, TAG_SYMBOL);
-}
-
-static void eval_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau;
-  char *name;
-
-  name = f[0].val.string;
-  tau = yices_type_variable(stack->tvar_id);
-  assert(tau != NULL_TYPE);
-  stack->tvar_id ++;
-
-  yices_set_type_name(tau, name);
-  tstack_pop_frame(stack);
-  set_type_binding_result(stack, tau, name);
-}
-
-
-/*
  * [let <binding> ... <binding> <term>]
  */
 static void check_let(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -2923,157 +2531,8 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [mk-scalar-type <string> ... <string>]
- */
-static void check_mk_scalar_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_SCALAR_TYPE);
-  check_size(stack, n >= 1);
-  check_all_tags(stack, f, f+n, TAG_SYMBOL);
-  check_distinct_scalar_names(stack, f, n);
-}
-
-static void eval_mk_scalar_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau;
-  int32_t i, card;
-  term_t x;
-
-  // build the type
-  card = n;
-  tau = yices_new_scalar_type(card);
-  assert(tau != NULL_TYPE);
-
-  for (i=0; i<card; i++) {
-    x = yices_constant(tau, i);
-    assert(x != NULL_TERM);
-    yices_set_term_name(x, f[i].val.string);
-  }
-
-  tstack_pop_frame(stack);
-  set_type_result(stack, tau);
-}
-
-/*
- * [mk-tuple-type <type> ... <type>]
- */
-static void check_mk_tuple_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_TUPLE_TYPE);
-  check_size(stack, n >= 1);
-  check_all_tags(stack, f, f+n, TAG_TYPE);
-}
-
-static void eval_mk_tuple_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t *tau, sigma;
-  uint32_t i;
-
-  tau = get_aux_buffer(stack, n);
-
-  for (i=0; i<n; i++) {
-    tau[i] = f[i].val.type;
-  }
-  sigma = yices_tuple_type(n, tau);
-  assert(sigma != NULL_TYPE);
-
-  tstack_pop_frame(stack);
-  set_type_result(stack, sigma);
-}
-
-/*
- * [mk-fun-type <type> ... <type> <type> ]
- *
- * To support SMT-LIB, we also allow [mk-fun-type <type>] and
- * just return <type>.
- */
-static void check_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_FUN_TYPE);
-  check_size(stack, n >= 1);
-  check_all_tags(stack, f, f+n, TAG_TYPE);
-}
-
-static void eval_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t *tau, sigma;
-  uint32_t i;
-
-  if (n >= 2) {
-    // first n-1 types are the domain, last one is the range
-    tau = get_aux_buffer(stack, n);
-
-    for (i=0; i<n; i++) {
-      tau[i] = f[i].val.type;
-    }
-
-    n --;
-    sigma = yices_function_type(n, tau, tau[n]);
-  } else {
-    sigma = f[0].val.type;
-  }
-
-  assert(sigma != NULL_TYPE);
-  tstack_pop_frame(stack);
-  set_type_result(stack, sigma);
-}
-
-
-/*
- * [mk-app-type <macro> <type> ... <type> ]
- */
-static void check_mk_app_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_APP_TYPE);
-  check_size(stack, n >= 2);
-  check_tag(stack, f, TAG_MACRO);
-  check_all_tags(stack, f+1, f+n, TAG_TYPE);
-}
-
-static void eval_mk_app_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t *tau, sigma;
-  int32_t id;
-  uint32_t i;
-
-  assert(n > 0);
-  id = f[0].val.macro;
-
-  n --;
-  f ++;
-  tau = get_aux_buffer(stack, n);
-  for (i=0; i<n; i++) {
-    tau[i] = f[i].val.type;
-  }
-  sigma = yices_instance_type(id, n, tau);
-  check_type(stack, sigma);
-
-  tstack_pop_frame(stack);
-  set_type_result(stack, sigma);
-}
-
-
-/*
  * TERM CONSTRUCTORS
  */
-
-/*
- * [mk-apply <term> .... <term>]
- */
-static void check_mk_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_APPLY);
-  check_size(stack, n >= 2);
-}
-
-static void eval_mk_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t arg[n], fun, t;
-  uint32_t i;
-
-  fun = get_term(stack, f);
-  n --; // number of arguments
-  f ++;
-  for (i=0; i<n; i++) {
-    arg[i] = get_term(stack, f + i);
-  }
-  t = yices_application(fun, n, arg);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
 
 /*
  * [mk-ite <term> <term> <term>]
@@ -3162,8 +2621,6 @@ static void eval_mk_distinct(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
-
-
 
 
 /*
@@ -3302,429 +2759,6 @@ static void eval_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
-
-
-/*
- * [mk-tuple <term> ... <term>]
- */
-static void check_mk_tuple(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_TUPLE);
-  check_size(stack, n >= 1);
-}
-
-static void eval_mk_tuple(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t arg[n], t;
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    arg[i] = get_term(stack, f+i);
-  }
-  t = yices_tuple(n, arg);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-select <term> <rational>]
- */
-static void check_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_SELECT);
-  check_size(stack, n == 2);
-  check_tag(stack, f+1, TAG_RATIONAL);
-}
-
-static void eval_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t idx;
-  term_t t;
-
-  idx = get_integer(stack, f+1);
-  t = yices_select(idx, get_term(stack, f));
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-/*
- * [mk-tuple-update <tuple> <rational> <newvalue> ]
- */
-static void check_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_TUPLE_UPDATE);
-  check_size(stack, n == 3);
-  check_tag(stack, f+1, TAG_RATIONAL);
-}
-
-
-static void eval_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t idx;
-  term_t t, new_v;
-
-  idx = get_integer(stack, f+1);
-  new_v = get_term(stack, f+2);
-  t = yices_tuple_update(get_term(stack, f), idx, new_v);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-update <fun> <arg1> ... <argn> <newvalue>]
- */
-static void check_mk_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_UPDATE);
-  check_size(stack, n >= 3);
-}
-
-static void eval_mk_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t arg[n], t;
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    arg[i] = get_term(stack, f+i);
-  }
-  t = yices_update(arg[0], n-2, arg+1, arg[n-1]);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-forall <binding> ... <binding> <term>]
- */
-static void check_mk_forall(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_FORALL);
-  check_size(stack, n >= 2);
-  check_all_tags(stack, f, f + (n-1), TAG_BINDING);
-  check_distinct_binding_names(stack, f, n-1);
-}
-
-static void eval_mk_forall(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t, arg[n];
-  uint32_t i;
-
-  for (i=0; i<n-1; i++) {
-    arg[i] = f[i].val.binding.term;
-  }
-  // body = last argument
-  arg[i] = get_term(stack, f + (n-1));
-  t = yices_forall(n-1, arg, arg[n-1]);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-exists <binding> ... <binding> <term>]
- */
-static void check_mk_exists(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_EXISTS);
-  check_size(stack, n >= 2);
-  check_all_tags(stack, f, f + (n-1), TAG_BINDING);
-  check_distinct_binding_names(stack, f, n-1);
-}
-
-static void eval_mk_exists(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t, arg[n];
-  uint32_t i;
-
-  for (i=0; i<n-1; i++) {
-    arg[i] = f[i].val.binding.term;
-  }
-  // body = last argument
-  arg[i] = get_term(stack, f + (n-1));
-  t = yices_exists(n-1, arg, arg[n-1]);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-lambda <binding> ... <binding> <term>]
- */
-static void check_mk_lambda(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_LAMBDA);
-  check_size(stack, n >= 2);
-  check_all_tags(stack, f, f + (n-1), TAG_BINDING);
-  check_distinct_binding_names(stack, f, n-1);
-}
-
-static void eval_mk_lambda(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t, arg[n];
-  uint32_t i;
-
-  for (i=0; i<n-1; i++) {
-    arg[i] = f[i].val.binding.term;
-  }
-  // body = last argument
-  arg[i] = get_term(stack, f + (n-1));
-  t = yices_lambda(n-1, arg, arg[n-1]);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-
-/*
- *  ARITHMETIC
- */
-
-/*
- * [mk-add <arith> ... <arith>]
- */
-static void check_mk_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_ADD);
-  check_size(stack, n>=1);
-}
-
-static void eval_mk_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
-  rba_buffer_t *b;
-
-  b = tstack_get_abuffer(stack);
-  for (i=0; i<n; i++) {
-    add_elem(stack, b, f+i);
-  }
-  tstack_pop_frame(stack);
-  set_arith_result(stack, b);
-}
-
-
-/*
- * [mk-sub <arith> ... <arith>]
- */
-static void check_mk_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_SUB);
-  check_size(stack, n>=1);
-}
-
-static void eval_mk_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
-  rba_buffer_t *b;
-
-  // if n == 1, we interpret this a unary minus (unlike yices-1.0.x)
-  if (n == 1) {
-    // [mk-neg xxx] ---> - xxx
-    neg_elem(stack, f);
-    copy_result_and_pop_frame(stack, f);
-  } else {
-    b = tstack_get_abuffer(stack);
-    add_elem(stack, b, f);
-    for (i=1; i<n; i++) {
-      sub_elem(stack, b, f+i);
-    }
-    tstack_pop_frame(stack);
-    set_arith_result(stack, b);
-  }
-
-}
-
-
-/*
- * [mk-neg <arith>]
- */
-static void check_mk_neg(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_NEG);
-  check_size(stack, n==1);
-}
-
-static void eval_mk_neg(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  neg_elem(stack, f);
-  copy_result_and_pop_frame(stack, f);
-}
-
-
-/*
- * [mk-mul <arith> ... <arith>]
- */
-static void check_mk_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_MUL);
-  check_size(stack, n>=1);
-}
-
-static void eval_mk_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
-  rba_buffer_t *b;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  for (i=1; i<n; i++) {
-    mul_elem(stack, b, f+i);
-  }
-  tstack_pop_frame(stack);
-  set_arith_result(stack, b);
-}
-
-
-/*
- * [mk-division <arith> <arith>]
- */
-static void check_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_DIVISION);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rational_t *divisor;
-  rba_buffer_t *b;
-
-  divisor = get_divisor(stack, f+1);
-
-  if (f->tag == TAG_RATIONAL) {
-    q_div(& f->val.rational, divisor);
-    copy_result_and_pop_frame(stack, f);
-
-  } else {
-    b = tstack_get_abuffer(stack);
-
-    add_elem(stack, b, f);
-    rba_buffer_div_const(b, divisor);
-    tstack_pop_frame(stack);
-    set_arith_result(stack, b);
-  }
-}
-
-
-/*
- * [mk-pow <arith> <integer>]
- */
-static void check_mk_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_POW);
-  check_size(stack, n == 2);
-  check_tag(stack, f+1, TAG_RATIONAL);
-}
-
-static void eval_mk_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t exponent;
-  term_t t;
-
-  exponent = get_integer(stack, f+1);
-  if (exponent < 0) {
-    raise_exception(stack, f+1, TSTACK_NEGATIVE_EXPONENT);
-  }
-
-  /*
-   * Note: we could avoid creating the intermediate term t
-   * by calling directly the exponentiation functions for
-   * arith_buffers, rationals, etc.?
-   */
-  t = get_term(stack, f);
-  t = yices_power(t, exponent);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-/*
- * [mk-ge <arith> <arith>]
- */
-static void check_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_GE);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_geq0_atom(b); // term for [f] - [f+1] >= 0
-  assert(t != NULL_TERM);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-gt <arith> <arith>]
- */
-static void check_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_GT);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_gt0_atom(b); // term for [f] - [f+1] > 0
-  assert(t != NULL_TERM);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-le <arith> <arith>]
- */
-static void check_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_LE);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_leq0_atom(b); // term for [f] - [f+1] <= 0
-  assert(t != NULL_TERM);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [mk-lt <arith> <arith>]
- */
-static void check_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_LT);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_lt0_atom(b); // term for [f] - [f+1] < 0
-  assert(t != NULL_TERM);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-
 
 
 /*
@@ -5021,149 +4055,6 @@ static void eval_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
-/*
- * MORE ARITHMETIC FUNCTIONS (FROM SMT-LIB2)
- */
-
-/*
- * Floor/ceil/absolute value: all take a single argument
- */
-static void check_mk_floor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_FLOOR);
-  check_size(stack, n == 1);
-}
-
-static void eval_mk_floor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_floor(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-static void check_mk_ceil(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_CEIL);
-  check_size(stack, n == 1);
-}
-
-static void eval_mk_ceil(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_ceil(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-static void check_mk_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_ABS);
-  check_size(stack, n == 1);
-}
-
-static void eval_mk_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_abs(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * Integer division and modulo: two parameters
- * - the second must be a non-zero arithmetic constant
- */
-static void check_mk_idiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_IDIV);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_idiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2;
-
-  t1 = get_term(stack, f);
-  t2 = get_term(stack, f+1); // divider
-  t1 = yices_idiv(t1, t2);
-  check_term(stack, t1);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t1);
-}
-
-
-static void check_mk_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_MOD);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2;
-
-  t1 = get_term(stack, f);
-  t2 = get_term(stack, f+1); // divider
-  t1 = yices_imod(t1, t2);
-  check_term(stack, t1);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t1);
-}
-
-
-/*
- * [mk-is-int <term>]
- */
-static void check_mk_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_IS_INT);
-  check_size(stack, n == 1);
-}
-
-static void eval_mk_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_is_int_atom(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-/*
- * [mk-divides <arith> <arith> ]
- * - the first term must be an arithmetic constant
- */
-static void check_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_DIVIDES);
-  check_size(stack, n == 2);
-}
-
-static void eval_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2;
-
-  t1 = get_term(stack, f); // divider
-  t2 = get_term(stack, f+1);
-  t1 = yices_divides_atom(t1, t2);
-  check_term(stack, t1);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t1);
-}
-
-
-
 
 
 
@@ -5277,15 +4168,8 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // DEFINE_TYPE
   0, // DEFINE_TERM
   0, // BIND
-  0, // DECLARE_VAR
-  0, // DECLARE_TYPE_VAR
   1, // LET
   0, // MK_BV_TYPE
-  0, // MK_SCALAR_TYPE
-  0, // MK_TUPLE_TYPE
-  0, // MK_FUN_TYPE
-  0, // MK_APP_TYPE
-  0, // MK_APPLY
   0, // MK_ITE
   0, // MK_EQ
   0, // MK_DISEQ
@@ -5296,23 +4180,6 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   1, // MK_XOR
   0, // MK_IFF
   0, // MK_IMPLIES
-  0, // MK_TUPLE
-  0, // MK_SELECT
-  0, // MK_TUPLE_UPDATE
-  0, // MK_UPDATE
-  0, // MK_FORALL
-  0, // MK_EXISTS
-  0, // MK_LAMBDA
-  1, // MK_ADD
-  0, // MK_SUB
-  0, // MK_NEG
-  1, // MK_MUL
-  0, // MK_DIVISION
-  0, // MK_POW
-  0, // MK_GE
-  0, // MK_GT
-  0, // MK_LE
-  0, // MK_LT
   0, // MK_BV_CONST
   1, // MK_BV_ADD
   0, // MK_BV_SUB
@@ -5359,13 +4226,6 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // MK_BV_SLT
   0, // MK_BOOL_TO_BV
   0, // MK_BIT
-  0, // MK_FLOOR
-  0, // MK_CEIL
-  0, // MK_ABS
-  0, // MK_IDIV
-  0, // MK_MOD
-  0, // MK_DIVIDES
-  0, // MK_IS_INT
   0, // BUILD_TERM
   0, // BUILD_TYPE
 };
@@ -5375,15 +4235,8 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_define_type,
   check_define_term,
   check_bind,
-  check_declare_var,
-  check_declare_type_var,
   check_let,
   check_mk_bv_type,
-  check_mk_scalar_type,
-  check_mk_tuple_type,
-  check_mk_fun_type,
-  check_mk_app_type,
-  check_mk_apply,
   check_mk_ite,
   check_mk_eq,
   check_mk_diseq,
@@ -5394,23 +4247,6 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_mk_xor,
   check_mk_iff,
   check_mk_implies,
-  check_mk_tuple,
-  check_mk_select,
-  check_mk_tuple_update,
-  check_mk_update,
-  check_mk_forall,
-  check_mk_exists,
-  check_mk_lambda,
-  check_mk_add,
-  check_mk_sub,
-  check_mk_neg,
-  check_mk_mul,
-  check_mk_division,
-  check_mk_pow,
-  check_mk_ge,
-  check_mk_gt,
-  check_mk_le,
-  check_mk_lt,
   check_mk_bv_const,
   check_mk_bv_add,
   check_mk_bv_sub,
@@ -5457,13 +4293,6 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_mk_bv_slt,
   check_mk_bool2bv,
   check_mk_bit,
-  check_mk_floor,
-  check_mk_ceil,
-  check_mk_abs,
-  check_mk_idiv,
-  check_mk_mod,
-  check_mk_divides,
-  check_mk_is_int,
   check_build_term,
   check_build_type,
 };
@@ -5473,15 +4302,8 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_define_type,
   eval_define_term,
   eval_bind,
-  eval_declare_var,
-  eval_declare_type_var,
   eval_let,
   eval_mk_bv_type,
-  eval_mk_scalar_type,
-  eval_mk_tuple_type,
-  eval_mk_fun_type,
-  eval_mk_app_type,
-  eval_mk_apply,
   eval_mk_ite,
   eval_mk_eq,
   eval_mk_diseq,
@@ -5492,23 +4314,6 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_mk_xor,
   eval_mk_iff,
   eval_mk_implies,
-  eval_mk_tuple,
-  eval_mk_select,
-  eval_mk_tuple_update,
-  eval_mk_update,
-  eval_mk_forall,
-  eval_mk_exists,
-  eval_mk_lambda,
-  eval_mk_add,
-  eval_mk_sub,
-  eval_mk_neg,
-  eval_mk_mul,
-  eval_mk_division,
-  eval_mk_pow,
-  eval_mk_ge,
-  eval_mk_gt,
-  eval_mk_le,
-  eval_mk_lt,
   eval_mk_bv_const,
   eval_mk_bv_add,
   eval_mk_bv_sub,
@@ -5555,13 +4360,6 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_mk_bv_slt,
   eval_mk_bool2bv,
   eval_mk_bit,
-  eval_mk_floor,
-  eval_mk_ceil,
-  eval_mk_abs,
-  eval_mk_idiv,
-  eval_mk_mod,
-  eval_mk_divides,
-  eval_mk_is_int,
   eval_build_term,
   eval_build_type,
 };
@@ -5606,11 +4404,6 @@ void delete_tstack(tstack_t *stack) {
   stack->aux_buffer = NULL;
 
   delete_bvconstant(&stack->bvconst_buffer);
-
-  if (stack->abuffer != NULL) {
-    yices_free_arith_buffer(stack->abuffer);
-    stack->abuffer = NULL;
-  }
 
   if (stack->bva64buffer != NULL) {
     yices_free_bvarith64_buffer(stack->bva64buffer);

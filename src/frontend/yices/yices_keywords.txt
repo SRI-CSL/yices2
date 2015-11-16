@@ -7,12 +7,7 @@
 struct keyword_s;
 %%
 bool,                   TK_BOOL
-int,                    TK_INT
-real,                   TK_REAL
 bitvector,              TK_BITVECTOR
-scalar,                 TK_SCALAR
-tuple,                  TK_TUPLE
-->,                     TK_ARROW
 true,                   TK_TRUE
 false,                  TK_FALSE
 if,                     TK_IF
@@ -26,22 +21,6 @@ not,                    TK_NOT
 xor,                    TK_XOR
 <=>,                    TK_IFF
 =>,                     TK_IMPLIES
-mk-tuple,               TK_MK_TUPLE
-select,                 TK_SELECT
-tuple-update,           TK_UPDATE_TUPLE
-update,                 TK_UPDATE
-forall,                 TK_FORALL
-exists,                 TK_EXISTS
-lambda,                 TK_LAMBDA
-+,                      TK_ADD
--,                      TK_SUB
-*,                      TK_MUL
-/,                      TK_DIV
-^,                      TK_POW
-<,                      TK_LT
-<=,                     TK_LE
->,                      TK_GT
->=,                     TK_GE
 mk-bv,                  TK_MK_BV
 bv-add,                 TK_BV_ADD
 bv-sub,                 TK_BV_SUB
@@ -88,13 +67,6 @@ bv-redand,              TK_BV_REDAND
 bv-comp,                TK_BV_COMP
 bool-to-bv,             TK_BOOL_TO_BV
 bit,                    TK_BIT
-floor,                  TK_FLOOR
-ceil,                   TK_CEIL
-abs,                    TK_ABS
-div,                    TK_IDIV
-mod,                    TK_MOD
-divides,                TK_DIVIDES
-is-int,                 TK_IS_INT
 let,                    TK_LET
 define-type,            TK_DEFINE_TYPE
 define,                 TK_DEFINE
@@ -117,6 +89,4 @@ reset-stats,            TK_RESET_STATS
 set-timeout,            TK_SET_TIMEOUT
 show-timeout,           TK_SHOW_TIMEOUT
 help,                   TK_HELP
-ef-solve,		TK_EF_SOLVE
 export-to-dimacs,       TK_EXPORT_TO_DIMACS
-show-implicant,         TK_SHOW_IMPLICANT

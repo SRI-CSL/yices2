@@ -30,7 +30,6 @@ typedef struct yices_globals_s {
   term_manager_t *manager; // full term manager (includes terms)
   tstack_t *tstack;        // term stack (or NULL)
   error_report_t *error;   // data structure for error reporting
-  fvar_collector_t *fvars; // to collect free variables of terms
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;

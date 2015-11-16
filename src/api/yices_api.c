@@ -96,9 +96,6 @@ static parser_t *parser;
 static lexer_t *lexer;
 static tstack_t *tstack;
 
-// variable collector: also allocated on demand
-static fvar_collector_t *fvars;
-
 // rational for building terms
 static rational_t r0;
 
@@ -117,7 +114,7 @@ static bvconstant_t bv0;
  * Global table. Initially all pointers are NULL
  */
 yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL,
 };
 
 
@@ -150,17 +147,6 @@ static sparse_array_t the_root_types;
  * For now, this  makes it possible to delete all
  * global objects when yices_exit is called.
  */
-
-/*
- * Doubly-linked list of arithmetic buffers
- */
-typedef struct {
-  dl_list_t header;
-  rba_buffer_t buffer;
-} arith_buffer_elem_t;
-
-static dl_list_t arith_buffer_list;
-
 
 /*
  * Doubly-linked list of bitvector arithmetic buffers
@@ -233,65 +219,6 @@ typedef struct {
 
 static dl_list_t generic_list;
 
-
-
-
-/**********************************
- *  ARITHMETIC-BUFFER ALLOCATION  *
- *********************************/
-
-/*
- * Get header of buffer b, assuming b is embedded into an arith_buffer_elem
- */
-static inline dl_list_t *arith_buffer_header(rba_buffer_t *b) {
-  return (dl_list_t *)(((char *)b) - offsetof(arith_buffer_elem_t, buffer));
-}
-
-/*
- * Get buffer of header l
- */
-static inline rba_buffer_t *arith_buffer(dl_list_t *l) {
-  return (rba_buffer_t *)(((char *) l) + offsetof(arith_buffer_elem_t, buffer));
-}
-
-/*
- * Allocate an arithmetic buffer and insert it into the list
- */
-static inline rba_buffer_t *alloc_arith_buffer(void) {
-  arith_buffer_elem_t *new_elem;
-
-  new_elem = (arith_buffer_elem_t *) safe_malloc(sizeof(arith_buffer_elem_t));
-  list_insert_next(&arith_buffer_list, &new_elem->header);
-  return &new_elem->buffer;
-}
-
-/*
- * Remove b from the list and free b
- */
-static inline void free_arith_buffer(rba_buffer_t *b) {
-  dl_list_t *elem;
-
-  elem = arith_buffer_header(b);
-  list_remove(elem);
-  safe_free(elem);
-}
-
-/*
- * Clean up the arith buffer list: free all elements and empty the list
- */
-static void free_arith_buffer_list(void) {
-  dl_list_t *elem, *aux;
-
-  elem = arith_buffer_list.next;
-  while (elem != &arith_buffer_list) {
-    aux = elem->next;
-    delete_rba_buffer(arith_buffer(elem));
-    safe_free(elem);
-    elem = aux;
-  }
-
-  clear_list(&arith_buffer_list);
-}
 
 
 
@@ -737,42 +664,6 @@ static void delete_parsing_objects(void) {
 }
 
 
-
-/************************
- *  VARIABLE COLLECTOR  *
- ***********************/
-
-/*
- * Return the free variable collector
- * - allocate and initialize it if necessary
- */
-static fvar_collector_t *get_fvars(void) {
-  if (fvars == NULL) {
-    fvars = (fvar_collector_t *) safe_malloc(sizeof(fvar_collector_t));
-    init_fvar_collector(fvars, &terms);
-    __yices_globals.fvars = fvars;
-  }
-
-  return fvars;
-}
-
-
-/*
- * Delete the free variable collector if it exists
- */
-static void delete_fvars(void) {
-  assert(__yices_globals.fvars == fvars);
-
-  if (fvars != NULL) {
-    delete_fvar_collector(fvars);
-    safe_free(fvars);
-    fvars = NULL;
-    __yices_globals.fvars = NULL;
-  }
-}
-
-
-
 /***************************************
  *  GLOBAL INITIALIZATION AND CLEANUP  *
  **************************************/
@@ -786,7 +677,6 @@ static void init_globals(yices_globals_t *glob) {
   glob->manager = &manager;
   glob->tstack = NULL;
   glob->error = &error;
-  glob->fvars = NULL;
 }
 
 
@@ -799,7 +689,6 @@ static void clear_globals(yices_globals_t *glob) {
   glob->manager = NULL;
   glob->tstack = NULL;
   glob->error = NULL;
-  glob->fvars = NULL;
 }
 
 
@@ -823,7 +712,6 @@ EXPORTED void yices_init(void) {
   init_term_manager(&manager, &terms);
 
   // buffer lists
-  clear_list(&arith_buffer_list);
   clear_list(&bvarith_buffer_list);
   clear_list(&bvarith64_buffer_list);
   clear_list(&bvlogic_buffer_list);
@@ -837,9 +725,6 @@ EXPORTED void yices_init(void) {
   parser = NULL;
   lexer = NULL;
   tstack = NULL;
-
-  // free-var collector
-  fvars = NULL;
 
   // registries for garbage collection
   root_terms = NULL;
@@ -864,9 +749,6 @@ EXPORTED void yices_exit(void) {
     delete_sparse_array(&the_root_types);
   }
 
-  // variable collector
-  delete_fvars();
-
   // parser etc.
   delete_parsing_objects();
 
@@ -875,7 +757,6 @@ EXPORTED void yices_exit(void) {
   free_bvlogic_buffer_list();
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
-  free_arith_buffer_list();
 
   free_context_list();
   free_model_list();
@@ -991,10 +872,6 @@ static inline object_store_t *get_bvarith64_store(void) {
 }
 
 
-static inline rba_buffer_t *get_arith_buffer(void) {
-  return term_manager_get_arith_buffer(&manager);
-}
-
 static inline bvarith_buffer_t *get_bvarith_buffer(void) {
   return term_manager_get_bvarith_buffer(&manager);
 }
@@ -1005,28 +882,6 @@ static inline bvarith64_buffer_t *get_bvarith64_buffer(void) {
 
 static inline bvlogic_buffer_t *get_bvlogic_buffer(void) {
   return term_manager_get_bvlogic_buffer(&manager);
-}
-
-
-/*
- * Allocate an arithmetic buffer, initialized to the zero polynomial.
- * Add it to the buffer list
- */
-rba_buffer_t *yices_new_arith_buffer(void) {
-  rba_buffer_t *b;
-
-  b = alloc_arith_buffer();
-  init_rba_buffer(b, &pprods);
-  return b;
-}
-
-
-/*
- * Free an allocated buffer
- */
-void yices_free_arith_buffer(rba_buffer_t *b) {
-  delete_rba_buffer(b);
-  free_arith_buffer(b);
 }
 
 
@@ -1108,16 +963,6 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
 /***************
  *  ITERATORS  *
  **************/
-
-void arith_buffer_iterate(void *aux, void (*f)(void *, rba_buffer_t *)) {
-  dl_list_t *elem;
-
-  for (elem = arith_buffer_list.next;
-       elem != &arith_buffer_list;
-       elem = elem->next) {
-    f(aux, arith_buffer(elem));
-  }
-}
 
 void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {
   dl_list_t *elem;
@@ -1218,12 +1063,6 @@ EXPORTED void yices_reset_type_vector(type_vector_t *v) {
 }
 
 
-/*
- * Add data at the end of a vector
- */
-static inline void type_vector_push(type_vector_t *v, type_t tau) {
-  ivector_push((ivector_t *) v, tau);
-}
 
 
 
@@ -1256,31 +1095,6 @@ static bool check_arity(uint32_t n) {
   return true;
 }
 
-// Check whether n is less than TYPE_MACRO_MAX_ARITY
-static bool check_macro_arity(uint32_t n) {
-  if (n == 0) {
-    error.code = POS_INT_REQUIRED;
-    error.badval = n;
-    return false;
-  }
-  if (n > TYPE_MACRO_MAX_ARITY) {
-    error.code = TOO_MANY_MACRO_PARAMS;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
-// Check whether n is less than YICES_MAX_VARS
-static bool check_maxvars(uint32_t n) {
-  if (n > YICES_MAX_VARS) {
-    error.code = TOO_MANY_VARS;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
 // Check whether n is less than YICES_MAX_BVSIZE
 static bool check_maxbvsize(uint32_t n) {
   if (n > YICES_MAX_BVSIZE) {
@@ -1306,106 +1120,6 @@ static bool check_good_type(type_table_t *tbl, type_t tau) {
   if (bad_type(tbl, tau)) {
     error.code = INVALID_TYPE;
     error.type1 = tau;
-    return false;
-  }
-  return true;
-}
-
-// Check whether all types in a[0 ... n-1] are valid
-static bool check_good_types(type_table_t *tbl, uint32_t n, const type_t *a) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (bad_type(tbl, a[i])) {
-      error.code = INVALID_TYPE;
-      error.type1 = a[i];
-      return false;
-    }
-  }
-  return true;
-}
-
-// Check whether all types in a[0 ... n-1] are type variables
-static bool check_all_type_variables(type_table_t *tbl, uint32_t n, const type_t *a) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! is_type_variable(tbl, a[i])) {
-      error.code = TYPE_VAR_REQUIRED;
-      error.type1 = a[i];
-      return false;
-    }
-  }
-  return true;
-}
-
-// Check whether all variables in a[0...n-1] are distinct
-static bool check_no_duplicate_type_vars(uint32_t n, const type_t *a) {
-  type_t aux[10];
-  type_t *b;
-  uint32_t i;
-  bool result;
-
-  assert(n <= UINT32_MAX/sizeof(type_t)); // because n <= TYPE_MACRO_MAX_ARITY
-
-  result = true;
-  if (n > 1) {
-    b = aux;
-    if (n > 10) {
-      b = (int32_t *) safe_malloc(n * sizeof(int32_t));
-    }
-    for (i=0; i<n; i++) {
-      b[i] = a[i];
-    }
-    int_array_sort(b, n);
-    for (i=1; i<n; i++) {
-      if (b[i-1] == b[i]) {
-	error.code = DUPLICATE_TYPE_VAR;
-	error.type1 = b[i];
-	result = false;
-	break;
-      }
-    }
-    if (n > 10) {
-      safe_free(b);
-    }
-  }
-
-  return result;
-}
-
-
-// Check whether tau is a scalar type. tau must be a good type in tbl
-static bool check_scalar_type(type_table_t *tbl, type_t tau) {
-  if (! is_scalar_type(tbl, tau)) {
-    error.code = INVALID_TYPE_OP;
-    error.type1 = tau;
-    return false;
-  }
-  return true;
-}
-
-// Check whether tau is uninterpreted or scalar, and whether
-// i a valid constant index for type tau.
-static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
-  type_kind_t kind;
-
-  if (bad_type(tbl, tau)) {
-    error.code = INVALID_TYPE;
-    error.type1 = tau;
-    return false;
-  }
-  kind = type_kind(tbl, tau);
-  if (kind != UNINTERPRETED_TYPE && kind != SCALAR_TYPE) {
-    error.code = SCALAR_OR_UTYPE_REQUIRED;
-    error.type1 = tau;
-    return false;
-  }
-  if (i < 0 ||
-      (kind == SCALAR_TYPE && i >= scalar_type_cardinal(tbl, tau))) {
-    error.code = INVALID_CONSTANT_INDEX;
-    error.type1 = tau;
-    error.badval = i;
     return false;
   }
   return true;
@@ -1451,55 +1165,6 @@ static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) 
   return true;
 }
 
-// check that terms a[0 ... n-1] have types that match tau[0 ... n-1].
-static bool check_arg_types(term_manager_t *mngr, uint32_t n, const term_t *a, const type_t *tau) {
-  term_table_t *tbl;
-  uint32_t i;
-
-  tbl = term_manager_get_terms(mngr);
-
-  for (i=0; i<n; i++) {
-    if (! is_subtype(tbl->types, term_type(tbl, a[i]), tau[i])) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = a[i];
-      error.type1 = tau[i];
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// check whether (f a[0] ... a[n-1]) is type correct
-static bool check_good_application(term_manager_t *mngr, term_t f, uint32_t n, const term_t *a) {
-  term_table_t *tbl;
-  function_type_t *ft;
-
-  if (! check_positive(n) ||
-      ! check_good_term(mngr, f) ||
-      ! check_good_terms(mngr, n, a)) {
-    return false;
-  }
-
-  tbl = term_manager_get_terms(mngr);
-
-  if (! is_function_term(tbl, f)) {
-    error.code = FUNCTION_REQUIRED;
-    error.term1 = f;
-    return false;
-  }
-
-  ft = function_type_desc(tbl->types, term_type(tbl, f));
-  if (n != ft->ndom) {
-    error.code = WRONG_NUMBER_OF_ARGUMENTS;
-    error.type1 = term_type(tbl, f);
-    error.badval = n;
-    return false;
-  }
-
-  return check_arg_types(mngr, n, a, ft->domain);
-}
-
 // Check whether t is a boolean term. t must be a valid term
 static bool check_boolean_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -1515,35 +1180,6 @@ static bool check_boolean_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 
-// Check whether t is an arithmetic term, t must be valid.
-static bool check_arith_term(term_manager_t *mngr, term_t t) {
-  term_table_t *tbl;
-
-  tbl = term_manager_get_terms(mngr);
-
-  if (! is_arithmetic_term(tbl, t)) {
-    error.code = ARITHTERM_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-  return true;
-}
-
-// check whether t is an arithmetic constant, t must be valid
-static bool check_arith_constant(term_manager_t *mngr, term_t t) {
-  term_table_t *tbl;
-
-  tbl = term_manager_get_terms(mngr);
-
-  if (term_kind(tbl, t) != ARITH_CONSTANT) {
-    error.code = ARITHCONSTANT_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-
-  return true;
-}
-
 // Check whether t is a bitvector term, t must be valid
 static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -1552,20 +1188,6 @@ static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
 
   if (! is_bitvector_term(tbl, t)) {
     error.code = BITVECTOR_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-  return true;
-}
-
-// Check whether t has a scalar or uninterpreted type, t must be valid
-static bool check_scalar_term(term_manager_t *mngr, term_t t) {
-  term_table_t *tbl;
-
-  tbl = term_manager_get_terms(mngr);
-
-  if (!is_scalar_term(tbl, t) && !is_utype_term(tbl, t)) {
-    error.code = SCALAR_TERM_REQUIRED;
     error.term1 = t;
     return false;
   }
@@ -1599,13 +1221,6 @@ static bool check_good_eq(term_manager_t *mngr, term_t t1, term_t t2) {
   return check_good_term(mngr, t1) && check_good_term(mngr, t2) &&
     check_compatible_terms(mngr, t1, t2);
 }
-
-// Check whether t1 and t2 are two valid arithmetic terms
-static bool check_both_arith_terms(term_manager_t *mngr, term_t t1, term_t t2) {
-  return check_good_term(mngr, t1) && check_good_term(mngr, t2) &&
-    check_arith_term(mngr, t1) && check_arith_term(mngr, t2);
-}
-
 
 // Check that t1 and t2 are bitvectors of the same size
 static bool check_compatible_bv_terms(term_manager_t *mngr, term_t t1, term_t t2) {
@@ -1680,122 +1295,6 @@ static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
   return true;
 }
 
-
-
-// Check whether terms a[0 ... n-1] are all arithmetic terms
-static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
-  term_table_t *tbl;
-  uint32_t i;
-
-  tbl = term_manager_get_terms(mngr);
-
-  for (i=0; i<n; i++) {
-    if (! is_arithmetic_term(tbl, a[i])) {
-      error.code = ARITHTERM_REQUIRED;
-      error.term1 = a[i];
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-// Check wether all numbers den[0 ... n-1] are positive
-static bool check_denominators32(uint32_t n, const uint32_t *den) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (den[i] == 0) {
-      error.code = DIVISION_BY_ZERO;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-static bool check_denominators64(uint32_t n, const uint64_t *den) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (den[i] == 0) {
-      error.code = DIVISION_BY_ZERO;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-// Check whether (tuple-select i t) is well-typed
-static bool check_good_select(term_manager_t *mngr, uint32_t i, term_t t) {
-  term_table_t *tbl;
-  type_t tau;
-
-  if (! check_good_term(mngr, t)) {
-    return false;
-  }
-
-  tbl = term_manager_get_terms(mngr);
-
-  tau = term_type(tbl, t);
-  if (type_kind(tbl->types, tau) != TUPLE_TYPE) {
-    error.code = TUPLE_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-
-  if (i == 0 || i > tuple_type_arity(tbl->types, tau)) {
-    error.code = INVALID_TUPLE_INDEX;
-    error.type1 = tau;
-    error.badval = i;
-    return false;
-  }
-
-  return true;
-}
-
-// Check that (update f (a_1 ... a_n) v) is well typed
-static bool check_good_update(term_manager_t *mngr, term_t f, uint32_t n, const term_t *a, term_t v) {
-  term_table_t *tbl;
-  function_type_t *ft;
-
-  if (! check_positive(n) ||
-      ! check_good_term(mngr, f) ||
-      ! check_good_term(mngr, v) ||
-      ! check_good_terms(mngr, n, a)) {
-    return false;
-  }
-
-  tbl = term_manager_get_terms(mngr);
-
-  if (! is_function_term(tbl, f)) {
-    error.code = FUNCTION_REQUIRED;
-    error.term1 = f;
-    return false;
-  }
-
-  ft = function_type_desc(tbl->types, term_type(tbl, f));
-  if (n != ft->ndom) {
-    error.code = WRONG_NUMBER_OF_ARGUMENTS;
-    error.type1 = term_type(tbl, f);
-    error.badval = n;
-    return false;
-  }
-
-  if (! is_subtype(tbl->types, term_type(tbl, v), ft->range)) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = v;
-    error.type1 = ft->range;
-    return false;
-  }
-
-  return check_arg_types(mngr, n, a, ft->domain);
-}
-
 // Check (distinct t_1 ... t_n)
 static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
@@ -1826,138 +1325,6 @@ static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, const ter
   return true;
 }
 
-// Check whether all elements of v are variables
-// (this assumes that they are all good terms)
-static bool check_good_variables(term_manager_t *mngr, uint32_t n, const term_t *v) {
-  term_table_t *tbl;
-  uint32_t i;
-
-  tbl = term_manager_get_terms(mngr);
-
-  for (i=0; i<n; i++) {
-    if (is_neg_term(v[i]) || term_kind(tbl, v[i]) != VARIABLE) {
-      error.code = VARIABLE_REQUIRED;
-      error.term1 = v[i];
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Check quantified formula (FORALL/EXISTS (v_1 ... v_n) body)
-// v must be sorted.
-static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, const term_t *v, term_t body) {
-  uint32_t i;
-
-  if (! check_positive(n) ||
-      ! check_maxvars(n) ||
-      ! check_good_term(mngr, body) ||
-      ! check_good_terms(mngr, n, v) ||
-      ! check_good_variables(mngr, n, v) ||
-      ! check_boolean_term(mngr, body)) {
-    return false;
-  }
-
-  for (i=1; i<n; i++) {
-    if (v[i-1] == v[i]) {
-      error.code = DUPLICATE_VARIABLE;
-      error.term1 = v[i];
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Check for duplicates in array v: don't modify v
-static bool check_no_duplicates(uint32_t n, const term_t *v) {
-  term_t buffer[10];
-  term_t *a;
-  uint32_t i;
-  bool result;
-
-  assert(n <= UINT32_MAX/sizeof(term_t)); // because n <= YICES_MAX_VARS
-
-  result = true;
-  if (n > 1) {
-    a = buffer;
-    if (n > 10) {
-      a = (term_t *) safe_malloc(n * sizeof(term_t));
-    }
-
-    for (i=0; i<n; i++) {
-      a[i] = v[i];
-    }
-    int_array_sort(a, n);
-    for (i=1; i<n; i++) {
-      if (a[i-1] == a[i]) {
-        error.code = DUPLICATE_VARIABLE;
-        error.term1 = a[i];
-        result = false;
-        break;
-      }
-    }
-
-    if (n > 10) {
-      safe_free(a);
-    }
-  }
-
-  return result;
-}
-
-// Check lambda term: (LAMBDA (v_1 ... v_n) body)
-static bool check_good_lambda_term(term_manager_t *mngr, uint32_t n, const term_t *v, term_t body) {
-  return
-    check_positive(n) &&
-    check_maxvars(n) &&
-    check_good_term(mngr, body) &&
-    check_good_terms(mngr, n, v) &&
-    check_good_variables(mngr, n, v) &&
-    check_no_duplicates(n, v);
-}
-
-// Check whether (tuple-select i t v) is well-typed
-static bool check_good_tuple_update(term_manager_t *mngr, uint32_t i, term_t t, term_t v) {
-  term_table_t *tbl;
-  type_t tau;
-  tuple_type_t *desc;
-
-  if (! check_good_term(mngr, t) ||
-      ! check_good_term(mngr, v)) {
-    return false;
-  }
-
-  tbl = term_manager_get_terms(mngr);
-
-  tau = term_type(tbl, t);
-  if (type_kind(tbl->types, tau) != TUPLE_TYPE) {
-    error.code = TUPLE_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-
-  desc = tuple_type_desc(tbl->types, tau);
-  if (i == 0 || i > desc->nelem) {
-    error.code = INVALID_TUPLE_INDEX;
-    error.type1 = tau;
-    error.badval = i;
-    return false;
-  }
-
-  // types are indexed from 0 to desc->elem-1 in desc
-  i --;
-  if (! is_subtype(tbl->types, term_type(tbl, v), desc->elem[i])) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = v;
-    error.type1 = desc->elem[i];
-    return false;
-  }
-
-  return true;
-}
-
 // Check that the degree of t1 * t2 is at most MAX_DEGREE
 static bool check_product_degree(term_manager_t *mngr, term_t t1, term_t t2) {
   term_table_t *tbl;
@@ -1971,7 +1338,6 @@ static bool check_product_degree(term_manager_t *mngr, term_t t1, term_t t2) {
 
   return check_maxdegree(d1 + d2);
 }
-
 
 // Check that the degree of t^2 does not overflow
 static bool check_square_degree(term_manager_t *mngr, term_t t) {
@@ -2055,26 +1421,20 @@ static bool check_bitextract(uint32_t i, uint32_t n) {
 
 
 // Check that t is either a variable or an uninterpreted term
-static bool term_is_var_or_uninterpreted(term_table_t *tbl, term_t t) {
+static bool term_is_uninterpreted(term_table_t *tbl, term_t t) {
   assert(good_term(tbl, t) && is_pos_term(t));
-  switch (term_kind(tbl, t)) {
-  case VARIABLE:
-  case UNINTERPRETED_TERM:
-    return true;
-  default:
-  return false;
- }
+  return term_kind(tbl, t) == UNINTERPRETED_TERM;
 }
 
 // Check that all terms of v are variables or uninterpreted terms
 // all elements of v must be good terms
-static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, const term_t *v) {
+static bool check_good_uninterpreted(term_manager_t *mngr, uint32_t n, const term_t *v) {
   term_table_t *tbl;
   uint32_t i;
 
   tbl = term_manager_get_terms(mngr);
   for (i=0; i<n; i++) {
-    if (is_neg_term(v[i]) || !term_is_var_or_uninterpreted(tbl, v[i])) {
+    if (is_neg_term(v[i]) || !term_is_uninterpreted(tbl, v[i])) {
       error.code = VARIABLE_REQUIRED;
       error.term1 = v[i];
       return false;
@@ -2093,7 +1453,7 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
 
   if (! check_good_terms(mngr, n, v) ||
       ! check_good_terms(mngr, n, a) ||
-      ! check_good_vars_or_uninterpreted(mngr, n, v)) {
+      ! check_good_uninterpreted(mngr, n, v)) {
     return false;
   }
 
@@ -2237,47 +1597,6 @@ static bool check_good_model_map(term_manager_t *mngr, uint32_t n, const term_t 
 }
 
 
-
-/*
- * Check that all elements in var are uninterpreted and have a simple type (for model generalization)
- * - for now, simple means either Boolean, or bit-vector, or real, or a scalar type
- */
-static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var) {
-  term_table_t *terms;
-  type_table_t *types;
-  type_t tau;
-  uint32_t i;
-
-  terms = term_manager_get_terms(mngr);
-  types = term_manager_get_types(mngr);
-
-  if (! check_good_terms(mngr, n, var) ||
-      ! check_all_uninterpreted(terms, n, var)) {
-    return false;
-  }
-
-  for (i=0; i<n; i++) {
-    tau = term_type(terms, var[i]);
-    switch (type_kind(types, tau)) {
-    case BOOL_TYPE:
-    case INT_TYPE:
-    case REAL_TYPE:
-    case BITVECTOR_TYPE:
-    case SCALAR_TYPE:
-      break;
-
-    default:
-      error.code = MDL_GEN_TYPE_NOT_SUPPORTED;
-      error.type1 = tau;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-
 /*
  * Checks for the term-exploration functions.
  * All these checks set the error code to INVALID_TERM_OP
@@ -2328,235 +1647,12 @@ EXPORTED type_t yices_bool_type(void) {
   return bool_type(&types);
 }
 
-EXPORTED type_t yices_int_type(void) {
-  return int_type(&types);
-}
-
-EXPORTED type_t yices_real_type(void) {
-  return real_type(&types);
-}
-
 EXPORTED type_t yices_bv_type(uint32_t size) {
   if (! check_positive(size) || ! check_maxbvsize(size)) {
     return NULL_TYPE;
   }
   return bv_type(&types, size);
 }
-
-EXPORTED type_t yices_new_uninterpreted_type(void) {
-  return new_uninterpreted_type(&types);
-}
-
-EXPORTED type_t yices_new_scalar_type(uint32_t card) {
-  if (! check_positive(card)) {
-    return NULL_TYPE;
-  }
-  return new_scalar_type(&types, card);
-}
-
-EXPORTED type_t yices_tuple_type(uint32_t n, const type_t elem[]) {
-  if (! check_positive(n) ||
-      ! check_arity(n) ||
-      ! check_good_types(&types, n, elem)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(&types, n, elem);
-}
-
-EXPORTED type_t yices_function_type(uint32_t n, const type_t dom[], type_t range) {
-  if (! check_positive(n) ||
-      ! check_arity(n) ||
-      ! check_good_type(&types, range) ||
-      ! check_good_types(&types, n, dom)) {
-    return NULL_TYPE;
-  }
-  return function_type(&types, range, n, dom);
-}
-
-
-/*
- * Variants/short cuts for tuple and function types
- */
-EXPORTED type_t yices_tuple_type1(type_t tau1) {
-  if (! check_good_type(&types, tau1)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(&types, 1, &tau1);
-}
-
-EXPORTED type_t yices_tuple_type2(type_t tau1, type_t tau2) {
-  type_t aux[2];
-
-  aux[0] = tau1;
-  aux[1] = tau2;
-
-  if (! check_good_types(&types, 2, aux)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(&types, 2, aux);
-}
-
-EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
-  type_t aux[3];
-
-  aux[0] = tau1;
-  aux[1] = tau2;
-  aux[2] = tau3;
-
-  if (! check_good_types(&types, 3, aux)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(&types, 3, aux);
-}
-
-
-EXPORTED type_t yices_function_type1(type_t tau1, type_t range) {
-  if (! check_good_type(&types, tau1) ||
-      ! check_good_type(&types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(&types, range, 1, &tau1);
-}
-
-EXPORTED type_t yices_function_type2(type_t tau1, type_t tau2, type_t range) {
-  type_t aux[2];
-
-  aux[0] = tau1;
-  aux[1] = tau2;
-
-  if (! check_good_types(&types, 2, aux) ||
-      ! check_good_type(&types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(&types, range, 2, aux);
-}
-
-EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range) {
-  type_t aux[3];
-
-  aux[0] = tau1;
-  aux[1] = tau2;
-  aux[2] = tau3;
-
-  if (! check_good_types(&types, 3, aux) ||
-      ! check_good_type(&types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(&types, range, 3, aux);
-}
-
-
-
-/*
- * Type macros and constructors
- */
-
-/*
- * Type variable with the given id
- */
-type_t yices_type_variable(uint32_t id) {
-  return type_variable(&types, id);
-}
-
-/*
- * Create a type constructor:
- * - name = its name
- * - n = arity
- * return -1 if there's an error or the macro id otherwise
- */
-int32_t yices_type_constructor(const char *name, uint32_t n) {
-  char *clone;
-
-  if (! check_macro_arity(n)) {
-    return -1;
-  }
-  clone = clone_string(name);
-  return add_type_constructor(&types, clone, n);
-}
-
-/*
- * Create a type macro:
- * - name = its name
- * - n = arity
- * - vars = array of n distinct type variables
- * - body = type
- *
- * return -1 if there's an error or the macro id otherwise
- */
-int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body) {
-  char *clone;
-
-  if (! check_macro_arity(n) ||
-      ! check_good_type(&types, body) ||
-      ! check_good_types(&types, n, vars) ||
-      ! check_all_type_variables(&types, n, vars) ||
-      ! check_no_duplicate_type_vars(n, vars)) {
-    return -1;
-  }
-
-  clone = clone_string(name);
-  return add_type_macro(&types, clone, n, vars, body);
-}
-
-
-/*
- * Instance of a macro or constructor
- * - cid = constructor or macro id
- * - n = number of arguments
- * - tau[0 ... n-1] = argument types
- *
- * return NULL_TYPE if there's an error
- */
-type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
-  type_macro_t *macro;
-
-  macro = type_macro(&types, cid);
-  if (macro == NULL) {
-    error.code = INVALID_MACRO;
-    error.badval = cid;
-    return NULL_TYPE;
-  }
-
-  if (n != macro->arity) {
-    error.code = WRONG_NUMBER_OF_ARGUMENTS;
-    error.type1 = NULL_TYPE;
-    error.badval = n;
-    return NULL_TYPE;
-  }
-
-  if (! check_good_types(&types, n, tau)) {
-    return NULL_TYPE;
-  }
-
-  return instantiate_type_macro(&types, cid, n, tau);
-}
-
-
-/*
- * Get the macro id for a given name
- * - return -1 if there's no macro or constructor with that name
- */
-int32_t yices_get_macro_by_name(const char *name) {
-  return get_type_macro_by_name(&types, name);
-}
-
-
-/*
- * Remove the mapping of name --> macro id
- * - no change if no such mapping exists
- */
-void yices_remove_type_macro_name(const char *name) {
-  remove_type_macro_name(&types, name);
-}
-
-/*
- * Remove a macro with the given id
- * - id must be a valid macro index (non-negative)
- */
-void yices_delete_type_macro(int32_t id) {
-  delete_type_macro(&types, id);
-}
-
 
 
 
@@ -2576,14 +1672,6 @@ EXPORTED term_t yices_false(void) {
   return false_term;
 }
 
-EXPORTED term_t yices_constant(type_t tau, int32_t index) {
-  if (! check_good_constant(&types, tau, index)) {
-    return NULL_TERM;
-  }
-
-  return mk_constant(&manager, tau, index);
-}
-
 EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
   if (! check_good_type(&types, tau)) {
     return NULL_TERM;
@@ -2591,71 +1679,6 @@ EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
 
   return mk_uterm(&manager, tau);
 }
-
-EXPORTED term_t yices_new_variable(type_t tau) {
-  if (! check_good_type(&types, tau)) {
-    return NULL_TERM;
-  }
-
-  return mk_variable(&manager, tau);
-}
-
-
-/*
- * Apply fun to arg[0 ...n-1]
- * - we apply beta-reduction eagerly here
- */
-EXPORTED term_t yices_application(term_t fun, uint32_t n, const term_t arg[]) {
-  term_t t;
-
-  if (! check_good_application(&manager, fun, n, arg)) {
-    return NULL_TERM;
-  }
-
-  t = mk_application(&manager, fun, n, arg);
-  t = beta_reduce(&manager, t);
-
-  if (t < 0) {
-    // error during beta reduction
-    if (t == -1) {
-      // degree overflow
-      error.code = DEGREE_OVERFLOW;
-      error.badval = YICES_MAX_DEGREE + 1;
-    } else {
-      // BUG
-      error.code = INTERNAL_EXCEPTION;
-    }
-
-    t = NULL_TERM;
-  }
-
-  return t;
-}
-
-/*
- * Variants for small n
- */
-EXPORTED term_t yices_application1(term_t fun, term_t arg1) {
-  return yices_application(fun, 1, &arg1);
-}
-
-EXPORTED term_t yices_application2(term_t fun, term_t arg1, term_t arg2) {
-  term_t aux[2];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  return yices_application(fun, 2, aux);
-}
-
-EXPORTED term_t yices_application3(term_t fun, term_t arg1, term_t arg2, term_t arg3) {
-  term_t aux[3];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  aux[2] = arg3;
-  return yices_application(fun, 3, aux);
-}
-
 
 
 EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
@@ -2873,83 +1896,6 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
 }
 
 
-EXPORTED term_t yices_tuple(uint32_t n, const term_t arg[]) {
-  if (! check_positive(n) ||
-      ! check_arity(n) ||
-      ! check_good_terms(&manager, n, arg)) {
-    return NULL_TERM;
-  }
-
-  return mk_tuple(&manager, n, arg);
-}
-
-// variants for n=2 or n=3
-EXPORTED term_t yices_pair(term_t arg1, term_t arg2) {
-  term_t aux[2];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  if (! check_good_terms(&manager, 2, aux)) {
-    return NULL_TERM;
-  }
-  return mk_tuple(&manager, 2, aux);
-}
-
-EXPORTED term_t yices_triple(term_t arg1, term_t arg2, term_t arg3) {
-  term_t aux[3];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  aux[2] = arg3;
-  if (! check_good_terms(&manager, 3, aux)) {
-    return NULL_TERM;
-  }
-  return mk_tuple(&manager, 3, aux);
-}
-
-
-
-EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
-  if (! check_good_select(&manager, index, tuple)) {
-    return NULL_TERM;
-  }
-
-  // Warning: internally, tuple components are indexed from 0 to n-1
-  return mk_select(&manager, index-1, tuple);
-}
-
-EXPORTED term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v) {
-  if (! check_good_update(&manager, fun, n, arg, new_v)) {
-    return NULL_TERM;
-  }
-
-  return mk_update(&manager, fun, n, arg, new_v);
-}
-
-// Variants for n=1, 2, or 3
-EXPORTED term_t yices_update1(term_t fun, term_t arg1, term_t new_v) {
-  return yices_update(fun, 1, &arg1, new_v);
-}
-
-EXPORTED term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v) {
-  term_t aux[2];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  return yices_update(fun, 2, aux, new_v);  
-}
-
-EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v) {
-  term_t aux[3];
-
-  aux[0] = arg1;
-  aux[1] = arg2;
-  aux[2] = arg3;
-  return yices_update(fun, 3, aux, new_v);  
-}
-
-
-
 EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
   if (! check_positive(n) ||
       ! check_arity(n) ||
@@ -2960,776 +1906,6 @@ EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
   return mk_distinct(&manager, n, arg);
 }
 
-EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
-  if (! check_good_tuple_update(&manager, index, tuple, new_v)) {
-    return NULL_TERM;
-  }
-
-  // Warning: internally components are indexed from 0 to n-1
-  return mk_tuple_update(&manager, tuple, index-1, new_v);
-}
-
-EXPORTED term_t yices_forall(uint32_t n, term_t var[], term_t body) {
-  if (n > 1) {
-    int_array_sort(var, n);
-  }
-
-  if (! check_good_quantified_term(&manager, n, var, body)) {
-    return NULL_TERM;
-  }
-
-  return mk_forall(&manager, n, var, body);
-}
-
-EXPORTED term_t yices_exists(uint32_t n, term_t var[], term_t body) {
-  if (n > 1) {
-    int_array_sort(var, n);
-  }
-
-  if (! check_good_quantified_term(&manager, n, var, body)) {
-    return NULL_TERM;
-  }
-
-  return mk_exists(&manager, n, var, body);
-}
-
-EXPORTED term_t yices_lambda(uint32_t n, const term_t var[], term_t body) {
-  if (! check_good_lambda_term(&manager, n, var, body)) {
-    return NULL_TERM;
-  }
-
-  return mk_lambda(&manager, n, var, body);
-}
-
-
-
-
-/*************************
- *  RATIONAL CONSTANTS   *
- ************************/
-
-/*
- * Integer constants
- */
-EXPORTED term_t yices_zero(void) {
-  return zero_term;
-}
-
-EXPORTED term_t yices_int32(int32_t val) {
-  q_set32(&r0, val);
-  return  mk_arith_constant(&manager, &r0);
-}
-
-EXPORTED term_t yices_int64(int64_t val) {
-  q_set64(&r0, val);
-  return mk_arith_constant(&manager, &r0);
-}
-
-
-/*
- * Rational constants
- */
-EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
-  if (den == 0) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  q_set_int32(&r0, num, den);
-  return mk_arith_constant(&manager, &r0);
-}
-
-EXPORTED term_t yices_rational64(int64_t num, uint64_t den) {
-  if (den == 0) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  q_set_int64(&r0, num, den);
-  return mk_arith_constant(&manager, &r0);
-}
-
-
-/*
- * Constant from GMP integers or rationals
- */
-EXPORTED term_t yices_mpz(const mpz_t z) {
-  term_t t;
-
-  q_set_mpz(&r0, z);
-  t = mk_arith_constant(&manager, &r0);
-  q_clear(&r0);
-
-  return t;
-}
-
-EXPORTED term_t yices_mpq(const mpq_t q) {
-  term_t t;
-
-  q_set_mpq(&r0, q);
-  t = mk_arith_constant(&manager, &r0);
-  q_clear(&r0);
-
-  return t;
-}
-
-
-/*
- * Convert a string to a rational or integer term.
- * The string format is
- *     <optional_sign> <numerator>/<denominator>
- *  or <optional_sign> <numerator>
- *
- * where <optional_sign> is + or - or nothing
- * <numerator> and <denominator> are sequences of
- * decimal digits.
- *
- * Error report:
- *    code = INVALID_RATIONAL_FORMAT
- * or code = DIVISION_BY_ZERO
- */
-EXPORTED term_t yices_parse_rational(const char *s) {
-  int32_t code;
-  term_t t;
-
-  code = q_set_from_string(&r0, s);
-  if (code < 0) {
-    if (code == -1) {
-      // wrong format
-      error.code = INVALID_RATIONAL_FORMAT;
-    } else {
-      // denominator is 0
-      error.code = DIVISION_BY_ZERO;
-    }
-    return NULL_TERM;
-  }
-
-  t = mk_arith_constant(&manager, &r0);
-  q_clear(&r0);
-
-  return t;
-}
-
-
-/*
- * Convert a string in floating point format to a rational
- * The string must be in one of the following formats:
- *   <optional sign> <integer part> . <fractional part>
- *   <optional sign> <integer part> <exp> <optional sign> <integer>
- *   <optional sign> <integer part> . <fractional part> <exp> <optional sign> <integer>
- *
- * where <optional sign> is + or - or nothing
- *       <exp> is either 'e' or 'E'
- *
- * Error report:
- * code = INVALID_FLOAT_FORMAT
- */
-EXPORTED term_t yices_parse_float(const char *s) {
-  term_t t;
-
-  if (q_set_from_float_string(&r0, s) < 0) {
-    // wrong format
-    error.code = INVALID_FLOAT_FORMAT;
-    return NULL_TERM;
-  }
-
-  t = mk_arith_constant(&manager, &r0);
-  q_clear(&r0);
-
-  return t;
-}
-
-
-
-/***************************
- *  ARITHMETIC OPERATIONS  *
- **************************/
-
-/*
- * Add t1 and t2
- */
-EXPORTED term_t yices_add(term_t t1, term_t t2) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_add_term(b, tbl, t2);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Subtract t2 from t1
- */
-EXPORTED term_t yices_sub(term_t t1, term_t t2) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_sub_term(b, tbl, t2);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Negate t1
- */
-EXPORTED term_t yices_neg(term_t t1) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_arith_term(&manager, t1)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  rba_buffer_sub_term(b, tbl, t1);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Multiply t1 and t2
- */
-EXPORTED term_t yices_mul(term_t t1, term_t t2) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_both_arith_terms(&manager, t1, t2) ||
-      ! check_product_degree(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_mul_term(b, tbl, t2);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Compute the square of t1
- */
-EXPORTED term_t yices_square(term_t t1) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_arith_term(&manager, t1) ||
-      ! check_square_degree(&manager, t1)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_mul_term(b, tbl, t1);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Compute t1 ^ d
- */
-EXPORTED term_t yices_power(term_t t1, uint32_t d) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_arith_term(&manager, t1) ||
-      ! check_power_degree(&manager, t1, d)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  rba_buffer_set_one(b);
-  rba_buffer_mul_term_power(b, tbl, t1, d);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Sum of n terms t[0] ... t[n-1]
- */
-EXPORTED term_t yices_sum(uint32_t n, const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    rba_buffer_add_term(b, tbl, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Product of n terms t[0] ... t[n-1]
- */
-EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  /*
-   * Check whether one of t[i] is zero.  We must do this first
-   * otherwise the degree computation won't be correct.
-   */
-  for (i=0; i<n; i++) {
-    if (t[i] == zero_term) {
-      return zero_term;
-    }
-  }
-
-  if (! check_multi_prod_degree(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  rba_buffer_set_one(b);
-  for (i=0; i<n; i++) {
-    rba_buffer_mul_term(b, tbl, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-
-
-
-/*
- * DIVISION
- */
-EXPORTED term_t yices_division(term_t t1, term_t t2) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  rational_t *q;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_good_term(&manager, t2) ||
-      ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  tbl = &terms;
-  q = rational_term_desc(tbl, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_div_const(b, q); // safe to use q here
-
-  return mk_arith_term(&manager, b);
-}
-
-
-
-/***************************
- *  DIV/MOD AND RELATIVES  *
- **************************/
-
-EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
-  rational_t *q;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_good_term(&manager, t2) ||
-      ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  return mk_arith_div(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_imod(term_t t1, term_t t2) {
-  rational_t *q;
-
-  if (! check_good_term(&manager, t1) ||
-      ! check_good_term(&manager, t2) ||
-      ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  return mk_arith_mod(&manager, t1, t2);
-}
-
-/*
- * Divisibility test: check whether t1 divides t2
- */
-EXPORTED term_t yices_divides_atom(term_t t1, term_t t2) {
-  if (! check_good_term(&manager, t1) ||
-      ! check_good_term(&manager, t2) ||
-      ! check_arith_constant(&manager, t1) ||
-      ! check_arith_term(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  return mk_arith_divides(&manager, t1, t2);
-}
-
-/*
- * Integer test
- */
-EXPORTED term_t yices_is_int_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-
-  return mk_arith_is_int(&manager, t);
-}
-
-
-/*
- * ABS/FLOOR/CEIL
- */
-EXPORTED term_t yices_abs(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-
-  return mk_arith_abs(&manager, t);
-}
-
-EXPORTED term_t yices_floor(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-
-  return mk_arith_floor(&manager, t);
-}
-
-EXPORTED term_t yices_ceil(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-
-  return mk_arith_ceil(&manager, t);
-}
-
-
-
-
-
-/*******************
- *   POLYNOMIALS   *
- ******************/
-
-/*
- * integer coefficients
- */
-EXPORTED term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set32(&r0, a[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-EXPORTED term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set64(&r0, a[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * Polynomial with rational coefficients
- * - den, num, and t must be arrays of size n
- * - the coefficient a_i is num[i]/den[i]
- *
- * Error report:
- * if den[i] is 0
- *   code = DIVISION_BY_ZERO
- */
-EXPORTED term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t) ||
-      ! check_denominators32(n, den)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set_int32(&r0, num[i], den[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-EXPORTED term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t) ||
-      ! check_denominators64(n, den)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set_int64(&r0, num[i], den[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  return mk_arith_term(&manager, b);
-}
-
-
-/*
- * GMP integers and rationals
- */
-EXPORTED term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set_mpz(&r0, z[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  q_clear(&r0);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-EXPORTED term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  uint32_t i;
-
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_arithmetic_args(&manager, n, t)) {
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  tbl = &terms;
-  reset_rba_buffer(b);
-  for (i=0; i<n; i++) {
-    q_set_mpq(&r0, q[i]);
-    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
-  }
-
-  q_clear(&r0);
-
-  return mk_arith_term(&manager, b);
-}
-
-
-
-
-
-
-/**********************
- *  ARITHMETIC ATOMS  *
- *********************/
-
-EXPORTED term_t yices_arith_eq_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_eq(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_arith_neq_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_neq(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_arith_geq_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_geq(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_arith_lt_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_lt(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_arith_gt_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_gt(&manager, t1, t2);
-}
-
-EXPORTED term_t yices_arith_leq_atom(term_t t1, term_t t2) {
-  if (! check_both_arith_terms(&manager, t1, t2)) {
-    return NULL_TERM;
-  }
-  return mk_arith_leq(&manager, t1, t2);
-}
-
-
-/*
- * Comparison with zero
- */
-EXPORTED term_t yices_arith_eq0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_eq0(&manager, t);
-}
-
-EXPORTED term_t yices_arith_neq0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_neq0(&manager, t);
-}
-
-EXPORTED term_t yices_arith_geq0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_geq0(&manager, t);
-}
-
-EXPORTED term_t yices_arith_leq0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_leq0(&manager, t);
-}
-
-EXPORTED term_t yices_arith_gt0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_gt0(&manager, t);
-}
-
-EXPORTED term_t yices_arith_lt0_atom(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL_TERM;
-  }
-  return mk_arith_term_lt0(&manager, t);
-}
 
 
 
@@ -3897,6 +2073,11 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
   return mk_bv_constant(&manager, &bv0);
 }
 
+// same function under a different name for backward compatibility
+EXPORTED term_t yices_bvconst_from_string(const char *s) {
+  return yices_parse_bvbin(s);
+}
+
 
 /*
  * Parse a string of hexadecimal digits and convert it to a bit constant
@@ -3933,6 +2114,11 @@ EXPORTED term_t yices_parse_bvhex(const char *s) {
   return mk_bv_constant(&manager, &bv0);
 }
 
+
+// same function under a different name for backward compatibility
+EXPORTED term_t yices_bvconst_from_hexa_string(const char *s) {
+  return yices_parse_bvhex(s);
+}
 
 
 
@@ -5070,30 +3256,24 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
  *  GENERIC BIT-VECTOR SHIFTS  *
  *****************************/
 
-
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&manager, t1, t2)) {
     return NULL_TERM;
   }
-
   return mk_bvshl(&manager, t1, t2);
 }
-
 
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&manager, t1, t2)) {
     return NULL_TERM;
   }
-
   return mk_bvlshr(&manager, t1, t2);
 }
-
 
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&manager, t1, t2)) {
     return NULL_TERM;
   }
-
   return mk_bvashr(&manager, t1, t2);
 }
 
@@ -5509,51 +3689,10 @@ EXPORTED int32_t yices_type_is_bool(type_t tau) {
   return check_good_type(&types, tau) && is_boolean_type(tau);
 }
 
-EXPORTED int32_t yices_type_is_int(type_t tau) {
-  return check_good_type(&types, tau) && is_integer_type(tau);
-}
-
-EXPORTED int32_t yices_type_is_real(type_t tau) {
-  return check_good_type(&types, tau) && is_real_type(tau);
-}
-
-EXPORTED int32_t yices_type_is_arithmetic(type_t tau) {
-  return check_good_type(&types, tau) && is_arithmetic_type(tau);
-}
-
 EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
   return check_good_type(&types, tau) && is_bv_type(&types, tau);
 }
 
-EXPORTED int32_t yices_type_is_tuple(type_t tau) {
-  return check_good_type(&types, tau) && is_tuple_type(&types, tau);
-}
-
-EXPORTED int32_t yices_type_is_function(type_t tau) {
-  return check_good_type(&types, tau) && is_function_type(&types, tau);
-}
-
-EXPORTED int32_t yices_type_is_scalar(type_t tau) {
-  return check_good_type(&types, tau) && is_scalar_type(&types, tau);
-}
-
-EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
-  return check_good_type(&types, tau) && is_uninterpreted_type(&types, tau);
-}
-
-
-/*
- * Check whether tau is a subtype of sigma
- * - return 0 for false, 1 for true
- *
- * If tau or sigma is not a valid type, the function returns false
- * and set the error report:
- *   code = INVALID_TYPE
- *   type1 = tau or sigma
- */
-EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
-  return check_good_type(&types, tau) && check_good_type(&types, sigma) && is_subtype(&types, tau, sigma);
-}
 
 /*
  * Number of bits for type tau
@@ -5574,121 +3713,6 @@ EXPORTED uint32_t yices_bvtype_size(type_t tau) {
   }
   return bv_type_size(&types, tau);
 }
-
-
-/*
- * Cardinality of a scalar type
- * - return 0 if there's an error
- */
-EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
-  if (! check_good_type(&types, tau) ||
-      ! check_scalar_type(&types, tau)) {
-    return 0;
-  }
-  return scalar_type_cardinal(&types, tau);
-}
-
-
-/*
- * Number of children of type tau
- * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
- * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
- * - if tau is any other type, returns 0 
- *
- * - returns -1 if tau is not a valid type
- *
- * Error report:
- * if tau is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau
- */
-EXPORTED int32_t yices_type_num_children(type_t tau) {
-  int32_t n;
-
-  if (! check_good_type(&types, tau)) {
-    return -1;
-  }
-
-  // it's safe to convert from unsigned to signed here
-  // since YICES_MAX_ARITY is (UINT32_MAX/16)
-  n = 0;
-  if (is_tuple_type(&types, tau)) {
-    n = tuple_type_arity(&types, tau);
-  } else if (is_function_type(&types, tau)) {
-    n = function_type_arity(&types, tau) + 1;
-  }
-
-  return n;
-}
-
-
-/*
- * Get the i-th child of type tau
- * - return NULL_TYPE if there's an error
- */
-EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
-  tuple_type_t *tup;
-  function_type_t *fun;
-
-  if (! check_good_type(&types, tau)) {
-    return NULL_TYPE;
-  }
-
-  if (i >= 0) {
-    if (is_tuple_type(&types, tau)) {
-      tup = tuple_type_desc(&types, tau);
-      if (i < tup->nelem) {
-	return tup->elem[i];
-      }
-    } else if (is_function_type(&types, tau)) {
-      fun = function_type_desc(&types, tau);
-      if (i < fun->ndom) {
-	return fun->domain[i];
-      } else if (i == fun->ndom) {
-	return fun->range;
-      }
-    }
-  }
-
-  // bad index or atomic type
-  error.code = INVALID_TYPE_OP;
-  return NULL_TYPE;
-}
-
-
-
-/*
- * Collect all the children in vector *v
- * - returns -1 for error, 0 if all fine.
- */
-EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
-  tuple_type_t *tup;
-  function_type_t *fun;
-  uint32_t i, n;
-
-  if (! check_good_type(&types, tau)) {
-    return -1;
-  }
-
-  v->size = 0;  
-  if (is_tuple_type(&types, tau)) {
-    tup = tuple_type_desc(&types, tau);
-    n = tup->nelem;
-    for (i=0; i<n; i++) {
-      type_vector_push(v, tup->elem[i]);
-    }
-  } else if (is_function_type(&types, tau)) {
-    fun = function_type_desc(&types, tau);
-    n = fun->ndom;
-    for (i=0; i<n; i++) {
-      type_vector_push(v, fun->domain[i]);
-    }
-    type_vector_push(v, fun->range);
-  }
-
-  return 0;
-}
-
 
 
 
@@ -5724,37 +3748,9 @@ EXPORTED int32_t yices_term_is_bool(term_t t) {
   return check_good_term(&manager, t) && is_boolean_term(&terms, t);
 }
 
-EXPORTED int32_t yices_term_is_int(term_t t) {
-  return check_good_term(&manager, t) && is_integer_term(&terms, t);
-}
-
-EXPORTED int32_t yices_term_is_real(term_t t) {
-  return check_good_term(&manager, t) && is_real_term(&terms, t);
-}
-
-EXPORTED int32_t yices_term_is_arithmetic(term_t t) {
-  return check_good_term(&manager, t) && is_arithmetic_term(&terms, t);
-}
-
 EXPORTED int32_t yices_term_is_bitvector(term_t t) {
   return check_good_term(&manager, t) && is_bitvector_term(&terms, t);
 }
-
-EXPORTED int32_t yices_term_is_tuple(term_t t) {
-  return check_good_term(&manager, t) && is_tuple_term(&terms, t);
-}
-
-EXPORTED int32_t yices_term_is_function(term_t t) {
-  return check_good_term(&manager, t) && is_function_term(&terms, t);
-}
-
-EXPORTED int32_t yices_term_is_scalar(term_t t) {
-  term_table_t *tbl;
-
-  tbl = &terms;
-  return check_good_term(&manager, t) && (is_scalar_term(tbl, t) || is_utype_term(tbl, t));
-}
-
 
 /*
  * Size of bitvector term t.
@@ -5765,27 +3761,6 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
     return 0;
   }
   return term_bitsize(&terms, t);
-}
-
-
-/*
- * Check whether t is ground
- * - return false if t is not valid and set the error report
- */
-EXPORTED int32_t yices_term_is_ground(term_t t) {
-  return check_good_term(&manager, t) && term_is_ground(get_fvars(), t);
-}
-
-
-/*
- * Get the free variables of t
- * - not part of the official API (because it exports a pointer
- *   to some internal data structures).
- * - return NULL if t is ground
- */
-harray_t *yices_free_vars_of_term(term_t t) {
-  assert(check_good_term(&manager, t));
-  return get_free_vars_of_term(get_fvars(), t);
 }
 
 
@@ -5803,10 +3778,6 @@ EXPORTED int32_t yices_term_is_composite(term_t t) {
 
 EXPORTED int32_t yices_term_is_projection(term_t t) {
   return check_good_term(&manager, t) && term_is_projection(&terms, t);
-}
-
-EXPORTED int32_t yices_term_is_sum(term_t t) {
-  return check_good_term(&manager, t) && term_is_sum(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_bvsum(term_t t) {
@@ -5912,42 +3883,13 @@ EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
   return 0;
 }
 
-EXPORTED int32_t yices_scalar_const_value(term_t t, int32_t *val) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_SCALAR_CONSTANT)) {
-    return -1;
-  }
-  *val = generic_const_value(&terms, t);
-  return 0;
-}
-
-EXPORTED int32_t yices_rational_const_value(term_t t, mpq_t q) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_ARITH_CONSTANT)) {
-    return -1;
-  }
-  arith_const_value(&terms, t, q);
-  return 0;
-}
-
 
 /*
  * Components of a sum t
  * - i = index (must be between 0 and t's number of children - 1)
- * - for an arithmetic sum, each component is a pair (rational, term)
  * - for a bitvector sum, each component is a pair (bvconstant, term)
  * - the number of bits in the bvconstant is the same as in t
  */
-EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_ARITH_SUM) ||
-      ! check_child_idx(&terms, t, i)) {
-    return -1;
-  }
-  sum_term_component(&terms, t, i, coeff, term);
-  return 0;
-}
-
 EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term) {
   if (! check_good_term(&manager, t) ||
       ! check_constructor(&terms, t, YICES_BV_SUM) ||
@@ -5983,30 +3925,6 @@ EXPORTED int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint
 /*
  * These term constructors are used in term_stack
  */
-term_t arith_buffer_get_term(rba_buffer_t *b) {
-  return mk_arith_term(&manager, b);
-}
-
-term_t arith_buffer_get_eq0_atom(rba_buffer_t *b) {
-  return mk_arith_eq0(&manager, b);
-}
-
-term_t arith_buffer_get_geq0_atom(rba_buffer_t *b) {
-  return mk_arith_geq0(&manager, b);
-}
-
-term_t arith_buffer_get_leq0_atom(rba_buffer_t *b) {
-  return mk_arith_leq0(&manager, b);
-}
-
-term_t arith_buffer_get_gt0_atom(rba_buffer_t *b) {
-  return mk_arith_gt0(&manager, b);
-}
-
-term_t arith_buffer_get_lt0_atom(rba_buffer_t *b) {
-  return mk_arith_lt0(&manager, b);
-}
-
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
   return mk_bvlogic_term(&manager, b);
 }
@@ -6033,9 +3951,6 @@ term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   return bv64_constant(&terms, n, c);
 }
 
-term_t yices_rational_term(rational_t *q) {
-  return arith_constant(&terms, q);
-}
 
 
 /*******************************************
@@ -6058,65 +3973,6 @@ term_t yices_rational_term(rational_t *q) {
 bool yices_check_boolean_term(term_t t) {
   return check_good_term(&manager, t) && check_boolean_term(&manager, t);
 }
-
-/*
- * Check whether t is a valid arithmetic term
- * - if not set the internal error report:
- *
- * If t is not a valid term:
- *   code = INVALID_TERM
- *   term1 = t
- *   index = -1
- * If t is not an arithmetic term;
- *   code = ARITHTERM_REQUIRED
- *   term1 = t
- */
-bool yices_check_arith_term(term_t t) {
-  return check_good_term(&manager, t) && check_arith_term(&manager, t);
-}
-
-
-/*
- * Check for degree overflow in the product (b * t)
- * - b must be a buffer obtained via yices_new_arith_buffer().
- * - t must be a valid arithmetic term.
- *
- * Return true if there's no overflow.
- *
- * Return false otherwise and set the error report:
- *   code = DEGREE_OVERFLOW
- *   badval = degree of b + degree of t
- */
-bool yices_check_mul_term(rba_buffer_t *b, term_t t) {
-  term_table_t *tbl;
-  uint32_t d1, d2;
-
-  tbl = &terms;
-
-  assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
-
-  d1 = rba_buffer_degree(b);
-  d2 = term_degree(tbl, t);
-  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
-
-  return check_maxdegree(d1 + d2);
-}
-
-
-/*
- * Same thing for the product of two buffers b1 and b2.
- * - both must be buffers allocated using yices_new_arith_buffer().
- */
-bool yices_check_mul_buffer(rba_buffer_t *b1, rba_buffer_t *b2) {
-  uint32_t d1, d2;
-
-  d1 = rba_buffer_degree(b1);
-  d2 = rba_buffer_degree(b2);
-  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
-
-  return check_maxdegree(d1 + d2);
-}
-
 
 /*
  * Check whether t's type is a subtype of tau
@@ -6707,31 +4563,19 @@ EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char
  */
 typedef enum ctx_option {
   CTX_OPTION_VAR_ELIM,
-  CTX_OPTION_ARITH_ELIM,
   CTX_OPTION_BVARITH_ELIM,
   CTX_OPTION_FLATTEN,
-  CTX_OPTION_LEARN_EQ,
-  CTX_OPTION_BREAK_SYMMETRIES,
-  CTX_OPTION_KEEP_ITE,
-  CTX_OPTION_EAGER_ARITH_LEMMAS,
-  CTX_OPTION_ASSERT_ITE_BOUNDS,
 } ctx_option_t;
 
-#define NUM_CTX_OPTIONS (CTX_OPTION_ASSERT_ITE_BOUNDS+1)
+#define NUM_CTX_OPTIONS (CTX_OPTION_FLATTEN+1)
 
 
 /*
  * Option names in lexicographic order
  */
 static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
-  "arith-elim",
-  "assert-ite-bounds",
-  "break-symmetries",
   "bvarith-elim",
-  "eager-arith-lemmas",
   "flatten",
-  "keep-ite",
-  "learn-eq",
   "var-elim",
 };
 
@@ -6740,14 +4584,8 @@ static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
  * Corresponding index (cf. string_utils.h for parse_as_keyword)
  */
 static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
-  CTX_OPTION_ARITH_ELIM,
-  CTX_OPTION_ASSERT_ITE_BOUNDS,
-  CTX_OPTION_BREAK_SYMMETRIES,
   CTX_OPTION_BVARITH_ELIM,
-  CTX_OPTION_EAGER_ARITH_LEMMAS,
   CTX_OPTION_FLATTEN,
-  CTX_OPTION_KEEP_ITE,
-  CTX_OPTION_LEARN_EQ,
   CTX_OPTION_VAR_ELIM,
 };
 
@@ -6765,36 +4603,12 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
     enable_variable_elimination(ctx);
     break;
 
-  case CTX_OPTION_ARITH_ELIM:
-    enable_arith_elimination(ctx);
-    break;
-
   case CTX_OPTION_BVARITH_ELIM:
     enable_bvarith_elimination(ctx);
     break;
 
   case CTX_OPTION_FLATTEN:
     enable_diseq_and_or_flattening(ctx);
-    break;
-
-  case CTX_OPTION_LEARN_EQ:
-    enable_eq_abstraction(ctx);
-    break;
-
-  case CTX_OPTION_BREAK_SYMMETRIES:
-    enable_symmetry_breaking(ctx);
-    break;
-
-  case CTX_OPTION_KEEP_ITE:
-    enable_keep_ite(ctx);
-    break;
-
-  case CTX_OPTION_EAGER_ARITH_LEMMAS:
-    enable_splx_eager_lemmas(ctx);
-    break;
-
-  case CTX_OPTION_ASSERT_ITE_BOUNDS:
-    enable_assert_ite_bounds(ctx);
     break;
 
   default:
@@ -6822,36 +4636,12 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     disable_variable_elimination(ctx);
     break;
 
-  case CTX_OPTION_ARITH_ELIM:
-    disable_arith_elimination(ctx);
-    break;
-
   case CTX_OPTION_BVARITH_ELIM:
     disable_bvarith_elimination(ctx);
     break;
 
   case CTX_OPTION_FLATTEN:
     disable_diseq_and_or_flattening(ctx);
-    break;
-
-  case CTX_OPTION_LEARN_EQ:
-    disable_eq_abstraction(ctx);
-    break;
-
-  case CTX_OPTION_BREAK_SYMMETRIES:
-    disable_symmetry_breaking(ctx);
-    break;
-
-  case CTX_OPTION_KEEP_ITE:
-    disable_keep_ite(ctx);
-    break;
-
-  case CTX_OPTION_EAGER_ARITH_LEMMAS:
-    disable_splx_eager_lemmas(ctx);
-    break;
-
-  case CTX_OPTION_ASSERT_ITE_BOUNDS:
-    disable_assert_ite_bounds(ctx);
     break;
 
   default:
@@ -6864,6 +4654,34 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
 
   return r;
 }
+
+/*
+ * For backward compatibility: functions to enable/disable one option
+ */
+EXPORTED void yices_enable_var_elim(context_t *ctx) {
+  enable_variable_elimination(ctx);
+}
+
+EXPORTED void yices_disable_var_elim(context_t *ctx) {
+  disable_variable_elimination(ctx);
+}
+
+EXPORTED void yices_enable_flattening(context_t *ctx) {
+  enable_diseq_and_or_flattening(ctx);
+}
+
+EXPORTED void yices_disable_flattening(context_t *ctx) {
+  disable_diseq_and_or_flattening(ctx);
+}
+
+EXPORTED void yices_enable_bvarith_elim(context_t *ctx) {
+  enable_bvarith_elimination(ctx);
+}
+
+EXPORTED void yices_disable_bvarith_elim(context_t *ctx) {
+  disable_bvarith_elimination(ctx);
+}
+
 
 
 
@@ -6927,66 +4745,15 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
  */
 static void context_set_default_options(context_t *ctx, smt_logic_t logic, context_arch_t arch, bool iflag, bool qflag) {
   enable_variable_elimination(ctx);
-  enable_eq_abstraction(ctx);
-  enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
+  enable_diseq_and_or_flattening(ctx);
 
-  if (iflag) {
-    enable_splx_periodic_icheck(ctx);
-  }
-
-  // Special preprocessing
-  if (logic == QF_LRA) {
-    enable_cond_def_preprocessing(ctx);
-  }
-  if (logic == QF_LIRA) {
-    enable_or_factoring(ctx);
-  }
-
-  switch (arch) {
-  case CTX_ARCH_EG:
-    enable_diseq_and_or_flattening(ctx);
-    if (context_get_mode(ctx) == CTX_MODE_ONECHECK) {
-      enable_symmetry_breaking(ctx);
-    }
-    break;
-
-  case CTX_ARCH_BV:
+  if (arch == CTX_ARCH_BV) {
     // flattening makes things worse for QF_BV
     //   disable_diseq_and_or_flattening(ctx); FOR TESTING THE SHARING STUFF (2015/04/22)
     enable_diseq_and_or_flattening(ctx); // FOR TESTING THE SHARING STUFF (2015/04/22)
-    break;
-
-  case CTX_ARCH_SPLX:
-    enable_splx_eager_lemmas(ctx);
-    enable_diseq_and_or_flattening(ctx);
-    enable_assert_ite_bounds(ctx);
-    enable_ite_flattening(ctx);
-    break;
-
-  case CTX_ARCH_EGSPLX:
-  case CTX_ARCH_EGFUNSPLX:
-    enable_splx_eager_lemmas(ctx);
-    enable_diseq_and_or_flattening(ctx);
-    enable_splx_eqprop(ctx);    
-    enable_assert_ite_bounds(ctx);
-    enable_ite_flattening(ctx);
-    break;
-
-  case CTX_ARCH_EGBV:
-  case CTX_ARCH_EGFUNBV:
-    // no ite_flattening (TO BE CONFIRMED)
-    enable_diseq_and_or_flattening(ctx);
-    break;
-
-  default:
-    enable_diseq_and_or_flattening(ctx);
-    break;
   }
-
 }
-
-
 
 
 
@@ -7010,6 +4777,7 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
 }
 
 
+#if 0
 /*
  * Allocate and initialize and new context
  * - the configuration is defined by config.
@@ -7044,6 +4812,17 @@ EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
   return yices_create_context(logic, arch, mode, iflag, qflag);
 }
 
+#endif
+
+/*
+ * For backward compatibiltiy:
+ * - use the following default configuration:
+ *   mode = CTX_MODE_MULTICHECKS
+ *   logic = QF_BV
+ */
+EXPORTED context_t *yices_new_context(void) {
+  return yices_create_context(QF_BV, CTX_ARCH_BV, CTX_MODE_MULTICHECKS, false, false);
+}
 
 /*
  * Delete ctx
@@ -7052,8 +4831,6 @@ EXPORTED void yices_free_context(context_t *ctx) {
   delete_context(ctx);
   free_context(ctx);
 }
-
-
 
 
 /*
@@ -7273,7 +5050,6 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
     // nothing to do
     break;
 
-
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
     error.code = CTX_INVALID_OPERATION;
@@ -7324,7 +5100,6 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
     // fall-through intended
     // nothing to do
     break;
-
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
@@ -7392,26 +5167,6 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
 void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t arch, context_mode_t mode) {
   init_params_to_defaults(params);
   switch (arch) {
-  case CTX_ARCH_EG:
-    // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
-    params->use_bool_dyn_ack = true;
-    params->use_dyn_ack = true;
-    //    params->max_ackermann = 100;
-    params->cache_tclauses = true;
-    params->tclause_size = 12;
-    break;
-
-  case CTX_ARCH_SPLX:
-    // options: --flatten --theory-branching --cache-tclauses --arith-elim --var-elim
-    params->branching = BRANCHING_THEORY;
-    params->cache_tclauses = true;
-    params->tclause_size = 8;
-    if (logic == QF_LIA || logic == QF_LIRA) {
-      params->use_simplex_prop = true;
-      params->tclause_size = 20;
-    }
-    break;
-
   case CTX_ARCH_BV:
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     params->fast_restart = true;
@@ -7420,77 +5175,13 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->randomness = 0.0;
     break;
 
-  case CTX_ARCH_EGSPLX:       // egraph+simplex
-  case CTX_ARCH_EGFUNSPLX:    // egraph+fun+simplex
-    params->use_dyn_ack = true;
-    params->use_bool_dyn_ack = true;
-    params->use_simplex_prop = true;
-    params->adjust_simplex_model = true;
-    params->cache_tclauses = true;
-    params->tclause_size = 8;
-    params->use_optimistic_fcheck = true;
-    if (logic == QF_UFLIA || logic == QF_UFLIRA || logic == QF_AUFLIA || logic == QF_ALIA || logic == QF_UFIDL) {
-      params->branching = BRANCHING_NEGATIVE;
-      params->max_interface_eqs = 15;
-    } else {
-      params->branching = BRANCHING_THEORY;
-      params->max_interface_eqs = 30;
-    }
-
-    /*
-     * For QF_UFLIA: optimistic_fcheck works better on the incremental benchmarks
-     * but it's worse on the non-incremental benchmarks.
-     */
-    if ((logic == QF_UFLIA || logic == QF_UFLIRA) && mode == CTX_MODE_ONECHECK) {
-      params->use_optimistic_fcheck = false;
-    }
-    break;
-
-  case CTX_ARCH_EGBV:         // egraph+bitvector solver
-  case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
-    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    params->fast_restart = true;
-    params->c_factor = 1.05;
-    params->d_factor = 1.05;
-    params->randomness = 0.0;
-    params->max_interface_eqs = 15;
-    if (logic == QF_UFBV) {
-      // randomness helps for the SMT benchmarks
-      params->randomness = 0.02;
-    }
-    break;
-
-  case CTX_ARCH_IFW:
-  case CTX_ARCH_RFW:
-    params->cache_tclauses = true;
-    params->tclause_size = 20;
-    params->fast_restart = true;
-    params->c_factor = 1.1;
-    params->d_factor = 1.1;
-    break;
-
-  case CTX_ARCH_EGFUNSPLXBV:
-    // egraph+bitvector+simplex+fun solver
-    // this is the default if no logic is specified
-    params->use_dyn_ack = true;
-    params->use_bool_dyn_ack = true;
-    params->use_optimistic_fcheck = true;
-    params->use_simplex_prop = true;
-    params->adjust_simplex_model = true;
-    params->cache_tclauses = true;
-    params->tclause_size = 8;
-    params->max_interface_eqs = 15;
-    break;
-
-  case CTX_ARCH_EGFUN:
-  case CTX_ARCH_AUTO_IDL:
-  case CTX_ARCH_AUTO_RDL:
   default:
     // nothing required
     break;
   }
 
 }
+
 
 /*
  * Set default search parameters for ctx (based on architecture and theories)
@@ -7830,162 +5521,9 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   return 0;
 }
 
-
-/*
- * Value of arithmetic term t: it can be returned as an integer, a
- * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
- *
- * Error codes:
- * If t is not an arithmetic term:
- *   code = ARITH_TERM_REQUIRED
- *   term1 = t
- * If t's value does not fit in the *val object
- *   code = EVAL_OVERFLOW
- */
-
-
-/*
- * Auxiliary function: return the rational value of t
- * - return NULL and set the error code if the value can't be computed
- */
-static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
-  value_table_t *vtbl;
-  value_t v;
-
-  if (! check_good_term(&manager, t) ||
-      ! check_arith_term(&manager, t)) {
-    return NULL;
-  }
-
-  v = model_get_term_value(mdl, t);
-  if (v < 0) {
-    error.code = yices_eval_error(v);
-    return NULL;
-  }
-
-  vtbl = model_get_vtbl(mdl);
-  if (! object_is_rational(vtbl, v)) {
-    error.code = INTERNAL_EXCEPTION;
-    return NULL;
-  }
-
-  return vtbl_rational(vtbl, v);
-}
-
-
-// return the value as a 32bit integer
-EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get32(q, val)) {
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-// return the value as a 64bit integer
-EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get64(q, val)) {
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-// return the value as a pair num/den (both 32bit integers)
-EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get_int32(q, num, den)) {
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-// pair num/den (64bit integers)
-EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get_int64(q, num, den)) {
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-// convert to a floating point number
-EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  *val = q_get_double(q);
-  return 0;
-}
-
-
-// convert to a GMP integer
-EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (!q_get_mpz(q, val)) {
-    // the value is not an integer (maybe we should use a better error code
-    // in this case?)
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-// convert to a GMP rational
-EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
-  rational_t *q;
-
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
-  }
-  q_get_mpq(q, val);
-
-  return 0;
+// same function under a different name for backward compatibility
+EXPORTED int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *val) {
+  return yices_get_bool_value(mdl, t, val);
 }
 
 
@@ -8032,885 +5570,10 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   return 0;
 }
 
-
-
-/*
- * Value of term t of uninterpreted or scalar type
- * - the value is returned as a constant index in *val
- *   (with the same meaning as in function yices_constant):
- * - if t has type tau and tau is a scalar type of size n then
- *   the function returns an index k between 0 and n-1
- * - if tau is an uninterpreted type, then the function returns an
- *   integer index k
- *
- * Error codes:
- * - if t does not have a scalar or uninterpreted type:
- *   code = SCALAR_TERM_REQUIRED
- *   term1 = t
- */
-EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
-  value_table_t *vtbl;
-  value_unint_t *uv;
-  value_t v;
-
-  if (! check_good_term(&manager, t) ||
-      ! check_scalar_term(&manager, t)) {
-    return -1;
-  }
-
-  v = model_get_term_value(mdl, t);
-  if (v < 0) {
-    error.code = yices_eval_error(v);
-    return -1;
-  }
-
-  vtbl = model_get_vtbl(mdl);
-  if (! object_is_unint(vtbl, v)) {
-    error.code = INTERNAL_EXCEPTION;
-    return -1;
-  }
-
-  uv = vtbl_unint(vtbl, v);
-  *val = uv->index;
-
-  return 0;
+// same function under a different name for backward compatibility
+EXPORTED int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val[]) {
+  return yices_get_bv_value(mdl, t, val);
 }
-
-
-/*
- * FULL MODEL: NODES AND VALUE DESCRIPTORS
- */
-
-/*
- * Vectors of node descriptors
- */
-EXPORTED void yices_init_yval_vector(yval_vector_t *v) {
-  init_yval_vector(v);
-}
-
-EXPORTED void yices_reset_yval_vector(yval_vector_t *v) {
-  reset_yval_vector(v);
-}
-
-EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
-  delete_yval_vector(v);
-}
-
-/*
- * Value of term t stored as a node descriptor in *val.
- *
- * The function returns 0 it t's value can be computed, -1 otherwise.
- *
- * Error codes are as in all evaluation functions.
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If t contains a subterm whose value is not known
- *   code = EVAL_UNKNOWN_TERM
- * If t contains free variables
- *   code = EVAL_FREEVAR_IN_TERM
- * If t contains quantifier(s)
- *   code = EVAL_QUANTIFIER
- * If t contains lambda terms
- *   code = EVAL_LAMBDA
- * If the evaluation fails for other reasons:
- *   code = EVAL_FAILED
- */
-EXPORTED int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val) {
-  value_table_t *vtbl;
-  value_t v;
-
-  if (! check_good_term(&manager, t)) {
-    return -1;
-  }
-
-  v = model_get_term_value(mdl, t);
-  if (v < 0) {
-    error.code = yices_eval_error(v);
-    return -1;
-  }
-
-  vtbl = model_get_vtbl(mdl);
-  get_yval(vtbl, v, val);
-
-  return 0;
-}
-
-
-/*
- * Queries on the value of a rational node
- */
-EXPORTED int32_t yices_val_is_int32(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  rational_t *q;
-  value_t id;
-  int32_t code;
-
-  code = false;
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      q = vtbl_rational(vtbl, id);
-      code = q_is_int32(q);
-    }
-  }
-
-  return code;
-}
-
-EXPORTED int32_t yices_val_is_int64(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  rational_t *q;
-  value_t id;
-  int32_t code;
-
-  code = false;
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      q = vtbl_rational(vtbl, id);
-      code = q_is_int64(q);
-    }
-  }
-
-  return code;
-}
-
-EXPORTED int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  rational_t *q;
-  value_t id;
-  int32_t code;
-
-  code = false;
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      q = vtbl_rational(vtbl, id);
-      code = q_fits_int32(q);
-    }
-  }
-
-  return code;
-}
-
-EXPORTED int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  rational_t *q;
-  value_t id;
-  int32_t code;
-
-  code = false;
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      q = vtbl_rational(vtbl, id);
-      code = q_fits_int64(q);
-    }
-  }
-
-  return code;
-}
-
-EXPORTED int32_t yices_val_is_integer(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  rational_t *q;
-  value_t id;
-  int32_t code;
-
-  code = false;
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      q = vtbl_rational(vtbl, id);
-      code = q_is_integer(q);
-    }
-  }
-
-  return code;
-}
-
-/*
- * Number of bits in a bitvector constant
- */
-EXPORTED uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  value_bv_t *bv;
-  value_t id;
-  uint32_t n;
-
-  n = 0;
-  if (v->node_tag == YVAL_BV) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_bitvector(vtbl, id)) {
-      bv = vtbl_bitvector(vtbl, id);
-      n = bv->nbits;
-    }
-  }
-
-  return n;
-}
-
-
-/*
- * Number of components in a tuple
- */
-EXPORTED uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  value_tuple_t *tuple;
-  value_t id;
-  uint32_t n;
-
-  n = 0;
-  if (v->node_tag == YVAL_BV) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
-      tuple = vtbl_tuple(vtbl, id);
-      n = tuple->nelems;
-    }
-  }
-
-  return n;
-}
-
-
-/*
- * Arity of a mapping object
- */
-EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  value_map_t *map;
-  value_t id;
-  uint32_t n;
-
-  n = 0;
-  if (v->node_tag == YVAL_BV) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
-      map = vtbl_map(vtbl, id);
-      n = map->arity;
-    }
-  }
-
-  return n;  
-}
-
-/*
- * Arity of a function node
- */
-EXPORTED uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  value_t id;
-  uint32_t n;
-
-  n = 0;
-  if (v->node_tag == YVAL_FUNCTION) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id)) {
-      if (object_is_function(vtbl, id)) {
-	n = vtbl_function(vtbl, id)->arity;
-      } else if (object_is_update(vtbl, id)) {
-	n = vtbl_update(vtbl, id)->arity;
-      }
-    }
-  }
-
-  return n;
-}
-
-/*
- * Extract value of a leaf node
- */
-EXPORTED int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val) {
-  value_table_t *vtbl;
-  value_t id;
-
-  if (v->node_tag == YVAL_BOOL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_boolean(vtbl, id)) {
-      *val = boolobj_value(vtbl, id);
-      return 0;
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * Auxiliary function: return the rational value of v
- * - return NULL and set error code to YVAL_INVALID_OP if v does not refer to a rational object
- */
-static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
-  value_table_t *vtbl;
-  value_t id;
-
-  if (v->node_tag == YVAL_RATIONAL) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
-      return vtbl_rational(vtbl, id);
-    }
-  }
-  
-  error.code = YVAL_INVALID_OP;
-  return NULL;
-}
-
-EXPORTED int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get32(q, val)) {
-    error.code = YVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get64(q, val)) {
-    error.code = YVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get_int32(q, num, den)) {
-    error.code = YVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (! q_get_int64(q, num, den)) {
-    error.code = YVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  *val = q_get_double(q);
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  if (!q_get_mpz(q, val)) {
-    error.code = EVAL_OVERFLOW;
-    return -1;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-  q_get_mpq(q, val);
-
-  return 0;
-}
-
-
-/*
- * Value of a bitvector node
- */
-EXPORTED int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) {
-  value_table_t *vtbl;
-  value_bv_t *bv;
-  value_t id;
-
-  if (v->node_tag == YVAL_BV) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_bitvector(vtbl, id)) {
-      bv = vtbl_bitvector(vtbl, id);
-      bvconst_get_array(bv->data, val, bv->nbits);
-      return 0;
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * Value of a scalar/uninterpreted constant
- */
-EXPORTED int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau) {
-  value_table_t *vtbl;
-  value_unint_t *u;
-  value_t id;
-
-  if (v->node_tag == YVAL_SCALAR) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_unint(vtbl, id)) {
-      u = vtbl_unint(vtbl, id);
-      *tau = u->type;
-      *val = u->index;
-      return 0;
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * Expand a tuple node
- */
-EXPORTED int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]) {
-  value_table_t *vtbl;
-  value_t id;
-
-  if (v->node_tag == YVAL_TUPLE) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
-      yval_expand_tuple(vtbl, id, child);
-      return 0;
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * Expand a mapping node
- */
-EXPORTED int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val) {
-  value_table_t *vtbl;
-  value_t id;
-
-  if (v->node_tag == YVAL_MAPPING) {
-    vtbl = model_get_vtbl(mdl);
-    id = v->node_id;
-    if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
-      yval_expand_mapping(vtbl, id, tup, val);
-      return 0;
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * Expand a function node
- */
-EXPORTED int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v) {
-  value_table_t *vtbl;
-  value_t id;
-
-  if (f->node_tag == YVAL_FUNCTION) {
-    vtbl = model_get_vtbl(mdl);
-    id = f->node_id;
-    if (good_object(vtbl, id)) {
-      if (object_is_function(vtbl, id)) {
-	yval_expand_function(vtbl, id, v, def);
-	return 0;
-      }
-      if (object_is_update(vtbl, id)) {
-	yval_expand_update(vtbl, id, v, def);
-	return 0;
-      }
-    }
-  }
-
-  error.code = YVAL_INVALID_OP;
-  return -1;
-}
-
-
-/*
- * VALUES AS CONSTANT TERMS
- */
-
-/*
- * Value of term t converted to a constant term val.
- */
-EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
-  value_table_t *vtbl;
-  value_t v;
-  term_t a;
-
-  if (! check_good_term(&manager, t)) {
-    return NULL_TERM;
-  }
-
-  v = model_get_term_value(mdl, t);
-  if (v < 0) {
-    error.code = yices_eval_error(v);
-    return NULL_TERM;
-  }
-
-  vtbl = model_get_vtbl(mdl);
-  a = convert_value_to_term(&terms, vtbl, v);
-  if (a < 0) {
-    error.code = EVAL_CONVERSION_FAILED;
-    return NULL_TERM;
-  }
-
-  return a;
-}
-
-
-
-/*
- * TEST TRUTH-VALUE OF BOOLEAN TERMS
- */
-
-/*
- * Check whether f is true in mdl
- * - the returned value is
- *     1 if f is true in mdl,
- *     0 if f is false in mdl,
- *    -1 if f's value can't be evaluated
- *
- * Error codes:
- * - same as get_bool_val
- */
-EXPORTED int32_t yices_formula_true_in_model(model_t *mdl, term_t f) {
-  int32_t code;
-
-  if (! check_good_term(&manager, f) ||
-      ! check_boolean_term(&manager, f)) {
-    return -1;
-  }
-
-  if (formula_holds_in_model(mdl, f, &code)) {
-    assert(code >= 0);
-    return 1; // true
-  } else if (code >= 0) {
-    return 0; // false
-  } else {
-    // code < 0: contains the evaluation error
-    error.code = yices_eval_error(code);
-    return -1;
-  }
-}
-
-
-/*
- * Check whether formulas f[0 ... n-1] are all true in mdl
- * - the returned value is as in the previous function:
- *     1 if all f[i] are true
- *     0 if one f[i] is false (and f[0 ... i-1] are all true)
- *    -1 if one f[i] can't be evaluated
- * Error code:
- * - same as yices_get_bool_val
- */
-EXPORTED int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]) {
-  int32_t code;
-
-  if (! check_good_terms(&manager, n, f) ||
-      ! check_boolean_args(&manager, n, f)) {
-    return -1;
-  }
-
-  if (formulas_hold_in_model(mdl, n, f, &code)) {
-    assert(code >= 0);
-    return 1; // all true
-  } else if (code >= 0) {
-    return 0; // at least one false
-  } else {
-    // error in evaluation: code contains the eval code
-    error.code = yices_eval_error(code);
-    return -1;
-  }
-}
-
-
-
-
-/*
- * ARRAYS
- */
-
-/*
- * Values of terms a[0 ... n-1] all converted to terms
- */
-EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
-  int32_t eval_code;
-  uint32_t count;
-
-  if (! check_good_terms(&manager, n, a)) {
-    return -1;
-  }
-
-  eval_code = evaluate_term_array(mdl, n, a, b);
-  if (eval_code < 0) {
-    error.code = yices_eval_error(eval_code);
-    return -1;
-  }
-
-  count = convert_value_array(&terms, model_get_vtbl(mdl), n, b);
-  if (count < n) {
-    error.code = EVAL_CONVERSION_FAILED;
-    return -1;
-  }
-
-  return 0;
-}
-
-
-
-
-
-/*
- * IMPLICANTS
- */
-
-/*
- * Given a model mdl and a Boolean term t that is true in mdl, return an implicant for t
- * - the implicant is a list of literals a[0 ... n-1] such that
- *   every a[i] is true in mdl
- *   the conjunction a[0] /\ a[1] /\ ... /\ a[n-1] implies t
- *
- * The function returns a[0 ... n-1] in a term_vector v that must be initialized (by
- * yices_init_term_vector).
- *
- * The function returns 0 if all goes well or -1 if there's an error
- *
- * Error codes:
- * - INVALID_TERM         if t is not valid
- * - TYPE_MISMATCH        if t is not a Boolean term
- * - EVAL_FREEVAR_IN_TERM if t contains free variables
- * - EVAL_QUANTIFIER     if t contains quantifiers
- * - EVAL_LAMBDA          if t contains a lambda
- * - EVAL_NO_IMPLICANT    if t is false in  mdl
- * - EVAL_FAILED          if the function fails for some other reason
- */
-EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v) {
-  int32_t code;
-
-  if (! check_good_term(&manager, t) ||
-      ! check_boolean_term(&manager, t)) {
-    return -1;
-  }
-
-  v->size = 0;
-  code = get_implicant(mdl, &manager, LIT_COLLECTOR_ALL_OPTIONS, 1, &t, (ivector_t *) v);
-  if (code < 0) {
-    error.code = yices_eval_error(code);
-    return -1;
-  }
-
-  return 0;
-}
-
-
-/*
- * Same thing for an array of formulas a[0 ... n-1]
- */
-EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
-  int32_t code;
-
-  if (! check_good_terms(&manager, n, a) ||
-      ! check_boolean_args(&manager, n, a)) {
-    return -1;
-  }
-
-  v->size = 0;
-  code = get_implicant(mdl, &manager, LIT_COLLECTOR_ALL_OPTIONS, n, a, (ivector_t *) v);
-  if (code < 0) {
-    error.code = yices_eval_error(code);
-    return -1;
-  }
-
-  return 0;
-}
-
-
-
-/*
- * MODEL GENERALIZATION
- */
-
-/*
- * Convert a negative error code v from generalization.h into the
- * corresponding yices error code.
- */
-#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_BAD_ARITH_LITERAL)+1)
-
-static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
-  NO_ERROR,                  // 0
-  MDL_GEN_FAILED,            // NULL_TERM,
-  INTERNAL_EXCEPTION,        // GEN_EVAL_INTERNAL_ERROR
-  EVAL_UNKNOWN_TERM,         // GEN_EVAL_UNKNOWN_TERM
-  EVAL_FREEVAR_IN_TERM,      // GEN_EVAL_FREEVAR_IN_TERM
-  EVAL_QUANTIFIER,           // GEN_EVAL_QUANTIFIER
-  EVAL_LAMBDA,               // GEN_EVAL_LAMBDA
-  MDL_GEN_FAILED,            // GEN_EVAL_FAILED
-  EVAL_NO_IMPLICANT,         // GEN_EVAL_FORMULA_FALSE
-  MDL_GEN_FAILED,            // GEN_CONV_INTERNAL_ERROR
-  EVAL_CONVERSION_FAILED,    // GEN_CONV_UNKNOWN_VALUE
-  EVAL_CONVERSION_FAILED,    // GEN_CONV_NOT_PRIMITIVE
-  EVAL_CONVERSION_FAILED,    // GEN_CONV_FUNCTION
-  EVAL_CONVERSION_FAILED,    // GEN_CONV_FAILED
-  MDL_GEN_NONLINEAR,         // GEN_PROJ_ERROR_NON_LINEAR
-  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_EVAL
-  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_CONVERT
-  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_SUBST
-  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_ARITH_LITERAL
-};
-
-static inline error_code_t yices_gen_error(int32_t v) {
-  assert(0 <= -v && v < NUM_GEN_ERROR_CODES);
-  return gen_error2code[-v];
-}
-
-
-/*
- * Given a model mdl for a formula F(X, Y). The following generalization functions
- * eliminate variables Y from F(X, Y) in a way that is guided by the model.
- *
- * - nelims = number of variables to eliminate
- * - elim = variables to eliminate
- * - each term in elim[i] must be an uninterpreted term (as returned by yices_new_uninterpreted_term)
- *   of one of the following types: Boolean, (bitvector k), or Real
- * - mode defines the generalization algorithm
- * - v: term_vector to return the result
- *
- */
-EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-					yices_gen_mode_t mode, term_vector_t *v) {
-  int32_t code;
-
-  if (! check_good_term(&manager, t) ||
-      ! check_boolean_term(&manager, t) ||
-      ! check_elim_vars(&manager, nelims, elim)) {
-    return -1;
-  }
-
-  v->size = 0;
-  switch (mode) {
-  case YICES_GEN_BY_SUBST:
-    code = gen_model_by_substitution(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
-    break;
-
-  case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
-    break;
-
-  default:
-    code = generalize_model(mdl, &manager, 1, &t, nelims, elim, (ivector_t *) v);
-    break;
-  }
-
-  if (code < 0) {
-    error.code = yices_gen_error(code);
-    return -1;
-  }
-
-  return 0;
-}
-
-
-/*
- * Same thing for a conjunction of formulas a[0 ... n-1]
- */
-EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-					     yices_gen_mode_t mode, term_vector_t *v) {
-  int32_t code;
-
-  if (! check_good_terms(&manager, n, a) ||
-      ! check_boolean_args(&manager, n, a) ||
-      ! check_elim_vars(&manager, nelims, elim)) {
-    return NULL_TERM;
-  }
-
-  v->size = 0;
-  switch (mode) {
-  case YICES_GEN_BY_SUBST:
-    code = gen_model_by_substitution(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
-    break;
-
-  case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
-    break;
-
-  default:
-    code = generalize_model(mdl, &manager, n, a, nelims, elim, (ivector_t *) v);
-    break;
-  }
-
-  if (code < 0) {
-    error.code = yices_gen_error(code);
-    return -1;
-  }
-
-  return 0;
-}
-
-
 
 
 
@@ -9152,10 +5815,4 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
   keep = (keep_named != 0);
   term_table_gc(&terms, keep);
 
-  /*
-   * Cleanup the fvars structure if it exists
-   */
-  if (fvars != NULL) {
-    cleanup_fvar_collector(fvars);
-  }
 }

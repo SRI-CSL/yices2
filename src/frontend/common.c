@@ -41,40 +41,6 @@ const char* const status2string[NUM_SMT_STATUSES] = {
 
 
 /*
- * Conversion of EF preprocessing codes to string
- */
-const char * const efcode2error[NUM_EF_CODES] = {
-  "no error",
-  "assertions contain uninterpreted functions",
-  "invalid quantifier nesting (not an exists/forall problem)",
-  "non-atomic universal variables",
-  "non-atomic existential variables",
-  "internal error",
-};
-
-
-/*
- * Table to convert  ef-solver status to a string
- */
-const char* const ef_status2string[NUM_EF_STATUSES] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
-  // error codes:
-  "subst error",
-  "tval error",
-  "check error",
-  "assert error",
-  "model error",
-  "implicant error", 
-  "projection error",
-  "status error",
-};
-
-/*
  * Conversion of internalization code to an error message
  */
 const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
@@ -130,9 +96,6 @@ void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
 
 
 
-
-
-
 /***************************************
  *  UTILITIES TO DEAL WITH PARAMETERS  *
  **************************************/
@@ -143,48 +106,22 @@ void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
  */
 static const char * const param_names[NUM_PARAMETERS] = {
   "arith-elim",
-  "aux-eq-quota",
-  "aux-eq-ratio",
-  "bland-threshold",
   "branching",
   "bvarith-elim",
   "c-factor",
   "c-threshold",
-  "cache-tclauses",
   "clause-decay",
   "d-factor",
   "d-threshold",
-  "dyn-ack",
-  "dyn-ack-threshold",
-  "dyn-bool-ack",
-  "dyn-bool-ack-threshold",
-  "eager-lemmas",
-  "ef-flatten-iff",
-  "ef-flatten-ite",
-  "ef-gen-mode",
-  "ef-max-iters",
-  "ef-max-samples",
   "fast-restarts",
   "flatten",
-  "icheck",
-  "icheck-period",
   "keep-ite",
   "learn-eq",
-  "max-ack",
-  "max-bool-ack",
-  "max-extensionality",
-  "max-interface-eqs",
-  "max-update-conflicts",
-  "optimistic-fcheck",
-  "prop-threshold",
   "r-factor",
   "r-fraction",
   "r-threshold",
   "random-seed",
   "randomness",
-  "simplex-adjust",
-  "simplex-prop",
-  "tclause-size",
   "var-decay",
   "var-elim",
 };
@@ -192,48 +129,22 @@ static const char * const param_names[NUM_PARAMETERS] = {
 // corresponding parameter codes in order
 static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_ARITH_ELIM,
-  PARAM_AUX_EQ_QUOTA,
-  PARAM_AUX_EQ_RATIO,
-  PARAM_BLAND_THRESHOLD,
   PARAM_BRANCHING,
   PARAM_BVARITH_ELIM,
   PARAM_C_FACTOR,
   PARAM_C_THRESHOLD,
-  PARAM_CACHE_TCLAUSES,
   PARAM_CLAUSE_DECAY,
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
-  PARAM_DYN_ACK,
-  PARAM_DYN_ACK_THRESHOLD,
-  PARAM_DYN_BOOL_ACK,
-  PARAM_DYN_BOOL_ACK_THRESHOLD,
-  PARAM_EAGER_LEMMAS,
-  PARAM_EF_FLATTEN_IFF,
-  PARAM_EF_FLATTEN_ITE,
-  PARAM_EF_GEN_MODE,
-  PARAM_EF_MAX_ITERS,
-  PARAM_EF_MAX_SAMPLES,
   PARAM_FAST_RESTARTS,
   PARAM_FLATTEN,
-  PARAM_ICHECK,
-  PARAM_ICHECK_PERIOD,
   PARAM_KEEP_ITE,
   PARAM_LEARN_EQ,
-  PARAM_MAX_ACK,
-  PARAM_MAX_BOOL_ACK,
-  PARAM_MAX_EXTENSIONALITY,
-  PARAM_MAX_INTERFACE_EQS,
-  PARAM_MAX_UPDATE_CONFLICTS,
-  PARAM_OPTIMISTIC_FCHECK,
-  PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,
   PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
-  PARAM_SIMPLEX_ADJUST,
-  PARAM_SIMPLEX_PROP,
-  PARAM_TCLAUSE_SIZE,
   PARAM_VAR_DECAY,
   PARAM_VAR_ELIM,
 };
@@ -266,25 +177,6 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
 
 
 /*
- * Names of the generalization modes for the EF solver
- */
-#define NUM_EF_GEN_MODES 4
-
-static const char * const ef_gen_modes[NUM_EF_GEN_MODES] = {
-  "auto",
-  "none",
-  "projection",
-  "substitution",
-};
-
-static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
-  EF_GEN_AUTO_OPTION,
-  EF_NOGEN_OPTION,
-  EF_GEN_BY_PROJ_OPTION,
-  EF_GEN_BY_SUBST_OPTION,
-};
-
-/*
  * Tables for converting parameter id to parameter name
  * and branching code to branching name. One more table
  * for converting from EF generalization codes to strings.
@@ -292,8 +184,6 @@ static const ef_gen_option_t ef_gen_code[NUM_EF_GEN_MODES] = {
 const char *param2string[NUM_PARAMETERS];
 
 const char *branching2string[NUM_BRANCHING_MODES];
-
-const char *efgen2string[NUM_EF_GEN_MODES];
 
 
 /*
@@ -317,11 +207,6 @@ void init_parameter_name_table(void) {
     branching2string[j] = name;
   }
 
-  for (i=0; i<NUM_EF_GEN_MODES; i++) {
-    name = ef_gen_modes[i];
-    j = ef_gen_code[i];
-    efgen2string[j] = name;
-  }
 }
 
 
@@ -479,27 +364,6 @@ bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *va
 }
 
 
-
-/*
- * EF generalization mode
- * - allowed modes are "none" or "substitution" or "projection" or "auto"
- * - we use a general implementation so that we can add more modes later
- */
-bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason) {
-  int32_t i;
-
-  if (v->tag == PARAM_VAL_SYMBOL) {
-    i = binary_search_string(v->val.symbol, ef_gen_modes, NUM_EF_GEN_MODES);
-    if (i >= 0) {
-      assert(i < NUM_EF_GEN_MODES);
-      *value = ef_gen_code[i];
-      return true;
-    }
-  }
-  *reason = "must be one of 'none' 'substitution' 'projection' 'auto'";
-
-  return false;
-}
 
 
 

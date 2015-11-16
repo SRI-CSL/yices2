@@ -81,9 +81,7 @@ typedef enum tag_enum {
   TAG_RATIONAL,         // rational constant
   TAG_TERM,             // term index + polarity (from the global term table)
   TAG_TYPE,             // type index (from the global type table)
-  TAG_MACRO,            // type macro (index in the type table)
   TAG_ATTRIBUTE,        // attribute value (index in an attribute value table)
-  TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
   TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
   TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
   TAG_BVLOGIC_BUFFER,   // array of bits
@@ -146,7 +144,6 @@ typedef struct stack_elem_s {
     type_t type;
     int32_t macro;
     aval_t aval;
-    rba_buffer_t *arith_buffer;
     bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
     bvlogic_buffer_t *bvlogic_buffer;
@@ -232,7 +229,6 @@ struct tstack_s {
   bvconstant_t bvconst_buffer;
 
   // dynamically allocated buffers
-  rba_buffer_t *abuffer;
   bvarith64_buffer_t *bva64buffer;
   bvarith_buffer_t *bvabuffer;
   bvlogic_buffer_t *bvlbuffer;
@@ -340,19 +336,12 @@ enum base_opcodes {
 
   // bindings
   BIND,               // [bind <symbol> <term> ]
-  DECLARE_VAR,        // [declare-var <symbol> <type> ]
-  DECLARE_TYPE_VAR,   // [declare-type-var <symbol> ]
   LET,                // [let <binding> ... <binding> <term> ]
 
   // type constructors
   MK_BV_TYPE,         // [mk-bv-type <rational> ]
-  MK_SCALAR_TYPE,     // [mk-scalar-type <symbol> ... <symbol> ]
-  MK_TUPLE_TYPE,      // [mk-tuple-type <type> ... <type> ]
-  MK_FUN_TYPE,        // [mk-fun-type <type> ... <type> ]
-  MK_APP_TYPE,        // [mk-app-type <macro> <type> ... <type> ]
 
   // basic term constructors
-  MK_APPLY,           // [mk-apply <term> ... <term> ]
   MK_ITE,             // [mk-ite <term> <term> <term> ]
   MK_EQ,              // [mk-eq <term> <term> ]
   MK_DISEQ,           // [mk-diseq <term> <term> ]
@@ -363,25 +352,6 @@ enum base_opcodes {
   MK_XOR,             // [mk-xor <term> ... <term> ]
   MK_IFF,             // [mk-iff <term> <term> ]
   MK_IMPLIES,         // [mk-implies <term> <term> ]
-  MK_TUPLE,           // [mk-tuple <term> ... <term> ]
-  MK_SELECT,          // [mk-select <term> <rational> ]
-  MK_TUPLE_UPDATE,    // [mk-tuple-update <term> <rational> <term> ]
-  MK_UPDATE,          // [mk-update <term> <term> .... <term> ]
-  MK_FORALL,          // [mk-forall <binding> ... <binding> <term> ]
-  MK_EXISTS,          // [mk-exists <binding> ... <binding> <term> ]
-  MK_LAMBDA,          // [mk-lambda <binding> ... <binding> <term> ]
-
-  // arithmetic
-  MK_ADD,             // [mk-add <arith> ... <arith> ]
-  MK_SUB,             // [mk-sub <arith> ... <arith> ]
-  MK_NEG,             // [mk-neg <arith> ]
-  MK_MUL,             // [mk-mul <arith> ... <arith> ]
-  MK_DIVISION,        // [mk-division <arith> <arith> ]
-  MK_POW,             // [mk-pow <arith> <integer> ]
-  MK_GE,              // [mk-ge <arith> <arith> ]
-  MK_GT,              // [mk-gt <arith> <arith> ]
-  MK_LE,              // [mk-le <arith> <arith> ]
-  MK_LT,              // [mk-lt <arith> <arith> ]
 
   // bitvector arithmetic
   MK_BV_CONST,        // [mk-bv-const <size> <value> ]
@@ -437,14 +407,6 @@ enum base_opcodes {
 
   MK_BOOL_TO_BV,      // [mk-bool-to-bv <bool> .... <bool>]
   MK_BIT,             // [mk-bit <bv> <index>]
-
-  MK_FLOOR,           // [mk-floor <arith> ]
-  MK_CEIL,            // [mk-ceil <arith> ]
-  MK_ABS,             // [mk-abs <arith> ]
-  MK_IDIV,            // [mk-idiv <arith> <arith> ]
-  MK_MOD,             // [mk-idiv <arith> <arith> ]
-  MK_DIVIDES,         // [mk-divides <arith> <arith> ]
-  MK_IS_INT,          // [mk-is-int <arith> ]
 
   // collect result
   BUILD_TERM,         // [build-term <term> ]
@@ -544,18 +506,10 @@ static inline void tstack_push_symbol(tstack_t *stack, char *s, uint32_t n, loc_
 
 /*
  * These functions are like push_symbol but they raise an exception if
- * the name s is already used (TSTACK_TYPENAME_REDEF,
- * TSTACK_TERMNAME_REDEF, or TSTACK_MACRO_REDEF)
+ * the name s is already used (TSTACK_TYPENAME_REDEF or TSTACK_TERMNAME_REDEF)
  */
 extern void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 extern void tstack_push_free_termname(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
-extern void tstack_push_free_macroname(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
-
-/*
- * Variant: raise exception (TSTACK_TYPENAME_REDEF) if s is already
- * used either as a type or as a macro name
- */
-extern void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 
 
 /*
@@ -566,7 +520,6 @@ extern void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32
  */
 extern void tstack_push_type_by_name(tstack_t *stack, char *s, loc_t *loc);
 extern void tstack_push_term_by_name(tstack_t *stack, char *s, loc_t *loc);
-extern void tstack_push_macro_by_name(tstack_t *stack, char *s, loc_t *loc);
 
 /*
  * Convert a string to a rational and push that
@@ -600,8 +553,6 @@ extern void tstack_push_bvhex(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
  * Push primitive types or terms
  */
 extern void tstack_push_bool_type(tstack_t *stack, loc_t *loc);
-extern void tstack_push_int_type(tstack_t *stack, loc_t *loc);
-extern void tstack_push_real_type(tstack_t *stack, loc_t *loc);
 extern void tstack_push_true(tstack_t *stack, loc_t *loc);
 extern void tstack_push_false(tstack_t *stack, loc_t *loc);
 
@@ -616,7 +567,6 @@ extern void tstack_push_int32(tstack_t *stack, int32_t val, loc_t *loc);
  */
 extern void tstack_push_term(tstack_t *stack, term_t t, loc_t *loc);
 extern void tstack_push_type(tstack_t *stack, type_t tau, loc_t *loc);
-extern void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc);
 
 
 /*

@@ -87,30 +87,6 @@ extern void context_free_cache(context_t *ctx);
 
 
 /*
- * Buffers for polynomials
- */
-extern rba_buffer_t *context_get_arith_buffer(context_t *ctx);
-extern void context_free_arith_buffer(context_t *ctx);
-
-extern poly_buffer_t *context_get_poly_buffer(context_t *ctx);
-extern void context_free_poly_buffer(context_t *ctx);
-extern void context_reset_poly_buffer(context_t *ctx);
-
-
-/*
- * Allocate the auxiliary polynomial buffer and make it large enough
- * for n monomials.
- */
-extern polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n);
-
-/*
- * Free the auxiliary polynomial
- */
-extern void context_free_aux_poly(context_t *ctx);
-
-
-
-/*
  * EQUALITY CACHE
  */
 
@@ -149,72 +125,6 @@ extern literal_t find_in_eq_cache(context_t *ctx, term_t t1, term_t t2);
  * - l must be different from null_literal
  */
 extern void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l);
-
-
-
-/*
- * DIV/MOD TABLE
- */
-
-/*
- * Initialization/reset/deletion and push/pop
- * - get_divmod_table allocates and initializes the table if needed.
- * - free/reset/push/pop do nothing if the table does not exist.
- */
-extern divmod_tbl_t *context_get_divmod_table(context_t *ctx);
-extern void context_free_divmod_table(context_t *ctx);
-extern void context_reset_divmod_table(context_t *ctx);
-extern void context_divmod_table_push(context_t *ctx);
-extern void context_divmod_table_pop(context_t *ctx);
-
-
-/*
- * Check whether the record for (floor x) is in the table.
- * If so return the theory variable mapped to (floor x).
- * If not return null_thvar
- * Also returns null_thvar if the table does not exist.
- */
-extern thvar_t context_find_var_for_floor(context_t *ctx, thvar_t x);
-
-
-/*
- * Check whether the record for (ceil x) is in the table.
- * If so return the theory variable mapped to (ceil x).
- * If not return null_thvar
- * Also returns null_thvar if the table does not exist.
- */
-extern thvar_t context_find_var_for_ceil(context_t *ctx, thvar_t x);
-
-/*
- * Check whether the record for (div x k) is in the table.
- * If so return the theory variable mapped to (div x k).
- * If not return null_thvar.
- * Also returns null_thvar if the table does not exist.
- */
-extern thvar_t context_find_var_for_div(context_t *ctx, thvar_t x, const rational_t *k);
-
-
-/*
- * Add record for (floor x):
- * - y = theory variable for (floor x)
- * - this creates the table if needed.
- */
-extern void context_record_floor(context_t *ctx, thvar_t x, thvar_t y);
-
-
-/*
- * Same thing for (ceil x)
- * - y = theory variable for (ceil x)
- */
-extern void context_record_ceil(context_t *ctx, thvar_t x, thvar_t y);
-
-
-/*
- * Same thing for (div x k)
- * - y = theory variable for (div x k)
- */
-extern void context_record_div(context_t *ctx, thvar_t x, const rational_t *k, thvar_t y);
-
 
 
 
@@ -277,22 +187,6 @@ extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
  */
 extern void add_aux_atom(context_t *ctx, term_t atom);
 
-
-
-/*
- * DIFFERENCE-LOGIC DATA
- */
-
-/*
- * Difference-logic profile:
- * - allocate and initialize the structure if it does not exist
- */
-extern dl_data_t *context_get_dl_profile(context_t *ctx);
-
-/*
- * Free the profile record if it's not NULL
- */
-extern void context_free_dl_profile(context_t *ctx);
 
 
 /*
@@ -593,29 +487,8 @@ static inline bool context_allows_quantifiers(context_t *ctx) {
 /*
  * Check which solvers are present
  */
-static inline bool context_has_egraph(context_t *ctx) {
-  return ctx->egraph != NULL;
-}
-
-static inline bool context_has_arith_solver(context_t *ctx) {
-  return ctx->arith_solver != NULL;
-}
-
 static inline bool context_has_bv_solver(context_t *ctx) {
   return ctx->bv_solver != NULL;
-}
-
-static inline bool context_has_fun_solver(context_t *ctx) {
-  return ctx->fun_solver != NULL;
-}
-
-
-/*
- * Get the difference-logic profile record (only useful for contexts
- * with architecture CTX_ARCH_AUTO_IDL or CTX_ARCH_AUTO_RDL).
- */
-static inline dl_data_t *get_diff_logic_profile(context_t *ctx) {
-  return ctx->dl_profile;
 }
 
 

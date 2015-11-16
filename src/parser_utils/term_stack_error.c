@@ -84,17 +84,9 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "define",
 
   "bind",
-  "var declaration",
-  "type-var declaration",  // for SMT2
   "let",
 
   "bitvector type",
-  "scalar type",   // not in SMT
-  "tuple type",    // not in SMT
-  "function type",
-  "macro application",  // for SMT2
-
-  "function application",
   "if-then-else",
   "equality",
   "disequality",
@@ -105,24 +97,6 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "xor",
   "iff",
   "implies",
-  "mk-tuple", // not in SMT
-  "select",   // not in SMT
-  "tuple update", // not in SMT
-  "store",
-  "forall",
-  "exists",
-  "lambda",  // not in SMT
-
-  "addition",
-  "subtraction",
-  "negation",
-  "multiplication",
-  "division",
-  "exponentiation", // not in SMT
-  "inequality",
-  "inequality",
-  "inequality",
-  "inequality",
 
   "bv constant",
   "bvadd",
@@ -194,17 +168,10 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "define",
 
   "bind",
-  "var declaration",
-  "type-var declaration",  // SMT2 only
   "let",
 
   "bitvector type",
-  "scalar type",
-  "tuple type",
-  "function type",
-  "type-macro application", // SMT2
 
-  "function application",
   "if-then-else",
   "equality",
   "disequality",
@@ -215,24 +182,6 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "xor",
   "<=>",
   "=>",
-  "mk-tuple",
-  "select",
-  "tuple update",
-  "update",
-  "forall",
-  "exists",
-  "lambda",
-
-  "addition",
-  "subtraction",
-  "negation",
-  "multiplication",
-  "division",
-  "exponentiation",
-  "inequality",
-  "inequality",
-  "inequality",
-  "inequality",
 
   "mk-bv",
   "bv-add",
@@ -312,7 +261,6 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "set-timeout",
   "show-timeout",
   "help",
-  "ef-solve",
   "export-to-dimacs",
   "show-implicant",
   "dump-context",

@@ -237,38 +237,34 @@ __YICES_DLLSPEC__ extern void yices_set_out_of_mem_callback(void (*callback)(voi
  *******************************/
 
 /*
- * Some functions in the API return arrays of terms or types
- * in a vector object (i.e., a resizable array). The vector
- * structures are defined in yices_types.h:
- * - v.size = number of elements in the array
- * - v.data = the array proper: the elements are stored in
- *            v.data[0] .... v.data[n-1] where n = v.size.
+ * Some functions in the API return arrays of terms in a vector object
+ * (i.e., a resizable array). The vector structures are defined in
+ * yices_types.h:
+ * - v.size = number of elements in the array 
+ * - v.data = the array proper: 
+ *   the elements are stored in v.data[0]  .... v.data[n-1] 
+ *   where n = v.size.
  *
- * Before calling any function that fills in a term_vector or
- * type_vector, the vector object must be initialized via
- * yices_init_term_vector or yices_init_type_vector. To prevent
+ * Before calling any function that fills in a term vector, the vector
+ * object must be initialized via yices_init_term_vector. To prevent
  * memory leaks, it must be deleted when no longer needed.
  */
 
 /*
- * Initialize a term or type vector v
+ * Initialize a term vector v
  */
 __YICES_DLLSPEC__ extern void yices_init_term_vector(term_vector_t *v);
-__YICES_DLLSPEC__ extern void yices_init_type_vector(type_vector_t *v);
-
 
 /*
  * Delete vector v
  */
 __YICES_DLLSPEC__ extern void yices_delete_term_vector(term_vector_t *v);
-__YICES_DLLSPEC__ extern void yices_delete_type_vector(type_vector_t *v);
 
 
 /*
  * Reset: empty the vector (reset size to 0)
  */
 __YICES_DLLSPEC__ extern void yices_reset_term_vector(term_vector_t *v);
-__YICES_DLLSPEC__ extern void yices_reset_type_vector(type_vector_t *v);
 
 
 
@@ -281,11 +277,9 @@ __YICES_DLLSPEC__ extern void yices_reset_type_vector(type_vector_t *v);
  */
 
 /*
- * Built-in types bool, int, real.
+ * Built-in type: bool
  */
 __YICES_DLLSPEC__ extern type_t yices_bool_type(void);
-__YICES_DLLSPEC__ extern type_t yices_int_type(void);
-__YICES_DLLSPEC__ extern type_t yices_real_type(void);
 
 
 /*
@@ -300,91 +294,6 @@ __YICES_DLLSPEC__ extern type_t yices_real_type(void);
  *   badval = size
  */
 __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
-
-
-/*
- * New scalar type of given cardinality.
- * Requires card > 0
- *
- * If card = 0, set error report to
- *   code = POS_INT_REQUIRED
- *   badval = size
- */
-__YICES_DLLSPEC__ extern type_t yices_new_scalar_type(uint32_t card);
-
-
-/*
- * New uninterpreted type. No error report.
- */
-__YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
-
-
-/*
- * Tuple type tau[0] x ... x tau[n-1].
- * Requires n>0 and tau[0] ... tau[n-1] to be well defined types.
- *
- * Error report
- * if n == 0,
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if n > YICES_MAX_ARITY
- *   code = TOO_MANY_ARGUMENTS
- *   badval = n
- * if tau[i] is not well defined (and tau[0] .. tau[i-1] are)
- *   code = INVALID_TYPE
- *   type1 = tau[i]
- */
-__YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, const type_t tau[]);
-
-
-/*
- * Variants: for small arity
- *
- * These variants build types:
- *   (tuple tau1)
- *   (tuple tau1 tau2)
- *   (tuple tau1 tau2 tau3)
- *
- * Error report: same as yices_tuple_type if one of the type is invalid
- */
-__YICES_DLLSPEC__ extern type_t yices_tuple_type1(type_t tau1);
-__YICES_DLLSPEC__ extern type_t yices_tuple_type2(type_t tau1, type_t tau2);
-__YICES_DLLSPEC__ extern type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3);
-
-
-
-/*
- * Function type: dom[0] ... dom[n-1] -> range
- * Requires n>0, and dom[0] ... dom[n-1] and range to be well defined
- *
- * Error report
- * if n ==0,
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if n > YICES_MAX_ARITY
- *   code = TOO_MANY_ARGUMENTS
- *   badval = n
- * if range undefined
- *   code = INVALID_TYPE
- *   type1 = range
- * if dom[i] is undefined (and dom[0] ... dom[i-1] are)
- *   code = INVALID_TYPE
- *   type1 = dom[i]
- */
-__YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, const type_t dom[], type_t range);
-
-
-/*
- * Variants for small arity:
- *   [tau1 -> range]
- *   [tau1, tau2 -> range]
- *   [tau1, tau2. tau3 -> range]
- *
- * Same error reports are yices_function_type if one of the type is invalid
- */
-__YICES_DLLSPEC__ extern type_t yices_function_type1(type_t tau1, type_t range);
-__YICES_DLLSPEC__ extern type_t yices_function_type2(type_t tau1, type_t tau2, type_t range);
-__YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range);
 
 
 
@@ -405,26 +314,7 @@ __YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, t
  *   type1 = tau
  */
 __YICES_DLLSPEC__ extern int32_t yices_type_is_bool(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
-
-
-/*
- * Check whether tau is a subtype of sigma
- * - returns 0 for false, 1 for true
- *
- * If tau or sigma is not a valid type, the function returns false
- * and sets the error report:
- *   code = INVALID_TYPE
- *   type1 = tau or sigma
- */
-__YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 
 
 /*
@@ -442,91 +332,15 @@ __YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 __YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
 
 
-/*
- * Cardinality of a scalar type
- * - returns 0 if there's an error
- *
- * Error report:
- * if tau is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau
- * if tau is not a scalar type
- *   code = INVALID_TYPE_OP
- */
-__YICES_DLLSPEC__ extern uint32_t yices_scalar_type_card(type_t tau);
 
 
-/*
- * Number of children of type tau
- * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
- * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
- * - if tau is any other type, returns 0 
- *
- * - returns -1 if tau is not a valid type
- *
- * Error report:
- * if tau is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau
- */
-__YICES_DLLSPEC__ extern int32_t yices_type_num_children(type_t tau);
-
-
-/*
- * i-th child of type tau.
- * - i must be in 0 and n-1 where n = yices_type_num_children(tau)
- * - returns NULL_TYPE if there's an error
- *
- * For a function type (-> tau_1 ... tau_n sigma), the first n
- * children are tau_1 ... tau_n (indexed from 0 to n-1) and the last
- * child is sigma (with index i=n).
- *
- * Error report:
- * if tau is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau
- * if is is negative or larger than n
- *   code = INVALID_TYPE_OP
- */
-__YICES_DLLSPEC__ extern type_t yices_type_child(type_t tau, int32_t i);
-
-
-/*
- * Collect all the children of type tau in vector *v
- * - v must be initialized by calling yices_init_type_vector
- * - if tau is not valid, the function returns -1 and leaves *v unchanged
- * - otherwise, the children are stored in *v:
- *    v->size = number of children
- *    v->data[0 ... v->size-1] = the children
- *
- * The children are stored in the same order as given by yices_type_child:
- *    v->data[i] = child of index i.
- *
- * Error report:
- * if tau is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau
- */
-__YICES_DLLSPEC__ extern int32_t yices_type_children(type_t tau, type_vector_t *v);
-
-
-
-/***********************
- *  TERM CONSTRUCTORS  *
- **********************/
+/*******************************
+ *  BOOELAN TERM CONSTRUCTORS  *
+ ******************************/
 
 /*
  * Constructors do type checking and simplification.
  * They return NULL_TERM (< 0) if there's a type error.
- *
- * Type checking rules for function applications:
- * - if f has type [tau_1 ... tau_n -> u]
- *   x_1 has type sigma_1, ..., x_n has type sigma_n
- * - then (f x1 ... xn) is type correct if sigma_i
- *   is a subtype of tau_i for i=1,...,n.
- * Examples:
- * - x_i has type int and tau_i is real: OK
- * - x_i has type real and tau_i is int: type error
  */
 
 /*
@@ -537,38 +351,7 @@ __YICES_DLLSPEC__ extern term_t yices_false(void);
 
 
 /*
- * Constant of type tau and id = index
- * - tau must be a scalar type or an uninterpreted type
- * - index must be non-negative, and, if tau is scalar,
- *   index must be less than tau's cardinality.
- *
- * Each constant is identified by its index. Two constants
- * of type tau that have different indices are distinct.
- *
- * Error report:
- * if tau is undefined
- *   code = INVALID_TYPE
- *   type1 = tau
- * if tau is not scalar or uninterpreted,
- *   code = SCALAR_OR_UTYPE_REQUIRED
- *   type1 = tau
- * if the index is negative or too large
- *   code = INVALID_CONSTANT_INDEX
- *   type1 = tau
- *   badval = index
- */
-__YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
-
-
-/*
  * Uninterpreted term of type tau
- *
- * An uninterpreted term is like a global variable of type tau. But, we
- * don't call it a variable, because variables have a different meaning
- * in Yices (see next function).
- *
- * If tau is a function type, then this creates an uninterpreted
- * function (see yices_application).
  *
  * Error report:
  * if tau is undefined
@@ -576,58 +359,6 @@ __YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
  *   type1 = tau
  */
 __YICES_DLLSPEC__ extern term_t yices_new_uninterpreted_term(type_t tau);
-
-
-/*
- * Variable of type tau. This creates a new variable.
- *
- * Variables are different form uninterpreted terms. They are used
- * in quantifiers and to support substitutions.
- *
- * Error report:
- * if tau is undefined
- *   code = INVALID_TYPE
- *   type1 = tau
- */
-__YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
-
-
-/*
- * Application of an uninterpreted function to n arguments.
- *
- * Error report:
- * if n == 0,
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if fun or arg[i] is not defined
- *   code = INVALID_TERM
- *   term1 = fun or arg[i]
- * if fun is not a function
- *   code = FUNCTION_REQUIRED
- *   term1 = fun
- * if n != number of arguments required for fun
- *   code = WRONG_NUMBER_OF_ARGUMENTS
- *   type1 = type of fun
- *   badval = n
- * if arg[i] has a wrong type
- *   code = TYPE_MISMATCH
- *   term1 = arg[i]
- *   type1 = expected type
- */
-__YICES_DLLSPEC__ extern term_t yices_application(term_t fun, uint32_t n, const term_t arg[]);
-
-
-/*
- * Variants for small arity:
- * - the arguments are given as arg1, arg2, arg3 instead of an array of n terms
- * - fun must be an uninterpreted function of arity 1, 2, or 3
- *
- * Same error reports are yices_application
- */
-__YICES_DLLSPEC__ extern term_t yices_application1(term_t fun, term_t arg1);
-__YICES_DLLSPEC__ extern term_t yices_application2(term_t fun, term_t arg1, term_t arg2);
-__YICES_DLLSPEC__ extern term_t yices_application3(term_t fun, term_t arg1, term_t arg2, term_t arg3);
-
 
 
 /*
@@ -739,114 +470,6 @@ __YICES_DLLSPEC__ extern term_t yices_implies(term_t left, term_t right);
 
 
 /*
- * Tuple constructor
- *
- * Error report:
- * if n == 0
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if n > YICES_MAX_ARITY
- *   code = TOO_MANY_ARGUMENTS
- *   badval = n
- * if one arg[i] is invalid
- *   code = INVALID_TERM
- *   term1 = arg[i]
- */
-__YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, const term_t arg[]);
-
-
-/*
- * Variants for n=2 or n=3
- * - same error reports as yices_tuple if arg1, arg2, or arg3 is invalid
- */
-__YICES_DLLSPEC__ extern term_t yices_pair(term_t arg1, term_t arg2);
-__YICES_DLLSPEC__ extern term_t yices_triple(term_t arg1, term_t arg2, term_t arg3);
-
-
-/*
- * Tuple projection
- *
- * The index must be between 1 and n (where n = number of components in tuple)
- *
- * Error report:
- * if tuple is invalid
- *    code = INVALID_TERM
- *    term1 = tuple
- * if tuple does not have a tuple type
- *    code = TUPLE_REQUIRED
- *    term1 = tuple
- * if index = 0 or index > number of components in tuple
- *    code = INVALID_TUPLE_INDEX
- *    type1 = type of tuple
- *    badval = index
- */
-__YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
-
-
-/*
- * Tuple update: replace component i of tuple by new_v
- *
- * The index must be between 1 and n (where n = number of components in tuple)
- *
- * Error report
- * if tuple or new_v is invalid
- *    code = INVALID_TERM
- *    term1 = tuple/new_v
- * if tuple doesn't have a tuple type
- *    code = TUPLE_REQUIRED
- *    term1 = tuple
- * if index = 0 or index > number of components in tuple
- *    code = INVALID_TUPLE_INDEX
- *    type1 = tuple's type
- *    badval = index
- * if new_v has a wrong type
- *    code = TYPE_MISMATCH
- *    term1 = new_v
- *    type1 = expected type (i-th component type in tuple)
- */
-__YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
-
-
-/*
- * Function update
- *
- * Error report:
- * if n = 0
- *    code = POS_INT_REQUIRED
- *    badval = n
- * if fun or new_v, or one of arg[i] is invalid
- *    code = INVALID_TERM
- *    term1 = fun, new_v, or arg[i]
- * if fun does not have a function type
- *    code = FUNCTION_REQUIRED
- *    term1 = fun
- * if n != number of arguments for fun
- *    code = WRONG_NUMBER_OF_ARGUMENTS
- *    type1 = type of fun
- *    badval = n
- * if new_v has a wrong type (not a subtype of fun's range)
- *    code = TYPE_MISMATCH
- *    term1 = new_v
- *    type1 = fun's range (expected type)
- * if arg[i] has a wrong type for i-th arg of fun
- *    code = TYPE_MISMATCH
- *    term1 = arg[i]
- *    type1 = expected type
- */
-__YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v);
-
-
-/*
- * Variants of yices_update for small n
- * - fun must be a function of arity 1, 2, or 3
- * - the arguments are given as arg1, arg2, arg3 instead of an array arg[]
- */
-__YICES_DLLSPEC__ extern term_t yices_update1(term_t fun, term_t arg1, term_t new_v);
-__YICES_DLLSPEC__ extern term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v);
-__YICES_DLLSPEC__ extern term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v);
-
-
-/*
  * Distinct
  *
  * NOTE: ARG MANY BE MODIFIED
@@ -869,440 +492,6 @@ __YICES_DLLSPEC__ extern term_t yices_update3(term_t fun, term_t arg1, term_t ar
  *    type2 = term2's type
  */
 __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
-
-
-/*
- * Quantified terms
- *  (forall (var[0] ... var[n-1]) body)
- *  (exists (var[0] ... var[n-1]) body)
- *
- * NOTE: ARRAY VAR MAY BE MODIFIED
- *
- * Error report:
- * if n == 0
- *    code = POS_INT_REQUIRED
- *    badval = n
- * if n > YICES_MAX_VARS
- *    code = TOO_MANY_VARS
- *    badval = n
- * if body or one of var[i] is invalid
- *    code = INVALID_TERM
- *    term1 = body or var[i]
- * if body is not boolean
- *    code = TYPE_MISMATCH
- *    term1 = body
- *    type1 = bool (expected type)
- * if one of var[i] is not a variable
- *    code = VARIABLE_REQUIRED
- *    term1 = var[i]
- * if one variable occurs twice in var
- *    code = DUPLICATE_VARIABLE
- *    term1 = var[i]
- */
-__YICES_DLLSPEC__ extern term_t yices_forall(uint32_t n, term_t var[], term_t body);
-__YICES_DLLSPEC__ extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
-
-
-/*
- * Lambda terms
- *
- * Error report:
- * if n == 0
- *    code = POS_INT_REQUIRED
- *    badval = n
- * if n > YICES_MAX_VARS
- *    code = TOO_MANY_VARS
- *    badval = n
- * if body or one of var[i] is invalid
- *    code = INVALID_TERM
- *    term1 = body or var[i]
- * if one of var[i] is not a variable
- *    code = VARIABLE_REQUIRED
- *    term1 = var[i]
- * if one variable occurs twice in var
- *    code = DUPLICATE_VARIABLE
- *    term1 = var[i]
- *
- */
-__YICES_DLLSPEC__ extern term_t yices_lambda(uint32_t n, const term_t var[], term_t body);
-
-
-
-/**********************************
- *  ARITHMETIC TERM CONSTRUCTORS  *
- *********************************/
-
-/*
- * RATIONAL/INTEGER CONSTANTS
- *
- * Constant terms can be constructed from integers, GMP numbers,
- * or by parsing strings.
- *
- * The constant term constructors return NULL_TERM (-1) if there's
- * an error and set the error report.
- */
-
-/*
- * Zero: no error
- */
-__YICES_DLLSPEC__ extern term_t yices_zero(void);
-
-
-/*
- * Integer constants
- */
-__YICES_DLLSPEC__ extern term_t yices_int32(int32_t val);
-__YICES_DLLSPEC__ extern term_t yices_int64(int64_t val);
-
-
-/*
- * Rational constants
- * - den must be non-zero
- * - common factors are removed
- *
- * Error report:
- * if den is zero
- *   code = DIVISION_BY_ZERO
- */
-__YICES_DLLSPEC__ extern term_t yices_rational32(int32_t num, uint32_t den);
-__YICES_DLLSPEC__ extern term_t yices_rational64(int64_t num, uint64_t den);
-
-
-/*
- * Constant initialized via GMP integers or rationals.
- * - q must be canonicalized
- */
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern term_t yices_mpz(const mpz_t z);
-__YICES_DLLSPEC__ extern term_t yices_mpq(const mpq_t q);
-#endif
-
-
-/*
- * Convert a string to a rational or integer term.
- * The string format is
- *     <optional_sign> <numerator>/<denominator>
- *  or <optional_sign> <numerator>
- *
- * where <optional_sign> is + or - or nothing
- * <numerator> and <denominator> are sequences of
- * decimal digits.
- *
- * Error report:
- *   code = INVALID_RATIONAL_FORMAT if s is not in this format
- *   code = DIVISION_BY_ZERO if the denominator is zero
- */
-__YICES_DLLSPEC__ extern term_t yices_parse_rational(const char *s);
-
-
-/*
- * Convert a string in floating point format to a rational
- * The string must be in one of the following formats:
- *   <optional sign> <integer part> . <fractional part>
- *   <optional sign> <integer part> <exp> <optional sign> <integer>
- *   <optional sign> <integer part> . <fractional part> <exp> <optional sign> <integer>
- *
- * where <optional sign> is + or - or nothing
- *       <exp> is either 'e' or 'E'
- *
- * Error report:
- * code = INVALID_FLOAT_FORMAT
- */
-__YICES_DLLSPEC__ extern term_t yices_parse_float(const char *s);
-
-
-/*
- * ARITHMETIC OPERATIONS
- */
-
-/*
- * All operations return NULL_TERM if there's an error (NULL_TERM = -1)
- *
- * Error reports:
- * if t1 or t2 is not valid
- *   code = INVALID_TERM
- *   term1 = t1 or t2
- * if t1 or t2 is not an arithmetic term
- *   code = ARITHTERM_REQUIRED
- *   term1 = t1 or t2
- *
- * for yices_mul, yices_square, and yices_power,
- * if the result's degree is too large,
- * then the error report is
- *   code = DEGREE_OVERFLOW
- *   badval = product degree
- */
-__YICES_DLLSPEC__ extern term_t yices_add(term_t t1, term_t t2);     // t1 + t2
-__YICES_DLLSPEC__ extern term_t yices_sub(term_t t1, term_t t2);     // t1 - t2
-__YICES_DLLSPEC__ extern term_t yices_neg(term_t t1);                // -t1
-__YICES_DLLSPEC__ extern term_t yices_mul(term_t t1, term_t t2);     // t1 * t2
-__YICES_DLLSPEC__ extern term_t yices_square(term_t t1);             // t1 * t1
-__YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
-
-
-/*
- * Sum of n arithmetic terms t[0] ... t[n-1]
- *
- * Return NULL_TERM if there's an error
- *
- * Error reports:
- * if t[i] is not valid
- *   code = INVALID_TERM
- *   term1 = t[i]
- * if t[i] is not an arithmetic term
- *   code = ARITHTERM_REQUIRED
- *   term1 = t[i]
- */
-__YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, const term_t t[]);
-
-
-/*
- * Product of n arithmetic terms t[0] ... t[n-1]
- *
- * Return NULL_TERM if there's an error
- *
- * Error reports:
- * if t[i] is not valid
- *   code = INVALID_TERM
- *   term1 = t[i]
- * if t[i] is not an arithmetic term
- *   code = ARITHTERM_REQUIRED
- *   term1 = t[i]
- * if the result has degree > YICES_MAX_DEGREE
- *   code = DEGREE OVERFLOW
- *   badval = degree
- */
-__YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, const term_t t[]);
-
-
-/*
- * Division:  t1/t2
- *
- * t1 must be an arithmetic term
- * t2 must be a non-zero arithmetic constant
- *
- * Return NULL_TERM if there's an error
- *
- * Error report:
- * if t1 or t2 is not valid
- *    code = INVALID_TERM
- *    term1 = t1 or t2
- * if t1 is not an arithmetic term
- *    code = ARITHTERM_REQUIRED
- *    term1 = t1
- * if t2 is not an arithmetic constant
- *    code = ARITHCONSTANT_REQUIRED
- *    term1 = t2
- * if t2 is zero
- *    code = DIVISION_BY_ZERO
- */
-__YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
-
-
-/*
- * Integer division and modulo
- *
- * t1 must an arithmetic term
- * t2 must be a non-zero zero arithmetic constant
- *
- * The semantics is as defined in SMT-LIB 2.0 (theory Ints),
- * except that t1 and t2 are not required to be integer and that
- * we don't allow t2 to be zero.
- *
- * The functions (div t1 t2) and (mod t1 t2) satisfy the following
- * constraints:
- *    t1 = (div t1 t2) * t2 + (mod t1 t2)
- *    0 <= (mod t1 t2) < (abs t2)
- *    (div t1 t2) is an integer
- *
- * The functions return NULL_TERM if there's an error.
- *
- * Error report:
- * if t1 or t2 is not valid
- *    code = INVALID_TERM
- *    term1 = t1 or t2
- * if t1 is not an arithmetic term
- *    code = ARITHTERM_REQUIRED
- *    term1 = t1
- * if t2 is not an arithmetic constant
- *    code = ARITHCONSTANT_REQUIRED
- *    term1 = t2
- * if t2 is zero
- *    code = DIVISION_BY_ZERO
- */
-__YICES_DLLSPEC__ extern term_t yices_idiv(term_t t1, term_t t2);
-__YICES_DLLSPEC__ extern term_t yices_imod(term_t t1, term_t t2);
-
-
-/*
- * Divisibility test:
- *
- * t1 must be an arihtmetic constant.
- * t2 must be an arithmetic term.
- *
- * This function constructs the atom (divides t1 t2). 
- * The semantics is 
- *   (divides t1 t2) IFF (there is an integer k such that t2 = k * t1)
- *
- * The functions return NULL_TERM if there's an error.
- *
- * Error report:
- * if t1 or t2 is not valid
- *    code = INVALID_TERM
- *    term1 = t1 or t2
- * if t1 is not an arithmetic term
- *    code = ARITHTERM_REQUIRED
- *    term1 = t1
- * if t2 is not an arithmetic constant
- *    code = ARITHCONSTANT_REQUIRED
- *    term1 = t2
- */
-__YICES_DLLSPEC__ extern term_t yices_divides_atom(term_t t1, term_t t2);
-
-
-/*
- * Integrality test:
- *
- * t must be an arithmetic term.
- *
- * This function constructs the atom (is-int t) as defined in
- * SMT-LIB 2: (is-int t) is true iff t is an integer. Also, we have
- * (is-int t) iff (divides 1 t).
- *
- * The function returns NULL_TERM if there's an error.
- *
- * Error report:
- * if t is not valid
- *    code = INVALID_TERM
- *    term1 = t
- * if t is not an arithmetic term
- *    code = ARITHTERM_REQUIRED
- *    term1 = t
- *
- */
-__YICES_DLLSPEC__ extern term_t yices_is_int_atom(term_t t);
-
-
-/*
- * Absolute value, floor, ceiling
- *
- * t must be an arithmetic term
- *
- * floor t is the largest integer that's less than or equal to t
- * ceiling t is the smallest integer that's greater than or equal to t
- * The functions return NULL_TERM if there's an error.
- *
- * Error report:
- * if t is not valid
- *    code = INVALID_TERM
- *    term1 = t
- * if t is not an arithmetic term
- *    code = ARITHTERM_REQUIRED
- *    term1 = t
- */
-__YICES_DLLSPEC__ extern term_t yices_abs(term_t t);
-__YICES_DLLSPEC__ extern term_t yices_floor(term_t t);
-__YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
-
-
-
-
-
-/*
- * POLYNOMIALS
- */
-
-/*
- * The functions below construct the term a_0 t_0 + ... + a_{n-1} t_{n-1}
- * given n constant coefficients a_0, ..., a_{n-1} and
- *       n arithmetic terms t_0, ..., t_{n-1}.
- *
- * If there's an error, the functions return NULL_TERM (-1).
- *
- * Error reports:
- * if t[i] is not valid
- *   code = INVALID_TERM
- *   term1 = t[i]
- * if t[i] is not an arithmetic term
- *   code = ARITHTERM_REQUIRED
- *   term1 = t[i]
- */
-
-/*
- * Polynomial with integer coefficients
- * - a and t must both be arrays of size n
- */
-__YICES_DLLSPEC__ extern term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]);
-
-
-/*
- * Polynomial with rational coefficients
- * - den, num, and t must be arrays of size n
- * - the coefficient a_i is num[i]/den[i]
- *
- * Error report:
- * if den[i] is 0
- *   code = DIVISION_BY_ZERO
- */
-__YICES_DLLSPEC__ extern term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]);
-
-
-/*
- * Coefficients are GMP integers or rationals.
- * - the rationals q[0 ... n-1] must all be canonicalized
- */
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]);
-__YICES_DLLSPEC__ extern term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]);
-#endif
-
-
-
-/*
- * ARITHMETIC ATOMS
- */
-
-/*
- * All operations return NULL_TERM if there's an error (NULL_TERM = -1)
- *
- * Error reports
- * if t1 or t2 is not valid
- *   code = INVALID_TERM
- *   term1 = t1 or t2
- * if t1 or t2 is not an arithmetic term
- *   code = ARITHTERM_REQUIRED
- *   term1 = t1 or t2
- */
-__YICES_DLLSPEC__ extern term_t yices_arith_eq_atom(term_t t1, term_t t2);   // t1 == t2
-__YICES_DLLSPEC__ extern term_t yices_arith_neq_atom(term_t t1, term_t t2);  // t1 != t2
-__YICES_DLLSPEC__ extern term_t yices_arith_geq_atom(term_t t1, term_t t2);  // t1 >= t2
-__YICES_DLLSPEC__ extern term_t yices_arith_leq_atom(term_t t1, term_t t2);  // t1 <= t2
-__YICES_DLLSPEC__ extern term_t yices_arith_gt_atom(term_t t1, term_t t2);   // t1 > t2
-__YICES_DLLSPEC__ extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // t1 < t2
-
-
-/*
- * Comparison with 0:
- *
- * Return NULL_TERM if there's an error.
- *
- * Error report:
- * if t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * if t is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
- *   term1 = t
- */
-__YICES_DLLSPEC__ extern term_t yices_arith_eq0_atom(term_t t);   // t == 0
-__YICES_DLLSPEC__ extern term_t yices_arith_neq0_atom(term_t t);  // t != 0
-__YICES_DLLSPEC__ extern term_t yices_arith_geq0_atom(term_t t);  // t >= 0
-__YICES_DLLSPEC__ extern term_t yices_arith_leq0_atom(term_t t);  // t <= 0
-__YICES_DLLSPEC__ extern term_t yices_arith_gt0_atom(term_t t);   // t > 0
-__YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
-
 
 
 
@@ -1425,6 +614,9 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, const int32
  */
 __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
 
+// same function under a different name for backward compatibility
+__YICES_DLLSPEC__ extern term_t yices_bvconst_from_string(const char *s);
+
 
 /*
  * Parsing from a hexadecimal string
@@ -1441,6 +633,9 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
  *   badval = 4n
  */
 __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
+
+// same function under a different name for backward compatibility
+__YICES_DLLSPEC__ extern term_t yices_bvconst_from_hexa_string(const char *s);
 
 
 
@@ -2095,23 +1290,11 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * Check the type of a term t:
  * - returns 0 for false, 1 for true
  *
- * - term_is_arithmetic checks whether t's type is either int or real
- * - term_is_real checks whether t's type is real
- * - term_is_int checks whether t's type is int
- * - term_is_scalar checks whether t has a scalar or uninterpreted type
- *
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bool(term_t t);
-
-__YICES_DLLSPEC__ extern int32_t yices_term_is_int(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_real(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_arithmetic(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bitvector(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_tuple(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_function(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
 
 
 /*
@@ -2129,32 +1312,19 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
 __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
-/*
- * Check whether t is a ground term (i.e., does not have free variables)
- * - return 0 for false, 1 for true
- *
- * Also return false and set the error report if t is not valid
- */
-__YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
-
 
 /*
  * Internal term structure:
  *
- * - atomic terms are Boolean, bitvector, arithmetic constants,
- *   and variables and uninterpreted terms (i.e., terms that
- *   don't have subterms)
+ * - atomic terms are Boolean and bitvectoe constants,
+ *   and uninterpreted terms (i.e., terms that don't 
+ *   have subterms)
  *
  * - composite terms are of the form
  *    (constructor, number-of-children, list-of-children)
  *
  * - projection terms are of the form
  *    (constructor, index, child)
- *
- * - a sum is a term of the form 
- *      a_0 t_0 + ... + a_n t_n
- *   where a_0 ... a_n are rational coefficients (constant)
- *   and t_0 ... t_n are arithmetic terms
  *
  * - a bitvector sum is a sum
  *      a_0 t_0 + ... + a_n t_n
@@ -2166,7 +1336,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *   and t_0 ... t_n are either all arithmetic terms or all
  *   bitvector terms
  *
- * - the number of terms in a sum, bitvector sum, or product
+ * - the number of terms in a bitvector sum or product
  *   is always positive, but it may be equal to 1. For
  *   example, the expression (- x) is internally represented
  *   as a sum with one monomial (-1 * x).
@@ -2180,30 +1350,9 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *   - the second child is the 'then' part t1
  *   - the third child is the 'else' part  t2
  *
- *   function application:  (apply f t1 .. t_n)
- *   - n+1 children if f has arity n
- *   - the first child is the function f
- *   - the other children are the arguments t_1 ... t_n
- *
- *   function update: (update f t1 .. t_n v)
- *   - n+2 children if f has arity n
- *   - the first child is the function f
- *   - the next n children = arguments
- *   - last children = new value
- *
- *   tuple: (tuple t1 ... t_n)
- *
  *   equality: (eq t1 t2)
  *
  *   distinct: (distinct t1 ... t_n)
- *
- *   forall: (forall x_1 ... x_n p)
- *   - the variables are the n first children
- *   - the body p is the last child
- *
- *   lambda: (lambda x_1 ... x_n t)
- *   - the variables are the n first children
- *   - the body t is the last child
  *
  *   negation: (not t)
  *
@@ -2228,15 +1377,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *     (bvge   t1 t2)    unsigned comparison: (t1 >= t2)
  *     (bvsge  t1 t2)    signed comparison: (t1 >= t2)
  *
- *   arithmetic atom:
- *     (ge t1 t2)   t1 >= t2 
- *
- *
  * Projection terms:
- *
- *   tuple projection:  (select i t)
- *   - the child t is a tuple term (of type tau_1 x ... x tau_n)
- *   - i is an index between 1 and n
  *
  *   bit selection:  (bit i t)
  *   - the child t is a bitvector term of n bits
@@ -2255,7 +1396,6 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_atomic(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_composite(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_projection(term_t t);
-__YICES_DLLSPEC__ extern int32_t yices_term_is_sum(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bvsum(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
 
@@ -2268,22 +1408,14 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *   if t is atomic:
  *
  *    YICES_BOOL_CONSTANT        boolean constant
- *    YICES_ARITH_CONSTANT       rational constant
  *    YICES_BV_CONSTANT          bitvector constant
- *    YICES_SCALAR_CONSTANT      constant of uninterpreted/scalar
- *    YICES_VARIABLE             variable in quantifiers/lambda terms
  *    YICES_UNINTERPRETED_TERM   global variables
  *
  *   if t is a composite terms:
  *
  *    YICES_ITE_TERM             if-then-else
- *    YICES_APP_TERM             application of an uninterpreted function
- *    YICES_UPDATE_TERM          function update
- *    YICES_TUPLE_TERM           tuple constructor
  *    YICES_EQ_TERM              equality
  *    YICES_DISTINCT_TERM        (distinct t_1 ... t_n)
- *    YICES_FORALL_TERM          quantifier
- *    YICES_LAMBDA_TERM          lambda
  *    YICES_NOT_TERM             (not t)
  *    YICES_OR_TERM              n-ary OR
  *    YICES_XOR_TERM             n-ary XOR
@@ -2300,17 +1432,13 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *    YICES_BV_GE_ATOM           unsigned bitvector comparison: (t1 >= t2)
  *    YICES_BV_SGE_ATOM          signed bitvector comparison (t1 >= t2)
  *
- *    YICES_ARITH_GE_ATOM        arithmetic comparison (t1 >= t2)
- *  
  *   if t is a projection
  *
- *    YICES_SELECT_TERM          tuple projection
  *    YICES_BIT_TERM             bit-select: extract the i-th bit of a bitvector
  *
  *   if t is a sum
  *
  *    YICES_BV_SUM               sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
- *    YICES_ARITH_SUM            sum of pairs a * t where a is a rational (and t is an arithmetic term)
  *
  *  if t is a product
  *
@@ -2374,11 +1502,9 @@ __YICES_DLLSPEC__ extern term_t yices_proj_arg(term_t t);
 /*
  * Value of a constant term:
  * - these functions return 0 if t is a valid term and store t's value
- *   in *val (or in q)
+ *   in *val
  * - if t is invalid or it's not the right kind of term, then the
  *   functions return -1 and leave *val unchanged.
- *
- * For yices_rational_const_value, q must be initialized.
  *
  * Error codes:
  * if t is not valid
@@ -2389,22 +1515,17 @@ __YICES_DLLSPEC__ extern term_t yices_proj_arg(term_t t);
  */
 __YICES_DLLSPEC__ extern int32_t yices_bool_const_value(term_t t, int32_t *val);
 __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
-__YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
-#endif
 
 
 /*
  * Components of a sum t
  * - i = index (must be between 0 and t's number of children - 1)
- * - for an arithmetic sum, each component is a pair (rational, term)
- * - for a bitvector sum, each component is a pair (bvconstant, term)
+ * - each component is a pair (bvconstant, term)
  * - if the term in the pair is NULL_TERM then the component consists of 
  *   only the constant
  * - the number of bits in the bvconstant is the same as in t
  *
- * These two functions return 0 on success and -1 on error.
+ * The function returns 0 on success and -1 on error.
  *
  * Error codes:
  * if t is not valid
@@ -2413,10 +1534,6 @@ __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
  * if t is not of the right kind of the index is invalid
  *    code = INVALID_TERM_OP
  */
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
-#endif
-
 __YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
 
 
@@ -2847,7 +1964,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  * If there's an error (i.e., the configuration is not supported), the
  * function returns NULL and set an error code: CTX_INVALID_CONFIG.
  */
-__YICES_DLLSPEC__ extern context_t *yices_new_context(const ctx_config_t *config);
+__YICES_DLLSPEC__ extern context_t *yices_new_context(void);
 
 
 /*

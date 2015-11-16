@@ -21,8 +21,6 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
-#include "solvers/funs/fun_solver.h"
-#include "solvers/simplex/simplex.h"
 
 
 
@@ -246,7 +244,6 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
  * CORE SOLVER
  */
 
-
 /*
  * Full solver:
  * - params: heuristic parameters.
@@ -334,13 +331,8 @@ static void solve(smt_core_t *core, const param_t *params) {
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
-  uint32_t quota;
 
   core = ctx->core;
-  egraph = ctx->egraph;
 
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
@@ -358,69 +350,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
     set_random_seed(core, params->random_seed);
     set_var_decay_factor(core, params->var_decay);
     set_clause_decay_factor(core, params->clause_decay);
-    if (params->cache_tclauses) {
-      enable_theory_cache(core, params->tclause_size);
-    } else {
-      disable_theory_cache(core);
-    }
-
-    /*
-     * Set egraph parameters
-     */
-    if (egraph != NULL) {
-      if (params->use_optimistic_fcheck) {
-	egraph_enable_optimistic_final_check(egraph);
-      } else {
-	egraph_disable_optimistic_final_check(egraph);
-      }
-      if (params->use_dyn_ack) {
-        egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
-        egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
-      } else {
-        egraph_disable_dyn_ackermann(egraph);
-      }
-      if (params->use_bool_dyn_ack) {
-        egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
-        egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
-      } else {
-        egraph_disable_dyn_boolackermann(egraph);
-      }
-      quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
-      if (quota < params->aux_eq_quota) {
-        quota = params->aux_eq_quota;
-      }
-      egraph_set_aux_eq_quota(egraph, quota);
-      egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
-    }
-
-    /*
-     * Set simplex parameters
-     */
-    if (context_has_simplex_solver(ctx)) {
-      simplex = ctx->arith_solver;
-      if (params->use_simplex_prop) {
-        simplex_enable_propagation(simplex);
-        simplex_set_prop_threshold(simplex, params->max_prop_row_size);
-      }
-      if (params->adjust_simplex_model) {
-        simplex_enable_adjust_model(simplex);
-      }
-      simplex_set_bland_threshold(simplex, params->bland_threshold);
-      if (params->integer_check) {
-        simplex_enable_periodic_icheck(simplex);
-        simplex_set_integer_check_period(simplex, params->integer_check_period);
-      }
-    }
-
-
-    /*
-     * Set array solver parameters
-     */
-    if (context_has_fun_solver(ctx)) {
-      fsolver = ctx->fun_solver;
-      fun_solver_set_max_update_conflicts(fsolver, params->max_update_conflicts);
-      fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
-    }
+    disable_theory_cache(core);
 
     solve(core, params);
     stat = smt_status(core);
@@ -506,27 +436,6 @@ static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
 
 
 /*
- * Value of arithmetic variable x in ctx->arith_solver
- */
-static value_t arith_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
-  rational_t *a;
-  value_t v;
-
-  assert(context_has_arith_solver(ctx));
-
-  a = &ctx->aux;
-  if (ctx->arith.value_in_model(ctx->arith_solver, x, a)) {
-    v = vtbl_mk_rational(vtbl, a);
-  } else {
-    v = vtbl_mk_unknown(vtbl);
-  }
-
-  return v;
-}
-
-
-
-/*
  * Value of bitvector variable x in ctx->bv_solver
  */
 static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
@@ -580,14 +489,12 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
      */
     x = intern_tbl_map_of_root(&ctx->intern, r);
     if (code_is_eterm(x)) {
-      // x refers to an egraph object or true_occ/false_occ
+      // x refers to true_occ/false_occ
       if (x == bool2code(true)) {
         v = vtbl_mk_true(vtbl);
-      } else if (x == bool2code(false)) {
-        v = vtbl_mk_false(vtbl);
       } else {
-        assert(context_has_egraph(ctx));
-        v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
+	assert(x == bool2code(false));
+        v = vtbl_mk_false(vtbl);
       }
 
     } else {
@@ -598,21 +505,12 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
         v = bool_value(ctx, vtbl, code2literal(x));
         break;
 
-      case INT_TYPE:
-      case REAL_TYPE:
-        v = arith_value(ctx, vtbl, code2thvar(x));
-        break;
-
       case BITVECTOR_TYPE:
         v = bv_value(ctx, vtbl, code2thvar(x));
         break;
 
       default:
-        /*
-         * This should never happen:
-         * scalar, uninterpreted, tuple, function terms
-         * are mapped to egraph terms.
-         */
+        // This should never happen
         assert(false);
         v = vtbl_mk_unknown(vtbl); // prevent GCC warning
         break;
@@ -678,18 +576,8 @@ void context_build_model(model_t *model, context_t *ctx) {
    * First build assignments in the satellite solvers
    * and get the val_in_model functions for the egraph
    */
-  if (context_has_arith_solver(ctx)) {
-    ctx->arith.build_model(ctx->arith_solver);
-  }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.build_model(ctx->bv_solver);
-  }
-
-  /*
-   * Construct the egraph model
-   */
-  if (context_has_egraph(ctx)) {
-    egraph_build_model(ctx->egraph, model_get_vtbl(model));
   }
 
   // scan the internalization table
@@ -707,16 +595,9 @@ void context_build_model(model_t *model, context_t *ctx) {
   /*
    * Cleanup
    */
-  if (context_has_arith_solver(ctx)) {
-    ctx->arith.free_model(ctx->arith_solver);
-  }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.free_model(ctx->bv_solver);
   }
-  if (context_has_egraph(ctx)) {
-    egraph_free_model(ctx->egraph);
-  }
-
 }
 
 
