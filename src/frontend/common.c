@@ -16,7 +16,6 @@
 #include <stdarg.h>
 #include <inttypes.h>
 
-#include "api/context_config.h"
 #include "api/yices_globals.h"
 #include "api/yices_extensions.h"
 #include "context/context_utils.h"
@@ -182,7 +181,6 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
  * for converting from EF generalization codes to strings.
  */
 const char *param2string[NUM_PARAMETERS];
-
 const char *branching2string[NUM_BRANCHING_MODES];
 
 
@@ -363,38 +361,6 @@ bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *va
   return false;
 }
 
-
-
-
-
-/*
- * Set defaults for both ctx_parameters and parameters based on the logic/architecture/mode and iflag/qflag
- * - this tries to give the same settings as 'yices_create_context'
- */
-void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters, smt_logic_t logic, context_arch_t arch, context_mode_t mode) {
-  bool iflag;
-
-  assert(ctx_parameters != NULL);
-  ctx_parameters->var_elim = true;
-  ctx_parameters->arith_elim = true;
-  ctx_parameters->bvarith_elim = true;
-  ctx_parameters->flatten_or = true;
-  ctx_parameters->eq_abstraction = true;
-  ctx_parameters->keep_ite = false;
-  ctx_parameters->splx_eager_lemmas = true;
-  ctx_parameters->splx_periodic_icheck = false;
-
-  // if the logic is UNKNOWN, integer arithmetic may happen
-  iflag = (logic == SMT_UNKNOWN) || iflag_for_logic(logic);
-  if (iflag) {
-    ctx_parameters->splx_periodic_icheck = true;
-    if (logic == QF_LIA || logic == QF_LIRA) {
-      ctx_parameters->splx_eager_lemmas = true;
-    }
-  }
-
-  yices_set_default_params(parameters, logic, arch, mode);
-}
 
 
 /*

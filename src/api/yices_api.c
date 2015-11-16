@@ -33,7 +33,6 @@
 #include <string.h>
 #include <errno.h>
 
-#include "api/context_config.h"
 #include "api/search_parameters.h"
 #include "api/yices_error.h"
 #include "api/yices_extensions.h"
@@ -203,14 +202,8 @@ static dl_list_t model_list;
 
 
 /*
- * Context configuration and parameter descriptors
- * are stored in one list.
+ * Parameter descriptors are stored in one list.
  */
-typedef struct {
-  dl_list_t header;
-  ctx_config_t config;
-} ctx_config_elem_t;
-
 typedef struct {
   dl_list_t header;
   param_t param;
@@ -528,31 +521,15 @@ static void free_model_list(void) {
 
 
 
-/********************************************
- *  CONFIG AND SEARCH PARAMETER STRUCTURES  *
- *******************************************/
+/*********************************
+ *  SEARCH PARAMETER STRUCTURES  *
+ ********************************/
 
 /*
  * Get the header
  */
-static inline dl_list_t *header_of_config_structure(ctx_config_t *c) {
-  return (dl_list_t *) (((char *) c) - offsetof(ctx_config_elem_t, config));
-}
-
 static inline dl_list_t *header_of_param_structure(param_t *p) {
   return (dl_list_t *) (((char *) p) - offsetof(param_structure_elem_t, param));
-}
-
-/*
- * Allocate a structure and insert it into the generic
- * WARNING: the record is not initialized
- */
-static inline ctx_config_t *alloc_config_structure(void) {
-  ctx_config_elem_t *new_elem;
-
-  new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
-  list_insert_next(&generic_list, &new_elem->header);
-  return &new_elem->config;
 }
 
 static inline param_t *alloc_param_structure(void) {
@@ -561,17 +538,6 @@ static inline param_t *alloc_param_structure(void) {
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
   list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->param;
-}
-
-/*
- * Remove a structure form the generic list
- */
-static inline void free_config_structure(ctx_config_t *c) {
-  dl_list_t *elem;
-
-  elem = header_of_config_structure(c);
-  list_remove(elem);
-  safe_free(elem);
 }
 
 static inline void free_param_structure(param_t *p) {
@@ -1025,18 +991,7 @@ EXPORTED void yices_init_term_vector(term_vector_t *v) {
   v->data = NULL;
 }
 
-EXPORTED void yices_init_type_vector(type_vector_t *v) {
-  v->capacity = 0;
-  v->size = 0;
-  v->data = NULL;
-}
-
 EXPORTED void yices_delete_term_vector(term_vector_t *v) {
-  safe_free(v->data);
-  v->data = NULL;
-}
-
-EXPORTED void yices_delete_type_vector(type_vector_t *v) {
   safe_free(v->data);
   v->data = NULL;
 }
@@ -1051,16 +1006,6 @@ EXPORTED void yices_reset_term_vector(term_vector_t *v) {
     v->capacity = 0;
   }
 }
-
-EXPORTED void yices_reset_type_vector(type_vector_t *v) {
-  v->size = 0;
-  if (v->capacity > VECTOR_REDUCE_THRESHOLD) {
-    safe_free(v->data);
-    v->data = NULL;
-    v->capacity = 0;
-  }
-}
-
 
 
 
@@ -4483,75 +4428,6 @@ EXPORTED int32_t yices_clear_term_name(term_t t) {
 
 
 
-/****************************
- *  CONTEXT CONFIGURATIONS  *
- ***************************/
-
-/*
- * Allocate a new configuration descriptor
- * - initialize it do defaults
- */
-EXPORTED ctx_config_t *yices_new_config(void) {
-  ctx_config_t *tmp;
-
-  tmp = alloc_config_structure();
-  init_config_to_defaults(tmp);
-
-  return tmp;
-}
-
-
-/*
- * Delete
- */
-EXPORTED void yices_free_config(ctx_config_t *config) {
-  free_config_structure(config);
-}
-
-
-/*
- * Set a configuration parameter
- */
-EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
-  int32_t k;
-
-  k = config_set_field(config, name, value);
-  if (k < 0) {
-    if (k == -1) {
-      // invalid name
-      error.code = CTX_UNKNOWN_PARAMETER;
-    } else {
-      error.code = CTX_INVALID_PARAMETER_VALUE;
-    }
-    return -1;
-  }
-
-  return 0;
-}
-
-
-/*
- * Set config to a default solver combination for the given logic
- * - return -1 if there's an error
- * - return 0 otherwise
- */
-EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
-  int32_t k;
-
-  k = config_set_logic(config, logic);
-  if (k < 0) {
-    if (k == -1) {
-      error.code = CTX_UNKNOWN_LOGIC;
-    } else {
-      error.code = CTX_LOGIC_NOT_SUPPORTED;
-    }
-    return -1;
-  }
-
-  return 0;
-}
-
-
 
 /*******************************************
  *  SIMPLIFICATION/PREPROCESSING OPTIONS   *
@@ -4775,43 +4651,6 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
   return ctx;
 }
 
-
-#if 0
-/*
- * Allocate and initialize and new context
- * - the configuration is defined by config.
- * - if config is NULL, the default is used.
- * - otherwise, if the configuration is not supported, the function returns NULL.
- */
-EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
-  smt_logic_t logic;
-  context_arch_t arch;
-  context_mode_t mode;
-  bool iflag;
-  bool qflag;
-  int32_t k;
-
-  if (config == NULL) {
-    // Default configuration: all solvers, mode = push/pop
-    logic = SMT_UNKNOWN;
-    arch = CTX_ARCH_EGFUNSPLXBV;
-    mode = CTX_MODE_PUSHPOP;
-    iflag = true;
-    qflag = false;
-  } else {
-    // read the config
-    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag);
-    if (k < 0) {
-      // invalid configuration
-      error.code = CTX_INVALID_CONFIG;
-      return NULL;
-    }
-  }
-
-  return yices_create_context(logic, arch, mode, iflag, qflag);
-}
-
-#endif
 
 /*
  * For backward compatibiltiy:

@@ -1675,228 +1675,6 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t n
 
 
 
-/****************************
- *  CONTEXT CONFIGURATION   *
- ***************************/
-
-/*
- * When a context is created, it is possible to configure it to use a
- * specific solver or a specific combination of solvers.  It is also
- * possible to specify whether or not the context should support
- * features such as push and pop.
- *
- * The following theory solvers are currently available:
- * - egraph (solver for uninterpreted functions)
- * - bitvector solver
- * - array solver
- * - solver for linear arithmetic based on simplex
- * - solver for integer difference logic (based on Floyd-Warshall)
- * - solver for real difference logic (also based on Floyd-Warshall)
- *
- * The following combinations of theory solvers can be used:
- * - no solvers at all
- * - egraph alone
- * - bitvector solver alone
- * - simplex solver alone
- * - integer Floyd-Warshall solver alone
- * - real Floyd-Warshall solver alone
- * - egraph + bitvector solver
- * - egraph + simplex solver
- * - egraph + array solver
- * - egraph + bitvector + array solver
- * - egraph + simplex + array solver
- * - egraph + simplex + bitvector + array solver
- *
- * If no solvers are used, the context can deal only with Boolean
- * formulas.
- *
- * When the simplex solver is used, it's also possible to
- * specify which arithmetic fragment is intended, namely:
- * - integer difference logic              (IDL)
- * - real difference logic                 (RDL)
- * - real linear arithmetic                (LRA)
- * - integer linear arithmetic             (LIA)
- * - mixed integer/real linear arithmetic  (LIRA)
- *
- * In addition to the solver combination, a context can be configured
- * for different usages:
- * - one-shot mode: check satisfiability of one set of formulas
- * - multiple checks: repeated calls to assert/check are allowed
- * - push/pop: push and pop are supported (implies multiple checks)
- * - clean interrupts are supported (implies push/pop)
- * Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
- *
- * By default, a new solver is configured as follows:
- * - solvers: egraph + simplex + bitvector + array solver
- * - usage: push/pop supported
- *
- * To specify another configuration, one must pass a configuration
- * descriptor to function yices_new_context. A configuration descriptor
- * is an opaque structure that includes the following fields:
- * - arith-fragment: either IDL, RDL, LRA, LIA, or LIRA
- * - uf-solver: either NONE, DEFAULT
- * - bv-solver: either NONE, DEFAULT
- * - array-solver: either NONE, DEFAULT
- * - arith-solver: either NONE, DEFAULT, IFW, RFW, SIMPLEX
- * - mode: either ONE-SHOT, MULTI-CHECKS, PUSH-POP, INTERACTIVE
- *
- * This is done as follows:
- * 1) allocate a configuration descriptor via yices_new_config
- * 2) set the configuration parameters by repeated calls to yices_set_config
- *    or using yices_default_config_for_logic
- * 3) create one or more context with this configuration by passing the
- *    descriptor to yices_new_context
- * 4) free the configuration descriptor when it's no longer needed
- */
-
-/*
- * Allocate a configuration descriptor:
- * - the descriptor is set to the default configuration
- */
-__YICES_DLLSPEC__ extern ctx_config_t *yices_new_config(void);
-
-
-/*
- * Deletion
- */
-__YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
-
-
-/*
- * Set a configuration parameter:
- * - name = the parameter name
- * - value = the value
- *
- * The following table specifies the parameters and allowed values for each parameter name:
- *
- *            name    |    value            |      meaning
- *   ----------------------------------------------------------------------------------------
- *            "mode"  | "one-shot"          |  only one call to check is supported
- *                    |                     |
- *                    | "multi-checks"      |  several calls to assert and check are
- *                    |                     |  possible
- *                    |                     |
- *                    | "push-pop"          |  like multi-check and with support for
- *                    |                     |  retracting assertions (via push/pop)
- *                    |                     |
- *                    | "interactive"       |  like push-pop, but with automatic context clean
- *                    |                     |  up when search is interrupted.
- *   ----------------------------------------------------------------------------------------
- *    "uf-solver"     | "default"           |  the uf-solver is included (i.e., the egraph)
- *                    | "none"              |  no uf-solver
- *   ----------------------------------------------------------------------------------------
- *    "bv-solver"     | "default"           |  the bitvector solver is included
- *                    | "none"              |  no bitvector solver
- *   ----------------------------------------------------------------------------------------
- *    "array-solver"  | "default"           |  the array solver is included
- *                    | "none"              |  no array solver
- *   ----------------------------------------------------------------------------------------
- *    "arith-solver"  | "ifw"               |  solver for IDL, based on the Floyd-Warshall
- *                    |                     |  algorithm
- *                    |                     |
- *                    | "rfw"               |  solver for RDL, based on Floyd-Warshall
- *                    |                     |
- *                    | "simplex"           |  solver for linear arithmetic, based on Simplex
- *                    |                     |
- *                    | "default"           |  same as "simplex"
- *                    |                     |
- *                    | "auto"              |  same as "simplex" unless mode="one-shot" and
- *                    |                     |  logic is QF_IDL or QF_RDL, in which case the
- *                    |                     |  solver is determined after the first call to
- *                    |                     |  yices_assert_formula(s).
- *                    |                     |
- *                    | "none"              |  no arithmetic solver
- *   ----------------------------------------------------------------------------------------
- *   "arith-fragment" | "IDL"               |  integer difference logic
- *                    | "RDL"               |  real difference logic
- *                    | "LIA"               |  linear integer arithmetic
- *                    | "LRA"               |  linear real arithmetic
- *                    | "LIRA"              |  mixed linear arithmetic (real + integer variables)
- *
- *
- *
- * The function returns -1 if there's an error, 0 otherwise.
- *
- * Error codes:
- *  CTX_UNKNOWN_PARAMETER if name is not a known parameter name
- *  CTX_INVALID_PARAMETER_VALUE if name is known but value does not match the parameter type
- */
-__YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
-
-
-/*
- * Set config to a default solver combination for the given logic
- * - return -1 if there's an error
- * - return 0 otherwise
- *
- * The logic must be given as a string, using the SMT-LIB conventions.
- * Currently, Yices recognizes and supports the following logics:
- *
- *   NONE:        no theories (i.e., propositional logic only)
- *
- *   QF_AX:       arrays with extensionality
- *   QF_BV:       bitvectors
- *   QF_IDL:      integer difference logic
- *   QF_RDL:      real difference logic
- *   QF_LIA:      linear integer arithmetic
- *   QF_LRA:      linear real arithmetic
- *   QF_LIRA:     mixed linear arithmetic
- *   QF_UF:       uninterpreted functions
- *
- *   QF_ABV:      arrays and bitvectors
- *   QF_ALIA:     arrays + linear integer arithmetic
- *   QF_ALRA:     arrays + linear real arithmetic
- *   QF_ALIRA:    arrays + mixed linear arithmetic
- *
- *   QF_AUF:      arrays + uninterpreted functions
- *   QF_AUFBV:    arrays, bitvectors, uninterpreted functions
- *   QF_AUFLIA:   arrays, uninterpreted functions, and linear integer arithmetic
- *   QF_AUFLRA:   arrays, uninterpreted functions, and linear real arithmetic
- *   QF_AUFLIRA:  arrays, uninterpreted functions, and mixed linear arithmetic
- *
- *   QF_UFBV:     uninterpreted functions + bitvectors
- *   QF_UFIDL:    uninterpreted functions + integer difference logic
- *   QF_UFLIA:    uninterpreted functions + linear integer arithmetic
- *   QF_UFLRA:    uninterpreted functions + linear real arithmetic
- *   QF_UFLIRA:   uninterpreted functions + mixed linear arithmetic
- *   QF_UFRDL:    uninterpreted functions + real difference logic
- *
- * In all these logics, QF means quantifier-free.
- *
- * For future extensions, Yices also recognizes the following names
- * for logics that Yices does not support yet. (They require solvers
- * for non-linear arithmetic).
- *
- *   QF_NIA:      non-linear integer arithmetic
- *   QF_NRA:      non-linear real arithmetic
- *   QF_NIRA:     non-linear mixed arithmetic
- *
- *   QF_ANIA:     arrays + non-linear integer arithmetic
- *   QF_ANRA:     arrays + non-linear real arithmetic
- *   QF_ANIRA:    arrays + mixed/non-linear arithmetic
- *
- *   QF_UFNIA:    uninterpreted functions + non-linear integer arithmetic
- *   QF_UFNRA:    uninterpreted functions + non-linear real arithmetic
- *   QF_UFNIRA:   uninterpreted functions + mixed, non-linear arithmetic
- *
- *   QF_AUFNIA:   arrays + uninterpreted functions + non-linear integer arithmetic
- *   QF_AUFNRA:   arrays + uninterpreted functions + non-linear real arithmetic
- *   QF_AUFNIRA:  arrays + uninterpreted functions + mixed, non-linear arithmetic
- *
- * For every QF logic listed above, Yices also recognizes the full logic (i.e.,
- * with quantifiers). This is for future extension. Yices does not include support
- * for quantifiers yet. For example, Yices recognizes AUFLIRA as a valid logic name 
- * (arrays + uninterpreted functions + mixed linear arithmetic), but this logic is
- * not currently supported.
- *
- * Error codes:
- *  CTX_UNKNOWN_LOGIC if logic is not a valid name
- *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
- */
-__YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic);
-
-
-
 
 
 /***************
@@ -1946,23 +1724,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  */
 
 /*
- * Create a new context:
- * - config is an optional argument that defines the context configuration
- * - the configuration specifies which components the context should
- *   include (e.g., egraph, bv_solver, simplex_solver, etc),
- *   and which features should be supported (e.g., whether push/pop are
- *   needed).
- *
- * If config is NULL, the default configuration is used:
- *   push/pop are enabled
- *   the solvers are: egraph + array solver + bv solver + simplex
- *   mixed real/integer linear arithmetic is supported
- *
- * Otherwise the context is configured as specified by config, provided
- * that configuration is valid.
- *
- * If there's an error (i.e., the configuration is not supported), the
- * function returns NULL and set an error code: CTX_INVALID_CONFIG.
+ * Create a new context (for QF_BV)
  */
 __YICES_DLLSPEC__ extern context_t *yices_new_context(void);
 
@@ -2033,37 +1795,44 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  * The following functions selectively enable/disable a preprocessing
  * option. The current options include:
  *
- *   var-elim: whether to eliminate variables by substitution
+ * 1) Variable elimination (on by default).
+ *    This eliminates variables by turning equalities into 
+ *    substitutions whenever possible. For example, if (= x 0x111)) is 
+ *    asserted, then x is replaced by 0x111 everywhere.
+ * 
+ * 2) Flattening (on by default).
+ *    This attempts to flatten the boolean expressions to 
+ *    eliminate nested operators.  
+ *    For example, (OR a b (OR a c d e) f g) is rewritten 
+ *    to (OR a b c d e f g) by flattening.
  *
- *   arith-elim: more variable elimination for arithmetic (Gaussian elimination)
+ * 3) Bit-vector arithmetic elimination (on by default).
+ *    This is the bit-vector analogue of Gaussian elimination.
+ *    For example, if (= (bv-add x y z) 0) is asserted, then
+ *    x may be replaced by (bv-neg (bv-add y z)) everywhere.
  *
- *   bvarith-elim: more variable elimination for bitvector arithmetic
+ * The following functions selectively enable/disable each of these
+ * options.
+ */
+__YICES_DLLSPEC__ extern void yices_enable_var_elim(context_t *ctx);
+__YICES_DLLSPEC__ extern void yices_disable_var_elim(context_t *ctx);
+
+__YICES_DLLSPEC__ extern void yices_enable_flattening(context_t *ctx);
+__YICES_DLLSPEC__ extern void yices_disable_flattening(context_t *ctx);
+
+__YICES_DLLSPEC__ extern void yices_enable_bvarith_elim(context_t *ctx);
+__YICES_DLLSPEC__ extern void yices_disable_bvarith_elim(context_t *ctx);
+
+
+/*
+ * General form: enable or disable the given option:
+ * - the option must be given as a '\0'-terminated string
+ * - recognized options include
+ *    "var-elim"
+ *    "bvarith-elim"
+ *    "flatten"
  *
- *   eager-arith-lemmas: if enabled and the simplex solver is used, the simplex
- *   solver will eagerly generate lemmas such as (x >= 1) => (x >= 0) (i.e.,
- *   the lemmas that involve two inequalities on the same variable x).
- *
- *   flatten: whether to flatten nested (or ...)
- *   if this is enabled the term (or (or a b) (or c d) ) is
- *   flattened to (or a b c d)
- *
- *   learn-eq: enable/disable heuristics to learn implied equalities
- *
- *   keep-ite: whether to eliminate term if-then-else or keep them as terms
- *   - this requires the context to include the egraph
- *
- *   break-symmetries: attempt to detect symmetries and add constraints
- *   to remove them (this can be used only if the context is created for QF_UF)
- *
- *   assert-ite-bounds: try to determine upper and lower bound on if-then-else
- *   terms and assert these bounds. For example, if term t is defined as
- *   (ite c 10 (ite d 3 20)), then the context with include the assertion
- *   3 <= t <= 20.
- *
- * The parameter must be given as a string. For example, to disable var-elim,
- * call  yices_context_disable_option(ctx, "var-elim")
- *
- * The two functions return -1 if there's an error, 0 otherwise.
+ * The two function return -1 if there's an error, 0 otherwise.
  *
  * Error codes:
  *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
@@ -2294,31 +2063,6 @@ __YICES_DLLSPEC__ extern model_t *yices_get_model(context_t *ctx, int32_t keep_s
 __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 
 
-/*
- * Build a model from a term-to-term mapping:
- * - the mapping is defined by two arrays var[] and map[]
- * - every element of var must be an uninterpreted term
- *   every element of map must be a constant of primitive or tuple type
- *   map[i]'s type must be a subtype of var[i]
- * - there must not be duplicates in array var
- *
- * The function returns NULL and sets up the error report if something
- * goes wrong. It allocates and creates a new model otherwise. When
- * the model is no longer used, it must be deleted by calling yices_free_model.
- *
- * Error report:
- * - code = INVALID_TERM if var[i] or map[i] is not valid
- * - code = TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
- * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
- * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
- * - code = MDL_DUPLICATE_VAR if var contains duplicate elements
- * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
- * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
- */
-__YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
-
-
-
 
 /***********************
  *  VALUES IN A MODEL  *
@@ -2351,11 +2095,6 @@ __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t 
  * Other codes are possible depending on the specific evaluation function.
  */
 
-
-/*
- * EVALUATION FOR SIMPLE TYPES
- */
-
 /*
  * Value of boolean term t: returned as an integer val
  * - val = 0 means t is false in mdl
@@ -2370,29 +2109,8 @@ __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t 
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
 
-
-/*
- * Value of arithmetic term t: it can be returned as an integer, a
- * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
- *
- * Error codes:
- * If t is not an arithmetic term:
- *   code = ARITHTERM_REQUIRED
- *   term1 = t
- * If t's value does not fit in the *val object
- *   code = EVAL_OVERFLOW
- */
-__YICES_DLLSPEC__ extern int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
-__YICES_DLLSPEC__ extern int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
-__YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, double *val);
-
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
-__YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
-#endif
+// same function under a different name for backward compatibility
+__YICES_DLLSPEC__ extern int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *val);
 
 
 /*
@@ -2412,261 +2130,8 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
 
-
-/*
- * Value of term t of uninterpreted or scalar type
- * - the value is returned as a constant index in *val
- *   (with the same meaning as in function yices_constant):
- * - if t has type tau and tau is a scalar type of size n then
- *   the function returns an index k between 0 and n-1
- * - if tau is an uninterpreted type, then the function returns an
- *   integer index k
- *
- * The index k is a unique identifier: if two terms t1 and t2 are not
- * equal in the model mdl, then their values will be distinct indices k.
- *
- * Error codes:
- * - if t does not have a scalar or uninterpreted type:
- *   code = SCALAR_TERM_REQUIRED
- *   term1 = t
- */
-__YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
-
-
-
-/*
- * GENERIC FORM: VALUE DESCRIPTORS AND NODES
- */
-
-/*
- * The previous functions work for terms t of atomic types, but they
- * can't be used if t has a tuple or function type. Internally, yices
- * represent the tuple and function values as nodes in a DAG. The
- * following functions allows one to query and explore this DAG.
- * A node in the DAG is represented by a structure of type yval_t defined
- * as follows in yices_types.h:
- *
- *  typedef struct yval_s {
- *    int32_t node_id;
- *    yval_tag_t node_tag;
- *  } yval_t;
- *
- *
- * This descriptor includes the node id (all nodes have a unique id) and
- * a tag that identifies the node type. Leaf nodes represent atomic constants.
- * Non-leaf nodes represent tuples and functions.
- *
- * The possible tags for a leaf node are:
- *
- *   YVAL_BOOL       Boolean constant
- *   YVAL_RATIONAL   Rational (or integer) constant
- *   YVAL_BV         Bitvector constant
- *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
- *
- * The following tags are used for non-leaf nodes:
- *
- *   YVAL_TUPLE      Constant tuple
- *   YVAL_FUNCTION   Function
- *   YVAL_MAPPING    Mapping of the form [val_1 .. val_k -> val]
- *
- * There is also the special leaf node to indicate an error or that a value
- * is not known:
- *
- *   YVAL_UNKNOWN
- *
- *
- * The children of a tuple node denote the tuple components. For
- * example Yices will represent the tuple (true, -1/2, 0b0011) as a
- * node with tag YVAL_TUPLE and three children. Each children is a
- * leaf node in this case.
- *
- * All functions used in the model have a simple form. They are defined
- * by a finite list of mappings and a default value. Each mapping specifies the 
- * value of the function at a single point in its domain. For example, we could
- * have a function f of type [int, int -> int] defined by the clauses:
- *    f(0, 0) = 0
- *    f(3, 1) = 1
- *    f(x, y) = -2 in all other cases.
- *
- * Yices represents such a function as a node with tag YVAL_FUNCTION
- * and with three children. Two of these children are nodes with tag
- * YVAL_MAPPING that represent the mappings:
- *     [0, 0 -> 0]
- *     [3, 1 -> 1]
- * The third children represents the default value for f. In this case,
- * it's a leaf node for the constant -2 (tag YVAL_RATIONAL and value -2).
- *
- * The following functions return the value of a term t as a node in
- * the DAG, and allow one to query and collect the children of
- * non-leaf nodes.
- */
-
-/*
- * Vectors of node descriptor: yices_val_expand_function requires
- * a vector as argument. The following functions must be used
- * to initialize, delete, or reset this vector. The conventions
- * are the same as for vectors of terms of types.
- */
-__YICES_DLLSPEC__ extern void yices_init_yval_vector(yval_vector_t *v);
-__YICES_DLLSPEC__ extern void yices_delete_yval_vector(yval_vector_t *v);
-__YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
-
-
-/*
- * Value of term t stored as a node descriptor in *val.
- *
- * The function returns 0 it t's value can be computed, -1 otherwise.
- *
- * Error codes are as in all evaluation functions.
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If t contains a subterm whose value is not known
- *   code = EVAL_UNKNOWN_TERM
- * If t contains free variables
- *   code = EVAL_FREEVAR_IN_TERM
- * If t contains quantifier(s)
- *   code = EVAL_QUANTIFIER
- * If t contains lambda terms
- *   code = EVAL_LAMBDA
- * If the evaluation fails for other reasons:
- *   code = EVAL_FAILED
- */
-__YICES_DLLSPEC__ extern int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val);
-
-
-/*
- * Queries on the value of a rational node:
- * - if v->node_tag is YVAL_RATIONAL, the functions below check whether v's value
- *   can be converted to an integer or a pair num/den of the given size.
- * - if v->node_tag != YVAL_RATIONAL, these functions return false (i.e. 0).
- *
- * yices_val_is_int32: check whether v's value fits in a signed, 32bit integer
- *
- * yices_val_is_int64: check whether v's value fits in a signed, 64bit integer
- *
- * yices_val_is_rational32: check whether v's value can be written num/den where num
- *    is a signed 32bit integer and den is an unsigned 32bit integer
- *
- * yices_val_is_rational64: check whether v's value can be written num/den where num
- *    is a signed 64bit integer and den is an unsigned 64bit integer
- *
- * yices_val_is_integer: check whether v's value is an integer
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_is_int32(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern int32_t yices_val_is_int64(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern int32_t yices_val_is_integer(model_t *mdl, const yval_t *v);
-
-
-/*
- * Get the number of bits in a bv constant, the number of components in a tuple,
- * or the arity of a mapping. These function return 0 if v has the wrong tag (i.e.,
- * not a bitvector constant, or not a tuple, or not a mapping).
- */
-__YICES_DLLSPEC__ extern uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v);
-__YICES_DLLSPEC__ extern uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v);
-
-
-/*
- * Arity of a function node. This function returns 0 if v has tag
- * other than YVAL_FUNCTION, otherwise it returns the function's
- * arity (i.e., the number of parameters that the function takes).
- */
-__YICES_DLLSPEC__ extern uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v);
-
-
-/*
- * Get the value of a Boolean node v.
- * - returns 0 if there's no error and store the v's value in *val:
- *   *val is either 0 (for false) or 1 (for true).
- * - returns -1 if v does not have tag YVAL_BOOL and sets the error code
- *   to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
-
-/*
- * Get the value of a rational node v
- * - the functions return 0 if there's no error and store v's value in *val
- *   or in the pair *num, *den (v's value is (*num)/(*den).
- * - they return -1 if there's an error.
- *
- * The error code is set to YVAL_INVALID_OP if v's tag is not YVAL_RATIONAL.
- * The error code is set to YVAL_OVERFLOW if v's value does not fit in
- * (*val) or in (*num)/(*den).
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
-__YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
-
-// Rational value converted to a floating point number
-__YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
-
-// GMP values
-#ifdef __GMP_H__
-__YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
-__YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
-#endif
-
-/*
- * Get the value of a bitvector node:
- * - val must have size at least equal to n = yices_val_bitsize(mdl, v)
- * - v's value is returned in val[0] = low-order bit, ..., val[n-1] = high-order bit
- *   every val[i] is either 0 or 1.
- * - the function returns 0 if v has tag YVAL_BV
- * - it returns -1 if v has another tag and sets the error code to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
-
-/*
- * Get the value of a scalar node:
- * - the function returns 0 if v's tag is YVAL_SCALAR
- *   the index and type of the scalar/uninterpreted constant are stored in *val and *tau, respectively.
- * - the function returns -1 if v's tag is not YVAL_SCALAR and sets the error code to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
-
-/*
- * Expand a tuple node:
- * - child must be an array large enough to store all children of v (i.e., 
- *   at least n elements where n = yices_val_tuple_arity(mdl, v))
- * - the children nodes of v are stored in child[0 ... n-1]
- *
- * Return code = 0 if v's tag is YVAL_TUPLE.
- * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
-
-
-/*
- * Expand a function node f
- * - the default value for f is stored in *def
- * - the set of mappings for f is stored in vector *v.
- *   This vector must be initialized using yices_init_yval_vector.
- *   The number of mappings is v->size and the mappings are stored
- *   in v->data[0 ... n-1] where n = v->size
- *
- * Return code = 0 if v's tag is YVAL_FUNCTION.
- * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
-
-
-/*
- * Expand a mapping node m
- * - the mapping is of the form [x_1 ... x_k -> v] where k = yices_val_mapping_arity(mdl, m)
- * - tup must be an array of size at least k
- * - the nodes (x_1 ... x_k) are stored in tup[0 ... k-1]
- *   the node v is stored in val.
- *
- * Return code = 0 if v's tag is YVAL_MAPPING.
- * Return code = -1 otherwise and the error code is then set to YVAL_INVALID_OP.
- */
-__YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val);
-
+// same function under a different name for backward compatibility
+__YICES_DLLSPEC__ extern int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val[]);
 
 
 /*
@@ -2700,191 +2165,6 @@ __YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
  * call the previous function n times.
  */
 __YICES_DLLSPEC__ int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
-
-
-
-/*
- * CONVERSION OF VALUES TO CONSTANT TERMS
- */
-
-/*
- * Value of term t converted to a constant term val.
- *
- * For primitive types, this is the same as extracting the value
- * then converting it to a constant term:
- * - if t is a Boolean term, then val is either true or false (as
- *   returned by functions yices_true() or yices_false()).
- * - if t is an arithmetic term, then val is a rational or integer constant
- *   (as built by functions yices_mpq or yices_mpz).
- * - if t has uninterpreted or scalar type, then val is a constant term
- *   of that type (as built by function yices_constant).
- * - if t has a bitvector type, then val is a bitvector constant term
- *   (as in yices_bvconst_from_array)
- *
- * Conversion of function values is not supported currently. So the
- * function fails and returns NULL_TERM if t has a function type.
- *
- * If t has tuple type tau, then val is a tuple of constants (provided
- * tau does not contain any function type).
- *
- * The function returns val, or NULL_TERM if there's an error.
- *
- * Error report
- *   code = EVAL_CONVERSION_FAILED,
- *   if the conversion to term fails (because it would require
- *   converting a function to a term).
- *
- */
-__YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
-
-
-/*
- * Get the values of terms a[0 .. n-1] in mdl and convert the values to terms.
- * - a must be an array of n terms
- * - b must be large enough to store n terms
- *
- * This function has the same behavior and limitations as yices_get_value_as_term.
- * If there's no error, the function returns 0 and store the values in array b:
- * - b[i] = value of a[i] in mdl, converted to a term
- *
- * Otherwise, the function returns -1 and sets the error report.
- * The error codes are the same as for yices_get_value_as_term.
- */
-__YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
-
-
-
-
-/*
- * IMPLICANTS
- */
-
-/*
- * Compute an implicant for t in mdl
- * - t must be a Boolean term that's true in mdl
- * - the implicant is a list of Boolean terms a[0] ... a[n-1] such that
- *    1) a[i] is a literal (atom or negation of an atom)
- *    2) a[i] is true in mdl
- *    3) the conjunction a[0] /\ ... /\ a[n-1] implies t
- *
- * The implicant is returned in vector v, which must be initialized by
- * yices_init_term_vector:
- *    v->size is the number of literals in the implicant (i.e., n)
- *    v->data[0] ... v->data[n-1] = the n literals
- * If there's an error (return code -1) then v is empty:
- *    v->size is set to 0.
- *
- * The function returns 0 if the implicant can be computed. Otherwise
- * it returns -1.
- *
- * Error report:
- * if t is not valid
- *   code = INVALID_TERM
- *   term1 = t
- * if t is not a Boolean term
- *   code = TYPE_MISMATCH
- *   term1 = t
- *   type1 = bool
- * if t is false in the model:
- *   code = EVAL_NO_IMPLICANT
- * any of the error codes for evaluation functions is also possible:
- *   EVAL_UNKNOWN_TERM
- *   EVAL_FREEVAR_IN_TERM
- *   EVAL_QUANTIFIER
- *   EVAL_LAMBDA
- *   EVAL_FAILED
- */
-__YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v);
-
-
-/*
- * Variant: compute an implicant for an array of formulas in mdl.
- * - n = size of the array
- * - a[0 ... n-1] = n input terms.
- *   each a[i] must be a Boolean term and must be true in mdl
- *
- * The function computes an implicant for the conjunction (and a[0] ... a[n-1]).
- *
- * Return codes and errors are as in the previous function.
- * The implicant is returned in vector v.
- *
- * If the return code is 0, then
- *    v->size = number of literals
- *    v->data contains the array of literals.
- * Otherwise, v->size is set to 0.
- */
-__YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
-
-
-
-/*
- * MODEL GENERALIZATION
- */
-
-/*
- * Given a model mdl for a formula F(X, Y). The following generalization functions
- * eliminate variables Y from F(X, Y) in a way that is guided by the model.
- * 
- * The result is a formula G(X) such that:
- * 1) mdl satisfies G(X)
- * 2) G(X) implies (exists Y. F(X, Y))
- *
- * Yices supports the following generalization methods:
- *
- * 1) generalization by substitution: eliminate the Y variables
- *    by replacing them by their value in mdl
- *    (this is the simplest approach)
- *
- * 2) generalization by projection:
- *    - first compute an implicant for formula F(X, Y)
- *      this produces a set of literals L_1(X, Y) .... L_k(X, Y)
- *    - then Y is eliminated from the literals by projection
- *      (this is a hybrid of Fourier-Motzkin elimination
- *       and virtual term substitution)
- *
- * In the functions below, the generalization method can be selected
- * by setting parameter mode to one of the following values:
- *
- *   mode = YICES_GEN_BY_SUBST  ---> generalize by substitution
- *   mode = YICES_GEN_BY_PROJ   ---> projection
- *   mode = YICES_GEN_DEFAULT   ---> automatically choose the mode
- *                                   depending on the variables to eliminate
- *
- * Any value other that these is interpreted the same as YICES_GEN_DEFAULT
- */
-
-/*
- * Compute a generalization of mdl for formula t
- * - nelims = number of variables to eliminate
- * - elim = variables to eliminate
- * - each term in elim[i] must be an uninterpreted term (as returned by yices_new_uninterpreted_term)
- *   of one of the following types: Boolean, (bitvector k), or Real
- * - mode defines the generalization algorithm
- * - v: term_vector to return the result
- *
- * The generalization G(X) is returned in term_vector v that must be initialized
- * using yices_init_term_vector. G(X) is the conjunction of all formulas in v.
- *    v->size = number of formulas returned
- *    v->data[0] ....  v->data[v->size-1] = the formulas themselves.
- *
- * If mode = YICES_GEN_BY_PROJ, then every element of v is guaranteed to be a literal
- *
- * Important: t must be true in mdl, otherwise, the returned data may be garbage.
- *
- * Returned code:
- *   0 means success
- *  -1 means that the generalization failed.
- */
-__YICES_DLLSPEC__ extern int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-                                                        yices_gen_mode_t mode, term_vector_t *v);
-
-
-/*
- * Compute a generalization of mdl for the conjunct (a[0] /\ ... /\ a[n-1])
- */
-__YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-                                                              yices_gen_mode_t mode, term_vector_t *v);
-
 
 
 

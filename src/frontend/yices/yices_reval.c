@@ -51,7 +51,6 @@
 #endif
 
 
-#include "api/context_config.h"
 #include "api/smt_logic_codes.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
@@ -292,7 +291,6 @@ static int32_t context_mode_code(const char *name) {
 static void process_command_line(int argc, char *argv[]) {
   cmdline_parser_t parser;
   cmdline_elem_t elem;
-  int32_t arch_code;
   int32_t mode_code;
   int32_t v;
 
@@ -384,23 +382,23 @@ static void process_command_line(int argc, char *argv[]) {
  done:
   switch (logic_code) {
   case SMT_UNKNOWN:
+  case QF_BV:
     // use default settings
     arch = CTX_ARCH_BV;
-    iflag = true;
+    iflag = false;
+    qflag = false;
+    break;
+
+  case NONE:
+    // Boolean only
+    arch = CTX_ARCH_NOSOLVERS;
+    iflag = false;
     qflag = false;
     break;
 
   default:
-    assert(logic_name != NULL && 0 <= logic_code && logic_code < NUM_SMT_LOGICS);
-    arch_code = arch_for_logic(logic_code);
-    if (arch_code < 0) {
-      fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
-      exit(YICES_EXIT_ERROR);
-    }
-    arch = (context_arch_t) arch_code;
-    iflag = iflag_for_logic(logic_code);
-    qflag = qflag_for_logic(logic_code);
-    break;
+    fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
+    exit(YICES_EXIT_ERROR);
   }
 
   /*

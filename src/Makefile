@@ -84,21 +84,16 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 # Source files for the dynamic library (libyices.so)
 #
 core_src_c := \
-	api/context_config.c \
 	api/search_parameters.c \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
-	api/yval.c \
 	context/common_conjuncts.c \
 	context/context.c \
 	context/context_simplifier.c \
 	context/context_solver.c \
 	context/context_statistics.c \
 	context/context_utils.c \
-	context/divmod_table.c \
-	context/eq_abstraction.c \
-	context/eq_learner.c \
 	context/internalization_table.c \
 	context/ite_flattener.c \
 	context/pseudo_subst.c \

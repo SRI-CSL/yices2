@@ -22,7 +22,6 @@
 #include <inttypes.h>
 #include <gmp.h>
 
-#include "api/context_config.h"
 #include "api/smt_logic_codes.h"
 #include "api/yices_globals.h"
 #include "context/context.h"

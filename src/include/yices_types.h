@@ -49,12 +49,6 @@ typedef struct model_s model_t;
 
 
 /*
- * Context configuration (opaque type)
- */
-typedef struct ctx_config_s ctx_config_t;
-
-
-/*
  * Search parameters (opaque type)
  */
 typedef struct param_s param_t;
@@ -102,12 +96,6 @@ typedef struct term_vector_s {
   uint32_t size;
   term_t *data;
 } term_vector_t;
-
-typedef struct type_vector_s {
-  uint32_t capacity;
-  uint32_t size;
-  type_t *data;
-} type_vector_t;
 
 
 
