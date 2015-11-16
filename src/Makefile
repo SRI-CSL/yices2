@@ -115,12 +115,9 @@ core_src_c := \
 	model/fresh_value_maker.c \
 	model/fun_maps.c \
 	model/fun_trees.c \
-	model/map_to_model.c \
 	model/model_eval.c \
 	model/model_queries.c \
 	model/models.c \
-	model/term_to_val.c \
-	model/val_to_term.c \
 	parser_utils/lexer.c \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \

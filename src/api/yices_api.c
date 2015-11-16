@@ -48,16 +48,13 @@
 #include "io/type_printer.h"
 #include "io/yices_pp.h"
 
-#include "model/map_to_model.h"
 #include "model/model_eval.h"
 #include "model/model_queries.h"
 #include "model/models.h"
-#include "model/val_to_term.h"
 
 #include "terms/bv64_constants.h"
 #include "terms/bvarith64_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
-#include "terms/rba_buffer_terms.h"
 #include "terms/term_explorer.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
@@ -1410,130 +1407,6 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
       error.type1 = tau;
       return false;
     }
-  }
-
-  return true;
-}
-
-
-/*
- * Support for direct model construction given two arrays var and map
- */
-
-// Check that all elements of v are uninterpreted terms
-static bool check_all_uninterpreted(term_table_t *terms, uint32_t n, const term_t *var) {
-  uint32_t i;
-  term_t x;
-
-  for (i=0; i<n; i++) {
-    x = var[i];
-    if (is_neg_term(x) || term_kind(terms, x) != UNINTERPRETED_TERM) {
-      error.code = MDL_UNINT_REQUIRED;
-      error.term1 = x;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-// Check that all elements of map are constant (tuple or primitive constants)
-static bool check_all_constant(term_table_t *terms, uint32_t n, const term_t *map) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! is_constant_term(terms, map[i])) {
-      error.code = MDL_CONSTANT_REQUIRED;
-      error.term1 = map[i];
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Check that all elements of var are distinct
-// Could be improved: avoid sorting for large n?
-static bool check_all_distinct(term_table_t *terms, uint32_t n, const term_t *var) {
-  term_t buffer[100];
-  term_t *a;
-  uint32_t i;
-  bool result;
-
-
-  result = true;
-  if (n > 1) {
-
-    if (n > terms->live_terms) {
-      /*
-       * there must be duplicates
-       * we check this first just to be safe
-       * since n <= terms->live_terms <= YICES_MAX_TERMS,
-       * we know that n * sizeof(term_t) fits in 32bits
-       * (which matters when we call safe_malloc(n * sizeof(term_t)).
-       */
-      error.code = MDL_DUPLICATE_VAR;
-      error.term1 = NULL_TERM;
-      return false;
-    }
-
-    assert(n <= UINT32_MAX/sizeof(term_t));
-
-    a = buffer;
-    if (n > 100) {
-      a = (term_t *) safe_malloc(n * sizeof(term_t));
-    }
-
-    for (i=0; i<n; i++) {
-      a[i] = var[i];
-    }
-    int_array_sort(a, n);
-
-    for (i=1; i<n; i++) {
-      if (a[i-1] == a[i]) {
-	error.code = MDL_DUPLICATE_VAR;
-	error.term1 = a[i];
-	result = false;
-	break;
-      }
-    }
-
-    if (n > 100) {
-      safe_free(a);
-    }
-  }
-
-  return result;
-}
-
-
-static bool check_good_model_map(term_manager_t *mngr, uint32_t n, const term_t *var, const term_t *map) {
-  term_table_t *terms;
-  type_t tau;
-  uint32_t i;
-
-  terms = term_manager_get_terms(mngr);
-
-  if (! check_good_terms(mngr, n, var) ||
-      ! check_good_terms(mngr, n, map) ||
-      ! check_all_uninterpreted(terms, n, var) ||
-      ! check_all_constant(terms, n, map)) {
-    return false;
-  }
-
-  for (i=0; i<n; i++) {
-    tau = term_type(terms, var[i]);
-    if (! is_subtype(terms->types, term_type(terms, map[i]), tau)) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = map[i];
-      error.type1 = tau;
-      return false;
-    }
-  }
-
-  if (! check_all_distinct(terms, n, var)) {
-    return false;
   }
 
   return true;
@@ -5248,46 +5121,6 @@ EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t heig
 
   return str;  
 }
-
-
-/*
- * BUILD A MODEL FROM A MAP OF UNINTERPRETED TO CONSTANT TERMS
- */
-
-/*
- * Build a model from a term-to-term mapping:
- * - the mapping is defined by two arrays var[] and map[]
- * - every element of var must be an uninterpreted term
- *   every element of map must be a constant of primitive or tuple type
- *   map[i]'s type must be a subtype of var[i]
- * - there must not be duplicates in array var
- *
- * The function returns NULL and set up the error report if something
- * goes wrong. It allocates and create a new model otherwise. This
- * model must be deleted when no longer used via yices_free_model.
- *
- * Error report:
- * - code = INVALID_TERM if var[i] or map[i] is not valid
- * - code = TYPE_MISMATCH if map[i] doesn't have a type compatible (subtype of)
- *          var[i]'s type
- * - code = MDL_UNINT_REQUIRED if var[i] is not an uninterpreted term
- * - code = MDL_CONSTANT_REQUIRED if map[i] is not a constant
- * - code = MDL_DUPLICATE_VAR if var contains duplicate elements
- * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
- * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
- */
-EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]) {
-  model_t *mdl;
-
-  if (! check_good_model_map(&manager, n, var, map)) {
-    return NULL;
-  }
-
-  mdl = yices_new_model(true);
-  build_model_from_map(mdl, n, var, map);
-  return mdl;
-}
-
 
 
 
