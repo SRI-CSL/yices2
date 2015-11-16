@@ -261,7 +261,6 @@ extra_src_c := \
 	model/small_bvsets.c \
 	scratch/booleq_table.c \
 	scratch/bool_vartable.c \
-	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
 	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/gates_printer.c \
