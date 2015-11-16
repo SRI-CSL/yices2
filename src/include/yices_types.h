@@ -111,21 +111,13 @@ typedef enum term_constructor {
 
   // atomic terms
   YICES_BOOL_CONSTANT,       // boolean constant
-  YICES_ARITH_CONSTANT,      // rational constant
   YICES_BV_CONSTANT,         // bitvector constant
-  YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
-  YICES_VARIABLE,            // variable in quantifiers
   YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound)
 
   // composite terms
   YICES_ITE_TERM,            // if-then-else
-  YICES_APP_TERM,            // application of an uninterpreted function
-  YICES_UPDATE_TERM,         // function update
-  YICES_TUPLE_TERM,          // tuple constructor
   YICES_EQ_TERM,             // equality
   YICES_DISTINCT_TERM,       // distinct t_1 ... t_n
-  YICES_FORALL_TERM,         // quantifier
-  YICES_LAMBDA_TERM,         // lambda
   YICES_NOT_TERM,            // (not t)
   YICES_OR_TERM,             // n-ary OR
   YICES_XOR_TERM,            // n-ary XOR
@@ -141,119 +133,16 @@ typedef enum term_constructor {
   YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
   YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
   YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
-  YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
-  YICES_ARITH_ROOT_ATOM,     // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
-
-
-  YICES_ABS,                 // absolute value
-  YICES_CEIL,                // ceil
-  YICES_FLOOR,               // floor
-  YICES_IDIV,                // integer division
-  YICES_IMOD,                // modulo
-  YICES_IS_INT_ATOM,         // integrality test: (is-int t)
-  YICES_DIVIDES_ATOM,        // divisibility test: (divides t1 t2)
   
   // projections
-  YICES_SELECT_TERM,         // tuple projection
   YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
 
   // sums
   YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
-  YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
 
   // products
   YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
 } term_constructor_t;
-
-
-/**********************
- *  VALUES IN MODELS  *
- *********************/
-
-/*
- * A model maps terms to constant objects that can be
- * atomic values, tuples, or functions. These different
- * objects form a DAG. The API provides functions to
- * explore this DAG. Every node in this DAG is defined
- * by a unique id and a tag that identifies the node type.
- *
- * Atomic nodes have one of the following tags:
- *  YVAL_UNKNOWN    (special marker)
- *  YVAL_BOOL       Boolean constant
- *  YVAL_RATIONAL   Rational constant
- *  YVAL_BV         Bitvector constant
- *  YVAL_SCALAR     Constant of uninterpreted or scalar type
- *
- * Non-leaf nodes:
- *  YVAL_TUPLE      Tuple
- *  YVAL_FUNCTION   Function
- *  YVAL_MAPPING    A pair [tuple -> value].
- *
- * All functions are defined by a finite set of mappings
- * and a default value. For example, if we have 
- *   f(0, 0) = 0
- *   f(0, 1) = 1
- *   f(1, 0) = 1
- *   f(1, 1) = 2
- *   f(x, y) = 2 if x and y  are different from 0 and 1
- *
- * Then f will be represented as follows:
- * - default value = 2
- * - mappings: 
- *     [0, 0 -> 0]
- *     [0, 1 -> 1]
- *     [1, 0 -> 1]
- *
- * In the DAG, there is one node for f, one node for the default value,
- * and three nodes for each of the three  mappings.
- */
-
-// Tags for the node descriptors
-typedef enum yval_tag {
-  YVAL_UNKNOWN,
-  YVAL_BOOL,
-  YVAL_RATIONAL,
-  YVAL_BV,
-  YVAL_SCALAR,
-  YVAL_TUPLE,
-  YVAL_FUNCTION,
-  YVAL_MAPPING
-} yval_tag_t;
-
-// Node descriptor
-typedef struct yval_s {
-  int32_t node_id;
-  yval_tag_t node_tag;
-} yval_t;
-
-// Vector of node descriptors
-typedef struct yval_vector_s {
-  uint32_t capacity;
-  uint32_t size;
-  yval_t *data;
-} yval_vector_t;
-
-
-
-/*************************
- * MODEL GENERALIZATION  *
- ************************/
-
-/*
- * These codes define a generalization algorithm for functions
- *      yices_generalize_model
- * and  yices_generalize_model_array
- *
- * There are currently two algorithms: generalization by
- * substitution and generalization by projection.
- * The default is to select the algorithm based on variables
- * to eliminate.
- */
-typedef enum yices_gen_mode {
-  YICES_GEN_DEFAULT,
-  YICES_GEN_BY_SUBST,
-  YICES_GEN_BY_PROJ
-} yices_gen_mode_t;
 
 
 

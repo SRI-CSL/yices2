@@ -38,7 +38,6 @@
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 #include "api/yices_iterators.h"
-#include "api/yval.h"
 
 #include "context/context.h"
 

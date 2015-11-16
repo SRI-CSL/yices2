@@ -44,7 +44,6 @@
 extern bool term_is_atomic(term_table_t *table, term_t t);
 extern bool term_is_composite(term_table_t *table, term_t t);
 extern bool term_is_projection(term_table_t *table, term_t t);
-extern bool term_is_sum(term_table_t *table, term_t t);
 extern bool term_is_bvsum(term_table_t *table, term_t t);
 extern bool term_is_product(term_table_t *table, term_t t);
 
@@ -79,15 +78,6 @@ extern int32_t proj_term_index(term_table_t *table, term_t t);
 extern term_t proj_term_arg(term_table_t *table, term_t t);
 
 /*
- * Components of an arithmetic sum
- * - t must be a valid ARITH_POLY term in table
- * - i must be an index in [0 ... n-1] where n = term_num_children(table, t)
- * - the component is a pair (coeff, child): coeff is copied into q
- * - q must be initialized
- */
-extern void sum_term_component(term_table_t *table, term_t t, uint32_t i, mpq_t q, term_t *child);
-
-/*
  * Components of a bitvector sum
  * - t must be a valid BV_POLY or BV64_POLY term in table
  * - i must be an index in [0 ... n-1] where n = term_num_children(table, t)
@@ -120,9 +110,7 @@ extern void product_term_component(term_table_t *table, term_t t, uint32_t i, te
  *   term t of scalar or uninterpreted type
  */
 extern bool bool_const_value(term_table_t *table, term_t t);
-extern void arith_const_value(term_table_t *table, term_t t, mpq_t q);
 extern void bv_const_value(term_table_t *table, term_t t, int32_t a[]);
-extern int32_t generic_const_value(term_table_t *table, term_t t);
 
 
 #endif /* __TERM_EXPLORER_H */

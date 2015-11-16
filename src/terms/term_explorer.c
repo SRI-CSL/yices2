@@ -120,34 +120,34 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
 static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_CONSTRUCTOR_ERROR,  // UNUSED_TERM
   YICES_CONSTRUCTOR_ERROR,  // RESERVED_TERM
-  YICES_SCALAR_CONSTANT,    // CONSTANT_TERM
-  YICES_ARITH_CONSTANT,     // ARITH_CONSTANT
+  YICES_CONSTRUCTOR_ERROR,  // CONSTANT_TERM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_CONSTANT
   YICES_BV_CONSTANT,        // BV64_CONSTANT
   YICES_BV_CONSTANT,        // BV_CONSTANT
-  YICES_VARIABLE,           // VARIABLE
+  YICES_CONSTRUCTOR_ERROR,  // VARIABLE
   YICES_UNINTERPRETED_TERM, // UNINTERPRETED_TERM
   YICES_EQ_TERM,            // ARITH_EQ_ATOM
-  YICES_ARITH_GE_ATOM,      // ARITH_GE_ATOM
-  YICES_IS_INT_ATOM,        // ARITH_IS_INT_ATOM
-  YICES_FLOOR,              // ARITH_FLOOR
-  YICES_CEIL,               // ARITH_CEIL
-  YICES_ABS,                // ARITH_ABS
-  YICES_ARITH_ROOT_ATOM,    // ARITH_ROOT_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_GE_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_IS_INT_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_FLOOR
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_CEIL
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_ABS
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_ROOT_ATOM
   YICES_ITE_TERM,           // ITE_TERM
   YICES_ITE_TERM,           // ITE_SPECIAL
-  YICES_APP_TERM,           // APP_TERM
-  YICES_UPDATE_TERM,        // UPDATE_TERM
-  YICES_TUPLE_TERM,         // TUPLE_TERM
+  YICES_CONSTRUCTOR_ERROR,  // APP_TERM
+  YICES_CONSTRUCTOR_ERROR,  // UPDATE_TERM
+  YICES_CONSTRUCTOR_ERROR,  // TUPLE_TERM
   YICES_EQ_TERM,            // EQ_TERM
   YICES_DISTINCT_TERM,      // DISTINCT_TERM
-  YICES_FORALL_TERM,        // FORALL_TERM
-  YICES_LAMBDA_TERM,        // LAMBDA_TERM
+  YICES_CONSTRUCTOR_ERROR,  // FORALL_TERM
+  YICES_CONSTRUCTOR_ERROR,  // LAMBDA_TERM
   YICES_OR_TERM,            // OR_TERM
   YICES_XOR_TERM,           // XOR_TERM
   YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
-  YICES_IDIV,               // ARITH_DIV
-  YICES_IMOD,               // ARITH_MOD
-  YICES_DIVIDES_ATOM,       // ARITH_DIVIDES_ATOM
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIV
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_MOD
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIVIDES_ATOM
   YICES_BV_ARRAY,           // BV_ARRAY
   YICES_BV_DIV,             // BV_DIV
   YICES_BV_REM,             // BV_REM
@@ -160,10 +160,10 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_EQ_TERM,            // BV_EQ_ATOM
   YICES_BV_GE_ATOM,         // BV_GE_ATOM
   YICES_BV_SGE_ATOM,        // BV_SGE_ATOM
-  YICES_SELECT_TERM,        // SELECT_TERM
+  YICES_CONSTRUCTOR_ERROR,  // SELECT_TERM
   YICES_BIT_TERM,           // BIT_TERM
   YICES_POWER_PRODUCT,      // POWER_PRODUCT
-  YICES_ARITH_SUM,          // ARITH_POLY
+  YICES_CONSTRUCTOR_ERROR,  // ARITH_POLY
   YICES_BV_SUM,             // BV64_POLY
   YICES_BV_SUM,             // BV_POLY
 };
@@ -209,16 +209,7 @@ bool term_is_projection(term_table_t *table, term_t t) {
   assert(good_term(table, t));
 
   kind = term_kind(table, t);
-  return is_pos_term(t) && (kind == SELECT_TERM || kind == BIT_TERM);
-}
-
-bool term_is_sum(term_table_t *table, term_t t) {
-  term_kind_t kind;
-
-  assert(good_term(table, t));
-
-  kind = term_kind(table, t);
-  return is_pos_term(t) && kind == ARITH_POLY;
+  return is_pos_term(t) && kind == BIT_TERM;
 }
 
 bool term_is_bvsum(term_table_t *table, term_t t) {
@@ -434,30 +425,6 @@ term_t proj_term_arg(term_table_t *table, term_t t) {
 }
 
 /*
- * Components of an arithmetic sum
- * - t must be a valid ARITH_POLY term in table
- * - i must be an index in [0 ... n-1] where n = term_num_children(table, t)
- * - the component is a pair (coeff, child): coeff is copied into q
- * - q must be initialized
- */
-void sum_term_component(term_table_t *table, term_t t, uint32_t i, mpq_t q, term_t *child) {
-  polynomial_t *p;
-  term_t v;
-
-  assert(is_pos_term(t) && term_kind(table, t) == ARITH_POLY);
-  p = poly_term_desc(table, t);
-  assert(i < p->nterms);
-
-  v = p->mono[i].var;
-  if (v == const_idx) {
-    v = NULL_TERM;
-  }
-  *child = v;
-  q_get_mpq(&p->mono[i].coeff, q);
-}
-
-
-/*
  * Components of a bitvector sum
  * - t must be a valid BV_POLY or BV64_POLY term in table
  * - i must be an index in [0 ... n-1] where n = term_num_children(table, t)
@@ -531,18 +498,11 @@ void product_term_component(term_table_t *table, term_t t, uint32_t i, term_t *c
 
 /*
  * Value of constant terms
- * - t must be a constant term of appropriate type
- * - generic_const_value(table, t) works for any constant 
- *   term t of scalar or uninterpreted type
+ * - t must be a constant term of the appropriate type
  */
 bool bool_const_value(term_table_t *table, term_t t) {
   assert(t == true_term || t == false_term);
   return is_pos_term(t);
-}
-
-void arith_const_value(term_table_t *table, term_t t, mpq_t q) {
-  assert(is_pos_term(t));
-  q_get_mpq(rational_term_desc(table, t), q);
 }
 
 void bv_const_value(term_table_t *table, term_t t, int32_t a[]) {
@@ -565,10 +525,3 @@ void bv_const_value(term_table_t *table, term_t t, int32_t a[]) {
     break;
   }
 }
-
-// constant of uninterpreted or scalar type (not Boolean)
-int32_t generic_const_value(term_table_t *table, term_t t) {
-  assert(is_pos_term(t) && t != true_term);
-  return constant_term_index(table, t);
-}
-
