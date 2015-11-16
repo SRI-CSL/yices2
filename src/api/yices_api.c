@@ -37,7 +37,6 @@
 #include "api/yices_error.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
-#include "api/yices_iterators.h"
 
 #include "context/context.h"
 
@@ -919,61 +918,6 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
   free_bvlogic_buffer(b);
 }
 
-
-
-/***************
- *  ITERATORS  *
- **************/
-
-void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {
-  dl_list_t *elem;
-
-  for (elem = bvarith_buffer_list.next;
-       elem != &bvarith_buffer_list;
-       elem = elem->next) {
-    f(aux, bvarith_buffer(elem));
-  }
-}
-
-void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) {
-  dl_list_t *elem;
-
-  for (elem = bvarith64_buffer_list.next;
-       elem != &bvarith64_buffer_list;
-       elem = elem->next) {
-    f(aux, bvarith64_buffer(elem));
-  }
-}
-
-void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) {
-  dl_list_t *elem;
-
-  for (elem = bvlogic_buffer_list.next;
-       elem != &bvlogic_buffer_list;
-       elem = elem->next) {
-    f(aux, bvlogic_buffer(elem));
-  }
-}
-
-void context_iterate(void *aux, void (*f)(void *, context_t *)) {
-  dl_list_t *elem;
-
-  for (elem = context_list.next;
-       elem != &context_list;
-       elem = elem->next) {
-    f(aux, context_of_header(elem));
-  }
-}
-
-void model_iterate(void *aux, void (*f)(void *, model_t *)) {
-  dl_list_t *elem;
-
-  for (elem = context_list.next;
-       elem != &context_list;
-       elem = elem->next) {
-    f(aux, model_of_header(elem));
-  }
-}
 
 
 

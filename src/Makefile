@@ -245,7 +245,6 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
-	frontend/yices/arith_solver_codes.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
 	model/large_bvsets.c \
@@ -258,7 +257,6 @@ extra_src_c := \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
-	terms/arith_buffers.c \
 	utils/command_line.c \
 	utils/cputime.c \
 	utils/memsize.c \
