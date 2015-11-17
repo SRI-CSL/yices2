@@ -18,24 +18,6 @@
 
 
 /*
- * Function to get the name of constant/uninterpreted terms
- * - we check in the term table
- */
-static const char *name_of_const(term_table_t *terms, value_unint_t *d) {
-  const char *s;
-  term_t t;
-
-  s = NULL;
-  t = find_constant_term(terms, d->type, d->index);
-  if (t != NULL_TERM) {
-    s = term_name(terms, t);
-  }
-
-  return s;
-}
-
-
-/*
  * Initialize model
  * - terms = attached term table
  * - keep_subst = whether to support alias_map or not
@@ -44,8 +26,6 @@ static const char *name_of_const(term_table_t *terms, value_unint_t *d) {
  */
 void init_model(model_t *model, term_table_t *terms, bool keep_subst) {
   init_value_table(&model->vtbl, 0, terms->types);
-  value_table_set_namer(&model->vtbl, terms, (unint_namer_fun_t) name_of_const);
-
   init_int_hmap(&model->map, 0);
   model->alias_map = NULL;
   model->terms = terms;
@@ -117,32 +97,16 @@ term_t model_find_term_substitution(model_t *model, term_t t) {
  * Store the mapping t := v in model
  * - t must not be mapped to anything
  * - v must be a valid object created in model->vtbl.
- *
- * If v is a function object and it has no name, then t's name is
- * given to v.
  */
 void model_map_term(model_t *model, term_t t, value_t v) {
   int_hmap_pair_t *r;
-  value_table_t *vtbl;
-  char *name;
 
   assert(good_term(model->terms, t));
 
   r = int_hmap_get(&model->map, t);
   assert(r->val < 0);
   r->val = v;
-
-  // copy t's name if any
-  name = term_name(model->terms, t);
-  if (name != NULL) {
-    vtbl = &model->vtbl;
-    if (object_is_function(vtbl, v) && vtbl_function(vtbl, v)->name == NULL) {
-      vtbl_set_function_name(vtbl, v, name);
-    }
-  }
 }
-
-
 
 
 

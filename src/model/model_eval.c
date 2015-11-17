@@ -17,15 +17,6 @@
 
 
 /*
- * Wrapper for q_clear to avoid compilation warnings
- * (some versions of GCC complain about inlining q_clear)
- */
-static void clear_rational(rational_t *q) {
-  q_clear(q);
-}
-
-
-/*
  * Initialize eval for the given model
  */
 void init_evaluator(evaluator_t *eval, model_t *model) {
@@ -107,36 +98,11 @@ static void eval_cache_map(evaluator_t *eval, term_t t, value_t v) {
 static value_t eval_term(evaluator_t *eval, term_t t);
 
 /*
- * Attempt to get a rational value for v
- * - fails with a longjmp if v is an algebraic number
- */
-static rational_t *eval_get_rational(evaluator_t *eval, value_t v) {
-  if (object_is_algebraic(eval->vtbl, v)) {
-    longjmp(eval->env, MDL_EVAL_FAILED);
-  }
-  return vtbl_rational(eval->vtbl, v);
-}
-
-
-/*
- * Evaluate terms t[0 ... n-1] and store the result in a[0 .. n-1]
- */
-static void eval_term_array(evaluator_t *eval, term_t *t, value_t *a, uint32_t n) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    a[i] = eval_term(eval, t[i]);
-  }
-}
-
-
-/*
  * Bitvector constant: 64bits or less
  */
 static value_t eval_bv64_constant(evaluator_t *eval, bvconst64_term_t *c) {
   return vtbl_mk_bv_from_bv64(eval->vtbl, c->bitsize, c->value);
 }
-
 
 /*
  * Bitvector constant
@@ -144,248 +110,6 @@ static value_t eval_bv64_constant(evaluator_t *eval, bvconst64_term_t *c) {
 static value_t eval_bv_constant(evaluator_t *eval, bvconst_term_t *c) {
   return vtbl_mk_bv_from_bv(eval->vtbl, c->bitsize, c->data);
 }
-
-
-/*
- * Arithmetic atom: t == 0
- */
-static value_t eval_arith_eq(evaluator_t *eval, term_t t) {
-  value_t v;
-
-  v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_zero(eval_get_rational(eval, v)));
-}
-
-
-/*
- * Arithmetic atom: t >= 0
- */
-static value_t eval_arith_ge(evaluator_t *eval, term_t t) {
-  value_t v;
-
-  v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_nonneg(eval_get_rational(eval, v)));
-}
-
-/*
- * Arithmetic atom: (is_int t)
- */
-static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
-  value_t v;
-
-  v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_integer(eval_get_rational(eval, v)));
-}
-
-
-/*
- * Arithmetic term: (floor t)
- */
-static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
-  rational_t q;
-  value_t v;
-
-  v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
-  
-  q_init(&q);
-  q_set(&q, eval_get_rational(eval, v)); // q := value of t
-  q_floor(&q);
-  q_normalize(&q);
-
-  v = vtbl_mk_rational(eval->vtbl, &q);
-
-  clear_rational(&q);
-
-  return v;
-}
-
-
-/*
- * Arithmetic term: (ceil t)
- */
-static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
-  rational_t q;
-  value_t v;
-
-  v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
-  
-  q_init(&q);
-  q_set(&q, eval_get_rational(eval, v)); // q := value of t
-  q_ceil(&q);
-  q_normalize(&q);
-
-  v = vtbl_mk_rational(eval->vtbl, &q);
-
-  clear_rational(&q);
-
-  return v;
-}
-
-
-/*
- * Arithmetic term: (abs t)
- */
-static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
-  rational_t q;
-  value_t v;
-
-  v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
-  
-  q_init(&q);
-  q_set_abs(&q, eval_get_rational(eval, v)); // q := value of t
-  q_normalize(&q);
-
-  v = vtbl_mk_rational(eval->vtbl, &q);
-
-  clear_rational(&q);
-
-  return v;
-}
-
-
-/*
- * Arithmetic atom: v1 == v2
- */
-static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
-  value_t v1, v2;
-
-  assert(eq->arity == 2);
-
-  v1 = eval_term(eval, eq->arg[0]);
-  v2 = eval_term(eval, eq->arg[1]);
-  assert(object_is_rational(eval->vtbl, v1) &&
-         object_is_rational(eval->vtbl, v2));
-
-  return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
-}
-
-
-/*
- * Arithmetic term: (div v1 v2)
- */
-static value_t eval_arith_div(evaluator_t *eval, composite_term_t *d) {
-  rational_t q;
-  value_t v1, v2, o;
-  
-  assert(d->arity == 2);
-
-  v1 = eval_term(eval, d->arg[0]);
-  v2 = eval_term(eval, d->arg[1]);
-  
-  q_init(&q);
-  q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
-  q_normalize(&q);
-
-  o = vtbl_mk_rational(eval->vtbl, &q);
-
-  clear_rational(&q);
-
-  return o;
-}
-
-
-/*
- * Arithmetic term: (mod v1 v2)
- */
-static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
-  rational_t q;
-  value_t v1, v2, o;
-  
-  assert(d->arity == 2);
-
-  v1 = eval_term(eval, d->arg[0]);
-  v2 = eval_term(eval, d->arg[1]);
-  
-  q_init(&q);
-  q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
-  q_normalize(&q);
-
-  o = vtbl_mk_rational(eval->vtbl, &q);
-
-  clear_rational(&q);
-
-  return o;
-}
-
-
-/*
- * Arithmetic term: (divides v1 v2)
- */
-static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
-  value_t v1, v2;
-  bool divides;
-  
-  assert(d->arity == 2);
-
-  v1 = eval_term(eval, d->arg[0]);
-  v2 = eval_term(eval, d->arg[1]);
-  divides = q_smt2_divides(eval_get_rational(eval, v1), eval_get_rational(eval, v2));
-
-  return vtbl_mk_bool(eval->vtbl, divides);
-}
-
-
-/*
- * Power product: arithmetic
- */
-static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
-  rational_t prod;
-  uint32_t i, n;
-  term_t t;
-  value_t o;
-
-  q_init(&prod);
-  q_set_one(&prod);
-
-  n = p->len;
-  for (i=0; i<n; i++) {
-    t = p->prod[i].var;
-    o = eval_term(eval, t);
-    // prod[i] is v ^ k so q := q * (o ^ k)
-    q_mulexp(&prod, eval_get_rational(eval, o), p->prod[i].exp);
-  }
-
-  o = vtbl_mk_rational(eval->vtbl, &prod);
-
-  clear_rational(&prod);
-
-  return o;
-}
-
-
-/*
- * Arithmetic polynomial
- */
-static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
-  rational_t sum;
-  uint32_t i, n;
-  term_t t;
-  value_t v;
-
-  q_init(&sum); // sum = 0
-
-  n = p->nterms;
-  for (i=0; i<n; i++) {
-    t = p->mono[i].var;
-    if (t == const_idx) {
-      q_add(&sum, &p->mono[i].coeff);
-    } else {
-      v = eval_term(eval, t);
-      q_addmul(&sum, &p->mono[i].coeff, eval_get_rational(eval, v)); // sum := sum + coeff * aux
-    }
-  }
-
-  // convert sum to an object
-  v = vtbl_mk_rational(eval->vtbl, &sum);
-
-  clear_rational(&sum);
-
-  return v;
-}
-
 
 
 /*
@@ -880,75 +604,6 @@ static value_t eval_eq(evaluator_t *eval, composite_term_t *eq) {
 }
 
 
-/*
- * app is (fun arg[0] ... arg[n-1])
- */
-static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
-  value_t *a;
-  value_t *b;
-  composite_term_t *update;
-  value_t v, f;
-  uint32_t n;
-  term_t fun;
-
-  // eval the arguments first
-  assert(app->arity >= 2);
-  n = app->arity - 1;
-  a = alloc_istack_array(&eval->stack, n);
-  eval_term_array(eval, app->arg+1, a, n); // a[i] = eval(arg[i])
-
-  /*
-   * Try to avoid evaluating fun if it's an update.
-   * TODO: check whether that matters??
-   */
-  fun = app->arg[0];
-  if (term_kind(eval->terms, fun) == UPDATE_TERM) {
-    b = alloc_istack_array(&eval->stack, n);
-    do {
-      // fun is (update f (x_1 ... x_n) v)
-      update = update_term_desc(eval->terms, fun);
-      assert(update->arity == n + 2);
-
-      // evaluate x_1 ... x_n
-      eval_term_array(eval, update->arg+1, b, n); // b[i] = eval(x_{i+1})
-
-      // check equality
-      v = vtbl_eval_array_eq(eval->vtbl, a, b, n);
-      if (is_unknown(eval->vtbl, v)) {
-        // result is unknown too
-        free_istack_array(&eval->stack, b);
-        goto done;
-
-      } else if (is_true(eval->vtbl, v)) {
-        // ((update f (x_1 ... x_n) v) a[0] ... a[n-1]) --> v
-        v = eval_term(eval, update->arg[n+1]);
-        free_istack_array(&eval->stack, b);
-        goto done;
-
-      } else {
-        // ((update f  ... v) a[0] ... a[n-1]) --> (f a[0] ... a[n-1])
-        fun = update->arg[0];
-      }
-
-    } while (term_kind(eval->terms, fun) == UPDATE_TERM);
-
-    free_istack_array(&eval->stack, b);
-  }
-
-
-  /*
-   * compute (fun a[0] ... a[n-1])
-   */
-  assert(term_kind(eval->terms, fun) != UPDATE_TERM);
-  f = eval_term(eval, fun);
-  v = vtbl_eval_application(eval->vtbl, f, n, a);
-
- done:
-  free_istack_array(&eval->stack, a);
-  return v;
-}
-
-
 static value_t eval_or(evaluator_t *eval, composite_term_t *or) {
   uint32_t i, n;
   value_t v;
@@ -977,57 +632,6 @@ static value_t eval_xor(evaluator_t *eval, composite_term_t *xor) {
     // v := v xor w: true if v != w, false if v == w
     v = vtbl_mk_bool(eval->vtbl, v != w);
   }
-
-  return v;
-}
-
-
-static value_t eval_tuple(evaluator_t *eval, composite_term_t *tuple) {
-  value_t *a;
-  value_t v;
-  uint32_t i, n;
-
-  n = tuple->arity;
-  a = alloc_istack_array(&eval->stack, n);
-  for (i=0; i<n; i++) {
-    a[i] = eval_term(eval, tuple->arg[i]);
-  }
-  v = vtbl_mk_tuple(eval->vtbl, n, a);
-  free_istack_array(&eval->stack, a);
-
-  return v;
-}
-
-
-static value_t eval_select(evaluator_t *eval, select_term_t *select) {
-  value_t v;
-  value_tuple_t *t;
-
-  v = eval_term(eval, select->arg);
-  t = vtbl_tuple(eval->vtbl, v);
-  assert(0 <= select->idx && select->idx < t->nelems);
-
-  return t->elem[select->idx];
-}
-
-
-static value_t eval_update(evaluator_t *eval, composite_term_t *update) {
-  value_t *a;
-  value_t v, f;
-  uint32_t i, n;
-
-  assert(update->arity >= 3);
-
-  n = update->arity - 2;
-  a = alloc_istack_array(&eval->stack, n);
-  f = eval_term(eval, update->arg[0]);
-  for (i=0; i<n; i++) {
-    a[i] = eval_term(eval, update->arg[i+1]);
-  }
-  v = eval_term(eval, update->arg[n+1]);
-
-  v = vtbl_mk_update(eval->vtbl, f, n, a, v);
-  free_istack_array(&eval->stack, a);
 
   return v;
 }
@@ -1132,13 +736,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         } else if (t == false_term) {
           v = vtbl_mk_false(eval->vtbl);
         } else {
-          v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t),
-                            term_name(terms, t));
+          longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
         }
-        break;
-
-      case ARITH_CONSTANT:
-        v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
         break;
 
       case BV64_CONSTANT:
@@ -1147,11 +746,6 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       case BV_CONSTANT:
         v = eval_bv_constant(eval, bvconst_term_desc(terms, t));
-        break;
-
-      case VARIABLE:
-        // free variable
-        longjmp(eval->env, MDL_EVAL_FREEVAR_IN_TERM);
         break;
 
       case UNINTERPRETED_TERM:
@@ -1163,45 +757,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         }
         break;
 
-      case ARITH_EQ_ATOM:
-        v = eval_arith_eq(eval, arith_eq_arg(terms, t));
-        break;
-
-      case ARITH_GE_ATOM:
-        v = eval_arith_ge(eval, arith_ge_arg(terms, t));
-        break;
-
-      case ARITH_IS_INT_ATOM:
-	v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
-	break;
-
-      case ARITH_FLOOR:
-	v = eval_arith_floor(eval, arith_floor_arg(terms, t));
-	break;
-
-      case ARITH_CEIL:
-	v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
-	break;
-
-      case ARITH_ABS:
-	v = eval_arith_abs(eval, arith_abs_arg(terms, t));
-	break;
-
       case ITE_TERM:
-      case ITE_SPECIAL:
         v = eval_ite(eval, ite_term_desc(terms, t));
-        break;
-
-      case APP_TERM:
-        v = eval_app(eval, app_term_desc(terms, t));
-        break;
-
-      case UPDATE_TERM:
-        v = eval_update(eval, update_term_desc(terms, t));
-        break;
-
-      case TUPLE_TERM:
-        v = eval_tuple(eval, tuple_term_desc(terms, t));
         break;
 
       case EQ_TERM:
@@ -1212,17 +769,6 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_distinct(eval, distinct_term_desc(terms, t));
         break;
 
-      case FORALL_TERM:
-        // don't try to evaluate forall for now
-        // but we could deal with quantification over finite types
-        longjmp(eval->env, MDL_EVAL_QUANTIFIER);
-        break;
-
-      case LAMBDA_TERM:
-        // don't evaluate
-        longjmp(eval->env, MDL_EVAL_LAMBDA);
-        break;
-
       case OR_TERM:
         v = eval_or(eval, or_term_desc(terms, t));
         break;
@@ -1230,22 +776,6 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       case XOR_TERM:
         v = eval_xor(eval, xor_term_desc(terms, t));
         break;
-
-      case ARITH_BINEQ_ATOM:
-        v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
-        break;
-
-      case ARITH_DIV:
-	v = eval_arith_div(eval, arith_div_term_desc(terms, t));
-	break;
-
-      case ARITH_MOD:
-	v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
-	break;
-
-      case ARITH_DIVIDES_ATOM:
-	v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
-	break;
 
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
@@ -1295,25 +825,13 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_bvsge(eval, bvsge_atom_desc(terms, t));
         break;
 
-      case SELECT_TERM:
-        v = eval_select(eval, select_term_desc(terms, t));
-        break;
-
       case BIT_TERM:
         v = eval_bit(eval, bit_term_desc(terms, t));
         break;
 
       case POWER_PRODUCT:
-        if (is_bitvector_term(terms, t)) {
-          v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
-        } else {
-          assert(is_arithmetic_term(terms, t));
-          v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
-        }
-        break;
-
-      case ARITH_POLY:
-        v = eval_arith_poly(eval, poly_term_desc(terms, t));
+        assert(is_bitvector_term(terms, t));
+	v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
         break;
 
       case BV64_POLY:

@@ -15,19 +15,12 @@
 #include "utils/memalloc.h"
 
 /*
- * Check whether t is either a variable or an uninterpreted term
+ * Check whether t is an uninterpreted term
  * - t must be a good positive term
  */
 static bool term_is_var(term_table_t *terms, term_t t) {
   assert(good_term(terms, t) && is_pos_term(t));
-  switch (term_kind(terms, t)) {
-  case VARIABLE:
-  case UNINTERPRETED_TERM:
-    return true;
-
-  default:
-    return false;
- }
+  return term_kind(terms, t) == UNINTERPRETED_TERM;
 }
 
 /*
@@ -71,7 +64,6 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, cons
   init_int_hmap(&subst->map, 0);
   init_subst_cache(&subst->cache);
   init_istack(&subst->stack);
-  subst->rctx = NULL;
 
   for (i=0; i<n; i++) {
     x = v[i];
@@ -90,9 +82,6 @@ void reset_term_subst(term_subst_t *subst) {
   int_hmap_reset(&subst->map);
   reset_subst_cache(&subst->cache);
   reset_istack(&subst->stack);
-  if (subst->rctx != NULL) {
-    reset_renaming_ctx(subst->rctx);
-  }
 }
 
 
@@ -184,11 +173,6 @@ void delete_term_subst(term_subst_t *subst) {
   delete_int_hmap(&subst->map);
   delete_subst_cache(&subst->cache);
   delete_istack(&subst->stack);
-  if (subst->rctx != NULL) {
-    delete_renaming_ctx(subst->rctx);
-    safe_free(subst->rctx);
-    subst->rctx = NULL;
-  }
 }
 
 
@@ -196,51 +180,6 @@ void delete_term_subst(term_subst_t *subst) {
 /*
  * UTILITIES
  */
-
-/*
- * Get the renaming context. Allocate and initialize it if needed.
- */
-static renaming_ctx_t *term_subst_get_rctx(term_subst_t *subst) {
-  renaming_ctx_t *tmp;
-
-  tmp = subst->rctx;
-  if (tmp == NULL) {
-    tmp = (renaming_ctx_t *) safe_malloc(sizeof(renaming_ctx_t));
-    init_renaming_ctx(tmp, subst->terms, 0);
-    subst->rctx = tmp;
-  }
-
-  return tmp;
-}
-
-/*
- * Lookup the term mapped to x (taking renaming into account)
- * - x must be a variable
- * - if there's a renaming, lookup x in the renaming context
- * - if x is not renamed, lookup x in the map
- * - if x is not renamed and not in the map, then return x
- */
-static term_t get_subst_of_var(term_subst_t *subst, term_t x) {
-  int_hmap_pair_t *p;
-  term_t y;
-
-  assert(is_pos_term(x) && term_kind(subst->terms, x) == VARIABLE);
-
-  y = NULL_TERM;
-  if (subst->rctx != NULL) {
-    y = renaming_ctx_lookup(subst->rctx, x);
-  }
-  if (y == NULL_TERM) {
-    p = int_hmap_find(&subst->map, x);
-    y = x;
-    if (p != NULL) {
-      y = p->val;
-    }
-  }
-
-  return y;
-}
-
 
 /*
  * Lookup the term mapped to x where x is uninterpreted
@@ -266,22 +205,11 @@ static term_t get_subst_of_unint(term_subst_t *subst, term_t x) {
 /*
  * Check whether the result of subst(t) is stored in the cache
  * - t must be a valid term in subst->terms
- * - this takes the renaming context into account
  * - return NULL_TERM (-1) is the result is not in the cache
  */
 static term_t get_cached_subst(term_subst_t *subst, term_t t) {
-  renaming_ctx_t *ctx;
-  harray_t *hashed_ctx;
-
   assert(is_pos_term(t) && good_term(subst->terms, t));
-
-  hashed_ctx = NULL;
-  ctx = subst->rctx;
-  if (ctx != NULL && !renaming_ctx_is_empty(ctx)) {
-    hashed_ctx = renaming_ctx_hash(ctx);
-  }
-
-  return subst_cache_lookup(&subst->cache, hashed_ctx, t);
+  return subst_cache_lookup(&subst->cache, NULL, t);
 }
 
 
@@ -289,47 +217,11 @@ static term_t get_cached_subst(term_subst_t *subst, term_t t) {
  * Add u as subst(t) in the cache
  * - t and u must be valid terms in subst->terms
  * - there must not be an existing value for t in the cache
- * - this takes the renaming context into account (cf. subst_cache.h)
  */
 static void cache_subst_result(term_subst_t *subst, term_t t, term_t u) {
-  renaming_ctx_t *ctx;
-  harray_t *hashed_ctx;
-
   assert(is_pos_term(t) && good_term(subst->terms, t) && good_term(subst->terms, u));
-
-  hashed_ctx = NULL;
-  ctx = subst->rctx;
-  if (ctx != NULL && !renaming_ctx_is_empty(ctx)) {
-    hashed_ctx = renaming_ctx_hash(ctx);
-  }
-
-  subst_cache_add(&subst->cache, hashed_ctx, t, u);
+  subst_cache_add(&subst->cache, NULL, t, u);
 }
-
-
-/*
- * Extend the current renaming context: by renaming for v[0 .. n-1]
- * (cf. renaming_context.h)
- * - v[0] ... v[n-1] must all be variables in subst->terms
- * - this allocates and initializes the renaming data structure if needed
- */
-static void subst_push_renaming(term_subst_t *subst, uint32_t n, term_t *v) {
-  renaming_ctx_t *ctx;
-
-  ctx = term_subst_get_rctx(subst);
-  renaming_ctx_push_vars(ctx, n, v);
-}
-
-
-/*
- * Remove the last n variable renaming (cf. renaming_context.h)
- * - the current renaming must exist and have at least n variables
- */
-static void subst_pop_renaming(term_subst_t *subst, uint32_t n) {
-  assert(subst->rctx != NULL);
-  renaming_ctx_pop_vars(subst->rctx, n);
-}
-
 
 
 
@@ -361,19 +253,15 @@ static bool pprod_degree_overflows(term_table_t *tbl, pprod_t *p, uint32_t n, te
 
 /*
  * Check whether term t is 0
- * - t is either an arithmetic or a bitvector term
+ * - t is a bitvector term
  */
 static bool term_is_zero(term_table_t *tbl, term_t t) {
   bvconst_term_t *c;
   uint32_t k;
 
-  assert(is_arithmetic_term(tbl, t) || is_bitvector_term(tbl, t));
+  assert(is_bitvector_term(tbl, t));
 
   switch (term_kind(tbl, t)) {
-  case ARITH_CONSTANT:
-    assert(t == zero_term || q_is_nonzero(rational_term_desc(tbl, t)));;
-    return t == zero_term;
-
   case BV64_CONSTANT:
     return bvconst64_term_desc(tbl, t)->value == (uint64_t) 0;
 
@@ -385,90 +273,6 @@ static bool term_is_zero(term_table_t *tbl, term_t t) {
   default:
     return false;
   }
-}
-
-
-
-/*
- * BETA-REDUCTION/RECURSIVE SUBSTITUTION
- */
-
-#define TRACE 0
-
-#if TRACE
-
-#include "io/term_printer.h"
-
-static void trace_beta_reduction(term_table_t *tbl, term_t t, term_t u) {
-  pp_area_t area;
-
-  area.width = 80;
-  area.height = 20;
-  area.offset = 8;
-  area.stretch = false;
-  area.truncate = true;
-
-  printf("--- Beta reduction ---\n");
-  printf("input:  ");
-  pretty_print_term_exp(stdout, &area, tbl, t);
-  printf("output: ");
-  pretty_print_term_full(stdout, &area, tbl, u);
-  printf("--\n");
-}
-
-#endif
-
-/*
- * Apply a (lambda (x_0 ... x_n-1) t) to arguments arg[0 ... n-1]
- * - lambda is the term_descriptor of (lambda (x_0 ... x_n) t)
- * - arg = array of n terms
- */
-static term_t apply_beta_rule(term_manager_t *mngr, composite_term_t *lambda, term_t *arg) {
-  term_subst_t subst;
-  uint32_t n;
-  term_t u;
-
-  assert(lambda->arity >= 2);
-  n = lambda->arity - 1; // number of variables
-  init_term_subst(&subst, mngr, n, lambda->arg, arg);
-  u = apply_term_subst(&subst, lambda->arg[n]);
-  delete_term_subst(&subst);
-
-  return u;
-}
-
-
-/*
- * Apply beta-reduction to t
- * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then
- *   it's returned unchanged
- * - otherwise, apply the substitution [x_1 := t_1, ... x_n := t_n] to u and return
- *   the result
- *
- * Possible error codes are the same as in apply_term_subst:
- * - return -1 (NULL_TERM) if the substitution causes a degree overflow
- * - return -2 if an exception is raised (bug somewhere)
- */
-term_t beta_reduce(term_manager_t *mngr, term_t t) {
-  term_table_t *tbl;
-  composite_term_t *app;
-  term_t f, u;
-
-  u = t;
-  tbl = term_manager_get_terms(mngr);
-  if (term_kind(tbl, t) == APP_TERM) {
-    app = app_term_desc(tbl, t);
-    f = app->arg[0];
-    if (term_kind(tbl, f) == LAMBDA_TERM) {
-      u = apply_beta_rule(mngr, lambda_term_desc(tbl, f), app->arg + 1);
-
-#if TRACE
-      trace_beta_reduction(tbl, t, u);
-#endif
-    }
-  }
-
-  return u;
 }
 
 
@@ -488,78 +292,6 @@ term_t beta_reduce(term_manager_t *mngr, term_t t) {
  *   or there's a bug somewhere): return -2
  */
 static term_t get_subst(term_subst_t *subst, term_t t);
-
-
-/*
- * Apply substitution to 'FORALL x1 ... x_n: b'
- * - d has arity n+1 >= 2
- * - d->arg[0] ... d->arg[n-1] = variables x_1 ... x_n
- * - d->arg[n] = body b
- */
-static term_t subst_forall(term_subst_t *subst, composite_term_t *d) {
-  term_t result;
-  int32_t *a;
-  uint32_t n;
-
-  assert(d->arity >= 2);
-
-  n = d->arity - 1;
-
-  // add renaming for variables x1 ... x_n to x'1 ... x'n
-  subst_push_renaming(subst, n, d->arg);
-  assert(subst->rctx != NULL);
-
-  // store the new variables x'1 ... x'k in array a
-  a = alloc_istack_array(&subst->stack, n);
-  renaming_ctx_collect_new_vars(subst->rctx, n, a);
-
-  // build (FORALL x'1 ... x'k: subst(body))
-  result = get_subst(subst, d->arg[n]);
-  result = mk_forall(subst->mngr, n, a, result);
-
-  // cleanup
-  free_istack_array(&subst->stack, a);
-  subst_pop_renaming(subst, n);
-
-  return result;
-}
-
-
-/*
- * Apply substitution to 'LAMBDA x1 ... x_n : b'
- * - d has arity n+1 >= 2
- * - d->arg[0] ... d->arg[n-1] = variables
- * - d->arg[n] = body
- */
-static term_t subst_lambda(term_subst_t *subst, composite_term_t *d) {
-  term_t result;
-  int32_t *a;
-  uint32_t n;
-
-  assert(d->arity >= 2);
-
-  n = d->arity - 1;
-
-  // add renaming for variables x1 ... x_n to x'1 ... x'n
-  subst_push_renaming(subst, n, d->arg);
-  assert(subst->rctx != NULL);
-
-  // store the new variables x'1 ... x'k in array a
-  a = alloc_istack_array(&subst->stack, n);
-  renaming_ctx_collect_new_vars(subst->rctx, n, a);
-
-  // build (LAMBDA x'1 ... x'k: subst(body))
-  result = get_subst(subst, d->arg[n]);
-  result = mk_lambda(subst->mngr, n, a, result);
-
-  // cleanup
-  free_istack_array(&subst->stack, a);
-  subst_pop_renaming(subst, n);
-
-  return result;
-}
-
-
 
 
 /*
@@ -583,54 +315,6 @@ static term_t *subst_children(term_subst_t *subst, composite_term_t *d) {
 /*
  * Substitution for all other composite terms
  */
-
-// t = 0
-static term_t subst_arith_eq(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_term_eq0(subst->mngr, u);
-}
-
-// t >= 0
-static term_t subst_arith_ge(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_term_geq0(subst->mngr, u);
-}
-
-// (is-int t)
-static term_t subst_arith_is_int(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_is_int(subst->mngr, u);
-}
-
-// (floor t)
-static term_t subst_arith_floor(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_floor(subst->mngr, u);
-}
-
-// (ceil t)
-static term_t subst_arith_ceil(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_ceil(subst->mngr, u);
-}
-
-// (abs t)
-static term_t subst_arith_abs(term_subst_t *subst, term_t t) {
-  term_t u;
-
-  u = get_subst(subst, t);
-  return mk_arith_abs(subst->mngr, u);
-}
 
 // (ite c t1 t2)
 static term_t subst_ite(term_subst_t *subst, composite_term_t *d) {
@@ -656,51 +340,6 @@ static term_t subst_ite(term_subst_t *subst, composite_term_t *d) {
 
     result = mk_ite(subst->mngr, c, t1, t2, tau);
   }
-
-  return result;
-}
-
-// function application
-static term_t subst_app(term_subst_t *subst, composite_term_t *d) {
-  term_t *a;
-  term_t result;
-
-  assert(d->arity >= 2);
-
-  // a[0] = function, a[1 ... n-1] = arguments
-  a = subst_children(subst, d);
-  result = mk_application(subst->mngr, a[0], d->arity-1, a+1);
-  free_istack_array(&subst->stack, a);
-
-  // a[0] may be a lambda term so we check for beta-reduction here
-  return beta_reduce(subst->mngr, result);
-}
-
-// function update
-static term_t subst_update(term_subst_t *subst, composite_term_t *d) {
-  term_t *a;
-  term_t result;
-  uint32_t n;
-
-  assert(d->arity >= 3);
-
-  // a[0] = function, a[1..n-2] = argument, a[n-1] = new_v
-  a = subst_children(subst, d);
-  n = d->arity;
-  result = mk_update(subst->mngr, a[0], n-2, a+1, a[n-1]);
-  free_istack_array(&subst->stack, a);
-
-  return result;
-}
-
-// tuple
-static term_t subst_tuple(term_subst_t *subst, composite_term_t *d) {
-  term_t *a;
-  term_t result;
-
-  a = subst_children(subst, d);
-  result = mk_tuple(subst->mngr, d->arity, a);
-  free_istack_array(&subst->stack, a);
 
   return result;
 }
@@ -763,46 +402,6 @@ static term_t subst_xor(term_subst_t *subst, composite_term_t *d) {
   free_istack_array(&subst->stack, a);
 
   return result;
-}
-
-// (eq t1 t2): arithmetic
-static term_t subst_arith_bineq(term_subst_t *subst, composite_term_t *d) {
-  term_t t1, t2;
-
-  assert(d->arity == 2);
-  t1 = get_subst(subst, d->arg[0]);
-  t2 = get_subst(subst, d->arg[1]);
-  return mk_arith_eq(subst->mngr, t1, t2);
-}
-
-// (div t1 t2)
-static term_t subst_arith_div(term_subst_t *subst, composite_term_t *d) {
-  term_t t1, t2;
-
-  assert(d->arity == 2);
-  t1 = get_subst(subst, d->arg[0]);
-  t2 = get_subst(subst, d->arg[1]);
-  return mk_arith_div(subst->mngr, t1, t2);
-}
-
-// (mod t1 t2)
-static term_t subst_arith_mod(term_subst_t *subst, composite_term_t *d) {
-  term_t t1, t2;
-
-  assert(d->arity == 2);
-  t1 = get_subst(subst, d->arg[0]);
-  t2 = get_subst(subst, d->arg[1]);
-  return mk_arith_mod(subst->mngr, t1, t2);
-}
-
-// (divides t1 t2)
-static term_t subst_arith_divides(term_subst_t *subst, composite_term_t *d) {
-  term_t t1, t2;
-
-  assert(d->arity == 2);
-  t1 = get_subst(subst, d->arg[0]);
-  t2 = get_subst(subst, d->arg[1]);
-  return mk_arith_divides(subst->mngr, t1, t2);
 }
 
 // array of bits
@@ -920,22 +519,13 @@ static term_t subst_bvsge(term_subst_t *subst, composite_term_t *d) {
 }
 
 /*
- * projection and bit select
+ * bit select
  *
  * Warning: d is not a safe pointer (it may become invalid if new
  * terms are created). cf. terms.h
  *
  * So we must make a copy of d->idx before the recursive call
  */
-static term_t subst_select(term_subst_t *subst, select_term_t *d) {
-  uint32_t idx;
-  term_t t;
-
-  idx = d->idx;
-  t = get_subst(subst, d->arg);
-  return mk_select(subst->mngr, idx, t);
-}
-
 static term_t subst_bit_select(term_subst_t *subst, select_term_t *d) {
   uint32_t idx;
   term_t t;
@@ -980,51 +570,14 @@ static term_t subst_pprod(term_subst_t *subst, pprod_t *p, type_t tau) {
   /*
    * build the term a[0] ^ e_0 ... a[n-1]^ e_{n-1}
    */
-  if (is_arithmetic_type(tau)) {
-    result = mk_arith_pprod(subst->mngr, p, n, a);
+  nbits = bv_type_size(subst->terms->types, tau);
+  if (nbits <= 64) {
+    result =  mk_bvarith64_pprod(subst->mngr, p, n, a, nbits);
   } else {
-    nbits = bv_type_size(subst->terms->types, tau);
-    if (nbits <= 64) {
-      result =  mk_bvarith64_pprod(subst->mngr, p, n, a, nbits);
-    } else {
-      result = mk_bvarith_pprod(subst->mngr, p, n, a, nbits);
-    }
+    result = mk_bvarith_pprod(subst->mngr, p, n, a, nbits);
   }
 
  done:
-  free_istack_array(&subst->stack, a);
-
-  return result;
-}
-
-
-/*
- * Arithmetic polynomial
- */
-static term_t subst_poly(term_subst_t *subst, polynomial_t *p) {
-  term_t *a;
-  term_t result;
-  uint32_t i, n;
-
-  n = p->nterms;
-  a = alloc_istack_array(&subst->stack, n);
-
-  // skip the constant term if any
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    a[i] = const_idx;
-    i ++;
-  }
-
-  // rest of the terms in p
-  while (i < n) {
-    a[i] = get_subst(subst, p->mono[i].var);
-    i ++;
-  }
-
-  // build the polynomial
-  result = mk_arith_poly(subst->mngr, p, n, a);
-
   free_istack_array(&subst->stack, a);
 
   return result;
@@ -1112,51 +665,8 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
   assert(good_term(terms, t) && is_pos_term(t));
 
   switch (term_kind(terms, t)) {
-  case ARITH_EQ_ATOM:
-    result = subst_arith_eq(subst, arith_eq_arg(terms, t));
-    break;
-
-  case ARITH_GE_ATOM:
-    result = subst_arith_ge(subst, arith_ge_arg(terms, t));
-    break;
-
-  case ARITH_ROOT_ATOM:
-    // TODO
-    assert(false);
-    result = NULL_TERM;
-    break;
-
-  case ARITH_IS_INT_ATOM:
-    result = subst_arith_is_int(subst, arith_is_int_arg(terms, t));
-    break;
-
-  case ARITH_FLOOR:
-    result = subst_arith_floor(subst, arith_floor_arg(terms, t));
-    break;
-
-  case ARITH_CEIL:
-    result = subst_arith_ceil(subst, arith_ceil_arg(terms, t));
-    break;
-
-  case ARITH_ABS:
-    result = subst_arith_abs(subst, arith_abs_arg(terms, t));
-    break;
-
   case ITE_TERM:
-  case ITE_SPECIAL:
     result = subst_ite(subst, ite_term_desc(terms, t));
-    break;
-
-  case APP_TERM:
-    result = subst_app(subst, app_term_desc(terms, t));
-    break;
-
-  case UPDATE_TERM:
-    result = subst_update(subst, update_term_desc(terms, t));
-    break;
-
-  case TUPLE_TERM:
-    result = subst_tuple(subst, tuple_term_desc(terms, t));
     break;
 
   case EQ_TERM:
@@ -1167,36 +677,12 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
     result = subst_distinct(subst, distinct_term_desc(terms, t));
     break;
 
-  case FORALL_TERM:
-    result = subst_forall(subst, forall_term_desc(terms, t));
-    break;
-
-  case LAMBDA_TERM:
-    result = subst_lambda(subst, lambda_term_desc(terms, t));
-    break;
-
   case OR_TERM:
     result = subst_or(subst, or_term_desc(terms, t));
     break;
 
   case XOR_TERM:
     result = subst_xor(subst, xor_term_desc(terms, t));
-    break;
-
-  case ARITH_BINEQ_ATOM:
-    result = subst_arith_bineq(subst, arith_bineq_atom_desc(terms, t));
-    break;
-
-  case ARITH_DIV:
-    result = subst_arith_div(subst, arith_div_term_desc(terms, t));
-    break;
-
-  case ARITH_MOD:
-    result = subst_arith_mod(subst, arith_mod_term_desc(terms, t));
-    break;
-
-  case ARITH_DIVIDES_ATOM:
-    result = subst_arith_divides(subst, arith_divides_atom_desc(terms, t));
     break;
 
   case BV_ARRAY:
@@ -1247,20 +733,12 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
     result = subst_bvsge(subst, bvsge_atom_desc(terms, t));
     break;
 
-  case SELECT_TERM:
-    result = subst_select(subst, select_term_desc(terms, t));
-    break;
-
   case BIT_TERM:
     result = subst_bit_select(subst, bit_term_desc(terms, t));
     break;
 
   case POWER_PRODUCT:
     result = subst_pprod(subst, pprod_term_desc(terms, t), term_type(terms, t));
-    break;
-
-  case ARITH_POLY:
-    result = subst_poly(subst, poly_term_desc(terms, t));
     break;
 
   case BV64_POLY:
@@ -1303,14 +781,9 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
 
   switch (term_kind(terms, t)) {
   case CONSTANT_TERM:
-  case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
     result = t;
-    break;
-
-  case VARIABLE:
-    result = get_subst_of_var(subst, t);
     break;
 
   case UNINTERPRETED_TERM:
@@ -1361,9 +834,6 @@ term_t apply_term_subst(term_subst_t *subst, term_t t) {
 
     // Cleanup
     reset_istack(&subst->stack);
-    if (subst->rctx != NULL) {
-      reset_renaming_ctx(subst->rctx);
-    }
   }
 
   return result;

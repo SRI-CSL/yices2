@@ -23,99 +23,6 @@
 #include "utils/int_array_hsets.h"
 
 
-/*
- * TYPE VARIABLES/MACROS
- */
-
-/*
- * Create a type variable of the given id
- */
-extern type_t yices_type_variable(uint32_t id);
-
-/*
- * Create a type constructor:
- * - name = its name
- * - n = arity
- * return -1 if there's an error or the macro id otherwise
- *
- * Error codes:
- * if n == 0
- *   code = POS_INT_REQUIRED
- *   badval = n
-, * if n > TYPE_MACRO_MAX_ARITY
- *   code = TOO_MANY_MACRO_PARAMS
- *   badval = n
- */
-extern int32_t yices_type_constructor(const char *name, uint32_t n);
-
-/*
- * Create a type macro:
- * - name = its name
- * - n = arity
- * - vars = array of n distinct type variables
- * - body = type
- *
- * return -1 if there's an error or the macro id otherwise
- *
- * Error codes:
- * if n == 0
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if n > TYPE_MACRO_MAX_ARITY
- *   code = TOO_MANY_MACRO_PARAMS
- *   badval = n
- * if body or one of vars[i] is not a valid type
- *   code = INVALID_TYPE
- *   type1 = body or vars[i]
- * if vars[i] is not a type variable
- *   code = TYPE_VAR_REQUIRED
- *   type1 = vars[i]
- * if the same variable occurs twice or more in vars
- *   code = DUPLICATE_TYPE_VAR
- *   type1 = the duplicate variable
- */
-extern int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body);
-
-
-/*
- * Instance of a macro or constructor
- * - cid = constructor or macro id
- * - n = number of arguments
- * - tau[0 ... n-1] = argument types
- *
- * return NULL_TYPE if there's an error
- *
- * Error reports:
- * if cid is not a valid macro or constructor id
- *   code = INVALID_MACRO
- *   badval = cid
- * if n is not the same as the macro/constructor arity
- *   code = WRONG_NUMBER_OF_ARGUMENTS
- *   badval = n
- * if one of tau[i] is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau[i]
- */
-extern type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]);
-
-/*
- * Get the macro id for a given name
- * - return -1 if there's no macro or constructor with that name
- */
-extern int32_t yices_get_macro_by_name(const char *name);
-
-/*
- * Remove the mapping of name --> macro id
- * - no change if no such mapping exists
- */
-extern void yices_remove_type_macro_name(const char *name);
-
-/*
- * Remove a macro with the given id
- * - id must be a valid macro index (non-negative)
- */
-extern void yices_delete_type_macro(int32_t id);
-
 
 /*
  * BUFFER ALLOCATION/FREE
@@ -124,16 +31,6 @@ extern void yices_delete_type_macro(int32_t id);
 /*
  * All buffer allocation functions can be used only after yices_init() has been called.
  */
-
-/*
- * Allocate an arithmetic buffer, initialized to the zero polynomial.
- */
-extern rba_buffer_t *yices_new_arith_buffer(void);
-
-/*
- * Free a buffer returned by the previous function.
- */
-extern void yices_free_arith_buffer(rba_buffer_t *b);
 
 /*
  * Allocate and initialize a bvarith_buffer
@@ -175,54 +72,6 @@ extern void yices_free_bvlogic_buffer(bvlogic_buffer_t *b);
 /*
  * CONVERSION TO TERMS
  */
-
-/*
- * Convert b to a term and reset b.
- *
- * Normalize b first then apply the following simplification rules:
- * 1) if b is a constant, then a constant rational is created
- * 2) if b is of the form 1.t then t is returned
- * 3) if b is of the form 1.t_1^d_1 x ... x t_n^d_n, then a power product is returned
- * 4) otherwise, a polynomial term is returned
- */
-extern term_t arith_buffer_get_term(rba_buffer_t *b);
-
-/*
- * Construct the atom (b == 0) then reset b.
- *
- * Normalize b first.
- * - simplify to true if b is the zero polynomial
- * - simplify to false if b is constant and non-zero
- * - rewrite to (t1 == t2) if that's possible.
- * - otherwise, create a polynomial term t from b
- *   and return the atom (t == 0).
- */
-extern term_t arith_buffer_get_eq0_atom(rba_buffer_t *b);
-
-/*
- * Construct the atom (b >= 0) then reset b.
- *
- * Normalize b first then check for simplifications.
- * - simplify to true or false if b is a constant
- * - otherwise, create term t from b and return the atom (t >= 0)
- */
-extern term_t arith_buffer_get_geq0_atom(rba_buffer_t *b);
-
-/*
- * Atom (b <= 0): rewritten to (-b >= 0)
- */
-extern term_t arith_buffer_get_leq0_atom(rba_buffer_t *b);
-
-/*
- * Atom (b > 0): rewritten to (not (b <= 0))
- */
-extern term_t arith_buffer_get_gt0_atom(rba_buffer_t *b);
-
-/*
- * Atom (b < 0): rewritten to (not (b >= 0))
- */
-extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
-
 
 /*
  * Convert b to a term then reset b.
@@ -283,12 +132,6 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
 extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
 
 
-/*
- * Convert rational q to a term
- */
-extern term_t yices_rational_term(rational_t *q);
-
-
 
 /*
  * SUPPORT FOR TYPE-CHECKING
@@ -309,44 +152,9 @@ extern term_t yices_rational_term(rational_t *q);
  */
 extern bool yices_check_boolean_term(term_t t);
 
-/*
- * Check whether t is a valid arithmetic term
- * - if not set the internal error report:
- *
- * If t is not a valid term:
- *   code = INVALID_TERM
- *   term1 = t
- *   index = -1
- * If t is not an arithmetic term;
- *   code = ARITHTERM_REQUIRED
- *   term1 = t
- */
-extern bool yices_check_arith_term(term_t t);
-
 
 /*
- * Check for degree overflow in the product (b * t)
- * - b must be a buffer obtained via yices_new_arith_buffer().
- * - t must be a valid arithmetic term.
- *
- * Return true if there's no overflow.
- *
- * Return false otherwise and set the error report:
- *   code = DEGREE_OVERFLOW
- *   badval = degree of b + degree of t
- */
-extern bool yices_check_mul_term(rba_buffer_t *b, term_t t);
-
-
-/*
- * Same thing for the product of two buffers b1 and b2.
- * - both must be buffers allocated using yices_new_arith_buffer().
- */
-extern bool yices_check_mul_buffer(rba_buffer_t *b1, rba_buffer_t *b2);
-
-
-/*
- * Check whether t has a type that match tau (i.e., t's type is a subtype of tau)
+ * Check whether t has a type that matches tau (i.e., t's type is a subtype of tau)
  * If not set the error report:
  *   code = TYPE_MISMATCH
  *   term1 = t
@@ -442,27 +250,6 @@ extern bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n);
  * - return false and set error report otherwise.
  */
 extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
-
-
-/*
- * Check whether b is an integer polynomial
- */
-extern bool yices_arith_buffer_is_int(rba_buffer_t *b);
-
-
-/*
- * FREE VARIABLES
- */
-
-/*
- * Get the free variables of t as a harray object
- * (defined in int_array_hsets.h)
- * - return NULL if t is ground
- * - otherwise, the result is a harray a:
- *   a->nelems = number of variables (n)
- *   a->data[0 ... n-1] = variables of t in increasing order
- */
-extern harray_t *yices_free_vars_of_term(term_t t);
 
 
 /*

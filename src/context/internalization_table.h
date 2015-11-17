@@ -221,15 +221,6 @@ extern type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t r);
 
 
 /*
- * Check whether r's class is integer
- * - r must be a root
- */
-static inline bool intern_tbl_is_integer_root(intern_tbl_t *tbl, term_t r) {
-  return intern_tbl_type_of_root(tbl, r) == int_type(tbl->types);
-}
-
-
-/*
  * Get the object mapped to r: clear the sign bit
  * - r must be a root and must have positive polarity
  */
@@ -269,22 +260,6 @@ extern void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x);
  */
 extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
 
-#if 0
-
-// NOT USED
-/*
- * Check whether the substitution [r1 := r2] is valid
- * - both r1 and r2 must be roots and they must have compatible types.
- * - r1 must have positive polarity.
- * - r2 must not be a constant term.
- * - returns true if r1 is a free root, and the substitution does not
- *   create a cycle.
- *
- * NOTE: if r2 is a constant, the next function should be used instead.
- */
-extern bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
-#endif
-
 /*
  * Check whether the substitution [r1 := r2] is valid.
  * - r1 must be a root and r2 must be a constant
@@ -311,6 +286,7 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
  * This adds either the substitution [r1 := r2] or [r2 := r1]
  */
 extern void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2);
+
 
 /*
  * SUPPORT FOR GARBAGE COLLECTION

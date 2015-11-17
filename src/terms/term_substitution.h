@@ -28,7 +28,6 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
-#include "terms/renaming_context.h"
 #include "terms/subst_cache.h"
 #include "terms/term_manager.h"
 #include "utils/int_hash_map.h"
@@ -43,7 +42,6 @@
  * - map = base substitution: variable --> term
  * - cache
  * - stack = array stack
- * - rctx: renaming context, allocated lazily
  * - env: jump buffer for exceptions
  */
 typedef struct term_subst_s {
@@ -52,7 +50,6 @@ typedef struct term_subst_s {
   int_hmap_t map;
   subst_cache_t cache;
   int_stack_t stack;
-  renaming_ctx_t *rctx;
   jmp_buf env;
 } term_subst_t;
 

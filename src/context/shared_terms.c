@@ -106,24 +106,6 @@ static void sharing_map_visit_pprod(sharing_map_t *map, pprod_t *c, int32_t p) {
   }
 }
 
-static void sharing_map_visit_poly(sharing_map_t *map, polynomial_t *c, int32_t p) {
-  uint32_t i, n;
-
-  assert(c == polynomial_for_idx(map->terms, p));
-
-  n = c->nterms;
-  assert(n > 0);
-
-  i = 0;
-  if (c->mono[0].var == const_idx) {
-    i ++; // skip the constant
-  }
-  while (i<n) {
-    sharing_map_process_occurrence(map, index_of(c->mono[i].var), p);
-    i ++;
-  }  
-}
-
 static void sharing_map_visit_bvpoly64(sharing_map_t *map, bvpoly64_t *c, int32_t p) {
   uint32_t i, n;
 
@@ -164,41 +146,17 @@ static void sharing_map_visit_bvpoly(sharing_map_t *map, bvpoly_t *c, int32_t p)
 static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   switch (kind_for_idx(map->terms, i)) {
   case CONSTANT_TERM:
-  case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
-  case VARIABLE:
   case UNINTERPRETED_TERM:
     // atomic term
     break;
 
-  case ARITH_EQ_ATOM:
-  case ARITH_GE_ATOM:
-  case ARITH_IS_INT_ATOM:
-  case ARITH_FLOOR:
-  case ARITH_CEIL:
-  case ARITH_ABS:
-    sharing_map_process_occurrence(map, index_of(integer_value_for_idx(map->terms, i)), i);
-    break;
-  case ARITH_ROOT_ATOM:
-    assert(false);
-    break;
-
   case ITE_TERM:
-  case ITE_SPECIAL:
-  case APP_TERM:
-  case UPDATE_TERM:
-  case TUPLE_TERM:
   case EQ_TERM:
   case DISTINCT_TERM:
-  case FORALL_TERM:
-  case LAMBDA_TERM:
   case OR_TERM:
   case XOR_TERM:
-  case ARITH_BINEQ_ATOM:
-  case ARITH_DIV:
-  case ARITH_MOD:
-  case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -214,17 +172,12 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
     sharing_map_visit_composite(map, composite_for_idx(map->terms, i), i);
     break;
 
-  case SELECT_TERM:
   case BIT_TERM:
     sharing_map_visit_select(map, select_for_idx(map->terms, i), i);
     break;
 
   case POWER_PRODUCT:
     sharing_map_visit_pprod(map, pprod_for_idx(map->terms, i), i);
-    break;
-
-  case ARITH_POLY:
-    sharing_map_visit_poly(map, polynomial_for_idx(map->terms, i), i);
     break;
 
   case BV64_POLY:

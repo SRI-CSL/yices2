@@ -25,10 +25,6 @@
  * - if the bit is 1 for object i then i is in a canonical representation.
  *   An object j with a different descriptor cannot be equal to i.
  * - if the bit is 0, then i is not in a canonical form.
- *
- *
- * For printing/pretty printing, we keep track of function objects
- * whose map must be printed. We store them in a queue + add a mark.
  */
 
 #ifndef __CONCRETE_VALUES_H
@@ -44,8 +40,6 @@
 #include "terms/types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_tables.h"
-#include "utils/int_queues.h"
-#include "utils/int_vectors.h"
 
 
 /*
@@ -58,18 +52,6 @@
  *  BOOLEAN_VALUE
  *  RATIONAL_VALUE
  *  BITVECTOR_VALUE
- *  TUPLE_VALUE
- *  UNINTERPRETED_VALUE
- *  FUNCTION_VALUE
- *  FUNCTION_UPDATE
- *
- * A function value is a finite set of mappings + a default value.
- * The mappings are stored as MAP_VALUE objects in the table.
- * A mapping is of the form [a_0 ... a_{n-1} -> val].
- * If such a mapping belongs to f then (f a_0 ... a_{n-1}) = val.
- * To save memory, we also allow functions to be constructed as
- * updates of the form (update f_0 k) where k is a mapping and f_0
- * is another function.
  */
 
 /*
@@ -94,16 +76,10 @@ typedef enum {
   UNKNOWN_VALUE,
   BOOLEAN_VALUE,
   RATIONAL_VALUE,
-  ALGEBRAIC_VALUE,
   BITVECTOR_VALUE,
-  TUPLE_VALUE,
-  UNINTERPRETED_VALUE,
-  FUNCTION_VALUE,
-  MAP_VALUE,
-  UPDATE_VALUE,
 } value_kind_t;
 
-#define NUM_VALUE_KIND ((uint32_t) (UPDATE_VALUE + 1))
+#define NUM_VALUE_KIND ((uint32_t) (BITVECTOR_VALUE + 1))
 
 
 /*
@@ -127,143 +103,6 @@ typedef struct value_bv_s {
   uint32_t data[0]; // real size = width
 } value_bv_t;
 
-// tuple = array of values
-typedef struct value_tuple_s {
-  uint32_t nelems;
-  value_t elem[0]; // real size = arity
-} value_tuple_t;
-
-// uninterpreted constant
-typedef struct value_unint_s {
-  type_t type;
-  int32_t index;  // id = same as in constant_terms in term table
-  char *name;
-} value_unint_t;
-
-// mapping object: arg[0] ... arg[n-1] |-> val
-typedef struct value_map_s {
-  uint32_t arity;
-  value_t val;
-  value_t arg[0]; // real size = arity
-} value_map_t;
-
-// function: default value + an array of mapping objects
-typedef struct value_fun_s {
-  char *name;
-  type_t type;        // function type
-  uint32_t arity;     // number of parameters
-  value_t def;        // default value
-  uint32_t map_size;  // size of array map
-  value_t map[0];     // array of mapping object of size = map_size
-} value_fun_t;
-
-
-// function update = (update fun map)
-typedef struct value_update_s {
-  uint32_t arity;
-  value_t fun; // function
-  value_t map; // mapping
-} value_update_t;
-
-
-// Limits on the size of maps and tuple that can be represented
-#define VTBL_MAX_MAP_SIZE   ((UINT32_MAX-sizeof(value_fun_t))/sizeof(value_t))
-#define VTBL_MAX_TUPLE_SIZE ((UINT32_MAX-sizeof(value_tuple_t))/sizeof(value_t))
-#define VTBL_MAX_MAP_ARITY  ((UINT32_MAX-sizeof(value_map_t))/sizeof(value_t))
-
-
-/*
- * To accelerate function evaluation, we store pairs
- * <function, map> into an auxiliary hash table.
- * - function is a function object (not an update)
- * - map must be a mapping object that belongs to function
- */
-typedef struct map_pair_s {
-  value_t function;
-  value_t map;
-} map_pair_t;
-
-typedef struct map_htbl_s {
-  map_pair_t *data;  // hash table proper
-  uint32_t size;     // its size (must be a power of 2)
-  uint32_t nelems;
-  uint32_t resize_threshold;
-} map_htbl_t;
-
-
-/*
- * Default initial size of a map table + maximal size
- */
-#define MAP_HTBL_DEFAULT_SIZE 64
-#define MAP_HTBL_MAX_SIZE (UINT32_MAX/sizeof(map_pair_t))
-
-/*
- * Resize ratio: the table size is doubled when nelems >= size * resize ratio
- */
-#define MAP_HTBL_RESIZE_RATIO 0.7
-
-
-
-/*
- * Hash set used to compute the normal form of update objects
- * - a function is represented as a finite set of mapping objects
- * - normalizing an update object converts it to a finite set of
- *   mappings.
- * This set is represented as a hash-set
- */
-typedef struct map_hset_s {
-  value_t *data;     // set elements
-  uint32_t size;     // size of the data array
-  uint32_t nelems;   // number of elements in the array
-  uint32_t resize_threshold;
-} map_hset_t;
-
-
-/*
- * Default initial size + maximal size of an hset
- */
-#define MAP_HSET_DEFAULT_SIZE 32
-#define MAP_HSET_MAX_SIZE (UINT32_MAX/sizeof(value_t))
-
-
-/*
- * Resize ratio
- */
-#define MAP_HSET_RESIZE_RATIO 0.7
-
-
-/*
- * Reduce threshold: in reset, if the hset size is more than this
- * threshold then the data array is reduced to the default size.
- */
-#define MAP_HSET_REDUCE_THRESHOLD 256
-
-
-/*
- * Queue + bitvector for functions whose map must be printed.
- */
-typedef struct vtbl_queue_s {
-  int_queue_t queue;
-  byte_t *mark;
-  uint32_t size; // size of the mark vector
-} vtbl_queue_t;
-
-#define DEF_VTBL_QUEUE_SIZE 2048
-
-
-/*
- * Optional function to name uninterpreted constants
- * - the table contains a pointer to a function 'unint_namer'
- *   + an opaque pointer aux_namer.
- * - when an uninterpreted value is printed, the value's name
- *   (stored in the value_unint_t descriptor d) is used.
- * - if d->name is NULL and name_of_unint is non NULL, then
- *      unint_namer(aux, d) is called
- *   if this function returns a non-NULL string, that's used
- *   as the name.
- * - otherwise, the modules uses a name 'const!k' for some k
- */
-typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
 
 
 /*
@@ -279,9 +118,6 @@ typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
  *   htbl = hash table for hash consing
  *   buffer for building bitvector constants
  *   auxiliary vector
- *   mtbl = hash table of pairs (fun, map)
- *   hset1, hset2 = hash sets allocated on demand (used in
- *      hash consing of update objects)
  * - unknown_value = index of the unknown value
  * - true_value, false_value = indices of true/false values
  *
@@ -289,8 +125,6 @@ typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
  *   if first_tmp = -1 then all objects are permanent.
  *   if first_tmp >= 0, then objects in [0 .. first_tmp -1] are permanent
  *   and objects in [first_tmp .. nobjects - 1] are temporary.
- *
- * - pointer for getting names of uninterpreted constants
  */
 typedef struct value_table_s {
   uint32_t size;
@@ -302,19 +136,12 @@ typedef struct value_table_s {
   type_table_t *type_table;
   int_htbl_t htbl;
   bvconstant_t buffer;
-  ivector_t aux_vector;
-  map_htbl_t mtbl;
-  vtbl_queue_t queue;
-  map_hset_t *hset1;
-  map_hset_t *hset2;
 
   int32_t unknown_value;
   int32_t true_value;
   int32_t false_value;
   int32_t first_tmp;
 
-  void *aux_namer;
-  unint_namer_fun_t unint_namer;
 } value_table_t;
 
 
@@ -346,15 +173,6 @@ extern void delete_value_table(value_table_t *table);
 extern void reset_value_table(value_table_t *table);
 
 
-/*
- * Assign aux and namer for dealing with uninterpreted values whose name is missing
- */
-static inline void value_table_set_namer(value_table_t *table, void *aux, unint_namer_fun_t f) {
-  assert(f != NULL);
-  table->aux_namer = aux;
-  table->unint_namer = f;
-}
-
 
 /*
  * OBJECT CONSTRUCTORS
@@ -384,11 +202,6 @@ extern value_t vtbl_mk_not(value_table_t *table, value_t v);
 extern value_t vtbl_mk_rational(value_table_t *table, rational_t *v);
 extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 
-
-/*
- * Algebraic number (make a copy).
- */
-extern value_t vtbl_mk_algebraic(value_table_t *table, void* a);
 
 /*
  * Bit-vector constant: input is an array of n integers
@@ -427,70 +240,6 @@ extern value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c
 extern value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n);
 extern value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n);
 
-
-/*
- * Tuple:
- * - n = arity
- * - e[0] ... e[n-1] = components
- * all components must be valid elements in table
- * n must be less than MAX_TERM_ARITY
- */
-extern value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e);
-
-
-#if 0
-
-// NOT USED
-/*
- * Fresh uninterpreted constant
- * - tau = its type (as an index in the type table)
- * - name = an optional name (NULL if no name is given)
- * - if name is given, a copy is made.
- * - the constant is assigned a default index = -1
- */
-extern value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name);
-#endif
-
-
-/*
- * Uninterpreted constant of index id
- * - tau = its type (must be UNINTERPRETED or SCALAR type)
- * - name = optional name (NULL if no name is given)
- * - id = index (must be non-negative)
- *
- * If the constant already exists and has a name, it keeps
- * its current name. Otherwise, if name != NULL, then the constant
- * is given that name.
- */
-extern value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name);
-
-
-/*
- * Mapping a[0 ... n-1] := v
- * - return a mapping object
- */
-extern value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v);
-
-
-/*
- * Function defined by the array a[0...n] and default value def
- * - tau = its type
- * - a = array of n mapping objects.
- *   The array must not contain conflicting mappings and all elements in a
- *   must have the right arity (same as defined by type tau). It's allowed
- *   to have duplicate elements in a.
- * - def = default value (must be unknown if no default is given).
- *
- * NOTE: array a is modified.
- */
-extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def);
-
-
-/*
- * Create (update f (a[0] ... a[n-1]) v)
- * - f must be a function of arity n (either a function object or another update)
- */
-extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, value_t v);
 
 
 
@@ -532,15 +281,6 @@ extern bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2])
 extern value_t vtbl_find_rational(value_table_t *table, rational_t *v);
 extern value_t vtbl_find_int32(value_table_t *table, int32_t x);
 
-// algebraic
-extern value_t vtbl_find_algebraic(value_table_t *table, void* a);
-
-// constants of scalar or uninterpreted type
-extern value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id);
-
-// tuple e[0] ... e[n-1]
-extern value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e);
-
 // bitvector defined by a[0 ... n-1]
 extern value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a);
 
@@ -549,13 +289,6 @@ extern value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c);
 
 // bitvector defined by a bvconstant b
 extern value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b);
-
-// map object: a[0 ... n-1] := v
-extern value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v);
-
-// function defined by array of n maps + the default value
-// array a is modified
-extern value_t vtbl_find_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def);
 
 
 /*
@@ -569,14 +302,6 @@ static inline bool vtbl_test_int32(value_table_t *table, int32_t x) {
   return vtbl_find_int32(table, x) >= 0;
 }
 
-static inline bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id) {
-  return vtbl_find_const(table, tau, id) >= 0;
-}
-
-static inline bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e) {
-  return vtbl_find_tuple(table, n, e) >= 0;
-}
-
 static inline bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
   return vtbl_find_bv(table, n, a) >= 0;
 }
@@ -587,15 +312,6 @@ static inline bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) 
 
 static inline bool vtbl_test_bvconstant(value_table_t *table, bvconstant_t *b) {
   return vtbl_find_bvconstant(table, b) >= 0;
-}
-
-static inline bool vtbl_test_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
-  return vtbl_find_map(table, n, a, v) >= 0;
-}
-
-// warning: a is modified
-static inline bool vtbl_test_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
-  return vtbl_find_function(table, tau, n, a, def) >= 0;
 }
 
 
@@ -614,27 +330,6 @@ static inline bool vtbl_test_function(value_table_t *table, type_t tau, uint32_t
  */
 extern value_t vtbl_gen_object(value_table_t *table, type_t tau, uint32_t i);
 
-/*
- * Same thing for tuples:
- * - tau[0 ... n-1] must be n finite types
- * - i must be an index between 0 and card(tau[0]) x ... x card(tau[n-1])
- * - a must be large enough to store n elements
- * - this stores n objects in a[0 ... n-1] where a[k] has type tau[k]
- * - different indices i generate different tuples of n objects
- */
-extern void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i, value_t *a);
-
-/*
- * Same thing for a finite function type tau:
- * - the domain must be finite
- * - let D = cardinality of tau's domain and R = cardinality of tau's range
- * - a function of type tau is defined by D values a[0 ... D-1] where each a[k] is an
- *   object of tau's range.
- * - this function builds a[0 ... D-1] given an index i between 0 and R^D.
- * - a must be large enough to store D elements
- */
-extern void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t *a);
-
 
 /*
  * Check whether object of index i is present in the table
@@ -648,37 +343,6 @@ extern value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i);
 static inline bool vtbl_test_object(value_table_t *table, type_t tau, uint32_t i) {
   return vtbl_find_object(table, tau, i) >= 0;
 }
-
-
-/*
- * Search for object tuple of index i and type tau[0] x ... x tau[n-1]
- * - return null_value if it's not present
- */
-extern value_t vtbl_find_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i);
-
-static inline bool vtbl_test_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i) {
-  return vtbl_find_object_tuple(table, n, tau, i) >= 0;
-}
-
-
-/*
- * NAMES
- */
-
-/*
- * Set or change the name of function f
- * - overwrite the current name if any
- * - make an internal copy of the string if name != NULL
- * - if name = NULL, this clears the name of f
- */
-extern void vtbl_set_function_name(value_table_t *table, value_t f, char *name);
-
-
-/*
- * Set or change the name of constant c
- * - same effect as the previous function
- */
-extern void vtbl_set_constant_name(value_table_t *table, value_t c, char *name);
 
 
 
@@ -767,36 +431,12 @@ static inline bool object_is_rational(value_table_t *table, value_t v) {
   return object_kind(table, v) == RATIONAL_VALUE;
 }
 
-static inline bool object_is_algebraic(value_table_t *table, value_t v) {
-  return object_kind(table, v) == ALGEBRAIC_VALUE;
-}
-
 static inline bool object_is_integer(value_table_t *table, value_t v) {
   return object_is_rational(table, v) && q_is_integer(&table->desc[v].rational);
 }
 
 static inline bool object_is_bitvector(value_table_t *table, value_t v) {
   return object_kind(table, v) == BITVECTOR_VALUE;
-}
-
-static inline bool object_is_tuple(value_table_t *table, value_t v) {
-  return object_kind(table, v) == TUPLE_VALUE;
-}
-
-static inline bool object_is_unint(value_table_t *table, value_t v) {
-  return object_kind(table, v) == UNINTERPRETED_VALUE;
-}
-
-static inline bool object_is_function(value_table_t *table, value_t v) {
-  return object_kind(table, v) == FUNCTION_VALUE;
-}
-
-static inline bool object_is_map(value_table_t *table, value_t v) {
-  return object_kind(table, v) == MAP_VALUE;
-}
-
-static inline bool object_is_update(value_table_t *table, value_t v) {
-  return object_kind(table, v) == UPDATE_VALUE;
 }
 
 
@@ -841,76 +481,6 @@ static inline value_bv_t *vtbl_bitvector(value_table_t *table, value_t v) {
   assert(object_is_bitvector(table, v));
   return (value_bv_t *) table->desc[v].ptr;
 }
-
-static inline value_tuple_t *vtbl_tuple(value_table_t *table, value_t v) {
-  assert(object_is_tuple(table, v));
-  return (value_tuple_t *) table->desc[v].ptr;
-}
-
-static inline value_unint_t *vtbl_unint(value_table_t *table, value_t v) {
-  assert(object_is_unint(table, v));
-  return (value_unint_t *) table->desc[v].ptr;
-}
-
-static inline value_fun_t *vtbl_function(value_table_t *table, value_t v) {
-  assert(object_is_function(table, v));
-  return (value_fun_t *) table->desc[v].ptr;
-}
-
-static inline value_map_t *vtbl_map(value_table_t *table, value_t v) {
-  assert(object_is_map(table, v));
-  return (value_map_t *) table->desc[v].ptr;
-}
-
-static inline value_t vtbl_map_result(value_table_t *table, value_t v) {
-  return vtbl_map(table, v)->val;
-}
-
-static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
-  assert(object_is_update(table, v));
-  return (value_update_t *) table->desc[v].ptr;
-}
-
-
-
-
-/*
- * UTILITIES
- */
-
-/*
- * Normalize an update object i
- * - this computes a set of mapping for object i
- * - the default value for i is stored in *def
- * - the type of i is stored in *tau (this is a function type)
- *
- * The set of mappings is stored in the internal hset1 table:
- * - hset1->data contains the set of mapping objects for i (without duplicates)
- * - hset1->nelems = number of mappings in hset1->data
- */
-extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
-
-/*
- * Push v into the internal queue
- * - v must be a valid object
- * - do nothing if v is already in the queue
- */
-extern void vtbl_push_object(value_table_t *table, value_t v);
-
-
-/*
- * Check whether the queue is empty
- */
-extern bool vtbl_queue_is_empty(value_table_t *table);
-
-static inline bool vtbl_queue_is_nonempty(value_table_t *table) {
-  return !vtbl_queue_is_empty(table);
-}
-
-/*
- * Empty the internal queue
- */
-extern void vtbl_empty_queue(value_table_t *table);
 
 
 #endif /* __CONCRETE_VALUES_H */

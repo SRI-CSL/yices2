@@ -75,6 +75,8 @@
  * July 2012: Added lambda terms.
  *
  * June 2015: div/mod/abs and friends
+ *
+ * Novemeber 2015: removed everything not used for QF_BV
  */
 
 /*
@@ -85,28 +87,13 @@
  * 2) generic terms
  *    - ite c t1 t2
  *    - eq t1 t2
- *    - apply f t1 ... t_n
- *    - mk-tuple t1 ... t_n
- *    - select i tuple
  *    - update f t1 ... t_n v
  *    - distinct t1 ... t_n
- * 3) variables and quantifiers
- *    - variables are identified by their type and an integer index.
- *    - quantified formulas are of the form (forall v_1 ... v_n term)
- *      where each v_i is a variable
- *    - lambda terms are of the form (lambda v_1 ... v_n term) where
- *      each v_i is a variable
- * 4) boolean operators
+ * 3) boolean operators
  *    - or t1 ... t_n
  *    - xor t1 ... t_n
  *    - bit i u (extract bit i of a bitvector term u)
- * 6) arithmetic terms and atoms
- *    - terms are either rational constants, power products, or
- *      polynomials with rational coefficients
- *    - atoms are either of the form (t == 0) or (t >= 0)
- *      where p is a term.
- *    - atoms a x - a y == 0 are rewritten to (x = y)
- * 7) bitvector terms and atoms
+ * 4) bitvector terms and atoms
  *    - bitvector constants
  *    - power products
  *    - polynomials
@@ -116,18 +103,6 @@
  *      bv_eq t1 t2
  *      bv_ge t1 t2 (unsigned comparison: t1 >= t2)
  *      bv_sge t1 t2 (signed comparison: t1 >= t2)
- *
- * 8) more arithmetic operators (defined in SMTLIB2)
- *    - floor x
- *    - ceil x
- *    - abs x
- *    - div x y
- *    - mod x y
- *    - divides x y: y is a multiple of y
- *    - is_int x: true if x is an integer
- *
- *   In div and mod, we support only constant dividers y.
- *   For divides x y, x must be a rational constant.
  *
  * Every term is an index t in a global term table,
  * where 0 <= t <= 2^30. There are two term occurrences
@@ -158,13 +133,11 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "terms/balanced_arith_buffers.h"
 #include "terms/bvarith64_buffers.h"
 #include "terms/bvarith_buffers.h"
 #include "terms/pprod_table.h"
 #include "terms/types.h"
 #include "utils/bitvectors.h"
-#include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_hash_map.h"
@@ -218,43 +191,24 @@ typedef enum {
   /*
    * Constants
    */
-  CONSTANT_TERM,    // constant of uninterpreted/scalar/boolean types
-  ARITH_CONSTANT,   // rational constant
+  CONSTANT_TERM,    // constant of boolean type
   BV64_CONSTANT,    // compact bitvector constant (64 bits at most)
   BV_CONSTANT,      // generic bitvector constant (more than 64 bits)
 
   /*
    * Non-constant, atomic terms
    */
-  VARIABLE,            // variable in quantifiers
   UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
 
   /*
    * Composites
    */
-  ARITH_EQ_ATOM,      // atom t == 0
-  ARITH_GE_ATOM,      // atom t >= 0
-  ARITH_IS_INT_ATOM,  // atom (is_int x)
-  ARITH_FLOOR,        // floor x
-  ARITH_CEIL,         // ceil x
-  ARITH_ABS,          // absolute value
-  ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
-
   ITE_TERM,           // if-then-else
-  ITE_SPECIAL,        // special if-then-else term (NEW: EXPERIMENTAL)
-  APP_TERM,           // application of an uninterpreted function
-  UPDATE_TERM,        // function update
-  TUPLE_TERM,         // tuple constructor
   EQ_TERM,            // equality
   DISTINCT_TERM,      // distinct t_1 ... t_n
-  FORALL_TERM,        // quantifier
-  LAMBDA_TERM,        // lambda
   OR_TERM,            // n-ary OR
   XOR_TERM,           // n-ary XOR
-  ARITH_BINEQ_ATOM,   // equality: (t1 == t2)  (between two arithmetic terms)
-  ARITH_DIV,          // division: (div x y) as defined in SMT-LIB 2
-  ARITH_MOD,          // remainder: (mod x y) is y - x * (div x y)
-  ARITH_DIVIDES_ATOM, // divisibility test: (divides x y) is true if y = n * x for an integer n
+
   BV_ARRAY,           // array of boolean terms
   BV_DIV,             // unsigned division
   BV_REM,             // unsigned remainder
@@ -268,12 +222,10 @@ typedef enum {
   BV_GE_ATOM,         // unsigned comparison: (t1 >= t2)
   BV_SGE_ATOM,        // signed comparison (t1 >= t2)
 
-  SELECT_TERM,      // tuple projection
   BIT_TERM,         // bit-select
 
   // Polynomials
   POWER_PRODUCT,    // power products: (t1^d1 * ... * t_n^d_n)
-  ARITH_POLY,       // polynomial with rational coefficients
   BV64_POLY,        // polynomial with 64bit coefficients
   BV_POLY,          // polynomial with generic bitvector coefficients
 } term_kind_t;
@@ -295,18 +247,13 @@ typedef enum {
  * This gives two terms:
  * - true_term = pos_term(bool_const) = 2
  * - false_term = neg_term(bool_const) = 3
- *
- * The constant 0 is also built-in and always has index 2
- * - so zero_term = pos_term(zero_const) = 4
  */
 enum {
   // indices
   bool_const = 1,
-  zero_const = 2,
   // terms
   true_term = 2,
   false_term = 3,
-  zero_term = 4,
 };
 
 
@@ -334,34 +281,6 @@ typedef struct select_term_s {
 
 
 /*
- * Comparison relations for arithmetic root atoms..
- */
-typedef enum {
-  ROOT_ATOM_LT,
-  ROOT_ATOM_LEQ,
-  ROOT_ATOM_EQ,
-  ROOT_ATOM_NEQ,
-  ROOT_ATOM_GEQ,
-  ROOT_ATOM_GT
-} root_atom_rel_t;
-
-
-/*
- * Arithmetic root constraint:
- * - an integer root index
- * - a variable x
- * - a polynomial p(x, ...)
- * - the relation x r root_k(p)
- */
-typedef struct root_atom_s {
-  uint32_t k;
-  term_t x;
-  term_t p;
-  root_atom_rel_t r;
-} root_atom_t;
-
-
-/*
  * Bitvector constants of arbitrary size:
  * - bitsize = number of bits
  * - data = array of 32bit words (of size equal to ceil(nbits/32))
@@ -382,43 +301,17 @@ typedef struct bvconst64_term_s {
 
 
 /*
- * Special composites: (experimental)
- * - a composite_term descriptor preceded by a generic (hidden)
- *   pointer.
- * - this is an attempt to improve performance on examples
- *   that contain deeply nested if-then-else terms, where
- *   all the leaves are constant terms.
- * - in such a case, we attach the set of leaves (i.e., the
- *   possible values for that term) to the special term
- *   descriptor.
- */
-typedef struct special_term_s {
-  void *extra;
-  composite_term_t body;
-} special_term_t;
-
-
-/*
  * Descriptor: one of
  * - integer index for constant terms and variables
- * - rational constant
  * - pair  (idx, arg) for select term
  * - ptr to a composite, polynomial, power-product, or bvconst
  */
 typedef union {
   int32_t integer;
   void *ptr;
-  rational_t rational;
   select_term_t select;
 } term_desc_t;
 
-
-/*
- * Finalizer function: this is called when a special_term
- * is deleted (to cleanup the spec->extra field).
- * - the default finalizer calls safe_free(spec->extra).
- */
-typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
 
 
 /*
@@ -470,12 +363,10 @@ typedef struct term_table_s {
 
   type_table_t *types;
   pprod_table_t *pprods;
-  special_finalizer_t finalize;
 
   int_htbl_t htbl;
   stbl_t stbl;
   ptr_hmap_t ntbl;
-  int_hmap_t utbl;
 
   ivector_t ibuffer;
   pvector_t pbuffer;
@@ -501,14 +392,6 @@ extern void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl,
  * Delete all terms and descriptors, symbol table, hash table, etc.
  */
 extern void delete_term_table(term_table_t *table);
-
-
-/*
- * Install f as the special finalizer
- */
-static inline void term_table_set_finalizer(term_table_t *table, special_finalizer_t f) {
-  table->finalize = f;
-}
 
 
 /*
@@ -544,13 +427,6 @@ extern term_t new_uninterpreted_term(term_table_t *table, type_t tau);
 
 
 /*
- * New variable of type tau.
- * - this always creates a fresh term.
- */
-extern term_t new_variable(term_table_t *table, type_t tau);
-
-
-/*
  * Negation: just flip the polarity bit
  * - p must be boolean
  */
@@ -570,14 +446,8 @@ extern term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left
  *   arg must be an array of n term occurrences
  *   and n must be no more than YICES_MAX_ARITY.
  */
-extern term_t app_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[]);
-extern term_t update_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[], term_t new_v);
-extern term_t tuple_term(term_table_t *table, uint32_t n, const term_t arg[]);
-extern term_t select_term(term_table_t *table, uint32_t index, term_t tuple);
 extern term_t eq_term(term_table_t *table, term_t left, term_t right);
 extern term_t distinct_term(term_table_t *table, uint32_t n, const term_t arg[]);
-extern term_t forall_term(term_table_t *table, uint32_t n, const term_t var[], term_t body);
-extern term_t lambda_term(term_table_t *table, uint32_t n, const term_t var[], term_t body);
 extern term_t or_term(term_table_t *table, uint32_t n, const term_t arg[]);
 extern term_t xor_term(term_table_t *table, uint32_t n, const term_t arg[]);
 extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
@@ -601,88 +471,6 @@ extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
  * - if all x_i's have type (bitvector k), the result has type (bitvector k)
  */
 extern term_t pprod_term(term_table_t *table, pprod_t *r);
-
-
-
-
-/*
- * ARITHMETIC TERMS
- */
-
-/*
- * Rational constant: the result has type int if a is an integer or real otherwise
- */
-extern term_t arith_constant(term_table_t *table, rational_t *a);
-
-
-/*
- * Arithmetic polynomial
- * - all variables of b must be real or integer terms defined in table
- * - b must be normalized and b->ptbl must be the same as table->ptbl
- * - if b contains a non-linear polynomial then the power products that
- *   occur in p are converted to terms (using pprod_term)
- * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
- *   where x_i is a term.
- *
- * SIDE EFFECT: b is reset to zero
- */
-extern term_t arith_poly(term_table_t *table, rba_buffer_t *b);
-
-
-/*
- * Atom (t == 0)
- * - t must be an arithmetic term
- */
-extern term_t arith_eq_atom(term_table_t *table, term_t t);
-
-
-/*
- * Atom (t >= 0)
- * - t must be an arithmetic term
- */
-extern term_t arith_geq_atom(term_table_t *table, term_t t);
-
-
-/*
- * Simple equality between two arithmetic terms (left == right)
- */
-extern term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right);
-
-/*
- * Root constraint x r root_k(p).
- */
-extern term_t arith_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root_atom_rel_t r);
-
-/*
- * More arithmetic operations
- * - is_int(x): true if x is an integer
- * - floor and ceiling
- * - absolute value
- * - div(x, y)
- * - mod(x, y)
- * - divides(x, y): x divides y
- *
- * Intended semantics for div and mod:
- * - if y > 0 then div(x, y) is floor(x/y)
- * - if y < 0 then div(x, y) is ceil(x/y)
- * - 0 <= rem(x, y) < y
- * - x = y * div(x, y) + rem(x, y)
- * These operations are defined for any x and non-zero y.
- * They are not required to be integers.
- */
-extern term_t arith_is_int(term_table_t *table, term_t x);
-extern term_t arith_floor(term_table_t *table, term_t x);
-extern term_t arith_ceil(term_table_t *table, term_t x);
-extern term_t arith_abs(term_table_t *table, term_t x);
-extern term_t arith_div(term_table_t *table, term_t x, term_t y);
-extern term_t arith_mod(term_table_t *table, term_t x, term_t y);
-extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
-
-/*
- * Check whether b stores an integer polynomial
- */
-extern bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b);
-
 
 
 /*
@@ -756,46 +544,6 @@ extern term_t bveq_atom(term_table_t *table, term_t l, term_t r);
 extern term_t bvge_atom(term_table_t *table, term_t l, term_t r);
 extern term_t bvsge_atom(term_table_t *table, term_t l, term_t r);
 
-
-
-
-
-/*
- * SINGLETON TYPES AND REPRESENTATIVE
- */
-
-/*
- * With every singleton type, we assign a unique representative.  The
- * mapping from unit type to representative is stored in an internal
- * hash-table. The following functions add/query this hash table.
- */
-
-/*
- * Store t as the unique term of type tau:
- * - tau must be a singleton type
- * - t must be a valid term of type tau
- * - there mustn't be a representative for tau already
- */
-extern void add_unit_type_rep(term_table_t *table, type_t tau, term_t t);
-
-
-/*
- * Store t as the unique term of type tau (if it's not already)
- * - tau must be a singleton type
- * - t must be a valid term of type tau
- * - if tau has no representative yet, then t is stored
- *   otherwise nothing happens.
- */
-extern void store_unit_type_rep(term_table_t *table, type_t tau, term_t t);
-
-
-/*
- * Get the unique term of type tau:
- * - tau must be a singleton type
- * - return the term mapped to tau in a previous call to add_unit_type_rep.
- * - return NULL_TERM if there's no such term.
- */
-extern term_t unit_type_rep(term_table_t *table, type_t tau);
 
 
 /*
@@ -1020,20 +768,6 @@ extern uint32_t term_degree(term_table_t *table, term_t t);
 
 
 /*
- * Convert all indices in polynomial p to power products
- * - all variable indices of p must be either const_idx or
- *   arithmetic terms present in table.
- * - the result is stored in table's internal pbuffer.
- * - the function returns pbuffer->data
- *
- * The number of elements in pbuffer is equal to p->nterms + 1.
- * - pbuffer->data[i] = pprod_for_term(table, p->mono[i].var)
- * - the last element of buffer->data is the end marker end_pp.
- */
-extern pprod_t **pprods_for_poly(term_table_t *table, const polynomial_t *p);
-
-
-/*
  * Convert all indices in bitvector polynomial p to power products
  * - all variable indices of p must be either const_idx or
  *   bitvector terms of bitsize <= 64 present in table.
@@ -1109,24 +843,9 @@ static inline select_term_t *select_for_idx(term_table_t *table, int32_t i) {
   return &table->desc[i].select;
 }
 
-static inline root_atom_t *root_atom_for_idx(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (root_atom_t *) table->desc[i].ptr;
-}
-
 static inline pprod_t *pprod_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (pprod_t *) table->desc[i].ptr;
-}
-
-static inline rational_t *rational_for_idx(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return &table->desc[i].rational;
-}
-
-static inline polynomial_t *polynomial_for_idx(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (polynomial_t *) table->desc[i].ptr;
 }
 
 static inline bvconst64_term_t *bvconst64_for_idx(term_table_t *table, int32_t i) {
@@ -1187,40 +906,12 @@ static inline type_kind_t term_type_kind(term_table_t *table, term_t t) {
 
 
 // Checks on the type of t
-static inline bool is_arithmetic_term(term_table_t *table, term_t t) {
-  return is_arithmetic_type(term_type(table, t));
-}
-
 static inline bool is_boolean_term(term_table_t *table, term_t t) {
   return is_boolean_type(term_type(table, t));
 }
 
-static inline bool is_real_term(term_table_t *table, term_t t) {
-  return is_real_type(term_type(table, t));
-}
-
-static inline bool is_integer_term(term_table_t *table, term_t t) {
-  return is_integer_type(term_type(table, t));
-}
-
 static inline bool is_bitvector_term(term_table_t *table, term_t t) {
   return term_type_kind(table, t) == BITVECTOR_TYPE;
-}
-
-static inline bool is_scalar_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == SCALAR_TYPE;
-}
-
-static inline bool is_utype_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == UNINTERPRETED_TYPE;
-}
-
-static inline bool is_function_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == FUNCTION_TYPE;
-}
-
-static inline bool is_tuple_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == TUPLE_TYPE;
 }
 
 
@@ -1232,7 +923,7 @@ static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
 
 // Check whether t is if-then-else
 static inline bool is_ite_kind(term_kind_t tag) {
-  return tag == ITE_TERM || tag == ITE_SPECIAL;
+  return tag == ITE_TERM;
 }
 
 static inline bool is_ite_term(term_table_t *table, term_t t) {
@@ -1256,7 +947,6 @@ static inline bool is_const_term(term_table_t *table, term_t t) {
  *   two arithmetic terms
  * - bitvector literals: bv-eq, bv-ge, bv-sga
  */
-extern bool is_arithmetic_literal(term_table_t *table, term_t t);
 extern bool is_bitvector_literal(term_table_t *table, term_t t);
 
 
@@ -1264,13 +954,6 @@ extern bool is_bitvector_literal(term_table_t *table, term_t t);
 /*
  * CONSTANT TERMS
  */
-
-/*
- * Check whether t is a constant tuple
- * - t must be a tuple term
- */
-extern bool is_constant_tuple(term_table_t *table, term_t t);
-
 
 /*
  * Generic version: return true if t is an atomic constant
@@ -1302,18 +985,8 @@ static inline int32_t constant_term_index(term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline int32_t variable_term_index(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == VARIABLE);
-  return integer_value_for_idx(table, index_of(t));
-}
-
 static inline composite_term_t *composite_term_desc(term_table_t *table, term_t t) {
   return composite_for_idx(table, index_of(t));
-}
-
-static inline select_term_t *select_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == SELECT_TERM);
-  return select_for_idx(table, index_of(t));
 }
 
 static inline select_term_t *bit_term_desc(term_table_t *table, term_t t) {
@@ -1324,16 +997,6 @@ static inline select_term_t *bit_term_desc(term_table_t *table, term_t t) {
 static inline pprod_t *pprod_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == POWER_PRODUCT);
   return pprod_for_idx(table, index_of(t));
-}
-
-static inline rational_t *rational_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_CONSTANT);
-  return rational_for_idx(table, index_of(t));
-}
-
-static inline polynomial_t *poly_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_POLY);
-  return polynomial_for_idx(table, index_of(t));
 }
 
 static inline bvconst64_term_t *bvconst64_term_desc(term_table_t *table, term_t t) {
@@ -1371,21 +1034,6 @@ static inline term_t composite_term_arg(term_table_t *table, term_t t, uint32_t 
   return composite_term_desc(table, t)->arg[i];
 }
 
-// argument of a unary term t
-static inline term_t unary_term_arg(term_table_t *table, term_t t) {
-  return integer_value_for_idx(table, index_of(t));
-}
-
-// index of a select term t
-static inline uint32_t select_term_index(term_table_t *table, term_t t) {
-  return select_term_desc(table, t)->idx;
-}
-
-// argument of select term t
-static inline term_t select_term_arg(term_table_t *table, term_t t) {
-  return select_term_desc(table, t)->arg;
-}
-
 // index of a bit select term t
 static inline uint32_t bit_term_index(term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->idx;
@@ -1396,73 +1044,12 @@ static inline term_t bit_term_arg(term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->arg;
 }
 
-// argument of arith eq and arith ge atoms
-static inline term_t arith_atom_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_EQ_ATOM ||
-         term_kind(table, t) == ARITH_GE_ATOM);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline term_t arith_eq_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_EQ_ATOM);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_GE_ATOM);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline root_atom_t *arith_root_atom_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_ROOT_ATOM);
-  return root_atom_for_idx(table, index_of(t));
-}
-
-/*
- * Other unary terms
- */
-static inline term_t arith_is_int_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_IS_INT_ATOM);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline term_t arith_floor_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_FLOOR);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline term_t arith_ceil_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_CEIL);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-static inline term_t arith_abs_arg(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_ABS);
-  return integer_value_for_idx(table, index_of(t));
-}
-
-
 /*
  * All the following functions are equivalent to composite_term_desc, but,
  * when debugging is enabled, they also check that the term kind is consistent.
  */
 static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
   assert(is_ite_kind(term_kind(table, t)));
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *app_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == APP_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *update_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == UPDATE_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *tuple_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == TUPLE_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
@@ -1476,16 +1063,6 @@ static inline composite_term_t *distinct_term_desc(term_table_t *table, term_t t
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *forall_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == FORALL_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *lambda_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == LAMBDA_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
 static inline composite_term_t *or_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == OR_TERM);
   return composite_for_idx(table, index_of(t));
@@ -1493,26 +1070,6 @@ static inline composite_term_t *or_term_desc(term_table_t *table, term_t t) {
 
 static inline composite_term_t *xor_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == XOR_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_bineq_atom_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_BINEQ_ATOM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_div_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_DIV);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_mod_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_MOD);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_divides_atom_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_DIVIDES_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
@@ -1575,30 +1132,6 @@ static inline composite_term_t *bvsge_atom_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SGE_ATOM);
   return composite_for_idx(table, index_of(t));
 }
-
-
-
-/*
- * Descriptor for special terms
- */
-static inline special_term_t *special_desc(composite_term_t *p) {
-  return (special_term_t *) (((char *) p) - offsetof(special_term_t, body));
-}
-
-static inline special_term_t *special_for_idx(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return special_desc(table->desc[i].ptr);
-}
-
-static inline composite_term_t *ite_special_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ITE_SPECIAL);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
-  return special_desc(ite_special_term_desc(table, t));
-}
-
 
 
 

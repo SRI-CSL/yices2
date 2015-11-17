@@ -18,33 +18,14 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // UNUSED_TERM
   false, // RESERVED_TERM
   true,  // CONSTANT_TERM
-  true,  // ARITH_CONSTANT
   true,  // BV64_CONSTANT
   true,  // BV_CONSTANT
-  true,  // VARIABLE
   true,  // UNINTERPRETED_TERM
-  false, // ARITH_EQ_ATOM
-  false, // ARITH_GE_ATOM
-  false, // ARITH_IS_INT_ATOM
-  false, // ARITH_FLOOR
-  false, // ARITH_CEIL
-  false, // ARITH_ABS
-  false, // ARITH_ROOT_ATOM
   false, // ITE_TERM
-  false, // ITE_SPECIAL
-  false, // APP_TERM
-  false, // UPDATE_TERM
-  false, // TUPLE_TERM
   false, // EQ_TERM
   false, // DISTINCT_TERM
-  false, // FORALL_TERM
-  false, // LAMBDA_TERM
   false, // OR_TERM
   false, // XOR_TERM
-  false, // ARITH_BINEQ_ATOM
-  false, // ARITH_DIV
-  false, // ARITH_MOD
-  false, // ARITH_DIVIDES
   false, // BV_ARRAY
   false, // BV_DIV
   false, // BV_REM
@@ -57,10 +38,8 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // BV_EQ_ATOM
   false, // BV_GE_ATOM
   false, // BV_SGE_ATOM
-  false, // SELECT_TERM
   false, // BIT_TERM
   false, // POWER_PRODUCT
-  false, // ARITH_POLY
   false, // BV64_POLY
   false, // BV_POLY
 };
@@ -69,33 +48,14 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   false, // UNUSED_TERM
   false, // RESERVED_TERM
   false, // CONSTANT_TERM
-  false, // ARITH_CONSTANT
   false, // BV64_CONSTANT
   false, // BV_CONSTANT
-  false, // VARIABLE
   false, // UNINTERPRETED_TERM
-  true,  // ARITH_EQ_ATOM
-  true,  // ARITH_GE_ATOM
-  true,  // ARITH_IS_INT_ATOM
-  true,  // ARITH_FLOOR
-  true,  // ARITH_CEIL
-  true,  // ARITH_ABS
-  true,  // ARITH_ROOT_ATOM
   true,  // ITE_TERM
-  true,  // ITE_SPECIAL
-  true,  // APP_TERM
-  true,  // UPDATE_TERM
-  true,  // TUPLE_TERM
   true,  // EQ_TERM
   true,  // DISTINCT_TERM
-  true,  // FORALL_TERM
-  true,  // LAMBDA_TERM
   true,  // OR_TERM
   true,  // XOR_TERM
-  true,  // ARITH_BINEQ_ATOM
-  true,  // ARITH_DIV
-  true,  // ARITH_MOD
-  true,  // ARITH_DIVIDES
   true,  // BV_ARRAY
   true,  // BV_DIV
   true,  // BV_REM
@@ -108,10 +68,8 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // BV_EQ_ATOM
   true,  // BV_GE_ATOM
   true,  // BV_SGE_ATOM
-  false, // SELECT_TERM
   false, // BIT_TERM
   false, // POWER_PRODUCT
-  false, // ARITH_POLY
   false, // BV64_POLY
   false, // BV_POLY
 };
@@ -121,33 +79,14 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_CONSTRUCTOR_ERROR,  // UNUSED_TERM
   YICES_CONSTRUCTOR_ERROR,  // RESERVED_TERM
   YICES_CONSTRUCTOR_ERROR,  // CONSTANT_TERM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_CONSTANT
   YICES_BV_CONSTANT,        // BV64_CONSTANT
   YICES_BV_CONSTANT,        // BV_CONSTANT
-  YICES_CONSTRUCTOR_ERROR,  // VARIABLE
   YICES_UNINTERPRETED_TERM, // UNINTERPRETED_TERM
-  YICES_EQ_TERM,            // ARITH_EQ_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_GE_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_IS_INT_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_FLOOR
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_CEIL
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_ABS
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_ROOT_ATOM
   YICES_ITE_TERM,           // ITE_TERM
-  YICES_ITE_TERM,           // ITE_SPECIAL
-  YICES_CONSTRUCTOR_ERROR,  // APP_TERM
-  YICES_CONSTRUCTOR_ERROR,  // UPDATE_TERM
-  YICES_CONSTRUCTOR_ERROR,  // TUPLE_TERM
   YICES_EQ_TERM,            // EQ_TERM
   YICES_DISTINCT_TERM,      // DISTINCT_TERM
-  YICES_CONSTRUCTOR_ERROR,  // FORALL_TERM
-  YICES_CONSTRUCTOR_ERROR,  // LAMBDA_TERM
   YICES_OR_TERM,            // OR_TERM
   YICES_XOR_TERM,           // XOR_TERM
-  YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIV
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_MOD
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_DIVIDES_ATOM
   YICES_BV_ARRAY,           // BV_ARRAY
   YICES_BV_DIV,             // BV_DIV
   YICES_BV_REM,             // BV_REM
@@ -160,10 +99,8 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_EQ_TERM,            // BV_EQ_ATOM
   YICES_BV_GE_ATOM,         // BV_GE_ATOM
   YICES_BV_SGE_ATOM,        // BV_SGE_ATOM
-  YICES_CONSTRUCTOR_ERROR,  // SELECT_TERM
   YICES_BIT_TERM,           // BIT_TERM
   YICES_POWER_PRODUCT,      // POWER_PRODUCT
-  YICES_CONSTRUCTOR_ERROR,  // ARITH_POLY
   YICES_BV_SUM,             // BV64_POLY
   YICES_BV_SUM,             // BV_POLY
 };
@@ -280,49 +217,17 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case RESERVED_TERM: // should not happen either
       assert(false);    // fall through to prevent compile-time warning
     case CONSTANT_TERM:
-    case ARITH_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
-    case VARIABLE:
     case UNINTERPRETED_TERM:
       result = 0;
       break;
 
-    case ARITH_EQ_ATOM:
-    case ARITH_GE_ATOM:
-      // internally, these are terms of the form t==0 or t >= 0
-      // to be uniform, we report them as binary operators
-      result = 2;
-      break;
-
-    case ARITH_ROOT_ATOM:
-      // internally, these are terms of the form x r p for root index k
-      // to be uniform, we report them as binary operators
-      result = 2;
-      break;
-
-    case ARITH_IS_INT_ATOM:
-    case ARITH_FLOOR:
-    case ARITH_CEIL:
-    case ARITH_ABS:
-      result = 1;
-      break;
-
     case ITE_TERM:
-    case ITE_SPECIAL:
-    case APP_TERM:
-    case UPDATE_TERM:
-    case TUPLE_TERM:
     case EQ_TERM:
     case DISTINCT_TERM:
-    case FORALL_TERM:
-    case LAMBDA_TERM:
     case OR_TERM:
     case XOR_TERM:
-    case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
-    case ARITH_MOD:
-    case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -338,7 +243,6 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
       result = composite_term_arity(table, t);      
       break;
 
-    case SELECT_TERM:
     case BIT_TERM:
       result = 1;
       break;
@@ -346,10 +250,6 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case POWER_PRODUCT:
       result = pprod_term_desc(table, t)->len;
       break;
-
-    case ARITH_POLY:
-      result = poly_term_desc(table, t)->nterms;
-      break;      
 
     case BV64_POLY:
       result = bvpoly64_term_desc(table, t)->nterms;
@@ -380,29 +280,7 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
     assert(i == 0);
     result = opposite_term(t); // (not t)
   } else {
-    switch (term_kind(table, t)) {
-    case ARITH_EQ_ATOM:
-    case ARITH_GE_ATOM:
-      assert(i < 2);
-      if (i == 0) {
-	result = arith_atom_arg(table, t);
-      } else {
-	result = zero_term; // second child is always zero
-      }
-      break;
-
-    case ARITH_IS_INT_ATOM:
-    case ARITH_FLOOR:
-    case ARITH_CEIL:
-    case ARITH_ABS:
-      assert(i == 0);
-      result = unary_term_arg(table, t);
-      break;
-
-    default:
-      result = composite_term_arg(table, t, i);
-      break;
-    }
+    result = composite_term_arg(table, t, i);
   }
 
   return result;
@@ -411,17 +289,16 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
 
 /*
  * Components of a projection
- * - t must be a valid term in table and it must be either a SELECT_TERM
- *   or a BIT_TERM
+ * - t must be a valid term in table and it must be a BIT_TERM
  */
 int32_t proj_term_index(term_table_t *table, term_t t) {
   assert(term_is_projection(table, t));
-  return select_term_desc(table, t)->idx;
+  return bit_term_desc(table, t)->idx;
 }
 
 term_t proj_term_arg(term_table_t *table, term_t t) {
   assert(term_is_projection(table, t));
-  return select_term_desc(table, t)->arg;
+  return bit_term_desc(table, t)->arg;
 }
 
 /*
@@ -490,8 +367,6 @@ void product_term_component(term_table_t *table, term_t t, uint32_t i, term_t *c
   *child = p->prod[i].var;
   *exp = p->prod[i].exp;
 }
-
-
 
 
 

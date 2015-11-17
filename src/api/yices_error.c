@@ -24,6 +24,13 @@
 #include "yices.h"
 
 
+/*
+ * HACK: make sure TYPE_MACRO_MAX_ARITY is defined here.
+ * The error code 'TOO_MANY_MACRO_PARAMS' should never occur, but it's
+ * a hassle to fix the error codes in yices_types.h.
+ */
+#define TYPE_MACRO_MAX_ARITY 128
+
 int32_t print_error(FILE *f) {
   error_report_t *error;
   int code;

@@ -29,10 +29,8 @@ extern void print_term_id(FILE *f, term_t t);
  * Polynomials and buffers
  */
 extern void print_pprod(FILE *f, pprod_t *r);
-extern void print_polynomial(FILE *f, polynomial_t *p);
 extern void print_bvpoly(FILE *f, bvpoly_t *p);
 extern void print_bvpoly64(FILE *f, bvpoly64_t *p);
-extern void print_arith_buffer(FILE *f, rba_buffer_t *b);
 extern void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b);
 extern void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b);
 extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);

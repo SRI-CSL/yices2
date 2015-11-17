@@ -32,7 +32,6 @@ static void print_subst_eq(FILE *f, context_t *ctx, term_t e) {
   terms = ctx->terms;
   switch (term_kind(terms, e)) {
   case EQ_TERM:
-  case ARITH_BINEQ_ATOM:
   case BV_EQ_ATOM:
     eq = composite_term_desc(terms, e);
     t1 = eq->arg[0];
@@ -64,8 +63,7 @@ static void print_subst_eq(FILE *f, context_t *ctx, term_t e) {
     t = r1 ^ polarity_of(r2);
   }
 
-  assert(is_pos_term(v) &&
-         term_kind(terms, v) == UNINTERPRETED_TERM);
+  assert(is_pos_term(v) && term_kind(terms, v) == UNINTERPRETED_TERM);
 
   print_term_desc(f, terms, v);
   fputs(" := ", f);

@@ -3597,20 +3597,11 @@ EXPORTED term_t yices_term_child(term_t t, int32_t i) {
  * Get the argument and index of a projection
  */
 EXPORTED int32_t yices_proj_index(term_t t) {
-  int32_t idx;
-
   if (! check_good_term(&manager, t) ||
       ! check_projection(&terms, t)) {
     return -1;
   }
-  idx = proj_term_index(&terms, t);
-
-  // for tuple projection: the internal index is between 0 and n-1
-  // but the API uses an index between 1 and n
-  if (term_kind(&terms, t) == SELECT_TERM) {
-    idx ++;
-  }
-  return idx;
+  return proj_term_index(&terms, t);
 }
 
 EXPORTED term_t yices_proj_arg(term_t t) {
@@ -3970,14 +3961,6 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
   assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
 
   return check_maxdegree(d1 + d2);
-}
-
-
-/*
- * Check whether b contains an integer polynomial
- */
-bool yices_arith_buffer_is_int(rba_buffer_t *b) {
-  return arith_poly_is_integer(&terms, b);
 }
 
 

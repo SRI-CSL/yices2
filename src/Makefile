@@ -112,9 +112,6 @@ core_src_c := \
 	io/writer.c \
 	model/abstract_values.c \
 	model/concrete_values.c \
-	model/fresh_value_maker.c \
-	model/fun_maps.c \
-	model/fun_trees.c \
 	model/model_eval.c \
 	model/model_queries.c \
 	model/models.c \
@@ -152,19 +149,13 @@ core_src_c := \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
 	terms/conditionals.c \
-	terms/elim_subst.c \
 	terms/extended_rationals.c \
-	terms/free_var_collector.c \
-	terms/full_subst.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
-	terms/polynomials.c \
 	terms/power_products.c \
 	terms/pprod_table.c \
 	terms/rational_hash_maps.c \
 	terms/rationals.c \
-	terms/rba_buffer_terms.c \
-	terms/renaming_context.c \
 	terms/subst_cache.c \
 	terms/subst_context.c \
 	terms/term_explorer.c \
@@ -174,7 +165,6 @@ core_src_c := \
 	terms/term_substitution.c \
 	terms/term_utils.c \
 	terms/types.c \
-	terms/variable_renaming.c \
 	utils/arena.c \
 	utils/backtrack_arrays.c \
 	utils/cache.c \
