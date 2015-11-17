@@ -748,7 +748,7 @@ typedef struct {
 
 
 /*
- * Select term
+ * Root atom
  * - k = root index
  * - x = main variable
  * - p = the polynomial (in x) whose root is being compared
@@ -1709,7 +1709,7 @@ static void delete_term(term_table_t *table, int32_t i) {
     break;
 
   case ARITH_ROOT_ATOM:
-    // Root atoms: nothing to delete
+    // Root atoms
     r = table->desc[i].ptr;
     h = hash_root_atom(r->k, r->x, r->p, r->r);
     safe_free(r);
