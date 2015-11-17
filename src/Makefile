@@ -134,7 +134,6 @@ core_src_c := \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
 	solvers/cdcl/smt_core.c \
-	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \
 	terms/bit_term_conversion.c \
 	terms/bv64_interval_abstraction.c \
@@ -149,12 +148,10 @@ core_src_c := \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
 	terms/conditionals.c \
-	terms/extended_rationals.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
 	terms/power_products.c \
 	terms/pprod_table.c \
-	terms/rational_hash_maps.c \
 	terms/rationals.c \
 	terms/subst_cache.c \
 	terms/subst_context.c \
