@@ -773,10 +773,6 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_bool_param(param2string[p], ctx_parameters.var_elim, n);
     break;
 
-  case PARAM_ARITH_ELIM:
-    show_bool_param(param2string[p], ctx_parameters.arith_elim, n);
-    break;
-
   case PARAM_BVARITH_ELIM:
     show_bool_param(param2string[p], ctx_parameters.bvarith_elim, n);
     break;
@@ -784,14 +780,6 @@ static void show_param(yices_param_t p, uint32_t n) {
   case PARAM_FLATTEN:
     // this activates both flatten or and flatten diseq.
     show_bool_param(param2string[p], ctx_parameters.flatten_or, n);
-    break;
-
-  case PARAM_LEARN_EQ:
-    show_bool_param(param2string[p], ctx_parameters.eq_abstraction, n);
-    break;
-
-  case PARAM_KEEP_ITE:
-    show_bool_param(param2string[p], ctx_parameters.keep_ite, n);
     break;
 
   case PARAM_FAST_RESTARTS:
@@ -926,20 +914,6 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     }
     break;
 
-  case PARAM_ARITH_ELIM:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.arith_elim = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
-	}
-      }
-      print_ok();
-    }
-    break;
-
   case PARAM_BVARITH_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       ctx_parameters.bvarith_elim = tt;
@@ -962,34 +936,6 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 	  enable_diseq_and_or_flattening(context);
 	} else {
 	  disable_diseq_and_or_flattening(context);
-	}
-      }
-      print_ok();
-    }
-    break;
-
-  case PARAM_LEARN_EQ:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.eq_abstraction = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
-      }
-      print_ok();
-    }
-    break;
-
-  case PARAM_KEEP_ITE:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.keep_ite = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
 	}
       }
       print_ok();

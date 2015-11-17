@@ -104,7 +104,6 @@ void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
  * - for the smt2 front end, you prefix these names with ':yices:'
  */
 static const char * const param_names[NUM_PARAMETERS] = {
-  "arith-elim",
   "branching",
   "bvarith-elim",
   "c-factor",
@@ -114,8 +113,6 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "d-threshold",
   "fast-restarts",
   "flatten",
-  "keep-ite",
-  "learn-eq",
   "r-factor",
   "r-fraction",
   "r-threshold",
@@ -127,7 +124,6 @@ static const char * const param_names[NUM_PARAMETERS] = {
 
 // corresponding parameter codes in order
 static const yices_param_t param_code[NUM_PARAMETERS] = {
-  PARAM_ARITH_ELIM,
   PARAM_BRANCHING,
   PARAM_BVARITH_ELIM,
   PARAM_C_FACTOR,
@@ -137,8 +133,6 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_D_THRESHOLD,
   PARAM_FAST_RESTARTS,
   PARAM_FLATTEN,
-  PARAM_KEEP_ITE,
-  PARAM_LEARN_EQ,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,

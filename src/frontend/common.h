@@ -63,17 +63,12 @@ extern void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, 
  * We use an integer code to identify the parameters + a table of
  * parameter names in lexicographic order. Each parameter
  * is described in context.h.
- *
- * New: added the EF solver parameters.
  */
 typedef enum yices_param {
   // internalization options
   PARAM_VAR_ELIM,
-  PARAM_ARITH_ELIM,
   PARAM_BVARITH_ELIM,
   PARAM_FLATTEN,
-  PARAM_LEARN_EQ,
-  PARAM_KEEP_ITE,
   // restart parameters
   PARAM_FAST_RESTARTS,
   PARAM_C_THRESHOLD,
