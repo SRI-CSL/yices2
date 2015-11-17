@@ -22,6 +22,166 @@
 
 
 
+/*****************************************
+ *  INTERVAL ABSTRACTION FOR BITVECTORS  *
+ ****************************************/
+
+/*
+ * Compute the abstraction of t^d then multiply a by that
+ * - the result is stored in a
+ * - returned value: true means that a has some information
+ *   (i.e., more precise than the full abstraction for n bits)
+ * - if the returned value is false, then the default abstraction
+ *   is copied in a
+ */
+static bool bv64_mulpower_abs(term_table_t *tbl, term_t t, uint32_t d, uint32_t n, bv64_abs_t *a) {
+  bv64_abs_t aux;
+  bool nontrivial;
+
+  assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
+  assert(1 <= n && n <= 64 && d >= 1);
+
+  bv64_abstract_term(tbl, t, &aux);
+  nontrivial = bv64_abs_nontrivial(&aux, n);
+  if (d>1 && nontrivial) {
+    bv64_abs_power(&aux, d);
+    nontrivial = bv64_abs_nontrivial(&aux, n);
+  }
+  if (nontrivial) {
+    bv64_abs_mul(a, &aux);
+    nontrivial = bv64_abs_nontrivial(a, n);
+  }
+  if (!nontrivial) {
+    bv64_abs_default(a, n);
+  }
+
+  return nontrivial;
+}
+
+
+/*
+ * Compute the abstraction of c * t then add that to a
+ * - store the result in a
+ * - return true is the result has some information (more
+ *   precise than the full abstraction for n bits)
+ * - return false otherwise and set a to the default 
+ *   abstraction for n bits
+ */
+static bool bv64_addmul_abs(term_table_t *tbl, term_t t, uint64_t c, uint32_t n, bv64_abs_t *a) {
+  bv64_abs_t aux;
+  bool nontrivial;
+
+  assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+
+  bv64_abstract_term(tbl, t, &aux);
+  nontrivial = bv64_abs_nontrivial(&aux, n);
+  if (c != 1 && nontrivial) {
+    bv64_abs_mul_const(&aux, c, n);
+    nontrivial = bv64_abs_nontrivial(&aux, n);
+  }
+  if (nontrivial) {
+    bv64_abs_add(a, &aux);
+    nontrivial = bv64_abs_nontrivial(a, n);
+  }
+  if (!nontrivial) {
+    bv64_abs_default(a, n);
+  }
+
+  return nontrivial;
+}
+
+
+/*
+ * Abstraction for a power product
+ * - stops as soon as the abstraction is too imprecise
+ * - nbits = number of bits
+ *
+ * NOTE: we assume that no term in the power product is zero.
+ */
+void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a) {
+  uint32_t i, n;
+
+  bv64_abs_one(a);
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (!bv64_mulpower_abs(tbl, p->prod[i].var, p->prod[i].exp, nbits, a)) {
+      break;
+    }
+  }
+}
+
+
+/*
+ * Abstraction for a polynomial
+ * - stops as soon as the abstraction is too imprecise
+ * - nbits = number of bits
+ */
+void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a) {
+  uint32_t i, n;
+
+  assert(p->bitsize == nbits);
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[i].var == const_idx) {
+    bv64_abs_constant(a, p->mono[i].coeff, nbits);
+    i ++;
+  } else {
+    bv64_abs_zero(a);
+  }
+
+  while (i < n) {
+    if (!bv64_addmul_abs(tbl, p->mono[i].var, p->mono[i].coeff, nbits, a)) {
+      break;
+    }
+    i ++;
+  }
+}
+
+
+/*
+ * Interval abstraction of a bitvector term t
+ * - t must be of type (bitvector n) with n <= 64
+ * - the result is stored in *a
+ */
+void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a) {
+  uint32_t n;  
+
+  assert(is_bitvector_term(tbl, t));
+
+  n = term_bitsize(tbl, t);
+  assert(1 <= n && n <= 64);
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    assert(bvconst64_term_desc(tbl, t)->bitsize == n);
+    bv64_abs_constant(a, bvconst64_term_desc(tbl, t)->value, n);
+    break;
+
+  case BV_ARRAY:
+    assert(bvarray_term_desc(tbl, t)->arity == n);
+    bv64_abs_array(a, false_term, bvarray_term_desc(tbl, t)->arg, n);
+    break;
+
+  case POWER_PRODUCT:
+    bv64_abs_pprod(tbl, pprod_term_desc(tbl, t), n, a);
+    break;
+
+  case BV64_POLY:
+    bv64_abs_poly(tbl, bvpoly64_term_desc(tbl, t), n, a);
+    break;
+
+  default:
+    bv64_abs_default(a, n);
+    break;
+  }
+}
+
+
+
+
 /***********************************
  *  OPERATIONS ON BIT ARRAY TERMS  *
  **********************************/
@@ -206,6 +366,8 @@ static uint64_t bitarray_lower_bound_unsigned64(composite_term_t *a) {
 }
 
 
+#if 0
+
 /*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
  *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[m-1]
@@ -285,7 +447,7 @@ static uint64_t bitarray_lower_bound_signed64(composite_term_t *a) {
   return c;
 }
 
-
+#endif
 
 
 /*
@@ -759,26 +921,13 @@ uint64_t lower_bound_unsigned64(term_table_t *tbl, term_t t) {
  * Upper bound on t, interpreted as a signed integer
  */
 uint64_t upper_bound_signed64(term_table_t *tbl, term_t t) {
+  bv64_abs_t abs;
   uint64_t c;
   uint32_t n;
 
-  assert(is_bitvector_term(tbl, t));
-
-  switch (term_kind(tbl, t)) {
-  case BV64_CONSTANT:
-    c = bvconst64_term_desc(tbl, t)->value;
-    break;
-
-  case BV_ARRAY:
-    c = bitarray_upper_bound_signed64(bvarray_term_desc(tbl, t));
-    break;
-
-    // TODO: USE INTERVAL ABSTRACTION
-  default:
-    n = term_bitsize(tbl, t);
-    c = max_signed64(n);
-    break;
-  }
+  bv64_abstract_term(tbl, t, &abs);
+  n = term_bitsize(tbl, t);
+  c = norm64((uint64_t) abs.high, n); // upper bound
 
   return c;
 }
@@ -788,26 +937,13 @@ uint64_t upper_bound_signed64(term_table_t *tbl, term_t t) {
  * Lower bound on t, interpreted as a signed integer
  */
 uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
+  bv64_abs_t abs;
   uint64_t c;
   uint32_t n;
 
-  assert(is_bitvector_term(tbl, t));
-
-  switch (term_kind(tbl, t)) {
-  case BV64_CONSTANT:
-    c = bvconst64_term_desc(tbl, t)->value;
-    break;
-
-  case BV_ARRAY:
-    c = bitarray_lower_bound_signed64(bvarray_term_desc(tbl, t));
-    break;
-
-    // TODO: USE INTERVAL ABSTRACTION
-  default:
-    n = term_bitsize(tbl, t);
-    c = min_signed64(n);
-    break;
-  }
+  bv64_abstract_term(tbl, t, &abs);
+  n = term_bitsize(tbl, t);
+  c = norm64((uint64_t) abs.low, n); // lower bound
 
   return c;
 }
@@ -1242,166 +1378,6 @@ bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
 
   return false;
 }
-
-
-/*****************************************
- *  INTERVAL ABSTRACTION FOR BITVECTORS  *
- ****************************************/
-
-/*
- * Compute the abstraction of t^d then multiply a by that
- * - the result is stored in a
- * - returned value: true means that a has some information
- *   (i.e., more precise than the full abstraction for n bits)
- * - if the returned value is false, then the default abstraction
- *   is copied in a
- */
-static bool bv64_mulpower_abs(term_table_t *tbl, term_t t, uint32_t d, uint32_t n, bv64_abs_t *a) {
-  bv64_abs_t aux;
-  bool nontrivial;
-
-  assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
-  assert(1 <= n && n <= 64 && d >= 1);
-
-  bv64_abstract_term(tbl, t, &aux);
-  nontrivial = bv64_abs_nontrivial(&aux, n);
-  if (d>1 && nontrivial) {
-    bv64_abs_power(&aux, d);
-    nontrivial = bv64_abs_nontrivial(&aux, n);
-  }
-  if (nontrivial) {
-    bv64_abs_mul(a, &aux);
-    nontrivial = bv64_abs_nontrivial(a, n);
-  }
-  if (!nontrivial) {
-    bv64_abs_default(a, n);
-  }
-
-  return nontrivial;
-}
-
-
-/*
- * Compute the abstraction of c * t then add that to a
- * - store the result in a
- * - return true is the result has some information (more
- *   precise than the full abstraction for n bits)
- * - return false otherwise and set a to the default 
- *   abstraction for n bits
- */
-static bool bv64_addmul_abs(term_table_t *tbl, term_t t, uint64_t c, uint32_t n, bv64_abs_t *a) {
-  bv64_abs_t aux;
-  bool nontrivial;
-
-  assert(is_bitvector_term(tbl, t) && n == term_bitsize(tbl, t));
-  assert(1 <= n && n <= 64 && c == norm64(c, n));
-
-  bv64_abstract_term(tbl, t, &aux);
-  nontrivial = bv64_abs_nontrivial(&aux, n);
-  if (c != 1 && nontrivial) {
-    bv64_abs_mul_const(&aux, c, n);
-    nontrivial = bv64_abs_nontrivial(&aux, n);
-  }
-  if (nontrivial) {
-    bv64_abs_add(a, &aux);
-    nontrivial = bv64_abs_nontrivial(a, n);
-  }
-  if (!nontrivial) {
-    bv64_abs_default(a, n);
-  }
-
-  return nontrivial;
-}
-
-
-/*
- * Abstraction for a power product
- * - stops as soon as the abstraction is too imprecise
- * - nbits = number of bits
- *
- * NOTE: we assume that no term in the power product is zero.
- */
-void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a) {
-  uint32_t i, n;
-
-  bv64_abs_one(a);
-
-  n = p->len;
-  for (i=0; i<n; i++) {
-    if (!bv64_mulpower_abs(tbl, p->prod[i].var, p->prod[i].exp, nbits, a)) {
-      break;
-    }
-  }
-}
-
-
-/*
- * Abstraction for a polynomial
- * - stops as soon as the abstraction is too imprecise
- * - nbits = number of bits
- */
-void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a) {
-  uint32_t i, n;
-
-  assert(p->bitsize == nbits);
-
-  n = p->nterms;
-  i = 0;
-  if (p->mono[i].var == const_idx) {
-    bv64_abs_constant(a, p->mono[i].coeff, nbits);
-    i ++;
-  } else {
-    bv64_abs_zero(a);
-  }
-
-  while (i < n) {
-    if (!bv64_addmul_abs(tbl, p->mono[i].var, p->mono[i].coeff, nbits, a)) {
-      break;
-    }
-    i ++;
-  }
-}
-
-
-/*
- * Interval abstraction of a bitvector term t
- * - t must be of type (bitvector n) with n <= 64
- * - the result is stored in *a
- */
-void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a) {
-  uint32_t n;  
-
-  assert(is_bitvector_term(tbl, t));
-
-  n = term_bitsize(tbl, t);
-  assert(1 <= n && n <= 64);
-
-  switch (term_kind(tbl, t)) {
-  case BV64_CONSTANT:
-    assert(bvconst64_term_desc(tbl, t)->bitsize == n);
-    bv64_abs_constant(a, bvconst64_term_desc(tbl, t)->value, n);
-    break;
-
-  case BV_ARRAY:
-    assert(bvarray_term_desc(tbl, t)->arity == n);
-    bv64_abs_array(a, false_term, bvarray_term_desc(tbl, t)->arg, n);
-    break;
-
-  case POWER_PRODUCT:
-    bv64_abs_pprod(tbl, pprod_term_desc(tbl, t), n, a);
-    break;
-
-  case BV64_POLY:
-    bv64_abs_poly(tbl, bvpoly64_term_desc(tbl, t), n, a);
-    break;
-
-  default:
-    bv64_abs_default(a, n);
-    break;
-  }
-}
-
-
 
 
 /******************

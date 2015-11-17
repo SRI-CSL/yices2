@@ -1161,7 +1161,6 @@ static int process_benchmark(char *filename) {
   double mem_used;
   smt_logic_t logic;
   context_arch_t arch;
-  bool need_icheck;   // true if simplex needs integer check
 
   print_yices_header(stdout);
 
@@ -1220,7 +1219,6 @@ static int process_benchmark(char *filename) {
    * Select architecture based on the benchmark logic and
    * command-line options
    */
-  need_icheck = false;
   arch = CTX_ARCH_NOSOLVERS; // otherwise GCC gives a warning
 
   if (bench.logic_name != NULL) {
