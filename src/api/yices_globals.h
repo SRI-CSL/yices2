@@ -21,7 +21,6 @@
 #define __YICES_GLOBALS_H
 
 #include "parser_utils/term_stack2.h"
-#include "terms/free_var_collector.h"
 #include "terms/term_manager.h"
 
 typedef struct yices_globals_s {
