@@ -18,7 +18,6 @@
 
 #include "api/smt_logic_codes.h"
 #include "context/common_conjuncts.h"
-#include "context/divmod_table.h"
 #include "context/internalization_table.h"
 #include "context/pseudo_subst.h"
 #include "context/shared_terms.h"
