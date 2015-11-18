@@ -263,6 +263,8 @@ extra_src_c := \
 	utils/union_find.c
 
 
+base_src_c := $(core_src_c)
+
 #
 # all sources: base + extra
 #
