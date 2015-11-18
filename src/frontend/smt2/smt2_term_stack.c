@@ -632,6 +632,38 @@ static void eval_smt2_check_sat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [define-sort <symbol> <type-binding> ... <type-binding> <type>]
+ *
+ * We support only [define-sort <symbol> <type> ]
+ */
+static void check_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_DEFINE_SORT);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f + 1, TAG_TYPE);
+}
+
+static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t *a;
+  uint32_t i, nvars;
+
+  assert(n == 2);
+
+  nvars = n - 2;
+  a = get_aux_buffer(stack, nvars);
+  for (i=0; i<nvars; i++) {
+    a[i] = f[i+1].val.type_binding.type;
+  }
+
+  smt2_define_sort(f[0].val.string, nvars, a, f[n-1].val.type);
+
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
  * [declare-fun <symbol> <sort> ... <sort>]
  *
  * We support only [declare-fun <symbol> <sort> ] in this version
@@ -1883,7 +1915,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_ASSERT, false, eval_smt2_assert, check_smt2_assert);
   tstack_add_op(stack, SMT2_CHECK_SAT, false, eval_smt2_check_sat, check_smt2_check_sat);
   tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_not_supported, check_not_supported);
-  tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
   tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);
   tstack_add_op(stack, SMT2_DEFINE_FUN, false, eval_smt2_define_fun, check_smt2_define_fun);
 

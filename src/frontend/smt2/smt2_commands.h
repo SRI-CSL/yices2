@@ -589,6 +589,17 @@ extern void smt2_check_sat(void);
 
 
 /*
+ * Define a new type macro
+ * - name = macro name
+ * - n = number of variables
+ * - var = array of type variables
+ * - body = type expressions
+ *
+ * The implementation requires n == 0 here.
+ */
+extern void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body);
+
+/*
  * Declare a new uninterpreted function symbol
  * - name = function name
  * - n = arity + 1

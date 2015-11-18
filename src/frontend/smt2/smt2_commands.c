@@ -3792,6 +3792,7 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
 
 }
 
+#endif
 
 /*
  * Define a new type macro
@@ -3799,32 +3800,24 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
  * - n = number of variables
  * - var = array of type variables
  * - body = type expressions
+ *
+ * WARNING: we don't support the full SMT2 version here, but only
+ * the form (define-sort NAME () <type>)
  */
 void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
-  int32_t macro;
-
   __smt2_globals.stats.num_define_sort ++;
   __smt2_globals.stats.num_commands ++;
   tprint_calls("define-sort", __smt2_globals.stats.num_define_sort);
 
   if (check_logic()) {
-    if (n == 0) {
-      yices_set_type_name(body, name);
-      save_type_name(&__smt2_globals, name);
-      report_success();
-    } else {
-      macro = yices_type_macro(name, n, var, body);
-      if (macro < 0) {
-	print_yices_error(true);
-      } else {
-	save_macro_name(&__smt2_globals, name);
-	report_success();
-      }
-    }
+    assert(n == 0);
+    yices_set_type_name(body, name);
+    save_type_name(&__smt2_globals, name);
+    report_success();
   }
 }
 
-#endif
+
 
 /*
  * Declare a new uninterpreted function symbol
