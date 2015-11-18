@@ -1124,12 +1124,12 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 }
 
 
-#if 0
-
-// We don't support define-sort or declare-sort in this version.
 
 /*
- * Name in (define-sort <name> ..) or (declare-sort <name> ...)
+ * Name in (define-sort <name> ..)
+ *
+ * We don't support declare-sort or type macros. The name must be a free
+ * type name here.
  */
 void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   smt2_symbol_t symbol;
@@ -1151,12 +1151,12 @@ void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc
     break;
 
   default:
-    tstack_push_free_type_or_macro_name(stack, s, n, loc);
+    tstack_push_free_typename(stack, s, n, loc);
     break;
   }
 }
 
-#endif
+
 
 /*
  * Symbol in an indexed sort

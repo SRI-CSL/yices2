@@ -278,7 +278,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case symbol_next_goto_c9a:
       // in (define-sort <symbol> ...)
       //      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_free_sort_name(tstack, tkval(lex), tklen(lex), &loc);
       state = c9a;
       goto loop;
 
