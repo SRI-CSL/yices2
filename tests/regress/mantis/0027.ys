@@ -1,4 +1,0 @@
-(define x::real)
-(assert (> (mod x 2) 0.1))
-(assert (< (mod x 2) 0.3))
-(check)
