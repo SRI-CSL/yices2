@@ -608,6 +608,11 @@ static uint64_t bitarray_lower_bound_unsigned64(composite_term_t *a) {
 }
 
 
+
+#if 0
+
+// NOT USED ANYMORE
+
 /*
  * Upper/lower bound on a bitarray interpreted as a signed integer.
  *   a = a[0] + 2 a[1] + ... + 2^(n-2) a[n-2] - 2^(n-1) a[m-1]
@@ -687,7 +692,7 @@ static uint64_t bitarray_lower_bound_signed64(composite_term_t *a) {
   return c;
 }
 
-
+#endif
 
 
 /*
@@ -1491,26 +1496,16 @@ uint64_t lower_bound_unsigned64(term_table_t *tbl, term_t t) {
  * Upper bound on t, interpreted as a signed integer
  */
 uint64_t upper_bound_signed64(term_table_t *tbl, term_t t) {
+  bv64_abs_t abs;
   uint64_t c;
   uint32_t n;
 
   assert(is_bitvector_term(tbl, t));
 
-  switch (term_kind(tbl, t)) {
-  case BV64_CONSTANT:
-    c = bvconst64_term_desc(tbl, t)->value;
-    break;
-
-  case BV_ARRAY:
-    c = bitarray_upper_bound_signed64(bvarray_term_desc(tbl, t));
-    break;
-
-  default:
-    n = term_bitsize(tbl, t);
-    c = max_signed64(n);
-    break;
-  }
-
+  bv64_abstract_term(tbl, t, &abs);
+  n = term_bitsize(tbl, t);
+  c = norm64((uint64_t) abs.high, n);
+  
   return c;
 }
 
@@ -1519,26 +1514,16 @@ uint64_t upper_bound_signed64(term_table_t *tbl, term_t t) {
  * Lower bound on t, interpreted as a signed integer
  */
 uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
+  bv64_abs_t abs;
   uint64_t c;
   uint32_t n;
 
   assert(is_bitvector_term(tbl, t));
 
-  switch (term_kind(tbl, t)) {
-  case BV64_CONSTANT:
-    c = bvconst64_term_desc(tbl, t)->value;
-    break;
-
-  case BV_ARRAY:
-    c = bitarray_lower_bound_signed64(bvarray_term_desc(tbl, t));
-    break;
-
-  default:
-    n = term_bitsize(tbl, t);
-    c = min_signed64(n);
-    break;
-  }
-
+  bv64_abstract_term(tbl, t, &abs);
+  n = term_bitsize(tbl, t);
+  c = norm64((uint64_t) abs.low, n);
+  
   return c;
 }
 
