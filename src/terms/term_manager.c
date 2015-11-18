@@ -455,32 +455,42 @@ static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
     return NULL_TERM;
   }
 
-  bv64_abstract_term(tbl, x, &abs);
-  assert(0 < abs.nbits && abs.nbits <= n);
-  m = abs.nbits - 1;
-  for (i=1; i<m; i++) {
-    if (! term_is_bit_i(tbl, a[i], i, x)) {
-      return NULL_TERM;
-    }
-  }
-
-  // check whether the a[i+1, .., n-1] contain the sign bit of x
-  s = abs64sign_to_term(abs.sign);
-  if (s != NULL_TERM) {
-    // the sign bit is s
-    while (i<n) {
-      if (a[i] != s) {
+  if (n <= 64) {
+    // use abstraction to learn sign + number of significant bits
+    bv64_abstract_term(tbl, x, &abs);
+    assert(0 < abs.nbits && abs.nbits <= n);
+    m = abs.nbits - 1;
+    for (i=1; i<m; i++) {
+      if (! term_is_bit_i(tbl, a[i], i, x)) {
 	return NULL_TERM;
       }
-      i ++;
+    }
+
+    // check whether the a[i+1, .., n-1] contain the sign bit of x
+    s = abs64sign_to_term(abs.sign);
+    if (s != NULL_TERM) {
+      // the sign bit is s
+      while (i<n) {
+	if (a[i] != s) {
+	  return NULL_TERM;
+	}
+	i ++;
+      }
+    } else {
+      // the sign bit is (select x m)
+      while (i<n) {
+	if (! term_is_bit_i(tbl, a[i], m, x)) {
+	  return NULL_TERM;
+	}
+	i ++;
+      }
     }
   } else {
-    // the sign bit is (select x m)
-    while (i<n) {
-      if (! term_is_bit_i(tbl, a[i], m, x)) {
+    // Interval abstraction not implemented for n>64
+    for (i=1; i<n; i++) {
+      if (! term_is_bit_i(tbl, a[i], i, x)) {
 	return NULL_TERM;
       }
-      i ++;
     }
   }
     
