@@ -911,7 +911,7 @@ dist: bin lib
 	mkdir $(distdir)/bin
 	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
-	cp $(bindir)/yices_smt2(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
+	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
