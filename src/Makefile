@@ -291,7 +291,10 @@ auto_generated := \
 	$(vesion_c) \
 	api/yices_version.c \
 	frontend/yices/yices_hash_keywords.h \
-	frontend/smt1/smt_hash_keywords.h
+	frontend/smt1/smt_hash_keywords.h \
+	frontend/smt2/smt2_hash_tokens.h \
+	frontend/smt2/smt2_hash_keywords.h \
+	frontend/smt2/smt2_hash_symbols.h
 
 #
 # Dependencies and object files
@@ -664,6 +667,26 @@ frontend/yices/yices_hash_keywords.h: frontend/yices/yices_keywords.txt
 frontend/smt1/smt_hash_keywords.h: frontend/smt1/smt_keywords.txt
 	$(GPERF) -C -L ANSI-C -W smt_kw --output-file=frontend/smt1/smt_hash_keywords.h \
 	--lookup-function-name=in_smt_kw frontend/smt1/smt_keywords.txt
+
+
+#
+# Tables for SMT2:
+# - we want to include three hash functions in the same file (smt2_lexer.c)
+# - for this to work,
+#   we need to give different names to the hash function (option -H ...)
+#   we can't use -G and we must give -E
+#
+frontend/smt2/smt2_hash_tokens.h: frontend/smt2/smt2_tokens.txt
+	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=frontend/smt2/smt2_hash_tokens.h \
+	--lookup-function-name=in_smt2_tk frontend/smt2/smt2_tokens.txt
+
+frontend/smt2/smt2_hash_keywords.h: frontend/smt2/smt2_keywords.txt
+	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=frontend/smt2/smt2_hash_keywords.h \
+	--lookup-function-name=in_smt2_kw frontend/smt2/smt2_keywords.txt
+
+frontend/smt2/smt2_hash_symbols.h: frontend/smt2/smt2_symbols.txt
+	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=frontend/smt2/smt2_hash_symbols.h \
+	--lookup-function-name=in_smt2_sym frontend/smt2/smt2_symbols.txt
 
 
 #
