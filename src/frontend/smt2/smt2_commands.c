@@ -25,7 +25,6 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "api/context_config.h"
 #include "api/smt_logic_codes.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
@@ -37,7 +36,6 @@
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
 #include "model/model_eval.h"
-#include "model/projection.h"
 #include "utils/refcount_strings.h"
 
 #include "yices.h"
@@ -53,7 +51,7 @@
 /*
  * Parameters for preprocessing and simplifications
  * - these parameters are stored in the context but
- *   we want to keep a copy when exists forall solver is used (since then
+ *   we want to keep a copy when the exists forall solver is used (since then
  *   context is NULL).
  */
 static ctx_param_t ctx_parameters;
@@ -220,7 +218,6 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
 }
 
 
-
 #endif
 
 
@@ -321,35 +318,6 @@ static void smt2_pop_type_names(smt2_name_stack_t *s, uint32_t ptr) {
     assert(yices_get_type_by_name(name) != NULL_TYPE);
     yices_remove_type_name(name);
     assert(yices_get_type_by_name(name) == NULL_TYPE);
-
-    string_decref(name);
-  }
-  s->deletions += (s->top - ptr);
-  s->top = n;
-}
-
-
-/*
- * Remove names on top of the stack and remove them from the macro name table
- * - ptr = new top: names[0 ... ptr - 1] are kept
- *
- * NOTE: we can't delete the type_macro. We just remove the mapping
- * name -> macro id. If we remove type_constructor, then we'll delete
- * all instances of that constructor from the type table, but that's
- * not safe unless we remove all terms that have such a type.
- */
-static void smt2_pop_macro_names(smt2_name_stack_t *s, uint32_t ptr) {
-  char *name;
-  uint32_t n;
-
-  n = s->top;
-  while (n > ptr) {
-    n --;
-    name = s->names[n];
-
-    assert(yices_get_macro_by_name(name) >= 0);
-    yices_remove_type_macro_name(name);
-    assert(yices_get_macro_by_name(name) < 0);
 
     string_decref(name);
   }
@@ -530,10 +498,10 @@ static void extend_smt2_stack(smt2_stack_t *s) {
 /*
  * Push data:
  * - m = multiplicity
- * - terms, types, macros = number of term/type/macro declarations
+ * - terms, types = number of term/type declarations
  * - named_bools. named_asserts = number of named boolean terms and assertions
  */
-static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types, uint32_t macros,
+static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types,
 			    uint32_t named_bools, uint32_t named_asserts) {
   uint32_t i;
 
@@ -545,7 +513,6 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
   s->data[i].multiplicity = m;
   s->data[i].term_decls = terms;
   s->data[i].type_decls = types;
-  s->data[i].macro_decls = macros;
   s->data[i].named_bools = named_bools;
   s->data[i].named_asserts = named_asserts;
   s->levels += m;
@@ -896,7 +863,7 @@ static void print_yices_error(bool full) {
     print_out("argument is not an arithmetic constant");
     break;
   case TOO_MANY_MACRO_PARAMS:
-    print_out("too many arguments in sort constructor. Max is %"PRIu32, TYPE_MACRO_MAX_ARITY);
+    print_out("too many arguments in sort constructor");
     break;
 
   case CTX_FREE_VAR_IN_FORMULA:
@@ -1008,96 +975,6 @@ static void print_yices_error(bool full) {
 }
 
 
-/*
- * Print an internalization error code
- */
-static void print_internalization_error(int32_t code) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
-  code = - code;
-  print_error(code2error[code]);
-}
-
-/*
- * Print the error code returned by ef_analyze
- */
-static void print_ef_analyze_error(ef_code_t code, FILE *err) {
-  assert(code != EF_NO_ERROR);
-  print_error(efcode2error[code]);
-}
-
-
-/*
- * Print the efsolver status
- */
-static void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
-  ef_status_t stat;
-  int32_t error;
-  ef_solver_t *efsolver;
-
-  efsolver = efc->efsolver;
-
-  assert(efsolver != NULL && efc->efdone);
-
-  if (verbosity > 0) {
-    printf("exist forall solver: %"PRIu32" iterations\n", efsolver->iters);
-  }
-
-  stat = efsolver->status;
-  error = efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      print_error("exist forall solver failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      freport_bug(err, "exist forall solver failed: substitution error");
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_error(error);
-    break;
-
-  case EF_STATUS_PROJECTION_ERROR:
-    if (error == PROJ_ERROR_NON_LINEAR) {
-      print_error("exists forall solver failed: non-linear arithmetic is not supported");
-    } else {
-      freport_bug(err, "exists forall solver failed: projection error");
-    }
-    break;
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:    
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    freport_bug(err, "exists forall solver failed: unexpected status: %s\n", ef_status2string[stat]);
-    break;
-
-  }
-}
-
-
-
 
 /*
  * EXCEPTIONS
@@ -1177,15 +1054,8 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "sort definition",      // DEFINE_TYPE (should not occur?)
   "term definition",      // DEFINE_TERM (should not occur?)
   "binding",              // BIND?
-  "variable declaration", // DECLARE_VAR
-  "sort-variable declaration", // DECLARE_TYPE_VAR
   "let",                  // LET
   "BitVec",               // MK_BV_TYPE
-  NULL,                   // MK_SCALAR_TYPE
-  NULL,                   // MK_TUPLE_TYPE
-  "function type",        // MK_FUN_TYPE
-  "type constructor",     // MK_APP_TYPE
-  "function application", // MK_APPLY
   "ite",                  // MK_ITE
   "equality",             // MK_EQ
   "disequality",          // MK_DISEQ
@@ -1196,23 +1066,6 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "xor",                  // MK_XOR
   "iff",                  // MK_IFF (not in SMT2?)
   "=>",                   // MK_IMPLIES
-  NULL,                   // MK_TUPLE
-  NULL,                   // MK_SELECT
-  NULL,                   // MK_TUPLE_UPDATE
-  NULL,                   // MK_UPDATE (replaced by SMT2_MK_STORE)
-  "forall",               // MK_FORALL
-  "exists",               // MK_EXISTS
-  "lambda",               // MK_LAMBDA (not in SMT2)
-  "addition",             // MK_ADD
-  "subtraction",          // MK_SUB
-  "negation",             // MK_NEG
-  "multiplication",       // MK_MUL
-  "division",             // MK_DIVISION
-  "exponentiation",       // MK_POW
-  "inequality",           // MK_GE
-  "inequality",           // MK_GT
-  "inequality",           // MK_LE
-  "inequality",           // MK_LT
   "bitvector constant",   // MK_BV_CONST
   "bvadd",                // MK_BV_ADD
   "bvsub",                // MK_BV_SUB
@@ -1301,7 +1154,17 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "sort qualifier",       // SMT2_SORTED_APPLY
   "sort qualifier",       // SMT2_SORTED_INDEXED_APPLY
 
-  // more arithmetic stuff
+  // more arithmetic stuff (not supported by this version)
+  "subtraction",          // SMT2_MK_SUB
+  "addition",             // SMT2_MK_ADD
+  "multiplication",       // SMT2_MK_MUL
+  "division",             // SMT2_MK_DIVISION
+  "inequality",           // SMT2_MK_LE
+  "inequality",           // SMT2_MK_LT
+  "inequality",           // SMT2_MK_GE
+  "inequality",           // SMT2_MK_GT
+  "Int",                  // SMT2_MK_INT
+  "Real",                 // SMT2_MK_REAL
   "to_real",              // SMT2_MK_TO_REAL
   "div",                  // SMT2_MK_DIV
   "mod",                  // SMT2_MK_MOD
@@ -1309,6 +1172,11 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "to_int",               // SMT2_MK_TO_INT
   "is_int",               // SMT2_MK_IS_INT
   "divisible",            // SMT2_MK_DIVISIBLE
+
+  "forall",               // SMT2_MK_FORALL
+  "exists",               // SMT2_MK_EXISTS
+  "variable declaration", // SMT2_DECLARE_VAR
+  "sort-variable declaration", // SMT2_DECLARE_TYPE_VAR
 };
 
 
@@ -1352,7 +1220,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
 
   switch (exception) {
   case TSTACK_OP_NOT_IMPLEMENTED:
-    print_out("operation %s not implemented", opcode_string[tstack->error_op]);
+    print_out("%s not implemented", opcode_string[tstack->error_op]);
     break;
 
   case TSTACK_UNDEF_TERM:
@@ -2098,53 +1966,16 @@ static void unsupported_option(void) {
  */
 
 /*
- * Allocate and initialize the context based on g->logic
- * - make sure the logic is supported before calling this
+ * Allocate and initialize the context (for QF_BV)
  */
 static void init_smt2_context(smt2_globals_t *g) {
-  smt_logic_t logic;
-  context_arch_t arch;
-  context_mode_t mode;
-  bool iflag;
-  bool qflag;
+  assert(g->logic_code == QF_BV);
 
-  assert(logic_is_supported(g->logic_code));
-
-  // default: assume g->benchmark_mode is false
-  logic = g->logic_code;
-  mode = CTX_MODE_PUSHPOP;
-  arch = arch_for_logic(logic);
-  iflag = iflag_for_logic(logic);
-  qflag = qflag_for_logic(logic);
-
-  if (g->benchmark_mode) {
-    // change mode and arch for QF_IDL/QF_RDL
-    mode = CTX_MODE_ONECHECK;
-    switch (logic) {
-    case QF_IDL:
-      arch = CTX_ARCH_AUTO_IDL;
-      break;
-
-    case QF_RDL:
-      arch = CTX_ARCH_AUTO_RDL;
-      break;
-
-    default:
-      break;
-    }
-  }
-
-  g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
+  g->ctx = yices_create_context(QF_BV, CTX_ARCH_BV, CTX_MODE_PUSHPOP, false, false);
   assert(g->ctx != NULL);
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
-
-  /*
-   * TODO: override the default context options based on
-   * ctx_parameters.  I don't want to do it now (2015/07/22). If we
-   * make a mistake, we could get a major performance loss.
-   */
 }
 
 
@@ -2165,196 +1996,6 @@ static void init_search_parameters(smt2_globals_t *g) {
  * DELAYED ASSERTION/CHECK_SAT
  */
 
-/*
- * Check whether term t requires the Egraph
- * - seen = hset of all terms seen so far (none of them requires the Egraph)
- */
-static bool needs_egraph(int_hset_t *seen, term_t t);
-
-static bool composite_needs_egraph(int_hset_t *seen, composite_term_t *d) {
-  uint32_t i, n;
-
-  n = d->arity;
-  for (i=0; i<n; i++) {
-    if (needs_egraph(seen, d->arg[i])) return true;
-  }
-  return false;
-}
-
-static bool product_needs_egraph(int_hset_t *seen, pprod_t *p) {
-  uint32_t i, n;
-
-  n = p->len;
-  for (i=0; i<n; i++) {
-    if (needs_egraph(seen, p->prod[i].var)) return true;
-  }
-  return false;
-}
-
-static bool poly_needs_egraph(int_hset_t *seen, polynomial_t *p) {
-  uint32_t i, n;
-
-  n = p->nterms;
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    i ++;
-  }
-  while (i < n) {
-    if (needs_egraph(seen, p->mono[i].var)) return true;
-    i ++;
-  }
-  return false;
-}
-
-static bool bvpoly64_needs_egraph(int_hset_t *seen, bvpoly64_t *p) {
-  uint32_t i, n;
-
-  n = p->nterms;
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    i ++;
-  }
-  while (i < n) {
-    if (needs_egraph(seen, p->mono[i].var)) return true;
-    i ++;
-  }
-  return false;
-}
-
-static bool bvpoly_needs_egraph(int_hset_t *seen, bvpoly_t *p) {
-  uint32_t i, n;
-
-  n = p->nterms;
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    i ++;
-  }
-  while (i < n) {
-    if (needs_egraph(seen, p->mono[i].var)) return true;
-    i ++;
-  }
-  return false;
-}
-
-
-
-static bool needs_egraph(int_hset_t *seen, term_t t) {
-  term_table_t *terms;
-  bool result;
-
-  result = false;
-  t = unsigned_term(t); // clear polarity
-  if (int_hset_add(seen, t)) {
-    // not seen yet
-    terms = __yices_globals.terms;
-    switch (term_kind(terms, t)) {
-    case UNUSED_TERM:
-    case RESERVED_TERM:
-      assert(false);
-      break;
-
-    case CONSTANT_TERM:
-    case VARIABLE:
-    case UNINTERPRETED_TERM:
-      result = is_utype_term(terms, t);
-      break;
-
-    case ARITH_CONSTANT:
-    case BV64_CONSTANT:
-    case BV_CONSTANT:
-      result = false;
-      break;
-
-    case ARITH_EQ_ATOM:
-    case ARITH_GE_ATOM:
-    case ARITH_IS_INT_ATOM:
-    case ARITH_FLOOR:
-    case ARITH_CEIL:
-    case ARITH_ABS:
-      result = needs_egraph(seen, arith_atom_arg(terms, t));
-      break;
-
-    case ARITH_ROOT_ATOM:
-      result = needs_egraph(seen, arith_root_atom_desc(terms, t)->p);
-      break;
-
-    case ITE_TERM:
-    case ITE_SPECIAL:
-    case EQ_TERM:
-    case DISTINCT_TERM:
-    case OR_TERM:
-    case XOR_TERM:
-    case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
-    case ARITH_MOD:
-    case ARITH_DIVIDES_ATOM:
-    case BV_ARRAY:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-      result = composite_needs_egraph(seen, composite_term_desc(terms, t));
-      break;
-
-    case BIT_TERM:
-      result = needs_egraph(seen, bit_term_arg(terms, t));
-      break;
-
-    case APP_TERM:
-    case UPDATE_TERM:
-    case TUPLE_TERM:
-    case FORALL_TERM:
-    case LAMBDA_TERM:
-    case SELECT_TERM:
-      result = true;
-      break;
-
-    case POWER_PRODUCT:
-      result = product_needs_egraph(seen, pprod_term_desc(terms, t));
-      break;
-
-    case ARITH_POLY:
-      result = poly_needs_egraph(seen, poly_term_desc(terms, t));
-      break;
-
-    case BV64_POLY:
-      result = bvpoly64_needs_egraph(seen, bvpoly64_term_desc(terms, t));
-      break;
-
-    case BV_POLY:
-      result = bvpoly_needs_egraph(seen, bvpoly_term_desc(terms, t));
-      break;
-    }
-  }
-
-  return result;
-}
-
-/*
- * Check whether any formula is a[0...n-1] contains an uninterpreted function
- */
-static bool has_uf(term_t *a, uint32_t n) {
-  int_hset_t seen; // set of visited terms
-  bool result;
-  uint32_t i;
-
-  result = false;
-  init_int_hset(&seen, 32);
-  for (i=0; i<n; i++) {
-    result = needs_egraph(&seen, a[i]);
-    if (result) break;
-  }
-  delete_int_hset(&seen);
-
-  return result;
-}
 
 /*
  * Add a assertion t to g->assertions
@@ -2386,15 +2027,6 @@ static void check_delayed_assertions(smt2_globals_t *g) {
   } else if (g->assertions.size == 0) {
     print_out("sat\n");
   } else {
-    /*
-     * check for mislabeled benchmarks: some benchmarks
-     * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
-     */
-    if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
-	!has_uf(g->assertions.data, g->assertions.size)) {
-      tprintf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
-      g->logic_code = QF_IDL;
-    }
     init_smt2_context(g);
 #if 1
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -2917,7 +2549,7 @@ static void show_assignment(smt2_globals_t *g) {
  * If global_decls is false and the push/pop stack is not empty, push a
  * name onto a name stack so that we can remove the declaration on pop.
  *
- * NOTE: s is cloned twice: once to be stored in the term/type/macro
+ * NOTE: s is cloned twice: once to be stored in the term/type
  * symbol tables and once more here. Maybe we could optimize this.
  */
 static void save_name(smt2_globals_t *g, smt2_name_stack_t *name_stack, const char *s) {
@@ -2935,10 +2567,6 @@ static inline void save_term_name(smt2_globals_t *g, const char *s) {
 
 static inline void save_type_name(smt2_globals_t *g, const char *s) {
   save_name(g, &g->type_names, s);
-}
-
-static inline void save_macro_name(smt2_globals_t *g, const char *s) {
-  save_name(g, &g->macro_names, s);
 }
 
 
@@ -3047,7 +2675,6 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
-  init_ef_client(&g->ef_client_globals);
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
@@ -3075,7 +2702,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_smt2_stack(&g->stack);
   init_smt2_name_stack(&g->term_names);
   init_smt2_name_stack(&g->type_names);
-  init_smt2_name_stack(&g->macro_names);
+
 
   init_named_term_stack(&g->named_bools);
   init_named_term_stack(&g->named_asserts);
@@ -3118,15 +2745,11 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     yices_free_model(g->model);
     g->model = NULL;
   }
-  if (g->efmode) {
-    delete_ef_client(&g->ef_client_globals);
-  }
   delete_ivector(&g->assertions);
 
   delete_smt2_stack(&g->stack);
   delete_smt2_name_stack(&g->term_names);
   delete_smt2_name_stack(&g->type_names);
-  delete_smt2_name_stack(&g->macro_names);
 
   delete_named_term_stack(&g->named_bools);
   delete_named_term_stack(&g->named_asserts);
@@ -3335,7 +2958,6 @@ void smt2_get_value(term_t *a, uint32_t n) {
     init_pretty_printer(&printer, &__smt2_globals);
     print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
     delete_yices_pp(&printer, true);
-    vtbl_empty_queue(&mdl->vtbl); // cleanup the internal queue
     ivector_reset(slices);
     ivector_reset(values);
   }
@@ -3384,9 +3006,8 @@ static bool is_yices_option(const char *name, const char **option) {
 /*
  * Shows the value of the yices option, and returns true, if supported.
  * If not supported it simply returns false.
- *
  */
-static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
+static bool yices_get_option(yices_param_t p) {
   bool supported;
 
   supported = true;
@@ -3394,10 +3015,6 @@ static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
   switch (p) {
   case PARAM_VAR_ELIM:
     print_boolean_value(ctx_parameters.var_elim);
-    break;
-
-  case PARAM_ARITH_ELIM:
-    print_boolean_value(ctx_parameters.arith_elim);
     break;
 
   case PARAM_BVARITH_ELIM:
@@ -3409,14 +3026,6 @@ static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
     print_boolean_value(ctx_parameters.flatten_or);
     break;
 
-  case PARAM_LEARN_EQ:
-    print_boolean_value(ctx_parameters.eq_abstraction);
-    break;
-
-  case PARAM_KEEP_ITE:
-    print_boolean_value(ctx_parameters.keep_ite);
-    break;
-    
   case PARAM_FAST_RESTARTS:
     print_boolean_value(parameters.fast_restart);
     break;
@@ -3546,7 +3155,7 @@ void smt2_get_option(const char *name) {
       p = find_param(yices_option);
       if (p != PARAM_UNKNOWN) {
 	assert(0 <= p && p < NUM_PARAMETERS);
-	if (! yices_get_option(p, &g->ef_client_globals.ef_parameters)) {
+	if (! yices_get_option(p)) {
 	  unsupported_option();
 	}
       } else {
@@ -3656,7 +3265,7 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   }
 }
 
-static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params) {
+static void yices_set_option(const char *param, const param_val_t *val) {
   bool tt;
   int32_t n;
   double x;
@@ -3678,20 +3287,6 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 	  enable_variable_elimination(context);
 	} else {
 	  disable_variable_elimination(context);
-	}
-      }
-    }
-    break;
-
-  case PARAM_ARITH_ELIM:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.arith_elim = tt;
-      context = __smt2_globals.ctx;
-      if (context != NULL) {
-	if (tt) {
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
 	}
       }
     }
@@ -3720,34 +3315,6 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 	  enable_diseq_and_or_flattening(context);
 	} else {
 	  disable_diseq_and_or_flattening(context);
-	}
-      }
-    }
-    break;
-
-  case PARAM_LEARN_EQ:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.eq_abstraction = tt;
-      context = __smt2_globals.ctx;
-      if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
-      }
-    }
-    break;
-
-  case PARAM_KEEP_ITE:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.keep_ite = tt;
-      context = __smt2_globals.ctx;
-      if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
 	}
       }
     }
@@ -3933,7 +3500,7 @@ void smt2_set_option(const char *name, aval_t value) {
     // may be a Yices option
     if (is_yices_option(name, &yices_option)) {
       aval2param_val(value, &param_val);
-      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters);
+      yices_set_option(yices_option, &param_val);
     } else {
       unsupported_option();
       flush_out();
@@ -3989,7 +3556,7 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
-  if (! logic_is_supported(code)) {
+  if (code != QF_BV) {
     print_error("logic %s is not supported", name);
     return;
   }
@@ -3998,16 +3565,6 @@ void smt2_set_logic(const char *name) {
     tprintf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
-  // check to see if we are in efmode 
-  __smt2_globals.efmode = logic_has_quantifiers(code);
-  if (__smt2_globals.efmode) {
-    // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
-    if (! __smt2_globals.benchmark_mode) {
-      print_error("exists forall mode not allowed in incremental mode");
-      return;
-    }
-  } 
-  
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
   __smt2_globals.logic_name = clone_string(name);
@@ -4022,7 +3579,7 @@ void smt2_set_logic(const char *name) {
     save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
   } else {
     // we are in benchmark_mode; better set the search parameters ...
-    default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code), CTX_MODE_ONECHECK);
+    default_ctx_params(&ctx_parameters, &parameters, QF_BV, CTX_ARCH_BV, CTX_MODE_ONECHECK);
   }
 
   report_success();
@@ -4054,7 +3611,7 @@ void smt2_push(uint32_t n) {
 	 * is less than 32bits so smt2_stack_push can't cause a
 	 * numerical overflow.
 	 */
-	 smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top,
+	 smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top,
 			 g->named_bools.top, g->named_asserts.top);
 	 ctx_push(g);
 	 check_stack(g);
@@ -4108,7 +3665,6 @@ void smt2_pop(uint32_t n) {
 	  // remove declarations: this has no effect if g->global_decls is true
 	  smt2_pop_term_names(&g->term_names, r->term_decls);
 	  smt2_pop_type_names(&g->type_names, r->type_decls);
-	  smt2_pop_macro_names(&g->macro_names, r->macro_decls);
 
 	  // remove the named booleans and named assertions
 	  pop_named_terms(&g->named_bools, r->named_bools);
@@ -4121,7 +3677,7 @@ void smt2_pop(uint32_t n) {
 
 	if (n < m) {
 	  // push (m - n)
-	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top,
+	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top,
 			  g->named_bools.top, g->named_asserts.top);
 	  ctx_push(g);
 	}
@@ -4157,9 +3713,7 @@ void smt2_assert(term_t t) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (g->benchmark_mode) {
-	if (g->efmode && g->ef_client_globals.efdone) {
-	  print_error("more assertions are not allowed after solving");
-	} else if (g->frozen) {
+	if (g->frozen) {
 	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
 	} else {
 	  add_delayed_assertion(g, t);
@@ -4175,31 +3729,6 @@ void smt2_assert(term_t t) {
   }
 }
 
-static void efsolve_cmd(smt2_globals_t *g) {
-  ef_client_t *efc;
-  efc = &g->ef_client_globals;
-
-  if (g->efmode) {
-
-    ef_solve(efc, &g->assertions, &parameters, g->logic_code, arch_for_logic(g->logic_code), g->tracer);
-
-    if (efc->efcode != EF_NO_ERROR) {
-      // error in preprocessing
-      print_ef_analyze_error(efc->efcode, g->out);
-      
-    } else {
-      print_ef_status(efc, g->verbosity, g->out);
-    }
-    
-
-  } else {
-
-    print_error("(ef-solve) not supported.");
-
-  }
-}
-
-
 
 
 /*
@@ -4212,9 +3741,7 @@ void smt2_check_sat(void) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
-      if (__smt2_globals.efmode) {
-	efsolve_cmd(&__smt2_globals);	
-      } else if (__smt2_globals.frozen) {
+      if (__smt2_globals.frozen) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
 	//	show_delayed_assertions(&__smt2_globals);
@@ -4227,6 +3754,9 @@ void smt2_check_sat(void) {
 }
 
 
+#if 0
+
+// NOT SUPPORTED
 /*
  * Declare a new sort:
  * - name = sort name
@@ -4294,6 +3824,7 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
   }
 }
 
+#endif
 
 /*
  * Declare a new uninterpreted function symbol
@@ -4316,11 +3847,9 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
   tprint_calls("declare-fun", __smt2_globals.stats.num_declare_fun);
 
   if (check_logic()) {
+    assert(n == 1);
     n --;
     sigma = tau[n]; // range
-    if (n > 0) {
-      sigma = yices_function_type(n, tau, sigma);
-    }
     assert(sigma != NULL_TYPE);
 
     t = yices_new_uninterpreted_term(sigma);
@@ -4341,11 +3870,12 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
  * - body = term
  * - tau = expected type of body
  *
- * If n = 0, this is the same as (define <name> :: <type> <body> )
- * Otherwise, a lambda term is created.
+ * n is always 0. This is the same as (define <name> :: <type> <body> )
  */
 void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau) {
   term_t t;
+
+  assert(n == 0);
 
   __smt2_globals.stats.num_define_fun ++;
   __smt2_globals.stats.num_commands ++;
@@ -4375,13 +3905,6 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
     }
 
     t = body;
-    if (n > 0) {
-      t = yices_lambda(n, var, t);
-      if (t < 0) {
-	print_yices_error(true);
-	return;
-      }
-    }
     yices_set_term_name(t, name);
     save_term_name(&__smt2_globals, name);
 
@@ -4400,24 +3923,10 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 void smt2_get_model(void) {
   yices_pp_t printer;
   model_t *mdl;
-  int32_t code;
 
   if (check_logic()) {
-    code = 0;
-    if (__smt2_globals.efmode) {      
-      mdl = ef_get_model(&__smt2_globals.ef_client_globals, &code);
-    } else {      
-      mdl = get_model(&__smt2_globals);
-    }
-
-    if (mdl == NULL) {
-      if (__smt2_globals.efmode) {
-	fputs(efmodelcode2error[code], stderr);
-	fflush(stderr);
-      }
-      return;
-    }
-      
+    mdl = get_model(&__smt2_globals);
+    assert(mdl != NULL);
     init_pretty_printer(&printer, &__smt2_globals);
     smt2_pp_full_model(&printer, mdl);
     delete_yices_pp(&printer, true);
@@ -4466,7 +3975,6 @@ void smt2_reset(void) {
       reset_smt2_stack(&g->stack);
       reset_smt2_name_stack(&g->term_names);
       reset_smt2_name_stack(&g->type_names);
-      reset_smt2_name_stack(&g->macro_names);
 
       reset_named_term_stack(&g->named_bools);
       reset_named_term_stack(&g->named_asserts);

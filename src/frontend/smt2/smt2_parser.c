@@ -271,14 +271,14 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case symbol_next_goto_c3:
       // in (declare-sort <symbol> ..)
       //      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_push_free_sort_name(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c3;
       goto loop;
 
     case symbol_next_goto_c9a:
       // in (define-sort <symbol> ...)
       //      tstack_push_free_type_or_macro_name(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_push_free_sort_name(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c9a;
       goto loop;
 
@@ -294,7 +294,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case symbol_next_goto_c9b:
       // in (define-sort .. (... <symbol> ...) ...)
       // type variable
-      tstack_push_op(tstack, DECLARE_TYPE_VAR, &loc);
+      tstack_push_op(tstack, SMT2_DECLARE_TYPE_VAR, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       tstack_eval(tstack); // eval DECLARE_TYPE_VAR
       state = c9b;
@@ -340,7 +340,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case symbol_next_push_c11f_goto_s0:
       // in (define-fun ... ( .. (<symbol> <sort> ) ... ) ...)
       // variable of the given <sort>
-      tstack_push_op(tstack, DECLARE_VAR, &loc);
+      tstack_push_op(tstack, SMT2_DECLARE_VAR, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, c11f);
       state = s0;
@@ -468,7 +468,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_push_s10_goto_s0:
       // sort constructor in ( <symbol> <sort> ... <sort> )
-      tstack_push_sort_constructor(tstack, tkval(lex), tklen(lex), &loc);
+      //      tstack_push_sort_constructor(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, s10);
       state = s0;
       goto loop;
@@ -533,13 +534,13 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case forall_next_goto_t3:
       // (forall
-      tstack_push_op(tstack, MK_FORALL, &loc);
+      tstack_push_op(tstack, SMT2_MK_FORALL, &loc);
       state = t3;
       goto loop;
 
     case exists_next_goto_t3:
       // (exists
-      tstack_push_op(tstack, MK_EXISTS, &loc);
+      tstack_push_op(tstack, SMT2_MK_EXISTS, &loc);
       state = t3;
       goto loop;
 
@@ -609,7 +610,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_push_t3d_goto_s0:
       // in (exists/forall (.. (<symbol <sort>) ...) ...)
-      tstack_push_op(tstack, DECLARE_VAR, &loc);
+      tstack_push_op(tstack, SMT2_DECLARE_VAR, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, t3d);
       state = s0;

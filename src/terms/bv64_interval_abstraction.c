@@ -670,7 +670,7 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
       // 0 <= [L1, H1] and L2 < 0 <= H2, the result is [H1.L2, H1.H2]
       low = mul(a->high, b->low, &ovlow);
       high = mul(a->high, b->high, &ovhigh);
-      sign = (a->low == 0) ? sign_undef : b->sign;
+      sign = (a->low == 0) ? sign_undef : b->sign; // because H1>0
     }
   } else if (a->sign == sign_one) {
     if (b->sign == sign_zero) {
@@ -713,13 +713,13 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
       low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
       high = 0;
       ovhigh = false;
-      sign = sign_undef;
+      sign = (low == 0) ? sign_zero : sign_undef;
     } else {
       // L1 < 0 <= H1 and L2 < 0 <= H2,
       // the result is [min(L1.H2, H1.L2), max(L1.L2, H1.H2)]
       low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
       high = max_mul(a->low, b->low, a->high, b->high, &ovhigh);
-      sign = sign_undef;
+      sign = (low == 0) ? sign_zero : sign_undef;
     }
   }
 
@@ -770,7 +770,7 @@ void bv64_abs_power(bv64_abs_t *a, uint32_t d) {
     }
     
   } else {
-    // odd power: the sing is unchanged
+    // odd power: the sign is unchanged
     low = power(a->low, d, &ovlow);
     high = power(a->high, d, &ovhigh);
     sign = a->sign;

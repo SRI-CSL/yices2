@@ -77,23 +77,6 @@ static void smt2_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_t
 }
 
 /*
- * Same thing for arithmetic terms
- */
-static void smt2_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_arithmetic_term(terms, t)) {
-      smt2_pp_term_value(printer, model, t);
-    }
-  }
-}
-
-/*
  * Same thing for bitvector terms
  */
 static void smt2_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
@@ -111,42 +94,6 @@ static void smt2_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, t
 }
 
 /*
- * Same thing for terms of uninterpreted types
- */
-static void smt2_pp_unint_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_utype_term(terms, t)) {
-      smt2_pp_term_value(printer, model, t);
-    }
-  }
-}
-
-
-/*
- * All function terms
- */
-static void smt2_pp_function_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_function_term(terms, t)) {
-      smt2_pp_term_value(printer, model, t);
-    }
-  }
-}
-
-
-/*
  * Print only terms defined in model->map
  */
 void smt2_pp_model(yices_pp_t *printer, model_t *model) {
@@ -160,11 +107,7 @@ void smt2_pp_model(yices_pp_t *printer, model_t *model) {
   n = v.size;
   a = v.data;
   smt2_pp_bool_assignments(printer, model, a, n);
-  smt2_pp_arithmetic_assignments(printer, model, a, n);
   smt2_pp_bitvector_assignments(printer, model, a, n);
-  smt2_pp_unint_assignments(printer, model, a, n);
-  smt2_pp_function_assignments(printer, model, a, n);
-  smt2_pp_queued_functions(printer, &model->vtbl, true);
   delete_ivector(&v);
 }
 
@@ -216,22 +159,6 @@ static void smt2_eval_pp_bool_assignments(yices_pp_t *printer, evaluator_t *eval
   }
 }
 
-/*
- * Same thing for arithmetic terms
- */
-static void smt2_eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = eval->model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_arithmetic_term(terms, t)) {
-      smt2_eval_pp_term_value(printer, eval, t);
-    }
-  }
-}
 
 /*
  * Same thing for bitvector terms
@@ -245,41 +172,6 @@ static void smt2_eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t 
   for (i=0; i<n; i++) {
     t = a[i];
     if (is_bitvector_term(terms, t)) {
-      smt2_eval_pp_term_value(printer, eval, t);
-    }
-  }
-}
-
-/*
- * Same thing for terms of uninterpreted types
- */
-static void smt2_eval_pp_unint_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = eval->model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_utype_term(terms, t)) {
-      smt2_eval_pp_term_value(printer, eval, t);
-    }
-  }
-}
-
-
-/*
- * All function terms
- */
-static void smt2_eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
-  term_table_t *terms;
-  uint32_t i;
-  term_t t;
-
-  terms = eval->model->terms;
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (is_function_term(terms, t)) {
       smt2_eval_pp_term_value(printer, eval, t);
     }
   }
@@ -304,11 +196,7 @@ void smt2_pp_full_model(yices_pp_t *printer, model_t *model) {
     n = v.size;
     a = v.data;
     smt2_eval_pp_bool_assignments(printer, &eval, a, n);
-    smt2_eval_pp_arithmetic_assignments(printer, &eval, a, n);
     smt2_eval_pp_bitvector_assignments(printer, &eval, a, n);
-    smt2_eval_pp_unint_assignments(printer, &eval, a, n);
-    smt2_eval_pp_function_assignments(printer, &eval, a, n);
-    smt2_pp_queued_functions(printer, &model->vtbl, true);
     delete_ivector(&v);
     delete_evaluator(&eval);
   } else {

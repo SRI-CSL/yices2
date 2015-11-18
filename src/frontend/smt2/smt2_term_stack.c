@@ -104,46 +104,6 @@ static void check_term(tstack_t *stack, term_t t) {
 
 
 
-/*
- * Check whether a stack element is an integer term
- * - raise exception SMT2_TERM_NOT_INTEGER if not
- */
-static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
-  rational_t *q;
-  rba_buffer_t *b;
-  term_t t;
-
-  switch (e->tag) {
-  case TAG_RATIONAL:
-    q = &e->val.rational;
-    if (!q_is_integer(q)) {
-      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
-    }
-    break;
-
-  case TAG_TERM:
-    t = e->val.term;
-    if (! is_integer_term(__yices_globals.terms, t)) {
-      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
-    }
-    break;
-
-  case TAG_ARITH_BUFFER:
-    b = e->val.arith_buffer;
-    if (! arith_poly_is_integer(__yices_globals.terms, b)) {
-      raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
-    }
-    break;
-
-  default:
-    raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
-    break;
-  }
-}
-
-
-
-
 
 
 /*
@@ -373,351 +333,6 @@ static void eval_smt2_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_term_result(stack, t);
 }
 
-
-
-/*
- * Arithmetic comparisons are all chainable.
- * For example,  (< t1 t2 ... t_n) is (and (< t1 t2) (< t2 t3)  ... (< t_{n-1} t_n))
- */
-
-// [mk-ge t1 .... t_n]
-static void check_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_GE);
-  check_size(stack, n >= 2);
-}
-
-// auxiliary function: build ge(f, f+1)
-static term_t mk_binary_ge(tstack_t *stack, stack_elem_t *f) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_geq0_atom(b); // [f] - [f+1] >= 0
-  assert(t != NULL_TERM);
-
-  return t;
-}
-
-static void eval_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t *arg, t;
-  uint32_t i;
-
-  if (n == 2) {
-    t = mk_binary_ge(stack, f);
-  } else {
-    n --;
-    arg = get_aux_buffer(stack, n);
-    for (i=0; i<n; i++) {
-      arg[i] = mk_binary_ge(stack, f+i);
-    }
-    t = yices_and(n, arg);
-  }
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-// [mk-gt t1 ... t_n]
-static void check_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_GT);
-  check_size(stack, n >= 2);
-}
-
-// auxiliary function: build ge(f, f+1)
-static term_t mk_binary_gt(tstack_t *stack, stack_elem_t *f) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_gt0_atom(b); // [f] - [f+1] >= 0
-  assert(t != NULL_TERM);
-
-  return t;
-}
-
-static void eval_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t *arg, t;
-  uint32_t i;
-
-  if (n == 2) {
-    t = mk_binary_gt(stack, f);
-  } else {
-    n --;
-    arg = get_aux_buffer(stack, n);
-    for (i=0; i<n; i++) {
-      arg[i] = mk_binary_gt(stack, f+i);
-    }
-    t = yices_and(n, arg);
-  }
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-// [mk-le t1 ... t_n]
-static void check_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_LE);
-  check_size(stack, n >= 2);
-}
-
-// auxiliary function: build le(f, f+1)
-static term_t mk_binary_le(tstack_t *stack, stack_elem_t *f) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_leq0_atom(b); // [f] - [f+1] >= 0
-  assert(t != NULL_TERM);
-
-  return t;
-}
-
-static void eval_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t *arg, t;
-  uint32_t i;
-
-  if (n == 2) {
-    t = mk_binary_le(stack, f);
-  } else {
-    n --;
-    arg = get_aux_buffer(stack, n);
-    for (i=0; i<n; i++) {
-      arg[i] = mk_binary_le(stack, f+i);
-    }
-    t = yices_and(n, arg);
-  }
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-// [mk-lt t1 ... t_n]
-static void check_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_LT);
-  check_size(stack, n >= 2);
-}
-
-// auxiliary function: build ge(f, f+1)
-static term_t mk_binary_lt(tstack_t *stack, stack_elem_t *f) {
-  rba_buffer_t *b;
-  term_t t;
-
-  b = tstack_get_abuffer(stack);
-  add_elem(stack, b, f);
-  sub_elem(stack, b, f+1);
-  t = arith_buffer_get_lt0_atom(b); // [f] - [f+1] >= 0
-  assert(t != NULL_TERM);
-
-  return t;
-}
-
-static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t *arg, t;
-  uint32_t i;
-
-  if (n == 2) {
-    t = mk_binary_lt(stack, f);
-  } else {
-    n --;
-    arg = get_aux_buffer(stack, n);
-    for (i=0; i<n; i++) {
-      arg[i] = mk_binary_lt(stack, f+i);
-    }
-    t = yices_and(n, arg);
-  }
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-
-
-/*
- * NEW OPERATORS FOR MIXED AND INTEGER ARITHMETIC.
- */
-
-/*
- * [to_real x]: x must be an integer. We treat this operation as a no-op.
- */
-static void check_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_TO_REAL);
-  check_size(stack, n == 1);
-  check_integer_term(stack, f);
-
-  //  fprintf(stderr, "to_real\n");
-}
-
-static void eval_smt2_to_real(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  copy_result_and_pop_frame(stack, f);
-}
-
-
-/*
- * [to_int x] (is the same as (floor x)
- */
-static void check_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_TO_INT);
-  check_size(stack, n == 1);
-
-  //  fprintf(stderr, "to_int\n");
-}
-
-static void eval_smt2_to_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_floor(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [is_int x]
- */
-static void check_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_IS_INT);
-  check_size(stack, n == 1);
-
-  //  fprintf(stderr, "is_int\n");
-}
-
-static void eval_smt2_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_is_int_atom(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [abs x]
- *
- * In SMTLIB2, (abs x) is defined only for integers. We don't check for this,
- * and we accept (abs x) for any arithmetic x.
- */
-static void check_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_ABS);
-  check_size(stack, n == 1);
-}
-
-static void eval_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
-
-  t = get_term(stack, f);
-  t = yices_abs(t);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-
-  //  fprintf(stderr, "abs\n");
-}
-
-
-/*
- * [div x y]
- * - y must be a non-zero constant
- *
- * In SMTLIB2, both x and y should be integers. We accept reals too.
- *
- * Also, in SMTLIB2, it's allowed to write (div x1 x2 ... x_n).
- * That's interpreted as ((..(div (div x1 x2) x3)... x_n)).
- */
-static void check_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_DIV);
-  check_size(stack, n >= 2);
-
-  //  fprintf(stderr, "div\n");
-}
-
-static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2;
-  uint32_t i;
-
-  t1 = get_term(stack, f);
-  for (i=1; i<n; i++) {
-    t2 = get_term(stack, f+i);
-    t1 = yices_idiv(t1, t2);
-    check_term(stack, t1);
-  }
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t1);
-}
-
-
-/*
- * [mod x y]
- * - y must be a non-zero constant
- *
- * In SMTLIB2, both x and y should be integers. We accept reals too.
- */
-static void check_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_MOD);
-  check_size(stack, n == 2);
-
-  //  fprintf(stderr, "mod\n");
-}
-
-static void eval_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2, t;
-
-  t1 = get_term(stack, f);
-  t2 = get_term(stack, f+1);
-  t = yices_imod(t1, t2);
-  check_term(stack, t);
-  
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
-
-/*
- * [divisible x y] (i.e.,  whether y is a multiple of x)
- * - x must be a constant
- *
- * In SMTLIB2, both x and y should be integers. We accept reals too.
- */
-static void check_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_MK_DIVISIBLE);
-  check_size(stack, n == 2);
-
-  //  fprintf(stderr, "divisible\n");
-}
-
-static void eval_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t1, t2, t;
-
-  t1 = get_term(stack, f);
-  t2 = get_term(stack, f+1);
-  t = yices_divides_atom(t1, t2);
-  check_term(stack, t);
-  
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
 
 
 
@@ -1017,64 +632,13 @@ static void eval_smt2_check_sat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [declare-sort <symbol> <numeral>]
- */
-static void check_smt2_declare_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_DECLARE_SORT);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_SYMBOL);
-  check_tag(stack, f+1, TAG_RATIONAL);
-}
-
-static void eval_smt2_declare_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t i;
-
-  i = get_integer(stack, f+1);
-  if (i < 0) {
-    // should not happen: in SMT2, numerals are non-negative (cf. smt2_lexer)
-    raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
-  }
-  smt2_declare_sort(f[0].val.string, i);
-  tstack_pop_frame(stack);
-  no_result(stack);
-}
-
-
-/*
- * [define-sort <symbol> <type-binding> ... <type-binding> <type>]
- */
-static void check_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_DEFINE_SORT);
-  check_size(stack, n >= 2);
-  check_tag(stack, f, TAG_SYMBOL);
-  check_all_tags(stack, f + 1, f + (n-1), TAG_TYPE_BINDING);
-  check_distinct_type_binding_names(stack, f+1, n-2);
-  check_tag(stack, f + (n-1), TAG_TYPE);
-}
-
-static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t *a;
-  uint32_t i, nvars;
-
-  nvars = n - 2;
-  a = get_aux_buffer(stack, nvars);
-  for (i=0; i<nvars; i++) {
-    a[i] = f[i+1].val.type_binding.type;
-  }
-
-  smt2_define_sort(f[0].val.string, nvars, a, f[n-1].val.type);
-
-  tstack_pop_frame(stack);
-  no_result(stack);
-}
-
-
-/*
  * [declare-fun <symbol> <sort> ... <sort>]
+ *
+ * We support only [declare-fun <symbol> <sort> ] in this version
  */
 static void check_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_DECLARE_FUN);
-  check_size(stack, n>=2);
+  check_size(stack, n == 2);
   check_tag(stack, f, TAG_SYMBOL);
   check_all_tags(stack, f+1, f+n, TAG_TYPE);
 }
@@ -1082,6 +646,8 @@ static void check_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n)
 static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   type_t *a;
   uint32_t i, ntypes;
+
+  assert(n == 2);
 
   ntypes = n - 1;
   a = get_aux_buffer(stack, ntypes);
@@ -1097,20 +663,22 @@ static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
 /*
  * [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
+ *
+ * We support only [define-fun <symbol> <sort> <term> ] in this version.
  */
 static void check_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_DEFINE_FUN);
-  check_size(stack, n >= 3);
+  check_size(stack, n == 3);
   check_tag(stack, f, TAG_SYMBOL);
-  check_all_tags(stack, f+1, f+(n-2), TAG_BINDING);
-  check_distinct_binding_names(stack, f+1, n-3);
-  check_tag(stack, f+(n-2), TAG_TYPE);
+  check_tag(stack, f+1, TAG_TYPE);
 }
 
 static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t *a;
   term_t body;
   uint32_t i, nvars;
+
+  assert(n == 3);
 
   body = get_term(stack, f+(n-1));
 
@@ -1229,9 +797,6 @@ static void check_name(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n)
  * raise an exception if t is not ground or if s is already used
  */
 static void check_named_attribute(tstack_t *stack, stack_elem_t *f, term_t t, const char *s) {
-  if (! yices_term_is_ground(t)) {
-    raise_exception(stack, f, SMT2_NAMED_TERM_NOT_GROUND);
-  }
   if (yices_get_term_by_name(s) != NULL_TERM) {
     raise_exception(stack, f, SMT2_NAMED_SYMBOL_REUSED);
   }
@@ -1436,16 +1001,16 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   SMT2_MK_ARRAY,         // SMT2_SYM_ARRAY
   SMT2_MK_SELECT,        // SMT2_SYM_SELECT
   SMT2_MK_STORE,         // SMT2_SYM_STORE
-  int_id,                // SMT2_SYM_INT
-  real_id,               // SMT2_SYM_REAL
-  MK_SUB,                // SMT2_SYM_MINUS
-  MK_ADD,                // SMT2_SYM_PLUS
-  MK_MUL,                // SMT2_SYM_TIMES
-  MK_DIVISION,           // SMT2_SYM_DIVIDES
-  MK_LE,                 // SMT2_SYM_LE
-  MK_LT,                 // SMT2_SYM_LT
-  MK_GE,                 // SMT2_SYM_GE
-  MK_GT,                 // SMT2_SYM_GT
+  SMT2_MK_INT,           // SMT2_SYM_INT
+  SMT2_MK_REAL,          // SMT2_SYM_REAL
+  SMT2_MK_SUB,           // SMT2_SYM_MINUS
+  SMT2_MK_ADD,           // SMT2_SYM_PLUS
+  SMT2_MK_MUL,           // SMT2_SYM_TIMES
+  SMT2_MK_DIVISION,      // SMT2_SYM_DIVIDES
+  SMT2_MK_LE,            // SMT2_SYM_LE
+  SMT2_MK_LT,            // SMT2_SYM_LT
+  SMT2_MK_GE,            // SMT2_SYM_GE
+  SMT2_MK_GT,            // SMT2_SYM_GT
   SMT2_MK_DIV,           // SMT2_SYM_DIV (integer division not supported)
   SMT2_MK_MOD,           // SMT2_SYM_MOD
   SMT2_MK_ABS,           // SMT2_SYM_ABS
@@ -1527,6 +1092,10 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 }
 
 
+#if 0
+
+// We don't support define-sort or declare-sort in this version.
+
 /*
  * Name in (define-sort <name> ..) or (declare-sort <name> ...)
  */
@@ -1555,6 +1124,7 @@ void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc
   }
 }
 
+#endif
 
 /*
  * Symbol in an indexed sort
@@ -1582,6 +1152,10 @@ void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 }
 
 
+#if 0
+
+// We don't support sort constructors
+
 /*
  * Symbol as a sort constructor
  * (<symbol> <sort> .,, <sort>)
@@ -1607,6 +1181,8 @@ void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *l
     break;
   }
 }
+
+#endif
 
 
 /*
@@ -1717,11 +1293,9 @@ void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
   case SMT2_KEY_UNKNOWN:
   default:
-    /*
-     * Anything else should? be treated as an uninterpreted function
-     */
-    tstack_push_op(stack, MK_APPLY, loc);
-    tstack_push_term_by_name(stack, s, loc);
+    //    tstack_push_op(stack, MK_APPLY, loc);
+    //    tstack_push_term_by_name(stack, s, loc);
+    push_exception(stack, loc, s, TSTACK_UNDEF_TERM);
     break;
 
   }
@@ -1855,9 +1429,10 @@ void tstack_push_qual_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) 
     break;
 
   case SMT2_KEY_UNKNOWN:
-    // uninterpreted function
-    tstack_push_opcode(stack, MK_APPLY, loc);
-    tstack_push_term_by_name(stack, s, loc);
+    // uninterpreted function (NOT SUPPORTED)
+    //    tstack_push_opcode(stack, MK_APPLY, loc);
+    //    tstack_push_term_by_name(stack, s, loc);
+    push_exception(stack, loc, s, TSTACK_UNDEF_TERM);
     break;
 
   default:
@@ -1898,20 +1473,20 @@ void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *l
 /*
  * PLACE-HOLDERS FOR UNSUPPORTED FUNCTIONS
  */
-#if 0
 static void check_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   raise_exception(stack, f, TSTACK_OP_NOT_IMPLEMENTED);
 }
 
 static void eval_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
-#endif
+
 
 
 /*
- * ARRAY-THEORY
+ * ARRAY-THEORY: NOT SUPPORTED
  */
 
+#if 0
 /*
  * [mk-array <sort1> <sort2> ] --> turned to function from <sort1> to <sort2>
  */
@@ -1977,6 +1552,7 @@ static void eval_smt2_mk_store(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_term_result(stack, t);
 }
 
+#endif
 
 /*
  * INDEXED CONSTRUCTORS
@@ -2071,15 +1647,11 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
     n = e->val.bv.bitsize;
     break;
 
-  case TAG_RATIONAL:
-    return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
+  case TAG_RATIONAL: // tau is either Bool or (_ BitVec n)
+    return false;
 
   case TAG_TERM:
     return yices_check_term_type(e->val.term, tau);
-
-  case TAG_ARITH_BUFFER:
-    return is_real_type(tau) ||
-      (is_integer_type(tau) && yices_arith_buffer_is_int(e->val.arith_buffer));
 
   case TAG_BVARITH64_BUFFER:
     n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);
@@ -2150,8 +1722,6 @@ static void shift_stack_elems(stack_elem_t *f, uint32_t n) {
     n --;
   }
 }
-
-
 
 
 
@@ -2295,10 +1865,6 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, MK_BV_ZERO_EXTEND, false, eval_smt2_mk_bv_zero_extend, check_smt2_mk_bv_zero_extend);
   tstack_add_op(stack, MK_IMPLIES, false, eval_smt2_mk_implies, check_smt2_mk_implies);
   tstack_add_op(stack, MK_EQ, false, eval_smt2_mk_eq, check_smt2_mk_eq);
-  tstack_add_op(stack, MK_GE, false, eval_smt2_mk_ge, check_smt2_mk_ge);
-  tstack_add_op(stack, MK_GT, false, eval_smt2_mk_gt, check_smt2_mk_gt);
-  tstack_add_op(stack, MK_LE, false, eval_smt2_mk_le, check_smt2_mk_le);
-  tstack_add_op(stack, MK_LT, false, eval_smt2_mk_lt, check_smt2_mk_lt);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
   tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);
@@ -2316,8 +1882,8 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_POP, false, eval_smt2_pop, check_smt2_pop);
   tstack_add_op(stack, SMT2_ASSERT, false, eval_smt2_assert, check_smt2_assert);
   tstack_add_op(stack, SMT2_CHECK_SAT, false, eval_smt2_check_sat, check_smt2_check_sat);
-  tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_smt2_declare_sort, check_smt2_declare_sort);
-  tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
+  tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_not_supported, check_not_supported);
   tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);
   tstack_add_op(stack, SMT2_DEFINE_FUN, false, eval_smt2_define_fun, check_smt2_define_fun);
 
@@ -2327,9 +1893,6 @@ void init_smt2_tstack(tstack_t *stack) {
 
   tstack_add_op(stack, SMT2_MAKE_ATTR_LIST, false, eval_smt2_make_attr_list, check_smt2_make_attr_list);
   tstack_add_op(stack, SMT2_ADD_ATTRIBUTES, false, eval_smt2_add_attributes, check_smt2_add_attributes);
-  tstack_add_op(stack, SMT2_MK_ARRAY, false, eval_smt2_mk_array, check_smt2_mk_array);
-  tstack_add_op(stack, SMT2_MK_SELECT, false, eval_smt2_mk_select, check_smt2_mk_select);
-  tstack_add_op(stack, SMT2_MK_STORE, false, eval_smt2_mk_store, check_smt2_mk_store);
   tstack_add_op(stack, SMT2_INDEXED_SORT, false, eval_smt2_indexed_sort, check_smt2_indexed_sort);
   tstack_add_op(stack, SMT2_APP_INDEXED_SORT, false, eval_smt2_app_indexed_sort, check_smt2_app_indexed_sort);
   tstack_add_op(stack, SMT2_INDEXED_TERM, false, eval_smt2_indexed_term, check_smt2_indexed_term);
@@ -2339,11 +1902,31 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_SORTED_APPLY, false, eval_smt2_sorted_apply, check_smt2_sorted_apply);
   tstack_add_op(stack, SMT2_SORTED_INDEXED_APPLY, false, eval_smt2_sorted_indexed_apply, check_smt2_sorted_indexed_apply);
 
-  tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_smt2_to_real, check_smt2_to_real);
-  tstack_add_op(stack, SMT2_MK_DIV, false, eval_smt2_div, check_smt2_div);
-  tstack_add_op(stack, SMT2_MK_MOD, false, eval_smt2_mod, check_smt2_mod);
-  tstack_add_op(stack, SMT2_MK_ABS, false, eval_smt2_abs, check_smt2_abs);
-  tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_smt2_to_int, check_smt2_to_int);
-  tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_smt2_is_int, check_smt2_is_int);
-  tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_smt2_divisible, check_smt2_divisible);
+  // All the following operations are not supported.
+  // We keep them around to avoid changing the parser.
+  tstack_add_op(stack, SMT2_MK_SUB, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_ADD, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_MUL, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_DIVISION, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_LE, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_LT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_GE, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_GT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_INT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_REAL, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_DIV, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_MOD, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_ABS, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_ARRAY, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_SELECT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_STORE, false, eval_not_supported, check_not_supported);
+
+  tstack_add_op(stack, SMT2_MK_FORALL, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_EXISTS, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_DECLARE_VAR, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_DECLARE_TYPE_VAR, false, eval_not_supported, check_not_supported);
 }

@@ -232,6 +232,14 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
+	frontend/smt2/parenthesized_expr.c \
+	frontend/smt2/smt2_commands.c \
+	frontend/smt2/smt2_expressions.c \
+	frontend/smt2/smt2_lexer.c \
+	frontend/smt2/smt2_model_printer.c \
+	frontend/smt2/smt2_parser.c \
+	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_term_stack.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
 	model/large_bvsets.c \
@@ -269,6 +277,7 @@ bin_src_c := \
 	frontend/yices_sat.c \
 	frontend/yices_smt.c \
 	frontend/yices_smtcomp.c \
+	frontend/yices_smt2.c \
 
 #
 # Auto-generated version file

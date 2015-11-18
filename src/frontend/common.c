@@ -365,13 +365,22 @@ void save_ctx_params(ctx_param_t *ctx_parameters, context_t *context) {
   assert(ctx_parameters != NULL);
   assert(context != NULL);
   ctx_parameters->var_elim = context_var_elim_enabled(context);
-  ctx_parameters->arith_elim = context_arith_elim_enabled(context);
   ctx_parameters->bvarith_elim = context_bvarith_elim_enabled(context);
   ctx_parameters->flatten_or = context_flatten_or_enabled(context);
-  ctx_parameters->eq_abstraction = context_eq_abstraction_enabled(context);
-  ctx_parameters->keep_ite = context_keep_ite_enabled(context);
-  ctx_parameters->splx_eager_lemmas = splx_eager_lemmas_enabled(context);
-  ctx_parameters->splx_periodic_icheck = splx_periodic_icheck_enabled(context);
 }
 
+
+
+/*
+ * Store some defaults for both ctx_parameters and parameters based on the logic, architecture, and mode
+ */
+void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters,
+			smt_logic_t logic, context_arch_t arch, context_mode_t mode) {
+
+  ctx_parameters->var_elim = true;
+  ctx_parameters->bvarith_elim = true;
+  ctx_parameters->flatten_or = true;
+
+  yices_set_default_params(parameters, logic, arch, mode);
+}
 

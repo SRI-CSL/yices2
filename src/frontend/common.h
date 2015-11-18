@@ -13,7 +13,8 @@
 
 #include <stdio.h>
 
-#include "exists_forall/ef_client.h"
+#include "api/search_parameters.h"
+#include "context/context_types.h"
 
 /*
  * Table to convert  smt_status to a string
@@ -21,30 +22,16 @@
 extern const char* const status2string[];
 
 /*
- * Conversion of EF preprocessing codes to string
- */
-extern const char * const efcode2error[];
-
-/*
- * Table to convert  ef-solver status to a string
- */
-extern const char* const ef_status2string[];
-
-/*
  * Conversion of internalization code to an error message
  */
 extern const char * const code2error[];
 
-
-
 /*
  * Tables for converting parameter id to parameter name
- * and branching code to branching name. One more table
- * for converting from EF generalization codes to strings.
+ * and branching code to branching name. 
  */
 extern const char *param2string[];
 extern const char *branching2string[];
-extern const char *efgen2string[];
 
 /*
  * Ask for a bug report
@@ -152,14 +139,6 @@ extern bool param_val_to_factor(const char *name, const param_val_t *v, double *
  */
 extern bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value, char **reason);
 
-/*
- * EF generalization mode
- * - allowed modes are 'none' 'substitution' 'projection' 'auto'
- * - we use a general implementation so that we can add more modes later
- */
-extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
-
-
 
 /*
  * Preprocessing and simplification options
@@ -168,13 +147,8 @@ extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_
  */
 typedef struct ctx_param_s {
   bool var_elim;
-  bool arith_elim;
   bool bvarith_elim;
   bool flatten_or;
-  bool eq_abstraction;
-  bool keep_ite;
-  bool splx_eager_lemmas;
-  bool splx_periodic_icheck;
 } ctx_param_t;
 
 

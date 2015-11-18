@@ -63,6 +63,12 @@ void init_strmap(strmap_t *hmap, uint32_t n) {
 
 
 /*
+ * Deleted records are marked by setting key to DELETED_KEY.
+ * Empty records have key = NULL.
+ */
+#define DELETED_KEY ((char *) 1)
+
+/*
  * Check whether key is valid (i.e., not NULL or DELETED_KEY)
  */
 #define MASK_TAG ((uintptr_t) 3)

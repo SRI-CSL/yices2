@@ -43,7 +43,6 @@
 #include "io/tracer.h"
 #include "frontend/smt2/smt2_expressions.h"
 
-#include "exists_forall/ef_client.h"
 
 /*
  * New exception codes
@@ -156,18 +155,35 @@ enum smt2_opcodes {
   SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
   SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
   SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
-  // more arithmetic operators
+
+  // arithmetic operators (not supported by this version)
+  SMT2_MK_SUB,
+  SMT2_MK_ADD,
+  SMT2_MK_MUL,
+  SMT2_MK_DIVISION,
+  SMT2_MK_LE,
+  SMT2_MK_LT,
+  SMT2_MK_GE,
+  SMT2_MK_GT,
+  SMT2_MK_INT,
+  SMT2_MK_REAL,
   SMT2_MK_TO_REAL,
-  // more of them: not implemented yet
   SMT2_MK_DIV,
   SMT2_MK_MOD,
   SMT2_MK_ABS,
   SMT2_MK_TO_INT,
   SMT2_MK_IS_INT,
   SMT2_MK_DIVISIBLE,
+
+  // quantifiers: not supported either + type variables
+  SMT2_MK_FORALL,
+  SMT2_MK_EXISTS,
+  SMT2_DECLARE_VAR,
+  SMT2_DECLARE_TYPE_VAR,
+
 } smt2_opcodes_t;
 
-#define NUM_SMT2_OPCODES (SMT2_MK_DIVISIBLE+1)
+#define NUM_SMT2_OPCODES (SMT2_DECLARE_TYPE_VAR+1)
 
 
 /*
@@ -211,17 +227,15 @@ typedef struct named_term_stack_s {
  *   enable declarations to have global scope).
  *
  * To support these features:
- * - we use a stack that keeps tracks of (push n) and of
- *   term/type/macro names.
+ * - we use a stack that keeps tracks of (push n) and of term/type.
  * - we convert (push n) when n > 1 to (n-1) no ops followed by a single
  *   real (push) on the context.
  *
- * We use three name_stacks to store symbols (for terms, types, and macros).
+ * We use two name_stacks to store symbols (for terms, types).
  * For each (push n): we store
  * - multiplicity = n
  * - term_dcls = number of term declarations so far
  * - type_dcls = number of type declarations
- * - macro_dcls = number of type macro declarations
  * - named_bools = number of named Booleans
  * - named_asserts = number of named assertions
  *
@@ -242,7 +256,6 @@ typedef struct smt2_push_rec_s {
   uint32_t multiplicity;
   uint32_t term_decls;
   uint32_t type_decls;
-  uint32_t macro_decls;
   uint32_t named_bools;
   uint32_t named_asserts;
 } smt2_push_rec_t;
@@ -334,11 +347,6 @@ typedef struct smt2_globals_s {
   // logic name
   char *logic_name;
 
-  // exists_forall fields
-  // true indicates we will be using the exists_forall solver
-  bool efmode;
-  ef_client_t ef_client_globals;
-  
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
@@ -371,7 +379,6 @@ typedef struct smt2_globals_s {
   smt2_stack_t stack;
   smt2_name_stack_t term_names;
   smt2_name_stack_t type_names;
-  smt2_name_stack_t macro_names;
 
   // stacks for named booleans and named assertions
   named_term_stack_t named_bools;
@@ -579,27 +586,6 @@ extern void smt2_assert(term_t t);
  * Check satisfiability of the current set of assertions
  */
 extern void smt2_check_sat(void);
-
-
-/*
- * Declare a new sort:
- * - name = sort name
- * - arity = arity
- *
- * If arity is 0, this defines a new uninterpreted type.
- * Otherwise, this defines a new type constructor.
- */
-extern void smt2_declare_sort(const char *name, uint32_t arity);
-
-
-/*
- * Define a new type macro
- * - name = macro name
- * - n = number of variables
- * - var = array of type variables
- * - body = type expression
- */
-extern void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body);
 
 
 /*
