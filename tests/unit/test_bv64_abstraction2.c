@@ -136,9 +136,9 @@ static inline int64_t max_int(uint32_t k) {
  * Create a set of intervals for bitvectors of n bits
  * - store them in array a
  * - n must be at least 4
- * - this creates 26 intervals
+ * - this creates 30 intervals
  */
-static void make_interval_set(bv64_abs_t a[26], uint32_t n) {
+static void make_interval_set(bv64_abs_t a[30], uint32_t n) {
   int64_t min, max;
 
   assert(n >= 4 && n <= 64);
@@ -184,6 +184,12 @@ static void make_interval_set(bv64_abs_t a[26], uint32_t n) {
   make_interval(a+23, -5, 4, 2);
   make_interval(a+24, -5, 4, 2^1);
   make_interval(a+25, -5, 4, 10);
+
+  // corner cases: max is 0
+  make_interval(a+26, -7, 0, sign_undef);
+  make_interval(a+27, -7, 0, 2);
+  make_interval(a+28, -7, 0, 2^1);
+  make_interval(a+29, -7, 0, 10);
 }
 
 
@@ -307,14 +313,14 @@ static void run_tests(const bv64_abs_t *a, uint32_t n) {
 /*
  * Global array for testing
  */
-static bv64_abs_t tst[26];
+static bv64_abs_t tst[30];
 
 int main(void) {
   uint32_t i;
 
   for (i=4; i<=64; i+=4) {
     make_interval_set(tst, i);
-    run_tests(tst, 26);
+    run_tests(tst, 30);
   }
 
   return 0;

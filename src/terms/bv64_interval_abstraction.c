@@ -658,48 +658,48 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
   if (a->sign == sign_zero) {
     if (b->sign == sign_zero) {
       // 0 <= [L1, H1] and 0 <= [L2, H2], the result is [L1.L2, H1.H2]
-      low = mul(a->low, b->low, &ovlow);
-      high = mul(a->high, b->high, &ovhigh);
+      low = mul(a->low, b->low, &ovlow);     // L1.L2 >= 0
+      high = mul(a->high, b->high, &ovhigh); // H1.H2 > 0
       sign = sign_zero;
     } else if (b->sign == sign_one) {
       // 0 <= [L1, H1] and [L2, H2] < 0, the result is [H1.L2, L1.H2]
-      low = mul(a->high, b->low, &ovlow);
-      high = mul(a->low, b->high, &ovhigh);
+      low = mul(a->high, b->low, &ovlow);   // H1.L2 < 0 (because H1>0)
+      high = mul(a->low, b->high, &ovhigh); // L1.H2 <= 0
       sign = (a->low == 0) ? sign_undef : sign_one;
     } else {
       // 0 <= [L1, H1] and L2 < 0 <= H2, the result is [H1.L2, H1.H2]
-      low = mul(a->high, b->low, &ovlow);
-      high = mul(a->high, b->high, &ovhigh);
-      sign = (a->low == 0) ? sign_undef : b->sign; // because H1>0
+      low = mul(a->high, b->low, &ovlow);    // H1.L2 < 0 (because H1>0)
+      high = mul(a->high, b->high, &ovhigh); // H1.H2 >= 0
+      sign = (a->low == 0) ? sign_undef : b->sign; 
     }
   } else if (a->sign == sign_one) {
     if (b->sign == sign_zero) {
       // [L1, H1] < 0 and 0 <= [L2, H2], the result is [L1.H2, H1.L2]
-      low = mul(a->low, b->high, &ovlow);
-      high = mul(a->high, b->low, &ovhigh);
+      low = mul(a->low, b->high, &ovlow);    // L1.H2 < 0 (because H2>0)
+      high = mul(a->high, b->low, &ovhigh);  // H1.L2 <= 0
       sign = (b->low == 0) ? sign_undef : sign_one;
     } else if (b->sign == sign_one) {
       // [L1, H1] < 0 and [L2, H2] < 0, the result is [H1.H2, L1.L2]
-      low = mul(a->high, b->high, &ovlow);
-      high = mul(a->low, b->low, &ovhigh);
+      low = mul(a->high, b->high, &ovlow);   // H1.H2 > 0
+      high = mul(a->low, b->low, &ovhigh);   // L1.L2 > 0
       sign = sign_zero;
     } else {
       // [L1, H1] < 0 and L2 < 0 <= H2, the result is [L1.H2, L1.L2]
-      low = mul(a->low, b->high, &ovlow);
-      high = mul(a->low, b->low, &ovhigh);
-      sign = sign_undef;
+      low = mul(a->low, b->high, &ovlow);    // L1.H2 <= 0
+      high = mul(a->low, b->low, &ovhigh);   // L1.L2 > 0
+      sign = (low == 0) ? sign_zero : sign_undef;
     }
   } else {
     if (b->sign == sign_zero) {
       // L1 < 0 <= H1 and 0 <= [L2, H2], the result is [L1.H2, H1.H2]
-      low = mul(a->low, b->high, &ovlow);
-      high = mul(a->high, b->high, &ovhigh); 
-      sign = a->sign;
+      low = mul(a->low, b->high, &ovlow);     // L1.H2 < 0 since H2>0
+      high = mul(a->high, b->high, &ovhigh);  // H1.H2 >= 0
+      sign = (b->low == 0) ? sign_undef : a->sign;
     } else if (b->sign == sign_one) {
       // L1 < 0 <= H1 and [L2, H2] < 0, the result is [H1.L2, L1.L2]
-      low = mul(a->high, b->low, &ovlow);
-      high = mul(a->low, b->low, &ovhigh);
-      sign = sign_undef;
+      low = mul(a->high, b->low, &ovlow);     // H1.L2 <= 0
+      high = mul(a->low, b->low, &ovhigh);    // L1.L2 > 0
+      sign = (low == 0) ? sign_zero : sign_undef;
     } else if (b->sign == a->sign && a->sign != sign_undef) {
       // L1 < 0 <= H1 and L2 < 0 <= H2, both vectors have the same sign
       // the result is [0, max(L1.L2, H1.H2)]
@@ -710,6 +710,7 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
     } else if (bv64_abs_opposite_signs(a, b)) {
       // L1 < 0 <= H1 and L2 < 0 <= H2, vectors of opposite signs
       // the result is [min(L1.H2, H1.L2), 0]
+      // we have L1.H2 <= 0 and H1.L2 <= 0
       low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
       high = 0;
       ovhigh = false;
@@ -717,6 +718,7 @@ void bv64_abs_mul(bv64_abs_t *a, const bv64_abs_t *b) {
     } else {
       // L1 < 0 <= H1 and L2 < 0 <= H2,
       // the result is [min(L1.H2, H1.L2), max(L1.L2, H1.H2)]
+      // we have L1.H2 <= 0 and H1.L2 <= 0 so the min may be 0
       low = min_mul(a->low, b->high, a->high, b->low, &ovlow);
       high = max_mul(a->low, b->low, a->high, b->high, &ovhigh);
       sign = (low == 0) ? sign_zero : sign_undef;
