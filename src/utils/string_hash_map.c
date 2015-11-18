@@ -61,6 +61,11 @@ void init_strmap(strmap_t *hmap, uint32_t n) {
   hmap->cleanup_threshold = (uint32_t) (n * STRMAP_CLEANUP_RATIO);
 }
 
+/*
+ * Deleted records are marked by setting key to DELETED_KEY.
+ * Empty records have key = NULL.
+ */
+#define DELETED_KEY ((char *) 1)
 
 /*
  * Check whether key is valid (i.e., not NULL or DELETED_KEY)
