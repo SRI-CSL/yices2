@@ -325,6 +325,7 @@ extern void bv64_abstract_term(term_table_t *tbl, term_t t, bv64_abs_t *a);
  */
 extern void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t *a);
 extern void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a);
+extern void bv64_abs_buffer(term_table_t *tbl, bvarith64_buffer_t *p, uint32_t nbits, bv64_abs_t *a);
 
 
 

@@ -43,6 +43,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   manager->arith_buffer = NULL;
   manager->bvarith_buffer = NULL;
   manager->bvarith64_buffer = NULL;
+  manager->bvarith64_aux_buffer = NULL;
   manager->bvlogic_buffer = NULL;
   manager->pp_buffer = NULL;
 
@@ -181,6 +182,25 @@ pp_buffer_t *term_manager_get_pp_buffer(term_manager_t *manager) {
 
 
 /*
+ * Auxiliary buffer: reserved for internal use
+ */
+static bvarith64_buffer_t *term_manager_get_bvarith64_aux_buffer(term_manager_t *manager) {
+  bvarith64_buffer_t *tmp;
+  object_store_t *mstore;
+
+  tmp = manager->bvarith64_aux_buffer;
+  if (tmp == NULL) {
+    mstore = term_manager_get_bvarith64_store(manager);
+    tmp = (bvarith64_buffer_t *) safe_malloc(sizeof(bvarith64_buffer_t));
+    init_bvarith64_buffer(tmp, manager->pprods, mstore);
+    manager->bvarith64_aux_buffer = tmp;
+  }
+
+  return tmp;  
+}
+
+
+/*
  * Delete all: free memory
  */
 static void term_manager_free_nodes(term_manager_t *manager) {
@@ -271,10 +291,22 @@ static void term_manager_free_pp_buffer(term_manager_t *manager) {
   }
 }
 
+static void term_manager_free_bvarith64_aux_buffer(term_manager_t *manager) {
+  bvarith64_buffer_t *tmp;
+
+  tmp = manager->bvarith64_aux_buffer;
+  if (tmp != NULL) {
+    delete_bvarith64_buffer(tmp);
+    safe_free(tmp);
+    manager->bvarith64_aux_buffer = NULL;
+  }
+}
+
 void delete_term_manager(term_manager_t *manager) {
   term_manager_free_arith_buffer(manager);
   term_manager_free_bvarith_buffer(manager);
   term_manager_free_bvarith64_buffer(manager);
+  term_manager_free_bvarith64_aux_buffer(manager);
   term_manager_free_bvlogic_buffer(manager);
   term_manager_free_pp_buffer(manager);
 
@@ -303,6 +335,9 @@ void reset_term_manager(term_manager_t *manager) {
   }
   if (manager->bvarith64_buffer != NULL) {
     reset_bvarith64_buffer(manager->bvarith64_buffer);
+  }
+  if (manager->bvarith64_aux_buffer != NULL) {
+    reset_bvarith64_buffer(manager->bvarith64_aux_buffer);
   }
   if (manager->bvlogic_buffer != NULL) {
     bvlogic_buffer_clear(manager->bvlogic_buffer);
@@ -4385,7 +4420,7 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
   }
 
  done:
-  bvarith_buffer_prepare(b, 32); // reset b, any positive n would do
+  reset_bvarith_buffer(b);
   assert(is_bitvector_term(manager->terms, t) &&
          term_bitsize(manager->terms, t) == n);
 
@@ -4411,9 +4446,6 @@ static void test_width(term_manager_t *manager, term_t t) {
     printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
     fflush(stdout);
   }
-}
-#else
-static inline void test_width(term_manager_t *manager, term_t t) {
 }
 #endif
 
@@ -4488,6 +4520,84 @@ static term_t mk_pprod64_term(term_manager_t *manager, uint32_t n, pprod_t *p) {
   return t;
 }
 
+
+/*
+ * Truncate a polynomial to n bits
+ * - b = buffer that stores the polynomial
+ * - b must be normalized
+ * - return a term
+ */
+static term_t truncate_bvarith64_buffer(term_manager_t *manager, bvarith64_buffer_t *b, uint32_t n) {
+  bvarith64_buffer_t *aux;
+  bvmlist64_t *q;
+  pprod_t *r;
+  uint64_t c;
+  uint32_t i, m;
+  term_t t;
+
+  assert(1 <= n && n <= 64);
+
+  aux = term_manager_get_bvarith64_aux_buffer(manager);
+  bvarith64_buffer_prepare(aux, n);
+
+  m = b->nterms;
+  q = b->list;
+  assert(m >= 1);
+  for (i=0; i<m; i++) {
+    r = q->prod;
+    c = norm64(q->coeff, n); // coeff truncated to n bits
+    if (r == empty_pp) {
+      bvarith64_buffer_add_const(aux, c);
+    } else if (pp_is_var(r)) {
+      t = truncate_bv_term(manager, n, var_of_pp(r));
+      bvarith64_buffer_add_varmono(aux, c, t);
+    } else {
+      r = truncate_pprod(manager, n, r);
+      bvarith64_buffer_add_mono(aux, c, r);
+    }
+    q = q->next;
+  }
+
+  bvarith64_buffer_normalize(aux);
+  t = bv64_poly(manager->terms, aux);
+  reset_bvarith64_buffer(aux);
+
+  return t;
+}
+
+
+/*
+ * Check whether we can reduce b's width.
+ * - if so return the (sign extend (reduced width term) ...)
+ * - otherwise return NULL_TERM
+ */
+static term_t try_bvarith64_truncation(term_manager_t *manager, bvarith64_buffer_t *b) {
+  bv64_abs_t abs;
+  uint32_t n;
+  term_t t;
+
+  n = b->bitsize;
+  assert(1 <= n && n <= 64);
+  bv64_abs_buffer(manager->terms, b, n, &abs);
+
+#if 0
+  if (bv64_abs_nontrivial(&abs, n)) {
+    printf("---> reducible polynomial: %"PRIu32" bits\n", n);
+    printf("     [%"PRId64", %"PRId64"] (%"PRIu32" bits)\n", abs.low, abs.high, abs.nbits);
+    fflush(stdout);
+  }
+#endif
+
+  t = NULL_TERM;
+  if (abs.nbits < n) {
+    t = truncate_bvarith64_buffer(manager, b, abs.nbits);
+    t = mk_sign_extend_term(manager, t, n);
+  }
+
+  return t;
+}
+
+
 /*
  * Normalize b then convert it to a term and reset b
  */
@@ -4527,15 +4637,18 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
 
   // try to convert to a bvarray term
   t = convert_bvarith64_to_bvarray(manager, b);
-  if (t == NULL_TERM) {
-    // conversion failed: build a bvpoly
-    t = bv64_poly(manager->terms, b);
-    test_width(manager, t);
-  }
+  if (t != NULL_TERM) goto done;
+
+  // try width reduction
+  t = try_bvarith64_truncation(manager, b);
+  if (t != NULL_TERM) goto done;
+
+  // default
+  t = bv64_poly(manager->terms, b);
 
 
  done:
-  bvarith64_buffer_prepare(b, 32); // reset b, any positive n would do
+  reset_bvarith64_buffer(b);
   assert(is_bitvector_term(manager->terms, t) &&
          term_bitsize(manager->terms, t) == n);
 

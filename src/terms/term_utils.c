@@ -2051,6 +2051,40 @@ void bv64_abs_pprod(term_table_t *tbl, pprod_t *p, uint32_t nbits, bv64_abs_t *a
 
 
 /*
+ * Compute the abstraction of c * r then add it to a
+ * - nbits = number of bits in c and r
+ * - return true if the result is not trivial
+ * - return false otherwise and set a to the default abstraction
+ */
+static bool bv64_addmul_pprod_abs(term_table_t *tbl, pprod_t *r, uint64_t c, uint32_t nbits, bv64_abs_t *a) {
+  bv64_abs_t aux;
+  bool nontrivial;
+
+  assert(r != empty_pp);
+
+  if (pp_is_var(r)) {
+    bv64_abstract_term(tbl, var_of_pp(r), &aux);
+  } else {
+    bv64_abs_pprod(tbl, r, nbits, &aux);
+  }
+  nontrivial = bv64_abs_nontrivial(&aux, nbits);
+  if (c != 1 && nontrivial) {
+    bv64_abs_mul_const(&aux, c, nbits);
+    nontrivial = bv64_abs_nontrivial(&aux, nbits);
+  }
+  if (nontrivial) {
+    bv64_abs_add(a, &aux);
+    nontrivial = bv64_abs_nontrivial(a, nbits);
+  }
+  if (!nontrivial) {
+    bv64_abs_default(a, nbits);
+  }
+
+  return nontrivial;
+}
+
+
+/*
  * Abstraction for a polynomial
  * - stops as soon as the abstraction is too imprecise
  * - nbits = number of bits
@@ -2075,6 +2109,39 @@ void bv64_abs_poly(term_table_t *tbl, bvpoly64_t *p, uint32_t nbits, bv64_abs_t 
     }
     i ++;
   }
+}
+
+/*
+ * Abstraction for an bvarith buffer
+ * - stops as soon as the abstraction is too imprecise
+ * - nbits = number of bits
+ */
+void bv64_abs_buffer(term_table_t *tbl, bvarith64_buffer_t *b, uint32_t nbits, bv64_abs_t *a) {
+  uint32_t i, n;
+  bvmlist64_t *q;
+
+  assert(b->bitsize == nbits);
+
+  n = b->nterms;
+  q = b->list;
+  i = 0;
+  
+  // the constant is first 
+  if (q->prod == empty_pp) {
+    bv64_abs_constant(a, q->coeff, nbits);
+    i ++;
+    q = q->next;
+  } else {
+    bv64_abs_zero(a);
+  }
+
+  while (i<n) {
+    if (!bv64_addmul_pprod_abs(tbl, q->prod, q->coeff, nbits, a)) {
+      break;
+    }
+    i ++;
+    q = q->next;
+  }  
 }
 
 

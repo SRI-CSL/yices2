@@ -42,7 +42,7 @@
  * Internal buffers: allocated lazily too
  * - arith_buffer = for arithmetic polynomials
  * - bvarith_buffer = for bit-vector polynomials
- * - bvarith64_buffer = for bit-vector polynomials (64bit coefficients)
+ * - bvarith64_buffer, bvarith64_aux = for bit-vector polynomials (64bit coefficients)
  * - bvlogic_buffer = for other bit-vector constructs
  * - pp_buffer = for power products
  *
@@ -62,6 +62,7 @@ typedef struct term_manager_s {
   rba_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
   bvarith64_buffer_t *bvarith64_buffer;
+  bvarith64_buffer_t *bvarith64_aux_buffer;
   bvlogic_buffer_t *bvlogic_buffer;
   pp_buffer_t *pp_buffer;
 
