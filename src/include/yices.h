@@ -2014,7 +2014,10 @@ __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, 
 __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
 
 
-
+/*
+ * PRQA Special
+ */
+  __YICES_DLLSPEC__ extern void yices_init_params_to_default(param_t *param);
 
 
 /**************

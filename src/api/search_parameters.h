@@ -18,6 +18,9 @@
 
 #include "yices_types.h"
 
+#if 0
+// MADE THIS PUBLIC (DEFINED IN yices_types.h) FOR BACKWARD
+// COMPATIBILITY WITH PRQA
 
 /*
  * Possible branching heuristics:
@@ -87,6 +90,7 @@ struct param_s {
   float    clause_decay;    // decay factor for learned-clause activity
 };
 
+#endif
 
 
 /************************

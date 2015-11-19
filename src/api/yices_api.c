@@ -4402,6 +4402,13 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
 }
 
 
+/*
+ * More stuff for PRQA
+ */
+EXPORTED void yices_init_params_to_default(param_t *param) {
+  init_params_to_defaults(param);
+}
+
 
 /*************************
  *  CONTEXT OPERATIONS   *
