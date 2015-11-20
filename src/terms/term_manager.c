@@ -43,7 +43,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   manager->arith_buffer = NULL;
   manager->bvarith_buffer = NULL;
   manager->bvarith64_buffer = NULL;
-  manager->bvarith64_aux_buffer = NULL;
+  //  manager->bvarith64_aux_buffer = NULL;
   manager->bvlogic_buffer = NULL;
   manager->pp_buffer = NULL;
 
@@ -181,6 +181,7 @@ pp_buffer_t *term_manager_get_pp_buffer(term_manager_t *manager) {
 }
 
 
+#if 0
 /*
  * Auxiliary buffer: reserved for internal use
  */
@@ -198,7 +199,7 @@ static bvarith64_buffer_t *term_manager_get_bvarith64_aux_buffer(term_manager_t 
 
   return tmp;  
 }
-
+#endif
 
 /*
  * Delete all: free memory
@@ -291,6 +292,7 @@ static void term_manager_free_pp_buffer(term_manager_t *manager) {
   }
 }
 
+#if 0
 static void term_manager_free_bvarith64_aux_buffer(term_manager_t *manager) {
   bvarith64_buffer_t *tmp;
 
@@ -301,12 +303,13 @@ static void term_manager_free_bvarith64_aux_buffer(term_manager_t *manager) {
     manager->bvarith64_aux_buffer = NULL;
   }
 }
+#endif
 
 void delete_term_manager(term_manager_t *manager) {
   term_manager_free_arith_buffer(manager);
   term_manager_free_bvarith_buffer(manager);
   term_manager_free_bvarith64_buffer(manager);
-  term_manager_free_bvarith64_aux_buffer(manager);
+  //  term_manager_free_bvarith64_aux_buffer(manager); NEVER USED
   term_manager_free_bvlogic_buffer(manager);
   term_manager_free_pp_buffer(manager);
 
@@ -336,9 +339,9 @@ void reset_term_manager(term_manager_t *manager) {
   if (manager->bvarith64_buffer != NULL) {
     reset_bvarith64_buffer(manager->bvarith64_buffer);
   }
-  if (manager->bvarith64_aux_buffer != NULL) {
-    reset_bvarith64_buffer(manager->bvarith64_aux_buffer);
-  }
+  //  if (manager->bvarith64_aux_buffer != NULL) {
+  //    reset_bvarith64_buffer(manager->bvarith64_aux_buffer);
+  //  }
   if (manager->bvlogic_buffer != NULL) {
     bvlogic_buffer_clear(manager->bvlogic_buffer);
   }
@@ -4520,6 +4523,8 @@ static term_t mk_pprod64_term(term_manager_t *manager, uint32_t n, pprod_t *p) {
   return t;
 }
 
+#if 0
+// THIS MAKES THINGS WORSE
 
 /*
  * Truncate a polynomial to n bits
@@ -4596,7 +4601,7 @@ static term_t try_bvarith64_truncation(term_manager_t *manager, bvarith64_buffer
 
   return t;
 }
-
+#endif
 
 /*
  * Normalize b then convert it to a term and reset b
@@ -4639,9 +4644,12 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
   t = convert_bvarith64_to_bvarray(manager, b);
   if (t != NULL_TERM) goto done;
 
+#if 0
+  // THIS MAKES THINGS WORSE
   // try width reduction
   t = try_bvarith64_truncation(manager, b);
   if (t != NULL_TERM) goto done;
+#endif
 
   // default
   t = bv64_poly(manager->terms, b);
