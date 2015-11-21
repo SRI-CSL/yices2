@@ -106,6 +106,9 @@ static_objdir := $(build_dir)/static_obj
 static_libdir := $(build_dir)/static_lib
 static_bindir := $(build_dir)/static_bin
 
+dyn_objsubdirs := $(srcsubdirs:%=$(dyn_objdir)/%)
+static_objsubdirs := $(srcsubdirs:%=$(static_objdir)/%)
+
 #
 # Binary distributions:
 #
@@ -150,10 +153,9 @@ $(build_dir):
 
 $(dyn_objdir):
 	$(MKDIR_P) $(dyn_objdir)
-	for subdir in $(srcsubdirs); \
-	do \
-		$(MKDIR_P) $(dyn_objdir)/$$subdir; \
-	done
+
+$(dyn_objsubdirs): $(dyn_objdir)
+	$(MKDIR_P) $@
 
 $(dyn_libdir):
 	$(MKDIR_P) $(dyn_libdir)
@@ -162,11 +164,10 @@ $(dyn_bindir):
 	$(MKDIR_P) $(dyn_bindir)
 
 $(static_objdir):
-	$(MKDIR_P) $(dyn_objdir)
-	for subdir in $(srcsubdirs); \
-	do \
-		$(MKDIR_P) $(static_objdir)/$$subdir; \
-	done
+	$(MKDIR_P) $(static_objdir)
+
+$(static_objsubdirs): $(static_objdir)
+	$(MKDIR_P) $@
 
 $(static_libdir):
 	$(MKDIR_P) $(static_libdir)
@@ -181,8 +182,8 @@ $(static_distdir):
 	$(MKDIR_P) $(static_distdir)
 
 
-build_subdirs: $(build_dir) $(dyn_objdir) $(dyn_libdir) $(dyn_bindir) \
-	 $(static_objdir) $(static_libdir) $(static_bindir)
+build_subdirs: $(build_dir) $(dyn_objsubdirs) $(dyn_libdir) $(dyn_bindir) \
+	 $(static_objsubdirs) $(static_libdir) $(static_bindir)
 
 .PHONY: build_subdirs
 
