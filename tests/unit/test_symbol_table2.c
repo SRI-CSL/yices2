@@ -136,6 +136,8 @@ int main(int argc, char *argv[]) {
   printf("\n*** Added %"PRIu32" words from %s ***\n", n_words, argv[1]);
 
   // repeated additions of the same symbols with multiple lookups
+  // warning: this code does not work (may give a false alarm)
+  // if the input file contains duplicates.
   n = (n_words < 200) ?  n_words : 200;
   printf("\n*** Repeated symbol addition ***\n");
   runtime = get_cpu_time();
