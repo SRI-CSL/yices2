@@ -5902,7 +5902,7 @@ static bool all_binary_clauses_are_true(smt_core_t *s) {
         // this loop terminates with l<0 (end-marker) if all clauses {l0, l} are true
         do {
 	  l = *v ++;
-	} while (literal_value(s, l) == VAL_TRUE);
+	} while (l >= 0 && literal_value(s, l) == VAL_TRUE);
         if (l >= 0) return false;
       }
     }
