@@ -80,7 +80,7 @@ struct param_s {
    * - d_threshold and d_threshold are ignored
    * - to get periodic restart set c_factor = 1.0
    */
-  bool     fast_restart;
+  int32_t  fast_restart;    // Boolean flag
   uint32_t c_threshold;     // initial value of c_threshold
   uint32_t d_threshold;     // initial value of d_threshold
   double   c_factor;        // increase factor for next c_threshold

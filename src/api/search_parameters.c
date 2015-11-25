@@ -212,11 +212,17 @@ param_t *get_default_params(void) {
  * Parse value as a boolean. Store the result in *v
  * - return 0 if this works
  * - return -2 otherwise
+ *
+ * HACK: the param_s structure is declared in yices_types.h.  To avoid
+ * problems with missing <stdbool.h>, I've changed the type to of 
+ * Boolean parameters to int32_t
  */
-static int32_t set_bool_param(const char *value, bool *v) {
+static int32_t set_bool_param(const char *value, int32_t *v) {
+  bool aux;
   int32_t k;
 
-  k = parse_as_boolean(value, v);
+  k = parse_as_boolean(value, &aux);
+  *v = aux;
   return (k == valid_boolean) ? 0 : -2;
 }
 
