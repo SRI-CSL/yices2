@@ -13,6 +13,11 @@
 
 #include "utils/string_hash_map.h"
 
+
+// Copied from string_hash_map.c
+#define DELETED_KEY ((char *) 1)
+
+
 static void print_map(strmap_t *hmap) {
   strmap_rec_t *d;
   uint32_t i;
