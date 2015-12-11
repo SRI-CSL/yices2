@@ -153,7 +153,7 @@ managers.  For example, on Ubuntu:
    sudo apt-get install gperf
 \end{verbatim}
 \end{small}
-After this, compiling and installing Yices uses the following standard steps:
+After this, compiling and installing Yices use the following standard steps:
 \begin{small}
 \begin{verbatim}
    ./configure
@@ -171,6 +171,40 @@ Cygwin DLLs) then you can compile form Cygwin using the MinGW
 cross-compilers.  The file \texttt{doc/COMPILING} included in the
 source distribution gives more details.
 
+
+\subsection{Nonlinear Arithmetic and MCSAT}
+\label{mcsat-install}
+
+Yices includes a solver for nonlinear arithmetic based on the Model
+Constructing Satisfiability Calculus (MCSAT). This calculus and its
+application to nonlinear arithmetic are explained
+in~\cite{Jovanovic-etal:MCSATb:2013}
+and~\cite{deMouraJovanovic:nla:2012}.
+
+The precompiled, binary distributions of Yices include the MCSAT
+solver and can process nonlinear arithmetic problems. If you build
+Yices from source and want support for nonlinear arithmetic, you must
+install an external library first and enable MCSAT support when you
+compile Yices.
+
+This library is called ``libpoly''. It implements various operations
+on polynomials used by the MCSAT solver. It is open source and it is
+available on GitHub (\url{https://github.com/SRI-CSL/libpoly}). Make
+sure that you download the latest version of libpoly. Yices~2.4.2
+requires libpoly v0.1.2.
+
+Once you have installed libpoly, you can compile Yices with MCSAT
+support as follows:
+\begin{small}
+\begin{verbatim}
+   ./configure --enable-mcsat
+   make -j
+   sudo make install
+\end{verbatim}
+\end{small}
+The usual environment variables (e.g., \texttt{CPPFLAGS} and
+\texttt{LDFLAGS}) can be used if you install libpoly in a non-standad
+location.
 
 
 \section{Content of the Distributions}
@@ -213,9 +247,8 @@ source. For more information, please visit the GMP website
 reproduced in Appendix~\ref{gmp-license}.
 
 Since release 2.4.0, Yices has optional support for nonlinear real
-arithmetic, using the Model Constructing Satisfiability Calculus
-(MCSAT)~\cite{deMouraJovanovic:nla:2012,deMouraJovanovic:MCSAT:2013,Jovanovic-etal:MCSATb:2013}. This
-depends on an external library for operations on polynomials which is
+arithmetic. As explained in Section~\ref{mcsat-install}, this depends
+on an external library for operations on polynomials which is
 available at~\url{https://github.com/SRI-CSL/libpoly}.
 
 
@@ -223,9 +256,8 @@ available at~\url{https://github.com/SRI-CSL/libpoly}.
 
 The current Yices~2 release supports quantifier-free combinations of
 linear integer and real arithmetic, uninterpreted function, arrays,
-and bitvectors. Currently, Yices~2 supports all SMT-LIB logics that do
+and bitvectors. Currently, Yices~2 supports most SMT-LIB logics that do
 not involve quantifiers as summarized in Table~\ref{supported-logics}.
-Yices~2 includes a solver for non-linear real arithmeitce
 The meaning of the logics and theories in this table is explained at
 the SMT-LIB website (\url{http://www.smtlib.org}).  In addition,
 Yices~2 supports a more general set of array operations than required
@@ -781,17 +813,12 @@ extract bits $i$ down to $j$ \\
 \label{bitvectors}
 \end{table}
 
-\medskip\noindent
-The semantics of all the bitvector operators is defined in the
-SMT-LIB standard.  Yices~2 follows the standard except for the
-case of division by zero.  In SMT-LIB, the result of a division by
-zero is an unspecified value, but one must ensure that the division
-operators are functional. In other words, SMT-LIB does not specify the
-result of $(\mathtt{bvudiv}\ a\ b)$ if $b$ is the zero vector, but
-$(\mathtt{bvudiv}\ a\ b)$ and $(\mathtt{bvudiv}\ c\ b)$ must be equal
-whenever $a = c$, even if $b$ is the zero vector. Yices~2 uses a
-simpler semantics (inspired by the BTOR
-format~\cite{Brummayer-etal:2008}):
+\medskip\noindent The semantics of all the bitvector operators is
+defined in the SMT-LIB standard. Like other SMT solvers, Yices~2
+follows the BTOR conventions for bitvector division by
+zero~\cite{Brummayer-etal:2008}. Until recently, this was not the
+semantics defined by the SMT-LIB standard. The SMT-LIB semantics
+changed in October 2015. It is now the same as BTOR:
 \begin{description}
 \item[Unsigned Division:]  If $b$ is  the zero bitvector  of $n$
   bits then
@@ -1018,10 +1045,11 @@ Model Constructing Satisfiability Calculus (MCSAT), and it is
 currently dedicated to quantifier-free nonlinear real arithmetic. The
 theory and implementation of MCSAT is discussed in several
 publications~\cite{Jovanovic-etal:MCSATb:2013,deMouraJovanovic:MCSAT:2013}.
-Currently, this solver can process input written the SMT-LIB~2.0
-notation. It does not support as many features as the CDCL-based
-solver described in the previous section. In particular, the MCSAT
-solver does not yet support incremental solving (i.e., push and pop).
+Currently, this solver can process input written in the SMT-LIB~2.0 or
+Yices notations. It does not support as many features as the
+CDCL-based solver described in the previous section. In particular,
+the MCSAT solver does not yet support incremental solving (i.e., push
+and pop).
 
 
 \chapter{Yices Tool}
@@ -1247,6 +1275,10 @@ options are supported.
   If  option  \texttt{--logic=NONE}   is  given,  then  \texttt{yices}
   includes no  theory solvers  at all. All  assertions must  be purely
   propositional (i.e., involve only Boolean terms).
+
+  With option \texttt{--logic=QF\_NRA}, the \texttt{yices} binary uses
+  its MCSAT solver for nonlinear real arithmetic. When this solver is
+  selected, incremental solving is not supported.
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
   \texttt{<solver>}     must    be     one     of    \texttt{simplex},

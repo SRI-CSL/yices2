@@ -23,6 +23,7 @@ API Reference
 
    version-data
    global-initialization
+   out-of-memory
    hard-limits
    api-types
    error-reports

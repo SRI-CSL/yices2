@@ -47,3 +47,5 @@ The following functions give access to the error report.
 
    To avoid memory leaks, the returned string must be freed when it is
    no longer used by calling :c:func:`yices_free_string`.
+
+

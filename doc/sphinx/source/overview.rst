@@ -42,12 +42,17 @@ file :file:`doc/COMPILING` included in the distribution.
 MCSAT and Nonlinear Arithmetic
 ..............................
 
-Yices now includes a new solver for nonlinear arithmetic based on the
-Model Constructing Satisfiability Calculus (MCSAT). This solver depends
-on an external library available at
-https://github.com/SRI-CSL/libpoly. It you need nonlinear arithmetic
-and want to compile Yices from the source, you must install this libpoly
-library first. Then, compile Yices with MCSAT support as follows:
+Yices now includes a solver for nonlinear arithmetic based on the
+Model Constructing Satisfiability Calculus (MCSAT). This solver
+depends on an external library for manipulating polynomials. If you
+need nonlinear arithmetic and want to compile Yices from the source,
+you must install this library first. Get it from our `GitHub
+repository <https://github.com/SRI-CSL/libpoly>`_ and follow the build
+instructions there.  Make sure to get the latest libpoly release
+(v0.1.2).
+
+Once you have installed libpoly, you can compile Yices with MCSAT
+support as follows:
 
 .. code-block:: sh
 

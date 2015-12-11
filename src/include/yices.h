@@ -1,5 +1,5 @@
 /*
- * The Yices SMT Solver. Copyright 2014 SRI International.
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
  * This program may only be used subject to the noncommercial end user
  * license agreement which is downloadable along with this program.
@@ -72,7 +72,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      4
-#define __YICES_VERSION_PATCHLEVEL 1
+#define __YICES_VERSION_PATCHLEVEL 2
 
 
 /*
@@ -136,6 +136,50 @@ __YICES_DLLSPEC__ extern void yices_free_string(char *s);
 
 
 
+/***************************
+ * OUT-OF-MEMORY CALLBACK  *
+ **************************/
+
+/*
+ * By default, when Yices runs out of memory, it
+ * first prints an error message on stderr; then it calls
+ * exit(YICES_EXIT_OUT_OF_MEMORY).  This kills the whole process.
+ *
+ * The following function allows you to register a callback to invoke
+ * if Yices runs out of memory.  The callback function takes no
+ * arguments and returns nothing.
+ *
+ * Installing an out-of-memory callback allows you to do something a
+ * bit less brutal than killing the process. If there's a callback,
+ * yices will call it first when it runs out of memory.  The callback
+ * function should not return. If it does, yices will call exit as
+ * previously.
+ *
+ * In other words, the code that handles out-of-memory is as follows:
+ *
+ *   if (callback != NULL) {
+ *     callback();
+ *   } else {
+ *     fprintf(stderr, ...);
+ *   }
+ *   exit(YICES_EXIT_OUT_OF_MEMORY);
+ *
+ *
+ * IMPORTANT
+ * ---------
+ * After Yices runs out of memory, its internal data structures may be
+ * left in an inconsistent/corrupted state. The API is effectively
+ * unusable at this point and nothing can be done to recover cleanly.
+ * Evan a call to yices_exit() may cause a seg fault. The callback
+ * should not try to cleanup anything, or call any function from the API.
+ * 
+ * A plausible use of this callback feature is to implement an
+ * exception mechanism using setjmp/longjmp.
+ */
+__YICES_DLLSPEC__ extern void yices_set_out_of_mem_callback(void (*callback)(void));
+
+
+
 /*********************
  *  ERROR REPORTING  *
  ********************/
@@ -190,45 +234,6 @@ __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
  * yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_error_string(void);
-
-
-
-/*
- * Register a callback function to invoke if Yices runs out of memory.
- * The callback function takes no arguments and returns nothing.
- *
- * By default, there's no callback. When Yices runs out of memory, it
- * first prints an error message on stderr; then it calls
- * exit(YICES_EXIT_OUT_OF_MEMORY).  This kills the whole process.
- *
- * Installing an out-of-memory callback allows you to do
- * something a bit less brutal. If there's a callback,
- * yices will call it first when it runs out of memory.
- * The callback function should not return. If it does,
- * yices will call exit as previously.
- *
- * In other words, the code that handles out-of-memory is as follows:
- *
- *   if (callback != NULL) {
- *     callback();
- *   } else {
- *     fprintf(stderr, ...);
- *   }
- *   exit(YICES_EXIT_OUT_OF_MEMORY);
- *
- *
- * IMPORTANT
- * ---------
- * After Yices runs out of memory, its internal data structures may be
- * left in an inconsistent/corrupted state. The API is effectively
- * unusable at this point and nothing can be done to recover cleanly.
- * Evan a call to yices_exit() may cause a seg fault. The callback
- * should not try to cleanup anything, or call any function from the API.
- * 
- * A plausible use of this callback feature is to implement an
- * exception mechanism using setjmp/longjmp.
- */
-__YICES_DLLSPEC__ extern void yices_set_out_of_mem_callback(void (*callback)(void));
 
 
 
