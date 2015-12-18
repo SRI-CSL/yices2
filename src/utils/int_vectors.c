@@ -40,7 +40,7 @@ void  extend_ivector(ivector_t *v) {
 
   n = v->capacity;
   if (n == 0) {
-    n = DEF_IVECTOR_SIZE;
+    n = DEFAULT_SIZE;
   } else {
     n ++;
     n += n >> 1;

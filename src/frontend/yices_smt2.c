@@ -56,6 +56,7 @@ static bool mcsat;
 static bool show_stats;
 static int32_t verbosity;
 static char *filename;
+static char *nra_projection;
 
 static pvector_t trace_tags;
 
@@ -72,6 +73,7 @@ typedef enum optid {
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
   mcsat_opt,            // enable mcsat
+  nra_projection_opt,   // choose a projection for NRA
   trace_opt,            // enable a trace tag
 } optid_t;
 
@@ -88,6 +90,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "nra-projection", '\0', MANDATORY_STRING, nra_projection_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
@@ -118,6 +121,7 @@ static void print_help(const char *progname) {
 	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
+         "    --nra-projection        Projection to use in nonlinear arithmetic (one of 'collins', 'mgcd')\n"
          "    --mcsat                 Use the MCSat solver\n"
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
@@ -144,6 +148,7 @@ static void parse_command_line(int argc, char *argv[]) {
   int code;
 
   filename = NULL;
+  nra_projection = NULL;
   incremental = false;
   interactive = false;
   mcsat = false;
@@ -216,6 +221,14 @@ static void parse_command_line(int argc, char *argv[]) {
 	goto exit;
 #endif
         break;
+      case nra_projection_opt:
+#if HAVE_MCSAT
+        nra_projection = elem.arg;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
 
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);

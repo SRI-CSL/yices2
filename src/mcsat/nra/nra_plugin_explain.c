@@ -22,6 +22,7 @@
 
 #include <poly/poly.h>
 #include <poly/polynomial_hash_set.h>
+#include <poly/polynomial_vector.h>
 #include <poly/variable_db.h>
 #include <poly/variable_list.h>
 #include <poly/variable_order.h>
@@ -29,18 +30,18 @@
 #include <poly/interval.h>
 
 static
-void psc_buffer_ensure_size(lp_polynomial_t*** psc_buffer, uint32_t* psc_buffer_size, uint32_t size, const lp_polynomial_context_t* ctx) {
-  if (*psc_buffer_size < size) {
-    uint32_t new_size = *psc_buffer_size;
+void polynomial_buffer_ensure_size(lp_polynomial_t*** buffer, uint32_t* buffer_size, uint32_t size, const lp_polynomial_context_t* ctx) {
+  if (*buffer_size < size) {
+    uint32_t new_size = *buffer_size;
     while (new_size < size) {
       new_size = new_size + new_size / 2 + 10;
     }
-    *psc_buffer = safe_realloc(*psc_buffer, new_size*sizeof(lp_polynomial_t*));
+    *buffer = safe_realloc(*buffer, new_size*sizeof(lp_polynomial_t*));
     uint32_t i;
-    for (i = *psc_buffer_size; i < new_size; ++ i) {
-      (*psc_buffer)[i] = lp_polynomial_new(ctx);
+    for (i = *buffer_size; i < new_size; ++ i) {
+      (*buffer)[i] = lp_polynomial_new(ctx);
     }
-    *psc_buffer_size = new_size;
+    *buffer_size = new_size;
   }
 }
 
@@ -232,14 +233,66 @@ int lp_projection_map_print(const lp_projection_map_t* map, FILE* out) {
   return ret;
 }
 
+/** Add the model based PSC of the two polynomials to the projection map */
+void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** polynomial_buffer, uint32_t* polynomial_buffer_size, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
+  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
+  assert(lp_polynomial_top_variable(p) == x);
+  assert(lp_polynomial_top_variable(q) == x);
+
+  size_t p_deg = lp_polynomial_degree(p);
+  size_t q_deg = lp_polynomial_degree(q);
+
+  uint32_t psc_size = p_deg > q_deg ? q_deg + 1 : p_deg + 1;
+  polynomial_buffer_ensure_size(polynomial_buffer, polynomial_buffer_size, psc_size, map->ctx);
+
+  // Get the psc
+  lp_polynomial_psc(*polynomial_buffer, p, q);
+  // Add the initial sequence of the psc
+  uint32_t psc_i;
+  for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
+    // Add it
+    if (!lp_polynomial_is_constant((*polynomial_buffer)[psc_i])) {
+      lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
+    }
+    // If it doesn't vanish we're done
+    if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->m)) {
+      break;
+    }
+  }
+}
+
+/** Add the model-based gcd of the two polynomials to the projection map */
+void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
+  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
+  assert(lp_polynomial_top_variable(p) == x);
+  assert(lp_polynomial_top_variable(q) == x);
+
+  // Compute the gcd
+  lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->m);
+
+  // Add the initial sequence of the psc
+  uint32_t assumptions_i;
+  uint32_t assumptions_size = lp_polynomial_vector_size(assumptions);
+  for (assumptions_i = 0; assumptions_i < assumptions_size; ++ assumptions_i) {
+    // Add it
+    lp_polynomial_t* assumption = lp_polynomial_vector_at(assumptions, assumptions_i);
+    if (!lp_polynomial_is_constant(assumption)) {
+      lp_projection_map_add(map, assumption);
+    }
+    lp_polynomial_delete(assumption);
+  }
+
+  lp_polynomial_vector_delete(assumptions);
+}
+
+
 /**
  * Project the content of the map downwards until done. All the projection
- * sets will be closes, so that iteration is possible.
+ * sets will be closed, so that iteration is possible.
  */
 void lp_projection_map_project(lp_projection_map_t* map) {
 
   // Temps
-  uint32_t psc_i;
   const lp_polynomial_t* p = 0;
   const lp_polynomial_t* q = 0;
   lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
@@ -248,8 +301,8 @@ void lp_projection_map_project(lp_projection_map_t* map) {
   lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
 
   // PSC buffer
-  lp_polynomial_t** psc_buffer = 0;
-  uint32_t psc_buffer_size = 0;
+  lp_polynomial_t** polynomial_buffer = 0;
+  uint32_t polynomial_buffer_size = 0;
 
   // Project
   for (;;) {
@@ -272,6 +325,19 @@ void lp_projection_map_project(lp_projection_map_t* map) {
 
     // Get the set of polynomials to project
     lp_polynomial_hash_set_close(lp_projection_map_get_set_of(map, x)); // We don't add again
+
+    // If we are at the top variable we project all polynomials.
+    // At the lower levels we:
+    // * Isolate the roots, find the two (or one) roots that enclose the current
+    //   model (the cell, polynomials l, u).
+    // * L: polynomials that have roots below the cell
+    // * U: polynomials that have roots above the cell
+    // * The projection is then
+    //   - all p: fix degree, and number of roots, i.e. red(p), and psc(p,p')
+    //   - relationship between p in L, and l
+    //   - relationship between p in U, and u
+    //   - relationship between l and u
+
 
     // Go through the polynomials and project
     uint32_t x_set_i;
@@ -313,22 +379,11 @@ void lp_projection_map_project(lp_projection_map_t* map) {
       if (p_r_deg > 1 && !p_r_univariate) {
         // Get the derivative
         lp_polynomial_derivative(p_r_d, p_r);
-        // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
-        uint32_t psc_size = p_r_deg;
-        psc_buffer_ensure_size(&psc_buffer, &psc_buffer_size, psc_size, map->ctx);
-
-        // Get the psc
-        lp_polynomial_psc(psc_buffer, p_r, p_r_d);
-        // Add the initial sequence of the psc
-        for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
-          // Add it
-          if (!lp_polynomial_is_constant(psc_buffer[psc_i])) {
-            lp_projection_map_add(map, psc_buffer[psc_i]);
-          }
-          // If it doesn't vanish we're done
-          if (lp_polynomial_sgn(psc_buffer[psc_i], map->m)) {
-            break;
-          }
+        // Add the projection
+        if (false) {
+          lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, p_r_d);
+        } else {
+          lp_projection_map_add_mgcd(map, x, p_r, p_r_d);
         }
       }
 
@@ -360,22 +415,11 @@ void lp_projection_map_project(lp_projection_map_t* map) {
           }
 
           if (q_r_deg > 0) {
-            // psc size = min of degrees
-            uint32_t psc_size = p_r_deg > q_r_deg ? q_r_deg + 1 : p_r_deg + 1;
-            psc_buffer_ensure_size(&psc_buffer, &psc_buffer_size, psc_size, map->ctx);
-
-            // Get the psc
-            lp_polynomial_psc(psc_buffer, p_r, q_r);
-            // Add the initial sequence of the psc
-            for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
-              // Add it
-              if (!lp_polynomial_is_constant(psc_buffer[psc_i])) {
-                lp_projection_map_add(map, psc_buffer[psc_i]);
-              }
-              // If it doesn't vanish we're done
-              if (lp_polynomial_sgn(psc_buffer[psc_i], map->m)) {
-                break;
-              }
+            // Add the psc
+            if (false) {
+              lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, q_r);
+            } else {
+              lp_projection_map_add_mgcd(map, x, p_r, q_r);
             }
           }
         }
@@ -388,7 +432,7 @@ void lp_projection_map_project(lp_projection_map_t* map) {
   lp_polynomial_delete(p_r);
   lp_polynomial_delete(q_r);
   lp_polynomial_delete(p_r_d);
-  psc_buffer_delete(psc_buffer, psc_buffer_size);
+  psc_buffer_delete(polynomial_buffer, polynomial_buffer_size);
 }
 
 term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x, size_t root_index, const lp_polynomial_t* p, root_atom_rel_t r) {
