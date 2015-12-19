@@ -10,7 +10,7 @@ Global Initialization and Cleanup
    Global initialization.
 
    This function must be called before anything else to initialize
-   Yices's internal data structure.
+   Yices's internal data structures.
 
 .. c:function:: void yices_exit(void)
 
