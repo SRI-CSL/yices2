@@ -233,208 +233,6 @@ int lp_projection_map_print(const lp_projection_map_t* map, FILE* out) {
   return ret;
 }
 
-/** Add the model based PSC of the two polynomials to the projection map */
-void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** polynomial_buffer, uint32_t* polynomial_buffer_size, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
-  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
-  assert(lp_polynomial_top_variable(p) == x);
-  assert(lp_polynomial_top_variable(q) == x);
-
-  size_t p_deg = lp_polynomial_degree(p);
-  size_t q_deg = lp_polynomial_degree(q);
-
-  uint32_t psc_size = p_deg > q_deg ? q_deg + 1 : p_deg + 1;
-  polynomial_buffer_ensure_size(polynomial_buffer, polynomial_buffer_size, psc_size, map->ctx);
-
-  // Get the psc
-  lp_polynomial_psc(*polynomial_buffer, p, q);
-  // Add the initial sequence of the psc
-  uint32_t psc_i;
-  for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
-    // Add it
-    if (!lp_polynomial_is_constant((*polynomial_buffer)[psc_i])) {
-      lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
-    }
-    // If it doesn't vanish we're done
-    if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->m)) {
-      break;
-    }
-  }
-}
-
-/** Add the model-based gcd of the two polynomials to the projection map */
-void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
-  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
-  assert(lp_polynomial_top_variable(p) == x);
-  assert(lp_polynomial_top_variable(q) == x);
-
-  // Compute the gcd
-  lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->m);
-
-  // Add the initial sequence of the psc
-  uint32_t assumptions_i;
-  uint32_t assumptions_size = lp_polynomial_vector_size(assumptions);
-  for (assumptions_i = 0; assumptions_i < assumptions_size; ++ assumptions_i) {
-    // Add it
-    lp_polynomial_t* assumption = lp_polynomial_vector_at(assumptions, assumptions_i);
-    if (!lp_polynomial_is_constant(assumption)) {
-      lp_projection_map_add(map, assumption);
-    }
-    lp_polynomial_delete(assumption);
-  }
-
-  lp_polynomial_vector_delete(assumptions);
-}
-
-
-/**
- * Project the content of the map downwards until done. All the projection
- * sets will be closed, so that iteration is possible.
- */
-void lp_projection_map_project(lp_projection_map_t* map) {
-
-  // Temps
-  const lp_polynomial_t* p = 0;
-  const lp_polynomial_t* q = 0;
-  lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* q_r = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* p_r_d = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
-
-  // PSC buffer
-  lp_polynomial_t** polynomial_buffer = 0;
-  uint32_t polynomial_buffer_size = 0;
-
-  // Project
-  for (;;) {
-
-    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-      ctx_trace_printf(map->nra->ctx, "current projection:\n");
-      lp_projection_map_print(map, ctx_trace_out(map->nra->ctx));
-    }
-
-    // Get the top variable not projected yet
-    lp_variable_t x = lp_projection_map_pop_top_unprojected_var(map);
-    // If all projected, we're done
-    if (x == lp_variable_null) {
-      break;
-    }
-
-    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-      ctx_trace_printf(map->nra->ctx, "x = %s\n", lp_variable_db_get_name(map->var_db, x));
-    }
-
-    // Get the set of polynomials to project
-    lp_polynomial_hash_set_close(lp_projection_map_get_set_of(map, x)); // We don't add again
-
-    // If we are at the top variable we project all polynomials.
-    // At the lower levels we:
-    // * Isolate the roots, find the two (or one) roots that enclose the current
-    //   model (the cell, polynomials l, u).
-    // * L: polynomials that have roots below the cell
-    // * U: polynomials that have roots above the cell
-    // * The projection is then
-    //   - all p: fix degree, and number of roots, i.e. red(p), and psc(p,p')
-    //   - relationship between p in L, and l
-    //   - relationship between p in U, and u
-    //   - relationship between l and u
-
-
-    // Go through the polynomials and project
-    uint32_t x_set_i;
-    for (x_set_i = 0; x_set_i < lp_projection_map_get_set_of(map, x)->size; ++ x_set_i) {
-
-      // Current polynomial
-      p = lp_projection_map_get_set_of(map, x)->data[x_set_i];
-      assert(lp_polynomial_top_variable(p) == x);
-      uint32_t p_deg = lp_polynomial_degree(p);
-
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-        ctx_trace_printf(map->nra->ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-        ctx_trace_printf(map->nra->ctx, "p_deg = %u\n", p_deg);
-      }
-
-      // The reductum of p
-      lp_polynomial_reductum_m(p_r, p, map->m);
-      uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
-
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-        ctx_trace_printf(map->nra->ctx, "p_r = "); lp_polynomial_print(p_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-        ctx_trace_printf(map->nra->ctx, "p_r_deg = %u\n", p_deg);
-      }
-
-      // Add the vanishing initial coefficients
-      uint32_t deg;
-      for (deg = p_r_deg; deg <= p_deg; ++ deg) {
-        // Add the coefficient
-        lp_polynomial_get_coefficient(p_coeff, p,  deg);
-        if (!lp_polynomial_is_constant(p_coeff)) {
-          lp_projection_map_add(map, p_coeff);
-        }
-      }
-
-      // Is p_r univariate?
-      bool p_r_univariate = lp_polynomial_is_univariate(p_r);
-
-      // Add the vanishing psc of p_r, p_r' (don't do univariate, they go to constants)
-      if (p_r_deg > 1 && !p_r_univariate) {
-        // Get the derivative
-        lp_polynomial_derivative(p_r_d, p_r);
-        // Add the projection
-        if (false) {
-          lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, p_r_d);
-        } else {
-          lp_projection_map_add_mgcd(map, x, p_r, p_r_d);
-        }
-      }
-
-      if (p_r_deg > 0) {
-        // Now combine with other reductums
-        uint32_t x_set_j;
-        for (x_set_j = x_set_i + 1; x_set_j < lp_projection_map_get_set_of(map, x)->size; ++ x_set_j) {
-
-          // The other polynomial
-          q = lp_projection_map_get_set_of(map, x)->data[x_set_j];
-          assert(lp_polynomial_top_variable(p) == x);
-
-          if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-            ctx_trace_printf(map->nra->ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-          }
-
-          // Reductum
-          lp_polynomial_reductum_m(q_r, q, map->m);
-          uint32_t q_r_deg = lp_polynomial_top_variable(q_r) == x ? lp_polynomial_degree(q_r) : 0;
-
-          // No need to work on univariate ones
-          if (p_r_univariate && lp_polynomial_is_univariate(q_r)) {
-             continue;
-          }
-
-          if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
-            ctx_trace_printf(map->nra->ctx, "q_r = "); lp_polynomial_print(q_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-            ctx_trace_printf(map->nra->ctx, "q_r_deg = %u\n", p_deg);
-          }
-
-          if (q_r_deg > 0) {
-            // Add the psc
-            if (false) {
-              lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, q_r);
-            } else {
-              lp_projection_map_add_mgcd(map, x, p_r, q_r);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Free the temps
-  lp_polynomial_delete(p_coeff);
-  lp_polynomial_delete(p_r);
-  lp_polynomial_delete(q_r);
-  lp_polynomial_delete(p_r_d);
-  psc_buffer_delete(polynomial_buffer, polynomial_buffer_size);
-}
-
 term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x, size_t root_index, const lp_polynomial_t* p, root_atom_rel_t r) {
   assert(lp_polynomial_top_variable(p) == x);
   assert(lp_polynomial_lc_sgn(p) > 0);
@@ -514,235 +312,471 @@ bool ensure_true(plugin_context_t* ctx, term_t literal) {
 #endif
 
 /**
- * Lift from bottom of the projection map: generate intervals that contain
- * the current model where the polynomials at each level are sign invariant.
+ * Isolate the roots of the projection polynomials of x. Then construct a cell
+ * assertions and add to out. Return the bound polynomials in x_cell_a_p and x_cell_b_p.
  */
-void lp_projection_map_lift(lp_projection_map_t* map, ivector_t* out) {
+void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x, ivector_t* out,
+    const lp_polynomial_t** x_cell_a_p,
+    const lp_polynomial_t** x_cell_b_p
+) {
 
   plugin_context_t* ctx = map->nra->ctx;
 
-  // Sort the variables
-  lp_variable_list_order(&map->all_vars, map->order);
+  // Get the set to make sign invariant
+  lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
+  lp_polynomial_hash_set_close(x_set);
 
-  uint32_t var_i;
-  for (var_i = 0; var_i < map->all_vars.list_size; ++ var_i) {
+  if (ctx_trace_enabled(ctx, "nra::explain")) {
+    ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+  }
 
-    // Variable we're lifting
-    lp_variable_t x = map->all_vars.list[var_i];
+  // The cell we're constructing
+  lp_interval_t x_cell;
+  lp_interval_construct_full(&x_cell);
 
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
-      ctx_trace_printf(ctx, "lifting variable %s\n", lp_variable_db_get_name(map->var_db, x));
-    }
+  // Lower bound polynomial and root index
+  (*x_cell_a_p) = NULL;
+  size_t x_cell_a_root_index = 0;
 
-    // We're done when at top variable
-    if (lp_assignment_get_value(map->m, x)->type == LP_VALUE_NONE) {
-      assert(var_i == map->all_vars.list_size - 1);
-      break;
-    }
+  // Upper bound polynomial and root index
+  (*x_cell_b_p) = NULL;
+  size_t x_cell_b_root_index = 0;
 
-    // Get the set to make sign invariant
-    lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
-    lp_polynomial_hash_set_close(x_set);
+  size_t p_i;
+  for (p_i = 0; p_i < x_set->size; ++ p_i) {
 
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
-      ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-    }
+    assert(x_cell.a_open && x_cell.b_open);
 
-    // The cell we're constructing
-    lp_interval_t x_cell;
-    lp_interval_construct_full(&x_cell);
-
-    // Lower bound polynomial and root index
-    lp_polynomial_t* x_cell_a_p = lp_polynomial_new(map->nra->lp_data.lp_ctx);
-    size_t x_cell_a_root_index = 0;
-
-    // Upper bound polynomial and root index
-    lp_polynomial_t* x_cell_b_p = lp_polynomial_new(map->nra->lp_data.lp_ctx);
-    size_t x_cell_b_root_index = 0;
-
-    size_t p_i;
-    for (p_i = 0; p_i < x_set->size; ++ p_i) {
-
-      assert(x_cell.a_open && x_cell.b_open);
-
-      // Polynomial and it's degree
-      const lp_polynomial_t* p = x_set->data[p_i];
-      assert(lp_polynomial_top_variable(p) == x);
-      size_t p_deg = lp_polynomial_degree(p);
-
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
-        ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-        ctx_trace_printf(ctx, "x_cell_a_p = "); lp_polynomial_print(x_cell_a_p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-        ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
-        ctx_trace_printf(ctx, "x_cell_b_p = "); lp_polynomial_print(x_cell_b_p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-        ctx_trace_printf(ctx, "x_cell_b_root_index = %zu\n", x_cell_b_root_index);
-        ctx_trace_printf(ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-        ctx_trace_printf(ctx, "p_deg = %zu\n", p_deg);
-      }
-
-      // Isolate the roots
-      lp_value_t* p_roots = safe_malloc(sizeof(lp_value_t)*p_deg);
-      size_t p_roots_size;
-      lp_polynomial_roots_isolate(p, map->m, p_roots, &p_roots_size);
-
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
-        ctx_trace_printf(ctx, "roots = ");
-        size_t p_roots_i;
-        for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
-          if (p_roots_i) {
-            ctx_trace_printf(ctx, ", ");
-          }
-          lp_value_print(p_roots + p_roots_i, ctx_trace_out(ctx));
-        }
-        ctx_trace_printf(ctx, "\n");
-      }
-
-      // Binary search for the current value x_v
-      const lp_value_t* x_v = lp_assignment_get_value(map->m, x);
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
-        ctx_trace_printf(ctx, "x_v = ");
-        lp_value_print(x_v, ctx_trace_out(ctx));
-        ctx_trace_printf(ctx, "\n");
-      }
-      if (p_roots_size > 0) {
-        int m; // midpoint and where to insert
-        int m_cmp;
-        int lb = 0;
-        int ub = p_roots_size - 1;
-
-        for(;;) {
-          m = (lb + ub) / 2;
-          m_cmp = lp_value_cmp(p_roots + m, x_v);
-
-          if (ctx_trace_enabled(ctx, "nra::explain")) {
-            ctx_trace_printf(ctx, "m = %d\n", m);
-            ctx_trace_printf(ctx, "m_cmp = %d\n", m_cmp);
-            ctx_trace_printf(ctx, "lb = %d\n", lb);
-            ctx_trace_printf(ctx, "ub = %d\n", ub);
-          }
-
-          if (m_cmp == 0) {
-            // found
-            break;
-          } else if (m_cmp < 0) {
-            lb = m + 1;
-            if (lb > ub) {
-              // it's in m, m+1
-              break;
-            }
-          } else  {
-            ub = m - 1;
-            if (lb > ub) {
-              // it's in m-1, m
-              m --;
-              break;
-            }
-          }
-        }
-
-        if (m_cmp == 0) {
-          // found it at m, so we take [roots[m], roots[m]] as the final one
-          // no need for more cell division
-          lp_interval_collapse_to(&x_cell, x_v);
-          lp_polynomial_assign(x_cell_a_p, p);
-          x_cell_a_root_index = m;
-          break;
-        } else if (m < 0) {
-          // in (-inf, p_roots[0]) so
-          if (lp_interval_contains(&x_cell, p_roots)) {
-            lp_interval_set_b(&x_cell, p_roots, 1);
-            lp_polynomial_assign(x_cell_b_p, p);
-            x_cell_b_root_index = 0;
-          }
-        } else if (m+1 == p_roots_size) {
-          // in (p_roots[m], +inf)
-          if (lp_interval_contains(&x_cell, p_roots + m)) {
-            lp_interval_set_a(&x_cell, p_roots + m, 1);
-            lp_polynomial_assign(x_cell_a_p, p);
-            x_cell_a_root_index = m;
-          }
-        } else {
-          // in (p_roots[m], p_roots[m+1])
-          if (lp_interval_contains(&x_cell, p_roots + m)) {
-            lp_interval_set_a(&x_cell, p_roots + m, 1);
-            lp_polynomial_assign(x_cell_a_p, p);
-            x_cell_a_root_index = m;
-          }
-          if (lp_interval_contains(&x_cell, p_roots + m + 1)) {
-            lp_interval_set_b(&x_cell, p_roots + m + 1, 1);
-            lp_polynomial_assign(x_cell_b_p, p);
-            x_cell_b_root_index = m + 1;
-          }
-        }
-      }
-
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
-        ctx_trace_printf(ctx, "roots = ");
-        size_t p_roots_i;
-        for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
-          if (p_roots_i) {
-            ctx_trace_printf(ctx, ", ");
-          }
-          lp_value_print(p_roots + p_roots_i, ctx_trace_out(ctx));
-        }
-        ctx_trace_printf(ctx, "\n");
-      }
-
-      // Remove the roots
-      size_t p_roots_i;
-      for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
-        lp_value_destruct(p_roots + p_roots_i);
-      }
-      safe_free(p_roots);
-    }
+    // Polynomial and it's degree
+    const lp_polynomial_t* p = x_set->data[p_i];
+    assert(lp_polynomial_top_variable(p) == x);
+    size_t p_deg = lp_polynomial_degree(p);
 
     if (ctx_trace_enabled(ctx, "nra::explain")) {
       ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
-      ctx_trace_printf(ctx, "x_cell_a_p = "); lp_polynomial_print(x_cell_a_p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+      ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
-      ctx_trace_printf(ctx, "x_cell_b_p = "); lp_polynomial_print(x_cell_b_p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+      ctx_trace_printf(ctx, "x_cell_b_p = "); if (*x_cell_b_p != NULL) lp_polynomial_print((*x_cell_b_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_b_root_index = %zu\n", x_cell_b_root_index);
+      ctx_trace_printf(ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+      ctx_trace_printf(ctx, "p_deg = %zu\n", p_deg);
     }
 
-    // Add the cell constraint
-    if (lp_interval_is_point(&x_cell)) {
-      term_t eq_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, x_cell_a_p, ROOT_ATOM_EQ);
-      ivector_push(out, eq_root_atom);
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
-        ctx_trace_printf(ctx, "eq_root_atom = "); ctx_trace_term(ctx, eq_root_atom);
-      }
-      assert(ensure_true(ctx, eq_root_atom));
-    } else {
+    // Isolate the roots
+    lp_value_t* p_roots = safe_malloc(sizeof(lp_value_t)*p_deg);
+    size_t p_roots_size;
+    lp_polynomial_roots_isolate(p, map->m, p_roots, &p_roots_size);
 
-      const lp_value_t* x_cell_lb = lp_interval_get_lower_bound(&x_cell);
-      const lp_value_t* x_cell_ub = lp_interval_get_upper_bound(&x_cell);
-
-      assert(lp_value_cmp(x_cell_lb, x_cell_ub) < 0);
-
-      if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
-        term_t lb_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, x_cell_a_p, ROOT_ATOM_GT);
-        ivector_push(out, lb_root_atom);
-        if (ctx_trace_enabled(ctx, "nra::explain")) {
-          ctx_trace_printf(ctx, "lb_root_atom = "); ctx_trace_term(ctx, lb_root_atom);
+    if (ctx_trace_enabled(ctx, "nra::explain")) {
+      ctx_trace_printf(ctx, "roots = ");
+      size_t p_roots_i;
+      for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
+        if (p_roots_i) {
+          ctx_trace_printf(ctx, ", ");
         }
-        assert(ensure_true(ctx, lb_root_atom));
+        lp_value_print(p_roots + p_roots_i, ctx_trace_out(ctx));
       }
-      if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
-        term_t ub_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_b_root_index, x_cell_b_p, ROOT_ATOM_LT);
-        ivector_push(out, ub_root_atom);
+      ctx_trace_printf(ctx, "\n");
+    }
+
+    // Binary search for the current value x_v
+    const lp_value_t* x_v = lp_assignment_get_value(map->m, x);
+    if (ctx_trace_enabled(ctx, "nra::explain")) {
+      ctx_trace_printf(ctx, "x_v = ");
+      lp_value_print(x_v, ctx_trace_out(ctx));
+      ctx_trace_printf(ctx, "\n");
+    }
+    if (p_roots_size > 0) {
+      int m; // midpoint and where to insert
+      int m_cmp;
+      int lb = 0;
+      int ub = p_roots_size - 1;
+
+      for(;;) {
+        m = (lb + ub) / 2;
+        m_cmp = lp_value_cmp(p_roots + m, x_v);
+
         if (ctx_trace_enabled(ctx, "nra::explain")) {
-          ctx_trace_printf(ctx, "ub_root_atom = "); ctx_trace_term(ctx, ub_root_atom);
+          ctx_trace_printf(ctx, "m = %d\n", m);
+          ctx_trace_printf(ctx, "m_cmp = %d\n", m_cmp);
+          ctx_trace_printf(ctx, "lb = %d\n", lb);
+          ctx_trace_printf(ctx, "ub = %d\n", ub);
         }
-        assert(ensure_true(ctx, ub_root_atom));
+
+        if (m_cmp == 0) {
+          // found
+          break;
+        } else if (m_cmp < 0) {
+          lb = m + 1;
+          if (lb > ub) {
+            // it's in m, m+1
+            break;
+          }
+        } else  {
+          ub = m - 1;
+          if (lb > ub) {
+            // it's in m-1, m
+            m --;
+            break;
+          }
+        }
+      }
+
+      if (m_cmp == 0) {
+        // found it at m, so we take [roots[m], roots[m]] as the final one
+        // no need for more cell division
+        lp_interval_collapse_to(&x_cell, x_v);
+        (*x_cell_a_p) = p;
+        x_cell_a_root_index = m;
+        break;
+      } else if (m < 0) {
+        // in (-inf, p_roots[0]) so
+        if (lp_interval_contains(&x_cell, p_roots)) {
+          lp_interval_set_b(&x_cell, p_roots, 1);
+          (*x_cell_b_p) = p;
+          x_cell_b_root_index = 0;
+        }
+      } else if (m+1 == p_roots_size) {
+        // in (p_roots[m], +inf)
+        if (lp_interval_contains(&x_cell, p_roots + m)) {
+          lp_interval_set_a(&x_cell, p_roots + m, 1);
+          (*x_cell_a_p) = p;
+          x_cell_a_root_index = m;
+        }
+      } else {
+        // in (p_roots[m], p_roots[m+1])
+        if (lp_interval_contains(&x_cell, p_roots + m)) {
+          lp_interval_set_a(&x_cell, p_roots + m, 1);
+          (*x_cell_a_p) = p;
+          x_cell_a_root_index = m;
+        }
+        if (lp_interval_contains(&x_cell, p_roots + m + 1)) {
+          lp_interval_set_b(&x_cell, p_roots + m + 1, 1);
+          (*x_cell_b_p) = p;
+          x_cell_b_root_index = m + 1;
+        }
       }
     }
 
-    // Destruct the cell
-    lp_interval_destruct(&x_cell);
-    lp_polynomial_delete(x_cell_a_p);
-    lp_polynomial_delete(x_cell_b_p);
+    if (ctx_trace_enabled(ctx, "nra::explain")) {
+      ctx_trace_printf(ctx, "roots = ");
+      size_t p_roots_i;
+      for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
+        if (p_roots_i) {
+          ctx_trace_printf(ctx, ", ");
+        }
+        lp_value_print(p_roots + p_roots_i, ctx_trace_out(ctx));
+      }
+      ctx_trace_printf(ctx, "\n");
+    }
+
+    // Remove the roots
+    size_t p_roots_i;
+    for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
+      lp_value_destruct(p_roots + p_roots_i);
+    }
+    safe_free(p_roots);
   }
 
+  if (ctx_trace_enabled(ctx, "nra::explain")) {
+    ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+    ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+    ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
+    ctx_trace_printf(ctx, "x_cell_b_p = "); if (*x_cell_b_p != NULL) lp_polynomial_print((*x_cell_b_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
+    ctx_trace_printf(ctx, "x_cell_b_root_index = %zu\n", x_cell_b_root_index);
+  }
+
+  // Add the cell constraint
+  if (lp_interval_is_point(&x_cell)) {
+    term_t eq_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ);
+    ivector_push(out, eq_root_atom);
+    if (ctx_trace_enabled(ctx, "nra::explain")) {
+      ctx_trace_printf(ctx, "eq_root_atom = "); ctx_trace_term(ctx, eq_root_atom);
+    }
+    assert(ensure_true(ctx, eq_root_atom));
+  } else {
+
+    const lp_value_t* x_cell_lb = lp_interval_get_lower_bound(&x_cell);
+    const lp_value_t* x_cell_ub = lp_interval_get_upper_bound(&x_cell);
+
+    assert(lp_value_cmp(x_cell_lb, x_cell_ub) < 0);
+
+    if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
+      term_t lb_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT);
+      ivector_push(out, lb_root_atom);
+      if (ctx_trace_enabled(ctx, "nra::explain")) {
+        ctx_trace_printf(ctx, "lb_root_atom = "); ctx_trace_term(ctx, lb_root_atom);
+      }
+      assert(ensure_true(ctx, lb_root_atom));
+    }
+    if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
+      term_t ub_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT);
+      ivector_push(out, ub_root_atom);
+      if (ctx_trace_enabled(ctx, "nra::explain")) {
+        ctx_trace_printf(ctx, "ub_root_atom = "); ctx_trace_term(ctx, ub_root_atom);
+      }
+      assert(ensure_true(ctx, ub_root_atom));
+    }
+  }
+
+  // Destruct the cell
+  lp_interval_destruct(&x_cell);
+}
+
+/** Add the model based PSC of the two polynomials to the projection map */
+void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** polynomial_buffer, uint32_t* polynomial_buffer_size, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
+  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
+  assert(lp_polynomial_top_variable(p) == x);
+  assert(lp_polynomial_top_variable(q) == x);
+
+  size_t p_deg = lp_polynomial_degree(p);
+  size_t q_deg = lp_polynomial_degree(q);
+
+  uint32_t psc_size = p_deg > q_deg ? q_deg + 1 : p_deg + 1;
+  polynomial_buffer_ensure_size(polynomial_buffer, polynomial_buffer_size, psc_size, map->ctx);
+
+  // Get the psc
+  lp_polynomial_psc(*polynomial_buffer, p, q);
+  // Add the initial sequence of the psc
+  uint32_t psc_i;
+  for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
+    // Add it
+    if (!lp_polynomial_is_constant((*polynomial_buffer)[psc_i])) {
+      lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
+    }
+    // If it doesn't vanish we're done
+    if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->m)) {
+      break;
+    }
+  }
+}
+
+/** Add the model-based gcd of the two polynomials to the projection map */
+void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const lp_polynomial_t* p, const lp_polynomial_t* q) {
+  // Ensure buffer size min(deg(p_r_d), deg(p_r)) + 1 = p_r_deg
+  assert(lp_polynomial_top_variable(p) == x);
+  assert(lp_polynomial_top_variable(q) == x);
+
+  // Compute the gcd
+  lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->m);
+
+  // Add the initial sequence of the psc
+  uint32_t assumptions_i;
+  uint32_t assumptions_size = lp_polynomial_vector_size(assumptions);
+  for (assumptions_i = 0; assumptions_i < assumptions_size; ++ assumptions_i) {
+    // Add it
+    lp_polynomial_t* assumption = lp_polynomial_vector_at(assumptions, assumptions_i);
+    if (!lp_polynomial_is_constant(assumption)) {
+      lp_projection_map_add(map, assumption);
+    }
+    lp_polynomial_delete(assumption);
+  }
+
+  lp_polynomial_vector_delete(assumptions);
+}
+
+
+/**
+ * Project the content of the map downwards until done. All the projection
+ * sets will be closed, so that iteration is possible.
+ */
+void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
+
+  // Temps
+  const lp_polynomial_t* p = 0;
+  const lp_polynomial_t* q = 0;
+  lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* q_r = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* p_r_d = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
+
+  // PSC buffer
+  lp_polynomial_t** polynomial_buffer = 0;
+  uint32_t polynomial_buffer_size = 0;
+
+  const lp_polynomial_t* x_cell_a_p = NULL;
+  const lp_polynomial_t* x_cell_b_p = NULL;
+  lp_polynomial_t* x_cell_a_p_r = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* x_cell_b_p_r = lp_polynomial_new(map->ctx);
+
+  // Project
+  for (;;) {
+
+    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+      ctx_trace_printf(map->nra->ctx, "current projection:\n");
+      lp_projection_map_print(map, ctx_trace_out(map->nra->ctx));
+    }
+
+    // Get the top variable not projected yet
+    lp_variable_t x = lp_projection_map_pop_top_unprojected_var(map);
+    // If all projected, we're done
+    if (x == lp_variable_null) {
+      break;
+    }
+
+    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+      ctx_trace_printf(map->nra->ctx, "x = %s\n", lp_variable_db_get_name(map->var_db, x));
+    }
+
+    // Get the set of polynomials to project
+    lp_polynomial_hash_set_close(lp_projection_map_get_set_of(map, x)); // We don't add again
+
+    // If we are at the top variable we project all polynomials.
+    // At the lower levels we:
+    // * Isolate the roots, find the two (or one) roots that enclose the current
+    //   model (the cell, polynomials l, u).
+    // * L: polynomials that have roots below the cell
+    // * U: polynomials that have roots above the cell
+    // * The projection is then
+    //   - all p: fix degree, and number of roots, i.e. red(p), and psc/gcd(p,p')
+    //   - relationship between p in L, and l
+    //   - relationship between p in U, and u
+    //   - relationship between l and u
+    bool top = lp_assignment_get_value(map->m, x)->type == LP_VALUE_NONE;
+
+    if (!top) {
+      // Generate the cell, and get the bounding polynomials
+      x_cell_a_p = NULL;
+      x_cell_b_p = NULL;
+      lp_projection_map_construct_cell(map, x, out, &x_cell_a_p, &x_cell_b_p);
+      // Cell can be unbounded on both side => both can be null
+      // Get the reductums so we don't recompute them
+      if (x_cell_a_p != NULL) {
+        lp_polynomial_reductum_m(x_cell_a_p_r, x_cell_a_p, map->m);
+      }
+      if (x_cell_b_p != NULL) {
+        lp_polynomial_reductum_m(x_cell_b_p_r, x_cell_b_p, map->m);
+      }
+    }
+
+    // Go through the polynomials and project
+    uint32_t x_set_i;
+    for (x_set_i = 0; x_set_i < lp_projection_map_get_set_of(map, x)->size; ++ x_set_i) {
+
+      // Current polynomial
+      p = lp_projection_map_get_set_of(map, x)->data[x_set_i];
+      assert(lp_polynomial_top_variable(p) == x);
+      uint32_t p_deg = lp_polynomial_degree(p);
+
+      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+        ctx_trace_printf(map->nra->ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+        ctx_trace_printf(map->nra->ctx, "p_deg = %u\n", p_deg);
+      }
+
+      // The reductum of p
+      lp_polynomial_reductum_m(p_r, p, map->m);
+      uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
+
+      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+        ctx_trace_printf(map->nra->ctx, "p_r = "); lp_polynomial_print(p_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+        ctx_trace_printf(map->nra->ctx, "p_r_deg = %u\n", p_deg);
+      }
+
+      // Add the vanishing initial coefficients
+      uint32_t deg;
+      for (deg = p_r_deg; deg <= p_deg; ++ deg) {
+        // Add the coefficient
+        lp_polynomial_get_coefficient(p_coeff, p,  deg);
+        if (!lp_polynomial_is_constant(p_coeff)) {
+          lp_projection_map_add(map, p_coeff);
+        }
+      }
+
+      // Is p_r univariate?
+      bool p_r_univariate = lp_polynomial_is_univariate(p_r);
+
+      // Add the vanishing psc of p_r, p_r' (don't do univariate, they go to constants)
+      if (p_r_deg > 1 && !p_r_univariate) {
+        // Get the derivative
+        lp_polynomial_derivative(p_r_d, p_r);
+        // Add the projection
+        if (false) {
+          lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, p_r_d);
+        } else {
+          lp_projection_map_add_mgcd(map, x, p_r, p_r_d);
+        }
+      }
+
+      if (p_r_deg > 0) {
+        // Now combine with other reductums
+        if (false && !top) {
+          // Compare with lower bound polynomial
+          if (p != x_cell_a_p && x_cell_b_p_r != NULL) {
+            uint32_t x_cell_a_p_deg = lp_polynomial_top_variable(x_cell_a_p_r) == x ? lp_polynomial_degree(x_cell_a_p_r) : 0;
+            if ((!p_r_univariate || !lp_polynomial_is_univariate(x_cell_a_p_r)) && x_cell_a_p_deg > 0) {
+              // Add the psc
+              if (false) {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_a_p_r);
+              } else {
+                lp_projection_map_add_mgcd(map, x, p_r, x_cell_a_p_r);
+              }
+            }
+          }
+          // Compare with upper bound polynomial
+          if (p != x_cell_b_p_r && x_cell_b_p_r != NULL) {
+            uint32_t x_cell_b_p_r_deg = lp_polynomial_top_variable(x_cell_b_p_r) == x ? lp_polynomial_degree(x_cell_b_p_r) : 0;
+            if ((!p_r_univariate || !lp_polynomial_is_univariate(x_cell_b_p_r)) && x_cell_b_p_r_deg > 0) {
+              // Add the psc
+              if (false) {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_b_p_r);
+              } else {
+                lp_projection_map_add_mgcd(map, x, p_r, x_cell_b_p_r);
+              }
+            }
+          }
+        } else {
+          // Top level, project with all
+          uint32_t x_set_j;
+          for (x_set_j = x_set_i + 1; x_set_j < lp_projection_map_get_set_of(map, x)->size; ++ x_set_j) {
+
+            // The other polynomial
+            q = lp_projection_map_get_set_of(map, x)->data[x_set_j];
+            assert(lp_polynomial_top_variable(p) == x);
+
+            if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+              ctx_trace_printf(map->nra->ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+            }
+
+            // Reductum
+            lp_polynomial_reductum_m(q_r, q, map->m);
+            uint32_t q_r_deg = lp_polynomial_top_variable(q_r) == x ? lp_polynomial_degree(q_r) : 0;
+
+            // No need to work on univariate ones
+            if (p_r_univariate && lp_polynomial_is_univariate(q_r)) {
+               continue;
+            }
+
+            if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+              ctx_trace_printf(map->nra->ctx, "q_r = "); lp_polynomial_print(q_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+              ctx_trace_printf(map->nra->ctx, "q_r_deg = %u\n", p_deg);
+            }
+
+            if (q_r_deg > 0) {
+              // Add the psc
+              if (false) {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, q_r);
+              } else {
+                lp_projection_map_add_mgcd(map, x, p_r, q_r);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Free the temps
+  lp_polynomial_delete(p_coeff);
+  lp_polynomial_delete(p_r);
+  lp_polynomial_delete(q_r);
+  lp_polynomial_delete(p_r_d);
+  if (x_cell_a_p_r != NULL) {
+    lp_polynomial_delete(x_cell_a_p_r);
+  }
+  if (x_cell_b_p_r != NULL) {
+    lp_polynomial_delete(x_cell_b_p_r);
+  }
+  psc_buffer_delete(polynomial_buffer, polynomial_buffer_size);
 }
 
 #ifndef NDEBUG
@@ -832,10 +866,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   }
 
   // Project
-  lp_projection_map_project(&projection_map);
-
-  // Lift
-  lp_projection_map_lift(&projection_map, conflict);
+  lp_projection_map_project(&projection_map, conflict);
 
   // Add the core to the conflict
   for (core_i = 0; core_i < core->size; ++ core_i) {
