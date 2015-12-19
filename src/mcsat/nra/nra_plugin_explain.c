@@ -699,7 +699,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
 
       if (p_r_deg > 0) {
         // Now combine with other reductums
-        if (false && !top) {
+        if (!top) {
           // Compare with lower bound polynomial
           if (p != x_cell_a_p && x_cell_b_p_r != NULL) {
             uint32_t x_cell_a_p_deg = lp_polynomial_top_variable(x_cell_a_p_r) == x ? lp_polynomial_degree(x_cell_a_p_r) : 0;
