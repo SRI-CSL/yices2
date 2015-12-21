@@ -44,6 +44,7 @@
 #include "frontend/smt2/smt2_expressions.h"
 
 #include "exists_forall/ef_client.h"
+#include "mcsat/options.h"
 
 /*
  * New exception codes
@@ -336,6 +337,8 @@ typedef struct smt2_globals_s {
 
   // set to true to use the mcsat solver
   bool mcsat;
+  // options for the mcsat solver
+  mcsat_options_t mcsat_options;
 
   // exists_forall fields
   // true indicates we will be using the exists_forall solver

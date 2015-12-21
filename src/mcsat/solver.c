@@ -468,6 +468,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.var_db = mcsat->var_db;
   ctx->ctx.terms = mcsat->terms;
   ctx->ctx.types = mcsat->types;
+  ctx->ctx.options = &mcsat->ctx->mcsat_options;
   ctx->ctx.trail = mcsat->trail;
   ctx->ctx.stats = &mcsat->stats;
   ctx->ctx.tracer = mcsat->ctx->trace;

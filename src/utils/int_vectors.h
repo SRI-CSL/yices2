@@ -33,7 +33,7 @@ typedef struct ivector_s {
 /*
  * Default initial size and max size
  */
-#define DEFAULT_SIZE 10
+#define DEF_IVECTOR_SIZE 10
 #define MAX_IVECTOR_SIZE (UINT32_MAX/sizeof(int32_t))
 
 

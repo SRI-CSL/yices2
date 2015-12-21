@@ -299,7 +299,8 @@ mcsat_src_c := \
 	mcsat/nra/poly_constraint.c \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
-	mcsat/watch_list_manager.c
+	mcsat/watch_list_manager.c \
+	mcsat/options.c
 
 #
 # Fake mcsat module: do nothing. Used to make the compilation go through.

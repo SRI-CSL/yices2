@@ -14,6 +14,7 @@
 
 #include "utils/int_mset.h"
 #include "mcsat/utils/statistics.h"
+#include "mcsat/options.h"
 
 #include "io/tracer.h"
 
@@ -42,6 +43,10 @@ struct plugin_context_s {
 
   /** Type table */
   type_table_t* types;
+
+  /** Options */
+  const mcsat_options_t* options;
+
 
   /** The read-only solver trail */
   const mcsat_trail_t* trail;

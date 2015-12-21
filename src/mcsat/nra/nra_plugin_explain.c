@@ -641,11 +641,13 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       lp_projection_map_construct_cell(map, x, out, &x_cell_a_p, &x_cell_b_p);
       // Cell can be unbounded on both side => both can be null
       // Get the reductums so we don't recompute them
-      if (x_cell_a_p != NULL) {
-        lp_polynomial_reductum_m(x_cell_a_p_r, x_cell_a_p, map->m);
-      }
-      if (x_cell_b_p != NULL) {
-        lp_polynomial_reductum_m(x_cell_b_p_r, x_cell_b_p, map->m);
+      if (!map->nra->ctx->options->nra_nlsat) {
+        if (x_cell_a_p != NULL) {
+          lp_polynomial_reductum_m(x_cell_a_p_r, x_cell_a_p, map->m);
+        }
+        if (x_cell_b_p != NULL) {
+          lp_polynomial_reductum_m(x_cell_b_p_r, x_cell_b_p, map->m);
+        }
       }
     }
 
@@ -690,25 +692,25 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
         // Get the derivative
         lp_polynomial_derivative(p_r_d, p_r);
         // Add the projection
-        if (false) {
-          lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, p_r_d);
-        } else {
+        if (map->nra->ctx->options->nra_mgcd) {
           lp_projection_map_add_mgcd(map, x, p_r, p_r_d);
+        } else {
+          lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, p_r_d);
         }
       }
 
       if (p_r_deg > 0) {
         // Now combine with other reductums
-        if (!top) {
+        if (!map->nra->ctx->options->nra_nlsat && !top) {
           // Compare with lower bound polynomial
           if (p != x_cell_a_p && x_cell_b_p_r != NULL) {
             uint32_t x_cell_a_p_deg = lp_polynomial_top_variable(x_cell_a_p_r) == x ? lp_polynomial_degree(x_cell_a_p_r) : 0;
             if ((!p_r_univariate || !lp_polynomial_is_univariate(x_cell_a_p_r)) && x_cell_a_p_deg > 0) {
               // Add the psc
-              if (false) {
-                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_a_p_r);
-              } else {
+              if (map->nra->ctx->options->nra_mgcd) {
                 lp_projection_map_add_mgcd(map, x, p_r, x_cell_a_p_r);
+              } else {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_a_p_r);
               }
             }
           }
@@ -717,10 +719,10 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
             uint32_t x_cell_b_p_r_deg = lp_polynomial_top_variable(x_cell_b_p_r) == x ? lp_polynomial_degree(x_cell_b_p_r) : 0;
             if ((!p_r_univariate || !lp_polynomial_is_univariate(x_cell_b_p_r)) && x_cell_b_p_r_deg > 0) {
               // Add the psc
-              if (false) {
-                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_b_p_r);
-              } else {
+              if (map->nra->ctx->options->nra_mgcd) {
                 lp_projection_map_add_mgcd(map, x, p_r, x_cell_b_p_r);
+              } else {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, x_cell_b_p_r);
               }
             }
           }
@@ -753,10 +755,10 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
 
             if (q_r_deg > 0) {
               // Add the psc
-              if (false) {
-                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, q_r);
-              } else {
+              if (map->nra->ctx->options->nra_mgcd) {
                 lp_projection_map_add_mgcd(map, x, p_r, q_r);
+              } else {
+                lp_projection_map_add_psc(map, &polynomial_buffer, &polynomial_buffer_size, x, p_r, q_r);
               }
             }
           }
