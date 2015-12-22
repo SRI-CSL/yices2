@@ -5512,12 +5512,9 @@ literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
    * Rewrite rules:
    * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
    * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
-   *
-   * If (bvge y x) is true, we also rewrite (bvge x y) to (bveq x y).
    */
   if (bvvar_is_zero(&solver->vtbl, x) ||
-      bvvar_is_minus_one(&solver->vtbl, y) ||
-      bvuge_simplifies_to_bveq(solver, x, y)) {
+      bvvar_is_minus_one(&solver->vtbl, y)) {
     return bv_solver_create_eq_atom(solver, x, y);
   }
 
@@ -5589,12 +5586,9 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
    * Rewrite rules:
    * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
    * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
-   *
-   * If (bvsge y x) is true, we also rewrite (bvsge x y) to (bveq x y).
    */
   if (bvvar_is_min_signed(&solver->vtbl, x) ||
-      bvvar_is_max_signed(&solver->vtbl, y) ||
-      bvsge_simplifies_to_bveq(solver, y, x)) {
+      bvvar_is_max_signed(&solver->vtbl, y)) {
     return bv_solver_create_eq_atom(solver, x, y);
   }
 
@@ -5749,12 +5743,12 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
    * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
    * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
    *
-   * Also, if we already have (bvge y x), we can rewrite
-   *  (bvge x y) to (bveq x y)
+   * Also if we already have (bvge y x), we can rewrite (bvge x y) to (bveq x y).
+   * We do this if tt is true or if introducing (bveq x y) may help.
    */
   if (bvvar_is_zero(&solver->vtbl, x) ||
-      bvvar_is_minus_one(&solver->vtbl, y) || 
-      bvuge_simplifies_to_bveq(solver, x, y)) {
+      bvvar_is_minus_one(&solver->vtbl, y) ||
+      (tt && bvuge_simplifies_to_bveq(solver, x, y))) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
   } else {
@@ -5805,12 +5799,12 @@ void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool 
    * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
    * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
    *
-   * Also, if we already have (bvge y x), we can rewrite
-   *  (bvge x y) to (bveq x y)
+   * Also, if we already have (bvsge y x), we can rewrite (bvsge x y) to (bveq x y).
+   * We do this if tt is true or if introducing (bveq x y) may help.   
    */
   if (bvvar_is_min_signed(&solver->vtbl, x) ||
       bvvar_is_max_signed(&solver->vtbl, y) ||
-      bvsge_simplifies_to_bveq(solver, x, y)) {
+      (tt && bvsge_simplifies_to_bveq(solver, x, y))) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
   } else {
