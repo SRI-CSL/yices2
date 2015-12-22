@@ -58,7 +58,7 @@ void psc_buffer_delete(lp_polynomial_t** psc_buffer, uint32_t psc_buffer_size) {
 struct lp_projection_map_struct {
 
   /** All polynomials added alrady */
-  lp_polynomial_hash_set_t all_polynomails;
+  lp_polynomial_hash_set_t all_polynomials;
 
   /** The sets we're maintaining */
   lp_polynomial_hash_set_t* data;
@@ -108,7 +108,7 @@ void lp_projection_map_construct(lp_projection_map_t* map, nra_plugin_t* nra) {
   map->m = nra->lp_data.lp_assignment;
   map->nra = nra;
 
-  lp_polynomial_hash_set_construct(&map->all_polynomails);
+  lp_polynomial_hash_set_construct(&map->all_polynomials);
   init_int_hmap(&map->var_to_index_map, 0);
   lp_variable_list_construct(&map->all_vars);
   lp_variable_list_construct(&map->unprojected_vars);
@@ -120,7 +120,7 @@ void lp_projection_map_destruct(lp_projection_map_t* map) {
     lp_polynomial_hash_set_destruct(map->data + i);
   }
   free(map->data);
-  lp_polynomial_hash_set_destruct(&map->all_polynomails);
+  lp_polynomial_hash_set_destruct(&map->all_polynomials);
   delete_int_hmap(&map->var_to_index_map);
   lp_variable_list_destruct(&map->all_vars);
   lp_variable_list_destruct(&map->unprojected_vars);
@@ -165,7 +165,7 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
 
   assert(!lp_polynomial_is_constant(p));
 
-  if (lp_polynomial_hash_set_contains(&map->all_polynomails, p)) {
+  if (lp_polynomial_hash_set_contains(&map->all_polynomials, p)) {
     return;
   }
 
@@ -181,12 +181,12 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
       lp_variable_t x = lp_polynomial_top_variable(p_factors[i]);
       lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
       lp_polynomial_hash_set_insert(x_set, p_factors[i]);
-      lp_polynomial_hash_set_insert(&map->all_polynomails, p_factors[i]);
+      lp_polynomial_hash_set_insert(&map->all_polynomials, p_factors[i]);
     }
     lp_polynomial_delete(p_factors[i]);
   }
 
-  lp_polynomial_hash_set_insert(&map->all_polynomails, p);
+  lp_polynomial_hash_set_insert(&map->all_polynomials, p);
 
   free(p_factors);
   free(p_factors_multiplicities);
@@ -312,6 +312,15 @@ bool ensure_true(plugin_context_t* ctx, term_t literal) {
 #endif
 
 /**
+ * Compare two polynomials by degree. Otherwise, go for the leading coefficients
+ */
+int polynomial_cmp(const void* p1_void, const void* p2_void) {
+  const lp_polynomial_t* p1 = *((const lp_polynomial_t**) p1_void);
+  const lp_polynomial_t* p2 = *((const lp_polynomial_t**) p2_void);
+  return lp_polynomial_cmp(p1, p2);
+}
+
+/**
  * Isolate the roots of the projection polynomials of x. Then construct a cell
  * assertions and add to out. Return the bound polynomials in x_cell_a_p and x_cell_b_p.
  */
@@ -326,9 +335,12 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
   lp_polynomial_hash_set_close(x_set);
 
-  if (ctx_trace_enabled(ctx, "nra::explain")) {
+  if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
     ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
   }
+
+  // Sort the polynomials by degree
+  qsort(x_set->data, x_set->size, sizeof(lp_polynomial_t*), polynomial_cmp);
 
   // The cell we're constructing
   lp_interval_t x_cell;
@@ -352,7 +364,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     assert(lp_polynomial_top_variable(p) == x);
     size_t p_deg = lp_polynomial_degree(p);
 
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
+    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
@@ -367,7 +379,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     size_t p_roots_size;
     lp_polynomial_roots_isolate(p, map->m, p_roots, &p_roots_size);
 
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
+    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "roots = ");
       size_t p_roots_i;
       for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
@@ -381,7 +393,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
 
     // Binary search for the current value x_v
     const lp_value_t* x_v = lp_assignment_get_value(map->m, x);
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
+    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "x_v = ");
       lp_value_print(x_v, ctx_trace_out(ctx));
       ctx_trace_printf(ctx, "\n");
@@ -396,7 +408,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
         m = (lb + ub) / 2;
         m_cmp = lp_value_cmp(p_roots + m, x_v);
 
-        if (ctx_trace_enabled(ctx, "nra::explain")) {
+        if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
           ctx_trace_printf(ctx, "m = %d\n", m);
           ctx_trace_printf(ctx, "m_cmp = %d\n", m_cmp);
           ctx_trace_printf(ctx, "lb = %d\n", lb);
@@ -458,7 +470,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
       }
     }
 
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
+    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "roots = ");
       size_t p_roots_i;
       for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
@@ -478,7 +490,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     safe_free(p_roots);
   }
 
-  if (ctx_trace_enabled(ctx, "nra::explain")) {
+  if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
     ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
     ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
     ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
@@ -490,7 +502,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   if (lp_interval_is_point(&x_cell)) {
     term_t eq_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ);
     ivector_push(out, eq_root_atom);
-    if (ctx_trace_enabled(ctx, "nra::explain")) {
+    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "eq_root_atom = "); ctx_trace_term(ctx, eq_root_atom);
     }
     assert(ensure_true(ctx, eq_root_atom));
@@ -504,7 +516,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
       term_t lb_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT);
       ivector_push(out, lb_root_atom);
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
+      if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
         ctx_trace_printf(ctx, "lb_root_atom = "); ctx_trace_term(ctx, lb_root_atom);
       }
       assert(ensure_true(ctx, lb_root_atom));
@@ -512,7 +524,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
       term_t ub_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT);
       ivector_push(out, ub_root_atom);
-      if (ctx_trace_enabled(ctx, "nra::explain")) {
+      if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
         ctx_trace_printf(ctx, "ub_root_atom = "); ctx_trace_term(ctx, ub_root_atom);
       }
       assert(ensure_true(ctx, ub_root_atom));
@@ -575,7 +587,6 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
   lp_polynomial_vector_delete(assumptions);
 }
 
-
 /**
  * Project the content of the map downwards until done. All the projection
  * sets will be closed, so that iteration is possible.
@@ -602,7 +613,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
   // Project
   for (;;) {
 
-    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+    if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
       ctx_trace_printf(map->nra->ctx, "current projection:\n");
       lp_projection_map_print(map, ctx_trace_out(map->nra->ctx));
     }
@@ -614,7 +625,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       break;
     }
 
-    if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+    if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
       ctx_trace_printf(map->nra->ctx, "x = %s\n", lp_variable_db_get_name(map->var_db, x));
     }
 
@@ -660,7 +671,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       assert(lp_polynomial_top_variable(p) == x);
       uint32_t p_deg = lp_polynomial_degree(p);
 
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+      if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
         ctx_trace_printf(map->nra->ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
         ctx_trace_printf(map->nra->ctx, "p_deg = %u\n", p_deg);
       }
@@ -669,7 +680,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       lp_polynomial_reductum_m(p_r, p, map->m);
       uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
 
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+      if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
         ctx_trace_printf(map->nra->ctx, "p_r = "); lp_polynomial_print(p_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
         ctx_trace_printf(map->nra->ctx, "p_r_deg = %u\n", p_deg);
       }
@@ -735,7 +746,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
             q = lp_projection_map_get_set_of(map, x)->data[x_set_j];
             assert(lp_polynomial_top_variable(p) == x);
 
-            if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+            if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
               ctx_trace_printf(map->nra->ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
             }
 
@@ -748,7 +759,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
                continue;
             }
 
-            if (ctx_trace_enabled(map->nra->ctx, "nra::explain")) {
+            if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
               ctx_trace_printf(map->nra->ctx, "q_r = "); lp_polynomial_print(q_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
               ctx_trace_printf(map->nra->ctx, "q_r_deg = %u\n", p_deg);
             }
