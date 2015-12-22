@@ -114,7 +114,7 @@
 /*
  * All default parameters
  */
-static param_t default_settings = {
+static const param_t default_settings = {
   DEFAULT_FAST_RESTART,
   DEFAULT_C_THRESHOLD,
   DEFAULT_D_THRESHOLD,
@@ -328,7 +328,7 @@ void init_params_to_defaults(param_t *parameters) {
 /*
  * Return the default parameters
  */
-param_t *get_default_params(void) {
+const param_t *get_default_params(void) {
   return &default_settings;
 }
 
