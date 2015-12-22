@@ -106,7 +106,7 @@ extern void init_params_to_defaults(param_t *parameters);
 /*
  * Get a pointer to an internal record (set to defaults)
  */
-extern param_t *get_default_params(void);
+extern const param_t *get_default_params(void);
 
 
 /*
