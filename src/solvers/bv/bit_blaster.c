@@ -36,15 +36,20 @@ static void trace_clause(uint32_t n, literal_t *a);
 
 /*
  * Set flag CMP_AS_MAJ to 1 to enable the conversion
- * of (cmp a b c) to (maj3 a (not b) c)
+ * of (cmp a b c) to (maj3 a (not b) c).
+ *
+ * Set flag MAJ_AS_CMP to 1 to enable the reverse:
+ *  (maj3 a b c) is rewritten to (cmp a (not b) c).
  *
  * This option should help (it does on the SMT-LIB 1.2
  * benchmarks). But Programming Research reported that it gave them
  * worse performance on their examples. Not clear whether that's
  * still true?
+ *
+ * IMPORTANT: Don't set both to 1.
  */
 #define CMP_AS_MAJ 0
-#define MAJ_AS_CMP 0
+#define MAJ_AS_CMP 1
 
 
 
