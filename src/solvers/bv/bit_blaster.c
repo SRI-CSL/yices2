@@ -44,6 +44,7 @@ static void trace_clause(uint32_t n, literal_t *a);
  * still true?
  */
 #define CMP_AS_MAJ 0
+#define MAJ_AS_CMP 0
 
 
 
@@ -1237,6 +1238,14 @@ void bit_blaster_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, li
 /*
  * Constraint: x = (majority a b c)
  */
+#if MAJ_AS_CMP
+// use equivalence (majority a b c) = (cmp a (not b) c)
+void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
+  bit_blaster_cmp(s, a, not(b), c, x);
+}
+
+#else
+// build clauses
 void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
   cbuffer_t *buffer;
 
@@ -1255,7 +1264,7 @@ void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, l
   }
   commit_buffer(s, buffer);
 }
-
+#endif
 
 /*
  * Constraint: x = (cmp a b c)
@@ -1604,6 +1613,13 @@ literal_t bit_blaster_eval_gt(bit_blaster_t *s, literal_t a, literal_t b) {
 /*
  * (majority a b c)
  */
+#if MAJ_AS_CMP
+// Use equivalence (maj3 a b c) = (cmp a (not b) c))
+literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
+  return bit_blaster_eval_cmp(s, a, not(b), c);
+}
+#else
+// default: build the gate from scratch
 literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
   a = eval_literal(s, a);
   b = eval_literal(s, b);
@@ -1618,7 +1634,7 @@ literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, lite
 
   return null_literal;
 }
-
+#endif
 
 /*
  * (cmp a b c) i.e., ((a > b) or (a = b and c))
