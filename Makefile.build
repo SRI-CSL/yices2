@@ -130,9 +130,9 @@ static_dist_dir = $(build_dir)/static_dist
 #   that are independent of OS and compilation modes
 # - the name of the tar file depends on ARCH + MODE
 #
-# All tarfiles are stored in ./distributions
+# All tarfiles are stored in ./bvonly-distributions
 #
-distributions = ./distributions
+distributions = ./bvonly-distributions
 bindist_dir = yices-$(YICES_VERSION)
 
 ifeq ($(YICES_MODE),debug)
