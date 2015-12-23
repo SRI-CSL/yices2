@@ -43,7 +43,7 @@ static void trace_clause(uint32_t n, literal_t *a);
  * worse performance on their examples. Not clear whether that's
  * still true?
  */
-#define CMP_AS_MAJ 1
+#define CMP_AS_MAJ 0
 
 
 
