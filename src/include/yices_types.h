@@ -101,16 +101,6 @@ struct param_s {
    *   the default branching mode uses the cached polarity in smt_core.
    * - clause_decay influence clause deletion
    * - random seed
-   *
-   * SMT Core caching of theory lemmas:
-   * - if cache_tclauses is true, then the core internally turns
-   *   some theory lemmas into learned clauses
-   * - for the core, a theory lemma is either a conflict reported by
-   *   the theory solver or a theory implication
-   * - a theory implication is considered for caching if it's involved
-   *   in a conflict resolution
-   * - parameter tclause_size controls the lemma size: only theory lemmas
-   *   of size <= tclause_size are turned into learned clauses
    */
   double   var_decay;       // decay factor for variable activity
   float    randomness;      // probability of a random pick in select_unassigned_literal
