@@ -15,7 +15,6 @@
 #include "utils/int_array_sort.h"
 
 
-
 #define TRACE 0
 
 #if TRACE
@@ -34,6 +33,17 @@ static void trace_clause(uint32_t n, literal_t *a);
 
 #endif
 
+
+/*
+ * Set flag CMP_AS_MAJ to 1 to enable the conversion
+ * of (cmp a b c) to (maj3 a (not b) c)
+ *
+ * This option should help (it does on the SMT-LIB 1.2
+ * benchmarks). But Programming Research reported that it gave them
+ * worse performance on their examples. Not clear whether that's
+ * still true?
+ */
+#define CMP_AS_MAJ 1
 
 
 
@@ -1250,13 +1260,34 @@ void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, l
 /*
  * Constraint: x = (cmp a b c)
  */
+#if CMP_AS_MAJ
+// use equivalence (cmp a b c) = (majority a (not b) c)
 void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
-  // use equivalence (cmp a b c) = (majority a (not b) c)
   bit_blaster_maj3(s, a, not(b), c, x);
 }
 
+#else 
+// build clauses
+void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
+  cbuffer_t *buffer;
 
+  buffer = &s->buffer;
+  assert(buffer->nclauses == 0);
 
+  push_ternary_clause(s, buffer, a, not(b), not(x));
+  push_ternary_clause(s, buffer, not(a), b, x);
+  push_quad_clause(s, buffer, a, b, c, not(x));
+  push_quad_clause(s, buffer, a, b, not(c), x);
+  push_quad_clause(s, buffer, not(a), not(b), c, not(x));
+  push_quad_clause(s, buffer, not(a), not(b), not(c), x);
+
+  if (cbuffer_nvars(buffer) != 4) {
+    cbuffer_simplify(buffer);
+  }
+  commit_buffer(s, buffer);
+}
+
+#endif
 
 
 
@@ -1592,10 +1623,33 @@ literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, lite
 /*
  * (cmp a b c) i.e., ((a > b) or (a = b and c))
  */
+#if CMP_AS_MAJ
+// Use equivalence (cmp a b c) = (maj3 a (not b) c))
 literal_t bit_blaster_eval_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
-  // (cmp a b c) = (majority a (not b) c)
   return bit_blaster_eval_maj3(s, a, not(b), c);
 }
+
+#else 
+// default: build the gate from scratch
+literal_t bit_blaster_eval_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
+  a = eval_literal(s, a);
+  b = eval_literal(s, b);
+  c = eval_literal(s, c);
+ 
+  if (a == b)      return c;
+  if (a == not(b)) return a;
+
+  if (a == c)      return a;
+  if (a == not(c)) return not(b);
+  if (b == c)      return a;
+  if (b == not(c)) return c;
+
+  // at least two of the literals are non-constant
+  // no other simplification
+
+  return null_literal;
+}
+#endif
 
 
 
