@@ -41,15 +41,15 @@ static void trace_clause(uint32_t n, literal_t *a);
  * Set flag MAJ_AS_CMP to 1 to enable the reverse:
  *  (maj3 a b c) is rewritten to (cmp a (not b) c).
  *
- * This option should help (it does on the SMT-LIB 1.2
- * benchmarks). But Programming Research reported that it gave them
- * worse performance on their examples. Not clear whether that's
- * still true?
- *
  * IMPORTANT: Don't set both to 1.
+ *
+ * Based on the SMT-LIB QF_BV benchmarks, the best setting is
+ * CMP_AS_MAJ = 1 and MAJ_AS_CMP = 0. In the past, PRQA has
+ * reported that they got better performance with CMP_AS_MAJ=0.
+ * Not clear whether that's still true.
  */
-#define CMP_AS_MAJ 0
-#define MAJ_AS_CMP 1
+#define CMP_AS_MAJ 1
+#define MAJ_AS_CMP 0
 
 
 
