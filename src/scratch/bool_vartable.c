@@ -157,6 +157,7 @@ static uint32_t store_ordata(ordata_array_t *a, literal_t *b, uint32_t n) {
   if (n >= MAX_ORDATA_ARRAY_SIZE) {
     out_of_memory();
   }
+  // the sum a->top + n + 1 can't oveflow
   ordata_array_resize(a, a->top + n + 1);
 
   assert(a->top + n + 1 <= a->size);
@@ -919,7 +920,7 @@ static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
 
 /*
  * negate column 0: input b7 b6 b5 b4 b3 b2 b1 b0
- *                 output b3 b2 b1 b0 b7 b6 b4 b3
+ *                 output b3 b2 b1 b0 b7 b6 b5 b4
  */
 static inline uint8_t negate0(uint8_t b) {
   return (b & 0xf0) >> 4 | (b & 0x0f) << 4;
@@ -927,7 +928,7 @@ static inline uint8_t negate0(uint8_t b) {
 
 /*
  * negate column 1: input b7 b6 b5 b4 b3 b2 b1 b0
- *                 output b5 b4 b7 b6 b2 b0 b3 b2
+ *                 output b5 b4 b7 b6 b1 b0 b3 b2
  */
 static inline uint8_t negate1(uint8_t b) {
   return (b & 0xcc) >> 2 | (b & 0x33) << 2;
