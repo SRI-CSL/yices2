@@ -127,10 +127,10 @@ static inline bool is_neg(literal_t l) {
  * This is done by setting bit 1 in value[x].
  */
 typedef enum bval {
-  val_undef_false = 0,
-  val_undef_true = 1,
-  val_false = 2,
-  val_true = 3,
+  BVAL_UNDEF_FALSE = 0,
+  BVAL_UNDEF_TRUE = 1,
+  BVAL_FALSE = 2,
+  BVAL_TRUE = 3,
 } bval_t;
 
 
@@ -171,9 +171,22 @@ static inline bool true_preferred(bval_t val) {
  * - data[i+1] is the auxiliary data
  * - data[i+2 ... i+n+2] = array of n literals, where n = data[i] = clause length
  *
- * We ensure that each clause starts at an index that's a multiple of 4.
- * This ensures that header + two watched literals are in the same cache 
- * line (CHECK THIS).
+ * Each clause starts at an index that's a multiple of 4. This ensures
+ * that header + two watched literals are in the same cache line.
+ *
+ * If a clause starts at index i, the next clause starts
+ * at index j = ((i + data[i] + 2 + 3) & ~3). That's i + length of the
+ * clause + size of the header rounded up to the next multiple of 4.
+ *
+ * Simplification/in-processing may delete or shrink a clause. This
+ * introduces gaps in the data array.  To deal with these gaps, we add
+ * padding blocks. A padding block at index i is a block of unused
+ * elements in the array.  Its length is a multiple of four.  The
+ * first two elements of a padding block are as follows: 
+ * - data[i] = 0
+ * - data[i+1] = length of the padding block.
+ * This distinguishes padding blocks from clauses since a clause starts with 
+ * data[i] >= 2.
  */
 
 // clause structure
@@ -193,6 +206,7 @@ typedef struct clause_s {
  *     learned <= size <= capacity
  *     available = capacity - size
  *     learned, size, capacity, available are all mutiple of four.
+ * - counters: number of clauses/literals
  */
 typedef struct clause_pool_s {
   uint32_t *data;
@@ -200,7 +214,20 @@ typedef struct clause_pool_s {
   uint32_t size;
   uint32_t capacity;
   uint32_t available;
+  //  statistics
+  uint32_t num_prob_clauses;      // number of problem clauses
+  uint32_t num_prob_literals;     // sum of the length of these clauses
+  uint32_t num_learned_clauses;   // number of learned clauses
+  uint32_t num_learned_literals;  // sum of the length of these clauses
 } clause_pool_t;
+
+
+/*
+ * Initial and maximal capacity of a pool
+ * - initial size = 1Mb
+ */
+#define DEF_CLAUSE_POOL_CAPACITY 262144
+#define MAX_CLAUSE_POOL_CAPACITY (MAX_ARRAY32_SIZE & ~3)
 
 
 // clause index
@@ -228,6 +255,14 @@ static inline clause_t *clause_of_idx(clause_pool_t *pool, cidx_t idx) {
   return (clause_t *) ((char *) (pool->data + idx));
 }
 
+/*
+ * Number of literals in clause
+ */
+static inline uint32_t clause_length(clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return pool->data[idx];
+}
+
 
 
 /*******************
@@ -239,20 +274,15 @@ static inline clause_t *clause_of_idx(clause_pool_t *pool, cidx_t idx) {
  * literal. The information is stored as a sequence of records, in an
  * integer array.
  *
- * There are two types of records:
+ * VERSION 1:
  * - if l is watched literal in a clause cidx of length >= 3, then
- *   the record consists of [l1, cidx] where l1 is a "blocker literal".
- *   (i.e., l1 occurs in the clause cidx and is different from l).
- * - if l occurs in a binary clause { l, l1 } then the record consists
- *   of a single integer: [l1] (i.e., no clause index in this case)
+ *   the record is cidx.
+ * - if l occurs in a binary clause { l, l1 } then the record is the
+ *   literal l1
  *
- * To tell the difference, we set/clear the lower-order bit of the first
- * integer in each record.
- * - [l1, cidx] is stored as two integers:
- *     data[i] = (l1 << 1)|1  (lower-order bit = 1)
- *     data[i+1] = cidx
- * - [l1] is stored as
- *     data[i] = (l1 << 1)|0  (lower-order bit = 0)
+ * To tell the difference, use the lower-order bit of the integer:
+ * - [cidx] is stored as is. The two low-order bits of cidx are 00.
+ * - [l1] is stored as (l1 << 1)|1  (lower-order bit = 1)
  *
  * The watch structure is a vector:
  * - capacity = full length of the data array
@@ -266,9 +296,9 @@ typedef struct watch_s {
 
 
 /*
- * Initial capacity: smallish?
+ * Initial capacity: smallish.
  */
-#define DEF_WATCH_CAPACITY 30
+#define DEF_WATCH_CAPACITY 6
 #define MAX_WATCH_CAPACITY (MAX_ARRAY32_SIZE - 2)
 
 
@@ -302,15 +332,16 @@ typedef struct {
 
 /*
  * Heap and variable activities for variable selection heuristic
- * - activity[x]: for every variable x between 0 and nvars - 1
- *   activity[-1] = DBL_MAX (higher than any activity)
- *   activity[-2] = -1.0 (lower than any variable activity)
+ * - activity[x]: for every variable x between 1 and nvars - 1
+ * - indices 0 and -1 are used as markers:
+ *    activity[0] = DBL_MAX (higher than any activity)
+ *   activity[-1] = -1.0 (lower than any activity);
  * - heap_index[x]: for every variable x,
  *      heap_index[x] = i if x is in the heap and heap[i] = x
  *   or heap_index[x] = -1 if x is not in the heap
- * - heap: array of nvars + 1 variables
+ * - heap: array of nvars variables
  * - heap_last: index of last element in the heap
- *   heap[0] = -1,
+ *   heap[0] = 0,
  *   for i=1 to heap_last, heap[i] = x for some variable x
  * - size = number of variable (nvars)
  * - vmax = variable index (last variable not in the heap)
@@ -318,7 +349,7 @@ typedef struct {
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
  *
  * The set of variables is split into two segments:
- * - [0 ... vmax-1] = variables that are in the heap or have been in the heap
+ * - [1 ... vmax-1] = variables that are in the heap or have been in the heap
  * - [vmax ... size-1] = variables that may not have been in the heap
  *
  * To pick a decision variable:
@@ -326,8 +357,8 @@ typedef struct {
  * - if the heap is empty or all its variables are already assigned,
  *   search for the first unassigned variables in [vmax ... size-1]
  *
- * Initially: we set vmax to 0 (nothing in the heap yet) so decision
- * variables are picked in increasing order, starting from 0.
+ * Initially: we set vmax to 1 (nothing in the heap yet) so decision
+ * variables are picked in increasing order, starting from 1.
  */
 typedef struct var_heap_s {
   double *activity;
@@ -341,22 +372,19 @@ typedef struct var_heap_s {
 } var_heap_t;
 
 
+
 /*
- * Statistics
+ * STATISTICS
  */
 typedef struct solver_stats_s {
-  uint32_t starts;           // 1 + number of restarts
-  uint32_t simplify_calls;   // number of calls to simplify_clause_database
-  uint32_t reduce_calls;     // number of calls to reduce_learned_clause_set
+  uint32_t starts;             // 1 + number of restarts
+  uint32_t simplify_calls;     // number of calls to simplify_clause_database
+  uint32_t reduce_calls;       // number of calls to reduce_learned_clause_set
 
-  uint64_t decisions;        // number of decisions
-  uint64_t random_decisions; // number of random decisions
-  uint64_t propagations;     // number of boolean propagations
-  uint64_t conflicts;        // number of conflicts/backtracking
-
-  uint64_t prob_literals;     // number of literals in problem clauses
-  uint64_t learned_literals;  // number of literals in learned clauses
-  uint64_t aux_literals;      // temporary counter for simplify_clause
+  uint64_t decisions;          // number of decisions
+  uint64_t random_decisions;   // number of random decisions
+  uint64_t propagations;       // number of boolean propagations
+  uint64_t conflicts;          // number of conflicts/backtracking
 
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
@@ -364,6 +392,232 @@ typedef struct solver_stats_s {
   uint64_t literals_before_simpl;
   uint64_t subsumed_literals;
 } solver_stats_t;
+
+
+
+/*
+ * ANTECEDENT TAGS
+ */
+
+/*
+ * When a variable is assigned, we store a tag to identify the reason
+ * for the assignment. There are four cases:
+ * - unit clause
+ * - decision literal
+ * - propagated from a binary clause
+ * - propagated from a non-binary clause
+ * + another one for variables not assigned
+ */
+typedef enum antecedent_tag {
+  ATAG_NONE,
+  ATAG_UNIT,
+  ATAG_DECISION,
+  ATAG_BINARY,
+  ATAG_CLAUSE,
+} antecedent_tag_t;
+
+
+/*
+ * SOLVER STATUS
+ */
+typedef enum solver_status {
+  STAT_UNKNOWN,
+  STAT_SAT,
+  STAT_UNSAT,
+} solver_status_t;
+
+
+/*
+ * For each variable x, we store
+ * - ante_tag[x]  = tag for assigned variables + marks
+ * - ante_data[x] = antecedent index
+ * - value[x]     = assigned value
+ * - level[x]     = assingment level
+ *
+ * For each literal l, we keep
+ * - watch[l] = watch vector for l
+ */
+typedef struct sat_solver_s {
+  solver_status_t status;
+
+  uint32_t decision_level;
+  uint32_t backtrack_level;
+  
+  uint32_t prng;              // State of the pseudo-random number generator
+  
+  /*
+   * Variables and literals
+   */
+  uint32_t nvars;              // Number of variables
+  uint32_t nliterals;          // Number of literals = twice nvars
+  uint32_t vsize;              // Size of the variable-indexed arrays (>= nvars)
+  uint32_t lsize;              // Size of the watch array (>= nlits)
+
+  uint8_t *value;
+  uint8_t *ante_tag;
+  uint32_t *ante_data;
+  uint32_t *level;
+  watch_t **watch;
+
+  var_heap_t heap;            // Variable heap
+  sol_stack_t stack;          // Assignment/propagation queue
+
+  /*
+   * Clause database and related stuff
+   * - cla_inc and inv_cla_decay are used for deletion of learned clauses
+   * - unit clauses are stored implicitly in the assignment stack
+   * - binary clauses are stored implicitly in the watch vectors
+   * - all other clauses are in the pool
+   */
+  float cla_inc;              // Clause activity increment
+  float inv_cla_decay;        // Inverse of clause decay (1/0.999)
+  bool has_empty_clause;      // Whether the empty clause was added
+  uint32_t units;             // Number of unit clauses
+  uint32_t binaries;          // Number of binary clauses
+  clause_pool_t pool;         // Pool for non-binary/non-unit clauses
+
+  /*
+   * Statistics record
+   */
+  solver_stats_t stats;
+
+} sat_solver_t;
+
+
+// Default size for the variable array
+#define SAT_SOLVER_DEFAULT_VSIZE 1024
+
+
+/********************
+ *  MAIN FUNCTIONS  *
+ *******************/
+
+/*
+ * Initialization:
+ * - sz = initial size of the variable-indexed arrays.
+ * - if sz is zero, the default size is used.
+ * - the solver is initialized with one variable (the reserved variable 0).
+ */
+extern void init_nsat_solver(sat_solver_t *solver, uint32_t sz);
+
+/*
+ * Set the prng seed
+ */
+extern void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
+
+/*
+ * Deletion: free memory
+ */
+extern void delete_nsat_solver(sat_solver_t *solver);
+
+/*
+ * Reset: remove all variables and clauses
+ */
+extern void reset_nsat_solver(sat_solver_t *solver);
+
+
+/*
+ * Add n fresh variables:
+ * - they are indexed from nv, ..., nv + n-1 where nv = number of 
+ *   variables in solver (on entry to this function).
+ */
+extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
+
+/*
+ * Allocate a fresh Boolean variable and return its index.
+ */
+extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
+
+
+
+/*********************
+ *  CLAUSE ADDITION  *
+ ********************/
+
+/*
+ * A clause is an array of literals (integers between 0 and nlits - 1)
+ * - a clause is simplified if it satisfies the following conidtions:
+ *   1) it doesn't contain assigned literals (including the reserved 
+ *      literals 0 and 1)
+ *   2) it doesn't include duplicates or complementary literals
+ */
+
+/*
+ * The following function take a simplified clause as input
+ */
+extern void nsat_solver_add_empty_clause(sat_solver_t *solver);
+extern void nsat_solver_add_unit_clause(sat_solver_t *solver, literal_t l1);
+extern void nsat_solver_add_binary_clause(sat_solver_t *solver, literal_t l1, literal_t l2);
+extern void nsat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l1, literal_t l2, literal_t l3);
+
+// n = size of the clause, l = array of n literals
+extern void nsat_solver_add_clause(sat_solver_t *solver, uint32_t n, const literal_t *l);
+
+/*
+ * This function simplifies the clause then adds it
+ * - n = number of literals
+ * - l = array of n literals
+ * - the array is modified
+ */
+extern void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
+
+
+
+/**************************
+ *  VARIABLE ASSIGNMENTS  *
+ *************************/
+
+static inline bval_t var_value(sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return solver->value[x];
+}
+
+static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
+  return is_unassigned_val(var_value(solver, x));
+}
+
+static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
+  return ! var_is_unassigned(solver, x);
+}
+
+static inline bool var_prefers_true(sat_solver_t *solver, bvar_t x) {
+  return true_preferred(var_value(solver, x));
+}
+
+static inline bool var_is_true(sat_solver_t *solver, bvar_t x) {
+  return var_value(solver, x) == BVAL_TRUE;
+}
+
+static inline bool var_is_false(sat_solver_t *solver, bvar_t x) {
+  return var_value(solver, x) == BVAL_FALSE;
+}
+
+
+static inline bval_t lit_value(sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+  return solver->value[var_of(l)] ^ sign_of(l);
+}
+
+static inline bool lit_is_unassigned(sat_solver_t *solver, literal_t l) {
+  return is_unassigned_val(lit_value(solver, l));
+}
+
+static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
+  return ! lit_is_unassigned(solver, l);
+}
+
+static inline bool lit_prefers_true(sat_solver_t *solver, literal_t l) {
+  return true_preferred(lit_value(solver, l));
+}
+
+static inline bool lit_is_true(sat_solver_t *solver, literal_t l) {
+  return lit_value(solver, l) == BVAL_TRUE;
+}
+
+static inline bool lit_is_false(sat_solver_t *solver, literal_t l) {
+  return lit_value(solver, l) == BVAL_FALSE;
+}
+
 
 
 #endif /* __NEW_SAT_SOLVER_H */

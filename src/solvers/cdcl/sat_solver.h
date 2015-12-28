@@ -28,6 +28,7 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include "solvers/cdcl/sat_solver_base_types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
 #include "utils/stable_sort.h"
@@ -134,6 +135,7 @@ static inline bool is_unassigned_val(bval_t val) {
 static inline bool true_preferred(bval_t val) {
   return (val & 0x1) != 0;
 }
+
 
 
 /*

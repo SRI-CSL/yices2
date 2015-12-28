@@ -16,7 +16,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "solvers/cdcl/clause_pool.h"
+#include "solvers/cdcl/new_sat_solver.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 
@@ -39,11 +39,12 @@ static literal_t *clause;
 static uint32_t buffer_size;
 
 /*
- * Clause pool for testing
+ * Solver
  */
-static clause_pool_t pool;
+static sat_solver_t solver;
 static double construction_time;
 static double memory_size;
+
 
 /*
  * DIMACS PARSER
@@ -56,7 +57,7 @@ static void finish_line(FILE *f) {
   int c;
 
   do {
-    c = getc(f);
+    c = getc_unlocked(f);
   } while (c != '\n');
 }
 
@@ -64,10 +65,10 @@ static void finish_line(FILE *f) {
 /*
  * Buffer allocation
  */
-#define MAX_CLAUSE_SIZE (UINT32_MAX/sizeof(literal_t))
+#define MAX_BUFFER_SIZE (UINT32_MAX/sizeof(literal_t))
 
 static void alloc_buffer(uint32_t size) {
-  assert(size <= MAX_CLAUSE_SIZE);
+  assert(size <= MAX_BUFFER_SIZE);
   clause = malloc(size * sizeof(literal_t));
   buffer_size = size;
   if (clause == NULL) {
@@ -81,10 +82,10 @@ static void expand_buffer(void) {
    * Added the assertion buffer_size > 0 to stop a false report from
    * the clang static analyzer.
    */
-  assert(buffer_size > 0 && buffer_size <= MAX_CLAUSE_SIZE);
+  assert(buffer_size > 0 && buffer_size <= MAX_BUFFER_SIZE);
   buffer_size = 2 * buffer_size;
-  if (buffer_size > MAX_CLAUSE_SIZE) {
-    buffer_size = MAX_CLAUSE_SIZE;
+  if (buffer_size > MAX_BUFFER_SIZE) {
+    buffer_size = MAX_BUFFER_SIZE;
   }
 
   clause = realloc(clause, buffer_size * sizeof(literal_t));
@@ -113,27 +114,27 @@ enum {
   END_OF_CLAUSE = -2
 };
 
-static literal_t read_literal(FILE *f, uint32_t nv) {
+static int32_t read_literal(FILE *f, uint32_t nv) {
   int d;
   int32_t var, delta;
 
   do {
-    d = getc(f);
+    d = getc_unlocked(f);
   } while (isspace(d));
 
   /*
    * Conversion: literal in Yices format = 2 * var + delta
    * where var = variable index in DIMACS format (between 1 and nv)
-   *     delta = -2 if literal is positive in DIMACS format
-   *     delta = -1 if literal is negative in DIMACS format
-   * This works since yices variable index = DIMACS var - 1
+   *     delta = 0 if literal is positive in DIMACS format
+   *     delta = 1 if literal is negative in DIMACS format
+   * This works since yices variable index = DIMACS var
    * and literal in yices format = 2 * (var index) + sign
    */
-  delta = -2;
+  delta = 0;
   var = 0;
   if (d == '-') {
-    delta = -1;
-    d = getc(f);
+    delta = 1;
+    d = getc_unlocked(f);
   }
 
   if (!isdigit(d)) {
@@ -142,7 +143,7 @@ static literal_t read_literal(FILE *f, uint32_t nv) {
 
   do {
     var = 10 * var + (d - '0');
-    d = getc(f);
+    d = getc_unlocked(f);
   } while (isdigit(d) && var <= nv);
 
   if (var == 0) {
@@ -168,8 +169,7 @@ enum {
 
 static int32_t build_instance(char *filename) {
   uint32_t i, j, l;
-  literal_t literal;
-  cidx_t cidx;
+  int32_t literal;
   int n, nv, nc;
   char *s;
   FILE *f;
@@ -215,9 +215,10 @@ static int32_t build_instance(char *filename) {
   nvars = nv;
   nclauses = nc;
 
-  /* initialize the pool */
-  init_clause_pool(&pool);
-
+  /* initialize the solver */
+  init_nsat_solver(&solver, nvars + 1);
+  nsat_solver_add_vars(&solver, nvars);
+  
   /* now read clauses and translate them */
   alloc_buffer(200);
   i = 0;
@@ -231,13 +232,13 @@ static int32_t build_instance(char *filename) {
       clause[j] = literal;
       j ++;
     }
-
     if (literal != END_OF_CLAUSE) {
       fprintf(stderr, "Format error: file %s\n", filename);
       fclose(f);
       return FORMAT_ERROR;
     }
-    cidx = clause_pool_add_problem_clause(&pool, j, clause);
+    //    cidx = clause_pool_add_problem_clause(&pool, j, clause);
+    nsat_solver_simplify_and_add_clause(&solver, j, clause);
     i ++;
   }
   delete_buffer();
@@ -246,25 +247,105 @@ static int32_t build_instance(char *filename) {
 
   return 0;
 }
->>>>>>> 6c1c8cf... New sat solver progres + test for it.
 
+
+/*
+ * Convert array size to mega bytes (for an array of 32bit integers)
+ */
+static double mb(uint32_t n) {
+  return (double) (n * sizeof(uint32_t)) / (1024 * 1024);
+}
+
+
+/*
+ * Estimate of the memory used by the variables/literal arrays
+ * (including heap + stack). The estimate is for 64bit architectures.
+ * - n = number of variables.
+ *
+ * For each variable x we have:
+ * - value[x]: 8 bits
+ * - ante_tag[x]: 8 bits
+ * - ante_data[x]: 32 bits
+ * - level[x]: 32 bits
+ * - watch[pos(x)]: 64 bits
+ * - watch[neg(x)]: 64 bits
+ * - heap.activity[x]: 64 bits
+ * - heap.heap_index[x]: 32 bits
+ * - a spot in heap.heap: 32 bits
+ * - a spot in stack.lit: 32 bits
+ *
+ * Total: 336 bits = 84 bytes
+ */
+static double mem_for_vars(uint32_t n) {
+  return (double) (n * 84)/ (1024 * 1024);
+}
+
+
+/*
+ * Total size and capacity of all watch vectors
+ */
+static uint32_t watch_sizes(sat_solver_t *solver) {
+  watch_t *tmp;
+  uint32_t s, i, n;
+
+  s = 0;
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    tmp = solver->watch[i];
+    if (tmp != NULL) {
+      s += tmp->size;
+    }
+  }
+  return s;
+}
+
+static uint32_t watch_capacities(sat_solver_t *solver) {
+  watch_t *tmp;
+  uint32_t s, i, n;
+
+  s = 0;
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    tmp = solver->watch[i];
+    if (tmp != NULL) {
+      s += tmp->capacity;
+    }
+  }
+  return s;
+}
+
+/*
+ * Estimate the memory used by watch vectors
+ */
+static double mem_for_watches(sat_solver_t *solver) {
+  return (double) (watch_capacities(solver) * sizeof(uint32_t))/(1024 * 1024);
+}
 
 /*
  * Print problem size
  */
 static void print_statistics(FILE *f) {
-  fprintf(f, "\nConstruction time    : %.3f s\n", construction_time);
-  fprintf(f, "Memory used          : %.2f MB\n", memory_size);
-  fprintf(f, "nb. of variables     : %"PRIu32"\n", nvars);
-  fprintf(f, "nb. of clauses       : %"PRIu32"\n", nclauses);
-  fprintf(f, "clause pool\n");
-  fprintf(f, "    prob clauses     : %"PRIu32"\n", pool.num_prob_clauses);
-  fprintf(f, "    prob literals    : %"PRIu32"\n", pool.num_prob_literals); 
-  fprintf(f, "    learned clauses  : %"PRIu32"\n", pool.num_learned_clauses);
-  fprintf(f, "    learned literals : %"PRIu32"\n", pool.num_learned_literals);
-  fprintf(f, "pool size            : %"PRIu32"\n", pool.size);
-  fprintf(f, "pool capacity        : %"PRIu32"\n", pool.capacity);
-  fprintf(f, "first learned clause : %"PRIu32"\n", pool.learned);  
+  fprintf(f, "\nConstruction time       : %.3f s\n", construction_time);
+  fprintf(f, "Memory used             : %.2f MB\n", memory_size);
+  fprintf(f, "nb. of variables        : %"PRIu32"\n", nvars);
+  fprintf(f, "nb. of clauses          : %"PRIu32"\n", nclauses);
+  fprintf(f, "\n");
+  fprintf(f, "nb. of vars             : %"PRIu32"\n", solver.nvars);
+  fprintf(f, "nb. of unit clauses     : %"PRIu32"\n", solver.units);
+  fprintf(f, "nb. of bin  clauses     : %"PRIu32"\n", solver.binaries);
+  fprintf(f, "nb. of prob clauses     : %"PRIu32"\n", solver.pool.num_prob_clauses);
+  fprintf(f, "nb. of prob literals    : %"PRIu32"\n", solver.pool.num_prob_literals);
+  fprintf(f, "nb. of learned clauses  : %"PRIu32"\n", solver.pool.num_learned_clauses);
+  fprintf(f, "nb. of learned literals : %"PRIu32"\n", solver.pool.num_learned_literals);
+  fprintf(f, "\n");
+  fprintf(f, "solver vsize            : %"PRIu32"\n", solver.vsize);
+  fprintf(f, "solver lsize            : %"PRIu32"\n", solver.lsize);
+  fprintf(f, "watchers                : %"PRIu32"\n", watch_sizes(&solver));
+  fprintf(f, "watch capacity          : %"PRIu32"\n", watch_capacities(&solver));
+  fprintf(f, "mem for vsize           : %.2f MB\n", mem_for_vars(solver.vsize));
+  fprintf(f, "mem for watchers        : %.2f MB\n", mem_for_watches(&solver));
+  fprintf(f, "pool size               : %"PRIu32" (%.2f MB)\n", solver.pool.size, mb(solver.pool.size));
+  fprintf(f, "pool capacity           : %"PRIu32" (%.2f MB)\n", solver.pool.capacity, mb(solver.pool.capacity));  
 }
 
 
@@ -282,7 +363,7 @@ int main(int argc, char *argv[]) {
   construction_time = get_cpu_time();
   memory_size = mem_size() / (1024 * 1024);
   print_statistics(stdout);
-  delete_clause_pool(&pool);
+  delete_nsat_solver(&solver);
   
   return 0;
 }
