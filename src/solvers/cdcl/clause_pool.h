@@ -16,6 +16,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "solvers/cdcl/sat_solver_base_types.h"
+
+
 /*
  * Clauses are stored in a big array of integers.
  *
@@ -121,69 +124,42 @@ extern void delete_clause_pool(clause_pool_t *pool);
 /*
  * The intended use is:
  * - init_clause_pool(pool)
- * - calls to clause_pool_alloc for the problem clauses.
- * - clause_pool_end_prob_clauses(pool)
- * - calls to clause_pool_alloc for the learned clauses.
+ * - several calls to add_problem_clause
+ * - then calls to add_learned_clause
  */
 
 /*
- * Allocate an array of n integers in the pool and return its starts index
- * - store the length n in the first element of the array
- * - update the statistics: the new clause is considered to be a learned clause
- *   if pool->learned is positive. 
- *
- * If we're out of memory, this function fails and calls the exit function
- * 'out_of_memory' defined in utils/memalloc.c
+ * Add a problem or learned clause:
+ * - n = number of literals
+ * - a[0 ... n-1] = literals
+ * 
+ * These function update the statistics and return the start index of the new clause.
+ * - the clause's auxiliary data is initialized to 0
  */
-extern cidx_t clause_pool_alloc(clause_pool_t *pool, uint32_t n);
-
-/*
- * Mark the end of the problem clauses:
- * - this sets pool->learned to a positive value
- * - corner case: if there are no problem clauses stored when
- *   this function is called, we add a padding block of size 4
- *   to force pool->learned to be positive.
- */
-extern void clause_pool_end_prob_clauses(clause_pool_t *pool);
+extern cidx_t clause_pool_add_problem_clause(clause_pool_t *pool, uint32_t n, const literal_t *a);
+extern cidx_t clause_pool_add_learned_clause(clause_pool_t *pool, uint32_t n, const literal_t *a);
 
 /*
  * Delete the clause that starts at index idx
  * - idx must be a valid clause start
- * - this function must not be called before clause_pool_end_prob_clause
  */
-extern void clause_pool_delete(clause_pool_t *pool, cidx_t idx);
+extern void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx);
 
 /*
  * Shrink the clause that starts at index idx to size n
  * - idx must be a valid clause start
  * - n must be more than two and less than or equal to the clause's current length
- * - this function must not be called before clause_pool_end_prob_clause
  */
-extern void clause_pool_shrink(clause_pool_t *pool, cidx_t idx, uint32_t n);
+extern void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t n);
 
 
 
 /*
- * SCAN CLAUSES
+ * ACCESS CLAUSE COMPONENTS
  */
-
-/*
- * First clause:
- * - returns pool->size if there are no clauses
- */
-extern cidx_t clause_pool_first_clause(clause_pool_t *pool);
-
-/*
- * Clause that follows idx
- * - this returns pool->size if idx is the last clause
- */
-extern cidx_t clause_pool_next_clause(clause_pool_t *pool, cidx_t idx);
-
 
 /*
  * Check whether idx is a problem or a learned clause.
- * These functions assume that clause_pool_end_prob_clauses has been
- * called.
  */
 #ifndef NDEBUG
 static inline bool good_clause_idx(clause_pool_t *pool, cidx_t idx) {
@@ -209,6 +185,39 @@ static inline uint32_t clause_length(clause_pool_t *pool, cidx_t idx) {
   assert(good_clause_idx(pool, idx));
   return pool->data[idx];
 }
+
+
+/*
+ * Pointer to the beginning of clause cidx
+ */
+static inline uint32_t *clause_start(clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return pool->data + idx;
+}
+
+
+/*
+ * SCAN CLAUSES
+ */
+
+/*
+ * First (problem) clause:
+ * - returns pool->size if there are no clauses
+ */
+extern cidx_t clause_pool_first_clause(clause_pool_t *pool);
+
+/*
+ * First learned clause
+ * - returns pool->size if there are no learned clauses
+ */
+extern cidx_t clause_pool_first_learned_clause(clause_pool_t *pool);
+
+/*
+ * Clause that follows idx
+ * - this returns pool->size if idx is the last clause
+ */
+extern cidx_t clause_pool_next_clause(clause_pool_t *pool, cidx_t idx);
+
 
 
 #endif /* __CLAUSE_POOL_H */

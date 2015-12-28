@@ -67,9 +67,8 @@ static inline uint32_t pool_cap_increase(uint32_t cap) {
 #define RESET_CLAUSE_POOL_CAPACITY 33155608
 
 
-
 /*
- * Invariant we want to maintain
+ * Some consistency checks
  */
 #ifndef NDEBUG
 static bool is_multiple_of_four(uint32_t x) {
@@ -85,6 +84,37 @@ static bool clause_pool_invariant(clause_pool_t *pool) {
     is_multiple_of_four(pool->size) &&
     is_multiple_of_four(pool->capacity);
 }
+
+/*
+ * Check counters
+ */
+static bool good_statistics(clause_pool_t *pool) {
+  uint32_t prob_clauses, prob_lits, learned_clauses, learned_lits, i;
+
+  prob_clauses = 0;
+  prob_lits = 0;
+  learned_clauses = 0;
+  learned_lits = 0;
+
+  i = clause_pool_first_clause(pool);
+  while (i < pool->learned) {
+    prob_clauses ++;
+    prob_lits += clause_length(pool, i);
+    i = clause_pool_next_clause(pool, i);
+  }
+  while (i < pool->size) {
+    learned_clauses ++;
+    learned_lits += clause_length(pool, i);
+    i = clause_pool_next_clause(pool, i);
+  }
+
+  return 
+    prob_clauses == pool->num_prob_clauses &&
+    prob_lits == pool->num_prob_literals &&
+    learned_clauses == pool->num_learned_clauses &&
+    learned_lits == pool->num_learned_literals;
+}
+
 #endif
 
 
@@ -211,28 +241,57 @@ static cidx_t clause_pool_alloc_array(clause_pool_t *pool, uint32_t n) {
 
 
 /*
- * Allocate a clause of size n
- * - return its start index
- * - store the clause length
- * - update the statistics counters
+ * Initialize the clause that start at index cidx:
+ * - set the header: length = n, aux = 0
+ * - copy the literals 
  */
-cidx_t clause_pool_alloc(clause_pool_t *pool, uint32_t n) {
-  cidx_t i;
+static void init_clause(clause_pool_t *pool, cidx_t cidx, uint32_t n, const literal_t *a) {
+  uint32_t i;
+  uint32_t *p;
 
-  i = clause_pool_alloc_array(pool, n);
-  pool->data[i] = n;
-
-  if (pool->learned == 0) {
-    // problem clause
-    pool->num_prob_clauses ++;
-    pool->num_prob_literals += n;
-  } else {
-    // learned clause
-    pool->num_learned_clauses ++;
-    pool->num_learned_literals += n;
+  pool->data[cidx] = n;
+  pool->data[cidx + 1] = 0;
+  p = pool->data + cidx + 2;
+  for (i=0; i<n; i++) {
+    p[i] = a[i];
   }
+}
 
-  return i;
+/*
+ * Add a problem clause
+ */
+cidx_t clause_pool_add_problem_clause(clause_pool_t *pool, uint32_t n, const literal_t *a) {
+  uint32_t cidx;
+
+  assert(pool->learned == pool->size);
+
+  cidx = clause_pool_alloc_array(pool, n+2);
+  init_clause(pool, cidx, n, a);
+
+  pool->num_prob_clauses ++;
+  pool->num_prob_literals += n;
+  pool->learned = pool->size;
+
+  assert(good_statistics(pool));
+
+  return cidx;
+}
+
+/*
+ * Add a learned clause
+ */
+cidx_t clause_pool_add_learned_clause(clause_pool_t *pool, uint32_t n, const literal_t *a) {
+  uint32_t cidx;
+
+  cidx = clause_pool_alloc_array(pool, n+2);
+  init_clause(pool, cidx, n, a);
+
+  pool->num_learned_clauses ++;
+  pool->num_learned_literals += n;
+
+  assert(good_statistics(pool));
+
+  return cidx;
 }
 
 
@@ -243,6 +302,7 @@ cidx_t clause_pool_alloc(clause_pool_t *pool, uint32_t n) {
 static inline uint32_t full_length(uint32_t n) {
   return (n + 5) & ~3;
 }
+
 
 /*
  * Full size of the clause that starts at index i
@@ -268,7 +328,6 @@ static inline uint32_t padding_length(clause_pool_t *pool, uint32_t i) {
   assert(is_padding_start(pool, i));
   return pool->data[i+1];
 }
-
 
 
 /*
@@ -302,7 +361,7 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 /*
  * Delete the clause that start at index idx
  */
-void clause_pool_delete(clause_pool_t *pool, cidx_t idx) {
+void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
   uint32_t n;
 
   assert(good_clause_idx(pool, idx) && pool->learned > 0);
@@ -322,13 +381,15 @@ void clause_pool_delete(clause_pool_t *pool, cidx_t idx) {
     pool->num_learned_clauses --;
     pool->num_learned_literals -= n;
   }
+
+  assert(good_statistics(pool));
 }
 
 
 /*
  * Shrink clause idx: n = new size
  */
-void clause_pool_shrink(clause_pool_t *pool, cidx_t idx, uint32_t n) {
+void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t n) {
   uint32_t old_n, old_len, new_len;
 
   assert(good_clause_idx(pool, idx) && pool->learned > 0 && 
@@ -354,28 +415,8 @@ void clause_pool_shrink(clause_pool_t *pool, cidx_t idx, uint32_t n) {
     assert(pool->num_learned_literals >= old_n);
     pool->num_learned_literals -= (old_n - n);
   }
-}
 
-
-/*
- * Mark the end of the problem clauses
- */
-void clause_pool_end_prob_clauses(clause_pool_t *pool) {
-  uint32_t s;
-
-  assert(clause_pool_invariant(pool));
-
-  s = pool->size;
-  if (s == 0) {
-    assert(pool->available >= 4);
-    // add a padding block of size 4
-    pool->data[0] = 0;
-    pool->data[1] = 4;
-    pool->size = 4;
-    pool->available -= 4;
-    s = 4;
-  }
-  pool->learned = s;
+  assert(good_statistics(pool));
 }
 
 
@@ -398,6 +439,12 @@ cidx_t clause_pool_first_clause(clause_pool_t *pool) {
   return next_clause_index(pool, 0);
 }
 
+/*
+ * First learned clause
+ */
+cidx_t clause_pool_first_learned_clause(clause_pool_t *pool) {
+  return next_clause_index(pool, pool->learned);
+}
 
 /*
  * Clause that follows idx

@@ -470,8 +470,14 @@ static char *basename(char *path) {
  * and construction_time
  */
 static void print_problem_size(FILE *f, smt_core_t *core, char *filename, double construction_time) {
+  double mem_used;
+
+  mem_used = mem_size() / (1024 * 1024);
   fprintf(f, "Problem: %s\n\n", basename(filename));
   fprintf(f, "Construction time       : %.4f s\n", construction_time);
+  if (mem_used > 0) {
+    printf("Memory used             : %.2f MB\n", mem_used);
+  }
   fprintf(f, "nb. of vars             : %"PRIu32"\n", num_vars(core));
   fprintf(f, "nb. of unit clauses     : %"PRIu32"\n", num_unit_clauses(core));
   fprintf(f, "nb. of bin clauses      : %"PRIu32"\n", num_binary_clauses(core));
