@@ -254,7 +254,7 @@ static cidx_t clause_pool_alloc_array(clause_pool_t *pool, uint32_t n) {
 
 
 /*
- * Initialize the clause that start at index cidx:
+ * Initialize the clause that starts at index cidx:
  * - set the header: length = n, aux = 0
  * - copy the literals 
  */
