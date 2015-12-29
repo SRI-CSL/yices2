@@ -570,7 +570,35 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
   assert(lp_polynomial_top_variable(q) == x);
 
   // Compute the gcd
+  if (ctx_trace_enabled(map->nra->ctx, "nra::explain::mgcd")) {
+    ctx_trace_printf(map->nra->ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+    ctx_trace_printf(map->nra->ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
+
+    lp_variable_list_t vars;
+    lp_variable_list_construct(&vars);
+    lp_polynomial_get_variables(p, &vars);
+    lp_polynomial_get_variables(q, &vars);
+    lp_variable_list_order(&vars, map->nra->lp_data.lp_var_order);
+
+    uint32_t i;
+    for (i = 0; i < vars.list_size; ++ i) {
+      lp_variable_t var = vars.list[i];
+      const lp_value_t* v = lp_assignment_get_value(map->m, var);
+      if (v->type != LP_VALUE_NONE) {
+        ctx_trace_printf(map->nra->ctx, "%s -> ", lp_variable_db_get_name(map->nra->lp_data.lp_var_db, var));
+        lp_value_print(v, ctx_trace_out(map->nra->ctx));
+        ctx_trace_printf(map->nra->ctx, "\n");
+      }
+    }
+
+    lp_variable_list_destruct(&vars);
+  }
+
   lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->m);
+
+  if (ctx_trace_enabled(map->nra->ctx, "nra::explain::mgcd")) {
+    ctx_trace_printf(map->nra->ctx, "mgcd done: \n");
+  }
 
   // Add the initial sequence of the psc
   uint32_t assumptions_i;
@@ -761,7 +789,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
 
             if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
               ctx_trace_printf(map->nra->ctx, "q_r = "); lp_polynomial_print(q_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-              ctx_trace_printf(map->nra->ctx, "q_r_deg = %u\n", p_deg);
+              ctx_trace_printf(map->nra->ctx, "q_r_deg = %u\n", q_r_deg);
             }
 
             if (q_r_deg > 0) {
