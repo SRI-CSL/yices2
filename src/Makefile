@@ -265,6 +265,8 @@ core_src_c := \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
 	utils/tuple_hash_map.c \
+	utils/uint_array_sort.c \
+	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c
 
