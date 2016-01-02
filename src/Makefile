@@ -388,6 +388,7 @@ src_c := $(base_src_c) $(extra_src_c)
 bin_src_c := \
 	frontend/yices_main.c \
 	frontend/yices_sat.c \
+	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
 	frontend/yices_smtcomp.c \
@@ -848,6 +849,15 @@ $(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices)
 $(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
+$(bindir)/yices_sat_new$(EXEEXT): $(objdir)/frontend/yices_sat_new.o $(libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $< $(libyices) $(NOGMP_LIBS)
+
+$(static_bindir)/yices_sat_new$(EXEEXT): $(static_objdir)/frontend/yices_sat_new.o $(static_libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
 
 # for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)

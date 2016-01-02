@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
-
+#include "utils/tag_map.h"
 
 
 /****************
@@ -145,6 +145,58 @@ static inline bool true_preferred(bval_t val) {
 }
 
 
+/********************
+ *  LITERAL BUFFER  *
+ *******************/
+
+/*
+ * This is a resizable array of literals.
+ * - capacity = maximal size
+ * - size = current size
+ * - data = array
+ */
+typedef struct lbuffer_s {
+  literal_t *data;
+  uint32_t capacity;
+  uint32_t size;
+} lbuffer_t;
+
+// Default and maximal size
+#define DEF_LBUFFER_SIZE 64
+#define MAX_LBUFFER_SIZE (UINT32_MAX/sizeof(literal_t))
+
+
+/****************************************************************
+ *  STACK FOR DEPTH-FIRST EXPLORATION OF THE IMPLICATION GRAPH  *
+ ***************************************************************/
+
+/*
+ * The implication graph is formed by the true literals.
+ * There's an edge in this graph from l0 to l1 if l1 is implied by
+ * a clause that contains l0:
+ * - either l1 is implied by the clause { l1, ~l0 }
+ * - or l1 is implied by a clause of the form { l1, ... ~l0, ... }
+ *
+ * To explore this graph backward, we use a stack. Each element of 
+ * the stack contains a boolean variable var + an index i.
+ * - the var is assigned an represents a literal l1 in the graph
+ * - the index i is the index of the next antecedents of l1 to explore.
+ */
+typedef struct gstack_elem_s {
+  bvar_t var;
+  uint32_t index;
+} gstack_elem_t;
+
+typedef struct gstack_s {
+  gstack_elem_t *data;
+  uint32_t top;
+  uint32_t size;
+} gstack_t;
+
+#define DEF_GSTACK_SIZE 20
+#define MAX_GSTACK_SIZE (UINT32_MAX/sizeof(gstack_elem_t))
+
+
 
 /*****************
  *  CLAUSE POOL  *
@@ -237,36 +289,6 @@ typedef struct clause_pool_s {
 typedef uint32_t cidx_t;
 
 
-#ifndef NDEBUG
-static inline bool good_clause_idx(clause_pool_t *pool, cidx_t idx) {
-  return ((idx & 3) == 0) && idx < pool->size;
-}
-#endif
-
-static inline bool is_learned_clause_idx(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  return  idx >= pool->learned;
-}
-
-static inline bool is_problem_clause_idx(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  return  idx < pool->learned;  
-}
-
-static inline clause_t *clause_of_idx(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  return (clause_t *) ((char *) (pool->data + idx));
-}
-
-/*
- * Number of literals in clause
- */
-static inline uint32_t clause_length(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  return pool->data[idx];
-}
-
-
 
 /*******************
  *  WATCH VECTORS  *
@@ -336,9 +358,8 @@ typedef struct {
 /*
  * Heap and variable activities for variable selection heuristic
  * - activity[x]: for every variable x between 1 and nvars - 1
- * - indices 0 and -1 are used as markers:
+ * - index 0 is used as marker:
  *    activity[0] = DBL_MAX (higher than any activity)
- *   activity[-1] = -1.0 (lower than any activity);
  * - heap_index[x]: for every variable x,
  *      heap_index[x] = i if x is in the heap and heap[i] = x
  *   or heap_index[x] = -1 if x is not in the heap
@@ -421,6 +442,21 @@ typedef enum antecedent_tag {
 
 
 /*
+ * Conflict tag:  when a clause is false, we store it for conflict analysis
+ * and bactracking. The conflict tag records the type of clauses that's false.
+ * There are two cases: binary clause + non-binary clause
+ * + another tag for no conflict.
+ * 
+ * For a binary clause conflict, the clause is stored in conflict_buffer.
+ * For a non-binary clause, the clause index is stored in conflict_idx.
+ */
+typedef enum conflict_tag {
+  CTAG_NONE,
+  CTAG_BINARY,
+  CTAG_CLAUSE,
+} conflict_tag_t;
+
+/*
  * SOLVER STATUS
  */
 typedef enum solver_status {
@@ -435,18 +471,15 @@ typedef enum solver_status {
  * - ante_tag[x]  = tag for assigned variables + marks
  * - ante_data[x] = antecedent index
  * - value[x]     = assigned value
- * - level[x]     = assingment level
+ * - level[x]     = assignment level
  *
  * For each literal l, we keep
  * - watch[l] = watch vector for l
  */
 typedef struct sat_solver_s {
   solver_status_t status;
-
   uint32_t decision_level;
   uint32_t backtrack_level;
-  
-  uint32_t prng;              // State of the pseudo-random number generator
   
   /*
    * Variables and literals
@@ -472,23 +505,58 @@ typedef struct sat_solver_s {
    * - binary clauses are stored implicitly in the watch vectors
    * - all other clauses are in the pool
    */
-  float cla_inc;              // Clause activity increment
-  float inv_cla_decay;        // Inverse of clause decay (1/0.999)
   bool has_empty_clause;      // Whether the empty clause was added
   uint32_t units;             // Number of unit clauses
   uint32_t binaries;          // Number of binary clauses
   clause_pool_t pool;         // Pool for non-binary/non-unit clauses
 
   /*
+   * Conflict data
+   */
+  conflict_tag_t conflict_tag;
+  uint32_t conflict_buffer[2];
+  cidx_t conflict_index;
+
+  /*
+   * Heuristics/parameters
+   */
+  uint32_t prng;              // State of the pseudo-random number generator
+  uint32_t randomness;        // 0x1000000 * random_factor
+  float cla_inc;              // Clause activity increment
+  float inv_cla_decay;        // Inverse of clause decay (1/0.999)
+  uint32_t reduce_threshold;  // number of learned clause before deleting learned clauses
+  uint32_t simplify_bottom;   // stack pointer after the last call to simplify_clause_database
+  uint64_t simplify_props;    // value of the propagation counter at this point
+  uint64_t simplify_next;     // number of propagations before simplify is called again
+
+  /*
    * Statistics record
    */
   solver_stats_t stats;
+
+  /*
+   * Auxiliary array for clause deletion
+   */
+  cidx_t *cidx_array;
+
+  /*
+   * Buffers and other data structures to build and simplify 
+   * learned clauses
+   */
+  lbuffer_t buffer;
+  lbuffer_t aux;
+  gstack_t gstack;
+  tag_map_t map;
 
 } sat_solver_t;
 
 
 // Default size for the variable array
 #define SAT_SOLVER_DEFAULT_VSIZE 1024
+
+// Default buffer size
+#define SAT_SOLVER_BUFFER_SIZE 60
+
 
 
 /********************
@@ -518,7 +586,6 @@ extern void delete_nsat_solver(sat_solver_t *solver);
  */
 extern void reset_nsat_solver(sat_solver_t *solver);
 
-
 /*
  * Add n fresh variables:
  * - they are indexed from nv, ..., nv + n-1 where nv = number of 
@@ -531,6 +598,36 @@ extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
  */
 extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
 
+
+
+/*********************************
+ *  CHANGE HEURISTIC PARAMETERS  *
+ ********************************/
+
+/*
+ * Variable activity decay: must be between 0 and 1.0
+ * - smaller number means faster decay
+ */
+extern void nsat_set_var_decay_factor(sat_solver_t *solver, double factor);
+
+/*
+ * Clause activity decay: must be between 0 and 1.0
+ * - smaller means faster decay
+ */
+extern void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor);
+
+/*
+ * Randomness: the paramenter is approximately the ratio of random
+ * decisions.
+ * - randomness = 0: no random decisions
+ * - randomness = 1.0: all decicsions are random
+ */
+extern void nsat_set_randomness(sat_solver_t *solver, float randomness);
+
+/*
+ * Set the prng seed
+ */
+extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
 
 
 /*********************
@@ -565,61 +662,100 @@ extern void nsat_solver_add_clause(sat_solver_t *solver, uint32_t n, const liter
 extern void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
 
 
+/*************
+ *  SOLVING  *
+ ************/
+
+/*
+ * Check satisfiability of the set of clauses
+ * - verbose = verbosity flag
+ * - result = either STAT_SAT or STAT_UNSAT
+ */
+extern solver_status_t nsat_solve(sat_solver_t *solver, bool verbose);
+
+
+/*
+ * Read the status
+ */
+static inline solver_status_t nsat_status(sat_solver_t *solver) {
+  return solver->status;
+}
+
+
 
 /**************************
  *  VARIABLE ASSIGNMENTS  *
  *************************/
 
-static inline bval_t var_value(sat_solver_t *solver, bvar_t x) {
+static inline bval_t var_value(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
   return solver->value[x];
 }
 
-static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
+static inline bool var_is_unassigned(const sat_solver_t *solver, bvar_t x) {
   return is_unassigned_val(var_value(solver, x));
 }
 
-static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
+static inline bool var_is_assigned(const sat_solver_t *solver, bvar_t x) {
   return ! var_is_unassigned(solver, x);
 }
 
-static inline bool var_prefers_true(sat_solver_t *solver, bvar_t x) {
+static inline bool var_prefers_true(const sat_solver_t *solver, bvar_t x) {
   return true_preferred(var_value(solver, x));
 }
 
-static inline bool var_is_true(sat_solver_t *solver, bvar_t x) {
+static inline bool var_is_true(const sat_solver_t *solver, bvar_t x) {
   return var_value(solver, x) == BVAL_TRUE;
 }
 
-static inline bool var_is_false(sat_solver_t *solver, bvar_t x) {
+static inline bool var_is_false(const sat_solver_t *solver, bvar_t x) {
   return var_value(solver, x) == BVAL_FALSE;
 }
 
 
-static inline bval_t lit_value(sat_solver_t *solver, literal_t l) {
+static inline bval_t lit_value(const sat_solver_t *solver, literal_t l) {
   assert(l < solver->nliterals);
   return solver->value[var_of(l)] ^ sign_of(l);
 }
 
-static inline bool lit_is_unassigned(sat_solver_t *solver, literal_t l) {
-  return is_unassigned_val(lit_value(solver, l));
+static inline bool lit_is_unassigned(const sat_solver_t *solver, literal_t l) {
+  return var_is_unassigned(solver, var_of(l));
 }
 
-static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
+static inline bool lit_is_assigned(const sat_solver_t *solver, literal_t l) {
   return ! lit_is_unassigned(solver, l);
 }
 
-static inline bool lit_prefers_true(sat_solver_t *solver, literal_t l) {
+static inline bool lit_prefers_true(const sat_solver_t *solver, literal_t l) {
   return true_preferred(lit_value(solver, l));
 }
 
-static inline bool lit_is_true(sat_solver_t *solver, literal_t l) {
+static inline bool lit_is_true(const sat_solver_t *solver, literal_t l) {
   return lit_value(solver, l) == BVAL_TRUE;
 }
 
-static inline bool lit_is_false(sat_solver_t *solver, literal_t l) {
+static inline bool lit_is_false(const sat_solver_t *solver, literal_t l) {
   return lit_value(solver, l) == BVAL_FALSE;
 }
+
+
+/************
+ *  MODELS  *
+ ***********/
+
+/*
+ * Return the model: copy all variable value into val
+ * - val's size must be at least solver->nvars
+ * - val[0] is always true
+ */
+extern void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val);
+
+/*
+ * Copy all true literals in array a:
+ * - a must have size >= solver->nvars.
+ * return the number of literals added to a.
+ */
+extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a);
 
 
 
