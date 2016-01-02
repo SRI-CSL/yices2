@@ -16,8 +16,9 @@
 
 #include "solvers/cdcl/new_sat_solver.h"
 #include "solvers/cdcl/sat_parameters.h"
-#include "utils/int_array_sort.h"
 #include "utils/memalloc.h"
+#include "utils/uint_array_sort.h"
+#include "utils/uint_array_sort2.h"
 
 
 
@@ -32,19 +33,34 @@
  * DEBUG
  */
 #if DEBUG
+
 /*
  * The following functions checks internal consistency. They are defined 
  * at the end of this file. They print an error on stderr if the checks fail.
  */
-static void clause_pool_check_counters(const clause_pool_t *pool);
+static void check_clause_pool_counters(const clause_pool_t *pool);
+static void check_clause_pool_learned_index(const clause_pool_t *pool);
 static void check_heap(const var_heap_t *heap);
+static void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n);
+static void check_watch_vectors(const sat_solver_t *solver);
+static void check_propagation(const sat_solver_t *solver);
+static void check_marks(const sat_solver_t *solver);
+static void check_all_unmarked(const sat_solver_t *solver);
 
 #else
+
 /*
  * Place holders: do nothing
  */
-static inline void clause_pool_check_counters(const clause_pool_t *pool) { }
+static inline void check_clause_pool_counters(const clause_pool_t *pool) { }
+static inline void check_clause_pool_learned_index(const clause_pool_t *pool) { }
 static inline void check_heap(const var_heap_t *heap) { }
+static inline void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n) { }
+static inline void check_watch_vectors(const sat_solver_t *solver) { }
+static inline void check_propagation(const sat_solver_t *solver) { }
+static inline void check_marks(const sat_solver_t *solver) { }
+static inline void check_all_unmarked(const sat_solver_t *solver) {}
+
 #endif
 
 
@@ -86,6 +102,184 @@ static inline uint32_t random_uint(sat_solver_t *s, uint32_t n) {
 }
 
 
+/*********************
+ *  LITERAL BUFFER   *
+ ********************/
+
+/*
+ * Capacity increase for literal buffers:
+ * - about 50% increase rounded up to mutliple of four
+ */
+static inline uint32_t lbuffer_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + 8) & ~3;
+}
+
+/*
+ * Initialize
+ */
+static void init_lbuffer(lbuffer_t *b) {
+  uint32_t n;
+
+  n = DEF_LBUFFER_SIZE;
+  assert(n <= MAX_LBUFFER_SIZE);
+  b->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  b->capacity = n;
+  b->size = 0;
+}
+
+/*
+ * Make it larger.
+ */
+static void extend_lbuffer(lbuffer_t *b) {
+  uint32_t n;
+
+  n = b->capacity + lbuffer_cap_increase(b->capacity);
+  assert(n > b->capacity);
+  if (n > MAX_LBUFFER_SIZE) {
+    out_of_memory();
+  }
+  b->data = (literal_t *) safe_realloc(b->data, n * sizeof(literal_t));
+  b->capacity = n;
+}
+
+/*
+ * Add literal l at the end of buffer b
+ */
+static void lbuffer_push(lbuffer_t *b, literal_t l) {
+  uint32_t i;
+
+  i = b->size;
+  if (i == b->capacity) {
+    extend_lbuffer(b);
+  }
+  assert(i < b->capacity);
+  b->data[i] = l;
+  b->size = i+1;
+}
+
+/*
+ * Reset: empty the buffer
+ */
+static inline void reset_lbuffer(lbuffer_t *b) {
+  b->size = 0;
+}
+
+/*
+ * Reset and make room for one literal
+ */
+static inline void lbuffer_reset_and_reserve(lbuffer_t *b) {
+  assert(b->capacity >= 1);
+  b->size = 1;
+}
+
+/*
+ * Free memory
+ */
+static void delete_lbuffer(lbuffer_t *b) {
+  safe_free(b->data);
+  b->data = NULL;
+}
+
+
+/*********************************
+ *  STACK FOR IMPLICATION GRAPH  *
+ ********************************/
+
+/*
+ * Initialize the stack. Nothing allocated yet.
+ */
+static void init_gstack(gstack_t *gstack) {
+  gstack->data = NULL;
+  gstack->top = 0;
+  gstack->size = 0;
+}
+
+/*
+ * Increment in size: 50% of the current size, rounded up to a multiple of 2.
+ */
+static inline uint32_t gstack_size_increase(uint32_t n) {
+  return ((n>>1) + 3) & ~1;
+}
+
+/*
+ * Make the stack larger
+ */
+static void extend_gstack(gstack_t *gstack) {
+  uint32_t n;
+
+  n = gstack->size;
+  if (n == 0) {
+    // first allocation
+    n = DEF_GSTACK_SIZE;
+    assert(n <= MAX_GSTACK_SIZE);
+    gstack->data = (gstack_elem_t *) safe_malloc(n * sizeof(gstack_elem_t));
+    gstack->size = n;
+  } else {
+    // increase size by 50%, rounded to a multiple of 2
+    n += gstack_size_increase(n);
+    if (n > MAX_GSTACK_SIZE) {
+      out_of_memory();
+    }
+    gstack->data = (gstack_elem_t *) safe_realloc(gstack->data, n * sizeof(gstack_elem_t));
+    gstack->size = n;
+  }
+}
+
+/*
+ * Delete the stack
+ */
+static void delete_gstack(gstack_t *gstack) {
+  safe_free(gstack->data);
+  gstack->data = NULL;
+}
+
+
+/*
+ * Push pair (x, n) on the stack
+ */
+static void gstack_push_var(gstack_t *gstack, bvar_t x, uint32_t n) {
+  uint32_t i;
+
+  i = gstack->top;
+  if (i == gstack->size) {
+    extend_gstack(gstack);
+  }
+  assert(i < gstack->size);
+  gstack->data[i].var = x;
+  gstack->data[i].index = n;
+  gstack->top = i+1;
+}
+
+/*
+ * Check emptiness
+ */
+static inline bool gstack_is_empty(gstack_t *gstack) {
+  return gstack->top == 0;
+}
+
+/*
+ * Get top element
+ */
+static inline gstack_elem_t *gstack_top(gstack_t *gstack) {
+  assert(gstack->top > 0);
+  return gstack->data + (gstack->top - 1);
+}
+
+/*
+ * Remove the top element
+ */
+static inline void gstack_pop(gstack_t *gstack) {
+  assert(gstack->top > 0);
+  gstack->top --;
+}
+
+/*
+ * Empty the stack
+ */
+static inline void reset_gstack(gstack_t *gstack) {
+  gstack->top = 0;
+}
+
 
 /******************
  *  CLAUSE POOL   *
@@ -120,7 +314,7 @@ static bool is_multiple_of_four(uint32_t x) {
   return (x & 3) == 0;
 }
 
-static bool clause_pool_invariant(clause_pool_t *pool) {
+static bool clause_pool_invariant(const clause_pool_t *pool) {
   return 
     pool->learned <= pool->size &&
     pool->size <= pool->capacity &&
@@ -254,6 +448,10 @@ static cidx_t clause_pool_alloc_array(clause_pool_t *pool, uint32_t n) {
 
 
 /*
+ * CLAUSE ADDITION
+ */
+
+/*
  * Initialize the clause that starts at index cidx:
  * - set the header: length = n, aux = 0
  * - copy the literals 
@@ -285,8 +483,6 @@ static cidx_t clause_pool_add_problem_clause(clause_pool_t *pool, uint32_t n, co
   pool->num_prob_literals += n;
   pool->learned = pool->size;
 
-  clause_pool_check_counters(pool);
-
   return cidx;
 }
 
@@ -302,77 +498,139 @@ static cidx_t clause_pool_add_learned_clause(clause_pool_t *pool, uint32_t n, co
   pool->num_learned_clauses ++;
   pool->num_learned_literals += n;
 
-  clause_pool_check_counters(pool);
-
   return cidx;
 }
 
 
 /*
- * Set/read/increase the activity of a learned clause.
+ * ACCESS CLAUSES
  */
-static inline void set_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float act) {
-  clause_t *c;
-  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
-  c = clause_of_idx(pool, cidx);
-  c->aux.f = act;
+#ifndef NDEBUG
+static inline bool good_clause_idx(const clause_pool_t *pool, cidx_t idx) {
+  return ((idx & 3) == 0) && idx < pool->size;
+}
+#endif
+
+static inline bool is_learned_clause_idx(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return  idx >= pool->learned;
 }
 
-static inline float get_learned_clause_activity(clause_pool_t *pool, cidx_t cidx) {
-  clause_t *c;
-  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
-  c = clause_of_idx(pool, cidx);
-  return c->aux.f;
+static inline bool is_problem_clause_idx(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return  idx < pool->learned;  
 }
 
-static inline void increase_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float incr) {
-  clause_t *c;
-  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
-  c = clause_of_idx(pool, cidx);
-  c->aux.f += incr;
+static inline clause_t *clause_of_idx(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return (clause_t *) ((char *) (pool->data + idx));
+}
+
+static inline uint32_t clause_length(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return pool->data[idx];
 }
 
 /*
- * Multiply by scale
+ * Start of the literal array for clause idx
  */
-static inline void multiply_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float scale) {
-  clause_t *c;
-  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
-  c = clause_of_idx(pool, cidx);
-  c->aux.f *= scale;
+static inline literal_t *clause_literals(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return pool->data + idx + 2;
 }
 
-
 /*
- * Full size of a clause with n literals:
- * - 2 + n rounded up to the next multiple of four
+ * Full size of a clause of n literals:
+ * - 2 + n, rounded up to the next multiple of four
  */
 static inline uint32_t full_length(uint32_t n) {
   return (n + 5) & ~3;
 }
 
-
-/*
- * Full size of the clause that starts at index i
- */
-static inline uint32_t clause_full_length(clause_pool_t *pool, uint32_t i) {
+static inline uint32_t clause_full_length(const clause_pool_t *pool, uint32_t i) {
   assert(good_clause_idx(pool, i));
   return full_length(pool->data[i]);
 }
 
 
 /*
+ * Get watch literals of clause cidx
+ * - the first literal is the implied literal if any
+ */
+static inline literal_t first_literal_of_clause(const clause_pool_t *pool, cidx_t cidx) {
+  assert(good_clause_idx(pool, cidx));
+  return pool->data[cidx + 2];
+}
+
+static inline literal_t second_literal_of_clause(const clause_pool_t *pool, cidx_t cidx) {
+  assert(good_clause_idx(pool, cidx));
+  return pool->data[cidx + 3];
+}
+
+
+/*
+ * CLAUSE ACTIVITY
+ */
+static inline void set_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float act) {
+  clause_t *c;
+
+  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
+
+  c = clause_of_idx(pool, cidx);
+  c->aux.f = act;
+}
+
+static inline float get_learned_clause_activity(const clause_pool_t *pool, cidx_t cidx) {
+  clause_t *c;
+
+  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
+
+  c = clause_of_idx(pool, cidx);
+  return c->aux.f;
+}
+
+static inline void increase_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float incr) {
+  clause_t *c;
+
+  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
+
+  c = clause_of_idx(pool, cidx);
+  c->aux.f += incr;
+}
+
+static inline void multiply_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float scale) {
+  clause_t *c;
+
+  assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
+
+  c = clause_of_idx(pool, cidx);
+  c->aux.f *= scale;
+}
+
+
+/*
+ * PADDING BLOCKS
+ */
+
+/*
  * Check whether i is the start of a padding block
  */
-static inline bool is_padding_start(clause_pool_t *pool, uint32_t i) {
+static inline bool is_padding_start(const clause_pool_t *pool, uint32_t i) {
   assert(i < pool->size && is_multiple_of_four(i));
   return pool->data[i] == 0;
 }
 
 /*
+ * Check whehter is is the start of a clause
+ */
+static inline bool is_clause_start(const clause_pool_t *pool, uint32_t i) {
+  return !is_padding_start(pool, i);
+}
+
+/*
  * Length of the padding block that starts at index i
  */
-static inline uint32_t padding_length(clause_pool_t *pool, uint32_t i) {
+static inline uint32_t padding_length(const clause_pool_t *pool, uint32_t i) {
   assert(is_padding_start(pool, i));
   return pool->data[i+1];
 }
@@ -392,8 +650,9 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
   if (j == pool->size) {
     // i is the last block
     pool->size = i;
+    pool->available += n;
     if (pool->learned == j) {
-      pool->learned = i;
+      pool->learned = i;      
     }
   } else {
     if (is_padding_start(pool, j)) {
@@ -403,8 +662,14 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
     pool->data[i] = 0;
     pool->data[i+1] = n;
   }
+
+  assert(clause_pool_invariant(pool));
 }
 
+
+/*
+ * DELETE CLAUSES
+ */
 
 /*
  * Delete the clause that start at index idx
@@ -412,12 +677,12 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
   uint32_t n;
 
-  assert(good_clause_idx(pool, idx) && pool->learned > 0);
+  assert(good_clause_idx(pool, idx));
 
   n = pool->data[idx]; // clause length
-  clause_pool_padding(pool, idx, n);
 
-  // update the statistics
+  // update the statistics: we must do this first because
+  // padding may reduce pool->size.
   if (is_problem_clause_idx(pool, idx)) {
     assert(pool->num_prob_clauses > 0);
     assert(pool->num_prob_literals >= n);
@@ -430,7 +695,7 @@ static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
     pool->num_learned_literals -= n;
   }
 
-  clause_pool_check_counters(pool);
+  clause_pool_padding(pool, idx, full_length(n));
 }
 
 
@@ -440,19 +705,11 @@ static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
 static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t n) {
   uint32_t old_n, old_len, new_len;
 
-  assert(good_clause_idx(pool, idx) && pool->learned > 0 && 
-	 n >= 2 && n <= clause_length(pool, idx));
+  assert(good_clause_idx(pool, idx) && n >= 2 && n <= clause_length(pool, idx));
 
   old_n = clause_length(pool, idx);
   old_len = full_length(old_n);
   new_len = full_length(n);
-
-  assert(new_len <= old_len);
-  if (new_len < old_len) {
-    clause_pool_padding(pool, idx + new_len, old_len - new_len);
-  }
-
-  pool->data[idx] = n;
 
   if (is_problem_clause_idx(pool, idx)) {
     assert(pool->num_prob_clauses > 0);
@@ -464,43 +721,61 @@ static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t 
     pool->num_learned_literals -= (old_n - n);
   }
 
-  clause_pool_check_counters(pool);
+  assert(new_len <= old_len);
+  if (new_len < old_len) {
+    clause_pool_padding(pool, idx + new_len, old_len - new_len);
+  }
+
+  pool->data[idx] = n;
 }
 
+
+/*
+ * SCAN THE SET OF CLAUSES
+ */
 
 /*
  * Find the next clause, scanning from index i
  * - i may be the start of a clause or of a padding block
  */
-static cidx_t next_clause_index(clause_pool_t *pool, cidx_t i) {
+static cidx_t next_clause_index(const clause_pool_t *pool, cidx_t i) {
   while (i < pool->size && is_padding_start(pool, i)) {
     i += padding_length(pool, i);
   }
   return i;
 }
 
-
-/*
- * First clause
- */
-static inline cidx_t clause_pool_first_clause(clause_pool_t *pool) {
+static inline cidx_t clause_pool_first_clause(const clause_pool_t *pool) {
   return next_clause_index(pool, 0);
 }
 
-/*
- * First learned clause
- */
-static inline cidx_t clause_pool_first_learned_clause(clause_pool_t *pool) {
+static inline cidx_t clause_pool_first_learned_clause(const clause_pool_t *pool) {
   return next_clause_index(pool, pool->learned);
 }
 
 /*
- * Clause that follows idx
+ * Clause that follows idx:
+ * - idx may be either the start of a padding block, or the start of a clause,
+ *   or the end mark (pool->size)
  */
-static inline cidx_t clause_pool_next_clause(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  return next_clause_index(pool, idx + clause_full_length(pool, idx));
+static cidx_t clause_pool_next_clause(const clause_pool_t *pool, cidx_t idx) {
+  uint32_t n;
+
+  assert(idx <= pool->size);
+
+  if (idx == pool->size) {
+    return idx;
+  } 
+  
+  n = 0;
+  if (is_clause_start(pool, idx)) {
+    n = clause_full_length(pool, idx);
+  }
+  return next_clause_index(pool, idx + n);
 }
+
+
+
 
 
 /*****************
@@ -650,15 +925,12 @@ static void push_literal(sol_stack_t *s, literal_t l) {
  */
 static void init_heap(var_heap_t *heap, uint32_t n) {
   uint32_t i;
-  double *tmp;
 
-  tmp = (double *) safe_malloc((n + 1) * sizeof(double));
-  heap->activity = tmp + 1;
+  heap->activity = (double *) safe_malloc(n * sizeof(double));
   heap->heap_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
   heap->heap = (bvar_t *) safe_malloc(n * sizeof(bvar_t));
 
-  // markers
-  heap->activity[-1] = -1.0;
+  // marker
   heap->activity[0] = DBL_MAX;  
   heap->heap_index[0] = 0;
   heap->heap[0] = 0;
@@ -684,13 +956,10 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
  */
 static void extend_heap(var_heap_t *heap, uint32_t n) {
   uint32_t old_size, i;
-  double *tmp;
 
   old_size = heap->size;
   assert(old_size < n);
-  tmp = heap->activity - 1;
-  tmp = (double *) safe_realloc(tmp, (n + 1) * sizeof(double));
-  heap->activity = tmp + 1;
+  heap->activity = (double *) safe_realloc(heap->activity, n * sizeof(double));
   heap->heap_index = (int32_t *) safe_realloc(heap->heap_index, n * sizeof(int32_t));
   heap->heap = (bvar_t *) safe_realloc(heap->heap, n * sizeof(int32_t));
   heap->size = n;
@@ -708,9 +977,12 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
  * Free the heap
  */
 static void delete_heap(var_heap_t *heap) {
-  safe_free(heap->activity - 1);
+  safe_free(heap->activity);
   safe_free(heap->heap_index);
   safe_free(heap->heap);
+  heap->activity = NULL;
+  heap->heap_index = NULL;
+  heap->heap = NULL;
 }
 
 
@@ -797,7 +1069,6 @@ static void update_down(var_heap_t *heap) {
   act = heap->activity;
 
   z = h[last];   // last element
-  h[last] = -1;  // set end marker: act[-1] is negative
   az = act[z];   // activity of the last element
 
   i = 1;      // root
@@ -805,16 +1076,17 @@ static void update_down(var_heap_t *heap) {
   while (j < last) {
     /*
      * find child of i with highest activity.
-     * Since h[last] = -1, we don't check j+1 < last
      */
     x = h[j];
-    y = h[j+1];
     ax = act[x];
-    ay = act[y];
-    if (ay > ax) {
-      j++;
-      x = y;
-      ax = ay;
+    if (j+1 < last) {
+      y = h[j+1];
+      ay = act[y];
+      if (ay > ax) {
+	j++;
+	x = y;
+	ax = ay;
+      }
     }
 
     // x = child of node i of highest activity
@@ -890,7 +1162,7 @@ static void rescale_var_activities(var_heap_t *heap) {
 
   n = heap->size;
   act = heap->activity;
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     act[i] *= INV_VAR_ACTIVITY_THRESHOLD;
   }
   heap->act_increment *= INV_VAR_ACTIVITY_THRESHOLD;
@@ -898,7 +1170,7 @@ static void rescale_var_activities(var_heap_t *heap) {
 
 
 /*
- * Increase activity of variable x
+ * Increase activity <of variable x
  */
 static void increase_var_activity(var_heap_t *heap, bvar_t x) {
   int32_t i;
@@ -989,7 +1261,6 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->status = STAT_UNKNOWN;
   solver->decision_level = 0;
   solver->backtrack_level = 0;
-  solver->prng = PRNG_SEED;
 
   solver->nvars = 1;
   solver->nliterals = 2;
@@ -1013,14 +1284,26 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   init_heap(&solver->heap, n);
   init_stack(&solver->stack, n);
 
-  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
-  solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
   solver->has_empty_clause = false;
   solver->units = 0;
   solver->binaries = 0;
   init_clause_pool(&solver->pool);
 
+  solver->conflict_tag = CTAG_NONE;
+
+  solver->prng = PRNG_SEED;
+  solver->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
+  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
+  solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
+
   init_stats(&solver->stats);
+
+  solver->cidx_array = NULL;
+
+  init_lbuffer(&solver->buffer);
+  init_lbuffer(&solver->aux);
+  init_gstack(&solver->gstack);
+  init_tag_map(&solver->map, 0); // use default size
 }
 
 
@@ -1052,11 +1335,20 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_heap(&solver->heap);
   delete_stack(&solver->stack);
   delete_clause_pool(&solver->pool);
+
+  safe_free(solver->cidx_array);
+  solver->cidx_array = NULL;
+
+  delete_lbuffer(&solver->buffer);
+  delete_lbuffer(&solver->aux);
+  delete_gstack(&solver->gstack);
+  delete_tag_map(&solver->map);
 }
 
 
 /*
  * Reset: remove all variables and clauses
+ * - reset heuristics parameters
  */
 void reset_nsat_solver(sat_solver_t *solver) {
   solver->status = STAT_UNKNOWN;
@@ -1073,8 +1365,65 @@ void reset_nsat_solver(sat_solver_t *solver) {
   solver->binaries = 0;
   reset_clause_pool(&solver->pool);
 
+  solver->conflict_tag = CTAG_NONE;
+
+  solver->prng = PRNG_SEED;
+  solver->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
+  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
+  solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
+
   init_stats(&solver->stats);
+
+  safe_free(solver->cidx_array);
+  solver->cidx_array = NULL;
+
+  reset_lbuffer(&solver->buffer);
+  reset_lbuffer(&solver->aux);
+  reset_gstack(&solver->gstack);
+  clear_tag_map(&solver->map);
 }
+
+
+/**************************
+ *  HEURISTIC PARAMETERS  *
+ *************************/
+
+/*
+ * Variable activity decay: must be between 0 and 1.0
+ * - smaller number means faster decay
+ */
+void nsat_set_var_decay_factor(sat_solver_t *solver, double factor) {
+  assert(0.0 < factor && factor < 1.0);
+  solver->heap.inv_act_decay = 1/factor;
+}
+
+/*
+ * Clause activity decay: must be between 0 and 1.0
+ * - smaller means faster decay
+ */
+void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor) {
+  assert(0.0F < factor && factor < 1.0F);
+  solver->inv_cla_decay = 1/factor;
+}
+
+/*
+ * Randomness: the paramenter is approximately the ratio of random
+ * decisions.
+ * - randomness = 0: no random decisions
+ * - randomness = 1.0: all decicsions are random
+ */
+void nsat_set_randomness(sat_solver_t *solver, float randomness) {
+  assert(0.0F <= randomness && randomness <= 1.0F);
+  solver->randomness = (uint32_t)(randomness * VAR_RANDOM_SCALE);
+}
+
+/*
+ * Set the prng seed
+ */
+void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed) {
+  solver->prng = seed;
+}
+
 
 
 
@@ -1126,7 +1475,7 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     assert(nv <= solver->vsize);
   }
 
-  for (i=solver->nvars; i<n; i++) {
+  for (i=solver->nvars; i<nv; i++) {
     solver->value[i] = BVAL_UNDEF_FALSE; // default preferrence
     solver->ante_tag[i] = ATAG_NONE;
     solver->ante_data[i] = 0;
@@ -1166,6 +1515,28 @@ static inline uint32_t lit2idx(literal_t l) {
 }
 
 /*
+ * Converse: extract literal from index k
+ */
+static inline literal_t idx2lit(uint32_t k) {
+  assert((k & 1) == 1);
+  return k >> 1;
+}
+
+/*
+ * Check whether k is a clause index: low-order bit is 0
+ */
+static inline bool idx_is_clause(uint32_t k) {
+  return (k & 1) == 0;
+}
+
+/*
+ * Check whether k is a literal index: low-order bit is 1
+ */
+static inline bool idx_is_literal(uint32_t k) {
+  return (k & 1) == 1;
+}
+
+/*
  * Add clause index in the watch vector for literal l
  */
 static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
@@ -1182,10 +1553,9 @@ static inline void add_literal_watch(sat_solver_t *solver, literal_t l, literal_
 }
 
 
-
-/**********************
- *  CLAUSE ADDITION   *
- *********************/
+/*************************
+ *  LITERAL ASSIGNMENT   *
+ ***********************/
 
 /*
  * Assign literal l at base level
@@ -1195,6 +1565,7 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
 
 #if TRACE
   printf("---> Assigning literal %"PRIu32"\n", l);
+  fflush(stdout);
 #endif
 
   assert(l < solver->nliterals);
@@ -1213,6 +1584,102 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
   assert(lit_is_true(solver, l));
 }
 
+
+/*
+ * Decide literal: increase decision level then
+ * assign literal l to true and push it on the stack
+ */
+static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
+  uint32_t k;
+  bvar_t v;
+
+  assert(l < solver->nliterals);
+  assert(lit_is_unassigned(solver, l));
+
+  solver->stats.decisions ++;
+
+  // Increase decision level
+  k = solver->decision_level + 1;
+  solver->decision_level = k;
+  if (solver->stack.nlevels <= k) {
+    increase_stack_levels(&solver->stack);
+  }
+  solver->stack.level_index[k] = solver->stack.top;
+
+  push_literal(&solver->stack, l);
+
+  v = var_of(l);
+  solver->value[v] = BVAL_TRUE ^ sign_of(l);
+  solver->ante_tag[v] = ATAG_DECISION;
+  solver->ante_data[v] = 0; // not used
+  solver->level[v] = k;
+
+  assert(lit_is_true(solver, l));
+
+#if TRACE
+  printf("\n---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
+  fflush(stdout);
+#endif
+}
+
+
+/*
+ * Propagated literal: tag = antecedent tag, data = antedecent data
+ */
+static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t tag, uint32_t data) {
+  bvar_t v;
+
+  assert(l < solver->nliterals);
+  assert(lit_is_unassigned(solver, l));
+
+  solver->stats.propagations ++;
+
+  push_literal(&solver->stack, l);
+
+  v = var_of(l);
+  solver->value[v] = BVAL_TRUE ^ sign_of(l);
+  solver->ante_tag[v] = tag;
+  solver->ante_data[v] = data;
+  solver->level[v] = solver->decision_level;
+
+  assert(lit_is_true(solver, l));
+
+}
+
+/*
+ * Literal l implied by clause cidx
+ */
+static void clause_propagation(sat_solver_t *solver, literal_t l, cidx_t cidx) {
+  assert(good_clause_idx(&solver->pool, cidx));
+
+  implied_literal(solver, l, ATAG_CLAUSE, cidx);
+
+#if TRACE
+  printf("\n---> DPLL:   Implied literal %"PRIu32", by clause %"PRIu32", decision level = %"PRIu32"\n", l, cidx, solver->decision_level);
+  fflush(stdout);
+#endif
+}
+
+
+/*
+ * Literal l implied by a binary clause (of the form { l, l0 }})
+ * - l0 = other literal in the clause
+ */
+static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal_t l0) {
+  assert(l0 < solver->nliterals);
+
+  implied_literal(solver, l, ATAG_BINARY, l0);
+
+#if TRACE
+  printf("\n---> DPLL:   Implied literal %"PRIu32", by literal %"PRIu32", decision level = %"PRIu32"\n", l, l0, solver->decision_level);
+  fflush(stdout);
+#endif
+}
+
+
+/**********************
+ *  CLAUSE ADDITION   *
+ *********************/
 
 /*
  * Add the empty clause
@@ -1332,7 +1799,7 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
    * Remove duplicates and check for opposite literals l, not(l)
    * (sorting ensure that not(l) is just after l)
    */
-  int_array_sort((int32_t *) lit, n);
+  uint_array_sort(lit, n);
   l = lit[0];
   j = 1;
   for (i=1; i<n; i++) {
@@ -1432,46 +1899,1545 @@ static cidx_t add_learned_clause(sat_solver_t *solver, uint32_t n, const literal
 }
 
 
+
+
+/************************
+ *  GARBAGE COLLECTION  *
+ ***********************/
+
+/*
+ * Garbage collection compacts the clause pool by removing padding
+ * blocks. There are two variants: either compact the whole pool or
+ * just the learned clauses. We use a base_idx as starting point for
+ * deletion. The base_idx is either 0 (all the clauses) or
+ * pool->learned (only the learned clauses).
+ */
+
+/*
+ * Remove all clause indices >= base_idx from w
+ */
+static void watch_vector_remove_clauses(watch_t *w, cidx_t base_idx) {
+  uint32_t i, j, k, n;
+
+  assert(w != NULL);
+  n = w->size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (idx_is_literal(k) || k < base_idx) {
+      w->data[j] = k;
+      j ++;
+    }
+  }
+  w->size = j;
+}
+
+/*
+ * Prepare for clause deletion and compaction:
+ * - go through all the watch vectors are remove all clause indices >= base_idx
+ */
+static void prepare_watch_vectors(sat_solver_t *solver, cidx_t base_idx) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      watch_vector_remove_clauses(w, base_idx);
+    }
+  }
+}
+
+/*
+ * Mark clause cidx: this means that the clause cidx is the
+ * antecedent of a literal l. We mark the clause by setting the
+ * high-order bit in the clause's length to 1.
+ *
+ * This is safe since a clause can't have more than MAX_VARIABLES literals
+ * and MAX_VARIABLES < 2^31;
+ */
+#define CLAUSE_MARK (((uint32_t) 1) << 31)
+
+static inline void mark_clause(clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  pool->data[idx] |= CLAUSE_MARK;
+}
+
+/*
+ * Mark all the antecedent clauses of idx >= base_idx
+ */
+static void mark_antecedent_clauses(sat_solver_t *solver, cidx_t base_idx) {
+  uint32_t i, n;
+  bvar_t x;
+  cidx_t cidx;
+
+  n = solver->stack.top;
+  for (i=0; i<n; i++) {
+    x = var_of(solver->stack.lit[i]);
+    assert(var_is_assigned(solver, x));
+    if (solver->ante_tag[x] == ATAG_CLAUSE) {
+      cidx = solver->ante_data[x];
+      if (cidx >= base_idx) {
+	mark_clause(&solver->pool, cidx);
+      }
+    }
+  }
+}
+
+
+/*
+ * Restore antecedent when clause cidx is moved to new_idx
+ * - this is called before the move.
+ */
+static void restore_clause_antecedent(sat_solver_t *solver, cidx_t cidx, cidx_t new_idx) {
+  bvar_t x;
+
+  x = var_of(first_literal_of_clause(&solver->pool, cidx));
+  assert(var_is_assigned(solver, x) && solver->ante_tag[x] == ATAG_CLAUSE && 
+	 solver->ante_data[x] == cidx);
+  solver->ante_data[x] = new_idx;
+}
+
+
+/*
+ * Move clause from src_idx to dst_idx
+ * - requires dst_idx < src_idx
+ * - n = length of the source clause
+ */
+static void clause_pool_move_clause(clause_pool_t *pool, cidx_t dst_idx, cidx_t src_idx, uint32_t n) {
+  uint32_t i;
+
+  assert(dst_idx < src_idx);
+  for (i=0; i<n+2; i++) {
+    pool->data[dst_idx + i] = pool->data[src_idx + i];
+  }
+}
+
+/*
+ * Compact the pool:
+ * - remove all padding blocks
+ * - cidx = where to start = base_idx
+ *
+ * For every clause that's marked and moved, restore the antecedent data.
+ */
+static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
+  clause_pool_t *pool;
+  uint32_t n, end;
+  cidx_t i;
+
+  pool = &solver->pool;
+
+  assert(clause_pool_invariant(pool));
+
+  i = cidx;
+  end = pool->learned;
+  for (;;) {
+    /*
+     * First iteration: deal with problem clauses (or do nothing)
+     * Second iteration: deal with learned clauses.
+     */
+    while (cidx < end) {
+      n = pool->data[cidx];
+      if (n == 0) {
+	// padding block: skip it
+	cidx += padding_length(pool, cidx);
+      } else {
+	// keep the clause: store it at index i
+	assert(i <= cidx);
+	if ((n & CLAUSE_MARK) != 0) {
+	  // marked clause: restore the antecedent data
+	  // and remove the mark
+	  n &= ~CLAUSE_MARK;
+	  pool->data[cidx] = n;
+	  restore_clause_antecedent(solver, cidx, i);
+	}
+	if (i < cidx) {
+	  clause_pool_move_clause(pool, i, cidx, n);
+	}
+	i += full_length(n);
+	cidx += full_length(n);;
+      }      
+    }
+    if (end == pool->learned) {
+      end = pool->size;
+      if (i < pool->learned) {
+	pool->learned = i;
+      }
+    } else {
+      assert(end == pool->size);
+      pool->size = i;
+      pool->available = pool->capacity - i;
+      break;
+    }
+  }
+
+  assert(clause_pool_invariant(pool));
+
+}
+
+
+/*
+ * Restore the watch vectors:
+ * - scan the clauses starting from index cidx 
+ *   and add them to the watch vectors
+ */
+static void restore_watch_vectors(sat_solver_t *solver, cidx_t cidx) {
+  literal_t l0, l1;
+  cidx_t end;
+
+  end = solver->pool.size;
+  while (cidx < end) {
+    l0 = first_literal_of_clause(&solver->pool, cidx);
+    l1 = second_literal_of_clause(&solver->pool, cidx);
+    add_clause_watch(solver, l0, cidx);
+    add_clause_watch(solver, l1, cidx);
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+}
+
+
+/*
+ * Garbage collection
+ */
+static void collect_garbage(sat_solver_t *solver, cidx_t base_index) {
+  check_clause_pool_counters(&solver->pool);      // DEBUG
+  mark_antecedent_clauses(solver, base_index);
+  prepare_watch_vectors(solver, base_index);
+  compact_clause_pool(solver, base_index);
+  check_clause_pool_learned_index(&solver->pool); // DEBUG
+  check_clause_pool_counters(&solver->pool);      // DEBUG
+  restore_watch_vectors(solver, base_index);
+}
+
+
 /*********************************
  *  DELETION OF LEARNED CLAUSES  *
  ********************************/
 
-// TBD
+/*
+ * Allocate the internal cidx_array for n clauses
+ * - n must be positive
+ */
+static void alloc_cidx_array(sat_solver_t *solver, uint32_t n) {
+  assert(solver->cidx_array == NULL && n > 0);
+  solver->cidx_array = (cidx_t *) safe_malloc(n * sizeof(cidx_t));
+}
+
+/*
+ * Delete the array
+ */
+static void free_cidx_array(sat_solver_t *solver) {
+  assert(solver->cidx_array != NULL);
+  safe_free(solver->cidx_array);
+  solver->cidx_array = NULL;
+}
+
+/*
+ * Check whether clause cidx is used as an antecedent.
+ * (This means that it can't be deleted).
+ */
+static bool clause_is_locked(const sat_solver_t *solver, cidx_t cidx) {
+  bvar_t x0;
+
+  x0 = var_of(first_literal_of_clause(&solver->pool, cidx));
+  return solver->ante_tag[x0] == ATAG_CLAUSE && 
+    solver->ante_data[x0] == cidx && var_is_assigned(solver, x0);
+}
+
+/*
+ * Collect learned clauses indices into solver->cidx_array
+ * - initialize the array with size = number of learned clauses
+ * - store all clauses that are not locked into the array
+ * - return the number of clauses collected
+ */
+static uint32_t collect_learned_clauses(sat_solver_t *solver) {
+  cidx_t *a;
+  cidx_t cidx, end;
+  uint32_t i;  
+
+  alloc_cidx_array(solver, solver->pool.num_learned_clauses);
+
+  a = solver->cidx_array;
+  i = 0;
+
+  end = solver->pool.size;
+  cidx = clause_pool_first_learned_clause(&solver->pool);
+  while (cidx < end) {
+    if (! clause_is_locked(solver, cidx)) {
+      assert(i < solver->pool.num_learned_clauses);
+      a[i] = cidx;
+      i ++;
+    }
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+
+  return i;
+}
+
+/*
+ * Sort cidx_array in increasing activity order
+ * - use stable sort
+ * - n = number of clauses stored in the cidx_array
+ */
+// ordering: aux = solver, c1 and c2 are the indices of two learned clauses
+static bool less_active(void *aux, cidx_t c1, cidx_t c2) {
+  sat_solver_t *solver;
+  float act1, act2;
+
+  solver = aux;
+  act1 = get_learned_clause_activity(&solver->pool, c1);
+  act2 = get_learned_clause_activity(&solver->pool, c2);
+  return act1 < act2 || (act1 == act2 && c1 < c2);
+}
+
+static void sort_learned_clauses(sat_solver_t *solver, uint32_t n) {
+  uint_array_sort2(solver->cidx_array, n, solver, less_active);
+}
+
+
+/*
+ * Delete half the learned clauses (Minisat-style)
+ */
+static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
+  uint32_t i, n, n0;
+  cidx_t *a;
+  float act_threshold;
+
+  n = collect_learned_clauses(solver);
+  sort_learned_clauses(solver, n);
+  a = solver->cidx_array;
+
+  check_candidate_clauses_to_delete(solver, a, n); // DEBUG
+
+  // the first half of a contains clauses of low score
+  n0 = solver->pool.num_learned_clauses/2;
+  for (i=0; i<n0; i++) {
+    clause_pool_delete_clause(&solver->pool, a[i]);
+    solver->stats.learned_clauses_deleted ++;
+  }
+
+  // in the second half, delete clauses of low activity
+  act_threshold = solver->cla_inc/n;
+  for (i=n0; i<n; i++) {
+    if (get_learned_clause_activity(&solver->pool, a[i]) <= act_threshold) {
+      clause_pool_delete_clause(&solver->pool, a[i]);
+      solver->stats.learned_clauses_deleted ++;
+    }
+  }
+  free_cidx_array(solver);
+
+  collect_garbage(solver, solver->pool.learned);
+  solver->stats.reduce_calls ++;
+
+  check_watch_vectors(solver);
+}
+
 
 
 /********************************************
  *  SIMPLIFICATION OF THE CLAUSE DATABASE   *
  *******************************************/
 
-// TBD
+/*
+ * Cleanup watch vector w:
+ * - remove all the assigned (true) literals from w
+ */
+static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
+  uint32_t i, j, k, n;
+
+  assert(solver->decision_level == 0 &&
+	 solver->stack.top == solver->stack.prop_ptr &&
+	 w != NULL);
+
+  n = w->size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (idx_is_clause(k) || lit_is_unassigned(solver, idx2lit(k))) {
+      w->data[j] = k;
+      j ++;
+    }
+  }
+  w->size = j;
+}
 
 
-/*************************
- *  LITERAL ASSIGNMENT   *
- ***********************/
+/*
+ * Simplify the binary clauses:
+ * - if l is assigned at level 0, delete its watched vector
+ *   (this assumes that all Boolean propagations have been done).
+ * - otherwise, remove the assigned literals from watch[l].
+ */
+static void simplify_binary_clauses(sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
 
-// TBD
+  assert(solver->decision_level == 0 &&
+	 solver->stack.top == solver->stack.prop_ptr);
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      switch (lit_value(solver, i)) {
+      case BVAL_UNDEF_TRUE:
+      case BVAL_UNDEF_FALSE:
+	cleanup_watch_vector(solver, w);
+	break;
+
+      case BVAL_TRUE:
+      case BVAL_FALSE:
+	safe_free(w);
+	solver->watch[i] = NULL;
+	break;
+      }
+    }
+  }
+}
+
+
+/*
+ * After deletion: count the number of binary clauses left
+ */
+static uint32_t num_literals_in_watch_vector(watch_t *w) {
+  uint32_t i, n, count;
+
+  assert(w != NULL);
+  count = 0;
+  n = w->size;
+  for (i=0; i<n; i++) {
+    if (idx_is_literal(w->data[i])) {
+      count ++;
+    }
+  }
+  return count;
+}
+
+
+static uint32_t count_binary_clauses(sat_solver_t *solver) {
+  uint32_t i, n, sum;
+  watch_t *w;
+
+  sum = 0;
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      sum += num_literals_in_watch_vector(w);
+    }
+  }
+  assert((sum & 1) == 0 && sum/2 <= solver->binaries);
+
+  return sum >> 1;
+}
+
+
+
+/*
+ * Simplify the clause that starts at cidx:
+ * - remove all literals that are false at the base level
+ * - return true if the clause is true
+ * - return false otherwise
+ */
+static bool simplify_clause(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, j, n;
+  literal_t *a;
+  literal_t l;
+
+  assert(solver->decision_level == 0 && good_clause_idx(&solver->pool, cidx));
+  
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+
+  j = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    switch (lit_value(solver, l)) {
+    case BVAL_FALSE:
+      break;
+
+    case BVAL_UNDEF_FALSE:
+    case BVAL_UNDEF_TRUE:
+      a[j] = l;
+      j ++;
+      break;
+
+    case BVAL_TRUE:
+      return true;
+    }
+  }
+
+  assert(j >= 2);
+  if (j < n) {
+    clause_pool_shrink_clause(&solver->pool, cidx, j);
+  }
+
+  return false;
+}
+
+
+/*
+ * Remove dead antecedents (of literals assigned at level 0)
+ * - if l is implied at level 0 by a clause cidx,
+ *   then cidx will be deleted by nsat_simplify_clause_databae.
+ *   so l ends up with a dead antecedent.
+ * - to fix this, we change the ante_tag of all literals
+ *   implied by a clause to ATAG_UNIT
+ */
+static void remove_dead_antecedents(sat_solver_t *solver) {
+  uint32_t i, n;
+  literal_t l;
+
+  assert(solver->decision_level == 0);
+
+  n = solver->stack.top;
+  for (i=0; i<n; i++) {
+    l = solver->stack.lit[i];
+    assert(solver->level[var_of(l)] == 0);
+    if (solver->ante_tag[var_of(l)] == ATAG_CLAUSE) {
+      solver->ante_tag[var_of(l)] = ATAG_UNIT;
+    }
+  }
+}
+
+
+/*
+ * Simplify all the clauses
+ * - remove all false literals
+ * - remove all true clauses
+ */
+static void nsat_simplify_clause_database(sat_solver_t *solver) {
+  cidx_t cidx;
+  uint32_t d;
+
+  assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
+
+  simplify_binary_clauses(solver);
+
+  d = 0; // count true clauses
+  cidx = clause_pool_first_clause(&solver->pool);
+  // Note: pool.size may change within the loop if clauses are deleted
+  while (cidx < solver->pool.size) {
+    if (simplify_clause(solver, cidx)) {
+      d ++;
+      clause_pool_delete_clause(&solver->pool, cidx);
+    }
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+
+  if (d > 0) {
+    solver->stats.prob_clauses_deleted += d;
+    remove_dead_antecedents(solver);
+    collect_garbage(solver, 0);
+  }
+
+  solver->stats.simplify_calls ++;
+
+  solver->binaries = count_binary_clauses(solver);
+
+  check_watch_vectors(solver);
+}
+
 
 
 /**************************
  *  BOOLEAN PROPAGATION   *
  *************************/
 
-// TBD
+/*
+ * Conflict: binary clause {l0, l1} is false
+ */
+static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t l1) {
+  assert(lit_is_false(solver, l0) && lit_is_false(solver, l1));
+
+#if TRACE
+  printf("\n---> DPLL:   Binary conflict: %"PRIu32" %"PRIu32"\n", l0, l1);
+  fflush(stdout);
+#endif
+
+  solver->conflict_tag = CTAG_BINARY;
+  solver->conflict_buffer[0] = l0;
+  solver->conflict_buffer[1] = l1;
+  solver->stats.conflicts ++;
+}
+
+/*
+ * For debugging: check that clause cidx is false
+ */
+#ifndef NDEBUG
+static bool clause_is_false(const sat_solver_t *solver, cidx_t cidx) {
+  literal_t *l;
+  uint32_t i, n;
+
+  assert(good_clause_idx(&solver->pool, cidx));
+  n = clause_length(&solver->pool, cidx);
+  l = clause_literals(&solver->pool, cidx);
+  for (i=0; i<n; i++) {
+    if (!lit_is_false(solver, l[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
+/*
+ * Conflict: clause cidx is false
+ */
+static void record_clause_conflict(sat_solver_t *solver, cidx_t cidx) {
+  assert(clause_is_false(solver, cidx));
+
+#if TRACE
+  printf("\n---> DPLL:   Clause conflict: cidx = %"PRIu32"\n");
+  fflush(stdout);
+#endif
+
+  solver->conflict_tag = CTAG_CLAUSE;
+  solver->conflict_index = cidx;
+  solver->stats.conflicts ++;
+}
+
+
+/*
+ * Propagation from literal l0
+ * - l0 must be false in the current assignment
+ * - sets solver->conflict_tag if there's a conflict
+ */
+static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
+  watch_t *w;
+  literal_t *lit;
+  uint32_t i, j, n, k, len, t;
+  literal_t l, l1;
+  bval_t vl;
+
+  assert(lit_is_false(solver, l0));
+
+  w = solver->watch[l0];
+  if (w == NULL || w->size == 0) return; // nothing to do    
+
+  n = w->size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    w->data[j] = k; // Keep k in w. We'll undo this later if needed.
+    j ++;
+    if (idx_is_literal(k)) {
+      /*
+       * Binary clause
+       */
+      l = idx2lit(k);
+      vl = lit_value(solver, l);
+      if (vl == BVAL_TRUE) continue;
+      if (vl == BVAL_FALSE) {
+	record_binary_conflict(solver, l0, l);
+	goto conflict;
+      }
+      assert(is_unassigned_val(vl));
+      binary_clause_propagation(solver, l, l0);
+
+    } else {
+      /*
+       * Clause in the pool
+       */
+      len = clause_length(&solver->pool, k);
+      lit = clause_literals(&solver->pool, k);
+      assert(lit[0] == l0 || lit[1] == l0);
+      // Get other watch literal
+      l = lit[0] ^ lit[1] ^ l0;
+      // If l is true, nothing to do
+      vl = lit_value(solver, l);
+      if (vl == BVAL_TRUE) continue;
+
+      // Force l to go into lit[0] and l0 into lit[1]
+      lit[0] = l;
+      lit[1]  = l0;
+
+      // Search for an unassigned or true literal in lit[2 ... len-1]
+      for (t=2; t<len; t++) {
+	if (! lit_is_false(solver, lit[t])) break;
+      }
+      if (t < len) {
+	// lit[t] is either true or not assigned.
+	// It can replace l0 as watched literal
+	l1 = lit[t];
+	lit[1] = l1;
+	lit[t] = l0;
+	add_clause_watch(solver, l1, k);
+	j --; // remove k from l0's watch vector
+	continue;
+      }	
+
+      // No unassigned literal found
+      assert(t == len);
+      if (vl == BVAL_FALSE) {
+	record_clause_conflict(solver, k);
+	goto conflict;
+      }
+      assert(is_unassigned_val(vl));
+      clause_propagation(solver, l, k);
+    }
+  }
+  w->size = j;
+  return;
+
+ conflict:
+  i ++;
+  while (i<n) {
+    w->data[j] = w->data[i];
+    j ++;
+    i ++;
+  }
+  w->size = j;
+}
+
+
+/*
+ * Boolean propagation
+ * - on entry, solver->conflict_tag must be CTAG_NONE
+ * - on exit, it's set to CTAG_BINARY or CTAG_CLAUSE if there's a conflict
+ */
+static void nsat_boolean_propagation(sat_solver_t *solver) {
+  literal_t l;
+  uint32_t i;  
+
+  assert(solver->conflict_tag == CTAG_NONE);
+
+  //  check_watch_vectors(solver);
+
+  for (i = solver->stack.prop_ptr; i< solver->stack.top; i++) {
+    l = not(solver->stack.lit[i]);
+    propagate_from_literal(solver, l);
+    if (solver->conflict_tag != CTAG_NONE) {
+      return;
+    }
+  }
+  solver->stack.prop_ptr = i;
+
+  //  check_watch_vectors(solver);
+  check_propagation(solver);
+}
+
+
+/******************
+ *  BACKTRACKING  *
+ *****************/
+
+/*
+ * Backtrack to back_level
+ * - undo all assignments at levels >= back_level + 1
+ * - solver->decision_level must be larger than back_level
+ *   (otherwise level_index[back_level + 1] may not be set properly).
+ */
+static void backtrack(sat_solver_t *solver, uint32_t back_level) {
+  uint32_t i, d;
+  literal_t l;
+  bvar_t x;
+
+  assert(back_level < solver->decision_level);
+
+  d = solver->stack.level_index[back_level + 1];
+  i = solver->stack.top;
+  while (i > d) {
+    i --;
+    l = solver->stack.lit[i];
+    assert(lit_is_true(solver, l) && solver->level[var_of(l)] > back_level);
+    x = var_of(l);
+    solver->value[x] ^= (uint8_t) 0x2; // clear assign bit
+    assert(var_is_unassigned(solver, x));
+    heap_insert(&solver->heap, x);
+  }
+
+  solver->stack.top = i;
+  solver->stack.prop_ptr = i;
+  solver->decision_level = back_level;
+}
+
+
+
+/*
+ * Check whether all variables assigned at level k have activity less than ax
+ */
+static bool level_has_lower_activity(sat_solver_t *solver, double ax, uint32_t k) {
+  sol_stack_t *stack;
+  uint32_t i, n;
+  bvar_t x;
+
+  assert(k <= solver->decision_level);
+  stack = &solver->stack;
+
+  // i := start of level k
+  // n := end of level k
+  i = stack->level_index[k];
+  n = stack->top;
+  if (k < solver->decision_level) {
+    n = stack->level_index[k+1];
+  }
+
+  while (i < n) {
+    x = var_of(stack->lit[i]);
+    assert(var_is_assigned(solver, x) && solver->level[x] == k);
+    if (solver->heap.activity[x] >= ax) {
+      return false;
+    }
+    i ++;
+  }
+
+  return true;
+}
+
+/*
+ * Partial restart:
+ * - find the unassigned variable of highest activity
+ * - keep all the decision levels that have at least one variable
+ *   with activity higher than that.
+ */
+static void partial_restart(sat_solver_t *solver) {
+  double ax;
+  bvar_t x;
+  uint32_t i, n;
+
+  assert(solver->decision_level > 0);
+  cleanup_heap(solver);
+
+  if (heap_is_empty(&solver->heap)) {
+    // full restart
+    backtrack(solver, 0);
+  } else {
+    x = solver->heap.heap[1];
+    assert(var_is_unassigned(solver, x));
+    ax = solver->heap.activity[x];
+
+    n = solver->decision_level;
+    for (i=1; i<=n; i++) {
+      if (level_has_lower_activity(solver, ax, i)) {
+	backtrack(solver, i-1);
+	break;
+      }
+    }
+  }
+}
+
 
 
 /*******************************************************
  *  CONFLICT ANALYSIS AND CREATION OF LEARNED CLAUSES  *
  ******************************************************/
 
-// TBD
+/*
+ * During conflict resolution, we build a clause in solver->buffer.
+ * Except at the very end, all literals in this buffer have decision
+ * level < conflict level. To prevent duplicates, we mark all of them.
+ *
+ * In addition, we also mark the literals that must be resolved.
+ * These literals have decision level equal to the conflict level.
+ */
+
+/*
+ * Set/clear/test the mark on variable x
+ * - we use the high order bit of the ante_tag
+ * - if this bit is 1, x is marked
+ */
+static inline void mark_variable(sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  solver->ante_tag[x] |= (uint8_t) 0x80;
+}
+
+static inline void unmark_variable(sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  solver->ante_tag[x] &= (uint8_t) 0x7F;
+}
+
+static inline bool variable_is_marked(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return (solver->ante_tag[x] & (uint8_t) 0x80) != 0;
+}
+
+/*
+ * Short cuts: use literal
+ */
+static inline uint32_t d_level(const sat_solver_t *solver, literal_t l) {
+  return solver->level[var_of(l)];
+}
+
+static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
+  return variable_is_marked(solver, var_of(l));
+}
+
+/*
+ * Process literal l during conflict resolution.
+ * - l is either a part of the learned clause or a literal to resolve
+ * - if l is marked do nothing (already seen)
+ * - if l has decision level 0, ignore it
+ * - otherwise:
+ *     mark l
+ *     increase variable activity
+ *     if l's decision_level < conflict level then add l to the buffer
+ *     
+ * - return 1 if l is to be resolved
+ * - return 0 otherwise
+ */
+static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
+  bvar_t x;
+
+  x = var_of(l);
+
+  assert(solver->level[x] <= solver->decision_level);
+  assert(lit_is_false(solver, l));
+
+  if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
+    mark_variable(solver, x);
+    increase_var_activity(&solver->heap, x);
+    if (solver->level[x] == solver->decision_level) {
+      return 1;
+    }
+    lbuffer_push(&solver->buffer, l);
+  }
+
+  return 0;
+}
+
+/*
+ * Process clause cidx:
+ * - process literals starting from i0
+ * - i0 is either 0 or 1
+ * - increase the clause activity if it's a learned clause
+ * - return the number of literals to resolved
+ */
+static uint32_t process_clause(sat_solver_t *solver, cidx_t cidx, uint32_t i0) {
+  literal_t *lit;
+  uint32_t i, n, toresolve;
+
+  assert(i0 <= 1);
+
+  if (is_learned_clause_idx(&solver->pool, cidx)) {
+    increase_clause_activity(solver, cidx);
+  }
+
+  toresolve = 0;
+  n = clause_length(&solver->pool, cidx);
+  lit = clause_literals(&solver->pool, cidx);
+  for (i=i0; i<n; i++) {
+    toresolve += process_literal(solver, lit[i]);
+  }
+  return toresolve;
+}
+
+
+/*
+ * Build learned clause and find UIP
+ *
+ * Result:
+ * - the learned clause is stored in solver->buffer
+ * - the implied literal is in solver->buffer.data[0]
+ * - all literals in the learned clause are marked
+ */
+static void analyze_conflict(sat_solver_t *solver) {
+  literal_t *stack;
+  literal_t b;
+  bvar_t x;
+  uint32_t j, unresolved;
+
+  assert(solver->decision_level > 0);
+
+  unresolved = 0;
+  lbuffer_reset_and_reserve(&solver->buffer); // make room for one literal
+
+  /*
+   * Scan the conflict clause
+   */
+  if (solver->conflict_tag == CTAG_BINARY) {
+    unresolved += process_literal(solver, solver->conflict_buffer[0]);
+    unresolved += process_literal(solver, solver->conflict_buffer[1]);
+  } else {
+    assert(solver->conflict_tag == CTAG_CLAUSE);
+    unresolved += process_clause(solver, solver->conflict_index, 0);
+  }
+
+  /*
+   * Scan the assignment stack from top to bottom and process
+   * the antecedent of all literals to resolve.
+   */
+  stack = solver->stack.lit;
+  j = solver->stack.top;
+  for (;;) {
+    j --;    
+    b = stack[j];
+    assert(d_level(solver, b) == solver->decision_level);
+    if (literal_is_marked(solver, b)) {
+      if (unresolved == 1) {
+	// found UIP
+	solver->buffer.data[0] = not(b);
+	break;
+      } else {
+	unresolved --;
+	x = var_of(b);
+	unmark_variable(solver, x);
+	if (solver->ante_tag[x] == ATAG_BINARY) {
+	  // solver->ante_data[x] = antecedent literal
+	  unresolved += process_literal(solver, solver->ante_data[x]);
+	} else {
+	  assert(solver->ante_tag[x] == ATAG_CLAUSE);
+	  assert(first_literal_of_clause(&solver->pool, solver->ante_data[x]) == b);
+	  // solver->ante_data[x] = antecedent clause
+	  unresolved += process_clause(solver, solver->ante_data[x], 1);
+	}
+      }
+    }
+  }
+
+  check_marks(solver);
+}
+
+
+/*
+ * CLAUSE SIMPLIFICATION
+ */
+
+#if 0
+/*
+ * Bloom filter to accelerate checks for subsumption.
+ * - the signature is a hash of all the decision literals in the learned clause
+ *   (excluding the implied literal). 
+ * - if literal l has a decision level not in this hash then it can't be
+ *   subsumed by other literals in the learned clause.
+ *
+ */
+static inline uint64_t hash_level(uint32_t level) {
+  return ((uint64_t) 1) << (level & 63);
+}
+
+static uint64_t learned_clause_hash(sat_solver_t *solver) {
+  uint64_t s;
+  uint32_t i, n;
+
+  s = 0;
+  n = solver->buffer.size;
+  for (i=1; i<n; i++) {
+    s |= hash_level(d_level(solver, solver->buffer.data[i]));
+  }
+  return s;
+}
+
+/*
+ * Check whether the decision level of l matches the hash
+ * - if this is true, l's decision level may be the same 
+ *   as one of the learned-clause literals.
+ */
+static inline bool check_level_hash(sat_solver_t *solver, literal_t l, uint64_t hash) {
+  return (hash & hash_level(d_level(solver, l))) != 0;
+}
+
+#endif
+
+/*
+ * Check whether literal l is redundant (can be removed from the learned clause)
+ * - l must be a literal in the learned clause
+ * - it's redundant if it's implied by other literals in the learned clause
+ * - we assume that all these literals are marked.
+ *
+ * To check this, we explore the implication grapsh recursively from l.
+ * Variables already visited are marked in solver->map:
+ * - solver->map[x] == NOT_SEEN means x has not been seen yet
+ * - solver->map[x] == IMPLIED means x is 'implied by marked literals'
+ * - solver->map[x] == NOT_IMPLIED means x is 'not implied by marked literals'
+ *
+ * We use the following rules:
+ * - a decision literal is not removable
+ * - if l all immediate predecessors of l are marked or are are removable
+ *   then l is removable.
+ * - if one of l's predecessor is not marked and not removable then l
+ *   is not removable.
+ */
+enum {
+  NOT_SEEN = 0,
+  IMPLIED = 1,
+  NOT_IMPLIED = 2
+};
+
+// number of predecessors of x in the implication graph
+static uint32_t num_predecessors(sat_solver_t *solver, bvar_t x) {
+  uint32_t n;
+
+  if (solver->ante_tag[x] == ATAG_BINARY) {
+    n = 1;
+  } else {
+    assert(solver->ante_tag[x] == ATAG_CLAUSE);
+    n = clause_length(&solver->pool, solver->ante_data[x]) - 1;
+  }
+  return n;
+}
+
+// get the i-th predecessor of x
+static bvar_t predecessor(sat_solver_t *solver, bvar_t x, uint32_t i) {
+  literal_t *lit;
+  literal_t l;
+
+  if (solver->ante_tag[x] == ATAG_BINARY) {
+    assert(i == 0);
+    l = solver->ante_data[x];
+  } else {
+    assert(i < clause_length(&solver->pool, solver->ante_data[x]) - 1);
+    lit = clause_literals(&solver->pool, solver->ante_data[x]);
+    l = lit[i + 1];
+  }
+  return var_of(l);
+}
+
+static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
+  gstack_t *gstack;
+  tag_map_t *map;
+  gstack_elem_t *top;
+  bvar_t x, y;
+  uint32_t i;
+  
+
+  x = var_of(l);
+  map = &solver->map;
+
+  if (variable_is_marked(solver, x) || solver->ante_tag[x] == ATAG_UNIT || tag_map_read(map, x) == IMPLIED) {
+    return true;
+  }
+  if (solver->ante_tag[x] == ATAG_DECISION || tag_map_read(map, x) == NOT_IMPLIED) {
+    return false;
+  }
+
+  gstack = &solver->gstack;
+  assert(gstack_is_empty(gstack));
+  gstack_push_var(gstack, x, 0);
+
+  do {
+    top = gstack_top(gstack);
+    x = top->var;
+    if (top->index == num_predecessors(solver, x)) {
+      tag_map_write(map, x, IMPLIED);
+      gstack_pop(gstack);
+    } else {
+      y = predecessor(solver, x, top->index);
+      top->index ++;
+      if (variable_is_marked(solver, y) || solver->ante_tag[y] == ATAG_UNIT || tag_map_read(map, y) == IMPLIED) {
+	continue;
+      }
+      if (solver->ante_tag[y] == ATAG_DECISION || tag_map_read(map, y) == NOT_IMPLIED) {
+	goto not_implied;
+      }
+      gstack_push_var(gstack, y, 0);
+    }
+  } while (! gstack_is_empty(gstack));
+
+  return true;
+
+ not_implied:
+  for (i=0; i<gstack->top; i++) {
+    tag_map_write(map, gstack->data[i].var, NOT_IMPLIED);
+  }
+  reset_gstack(gstack);
+  return false;
+}
+
+static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
+  literal_t *lit;
+  bvar_t x;
+  antecedent_tag_t atag;
+  cidx_t cidx;
+  uint32_t i, n;
+
+  x = var_of(l);
+  assert(var_is_assigned(solver, x) && variable_is_marked(solver, x));
+
+  atag = solver->ante_tag[x] & 0x7F; // remove mark bit
+  switch (atag) {
+  case ATAG_BINARY:
+    // ante_data[x] = literal that implies not(l)
+    return implied_by_marked_literals(solver, solver->ante_data[x]);
+
+  case ATAG_CLAUSE:
+    // ante_data[x] = clause that implies not(l)
+    cidx = solver->ante_data[x];
+    n = clause_length(&solver->pool, cidx);
+    lit = clause_literals(&solver->pool, cidx);
+    assert(lit[0] == not(l));
+    for (i=1; i<n; i++) {
+      if (! implied_by_marked_literals(solver, lit[i])) {
+	return false;
+      }
+    }
+    return true;
+
+  default:
+    assert(atag == ATAG_DECISION);
+    return false;
+  }
+}
+
+
+/*
+ * Simplify the learned clause:
+ * - it's in solver->buffer
+ * - all literals in solver->buffer are marked
+ * - solver->buffer.data[0] is the implied literal
+ * - all other literals have a decision level < solver->decision_level
+ *
+ * On exit:
+ * - the simplified learned clause is in solver->buffer.
+ * - all marks are removed.
+ */
+static void simplify_learned_clause(sat_solver_t *solver) {
+  lbuffer_t *buffer;
+  uint32_t i, j, n;
+  literal_t l;
+
+  assert(solver->aux.size == 0);
+
+  buffer = &solver->buffer;
+  n = buffer->size;
+  j = 1;
+  for (i=1; i<n; i++) { // The first literal is not redundant
+    l = buffer->data[i];
+    if (literal_is_redundant(solver, l)) {
+      // move l to the aux buffer to clean the marks later
+      lbuffer_push(&solver->aux, l);
+    } else {
+      // keep l into buffer
+      buffer->data[j] = l;
+      j ++;
+    }
+  }
+  buffer->size = j;
+
+  // cleanup: remove marks and reset the map
+  clear_tag_map(&solver->map);
+  for (i=0; i<j; i++) {
+    unmark_variable(solver, var_of(buffer->data[i]));
+  }
+  n = solver->aux.size;
+  for (i=0; i<n; i++) {
+    unmark_variable(solver, var_of(solver->aux.data[i]));
+  }
+  reset_lbuffer(&solver->aux);
+
+  check_all_unmarked(solver);
+}
+
+
+/*
+ * Prepare for bracktracking:
+ * - search for a literal of second highest decision level in
+ *   the learned clause.
+ * - solver->buffer contains the learned clause.
+ * - the implied literal is in solver->buffer.data[0]
+ */
+static void prepare_to_backtrack(sat_solver_t *solver) {
+  uint32_t i, j, d, x, n;
+  literal_t l, *b;
+
+  b = solver->buffer.data;
+  n = solver->buffer.size;
+
+  if (n == 1) {
+    solver->backtrack_level = 0;
+    return;
+  }
+
+  j = 1;
+  l = b[1];
+  d = d_level(solver, l);
+  for (i=2; i<n; i++) {
+    x = d_level(solver, b[i]);
+    if (x > d) {
+      d = x;
+      j = i;
+    }
+  }
+
+  // swap b[1] and b[j]
+  b[1] = b[j];
+  b[j] = l;
+
+  // record backtrack level
+  solver->backtrack_level = d;
+}
+
+
+/*
+ * Resolve a conflict and add a learned clause
+ * - solver->decision_level must be positive
+ */
+static void resolve_conflict(sat_solver_t *solver) {
+  uint32_t n;
+  literal_t l;
+  cidx_t cidx;
+
+  analyze_conflict(solver);
+  simplify_learned_clause(solver);
+  prepare_to_backtrack(solver);
+  backtrack(solver, solver->backtrack_level);
+
+  // clear the conflict flag
+  solver->conflict_tag = CTAG_NONE;
+
+  // add the learned clause
+  n = solver->buffer.size;
+  l = solver->buffer.data[0];
+  if (n >= 3) {
+    cidx = add_learned_clause(solver, n, solver->buffer.data);
+    clause_propagation(solver, l, cidx);
+  } else if (n == 2) {
+    nsat_solver_add_binary_clause(solver, l, solver->buffer.data[1]);
+    binary_clause_propagation(solver, l, solver->buffer.data[1]);
+  } else {
+    assert(n > 0);
+    nsat_solver_add_unit_clause(solver, l);
+  }
+}
+
+
 
 
 /*****************************
  *  MAIN SOLVING PROCEDURES  *
  ****************************/
 
-// TBD
+/*
+ * Select an unassigned decision variable
+ * - return 0 if all variables are assigned
+ */
+static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
+  uint32_t rnd;
+  bvar_t x;
+
+  if (solver->randomness > 0) {
+    rnd = random_uint32(solver) & VAR_RANDOM_MASK;
+    if (rnd < solver->randomness) {
+      x = random_uint(solver, solver->nvars);
+      if (var_is_unassigned(solver, x)) {
+	assert(x > 0);
+	solver->stats.random_decisions ++;
+	return x;
+      }
+    }
+  }
+
+  /*
+   * Unassigned variable of highest activity
+   */
+  while (! heap_is_empty(&solver->heap)) {
+    x = heap_get_top(&solver->heap);
+    if (var_is_unassigned(solver, x)) {
+      assert(x > 0);
+      return x;
+    }
+  }
+
+  /*
+   * Check the variables in [heap->vmax ... heap->size - 1]
+   */
+  x = solver->heap.vmax;
+  while (x < solver->heap.size) {
+    if (var_is_unassigned(solver, x)) {
+      solver->heap.vmax = x+1;
+      return x;
+    }
+    x ++;
+  }
+
+  assert(x == solver->heap.size);
+  solver->heap.vmax = x;
+
+  return 0;
+}
+
+
+/*
+ * Search until we get sat/unsat or we reach the conflict limit
+ */
+static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
+  uint32_t nconflicts;
+  bvar_t x;
+  literal_t l;
+
+  assert(solver->stack.prop_ptr == solver->stack.top);
+
+  check_propagation(solver);
+  check_watch_vectors(solver);
+
+  nconflicts = 0;
+  for (;;) {
+    nsat_boolean_propagation(solver);
+    if (solver->conflict_tag == CTAG_NONE) {
+      // No conflict
+      if (nconflicts >= conflict_limit) {
+	break;
+      }
+      // Garbage collection
+      if (solver->pool.num_learned_clauses > solver->reduce_threshold) {
+	nsat_reduce_learned_clause_set(solver);
+	check_watch_vectors(solver);
+	solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
+      }
+
+      x = nsat_select_decision_variable(solver);
+      if (x == 0) {
+	solver->status = STAT_SAT;
+	break;
+      }
+      l = neg(x);
+      if (var_prefers_true(solver, x)) {
+	l = pos(x);
+      }
+      nsat_decide_literal(solver, l);
+    } else {
+      // Conflict
+      nconflicts ++;
+      if (solver->decision_level == 0) {
+	solver->status = STAT_UNSAT;
+	break;
+      }
+
+      resolve_conflict(solver);
+      check_watch_vectors(solver);
+
+      decay_clause_activities(solver);
+      decay_var_activities(&solver->heap);
+    }
+  }
+}
+
+
+/*
+ * Progress status
+ */
+static void report_status(sat_solver_t *solver, uint32_t restart_threshold, uint32_t count) {
+  double lits_per_clause;
+
+  if ((count & 0x3F) == 0) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
+    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
+    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+  }
+
+  lits_per_clause = 0.0;
+  if (solver->pool.num_learned_clauses > 0) {
+    lits_per_clause = ((double) solver->pool.num_learned_literals) / solver->pool.num_learned_clauses;
+  }
+  fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
+	  restart_threshold, solver->reduce_threshold,
+	  solver->binaries,
+	  solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
+	  solver->pool.num_learned_clauses, solver->pool.num_learned_literals, lits_per_clause);
+  fflush(stderr);
+}
+
+
+/*
+ * Number of literals assigned at level 0
+ * - this is used to decide whether to call simplify_clause_database
+ */
+static uint32_t level0_literals(sat_solver_t *solver) {
+  uint32_t n;
+
+  n = solver->stack.top;
+  if (solver->decision_level > 0) {
+    n = solver->stack.level_index[1];
+  }
+  return n;
+}
+
+
+/*
+ * Solving procedure
+ */
+solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
+  uint32_t i, u, v, threshold;
+
+  if (solver->has_empty_clause) {
+    solver->status = STAT_UNSAT;
+    return STAT_UNSAT;
+  }
+  
+  nsat_boolean_propagation(solver);
+  if (solver->conflict_tag != CTAG_NONE) {
+    solver->status = STAT_UNSAT;
+    return STAT_UNSAT;
+  }
+
+  if (solver->units > 0) {
+    nsat_simplify_clause_database(solver);
+    solver->simplify_bottom = solver->stack.top;
+    solver->simplify_props = solver->stats.propagations;
+    // number of propagations before next call to simplify_clause_database
+    solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;
+  }
+
+  /*
+   * Counter for report status
+   */
+  i = 0;
+
+  /*
+   * Restart strategy: Luby sequence
+   */
+  u = 1;
+  v = 1;
+  threshold = LUBY_INTERVAL;
+  solver->stats.starts = 0;
+
+  /*
+   * Reduce strategy: as in minisat
+   */
+  solver->reduce_threshold = solver->pool.num_prob_clauses/4;
+  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
+    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
+  }
+
+  for (;;) {
+    if (verbose) {
+      report_status(solver, threshold, i);
+      i ++;
+    }
+    solver->stats.starts ++;
+    sat_search(solver, threshold);
+    if (solver->status != STAT_UNKNOWN) break;
+    
+    // update Luby counters
+    if ((u & -u) == v) {
+      u ++;
+      v = 1;
+    } else {
+      v <<= 1;
+    }
+    threshold = v * LUBY_INTERVAL;
+
+    // restart
+    if (solver->decision_level > 0) {
+      if (level0_literals(solver) > solver->simplify_bottom &&
+	  solver->stats.propagations >= solver->simplify_props + solver->simplify_next) {
+	// force full restart to call simplify
+	backtrack(solver, 0);
+      } else {
+	partial_restart(solver);
+      }
+    }
+
+    // call simplify
+    if (solver->decision_level == 0 &&
+	level0_literals(solver) > solver->simplify_bottom &&
+	solver->stats.propagations >= solver->simplify_props + solver->simplify_next) {
+      nsat_simplify_clause_database(solver);
+      solver->simplify_bottom = solver->stack.top;
+      solver->simplify_props = solver->stats.propagations;
+      solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;      
+    }
+  }
+
+  if (verbose) {
+    fprintf(stderr, "---------------------------------------------------------------------------------\n\n");
+  }
+
+  return solver->status;
+}
 
 
 /************
@@ -1483,7 +3449,7 @@ static cidx_t add_learned_clause(sat_solver_t *solver, uint32_t n, const literal
  * - val's size must be at least solver->nvars
  * - val[0] is always true
  */
-void nsat_get_allvars_assignment(sat_solver_t *solver, bval_t *val) {
+void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val) {
   uint32_t i, n;
 
   n = solver->nvars;
@@ -1498,7 +3464,7 @@ void nsat_get_allvars_assignment(sat_solver_t *solver, bval_t *val) {
  * - a must have size >= solver->nvars.
  * return the number of literals added to a.
  */
-uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
+uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a) {
   uint32_t n;
   literal_t l;
 
@@ -1513,71 +3479,6 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
   return n;
 }
 
-
-
-
-
-/**********
- *  JUNK  *
- *********/
-
-/*
- * Fake functions for testing
- */
-void test(sat_solver_t *solver) {
-  literal_t aux[4];
-
-  aux[0] = pos(1);
-  aux[1] = neg(2);
-  aux[2] = pos(3);
-  aux[3] = neg(4);
-
-  add_learned_clause(solver, 4, aux);
-}
-
-float test0(sat_solver_t *solver, cidx_t cidx) {
-  return get_learned_clause_activity(&solver->pool, cidx);
-}
-
-void test1(sat_solver_t *solver, cidx_t cidx, float b) {
-  increase_learned_clause_activity(&solver->pool, cidx, b);
-}
-
-void test2(sat_solver_t *solver, cidx_t cidx, float b) {
-  multiply_learned_clause_activity(&solver->pool, cidx, b);
-}
-
-void test3(sat_solver_t *solver, cidx_t cidx, float b) {
-  set_learned_clause_activity(&solver->pool, cidx, b);
-}
-
-float test0a(sat_solver_t *solver, cidx_t cidx) {
-  clause_t *aux;
-
-  aux = clause_of_idx(&solver->pool, cidx);
-  return aux->aux.f;
-}
-
-void test1a(sat_solver_t *solver, cidx_t cidx, float b) {
-  clause_t *aux;
-
-  aux = clause_of_idx(&solver->pool, cidx);
-  aux->aux.f += b;
-}
-
-void test2a(sat_solver_t *solver, cidx_t cidx, float b) {
-  clause_t *aux;
-
-  aux = clause_of_idx(&solver->pool, cidx);
-  aux->aux.f *= b;
-}
-
-void test3a(sat_solver_t *solver, cidx_t cidx, float b) {
-  clause_t *aux;
-
-  aux = clause_of_idx(&solver->pool, cidx);
-  aux->aux.f = b;
-}
 
 
 
@@ -1618,7 +3519,10 @@ static bool good_counters(const clause_pool_t *pool) {
     learned_lits == pool->num_learned_literals;
 }
 
-static void clause_pool_check_counters(const clause_pool_t *pool) {
+/*
+ * Check the counters, assuming pool->learned and pool->size are correct.
+ */
+static void check_clause_pool_counters(const clause_pool_t *pool) {
   if (!good_counters(pool)) {
     fprintf(stderr, "**** BUG: inconsistent pool counters ****\n");
     fflush(stderr);
@@ -1627,33 +3531,427 @@ static void clause_pool_check_counters(const clause_pool_t *pool) {
 
 
 /*
+ * Check that all problem clauses have index < pool->learned
+ * and that all learned clause have index >= pool->learned;
+ * This assumes that pool->num_prob_clauses is correct.
+ */
+static void check_clause_pool_learned_index(const clause_pool_t *pool) {
+  cidx_t cidx, end, next;
+  uint32_t n, i;
+
+  /*
+   * Find the index of the last problem clause:
+   *   cidx = 0 if there are no problem clauses
+   *   cidx = pool->size if there are less problem clauses than expected
+   */
+  n = pool->num_prob_clauses;
+  cidx = 0;
+  end = 0;
+  for (i=0; i<n; i++) {
+    cidx = next_clause_index(pool, end);
+    if (cidx >= pool->size) break;
+    end = cidx + clause_full_length(pool, cidx);
+  }
+
+  if (cidx == pool->size) {
+    fprintf(stderr, "**** BUG: expected %"PRIu32" problem clauses. Found %"PRIu32". ****\n", 
+	    pool->num_prob_clauses, i + 1);
+    fflush(stderr);
+  } else {
+    next = next_clause_index(pool, end);        // next clause after that (i.e., first learned clause or nothing)
+    if (cidx >= pool->learned) {
+      fprintf(stderr, "**** BUG: last problem clause starts at %"PRIu32". Learned index is %"PRIu32" ****\n",
+	      cidx, pool->learned);
+      fflush(stderr);
+    } else if (end > pool->learned) {
+      fprintf(stderr, "**** BUG: last problem clause ends at %"PRIu32". Learned index is %"PRIu32" ****\n",
+	      end, pool->learned);
+      fflush(stderr);
+    } else if (next < pool->size && next < pool->learned) {
+      fprintf(stderr, "**** BUG: first learned clause starts at %"PRIu32". Learned index is %"PRIu32" ****\n",
+	      next, pool->learned);
+      fflush(stderr);
+    }
+  }
+}
+
+
+
+/*
  * HEAP INVARIANTS
  */
-static void check_heap(var_heap_t *heap) {
+static void check_heap(const var_heap_t *heap) {
   uint32_t i, j, n;
-  bvar_t x;
+  int32_t k;
+  bvar_t x, y;
 
   n = heap->heap_last;
   for (i=0; i<=n; i++) {
     x = heap->heap[i];
-    if (heap->heap_index[x] != i) {
-      fprintf(stderr, "*** BUG: heap[%"PRIu32"] = %"PRIu32" but heap_index[%"PRIu32"] = %"PRIu32" ****\n",
+    if (heap->heap_index[x] != (int32_t) i) {
+      fprintf(stderr, "*** BUG: heap[%"PRIu32"] = %"PRIu32" but heap_index[%"PRIu32"] = %"PRId32" ****\n",
 	      i, x, x, heap->heap_index[x]);
     }
     j = i>>1; // parent of i (or j=i=0 for the special marker)
-    if (heap->activity[j] < heap->activity[i]) {
+    y = heap->heap[j];
+    if (heap->activity[y] < heap->activity[x]) {
       fprintf(stderr, "*** BUG: bad heap ordering: activity[%"PRIu32"] < activity[%"PRIu32"] ****\n", j, i);
     }
   }
 
   n = heap->size;
   for (i=0; i<n; i++) {
-    j = heap->heap_index[i];
-    if (j >= 0 && heap->heap[j] != i) {
-      fprintf(stderr, "*** BUG: heap_index[%"PRIu32"] = %"PRIu32" but heap[%"PRIu32"] = %"PRIu32" ****\n",
-	      i, j, j, heap->heap[j]);
+    k= heap->heap_index[i];
+    if (k >= 0 && heap->heap[k] != i) {
+      fprintf(stderr, "*** BUG: heap_index[%"PRIu32"] = %"PRId32" but heap[%"PRId32"] = %"PRIu32" ****\n",
+	      i, k, k, heap->heap[k]);
     }
   }
 }
+
+
+/*
+ * SORTING FOR CLAUSE DELETION
+ * - a = array of clause idx
+ * - n = number of elements in a
+ * We check that all elements in a can be deleted and that a is sorted in increasing order.
+ */
+static void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n) {
+  uint32_t i;
+  cidx_t c1, c2;
+  float a1, a2;
+
+  for (i=0; i<n; i++) {
+    c1 = a[i];
+    if (clause_is_locked(solver, c1)) {
+      fprintf(stderr, "**** BUG: locked clause (cidx = %"PRIu32") is candidate for deletion ****\n", c1);
+      fflush(stderr);
+    }
+  }
+
+  if (n <= 1) return;
+
+  c1 = a[0];
+  a1 = get_learned_clause_activity(&solver->pool, c1);
+  for (i=1; i<n; i++) {
+    c2 = a[i];
+    a2 = get_learned_clause_activity(&solver->pool, c2);
+    if (a1 > a2 || (a1 == a2 && c1 > c2)) {
+      fprintf(stderr, "**** BUG: candidates for deletion not sorted (at position i = %"PRIu32")\n", i);
+      fflush(stderr);
+    }
+    a1 = a2;
+    c1 = c2;
+  }
+}
+
+
+/*
+ * WATCH VECTORS
+ */
+
+/*
+ * Check that cidx occurs in vector watch[l]
+ */
+static bool clause_is_in_watch_vector(const sat_solver_t *solver, literal_t l, cidx_t cidx) {
+  const watch_t *w;
+  uint32_t i, n;
+
+  w = solver->watch[l];
+  if (w != NULL) {
+    n = w->size;
+    for (i=0; i<n; i++) {
+      if (w->data[i] == cidx) {
+	return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static void check_all_clauses_are_in_watch_vectors(const sat_solver_t *solver) {
+  cidx_t cidx, end;
+  literal_t l0, l1;
+
+  cidx = clause_pool_first_clause(&solver->pool);
+  end = solver->pool.size;
+
+  while (cidx < end) {
+    l0 = first_literal_of_clause(&solver->pool, cidx);
+    l1 = second_literal_of_clause(&solver->pool, cidx);
+    assert(l0 < solver->nliterals && l1 < solver->nliterals);
+    if (!clause_is_in_watch_vector(solver, l0, cidx)) {
+      fprintf(stderr, "*** BUG: missing clause index (%"PRIu32") in watch vector for literal %"PRIu32" ***\n",
+	      cidx, l0);
+      fflush(stderr);
+    }
+    if (!clause_is_in_watch_vector(solver, l1, cidx)) {
+      fprintf(stderr, "*** BUG: missing clause index (%"PRIu32") in watch vector for literal %"PRIu32" ***\n",
+	      cidx, l1);
+      fflush(stderr);
+    }
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+}
+
+static void check_watch_vector_is_good(const sat_solver_t *solver, const watch_t *w, literal_t l) {
+  uint32_t i, n, k;
+
+  assert(w != NULL && w == solver->watch[l]);
+
+  n = w->size;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (idx_is_clause(k)) {
+      if (first_literal_of_clause(&solver->pool, k) != l &&
+	  second_literal_of_clause(&solver->pool, k) != l) {
+	fprintf(stderr, "*** BUG: clause %"PRIu32" is in watch vector for literal %"PRIu32"\n, but the literal is not first or second ***\n", k, l);
+	fflush(stderr);
+      }
+    }
+  }
+}
+
+static void check_all_watch_vectors_are_good(const sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      check_watch_vector_is_good(solver, w, i);
+    }
+  }
+}
+
+static void check_watch_vectors(const sat_solver_t *solver) {
+  check_all_clauses_are_in_watch_vectors(solver);
+  check_all_watch_vectors_are_good(solver);
+}
+
+
+/*
+ * PROPAGATION
+ */
+
+/*
+ * Check whether clause cidx is true
+ */
+static bool clause_is_true(const sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n;
+  literal_t *lit;
+
+  assert(good_clause_idx(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  lit = clause_literals(&solver->pool, cidx);
+  for (i=0; i<n; i++) {
+    if (lit_is_true(solver, lit[i])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Get the number of false literals in clause cidx
+ */
+static uint32_t num_false_literals_in_clause(const sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n, cnt;
+  literal_t *lit;
+
+  assert(good_clause_idx(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  lit = clause_literals(&solver->pool, cidx);
+  cnt = 0;
+  for (i=0; i<n; i++) {
+    if (lit_is_false(solver, lit[i])) {
+      cnt ++;
+    }
+  }
+
+  return cnt;
+}
+
+/*
+ * Check that no propagation was missed (for the clause pool)
+ * - this is called when there's no conflict reported
+ */
+static void check_pool_propagation(const sat_solver_t *solver) {
+  cidx_t cidx;
+  uint32_t f, n;
+
+  for (cidx = clause_pool_first_clause(&solver->pool);
+       cidx < solver->pool.size;
+       cidx = clause_pool_next_clause(&solver->pool, cidx)) {
+    if (! clause_is_true(solver, cidx)) {
+      f = num_false_literals_in_clause(solver, cidx);
+      n = clause_length(&solver->pool, cidx);
+      if (f == n) {
+	fprintf(stderr, "*** BUG: missed conflict. Clause %"PRIu32" is false ***\n", cidx);
+	fflush(stderr);
+      } else if (f == n -1) {
+	fprintf(stderr, "*** BUG: missed propagation for clause %"PRIu32" ***\n", cidx);
+	fflush(stderr);
+      }
+    }
+  }
+}
+
+
+/*
+ * Report missed conflicts and propagation for vector w
+ * - l = literal corresponding to w (i.e., solver->watch[l] is w)
+ * - l is false in the solver.
+ */
+static void check_missed_watch_prop(const sat_solver_t *solver, const watch_t *w, literal_t l) {
+  uint32_t i, k, n;
+  literal_t l1;
+
+  assert(lit_is_false(solver, l) && solver->watch[l] == w);
+
+  n = w->size;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (idx_is_literal(k)) {
+      l1 = idx2lit(k);
+      if (lit_is_false(solver, l1)) {
+	fprintf(stderr, "*** BUG: missed binary conflict for clause %"PRIu32" %"PRIu32" ***\n", l, l1);
+	fflush(stderr);
+      } else if (lit_is_unassigned(solver, l1)) {
+	fprintf(stderr, "*** BUG: missed binary propagation for clause %"PRIu32" %"PRIu32" ***\n", l, l1);
+	fflush(stderr);
+      }
+    }
+  }
+}
+
+
+/*
+ * Check that no propagation was missed (for the binary clauses)
+ * - this is called when no conflict was reported
+ */
+static void check_binary_propagation(const sat_solver_t *solver) {
+  uint32_t i, n;
+  const watch_t *w;
+
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    if (lit_is_false(solver, i)) {
+      w = solver->watch[i];
+      if (w != NULL) {
+	check_missed_watch_prop(solver, w, i);
+      }
+    }
+  }
+}
+
+
+/*
+ * Check that all literals implied by a clause cidx are in first
+ * position in that clause.
+ */
+static void check_clause_antecedents(const sat_solver_t *solver) {
+  uint32_t i;
+  literal_t l;
+  cidx_t cidx;
+
+  for (i=0; i<solver->stack.top; i++) {
+    l = solver->stack.lit[i];
+    if (solver->ante_tag[var_of(l)] == ATAG_CLAUSE) {
+      cidx = solver->ante_data[var_of(l)];
+      if (first_literal_of_clause(&solver->pool, cidx) != l) {
+	fprintf(stderr, "*** BUG: implied literal %"PRIu32" is not first in clause %"PRIu32" ****\n", l, cidx);
+	fflush(stderr);
+      }
+    }
+  }
+}
+
+/*
+ * Full check
+ */
+static void check_propagation(const sat_solver_t *solver) {
+  check_binary_propagation(solver);
+  check_pool_propagation(solver);
+  check_clause_antecedents(solver);
+}
+
+
+/*******************************
+ *  MARKS AND LEARNED CLAUSES  *
+ ******************************/
+
+/*
+ * Check that all literals in solver->buffer are marked
+ */
+static void check_buffer_marks(const sat_solver_t *solver) {
+  uint32_t n, i;
+  literal_t l;
+
+  n = solver->buffer.size;
+  for (i=0; i<n; i++) {
+    l = solver->buffer.data[i];
+    if (! variable_is_marked(solver, var_of(l))) {
+      fprintf(stderr, "*** BUG: literal %"PRIu32" in the learned clause is not marked ***\n", l);
+      fflush(stderr);
+    }
+  }
+}
+
+/*
+ * Count the number of marked variables
+ */
+static uint32_t num_marked_variables(const sat_solver_t *solver) {
+  uint32_t n, i, c;
+
+  c = 0;
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    if (variable_is_marked(solver, i)) {
+      c ++;
+    }
+  }
+
+  return c;
+}
+
+
+/*
+ * After construction of the learned clause (before it's simplified):
+ * - all literals in the clause must be marked.
+ * - no other literals should be marked.
+ */
+static void check_marks(const sat_solver_t *solver) {
+  uint32_t n;
+
+  n = num_marked_variables(solver);
+  if (n != solver->buffer.size) {
+    fprintf(stderr, "*** BUG: expected %"PRIu32" marked variables; found %"PRIu32" ***\n",
+	    solver->buffer.size, n);
+  } else {
+    check_buffer_marks(solver);
+  }
+}
+
+
+/*
+ * When we've simplified the learned clause: no variable should be marked
+ */
+static void check_all_unmarked(const sat_solver_t *solver) {
+  uint32_t n;
+
+  n = num_marked_variables(solver);
+  if (n > 0) {
+    fprintf(stderr, "*** BUG: found %"PRIu32" marked variables: should be 0 ***\n", n);
+    fflush(stderr);
+  }
+}
+
 
 #endif

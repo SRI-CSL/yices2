@@ -42,7 +42,7 @@ static uint32_t buffer_size;
  * Solver
  */
 static sat_solver_t solver;
-static double construction_time;
+static double construction_time, simplification_time;
 static double memory_size;
 
 
@@ -237,7 +237,6 @@ static int32_t build_instance(char *filename) {
       fclose(f);
       return FORMAT_ERROR;
     }
-    //    cidx = clause_pool_add_problem_clause(&pool, j, clause);
     nsat_solver_simplify_and_add_clause(&solver, j, clause);
     i ++;
   }
@@ -325,8 +324,6 @@ static double mem_for_watches(sat_solver_t *solver) {
  * Print problem size
  */
 static void print_statistics(FILE *f) {
-  fprintf(f, "\nConstruction time       : %.3f s\n", construction_time);
-  fprintf(f, "Memory used             : %.2f MB\n", memory_size);
   fprintf(f, "nb. of variables        : %"PRIu32"\n", nvars);
   fprintf(f, "nb. of clauses          : %"PRIu32"\n", nclauses);
   fprintf(f, "\n");
@@ -348,9 +345,30 @@ static void print_statistics(FILE *f) {
   fprintf(f, "pool capacity           : %"PRIu32" (%.2f MB)\n", solver.pool.capacity, mb(solver.pool.capacity));  
 }
 
+/*
+ * Statistics on the search
+ */
+static void print_search_statistics(FILE *f) {
+  solver_stats_t *stat = &solver.stats;
+
+  fprintf(f, "starts                  : %"PRIu32"\n", stat->starts);
+  fprintf(f, "simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  fprintf(f, "reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  fprintf(f, "decisions               : %"PRIu64"\n", stat->decisions);
+  fprintf(f, "random decisions        : %"PRIu64"\n", stat->random_decisions);
+  fprintf(f, "propagations            : %"PRIu64"\n", stat->propagations);
+  fprintf(f, "conflicts               : %"PRIu64"\n", stat->conflicts);
+  fprintf(f, "lits in pb. clauses     : %"PRIu32"\n", solver.pool.num_prob_literals);
+  fprintf(f, "lits in learned clauses : %"PRIu32"\n", solver.pool.num_learned_literals);
+  fprintf(f, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  fprintf(f, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  fprintf(f, "deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  fprintf(f, "\n");
+}
 
 int main(int argc, char *argv[]) {
   int resu;
+  solver_status_t status;
 
   if (argc != 2) {
     fprintf(stderr, "Usage: %s <input file>\n", argv[0]);
@@ -362,8 +380,53 @@ int main(int argc, char *argv[]) {
   }
   construction_time = get_cpu_time();
   memory_size = mem_size() / (1024 * 1024);
+  printf("\n"
+	 "Construction time       : %.3f s\n", construction_time);
+  printf("Memory used             : %.2f MB\n", memory_size);
   print_statistics(stdout);
+
+  if (false) {
+    printf("\nPropagation Test\n");
+    nsat_boolean_propagation(&solver);
+    printf("  num props:            : %"PRIu64"\n", solver.stats.propagations);
+    printf("  num conflicts:        : %"PRIu64"\n", solver.stats.conflicts);
+    printf("  assigned literals     : %"PRIu32"\n", solver.stack.top);
+    if (solver.conflict_tag != CTAG_NONE) {
+      printf("\nUNSAT by propagation\n");
+    } else {
+      printf("\nSimplification Test\n");
+      nsat_simplify_clause_database(&solver);
+      printf("  deleted clauses       : %"PRIu64"\n", solver.stats.prob_clauses_deleted);
+      simplification_time = get_cpu_time() - construction_time;
+      if (simplification_time < 0.0) {
+	simplification_time = 0.0;
+      }
+      memory_size = mem_size() / (1024 * 1024);
+      printf("\n"
+	     "Simplification time     : %.3f s\n", simplification_time);
+      printf("Memory used             : %.2f MB\n", memory_size);
+      print_statistics(stdout);
+    }
+  }
+
+  nsat_set_randomness(&solver, 0);
+  status = nsat_solve(&solver, true);
+  switch (status) {
+  case STAT_UNSAT:
+    printf("unsat\n\n");
+    break;
+
+  case STAT_SAT:
+    printf("sat\n\n");
+    break;
+
+  default:
+    printf("unkown status: error\n\n");
+    break;
+  }
+  print_search_statistics(stdout);
+
   delete_nsat_solver(&solver);
-  
+
   return 0;
 }
