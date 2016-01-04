@@ -566,7 +566,7 @@ int main(int argc, char* argv[]) {
   } else if (resu == FORMAT_ERROR) {
     return YICES_EXIT_SYNTAX_ERROR;
   } else {
-    if (verbose) {
+    if (verbose || stats) {
       construction_time = get_cpu_time();
       fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);
