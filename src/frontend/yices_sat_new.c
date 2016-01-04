@@ -356,6 +356,7 @@ static void parse_command_line(int argc, char *argv[]) {
   model = false;
   verbose = false;
   seed_given = false;
+  stats = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -440,7 +441,6 @@ static void show_stats(sat_solver_t *solver) {
   fprintf(stderr, "conflicts               : %"PRIu64"\n", stat->conflicts);
   fprintf(stderr, "lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
   fprintf(stderr, "lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
-  fprintf(stderr, "total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
   fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   fprintf(stderr, "deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
@@ -576,7 +576,7 @@ int main(int argc, char* argv[]) {
   } else if (resu == FORMAT_ERROR) {
     return YICES_EXIT_SYNTAX_ERROR;
   } else {
-    if (verbose) {
+    if (verbose || stats) {
       construction_time = get_cpu_time();
       fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);

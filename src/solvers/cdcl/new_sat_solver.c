@@ -1234,7 +1234,6 @@ static void init_stats(solver_stats_t *stat) {
   stat->conflicts = 0;
   stat->prob_clauses_deleted = 0;
   stat->learned_clauses_deleted = 0;
-  stat->literals_before_simpl = 0;
   stat->subsumed_literals = 0;
 }
 
@@ -3097,6 +3096,7 @@ static void simplify_learned_clause(sat_solver_t *solver) {
     if (literal_is_redundant(solver, l)) {
       // move l to the aux buffer to clean the marks later
       lbuffer_push(&solver->aux, l);
+      solver->stats.subsumed_literals ++;
     } else {
       // keep l into buffer
       buffer->data[j] = l;

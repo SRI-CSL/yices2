@@ -413,7 +413,6 @@ typedef struct solver_stats_s {
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
 
-  uint64_t literals_before_simpl;
   uint64_t subsumed_literals;
 } solver_stats_t;
 
