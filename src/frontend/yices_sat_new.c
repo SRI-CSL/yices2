@@ -276,12 +276,14 @@ static int build_instance(char *filename) {
  * - model = true for produce model (if SAT)
  * - seed_given = true if a seed is given on the command line
  *   seed_value = value of the seed
+ * - stats = true for printing statistics
  */
 static char *input_filename = NULL;
 static bool verbose;
 static bool model;
 static bool seed_given;
 static uint32_t seed_value;
+static bool stats;
 
 enum {
   version_flag,
@@ -289,9 +291,10 @@ enum {
   verbose_flag,
   model_flag,
   seed_opt,
+  stats_flag,
 };
 
-#define NUM_OPTIONS (seed_opt+1)
+#define NUM_OPTIONS (stats_flag+1)
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
@@ -299,6 +302,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
+  { "stats", '\0', FLAG_OPTION, stats_flag },
 };
 
 
@@ -323,7 +327,8 @@ static void print_help(char *progname) {
          "   --version, -V        Show version and exit\n"
          "   --help, -h           Print this message and exit\n"
          "   --model, -m          Show a model if the problem is satisfiable\n"
-         "   --verbose, -v        Print statistics during the search\n"
+         "   --verbose, -v        Verbose mode\n"
+	 "   --stats              Print statistics at the end of the search\n"
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -392,6 +397,10 @@ static void parse_command_line(int argc, char *argv[]) {
         seed_given = true;
         seed_value = elem.i_value;
         break;
+
+      case stats_flag:
+	stats = true;
+	break;
       }
       break;
 
@@ -435,23 +444,26 @@ static void show_stats(sat_solver_t *solver) {
   fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   fprintf(stderr, "deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  fprintf(stderr, "\n");
 }
 
 static void print_results(void) {
   solver_status_t result;
   double mem_used;
+  double speed;
 
   search_time = get_cpu_time() - construction_time;
-
   result = solver.status;
 
-  if (verbose) {
+  if (verbose || stats) {
     show_stats(&solver);
     fprintf(stderr, "Search time             : %.4f s\n", search_time);
     mem_used = mem_size() / (1024 * 1024);
     if (mem_used > 0) {
       fprintf(stderr, "Memory used             : %.2f MB\n", mem_used);
     }
+    speed = solver.stats.propagations/search_time;
+    fprintf(stderr, "Speed                   : %.2f prop/s\n", speed);
     fprintf(stderr, "\n\n");
   }
 
