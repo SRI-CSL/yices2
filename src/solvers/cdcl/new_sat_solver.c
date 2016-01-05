@@ -1266,7 +1266,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->vsize = n;
   solver->lsize = 2 * n;
 
-  solver->value = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  solver->value = (uint8_t *) safe_malloc(n * 2 * sizeof(uint8_t));
   solver->ante_tag = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   solver->ante_data = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   solver->level = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
@@ -1274,6 +1274,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
 
   // variable 0: true
   solver->value[0] = BVAL_TRUE;
+  solver->value[1] = BVAL_FALSE;
   solver->ante_tag[0] = ATAG_UNIT;
   solver->ante_data[0] = 0;
   solver->level[0] = 0;
@@ -1441,7 +1442,7 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   solver->vsize = new_size;
   solver->lsize = 2 * new_size;
 
-  solver->value = (uint8_t *) safe_realloc(solver->value, new_size * sizeof(uint8_t));
+  solver->value = (uint8_t *) safe_realloc(solver->value, new_size * 2 * sizeof(uint8_t));
   solver->ante_tag = (uint8_t *) safe_realloc(solver->ante_tag, new_size * sizeof(uint8_t));
   solver->ante_data = (uint32_t *) safe_realloc(solver->ante_data, new_size * sizeof(uint32_t));
   solver->level = (uint32_t *) safe_realloc(solver->level, new_size * sizeof(uint32_t));
@@ -1475,7 +1476,9 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
   }
 
   for (i=solver->nvars; i<nv; i++) {
-    solver->value[i] = BVAL_UNDEF_FALSE; // default preferrence
+    //    solver->value[i] = BVAL_UNDEF_FALSE; // default preferrence
+    solver->value[pos(i)] = BVAL_UNDEF_FALSE;
+    solver->value[neg(i)] = BVAL_UNDEF_TRUE;
     solver->ante_tag[i] = ATAG_NONE;
     solver->ante_data[i] = 0;
     solver->level[i] = UINT32_MAX;
@@ -1573,9 +1576,12 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
 
   push_literal(&solver->stack, l);
 
-  v = var_of(l);
+  solver->value[l] = BVAL_TRUE;
+  solver->value[not(l)] = BVAL_FALSE;
+
+  v = var_of(not(l));
   // value of v = BVAL_TRUE if l = pos(v) or BVAL_FALSE if l = neg(v)
-  solver->value[v] = BVAL_TRUE ^ sign_of(l);
+  //  solver->value[v] = BVAL_TRUE ^ sign_of(l);
   solver->ante_tag[v] = ATAG_UNIT;
   solver->ante_data[v] = 0;
   solver->level[v] = 0;
@@ -1607,8 +1613,10 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
 
   push_literal(&solver->stack, l);
 
-  v = var_of(l);
-  solver->value[v] = BVAL_TRUE ^ sign_of(l);
+  solver->value[l] = BVAL_TRUE;
+  solver->value[not(l)] = BVAL_FALSE;
+
+  v = var_of(not(l));
   solver->ante_tag[v] = ATAG_DECISION;
   solver->ante_data[v] = 0; // not used
   solver->level[v] = k;
@@ -1635,8 +1643,10 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t 
 
   push_literal(&solver->stack, l);
 
-  v = var_of(l);
-  solver->value[v] = BVAL_TRUE ^ sign_of(l);
+  solver->value[l] = BVAL_TRUE;
+  solver->value[not(l)] = BVAL_FALSE;
+
+  v = var_of(not(l));
   solver->ante_tag[v] = tag;
   solver->ante_data[v] = data;
   solver->level[v] = solver->decision_level;
@@ -2542,7 +2552,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       len = clause_length(&solver->pool, k);
       lit = clause_literals(&solver->pool, k);
       assert(lit[0] == l0 || lit[1] == l0);
-      // Get other watch literal
+      // Get the other watched literal in clause k
       l = lit[0] ^ lit[1] ^ l0;
       // If l is true, nothing to do
       vl = lit_value(solver, l);
@@ -2641,8 +2651,9 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
     i --;
     l = solver->stack.lit[i];
     assert(lit_is_true(solver, l) && solver->level[var_of(l)] > back_level);
+    solver->value[l] ^= (uint8_t) 0x2;      // clear assign bit
+    solver->value[not(l)] ^= (uint8_t) 0x2; // clear assign bit
     x = var_of(l);
-    solver->value[x] ^= (uint8_t) 0x2; // clear assign bit
     assert(var_is_unassigned(solver, x));
     heap_insert(&solver->heap, x);
   }
@@ -3454,7 +3465,7 @@ void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val) {
 
   n = solver->nvars;
   for (i=0; i<n; i++) {
-    val[i] = solver->value[i];
+    val[i] = var_value(solver, i);
   }
 }
 
@@ -3873,13 +3884,54 @@ static void check_clause_antecedents(const sat_solver_t *solver) {
   }
 }
 
+
+/*
+ * Check that all propagations are sound:
+ * - in a binary propagation {l, l1} then l1 must be false
+ * - in a clause propagation {l, l1 .... l_k} then l1 ... l_k must all be false
+ */
+static void check_sound_propagation(const sat_solver_t *solver) {
+  uint32_t i, n, f;
+  cidx_t cidx;
+  literal_t l, l1;
+
+  for (i=0; i<solver->stack.top; i++) {
+    l = solver->stack.lit[i];
+    assert(lit_is_true(solver, l));
+    switch (solver->ante_tag[var_of(l)]) {
+    case ATAG_BINARY:
+      l1 = solver->ante_data[var_of(l)];
+      if (! lit_is_false(solver, l1)) {
+	fprintf(stderr, "*** BUG: unsound propgation for binary clause %"PRIu32" %"PRIu32" ***\n", l, l1);
+	fflush(stderr);
+      }
+      break;
+
+    case ATAG_CLAUSE:
+      cidx = solver->ante_data[var_of(l)];
+      f = num_false_literals_in_clause(solver, cidx);
+      n = clause_length(&solver->pool, cidx);
+      if (f != n - 1) {
+	fprintf(stderr, "*** BUG: unsound propagation. Clause %"PRIu32" antecedent of literal %"PRIu32" ***\n",
+		cidx, l);
+	fflush(stderr);
+      }
+      break;
+
+    default:
+      break;
+    }
+  }
+}
+
 /*
  * Full check
  */
-static void check_propagation(const sat_solver_t *solver) {
+static void check_propagation(const sat_solver_t *solver) {  
   check_binary_propagation(solver);
   check_pool_propagation(solver);
   check_clause_antecedents(solver);
+  check_sound_propagation(solver);
 }
 
 
