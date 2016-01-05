@@ -179,7 +179,7 @@ typedef struct lbuffer_s {
  *
  * To explore this graph backward, we use a stack. Each element of 
  * the stack contains a boolean variable var + an index i.
- * - the var is assigned an represents a literal l1 in the graph
+ * - the var is an assigned variable and represents a literal l1 in the graph
  * - the index i is the index of the next antecedents of l1 to explore.
  */
 typedef struct gstack_elem_s {
@@ -302,7 +302,7 @@ typedef uint32_t cidx_t;
  * - if l occurs in a binary clause { l, l1 } then the record is the
  *   literal l1
  *
- * To tell the difference, use the lower-order bit of the integer:
+ * To tell the difference, we use the lower-order bit of the integer:
  * - [cidx] is stored as is. The two low-order bits of cidx are 00.
  * - [l1] is stored as (l1 << 1)|1  (lower-order bit = 1)
  *
@@ -466,11 +466,11 @@ typedef enum solver_status {
  * For each variable x, we store
  * - ante_tag[x]  = tag for assigned variables + marks
  * - ante_data[x] = antecedent index
- * - value[x]     = assigned value
  * - level[x]     = assignment level
  *
  * For each literal l, we keep
  * - watch[l] = watch vector for l
+ * - value[l] = assigned value
  */
 typedef struct sat_solver_s {
   solver_status_t status;
@@ -683,9 +683,18 @@ static inline solver_status_t nsat_status(sat_solver_t *solver) {
  *  VARIABLE ASSIGNMENTS  *
  *************************/
 
+static inline bval_t lit_value(const sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+  return solver->value[l];
+}
+
 static inline bval_t var_value(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->value[x];
+  return solver->value[pos(x)];
+}
+
+static inline bool lit_is_unassigned(const sat_solver_t *solver, literal_t l) {
+  return is_unassigned_val(lit_value(solver, l));
 }
 
 static inline bool var_is_unassigned(const sat_solver_t *solver, bvar_t x) {
@@ -694,28 +703,6 @@ static inline bool var_is_unassigned(const sat_solver_t *solver, bvar_t x) {
 
 static inline bool var_is_assigned(const sat_solver_t *solver, bvar_t x) {
   return ! var_is_unassigned(solver, x);
-}
-
-static inline bool var_prefers_true(const sat_solver_t *solver, bvar_t x) {
-  return true_preferred(var_value(solver, x));
-}
-
-static inline bool var_is_true(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_TRUE;
-}
-
-static inline bool var_is_false(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_FALSE;
-}
-
-
-static inline bval_t lit_value(const sat_solver_t *solver, literal_t l) {
-  assert(l < solver->nliterals);
-  return solver->value[var_of(l)] ^ sign_of(l);
-}
-
-static inline bool lit_is_unassigned(const sat_solver_t *solver, literal_t l) {
-  return var_is_unassigned(solver, var_of(l));
 }
 
 static inline bool lit_is_assigned(const sat_solver_t *solver, literal_t l) {
@@ -733,6 +720,20 @@ static inline bool lit_is_true(const sat_solver_t *solver, literal_t l) {
 static inline bool lit_is_false(const sat_solver_t *solver, literal_t l) {
   return lit_value(solver, l) == BVAL_FALSE;
 }
+
+
+static inline bool var_prefers_true(const sat_solver_t *solver, bvar_t x) {
+  return true_preferred(var_value(solver, x));
+}
+
+static inline bool var_is_true(const sat_solver_t *solver, bvar_t x) {
+  return var_value(solver, x) == BVAL_TRUE;
+}
+
+static inline bool var_is_false(const sat_solver_t *solver, bvar_t x) {
+  return var_value(solver, x) == BVAL_FALSE;
+}
+
 
 
 /************
