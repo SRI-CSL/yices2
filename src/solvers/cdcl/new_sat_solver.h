@@ -306,6 +306,13 @@ typedef uint32_t cidx_t;
  * - [cidx] is stored as is. The two low-order bits of cidx are 00.
  * - [l1] is stored as (l1 << 1)|1  (lower-order bit = 1)
  *
+ *
+ * VERSION 2:
+ * - add a 'blocker' literal: for a clause cidx, we store the pair
+ *   [cidx, l2] where l2 is a blocker. It's a literal that occurs in
+ *   the clause. If l2 is true, we don't need to visit the clause
+ *   to see that it can't propagate anything.
+ *
  * The watch structure is a vector:
  * - capacity = full length of the data array
  * - size = number of array elements actually used
