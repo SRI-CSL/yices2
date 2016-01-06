@@ -791,39 +791,69 @@ static inline uint32_t watch_cap_increase(uint32_t cap) {
 }
 
 /*
- * Add k at the end of vector *w.
- * - if *w is NULL, allocate a vector of default size
- * - if *w if full, make it 50% larger.
+ * Allocate/extend vector *w:
+ * - this makes sure there's room for two more elements
  */
-static void add_watch(watch_t **w, uint32_t k) {
+static void resize_watch(watch_t **w) {
   watch_t *v;
   uint32_t i, n;
-
+  
   v = *w;
   if (v == NULL) {
-    i = 0;
     n = DEF_WATCH_CAPACITY;
     v = (watch_t *) safe_malloc(sizeof(watch_t) + n * sizeof(uint32_t));
     v->capacity = n;
+    v->size = 0;
+    assert(n >= 2);
     *w = v;
   } else {
     i = v->size;
     n = v->capacity;
-    if (i == n) {
+    if (i+1 >= n) {
       n += watch_cap_increase(n);
       if (n > MAX_WATCH_CAPACITY) {
 	out_of_memory();
       }
       v = (watch_t *) safe_realloc(v, sizeof(watch_t) + n * sizeof(uint32_t));
       v->capacity = n;
+      assert(i+1 < n);
       *w = v;
     }
   }
+}
+
+/*
+ * Add k at the end of vector *w.
+ * - if *w is NULL, allocate a vector of default size
+ * - if *w if full, make it 50% larger.
+ */
+static void add_watch(watch_t **w, uint32_t k) {
+  watch_t *v;
+  uint32_t i;
+
+  resize_watch(w);
+  v = *w;
+  i = v->size;
   assert(i < v->capacity);
   v->data[i] = k;
   v->size = i+1;
 }
 
+/*
+ * Add two elements k1 and k2 at the end of vector *w
+ */
+static void add_watch2(watch_t **w, uint32_t k1, uint32_t k2) {
+  watch_t *v;
+  uint32_t i;
+
+  resize_watch(w);
+  v = *w;
+  i = v->size;
+  assert(i+1< v->capacity);
+  v->data[i] = k1;
+  v->data[i+1] = k2;
+  v->size = i+2;  
+}
 
 
 /*
@@ -1540,10 +1570,11 @@ static inline bool idx_is_literal(uint32_t k) {
 
 /*
  * Add clause index in the watch vector for literal l
+ * - l1 = blocker
  */
-static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
-  assert(l < solver->nliterals);
-  add_watch(solver->watch + l, cidx);
+static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t cidx, literal_t l1) {
+  assert(l < solver->nliterals && l1 < solver->nliterals);
+  add_watch2(solver->watch + l, cidx, l1);
 }
 
 /*
@@ -1744,8 +1775,8 @@ static void add_clause_core(sat_solver_t *solver, uint32_t n, const literal_t *l
     add_literal_watch(solver, lit[1], lit[0]);
   } else {
     cidx = clause_pool_add_problem_clause(&solver->pool, n, lit);
-    add_clause_watch(solver, lit[0], cidx);
-    add_clause_watch(solver, lit[1], cidx);
+    add_clause_watch(solver, lit[0], cidx, lit[1]);
+    add_clause_watch(solver, lit[1], cidx, lit[0]);
   }
 }
 
@@ -1901,8 +1932,8 @@ static cidx_t add_learned_clause(sat_solver_t *solver, uint32_t n, const literal
 
   cidx = clause_pool_add_learned_clause(&solver->pool, n, lit);
   set_learned_clause_activity(&solver->pool, cidx, solver->cla_inc);
-  add_clause_watch(solver, lit[0], cidx);
-  add_clause_watch(solver, lit[1], cidx);
+  add_clause_watch(solver, lit[0], cidx, lit[1]);
+  add_clause_watch(solver, lit[1], cidx, lit[0]);
 
   return cidx;
 }
@@ -1931,11 +1962,20 @@ static void watch_vector_remove_clauses(watch_t *w, cidx_t base_idx) {
   assert(w != NULL);
   n = w->size;
   j = 0;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i<n) {
     k = w->data[i];
-    if (idx_is_literal(k) || k < base_idx) {
+    if (idx_is_literal(k)) {
       w->data[j] = k;
       j ++;
+      i ++;
+    } else {
+      if (k < base_idx) {
+	w->data[j] = k;
+	w->data[j+1] = w->data[i+1];
+	j += 2;
+      }
+      i += 2;
     }
   }
   w->size = j;
@@ -1994,7 +2034,6 @@ static void mark_antecedent_clauses(sat_solver_t *solver, cidx_t base_idx) {
   }
 }
 
-
 /*
  * Restore antecedent when clause cidx is moved to new_idx
  * - this is called before the move.
@@ -2007,7 +2046,6 @@ static void restore_clause_antecedent(sat_solver_t *solver, cidx_t cidx, cidx_t 
 	 solver->ante_data[x] == cidx);
   solver->ante_data[x] = new_idx;
 }
-
 
 /*
  * Move clause from src_idx to dst_idx
@@ -2085,7 +2123,6 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
 
 }
 
-
 /*
  * Restore the watch vectors:
  * - scan the clauses starting from index cidx 
@@ -2099,12 +2136,11 @@ static void restore_watch_vectors(sat_solver_t *solver, cidx_t cidx) {
   while (cidx < end) {
     l0 = first_literal_of_clause(&solver->pool, cidx);
     l1 = second_literal_of_clause(&solver->pool, cidx);
-    add_clause_watch(solver, l0, cidx);
-    add_clause_watch(solver, l1, cidx);
+    add_clause_watch(solver, l0, cidx, l1);
+    add_clause_watch(solver, l1, cidx, l0);
     cidx = clause_pool_next_clause(&solver->pool, cidx);
   }
 }
-
 
 /*
  * Garbage collection
@@ -2261,11 +2297,20 @@ static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
 
   n = w->size;
   j = 0;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i < n) {
     k = w->data[i];
-    if (idx_is_clause(k) || lit_is_unassigned(solver, idx2lit(k))) {
+    if (idx_is_clause(k)) {
       w->data[j] = k;
-      j ++;
+      w->data[j+1] = w->data[i+1];
+      j += 2;
+      i += 2;
+    } else {
+      if (lit_is_unassigned(solver, idx2lit(k))) {
+	w->data[j] = k;
+	j ++;
+      }
+      i ++;
     }
   }
   w->size = j;
@@ -2315,9 +2360,13 @@ static uint32_t num_literals_in_watch_vector(watch_t *w) {
   assert(w != NULL);
   count = 0;
   n = w->size;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i < n) {
     if (idx_is_literal(w->data[i])) {
       count ++;
+      i ++;
+    } else {
+      i += 2;
     }
   }
   return count;
@@ -2527,9 +2576,11 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
 
   n = w->size;
   j = 0;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i < n) {
     k = w->data[i];
     w->data[j] = k; // Keep k in w. We'll undo this later if needed.
+    i ++;
     j ++;
     if (idx_is_literal(k)) {
       /*
@@ -2549,6 +2600,15 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       /*
        * Clause in the pool
        */
+      // get the blocker
+      l = w->data[i];
+      w->data[j] = l;
+      i ++;
+      j ++;
+      if (lit_is_true(solver, l)) {
+	continue;
+      }
+
       len = clause_length(&solver->pool, k);
       lit = clause_literals(&solver->pool, k);
       assert(lit[0] == l0 || lit[1] == l0);
@@ -2556,7 +2616,10 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       l = lit[0] ^ lit[1] ^ l0;
       // If l is true, nothing to do
       vl = lit_value(solver, l);
-      if (vl == BVAL_TRUE) continue;
+      if (vl == BVAL_TRUE) {
+	w->data[j-1] = l; // change blocker
+	continue;
+      }
 
       // Force l to go into lit[0] and l0 into lit[1]
       lit[0] = l;
@@ -2572,8 +2635,8 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
 	l1 = lit[t];
 	lit[1] = l1;
 	lit[t] = l0;
-	add_clause_watch(solver, l1, k);
-	j --; // remove k from l0's watch vector
+	add_clause_watch(solver, l1, k, l);
+	j -= 2; // remove k from l0's watch vector
 	continue;
       }	
 
@@ -2591,7 +2654,6 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
   return;
 
  conflict:
-  i ++;
   while (i<n) {
     w->data[j] = w->data[i];
     j ++;
@@ -3671,9 +3733,15 @@ static bool clause_is_in_watch_vector(const sat_solver_t *solver, literal_t l, c
   w = solver->watch[l];
   if (w != NULL) {
     n = w->size;
-    for (i=0; i<n; i++) {
-      if (w->data[i] == cidx) {
-	return true;
+    i = 0;
+    while (i < n) {
+      if (idx_is_literal(w->data[i])) {
+	i ++;
+      } else {
+	if (w->data[i] == cidx) {
+	  return true;
+	}
+	i += 2;
       }
     }
   }
@@ -3712,7 +3780,8 @@ static void check_watch_vector_is_good(const sat_solver_t *solver, const watch_t
   assert(w != NULL && w == solver->watch[l]);
 
   n = w->size;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i < n) {
     k = w->data[i];
     if (idx_is_clause(k)) {
       if (first_literal_of_clause(&solver->pool, k) != l &&
@@ -3720,6 +3789,9 @@ static void check_watch_vector_is_good(const sat_solver_t *solver, const watch_t
 	fprintf(stderr, "*** BUG: clause %"PRIu32" is in watch vector for literal %"PRIu32"\n, but the literal is not first or second ***\n", k, l);
 	fflush(stderr);
       }
+      i += 2;
+    } else {
+      i ++;
     }
   }
 }
@@ -3827,7 +3899,8 @@ static void check_missed_watch_prop(const sat_solver_t *solver, const watch_t *w
   assert(lit_is_false(solver, l) && solver->watch[l] == w);
 
   n = w->size;
-  for (i=0; i<n; i++) {
+  i = 0;
+  while (i < n) {
     k = w->data[i];
     if (idx_is_literal(k)) {
       l1 = idx2lit(k);
@@ -3838,6 +3911,9 @@ static void check_missed_watch_prop(const sat_solver_t *solver, const watch_t *w
 	fprintf(stderr, "*** BUG: missed binary propagation for clause %"PRIu32" %"PRIu32" ***\n", l, l1);
 	fflush(stderr);
       }
+      i ++;
+    } else {
+      i += 2;
     }
   }
 }
