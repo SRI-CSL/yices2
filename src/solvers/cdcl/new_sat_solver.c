@@ -233,7 +233,6 @@ static void delete_gstack(gstack_t *gstack) {
   gstack->data = NULL;
 }
 
-
 /*
  * Push pair (x, n) on the stack
  */
@@ -855,7 +854,6 @@ static void add_watch2(watch_t **w, uint32_t k1, uint32_t k2) {
   v->size = i+2;  
 }
 
-
 /*
  * Delete all watch vectors in w[0 ... n-1]
  */
@@ -867,7 +865,6 @@ static void delete_watch_vectors(watch_t **w, uint32_t n) {
     w[i] = NULL;
   }
 }
-
 
 
 
@@ -887,14 +884,12 @@ static void init_stack(sol_stack_t *s, uint32_t nvar) {
   s->nlevels = DEFAULT_NLEVELS;
 }
 
-
 /*
- * Extend the size: nvar = new size
+ * Extend the stack: nvar = new size
  */
 static void extend_stack(sol_stack_t *s, uint32_t nvar) {
   s->lit = (literal_t *) safe_realloc(s->lit, nvar * sizeof(literal_t));
 }
-
 
 /*
  * Extend the level_index array by 50%
@@ -908,7 +903,6 @@ static void increase_stack_levels(sol_stack_t *s) {
   s->nlevels = n;
 }
 
-
 /*
  * Free memory used by stack s
  */
@@ -918,7 +912,6 @@ static void delete_stack(sol_stack_t *s) {
   s->lit = NULL;
   s->level_index = NULL;
 }
-
 
 /*
  * Empty the stack
@@ -934,6 +927,7 @@ static void reset_stack(sol_stack_t *s) {
  */
 static void push_literal(sol_stack_t *s, literal_t l) {
   uint32_t i;
+
   i = s->top;
   s->lit[i] = l;
   s->top = i + 1;
@@ -980,9 +974,8 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   check_heap(heap);
 }
 
-
 /*
- * Extend the heap for n variables
+ * Extend the heap for n more variables
  */
 static void extend_heap(var_heap_t *heap, uint32_t n) {
   uint32_t old_size, i;
@@ -1002,7 +995,6 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
   check_heap(heap);
 }
 
-
 /*
  * Free the heap
  */
@@ -1014,7 +1006,6 @@ static void delete_heap(var_heap_t *heap) {
   heap->heap_index = NULL;
   heap->heap = NULL;
 }
-
 
 /*
  * Reset: empty the heap
@@ -1032,7 +1023,6 @@ static void reset_heap(var_heap_t *heap) {
   }
   check_heap(heap);
 }
-
 
 /*
  * Move x up in the heap.
@@ -1071,7 +1061,6 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
 
   check_heap(heap);
 }
-
 
 /*
  * Remove root of the heap (i.e., heap->heap[1]):
@@ -1138,7 +1127,6 @@ static void update_down(var_heap_t *heap) {
   check_heap(heap);
 }
 
-
 /*
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
@@ -1152,7 +1140,6 @@ static void heap_insert(var_heap_t *heap, bvar_t x) {
   }
 }
 
-
 /*
  * Check whether the heap is empty
  */
@@ -1160,9 +1147,8 @@ static inline bool heap_is_empty(var_heap_t *heap) {
   return heap->heap_last == 0;
 }
 
-
 /*
- * Get and remove top element
+ * Get and remove the top element
  * - the heap must not be empty
  */
 static bvar_t heap_get_top(var_heap_t *heap) {
@@ -1179,7 +1165,6 @@ static bvar_t heap_get_top(var_heap_t *heap) {
 
   return top;
 }
-
 
 /*
  * Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD
@@ -1198,7 +1183,6 @@ static void rescale_var_activities(var_heap_t *heap) {
   heap->act_increment *= INV_VAR_ACTIVITY_THRESHOLD;
 }
 
-
 /*
  * Increase activity <of variable x
  */
@@ -1216,14 +1200,12 @@ static void increase_var_activity(var_heap_t *heap, bvar_t x) {
   }
 }
 
-
 /*
  * Decay
  */
 static inline void decay_var_activities(var_heap_t *heap) {
   heap->act_increment *= heap->inv_act_decay;
 }
-
 
 /*
  * Cleanup the heap: remove variables until the top var is unassigned
@@ -1939,6 +1921,49 @@ static cidx_t add_learned_clause(sat_solver_t *solver, uint32_t n, const literal
 }
 
 
+
+/****************
+ *  CLAUSE LBD  *
+ ***************/
+
+/*
+ * The Literal-Block Distance is a heuristic estimate of the usefulness
+ * of a learned clause. Clauses with low LBD are better.
+ * The LBD is the number of distinct decision levels among the literals
+ * in a clause.
+ *
+ * Since backtracking does not clear solver->level[x], we compute the
+ * LBD of a learned clause even if some of its literals are not
+ * currenlty assigned.  If a literal l in the clause is not currently
+ * assigned, then solver->level[var_of(l)] is the decision level of l,
+ * at the last time l was assigned.
+ */
+
+/*
+ * Decision level of literal l
+ */
+static inline uint32_t d_level(const sat_solver_t *solver, literal_t l) {
+  return solver->level[var_of(l)];
+}
+
+/*
+ * The following function computes the LBD of a clause:
+ * - n = number of literals
+ * - lit = array of n literals
+ */
+static uint32_t clause_lbd(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
+  tag_map_t *map;
+  uint32_t i, r;
+
+  map = &solver->map;
+  for (i=0; i<n; i++) {
+    tag_map_write(map, d_level(solver, lit[i]), 1);
+  }
+  r = tag_map_size(map);
+  clear_tag_map(map);
+
+  return r;
+}
 
 
 /************************
@@ -2828,10 +2853,6 @@ static inline bool variable_is_marked(const sat_solver_t *solver, bvar_t x) {
 /*
  * Short cuts: use literal
  */
-static inline uint32_t d_level(const sat_solver_t *solver, literal_t l) {
-  return solver->level[var_of(l)];
-}
-
 static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
   return variable_is_marked(solver, var_of(l));
 }
@@ -3063,7 +3084,6 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
   bvar_t x, y;
   uint32_t i;
   
-
   x = var_of(l);
   map = &solver->map;
 
@@ -3233,11 +3253,28 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
 
 
 /*
+ * Update the exponential moving averages:
+ * - we have 
+ *     ema_0 = 0
+ *     ema_t+1 = 2^(32 - k) x + (1 - 2^k) ema_t
+ *   where k is less than 32 and x is the lbd of the learned clause
+ * - as in the paper by Biere & Froehlich, we use
+ *    k = 5  for the 'fast' ema
+ *    k = 14 for the 'slow' ema
+ */
+static void update_emas(sat_solver_t *solver, uint32_t x) {
+  solver->slow_ema -= solver->slow_ema >> 14;
+  solver->slow_ema += ((uint64_t) x) << 18;  
+  solver->fast_ema -= solver->fast_ema >> 5;
+  solver->fast_ema += ((uint64_t) x) << 27;
+}
+
+/*
  * Resolve a conflict and add a learned clause
  * - solver->decision_level must be positive
  */
 static void resolve_conflict(sat_solver_t *solver) {
-  uint32_t n;
+  uint32_t n, d;
   literal_t l;
   cidx_t cidx;
 
@@ -3249,8 +3286,12 @@ static void resolve_conflict(sat_solver_t *solver) {
   // clear the conflict flag
   solver->conflict_tag = CTAG_NONE;
 
-  // add the learned clause
+  // update statistics
   n = solver->buffer.size;
+  d = clause_lbd(solver, n, solver->buffer.data);
+  update_emas(solver, d);
+
+  // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
     cidx = add_learned_clause(solver, n, solver->buffer.data);
@@ -3262,6 +3303,7 @@ static void resolve_conflict(sat_solver_t *solver) {
     assert(n > 0);
     nsat_solver_add_unit_clause(solver, l);
   }
+
 }
 
 
@@ -3322,7 +3364,21 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
 
 
 /*
- * Search until we get sat/unsat or we reach the conflict limit
+ * Glucose-style restart condition:
+ * - when fast_emas > 1.15 slow_emas
+ */
+static bool glucose_restart(sat_solver_t *solver) {
+  uint64_t aux;
+
+  aux = solver->slow_ema;
+  aux += (aux >> 3) + (aux >> 5); // approximately 1.14 * slow_ema
+  return solver->fast_ema > aux;
+}
+
+/*
+ * Search until we get sat/unsat or we restart
+ * - we restart either when the conflict limit is reached
+ * - or if the glucose_restart heuristics returns true
  */
 static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
   uint32_t nconflicts;
@@ -3339,7 +3395,9 @@ static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
-      if (nconflicts >= conflict_limit) {
+
+      // HACK: Glucose-style restart
+      if (nconflicts >= conflict_limit || (nconflicts >= 50 && glucose_restart(solver))) {
 	break;
       }
       // Garbage collection
@@ -3381,22 +3439,25 @@ static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
  * Progress status
  */
 static void report_status(sat_solver_t *solver, uint32_t restart_threshold, uint32_t count) {
-  double lits_per_clause;
+  double lits_per_clause, slow, fast;
 
   if ((count & 0x3F) == 0) {
     fprintf(stderr, "\n");
-    fprintf(stderr, "---------------------------------------------------------------------------------\n");
-    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
-    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
-    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n");
+    fprintf(stderr, "|     EMAS      | Conf.     Del.    |  Binary   |      Original     |          Learned          |\n");
+    fprintf(stderr, "| Slow    Fast  |         Threshold |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
+    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n");
   }
 
   lits_per_clause = 0.0;
   if (solver->pool.num_learned_clauses > 0) {
     lits_per_clause = ((double) solver->pool.num_learned_literals) / solver->pool.num_learned_clauses;
   }
-  fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
-	  restart_threshold, solver->reduce_threshold,
+  slow = ((double) solver->slow_ema)/4.3e9;
+  fast = ((double) solver->fast_ema)/4.3e9;
+  fprintf(stderr, "| %6.2f %6.2f | %7"PRIu64"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
+	  slow, fast,
+	  solver->stats.conflicts, solver->reduce_threshold,
 	  solver->binaries,
 	  solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
 	  solver->pool.num_learned_clauses, solver->pool.num_learned_literals, lits_per_clause);
@@ -3423,7 +3484,7 @@ static uint32_t level0_literals(sat_solver_t *solver) {
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
-  uint32_t i, u, v, threshold;
+  uint32_t i, threshold;
 
   if (solver->has_empty_clause) {
     solver->status = STAT_UNSAT;
@@ -3450,12 +3511,12 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   i = 0;
 
   /*
-   * Restart strategy: Luby sequence
+   * Experiment: Glucose-style EMA for restarts
    */
-  u = 1;
-  v = 1;
-  threshold = LUBY_INTERVAL;
+  solver->slow_ema = 0;
+  solver->fast_ema = 0;
   solver->stats.starts = 0;
+  threshold = 20000;
 
   /*
    * Reduce strategy: as in minisat
@@ -3474,15 +3535,6 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     sat_search(solver, threshold);
     if (solver->status != STAT_UNKNOWN) break;
     
-    // update Luby counters
-    if ((u & -u) == v) {
-      u ++;
-      v = 1;
-    } else {
-      v <<= 1;
-    }
-    threshold = v * LUBY_INTERVAL;
-
     // restart
     if (solver->decision_level > 0) {
       if (level0_literals(solver) > solver->simplify_bottom &&
@@ -3506,7 +3558,7 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   }
 
   if (verbose) {
-    fprintf(stderr, "---------------------------------------------------------------------------------\n\n");
+    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n\n");
   }
 
   return solver->status;

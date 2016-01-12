@@ -533,6 +533,13 @@ typedef struct sat_solver_s {
   uint64_t simplify_next;     // number of propagations before simplify is called again
 
   /*
+   * Exponential moving averages for restarts
+   * (based on Evaluating CDCL Restart Schemes by Biere & Froelich, 2015).
+   */
+  uint64_t slow_ema;
+  uint64_t fast_ema;
+
+  /*
    * Statistics record
    */
   solver_stats_t stats;
