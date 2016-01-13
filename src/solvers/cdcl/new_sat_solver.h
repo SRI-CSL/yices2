@@ -537,7 +537,7 @@ typedef struct sat_solver_s {
 
   /*
    * Exponential moving averages for restarts
-   * (based on Evaluating CDCL Restart Schemes by Biere & Froelich, 2015).
+   * (based on Evaluating CDCL Restart Schemes by Biere & Froehlich, 2015).
    */
   uint64_t slow_ema;
   uint64_t fast_ema;

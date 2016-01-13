@@ -37,7 +37,7 @@ typedef struct block_header_s {
 struct block_s {
   union {
     block_header_t h;
-    char padding[1]; // use to fix alignment if needed
+    char padding[1]; // used to fix alignment if needed
   } p;
   char data[0]; // real size = size
 };
