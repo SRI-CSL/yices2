@@ -3253,20 +3253,35 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
 
 
 /*
- * Update the exponential moving averages:
- * - we have 
+ * Update the exponential moving averages used by the restart heuristics
+ *
+ * We have 
  *     ema_0 = 0
  *     ema_t+1 = 2^(32 - k) x + (1 - 2^k) ema_t
- *   where k is less than 32 and x is the lbd of the learned clause
+ * where k is less than 32 and x is the lbd of the learned clause
  * - as in the paper by Biere & Froehlich, we use
  *    k = 5  for the 'fast' ema
  *    k = 14 for the 'slow' ema
+ * 
+ * For blocking restarts, we use another exponential moving average:
+ *     blocking_ema_{t+1} = 2^(32 - k) t + (1 - 2^k) blocking_ema_t
+ * where k=12 and t = number of assigned variables (a.k.a., trail size).
+ *
+ * Also, the heuristics use two counters that are incremented here.
+ *
+ * NOTE: these updates can't overflow: the LDB is bounded by U < 2^30
+ * then we have ema <= 2^32*U. Same thing for the number of assigned
+ * variables.
  */
 static void update_emas(sat_solver_t *solver, uint32_t x) {
   solver->slow_ema -= solver->slow_ema >> 14;
   solver->slow_ema += ((uint64_t) x) << 18;  
   solver->fast_ema -= solver->fast_ema >> 5;
   solver->fast_ema += ((uint64_t) x) << 27;
+  solver->blocking_ema -= solver->blocking_ema >> 12;
+  solver->blocking_ema += ((uint64_t) solver->stack.top) << 20;
+  solver->fast_count ++;
+  solver->blocking_count ++;
 }
 
 /*
@@ -3365,23 +3380,70 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
 
 /*
  * Glucose-style restart condition:
- * - when fast_emas > 1.15 slow_emas
+ * 1) solver->blocking_ema is a moving average of the trail size
+ *    after each conflict.
+ * 2) solver->fast_ema is an estimate of the quality of the recently
+ *    learned clauses.
+ * 3) solver->slow_ema is an estimate of the average quality of all
+ *    learned clauses.
+ *
+ * Intuition:
+ * - if the current trail size is larger than blocking_ema, we may
+ *   be close to finding a satisfying assignment so we don't want to
+ *   restart.
+ * - if solver->fast_ema is larger than solver->slow_ema then recent
+ *   learned clauses don't seem too good. We want to restart.
+ *
+ * To make this more precise: we use two magic constants:
+ * - K_0 = 1/1.4 (approximately)
+ * - K = 0.8     (approximately)
+ * Larger than average trail_size is 'trail_size * K_0 > blocking_ema'
+ * Worse than average learned clauses is 'fast_ema * K > slow_ema'
+
+ * Before we use 'blocking_ema' we want to make sure we have at least
+ * 5000 samples in there. We count these samples in solver->blocking_count.
+ * To avoid restarting everytime, we also keep track of the number of
+ * samples used from which fast_ema is computed (in solver->fast_count).
+ * We wait until fast_count >= 50 before restarting.
+ *
+ * For our fixed point implementation, we use 
+ *   K_0 = (1 - 1/2^2 - 1/2^5) = 0.71875
+ *   K   = (1 - 1/2^3 - 1/2^4 -1/2^6) = 0.796875
+ *
+ * The Glucose original uses moving average/long-term average
+ * instead of exponential moving averages. (cf. Biere & Froehlich).
  */
 static bool glucose_restart(sat_solver_t *solver) {
   uint64_t aux;
 
-  aux = solver->slow_ema;
-  aux += (aux >> 3) + (aux >> 5); // approximately 1.14 * slow_ema
-  return solver->fast_ema > aux;
+  if (solver->blocking_count >= 5000) {
+    aux = ((uint64_t) solver->stack.top) << 32; // trail size
+    aux -= (aux >> 2) + (aux >> 5); // K_0 * trail size 
+    if (aux > solver->blocking_ema) {
+      solver->fast_count = 0; // delay the next restart
+      return false;
+    }
+  }
+
+  if (solver->fast_count >= 50) {
+    aux = solver->fast_ema;
+    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
+    if (aux > solver->slow_ema) {
+      solver->fast_count = 0;
+      return true;
+    }
+  }
+
+  return false;
 }
+
 
 /*
  * Search until we get sat/unsat or we restart
- * - we restart either when the conflict limit is reached
- * - or if the glucose_restart heuristics returns true
+ * - restart is based on the LBD/Glucose heuristics as modified by
+ *   Biere & Froehlich.
  */
-static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
-  uint32_t nconflicts;
+static void sat_search(sat_solver_t *solver) {
   bvar_t x;
   literal_t l;
 
@@ -3390,14 +3452,13 @@ static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
   check_propagation(solver);
   check_watch_vectors(solver);
 
-  nconflicts = 0;
   for (;;) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
 
-      // HACK: Glucose-style restart
-      if (nconflicts >= conflict_limit || (nconflicts >= 50 && glucose_restart(solver))) {
+      // Check for restarts
+      if (glucose_restart(solver)) {
 	break;
       }
       // Garbage collection
@@ -3419,12 +3480,10 @@ static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
       nsat_decide_literal(solver, l);
     } else {
       // Conflict
-      nconflicts ++;
       if (solver->decision_level == 0) {
 	solver->status = STAT_UNSAT;
 	break;
       }
-
       resolve_conflict(solver);
       check_watch_vectors(solver);
 
@@ -3438,7 +3497,7 @@ static void sat_search(sat_solver_t *solver, uint32_t conflict_limit) {
 /*
  * Progress status
  */
-static void report_status(sat_solver_t *solver, uint32_t restart_threshold, uint32_t count) {
+static void report_status(sat_solver_t *solver, uint32_t count) {
   double lits_per_clause, slow, fast;
 
   if ((count & 0x3F) == 0) {
@@ -3484,7 +3543,7 @@ static uint32_t level0_literals(sat_solver_t *solver) {
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
-  uint32_t i, threshold;
+  uint32_t i;
 
   if (solver->has_empty_clause) {
     solver->status = STAT_UNSAT;
@@ -3511,12 +3570,14 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   i = 0;
 
   /*
-   * Experiment: Glucose-style EMA for restarts
+   * Glucose-style EMA for restarts
    */
   solver->slow_ema = 0;
   solver->fast_ema = 0;
+  solver->blocking_ema = 0;
+  solver->fast_count = 0;
+  solver->blocking_count = 0;
   solver->stats.starts = 0;
-  threshold = 20000;
 
   /*
    * Reduce strategy: as in minisat
@@ -3528,11 +3589,11 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
 
   for (;;) {
     if (verbose) {
-      report_status(solver, threshold, i);
+      report_status(solver, i);
       i ++;
     }
     solver->stats.starts ++;
-    sat_search(solver, threshold);
+    sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
     
     // restart
