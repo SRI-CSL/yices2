@@ -393,7 +393,14 @@ ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-CFLAGS := $(CFLAGS) -g
+ifeq ($(YICES_MODE),gperftools)
+# Google gperftools
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+LIBS += -lprofiler
+else
+CFLAGS := $(CFLAGS)
+endif
 endif
 endif
 endif
