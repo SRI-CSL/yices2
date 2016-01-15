@@ -543,7 +543,14 @@ ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-CFLAGS := $(CFLAGS) -g
+ifeq ($(YICES_MODE),gperftools)
+# Google gperftools
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+LIBS += -lprofiler
+else
+CFLAGS := $(CFLAGS)
+endif
 endif
 endif
 endif
@@ -609,10 +616,9 @@ endif
 # Important: make sure the GMP library is last (if some
 # archives/libraries in NOGMP_LIBS depend on GMP).
 #
-NOGMP_LIBS := $(subst,-lpoly,,$(subst -lgmp,,$(LIBS)))
+NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
 STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_GMP)
 PIC_LIBS := $(NOGMP_LIBS) $(PIC_GMP)
-
 
 
 #################
