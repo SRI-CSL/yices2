@@ -3320,9 +3320,12 @@ static void update_emas(sat_solver_t *solver, uint32_t x) {
   solver->slow_ema += ((uint64_t) x) << 18;  
   solver->fast_ema -= solver->fast_ema >> 5;
   solver->fast_ema += ((uint64_t) x) << 27;
+  solver->fast_count ++;
+}
+
+static void update_blocking_ema(sat_solver_t *solver) {
   solver->blocking_ema -= solver->blocking_ema >> 12;
   solver->blocking_ema += ((uint64_t) solver->stack.top) << 20;
-  solver->fast_count ++;
   solver->blocking_count ++;
 }
 
@@ -3338,6 +3341,7 @@ static void resolve_conflict(sat_solver_t *solver) {
 
   clk = time_stamp();
 
+  update_blocking_ema(solver);
   analyze_conflict(solver);
   simplify_learned_clause(solver);
   prepare_to_backtrack(solver);
@@ -3464,7 +3468,7 @@ static bool glucose_restart(sat_solver_t *solver) {
 
   if (solver->blocking_count >= 5000) {
     aux = ((uint64_t) solver->stack.top) << 32; // trail size
-    aux -= (aux >> 2) + (aux >> 5); // K_0 * trail size 
+    aux -= (aux >> 2) + (aux >> 5);             // K_0 * trail size 
     if (aux > solver->blocking_ema) {
       solver->fast_count = 0; // delay the next restart
       return false;
