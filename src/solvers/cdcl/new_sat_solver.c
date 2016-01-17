@@ -1999,6 +1999,29 @@ static uint32_t clause_lbd(sat_solver_t *solver, uint32_t n, const literal_t *li
 }
 
 
+/*
+ * Check whether the LBD of a clause is no more than k
+ */
+static bool clause_lbd_le(sat_solver_t *solver, uint32_t n, const literal_t *lit, uint32_t k) {
+  tag_map_t *map;
+  uint32_t i;
+  bool result;
+
+  result = true;
+  map = &solver->map;
+  for (i=0; i<n; i++) {
+    tag_map_write(map, d_level(solver, lit[i]), 1);
+    if (tag_map_size(map) > k) {
+      result = false;
+      break;
+    }
+  }
+  clear_tag_map(map);
+
+  return result;
+}
+
+
 /************************
  *  GARBAGE COLLECTION  *
  ***********************/
@@ -2248,6 +2271,18 @@ static bool clause_is_locked(const sat_solver_t *solver, cidx_t cidx) {
     solver->ante_data[x0] == cidx && var_is_assigned(solver, x0);
 }
 
+
+/*
+ * Check whether clause cidx should be kept
+ * - heuristic: the clause is considered precious if its LDB is 3 or less
+ */
+static bool clause_is_precious(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t n;
+
+  n = clause_length(&solver->pool, cidx);
+  return n <= 3 || clause_lbd_le(solver, n, clause_literals(&solver->pool, cidx), 3);
+}
+
 /*
  * Collect learned clauses indices into solver->cidx_array
  * - initialize the array with size = number of learned clauses
@@ -2267,7 +2302,8 @@ static uint32_t collect_learned_clauses(sat_solver_t *solver) {
   end = solver->pool.size;
   cidx = clause_pool_first_learned_clause(&solver->pool);
   while (cidx < end) {
-    if (! clause_is_locked(solver, cidx)) {
+    if (! clause_is_locked(solver, cidx) &&
+	! clause_is_precious(solver, cidx)) {
       assert(i < solver->pool.num_learned_clauses);
       a[i] = cidx;
       i ++;
@@ -2306,7 +2342,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   double clk;
   uint32_t i, n, n0;
   cidx_t *a;
-  float act_threshold;
+  //  float act_threshold;
 
   clk = time_stamp();
 
@@ -2317,12 +2353,13 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   check_candidate_clauses_to_delete(solver, a, n); // DEBUG
 
   // the first half of a contains clauses of low score
-  n0 = solver->pool.num_learned_clauses/2;
+  n0 = n/2;
   for (i=0; i<n0; i++) {
     clause_pool_delete_clause(&solver->pool, a[i]);
     solver->stats.learned_clauses_deleted ++;
   }
 
+#if 0
   // in the second half, delete clauses of low activity
   act_threshold = solver->cla_inc/n;
   for (i=n0; i<n; i++) {
@@ -2331,6 +2368,8 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
       solver->stats.learned_clauses_deleted ++;
     }
   }
+#endif
+
   free_cidx_array(solver);
 
   collect_garbage(solver, solver->pool.learned);
@@ -3516,6 +3555,7 @@ static void sat_search(sat_solver_t *solver) {
 	nsat_reduce_learned_clause_set(solver);
 	check_watch_vectors(solver);
 	solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
+	//  solver->reduce_threshold += 300; // Glucose
       }
 
       x = nsat_select_decision_variable(solver);
@@ -3629,13 +3669,15 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   solver->blocking_count = 0;
   solver->stats.starts = 0;
 
+
   /*
    * Reduce strategy: as in minisat
    */
-  solver->reduce_threshold = solver->pool.num_prob_clauses/4;
-  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
-    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
-  }
+   solver->reduce_threshold = solver->pool.num_prob_clauses/4;
+   if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
+     solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
+   }
+  //  solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
     if (verbose) {
