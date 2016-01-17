@@ -668,7 +668,7 @@ CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 LIBS += -lprofiler
 else
-CFLAGS := $(CFLAGS)
+CFLAGS := $(CFLAGS) -g
 endif
 endif
 endif
