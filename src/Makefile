@@ -529,6 +529,12 @@ endif
 #   undefined reference to __longjmp_chk.
 # The fix is to add -U_FORTIFY_SOURCE when we compile on linux
 #
+# To link with google gperftools:
+#  on Linux we add the flag -Wl,--no-as-needed otherwise the profiler
+#  library may not be linked with the binaries. (Because some
+#  Linux distributions set -Wl,--as-needed by default).
+#
+#
 ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -550,11 +556,17 @@ CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gperftools)
-# Google gperftools
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-LIBS += -Wl,--no-as-needed -lprofiler
+ifeq ($(POSIXOS),linux)
+  LIBS += -Wl,--no-as-needed -lprofiler
 else
+  LIBS += -lprofiler
+endif
+else
+#
+# debug mode
+#
 CFLAGS := $(CFLAGS) -g
 endif
 endif
