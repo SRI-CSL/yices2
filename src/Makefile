@@ -565,7 +565,7 @@ else
 ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
   CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
@@ -642,6 +642,12 @@ endif
 # in the configure script. The script sets variable $(NO_STACK_PROTECTOR)
 # properly.
 #
+# Related issue reported by Richard Corden (January 18, 2016)
+# Ubuntu sets -D_FORTIFY_SOURCE=2 by default (to detect buffer overflows
+# and other security issues). This causes link-time issues again:
+#   undefined reference to __longjmp_chk.
+# The fix is to add -U_FORTIFY_SOURCE when we compile on linux
+#
 ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -666,7 +672,7 @@ ifeq ($(YICES_MODE),gperftools)
 # Google gperftools
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-LIBS += -lprofiler
+LIBS += -Wl,--no-as-needed -lprofiler
 else
 CFLAGS := $(CFLAGS) -g
 endif
