@@ -3496,8 +3496,8 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
  * We wait until fast_count >= 50 before restarting.
  *
  * For our fixed point implementation, we use 
- *   K_0 = (1 - 1/2^2 - 1/2^5) = 0.71875
- *   K   = (1 - 1/2^3 - 1/2^4 -1/2^6) = 0.796875
+ *   K_0 = (1 - 1/2^2 - 1/2^5 - 1/2^8) = 0.71484375
+ *   K   = (1 - 1/2^3 - 1/2^4 - 1/2^6) = 0.796875
  *
  * The Glucose original uses moving average/long-term average
  * instead of exponential moving averages. (cf. Biere & Froehlich).
@@ -3506,8 +3506,8 @@ static bool glucose_restart(sat_solver_t *solver) {
   uint64_t aux;
 
   if (solver->blocking_count >= 5000) {
-    aux = ((uint64_t) solver->stack.top) << 32; // trail size
-    aux -= (aux >> 2) + (aux >> 5);             // K_0 * trail size 
+    aux = ((uint64_t) solver->stack.top) << 32;  // trail size
+    aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size 
     if (aux > solver->blocking_ema) {
       solver->fast_count = 0; // delay the next restart
       return false;
