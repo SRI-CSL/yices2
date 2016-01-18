@@ -402,8 +402,7 @@ version_c := api/yices_$(YICES_MODE)_version.c
 # All auto-generated files
 #
 auto_generated := \
-	$(vesion_c) \
-	api/yices_version.c \
+	$(version_c) \
 	frontend/yices/yices_hash_keywords.h \
 	frontend/smt1/smt_hash_keywords.h \
 	frontend/smt2/smt2_hash_tokens.h \
