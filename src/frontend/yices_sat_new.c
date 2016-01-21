@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <inttypes.h>
 
+#include "io/reader.h"
 #include "solvers/cdcl/new_sat_solver.h"
 #include "utils/command_line.h"
 #include "utils/cputime.h"
@@ -41,17 +42,9 @@ static sat_solver_t solver;
 static double construction_time, search_time;
 
 
-
 /*
  * DIMACS PARSER
  */
-
-/*
- * Array to read one line of the input file
- */
-
-#define MAX_LINE 1000
-static char line[MAX_LINE];
 
 /*
  * Problem size + buffer for reading clauses
@@ -59,29 +52,6 @@ static char line[MAX_LINE];
 static int nvars, nclauses;
 static literal_t *clause;
 static uint32_t buffer_size;
-
-
-/*
- * Wrapped around getc or getc_unlocked
- */
-static inline int read_char(FILE *f) {
-#if defined(MINGW)
-    return getc(f);
-#else
-    return getc_unlocked(f);
-#endif
-}
-
-/*
- * Read until the end of the line
- */
-static void finish_line(FILE *f) {
-  int c;
-
-  do {
-    c = read_char(f);
-  } while (c != '\n');
-}
 
 
 /*
@@ -125,8 +95,53 @@ static void delete_buffer(void) {
 
 
 /*
- * Read a literal in DIMACS encoding from a file
+ * Read until the end of a line
+ */
+static void finish_line(reader_t *reader) {
+  int x;
+
+  do {
+    x = reader_next_char(reader);
+  } while (x != '\n' && x != EOF);
+}
+
+
+/*
+ * Read a line and copy it in buffer and add '\0' at the end.
+ * - when this function is called reader->current_char is the first
+ *   character of the line.
+ * - it the line has more than n-1 characters, then
+ *   the first n-1 characteres are copied in buffer,
+ *   the rest of the line is ignored.
+ */
+static void read_line(reader_t *reader, uint32_t n, char buffer[]) {
+  uint32_t i;
+  int x;
+
+  assert(n > 0);
+
+  n --;
+  x = reader_current_char(reader);
+  for (i=0; i<n; i++) {
+    if (x == '\n' || x == EOF) {
+      buffer[i] = '\0';  // end marker
+      return;
+    }
+    buffer[i] = (char) x;
+    x = reader_next_char(reader);
+  }
+  buffer[i] = '\0';
+  finish_line(reader);
+}
+
+
+
+/*
+ * Read a literal in DIMACS encoding and
  * convert it to the yices sat format.
+ * - when this function is called, reader->current_char contains a
+ *   character that may be part of the literal.
+ * - nv = number of variables
  * - returns a negative number if an error occurs
  *   or if the integer read is 0.
  *   or a literal l between 0 and 2nv - 1 otherwise.
@@ -134,14 +149,14 @@ static void delete_buffer(void) {
 #define BAD_INPUT -1
 #define END_OF_CLAUSE -2
 
-static literal_t read_literal(FILE *f, int32_t nv) {
+static literal_t read_literal(reader_t *reader, int32_t nv) {
   int d;
   int32_t var, delta;
 
-  do {
-    d = read_char(f);
-  } while (isspace(d));
-
+  d = reader_current_char(reader);
+  while (isspace(d)) {
+    d = reader_next_char(reader);
+  }
 
   /*
    * Conversion: literal in new_sat_solver format = 2 * var + delta
@@ -155,7 +170,7 @@ static literal_t read_literal(FILE *f, int32_t nv) {
   var = 0;
   if (d == '-') {
     delta = 1;
-    d = read_char(f);
+    d = reader_next_char(reader);
   }
   if (!isdigit(d)) {
     return BAD_INPUT;
@@ -163,7 +178,7 @@ static literal_t read_literal(FILE *f, int32_t nv) {
 
   do {
     var = 10 * var + (d - '0');
-    d = read_char(f);
+    d = reader_next_char(reader);
   } while (isdigit(d) && var <= nv);
 
   if (var == 0) {
@@ -186,47 +201,35 @@ static literal_t read_literal(FILE *f, int32_t nv) {
 #define FORMAT_ERROR -2
 
 static int build_instance(char *filename) {
-  int l, n, c_idx, l_idx, literal;
-  char *s;
-  FILE *f;
+  int n, x, c_idx, l_idx, literal;
+  reader_t reader;
+  char pline[200];
 
-  f = fopen(filename, "r");
-  if (f == NULL) {
+  if (init_file_reader(&reader, filename) < 0) {
+    // can't open the file
     perror(filename);
     return OPEN_ERROR;
   }
 
-  s = fgets(line, MAX_LINE, f);
-  if (s == NULL) {
-    fprintf(stderr, "%s: empty file\n", filename);
-    fclose(f);
+  // skip empty lines and comments until we see
+  // a line that starts with 'p'
+  do {
+    x = reader_next_char(&reader);
+    if (x == 'c') finish_line(&reader);
+  } while (x == '\n');
+
+  if (x == EOF) {
+    fprintf(stderr, "file %s: line %"PRIu32": unexpected end of file\n", filename, reader_line(&reader));
+    close_reader(&reader);
     return FORMAT_ERROR;
-  }
-  if (strlen(s) == MAX_LINE-1) {
-    finish_line(f);
-  }
-  l = 1; /* line number */
-
-
-  /* skip empty lines and comments */
-  while (*s == 'c' || *s == '\n') {
-    s = fgets(line, MAX_LINE, f);
-    if (s == NULL) {
-      fprintf(stderr, "Format error: file %s, line %d\n", filename, l);
-      fclose(f);
-      return FORMAT_ERROR;
-    }
-    if (strlen(s) == MAX_LINE-1) {
-      finish_line(f);
-    }
-    l ++;    
   }
 
   /* read problem size */
-  n = sscanf(s, "p cnf %d %d", &nvars, &nclauses);
+  read_line(&reader, 200, pline);
+  n = sscanf(pline, "p cnf %d %d", &nvars, &nclauses);
   if (n != 2 || nvars < 0 || nclauses < 0) {
-    fprintf(stderr, "Format error: file %s, line %d\n", filename, l);
-    fclose(f);
+    fprintf(stderr, "file %s, line %"PRIu32": expected 'p cnf <nvars> <nclauses>\n", filename, reader_line(&reader));
+    close_reader(&reader);
     return FORMAT_ERROR;
   }
 
@@ -236,29 +239,36 @@ static int build_instance(char *filename) {
 
   /* now read clauses and translate them */
   c_idx = 0;
-
   while (c_idx < nclauses) {
-    l_idx = 0;
-    for (;;) {
-      literal = read_literal(f, nvars);
-      if (literal < 0) break;
+    // some non-conforming benchmarks have 'c lines' interspersed with the 
+    // clauses so we check and skip them here
+    x = reader_next_char(&reader);
+    if (x == 'c') {
+      // not a clause
+      finish_line(&reader);
+    } else {
+      l_idx = 0;
+      for (;;) {
+	literal = read_literal(&reader, nvars);
+	if (literal < 0) break;
+	if (l_idx >= (int)buffer_size) expand_buffer();
+	clause[l_idx] = literal;
+	l_idx ++;
+      }
 
-      if (l_idx >= (int)buffer_size) expand_buffer();
-      clause[l_idx] = literal;
-      l_idx ++;
+      if (literal != END_OF_CLAUSE) {
+	fprintf(stderr, "file %s: line %"PRIu32": invalid format\n", filename, reader_line(&reader));
+	close_reader(&reader);
+	return FORMAT_ERROR;
+      }
+
+      nsat_solver_simplify_and_add_clause(&solver, l_idx, clause);
+      c_idx ++;
     }
-
-    if (literal != END_OF_CLAUSE) {
-      fprintf(stderr, "Format error: file %s\n", filename);
-      fclose(f);
-      return FORMAT_ERROR;
-    }
-
-    nsat_solver_simplify_and_add_clause(&solver, l_idx, clause);
-    c_idx ++;
   }
 
-  fclose(f);
+  close_reader(&reader);
+
   return 0;
 }
 
