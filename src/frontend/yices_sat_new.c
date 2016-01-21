@@ -211,12 +211,15 @@ static int build_instance(char *filename) {
     return OPEN_ERROR;
   }
 
-  // skip empty lines and comments until we see
-  // a line that starts with 'p'
-  do {
+  // skip empty lines and comments
+  for (;;) {
     x = reader_next_char(&reader);
-    if (x == 'c') finish_line(&reader);
-  } while (x == '\n');
+    if (x == 'c') {
+      finish_line(&reader);
+      continue;
+    } 
+    if (x != '\n') break;
+  }
 
   if (x == EOF) {
     fprintf(stderr, "file %s: line %"PRIu32": unexpected end of file\n", filename, reader_line(&reader));
