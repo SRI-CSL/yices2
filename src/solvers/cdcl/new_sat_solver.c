@@ -317,7 +317,7 @@ static inline void reset_gstack(gstack_t *gstack) {
  * Capacity increase:
  * cap += ((cap >> 1) + (cap >> 6) + (cap >> 7) + 2048) & ~3
  *
- * Since the intiail capacity is 262144, we get an increasing
+ * Since the initial capacity is 262144, we get an increasing
  * sequence: 262144, 401408, 613568,  ..., 4265187980,
  * which gets us close to 2^32.  The next increase after that
  * causes an arithmetic overflow.
@@ -765,6 +765,7 @@ static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t 
 /*
  * Find the next clause, scanning from index i
  * - i may be the start of a clause or of a padding block
+ * - if there's no more clause after i then we return pool->size
  */
 static cidx_t next_clause_index(const clause_pool_t *pool, cidx_t i) {
   while (i < pool->size && is_padding_start(pool, i)) {
@@ -1431,6 +1432,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
 }
 
 
+
 /**************************
  *  HEURISTIC PARAMETERS  *
  *************************/
@@ -1700,8 +1702,8 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t 
   solver->level[v] = solver->decision_level;
 
   assert(lit_is_true(solver, l));
-
 }
+
 
 /*
  * Literal l implied by clause cidx
@@ -1732,6 +1734,7 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
   fflush(stdout);
 #endif
 }
+
 
 
 /**********************
@@ -3488,11 +3491,11 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
  *
  * To make this more precise: we use two magic constants:
  * - K_0 = 1/1.4 (approximately)
- * - K = 0.8     (approximately)
+ * - K   = 0.8   (approximately)
  * Larger than average trail_size is 'trail_size * K_0 > blocking_ema'
  * Worse than average learned clauses is 'fast_ema * K > slow_ema'
 
- * Before we use 'blocking_ema' we want to make sure we have at least
+ * Before we use 'blocking_ema', we want to make sure we have at least
  * 5000 samples in there. We count these samples in solver->blocking_count.
  * To avoid restarting everytime, we also keep track of the number of
  * samples used from which fast_ema is computed (in solver->fast_count).
