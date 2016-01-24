@@ -533,11 +533,11 @@ typedef struct sat_solver_s {
   uint32_t randomness;        // 0x1000000 * random_factor
   float cla_inc;              // Clause activity increment
   float inv_cla_decay;        // Inverse of clause decay (1/0.999)
-  uint32_t reduce_threshold;  // number of learned clause before deleting learned clauses
+  uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
+  uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
   uint32_t simplify_bottom;   // stack pointer after the last call to simplify_clause_database
   uint64_t simplify_props;    // value of the propagation counter at this point
   uint64_t simplify_next;     // number of propagations before simplify is called again
-
 
   /*
    * Exponential moving averages for restarts
