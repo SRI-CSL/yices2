@@ -1342,7 +1342,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
-  solver->keep_lbd = 5;
+  solver->keep_lbd = 4;
 
   init_stats(&solver->stats);
 
