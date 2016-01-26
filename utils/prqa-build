@@ -31,7 +31,7 @@ export PATH=${vsbase}/VC/bin:${vsbase}/Common7/IDE:${PATH}
 #
 # Version number for tarfiles
 #
-version=2.4.1
+version=2.4.2
 
 #
 # Keep track of the current directory
@@ -74,10 +74,10 @@ for option in mingw32 mingw64; do
    echo "    CLEANUP (OPTION = $option)"
    echo "==============================="
    echo ""
-   echo "rm -f distributions/$static_tarfile"
-   rm -f distributions/$static_tarfile
-   echo "rm -f distributions/$static_tarfile"
-   rm -f distributions/$dbg_tarfile
+   echo "rm -f bvonly-distributions/$static_tarfile"
+   rm -f bvonly-distributions/$static_tarfile
+   echo "rm -f bvonly-distributions/$dbg_tarfile"
+   rm -f bvonly-distributions/$dbg_tarfile
    echo "make arch-clean OPTION=$option"
    make arch-clean OPTION=$option
 
@@ -122,7 +122,7 @@ for option in mingw32 mingw64; do
    # Rename the distribution
    #
    echo "mv $static_tarfile $dbg_tarfile"
-   mv distributions/$static_tarfile distributions/$dbg_tarfile
+   mv bvonly-distributions/$static_tarfile bvonly-distributions/$dbg_tarfile
 
    #
    # Build the distribution in release MODE
