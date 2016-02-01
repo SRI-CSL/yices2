@@ -605,7 +605,7 @@ int main(int argc, char* argv[]) {
 
     init_handler();
     nsat_set_randomness(&solver, 0); // overwrite the default
-    nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
+    nsat_set_var_decay_factor(&solver, 0.93); // the default is 0.95
     (void) nsat_solve(&solver, verbose);
     print_results();
     if (model) {
