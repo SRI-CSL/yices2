@@ -16,7 +16,6 @@
 
 #include "solvers/cdcl/new_sat_solver.h"
 #include "solvers/cdcl/sat_parameters.h"
-#include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/uint_array_sort.h"
 #include "utils/uint_array_sort2.h"
@@ -61,35 +60,6 @@ static inline void check_propagation(const sat_solver_t *solver) { }
 static inline void check_marks(const sat_solver_t *solver) { }
 static inline void check_all_unmarked(const sat_solver_t *solver) {}
 
-#endif
-
-
-/*********************
- *  CLOCK ESTIMATE   *
- ********************/
-
-/*
- * On linux, we could use clock_gettime.
- * On other systems, we use get_cpu_time (from utils/cputime.c)
- */
-#if 0
-#include <time.h>
-static double time_stamp(void) {
-  struct timespec ts;
-  double clk;
-
-  clk = 0.0;
-  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) == 0) {
-    clk = ts.tv_sec + ts.tv_nsec * 1e-6;
-  }
-  return clk
-}
-
-#else
-
-static inline double time_stamp(void) {
-  return get_cpu_time();
-}
 #endif
 
 
@@ -1277,10 +1247,6 @@ static void init_stats(solver_stats_t *stat) {
   stat->prob_clauses_deleted = 0;
   stat->learned_clauses_deleted = 0;
   stat->subsumed_literals = 0;
-  stat->prop_time = 0.0;
-  stat->reso_time = 0.0;
-  stat->simp_time = 0.0;
-  stat->redu_time = 0.0;
 }
 
 
@@ -2345,12 +2311,9 @@ static void sort_learned_clauses(sat_solver_t *solver, uint32_t n) {
  * Delete half the learned clauses (Minisat-style)
  */
 static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
-  double clk;
   uint32_t i, n, n0;
   cidx_t *a;
   //  float act_threshold;
-
-  clk = time_stamp();
 
   n = collect_learned_clauses(solver);
   sort_learned_clauses(solver, n);
@@ -2380,7 +2343,6 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   collect_garbage(solver, solver->pool.learned);
   solver->stats.reduce_calls ++;
-  solver->stats.redu_time += time_stamp() - clk;
 
   check_watch_vectors(solver);
 }
@@ -2573,13 +2535,10 @@ static void remove_dead_antecedents(sat_solver_t *solver) {
  * - remove all true clauses
  */
 static void nsat_simplify_clause_database(sat_solver_t *solver) {
-  double clk;
   cidx_t cidx;
   uint32_t d;
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
-
-  clk = time_stamp();
 
   simplify_binary_clauses(solver);
 
@@ -2602,7 +2561,6 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 
   solver->binaries = count_binary_clauses(solver);
   solver->stats.simplify_calls ++;
-  solver->stats.simp_time += time_stamp() - clk;
 
   check_watch_vectors(solver);
 }
@@ -2779,13 +2737,10 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
  * - on exit, it's set to CTAG_BINARY or CTAG_CLAUSE if there's a conflict
  */
 static void nsat_boolean_propagation(sat_solver_t *solver) {
-  double clk;
   literal_t l;
   uint32_t i;  
 
   assert(solver->conflict_tag == CTAG_NONE);
-
-  clk = time_stamp();
 
   for (i = solver->stack.prop_ptr; i< solver->stack.top; i++) {
     l = not(solver->stack.lit[i]);
@@ -2795,8 +2750,6 @@ static void nsat_boolean_propagation(sat_solver_t *solver) {
     }
   }
   solver->stack.prop_ptr = i;
-
-  solver->stats.prop_time += time_stamp() - clk;
 
   check_propagation(solver);
 }
@@ -3379,12 +3332,9 @@ static void update_blocking_ema(sat_solver_t *solver) {
  * - solver->decision_level must be positive
  */
 static void resolve_conflict(sat_solver_t *solver) {
-  double clk;
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
-
-  clk = time_stamp();
 
   update_blocking_ema(solver);
   analyze_conflict(solver);
@@ -3412,8 +3362,6 @@ static void resolve_conflict(sat_solver_t *solver) {
     assert(n > 0);
     nsat_solver_add_unit_clause(solver, l);
   }
-
-  solver->stats.reso_time += time_stamp() - clk;
 }
 
 

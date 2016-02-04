@@ -435,10 +435,6 @@ static void show_stats(sat_solver_t *solver) {
   fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
   fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
   fprintf(stderr, "deleted learned clauses : %"PRIu64"\n\n", stat->learned_clauses_deleted);
-  fprintf(stderr, "prop. time              : %.3f s\n", stat->prop_time);
-  fprintf(stderr, "conflic reso. time      : %.3f s\n", stat->reso_time);
-  fprintf(stderr, "simplify db time        : %.3f s\n", stat->simp_time);
-  fprintf(stderr, "reduce db time          : %.3f s\n", stat->redu_time);
   fprintf(stderr, "\n");
 }
 

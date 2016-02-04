@@ -418,12 +418,6 @@ typedef struct solver_stats_s {
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
 
   uint64_t subsumed_literals;
-
-  // CPU time in seconds
-  double prop_time;           // time spent in nsat_boolean_propagation
-  double reso_time;           // time spent in resolve_conflict
-  double simp_time;           // time spent in simplify_clause_database
-  double redu_time;           // time spent in reduce_learned_clause_set
 } solver_stats_t;
 
 
