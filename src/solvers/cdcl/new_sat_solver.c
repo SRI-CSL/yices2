@@ -3481,6 +3481,39 @@ static bool glucose_restart(sat_solver_t *solver) {
 }
 
 
+
+/*
+ * Preferred literal when x is selected as decision variable.
+ * - we pick l := pos(x) then check whether value[l] is 0b00 or 0b01
+ * - in the first case, the preferred value for l is false so we return not(l)
+ */
+#if 1
+static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
+  literal_t l;
+
+  assert(is_unassigned_val(var_value(solver, x)));
+
+  l = pos(x);
+  // set value[l] is either 0 or 1
+  // We keep l if value[l] = 1. We flitp to not(l) = l ^ 1 if value[l] = 0
+  l ^= (1 ^ solver->value[l]);
+  assert((var_prefers_true(solver, x) && l == pos(x)) ||
+	 (!var_prefers_true(solver, x) && l == neg(x)));
+
+  return l;
+}
+#else
+static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
+  literal_t l;
+
+  l = neg(x);
+  if (var_prefers_true(solver, x)) {
+    l = not(l);
+  }
+  return l;
+}
+#endif
+
 /*
  * Search until we get sat/unsat or we restart
  * - restart is based on the LBD/Glucose heuristics as modified by
@@ -3488,7 +3521,6 @@ static bool glucose_restart(sat_solver_t *solver) {
  */
 static void sat_search(sat_solver_t *solver) {
   bvar_t x;
-  literal_t l;
 
   assert(solver->stack.prop_ptr == solver->stack.top);
 
@@ -3517,11 +3549,7 @@ static void sat_search(sat_solver_t *solver) {
 	solver->status = STAT_SAT;
 	break;
       }
-      l = neg(x);
-      if (var_prefers_true(solver, x)) {
-	l = pos(x);
-      }
-      nsat_decide_literal(solver, l);
+      nsat_decide_literal(solver, preferred_literal(solver, x));
     } else {
       // Conflict
       if (solver->decision_level == 0) {

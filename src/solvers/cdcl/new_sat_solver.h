@@ -139,7 +139,7 @@ static inline bool is_unassigned_val(bval_t val) {
   return (val & 0x2) == 0;
 }
 
-// check whether val is val_undef_true of val_true
+// check whether val is val_undef_true or val_true
 static inline bool true_preferred(bval_t val) {
   return (val & 0x1) != 0;
 }
