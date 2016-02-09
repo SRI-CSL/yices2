@@ -138,12 +138,16 @@ Here is a minimal example::
    }
 
 Assuming that Yices is installed in the standard location, this example
-should compile with::
+should compile with:
+
+.. code-block:: sh
 
   gcc minimal.c -o minimal -lyices
 
 Other compilers than GCC can be used. If Yices is installed in a different
-location, give appropriate flags to the compilation command. For example::
+location, give appropriate flags to the compilation command. For example:
+
+.. code-block:: sh
 
   gcc -I${HOME}/yices-2.3.1/include -L${HOME}/yices-2.3.1/lib \
      minimal.c -o minimal -lyices
