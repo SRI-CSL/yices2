@@ -34,7 +34,7 @@
 #if DEBUG
 
 /*
- * The following functions checks internal consistency. They are defined 
+ * The following functions check internal consistency. They are defined
  * at the end of this file. They print an error on stderr if the checks fail.
  */
 static void check_clause_pool_counters(const clause_pool_t *pool);
