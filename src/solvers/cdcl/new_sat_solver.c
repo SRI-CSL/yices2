@@ -2640,7 +2640,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
   assert(lit_is_false(solver, l0));
 
   w = solver->watch[l0];
-  if (w == NULL || w->size == 0) return; // nothing to do    
+  if (w == NULL || w->size == 0) return; // nothing to do
 
   n = w->size;
   j = 0;
@@ -2777,10 +2777,10 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
   while (i > d) {
     i --;
     l = solver->stack.lit[i];
-    assert(lit_is_true(solver, l) && solver->level[var_of(l)] > back_level);
-    solver->value[l] ^= (uint8_t) 0x2;      // clear assign bit
-    solver->value[not(l)] ^= (uint8_t) 0x2; // clear assign bit
     x = var_of(l);
+    assert(lit_is_true(solver, l) && solver->level[x] > back_level);
+    solver->value[pos(x)] ^= (uint8_t) 0x2;   // clear assign bit
+    solver->value[neg(x)] ^= (uint8_t) 0x2;   // clear assign bit
     assert(var_is_unassigned(solver, x));
     heap_insert(&solver->heap, x);
   }
