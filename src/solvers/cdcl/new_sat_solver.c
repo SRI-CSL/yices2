@@ -2640,13 +2640,13 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
   assert(lit_is_false(solver, l0));
 
   w = solver->watch[l0];
-  //  if (w == NULL || w->size == 0) return; // nothing to do
-  if (w == NULL) return;
+  if (w == NULL || w->size == 0) return; // nothing to do
 
   n = w->size;
   j = 0;
   i = 0;
-  while (i < n) {
+  //  while (i < n) {
+  do {
     k = w->data[i];
     w->data[j] = k; // Keep k in w. We'll undo this later if needed.
     i ++;
@@ -2718,7 +2718,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       assert(is_unassigned_val(vl));
       clause_propagation(solver, l, k);
     }
-  }
+  } while (j < n);
   w->size = j;
   return;
 
