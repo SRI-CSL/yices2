@@ -2640,7 +2640,8 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
   assert(lit_is_false(solver, l0));
 
   w = solver->watch[l0];
-  if (w == NULL || w->size == 0) return; // nothing to do
+  //  if (w == NULL || w->size == 0) return; // nothing to do
+  if (w == NULL) return;
 
   n = w->size;
   j = 0;
