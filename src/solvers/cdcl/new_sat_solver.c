@@ -2718,7 +2718,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       assert(is_unassigned_val(vl));
       clause_propagation(solver, l, k);
     }
-  } while (j < n);
+  } while (i < n);
   w->size = j;
   return;
 
