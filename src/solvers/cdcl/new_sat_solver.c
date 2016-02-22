@@ -2645,8 +2645,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
   n = w->size;
   j = 0;
   i = 0;
-  //  while (i < n) {
-  do {
+  while (i < n) {
     k = w->data[i];
     w->data[j] = k; // Keep k in w. We'll undo this later if needed.
     i ++;
@@ -2720,7 +2719,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       record_clause_conflict(solver, k);
       goto conflict;
     }
-  } while (i < n);
+  }
   w->size = j;
   return;
 
