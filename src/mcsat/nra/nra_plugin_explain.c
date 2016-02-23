@@ -615,6 +615,34 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
   lp_polynomial_vector_delete(assumptions);
 }
 
+void lp_projection_map_reduce(lp_projection_map_t* map, lp_variable_t x, const lp_polynomial_t* p, lp_polynomial_t* p_r) {
+
+  assert(p != p_r);
+  assert(lp_polynomial_top_variable(p) == x);
+
+  lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
+
+  uint32_t p_deg = lp_polynomial_degree(p);
+
+  lp_polynomial_reductum_m(p_r, p, map->m);
+  uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
+
+  // Add the vanishing initial coefficients (this includes the top reduced, hence the content)
+  uint32_t deg;
+  for (deg = p_r_deg; deg <= p_deg; ++ deg) {
+    // Add the coefficient
+    lp_polynomial_get_coefficient(p_coeff, p,  deg);
+    if (!lp_polynomial_is_constant(p_coeff)) {
+      lp_projection_map_add(map, p_coeff);
+    }
+  }
+
+  // Get the primitive part
+  lp_polynomial_pp(p_r, p_r);
+
+  lp_polynomial_delete(p_coeff);
+}
+
 /**
  * Project the content of the map downwards until done. All the projection
  * sets will be closed, so that iteration is possible.
@@ -627,7 +655,6 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
   lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
   lp_polynomial_t* q_r = lp_polynomial_new(map->ctx);
   lp_polynomial_t* p_r_d = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
 
   // PSC buffer
   lp_polynomial_t** polynomial_buffer = 0;
@@ -678,15 +705,12 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       x_cell_a_p = NULL;
       x_cell_b_p = NULL;
       lp_projection_map_construct_cell(map, x, out, &x_cell_a_p, &x_cell_b_p);
-      // Cell can be unbounded on both side => both can be null
-      // Get the reductums so we don't recompute them
-      if (!map->nra->ctx->options->nra_nlsat) {
-        if (x_cell_a_p != NULL) {
-          lp_polynomial_reductum_m(x_cell_a_p_r, x_cell_a_p, map->m);
-        }
-        if (x_cell_b_p != NULL) {
-          lp_polynomial_reductum_m(x_cell_b_p_r, x_cell_b_p, map->m);
-        }
+      // Reduce the polynomials
+      if (x_cell_a_p != NULL) {
+        lp_projection_map_reduce(map, x, x_cell_a_p, x_cell_a_p_r);
+      }
+      if (x_cell_b_p != NULL) {
+        lp_projection_map_reduce(map, x, x_cell_b_p, x_cell_b_p_r);
       }
     }
 
@@ -704,24 +728,9 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
         ctx_trace_printf(map->nra->ctx, "p_deg = %u\n", p_deg);
       }
 
-      // The reductum of p
-      lp_polynomial_reductum_m(p_r, p, map->m);
+      // Reduce p modulo the model, and add assumptions
+      lp_projection_map_reduce(map, x, p, p_r);
       uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
-
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
-        ctx_trace_printf(map->nra->ctx, "p_r = "); lp_polynomial_print(p_r, ctx_trace_out(map->nra->ctx)); ctx_trace_printf(map->nra->ctx, "\n");
-        ctx_trace_printf(map->nra->ctx, "p_r_deg = %u\n", p_deg);
-      }
-
-      // Add the vanishing initial coefficients
-      uint32_t deg;
-      for (deg = p_r_deg; deg <= p_deg; ++ deg) {
-        // Add the coefficient
-        lp_polynomial_get_coefficient(p_coeff, p,  deg);
-        if (!lp_polynomial_is_constant(p_coeff)) {
-          lp_projection_map_add(map, p_coeff);
-        }
-      }
 
       // Is p_r univariate?
       bool p_r_univariate = lp_polynomial_is_univariate(p_r);
@@ -730,6 +739,8 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
       if (p_r_deg > 1 && !p_r_univariate) {
         // Get the derivative
         lp_polynomial_derivative(p_r_d, p_r);
+        // p_r is reduced, but the derivative might not be (the numberical constants)
+        lp_polynomial_pp(p_r_d, p_r_d);
         // Add the projection
         if (map->nra->ctx->options->nra_mgcd) {
           lp_projection_map_add_mgcd(map, x, p_r, p_r_d);
@@ -807,7 +818,6 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
   }
 
   // Free the temps
-  lp_polynomial_delete(p_coeff);
   lp_polynomial_delete(p_r);
   lp_polynomial_delete(q_r);
   lp_polynomial_delete(p_r_d);
