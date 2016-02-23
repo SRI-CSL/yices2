@@ -2657,13 +2657,13 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       l = idx2lit(k);
       vl = lit_value(solver, l);
       if (vl == BVAL_TRUE) continue;
-      if (vl != BVAL_FALSE) {
-	assert(is_unassigned_val(vl));
-	binary_clause_propagation(solver, l, l0);
-	continue;
+      if (vl == BVAL_FALSE) {
+	record_binary_conflict(solver, l0, l);
+	goto conflict;
       }
-      record_binary_conflict(solver, l0, l);
-      goto conflict;
+      assert(is_unassigned_val(vl));
+      binary_clause_propagation(solver, l, l0);
+      continue;
 
     } else {
       /*
@@ -2696,28 +2696,28 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
 
       // Search for an unassigned or true literal in lit[2 ... len-1]
       for (t=2; t<len; t++) {
-	if (! lit_is_false(solver, lit[t])) break;
+	if (! lit_is_false(solver, lit[t])) {
+	  // lit[t] is either true or not assigned.
+	  // It can replace l0 as watched literal
+	  l1 = lit[t];
+	  lit[1] = l1;
+	  lit[t] = l0;
+	  add_clause_watch(solver, l1, k, l);
+	  j -= 2; // remove [k, blocker] from l0's watch vector
+	  goto done;
+	}
       }
-      if (t < len) {
-	// lit[t] is either true or not assigned.
-	// It can replace l0 as watched literal
-	l1 = lit[t];
-	lit[1] = l1;
-	lit[t] = l0;
-	add_clause_watch(solver, l1, k, l);
-	j -= 2; // remove k from l0's watch vector
-	continue;
-      }	
 
-      // No unassigned literal found
+      // All literals in lit[1 ... len-1] are false
       assert(t == len);
-      if (vl != BVAL_FALSE) {
-	assert(is_unassigned_val(vl));
-	clause_propagation(solver, l, k);
-	continue;
+      if (vl == BVAL_FALSE) {
+	record_clause_conflict(solver, k);
+	goto conflict;
       }
-      record_clause_conflict(solver, k);
-      goto conflict;
+      assert(is_unassigned_val(vl));
+      clause_propagation(solver, l, k);
+    done:
+      continue;
     }
   }
   w->size = j;
