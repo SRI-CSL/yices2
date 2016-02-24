@@ -608,6 +608,11 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
     // Add it
     lp_polynomial_t* assumption = lp_polynomial_vector_at(assumptions, assumptions_i);
     if (!lp_polynomial_is_constant(assumption)) {
+      if (ctx_trace_enabled(map->nra->ctx, "nra::explain::mgcd")) {
+        ctx_trace_printf(map->nra->ctx, "mgcd[%d] = ", assumptions_i);
+        lp_polynomial_print(assumption, ctx_trace_out(map->nra->ctx));
+        ctx_trace_printf(map->nra->ctx, "\n");
+      }
       lp_projection_map_add(map, assumption);
     }
     lp_polynomial_delete(assumption);
