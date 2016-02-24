@@ -439,6 +439,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
         // no need for more cell division
         lp_interval_collapse_to(&x_cell, x_v);
         (*x_cell_a_p) = p;
+        (*x_cell_b_p) = NULL;
         x_cell_a_root_index = m;
         break;
       } else if (m < 0) {
