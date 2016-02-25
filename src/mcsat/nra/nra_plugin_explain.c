@@ -236,11 +236,6 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
   // Add factors, if not zero, and delete them
   for (i = 0; i < p_r_factors_size; ++i) {
     if (p_r_zero == NULL && !lp_polynomial_is_constant(p_r_factors[i])) {
-      if (x != lp_polynomial_top_variable(p_r_factors[i])) {
-        fprintf(stderr, "p = "); lp_polynomial_print(p, stderr); fprintf(stderr, "\n");
-        fprintf(stderr, "p_r = "); lp_polynomial_print(p_r, stderr); fprintf(stderr, "\n");
-        fprintf(stderr, "p_r_factors[i] = "); lp_polynomial_print(p_r_factors[i], stderr); fprintf(stderr, "\n");
-      }
       assert(x == lp_polynomial_top_variable(p_r_factors[i]));
       lp_projection_map_add_if_not_there(map, p_r_factors[i]);
     }
