@@ -161,35 +161,100 @@ lp_polynomial_hash_set_t* lp_projection_map_get_set_of(lp_projection_map_t* map,
   return map->data + var_index;
 }
 
+void lp_projection_map_reduce(lp_projection_map_t* map, lp_variable_t x, const lp_polynomial_t* p, lp_polynomial_t* p_r);
+
+void lp_projection_map_add_if_not_there(lp_projection_map_t* map, const lp_polynomial_t* p) {
+  if (!lp_polynomial_hash_set_contains(&map->all_polynomials, p)) {
+    lp_variable_t x = lp_polynomial_top_variable(p);
+    lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
+    assert(!lp_polynomial_hash_set_contains(x_set, p));
+    lp_polynomial_hash_set_insert(x_set, p);
+    lp_polynomial_hash_set_insert(&map->all_polynomials, p);
+  }
+}
+
 void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
 
-  assert(!lp_polynomial_is_constant(p));
-
-  if (lp_polynomial_hash_set_contains(&map->all_polynomials, p)) {
+  // Don't add constants or things already there
+  if (lp_polynomial_is_constant(p) || lp_polynomial_hash_set_contains(&map->all_polynomials, p)) {
     return;
   }
 
-  // Factor the polynomial and add the factors
-  lp_polynomial_t** p_factors = 0;
-  size_t* p_factors_multiplicities = 0;
-  size_t p_factors_size = 0;
-  lp_polynomial_factor_square_free(p, &p_factors, &p_factors_multiplicities, &p_factors_size);
+  // Reduce the polynomials and add all the vanishing coefficients
+  lp_variable_t x = lp_polynomial_top_variable(p);
+  lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
+  lp_projection_map_reduce(map, x, p, p_r);
 
-  uint32_t i;
-  for (i = 0; i < p_factors_size; ++i) {
-    if (!lp_polynomial_is_constant(p_factors[i])) {
-      lp_variable_t x = lp_polynomial_top_variable(p_factors[i]);
-      lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
-      lp_polynomial_hash_set_insert(x_set, p_factors[i]);
-      lp_polynomial_hash_set_insert(&map->all_polynomials, p_factors[i]);
-    }
-    lp_polynomial_delete(p_factors[i]);
+  // Don't add constants or things already there
+  if (lp_polynomial_is_constant(p_r) || lp_polynomial_hash_set_contains(&map->all_polynomials, p_r)) {
+    return;
   }
 
-  lp_polynomial_hash_set_insert(&map->all_polynomials, p);
+  // If the variable has changed, it was added in reduce
+  if (lp_polynomial_top_variable(p_r) != x) {
+    return;
+  }
 
-  free(p_factors);
-  free(p_factors_multiplicities);
+  // p_r leading coefficient doesn't vanish and it is primitive
+  // all the assumptions of this are put in the map
+
+  // Factor the polynomial. Since it's primitive, all factors are in x,
+  // their leading coefficients don't vanish
+  lp_polynomial_t** p_r_factors = 0;
+  size_t* p_r_factors_multiplicities = 0;
+  size_t p_r_factors_size = 0;
+  lp_polynomial_factor_square_free(p_r, &p_r_factors, &p_r_factors_multiplicities, &p_r_factors_size);
+
+  uint32_t i;
+
+  lp_polynomial_t* p_r_zero = NULL;
+  // If x is assigned, check if any of the factors evaluates to 0
+  if (lp_assignment_get_value(map->m, x)->type != LP_VALUE_NONE) {
+    for (i = 0; i < p_r_factors_size; ++ i) {
+      // Get the sign of the polynomials
+      int sgn = lp_polynomial_sgn(p_r_factors[i], map->m);
+      if (sgn == 0) {
+        if (p_r_zero == NULL) {
+          p_r_zero = p_r_factors[i];
+        } else {
+          int cmp = lp_polynomial_cmp(p_r_factors[i], p_r_zero);
+          if (cmp < 0) {
+            p_r_zero = p_r_factors[i];
+          }
+        }
+      }
+    }
+  }
+
+  // If we have a 0 factor, we just add that one
+  if (p_r_zero != NULL) {
+    assert(!lp_polynomial_is_constant(p_r_zero));
+    assert(x == lp_polynomial_top_variable(p_r_zero));
+    lp_projection_map_add_if_not_there(map, p_r_zero);
+  }
+
+  // Add factors, if not zero, and delete them
+  for (i = 0; i < p_r_factors_size; ++i) {
+    if (p_r_zero == NULL && !lp_polynomial_is_constant(p_r_factors[i])) {
+      if (x != lp_polynomial_top_variable(p_r_factors[i])) {
+        fprintf(stderr, "p = "); lp_polynomial_print(p, stderr); fprintf(stderr, "\n");
+        fprintf(stderr, "p_r = "); lp_polynomial_print(p_r, stderr); fprintf(stderr, "\n");
+        fprintf(stderr, "p_r_factors[i] = "); lp_polynomial_print(p_r_factors[i], stderr); fprintf(stderr, "\n");
+      }
+      assert(x == lp_polynomial_top_variable(p_r_factors[i]));
+      lp_projection_map_add_if_not_there(map, p_r_factors[i]);
+    }
+    lp_polynomial_delete(p_r_factors[i]);
+  }
+
+  // Hash the inputs
+  lp_polynomial_hash_set_insert(&map->all_polynomials, p);
+  lp_polynomial_hash_set_insert(&map->all_polynomials, p_r);
+
+  // Remove other temps
+  free(p_r_factors);
+  free(p_r_factors_multiplicities);
+  lp_polynomial_delete(p_r);
 }
 
 static
@@ -321,6 +386,44 @@ int polynomial_cmp(const void* p1_void, const void* p2_void) {
 }
 
 /**
+ * Simplify 0-polynomials with the GCD.
+ */
+void gcd_simplify_zero(const lp_polynomial_context_t* ctx, lp_polynomial_t** polys, size_t* size, const lp_assignment_t* m) {
+  // Temp for GCD computation
+  lp_polynomial_t* gcd = lp_polynomial_new(ctx);
+
+  uint32_t i, j, to_keep = 0;
+  for (i = 0; i < *size; ++ i) {
+    const lp_polynomial_t* p = polys[i];
+    if (lp_polynomial_sgn(p, m) == 0) {
+      for (j = 0; j < to_keep; ++ j) {
+        const lp_polynomial_t* q = polys[j];
+        if (lp_polynomial_sgn(q, m) == 0) {
+          lp_polynomial_gcd(gcd, p, q);
+          if (!lp_polynomial_is_constant(gcd)) {
+            lp_polynomial_swap(polys[j], gcd);
+            break;
+          }
+        }
+      }
+      if (j >= to_keep) {
+        // Didn't embed it in any previous ones, keep it
+        polys[to_keep++] = polys[i];
+      }
+    } else {
+      // Keep it, it's non-zero
+      polys[to_keep++] = polys[i];
+    }
+  }
+
+  // Resized
+  *size = to_keep;
+
+  // Delete temp
+  lp_polynomial_delete(gcd);
+}
+
+/**
  * Isolate the roots of the projection polynomials of x. Then construct a cell
  * assertions and add to out. Return the bound polynomials in x_cell_a_p and x_cell_b_p.
  */
@@ -338,6 +441,11 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
     ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
   }
+
+  // Simplify the polynomials based on gcd:
+  //   * If two polynomials evaluate to 0, they should be mutually prime
+  //   * We just check: if both 0 and gcd, then we keep the gcd reducing the size
+  gcd_simplify_zero(map->ctx, x_set->data, &x_set->size, map->m);
 
   // Sort the polynomials by degree
   qsort(x_set->data, x_set->size, sizeof(lp_polynomial_t*), polynomial_cmp);
@@ -441,8 +549,11 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
         (*x_cell_a_p) = p;
         (*x_cell_b_p) = NULL;
         x_cell_a_root_index = m;
+        // We use the first one, sort should do it
         break;
-      } else if (m < 0) {
+      }
+
+      if (m < 0) {
         // in (-inf, p_roots[0]) so
         if (lp_interval_contains(&x_cell, p_roots)) {
           lp_interval_set_b(&x_cell, p_roots, 1);
@@ -554,9 +665,7 @@ void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** poly
   uint32_t psc_i;
   for (psc_i = 0; psc_i < psc_size; ++ psc_i) {
     // Add it
-    if (!lp_polynomial_is_constant((*polynomial_buffer)[psc_i])) {
-      lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
-    }
+    lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
     // If it doesn't vanish we're done
     if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->m)) {
       break;
@@ -607,14 +716,7 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
   for (assumptions_i = 0; assumptions_i < assumptions_size; ++ assumptions_i) {
     // Add it
     lp_polynomial_t* assumption = lp_polynomial_vector_at(assumptions, assumptions_i);
-    if (!lp_polynomial_is_constant(assumption)) {
-      if (ctx_trace_enabled(map->nra->ctx, "nra::explain::mgcd")) {
-        ctx_trace_printf(map->nra->ctx, "mgcd[%d] = ", assumptions_i);
-        lp_polynomial_print(assumption, ctx_trace_out(map->nra->ctx));
-        ctx_trace_printf(map->nra->ctx, "\n");
-      }
-      lp_projection_map_add(map, assumption);
-    }
+    lp_projection_map_add(map, assumption);
     lp_polynomial_delete(assumption);
   }
 
@@ -638,9 +740,7 @@ void lp_projection_map_reduce(lp_projection_map_t* map, lp_variable_t x, const l
   for (deg = p_r_deg; deg <= p_deg; ++ deg) {
     // Add the coefficient
     lp_polynomial_get_coefficient(p_coeff, p,  deg);
-    if (!lp_polynomial_is_constant(p_coeff)) {
-      lp_projection_map_add(map, p_coeff);
-    }
+    lp_projection_map_add(map, p_coeff);
   }
 
   // Get the primitive part
