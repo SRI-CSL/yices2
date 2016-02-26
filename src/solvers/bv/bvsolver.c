@@ -3725,7 +3725,6 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (n <= 64) {
     code = check_bvuge64_core(solver, x, y, n);
-
   } else {
     code = check_bvuge_core(solver, x, y, n);
   }
@@ -3819,6 +3818,44 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
 
   return code;
+}
+
+
+/*
+ * Check whether (x >= y) simplifies to (y == x)
+ * - x and y must be roots in the merge table
+ * - returns true if (y >= x) has been asserted as an axiom
+ */
+static bool bvuge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bvatm_t *a;
+  int32_t i;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  i = find_bvuge_atom(&solver->atbl, y, x); // atom (bvuge y x)
+  if (i >= 0) {
+    a = bvatom_desc(&solver->atbl, i);
+    return lit_is_true(solver->core, a->lit); // check wether (bvuge y x) is true 
+  }
+  return false;
+}
+
+
+// same thing for signed comparison
+static bool bvsge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bvatm_t *a;
+  int32_t i;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  i = find_bvsge_atom(&solver->atbl, y, x); // atom (bvsge y x)
+  if (i >= 0) {
+    a = bvatom_desc(&solver->atbl, i);
+    return lit_is_true(solver->core, a->lit); // check wether (bvsge y x) is true 
+  }
+  return false;  
 }
 
 
@@ -5427,7 +5464,7 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 /*
- * Create (bvge x y): no simplification
+ * Create (bvge x y)
  */
 static literal_t bv_solver_make_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
@@ -5706,9 +5743,13 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
    * Rewrite rules:
    * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
    * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
+   *
+   * Also if we already have (bvge y x), we can rewrite (bvge x y) to (bveq x y).
+   * We do this if tt is true or if introducing (bveq x y) may help.
    */
   if (bvvar_is_zero(&solver->vtbl, x) ||
-      bvvar_is_minus_one(&solver->vtbl, y)) {
+      bvvar_is_minus_one(&solver->vtbl, y) ||
+      (tt && bvuge_simplifies_to_bveq(solver, x, y))) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
   } else {
@@ -5758,9 +5799,13 @@ void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool 
    * Rewrite rules:
    * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
    * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
+   *
+   * Also, if we already have (bvsge y x), we can rewrite (bvsge x y) to (bveq x y).
+   * We do this if tt is true or if introducing (bveq x y) may help.   
    */
   if (bvvar_is_min_signed(&solver->vtbl, x) ||
-      bvvar_is_max_signed(&solver->vtbl, y)) {
+      bvvar_is_max_signed(&solver->vtbl, y) ||
+      (tt && bvsge_simplifies_to_bveq(solver, x, y))) {
     bv_solver_assert_eq_axiom(solver, x, y, tt);
 
   } else {

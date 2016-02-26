@@ -400,8 +400,7 @@ version_c := api/yices_$(YICES_MODE)_version.c
 # All auto-generated files
 #
 auto_generated := \
-	$(vesion_c) \
-	api/yices_version.c \
+	$(version_c) \
 	frontend/yices/yices_hash_keywords.h \
 	frontend/smt1/smt_hash_keywords.h \
 	frontend/smt2/smt2_hash_tokens.h \
@@ -563,7 +562,7 @@ else
 ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
   CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
@@ -640,6 +639,18 @@ endif
 # in the configure script. The script sets variable $(NO_STACK_PROTECTOR)
 # properly.
 #
+# Related issue reported by Richard Corden (January 18, 2016)
+# Ubuntu sets -D_FORTIFY_SOURCE=2 by default (to detect buffer overflows
+# and other security issues). This causes link-time issues again:
+#   undefined reference to __longjmp_chk.
+# The fix is to add -U_FORTIFY_SOURCE when we compile on linux
+#
+# To link with google gperftools:
+#  on Linux we add the flag -Wl,--no-as-needed otherwise the profiler
+#  library may not be linked with the binaries. (Because some
+#  Linux distributions set -Wl,--as-needed by default).
+#
+#
 ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -660,7 +671,20 @@ ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
+ifeq ($(YICES_MODE),gperftools)
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+ifeq ($(POSIXOS),linux)
+  LIBS += -Wl,--no-as-needed -lprofiler
+else
+  LIBS += -lprofiler
+endif
+else
+#
+# debug mode
+#
 CFLAGS := $(CFLAGS) -g
+endif
 endif
 endif
 endif
@@ -732,7 +756,7 @@ endif
 # Important: make sure the GMP library is last (if some
 # archives/libraries in NOGMP_LIBS depend on GMP).
 #
-NOGMP_LIBS := $(subst,-lpoly,,$(subst -lgmp,,$(LIBS)))
+NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
 STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 

@@ -61,8 +61,10 @@ This has two effects:
      printing these two terms. Otherwise, it would construct names
      such as ``"t!3"`` and ``"t!4"``.
 
-  2. The symbol table maps the strings ``"x"`` and ``"y"`` to the
-     terms ``x`` and ``y``, respectively.
+  2. The strings ``"x"`` and ``"y"`` can now be used to retrieve the
+     terms ``x`` and ``y``. Yices maintains an internal symbol table
+     that maps strings to terms. Calling :c:func:`yices_set_term_name`
+     adds an entry in this table.
 
 We can now build a more complex term by using constructors such as
 :c:func:`yices_arith_geq0_atom` and :c:func:`yices_and3`::

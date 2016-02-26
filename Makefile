@@ -37,7 +37,7 @@ YICES_TOP_DIR=$(shell pwd)
 #
 MAJOR = 2
 MINOR = 4
-PATCH_LEVEL = 1
+PATCH_LEVEL = 2
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 
@@ -212,7 +212,7 @@ endif
 # Check build mode
 #
 default_mode=release
-allowed_modes=release debug devel profile gcov valgrind purify quantify
+allowed_modes=release debug devel profile gcov valgrind purify quantify gperftools
 MODE ?= $(default_mode)
 
 YICES_MODE := $(filter $(allowed_modes), $(MODE))

@@ -1,5 +1,5 @@
 /*
- * The Yices SMT Solver. Copyright 2014 SRI International.
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
  * This program may only be used subject to the noncommercial end user
  * license agreement which is downloadable along with this program.
@@ -72,7 +72,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      4
-#define __YICES_VERSION_PATCHLEVEL 1
+#define __YICES_VERSION_PATCHLEVEL 2
 
 
 /*
@@ -136,6 +136,50 @@ __YICES_DLLSPEC__ extern void yices_free_string(char *s);
 
 
 
+/***************************
+ * OUT-OF-MEMORY CALLBACK  *
+ **************************/
+
+/*
+ * By default, when Yices runs out of memory, it
+ * first prints an error message on stderr; then it calls
+ * exit(YICES_EXIT_OUT_OF_MEMORY).  This kills the whole process.
+ *
+ * The following function allows you to register a callback to invoke
+ * if Yices runs out of memory.  The callback function takes no
+ * arguments and returns nothing.
+ *
+ * Installing an out-of-memory callback allows you to do something a
+ * bit less brutal than killing the process. If there's a callback,
+ * yices will call it first when it runs out of memory.  The callback
+ * function should not return. If it does, yices will call exit as
+ * previously.
+ *
+ * In other words, the code that handles out-of-memory is as follows:
+ *
+ *   if (callback != NULL) {
+ *     callback();
+ *   } else {
+ *     fprintf(stderr, ...);
+ *   }
+ *   exit(YICES_EXIT_OUT_OF_MEMORY);
+ *
+ *
+ * IMPORTANT
+ * ---------
+ * After Yices runs out of memory, its internal data structures may be
+ * left in an inconsistent/corrupted state. The API is effectively
+ * unusable at this point and nothing can be done to recover cleanly.
+ * Evan a call to yices_exit() may cause a seg fault. The callback
+ * should not try to cleanup anything, or call any function from the API.
+ * 
+ * A plausible use of this callback feature is to implement an
+ * exception mechanism using setjmp/longjmp.
+ */
+__YICES_DLLSPEC__ extern void yices_set_out_of_mem_callback(void (*callback)(void));
+
+
+
 /*********************
  *  ERROR REPORTING  *
  ********************/
@@ -190,45 +234,6 @@ __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
  * yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_error_string(void);
-
-
-
-/*
- * Register a callback function to invoke if Yices runs out of memory.
- * The callback function takes no arguments and returns nothing.
- *
- * By default, there's no callback. When Yices runs out of memory, it
- * first prints an error message on stderr; then it calls
- * exit(YICES_EXIT_OUT_OF_MEMORY).  This kills the whole process.
- *
- * Installing an out-of-memory callback allows you to do
- * something a bit less brutal. If there's a callback,
- * yices will call it first when it runs out of memory.
- * The callback function should not return. If it does,
- * yices will call exit as previously.
- *
- * In other words, the code that handles out-of-memory is as follows:
- *
- *   if (callback != NULL) {
- *     callback();
- *   } else {
- *     fprintf(stderr, ...);
- *   }
- *   exit(YICES_EXIT_OUT_OF_MEMORY);
- *
- *
- * IMPORTANT
- * ---------
- * After Yices runs out of memory, its internal data structures may be
- * left in an inconsistent/corrupted state. The API is effectively
- * unusable at this point and nothing can be done to recover cleanly.
- * Evan a call to yices_exit() may cause a seg fault. The callback
- * should not try to cleanup anything, or call any function from the API.
- * 
- * A plausible use of this callback feature is to implement an
- * exception mechanism using setjmp/longjmp.
- */
-__YICES_DLLSPEC__ extern void yices_set_out_of_mem_callback(void (*callback)(void));
 
 
 
@@ -3258,7 +3263,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
 
 
 /*
- * Value of arithmetic term t: it can be returned as an integer, a
+ * Value of arithmetic term t. The value can be returned as an integer, a
  * rational (pair num/den), converted to a double, or using the GMP
  * mpz_t and mpq_t representations.
  *
@@ -3285,7 +3290,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
  * Value of bitvector term t in mdl
  * - the value is returned in array val
  * - val must be an integer array of sufficient size to store all bits of t
- *   (the number of bits of t can be found yices_term_bitsize).
+ *   (the number of bits of t can be found by calling yices_term_bitsize).
  * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
  * - the value is returned using small-endian convention:
  *    val[0] is the low-order bit
@@ -3391,7 +3396,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  * Vectors of node descriptor: yices_val_expand_function requires
  * a vector as argument. The following functions must be used
  * to initialize, delete, or reset this vector. The conventions
- * are the same as for vectors of terms of types.
+ * are the same as for vectors of terms or types.
  */
 __YICES_DLLSPEC__ extern void yices_init_yval_vector(yval_vector_t *v);
 __YICES_DLLSPEC__ extern void yices_delete_yval_vector(yval_vector_t *v);
@@ -3399,9 +3404,11 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
 
 
 /*
- * Value of term t stored as a node descriptor in *val.
+ * Value of term t as a node descriptor.
  *
  * The function returns 0 it t's value can be computed, -1 otherwise.
+ * If t's value can be compute, the corresponding node descriptor is
+ * returned in *val.
  *
  * Error codes are as in all evaluation functions.
  * If t is not valid:
@@ -3466,7 +3473,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_val_function_arity(model_t *mdl, const y
 
 /*
  * Get the value of a Boolean node v.
- * - returns 0 if there's no error and store the v's value in *val:
+ * - returns 0 if there's no error and store v's value in *val:
  *   *val is either 0 (for false) or 1 (for true).
  * - returns -1 if v does not have tag YVAL_BOOL and sets the error code
  *   to YVAL_INVALID_OP.
@@ -3500,7 +3507,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v
 /*
  * Get the value of a bitvector node:
  * - val must have size at least equal to n = yices_val_bitsize(mdl, v)
- * - v's value is returned in val[0] = low-order bit, ..., val[n-1] = high-order bit
+ * - v's value is returned in val[0] = low-order bit, ..., val[n-1] = high-order bit.
  *   every val[i] is either 0 or 1.
  * - the function returns 0 if v has tag YVAL_BV
  * - it returns -1 if v has another tag and sets the error code to YVAL_INVALID_OP.
@@ -3736,7 +3743,7 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *   mode = YICES_GEN_DEFAULT   ---> automatically choose the mode
  *                                   depending on the variables to eliminate
  *
- * Any value other that these is interpreted the same as YICES_GEN_DEFAULT
+ * Any value other than these is interpreted the same as YICES_GEN_DEFAULT
  */
 
 /*
