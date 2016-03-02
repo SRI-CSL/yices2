@@ -107,7 +107,7 @@ static inline uint32_t random_uint(sat_solver_t *s, uint32_t n) {
 
 /*
  * Capacity increase for literal buffers:
- * - about 50% increase rounded up to mutliple of four
+ * - about 50% increase rounded up to a multiple of four
  */
 static inline uint32_t lbuffer_cap_increase(uint32_t cap) {
   return ((cap >> 1) + 8) & ~3;
@@ -734,7 +734,7 @@ static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t 
 
 /*
  * Find the next clause, scanning from index i
- * - i may be the start of a clause or of a padding block
+ * - i may be the start of a clause or a padding block
  * - if there's no more clause after i then we return pool->size
  */
 static cidx_t next_clause_index(const clause_pool_t *pool, cidx_t i) {
@@ -975,7 +975,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
 }
 
 /*
- * Extend the heap for n more variables
+ * Extend the heap to n variables
  */
 static void extend_heap(var_heap_t *heap, uint32_t n) {
   uint32_t old_size, i;
@@ -1168,8 +1168,6 @@ static bvar_t heap_get_top(var_heap_t *heap) {
 
 /*
  * Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD
- * \param heap = pointer to a heap structure
- * \param n = number of variables
  */
 static void rescale_var_activities(var_heap_t *heap) {
   uint32_t i, n;
@@ -1184,7 +1182,7 @@ static void rescale_var_activities(var_heap_t *heap) {
 }
 
 /*
- * Increase activity <of variable x
+ * Increase the activity of variable x
  */
 static void increase_var_activity(var_heap_t *heap, bvar_t x) {
   int32_t i;
@@ -2056,7 +2054,7 @@ static void prepare_watch_vectors(sat_solver_t *solver, cidx_t base_idx) {
  * high-order bit in the clause's length to 1.
  *
  * This is safe since a clause can't have more than MAX_VARIABLES literals
- * and MAX_VARIABLES < 2^31;
+ * and MAX_VARIABLES < 2^31.
  */
 #define CLAUSE_MARK (((uint32_t) 1) << 31)
 
@@ -2245,7 +2243,8 @@ static bool clause_is_locked(const sat_solver_t *solver, cidx_t cidx) {
 
 /*
  * Check whether clause cidx should be kept
- * - heuristic: the clause is considered precious if its LDB is 3 or less
+ * - heuristic: the clause is considered precious if its LDB is 4 or less
+ * - this can be changed by setting keep_lbd to something other than 4.
  */
 static bool clause_is_precious(sat_solver_t *solver, cidx_t cidx) {
   uint32_t n, k;
@@ -2258,7 +2257,7 @@ static bool clause_is_precious(sat_solver_t *solver, cidx_t cidx) {
 /*
  * Collect learned clauses indices into solver->cidx_array
  * - initialize the array with size = number of learned clauses
- * - store all clauses that are not locked into the array
+ * - store all clauses that are not locked and not precious into the array
  * - return the number of clauses collected
  */
 static uint32_t collect_learned_clauses(sat_solver_t *solver) {
