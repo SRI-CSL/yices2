@@ -153,7 +153,6 @@ core_src_c := \
 	solvers/bv/bv_vartable.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
-	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
 	solvers/cdcl/smt_core.c \
@@ -343,6 +342,7 @@ extra_src_c := \
 	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
 	solvers/bv/dimacs_printer.c \
+	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
@@ -604,18 +604,14 @@ endif
 CPPFLAGS := -I. -Iinclude $(CPPFLAGS)
 
 #
-# Warning levels
-# in devel mode we get a lot of Warnings about inlined stuff
-# (this is caused by the inlined functions in asserts).
+# 2016/03/03: changed warning levels: removed -Winline. 
+# It causes a lot of warnings when compiling with gcc
+# (some workarounds are possible but they're not reliable).
 #
-ifeq ($(YICES_MODE),devel)
 CFLAGS += -Wall -Wredundant-decls
-else
-CFLAGS += -Wall -Winline -Wredundant-decls
-endif
 
 #
-# Format string issues on Windows/mingw
+# Format strings issues on Windows/mingw
 #
 ifeq ($(POSIXOS),mingw)
   CFLAGS += -Wno-format
