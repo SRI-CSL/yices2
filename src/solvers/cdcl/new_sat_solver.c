@@ -49,7 +49,7 @@ static void check_all_unmarked(const sat_solver_t *solver);
 #else
 
 /*
- * Place holders: do nothing
+ * Placeholders: do nothing
  */
 static inline void check_clause_pool_counters(const clause_pool_t *pool) { }
 static inline void check_clause_pool_learned_index(const clause_pool_t *pool) { }
@@ -3367,6 +3367,82 @@ static void resolve_conflict(sat_solver_t *solver) {
 
 
 
+/**************************
+ *  MORE SIMPLIFICATIONS  *
+ *************************/
+
+/*
+ * Compute the number of occurrences of all literals
+ * - occ[l] = nunber of problems clauses that contain l
+ */
+static void build_occurrence_counts(sat_solver_t *solver, uint32_t *occ) {
+  uint32_t i, n, nc;
+  cidx_t cidx;
+  watch_t *w;
+  literal_t *cl;
+
+  // binary clauses
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      occ[i] = num_literals_in_watch_vector(w);
+    }
+  }
+
+  // non-binary clauses
+  cidx = clause_pool_first_clause(&solver->pool);
+  nc = solver->pool.learned;
+  while (cidx < nc) {
+    cl = clause_literals(&solver->pool, cidx);
+    n = clause_length(&solver->pool, cidx);
+    for (i=0; i<n; i++) {
+      occ[cl[i]] ++;
+    }
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+}
+
+
+/*
+ * Experiment: compute occurrence counts and print stuff
+ */
+static void show_occurrence_counts(sat_solver_t *solver) {
+  uint32_t *occ;
+  uint32_t i, n, pp, nn;
+  uint32_t pures, elims, maybes;
+
+  n = solver->nliterals;
+  occ = (uint32_t *) safe_malloc(n * sizeof(literal_t));
+  for (i=0; i<n; i++) {
+    occ[i] = 0;
+  }
+
+  build_occurrence_counts(solver, occ);
+
+  pures = 0;
+  elims = 0;
+  maybes = 0;
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    pp = occ[pos(i)];
+    nn = occ[neg(i)]; 
+    if (pp == 0 || nn == 0) {
+      pures ++;
+    } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
+      elims ++;
+    } else if (pp <= 10 || nn <= 10) {
+      maybes ++;
+    }
+  }
+
+  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals, %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n", 
+	  pures, elims, maybes, solver->nvars);
+
+  safe_free(occ);
+}
+
+
 
 /*****************************
  *  MAIN SOLVING PROCEDURES  *
@@ -3636,6 +3712,8 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     // number of propagations before next call to simplify_clause_database
     solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;
   }
+
+  show_occurrence_counts(solver);
 
   /*
    * Counter for report status
