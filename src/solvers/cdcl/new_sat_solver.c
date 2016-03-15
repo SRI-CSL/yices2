@@ -63,6 +63,39 @@ static inline void check_all_unmarked(const sat_solver_t *solver) {}
 #endif
 
 
+/*
+ * Crude implementation: get statistics on every conflict
+ */
+#define CONFLICT_STATS 0
+
+#if CONFLICT_STATS
+
+static FILE *stat_file = NULL;
+
+static void open_stat_file(void) {
+  stat_file = fopen("conflict_stats.txt", "w");
+}
+
+static void close_stat_file(void) {
+  if (stat_file != NULL) {
+    fclose(stat_file);
+  }
+}
+
+static void export_conflict_stat(uint32_t ldb, uint32_t clevel, uint32_t blevel, uint64_t slow_ema, uint64_t fast_ema, uint64_t blocking_ema) {
+  double slow, fast, blocking;
+
+  if (stat_file != NULL) {
+    slow = (double)slow_ema/4.3e9;
+    fast = (double)fast_ema/4.3e9;
+    blocking = (double)blocking_ema/4.3e9;
+    fprintf(stat_file, "%"PRIu32",%"PRIu32",%"PRIu32",%f,%f,%f\n", ldb, clevel, blevel, slow, fast, blocking); 
+  }
+}
+
+
+#endif
+
 
 /**********
  *  PRNG  *
@@ -3336,7 +3369,9 @@ static void resolve_conflict(sat_solver_t *solver) {
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
+  //  uint32_t clevel;
 
+  //  clevel = solver->decision_level; // before resolving the conflict (used for statistics)
   update_blocking_ema(solver);
   analyze_conflict(solver);
   simplify_learned_clause(solver);
@@ -3363,6 +3398,8 @@ static void resolve_conflict(sat_solver_t *solver) {
     assert(n > 0);
     nsat_solver_add_unit_clause(solver, l);
   }
+
+  //  export_conflict_stat(d, clevel, solver->backtrack_level, solver->slow_ema, solver->fast_ema, solver->blocking_ema);
 }
 
 
@@ -3410,7 +3447,7 @@ static void build_occurrence_counts(sat_solver_t *solver, uint32_t *occ) {
 static void show_occurrence_counts(sat_solver_t *solver) {
   uint32_t *occ;
   uint32_t i, n, pp, nn;
-  uint32_t pures, elims, maybes;
+  uint32_t pures, pospures, elims, maybes;
 
   n = solver->nliterals;
   occ = (uint32_t *) safe_malloc(n * sizeof(literal_t));
@@ -3421,6 +3458,7 @@ static void show_occurrence_counts(sat_solver_t *solver) {
   build_occurrence_counts(solver, occ);
 
   pures = 0;
+  pospures = 0;
   elims = 0;
   maybes = 0;
   n = solver->nvars;
@@ -3428,6 +3466,7 @@ static void show_occurrence_counts(sat_solver_t *solver) {
     pp = occ[pos(i)];
     nn = occ[neg(i)]; 
     if (pp == 0 || nn == 0) {
+      if (pp > 0) pospures ++;
       pures ++;
     } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
       elims ++;
@@ -3436,8 +3475,8 @@ static void show_occurrence_counts(sat_solver_t *solver) {
     }
   }
 
-  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals, %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n", 
-	  pures, elims, maybes, solver->nvars);
+  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
+	  pures, pospures, elims, maybes, solver->nvars);
 
   safe_free(occ);
 }
@@ -3694,6 +3733,8 @@ static uint32_t level0_literals(sat_solver_t *solver) {
 solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   uint32_t i;
 
+  //  open_stat_file();
+
   if (solver->has_empty_clause) {
     solver->status = STAT_UNSAT;
     return STAT_UNSAT;
@@ -3774,6 +3815,8 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   if (verbose) {
     fprintf(stderr, "-------------------------------------------------------------------------------------------------\n\n");
   }
+
+  //  close_stat_file();
 
   return solver->status;
 }
