@@ -10,6 +10,7 @@
 /build
 /profiling
 /distributions
+/bvonly-distributions
 /.gdb_*
 *.fig.bak
 *.gcda
