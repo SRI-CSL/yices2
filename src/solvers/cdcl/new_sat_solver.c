@@ -823,35 +823,37 @@ static inline uint32_t watch_cap_increase(uint32_t cap) {
 }
 
 /*
- * Allocate/extend vector *w:
- * - this makes sure there's room for one more element
+ * Allocate/extend vector v
+ * - this makes sure there's room for k more element
+ * - k should be 1 or 2
+ * Returns v unchanged or the newly allocated/extended v
  */
-static void resize_watch(watch_t **w) {
-  watch_t *v;
+static watch_t *resize_watch(watch_t *v, uint32_t k) {
   uint32_t i, n;
+
+  assert(k <= 2);
   
-  v = *w;
   if (v == NULL) {
     n = DEF_WATCH_CAPACITY;
     v = (watch_t *) safe_malloc(sizeof(watch_t) + n * sizeof(uint32_t));
     v->capacity = n;
     v->size = 0;
-    assert(n >= 1);
-    *w = v;
+    assert(n >= k);
   } else {
     i = v->size;
     n = v->capacity;
-    if (i >= n) {
+    if (i + k > n) {
       n += watch_cap_increase(n);
       if (n > MAX_WATCH_CAPACITY) {
 	out_of_memory();
       }
       v = (watch_t *) safe_realloc(v, sizeof(watch_t) + n * sizeof(uint32_t));
       v->capacity = n;
-      assert(i < n);
-      *w = v;
+      assert(i + k <= n);
     }
   }
+
+  return v;
 }
 
 /*
@@ -863,8 +865,8 @@ static void add_watch(watch_t **w, uint32_t k) {
   watch_t *v;
   uint32_t i;
 
-  resize_watch(w);
-  v = *w;
+  v = resize_watch(*w, 1);
+  *w = v;
   i = v->size;
   assert(i < v->capacity);
   v->data[i] = k;
@@ -875,8 +877,16 @@ static void add_watch(watch_t **w, uint32_t k) {
  * Add two elements k1 and k2 at the end of vector *w
  */
 static void add_watch2(watch_t **w, uint32_t k1, uint32_t k2) {
-  add_watch(w, k1);
-  add_watch(w, k2);
+  watch_t *v;
+  uint32_t i;
+
+  v = resize_watch(*w, 2);
+  *w = v;
+  i = v->size;
+  assert(i + 1 < v->capacity);
+  v->data[i] = k1;
+  v->data[i+1] = k2;
+  v->size = i+2;
 }
 
 /*
