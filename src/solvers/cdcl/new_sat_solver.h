@@ -166,6 +166,7 @@ typedef struct lbuffer_s {
 #define MAX_LBUFFER_SIZE (UINT32_MAX/sizeof(literal_t))
 
 
+
 /****************************************************************
  *  STACK FOR DEPTH-FIRST EXPLORATION OF THE IMPLICATION GRAPH  *
  ***************************************************************/
@@ -181,6 +182,10 @@ typedef struct lbuffer_s {
  * the stack contains a boolean variable var + an index i.
  * - the var is an assigned variable and represents a literal l1 in the graph
  * - the index i is the index of the next antecedents of l1 to explore.
+ *
+ * If l1 is implied by a binary clause { l1, ~l0 } then it has one antecedent 
+ * (of index 0). If l1 is implied by a clause with n literals then if has
+ * n-1 antecedents, indexed from 0 to n-2 (we know n>=3 in this case).
  */
 typedef struct gstack_elem_s {
   bvar_t var;
@@ -535,7 +540,7 @@ typedef struct sat_solver_s {
 
   /*
    * Exponential moving averages for restarts
-   * (based on Evaluating CDCL Restart Schemes by Biere & Froelich, 2015).
+   * (based on "Evaluating CDCL Restart Schemes" by Biere & Froehlich, 2015).
    */
   uint64_t slow_ema;
   uint64_t fast_ema;
@@ -654,20 +659,7 @@ extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
  *   1) it doesn't contain assigned literals (including the reserved 
  *      literals 0 and 1)
  *   2) it doesn't include duplicates or complementary literals
- */
-
-/*
- * The following function take a simplified clause as input
- */
-extern void nsat_solver_add_empty_clause(sat_solver_t *solver);
-extern void nsat_solver_add_unit_clause(sat_solver_t *solver, literal_t l1);
-extern void nsat_solver_add_binary_clause(sat_solver_t *solver, literal_t l1, literal_t l2);
-extern void nsat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l1, literal_t l2, literal_t l3);
-
-// n = size of the clause, l = array of n literals
-extern void nsat_solver_add_clause(sat_solver_t *solver, uint32_t n, const literal_t *l);
-
-/*
+ *
  * This function simplifies the clause then adds it
  * - n = number of literals
  * - l = array of n literals
