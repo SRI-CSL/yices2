@@ -2512,9 +2512,7 @@ static void remove_dead_antecedents(sat_solver_t *solver) {
   for (i=0; i<n; i++) {
     l = solver->stack.lit[i];
     assert(solver->level[var_of(l)] == 0);
-    if (solver->ante_tag[var_of(l)] == ATAG_CLAUSE) {
-      solver->ante_tag[var_of(l)] = ATAG_UNIT;
-    }
+    solver->ante_tag[var_of(l)] = ATAG_UNIT;
   }
 }
 
@@ -3704,13 +3702,17 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     return STAT_UNSAT;
   }
 
+  solver->simplify_bottom = 0;
+  solver->simplify_props = 0;
+  solver->simplify_next = 0;
+
   if (solver->units > 0) {
     nsat_simplify_clause_database(solver);
     solver->simplify_bottom = solver->stack.top;
     solver->simplify_props = solver->stats.propagations;
-    // number of propagations before next call to simplify_clause_database
-    solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;
+    solver->simplify_next = solver->pool.num_prob_literals;   // number of propagations before next call to simplify_clause_database
   }
+
 
   show_occurrence_counts(solver);
 
