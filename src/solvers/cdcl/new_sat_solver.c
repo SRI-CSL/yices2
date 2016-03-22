@@ -1743,43 +1743,38 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
 /*
  * Add the empty clause
  */
-void nsat_solver_add_empty_clause(sat_solver_t *solver) {
+static void add_empty_clause(sat_solver_t *solver) {
   solver->has_empty_clause = true;
 }
 
 
 /*
  * Add unit clause { l }: push l on the assignment stack
- * or add the empty clause if l is already false
  */
-void nsat_solver_add_unit_clause(sat_solver_t *solver, literal_t l) {
-#if TRACE
-  printf("---> Add unit clause: { %"PRIu32" }\n", l);
-#endif
-
-  assert(l < solver->nliterals);
-
-  switch (lit_value(solver, l)) {
-  case BVAL_FALSE:
-    solver->has_empty_clause = true;
-    break;
-  case BVAL_UNDEF_FALSE :
-  case BVAL_UNDEF_TRUE :
-    assign_literal(solver, l);
-    solver->units ++;
-    break;
-  default: // val_true: nothing to do
-    break;
-  }
+static void add_unit_clause(sat_solver_t *solver, literal_t l) {
+  assert(lit_is_unassigned(solver, l));
+  assign_literal(solver, l);
+  solver->units ++;
 }
 
+
 /*
- * Add an n-literal clause when n >= 2
+ * Add clause { l0, l1 }
  */
-static void add_clause_core(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
+static void add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) {
+  solver->binaries ++;
+  add_literal_watch(solver, l0, l1);
+  add_literal_watch(solver, l1, l0);  
+}
+
+
+/*
+ * Add an n-literal clause when n > 2
+ */
+static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
   cidx_t cidx;
 
-  assert(n >= 2);
+  assert(n > 2);
 
 #ifndef NDEBUG
   // check that all literals are valid
@@ -1788,53 +1783,24 @@ static void add_clause_core(sat_solver_t *solver, uint32_t n, const literal_t *l
   }
 #endif
 
-  if (n == 2) {
-    solver->binaries ++;
-    add_literal_watch(solver, lit[0], lit[1]);
-    add_literal_watch(solver, lit[1], lit[0]);
-  } else {
-    cidx = clause_pool_add_problem_clause(&solver->pool, n, lit);
-    add_clause_watch(solver, lit[0], cidx, lit[1]);
-    add_clause_watch(solver, lit[1], cidx, lit[0]);
-  }
-}
-
-
-/*
- * Add clause { l0, l1 }
- */
-void nsat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) {
-  solver->binaries ++;
-  add_literal_watch(solver, l0, l1);
-  add_literal_watch(solver, l1, l0);  
-}
-
-
-/*
- * Add three-literal clause {l0, l1, l2}
- */
-void nsat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, literal_t l2) {
-  literal_t lit[3];
-
-  lit[0] = l0;
-  lit[1] = l1;
-  lit[2] = l2;
-  add_clause_core(solver, 3, lit);
+  cidx = clause_pool_add_problem_clause(&solver->pool, n, lit);
+  add_clause_watch(solver, lit[0], cidx, lit[1]);
+  add_clause_watch(solver, lit[1], cidx, lit[0]);
 }
 
 
 /*
  * Add a clause of n literals
  */
-void nsat_solver_add_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
+static void add_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
   if (n > 2) {
-    add_clause_core(solver, n, lit);
+    add_large_clause(solver, n, lit);
   } else if (n == 2) {
-    nsat_solver_add_binary_clause(solver, lit[0], lit[1]);
+    add_binary_clause(solver, lit[0], lit[1]);
   } else if (n == 1) {
-    nsat_solver_add_unit_clause(solver, lit[0]);
+    add_unit_clause(solver, lit[0]);
   } else {
-    nsat_solver_add_empty_clause(solver);
+    add_empty_clause(solver);
   }
 }
 
@@ -1850,7 +1816,7 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
   literal_t l, l_aux;
 
   if (n == 0) {
-    nsat_solver_add_empty_clause(solver);
+    add_empty_clause(solver);
     return;
   }
 
@@ -1892,7 +1858,7 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
   }
   n = j; // new clause size
 
-  nsat_solver_add_clause(solver, n, lit);
+  add_clause(solver, n, lit);
 }
 
 
@@ -3394,11 +3360,11 @@ static void resolve_conflict(sat_solver_t *solver) {
     cidx = add_learned_clause(solver, n, solver->buffer.data);
     clause_propagation(solver, l, cidx);
   } else if (n == 2) {
-    nsat_solver_add_binary_clause(solver, l, solver->buffer.data[1]);
+    add_binary_clause(solver, l, solver->buffer.data[1]);
     binary_clause_propagation(solver, l, solver->buffer.data[1]);
   } else {
     assert(n > 0);
-    nsat_solver_add_unit_clause(solver, l);
+    add_unit_clause(solver, l);
   }
 
   //  export_conflict_stat(d, clevel, solver->backtrack_level, solver->slow_ema, solver->fast_ema, solver->blocking_ema);
