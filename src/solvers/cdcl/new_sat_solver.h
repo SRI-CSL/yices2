@@ -185,7 +185,7 @@ typedef struct lbuffer_s {
  *
  * If l1 is implied by a binary clause { l1, ~l0 } then it has one antecedent 
  * (of index 0). If l1 is implied by a clause with n literals then if has
- * n-1 antecedents, indexed from 0 to n-2 (we know n>=3 in this case).
+ * n-1 antecedents, indexed from 0 to n-2.
  */
 typedef struct gstack_elem_s {
   bvar_t var;
@@ -300,9 +300,13 @@ typedef uint32_t cidx_t;
  ******************/
 
 /*
- * For a literal l, watch[l] stores index/clauses in which l is a watched
- * literal. The information is stored as a sequence of records, in an
- * integer array.
+ * Watch vectors play two roles.
+ *
+ * 1) During search
+ *
+ * For a literal l, watch[l] stores index/clauses in
+ * which l is a watched literal. The information is stored as a
+ * sequence of records, in an integer array.
  *
  * VERSION 1:
  * - if l is watched literal in a clause cidx of length >= 3, then
@@ -320,6 +324,15 @@ typedef uint32_t cidx_t;
  *   [cidx, l2] where l2 is a blocker. It's a literal that occurs in
  *   the clause. If l2 is true, we don't need to visit the clause
  *   to see that it can't propagate anything.
+ *
+ *
+ * 2) During preprocessing
+ *
+ * Watch[l] stores all the clauses in which l occurs. For all binary
+ * clause {l, l1}, we store l1 in watch[l] and for all clause cidx,
+ * we store cidx. We use the same encoding as explained in VERSION 1 above:
+ * - [cidx] is stored as is: low order bits are 0
+ * - [l1] is stored as (l1 << 1)| 1; low order bit is 1.
  *
  * The watch structure is a vector:
  * - capacity = full length of the data array
@@ -442,6 +455,11 @@ typedef struct solver_stats_s {
  * - propagated from a binary clause
  * - propagated from a non-binary clause
  * + another one for variables not assigned
+ *
+ * If preprocessing is enabled, we also use this tag to keep track of
+ * eliminated variables:
+ * - pure literals
+ * - variables eliminated by resolution
  */
 typedef enum antecedent_tag {
   ATAG_NONE,
@@ -449,6 +467,8 @@ typedef enum antecedent_tag {
   ATAG_DECISION,
   ATAG_BINARY,
   ATAG_CLAUSE,
+  ATAG_PURE,
+  ATAG_ELIM,
 } antecedent_tag_t;
 
 
@@ -486,11 +506,15 @@ typedef enum solver_status {
  * For each literal l, we keep
  * - watch[l] = watch vector for l
  * - value[l] = assigned value
+ *
+ * If preprocessing is enabled:
+ * - occ[l] = number of clauses that contain l
  */
 typedef struct sat_solver_s {
   solver_status_t status;
   uint32_t decision_level;
   uint32_t backtrack_level;
+  bool preprocess;             // True if preprocessing is enabled
   
   /*
    * Variables and literals
@@ -505,9 +529,12 @@ typedef struct sat_solver_s {
   uint32_t *ante_data;
   uint32_t *level;
   watch_t **watch;
+  uint32_t *occ;              // Occurrence counts
 
   var_heap_t heap;            // Variable heap
   sol_stack_t stack;          // Assignment/propagation queue
+
+
 
   /*
    * Clause database and related stuff

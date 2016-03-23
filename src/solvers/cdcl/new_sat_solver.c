@@ -1305,6 +1305,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->status = STAT_UNKNOWN;
   solver->decision_level = 0;
   solver->backtrack_level = 0;
+  solver->preprocess = true;
 
   solver->nvars = 1;
   solver->nliterals = 2;
@@ -1316,6 +1317,13 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->ante_data = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   solver->level = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   solver->watch = (watch_t **) safe_malloc(n * 2 * sizeof(watch_t *));
+
+  solver->occ = NULL;
+  if (solver->preprocess) {
+    solver->occ = (uint32_t *) safe_malloc(n * 2 * sizeof(uint32_t)); // one counter per literal
+    solver->occ[0] = 0;  // for literal 0 = true
+    solver->occ[1] = 0;  // for literal 1 = false
+  }
 
   // variable 0: true
   solver->value[0] = BVAL_TRUE;
@@ -1372,6 +1380,10 @@ void delete_nsat_solver(sat_solver_t *solver) {
   safe_free(solver->level);
   delete_watch_vectors(solver->watch, solver->nliterals);
   safe_free(solver->watch);
+
+  if (solver->preprocess) {
+    safe_free(solver->occ);
+  }
 
   solver->value = NULL;
   solver->ante_tag = NULL;
@@ -1496,6 +1508,10 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   solver->level = (uint32_t *) safe_realloc(solver->level, new_size * sizeof(uint32_t));
   solver->watch = (watch_t **) safe_realloc(solver->watch, new_size * 2 * sizeof(watch_t *));
 
+  if (solver->preprocess) {
+    solver->occ = (uint32_t *) safe_realloc(solver->occ, new_size * 2 * sizeof(uint32_t));
+  }
+
   extend_heap(&solver->heap, new_size);
   extend_stack(&solver->stack, new_size);
 }
@@ -1524,7 +1540,6 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
   }
 
   for (i=solver->nvars; i<nv; i++) {
-    //    solver->value[i] = BVAL_UNDEF_FALSE; // default preferrence
     solver->value[pos(i)] = BVAL_UNDEF_FALSE;
     solver->value[neg(i)] = BVAL_UNDEF_TRUE;
     solver->ante_tag[i] = ATAG_NONE;
@@ -1532,6 +1547,13 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     solver->level[i] = UINT32_MAX;
     solver->watch[pos(i)] = NULL;
     solver->watch[neg(i)] = NULL;
+  }
+
+  if (solver->preprocess) {
+    for (i=solver->nvars; i<nv; i++) {
+      solver->occ[pos(i)] = 0;
+      solver->occ[neg(i)] = 0;
+    }
   }
 
   solver->nvars = nv;
@@ -1601,6 +1623,21 @@ static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t ci
 static inline void add_literal_watch(sat_solver_t *solver, literal_t l, literal_t l1) {
   assert(l < solver->nliterals);
   add_watch(solver->watch + l, lit2idx(l1));
+}
+
+
+/*
+ * All clause index cidx in the watch vectors of literals lit[0 ... n-1]
+ */
+static void add_clause_all_watch(sat_solver_t *solver, uint32_t n, const literal_t *lit, cidx_t cidx) {
+  uint32_t i;
+  literal_t l;
+
+  for (i=0; i<n; i++) {
+    l = lit[i];
+    assert(l < solver->nliterals);
+    add_watch(solver->watch + l, cidx);
+  }
 }
 
 
@@ -1736,6 +1773,23 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
 
 
 
+/***********************
+ *  OCCURRENCE COUNTS  *
+ **********************/
+
+/*
+ * Scan clause stored in lit[0 ... n-1] and increase occurrence counts
+ * for these literals.
+ */
+static void increase_occurrence_counts(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    solver->occ[lit[i]] ++;
+  }
+}
+
+
 /**********************
  *  CLAUSE ADDITION   *
  *********************/
@@ -1770,6 +1824,8 @@ static void add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) 
 
 /*
  * Add an n-literal clause when n > 2
+ * - if solver->preprocess is true, add the new clause to all occurrence lists
+ * - otherwise, pick lit[0] and lit[1] as watch literals
  */
 static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
   cidx_t cidx;
@@ -1784,23 +1840,11 @@ static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *
 #endif
 
   cidx = clause_pool_add_problem_clause(&solver->pool, n, lit);
-  add_clause_watch(solver, lit[0], cidx, lit[1]);
-  add_clause_watch(solver, lit[1], cidx, lit[0]);
-}
-
-
-/*
- * Add a clause of n literals
- */
-static void add_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
-  if (n > 2) {
-    add_large_clause(solver, n, lit);
-  } else if (n == 2) {
-    add_binary_clause(solver, lit[0], lit[1]);
-  } else if (n == 1) {
-    add_unit_clause(solver, lit[0]);
+  if (solver->preprocess) {
+    add_clause_all_watch(solver, n, lit, cidx);
   } else {
-    add_empty_clause(solver);
+    add_clause_watch(solver, lit[0], cidx, lit[1]);
+    add_clause_watch(solver, lit[1], cidx, lit[0]);
   }
 }
 
@@ -1858,7 +1902,23 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
   }
   n = j; // new clause size
 
-  add_clause(solver, n, lit);
+
+  /*
+   * Add the clause lit[0 ... n-1]
+   */
+  if (n == 0) {
+    add_empty_clause(solver);
+  } else if (n == 1) {
+    add_unit_clause(solver, lit[0]);
+  } else if (n == 2) {
+    add_binary_clause(solver, lit[0], lit[1]);
+  } else {
+    add_large_clause(solver, n, lit);
+  }
+
+  if (solver->preprocess) {
+    increase_occurrence_counts(solver, n, lit);
+  }
 }
 
 
@@ -2121,7 +2181,7 @@ static void clause_pool_move_clause(clause_pool_t *pool, cidx_t dst_idx, cidx_t 
  */
 static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
   clause_pool_t *pool;
-  uint32_t n, end;
+  uint32_t k, n, end;
   cidx_t i;
 
   pool = &solver->pool;
@@ -2130,7 +2190,7 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
 
   i = cidx;
   end = pool->learned;
-  for (;;) {
+  for (k=0; k<2; k++) {
     /*
      * First iteration: deal with problem clauses (or do nothing)
      * Second iteration: deal with learned clauses.
@@ -2157,18 +2217,18 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
 	cidx += full_length(n);;
       }      
     }
-    if (end == pool->learned) {
-      end = pool->size;
+    if (k == 0) {
+      assert(end == pool->learned);
       if (i < pool->learned) {
 	pool->learned = i;
       }
-    } else {
-      assert(end == pool->size);
-      pool->size = i;
-      pool->available = pool->capacity - i;
-      break;
+      end = pool->size; // prepare for next iteration
     }
   }
+
+  assert(end == pool->size);
+  pool->size = i;
+  pool->available = pool->capacity - i;
 
   assert(clause_pool_invariant(pool));
 
@@ -2460,7 +2520,6 @@ static uint32_t count_binary_clauses(sat_solver_t *solver) {
 }
 
 
-
 /*
  * Simplify the clause that starts at cidx:
  * - remove all literals that are false at the base level
@@ -2563,6 +2622,104 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
   check_watch_vectors(solver);
 }
 
+
+
+/*******************
+ *  PREPROCESSING  *
+ ******************/
+
+ /*
+ * Experiment: print stuff
+ */
+static void show_occurrence_counts(sat_solver_t *solver) {
+  uint32_t i, n, pp, nn;
+  uint32_t pures, pospures, elims, maybes;
+
+  pures = 0;
+  pospures = 0;
+  elims = 0;
+  maybes = 0;
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    pp = solver->occ[pos(i)];
+    nn = solver->occ[neg(i)]; 
+    if (pp == 0 || nn == 0) {
+      if (pp > 0) pospures ++;
+      pures ++;
+    } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
+      elims ++;
+    } else if (pp <= 10 || nn <= 10) {
+      maybes ++;
+    }
+  }
+
+  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
+	  pures, pospures, elims, maybes, solver->nvars);
+
+}
+
+
+/*
+ * END OF PREPROCESSING
+ */
+
+/*
+ * Cleanup watch vector w after preprocessing: remove all clauses indices
+ * keep all literals.
+ */
+static void watch_vector_remove_all_clauses(watch_t *w) {
+  uint32_t i, j, k, n;
+
+  assert(w != NULL);
+  n = w->size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (idx_is_literal(k)) {
+      w->data[j] = k;
+      j ++;
+    }
+  }
+  w->size = j;  
+}
+
+/*
+ * Cleanup all the watch vectors
+ */
+static void remove_clauses_from_watch_vectors(sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      watch_vector_remove_all_clauses(w);
+      // TODO? shrink/free w
+    }
+  }
+}
+
+static void prepare_for_search(sat_solver_t *solver) {
+  check_clause_pool_counters(&solver->pool);      // DEBUG
+  remove_clauses_from_watch_vectors(solver);
+  compact_clause_pool(solver, 0);
+  check_clause_pool_counters(&solver->pool);
+  restore_watch_vectors(solver, 0);
+}
+
+
+/*
+ * On entry to preprocess:
+ * - watch[l] contains all clauses/binary clauses in which l occurs
+ * - occ[l] = number of occurrences of l
+ *
+ * Unit clauses are stored implicitly in the propagation queue.
+ */
+static void nsat_preprocess(sat_solver_t *solver) {
+  show_occurrence_counts(solver);
+  prepare_for_search(solver);
+}
 
 
 /**************************
@@ -3027,42 +3184,6 @@ static void analyze_conflict(sat_solver_t *solver) {
  * CLAUSE SIMPLIFICATION
  */
 
-#if 0
-/*
- * Bloom filter to accelerate checks for subsumption.
- * - the signature is a hash of all the decision literals in the learned clause
- *   (excluding the implied literal). 
- * - if literal l has a decision level not in this hash then it can't be
- *   subsumed by other literals in the learned clause.
- *
- */
-static inline uint64_t hash_level(uint32_t level) {
-  return ((uint64_t) 1) << (level & 63);
-}
-
-static uint64_t learned_clause_hash(sat_solver_t *solver) {
-  uint64_t s;
-  uint32_t i, n;
-
-  s = 0;
-  n = solver->buffer.size;
-  for (i=1; i<n; i++) {
-    s |= hash_level(d_level(solver, solver->buffer.data[i]));
-  }
-  return s;
-}
-
-/*
- * Check whether the decision level of l matches the hash
- * - if this is true, l's decision level may be the same 
- *   as one of the learned-clause literals.
- */
-static inline bool check_level_hash(sat_solver_t *solver, literal_t l, uint64_t hash) {
-  return (hash & hash_level(d_level(solver, l))) != 0;
-}
-
-#endif
-
 /*
  * Check whether literal l is redundant (can be removed from the learned clause)
  * - l must be a literal in the learned clause
@@ -3370,83 +3491,6 @@ static void resolve_conflict(sat_solver_t *solver) {
 
 
 
-/**************************
- *  MORE SIMPLIFICATIONS  *
- *************************/
-
-/*
- * Compute the number of occurrences of all literals
- * - occ[l] = nunber of problems clauses that contain l
- */
-static void build_occurrence_counts(sat_solver_t *solver, uint32_t *occ) {
-  uint32_t i, n, nc;
-  cidx_t cidx;
-  watch_t *w;
-  literal_t *cl;
-
-  // binary clauses
-  n = solver->nliterals;
-  for (i=2; i<n; i++) {
-    w = solver->watch[i];
-    if (w != NULL) {
-      occ[i] = num_literals_in_watch_vector(w);
-    }
-  }
-
-  // non-binary clauses
-  cidx = clause_pool_first_clause(&solver->pool);
-  nc = solver->pool.learned;
-  while (cidx < nc) {
-    cl = clause_literals(&solver->pool, cidx);
-    n = clause_length(&solver->pool, cidx);
-    for (i=0; i<n; i++) {
-      occ[cl[i]] ++;
-    }
-    cidx = clause_pool_next_clause(&solver->pool, cidx);
-  }
-}
-
-
-/*
- * Experiment: compute occurrence counts and print stuff
- */
-static void show_occurrence_counts(sat_solver_t *solver) {
-  uint32_t *occ;
-  uint32_t i, n, pp, nn;
-  uint32_t pures, pospures, elims, maybes;
-
-  n = solver->nliterals;
-  occ = (uint32_t *) safe_malloc(n * sizeof(literal_t));
-  for (i=0; i<n; i++) {
-    occ[i] = 0;
-  }
-
-  build_occurrence_counts(solver, occ);
-
-  pures = 0;
-  pospures = 0;
-  elims = 0;
-  maybes = 0;
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    pp = occ[pos(i)];
-    nn = occ[neg(i)]; 
-    if (pp == 0 || nn == 0) {
-      if (pp > 0) pospures ++;
-      pures ++;
-    } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
-      elims ++;
-    } else if (pp <= 10 || nn <= 10) {
-      maybes ++;
-    }
-  }
-
-  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
-	  pures, pospures, elims, maybes, solver->nvars);
-
-  safe_free(occ);
-}
-
 
 
 /*****************************
@@ -3569,32 +3613,27 @@ static bool glucose_restart(sat_solver_t *solver) {
  * - we pick l := pos(x) then check whether value[l] is 0b00 or 0b01
  * - in the first case, the preferred value for l is false so we return not(l)
  */
-#if 1
 static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
   literal_t l;
 
   assert(is_unassigned_val(var_value(solver, x)));
 
   l = pos(x);
-  // set value[l] is either 0 or 1
-  // We keep l if value[l] = 1. We flitp to not(l) = l ^ 1 if value[l] = 0
-  l ^= (1 ^ solver->value[l]);
+  /*
+   * Since l is not assigned, value[l] is either BVAL_UNDEF_FALSE (i.e., 0) 
+   * or BVAL_UNDEF_TRUE (i.e., 1).
+   *
+   * We return l if value[l] = BVAL_UNDEF_TRUE = 1. 
+   * We return not(l) if value[l] = BVAL_UNDEF_FALSE = 0.
+   * Since not(l) is l^1, the returned value is (l ^ 1 ^ value[l]).
+   */
+  l ^= 1 ^ solver->value[l];
   assert((var_prefers_true(solver, x) && l == pos(x)) ||
 	 (!var_prefers_true(solver, x) && l == neg(x)));
 
   return l;
 }
-#else
-static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
-  literal_t l;
 
-  l = neg(x);
-  if (var_prefers_true(solver, x)) {
-    l = not(l);
-  }
-  return l;
-}
-#endif
 
 /*
  * Search until we get sat/unsat or we restart
@@ -3705,17 +3744,21 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     solver->status = STAT_UNSAT;
     return STAT_UNSAT;
   }
-  
-  nsat_boolean_propagation(solver);
-  if (solver->conflict_tag != CTAG_NONE) {
-    solver->status = STAT_UNSAT;
-    return STAT_UNSAT;
-  }
 
   solver->simplify_bottom = 0;
   solver->simplify_props = 0;
   solver->simplify_next = 0;
 
+  if (solver->preprocess) {
+    nsat_preprocess(solver);
+  } 
+
+  // Poor-man's preprocessing
+  nsat_boolean_propagation(solver);
+  if (solver->conflict_tag != CTAG_NONE) {
+    solver->status = STAT_UNSAT;
+    return STAT_UNSAT;
+  }
   if (solver->units > 0) {
     nsat_simplify_clause_database(solver);
     solver->simplify_bottom = solver->stack.top;
@@ -3723,8 +3766,6 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     solver->simplify_next = solver->pool.num_prob_literals;   // number of propagations before next call to simplify_clause_database
   }
 
-
-  show_occurrence_counts(solver);
 
   /*
    * Counter for report status
