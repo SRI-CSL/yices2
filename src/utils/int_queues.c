@@ -117,7 +117,8 @@ void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
  * Return first element and remove it
  */
 int32_t int_queue_pop(int_queue_t *q) {
-  int32_t h, x;
+  uint32_t h;
+  int32_t x;
 
   assert(q->head != q->tail);
 

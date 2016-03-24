@@ -167,6 +167,34 @@ typedef struct lbuffer_s {
 
 
 
+/*******************
+ *  LITERAL QUEUE  *
+ ******************/
+
+/*
+ * This is a circular buffer:
+ * - data = array to store the literasl
+ * - capacity = size of this array
+ * - head, tail = indices between 0 and capacity - 1
+ *
+ * If head = tail, the queue is empty.
+ * If head < tail, the queue's content is data[head ... tail - 1]
+ * If head > tail, the queue's content is data[head, ... size - 1] 
+ * plus data[0 ... tail-1].
+ */
+typedef struct lqueue_s {
+  literal_t *data;
+  uint32_t capacity;
+  uint32_t head;
+  uint32_t tail;
+} lqueue_t;
+
+// Default and maximal size
+#define DEF_LQUEUE_SIZE 64
+#define MAX_LQUEUE_SIZE (UINT32_MAX/sizeof(literal_t))
+
+
+
 /****************************************************************
  *  STACK FOR DEPTH-FIRST EXPLORATION OF THE IMPLICATION GRAPH  *
  ***************************************************************/
@@ -343,13 +371,6 @@ typedef struct watch_s {
   uint32_t size;
   uint32_t data[0]; // real length = capacity
 } watch_t;
-
-
-/*
- * Initial capacity: smallish.
- */
-#define DEF_WATCH_CAPACITY 6
-#define MAX_WATCH_CAPACITY (MAX_ARRAY32_SIZE - 2)
 
 
 
@@ -535,7 +556,6 @@ typedef struct sat_solver_s {
   sol_stack_t stack;          // Assignment/propagation queue
 
 
-
   /*
    * Clause database and related stuff
    * - cla_inc and inv_cla_decay are used for deletion of learned clauses
@@ -596,6 +616,11 @@ typedef struct sat_solver_s {
   lbuffer_t aux;
   gstack_t gstack;
   tag_map_t map;
+
+  /*
+   * Queue of literals for preprocessing (allocated when needed)
+   */
+  lqueue_t queue;
 
 } sat_solver_t;
 

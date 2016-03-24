@@ -213,6 +213,128 @@ static void delete_lbuffer(lbuffer_t *b) {
 }
 
 
+
+/******************
+ * LITERAL QUEUE  *
+ *****************/
+
+/*
+ * Capacity increase: same as for lbuffer
+ */
+static inline uint32_t lqueue_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + 8) & ~3;
+}
+
+/*
+ * Initialize
+ */
+static void init_lqueue(lqueue_t *q) {
+  uint32_t n;
+
+  n = DEF_LQUEUE_SIZE;
+  assert(n <= MAX_LQUEUE_SIZE);
+  q->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  q->capacity = n;
+  q->head = 0;
+  q->tail = 0;
+}
+
+/*
+ * Make the queue bigger
+ */
+static void extend_lqueue(lqueue_t *q) {
+  uint32_t n;
+
+  n = q->capacity + lqueue_cap_increase(q->capacity);
+  assert(n > q->capacity);
+  if (n > MAX_LQUEUE_SIZE) {
+    out_of_memory();
+  }
+  q->data = (literal_t *) safe_realloc(q->data, n * sizeof(literal_t));
+  q->capacity = n;
+}
+
+/*
+ * Add l at the end of the queue
+ */
+static void lqueue_push(lqueue_t *q, literal_t l) {
+  uint32_t i, n, j;
+
+  i = q->tail;
+  q->data[i] = l;
+  i++;
+  if (i == q->capacity) {
+    i = 0;
+  }
+  q->tail = i;
+
+  if (i == q->head) {
+    /*
+     * full queue in q->data[0 ... i-1] + q->data[head .. cap-1].
+     * make the array bigger 
+     * if i>0, shift data[head ... cap - 1] to the end of the new array.
+     */
+    n = q->capacity;    // cap before increase
+    extend_lqueue(q);
+    if (i > 0) {
+      j = q->capacity;
+      do {
+	n --;
+	j --;
+	q->data[j] = q->data[n];
+      } while (n > i);
+      q->head = j;
+    }
+  }
+}
+
+
+/*
+ * Check emptiness
+ */
+static inline bool lqueue_is_empty(lqueue_t *q) {
+  return q->head == q->tail;
+}
+
+
+/*
+ * Remove the first element and return it.
+ * - the queue must not be empty
+ */
+static literal_t lqueue_pop(lqueue_t *q) {
+  literal_t l;
+  uint32_t i;
+
+  assert(! lqueue_is_empty(q));
+
+  i = q->head;
+  l = q->data[i];
+  i ++;
+  q->head = (i < q->capacity) ? i : 0;
+
+  return l;
+}
+
+
+/*
+ * Empty the queue
+ */
+static inline void reset_lqueue(lqueue_t *q) {
+  q->head = 0;
+  q->tail = 0;
+}
+
+
+/*
+ * Delete
+ */
+static void delete_lqueue(lqueue_t *q) {
+  safe_free(q->data);
+  q->data = NULL;
+}
+
+
+
 /*********************************
  *  STACK FOR IMPLICATION GRAPH  *
  ********************************/
@@ -312,6 +434,10 @@ static inline void reset_gstack(gstack_t *gstack) {
 }
 
 
+
+
+
+
 /******************
  *  CLAUSE POOL   *
  *****************/
@@ -360,14 +486,7 @@ static bool clause_pool_invariant(const clause_pool_t *pool) {
  * Global operations
  */
 static void init_clause_pool(clause_pool_t *pool) {
-  uint32_t *tmp;
-
-  tmp = (uint32_t *) malloc(DEF_CLAUSE_POOL_CAPACITY * sizeof(uint32_t));
-  if (tmp == NULL) {
-    out_of_memory();
-  }
-
-  pool->data = tmp;
+  pool->data = (uint32_t *) safe_malloc(DEF_CLAUSE_POOL_CAPACITY * sizeof(uint32_t));
   pool->learned = 0;
   pool->size = 0;
   pool->capacity = DEF_CLAUSE_POOL_CAPACITY;
@@ -383,22 +502,16 @@ static void init_clause_pool(clause_pool_t *pool) {
 
 static void delete_clause_pool(clause_pool_t *pool) {
   assert(clause_pool_invariant(pool));
-  free(pool->data);
+  safe_free(pool->data);
   pool->data = NULL;
 }
 
 static void reset_clause_pool(clause_pool_t *pool) {
-  uint32_t *tmp;
-
   assert(clause_pool_invariant(pool));
 
   if (pool->capacity > RESET_CLAUSE_POOL_CAPACITY) {
-    free(pool->data);
-    tmp = (uint32_t *) malloc(RESET_CLAUSE_POOL_CAPACITY * sizeof(uint32_t));
-    if (tmp == NULL) {
-      out_of_memory();
-    }
-    pool->data = tmp;
+    safe_free(pool->data);
+    pool->data = (uint32_t *) safe_malloc(RESET_CLAUSE_POOL_CAPACITY * sizeof(uint32_t));
     pool->capacity = RESET_CLAUSE_POOL_CAPACITY;
   }
 
@@ -422,7 +535,6 @@ static void reset_clause_pool(clause_pool_t *pool) {
  */
 static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
   uint32_t min_cap, cap, increase;
-  uint32_t *tmp;
 
   assert(clause_pool_invariant(pool));
 
@@ -441,12 +553,7 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
     }
   } while (cap < min_cap);
 
-  tmp = (uint32_t *) realloc(pool->data, cap * sizeof(uint32_t));
-  if (tmp == NULL) {
-    out_of_memory();
-  }
-
-  pool->data = tmp;
+  pool->data = (uint32_t *) safe_realloc(pool->data, cap * sizeof(uint32_t));;
   pool->capacity = cap;
   pool->available = cap - pool->size;
 
@@ -815,6 +922,25 @@ static cidx_t clause_pool_next_clause(const clause_pool_t *pool, cidx_t idx) {
  ****************/
 
 /*
+ * Initial capacity: smallish.
+ *
+ * We set MAX_WATCH_CAPACITY to ensure two properties:
+ * 1) (MAX + watch_cap_increase(MAX)) doesn't overflow for uint32_t.
+ * 2) (sizeof(watch_t) + MAX * sizeof(unit32_t)) doesn't overflow for size_t.
+ *
+ * For condition 1, we need MAX <= 0xAAAAAAA7 = 2863311527.
+ * For condition 2, we need MAX <= (SIZE_MAX/4) - 2.
+ */
+#define DEF_WATCH_CAPACITY 6
+
+#if ((SIZE_MAX/4) - 2) < 2863311527
+#define MAX_WATCH_CAPACITY ((uint32_t) ((SIZE_MAX/4) - 2))
+#else
+#define MAX_WATCH_CAPACITY ((uint32_t) 2863311527)
+#endif
+
+
+/*
  * Capacity increase for watch vectors:
  * - about 50% increase, rounded up to force the increment to be a multiple of four
  */
@@ -823,10 +949,11 @@ static inline uint32_t watch_cap_increase(uint32_t cap) {
 }
 
 /*
- * Allocate/extend vector v
+ * Allocate or extend vector v
  * - this makes sure there's room for k more element
  * - k should be 1 or 2
- * Returns v unchanged or the newly allocated/extended v
+ * Returns v unchanged if v's capacity is large enough.
+ * Returns the newly allocated/extended v otherwise.
  */
 static watch_t *resize_watch(watch_t *v, uint32_t k) {
   uint32_t i, n;
@@ -855,6 +982,35 @@ static watch_t *resize_watch(watch_t *v, uint32_t k) {
 
   return v;
 }
+
+
+/*
+ * Make v smaller if possible.
+ * - v must not be NULL
+ */
+static watch_t *shrink_watch(watch_t *v) {
+  uint32_t n, cap;
+
+  assert(v != NULL && v->size <= v->capacity && v->capacity <= MAX_WATCH_CAPACITY);
+
+  n = v->size;
+
+  // search for the minimal capacity >= v->size
+  // since n <= MAX_WATCH_CAPACITY, there's no risk of numerical overflow
+  cap = DEF_WATCH_CAPACITY;
+  while (cap < n) {
+    cap += watch_cap_increase(cap);
+  }
+
+  if (cap < v->capacity) {
+    v = (watch_t *) safe_realloc(v, sizeof(watch_t) + cap * sizeof(uint32_t));
+    v->capacity = cap;
+    assert(v->size <= v->capacity);   
+  }
+
+  return v;
+}
+
 
 /*
  * Add k at the end of vector *w.
@@ -942,8 +1098,8 @@ static void increase_stack_levels(sol_stack_t *s) {
  * Free memory used by stack s
  */
 static void delete_stack(sol_stack_t *s) {
-  free(s->lit);
-  free(s->level_index);
+  safe_free(s->lit);
+  safe_free(s->level_index);
   s->lit = NULL;
   s->level_index = NULL;
 }
@@ -1359,6 +1515,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   init_lbuffer(&solver->aux);
   init_gstack(&solver->gstack);
   init_tag_map(&solver->map, 0); // use default size
+
+  init_lqueue(&solver->queue);
 }
 
 
@@ -1402,6 +1560,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_lbuffer(&solver->aux);
   delete_gstack(&solver->gstack);
   delete_tag_map(&solver->map);
+
+  delete_lqueue(&solver->queue);
 }
 
 
@@ -1440,6 +1600,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_lbuffer(&solver->aux);
   reset_gstack(&solver->gstack);
   clear_tag_map(&solver->map);
+
+  reset_lqueue(&solver->queue);
 }
 
 
@@ -2373,7 +2535,6 @@ static void sort_learned_clauses(sat_solver_t *solver, uint32_t n) {
 static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n, n0;
   cidx_t *a;
-  //  float act_threshold;
 
   n = collect_learned_clauses(solver);
   sort_learned_clauses(solver, n);
@@ -2387,17 +2548,6 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
     clause_pool_delete_clause(&solver->pool, a[i]);
     solver->stats.learned_clauses_deleted ++;
   }
-
-#if 0
-  // in the second half, delete clauses of low activity
-  act_threshold = solver->cla_inc/n;
-  for (i=n0; i<n; i++) {
-    if (get_learned_clause_activity(&solver->pool, a[i]) <= act_threshold) {
-      clause_pool_delete_clause(&solver->pool, a[i]);
-      solver->stats.learned_clauses_deleted ++;
-    }
-  }
-#endif
 
   free_cidx_array(solver);
 
@@ -2655,7 +2805,6 @@ static void show_occurrence_counts(sat_solver_t *solver) {
 
   fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
 	  pures, pospures, elims, maybes, solver->nvars);
-
 }
 
 
@@ -2695,7 +2844,15 @@ static void remove_clauses_from_watch_vectors(sat_solver_t *solver) {
     w = solver->watch[i];
     if (w != NULL) {
       watch_vector_remove_all_clauses(w);
-      // TODO? shrink/free w
+      if (false) {
+	// save space
+	if (w->size == 0) {
+	  safe_free(w);
+	  solver->watch[i] = NULL;
+	} else {
+	  solver->watch[i] = shrink_watch(w);
+	}
+      }
     }
   }
 }
@@ -2704,7 +2861,7 @@ static void prepare_for_search(sat_solver_t *solver) {
   check_clause_pool_counters(&solver->pool);      // DEBUG
   remove_clauses_from_watch_vectors(solver);
   compact_clause_pool(solver, 0);
-  check_clause_pool_counters(&solver->pool);
+  check_clause_pool_counters(&solver->pool);      // DEBUG
   restore_watch_vectors(solver, 0);
 }
 
@@ -2718,8 +2875,11 @@ static void prepare_for_search(sat_solver_t *solver) {
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   show_occurrence_counts(solver);
+  assert(lqueue_is_empty(&solver->queue));
+
   prepare_for_search(solver);
 }
+
 
 
 /**************************
