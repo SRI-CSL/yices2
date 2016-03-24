@@ -193,6 +193,8 @@ static literal_t read_literal(reader_t *reader, int32_t nv) {
 
 /*
  * Read DIMACS instance from filename and construct a solver
+ * - pp true means build the solver for preprocessing
+ * - pp false means disable preprocessing (this is the default)
  * returns 0 if no error occurred.
  * -1 means file could not be opened.
  * -2 means bad format in the input file.
@@ -200,7 +202,7 @@ static literal_t read_literal(reader_t *reader, int32_t nv) {
 #define OPEN_ERROR -1
 #define FORMAT_ERROR -2
 
-static int build_instance(char *filename) {
+static int build_instance(char *filename, bool pp) {
   int n, x, c_idx, l_idx, literal;
   reader_t reader;
   char pline[200];
@@ -237,7 +239,7 @@ static int build_instance(char *filename) {
   }
 
   /* initialize solver for nvars */
-  init_nsat_solver(&solver, nvars + 1);
+  init_nsat_solver(&solver, nvars + 1, pp);
   nsat_solver_add_vars(&solver, nvars);
 
   /* now read clauses and translate them */
@@ -287,6 +289,7 @@ static int build_instance(char *filename) {
  * - input_filename = name of the input file
  * - verbose = true for verbose output
  * - model = true for produce model (if SAT)
+ * - preprocess = true to enable preprocessing
  * - seed_given = true if a seed is given on the command line
  *   seed_value = value of the seed
  * - stats = true for printing statistics
@@ -294,15 +297,17 @@ static int build_instance(char *filename) {
 static char *input_filename = NULL;
 static bool verbose;
 static bool model;
+static bool preprocess;
 static bool seed_given;
-static uint32_t seed_value;
 static bool stats;
+static uint32_t seed_value;
 
 enum {
   version_flag,
   help_flag,
   verbose_flag,
   model_flag,
+  preprocess_flag,
   seed_opt,
   stats_flag,
 };
@@ -314,6 +319,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
+  { "preprocess", 'p', FLAG_OPTION, preprocess_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
 };
@@ -337,11 +343,13 @@ static void print_version(FILE *f) {
 static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Option summary:\n"
-         "   --version, -V        Show version and exit\n"
-         "   --help, -h           Print this message and exit\n"
-         "   --model, -m          Show a model if the problem is satisfiable\n"
-         "   --verbose, -v        Verbose mode\n"
-	 "   --stats              Print statistics at the end of the search\n"
+         "   --version, -V           Show version and exit\n"
+         "   --help, -h              Print this message and exit\n"
+         "   --model, -m             Show a model if the problem is satisfiable\n"
+         "   --verbose, -v           Verbose mode\n"
+	 "   --preprocess, -p        Use preprocessing\n"
+	 "   --seed=<int>, -s <int>  Set the prng seed\n"
+	 "   --stats                 Print statistics at the end of the search\n"
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -370,6 +378,7 @@ static void parse_command_line(int argc, char *argv[]) {
   verbose = false;
   seed_given = false;
   stats = false;
+  preprocess = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -399,13 +408,17 @@ static void parse_command_line(int argc, char *argv[]) {
         print_help(parser.command_name);
         exit(YICES_EXIT_SUCCESS);
 
+      case verbose_flag:
+        verbose = true;
+        break;
+
       case model_flag:
         model = true;
         break;
 
-      case verbose_flag:
-        verbose = true;
-        break;
+      case preprocess_flag:
+	preprocess = true;
+	break;
 
       case seed_opt:
         seed_given = true;
@@ -571,12 +584,13 @@ int main(int argc, char* argv[]) {
 #if INSTRUMENT_CLAUSES
   FILE *stats;
 #endif
+  uint32_t verb;
   int resu;
 
   parse_command_line(argc, argv);
 
   alloc_buffer(200);
-  resu = build_instance(input_filename);
+  resu = build_instance(input_filename, preprocess);
   delete_buffer();
 
   if (resu == OPEN_ERROR) {
@@ -594,10 +608,13 @@ int main(int argc, char* argv[]) {
       nsat_solver_set_seed(&solver, seed_value);
     }
 
+    verb = verbose ? 2 : stats ? 1 : 0;
+    nsat_solver_set_verbosity(&solver, verb);
+
     init_handler();
     nsat_set_randomness(&solver, 0); // overwrite the default
     nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
-    (void) nsat_solve(&solver, verbose);
+    (void) nsat_solve(&solver);
     print_results();
     if (model) {
       print_model();

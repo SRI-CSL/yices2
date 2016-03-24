@@ -1447,10 +1447,12 @@ static void init_stats(solver_stats_t *stat) {
 /*
  * Initialization:
  * - sz = initial size of the variable-indexed arrays.
+ * - pp = flag to enable preprocessing
+ *
  * - if sz is zero, the default size is used.
  * - the solver is initialized with one variable (the reserved variable 0).
  */
-void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
+void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   uint32_t n;
 
   if (sz > MAX_VARIABLES) {
@@ -1466,7 +1468,9 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz) {
   solver->status = STAT_UNKNOWN;
   solver->decision_level = 0;
   solver->backtrack_level = 0;
-  solver->preprocess = true;
+  solver->preprocess = pp;
+
+  solver->verbosity = 0;
 
   solver->nvars = 1;
   solver->nliterals = 2;
@@ -1532,6 +1536,12 @@ void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed) {
   solver->prng = seed;
 }
 
+/*
+ * Set the verbosity level
+ */
+void nsat_solver_set_verbosity(sat_solver_t *solver, uint32_t level) {
+  solver->verbosity = level;
+}
 
 /*
  * Free memory
@@ -2813,8 +2823,12 @@ static void show_occurrence_counts(sat_solver_t *solver) {
     }
   }
 
-  fprintf(stderr, "Occurrence statistics: %"PRIu32" unused vars, %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
-	  unused, pure, pospure, elims, maybes, solver->nvars);
+  fprintf(stderr, "Before preprocessing\n");
+  fprintf(stderr, "unused vars          : %"PRIu32"\n", unused);
+  fprintf(stderr, "pure literals        : %"PRIu32" (%"PRIu32" positive)\n", pure, pospure);
+  fprintf(stderr, "cheap elims          : %"PRIu32"\n", elims);
+  fprintf(stderr, "maybe elims          : %"PRIu32"\n", maybes);
+  fprintf(stderr, "others               : %"PRIu32"\n\n", solver->nvars - (unused + pure + elims + maybes));
 }
 
 
@@ -3032,17 +3046,39 @@ static void pp_visit_clauses_of_lit(sat_solver_t *solver, literal_t l) {
  */
 static void collect_unit_and_pure_literals(sat_solver_t *solver) {
   uint32_t i, n;
-
+  uint32_t pos_occ, neg_occ;
+  
   assert(lqueue_is_empty(&solver->queue));
 
-  n = solver->nliterals;
-  for (i=2; i<n; i++) {
-    if (lit_is_true(solver, i)) {
-      assert(solver->ante_tag[var_of(i)] == ATAG_UNIT);
-      lqueue_push(&solver->queue, i);
-      solver->stats.pp_unit_lits ++;
-    } else if (lit_is_pure(solver, i)) {
-      pp_push_pure_literal(solver, i);
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    switch (var_value(solver, i)) {
+    case BVAL_TRUE:
+      assert(solver->ante_tag[i] == ATAG_UNIT);
+      lqueue_push(&solver->queue, pos(i));
+      solver->stats.pp_unit_lits ++;      
+      break;
+
+    case BVAL_FALSE:
+      assert(solver->ante_tag[i] == ATAG_UNIT);
+      lqueue_push(&solver->queue, neg(i));
+      solver->stats.pp_unit_lits ++;      
+      break;
+
+    default:
+      pos_occ = solver->occ[pos(i)];
+      neg_occ = solver->occ[neg(i)];
+      /*
+       * if i doesn't occur at all then both pos_occ/neg_occ are zero.
+       * we still record neg(i) as a pure literal in this case to force
+       * i to be assigned.
+       */
+      if (pos_occ == 0) {
+	pp_push_pure_literal(solver, neg(i));
+      } else if (neg_occ == 0) {
+	pp_push_pure_literal(solver, pos(i));
+      }
+      break;
     }
   }
 }
@@ -3210,13 +3246,17 @@ static void prepare_for_search(sat_solver_t *solver) {
  * - the watch vectors are ready for solving
  */
 static void nsat_preprocess(sat_solver_t *solver) {
-  show_occurrence_counts(solver);
+  if (solver->verbosity >= 1) {
+    show_occurrence_counts(solver);
+  }
   collect_unit_and_pure_literals(solver);
   pp_empty_queue(solver);
   if (! solver->has_empty_clause) {
     prepare_for_search(solver);
   }
-  show_preprocessing_stats(solver);
+  if (solver->verbosity >= 1) {
+    show_preprocessing_stats(solver);
+  }
 }
 
 
@@ -4115,7 +4155,7 @@ static bool glucose_restart(sat_solver_t *solver) {
 static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
   literal_t l;
 
-  assert(is_unassigned_val(var_value(solver, x)));
+  assert(var_is_unassigned(solver, x));
 
   l = pos(x);
   /*
@@ -4234,7 +4274,7 @@ static uint32_t level0_literals(sat_solver_t *solver) {
 /*
  * Solving procedure
  */
-solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
+solver_status_t nsat_solve(sat_solver_t *solver) {
   uint32_t i;
 
   //  open_stat_file();
@@ -4246,23 +4286,27 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
 
   solver->simplify_bottom = 0;
   solver->simplify_props = 0;
-  solver->simplify_next = 0;
+  solver->simplify_next = 0;    // number of propagations before next call to simplify_clause_database
 
   if (solver->preprocess) {
     nsat_preprocess(solver);
-  } 
-
-  // Poor-man's preprocessing
-  nsat_boolean_propagation(solver);
-  if (solver->conflict_tag != CTAG_NONE) {
-    solver->status = STAT_UNSAT;
-    return STAT_UNSAT;
-  }
-  if (solver->units > 0) {
-    nsat_simplify_clause_database(solver);
-    solver->simplify_bottom = solver->stack.top;
-    solver->simplify_props = solver->stats.propagations;
-    solver->simplify_next = solver->pool.num_prob_literals;   // number of propagations before next call to simplify_clause_database
+    if (solver->has_empty_clause) {
+      solver->status = STAT_UNSAT;
+      return STAT_UNSAT;
+    }
+  }  else {
+    // One round of propagation + removal of true clauses
+    nsat_boolean_propagation(solver);
+    if (solver->conflict_tag != CTAG_NONE) {
+      solver->status = STAT_UNSAT;
+      return STAT_UNSAT;
+    }
+    if (solver->units > 0) {
+      nsat_simplify_clause_database(solver);
+      solver->simplify_bottom = solver->stack.top;
+      solver->simplify_props = solver->stats.propagations;
+      solver->simplify_next = solver->pool.num_prob_literals; 
+    }
   }
 
 
@@ -4292,7 +4336,7 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
   //  solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
-    if (verbose) {
+    if (solver->verbosity >= 2) {
       report_status(solver, i);
       i ++;
     }
@@ -4322,7 +4366,7 @@ solver_status_t nsat_solve(sat_solver_t *solver, bool verbose) {
     }
   }
 
-  if (verbose) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "-------------------------------------------------------------------------------------------------\n\n");
   }
 
