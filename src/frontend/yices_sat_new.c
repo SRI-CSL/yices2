@@ -504,12 +504,7 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
   fprintf(f, "nb. of unit clauses  : %"PRIu32"\n", sol->units);
   fprintf(f, "nb. of bin clauses   : %"PRIu32"\n", sol->binaries);
   fprintf(f, "nb. of big clauses   : %"PRIu32"\n", sol->pool.num_prob_clauses);
-  fprintf(f, "nb. of assignments   : %"PRIu32"\n", sol->stack.top);
-  fprintf(f, "clause increment     : %g\n", sol->cla_inc);
-  fprintf(f, "inverse clause decay : %g\n", sol->inv_cla_decay);
-  fprintf(f, "var increment        : %g\n", sol->heap.act_increment);
-  fprintf(f, "inverse var decay    : %g\n\n", sol->heap.inv_act_decay);
-
+  fprintf(f, "nb. of assignments   : %"PRIu32"\n\n", sol->stack.top);
 }
 
 

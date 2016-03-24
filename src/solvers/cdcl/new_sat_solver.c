@@ -24,7 +24,7 @@
 /*
  * Set these flags to 1 for debugging and trace
  */
-#define DEBUG 1
+#define DEBUG 0
 #define TRACE 0
 
 
@@ -2790,19 +2790,22 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
  */
 static void show_occurrence_counts(sat_solver_t *solver) {
   uint32_t i, n, pp, nn;
-  uint32_t pures, pospures, elims, maybes;
+  uint32_t unused, pure, pospure, elims, maybes;
 
-  pures = 0;
-  pospures = 0;
+  unused = 0;
+  pure = 0;
+  pospure = 0;
   elims = 0;
   maybes = 0;
   n = solver->nvars;
   for (i=1; i<n; i++) {
     pp = solver->occ[pos(i)];
     nn = solver->occ[neg(i)]; 
-    if (pp == 0 || nn == 0) {
-      if (pp > 0) pospures ++;
-      pures ++;
+    if (pp == 0 && nn == 0) {
+      unused ++;
+    } else if (pp == 0 || nn == 0) {
+      if (pp > 0) pospure ++;
+      pure ++;
     } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
       elims ++;
     } else if (pp <= 10 || nn <= 10) {
@@ -2810,8 +2813,27 @@ static void show_occurrence_counts(sat_solver_t *solver) {
     }
   }
 
-  fprintf(stderr, "Occurrence statistics: %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
-	  pures, pospures, elims, maybes, solver->nvars);
+  fprintf(stderr, "Occurrence statistics: %"PRIu32" unused vars, %"PRIu32" pure literals (%"PRIu32" pos), %"PRIu32" cheap elims, %"PRIu32" maybes, %"PRIu32" variables\n\n", 
+	  unused, pure, pospure, elims, maybes, solver->nvars);
+}
+
+
+/*
+ * Statistics after preprocessing
+ */
+static void show_preprocessing_stats(sat_solver_t *solver) {
+  fprintf(stderr, "After preprocessing\n");
+  fprintf(stderr, "unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
+  fprintf(stderr, "pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
+  fprintf(stderr, "deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
+  fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
+  fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
+  fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
+  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
+
+  if (solver->has_empty_clause) {
+    fprintf(stderr, "found unsat by preprocessing\n\n");
+  }
 }
 
 
@@ -2899,6 +2921,7 @@ static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
     a = clause_literals(&solver->pool, cidx);
     pp_decrement_occ_counts(solver, a, n);
     clause_pool_delete_clause(&solver->pool, cidx);
+    solver->stats.pp_clauses_deleted ++;
   }
 }
 
@@ -2965,6 +2988,7 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
     if (true_clause) {
       pp_decrement_occ_counts(solver, a, j);
       clause_pool_delete_clause(&solver->pool, cidx);
+      solver->stats.pp_clauses_deleted ++;
     } else if (j == 0) {
       add_empty_clause(solver);
       clause_pool_delete_clause(&solver->pool, cidx);
@@ -3183,6 +3207,7 @@ static void prepare_for_search(sat_solver_t *solver) {
  *
  * On exit:
  * - all units and pure literals are removed
+ * - the watch vectors are ready for solving
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   show_occurrence_counts(solver);
@@ -3191,6 +3216,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   if (! solver->has_empty_clause) {
     prepare_for_search(solver);
   }
+  show_preprocessing_stats(solver);
 }
 
 
