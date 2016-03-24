@@ -24,7 +24,7 @@
 /*
  * Set these flags to 1 for debugging and trace
  */
-#define DEBUG 0
+#define DEBUG 1
 #define TRACE 0
 
 
@@ -276,7 +276,9 @@ static void lqueue_push(lqueue_t *q, literal_t l) {
      */
     n = q->capacity;    // cap before increase
     extend_lqueue(q);
-    if (i > 0) {
+    if (i == 0) {
+      q->tail = n;
+    } else {
       j = q->capacity;
       do {
 	n --;
@@ -1426,9 +1428,6 @@ static void cleanup_heap(sat_solver_t *sol) {
  * Initialize a statistics record
  */
 static void init_stats(solver_stats_t *stat) {
-  stat->starts = 0;
-  stat->simplify_calls = 0;
-  stat->reduce_calls = 0;
   stat->decisions = 0;
   stat->random_decisions = 0;
   stat->propagations = 0;
@@ -1436,6 +1435,12 @@ static void init_stats(solver_stats_t *stat) {
   stat->prob_clauses_deleted = 0;
   stat->learned_clauses_deleted = 0;
   stat->subsumed_literals = 0;
+  stat->starts = 0;
+  stat->simplify_calls = 0;
+  stat->reduce_calls = 0;
+  stat->pp_pure_lits = 0;
+  stat->pp_unit_lits = 0;
+  stat->pp_clauses_deleted = 0;
 }
 
 
@@ -1952,6 +1957,7 @@ static void increase_occurrence_counts(sat_solver_t *solver, uint32_t n, const l
 }
 
 
+
 /**********************
  *  CLAUSE ADDITION   *
  *********************/
@@ -1985,14 +1991,15 @@ static void add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) 
 
 
 /*
- * Add an n-literal clause when n > 2
+ * Add an n-literal clause
+ * - n must be at least 2
  * - if solver->preprocess is true, add the new clause to all occurrence lists
  * - otherwise, pick lit[0] and lit[1] as watch literals
  */
 static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *lit) {
   cidx_t cidx;
 
-  assert(n > 2);
+  assert(n >= 2);
 
 #ifndef NDEBUG
   // check that all literals are valid
@@ -2072,7 +2079,7 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
     add_empty_clause(solver);
   } else if (n == 1) {
     add_unit_clause(solver, lit[0]);
-  } else if (n == 2) {
+  } else if (n == 2 && !solver->preprocess) {
     add_binary_clause(solver, lit[0], lit[1]);
   } else {
     add_large_clause(solver, n, lit);
@@ -2809,75 +2816,381 @@ static void show_occurrence_counts(sat_solver_t *solver) {
 
 
 /*
- * END OF PREPROCESSING
+ * QUEUE OF PURE AND UNIT LITERALS
  */
+static inline bool lit_is_pure(const sat_solver_t *solver, literal_t l) {
+  return (solver->occ[l] > 0) & (solver->occ[not(l)] == 0);
+}
 
-/*
- * Cleanup watch vector w after preprocessing: remove all clauses indices
- * keep all literals.
- */
-static void watch_vector_remove_all_clauses(watch_t *w) {
-  uint32_t i, j, k, n;
-
-  assert(w != NULL);
-  n = w->size;
-  j = 0;
-  for (i=0; i<n; i++) {
-    k = w->data[i];
-    if (idx_is_literal(k)) {
-      w->data[j] = k;
-      j ++;
-    }
-  }
-  w->size = j;  
+static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
+  return cidx < pool->size && is_clause_start(pool, cidx);
 }
 
 /*
- * Cleanup all the watch vectors
+ * Push pure or unit literal l into the queue
+ * - l must not be assigned
+ * - the function assigns l to true
+ * - tag = either ATAG_UNIT or ATAG_PURE
  */
-static void remove_clauses_from_watch_vectors(sat_solver_t *solver) {
-  uint32_t i, n;
+static void pp_push_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t tag) {
+  bvar_t v;
+
+  assert(l < solver->nliterals);
+  assert(lit_is_unassigned(solver, l));
+  assert(solver->decision_level == 0);
+  assert(tag == ATAG_UNIT || tag == ATAG_PURE);
+
+  lqueue_push(&solver->queue, l);
+
+  solver->value[l] = BVAL_TRUE;
+  solver->value[not(l)] = BVAL_FALSE;
+
+  v = var_of(not(l));
+  solver->ante_tag[v] = tag;
+  solver->ante_data[v] = 0;
+  solver->level[v] = 0;
+}
+
+static inline void pp_push_pure_literal(sat_solver_t *solver, literal_t l) {
+  pp_push_literal(solver, l, ATAG_PURE);
+  solver->stats.pp_pure_lits ++;
+}
+
+static inline void pp_push_unit_literal(sat_solver_t *solver, literal_t l) {
+  pp_push_literal(solver, l, ATAG_UNIT);
+  solver->stats.pp_unit_lits ++;
+}
+
+
+/*
+ * Decrement the occurrence counter of l.
+ * - if occ[l] goes to zero, add not(l) to the queue as a pure literal (unless
+ *   l is already assigned).
+ */
+static void pp_decrement_occ(sat_solver_t *solver, literal_t l) {
+  assert(solver->occ[l] > 0);
+  solver->occ[l] --;
+  if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && lit_is_unassigned(solver, l)) {    
+    pp_push_pure_literal(solver, not(l));
+  }
+}
+
+/*
+ * Decrement occ counts for all literals in a[0 ... n-1]
+ */
+static void pp_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    pp_decrement_occ(solver, a[i]);
+  }
+}
+
+/*
+ * Delete clause cidx and update occ counts
+ * - if cidx points to a dead clause, do nothing
+ */
+static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *a;
+  uint32_t n;
+ 
+  if (clause_is_live(&solver->pool, cidx)) {
+    n = clause_length(&solver->pool, cidx);
+    a = clause_literals(&solver->pool, cidx);
+    pp_decrement_occ_counts(solver, a, n);
+    clause_pool_delete_clause(&solver->pool, cidx);
+  }
+}
+
+/*
+ * Delete all the clauses that contain l (because l is true)
+ */
+static void pp_remove_true_clauses(sat_solver_t *solver, literal_t l) {
   watch_t *w;
+  uint32_t i, n, k;
+
+  assert(lit_is_true(solver, l));
+
+  w = solver->watch[l];
+  if (w != NULL) {
+    n = w->size;
+    for (i=0; i<n; i++) {
+      k = w->data[i];
+      assert(idx_is_clause(k));
+      pp_remove_clause(solver, k);
+    }
+    // delete w
+    safe_free(w);
+    solver->watch[l] = NULL;
+  }
+}
+
+/*
+ * Visit clause at cidx and remove all assigned literals
+ * - if the clause is dead, do nothing
+ * - if it's true remove it
+ * - otherwise remove all false literals from the clause
+ * - if the result is empty, record this (solver->has_empty_clause := true)
+ * - if the result is a unit clause, push the corresponding literals into the queue
+ */
+static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, j, n;
+  literal_t *a;
+  literal_t l;
+  bool true_clause;
+ 
+  if (clause_is_live(&solver->pool, cidx)) {
+    n = clause_length(&solver->pool, cidx);
+    a = clause_literals(&solver->pool, cidx);
+    true_clause = false;
+
+    j = 0;
+    for (i=0; i<n; i++) {
+      l = a[i];
+      switch (lit_value(solver, l)) {
+      case BVAL_TRUE:
+	true_clause = true; // fall-through intended to keep the occ counts accurate
+      case BVAL_FALSE:
+	assert(solver->occ[l] > 0);
+	solver->occ[l] --;
+	break;
+
+      default:
+	a[j] = l;
+	j ++;
+	break;
+      }
+    }
+
+    if (true_clause) {
+      pp_decrement_occ_counts(solver, a, j);
+      clause_pool_delete_clause(&solver->pool, cidx);
+    } else if (j == 0) {
+      add_empty_clause(solver);
+      clause_pool_delete_clause(&solver->pool, cidx);
+    } else if (j == 1) {
+      pp_push_unit_literal(solver, a[0]);
+      clause_pool_delete_clause(&solver->pool, cidx);
+    } else {
+      clause_pool_shrink_clause(&solver->pool, cidx, j);
+    }
+  }
+}
+
+
+/*
+ * Visit all the clauses that contain l (because l is false)
+ */
+static void pp_visit_clauses_of_lit(sat_solver_t *solver, literal_t l) {
+  watch_t *w;
+  uint32_t i, n, k;
+
+  assert(lit_is_false(solver, l));
+
+  w = solver->watch[l];
+  if (w != NULL) {
+    n = w->size;
+    for (i=0; i<n; i++) {
+      k = w->data[i];
+      assert(idx_is_clause(k));
+      pp_visit_clause(solver, k);
+      if (solver->has_empty_clause) break;
+    }
+    // delete w
+    safe_free(w);
+    solver->watch[l] = NULL;
+  }
+}
+
+
+/*
+ * Initialize the queue: store all unit and pure literals.
+ */
+static void collect_unit_and_pure_literals(sat_solver_t *solver) {
+  uint32_t i, n;
+
+  assert(lqueue_is_empty(&solver->queue));
 
   n = solver->nliterals;
-  for (i=0; i<n; i++) {
-    w = solver->watch[i];
-    if (w != NULL) {
-      watch_vector_remove_all_clauses(w);
-      if (false) {
-	// save space
-	if (w->size == 0) {
-	  safe_free(w);
-	  solver->watch[i] = NULL;
-	} else {
-	  solver->watch[i] = shrink_watch(w);
-	}
+  for (i=2; i<n; i++) {
+    if (lit_is_true(solver, i)) {
+      assert(solver->ante_tag[var_of(i)] == ATAG_UNIT);
+      lqueue_push(&solver->queue, i);
+      solver->stats.pp_unit_lits ++;
+    } else if (lit_is_pure(solver, i)) {
+      pp_push_pure_literal(solver, i);
+    }
+  }
+}
+
+
+/*
+ * Process the queue
+ */
+static void pp_empty_queue(sat_solver_t *solver) {
+  literal_t l;
+
+  while (! lqueue_is_empty(&solver->queue)) {
+    l = lqueue_pop(&solver->queue);
+    assert(lit_is_true(solver, l));
+    assert(solver->ante_tag[var_of(l)] == ATAG_UNIT || 
+	   solver->ante_tag[var_of(l)] == ATAG_PURE);
+    pp_remove_true_clauses(solver, l);
+    if (solver->ante_tag[var_of(l)] == ATAG_UNIT) {
+      pp_visit_clauses_of_lit(solver, not(l));
+      if (solver->has_empty_clause) {
+	reset_lqueue(&solver->queue);
+	break;
       }
     }
   }
 }
 
+
+/*
+ * END OF PREPROCESSING
+ */
+
+/*
+ * Cleanup all the watch vectors
+ */
+static void pp_reset_watch_vectors(sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      w->size = 0;
+    }
+  }
+}
+
+#ifndef NDEBUG
+/*
+ * Check that clause at index cidx has no assigned literals.
+ */
+static bool clause_is_clean(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n;
+  literal_t *a;
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  for (i=0; i<n; i++) {
+    if (lit_is_assigned(solver, a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
+/*
+ * Scan all live clauses in the pool
+ * - remove binary clauses from the pool and move them to the watch vectors
+ * - also compact the pool
+ */
+static void pp_rebuild_watch_vectors(sat_solver_t *solver) {
+  clause_pool_t *pool;
+  uint32_t n;
+  cidx_t i, j;
+  literal_t l1, l2;
+
+  pool = &solver->pool;
+
+  assert(clause_pool_invariant(pool));
+  assert(pool->learned == pool->size && 
+	 pool->num_learned_clauses == 0 && 
+	 pool->num_learned_literals == 0);
+
+  pool->num_prob_clauses = 0;
+  pool->num_prob_literals = 0;
+
+  i = 0;
+  j = 0;
+  while (i < pool->size) {
+    n = pool->data[i];
+    if (n == 0) {
+      // padding block: skip it
+      i += padding_length(pool, i);
+    } else {
+      assert(n >= 2);
+      assert(clause_is_clean(solver, i));
+      l1 = first_literal_of_clause(pool, i);
+      l2 = second_literal_of_clause(pool, i);
+      if (n == 2) {
+	// binary clause
+	add_binary_clause(solver, l1, l2);
+	i += full_length(2);
+      } else {
+	// regular clause at index j
+	if (j < i) {
+	  clause_pool_move_clause(pool, j, i, n);
+	}
+	pool->num_prob_clauses ++;
+	pool->num_prob_literals += n;
+	add_clause_watch(solver, l1, j, l2);
+	add_clause_watch(solver, l2, j, l1);
+	i += full_length(n);
+	j += full_length(n);
+      }
+    }
+  }
+  pool->learned = j;
+  pool->size = j;
+  pool->available = pool->capacity - j;
+
+  assert(clause_pool_invariant(pool));
+}
+
+/*
+ * Shrink watch vectors that are less than 25% full
+ */
+static void shrink_watch_vectors(sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (false && w != NULL && w->capacity >= 100 && w->size < (w->capacity >> 2)) {
+      solver->watch[i] = shrink_watch(w);
+    }
+  }
+}
+
+
 static void prepare_for_search(sat_solver_t *solver) {
   check_clause_pool_counters(&solver->pool);      // DEBUG
-  remove_clauses_from_watch_vectors(solver);
-  compact_clause_pool(solver, 0);
+  solver->units = 0;
+  solver->binaries = 0;
+  reset_stack(&solver->stack);
+  pp_reset_watch_vectors(solver);
+  pp_rebuild_watch_vectors(solver);
+  shrink_watch_vectors(solver);
   check_clause_pool_counters(&solver->pool);      // DEBUG
-  restore_watch_vectors(solver, 0);
+  check_watch_vectors(solver);                    // DEBUG
 }
 
 
 /*
  * On entry to preprocess:
- * - watch[l] contains all clauses/binary clauses in which l occurs
+ * - watch[l] contains all clauses clauses in which l occurs
  * - occ[l] = number of occurrences of l
- *
  * Unit clauses are stored implicitly in the propagation queue.
+ * Binary clauses are stored in the pool.
+ *
+ * On exit:
+ * - all units and pure literals are removed
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   show_occurrence_counts(solver);
-  assert(lqueue_is_empty(&solver->queue));
-
-  prepare_for_search(solver);
+  collect_unit_and_pure_literals(solver);
+  pp_empty_queue(solver);
+  if (! solver->has_empty_clause) {
+    prepare_for_search(solver);
+  }
 }
 
 

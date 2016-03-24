@@ -356,11 +356,9 @@ typedef uint32_t cidx_t;
  *
  * 2) During preprocessing
  *
- * Watch[l] stores all the clauses in which l occurs. For all binary
- * clause {l, l1}, we store l1 in watch[l] and for all clause cidx,
- * we store cidx. We use the same encoding as explained in VERSION 1 above:
- * - [cidx] is stored as is: low order bits are 0
- * - [l1] is stored as (l1 << 1)| 1; low order bit is 1.
+ * Watch[l] stores all the clauses in which l occurs. In this mode,
+ * both binary clauses and larger clauses are stored in the clause pool.
+ * The vector watch[l] contains then an array of clause indices.
  *
  * The watch structure is a vector:
  * - capacity = full length of the data array
@@ -447,19 +445,22 @@ typedef struct var_heap_s {
  * STATISTICS
  */
 typedef struct solver_stats_s {
-  uint32_t starts;             // 1 + number of restarts
-  uint32_t simplify_calls;     // number of calls to simplify_clause_database
-  uint32_t reduce_calls;       // number of calls to reduce_learned_clause_set
-
-  uint64_t decisions;          // number of decisions
-  uint64_t random_decisions;   // number of random decisions
-  uint64_t propagations;       // number of boolean propagations
-  uint64_t conflicts;          // number of conflicts/backtracking
-
+  uint64_t decisions;                // number of decisions
+  uint64_t random_decisions;         // number of random decisions
+  uint64_t propagations;             // number of boolean propagations
+  uint64_t conflicts;                // number of conflicts/backtracking
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
+  uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learne_clause)
 
-  uint64_t subsumed_literals;
+  uint32_t starts;                   // 1 + number of restarts
+  uint32_t simplify_calls;           // number of calls to simplify_clause_database
+  uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
+
+  // Preprocessing statistics
+  uint32_t pp_pure_lits;             // number of pure literals removed
+  uint32_t pp_unit_lits;             // number of unit literals removed
+  uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
 } solver_stats_t;
 
 
