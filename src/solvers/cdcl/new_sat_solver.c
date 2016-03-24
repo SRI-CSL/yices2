@@ -2843,10 +2843,6 @@ static void show_preprocessing_stats(sat_solver_t *solver) {
 /*
  * QUEUE OF PURE AND UNIT LITERALS
  */
-static inline bool lit_is_pure(const sat_solver_t *solver, literal_t l) {
-  return (solver->occ[l] > 0) & (solver->occ[not(l)] == 0);
-}
-
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
   return cidx < pool->size && is_clause_start(pool, cidx);
 }
