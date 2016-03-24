@@ -101,7 +101,7 @@ static inline bool opposite(literal_t l1, literal_t l2) {
   return (l1 ^ l2) == 1;
 }
 
-// true if l has positive polarity (i.e., l = pos_lit(x))
+// true if l has positive polarity (i.e., l = pos(x))
 static inline bool is_pos(literal_t l) {
   return !(l & 1);
 }
@@ -534,6 +534,8 @@ typedef struct sat_solver_s {
   uint32_t decision_level;
   uint32_t backtrack_level;
   bool preprocess;             // True if preprocessing is enabled
+
+  uint32_t verbosity;          // Verbosity level: 0 means quiet
   
   /*
    * Variables and literals
@@ -555,11 +557,16 @@ typedef struct sat_solver_s {
 
 
   /*
-   * Clause database and related stuff
-   * - cla_inc and inv_cla_decay are used for deletion of learned clauses
+   * Clause database and related stuff:
+   *
+   * Default mode:
    * - unit clauses are stored implicitly in the assignment stack
    * - binary clauses are stored implicitly in the watch vectors
    * - all other clauses are in the pool
+   *
+   * Preprocessing mode:
+   * - unit clauses are in the assignment stack
+   * - all other clauses are in the pool (including binary clauses).
    */
   bool has_empty_clause;      // Whether the empty clause was added
   uint32_t units;             // Number of unit clauses
@@ -638,15 +645,29 @@ typedef struct sat_solver_s {
 /*
  * Initialization:
  * - sz = initial size of the variable-indexed arrays.
+ * - pp = whether to use preprocessing
+ *
  * - if sz is zero, the default size is used.
+ * - if pp is true, the solver is initialized for preprocessing,
+ *   otherwise no preprocessing is used.
  * - the solver is initialized with one variable (the reserved variable 0).
+ * - verbosity is 0.
  */
-extern void init_nsat_solver(sat_solver_t *solver, uint32_t sz);
+extern void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp);
 
 /*
  * Set the prng seed
  */
 extern void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
+
+/*
+ * Set the verbosity level
+ * - this determines how much stuff is printed (on stderr) durint the search.
+ * - level == 0 --> print nothing (this is the default)
+ * - level >= 1 --> print statistics about preprocessing
+ * - level >= 2 --> print statistics at every restart
+ */
+extern void nsat_solver_set_verbosity(sat_solver_t *solver, uint32_t level);
 
 /*
  * Deletion: free memory
@@ -669,6 +690,7 @@ extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
  * Allocate a fresh Boolean variable and return its index.
  */
 extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
+
 
 
 
@@ -727,10 +749,9 @@ extern void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n
 
 /*
  * Check satisfiability of the set of clauses
- * - verbose = verbosity flag
  * - result = either STAT_SAT or STAT_UNSAT
  */
-extern solver_status_t nsat_solve(sat_solver_t *solver, bool verbose);
+extern solver_status_t nsat_solve(sat_solver_t *solver);
 
 
 /*
