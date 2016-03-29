@@ -3181,6 +3181,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
   if (m >= n) {
     present = 0;
     negated = 0;
+    k = 0; // prevents GCC warning
 
     for (i=0; i<m; i++) {
       assert(present + negated < n && negated <= 1);
@@ -3249,7 +3250,7 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
     }
   }
 
-  return l;
+  return k;
 }
 
 
