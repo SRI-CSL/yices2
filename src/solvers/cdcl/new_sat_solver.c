@@ -1430,6 +1430,9 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
   stat->pp_clauses_deleted = 0;
+  stat->pp_subsumptions = 0;
+  stat->pp_strengthenings = 0;
+  stat->pp_unit_strengthenings = 0;
 }
 
 
@@ -2784,8 +2787,8 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
  *  PREPROCESSING  *
  ******************/
 
- /*
- * Experiment: print stuff
+/*
+ * Statistics before preprocessing
  */
 static void show_occurrence_counts(sat_solver_t *solver) {
   uint32_t i, n, pp, nn;
@@ -2829,6 +2832,9 @@ static void show_preprocessing_stats(sat_solver_t *solver) {
   fprintf(stderr, "unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
   fprintf(stderr, "pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
   fprintf(stderr, "deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
+  fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
+  fprintf(stderr, "strengthened clauses : %"PRIu32"\n", solver->stats.pp_strengthenings);
+  fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
   fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
@@ -2841,8 +2847,9 @@ static void show_preprocessing_stats(sat_solver_t *solver) {
 
 
 /*
- * QUEUE OF PURE AND UNIT LITERALS
+ * REMOVE PURE AND UNIT LITERALS
  */
+
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
   return cidx < pool->size && is_clause_start(pool, cidx);
 }
@@ -2909,20 +2916,73 @@ static void pp_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t
 
 /*
  * Delete clause cidx and update occ counts
- * - if cidx points to a dead clause, do nothing
  */
 static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
   literal_t *a;
   uint32_t n;
  
-  if (clause_is_live(&solver->pool, cidx)) {
-    n = clause_length(&solver->pool, cidx);
-    a = clause_literals(&solver->pool, cidx);
-    pp_decrement_occ_counts(solver, a, n);
+  assert(clause_is_live(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  pp_decrement_occ_counts(solver, a, n);
+  clause_pool_delete_clause(&solver->pool, cidx);
+  solver->stats.pp_clauses_deleted ++;
+}
+
+/*
+ * Visit clause at cidx and remove all assigned literals
+ * - if the clause is true remove it
+ * - otherwise remove all false literals from the clause
+ * - if the result is empty, record this (solver->has_empty_clause := true)
+ * - if the result is a unit clause, push the corresponding literals into the queue
+ */
+static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, j, n;
+  literal_t *a;
+  literal_t l;
+  bool true_clause;
+ 
+  assert(clause_is_live(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  true_clause = false;
+
+  j = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    switch (lit_value(solver, l)) {
+    case BVAL_TRUE:
+      true_clause = true; // fall-through intended to keep the occ counts accurate
+    case BVAL_FALSE:
+      assert(solver->occ[l] > 0);
+      solver->occ[l] --;
+      break;
+
+    default:
+      a[j] = l;
+      j ++;
+      break;
+    }
+  }
+
+  if (true_clause) {
+    pp_decrement_occ_counts(solver, a, j);
     clause_pool_delete_clause(&solver->pool, cidx);
     solver->stats.pp_clauses_deleted ++;
+  } else if (j == 0) {
+    add_empty_clause(solver);
+    clause_pool_delete_clause(&solver->pool, cidx);
+  } else if (j == 1) {
+    pp_push_unit_literal(solver, a[0]);
+    clause_pool_delete_clause(&solver->pool, cidx);
+  } else {
+    clause_pool_shrink_clause(&solver->pool, cidx, j);
   }
 }
+
+
 
 /*
  * Delete all the clauses that contain l (because l is true)
@@ -2939,64 +2999,13 @@ static void pp_remove_true_clauses(sat_solver_t *solver, literal_t l) {
     for (i=0; i<n; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
-      pp_remove_clause(solver, k);
+      if (clause_is_live(&solver->pool, k)) {
+	pp_remove_clause(solver, k);
+      }
     }
     // delete w
     safe_free(w);
     solver->watch[l] = NULL;
-  }
-}
-
-/*
- * Visit clause at cidx and remove all assigned literals
- * - if the clause is dead, do nothing
- * - if it's true remove it
- * - otherwise remove all false literals from the clause
- * - if the result is empty, record this (solver->has_empty_clause := true)
- * - if the result is a unit clause, push the corresponding literals into the queue
- */
-static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
-  uint32_t i, j, n;
-  literal_t *a;
-  literal_t l;
-  bool true_clause;
- 
-  if (clause_is_live(&solver->pool, cidx)) {
-    n = clause_length(&solver->pool, cidx);
-    a = clause_literals(&solver->pool, cidx);
-    true_clause = false;
-
-    j = 0;
-    for (i=0; i<n; i++) {
-      l = a[i];
-      switch (lit_value(solver, l)) {
-      case BVAL_TRUE:
-	true_clause = true; // fall-through intended to keep the occ counts accurate
-      case BVAL_FALSE:
-	assert(solver->occ[l] > 0);
-	solver->occ[l] --;
-	break;
-
-      default:
-	a[j] = l;
-	j ++;
-	break;
-      }
-    }
-
-    if (true_clause) {
-      pp_decrement_occ_counts(solver, a, j);
-      clause_pool_delete_clause(&solver->pool, cidx);
-      solver->stats.pp_clauses_deleted ++;
-    } else if (j == 0) {
-      add_empty_clause(solver);
-      clause_pool_delete_clause(&solver->pool, cidx);
-    } else if (j == 1) {
-      pp_push_unit_literal(solver, a[0]);
-      clause_pool_delete_clause(&solver->pool, cidx);
-    } else {
-      clause_pool_shrink_clause(&solver->pool, cidx, j);
-    }
   }
 }
 
@@ -3016,14 +3025,17 @@ static void pp_visit_clauses_of_lit(sat_solver_t *solver, literal_t l) {
     for (i=0; i<n; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
-      pp_visit_clause(solver, k);
-      if (solver->has_empty_clause) break;
+      if (clause_is_live(&solver->pool, k)) {
+	pp_visit_clause(solver, k);
+	if (solver->has_empty_clause) break;
+      }
     }
     // delete w
     safe_free(w);
     solver->watch[l] = NULL;
   }
 }
+
 
 
 /*
@@ -3088,6 +3100,212 @@ static void pp_empty_queue(sat_solver_t *solver) {
 	break;
       }
     }
+  }
+}
+
+
+/*
+ * SUBSUMPTION/STRENGTHENING
+ */
+
+/*
+ * Check whether literal l or (not l) occurs in a[0 ... n-1] 
+ * - return code: PRESENT if l occurs
+ *                NEGATED if (not l) occurs
+ *                ABSENT  otherwise
+ */
+typedef enum lit_membership_s {
+  LIT_PRESENT,
+  LIT_NEGATED,
+  LIT_ABSENT,
+} lit_membership_t;
+
+static lit_membership_t literal_membership(literal_t l, uint32_t n, const literal_t *a) {
+  uint32_t i;
+  lit_membership_t code;
+
+  code = LIT_ABSENT;
+  for (i=0; i<n; i++) {
+    if (a[i] == l) {
+      code = LIT_PRESENT;
+      break;
+    }
+    if (opposite(a[i], l)) {
+      code = LIT_NEGATED;
+      break;
+    }
+  }
+
+  return code;
+}
+
+
+/*
+ * Remove the k-th literal from a[0... n-1]
+ */
+static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
+  assert(k < n);
+  n --;
+  while (k < n) {
+    a[k] = a[k+1];
+    k ++;
+  }
+}
+
+
+/*
+ * Check whether clause a[0 ... n-1] subsumes or strengthens clause cidx:
+ * - subsumes means all literals a[0] ... a[n-1] all occur in clause cidx
+ * - strengthens means that all literals a[0] .. a[n-1] but one occur
+ *   in cidx and that (not a[i]) occurs in cidx.
+ *
+ * In the first case, we can remove clause cidx.
+ *
+ * In the second case, we can remove (not a[i]) from clause cidx. This is
+ * subsumption/resolution:
+ * - clause cidx is of the from (A, not a[i], B)
+ * - clause a[0 ... n-1] is of the from (A, a[i]) 
+ * - resolving these two clauses produces (A, B) which subsumes cidx
+ */
+static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, cidx_t cidx) {
+  uint32_t i, k, m, present, negated;
+  literal_t *b;
+
+  assert(clause_is_live(&solver->pool, cidx));
+
+  m = clause_length(&solver->pool, cidx);
+  b = clause_literals(&solver->pool, cidx);
+
+  assert(m >= 2);
+
+  if (m >= n) {
+    present = 0;
+    negated = 0;
+
+    for (i=0; i<m; i++) {
+      assert(present + negated < n && negated <= 1);
+
+      switch (literal_membership(b[i], n, a)) {
+      case LIT_PRESENT:
+	present ++;
+	if (present + negated == n) goto success;
+	break;
+      case LIT_NEGATED:
+	if (negated > 0) goto done;
+	negated ++;
+	k = i; // index of the literal to remove
+	if (present + negated == n) goto success;
+	break;
+      case LIT_ABSENT:
+	break;
+      }      
+    }
+  }
+ done:
+  return;
+
+  
+ success:
+  if (negated > 0) {
+    assert(negated == 1 && k < m);
+    // remove literal b[k] form clause cidx
+    pp_decrement_occ(solver, b[k]);
+    pp_remove_literal(m, k, b);
+    m --;
+    if (m == 1) {
+      pp_push_unit_literal(solver, b[0]);
+      clause_pool_delete_clause(&solver->pool, cidx);
+      solver->stats.pp_unit_strengthenings ++;
+    } else {
+      clause_pool_shrink_clause(&solver->pool, cidx, m);
+      solver->stats.pp_strengthenings ++;
+    }    
+  } else {
+    // remove clause cidx
+    pp_decrement_occ_counts(solver, b, m);
+    clause_pool_delete_clause(&solver->pool, cidx);
+    solver->stats.pp_subsumptions ++;
+  }
+}
+
+
+/*
+ * Variable in a[0 ... n-1] with smallest number of total occurrences
+ */
+static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32_t n) {
+  literal_t k, l;
+  uint32_t i, c;
+
+  assert(n >= 2);
+
+  k = a[0];
+  c = solver->occ[k] + solver->occ[not(k)];
+
+  for (i=1; i<n; i++) {
+    l = a[i];
+    if (solver->occ[l] + solver->occ[not(l)] < c) {
+      c = solver->occ[l] + solver->occ[not(l)];
+      k = l;
+    }
+  }
+
+  return l;
+}
+
+
+/*
+ * Check backward subsumption from clause cidx:
+ * - remove all clauses subsumed by cidx
+ * - also check for strengthening
+ */
+static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
+  literal_t *a;
+  uint32_t i, n, m, k;
+  literal_t key;
+  watch_t *w;
+
+  assert(clause_is_live(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  key = pp_key_literal(solver, a, n);
+
+  w = solver->watch[key];
+  if (w != NULL) {
+    m = w->size;
+    for (i=0; i<m; i++) {
+      k = w->data[i];
+      assert(idx_is_clause(k));
+      if (k != cidx && clause_is_live(&solver->pool, k)) {
+	try_subsumption(solver, n, a, k);
+      }
+    }
+  }
+  w = solver->watch[not(key)];
+  if (w != NULL) {
+    m = w->size;
+    for (i=0; i<m; i++) {
+      k = w->data[i];
+      assert(idx_is_clause(k));
+      if (clause_is_live(&solver->pool, k)) {
+	assert(k != cidx);
+	try_subsumption(solver, n, a, k);
+      }
+    }
+  }
+}
+
+
+/*
+ * Check for subsumption/strengthening (one pass only for testing)
+ */
+static void pp_subsumption(sat_solver_t *solver) {
+  uint32_t cidx;
+
+  cidx = clause_pool_first_clause(&solver->pool);
+  while (cidx < solver->pool.size) {
+    pp_clause_subsumption(solver, cidx);
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
   }
 }
 
@@ -3236,9 +3454,13 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
   collect_unit_and_pure_literals(solver);
   pp_empty_queue(solver);
-  if (! solver->has_empty_clause) {
-    prepare_for_search(solver);
-  }
+  if (solver->has_empty_clause) goto done;
+  pp_subsumption(solver);
+  pp_empty_queue(solver);
+  if (solver->has_empty_clause) goto done;
+  prepare_for_search(solver);
+
+ done:
   if (solver->verbosity >= 1) {
     show_preprocessing_stats(solver);
   }
