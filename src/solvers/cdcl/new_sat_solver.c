@@ -749,6 +749,44 @@ static inline void multiply_learned_clause_activity(clause_pool_t *pool, cidx_t 
 
 
 /*
+ * SIGNATURE/ABSTRACTION OF A CLAUSE
+ */
+
+/*
+ * To accelerate subsumption checking, we keep track of the variables occurring in clause cidx
+ * as a 32-bit vector in the clause's auxiliary data.
+ */
+static inline uint32_t var_signature(bvar_t x) {
+  return 1u << (x & 31u);
+}
+
+static void set_clause_signature(clause_pool_t *pool, cidx_t cidx) {
+  clause_t *c;
+  uint32_t i, w;
+
+  assert(is_problem_clause_idx(pool, cidx));
+
+  w = 0;
+  c = clause_of_idx(pool, cidx);
+  for (i=0; i<c->len; i++) {
+    w |= var_signature(var_of(c->c[i]));
+  }
+  c->aux.d = w;
+}
+
+static inline uint32_t clause_signature(clause_pool_t *pool, cidx_t cidx) {
+  clause_t *c;
+
+  assert(is_problem_clause_idx(pool, cidx));
+
+  c = clause_of_idx(pool, cidx);
+  return c->aux.d;
+}
+
+
+
+
+/*
  * PADDING BLOCKS
  */
 
@@ -2013,6 +2051,7 @@ static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *
   cidx = clause_pool_add_problem_clause(&solver->pool, n, lit);
   if (solver->preprocess) {
     add_clause_all_watch(solver, n, lit, cidx);
+    set_clause_signature(&solver->pool, cidx);
   } else {
     add_clause_watch(solver, lit[0], cidx, lit[1]);
     add_clause_watch(solver, lit[1], cidx, lit[0]);
@@ -2979,6 +3018,7 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
     clause_pool_delete_clause(&solver->pool, cidx);
   } else {
     clause_pool_shrink_clause(&solver->pool, cidx, j);
+    set_clause_signature(&solver->pool, cidx);
   }
 }
 
@@ -3166,19 +3206,22 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
  * - clause cidx is of the from (A, not a[i], B)
  * - clause a[0 ... n-1] is of the from (A, a[i]) 
  * - resolving these two clauses produces (A, B) which subsumes cidx
+ *
+ * - s is the signature of a[0 ... n-1]
  */
-static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, cidx_t cidx) {
-  uint32_t i, k, m, present, negated;
+static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
+  uint32_t i, k, m, q, present, negated;
   literal_t *b;
 
   assert(clause_is_live(&solver->pool, cidx));
 
   m = clause_length(&solver->pool, cidx);
+  q = clause_signature(&solver->pool, cidx);
   b = clause_literals(&solver->pool, cidx);
 
   assert(m >= 2);
 
-  if (m >= n) {
+  if (m >= n && ((~q & s) == 0)) {
     present = 0;
     negated = 0;
     k = 0; // prevents GCC warning
@@ -3219,6 +3262,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       solver->stats.pp_unit_strengthenings ++;
     } else {
       clause_pool_shrink_clause(&solver->pool, cidx, m);
+      set_clause_signature(&solver->pool, cidx);
       solver->stats.pp_strengthenings ++;
     }    
   } else {
@@ -3253,6 +3297,18 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
   return k;
 }
 
+static uint32_t w_len(sat_solver_t *solver, literal_t l) {
+  watch_t *w;
+  uint32_t len;
+
+  len = 0;
+  w = solver->watch[l];
+  if (w != NULL) len += w->size;
+  w = solver->watch[not(l)];
+  if (w != NULL) len += w->size;
+
+  return len;
+}
 
 /*
  * Check backward subsumption from clause cidx:
@@ -3261,38 +3317,54 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
  */
 static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   literal_t *a;
-  uint32_t i, n, m, k;
+  uint32_t i, j, n, m, k, s;
   literal_t key;
   watch_t *w;
 
   assert(clause_is_live(&solver->pool, cidx));
 
   n = clause_length(&solver->pool, cidx);
+  s = clause_signature(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   key = pp_key_literal(solver, a, n);
+
+#if 0
+  fprintf(stderr, "subsumption check: cdix = %"PRIu32", len = %"PRIu32", key = %"PRIu32", occs = %"PRIu32", watch size = %"PRIu32"\n",
+	  cidx, n, key, solver->occ[key] + solver->occ[not(key)], w_len(solver, key));
+#endif
 
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
+    j = 0;
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
-      if (k != cidx && clause_is_live(&solver->pool, k)) {
-	try_subsumption(solver, n, a, k);
+      if (clause_is_live(&solver->pool, k)) {
+	w->data[j] = k;
+	j ++;
+	if (k != cidx) {
+	  try_subsumption(solver, n, a, s, k);
+	}
       }
     }
+    w->size = j;
   }
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
+    j = 0;
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
       if (clause_is_live(&solver->pool, k)) {
 	assert(k != cidx);
-	try_subsumption(solver, n, a, k);
+	w->data[j] = k;
+	j ++;
+	try_subsumption(solver, n, a, s, k);
       }
     }
+    w->size = j;
   }
 }
 
