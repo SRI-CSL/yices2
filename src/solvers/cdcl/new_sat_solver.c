@@ -3148,37 +3148,55 @@ static void pp_empty_queue(sat_solver_t *solver) {
  * SUBSUMPTION/STRENGTHENING
  */
 
+#ifndef NDEBUG
 /*
- * Check whether literal l or (not l) occurs in a[0 ... n-1] 
- * - return code: PRESENT if l occurs
- *                NEGATED if (not l) occurs
- *                ABSENT  otherwise
+ * In preprocessing, all clauses are sorted
  */
-typedef enum lit_membership_s {
-  LIT_PRESENT,
-  LIT_NEGATED,
-  LIT_ABSENT,
-} lit_membership_t;
+static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n;
+  literal_t *a;
 
-static lit_membership_t literal_membership(literal_t l, uint32_t n, const literal_t *a) {
-  uint32_t i;
-  lit_membership_t code;
-
-  code = LIT_ABSENT;
-  for (i=0; i<n; i++) {
-    if (a[i] == l) {
-      code = LIT_PRESENT;
-      break;
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  for (i=1; i<n; i++) {
+    if (a[i-1] >= a[i]) {
+      return false;
     }
-    if (opposite(a[i], l)) {
-      code = LIT_NEGATED;
-      break;
+  }
+  return true;
+}
+
+#endif
+
+/*
+ * Search for variable x in array a[l, ..., m-1]
+ * - a must be sorted in increasing order
+ * - must also have l <= m (also m <= MAX_CLAUSE_SIZE)
+ * - returns m is there's no literal in a with variable x
+ * - returns an index i such that a[i] is pos(x) or neg(x) otherwise
+ */
+static uint32_t pp_search_for_var(bvar_t x, uint32_t l, uint32_t m, const literal_t *a) {
+  uint32_t i, h;
+  bvar_t y;
+
+  assert(l <= m);
+
+  h = m;
+  while (l < h) {
+    i = (l + h) >> 1; // can't overflow since h <= MAX_CLAUSE_SIZE
+    assert(l <= i && i < h);
+    y = var_of(a[i]);
+    if (x == y) return i;
+    if (x < y) {
+      h = i;
+    } else {
+      l = i+1;
     }
   }
 
-  return code;
+  // not found 
+  return m;
 }
-
 
 /*
  * Remove the k-th literal from a[0... n-1]
@@ -3210,10 +3228,11 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
  * - s is the signature of a[0 ... n-1]
  */
 static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
-  uint32_t i, k, m, q, present, negated;
+  uint32_t i, j, k, m, q;
   literal_t *b;
 
   assert(clause_is_live(&solver->pool, cidx));
+  assert(clause_is_sorted(solver, cidx));
 
   m = clause_length(&solver->pool, cidx);
   q = clause_signature(&solver->pool, cidx);
@@ -3221,38 +3240,31 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
 
   assert(m >= 2);
 
-  if (m >= n && ((~q & s) == 0)) {
-    present = 0;
-    negated = 0;
-    k = 0; // prevents GCC warning
+  if (m < n || ((~q & s) != 0)) return;
 
-    for (i=0; i<m; i++) {
-      assert(present + negated < n && negated <= 1);
-
-      switch (literal_membership(b[i], n, a)) {
-      case LIT_PRESENT:
-	present ++;
-	if (present + negated == n) goto success;
-	break;
-      case LIT_NEGATED:
-	if (negated > 0) goto done;
-	negated ++;
-	k = i; // index of the literal to remove
-	if (present + negated == n) goto success;
-	break;
-      case LIT_ABSENT:
-	break;
-      }      
+  k = m;
+  j = 0;
+  /*
+   * in this loop:
+   * - k < m => b[k] = not(a[i0]) for some 0 <= i0 < i
+   * - all literals in of a[0 ... i-1] occur in b,
+   *   except possibly a[i0] which occurs negated.
+   * - all elements of b[0 .. j-1] are < a[i]
+   */
+  for (i=0; i<n; i++) {
+    // search for a[i] or not(a[i]) in array b[j ... m-1]
+    j = pp_search_for_var(var_of(a[i]), j, m, b);
+    if (j == m) return; // a[i] not in cidx
+    assert(b[j] == a[i] || b[j] == not(a[i]));
+    if (a[i] != b[j]) {
+      if (k < m) return;
+      k = j;
     }
+    j ++;
   }
- done:
-  return;
 
-  
- success:
-  if (negated > 0) {
-    assert(negated == 1 && k < m);
-    // remove literal b[k] form clause cidx
+  if (k < m) {
+    // strengthening: remove literal b[k] form clause cidx
     pp_decrement_occ(solver, b[k]);
     pp_remove_literal(m, k, b);
     m --;
@@ -3266,7 +3278,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       solver->stats.pp_strengthenings ++;
     }    
   } else {
-    // remove clause cidx
+    // subsumption: remove clause cidx
     pp_decrement_occ_counts(solver, b, m);
     clause_pool_delete_clause(&solver->pool, cidx);
     solver->stats.pp_subsumptions ++;
@@ -3322,6 +3334,7 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   watch_t *w;
 
   assert(clause_is_live(&solver->pool, cidx));
+  assert(clause_is_sorted(solver, cidx));
 
   n = clause_length(&solver->pool, cidx);
   s = clause_signature(&solver->pool, cidx);
@@ -3407,7 +3420,7 @@ static void pp_reset_watch_vectors(sat_solver_t *solver) {
 /*
  * Check that clause at index cidx has no assigned literals.
  */
-static bool clause_is_clean(sat_solver_t *solver, cidx_t cidx) {
+static bool clause_is_clean(const sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, n;
   literal_t *a;
 
@@ -4537,6 +4550,17 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
 
 
 /*
+ * Statistics: initial numbers of clauses
+ */
+static void show_start_search_stats(sat_solver_t *solver) {
+  fprintf(stderr, "After simplificaiton\n");
+  fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
+  fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);
+  fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
+  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
+}
+
+/*
  * Number of literals assigned at level 0
  * - this is used to decide whether to call simplify_clause_database
  */
@@ -4586,6 +4610,9 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       solver->simplify_bottom = solver->stack.top;
       solver->simplify_props = solver->stats.propagations;
       solver->simplify_next = solver->pool.num_prob_literals; 
+    }
+    if (solver->verbosity >= 1) {
+      show_start_search_stats(solver);
     }
   }
 
