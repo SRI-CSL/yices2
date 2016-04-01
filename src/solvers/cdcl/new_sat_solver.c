@@ -4568,7 +4568,8 @@ static void show_start_search_stats(sat_solver_t *solver) {
   fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
-  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
+  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n", solver->pool.num_prob_clauses);
+  fprintf(stderr, "deleted pb. clauses  : %"PRIu64"\n\n", solver->stats.prob_clauses_deleted);
 }
 
 /*
