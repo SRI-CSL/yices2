@@ -4564,7 +4564,7 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
  * Statistics: initial numbers of clauses
  */
 static void show_start_search_stats(sat_solver_t *solver) {
-  fprintf(stderr, "After simplificaiton\n");
+  fprintf(stderr, "After simplification\n");
   fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
