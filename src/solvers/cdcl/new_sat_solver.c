@@ -16,6 +16,7 @@
 
 #include "solvers/cdcl/new_sat_solver.h"
 #include "solvers/cdcl/sat_parameters.h"
+#include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/uint_array_sort.h"
 #include "utils/uint_array_sort2.h"
@@ -2866,7 +2867,7 @@ static void show_occurrence_counts(sat_solver_t *solver) {
 /*
  * Statistics after preprocessing
  */
-static void show_preprocessing_stats(sat_solver_t *solver) {
+static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "After preprocessing\n");
   fprintf(stderr, "unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
   fprintf(stderr, "pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
@@ -2878,7 +2879,7 @@ static void show_preprocessing_stats(sat_solver_t *solver) {
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
   fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
-
+  fprintf(stderr, "Preprocessing time   : %.4f\n\n", time);
   if (solver->has_empty_clause) {
     fprintf(stderr, "found unsat by preprocessing\n\n");
   }
@@ -3309,6 +3310,7 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
   return k;
 }
 
+#if 0
 static uint32_t w_len(sat_solver_t *solver, literal_t l) {
   watch_t *w;
   uint32_t len;
@@ -3321,6 +3323,7 @@ static uint32_t w_len(sat_solver_t *solver, literal_t l) {
 
   return len;
 }
+#endif
 
 /*
  * Check backward subsumption from clause cidx:
@@ -3535,7 +3538,10 @@ static void prepare_for_search(sat_solver_t *solver) {
  * - the watch vectors are ready for solving
  */
 static void nsat_preprocess(sat_solver_t *solver) {
+  double start, end;
+
   if (solver->verbosity >= 1) {
+    start = get_cpu_time();
     show_occurrence_counts(solver);
   }
   collect_unit_and_pure_literals(solver);
@@ -3548,7 +3554,8 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
  done:
   if (solver->verbosity >= 1) {
-    show_preprocessing_stats(solver);
+    end = get_cpu_time();
+    show_preprocessing_stats(solver, time_diff(end, start));
   }
 }
 
