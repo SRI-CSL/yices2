@@ -2873,7 +2873,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
   fprintf(stderr, "deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
   fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
-  fprintf(stderr, "strengthened clauses : %"PRIu32"\n", solver->stats.pp_strengthenings);
+  fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
   fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
@@ -3151,7 +3151,7 @@ static void pp_empty_queue(sat_solver_t *solver) {
 
 #ifndef NDEBUG
 /*
- * In preprocessing, all clauses are sorted
+ * In preprocessing, all clauses and watch vectors are sorted
  */
 static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, n;
@@ -3164,6 +3164,21 @@ static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
       return false;
     }
   }
+  return true;
+}
+
+static bool watch_vector_is_sorted(const watch_t *w) {
+  uint32_t i, n;
+
+  if (w != NULL) {
+    n = w->size;
+    for (i=1; i<n; i++) {
+      if (w->data[i-1] >= w->data[i]) {
+	return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -3310,6 +3325,7 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
   return k;
 }
 
+
 #if 0
 static uint32_t w_len(sat_solver_t *solver, literal_t l) {
   watch_t *w;
@@ -3366,6 +3382,7 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
     }
     w->size = j;
   }
+
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
@@ -3540,6 +3557,7 @@ static void prepare_for_search(sat_solver_t *solver) {
 static void nsat_preprocess(sat_solver_t *solver) {
   double start, end;
 
+  start = 0.0; // stop GCC warning
   if (solver->verbosity >= 1) {
     start = get_cpu_time();
     show_occurrence_counts(solver);
