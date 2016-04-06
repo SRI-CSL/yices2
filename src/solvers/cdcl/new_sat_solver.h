@@ -629,7 +629,7 @@ typedef struct sat_solver_s {
   tag_map_t map;
 
   /*
-   * Queue of literals for preprocessing (allocated when needed)
+   * Queue of literals for preprocessing
    */
   lqueue_t queue;
 
