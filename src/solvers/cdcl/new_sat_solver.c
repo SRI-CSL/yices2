@@ -3359,7 +3359,7 @@ static uint32_t w_len(sat_solver_t *solver, literal_t l) {
  */
 static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   literal_t *a;
-  uint32_t i, j, n, m, k, s;
+  uint32_t i, n, m, k, s;
   literal_t key;
   watch_t *w;
 
@@ -3379,36 +3379,28 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
-    j = 0;
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
       if (clause_is_live(&solver->pool, k)) {
-	w->data[j] = k;
-	j ++;
 	if (k != cidx) {
 	  try_subsumption(solver, n, a, s, k);
 	}
       }
     }
-    w->size = j;
   }
 
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
-    j = 0;
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
       if (clause_is_live(&solver->pool, k)) {
 	assert(k != cidx);
-	w->data[j] = k;
-	j ++;
 	try_subsumption(solver, n, a, s, k);
       }
     }
-    w->size = j;
   }
 }
 
