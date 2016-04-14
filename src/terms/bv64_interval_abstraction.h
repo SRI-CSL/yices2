@@ -122,7 +122,7 @@ extern bool bv64_abs_nontrivial(bv64_abs_t *a, uint32_t n);
 
 // converse
 static inline bool bv64_abs_trivial(bv64_abs_t *a, uint32_t n) {
-  return !bv64_abs_trivial(a, n);
+  return !bv64_abs_nontrivial(a, n);
 }
 
 
