@@ -147,6 +147,7 @@ core_src_c := \
 	terms/bvlogic_buffers.c \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
+	terms/bv_slices.c \
 	terms/conditionals.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \

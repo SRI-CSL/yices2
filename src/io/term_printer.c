@@ -1475,6 +1475,31 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
 
 
 /*
+ * Array of booleans:
+ * - try to recognize zero/sign extend/extract/concat/shift
+ * - if that fails, prints (bool-to-bv .... )
+ */
+static void pp_bit_array(yices_pp_t *printer, term_table_t *tbl, term_t *a, uint32_t n,  int32_t level) {
+  uint32_t i;
+
+  // TBD: decompose into slice here then print the concatenation of slices
+  // if that fails, use the default below
+
+  pp_open_block(printer, PP_OPEN_BV_ARRAY);
+  for (i=0; i<n; i++) {
+    pp_term_recur(printer, tbl, a[i], level, true);
+  }
+  pp_close_block(printer, true);
+}
+
+static void pp_bvarray_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, int32_t level) {
+  pp_bit_array(printer, tbl, d->arg, d->arity, level);
+}
+
+
+
+
+/*
  * Name for i or (not i)
  */
 static void pp_term_idx_name(yices_pp_t *printer, term_table_t *tbl, int32_t i, bool polarity) {
@@ -1547,7 +1572,6 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case ITE_TERM:
   case DISTINCT_TERM:
   case XOR_TERM:
-  case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
   case BV_SDIV:
@@ -1560,6 +1584,11 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     if (! polarity) pp_open_block(printer, PP_OPEN_NOT);
     pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
     if (! polarity) pp_close_block(printer, true);
+    break;
+
+  case BV_ARRAY:
+    assert(polarity);
+    pp_bvarray_term(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
 
   case BIT_TERM:
