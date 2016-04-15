@@ -897,7 +897,7 @@ $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS) -lc
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
@@ -905,7 +905,7 @@ $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
@@ -928,7 +928,7 @@ $(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
@@ -937,7 +937,7 @@ $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
 	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
@@ -992,7 +992,7 @@ $(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	$(base_obj) $(version_obj) $(LIBS)
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
@@ -1004,7 +1004,7 @@ $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	$(base_obj) $(version_obj) $(PIC_LIBS)
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 

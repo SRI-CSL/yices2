@@ -218,13 +218,11 @@ void bvconstant_set_bitsize(bvconstant_t *b, uint32_t n) {
   if (b->arraysize < k) {
     b->data = (uint32_t *) safe_realloc(b->data, k * sizeof(uint32_t));
     b->arraysize = k;
-#ifndef NDEBUG
     /*
      * To prevent false alarms from valgrind, just make sure it's
      * all initialized.
      */
     bvconst_clear(b->data, k);
-#endif
   }
   b->bitsize = n;
   b->width = k;
