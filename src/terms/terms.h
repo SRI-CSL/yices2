@@ -1312,7 +1312,7 @@ static inline composite_term_t *composite_term_desc(term_table_t *table, term_t 
 }
 
 static inline select_term_t *select_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == SELECT_TERM);
+  assert(term_kind(table, t) == SELECT_TERM || term_kind(table, t) == BIT_TERM);
   return select_for_idx(table, index_of(t));
 }
 
