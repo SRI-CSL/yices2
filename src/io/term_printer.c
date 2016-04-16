@@ -16,6 +16,7 @@
 #include "io/term_printer.h"
 #include "io/type_printer.h"
 #include "terms/bv64_constants.h"
+#include "terms/bv_slices.h"
 
 
 /*
@@ -2212,11 +2213,17 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
  * - if that fails, prints (bool-to-bv .... )
  */
 static void pp_bit_array(yices_pp_t *printer, term_table_t *tbl, term_t *a, uint32_t n,  int32_t level) {
+  bvslicer_t slicer;
   uint32_t i;
 
   // TBD: decompose into slice here then print the concatenation of slices
   // if that fails, use the default below
 
+  // TEST ONLY
+  init_bvslicer(&slicer);
+  slice_bitarray(&slicer, tbl, a, n);
+  delete_bvslicer(&slicer);
+    
   pp_open_block(printer, PP_OPEN_BV_ARRAY);
   for (i=0; i<n; i++) {
     pp_term_recur(printer, tbl, a[i], level, true);
