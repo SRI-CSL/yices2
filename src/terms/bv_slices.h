@@ -28,6 +28,7 @@
 #include <stdbool.h>
 
 #include "terms/terms.h"
+#include "utils/int_vectors.h"
 
 
 /*
@@ -46,10 +47,10 @@ typedef struct bvslice_repeat_s {
   uint32_t count;
 } bvslice_repeat_t;
 
-// [vector [left ... right]]
+// vector [low ... high]
 typedef struct bvslice_extract_s {
   term_t vector;
-  uint32_t left, right;
+  uint32_t low, high;
 } bvslice_extract_t;
 
 // [constants of 64bits or less]
@@ -78,14 +79,16 @@ typedef struct bvslice_s {
 
 /*
  * Vector to represent a concatenation
+ * - also includes an auxiliary vector for intermediate computations
  */
 typedef struct bvslicer_s {
   bvslice_t *data;
   uint32_t nelems;
   uint32_t size; // size of the data array
+  ivector_t buffer;
 } bvslicer_t;
 
-#define DEF_BVSLICER_SIZE 4
+#define DEF_BVSLICER_SIZE 10
 #define MAX_BVSLICER_SIZE (UINT32_MAX/sizeof(bvslice_t))
 
 
@@ -112,9 +115,8 @@ extern void delete_bvslicer(bvslicer_t *slicer);
 /*
  * Process an array of bits a[0 ... n-1]
  * - each element of must be a Boolean term defined in tbl
- * - try to split it into slices and store the result in slicer
+ * - try to split the array into slices and store the result in slicer
  * - returns true if this succeeds, false otherwise
- * - if the function returns false, the slicer is returned empty.
  */
 extern bool slice_bitarray(bvslicer_t *slicer, term_table_t *tbl, const term_t *a, uint32_t n);
 
