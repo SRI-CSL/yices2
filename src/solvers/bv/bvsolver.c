@@ -23,7 +23,7 @@
 
 #define TRACE 0
 
-#define DUMP 1
+#define DUMP 0
 
 #if TRACE || DUMP
 
