@@ -89,7 +89,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 48
+#define NUM_STANDARD_BLOCKS 52
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -115,6 +115,10 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_GE, ">=" },
   { PP_OPEN_LT, "<" },
   { PP_OPEN_BV_ARRAY, "bool-to-bv" },
+  { PP_OPEN_BV_SIGN_EXTEND, "bv-sign-extend" },
+  { PP_OPEN_BV_ZERO_EXTEND, "bv-zero-extend" },
+  { PP_OPEN_BV_EXTRACT, "bv-extract" },
+  { PP_OPEN_BV_CONCAT, "bv-concat" },
   { PP_OPEN_BV_SUM, "bv-add" },
   { PP_OPEN_BV_PROD, "bv-mul" },
   { PP_OPEN_BV_POWER, "bv-pow" },
@@ -288,6 +292,42 @@ static void build_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
   build_bv(b, aux, n);
 }
 
+// bitvector constants 0, 1, and -1: n = number of bits
+static void build_bv_zero(string_buffer_t *b, uint32_t n) {
+  assert(0 < n);
+
+  string_buffer_append_char(b, '0');
+  string_buffer_append_char(b, 'b');
+  do {
+    string_buffer_append_char(b, '0');
+    n --;
+  } while (n > 0);
+}
+
+static void build_bv_one(string_buffer_t *b, uint32_t n) {
+  assert(0 < n);
+
+  string_buffer_append_char(b, '0');
+  string_buffer_append_char(b, 'b');
+  while (n > 1) {
+    string_buffer_append_char(b, '0');
+    n --;
+  }
+  string_buffer_append_char(b, '1');
+}
+
+static void build_bv_minus_one(string_buffer_t *b, uint32_t n) {
+  assert(0 < n);
+
+  string_buffer_append_char(b, '0');
+  string_buffer_append_char(b, 'b');
+  do {
+    string_buffer_append_char(b, '1');
+    n --;
+  } while (n > 0);
+}
+
+// quoted string
 static void build_qstring(string_buffer_t *b, char quote[2], const char *str) {
   if (quote[0] != '\0') {
     string_buffer_append_char(b, quote[0]);
@@ -390,6 +430,18 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_BV_ATOM:
     build_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+  case PP_BV_ZERO_ATOM:
+    build_bv_zero(buffer, atm->data.u32);
+    s = buffer->data;
+    break;
+  case PP_BV_ONE_ATOM:
+    build_bv_one(buffer, atm->data.u32);
+    s = buffer->data;
+    break;
+  case PP_BV_NEGONE_ATOM:
+    build_bv_minus_one(buffer, atm->data.u32);
     s = buffer->data;
     break;
   case PP_QSTRING_ATOM:
@@ -807,6 +859,46 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
   tk = init_atomic_token(&atom->tk, n+2, PP_BV_ATOM);
   atom->data.bv.bv = bv;
   atom->data.bv.nbits = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+
+/*
+ * Bitvector contants: 0, 1, -1
+ */
+void pp_bv_zero(yices_pp_t *printer, uint32_t n) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n);
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n+2, PP_BV_ZERO_ATOM);
+  atom->data.u32 = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+void pp_bv_one(yices_pp_t *printer, uint32_t n) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n);
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n+2, PP_BV_ONE_ATOM);
+  atom->data.u32 = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+void pp_bv_minus_one(yices_pp_t *printer, uint32_t n) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n);
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n+2, PP_BV_NEGONE_ATOM);
+  atom->data.u32 = n;
 
   pp_push_token(&printer->pp, tk);
 }

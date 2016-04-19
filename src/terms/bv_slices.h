@@ -22,6 +22,11 @@
  * - [repeat b k]: repeat the same bit k times
  * - [extract u i j]: subvector of u formed by [u[i] ... u[j]]
  * - [constant x k]: constant of k bits (x = its value)
+ *
+ * The constants 0b00000... and 0b11111... are represented as
+ * repeat patterns:
+ * - 0b0000... ---> [repeat false_term k] for some k
+ * - 0b1111... ---> [repeat true_term k] for some k
  */
 
 #include <stdint.h>
@@ -119,6 +124,28 @@ extern void delete_bvslicer(bvslicer_t *slicer);
  * - returns true if this succeeds, false otherwise
  */
 extern bool slice_bitarray(bvslicer_t *slicer, term_table_t *tbl, const term_t *a, uint32_t n);
+
+
+/*
+ * Check whether slice is of the form [repeat false_term k] or [repeat true_term k]
+ * - if so store k in *r
+ */
+extern bool is_repeat_zero(bvslice_t *d, uint32_t *r);
+extern bool is_repeat_one(bvslice_t *d, uint32_t *r);
+
+
+/*
+ * Check for (bv-zero-extend ...) and (bv-sign-extend ...)
+ * - d = array of n slices
+ * - is_zero_extend(d, n, r) returns true if n>=2 and d[n-1] 
+ *   is of the form [repeat false_term k]
+ *   it then stores k in *r 
+ * - is_sign_extend(tbl, d, n, r) returns true if n>=2 and d[n-1]
+ *   if of the form [repeat b k] and d[n-2] is of the form [extract u i j]
+ *   and b is equal to (bit u j).
+ */
+extern bool is_zero_extend(bvslice_t *d, uint32_t n, uint32_t *r);
+extern bool is_sign_extend(term_table_t *tbl, bvslice_t *d, uint32_t n, uint32_t *r);
 
 
 #endif /* __BV_SLICES_H */
