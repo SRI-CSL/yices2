@@ -280,18 +280,21 @@ static uint32_t get_repeat_prefix(const term_t *a, term_t t, uint32_t i, uint32_
 
 
 /*
- * Scan a[i ... n-1] for terms of the form (bit t k) ... (bit t k+r)
+ * Check whether x is (bit t k)
  */
 static bool is_bit_select(term_table_t *tbl, term_t x, term_t t, term_t k) {
   select_term_t *d;
 
-  if (term_kind(tbl, x) == BIT_TERM) {
+  if (is_pos_term(x) && term_kind(tbl, x) == BIT_TERM) {
     d = bit_term_desc(tbl, x);
     return d->idx == k && d->arg == t;
   }
   return false;
 }
 
+/*
+ * Scan a[i ... n-1] for terms of the form (bit t k) ... (bit t k+r)
+ */
 static uint32_t get_extract_prefix(term_table_t *tbl, const term_t *a, term_t t, uint32_t k, uint32_t i, uint32_t n) {  
   uint32_t j;
 
@@ -351,9 +354,9 @@ static bool get_prefix(bvslicer_t *slicer, term_table_t *tbl, const term_t *a, u
     k = get_extract_prefix(tbl, a, u, l+1, j+1, n);
     if (k > j + 1) {
       // a[j ... k-1] is a slice
-      // a[j] is (bit u l) and a[k-1] is (bit u l+k-j)
+      // a[j] is (bit u l) and a[k-1] is (bit u l+k-j-1)
       *i = k;
-      bvslicer_add_extract(slicer, u, l, l+(k-j));
+      bvslicer_add_extract(slicer, u, l, l+(k-j)-1);
       return true;
     }
   }
@@ -382,3 +385,54 @@ bool slice_bitarray(bvslicer_t *slicer, term_table_t *tbl, const term_t *a, uint
 
   return true;
 }
+
+
+/*
+ * PATTERNS
+ */
+bool is_repeat_zero(bvslice_t *d, uint32_t *r) {
+  if (d->tag == BVSLICE_REPEAT && d->desc.r.bit == false_term) {
+    *r = d->desc.r.count;
+    return true;
+  }
+  return false;
+}
+
+bool is_repeat_one(bvslice_t *d, uint32_t *r) {
+  if (d->tag == BVSLICE_REPEAT && d->desc.r.bit == true_term) {
+    *r = d->desc.r.count;
+    return true;
+  }
+  return false;
+}
+
+/*
+ * Check whether array d[0 ... n-1] looks like a (zero-extend u k). If so
+ * store the extend count k into *r.
+ */
+bool is_zero_extend(bvslice_t *d, uint32_t n, uint32_t *r) {
+  return n >= 2 && is_repeat_zero(d + n-1, r);
+}
+
+
+/*
+ * Check whether d[0 ... n-1] looks like (sign-extend u k). If so,
+ * store the extend count k into *r.
+ */
+bool is_sign_extend(term_table_t *tbl, bvslice_t *d, uint32_t n, uint32_t *r) {
+  term_t u, b;
+  uint32_t j;
+  
+  if (n >= 2 && d[n-2].tag == BVSLICE_EXTRACT && d[n-1].tag == BVSLICE_REPEAT) {
+    u = d[n-2].desc.e.vector;
+    j = d[n-2].desc.e.high; // d[n-2] is (extract u i j) for some i <= j
+    b = d[n-1].desc.r.bit;  // d[n-1] is (repeat b k) for some k)
+    if (is_bit_select(tbl, b, u, j)) {
+      *r = d[n-1].desc.r.count;
+      return true;
+    }
+  }
+
+  return false;
+}
+

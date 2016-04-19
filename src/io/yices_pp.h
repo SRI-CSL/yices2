@@ -46,6 +46,9 @@ typedef enum pp_atom_type {
   PP_RATIONAL_ATOM,   // rational
   PP_BV64_ATOM,       // bitvector constant stored in a 64bit unsigned integer
   PP_BV_ATOM,         // bitvector constant stored in an array of words
+  PP_BV_ZERO_ATOM,    // bitvector constant 0b00...00
+  PP_BV_ONE_ATOM,     // bitvector constant 0b00...01
+  PP_BV_NEGONE_ATOM,  // bitvector constant 0b11...11
   PP_QSTRING_ATOM,    // content = string with open and close quotes
   PP_SMT2_BV64_ATOM,  // like PP_BV64_ATOM but with SMT2 #b prefix
   PP_SMT2_BV_ATOM,    // like PP_BV_ATOM but with SMT2 prefix
@@ -158,6 +161,10 @@ typedef enum {
   PP_OPEN_ROOT_ATOM,
 
   PP_OPEN_BV_ARRAY,
+  PP_OPEN_BV_SIGN_EXTEND,
+  PP_OPEN_BV_ZERO_EXTEND,
+  PP_OPEN_BV_EXTRACT,
+  PP_OPEN_BV_CONCAT,
   PP_OPEN_BV_SUM,
   PP_OPEN_BV_PROD,
   PP_OPEN_BV_POWER,
@@ -348,6 +355,13 @@ extern void pp_rational(yices_pp_t *printer, rational_t *q);
 extern void pp_algebraic(yices_pp_t *printer, void *a);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
+
+/*
+ * Print 0b0...0, 0b0...01, or 0b1...1: n = number of bits
+ */
+extern void pp_bv_zero(yices_pp_t *printer, uint32_t n);
+extern void pp_bv_one(yices_pp_t *printer, uint32_t n);
+extern void pp_bv_minus_one(yices_pp_t *printer, uint32_t n);
 
 
 /*

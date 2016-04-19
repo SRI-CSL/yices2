@@ -1475,28 +1475,116 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
 }
 
 
+
+/*
+ * One slice
+ */
+static void pp_bv_slice(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, int32_t level) {
+  term_t u;
+  uint32_t i, j;
+
+  switch (d->tag) {
+  case BVSLICE_REPEAT:
+    u = d->desc.r.bit;
+    i = d->desc.r.count;
+    assert(i > 0);
+    if (u == false_term) {
+      pp_bv_zero(printer, i);
+    } else if (u == true_term) {
+      pp_bv_minus_one(printer, i);
+    } else {
+      pp_open_block(printer, PP_OPEN_BV_ARRAY);
+      do {
+	pp_term_recur(printer, tbl, u, level, true);
+	i --;
+      } while (i>0);
+      pp_close_block(printer, true);
+    }
+    break;
+
+  case BVSLICE_EXTRACT:
+    u = d->desc.e.vector;
+    i = d->desc.e.low;
+    j = d->desc.e.high;
+    assert(i <= j);
+    if (i == 0 && j == term_bitsize(tbl, u) - 1) {
+      pp_term_recur(printer, tbl, u, level, true);
+    } else {
+      pp_open_block(printer, PP_OPEN_BV_EXTRACT);
+      pp_uint32(printer, i);
+      pp_uint32(printer, j);
+      pp_term_recur(printer, tbl, u, level, true);
+      pp_close_block(printer, true);
+    }
+    break;
+
+  case BVSLICE_CONST64:
+    pp_bv64(printer, d->desc.c64.value, d->desc.c64.nbits);
+    break;
+
+  case BVSLICE_CONST:
+    pp_bv(printer, d->desc.c.value, d->desc.c.nbits);
+    break;
+  }
+}
+
+
+/*
+ * Concatenation of slices
+ * - d[0 ... n-1] = array of n slice descriptors
+ */
+static void pp_bv_slices(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, uint32_t n, int32_t level) {
+  uint32_t i, k;
+
+  if (n == 2 && is_zero_extend(d, n, &k)) {
+    pp_open_block(printer, PP_OPEN_BV_ZERO_EXTEND);
+    pp_bv_slice(printer, tbl, d, level);
+    pp_uint32(printer, k);
+    pp_close_block(printer, true);
+    return;
+  }
+  
+  if (n == 2 && is_sign_extend(tbl, d, n, &k)) {
+    pp_open_block(printer, PP_OPEN_BV_SIGN_EXTEND);
+    pp_bv_slice(printer, tbl, d, level);
+    pp_uint32(printer, k);
+    pp_close_block(printer, true);
+    return;
+  }
+
+  if (n == 1) {
+    pp_bv_slice(printer, tbl, d, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_BV_CONCAT);
+    for (i=0; i<n; i++) {
+      pp_bv_slice(printer, tbl, d + i, level);
+    }
+    pp_close_block(printer, true);
+  }
+}
+
+
 /*
  * Array of booleans:
- * - try to recognize zero/sign extend/extract/concat/shift
+ * - try to recognize zero/sign extend/extract/concat
  * - if that fails, prints (bool-to-bv .... )
  */
 static void pp_bit_array(yices_pp_t *printer, term_table_t *tbl, term_t *a, uint32_t n,  int32_t level) {
   bvslicer_t slicer;
   uint32_t i;
 
-  // TBD: decompose into slice here then print the concatenation of slices
-  // if that fails, use the default below
-
-  // TEST ONLY
+  // decompose into slices then print the concatenation of slices
   init_bvslicer(&slicer);
-  slice_bitarray(&slicer, tbl, a, n);
-  delete_bvslicer(&slicer);
-    
-  pp_open_block(printer, PP_OPEN_BV_ARRAY);
-  for (i=0; i<n; i++) {
-    pp_term_recur(printer, tbl, a[i], level, true);
+  if (slice_bitarray(&slicer, tbl, a, n)) {
+    pp_bv_slices(printer, tbl, slicer.data, slicer.nelems, level);
+  } else {    
+    pp_open_block(printer, PP_OPEN_BV_ARRAY);
+    for (i=0; i<n; i++) {
+      pp_term_recur(printer, tbl, a[i], level, true);
+    }
+    pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);
+  delete_bvslicer(&slicer);
 }
 
 static void pp_bvarray_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, int32_t level) {
