@@ -109,8 +109,8 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
 
-  smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  smt_process(core, max_conflicts);
+  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -126,7 +126,7 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
       smt_final_check(core);
     } else {
       decide_literal(core, l);
-      smt_process(core);
+      smt_process(core, max_conflicts);
     }
   }
 
@@ -160,8 +160,8 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
 
-  smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  smt_process(core, max_conflicts);
+  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -180,7 +180,7 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
       l = branch(core, l);
       // propagation
       decide_literal(core, l);
-      smt_process(core);
+      smt_process(core, max_conflicts);
     }
   }
 
@@ -252,14 +252,27 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
 static void solve(smt_core_t *core, const param_t *params) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t reduce_threshold;
+  uint32_t u, v;
 
   assert(smt_status(core) == STATUS_IDLE);
 
+#if 0
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
   if (params->fast_restart) {
     d_threshold = params->d_threshold;
   }
+#endif
+
+  /*
+   * Restart strategy: Luby sequence
+   */
+#if 1
+  u = 1;
+  v = 1;
+  //  threshold = LUBY_INTERVAL;
+  c_threshold = 10;
+#endif
 
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
   if (reduce_threshold < params->r_threshold) {
@@ -299,6 +312,20 @@ static void solve(smt_core_t *core, const param_t *params) {
       smt_restart(core);
       //      smt_partial_restart_var(core);
 
+#if 1
+      // Luby sequence
+      if ((u & -u) == v) {
+	u ++;
+	v = 1;
+      } else {
+	v <<= 1;
+      }
+      c_threshold = v * 10;
+
+      trace_restart(core);
+#endif
+
+#if 0
       // inner restart: increase c_threshold
       c_threshold = (uint32_t) (c_threshold * params->c_factor);
 
@@ -314,6 +341,8 @@ static void solve(smt_core_t *core, const param_t *params) {
       } else {
 	trace_inner_restart(core);
       }
+#endif
+
     }
   }
 
@@ -389,7 +418,7 @@ smt_status_t precheck_context(context_t *ctx) {
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
     start_search(core);
-    smt_process(core);
+    smt_process(core, 100);
     stat = smt_status(core);
 
     assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||

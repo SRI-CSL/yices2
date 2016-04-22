@@ -5594,6 +5594,7 @@ void stop_search(smt_core_t *s) {
 
 /*
  * Main solving function.
+ * - max_conflicts: stop when we reach that number of conflicts
  *
  * It executes the following loop:
  * 1) if lemmas are present, integrate them to the clause database
@@ -5601,10 +5602,10 @@ void stop_search(smt_core_t *s) {
  * 3) if a conflict is found, resolve that conflict otherwise
  *    exit the loop
  */
-void smt_process(smt_core_t *s) {
+void smt_process(smt_core_t *s, uint32_t max_conflicts) {
   while (s->status == STATUS_SEARCHING) {
     if (s->inconsistent) {
-      resolve_conflict(s);
+      resolve_conflict(s);      
       if (s->inconsistent) {
         // conflict could not be resolved: unsat problem
         // the lemma queue may be non-empty so we must clear it here
@@ -5614,6 +5615,13 @@ void smt_process(smt_core_t *s) {
       // decay activities after every conflict
       s->cla_inc *= s->inv_cla_decay;
       s->heap.act_increment *= s->heap.inv_act_decay;
+
+      //      fprintf(stderr, "--> num_conflicts = %"PRIu32"\n", num_conflicts(s));
+      //      fflush(stderr);
+      
+      if (num_conflicts(s) >= max_conflicts) {
+	return;
+      }
 
     } else if (s->cp_flag) {
       delete_irrelevant_variables(s);
@@ -5662,7 +5670,7 @@ void smt_final_check(smt_core_t *s) {
        * deal with conflicts or lemmas if any.
        * leave status as it is so that the search can proceed
        */
-      smt_process(s);
+      smt_process(s, UINT32_MAX);
       break;
       /*
        * Otherwise: update status to stop the search

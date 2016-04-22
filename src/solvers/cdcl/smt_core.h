@@ -1694,6 +1694,7 @@ extern void smt_checkpoint(smt_core_t *s);
  *       change status to UNSAT and exit
  *     else
  *       decay variable and clause activities
+ *       if we have at least max_conflicts (total) exit
  *     endif
  *   elsif checkpoint-based garbage collection is possible
  *     do the garbage collection
@@ -1711,7 +1712,7 @@ extern void smt_checkpoint(smt_core_t *s);
  * end repeat
  *
  */
-extern void smt_process(smt_core_t *s);
+extern void smt_process(smt_core_t *s, uint32_t max_conflicts);
 
 
 /*

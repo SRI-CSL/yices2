@@ -1971,7 +1971,7 @@ static void unsupported_option(void) {
 static void init_smt2_context(smt2_globals_t *g) {
   assert(g->logic_code == QF_BV);
 
-  g->ctx = yices_create_context(QF_BV, CTX_ARCH_BV, CTX_MODE_PUSHPOP, false, false);
+  g->ctx = yices_create_context(QF_BV, CTX_ARCH_BV, CTX_MODE_ONECHECK, false, false);
   assert(g->ctx != NULL);
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
