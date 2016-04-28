@@ -622,15 +622,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case check_keyword_then_branch:
       // in (! <term> .. <keyword> <attribute-value> ...)
+      // We push the keyword in all cases as tstack's add_attributes requires a keyword.
+      // We ignore anything other than :named or :pattern
       kw = smt2_string_to_keyword(tkval(lex), tklen(lex));
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       if (kw == SMT2_KW_NAMED) {
-	tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
         state = t4d;
       } else if (kw == SMT2_KW_PATTERN) {
-	tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
         state = t4e;
       } else {
-        // ignore the actual keyword and attribute
         state = t4b;
       }
       goto loop;
