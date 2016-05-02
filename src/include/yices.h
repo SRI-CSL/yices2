@@ -3113,6 +3113,11 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  */
 __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
 
+/*
+ * Set default search parameters for ctx.
+ */
+__YICES_DLLSPEC__ extern void yices_default_params_for_context(context_t *ctx, param_t *params);
+
 
 /*
  * Set a parameter in record p

@@ -7496,7 +7496,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
  * Set default search parameters for ctx (based on architecture and theories)
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
-void yices_default_params_for_context(context_t *ctx, param_t *params) {
+EXPORTED void yices_default_params_for_context(context_t *ctx, param_t *params) {
   yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
 }
 

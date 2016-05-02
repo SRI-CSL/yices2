@@ -497,11 +497,6 @@ extern void yices_set_default_params(param_t *params, smt_logic_t logic, context
 
 
 /*
- * Set default search parameters for ctx
- */
-extern void yices_default_params_for_context(context_t *ctx, param_t *params);
-
-/*
  * Allocate a new model (initialized and empty)
  * - keep_subst = whether to support alias_map (cf. models.h)
  */
