@@ -3124,7 +3124,8 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(context_t *ctx, p
  * - pname = parameter name
  * - value = setting
  *
- * The parameters are explained in doc/YICES-LANGUAGE.
+ * The parameters are explained in doc/YICES-LANGUAGE
+ * (and at http://yices.csl.sri.com/doc/parameters.html)
  *
  * Return -1 if there's an error, 0 otherwise.
  *

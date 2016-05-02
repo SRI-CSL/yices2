@@ -1553,6 +1553,7 @@ static void process_aux_eq(context_t *ctx, term_t eq) {
     case BV_EQ_ATOM:
       // process e as a substitution if possible
       d = composite_term_desc(ctx->terms, eq);
+      assert(d->arity == 2);
       t1 = intern_tbl_get_root(&ctx->intern, d->arg[0]);
       t2 = intern_tbl_get_root(&ctx->intern, d->arg[1]);
       if (is_boolean_term(ctx->terms, t1)) {
