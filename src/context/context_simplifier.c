@@ -1524,6 +1524,8 @@ void context_process_candidate_subst(context_t *ctx) {
 
 /*
  * Process an auxiliary equality eq
+ * - eq must be an equality term (i.e.,
+ *   either EQ_TERM, ARITH_EQ_ATOM, ARITH_BINEQ_ATOM, BVEQ_ATOM)
  */
 static void process_aux_eq(context_t *ctx, term_t eq) {
   composite_term_t *d;
@@ -1545,14 +1547,28 @@ static void process_aux_eq(context_t *ctx, term_t eq) {
     // map e to true and try to process it as a substitution
     intern_tbl_map_root(&ctx->intern, eq, bool2code(true));
 
-    // process e as a substitution if possible
-    d = eq_term_desc(ctx->terms, eq);
-    t1 = intern_tbl_get_root(&ctx->intern, d->arg[0]);
-    t2 = intern_tbl_get_root(&ctx->intern, d->arg[1]);
-    if (is_boolean_term(ctx->terms, t1)) {
-      try_bool_substitution(ctx, t1, t2, eq);
-    } else {
-      try_substitution(ctx, t1, t2, eq);
+    switch (term_kind(ctx->terms, eq)) {
+    case EQ_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_EQ_ATOM:
+      // process e as a substitution if possible
+      d = composite_term_desc(ctx->terms, eq);
+      t1 = intern_tbl_get_root(&ctx->intern, d->arg[0]);
+      t2 = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+      if (is_boolean_term(ctx->terms, t1)) {
+	try_bool_substitution(ctx, t1, t2, eq);
+      } else {
+	try_substitution(ctx, t1, t2, eq);
+      }
+      break;
+
+    case ARITH_EQ_ATOM:
+      ivector_push(&ctx->top_eqs, eq);
+      break;
+
+    default:
+      assert(false);
+      break;
     }
   }
 }
@@ -1975,67 +1991,6 @@ void flatten_or_term_dfs(context_t *ctx, ivector_t *v, composite_term_t *or) {
  *  EQUALITY LEARNING   *
  ***********************/
 
-#if 0
-
-// OBSOLETE
-/*
- * Process implied equality (x == y):
- * - x and y should not be boolean, bitvector, or arithmetic terms,
- * - we check whether (eq x y) is true or false
- * - if it's false, the return code is TRIVIALLY_UNSAT
- * - if it's true, we do nothing
- * - otherwise, (eq x y) is added to top_eqs, and assigned to true
- */
-static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
-  term_table_t *terms;
-  term_t eq;
-  int32_t code;
-
-  x = intern_tbl_get_root(&ctx->intern, x);
-  y = intern_tbl_get_root(&ctx->intern, y);
-
-  if (x != y) {
-    /*
-     * Build/get term (eq x y)
-     */
-    terms = ctx->terms;
-    if (x > y) {
-      eq = eq_term(terms, y, x);
-    } else {
-      eq = eq_term(terms, x, y);
-    }
-
-    assert(intern_tbl_is_root(&ctx->intern, eq));
-
-#if TRACE_EQ_ABS
-    printf("---> learned equality: ");
-    print_term_def(stdout, ctx->terms, eq);
-    printf("\n");
-#endif
-
-    if (intern_tbl_root_is_mapped(&ctx->intern, eq)) {
-      // eq is already internalized
-      code = intern_tbl_map_of_root(&ctx->intern, eq);
-      if (code == bool2code(false)) {
-        return TRIVIALLY_UNSAT;
-      }
-
-      if (code != bool2code(true)) {
-        ivector_push(&ctx->top_interns, eq);
-      }
-
-    } else {
-      // map e to true and add it to top_eqs
-      intern_tbl_map_root(&ctx->intern, eq, bool2code(true));
-      ivector_push(&ctx->top_eqs, eq);
-    }
-
-  }
-
-  return CTX_NO_ERROR;
-}
-
-#endif
 
 /*
  * Add implied equalities defined by the partition p to the aux_eqs vector

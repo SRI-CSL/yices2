@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "term_printer.h"
+#include "io/term_printer.h"
 
 #endif
 
@@ -1246,10 +1246,10 @@ static term_t make_zero_one(term_table_t *terms, term_t x) {
 }
 
 /*
- * Build the linear expression (as a term)
+ * Build the linear equality x - s == 0 (as a term)
  * - s = variables
  */
-static term_t make_linear_expression(cond_def_collector_t *c, harray_t *s) {
+static term_t make_linear_equality(cond_def_collector_t *c, term_t x, harray_t *s) {
   rba_buffer_t *b;
   uint32_t i, n;
   term_t t;
@@ -1271,7 +1271,9 @@ static term_t make_linear_expression(cond_def_collector_t *c, harray_t *s) {
 #endif
   }
 
-  return mk_direct_arith_term(c->terms, b);
+  rba_buffer_sub_term(b, c->terms, x);  
+
+  return mk_direct_arith_eq0(c->terms, b, false);
 }
 
 
@@ -1280,7 +1282,7 @@ static term_t make_linear_expression(cond_def_collector_t *c, harray_t *s) {
  */
 static void try_linear_table(cond_def_collector_t *c, term_t x, harray_t *s, uint32_t k_max, term_t *table) {
   uint32_t n;
-  term_t expr;
+  term_t eq;
 
   n = s->nelems;
   assert(k_max == (1 << n));
@@ -1291,11 +1293,11 @@ static void try_linear_table(cond_def_collector_t *c, term_t x, harray_t *s, uin
     printf("Candidate linear expression: ");
     print_candidate(c, s);
 #endif
-    expr = make_linear_expression(c, s);
-    add_aux_eq(c->ctx, x, expr);
+    eq = make_linear_equality(c, x, s);
+    add_arith_aux_eq(c->ctx, eq);
 #if TRACE
     printf("As term: ");
-    print_term_full(stdout, c->terms, expr);
+    print_term_full(stdout, c->terms, eq);
     printf("\n");
 #endif
   }

@@ -269,6 +269,12 @@ extern void context_factor_disjunction(context_t *ctx, term_t t, ivector_t *v);
  */
 extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
 
+/*
+ * Variant: add term e as an auxiliary equality
+ * - e can be either ARITH_BINEQ_ATOM or ARITH_EQ_ATOM
+ */
+extern void add_arith_aux_eq(context_t *ctx, term_t eq);
+
 
 /*
  * Auxiliary atoms:

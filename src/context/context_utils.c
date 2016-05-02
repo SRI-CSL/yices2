@@ -784,6 +784,19 @@ void add_aux_eq(context_t *ctx, term_t x, term_t y) {
 }
 
 
+/*
+ * Add an auxiliary arithmetic equality to the context.
+ * - this adds eq to aux_eq
+ */
+void add_arith_aux_eq(context_t *ctx, term_t eq) {
+  assert(intern_tbl_is_root(&ctx->intern, eq));
+  assert(is_pos_term(eq));
+  assert(term_kind(ctx->terms, eq) == ARITH_EQ_ATOM ||
+	 term_kind(ctx->terms, eq) == ARITH_BINEQ_ATOM);
+  ivector_push(&ctx->aux_eqs, eq);
+}
+
+
 
 /*
  * LEARNED ATOMS
