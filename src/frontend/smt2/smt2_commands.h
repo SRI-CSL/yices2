@@ -364,6 +364,11 @@ typedef struct smt2_globals_s {
   uint32_t random_seed;       // default = 0
   uint32_t verbosity;         // default = 0
 
+  // timeout
+  uint32_t timeout;           // default = 0 (no timeout)
+  bool timeout_initialized;   // initially false. true once init_timeout is called
+  bool interrupted;           // true if the most recent call to check_sat timed out
+
   // internals
   attr_vtbl_t *avtbl;        // global attribute table
   strmap_t *info;            // for set-info/get-info (initially NULL)
@@ -413,10 +418,11 @@ extern smt2_globals_t __smt2_globals;
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
  *   (i.e., a set of assertions followed by a single call to check-sat)
  *   In this mode, destructive simplifications are allowed.
+ * - timeout = timeout in seconds. If this is zero, no timeout is used.
  * - print_success = initial setting of the :print-success option.
  * - this is called after yices_init so all Yices internals are ready
  */
-extern void init_smt2(bool benchmark, bool print_success);
+extern void init_smt2(bool benchmark, uint32_t timeout, bool print_success);
 
 
 /*

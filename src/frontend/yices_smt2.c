@@ -43,6 +43,7 @@
  *   followed by a single call to (check_sat).
  * - interactive: if this flag is true, print a prompt before
  *   parsing commands. Also set the option :print-success to true.
+ * - timeout: command-line option
  *
  * - filename = name of the input file (NULL means read stdin)
  */
@@ -55,7 +56,9 @@ static bool interactive;
 static bool mcsat;
 static bool show_stats;
 static int32_t verbosity;
+static uint32_t timeout;
 static char *filename;
+
 
 static pvector_t trace_tags;
 
@@ -71,6 +74,7 @@ typedef enum optid {
   verbosity_opt,        // set verbosity on the command line
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
+  timeout_opt,          // give a timeout
   mcsat_opt,            // enable mcsat
   trace_opt,            // enable a trace tag
 } optid_t;
@@ -85,6 +89,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, show_help_opt },
   { "stats", 's', FLAG_OPTION, show_stats_opt },
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
+  { "timeout", 't', MANDATORY_INT, timeout_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
@@ -115,6 +120,8 @@ static void print_help(const char *progname) {
 	 "    --help, -h              Print this message and exit\n"
 	 "    --verbosity=<level>     Set verbosity level (default = 0)\n"
 	 "             -v <level>\n"
+	 "    --timeout=<timeout>     Set a timeout in seconds (default = no timeout)\n"
+	 "           -t <timeout>\n"
 	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
@@ -149,6 +156,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat = false;
   show_stats = false;
   verbosity = 0;
+  timeout = 0;
 
   init_pvector(&trace_tags, 5);
 
@@ -199,6 +207,17 @@ static void parse_command_line(int argc, char *argv[]) {
 	verbosity = v;
 	break;
 
+      case timeout_opt:
+	v = elem.i_value;
+	if (v < 0) {
+	  fprintf(stderr, "%s: the timeout must be non-negative\n", parser.command_name);
+	  print_usage(parser.command_name);
+	  code = YICES_EXIT_USAGE;
+	  goto exit;
+	}
+	timeout = v;
+	break;
+
       case incremental_opt:
 	incremental = true;
 	break;
@@ -244,6 +263,7 @@ static void parse_command_line(int argc, char *argv[]) {
   delete_pvector(&trace_tags);
   exit(code);
 }
+
 
 /********************
  *  SIGNAL HANDLER  *
@@ -352,7 +372,7 @@ int main(int argc, char *argv[]) {
   init_handlers();
 
   yices_init();
-  init_smt2(!incremental, interactive);
+  init_smt2(!incremental, timeout, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 

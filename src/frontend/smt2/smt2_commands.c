@@ -40,6 +40,8 @@
 #include "model/projection.h"
 #include "utils/refcount_strings.h"
 
+#include "utils/timeout.h"
+
 #include "yices.h"
 #include "yices_exit_codes.h"
 
@@ -57,7 +59,7 @@
 /*
  * Parameters for preprocessing and simplifications
  * - these parameters are stored in the context but
- *   we want to keep a copy when exists forall solver is used (since then
+ *   we want to keep a copy when the exists forall solver is used (since then
  *   context is NULL).
  */
 static ctx_param_t ctx_parameters;
@@ -1512,7 +1514,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     break;
 
   case TSTACK_YICES_ERROR:
-    // TODO: extract mode information from yices_error_report();
+    // TODO: extract more information from yices_error_report();
     print_out("in %s: ", opcode_string[tstack->error_op]);
     print_yices_error(false);
     break;
@@ -2255,7 +2257,6 @@ static void unsupported_option(void) {
  * CONTEXT INITIALIZATION
  */
 
-
 /*
  * Allocate and initialize the context based on g->logic
  * - make sure the logic is supported before calling this
@@ -2272,6 +2273,9 @@ static void init_smt2_context(smt2_globals_t *g) {
   // default: assume g->benchmark_mode is false
   logic = g->logic_code;
   mode = CTX_MODE_PUSHPOP;
+  if (g->timeout > 0) {
+    mode = CTX_MODE_INTERACTIVE;
+  }
   arch = arch_for_logic(logic);
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
@@ -2319,6 +2323,70 @@ static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
   yices_default_params_for_context(g->ctx, &parameters);
 }
+
+
+
+/*
+ * CHECK SAT WITH TIMEOUT
+ */
+
+/*
+ * Timeout handler: call stop_search when triggered
+ * - data = pointer to the smt2_global structure
+ */
+static void timeout_handler(void *data) {
+  smt2_globals_t *g;
+
+  assert(data == &__smt2_globals);
+
+  g = data;
+  if (g->ctx != NULL && context_status(g->ctx) == STATUS_SEARCHING) {
+    context_stop_search(g->ctx);
+  }
+}
+
+/*
+ * Call check_context with the given search parameters.
+ * - if g->timeout is positive, set a timeout first
+ */
+static smt_status_t check_context_with_timeout(smt2_globals_t *g, const param_t *params) {
+  smt_status_t stat;
+
+  if (g->timeout == 0) {
+    // no timeout
+    return check_context(g->ctx, params);
+  }
+
+  /*
+   * We call init_timeout only now because the internal timeout
+   * consumes resources even if it's never used.
+   */
+  if (! g->timeout_initialized) {
+    init_timeout();
+    g->timeout_initialized = true;
+  }
+  g->interrupted = false;
+  start_timeout(g->timeout, timeout_handler, g);
+  stat = check_context(g->ctx, params);
+  clear_timeout();
+
+  /*
+   * Attempt to cleanly recover from interrupt
+   */
+  if (stat == STATUS_INTERRUPTED) {
+    tprintf(g->tracer, 2, "(check_sat: interrupted)\n");
+    g->interrupted = true;
+    if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
+      context_cleanup(g->ctx);
+      assert(context_status(g->ctx) == STATUS_IDLE);
+    }
+    // we don't want to report "interrupted" that's not SMT2 compliant
+    stat = STATUS_UNKNOWN;
+  }
+
+  return stat;
+}
+
 
 
 
@@ -2575,7 +2643,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       parameters.random_seed = g->random_seed;
     }
 
-    status = check_context(g->ctx, &parameters);
+    //    status = check_context(g->ctx, &parameters);
+    status = check_context_with_timeout(g, &parameters);
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
@@ -2727,7 +2796,8 @@ static void ctx_check_sat(smt2_globals_t *g) {
     if (g->random_seed != 0) {
       parameters.random_seed = g->random_seed;
     }
-    stat = check_context(g->ctx, &parameters);
+    //    stat = check_context(g->ctx, &parameters);
+    stat = check_context_with_timeout(g, &parameters);
     show_status(stat);
     break;
 
@@ -3171,7 +3241,11 @@ static void explain_unknown_status(smt2_globals_t *g) {
     } else {
       switch (context_status(g->ctx)) {
       case STATUS_UNKNOWN:
-	print_kw_symbol_pair(":reason-unknown", "incomplete");
+	if (g->interrupted) {
+	  print_kw_symbol_pair(":reason-unknown", "timeout");
+	} else {
+	  print_kw_symbol_pair(":reason-unknown", "incomplete");
+	}
 	flush_out();
 	break;
 
@@ -3229,6 +3303,9 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->produce_assignments = false;
   g->random_seed = 0;  // 0 means any seed is good
   g->verbosity = 0;
+  g->timeout = 0;
+  g->timeout_initialized = false;
+  g->interrupted = false;
   g->avtbl = NULL;
   g->info = NULL;
   g->ctx = NULL;
@@ -3265,8 +3342,12 @@ static void init_smt2_globals(smt2_globals_t *g) {
 /*
  * Cleanup: close out and err if different from the defaults
  * - delete all internal structures (except avtbl)
+ * - delete the timeout object if it's initialized
  */
 static void delete_smt2_globals(smt2_globals_t *g) {
+  if (g->timeout_initialized) {
+    delete_timeout();
+  }
   delete_info_table(g);
   if (g->logic_name != NULL) {
     string_decref(g->logic_name);
@@ -3312,11 +3393,14 @@ static void delete_smt2_globals(smt2_globals_t *g) {
  *   - push/pop are not supported
  *   - assert can't be used after (check-sat)
  *
+ * - timeout = timeout to use (in seconds).
+ *   If this is zero, no timeout is used.
+ *
  * - print_success = initial setting of the :print-success option.
  *
  * This function is called after yices_init so all Yices internals are ready
  */
-void init_smt2(bool benchmark, bool print_success) {
+void init_smt2(bool benchmark, uint32_t timeout, bool print_success) {
   done = false;
   init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
@@ -3325,6 +3409,7 @@ void init_smt2(bool benchmark, bool print_success) {
     __smt2_globals.benchmark_mode = true;
     __smt2_globals.global_decls = true;
   }
+  __smt2_globals.timeout = timeout;
   __smt2_globals.print_success = print_success;
   check_stack(&__smt2_globals);
 }
