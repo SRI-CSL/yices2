@@ -425,12 +425,12 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
  */
 int32_t proj_term_index(term_table_t *table, term_t t) {
   assert(term_is_projection(table, t));
-  return select_term_desc(table, t)->idx;
+  return select_for_idx(table, index_of(t))->idx;
 }
 
 term_t proj_term_arg(term_table_t *table, term_t t) {
   assert(term_is_projection(table, t));
-  return select_term_desc(table, t)->arg;
+  return select_for_idx(table, index_of(t))->arg;
 }
 
 /*
