@@ -235,6 +235,9 @@ int_bv_sets.c
 ptr_sets.h:             sets of (void*) pointers
 ptr_sets.c
 
+ptr_sets2.h:            sets/bags of (void*) pointers (another implementation)
+ptr_sets2.c
+
 uint_rbtrees.h:         Red-black trees to store sets of unsigned, 32bit integers
 uint_rbtrees.c
 
