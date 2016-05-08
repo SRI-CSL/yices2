@@ -7,8 +7,10 @@
  
 #include "mcsat/eq/eq_plugin.h"
 
-#include "mcsat/bool/clause_db.h"
 #include "mcsat/tracing.h"
+#include "mcsat/watch_list_manager.h"
+
+#include "utils/int_array_sort2.h"
 
 typedef struct {
 
@@ -18,6 +20,9 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
+  /** The watch list manager */
+  watch_list_manager_t wlm;
+
 } eq_plugin_t;
 
 static
@@ -25,7 +30,7 @@ void eq_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   eq_plugin_t* eq_plugin = (eq_plugin_t*) plugin;
 
   eq_plugin->ctx = ctx;
-  // ctx->request_term_notification_by_kind(ctx, EQ_TERM);
+  ctx->request_term_notification_by_kind(ctx, APP_TERM);
 }
 
 static
@@ -35,13 +40,126 @@ void eq_plugin_destruct(plugin_t* plugin) {
 }
 
 static
-void eq_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
+bool eq_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
+  const mcsat_trail_t* trail;
+  bool t1_has_value, t2_has_value;
+  uint32_t t1_level, t2_level;
+
+  trail = data;
+
+  // We compare variables based on the trail level, unassigned to the front,
+  // then assigned ones by decreasing level
+
+  // Literals with no value
+  t1_has_value = trail_has_value(trail, t1);
+  t2_has_value = trail_has_value(trail, t2);
+  if (!t1_has_value && !t2_has_value) {
+    // Both have no value, just order by variable
+    return t1 < t2;
+  }
+
+  // At least one has a value
+  if (!t1_has_value) {
+    // t1 < t2, goes to front
+    return true;
+  }
+  if (!t2_has_value) {
+    // t2 < t1, goes to front
+    return false;
+  }
+
+  // Both literals have a value, sort by decreasing level
+  t1_level = trail_get_level(trail, t1);
+  t2_level = trail_get_level(trail, t2);
+  if (t1_level != t2_level) {
+    // t1 > t2 goes to front
+    return t1_level > t2_level;
+  } else {
+    return t1 < t2;
+  }
+}
+
+
+static
+void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token_t* prop) {
+
+  uint32_t i;
+
+  variable_db_t* var_db = eq->ctx->var_db;
+  term_table_t* terms = eq->ctx->terms;
+  const mcsat_trail_t* trail = eq->ctx->trail;
+
+  // Variable of the application term
+  variable_t app_term_var = variable_db_get_variable(var_db, app_term);
+
+  // Get the children
+  assert(term_kind(terms, app_term) == APP_TERM);
+  int_mset_t arguments;
+  int_mset_construct(&arguments, variable_null);
+  composite_term_t* app_desc = app_term_desc(terms, app_term);
+  uint32_t arity = app_desc->arity;
+  for (i = 0; i < arity; ++ i) {
+    variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
+    int_mset_add(&arguments, arg_var);
+  }
+
+  // Is the variable fully assigned
+  bool is_fully_assigned = false;
+
+  if (arguments.size > 0) {
+
+    variable_t* arguments_vars = arguments.element_list.data;
+    uint32_t size = arguments.size;
+
+    // Sort variables by trail index
+    int_array_sort2(arguments_vars, size, (void*) trail, eq_plugin_trail_variable_compare);
+
+    // Make the variable list
+    variable_list_ref_t var_list = watch_list_manager_new_list(&eq->wlm, arguments_vars, size, app_term_var);
+
+    // Add first variable to watch list
+    watch_list_manager_add_to_watch(&eq->wlm, var_list, arguments_vars[0]);
+
+    // Add second variable to watch list
+    if (size > 1) {
+      watch_list_manager_add_to_watch(&eq->wlm, var_list, arguments_vars[1]);
+    }
+
+    // Check the current status of the variables
+    variable_t top_var = arguments_vars[0];
+    is_fully_assigned = trail_has_value(trail, top_var);
+
+  } else {
+    // No variables => fully assigned
+    is_fully_assigned = true;
+  }
+
+  if (is_fully_assigned) {
+    // TODO: mark it
+  }
+}
+
+static
+void eq_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
   eq_plugin_t* eq = (eq_plugin_t*) plugin;
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::new_term")) {
     ctx_trace_printf(eq->ctx, "eq_plugin_new_term_notify: ");
-    ctx_trace_term(eq->ctx, term);
+    ctx_trace_term(eq->ctx, t);
   }
+
+  term_kind_t t_kind = term_kind(eq->ctx->terms, t);
+
+  switch (t_kind) {
+  case APP_TERM:
+    // We just care about the application terms
+    eq_plugin_new_fun_application(eq, t, prop);
+    break;
+  default:
+    // Noting for now
+    break;
+  }
+
 }
 
 static
