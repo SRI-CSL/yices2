@@ -7,6 +7,7 @@
  
 #include "mcsat/eq/eq_plugin.h"
 
+#include "mcsat/trail.h"
 #include "mcsat/tracing.h"
 #include "mcsat/watch_list_manager.h"
 
@@ -23,20 +24,25 @@ typedef struct {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** Next index of the trail to process */
+  uint32_t trail_i;
+
 } eq_plugin_t;
 
 static
 void eq_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
-  eq_plugin_t* eq_plugin = (eq_plugin_t*) plugin;
+  eq_plugin_t* eq = (eq_plugin_t*) plugin;
 
-  eq_plugin->ctx = ctx;
+  watch_list_manager_construct(&eq->wlm, eq->ctx->var_db);
+
+  eq->ctx = ctx;
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
 }
 
 static
 void eq_plugin_destruct(plugin_t* plugin) {
   eq_plugin_t* eq = (eq_plugin_t*) plugin;
-  (void)eq;
+  watch_list_manager_destruct(&eq->wlm);
 }
 
 static
@@ -79,6 +85,14 @@ bool eq_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   }
 }
 
+/**
+ * f(x_1, ..., x_n), with x assigned to v, mark this, and set f(x) as the
+ * representative for all f(y) with y assigned to v. If one already exists, it
+ * is returned.
+ */
+variable_t set_app_representative(eq_plugin_t* eq, variable_t app_term) {
+  return app_term;
+}
 
 static
 void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token_t* prop) {
@@ -135,7 +149,7 @@ void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token
   }
 
   if (is_fully_assigned) {
-    // TODO: mark it
+    set_app_representative(eq, app_term);
   }
 }
 
@@ -171,20 +185,101 @@ void eq_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
 
 static
 void eq_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
+
   eq_plugin_t* eq = (eq_plugin_t*) plugin;
-  (void)eq;
+
+  if (ctx_trace_enabled(eq->ctx, "eq_plugin")) {
+    ctx_trace_printf(eq->ctx, "eq_plugin_propagate()\n");
+  }
+
+  // If we're not watching anything, we just ignore
+  if (watch_list_manager_size(&eq->wlm) == 0) {
+    return;
+  }
+
+  // Context
+  const mcsat_trail_t* trail = eq->ctx->trail;
+  variable_db_t* var_db = eq->ctx->var_db;
+
+  // Propagate
+  variable_t var;
+  for(; trail_is_consistent(trail) && eq->trail_i < trail_size(trail); ++ eq->trail_i) {
+    // Current trail element
+    var = trail_at(trail, eq->trail_i);
+
+    if (ctx_trace_enabled(eq->ctx, "eq_plugin")) {
+      ctx_trace_printf(eq->ctx, "eq_plugin_propagate: ");
+      ctx_trace_term(eq->ctx, variable_db_get_term(var_db, var));
+    }
+
+    // Go through all the variable lists (constraints) where we're watching var
+    remove_iterator_t it;
+    variable_list_ref_t var_list_ref;
+    variable_t* var_list;
+    variable_t* var_list_it;
+
+    // Get the watch-list and process
+    remove_iterator_construct(&it, &eq->wlm, var);
+    while (trail_is_consistent(trail) && !remove_iterator_done(&it)) {
+
+      // Get the current list where var appears
+      var_list_ref = remove_iterator_get_list_ref(&it);
+      var_list = watch_list_manager_get_list(&eq->wlm, var_list_ref);
+
+      // f(x) variable
+      variable_t app_var = watch_list_manager_get_constraint(&eq->wlm, var_list_ref);
+
+      // Find a new watch (start from [1])
+      var_list_it = var_list + 1;
+      if (*var_list_it != variable_null) {
+        for (++ var_list_it; *var_list_it != variable_null; ++ var_list_it) {
+          if (!trail_has_value(trail, *var_list_it)) {
+            // Swap with var_list[1]
+            var_list[0] = *var_list_it;
+            *var_list_it = var;
+            // Add to new watch
+            watch_list_manager_add_to_watch(&eq->wlm, var_list_ref, var_list[0]);
+            // Don't watch this one
+            remove_iterator_next_and_remove(&it);
+            break;
+          }
+        }
+      }
+
+      if (*var_list_it == variable_null) {
+        // We did not find a new watch so vars[1], ..., vars[n] are assigned
+        variable_t rep_var = set_app_representative(eq, app_var);
+        // If already has one, and both assigned to a value, check if it's the same value
+        if (rep_var != app_var) {
+          if (trail_has_value(trail, rep_var) && trail_has_value(trail, app_var)) {
+            const mcsat_value_t* app_value = trail_get_value(trail, app_var);
+            const mcsat_value_t* rep_value = trail_get_value(trail, rep_var);
+            if (!mcsat_value_eq(app_value, rep_value)) {
+              // TODO: Conflict
+            }
+          }
+        }
+        // Keep the watch, and continue
+        remove_iterator_next_and_keep(&it);
+      }
+    }
+
+    // Done, destruct the iterator
+    remove_iterator_destruct(&it);
+  }
+
+  // TODO: expand all the conflicts with ackerman
 }
 
 static
 void eq_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
-  (void)eq;
+  // We don't decide
+  assert(false);
 }
 
 static
 void eq_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
-  (void)eq;
+  // Never any conflicts
   assert(false);
 }
 
@@ -254,6 +349,6 @@ plugin_t* eq_plugin_allocator(void) {
   plugin->plugin_interface.push                = eq_plugin_push;
   plugin->plugin_interface.pop                 = eq_plugin_pop;
   plugin->plugin_interface.gc_mark             = eq_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep          = eq_plugin_gc_collect;
+  plugin->plugin_interface.gc_sweep            = eq_plugin_gc_collect;
   return (plugin_t*) plugin;
 }

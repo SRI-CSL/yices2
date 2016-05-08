@@ -63,6 +63,12 @@ void mcsat_value_destruct(mcsat_value_t* value);
 /** Assign a value */
 void mcsat_value_assign(mcsat_value_t* value, const mcsat_value_t* from);
 
+/** Check two values for equalities */
+bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2);
+
+/** Get a hash of the value */
+uint32_t mcsat_value_hash(const mcsat_value_t* v);
+
 /** Print the value */
 void mcsat_value_print(const mcsat_value_t* value, FILE* out);
 

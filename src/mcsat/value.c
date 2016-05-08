@@ -101,3 +101,34 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
     assert(false);
   }
 }
+
+bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
+  assert(v1->type == v2->type);
+  switch (v1->type) {
+  case VALUE_BOOLEAN:
+    return v1->b == v2->b;
+  case VALUE_RATIONAL:
+    assert(false); // TODO: what's up with this?
+    return false;
+  case VALUE_LIBPOLY:
+    return lp_value_cmp(&v1->lp_value, &v2->lp_value);
+  default:
+    assert(false);
+    return false;
+  }
+}
+
+uint32_t mcsat_value_hash(const mcsat_value_t* v) {
+  switch (v->type) {
+  case VALUE_BOOLEAN:
+    return v->b;
+  case VALUE_RATIONAL:
+    assert(false); // TODO: what's up with this?
+    return 0;
+  case VALUE_LIBPOLY:
+    return lp_value_hash(&v->lp_value);
+  default:
+    assert(false);
+    return 0;
+  }
+}
