@@ -177,13 +177,6 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 static
-void uf_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
-  (void)eq;
-  (void)prop;
-}
-
-static
 void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   uf_plugin_t* eq = (uf_plugin_t*) plugin;
@@ -272,35 +265,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 }
 
 static
-void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
-  // We don't decide
-  assert(false);
-}
-
-static
-void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
-  // Never any conflicts
-  assert(false);
-}
-
-static
-term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t x, ivector_t* reason) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
-  (void)eq;
-  assert(false);
-  return NULL_TERM;
-}
-
-static
-bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
-  (void)eq;
-  // Evaluate the equality
-  assert(false);
-  return true;
-}
-
-static
 void uf_plugin_push(plugin_t* plugin) {
 }
 
@@ -316,36 +280,19 @@ static
 void uf_plugin_gc_collect(plugin_t* plugin, const gc_info_t* gc) {
 }
 
-static
-void uf_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
-  (void)eq;
-
-  switch (kind) {
-  case MCSAT_SOLVER_START:
-    break;
-  case MCSAT_SOLVER_RESTART:
-    break;
-  case MCSAT_SOLVER_CONFLICT:
-    break;
-  default:
-    assert(false);
-  }
-}
-
 plugin_t* uf_plugin_allocator(void) {
   uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = uf_plugin_construct;
   plugin->plugin_interface.destruct            = uf_plugin_destruct;
   plugin->plugin_interface.new_term_notify     = uf_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = uf_plugin_new_lemma_notify;
-  plugin->plugin_interface.event_notify        = uf_plugin_event_notify;
+  plugin->plugin_interface.new_lemma_notify    = 0;
+  plugin->plugin_interface.event_notify        = 0;
   plugin->plugin_interface.propagate           = uf_plugin_propagate;
-  plugin->plugin_interface.decide              = uf_plugin_decide;
-  plugin->plugin_interface.get_conflict        = uf_plugin_get_conflict;
-  plugin->plugin_interface.explain_propagation = uf_plugin_explain_propagation;
-  plugin->plugin_interface.explain_evaluation  = uf_plugin_explain_evaluation;
+  plugin->plugin_interface.decide              = 0;
+  plugin->plugin_interface.get_conflict        = 0;
+  plugin->plugin_interface.explain_propagation = 0;
+  plugin->plugin_interface.explain_evaluation  = 0;
   plugin->plugin_interface.push                = uf_plugin_push;
   plugin->plugin_interface.pop                 = uf_plugin_pop;
   plugin->plugin_interface.gc_mark             = uf_plugin_gc_mark;
