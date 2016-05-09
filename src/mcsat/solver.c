@@ -22,14 +22,15 @@
 #include "utils/int_queues.h"
 #include "utils/bitvectors.h"
 
-#include "mcsat/eq/eq_plugin.h"
 #include "mcsat/bool/bool_plugin.h"
 #include "mcsat/ite/ite_plugin.h"
 #include "mcsat/nra/nra_plugin.h"
+#include "mcsat/uf/uf_plugin.h"
 
 #include "mcsat/utils/statistics.h"
 
 #include <inttypes.h>
+#include <mcsat/uf/uf_plugin.h>
 
 /**
  * Notification of new variables for the main solver.
@@ -540,7 +541,7 @@ void mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator
 static
 void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
-  mcsat_add_plugin(mcsat, eq_plugin_allocator, "eq_plugin");
+  mcsat_add_plugin(mcsat, uf_plugin_allocator, "eq_plugin");
   mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
 }

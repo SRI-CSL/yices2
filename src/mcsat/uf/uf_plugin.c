@@ -5,7 +5,7 @@
  * license agreement which is downloadable along with this program.
  */
  
-#include "mcsat/eq/eq_plugin.h"
+#include "uf_plugin.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -27,11 +27,11 @@ typedef struct {
   /** Next index of the trail to process */
   uint32_t trail_i;
 
-} eq_plugin_t;
+} uf_plugin_t;
 
 static
-void eq_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
 
   watch_list_manager_construct(&eq->wlm, eq->ctx->var_db);
 
@@ -40,13 +40,13 @@ void eq_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 }
 
 static
-void eq_plugin_destruct(plugin_t* plugin) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+void uf_plugin_destruct(plugin_t* plugin) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
   watch_list_manager_destruct(&eq->wlm);
 }
 
 static
-bool eq_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
+bool uf_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
   const mcsat_trail_t* trail;
   bool t1_has_value, t2_has_value;
   uint32_t t1_level, t2_level;
@@ -90,12 +90,12 @@ bool eq_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
  * representative for all f(y) with y assigned to v. If one already exists, it
  * is returned.
  */
-variable_t set_app_representative(eq_plugin_t* eq, variable_t app_term) {
+variable_t set_app_representative(uf_plugin_t* eq, variable_t app_term) {
   return app_term;
 }
 
 static
-void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token_t* prop) {
+void uf_plugin_new_fun_application(uf_plugin_t* eq, term_t app_term, trail_token_t* prop) {
 
   uint32_t i;
 
@@ -126,7 +126,7 @@ void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token
     uint32_t size = arguments.size;
 
     // Sort variables by trail index
-    int_array_sort2(arguments_vars, size, (void*) trail, eq_plugin_trail_variable_compare);
+    int_array_sort2(arguments_vars, size, (void*) trail, uf_plugin_trail_variable_compare);
 
     // Make the variable list
     variable_list_ref_t var_list = watch_list_manager_new_list(&eq->wlm, arguments_vars, size, app_term_var);
@@ -154,11 +154,11 @@ void eq_plugin_new_fun_application(eq_plugin_t* eq, term_t app_term, trail_token
 }
 
 static
-void eq_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(eq->ctx, "eq_plugin_new_term_notify: ");
+    ctx_trace_printf(eq->ctx, "uf_plugin_new_term_notify: ");
     ctx_trace_term(eq->ctx, t);
   }
 
@@ -167,7 +167,7 @@ void eq_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   switch (t_kind) {
   case APP_TERM:
     // We just care about the application terms
-    eq_plugin_new_fun_application(eq, t, prop);
+    uf_plugin_new_fun_application(eq, t, prop);
     break;
   default:
     // Noting for now
@@ -177,19 +177,19 @@ void eq_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 static
-void eq_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+void uf_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
   (void)eq;
   (void)prop;
 }
 
 static
-void eq_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
+void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
 
-  if (ctx_trace_enabled(eq->ctx, "eq_plugin")) {
-    ctx_trace_printf(eq->ctx, "eq_plugin_propagate()\n");
+  if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
+    ctx_trace_printf(eq->ctx, "uf_plugin_propagate()\n");
   }
 
   // If we're not watching anything, we just ignore
@@ -207,8 +207,8 @@ void eq_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     // Current trail element
     var = trail_at(trail, eq->trail_i);
 
-    if (ctx_trace_enabled(eq->ctx, "eq_plugin")) {
-      ctx_trace_printf(eq->ctx, "eq_plugin_propagate: ");
+    if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
+      ctx_trace_printf(eq->ctx, "uf_plugin_propagate: ");
       ctx_trace_term(eq->ctx, variable_db_get_term(var_db, var));
     }
 
@@ -272,28 +272,28 @@ void eq_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 }
 
 static
-void eq_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
+void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
   // We don't decide
   assert(false);
 }
 
 static
-void eq_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
+void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   // Never any conflicts
   assert(false);
 }
 
 static
-term_t eq_plugin_explain_propagation(plugin_t* plugin, variable_t x, ivector_t* reason) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t x, ivector_t* reason) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
   (void)eq;
   assert(false);
   return NULL_TERM;
 }
 
 static
-bool eq_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
   (void)eq;
   // Evaluate the equality
   assert(false);
@@ -301,24 +301,24 @@ bool eq_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 }
 
 static
-void eq_plugin_push(plugin_t* plugin) {
+void uf_plugin_push(plugin_t* plugin) {
 }
 
 static
-void eq_plugin_pop(plugin_t* plugin) {
+void uf_plugin_pop(plugin_t* plugin) {
 }
 
 static
-void eq_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc) {
+void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc) {
 }
 
 static
-void eq_plugin_gc_collect(plugin_t* plugin, const gc_info_t* gc) {
+void uf_plugin_gc_collect(plugin_t* plugin, const gc_info_t* gc) {
 }
 
 static
-void eq_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
-  eq_plugin_t* eq = (eq_plugin_t*) plugin;
+void uf_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
+  uf_plugin_t* eq = (uf_plugin_t*) plugin;
   (void)eq;
 
   switch (kind) {
@@ -333,22 +333,22 @@ void eq_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   }
 }
 
-plugin_t* eq_plugin_allocator(void) {
-  eq_plugin_t* plugin = safe_malloc(sizeof(eq_plugin_t));
+plugin_t* uf_plugin_allocator(void) {
+  uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
   plugin_construct((plugin_t*) plugin);
-  plugin->plugin_interface.construct           = eq_plugin_construct;
-  plugin->plugin_interface.destruct            = eq_plugin_destruct;
-  plugin->plugin_interface.new_term_notify     = eq_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = eq_plugin_new_lemma_notify;
-  plugin->plugin_interface.event_notify        = eq_plugin_event_notify;
-  plugin->plugin_interface.propagate           = eq_plugin_propagate;
-  plugin->plugin_interface.decide              = eq_plugin_decide;
-  plugin->plugin_interface.get_conflict        = eq_plugin_get_conflict;
-  plugin->plugin_interface.explain_propagation = eq_plugin_explain_propagation;
-  plugin->plugin_interface.explain_evaluation  = eq_plugin_explain_evaluation;
-  plugin->plugin_interface.push                = eq_plugin_push;
-  plugin->plugin_interface.pop                 = eq_plugin_pop;
-  plugin->plugin_interface.gc_mark             = eq_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep            = eq_plugin_gc_collect;
+  plugin->plugin_interface.construct           = uf_plugin_construct;
+  plugin->plugin_interface.destruct            = uf_plugin_destruct;
+  plugin->plugin_interface.new_term_notify     = uf_plugin_new_term_notify;
+  plugin->plugin_interface.new_lemma_notify    = uf_plugin_new_lemma_notify;
+  plugin->plugin_interface.event_notify        = uf_plugin_event_notify;
+  plugin->plugin_interface.propagate           = uf_plugin_propagate;
+  plugin->plugin_interface.decide              = uf_plugin_decide;
+  plugin->plugin_interface.get_conflict        = uf_plugin_get_conflict;
+  plugin->plugin_interface.explain_propagation = uf_plugin_explain_propagation;
+  plugin->plugin_interface.explain_evaluation  = uf_plugin_explain_evaluation;
+  plugin->plugin_interface.push                = uf_plugin_push;
+  plugin->plugin_interface.pop                 = uf_plugin_pop;
+  plugin->plugin_interface.gc_mark             = uf_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep            = uf_plugin_gc_collect;
   return (plugin_t*) plugin;
 }

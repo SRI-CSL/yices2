@@ -288,7 +288,7 @@ mcsat_src_c := \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
-	mcsat/eq/eq_plugin.c \
+	mcsat/uf/uf_plugin.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \
