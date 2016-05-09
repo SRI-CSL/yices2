@@ -20,7 +20,7 @@ uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app) {
 
   // Get the term
   term_t f_app_term = variable_db_get_term(app_reps->var_db, f_app);
-  assert(term_kind(terms, f_app) == APP_TERM);
+  assert(term_kind(terms, f_app_term) == APP_TERM);
 
   // Get the children
   composite_term_t* desc = app_term_desc(terms, f_app_term);
@@ -299,7 +299,8 @@ void app_reps_add_record(app_reps_t *table, uint32_t hash, variable_t v) {
   }
 }
 
-static variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32_t k, variable_t v) {
+static
+variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32_t k, variable_t v) {
   // error in build is signaled by returning v < 0
   if (v >= 0) {
     table->nelems ++;
@@ -314,7 +315,7 @@ static variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32
   return v;
 }
 
-variable_t app_reps_get_obj(app_reps_t *table, variable_t v_new) {
+variable_t app_reps_get_rep(app_reps_t *table, variable_t v_new) {
   uint32_t mask, j, k;
   variable_t v_old;
   app_rep_t *r;
@@ -349,6 +350,8 @@ variable_t app_reps_get_obj(app_reps_t *table, variable_t v_new) {
     }
     if (v_old >= 0 && r->hash == k && apps_equal(table, v_old, v_new)) return v_old;
   }
+  // To satisfy compilers
+  return variable_null;
 }
 
 

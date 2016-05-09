@@ -6,10 +6,12 @@
  */
  
 #include "uf_plugin.h"
+#include "app_reps.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
 #include "mcsat/watch_list_manager.h"
+#include "mcsat/utils/scope_holder.h"
 
 #include "utils/int_array_sort2.h"
 
@@ -24,25 +26,38 @@ typedef struct {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** App representatives */
+  app_reps_t reps;
+
   /** Next index of the trail to process */
   uint32_t trail_i;
+
+  /** Scope holder for the int variables */
+  scope_holder_t scope;
 
 } uf_plugin_t;
 
 static
 void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  watch_list_manager_construct(&eq->wlm, eq->ctx->var_db);
+  uf->ctx = ctx;
 
-  eq->ctx = ctx;
+  watch_list_manager_construct(&uf->wlm, uf->ctx->var_db);
+  app_reps_construct(&uf->reps, 0, ctx->var_db, ctx->trail, ctx->terms);
+  scope_holder_construct(&uf->scope);
+
+  uf->trail_i = 0;
+
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
 }
 
 static
 void uf_plugin_destruct(plugin_t* plugin) {
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
-  watch_list_manager_destruct(&eq->wlm);
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  watch_list_manager_destruct(&uf->wlm);
+  app_reps_destruct(&uf->reps);
+  scope_holder_destruct(&uf->scope);
 }
 
 static
@@ -85,23 +100,14 @@ bool uf_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   }
 }
 
-/**
- * f(x_1, ..., x_n), with x assigned to v, mark this, and set f(x) as the
- * representative for all f(y) with y assigned to v. If one already exists, it
- * is returned.
- */
-variable_t set_app_representative(uf_plugin_t* eq, variable_t app_term) {
-  return app_term;
-}
-
 static
-void uf_plugin_new_fun_application(uf_plugin_t* eq, term_t app_term, trail_token_t* prop) {
+void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token_t* prop) {
 
   uint32_t i;
 
-  variable_db_t* var_db = eq->ctx->var_db;
-  term_table_t* terms = eq->ctx->terms;
-  const mcsat_trail_t* trail = eq->ctx->trail;
+  variable_db_t* var_db = uf->ctx->var_db;
+  term_table_t* terms = uf->ctx->terms;
+  const mcsat_trail_t* trail = uf->ctx->trail;
 
   // Variable of the application term
   variable_t app_term_var = variable_db_get_variable(var_db, app_term);
@@ -112,7 +118,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* eq, term_t app_term, trail_token
   int_mset_construct(&arguments, variable_null);
   composite_term_t* app_desc = app_term_desc(terms, app_term);
   uint32_t arity = app_desc->arity;
-  for (i = 0; i < arity; ++ i) {
+  for (i = 1; i < arity; ++ i) {
     variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
     int_mset_add(&arguments, arg_var);
   }
@@ -129,14 +135,14 @@ void uf_plugin_new_fun_application(uf_plugin_t* eq, term_t app_term, trail_token
     int_array_sort2(arguments_vars, size, (void*) trail, uf_plugin_trail_variable_compare);
 
     // Make the variable list
-    variable_list_ref_t var_list = watch_list_manager_new_list(&eq->wlm, arguments_vars, size, app_term_var);
+    variable_list_ref_t var_list = watch_list_manager_new_list(&uf->wlm, arguments_vars, size, app_term_var);
 
     // Add first variable to watch list
-    watch_list_manager_add_to_watch(&eq->wlm, var_list, arguments_vars[0]);
+    watch_list_manager_add_to_watch(&uf->wlm, var_list, arguments_vars[0]);
 
     // Add second variable to watch list
     if (size > 1) {
-      watch_list_manager_add_to_watch(&eq->wlm, var_list, arguments_vars[1]);
+      watch_list_manager_add_to_watch(&uf->wlm, var_list, arguments_vars[1]);
     }
 
     // Check the current status of the variables
@@ -149,7 +155,9 @@ void uf_plugin_new_fun_application(uf_plugin_t* eq, term_t app_term, trail_token
   }
 
   if (is_fully_assigned) {
-    set_app_representative(eq, app_term);
+    // Here, the new terms can not have assigned value, so we don't need to
+    // check for conflicts
+    app_reps_get_rep(&uf->reps, app_term);
   }
 }
 
@@ -221,6 +229,10 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
       // f(x) variable
       variable_t app_var = watch_list_manager_get_constraint(&eq->wlm, var_list_ref);
+      if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
+        ctx_trace_printf(eq->ctx, "uf_plugin_propagate: app_var = ");
+        ctx_trace_term(eq->ctx, variable_db_get_term(var_db, app_var));
+      }
 
       // Find a new watch (start from [1])
       var_list_it = var_list + 1;
@@ -240,15 +252,16 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       }
 
       if (*var_list_it == variable_null) {
-        // We did not find a new watch so vars[1], ..., vars[n] are assigned
-        variable_t rep_var = set_app_representative(eq, app_var);
+        // We did not find a new watch so vars[1], ..., vars[n] are assigned.
+        // Add and get the repesentative of this assignment.
+        variable_t rep_var = app_reps_get_rep(&eq->reps, app_var);
         // If already has one, and both assigned to a value, check if it's the same value
         if (rep_var != app_var) {
           if (trail_has_value(trail, rep_var) && trail_has_value(trail, app_var)) {
             const mcsat_value_t* app_value = trail_get_value(trail, app_var);
             const mcsat_value_t* rep_value = trail_get_value(trail, rep_var);
             if (!mcsat_value_eq(app_value, rep_value)) {
-              // TODO: Conflict
+              assert(false); // TODO: conflict
             }
           }
         }
@@ -266,10 +279,22 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
 static
 void uf_plugin_push(plugin_t* plugin) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+
+  // Pop the int variable values
+  scope_holder_push(&uf->scope,
+      &uf->trail_i,
+      NULL);
 }
 
 static
 void uf_plugin_pop(plugin_t* plugin) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+
+  // Pop the int variable values
+  scope_holder_pop(&uf->scope,
+      &uf->trail_i,
+      NULL);
 }
 
 static

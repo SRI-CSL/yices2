@@ -37,16 +37,16 @@ typedef struct app_reps_s {
 } app_reps_t;
 
 /* Construct: empty table of size n (n must be a power of 2). Use 0 for default size. */
-extern void app_reps_construct(app_reps_t *table, uint32_t n, variable_db_t* var_db, const mcsat_trail_t* trail, term_table_t* terms);
+void app_reps_construct(app_reps_t *table, uint32_t n, variable_db_t* var_db, const mcsat_trail_t* trail, term_table_t* terms);
 
 /* Destruct */
-extern void app_reps_destruct(app_reps_t *table);
+void app_reps_destruct(app_reps_t *table);
 
 /** Clear the reps table */
-extern void app_reps_clear(app_reps_t *table);
+void app_reps_clear(app_reps_t *table);
 
 /** Set f_app to be the representative, or return the current representative. */
-extern variable_t app_reps_get_rep(app_reps_t *table, variable_t f_app);
+variable_t app_reps_get_rep(app_reps_t *table, variable_t f_app);
 
 /* Remove the representative elemetn. */
 void app_reps_erase_rep(app_reps_t *table, variable_t f_app);

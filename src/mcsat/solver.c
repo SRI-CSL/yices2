@@ -541,7 +541,7 @@ void mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator
 static
 void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
-  mcsat_add_plugin(mcsat, uf_plugin_allocator, "eq_plugin");
+  mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
   mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
 }
@@ -899,7 +899,9 @@ void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
 
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
-    plugin->event_notify(plugin, kind);
+    if (plugin->event_notify) {
+      plugin->event_notify(plugin, kind);
+    }
   }
 }
 
