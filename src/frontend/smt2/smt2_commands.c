@@ -41,6 +41,7 @@
 #include "utils/refcount_strings.h"
 
 #include "utils/timeout.h"
+#include "mcsat/options.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -2305,6 +2306,9 @@ static void init_smt2_context(smt2_globals_t *g) {
     context_set_trace(g->ctx, get_tracer(g));
   }
 
+  // Set the mcsat options
+  g->ctx->mcsat_options = g->mcsat_options;
+
   /*
    * TODO: override the default context options based on
    * ctx_parameters.  I don't want to do it now (2015/07/22). If we
@@ -3282,7 +3286,10 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
+
   init_ef_client(&g->ef_client_globals);
+  init_mcsat_options(&g->mcsat_options);
+
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
@@ -4007,7 +4014,7 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   }
 }
 
-static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params) {
+static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params, mcsat_options_t* mcsat_options) {
   bool tt;
   int32_t n;
   double x;
@@ -4357,6 +4364,18 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     }
     break;
 
+  case PARAM_MCSAT_NRA_MGCD:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_options->nra_mgcd = tt;
+    }
+    break;
+
+  case PARAM_MCSAT_NRA_NLSAT:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_options->nra_nlsat = tt;
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
     unsupported = true;
@@ -4459,7 +4478,7 @@ void smt2_set_option(const char *name, aval_t value) {
     // may be a Yices option
     if (is_yices_option(name, &yices_option)) {
       aval2param_val(value, &param_val);
-      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters);
+      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters, &g->mcsat_options);
     } else {
       unsupported_option();
       flush_out();

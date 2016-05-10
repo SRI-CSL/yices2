@@ -53,12 +53,15 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
-static bool mcsat;
 static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
 
+// mcsat options
+static bool mcsat;
+static bool mcsat_nra_mgcd;
+static bool mcsat_nra_nlsat;
 
 static pvector_t trace_tags;
 
@@ -68,15 +71,17 @@ static pvector_t trace_tags;
  ***************************/
 
 typedef enum optid {
-  show_version_opt,     // print version and exit
-  show_help_opt,        // print help and exit
-  show_stats_opt,       // show statistics after all commands are processed
-  verbosity_opt,        // set verbosity on the command line
-  incremental_opt,      // enable incremental mode
-  interactive_opt,      // enable interactive mode
+  show_version_opt,       // print version and exit
+  show_help_opt,          // print help and exit
+  show_stats_opt,         // show statistics after all commands are processed
+  verbosity_opt,          // set verbosity on the command line
+  incremental_opt,        // enable incremental mode
+  interactive_opt,        // enable interactive mode
   timeout_opt,          // give a timeout
-  mcsat_opt,            // enable mcsat
-  trace_opt,            // enable a trace tag
+  mcsat_opt,              // enable mcsat
+  mcsat_nra_mgcd_opt,     // use the mgcd instead psc in projection
+  mcsat_nra_nlsat_opt,        // use the nlsat projection instead of brown single-cell
+  trace_opt,              // enable a trace tag
 } optid_t;
 
 #define NUM_OPTIONS (trace_opt+1)
@@ -93,6 +98,8 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
+  { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
@@ -125,7 +132,11 @@ static void print_help(const char *progname) {
 	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
+#if HAVE_MCSAT
          "    --mcsat                 Use the MCSat solver\n"
+         "    --mcsat-nra-mgcd        Use model-based GCD instead of PSC for projection\n"
+         "    --mcsat-nra-nlsat       Use NLSAT projection instead of Brown's single-cell construction"
+#endif
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -153,10 +164,13 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
-  mcsat = false;
   show_stats = false;
   verbosity = 0;
   timeout = 0;
+
+  mcsat = false;
+  mcsat_nra_mgcd = false;
+  mcsat_nra_nlsat = false;
 
   init_pvector(&trace_tags, 5);
 
@@ -235,6 +249,24 @@ static void parse_command_line(int argc, char *argv[]) {
 	goto exit;
 #endif
         break;
+      case mcsat_nra_mgcd_opt:
+#if HAVE_MCSAT
+        mcsat_nra_mgcd = true;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
+      case mcsat_nra_nlsat_opt:
+#if HAVE_MCSAT
+        mcsat_nra_nlsat = true;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
 
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
@@ -264,6 +296,23 @@ static void parse_command_line(int argc, char *argv[]) {
   exit(code);
 }
 
+static void setup_mcsat() {
+  aval_t aval_true;
+
+  if (mcsat) {
+    smt2_enable_mcsat();
+  }
+
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "True");
+
+  if (mcsat_nra_mgcd) {
+    smt2_set_option(":yices-mcsat-nra-mgcd", aval_true);
+  }
+
+  if (mcsat_nra_nlsat) {
+    smt2_set_option(":yices-mcsat-nra-nlsat", aval_true);
+  }
+}
 
 /********************
  *  SIGNAL HANDLER  *
@@ -386,9 +435,8 @@ int main(int argc, char *argv[]) {
       smt2_enable_trace_tag(trace_tags.data[i]);
     }
   }
-  if (mcsat) {
-    smt2_enable_mcsat();
-  }
+
+  setup_mcsat();
 
   while (smt2_active()) {
     if (interactive) {

@@ -695,6 +695,9 @@ struct context_s {
 
   // for verbose output (default NULL)
   tracer_t *trace;
+
+  // options for the mcsat solver
+  mcsat_options_t mcsat_options;
 };
 
 

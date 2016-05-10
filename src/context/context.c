@@ -5294,6 +5294,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
 
   ctx->trace = NULL;
 
+  // mcsat options default
+  init_mcsat_options(&ctx->mcsat_options);
+
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
