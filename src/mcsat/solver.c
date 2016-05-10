@@ -235,7 +235,9 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
   for (i = kind; mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
     int_mset_clear(vars);
     plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
-    evaluates = plugin->explain_evaluation(plugin, t, vars, value);
+    if (plugin->explain_evaluation) {
+      evaluates = plugin->explain_evaluation(plugin, t, vars, value);
+    }
     if (evaluates) {
       return true;
     }
@@ -672,7 +674,9 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
 
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
-    plugin->push(plugin);
+    if (plugin->push) {
+      plugin->push(plugin);
+    }
   }
 }
 
@@ -689,7 +693,9 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
   // Pop the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
-    plugin->pop(plugin);
+    if (plugin->pop) {
+      plugin->pop(plugin);
+    }
   }
 
   // Re-add the variables that were unassigned
@@ -961,7 +967,9 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
       // Propagate
       plugin = mcsat->plugins[plugin_i].plugin;
-      plugin->propagate(plugin, (trail_token_t*) &prop_token);
+      if (plugin->propagate) {
+        plugin->propagate(plugin, (trail_token_t*) &prop_token);
+      }
       if (prop_token.used > 0) {
         someone_propagated = true;
       }
@@ -1227,6 +1235,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   // Construct the conflict
+  assert(plugin->get_conflict);
   plugin->get_conflict(plugin, &reason);
   conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, mcsat->ctx->terms, mcsat->ctx->trace);
 
@@ -1273,6 +1282,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
         // Resolve the variable
         ivector_reset(&reason);
+        assert(plugin->explain_propagation);
         substitution = plugin->explain_propagation(plugin, var, &reason);
         conflict_resolve_propagation(&conflict, var, substitution, &reason);
         // The trail pops with the resolution step
@@ -1378,6 +1388,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
       // Ask the owner to decide
       mcsat_push_internal(mcsat);
+      assert(plugin->decide);
       plugin->decide(plugin, var, (trail_token_t*) &decision_token, force_decision);
 
       if (decision_token.used == 0) {
