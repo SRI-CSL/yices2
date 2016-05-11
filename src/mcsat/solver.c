@@ -833,7 +833,9 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
         trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking with %s\n", mcsat->plugins[i].plugin_name);
       }
       plugin = mcsat->plugins[i].plugin;
-      plugin->gc_mark(plugin, &gc_vars);
+      if (plugin->gc_mark) {
+        plugin->gc_mark(plugin, &gc_vars);
+      }
     }
 
     // If any new ones marked, go to the new level and continue marking
@@ -855,7 +857,9 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
   // Do the sweep
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
-    plugin->gc_sweep(plugin, &gc_vars);
+    if (plugin->gc_sweep) {
+      plugin->gc_sweep(plugin, &gc_vars);
+    }
   }
 
   // Trail sweep

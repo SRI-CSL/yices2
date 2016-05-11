@@ -37,7 +37,7 @@ typedef enum {
   CONSTRAINT_FULLY_ASSIGNED
 } constraint_unit_info_t;
 
-typedef struct {
+typedef struct nra_plugin_s {
 
   /** The plugin interface */
   plugin_t plugin_interface;
