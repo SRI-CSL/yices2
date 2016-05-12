@@ -48,6 +48,20 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="0.2076748749.1711620350" name="/" resourcePath="benchmarks">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.base.628641004" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base" unusedChildren="">
+							<tool id="cdt.managedbuild.tool.gnu.archiver.base.1719179459" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base.16285032"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1163579190" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base.2038555490"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.1625022649" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base.275225521">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.419063640" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.1796396548" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base.689402040"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.344950362" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base.1516005804"/>
+							<tool id="cdt.managedbuild.tool.gnu.assembler.base.249827637" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base.1404428139">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.130399451" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+						</toolChain>
+					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
@@ -142,10 +156,10 @@
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		<scannerConfigBuildInfo instanceId="0.2076748749;0.2076748749.;cdt.managedbuild.tool.gnu.c.compiler.base.275225521;cdt.managedbuild.tool.gnu.c.compiler.input.54228929">
+		<scannerConfigBuildInfo instanceId="0.2076748749">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="0.2076748749">
+		<scannerConfigBuildInfo instanceId="0.2076748749;0.2076748749.;cdt.managedbuild.tool.gnu.c.compiler.base.275225521;cdt.managedbuild.tool.gnu.c.compiler.input.54228929">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>

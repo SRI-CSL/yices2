@@ -21,7 +21,7 @@ typedef struct poly_constraint_db_struct poly_constraint_db_t;
 typedef struct poly_constraint_struct poly_constraint_t;
 
 // Variable check to track for debugging
-// #define TRACK_VAR(x) (x == 775)
+// #define TRACK_VAR(x) (x == 731)
 #define TRACK_VAR(x) false
 
 // Constraint check to track for debugging

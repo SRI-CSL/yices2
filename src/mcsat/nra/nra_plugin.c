@@ -146,7 +146,7 @@ static
 bool nra_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
   const mcsat_trail_t* trail;
   bool t1_has_value, t2_has_value;
-  uint32_t t1_level, t2_level;
+  uint32_t t1_index, t2_index;
 
   trail = data;
 
@@ -172,11 +172,11 @@ bool nra_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2)
   }
 
   // Both literals have a value, sort by decreasing level
-  t1_level = trail_get_level(trail, t1);
-  t2_level = trail_get_level(trail, t2);
-  if (t1_level != t2_level) {
+  t1_index = trail_get_index(trail, t1);
+  t2_index = trail_get_index(trail, t2);
+  if (t1_index != t2_index) {
     // t1 > t2 goes to front
-    return t1_level > t2_level;
+    return t1_index > t2_index;
   } else {
     return t1 < t2;
   }
@@ -274,25 +274,17 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     variable_t top_var = t_variables_list->data[0];
     const mcsat_trail_t* trail = nra->ctx->trail;
     constraint_unit_info_t unit_status = CONSTRAINT_UNKNOWN;
-    if (trail_has_value(trail, top_var)) {
-      // All variables assigned
-      if (top_var != nra->last_decided_and_unprocessed) {
-        unit_status = CONSTRAINT_FULLY_ASSIGNED;
-      } else {
-        // We didn't process the decision yet, so keep it unit
-        unit_status = CONSTRAINT_UNIT;
-      }
+    if (trail_has_value(trail, top_var) && trail_get_index(trail, top_var) < nra->trail_i) {
+      // All variables assigned,
+      unit_status = CONSTRAINT_FULLY_ASSIGNED;
     } else {
       if (t_variables_list->size == 1) {
         // Single variable, unassigned => unit
         unit_status = CONSTRAINT_UNIT;
-      } else if (trail_has_value(nra->ctx->trail, t_variables_list->data[1])) {
-        // Second one is assigned, so we're unit (unless, we didn't process it yet)
-        if (top_var != nra->last_decided_and_unprocessed) {
-          unit_status = CONSTRAINT_UNIT;
-        } else {
-          unit_status = CONSTRAINT_UNKNOWN;
-        }
+      } else if (trail_has_value(nra->ctx->trail, t_variables_list->data[1]) &&
+          trail_get_index(trail, t_variables_list->data[1]) < nra->trail_i) {
+        // Second one is assigned and processed, so we're unit
+        unit_status = CONSTRAINT_UNIT;
       }
     }
 
@@ -342,15 +334,11 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     lp_variable_t lp_x = poly_constraint_get_top_variable(constraint);
     variable_t x = nra_plugin_get_variable_from_lp_variable(nra, lp_x);
 
-    // Unit variable should not be assigned
-    assert(!trail_has_value(nra->ctx->trail, x));
-
     if (TRACK_VAR(x)) {
       fprintf(stderr, "Processing constraint unit in tracked var.\n");
       ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
     }
 
-    // Compute the feasible set
     lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, !constraint_value);
 
     if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
@@ -382,6 +370,20 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           nra->conflict_variable_int = x;
         }
         lp_value_destruct(&v);
+      }
+      // If the value is implied at zero level, propagate it
+      if (!trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
+        const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
+        if (lp_feasibility_set_is_point(feasible)) {
+          lp_value_t x_value;
+          lp_value_construct_none(&x_value);
+          lp_feasibility_set_pick_value(feasible, &x_value);
+          mcsat_value_t value;
+          mcsat_value_construct_lp_value(&value, &x_value);
+          prop->add(prop, x, &value);
+          mcsat_value_destruct(&value);
+          lp_value_destruct(&x_value);
+        }
       }
     }
   }
@@ -464,11 +466,11 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
       var_list[1] = var;
     }
 
-    // Find a new watch (start from [2])
+    // Find a new watch (start from [2], increase in for loop again!)
     var_list_it = var_list + 1;
     if (*var_list_it != variable_null) {
       for (++ var_list_it; *var_list_it != variable_null; ++ var_list_it) {
-        if (!trail_has_value(trail, *var_list_it)) {
+        if (!trail_has_value(trail, *var_list_it) || trail_get_index(trail, *var_list_it) > nra->trail_i) {
           // Swap with var_list[1]
           var_list[1] = *var_list_it;
           *var_list_it = var;
@@ -485,7 +487,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
       if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
         ctx_trace_printf(nra->ctx, "no watch found\n");
       }
-      if (!trail_has_value(trail, *var_list)) {
+      if (!trail_has_value(trail, *var_list) || trail_get_index(trail, *var_list) > nra->trail_i) {
         // We're unit
         nra_plugin_set_unit_info(nra, constraint_var, *var_list, CONSTRAINT_UNIT);
         // Process the constraint
@@ -531,7 +533,7 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
       continue;
     }
     const mcsat_value_t* value = trail_get_value(trail, x);
-    if (value->type == VALUE_LIBPOLY) {
+    if (value->type == VALUE_LIBPOLY && trail_get_index(trail, x) < nra->trail_i) {
       lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
       const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
       int cmp = lp_value_cmp(&value->lp_value, value_lp);

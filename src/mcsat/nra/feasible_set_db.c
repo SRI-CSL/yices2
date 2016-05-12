@@ -406,14 +406,9 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
   lp_feasibility_set_delete(feasible_B);
 }
 
-typedef struct {
-  feasible_set_db_t* db;
-  poly_constraint_db_t* poly_db;
-} compare_ctx_t;
-
 /** Compare variables first by degree, then by level, prefer non root constraints */
 static
-bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
+bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
 
   uint32_t i;
 
@@ -425,7 +420,6 @@ bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
   // Get max degree and max level of the reasons of first constraint
   uint32_t r1_degree = 0;
   uint32_t r1_level = 0;
-  bool r1_is_root_constraint = false;
   for (i = 0; i < db->memory[r1].reasons_size; ++ i) {
     variable_t r1_i_var = db->memory[r1].reasons[i];
     if (trail_has_value(trail, r1_i_var)) {
@@ -435,9 +429,6 @@ bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
       }
     }
     const poly_constraint_t* r1_i_constraint = poly_constraint_db_get(poly_db, r1_i_var);
-    if (poly_constraint_is_root_constraint(r1_i_constraint)) {
-      r1_is_root_constraint = true;
-    }
     const lp_polynomial_t* r1_i_poly = poly_constraint_get_polynomial(r1_i_constraint);
     uint32_t r1_i_degree =  lp_polynomial_degree(r1_i_poly);
     if (r1_i_degree > r1_degree) {
@@ -445,11 +436,9 @@ bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
     }
   }
 
-
   // Get max degree and max level of the reasons of second constraint
   uint32_t r2_degree = 0;
   uint32_t r2_level = 0;
-  bool r2_is_root_constraint = false;
   for (i = 0; i < db->memory[r2].reasons_size; ++ i) {
     variable_t r2_i_var = db->memory[r2].reasons[i];
     if (trail_has_value(trail, r2_i_var)) {
@@ -459,18 +448,11 @@ bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
       }
     }
     const poly_constraint_t* r2_i_constraint = poly_constraint_db_get(poly_db, r2_i_var);
-    if (poly_constraint_is_root_constraint(r2_i_constraint)) {
-      r2_is_root_constraint = true;
-    }
     const lp_polynomial_t* r2_i_poly = poly_constraint_get_polynomial(r2_i_constraint);
     uint32_t r2_i_degree =  lp_polynomial_degree(r2_i_poly);
     if (r2_i_degree > r2_degree) {
       r2_degree = r2_i_degree;
     }
-  }
-
-  if (r1_is_root_constraint != r2_is_root_constraint) {
-    return !r1_is_root_constraint;
   }
 
   // Prefer smaller degrees
@@ -506,7 +488,7 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   lp_feasibility_set_t* S = lp_feasibility_set_new_full();
 
   // Sort variables by degree and trail level descreasing
-  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons_by_degree);
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
  
   if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: before\n");
@@ -521,7 +503,7 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   delete_ivector(&out);
 
   // Sort again for consisency
-  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons_by_degree);
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
 
   if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: after\n");
