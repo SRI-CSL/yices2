@@ -396,7 +396,7 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
   // Now, assert the minimized second half, and minimize the first half
   lp_feasibility_set_t* feasible_B = lp_feasibility_set_new_copy(current);
   for (i = old_out_size; i < out->size; ++ i) {
-    const lp_feasibility_set_t* feasible_i = db->memory[reasons->data[i]].reason_feasible_set;
+    const lp_feasibility_set_t* feasible_i = db->memory[out->data[i]].reason_feasible_set;
     lp_feasibility_set_intersect_status_t intersect_status;
     lp_feasibility_set_t* intersect = lp_feasibility_set_intersect_with_status(feasible_B, feasible_i, &intersect_status);
     lp_feasibility_set_swap(intersect, feasible_B);
@@ -535,7 +535,6 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
 /**
  * Check if conflict without ignoring 0 indices.
  */
-static
 bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indices) {
 
   // The set we're trying to make empty
@@ -587,34 +586,21 @@ void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* n
   // Do a first pass filter from the back
   feasible_set_filter_reason_indices(db, nra, &reasons_indices);
 
-  // Now see if we can eliminate one by one
-  uint32_t i;
-  for (i = 1; i < reasons_indices.size; ++ i) {
-    uint32_t set_index = reasons_indices.data[i];
-    // Try without it
-    reasons_indices.data[i] = 0;
-    if (!feasible_set_check_if_conflict(db, &reasons_indices)) {
-      // We need it
-      reasons_indices.data[i] = set_index;
-    }
-  }
-
   // Return the conjunctive reasons
+  uint32_t i;
   for (i = 0; i < reasons_indices.size; ++ i) {
     uint32_t set_index = reasons_indices.data[i];
-    if (set_index) {
-      feasibility_list_element_t* element = db->memory + set_index;
-      if (element->reasons_size == 1) {
-        variable_t reason = element->reasons[0];
+    feasibility_list_element_t* element = db->memory + set_index;
+    if (element->reasons_size == 1) {
+      variable_t reason = element->reasons[0];
+      assert(variable_db_is_boolean(db->ctx->var_db, reason));
+      ivector_push(reasons_out, reason);
+    } else {
+      uint32_t j;
+      for (j = 0; j < element->reasons_size; ++j) {
+        variable_t reason = element->reasons[j];
         assert(variable_db_is_boolean(db->ctx->var_db, reason));
-        ivector_push(reasons_out, reason);
-      } else {
-        uint32_t j;
-        for (j = 0; j < element->reasons_size; ++ j) {
-          variable_t reason = element->reasons[j];
-          assert(variable_db_is_boolean(db->ctx->var_db, reason));
-          ivector_push(lemma_reasons, reason);
-        }
+        ivector_push(lemma_reasons, reason);
       }
     }
   }
