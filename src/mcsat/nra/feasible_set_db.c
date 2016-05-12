@@ -482,6 +482,24 @@ bool compare_reasons_by_degree(void *nra_plugin, int32_t r1, int32_t r2) {
   return r1_level < r2_level;
 }
 
+void print_conflict_reasons(FILE* out, feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reason_indices) {
+  uint32_t i, j;
+  poly_constraint_db_t* poly_db = nra->constraint_db;
+  
+  for (i = 0; i < reason_indices->size; ++ i) {
+    fprintf(out, "[%d]: ", i);
+    uint32_t r_i = reason_indices->data[i];
+    uint32_t r_i_size = db->memory[r_i].reasons_size;
+    for (j = 0; j < r_i_size; ++ j) {
+      if (j) fprintf(out, ", ");
+      variable_t r_i_var = db->memory[r_i].reasons[j];
+      const poly_constraint_t* r_i_constraint = poly_constraint_db_get(poly_db, r_i_var);
+      poly_constraint_print(r_i_constraint, out);
+    }
+    fprintf(out, "\n");                                               
+  }
+}
+
 static
 void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reasons_indices) {
   // The set we're trying to make empty
@@ -489,6 +507,11 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
 
   // Sort variables by degree and trail level descreasing
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons_by_degree);
+ 
+  if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: before\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, nra, reasons_indices);
+  }                           
 
   // Minimize the core
   ivector_t out;
@@ -496,6 +519,14 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   feasible_set_quickxplain(db, S, reasons_indices, 0, reasons_indices->size, &out);
   ivector_swap(reasons_indices, &out);
   delete_ivector(&out);
+
+  // Sort again for consisency
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons_by_degree);
+
+  if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: after\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, nra, reasons_indices);
+  }                           
 
   // Remove temps
   lp_feasibility_set_delete(S);
