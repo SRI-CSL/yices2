@@ -27,6 +27,8 @@
 #include "utils/int_array_sort2.h"
 #include "terms/term_explorer.h"
 
+#include "yices.h"
+
 static
 void nra_plugin_stats_init(nra_plugin_t* nra) {
   // Add statistics
@@ -93,6 +95,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
+  ctx->request_term_notification_by_kind(ctx, ARITH_DIV);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT);
@@ -218,6 +222,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
   uint32_t i, j;
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  term_table_t* terms = nra->ctx->terms;
 
   if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_new_term_notify: ");
@@ -228,6 +233,39 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
   // The variable
   variable_t t_atom_var = variable_db_get_variable(nra->ctx->var_db, t);
+
+  // Check for div and mod
+  term_kind_t t_kind = term_kind(terms, t);
+  if (t_kind == ARITH_MOD) {
+    // Just make sure that the div is registered
+    composite_term_t* mod = arith_mod_term_desc(terms, t);
+    term_t a = mod->arg[0];
+    term_t b = mod->arg[1];
+    term_t t_div = arith_div(terms, a, b);
+    variable_db_get_variable(nra->ctx->var_db, t_div);
+  }
+  if (t_kind == ARITH_DIV) {
+    // Make sure that mod has a variable
+    composite_term_t* div = arith_div_term_desc(terms, t);
+    term_t q = t;
+    term_t m = div->arg[0];
+    term_t n = div->arg[1];
+    term_t r = arith_mod(terms, m, n);
+    variable_db_get_variable(nra->ctx->var_db, r);
+
+    // Add a lemma (assuming non-zero): TODO: add zero when UF done
+    // (div m n)
+    // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
+    term_t c1 = arith_eq_atom(terms, yices_add(yices_mul(n, q), r));
+    term_t abs_n = yices_ite(yices_arith_geq0_atom(n), n, yices_neg(n));
+    term_t c2 = arith_geq_atom(terms, r);
+    // r < (abs n) same as not (r - abs) >= 0
+    term_t c3 = not_term(terms, arith_geq_atom(terms, yices_sub(r, abs_n)));
+
+    prop->lemma(prop, c1);
+    prop->lemma(prop, c2);
+    prop->lemma(prop, c3);
+  }
 
   // The vector to collect variables
   int_mset_t t_variables;
