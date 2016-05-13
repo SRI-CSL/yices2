@@ -63,7 +63,7 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
     // The polynomial
     polynomial_t* polynomial = poly_term_desc(terms, t);
     // Go through the polynomial and get the variables
-    uint32_t i, j;
+    uint32_t i, j, deg;
     variable_t var;
     for (i = 0; i < polynomial->nterms; ++i) {
       term_t product = polynomial->mono[i].var;
@@ -74,7 +74,9 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
         pprod_t* pprod = pprod_for_term(terms, product);
         for (j = 0; j < pprod->len; ++j) {
           var = variable_db_get_variable(var_db, pprod->prod[j].var);
-          int_mset_add(vars_out, var);
+          for (deg = 0; deg < pprod->prod[j].exp; ++ deg) {
+            int_mset_add(vars_out, var);
+          }
         }
       } else {
         // Variable, or foreign term
