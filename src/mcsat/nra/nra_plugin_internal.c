@@ -88,10 +88,12 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
   }
   case POWER_PRODUCT: {
     pprod_t* pprod = pprod_term_desc(terms, t);
-    uint32_t i;
+    uint32_t i, deg;
     for (i = 0; i < pprod->len; ++ i) {
       variable_t var = variable_db_get_variable(var_db, pprod->prod[i].var);
-      int_mset_add(vars_out, var);
+      for (deg = 0; deg < pprod->prod[i].exp; ++ deg) {
+        int_mset_add(vars_out, var);
+      }
     }
     break;
   }
