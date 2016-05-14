@@ -29,6 +29,8 @@
 
 #include "mcsat/utils/statistics.h"
 
+#include "utils/dprng.h"
+
 #include <inttypes.h>
 #include <mcsat/uf/uf_plugin.h>
 
@@ -199,7 +201,10 @@ struct mcsat_solver_s {
     uint32_t restart_interval;
     // Type of weight to use for restart counter
     lemma_weight_type_t lemma_restart_weight_type;
-
+    // Random decision frequency
+    double random_decision_freq;
+    // Random decision seed
+    double random_decision_seed;
   } heuristic_params;
 };
 
@@ -220,6 +225,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
+  mcsat->heuristic_params.random_decision_freq = 0.1;
+  mcsat->heuristic_params.random_decision_seed = 0;
 }
 
 bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, mcsat_value_t* value) {
@@ -1363,6 +1370,20 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
     // Get an unassigned variable from the queue
     var = variable_null;
+
+    // Random decision:
+    double* seed = &mcsat->heuristic_params.random_decision_seed;
+    double freq = mcsat->heuristic_params.random_decision_freq;
+    if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
+        var = var_queue_random(&mcsat->var_queue, seed);
+        if (trail_has_value(mcsat->trail, var)) {
+          var = variable_null;
+        } else {
+          // fprintf(stderr, "random\n");
+        }
+    }
+
+    // Use the queue
     while (!var_queue_is_empty(&mcsat->var_queue) && var == variable_null) {
       // Get the next variable from the queue
       var = var_queue_pop(&mcsat->var_queue);

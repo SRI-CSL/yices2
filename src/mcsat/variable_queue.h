@@ -73,6 +73,9 @@ bool var_queue_is_empty(var_queue_t *queue);
 /** Get and remove top element (the heap must not be empty) */
 variable_t var_queue_pop(var_queue_t *queue);
 
+/** Get and remove random element (the heap must not be empty) */
+variable_t var_queue_random(var_queue_t *queue, double *seed);
+
 /**
  * Insert x into the heap, using its current activity.
  * No effect if x is already in the heap.
