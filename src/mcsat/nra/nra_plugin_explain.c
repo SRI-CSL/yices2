@@ -976,7 +976,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     int_mset_construct(&variables, variable_null);
     for (i = 0; i < core->size; ++ i) {
       term_t core_i_t = variable_db_get_term(nra->ctx->var_db, core->data[i]);
-      nra_plugin_get_literal_variables(nra, core_i_t, &variables);
+      nra_plugin_get_constraint_variables(nra, core_i_t, &variables);
       ctx_trace_printf(nra->ctx, "core[%u] = ", i);
       ctx_trace_term(nra->ctx, core_i_t);
     }

@@ -29,6 +29,11 @@
 
 #include "yices.h"
 
+static inline
+bool nra_plugin_has_assignment(const nra_plugin_t* nra, variable_t x) {
+  return trail_has_value(nra->ctx->trail, x) && trail_get_index(nra->ctx->trail, x) < nra->trail_i;
+}
+
 static
 void nra_plugin_stats_init(nra_plugin_t* nra) {
   // Add statistics
@@ -232,7 +237,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
   assert(!is_neg_term(t));
 
   // The variable
-  variable_t t_atom_var = variable_db_get_variable(nra->ctx->var_db, t);
+  variable_t t_var = variable_db_get_variable(nra->ctx->var_db, t);
 
   // Check for div and mod
   term_kind_t t_kind = term_kind(terms, t);
@@ -270,7 +275,15 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
   // The vector to collect variables
   int_mset_t t_variables;
   int_mset_construct(&t_variables, variable_null);
-  bool is_constraint = nra_plugin_get_literal_variables(nra, t, &t_variables);
+  nra_plugin_get_constraint_variables(nra, t, &t_variables);
+
+  // Examples:
+  // - x: t_variables = [x]
+  // - 5: t_variables = [5]
+  // - x+1: t_variables = [x+1, x]
+  // - (x = 0): t_variables = [x]
+  // We're a constraint if
+  bool is_constraint = t_variables.element_list.size != 1 || t_variables.element_list.data[0] != t_var;
 
   // Setup the constraint
   if (is_constraint) {
@@ -299,7 +312,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Sort variables by trail index
     int_array_sort2(t_variables_list->data, t_variables_list->size, (void*) nra->ctx->trail, nra_plugin_trail_variable_compare);
 
-    if (TRACK_CONSTRAINT(t_atom_var) || ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
+    if (TRACK_CONSTRAINT(t_var) || ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
       ctx_trace_printf(nra->ctx, "nra_plugin_new_term_notify: vars: \n");
       for (i = 0; i < t_variables_list->size; ++ i) {
         ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, t_variables_list->data[i]));
@@ -307,7 +320,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     }
 
     // Make the variable list
-    variable_list_ref_t var_list = watch_list_manager_new_list(&nra->wlm, t_variables_list->data, t_variables_list->size, t_atom_var);
+    variable_list_ref_t var_list = watch_list_manager_new_list(&nra->wlm, t_variables_list->data, t_variables_list->size, t_var);
 
     // Add first variable to watch list
     watch_list_manager_add_to_watch(&nra->wlm, var_list, t_variables_list->data[0]);
@@ -319,31 +332,29 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     // Check the current status of the constraint
     variable_t top_var = t_variables_list->data[0];
-    const mcsat_trail_t* trail = nra->ctx->trail;
     constraint_unit_info_t unit_status = CONSTRAINT_UNKNOWN;
-    if (trail_has_value(trail, top_var) && trail_get_index(trail, top_var) < nra->trail_i) {
+    if (nra_plugin_has_assignment(nra, top_var)) {
       // All variables assigned,
       unit_status = CONSTRAINT_FULLY_ASSIGNED;
     } else {
       if (t_variables_list->size == 1) {
         // Single variable, unassigned => unit
         unit_status = CONSTRAINT_UNIT;
-      } else if (trail_has_value(nra->ctx->trail, t_variables_list->data[1]) &&
-          trail_get_index(trail, t_variables_list->data[1]) < nra->trail_i) {
+      } else if (nra_plugin_has_assignment(nra, t_variables_list->data[1])) {
         // Second one is assigned and processed, so we're unit
         unit_status = CONSTRAINT_UNIT;
       }
     }
 
     // Set the status of the constraint
-    nra_plugin_set_unit_info(nra, t_atom_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
+    nra_plugin_set_unit_info(nra, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
-    poly_constraint_db_add(nra->constraint_db, t_atom_var);
+    poly_constraint_db_add(nra->constraint_db, t_var);
 
     // Propagate if fully assigned
     if (unit_status == CONSTRAINT_FULLY_ASSIGNED) {
-      nra_plugin_process_fully_assigned_constraint(nra, prop, t_atom_var);
+      nra_plugin_process_fully_assigned_constraint(nra, prop, t_var);
     }
 
     // Stats
@@ -517,7 +528,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
     var_list_it = var_list + 1;
     if (*var_list_it != variable_null) {
       for (++ var_list_it; *var_list_it != variable_null; ++ var_list_it) {
-        if (!trail_has_value(trail, *var_list_it) || trail_get_index(trail, *var_list_it) > nra->trail_i) {
+        if (!nra_plugin_has_assignment(nra, *var_list_it)) {
           // Swap with var_list[1]
           var_list[1] = *var_list_it;
           *var_list_it = var;
@@ -534,7 +545,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
       if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
         ctx_trace_printf(nra->ctx, "no watch found\n");
       }
-      if (!trail_has_value(trail, *var_list) || trail_get_index(trail, *var_list) > nra->trail_i) {
+      if (!nra_plugin_has_assignment(nra, *var_list)) {
         // We're unit
         nra_plugin_set_unit_info(nra, constraint_var, *var_list, CONSTRAINT_UNIT);
         // Process the constraint
@@ -580,7 +591,7 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
       continue;
     }
     const mcsat_value_t* value = trail_get_value(trail, x);
-    if (value->type == VALUE_LIBPOLY && trail_get_index(trail, x) < nra->trail_i) {
+    if (value->type == VALUE_LIBPOLY && nra_plugin_has_assignment(nra, x)) {
       lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
       const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
       int cmp = lp_value_cmp(&value->lp_value, value_lp);
@@ -627,9 +638,10 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   // Propagate
-  for(; trail_is_consistent(trail) && nra->trail_i < trail_size(trail); ++ nra->trail_i) {
+  while(trail_is_consistent(trail) && nra->trail_i < trail_size(trail)) {
     // Current trail element
     var = trail_at(trail, nra->trail_i);
+    nra->trail_i ++;
     if (TRACK_VAR(var) || TRACK_CONSTRAINT(var)) {
       fprintf(stderr, "Processing assignment of %d in the trail.\n", var);
     }
@@ -768,7 +780,7 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
   for (i = 0; i < core->size; ++ i) {
     variable_t constraint_var = core->data[i];
     term_t constraint_term = variable_db_get_term(var_db, constraint_var);
-    nra_plugin_get_literal_variables(nra, constraint_term, &core_vars);
+    nra_plugin_get_constraint_variables(nra, constraint_term, &core_vars);
   }
 
   // Variables in the assignment
@@ -1155,9 +1167,7 @@ bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars,
   if (value == NULL) {
 
     // Get all the variables and make sure they are all assigned.
-    bool is_constraint = nra_plugin_get_literal_variables(nra, t, vars);
-    (void)is_constraint;
-    assert(is_constraint);
+    nra_plugin_get_constraint_variables(nra, t, vars);
 
     // Check if the variables are assigned
     ivector_t* var_list = int_mset_get_list(vars);

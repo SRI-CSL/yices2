@@ -225,7 +225,7 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.random_decision_freq = 0.1;
+  mcsat->heuristic_params.random_decision_freq = 0;
   mcsat->heuristic_params.random_decision_seed = 0;
 }
 
