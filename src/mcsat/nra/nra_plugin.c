@@ -360,9 +360,24 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Stats
     (*nra->stats.constraints_attached) ++;
   } else {
-    // Add the variable to libpoly
-    if (!nra_plugin_term_has_lp_variable(nra, t)) {
-      nra_plugin_add_lp_variable_from_term(nra, t);
+    // Add the variable to libpoly if not a constant
+    if (t_kind != ARITH_CONSTANT) {
+      if (!nra_plugin_term_has_lp_variable(nra, t)) {
+        nra_plugin_add_lp_variable_from_term(nra, t);
+      }
+    } else {
+      // Propagate constant value
+      lp_rational_t rat_value;
+      lp_rational_construct(&rat_value);
+      q_get_mpq(rational_term_desc(terms, t), &rat_value);
+      lp_value_t lp_value;
+      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+      mcsat_value_t mcsat_value;
+      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
+      prop->add(prop, t_var, &mcsat_value);
+      mcsat_value_destruct(&mcsat_value);
+      lp_value_destruct(&lp_value);
+      lp_rational_destruct(&rat_value);
     }
   }
 
@@ -475,6 +490,11 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
   if (TRACK_VAR(var) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: processing var assignment of :\n");
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, var));
+  }
+
+  // If it's constant, just skip it
+  if (!nra_plugin_variable_has_lp_variable(nra, var)) {
+    return;
   }
 
   // Add to the lp model and context
