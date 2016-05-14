@@ -111,7 +111,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
     assert(false); // TODO: what's up with this?
     return false;
   case VALUE_LIBPOLY:
-    return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
+    return lp_value_cmp(&v1->lp_value, &v2->lp_value);
   default:
     assert(false);
     return false;

@@ -65,17 +65,11 @@ struct mcsat_trail_s {
   /** Id of the source of the value */
   ivector_t id;
 
-  /** Timestamp of the value */
-  ivector_t timestamp;
-
   /** List of unassigned variables */
   ivector_t unassigned;
 
   /** Are we in conflict */
   bool inconsistent;
-
-  /** Global time-stamp of different assignments */
-  uint32_t timestamp_global;
 };
 
 /**
@@ -164,13 +158,6 @@ static inline
 const mcsat_value_t* trail_get_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(!trail_has_value(trail, var));
   return mcsat_model_get_value(&trail->model, var);
-}
-
-/** Get the timestamp of the last assignment to the variable */
-static inline
-uint32_t trail_get_timestamp(const mcsat_trail_t* trail, variable_t var) {
-  assert(var < trail->timestamp.size);
-  return trail->timestamp.data[var];
 }
 
 /** Get the boolean value of the variable */

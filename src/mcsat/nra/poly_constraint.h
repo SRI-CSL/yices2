@@ -11,7 +11,6 @@
 #include <poly/polynomial.h>
 #include <poly/sign_condition.h>
 
-#include "mcsat/mcsat_types.h"
 #include "mcsat/nra/nra_plugin_internal.h"
 #include "utils/int_hash_map.h"
 
@@ -40,14 +39,14 @@ void poly_constraint_print(const poly_constraint_t* cstr, FILE* out);
 void poly_constraint_print_mathematica(const poly_constraint_t* cstr, bool neageted, FILE* out);
 
 /** Get the feasible set of the constraint */
-lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, uint32_t timestamp, const lp_assignment_t* m, bool negated);
+lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, const lp_assignment_t* m, bool negated);
 
 /**
  * Evaluate the constraint. Returns the value, and sets the level to the level of the constraint.
  * If variables are given (variable_null_terminated), they are used to compute the level, otherwise (if 0) list of variables is
  * recomputed.
  */
-const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, uint32_t timestamp, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level);
+const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level);
 
 /** Get the top variable of the constraint */
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr);
