@@ -14,6 +14,8 @@
 #include <poly/variable_list.h>
 #include <poly/feasibility_set.h>
 
+#define USE_TIMESTAMP_CACHE 1
+
 /**
  * A constraint of the form sgn(p(x)) = sgn_conition.
  */
@@ -31,6 +33,8 @@ struct poly_constraint_struct {
   /** If this is a root constraint, this is the root index */
   size_t root_index;
 
+#if USE_CACHE
+
   /** Feasibility last negated */
   bool feasibility_last_negated;
 
@@ -42,6 +46,14 @@ struct poly_constraint_struct {
 
   /** Last computed feasibility */
   lp_feasibility_set_t* feasibility_last;
+
+  /** Eavaluation last timestamp */
+  uint32_t eval_last_timestamp;
+
+  /** Last evaluation */
+  bool eval_last;
+#endif
+
 };
 
 static
@@ -152,11 +164,15 @@ void poly_constraint_construct_regular(poly_constraint_t* cstr, lp_polynomial_t*
   cstr->x = lp_variable_null;
   cstr->root_index = 0;
 
+#if USE_CACHE
   // Cache
   cstr->feasibility_last = 0;
   cstr->feasibility_last_negated = false;
   cstr->feasibility_last_timestamp = 0;
   cstr->feasibility_last_top_var = lp_variable_null;
+  cstr->eval_last = false;
+  cstr->eval_last_timestamp = 0;
+#endif
 }
 
 void poly_constraint_construct_root(poly_constraint_t* cstr, lp_polynomial_t* p, lp_sign_condition_t sgn_contition, lp_variable_t x, uint32_t root_index) {
@@ -165,11 +181,15 @@ void poly_constraint_construct_root(poly_constraint_t* cstr, lp_polynomial_t* p,
   cstr->x = x;
   cstr->root_index = root_index;
 
+#if USE_CACHE
   // Cache
   cstr->feasibility_last = 0;
   cstr->feasibility_last_negated = false;
   cstr->feasibility_last_timestamp = 0;
   cstr->feasibility_last_top_var = lp_variable_null;
+  cstr->eval_last = false;
+  cstr->eval_last_timestamp = 0;
+#endif
 }
 
 poly_constraint_t* poly_constraint_new_regular(lp_polynomial_t* p, lp_sign_condition_t sgn_contition) {
@@ -188,9 +208,11 @@ poly_constraint_t* poly_constraint_new_root(lp_polynomial_t* p, lp_sign_conditio
 
 void poly_constraint_destruct(poly_constraint_t* cstr) {
   lp_polynomial_delete(cstr->polynomial);
+#if USE_CACHE
   if (cstr->feasibility_last) {
     lp_feasibility_set_delete(cstr->feasibility_last);
   }
+#endif
 }
 
 void poly_constraint_delete(poly_constraint_t* cstr) {
@@ -276,12 +298,14 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
 
   lp_variable_t top_var = lp_polynomial_top_variable(cstr->polynomial);
 
+#if USE_CACHE
   // Check the cache
   if (timestamp == cstr->feasibility_last_timestamp &&
       negated == cstr->feasibility_last_negated &&
       top_var == cstr->feasibility_last_top_var) {
     return lp_feasibility_set_new_copy(cstr->feasibility_last);
   }
+#endif
 
   lp_feasibility_set_t* feasible  = 0;
 
@@ -299,11 +323,16 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
   }
 
   // Set the cache
+#if USE_CACHE
   poly_constraint_t* cstr_nonconst = (poly_constraint_t*) cstr;
+  if (cstr->feasibility_last) {
+    lp_feasibility_set_delete(cstr_nonconst->feasibility_last);
+  }
   cstr_nonconst->feasibility_last = lp_feasibility_set_new_copy(feasible);
   cstr_nonconst->feasibility_last_timestamp = timestamp;
   cstr_nonconst->feasibility_last_negated = negated;
   cstr_nonconst->feasibility_last_top_var = top_var;
+#endif
 
   return feasible;
 }
@@ -514,23 +543,35 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   // assert(poly_constraint_db_check(db));
 }
 
-const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level) {
+const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, uint32_t timestamp, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level) {
 
   bool eval;
 
   assert(poly_constraint_ok(cstr));
 
-  // Evaluate
-  if (poly_constraint_is_root_constraint(cstr)) {
-    if (cstr->x != lp_polynomial_top_variable(cstr->polynomial)) {
-      // if not top, ignore
-      return NULL;
-    } else {
-      eval = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, nra->lp_data.lp_assignment);
-    }
+#if USE_CACHE
+  if (timestamp == cstr->eval_last_timestamp) {
+    eval = cstr->eval_last;
   } else {
-    eval = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, nra->lp_data.lp_assignment);
+#endif
+    // Evaluate
+    if (poly_constraint_is_root_constraint(cstr)) {
+      if (cstr->x != lp_polynomial_top_variable(cstr->polynomial)) {
+        // if not top, ignore
+        return NULL;
+      } else {
+        eval = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, nra->lp_data.lp_assignment);
+      }
+    } else {
+      eval = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, nra->lp_data.lp_assignment);
+    }
+#if USE_CACHE
+    // Cache
+    poly_constraint_t* cstr_nonconst = (poly_constraint_t*) cstr;
+    cstr_nonconst->eval_last = eval;
+    cstr_nonconst->eval_last_timestamp = timestamp;
   }
+#endif
 
   // Get the variables if not there
   if (var_list == NULL) {

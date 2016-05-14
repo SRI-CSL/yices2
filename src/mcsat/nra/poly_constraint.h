@@ -47,7 +47,7 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
  * If variables are given (variable_null_terminated), they are used to compute the level, otherwise (if 0) list of variables is
  * recomputed.
  */
-const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level);
+const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, uint32_t timestamp, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level);
 
 /** Get the top variable of the constraint */
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr);
