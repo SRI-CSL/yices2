@@ -21,8 +21,10 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db) {
   init_ivector(&trail->level, 0);
   init_ivector(&trail->index, 0);
   init_ivector(&trail->id, 0);
+  init_ivector(&trail->timestamp, 0);
   init_ivector(&trail->unassigned, 0);
   trail->inconsistent = false;
+  trail->timestamp_global = 0;
 }
 
 void trail_destruct(mcsat_trail_t* trail) {
@@ -36,6 +38,7 @@ void trail_destruct(mcsat_trail_t* trail) {
   delete_ivector(&trail->level);
   delete_ivector(&trail->index);
   delete_ivector(&trail->id);
+  delete_ivector(&trail->timestamp);
   delete_ivector(&trail->unassigned);
 }
 
@@ -48,6 +51,7 @@ void trail_new_variable_notify(mcsat_trail_t* trail, variable_t x) {
     ivector_push(&trail->level, -1);
     ivector_push(&trail->index, -1);
     ivector_push(&trail->id, -1);
+    ivector_push(&trail->timestamp, 0);
   }
 }
 
@@ -116,7 +120,14 @@ void trail_set_value(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* va
 
   // Set the value
   assert(value->type != VALUE_BOOLEAN || variable_db_is_boolean(trail->var_db, x));
-  mcsat_model_set_value(&trail->model, x, value);
+  bool equal = mcsat_model_has_value(&trail->model, x) && mcsat_value_eq(mcsat_model_get_value(&trail->model, x), value);
+  if (!equal) {
+    mcsat_model_set_value(&trail->model, x, value);
+    trail->timestamp_global ++;
+    trail->timestamp.data[x] = trail->timestamp_global;
+  } else {
+    // Just keep previous value and timestamp
+  }
 }
 
 static inline

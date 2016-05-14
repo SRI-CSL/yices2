@@ -360,6 +360,33 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 }
 
 static
+uint32_t nra_plugin_get_timestamp(nra_plugin_t* nra, term_t literal, bool count_trail_top) {
+
+  const mcsat_trail_t* trail = nra->ctx->trail;
+
+  // Get max of all assigned variables
+  int_mset_t vars;
+  int_mset_construct(&vars, variable_null);
+  nra_plugin_get_literal_variables(nra, literal, &vars);
+  uint32_t i, timestamp = 0, n = vars.element_list.size;
+  for (i = 0; i < n; ++ i) {
+    variable_t x = vars.element_list.data[i];
+    // When in propagation, we are in the middle of processing tail_i, so we count i
+    if (trail_has_value(trail, x)) {
+      uint32_t trail_index = trail_get_index(trail, x);
+      if (trail_index < nra->trail_i || (count_trail_top && trail_index == nra->trail_i)) {
+        uint32_t x_timestamp = trail_get_timestamp(trail, x);
+        if (x_timestamp > timestamp) {
+          timestamp = x_timestamp;
+        }
+      }
+    }
+  }
+  int_mset_destruct(&vars);
+  return timestamp;
+}
+
+static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
   bool feasible;
@@ -386,7 +413,9 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
       ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
     }
 
-    lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, !constraint_value);
+    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    uint32_t timestamp = nra_plugin_get_timestamp(nra, constraint_term, true);
+    lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, timestamp, nra->lp_data.lp_assignment, !constraint_value);
 
     if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");
@@ -919,8 +948,9 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
     }
   }
 
-  // Compute the feasible set
-  lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, nra->lp_data.lp_assignment, negated);
+  // Compute the feasible set (we're in conflict analysis, so don't count trail_top)
+  uint32_t timestamp = nra_plugin_get_timestamp(nra, constraint, false);
+  lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, timestamp, nra->lp_data.lp_assignment, negated);
 
   // Update the infeasible intervals
   bool feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
@@ -1378,8 +1408,9 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       // Get the constraint
       const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
 
-      // Compute and add the feasible set
-      lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, negated);
+      // Compute and add the feasible set (in lemma, so don't count top)
+      uint32_t timestamp = nra_plugin_get_timestamp(nra, constraint_term, false);
+      lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, timestamp, nra->lp_data.lp_assignment, negated);
 
       if (ctx_trace_enabled(nra->ctx, "nra::lemma")) {
         ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");

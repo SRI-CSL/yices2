@@ -11,6 +11,7 @@
 #include <poly/polynomial.h>
 #include <poly/sign_condition.h>
 
+#include "mcsat/mcsat_types.h"
 #include "mcsat/nra/nra_plugin_internal.h"
 #include "utils/int_hash_map.h"
 
@@ -39,7 +40,7 @@ void poly_constraint_print(const poly_constraint_t* cstr, FILE* out);
 void poly_constraint_print_mathematica(const poly_constraint_t* cstr, bool neageted, FILE* out);
 
 /** Get the feasible set of the constraint */
-lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, const lp_assignment_t* m, bool negated);
+lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, uint32_t timestamp, const lp_assignment_t* m, bool negated);
 
 /**
  * Evaluate the constraint. Returns the value, and sets the level to the level of the constraint.
