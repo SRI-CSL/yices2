@@ -1131,6 +1131,16 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
     // Check if the literal has value (only negative allowed)
     if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
+
+      if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
+        trace_printf(mcsat->ctx->trace, "literal: ");
+        variable_db_print_variable(mcsat->var_db, disjunct_pos_var, stderr);
+        trace_printf(mcsat->ctx->trace, "\nvalue: ");
+        const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
+        mcsat_value_print(value, stderr);
+        trace_printf(mcsat->ctx->trace, "\n");
+      }
+
       assert(trail_get_value(mcsat->trail, disjunct_pos_var)->type == VALUE_BOOLEAN);
       assert(trail_get_value(mcsat->trail, disjunct_pos_var)->b == (disjunct != disjunct_pos));
       level = trail_get_level(mcsat->trail, disjunct_pos_var);

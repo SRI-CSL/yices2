@@ -15,6 +15,8 @@
 
 #include "utils/int_array_sort2.h"
 
+#include "yices.h"
+
 typedef struct {
 
   /** The plugin interface */
@@ -27,13 +29,22 @@ typedef struct {
   watch_list_manager_t wlm;
 
   /** App representatives */
-  app_reps_t reps;
+  app_reps_t app_reps;
 
   /** Next index of the trail to process */
   uint32_t trail_i;
 
   /** Scope holder for the int variables */
   scope_holder_t scope;
+
+  /** Map from application representatives to value representatives */
+  int_hmap_t app_rep_to_val_rep;
+
+  /** List of app representatives that have a value representative */
+  ivector_t app_reps_with_val_rep;
+
+  /** Conflict x = y => f(x) = f(y) */
+  variable_t conflict_lhs, conflict_rhs;
 
 } uf_plugin_t;
 
@@ -44,10 +55,14 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf->ctx = ctx;
 
   watch_list_manager_construct(&uf->wlm, uf->ctx->var_db);
-  app_reps_construct(&uf->reps, 0, ctx->var_db, ctx->trail, ctx->terms);
+  app_reps_construct(&uf->app_reps, 0, ctx->var_db, ctx->trail, ctx->terms);
   scope_holder_construct(&uf->scope);
+  init_int_hmap(&uf->app_rep_to_val_rep, 0);
+  init_ivector(&uf->app_reps_with_val_rep, 0);
 
   uf->trail_i = 0;
+  uf->conflict_lhs = variable_null;
+  uf->conflict_rhs = variable_null;
 
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
 }
@@ -56,8 +71,10 @@ static
 void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   watch_list_manager_destruct(&uf->wlm);
-  app_reps_destruct(&uf->reps);
+  app_reps_destruct(&uf->app_reps);
   scope_holder_destruct(&uf->scope);
+  delete_int_hmap(&uf->app_rep_to_val_rep);
+  delete_ivector(&uf->app_reps_with_val_rep);
 }
 
 static
@@ -157,7 +174,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   if (is_fully_assigned) {
     // Here, the new terms can not have assigned value, so we don't need to
     // check for conflicts
-    app_reps_get_rep(&uf->reps, app_term);
+    app_reps_get_rep(&uf->app_reps, app_term);
   }
 }
 
@@ -184,33 +201,54 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
 }
 
+/** Get the value representative of the application representative. */
+static inline
+variable_t uf_plugin_get_val_rep(uf_plugin_t* uf, variable_t app_rep) {
+  int_hmap_pair_t* find = int_hmap_find(&uf->app_rep_to_val_rep, app_rep);
+  if (find == NULL) {
+    return variable_null;
+  } else {
+    return find->val;
+  }
+}
+
+/** Set the value representative of the application representative. */
+static inline
+void uf_plugin_set_val_rep(uf_plugin_t* uf, variable_t app_rep, variable_t val_rep) {
+  assert(uf_plugin_get_val_rep(uf, app_rep) == variable_null);
+  int_hmap_add(&uf->app_rep_to_val_rep, app_rep, val_rep);
+  ivector_push(&uf->app_reps_with_val_rep, app_rep);
+}
+
 static
 void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
-  uf_plugin_t* eq = (uf_plugin_t*) plugin;
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
-    ctx_trace_printf(eq->ctx, "uf_plugin_propagate()\n");
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+    ctx_trace_printf(uf->ctx, "uf_plugin_propagate()\n");
   }
 
   // If we're not watching anything, we just ignore
-  if (watch_list_manager_size(&eq->wlm) == 0) {
+  if (watch_list_manager_size(&uf->wlm) == 0) {
     return;
   }
 
   // Context
-  const mcsat_trail_t* trail = eq->ctx->trail;
-  variable_db_t* var_db = eq->ctx->var_db;
+  const mcsat_trail_t* trail = uf->ctx->trail;
+  variable_db_t* var_db = uf->ctx->var_db;
 
   // Propagate
   variable_t var;
-  for(; trail_is_consistent(trail) && eq->trail_i < trail_size(trail); ++ eq->trail_i) {
+  for(; trail_is_consistent(trail) && uf->trail_i < trail_size(trail); ++ uf->trail_i) {
     // Current trail element
-    var = trail_at(trail, eq->trail_i);
+    var = trail_at(trail, uf->trail_i);
 
-    if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
-      ctx_trace_printf(eq->ctx, "uf_plugin_propagate: ");
-      ctx_trace_term(eq->ctx, variable_db_get_term(var_db, var));
+    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+      ctx_trace_printf(uf->ctx, "uf_plugin_propagate: ");
+      ctx_trace_term(uf->ctx, variable_db_get_term(var_db, var));
+      ctx_trace_printf(uf->ctx, "trail: ");
+      trail_print(trail, stderr);
     }
 
     // Go through all the variable lists (constraints) where we're watching var
@@ -220,18 +258,18 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     variable_t* var_list_it;
 
     // Get the watch-list and process
-    remove_iterator_construct(&it, &eq->wlm, var);
+    remove_iterator_construct(&it, &uf->wlm, var);
     while (trail_is_consistent(trail) && !remove_iterator_done(&it)) {
 
       // Get the current list where var appears
       var_list_ref = remove_iterator_get_list_ref(&it);
-      var_list = watch_list_manager_get_list(&eq->wlm, var_list_ref);
+      var_list = watch_list_manager_get_list(&uf->wlm, var_list_ref);
 
       // f(x) variable
-      variable_t app_var = watch_list_manager_get_constraint(&eq->wlm, var_list_ref);
-      if (ctx_trace_enabled(eq->ctx, "uf_plugin")) {
-        ctx_trace_printf(eq->ctx, "uf_plugin_propagate: app_var = ");
-        ctx_trace_term(eq->ctx, variable_db_get_term(var_db, app_var));
+      variable_t app_var = watch_list_manager_get_constraint(&uf->wlm, var_list_ref);
+      if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+        ctx_trace_printf(uf->ctx, "uf_plugin_propagate: app_var = ");
+        ctx_trace_term(uf->ctx, variable_db_get_term(var_db, app_var));
       }
 
       // Find a new watch (start from [1])
@@ -243,7 +281,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
             var_list[0] = *var_list_it;
             *var_list_it = var;
             // Add to new watch
-            watch_list_manager_add_to_watch(&eq->wlm, var_list_ref, var_list[0]);
+            watch_list_manager_add_to_watch(&uf->wlm, var_list_ref, var_list[0]);
             // Don't watch this one
             remove_iterator_next_and_remove(&it);
             break;
@@ -253,15 +291,21 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
       if (*var_list_it == variable_null) {
         // We did not find a new watch so vars[1], ..., vars[n] are assigned.
-        // Add and get the repesentative of this assignment.
-        variable_t rep_var = app_reps_get_rep(&eq->reps, app_var);
-        // If already has one, and both assigned to a value, check if it's the same value
-        if (rep_var != app_var) {
-          if (trail_has_value(trail, rep_var) && trail_has_value(trail, app_var)) {
+        // Add and get the representative of this assignment.
+        variable_t rep_var = app_reps_get_rep(&uf->app_reps, app_var);
+        assert(rep_var != variable_null);
+        if (trail_has_value(trail, app_var)) {
+          variable_t val_rep_var = uf_plugin_get_val_rep(uf, rep_var);
+          // If already has one, and both assigned to a value, check if it's the same value
+          if (val_rep_var == variable_null) {
+            uf_plugin_set_val_rep(uf, rep_var, app_var);
+          } else if (val_rep_var != app_var) {
             const mcsat_value_t* app_value = trail_get_value(trail, app_var);
-            const mcsat_value_t* rep_value = trail_get_value(trail, rep_var);
-            if (!mcsat_value_eq(app_value, rep_value)) {
-              assert(false); // TODO: conflict
+            const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
+            if (!mcsat_value_eq(app_value, val_rep_value)) {
+              uf->conflict_lhs = app_var;
+              uf->conflict_rhs = val_rep_var;
+              prop->conflict(prop);
             }
           }
         }
@@ -270,11 +314,32 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       }
     }
 
+    // If a function application, check if it's fully assigned
+    term_t var_term = variable_db_get_term(uf->ctx->var_db, var);
+    if (term_kind(uf->ctx->terms, var_term) == APP_TERM) {
+      // Get the application representative, if any
+      variable_t rep_var = app_reps_get_rep(&uf->app_reps, var);
+      if (rep_var != variable_null) {
+        // Get the value representative
+        variable_t val_rep_var = uf_plugin_get_val_rep(uf, rep_var);
+        if (val_rep_var == variable_null) {
+          // No value reps yet, take it over
+          uf_plugin_set_val_rep(uf, rep_var, var);
+        } else if (val_rep_var != var) {
+          const mcsat_value_t* var_value = trail_get_value(trail, var);
+          const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
+          if (!mcsat_value_eq(var_value, val_rep_value)) {
+            uf->conflict_lhs = var;
+            uf->conflict_rhs = val_rep_var;
+            prop->conflict(prop);
+          }
+        }
+      }
+    }
+
     // Done, destruct the iterator
     remove_iterator_destruct(&it);
   }
-
-  // TODO: expand all the conflicts with ackerman
 }
 
 static
@@ -284,17 +349,33 @@ void uf_plugin_push(plugin_t* plugin) {
   // Pop the int variable values
   scope_holder_push(&uf->scope,
       &uf->trail_i,
+      &uf->app_reps_with_val_rep.size,
       NULL);
+
+  app_reps_push(&uf->app_reps);
 }
 
 static
 void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
+  uint32_t old_app_reps_with_val_rep_size;
+
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
       &uf->trail_i,
+      &old_app_reps_with_val_rep_size,
       NULL);
+
+  while (uf->app_reps_with_val_rep.size > old_app_reps_with_val_rep_size) {
+    variable_t app_rep = ivector_pop2(&uf->app_reps_with_val_rep);
+    int_hmap_pair_t* find = int_hmap_find(&uf->app_rep_to_val_rep, app_rep);
+    assert(find != NULL);
+    int_hmap_erase(&uf->app_rep_to_val_rep, find);
+  }
+
+  // Pop the representatives
+  app_reps_pop(&uf->app_reps);
 }
 
 static
@@ -303,6 +384,60 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc) {
 
 static
 void uf_plugin_gc_collect(plugin_t* plugin, const gc_info_t* gc) {
+}
+
+static inline
+term_t make_eq(term_table_t* terms, term_t x, term_t y) {
+  if (x == y) {
+    return bool2term(true);
+  } else if (x < y) {
+    return arith_bineq_atom(terms, x, y);
+  } else {
+    return arith_bineq_atom(terms, y, x);
+  }
+}
+
+static
+void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+
+  // CRAP ABOUT TERM NORMALIZATION: We CANT normalize the terms, since otherwise
+  // terms like 1 + x = 1 + y would normalize to x = y. To be on the safe side,
+  // We always make equalities as binary arith equalities
+
+  variable_db_t* var_db = uf->ctx->var_db;
+  term_table_t* terms = uf->ctx->terms;
+
+  assert(uf->conflict_lhs != variable_null);
+  assert(uf->conflict_rhs != variable_null);
+
+  // We have a conflict x1 != y1 or .... or xn != y2 or f(x) != f(y)
+
+  // Add function equality first
+  term_t fx = variable_db_get_term(var_db, uf->conflict_lhs);
+  term_t fy = variable_db_get_term(var_db, uf->conflict_rhs);
+  assert(fx != fy);
+  term_t fx_eq_fy = yices_eq(fx, fy);
+  ivector_push(conflict, opposite_term(fx_eq_fy));
+
+  // Now add all the intermediate equalities
+  composite_term_t* fx_app = app_term_desc(terms, fx);
+  composite_term_t* fy_app = app_term_desc(terms, fy);
+  assert(fx_app->arg[0] == fy_app->arg[0]);
+  assert(fx_app->arity == fy_app->arity);
+  uint32_t i, n = fx_app->arity;
+  for (i = 1; i < n; ++ i) {
+    term_t x = fx_app->arg[i];
+    term_t y = fy_app->arg[i];
+    term_t x_eq_y = yices_eq(x, y);
+    // Don't add trivially true facts
+    if (x_eq_y != bool2term(true)) {
+      ivector_push(conflict, x_eq_y);
+    }
+  }
+
+  uf->conflict_lhs = variable_null;
+  uf->conflict_rhs = variable_null;
 }
 
 plugin_t* uf_plugin_allocator(void) {
@@ -315,7 +450,7 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = 0;
   plugin->plugin_interface.propagate           = uf_plugin_propagate;
   plugin->plugin_interface.decide              = 0;
-  plugin->plugin_interface.get_conflict        = 0;
+  plugin->plugin_interface.get_conflict        = uf_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = 0;
   plugin->plugin_interface.explain_evaluation  = 0;
   plugin->plugin_interface.push                = uf_plugin_push;

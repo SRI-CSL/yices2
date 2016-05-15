@@ -395,10 +395,11 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
   }
 
-  // Process if constraint is assigned
-  if (trail_has_value(nra->ctx->trail, constraint_var)) {
+  // Process if constraint is assigned, or an evaluation constraint
+  bool is_eval_constraint = !variable_db_is_boolean(nra->ctx->var_db, constraint_var);
+  if (is_eval_constraint || trail_has_value(nra->ctx->trail, constraint_var)) {
     // Get the constraint value
-    bool constraint_value = trail_get_value(nra->ctx->trail, constraint_var)->b;
+    bool constraint_value = is_eval_constraint || trail_get_value(nra->ctx->trail, constraint_var)->b;
 
     // Get the constraint
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
@@ -668,7 +669,8 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     if (variable_db_is_real(var_db, var) || variable_db_is_int(var_db, var)) {
       // Real variables, detect if the constraint is unit
       nra_plugin_process_variable_assignment(nra, prop, var);
-    } else if (nra_plugin_get_unit_info(nra, var) == CONSTRAINT_UNIT) {
+    }
+    if (nra_plugin_get_unit_info(nra, var) == CONSTRAINT_UNIT) {
       // Process any unit constraints
       nra_plugin_process_unit_constraint(nra, prop, var);
     }
@@ -1283,7 +1285,6 @@ void nra_plugin_pop(plugin_t* plugin) {
     if (TRACK_VAR(var)) {
       fprintf(stderr, "Undoing tracked variable in lp_assignment.\n");
     }
-    assert(!trail_has_value(nra->ctx->trail, var));
   }
 
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {

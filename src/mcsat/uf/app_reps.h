@@ -13,6 +13,7 @@
 
 #include "mcsat/variable_db.h"
 #include "mcsat/trail.h"
+#include "mcsat/utils/scope_holder.h"
 
 typedef struct app_rep_s {
   uint32_t hash;
@@ -34,6 +35,10 @@ typedef struct app_reps_s {
   uint32_t ndeleted;
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;
+  // Push/pop data
+  ivector_t reps;
+  ivector_t hashes;
+  scope_holder_t scope;
 } app_reps_t;
 
 /* Construct: empty table of size n (n must be a power of 2). Use 0 for default size. */
@@ -45,11 +50,21 @@ void app_reps_destruct(app_reps_t *table);
 /** Clear the reps table */
 void app_reps_clear(app_reps_t *table);
 
-/** Set f_app to be the representative, or return the current representative. */
+/**
+ * Set f_app to be the representative, or return the current representative.
+ * If f_app is not fully assigned, then no representative is set and
+ * variable_null is returned.
+ */
 variable_t app_reps_get_rep(app_reps_t *table, variable_t f_app);
 
-/* Remove the representative elemetn. */
-void app_reps_erase_rep(app_reps_t *table, variable_t f_app);
+/* Push scope */
+void app_reps_push(app_reps_t *table);
+
+/* Pop scope */
+void app_reps_pop(app_reps_t *table);
+
+/* Print it */
+void app_reps_print(const app_reps_t *table, FILE *out);
 
 
 #endif

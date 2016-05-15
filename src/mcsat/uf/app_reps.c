@@ -13,7 +13,8 @@
 #include "utils/hash_functions.h"
 
 /** Compute the has of a fully assigned function applications */
-uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app) {
+static
+uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app, bool* fully_assigned) {
   term_table_t* terms = app_reps->terms;
   variable_db_t* var_db = app_reps->var_db;
   const mcsat_trail_t* trail = app_reps->trail;
@@ -29,12 +30,18 @@ uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app) {
   uint32_t i;
   for (i = 1; i < desc->arity; ++ i) {
     variable_t arg_i = variable_db_get_variable(var_db, desc->arg[i]);
-    assert(trail_has_value(trail, arg_i));
+    if (!trail_has_value(trail, arg_i)) {
+      *fully_assigned = false;
+      return 0;
+    }
     const mcsat_value_t* arg_i_value = trail_get_value(trail, arg_i);
     arg_hash[i] = mcsat_value_hash(arg_i_value);
   }
 
-  // Get the application type
+  // Fully assigned
+  *fully_assigned = true;
+
+  // Get the hash
   return jenkins_hash_array(arg_hash, desc->arity, 0);
 }
 
@@ -118,6 +125,10 @@ void app_reps_construct(app_reps_t *table, uint32_t n, variable_db_t* var_db, co
   table->var_db = var_db;
   table->terms = terms;
 
+  init_ivector(&table->reps, 0);
+  init_ivector(&table->hashes, 0);
+  scope_holder_construct(&table->scope);
+
   if (n == 0) {
     n = APP_REPS_DEFAULT_SIZE;
   }
@@ -140,12 +151,13 @@ void app_reps_construct(app_reps_t *table, uint32_t n, variable_db_t* var_db, co
   table->cleanup_threshold = (uint32_t)(n * CLEANUP_RATIO);
 }
 
-
 void app_reps_destruct(app_reps_t *table) {
   safe_free(table->records);
   table->records = NULL;
+  delete_ivector(&table->reps);
+  delete_ivector(&table->hashes);
+  scope_holder_destruct(&table->scope);
 }
-
 
 void app_reps_clear(app_reps_t *table) {
   uint32_t i, n;
@@ -241,14 +253,14 @@ void app_reps_extend(app_reps_t *table) {
   table->cleanup_threshold = (uint32_t) (n2 * CLEANUP_RATIO);
 }
 
-void app_reps_erase(app_reps_t *table, variable_t v) {
-  uint32_t mask, j, hash;
+static
+void app_reps_erase(app_reps_t *table, variable_t v, uint32_t hash) {
+  uint32_t mask, j;
   app_rep_t *r;
 
   // table must not be full, otherwise the function loops
   assert(table->size > table->nelems + table->ndeleted);
 
-  hash = compute_app_hash(table, v);
   mask = table->size - 1;
   j = hash & mask;
   for (;;) {
@@ -266,51 +278,33 @@ void app_reps_erase(app_reps_t *table, variable_t v) {
   if (table->ndeleted > table->cleanup_threshold) {
     app_reps_cleanup(table);
   }
-}
 
-
-/*
- * Add record <k, v> to the table
- * - the record must not be present in the table
- */
-void app_reps_add_record(app_reps_t *table, uint32_t hash, variable_t v) {
-  uint32_t mask, j;
-  app_rep_t *r;
-
-  assert(table->size > table->nelems + table->ndeleted);
-
-  mask = table->size - 1;
-  j = hash & mask;
-  for (;;) {
-    r = table->records + j;
-    if (r->app_term == NULL_VALUE) break;
-    assert(r->app_term != v);
-    j ++;
-    j &= mask;
-  }
-
-  // add <k, v> into record r
-  table->nelems ++;
-  r->hash = hash;
-  r->app_term = v;
-
-  if (table->nelems + table->ndeleted > table->resize_threshold) {
-    app_reps_extend(table);
-  }
+//  fprintf(stderr, "removing representative: ");
+//  variable_db_print_variable(table->var_db, v, stderr);
 }
 
 static
-variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32_t k, variable_t v) {
+variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32_t hash, variable_t v) {
+
   // error in build is signaled by returning v < 0
   if (v >= 0) {
     table->nelems ++;
-    r->hash = k;
+    r->hash = hash;
     r->app_term = v;
 
     if (table->nelems + table->ndeleted > table->resize_threshold) {
       app_reps_extend(table);
     }
   }
+
+//   app_reps_print(table, stderr);
+
+//  fprintf(stderr, "setting representative:");
+//  variable_db_print_variable(table->var_db, v, stderr);
+//  fprintf(stderr, "hash = %d", hash);
+
+  ivector_push(&table->reps, v);
+  ivector_push(&table->hashes, hash);
 
   return v;
 }
@@ -320,12 +314,17 @@ variable_t app_reps_get_rep(app_reps_t *table, variable_t v_new) {
   variable_t v_old;
   app_rep_t *r;
   app_rep_t *aux;
+  bool fully_assigned;
 
   assert(table->size > table->nelems + table->ndeleted);
 
   mask = table->size - 1;
-  k = compute_app_hash(table, v_new);
+  k = compute_app_hash(table, v_new, &fully_assigned);
   j = k & mask;
+
+  if (!fully_assigned) {
+    return variable_null;
+  }
 
   for (;;) {
     r = table->records + j;
@@ -354,4 +353,43 @@ variable_t app_reps_get_rep(app_reps_t *table, variable_t v_new) {
   return variable_null;
 }
 
+void app_reps_push(app_reps_t *table) {
 
+  // Remember the size
+  scope_holder_push(&table->scope,
+      &table->reps.size,
+      NULL
+  );
+}
+
+void app_reps_pop(app_reps_t *table) {
+
+  // Get the old size
+  uint32_t old_size;
+  scope_holder_pop(&table->scope,
+      &old_size,
+      NULL
+  );
+
+  // Remove all the added elements
+  while (table->reps.size > old_size) {
+    variable_t app = ivector_last(&table->reps);
+    ivector_pop(&table->reps);
+    uint32_t hash = ivector_last(&table->hashes);
+    ivector_pop(&table->hashes);
+    app_reps_erase(table, app, hash);
+  }
+}
+
+void app_reps_print(const app_reps_t *table, FILE *out) {
+  uint32_t i, n;
+  n = table->size;
+  fprintf(out, "app_reps:\n");
+  for (i=0; i<n; i++) {
+    variable_t x = table->records[i].app_term;
+    if (x != NULL_VALUE && x != DELETED_VALUE) {
+      variable_db_print_variable(table->var_db, x, out);
+      fprintf(out, ", hash = %d\n", table->records[i].hash);
+    }
+  }
+}

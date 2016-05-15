@@ -99,7 +99,10 @@ void feasible_set_db_print_var(feasible_set_db_t* db, variable_t var, FILE* out)
       fprintf(out, "\t\tDue to ");
       term_t reason_term = variable_db_get_term(db->ctx->var_db, current->reasons[0]);
       term_print_to_file(out, db->ctx->terms, reason_term);
-      fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->ctx->trail, current->reasons[0]) ? "true" : "false");
+      if (term_type_kind(db->ctx->terms, reason_term) == BOOL_TYPE) {
+        // Otherwise it's a term evaluation, always true
+        fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->ctx->trail, current->reasons[0]) ? "true" : "false");
+      }
     }
     index = current->prev;
   }
