@@ -452,6 +452,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
+    lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
     lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
     // Add them
     cstr_polynomial = lp_polynomial_new(db->nra->lp_data.lp_ctx);
@@ -463,6 +464,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     lp_polynomial_delete(t2_p);
     lp_integer_destruct(&t1_c);
     lp_integer_destruct(&t2_c);
+
     break;
   }
   }
