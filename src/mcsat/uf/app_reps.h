@@ -14,6 +14,7 @@
 #include "mcsat/variable_db.h"
 #include "mcsat/trail.h"
 #include "mcsat/utils/scope_holder.h"
+#include "mcsat/gc.h"
 
 typedef struct app_rep_s {
   uint32_t hash;
@@ -57,11 +58,14 @@ void app_reps_clear(app_reps_t *table);
  */
 variable_t app_reps_get_rep(app_reps_t *table, variable_t f_app);
 
-/* Push scope */
+/** Push scope */
 void app_reps_push(app_reps_t *table);
 
-/* Pop scope */
+/** Pop scope */
 void app_reps_pop(app_reps_t *table);
+
+/** Collect */
+void app_reps_gc_sweep(app_reps_t *table, const gc_info_t* gc_vars);
 
 /* Print it */
 void app_reps_print(const app_reps_t *table, FILE *out);

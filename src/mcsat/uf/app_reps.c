@@ -323,6 +323,9 @@ variable_t app_reps_get_rep(app_reps_t *table, variable_t v_new) {
   j = k & mask;
 
   if (!fully_assigned) {
+//    fprintf(stderr, "not evaluated: ");
+//    variable_db_print_variable(table->var_db, v_new, stderr);
+//    fprintf(stderr, "\n");
     return variable_null;
   }
 
@@ -392,4 +395,25 @@ void app_reps_print(const app_reps_t *table, FILE *out) {
       fprintf(out, ", hash = %d\n", table->records[i].hash);
     }
   }
+}
+
+void app_reps_gc_sweep(app_reps_t *table, const gc_info_t* gc_vars) {
+  uint32_t i, n;
+  n = table->size;
+  for (i=0; i<n; i++) {
+    variable_t x = table->records[i].app_term;
+    if (x != NULL_VALUE && x != DELETED_VALUE) {
+      x = gc_info_get_reloc(gc_vars, x);
+      assert(x != variable_null);
+      table->records[i].app_term = x;
+    }
+  }
+  n = table->reps.size;
+  for (i=0; i<n; i++) {
+    variable_t x = table->reps.data[i];
+    x = gc_info_get_reloc(gc_vars, x);
+    assert(x != variable_null);
+    table->reps.data[i] = x;
+  }
+
 }

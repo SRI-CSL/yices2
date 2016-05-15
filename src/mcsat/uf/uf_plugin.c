@@ -46,6 +46,9 @@ typedef struct {
   /** Conflict x = y => f(x) = f(y) */
   variable_t conflict_lhs, conflict_rhs;
 
+  /** All function applications ever seen */
+  ivector_t all_apps;
+
 } uf_plugin_t;
 
 static
@@ -59,6 +62,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   scope_holder_construct(&uf->scope);
   init_int_hmap(&uf->app_rep_to_val_rep, 0);
   init_ivector(&uf->app_reps_with_val_rep, 0);
+  init_ivector(&uf->all_apps, 0);
 
   uf->trail_i = 0;
   uf->conflict_lhs = variable_null;
@@ -75,6 +79,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   scope_holder_destruct(&uf->scope);
   delete_int_hmap(&uf->app_rep_to_val_rep);
   delete_ivector(&uf->app_reps_with_val_rep);
+  delete_ivector(&uf->all_apps);
 }
 
 static
@@ -128,6 +133,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
 
   // Variable of the application term
   variable_t app_term_var = variable_db_get_variable(var_db, app_term);
+  ivector_push(&uf->all_apps, app_term_var);
 
   // Get the children
   assert(term_kind(terms, app_term) == APP_TERM);
@@ -344,6 +350,7 @@ void uf_plugin_push(plugin_t* plugin) {
   scope_holder_push(&uf->scope,
       &uf->trail_i,
       &uf->app_reps_with_val_rep.size,
+      &uf->all_apps.size,
       NULL);
 
   app_reps_push(&uf->app_reps);
@@ -354,11 +361,13 @@ void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   uint32_t old_app_reps_with_val_rep_size;
+  uint32_t old_all_apps_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
       &uf->trail_i,
       &old_app_reps_with_val_rep_size,
+      &old_all_apps_size,
       NULL);
 
   while (uf->app_reps_with_val_rep.size > old_app_reps_with_val_rep_size) {
@@ -368,27 +377,12 @@ void uf_plugin_pop(plugin_t* plugin) {
     int_hmap_erase(&uf->app_rep_to_val_rep, find);
   }
 
+  while (uf->all_apps.size > old_all_apps_size) {
+    ivector_pop(&uf->all_apps);
+  }
+
   // Pop the representatives
   app_reps_pop(&uf->app_reps);
-}
-
-static
-void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc) {
-}
-
-static
-void uf_plugin_gc_collect(plugin_t* plugin, const gc_info_t* gc) {
-}
-
-static inline
-term_t make_eq(term_table_t* terms, term_t x, term_t y) {
-  if (x == y) {
-    return bool2term(true);
-  } else if (x < y) {
-    return arith_bineq_atom(terms, x, y);
-  } else {
-    return arith_bineq_atom(terms, y, x);
-  }
 }
 
 static
@@ -434,6 +428,69 @@ void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   uf->conflict_rhs = variable_null;
 }
 
+static
+void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  term_table_t* terms = uf->ctx->terms;
+  variable_db_t* var_db = uf->ctx->var_db;
+  // UF only needs to make sure that all the applications are kept
+  uint32_t i, j, m, n = uf->all_apps.size;
+  for (i = 0; i < n; ++ i) {
+    variable_t app_var = uf->all_apps.data[i];
+    gc_info_mark(gc_vars, app_var);
+    // Also mark the immediate children
+    term_t app_term = variable_db_get_term(var_db, app_var);
+    composite_term_t* app_desc = app_term_desc(terms, app_term);
+    m = app_desc->arity;
+    for (j = 1; j < m; ++ j) {
+      variable_t arg_i = variable_db_get_variable(var_db, app_desc->arg[j]);
+      gc_info_mark(gc_vars, arg_i);
+    }
+  }
+}
+
+static
+void uf_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+
+  // Table of representatives
+  int_hmap_t new_app_rep_to_val_rep;
+  init_int_hmap(&new_app_rep_to_val_rep, 0);
+
+  // List of app representatives
+  uint32_t i, n = uf->app_reps_with_val_rep.size;
+  for (i = 0; i < n; i ++) {
+    variable_t app = uf->app_reps_with_val_rep.data[i];
+    variable_t val = uf_plugin_get_val_rep(uf, app);
+    app = gc_info_get_reloc(gc_vars, app);
+    if (val != variable_null) {
+      val = gc_info_get_reloc(gc_vars, val);
+      int_hmap_add(&new_app_rep_to_val_rep, app, val);
+    }
+    assert(app != variable_null);
+    uf->app_reps_with_val_rep.data[i] = app;
+  }
+
+  // Swap in the representative table
+  delete_int_hmap(&uf->app_rep_to_val_rep);
+  uf->app_rep_to_val_rep = new_app_rep_to_val_rep;
+
+  // The representatives table
+  app_reps_gc_sweep(&uf->app_reps, gc_vars);
+
+  // Watch list manager
+  watch_list_manager_gc_sweep_lists(&uf->wlm, gc_vars);
+
+  // All apps
+  n = uf->all_apps.size;
+  for (i = 0; i < n; ++ i) {
+    variable_t app = uf->all_apps.data[i];
+    app = gc_info_get_reloc(gc_vars, app);
+    assert(app != variable_null);
+    uf->all_apps.data[i] = app;
+  }
+}
+
 plugin_t* uf_plugin_allocator(void) {
   uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -450,6 +507,6 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.push                = uf_plugin_push;
   plugin->plugin_interface.pop                 = uf_plugin_pop;
   plugin->plugin_interface.gc_mark             = uf_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep            = uf_plugin_gc_collect;
+  plugin->plugin_interface.gc_sweep            = uf_plugin_gc_sweep;
   return (plugin_t*) plugin;
 }
