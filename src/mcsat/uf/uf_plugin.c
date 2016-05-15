@@ -157,11 +157,6 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
     // Add first variable to watch list
     watch_list_manager_add_to_watch(&uf->wlm, var_list, arguments_vars[0]);
 
-    // Add second variable to watch list
-    if (size > 1) {
-      watch_list_manager_add_to_watch(&uf->wlm, var_list, arguments_vars[1]);
-    }
-
     // Check the current status of the variables
     variable_t top_var = arguments_vars[0];
     is_fully_assigned = trail_has_value(trail, top_var);
@@ -174,7 +169,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   if (is_fully_assigned) {
     // Here, the new terms can not have assigned value, so we don't need to
     // check for conflicts
-    app_reps_get_rep(&uf->app_reps, app_term);
+    app_reps_get_rep(&uf->app_reps, app_term_var);
   }
 }
 
@@ -274,18 +269,17 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
       // Find a new watch (start from [1])
       var_list_it = var_list + 1;
-      if (*var_list_it != variable_null) {
-        for (++ var_list_it; *var_list_it != variable_null; ++ var_list_it) {
-          if (!trail_has_value(trail, *var_list_it)) {
-            // Swap with var_list[1]
-            var_list[0] = *var_list_it;
-            *var_list_it = var;
-            // Add to new watch
-            watch_list_manager_add_to_watch(&uf->wlm, var_list_ref, var_list[0]);
-            // Don't watch this one
-            remove_iterator_next_and_remove(&it);
-            break;
-          }
+      assert(var == var_list[0]);
+      for (; *var_list_it != variable_null; ++var_list_it) {
+        if (!trail_has_value(trail, *var_list_it)) {
+          // Swap with var_list[1]
+          var_list[0] = *var_list_it;
+          *var_list_it = var;
+          // Add to new watch
+          watch_list_manager_add_to_watch(&uf->wlm, var_list_ref, var_list[0]);
+          // Don't watch this one
+          remove_iterator_next_and_remove(&it);
+          break;
         }
       }
 
