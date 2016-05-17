@@ -302,6 +302,7 @@ mcsat_src_c := \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
 	mcsat/watch_list_manager.c \
+	mcsat/preprocessor.c \
 	mcsat/options.c
 
 #

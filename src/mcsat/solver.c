@@ -27,12 +27,14 @@
 #include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 
+#include "mcsat/preprocessor.h"
+
 #include "mcsat/utils/statistics.h"
 
 #include "utils/dprng.h"
 
 #include <inttypes.h>
-#include <mcsat/uf/uf_plugin.h>
+
 
 /**
  * Notification of new variables for the main solver.
@@ -139,6 +141,9 @@ struct mcsat_solver_s {
 
   /** The evaluator */
   mcsat_evaluator_t evaluator;
+
+  /** The preprocessor */
+  preprocessor_t preprocessor;
 
   /**
    * Array of owners for each term kind. If there are more than one, they
@@ -613,6 +618,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   // Construct the evaluator
   mcsat_evaluator_construct(&mcsat->evaluator, mcsat);
 
+  // Construct the preprocessor
+  preprocessor_construct(&mcsat->preprocessor, mcsat->terms);
+
   // The variable queue
   var_queue_construct(&mcsat->var_queue);
 
@@ -654,6 +662,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   safe_free(mcsat->trail);
   variable_db_destruct(mcsat->var_db);
   safe_free(mcsat->var_db);
+  preprocessor_destruct(&mcsat->preprocessor);
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
   statistics_destruct(&mcsat->stats);
@@ -1591,21 +1600,30 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
     ctx = mcsat->plugins[i].plugin_ctx;
     ctx->ctx.tracer = tracer;
   }
+
+  // Set the trace for the preprocessor
+  preprocessor_set_tracer(&mcsat->preprocessor, tracer);
 }
 
 int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
   uint32_t i;
 
-  // Assert individual formulas
-  for (i = 0; i < n; ++ i) {
-    mcsat_assert_formula(mcsat, f[i]);
+  // Preprocess the formulas
+  ivector_t assertions;
+  init_ivector(&assertions, 0);
+  ivector_add(&assertions, f, n);
+  for (i = 0; i < assertions.size; ++ i) {
+    assertions.data[i] = preprocessor_apply(&mcsat->preprocessor, assertions.data[i], &assertions);
   }
 
-  // Add any lemmas that were added
-  for (i = 0; i < mcsat->plugin_lemmas.size; ++ i) {
-    mcsat_assert_formula(mcsat, mcsat->plugin_lemmas.data[i]);
+  // Assert individual formulas
+  for (i = 0; i < assertions.size; ++ i) {
+    // Assert it
+    mcsat_assert_formula(mcsat, assertions.data[i]);
+    // Add any lemmas that were added
+    ivector_add(&assertions, mcsat->plugin_lemmas.data, mcsat->plugin_lemmas.size);
+    ivector_reset(&mcsat->plugin_lemmas);
   }
-  ivector_reset(&mcsat->plugin_lemmas);
 
   return CTX_NO_ERROR;
 }
