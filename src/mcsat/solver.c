@@ -1613,7 +1613,9 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
   init_ivector(&assertions, 0);
   ivector_add(&assertions, f, n);
   for (i = 0; i < assertions.size; ++ i) {
-    assertions.data[i] = preprocessor_apply(&mcsat->preprocessor, assertions.data[i], &assertions);
+    term_t f = assertions.data[i];
+    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, &assertions);
+    assertions.data[i] = f_pre;
   }
 
   // Assert individual formulas

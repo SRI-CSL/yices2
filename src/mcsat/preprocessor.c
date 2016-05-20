@@ -75,15 +75,18 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
 }
 
 static
-term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* children, type_t type) {
+term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* children) {
   term_manager_t* tm = &pre->tm;
   term_table_t* terms = pre->terms;
 
   switch (kind) {
   case ITE_TERM:           // if-then-else
   case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
+  {
     assert(n == 3);
-    return mk_ite(tm, type, children[0], children[1], children[2]);
+    term_t type = super_type(pre->terms->types, term_type(terms, children[1]), term_type(terms, children[1]));
+    return mk_ite(tm, children[0], children[1], children[2], type);
+  }
   case EQ_TERM:            // equality
     assert(n == 2);
     return mk_eq(tm, children[0], children[1]);
@@ -252,7 +255,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       composite_term_t* desc = get_composite(terms, current_kind, current);
       bool children_done = true;
       bool children_same = true;
-      type_t current_type = term_type(terms, current);
 
       n = desc->arity;
 
@@ -277,7 +279,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (children_same) {
           current_pre = current;
         } else {
-          current_pre = mk_composite(pre, current_kind, n, children.data, current_type);
+          current_pre = mk_composite(pre, current_kind, n, children.data);
         }
       }
 
@@ -321,6 +323,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         }
       }
 
+      delete_ivector(&children);
+
       break;
     }
 
@@ -360,6 +364,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         }
       }
 
+      delete_ivector(&children);
+
       break;
     }
 
@@ -372,7 +378,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       composite_term_t* desc = get_composite(terms, current_kind, current);
       bool children_done = true;
       bool children_same = true;
-      type_t current_type = term_type(terms, current);
 
       n = desc->arity;
 
@@ -400,7 +405,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (children_same) {
           current_pre = current;
         } else {
-          current_pre = mk_composite(pre, current_kind, n, children.data, current_type);
+          current_pre = mk_composite(pre, current_kind, n, children.data);
         }
       }
 
