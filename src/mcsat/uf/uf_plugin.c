@@ -142,7 +142,9 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   int_mset_construct(&arguments, variable_null);
   composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
   uint32_t arity = app_desc->arity;
-  for (i = 1; i < arity; ++ i) {
+
+  i = app_reps_get_uf_start(terms, app_term);
+  for (; i < arity; ++ i) {
     variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
     int_mset_add(&arguments, arg_var);
   }
@@ -414,10 +416,11 @@ void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   // Now add all the intermediate equalities
   composite_term_t* fx_app = app_reps_get_uf_descriptor(terms, fx);
   composite_term_t* fy_app = app_reps_get_uf_descriptor(terms, fy);
-  assert(fx_app->arg[0] == fy_app->arg[0]);
+  assert(app_reps_get_uf(terms, fx) == app_reps_get_uf(terms, fy));
   assert(fx_app->arity == fy_app->arity);
-  uint32_t i, n = fx_app->arity;
-  for (i = 1; i < n; ++ i) {
+  uint32_t i = app_reps_get_uf_start(terms, fx);
+  uint32_t n = fx_app->arity;
+  for (; i < n; ++ i) {
     term_t x = fx_app->arg[i];
     term_t y = fy_app->arg[i];
     term_t x_eq_y = yices_eq(x, y);
@@ -443,9 +446,10 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     gc_info_mark(gc_vars, app_var);
     // Also mark the immediate children
     term_t app_term = variable_db_get_term(var_db, app_var);
-    composite_term_t* app_desc = app_term_desc(terms, app_term);
+    composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
     m = app_desc->arity;
-    for (j = 1; j < m; ++ j) {
+    j = app_reps_get_uf_start(terms, app_term);
+    for (; j < m; ++ j) {
       variable_t arg_i = variable_db_get_variable(var_db, app_desc->arg[j]);
       gc_info_mark(gc_vars, arg_i);
     }

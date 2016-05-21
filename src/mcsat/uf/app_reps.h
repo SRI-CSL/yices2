@@ -73,4 +73,11 @@ void app_reps_print(const app_reps_t *table, FILE *out);
 /** Returns composite for function application (and other terms we treat as uninterpreted) */
 composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_term);
 
+/** Returns the unique id of the application itself */
+int32_t app_reps_get_uf(term_table_t* terms, term_t app_term);
+
+/** Returns the first index of the arguments for function application (and other terms) */
+uint32_t app_reps_get_uf_start(term_table_t* terms, term_t app_term);
+
+
 #endif

@@ -28,6 +28,35 @@ composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_ter
   }
 }
 
+#define DIV_ID -2;
+#define MOD_ID -3;
+
+int32_t app_reps_get_uf(term_table_t* terms, term_t app_term) {
+  term_t app_kind = term_kind(terms, app_term);
+  switch (app_kind) {
+  case APP_TERM:
+    return app_term_desc(terms, app_term)->arg[0];
+  case ARITH_DIV:
+    return DIV_ID;
+  case ARITH_MOD:
+    return MOD_ID;
+    break;
+  default:
+    assert(false);
+    return 0;
+  }
+}
+
+uint32_t app_reps_get_uf_start(term_table_t* terms, term_t app_term) {
+  term_t app_kind = term_kind(terms, app_term);
+  switch (app_kind) {
+  case APP_TERM:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
 /** Compute the has of a fully assigned function applications */
 static
 uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app, bool* fully_assigned) {
@@ -41,9 +70,9 @@ uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app, bool* fully_as
   // Get the children
   composite_term_t* desc = app_reps_get_uf_descriptor(terms, f_app_term);
   uint32_t arg_hash[desc->arity]; // Should be small
-  arg_hash[0] = desc->arg[0];
-  uint32_t i;
-  for (i = 1; i < desc->arity; ++ i) {
+  arg_hash[0] = app_reps_get_uf(terms, f_app_term);
+  uint32_t i = app_reps_get_uf_start(terms, f_app_term);
+  for (; i < desc->arity; ++ i) {
     variable_t arg_i = variable_db_get_variable(var_db, desc->arg[i]);
     if (!trail_has_value(trail, arg_i)) {
       *fully_assigned = false;
@@ -74,15 +103,15 @@ bool apps_equal(app_reps_t* app_reps, variable_t f1, variable_t f2) {
   composite_term_t* f1_desc = app_reps_get_uf_descriptor(terms, f1_term);
   composite_term_t* f2_desc = app_reps_get_uf_descriptor(terms, f2_term);
   // Check heads
-  if (f1_desc->arg[0] != f2_desc->arg[0]) {
+  if (app_reps_get_uf(terms, f1_term) != app_reps_get_uf(terms, f2_term)) {
     return false;
   }
   if (f1_desc->arity != f2_desc->arity) {
     return false;
   }
-  uint32_t i;
+  uint32_t i = app_reps_get_uf_start(terms, f1_term);
   uint32_t n = f1_desc->arity;
-  for (i = 1; i < n; ++ i) {
+  for (; i < n; ++ i) {
     variable_t f1_i = variable_db_get_variable(var_db, f1_desc->arg[i]);
     assert(trail_has_value(trail, f1_i));
     variable_t f2_i = variable_db_get_variable(var_db, f2_desc->arg[i]);

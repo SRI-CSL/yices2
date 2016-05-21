@@ -3098,28 +3098,26 @@ term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
   term_t t;
 
   tbl = manager->terms;
-  assert(term_kind(tbl, t2) == ARITH_CONSTANT);
 
-  q = rational_term_desc(tbl, t2);
-  assert(q_is_nonzero(q));
+  t = NULL_TERM;
 
-  if (q_is_one(q) && is_integer_term(tbl, t1)) {
-    t = t1;
-
-  } else if (q_is_minus_one(q) && is_integer_term(tbl, t1)) {
-    t = mk_arith_opposite(manager, t1); // - t1
-
-  } else {
-    
-    switch (term_kind(tbl, t1)) {
-    case ARITH_CONSTANT:
-      t = arith_constant_div(manager, rational_term_desc(tbl, t1), q);
-      break;
-
-    default:
-      t = arith_div(tbl, t1, t2);
-      break;
+  // Special cases
+  if (term_kind(tbl, t2) == ARITH_CONSTANT) {
+    q = rational_term_desc(tbl, t2);
+    if (q_is_nonzero(q)) {
+      if (q_is_one(q) && is_integer_term(tbl, t1)) {
+        t = t1;
+      } else if (q_is_minus_one(q) && is_integer_term(tbl, t1)) {
+        t = mk_arith_opposite(manager, t1); // - t1
+      } else if (term_kind(tbl, t1) == ARITH_CONSTANT) {
+        t = arith_constant_div(manager, rational_term_desc(tbl, t1), q);
+      }
     }
+  }
+
+  // Default case
+  if (t == NULL_TERM) {
+    t = arith_div(tbl, t1, t2);
   }
 
   return t;
@@ -3131,23 +3129,23 @@ term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2) {
   term_t t;
 
   tbl = manager->terms;
-  assert(term_kind(tbl, t2) == ARITH_CONSTANT);
 
-  q = rational_term_desc(tbl, t2);
-  assert(q_is_nonzero(q));
+  t = NULL_TERM;
 
-  if ((q_is_one(q) || q_is_minus_one(q)) && is_integer_term(tbl, t1)) {
-    t = zero_term;
-  } else {
-    switch (term_kind(tbl, t1)) {
-    case ARITH_CONSTANT:
-      t = arith_constant_mod(manager, rational_term_desc(tbl, t1), q);
-      break;
-
-    default:
-      t = arith_mod(tbl, t1, t2);
-      break;
+  // Special case
+  if (term_kind(tbl, t2) == ARITH_CONSTANT) {
+    q = rational_term_desc(tbl, t2);
+    if (q_is_nonzero(q)) {
+      if ((q_is_one(q) || q_is_minus_one(q)) && is_integer_term(tbl, t1)) {
+        t = zero_term;
+      } else if (term_kind(tbl, t1) == ARITH_CONSTANT) {
+        t = arith_constant_mod(manager, rational_term_desc(tbl, t1), q);
+      }
     }
+  }
+
+  if (t == NULL_TERM) {
+    t = arith_mod(tbl, t1, t2);
   }
 
   return t;

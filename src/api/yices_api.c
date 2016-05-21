@@ -3376,18 +3376,11 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
  **************************/
 
 EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
-  rational_t *q;
 
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
+      ! check_arith_term(&manager, t2)) {
     return NULL_TERM;
   }
 
@@ -3395,18 +3388,11 @@ EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
 }
 
 EXPORTED term_t yices_imod(term_t t1, term_t t2) {
-  rational_t *q;
 
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
+      ! check_arith_term(&manager, t2)) {
     return NULL_TERM;
   }
 
