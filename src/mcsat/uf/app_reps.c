@@ -12,6 +12,22 @@
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
 
+composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_term) {
+  term_t app_kind = term_kind(terms, app_term);
+  switch (app_kind) {
+  case APP_TERM:
+    return app_term_desc(terms, app_term);
+  case ARITH_DIV:
+    return arith_div_term_desc(terms, app_term);
+  case ARITH_MOD:
+    return arith_mod_term_desc(terms, app_term);
+    break;
+  default:
+    assert(false);
+    return NULL;
+  }
+}
+
 /** Compute the has of a fully assigned function applications */
 static
 uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app, bool* fully_assigned) {
@@ -21,10 +37,9 @@ uint32_t compute_app_hash(app_reps_t* app_reps, variable_t f_app, bool* fully_as
 
   // Get the term
   term_t f_app_term = variable_db_get_term(app_reps->var_db, f_app);
-  assert(term_kind(terms, f_app_term) == APP_TERM);
 
   // Get the children
-  composite_term_t* desc = app_term_desc(terms, f_app_term);
+  composite_term_t* desc = app_reps_get_uf_descriptor(terms, f_app_term);
   uint32_t arg_hash[desc->arity]; // Should be small
   arg_hash[0] = desc->arg[0];
   uint32_t i;
@@ -53,13 +68,11 @@ bool apps_equal(app_reps_t* app_reps, variable_t f1, variable_t f2) {
 
   // Get the term
   term_t f1_term = variable_db_get_term(app_reps->var_db, f1);
-  assert(term_kind(terms, f1_term) == APP_TERM);
   term_t f2_term = variable_db_get_term(app_reps->var_db, f2);
-  assert(term_kind(terms, f2_term) == APP_TERM);
 
   // Get the children
-  composite_term_t* f1_desc = app_term_desc(terms, f1_term);
-  composite_term_t* f2_desc = app_term_desc(terms, f2_term);
+  composite_term_t* f1_desc = app_reps_get_uf_descriptor(terms, f1_term);
+  composite_term_t* f2_desc = app_reps_get_uf_descriptor(terms, f2_term);
   // Check heads
   if (f1_desc->arg[0] != f2_desc->arg[0]) {
     return false;
@@ -278,9 +291,6 @@ void app_reps_erase(app_reps_t *table, variable_t v, uint32_t hash) {
   if (table->ndeleted > table->cleanup_threshold) {
     app_reps_cleanup(table);
   }
-
-//  fprintf(stderr, "removing representative: ");
-//  variable_db_print_variable(table->var_db, v, stderr);
 }
 
 static
@@ -296,12 +306,6 @@ variable_t app_reps_store_new_app(app_reps_t *table, app_rep_t *r, uint32_t hash
       app_reps_extend(table);
     }
   }
-
-//   app_reps_print(table, stderr);
-
-//  fprintf(stderr, "setting representative:");
-//  variable_db_print_variable(table->var_db, v, stderr);
-//  fprintf(stderr, "hash = %d", hash);
 
   ivector_push(&table->reps, v);
   ivector_push(&table->hashes, hash);
@@ -323,9 +327,6 @@ variable_t app_reps_get_rep(app_reps_t *table, variable_t v_new) {
   j = k & mask;
 
   if (!fully_assigned) {
-//    fprintf(stderr, "not evaluated: ");
-//    variable_db_print_variable(table->var_db, v_new, stderr);
-//    fprintf(stderr, "\n");
     return variable_null;
   }
 

@@ -1,0 +1,6 @@
+(set-logic QF_NIA)
+(set-info :smt-lib-version 2.0)
+(declare-fun x () Int)
+(assert (= (mod x 3) 1))
+(check-sat)
+(exit)

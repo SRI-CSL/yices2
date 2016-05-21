@@ -69,6 +69,8 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf->conflict_rhs = variable_null;
 
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
+  ctx->request_term_notification_by_kind(ctx, ARITH_DIV);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
 }
 
 static
@@ -136,10 +138,9 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   ivector_push(&uf->all_apps, app_term_var);
 
   // Get the children
-  assert(term_kind(terms, app_term) == APP_TERM);
   int_mset_t arguments;
   int_mset_construct(&arguments, variable_null);
-  composite_term_t* app_desc = app_term_desc(terms, app_term);
+  composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
   uint32_t arity = app_desc->arity;
   for (i = 1; i < arity; ++ i) {
     variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
@@ -191,6 +192,8 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   term_kind_t t_kind = term_kind(eq->ctx->terms, t);
 
   switch (t_kind) {
+  case ARITH_MOD:
+  case ARITH_DIV:
   case APP_TERM:
     // We just care about the application terms
     uf_plugin_new_fun_application(eq, t, prop);
@@ -409,8 +412,8 @@ void uf_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   ivector_push(conflict, opposite_term(fx_eq_fy));
 
   // Now add all the intermediate equalities
-  composite_term_t* fx_app = app_term_desc(terms, fx);
-  composite_term_t* fy_app = app_term_desc(terms, fy);
+  composite_term_t* fx_app = app_reps_get_uf_descriptor(terms, fx);
+  composite_term_t* fy_app = app_reps_get_uf_descriptor(terms, fy);
   assert(fx_app->arg[0] == fy_app->arg[0]);
   assert(fx_app->arity == fy_app->arity);
   uint32_t i, n = fx_app->arity;

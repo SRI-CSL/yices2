@@ -248,6 +248,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t b = mod->arg[1];
     term_t t_div = arith_div(terms, a, b);
     variable_db_get_variable(nra->ctx->var_db, t_div);
+    return;
   }
   if (t_kind == ARITH_DIV) {
     // Make sure that mod has a variable
@@ -258,18 +259,20 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t r = arith_mod(terms, m, n);
     variable_db_get_variable(nra->ctx->var_db, r);
 
-    // Add a lemma (assuming non-zero): TODO: add zero when UF done
+    // Add a lemma (assuming non-zero):
     // (div m n)
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
-    term_t c1 = arith_eq_atom(terms, yices_add(yices_mul(n, q), r));
-    term_t abs_n = yices_ite(yices_arith_geq0_atom(n), n, yices_neg(n));
+    term_t guard = opposite_term(yices_arith_eq0_atom(n));
+    term_t c1 = yices_eq(m, yices_add(yices_mul(n, q), r));
     term_t c2 = arith_geq_atom(terms, r);
     // r < (abs n) same as not (r - abs) >= 0
-    term_t c3 = not_term(terms, arith_geq_atom(terms, yices_sub(r, abs_n)));
+    term_t abs_n = yices_ite(yices_arith_geq0_atom(n), n, yices_neg(n));
+    term_t c3 = opposite_term(arith_geq_atom(terms, yices_sub(r, abs_n)));
 
-    prop->lemma(prop, c1);
-    prop->lemma(prop, c2);
-    prop->lemma(prop, c3);
+    prop->lemma(prop, yices_implies(guard, c1));
+    prop->lemma(prop, yices_implies(guard, c2));
+    prop->lemma(prop, yices_implies(guard, c3));
+    return;
   }
 
   // The vector to collect variables

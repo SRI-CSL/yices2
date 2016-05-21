@@ -70,5 +70,7 @@ void app_reps_gc_sweep(app_reps_t *table, const gc_info_t* gc_vars);
 /* Print it */
 void app_reps_print(const app_reps_t *table, FILE *out);
 
+/** Returns composite for function application (and other terms we treat as uninterpreted) */
+composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_term);
 
 #endif
