@@ -180,6 +180,9 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
     // check for conflicts
     app_reps_get_rep(&uf->app_reps, app_term_var);
   }
+
+  // Remove temps
+  int_mset_destruct(&arguments);
 }
 
 static

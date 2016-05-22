@@ -1627,6 +1627,9 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
     ivector_reset(&mcsat->plugin_lemmas);
   }
 
+  // Delete the temp
+  delete_ivector(&assertions);
+
   return CTX_NO_ERROR;
 }
 

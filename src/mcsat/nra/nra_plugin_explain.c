@@ -187,11 +187,13 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
 
   // Don't add constants or things already there
   if (lp_polynomial_is_constant(p_r) || lp_polynomial_hash_set_contains(&map->all_polynomials, p_r)) {
+    lp_polynomial_delete(p_r);
     return;
   }
 
   // If the variable has changed, it was added in reduce
   if (lp_polynomial_top_variable(p_r) != x) {
+    lp_polynomial_delete(p_r);
     return;
   }
 

@@ -438,6 +438,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     trace_term_ln(pre->tracer, terms, t_pre);
   }
 
+  delete_ivector(&pre_stack);
+
   assert(t_pre != NULL_TERM);
   return t_pre;
 }
