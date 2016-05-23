@@ -480,8 +480,9 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     }
 
     // Isolate the roots
+    assert(p_deg > 0);
     lp_value_t* p_roots = safe_malloc(sizeof(lp_value_t)*p_deg);
-    size_t p_roots_size;
+    size_t p_roots_size = 0;
     lp_polynomial_roots_isolate(p, map->m, p_roots, &p_roots_size);
 
     if (ctx_trace_enabled(ctx, "nra::explain::projection")) {

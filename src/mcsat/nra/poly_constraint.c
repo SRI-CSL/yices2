@@ -123,6 +123,8 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
         poly_constraint_print(constraint, ctx_trace_out(db->nra->ctx));
         ctx_trace_printf(db->nra->ctx, "\n");
       }
+      // Delete it
+      poly_constraint_delete(constraint);
     }
   }
 

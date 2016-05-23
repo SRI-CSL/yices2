@@ -930,6 +930,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
 
   // Remove temps
   delete_ivector(&core);
+  delete_ivector(&lemma_reasons);
 
 }
 
@@ -1472,6 +1473,8 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       }
 
       delete_ivector(&lemma_reasons);
+    } else {
+      lp_feasibility_set_delete(lemma_feasible);
     }
   }
 }
