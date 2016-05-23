@@ -3240,7 +3240,7 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
 
 /*
  * Check whether clause a[0 ... n-1] subsumes or strengthens clause cidx:
- * - subsumes means all literals a[0] ... a[n-1] all occur in clause cidx
+ * - subsumes means that all literals a[0] ... a[n-1] occur in clause cidx
  * - strengthens means that all literals a[0] .. a[n-1] but one occur
  *   in cidx and that (not a[i]) occurs in cidx.
  *
@@ -3271,6 +3271,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
 
   k = m;
   j = 0;
+
   /*
    * in this loop:
    * - k < m => b[k] = not(a[i0]) for some 0 <= i0 < i
@@ -3548,7 +3549,7 @@ static void prepare_for_search(sat_solver_t *solver) {
 
 /*
  * On entry to preprocess:
- * - watch[l] contains all clauses clauses in which l occurs
+ * - watch[l] contains all the clauses in which l occurs
  * - occ[l] = number of occurrences of l
  * Unit clauses are stored implicitly in the propagation queue.
  * Binary clauses are stored in the pool.
