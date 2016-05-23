@@ -509,6 +509,7 @@ typedef enum conflict_tag {
   CTAG_CLAUSE,
 } conflict_tag_t;
 
+
 /*
  * SOLVER STATUS
  */
