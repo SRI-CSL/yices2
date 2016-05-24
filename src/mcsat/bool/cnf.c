@@ -277,9 +277,14 @@ mcsat_literal_t cnf_convert(cnf_t* cnf, term_t t, ivector_t* t_clauses) {
     case XOR_TERM:
       cnf_convert_xor(cnf, t, t_clauses);
       break;
-    case EQ_TERM:
-      cnf_convert_eq(cnf, t, t_clauses);
+    case EQ_TERM: {
+      term_t lhs = eq_term_desc(cnf->ctx->terms, t)->arg[0];
+      type_kind_t lhs_type = term_type_kind(cnf->ctx->terms, lhs);
+      if (lhs_type == BOOL_TYPE) {
+        cnf_convert_eq(cnf, t, t_clauses);
+      }
       break;
+    }
     case ITE_TERM:
       cnf_convert_ite(cnf, t, t_clauses);
       break;

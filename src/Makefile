@@ -290,6 +290,7 @@ mcsat_src_c := \
 	mcsat/utils/statistics.c \
 	mcsat/uf/uf_plugin.c \
 	mcsat/uf/app_reps.c \
+	mcsat/uf/uf_feasible_set_db.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \

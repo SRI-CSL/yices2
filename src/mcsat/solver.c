@@ -244,15 +244,32 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
   plugin_t* plugin;
 
   kind = term_kind(mcsat->terms, t);
-  for (i = kind; mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
-    int_mset_clear(vars);
-    plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
-    if (plugin->explain_evaluation) {
-      evaluates = plugin->explain_evaluation(plugin, t, vars, value);
+
+  if (kind != EQ_TERM) {
+    for (i = kind; mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
+      int_mset_clear(vars);
+      plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
+      if (plugin->explain_evaluation) {
+        evaluates = plugin->explain_evaluation(plugin, t, vars, value);
+      }
+      if (evaluates) {
+        return true;
+      }
     }
-    if (evaluates) {
-      return true;
+  } else {
+    composite_term_t* eq_desc = eq_term_desc(mcsat->terms, t);
+    type_kind_t type_kind = term_type_kind(mcsat->terms, eq_desc->arg[0]);
+    for (i = type_kind; mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
+      int_mset_clear(vars);
+      plugin = mcsat->plugins[mcsat->type_owners[i]].plugin;
+      if (plugin->explain_evaluation) {
+        evaluates = plugin->explain_evaluation(plugin, t, vars, value);
+      }
+      if (evaluates) {
+        return true;
+      }
     }
+
   }
 
   return false;

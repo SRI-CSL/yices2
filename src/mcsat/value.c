@@ -108,8 +108,8 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
   case VALUE_BOOLEAN:
     return v1->b == v2->b;
   case VALUE_RATIONAL:
-    assert(false); // TODO: what's up with this?
-    return false;
+    assert(v1->type == VALUE_RATIONAL);
+    return q_cmp(&v1->q, &v2->q) == 0;
   case VALUE_LIBPOLY:
     return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
   default:
@@ -123,8 +123,7 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   case VALUE_BOOLEAN:
     return v->b;
   case VALUE_RATIONAL:
-    assert(false); // TODO: what's up with this?
-    return 0;
+    return q_hash_numerator(&v->q);
   case VALUE_LIBPOLY:
     return lp_value_hash(&v->lp_value);
   default:
