@@ -77,10 +77,10 @@ typedef enum optid {
   verbosity_opt,          // set verbosity on the command line
   incremental_opt,        // enable incremental mode
   interactive_opt,        // enable interactive mode
-  timeout_opt,          // give a timeout
+  timeout_opt,            // give a timeout
   mcsat_opt,              // enable mcsat
   mcsat_nra_mgcd_opt,     // use the mgcd instead psc in projection
-  mcsat_nra_nlsat_opt,        // use the nlsat projection instead of brown single-cell
+  mcsat_nra_nlsat_opt,    // use the nlsat projection instead of brown single-cell
   trace_opt,              // enable a trace tag
 } optid_t;
 
@@ -249,6 +249,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	goto exit;
 #endif
         break;
+
       case mcsat_nra_mgcd_opt:
 #if HAVE_MCSAT
         mcsat_nra_mgcd = true;
@@ -258,6 +259,7 @@ static void parse_command_line(int argc, char *argv[]) {
         goto exit;
 #endif
         break;
+
       case mcsat_nra_nlsat_opt:
 #if HAVE_MCSAT
         mcsat_nra_nlsat = true;
