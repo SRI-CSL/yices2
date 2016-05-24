@@ -1,4 +1,4 @@
-# -*-Makefile-*- (emacs mode)
+# -*-makefile-gmake-*- (emacs mode)
 #########################################################################
 #  The Yices SMT Solver. Copyright 2014 SRI International.              #
 #                                                                       #
@@ -458,7 +458,8 @@ else
 #
 # DESTDIR is non-empty: skip the symbolic links and ldconfig
 #
-install-darwin install-solaris install-linux install-unix install-freebsd: install-default 
+install-darwin install-solaris install-linux install-unix install-freebsd: install-default
+
 endif
 
 

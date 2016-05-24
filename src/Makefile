@@ -1114,26 +1114,28 @@ clean:
 .PHONY: clean
 
 
+ifeq ($(MAKE_RESTARTS),)
 #
-# rules to avoid triggering the .DEFAULT rule if .h or .c files have been deleted
+# Rules to keep going if .h or .c files have been deleted.  This
+# allows Make to rebuild an out-of-date dependency file 'source.d'
+# that refers to an 'oldstuff.h' that has been deleted.  We want to
+# fail on the next restart if 'oldstuff.h' is still referenced in some
+# existing 'source.c'.
 #
 %.h:
-	@ echo
-	@ echo "$@ missing"
-	@ echo
-
+	@ echo "*** Warning: header file $@ is missing ***"
 
 %.c:
-	@ echo
-	@ echo "Missing source file: $@"
-	@ echo
+	@ echo "*** Warning: source file $@ is missing ***"
+
+endif
 
 
 #
 # For debugging of Makefile and configuration:
 # print the options as set by this Makefile
 #
-.DEFAULT:
+show-details:
 	@ echo
 	@ echo "*** src/Mafefile ***"
 	@ echo
