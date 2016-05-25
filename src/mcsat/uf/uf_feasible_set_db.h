@@ -16,7 +16,7 @@
 typedef struct uf_feasible_set_db_struct uf_feasible_set_db_t;
 
 /** Create a new database */
-uf_feasible_set_db_t* uf_feasible_set_db_new(plugin_context_t* ctx);
+uf_feasible_set_db_t* uf_feasible_set_db_new(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail);
 
 /** Delete the database */
 void uf_feasible_set_db_delete(uf_feasible_set_db_t* db);
@@ -36,8 +36,8 @@ void uf_feasible_set_db_push(uf_feasible_set_db_t* db);
 /** Pop the context */
 void uf_feasible_set_db_pop(uf_feasible_set_db_t* db);
 
-/** Get the reason for a conflict on x. */
-void uf_feasible_set_db_get_conflict_reasons(uf_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out);
+/** Get the reason for a conflict on x. Outputs conjunction of terms to the vector. */
+void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ivector_t* conflict);
 
 /** Return any fixed variables */
 variable_t uf_feasible_set_db_get_fixed(uf_feasible_set_db_t* db);

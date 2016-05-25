@@ -74,7 +74,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->all_apps, 0);
   init_ivector(&uf->conflict, 0);
 
-  uf->feasible = uf_feasible_set_db_new(ctx);
+  uf->feasible = uf_feasible_set_db_new(ctx->terms, ctx->var_db, ctx->trail);
 
   uf->trail_i = 0;
 
@@ -430,21 +430,8 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
             ctx_trace_printf(uf->ctx, "eq conflict 2\n");
           }
-          ivector_t reasons;
-          init_ivector(&reasons, 0);
-          uf_feasible_set_db_get_conflict_reasons(uf->feasible, lhs, &reasons);
-          uint32_t i;
-          for (i = 0; i < reasons.size; ++ i) {
-            // Reason constraint
-            variable_t reason_var = reasons.data[i];
-            assert(trail_has_value(trail, reason_var));
-            bool reason_value = trail_get_boolean_value(trail, reason_var);
-            // Add the assertion to the conflict
-            term_t reason_term = variable_db_get_term(var_db, reason_var);
-            if (!reason_value) { reason_term = opposite_term(reason_term); }
-            ivector_push(&uf->conflict, reason_term);
-          }
-          delete_ivector(&reasons);
+          ivector_reset(&uf->conflict);
+          uf_feasible_set_db_get_conflict(uf->feasible, lhs, &uf->conflict);
           prop->conflict(prop);
         }
       }
