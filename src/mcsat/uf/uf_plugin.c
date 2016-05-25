@@ -54,6 +54,9 @@ typedef struct {
   /** All function applications ever seen */
   ivector_t all_apps;
 
+  /** All uninterpreted symbols */
+  ivector_t all_uvars;
+
   /** Feasible sets for uninterpreted terms */
   uf_feasible_set_db_t* feasible;
 
@@ -72,6 +75,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_int_hmap(&uf->app_rep_to_val_rep, 0);
   init_ivector(&uf->app_reps_with_val_rep, 0);
   init_ivector(&uf->all_apps, 0);
+  init_ivector(&uf->all_uvars, 0);
   init_ivector(&uf->conflict, 0);
 
   uf->feasible = uf_feasible_set_db_new(ctx->terms, ctx->var_db, ctx->trail);
@@ -101,6 +105,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_int_hmap(&uf->app_rep_to_val_rep);
   delete_ivector(&uf->app_reps_with_val_rep);
   delete_ivector(&uf->all_apps);
+  delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
 }
@@ -284,6 +289,9 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   case EQ_TERM:
     // Equality terms (for uninterpreted sorts)
     uf_plugin_new_eq(uf, t, prop);
+    break;
+  case UNINTERPRETED_TERM:
+    ivector_push(&uf->all_uvars, variable_db_get_variable(uf->ctx->var_db, t));
     break;
   default:
     // Noting for now
@@ -706,24 +714,34 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
-  // UF only needs to make sure that all the applications are kept
-  uint32_t i, j, m, n = uf->all_apps.size;
-  for (i = 0; i < n; ++ i) {
-    variable_t app_var = uf->all_apps.data[i];
-    gc_info_mark(gc_vars, app_var);
-    // Also mark the immediate children
-    term_t app_term = variable_db_get_term(var_db, app_var);
-    composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
-    m = app_desc->arity;
-    j = app_reps_get_uf_start(terms, app_term);
-    for (; j < m; ++ j) {
-      variable_t arg_i = variable_db_get_variable(var_db, app_desc->arg[j]);
-      gc_info_mark(gc_vars, arg_i);
+
+  if (gc_vars->level == 0) {
+    // UF only needs to make sure that all the applications are kept
+    uint32_t i, j, m, n = uf->all_apps.size;
+    for (i = 0; i < n; ++ i) {
+      variable_t app_var = uf->all_apps.data[i];
+      gc_info_mark(gc_vars, app_var);
+      // Also mark the immediate children
+      term_t app_term = variable_db_get_term(var_db, app_var);
+      composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
+      m = app_desc->arity;
+      j = app_reps_get_uf_start(terms, app_term);
+      for (; j < m; ++ j) {
+        variable_t arg_i = variable_db_get_variable(var_db, app_desc->arg[j]);
+        gc_info_mark(gc_vars, arg_i);
+      }
+    }
+
+    // Feasible set marks reasons, and those need to be kept
+    uf_feasible_set_db_gc_mark(uf->feasible, gc_vars);
+
+    // Mark all the uninterpreted variables, these are kept
+    n = uf->all_uvars.size;
+    for (i = 0; i < n; ++ i) {
+      variable_t uvar = uf->all_uvars.data[i];
+      gc_info_mark(gc_vars, uvar);
     }
   }
-
-  // Feasible set marks reasons, and those need to be kept
-  uf_feasible_set_db_gc_mark(uf->feasible, gc_vars);
 }
 
 static
