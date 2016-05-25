@@ -3579,6 +3579,7 @@ static void check_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 2);
 }
 
+// THIS VERSION ONLY ALLOWS DIVISION BY NON-ZERO CONSTANTS
 static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rational_t *divisor;
   rba_buffer_t *b;
@@ -3598,6 +3599,9 @@ static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     set_arith_result(stack, b);
   }
 }
+
+
+
 
 
 /*

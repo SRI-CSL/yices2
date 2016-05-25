@@ -1504,6 +1504,10 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case SMT2_MISSING_PATTERN:
   case SMT2_TYPE_ERROR_IN_QUAL:
   case SMT2_QUAL_NOT_IMPLEMENTED:
+  case SMT2_INVALID_IDX_BV:
+  case SMT2_NAMED_TERM_NOT_GROUND:
+  case SMT2_NAMED_SYMBOL_REUSED:
+    print_out("%s", exception_string[exception]);
     break;
 
   case SMT2_TERM_NOT_INTEGER:
@@ -1518,12 +1522,6 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     // TODO: extract more information from yices_error_report();
     print_out("in %s: ", opcode_string[tstack->error_op]);
     print_yices_error(false);
-    break;
-
-  case SMT2_INVALID_IDX_BV:
-  case SMT2_NAMED_TERM_NOT_GROUND:
-  case SMT2_NAMED_SYMBOL_REUSED:
-    print_out("%s", exception_string[exception]);
     break;
 
   case TSTACK_NO_ERROR:
