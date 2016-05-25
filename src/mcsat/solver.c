@@ -1140,6 +1140,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
       trace_printf(mcsat->ctx->trace, "\t");
       trace_term_ln(mcsat->ctx->trace, mcsat->ctx->terms, lemma->data[i]);
     }
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
 
   init_ivector(&unassigned, 0);

@@ -50,3 +50,6 @@ void uf_feasible_set_db_print_var(uf_feasible_set_db_t* db, variable_t var, FILE
 
 /** Marks all the top level reasons */
 void uf_feasible_set_db_gc_mark(uf_feasible_set_db_t* db, gc_info_t* gc_vars);
+
+/** Marks all the top level reasons */
+void uf_feasible_set_db_gc_sweep(uf_feasible_set_db_t* db, const gc_info_t* gc_vars);

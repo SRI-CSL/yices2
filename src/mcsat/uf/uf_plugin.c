@@ -156,19 +156,21 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
   variable_t eq_term_var = variable_db_get_variable(var_db, eq_term);
   composite_term_t* eq_desc = eq_term_desc(terms, eq_term);
 
-  term_t lhs = eq_desc->arg[0];
-  term_t rhs = eq_desc->arg[1];
+  term_t lhs_term = eq_desc->arg[0];
+  term_t rhs_term = eq_desc->arg[1];
+  variable_t lhs_term_var = variable_db_get_variable(var_db, lhs_term);
+  variable_t rhs_term_var = variable_db_get_variable(var_db, rhs_term);
 
   // Ignore interpreted equalities
-  if (term_type_kind(terms, lhs) != UNINTERPRETED_TYPE) {
+  if (term_type_kind(terms, lhs_term) != UNINTERPRETED_TYPE) {
     return;
   }
 
   // Setup the variable list
   variable_t vars[3];
   vars[0] = eq_term_var;
-  vars[1] = variable_db_get_variable(var_db, lhs);
-  vars[2] = variable_db_get_variable(var_db, rhs);
+  vars[1] = lhs_term_var;
+  vars[2] = rhs_term_var;
 
   // Sort variables by trail index
   int_array_sort2(vars, 3, (void*) trail, uf_plugin_trail_variable_compare);
@@ -179,6 +181,24 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
   // Add first two variables to watch list
   watch_list_manager_add_to_watch(&uf->wlm_eqs, var_list, vars[0]);
   watch_list_manager_add_to_watch(&uf->wlm_eqs, var_list, vars[1]);
+
+  // If both assigned, propagate
+  if (trail_has_value(trail, lhs_term_var) && trail_has_value(trail, rhs_term_var)) {
+    const mcsat_value_t* lhs_value = trail_get_value(trail, lhs_term_var);
+    const mcsat_value_t* rhs_value = trail_get_value(trail, rhs_term_var);
+    int lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
+
+    uint32_t lhs_level = trail_get_level(trail, lhs_term_var);
+    uint32_t rhs_level = trail_get_level(trail, rhs_term_var);
+    uint32_t level = lhs_level > rhs_level ? lhs_level : rhs_level;
+
+    assert (!trail_has_value(trail, eq_term_var));
+    if (lhs_eq_rhs) {
+      prop->add_at_level(prop, eq_term_var, &mcsat_value_true, level);
+    } else {
+      prop->add_at_level(prop, eq_term_var, &mcsat_value_false, level);
+    }
+  }
 }
 
 static
@@ -369,6 +389,9 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
           // Equality already has a value, check that it's the right one
           bool eq_var_value = trail_get_boolean_value(trail, eq_var);
           if (eq_var_value != lhs_eq_rhs) {
+            if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
+              ctx_trace_printf(uf->ctx, "eq conflict 1\n");
+            }
             term_t eq_term = variable_db_get_term(var_db, eq_var);
             // Equality can not be both true and false at the same time
             ivector_reset(&uf->conflict);
@@ -404,6 +427,9 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
 
         // Ooops, a conflict
         if (!feasible) {
+          if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
+            ctx_trace_printf(uf->ctx, "eq conflict 2\n");
+          }
           ivector_t reasons;
           init_ivector(&reasons, 0);
           uf_feasible_set_db_get_conflict_reasons(uf->feasible, lhs, &reasons);
@@ -528,6 +554,9 @@ void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* pr
           const mcsat_value_t* app_value = trail_get_value(trail, app_var);
           const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
           if (!mcsat_value_eq(app_value, val_rep_value)) {
+            if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
+              ctx_trace_printf(uf->ctx, "app conflict 1\n");
+            }
             uf_plugin_get_app_conflict(uf, app_var, val_rep_var);
             prop->conflict(prop);
           }
@@ -553,6 +582,9 @@ void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* pr
         const mcsat_value_t* var_value = trail_get_value(trail, var);
         const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
         if (!mcsat_value_eq(var_value, val_rep_value)) {
+          if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
+            ctx_trace_printf(uf->ctx, "app conflict 2\n");
+          }
           uf_plugin_get_app_conflict(uf, var, val_rep_var);
           prop->conflict(prop);
         }
@@ -702,6 +734,9 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(gc_vars, arg_i);
     }
   }
+
+  // Feasible set marks reasons, and those need to be kept
+  uf_feasible_set_db_gc_mark(uf->feasible, gc_vars);
 }
 
 static
@@ -732,6 +767,9 @@ void uf_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
 
   // The representatives table
   app_reps_gc_sweep(&uf->app_reps, gc_vars);
+
+  // Feasible sets
+  uf_feasible_set_db_gc_sweep(uf->feasible, gc_vars);
 
   // Watch list manager
   watch_list_manager_gc_sweep_lists(&uf->wlm_apps, gc_vars);
@@ -806,6 +844,9 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     // Check if both are assigned
     if (!trail_has_value(trail, lhs_var)) { return false; }
     if (!trail_has_value(trail, rhs_var)) { return false; }
+
+    int_mset_add(vars, lhs_var);
+    int_mset_add(vars, rhs_var);
 
     // Both variables assigned, we evaluate
     return true;

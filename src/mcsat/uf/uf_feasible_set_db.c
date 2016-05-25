@@ -379,6 +379,20 @@ void uf_feasible_set_db_gc_mark(uf_feasible_set_db_t* db, gc_info_t* gc_vars) {
   }
 }
 
+void uf_feasible_set_db_gc_sweep(uf_feasible_set_db_t* db, const gc_info_t* gc_vars) {
+  // We relocatre all reasons
+  uint32_t element_i;
+  for (element_i = 1; element_i < db->memory_size; ++ element_i) {
+    uf_feasible_list_element_t* element = db->memory + element_i;
+    variable_t x = element->reason;
+    x = gc_info_get_reloc(gc_vars, x);
+    assert(x != variable_null);
+    element->reason = x;
+  }
+}
+
+
+
 variable_t uf_feasible_set_db_get_fixed(uf_feasible_set_db_t* db) {
   for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) {
     variable_t var = db->fixed_variables.data[db->fixed_variables_i];
