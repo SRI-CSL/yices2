@@ -4640,7 +4640,7 @@ void smt2_set_logic(const char *name) {
     init_search_parameters(&__smt2_globals);
     save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
   } else {
-    // we are in benchmark_mode; better set the search parameters ...
+    // in benchmark_mode (or exists/forall) set the search parameters
     default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code), CTX_MODE_ONECHECK);
   }
 

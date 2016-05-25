@@ -5086,7 +5086,7 @@ static void eval_mk_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 /*
  * Integer division and modulo: two parameters
- * - the second must be a non-zero arithmetic constant
+ * NOTE: to support QF_NIA/QF_NRA and variants, we allow arbitrary dividers.
  */
 static void check_mk_idiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_IDIV);

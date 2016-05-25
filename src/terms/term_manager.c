@@ -3056,7 +3056,6 @@ term_t mk_arith_ceil(term_manager_t *manager, term_t t) {
  * The terms x and y are not required to be integers.
  */
 
-
 /*
  * Division and mod of two rationals
  * - q2 is the divisor
