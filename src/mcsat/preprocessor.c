@@ -68,6 +68,8 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return arith_div_term_desc(terms, t);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     return arith_mod_term_desc(terms, t);
+  case DISTINCT_TERM:
+    return distinct_term_desc(terms, t);
   default:
     assert(false);
     return NULL;
@@ -166,7 +168,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
   term_table_t* terms = pre->terms;
   term_manager_t* tm = &pre->tm;
 
-  uint32_t i, n;
+  uint32_t i, j, n;
 
   // Check if already preprocessed;
   term_t t_pre = preprocessor_get(pre, t);
@@ -413,6 +415,52 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
       break;
     }
+
+    case DISTINCT_TERM:
+    {
+      composite_term_t* desc = get_composite(terms, current_kind, current);
+      bool children_done = true;
+
+      n = desc->arity;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t child = desc->arg[i];
+        term_t child_pre = preprocessor_get(pre, child);
+
+        if (child_pre == NULL_TERM) {
+          children_done = false;
+          ivector_push(&pre_stack, child);
+        }
+
+        if (children_done) { ivector_push(&children, child_pre); }
+      }
+
+      if (children_done) {
+        ivector_t distinct;
+        init_ivector(&distinct, 0);
+
+        for (i = 0; i < n; ++ i) {
+          for (j = i + 1; j < n; ++ j) {
+            term_t neq = mk_eq(&pre->tm, children.data[i], children.data[j]);
+            neq = opposite_term(neq);
+            ivector_push(&distinct, neq);
+          }
+        }
+        current_pre = mk_and(&pre->tm, distinct.size, distinct.data);
+
+        delete_ivector(&distinct);
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+
+      break;
 
     default:
       // UNSUPPORTED TERM/THEORY

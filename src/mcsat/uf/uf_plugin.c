@@ -212,7 +212,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   if (arguments.size > 0) {
 
     variable_t* arguments_vars = arguments.element_list.data;
-    uint32_t size = arguments.size;
+    uint32_t size = arguments.element_list.size;
 
     // Sort variables by trail index
     int_array_sort2(arguments_vars, size, (void*) trail, uf_plugin_trail_variable_compare);
