@@ -102,6 +102,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, ARITH_DIV);
+  ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT);
@@ -272,6 +274,34 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, yices_implies(guard, c1));
     prop->lemma(prop, yices_implies(guard, c2));
     prop->lemma(prop, yices_implies(guard, c3));
+    return;
+  }
+
+  // Check for floor, ceil
+  if (t_kind == ARITH_FLOOR) {
+    term_t arg = arith_floor_arg(terms, t);
+
+    // t <= arg < t+1: t is int so it should be fine
+    term_t ineq1 = yices_arith_geq_atom(arg, t);
+    term_t t_1 = yices_add(t, yices_rational32(1, 1));
+    term_t ineq2 = yices_arith_gt_atom(t_1, arg);
+
+    prop->lemma(prop, ineq1);
+    prop->lemma(prop, ineq2);
+    return;
+  }
+
+  // Check for floor, ceil
+  if (t_kind == ARITH_CEIL) {
+    term_t arg = arith_ceil_arg(terms, t);
+
+    // t-1 < arg <= t: t is int so it should be fine
+    term_t t_1 = yices_sub(t, yices_rational32(1, 1));
+    term_t ineq1 = yices_arith_gt_atom(arg, t_1);
+    term_t ineq2 = yices_arith_geq_atom(t, arg);
+
+    prop->lemma(prop, ineq1);
+    prop->lemma(prop, ineq2);
     return;
   }
 

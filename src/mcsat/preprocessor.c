@@ -416,6 +416,44 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       break;
     }
 
+    case ARITH_FLOOR:        // floor: purify, but its interpreted
+    {
+      term_t child = arith_floor_arg(terms, current);
+      term_t child_pre = preprocessor_get(pre, child);
+
+      if (child_pre != NULL_TERM) {
+        child_pre = preprocessor_purify(pre, child_pre, out);
+        if (child_pre != child) {
+          current_pre = arith_floor(terms, child_pre);
+        } else {
+          current_pre = current;
+        }
+      } else {
+        ivector_push(&pre_stack, child);
+      }
+
+      break;
+    }
+
+    case ARITH_CEIL:        // floor: purify, but its interpreted
+    {
+      term_t child = arith_ceil_arg(terms, current);
+      term_t child_pre = preprocessor_get(pre, child);
+
+      if (child_pre != NULL_TERM) {
+        child_pre = preprocessor_purify(pre, child_pre, out);
+        if (child_pre != child) {
+          current_pre = arith_floor(terms, child_pre);
+        } else {
+          current_pre = current;
+        }
+      } else {
+        ivector_push(&pre_stack, child);
+      }
+
+      break;
+    }
+
     case DISTINCT_TERM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
