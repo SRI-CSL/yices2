@@ -6,7 +6,8 @@
  */
 
 /*
- * Lexer for the SMT-LIB language (version 2)
+ * Lexer for the SMT-LIB language (version 2) 
+ * (WITH HACKS TO PARSE SOME 2.5 STUFF).
  */
 
 #include <assert.h>
@@ -227,6 +228,11 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
 
 static uint8_t active_symbol[NUM_SMT2_SYMBOLS];
 
+/*
+ * FLAG TO SELECT 2.5 SYNTAX
+ */
+static bool two_dot_five_variant = false;
+
 
 /*
  * Activate all default symbols:
@@ -399,6 +405,15 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
   }
 }
 
+
+/*
+ * Switch to version 2.5
+ */
+void smt2_lexer_activate_two_dot_five(void) {
+  two_dot_five_variant = true;
+}
+
+
 /*
  * Lexer initialization
  */
@@ -518,6 +533,49 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
 
   return tk;
 }
+
+
+/*
+ * String literal for SMT-LIB 2.5
+ *
+ * Gratuitous change to the escape sequence:
+ * - replace "" inside the string by "
+ * - note that this means that we can't have an empty string ""
+ *   (so the example on page 22 of 'The SMT-LIB Standard Version 2.5'
+ *   is wrong).
+ */
+static smt2_token_t smt2_read_string_var(lexer_t *lex) {
+  reader_t *rd;
+  string_buffer_t *buffer;
+  int c;
+  smt2_token_t tk;
+
+  rd = &lex->reader;
+  buffer = lex->buffer;
+  assert(reader_current_char(rd) == '"');
+
+  for (;;) {
+    c = reader_next_char(rd);
+    if (c == '"') {
+      c = reader_next_char(rd);
+      if (c != '"') {
+	tk = SMT2_TK_STRING;
+	break;
+      }
+    }
+    if (c < 32 && !isspace(c)) {
+      // error
+      tk = SMT2_TK_INVALID_STRING;
+      break;
+    }
+   string_buffer_append_char(buffer, c);
+  }
+
+  string_buffer_close(buffer);
+
+  return tk;
+}
+
 
 
 /*
@@ -926,7 +984,11 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
     goto done;
 
   case '"':
-    tk = smt2_read_string(lex);
+    if (two_dot_five_variant) {
+      tk = smt2_read_string_var(lex);
+    } else {
+      tk = smt2_read_string(lex);
+    }
     goto done;
 
   case '#':

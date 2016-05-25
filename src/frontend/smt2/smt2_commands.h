@@ -329,6 +329,10 @@ typedef struct smt2_globals_s {
   bool benchmark_mode;
   bool global_decls;
 
+  // smt-lib version: added 2016/05/24
+  // possible values are 0 (not set) or 2000 (version 2.0) or 2500 (version 2.5)
+  uint32_t smtlib_version;
+
   // number of calls to push after the ctx is unsat
   uint32_t pushes_after_unsat;
 

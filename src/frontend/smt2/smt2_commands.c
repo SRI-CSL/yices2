@@ -1934,6 +1934,37 @@ static bool aval_is_rational(attr_vtbl_t *avtbl, aval_t v, rational_t *result) {
 }
 
 
+/*
+ * For (set-info :smt-lib-version X.Y)
+ * - check whether v is either 2.0 or 2.5
+ * - return false if it's not
+ * - return true if it is
+ *
+ * - set *version to 2500 or 2000 if v is either 2.5 or 2.0
+ */
+static bool aval_is_known_version(attr_vtbl_t *avtbl, aval_t v, uint32_t *version) {
+  rational_t aux;
+  bool ok;
+
+  ok = false;
+  if (v >= 0 && aval_tag(avtbl, v) == ATTR_RATIONAL) {
+    q_init(&aux);
+    q_set(&aux, aval_rational(avtbl, v));
+    if (q_cmp_int32(&aux, 2, 1) == 0) {
+      // version 2.0
+      *version = 2000;
+      ok = true;
+    } else if (q_cmp_int32(&aux, 5, 2) == 0) {
+      // version 2.5
+      *version = 2500;
+      ok = true;
+    }
+    q_clear(&aux);
+  }
+
+  return ok;
+}
+
 
 /*
  * Boolean option
@@ -3291,6 +3322,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
+  g->smtlib_version = 0;       // means no version specified yet 
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
@@ -3918,6 +3950,26 @@ void smt2_get_option(const char *name) {
 
 
 /*
+ * Check whether smtlib_version is set and if so print it
+ */
+static void show_smtlib_version(const smt2_globals_t *g) {
+  switch (g->smtlib_version) {
+  case 2000:
+    print_kw_symbol_pair(":smt-lib-version", "2.0");
+    break;
+    
+  case 2500:
+    print_kw_symbol_pair(":smt-lib-version", "2.5");
+    break;
+
+  default:
+    print_kw_symbol_pair(":smt-lib-version", "unknown");
+    break;
+  }
+}
+
+
+/*
  * Get some info
  * - name = keyword
  */
@@ -3952,6 +4004,10 @@ void smt2_get_info(const char *name) {
 
   case SMT2_KW_ALL_STATISTICS:
     show_statistics(&__smt2_globals);
+    break;
+
+  case SMT2_KW_SMT_LIB_VERSION:
+    show_smtlib_version(&__smt2_globals);
     break;
 
   default:
@@ -4491,11 +4547,15 @@ void smt2_set_option(const char *name, aval_t value) {
  * - same conventions as set_option
  */
 void smt2_set_info(const char *name, aval_t value) {
+  smt2_globals_t *g;
   smt2_keyword_t kw;
-  uint32_t n;
+  uint32_t n, version;
+
+  g = &__smt2_globals;
 
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
+
   switch (kw) {
   case SMT2_KW_ERROR_BEHAVIOR:
   case SMT2_KW_NAME:
@@ -4506,8 +4566,24 @@ void smt2_set_info(const char *name, aval_t value) {
     print_error("can't overwrite %s", name);
     break;
 
+  case SMT2_KW_SMT_LIB_VERSION:
+    // quick hack to switch parser if 2.5 is selected
+    if (g->smtlib_version != 0) {
+      print_error("can't set :smt-lib-version twice");
+    } else if (aval_is_known_version(g->avtbl, value, &version)) {
+      assert(version == 2000 || version == 2500);
+      g->smtlib_version = version;
+      if (version == 2500) {
+	smt2_lexer_activate_two_dot_five();
+      }
+      report_success();
+    } else {
+      print_error("unsupported :smt-lib-version");
+    }
+    break;
+
   default:
-    add_info(&__smt2_globals, name, value);
+    add_info(g, name, value);
     report_success();
     break;
   }
