@@ -620,6 +620,7 @@ void uf_plugin_push(plugin_t* plugin) {
       NULL);
 
   app_reps_push(&uf->app_reps);
+  uf_feasible_set_db_push(uf->feasible);
 }
 
 static
@@ -647,8 +648,8 @@ void uf_plugin_pop(plugin_t* plugin) {
     ivector_pop(&uf->all_apps);
   }
 
-  // Pop the representatives
   app_reps_pop(&uf->app_reps);
+  uf_feasible_set_db_pop(uf->feasible);
 }
 
 
