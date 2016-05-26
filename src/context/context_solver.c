@@ -157,7 +157,7 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
   r_threshold = *reduce_threshold;
 
   smt_bounded_process(core, max_conflicts);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -305,6 +305,7 @@ static void solve(smt_core_t *core, const param_t *params) {
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
+  luby = false;
   u = 1;
   v = 1;
   period = c_threshold;

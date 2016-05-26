@@ -7399,10 +7399,17 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     break;
 
   case CTX_ARCH_BV:
+#if 0
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     params->fast_restart = true;
     params->c_factor = 1.05;
     params->d_factor = 1.05;
+    params->randomness = 0.0;
+#endif
+    // HACK: try Luby restart, period = 10
+    params->fast_restart = true;
+    params->c_factor = 0.0;
+    params->c_threshold = 10;
     params->randomness = 0.0;
     break;
 
