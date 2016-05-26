@@ -251,9 +251,9 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
       plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
       if (plugin->explain_evaluation) {
         evaluates = plugin->explain_evaluation(plugin, t, vars, value);
-      }
-      if (evaluates) {
-        return true;
+        if (evaluates) {
+          return true;
+        }
       }
     }
   } else {
@@ -264,12 +264,11 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
       plugin = mcsat->plugins[mcsat->type_owners[i]].plugin;
       if (plugin->explain_evaluation) {
         evaluates = plugin->explain_evaluation(plugin, t, vars, value);
-      }
-      if (evaluates) {
-        return true;
+        if (evaluates) {
+          return true;
+        }
       }
     }
-
   }
 
   return false;
