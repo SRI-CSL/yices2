@@ -460,7 +460,8 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   size_t x_cell_b_root_index = 0;
 
   size_t p_i;
-  for (p_i = 0; p_i < x_set->size; ++ p_i) {
+  bool done = false;
+  for (p_i = 0; !done && p_i < x_set->size; ++ p_i) {
 
     assert(x_cell.a_open && x_cell.b_open);
 
@@ -548,34 +549,35 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
         (*x_cell_b_p) = NULL;
         x_cell_a_root_index = m;
         // We use the first one, sort should do it
-        break;
-      }
-
-      if (m < 0) {
-        // in (-inf, p_roots[0]) so
-        if (lp_interval_contains(&x_cell, p_roots)) {
-          lp_interval_set_b(&x_cell, p_roots, 1);
-          (*x_cell_b_p) = p;
-          x_cell_b_root_index = 0;
-        }
-      } else if (m+1 == p_roots_size) {
-        // in (p_roots[m], +inf)
-        if (lp_interval_contains(&x_cell, p_roots + m)) {
-          lp_interval_set_a(&x_cell, p_roots + m, 1);
-          (*x_cell_a_p) = p;
-          x_cell_a_root_index = m;
-        }
+        done = true;
       } else {
-        // in (p_roots[m], p_roots[m+1])
-        if (lp_interval_contains(&x_cell, p_roots + m)) {
-          lp_interval_set_a(&x_cell, p_roots + m, 1);
-          (*x_cell_a_p) = p;
-          x_cell_a_root_index = m;
-        }
-        if (lp_interval_contains(&x_cell, p_roots + m + 1)) {
-          lp_interval_set_b(&x_cell, p_roots + m + 1, 1);
-          (*x_cell_b_p) = p;
-          x_cell_b_root_index = m + 1;
+        // Divide cells
+        if (m < 0) {
+          // in (-inf, p_roots[0]) so
+          if (lp_interval_contains(&x_cell, p_roots)) {
+            lp_interval_set_b(&x_cell, p_roots, 1);
+            (*x_cell_b_p) = p;
+            x_cell_b_root_index = 0;
+          }
+        } else if (m + 1 == p_roots_size) {
+          // in (p_roots[m], +inf)
+          if (lp_interval_contains(&x_cell, p_roots + m)) {
+            lp_interval_set_a(&x_cell, p_roots + m, 1);
+            (*x_cell_a_p) = p;
+            x_cell_a_root_index = m;
+          }
+        } else {
+          // in (p_roots[m], p_roots[m+1])
+          if (lp_interval_contains(&x_cell, p_roots + m)) {
+            lp_interval_set_a(&x_cell, p_roots + m, 1);
+            (*x_cell_a_p) = p;
+            x_cell_a_root_index = m;
+          }
+          if (lp_interval_contains(&x_cell, p_roots + m + 1)) {
+            lp_interval_set_b(&x_cell, p_roots + m + 1, 1);
+            (*x_cell_b_p) = p;
+            x_cell_b_root_index = m + 1;
+          }
         }
       }
     }
