@@ -1295,59 +1295,76 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   conflict_level = conflict_get_level(&conflict);
   mcsat_backtrack_to(mcsat, conflict_level);
 
-  // If the conflict level is 0, we're done
-  if (conflict_level == 0) {
-    mcsat->status = STATUS_UNSAT;
-  } else {
+  // Analyze while at least one variable at conflict level
+  while (true) {
 
-    // Analyze while at least one variable at conflict level
-    while (conflict_get_top_level_vars_count(&conflict) > 1) {
-
-      if (trace_enabled(trace, "mcsat::conflict")) {
-        trace_printf(trace, "current trail:\n");
-        trail_print(mcsat->trail, trace->file);
-      }
-
-      // Current variable
-      var = trail_back(mcsat->trail);
-      assert(trail_get_assignment_type(mcsat->trail, var) != DECISION);
-
-      // Resolve if in the conflict and current level
-      if (conflict_contains_as_top(&conflict, var)) {
-
-        // Get the plugin that performed the propagation
-        plugin_i = trail_get_source_id(mcsat->trail, var);
-        plugin = mcsat->plugins[plugin_i].plugin;
-
-        if (trace_enabled(trace, "mcsat::conflict")) {
-          trace_printf(trace, "resolving ");
-          variable_db_print_variable(mcsat->var_db, var, trace->file);
-          trace_printf(trace, " with %s\n", mcsat->plugins[plugin_i].plugin_name);
-          trace_printf(trace, "current conflict:\n");
-          conflict_print(&conflict, trace->file);
-        }
-
-        // Resolve the variable
-        ivector_reset(&reason);
-        assert(plugin->explain_propagation);
-        substitution = plugin->explain_propagation(plugin, var, &reason);
-        conflict_resolve_propagation(&conflict, var, substitution, &reason);
-        // The trail pops with the resolution step
-      } else {
-        // Have to pop the trail manually
-        trail_pop_propagation(mcsat->trail);
-        assert(!conflict_contains(&conflict, var));
-      }
+    if (conflict_level == 0) {
+      // Resolved all the way
+      break;
     }
 
-    // UIP conflict resolution
-    assert(conflict_get_top_level_vars_count(&conflict) == 1);
+    if (conflict_get_top_level_vars_count(&conflict) == 1) {
+      // UIP, we're done
+      break;
+    }
 
     if (trace_enabled(trace, "mcsat::conflict")) {
+      trace_printf(trace, "current trail:\n");
+      trail_print(mcsat->trail, trace->file);
       trace_printf(trace, "current conflict: ");
       conflict_print(&conflict, trace->file);
     }
 
+    // Current variable
+    var = trail_back(mcsat->trail);
+    assert(trail_get_assignment_type(mcsat->trail, var) != DECISION);
+
+    // Resolve if in the conflict and current level
+    if (conflict_contains_as_top(&conflict, var)) {
+
+      // Get the plugin that performed the propagation
+      plugin_i = trail_get_source_id(mcsat->trail, var);
+      plugin = mcsat->plugins[plugin_i].plugin;
+
+      if (trace_enabled(trace, "mcsat::conflict")) {
+        trace_printf(trace, "resolving ");
+        variable_db_print_variable(mcsat->var_db, var, trace->file);
+        trace_printf(trace, " with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        trace_printf(trace, "current conflict:\n");
+        conflict_print(&conflict, trace->file);
+      }
+
+      // Resolve the variable
+      ivector_reset(&reason);
+      assert(plugin->explain_propagation);
+      substitution = plugin->explain_propagation(plugin, var, &reason);
+      conflict_resolve_propagation(&conflict, var, substitution, &reason);
+      // The trail pops with the resolution step
+    } else {
+      // Have to pop the trail manually
+      trail_pop_propagation(mcsat->trail);
+      assert(!conflict_contains(&conflict, var));
+    }
+
+    if (conflict_get_top_level_vars_count(&conflict) == 0) {
+      // We have resolved the conflict even lower
+      conflict_recompute_level_info(&conflict);
+      conflict_level = conflict_get_level(&conflict);
+      mcsat_backtrack_to(mcsat, conflict_level);
+    }
+  }
+
+  if (trace_enabled(trace, "mcsat::conflict")) {
+    trace_printf(trace, "current conflict: ");
+    conflict_print(&conflict, trace->file);
+  }
+
+  // UIP conflict resolution
+  assert(conflict_level == 0 || conflict_get_top_level_vars_count(&conflict) == 1);
+
+  if (conflict_level == 0) {
+    mcsat->status = STATUS_UNSAT;
+  } else {
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1);
@@ -1368,7 +1385,8 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     mcsat_add_lemma(mcsat, conflict_disjuncts);
 
     // Use resources based on conflict size
-    *restart_resource += mcsat_get_lemma_weight(mcsat, conflict_disjuncts, mcsat->heuristic_params.lemma_restart_weight_type);
+    *restart_resource += mcsat_get_lemma_weight(mcsat, conflict_disjuncts,
+        mcsat->heuristic_params.lemma_restart_weight_type);
 
     // Bump the variables
     mcsat_bump_variables_mset(mcsat, conflict_get_variables_all(&conflict));
@@ -1377,7 +1395,6 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       trace_printf(trace, "trail: ");
       trail_print(mcsat->trail, trace->file);
     }
-
   }
 
   delete_ivector(&reason);

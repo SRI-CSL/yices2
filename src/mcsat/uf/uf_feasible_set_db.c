@@ -325,6 +325,25 @@ void uf_feasible_set_db_pop(uf_feasible_set_db_t* db) {
 
 }
 
+variable_t uf_feasible_set_db_get_eq_reason(uf_feasible_set_db_t* db, variable_t x) {
+
+  // Go back from the top reason for x and gather the indices
+  uint32_t index = uf_feasible_set_db_get_index(db, x);
+  assert(index);
+
+  assert(index);
+  while (index) {
+    uf_feasible_list_element_t* current = db->memory + index;
+    if (current->eq) {
+      return current->reason;
+    }
+    index = current->prev;
+  }
+
+  assert(false);
+  return variable_null;
+}
+
 void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ivector_t* conflict) {
   // Go back from the top reason for x and gather the indices
   uint32_t index = uf_feasible_set_db_get_index(db, x);

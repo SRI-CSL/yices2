@@ -39,6 +39,9 @@ void uf_feasible_set_db_pop(uf_feasible_set_db_t* db);
 /** Get the reason for a conflict on x. Outputs conjunction of terms to the vector. */
 void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ivector_t* conflict);
 
+/** Get the reason for a propagation on x. */
+variable_t uf_feasible_set_db_get_eq_reason(uf_feasible_set_db_t* db, variable_t x);
+
 /** Return any fixed variables */
 variable_t uf_feasible_set_db_get_fixed(uf_feasible_set_db_t* db);
 

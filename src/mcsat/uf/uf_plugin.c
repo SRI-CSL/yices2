@@ -429,6 +429,19 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
         bool feasible = true;
         if (eq_true) {
           feasible = uf_feasible_set_db_set_equal(uf->feasible, lhs, rhs_val_int, eq_var);
+
+          // Also propagate the value
+          if (!trail_has_value(trail, lhs)) {
+            rational_t q;
+            q_init(&q);
+            q_set32(&q, rhs_val_int);
+            mcsat_value_t value;
+            mcsat_value_construct_rational(&value, &q);
+            prop->add(prop, lhs, &value);
+            mcsat_value_destruct(&value);
+            q_clear(&q);
+          }
+
         } else {
           feasible = uf_feasible_set_db_set_disequal(uf->feasible, lhs, rhs_val_int, eq_var);
         }
@@ -801,29 +814,53 @@ static
 term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
+  term_table_t* terms = uf->ctx->terms;
+  variable_db_t* var_db = uf->ctx->var_db;
+
   // We only propagate equalities dues to propagation, so the reason is the
   // literal itself
 
-  term_t atom = variable_db_get_term(uf->ctx->var_db, var);
+  term_t atom = variable_db_get_term(var_db, var);
+
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_explain_propagation():\n");
     ctx_trace_term(uf->ctx, atom);
   }
 
-  bool value = trail_get_boolean_value(uf->ctx->trail, var);
-  if (ctx_trace_enabled(uf->ctx, "uf_polugin")) {
-    ctx_trace_printf(uf->ctx, "assigned to %s\n", value ? "true" : "false");
+  type_kind_t type_kind = term_type_kind(terms, atom);
+
+  if (type_kind == BOOL_TYPE) {
+
+    bool value = trail_get_boolean_value(uf->ctx->trail, var);
+    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+      ctx_trace_printf(uf->ctx, "assigned to %s\n", value ? "true" : "false");
+    }
+
+    if (value) {
+      // atom => atom = true
+      ivector_push(reasons, atom);
+      return bool2term(true);
+    } else {
+      // neg atom => atom = false
+      ivector_push(reasons, opposite_term(atom));
+      return bool2term(false);
+    }
+  } else {
+    assert(type_kind == UNINTERPRETED_TYPE);
+
+    // We have an equality x = y that propagated x
+    // Explanation is x = y => replace x with y
+
+    term_t x = variable_db_get_term(var_db, var);
+    variable_t x_eq_y_var = uf_feasible_set_db_get_eq_reason(uf->feasible, var);
+    term_t x_eq_y = variable_db_get_term(var_db, x_eq_y_var);
+    assert(term_kind(terms, x_eq_y) == EQ_TERM);
+    composite_term_t* eq_desc = eq_term_desc(terms, x_eq_y);
+    term_t y = eq_desc->arg[0] == x ? eq_desc->arg[1] : eq_desc->arg[0];
+    ivector_push(reasons, x_eq_y);
+    return y;
   }
 
-  if (value) {
-    // atom => atom = true
-    ivector_push(reasons, atom);
-    return bool2term(true);
-  } else {
-    // neg atom => atom = false
-    ivector_push(reasons, opposite_term(atom));
-    return bool2term(false);
-  }
 }
 
 static
@@ -843,8 +880,10 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
     term_t lhs_term = eq_desc->arg[0];
     term_t rhs_term = eq_desc->arg[1];
-    variable_t lhs_var = variable_db_get_variable(var_db, lhs_term);
-    variable_t rhs_var = variable_db_get_variable(var_db, rhs_term);
+    variable_t lhs_var = variable_db_get_variable_if_exists(var_db, lhs_term);
+    variable_t rhs_var = variable_db_get_variable_if_exists(var_db, rhs_term);
+    assert(lhs_var != variable_null);
+    assert(rhs_var != variable_null);
 
     // Check if both are assigned
     if (!trail_has_value(trail, lhs_var)) { return false; }
@@ -863,7 +902,6 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
   return true;
 }
-
 
 plugin_t* uf_plugin_allocator(void) {
   uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
