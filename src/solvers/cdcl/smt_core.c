@@ -5607,7 +5607,7 @@ void stop_search(smt_core_t *s) {
  * - true on normal exit
  * - false on early exit (i.e., max_conflict reached)
  */
-static bool smt_core_process(smt_core_t *s, uint32_t max_conflicts) {
+static bool smt_core_process(smt_core_t *s, uint64_t max_conflicts) {
   while (s->status == STATUS_SEARCHING) {
     if (s->inconsistent) {
       resolve_conflict(s);
@@ -5622,7 +5622,7 @@ static bool smt_core_process(smt_core_t *s, uint32_t max_conflicts) {
       s->heap.act_increment *= s->heap.inv_act_decay;
 
       // exit if max_conflict reached
-      if (num_conflicts(s) > max_conflicts) {
+      if (num_conflicts(s) >= max_conflicts) {
 	return false;
       }
 
@@ -5659,13 +5659,13 @@ static bool smt_core_process(smt_core_t *s, uint32_t max_conflicts) {
  * Process with no conflict bounds
  */
 void smt_process(smt_core_t *s) {
-  (void) smt_core_process(s, UINT32_MAX);
+  (void) smt_core_process(s, UINT64_MAX);
 }
 
 /*
  * Use a bound
  */
-bool smt_bounded_process(smt_core_t *s, uint32_t max_conflicts) {
+bool smt_bounded_process(smt_core_t *s, uint64_t max_conflicts) {
   return smt_core_process(s, max_conflicts);
 }
 

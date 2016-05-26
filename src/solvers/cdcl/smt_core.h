@@ -1729,7 +1729,7 @@ extern void smt_process(smt_core_t *s);
  * If this function returns false, the caller can't assume that
  * it is safe to make a decision.
  */
-extern bool smt_bounded_process(smt_core_t *s, uint32_t max_conflicts);
+extern bool smt_bounded_process(smt_core_t *s, uint64_t max_conflicts);
 
 
 /*

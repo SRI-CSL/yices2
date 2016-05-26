@@ -246,7 +246,6 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
  * CORE SOLVER
  */
 
-
 /*
  * Full solver:
  * - params: heuristic parameters.
