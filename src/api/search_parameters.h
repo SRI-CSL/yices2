@@ -47,6 +47,11 @@ struct param_s {
    * - c_threshold and c_factor are used
    * - d_threshold and d_threshold are ignored
    * - to get periodic restart set c_factor = 1.0
+   *
+   * HACK to select a Luby-style restart:
+   * - set fast_restart to true and c_factor to 0.0
+   * - then c_threshold defines the base period
+   * - d_threshold and d_factor are ignored
    */
   bool     fast_restart;
   uint32_t c_threshold;     // initial value of c_threshold

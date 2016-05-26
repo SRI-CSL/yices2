@@ -137,6 +137,50 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
 
 
 /*
+ * HACK: Variant for Luby restart:
+ * - search until the conflict bound is reached or until the problem is solved.
+ * - reduce_threshold: number of learned clauses above which reduce_clause_database is called
+ * - r_factor = increment factor for reduce_threshold
+ * - use the default branching heuristic implemented by the core
+ *
+ * This uses smt_bounded_process to force more frequent restarts.
+ */
+static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
+  uint64_t max_conflicts;
+  uint64_t deletions;
+  uint32_t r_threshold;
+  literal_t l;
+
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+
+  max_conflicts = num_conflicts(core) + conflict_bound;
+  r_threshold = *reduce_threshold;
+
+  smt_bounded_process(core, max_conflicts);
+  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+    // reduce heuristic
+    if (num_learned_clauses(core) >= r_threshold) {
+      deletions = core->stats.learned_clauses_deleted;
+      reduce_clause_database(core);
+      r_threshold = (uint32_t) (r_threshold * r_factor);
+      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // decision
+    l = select_unassigned_literal(core);
+    if (l == null_literal) {
+      // all variables assigned: Call final_check
+      smt_final_check(core);
+    } else {
+      decide_literal(core, l);
+      smt_bounded_process(core, max_conflicts);
+    }
+  }
+
+  *reduce_threshold = r_threshold;
+}
+
+/*
  * Polarity selection (implements branching heuristics)
  * - filter is given a literal l + core and must return either l or not l
  */
@@ -252,15 +296,24 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
  *   If params is NULL, the default settings are used.
  */
 static void solve(smt_core_t *core, const param_t *params) {
+  bool luby;
   uint32_t c_threshold, d_threshold; // Picosat-style
+  uint32_t u, v, period;             // for Luby-style
   uint32_t reduce_threshold;
 
   assert(smt_status(core) == STATUS_IDLE);
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
+  u = 1;
+  v = 1;
+  period = c_threshold;
+
   if (params->fast_restart) {
     d_threshold = params->d_threshold;
+    // HACK to activate the Luby heuristic:
+    // c_factor must be 0.0 and fast_restart must be true
+    luby = params->c_factor == 0.0; 
   }
 
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
@@ -277,7 +330,11 @@ static void solve(smt_core_t *core, const param_t *params) {
     for (;;) {
       switch (params->branching) {
       case BRANCHING_DEFAULT:
-        search(core, c_threshold, &reduce_threshold, params->r_factor);
+	if (luby) {
+	  luby_search(core, c_threshold, &reduce_threshold, params->r_factor);
+	} else {
+	  search(core, c_threshold, &reduce_threshold, params->r_factor);
+	}
         break;
       case BRANCHING_NEGATIVE:
         special_search(core, c_threshold, &reduce_threshold, params->r_factor, negative_branch);
@@ -301,20 +358,35 @@ static void solve(smt_core_t *core, const param_t *params) {
       smt_restart(core);
       //      smt_partial_restart_var(core);
 
-      // inner restart: increase c_threshold
-      c_threshold = (uint32_t) (c_threshold * params->c_factor);
-
-      if (c_threshold >= d_threshold) {
-        d_threshold = c_threshold; // Minisat-style
-        if (params->fast_restart) {
-          // outer restart: reset c_threshold and increase d_threshold
-          c_threshold = params->c_threshold;
-          d_threshold = (uint32_t) (d_threshold * params->d_factor);
-        }
-
+      if (luby) {
+	// Luby-style restart
+	if ((u & -u) == v) {
+	  u ++;
+	  v = 1;
+	} else {
+	  v <<= 1;
+	}
+	c_threshold = v * period;
 	trace_restart(core);
+
       } else {
-	trace_inner_restart(core);
+	// Either Minisat or Picosat-like restart
+
+	// inner restart: increase c_threshold
+	c_threshold = (uint32_t) (c_threshold * params->c_factor);
+
+	if (c_threshold >= d_threshold) {
+	  d_threshold = c_threshold; // Minisat-style
+	  if (params->fast_restart) {
+	    // Picosat style
+	    // outer restart: reset c_threshold and increase d_threshold
+	    c_threshold = params->c_threshold;
+	    d_threshold = (uint32_t) (d_threshold * params->d_factor);
+	  }
+	  trace_restart(core);
+	} else {
+	  trace_inner_restart(core);
+	}
       }
     }
   }
