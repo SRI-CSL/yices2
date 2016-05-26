@@ -5593,15 +5593,21 @@ void stop_search(smt_core_t *s) {
 
 
 /*
- * Main solving function.
+ * Core solving function.
  *
  * It executes the following loop:
  * 1) if lemmas are present, integrate them to the clause database
  * 2) perform boolean and theory propagation
  * 3) if a conflict is found, resolve that conflict otherwise
- *    exit the loop
+ *    exit the loop.
+ * 4) after a conflict is resolved, check whether the bound max_conflict
+ *    is reached. If so exit.
+ *
+ * Output:
+ * - true on normal exit
+ * - false on early exit (i.e., max_conflict reached)
  */
-void smt_process(smt_core_t *s) {
+static bool smt_core_process(smt_core_t *s, uint32_t max_conflicts) {
   while (s->status == STATUS_SEARCHING) {
     if (s->inconsistent) {
       resolve_conflict(s);
@@ -5614,6 +5620,11 @@ void smt_process(smt_core_t *s) {
       // decay activities after every conflict
       s->cla_inc *= s->inv_cla_decay;
       s->heap.act_increment *= s->heap.inv_act_decay;
+
+      // exit if max_conflict reached
+      if (num_conflicts(s) > max_conflicts) {
+	return false;
+      }
 
     } else if (s->cp_flag) {
       delete_irrelevant_variables(s);
@@ -5639,6 +5650,23 @@ void smt_process(smt_core_t *s) {
     simplify_clause_database(s);
   }
 
+  return true;
+}
+
+
+
+/*
+ * Process with no conflict bounds
+ */
+void smt_process(smt_core_t *s) {
+  (void) smt_core_process(s, UINT32_MAX);
+}
+
+/*
+ * Use a bound
+ */
+bool smt_bounded_process(smt_core_t *s, uint32_t max_conflicts) {
+  return smt_core_process(s, max_conflicts);
 }
 
 
