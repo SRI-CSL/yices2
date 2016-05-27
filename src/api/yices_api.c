@@ -7406,10 +7406,10 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->d_factor = 1.05;
     params->randomness = 0.0;
 #endif
-    // HACK: try Luby restart, period = 10
+    // HACK: try Luby restart, period = 8
     params->fast_restart = true;
     params->c_factor = 0.0;
-    params->c_threshold = 10;
+    params->c_threshold = 8;
     params->randomness = 0.0;
     break;
 
@@ -7442,7 +7442,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-#if 0
+#if 1
     params->fast_restart = true;
     params->c_factor = 1.05;
     params->d_factor = 1.05;
