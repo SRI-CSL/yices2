@@ -30,6 +30,7 @@ lp_polynomial_t* lp_polynomial_from_power_product(nra_plugin_t* nra, pprod_t* pp
   lp_integer_t one;
   lp_integer_construct_from_int(lp_Z, &one, 1);
   lp_monomial_set_coefficient(lp_ctx, &lp_monomial, &one);
+  lp_integer_destruct(&one);
 
   // Get the product terms
   uint32_t i = 0;
