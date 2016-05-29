@@ -8411,6 +8411,21 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
  */
 
 /*
+ * When we create atoms on the fly for an existing variables,
+ * we reset the prop_ptr so that we can propagate the new atom if necessary.
+ * - we reset the pointer to what's saved for the current base_level in the trail stack.
+ */
+static void reset_prop_ptr(simplex_solver_t *solver) {
+  if (solver->base_level == 0) {
+    assert(solver->trail_stack.top == 0);
+    solver->bstack.prop_ptr = 0;
+  } else {
+    assert(solver->trail_stack.top > 0);
+    solver->bstack.prop_ptr = arith_trail_top(&solver->trail_stack)->bound_ptr;
+  }
+}
+
+/*
  * Build atom (x >= c) or (x <= c) on the fly
  * - flag is_int indicates whether x is an integer variable
  */
@@ -8424,6 +8439,7 @@ static literal_t mk_dynamic_ge_atom(simplex_solver_t *solver, thvar_t x, bool is
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
+    reset_prop_ptr(solver);
   }
   return l;
 }
@@ -8438,6 +8454,7 @@ static literal_t mk_dynamic_le_atom(simplex_solver_t *solver, thvar_t x, bool is
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
+    reset_prop_ptr(solver);
   }
   return l;
 }
@@ -8563,21 +8580,23 @@ static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
   v = &solver->expl_vector;
   ivector_reset(v);
 
-  n = g->nelems;
-  for (i=0; i<n; i++) {
-    x = g->var[i];
-    is_int = gomory_var_is_int(g, i);
-    assert(is_int == arith_var_is_int(&solver->vtbl, x));
-    if (gomory_bound_is_lb(g, i)) {
-      l = assumed_lb(solver, x, is_int, g->bound + i);
-    } else {
-      l = assumed_ub(solver, x, is_int, g->bound + i);
-    }
-    if (l != true_literal) {
-      ivector_push(v, not(l));
+  if (solver->decision_level == solver->base_level) {
+    n = g->nelems;
+    for (i=0; i<n; i++) {
+      x = g->var[i];
+      is_int = gomory_var_is_int(g, i);
+      assert(is_int == arith_var_is_int(&solver->vtbl, x));
+      if (gomory_bound_is_lb(g, i)) {
+	l = assumed_lb(solver, x, is_int, g->bound + i);
+      } else {
+	l = assumed_ub(solver, x, is_int, g->bound + i);
+      }
+      if (l != true_literal) {
+	ivector_push(v, not(l));
+      }
     }
   }
-  
+
   ivector_push(v, cut);
 
   add_clause(solver->core, v->size, v->data);  
