@@ -8528,7 +8528,7 @@ static literal_t assumed_lb(simplex_solver_t *solver, thvar_t x, bool is_int, ra
 
   // in all other cases, create a new atom
   l = mk_dynamic_ge_atom(solver, x, is_int, a);
-  //  reset_prop_ptr(solver);
+  reset_prop_ptr(solver);
 
   return l;
 }
@@ -8557,7 +8557,7 @@ static literal_t assumed_ub(simplex_solver_t *solver, thvar_t x, bool is_int, ra
 
   // in all other case, create a new atom
   l = mk_dynamic_le_atom(solver, x, is_int, a);
-  //  reset_prop_ptr(solver);
+  reset_prop_ptr(solver);
 
   return l;
 }
