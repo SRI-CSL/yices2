@@ -8892,7 +8892,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     print_branch_candidates(stdout, solver, v);
 #endif
   } else {
-    ncuts =  try_gomory_cuts(solver, v, 1);
+    ncuts =  try_gomory_cuts(solver, v, 4);
     if (ncuts > 0) {
       tprintf(solver->core->trace, 10, "(gomory: added %"PRIu32" cuts)\n", ncuts);
       solver->branch_counter = 0;
