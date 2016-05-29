@@ -15,7 +15,6 @@
 
 #include "io/tracer.h"
 #include "solvers/egraph/theory_explanations.h"
-#include "solvers/simplex/gomory_cuts.h"
 #include "solvers/simplex/integrality_constraints.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/rational_hash_maps.h"
@@ -1583,7 +1582,6 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->enable_dfeas = false;
   solver->check_counter = 0;
   solver->check_period = SIMPLEX_DEFAULT_CHECK_PERIOD;
-  solver->branch_counter = 0;
   solver->last_branch_atom = null_bvar;
   solver->dsolver = NULL;     // allocated later if needed
 
@@ -8406,6 +8404,10 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
 
 
 
+#if 0
+
+// NOT READY FOR PRIME TIME.
+
 /*
  * MIXED-INTEGER GOMORY CUTS
  */
@@ -8741,6 +8743,8 @@ static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v, uint32_t
   return num_cuts;  
 }
 
+#endif
+
 
 
 /*
@@ -8843,7 +8847,7 @@ static bool simplex_intfeas_iter_strengthening(simplex_solver_t *solver) {
 static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
-  uint32_t nbounds, bb_score, ncuts;
+  uint32_t nbounds, bb_score;
 
 #if TRACE_BB
   printf("\n--- make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
@@ -8929,29 +8933,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   tprintf(solver->core->trace, 10,
 	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
 	  v->size, x, bb_score);
-
-  if (bb_score <= 3 || solver->branch_counter < 20) {
-    create_branch_atom(solver, x);
-    solver->branch_counter ++;
-#if TRACE_INTFEAS
-    print_branch_candidates(stdout, solver, v);
-#endif
-  } else {
-    ncuts =  try_gomory_cuts(solver, v, 1);
-    if (ncuts > 0) {
-      tprintf(solver->core->trace, 10, "(gomory: added %"PRIu32" cuts)\n", ncuts);
-      solver->branch_counter = 0;
-    } else {
-      create_branch_atom(solver, x);
-      solver->branch_counter ++;
-#if TRACE_INTFEAS
-      print_branch_candidates(stdout, solver, v);
-#endif
-    }
-  }
-
+  create_branch_atom(solver, x);
 
 #if TRACE_INTFEAS
+  print_branch_candidates(stdout, solver, v);
   printf("\n\nDONE\n");
   fflush(stdout);
 #endif
@@ -9644,7 +9629,6 @@ void simplex_start_search(simplex_solver_t *solver) {
   // enable_dfeas is used in simplex_dsolver_check
   solver->integer_solving = false;
   solver->enable_dfeas = true;
-  solver->branch_counter = 0;
   if (simplex_has_integer_vars(solver) && simplex_option_enabled(solver, SIMPLEX_ICHECK)) {
 #if TRACE
     printf("---> icheck active\n");

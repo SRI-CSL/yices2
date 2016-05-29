@@ -7447,7 +7447,8 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->c_factor = 1.05;
     params->d_factor = 1.05;
 #else
-    // HACK: try Luby restart, period = 10
+    // HACK: try Luby restart, period = 10 
+    // This didn't work.
     params->fast_restart = true;
     params->c_factor = 0.0;
     params->c_threshold = 10;
