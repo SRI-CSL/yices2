@@ -28,10 +28,16 @@
  *
  * 2) got through all variables x_1, ..., x_n
  *
- *    if x_i is an integer variable,
+ *    if x_i is an integer variable with lower bound (x_i >= l_i)
  *      compute f_i = fractional part of a_i.
  *      if f_i > 1 - f,   replace a_i by f_i       (f_i > 0)
  *      if f_i <= 1 - f,  replace a_i by f_i - 1   (f_i - 1 < 0)
+ *
+ *    if x_i is an integer variable with upper bound (x_i <= u_i)
+ *      compute f_i = fractional part of a_i
+ *      if f_i < f,   replace a_i by f_i
+ *      if f_i >= f,  replace a_i by f_i - 1 
+ *
  *
  * 3) after this pass, build a term (c_i * (x_i - l_i)) or (c_i * (x_i - u_i)) for
  *    every variable:

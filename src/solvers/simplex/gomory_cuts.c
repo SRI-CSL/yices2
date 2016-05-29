@@ -137,8 +137,8 @@ void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, ration
  */
 static void get_fraction(rational_t *f, const rational_t *a) {
   q_set(f, a);
-  q_floor(f);
-  q_sub(f, a);
+  q_floor(f);   
+  q_sub(f, a);   // f is floor(a) - a
   q_neg(f);
 }
 
@@ -195,7 +195,10 @@ bool make_gomory_cut(gomory_vector_t *v, poly_buffer_t *buffer) {
     if (gomory_var_is_int(v, i)) {
       get_fraction(f_i, v->coeff + i);
       q_set(c_i, f_i);
-      if (q_gt(f_i, e)) {  // f_i > 1 - f then c_i := f_i - 1
+      // if x_i has a lower bound and f_i > 1 - f then c_i := f_i - 1
+      // if x_i has an upper bound and f_i > f then c_i := f_i - 1
+      if ((gomory_bound_is_lb(v, i) && q_gt(f_i, e))  ||
+	  (gomory_bound_is_ub(v, i) && q_gt(f_i, f))) {
 	q_sub_one(c_i);
       }
     } else {

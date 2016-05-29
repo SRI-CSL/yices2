@@ -8631,7 +8631,7 @@ static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g,
    */
   if (make_gomory_cut(g, &solver->buffer)) {
 #if 0
-    printf("---> Gomory cut:\n");
+    printf("---> Gomory cut:\n");    
     print_simplex_buffer(stdout, solver);
     printf(" >= 0\n");
     fflush(stdout);
