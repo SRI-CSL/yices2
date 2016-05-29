@@ -406,6 +406,9 @@ void gcd_simplify_zero(const lp_polynomial_context_t* ctx, lp_polynomial_t** pol
       if (j >= to_keep) {
         // Didn't embed it in any previous ones, keep it
         polys[to_keep++] = polys[i];
+      } else {
+        // Not keeping it, have to remove it
+        lp_polynomial_delete(polys[i]);
       }
     } else {
       // Keep it, it's non-zero
