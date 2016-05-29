@@ -1583,6 +1583,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->enable_dfeas = false;
   solver->check_counter = 0;
   solver->check_period = SIMPLEX_DEFAULT_CHECK_PERIOD;
+  solver->branch_counter = 0;
   solver->last_branch_atom = null_bvar;
   solver->dsolver = NULL;     // allocated later if needed
 
@@ -8552,6 +8553,13 @@ static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
 
   cut = mk_gomory_atom(solver);
 
+#if TRACE
+  printf("---> cut atom:\n");
+  printf("     ");
+  print_simplex_atomdef(stdout, solver, var_of(cut));
+  printf("\n");
+#endif
+
   v = &solver->expl_vector;
   ivector_reset(v);
 
@@ -8630,7 +8638,7 @@ static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g,
    * - the bound is stored in solver->aux
    */
   if (make_gomory_cut(g, &solver->buffer)) {
-#if 0
+#if TRACE
     printf("---> Gomory cut:\n");    
     print_simplex_buffer(stdout, solver);
     printf(" >= 0\n");
@@ -8650,9 +8658,10 @@ static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g,
  * Scan variables of v and try a Gomory cut for them
  * - each element of v must be a basic integer variable
  *   with a non-integer value.
+ * - max_cuts = bound on the total number of cuts
  * - return the number of cuts added
  */
-static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v) {
+static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v, uint32_t max_cuts) {
   gomory_vector_t cut;
   uint32_t i, n, num_cuts;
 
@@ -8661,6 +8670,7 @@ static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v) {
   n = v->size;
   for (i=0; i<n; i++) {
     num_cuts += try_gomory_cut_for_var(solver, &cut, v->data[i]);
+    if (num_cuts >= max_cuts) break;
   }
   delete_gomory_vector(&cut);
 
@@ -8849,23 +8859,38 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   /*
-   * Create a branch atom
+   * Create a branch atom or add gomory cuts
    */
   x = select_branch_variable(solver, v, &bb_score);
   tprintf(solver->core->trace, 10,
 	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
 	  v->size, x, bb_score);
 
-  ncuts = try_gomory_cuts(solver, v);
-  if (ncuts == 0) {
+  if (bb_score <= 3 || solver->branch_counter < 20) {
     create_branch_atom(solver, x);
-
+    solver->branch_counter ++;
 #if TRACE_INTFEAS
     print_branch_candidates(stdout, solver, v);
-    printf("\n\nDONE\n");
-    fflush(stdout);
 #endif
+  } else {
+    ncuts =  try_gomory_cuts(solver, v, 1);
+    if (ncuts > 0) {
+      tprintf(solver->core->trace, 10, "(gomory: added %"PRIu32" cuts)\n", ncuts);
+      solver->branch_counter = 0;
+    } else {
+      create_branch_atom(solver, x);
+      solver->branch_counter ++;
+#if TRACE_INTFEAS
+      print_branch_candidates(stdout, solver, v);
+#endif
+    }
   }
+
+
+#if TRACE_INTFEAS
+  printf("\n\nDONE\n");
+  fflush(stdout);
+#endif
 
   ivector_reset(v);
 
@@ -9555,6 +9580,7 @@ void simplex_start_search(simplex_solver_t *solver) {
   // enable_dfeas is used in simplex_dsolver_check
   solver->integer_solving = false;
   solver->enable_dfeas = true;
+  solver->branch_counter = 0;
   if (simplex_has_integer_vars(solver) && simplex_option_enabled(solver, SIMPLEX_ICHECK)) {
 #if TRACE
     printf("---> icheck active\n");

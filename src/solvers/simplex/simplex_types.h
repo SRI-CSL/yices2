@@ -708,7 +708,8 @@ typedef struct simplex_solver_s {
   bool enable_dfeas;
   int32_t check_counter;
   int32_t check_period;
-  bvar_t last_branch_atom;  
+  uint32_t branch_counter;
+  bvar_t last_branch_atom;
 
   /*
    * Optional subsolver for integer arithmetic: allocated when needed
