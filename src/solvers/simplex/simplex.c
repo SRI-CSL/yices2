@@ -8439,7 +8439,6 @@ static literal_t mk_dynamic_ge_atom(simplex_solver_t *solver, thvar_t x, bool is
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
-    reset_prop_ptr(solver);
   }
   return l;
 }
@@ -8454,7 +8453,6 @@ static literal_t mk_dynamic_le_atom(simplex_solver_t *solver, thvar_t x, bool is
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
-    reset_prop_ptr(solver);
   }
   return l;
 }
@@ -8512,10 +8510,14 @@ static literal_t mk_gomory_atom(simplex_solver_t *solver) {
  */
 static literal_t assumed_lb(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *a) {
   int32_t k;
+  literal_t l;
 
   k = arith_var_lower_index(&solver->vtbl, x);
   if (k >= 0 && xq_eq_q(solver->bstack.bound + k, a)) {
     // this is the current bound on x
+    if (solver->decision_level == solver->base_level) {
+      return true_literal;
+    }
     if (solver->bstack.tag[k] == ARITH_AXIOM_LB) {
       return true_literal;
     }
@@ -8524,8 +8526,11 @@ static literal_t assumed_lb(simplex_solver_t *solver, thvar_t x, bool is_int, ra
     }
   }
 
-  // in all other case, create a new atom
-  return mk_dynamic_ge_atom(solver, x, is_int, a);
+  // in all other cases, create a new atom
+  l = mk_dynamic_ge_atom(solver, x, is_int, a);
+  //  reset_prop_ptr(solver);
+
+  return l;
 }
 
 
@@ -8534,10 +8539,14 @@ static literal_t assumed_lb(simplex_solver_t *solver, thvar_t x, bool is_int, ra
  */
 static literal_t assumed_ub(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *a) {
   int32_t k;
+  literal_t l;
 
   k = arith_var_upper_index(&solver->vtbl, x);
   if (k >= 0 && xq_eq_q(solver->bstack.bound + k, a)) {
     // this is the current bound on x
+    if (solver->decision_level == solver->base_level) {
+      return true_literal;
+    }
     if (solver->bstack.tag[k] == ARITH_AXIOM_UB) {
       return true_literal;
     }
@@ -8547,7 +8556,10 @@ static literal_t assumed_ub(simplex_solver_t *solver, thvar_t x, bool is_int, ra
   }
 
   // in all other case, create a new atom
-  return mk_dynamic_le_atom(solver, x, is_int, a);
+  l = mk_dynamic_le_atom(solver, x, is_int, a);
+  //  reset_prop_ptr(solver);
+
+  return l;
 }
 
 
@@ -8580,7 +8592,7 @@ static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
   v = &solver->expl_vector;
   ivector_reset(v);
 
-  if (solver->decision_level == solver->base_level) {
+  if (solver->decision_level > solver->base_level) {
     n = g->nelems;
     for (i=0; i<n; i++) {
       x = g->var[i];
@@ -8598,8 +8610,27 @@ static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
   }
 
   ivector_push(v, cut);
+  
+  add_clause(solver->core, v->size, v->data);
 
-  add_clause(solver->core, v->size, v->data);  
+#if TRACE
+  printf("---> Gomory clause:\n");
+  print_litarray(stdout, v->size, v->data);
+  printf("\n");
+  n = v->size - 1;
+  if (n > 0) {
+    for (i=0; i<n; i++) {
+      printf("     ");
+      print_simplex_atomdef(stdout, solver, var_of(v->data[i]));
+    }
+  }
+  printf("---> cut atom:\n");
+  printf("     ");
+  print_simplex_atomdef(stdout, solver, var_of(cut));
+  printf("\n");
+#endif
+
+
 }
 
 
@@ -8647,6 +8678,15 @@ static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g,
 	}
 	is_lb = variable_at_lower_bound(solver, y);
 	gomory_vector_add_elem(g, y, a, &val->main, is_int, is_lb);
+
+#if TRACE
+	print_simplex_var(stdout, solver, y);
+	printf(" = ");
+	print_simplex_var_value(stdout, solver, y);
+	printf("; ");
+	print_simplex_var_bounds(stdout, solver, y);
+	fflush(stdout);
+#endif
       }
     }
   }
@@ -8683,6 +8723,11 @@ static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g,
 static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v, uint32_t max_cuts) {
   gomory_vector_t cut;
   uint32_t i, n, num_cuts;
+
+#if TRACE
+  printf("\nTRY GOMORY CUTS: dlevel = %"PRIu32", base_level = %"PRIu32"\n", solver->decision_level, solver->base_level);
+  fflush(stdout);
+#endif
 
   init_gomory_vector(&cut);
   num_cuts = 0;
@@ -8892,7 +8937,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     print_branch_candidates(stdout, solver, v);
 #endif
   } else {
-    ncuts =  try_gomory_cuts(solver, v, 4);
+    ncuts =  try_gomory_cuts(solver, v, 1);
     if (ncuts > 0) {
       tprintf(solver->core->trace, 10, "(gomory: added %"PRIu32" cuts)\n", ncuts);
       solver->branch_counter = 0;
