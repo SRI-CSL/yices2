@@ -2975,7 +2975,7 @@ static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
  * - if the clause is true remove it
  * - otherwise remove all false literals from the clause
  * - if the result is empty, record this (solver->has_empty_clause := true)
- * - if the result is a unit clause, push the corresponding literals into the queue
+ * - if the result is a unit clause, push the corresponding literal into the queue
  */
 static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, j, n;
