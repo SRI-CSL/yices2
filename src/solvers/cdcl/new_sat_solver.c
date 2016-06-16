@@ -215,25 +215,25 @@ static void delete_lbuffer(lbuffer_t *b) {
 
 
 
-/******************
- * LITERAL QUEUE  *
- *****************/
+/**********************
+ *  QUEUE OF INTEGERS *
+ *********************/
 
 /*
  * Capacity increase: same as for lbuffer
  */
-static inline uint32_t lqueue_cap_increase(uint32_t cap) {
+static inline uint32_t queue_cap_increase(uint32_t cap) {
   return ((cap >> 1) + 8) & ~3;
 }
 
 /*
  * Initialize
  */
-static void init_lqueue(lqueue_t *q) {
+static void init_queue(queue_t *q) {
   uint32_t n;
 
-  n = DEF_LQUEUE_SIZE;
-  assert(n <= MAX_LQUEUE_SIZE);
+  n = DEF_QUEUE_SIZE;
+  assert(n <= MAX_QUEUE_SIZE);
   q->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
   q->capacity = n;
   q->head = 0;
@@ -243,12 +243,12 @@ static void init_lqueue(lqueue_t *q) {
 /*
  * Make the queue bigger
  */
-static void extend_lqueue(lqueue_t *q) {
+static void extend_queue(queue_t *q) {
   uint32_t n;
 
-  n = q->capacity + lqueue_cap_increase(q->capacity);
+  n = q->capacity + queue_cap_increase(q->capacity);
   assert(n > q->capacity);
-  if (n > MAX_LQUEUE_SIZE) {
+  if (n > MAX_QUEUE_SIZE) {
     out_of_memory();
   }
   q->data = (literal_t *) safe_realloc(q->data, n * sizeof(literal_t));
@@ -256,13 +256,13 @@ static void extend_lqueue(lqueue_t *q) {
 }
 
 /*
- * Add l at the end of the queue
+ * Add x at the end of the queue
  */
-static void lqueue_push(lqueue_t *q, literal_t l) {
+static void queue_push(queue_t *q, uint32_t x) {
   uint32_t i, n, j;
 
   i = q->tail;
-  q->data[i] = l;
+  q->data[i] = x;
   i++;
   if (i == q->capacity) {
     i = 0;
@@ -276,7 +276,7 @@ static void lqueue_push(lqueue_t *q, literal_t l) {
      * if i>0, shift data[head ... cap - 1] to the end of the new array.
      */
     n = q->capacity;    // cap before increase
-    extend_lqueue(q);
+    extend_queue(q);
     if (i == 0) {
       q->tail = n;
     } else {
@@ -295,7 +295,7 @@ static void lqueue_push(lqueue_t *q, literal_t l) {
 /*
  * Check emptiness
  */
-static inline bool lqueue_is_empty(lqueue_t *q) {
+static inline bool queue_is_empty(queue_t *q) {
   return q->head == q->tail;
 }
 
@@ -304,25 +304,25 @@ static inline bool lqueue_is_empty(lqueue_t *q) {
  * Remove the first element and return it.
  * - the queue must not be empty
  */
-static literal_t lqueue_pop(lqueue_t *q) {
-  literal_t l;
+static uint32_t queue_pop(queue_t *q) {
+  uint32_t x;
   uint32_t i;
 
-  assert(! lqueue_is_empty(q));
+  assert(! queue_is_empty(q));
 
   i = q->head;
-  l = q->data[i];
+  x = q->data[i];
   i ++;
   q->head = (i < q->capacity) ? i : 0;
 
-  return l;
+  return x;
 }
 
 
 /*
  * Empty the queue
  */
-static inline void reset_lqueue(lqueue_t *q) {
+static inline void reset_queue(queue_t *q) {
   q->head = 0;
   q->tail = 0;
 }
@@ -331,7 +331,7 @@ static inline void reset_lqueue(lqueue_t *q) {
 /*
  * Delete
  */
-static void delete_lqueue(lqueue_t *q) {
+static void delete_queue(queue_t *q) {
   safe_free(q->data);
   q->data = NULL;
 }
@@ -667,8 +667,46 @@ static inline clause_t *clause_of_idx(const clause_pool_t *pool, cidx_t idx) {
   return (clause_t *) ((char *) (pool->data + idx));
 }
 
-static inline uint32_t clause_length(const clause_pool_t *pool, cidx_t idx) {
+
+
+/*
+ * MARKS
+ */
+
+/*
+ * In preprocessing and during garbage collection, we mark clauses
+ * by setting the high-order bit of the clause's length.
+ * This is safe since a clause can't have more than MAX_VARIABLES literals
+ * and MAX_VARIABLES < 2^31.
+ */
+#define CLAUSE_MARK (((uint32_t) 1) << 31)
+
+static inline void mark_clause(clause_pool_t *pool, cidx_t idx) {
   assert(good_clause_idx(pool, idx));
+  pool->data[idx] |= CLAUSE_MARK;
+}
+
+static inline void unmark_clause(clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  pool->data[idx] &= ~CLAUSE_MARK;
+}
+
+static inline bool clause_is_unmarked(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx));
+  return (pool->data[idx] & CLAUSE_MARK) == 0;
+}
+
+static inline bool clause_is_marked(const clause_pool_t *pool, cidx_t idx) {
+  return !clause_is_unmarked(pool, idx);
+}
+
+
+
+/*
+ * Length of a clause: make sure the clause is not marked.
+ */
+static inline uint32_t clause_length(const clause_pool_t *pool, cidx_t idx) {
+  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
   return pool->data[idx];
 }
 
@@ -688,9 +726,9 @@ static inline uint32_t full_length(uint32_t n) {
   return (n + 5) & ~3;
 }
 
-static inline uint32_t clause_full_length(const clause_pool_t *pool, uint32_t i) {
-  assert(good_clause_idx(pool, i));
-  return full_length(pool->data[i]);
+static inline uint32_t clause_full_length(const clause_pool_t *pool, uint32_t idx) {
+  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
+  return full_length(pool->data[idx]);
 }
 
 
@@ -856,7 +894,7 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
   uint32_t n;
 
-  assert(good_clause_idx(pool, idx));
+  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
 
   n = pool->data[idx]; // clause length
 
@@ -953,8 +991,6 @@ static cidx_t clause_pool_next_clause(const clause_pool_t *pool, cidx_t idx) {
   }
   return next_clause_index(pool, idx + n);
 }
-
-
 
 
 
@@ -1556,7 +1592,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_gstack(&solver->gstack);
   init_tag_map(&solver->map, 0); // use default size
 
-  init_lqueue(&solver->queue);
+  init_queue(&solver->lqueue);
 }
 
 
@@ -1607,7 +1643,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_gstack(&solver->gstack);
   delete_tag_map(&solver->map);
 
-  delete_lqueue(&solver->queue);
+  delete_queue(&solver->lqueue);
 }
 
 
@@ -1647,7 +1683,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_gstack(&solver->gstack);
   clear_tag_map(&solver->map);
 
-  reset_lqueue(&solver->queue);
+  reset_queue(&solver->lqueue);
 }
 
 
@@ -2321,21 +2357,6 @@ static void prepare_watch_vectors(sat_solver_t *solver, cidx_t base_idx) {
 }
 
 /*
- * Mark clause cidx: this means that the clause cidx is the
- * antecedent of a literal l. We mark the clause by setting the
- * high-order bit in the clause's length to 1.
- *
- * This is safe since a clause can't have more than MAX_VARIABLES literals
- * and MAX_VARIABLES < 2^31.
- */
-#define CLAUSE_MARK (((uint32_t) 1) << 31)
-
-static inline void mark_clause(clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx));
-  pool->data[idx] |= CLAUSE_MARK;
-}
-
-/*
  * Mark all the antecedent clauses of idx >= base_idx
  */
 static void mark_antecedent_clauses(sat_solver_t *solver, cidx_t base_idx) {
@@ -2908,7 +2929,7 @@ static void pp_push_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t 
   assert(solver->decision_level == 0);
   assert(tag == ATAG_UNIT || tag == ATAG_PURE);
 
-  lqueue_push(&solver->queue, l);
+  queue_push(&solver->lqueue, l);
 
   solver->value[l] = BVAL_TRUE;
   solver->value[not(l)] = BVAL_FALSE;
@@ -3086,20 +3107,20 @@ static void collect_unit_and_pure_literals(sat_solver_t *solver) {
   uint32_t i, n;
   uint32_t pos_occ, neg_occ;
   
-  assert(lqueue_is_empty(&solver->queue));
+  assert(queue_is_empty(&solver->lqueue));
 
   n = solver->nvars;
   for (i=1; i<n; i++) {
     switch (var_value(solver, i)) {
     case BVAL_TRUE:
       assert(solver->ante_tag[i] == ATAG_UNIT);
-      lqueue_push(&solver->queue, pos(i));
+      queue_push(&solver->lqueue, pos(i));
       solver->stats.pp_unit_lits ++;      
       break;
 
     case BVAL_FALSE:
       assert(solver->ante_tag[i] == ATAG_UNIT);
-      lqueue_push(&solver->queue, neg(i));
+      queue_push(&solver->lqueue, neg(i));
       solver->stats.pp_unit_lits ++;      
       break;
 
@@ -3128,8 +3149,8 @@ static void collect_unit_and_pure_literals(sat_solver_t *solver) {
 static void pp_empty_queue(sat_solver_t *solver) {
   literal_t l;
 
-  while (! lqueue_is_empty(&solver->queue)) {
-    l = lqueue_pop(&solver->queue);
+  while (! queue_is_empty(&solver->lqueue)) {
+    l = queue_pop(&solver->lqueue);
     assert(lit_is_true(solver, l));
     assert(solver->ante_tag[var_of(l)] == ATAG_UNIT || 
 	   solver->ante_tag[var_of(l)] == ATAG_PURE);
@@ -3137,7 +3158,7 @@ static void pp_empty_queue(sat_solver_t *solver) {
     if (solver->ante_tag[var_of(l)] == ATAG_UNIT) {
       pp_visit_clauses_of_lit(solver, not(l));
       if (solver->has_empty_clause) {
-	reset_lqueue(&solver->queue);
+	reset_queue(&solver->lqueue);
 	break;
       }
     }
@@ -3477,7 +3498,7 @@ static void pp_rebuild_watch_vectors(sat_solver_t *solver) {
       // padding block: skip it
       i += padding_length(pool, i);
     } else {
-      assert(n >= 2);
+      assert(n >= 2 && (n & CLAUSE_MARK) == 0);
       assert(clause_is_clean(solver, i));
       l1 = first_literal_of_clause(pool, i);
       l2 = second_literal_of_clause(pool, i);
