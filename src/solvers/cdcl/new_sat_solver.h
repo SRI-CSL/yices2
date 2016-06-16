@@ -168,7 +168,7 @@ typedef struct lbuffer_s {
 
 
 /*******************
- *  LITERAL QUEUE  *
+ *  INTEGER QUEUE  *
  ******************/
 
 /*
@@ -182,16 +182,16 @@ typedef struct lbuffer_s {
  * If head > tail, the queue's content is data[head, ... size - 1] 
  * plus data[0 ... tail-1].
  */
-typedef struct lqueue_s {
+typedef struct queue_s {
   literal_t *data;
   uint32_t capacity;
   uint32_t head;
   uint32_t tail;
-} lqueue_t;
+} queue_t;
 
 // Default and maximal size
-#define DEF_LQUEUE_SIZE 64
-#define MAX_LQUEUE_SIZE (UINT32_MAX/sizeof(literal_t))
+#define DEF_QUEUE_SIZE 64
+#define MAX_QUEUE_SIZE (UINT32_MAX/sizeof(literal_t))
 
 
 
@@ -632,7 +632,7 @@ typedef struct sat_solver_s {
   /*
    * Queue of literals for preprocessing
    */
-  lqueue_t queue;
+  queue_t lqueue;
 
 } sat_solver_t;
 
