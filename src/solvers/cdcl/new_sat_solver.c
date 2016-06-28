@@ -295,7 +295,7 @@ static void queue_push(queue_t *q, uint32_t x) {
 /*
  * Check emptiness
  */
-static inline bool queue_is_empty(queue_t *q) {
+static inline bool queue_is_empty(const queue_t *q) {
   return q->head == q->tail;
 }
 
@@ -1593,6 +1593,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_tag_map(&solver->map, 0); // use default size
 
   init_queue(&solver->lqueue);
+  init_queue(&solver->cqueue);
+  solver->scan_index = 0;
 }
 
 
@@ -1644,6 +1646,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_tag_map(&solver->map);
 
   delete_queue(&solver->lqueue);
+  delete_queue(&solver->cqueue);
 }
 
 
@@ -1684,6 +1687,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
   clear_tag_map(&solver->map);
 
   reset_queue(&solver->lqueue);
+  reset_queue(&solver->cqueue);
 }
 
 
@@ -2908,12 +2912,98 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
 
 
 /*
- * REMOVE PURE AND UNIT LITERALS
+ * QUEUE OF CLAUSES/SCAN INDEX
  */
 
+/*
+ * Check whether cidx is still a valid clause: this works even if cidx is marked.
+ */
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
   return cidx < pool->size && is_clause_start(pool, cidx);
 }
+
+/*
+ * Length of clause cidx: this version is safe if the clause is marked.
+ */
+static inline uint32_t safe_clause_length(const clause_pool_t *pool, cidx_t cidx) {
+  assert(good_clause_idx(pool, cidx));
+  return pool->data[cidx] & ~CLAUSE_MARK;
+}
+
+
+/*
+ * The queue cqueue + the scan index define a set of clauses to visit:
+ * - cqueue contains clause idx that are smaller (strictly) than scan index.
+ * - every clause in cqueue is marked.
+ * - the set of clauses to visit is the union of the clauses in cqueue and
+ *   the clauses of index >= scan_index.
+ */
+
+/*
+ * Reset: empty the queue and remove marks
+ */
+static void reset_clause_queue(sat_solver_t *solver) {
+  cidx_t cidx;
+
+  solver->scan_index = 0;
+  while (! queue_is_empty(&solver->cqueue)) {
+    cidx = queue_pop(&solver->cqueue);
+    if (clause_is_live(&solver->pool, cidx)) {
+      unmark_clause(&solver->pool, cidx);
+    }
+  }
+}
+
+
+/*
+ * Add cidx to the queue:
+ * - do nothing if cidx is marked (i.e., already in cqueue) or if cidx >= scan_index
+ */
+static void clause_queue_push(sat_solver_t *solver, cidx_t cidx) {
+  if (cidx < solver->scan_index && clause_is_unmarked(&solver->pool, cidx)) {
+    mark_clause(&solver->pool, cidx);
+    queue_push(&solver->cqueue, cidx);
+  }
+}
+
+
+/*
+ * Check emptiness
+ */
+static bool clause_queue_is_empty(const sat_solver_t *solver) {
+  return solver->scan_index >= solver->pool.size && queue_is_empty(&solver->cqueue);
+}
+
+
+/*
+ * Get the next element in the queue
+ * - return solver->pool.size if the queue is empty
+ */
+static cidx_t clause_queue_pop(sat_solver_t *solver) {
+  cidx_t i;
+
+  i = solver->scan_index;
+  if (i < solver->pool.size) {
+    solver->scan_index = clause_pool_next_clause(&solver->pool, i);    
+  } else {
+    while(! queue_is_empty(&solver->cqueue)) {
+      i = queue_pop(&solver->cqueue);
+      if (clause_is_live(&solver->pool, i)) {
+	unmark_clause(&solver->pool, i);
+	goto done;
+      }
+    }
+    i = solver->pool.size; // all done
+  }
+ done:
+  return i;
+}
+
+
+
+/*
+ * REMOVE PURE AND UNIT LITERALS
+ */
 
 /*
  * Push pure or unit literal l into the queue
@@ -2984,6 +3074,7 @@ static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
  
   assert(clause_is_live(&solver->pool, cidx));
 
+  unmark_clause(&solver->pool, cidx);
   n = clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   pp_decrement_occ_counts(solver, a, n);
@@ -3005,8 +3096,9 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   bool true_clause;
  
   assert(clause_is_live(&solver->pool, cidx));
+  assert(clause_is_unmarked(&solver->pool, cidx));
 
-  n = clause_length(&solver->pool, cidx);
+  n = safe_clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   true_clause = false;
 
@@ -3041,6 +3133,7 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   } else {
     clause_pool_shrink_clause(&solver->pool, cidx, j);
     set_clause_signature(&solver->pool, cidx);
+    clause_queue_push(solver, cidx);
   }
 }
 
@@ -3205,6 +3298,8 @@ static bool watch_vector_is_sorted(const watch_t *w) {
 
 #endif
 
+
+
 /*
  * Search for variable x in array a[l, ..., m-1]
  * - a must be sorted in increasing order
@@ -3263,6 +3358,7 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
  * - resolving these two clauses produces (A, B) which subsumes cidx
  *
  * - s is the signature of a[0 ... n-1]
+ * - clause cidx may be marked.
  */
 static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
   uint32_t i, j, k, m, q;
@@ -3271,7 +3367,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
   assert(clause_is_live(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
 
-  m = clause_length(&solver->pool, cidx);
+  m = clause_length(&solver->pool, cidx) & ~CLAUSE_MARK;
   q = clause_signature(&solver->pool, cidx);
   b = clause_literals(&solver->pool, cidx);
 
@@ -3375,6 +3471,7 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   watch_t *w;
 
   assert(clause_is_live(&solver->pool, cidx));
+  assert(clause_is_unmarked(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
 
   n = clause_length(&solver->pool, cidx);
@@ -3415,19 +3512,6 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   }
 }
 
-
-/*
- * Check for subsumption/strengthening (one pass only for testing)
- */
-static void pp_subsumption(sat_solver_t *solver) {
-  uint32_t cidx;
-
-  cidx = clause_pool_first_clause(&solver->pool);
-  while (cidx < solver->pool.size) {
-    pp_clause_subsumption(solver, cidx);
-    cidx = clause_pool_next_clause(&solver->pool, cidx);
-  }
-}
 
 
 /*
@@ -3557,6 +3641,11 @@ static void prepare_for_search(sat_solver_t *solver) {
 }
 
 
+
+/*
+ * PREPROCESSING
+ */
+
 /*
  * On entry to preprocess:
  * - watch[l] contains all the clauses in which l occurs
@@ -3565,23 +3654,30 @@ static void prepare_for_search(sat_solver_t *solver) {
  * Binary clauses are stored in the pool.
  *
  * On exit:
- * - all units and pure literals are removed
- * - the watch vectors are ready for solving
+ * - either solver->has_empty_clause is true or the clauses and watch
+ *   vectors are ready for search: binary clauses are stored directly
+ *   in the watch vectors; other clauses have two watch literals.
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   double start, end;
+  uint32_t cidx;
 
   start = 0.0; // stop GCC warning
   if (solver->verbosity >= 1) {
     start = get_cpu_time();
     show_occurrence_counts(solver);
   }
+
+  assert(clause_queue_is_empty(solver));
   collect_unit_and_pure_literals(solver);
-  pp_empty_queue(solver);
-  if (solver->has_empty_clause) goto done;
-  pp_subsumption(solver);
-  pp_empty_queue(solver);
-  if (solver->has_empty_clause) goto done;
+  for (;;) {
+    pp_empty_queue(solver);
+    if (solver->has_empty_clause) goto done;
+    cidx = clause_queue_pop(solver);
+    if (cidx == solver->pool.size) break; // all done
+    pp_clause_subsumption(solver, cidx);
+  }
+  reset_clause_queue(solver);
   prepare_for_search(solver);
 
  done:

@@ -272,6 +272,10 @@ typedef struct gstack_s {
  * - data[i+1] = length of the padding block.
  * This distinguishes padding blocks from clauses since a clause starts with 
  * data[i] >= 2.
+ *
+ * Some operations require marking clauses. We do this by setting the high-order
+ * bit of the length field to 1. This is safe as a clause can't have more than
+ * MAX_VARIABLES literals and that's less than 2^31.
  */
 
 // clause structure
@@ -627,9 +631,13 @@ typedef struct sat_solver_s {
   tag_map_t map;
 
   /*
-   * Queue of literals for preprocessing
+   * Queues for literals and clauses used during preprocessing.
+   * Clauses are visited in sequence to check for subsumption.
+   * - we keep track of a scan_index = start of the next clause to visit
    */
   queue_t lqueue;
+  queue_t cqueue;
+  uint32_t scan_index;
 
 } sat_solver_t;
 
