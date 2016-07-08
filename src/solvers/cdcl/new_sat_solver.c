@@ -3094,10 +3094,12 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   literal_t *a;
   literal_t l;
   bool true_clause;
+  bool marked_clause;
  
   assert(clause_is_live(&solver->pool, cidx));
-  assert(clause_is_unmarked(&solver->pool, cidx));
 
+  marked_clause = clause_is_marked(&solver->pool, cidx);
+  unmark_clause(&solver->pool, cidx);
   n = safe_clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   true_clause = false;
@@ -3133,6 +3135,7 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   } else {
     clause_pool_shrink_clause(&solver->pool, cidx, j);
     set_clause_signature(&solver->pool, cidx);
+    if (marked_clause) mark_clause(&solver->pool, cidx);
     clause_queue_push(solver, cidx);
   }
 }
@@ -3266,12 +3269,13 @@ static void pp_empty_queue(sat_solver_t *solver) {
 #ifndef NDEBUG
 /*
  * In preprocessing, all clauses and watch vectors are sorted
+ * - when this 
  */
 static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, n;
   literal_t *a;
 
-  n = clause_length(&solver->pool, cidx);
+  n = safe_clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   for (i=1; i<n; i++) {
     if (a[i-1] >= a[i]) {
@@ -3362,12 +3366,13 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
  */
 static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
   uint32_t i, j, k, m, q;
-  literal_t *b;
+  bool marked_clause;
+  literal_t *b;  
 
   assert(clause_is_live(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
 
-  m = clause_length(&solver->pool, cidx) & ~CLAUSE_MARK;
+  m = safe_clause_length(&solver->pool, cidx);
   q = clause_signature(&solver->pool, cidx);
   b = clause_literals(&solver->pool, cidx);
 
@@ -3397,6 +3402,9 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
     j ++;
   }
 
+  marked_clause = clause_is_marked(&solver->pool, cidx);
+  unmark_clause(&solver->pool, cidx);
+
   if (k < m) {
     // strengthening: remove literal b[k] form clause cidx
     pp_decrement_occ(solver, b[k]);
@@ -3410,6 +3418,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       clause_pool_shrink_clause(&solver->pool, cidx, m);
       set_clause_signature(&solver->pool, cidx);
       solver->stats.pp_strengthenings ++;
+      if (marked_clause) mark_clause(&solver->pool, cidx);
     }    
   } else {
     // subsumption: remove clause cidx
@@ -3668,14 +3677,15 @@ static void nsat_preprocess(sat_solver_t *solver) {
     show_occurrence_counts(solver);
   }
 
-  assert(clause_queue_is_empty(solver));
   collect_unit_and_pure_literals(solver);
   for (;;) {
     pp_empty_queue(solver);
     if (solver->has_empty_clause) goto done;
     cidx = clause_queue_pop(solver);
     if (cidx == solver->pool.size) break; // all done
-    pp_clause_subsumption(solver, cidx);
+    if (clause_is_live(&solver->pool, cidx)) {
+      pp_clause_subsumption(solver, cidx);
+    }
   }
   reset_clause_queue(solver);
   prepare_for_search(solver);
