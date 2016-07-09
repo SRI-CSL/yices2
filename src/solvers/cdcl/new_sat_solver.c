@@ -2621,11 +2621,20 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n, n0;
   cidx_t *a;
 
+  if (solver->verbosity >= 1) {
+    fprintf(stderr, "\nReduce learned clause set\n");
+    fprintf(stderr, "  on entry: %"PRIu32" clauses, %"PRIu32" literals\n", 
+	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
+  }
   n = collect_learned_clauses(solver);
   sort_learned_clauses(solver, n);
   a = solver->cidx_array;
 
   check_candidate_clauses_to_delete(solver, a, n); // DEBUG
+
+  if (solver->verbosity >= 1) {
+    fprintf(stderr, "  possible deletion: %"PRIu32" clauses\n", n);
+  }
 
   // the first half of a contains clauses of low score
   n0 = n/2;
@@ -2640,6 +2649,11 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   solver->stats.reduce_calls ++;
 
   check_watch_vectors(solver);
+
+  if (solver->verbosity >= 1) {
+    fprintf(stderr, "  on exit: %"PRIu32" clauses, %"PRIu32" literals\n\n", 
+	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
+  }
 }
 
 
@@ -2979,11 +2993,13 @@ static void clause_queue_push(sat_solver_t *solver, cidx_t cidx) {
 
 
 /*
- * Check emptiness
+ * Check emptiness: NOT USED
  */
+#if 0
 static bool clause_queue_is_empty(const sat_solver_t *solver) {
   return solver->scan_index >= solver->pool.size && queue_is_empty(&solver->cqueue);
 }
+#endif
 
 
 /*
@@ -3296,6 +3312,7 @@ static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
   return true;
 }
 
+#if 0
 static bool watch_vector_is_sorted(const watch_t *w) {
   uint32_t i, n;
 
@@ -3310,6 +3327,7 @@ static bool watch_vector_is_sorted(const watch_t *w) {
 
   return true;
 }
+#endif
 
 #endif
 
@@ -3689,6 +3707,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
 
   collect_unit_and_pure_literals(solver);
+
   for (;;) {
     pp_empty_queue(solver);
     if (solver->has_empty_clause) goto done;
@@ -4797,7 +4816,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
    if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
      solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
    }
-  //  solver->reduce_threshold = 2000; // Glucose
+   solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
     if (solver->verbosity >= 2) {
@@ -4879,6 +4898,86 @@ uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a) {
   return n;
 }
 
+
+
+/***********************
+ *  EXPORT/DUMP STATE  *
+ **********************/
+
+static void show_clause(FILE *f, const clause_pool_t *pool, cidx_t idx) {
+  uint32_t n, i;
+  literal_t *lit;
+
+  assert(good_clause_idx(pool, idx));
+
+  n = clause_length(pool, idx);
+  lit = clause_literals(pool, idx);
+
+  fprintf(f, "%"PRIu32":", idx);
+  for (i=0; i<n; i++) {
+    fprintf(f, " %"PRIu32, lit[i]);
+  }
+  fprintf(f, "\n");
+}
+
+static void show_all_clauses(FILE *f, const clause_pool_t *pool) {
+  uint32_t cidx;
+
+  cidx = clause_pool_first_clause(pool);
+  while (cidx < pool->size) {
+    show_clause(f, pool, cidx);
+    cidx = clause_pool_next_clause(pool, cidx);
+  }
+}
+
+static void show_watch_vector(FILE *f, const sat_solver_t *solver, literal_t l) {
+  watch_t *w;
+  uint32_t i, n, k;
+
+  assert(l < solver->nliterals);
+  w = solver->watch[l];
+  fprintf(f, "watch[%"PRIu32"]:", l);
+  if (w == NULL) {
+    fprintf(f, " null\n");
+  } else {
+    n = w->size;
+    i = 0;
+    if (n == 0) {
+      fprintf(f, " empty\n");
+    } else {
+      while (i<n) {
+	k = w->data[i];
+	if (idx_is_literal(k)) {
+	  fprintf(f, " lit(%"PRIu32")", idx2lit(k));
+	  i ++;
+	} else {
+	  fprintf(f, " cl(%"PRIu32")", k);
+	  i += 2;
+	}
+      }
+      fprintf(f, "\n");
+    }
+  }
+}
+
+static void show_all_watch_vectors(FILE *f, const sat_solver_t *solver) {
+  uint32_t i;
+
+  for (i=0; i<solver->nliterals; i++) {
+    show_watch_vector(f, solver, i);
+  }
+}
+
+void show_state(FILE *f, const sat_solver_t *solver) {
+  fprintf(f, "nvars: %"PRIu32"\n", solver->nvars);
+  fprintf(f, "nliterals: %"PRIu32"\n", solver->nliterals);
+  fprintf(f, "num prob. clauses: %"PRIu32"\n", solver->pool.num_prob_clauses);
+  fprintf(f, "num learned clauses: %"PRIu32"\n", solver->pool.num_learned_clauses);
+  fprintf(f, "clauses\n");
+  show_all_clauses(f, &solver->pool);
+  fprintf(f, "watch vectors\n");
+  show_all_watch_vectors(f, solver);
+}
 
 
 
