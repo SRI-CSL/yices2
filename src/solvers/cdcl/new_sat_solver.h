@@ -19,6 +19,7 @@
 #define __NEW_SAT_SOLVER_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
 
@@ -849,6 +850,13 @@ extern void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val)
  * return the number of literals added to a.
  */
 extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a);
+
+
+/******************************
+ * PRINT INTERNAL STRUCTURES  *
+ *****************************/
+
+extern void show_state(FILE *f, const sat_solver_t *solver);
 
 
 
