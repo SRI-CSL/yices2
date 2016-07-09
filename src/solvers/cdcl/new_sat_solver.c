@@ -4816,7 +4816,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
    if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
      solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
    }
-   solver->reduce_threshold = 2000; // Glucose
+   //   solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
     if (solver->verbosity >= 2) {
