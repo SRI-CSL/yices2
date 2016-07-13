@@ -1715,6 +1715,24 @@ extern void smt_process(smt_core_t *s);
 
 
 /*
+ * Variant of smt_process with a conflict bound.
+ *
+ * After a conflict is resolved, this function checks whether the
+ * total number of conflicts so far exceeds max_conflicts. If so
+ * it exits.
+ *
+ * The returned value indicates whether this function exited in
+ * a stable state or on an early exit:
+ * - true means state state reached
+ * - false means max_conflicts reached.
+ *
+ * If this function returns false, the caller can't assume that
+ * it is safe to make a decision.
+ */
+extern bool smt_bounded_process(smt_core_t *s, uint64_t max_conflicts);
+
+
+/*
  * Check for delayed theory solving:
  * - call the final_check function of the theory solver
  * - if the theory solver creates new variables or lemmas or report a conflict

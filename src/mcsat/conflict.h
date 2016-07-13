@@ -47,7 +47,7 @@ struct mcsat_evaluator_interface_s {
    * for the evaluation. If value != NULL, and the term evaluates, the output value
    * should be assigned to it.
    */
-  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, mcsat_value_t* value);
+  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* top_level_vars, mcsat_value_t* value);
 };
 
 /**
@@ -72,8 +72,8 @@ typedef struct conflict_s {
   /** Map from variables (not terms) to elements where this variable is the top */
   int_hmap_t var_to_element_map;
 
-  /** Collection of variables (one variable per each literals it appears in) */
-  int_mset_t vars;
+  /** Collection of variables (one variable per each top level literals it appears in) */
+  int_mset_t top_level_vars;
 
   /** All variables that ever appeared during the conflict resolution */
   int_mset_t vars_all;
@@ -85,7 +85,7 @@ typedef struct conflict_s {
   uint32_t level;
 
   /** The number of top level variables in the conflict */
-  uint32_t top_level_vars;
+  uint32_t top_level_vars_count;
 
   /** The variable database */
   variable_db_t* var_db;
@@ -129,6 +129,9 @@ bool conflict_contains_as_top(const conflict_t* conflict, variable_t var);
 
 /** Get the number of variables responsible for the conflict at the conflict top level */
 uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict);
+
+/** Recompute level information */
+void conflict_recompute_level_info(conflict_t* conflict);
 
 /** Resolve the given variable by using ((and reasons) => var = substitution). */
 void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons);

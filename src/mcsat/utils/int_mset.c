@@ -99,6 +99,7 @@ void int_mset_clear(int_mset_t* set) {
   int_hmap_reset(&set->element_list_position);
   ivector_reset(&set->element_list);
   set->is_compact = true;
+  set->size = 0;
 }
 
 void int_mset_compact(int_mset_t* set) {

@@ -13,6 +13,9 @@
 #include "mcsat/variable_db.h"
 #include "mcsat/mcsat_types.h"
 
+typedef struct nra_plugin_s nra_plugin_t;
+
+
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct feasible_set_db_struct feasible_set_db_t;
 
@@ -40,7 +43,7 @@ void feasible_set_db_push(feasible_set_db_t* db);
 void feasible_set_db_pop(feasible_set_db_t* db);
 
 /** Get the reason for a conflict on x. Feasible set of x should be empty. */
-void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons_out);
+void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons_out);
 
 /** Return any fixed variables */
 variable_t feasible_set_db_get_fixed(feasible_set_db_t* db);

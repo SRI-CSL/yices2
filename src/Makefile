@@ -288,7 +288,9 @@ mcsat_src_c := \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
-	mcsat/eq/eq_plugin.c \
+	mcsat/uf/uf_plugin.c \
+	mcsat/uf/app_reps.c \
+	mcsat/uf/uf_feasible_set_db.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \
@@ -300,7 +302,9 @@ mcsat_src_c := \
 	mcsat/nra/poly_constraint.c \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
-	mcsat/watch_list_manager.c
+	mcsat/watch_list_manager.c \
+	mcsat/preprocessor.c \
+	mcsat/options.c
 
 #
 # Fake mcsat module: do nothing. Used to make the compilation go through.

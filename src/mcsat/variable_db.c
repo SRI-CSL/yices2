@@ -10,6 +10,8 @@
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
+#include "yices.h"
+
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
   var_db->types = types;
@@ -173,8 +175,22 @@ void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_
 }
 
 term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) {
-  assert(false);
-  return NULL_TERM;
+
+  // For now, just equality
+  assert(term_kind(var_db->terms, t) == EQ_TERM);
+  term_t x_term = variable_db_get_term(var_db, x);
+  composite_term_t* eq = eq_term_desc(var_db->terms, t);
+  term_t lhs = eq->arg[0];
+  term_t rhs = eq->arg[1];
+  if (lhs == x_term) {
+    lhs = subst;
+  }
+  if (rhs == x_term) {
+    rhs = subst;
+  }
+  term_t result = yices_eq(lhs, rhs);
+
+  return result;
 }
 
 void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars) {

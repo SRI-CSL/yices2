@@ -13,6 +13,7 @@
 #include "io/tracer.h"
 
 #include "mcsat/mcsat_types.h"
+#include "mcsat/options.h"
 
 /*
  * Allocate and construct the solver.

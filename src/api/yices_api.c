@@ -3376,18 +3376,11 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
  **************************/
 
 EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
-  rational_t *q;
 
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
+      ! check_arith_term(&manager, t2)) {
     return NULL_TERM;
   }
 
@@ -3395,18 +3388,11 @@ EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
 }
 
 EXPORTED term_t yices_imod(term_t t1, term_t t2) {
-  rational_t *q;
 
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
-    return NULL_TERM;
-  }
-
-  q = rational_term_desc(&terms, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
+      ! check_arith_term(&manager, t2)) {
     return NULL_TERM;
   }
 
@@ -7413,10 +7399,17 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     break;
 
   case CTX_ARCH_BV:
+#if 0
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     params->fast_restart = true;
     params->c_factor = 1.05;
     params->d_factor = 1.05;
+    params->randomness = 0.0;
+#endif
+    // HACK: try Luby restart, period = 10
+    params->fast_restart = true;
+    params->c_factor = 0.0;
+    params->c_threshold = 10;
     params->randomness = 0.0;
     break;
 
@@ -7449,9 +7442,17 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+#if 1
     params->fast_restart = true;
     params->c_factor = 1.05;
     params->d_factor = 1.05;
+#else
+    // HACK: try Luby restart, period = 10 
+    // This didn't work.
+    params->fast_restart = true;
+    params->c_factor = 0.0;
+    params->c_threshold = 10;
+#endif
     params->randomness = 0.0;
     params->max_interface_eqs = 15;
     if (logic == QF_UFBV) {

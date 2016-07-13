@@ -2319,26 +2319,16 @@ static void print_ef_status(void) {
  * New command: ef-solve
  */
 static void yices_efsolve_cmd(void) {
-
   if (efmode) {
-
     ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
-
     if (ef_client_globals.efcode != EF_NO_ERROR) {
-      
       // error in preprocessing
       print_ef_analyze_code(ef_client_globals.efcode);
-      
     } else {
-
       print_ef_status();
-      
     } 
-
   }  else {
-
     report_error("(ef-solve) not supported. Use option --mode=ef");
-    
   }
 }
 

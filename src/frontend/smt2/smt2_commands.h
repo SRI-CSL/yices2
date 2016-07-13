@@ -44,6 +44,7 @@
 #include "frontend/smt2/smt2_expressions.h"
 
 #include "exists_forall/ef_client.h"
+#include "mcsat/options.h"
 
 /*
  * New exception codes
@@ -328,6 +329,10 @@ typedef struct smt2_globals_s {
   bool benchmark_mode;
   bool global_decls;
 
+  // smt-lib version: added 2016/05/24
+  // possible values are 0 (not set) or 2000 (version 2.0) or 2500 (version 2.5)
+  uint32_t smtlib_version;
+
   // number of calls to push after the ctx is unsat
   uint32_t pushes_after_unsat;
 
@@ -336,6 +341,8 @@ typedef struct smt2_globals_s {
 
   // set to true to use the mcsat solver
   bool mcsat;
+  // options for the mcsat solver
+  mcsat_options_t mcsat_options;
 
   // exists_forall fields
   // true indicates we will be using the exists_forall solver

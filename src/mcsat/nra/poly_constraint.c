@@ -123,6 +123,8 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
         poly_constraint_print(constraint, ctx_trace_out(db->nra->ctx));
         ctx_trace_printf(db->nra->ctx, "\n");
       }
+      // Delete it
+      poly_constraint_delete(constraint);
     }
   }
 
@@ -440,10 +442,33 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     }
     break;
   }
-  default:
+  default: {
+    // terms like (x+y), we create regular constraint (x+y) = x + y
+    lp_integer_t t1_c, t2_c;
+    lp_integer_construct_from_int(lp_Z, &t1_c, 1);
+    lp_integer_construct(&t2_c);
+    lp_polynomial_t* t1_p = lp_polynomial_alloc();
+    lp_variable_t constraint_lp_var = nra_plugin_get_lp_variable(db->nra, constraint_var);
+    lp_polynomial_construct_simple(t1_p, db->nra->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term(db->nra, terms, constraint_var_term, &t2_c);
+    //  t1_p/t1_c = t2_p/t2_c
+    //  t1_p*t2_c - t2_p*t1_c
+    lp_integer_neg(lp_Z, &t1_c, &t1_c);
+    lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
+    lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
+    // Add them
+    cstr_polynomial = lp_polynomial_new(db->nra->lp_data.lp_ctx);
+    lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
+    // p1 = p2
     sgn_condition = LP_SGN_EQ_0;
-    assert(false);
+    // Remove temps
+    lp_polynomial_delete(t1_p);
+    lp_polynomial_delete(t2_p);
+    lp_integer_destruct(&t1_c);
+    lp_integer_destruct(&t2_c);
+
     break;
+  }
   }
 
   // Id of the new constraint

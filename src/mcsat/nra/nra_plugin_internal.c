@@ -12,12 +12,11 @@
 
 #include "utils/int_hash_map.h"
 
-bool nra_plugin_get_literal_variables(nra_plugin_t* nra, term_t literal, int_mset_t* vars_out) {
+void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, int_mset_t* vars_out) {
 
   term_table_t* terms = nra->ctx->terms;
 
-  bool is_constraint = true;
-  term_t atom = unsigned_term(literal);
+  term_t atom = unsigned_term(constraint);
   term_kind_t atom_kind = term_kind(nra->ctx->terms, atom);
 
   switch (atom_kind) {
@@ -32,13 +31,20 @@ bool nra_plugin_get_literal_variables(nra_plugin_t* nra, term_t literal, int_mse
   case ARITH_ROOT_ATOM:
     nra_plugin_get_term_variables(nra, arith_root_atom_desc(terms, atom)->p, vars_out);
     break;
+  case ARITH_DIV:
+    nra_plugin_get_term_variables(nra, arith_div_term_desc(terms, atom)->arg[0], vars_out);
+    nra_plugin_get_term_variables(nra, arith_div_term_desc(terms, atom)->arg[1], vars_out);
+    break;
+  case ARITH_MOD:
+    nra_plugin_get_term_variables(nra, arith_mod_term_desc(terms, atom)->arg[0], vars_out);
+    nra_plugin_get_term_variables(nra, arith_mod_term_desc(terms, atom)->arg[1], vars_out);
+    break;
   default:
-    // We're fine, just a variable or a foreign term
-    is_constraint = false;
+    // We're fine, just a variable, arithmetic term to eval, or a foreign term
+    nra_plugin_get_term_variables(nra, constraint, vars_out);
+    int_mset_add(vars_out, variable_db_get_variable(nra->ctx->var_db, constraint));
     break;
   }
-
-  return is_constraint;
 }
 
 void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars_out) {
@@ -63,7 +69,7 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
     // The polynomial
     polynomial_t* polynomial = poly_term_desc(terms, t);
     // Go through the polynomial and get the variables
-    uint32_t i, j;
+    uint32_t i, j, deg;
     variable_t var;
     for (i = 0; i < polynomial->nterms; ++i) {
       term_t product = polynomial->mono[i].var;
@@ -74,7 +80,9 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
         pprod_t* pprod = pprod_for_term(terms, product);
         for (j = 0; j < pprod->len; ++j) {
           var = variable_db_get_variable(var_db, pprod->prod[j].var);
-          int_mset_add(vars_out, var);
+          for (deg = 0; deg < pprod->prod[j].exp; ++ deg) {
+            int_mset_add(vars_out, var);
+          }
         }
       } else {
         // Variable, or foreign term
@@ -86,10 +94,12 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
   }
   case POWER_PRODUCT: {
     pprod_t* pprod = pprod_term_desc(terms, t);
-    uint32_t i;
+    uint32_t i, deg;
     for (i = 0; i < pprod->len; ++ i) {
       variable_t var = variable_db_get_variable(var_db, pprod->prod[i].var);
-      int_mset_add(vars_out, var);
+      for (deg = 0; deg < pprod->prod[i].exp; ++ deg) {
+        int_mset_add(vars_out, var);
+      }
     }
     break;
   }

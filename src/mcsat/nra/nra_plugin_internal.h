@@ -21,7 +21,7 @@ typedef struct poly_constraint_db_struct poly_constraint_db_t;
 typedef struct poly_constraint_struct poly_constraint_t;
 
 // Variable check to track for debugging
-// #define TRACK_VAR(x) (x == 775)
+// #define TRACK_VAR(x) (x == 731)
 #define TRACK_VAR(x) false
 
 // Constraint check to track for debugging
@@ -37,7 +37,7 @@ typedef enum {
   CONSTRAINT_FULLY_ASSIGNED
 } constraint_unit_info_t;
 
-typedef struct {
+typedef struct nra_plugin_s {
 
   /** The plugin interface */
   plugin_t plugin_interface;
@@ -123,11 +123,10 @@ typedef struct {
 void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars_out);
 
 /**
- * Returns true if an arithmetic constraint and returns all the arithmetic variables from a literal l and adds their corresponding
+ * Returns all arithmetic variables from a constraint (term) c and adds their corresponding
  * mcsat variable to vars_out. Returns false otherwise.
  */
-bool nra_plugin_get_literal_variables(nra_plugin_t* nra, term_t l, int_mset_t* vars_out);
-
+void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
 
 /** Check if there term has an lp variable */
 int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t);

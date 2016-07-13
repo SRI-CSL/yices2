@@ -9,6 +9,9 @@
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
 #include "mcsat/nra/nra_plugin_internal.h"
+#include "mcsat/nra/poly_constraint.h"
+
+#include "utils/int_array_sort2.h"
 
 #include <poly/feasibility_set.h>
 #include <poly/upolynomial.h>
@@ -96,7 +99,10 @@ void feasible_set_db_print_var(feasible_set_db_t* db, variable_t var, FILE* out)
       fprintf(out, "\t\tDue to ");
       term_t reason_term = variable_db_get_term(db->ctx->var_db, current->reasons[0]);
       term_print_to_file(out, db->ctx->terms, reason_term);
-      fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->ctx->trail, current->reasons[0]) ? "true" : "false");
+      if (term_type_kind(db->ctx->terms, reason_term) == BOOL_TYPE) {
+        // Otherwise it's a term evaluation, always true
+        fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->ctx->trail, current->reasons[0]) ? "true" : "false");
+      }
     }
     index = current->prev;
   }
@@ -358,51 +364,154 @@ void feasible_set_get_conflict_reason_indices(feasible_set_db_t* db, variable_t 
 }
 
 static
-void feasible_set_filter_reason_indices(feasible_set_db_t* db, ivector_t* reasons_indices) {
+void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_set_t* current, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
+
+  uint32_t i;
+
+  if (lp_feasibility_set_is_empty(current)) {
+    // Core already unsat, done
+    return;
+  }
+
+  assert(begin < end);
+  if (begin + 1 == end) {
+    // Only one left, we keep it, since the core is still sat
+    ivector_push(out, reasons->data[begin]);
+    return;
+  }
+
+  // Split: how many in first half?
+  uint32_t n = (end - begin) / 2;
+
+  // Assert first half and minimize the second
+  lp_feasibility_set_t* feasible_A = lp_feasibility_set_new_copy(current);
+  for (i = begin; i < begin + n; ++ i) {
+    const lp_feasibility_set_t* feasible_i = db->memory[reasons->data[i]].reason_feasible_set;
+    lp_feasibility_set_intersect_status_t intersect_status;
+    lp_feasibility_set_t* intersect = lp_feasibility_set_intersect_with_status(feasible_A, feasible_i, &intersect_status);
+    lp_feasibility_set_swap(intersect, feasible_A);
+    lp_feasibility_set_delete(intersect);
+  }
+  uint32_t old_out_size = out->size;
+  feasible_set_quickxplain(db, feasible_A, reasons, begin + n, end, out);
+  lp_feasibility_set_delete(feasible_A);
+
+  // Now, assert the minimized second half, and minimize the first half
+  lp_feasibility_set_t* feasible_B = lp_feasibility_set_new_copy(current);
+  for (i = old_out_size; i < out->size; ++ i) {
+    const lp_feasibility_set_t* feasible_i = db->memory[out->data[i]].reason_feasible_set;
+    lp_feasibility_set_intersect_status_t intersect_status;
+    lp_feasibility_set_t* intersect = lp_feasibility_set_intersect_with_status(feasible_B, feasible_i, &intersect_status);
+    lp_feasibility_set_swap(intersect, feasible_B);
+    lp_feasibility_set_delete(intersect);
+  }
+  feasible_set_quickxplain(db, feasible_B, reasons, begin, begin + n, out);
+  lp_feasibility_set_delete(feasible_B);
+}
+
+/** Compare variables first by degree, then by level, prefer non root constraints */
+static
+bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
+
+  uint32_t i;
+
+  const nra_plugin_t* nra = (nra_plugin_t*) nra_plugin;
+  feasible_set_db_t* db = nra->feasible_set_db;
+  poly_constraint_db_t* poly_db = nra->constraint_db;
+  const mcsat_trail_t* trail = nra->ctx->trail;
+
+  // Get max degree and max level of the reasons of first constraint
+  uint32_t r1_degree = 0;
+  uint32_t r1_level = 0;
+  for (i = 0; i < db->memory[r1].reasons_size; ++ i) {
+    variable_t r1_i_var = db->memory[r1].reasons[i];
+    if (trail_has_value(trail, r1_i_var)) {
+      uint32_t r1_i_level = trail_get_level(trail, r1_i_var);
+      if (r1_i_level > r1_level) {
+        r1_level = r1_i_level;
+      }
+    }
+    const poly_constraint_t* r1_i_constraint = poly_constraint_db_get(poly_db, r1_i_var);
+    const lp_polynomial_t* r1_i_poly = poly_constraint_get_polynomial(r1_i_constraint);
+    uint32_t r1_i_degree =  lp_polynomial_degree(r1_i_poly);
+    if (r1_i_degree > r1_degree) {
+      r1_degree = r1_i_degree;
+    }
+  }
+
+  // Get max degree and max level of the reasons of second constraint
+  uint32_t r2_degree = 0;
+  uint32_t r2_level = 0;
+  for (i = 0; i < db->memory[r2].reasons_size; ++ i) {
+    variable_t r2_i_var = db->memory[r2].reasons[i];
+    if (trail_has_value(trail, r2_i_var)) {
+      uint32_t r2_i_level = trail_get_level(trail, r2_i_var);
+      if (r2_i_level > r2_level) {
+        r2_level = r2_i_level;
+      }
+    }
+    const poly_constraint_t* r2_i_constraint = poly_constraint_db_get(poly_db, r2_i_var);
+    const lp_polynomial_t* r2_i_poly = poly_constraint_get_polynomial(r2_i_constraint);
+    uint32_t r2_i_degree =  lp_polynomial_degree(r2_i_poly);
+    if (r2_i_degree > r2_degree) {
+      r2_degree = r2_i_degree;
+    }
+  }
+
+  // Prefer smaller degrees
+  if (r1_degree != r2_degree) {
+    return r1_degree < r2_degree;
+  }
+
+  // Otherwise take the one of lower level
+  return r1_level < r2_level;
+}
+
+void print_conflict_reasons(FILE* out, feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reason_indices) {
+  uint32_t i, j;
+  poly_constraint_db_t* poly_db = nra->constraint_db;
+  
+  for (i = 0; i < reason_indices->size; ++ i) {
+    fprintf(out, "[%d]: ", i);
+    uint32_t r_i = reason_indices->data[i];
+    uint32_t r_i_size = db->memory[r_i].reasons_size;
+    for (j = 0; j < r_i_size; ++ j) {
+      if (j) fprintf(out, ", ");
+      variable_t r_i_var = db->memory[r_i].reasons[j];
+      const poly_constraint_t* r_i_constraint = poly_constraint_db_get(poly_db, r_i_var);
+      poly_constraint_print(r_i_constraint, out);
+    }
+    fprintf(out, "\n");                                               
+  }
+}
+
+static
+void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reasons_indices) {
   // The set we're trying to make empty
   lp_feasibility_set_t* S = lp_feasibility_set_new_full();
 
-  // Go back from the top reason for x until empty interval is obtained
-  uint32_t i, keep;
-  for (i = 0, keep = 0; !lp_feasibility_set_is_empty(S) && i < reasons_indices->size; ++ i) {
+  // Sort variables by degree and trail level descreasing
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
+ 
+  if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: before\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, nra, reasons_indices);
+  }                           
 
-    // Current reason we're considering
-    uint32_t reason_index = reasons_indices->data[i];
-    assert(reason_index);
+  // Minimize the core
+  ivector_t out;
+  init_ivector(&out, 0);
+  feasible_set_quickxplain(db, S, reasons_indices, 0, reasons_indices->size, &out);
+  ivector_swap(reasons_indices, &out);
+  delete_ivector(&out);
 
-    // Intersect with the current feasible set
-    lp_feasibility_set_intersect_status_t intersect_status;
-    const lp_feasibility_set_t* reason_feasible = db->memory[reason_index].reason_feasible_set;
-    lp_feasibility_set_t* intersect = lp_feasibility_set_intersect_with_status(S, reason_feasible, &intersect_status);
+  // Sort again for consisency
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
 
-    if (ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
-      ctx_trace_printf(db->ctx, "S = "); lp_feasibility_set_print(S, ctx_trace_out(db->ctx)); ctx_trace_printf(db->ctx, "\n");
-      ctx_trace_printf(db->ctx, "reason_feasible = "); lp_feasibility_set_print(reason_feasible, ctx_trace_out(db->ctx)); ctx_trace_printf(db->ctx, "\n");
-      ctx_trace_printf(db->ctx, "intersect = "); lp_feasibility_set_print(intersect, ctx_trace_out(db->ctx)); ctx_trace_printf(db->ctx, "\n");
-    }
-
-    // We keep the reason if the size shrinked
-    switch (intersect_status) {
-    case LP_FEASIBILITY_SET_INTERSECT_S1:
-      // no changes
-      break;
-    case LP_FEASIBILITY_SET_INTERSECT_S2:
-    case LP_FEASIBILITY_SET_NEW:
-    case LP_FEASIBILITY_SET_EMPTY:
-      // new set, use the constraint
-      reasons_indices->data[keep ++] = reasons_indices->data[i];
-      lp_feasibility_set_swap(intersect, S);
-    }
-
-    // Remove the temp intersect
-    lp_feasibility_set_delete(intersect);
-  }
-
-  // Throw away unused ones
-  ivector_shrink(reasons_indices, keep);
-
-  // Have to be infeasible
-  assert(lp_feasibility_set_is_empty(S));
+  if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: after\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, nra, reasons_indices);
+  }                           
 
   // Remove temps
   lp_feasibility_set_delete(S);
@@ -411,7 +520,6 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, ivector_t* reason
 /**
  * Check if conflict without ignoring 0 indices.
  */
-static
 bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indices) {
 
   // The set we're trying to make empty
@@ -446,7 +554,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
   return conflict;
 }
 
-void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
+void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
   if (TRACK_VAR(x) || ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
     ctx_trace_printf(db->ctx, "get_reasons of: ");
@@ -461,36 +569,23 @@ void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, variable_t x, i
   feasible_set_get_conflict_reason_indices(db, x, &reasons_indices);
 
   // Do a first pass filter from the back
-  feasible_set_filter_reason_indices(db, &reasons_indices);
-
-  // Now see if we can eliminate one by one
-  uint32_t i;
-  for (i = 1; i < reasons_indices.size; ++ i) {
-    uint32_t set_index = reasons_indices.data[i];
-    // Try without it
-    reasons_indices.data[i] = 0;
-    if (!feasible_set_check_if_conflict(db, &reasons_indices)) {
-      // We need it
-      reasons_indices.data[i] = set_index;
-    }
-  }
+  feasible_set_filter_reason_indices(db, nra, &reasons_indices);
 
   // Return the conjunctive reasons
+  uint32_t i;
   for (i = 0; i < reasons_indices.size; ++ i) {
     uint32_t set_index = reasons_indices.data[i];
-    if (set_index) {
-      feasibility_list_element_t* element = db->memory + set_index;
-      if (element->reasons_size == 1) {
-        variable_t reason = element->reasons[0];
+    feasibility_list_element_t* element = db->memory + set_index;
+    if (element->reasons_size == 1) {
+      variable_t reason = element->reasons[0];
+      assert(variable_db_is_boolean(db->ctx->var_db, reason));
+      ivector_push(reasons_out, reason);
+    } else {
+      uint32_t j;
+      for (j = 0; j < element->reasons_size; ++j) {
+        variable_t reason = element->reasons[j];
         assert(variable_db_is_boolean(db->ctx->var_db, reason));
-        ivector_push(reasons_out, reason);
-      } else {
-        uint32_t j;
-        for (j = 0; j < element->reasons_size; ++ j) {
-          variable_t reason = element->reasons[j];
-          assert(variable_db_is_boolean(db->ctx->var_db, reason));
-          ivector_push(lemma_reasons, reason);
-        }
+        ivector_push(lemma_reasons, reason);
       }
     }
   }

@@ -1413,21 +1413,23 @@ static thvar_t map_div_to_arith(context_t *ctx, composite_term_t *div) {
 
   assert(div->arity == 2);
 
-  x = internalize_to_arith(ctx, div->arg[0]); // t1
-
-  // We make a copy of the divider into k
-  q_init(&k);
   d = div->arg[1];
-  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
-  q_set(&k, rational_term_desc(ctx->terms, d));
+  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
+    x = internalize_to_arith(ctx, div->arg[0]); // t1
 
-  assert(q_is_nonzero(&k));
+    // We make a copy of the divider into k
+    q_init(&k);
+    q_set(&k, rational_term_desc(ctx->terms, d));
+    assert(q_is_nonzero(&k));
+    y = get_div(ctx, x, &k);    
+    q_clear(&k);
+    return y;
 
-  y = get_div(ctx, x, &k);
-
-  q_clear(&k);
-
-  return y;
+  } else {
+    // division by a non-constant: not supported by default arithmetic
+    // solver for now
+    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+  }
 }
 
 
@@ -1443,30 +1445,35 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
 
   assert(mod->arity == 2);
 
-  x = internalize_to_arith(ctx, mod->arg[0]);
-
-  // copy the divider into k
-  q_init(&k);
   d = mod->arg[1];
-  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
-  q_set(&k, rational_term_desc(ctx->terms, d));
+  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
+    x = internalize_to_arith(ctx, mod->arg[0]);
 
-  // get y := (div x k)
-  assert(q_is_nonzero(&k));
-  y = get_div(ctx, x, &k);
+    // copy the divider into k
+    q_init(&k);
+    q_set(&k, rational_term_desc(ctx->terms, d));
 
-  /*
-   * r := (mod x k) is x - k * y where y is an integer.
-   * If both x and k are integer, then r has integer type. Otherwise,
-   * r is a real variable.
-   */
-  is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, x) && q_is_integer(&k);
-  r = ctx->arith.create_var(ctx->arith_solver, is_int);
-  assert_mod_axioms(ctx, r, x, y, &k);
+    // get y := (div x k)
+    assert(q_is_nonzero(&k));
+    y = get_div(ctx, x, &k);
 
-  q_clear(&k);
+    /*
+     * r := (mod x k) is x - k * y where y is an integer.
+     * If both x and k are integer, then r has integer type. Otherwise,
+     * r is a real variable.
+     */
+    is_int = ctx->arith.arith_var_is_int(ctx->arith_solver, x) && q_is_integer(&k);
+    r = ctx->arith.create_var(ctx->arith_solver, is_int);
+    assert_mod_axioms(ctx, r, x, y, &k);
 
-  return r;
+    q_clear(&k);
+
+    return r;
+
+  } else {
+    // Non-constant divider
+    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+  }
 }
 
 
@@ -2266,23 +2273,28 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
 
   assert(divides->arity == 2);
 
-  // make a copy of divides->arg[0] in k
-  q_init(&k);
   d = divides->arg[0];
-  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
-  q_set(&k, rational_term_desc(ctx->terms, d));
-  assert(q_is_nonzero(&k));
+  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
+    // make a copy of divides->arg[0] in k
+    q_init(&k);
+    q_set(&k, rational_term_desc(ctx->terms, d));
+    assert(q_is_nonzero(&k));
 
-  x = internalize_to_arith(ctx, divides->arg[1]); // this is t
-  y = get_div(ctx, x, &k);  // y := (div x k)
-  p = context_get_aux_poly(ctx, 3);
-  context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
-  // atom (x <= k * y) is (p >= 0)
-  l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
+    x = internalize_to_arith(ctx, divides->arg[1]); // this is t
+    y = get_div(ctx, x, &k);  // y := (div x k)
+    p = context_get_aux_poly(ctx, 3);
+    context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
+    // atom (x <= k * y) is (p >= 0)
+    l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
 
-  q_clear(&k);
+    q_clear(&k);
 
-  return l;
+    return l;
+
+  } else {
+    // k is not a constant: not supported
+    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+  }
 }
 
 
@@ -4003,23 +4015,27 @@ static void assert_toplevel_arith_divides(context_t *ctx, composite_term_t *divi
   
   assert(divides->arity == 2);
 
-  // copy the divider
-  q_init(&k);
   d = divides->arg[0];
-  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
-  q_set(&k, rational_term_desc(ctx->terms, d));
-  assert(q_is_nonzero(&k));
+  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
+    // copy the divider
+    q_init(&k);
+    q_set(&k, rational_term_desc(ctx->terms, d));
+    assert(q_is_nonzero(&k));
 
-  x = internalize_to_arith(ctx, divides->arg[1]);
-  y = get_div(ctx, x, &k);  // y := (div x k);
-  p = context_get_aux_poly(ctx, 3);
-  context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
+    x = internalize_to_arith(ctx, divides->arg[1]);
+    y = get_div(ctx, x, &k);  // y := (div x k);
+    p = context_get_aux_poly(ctx, 3);
+    context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
 
-  // if tt, assert (p >= 0) <=> x <= k * y
-  // if not tt, assert (p < 0) <=> x > k * y
-  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, tt);
+    // if tt, assert (p >= 0) <=> x <= k * y
+    // if not tt, assert (p < 0) <=> x > k * y
+    ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, tt);
 
-  q_clear(&k);
+    q_clear(&k);
+  } else {
+    // not a constant divider: not supported
+    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+  }
 }
 
 
@@ -5293,6 +5309,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_bvconstant(&ctx->bv_buffer);
 
   ctx->trace = NULL;
+
+  // mcsat options default
+  init_mcsat_options(&ctx->mcsat_options);
 
   /*
    * Allocate and initialize the solvers and core

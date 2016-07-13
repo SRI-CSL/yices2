@@ -10,6 +10,7 @@
 #include <assert.h>
 
 #include "utils/memalloc.h"
+#include "utils/hash_functions.h"
 
 const mcsat_value_t mcsat_value_none = { VALUE_NONE, { true } };
 const mcsat_value_t mcsat_value_true = { VALUE_BOOLEAN, { true } };
@@ -99,5 +100,39 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
     break;
   default:
     assert(false);
+  }
+}
+
+bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
+  assert(v1->type == v2->type);
+  switch (v1->type) {
+  case VALUE_BOOLEAN:
+    return v1->b == v2->b;
+  case VALUE_RATIONAL:
+    assert(v2->type == VALUE_RATIONAL);
+    return q_cmp(&v1->q, &v2->q) == 0;
+  case VALUE_LIBPOLY:
+    return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
+  default:
+    assert(false);
+    return false;
+  }
+}
+
+uint32_t mcsat_value_hash(const mcsat_value_t* v) {
+  switch (v->type) {
+  case VALUE_BOOLEAN:
+    return v->b;
+  case VALUE_RATIONAL:
+  {
+    uint32_t num, den;
+    q_hash_decompose(&v->q, &num, &den);
+    return jenkins_hash_pair(num, den, 0xf9e34ab9);
+  }
+  case VALUE_LIBPOLY:
+    return lp_value_hash(&v->lp_value);
+  default:
+    assert(false);
+    return 0;
   }
 }

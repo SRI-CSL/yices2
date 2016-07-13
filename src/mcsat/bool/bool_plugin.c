@@ -311,7 +311,12 @@ int bool_plugin_attach_clause(bool_plugin_t* bp, clause_ref_t c_ref, trail_token
       break;
     }
   }
-  assert(c->size > 0);
+
+  if (c->size == 0) {
+    // Empty clause derived, we have a conflict at base level
+    prop->conflict(prop);
+    return -1;
+  }
 
   // If the first literal at base, it must be true at base making the clause
   // irellevant

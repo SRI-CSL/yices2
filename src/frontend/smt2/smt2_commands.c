@@ -41,6 +41,7 @@
 #include "utils/refcount_strings.h"
 
 #include "utils/timeout.h"
+#include "mcsat/options.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -1503,6 +1504,10 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case SMT2_MISSING_PATTERN:
   case SMT2_TYPE_ERROR_IN_QUAL:
   case SMT2_QUAL_NOT_IMPLEMENTED:
+  case SMT2_INVALID_IDX_BV:
+  case SMT2_NAMED_TERM_NOT_GROUND:
+  case SMT2_NAMED_SYMBOL_REUSED:
+    print_out("%s", exception_string[exception]);
     break;
 
   case SMT2_TERM_NOT_INTEGER:
@@ -1517,12 +1522,6 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     // TODO: extract more information from yices_error_report();
     print_out("in %s: ", opcode_string[tstack->error_op]);
     print_yices_error(false);
-    break;
-
-  case SMT2_INVALID_IDX_BV:
-  case SMT2_NAMED_TERM_NOT_GROUND:
-  case SMT2_NAMED_SYMBOL_REUSED:
-    print_out("%s", exception_string[exception]);
     break;
 
   case TSTACK_NO_ERROR:
@@ -1935,6 +1934,37 @@ static bool aval_is_rational(attr_vtbl_t *avtbl, aval_t v, rational_t *result) {
 }
 
 
+/*
+ * For (set-info :smt-lib-version X.Y)
+ * - check whether v is either 2.0 or 2.5
+ * - return false if it's not
+ * - return true if it is
+ *
+ * - set *version to 2500 or 2000 if v is either 2.5 or 2.0
+ */
+static bool aval_is_known_version(attr_vtbl_t *avtbl, aval_t v, uint32_t *version) {
+  rational_t aux;
+  bool ok;
+
+  ok = false;
+  if (v >= 0 && aval_tag(avtbl, v) == ATTR_RATIONAL) {
+    q_init(&aux);
+    q_set(&aux, aval_rational(avtbl, v));
+    if (q_cmp_int32(&aux, 2, 1) == 0) {
+      // version 2.0
+      *version = 2000;
+      ok = true;
+    } else if (q_cmp_int32(&aux, 5, 2) == 0) {
+      // version 2.5
+      *version = 2500;
+      ok = true;
+    }
+    q_clear(&aux);
+  }
+
+  return ok;
+}
+
 
 /*
  * Boolean option
@@ -2304,6 +2334,9 @@ static void init_smt2_context(smt2_globals_t *g) {
   if (g->verbosity > 0 || g->tracer != NULL) {
     context_set_trace(g->ctx, get_tracer(g));
   }
+
+  // Set the mcsat options
+  g->ctx->mcsat_options = g->mcsat_options;
 
   /*
    * TODO: override the default context options based on
@@ -3282,10 +3315,14 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
+
   init_ef_client(&g->ef_client_globals);
+  init_mcsat_options(&g->mcsat_options);
+
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
+  g->smtlib_version = 0;       // means no version specified yet 
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
@@ -3913,6 +3950,26 @@ void smt2_get_option(const char *name) {
 
 
 /*
+ * Check whether smtlib_version is set and if so print it
+ */
+static void show_smtlib_version(const smt2_globals_t *g) {
+  switch (g->smtlib_version) {
+  case 2000:
+    print_kw_symbol_pair(":smt-lib-version", "2.0");
+    break;
+    
+  case 2500:
+    print_kw_symbol_pair(":smt-lib-version", "2.5");
+    break;
+
+  default:
+    print_kw_symbol_pair(":smt-lib-version", "unknown");
+    break;
+  }
+}
+
+
+/*
  * Get some info
  * - name = keyword
  */
@@ -3947,6 +4004,10 @@ void smt2_get_info(const char *name) {
 
   case SMT2_KW_ALL_STATISTICS:
     show_statistics(&__smt2_globals);
+    break;
+
+  case SMT2_KW_SMT_LIB_VERSION:
+    show_smtlib_version(&__smt2_globals);
     break;
 
   default:
@@ -4007,7 +4068,7 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   }
 }
 
-static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params) {
+static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params, mcsat_options_t* mcsat_options) {
   bool tt;
   int32_t n;
   double x;
@@ -4357,6 +4418,18 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
     }
     break;
 
+  case PARAM_MCSAT_NRA_MGCD:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_options->nra_mgcd = tt;
+    }
+    break;
+
+  case PARAM_MCSAT_NRA_NLSAT:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_options->nra_nlsat = tt;
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
     unsupported = true;
@@ -4459,7 +4532,7 @@ void smt2_set_option(const char *name, aval_t value) {
     // may be a Yices option
     if (is_yices_option(name, &yices_option)) {
       aval2param_val(value, &param_val);
-      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters);
+      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters, &g->mcsat_options);
     } else {
       unsupported_option();
       flush_out();
@@ -4474,11 +4547,15 @@ void smt2_set_option(const char *name, aval_t value) {
  * - same conventions as set_option
  */
 void smt2_set_info(const char *name, aval_t value) {
+  smt2_globals_t *g;
   smt2_keyword_t kw;
-  uint32_t n;
+  uint32_t n, version;
+
+  g = &__smt2_globals;
 
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
+
   switch (kw) {
   case SMT2_KW_ERROR_BEHAVIOR:
   case SMT2_KW_NAME:
@@ -4489,8 +4566,24 @@ void smt2_set_info(const char *name, aval_t value) {
     print_error("can't overwrite %s", name);
     break;
 
+  case SMT2_KW_SMT_LIB_VERSION:
+    // quick hack to switch parser if 2.5 is selected
+    if (g->smtlib_version != 0) {
+      print_error("can't set :smt-lib-version twice");
+    } else if (aval_is_known_version(g->avtbl, value, &version)) {
+      assert(version == 2000 || version == 2500);
+      g->smtlib_version = version;
+      if (version == 2500) {
+	smt2_lexer_activate_two_dot_five();
+      }
+      report_success();
+    } else {
+      print_error("unsupported :smt-lib-version");
+    }
+    break;
+
   default:
-    add_info(&__smt2_globals, name, value);
+    add_info(g, name, value);
     report_success();
     break;
   }
@@ -4547,7 +4640,7 @@ void smt2_set_logic(const char *name) {
     init_search_parameters(&__smt2_globals);
     save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
   } else {
-    // we are in benchmark_mode; better set the search parameters ...
+    // in benchmark_mode (or exists/forall) set the search parameters
     default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code), CTX_MODE_ONECHECK);
   }
 

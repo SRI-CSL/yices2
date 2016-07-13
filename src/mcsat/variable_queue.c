@@ -7,6 +7,8 @@
  
 #include "mcsat/variable_queue.h"
 
+#include "utils/dprng.h"
+
 #include <float.h>
 
 #define VAR_DECAY_FACTOR              (0.95)
@@ -194,6 +196,12 @@ variable_t var_queue_pop(var_queue_t *queue) {
   var_queue_update_down(queue);
 
   return top;
+}
+
+/** Get and remove random element (the heap must not be empty) */
+variable_t var_queue_random(var_queue_t *queue, double* seed) {
+  assert(queue->heap_last > 0);
+  return queue->heap[irand(seed, queue->heap_last)+1];
 }
 
 /** Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD. */

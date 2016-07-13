@@ -61,6 +61,9 @@ void watch_list_manager_construct(watch_list_manager_t* wlm, variable_db_t* var_
 /** Destruct the watch-list manager */
 void watch_list_manager_destruct(watch_list_manager_t* wlm);
 
+/** Returns the size of the manage (number of lists) */
+uint32_t watch_list_manager_size(const watch_list_manager_t* wlm);
+
 /** Print the manager */
 void watch_list_manager_print(watch_list_manager_t* wlm, FILE* out);
 

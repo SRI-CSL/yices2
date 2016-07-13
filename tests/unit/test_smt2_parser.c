@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  init_smt2(true, interactive);
+  init_smt2(true, 0, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
   tstack_add_op(&stack, SMT2_POP, false, eval_smt2_skip, check_smt2_skip);
   tstack_add_op(&stack, SMT2_GET_VALUE, false, eval_smt2_skip, check_smt2_skip);
 
-  smt2_set_verbosity(100);
+  //  smt2_set_verbosity(100);
 
   while (smt2_active()) {
     if (interactive) {

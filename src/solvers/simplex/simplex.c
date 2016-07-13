@@ -7308,8 +7308,10 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
 /*
  * Select a branch variable of v: pick the one with smallest score.
  * Break ties randomly.
+ * - return the selected variable
+ * - score its score in *var_score
  */
-static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
+static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v, uint32_t *var_score) {
   uint32_t i, n, best_score, score, k;
   thvar_t x, best_var;
 
@@ -7344,6 +7346,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
     }
   }
 
+  *var_score = best_score;
   return best_var;
 }
 
@@ -8401,6 +8404,348 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
 
 
 
+#if 0
+
+// NOT READY FOR PRIME TIME.
+
+/*
+ * MIXED-INTEGER GOMORY CUTS
+ */
+
+/*
+ * When we create atoms on the fly for an existing variables,
+ * we reset the prop_ptr so that we can propagate the new atom if necessary.
+ * - we reset the pointer to what's saved for the current base_level in the trail stack.
+ */
+static void reset_prop_ptr(simplex_solver_t *solver) {
+  if (solver->base_level == 0) {
+    assert(solver->trail_stack.top == 0);
+    solver->bstack.prop_ptr = 0;
+  } else {
+    assert(solver->trail_stack.top > 0);
+    solver->bstack.prop_ptr = arith_trail_top(&solver->trail_stack)->bound_ptr;
+  }
+}
+
+/*
+ * Build atom (x >= c) or (x <= c) on the fly
+ * - flag is_int indicates whether x is an integer variable
+ */
+static literal_t mk_dynamic_ge_atom(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *c) {
+  int32_t new_idx;
+  literal_t l;
+
+  assert(x != const_idx);
+
+  l = get_literal_for_ge_atom(&solver->atbl, x, is_int, c, &new_idx);
+  if (new_idx >= 0) {
+    build_binary_lemmas_for_atom(solver, x, new_idx);
+    attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
+  }
+  return l;
+}
+
+static literal_t mk_dynamic_le_atom(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *c) {
+  int32_t new_idx;
+  literal_t l;
+
+  assert(x != const_idx);
+
+  l = get_literal_for_le_atom(&solver->atbl, x, is_int, c, &new_idx);
+  if (new_idx >= 0) {
+    build_binary_lemmas_for_atom(solver, x, new_idx);
+    attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
+  }
+  return l;
+}
+
+
+/*
+ * Build an atom equivalent to p >= 0.
+ */
+static literal_t mk_gomory_atom(simplex_solver_t *solver) {
+  poly_buffer_t *b;
+  bool negated, is_int;
+  thvar_t x;
+
+  b = &solver->buffer;
+
+  if (poly_buffer_is_zero(b) || poly_buffer_is_pos_constant(b)) {
+    reset_poly_buffer(b);
+    return true_literal;
+  }
+
+  if (poly_buffer_is_neg_constant(b)) {
+    reset_poly_buffer(b);
+    return false_literal;
+  }
+
+  is_int = all_integer_vars(solver);
+  if (is_int) {
+    negated = poly_buffer_make_nonconstant_integral(b);
+    x = decompose_and_get_dynamic_var(solver);
+    if (negated) {
+      q_floor(&solver->constant);
+    } else {
+      q_ceil(&solver->constant);
+    }
+  } else {
+    negated = poly_buffer_make_monic(b);
+    x = decompose_and_get_dynamic_var(solver);
+    assert(! arith_var_is_int(&solver->vtbl, x));
+  }
+
+  // if negated is true, the atom is (x <= constant)
+  // otherwise, it's (x >= constant)
+  if (negated) {
+    return mk_dynamic_le_atom(solver, x, is_int, &solver->constant);
+  } else {
+    return mk_dynamic_ge_atom(solver, x, is_int, &solver->constant);
+  }
+}
+
+
+/*
+ * Literal for an assumption: x >= a
+ * - x is an existing variable
+ * - is_int indicates whether x is an integer
+ */
+static literal_t assumed_lb(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *a) {
+  int32_t k;
+  literal_t l;
+
+  k = arith_var_lower_index(&solver->vtbl, x);
+  if (k >= 0 && xq_eq_q(solver->bstack.bound + k, a)) {
+    // this is the current bound on x
+    if (solver->decision_level == solver->base_level) {
+      return true_literal;
+    }
+    if (solver->bstack.tag[k] == ARITH_AXIOM_LB) {
+      return true_literal;
+    }
+    if (solver->bstack.tag[k] == ARITH_ASSERTED_LB) {
+      return solver->bstack.expl[k].lit;
+    }
+  }
+
+  // in all other cases, create a new atom
+  l = mk_dynamic_ge_atom(solver, x, is_int, a);
+  reset_prop_ptr(solver);
+
+  return l;
+}
+
+
+/*
+ * Same thing for an assumption x <= a
+ */
+static literal_t assumed_ub(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *a) {
+  int32_t k;
+  literal_t l;
+
+  k = arith_var_upper_index(&solver->vtbl, x);
+  if (k >= 0 && xq_eq_q(solver->bstack.bound + k, a)) {
+    // this is the current bound on x
+    if (solver->decision_level == solver->base_level) {
+      return true_literal;
+    }
+    if (solver->bstack.tag[k] == ARITH_AXIOM_UB) {
+      return true_literal;
+    }
+    if (solver->bstack.tag[k] == ARITH_ASSERTED_UB) {
+      return solver->bstack.expl[k].lit;
+    }
+  }
+
+  // in all other case, create a new atom
+  l = mk_dynamic_le_atom(solver, x, is_int, a);
+  reset_prop_ptr(solver);
+
+  return l;
+}
+
+
+
+/*
+ * Add a Gomory cut
+ * - simplex->buffer contains a polynomial p
+ * - the cut is (p >= 0)
+ * - this cut is implied by bounds on the variables stored in *c
+ *
+ * In general, we add a clause of the form
+ *   (x_1 >= l_1) /\ ... /\ (x_k >= l_k) /\ ... (x_n <= u_n) => (p >= 0).
+ *
+ */
+static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
+  ivector_t *v;
+  uint32_t i, n, x;
+  bool is_int;
+  literal_t l, cut;
+
+  cut = mk_gomory_atom(solver);
+
+#if TRACE
+  printf("---> cut atom:\n");
+  printf("     ");
+  print_simplex_atomdef(stdout, solver, var_of(cut));
+  printf("\n");
+#endif
+
+  v = &solver->expl_vector;
+  ivector_reset(v);
+
+  if (solver->decision_level > solver->base_level) {
+    n = g->nelems;
+    for (i=0; i<n; i++) {
+      x = g->var[i];
+      is_int = gomory_var_is_int(g, i);
+      assert(is_int == arith_var_is_int(&solver->vtbl, x));
+      if (gomory_bound_is_lb(g, i)) {
+	l = assumed_lb(solver, x, is_int, g->bound + i);
+      } else {
+	l = assumed_ub(solver, x, is_int, g->bound + i);
+      }
+      if (l != true_literal) {
+	ivector_push(v, not(l));
+      }
+    }
+  }
+
+  ivector_push(v, cut);
+  
+  add_clause(solver->core, v->size, v->data);
+
+#if TRACE
+  printf("---> Gomory clause:\n");
+  print_litarray(stdout, v->size, v->data);
+  printf("\n");
+  n = v->size - 1;
+  if (n > 0) {
+    for (i=0; i<n; i++) {
+      printf("     ");
+      print_simplex_atomdef(stdout, solver, var_of(v->data[i]));
+    }
+  }
+  printf("---> cut atom:\n");
+  printf("     ");
+  print_simplex_atomdef(stdout, solver, var_of(cut));
+  printf("\n");
+#endif
+
+
+}
+
+
+/*
+ * Try a Gomory cut based on basic variable x
+ * - x must be an integer variable with a non-integer value
+ */
+static bool try_gomory_cut_for_var(simplex_solver_t *solver, gomory_vector_t *g, thvar_t x) {
+  arith_vartable_t *vtbl;
+  row_t *row;
+  rational_t *a;
+  xrational_t *val;
+  uint32_t i, n;
+  int32_t r;
+  thvar_t y;
+  bool is_int;
+  bool is_lb;
+
+  assert(arith_var_is_int(&solver->vtbl, x) && 
+	 !arith_var_value_is_int(&solver->vtbl, x));
+
+  vtbl = &solver->vtbl;
+
+  r = matrix_basic_row(&solver->matrix, x);
+  assert(r >= 0);
+  row = matrix_row(&solver->matrix, r);
+
+  n = row->size;
+  for (i=0; i<n; i++) {
+    y = row->data[i].c_idx;
+    if (y >= 0) {
+      a = &row->data[i].coeff;
+      is_int = arith_var_is_int(vtbl, y);
+      if (! (is_int && q_is_integer(a))) {
+	/*
+	 * Process term a * y where either y is not an integer variable
+	 * or a is not an integer constant.
+	 */
+	assert(y != x);
+	// the bound on y is y's value
+	val = arith_var_value(vtbl, y);
+	if (! xq_is_rational(val)) {
+	  // can't handle non-rational bounds
+	  return false;
+	}
+	is_lb = variable_at_lower_bound(solver, y);
+	gomory_vector_add_elem(g, y, a, &val->main, is_int, is_lb);
+
+#if TRACE
+	print_simplex_var(stdout, solver, y);
+	printf(" = ");
+	print_simplex_var_value(stdout, solver, y);
+	printf("; ");
+	print_simplex_var_bounds(stdout, solver, y);
+	fflush(stdout);
+#endif
+      }
+    }
+  }
+
+  /*
+   * Build the cut: terms >= bound
+   * - terms are stored in solver->buffer
+   * - the bound is stored in solver->aux
+   */
+  if (make_gomory_cut(g, &solver->buffer)) {
+#if TRACE
+    printf("---> Gomory cut:\n");    
+    print_simplex_buffer(stdout, solver);
+    printf(" >= 0\n");
+    fflush(stdout);
+#endif
+    // deal with it
+    add_gomory_cut(solver, g);
+  }
+
+  // cleanup
+  reset_poly_buffer(&solver->buffer);
+
+  return true;
+}
+
+/*
+ * Scan variables of v and try a Gomory cut for them
+ * - each element of v must be a basic integer variable
+ *   with a non-integer value.
+ * - max_cuts = bound on the total number of cuts
+ * - return the number of cuts added
+ */
+static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v, uint32_t max_cuts) {
+  gomory_vector_t cut;
+  uint32_t i, n, num_cuts;
+
+#if TRACE
+  printf("\nTRY GOMORY CUTS: dlevel = %"PRIu32", base_level = %"PRIu32"\n", solver->decision_level, solver->base_level);
+  fflush(stdout);
+#endif
+
+  init_gomory_vector(&cut);
+  num_cuts = 0;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    num_cuts += try_gomory_cut_for_var(solver, &cut, v->data[i]);
+    if (num_cuts >= max_cuts) break;
+  }
+  delete_gomory_vector(&cut);
+
+  return num_cuts;  
+}
+
+#endif
+
+
 
 /*
  * FINAL CHECK
@@ -8502,7 +8847,7 @@ static bool simplex_intfeas_iter_strengthening(simplex_solver_t *solver) {
 static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
-  uint32_t nbounds;
+  uint32_t nbounds, bb_score;
 
 #if TRACE_BB
   printf("\n--- make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
@@ -8582,12 +8927,12 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   /*
-   * Create a branch atom
+   * Create a branch atom or add gomory cuts
    */
-  x = select_branch_variable(solver, v);
+  x = select_branch_variable(solver, v, &bb_score);
   tprintf(solver->core->trace, 10,
 	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
-	  v->size, x, simplex_branch_score(solver, x));
+	  v->size, x, bb_score);
   create_branch_atom(solver, x);
 
 #if TRACE_INTFEAS
@@ -8595,6 +8940,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   printf("\n\nDONE\n");
   fflush(stdout);
 #endif
+
   ivector_reset(v);
 
   assert(x != null_thvar);

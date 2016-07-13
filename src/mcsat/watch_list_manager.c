@@ -244,3 +244,7 @@ void watch_list_manager_print(watch_list_manager_t* wlm, FILE* out) {
   }
 
 }
+
+uint32_t watch_list_manager_size(const watch_list_manager_t* wlm) {
+  return wlm->all_lists.size;
+}

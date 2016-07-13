@@ -121,6 +121,9 @@ typedef enum yices_param {
   PARAM_EF_GEN_MODE,
   PARAM_EF_MAX_SAMPLES,
   PARAM_EF_MAX_ITERS,
+  // mcsat options
+  PARAM_MCSAT_NRA_MGCD,
+  PARAM_MCSAT_NRA_NLSAT,
   // error
   PARAM_UNKNOWN
 } yices_param_t;

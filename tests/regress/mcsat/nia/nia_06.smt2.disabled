@@ -1,0 +1,8 @@
+(set-logic QF_NIA)
+(set-info :smt-lib-version 2.0)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (not (= (mod (- x y) 10) 0)))
+(assert (= (mod x 10) (mod y 10)))
+(check-sat)
+(exit)
