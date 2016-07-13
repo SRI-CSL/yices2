@@ -101,7 +101,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
-  ctx->request_term_notification_by_kind(ctx, ARITH_DIV);
+  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
   ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR);
 
@@ -248,13 +248,13 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     composite_term_t* mod = arith_mod_term_desc(terms, t);
     term_t a = mod->arg[0];
     term_t b = mod->arg[1];
-    term_t t_div = arith_div(terms, a, b);
+    term_t t_div = arith_idiv(terms, a, b);
     variable_db_get_variable(nra->ctx->var_db, t_div);
     return;
   }
-  if (t_kind == ARITH_DIV) {
+  if (t_kind == ARITH_IDIV) {
     // Make sure that mod has a variable
-    composite_term_t* div = arith_div_term_desc(terms, t);
+    composite_term_t* div = arith_idiv_term_desc(terms, t);
     term_t q = t;
     term_t m = div->arg[0];
     term_t n = div->arg[1];

@@ -64,8 +64,8 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return arith_bineq_atom_desc(terms, t);
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
-  case ARITH_DIV:          // division: (div x y) as defined in SMT-LIB 2
-    return arith_div_term_desc(terms, t);
+  case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
+    return arith_idiv_term_desc(terms, t);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     return arith_mod_term_desc(terms, t);
   case DISTINCT_TERM:
@@ -103,11 +103,11 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case APP_TERM:           // application of an uninterpreted function
     assert(n > 1);
     return mk_application(tm, children[0], n-1, children + 1);
-  case ARITH_DIV:          // division: (div x y) as defined in SMT-LIB 2
+  case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
     assert(n == 2);
     // We use direct construction, since tm assumes it's division by constant
-    // TODO: return mk_arith_div(tm, children[0], children[1]);
-    return arith_div(terms, children[0], children[1]);
+    // TODO: return mk_arith_idiv(tm, children[0], children[1]);
+    return arith_idiv(terms, children[0], children[1]);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     assert(n == 2);
     // We use direct construction, since tm assumes it's division by constant
@@ -374,7 +374,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     // FOLLOWING ARE UNINTEPRETED, SO WE PURIFY THE ARGUMENTS
 
     case APP_TERM:           // application of an uninterpreted function
-    case ARITH_DIV:          // division: (div x y) as defined in SMT-LIB 2
+    case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);

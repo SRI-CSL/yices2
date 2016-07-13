@@ -776,13 +776,13 @@ static term_t subst_arith_bineq(term_subst_t *subst, composite_term_t *d) {
 }
 
 // (div t1 t2)
-static term_t subst_arith_div(term_subst_t *subst, composite_term_t *d) {
+static term_t subst_arith_idiv(term_subst_t *subst, composite_term_t *d) {
   term_t t1, t2;
 
   assert(d->arity == 2);
   t1 = get_subst(subst, d->arg[0]);
   t2 = get_subst(subst, d->arg[1]);
-  return mk_arith_div(subst->mngr, t1, t2);
+  return mk_arith_idiv(subst->mngr, t1, t2);
 }
 
 // (mod t1 t2)
@@ -1187,8 +1187,8 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
     result = subst_arith_bineq(subst, arith_bineq_atom_desc(terms, t));
     break;
 
-  case ARITH_DIV:
-    result = subst_arith_div(subst, arith_div_term_desc(terms, t));
+  case ARITH_IDIV:
+    result = subst_arith_idiv(subst, arith_idiv_term_desc(terms, t));
     break;
 
   case ARITH_MOD:

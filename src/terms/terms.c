@@ -1639,7 +1639,7 @@ static void delete_term(term_table_t *table, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
-  case ARITH_DIV:
+  case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
@@ -1879,7 +1879,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
+    case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
     case ARITH_ROOT_ATOM:
@@ -2537,8 +2537,8 @@ term_t arith_abs(term_table_t *table, term_t x) {
 /*
  * (div x y): the result has type int
  */
-term_t arith_div(term_table_t *table, term_t x, term_t y) {
-  return binary_term(table, ARITH_DIV, int_type(table->types), x, y);
+term_t arith_idiv(term_table_t *table, term_t x, term_t y) {
+  return binary_term(table, ARITH_IDIV, int_type(table->types), x, y);
 }
 
 /*
@@ -3420,7 +3420,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
-  case ARITH_DIV:
+  case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:

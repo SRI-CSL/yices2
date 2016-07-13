@@ -430,7 +430,7 @@ extern term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms
  * - these are to support SMT-LIB 2 operators
  */
 extern term_t mk_arith_is_int(term_manager_t *manager, term_t t);              // is_int t
-extern term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2);     // (div t1 t2)
+extern term_t mk_arith_idiv(term_manager_t *manager, term_t t1, term_t t2);     // (div t1 t2)
 extern term_t mk_arith_mod(term_manager_t *manager, term_t t1, term_t t2);     // (mod t1 t2)
 extern term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2); // t1 divides t2
 

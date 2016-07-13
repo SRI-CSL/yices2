@@ -264,9 +264,9 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
 
 
 /*
- * Arithmetic term: (div v1 v2)
+ * Arithmetic term: (div v1 v2) (integer division)
  */
-static value_t eval_arith_div(evaluator_t *eval, composite_term_t *d) {
+static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
   rational_t q;
   value_t v1, v2, o;
   
@@ -1235,8 +1235,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
         break;
 
-      case ARITH_DIV:
-	v = eval_arith_div(eval, arith_div_term_desc(terms, t));
+      case ARITH_IDIV:
+	v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));
 	break;
 
       case ARITH_MOD:

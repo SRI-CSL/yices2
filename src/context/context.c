@@ -2476,9 +2476,9 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
         u = map_apply_to_eterm(ctx, app_term_desc(terms, r), tau);
         break;
 
-      case ARITH_DIV:
+      case ARITH_IDIV:
 	assert(is_integer_type(tau));
-	x = map_div_to_arith(ctx, arith_div_term_desc(terms, r));
+	x = map_div_to_arith(ctx, arith_idiv_term_desc(terms, r));
 	u = translate_arithvar_to_eterm(ctx, x, tau); // (div t u) has type int
 	break;
 
@@ -2703,8 +2703,8 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       assert(x != null_thvar);
       break;
 
-    case ARITH_DIV:
-      x = map_div_to_arith(ctx, arith_div_term_desc(terms, r));
+    case ARITH_IDIV:
+      x = map_div_to_arith(ctx, arith_idiv_term_desc(terms, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
       break;
 

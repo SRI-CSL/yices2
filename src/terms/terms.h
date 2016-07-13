@@ -75,13 +75,17 @@
  * July 2012: Added lambda terms.
  *
  * June 2015: div/mod/abs and friends
+ *
+ * July 2016: division
  */
 
 /*
  * The internal terms include:
+ *
  * 1) constants:
  *    - constants of uninterpreted/scalar
  *    - global uninterpreted constants
+ *
  * 2) generic terms
  *    - ite c t1 t2
  *    - eq t1 t2
@@ -90,22 +94,26 @@
  *    - select i tuple
  *    - update f t1 ... t_n v
  *    - distinct t1 ... t_n
+ *
  * 3) variables and quantifiers
  *    - variables are identified by their type and an integer index.
  *    - quantified formulas are of the form (forall v_1 ... v_n term)
  *      where each v_i is a variable
  *    - lambda terms are of the form (lambda v_1 ... v_n term) where
  *      each v_i is a variable
+ *
  * 4) boolean operators
  *    - or t1 ... t_n
  *    - xor t1 ... t_n
  *    - bit i u (extract bit i of a bitvector term u)
+ *
  * 6) arithmetic terms and atoms
  *    - terms are either rational constants, power products, or
  *      polynomials with rational coefficients
  *    - atoms are either of the form (t == 0) or (t >= 0)
  *      where p is a term.
  *    - atoms a x - a y == 0 are rewritten to (x = y)
+ *
  * 7) bitvector terms and atoms
  *    - bitvector constants
  *    - power products
@@ -252,7 +260,7 @@ typedef enum {
   OR_TERM,            // n-ary OR
   XOR_TERM,           // n-ary XOR
   ARITH_BINEQ_ATOM,   // equality: (t1 == t2)  (between two arithmetic terms)
-  ARITH_DIV,          // division: (div x y) as defined in SMT-LIB 2
+  ARITH_IDIV,         // integer division: (div x y) as defined in SMT-LIB 2
   ARITH_MOD,          // remainder: (mod x y) is y - x * (div x y)
   ARITH_DIVIDES_ATOM, // divisibility test: (divides x y) is true if y = n * x for an integer n
   BV_ARRAY,           // array of boolean terms
@@ -674,7 +682,7 @@ extern term_t arith_is_int(term_table_t *table, term_t x);
 extern term_t arith_floor(term_table_t *table, term_t x);
 extern term_t arith_ceil(term_table_t *table, term_t x);
 extern term_t arith_abs(term_table_t *table, term_t x);
-extern term_t arith_div(term_table_t *table, term_t x, term_t y);
+extern term_t arith_idiv(term_table_t *table, term_t x, term_t y);
 extern term_t arith_mod(term_table_t *table, term_t x, term_t y);
 extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
 
@@ -1501,8 +1509,8 @@ static inline composite_term_t *arith_bineq_atom_desc(term_table_t *table, term_
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_div_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_DIV);
+static inline composite_term_t *arith_idiv_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_IDIV);
   return composite_for_idx(table, index_of(t));
 }
 

@@ -3384,7 +3384,7 @@ EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  return mk_arith_div(&manager, t1, t2);
+  return mk_arith_idiv(&manager, t1, t2);
 }
 
 EXPORTED term_t yices_imod(term_t t1, term_t t2) {

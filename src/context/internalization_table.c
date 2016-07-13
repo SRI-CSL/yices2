@@ -584,7 +584,7 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
+    case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:

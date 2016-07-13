@@ -557,14 +557,14 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
 }
 
 // (div t1 t2)
-static term_t lit_collector_visit_arith_div(lit_collector_t *collect, term_t t, composite_term_t *div) {
+static term_t lit_collector_visit_arith_idiv(lit_collector_t *collect, term_t t, composite_term_t *div) {
   term_t t1, t2;
 
   assert(div->arity == 2);
   t1 = lit_collector_visit(collect, div->arg[0]);
   t2 = lit_collector_visit(collect, div->arg[1]);
   if (t1 != div->arg[0] || t2 != div->arg[1]) {
-    t = mk_arith_div(collect->manager, t1, t2);
+    t = mk_arith_idiv(collect->manager, t1, t2);
   }
 
   return t;
@@ -1364,8 +1364,8 @@ static term_t lit_collector_visit(lit_collector_t *collect, term_t t) {
       u = lit_collector_visit_arith_bineq(collect, t, arith_bineq_atom_desc(terms, t));
       break;
 
-    case ARITH_DIV:
-      u = lit_collector_visit_arith_div(collect, t, arith_div_term_desc(terms, t));
+    case ARITH_IDIV:
+      u = lit_collector_visit_arith_idiv(collect, t, arith_idiv_term_desc(terms, t));
       break;
       
     case ARITH_MOD:

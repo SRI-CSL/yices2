@@ -3091,7 +3091,7 @@ static term_t arith_constant_mod(term_manager_t *manager, rational_t *q1, ration
  *    (mod x  1) -->   0 if x is an integer
  *    (mod x -1) -->   0 if x is an integer
  */
-term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
+term_t mk_arith_idiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
   rational_t *q;
   term_t t;
@@ -3116,7 +3116,7 @@ term_t mk_arith_div(term_manager_t *manager, term_t t1, term_t t2) {
 
   // Default case
   if (t == NULL_TERM) {
-    t = arith_div(tbl, t1, t2);
+    t = arith_idiv(tbl, t1, t2);
   }
 
   return t;

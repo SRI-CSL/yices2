@@ -1085,7 +1085,7 @@ static term_t test_arith_abs(type_t tau, term_t a, char *name) {
   return x;
 }
 
-static term_t test_arith_div(term_t a, term_t b, char *name) {
+static term_t test_arith_idiv(term_t a, term_t b, char *name) {
   term_t x, y;
 
   printf("Testing: (div ");
@@ -1094,12 +1094,12 @@ static term_t test_arith_div(term_t a, term_t b, char *name) {
   print_term_name(stdout, &terms, b);
   printf("): ");
 
-  x = arith_div(&terms, a, b);
-  if (! check_composite2(x, ARITH_DIV, int_type(&types), a, b)) {
+  x = arith_idiv(&terms, a, b);
+  if (! check_composite2(x, ARITH_IDIV, int_type(&types), a, b)) {
     constructor_failed();
   }
 
-  y = arith_div(&terms, a, b);
+  y = arith_idiv(&terms, a, b);
   if (y != x) {
     hash_consing_failed();
   }
@@ -2050,10 +2050,10 @@ static void test_composites(void) {
   (void) test_arith_abs(type[1], unint[2], NULL); // integer
   (void) test_arith_abs(type[2], unint[4], NULL); // real
 
-  (void) test_arith_div(unint[2], unint[3], NULL);
-  (void) test_arith_div(unint[2], unint[4], NULL);
-  (void) test_arith_div(unint[5], unint[3], NULL);
-  (void) test_arith_div(unint[5], unint[4], NULL);
+  (void) test_arith_idiv(unint[2], unint[3], NULL);
+  (void) test_arith_idiv(unint[2], unint[4], NULL);
+  (void) test_arith_idiv(unint[5], unint[3], NULL);
+  (void) test_arith_idiv(unint[5], unint[4], NULL);
 
   (void) test_arith_mod(type[1], unint[2], unint[3], NULL); // integer
   (void) test_arith_mod(type[2], unint[2], unint[4], NULL); // real

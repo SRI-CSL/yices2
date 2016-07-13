@@ -743,7 +743,7 @@ static bool visit(context_t *ctx, term_t t) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
+    case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:
@@ -1356,7 +1356,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
       case UPDATE_TERM:
       case TUPLE_TERM:
       case LAMBDA_TERM:
-      case ARITH_DIV:
+      case ARITH_IDIV:
       case ARITH_MOD:
       case BV_ARRAY:
       case BV_DIV:

@@ -437,7 +437,7 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
-  case ARITH_DIV:
+  case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:

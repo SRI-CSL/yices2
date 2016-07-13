@@ -718,7 +718,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
-    case ARITH_DIV:
+    case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
     case BV_ARRAY:

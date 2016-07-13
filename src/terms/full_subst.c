@@ -305,7 +305,7 @@ static bool fsubst_explore(full_subst_t *subst, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
-  case ARITH_DIV:
+  case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
   case BV_ARRAY:
@@ -785,13 +785,13 @@ static term_t full_subst_arith_bineq(full_subst_t *subst, composite_term_t *eq) 
   return mk_arith_eq(subst->mngr, a, b);
 }
 
-static term_t full_subst_arith_div(full_subst_t *subst, composite_term_t *div) {
+static term_t full_subst_arith_idiv(full_subst_t *subst, composite_term_t *div) {
   term_t a, b;
 
   assert(div->arity == 2);
   a = full_subst(subst, div->arg[0]);
   b = full_subst(subst, div->arg[1]);
-  return mk_arith_div(subst->mngr, a, b);
+  return mk_arith_idiv(subst->mngr, a, b);
 }
 
 static term_t full_subst_arith_mod(full_subst_t *subst, composite_term_t *mod) {
@@ -1219,8 +1219,8 @@ static term_t full_subst_composite(full_subst_t *subst, term_t t) {
     s = full_subst_arith_bineq(subst, arith_bineq_atom_desc(terms, t));
     break;
 
-  case ARITH_DIV:
-    s = full_subst_arith_div(subst, arith_div_term_desc(terms, t));
+  case ARITH_IDIV:
+    s = full_subst_arith_idiv(subst, arith_idiv_term_desc(terms, t));
     break;
 
   case ARITH_MOD:
