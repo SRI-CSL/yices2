@@ -66,7 +66,10 @@ solver of Yices.
    | QF_LRA     | Linear Real Arithmetic                       | Yes        |
    |            |                                              |            |
    +------------+----------------------------------------------+------------+
-   | QF_NIA     | Nonlinear Integer Arithmetic                 | No         |
+   | QF_NIA     | Nonlinear Integer Arithmetic                 | Yes        |
+   |            |                                              |            |
+   +------------+----------------------------------------------+------------+
+   | QF_NIRA    | Mixed Nonlinear Arithmetic                   | Yes        |
    |            |                                              |            |
    +------------+----------------------------------------------+------------+
    | QF_NRA     | Nonlinear Real Arithmetic                    | Yes        |
@@ -90,10 +93,13 @@ solver of Yices.
    | QF_UFLRA   | Uninterpreted Functions and                  | Yes        |
    |            | Linear Real Arithmetic                       |            |
    +------------+----------------------------------------------+------------+
-   | QF_UFNIA   | Uninterpreted Functions and                  | No         |
+   | QF_UFNIA   | Uninterpreted Functions and                  | Yes        |
    |            | Nonlinear Integer Arithmetic                 |            |
    +------------+----------------------------------------------+------------+
-   | QF_UFNRA   | Uninterpreted Functions and                  | No         |
+   | QF_UFNIRA  | Uninterpreted Functions and                  | Yes        |
+   |            | Mixed Nonlinear Arithmetic                   |            |
+   +------------+----------------------------------------------+------------+
+   | QF_UFNRA   | Uninterpreted Functions and                  | Yes        |
    |            | Nonlinear Real Arithmetic                    |            |
    +------------+----------------------------------------------+------------+
    | UFLRA      | Uninterpreted Functions,                     | No         |

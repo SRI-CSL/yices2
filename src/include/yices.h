@@ -1083,8 +1083,10 @@ __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, const term_t t[]);
 /*
  * Division:  t1/t2
  *
- * t1 must be an arithmetic term
- * t2 must be a non-zero arithmetic constant
+ * t1 and t2 must be arithmetic terms
+ *
+ * NOTE: Until Yices 2.5.0, t2 was required to be a non-zero constant.
+ * This is no longer the case: t2 can be any arithmetic term.
  *
  * Return NULL_TERM if there's an error
  *
@@ -1092,14 +1094,9 @@ __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, const term_t t[]);
  * if t1 or t2 is not valid
  *    code = INVALID_TERM
  *    term1 = t1 or t2
- * if t1 is not an arithmetic term
+ * if t1 or t2 is not an arithmetic term
  *    code = ARITHTERM_REQUIRED
- *    term1 = t1
- * if t2 is not an arithmetic constant
- *    code = ARITHCONSTANT_REQUIRED
- *    term1 = t2
- * if t2 is zero
- *    code = DIVISION_BY_ZERO
+ *    term1 = t1 or t2
  */
 __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
 
@@ -1107,12 +1104,13 @@ __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
 /*
  * Integer division and modulo
  *
- * t1 must an arithmetic term
- * t2 must be a non-zero zero arithmetic constant
+ * t1 and t2 must arithmetic terms
  *
  * The semantics is as defined in SMT-LIB 2.0 (theory Ints),
- * except that t1 and t2 are not required to be integer and that
- * we don't allow t2 to be zero.
+ * except that t1 and t2 are not required to be integer.
+ *
+ * NOTE: Until Yices 2.5.0, t2 was required to be a non-zero constant.
+ * This is no longer the case: t2 can be any arithmetic term.
  *
  * The functions (div t1 t2) and (mod t1 t2) satisfy the following
  * constraints:
@@ -1126,14 +1124,9 @@ __YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
  * if t1 or t2 is not valid
  *    code = INVALID_TERM
  *    term1 = t1 or t2
- * if t1 is not an arithmetic term
+ * if t1 or t2 is not an arithmetic term
  *    code = ARITHTERM_REQUIRED
- *    term1 = t1
- * if t2 is not an arithmetic constant
- *    code = ARITHCONSTANT_REQUIRED
- *    term1 = t2
- * if t2 is zero
- *    code = DIVISION_BY_ZERO
+ *    term1 = t1 or t2
  */
 __YICES_DLLSPEC__ extern term_t yices_idiv(term_t t1, term_t t2);
 __YICES_DLLSPEC__ extern term_t yices_imod(term_t t1, term_t t2);

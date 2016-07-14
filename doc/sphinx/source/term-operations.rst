@@ -900,23 +900,12 @@ Arithmetic Terms
  
    **Parameters**
 
-   - *t1* must be an arithmetic term
+   - *t1* amd *t2* must be arithmetic terms
 
-   - *t2* must be a non-zero arithmetic constant
 
-   Yices does not support division by non-constant terms.
-
-   **Error report**
-
-   - If *t2* is not a constant:
-
-     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
-
-     -- term1 := *t2*
-
-   - If *t2* is zero:
-
-     -- error code: :c:enum:`DIVISION_BY_ZERO`
+   Until version 2.5.0, Yices supported only division by non-zero constants.
+   Division by arbitrary arithmetic terms is now supported (and can be handled
+   by Yices's solver for non-linear arithmetic).
 
 
 .. c:function:: term_t yices_sum(uint32_t n, const term_t t[])
@@ -1091,9 +1080,7 @@ Arithmetic Terms
 
    **Parameters**
 
-   - *t1* must be an arithmetic term
-
-   - *t2* must be a non-zero arithmetic constant
+   - *t1* and *t2* msut be arithmetic terms
 
    The resulting term has type integer.
 
@@ -1102,15 +1089,9 @@ Arithmetic Terms
    If *t2* is negative, then *(div t1 t2)* is equal to *(ceil (/ t1 t2))*.
 
 
-   **Error report**
-
-   - If *t2* is not an arithmetic constant:
-
-     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
-
-   - If *t2* is zero:
-   
-     -- error code: :c:enum:`DIVISION_BY_ZERO`
+   Until version 2.5.0, Yices supported only division by non-zero constants.
+   Division by arbitrary arithmetic terms is now supported (and can be handled
+   by Yices's solver for non-linear arithmetic).
 
 
 .. c:function:: term_t yices_imod(term_t t1, term_t t2)
@@ -1119,21 +1100,16 @@ Arithmetic Terms
 
    **Parameters**
 
-   - *t1* must be an arithmetic term
-
-   - *t2* must be a non-zero arithmetic constant
+   - *t1* and *t2* must be arithmetic terms
 
    The resulting term is equal to *(- t1 (\* t2 (div t1 t2)))*.
 
-   **Error report**
+   **Note**
 
-   - If *t2* is not an arithmetic constant:
+   - Until version 2.5.0, Yices supported only division by non-zero constants.
+     Division by arbitrary arithmetic terms is now supported (and can be handled
+     by Yices's solver for non-linear arithmetic).
 
-     -- error code: :c:enum:`ARITHCONSTANT_REQUIRED`
-
-   - If *t2* is zero:
-   
-     -- error code: :c:enum:`DIVISION_BY_ZERO`
 
 
 .. c:function:: term_t yices_arith_eq_atom(term_t t1, term_t t2)

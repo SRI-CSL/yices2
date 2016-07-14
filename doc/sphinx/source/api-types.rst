@@ -141,6 +141,7 @@ Yices Terms
       YICES_ABS,
       YICES_CEIL,
       YICES_FLOOR,
+      YICES_RDIV,
       YICES_IDIV,
       YICES_IMOD,
       YICES_IS_INT_ATOM,
@@ -292,6 +293,10 @@ Yices Terms
    .. c:enum:: YICES_FLOOR
 
       Floor (i.e., rounding down to the nearest integer)
+
+   .. c:enum:: YICES_RDIV
+
+      Division
 
    .. c:enum:: YICES_IDIV
 
