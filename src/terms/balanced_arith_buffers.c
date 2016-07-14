@@ -1040,7 +1040,7 @@ void rba_buffer_negate(rba_buffer_t *b) {
  * Multiply all coefficients by constant a
  */
 // a must be non-zero here
-static void mul_const_tree(rba_buffer_t *b, rational_t *a, uint32_t x) {
+static void mul_const_tree(rba_buffer_t *b, const rational_t *a, uint32_t x) {
   assert(x < b->num_nodes);
   if (x != rba_null) {
     q_mul(&b->mono[x].coeff, a);
@@ -1049,7 +1049,7 @@ static void mul_const_tree(rba_buffer_t *b, rational_t *a, uint32_t x) {
   }
 }
 
-void rba_buffer_mul_const(rba_buffer_t *b, rational_t *a) {
+void rba_buffer_mul_const(rba_buffer_t *b, const rational_t *a) {
   uint32_t i, n;
 
   if (q_is_zero(a)) {
@@ -1069,7 +1069,7 @@ void rba_buffer_mul_const(rba_buffer_t *b, rational_t *a) {
 /*
  * Divide all coefficients by a non-zero constant
  */
-void rba_buffer_div_const(rba_buffer_t *b, rational_t *a) {
+void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a) {
   rational_t inv_a;
   uint32_t i, n;
 
@@ -1171,7 +1171,7 @@ void rba_buffer_mul_negpp(rba_buffer_t *b, pprod_t *r) {
  * Multiply by a * r
  */
 // a must be non-zero here
-static void mul_mono_tree(rba_buffer_t *b, rational_t *a, pprod_t *r, uint32_t x) {
+static void mul_mono_tree(rba_buffer_t *b, const rational_t *a, pprod_t *r, uint32_t x) {
   assert(x < b->num_nodes);
 
   if (x != rba_null) {
@@ -1182,7 +1182,7 @@ static void mul_mono_tree(rba_buffer_t *b, rational_t *a, pprod_t *r, uint32_t x
   }
 }
 
-void rba_buffer_mul_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+void rba_buffer_mul_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
   pprod_table_t *tbl;
   mono_t *p;
   uint32_t n;
@@ -1210,7 +1210,7 @@ void rba_buffer_mul_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
 /*
  * Add or subtract a * r when a is non-zero
  */
-static void rba_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+static void rba_add_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
   uint32_t i;
   bool new_node;
 
@@ -1224,7 +1224,7 @@ static void rba_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
   }
 }
 
-static void rba_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+static void rba_sub_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
   uint32_t i;
   bool new_node;
 
@@ -1243,7 +1243,7 @@ static void rba_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
  * Add or subtract a * c * r
  * - a and c must be non-zero
  */
-static void rba_addmul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod_t *r) {
+static void rba_addmul_mono(rba_buffer_t *b, const rational_t *a, const rational_t *c, pprod_t *r) {
   uint32_t i;
   bool new_node;
 
@@ -1257,7 +1257,7 @@ static void rba_addmul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod
   }
 }
 
-static void rba_submul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod_t *r) {
+static void rba_submul_mono(rba_buffer_t *b, const rational_t *a, const rational_t *c, pprod_t *r) {
   uint32_t i;
   bool new_node;
 
@@ -1277,23 +1277,23 @@ static void rba_submul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod
 /*
  * Add or subtract monomial a * r
  */
-void rba_buffer_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+void rba_buffer_add_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
   if (q_is_nonzero(a)) {
     rba_add_mono(b, a, r);
   }
 }
 
-void rba_buffer_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+void rba_buffer_sub_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
   if (q_is_nonzero(a)) {
     rba_sub_mono(b, a, r);
   }
 }
 
-void rba_buffer_add_const(rba_buffer_t *b, rational_t *a) {
+void rba_buffer_add_const(rba_buffer_t *b, const rational_t *a) {
   rba_buffer_add_mono(b, a, empty_pp);
 }
 
-void rba_buffer_sub_const(rba_buffer_t *b, rational_t *a) {
+void rba_buffer_sub_const(rba_buffer_t *b, const rational_t *a) {
   rba_buffer_sub_mono(b, a, empty_pp);
 }
 
@@ -1405,7 +1405,7 @@ void rba_buffer_sub_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
  * - the two buffers must have the same ptbl
  * - b1 must be distinct from b
  */
-static void addmul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, uint32_t x) {
+static void addmul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, uint32_t x) {
   assert(x < b1->num_nodes);
   if (x != rba_null) {
     rba_addmul_mono(b, a, &b1->mono[x].coeff, b1->mono[x].prod);
@@ -1414,7 +1414,7 @@ static void addmul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, 
   }
 }
 
-void rba_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a) {
+void rba_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a) {
   mono_t *p;
   uint32_t n;
 
@@ -1441,7 +1441,7 @@ void rba_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a
  * - the two buffers must have the same ptbl
  * - b1 must be distinct from b
  */
-static void submul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, uint32_t x) {
+static void submul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, uint32_t x) {
   assert(x < b1->num_nodes);
   if (x != rba_null) {
     rba_submul_mono(b, a, &b1->mono[x].coeff, b1->mono[x].prod);
@@ -1450,7 +1450,7 @@ static void submul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, 
   }
 }
 
-void rba_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a) {
+void rba_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a) {
   mono_t *p;
   uint32_t n;
 
@@ -1563,7 +1563,7 @@ void rba_buffer_sub_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *
  * Add a * r * b1 to b
  * - b1 must be different from b
  */
-static void addmul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r, uint32_t x) {
+static void addmul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r, uint32_t x) {
   pprod_t *q;
 
   assert(x < b1->num_nodes);
@@ -1576,7 +1576,7 @@ static void addmul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, p
   }
 }
 
-void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r) {
+void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r) {
   pprod_table_t *tbl;
   mono_t *p;
   pprod_t *q;
@@ -1608,7 +1608,7 @@ void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rationa
  * Add -a * r * b1 to b
  * - b1 must be different from b
  */
-static void submul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r, uint32_t x) {
+static void submul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r, uint32_t x) {
   pprod_t *q;
 
   assert(x < b1->num_nodes);
@@ -1621,7 +1621,7 @@ static void submul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, p
   }
 }
 
-void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r) {
+void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r) {
   pprod_table_t *tbl;
   mono_t *p;
   pprod_t *q;
@@ -1787,7 +1787,7 @@ void rba_buffer_sub_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp) {
 /*
  * Add a * poly to buffer b
  */
-void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a) {
   if (q_is_nonzero(a)) {
     while (poly->var < max_idx) {
       rba_addmul_mono(b, a, &poly->coeff, *pp);
@@ -1801,7 +1801,7 @@ void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, ppro
 /*
  * Subtract a * poly from b
  */
-void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a) {
   if (q_is_nonzero(a)) {
     while (poly->var < max_idx) {
       rba_submul_mono(b, a, &poly->coeff, *pp);
@@ -1815,7 +1815,7 @@ void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, ppro
 /*
  * Add a * r * poly to b
  */
-void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a, pprod_t *r) {
   pprod_table_t *tbl;
   pprod_t *q;
 
@@ -1834,7 +1834,7 @@ void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod
 /*
  * Add -a * r * poly to b
  */
-void rba_buffer_sub_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+void rba_buffer_sub_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a, pprod_t *r) {
   pprod_table_t *tbl;
   pprod_t *q;
 

@@ -106,6 +106,7 @@ static bool arithvar_has_right_type(context_t *ctx, thvar_t x, type_t tau) {
 }
 #endif
 
+
 /*
  * Convert arithmetic variable x to an egraph term
  * - tau = type of x (int or real)
@@ -123,9 +124,24 @@ static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) 
   return pos_occ(u);
 }
 
+/*
+ * Type of arithmetic variable x
+ */
+static type_t type_of_arithvar(context_t *ctx, thvar_t x) {
+  type_t tau;
+
+  tau = real_type(ctx->types);
+  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
+    tau = int_type(ctx->types);
+  }
+
+  return tau;
+}
+
 
 /*
- * Same thing for a bit-vector variable x
+ * Convert bit-vector variable x to an egraph term
+ * - tau = type of x
  */
 static occ_t translate_bvvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
   eterm_t u;
@@ -1403,33 +1419,54 @@ static thvar_t map_abs_to_arith(context_t *ctx, term_t t) {
 
 
 /*
- * Convert (div t1 t2) to an arithmetic variable.
+ * Auxiliary function: check whether t is a non-zero arithmetic constant
+ * - if so, store t's value in *val
+ */
+static bool is_non_zero_rational(term_table_t *tbl, term_t t, rational_t *val) {
+  assert(is_arithmetic_term(tbl, t));
+
+  if (term_kind(tbl, t) == ARITH_CONSTANT) {
+    q_set(val, rational_term_desc(tbl, t));
+    return q_is_nonzero(val);
+  }
+  return false;
+}
+
+/*
+ * Convert (/ t1 t2) to an arithmetic variable
  * - t2 must be a non-zero arithmetic constant
  */
-static thvar_t map_div_to_arith(context_t *ctx, composite_term_t *div) {
+static thvar_t map_rdiv_to_arith(context_t *ctx, composite_term_t *div) {
+  // Could try to evaluate t2 then check whether that's a constant
+  assert(div->arity == 2);
+  longjmp(ctx->env, FORMULA_NOT_LINEAR);
+}
+
+
+/*
+ * Convert (div t1 t2) to an arithmetic variable.
+ * - fails if t2 is not an arithmetic constant or if it's zero
+ */
+static thvar_t map_idiv_to_arith(context_t *ctx, composite_term_t *div) {
   rational_t k;
   thvar_t x, y;
-  term_t d;
 
   assert(div->arity == 2);
 
-  d = div->arg[1];
-  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
-    x = internalize_to_arith(ctx, div->arg[0]); // t1
-
-    // We make a copy of the divider into k
-    q_init(&k);
-    q_set(&k, rational_term_desc(ctx->terms, d));
+  q_init(&k);
+  if (is_non_zero_rational(ctx->terms, div->arg[1], &k)) { // k := value of t2
     assert(q_is_nonzero(&k));
+    x = internalize_to_arith(ctx, div->arg[0]); // t1
     y = get_div(ctx, x, &k);    
-    q_clear(&k);
-    return y;
 
   } else {
-    // division by a non-constant: not supported by default arithmetic
-    // solver for now
+    // division by a non-constant or by zero: not supported by default
+    // arithmetic solver for now
     longjmp(ctx->env, FORMULA_NOT_LINEAR);
   }
+  q_clear(&k);
+
+  return y;
 }
 
 
@@ -1440,18 +1477,13 @@ static thvar_t map_div_to_arith(context_t *ctx, composite_term_t *div) {
 static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
   rational_t k;
   thvar_t x, y, r;
-  term_t d;
   bool is_int;
 
   assert(mod->arity == 2);
 
-  d = mod->arg[1];
-  if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
+  q_init(&k);
+  if (is_non_zero_rational(ctx->terms, mod->arg[1], &k)) { // k := divider
     x = internalize_to_arith(ctx, mod->arg[0]);
-
-    // copy the divider into k
-    q_init(&k);
-    q_set(&k, rational_term_desc(ctx->terms, d));
 
     // get y := (div x k)
     assert(q_is_nonzero(&k));
@@ -1466,14 +1498,14 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
     r = ctx->arith.create_var(ctx->arith_solver, is_int);
     assert_mod_axioms(ctx, r, x, y, &k);
 
-    q_clear(&k);
-
-    return r;
-
   } else {
-    // Non-constant divider
+    // Non-constant or zero divider
     longjmp(ctx->env, FORMULA_NOT_LINEAR);
   }
+
+  q_clear(&k);
+  
+  return r;
 }
 
 
@@ -2476,9 +2508,15 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
         u = map_apply_to_eterm(ctx, app_term_desc(terms, r), tau);
         break;
 
+      case ARITH_RDIV:
+	assert(is_real_type(tau));
+	x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
+	u = translate_arithvar_to_eterm(ctx, x, type_of_arithvar(ctx, x));
+	break;
+
       case ARITH_IDIV:
 	assert(is_integer_type(tau));
-	x = map_div_to_arith(ctx, arith_idiv_term_desc(terms, r));
+	x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
 	u = translate_arithvar_to_eterm(ctx, x, tau); // (div t u) has type int
 	break;
 
@@ -2703,8 +2741,13 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       assert(x != null_thvar);
       break;
 
+    case ARITH_RDIV:
+      x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      break;
+
     case ARITH_IDIV:
-      x = map_div_to_arith(ctx, arith_idiv_term_desc(terms, r));
+      x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
       break;
 

@@ -1175,6 +1175,36 @@ static term_t test_arith_divides(term_t a, term_t b, char *name) {
 }
 
 
+static term_t test_arith_rdiv(term_t a, term_t b, char *name) {
+  term_t x, y;
+
+  printf("Testing: (/ ");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf("): ");
+
+  x = arith_rdiv(&terms, a, b);
+  if (! check_composite2(x, ARITH_RDIV, real_type(&types), a, b)) {
+    constructor_failed();
+  }
+
+  y = arith_rdiv(&terms, a, b);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+
 
 
 
@@ -2054,6 +2084,11 @@ static void test_composites(void) {
   (void) test_arith_idiv(unint[2], unint[4], NULL);
   (void) test_arith_idiv(unint[5], unint[3], NULL);
   (void) test_arith_idiv(unint[5], unint[4], NULL);
+
+  (void) test_arith_rdiv(unint[2], unint[3], NULL);
+  (void) test_arith_rdiv(unint[2], unint[4], NULL);
+  (void) test_arith_rdiv(unint[5], unint[3], NULL);
+  (void) test_arith_rdiv(unint[5], unint[4], NULL);
 
   (void) test_arith_mod(type[1], unint[2], unint[3], NULL); // integer
   (void) test_arith_mod(type[2], unint[2], unint[4], NULL); // real

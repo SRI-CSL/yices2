@@ -1226,6 +1226,7 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_RDIV:
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:

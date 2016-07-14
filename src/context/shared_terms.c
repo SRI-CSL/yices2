@@ -196,6 +196,7 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:

@@ -160,6 +160,7 @@ typedef enum term_constructor {
   YICES_ABS,                 // absolute value
   YICES_CEIL,                // ceil
   YICES_FLOOR,               // floor
+  YICES_RDIV,                // real division (as in x/y)
   YICES_IDIV,                // integer division
   YICES_IMOD,                // modulo
   YICES_IS_INT_ATOM,         // integrality test: (is-int t)

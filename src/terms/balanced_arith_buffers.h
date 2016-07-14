@@ -214,6 +214,7 @@ extern bool rba_buffer_is_nonpos(rba_buffer_t *b);
  */
 extern bool rba_buffer_is_equality(rba_buffer_t *b, pprod_t **r1, pprod_t **r2);
 
+
 /*
  * Check whether b is of the form 1 * X for a non-null power-product X
  * If so return X in *r
@@ -323,14 +324,14 @@ extern void rba_buffer_negate(rba_buffer_t *b);
 /*
  * Multiply b by constant a
  */
-extern void rba_buffer_mul_const(rba_buffer_t *b, rational_t *a);
+extern void rba_buffer_mul_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
  * Divide b by constant a
  * - a must be non-zero
  */
-extern void rba_buffer_div_const(rba_buffer_t *b, rational_t *a);
+extern void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
@@ -348,20 +349,20 @@ extern void rba_buffer_mul_negpp(rba_buffer_t *b, pprod_t *r);
 /*
  * Multiply b by a * r
  */
-extern void rba_buffer_mul_mono(rba_buffer_t *b, rational_t *a, pprod_t *r);
+extern void rba_buffer_mul_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r);
 
 
 
 /*
  * Add constant a to b
  */
-extern void rba_buffer_add_const(rba_buffer_t *b, rational_t *a);
+extern void rba_buffer_add_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
  * Add constant (-a) to b
  */
-extern void rba_buffer_sub_const(rba_buffer_t *b, rational_t *a);
+extern void rba_buffer_sub_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
@@ -379,13 +380,13 @@ extern void rba_buffer_sub_pp(rba_buffer_t *b, pprod_t *r);
 /*
  * Add a * r to b
  */
-extern void rba_buffer_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r);
+extern void rba_buffer_add_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r);
 
 
 /*
  * Add -a * r to b
  */
-extern void rba_buffer_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r);
+extern void rba_buffer_sub_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r);
 
 
 /*
@@ -419,14 +420,14 @@ extern void rba_buffer_square(rba_buffer_t *b);
  * Add a * b1 to b
  * - b1 must be different from b
  */
-extern void rba_buffer_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a);
+extern void rba_buffer_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a);
 
 
 /*
  * Add (-a) * b1 to b
  * - b1 must be different from b
  */
-extern void rba_buffer_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a);
+extern void rba_buffer_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a);
 
 
 /*
@@ -447,13 +448,13 @@ extern void rba_buffer_sub_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pp
  * Add a * r * b1 to b
  * - b1 must be different from b
  */
-extern void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r);
+extern void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r);
 
 /*
  * Add -a * r * b1 to b
  * - b1 must be different from b
  */
-extern void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r);
+extern void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, pprod_t *r);
 
 
 /*
@@ -516,25 +517,25 @@ extern void rba_buffer_sub_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t *
 /*
  * Add a * poly to buffer b
  */
-extern void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a);
+extern void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a);
 
 
 /*
  * Subtract a * poly from b
  */
-extern void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a);
+extern void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a);
 
 
 /*
  * Add a * r * poly to b
  */
-extern void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r);
+extern void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a, pprod_t *r);
 
 
 /*
  * Add -a * r * poly to b
  */
-extern void rba_buffer_sub_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r);
+extern void rba_buffer_sub_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, const rational_t *a, pprod_t *r);
 
 
 /*
@@ -638,7 +639,7 @@ static inline void rba_buffer_mul_negvar(rba_buffer_t *b, int32_t x) {
 /*
  * Multiply b by a * x
  */
-static inline void rba_buffer_mul_varmono(rba_buffer_t *b, rational_t *a, int32_t x) {
+static inline void rba_buffer_mul_varmono(rba_buffer_t *b, const rational_t *a, int32_t x) {
   rba_buffer_mul_mono(b, a, var_pp(x));
 }
 
@@ -662,7 +663,7 @@ static inline void rba_buffer_sub_var(rba_buffer_t *b, int32_t x) {
 /*
  * Add a * x to b
  */
-static inline void rba_buffer_add_varmono(rba_buffer_t *b, rational_t *a, int32_t x) {
+static inline void rba_buffer_add_varmono(rba_buffer_t *b, const rational_t *a, int32_t x) {
   rba_buffer_add_mono(b, a, var_pp(x));
 }
 
@@ -670,7 +671,7 @@ static inline void rba_buffer_add_varmono(rba_buffer_t *b, rational_t *a, int32_
 /*
  * Add -a * x to b
  */
-static inline void rba_buffer_sub_varmono(rba_buffer_t *b, rational_t *a, int32_t x) {
+static inline void rba_buffer_sub_varmono(rba_buffer_t *b, const rational_t *a, int32_t x) {
   rba_buffer_sub_mono(b, a, var_pp(x));
 }
 
@@ -695,7 +696,7 @@ static inline void rba_buffer_sub_var_times_buffer(rba_buffer_t *b, rba_buffer_t
  * Add a * x * b1 to b
  */
 static inline void
-rba_buffer_add_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, int32_t x) {
+rba_buffer_add_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, int32_t x) {
   rba_buffer_add_mono_times_buffer(b, b1, a, var_pp(x));
 }
 
@@ -704,7 +705,7 @@ rba_buffer_add_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_
  * Add -a * x * b1 to b
  */
 static inline void
-rba_buffer_sub_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, int32_t x) {
+rba_buffer_sub_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rational_t *a, int32_t x) {
   rba_buffer_sub_mono_times_buffer(b, b1, a, var_pp(x));
 }
 

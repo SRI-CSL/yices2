@@ -1492,6 +1492,61 @@ rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
 }
 
 
+/*
+ * Variant: Check whether e stores a non-zero rational constant
+ * If so, store the value in result.
+ */
+static bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
+  rational_t *d;
+  term_t t;
+  bool ok;
+  rba_buffer_t *c;
+  term_table_t *terms;
+  mono_t *m;
+
+  ok = false;
+
+  switch (e->tag) {
+  case TAG_RATIONAL:
+    d = &e->val.rational;
+    if (q_is_nonzero(d)) {
+      q_set(result, d);
+      ok = true;
+    }
+    break;
+
+  case TAG_TERM:
+    terms = __yices_globals.terms;
+    t = e->val.term;
+    if (term_kind(terms, t) == ARITH_CONSTANT) {
+      d = rational_term_desc(terms, t);
+      if (q_is_nonzero(d)) {
+	q_set(result, d);
+	ok =true;
+      }
+    }
+    break;
+
+  case TAG_ARITH_BUFFER:
+    c = e->val.arith_buffer;
+    if (rba_buffer_is_constant(c)) {
+      m = rba_buffer_get_constant_mono(c);
+      if (m != NULL) {
+	assert(q_is_nonzero(&m->coeff));
+	q_set(result, &m->coeff);
+	ok = true;
+      }
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return ok;
+}
+
+
 
 /*
  * Bitsize of element e
@@ -3579,6 +3634,7 @@ static void check_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 2);
 }
 
+#if 0
 // THIS VERSION ONLY ALLOWS DIVISION BY NON-ZERO CONSTANTS
 static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rational_t *divisor;
@@ -3599,6 +3655,46 @@ static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     set_arith_result(stack, b);
   }
 }
+#endif
+
+// GENERIC VERSION: THE DIVIDER CAN BE ZERO OF NON-CONSTANT
+static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  rba_buffer_t *b;
+  rational_t divider;
+  term_t t1, t2, t;
+
+  q_init(&divider);
+  if (elem_is_nz_constant(f + 1, &divider)) {
+    assert(q_is_nonzero(&divider));
+    // Division by a non-zero constant
+    if (f->tag == TAG_RATIONAL) {
+      q_div(&f->val.rational, &divider);
+      copy_result_and_pop_frame(stack, f);
+    } else {
+      b = tstack_get_abuffer(stack);
+      add_elem(stack, b, f);
+      rba_buffer_div_const(b, &divider);
+      tstack_pop_frame(stack);
+      set_arith_result(stack, b);
+    }
+  } else {
+    // Not a constant
+    t1 = get_term(stack, f);
+    t2 = get_term(stack, f+1);
+    t = yices_division(t1, t2);
+    check_term(stack, t);
+    tstack_pop_frame(stack);
+    set_term_result(stack, t);
+  }
+
+  /*
+   * It's safe to clear the divider only here.
+   * If the code above raises an exception, divider is still 0/1
+   * and q_clear would do nothing anyway.
+   */
+  q_clear(&divider);
+}
+
 
 
 
@@ -5085,7 +5181,7 @@ static void eval_mk_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * Integer division and modulo: two parameters
+ * Integer division and modulo: two parameters.
  * NOTE: to support QF_NIA/QF_NRA and variants, we allow arbitrary dividers.
  */
 static void check_mk_idiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {

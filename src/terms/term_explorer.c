@@ -42,6 +42,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // OR_TERM
   false, // XOR_TERM
   false, // ARITH_BINEQ_ATOM
+  false, // ARITH_RDIV
   false, // ARITH_IDIV
   false, // ARITH_MOD
   false, // ARITH_DIVIDES
@@ -93,6 +94,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // OR_TERM
   true,  // XOR_TERM
   true,  // ARITH_BINEQ_ATOM
+  true,  // ARITH_RDIV
   true,  // ARITH_IDIV
   true,  // ARITH_MOD
   true,  // ARITH_DIVIDES
@@ -145,6 +147,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_OR_TERM,            // OR_TERM
   YICES_XOR_TERM,           // XOR_TERM
   YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
+  YICES_RDIV,               // ARITH_RDIV
   YICES_IDIV,               // ARITH_IDIV
   YICES_IMOD,               // ARITH_MOD
   YICES_DIVIDES_ATOM,       // ARITH_DIVIDES_ATOM
@@ -329,6 +332,7 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_RDIV:
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:

@@ -117,6 +117,20 @@ static rational_t *eval_get_rational(evaluator_t *eval, value_t v) {
   return vtbl_rational(eval->vtbl, v);
 }
 
+/*
+ * Attempt to get a non-zero rational value for v
+ * - fails if v is an algebraic number or if it is zero
+ */
+static rational_t *eval_get_nz_rational(evaluator_t *eval, value_t v) {
+  rational_t *q;
+
+  q = eval_get_rational(eval, v);
+  if (q_is_zero(q)) {
+    longjmp(eval->env, MDL_EVAL_FAILED);
+  }
+  return q;
+}
+
 
 /*
  * Evaluate terms t[0 ... n-1] and store the result in a[0 .. n-1]
@@ -264,6 +278,31 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
 
 
 /*
+ * Arithmetic term: (/ v1 v2) (division)
+ */
+static value_t eval_arith_rdiv(evaluator_t *eval, composite_term_t *d) {
+  rational_t q;
+  value_t v1, v2, o;
+  
+  assert(d->arity == 2);
+
+  v1 = eval_term(eval, d->arg[0]);
+  v2 = eval_term(eval, d->arg[1]);
+  
+  q_init(&q);
+  q_set(&q, eval_get_rational(eval, v1));
+  q_div(&q, eval_get_nz_rational(eval, v2));
+  q_normalize(&q);
+
+  o = vtbl_mk_rational(eval->vtbl, &q);
+
+  clear_rational(&q);
+
+  return o;
+}
+
+
+/*
  * Arithmetic term: (div v1 v2) (integer division)
  */
 static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
@@ -276,7 +315,7 @@ static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
   v2 = eval_term(eval, d->arg[1]);
   
   q_init(&q);
-  q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
+  q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2));
   q_normalize(&q);
 
   o = vtbl_mk_rational(eval->vtbl, &q);
@@ -298,9 +337,9 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
 
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
-  
+
   q_init(&q);
-  q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_rational(eval, v2));
+  q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2)); 
   q_normalize(&q);
 
   o = vtbl_mk_rational(eval->vtbl, &q);
@@ -320,6 +359,7 @@ static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
   
   assert(d->arity == 2);
 
+  // it's OK for v1 to be zero here.
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
   divides = q_smt2_divides(eval_get_rational(eval, v1), eval_get_rational(eval, v2));
@@ -1234,6 +1274,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       case ARITH_BINEQ_ATOM:
         v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
         break;
+
+      case ARITH_RDIV:
+	v = eval_arith_rdiv(eval, arith_rdiv_term_desc(terms, t));
+	break;
 
       case ARITH_IDIV:
 	v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));

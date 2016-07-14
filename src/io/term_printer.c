@@ -472,6 +472,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "or",
   "xor",
   "arith-bineq",
+  "/",
   "div",
   "mod",
   "divides",
@@ -852,6 +853,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
@@ -1458,6 +1460,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case OR_TERM:
       case XOR_TERM:
       case ARITH_BINEQ_ATOM:
+      case ARITH_RDIV:
       case ARITH_IDIV:
       case ARITH_MOD:
       case ARITH_DIVIDES_ATOM:
@@ -1584,6 +1587,7 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
@@ -1714,6 +1718,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_OR,        //  OR_TERM
   PP_OPEN_XOR,       //  XOR_TERM
   PP_OPEN_EQ,        //  ARITH_BINEQ_ATOM
+  PP_OPEN_DIV,       //  ARITH_RDIV
   PP_OPEN_IDIV,      //  ARITH_IDIV
   PP_OPEN_IMOD,      //  ARITH_MOD
   PP_OPEN_DIVIDES,   //  ARITH_DIVIDES_ATOM
@@ -2458,6 +2463,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case TUPLE_TERM:
   case DISTINCT_TERM:
   case XOR_TERM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:

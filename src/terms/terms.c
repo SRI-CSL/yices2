@@ -56,6 +56,7 @@
  *    - mod x y
  *    - divides x y: y is a multiple of y
  *    - is_int x: true if x is an integer
+ *    - rdiv x y: (/ x y)
  *
  * Every term is an index t in a global term table,
  * where 0 <= t <= 2^30. The two term occurrences
@@ -1639,6 +1640,7 @@ static void delete_term(term_table_t *table, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
@@ -1879,6 +1881,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_RDIV:
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
@@ -2576,6 +2579,14 @@ term_t arith_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root
   i = int_htbl_get_obj(&table->htbl, &root_atom_hobj.m);
 
   return pos_term(i);
+}
+
+
+/*
+ * Real division: the result (/ x y) has type real
+ */
+term_t arith_rdiv(term_table_t *table, term_t x, term_t y) {
+  return binary_term(table, ARITH_RDIV, real_type(table->types), x, y);
 }
 
 
@@ -3420,6 +3431,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:

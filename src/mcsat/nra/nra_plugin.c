@@ -100,6 +100,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);  // BD
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
@@ -303,6 +304,13 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
     return;
+  }
+
+  // Division
+  if (t_kind == ARITH_RDIV) {
+    // TBD
+    assert(false);
+    abort();
   }
 
   // The vector to collect variables

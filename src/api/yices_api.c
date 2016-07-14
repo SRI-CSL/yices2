@@ -3343,30 +3343,14 @@ EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
  * DIVISION
  */
 EXPORTED term_t yices_division(term_t t1, term_t t2) {
-  rba_buffer_t *b;
-  term_table_t *tbl;
-  rational_t *q;
-
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
-      ! check_arith_constant(&manager, t2)) {
+      ! check_arith_term(&manager, t2)) {
     return NULL_TERM;
   }
 
-  tbl = &terms;
-  q = rational_term_desc(tbl, t2);
-  if (q_is_zero(q)) {
-    error.code = DIVISION_BY_ZERO;
-    return NULL_TERM;
-  }
-
-  b = get_arith_buffer();
-  reset_rba_buffer(b);
-  rba_buffer_add_term(b, tbl, t1);
-  rba_buffer_div_const(b, q); // safe to use q here
-
-  return mk_arith_term(&manager, b);
+  return mk_arith_rdiv(&manager, t1, t2);
 }
 
 
@@ -3376,7 +3360,6 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
  **************************/
 
 EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
-
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||
@@ -3388,7 +3371,6 @@ EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
 }
 
 EXPORTED term_t yices_imod(term_t t1, term_t t2) {
-
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
       ! check_arith_term(&manager, t1) ||

@@ -2959,6 +2959,60 @@ static term_t mk_arith_opposite(term_manager_t *manager, term_t t) {
   return arith_buffer_to_term(tbl, b);
 }
 
+/*
+ * Auxiliary function: compute 1/q * t
+ */
+static term_t mk_arith_div_by_constant(term_manager_t *manager, term_t t, const rational_t *q) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  assert(q_is_nonzero(q));
+
+  tbl = manager->terms;
+  b = term_manager_get_arith_buffer(manager);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t); // b := t
+  rba_buffer_div_const(b, q);
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+/*
+ * Rational division: (/ t1 t2)
+ *
+ * Simplifications:
+ *    (/ t1 1)   -->    t1
+ *    (/ t1 -1)  -->  - t1
+ *    (/ t1 t2)  -->  (1/t2) * t1  if t2 is a non-zero constant
+ *
+ */
+term_t mk_arith_rdiv(term_manager_t *manager, term_t t1, term_t t2) {
+  term_table_t *tbl;
+  rational_t *q;
+  term_t t;
+
+  tbl = manager->terms;
+  t = NULL_TERM;
+
+  if (term_kind(tbl, t2) == ARITH_CONSTANT) {
+    q = rational_term_desc(tbl, t2);
+    if (q_is_one(q)) {
+      t = t1;
+    } else if (q_is_minus_one(q)) {
+      t = mk_arith_opposite(manager, t1);
+    } else if (q_is_nonzero(q)) {
+      t = mk_arith_div_by_constant(manager, t, q); // q is safe to use here
+    }
+  }
+
+  // default
+  if (t == NULL_TERM) {
+    t = arith_rdiv(tbl, t1, t2);
+  }
+
+  return t;
+}
+
 
 /*
  * (is_int t):
@@ -3082,7 +3136,7 @@ static term_t arith_constant_mod(term_manager_t *manager, rational_t *q1, ration
 
 
 /*
- * Division and mod: t2 must be a non-zero rational constant
+ * Integer division and mod
  *
  * Simplifications:
  *    (div x  1) -->   x if x is an integer
