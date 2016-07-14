@@ -4,7 +4,13 @@
  * This program may only be used subject to the noncommercial end user
  * license agreement which is downloadable along with this program.
  */
- 
+
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include "uf_plugin.h"
 #include "app_reps.h"
 #include "uf_feasible_set_db.h"
