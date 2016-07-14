@@ -41,13 +41,9 @@
 \begin{document}
 \begin{titlepage}
 \date{\today}
-\author{Bruno Dutertre\\
-Computer Science Laboratory\\
-SRI International\\
-Menlo Park CA 94025 USA
-}
-\title{\bf Yices Manual\\[1em]
-Version 2.4}
+\author{Bruno Dutertre}
+\title{\textbf{Yices Manual\\[0.6em]
+Version 2.5}}
 \end{titlepage}
 
 \maketitle
@@ -89,9 +85,9 @@ also provide source code.
 \hline
 Linux 64 bits & Kernel 2.6.24 or more recent \\
 \hline
-Mac~OS~X 64 bits &  Mac~OS~X Mavericks or Yosemite \\
+Mac~OS~X 64 bits &  Mac~OS~X El Capitan\\
 \hline
-Windows (32 and 64 bits) & Compatible with Windows XP, Vista, 7 and 8\\
+Windows (32 and 64 bits) & \\
 \hline
 \end{tabular}
 \end{center}
@@ -190,8 +186,8 @@ compile Yices.
 This library is called ``libpoly''. It implements various operations
 on polynomials used by the MCSAT solver. It is open source and it is
 available on GitHub (\url{https://github.com/SRI-CSL/libpoly}). Make
-sure that you download the latest version of libpoly. Yices~2.4.2
-requires libpoly v0.1.2.
+sure that you download the latest version of libpoly. Yices~2.5.0
+requires libpoly v0.1.3.
 
 Once you have installed libpoly, you can compile Yices with MCSAT
 support as follows:
@@ -226,7 +222,7 @@ solvers are currently included:
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
-The Yices library and header files allows you to use Yices via its
+The Yices library and header files allow you to use Yices via its
 API, as explained in Chapter~\ref{yices-api}.
 
 The source distribution includes source code for the above four
@@ -312,7 +308,7 @@ which are not part of SMT-LIB.
 \hline
 \textsf{AUFLIRA} & \desc{Arrays, Mixed Linear Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
-\textsf{AUFNIRA} & \ddesc{Arrays, Nonlinear Integer Arithmetic, Quantifiers,\\ Uninterpreted Functions} & no \\
+\textsf{AUFNIRA} & \desc{Arrays, Nonlinear Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
 \textsf{LIA} & \desc{Linear Integer Arithmetic, Quantifiers} & no \\
 \hline
@@ -342,7 +338,9 @@ which are not part of SMT-LIB.
 \hline
 \textsf{QF\_LRA} & \desc{Linear Real Arithmetic}  & yes \\
 \hline
-\textsf{QF\_NIA} & \desc{Nonlinear Integer Arithmetic}  & no \\
+\textsf{QF\_NIA} & \desc{Nonlinear Integer Arithmetic}  & yes \\
+\hline
+\textsf{QF\_NIRA} & \desc{Mixed Nonlinear Arithmetic}  & yes \\
 \hline
 \textsf{QF\_NRA} & \desc{Nonlinear Real Arithmetic}  & yes \\
 \hline
@@ -358,9 +356,11 @@ which are not part of SMT-LIB.
 \hline
 \textsf{QF\_UFLRA} & \desc{Uninterpreted Functions, Linear Real Arithmetic} & yes \\
 \hline
-\textsf{QF\_UFNIA} & \desc{Uninterpreted Functions, Nonlinear Integer Arithmetic} & no \\
+\textsf{QF\_UFNIA} & \desc{Uninterpreted Functions, Nonlinear Integer Arithmetic} & yes \\
 \hline
-\textsf{QF\_UFNRA} & \desc{Uninterpreted Functions, Nonlinear Real Arithmetic} & no \\
+\textsf{QF\_UFNIRA} & \desc{Uninterpreted Functions, Mixed Nonlinear Arithmetic} & yes \\
+\hline
+\textsf{QF\_UFNRA} & \desc{Uninterpreted Functions, Nonlinear Real Arithmetic} & yes \\
 \hline
 \textsf{UFLRA} & \desc{Nonlinear Real Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
@@ -398,8 +398,8 @@ via the Yices mailing lists:
   report. This example is fictitious but representative of what we
   sometimes receive on our mailing list.
 
- Please try to use Figure~\ref{good-report} as a template and include answers to the
- following questions:
+  Please try to use Figure~\ref{good-report} as a template and include
+  answers to the following questions:
     \begin{itemize}
     \item Which version of Yices are you using?
     \item On which hardware and OS?
@@ -692,24 +692,17 @@ written  in  floating-point   notation.   Internally,  Yices  converts
 floating-point input  to rationals.   For example,  the floating-point
 expression \texttt{3.04e-1} is converted to $38/125$.
 
-\medskip\noindent
-The  Yices  language  supports  the traditional  arithmetic  operators
-(i.e., addition, subtraction,  multiplication) with the exception that
-it does not allow division by  a non constant, to avoid issues related
-to  division by  zero. For  example, the  expression $(x  +  4y)/3$ is
-allowed, but  $3/(x + 4y)$ is  not. The arithmetic  predicates are the
-usual  comparison  operators,  including  both  strict  and  nonstrict
+\medskip\noindent The Yices language supports the traditional
+arithmetic operators (i.e., addition, subtraction, multiplication).
+The solver for non-linear arithmetic supports arbitrary divsion. The
+linear-arithmetic solver is limited to division by non-zero constants.
+For example, the expression $(x + 4y)/3$ is allowed in linear
+arithmetic, but $3/(x + 4y)$ is not. The arithmetic predicates are the
+usual comparison operators, including both strict and nonstrict
 inequalities.
 
 \medskip\noindent
-The  language  allows nonlinear  polynomials  but  this  is not  fully
-supported  by  the tool  at  this  time.  Yices~2 can  solve  problems
-involving  real and  integer linear  arithmetic, but  it does  not yet
-include a solver for nonlinear arithmetic.
-
-
-\medskip\noindent
-We've added more arithmetic operations in Yices 2.4:
+We've added more arithmetic operations since Yices 2.4:
 \begin{itemize}
 \item \texttt{abs}: absolute value
 \item \texttt{floor}, \texttt{ceil}: integer floor and ceiling
@@ -720,10 +713,9 @@ These operations have the usual meaning. As in the SMT-LIB Ints theory,
 the division and modulo operations are defined by the following constraints:
 $$(\mathtt{div}\ x\ k)\in \integers$$
 $$x~=~k.(\mathtt{div}\ x\ k) + (\mathtt{mod}\ x\ k)$$
-$$0~\leq~(\mathtt{mod}\ x\ k)~< |k|.$$ But the Yices~2 operations
-differ from SMT-LIB in two points. First, Yices require the divider
-$k$ to be a {\em non-zero constant\/}. Second, Yices allows both $x$
-and $k$ to be arbitrary reals, not just integers.
+$$0~\leq~(\mathtt{mod}\ x\ k)~< |k|.$$ For these operations, Yices~2
+extends the SMT-LIB definitions by allowing both $x$ and $k$ to be
+arbitrary reals, not just integers.
 
 
 \subsection{Bitvectors}
@@ -3658,8 +3650,8 @@ a model.
 \section{Full API}
 
 The main header file \texttt{yices.h} includes documentation about all
-API functions. We will provide more documentation on the Yices
-website: \texttt{http://yices.csl.sri.com/}.
+API functions. We provide more documentation on the Yices website:
+\url{http://yices.csl.sri.com/}.
 
 \newpage
 \bibliographystyle{alpha}

@@ -33,8 +33,8 @@
 \evensidemargin .41in
 
 % Define the srilogo macro
-\def\srilogo{\includegraphics[height=18mm]{srilogo}}
-\def\srititle{\includegraphics[width=7in]{SRIInternational}}
+\def\srilogo{\includegraphics[height=18mm]{SRIMarkB}}
+\def\srititle{\includegraphics[width=7in]{SRILogoB}}
 
 % Font used for small font at the bottom of the titlepage
 \font\sri@SRI=cmssbx10 scaled\magstep3%
@@ -45,7 +45,7 @@
   \hbox to 6.75in{{\@setsize\tiny{9}\viiipt\@viiipt\sf%Get us to 8pt for the following
   \hspace*{4mm}Computer Science Laboratory\hfill$\bullet$\hfill%
   333 Ravenswood Ave.\hfill$\bullet$\hfill Menlo Park, CA 94025\hfill$\bullet$\hfill%
-  \ifx\telephonenum\undefined (650) 326-6200 %
+  \ifx\telephonenum\undefined (650) 859-2000 %
                    \else \telephonenum{} \fi\hfill$\bullet$\hfill%
   % SRI's main FAX:  326-5512, division's 859-6171, AIC's 859-3735
   Facsimile: \ifx\faxphonenum\undefined (650) 859-2844 %
@@ -127,34 +127,34 @@
   \csltitle@topmargin -\topmargin
   \advance \csltitle@topmargin by -\headheight
   \advance \csltitle@topmargin by -\headsep
-  \advance \csltitle@topmargin by -.5in
+%%  \advance \csltitle@topmargin by -.5in
   \vspace*{\csltitle@topmargin}\noindent
   \csltitle@textwidth \textwidth
   \advance \csltitle@textwidth by \csltitle@leftmargin
   \srititle\par
-  \vspace*{1.5in}\noindent
+  \vspace*{0.1in}\noindent
   {\color[gray]{0.5}\rule{7in}{1mm}}
   \begin{flushright}
     \if@cslreportnumber CSL Technical Report \@cslreportnumber\ $\bullet$ \fi
-    \textsf{\@date}
+    \textsf{\@date}\mbox{\hspace{3mm}}
   \end{flushright}
-  \vspace*{.75in}
+  \vspace*{1.75in}
   \hspace*{1in}\raisebox{-.75in}[2in][0in]{\parbox{0in}{\rule{0pt}{6in}}\parbox[b]{6in}{%
   \begin{flushleft}%
-    {\textsf{\LARGE \@title}\par}%
+    {\textsf{\Huge \@title}\par}%
     \vskip 3em%
-    {\large
-     \lineskip .75em%
-      \begin{tabular}[t]{l}%
-        \@author
-      \end{tabular}\par}%
+    {\lineskip .75em%
+%%      \begin{tabular}[t]{l}%
+      \LARGE{\@author}
+%%      \end{tabular}
+     \par}%
       \vskip 1.5em%
       \ifx\@fpnote\@fpxnote\else \par\vspace*{3ex}\fbox{\parbox{\csltitle@textwidth}{\@fpnote}}\vspace*{1ex} \fi
   \end{flushleft}}}%
   \@thanks
   \nopagebreak[4]%
-  \par\noindent\raisebox{-3.5in}[0pt][-4in]{\parbox{7in}{%
-  \raisebox{-0.8cm}[1cm][1cm]{\srilogo}%
+  \par\noindent\raisebox{-3.6in}[0pt][-4in]{\parbox{7in}{%
+%%%  \raisebox{-0.8cm}[1cm][1cm]{\srilogo}%
   \hspace*{1ex}\parbox{5in}{\small\@acknowledge}\vspace*{1ex}%
   \par\noindent\titlepagefooter}}%
   \end{titlepage}}%
