@@ -302,6 +302,7 @@ static void build_bv_zero(string_buffer_t *b, uint32_t n) {
     string_buffer_append_char(b, '0');
     n --;
   } while (n > 0);
+  string_buffer_close(b);
 }
 
 static void build_bv_one(string_buffer_t *b, uint32_t n) {
@@ -314,6 +315,7 @@ static void build_bv_one(string_buffer_t *b, uint32_t n) {
     n --;
   }
   string_buffer_append_char(b, '1');
+  string_buffer_close(b);
 }
 
 static void build_bv_minus_one(string_buffer_t *b, uint32_t n) {
@@ -325,6 +327,7 @@ static void build_bv_minus_one(string_buffer_t *b, uint32_t n) {
     string_buffer_append_char(b, '1');
     n --;
   } while (n > 0);
+  string_buffer_close(b);
 }
 
 // quoted string
