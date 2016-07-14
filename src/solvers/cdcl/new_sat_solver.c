@@ -696,18 +696,20 @@ static inline bool clause_is_unmarked(const clause_pool_t *pool, cidx_t idx) {
   return (pool->data[idx] & CLAUSE_MARK) == 0;
 }
 
+#if 0
+// NOT USED
 static inline bool clause_is_marked(const clause_pool_t *pool, cidx_t idx) {
   return !clause_is_unmarked(pool, idx);
 }
-
+#endif
 
 
 /*
- * Length of a clause: make sure the clause is not marked.
+ * Length of a clause
  */
 static inline uint32_t clause_length(const clause_pool_t *pool, cidx_t idx) {
-  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
-  return pool->data[idx];
+  assert(good_clause_idx(pool, idx));
+  return pool->data[idx] & ~CLAUSE_MARK;
 }
 
 /*
@@ -727,8 +729,7 @@ static inline uint32_t full_length(uint32_t n) {
 }
 
 static inline uint32_t clause_full_length(const clause_pool_t *pool, uint32_t idx) {
-  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
-  return full_length(pool->data[idx]);
+  return full_length(clause_length(pool, idx));
 }
 
 
@@ -801,13 +802,14 @@ static inline uint32_t var_signature(bvar_t x) {
 
 static void set_clause_signature(clause_pool_t *pool, cidx_t cidx) {
   clause_t *c;
-  uint32_t i, w;
+  uint32_t i, n, w;
 
   assert(is_problem_clause_idx(pool, cidx));
 
   w = 0;
   c = clause_of_idx(pool, cidx);
-  for (i=0; i<c->len; i++) {
+  n = c->len & ~CLAUSE_MARK;
+  for (i=0; i<n; i++) {
     w |= var_signature(var_of(c->c[i]));
   }
   c->aux.d = w;
@@ -894,9 +896,9 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
   uint32_t n;
 
-  assert(good_clause_idx(pool, idx) && clause_is_unmarked(pool, idx));
+  assert(good_clause_idx(pool, idx));
 
-  n = pool->data[idx]; // clause length
+  n = clause_length(pool, idx);
 
   // update the statistics: we must do this first because
   // padding may reduce pool->size.
@@ -920,11 +922,16 @@ static void clause_pool_delete_clause(clause_pool_t *pool, cidx_t idx) {
  * Shrink clause idx: n = new size
  */
 static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t n) {
-  uint32_t old_n, old_len, new_len;
+  uint32_t old_n, old_len, new_len, mark;
 
   assert(good_clause_idx(pool, idx) && n >= 2 && n <= clause_length(pool, idx));
 
-  old_n = clause_length(pool, idx);
+  old_n = pool->data[idx];    // length + mark
+  mark = old_n & CLAUSE_MARK; // mark only
+  old_n &= ~CLAUSE_MARK;      // length
+
+  assert(old_n == clause_length(pool, idx));
+
   old_len = full_length(old_n);
   new_len = full_length(n);
 
@@ -943,7 +950,7 @@ static void clause_pool_shrink_clause(clause_pool_t *pool, cidx_t idx, uint32_t 
     clause_pool_padding(pool, idx + new_len, old_len - new_len);
   }
 
-  pool->data[idx] = n;
+  pool->data[idx] = mark | n;
 }
 
 
@@ -2948,15 +2955,6 @@ static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
 }
 
 /*
- * Length of clause cidx: this version is safe if the clause is marked.
- */
-static inline uint32_t safe_clause_length(const clause_pool_t *pool, cidx_t cidx) {
-  assert(good_clause_idx(pool, cidx));
-  return pool->data[cidx] & ~CLAUSE_MARK;
-}
-
-
-/*
  * The queue cqueue + the scan index define a set of clauses to visit:
  * - cqueue contains clause idx that are smaller (strictly) than scan index.
  * - every clause in cqueue is marked.
@@ -3101,7 +3099,6 @@ static void pp_remove_clause(sat_solver_t *solver, cidx_t cidx) {
  
   assert(clause_is_live(&solver->pool, cidx));
 
-  unmark_clause(&solver->pool, cidx);
   n = clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   pp_decrement_occ_counts(solver, a, n);
@@ -3121,13 +3118,10 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   literal_t *a;
   literal_t l;
   bool true_clause;
-  bool marked_clause;
  
   assert(clause_is_live(&solver->pool, cidx));
 
-  marked_clause = clause_is_marked(&solver->pool, cidx);
-  unmark_clause(&solver->pool, cidx);
-  n = safe_clause_length(&solver->pool, cidx);
+  n = clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   true_clause = false;
 
@@ -3162,7 +3156,6 @@ static void pp_visit_clause(sat_solver_t *solver, cidx_t cidx) {
   } else {
     clause_pool_shrink_clause(&solver->pool, cidx, j);
     set_clause_signature(&solver->pool, cidx);
-    if (marked_clause) mark_clause(&solver->pool, cidx);
     clause_queue_push(solver, cidx);
   }
 }
@@ -3302,7 +3295,7 @@ static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, n;
   literal_t *a;
 
-  n = safe_clause_length(&solver->pool, cidx);
+  n = clause_length(&solver->pool, cidx);
   a = clause_literals(&solver->pool, cidx);
   for (i=1; i<n; i++) {
     if (a[i-1] >= a[i]) {
@@ -3395,13 +3388,12 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
  */
 static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
   uint32_t i, j, k, m, q;
-  bool marked_clause;
   literal_t *b;  
 
   assert(clause_is_live(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
 
-  m = safe_clause_length(&solver->pool, cidx);
+  m = clause_length(&solver->pool, cidx);
   q = clause_signature(&solver->pool, cidx);
   b = clause_literals(&solver->pool, cidx);
 
@@ -3431,9 +3423,6 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
     j ++;
   }
 
-  marked_clause = clause_is_marked(&solver->pool, cidx);
-  unmark_clause(&solver->pool, cidx);
-
   if (k < m) {
     // strengthening: remove literal b[k] form clause cidx
     pp_decrement_occ(solver, b[k]);
@@ -3447,7 +3436,6 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       clause_pool_shrink_clause(&solver->pool, cidx, m);
       set_clause_signature(&solver->pool, cidx);
       solver->stats.pp_strengthenings ++;
-      if (marked_clause) mark_clause(&solver->pool, cidx);
     }    
   } else {
     // subsumption: remove clause cidx
@@ -3509,7 +3497,6 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   watch_t *w;
 
   assert(clause_is_live(&solver->pool, cidx));
-  assert(clause_is_unmarked(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
 
   n = clause_length(&solver->pool, cidx);
@@ -3840,7 +3827,10 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
 	continue;
       }
 
-      len = clause_length(&solver->pool, k);
+      // read len directly (the clause should not be marked)
+      len = solver->pool.data[k];
+      assert(len == clause_length(&solver->pool, k));
+
       lit = clause_literals(&solver->pool, k);
       assert(lit[0] == l0 || lit[1] == l0);
       // Get the other watched literal in clause k
