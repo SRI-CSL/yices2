@@ -90,7 +90,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV); // BD
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM);
@@ -289,7 +289,7 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   switch (t_kind) {
   case ARITH_MOD:
   case ARITH_IDIV:
-  case ARITH_RDIV: // BD
+  case ARITH_RDIV:
   case APP_TERM:
     // Application terms (or other terms we treat as uninterpreted)
     uf_plugin_new_fun_application(uf, t, prop);

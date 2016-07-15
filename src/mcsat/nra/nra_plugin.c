@@ -109,6 +109,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);  // BD
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
   ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR);
 
@@ -283,6 +284,20 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, yices_implies(guard, c3));
     return;
   }
+  if (t_kind == ARITH_RDIV) {
+    composite_term_t* div = arith_rdiv_term_desc(terms, t);
+    term_t q = t;
+    term_t m = div->arg[0];
+    term_t n = div->arg[1];
+
+    // Add a lemma (assuming non-zero):
+    // (n != 0) => m = n*q
+    // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
+    term_t guard = opposite_term(yices_arith_eq0_atom(n));
+    term_t c = yices_eq(m, yices_mul(n, q));
+    prop->lemma(prop, yices_implies(guard, c));
+    return;
+  }
 
   // Check for floor, ceil
   if (t_kind == ARITH_FLOOR) {
@@ -310,13 +325,6 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
     return;
-  }
-
-  // Division
-  if (t_kind == ARITH_RDIV) {
-    // TBD
-    assert(false);
-    abort();
   }
 
   // The vector to collect variables

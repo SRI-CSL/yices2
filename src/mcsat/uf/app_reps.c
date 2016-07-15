@@ -18,7 +18,7 @@ composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_ter
   case APP_TERM:
     return app_term_desc(terms, app_term);
   case ARITH_RDIV:
-    return arith_rdiv_term_desc(terms, app_term); // BD
+    return arith_rdiv_term_desc(terms, app_term);
   case ARITH_IDIV:
     return arith_idiv_term_desc(terms, app_term);
   case ARITH_MOD:
@@ -30,17 +30,19 @@ composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_ter
   }
 }
 
-#define DIV_ID -2;
-#define MOD_ID -3;
+#define IDIV_ID -2;
+#define RDIV_ID -3;
+#define MOD_ID -4;
 
 int32_t app_reps_get_uf(term_table_t* terms, term_t app_term) {
   term_t app_kind = term_kind(terms, app_term);
   switch (app_kind) {
   case APP_TERM:
     return app_term_desc(terms, app_term)->arg[0];
-  case ARITH_RDIV: // BD: HACK!!!
+  case ARITH_RDIV:
+    return RDIV_ID;
   case ARITH_IDIV:
-    return DIV_ID;
+    return IDIV_ID;
   case ARITH_MOD:
     return MOD_ID;
     break;
