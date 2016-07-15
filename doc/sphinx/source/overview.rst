@@ -49,7 +49,7 @@ need nonlinear arithmetic and want to compile Yices from the source,
 you must install this library first. Get it from our `GitHub
 repository <https://github.com/SRI-CSL/libpoly>`_ and follow the build
 instructions there.  Make sure to get the latest libpoly release
-(v0.1.2).
+(v0.1.3).
 
 Once you have installed libpoly, you can compile Yices with MCSAT
 support as follows:
