@@ -65,7 +65,6 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
   case ARITH_RDIV:          // division: (/ x y)
-    // BD
     return arith_rdiv_term_desc(terms, t);
   case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
     return arith_idiv_term_desc(terms, t);
@@ -107,19 +106,14 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
     assert(n > 1);
     return mk_application(tm, children[0], n-1, children + 1);
   case ARITH_RDIV:
-    // BD
     assert(n == 2);
     return mk_arith_rdiv(tm, children[0], children[1]);
   case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
     assert(n == 2);
-    // We use direct construction, since tm assumes it's division by constant
-    // TODO: return mk_arith_idiv(tm, children[0], children[1]);
-    return arith_idiv(terms, children[0], children[1]);
+    return mk_arith_idiv(tm, children[0], children[1]);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     assert(n == 2);
-    // We use direct construction, since tm assumes it's division by constant
-    // TODO: return mk_arith_mod(tm, children[0], children[1]);
-    return arith_mod(terms, children[0], children[1]);
+    return mk_arith_mod(tm, children[0], children[1]);
   default:
     assert(false);
     return NULL_TERM;
@@ -381,7 +375,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     // FOLLOWING ARE UNINTEPRETED, SO WE PURIFY THE ARGUMENTS
 
     case APP_TERM:           // application of an uninterpreted function
-    case ARITH_RDIV:         // BD: regular division (/ x y)
+    case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     {

@@ -106,7 +106,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
   ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);  // BD
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
