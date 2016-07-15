@@ -3051,6 +3051,14 @@ Here is the full list of command-line options supported by
    \texttt{input-file}. Otherwise, this flag sets the
    \texttt{:print-success} option to \texttt{true}.
 
+\item[--timeout=<timeout>, -t <timeout>] Give a timeout in seconds.
+
+  This sets a timeout for the SMT-LIB command \texttt{(check-sat)}. If
+  the timeout is reached, the command returns \texttt{unknown}. In
+  non-interactive mode, there can be only one such command. In
+  interactive mode, the same timeout applies to every
+  \texttt{(check-sat)}.
+
 \item[--mcsat] Use the MCSAT solver.
 
    This flag selects the MCSAT solver of Yices instead of the default
