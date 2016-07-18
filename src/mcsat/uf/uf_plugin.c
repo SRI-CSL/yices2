@@ -485,6 +485,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
 
   variable_db_t* var_db = uf->ctx->var_db;
   term_table_t* terms = uf->ctx->terms;
+  const mcsat_trail_t* trail = uf->ctx->trail;
 
   // We have a conflict x1 != y1 or .... or xn != y2 or f(x) != f(y)
 
@@ -492,8 +493,23 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
   term_t fx = variable_db_get_term(var_db, lhs);
   term_t fy = variable_db_get_term(var_db, rhs);
   assert(fx != fy);
-  term_t fx_eq_fy = yices_eq(fx, fy);
-  ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
+  // Check the type, we treat Booleans specially
+  type_kind_t f_type = term_type_kind(terms, fx);
+  if (f_type == BOOL_TYPE) {
+    if (trail_get_boolean_value(trail, lhs)) {
+      ivector_push(&uf->conflict, fx);
+    } else {
+      ivector_push(&uf->conflict, opposite_term(fx));
+    }
+    if (trail_get_boolean_value(trail, rhs)) {
+      ivector_push(&uf->conflict, fy);
+    } else {
+      ivector_push(&uf->conflict, opposite_term(fy));
+    }
+  } else {
+    term_t fx_eq_fy = yices_eq(fx, fy);
+    ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
+  }
 
   // Now add all the intermediate equalities
   composite_term_t* fx_app = app_reps_get_uf_descriptor(terms, fx);
@@ -505,10 +521,26 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
   for (; i < n; ++ i) {
     term_t x = fx_app->arg[i];
     term_t y = fy_app->arg[i];
-    term_t x_eq_y = yices_eq(x, y);
-    // Don't add trivially true facts
-    if (x_eq_y != bool2term(true)) {
-      ivector_push(&uf->conflict, x_eq_y);
+    type_kind_t type = term_type_kind(terms, x);
+    if (type == BOOL_TYPE) {
+      variable_t x_var = variable_db_get_variable(var_db, x);
+      variable_t y_var = variable_db_get_variable(var_db, y);
+      if (trail_get_boolean_value(trail, x_var)) {
+        ivector_push(&uf->conflict, x);
+      } else {
+        ivector_push(&uf->conflict, opposite_term(x));
+      }
+      if (trail_get_boolean_value(trail, y_var)) {
+        ivector_push(&uf->conflict, y);
+      } else {
+        ivector_push(&uf->conflict, opposite_term(y));
+      }
+    } else {
+      term_t x_eq_y = yices_eq(x, y);
+      // Don't add trivially true facts
+      if (x_eq_y != bool2term(true)) {
+        ivector_push(&uf->conflict, x_eq_y);
+      }
     }
   }
 }
