@@ -468,7 +468,8 @@ typedef struct solver_stats_s {
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
   uint32_t pp_strengthenings;        // number of strengthened clauses
-  uint32_t pp_unit_strengthenings;  // number of clauses strengthened to unit
+  uint32_t pp_unit_strengthenings;   // number of clauses strengthened to unit
+  uint32_t pp_cheap_elims;           // cheap variable eliminations
 } solver_stats_t;
 
 
