@@ -866,7 +866,7 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 
   j = i+n;
 
-  if (j == pool->size) {
+  if (false && j == pool->size) {
     // i is the last block
     pool->size = i;
     pool->available += n;
@@ -874,7 +874,7 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
       pool->learned = i;      
     }
   } else {
-    if (is_padding_start(pool, j)) {
+    if (j < pool->size && is_padding_start(pool, j)) {
       // merge the two padding blocks
       n += padding_length(pool, j);
     }
@@ -1515,6 +1515,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
   stat->pp_unit_strengthenings = 0;
+  stat->pp_cheap_elims = 0;
 }
 
 
@@ -2921,6 +2922,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
   fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
+  fprintf(stderr, "cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
   fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
@@ -2977,16 +2979,6 @@ static void clause_queue_push(sat_solver_t *solver, cidx_t cidx) {
     queue_push(&solver->cqueue, cidx);
   }
 }
-
-
-/*
- * Check emptiness: NOT USED
- */
-#if 0
-static bool clause_queue_is_empty(const sat_solver_t *solver) {
-  return solver->scan_index >= solver->pool.size && queue_is_empty(&solver->cqueue);
-}
-#endif
 
 
 /*
@@ -3529,6 +3521,198 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
 
 
 /*
+ * RESOLUTION/VARIABLE ELIMINATION
+ */
+
+/*
+ * Construct the resolvent of clauses c1 and c2
+ * - l = literal
+ * - both clauses must be sorted
+ * - c1 must contain l and c2 must contain (not l)
+ * - store it in solver->buffer
+ * - return true if the resolvent is not trivial/false if it is
+ */
+static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
+  literal_t *a1, *a2;
+  literal_t l1, l2;
+  uint32_t i1, i2, n1, n2;
+
+  assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
+  assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
+
+  reset_lbuffer(&solver->buffer);
+  n1 = clause_length(&solver->pool, c1);
+  a1 = clause_literals(&solver->pool, c1);
+  n2 = clause_length(&solver->pool, c2);
+  a2 = clause_literals(&solver->pool, c2);
+
+  i1 = 0;
+  i2 = 0;
+  while (i1 < n1 && i2 < n2) {
+    l1 = a1[i1];
+    l2 = a2[i2];
+    if (l1 == l2) {
+      assert(l1 != l && l1 != not(l));
+      lbuffer_push(&solver->buffer, l1);
+      i1 ++;
+      i2 ++;
+    } else if (l1 == not(l2)) {
+      assert(l1 != not(l));
+      if (l1 != l) return false; // trivial resolvent
+      i1 ++;
+      i2 ++;
+    } else if (l1 < l2) {
+      assert(l1 != l && l1 != not(l));
+      lbuffer_push(&solver->buffer, l1);
+      i1 ++;
+    } else {
+      assert(l2 != l && l2 != not(l));
+      lbuffer_push(&solver->buffer, l2);
+      i2 ++;
+    }
+  }
+  while (i1 < n1) {
+    lbuffer_push(&solver->buffer, a1[i1]);
+    i1 ++;
+  }
+  while (i2 < n2) {
+    lbuffer_push(&solver->buffer, a2[i2]);
+    i2 ++;
+  }
+  return true;
+}
+
+
+/*
+ * Construct the resolvent of c1 and c2 and add it if it's not trivial.
+ * - if the resolvent is a unit clause, add its literal to the unit queue
+ */
+static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
+  lbuffer_t *b;
+  uint32_t n, cidx;
+
+  if (pp_build_resolvent(solver, c1, c2, l)) {
+    b = &solver->buffer;
+    n = b->size;
+    assert(n > 0);
+    if (n == 1) {
+      pp_push_unit_literal(solver, b->data[0]);
+    } else {
+      cidx = clause_pool_add_problem_clause(&solver->pool, n, b->data);
+      add_clause_all_watch(solver, n, b->data, cidx);
+      set_clause_signature(&solver->pool, cidx);
+    }
+    increase_occurrence_counts(solver, n, b->data);
+  }
+}
+
+
+/*
+ * Mark x as an eliminated variable:
+ * - we also give it a value to make sure pos(x) or neg(x) don't get
+ *   added to the queue of pure_literals.
+ */
+static void pp_mark_eliminated_variable(sat_solver_t *solver, bvar_t x) {
+  assert(var_is_unassigned(solver, x));
+  assert(solver->decision_level == 0);
+
+  solver->value[pos(x)] = BVAL_TRUE;
+  solver->value[neg(x)] = BVAL_FALSE;
+  solver->ante_tag[x] = ATAG_ELIM;
+  solver->ante_data[x] = 0;
+  solver->level[x] = 0;
+}
+
+/*
+ * Eliminate variable x:
+ * - get all the clauses that contain pos(x) and neg(x) and construct
+ *   their resolvents
+ */
+static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
+  watch_t *w1, *w2;
+  uint32_t i1, i2, n1, n2;
+  cidx_t c1, c2;
+
+  assert(x < solver->nvars);
+
+  w1 = solver->watch[pos(x)];
+  w2 = solver->watch[neg(x)];
+
+  if (w1 == NULL || w2 == NULL) return;
+
+  n1 = w1->size;
+  n2 = w2->size;
+  for (i1=0; i1<n1; i1++) {
+    c1 = w1->data[i1];
+    assert(idx_is_clause(c1));
+    if (clause_is_live(&solver->pool, c1)) {
+      for (i2=0; i2<n2; i2++) {
+	c2 = w2->data[i2];
+	assert(idx_is_clause(c2));
+	if (clause_is_live(&solver->pool, c2)) {
+	  pp_add_resolvent(solver, c1, c2, pos(x));
+	}
+      }      
+    }
+  }
+  // TBD: add data structure to extend the model to x
+
+
+  /*
+   * We must mark x as an eliminated variable before deleting the clauses
+   * that contain x.
+   */
+  pp_mark_eliminated_variable(solver, x);
+
+
+  // Delete the clauses that contain x
+  for (i1=0; i1<n1; i1++) {
+    c1 = w1->data[i1];
+    assert(idx_is_clause(c1));
+    if (clause_is_live(&solver->pool, c1)) {
+      pp_remove_clause(solver, c1);
+    }
+  }
+  for (i2=0; i2<n2; i2++) {
+    c2 = w2->data[i2];
+    assert(idx_is_clause(c2));
+    if (clause_is_live(&solver->pool, c2)) {
+      pp_remove_clause(solver, c2);
+    }
+  }
+  safe_free(w1);
+  safe_free(w2);
+  solver->watch[pos(x)] = NULL;
+  solver->watch[neg(x)] = NULL;
+}
+
+
+/*
+ * For testing: eliminate cheap variables
+ */
+static void pp_cheap_elim(sat_solver_t *solver) {
+  uint32_t i, n, pp, nn;
+
+  // variable 0 is special. We can't remove it
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    pp = solver->occ[pos(i)];
+    nn = solver->occ[neg(i)];
+    if (pp == 0 || nn == 0) {
+      continue;
+    }
+    if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
+      //      fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
+      pp_eliminate_variable(solver, i);
+      solver->stats.pp_cheap_elims ++;
+    }
+  }
+}
+
+
+
+
+/*
  * END OF PREPROCESSING
  */
 
@@ -3683,6 +3867,8 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
 
   collect_unit_and_pure_literals(solver);
+  pp_empty_queue(solver);
+  pp_cheap_elim(solver); // FOR TESTING
 
   for (;;) {
     pp_empty_queue(solver);
