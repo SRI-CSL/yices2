@@ -1075,6 +1075,10 @@ static void print_yices_error(bool full) {
     print_out("can't evaluate term value");
     break;
 
+  case MCSAT_ERROR_UNSUPPORTED_THEORY:
+    print_out("mcsat: unsupported theory");
+    break;
+
   case OUTPUT_ERROR:
     print_out(" IO error");
     break;

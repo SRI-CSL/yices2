@@ -66,6 +66,9 @@ typedef struct {
   /** Feasible sets for uninterpreted terms */
   uf_feasible_set_db_t* feasible;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
 } uf_plugin_t;
 
 static
@@ -943,22 +946,30 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   return true;
 }
 
+static
+void uf_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  uf->exception = handler;
+}
+
 plugin_t* uf_plugin_allocator(void) {
   uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
   plugin_construct((plugin_t*) plugin);
-  plugin->plugin_interface.construct           = uf_plugin_construct;
-  plugin->plugin_interface.destruct            = uf_plugin_destruct;
-  plugin->plugin_interface.new_term_notify     = uf_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = 0;
-  plugin->plugin_interface.event_notify        = 0;
-  plugin->plugin_interface.propagate           = uf_plugin_propagate;
-  plugin->plugin_interface.decide              = uf_plugin_decide;
-  plugin->plugin_interface.get_conflict        = uf_plugin_get_conflict;
-  plugin->plugin_interface.explain_propagation = uf_plugin_explain_propagation;
-  plugin->plugin_interface.explain_evaluation  = uf_plugin_explain_evaluation;
-  plugin->plugin_interface.push                = uf_plugin_push;
-  plugin->plugin_interface.pop                 = uf_plugin_pop;
-  plugin->plugin_interface.gc_mark             = uf_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep            = uf_plugin_gc_sweep;
+  plugin->plugin_interface.construct             = uf_plugin_construct;
+  plugin->plugin_interface.destruct              = uf_plugin_destruct;
+  plugin->plugin_interface.new_term_notify       = uf_plugin_new_term_notify;
+  plugin->plugin_interface.new_lemma_notify      = 0;
+  plugin->plugin_interface.event_notify          = 0;
+  plugin->plugin_interface.propagate             = uf_plugin_propagate;
+  plugin->plugin_interface.decide                = uf_plugin_decide;
+  plugin->plugin_interface.get_conflict          = uf_plugin_get_conflict;
+  plugin->plugin_interface.explain_propagation   = uf_plugin_explain_propagation;
+  plugin->plugin_interface.explain_evaluation    = uf_plugin_explain_evaluation;
+  plugin->plugin_interface.push                  = uf_plugin_push;
+  plugin->plugin_interface.pop                   = uf_plugin_pop;
+  plugin->plugin_interface.gc_mark               = uf_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep              = uf_plugin_gc_sweep;
+  plugin->plugin_interface.set_exception_handler = uf_plugin_set_exception_handler;
+
   return (plugin_t*) plugin;
 }

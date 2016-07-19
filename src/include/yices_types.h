@@ -434,6 +434,11 @@ typedef enum error_code {
   MDL_GEN_FAILED,
 
   /*
+   * MCSAT error codes
+   */
+  MCSAT_ERROR_UNSUPPORTED_THEORY = 1000,
+
+  /*
    * Input/output and system errors
    */
   OUTPUT_ERROR = 9000,

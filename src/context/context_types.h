@@ -746,13 +746,15 @@ enum {
   ARITHSOLVER_EXCEPTION = -19,
   // bv solver errors
   BVSOLVER_EXCEPTION = -20,
+  // mcsat errors
+  MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -21
 };
 
 
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 21
+#define NUM_INTERNALIZATION_ERRORS 22
 
 
 

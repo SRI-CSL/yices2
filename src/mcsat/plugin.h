@@ -18,6 +18,8 @@
 
 #include "io/tracer.h"
 
+#include <setjmp.h>
+
 /**
  * Notification of basic solver events.
  */
@@ -44,9 +46,11 @@ struct plugin_context_s {
   /** Type table */
   type_table_t* types;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
   /** Options */
   const mcsat_options_t* options;
-
 
   /** The read-only solver trail */
   const mcsat_trail_t* trail;
@@ -246,22 +250,31 @@ struct plugin_s {
    * @param gc the set of variables marked to keep
    */
   void (*gc_sweep) (plugin_t* plugin, const gc_info_t* gc_vars);
+
+  /**
+   * Notifies the plugin about a new exception handler.
+   */
+  void (*set_exception_handler)(plugin_t* plugin, jmp_buf* handler);
+
 };
 
 /** Construct the plugin */
 static inline
 void plugin_construct(plugin_t* plugin) {
-  plugin->construct           = NULL;
-  plugin->destruct            = NULL;
-  plugin->new_term_notify     = NULL;
-  plugin->new_lemma_notify    = NULL;
-  plugin->propagate           = NULL;
-  plugin->decide              = NULL;
-  plugin->get_conflict        = NULL;
-  plugin->explain_propagation = NULL;
-  plugin->explain_evaluation  = NULL;
-  plugin->push                = NULL;
-  plugin->pop                 = NULL;
+  plugin->construct             = NULL;
+  plugin->destruct              = NULL;
+  plugin->new_term_notify       = NULL;
+  plugin->new_lemma_notify      = NULL;
+  plugin->propagate             = NULL;
+  plugin->decide                = NULL;
+  plugin->get_conflict          = NULL;
+  plugin->explain_propagation   = NULL;
+  plugin->explain_evaluation    = NULL;
+  plugin->push                  = NULL;
+  plugin->pop                   = NULL;
+  plugin->gc_mark               = NULL;
+  plugin->gc_sweep              = NULL;
+  plugin->set_exception_handler = NULL;
 }
 
 

@@ -5580,6 +5580,13 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
 
   code = setjmp(ctx->env);
   if (code == 0) {
+
+    // If using MCSAT, just check and done
+    if (ctx->mcsat != NULL) {
+      code = mcsat_assert_formulas(ctx->mcsat, n, a);
+      goto done;
+    }
+
     // flatten
     for (i=0; i<n; i++) {
       flatten_assertion(ctx, a[i]);
@@ -5784,10 +5791,6 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
          smt_status(ctx->core) == STATUS_IDLE);
-
-  if (ctx->mcsat != NULL) {
-    return mcsat_assert_formulas(ctx->mcsat, n, f);
-  }
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {

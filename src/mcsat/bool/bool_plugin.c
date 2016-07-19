@@ -92,6 +92,9 @@ typedef struct {
     uint32_t* clauses_attached_binary;
   } stats;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
 } bool_plugin_t;
 
 static
@@ -905,22 +908,31 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   }
 }
 
+static
+void bool_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  bp->exception = handler;
+}
+
+
 plugin_t* bool_plugin_allocator(void) {
   bool_plugin_t* plugin = safe_malloc(sizeof(bool_plugin_t));
   plugin_construct((plugin_t*) plugin);
-  plugin->plugin_interface.construct           = bool_plugin_construct;
-  plugin->plugin_interface.destruct            = bool_plugin_destruct;
-  plugin->plugin_interface.new_term_notify     = bool_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = bool_plugin_new_lemma_notify;
-  plugin->plugin_interface.event_notify        = bool_plugin_event_notify;
-  plugin->plugin_interface.propagate           = bool_plugin_propagate;
-  plugin->plugin_interface.decide              = bool_plugin_decide;
-  plugin->plugin_interface.get_conflict        = bool_plugin_get_conflict;
-  plugin->plugin_interface.explain_propagation = bool_plugin_explain_propagation;
-  plugin->plugin_interface.explain_evaluation  = bool_plugin_explain_evaluation;
-  plugin->plugin_interface.push                = bool_plugin_push;
-  plugin->plugin_interface.pop                 = bool_plugin_pop;
-  plugin->plugin_interface.gc_mark             = bool_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep            = bool_plugin_gc_sweep;
+  plugin->plugin_interface.construct             = bool_plugin_construct;
+  plugin->plugin_interface.destruct              = bool_plugin_destruct;
+  plugin->plugin_interface.new_term_notify       = bool_plugin_new_term_notify;
+  plugin->plugin_interface.new_lemma_notify      = bool_plugin_new_lemma_notify;
+  plugin->plugin_interface.event_notify          = bool_plugin_event_notify;
+  plugin->plugin_interface.propagate             = bool_plugin_propagate;
+  plugin->plugin_interface.decide                = bool_plugin_decide;
+  plugin->plugin_interface.get_conflict          = bool_plugin_get_conflict;
+  plugin->plugin_interface.explain_propagation   = bool_plugin_explain_propagation;
+  plugin->plugin_interface.explain_evaluation    = bool_plugin_explain_evaluation;
+  plugin->plugin_interface.push                  = bool_plugin_push;
+  plugin->plugin_interface.pop                   = bool_plugin_pop;
+  plugin->plugin_interface.gc_mark               = bool_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep              = bool_plugin_gc_sweep;
+  plugin->plugin_interface.set_exception_handler = bool_plugin_set_exception_handler;
+
   return (plugin_t*) plugin;
 }

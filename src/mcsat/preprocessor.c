@@ -10,12 +10,15 @@
 
 #include "terms/term_explorer.h"
 
-void preprocessor_construct(preprocessor_t* pre, term_table_t* terms) {
+#include "context/context_types.h"
+
+void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler) {
   pre->terms = terms;
   init_term_manager(&pre->tm, terms);
   init_int_hmap(&pre->preprocess_map, 0);
   init_int_hmap(&pre->purification_map, 0);
   pre->tracer = NULL;
+  pre->exception = handler;
 }
 
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer) {
@@ -214,6 +217,19 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       }
     }
 
+    // Check for supported types
+    type_kind_t type = term_type_kind(terms, current);
+    switch (type) {
+    case BOOL_TYPE:
+    case INT_TYPE:
+    case REAL_TYPE:
+    case UNINTERPRETED_TYPE:
+    case FUNCTION_TYPE:
+      break;
+    default:
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+
     // Kind of term
     term_kind_t current_kind = term_kind(terms, current);
 
@@ -260,6 +276,11 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       bool children_same = true;
 
       n = desc->arity;
+
+      // Arrays not supported yet
+      if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
 
       ivector_t children;
       init_ivector(&children, n);
@@ -504,7 +525,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
     default:
       // UNSUPPORTED TERM/THEORY
-      assert(false);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       break;
     }
 
@@ -530,4 +551,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
   assert(t_pre != NULL_TERM);
   return t_pre;
+}
+
+void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler) {
+  pre->exception = handler;
 }

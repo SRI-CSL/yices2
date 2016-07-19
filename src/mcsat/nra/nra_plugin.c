@@ -1530,6 +1530,12 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
   }
 }
 
+static
+void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  nra->exception = handler;
+}
+
 plugin_t* nra_plugin_allocator(void) {
   nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -1547,5 +1553,7 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.pop                 = nra_plugin_pop;
   plugin->plugin_interface.gc_mark             = nra_plugin_gc_mark;
   plugin->plugin_interface.gc_sweep            = nra_plugin_gc_sweep;
+  plugin->plugin_interface.set_exception_handler = nra_plugin_set_exception_handler;
+
   return (plugin_t*) plugin;
 }

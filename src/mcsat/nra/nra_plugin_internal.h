@@ -114,6 +114,9 @@ typedef struct nra_plugin_s {
   /** Local term manager */
   term_manager_t tm;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
 } nra_plugin_t;
 
 /**

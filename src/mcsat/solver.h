@@ -15,6 +15,8 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/options.h"
 
+#include <setjmp.h>
+
 /*
  * Allocate and construct the solver.
  */
@@ -80,5 +82,10 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer);
  * Show statistics.
  */
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out);
+
+/*
+ * Set the excepetion handler. Should be done before, any call into the solver.
+ */
+void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler);
 
 #endif /* MCSAT_SOLVER_H_ */

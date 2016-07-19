@@ -471,6 +471,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "output error\n");
     break;
 
+  case MCSAT_ERROR_UNSUPPORTED_THEORY:
+    code = fprintf(f, "mcsat: unsupported theory\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     code = fprintf(f, "internal error\n");

@@ -11,6 +11,8 @@
 #include "utils/int_hash_map.h"
 #include "io/tracer.h"
 
+#include <setjmp.h>
+
 #ifndef MCSAT_PREPROCESSOR_H_
 #define MCSAT_PREPROCESSOR_H_
 
@@ -31,10 +33,13 @@ typedef struct {
   /** Tracer */
   tracer_t* tracer;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
 } preprocessor_t;
 
 /** Construct the preprocessor */
-void preprocessor_construct(preprocessor_t* pre, term_table_t* terms);
+void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler);
 
 /** Destruct the preprocessor */
 void preprocessor_destruct(preprocessor_t* pre);
@@ -44,5 +49,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out);
 
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
+
+/** Set the exception handler */
+void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler);
 
 #endif

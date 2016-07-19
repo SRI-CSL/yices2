@@ -99,6 +99,9 @@ struct mcsat_solver_s {
   /** Context of the solver */
   const context_t* ctx;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
   /** Input types are are from this table */
   type_table_t* types;
 
@@ -499,6 +502,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.var_db = mcsat->var_db;
   ctx->ctx.terms = mcsat->terms;
   ctx->ctx.types = mcsat->types;
+  ctx->ctx.exception = mcsat->exception;
   ctx->ctx.options = &mcsat->ctx->mcsat_options;
   ctx->ctx.trail = mcsat->trail;
   ctx->ctx.stats = &mcsat->stats;
@@ -587,6 +591,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   assert(ctx->types != NULL);
 
   mcsat->ctx = ctx;
+  mcsat->exception = &ctx->env;
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
@@ -635,7 +640,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat_evaluator_construct(&mcsat->evaluator, mcsat);
 
   // Construct the preprocessor
-  preprocessor_construct(&mcsat->preprocessor, mcsat->terms);
+  preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception);
 
   // The variable queue
   var_queue_construct(&mcsat->var_queue);
@@ -713,7 +718,7 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
 }
 
 void mcsat_push(mcsat_solver_t* mcsat) {
-
+  assert(false);
 }
 
 static
@@ -739,7 +744,7 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
 }
 
 void mcsat_pop(mcsat_solver_t* mcsat) {
-
+  assert(false);
 }
 
 /**
@@ -1744,5 +1749,15 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
       // Add to model
       model_map_term(model, x_term, x_value);
     }
+  }
+}
+
+void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
+  uint32_t i;
+  mcsat->exception = handler;
+  preprocessor_set_exception_handler(&mcsat->preprocessor, handler);
+  for (i = 0; i < mcsat->plugins_count; ++ i) {
+    plugin_t* plugin = mcsat->plugins[i].plugin;
+    plugin->set_exception_handler(plugin, handler);
   }
 }

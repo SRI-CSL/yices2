@@ -20,6 +20,9 @@ typedef struct {
   /** A term manager */
   term_manager_t tm;
 
+  /** Exception handler */
+  jmp_buf* exception;
+
 } ite_plugin_t;
 
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
@@ -71,6 +74,13 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
   prop->lemma(prop, disj);
 }
 
+static
+void ite_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  ite->exception = handler;
+}
+
+
 plugin_t* ite_plugin_allocator(void) {
   ite_plugin_t* plugin = safe_malloc(sizeof(ite_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -88,5 +98,7 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.pop                 = 0;
   plugin->plugin_interface.gc_mark             = 0;
   plugin->plugin_interface.gc_sweep            = 0;
+  plugin->plugin_interface.set_exception_handler = ite_plugin_set_exception_handler;
+
   return (plugin_t*) plugin;
 }
