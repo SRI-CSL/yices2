@@ -4625,12 +4625,16 @@ void smt2_set_logic(const char *name) {
   // check to see if we are in efmode 
   __smt2_globals.efmode = logic_has_quantifiers(code);
   if (__smt2_globals.efmode) {
+    if (__smt2_globals.mcsat) {
+      print_error("the mcsat solver does not support quantifiers");
+      return;
+    }
     // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
     if (! __smt2_globals.benchmark_mode) {
       print_error("exists forall mode not allowed in incremental mode");
       return;
     }
-  } 
+  }
   
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
