@@ -377,6 +377,43 @@ typedef struct watch_s {
 
 
 
+/*******************
+ *  SAVED CLAUSES  *
+ ******************/
+
+/*
+ * When variables/clauses are eliminated, we may need to keep a copy of some
+ * of the clause to recover the truth value of eliminated variables.
+ * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
+ * where l is either pos(x) or neg(x) and x is an eliminated variable.
+ * 
+ * If we have a model M, that doesn't give a value to x, we extend the assignemnt
+ * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
+ * Otherwise, we set l := true (to force C_1 \/ l .... C_k \/ l to all be true in the
+ * extended model. For this to work, must process variables in reverse order of elimination.
+ * So that C_1 ... C_k have a value in M when we process x.
+ *
+ * The saved clauses are stored in a vector and are organized in blocks.
+ * Each block stores k clauses C_1 \/ l ... C_k \/ l as above. The eliminated literal 'l'
+ * is last element of each clause. We then store the length of the block.
+ * This looks like this:
+ *
+ *   -----------------------------------------------------------------------------
+ *    previous block | C_1 ... l | C_2 ... l | ... | C_k ... l | n |  next block
+ *   -----------------------------------------------------------------------------
+ *
+ * where n = total number of literals in C1 \/ l .... C_k \/ l.
+ */
+typedef struct clause_vector_s {
+  uint32_t *data;    // array to store the clauses
+  uint32_t top;      // end of the last block (0 if there's nothing saved)
+  uint32_t capacity; // full size of the data array
+} clause_vector_t;
+
+#define DEF_CLAUSE_VECTOR_CAPACITY 10240
+#define MAX_CLAUSE_VECTOR_CAPACITY MAX_ARRAY32_SIZE
+
+
 
 /****************************
  *  SOLVER DATA STRUCTURES  *
@@ -627,13 +664,18 @@ typedef struct sat_solver_s {
   cidx_t *cidx_array;
 
   /*
-   * Buffers and other data structures to build and simplify 
-   * learned clauses
+   * Buffers and other data structures to build and simplify
+   * learned clauses.
    */
   lbuffer_t buffer;
   lbuffer_t aux;
   gstack_t gstack;
   tag_map_t map;
+
+  /*
+   * Saved clauses
+   */
+  clause_vector_t saved_clauses;
 
   /*
    * Queues for literals and clauses used during preprocessing.
