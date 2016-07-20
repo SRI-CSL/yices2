@@ -857,6 +857,7 @@ static inline uint32_t padding_length(const clause_pool_t *pool, uint32_t i) {
 
 /*
  * Store a padding block of size n at index i
+ * - we want to keep i in the interval [0 ... pool->size - 1]
  */
 static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
   uint32_t j;
@@ -865,22 +866,12 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
 	 && is_multiple_of_four(n) && n > 0);
 
   j = i+n;
-
-  if (false && j == pool->size) {
-    // i is the last block
-    pool->size = i;
-    pool->available += n;
-    if (pool->learned == j) {
-      pool->learned = i;      
-    }
-  } else {
-    if (j < pool->size && is_padding_start(pool, j)) {
-      // merge the two padding blocks
-      n += padding_length(pool, j);
-    }
-    pool->data[i] = 0;
-    pool->data[i+1] = n;
+  if (j < pool->size && is_padding_start(pool, j)) {
+    // merge the two padding blocks
+    n += padding_length(pool, j);
   }
+  pool->data[i] = 0;
+  pool->data[i+1] = n;
 
   assert(clause_pool_invariant(pool));
 }
@@ -1130,6 +1121,114 @@ static void delete_watch_vectors(watch_t **w, uint32_t n) {
   }
 }
 
+
+/*************************
+ *  SAVED-CLAUSE VECTOR  *
+ ************************/
+
+/*
+ * Initialization: don't allocate anything yet.
+ */
+static void init_clause_vector(clause_vector_t *v) {
+  v->data = NULL;
+  v->top = 0;
+  v->capacity = 0;
+}
+
+/*
+ * Free memory
+ */
+static void delete_clause_vector(clause_vector_t *v) {
+  safe_free(v->data);
+  v->data = NULL;
+}
+
+/*
+ * Empty the vector
+ */
+static void reset_clause_vector(clause_vector_t *v) {
+  v->top = 0;
+}
+
+
+/*
+ * Capacity increase: add about 50%
+ */
+static uint32_t clause_vector_new_cap(uint32_t cap) {
+  uint32_t ncap;
+
+  if (cap == 0) {
+    ncap = DEF_CLAUSE_VECTOR_CAPACITY;
+  } else {
+    ncap = cap + (((cap >> 1) + 8) & ~3);
+    if (ncap < cap) { // arithmetic overflow
+      ncap = MAX_CLAUSE_VECTOR_CAPACITY;
+    }
+  }
+  return ncap;
+}
+
+
+/*
+ * Make room for at least (n + 1) elements at the end of v->data.
+ */
+static void resize_clause_vector(clause_vector_t *v, uint32_t n) {
+  uint32_t new_top, cap;
+
+  new_top = v->top + n + 1;
+  if (new_top <= v->top || new_top > MAX_CLAUSE_VECTOR_CAPACITY) {
+    // arithmetic overflow or request too large
+    out_of_memory();
+  }
+
+  if (v->capacity < new_top) {
+    cap = clause_vector_new_cap(v->capacity);
+    while (cap < new_top) {
+      cap = clause_vector_new_cap(cap);
+    }
+    v->data = (uint32_t *) safe_realloc(v->data, cap * sizeof(uint32_t));
+    v->capacity = cap;
+  }
+}
+
+
+/*
+ * Store clause a[0 ... n-1] at the end of v
+ * - l = distinguished literal in the clause (stored last).
+ * - l must occur in a[0 ... n-1]
+ * - the vector must have room for n literals
+ */
+static void clause_vector_save_clause(clause_vector_t *v, uint32_t n, const literal_t *a, literal_t l) {
+  uint32_t i, j;
+  literal_t z;
+
+  assert(v->top + n <= v->capacity);
+
+  j = v->top;
+  for (i=0; i<n; i++) {
+    z = a[i];
+    if (z != l) {
+      v->data[j] = z;
+      j ++;
+    }
+  }
+  assert(j - v->top == n - 1);
+  v->data[j] = l;
+  v->top = j+1;
+}
+
+
+/*
+ * Store s (block size) at the end of v
+ */
+static void clause_vector_add_block_length(clause_vector_t *v, uint32_t s) {
+  uint32_t j;
+
+  j = v->top;
+  assert(j < v->capacity);
+  v->data[j] = s;
+  v->top = j+1;
+}
 
 
 /***********
@@ -1491,6 +1590,8 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 
 
+
+
 /*********************************
  *  SAT SOLVER INIITIALIZATION   *
  ********************************/
@@ -1600,6 +1701,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_gstack(&solver->gstack);
   init_tag_map(&solver->map, 0); // use default size
 
+  init_clause_vector(&solver->saved_clauses);
+
   init_queue(&solver->lqueue);
   init_queue(&solver->cqueue);
   solver->scan_index = 0;
@@ -1653,6 +1756,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_gstack(&solver->gstack);
   delete_tag_map(&solver->map);
 
+  delete_clause_vector(&solver->saved_clauses);
+
   delete_queue(&solver->lqueue);
   delete_queue(&solver->cqueue);
 }
@@ -1693,6 +1798,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_lbuffer(&solver->aux);
   reset_gstack(&solver->gstack);
   clear_tag_map(&solver->map);
+
+  reset_clause_vector(&solver->saved_clauses);
 
   reset_queue(&solver->lqueue);
   reset_queue(&solver->cqueue);
@@ -3525,6 +3632,70 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
  */
 
 /*
+ * Total size of all live clauses in vector w
+ */
+static uint32_t live_clauses_size(const clause_pool_t *pool, const watch_t *w) {
+  uint32_t s, i, n, cidx;
+
+  assert(w != NULL);
+
+  s = 0;
+  n = w->size;
+  for (i=0; i<n; i++) {
+    cidx = w->data[i];
+    if (clause_is_live(pool, cidx)) {
+      s += clause_length(pool, cidx);
+    }
+  }
+
+  return s;
+}
+
+/*
+ * Save clause of given idx
+ */
+static void pp_save_clause(sat_solver_t *solver, uint32_t cidx, literal_t l) {
+  assert(clause_is_live(&solver->pool, cidx));
+  clause_vector_save_clause(&solver->saved_clauses, clause_length(&solver->pool, cidx),
+			    clause_literals(&solver->pool, cidx), l);
+
+}
+
+
+/*
+ * Save half the clauses that contain x so that we can later extend the truth-assignment to x.
+ */
+static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
+  watch_t *w;
+  literal_t l;
+  uint32_t s, n, i, cidx;
+
+  l = pos(x);
+  w = solver->watch[pos(x)];
+  s = live_clauses_size(&solver->pool, solver->watch[pos(x)]);
+
+  n = live_clauses_size(&solver->pool, solver->watch[neg(x)]);
+  if (n < s) {
+    l = neg(x);
+    w = solver->watch[neg(x)];
+    s = n;
+  }
+
+  resize_clause_vector(&solver->saved_clauses, s);
+  n = w->size;
+  for (i=0; i<n; i++) {
+    cidx = w->data[i];
+    if (clause_is_live(&solver->pool, cidx)) {
+      pp_save_clause(solver, cidx, l);
+    }
+  }
+  clause_vector_add_block_length(&solver->saved_clauses, s);
+}
+
+
+
+
+/*
  * Construct the resolvent of clauses c1 and c2
  * - l = literal
  * - both clauses must be sorted
@@ -3655,8 +3826,8 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
       }      
     }
   }
-  // TBD: add data structure to extend the model to x
-
+  // save enough clauses to extend the model to x
+  pp_save_elim_clauses_for_var(solver, x);
 
   /*
    * We must mark x as an eliminated variable before deleting the clauses
@@ -4939,6 +5110,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       solver->status = STAT_UNSAT;
       return STAT_UNSAT;
     }
+    
   }  else {
     // One round of propagation + removal of true clauses
     nsat_boolean_propagation(solver);
