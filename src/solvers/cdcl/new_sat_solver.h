@@ -145,6 +145,11 @@ static inline bool true_preferred(bval_t val) {
   return (val & 0x1) != 0;
 }
 
+// opposite value of v: flip the low order bit
+static inline bval_t opposite_val(bval_t val) {
+  return val ^ 1;
+}
+
 
 /********************
  *  LITERAL BUFFER  *

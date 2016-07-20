@@ -3753,6 +3753,25 @@ static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, l
   return true;
 }
 
+/*
+ * Add l as a new clause (unit resolvent)
+ * - do nothing if l is already true
+ * - add the empty clause if l is already false
+ */
+static void pp_add_unit_resolvent(sat_solver_t *solver, literal_t l) {
+  switch (lit_value(solver, l)) {
+  case BVAL_TRUE:
+    break;
+
+  case BVAL_FALSE:
+    add_empty_clause(solver);
+    break;
+
+  default:
+    pp_push_unit_literal(solver, l);
+    break;
+  }
+}
 
 /*
  * Construct the resolvent of c1 and c2 and add it if it's not trivial.
@@ -3767,7 +3786,7 @@ static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, lit
     n = b->size;
     assert(n > 0);
     if (n == 1) {
-      pp_push_unit_literal(solver, b->data[0]);
+      pp_add_unit_resolvent(solver, b->data[0]);
     } else {
       cidx = clause_pool_add_problem_clause(&solver->pool, n, b->data);
       add_clause_all_watch(solver, n, b->data, cidx);
@@ -3835,7 +3854,6 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
    */
   pp_mark_eliminated_variable(solver, x);
 
-
   // Delete the clauses that contain x
   for (i1=0; i1<n1; i1++) {
     c1 = w1->data[i1];
@@ -3867,6 +3885,10 @@ static void pp_cheap_elim(sat_solver_t *solver) {
   // variable 0 is special. We can't remove it
   n = solver->nvars;
   for (i=1; i<n; i++) {
+    if (var_is_assigned(solver, i)) {
+      assert(solver->ante_tag[i] == ATAG_PURE || solver->ante_tag[i] == ATAG_UNIT);
+      continue;
+    }
     pp = solver->occ[pos(i)];
     nn = solver->occ[neg(i)];
     if (pp == 0 || nn == 0) {
@@ -4834,6 +4856,77 @@ static void resolve_conflict(sat_solver_t *solver) {
 
 
 
+/*************************************************
+ *  RECOVER TRUTH VALUE OF ELIMINATED VARIABLES  *
+ ************************************************/
+
+/*
+ * Check whether all literals in a[0 ... n] are false
+ */
+static bool saved_clause_is_false(sat_solver_t *solver, uint32_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (lit_value(solver, a[i]) == BVAL_TRUE) {
+      return false;
+    }
+    assert(lit_value(solver, a[i]) == BVAL_FALSE);
+  }
+
+  return true;
+}
+
+/*
+ * Process a block of saved clauses
+ * - a = start of the block
+ * - n = block length
+ * - a[n-1] = literal to flip if needed
+ */
+static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint32_t n) {
+  literal_t l;
+  uint32_t i, j;
+  bval_t val;
+
+  l = a[n-1];
+  assert(solver->ante_tag[var_of(l)] == ATAG_ELIM);
+
+  val = BVAL_FALSE; // default value for l
+  i = 0;
+  while (i < n) {
+    j = i;
+    while (a[j] != l) j++;
+    // a[i ... j] = saved clause with a[j] == l
+    if (saved_clause_is_false(solver, a+i, j-i)) {
+      // all literals in a[i ... j-1] are false so l is forced to true
+      val = BVAL_TRUE;
+      break;
+    }
+    i = j+1;
+  }
+
+  solver->value[l] = val;
+  solver->value[not(l)] = opposite_val(val);
+}
+
+/*
+ * Extend the current assignment to all eliminated variables
+ */
+static void extend_assignment(sat_solver_t *solver) {
+  clause_vector_t *v;
+  uint32_t n, block_size;;
+  
+  v = &solver->saved_clauses;
+  n = v->top;
+  while (n > 0) {
+    n --;
+    block_size = v->data[n];
+    assert(block_size >= 1 && block_size <= n);
+    n -= block_size;
+    extend_assignment_for_block(solver, v->data + n, block_size);
+  }
+}
+
+
 
 
 /*****************************
@@ -5188,6 +5281,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   if (solver->verbosity >= 2) {
     fprintf(stderr, "-------------------------------------------------------------------------------------------------\n\n");
+  }
+
+  if (solver->status == STAT_SAT) {
+    extend_assignment(solver);
   }
 
   //  close_stat_file();
