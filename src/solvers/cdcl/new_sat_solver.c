@@ -3898,6 +3898,8 @@ static void pp_cheap_elim(sat_solver_t *solver) {
       //      fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
       pp_eliminate_variable(solver, i);
       solver->stats.pp_cheap_elims ++;
+      pp_empty_queue(solver);
+      if (solver->has_empty_clause) break;
     }
   }
 }
