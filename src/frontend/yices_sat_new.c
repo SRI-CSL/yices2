@@ -202,7 +202,7 @@ static literal_t read_literal(reader_t *reader, int32_t nv) {
 #define OPEN_ERROR -1
 #define FORMAT_ERROR -2
 
-static int build_instance(char *filename, bool pp) {
+static int build_instance(const char *filename, bool pp) {
   int n, x, c_idx, l_idx, literal;
   reader_t reader;
   char pline[200];
@@ -279,6 +279,99 @@ static int build_instance(char *filename, bool pp) {
 
 
 
+/*
+ * Check whether clause a[0 .... n-1] is true in the solver's model
+ */
+static bool clause_is_true(uint32_t n, literal_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (lit_value(&solver, a[i]) == BVAL_TRUE) {
+      return true;
+    }
+    if (lit_value(&solver, a[i]) != BVAL_FALSE) {
+      fprintf(stderr, "BUG: the model does not assign a value to literal %"PRId32"\n", a[i]);
+      exit(1);
+    }
+  }
+  return false;
+}
+
+/*
+ * Parse instance again and check whether all clauses are true in the solver's model.
+ */
+static void check_model(const char *filename) {
+  int n, x, c_idx, l_idx, literal;
+  reader_t reader;
+  char pline[200];
+
+  if (init_file_reader(&reader, filename) < 0) {
+    // can't open the file
+    fprintf(stderr, "can't check model: ");
+    perror(filename);
+    return;
+  }
+
+  // skip empty lines and comments
+  for (;;) {
+    x = reader_next_char(&reader);
+    if (x == 'c') {
+      finish_line(&reader);
+      continue;
+    } 
+    if (x != '\n') break;
+  }
+
+  if (x == EOF) {
+    fprintf(stderr, "can't check model: file %s: line %"PRIu32": unexpected end of file\n", filename, reader_line(&reader));
+    goto done;
+  }
+
+  /* read problem size */
+  read_line(&reader, 200, pline);
+  n = sscanf(pline, "p cnf %d %d", &nvars, &nclauses);
+  if (n != 2 || nvars < 0 || nclauses < 0) {
+    fprintf(stderr, "can't check model: file %s: line %"PRIu32": expected 'p cnf <nvars> <nclauses>\n", filename, reader_line(&reader));
+    goto done;
+  }
+
+  /* now read clauses and translate them */
+  c_idx = 0;
+  while (c_idx < nclauses) {
+    // some non-conforming benchmarks have 'c lines' interspersed with the 
+    // clauses so we check and skip them here
+    x = reader_next_char(&reader);
+    if (x == 'c') {
+      // not a clause
+      finish_line(&reader);
+    } else {
+      l_idx = 0;
+      for (;;) {
+	literal = read_literal(&reader, nvars);
+	if (literal < 0) break;
+	if (l_idx >= (int)buffer_size) expand_buffer();
+	clause[l_idx] = literal;
+	l_idx ++;
+      }
+
+      if (literal != END_OF_CLAUSE) {
+	fprintf(stderr, "error in check model: file %s: line %"PRIu32": invalid format\n", filename, reader_line(&reader));
+	goto done;
+      }
+
+      if (!clause_is_true(l_idx, clause)) {
+	fprintf(stderr, "error in check model: clause %"PRIu32" is false (line %"PRIu32")\n", c_idx, reader_line(&reader));	
+	goto done;
+      }
+      c_idx ++;
+    }
+  }
+  printf("model looks correct\n");
+
+ done:
+  close_reader(&reader);
+}
+
 
 /*
  * COMMAND-LINE OPTIONS
@@ -289,6 +382,7 @@ static int build_instance(char *filename, bool pp) {
  * - input_filename = name of the input file
  * - verbose = true for verbose output
  * - model = true for produce model (if SAT)
+ * - check = true to force checking of the model
  * - preprocess = true to enable preprocessing
  * - seed_given = true if a seed is given on the command line
  *   seed_value = value of the seed
@@ -297,6 +391,7 @@ static int build_instance(char *filename, bool pp) {
 static char *input_filename = NULL;
 static bool verbose;
 static bool model;
+static bool check;
 static bool preprocess;
 static bool seed_given;
 static bool stats;
@@ -307,6 +402,7 @@ enum {
   help_flag,
   verbose_flag,
   model_flag,
+  check_flag,
   preprocess_flag,
   seed_opt,
   stats_flag,
@@ -319,6 +415,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
+  { "check", 'c', FLAG_OPTION, check_flag },
   { "preprocess", 'p', FLAG_OPTION, preprocess_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
@@ -346,6 +443,7 @@ static void print_help(char *progname) {
          "   --version, -V           Show version and exit\n"
          "   --help, -h              Print this message and exit\n"
          "   --model, -m             Show a model if the problem is satisfiable\n"
+	 "   --check, -c             Verify the model if the problem is satisfiable\n"
          "   --verbose, -v           Verbose mode\n"
 	 "   --preprocess, -p        Use preprocessing\n"
 	 "   --seed=<int>, -s <int>  Set the prng seed\n"
@@ -375,6 +473,7 @@ static void parse_command_line(int argc, char *argv[]) {
 
   input_filename = NULL;
   model = false;
+  check = false;
   verbose = false;
   seed_given = false;
   stats = false;
@@ -414,6 +513,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case model_flag:
         model = true;
+        break;
+
+      case check_flag:
+        check = true;
         break;
 
       case preprocess_flag:
@@ -555,6 +658,16 @@ static void print_model(void) {
 }
 
 
+/*
+ * Check the model if any (reread the file)
+ */
+static void do_check(const char* filename) {
+  if (nsat_status(&solver) == STAT_SAT) {
+    alloc_buffer(200);
+    check_model(filename);
+    delete_buffer();
+  }
+}
 
 
 /*
@@ -618,6 +731,9 @@ int main(int argc, char* argv[]) {
     print_results();
     if (model) {
       print_model();
+    }
+    if (check) {
+      do_check(input_filename);
     }
 
     delete_nsat_solver(&solver);
