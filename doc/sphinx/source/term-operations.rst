@@ -2559,6 +2559,7 @@ The following table lists the constructors of composite terms.
      :c:enum:`YICES_ABS`              (abs t)
      :c:enum:`YICES_CEIL`             (ceil t)
      :c:enum:`YICES_FLOOR`            (floor t)
+     :c:enum:`YICES_RDIV`             (/ t1 t2)
      :c:enum:`YICES_IDIV`             (div t1 t2)
      :c:enum:`YICES_IMOD`             (mod t1 t2)
      :c:enum:`YICES_IS_INT_ATOM`      (is-int t)

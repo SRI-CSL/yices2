@@ -22,11 +22,11 @@ used at compile time for checking the Yices version.
  
    Patch level
 
-For Yices 2.4.2, they are defined as follows::
+For Yices 2.5.0, they are defined as follows::
 
    #define __YICES_VERSION            2
-   #define __YICES_VERSION_MAJOR      4
-   #define __YICES_VERSION_PATCHLEVEL 2
+   #define __YICES_VERSION_MAJOR      5
+   #define __YICES_VERSION_PATCHLEVEL 0
 
 The same information is available in the following constant string.
 
@@ -35,7 +35,7 @@ The same information is available in the following constant string.
    Version as a string.
 
    The string includes the version number, followed by the revision
-   number and the patch level, as in ``"2.4.2"``.
+   number and the patch level, as in ``"2.5.0"``.
 
 More details are given by three constant strings:
 
