@@ -143,74 +143,74 @@ static inline uint32_t random_uint(sat_solver_t *s, uint32_t n) {
  * Capacity increase for literal buffers:
  * - about 50% increase rounded up to a multiple of four
  */
-static inline uint32_t lbuffer_cap_increase(uint32_t cap) {
+static inline uint32_t vector_cap_increase(uint32_t cap) {
   return ((cap >> 1) + 8) & ~3;
 }
 
 /*
  * Initialize
  */
-static void init_lbuffer(lbuffer_t *b) {
+static void init_vector(vector_t *v) {
   uint32_t n;
 
-  n = DEF_LBUFFER_SIZE;
-  assert(n <= MAX_LBUFFER_SIZE);
-  b->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
-  b->capacity = n;
-  b->size = 0;
+  n = DEF_VECTOR_SIZE;
+  assert(n <= MAX_VECTOR_SIZE);
+  v->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  v->capacity = n;
+  v->size = 0;
 }
 
 /*
  * Make it larger.
  */
-static void extend_lbuffer(lbuffer_t *b) {
+static void extend_vector(vector_t *v) {
   uint32_t n;
 
-  n = b->capacity + lbuffer_cap_increase(b->capacity);
-  assert(n > b->capacity);
-  if (n > MAX_LBUFFER_SIZE) {
+  n = v->capacity + vector_cap_increase(v->capacity);
+  assert(n > v->capacity);
+  if (n > MAX_VECTOR_SIZE) {
     out_of_memory();
   }
-  b->data = (literal_t *) safe_realloc(b->data, n * sizeof(literal_t));
-  b->capacity = n;
+  v->data = (literal_t *) safe_realloc(v->data, n * sizeof(literal_t));
+  v->capacity = n;
 }
 
 /*
- * Add literal l at the end of buffer b
+ * Add literal l at the end of v
  */
-static void lbuffer_push(lbuffer_t *b, literal_t l) {
+static void vector_push(vector_t *v, literal_t l) {
   uint32_t i;
 
-  i = b->size;
-  if (i == b->capacity) {
-    extend_lbuffer(b);
+  i = v->size;
+  if (i == v->capacity) {
+    extend_vector(v);
   }
-  assert(i < b->capacity);
-  b->data[i] = l;
-  b->size = i+1;
+  assert(i < v->capacity);
+  v->data[i] = l;
+  v->size = i+1;
 }
 
 /*
  * Reset: empty the buffer
  */
-static inline void reset_lbuffer(lbuffer_t *b) {
-  b->size = 0;
+static inline void reset_vector(vector_t *v) {
+  v->size = 0;
 }
 
 /*
  * Reset and make room for one literal
  */
-static inline void lbuffer_reset_and_reserve(lbuffer_t *b) {
-  assert(b->capacity >= 1);
-  b->size = 1;
+static inline void vector_reset_and_reserve(vector_t *v) {
+  assert(v->capacity >= 1);
+  v->size = 1;
 }
 
 /*
  * Free memory
  */
-static void delete_lbuffer(lbuffer_t *b) {
-  safe_free(b->data);
-  b->data = NULL;
+static void delete_vector(vector_t *v) {
+  safe_free(v->data);
+  v->data = NULL;
 }
 
 
@@ -220,7 +220,7 @@ static void delete_lbuffer(lbuffer_t *b) {
  *********************/
 
 /*
- * Capacity increase: same as for lbuffer
+ * Capacity increase: same as for vector
  */
 static inline uint32_t queue_cap_increase(uint32_t cap) {
   return ((cap >> 1) + 8) & ~3;
@@ -670,7 +670,7 @@ static inline clause_t *clause_of_idx(const clause_pool_t *pool, cidx_t idx) {
 
 
 /*
- * MARKS
+ * MARKS ON CLAUSES
  */
 
 /*
@@ -696,8 +696,7 @@ static inline bool clause_is_unmarked(const clause_pool_t *pool, cidx_t idx) {
   return (pool->data[idx] & CLAUSE_MARK) == 0;
 }
 
-#if 0
-// NOT USED
+#ifndef NDEBUG
 static inline bool clause_is_marked(const clause_pool_t *pool, cidx_t idx) {
   return !clause_is_unmarked(pool, idx);
 }
@@ -1600,6 +1599,33 @@ static void cleanup_heap(sat_solver_t *sol) {
 }
 
 
+/*
+ * MARKS ON VARIABLES
+ */
+
+/*
+ * Set/clear/test the mark on variable x
+ * - we use the high order bit of the ante_tag
+ * - if this bit is 1, x is marked
+ */
+static inline void mark_variable(sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  solver->ante_tag[x] |= (uint8_t) 0x80;
+}
+
+static inline void unmark_variable(sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  solver->ante_tag[x] &= (uint8_t) 0x7F;
+}
+
+static inline bool variable_is_marked(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return (solver->ante_tag[x] & (uint8_t) 0x80) != 0;
+}
+
+static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
+  return variable_is_marked(solver, var_of(l));
+}
 
 
 
@@ -1707,8 +1733,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
   solver->cidx_array = NULL;
 
-  init_lbuffer(&solver->buffer);
-  init_lbuffer(&solver->aux);
+  init_vector(&solver->buffer);
+  init_vector(&solver->aux);
   init_gstack(&solver->gstack);
   init_tag_map(&solver->map, 0); // use default size
 
@@ -1716,6 +1742,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
   init_queue(&solver->lqueue);
   init_queue(&solver->cqueue);
+  init_vector(&solver->cvector);
   solver->scan_index = 0;
 }
 
@@ -1762,8 +1789,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
   safe_free(solver->cidx_array);
   solver->cidx_array = NULL;
 
-  delete_lbuffer(&solver->buffer);
-  delete_lbuffer(&solver->aux);
+  delete_vector(&solver->buffer);
+  delete_vector(&solver->aux);
   delete_gstack(&solver->gstack);
   delete_tag_map(&solver->map);
 
@@ -1771,6 +1798,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
 
   delete_queue(&solver->lqueue);
   delete_queue(&solver->cqueue);
+  delete_vector(&solver->cvector);
 }
 
 
@@ -1805,8 +1833,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   safe_free(solver->cidx_array);
   solver->cidx_array = NULL;
 
-  reset_lbuffer(&solver->buffer);
-  reset_lbuffer(&solver->aux);
+  reset_vector(&solver->buffer);
+  reset_vector(&solver->aux);
   reset_gstack(&solver->gstack);
   clear_tag_map(&solver->map);
 
@@ -1814,6 +1842,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
 
   reset_queue(&solver->lqueue);
   reset_queue(&solver->cqueue);
+  reset_vector(&solver->cvector);
 }
 
 
@@ -1947,6 +1976,20 @@ bvar_t nsat_solver_new_var(sat_solver_t *solver) {
   return x;
 }
 
+
+/*
+ * Number of active variables (i.e., not assigned)
+ */
+static uint32_t num_active_vars(const sat_solver_t *solver) {
+  uint32_t c, i, n;
+
+  c = 0;
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    c += var_is_unassigned(solver, i);
+  }
+  return c;
+}
 
 
 /*******************
@@ -2736,7 +2779,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n, n0;
   cidx_t *a;
 
-  if (solver->verbosity >= 1) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "\nReduce learned clause set\n");
     fprintf(stderr, "  on entry: %"PRIu32" clauses, %"PRIu32" literals\n", 
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
@@ -2747,7 +2790,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   check_candidate_clauses_to_delete(solver, a, n); // DEBUG
 
-  if (solver->verbosity >= 1) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "  possible deletion: %"PRIu32" clauses\n", n);
   }
 
@@ -2765,7 +2808,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   check_watch_vectors(solver);
 
-  if (solver->verbosity >= 1) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "  on exit: %"PRIu32" clauses, %"PRIu32" literals\n\n", 
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
@@ -3041,7 +3084,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
   fprintf(stderr, "cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
-  fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
+  fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
   fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
@@ -3089,6 +3132,7 @@ static void reset_clause_queue(sat_solver_t *solver) {
 
 /*
  * Add cidx to the queue:
+ * - cidx is the index of a clause that shrunk (so it may subsume more clauses)
  * - do nothing if cidx is marked (i.e., already in cqueue) or if cidx >= scan_index
  */
 static void clause_queue_push(sat_solver_t *solver, cidx_t cidx) {
@@ -3100,25 +3144,34 @@ static void clause_queue_push(sat_solver_t *solver, cidx_t cidx) {
 
 
 /*
+ * Next clause from scan index: return solver->pool.size if
+ * all clauses have been scanned
+ */
+static cidx_t clause_scan_next(sat_solver_t *solver) {
+  cidx_t i;
+
+  i = solver->scan_index;
+  if (i < solver->pool.size) {
+    solver->scan_index = clause_pool_next_clause(&solver->pool, i);
+  }
+  return i;
+}
+
+/*
  * Get the next element in the queue
  * - return solver->pool.size if the queue is empty
  */
 static cidx_t clause_queue_pop(sat_solver_t *solver) {
   cidx_t i;
 
-  i = solver->scan_index;
-  if (i < solver->pool.size) {
-    solver->scan_index = clause_pool_next_clause(&solver->pool, i);    
-  } else {
-    while(! queue_is_empty(&solver->cqueue)) {
-      i = queue_pop(&solver->cqueue);
-      if (clause_is_live(&solver->pool, i)) {
-	unmark_clause(&solver->pool, i);
-	goto done;
-      }
+  while(! queue_is_empty(&solver->cqueue)) {
+    i = queue_pop(&solver->cqueue);
+    if (clause_is_live(&solver->pool, i)) {
+      unmark_clause(&solver->pool, i);
+      goto done;
     }
-    i = solver->pool.size; // all done
   }
+  i = solver->pool.size; // all done
  done:
   return i;
 }
@@ -3531,9 +3584,11 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       pp_push_unit_literal(solver, b[0]);
       clause_pool_delete_clause(&solver->pool, cidx);
       solver->stats.pp_unit_strengthenings ++;
+      // pp_empty_queue here
     } else {
       clause_pool_shrink_clause(&solver->pool, cidx, m);
       set_clause_signature(&solver->pool, cidx);
+      clause_queue_push(solver, cidx);
       solver->stats.pp_strengthenings ++;
     }    
   } else {
@@ -3586,10 +3641,11 @@ static uint32_t w_len(sat_solver_t *solver, literal_t l) {
 
 /*
  * Check backward subsumption from clause cidx:
- * - remove all clauses subsumed by cidx
- * - also check for strengthening
+ * - checks whether cidx subsumes or strengthen any clause of index >= start
+ * - remove all such clauses subsumed by cidx
+ * - add strengthened clauses to the clause queue.
  */
-static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
+static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t start) {
   literal_t *a;
   uint32_t i, n, m, k, s;
   literal_t key;
@@ -3604,7 +3660,7 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
   key = pp_key_literal(solver, a, n);
 
 #if 0
-  fprintf(stderr, "subsumption check: cdix = %"PRIu32", len = %"PRIu32", key = %"PRIu32", occs = %"PRIu32", watch size = %"PRIu32"\n",
+  fprintf(stderr, "subsumption check: cidx = %"PRIu32", len = %"PRIu32", key = %"PRIu32", occs = %"PRIu32", watch size = %"PRIu32"\n",
 	  cidx, n, key, solver->occ[key] + solver->occ[not(key)], w_len(solver, key));
 #endif
 
@@ -3614,10 +3670,8 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
-      if (clause_is_live(&solver->pool, k)) {
-	if (k != cidx) {
-	  try_subsumption(solver, n, a, s, k);
-	}
+      if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
+	try_subsumption(solver, n, a, s, k);
       }
     }
   }
@@ -3628,7 +3682,7 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
     for (i=0; i<m; i++) {
       k = w->data[i];
       assert(idx_is_clause(k));
-      if (clause_is_live(&solver->pool, k)) {
+      if (k >= start && clause_is_live(&solver->pool, k)) {
 	assert(k != cidx);
 	try_subsumption(solver, n, a, s, k);
       }
@@ -3637,6 +3691,152 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx) {
 }
 
 
+/*
+ * Collect and mark all variables in clause cidx
+ * - the variables are added to solver->aux
+ */
+static void pp_collect_vars_of_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *a;
+  uint32_t i, n;
+  bvar_t x;
+
+  assert(clause_is_live(&solver->pool, cidx));
+  
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  for (i=0; i<n; i++) {
+    x = var_of(a[i]);
+    if (! variable_is_marked(solver, x)) {
+      mark_variable(solver, x);
+      vector_push(&solver->aux, x);
+    }
+  }
+}
+
+
+/*
+ * Collect clauses of index < s from w
+ * - if a clause is marked we skip it
+ */
+static void pp_collect_subsume_candidates_in_watch(sat_solver_t *solver, watch_t *w, uint32_t s) {
+  uint32_t i, n, cidx;
+
+  if (w != NULL) {
+    n = w->size;
+    for (i=0; i<n; i++) {
+      cidx = w->data[i];
+      if (cidx < s && clause_is_live(&solver->pool, cidx) && clause_is_unmarked(&solver->pool, cidx)) {
+	vector_push(&solver->cvector, cidx);
+      }
+    }
+  }
+}
+
+/*
+ * Collect clauses that may subsume a clause of index >= s
+ * - solver->aux contains variables of clauses >= s
+ * - all variables in solver->aux are marked.
+ * - the relevant clauses are stored in solver->cvector
+ * - all variable marks are cleared
+ *
+ * To avoid duplication, we mark clauses as we add them to cvector.
+ * If a clause is already marked, it's in the clause queue so don't
+ * need to add it to cvector.
+ */
+static void pp_collect_subsume_candidates(sat_solver_t *solver, uint32_t s) {
+  vector_t *v;
+  uint32_t i, n;
+  bvar_t x;
+
+  reset_vector(&solver->cvector);
+
+  v = &solver->aux;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    x = v->data[i];
+    assert(variable_is_marked(solver, x));
+    unmark_variable(solver, x);
+    pp_collect_subsume_candidates_in_watch(solver, solver->watch[pos(x)], s);
+    pp_collect_subsume_candidates_in_watch(solver, solver->watch[neg(x)], s);
+  }
+
+  // cleanup: remove the marks of all clauses in cvector
+  v = &solver->cvector;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    assert(clause_is_marked(&solver->pool, v->data[i]));
+    unmark_clause(&solver->pool, v->data[i]);
+  }
+}
+
+
+
+/*
+ * One round of subsumption starting from solver->scan_index
+ *
+ * The set of clauses is split in two:
+ * - S1: clauses of index < scan_index
+ * - S2: clauses of index >= scan_index
+ * We know that the clauses in S1 don't subsume each other.
+ *
+ * We first scan clauses of S2 and we check whether they subsume or
+ * strengthen anything. Then we compute the set of variables that
+ * occur in clauses of S2 and we construct the set of clauses from S1
+ * that contain any such variable. We check for subsumption from theses
+ * clauses. Finally, we process the queue of clauses.
+ */
+static void pp_subsumption(sat_solver_t *solver) {
+  uint32_t i, n, s;
+  cidx_t cidx;
+
+  // save the scan index in s
+  s = solver->scan_index;
+
+  // First pass: scan clauses of S2
+  for (;;) {
+    cidx = clause_scan_next(solver);
+    if (cidx >= solver->pool.size) break;
+    if (clause_is_live(&solver->pool, cidx)) {
+      pp_clause_subsumption(solver, cidx, 0);
+      pp_empty_queue(solver);
+      if (solver->has_empty_clause) return;
+    }
+  }
+
+  if (s > 0) {
+    // collect variables of S2 into solver->aux
+    reset_vector(&solver->aux);
+    cidx = next_clause_index(&solver->pool, s);
+    while (cidx < solver->pool.size) {
+      if (clause_is_live(&solver->pool, cidx)) {
+	pp_collect_vars_of_clause(solver, cidx);
+      }
+      cidx = clause_pool_next_clause(&solver->pool, cidx);
+    }
+
+    // clauses of S1 that may subsume/strengthen a clause of S2
+    pp_collect_subsume_candidates(solver, s);
+    n = solver->cvector.size;
+    for (i=0; i<n; i++) {
+      cidx = solver->cvector.data[i];
+      assert(clause_is_live(&solver->pool, cidx));
+      pp_clause_subsumption(solver, cidx, s);
+      pp_empty_queue(solver);
+      if (solver->has_empty_clause) return;
+    }
+  }
+
+
+  // Final step: empty the queue
+  for (;;) {
+    cidx = clause_queue_pop(solver);
+    if (cidx >= solver->pool.size) break;
+    assert(clause_is_live(&solver->pool, cidx));
+    pp_clause_subsumption(solver, cidx, 0);
+    pp_empty_queue(solver);
+    if (solver->has_empty_clause) break;
+  }
+}
 
 /*
  * RESOLUTION/VARIABLE ELIMINATION
@@ -3722,7 +3922,7 @@ static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, l
   assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
   assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
 
-  reset_lbuffer(&solver->buffer);
+  reset_vector(&solver->buffer);
   n1 = clause_length(&solver->pool, c1);
   a1 = clause_literals(&solver->pool, c1);
   n2 = clause_length(&solver->pool, c2);
@@ -3735,7 +3935,7 @@ static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, l
     l2 = a2[i2];
     if (l1 == l2) {
       assert(l1 != l && l1 != not(l));
-      lbuffer_push(&solver->buffer, l1);
+      vector_push(&solver->buffer, l1);
       i1 ++;
       i2 ++;
     } else if (l1 == not(l2)) {
@@ -3745,20 +3945,20 @@ static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, l
       i2 ++;
     } else if (l1 < l2) {
       assert(l1 != l && l1 != not(l));
-      lbuffer_push(&solver->buffer, l1);
+      vector_push(&solver->buffer, l1);
       i1 ++;
     } else {
       assert(l2 != l && l2 != not(l));
-      lbuffer_push(&solver->buffer, l2);
+      vector_push(&solver->buffer, l2);
       i2 ++;
     }
   }
   while (i1 < n1) {
-    lbuffer_push(&solver->buffer, a1[i1]);
+    vector_push(&solver->buffer, a1[i1]);
     i1 ++;
   }
   while (i2 < n2) {
-    lbuffer_push(&solver->buffer, a2[i2]);
+    vector_push(&solver->buffer, a2[i2]);
     i2 ++;
   }
   return true;
@@ -3780,6 +3980,7 @@ static void pp_add_unit_resolvent(sat_solver_t *solver, literal_t l) {
 
   default:
     pp_push_unit_literal(solver, l);
+    // pp_empty_queue here
     break;
   }
 }
@@ -3789,7 +3990,7 @@ static void pp_add_unit_resolvent(sat_solver_t *solver, literal_t l) {
  * - if the resolvent is a unit clause, add its literal to the unit queue
  */
 static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
-  lbuffer_t *b;
+  vector_t *b;
   uint32_t n, cidx;
 
   if (pp_build_resolvent(solver, c1, c2, l)) {
@@ -4064,7 +4265,6 @@ static void prepare_for_search(sat_solver_t *solver) {
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   double start, end;
-  uint32_t cidx;
 
   start = 0.0; // stop GCC warning
   if (solver->verbosity >= 1) {
@@ -4076,15 +4276,9 @@ static void nsat_preprocess(sat_solver_t *solver) {
   pp_empty_queue(solver);
   pp_cheap_elim(solver); // FOR TESTING
 
-  for (;;) {
-    pp_empty_queue(solver);
-    if (solver->has_empty_clause) goto done;
-    cidx = clause_queue_pop(solver);
-    if (cidx == solver->pool.size) break; // all done
-    if (clause_is_live(&solver->pool, cidx)) {
-      pp_clause_subsumption(solver, cidx);
-    }
-  }
+  assert(solver->scan_index == 0);
+  pp_subsumption(solver);
+  if (solver->has_empty_clause) goto done;
   reset_clause_queue(solver);
   prepare_for_search(solver);
 
@@ -4406,33 +4600,6 @@ static void partial_restart(sat_solver_t *solver) {
  */
 
 /*
- * Set/clear/test the mark on variable x
- * - we use the high order bit of the ante_tag
- * - if this bit is 1, x is marked
- */
-static inline void mark_variable(sat_solver_t *solver, bvar_t x) {
-  assert(x < solver->nvars);
-  solver->ante_tag[x] |= (uint8_t) 0x80;
-}
-
-static inline void unmark_variable(sat_solver_t *solver, bvar_t x) {
-  assert(x < solver->nvars);
-  solver->ante_tag[x] &= (uint8_t) 0x7F;
-}
-
-static inline bool variable_is_marked(const sat_solver_t *solver, bvar_t x) {
-  assert(x < solver->nvars);
-  return (solver->ante_tag[x] & (uint8_t) 0x80) != 0;
-}
-
-/*
- * Short cuts: use literal
- */
-static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
-  return variable_is_marked(solver, var_of(l));
-}
-
-/*
  * Process literal l during conflict resolution.
  * - l is either a part of the learned clause or a literal to resolve
  * - if l is marked do nothing (already seen)
@@ -4459,7 +4626,7 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
     if (solver->level[x] == solver->decision_level) {
       return 1;
     }
-    lbuffer_push(&solver->buffer, l);
+    vector_push(&solver->buffer, l);
   }
 
   return 0;
@@ -4509,7 +4676,7 @@ static void analyze_conflict(sat_solver_t *solver) {
   assert(solver->decision_level > 0);
 
   unresolved = 0;
-  lbuffer_reset_and_reserve(&solver->buffer); // make room for one literal
+  vector_reset_and_reserve(&solver->buffer); // make room for one literal
 
   /*
    * Scan the conflict clause
@@ -4714,7 +4881,7 @@ static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
  * - all marks are removed.
  */
 static void simplify_learned_clause(sat_solver_t *solver) {
-  lbuffer_t *buffer;
+  vector_t *buffer;
   uint32_t i, j, n;
   literal_t l;
 
@@ -4727,7 +4894,7 @@ static void simplify_learned_clause(sat_solver_t *solver) {
     l = buffer->data[i];
     if (literal_is_redundant(solver, l)) {
       // move l to the aux buffer to clean the marks later
-      lbuffer_push(&solver->aux, l);
+      vector_push(&solver->aux, l);
       solver->stats.subsumed_literals ++;
     } else {
       // keep l into buffer
@@ -4746,7 +4913,7 @@ static void simplify_learned_clause(sat_solver_t *solver) {
   for (i=0; i<n; i++) {
     unmark_variable(solver, var_of(solver->aux.data[i]));
   }
-  reset_lbuffer(&solver->aux);
+  reset_vector(&solver->aux);
 
   check_all_unmarked(solver);
 }
@@ -5111,7 +5278,7 @@ static void sat_search(sat_solver_t *solver) {
 	nsat_reduce_learned_clause_set(solver);
 	check_watch_vectors(solver);
 	solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
-	//  solver->reduce_threshold += 300; // Glucose
+	// solver->reduce_threshold += 300; // Glucose
       }
 
       x = nsat_select_decision_variable(solver);
@@ -5171,7 +5338,7 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
  */
 static void show_start_search_stats(sat_solver_t *solver) {
   fprintf(stderr, "After simplification\n");
-  fprintf(stderr, "nb. of vars          : %"PRIu32"\n", solver->nvars);
+  fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
   fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n", solver->pool.num_prob_clauses);
