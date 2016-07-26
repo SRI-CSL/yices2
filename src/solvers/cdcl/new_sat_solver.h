@@ -152,24 +152,24 @@ static inline bval_t opposite_val(bval_t val) {
 
 
 /********************
- *  LITERAL BUFFER  *
+ *  INTEGER VECTOR  *
  *******************/
 
 /*
- * This is a resizable array of literals.
+ * This is a resizable array of unsigned integers
  * - capacity = maximal size
  * - size = current size
  * - data = array
  */
-typedef struct lbuffer_s {
-  literal_t *data;
+typedef struct vector_s {
+  uint32_t *data;
   uint32_t capacity;
   uint32_t size;
-} lbuffer_t;
+} vector_t;
 
 // Default and maximal size
-#define DEF_LBUFFER_SIZE 64
-#define MAX_LBUFFER_SIZE (UINT32_MAX/sizeof(literal_t))
+#define DEF_VECTOR_SIZE 64
+#define MAX_VECTOR_SIZE (UINT32_MAX/sizeof(uint32_t))
 
 
 
@@ -666,11 +666,10 @@ typedef struct sat_solver_s {
   cidx_t *cidx_array;
 
   /*
-   * Buffers and other data structures to build and simplify
-   * learned clauses.
+   * Buffers and other data structures to build and simplify clauses.
    */
-  lbuffer_t buffer;
-  lbuffer_t aux;
+  vector_t buffer;
+  vector_t aux;
   gstack_t gstack;
   tag_map_t map;
 
@@ -680,12 +679,13 @@ typedef struct sat_solver_s {
   clause_vector_t saved_clauses;
 
   /*
-   * Queues for literals and clauses used during preprocessing.
+   * Queues and buffers for literals and clauses used during preprocessing.
    * Clauses are visited in sequence to check for subsumption.
    * - we keep track of a scan_index = start of the next clause to visit
    */
   queue_t lqueue;
   queue_t cqueue;
+  vector_t cvector;
   uint32_t scan_index;
 
 } sat_solver_t;
