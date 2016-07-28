@@ -183,7 +183,7 @@ Yices from source and want support for nonlinear arithmetic, you must
 install an external library first and enable MCSAT support when you
 compile Yices.
 
-This library is called ``libpoly''. It implements various operations
+This library is called ``libpoly.'' It implements various operations
 on polynomials used by the MCSAT solver. It is open source and it is
 available on GitHub (\url{https://github.com/SRI-CSL/libpoly}). Make
 sure that you download the latest version of libpoly. Yices~2.5.0
@@ -251,14 +251,15 @@ available at~\url{https://github.com/SRI-CSL/libpoly}.
 \section{Supported Logics}
 
 The current Yices~2 release supports quantifier-free combinations of
-linear integer and real arithmetic, uninterpreted function, arrays,
-and bitvectors. Currently, Yices~2 supports most SMT-LIB logics that do
-not involve quantifiers as summarized in Table~\ref{supported-logics}.
-The meaning of the logics and theories in this table is explained at
-the SMT-LIB website (\url{http://www.smtlib.org}).  In addition,
-Yices~2 supports a more general set of array operations than required
-by SMT-LIB, and Yices~2 has support for tuple and enumeration types,
-which are not part of SMT-LIB.
+linear and non-linear integer and real arithmetic, uninterpreted
+function, arrays, and bitvectors. Currently, Yices~2 supports most
+SMT-LIB logics that do not involve quantifiers as summarized in
+Table~\ref{supported-logics}.  The meaning of the logics and theories
+in this table is explained at the SMT-LIB website
+(\url{http://www.smtlib.org}).  In addition, Yices~2 supports a more
+general set of array operations than required by SMT-LIB, and Yices~2
+has support for tuple and enumeration types, which are not part of
+SMT-LIB.
 
 %% ALIA
 %% AUFLIA
