@@ -3446,7 +3446,6 @@ static bool clause_is_sorted(const sat_solver_t *solver, cidx_t cidx) {
   return true;
 }
 
-#if 0
 static bool watch_vector_is_sorted(const watch_t *w) {
   uint32_t i, n;
 
@@ -3461,7 +3460,6 @@ static bool watch_vector_is_sorted(const watch_t *w) {
 
   return true;
 }
-#endif
 
 #endif
 
@@ -3509,6 +3507,32 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
   }
 }
 
+/*
+ * Remove clause cidx from watch[l]
+ * - cidx must occur in the watch vector
+ */
+static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
+  watch_t *w;
+  uint32_t i, n;
+
+  w = solver->watch[l];
+  assert(w != NULL && watch_vector_is_sorted(w));
+
+  n = w->size;
+  i = 0;
+  assert(i < n);
+  while (w->data[i] < cidx) { 
+    i ++; 
+    assert(i < n); 
+  }
+  assert(w->data[i] == cidx);
+  i ++;
+  while (i < n) {
+    w->data[i - 1] = w->data[i];
+    i ++;
+  }
+  w->size = n - 1;
+}
 
 /*
  * Check whether clause a[0 ... n-1] subsumes or strengthens clause cidx:
@@ -3567,6 +3591,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
   if (k < m) {
     // strengthening: remove literal b[k] form clause cidx
     pp_decrement_occ(solver, b[k]);
+    pp_remove_clause_from_watch(solver, b[k], cidx);
     pp_remove_literal(m, k, b);
     m --;
     if (m == 1) {
@@ -3706,6 +3731,7 @@ static void pp_collect_vars_of_clause(sat_solver_t *solver, cidx_t cidx) {
 /*
  * Collect clauses of index < s from w
  * - if a clause is marked we skip it
+ * - otherwise we mark it and add it to cvector
  */
 static void pp_collect_subsume_candidates_in_watch(sat_solver_t *solver, watch_t *w, uint32_t s) {
   uint32_t i, n, cidx;
@@ -3715,7 +3741,8 @@ static void pp_collect_subsume_candidates_in_watch(sat_solver_t *solver, watch_t
     for (i=0; i<n; i++) {
       cidx = w->data[i];
       if (cidx < s && clause_is_live(&solver->pool, cidx) && clause_is_unmarked(&solver->pool, cidx)) {
-	vector_push(&solver->cvector, cidx);
+	mark_clause(&solver->pool, cidx);
+	vector_push(&solver->cvector, cidx);	
       }
     }
   }
@@ -3748,6 +3775,7 @@ static void pp_collect_subsume_candidates(sat_solver_t *solver, uint32_t s) {
     pp_collect_subsume_candidates_in_watch(solver, solver->watch[pos(x)], s);
     pp_collect_subsume_candidates_in_watch(solver, solver->watch[neg(x)], s);
   }
+  reset_vector(v); // cleanup
 
   // cleanup: remove the marks of all clauses in cvector
   v = &solver->cvector;
@@ -3808,10 +3836,13 @@ static void pp_subsumption(sat_solver_t *solver) {
     n = solver->cvector.size;
     for (i=0; i<n; i++) {
       cidx = solver->cvector.data[i];
-      assert(clause_is_live(&solver->pool, cidx));
-      pp_clause_subsumption(solver, cidx, s);
-      pp_empty_queue(solver);
-      if (solver->has_empty_clause) return;
+      // cidx was live when it was added but it can
+      // be deleted within this loop in pp_empty_queue
+      if (clause_is_live(&solver->pool, cidx)) {
+	pp_clause_subsumption(solver, cidx, s);
+	pp_empty_queue(solver);
+	if (solver->has_empty_clause) return;
+      }
     }
   }
 
@@ -4263,9 +4294,11 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
   collect_unit_and_pure_literals(solver);
   pp_empty_queue(solver);
-  pp_cheap_elim(solver); // FOR TESTING
-
   assert(solver->scan_index == 0);
+  pp_subsumption(solver);
+  if (solver->has_empty_clause) goto done;
+  pp_cheap_elim(solver); // FOR TESTING
+  if (solver->has_empty_clause) goto done;
   pp_subsumption(solver);
   if (solver->has_empty_clause) goto done;
   reset_clause_queue(solver);
