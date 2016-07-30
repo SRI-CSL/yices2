@@ -1653,7 +1653,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
   stat->pp_unit_strengthenings = 0;
-  stat->pp_cheap_elims = 0;
+  stat->pp_var_elims = 0;
 }
 
 
@@ -3083,7 +3083,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
   fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
-  fprintf(stderr, "cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
+  fprintf(stderr, "nb. of elimated vars : %"PRIu32"\n", solver->stats.pp_var_elims);
   fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
@@ -3103,7 +3103,8 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
  * Check whether cidx is still a valid clause: this works even if cidx is marked.
  */
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
-  return cidx < pool->size && is_clause_start(pool, cidx);
+  //  return cidx < pool->size && is_clause_start(pool, cidx);
+  return is_clause_start(pool, cidx);
 }
 
 /*
@@ -3412,9 +3413,11 @@ static void collect_unit_and_pure_literals(sat_solver_t *solver) {
 
 
 /*
- * Process the queue
+ * Process the queue:
+ * - return false if a conflict is detected
+ * - return true otherwise
  */
-static void pp_empty_queue(sat_solver_t *solver) {
+static bool pp_empty_queue(sat_solver_t *solver) {
   literal_t l;
 
   while (! queue_is_empty(&solver->lqueue)) {
@@ -3427,10 +3430,12 @@ static void pp_empty_queue(sat_solver_t *solver) {
       pp_visit_clauses_of_lit(solver, not(l));
       if (solver->has_empty_clause) {
 	reset_queue(&solver->lqueue);
-	break;
+	return false;
       }
     }
   }
+
+  return true;
 }
 
 
@@ -3561,8 +3566,10 @@ static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_
  *
  * - s is the signature of a[0 ... n-1]
  * - clause cidx may be marked.
+ *
+ * Return true if there's no conflict, false otherwise.
  */
-static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
+static bool try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
   uint32_t i, j, k, m, q;
   literal_t *b;  
 
@@ -3575,7 +3582,7 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
 
   assert(m >= 2);
 
-  if (m < n || ((~q & s) != 0)) return;
+  if (m < n || ((~q & s) != 0)) return true;
 
   k = m;
   j = 0;
@@ -3590,10 +3597,10 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
   for (i=0; i<n; i++) {
     // search for a[i] or not(a[i]) in array b[j ... m-1]
     j = pp_search_for_var(var_of(a[i]), j, m, b);
-    if (j == m) return; // a[i] not in cidx
+    if (j == m) return true;  // a[i] not in cidx
     assert(b[j] == a[i] || b[j] == not(a[i]));
     if (a[i] != b[j]) {
-      if (k < m) return;
+      if (k < m) return true;
       k = j;
     }
     j ++;
@@ -3609,7 +3616,6 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
       pp_push_unit_literal(solver, b[0]);
       clause_pool_delete_clause(&solver->pool, cidx);
       solver->stats.pp_unit_strengthenings ++;
-      // pp_empty_queue here
     } else {
       clause_pool_shrink_clause(&solver->pool, cidx, m);
       set_clause_signature(&solver->pool, cidx);
@@ -3622,6 +3628,9 @@ static void try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
     clause_pool_delete_clause(&solver->pool, cidx);
     solver->stats.pp_subsumptions ++;
   }
+
+  // deal with unit or pure literals
+  return pp_empty_queue(solver);
 }
 
 
@@ -3669,8 +3678,10 @@ static uint32_t w_len(sat_solver_t *solver, literal_t l) {
  * - checks whether cidx subsumes or strengthen any clause of index >= start
  * - remove all such clauses subsumed by cidx
  * - add strengthened clauses to the clause queue.
+ *
+ * Return false if there's a conflict, true otherwise.
  */
-static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t start) {
+static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t start) {
   literal_t *a;
   uint32_t i, n, m, k, s;
   literal_t key;
@@ -3696,7 +3707,12 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
       k = w->data[i];
       assert(idx_is_clause(k));
       if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
-	try_subsumption(solver, n, a, s, k);
+	if (!try_subsumption(solver, n, a, s, k)) {
+	  return false;
+	}
+	if (!clause_is_live(&solver->pool, cidx)) {
+	  goto done;
+	}
       }
     }
   }
@@ -3709,10 +3725,18 @@ static void pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
       assert(idx_is_clause(k));
       if (k >= start && clause_is_live(&solver->pool, k)) {
 	assert(k != cidx);
-	try_subsumption(solver, n, a, s, k);
+	if (!try_subsumption(solver, n, a, s, k)) {
+	  return false;
+	}
+	if (!clause_is_live(&solver->pool, cidx)) {
+	  goto done;
+	}
       }
     }
   }
+
+ done:
+  return true;
 }
 
 
@@ -3813,7 +3837,7 @@ static void pp_collect_subsume_candidates(sat_solver_t *solver, uint32_t s) {
  * that contain any such variable. We check for subsumption from theses
  * clauses. Finally, we process the queue of clauses.
  */
-static void pp_subsumption(sat_solver_t *solver) {
+static bool pp_subsumption(sat_solver_t *solver) {
   uint32_t i, n, s;
   cidx_t cidx;
 
@@ -3824,10 +3848,9 @@ static void pp_subsumption(sat_solver_t *solver) {
   for (;;) {
     cidx = clause_scan_next(solver);
     if (cidx >= solver->pool.size) break;
-    if (clause_is_live(&solver->pool, cidx)) {
-      pp_clause_subsumption(solver, cidx, 0);
-      pp_empty_queue(solver);
-      if (solver->has_empty_clause) return;
+    if (clause_is_live(&solver->pool, cidx) && 
+	!pp_clause_subsumption(solver, cidx, 0)) {
+      return false;
     }
   }
 
@@ -3849,10 +3872,9 @@ static void pp_subsumption(sat_solver_t *solver) {
       cidx = solver->cvector.data[i];
       // cidx was live when it was added but it can
       // be deleted within this loop in pp_empty_queue
-      if (clause_is_live(&solver->pool, cidx)) {
-	pp_clause_subsumption(solver, cidx, s);
-	pp_empty_queue(solver);
-	if (solver->has_empty_clause) return;
+      if (clause_is_live(&solver->pool, cidx) && 
+	  !pp_clause_subsumption(solver, cidx, s)) {
+	return false;
       }
     }
   }
@@ -3863,10 +3885,12 @@ static void pp_subsumption(sat_solver_t *solver) {
     cidx = clause_queue_pop(solver);
     if (cidx >= solver->pool.size) break;
     assert(clause_is_live(&solver->pool, cidx));
-    pp_clause_subsumption(solver, cidx, 0);
-    pp_empty_queue(solver);
-    if (solver->has_empty_clause) break;
+    if (!pp_clause_subsumption(solver, cidx, 0)) {
+      return false;
+    }
   }
+
+  return true;
 }
 
 /*
@@ -3935,7 +3959,49 @@ static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
 }
 
 
+/*
+ * Check whether the resolvent of clauses c1 and c2 is not trivial
+ * - l = pivot literal
+ * - both clauses must be sorted
+ * - c1 must contain l and c2 must contain (not l)
+ */
+static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
+  literal_t *a1, *a2;
+  literal_t l1, l2;
+  uint32_t i1, i2, n1, n2;
 
+  assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
+  assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
+
+  n1 = clause_length(&solver->pool, c1);
+  a1 = clause_literals(&solver->pool, c1);
+  n2 = clause_length(&solver->pool, c2);
+  a2 = clause_literals(&solver->pool, c2);
+
+  i1 = 0;
+  i2 = 0;
+  while (i1 < n1 && i2 < n2) {
+    l1 = a1[i1];
+    l2 = a2[i2];
+    if (l1 == l2) {
+      assert(l1 != l && l1 != not(l));
+      i1 ++;
+      i2 ++;
+    } else if (l1 == not(l2)) {
+      assert(l1 != not(l));
+      if (l1 != l) return false; // trivial resolvent
+      i1 ++;
+      i2 ++;
+    } else if (l1 < l2) {
+      assert(l1 != l && l1 != not(l));
+      i1 ++;
+    } else {
+      assert(l2 != l && l2 != not(l));
+      i2 ++;
+    }
+  }
+  return true;
+}
 
 /*
  * Construct the resolvent of clauses c1 and c2
@@ -4011,7 +4077,6 @@ static void pp_add_unit_resolvent(sat_solver_t *solver, literal_t l) {
 
   default:
     pp_push_unit_literal(solver, l);
-    // pp_empty_queue here
     break;
   }
 }
@@ -4019,6 +4084,7 @@ static void pp_add_unit_resolvent(sat_solver_t *solver, literal_t l) {
 /*
  * Construct the resolvent of c1 and c2 and add it if it's not trivial.
  * - if the resolvent is a unit clause, add its literal to the unit queue
+ * - return false if there's a conflict, true otherwise.
  */
 static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
   vector_t *b;
@@ -4060,6 +4126,8 @@ static void pp_mark_eliminated_variable(sat_solver_t *solver, bvar_t x) {
  * Eliminate variable x:
  * - get all the clauses that contain pos(x) and neg(x) and construct
  *   their resolvents
+ * - any pure or unit literal created as a result are added to solver->lqueue
+ * - may also set solver->has_empty_clause to true
  */
 static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
   watch_t *w1, *w2;
@@ -4084,8 +4152,9 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 	assert(idx_is_clause(c2));
 	if (clause_is_live(&solver->pool, c2)) {
 	  pp_add_resolvent(solver, c1, c2, pos(x));
+	  if (solver->has_empty_clause) return;
 	}
-      }      
+      }
     }
   }
   // save enough clauses to extend the model to x
@@ -4120,9 +4189,55 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 
 
 /*
+ * Check whether eliminating variable x creates too many clauses.
+ * - return true if the number of non-trivial resolvent is more than
+ *   the number of clauses that contain x
+ */
+static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) {
+  watch_t *w1, *w2;
+  uint32_t i1, i2, n1, n2;
+  cidx_t c1, c2;
+  uint32_t n, new_n;
+
+  assert(x < solver->nvars);
+
+  w1 = solver->watch[pos(x)];
+  w2 = solver->watch[neg(x)];
+
+  if (w1 == NULL || w2 == NULL) return true;
+
+  n1 = w1->size;
+  n2 = w2->size;
+  if (n1 >= 10 && n2 >= 10) return false;
+
+  // number of clauses that contain x
+  n = solver->occ[pos(x)] + solver->occ[neg(x)]; 
+  new_n = 0;
+
+  for (i1=0; i1<n1; i1++) {
+    c1 = w1->data[i1];
+    assert(idx_is_clause(c1));
+    if (clause_is_live(&solver->pool, c1)) {
+      for (i2=0; i2<n2; i2++) {
+	c2 = w2->data[i2];
+	assert(idx_is_clause(c2));
+	if (clause_is_live(&solver->pool, c2)) {
+	  new_n += non_trivial_resolvent(solver, c1, c2, pos(x));
+	  if (new_n > n) return false;
+	}
+      }
+    }
+  }
+  assert(new_n <= n);
+
+  return true;
+}
+
+
+/*
  * For testing: eliminate cheap variables
  */
-static void pp_cheap_elim(sat_solver_t *solver) {
+static void pp_var_elim(sat_solver_t *solver) {
   uint32_t i, n, pp, nn;
 
   // variable 0 is special. We can't remove it
@@ -4137,12 +4252,18 @@ static void pp_cheap_elim(sat_solver_t *solver) {
     if (pp == 0 || nn == 0) {
       continue;
     }
-    if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
-      //      fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
+    if (pp == 1 || nn == 1 || (pp == 2 && nn == 2) || pp_variable_worth_eliminating(solver, i)) {
+#if 0
+      if (pp == 1 || nn == 1 || (pp == 2 && nn ==2)) {
+	fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
+      } else {
+	fprintf(stderr, "Var elim: removing variable %"PRIu32"\n", i);
+      }
+#endif
       pp_eliminate_variable(solver, i);
-      solver->stats.pp_cheap_elims ++;
-      pp_empty_queue(solver);
-      if (solver->has_empty_clause) break;
+      solver->stats.pp_var_elims ++;
+      // check for conflicts + process unit/pure literals
+      if (solver->has_empty_clause || !pp_empty_queue(solver)) return;
     }
   }
 }
@@ -4304,14 +4425,12 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
 
   collect_unit_and_pure_literals(solver);
-  pp_empty_queue(solver);
+  if (!pp_empty_queue(solver)) goto done;
   assert(solver->scan_index == 0);
-  pp_subsumption(solver);
+  if (!pp_subsumption(solver)) goto done;
+  pp_var_elim(solver); // FOR TESTING
   if (solver->has_empty_clause) goto done;
-  pp_cheap_elim(solver); // FOR TESTING
-  if (solver->has_empty_clause) goto done;
-  pp_subsumption(solver);
-  if (solver->has_empty_clause) goto done;
+  if (!pp_subsumption(solver)) goto done;
   reset_clause_queue(solver);
   prepare_for_search(solver);
 
