@@ -310,7 +310,8 @@ mcsat_src_c := \
 # Fake mcsat module: do nothing. Used to make the compilation go through.
 #
 no_mcsat_src_c := \
-	mcsat/no_mcsat.c
+	mcsat/no_mcsat.c \
+	mcsat/options.c
 
 
 #
