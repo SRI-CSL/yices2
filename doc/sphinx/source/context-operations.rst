@@ -98,9 +98,28 @@ Configuration parameters specify the theory solvers to use, the
 arithmetic fragment, and the context's operating mode.
 
 
+**Solver Types**
+
+Yices includes two main types of solvers. One is based on the DPLL(T)
+approach to SMT solving [NOT2006]_. The other relies on the
+Model-Constructing Satisfiability Calculus (MCSat) [dMJ2013]_.
+
+Currently, DPLL(T) is the default, except for logics that include
+nonlinear arithmetic.  MCSat is required for nonlinear arithmetic and
+for combination of nonlinear arithmetic and uninterpreted functions.
+If you configure a context for a logic such as ``"QF_NRA"`` or ``"QF_UFNIA"``
+then MCSat will be automatically selected.
+
+The MCSat solver does not currently support as many features as the
+DPLL(T) implementation. In particular, MCSat does not yet support push
+and pop.
+
+
 **Theory Solvers**
 
-Currently the following theory solvers are available:
+A context that uses DPLL(T) can be further configured to select one or
+more theory solvers.  Currently the following theory solvers are
+available:
 
    ============================= =============================
     Solver name                    Theory
@@ -150,7 +169,7 @@ combinations of theory solvers currently supported by Yices.
 
 
 If no solvers are used, the context can deal only with Boolean
-formulas.  By default, a context uses egraph, bitvector, simplex, and
+formulas.  By default, a DPLL(T) context uses egraph, bitvector, simplex, and
 the array solver (last row in the table).
 
 
@@ -203,16 +222,33 @@ each call to :c:func:`yices_check_context`.  This introduces overhead,
 but the context can be restored to a clean state if the search is
 interrupted.
 
-The default mode is push-pop.
+Currently, MCSat supports only mode one-shot.
 
-Currently, the Floyd-Warshall solvers can only be used in mode one-shot.
+For DPLL(T), the four operating modes can be used, except if a
+Floyd-Warshal theory solver is used. The Floyd-Warshal solvers are
+specialized for difference logic and support only mode one-shot.
+
+
+The default mode is push-pop for DPLL(T) and one-shot for MCSat.
+
 
 
 Configuration Descriptor
 ........................
 
-A configuration descriptor is a record that stores operating mode,
-arithmetic fragment, and solver combination.
+A configuration descriptor is a record that stores solver type,
+operating mode, arithmetic fragment, and solver combination.
+
+A first parameter specifies the solver type:
+
+   +--------------+---------------+---------------------------------------+
+   | Name         | Value         |  Meaning                              |
+   +==============+===============+=======================================+
+   | solver-type  | dpllt         |  use DPLL(T) approach                 |
+   |              +---------------+---------------------------------------+
+   |              | mcsat         |  use MCSat                            |
+   +--------------+---------------+---------------------------------------+
+
 
 Four configuration parameters describe the theory solvers:
 
@@ -262,10 +298,15 @@ arithmetic fragment and the operating mode:
 A configuration descriptor also stores a logic flag, which can either
 be *unknown* (i.e., no logic specified), or the name of an SMT-LIB
 logic, or the special name *NONE*. If this logic flag is set (i.e.,
-not *unknown*), it takes precedence over the four solver-selection
-parameters listed in the previous table; the solver combination is
-determined by the logic.  The special logic name *NONE* means no
-theory solvers.
+not *unknown*), it takes precedence over solver type and the four
+solver-selection parameters listed in the previous table. If the logic
+involves nonlinear arithmetic, then MCSat is automatically selected.
+Otherwise, DPLL(T) is selected and the solver combination is
+determined by the logic.  
+
+The special logic name *NONE* means no theory solvers. If this logic
+is chosen, the context is configured to deal with purely Boolean
+problems, using DPLL.
 
 If the logic is QF_IDL or QF_RDL and the mode is one-shot, then one
 can set the arith-solver to *auto*. In this setting, the actual

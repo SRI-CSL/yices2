@@ -2566,6 +2566,18 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t n
  * possible to specify whether or not the context should support
  * features such as push and pop.
  *
+ * There are two solver types:
+ * - dpllt: default solver based on DPLL modulo theories
+ * - mcsat: solver based on the Model-Constructing Satisfiability Calculus
+ *
+ * The "mcsat" solver is required for formulas that use non-linear
+ * arithmetic. Currently the mcsat solver does not support push and
+ * pop. If you select "mcsat" as the solver type, no other
+ * configuration is necessary.
+ *
+ * If you select "dpllt" as the solver type, then you can define the
+ * combination of theory solvers you want to include.
+ *
  * The following theory solvers are currently available:
  * - egraph (solver for uninterpreted functions)
  * - bitvector solver
@@ -2709,7 +2721,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
 
 
 /*
- * Set config to a default solver combination for the given logic
+ * Set config to a default solver type or solver combination for the given logic
  * - return -1 if there's an error
  * - return 0 otherwise
  *
@@ -2745,23 +2757,23 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *   QF_UFLIRA:   uninterpreted functions + mixed linear arithmetic
  *   QF_UFRDL:    uninterpreted functions + real difference logic
  *
- * In all these logics, QF means quantifier-free.
- *
- * For future extensions, Yices also recognizes the following names
- * for logics that Yices does not support yet. (They require solvers
- * for non-linear arithmetic).
- *
  *   QF_NIA:      non-linear integer arithmetic
  *   QF_NRA:      non-linear real arithmetic
  *   QF_NIRA:     non-linear mixed arithmetic
  *
- *   QF_ANIA:     arrays + non-linear integer arithmetic
- *   QF_ANRA:     arrays + non-linear real arithmetic
- *   QF_ANIRA:    arrays + mixed/non-linear arithmetic
- *
  *   QF_UFNIA:    uninterpreted functions + non-linear integer arithmetic
  *   QF_UFNRA:    uninterpreted functions + non-linear real arithmetic
  *   QF_UFNIRA:   uninterpreted functions + mixed, non-linear arithmetic
+ *
+ * In all these logics, QF means quantifier-free.
+ *
+ * For future extensions, Yices also recognizes the following names
+ * for logics that Yices does not support yet. (They combine arrays and
+ * non-linear arithmetic).
+ *
+ *   QF_ANIA:     arrays + non-linear integer arithmetic
+ *   QF_ANRA:     arrays + non-linear real arithmetic
+ *   QF_ANIRA:    arrays + mixed/non-linear arithmetic
  *
  *   QF_AUFNIA:   arrays + uninterpreted functions + non-linear integer arithmetic
  *   QF_AUFNRA:   arrays + uninterpreted functions + non-linear real arithmetic

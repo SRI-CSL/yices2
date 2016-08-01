@@ -431,6 +431,10 @@ extern smt2_globals_t __smt2_globals;
  */
 extern void init_smt2(bool benchmark, uint32_t timeout, bool print_success);
 
+/*
+ * Enable the mcsat solver
+ */
+extern void smt2_enable_mcsat(void);
 
 /*
  * Force verbosity level to k
@@ -443,7 +447,7 @@ extern void smt2_set_verbosity(uint32_t k);
  * Enable a trace tag for tracing.
  * - must be called after init_smt2
  */
-void smt2_enable_trace_tag(const char* tag);
+extern void smt2_enable_trace_tag(const char* tag);
 
 /*
  * Show all statistics on the
@@ -725,9 +729,5 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  */
 extern void smt2_tstack_error(tstack_t *stack, int32_t exception);
 
-/*
- * Enable the mcsat solver.
- */
-extern void smt2_enable_mcsat(void);
 
 #endif /* __SMT2_COMMANDS_H */

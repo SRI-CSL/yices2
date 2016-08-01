@@ -71,7 +71,7 @@ typedef enum {
  */
 typedef enum {
   CTX_SOLVER_TYPE_DPLLT,
-  CTX_SOLVER_TYPE_MCSAT
+  CTX_SOLVER_TYPE_MCSAT,
 } context_solver_type_t;
 
 #define NUM_SOLVER_TYPES (CTX_SOLVER_TYPE_MCSAT+1)

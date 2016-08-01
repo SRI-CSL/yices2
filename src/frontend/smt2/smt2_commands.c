@@ -713,7 +713,7 @@ static const char *error_behavior = "immediate-exit";
 /*
  * GLOBAL OBJECTS
  */
-static bool done;    // set to true on exit
+static bool done;         // set to true on exit
 static attr_vtbl_t avtbl; // attribute values
 
 
@@ -722,6 +722,7 @@ smt2_globals_t __smt2_globals;
 
 // search parameters
 static param_t parameters;
+
 
 
 /*
@@ -792,7 +793,7 @@ static void report_success(void) {
  * - SMT2 wants errors to be printed as
  *        (error "explanation")
  *   on the current output channel
- * - start_error(l, c) prints '(error "at line x, column y: '
+ * - start_error(l, c) prints '(error "at line l, column c: '
  * - open_error() prints '(error "
  * - close_error() prints '")' and a newline then flush the output channel
  */
@@ -2315,6 +2316,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   qflag = qflag_for_logic(logic);
 
   if (g->mcsat) {
+    // force MCSAT independent of the logic
     arch = CTX_ARCH_MCSAT;
   } else if (g->benchmark_mode) {
     // change mode and arch for QF_IDL/QF_RDL
@@ -2331,6 +2333,13 @@ static void init_smt2_context(smt2_globals_t *g) {
     default:
       break;
     }
+  }
+
+  if (arch == CTX_ARCH_MCSAT) {
+    // MCSAT requires ONE_CHECK for now
+    mode = CTX_MODE_ONECHECK;
+    iflag = false;
+    qflag = false;
   }
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
@@ -3213,7 +3222,7 @@ static inline void save_macro_name(smt2_globals_t *g, const char *s) {
 
 
 /*
- * For debugging: check that the stack look reasonable
+ * For debugging: check that the stack looks reasonable
  */
 #ifndef NDEBUG
 
@@ -4622,6 +4631,18 @@ void smt2_set_logic(const char *name) {
     tprintf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
+  // if mcsat was requested, check whether the logic is supported by the MCSAT solver
+  if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
+    print_error("logic %s is not supported by the mscat solver", name);
+    return;
+  }
+
+  // for logics that require mcsat: check that we're in benchamrk mode
+  if (arch_for_logic(code) == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
+    print_error("the mcsat solver can't be used in incremental mode");
+    return;
+  }
+  
   // check to see if we are in efmode 
   __smt2_globals.efmode = logic_has_quantifiers(code);
   if (__smt2_globals.efmode) {
@@ -4635,7 +4656,7 @@ void smt2_set_logic(const char *name) {
       return;
     }
   }
-  
+
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
   __smt2_globals.logic_name = clone_string(name);

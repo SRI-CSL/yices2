@@ -514,10 +514,10 @@ static int32_t arch_add_arith(int32_t a, solver_code_t c) {
 
 /*
  * Check whether the architecture code a is compatible with mode
- * - current restriction: IFW and RFW don't support PUSH/POP or MULTIPLE CHECKS
+ * - current restriction: IFW, RFW, and MCSAT don't support PUSH/POP or MULTIPLE CHECKS
  */
 static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
-  return (a != CTX_ARCH_IFW && a != CTX_ARCH_RFW) || mode == CTX_MODE_ONECHECK;
+  return (a != CTX_ARCH_MCSAT && a != CTX_ARCH_IFW && a != CTX_ARCH_RFW) || mode == CTX_MODE_ONECHECK;
 }
 
 
@@ -540,11 +540,6 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
   int32_t a, r;
 
   r = 0; // default return code
-
-  if (config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
-    *arch = CTX_ARCH_MCSAT;
-    goto done;
-  }
 
   logic_code = config->logic;
   if (logic_code != SMT_UNKNOWN) {
@@ -580,6 +575,9 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     if (a < 0) {
       // not supported
       r = -2;
+    } else if (a == CTX_ARCH_MCSAT && config->mode != CTX_MODE_ONECHECK) {
+      // MCSAT doesn't support push/pop/multichecks
+      r = -3;
     } else {
       // good configuration
       *logic = logic_code;
@@ -588,10 +586,27 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       *qflag = qflag_for_logic(logic_code);
       *mode = config->mode;
     }
+
+  } else if (config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
+    /*
+     * MCSAT solver/no logic specified
+     */
+    if (config->mode != CTX_MODE_ONECHECK) {
+      r = -3; // Can't currently have MCSAT with push/pop or multiple checks
+    } else {
+      *logic = SMT_UNKNOWN;
+      *arch = CTX_ARCH_MCSAT;
+      *mode = CTX_MODE_ONECHECK;
+      *iflag = false;
+      *qflag = false;
+      goto done;
+    }
+
   } else {
     /*
      * No logic specified.
      */
+
     a = CTX_ARCH_NOSOLVERS;
     if (config->uf_config == CTX_CONFIG_DEFAULT) {
       a = arch_add_egraph(a);
@@ -616,7 +631,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       *mode = config->mode;
     } else {
       // mode is not supported by the solvers
-      r = -2;
+      r = -3;
     }
   }
 
@@ -625,3 +640,14 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
 }
 
 
+
+
+/*
+ * CHECK WHETHER A LOGIC IS SUPPORTED BY THE MCSAT SOLVER
+ */
+/*
+ * mcsat doesn't support arrays/quantifiers/bitvectors
+ */
+bool logic_is_supported_by_mcsat(smt_logic_t code) {
+  return !(logic_has_arrays(code) || logic_has_bv(code) || logic_has_quantifiers(code));
+}

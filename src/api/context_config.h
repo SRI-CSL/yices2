@@ -20,6 +20,7 @@
  * and set the configuration.
  *
  * A configuration object includes:
+ * - solver_type: either "mcsat" or "dpplt"
  * - logic: which logic to support
  * - mode: which set of operations the context supports
  * - uf_solver: whether to use the Egraph or not
@@ -203,6 +204,10 @@ static inline bool logic_is_supported(smt_logic_t code) {
   return arch_for_logic(code) >= 0;
 }
 
+/*
+ * Variant for MCSAT
+ */
+extern bool logic_is_supported_by_mcsat(smt_logic_t code);
 
 
 #endif /* __CONTEXT_CONFIG_H */
