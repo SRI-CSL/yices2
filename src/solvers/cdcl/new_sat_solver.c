@@ -4426,10 +4426,13 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
   collect_unit_and_pure_literals(solver);
   if (!pp_empty_queue(solver)) goto done;
-  assert(solver->scan_index == 0);
-  if (!pp_subsumption(solver)) goto done;
   pp_var_elim(solver); // FOR TESTING
   if (solver->has_empty_clause) goto done;
+  assert(solver->scan_index == 0);
+  if (!pp_subsumption(solver)) goto done;
+  pp_var_elim(solver); // MORE TESTING
+  if (solver->has_empty_clause) goto done;
+  assert(solver->scan_index == 0);
   if (!pp_subsumption(solver)) goto done;
   reset_clause_queue(solver);
   prepare_for_search(solver);
