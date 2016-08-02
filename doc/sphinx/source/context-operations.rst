@@ -86,7 +86,7 @@ The general process to configure a context is as follows:
    calling :c:func:`yices_default_config_for_logic`.
 
 3) Create one or more contexts with this configuration by passing the descriptor to
-   function :c:func:`yices_new_context`
+   function :c:func:`yices_new_context`.
 
 4) Delete the configuration descriptor when it is no longer needed using :c:func:`yices_free_config`.
 
