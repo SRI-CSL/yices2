@@ -1653,6 +1653,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
   stat->pp_unit_strengthenings = 0;
+  stat->pp_cheap_elims = 0;
   stat->pp_var_elims = 0;
 }
 
@@ -3083,7 +3084,8 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
   fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
-  fprintf(stderr, "nb. of elimated vars : %"PRIu32"\n", solver->stats.pp_var_elims);
+  fprintf(stderr, "cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
+  fprintf(stderr, "less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
   fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
   fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
   fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
@@ -4235,16 +4237,19 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
 
 /*
- * For testing: eliminate cheap variables
+ * For testing: eliminate variables
  */
-static void pp_var_elim(sat_solver_t *solver) {
+static void pp_elim_variables(sat_solver_t *solver) {
   uint32_t i, n, pp, nn;
+  bool cheap;
 
   // variable 0 is special. We can't remove it
   n = solver->nvars;
   for (i=1; i<n; i++) {
     if (var_is_assigned(solver, i)) {
-      assert(solver->ante_tag[i] == ATAG_PURE || solver->ante_tag[i] == ATAG_UNIT);
+      assert(solver->ante_tag[i] == ATAG_PURE || 
+	     solver->ante_tag[i] == ATAG_UNIT ||
+	     solver->ante_tag[i] == ATAG_ELIM);
       continue;
     }
     pp = solver->occ[pos(i)];
@@ -4252,16 +4257,18 @@ static void pp_var_elim(sat_solver_t *solver) {
     if (pp == 0 || nn == 0) {
       continue;
     }
-    if (pp == 1 || nn == 1 || (pp == 2 && nn == 2) || pp_variable_worth_eliminating(solver, i)) {
+    cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
+    if (cheap || pp_variable_worth_eliminating(solver, i)) {
 #if 0
-      if (pp == 1 || nn == 1 || (pp == 2 && nn ==2)) {
+      if (cheap) {
 	fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
       } else {
 	fprintf(stderr, "Var elim: removing variable %"PRIu32"\n", i);
       }
 #endif
       pp_eliminate_variable(solver, i);
-      solver->stats.pp_var_elims ++;
+      solver->stats.pp_cheap_elims += cheap;
+      solver->stats.pp_var_elims += (1 - cheap);
       // check for conflicts + process unit/pure literals
       if (solver->has_empty_clause || !pp_empty_queue(solver)) return;
     }
@@ -4426,14 +4433,16 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
   collect_unit_and_pure_literals(solver);
   if (!pp_empty_queue(solver)) goto done;
-  pp_var_elim(solver); // FOR TESTING
+  
+  pp_elim_variables(solver); // FOR TESTING
   if (solver->has_empty_clause) goto done;
   assert(solver->scan_index == 0);
   if (!pp_subsumption(solver)) goto done;
-  pp_var_elim(solver); // MORE TESTING
+
+  pp_elim_variables(solver); // MORE TESTING
   if (solver->has_empty_clause) goto done;
-  assert(solver->scan_index == 0);
   if (!pp_subsumption(solver)) goto done;
+
   reset_clause_queue(solver);
   prepare_for_search(solver);
 
