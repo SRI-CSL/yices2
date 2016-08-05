@@ -46,6 +46,7 @@ static void check_watch_vectors(const sat_solver_t *solver);
 static void check_propagation(const sat_solver_t *solver);
 static void check_marks(const sat_solver_t *solver);
 static void check_all_unmarked(const sat_solver_t *solver);
+static void check_elim_heap(const sat_solver_t *solver);
 
 #else
 
@@ -60,6 +61,7 @@ static inline void check_watch_vectors(const sat_solver_t *solver) { }
 static inline void check_propagation(const sat_solver_t *solver) { }
 static inline void check_marks(const sat_solver_t *solver) { }
 static inline void check_all_unmarked(const sat_solver_t *solver) {}
+static inline void check_elim_heap(const sat_solver_t *solver) {}
 
 #endif
 
@@ -136,11 +138,11 @@ static inline uint32_t random_uint(sat_solver_t *s, uint32_t n) {
 
 
 /*********************
- *  LITERAL BUFFER   *
+ *  INTEGER VECTOR   *
  ********************/
 
 /*
- * Capacity increase for literal buffers:
+ * Capacity increase for vectors:
  * - about 50% increase rounded up to a multiple of four
  */
 static inline uint32_t vector_cap_increase(uint32_t cap) {
@@ -155,7 +157,7 @@ static void init_vector(vector_t *v) {
 
   n = DEF_VECTOR_SIZE;
   assert(n <= MAX_VECTOR_SIZE);
-  v->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  v->data = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   v->capacity = n;
   v->size = 0;
 }
@@ -171,14 +173,14 @@ static void extend_vector(vector_t *v) {
   if (n > MAX_VECTOR_SIZE) {
     out_of_memory();
   }
-  v->data = (literal_t *) safe_realloc(v->data, n * sizeof(literal_t));
+  v->data = (uint32_t *) safe_realloc(v->data, n * sizeof(uint32_t));
   v->capacity = n;
 }
 
 /*
- * Add literal l at the end of v
+ * Add integer x at the end of v
  */
-static void vector_push(vector_t *v, literal_t l) {
+static void vector_push(vector_t *v, uint32_t x) {
   uint32_t i;
 
   i = v->size;
@@ -186,7 +188,7 @@ static void vector_push(vector_t *v, literal_t l) {
     extend_vector(v);
   }
   assert(i < v->capacity);
-  v->data[i] = l;
+  v->data[i] = x;
   v->size = i+1;
 }
 
@@ -198,7 +200,7 @@ static inline void reset_vector(vector_t *v) {
 }
 
 /*
- * Reset and make room for one literal
+ * Reset and make room for one element (literal)
  */
 static inline void vector_reset_and_reserve(vector_t *v) {
   assert(v->capacity >= 1);
@@ -215,9 +217,9 @@ static void delete_vector(vector_t *v) {
 
 
 
-/**********************
- *  QUEUE OF INTEGERS *
- *********************/
+/*******************
+ *  INTEGER QUEUE  *
+ ******************/
 
 /*
  * Capacity increase: same as for vector
@@ -1230,9 +1232,83 @@ static void clause_vector_add_block_length(clause_vector_t *v, uint32_t s) {
 }
 
 
-/***********
- *  STACK  *
- **********/
+/**********************
+ *  ELIMINATION HEAP  *
+ *********************/
+
+/*
+ * Initialize: don't allocate anything yet
+ */
+static void init_elim_heap(elim_heap_t *heap) {
+  heap->data = NULL;
+  heap->elim_idx = NULL;
+  heap->size = 0;
+  heap->capacity = 0;
+}
+
+/*
+ * Prepare: n = number of variables
+ * - this allocates the data array and the elim_idx array
+ */
+static void prepare_elim_heap(elim_heap_t *heap, uint32_t n) {
+  uint32_t k;
+
+  assert(heap->data == NULL && heap->elim_idx == NULL && n > 0);
+
+  k = DEF_ELIM_HEAP_SIZE;
+  assert(0 < k && k <= MAX_ELIM_HEAP_SIZE);
+  heap->data = (bvar_t *) safe_malloc(k * sizeof(bvar_t));
+  heap->elim_idx = (int32_t *) safe_malloc(n * sizeof(int32_t));
+  heap->size = 1;
+  heap->capacity = k;
+
+  heap->data[0] = 0;
+  heap->elim_idx[0] = 0;
+  for (k=1; k<n; k++) {
+    heap->elim_idx[k] = -1;
+  }
+}
+
+/*
+ * Capacity increase for the data array
+ */
+static inline uint32_t elim_heap_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + 8) & ~3;
+}
+
+/*
+ * Make the data array larger
+ */
+static void extend_elim_heap(elim_heap_t *heap) {
+  uint32_t n;
+
+  n = heap->capacity + elim_heap_cap_increase(heap->capacity);
+  assert(n > heap->capacity);
+  if (n > MAX_ELIM_HEAP_SIZE) {
+    out_of_memory();
+  }
+  heap->data = (bvar_t *) safe_realloc(heap->data, n * sizeof(bvar_t));
+  heap->capacity = n;
+}
+
+static void delete_elim_heap(elim_heap_t *heap) {
+  safe_free(heap->data);
+  safe_free(heap->elim_idx);
+  heap->data = NULL;
+  heap->elim_idx = NULL;
+}
+
+static void reset_elim_heap(elim_heap_t *heap) {
+  delete_elim_heap(heap);
+  heap->size = 0;
+  heap->capacity = 0;
+}
+
+
+
+/**********************
+ *  ASSIGNMENT STACK  *
+ *********************/
 
 /*
  * Initialize stack s for nvar
@@ -1297,9 +1373,9 @@ static void push_literal(sol_stack_t *s, literal_t l) {
 
 
 
-/**********
- *  HEAP  *
- *********/
+/*******************
+ *  ACTIVITY HEAP  *
+ ******************/
 
 /*
  * Initialize heap for n variables
@@ -1731,6 +1807,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_clause_vector(&solver->saved_clauses);
 
   init_queue(&solver->lqueue);
+  init_elim_heap(&solver->elim);
   init_queue(&solver->cqueue);
   init_vector(&solver->cvector);
   solver->scan_index = 0;
@@ -1787,6 +1864,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_clause_vector(&solver->saved_clauses);
 
   delete_queue(&solver->lqueue);
+  delete_elim_heap(&solver->elim);
   delete_queue(&solver->cqueue);
   delete_vector(&solver->cvector);
 }
@@ -1831,6 +1909,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_clause_vector(&solver->saved_clauses);
 
   reset_queue(&solver->lqueue);
+  reset_elim_heap(&solver->elim);
   reset_queue(&solver->cqueue);
   reset_vector(&solver->cvector);
 }
@@ -3171,6 +3250,252 @@ static cidx_t clause_queue_pop(sat_solver_t *solver) {
 
 
 /*
+ * HEURISITIC/HEAP FOR VARIABLE ELIMINATION
+ */
+
+/*
+ * Variables that have too many positive and negative occurrences are not eliminated.
+ * - we use 10 as a cutoff (as in Minisat)
+ */
+static bool pp_elim_candidate(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return solver->occ[pos(x)] < 10 || solver->occ[neg(x)] < 10;
+}
+
+/*
+ * Cost of eliminating x (heuristic estimate)
+ * - x must be an elimination candidate, otherwise the product could overflow
+ */
+static uint32_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
+  assert(pp_elim_candidate(solver, x));
+  return solver->occ[pos(x)] * solver->occ[neg(x)];
+}
+
+/*
+ * Number of occurrences of x
+ */
+static inline uint32_t var_occs(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return solver->occ[pos(x)] + solver->occ[neg(x)];
+}
+
+/*
+ * Ordering for elimination:
+ * - elim_lt(solver, x, y) returns true if x < y for our heuristic ordering.
+ * - we want to do cheap eliminations first (i.e., variables with one positive or
+ *   one negative occurrences).
+ * - for other variables, we use occ[pos(x)] * occ[neg(x)] as an estimate of the cost
+ *   of eliminating x
+ */
+static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
+  uint32_t cx, cy, ox, oy;
+
+  cx = pp_elim_cost(solver, x);
+  ox = var_occs(solver, x);
+  cy = pp_elim_cost(solver, y);
+  oy = var_occs(solver, y);
+
+  if (cx < ox && cy >= oy) return true;     // x cheap, y not cheap
+  if (cy < oy && cx >= ox) return false;    // y cheap, x not cheap
+  return cx < cy;
+}
+
+
+/*
+ * Move the variable at position i up the tree
+ */
+static void elim_heap_move_up(sat_solver_t *solver, uint32_t i) {
+  elim_heap_t *heap;
+  bvar_t x, y;
+  uint32_t j;
+
+  heap = &solver->elim;
+
+  assert(0 < i && i < heap->size);
+
+  x = heap->data[i];
+  for (;;) {
+    j = i >> 1;        // parent of i
+    if (j == 0) break; // top of the heap
+
+    y = heap->data[j];
+    if (!elim_lt(solver, x, y)) break; // x >= y: stop here
+
+    // move y down into i
+    heap->data[i] = y;
+    heap->elim_idx[y] = i;
+    i = j;
+  }
+
+  heap->data[i] = x;
+  heap->elim_idx[x] = i;
+}
+
+
+/*
+ * Move the variable at position i down the tree
+ */
+static void elim_heap_move_down(sat_solver_t *solver, uint32_t i) {
+  elim_heap_t *heap;
+  uint32_t j;
+  bvar_t x, y, z;
+
+  heap = &solver->elim;
+
+  assert(0 < i && i < heap->size);
+
+  x = heap->data[i];
+
+  j = i<<1; // j = left child of i. (this can't oveflow since heap->size < 2^32/4)
+
+  while (j < heap->size) {
+    // y = smallest of the two children of i
+    y = heap->data[j];
+    if (j + 1 < heap->size) {
+      z = heap->data[j+1];
+      if (elim_lt(solver, z, y)) {
+	y = z;
+	j ++;
+      }
+    }
+
+    // if x < y then x goes into i
+    if (elim_lt(solver, x, y)) break;
+
+    // move y up into i
+    heap->data[i] = y;
+    heap->elim_idx[y] = i;
+    i = j;
+    j <<= 1;
+  }
+
+  heap->data[i] = x;
+  heap->elim_idx[x] = i;
+}
+
+
+/*
+ * Move variable at position i either up or down
+ */
+static void elim_heap_update(sat_solver_t *solver, uint32_t i) {
+  elim_heap_move_up(solver, i);
+  elim_heap_move_down(solver, i);
+  check_elim_heap(solver);
+}
+
+
+/*
+ * Check whether the heap is empty
+ */
+static inline bool elim_heap_is_empty(const sat_solver_t *solver) {
+  return solver->elim.size == 1;
+}
+
+
+/*
+ * Remove the top variable from the heap
+ */
+static bvar_t elim_heap_get_top(sat_solver_t *solver) {
+  elim_heap_t *heap;
+  bvar_t x, y;
+
+  heap = &solver->elim;
+
+  assert(heap->size > 1);
+
+  x = heap->data[1];
+  heap->elim_idx[x] = -1;
+  heap->size --;
+
+  if (heap->size > 1) {
+    y = heap->data[heap->size];
+    heap->data[1] = y;
+    heap->elim_idx[y] = 1;
+    elim_heap_move_down(solver, 1);
+  }
+
+  check_elim_heap(solver);
+
+  return x;
+}
+
+
+/*
+ * Add variable x to the heap:
+ * - x must not be present in the heap
+ */
+static void elim_heap_insert_var(sat_solver_t *solver, bvar_t x) {
+  elim_heap_t *heap;
+  uint32_t i;
+
+  assert(pp_elim_candidate(solver, x));
+
+  heap = &solver->elim;
+
+  assert(heap->elim_idx[x] < 0); // x must not be in the heap
+
+  i = heap->size;
+  if (i == heap->capacity) {
+    extend_elim_heap(heap);
+  }
+  assert(i < heap->capacity);
+  heap->size ++;
+  heap->data[i] = x;
+  heap->elim_idx[x] = i;
+  elim_heap_move_up(solver, i);
+
+  check_elim_heap(solver);
+}
+
+
+/*
+ * Remove x from the heap if it's there
+ */
+static void elim_heap_remove_var(sat_solver_t *solver, bvar_t x) {
+  elim_heap_t *heap;
+  int32_t i;
+  bvar_t y;
+
+  assert(x < solver->nvars);
+
+  heap = &solver->elim;
+  i = heap->elim_idx[x];
+  if (i >= 0) {
+    heap->elim_idx[x] = -1;
+    heap->size --;
+    if (heap->size > i) {
+      y = heap->data[heap->size];
+      heap->data[i] = y;
+      heap->elim_idx[y] = i;
+      elim_heap_update(solver, i);
+    }
+    check_elim_heap(solver);
+  }
+}
+
+
+/*
+ * Update: move/add x when its occurrence counts have changed
+ */
+static void elim_heap_update_var(sat_solver_t *solver, bvar_t x) {
+  int32_t i;
+
+  assert(x < solver->nvars);
+
+  if (var_is_unassigned(solver, x) && pp_elim_candidate(solver, x)) {
+    i = solver->elim.elim_idx[x];
+    if (i < 0) {
+      elim_heap_insert_var(solver, x);
+    } else {
+      elim_heap_update(solver, i);
+    }
+  } else {
+    elim_heap_remove_var(solver, x);
+  }
+}
+
+
+/*
  * REMOVE PURE AND UNIT LITERALS
  */
 
@@ -3197,6 +3522,8 @@ static void pp_push_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t 
   solver->ante_tag[v] = tag;
   solver->ante_data[v] = 0;
   solver->level[v] = 0;
+
+  elim_heap_remove_var(solver, v);
 }
 
 static inline void pp_push_pure_literal(sat_solver_t *solver, literal_t l) {
@@ -3231,7 +3558,20 @@ static void pp_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t
 
   for (i=0; i<n; i++) {
     pp_decrement_occ(solver, a[i]);
+    elim_heap_update_var(solver, var_of(a[i]));
   }
+}
+
+/*
+ * Increment occ counts for all literals in a[0 ... n-1]
+ */
+static void pp_increment_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    solver->occ[a[i]] ++;
+    elim_heap_update_var(solver, var_of(a[i]));
+  }  
 }
 
 /*
@@ -3517,6 +3857,7 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
 /*
  * Remove clause cidx from watch[l]
  * - cidx must occur in the watch vector
+ * TODO: improve this?
  */
 static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
   watch_t *w;
@@ -3562,7 +3903,8 @@ static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_
  */
 static bool try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a, uint32_t s, cidx_t cidx) {
   uint32_t i, j, k, m, q;
-  literal_t *b;  
+  literal_t *b;
+  literal_t l;
 
   assert(clause_is_live(&solver->pool, cidx));
   assert(clause_is_sorted(solver, cidx));
@@ -3599,9 +3941,11 @@ static bool try_subsumption(sat_solver_t *solver, uint32_t n, const literal_t *a
 
   if (k < m) {
     // strengthening: remove literal b[k] form clause cidx
-    pp_decrement_occ(solver, b[k]);
-    pp_remove_clause_from_watch(solver, b[k], cidx);
+    l = b[k];
+    pp_decrement_occ(solver, l);
     pp_remove_literal(m, k, b);
+    pp_remove_clause_from_watch(solver, l, cidx);
+    elim_heap_update_var(solver, var_of(l));
     m --;
     if (m == 1) {
       pp_push_unit_literal(solver, b[0]);
@@ -4092,7 +4436,7 @@ static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, lit
       add_clause_all_watch(solver, n, b->data, cidx);
       set_clause_signature(&solver->pool, cidx);
     }
-    increase_occurrence_counts(solver, n, b->data);
+    pp_increment_occ_counts(solver, b->data, n);
   }
 }
 
@@ -4179,6 +4523,8 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 }
 
 
+
+
 /*
  * Check whether eliminating variable x creates too many clauses.
  * - return true if the number of non-trivial resolvent is more than
@@ -4252,7 +4598,7 @@ static void pp_elim_variables(sat_solver_t *solver) {
       if (cheap) {
 	fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
       } else {
-	fprintf(stderr, "Var elim: removing variable %"PRIu32"\n", i);
+	fprintf(stderr, "Var elim: removing variable %"PRIu32" (%"PRIu32" pos occs, %"PRIu32" neg occs)\n", i, pp, nn);
       }
 #endif
       pp_eliminate_variable(solver, i);
@@ -4265,6 +4611,33 @@ static void pp_elim_variables(sat_solver_t *solver) {
 }
 
 
+/*
+ * FOR TESTING OF THE ELIMINATION HEAP
+ */
+static void collect_elimination_candidates(sat_solver_t *solver) {
+  uint32_t i, n;
+
+  assert(elim_heap_is_empty(solver));
+
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (var_is_unassigned(solver, i) && pp_elim_candidate(solver, i)) {
+      elim_heap_insert_var(solver, i);
+    }
+  }
+}
+
+static void process_elimination_candidates(sat_solver_t *solver) {
+  bvar_t x;
+
+  while (! elim_heap_is_empty(solver)) {
+    x = elim_heap_get_top(solver);
+#if 0
+    fprintf(stderr, "Elim candidate: %"PRIu32" (%"PRIu32" neg occs, %"PRIu32" pos occs)\n", 
+	    x, solver->occ[neg(x)], solver->occ[pos(x)]);
+#endif
+  }
+}
 
 
 /*
@@ -4420,9 +4793,13 @@ static void nsat_preprocess(sat_solver_t *solver) {
     show_occurrence_counts(solver);
   }
 
+  prepare_elim_heap(&solver->elim, solver->nvars);
+  collect_elimination_candidates(solver);
+  process_elimination_candidates(solver);  
+
   collect_unit_and_pure_literals(solver);
   if (!pp_empty_queue(solver)) goto done;
-  
+
   pp_elim_variables(solver); // FOR TESTING
   if (solver->has_empty_clause) goto done;
   assert(solver->scan_index == 0);
@@ -4433,6 +4810,8 @@ static void nsat_preprocess(sat_solver_t *solver) {
   if (!pp_subsumption(solver)) goto done;
 
   reset_clause_queue(solver);
+  reset_elim_heap(&solver->elim);
+
   prepare_for_search(solver);
 
  done:
@@ -6274,5 +6653,46 @@ static void check_all_unmarked(const sat_solver_t *solver) {
   }
 }
 
+
+/**********************
+ *  ELIMINATION HEAP  *
+ *********************/
+
+static void check_elim_heap(const sat_solver_t *solver) {
+  const elim_heap_t *heap;
+  uint32_t i, n;
+  bvar_t x;
+
+  heap = &solver->elim;
+  n = heap->size;
+  for (i=2; i<n; i++) {
+    if (elim_lt(solver, heap->data[i], heap->data[i>>1])) {
+      fprintf(stderr, "*** BUG: invalid elimination heap: at index %"PRIu32" ***\n", i);
+      fflush(stderr);
+    }
+  }
+
+  for (i=0; i<n; i++) {
+    x = heap->data[i];
+    if (heap->elim_idx[x] != i) {
+      fprintf(stderr, "*** BUG: invalid heap index: data[%"PRIu32"] = %"PRIu32", but elim_idx[%"PRIu32"] /= %"PRIu32" ***\n", i, x, x, i);
+      fflush(stderr);
+    }
+  }
+
+  for (x=0; x<solver->nvars; x++) {
+    if (heap->elim_idx[x] >= 0) {
+      i = heap->elim_idx[x];
+      if (i >= heap->size) {
+	fprintf(stderr, "*** BUG: bad elim_idx for variable %"PRIu32": index = %"PRIu32", heap size = %"PRIu32"\n", x, i, heap->size);
+	fflush(stderr);
+      }
+      if (heap->data[i] != x) {
+	fprintf(stderr, "*** BUG: invalid data: elim_idx[%"PRIu32"] = %"PRIu32", but data[%"PRIu32"] /= %"PRIu32" ***\n", x, i, i, x);
+	fflush(stderr);	
+      }
+    }
+  }
+}
 
 #endif
