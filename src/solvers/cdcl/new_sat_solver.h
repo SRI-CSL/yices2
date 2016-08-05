@@ -179,7 +179,7 @@ typedef struct vector_s {
 
 /*
  * This is a circular buffer:
- * - data = array to store the literasl
+ * - data = array to store the integers
  * - capacity = size of this array
  * - head, tail = indices between 0 and capacity - 1
  *
@@ -420,9 +420,43 @@ typedef struct clause_vector_s {
 
 
 
-/****************************
- *  SOLVER DATA STRUCTURES  *
- ***************************/
+/**********************
+ *  ELIMINATION HEAP  *
+ *********************/
+
+/*
+ * During preprocessing, we try to eliminate variables by full resolution.
+ * We use a heuristic based on the number of positive/negative occurrences
+ * of x to order the variables to eliminate. To store the variables in
+ * order, we use a binary heap:
+ * - data: heap proper as an array of variables
+ * - elim_idx: position of variables in the data array
+ * - size = number of elements stored in the data array
+ * - capacity = full size of the data array
+ *
+ * For every i in [0 ... size-1], data[i] is a variable
+ * - data[0] is always equal to 0 (it's used as a marker)
+ * - for i>0 data[i] = a candidate variable for elimination
+ * 
+ * For every variable x,
+ * - elim_idx[x] = i iff data[i] = x
+ * - elim_idx[x] = -1 if x is not stored in the heap
+ */
+typedef struct elim_heap_s {
+  bvar_t *data;
+  int32_t *elim_idx;
+  uint32_t size;
+  uint32_t capacity;
+} elim_heap_t;
+
+#define DEF_ELIM_HEAP_SIZE 1024
+#define MAX_ELIM_HEAP_SIZE (UINT32_MAX/sizeof(bvar_t))
+
+
+
+/**********************
+ *  ASSIGNMENT STACK  *
+ *********************/
 
 /*
  * Assignment stack/propagation queue
@@ -446,8 +480,12 @@ typedef struct {
 #define DEFAULT_NLEVELS 100
 
 
+/******************************
+ *  HEAP/VARIABLE ACTIVITIES  *  
+ *****************************/
+
 /*
- * Heap and variable activities for variable selection heuristic
+ * Heap and variable activities for the variable-selection heuristic
  * - activity[x]: for every variable x between 1 and nvars - 1
  * - index 0 is used as marker:
  *    activity[0] = DBL_MAX (higher than any activity)
@@ -488,9 +526,10 @@ typedef struct var_heap_s {
 
 
 
-/*
- * STATISTICS
- */
+/****************
+ *  STATISTICS  *
+ ***************/
+
 typedef struct solver_stats_s {
   uint64_t decisions;                // number of decisions
   uint64_t random_decisions;         // number of random decisions
@@ -517,9 +556,9 @@ typedef struct solver_stats_s {
 
 
 
-/*
- * ANTECEDENT TAGS
- */
+/**********************
+ *  ANTECEDENT TAGS   *
+ *********************/
 
 /*
  * When a variable is assigned, we store a tag to identify the reason
@@ -571,6 +610,10 @@ typedef enum solver_status {
   STAT_UNSAT,
 } solver_status_t;
 
+
+/******************
+ *  FULL SOLVER   *
+ *****************/
 
 /*
  * For each variable x, we store
@@ -683,11 +726,17 @@ typedef struct sat_solver_s {
   clause_vector_t saved_clauses;
 
   /*
-   * Queues and buffers for literals and clauses used during preprocessing.
-   * Clauses are visited in sequence to check for subsumption.
-   * - we keep track of a scan_index = start of the next clause to visit
+   * Data structures used during preprocessing:
+   * 1) lqueue: queue of pure and unit literals to eliminate
+   * 2) elim: heap of candidate variables to eliminate
+   * 3) for clause subsumption:
+   *    - we visit clauses sequentially
+   *    - scan_index = index of the next clause to visit
+   *    - cqueue = more clauses that have to be revisited
+   *    - every clause in cqueue is marked
    */
   queue_t lqueue;
+  elim_heap_t elim;
   queue_t cqueue;
   vector_t cvector;
   uint32_t scan_index;
