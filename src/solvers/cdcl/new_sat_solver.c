@@ -3393,6 +3393,15 @@ static inline bool elim_heap_is_empty(const sat_solver_t *solver) {
 
 
 /*
+ * Check whether x is in the heap
+ */
+static inline bool var_is_in_elim_heap(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return solver->elim.elim_idx[x] >= 0;
+}
+
+
+/*
  * Remove the top variable from the heap
  */
 static bvar_t elim_heap_get_top(sat_solver_t *solver) {
@@ -4571,6 +4580,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 }
 
 
+#if 0
 /*
  * For testing: eliminate variables
  */
@@ -4609,7 +4619,7 @@ static void pp_elim_variables(sat_solver_t *solver) {
     }
   }
 }
-
+#endif
 
 /*
  * FOR TESTING OF THE ELIMINATION HEAP
@@ -4617,25 +4627,47 @@ static void pp_elim_variables(sat_solver_t *solver) {
 static void collect_elimination_candidates(sat_solver_t *solver) {
   uint32_t i, n;
 
-  assert(elim_heap_is_empty(solver));
-
   n = solver->nvars;
   for (i=1; i<n; i++) {
-    if (var_is_unassigned(solver, i) && pp_elim_candidate(solver, i)) {
+    if (var_is_unassigned(solver, i) && 
+	!var_is_in_elim_heap(solver, i) &&
+	pp_elim_candidate(solver, i)) {
       elim_heap_insert_var(solver, i);
     }
   }
 }
 
 static void process_elimination_candidates(sat_solver_t *solver) {
+  uint32_t pp, nn;
   bvar_t x;
+  bool cheap;
 
   while (! elim_heap_is_empty(solver)) {
     x = elim_heap_get_top(solver);
-#if 0
-    fprintf(stderr, "Elim candidate: %"PRIu32" (%"PRIu32" neg occs, %"PRIu32" pos occs)\n", 
-	    x, solver->occ[neg(x)], solver->occ[pos(x)]);
-#endif
+
+    if (var_is_assigned(solver, x)) {
+      assert(solver->ante_tag[x] == ATAG_PURE || 
+	     solver->ante_tag[x] == ATAG_UNIT ||
+	     solver->ante_tag[x] == ATAG_ELIM);
+      continue;
+    }
+    pp = solver->occ[pos(x)];
+    nn = solver->occ[neg(x)];
+    if (pp == 0 || nn == 0) {
+      continue;
+    }
+    cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
+    if (cheap || pp_variable_worth_eliminating(solver, x)) {
+      pp_eliminate_variable(solver, x);
+      // PROVISIONAL
+      if (pp >= 5 && nn >= 5) {
+	fprintf(stderr, "Var elim: removing variable %"PRIu32" (%"PRIu32" pos occs, %"PRIu32" neg occs)\n", x, pp, nn);	
+      }
+      solver->stats.pp_cheap_elims += cheap;
+      solver->stats.pp_var_elims += (1 - cheap);
+      // check for conflicts + process unit/pure literals
+      if (solver->has_empty_clause || !pp_empty_queue(solver)) return;
+    }
   }
 }
 
@@ -4794,20 +4826,18 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
 
   prepare_elim_heap(&solver->elim, solver->nvars);
-  collect_elimination_candidates(solver);
-  process_elimination_candidates(solver);  
 
   collect_unit_and_pure_literals(solver);
   if (!pp_empty_queue(solver)) goto done;
 
-  pp_elim_variables(solver); // FOR TESTING
-  if (solver->has_empty_clause) goto done;
-  assert(solver->scan_index == 0);
-  if (!pp_subsumption(solver)) goto done;
+  collect_elimination_candidates(solver);
 
-  pp_elim_variables(solver); // MORE TESTING
-  if (solver->has_empty_clause) goto done;
-  if (!pp_subsumption(solver)) goto done;
+  process_elimination_candidates(solver);
+  assert(solver->scan_index == 0);
+  if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
+
+  process_elimination_candidates(solver);
+  if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
 
   reset_clause_queue(solver);
   reset_elim_heap(&solver->elim);
