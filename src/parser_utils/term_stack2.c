@@ -5000,6 +5000,7 @@ static void eval_mk_bool2bv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BIT);
   check_size(stack, n == 2);
+  check_tag(stack, f+1, TAG_RATIONAL);
 }
 
 static void eval_mk_bit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
