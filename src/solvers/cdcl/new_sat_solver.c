@@ -4837,25 +4837,22 @@ static void nsat_preprocess(sat_solver_t *solver) {
   }
 
   prepare_elim_heap(&solver->elim, solver->nvars);
-
   collect_unit_and_pure_literals(solver);
-  if (!pp_empty_queue(solver)) goto done;
-
-  collect_elimination_candidates(solver);
-
-  process_elimination_candidates(solver);
-  assert(solver->scan_index == 0);
-  if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
-
-  process_elimination_candidates(solver);
-  if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
+  if (pp_empty_queue(solver)) {
+    collect_elimination_candidates(solver);
+    assert(solver->scan_index == 0);
+    do {
+      process_elimination_candidates(solver);
+      if (solver->has_empty_clause || !pp_subsumption(solver)) break;
+    } while (!elim_heap_is_empty(solver));
+  }
 
   reset_clause_queue(solver);
   reset_elim_heap(&solver->elim);
+  if (!solver->has_empty_clause) {
+    prepare_for_search(solver);
+  }
 
-  prepare_for_search(solver);
-
- done:
   if (solver->verbosity >= 1) {
     end = get_cpu_time();
     show_preprocessing_stats(solver, time_diff(end, start));
