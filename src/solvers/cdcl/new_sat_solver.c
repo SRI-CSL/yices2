@@ -4047,15 +4047,17 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
-    for (i=0; i<m; i++) {
-      k = w->data[i];
-      assert(idx_is_clause(k));
-      if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
-	if (!try_subsumption(solver, n, a, s, k)) {
-	  return false;
-	}
-	if (!clause_is_live(&solver->pool, cidx)) {
-	  goto done;
+    if (m < 1000) {
+      for (i=0; i<m; i++) {
+	k = w->data[i];
+	assert(idx_is_clause(k));
+	if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
+	  if (!try_subsumption(solver, n, a, s, k)) {
+	    return false;
+	  }
+	  if (!clause_is_live(&solver->pool, cidx)) {
+	    goto done;
+	  }
 	}
       }
     }
@@ -4064,16 +4066,18 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
-    for (i=0; i<m; i++) {
-      k = w->data[i];
-      assert(idx_is_clause(k));
-      if (k >= start && clause_is_live(&solver->pool, k)) {
-	assert(k != cidx);
-	if (!try_subsumption(solver, n, a, s, k)) {
-	  return false;
-	}
-	if (!clause_is_live(&solver->pool, cidx)) {
-	  goto done;
+    if (m < 1000) {
+      for (i=0; i<m; i++) {
+	k = w->data[i];
+	assert(idx_is_clause(k));
+	if (k >= start && clause_is_live(&solver->pool, k)) {
+	  assert(k != cidx);
+	  if (!try_subsumption(solver, n, a, s, k)) {
+	    return false;
+	  }
+	  if (!clause_is_live(&solver->pool, cidx)) {
+	    goto done;
+	  }
 	}
       }
     }
@@ -4659,10 +4663,6 @@ static void process_elimination_candidates(sat_solver_t *solver) {
     cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
     if (cheap || pp_variable_worth_eliminating(solver, x)) {
       pp_eliminate_variable(solver, x);
-      // PROVISIONAL
-      if (pp >= 5 && nn >= 5) {
-	fprintf(stderr, "Var elim: removing variable %"PRIu32" (%"PRIu32" pos occs, %"PRIu32" neg occs)\n", x, pp, nn);	
-      }
       solver->stats.pp_cheap_elims += cheap;
       solver->stats.pp_var_elims += (1 - cheap);
       // check for conflicts + process unit/pure literals
@@ -4825,16 +4825,21 @@ static void nsat_preprocess(sat_solver_t *solver) {
     show_occurrence_counts(solver);
   }
 
+  fprintf(stderr, "Prepare heap\n");
   prepare_elim_heap(&solver->elim, solver->nvars);
+  fprintf(stderr, "Elim unit/pure literals\n");
   collect_unit_and_pure_literals(solver);
   if (pp_empty_queue(solver)) {
     collect_elimination_candidates(solver);
     assert(solver->scan_index == 0);
     do {
+      fprintf(stderr, "Elimination\n");
       process_elimination_candidates(solver);
+      fprintf(stderr, "Subsumption\n");
       if (solver->has_empty_clause || !pp_subsumption(solver)) break;
     } while (!elim_heap_is_empty(solver));
   }
+  fprintf(stderr, "Done\n\n");
 
   reset_clause_queue(solver);
   reset_elim_heap(&solver->elim);
