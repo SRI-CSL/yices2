@@ -3001,7 +3001,7 @@ term_t mk_arith_rdiv(term_manager_t *manager, term_t t1, term_t t2) {
     } else if (q_is_minus_one(q)) {
       t = mk_arith_opposite(manager, t1);
     } else if (q_is_nonzero(q)) {
-      t = mk_arith_div_by_constant(manager, t, q); // q is safe to use here
+      t = mk_arith_div_by_constant(manager, t1, q); // q is safe to use here
     }
   }
 
