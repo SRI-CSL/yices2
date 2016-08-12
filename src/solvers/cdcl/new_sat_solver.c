@@ -4058,7 +4058,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
-    if (m < 1000) {
+    if (m < 2000) {
       for (i=0; i<m; i++) {
 	k = w->data[i];
 	assert(idx_is_clause(k));
@@ -4077,7 +4077,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
-    if (m < 1000) {
+    if (m < 2000) {
       for (i=0; i<m; i++) {
 	k = w->data[i];
 	assert(idx_is_clause(k));
