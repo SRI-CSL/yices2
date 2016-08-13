@@ -4595,49 +4595,8 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 }
 
 
-#if 0
 /*
- * For testing: eliminate variables
- */
-static void pp_elim_variables(sat_solver_t *solver) {
-  uint32_t i, n, pp, nn;
-  bool cheap;
-
-  // variable 0 is special. We can't remove it
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    if (var_is_assigned(solver, i)) {
-      assert(solver->ante_tag[i] == ATAG_PURE || 
-	     solver->ante_tag[i] == ATAG_UNIT ||
-	     solver->ante_tag[i] == ATAG_ELIM);
-      continue;
-    }
-    pp = solver->occ[pos(i)];
-    nn = solver->occ[neg(i)];
-    if (pp == 0 || nn == 0) {
-      continue;
-    }
-    cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
-    if (cheap || pp_variable_worth_eliminating(solver, i)) {
-#if 0
-      if (cheap) {
-	fprintf(stderr, "Cheap elim: removing variable %"PRIu32"\n", i);
-      } else {
-	fprintf(stderr, "Var elim: removing variable %"PRIu32" (%"PRIu32" pos occs, %"PRIu32" neg occs)\n", i, pp, nn);
-      }
-#endif
-      pp_eliminate_variable(solver, i);
-      solver->stats.pp_cheap_elims += cheap;
-      solver->stats.pp_var_elims += (1 - cheap);
-      // check for conflicts + process unit/pure literals
-      if (solver->has_empty_clause || !pp_empty_queue(solver)) return;
-    }
-  }
-}
-#endif
-
-/*
- * FOR TESTING OF THE ELIMINATION HEAP
+ * Add variables ot the elimination heap.
  */
 static void collect_elimination_candidates(sat_solver_t *solver) {
   uint32_t i, n;
@@ -4652,6 +4611,11 @@ static void collect_elimination_candidates(sat_solver_t *solver) {
   }
 }
 
+
+/*
+ * Eliminate variables: iterate over all variables in the elimination
+ * heap.
+ */
 static void process_elimination_candidates(sat_solver_t *solver) {
   uint32_t pp, nn;
   bvar_t x;
