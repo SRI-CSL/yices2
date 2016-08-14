@@ -23,15 +23,13 @@
 
 
 /*
- * Set these flags to 1 for debugging and trace
+ * Set these flags to 1 for debugging, trace, data collection
  */
 #define DEBUG 0
 #define TRACE 0
+#define DATA  0
 
 
-/*
- * DEBUG
- */
 #if DEBUG
 
 /*
@@ -67,37 +65,149 @@ static inline void check_elim_heap(const sat_solver_t *solver) {}
 
 
 /*
- * Crude implementation: get statistics on every conflict
+ * DATA COLLECTION/STATISTICS
  */
-#define CONFLICT_STATS 0
+#if DATA
 
-#if CONFLICT_STATS
-
-static FILE *stat_file = NULL;
-
-static void open_stat_file(void) {
-  stat_file = fopen("conflict_stats.txt", "w");
+/*
+ * Open the internal data file
+ * - if this fails, solver->data stays NULL and no data is collected
+ */
+void nsat_open_datafile(sat_solver_t *solver, const char *name) {
+  solver->data = fopen(name, "w");
 }
 
-static void close_stat_file(void) {
-  if (stat_file != NULL) {
-    fclose(stat_file);
+static void close_datafile(sat_solver_t *solver) {
+  if (solver->data != NULL) {
+    fclose(solver->data);
   }
 }
 
-static void export_conflict_stat(uint32_t ldb, uint32_t clevel, uint32_t blevel, uint64_t slow_ema, uint64_t fast_ema, uint64_t blocking_ema) {
-  double slow, fast, blocking;
-
-  if (stat_file != NULL) {
-    slow = (double)slow_ema/4.3e9;
-    fast = (double)fast_ema/4.3e9;
-    blocking = (double)blocking_ema/4.3e9;
-    fprintf(stat_file, "%"PRIu32",%"PRIu32",%"PRIu32",%f,%f,%f\n", ldb, clevel, blevel, slow, fast, blocking); 
-  }
+static void reset_datafile(sat_solver_t *solver) {
+  close_datafile(solver);
+  solver->data = NULL;
 }
 
+
+/*
+ * Write data after a conflict
+ * - lbd = ldb of the learned clause
+ *
+ * When this is called:
+ * - solver->conflict_tag = either CTAG_CLAUSE or CTAG_BINARY
+ * - solver->conflict_index = index of the conflict clause (if CTAG_CLAUSE)
+ * - solver->buffer = conflict clause (if CTAG_BINARY)
+ * - solver->buffer contains the learned clause
+ * - solver->decision_level = the conflict level
+ * - solver->backtrack_level = where to backtrack
+ * - solver->stats.conflicts = number of conflicts (including this one)
+ * - solver->blocking_ema, slow_ema, high_ema have been updated
+ *
+ * Data exported:
+ * - stats.conflicts
+ * - stats.decisions
+ * - stats.propagations
+ * - slow_ema
+ * - fast_ema
+ * - blocking_ema
+ * - lbd
+ * - conflict level
+ * - backtrack level
+ * - size of the learned clause
+ * - then the learned clause (as an array of literals)
+ *
+ * The data is stored as raw binary data (little endian for x86)
+ */
+typedef struct conflict_data {
+  uint64_t conflicts;
+  uint64_t decisions;
+  uint64_t propagations;
+  uint64_t slow_ema;
+  uint64_t fast_ema;
+  uint64_t blocking_ema;
+  uint32_t lbd;
+  uint32_t conflict_level;
+  uint32_t backtrack_level;
+  uint32_t learned_clause_size;
+} conflict_data_t;
+
+static void export_conflict_data(sat_solver_t *solver, uint32_t lbd) {
+  conflict_data_t buffer;
+  size_t w, n;
+
+  if (solver->data != NULL) {
+    buffer.conflicts = solver->stats.conflicts;
+    buffer.decisions = solver->stats.decisions;
+    buffer.propagations = solver->stats.propagations;
+    buffer.slow_ema = solver->slow_ema;
+    buffer.fast_ema = solver->fast_ema;
+    buffer.blocking_ema = solver->blocking_ema;
+    buffer.lbd = lbd;
+    buffer.conflict_level = solver->decision_level;
+    buffer.backtrack_level = solver->backtrack_level;
+    buffer.learned_clause_size = solver->buffer.size;;
+    w = fwrite(&buffer, sizeof(buffer), 1, solver->data);
+    if (w < 1) goto write_error;
+    n = solver->buffer.size;
+    w = fwrite(solver->buffer.data, sizeof(literal_t), n, solver->data);
+    if (w < n) goto write_error;
+  }
+
+  return;
+
+ write_error:
+  // close and reset solver->data to zero
+  perror("export_conflict_data");
+  fprintf(stderr, "export_conflict_data: write failed at conflict %"PRIu64"\n", solver->stats.conflicts);
+  fclose(solver->data);
+  solver->data = NULL;
+}
+
+/*
+ * Last conflict: at level 0, the learned clause is empty.
+ */
+static void export_last_conflict(sat_solver_t *solver) {
+  conflict_data_t buffer;
+  size_t w;
+
+  if (solver->data != NULL) {
+    buffer.conflicts = solver->stats.conflicts;
+    buffer.decisions = solver->stats.decisions;
+    buffer.propagations = solver->stats.propagations;
+    buffer.slow_ema = solver->slow_ema;
+    buffer.fast_ema = solver->fast_ema;
+    buffer.blocking_ema = solver->blocking_ema;
+    buffer.lbd = 0;
+    buffer.conflict_level = 0;
+    buffer.backtrack_level = 0;
+    buffer.learned_clause_size = 0;;
+    w = fwrite(&buffer, sizeof(buffer), 1, solver->data);
+    if (w < 1) goto write_error;
+  }
+  return;
+
+ write_error:
+  // close and reset solver->data to zero
+  perror("export_last_conflict");
+  fprintf(stderr, "export_last_conflict: write failed at conflict %"PRIu64"\n", solver->stats.conflicts);
+  fclose(solver->data);
+  solver->data = NULL;
+}
+
+#else
+
+/*
+ * Placeholders: they do nothing
+ */
+void nsat_open_datafile(sat_solver_t *solver, const char *name) { }
+
+static inline void close_datafile(sat_solver_t *solver) { }
+static inline void reset_datafile(sat_solver_t *solver) { }
+static inline void export_conflict_data(sat_solver_t *solver, uint32_t lbd) { }
+static inline void export_last_conflict(sat_solver_t *solver) { }
 
 #endif
+
 
 
 /**********
@@ -236,7 +346,7 @@ static void init_queue(queue_t *q) {
 
   n = DEF_QUEUE_SIZE;
   assert(n <= MAX_QUEUE_SIZE);
-  q->data = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  q->data = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   q->capacity = n;
   q->head = 0;
   q->tail = 0;
@@ -253,7 +363,7 @@ static void extend_queue(queue_t *q) {
   if (n > MAX_QUEUE_SIZE) {
     out_of_memory();
   }
-  q->data = (literal_t *) safe_realloc(q->data, n * sizeof(literal_t));
+  q->data = (uint32_t *) safe_realloc(q->data, n * sizeof(uint32_t));
   q->capacity = n;
 }
 
@@ -1811,6 +1921,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_queue(&solver->cqueue);
   init_vector(&solver->cvector);
   solver->scan_index = 0;
+
+  solver->data = NULL;
 }
 
 
@@ -1867,6 +1979,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_elim_heap(&solver->elim);
   delete_queue(&solver->cqueue);
   delete_vector(&solver->cvector);
+
+  close_datafile(solver);
 }
 
 
@@ -1912,6 +2026,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_elim_heap(&solver->elim);
   reset_queue(&solver->cqueue);
   reset_vector(&solver->cvector);
+
+  reset_datafile(solver);
 }
 
 
@@ -5529,22 +5645,22 @@ static void resolve_conflict(sat_solver_t *solver) {
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
-  //  uint32_t clevel;
 
-  //  clevel = solver->decision_level; // before resolving the conflict (used for statistics)
   update_blocking_ema(solver);
   analyze_conflict(solver);
   simplify_learned_clause(solver);
   prepare_to_backtrack(solver);
-  backtrack(solver, solver->backtrack_level);
 
-  // clear the conflict flag
-  solver->conflict_tag = CTAG_NONE;
-
-  // update statistics
+  // EMA statistics
   n = solver->buffer.size;
   d = clause_lbd(solver, n, solver->buffer.data);
   update_emas(solver, d);
+
+  // Collect data if compiled with DATA=1
+  export_conflict_data(solver, d);
+
+  backtrack(solver, solver->backtrack_level);
+  solver->conflict_tag = CTAG_NONE;
 
   // add the learned clause
   l = solver->buffer.data[0];
@@ -5558,8 +5674,6 @@ static void resolve_conflict(sat_solver_t *solver) {
     assert(n > 0);
     add_unit_clause(solver, l);
   }
-
-  //  export_conflict_stat(d, clevel, solver->backtrack_level, solver->slow_ema, solver->fast_ema, solver->blocking_ema);
 }
 
 
@@ -5818,6 +5932,7 @@ static void sat_search(sat_solver_t *solver) {
     } else {
       // Conflict
       if (solver->decision_level == 0) {
+	export_last_conflict(solver);
 	solver->status = STAT_UNSAT;
 	break;
       }
