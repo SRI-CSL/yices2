@@ -189,7 +189,7 @@ typedef struct vector_s {
  * plus data[0 ... tail-1].
  */
 typedef struct queue_s {
-  literal_t *data;
+  uint32_t *data;
   uint32_t capacity;
   uint32_t head;
   uint32_t tail;
@@ -741,6 +741,11 @@ typedef struct sat_solver_s {
   vector_t cvector;
   uint32_t scan_index;
 
+  /*
+   * File for data collection (used only when macro DATA is non-zero)
+   */
+  FILE *data;
+
 } sat_solver_t;
 
 
@@ -958,6 +963,23 @@ extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a)
  *****************************/
 
 extern void show_state(FILE *f, const sat_solver_t *solver);
+
+
+/*******************************
+ * STATISTICS/DATA COLLECTION  *
+ ******************************/
+
+/*
+ * If the solver is compiled with DATA enabled,
+ * then data is collected in a file after every conflict.
+ * - this function opens the data file
+ * - name = name of the file to use
+ * - if the file can't be created, no error is produced
+ *   (and no data will be collected).
+ *
+ * If DATA is disabled, the function does nothing.
+ */
+extern void nsat_open_datafile(sat_solver_t *solver, const char *name);
 
 
 

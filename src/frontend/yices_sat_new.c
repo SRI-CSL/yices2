@@ -387,6 +387,7 @@ static void check_model(const char *filename) {
  * - seed_given = true if a seed is given on the command line
  *   seed_value = value of the seed
  * - stats = true for printing statistics
+ * - data = true for collecting data
  */
 static char *input_filename = NULL;
 static bool verbose;
@@ -395,6 +396,7 @@ static bool check;
 static bool preprocess;
 static bool seed_given;
 static bool stats;
+static bool data;
 static uint32_t seed_value;
 
 enum {
@@ -406,9 +408,10 @@ enum {
   preprocess_flag,
   seed_opt,
   stats_flag,
+  data_flag,
 };
 
-#define NUM_OPTIONS (stats_flag+1)
+#define NUM_OPTIONS (data_flag+1)
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
@@ -419,6 +422,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "preprocess", 'p', FLAG_OPTION, preprocess_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
+  { "data", '\0', FLAG_OPTION, data_flag },
 };
 
 
@@ -448,6 +452,7 @@ static void print_help(char *progname) {
 	 "   --preprocess, -p        Use preprocessing\n"
 	 "   --seed=<int>, -s <int>  Set the prng seed\n"
 	 "   --stats                 Print statistics at the end of the search\n"
+	 "   --data                  Store conflict data in 'xxxx.data'\n"
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -478,6 +483,7 @@ static void parse_command_line(int argc, char *argv[]) {
   seed_given = false;
   stats = false;
   preprocess = false;
+  data = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -530,6 +536,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case stats_flag:
 	stats = true;
+	break;
+
+      case data_flag:
+	data = true;
 	break;
       }
       break;
@@ -694,9 +704,6 @@ static void init_handler(void) {
 
 
 int main(int argc, char* argv[]) {
-#if INSTRUMENT_CLAUSES
-  FILE *stats;
-#endif
   uint32_t verb;
   int resu;
 
@@ -725,8 +732,12 @@ int main(int argc, char* argv[]) {
     nsat_solver_set_verbosity(&solver, verb);
 
     init_handler();
-    nsat_set_randomness(&solver, 0); // overwrite the default
+    nsat_set_randomness(&solver, 0);          // overwrite the default
     nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
+
+    if (data) {
+      nsat_open_datafile(&solver, "xxxx.data");
+    }
     (void) nsat_solve(&solver);
     print_results();
     if (model) {
