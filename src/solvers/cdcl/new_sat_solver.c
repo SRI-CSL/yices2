@@ -63,6 +63,8 @@ static inline void check_elim_heap(const sat_solver_t *solver) {}
 
 #endif
 
+static bool good_padding_counter(const clause_pool_t *pool);
+
 
 /*
  * DATA COLLECTION/STATISTICS
@@ -606,6 +608,7 @@ static void init_clause_pool(clause_pool_t *pool) {
   pool->size = 0;
   pool->capacity = DEF_CLAUSE_POOL_CAPACITY;
   pool->available = DEF_CLAUSE_POOL_CAPACITY;
+  pool->padding = 0;
 
   pool->num_prob_clauses = 0;
   pool->num_prob_literals = 0;
@@ -633,7 +636,7 @@ static void reset_clause_pool(clause_pool_t *pool) {
   pool->learned = 0;
   pool->size = 0;
   pool->available = pool->capacity;
-
+  pool->padding = 0;
 
   pool->num_prob_clauses = 0;
   pool->num_prob_literals = 0;
@@ -976,6 +979,8 @@ static void clause_pool_padding(clause_pool_t *pool, uint32_t i, uint32_t n) {
   assert(i < pool->size && is_multiple_of_four(i) 
 	 && is_multiple_of_four(n) && n > 0);
 
+  pool->padding += n;
+
   j = i+n;
   if (j < pool->size && is_padding_start(pool, j)) {
     // merge the two padding blocks
@@ -1196,6 +1201,14 @@ static watch_t *shrink_watch(watch_t *v) {
 
 
 /*
+ * Reset: empty w. It must not be null
+ */
+static inline void reset_watch(watch_t *w) {
+  w->size = 0;
+}
+
+
+/*
  * Add k at the end of vector *w.
  * - if *w is NULL, allocate a vector of default size
  * - if *w if full, make it 50% larger.
@@ -1231,6 +1244,7 @@ static void delete_watch_vectors(watch_t **w, uint32_t n) {
     w[i] = NULL;
   }
 }
+
 
 
 /*************************
@@ -2751,6 +2765,7 @@ static void restore_clause_antecedent(sat_solver_t *solver, cidx_t cidx, cidx_t 
 /*
  * Move clause from src_idx to dst_idx
  * - requires dst_idx < src_idx
+ * - thie copies header + literals
  * - n = length of the source clause
  */
 static void clause_pool_move_clause(clause_pool_t *pool, cidx_t dst_idx, cidx_t src_idx, uint32_t n) {
@@ -2777,6 +2792,7 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
   pool = &solver->pool;
 
   assert(clause_pool_invariant(pool));
+  assert(good_padding_counter(pool));
 
   i = cidx;
   end = pool->learned;
@@ -2789,7 +2805,10 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
       n = pool->data[cidx];
       if (n == 0) {
 	// padding block: skip it
-	cidx += padding_length(pool, cidx);
+	n = padding_length(pool, cidx);
+	cidx += n;
+	assert(pool->padding >= n);
+	pool->padding -= n;
       } else {
 	// keep the clause: store it at index i
 	assert(i <= cidx);
@@ -2821,7 +2840,7 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
   pool->available = pool->capacity - i;
 
   assert(clause_pool_invariant(pool));
-
+  assert(good_padding_counter(pool));
 }
 
 /*
@@ -3617,6 +3636,116 @@ static void elim_heap_update_var(sat_solver_t *solver, bvar_t x) {
   } else {
     elim_heap_remove_var(solver, x);
   }
+}
+
+/*
+ * GARBAGE COLLECTION DURING PREPROCESSING
+ */
+
+/*
+ * Go through the pool and remove all the padding blocks
+ * - if a clause is marked, add it to the clause queue (after the move)
+ * - also restore the scan index
+ */
+static void pp_compact_clause_pool(sat_solver_t *solver) {
+  clause_pool_t *pool;
+  uint32_t k, n, len, end;
+  cidx_t i, j;
+
+  pool = &solver->pool;
+
+  assert(clause_pool_invariant(pool) && pool->learned == pool->size);
+  assert(good_padding_counter(pool));
+
+  i = 0;
+  j = 0;
+  end = solver->scan_index;
+  for (k=0; k<2; k++) {
+    /*
+     * First iteration, move the clauses that are before the scan index
+     * Second iteration, clauses after the scan index.
+     */
+    while (i < end) {
+      assert(good_clause_idx(pool, i));
+      n = pool->data[i];
+      if (n == 0) {
+	// padding block, skip it 
+	i += padding_length(pool, i);
+      } else {
+	assert(j <= i);
+	len = n;
+	if ((n & CLAUSE_MARK) != 0) {
+	  // marked clause: store it in the clause queue
+	  queue_push(&solver->cqueue, j);
+	  len &= ~CLAUSE_MARK; 
+	}
+	if (j < i) {
+	  clause_pool_move_clause(pool, j, i, len);
+	}
+	i += full_length(len);
+	j += full_length(len);
+      }
+    }
+    if (k == 0) {
+      solver->scan_index = j;
+      end = pool->size;
+    }
+  }
+
+  assert(end == pool->size);
+  pool->size = j;
+  pool->learned = j;
+  pool->available = pool->capacity - j;
+  pool->padding = 0;
+
+  assert(clause_pool_invariant(pool));
+  assert(good_padding_counter(pool));
+}
+
+
+/*
+ * Reconstruct the watch vectors after compaction
+ */
+static void pp_restore_watch_vectors(sat_solver_t *solver) {
+  uint32_t i, n;
+  cidx_t cidx;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=0; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      reset_watch(w);
+    }
+  }
+
+  cidx = clause_pool_first_clause(&solver->pool);
+  while (cidx < solver->pool.size) {
+    assert(clause_is_live(&solver->pool, cidx));
+    n = clause_length(&solver->pool, cidx);
+    add_clause_all_watch(solver, n, clause_literals(&solver->pool, cidx), cidx);
+    cidx += full_length(n);
+  }
+}
+
+
+/*
+ * Garbage collection
+ */
+static void pp_collect_garbage(sat_solver_t *solver) {
+#if 1
+  fprintf(stderr, "gc: pool size = %"PRIu32", literals = %"PRIu32", padding = %"PRIu32"\n",
+	  solver->pool.size, solver->pool.num_prob_literals, solver->pool.padding);
+#endif
+  check_clause_pool_counters(&solver->pool);
+  reset_queue(&solver->cqueue);
+  pp_compact_clause_pool(solver);
+  pp_restore_watch_vectors(solver);
+  check_clause_pool_counters(&solver->pool);
+#if 1
+  fprintf(stderr, "done: pool size = %"PRIu32", literals = %"PRIu32", padding = %"PRIu32"\n",
+	  solver->pool.size, solver->pool.num_prob_literals, solver->pool.padding);
+#endif
 }
 
 
@@ -4649,6 +4778,10 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
   safe_free(w2);
   solver->watch[pos(x)] = NULL;
   solver->watch[neg(x)] = NULL;
+
+  if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 2) {
+    pp_collect_garbage(solver);
+  }
 }
 
 
@@ -4845,8 +4978,10 @@ static void pp_rebuild_watch_vectors(sat_solver_t *solver) {
   pool->learned = j;
   pool->size = j;
   pool->available = pool->capacity - j;
+  pool->padding = 0;
 
   assert(clause_pool_invariant(pool));
+  assert(good_padding_counter(pool));
 }
 
 /*
@@ -6243,6 +6378,28 @@ void show_state(FILE *f, const sat_solver_t *solver) {
  *   CONSISTENCY CHECKS FOR DEBUGGING   *
  ***************************************/
 
+/*
+ * Check that the padding counter is correct
+ */
+static bool good_padding_counter(const clause_pool_t *pool) {
+  cidx_t cidx;
+  uint32_t n, len;
+
+  n = 0;
+  cidx = 0;
+  while (cidx < pool->size) {
+    if (is_clause_start(pool, cidx)) {
+      cidx += clause_full_length(pool, cidx);
+    } else {
+      len = padding_length(pool, cidx);
+      cidx += len;
+      n += len;
+    }
+  }
+
+  return n == pool->padding;
+}
+
 #if DEBUG
 
 /*
@@ -6274,6 +6431,7 @@ static bool good_counters(const clause_pool_t *pool) {
     learned_clauses == pool->num_learned_clauses &&
     learned_lits == pool->num_learned_literals;
 }
+
 
 /*
  * Check the counters, assuming pool->learned and pool->size are correct.

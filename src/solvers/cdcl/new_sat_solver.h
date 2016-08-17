@@ -300,7 +300,8 @@ typedef struct clause_s {
  * - invariants:
  *     learned <= size <= capacity
  *     available = capacity - size
- *     learned, size, capacity, available are all mutiple of four.
+ *     padding = number of padding cells
+ *     learned, size, capacity, available, padding are all mutiple of four.
  * - counters: number of clauses/literals
  */
 typedef struct clause_pool_s {
@@ -309,6 +310,7 @@ typedef struct clause_pool_s {
   uint32_t size;
   uint32_t capacity;
   uint32_t available;
+  uint32_t padding;
   //  statistics
   uint32_t num_prob_clauses;      // number of problem clauses
   uint32_t num_prob_literals;     // sum of the length of these clauses
