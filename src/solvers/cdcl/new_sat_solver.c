@@ -63,8 +63,6 @@ static inline void check_elim_heap(const sat_solver_t *solver) {}
 
 #endif
 
-static bool good_padding_counter(const clause_pool_t *pool);
-
 
 /*
  * DATA COLLECTION/STATISTICS
@@ -2803,7 +2801,6 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
   pool = &solver->pool;
 
   assert(clause_pool_invariant(pool));
-  assert(good_padding_counter(pool));
 
   i = cidx;
   end = pool->learned;
@@ -2851,7 +2848,6 @@ static void compact_clause_pool(sat_solver_t *solver, cidx_t cidx) {
   pool->available = pool->capacity - i;
 
   assert(clause_pool_invariant(pool));
-  assert(good_padding_counter(pool));
 }
 
 /*
@@ -3666,7 +3662,6 @@ static void pp_compact_clause_pool(sat_solver_t *solver) {
   pool = &solver->pool;
 
   assert(clause_pool_invariant(pool) && pool->learned == pool->size);
-  assert(good_padding_counter(pool));
 
   i = 0;
   j = 0;
@@ -3710,7 +3705,6 @@ static void pp_compact_clause_pool(sat_solver_t *solver) {
   pool->padding = 0;
 
   assert(clause_pool_invariant(pool));
-  assert(good_padding_counter(pool));
 }
 
 
@@ -4992,7 +4986,6 @@ static void pp_rebuild_watch_vectors(sat_solver_t *solver) {
   pool->padding = 0;
 
   assert(clause_pool_invariant(pool));
-  assert(good_padding_counter(pool));
 }
 
 /*
@@ -6389,28 +6382,6 @@ void show_state(FILE *f, const sat_solver_t *solver) {
  *   CONSISTENCY CHECKS FOR DEBUGGING   *
  ***************************************/
 
-/*
- * Check that the padding counter is correct
- */
-static bool good_padding_counter(const clause_pool_t *pool) {
-  cidx_t cidx;
-  uint32_t n, len;
-
-  n = 0;
-  cidx = 0;
-  while (cidx < pool->size) {
-    if (is_clause_start(pool, cidx)) {
-      cidx += clause_full_length(pool, cidx);
-    } else {
-      len = padding_length(pool, cidx);
-      cidx += len;
-      n += len;
-    }
-  }
-
-  return n == pool->padding;
-}
-
 #if DEBUG
 
 /*
@@ -6443,6 +6414,28 @@ static bool good_counters(const clause_pool_t *pool) {
     learned_lits == pool->num_learned_literals;
 }
 
+/*
+ * Check that the padding counter is correct
+ */
+static bool good_padding_counter(const clause_pool_t *pool) {
+  cidx_t cidx;
+  uint32_t n, len;
+
+  n = 0;
+  cidx = 0;
+  while (cidx < pool->size) {
+    if (is_clause_start(pool, cidx)) {
+      cidx += clause_full_length(pool, cidx);
+    } else {
+      len = padding_length(pool, cidx);
+      cidx += len;
+      n += len;
+    }
+  }
+
+  return n == pool->padding;
+}
+
 
 /*
  * Check the counters, assuming pool->learned and pool->size are correct.
@@ -6450,6 +6443,10 @@ static bool good_counters(const clause_pool_t *pool) {
 static void check_clause_pool_counters(const clause_pool_t *pool) {
   if (!good_counters(pool)) {
     fprintf(stderr, "**** BUG: inconsistent pool counters ****\n");
+    fflush(stderr);
+  }
+  if (!good_padding_counter(pool)) {
+    fprintf(stderr, "**** BUG: inconsistent padding pool counter ****\n");
     fflush(stderr);
   }
 }
