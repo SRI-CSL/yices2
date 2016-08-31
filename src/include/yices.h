@@ -1333,8 +1333,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  *
  * - a product is a term of the form t_0^d_0 x ... x t_n ^d_n
  *   where d_0 ... d_n are positive exponents,
- *   and t_0 ... t_n are either all arithmetic terms or all
- *   bitvector terms
+ *   and t_0 ... t_n are all bitvector terms
  *
  * - the number of terms in a bitvector sum or product
  *   is always positive, but it may be equal to 1. For
@@ -1897,6 +1896,9 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  * It's better to keep params=NULL unless you encounter performance
  * problems.  Then you may want to play with the heuristics to see if
  * performance improves.
+ *
+ * To stop the search after a bounded number of conflicts N:
+ * - pass a non-NULL params argument, with params->budget = N.
  *
  * The behavior and returned value depend on ctx's current status:
  *

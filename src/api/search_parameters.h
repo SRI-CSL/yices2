@@ -40,17 +40,27 @@ typedef enum {
 
 struct param_s {
   /*
-   * Restart heuristic: similar to PICOSAT or MINISAT
+   * Possible restart heuristics:
+   * - as in Luby/Sinclair/Zuckerman, 1993
+   * - like Picosat
+   * - like Minisat
    *
-   * If fast_restart is true: PICOSAT-style heuristic
+   * If luby_restart is true: Luby-style
+   * - c_threshold is uses as base period (10 is reasonable)
+   * - the n-th restart occur after L_n * c_threshold conflicts
+   *   when L_n is the n-the term in the sequence
+   *    1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 16, 1 ..
+   *
+   * If fast_restart is true and luby_restart is false: PICOSAT heuristic
    * - inner restarts based on c_threshold
    * - outer restarts based on d_threshold
    *
-   * If fast_restart is false: MINISAT-style restarts
+   * If fast_restart and luby_restart are false: MINISAT-style restarts
    * - c_threshold and c_factor are used
    * - d_threshold and d_threshold are ignored
    * - to get periodic restart set c_factor = 1.0
    */
+  bool     luby_restart;
   bool     fast_restart;
   uint32_t c_threshold;     // initial value of c_threshold
   uint32_t d_threshold;     // initial value of d_threshold
@@ -88,6 +98,12 @@ struct param_s {
   uint32_t random_seed;
   branch_t branching;       // branching heuristic
   float    clause_decay;    // decay factor for learned-clause activity
+
+  /*
+   * Budget: bound on the total number of conflicts
+   * - if this bound is reached the search stops (result = SMT_INTERRUPTED)
+   */
+  uint64_t conflict_budget;
 };
 
 #endif

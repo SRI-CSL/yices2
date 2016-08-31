@@ -4813,6 +4813,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
   switch (arch) {
   case CTX_ARCH_BV:
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+    params->luby_restart = false;
     params->fast_restart = true;
     params->c_factor = 1.05;
     params->d_factor = 1.05;

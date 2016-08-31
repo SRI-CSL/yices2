@@ -26,6 +26,7 @@
  * Default restart parameters for SMT solving
  * Minisat-like behavior
  */
+#define DEFAULT_LUBY_RESTART false
 #define DEFAULT_FAST_RESTART false
 #define DEFAULT_C_THRESHOLD  100
 #define DEFAULT_D_THRESHOLD  100
@@ -63,6 +64,11 @@
 
 
 /*
+ * Default: no limit on the number of conflicts
+ */
+#define DEFAULT_BUDGET         UINT64_MAX
+
+/*
  * Default random seed as in smt_core.d
  */
 #define DEFAULT_RANDOM_SEED    0xabcdef98
@@ -76,6 +82,7 @@
  * All default parameters
  */
 static const param_t default_settings = {
+  DEFAULT_LUBY_RESTART,
   DEFAULT_FAST_RESTART,
   DEFAULT_C_THRESHOLD,
   DEFAULT_D_THRESHOLD,
@@ -91,6 +98,8 @@ static const param_t default_settings = {
   DEFAULT_RANDOM_SEED,
   DEFAULT_BRANCHING,
   DEFAULT_CLAUSE_DECAY,
+
+  DEFAULT_BUDGET,
 };
 
 
@@ -108,6 +117,7 @@ static const param_t default_settings = {
  */
 typedef enum param_key {
   // restart parameters
+  PARAM_LUBY_RESTART,
   PARAM_FAST_RESTART,
   PARAM_C_THRESHOLD,
   PARAM_D_THRESHOLD,
@@ -124,19 +134,23 @@ typedef enum param_key {
   PARAM_BRANCHING,
   // learned clauses
   PARAM_CLAUSE_DECAY,
+  // budget
+  PARAM_BUDGET,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_CLAUSE_DECAY+1)
+#define NUM_PARAM_KEYS (PARAM_BUDGET+1)
 
 // parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "branching",
+  "budget",
   "c-factor",
   "c-threshold",
   "clause-decay",
   "d-factor",
   "d-threshold",
   "fast-restarts",
+  "luby-restarts",
   "r-factor",
   "r-fraction",
   "r-threshold",
@@ -148,12 +162,14 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
 // corresponding parameter codes in order
 static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_BRANCHING,
+  PARAM_BUDGET,
   PARAM_C_FACTOR,
   PARAM_C_THRESHOLD,
   PARAM_CLAUSE_DECAY,
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
   PARAM_FAST_RESTART,
+  PARAM_LUBY_RESTART,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,
@@ -361,11 +377,17 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
   int32_t k, r;
   int32_t z;
   double x;
+  uint32_t y;
 
   z = 0; // to prevent GCC warning
+  y = 0;
 
   k = parse_as_keyword(key, param_key_names, param_code, NUM_PARAM_KEYS);
   switch (k) {
+  case PARAM_LUBY_RESTART:
+    r = set_bool_param(value, &parameters->luby_restart);
+    break;
+
   case PARAM_FAST_RESTART:
     r = set_bool_param(value, &parameters->fast_restart);
     break;
@@ -430,6 +452,13 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_double_param(value, &x, 0.0, 1.0);
     if (r == 0) {
       parameters->clause_decay = (float) x;
+    }
+    break;
+
+  case PARAM_BUDGET:
+    r = set_uint32_param(value, &y);
+    if (r == 0) {
+      parameters->conflict_budget = y; // extend to 64bits
     }
     break;
 

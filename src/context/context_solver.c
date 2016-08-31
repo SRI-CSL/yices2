@@ -246,8 +246,7 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
 
 /*
  * Full solver:
- * - params: heuristic parameters.
- *   If params is NULL, the default settings are used.
+ * - params: heuristic parameters
  */
 static void solve(smt_core_t *core, const param_t *params) {
   uint32_t c_threshold, d_threshold; // Picosat-style
@@ -256,23 +255,19 @@ static void solve(smt_core_t *core, const param_t *params) {
 
   assert(smt_status(core) == STATUS_IDLE);
 
-#if 0
-  c_threshold = params->c_threshold;
-  d_threshold = c_threshold; // required by trace_start in slow_restart mode
-  if (params->fast_restart) {
-    d_threshold = params->d_threshold;
+  if (params->luby_restart) {
+    // Luby-style
+    u = 1;
+    v = 1;
+    c_threshold = params->c_threshold; // base period
+  } else {
+    // either Picosat or Minisat style
+    c_threshold = params->c_threshold;
+    d_threshold = c_threshold; // required by trace_start in slow_restart mode
+    if (params->fast_restart) {
+      d_threshold = params->d_threshold;
+    }
   }
-#endif
-
-  /*
-   * Restart strategy: Luby sequence
-   */
-#if 1
-  u = 1;
-  v = 1;
-  //  threshold = LUBY_INTERVAL;
-  c_threshold = 10;
-#endif
 
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
   if (reduce_threshold < params->r_threshold) {
@@ -309,40 +304,54 @@ static void solve(smt_core_t *core, const param_t *params) {
 
       if (smt_status(core) != STATUS_SEARCHING) break;
 
+      if (num_conflicts(core) >= params->conflict_budget) {
+	stop_search(core);
+	assert(smt_status(core) == STATUS_INTERRUPTED);
+	break;
+      }
+
       smt_restart(core);
       //      smt_partial_restart_var(core);
 
-#if 1
-      // Luby sequence
-      if ((u & -u) == v) {
-	u ++;
-	v = 1;
-      } else {
-	v <<= 1;
-      }
-      c_threshold = v * 10;
-
-      trace_restart(core);
-#endif
-
-#if 0
-      // inner restart: increase c_threshold
-      c_threshold = (uint32_t) (c_threshold * params->c_factor);
-
-      if (c_threshold >= d_threshold) {
-        d_threshold = c_threshold; // Minisat-style
-        if (params->fast_restart) {
-          // outer restart: reset c_threshold and increase d_threshold
-          c_threshold = params->c_threshold;
-          d_threshold = (uint32_t) (d_threshold * params->d_factor);
-        }
+      if (params->luby_restart) {
+	// Luby sequence
+	if ((u & -u) == v) {
+	  u ++;
+	  v = 1;
+	} else {
+	  v <<= 1;
+	}
+	c_threshold = v * params->c_threshold;
 
 	trace_restart(core);
-      } else {
-	trace_inner_restart(core);
-      }
-#endif
 
+      } else {
+	// inner restart: increase c_threshold
+	c_threshold = (uint32_t) (c_threshold * params->c_factor);
+
+	if (c_threshold >= d_threshold) {
+	  d_threshold = c_threshold; // Minisat-style
+	  if (params->fast_restart) {
+	    // outer restart: reset c_threshold and increase d_threshold
+	    c_threshold = params->c_threshold;
+	    d_threshold = (uint32_t) (d_threshold * params->d_factor);
+	  }
+
+	  trace_restart(core);
+	} else {
+	  trace_inner_restart(core);
+	}
+      }
+
+      // correct c_threshold to ensure max_conflicts + c_threshold <= params->conflict_budget
+      assert(num_conflicts(core) < params->conflict_budget);
+      if (num_conflicts(core) + c_threshold > params->conflict_budget) {
+	c_threshold = params->conflict_budget - num_conflicts(core);
+#if 0
+	fprintf(stderr, "Adjusting c_threshold to %"PRIu32" (num_conflicts = %"PRIu64", budget = %"PRIu64")\n",
+		c_threshold, num_conflicts(core), params->conflict_budget);
+#endif
+      }
     }
   }
 
@@ -356,6 +365,7 @@ static void solve(smt_core_t *core, const param_t *params) {
 /*
  * Initialize search parameters then call solve
  * - if ctx->status is not IDLE, return the status.
+ * - if params is NULL, use the default parameters.
  */
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
