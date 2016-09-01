@@ -260,6 +260,7 @@ static void solve(smt_core_t *core, const param_t *params) {
     u = 1;
     v = 1;
     c_threshold = params->c_threshold; // base period
+    d_threshold = 0;  // prevents a GCC warning
   } else {
     // either Picosat or Minisat style
     c_threshold = params->c_threshold;
