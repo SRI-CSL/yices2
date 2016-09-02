@@ -17,20 +17,36 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-
 /*
- * Print an error message then call exit(YICES_EXIT_OUT_OF_MEMORY)
- * - this exit code is defined in yices_exit_codes.h
+ * If INSTRUMENT_OUT_OF_MEMORY is non-zero, the code will print diagnostic
+ * when we run out of memory. Otherwise, it just prints "Out of memory".
  */
-#define out_of_memory() (_out_of_memory(__FILE__, __func__, __LINE__))
-extern void _out_of_memory(const char *file, const char *func, unsigned int line) __attribute__ ((noreturn));
 
-/*
- * Wrappers for malloc/realloc.
- */
+#define INSTRUMENT_OUT_OF_MEMORY 1
+
+#if INSTRUMENT_OUT_OF_MEMORY
+
+extern void __out_of_memory(const char *file, const char *func, unsigned int line) __attribute__ ((noreturn));
+
+extern void *__safe_malloc(size_t size, const char *file, const char *funct,
+			   unsigned int line) __attribute__ ((malloc));
+
+extern void *__safe_realloc(void *ptr, size_t size, const char *file, const char *funct, 
+			    unsigned int line) __attribute__ ((malloc));
+
+
+#define out_of_memory() (__out_of_memory(__FILE__, __func__, __LINE__))
+#define safe_malloc(size) (__safe_malloc((size), __FILE__, __func__, __LINE__))
+#define safe_realloc(ptr, size) (__safe_realloc((ptr), (size), __FILE__, __func__, __LINE__))
+
+#else
+
+// Non-instrumented versions
+extern void out_of_memory(void) __attribute__ ((noreturn));
 extern void *safe_malloc(size_t size) __attribute__ ((malloc));
 extern void *safe_realloc(void *ptr, size_t size) __attribute__ ((malloc));
 
+#endif
 
 /*
  * Safer free: used to check whether ptr is NULL before calling free.

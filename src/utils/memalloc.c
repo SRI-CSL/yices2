@@ -17,11 +17,73 @@
 #include "yices_exit_codes.h"
 
 
+#if INSTRUMENT_OUT_OF_MEMORY
+
+/*
+ * Out of memory
+ */
+void __out_of_memory(const char *file, const char *func, unsigned int line) {
+  fprintf(stderr, "%s:%s:%u: Out of memory\n", file, func, line);
+  exit(YICES_EXIT_OUT_OF_MEMORY);
+}
+
+
+/*
+ * Local malloc: abort if out of memory.
+ *
+ * Special case: is size = 0, malloc(size) may
+ * return NULL on some systems, but that does not
+ * mean we're out of memory.
+ */
+void *__safe_malloc(size_t size, const char *file, const char *func, unsigned int line) {
+  void *tmp;
+
+  tmp = malloc(size);
+  if (tmp == NULL && size > 0) {
+    __out_of_memory(file, func, line);
+  }
+
+  return tmp;
+}
+
+/*
+ * Safer realloc to support lazy allocation.
+ * If ptr == NULL, call malloc otherwise call realloc.
+ * Abort if out of memory.
+ *
+ * NOTE: C99 specifies that realloc should behave like
+ * malloc if ptr is NULL. This is what the Linux default
+ * malloc does, but it's not clear whether other malloc
+ * implementations (e.g., on MacOSX) follow the standard.
+ * It's safer to check whether ptr is NULL and
+ * call malloc or realloc accordingly.
+ *
+ * size must be positive: realloc(p, 0) is the same as free(ptr).
+ */
+void *__safe_realloc(void *ptr, size_t size, const char *file, const char *func, unsigned int line) {
+  void *tmp;
+
+  assert(size > 0);
+
+  if (ptr == NULL) {
+    tmp = malloc(size);
+  } else {
+    tmp = realloc(ptr, size);
+  }
+  if (tmp == NULL) __out_of_memory(file, func, line);
+
+  return tmp;
+}
+
+
+
+#else
+
 /*
  * Fatal error: out of memory
  */
-void _out_of_memory(const char *file, const char *func, unsigned int line) {
-  fprintf(stderr, "Out of memory in %s:%s:L%u \n", file, func, line);
+void out_of_memory(void) {
+  fprintf(stderr, "Out of memory\n");
   exit(YICES_EXIT_OUT_OF_MEMORY);
 }
 
@@ -74,3 +136,4 @@ void *safe_realloc(void *ptr, size_t size) {
 }
 
 
+#endif
