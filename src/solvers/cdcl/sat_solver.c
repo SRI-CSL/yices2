@@ -2991,7 +2991,7 @@ static void inprocessing(sat_solver_t *sol) {
   clause_t **vo = sol->problem_clauses;
 
   uint32_t m = get_cv_size(vo);
-  clause_t **v = malloc(m* sizeof(clause_t *));
+  clause_t **v = safe_malloc(m * sizeof(clause_t *));
 
   size_t temp_pool_capacity = m*offsetof(temp_clause_t, clause) + sol->stats.prob_literals*sizeof(literal_t)
                               + m*sizeof(literal_t); /* header + literals + temp_end */

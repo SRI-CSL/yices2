@@ -121,7 +121,7 @@ void eq_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
 }
 
 plugin_t* eq_plugin_allocator() {
-  eq_plugin_t* plugin = malloc(sizeof(eq_plugin_t));
+  eq_plugin_t* plugin = safe_malloc(sizeof(eq_plugin_t));
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = eq_plugin_construct;
   plugin->plugin_interface.destruct            = eq_plugin_destruct;

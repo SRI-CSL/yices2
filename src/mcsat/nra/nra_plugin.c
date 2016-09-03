@@ -1131,7 +1131,7 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
 }
 
 plugin_t* nra_plugin_allocator() {
-  nra_plugin_t* plugin = malloc(sizeof(nra_plugin_t));
+  nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = nra_plugin_construct;
   plugin->plugin_interface.destruct            = nra_plugin_destruct;
