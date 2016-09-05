@@ -5,12 +5,12 @@
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="0.2076748749" moduleId="org.eclipse.cdt.core.settings" name="debug">
 				<externalSettings/>
 				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
@@ -26,9 +26,9 @@
 							<tool id="cdt.managedbuild.tool.gnu.archiver.base.16285032" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.2038555490" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.275225521" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
-								<option id="gnu.c.compiler.option.include.paths.526336613" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="../yices2-mcsat/src"/>
-									<listOptionValue builtIn="false" value="/homes/dejan/Software/libpoly/include"/>
+								<option id="gnu.c.compiler.option.include.paths.526336613" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${HOME}/Software/libpoly/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/src&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.54228929" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -41,24 +41,10 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.1516005804" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.base.1404428139" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base">
 								<option id="gnu.both.asm.option.include.paths.2057760802" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="../yices2-mcsat/src"/>
-									<listOptionValue builtIn="false" value="/homes/dejan/Software/libpoly/include"/>
+									<listOptionValue builtIn="false" value="&quot;${HOME}/Software/libpoly/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/src&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.2136417517" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
-							</tool>
-						</toolChain>
-					</folderInfo>
-					<folderInfo id="0.2076748749.1711620350" name="/" resourcePath="benchmarks">
-						<toolChain id="cdt.managedbuild.toolchain.gnu.base.628641004" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base" unusedChildren="">
-							<tool id="cdt.managedbuild.tool.gnu.archiver.base.1719179459" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base.16285032"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1163579190" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base.2038555490"/>
-							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.1625022649" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base.275225521">
-								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.419063640" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
-							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.1796396548" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base.689402040"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.344950362" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base.1516005804"/>
-							<tool id="cdt.managedbuild.tool.gnu.assembler.base.249827637" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base.1404428139">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.130399451" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
