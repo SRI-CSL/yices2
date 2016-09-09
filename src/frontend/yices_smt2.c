@@ -43,7 +43,7 @@
  *   followed by a single call to (check_sat).
  * - interactive: if this flag is true, print a prompt before
  *   parsing commands. Also set the option :print-success to true.
- *
+ * - interrupted: flag set true by the signal handler
  * - filename = name of the input file (NULL means read stdin)
  */
 static lexer_t lexer;
@@ -53,6 +53,7 @@ static tstack_t stack;
 static bool incremental;
 static bool interactive;
 static bool show_stats;
+static bool interrupted;
 static int32_t verbosity;
 static char *filename;
 
@@ -239,12 +240,9 @@ static void parse_command_line(int argc, char *argv[]) {
  * - we could try to handle SIGINT more gracefully in interactive mode
  * - this will do for now.
  */
-static void default_handler(int signum) {
-  if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
-  }
-  exit(YICES_EXIT_INTERRUPTED);
+static void default_handler(int signum) {  
+  interrupted = true;
+  smt2_interrupt();
 }
 
 
@@ -252,6 +250,7 @@ static void default_handler(int signum) {
  * Initialize the signal handlers
  */
 static void init_handlers(void) {
+  interrupted = false;
   signal(SIGINT, default_handler);
   signal(SIGABRT, default_handler);
 #ifndef MINGW
@@ -352,7 +351,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  while (smt2_active()) {
+  while (!interrupted && smt2_active()) {
     if (interactive) {
       // prompt
       fputs("yices> ", stderr);

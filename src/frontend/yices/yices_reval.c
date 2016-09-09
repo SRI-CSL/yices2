@@ -98,7 +98,7 @@
  * - interactive: true if the input is stdin and stdin is a terminal
  *   (well on Windows we can't tell for sure).
  *   If this flag is true, we print a prompt before reading input,
- *   and we don't exit on error.
+ *   and we don't exit on error or on sigint.
  * - verbosity: verbosity level
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
@@ -445,13 +445,10 @@ static void sigint_handler(int signum) {
 #endif
 
   assert(context != NULL);
-  if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
-  }
   if (context_status(context) == STATUS_SEARCHING) {
-    context_stop_search(context);
+    context_stop_search(context);    
   }
+  done = !interactive;
 
 #if defined(SOLARIS) || defined(MINGW)
   saved_handler = signal(SIGINT, sigint_handler);
@@ -464,14 +461,14 @@ static void sigint_handler(int signum) {
 
 
 /*
- * Other interrupts: exit with code INTERRUPTED
+ * Other interrupts: force exit 
  */
 static void default_handler(int signum) {
-  if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
+  assert(context != NULL);
+  if (context_status(context) == STATUS_SEARCHING) {
+    context_stop_search(context);
   }
-  exit(YICES_EXIT_INTERRUPTED);
+  done = true;
 }
 
 

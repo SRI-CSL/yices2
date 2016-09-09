@@ -511,14 +511,22 @@ static void print_model(void) {
 
 
 
+/*
+ * INTERRUPTS
+ */
+static bool interrupted;
 
 /*
- * Signal handler: call print_results
+ * Signal handler.
+ * 2016/09/09: can't call printf from a signal handler as
+ * this may cause a deadlock.
  */
 static void handler(int signum) {
-  fprintf(stderr, "Interrupted by signal %d\n\n", signum);
-  print_results();
-  exit(YICES_EXIT_INTERRUPTED);
+  //  fprintf(stderr, "Interrupted by signal %d\n\n", signum);
+  //  print_results();
+  //  exit(YICES_EXIT_INTERRUPTED);
+  interrupted = true;
+
 }
 
 
@@ -527,6 +535,7 @@ static void handler(int signum) {
  * SIGINT, SIGABRT, SIGXCPU
  */
 static void init_handler(void) {
+  interrupted = false;
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW

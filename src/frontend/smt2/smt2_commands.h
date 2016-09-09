@@ -460,6 +460,12 @@ extern bool smt2_active(void);
 
 
 /*
+ * Interrupt the solver (if it's running)
+ */
+extern void smt2_interrupt(void);
+
+
+/*
  * Get the internal token_queue
  */
 static inline etk_queue_t *smt2_token_queue(void) {

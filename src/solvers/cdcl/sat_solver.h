@@ -690,6 +690,12 @@ extern solver_status_t solve(sat_solver_t *solver, bool verbose);
 
 
 /*
+ * Stop the search
+ */
+extern void stop_sover(sat_solver_t *solver);
+
+
+/*
  * Access to solver fields
  */
 static inline solver_status_t solver_status(sat_solver_t *solver) {

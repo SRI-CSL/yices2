@@ -2839,6 +2839,19 @@ bool smt2_active(void) {
 
 
 /*
+ * Interrupt the solver (if it's running)
+ */
+void smt2_interrupt(void) {
+  if (__smt2_globals.ctx != NULL) {
+    yices_stop_search(__smt2_globals.ctx);
+  }
+}
+
+
+
+
+
+/*
  * TOP-LEVEL SMT2 COMMANDS
  */
 
