@@ -3432,6 +3432,14 @@ static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
   return cx < cy;
 }
 
+#if 0
+/*
+ * Simpler heuristic
+ */
+static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
+  return pp_elim_cost(solver, x) < pp_elim_cost(solver, y);
+}
+#endif
 
 /*
  * Move the variable at position i up the tree
@@ -4565,10 +4573,11 @@ static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
  * - l = pivot literal
  * - both clauses must be sorted
  * - c1 must contain l and c2 must contain (not l)
+ * - return true if the resolvent is not trivial, and store its length in *length
  */
-static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
+static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l, uint32_t *length) {
   literal_t *a1, *a2;
-  uint32_t i1, i2, n1, n2;
+  uint32_t i1, i2, n1, n2, len;
 
   assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
   assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
@@ -4578,6 +4587,7 @@ static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint3
   n2 = clause_length(&solver->pool, c2);
   a2 = clause_literals(&solver->pool, c2);
 
+  len = n1 + n2;
   i1 = 0;
   i2 = 0;
   do {
@@ -4591,8 +4601,11 @@ static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint3
     } else {
       i1 ++;
       i2 ++;
+      len --;
     }
   } while (i1 < n1 && i2 < n2);
+
+  *length = len;
 
   return true;
 }
@@ -4887,7 +4900,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
   watch_t *w1, *w2;
   uint32_t i1, i2, n1, n2;
   cidx_t c1, c2;
-  uint32_t n, new_n;
+  uint32_t n, new_n, len;
 
   assert(x < solver->nvars);
 
@@ -4912,8 +4925,8 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 	c2 = w2->data[i2];
 	assert(idx_is_clause(c2));
 	if (clause_is_live(&solver->pool, c2)) {
-	  new_n += non_trivial_resolvent(solver, c1, c2, pos(x));
-	  if (new_n > n) return false;
+	  new_n += non_trivial_resolvent(solver, c1, c2, pos(x), &len);
+	  if (new_n > n || len > 20) return false;
 	}
       }
     }
