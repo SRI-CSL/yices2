@@ -867,37 +867,31 @@ static int32_t build_orgate_hobj(orgate_hobj_t *o) {
 
 
 /*
- * Global objects for hash consing
- */
-static gate_hobj_t gate_hobj = {
-  { (hobj_hash_t) hash_gate_hobj, (hobj_eq_t) eq_gate_hobj, (hobj_build_t) build_gate_hobj },
-  NULL,
-  { 0, { 0, 0, 0 }},
-};
-
-static orgate_hobj_t orgate_hobj = {
-  { (hobj_hash_t) hash_orgate_hobj, (hobj_eq_t) eq_orgate_hobj, (hobj_build_t) build_orgate_hobj },
-  NULL,
-  0,
-  NULL,
-};
-
-
-
-/*
  * Hash-consing constructors
  */
 static bvar_t get_bgate(bool_vartable_t *table, bgate_t *g) {
-  gate_hobj.table = table;
-  gate_hobj.gate = *g;
-  return int_htbl_get_obj(&table->htbl, &gate_hobj.m);
+  gate_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_gate_hobj;
+  hobj.m.eq = (hobj_eq_t) eq_gate_hobj;
+  hobj.m.build = (hobj_build_t) build_gate_hobj;
+  hobj.table = table;
+  hobj.gate = *g;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
-  orgate_hobj.table = table;
-  orgate_hobj.n = n;
-  orgate_hobj.a = a;
-  return int_htbl_get_obj(&table->htbl, &orgate_hobj.m);
+  orgate_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_orgate_hobj;
+  hobj.m.eq = (hobj_eq_t) eq_orgate_hobj;
+  hobj.m.build = (hobj_build_t) build_orgate_hobj;
+  hobj.table = table;
+  hobj.n = n;
+  hobj.a = a;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 

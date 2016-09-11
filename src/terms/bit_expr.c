@@ -239,16 +239,16 @@ static node_t build_var_node(var_node_hobj_t *p) {
   return new_variable_node(p->tbl, p->var);
 }
 
-static var_node_hobj_t var_node_hobj = {
-  { (hobj_hash_t) hash_var_node, (hobj_eq_t) eq_var_node, (hobj_build_t) build_var_node },
-  NULL,
-  0,
-};
-
 static node_t get_var_node(node_table_t *table, int32_t x) {
-  var_node_hobj.tbl = table;
-  var_node_hobj.var = x;
-  return int_htbl_get_obj(&table->htbl, &var_node_hobj.m);
+  var_node_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_var_node;
+  hobj.m.eq = (hobj_eq_t) eq_var_node;
+  hobj.m.build = (hobj_build_t) build_var_node;
+  hobj.tbl = table;
+  hobj.var = x;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 
@@ -272,17 +272,17 @@ static node_t build_select_node(select_node_hobj_t *p) {
   return new_select_node(p->tbl, p->index, p->var);
 }
 
-static select_node_hobj_t select_node_hobj = {
-  { (hobj_hash_t) hash_select_node, (hobj_eq_t) eq_select_node, (hobj_build_t) build_select_node },
-  NULL,
-  0,
-};
-
 static node_t get_select_node(node_table_t *table, uint32_t k, int32_t x) {
-  select_node_hobj.tbl = table;
-  select_node_hobj.index = k;
-  select_node_hobj.var = x;
-  return int_htbl_get_obj(&table->htbl, &select_node_hobj.m);
+  select_node_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_select_node;
+  hobj.m.eq = (hobj_eq_t) eq_select_node;
+  hobj.m.build = (hobj_build_t) build_select_node;
+  hobj.tbl = table;
+  hobj.index = k;
+  hobj.var = x;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 
@@ -306,17 +306,17 @@ static node_t build_or_node(node_hobj_t *p) {
   return new_binary_node(p->tbl, OR_NODE, p->child[0], p->child[1]);
 }
 
-static node_hobj_t or_node_hobj = {
-  { (hobj_hash_t) hash_or_node, (hobj_eq_t) eq_or_node, (hobj_build_t) build_or_node },
-  NULL,
-  { 0, 0 },
-};
-
 static node_t get_or_node(node_table_t *table, bit_t a, bit_t b) {
-  or_node_hobj.tbl = table;
-  or_node_hobj.child[0] = a;
-  or_node_hobj.child[1] = b;
-  return int_htbl_get_obj(&table->htbl, &or_node_hobj.m);
+  node_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_or_node;
+  hobj.m.eq = (hobj_eq_t) eq_or_node;
+  hobj.m.build = (hobj_build_t) build_or_node;
+  hobj.tbl = table;
+  hobj.child[0] = a;
+  hobj.child[1] = b;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 
@@ -340,17 +340,17 @@ static node_t build_xor_node(node_hobj_t *p) {
   return new_binary_node(p->tbl, XOR_NODE, p->child[0], p->child[1]);
 }
 
-static node_hobj_t xor_node_hobj = {
-  { (hobj_hash_t) hash_xor_node, (hobj_eq_t) eq_xor_node, (hobj_build_t) build_xor_node },
-  NULL,
-  { 0, 0 },
-};
-
 static node_t get_xor_node(node_table_t *table, bit_t a, bit_t b) {
-  xor_node_hobj.tbl = table;
-  xor_node_hobj.child[0] = a;
-  xor_node_hobj.child[1] = b;
-  return int_htbl_get_obj(&table->htbl, &xor_node_hobj.m);
+  node_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_xor_node;
+  hobj.m.eq = (hobj_eq_t) eq_xor_node;
+  hobj.m.build = (hobj_build_t) build_xor_node;
+  hobj.tbl = table;
+  hobj.child[0] = a;
+  hobj.child[1] = b;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 

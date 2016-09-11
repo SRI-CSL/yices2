@@ -196,17 +196,6 @@ static int32_t build_pprod(pprod_hobj_t *o) {
 }
 
 
-/*
- * Global hash object
- */
-static pprod_hobj_t pprod_hobj = {
-  { (hobj_hash_t) hash_pprod, (hobj_eq_t) eq_pprod, (hobj_build_t) build_pprod },
-  NULL,
-  NULL,
-  0,
-};
-
-
 
 /*
  * Hash consing function:
@@ -214,14 +203,19 @@ static pprod_hobj_t pprod_hobj = {
  * - n = size of array a
  */
 static pprod_t *get_pprod(pprod_table_t *table, varexp_t *a, uint32_t n) {
+  pprod_hobj_t hobj;
   int32_t i;
 
   assert(n > 1 || (n == 1 && a[0].exp > 1));
-  pprod_hobj.tbl = table;
-  pprod_hobj.array = a;
-  pprod_hobj.len = n;
 
-  i = int_htbl_get_obj(&table->htbl, &pprod_hobj.m);
+  hobj.m.hash = (hobj_hash_t) hash_pprod;
+  hobj.m.eq = (hobj_eq_t) eq_pprod;
+  hobj.m.build = (hobj_build_t) build_pprod;
+  hobj.tbl = table;
+  hobj.array = a;
+  hobj.len = n;
+
+  i = int_htbl_get_obj(&table->htbl, &hobj.m);
 
   return table->data[i];
 }
@@ -293,14 +287,19 @@ pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d) {
  * - return -1 if p is not in the table
  */
 static int32_t find_pprod_id(pprod_table_t *table, pprod_t *p) {
+  pprod_hobj_t hobj;
+
   assert(p != empty_pp && p != end_pp && !pp_is_var(p));
 
   // search for p's index using the hash table
-  pprod_hobj.tbl = table;
-  pprod_hobj.array = p->prod;
-  pprod_hobj.len = p->len;
+  hobj.m.hash = (hobj_hash_t) hash_pprod;
+  hobj.m.eq = (hobj_eq_t) eq_pprod;
+  hobj.m.build = (hobj_build_t) build_pprod;
+  hobj.tbl = table;
+  hobj.array = p->prod;
+  hobj.len = p->len;
 
-  return int_htbl_find_obj(&table->htbl, &pprod_hobj.m);
+  return int_htbl_find_obj(&table->htbl, &hobj.m);
 }
 
 /*

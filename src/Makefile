@@ -151,6 +151,8 @@ core_src_c := \
 	terms/conditionals.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
+	terms/mpq_pool.c \
+	terms/mpz_pool.c \
 	terms/power_products.c \
 	terms/pprod_table.c \
 	terms/rationals.c \
@@ -189,6 +191,7 @@ core_src_c := \
 	utils/int_queues.c \
 	utils/int_stack.c \
 	utils/int_vectors.c \
+	utils/locks.c \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
 	utils/object_stores.c \
@@ -427,7 +430,7 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
@@ -438,7 +441,7 @@ ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -447,7 +450,7 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -456,7 +459,7 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -466,7 +469,7 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)

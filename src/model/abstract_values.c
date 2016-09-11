@@ -275,41 +275,32 @@ static particle_t build_tuple_particle(tuple_hobj_t *o) {
 }
 
 
-
-/*
- * Hash consing objects
- */
-static label_hobj_t label_hobj = {
-  { (hobj_hash_t) hash_label, (hobj_eq_t) equal_label_particle, (hobj_build_t) build_label_particle },
-  NULL,
-  0,
-};
-
-static tuple_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple, (hobj_eq_t) equal_tuple_particle, (hobj_build_t) build_tuple_particle },
-  NULL,
-  0,
-  NULL,
-};
-
-
-
 /*
  * Hash consing
  */
 static particle_t get_label_particle(particle_table_t *table, elabel_t l) {
-  label_hobj.table = table;
-  label_hobj.label = l;
+  label_hobj_t hobj;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &label_hobj);
+  hobj.m.hash = (hobj_hash_t) hash_label;
+  hobj.m.eq = (hobj_eq_t) equal_label_particle;
+  hobj.m.build = (hobj_build_t) build_label_particle;
+  hobj.table = table;
+  hobj.label = l;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 static particle_t get_tuple_particle(particle_table_t *table, uint32_t n, particle_t *a) {
-  tuple_hobj.table = table;
-  tuple_hobj.nelems = n;
-  tuple_hobj.elem = a;
+  tuple_hobj_t hobj;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &tuple_hobj);
+  hobj.m.hash = (hobj_hash_t) hash_tuple;
+  hobj.m.eq = (hobj_eq_t) equal_tuple_particle;
+  hobj.m.build = (hobj_build_t) build_tuple_particle;
+  hobj.table = table;
+  hobj.nelems = n;
+  hobj.elem = a;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 

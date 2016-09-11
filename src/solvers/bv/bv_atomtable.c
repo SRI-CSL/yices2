@@ -154,23 +154,22 @@ static int32_t build_bvatm_hobj(bvatm_hobj_t *p) {
 }
 
 
-static bvatm_hobj_t bvatm_hobj = {
-  { (hobj_hash_t) hash_bvatm_hobj, (hobj_eq_t) eq_bvatm_hobj, (hobj_build_t) build_bvatm_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-
 
 /*
  * Main constructor
  */
 int32_t get_bv_atom(bv_atomtable_t *table, bvatm_tag_t op, thvar_t x, thvar_t y) {
-  bvatm_hobj.tbl = table;
-  bvatm_hobj.op = op;
-  bvatm_hobj.left = x;
-  bvatm_hobj.right = y;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvatm_hobj);
+  bvatm_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_bvatm_hobj;
+  hobj.m.eq = (hobj_eq_t) eq_bvatm_hobj;
+  hobj.m.build = (hobj_build_t) build_bvatm_hobj; 
+  hobj.tbl = table;
+  hobj.op = op;
+  hobj.left = x;
+  hobj.right = y;
+
+  return int_htbl_get_obj(&table->htbl, &hobj.m);
 }
 
 
@@ -194,11 +193,17 @@ int32_t get_bveq_atom(bv_atomtable_t *table, thvar_t x, thvar_t y) {
  * - return -1 otherwise
  */
 int32_t find_bv_atom(bv_atomtable_t *table, bvatm_tag_t op, thvar_t x, thvar_t y) {
-  bvatm_hobj.tbl = table;
-  bvatm_hobj.op = op;
-  bvatm_hobj.left = x;
-  bvatm_hobj.right = y;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bvatm_hobj);
+  bvatm_hobj_t hobj;
+
+  hobj.m.hash = (hobj_hash_t) hash_bvatm_hobj;
+  hobj.m.eq = (hobj_eq_t) eq_bvatm_hobj;
+  hobj.m.build = (hobj_build_t) build_bvatm_hobj; 
+  hobj.tbl = table;
+  hobj.op = op;
+  hobj.left = x;
+  hobj.right = y;
+
+  return int_htbl_find_obj(&table->htbl, &hobj.m);
 }
 
 int32_t find_bveq_atom(bv_atomtable_t *table, thvar_t x, thvar_t y) {

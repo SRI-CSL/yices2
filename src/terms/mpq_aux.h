@@ -19,7 +19,6 @@
  * - mpq_mul_si(mpq_t q, long num, unsigned long den)
  * - mpq_div_si(mpq_t q, long num, unsigned long den)
  *
- *
  * Initialization function:
  * - mpq_init2(mpq_t q, unsigned long n)
  *
@@ -50,12 +49,10 @@
  */
 extern void init_mpq_aux(void);
 
-
 /*
  * Cleanup: delete global variables and free memory
  */
 extern void cleanup_mpq_aux(void);
-
 
 
 /*
@@ -73,6 +70,7 @@ extern void mpq_init2(mpq_t q, unsigned long n);
  * - num and den must have no common factor
  */
 extern void mpq_add_si(mpq_t q, long num, unsigned long den);
+
 
 /*
  * Subtract num/den fromm q.
