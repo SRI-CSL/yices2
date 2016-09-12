@@ -323,12 +323,17 @@ bool mpq_is_int32(mpq_t q) {
  * - i.e., the numerator fits into a 64bit number and the denominator is 1
  */
 bool mpq_is_int64(mpq_t q) {
+  mpz_t z0;
+  bool result;
+
+  result = false;
   if (mpz_cmp_ui(mpq_denref(q), 1UL) == 0) {
+    mpz_init(z0);
     mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator >> 32
-    return mpz_fits_slong_p(z0);
-  } else {
-    return false;
+    result = mpz_fits_slong_p(z0);
+    mpz_clear(z0);
   }
+  return result;
 }
 
 
