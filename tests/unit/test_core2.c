@@ -151,7 +151,7 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t reduc
 
   max_conflicts = num_conflicts(core) + conflict_bound;
 
-  smt_process(core);
+  smt_process(core, UINT32_MAX);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= reduce_threshold) {
@@ -166,7 +166,7 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t reduc
     }
     // propagation
     decide_literal(core, l);
-    smt_process(core);
+    smt_process(core, UINT32_MAX);
   }
 }
 
@@ -225,7 +225,7 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
 
   // initialize then do a propagation + simplification step.
   start_search(core);
-  smt_process(core);
+  smt_process(core, UINT32_MAX);
   if (verbose) {
     show_progress(core, d_threshold, reduce_threshold, true);
   }

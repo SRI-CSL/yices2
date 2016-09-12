@@ -93,7 +93,7 @@ static void quick_solve(smt_core_t *core) {
   }
 
   start_search(core);
-  smt_process(core);
+  smt_process(core, UINT32_MAX);
   while (smt_status(core) == STATUS_SEARCHING) {
     l = select_unassigned_literal(core);
     if (l == null_literal) {
@@ -101,7 +101,7 @@ static void quick_solve(smt_core_t *core) {
       break;
     }
     decide_literal(core, l);
-    smt_process(core);
+    smt_process(core, UINT32_MAX);
   }
 }
 
