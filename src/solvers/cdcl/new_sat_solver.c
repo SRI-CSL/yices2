@@ -3410,6 +3410,7 @@ static uint32_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
   return solver->occ[pos(x)] * solver->occ[neg(x)];
 }
 
+#if 0
 /*
  * Number of occurrences of x
  */
@@ -3438,8 +3439,9 @@ static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
   if (cy < oy && cx >= ox) return false;    // y cheap, x not cheap
   return cx < cy;
 }
+#endif
 
-#if 0
+#if 1
 /*
  * Simpler heuristic
  */
@@ -4815,6 +4817,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
   // number of clauses that contain x
   n = solver->occ[pos(x)] + solver->occ[neg(x)]; 
   new_n = 0;
+  len = 0; // Prevents a GCC warning
 
   for (i1=0; i1<n1; i1++) {
     c1 = w1->data[i1];
