@@ -64,10 +64,12 @@ static inline void check_elim_heap(const sat_solver_t *solver) {}
 #endif
 
 
+
+#if DATA
+
 /*
  * DATA COLLECTION/STATISTICS
  */
-#if DATA
 
 /*
  * Open the internal data file
@@ -3302,7 +3304,12 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
  */
 
 /*
- * Check whether cidx is still a valid clause: this works even if cidx is marked.
+ * Check whether cidx is a valid clause
+ * - cidx is an integer stored in a watch vector.
+ * - it can be a placeholder for a clause that was removed from the watch vector
+ *   (then cidx is not  a multiple of four).
+ * - otherwsise, cidx is a multpile of four, we check whether cidx
+ *   is the start of a clause (it can also be the start of a padding block)
  */
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
   //  return cidx < pool->size && is_clause_start(pool, cidx);
@@ -3737,7 +3744,7 @@ static void pp_restore_watch_vectors(sat_solver_t *solver) {
  * Garbage collection
  */
 static void pp_collect_garbage(sat_solver_t *solver) {
-#if 1
+#if TRACE
   fprintf(stderr, "gc: pool size = %"PRIu32", literals = %"PRIu32", padding = %"PRIu32"\n",
 	  solver->pool.size, solver->pool.num_prob_literals, solver->pool.padding);
 #endif
@@ -3746,7 +3753,7 @@ static void pp_collect_garbage(sat_solver_t *solver) {
   pp_compact_clause_pool(solver);
   pp_restore_watch_vectors(solver);
   check_clause_pool_counters(&solver->pool);
-#if 1
+#if TRACE
   fprintf(stderr, "done: pool size = %"PRIu32", literals = %"PRIu32", padding = %"PRIu32"\n",
 	  solver->pool.size, solver->pool.num_prob_literals, solver->pool.padding);
 #endif
@@ -4113,7 +4120,7 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
 /*
  * Remove clause cidx from watch[l]
  * - cidx must occur in the watch vector
- * TODO: improve this?
+ * - we mark cidx as a dead cluase by replacing it with cidx + 2
  */
 static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
   watch_t *w;
@@ -4138,20 +4145,6 @@ static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_
   // replace cidx by cidx + 2 to keep the watch vector sorted and
   // make sure all elements are multiple of 2
   w->data[j] = cidx + 2;
-
-#if 0
-  while (w->data[i] < cidx) { 
-    i ++; 
-    assert(i < n); 
-  }
-  assert(w->data[i] == cidx);
-  i ++;
-  while (i < n) {
-    w->data[i - 1] = w->data[i];
-    i ++;
-  }
-  w->size = n - 1;
-#endif
 }
 
 /*
@@ -4265,7 +4258,7 @@ static literal_t pp_key_literal(sat_solver_t *solver, const literal_t *a, uint32
 }
 
 
-#if 0
+#if TRACE
 static uint32_t w_len(sat_solver_t *solver, literal_t l) {
   watch_t *w;
   uint32_t len;
@@ -4302,7 +4295,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   a = clause_literals(&solver->pool, cidx);
   key = pp_key_literal(solver, a, n);
 
-#if 0
+#if TRACE
   fprintf(stderr, "subsumption check: cidx = %"PRIu32", len = %"PRIu32", key = %"PRIu32", occs = %"PRIu32", watch size = %"PRIu32"\n",
 	  cidx, n, key, solver->occ[key] + solver->occ[not(key)], w_len(solver, key));
 #endif
@@ -4610,48 +4603,6 @@ static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint3
   return true;
 }
 
-#if 0
-static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
-  literal_t *a1, *a2;
-  literal_t l1, l2;
-  uint32_t i1, i2, n1, n2;
-
-  assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
-  assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
-
-  n1 = clause_length(&solver->pool, c1);
-  a1 = clause_literals(&solver->pool, c1);
-  n2 = clause_length(&solver->pool, c2);
-  a2 = clause_literals(&solver->pool, c2);
-
-  i1 = 0;
-  i2 = 0;
-  while (i1 < n1 && i2 < n2) {
-    l1 = a1[i1];
-    l2 = a2[i2];
-    if (l1 == l2) {
-      assert(l1 != l && l2 != not(l));
-      i1 ++;
-      i2 ++;
-    } else if (l1 == not(l2)) {
-      assert(l1 != not(l));
-      if (l1 != l) return false; // trivial resolvent
-      i1 ++;
-      i2 ++;
-    } else if (l1 < l2) {
-      assert(l1 != l && l1 != not(l));
-      i1 ++; 
-    } else {
-      assert(l2 != l && l2 != not(l));
-      i2 ++;
-    }
-  }
-  return true;
-}
-
-#endif
-
-
 /*
  * Construct the resolvent of clauses c1 and c2
  * - l = literal
@@ -4660,58 +4611,6 @@ static bool non_trivial_resolvent(const sat_solver_t *solver, uint32_t c1, uint3
  * - store it in solver->buffer
  * - return true if the resolvent is not trivial/false if it is
  */
-#if 0
-static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
-  literal_t *a1, *a2;
-  literal_t l1, l2;
-  uint32_t i1, i2, n1, n2;
-
-  assert(clause_is_live(&solver->pool, c1) && clause_is_sorted(solver, c1));
-  assert(clause_is_live(&solver->pool, c2) && clause_is_sorted(solver, c2));
-
-  reset_vector(&solver->buffer);
-  n1 = clause_length(&solver->pool, c1);
-  a1 = clause_literals(&solver->pool, c1);
-  n2 = clause_length(&solver->pool, c2);
-  a2 = clause_literals(&solver->pool, c2);
-
-  i1 = 0;
-  i2 = 0;
-  while (i1 < n1 && i2 < n2) {
-    l1 = a1[i1];
-    l2 = a2[i2];
-    if (l1 == l2) {
-      assert(l1 != l && l1 != not(l));
-      vector_push(&solver->buffer, l1);
-      i1 ++;
-      i2 ++;
-    } else if (l1 == not(l2)) {
-      assert(l1 != not(l));
-      if (l1 != l) return false; // trivial resolvent
-      i1 ++;
-      i2 ++;
-    } else if (l1 < l2) {
-      assert(l1 != l && l1 != not(l));
-      vector_push(&solver->buffer, l1);
-      i1 ++;
-    } else {
-      assert(l2 != l && l2 != not(l));
-      vector_push(&solver->buffer, l2);
-      i2 ++;
-    }
-  }
-  while (i1 < n1) {
-    vector_push(&solver->buffer, a1[i1]);
-    i1 ++;
-  }
-  while (i2 < n2) {
-    vector_push(&solver->buffer, a2[i2]);
-    i2 ++;
-  }
-  return true;
-}
-#endif
-
 static bool pp_build_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, literal_t l) {
   literal_t *a1, *a2;
   uint32_t i1, i2, n1, n2;
