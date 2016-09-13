@@ -202,7 +202,7 @@ int main() {
   start_search(&core);
   print_smt_core(stdout, &core);
   printf("\n---- Process ----\n");
-  smt_process(&core, UINT32_MAX);
+  smt_process(&core);
   print_smt_core(stdout, &core);
 
   printf("\n---- Select literal ----\n");

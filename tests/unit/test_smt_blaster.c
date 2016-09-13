@@ -314,7 +314,7 @@ static void test_blaster(smt_benchmark_t *bench) {
       print_internalization_code(code);
       fflush(stdout);
       // one round of smt_process to handle the lemmas
-      smt_process(context.core, UINT32_MAX);
+      smt_process(context.core);
 
       if (out_file == NULL) {
 	out_file = "yices2bblast.cnf";
