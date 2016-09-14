@@ -10,7 +10,6 @@
 #include <inttypes.h>
 
 #include "terms/power_products.h"
-#include "utils/prng.h"
 
 #ifdef MINGW
 
@@ -65,7 +64,8 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   varexp_t aux;
 
   // random pivot
-  i = random_uint(n);
+  //  i = random_uint(n);
+  i = n>>1;
   aux = a[i];
   pivot = a[i].var;
 

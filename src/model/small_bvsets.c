@@ -18,7 +18,6 @@
 #include "model/small_bvsets.h"
 #include "utils/hash_functions.h"
 #include "utils/memalloc.h"
-#include "utils/prng.h"
 
 
 /*

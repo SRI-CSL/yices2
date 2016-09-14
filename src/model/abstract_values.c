@@ -58,6 +58,7 @@ static void init_particle_table(particle_table_t *table) {
   table->mark = allocate_bitvector(n);
 
   init_int_htbl(&table->htbl, 0);
+  table->rnd = PRNG_DEFAULT_SEED;
 }
 
 
@@ -971,7 +972,7 @@ static bool lexico_precedes(particle_table_t *table, particle_t x, particle_t y)
 
 
 /*
- * Sort array a[0 ... n-1] in lexicographic order
+ * Sort array a[0 ... n-1] in lexicographic orader
  */
 static void lexico_qsort(particle_table_t *table, particle_t *a, uint32_t n);
 
@@ -1010,7 +1011,7 @@ static void lexico_qsort(particle_table_t *table, particle_t *a, uint32_t n) {
   particle_t x, y;
 
   // x = random pivot
-  i = random_uint(n);
+  i = random_uint(&table->rnd, n);
   x = a[i];
 
   // swap x and a[0]

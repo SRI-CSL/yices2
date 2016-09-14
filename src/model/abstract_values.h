@@ -108,6 +108,7 @@ typedef struct particle_tuple_s {
  *     mark[i] = general purpose mark bit
  * - other components:
  *     htbl = hash table for hash consing
+ *     rnd = 32bit random seed
  */
 typedef struct particle_table_s {
   uint32_t size;
@@ -118,6 +119,7 @@ typedef struct particle_table_s {
   byte_t *mark;
 
   int_htbl_t htbl;
+  uint32_t rnd;
 } particle_table_t;
 
 

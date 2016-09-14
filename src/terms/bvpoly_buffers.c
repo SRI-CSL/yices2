@@ -17,7 +17,6 @@
 #include "terms/bvpoly_buffers.h"
 #include "utils/hash_functions.h"
 #include "utils/memalloc.h"
-#include "utils/prng.h"
 
 
 /***********************
@@ -818,8 +817,9 @@ static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
 
   assert(h > l);
 
-  // random pivot
-  i = l + random_uint(h - l);
+  // pivot index = midpoint
+  //  i = l + random_uint(h - l);
+  i = l + ((h - l) >> 1);
 
   // move it to position l
   swap_monomials(buffer, i, l);

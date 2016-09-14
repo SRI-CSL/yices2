@@ -13,7 +13,6 @@
 
 #include "terms/subst_context.h"
 #include "utils/memalloc.h"
-#include "utils/prng.h"
 
 
 /*
@@ -216,7 +215,8 @@ static void subst_ctx_sort_array(int32_t *a, uint32_t n) {
 
   if (n > 2) {
     // random pivot
-    i = random_uint(n) & ~1;
+    //    i = random_uint(n) & ~1;
+    i = (n>>1) & ~1;
     assert((i & 1) == 0);
 
     /*

@@ -10,7 +10,6 @@
  */
 
 #include "utils/int_array_sort.h"
-#include "utils/prng.h"
 
 static void qsort_int_array(int32_t *a, uint32_t n);
 
@@ -45,7 +44,8 @@ static void qsort_int_array(int32_t *a, uint32_t n) {
   int32_t x, y;
 
   // x = random pivot
-  i = random_uint(n);
+  //  i = random_uint(n);
+  i = n>>1;
   x = a[i];
 
   // swap x and a[0]

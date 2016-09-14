@@ -14,7 +14,6 @@
  * in increasing order.
  */
 
-#include "utils/prng.h"
 #include "utils/ptr_array_sort.h"
 
 static void qsort_ptr_array(void **a, uint32_t n);
@@ -61,7 +60,8 @@ static void qsort_ptr_array(void **a, uint32_t n) {
   uintptr_t x, y;
 
   // x = random pivot
-  i = random_uint(n);
+  //  i = random_uint(n);
+  i = n>>1;
   x = (uintptr_t) a[i];
 
   // swap x and a[0]

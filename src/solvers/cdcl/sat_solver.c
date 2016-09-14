@@ -983,6 +983,8 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->decision_level = 0;
   solver->backtrack_level = 0;
 
+  solver->seed = PRNG_DEFAULT_SEED;
+
   solver->simplify_bottom = 0;
   solver->simplify_props = 0;
   solver->simplify_threshold = 0;
@@ -1029,7 +1031,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
  * Set the prng seed
  */
 void sat_solver_set_seed(sat_solver_t *solver, uint32_t s) {
-  random_seed(s);
+  solver->seed = s;
 }
 
 
@@ -2603,7 +2605,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
   /*
    * Try a random variable
    */
-  rnd = random_uint32() & 0xFFFFFF;
+  rnd = random_uint32(&solver->seed) & 0xFFFFFF;
   if (rnd <= (uint32_t) (0x1000000 * VAR_RANDOM_FACTOR)) {
     x = random_uint(solver->nb_vars);
     if (var_is_unassigned(solver, x)) {

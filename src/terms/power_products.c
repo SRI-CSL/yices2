@@ -18,7 +18,6 @@
 #include "terms/power_products.h"
 #include "utils/hash_functions.h"
 #include "utils/memalloc.h"
-#include "utils/prng.h"
 
 #include "yices_limits.h"
 
@@ -172,8 +171,9 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   int32_t pivot;
   varexp_t aux;
 
-  // random pivot
-  i = random_uint(n);
+  // pivot = midpoint
+  //  i = random_uint(n);
+  i = n>>1; 
   aux = a[i];
   pivot = a[i].var;
 

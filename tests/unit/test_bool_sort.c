@@ -30,6 +30,8 @@ static inline int random(void) {
 
 #endif
 
+// global prng state for pitos
+static uint32_t seed = PRNG_DEFAULT_SEED;
 
 typedef int32_t term_t;
 
@@ -85,7 +87,7 @@ static void qsort_terms(uint32_t n, term_t *a) {
   //  if (n <= 1) return;
 
   // random pivot
-  i = random_uint(n);
+  i = random_uint(&seed, n);
   x = a[i];
   r = bool_rank(x);
 

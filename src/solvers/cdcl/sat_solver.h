@@ -537,6 +537,9 @@ typedef struct sat_solver_s {
   uint32_t decision_level;
   uint32_t backtrack_level;
 
+  /* PRNG */
+  uint32_t seed;
+
   /* Simplify DB heuristic  */
   uint32_t simplify_bottom;     // stack top pointer after last simplify_clause_database
   uint64_t simplify_props;      // value of propagation counter at that point

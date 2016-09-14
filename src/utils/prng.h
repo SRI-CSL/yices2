@@ -31,28 +31,21 @@
 
 #define PRNG_DEFAULT_SEED 0xabcdef98
 
-static uint32_t seed = PRNG_DEFAULT_SEED; // default seed
-
-static inline void random_seed(uint32_t s) {
-  seed = s;
-}
-
-static inline uint32_t random_uint32(void) {
+static inline uint32_t random_uint32(uint32_t *seed) {
   uint32_t x;
-  x = seed;
-  seed = seed * ((uint32_t) PRNG_MULTIPLIER) + ((uint32_t) PRNG_CONSTANT);
+  x = *seed;
+  *seed = x * ((uint32_t) PRNG_MULTIPLIER) + ((uint32_t) PRNG_CONSTANT);
   return x;
 }
 
-static inline int32_t random_int32(void) {
-  return (int32_t) random_uint32();
+static inline int32_t random_int32(uint32_t *seed) {
+  return (int32_t) random_uint32(seed);
 }
 
 // random integer between 0 and n-1 (remove 8 low-order bits)
-static inline uint32_t random_uint(uint32_t n) {
-  return (random_uint32() >> 8) % n;
+static inline uint32_t random_uint(uint32_t *seed, uint32_t n) {
+  return (random_uint32(seed) >> 8) % n;
 }
-
 
 
 #endif

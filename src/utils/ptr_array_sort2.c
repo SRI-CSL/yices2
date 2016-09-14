@@ -9,7 +9,6 @@
  * SORT AN ARRAY OF POINTERS WITH USER-SUPPLIED ORDER
  */
 
-#include "utils/prng.h"
 #include "utils/ptr_array_sort2.h"
 
 static void qsort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp);
@@ -46,7 +45,8 @@ static void qsort_ptr_array2(void **a, uint32_t n, void *data, ptr_cmp_fun_t cmp
   void *x, *y;
 
   // x = random pivot
-  i = random_uint(n);
+  //  i = random_uint(n);
+  i = n>>1;
   x = a[i];
 
   // swap x and a[0]
