@@ -430,7 +430,7 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
