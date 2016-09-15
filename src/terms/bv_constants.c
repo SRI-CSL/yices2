@@ -20,6 +20,7 @@
 #include "terms/bv_constants.h"
 #include "utils/bit_tricks.h"
 #include "utils/hash_functions.h"
+#include "utils/locks.h"
 #include "utils/memalloc.h"
 #include "utils/object_stores.h"
 
@@ -39,12 +40,13 @@
  * have size <= MAX_OBJ_SIZE (i.e., 512 bytes). So we want
  *  2 * i * sizeof(uint32_t) <= MAX_OBJ_SIZE.
  *
- * Bitvectors os size larger than that are allocated via
+ * Bitvectors of size larger than that are allocated via
  * direct calls to malloc/free.
  */
 typedef struct {
   object_store_t *store;
   uint32_t nstores;
+  lock_t lock;
 } bvconst_allocator_t;
 
 
@@ -73,6 +75,7 @@ static bvconst_allocator_t allocator;
 static void init_allocator(bvconst_allocator_t *s) {
   s->nstores = 0;
   s->store = NULL;
+  create_lock(&s->lock);
 }
 
 /*
@@ -151,6 +154,7 @@ static void delete_allocator(bvconst_allocator_t *s) {
   safe_free(s->store);
   s->store = NULL;
   s->nstores = 0;
+  destroy_lock(&s->lock);
 }
 
 
@@ -172,14 +176,22 @@ void cleanup_bvconstants(void) {
  * Allocate a vector of k words.
  */
 uint32_t *bvconst_alloc(uint32_t k) {
-  return alloc_vector(&allocator, k);
+  uint32_t *v;
+
+  get_lock(&allocator.lock);
+  v = alloc_vector(&allocator, k);
+  release_lock(&allocator.lock);
+
+  return v;
 }
 
 /*
  * Free vector bv of size k.
  */
 void bvconst_free(uint32_t *bv, uint32_t k) {
+  get_lock(&allocator.lock);
   free_vector(&allocator, bv, k);
+  release_lock(&allocator.lock);
 }
 
 

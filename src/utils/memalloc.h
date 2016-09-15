@@ -27,7 +27,9 @@
  * If there's no callback function registered (i.e., __out_of_mem_callback)
  * is NULL, then we print an error message on stderr then call
  * exit(YICES_EXIT_OUT_OF_MEMORY).
- *   
+ *
+ * NOTE: updates to __out_of_mem_callback should be protected by
+ * a lock.
  */
 typedef void (*out_of_mem_callback_t)(void);
 extern out_of_mem_callback_t __out_of_mem_callback;
