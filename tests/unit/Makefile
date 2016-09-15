@@ -104,24 +104,24 @@ ifeq ($(POSIXOS),darwin)
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
 else
   PIC=-fPIC
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   STATIC=-static
 endif
 endif
