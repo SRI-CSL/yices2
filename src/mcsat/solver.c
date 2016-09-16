@@ -1708,37 +1708,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
       }
 
       // Setup the yices value
-      value_t x_value = null_value;
-      switch (x_value_mcsat->type) {
-      case VALUE_BOOLEAN:
-        x_value = vtbl_mk_bool(vtbl, x_value_mcsat->b);
-        break;
-      case VALUE_RATIONAL:
-        x_value = vtbl_mk_rational(vtbl, &x_value_mcsat->q);
-        break;
-      case VALUE_LIBPOLY:
-        if (lp_value_is_rational(&x_value_mcsat->lp_value)) {
-          lp_rational_t lp_q;
-          lp_rational_construct(&lp_q);
-          lp_value_get_rational(&x_value_mcsat->lp_value, &lp_q);
-          rational_t q;
-          q_init(&q);
-          q_set_mpq(&q, &lp_q);
-          x_value = vtbl_mk_rational(vtbl, &q);
-          q_clear(&q);
-          lp_rational_destruct(&lp_q);
-        } else {
-          if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
-            trace_printf(mcsat->ctx->trace, "value_algebraic = ");
-            lp_algebraic_number_print(&x_value_mcsat->lp_value.value.a, trace_out(mcsat->ctx->trace));
-            trace_printf(mcsat->ctx->trace, "\n");
-          }
-          x_value = vtbl_mk_algebraic(vtbl, &x_value_mcsat->lp_value.value.a);
-        }
-        break;
-      default:
-        assert(false);
-      }
+      value_t x_value = mcsat_value_to_value(x_value_mcsat, vtbl);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         trace_printf(mcsat->ctx->trace, "value = ");
@@ -1748,6 +1718,14 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 
       // Add to model
       model_map_term(model, x_term, x_value);
+    }
+  }
+
+  // Let the plugins run add to the model (e.g. UF, division, ...)
+  for (i = 0; i < mcsat->plugins_count; ++ i) {
+    plugin_t* plugin = mcsat->plugins[i].plugin;
+    if (plugin->build_model) {
+      plugin->build_model(plugin, model);
     }
   }
 }

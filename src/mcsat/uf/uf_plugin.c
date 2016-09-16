@@ -21,6 +21,7 @@
 #include "mcsat/utils/scope_holder.h"
 
 #include "utils/int_array_sort2.h"
+#include "model/models.h"
 
 #include "terms/terms.h"
 #include "yices.h"
@@ -952,6 +953,119 @@ void uf_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   uf->exception = handler;
 }
 
+typedef struct {
+  term_table_t* terms;
+  variable_db_t* var_db;
+} model_sort_data_t;
+
+
+static
+bool uf_plugin_build_model_compare(void *data, variable_t t1_var, variable_t t2_var) {
+  model_sort_data_t* ctx = (model_sort_data_t*) data;
+  term_t t1 = variable_db_get_term(ctx->var_db, t1_var);
+  term_t t2 = variable_db_get_term(ctx->var_db, t2_var);
+  int32_t t1_app = app_reps_get_uf(ctx->terms, t1);
+  int32_t t2_app = app_reps_get_uf(ctx->terms, t1);
+  if (t1_app == t2_app) {
+    return t1 < t2;
+  }
+  return t1_app < t2_app;
+}
+
+static
+void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+
+  term_table_t* terms = uf->ctx->terms;
+  value_table_t* values = &model->vtbl;
+  variable_db_t* var_db = uf->ctx->var_db;
+  const mcsat_trail_t* trail = uf->ctx->trail;
+
+  // Data for sorting
+  model_sort_data_t sort_ctx;
+  sort_ctx.terms = terms;
+  sort_ctx.var_db = var_db;
+
+  // Sort the representatives by function used: we get a list of function
+  // applications where we can easily collect them by linear scan
+  ivector_t app_reps;
+  init_ivector(&app_reps, uf->app_reps_with_val_rep.size);
+  ivector_copy(&app_reps, uf->app_reps_with_val_rep.data, uf->app_reps_with_val_rep.size);
+  int_array_sort2(app_reps.data, app_reps.size, &sort_ctx, uf_plugin_build_model_compare);
+
+  // Mappings that we collect for a single function
+  ivector_t mappings;
+  init_ivector(&mappings, 0);
+
+  // Temp for arguments of a one concrete mapping
+  ivector_t arguments;
+  init_ivector(&arguments, 0);
+
+  // Got through all the representatives that have a set value and
+  // - while same function, collect the concrete mappings
+  // - if different function, construct the function and add to model
+  uint32_t i;
+  int32_t current_app, prev_app = 0;
+  for (i = 0; i < app_reps.size; ++ i) {
+
+    // Current representative application
+    variable_t app_rep_var = app_reps.data[i];
+    term_t app_rep_term = variable_db_get_term(var_db, app_rep_var);
+
+    if (ctx_trace_enabled(uf->ctx, "uf_plugin::model")) {
+      ctx_trace_printf(uf->ctx, "processing app rep:");
+      ctx_trace_term(uf->ctx, app_rep_term);
+    }
+
+    // Current function symbol
+    current_app = app_reps_get_uf(terms, app_rep_term);
+
+    // If we changed the function, construct the previous one
+    if (i > 0 && current_app != prev_app) {
+      term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
+      type_t tau = term_type(terms, f);
+      value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
+      model_map_term(model, f, f_value);
+      ivector_reset(&mappings);
+    }
+
+    // Next concrete mapping f : (x1, x2, ..., xn) -> v
+    // a) Get the v value
+    mcsat_value_t* v_mcsat = (mcsat_value_t*) trail_get_value(trail, app_rep_var);
+    assert(v_mcsat->type != VALUE_NONE);
+    value_t v = mcsat_value_to_value(v_mcsat, values);
+    // b) Get the argument values
+    composite_term_t* app_rep_comp = app_reps_get_uf_descriptor(uf->ctx->terms, app_rep_term);
+    uint32_t arg_i, arg_start = app_reps_get_uf_start(uf->ctx->terms, app_rep_term);
+    ivector_reset(&arguments);
+    for (arg_i = arg_start; arg_i < app_rep_comp->arity; ++ arg_i) {
+      term_t arg_term = app_rep_comp->arg[arg_i];
+      variable_t arg_var = variable_db_get_variable(var_db, arg_term);
+      v_mcsat = (mcsat_value_t*) trail_get_value(trail, arg_var);
+      assert(v_mcsat->type != VALUE_NONE);
+      value_t arg_v = mcsat_value_to_value(v_mcsat, values);
+      ivector_push(&arguments, arg_v);
+    }
+    // c) Construct the concrete mapping, and save in the list for f
+    value_t map_value = vtbl_mk_map(values, arguments.size, arguments.data, v);
+    ivector_push(&mappings, map_value);
+
+    // Remember the previous one
+    prev_app = current_app;
+  }
+
+  // Construct the last function
+  term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
+  type_t tau = term_type(terms, f);
+  value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
+  model_map_term(model, f, f_value);
+
+  // Remove temps
+  delete_ivector(&arguments);
+  delete_ivector(&mappings);
+  delete_ivector(&app_reps);
+}
+
 plugin_t* uf_plugin_allocator(void) {
   uf_plugin_t* plugin = safe_malloc(sizeof(uf_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -967,6 +1081,7 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.explain_evaluation    = uf_plugin_explain_evaluation;
   plugin->plugin_interface.push                  = uf_plugin_push;
   plugin->plugin_interface.pop                   = uf_plugin_pop;
+  plugin->plugin_interface.build_model           = uf_plugin_build_model;
   plugin->plugin_interface.gc_mark               = uf_plugin_gc_mark;
   plugin->plugin_interface.gc_sweep              = uf_plugin_gc_sweep;
   plugin->plugin_interface.set_exception_handler = uf_plugin_set_exception_handler;

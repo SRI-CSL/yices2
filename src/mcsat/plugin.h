@@ -241,6 +241,11 @@ struct plugin_s {
   void (*pop) (plugin_t* plugin);
 
   /**
+   * Build the model.
+   */
+  void (*build_model) (plugin_t* plugin, model_t* model);
+
+  /**
    * Collect all the variables that are still relevant in the current context.
    */
   void (*gc_mark) (plugin_t* plugin, gc_info_t* gc);
@@ -272,6 +277,7 @@ void plugin_construct(plugin_t* plugin) {
   plugin->explain_evaluation    = NULL;
   plugin->push                  = NULL;
   plugin->pop                   = NULL;
+  plugin->build_model           = NULL;
   plugin->gc_mark               = NULL;
   plugin->gc_sweep              = NULL;
   plugin->set_exception_handler = NULL;

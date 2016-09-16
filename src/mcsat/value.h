@@ -12,6 +12,7 @@
 #include <poly/value.h>
 
 #include "terms/rationals.h"
+#include "model/concrete_values.h"
 
 typedef enum {
   /** No value */
@@ -71,5 +72,8 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v);
 
 /** Print the value */
 void mcsat_value_print(const mcsat_value_t* value, FILE* out);
+
+/** Convert a basic value to yices model value */
+value_t mcsat_value_to_value(mcsat_value_t* value, value_table_t* vtbl);
 
 #endif /* MCSAT_VALUE_H_ */

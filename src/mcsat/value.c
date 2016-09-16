@@ -136,3 +136,33 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
     return 0;
   }
 }
+
+value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, value_table_t* vtbl) {
+  value_t value = null_value;
+  switch (mcsat_value->type) {
+  case VALUE_BOOLEAN:
+    value = vtbl_mk_bool(vtbl, mcsat_value->b);
+    break;
+  case VALUE_RATIONAL:
+    value = vtbl_mk_rational(vtbl, &mcsat_value->q);
+    break;
+  case VALUE_LIBPOLY:
+    if (lp_value_is_rational(&mcsat_value->lp_value)) {
+      lp_rational_t lp_q;
+      lp_rational_construct(&lp_q);
+      lp_value_get_rational(&mcsat_value->lp_value, &lp_q);
+      rational_t q;
+      q_init(&q);
+      q_set_mpq(&q, &lp_q);
+      value = vtbl_mk_rational(vtbl, &q);
+      q_clear(&q);
+      lp_rational_destruct(&lp_q);
+    } else {
+      value = vtbl_mk_algebraic(vtbl, &mcsat_value->lp_value.value.a);
+    }
+    break;
+  default:
+    assert(false);
+  }
+  return value;
+}
