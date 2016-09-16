@@ -4879,9 +4879,9 @@ static void process_elimination_candidates(sat_solver_t *solver) {
     if (pp == 0 || nn == 0) {
       continue;
     }
-    cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
-    if (cheap || pp_variable_worth_eliminating(solver, x)) {
+    if (pp_variable_worth_eliminating(solver, x)) {
       pp_eliminate_variable(solver, x);
+      cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
       solver->stats.pp_cheap_elims += cheap;
       solver->stats.pp_var_elims += (1 - cheap);
       // check for conflicts + process unit/pure literals
