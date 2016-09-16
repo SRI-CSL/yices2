@@ -20,15 +20,24 @@
 #ifndef __YICES_GLOBALS_H
 #define __YICES_GLOBALS_H
 
-#include "parser_utils/term_stack2.h"
+#include "parser_utils/parser.h"
 #include "terms/term_manager.h"
+#include "utils/locks.h"
 
 typedef struct yices_globals_s {
+  lock_t lock;             // mutex
+
   type_table_t *types;     // type table
   term_table_t *terms;     // term table
   term_manager_t *manager; // full term manager (includes terms)
+  pprod_table_t *pprods;   // table of power products
+
+  // the next objects are allocated on demand
+  // they are NULL initially
+  lexer_t *lexer;
+  parser_t *parser;
   tstack_t *tstack;        // term stack (or NULL)
-  error_report_t *error;   // data structure for error reporting
+
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;

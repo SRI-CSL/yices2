@@ -28,6 +28,16 @@
 #define EXPORTED __attribute__((visibility("default")))
 #endif
 
+/*
+ * Thread-local attribute
+ */
+#ifdef HAVE_TLS
+#define YICES_THREAD_LOCAL __thread
+#else
+#define YICES_THREAD_LOCAL
+#endif
+
+
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
@@ -62,6 +72,7 @@
 
 #include "utils/dl_lists.h"
 #include "utils/int_array_sort.h"
+#include "utils/locks.h"
 #include "utils/refcount_strings.h"
 #include "utils/sparse_arrays.h"
 #include "utils/string_utils.h"
@@ -74,20 +85,6 @@
 /****************************
  *  GLOBAL DATA STRUCTURES  *
  ***************************/
-
-// global tables
-static type_table_t types;
-static pprod_table_t pprods;
-static term_table_t terms;
-static term_manager_t manager;
-
-// error report
-static error_report_t error;
-
-// parser, lexer, term stack: all are allocated on demand
-static parser_t *parser;
-static lexer_t *lexer;
-static tstack_t *tstack;
 
 // rational for building terms
 static rational_t r0;
@@ -102,13 +99,10 @@ static bvconstant_t bv0;
 #define INIT_TYPE_SIZE  16
 #define INIT_TERM_SIZE  64
 
-
 /*
- * Global table. Initially all pointers are NULL
+ * Global tables
  */
-yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL,
-};
+yices_globals_t __yices_globals;
 
 
 
@@ -121,11 +115,22 @@ yices_globals_t __yices_globals = {
  *   On the first call to register a term or type, we initialize the
  *   static tables and update root_terms/root_types to point to it
  */
+static lock_t root_lock;
+
 static sparse_array_t *root_terms;
 static sparse_array_t *root_types;
 
 static sparse_array_t the_root_terms;
 static sparse_array_t the_root_types;
+
+
+
+/*
+ * Thread Local Error Descriptor
+ */
+static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
+static YICES_THREAD_LOCAL error_report_t  __yices_error;
+
 
 
 
@@ -149,8 +154,9 @@ typedef struct {
   bvarith_buffer_t buffer;
 } bvarith_buffer_elem_t;
 
-static dl_list_t bvarith_buffer_list;
 
+static dl_list_t bvarith_buffer_list;
+static lock_t bvarith_buffer_lock;
 
 /*
  * Variant: 64bit buffers
@@ -161,6 +167,7 @@ typedef struct {
 } bvarith64_buffer_elem_t;
 
 static dl_list_t bvarith64_buffer_list;
+static lock_t bvarith64_buffer_lock;
 
 
 /*
@@ -172,6 +179,7 @@ typedef struct {
 } bvlogic_buffer_elem_t;
 
 static dl_list_t bvlogic_buffer_list;
+static lock_t bvlogic_buffer_lock;
 
 
 /*
@@ -183,6 +191,7 @@ typedef struct {
 } context_elem_t;
 
 static dl_list_t context_list;
+static lock_t context_lock;
 
 
 /*
@@ -194,7 +203,7 @@ typedef struct {
 } model_elem_t;
 
 static dl_list_t model_list;
-
+static lock_t model_lock;
 
 /*
  * Parameter descriptors are stored in one list.
@@ -205,7 +214,7 @@ typedef struct {
 } param_structure_elem_t;
 
 static dl_list_t generic_list;
-
+static lock_t generic_lock;
 
 
 
@@ -230,22 +239,29 @@ static inline bvarith_buffer_t *bvarith_buffer(dl_list_t *l) {
 /*
  * Allocate a bv-arithmetic buffer and insert it into the list
  */
-static inline bvarith_buffer_t *alloc_bvarith_buffer(void) {
+static bvarith_buffer_t *alloc_bvarith_buffer(void) {
   bvarith_buffer_elem_t *new_elem;
 
   new_elem = (bvarith_buffer_elem_t *) safe_malloc(sizeof(bvarith_buffer_elem_t));
+
+  get_lock(&bvarith_buffer_lock);
   list_insert_next(&bvarith_buffer_list, &new_elem->header);
+  release_lock(&bvarith_buffer_lock);
+
   return &new_elem->buffer;
 }
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
+static void free_bvarith_buffer(bvarith_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvarith_buffer_header(b);
+  get_lock(&bvarith_buffer_lock);
   list_remove(elem);
+  release_lock(&bvarith_buffer_lock);
+
   safe_free(elem);
 }
 
@@ -254,6 +270,8 @@ static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
  */
 static void free_bvarith_buffer_list(void) {
   dl_list_t *elem, *aux;
+
+  get_lock(&bvarith_buffer_lock);
 
   elem = bvarith_buffer_list.next;
   while (elem != &bvarith_buffer_list) {
@@ -264,6 +282,8 @@ static void free_bvarith_buffer_list(void) {
   }
 
   clear_list(&bvarith_buffer_list);
+
+  release_lock(&bvarith_buffer_lock);
 }
 
 
@@ -289,22 +309,30 @@ static inline bvarith64_buffer_t *bvarith64_buffer(dl_list_t *l) {
 /*
  * Allocate a bv-arithmetic buffer and insert it into the list
  */
-static inline bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
+static bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
   bvarith64_buffer_elem_t *new_elem;
 
   new_elem = (bvarith64_buffer_elem_t *) safe_malloc(sizeof(bvarith64_buffer_elem_t));
+
+  get_lock(&bvarith64_buffer_lock);
   list_insert_next(&bvarith64_buffer_list, &new_elem->header);
+  release_lock(&bvarith64_buffer_lock);
+
   return &new_elem->buffer;
 }
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvarith64_buffer(bvarith64_buffer_t *b) {
+static void free_bvarith64_buffer(bvarith64_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvarith64_buffer_header(b);
+
+  get_lock(&bvarith64_buffer_lock);
   list_remove(elem);
+  release_lock(&bvarith64_buffer_lock);
+
   safe_free(elem);
 }
 
@@ -314,6 +342,8 @@ static inline void free_bvarith64_buffer(bvarith64_buffer_t *b) {
 static void free_bvarith64_buffer_list(void) {
   dl_list_t *elem, *aux;
 
+  get_lock(&bvarith64_buffer_lock);
+
   elem = bvarith64_buffer_list.next;
   while (elem != &bvarith64_buffer_list) {
     aux = elem->next;
@@ -321,8 +351,9 @@ static void free_bvarith64_buffer_list(void) {
     safe_free(elem);
     elem = aux;
   }
-
   clear_list(&bvarith64_buffer_list);
+
+  release_lock(&bvarith64_buffer_lock);
 }
 
 
@@ -348,22 +379,29 @@ static inline bvlogic_buffer_t *bvlogic_buffer(dl_list_t *l) {
 /*
  * Allocate an arithmetic buffer and insert it into the list
  */
-static inline bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
+static bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
   bvlogic_buffer_elem_t *new_elem;
 
   new_elem = (bvlogic_buffer_elem_t *) safe_malloc(sizeof(bvlogic_buffer_elem_t));
+
+  get_lock(&bvlogic_buffer_lock);
   list_insert_next(&bvlogic_buffer_list, &new_elem->header);
+  release_lock(&bvlogic_buffer_lock);
+
   return &new_elem->buffer;
 }
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvlogic_buffer(bvlogic_buffer_t *b) {
+static void free_bvlogic_buffer(bvlogic_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvlogic_buffer_header(b);
+  get_lock(&bvlogic_buffer_lock);
   list_remove(elem);
+  release_lock(&bvlogic_buffer_lock);
+
   safe_free(elem);
 }
 
@@ -373,6 +411,8 @@ static inline void free_bvlogic_buffer(bvlogic_buffer_t *b) {
 static void free_bvlogic_buffer_list(void) {
   dl_list_t *elem, *aux;
 
+  get_lock(&bvlogic_buffer_lock);
+
   elem = bvlogic_buffer_list.next;
   while (elem != &bvlogic_buffer_list) {
     aux = elem->next;
@@ -380,8 +420,9 @@ static void free_bvlogic_buffer_list(void) {
     safe_free(elem);
     elem = aux;
   }
-
   clear_list(&bvlogic_buffer_list);
+
+  release_lock(&bvlogic_buffer_lock);
 }
 
 
@@ -409,11 +450,15 @@ static inline context_t *context_of_header(dl_list_t *l) {
  * Allocate a fresh context object and insert it in the context_list
  * - WARNING: the context is not initialized
  */
-static inline context_t *alloc_context(void) {
+static context_t *alloc_context(void) {
   context_elem_t *new_elem;
 
   new_elem = (context_elem_t *) safe_malloc(sizeof(context_elem_t));
+
+  get_lock(&context_lock);
   list_insert_next(&context_list, &new_elem->header);
+  release_lock(&context_lock);
+
   return &new_elem->context;
 }
 
@@ -423,11 +468,15 @@ static inline context_t *alloc_context(void) {
  * - WARNING: make sure to call delete_context(c) before this
  *   function
  */
-static inline void free_context(context_t *c) {
+static void free_context(context_t *c) {
   dl_list_t *elem;
 
   elem = header_of_context(c);
+
+  get_lock(&context_lock);
   list_remove(elem);
+  release_lock(&context_lock);
+
   safe_free(elem);
 }
 
@@ -438,6 +487,8 @@ static inline void free_context(context_t *c) {
 static void free_context_list(void) {
   dl_list_t *elem, *aux;
 
+  get_lock(&context_lock);
+
   elem = context_list.next;
   while (elem != &context_list) {
     aux = elem->next;
@@ -445,8 +496,9 @@ static void free_context_list(void) {
     safe_free(elem);
     elem = aux;
   }
-
   clear_list(&context_list);
+
+  release_lock(&context_lock);
 }
 
 
@@ -473,11 +525,15 @@ static inline model_t *model_of_header(dl_list_t *l) {
  * Allocate a fresh model object and insert it in the model_list
  * - WARNING: the model is not initialized
  */
-static inline model_t *alloc_model(void) {
+static model_t *alloc_model(void) {
   model_elem_t *new_elem;
 
   new_elem = (model_elem_t *) safe_malloc(sizeof(model_elem_t));
+
+  get_lock(&model_lock);
   list_insert_next(&model_list, &new_elem->header);
+  release_lock(&model_lock);
+
   return &new_elem->model;
 }
 
@@ -487,11 +543,15 @@ static inline model_t *alloc_model(void) {
  * - WARNING: make sure to call delete_model(c) before this
  *   function
  */
-static inline void free_model(model_t *m) {
+static void free_model(model_t *m) {
   dl_list_t *elem;
 
   elem = header_of_model(m);
+
+  get_lock(&model_lock);
   list_remove(elem);
+  release_lock(&model_lock);
+
   safe_free(elem);
 }
 
@@ -502,6 +562,8 @@ static inline void free_model(model_t *m) {
 static void free_model_list(void) {
   dl_list_t *elem, *aux;
 
+  get_lock(&model_lock);
+
   elem = model_list.next;
   while (elem != &model_list) {
     aux = elem->next;
@@ -511,6 +573,8 @@ static void free_model_list(void) {
   }
 
   clear_list(&model_list);
+
+  release_lock(&model_lock);
 }
 
 
@@ -527,19 +591,27 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
   return (dl_list_t *) (((char *) p) - offsetof(param_structure_elem_t, param));
 }
 
-static inline param_t *alloc_param_structure(void) {
+static param_t *alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
+
+  get_lock(&generic_lock);  
   list_insert_next(&generic_list, &new_elem->header);
+  release_lock(&generic_lock);
+
   return &new_elem->param;
 }
 
-static inline void free_param_structure(param_t *p) {
+static void free_param_structure(param_t *p) {
   dl_list_t *elem;
 
   elem = header_of_param_structure(p);
+
+  get_lock(&generic_lock);  
   list_remove(elem);
+  release_lock(&generic_lock);  
+
   safe_free(elem);
 }
 
@@ -550,6 +622,8 @@ static inline void free_param_structure(param_t *p) {
 static void free_generic_list(void) {
   dl_list_t *elem, *aux;
 
+  get_lock(&generic_lock);  
+
   elem = generic_list.next;
   while (elem != &generic_list) {
     aux = elem->next;
@@ -558,6 +632,8 @@ static void free_generic_list(void) {
   }
 
   clear_list(&generic_list);
+
+  release_lock(&generic_lock);  
 }
 
 
@@ -570,57 +646,51 @@ static void free_generic_list(void) {
  * Return the internal parser
  * - initialize it to read from the given string
  * - s must be non-NULL, terminated by '\0'
+ *
+ * Must have the lock on __yices_globals when this is called.
  */
 static parser_t *get_parser(const char *s) {
-  if (parser == NULL) {
-    assert(lexer == NULL && tstack == NULL);
-    tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
-    init_tstack(tstack, NUM_BASE_OPCODES);
+  if (__yices_globals.parser == NULL) {
+    assert(__yices_globals.lexer == NULL && __yices_globals.tstack == NULL);
+    __yices_globals.tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
+    init_tstack(__yices_globals.tstack, NUM_BASE_OPCODES);
 
-    lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
-    init_string_lexer(lexer, s, "yices");
+    __yices_globals.lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
+    init_string_lexer(__yices_globals.lexer, s, "yices");
 
-    parser = (parser_t *) safe_malloc(sizeof(parser_t));
-    init_parser(parser, lexer, tstack);
-
-    // copy tstack into the global objects
-    assert(__yices_globals.tstack == NULL);
-    __yices_globals.tstack = tstack;
+    __yices_globals.parser = (parser_t *) safe_malloc(sizeof(parser_t));
+    init_parser(__yices_globals.parser, __yices_globals.lexer, __yices_globals.tstack);
 
   } else {
     // reset the input string
-    assert(lexer != NULL && tstack != NULL);
-    reset_string_lexer(lexer, s);
+    assert(__yices_globals.lexer != NULL && __yices_globals.tstack != NULL);
+    reset_string_lexer(__yices_globals.lexer, s);
   }
 
-  return parser;
+  return __yices_globals.parser;
 }
 
 
 /*
- * Delete the internal parser, lexer, term stack
- * (it they exist)
+ * Delete the internal parser, lexer, term stack (if they exist)
  */
 static void delete_parsing_objects(void) {
-  assert(__yices_globals.tstack == tstack);
+  if (__yices_globals.parser != NULL) {
+    assert(__yices_globals.lexer != NULL && __yices_globals.tstack != NULL);
+    delete_parser(__yices_globals.parser);
+    safe_free(__yices_globals.parser);
+    __yices_globals.parser = NULL;
 
-  if (parser != NULL) {
-    assert(lexer != NULL && tstack != NULL);
-    delete_parser(parser);
-    safe_free(parser);
-    parser = NULL;
+    close_lexer(__yices_globals.lexer);
+    safe_free(__yices_globals.lexer);
+    __yices_globals.lexer = NULL;
 
-    close_lexer(lexer);
-    safe_free(lexer);
-    lexer = NULL;
-
-    delete_tstack(tstack);
-    safe_free(tstack);
-    tstack = NULL;
+    delete_tstack(__yices_globals.tstack);
+    safe_free(__yices_globals.tstack);
     __yices_globals.tstack = NULL;
   }
 
-  assert(lexer == NULL && tstack == NULL);
+  assert(__yices_globals.lexer == NULL && __yices_globals.tstack == NULL);
 }
 
 
@@ -632,23 +702,34 @@ static void delete_parsing_objects(void) {
  * Initialize the table of global objects
  */
 static void init_globals(yices_globals_t *glob) {
-  glob->types = &types;
-  glob->terms = &terms;
-  glob->manager = &manager;
+  glob->types = (type_table_t *) safe_malloc(sizeof(type_table_t));
+  glob->terms = (term_table_t *) safe_malloc(sizeof(term_table_t));
+  glob->manager = (term_manager_t *) safe_malloc(sizeof(term_manager_t));
+  glob->pprods = (pprod_table_t *) safe_malloc(sizeof(pprod_table_t));;
+
+  glob->parser = NULL;
+  glob->lexer = NULL;
   glob->tstack = NULL;
-  glob->error = &error;
+
+  create_lock(&glob->lock);
 }
 
 
 /*
- * Reset all to NULL
+ * Reset all to NULL and free memory
  */
 static void clear_globals(yices_globals_t *glob) {
+  safe_free(glob->types);
+  safe_free(glob->terms);
+  safe_free(glob->manager);
+  safe_free(glob->pprods);
+
   glob->types = NULL;
   glob->terms = NULL;
   glob->manager = NULL;
-  glob->tstack = NULL;
-  glob->error = NULL;
+  glob->pprods = NULL;
+
+  destroy_lock(&glob->lock);
 }
 
 
@@ -656,42 +737,55 @@ static void clear_globals(yices_globals_t *glob) {
  * Initialize all global objects
  */
 EXPORTED void yices_init(void) {
-  error.code = NO_ERROR;
+  type_table_t *types;
+  term_table_t *terms;
+  term_manager_t *manager;
+  pprod_table_t *pprods;
 
-  init_yices_pp_tables();
+  init_globals(&__yices_globals);
+
+  init_yices_pp_tables();  
   init_bvconstants();
   init_rationals();
 
+  // TODO: remove them
   q_init(&r0);
   init_bvconstant(&bv0);
 
   // tables
-  init_type_table(&types, INIT_TYPE_SIZE);
-  init_pprod_table(&pprods, 0);
-  init_term_table(&terms, INIT_TERM_SIZE, &types, &pprods);
-  init_term_manager(&manager, &terms);
+  types = __yices_globals.types;
+  terms = __yices_globals.terms;
+  manager = __yices_globals.manager;
+  pprods = __yices_globals.pprods;
+  init_type_table(types, INIT_TYPE_SIZE);
+  init_pprod_table(pprods, 0);
+  init_term_table(terms, INIT_TERM_SIZE, types, pprods);
+  init_term_manager(manager, terms);
 
   // buffer lists
+  create_lock(&bvarith_buffer_lock);
   clear_list(&bvarith_buffer_list);
+
+  create_lock(&bvarith64_buffer_lock);
   clear_list(&bvarith64_buffer_list);
+
+  create_lock(&bvlogic_buffer_lock);
   clear_list(&bvlogic_buffer_list);
 
   // other dynamic object lists
+  create_lock(&context_lock);
   clear_list(&context_list);
+
+  create_lock(&model_lock);
   clear_list(&model_list);
+
+  create_lock(&generic_lock);
   clear_list(&generic_list);
 
-  // parser etc.
-  parser = NULL;
-  lexer = NULL;
-  tstack = NULL;
-
   // registries for garbage collection
+  create_lock(&root_lock);
   root_terms = NULL;
   root_types = NULL;
-
-  // prepare the global table
-  init_globals(&__yices_globals);
 }
 
 
@@ -712,8 +806,6 @@ EXPORTED void yices_exit(void) {
   // parser etc.
   delete_parsing_objects();
 
-  clear_globals(&__yices_globals);
-
   free_bvlogic_buffer_list();
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
@@ -722,11 +814,22 @@ EXPORTED void yices_exit(void) {
   free_model_list();
   free_generic_list();
 
-  delete_term_manager(&manager);
-  delete_term_table(&terms);
-  delete_pprod_table(&pprods);
-  delete_type_table(&types);
+  delete_term_manager(__yices_globals.manager);
+  delete_term_table(__yices_globals.terms);
+  delete_pprod_table(__yices_globals.pprods);
+  delete_type_table(__yices_globals.types);
 
+  clear_globals(&__yices_globals);
+
+  destroy_lock(&bvarith_buffer_lock);
+  destroy_lock(&bvarith64_buffer_lock);
+  destroy_lock(&bvlogic_buffer_lock);
+  destroy_lock(&context_lock);
+  destroy_lock(&model_lock);
+  destroy_lock(&generic_lock);
+  destroy_lock(&root_lock);
+
+  // TODO: get rid of these two
   q_clear(&r0);
   delete_bvconstant(&bv0);
 
@@ -745,11 +848,29 @@ EXPORTED void yices_reset(void) {
 }
 
 
+
+/*******************
+ *  ERROR REPORTS  *
+ ******************/
+
+/*
+ * Initialize the descriptor if necessary then return a pointer to it
+ */
+static error_report_t *get_yices_error(void) {
+  if (!__yices_error_initialized) {
+    __yices_error_initialized = true;
+    memset(&__yices_error, 0, sizeof(error_report_t));
+    __yices_error.code = NO_ERROR;
+  }
+  return &__yices_error;
+}
+
+
 /*
  * Get the last error report
  */
 EXPORTED error_report_t *yices_error_report(void) {
-  return &error;
+  return get_yices_error();
 }
 
 
@@ -757,7 +878,7 @@ EXPORTED error_report_t *yices_error_report(void) {
  * Get the last error code
  */
 EXPORTED error_code_t yices_error_code(void) {
-  return error.code;
+  return get_yices_error()->code;
 }
 
 
@@ -765,7 +886,9 @@ EXPORTED error_code_t yices_error_code(void) {
  * Clear the last error report
  */
 EXPORTED void yices_clear_error(void) {
-  error.code = NO_ERROR;
+  error_report_t *error;
+  error = get_yices_error();
+  error->code = NO_ERROR;
 }
 
 
@@ -789,10 +912,10 @@ EXPORTED char *yices_error_string(void) {
  * Reset the internal term/types/pprod tables
  */
 void yices_reset_tables(void) {
-  reset_term_manager(&manager);
-  reset_term_table(&terms);
-  reset_pprod_table(&pprods);
-  reset_type_table(&types);
+  reset_term_manager(__yices_globals.manager);
+  reset_term_table(__yices_globals.terms);
+  reset_pprod_table(__yices_globals.pprods);
+  reset_type_table(__yices_globals.types);
 }
 
 
@@ -817,44 +940,17 @@ EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
  */
 
 /*
- * Short cuts: extract manager components
- */
-static inline node_table_t *get_nodes(void) {
-  return term_manager_get_nodes(&manager);
-}
-
-static inline object_store_t *get_bvarith_store(void) {
-  return term_manager_get_bvarith_store(&manager);
-}
-
-static inline object_store_t *get_bvarith64_store(void) {
-  return term_manager_get_bvarith64_store(&manager);
-}
-
-
-static inline bvarith_buffer_t *get_bvarith_buffer(void) {
-  return term_manager_get_bvarith_buffer(&manager);
-}
-
-static inline bvarith64_buffer_t *get_bvarith64_buffer(void) {
-  return term_manager_get_bvarith64_buffer(&manager);
-}
-
-static inline bvlogic_buffer_t *get_bvlogic_buffer(void) {
-  return term_manager_get_bvlogic_buffer(&manager);
-}
-
-
-/*
  * Allocate and initialize a bvarith_buffer
  * - the buffer is initialized to 0b0...0 (with n bits)
  * - n must be positive and no more than YICES_MAX_BVSIZE
  */
 bvarith_buffer_t *yices_new_bvarith_buffer(uint32_t n) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
 
+  manager = __yices_globals.manager;
   b = alloc_bvarith_buffer();
-  init_bvarith_buffer(b, &pprods, get_bvarith_store());
+  init_bvarith_buffer(b, __yices_globals.pprods, term_manager_get_bvarith_store(manager));
   bvarith_buffer_prepare(b, n);
 
   return b;
@@ -876,10 +972,12 @@ void yices_free_bvarith_buffer(bvarith_buffer_t *b) {
  * - n must be between 1 and 64
  */
 bvarith64_buffer_t *yices_new_bvarith64_buffer(uint32_t n) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
 
+  manager = __yices_globals.manager;
   b = alloc_bvarith64_buffer();
-  init_bvarith64_buffer(b, &pprods, get_bvarith64_store());
+  init_bvarith64_buffer(b, __yices_globals.pprods, term_manager_get_bvarith64_store(manager));
   bvarith64_buffer_prepare(b, n);
 
   return b;
@@ -900,10 +998,12 @@ void yices_free_bvarith64_buffer(bvarith64_buffer_t *b) {
  * - the buffer is empty (bitsize = 0)
  */
 bvlogic_buffer_t *yices_new_bvlogic_buffer(void) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
 
+  manager = __yices_globals.manager;
   b = alloc_bvlogic_buffer();
-  init_bvlogic_buffer(b, get_nodes());
+  init_bvlogic_buffer(b, term_manager_get_nodes(manager));
 
   return b;
 }
@@ -961,9 +1061,12 @@ EXPORTED void yices_reset_term_vector(term_vector_t *v) {
 
 // Check whether n is positive
 static bool check_positive(uint32_t n) {
+  error_report_t *error;
+
   if (n == 0) {
-    error.code = POS_INT_REQUIRED;
-    error.badval = n;
+    error = get_yices_error();
+    error->code = POS_INT_REQUIRED;
+    error->badval = n;
     return false;
   }
   return true;
@@ -971,9 +1074,12 @@ static bool check_positive(uint32_t n) {
 
 // Check whether n is less than YICES_MAX_ARITY
 static bool check_arity(uint32_t n) {
+  error_report_t *error;
+
   if (n > YICES_MAX_ARITY) {
-    error.code = TOO_MANY_ARGUMENTS;
-    error.badval = n;
+    error = get_yices_error();
+    error->code = TOO_MANY_ARGUMENTS;
+    error->badval = n;
     return false;
   }
   return true;
@@ -981,9 +1087,12 @@ static bool check_arity(uint32_t n) {
 
 // Check whether n is less than YICES_MAX_BVSIZE
 static bool check_maxbvsize(uint32_t n) {
+  error_report_t *error;
+
   if (n > YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = n;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = n;
     return false;
   }
   return true;
@@ -991,9 +1100,12 @@ static bool check_maxbvsize(uint32_t n) {
 
 // Check whether d is no more than YICES_MAX_DEGREE
 static bool check_maxdegree(uint32_t d) {
+  error_report_t *error;
+
   if (d > YICES_MAX_DEGREE) {
-    error.code = DEGREE_OVERFLOW;
-    error.badval = d;
+    error = get_yices_error();
+    error->code = DEGREE_OVERFLOW;
+    error->badval = d;
     return false;
   }
   return true;
@@ -1001,9 +1113,12 @@ static bool check_maxdegree(uint32_t d) {
 
 // Check whether tau is a valid type
 static bool check_good_type(type_table_t *tbl, type_t tau) {
+  error_report_t *error;
+
   if (bad_type(tbl, tau)) {
-    error.code = INVALID_TYPE;
-    error.type1 = tau;
+    error = get_yices_error();
+    error->code = INVALID_TYPE;
+    error->type1 = tau;
     return false;
   }
   return true;
@@ -1011,9 +1126,12 @@ static bool check_good_type(type_table_t *tbl, type_t tau) {
 
 // Check whether tau is a bitvector type (tau is valid)
 static bool check_bvtype(type_table_t *tbl, type_t tau) {
+  error_report_t *error;
+
   if (! is_bv_type(tbl, tau)) {
-    error.code = BVTYPE_REQUIRED;
-    error.type1 = tau;
+    error = get_yices_error();
+    error->code = BVTYPE_REQUIRED;
+    error->type1 = tau;
     return false;
   }
   return true;
@@ -1021,12 +1139,14 @@ static bool check_bvtype(type_table_t *tbl, type_t tau) {
 
 // Check whether t is a valid term
 static bool check_good_term(term_manager_t *mngr, term_t t) {
+  error_report_t *error;
   term_table_t *tbl;
 
   tbl = term_manager_get_terms(mngr);
   if (bad_term(tbl, t)) {
-    error.code = INVALID_TERM;
-    error.term1 = t;
+    error = get_yices_error();
+    error->code = INVALID_TERM;
+    error->term1 = t;
     return false;
   }
   return true;
@@ -1034,6 +1154,7 @@ static bool check_good_term(term_manager_t *mngr, term_t t) {
 
 // Check that terms in a[0 ... n-1] are valid
 static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i;
 
@@ -1041,8 +1162,9 @@ static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) 
 
   for (i=0; i<n; i++) {
     if (bad_term(tbl, a[i])) {
-      error.code = INVALID_TERM;
-      error.term1 = a[i];
+      error = get_yices_error();
+      error->code = INVALID_TERM;
+      error->term1 = a[i];
       return false;
     }
   }
@@ -1051,14 +1173,16 @@ static bool check_good_terms(term_manager_t *mngr, uint32_t n, const term_t *a) 
 
 // Check whether t is a boolean term. t must be a valid term
 static bool check_boolean_term(term_manager_t *mngr, term_t t) {
+  error_report_t *error;
   term_table_t *tbl;
 
   tbl = term_manager_get_terms(mngr);
 
   if (! is_boolean_term(tbl, t)) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = t;
-    error.type1 = bool_type(tbl->types);
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = t;
+    error->type1 = bool_type(tbl->types);
     return false;
   }
   return true;
@@ -1066,13 +1190,15 @@ static bool check_boolean_term(term_manager_t *mngr, term_t t) {
 
 // Check whether t is a bitvector term, t must be valid
 static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
+  error_report_t *error;
   term_table_t *tbl;
 
   tbl = term_manager_get_terms(mngr);
 
   if (! is_bitvector_term(tbl, t)) {
-    error.code = BITVECTOR_REQUIRED;
-    error.term1 = t;
+    error = get_yices_error();
+    error->code = BITVECTOR_REQUIRED;
+    error->term1 = t;
     return false;
   }
   return true;
@@ -1081,6 +1207,7 @@ static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
 // Check whether t1 and t2 have compatible types (i.e., (= t1 t2) is well-typed)
 // t1 and t2 must both be valid
 static bool check_compatible_terms(term_manager_t *mngr, term_t t1, term_t t2) {
+  error_report_t *error;
   term_table_t *tbl;
   type_t tau1, tau2;
 
@@ -1089,11 +1216,12 @@ static bool check_compatible_terms(term_manager_t *mngr, term_t t1, term_t t2) {
   tau1 = term_type(tbl, t1);
   tau2 = term_type(tbl, t2);
   if (! compatible_types(tbl->types, tau1, tau2)) {
-    error.code = INCOMPATIBLE_TYPES;
-    error.term1 = t1;
-    error.type1 = tau1;
-    error.term2 = t2;
-    error.type2 = tau2;
+    error = get_yices_error();
+    error->code = INCOMPATIBLE_TYPES;
+    error->term1 = t1;
+    error->type1 = tau1;
+    error->term2 = t2;
+    error->type2 = tau2;
     return false;
   }
 
@@ -1116,6 +1244,7 @@ static bool check_compatible_bv_terms(term_manager_t *mngr, term_t t1, term_t t2
 
 // Check whether terms a[0 ... n-1] are all boolean
 static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i;
 
@@ -1123,9 +1252,10 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a
 
   for (i=0; i<n; i++) {
     if (! is_boolean_term(tbl, a[i])) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = a[i];
-      error.type1 = bool_type(tbl->types);
+      error = get_yices_error();
+      error->code = TYPE_MISMATCH;
+      error->term1 = a[i];
+      error->type1 = bool_type(tbl->types);
       return false;
     }
   }
@@ -1135,6 +1265,7 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a
 
 // Check whether a[0 ... n-1] are all valid bitvectors 
 static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i;
 
@@ -1142,8 +1273,9 @@ static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t 
  
   for (i=0; i<n; i++) {
     if (! is_bitvector_term(tbl, a[i])) {
-      error.code = BITVECTOR_REQUIRED;
-      error.term1 = a[i];
+      error = get_yices_error();
+      error->code = BITVECTOR_REQUIRED;
+      error->term1 = a[i];
       return false;
     }
   }
@@ -1155,6 +1287,7 @@ static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t 
 // this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector 
 // operators
 static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   type_t tau0, tau;
   uint32_t i;
@@ -1167,11 +1300,12 @@ static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
   for (i=1; i<n; i++) {
     tau = term_type(tbl, a[i]);
     if (tau != tau0) {
-      error.code = INCOMPATIBLE_TYPES;
-      error.term1 = a[0];
-      error.type1 = tau0;
-      error.term2 = a[i];
-      error.type2 = tau;
+      error = get_yices_error();
+      error->code = INCOMPATIBLE_TYPES;
+      error->term1 = a[0];
+      error->type1 = tau0;
+      error->term2 = a[i];
+      error->type2 = tau;
       return false;
     }
   }
@@ -1181,6 +1315,7 @@ static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
 
 // Check (distinct t_1 ... t_n)
 static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i;
   type_t tau;
@@ -1197,11 +1332,12 @@ static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, const ter
   for (i=1; i<n; i++) {
     tau = super_type(tbl->types, tau, term_type(tbl, a[i]));
     if (tau == NULL_TYPE) {
-      error.code = INCOMPATIBLE_TYPES;
-      error.term1 = a[0];
-      error.type1 = term_type(tbl, a[0]);
-      error.term2 = a[i];
-      error.type2 = term_type(tbl, a[i]);
+      error = get_yices_error();
+      error->code = INCOMPATIBLE_TYPES;
+      error->term1 = a[0];
+      error->type1 = term_type(tbl, a[0]);
+      error->term2 = a[i];
+      error->type2 = term_type(tbl, a[i]);
       return false;
     }
   }
@@ -1237,6 +1373,7 @@ static bool check_square_degree(term_manager_t *mngr, term_t t) {
 
 // Check that the degree of t^n does not overflow
 static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
+  error_report_t *error;
   term_table_t *tbl;
   uint64_t d;
 
@@ -1244,8 +1381,9 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 
   d = term_degree(tbl, t) * n;
   if (d > ((uint64_t) YICES_MAX_DEGREE)) {
-    error.code = DEGREE_OVERFLOW;
-    error.badval = UINT32_MAX;
+    error = get_yices_error();
+    error->code = DEGREE_OVERFLOW;
+    error->badval = UINT32_MAX;
     return false;
   }
 
@@ -1255,6 +1393,7 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 
 // Check that the degree of t[0] x .... x t[n-1] does not overflow
 static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, const term_t *t) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i, d;
 
@@ -1264,8 +1403,9 @@ static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, const term
   for (i=0; i<n; i++) {
     d += term_degree(tbl, t[i]);
     if (d > YICES_MAX_DEGREE) {
-      error.code = DEGREE_OVERFLOW;
-      error.badval = d;
+      error = get_yices_error();
+      error->code = DEGREE_OVERFLOW;
+      error->badval = d;
       return false;
     }
   }
@@ -1276,9 +1416,12 @@ static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, const term
 
 // Check whether i is a valid shift for bitvectors of size n
 static bool check_bitshift(uint32_t i, uint32_t n) {
+  error_report_t *error;
+
   if (i > n) {
-    error.code = INVALID_BITSHIFT;
-    error.badval = i;
+    error = get_yices_error();
+    error->code = INVALID_BITSHIFT;
+    error->badval = i;
     return false;
   }
 
@@ -1287,8 +1430,11 @@ static bool check_bitshift(uint32_t i, uint32_t n) {
 
 // Check whether [i, j] is a valid segment for bitvectors of size n
 static bool check_bvextract(uint32_t i, uint32_t j, uint32_t n) {
+  error_report_t *error;
+
   if (i > j || j >= n) {
-    error.code = INVALID_BVEXTRACT;
+    error = get_yices_error();
+    error->code = INVALID_BVEXTRACT;
     return false;
   }
   return true;
@@ -1296,8 +1442,11 @@ static bool check_bvextract(uint32_t i, uint32_t j, uint32_t n) {
 
 // Check whether i is a valid bit index for a bitvector of size n
 static bool check_bitextract(uint32_t i, uint32_t n) {
+  error_report_t *error;
+
   if (i >= n) {
-    error.code = INVALID_BITEXTRACT;
+    error = get_yices_error();
+    error->code = INVALID_BITEXTRACT;
     return false;
   }
   return true;
@@ -1313,14 +1462,16 @@ static bool term_is_uninterpreted(term_table_t *tbl, term_t t) {
 // Check that all terms of v are variables or uninterpreted terms
 // all elements of v must be good terms
 static bool check_good_uninterpreted(term_manager_t *mngr, uint32_t n, const term_t *v) {
+  error_report_t *error;
   term_table_t *tbl;
   uint32_t i;
 
   tbl = term_manager_get_terms(mngr);
   for (i=0; i<n; i++) {
     if (is_neg_term(v[i]) || !term_is_uninterpreted(tbl, v[i])) {
-      error.code = VARIABLE_REQUIRED;
-      error.term1 = v[i];
+      error = get_yices_error();
+      error->code = VARIABLE_REQUIRED;
+      error->term1 = v[i];
       return false;
     }
   }
@@ -1331,6 +1482,7 @@ static bool check_good_uninterpreted(term_manager_t *mngr, uint32_t n, const ter
 // Check whether arrays v and a define a valid substitution
 // both must be arrays of n elements
 static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term_t *v, const term_t *a) {
+  error_report_t *error;
   term_table_t *tbl;
   type_t tau;
   uint32_t i;
@@ -1346,9 +1498,10 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
   for (i=0; i<n; i++) {
     tau = term_type(tbl, v[i]);
     if (! is_subtype(tbl->types, term_type(tbl, a[i]), tau)) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = a[i];
-      error.type1 = tau;
+      error = get_yices_error();
+      error->code = TYPE_MISMATCH;
+      error->term1 = a[i];
+      error->type1 = tau;
       return false;
     }
   }
@@ -1363,8 +1516,11 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
  * - t must be a valid term.
  */
 static bool check_composite(term_table_t *terms, term_t t) {
+  error_report_t *error;
+
   if (! term_is_composite(terms, t)) {
-    error.code = INVALID_TERM_OP;
+    error = get_yices_error();
+    error->code = INVALID_TERM_OP;
     return false;
   }
 
@@ -1372,24 +1528,33 @@ static bool check_composite(term_table_t *terms, term_t t) {
 }
 
 static bool check_projection(term_table_t *terms, term_t t) {
+  error_report_t *error;
+
   if (! term_is_projection(terms, t)) {
-    error.code = INVALID_TERM_OP;
+    error = get_yices_error();
+    error->code = INVALID_TERM_OP;
     return false;
   }
   return true;
 }
 
 static bool check_constructor(term_table_t *terms, term_t t, term_constructor_t c) {
+  error_report_t *error;
+
   if (term_constructor(terms, t) != c) {
-    error.code = INVALID_TERM_OP;
+    error = get_yices_error();
+    error->code = INVALID_TERM_OP;
     return false;
   }
   return true;
 }
 
 static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
+  error_report_t *error;
+
   if (i < 0 || i >= term_num_children(terms, t)) {
-    error.code = INVALID_TERM_OP;
+    error = get_yices_error();
+    error->code = INVALID_TERM_OP;
     return false;
   }
 
@@ -1404,14 +1569,14 @@ static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
  **********************/
 
 EXPORTED type_t yices_bool_type(void) {
-  return bool_type(&types);
+  return bool_type(__yices_globals.types);
 }
 
 EXPORTED type_t yices_bv_type(uint32_t size) {
   if (! check_positive(size) || ! check_maxbvsize(size)) {
     return NULL_TYPE;
   }
-  return bv_type(&types, size);
+  return bv_type(__yices_globals.types, size);
 }
 
 
@@ -1433,58 +1598,69 @@ EXPORTED term_t yices_false(void) {
 }
 
 EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return NULL_TERM;
   }
 
-  return mk_uterm(&manager, tau);
+  return mk_uterm(__yices_globals.manager, tau);
 }
 
 
 EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
+  error_report_t *error;
+  term_manager_t *manager;
   term_table_t *tbl;
   type_t tau;
 
+  manager = __yices_globals.manager;
+
   // Check type correctness: first steps
-  if (! check_good_term(&manager, cond) ||
-      ! check_good_term(&manager, then_term) ||
-      ! check_good_term(&manager, else_term) ||
-      ! check_boolean_term(&manager, cond)) {
+  if (! check_good_term(manager, cond) ||
+      ! check_good_term(manager, then_term) ||
+      ! check_good_term(manager, else_term) ||
+      ! check_boolean_term(manager, cond)) {
     return NULL_TERM;
   }
 
   // Check whether then/else are compatible and get the supertype
-  tbl = &terms;
-  tau = super_type(&types, term_type(tbl, then_term), term_type(tbl, else_term));
+  tbl = __yices_globals.terms;
+  tau = super_type(__yices_globals.types, term_type(tbl, then_term), term_type(tbl, else_term));
 
   if (tau == NULL_TYPE) {
     // type error
-    error.code = INCOMPATIBLE_TYPES;
-    error.term1 = then_term;
-    error.type1 = term_type(tbl, then_term);
-    error.term2 = else_term;
-    error.type2 = term_type(tbl, else_term);
+    error = get_yices_error();
+    error->code = INCOMPATIBLE_TYPES;
+    error->term1 = then_term;
+    error->type1 = term_type(tbl, then_term);
+    error->term2 = else_term;
+    error->type2 = term_type(tbl, else_term);
     return NULL_TERM;
   }
 
-  return mk_ite(&manager, cond, then_term, else_term, tau);
+  return mk_ite(manager, cond, then_term, else_term, tau);
 }
 
 
 EXPORTED term_t yices_eq(term_t left, term_t right) {
-  if (! check_good_eq(&manager, left, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_eq(manager, left, right)) {
     return NULL_TERM;
   }
 
-  return mk_eq(&manager, left, right);
+  return mk_eq(manager, left, right);
 }
 
 EXPORTED term_t yices_neq(term_t left, term_t right) {
-  if (! check_good_eq(&manager, left, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_eq(manager, left, right)) {
     return NULL_TERM;
   }
 
-  return mk_neq(&manager, left, right);
+  return mk_neq(manager, left, right);
 }
 
 
@@ -1492,8 +1668,11 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
  * BOOLEAN NEGATION
  */
 EXPORTED term_t yices_not(term_t arg) {
-  if (! check_good_term(&manager, arg) ||
-      ! check_boolean_term(&manager, arg)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, arg) ||
+      ! check_boolean_term(manager, arg)) {
     return NULL_TERM;
   }
 
@@ -1505,9 +1684,12 @@ EXPORTED term_t yices_not(term_t arg) {
  * OR, AND, and XOR may modify arg
  */
 EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_arity(n) ||
-      ! check_good_terms(&manager, n, arg) ||
-      ! check_boolean_args(&manager, n, arg)) {
+      ! check_good_terms(manager, n, arg) ||
+      ! check_boolean_args(manager, n, arg)) {
     return NULL_TERM;
   }
 
@@ -1517,16 +1699,19 @@ EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
   case 1:
     return arg[0];
   case 2:
-    return mk_binary_or(&manager, arg[0], arg[1]);
+    return mk_binary_or(manager, arg[0], arg[1]);
   default:
-    return mk_or(&manager, n, arg);
+    return mk_or(manager, n, arg);
   }
 }
 
 EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_arity(n) ||
-      ! check_good_terms(&manager, n, arg) ||
-      ! check_boolean_args(&manager, n, arg)) {
+      ! check_good_terms(manager, n, arg) ||
+      ! check_boolean_args(manager, n, arg)) {
     return NULL_TERM;
   }
 
@@ -1536,16 +1721,19 @@ EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
   case 1:
     return arg[0];
   case 2:
-    return mk_binary_and(&manager, arg[0], arg[1]);
+    return mk_binary_and(manager, arg[0], arg[1]);
   default:
-    return mk_and(&manager, n, arg);
+    return mk_and(manager, n, arg);
   }
 }
 
 EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_arity(n) ||
-      ! check_good_terms(&manager, n, arg) ||
-      ! check_boolean_args(&manager, n, arg)) {
+      ! check_good_terms(manager, n, arg) ||
+      ! check_boolean_args(manager, n, arg)) {
     return NULL_TERM;
   }
 
@@ -1555,9 +1743,9 @@ EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
   case 1:
     return arg[0];
   case 2:
-    return mk_binary_xor(&manager, arg[0], arg[1]);
+    return mk_binary_xor(manager, arg[0], arg[1]);
   default:
-    return mk_xor(&manager, n, arg);
+    return mk_xor(manager, n, arg);
   }
 }
 
@@ -1600,70 +1788,88 @@ EXPORTED term_t yices_xor3(term_t t1, term_t t2, term_t t3) {
  * BINARY VERSIONS OF OR/AND/XOR
  */
 EXPORTED term_t yices_or2(term_t left, term_t right) {
-  if (! check_good_term(&manager, left) ||
-      ! check_good_term(&manager, right) ||
-      ! check_boolean_term(&manager, left) ||
-      ! check_boolean_term(&manager, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, left) ||
+      ! check_good_term(manager, right) ||
+      ! check_boolean_term(manager, left) ||
+      ! check_boolean_term(manager, right)) {
     return NULL_TERM;
   }
 
-  return mk_binary_or(&manager, left, right);
+  return mk_binary_or(manager, left, right);
 }
 
 EXPORTED term_t yices_and2(term_t left, term_t right) {
-  if (! check_good_term(&manager, left) ||
-      ! check_good_term(&manager, right) ||
-      ! check_boolean_term(&manager, left) ||
-      ! check_boolean_term(&manager, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, left) ||
+      ! check_good_term(manager, right) ||
+      ! check_boolean_term(manager, left) ||
+      ! check_boolean_term(manager, right)) {
     return NULL_TERM;
   }
 
-  return mk_binary_and(&manager, left, right);
+  return mk_binary_and(manager, left, right);
 }
 
 EXPORTED term_t yices_xor2(term_t left, term_t right) {
-  if (! check_good_term(&manager, left) ||
-      ! check_good_term(&manager, right) ||
-      ! check_boolean_term(&manager, left) ||
-      ! check_boolean_term(&manager, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, left) ||
+      ! check_good_term(manager, right) ||
+      ! check_boolean_term(manager, left) ||
+      ! check_boolean_term(manager, right)) {
     return NULL_TERM;
   }
 
-  return mk_binary_xor(&manager, left, right);
+  return mk_binary_xor(manager, left, right);
 }
 
 
 EXPORTED term_t yices_iff(term_t left, term_t right) {
-  if (! check_good_term(&manager, left) ||
-      ! check_good_term(&manager, right) ||
-      ! check_boolean_term(&manager, left) ||
-      ! check_boolean_term(&manager, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, left) ||
+      ! check_good_term(manager, right) ||
+      ! check_boolean_term(manager, left) ||
+      ! check_boolean_term(manager, right)) {
     return NULL_TERM;
   }
 
-  return mk_iff(&manager, left, right);
+  return mk_iff(manager, left, right);
 }
 
 EXPORTED term_t yices_implies(term_t left, term_t right) {
-  if (! check_good_term(&manager, left) ||
-      ! check_good_term(&manager, right) ||
-      ! check_boolean_term(&manager, left) ||
-      ! check_boolean_term(&manager, right)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, left) ||
+      ! check_good_term(manager, right) ||
+      ! check_boolean_term(manager, left) ||
+      ! check_boolean_term(manager, right)) {
     return NULL_TERM;
   }
 
-  return mk_implies(&manager, left, right);
+  return mk_implies(manager, left, right);
 }
 
 
 EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
       ! check_arity(n) ||
-      ! check_good_distinct_term(&manager, n, arg)) {
+      ! check_good_distinct_term(manager, n, arg)) {
     return NULL_TERM;
   }
 
-  return mk_distinct(&manager, n, arg);
+  return mk_distinct(manager, n, arg);
 }
 
 
@@ -1681,7 +1887,7 @@ EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set32(bv0.data, bv0.width, x);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
@@ -1692,7 +1898,7 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64(bv0.data, bv0.width, x);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_int32(uint32_t n, int32_t x) {
@@ -1703,7 +1909,7 @@ EXPORTED term_t yices_bvconst_int32(uint32_t n, int32_t x) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set32_signed(bv0.data, bv0.width, x);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_int64(uint32_t n, int64_t x) {
@@ -1714,7 +1920,7 @@ EXPORTED term_t yices_bvconst_int64(uint32_t n, int64_t x) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64_signed(bv0.data, bv0.width, x);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
@@ -1740,7 +1946,7 @@ EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
     mpz_clear(aux);
   }
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 
@@ -1756,7 +1962,7 @@ EXPORTED term_t yices_bvconst_zero(uint32_t n) {
 
   bvconstant_set_all_zero(&bv0, n);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_one(uint32_t n) {
@@ -1767,7 +1973,7 @@ EXPORTED term_t yices_bvconst_one(uint32_t n) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_one(bv0.data, bv0.width);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
@@ -1777,7 +1983,7 @@ EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
 
   bvconstant_set_all_one(&bv0, n);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 
@@ -1794,7 +2000,7 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_array(bv0.data, a, n);
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 
@@ -1806,19 +2012,22 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
  *   is the high-order bit.
  */
 EXPORTED term_t yices_parse_bvbin(const char *s) {
+  error_report_t *error;
   size_t len;
   uint32_t n;
   int32_t code;
 
   len = strlen(s);
   if (len == 0) {
-    error.code = INVALID_BVBIN_FORMAT;
+    error = get_yices_error();
+    error->code = INVALID_BVBIN_FORMAT;
     return NULL_TERM;
   }
 
   if (len > YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = len; // slightly wrong: len is unsigned, badval is signed
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = len; // slightly wrong: len is unsigned, badval is signed
     return NULL_TERM;
   }
 
@@ -1826,11 +2035,12 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
   if (code < 0) {
-    error.code = INVALID_BVBIN_FORMAT;
+    error = get_yices_error();
+    error->code = INVALID_BVBIN_FORMAT;
     return NULL_TERM;
   }
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 // same function under a different name for backward compatibility
@@ -1847,19 +2057,22 @@ EXPORTED term_t yices_bvconst_from_string(const char *s) {
  *   the four high-order bits).
  */
 EXPORTED term_t yices_parse_bvhex(const char *s) {
+  error_report_t *error;
   size_t len;
   uint32_t n;
   int32_t code;
 
   len = strlen(s);
   if (len == 0) {
-    error.code = INVALID_BVHEX_FORMAT;
+    error = get_yices_error();
+    error->code = INVALID_BVHEX_FORMAT;
     return NULL_TERM;
   }
 
   if (len > YICES_MAX_BVSIZE/4) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = ((uint64_t) len) * 4; // could overflow here
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = ((uint64_t) len) * 4; // could overflow here
     return NULL_TERM;
   }
 
@@ -1867,11 +2080,12 @@ EXPORTED term_t yices_parse_bvhex(const char *s) {
   bvconstant_set_bitsize(&bv0, 4 * n);
   code = bvconst_set_from_hexa_string(bv0.data, n, s);
   if (code < 0) {
-    error.code = INVALID_BVHEX_FORMAT;
+    error = get_yices_error();
+    error->code = INVALID_BVHEX_FORMAT;
     return NULL_TERM;
   }
 
-  return mk_bv_constant(&manager, &bv0);
+  return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
 
@@ -1895,35 +2109,39 @@ EXPORTED term_t yices_bvconst_from_hexa_string(const char *s) {
  * - one for bitvectors of more than 64 bits
  */
 static term_t mk_bvadd64(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_add_term(b, tbl, t2);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(__yices_globals.manager, b);
 }
 
 static term_t mk_bvadd(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_add_term(b, tbl, t2);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(__yices_globals.manager, b);
 }
 
 EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvadd64(t1, t2);
   } else {
     return mk_bvadd(t1, t2);
@@ -1932,35 +2150,39 @@ EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
 
 
 static term_t mk_bvsub64(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_sub_term(b, tbl, t2);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(__yices_globals.manager, b);
 }
 
 static term_t mk_bvsub(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_sub_term(b, tbl, t2);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(__yices_globals.manager, b);
 }
 
 EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvsub64(t1, t2);
   } else {
     return mk_bvsub(t1, t2);
@@ -1969,36 +2191,40 @@ EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
 
 
 static term_t mk_bvneg64(term_t t1) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_negate(b);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(__yices_globals.manager, b);
 }
 
 static term_t mk_bvneg(term_t t1) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_negate(b);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(__yices_globals.manager, b);
 }
 
 EXPORTED term_t yices_bvneg(term_t t1) {
-  if (! check_good_term(&manager, t1) ||
-      ! check_bitvector_term(&manager, t1)) {
+  if (! check_good_term(__yices_globals.manager, t1) ||
+      ! check_bitvector_term(__yices_globals.manager, t1)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvneg64(t1);
   } else {
     return mk_bvneg(t1);
@@ -2007,42 +2233,49 @@ EXPORTED term_t yices_bvneg(term_t t1) {
 
 
 static term_t mk_bvmul64(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_mul_term(b, tbl, t2);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(__yices_globals.manager, b);
 }
 
 static term_t mk_bvmul(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_mul_term(b, tbl, t2);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(__yices_globals.manager, b);
 }
 
 EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
+  term_manager_t *manager;
+
   /*
    * check_product_degree may overestimate the degree of the product
    * (since the product of the coefficients of the leading terms in t1
    * and t2 are could be zero).  We can't really do much about this,
    * because the bvarith_buffers can't represent the intermediate terms.
    */
-  if (! check_compatible_bv_terms(&manager, t1, t2) ||
-      ! check_product_degree(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2) ||
+      ! check_product_degree(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvmul64(t1, t2);
   } else {
     return mk_bvmul(t1, t2);
@@ -2051,41 +2284,48 @@ EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
 
 
 static term_t mk_bvsquare64(term_t t1) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_square(b);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(manager, b);
 }
 
 static term_t mk_bvsquare(term_t t1) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_square(b);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(manager, b);
 }
 
 EXPORTED term_t yices_bvsquare(term_t t1) {
+  term_manager_t *manager;
+
   /*
    * check_square_degree may overestimate the degree of the product
    * but we ignore this issue for now. (cf. yices_bvmul)
    */
-  if (! check_good_term(&manager, t1) ||
-      ! check_bitvector_term(&manager, t1) ||
-      ! check_square_degree(&manager, t1)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t1) ||
+      ! check_bitvector_term(manager, t1) ||
+      ! check_square_degree(manager, t1)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvsquare64(t1);
   } else {
     return mk_bvsquare(t1);
@@ -2094,47 +2334,54 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
 
 
 static term_t mk_bvpower64(term_t t1, uint32_t d) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
   uint32_t n;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   n = term_bitsize(tbl, t1);
   bvarith64_buffer_prepare(b, n);
   bvarith64_buffer_set_one(b);
   bvarith64_buffer_mul_term_power(b, tbl, t1, d);
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(manager, b);
 }
 
 static term_t mk_bvpower(term_t t1, uint32_t d) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
   uint32_t n;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   n = term_bitsize(tbl, t1);
   bvarith_buffer_prepare(b, n);
   bvarith_buffer_set_one(b);
   bvarith_buffer_mul_term_power(b, tbl, t1, d);
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(manager, b);
 }
 
 EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
+  term_manager_t *manager;
+
   /*
    * check_power_degree may overestimate the degree of (t1^d)
    * but we ignore this for now (cf. yices_bvmul).
    */
-  if (! check_good_term(&manager, t1) ||
-      ! check_bitvector_term(&manager, t1) ||
-      ! check_power_degree(&manager, t1, d)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t1) ||
+      ! check_bitvector_term(manager, t1) ||
+      ! check_power_degree(manager, t1, d)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t1) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t1) <= 64) {
     return mk_bvpower64(t1, d);
   } else {
     return mk_bvpower(t1, d);
@@ -2147,44 +2394,51 @@ EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
  ***********************************/
 
 static term_t mk_bvsum64(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvarith64_buffer_add_term(b, tbl, t[i]);
   }
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(manager, b);
 }
 
 static term_t mk_bvsum(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvarith_buffer_add_term(b, tbl, t[i]);
   }
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(manager, b);
 }
 
 EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t) ||
+      ! check_same_type(manager, n, t)) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t[0]) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t[0]) <= 64) {
     return mk_bvsum64(n, t);
   } else {
     return mk_bvsum(n, t);
@@ -2193,53 +2447,59 @@ EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
 
 
 static term_t mk_bvproduct64(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvarith64_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
-  b = get_bvarith64_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith64_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith64_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvarith64_buffer_mul_term(b, tbl, t[i]);
   }
 
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(manager, b);
 }
 
 static term_t mk_bvproduct(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvarith_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
-  b = get_bvarith_buffer();
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  b = term_manager_get_bvarith_buffer(manager);
+  tbl = __yices_globals.terms;
   bvarith_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvarith_buffer_mul_term(b, tbl, t[i]);
   }
 
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(manager, b);
 }
 
 EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   uint32_t i;
 
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t) ||
+      ! check_same_type(manager, n, t)) {
     return NULL_TERM;
   }
 
   // check whether one t[i] is zero before checking degrees
   for (i=0; i<n; i++) {
-    if (bvterm_is_zero(&terms, t[i])) {
+    if (bvterm_is_zero(__yices_globals.terms, t[i])) {
       return t[i];
     }
   }
 
-  if (! check_multi_prod_degree(&manager, n, t)) {
+  if (! check_multi_prod_degree(manager, n, t)) {
     /*
      * check_multi_prod_degree may overestimate  the actual degree but
      * a bvarith_buffer/bvarith64_buffer can't  store the intermediate
@@ -2249,7 +2509,7 @@ EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(&terms, t[0]) <= 64) {
+  if (term_bitsize(__yices_globals.terms, t[0]) <= 64) {
     return mk_bvproduct64(n, t);
   } else {
     return mk_bvproduct(n, t);
@@ -2264,73 +2524,81 @@ EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
  **********************************/
 
 EXPORTED term_t yices_bvnot(term_t t1) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_good_term(&manager, t1) ||
-      ! check_bitvector_term(&manager, t1)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t1) ||
+      ! check_bitvector_term(manager, t1)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_not(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
 
 EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_and_term(b, tbl, t2);
   bvlogic_buffer_not(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_or_term(b, tbl, t2);
   bvlogic_buffer_not(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_xor_term(b, tbl, t2);
   bvlogic_buffer_not(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2339,118 +2607,130 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
  ***********************************/
 
 EXPORTED term_t yices_bvand(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t) ||
+      ! check_same_type(manager, n, t)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvlogic_buffer_and_term(b, tbl, t[i]);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvor(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t) ||
+      ! check_same_type(manager, n, t)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvlogic_buffer_or_term(b, tbl, t[i]);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvxor(uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t) ||
-      ! check_same_type(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t) ||
+      ! check_same_type(manager, n, t)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t[0]);
   for (i=1; i<n; i++) {
     bvlogic_buffer_xor_term(b, tbl, t[i]);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
 EXPORTED term_t yices_bvand2(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_and_term(b, tbl, t2);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvor2(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_or_term(b, tbl, t2);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_bvxor2(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_xor_term(b, tbl, t2);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2517,140 +2797,154 @@ EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
  *   badval = n
  */
 EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_shift_left0(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_shift_left1(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_shift_right0(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_shift_right1(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_ashift_right(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   if (n < b->bitsize) {
     bvlogic_buffer_rotate_left(b, n);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_bitshift(n, term_bitsize(tbl, t))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   if (n < b->bitsize) {
     bvlogic_buffer_rotate_right(b, n);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2678,16 +2972,19 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
  *   code = INVALID_BVEXTRACT
  */
 EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t n;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return NULL_TERM;
   }
 
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   n = term_bitsize(tbl, t);
   if (! check_bvextract(i, j, n)) {
     return NULL_TERM;
@@ -2696,9 +2993,9 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
   if (i == 0 && j == n-1) {
     return t;
   } else {
-    b = get_bvlogic_buffer();
+    b = term_manager_get_bvlogic_buffer(manager);
     bvlogic_buffer_set_slice_term(b, tbl, i, j, t);
-    return mk_bvlogic_term(&manager, b);
+    return mk_bvlogic_term(manager, b);
   }
 }
 
@@ -2721,24 +3018,26 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
  *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
 EXPORTED term_t yices_bvconcat2(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = &terms;
+  manager = __yices_globals.manager;
+  tbl = __yices_globals.terms;
 
-  if (! check_good_term(&manager, t1) ||
-      ! check_good_term(&manager, t2) ||
-      ! check_bitvector_term(&manager, t1) ||
-      ! check_bitvector_term(&manager, t2) ||
+  if (! check_good_term(manager, t1) ||
+      ! check_good_term(manager, t2) ||
+      ! check_bitvector_term(manager, t1) ||
+      ! check_bitvector_term(manager, t2) ||
       ! check_maxbvsize(term_bitsize(tbl, t1) + term_bitsize(tbl, t2))) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t2);
   bvlogic_buffer_concat_left_term(b, tbl, t1);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2746,36 +3045,41 @@ EXPORTED term_t yices_bvconcat2(term_t t1, term_t t2) {
  * Generic form
  */
 EXPORTED term_t yices_bvconcat(uint32_t n, const term_t t[]) {
+  error_report_t *error;
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t bvsize;
   uint32_t i;
 
+  manager = __yices_globals.manager;
+
   if (! check_positive(n) ||
-      ! check_good_terms(&manager, n, t) ||
-      ! check_bitvector_args(&manager, n, t)) {
+      ! check_good_terms(manager, n, t) ||
+      ! check_bitvector_args(manager, n, t)) {
     return NULL_TERM;
   }
 
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   bvsize = 0;
   for (i=0; i<n; i++) {
     bvsize += term_bitsize(tbl, t[i]);
   }
   if (bvsize > (uint64_t) YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = bvsize;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = bvsize;
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_clear(b);
   while (n>0) {
     n --;
     bvlogic_buffer_concat_left_term(b, tbl, t[n]);
   }
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2801,30 +3105,35 @@ EXPORTED term_t yices_bvconcat(uint32_t n, const term_t t[]) {
  *   badval = n * bitsize of t
  */
 EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
+  error_report_t *error;
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
       ! check_positive(n)) {
     return NULL_TERM;
   }
 
   // check size
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   m = ((uint64_t) n) * term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = m;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = m;
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_repeat_concat(b, n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2847,30 +3156,35 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
  *   badval = n + bitsize of t
  */
 EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
+  error_report_t *error;
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return NULL_TERM;
   }
 
 
   // check size
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   m = ((uint64_t) n) + term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = m;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = m;
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_sign_extend(b, b->bitsize + n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2893,29 +3207,34 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
  *   badval = n + bitsize of t
  */
 EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
+  error_report_t *error;
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return NULL_TERM;
   }
 
   // check size
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   m = ((uint64_t) n) + term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = m;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = m;
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
+  b = term_manager_get_bvlogic_buffer(manager);
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_zero_extend(b, b->bitsize + n);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2938,37 +3257,43 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
  *   term1 = t
  */
 EXPORTED term_t yices_redand(term_t t) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_redand(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 EXPORTED term_t yices_redor(term_t t) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_redor(b);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -2994,19 +3319,21 @@ EXPORTED term_t yices_redor(term_t t) {
  *   type2 = type of t2
  */
 EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
+  term_manager_t *manager;
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
 
-  b = get_bvlogic_buffer();
-  tbl = &terms;
+  b = term_manager_get_bvlogic_buffer(manager);
+  tbl = __yices_globals.terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_comp_term(b, tbl, t2);
 
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(manager, b);
 }
 
 
@@ -3017,24 +3344,33 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
  *****************************/
 
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvshl(&manager, t1, t2);
+  return mk_bvshl(manager, t1, t2);
 }
 
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvlshr(&manager, t1, t2);
+  return mk_bvlshr(manager, t1, t2);
 }
 
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvashr(&manager, t1, t2);
+  return mk_bvashr(manager, t1, t2);
 }
 
 
@@ -3046,42 +3382,57 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
  *********************************/
 
 EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvdiv(&manager, t1, t2);
+  return mk_bvdiv(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvrem(&manager, t1, t2);
+  return mk_bvrem(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsdiv(&manager, t1, t2);
+  return mk_bvsdiv(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsrem(&manager, t1, t2);
+  return mk_bvsrem(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsmod(&manager, t1, t2);
+  return mk_bvsmod(manager, t1, t2);
 }
 
 
@@ -3108,13 +3459,16 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
  *    index = i
  */
 EXPORTED term_t yices_bvarray(uint32_t n, const term_t arg[]) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
-      ! check_good_terms(&manager, n, arg) ||
-      ! check_boolean_args(&manager, n, arg)) {
+      ! check_good_terms(manager, n, arg) ||
+      ! check_boolean_args(manager, n, arg)) {
     return NULL_TERM;
   }
-  return mk_bvarray(&manager, n, arg);
+  return mk_bvarray(manager, n, arg);
 }
 
 
@@ -3134,12 +3488,15 @@ EXPORTED term_t yices_bvarray(uint32_t n, const term_t arg[]) {
  *    code = INVALID_BVEXTRACT
  */
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t) ||
-      ! check_bitextract(i, term_bitsize(&terms, t))) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t) ||
+      ! check_bitextract(i, term_bitsize(__yices_globals.terms, t))) {
     return NULL_TERM;
   }
-  return mk_bitextract(&manager, t, i);
+  return mk_bitextract(manager, t, i);
 }
 
 
@@ -3150,81 +3507,111 @@ EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
  ********************/
 
 EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bveq(&manager, t1, t2);
+  return mk_bveq(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvneq(&manager, t1, t2);
+  return mk_bvneq(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvge(&manager, t1, t2);
+  return mk_bvge(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvgt(&manager, t1, t2);
+  return mk_bvgt(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvle_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvle(&manager, t1, t2);
+  return mk_bvle(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvlt(&manager, t1, t2);
+  return mk_bvlt(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsge(&manager, t1, t2);
+  return mk_bvsge(manager, t1, t2);
 }
 
 EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsgt(&manager, t1, t2);
+  return mk_bvsgt(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvsle_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvsle(&manager, t1, t2);
+  return mk_bvsle(manager, t1, t2);
 }
 
 
 EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
-  if (! check_compatible_bv_terms(&manager, t1, t2)) {
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  if (! check_compatible_bv_terms(manager, t1, t2)) {
     return NULL_TERM;
   }
-  return mk_bvslt(&manager, t1, t2);
+  return mk_bvslt(manager, t1, t2);
 }
 
 
@@ -3239,11 +3626,12 @@ EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
  * - width, height, offset = print area
  */
 EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  error_report_t *error;
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
 
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
@@ -3257,7 +3645,7 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   area.truncate = true;
 
   init_default_yices_pp(&printer, f, &area);
-  pp_type_exp(&printer, &types, tau);
+  pp_type_exp(&printer, __yices_globals.types, tau);
   flush_yices_pp(&printer);
 
   // check for error
@@ -3265,7 +3653,8 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer);
-    error.code = OUTPUT_ERROR;
+    error = get_yices_error();
+    error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
 
@@ -3279,11 +3668,14 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
  * - width, height, offset = print area
  */
 EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  term_manager_t *manager;
+  error_report_t *error;
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
 
-  if (! check_good_term(&manager, t)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t)) {
     return -1;
   }
 
@@ -3297,7 +3689,7 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   area.truncate = true;
 
   init_default_yices_pp(&printer, f, &area);
-  pp_term_full(&printer, &terms, t);
+  pp_term_full(&printer, __yices_globals.terms, t);
   flush_yices_pp(&printer);
 
   // check for error
@@ -3305,7 +3697,8 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer);
-    error.code = OUTPUT_ERROR;
+    error = get_yices_error();
+    error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
 
@@ -3319,12 +3712,15 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
  * - width, height, offset = print area
  */
 EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+  term_manager_t *manager;
+  error_report_t *error;
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
   uint32_t i;
 
-  if (! check_good_terms(&manager, n, a)) {
+  manager = __yices_globals.manager;
+  if (! check_good_terms(manager, n, a)) {
     return -1;
   }
 
@@ -3344,7 +3740,7 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint
   }
 
   for (i=0; i<n; i++) {
-    pp_term_full(&printer, &terms, a[i]);
+    pp_term_full(&printer, __yices_globals.terms, a[i]);
   }
   flush_yices_pp(&printer);
 
@@ -3353,7 +3749,8 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer);
-    error.code = OUTPUT_ERROR;
+    error = get_yices_error();
+    error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
 
@@ -3371,7 +3768,7 @@ EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height,
   char *str;
   uint32_t len;
 
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return NULL;
   }
 
@@ -3385,7 +3782,7 @@ EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height,
   area.truncate = true;
 
   init_default_yices_pp(&printer, NULL, &area);
-  pp_type_exp(&printer, &types, tau);
+  pp_type_exp(&printer, __yices_globals.types, tau);
   flush_yices_pp(&printer);
 
   str = yices_pp_get_string(&printer, &len);
@@ -3395,12 +3792,14 @@ EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height,
 }
 
 EXPORTED char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  term_manager_t *manager;
   yices_pp_t printer;
   pp_area_t area;
   char *str;
   uint32_t len;
 
-  if (! check_good_term(&manager, t)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t)) {
     return NULL;
   }
 
@@ -3414,7 +3813,7 @@ EXPORTED char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, u
   area.truncate = true;
 
   init_default_yices_pp(&printer, NULL, &area);
-  pp_term_full(&printer, &terms, t);
+  pp_term_full(&printer, __yices_globals.terms, t);
   flush_yices_pp(&printer);
 
   str = yices_pp_get_string(&printer, &len);
@@ -3446,11 +3845,11 @@ EXPORTED void yices_free_string(char *s) {
  *   type1 = tau
  */
 EXPORTED int32_t yices_type_is_bool(type_t tau) {
-  return check_good_type(&types, tau) && is_boolean_type(tau);
+  return check_good_type(__yices_globals.types, tau) && is_boolean_type(tau);
 }
 
 EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
-  return check_good_type(&types, tau) && is_bv_type(&types, tau);
+  return check_good_type(__yices_globals.types, tau) && is_bv_type(__yices_globals.types, tau);
 }
 
 
@@ -3467,11 +3866,11 @@ EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
  *    type1 = tau
  */
 EXPORTED uint32_t yices_bvtype_size(type_t tau) {
-  if (! check_good_type(&types, tau) ||
-      ! check_bvtype(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau) ||
+      ! check_bvtype(__yices_globals.types, tau)) {
     return 0;
   }
-  return bv_type_size(&types, tau);
+  return bv_type_size(__yices_globals.types, tau);
 }
 
 
@@ -3489,10 +3888,10 @@ EXPORTED uint32_t yices_bvtype_size(type_t tau) {
  *   index = -1
  */
 EXPORTED type_t yices_type_of_term(term_t t) {
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return NULL_TYPE;
   }
-  return term_type(&terms, t);
+  return term_type(__yices_globals.terms, t);
 }
 
 
@@ -3505,11 +3904,11 @@ EXPORTED type_t yices_type_of_term(term_t t) {
  * and set the error report as above.
  */
 EXPORTED int32_t yices_term_is_bool(term_t t) {
-  return check_good_term(&manager, t) && is_boolean_term(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && is_boolean_term(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_bitvector(term_t t) {
-  return check_good_term(&manager, t) && is_bitvector_term(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && is_bitvector_term(__yices_globals.terms, t);
 }
 
 /*
@@ -3517,10 +3916,10 @@ EXPORTED int32_t yices_term_is_bitvector(term_t t) {
  * return 0 if t is not a bitvector
  */
 EXPORTED uint32_t yices_term_bitsize(term_t t) {
-  if (! check_bitvector_term(&manager, t)) {
+  if (! check_bitvector_term(__yices_globals.manager, t)) {
     return 0;
   }
-  return term_bitsize(&terms, t);
+  return term_bitsize(__yices_globals.terms, t);
 }
 
 
@@ -3529,23 +3928,23 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
  * - return false if t is not valid
  */
 EXPORTED int32_t yices_term_is_atomic(term_t t) {
-  return check_good_term(&manager, t) && term_is_atomic(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && term_is_atomic(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_composite(term_t t) {
-  return check_good_term(&manager, t) && term_is_composite(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && term_is_composite(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_projection(term_t t) {
-  return check_good_term(&manager, t) && term_is_projection(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && term_is_projection(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_bvsum(term_t t) {
-  return check_good_term(&manager, t) && term_is_bvsum(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && term_is_bvsum(__yices_globals.terms, t);
 }
 
 EXPORTED int32_t yices_term_is_product(term_t t) {
-  return check_good_term(&manager, t) && term_is_product(&terms, t);
+  return check_good_term(__yices_globals.manager, t) && term_is_product(__yices_globals.terms, t);
 }
 
 
@@ -3554,10 +3953,10 @@ EXPORTED int32_t yices_term_is_product(term_t t) {
  * - the return code is defined in yices_types.h
  */
 EXPORTED term_constructor_t yices_term_constructor(term_t t) {
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return YICES_CONSTRUCTOR_ERROR;
   } else {
-    return term_constructor(&terms, t);
+    return term_constructor(__yices_globals.terms, t);
   }
 }
 
@@ -3573,10 +3972,10 @@ EXPORTED term_constructor_t yices_term_constructor(term_t t) {
  * - returns -1 if t is not a valid term
  */
 EXPORTED int32_t yices_term_num_children(term_t t) {
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
-  return term_num_children(&terms, t);
+  return term_num_children(__yices_globals.terms, t);
 }
 
 
@@ -3584,12 +3983,12 @@ EXPORTED int32_t yices_term_num_children(term_t t) {
  * Get i-th child of a composite term
  */
 EXPORTED term_t yices_term_child(term_t t, int32_t i) {
-  if (! check_good_term(&manager, t) ||
-      ! check_composite(&terms, t) ||
-      ! check_child_idx(&terms, t, i)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_composite(__yices_globals.terms, t) ||
+      ! check_child_idx(__yices_globals.terms, t, i)) {
     return NULL_TERM;
   }
-  return term_child(&terms, t, i);
+  return term_child(__yices_globals.terms, t, i);
 }
 
 
@@ -3597,19 +3996,19 @@ EXPORTED term_t yices_term_child(term_t t, int32_t i) {
  * Get the argument and index of a projection
  */
 EXPORTED int32_t yices_proj_index(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_projection(&terms, t)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_projection(__yices_globals.terms, t)) {
     return -1;
   }
-  return proj_term_index(&terms, t);
+  return proj_term_index(__yices_globals.terms, t);
 }
 
 EXPORTED term_t yices_proj_arg(term_t t) {
-  if (! check_good_term(&manager, t) ||
-      ! check_projection(&terms, t)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_projection(__yices_globals.terms, t)) {
     return NULL_TERM;
   }
-  return proj_term_arg(&terms, t);
+  return proj_term_arg(__yices_globals.terms, t);
 }
 
 
@@ -3617,20 +4016,20 @@ EXPORTED term_t yices_proj_arg(term_t t) {
  * Value of a constant term
  */
 EXPORTED int32_t yices_bool_const_value(term_t t, int32_t *val) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_BOOL_CONSTANT)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_BOOL_CONSTANT)) {
     return -1;
   }
-  *val = bool_const_value(&terms, t);
+  *val = bool_const_value(__yices_globals.terms, t);
   return 0;
 }
 
 EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_BV_CONSTANT)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_BV_CONSTANT)) {
     return -1;
   }
-  bv_const_value(&terms, t, val);
+  bv_const_value(__yices_globals.terms, t, val);
   return 0;
 }
 
@@ -3642,12 +4041,12 @@ EXPORTED int32_t yices_bv_const_value(term_t t, int32_t val[]) {
  * - the number of bits in the bvconstant is the same as in t
  */
 EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_BV_SUM) ||
-      ! check_child_idx(&terms, t, i)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_BV_SUM) ||
+      ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }
-  bvsum_term_component(&terms, t, i, val, term);
+  bvsum_term_component(__yices_globals.terms, t, i, val, term);
   return 0;
 }
 
@@ -3659,12 +4058,12 @@ EXPORTED int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_
  *   (where exponent is a positive integer)
  */
 EXPORTED int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp) {
-  if (! check_good_term(&manager, t) ||
-      ! check_constructor(&terms, t, YICES_POWER_PRODUCT) ||
-      ! check_child_idx(&terms, t, i)) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_POWER_PRODUCT) ||
+      ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }
-  product_term_component(&terms, t, i, term, exp);
+  product_term_component(__yices_globals.terms, t, i, term, exp);
   return 0;
 }
 
@@ -3677,29 +4076,29 @@ EXPORTED int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint
  * These term constructors are used in term_stack
  */
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
 term_t bvlogic_buffer_get_bit(bvlogic_buffer_t *b, uint32_t i) {
-  return bvl_get_bit(&manager, b, i);
+  return bvl_get_bit(__yices_globals.manager, b, i);
 }
 
 term_t bvarith_buffer_get_term(bvarith_buffer_t *b) {
-  return mk_bvarith_term(&manager, b);
+  return mk_bvarith_term(__yices_globals.manager, b);
 }
 
 term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
-  return mk_bvarith64_term(&manager, b);
+  return mk_bvarith64_term(__yices_globals.manager, b);
 }
 
 term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
   assert(64 < n && n <= YICES_MAX_BVSIZE);
-  return bvconst_term(&terms, n, v);
+  return bvconst_term(__yices_globals.terms, n, v);
 }
 
 term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   assert(1 <= n && n <= 64 && c == norm64(c, n));
-  return bv64_constant(&terms, n, c);
+  return bv64_constant(__yices_globals.terms, n, c);
 }
 
 
@@ -3722,20 +4121,25 @@ term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
  *   type = bool
  */
 bool yices_check_boolean_term(term_t t) {
-  return check_good_term(&manager, t) && check_boolean_term(&manager, t);
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  return check_good_term(manager, t) && check_boolean_term(manager, t);
 }
 
 /*
  * Check whether t's type is a subtype of tau
  */
 bool yices_check_term_type(term_t t, type_t tau) {
+  error_report_t *error;
   term_table_t *tbl;
 
-  tbl = &terms;
+  tbl = __yices_globals.terms;
   if (! is_subtype(tbl->types, term_type(tbl, t), tau)) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = t;
-    error.type1 = tau;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = t;
+    error->type1 = tau;
     return false;
   }
 
@@ -3763,7 +4167,10 @@ bool yices_check_bvsize(uint32_t n) {
  *   term1 = t
  */
 bool yices_check_bv_term(term_t t) {
-  return check_good_term(&manager, t) && check_bitvector_term(&manager, t);
+  term_manager_t *manager;
+
+  manager = __yices_globals.manager;
+  return check_good_term(manager, t) && check_bitvector_term(manager, t);
 }
 
 
@@ -3773,8 +4180,11 @@ bool yices_check_bv_term(term_t t) {
  *   code = EMPTY_BITVECTOR
  */
 bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
+  error_report_t *error;
+
   if (bvlogic_buffer_is_empty(b)) {
-    error.code = EMPTY_BITVECTOR;
+    error = get_yices_error();
+    error->code = EMPTY_BITVECTOR;
     return false;
   }
   return true;
@@ -3787,9 +4197,12 @@ bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
  * - otherwise set the error report and return false.
  */
 bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
+  error_report_t *error;
+
   if (s < 0 || s > bvlogic_buffer_bitsize(b)) {
-    error.code = INVALID_BITSHIFT;
-    error.badval = s;
+    error = get_yices_error();
+    error->code = INVALID_BITSHIFT;
+    error->badval = s;
     return false;
   }
 
@@ -3803,8 +4216,11 @@ bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
  * - otherwise set the error report and return false.
  */
 bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
+  error_report_t *error;
+
   if (i < 0 || i > j || j >= n) {
-    error.code = INVALID_BVEXTRACT;
+    error = get_yices_error();
+    error->code = INVALID_BVEXTRACT;
     return false;
   }
 
@@ -3818,8 +4234,11 @@ bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
  * - otherwise set the error report and return false.
  */
 bool yices_check_bitextract(uint32_t n, int32_t i) {
+  error_report_t *error;
+
   if (i < 0 || i >= n) {
-    error.code = INVALID_BITEXTRACT;
+    error = get_yices_error();
+    error->code = INVALID_BITEXTRACT;
     return false;
   }
   return true;
@@ -3840,18 +4259,21 @@ bool yices_check_bitextract(uint32_t n, int32_t i) {
  *   badval = n * bitsize of t
  */
 bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
+  error_report_t *error;
   uint64_t m;
 
   if (n <= 0) {
-    error.code = POS_INT_REQUIRED;
-    error.badval = n;
+    error = get_yices_error();
+    error->code = POS_INT_REQUIRED;
+    error->badval = n;
     return false;
   }
 
   m = ((uint64_t) n) * bvlogic_buffer_bitsize(b);
   if (m > ((uint64_t) YICES_MAX_BVSIZE)) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = m;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = m;
     return false;
   }
 
@@ -3872,24 +4294,28 @@ bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
  * - if n + b->bitsize > MAX_BVSIZE: MAX_BVSIZE_EXCEEDED
  */
 bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
+  error_report_t *error;
   uint64_t m;
 
   if (n < 0) {
-    error.code = NONNEG_INT_REQUIRED;
-    error.badval = n;
+    error = get_yices_error();
+    error->code = NONNEG_INT_REQUIRED;
+    error->badval = n;
     return false;
   }
 
   m = bvlogic_buffer_bitsize(b);
   if (m == 0) {
-    error.code = EMPTY_BITVECTOR;
+    error = get_yices_error();
+    error->code = EMPTY_BITVECTOR;
     return false;
   }
 
   m += n;
   if (m >= ((uint64_t) YICES_MAX_BVSIZE)) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = m;
+    error = get_yices_error();
+    error->code = MAX_BVSIZE_EXCEEDED;
+    error->badval = m;
     return false;
   }
 
@@ -3913,7 +4339,7 @@ bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
-  tbl = &terms;
+  tbl = __yices_globals.terms;
 
   assert(good_term(tbl, t) && is_bitvector_term(tbl, t));
 
@@ -3940,7 +4366,7 @@ bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
-  tbl = &terms;
+  tbl = __yices_globals.terms;
 
   assert(good_term(tbl, t) && is_bitvector_term(tbl, t));
 
@@ -3988,26 +4414,31 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  * - DEGREE_OVERFLOW if the substitution causes an overflow
  */
 EXPORTED term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t) {
+  term_manager_t *manager;
+  error_report_t *error;
   term_subst_t subst;
   term_t u;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_good_substitution(&manager, n, var, map)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t) ||
+      ! check_good_substitution(manager, n, var, map)) {
     return NULL_TERM;
   }
 
-  init_term_subst(&subst, &manager, n, var, map);
+  init_term_subst(&subst, __yices_globals.manager, n, var, map);
   u = apply_term_subst(&subst, t);
   delete_term_subst(&subst);
 
   if (u < 0) {
     if (u == -1) {
       // degree overflow
-      error.code = DEGREE_OVERFLOW;
-      error.badval = YICES_MAX_DEGREE + 1;
+      error = get_yices_error();
+      error->code = DEGREE_OVERFLOW;
+      error->badval = YICES_MAX_DEGREE + 1;
     } else {
       // BUG
-      error.code = INTERNAL_EXCEPTION;
+      error = get_yices_error();
+      error->code = INTERNAL_EXCEPTION;
     }
     u = NULL_TERM;
   }
@@ -4020,16 +4451,19 @@ EXPORTED term_t yices_subst_term(uint32_t n, const term_t var[], const term_t ma
  * Variant: apply the substitution to m terms t[0 .. m-1]
  */
 EXPORTED int32_t yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[]) {
+  term_manager_t *manager;
+  error_report_t *error;
   term_subst_t subst;
   term_t u;
   uint32_t i;
 
-  if (! check_good_terms(&manager, m, t) ||
-      ! check_good_substitution(&manager, n, var, map)) {
+  manager = __yices_globals.manager;
+  if (! check_good_terms(manager, m, t) ||
+      ! check_good_substitution(manager, n, var, map)) {
     return -1;
   }
 
-  init_term_subst(&subst, &manager, n, var, map);
+  init_term_subst(&subst, __yices_globals.manager, n, var, map);
   for (i=0; i<m; i++) {
     u = apply_term_subst(&subst, t[i]);
     if (u < 0)  goto subst_error;
@@ -4042,11 +4476,13 @@ EXPORTED int32_t yices_subst_term_array(uint32_t n, const term_t var[], const te
  subst_error:
   if (u == -1) {
     // degree overflow
-    error.code = DEGREE_OVERFLOW;
-    error.badval = YICES_MAX_DEGREE + 1;
+    error = get_yices_error();
+    error->code = DEGREE_OVERFLOW;
+    error->badval = YICES_MAX_DEGREE + 1;
   } else {
     // BUG
-    error.code = INTERNAL_EXCEPTION;
+    error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
   }
   delete_term_subst(&subst);
 
@@ -4101,13 +4537,13 @@ EXPORTED term_t yices_parse_term(const char *s) {
 EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
   char *clone;
 
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
   // make a copy of name
   clone = clone_string(name);
-  set_type_name(&types, tau, clone);
+  set_type_name(__yices_globals.types, tau, clone);
 
   return 0;
 }
@@ -4124,13 +4560,13 @@ EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
 EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
   char *clone;
 
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
 
   // make a copy of name
   clone = clone_string(name);
-  set_term_name(&terms, t, clone);
+  set_term_name(__yices_globals.terms, t, clone);
 
   return 0;
 }
@@ -4141,10 +4577,10 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
  * - return NULL if tau has no name (or if tau is not a valid type)
  */
 EXPORTED const char *yices_get_type_name(type_t tau) {
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return NULL;
   }
-  return type_name(&types, tau);
+  return type_name(__yices_globals.types, tau);
 }
 
 
@@ -4153,10 +4589,10 @@ EXPORTED const char *yices_get_type_name(type_t tau) {
  * - return NULL is t has no name (or if t is not a valid term)
  */
 EXPORTED const char *yices_get_term_name(term_t t) {
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return NULL;
   }
-  return term_name(&terms, t);
+  return term_name(__yices_globals.terms, t);
 }
 
 
@@ -4165,7 +4601,7 @@ EXPORTED const char *yices_get_term_name(term_t t) {
  * Remove name from the type table.
  */
 EXPORTED void yices_remove_type_name(const char *name) {
-  remove_type_name(&types, name);
+  remove_type_name(__yices_globals.types, name);
 }
 
 
@@ -4173,7 +4609,7 @@ EXPORTED void yices_remove_type_name(const char *name) {
  * Remove name from the term table.
  */
 EXPORTED void yices_remove_term_name(const char *name) {
-  remove_term_name(&terms, name);
+  remove_term_name(__yices_globals.terms, name);
 }
 
 
@@ -4181,7 +4617,7 @@ EXPORTED void yices_remove_term_name(const char *name) {
  * Get type of the given name or return NULL_TYPE (-1)
  */
 EXPORTED type_t yices_get_type_by_name(const char *name) {
-  return get_type_by_name(&types, name);
+  return get_type_by_name(__yices_globals.types, name);
 }
 
 
@@ -4189,7 +4625,7 @@ EXPORTED type_t yices_get_type_by_name(const char *name) {
  * Get term of the given name or return NULL_TERM
  */
 EXPORTED term_t yices_get_term_by_name(const char *name) {
-  return get_term_by_name(&terms, name);
+  return get_term_by_name(__yices_globals.terms, name);
 }
 
 
@@ -4199,11 +4635,11 @@ EXPORTED term_t yices_get_term_by_name(const char *name) {
  * Return 0 otherwise.
  */
 EXPORTED int32_t yices_clear_type_name(type_t tau) {
-  if (! check_good_type(&types, tau)) {
+  if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
-  clear_type_name(&types, tau);
+  clear_type_name(__yices_globals.types, tau);
   return 0;
 }
 
@@ -4215,11 +4651,11 @@ EXPORTED int32_t yices_clear_type_name(type_t tau) {
  * Return 0 otherwise.
  */
 EXPORTED int32_t yices_clear_term_name(term_t t) {
-  if (! check_good_term(&manager, t)) {
+  if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
 
-  clear_term_name(&terms, t);
+  clear_term_name(__yices_globals.terms, t);
   return 0;
 }
 
@@ -4268,6 +4704,7 @@ static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
  * Enable a specific option
  */
 EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
+  error_report_t *error;
   int32_t k, r;
 
   r = 0; // default return code: no error
@@ -4288,7 +4725,8 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
   default:
     assert(k == -1);
     // not recognized
-    error.code = CTX_UNKNOWN_PARAMETER;
+    error = get_yices_error();
+    error->code = CTX_UNKNOWN_PARAMETER;
     r = -1;
     break;
   }
@@ -4301,6 +4739,7 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
  * Disable a specific option
  */
 EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
+  error_report_t *error;
   int32_t k, r;
 
   r = 0; // default return code: no error
@@ -4321,7 +4760,8 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
   default:
     assert(k == -1);
     // not recognized
-    error.code = CTX_UNKNOWN_PARAMETER;
+    error = get_yices_error();
+    error->code = CTX_UNKNOWN_PARAMETER;
     r = -1;
     break;
   }
@@ -4386,14 +4826,16 @@ EXPORTED void yices_free_param_record(param_t *param) {
  * Set a search parameter
  */
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
+  error_report_t *error;
   int32_t k;
 
   k = params_set_field(param, name, value);
   if (k < 0) {
+    error = get_yices_error();
     if (k == -1) {
-      error.code = CTX_UNKNOWN_PARAMETER;
+      error->code = CTX_UNKNOWN_PARAMETER;
     } else {
-      error.code = CTX_INVALID_PARAMETER_VALUE;
+      error->code = CTX_INVALID_PARAMETER_VALUE;
     }
     return -1;
   }
@@ -4451,7 +4893,7 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
   context_t *ctx;
 
   ctx = alloc_context();
-  init_context(ctx, &terms, logic, mode, arch, qflag);
+  init_context(ctx, __yices_globals.terms, logic, mode, arch, qflag);
   context_set_default_options(ctx, logic, arch, iflag, qflag);
 
   return ctx;
@@ -4506,8 +4948,11 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  *   code = CTX_INVALID_OPERATION
  */
 EXPORTED int32_t yices_push(context_t *ctx) {
+  error_report_t *error;
+
+  error = get_yices_error();
   if (! context_supports_pushpop(ctx)) {
-    error.code = CTX_OPERATION_NOT_SUPPORTED;
+    error->code = CTX_OPERATION_NOT_SUPPORTED;
     return -1;
   }
 
@@ -4523,12 +4968,12 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   case STATUS_UNSAT:
   case STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -4551,13 +4996,16 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   code = CTX_INVALID_OPERATION
  */
 EXPORTED int32_t yices_pop(context_t *ctx) {
+  error_report_t *error;
+
+  error = get_yices_error();
   if (! context_supports_pushpop(ctx)) {
-    error.code = CTX_OPERATION_NOT_SUPPORTED;
+    error->code = CTX_OPERATION_NOT_SUPPORTED;
     return -1;
   }
 
   if (context_base_level(ctx) == 0) {
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
   }
 
@@ -4576,12 +5024,12 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
     break;
 
   case STATUS_SEARCHING:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -4620,8 +5068,11 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
 };
 
 static inline void convert_internalization_error(int32_t code) {
+  error_report_t *error;
+
   assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
-  error.code = intern_code2error[-code];
+  error = get_yices_error();
+  error->code = intern_code2error[-code];
 }
 
 
@@ -4665,18 +5116,22 @@ void yices_internalization_error(int32_t code) {
  * outside the logic supported by ctx.
  */
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
+  term_manager_t *manager;
+  error_report_t *error;
   int32_t code;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_boolean_term(&manager, t)) {
+  manager = __yices_globals.manager;
+  if (! check_good_term(manager, t) ||
+      ! check_boolean_term(manager, t)) {
     return -1;
   }
 
+  error = get_yices_error();
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
       return -1;
     }
     context_clear(ctx);
@@ -4696,12 +5151,12 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -4714,18 +5169,22 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
  * Same thing for an array of n formulas t[0 ... n-1]
  */
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
+  term_manager_t *manager;
+  error_report_t *error;
   int32_t code;
 
-  if (! check_good_terms(&manager, n, t) ||
-      ! check_boolean_args(&manager, n, t)) {
+  manager = __yices_globals.manager;
+  if (! check_good_terms(manager, n, t) ||
+      ! check_boolean_args(manager, n, t)) {
     return -1;
   }
 
+  error = get_yices_error();
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
       return -1;
     }
     context_clear(ctx);
@@ -4747,12 +5206,12 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -4777,6 +5236,9 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  *    code = CTX_OPERATION_NOT_SUPPORTED
  */
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
+  error_report_t *error;
+
+  error = get_yices_error();
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
@@ -4784,7 +5246,7 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
       assert_blocking_clause(ctx);
       return 0;
     } else {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
       return -1;
     }
 
@@ -4792,12 +5254,12 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   case STATUS_UNSAT:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     return -1;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 }
@@ -4869,6 +5331,7 @@ void yices_default_params_for_context(context_t *ctx, param_t *params) {
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
+  error_report_t *error;
   param_t default_params;
   smt_status_t stat;
 
@@ -4892,13 +5355,15 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    error.code = CTX_INVALID_OPERATION;
+    error = get_yices_error();
+    error->code = CTX_INVALID_OPERATION;
     stat = STATUS_ERROR;
     break;
 
   case STATUS_ERROR:
   default:
-    error.code = INTERNAL_EXCEPTION;
+    error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
     stat = STATUS_ERROR;
     break;
   }
@@ -4940,20 +5405,22 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  *
  */
 EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
+  error_report_t *error;
   model_t *mdl;
 
   assert(ctx != NULL);
 
+  error = get_yices_error();
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     mdl = alloc_model();
-    init_model(mdl, &terms, (keep_subst != 0));
+    init_model(mdl, __yices_globals.terms, (keep_subst != 0));
     context_build_model(mdl, ctx);
     break;
 
   default:
-    error.code = CTX_INVALID_OPERATION;
+    error->code = CTX_INVALID_OPERATION;
     mdl = NULL;
     break;
   }
@@ -4969,7 +5436,7 @@ model_t *yices_new_model(bool keep_subst) {
   model_t *mdl;
 
   mdl = alloc_model();
-  init_model(mdl, &terms, keep_subst);
+  init_model(mdl, __yices_globals.terms, keep_subst);
 
   return mdl;
 }
@@ -4999,6 +5466,7 @@ EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
  * - width, height, offset = print area
  */
 EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  error_report_t *error;
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -5021,7 +5489,8 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer);
-    error.code = OUTPUT_ERROR;
+    error = get_yices_error();
+    error->code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer, false);
 
@@ -5100,23 +5569,29 @@ static inline error_code_t yices_eval_error(int32_t v) {
  * + the other evaluation error codes above.
  */
 EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
+  term_manager_t *manager;
+  error_report_t *error;
   value_table_t *vtbl;
   value_t v;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_boolean_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_boolean_term(manager, t)) {
     return -1;
   }
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error.code = yices_eval_error(v);
+    error = get_yices_error();
+    error->code = yices_eval_error(v);
     return -1;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_boolean(vtbl, v)) {
-    error.code = INTERNAL_EXCEPTION;
+    error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -5147,24 +5622,30 @@ EXPORTED int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *
  *   term1 = t
  */
 EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
+  term_manager_t *manager;
+  error_report_t *error;
   value_table_t *vtbl;
   value_bv_t *bv;
   value_t v;
 
-  if (! check_good_term(&manager, t) ||
-      ! check_bitvector_term(&manager, t)) {
+  manager = __yices_globals.manager;
+
+  if (! check_good_term(manager, t) ||
+      ! check_bitvector_term(manager, t)) {
     return -1;
   }
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error.code = yices_eval_error(v);
+    error = get_yices_error();
+    error->code = yices_eval_error(v);
     return -1;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_bitvector(vtbl, v)) {
-    error.code = INTERNAL_EXCEPTION;
+    error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
     return -1;
   }
 
@@ -5211,7 +5692,7 @@ static sparse_array_t *get_root_types(void) {
 EXPORTED int32_t yices_incref_term(term_t t) {
   sparse_array_t *roots;
 
-  if (!check_good_term(&manager, t)) {
+  if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
 
@@ -5226,7 +5707,7 @@ EXPORTED int32_t yices_incref_term(term_t t) {
 EXPORTED int32_t yices_incref_type(type_t tau) {
   sparse_array_t *roots;
 
-  if (!check_good_type(&types, tau)) {
+  if (!check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
@@ -5237,14 +5718,17 @@ EXPORTED int32_t yices_incref_type(type_t tau) {
 }
 
 EXPORTED int32_t yices_decref_term(term_t t) {
-  if (!check_good_term(&manager, t)) {
+  error_report_t *error;
+
+  if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
 
   if (root_terms == NULL ||
       sparse_array_read(root_terms, index_of(t)) == 0) {
-    error.code = BAD_TERM_DECREF;
-    error.term1 = t;
+    error = get_yices_error();
+    error->code = BAD_TERM_DECREF;
+    error->term1 = t;
     return -1;
   }
 
@@ -5254,14 +5738,17 @@ EXPORTED int32_t yices_decref_term(term_t t) {
 }
 
 EXPORTED int32_t yices_decref_type(type_t tau) {
-  if (! check_good_type(&types, tau)) {
+  error_report_t *error;
+
+  if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
 
   if (root_types == NULL ||
       sparse_array_read(root_types, tau) == 0) {
-    error.code = BAD_TYPE_DECREF;
-    error.type1 = tau;
+    error = get_yices_error();
+    error->code = BAD_TYPE_DECREF;
+    error->type1 = tau;
     return -1;
   }
 
@@ -5275,11 +5762,11 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
  * Number of live terms and types
  */
 EXPORTED uint32_t yices_num_terms(void) {
-  return terms.live_terms;
+  return __yices_globals.terms->live_terms;
 }
 
 EXPORTED uint32_t yices_num_types(void) {
-  return types.live_types;
+  return __yices_globals.types->live_types;
 }
 
 
@@ -5314,7 +5801,7 @@ EXPORTED uint32_t yices_num_posref_types(void) {
 
 // iterator for the root_terms array
 static void term_idx_marker(void *aux, uint32_t i) {
-  assert(aux == &terms);
+  assert(aux == __yices_globals.terms);
   if (good_term_idx(aux, i)) {
     term_table_set_gc_mark(aux, i);
   }
@@ -5322,7 +5809,7 @@ static void term_idx_marker(void *aux, uint32_t i) {
 
 // iterator for the root_types array
 static void type_marker(void *aux, uint32_t i) {
-  assert(aux == &types);
+  assert(aux == __yices_globals.types);
   if (good_type(aux, i)) {
     type_table_set_gc_mark(aux, i);
   }
@@ -5400,23 +5887,23 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
   /*
    * Add roots from t and tau
    */
-  if (t != NULL) mark_term_array(&terms, t, nt);
-  if (tau != NULL) mark_type_array(&types, tau, ntau);
+  if (t != NULL) mark_term_array(__yices_globals.terms, t, nt);
+  if (tau != NULL) mark_type_array(__yices_globals.types, tau, ntau);
 
   /*
    * Roots from the reference counting
    */
   if (root_terms != NULL) {
-    sparse_array_iterate(root_terms, &terms, term_idx_marker);
+    sparse_array_iterate(root_terms, __yices_globals.terms, term_idx_marker);
   }
   if (root_types != NULL) {
-    sparse_array_iterate(root_types, &types, type_marker);
+    sparse_array_iterate(root_types, __yices_globals.types, type_marker);
   }
 
   /*
    * Call the garbage collector
    */
   keep = (keep_named != 0);
-  term_table_gc(&terms, keep);
+  term_table_gc(__yices_globals.terms, keep);
 
 }
