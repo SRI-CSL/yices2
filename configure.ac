@@ -460,6 +460,34 @@ fi
 ])
 
 
+dnl
+dnl CHECK_THREAD_LOCAL
+dnl ------------------
+dnl check whether we can declare variables with the __thread
+dnl attribute. If not we assume the platform doesn't support
+dnl thread-local storage.
+dnl
+dnl result: $has_tls is "yes" if the __thread attribute is supported
+dnl         $has_tls is "no" otherwise
+dnl
+AC_DEFUN([CSL_CHECK_THREAD_LOCAL],
+[
+save_cppflags=$CPPFLAGS
+save_libs=$LIBS
+AC_MSG_CHECKING([for thread-local storage support])
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[__thread int test;]],
+                 [[]])],
+has_tls=yes,has_tls=no,has_tls=no)
+AC_MSG_RESULT([$has_tls])
+#
+# restore CPPFLAGS and LIBS
+#
+CPPFLAGS=$save_cppflags
+LIBS=$save_libs
+])
+
+
 #
 # CHECK LIBRARIES
 # ---------------
@@ -503,6 +531,30 @@ fi
 #
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
+
+
+dnl
+dnl Test support for thread-local storage
+dnl -------------------------------------
+dnl
+AC_SUBST(HAVE_TLS)
+has_tls=""
+CSL_CHECK_THREAD_LOCAL
+if test "x$has_tls" == xyes; then
+  HAVE_TLS=1
+else
+  HAVE_TLS=0
+fi
+
+
+dnl
+dnl Test support for execinfo and backstrace_symbols
+dnl ------------------------------------------------
+dnl on FreeBSD, extra library libexecinfo is required
+dnl
+AC_SUBST(HAVE_BACKTRACE)
+AC_SEARCH_LIBS(backtrace_symbols,[execinfo])
+AC_CHECK_FUNC(backtrace_symbols,[HAVE_BACKTRACE=1],[HAVE_BACKTRACE=0])
 
 
 #
