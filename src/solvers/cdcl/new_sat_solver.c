@@ -27,7 +27,7 @@
  */
 #define DEBUG 0
 #define TRACE 0
-#define DATA  0
+#define DATA  1
 
 
 #if DEBUG
@@ -6063,7 +6063,7 @@ static void sat_search(sat_solver_t *solver) {
 	nsat_reduce_learned_clause_set(solver);
 	check_watch_vectors(solver);
 	solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
-	// solver->reduce_threshold += 300; // Glucose
+	solver->reduce_threshold += 300; // Glucose
       }
 
       x = nsat_select_decision_variable(solver);
@@ -6212,7 +6212,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
    if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
      solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
    }
-   //   solver->reduce_threshold = 2000; // Glucose
+   solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
     if (solver->verbosity >= 2) {
