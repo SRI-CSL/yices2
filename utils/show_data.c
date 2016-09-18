@@ -115,7 +115,9 @@ static void print_data(FILE *f, conflict_data_t *data, literal_t *a) {
   fprintf(f, "%"PRIu64",%"PRIu64",%"PRIu64",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32"\n",
 	  data->conflicts, data->decisions, data->propagations,
 	  data->lbd, data->conflict_level, data->backtrack_level, data->learned_clause_size);
-  print_clause(f, data->learned_clause_size, a);
+  if (false) {
+    print_clause(f, data->learned_clause_size, a);
+  }
 }
 
 /*
