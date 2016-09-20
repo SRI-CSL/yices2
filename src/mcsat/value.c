@@ -147,6 +147,7 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
     if (type_kind(types, type) == UNINTERPRETED_TYPE) {
       int32_t id;
       bool ok = q_get32(&mcsat_value->q, &id);
+      (void) ok; // unused in release build
       assert(ok);
       value = vtbl_mk_const(vtbl, type, id, NULL);
     } else {
