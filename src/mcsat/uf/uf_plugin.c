@@ -977,6 +977,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   term_table_t* terms = uf->ctx->terms;
+  type_table_t* types = uf->ctx->types;
   value_table_t* values = &model->vtbl;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
@@ -1011,6 +1012,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     // Current representative application
     variable_t app_rep_var = app_reps.data[i];
     term_t app_rep_term = variable_db_get_term(var_db, app_rep_var);
+    type_t app_rep_type = term_type(terms, app_rep_term);
 
     if (ctx_trace_enabled(uf->ctx, "uf_plugin::model")) {
       ctx_trace_printf(uf->ctx, "processing app rep:");
@@ -1033,17 +1035,18 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     // a) Get the v value
     mcsat_value_t* v_mcsat = (mcsat_value_t*) trail_get_value(trail, app_rep_var);
     assert(v_mcsat->type != VALUE_NONE);
-    value_t v = mcsat_value_to_value(v_mcsat, values);
+    value_t v = mcsat_value_to_value(v_mcsat, types, app_rep_type, values);
     // b) Get the argument values
     composite_term_t* app_rep_comp = app_reps_get_uf_descriptor(uf->ctx->terms, app_rep_term);
     uint32_t arg_i, arg_start = app_reps_get_uf_start(uf->ctx->terms, app_rep_term);
     ivector_reset(&arguments);
     for (arg_i = arg_start; arg_i < app_rep_comp->arity; ++ arg_i) {
       term_t arg_term = app_rep_comp->arg[arg_i];
+      type_t arg_type = term_type(terms, arg_term);
       variable_t arg_var = variable_db_get_variable(var_db, arg_term);
       v_mcsat = (mcsat_value_t*) trail_get_value(trail, arg_var);
       assert(v_mcsat->type != VALUE_NONE);
-      value_t arg_v = mcsat_value_to_value(v_mcsat, values);
+      value_t arg_v = mcsat_value_to_value(v_mcsat, types, arg_type, values);
       ivector_push(&arguments, arg_v);
     }
     // c) Construct the concrete mapping, and save in the list for f

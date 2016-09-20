@@ -1691,12 +1691,16 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
     variable_t x = trail_elements->data[i];
     term_t x_term = variable_db_get_term(mcsat->var_db, x);
     term_kind_t x_kind = term_kind(mcsat->terms, x_term);
+
     if (x_kind == UNINTERPRETED_TERM) {
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         trace_printf(mcsat->ctx->trace, "var = ");
         trace_term_ln(mcsat->ctx->trace, mcsat->terms, x_term);
       }
+
+      // Type of the variable
+      type_t x_type = term_type(mcsat->terms, x_term);
 
       // Get mcsat value (have to case to remove const because yices api doesn't care for const)
       mcsat_value_t* x_value_mcsat = (mcsat_value_t*) trail_get_value(mcsat->trail, x);
@@ -1708,7 +1712,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
       }
 
       // Setup the yices value
-      value_t x_value = mcsat_value_to_value(x_value_mcsat, vtbl);
+      value_t x_value = mcsat_value_to_value(x_value_mcsat, mcsat->types, x_type, vtbl);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         trace_printf(mcsat->ctx->trace, "value = ");

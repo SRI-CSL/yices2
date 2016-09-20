@@ -137,14 +137,21 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
 }
 
-value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, value_table_t* vtbl) {
+value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {
   value_t value = null_value;
   switch (mcsat_value->type) {
   case VALUE_BOOLEAN:
     value = vtbl_mk_bool(vtbl, mcsat_value->b);
     break;
   case VALUE_RATIONAL:
-    value = vtbl_mk_rational(vtbl, &mcsat_value->q);
+    if (type_kind(types, type) == UNINTERPRETED_TYPE) {
+      int32_t id;
+      bool ok = q_get32(&mcsat_value->q, &id);
+      assert(ok);
+      value = vtbl_mk_const(vtbl, type, id, NULL);
+    } else {
+      value = vtbl_mk_rational(vtbl, &mcsat_value->q);
+    }
     break;
   case VALUE_LIBPOLY:
     if (lp_value_is_rational(&mcsat_value->lp_value)) {
