@@ -1057,11 +1057,13 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     prev_app = current_app;
   }
 
-  // Construct the last function
-  term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
-  type_t tau = term_type(terms, f);
-  value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
-  model_map_term(model, f, f_value);
+  if (app_reps.size > 0) {
+    // Construct the last function
+    term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
+    type_t tau = term_type(terms, f);
+    value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
+    model_map_term(model, f, f_value);
+  }
 
   // Remove temps
   delete_ivector(&arguments);
