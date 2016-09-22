@@ -76,4 +76,13 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out);
 /** Convert a basic value to yices model value. Types is passed in to enforce a type (e.g. for UF) */
 value_t mcsat_value_to_value(mcsat_value_t* value, type_table_t *types, type_t type, value_table_t* vtbl);
 
+/** Returns true if the value is 0 */
+bool mcsat_value_is_zero(const mcsat_value_t* value);
+
+/** Returns true if the value is true */
+bool mcsat_value_is_true(const mcsat_value_t* value);
+
+/** Returns true if the value is false */
+bool mcsat_value_is_false(const mcsat_value_t* value);
+
 #endif /* MCSAT_VALUE_H_ */

@@ -21,6 +21,12 @@ typedef struct app_rep_s {
   variable_t app_term;
 } app_rep_t;
 
+typedef enum {
+  APP_REP_IDIV_ID = -2,
+  APP_REP_RDIV_ID = -3,
+  APP_REP_MOD_ID = -4
+} app_rep_special_t;
+
 /**
  * Table holding application representatives: keep one representative for all
  * f(x) wit same f and trail values of x.
@@ -70,6 +76,9 @@ void app_reps_gc_sweep(app_reps_t *table, const gc_info_t* gc_vars);
 /* Print it */
 void app_reps_print(const app_reps_t *table, FILE *out);
 
+/** Returns true if the term is an UF function application */
+bool app_reps_is_uf(term_table_t* terms, term_t t);
+
 /** Returns composite for function application (and other terms we treat as uninterpreted) */
 composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_term);
 
@@ -78,6 +87,9 @@ int32_t app_reps_get_uf(term_table_t* terms, term_t app_term);
 
 /** Returns the first index of the arguments for function application (and other terms) */
 uint32_t app_reps_get_uf_start(term_table_t* terms, term_t app_term);
+
+/** Returns the type of the function undelying the term */
+type_t app_reps_get_uf_type(app_reps_t* table, term_t app_term);
 
 
 #endif

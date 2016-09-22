@@ -109,10 +109,37 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
   case VALUE_BOOLEAN:
     return v1->b == v2->b;
   case VALUE_RATIONAL:
-    assert(v2->type == VALUE_RATIONAL);
-    return q_cmp(&v1->q, &v2->q) == 0;
+    if (v2->type == VALUE_RATIONAL) {
+      return q_cmp(&v1->q, &v2->q) == 0;
+    } else {
+      assert(v2->type == VALUE_LIBPOLY);
+      mpq_t v1_mpq;
+      mpq_init(v1_mpq);
+      q_get_mpq((rational_t*)&v1->q, v1_mpq);
+      lp_value_t v1_lp;
+      lp_value_construct_none(&v1_lp);
+      lp_value_assign_raw(&v1_lp, LP_VALUE_RATIONAL, &v1_mpq);
+      int cmp = lp_value_cmp(&v1_lp, &v2->lp_value);
+      lp_value_destruct(&v1_lp);
+      mpq_clear(v1_mpq);
+      return cmp == 0;
+    }
   case VALUE_LIBPOLY:
-    return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
+    if (v2->type == VALUE_LIBPOLY) {
+      return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
+    } else {
+      assert(v1->type == VALUE_RATIONAL);
+      mpq_t v2_mpq;
+      mpq_init(v2_mpq);
+      q_get_mpq((rational_t*)&v2->q, v2_mpq);
+      lp_value_t v2_lp;
+      lp_value_construct_none(&v2_lp);
+      lp_value_assign_raw(&v2_lp, LP_VALUE_RATIONAL, &v2_mpq);
+      int cmp = lp_value_cmp(&v1->lp_value, &v2_lp);
+      lp_value_destruct(&v2_lp);
+      mpq_clear(v2_mpq);
+      return cmp == 0;
+    }
   default:
     assert(false);
     return false;
@@ -125,9 +152,16 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
     return v->b;
   case VALUE_RATIONAL:
   {
-    uint32_t num, den;
-    q_hash_decompose(&v->q, &num, &den);
-    return jenkins_hash_pair(num, den, 0xf9e34ab9);
+    mpq_t v_mpq;
+    mpq_init(v_mpq);
+    q_get_mpq((rational_t*)&v->q, v_mpq);
+    lp_value_t v_lp;
+    lp_value_construct_none(&v_lp);
+    lp_value_assign_raw(&v_lp, LP_VALUE_RATIONAL, &v_mpq);
+    uint32_t hash = lp_value_hash(&v_lp);
+    lp_value_destruct(&v_lp);
+    mpq_clear(v_mpq);
+    return hash;
   }
   case VALUE_LIBPOLY:
     return lp_value_hash(&v->lp_value);
@@ -173,4 +207,28 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
     assert(false);
   }
   return value;
+}
+
+bool mcsat_value_is_zero(const mcsat_value_t* value) {
+  switch (value->type) {
+  case VALUE_RATIONAL:
+    return q_is_zero(&value->q);
+  case VALUE_LIBPOLY: {
+    lp_rational_t zero;
+    lp_rational_construct(&zero);
+    int cmp = lp_value_cmp_rational(&value->lp_value, &zero);
+    lp_rational_destruct(&zero);
+    return cmp == 0;
+  }
+  default:
+    return false;
+  }
+}
+
+bool mcsat_value_is_true(const mcsat_value_t* value) {
+  return value->type == VALUE_BOOLEAN && value->b;
+}
+
+bool mcsat_value_is_false(const mcsat_value_t* value) {
+  return value->type == VALUE_BOOLEAN && !value->b;
 }

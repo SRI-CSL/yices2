@@ -19,6 +19,7 @@
 #include "mcsat/tracing.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
+#include "mcsat/value.h"
 
 #include "utils/int_array_sort2.h"
 #include "model/models.h"
@@ -621,7 +622,7 @@ void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* pr
 
   // If a function application, check if it's fully assigned
   term_t var_term = variable_db_get_term(uf->ctx->var_db, var);
-  if (term_kind(uf->ctx->terms, var_term) == APP_TERM) {
+  if (app_reps_is_uf(uf->ctx->terms, var_term)) {
     // Get the application representative, if any
     variable_t rep_var = app_reps_get_rep(&uf->app_reps, var);
     if (rep_var != variable_null) {
@@ -1006,42 +1007,73 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   // - while same function, collect the concrete mappings
   // - if different function, construct the function and add to model
   uint32_t i;
-  int32_t current_app, prev_app = 0;
-  for (i = 0; i < app_reps.size; ++ i) {
+  int32_t app_f, prev_app_f = 0;  // Current and previous function symbol
+  term_t app_term, prev_app_term; // Current and previous function application term
+  variable_t app_var;        // Current function application term variable
+  type_t app_type;           // Current function application term type
+  for (i = 0, prev_app_term = NULL_TERM; i < app_reps.size; ++ i) {
 
     // Current representative application
-    variable_t app_rep_var = app_reps.data[i];
-    term_t app_rep_term = variable_db_get_term(var_db, app_rep_var);
-    type_t app_rep_type = term_type(terms, app_rep_term);
+    app_var = app_reps.data[i];
+    app_term = variable_db_get_term(var_db, app_var);
+    app_type = term_type(terms, app_term);
 
     if (ctx_trace_enabled(uf->ctx, "uf_plugin::model")) {
       ctx_trace_printf(uf->ctx, "processing app rep:");
-      ctx_trace_term(uf->ctx, app_rep_term);
+      ctx_trace_term(uf->ctx, app_term);
     }
 
     // Current function symbol
-    current_app = app_reps_get_uf(terms, app_rep_term);
+    app_f = app_reps_get_uf(terms, app_term);
+    composite_term_t* app_comp = app_reps_get_uf_descriptor(uf->ctx->terms, app_term);
+
+    // For division operators, we only use the ones that divide by 0
+    if (app_f < 0) {
+      assert(app_comp->arity == 2);
+      term_t divisor_term = app_comp->arg[1];
+      variable_t divisor_var = variable_db_get_variable(var_db, divisor_term);
+      const mcsat_value_t* divisor_value = trail_get_value(trail, divisor_var);
+      if (!mcsat_value_is_zero(divisor_value)) {
+        continue;
+      }
+    }
 
     // If we changed the function, construct the previous one
-    if (i > 0 && current_app != prev_app) {
-      term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
-      type_t tau = term_type(terms, f);
+    if (prev_app_term != NULL_TERM && app_f != prev_app_f) {
+      type_t tau = app_reps_get_uf_type(&uf->app_reps, prev_app_term);
       value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
-      model_map_term(model, f, f_value);
+      if (prev_app_f < 0) {
+        // Arithmetic stuffs
+        switch (app_f) {
+        case APP_REP_IDIV_ID:
+          vtbl_set_zero_idiv(values, f_value);
+          break;
+        case APP_REP_RDIV_ID:
+          vtbl_set_zero_rdiv(values, f_value);
+          break;
+        case APP_REP_MOD_ID:
+          vtbl_set_zero_mod(values, f_value);
+          break;
+        }
+      } else {
+        // Regular UF function
+        model_map_term(model, prev_app_f, f_value);
+      }
       ivector_reset(&mappings);
     }
 
     // Next concrete mapping f : (x1, x2, ..., xn) -> v
     // a) Get the v value
-    mcsat_value_t* v_mcsat = (mcsat_value_t*) trail_get_value(trail, app_rep_var);
+    mcsat_value_t* v_mcsat = (mcsat_value_t*) trail_get_value(trail, app_var);
     assert(v_mcsat->type != VALUE_NONE);
-    value_t v = mcsat_value_to_value(v_mcsat, types, app_rep_type, values);
+    value_t v = mcsat_value_to_value(v_mcsat, types, app_type, values);
     // b) Get the argument values
-    composite_term_t* app_rep_comp = app_reps_get_uf_descriptor(uf->ctx->terms, app_rep_term);
-    uint32_t arg_i, arg_start = app_reps_get_uf_start(uf->ctx->terms, app_rep_term);
+    uint32_t arg_i;
+    uint32_t arg_start = app_reps_get_uf_start(uf->ctx->terms, app_term);
+    uint32_t arg_end = app_f < 0 ? app_comp->arity - 1 : app_comp->arity;
     ivector_reset(&arguments);
-    for (arg_i = arg_start; arg_i < app_rep_comp->arity; ++ arg_i) {
-      term_t arg_term = app_rep_comp->arg[arg_i];
+    for (arg_i = arg_start; arg_i < arg_end; ++ arg_i) {
+      term_t arg_term = app_comp->arg[arg_i];
       type_t arg_type = term_type(terms, arg_term);
       variable_t arg_var = variable_db_get_variable(var_db, arg_term);
       v_mcsat = (mcsat_value_t*) trail_get_value(trail, arg_var);
@@ -1054,15 +1086,31 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     ivector_push(&mappings, map_value);
 
     // Remember the previous one
-    prev_app = current_app;
+    prev_app_f = app_f;
+    prev_app_term = app_term;
   }
 
-  if (app_reps.size > 0) {
+  if (app_reps.size > 0 && mappings.size > 0) {
     // Construct the last function
-    term_t f = (i+1 == app_reps.size) ? current_app : prev_app;
-    type_t tau = term_type(terms, f);
+    type_t tau = app_reps_get_uf_type(&uf->app_reps, app_term);
     value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
-    model_map_term(model, f, f_value);
+    if (app_f < 0) {
+      // Arithmetic stuffs
+      switch (app_f) {
+      case APP_REP_IDIV_ID:
+        vtbl_set_zero_idiv(values, f_value);
+        break;
+      case APP_REP_RDIV_ID:
+        vtbl_set_zero_rdiv(values, f_value);
+        break;
+      case APP_REP_MOD_ID:
+        vtbl_set_zero_mod(values, f_value);
+        break;
+      }
+    } else {
+      // Regular UF function
+      model_map_term(model, app_f, f_value);
+    }
   }
 
   // Remove temps

@@ -7,10 +7,51 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <yices.h>
 
 #include "app_reps.h"
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
+
+bool app_reps_is_uf(term_table_t* terms, term_t t) {
+  term_t t_kind = term_kind(terms, t);
+  switch (t_kind) {
+  case APP_TERM:
+  case ARITH_RDIV:
+  case ARITH_IDIV:
+  case ARITH_MOD:
+    return true;
+  default:
+    return false;
+  }
+}
+
+type_t app_reps_get_uf_type(app_reps_t* table, term_t app_term) {
+  term_table_t* terms = table->terms;
+  type_table_t* types = terms->types;
+  term_t app_kind = term_kind(terms, app_term);
+  switch (app_kind) {
+  case APP_TERM: {
+    term_t f = app_reps_get_uf(terms, app_term);
+    return term_type(terms, f);
+  }
+  case ARITH_RDIV: {
+    // Div by 0 is a function from reals to reals, f(x) = x/0
+    type_t reals = real_type(terms->types);
+    return function_type(types, reals, 1, &reals);
+  }
+  case ARITH_IDIV:
+  case ARITH_MOD: {
+    // Div by 0 is a function from ints to ints, f(x) = x/0
+    type_t ints = int_type(types);
+    return function_type(types, ints, 2, &ints);
+  }
+  default:
+    assert(false);
+  }
+  return NULL_TYPE;
+}
+
 
 composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_term) {
   term_t app_kind = term_kind(terms, app_term);
@@ -30,21 +71,17 @@ composite_term_t* app_reps_get_uf_descriptor(term_table_t* terms, term_t app_ter
   }
 }
 
-#define IDIV_ID -2;
-#define RDIV_ID -3;
-#define MOD_ID -4;
-
 int32_t app_reps_get_uf(term_table_t* terms, term_t app_term) {
   term_t app_kind = term_kind(terms, app_term);
   switch (app_kind) {
   case APP_TERM:
     return app_term_desc(terms, app_term)->arg[0];
   case ARITH_RDIV:
-    return RDIV_ID;
+    return APP_REP_RDIV_ID;
   case ARITH_IDIV:
-    return IDIV_ID;
+    return APP_REP_IDIV_ID;
   case ARITH_MOD:
-    return MOD_ID;
+    return APP_REP_MOD_ID;
     break;
   default:
     assert(false);
