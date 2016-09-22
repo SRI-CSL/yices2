@@ -7,9 +7,9 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <yices.h>
 
 #include "app_reps.h"
+#include "terms/types.h"
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
 
@@ -44,7 +44,7 @@ type_t app_reps_get_uf_type(app_reps_t* table, term_t app_term) {
   case ARITH_MOD: {
     // Div by 0 is a function from ints to ints, f(x) = x/0
     type_t ints = int_type(types);
-    return function_type(types, ints, 2, &ints);
+    return function_type(types, ints, 1, &ints);
   }
   default:
     assert(false);
