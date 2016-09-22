@@ -285,6 +285,20 @@ typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
  * - unknown_value = index of the unknown value
  * - true_value, false_value = indices of true/false values
  *
+ * Three special values to give an interpretation of division by zero.
+ * All three should be assigned to a function value (or null_value).
+ * - rdiv_by_zero:  (real division)
+ * - idiv_by_zero:  (integer division)
+ * - mod_by_zero:   (integer modulo)
+ * To be consistent with the Yices semantics of idiv/mod, the expected
+ * types should be:
+ *   rdiv_by_zero: [ real -> real ]
+ *   idiv_by_zero: [ real -> int  ]
+ *   imod_by_zero: [ real -> real ]
+ *
+ * But, we don't enforce this here. Any function that maps an
+ * arithmetic type to an arithmetic type is accepted.
+ *
  * - first_tmp = index of the first temporary object
  *   if first_tmp = -1 then all objects are permanent.
  *   if first_tmp >= 0, then objects in [0 .. first_tmp -1] are permanent
@@ -311,6 +325,11 @@ typedef struct value_table_s {
   int32_t unknown_value;
   int32_t true_value;
   int32_t false_value;
+
+  int32_t zero_rdiv_fun;
+  int32_t zero_idiv_fun;
+  int32_t zero_mod_fun;
+
   int32_t first_tmp;
 
   void *aux_namer;
@@ -438,20 +457,6 @@ extern value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n);
 extern value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e);
 
 
-#if 0
-
-// NOT USED
-/*
- * Fresh uninterpreted constant
- * - tau = its type (as an index in the type table)
- * - name = an optional name (NULL if no name is given)
- * - if name is given, a copy is made.
- * - the constant is assigned a default index = -1
- */
-extern value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name);
-#endif
-
-
 /*
  * Uninterpreted constant of index id
  * - tau = its type (must be UNINTERPRETED or SCALAR type)
@@ -491,6 +496,24 @@ extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, va
  * - f must be a function of arity n (either a function object or another update)
  */
 extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, value_t v);
+
+
+/*
+ * DIVISIONS BY ZERO
+ */
+
+/*
+ * Give a value to the divide-by-zero function:
+ * - f must be a value in table of type [real -> real]
+ * - f can be either a function or an update object
+ */
+extern void vtbl_set_zero_rdiv(value_table_t *table, value_t f);
+
+/*
+ * Same thing for the integer divide-by-zero and modulo
+ */
+extern void vtbl_set_zero_idiv(value_table_t *table, value_t f);
+extern void vtbl_set_zero_mod(value_table_t *table, value_t f);
 
 
 
@@ -739,6 +762,22 @@ extern value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, 
 extern value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value_t *a);
 
 
+/*
+ * Evaluate (/ v 0) by a lookup in table->rdiv_by_zero.
+ * - v should be an arithmetic object (but we don't check)
+ * - return unknown if either rdiv_by_zero is null or if the mapping to v is not defined.
+ */
+extern value_t vtbl_eval_rdiv_by_zero(value_table_t *table, value_t v);
+
+/*
+ * Same thing for integer division: use table->idiv_by_zero
+ */
+extern value_t vtbl_eval_idiv_by_zero(value_table_t *table, value_t v);
+
+/*
+ * Same thing for modulo: use table->mod_by_zero
+ */
+extern value_t vtbl_eval_mod_by_zero(value_table_t *table, value_t v);
 
 
 

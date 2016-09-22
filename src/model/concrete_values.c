@@ -593,6 +593,11 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   table->unknown_value = null_value;
   table->true_value = null_value;
   table->false_value = null_value;
+
+  table->zero_rdiv_fun = null_value;
+  table->zero_idiv_fun = null_value;
+  table->zero_mod_fun = null_value;
+
   table->first_tmp = -1; // no temporary objects
 
   table->aux_namer = NULL;
@@ -878,39 +883,6 @@ value_t vtbl_mk_not(value_table_t *table, value_t v) {
 }
 
 
-#if 0
-// not used
-/*
- * Uninterpreted constant of type tau
- * - tau must be a scalar or uninterpreted type
- * - if name is non-NULL then a copy is made
- * This function always create a new object and the index is set to -1.
- */
-value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
-  value_unint_t *d;
-  value_t i;
-
-  assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
-         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
-
-  d = (value_unint_t *) safe_malloc(sizeof(value_unint_t));
-  d->type = tau;
-  d->index = -1;
-  d->name = NULL;
-  if (name != NULL) {
-    d->name = (char *) safe_malloc(strlen(name) + 1);
-    strcpy(d->name, name);
-  }
-
-  i = allocate_object(table);
-  table->kind[i] = UNINTERPRETED_VALUE;
-  table->desc[i].ptr = d;
-  set_bit(table->canonical, i);
-
-  return i;
-}
-
-#endif
 
 
 /********************************************
@@ -1194,7 +1166,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
  * the function returns the number of elements in a. Otherwise, the function returns n.
  *
  * NOTE: this must be called after the standard normalization procedure:
- * - array a must not contain duplicate maps nor any map that give the same value as def
+ * - array a must not contain duplicate maps nor any map that gives the same value as def
  */
 static uint32_t normalize_finite_domain_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t *def) {
   uint32_t dsize, def_count, new_count;
@@ -2088,6 +2060,82 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
 
 
 
+/***********************************************
+ *  LOCAL INTEPRETATION FOR DIVISION BY ZERO   *
+ **********************************************/
+
+/*
+ * In SMT-LIB 2.x, the division operators have an uninterpreted
+ * semantics if the divisor is zero. The value table can store
+ * a mapping that gives an interpretation for these operations.
+ *
+ * Example: if mcsat says (/ 1 0) = 5 then we can build a function f
+ * that maps 1 to 5, then assign f to table->zero_rdiv_fun.  We store
+ * this information in the value table so that model_eval can use it.
+ */
+
+#ifndef NDEBUG
+static bool is_arith_map_type(type_table_t *tbl, type_t tau) {
+  function_type_t *d;
+
+  if (is_function_type(tbl, tau)) {
+    d = function_type_desc(tbl, tau);
+    return d->ndom == 1 && is_arithmetic_type(d->range) && is_arithmetic_type(d->domain[0]);
+  }
+
+  return false;
+}
+
+static bool is_plausible_div_by_zero(value_table_t *table, value_t f) {
+  value_fun_t *fun;
+  value_update_t *upd;
+
+  while (object_is_update(table, f)) {
+    upd = vtbl_update(table, f);
+    if (upd->arity != 1) return false;
+    f = upd->fun;
+  }
+
+  if (object_is_function(table, f)) {
+    fun = vtbl_function(table, f);
+    return fun->arity == 1 && is_arith_map_type(table->type_table, fun->type);
+  }
+
+  return false;
+}
+
+#endif
+
+/*
+ * Give a meaning to real division by zero
+ */
+void vtbl_set_zero_rdiv(value_table_t *table, value_t f) {
+  assert(is_plausible_div_by_zero(table, f));
+  assert(table->zero_rdiv_fun == null_value);
+  table->zero_rdiv_fun = f;
+}
+
+/*
+ * Integer division
+ */
+void vtbl_set_zero_idiv(value_table_t *table, value_t f) {
+  assert(is_plausible_div_by_zero(table, f));
+  assert(table->zero_idiv_fun == null_value);
+  table->zero_idiv_fun = f;
+}
+
+/*
+ * Modulo
+ */
+void vtbl_set_zero_mod(value_table_t *table, value_t f) {
+  assert(is_plausible_div_by_zero(table, f));
+  assert(table->zero_mod_fun == null_value);
+  table->zero_mod_fun = f;
+}
+
+
+
+
 /********************
  *  DEFAULT VALUES  *
  *******************/
@@ -2677,7 +2725,7 @@ static value_t vtbl_gen_bitvector(value_table_t *table, uint32_t n, uint32_t i) 
 
 /*
  * If tau is a finite type, then we can enumerate its elements from
- * 0 to card(tau) - 1. The following function construct and element
+ * 0 to card(tau) - 1. The following function constructs an element
  * of finite type tau given an enumeration index i.
  * - tau must be finite
  * - i must be smaller than card(tau)
@@ -3262,6 +3310,56 @@ value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value
 
   return j;
 }
+
+
+/*
+ * Evaluate (/ v 0) by a lookup in table->zero_rdiv_dun
+ * - v should be an arithmetic object (but we don't check)
+ * - return unknown if either zero_rdiv_fun is null or if the mapping to v is not defined.
+ */
+value_t vtbl_eval_rdiv_by_zero(value_table_t *table, value_t v) {
+  value_t f, r;
+
+  f = table->zero_rdiv_fun;
+  if (f != null_value) {
+    r = vtbl_eval_application(table, f, 1, &v);
+  } else {
+    r = vtbl_mk_unknown(table);
+  }
+  return r;
+}
+
+
+/*
+ * Same thing for integer division: use table->zero_idiv_fun
+ */
+value_t vtbl_eval_idiv_by_zero(value_table_t *table, value_t v) {
+  value_t f, r;
+
+  f = table->zero_idiv_fun;
+  if (f != null_value) {
+    r = vtbl_eval_application(table, f, 1, &v);
+  } else {
+    r = vtbl_mk_unknown(table);
+  }
+  return r;
+}
+
+/*
+ * Same thing for modulo: use table->zero_mod_fun
+ */
+value_t vtbl_eval_mod_by_zero(value_table_t *table, value_t v) {
+  value_t f, r;
+
+  f = table->zero_mod_fun;
+  if (f != null_value) {
+    r = vtbl_eval_application(table, f, 1, &v);
+  } else {
+    r = vtbl_mk_unknown(table);
+  }
+  return r;
+}
+
 
 
 

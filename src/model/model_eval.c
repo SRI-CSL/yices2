@@ -118,6 +118,13 @@ static rational_t *eval_get_rational(evaluator_t *eval, value_t v) {
 }
 
 /*
+ * Check whether v is zero: returns false if v is algebraic
+ */
+static bool eval_is_zero(evaluator_t *eval, value_t v) {
+  return object_is_rational(eval->vtbl, v) && q_is_zero(vtbl_rational(eval->vtbl, v));
+}
+
+/*
  * Attempt to get a non-zero rational value for v
  * - fails if v is an algebraic number or if it is zero
  */
@@ -288,15 +295,20 @@ static value_t eval_arith_rdiv(evaluator_t *eval, composite_term_t *d) {
 
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
-  
-  q_init(&q);
-  q_set(&q, eval_get_rational(eval, v1));
-  q_div(&q, eval_get_nz_rational(eval, v2));
-  q_normalize(&q);
 
-  o = vtbl_mk_rational(eval->vtbl, &q);
+  if (eval_is_zero(eval, v2)) {
+    o = vtbl_eval_rdiv_by_zero(eval->vtbl, v1);
+  } else {
+    q_init(&q);  
+    q_set(&q, eval_get_rational(eval, v1));
+    q_div(&q, eval_get_nz_rational(eval, v2));
+    q_normalize(&q);
+    
+    o = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+  }
+
 
   return o;
 }
@@ -314,13 +326,17 @@ static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
   
-  q_init(&q);
-  q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2));
-  q_normalize(&q);
+  if (eval_is_zero(eval, v2)) {
+    o = vtbl_eval_idiv_by_zero(eval->vtbl, v1);
+  } else {
+    q_init(&q);
+    q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2));
+    q_normalize(&q);
 
-  o = vtbl_mk_rational(eval->vtbl, &q);
+    o = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+  }
 
   return o;
 }
@@ -338,13 +354,17 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
 
-  q_init(&q);
-  q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2)); 
-  q_normalize(&q);
+  if (eval_is_zero(eval, v2)) {
+    o = vtbl_eval_mod_by_zero(eval->vtbl, v1);
+  } else {
+    q_init(&q);
+    q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2)); 
+    q_normalize(&q);
 
-  o = vtbl_mk_rational(eval->vtbl, &q);
+    o = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+  }
 
   return o;
 }
