@@ -3218,6 +3218,13 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
 
+  if (solver->verbosity >= 2) {
+    fprintf(stderr, "\nSimplify clause database\n");
+    fprintf(stderr, "  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n",
+	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
+	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
+  }
+
   simplify_binary_clauses(solver);
 
   d = 0; // count true clauses
@@ -3241,6 +3248,12 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
   solver->stats.simplify_calls ++;
 
   check_watch_vectors(solver);
+
+  if (solver->verbosity >= 2) {
+    fprintf(stderr, "  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
+	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
+	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
+  }
 }
 
 
@@ -5680,13 +5693,14 @@ static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
  */
 static void simplify_learned_clause(sat_solver_t *solver) {
   vector_t *buffer;
-  uint32_t i, j, n;
+  uint32_t i, j, n, n0;
   literal_t l;
 
   assert(solver->aux.size == 0);
 
   buffer = &solver->buffer;
   n = buffer->size;
+  n0 = n;
   j = 1;
   for (i=1; i<n; i++) { // The first literal is not redundant
     l = buffer->data[i];
@@ -5994,7 +6008,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
  * The Glucose original uses moving average/long-term average
  * instead of exponential moving averages. (cf. Biere & Froehlich).
  */
-static bool glucose_restart(sat_solver_t *solver) {
+static void glucose_blocking(sat_solver_t *solver) {
   uint64_t aux;
 
   if (solver->blocking_count >= 5000) {
@@ -6002,11 +6016,15 @@ static bool glucose_restart(sat_solver_t *solver) {
     aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size 
     if (aux > solver->blocking_ema) {
       solver->fast_count = 0; // delay the next restart
-      return false;
     }
   }
+}
+
+static bool glucose_restart(sat_solver_t *solver) {
+  uint64_t aux;
 
   if (solver->fast_count >= 50) {
+
     aux = solver->fast_ema;
     aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
     if (aux > solver->slow_ema) {
@@ -6074,7 +6092,7 @@ static void sat_search(sat_solver_t *solver) {
 	nsat_reduce_learned_clause_set(solver);
 	check_watch_vectors(solver);
 	solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
-	solver->reduce_threshold += 300; // Glucose
+	//	solver->reduce_threshold += 300; // Glucose
       }
 
       x = nsat_select_decision_variable(solver);
@@ -6090,6 +6108,7 @@ static void sat_search(sat_solver_t *solver) {
 	solver->status = STAT_UNSAT;
 	break;
       }
+      glucose_blocking(solver);
       resolve_conflict(solver);
       check_watch_vectors(solver);
 
@@ -6223,7 +6242,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
    if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
      solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
    }
-   solver->reduce_threshold = 2000; // Glucose
+   //   solver->reduce_threshold = 2000; // Glucose
 
   for (;;) {
     if (solver->verbosity >= 2) {
