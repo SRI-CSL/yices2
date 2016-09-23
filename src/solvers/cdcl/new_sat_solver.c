@@ -5682,14 +5682,13 @@ static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
  */
 static void simplify_learned_clause(sat_solver_t *solver) {
   vector_t *buffer;
-  uint32_t i, j, n, n0;
+  uint32_t i, j, n;
   literal_t l;
 
   assert(solver->aux.size == 0);
 
   buffer = &solver->buffer;
   n = buffer->size;
-  n0 = n;
   j = 1;
   for (i=1; i<n; i++) { // The first literal is not redundant
     l = buffer->data[i];
