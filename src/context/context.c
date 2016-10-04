@@ -1619,6 +1619,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
                   context_mode_t mode, context_arch_t arch, bool qflag) {
   assert(valid_mode(mode) && valid_arch(arch));
 
+  create_lock(&ctx->lock);
+
   /*
    * Set architecture and options
    */
@@ -1740,6 +1742,8 @@ void delete_context(context_t *ctx) {
   context_free_explorer(ctx);
 
   delete_bvconstant(&ctx->bv_buffer);
+
+  destroy_lock(&ctx->lock);
 }
 
 

@@ -32,6 +32,7 @@
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"
 #include "utils/int_vectors.h"
+#include "utils/locks.h"
 #include "utils/mark_vectors.h"
 #include "utils/pair_hash_map2.h"
 
@@ -366,6 +367,9 @@ typedef struct bv_interface_s {
  *************/
 
 struct context_s {
+  //lock to synchronize multithreaded access
+  lock_t lock;
+
   // mode + architecture + logic code
   context_mode_t mode;
   context_arch_t arch;
