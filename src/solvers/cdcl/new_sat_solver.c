@@ -15,7 +15,6 @@
 #include <float.h>
 
 #include "solvers/cdcl/new_sat_solver.h"
-#include "solvers/cdcl/sat_parameters.h"
 #include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/uint_array_sort.h"
@@ -28,6 +27,8 @@
 #define DEBUG 0
 #define TRACE 0
 #define DATA  0
+
+
 
 
 #if DEBUG
@@ -210,6 +211,77 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 
 #endif
 
+
+
+
+/************************
+ *  DEFAULT PARAMETERS  *
+ ***********************/
+
+/*
+ * Variable activities
+ */
+#define VAR_DECAY_FACTOR              0.95
+#define VAR_ACTIVITY_THRESHOLD        (1e100)
+#define INV_VAR_ACTIVITY_THRESHOLD    (1e-100)
+#define INIT_VAR_ACTIVITY_INCREMENT   1.0
+
+/*
+ * Clause activities
+ */
+#define CLAUSE_DECAY_FACTOR            0.999F
+#define CLAUSE_ACTIVITY_THRESHOLD      (1e20f)
+#define INV_CLAUSE_ACTIVITY_THRESHOLD  (1e-20f)
+#define INIT_CLAUSE_ACTIVITY_INCREMENT 1.0
+
+/*
+ * Default random_factor = 2% of decisions are random (more or less)
+ * - the heuristic generates a random 24 bit integer
+ * - if that number is <= random_factor * 2^24, then a random variable
+ *   is chosen
+ * - so we store random_factor * 2^24 = random_factor * 0x1000000 in
+ *   the randomness field of a sat solver.
+ */
+#define VAR_RANDOM_FACTOR 0.02F
+
+// mask to extract 24 bits out of an unsigned 32bit integer
+#define VAR_RANDOM_MASK  ((uint32_t)0xFFFFFF)
+#define VAR_RANDOM_SCALE (VAR_RANDOM_MASK+1)
+
+/*
+ * Clause deletion parameters
+ * - we don't delete clauses of lbd <= keep_lbd
+ * - we trigger the deletion when the number of learned clauses becomes
+ *   larger than solver->reduce_threshold.
+ * - the initial value of reduce_threshold is initially set to 
+ *     min(MIN_REDUCE_THRESHOLD, number of problem clauses/4)
+ * - after every reduction, the reduce_threhsold is updated to
+ *    reduce_threshold * REDUCE_FACTOR
+ */
+#define KEEP_LBD 4
+#define MIN_REDUCE_THRESHOLD 1000
+#define REDUCE_FACTOR 1.05
+
+
+/*
+ * Parameters to control preprocessing
+ *
+ * - subsumption checks can be expensive. To reduce the cost,
+ *   we don't check whether a clause C subsumes anything if that would
+ *   require visiting more than subsume_skip clauses. 
+ *
+ * - for variable elimination, we only consider variables that have
+ *   few positive or few negative occcurrences. If x has too many
+ *   positive and negative occurrence, it's not likely that we'll be
+ *   able to eliminate x anyway.
+ *
+ * - we also don't want to create large clauses when eliminating 
+ *   variables, so we don't eliminate x if that would create a
+ *   clause of size > res_clause_limit
+ */
+#define SUBSUME_SKIP 3000
+#define VAR_ELIM_SKIP 10
+#define RES_CLAUSE_LIMIT 20
 
 
 /**********
@@ -1929,7 +2001,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
-  solver->keep_lbd = 4;
+  solver->keep_lbd = KEEP_LBD;
 
   init_stats(&solver->stats);
 
@@ -1941,6 +2013,10 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_tag_map(&solver->map, 0); // use default size
 
   init_clause_vector(&solver->saved_clauses);
+
+  solver->var_elim_skip = VAR_ELIM_SKIP;
+  solver->subsume_skip = SUBSUME_SKIP;
+  solver->res_clause_limit = RES_CLAUSE_LIMIT;
 
   init_queue(&solver->lqueue);
   init_elim_heap(&solver->elim);
@@ -3405,20 +3481,19 @@ static cidx_t clause_queue_pop(sat_solver_t *solver) {
 
 /*
  * Variables that have too many positive and negative occurrences are not eliminated.
- * - we use 10 as a cutoff (as in Minisat)
+ * - the cutoff is solver->val_elim_skip (10 by default)
  */
 static bool pp_elim_candidate(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->occ[pos(x)] < 10 || solver->occ[neg(x)] < 10;
+  return solver->occ[pos(x)] < solver->var_elim_skip || solver->occ[neg(x)] < solver->var_elim_skip;
 }
 
 /*
  * Cost of eliminating x (heuristic estimate)
- * - x must be an elimination candidate, otherwise the product could overflow
  */
-static uint32_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
+static uint64_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
   assert(pp_elim_candidate(solver, x));
-  return solver->occ[pos(x)] * solver->occ[neg(x)];
+  return ((uint64_t) solver->occ[pos(x)]) * solver->occ[neg(x)];
 }
 
 #if 0
@@ -3770,6 +3845,18 @@ static void pp_collect_garbage(sat_solver_t *solver) {
   fprintf(stderr, "done: pool size = %"PRIu32", literals = %"PRIu32", padding = %"PRIu32"\n",
 	  solver->pool.size, solver->pool.num_prob_literals, solver->pool.padding);
 #endif
+}
+
+
+/*
+ * Heuristic for garbage collection:
+ * - at least 10000 cells wasted in the clause database
+ * - at leat 12.5% of waster cells
+ */
+static void pp_try_gc(sat_solver_t *solver) {
+  if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 3) {
+    pp_collect_garbage(solver);
+  }
 }
 
 
@@ -4316,7 +4403,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
-    if (m < 3000) {
+    if (m < solver->subsume_skip) {
       for (i=0; i<m; i++) {
 	k = w->data[i];
 	if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
@@ -4334,7 +4421,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
-    if (m < 3000) {
+    if (m < solver->subsume_skip) {
       for (i=0; i<m; i++) {
 	k = w->data[i];
 	if (k >= start && clause_is_live(&solver->pool, k)) {
@@ -4795,9 +4882,7 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
   solver->watch[pos(x)] = NULL;
   solver->watch[neg(x)] = NULL;
 
-  if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 3) {
-    pp_collect_garbage(solver);
-  }
+  pp_try_gc(solver);
 }
 
 
@@ -4839,7 +4924,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 	assert(idx_is_clause(c2));
 	if (clause_is_live(&solver->pool, c2)) {
 	  new_n += non_trivial_resolvent(solver, c1, c2, pos(x), &len);
-	  if (new_n > n || len > 20) return false;
+	  if (new_n > n || len > solver->res_clause_limit) return false;
 	}
       }
     }
@@ -5061,9 +5146,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   fprintf(stderr, "Elim unit/pure literals\n");
   collect_unit_and_pure_literals(solver);
   if (pp_empty_queue(solver)) {
-    if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 3) {
-      pp_collect_garbage(solver);
-    }
+    pp_try_gc(solver);
     collect_elimination_candidates(solver);
     assert(solver->scan_index == 0);
     do {
