@@ -679,7 +679,7 @@ typedef struct sat_solver_s {
   cidx_t conflict_index;
 
   /*
-   * Heuristics/parameters
+   * Heuristics/parameters for search
    */
   uint32_t prng;              // State of the pseudo-random number generator
   uint32_t randomness;        // 0x1000000 * random_factor
@@ -723,6 +723,25 @@ typedef struct sat_solver_s {
    * Saved clauses
    */
   clause_vector_t saved_clauses;
+
+  /*
+   * Heuristics/parameters for preprocessing
+   * (these have no effect if the 'preprocess' flag is false)
+   *
+   * - var_elim_skip controls which variables we try to elimiate. It's 10 by default.
+   *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
+   *
+   * - subsume_skip: when checking whether a clause cl can subsume something,
+   *   we visit clauses that share a variable with cl. It the number of clauses to
+   *   visit is larger than subsume_skip  we skip clause cl. The subsumption check would
+   *   be too expensive. This parameter is 3000 by default.
+   *
+   * - res_clause_limit: if eliminating a variable x would create a clause of size
+   *   larger than res_clause_limit, we keep x. Default value = 20.
+   */
+  uint32_t var_elim_skip;
+  uint32_t subsume_skip;
+  uint32_t res_clause_limit;
 
   /*
    * Data structures used during preprocessing:
