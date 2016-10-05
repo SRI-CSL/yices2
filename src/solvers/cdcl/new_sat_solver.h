@@ -731,19 +731,19 @@ typedef struct sat_solver_s {
    * Heuristics/parameters for preprocessing
    * (these have no effect if the 'preprocess' flag is false)
    *
-   * - var_elim_skip controls which variables we try to elimiate. It's 10 by default.
-   *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
-   *
    * - subsume_skip: when checking whether a clause cl can subsume something,
    *   we visit clauses that share a variable with cl. It the number of clauses to
    *   visit is larger than subsume_skip  we skip clause cl. The subsumption check would
    *   be too expensive. This parameter is 3000 by default.
    *
+   * - var_elim_skip controls which variables we try to elimiate. It's 10 by default.
+   *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
+   *
    * - res_clause_limit: if eliminating a variable x would create a clause of size
    *   larger than res_clause_limit, we keep x. Default value = 20.
    */
-  uint32_t var_elim_skip;
   uint32_t subsume_skip;
+  uint32_t var_elim_skip;
   uint32_t res_clause_limit;
 
   /*
@@ -862,6 +862,35 @@ extern void nsat_set_randomness(sat_solver_t *solver, float randomness);
  * Set the prng seed
  */
 extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
+
+/*
+ * LBD threshold for clause deletion. Clauses of ldb <= keep_lbd are not deleted.
+ */
+extern void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold);
+
+
+/*
+ * PREPROCESSING PARAMETERS
+ */
+
+/*
+ * Subsumption limit: skip subsumption checks for a clause cls if that
+ * would require visiting more than subsume_skip clauses.
+ */
+extern void nsat_set_subsume_skip(sat_solver_t *solver, uint32_t limit);
+
+/*
+ * Var-elimination limit: if x has too many positive and negative occurrences,
+ * we don't try to eliminate x.
+ */
+extern void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit);
+
+/*
+ * Resolvent limit: if eliminating x would create a clause larger than
+ * res_clause_limit, we keep x.
+ */
+extern void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit);
+
 
 
 /*********************

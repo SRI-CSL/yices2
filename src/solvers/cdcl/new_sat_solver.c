@@ -2174,6 +2174,43 @@ void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed) {
   solver->prng = seed;
 }
 
+/*
+ * LBD threshold for clause deletion. Clauses of ldb <= keep_lbd are not deleted.
+ */
+void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
+  solver->keep_lbd = threshold;
+}
+
+
+/*
+ * PREPROCESSING PARAMETERS
+ */
+
+/*
+ * Subsumption limit: skip subsumption checks for a clause cls if that
+ * would require visiting more than subsume_skip clauses.
+ */
+void nsat_set_subsume_skip(sat_solver_t *solver, uint32_t limit) {
+  solver->subsume_skip = limit;  
+}
+
+/*
+ * Var-elimination limit: if x has too many positive and negative occurrences,
+ * we don't try to eliminate x.
+ */
+void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit) {
+  solver->var_elim_skip = limit;
+}
+
+/*
+ * Resolvent limit: if eliminating x would create a clause larger than
+ * res_clause_limit, we keep x.
+ */
+void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit) {
+  solver->res_clause_limit = limit;
+}
+
+
 
 
 
