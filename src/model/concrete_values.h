@@ -57,6 +57,7 @@
  *  UNKNOWN_VALUE
  *  BOOLEAN_VALUE
  *  RATIONAL_VALUE
+ *  ALGEBRAIC_VALUE
  *  BITVECTOR_VALUE
  *  TUPLE_VALUE
  *  UNINTERPRETED_VALUE
@@ -70,6 +71,9 @@
  * To save memory, we also allow functions to be constructed as
  * updates of the form (update f_0 k) where k is a mapping and f_0
  * is another function.
+ *
+ * An algebraic value is an algebraic number (imported from the
+ * libpoly library).
  */
 
 /*
@@ -407,7 +411,7 @@ extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 /*
  * Algebraic number (make a copy).
  */
-extern value_t vtbl_mk_algebraic(value_table_t *table, void* a);
+extern value_t vtbl_mk_algebraic(value_table_t *table, void *a);
 
 /*
  * Bit-vector constant: input is an array of n integers

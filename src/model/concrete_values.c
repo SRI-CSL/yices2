@@ -1449,7 +1449,6 @@ static bool equal_map_value(map_hobj_t *o, value_t i) {
 }
 
 
-
 static bool equal_fun_value(fun_hobj_t *o, value_t i) {
   value_table_t *table;
   value_fun_t *f;
@@ -2103,7 +2102,6 @@ static bool is_plausible_div_by_zero(value_table_t *table, value_t f) {
 
   return false;
 }
-
 #endif
 
 /*
@@ -3315,7 +3313,7 @@ value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value
 /*
  * Evaluate (/ v 0) by a lookup in table->zero_rdiv_dun
  * - v should be an arithmetic object (but we don't check)
- * - return unknown if either zero_rdiv_fun is null or if the mapping to v is not defined.
+ * - return unknown if either zero_rdiv_fun is null or if the mapping of v is not defined.
  */
 value_t vtbl_eval_rdiv_by_zero(value_table_t *table, value_t v) {
   value_t f, r;
