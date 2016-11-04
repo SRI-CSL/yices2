@@ -20,11 +20,24 @@
 /*
  * Visibility control: all extern functions declared here are in libyices's API
  * Other extern functions should have visibility=hidden (cf. Makefile).
+ *
+ * On cygwin/mingw, we have to cases:
+ * - static build: NOYICES_DLL is defined.
+ * - dynamic build: NOYiCES_DLL is not defined.
+ *
+ * We don't want the attribute __declspec(dllexport) when NOYICES_DLL is defined
+ * otherwise clang gives compilation warnings
  */
 #if defined(CYGWIN) || defined(MINGW)
+// Windows build
+#if defined(NOYICES_DLL)
+#define EXPORTED
+#else
 #define EXPORTED __declspec(dllexport)
 #define __YICES_DLLSPEC__ EXPORTED
+#endif
 #else
+// Not Windows
 #define EXPORTED __attribute__((visibility("default")))
 #endif
 
