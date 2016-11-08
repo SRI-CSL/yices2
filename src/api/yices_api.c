@@ -21,7 +21,7 @@
  * Visibility control: all extern functions declared here are in libyices's API
  * Other extern functions should have visibility=hidden (cf. Makefile).
  *
- * On cygwin/mingw, we have to cases:
+ * On cygwin/mingw, we have two cases:
  * - static build: NOYICES_DLL is defined.
  * - dynamic build: NOYiCES_DLL is not defined.
  *
