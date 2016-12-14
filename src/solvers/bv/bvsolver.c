@@ -422,11 +422,12 @@ static void init_bv_trail(bv_trail_stack_t *stack) {
  * - na = number of atoms
  * - nb = number of bounds
  * - ns = number of select variables
- * - nd = number of delayed variables
+ * - ndm = number of delayed mapped variables
+ * - ndb = number of delayed blasted variables
  * - bb = bitblast pointer
  */
 static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb,
-                          uint32_t ns, uint32_t nd, uint32_t bb) {
+                          uint32_t ns, uint32_t ndm, uint32_t ndb, uint32_t bb) {
   uint32_t i, n;
 
   i = stack->top;
@@ -450,7 +451,8 @@ static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uin
   stack->data[i].natoms = na;
   stack->data[i].nbounds = nb;
   stack->data[i].nselects = ns;
-  stack->data[i].ndelayed = nd;
+  stack->data[i].ndelayed_mapped = ndm;
+  stack->data[i].ndelayed_blasted = ndb;
   stack->data[i].nbblasted = bb;
 
   stack->top = i+1;
@@ -633,6 +635,54 @@ static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x) {
 
 
 
+
+/********************
+ *  DELAYED QUEUES  *
+ *******************/
+
+/*
+ * Check whether x was created before the current base level
+ * - if so, add x to the delayed_blasted queue
+ */
+static void bv_solver_save_delayed_blasted_var(bv_solver_t *solver, thvar_t x) {
+  bv_trail_stack_t *trail;
+
+  trail = &solver->trail_stack;
+  if (trail->top > 0 && x < bv_trail_top(trail)->nvars) {
+    bv_queue_push(&solver->delayed_blasted, x);
+  }
+}
+
+/*
+ * Check whether x was created before the current base level
+ * - if so, add x to the delayed_mapped queue
+ *
+ * If x is in the delayed_mapped, we'll remove x's pseudo map on pop.
+ */
+static void bv_solver_save_delayed_mapped_var(bv_solver_t *solver, thvar_t x) {
+  bv_trail_stack_t *trail;
+
+  trail = &solver->trail_stack;
+  if (trail->top > 0 && x < bv_trail_top(trail)->nvars) {
+    bv_queue_push(&solver->delayed_mapped, x);
+  }
+}
+
+
+/*
+ * Store m as pseudo map for variable x. Also add x to the delayed queue
+ * if x was created before the current base level.
+ * - x must not be mapped already (i.e., solver->vtbl.map[x] must be NULL
+ * - m must be a non-null array
+ */
+static void bv_solver_set_map(bv_solver_t *solver, thvar_t x, literal_t *m) {
+  bvvar_set_map(&solver->vtbl, x, m);
+  bv_solver_save_delayed_mapped_var(solver, x);
+}
+
+
+
+
 /*****************
  *  BIT EXTRACT  *
  ****************/
@@ -691,7 +741,7 @@ static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     n = bvvar_bitsize(&solver->vtbl, x);
     rmap = bv_solver_get_remap(solver);
     tmp = remap_table_fresh_array(rmap, n);
-    bvvar_set_map(&solver->vtbl, x, tmp);
+    bv_solver_set_map(solver, x, tmp);
     bv_queue_push(&solver->select_queue, x);
   }
 
@@ -927,34 +977,6 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 /*
  * PSEUDO-LITERAL MAPS
  */
-
-/*
- * Check whether x was created before the current base level
- * - if so, add x to the delayed_queue
- *
- * If x is in the delayed_queue, we'll remove x's pseudo map on pop.
- */
-static void bv_solver_save_delayed_var(bv_solver_t *solver, thvar_t x) {
-  bv_trail_stack_t *trail;
-
-  trail = &solver->trail_stack;
-  if (trail->top > 0 && x < bv_trail_top(trail)->nvars) {
-    bv_queue_push(&solver->delayed_queue, x);
-  }
-}
-
-
-/*
- * Store m as pseudo map for variable x. Also add x to the delayed queue
- * if x was created before the current base level.
- * - x must not be mapped already (i.e., solver->vtbl.map[x] must be NULL
- * - m must be a non-null array
- */
-static void bv_solver_set_map(bv_solver_t *solver, thvar_t x, literal_t *m) {
-  bvvar_set_map(&solver->vtbl, x, m);
-  bv_solver_save_delayed_var(solver, x);
-}
-
 
 /*
  * Convert constant c to an array of pseudo literals
@@ -1426,6 +1448,7 @@ static void collect_bvvar_literals(bv_solver_t *solver, thvar_t x, ivector_t *v)
 }
 
 
+
 /*
  * Recursive bit-blasting:
  * - if x is bitblasted already: do nothing
@@ -1578,7 +1601,7 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
     bvvar_set_bitblasted(vtbl, x);
     bvvar_clr_mark(vtbl, x);
 
-    //    bv_solver_save_delayed_var(solver, x);
+    bv_solver_save_delayed_blasted_var(solver, x);
   }
 }
 
@@ -6854,7 +6877,8 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_bv_stats(&solver->stats);
 
   init_bv_queue(&solver->select_queue);
-  init_bv_queue(&solver->delayed_queue);
+  init_bv_queue(&solver->delayed_mapped);
+  init_bv_queue(&solver->delayed_blasted);
   init_bv_trail(&solver->trail_stack);
 
   init_bvpoly_buffer(&solver->buffer);
@@ -6925,7 +6949,8 @@ void delete_bv_solver(bv_solver_t *solver) {
   }
 
   delete_bv_queue(&solver->select_queue);
-  delete_bv_queue(&solver->delayed_queue);
+  delete_bv_queue(&solver->delayed_mapped);
+  delete_bv_queue(&solver->delayed_blasted);
   delete_bv_trail(&solver->trail_stack);
 
   delete_bvpoly_buffer(&solver->buffer);
@@ -6955,7 +6980,7 @@ void delete_bv_solver(bv_solver_t *solver) {
  * Start a new base level
  */
 void bv_solver_push(bv_solver_t *solver) {
-  uint32_t na, nv, nb, ns, nd, bb;
+  uint32_t na, nv, nb, ns, ndm, ndb, bb;
 
   assert(solver->decision_level == solver->base_level &&
          all_bvvars_unmarked(solver));
@@ -6964,10 +6989,11 @@ void bv_solver_push(bv_solver_t *solver) {
   na = solver->atbl.natoms;
   nb = solver->bqueue.top;
   ns = solver->select_queue.top;
-  nd = solver->delayed_queue.top;
+  ndm = solver->delayed_mapped.top;
+  ndb = solver->delayed_blasted.top;
   bb = solver->bbptr;
 
-  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd, bb);
+  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, ndm, ndb, bb);
 
   mtbl_push(&solver->mtbl);
 
@@ -7005,57 +7031,10 @@ static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
 
 
 /*
- * Mark all variables that will remain in the select queue
- * - n = number of variables to keep
- */
-static void mark_bvvars_of_select_queue(bv_solver_t *solver, uint32_t n) {
-  bv_vartable_t *vtbl;
-  bv_queue_t *squeue;
-  uint32_t i;
-  thvar_t x;
-
-  vtbl = &solver->vtbl;
-
-  squeue = &solver->select_queue;
-  assert(n <= squeue->top);
-
-  for (i=0; i<n; i++) {
-    x = squeue->data[i];
-    assert(bvvar_is_mapped(vtbl, x));
-    bvvar_set_mark(vtbl, x);
-  }
-}
-
-
-/*
- * Remove the marks of all variables in the select queue
- * - n = number of variables to keep
- */
-static void unmark_bvvars_of_select_queue(bv_solver_t *solver, uint32_t n) {
-  bv_vartable_t *vtbl;
-  bv_queue_t *squeue;
-  uint32_t i;
-  thvar_t x;
-
-  vtbl = &solver->vtbl;
-
-  squeue = &solver->select_queue;
-  assert(n <= squeue->top);
-
-  for (i=0; i<n; i++) {
-    x = squeue->data[i];
-    assert(bvvar_is_mapped(vtbl, x) && bvvar_is_marked(vtbl, x));
-    bvvar_clr_mark(vtbl, x);
-  }
-}
-
-
-/*
- * Remove the map and bit-blasting mark of variables in
- * the delayed_queue:
+ * Remove the map of variables in the delayed_mapped queue
  * - n = number of variables in the queue at the corresponding push
  */
-static void bv_solver_clean_delayed_vars(bv_solver_t *solver, uint32_t n) {
+static void bv_solver_clean_delayed_mapped_vars(bv_solver_t *solver, uint32_t n) {
   bv_vartable_t *vtbl;
   bv_queue_t *dqueue;
   uint32_t i, top;
@@ -7063,20 +7042,41 @@ static void bv_solver_clean_delayed_vars(bv_solver_t *solver, uint32_t n) {
 
   vtbl = &solver->vtbl;
 
-  dqueue = &solver->delayed_queue;
+  dqueue = &solver->delayed_mapped;
   top = dqueue->top;
   assert(n <= top);
 
   for (i=n; i<top; i++) {
     x = dqueue->data[i];
     assert(bvvar_is_mapped(vtbl, x));
-    bvvar_clr_bitblasted(vtbl, x);
-    if (! bvvar_is_marked(vtbl, x)) {
-      // delete the pseudo map
-      bvvar_reset_map(vtbl, x);
-    }
+    bvvar_reset_map(vtbl, x);
   }
 }
+
+
+/*
+ * Remove the 'bitblasted' mark of variables in the delayed_blasted queue
+ * - n = number of variables in the queue at the corresponding push
+ */
+static void bv_solver_clean_delayed_blasted_vars(bv_solver_t *solver, uint32_t n) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *dqueue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+
+  dqueue = &solver->delayed_blasted;
+  top = dqueue->top;
+  assert(n <= top);
+
+  for (i=n; i<top; i++) {
+    x = dqueue->data[i];
+    assert(bvvar_is_bitblasted(vtbl, x));
+    bvvar_clr_bitblasted(vtbl, x);
+  }
+}
+
 
 
 /*
@@ -7098,7 +7098,6 @@ static void bv_solver_clean_select_queue(bv_solver_t *solver, uint32_t n) {
   assert(n <= top);
   for (i=n; i<top; i++) {
     x = squeue->data[i];
-    // map[x] may have been reset by clean_delayed_vars
     if (bvvar_is_mapped(vtbl, x)) {
       bvvar_reset_map(vtbl, x);
     }
@@ -7137,22 +7136,15 @@ void bv_solver_pop(bv_solver_t *solver) {
     cache_pop(solver->cache);
   }
 
+  assert(all_bvvars_unmarked(solver));
+
   /*
-   * remove the dead maps:
-   * 1) first mark all variables in the select queue
-   *    they must be marked as non-bitblasted but their pseudo map must be kept
-   * 2) clear the 'bitblasted' flag of all variables in the delayed queue
-   *    also delete the pseudo map of all non-marked variables (not in select queue)
-   * 3) cleanup all marks
+   * Remove maps and bitblasted marks of delayed variables.
    */
-  assert(all_bvvars_unmarked(solver));
-
-  mark_bvvars_of_select_queue(solver, top->nselects);
-  bv_solver_clean_delayed_vars(solver, top->ndelayed);
-  solver->delayed_queue.top = top->ndelayed;
-  unmark_bvvars_of_select_queue(solver, top->nselects);
-
-  assert(all_bvvars_unmarked(solver));
+  bv_solver_clean_delayed_mapped_vars(solver, top->ndelayed_mapped);
+  solver->delayed_mapped.top = top->ndelayed_mapped;
+  bv_solver_clean_delayed_blasted_vars(solver, top->ndelayed_blasted);
+  solver->delayed_blasted.top = top->ndelayed_blasted;
 
   /*
    * remove vars in the select queue
@@ -7228,7 +7220,8 @@ void bv_solver_reset(bv_solver_t *solver) {
 
   reset_bv_stats(&solver->stats);
   reset_bv_queue(&solver->select_queue);
-  reset_bv_queue(&solver->delayed_queue);
+  reset_bv_queue(&solver->delayed_mapped);
+  reset_bv_queue(&solver->delayed_blasted);
   reset_bv_trail(&solver->trail_stack);
 
   reset_bvpoly_buffer(&solver->buffer, 32);
