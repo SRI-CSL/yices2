@@ -3250,7 +3250,7 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
   check_watch_vectors(solver);
 
   if (solver->verbosity >= 2) {
-    fprintf(stderr, "  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
+    fprintf(stderr, "  on exit: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
 	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
