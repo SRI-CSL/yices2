@@ -41,7 +41,7 @@ Yices Types
        uint32_t capacity;
        uint32_t size;
        type_t *data;
-     }
+     } type_vector_t;
 
    A type vector *v* stores a variable-sized array of types:
 
@@ -85,7 +85,7 @@ Yices Terms
        uint32_t capacity;
        uint32_t size;
        type_t *data;
-     }
+     } type_vector_t;
 
    A term vector *v* stores a variable-sized array of terms:
 
