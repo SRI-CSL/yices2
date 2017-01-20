@@ -2993,7 +2993,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n, n0;
   cidx_t *a;
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 4) {
     fprintf(stderr, "\nReduce learned clause set\n");
     fprintf(stderr, "  on entry: %"PRIu32" clauses, %"PRIu32" literals\n", 
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
@@ -3004,7 +3004,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   check_candidate_clauses_to_delete(solver, a, n); // DEBUG
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 4) {
     fprintf(stderr, "  possible deletion: %"PRIu32" clauses\n", n);
   }
 
@@ -3022,7 +3022,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   check_watch_vectors(solver);
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 4) {
     fprintf(stderr, "  on exit: %"PRIu32" clauses, %"PRIu32" literals\n\n", 
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
@@ -3218,7 +3218,7 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 4) {
     fprintf(stderr, "\nSimplify clause database\n");
     fprintf(stderr, "  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n",
 	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
@@ -3249,7 +3249,7 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 
   check_watch_vectors(solver);
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 4) {
     fprintf(stderr, "  on exit: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
 	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
