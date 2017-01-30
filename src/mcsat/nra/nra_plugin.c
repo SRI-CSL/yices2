@@ -1441,7 +1441,7 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
 
   if (unit && nra->ctx->trail->decision_level == 0) {
 
-    // Get the feaisble set
+    // Get the feasible set
     lp_feasibility_set_t* lemma_feasible = lp_feasibility_set_new_empty();
 
     // Add all the literal sets
@@ -1472,6 +1472,8 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
         lp_feasibility_set_print(constraint_feasible, ctx_trace_out(nra->ctx));
         ctx_trace_printf(nra->ctx, "\n");
       }
+
+
 
       lp_feasibility_set_add(lemma_feasible, constraint_feasible);
       lp_feasibility_set_delete(constraint_feasible);
@@ -1521,6 +1523,19 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       // If infeasible report conflict
       if (!feasible) {
         nra_plugin_report_conflict(nra, prop, unit_var);
+      }
+
+      // Check for integer conflict
+      if (variable_db_is_int(nra->ctx->var_db, unit_var)) {
+        // Check if there is an integer value
+        lp_value_t v;
+        lp_value_construct_none(&v);
+        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, unit_var), &v);
+        if (!lp_value_is_integer(&v)) {
+          nra->conflict_variable_int = unit_var;
+          nra_plugin_report_conflict(nra, prop, unit_var);
+        }
+        lp_value_destruct(&v);
       }
 
       delete_ivector(&lemma_reasons);
