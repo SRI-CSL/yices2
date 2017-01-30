@@ -1523,10 +1523,7 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       // If infeasible report conflict
       if (!feasible) {
         nra_plugin_report_conflict(nra, prop, unit_var);
-      }
-
-      // Check for integer conflict
-      if (variable_db_is_int(nra->ctx->var_db, unit_var)) {
+      } else if (variable_db_is_int(nra->ctx->var_db, unit_var)) {
         // Check if there is an integer value
         lp_value_t v;
         lp_value_construct_none(&v);
