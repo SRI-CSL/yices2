@@ -198,7 +198,7 @@ variable_t var_queue_pop(var_queue_t *queue) {
   return top;
 }
 
-/** Get and remove random element (the heap must not be empty) */
+/** Get random element (the heap must not be empty) */
 variable_t var_queue_random(var_queue_t *queue, double* seed) {
   assert(queue->heap_last > 0);
   return queue->heap[irand(seed, queue->heap_last)+1];

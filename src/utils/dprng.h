@@ -11,6 +11,9 @@
 
 #ifndef __DPRNG_H
 
+#include <assert.h>
+#include <stdint.h>
+
 #define DPRNG_DEFAULT_SEED 91648253
 
 // Returns a random double 0 <= x < 1. Seed must not be 0.
