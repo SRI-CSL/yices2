@@ -16,6 +16,21 @@ to initialize Yices, construct and print terms, create a context and
 assert formulas, and build and query a model when a context is
 satisfiable.
 
+.. warning::
+
+   You may encounter problems if you compile the example with Visual
+   Studio on Windows. These problems are caused by incompatibilities
+   between C runtime libraries of Visual Studio and the one Yices is
+   linked against.  See https://msdn.microsoft.com/en-us/library/ms235460(v=vs.140).aspx
+   for a detailed explanation.
+
+   To avoid these issues, we recommend compiling with mingw.
+   It is still possible to use Visual Studio or other compilers on Windows,
+   as long as you avoid functions in the Yices API that take a :c:type:`FILE *`
+   argument. File :file:`examples/example1b.c` in the distribution shows
+   how to use alternative functions for pretty printing.
+
+
 Global Initialization
 ---------------------
 
@@ -250,4 +265,5 @@ Running this example should produce something like this:
   (= y 100)
   Value of x = 0
   Value of y = 100
+
 
