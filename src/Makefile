@@ -607,15 +607,10 @@ endif
 CPPFLAGS := -I. -Iinclude $(CPPFLAGS)
 
 #
-# Warning levels
-# in devel mode we get a lot of Warnings about inlined stuff
-# (this is caused by the inlined functions in asserts).
+# Warning levels: dropped the flag -Winiline in all build modes.
+# Can't keep up with gcc/clang.
 #
-ifeq ($(YICES_MODE),devel)
 CFLAGS += -Wall -Wredundant-decls
-else
-CFLAGS += -Wall -Winline -Wredundant-decls
-endif
 
 #
 # Format string issues on Windows/mingw
