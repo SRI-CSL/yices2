@@ -27,7 +27,7 @@ pretty printing. Initially, the base name is :c:macro:`NULL`.  It is set on the
 first call to :c:func:`yices_set_term_name` or
 :c:func:`yices_set_type_name`.
 
-In addition, Yices maintains two symbol tables that maps names to
+In addition, Yices maintains two symbol tables that map names to
 terms and names to types, respectively. The name spaces for types and
 terms are disjoint. The term or type to which a name refers can be
 changed, and Yices provides a scoping mechanism:
