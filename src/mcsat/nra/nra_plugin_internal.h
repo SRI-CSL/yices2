@@ -37,7 +37,7 @@ typedef enum {
   CONSTRAINT_FULLY_ASSIGNED
 } constraint_unit_info_t;
 
-typedef struct nra_plugin_s {
+struct nra_plugin_s {
 
   /** The plugin interface */
   plugin_t plugin_interface;
@@ -117,7 +117,7 @@ typedef struct nra_plugin_s {
   /** Exception handler */
   jmp_buf* exception;
 
-} nra_plugin_t;
+};
 
 /**
  * Gets all the arithmetic variables from a non-atom t and adds their corresponding
