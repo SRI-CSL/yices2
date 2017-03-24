@@ -7,7 +7,7 @@
 
 /*
  * File reader: keeps track of filename, position, and current character.
- * String reader: same thing but read from a null-terminated string.
+ * String reader: same thing but reads from a null-terminated string.
  */
 
 #ifndef __READER_H

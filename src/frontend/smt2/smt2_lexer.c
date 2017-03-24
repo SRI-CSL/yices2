@@ -568,7 +568,7 @@ static smt2_token_t smt2_read_string_var(lexer_t *lex) {
       tk = SMT2_TK_INVALID_STRING;
       break;
     }
-   string_buffer_append_char(buffer, c);
+    string_buffer_append_char(buffer, c);
   }
 
   string_buffer_close(buffer);
