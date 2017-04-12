@@ -26,6 +26,7 @@
 #include "mcsat/ite/ite_plugin.h"
 #include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
+#include "mcsat/bv/bv_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
@@ -579,6 +580,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
   mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
+  mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
 }
 
 static
