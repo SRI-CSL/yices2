@@ -387,19 +387,19 @@ typedef struct watch_s {
 
 /*
  * When variables/clauses are eliminated, we may need to keep a copy of some
- * of the clause to recover the truth value of eliminated variables.
+ * of the clauses to recover the truth value of eliminated variables.
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
  * where l is either pos(x) or neg(x) and x is an eliminated variable.
  * 
  * If we have a model M, that doesn't give a value to x, we extend the assignemnt
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
  * Otherwise, we set l := true (to force C_1 \/ l .... C_k \/ l to all be true in the
- * extended model. For this to work, must process variables in reverse order of elimination.
- * So that C_1 ... C_k have a value in M when we process x.
+ * extended model. For this to work, we must process the variables in reverse order of 
+ * elimination, so that C_1 ... C_k have a value in M when we process x.
  *
  * The saved clauses are stored in a vector and are organized in blocks.
  * Each block stores k clauses C_1 \/ l ... C_k \/ l as above. The eliminated literal 'l'
- * is last element of each clause. We then store the length of the block.
+ * is the last element of each clause. We then store the length of the block.
  * This looks like this:
  *
  *   -----------------------------------------------------------------------------
@@ -686,6 +686,7 @@ typedef struct sat_solver_s {
   float cla_inc;              // Clause activity increment
   float inv_cla_decay;        // Inverse of clause decay (1/0.999)
   uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
+  uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
   uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
   uint32_t simplify_bottom;   // stack pointer after the last call to simplify_clause_database
   uint64_t simplify_props;    // value of the propagation counter at this point
