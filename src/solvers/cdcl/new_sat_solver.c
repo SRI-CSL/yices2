@@ -1930,6 +1930,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
   solver->keep_lbd = 4;
+  solver->reduce_fraction = 16; // each reduce removes half the learned clauses
 
   init_stats(&solver->stats);
 
@@ -3008,8 +3009,9 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
     fprintf(stderr, "  possible deletion: %"PRIu32" clauses\n", n);
   }
 
-  // the first half of a contains clauses of low score
-  n0 = n/2;
+  // a contains the clauses that can be deleted
+  // less useful clauses (i.e., low-activity clauses) occur first
+  n0 = solver->reduce_fraction * (n/32);
   for (i=0; i<n0; i++) {
     clause_pool_delete_clause(&solver->pool, a[i]);
     solver->stats.learned_clauses_deleted ++;
