@@ -1,8 +1,19 @@
 dnl========================================================================
-dnl The Yices SMT Solver. Copyright 2015 SRI International.
+dnl The Yices SMT Solver. Copyright 2017 SRI International.
 dnl
-dnl This program may only be used subject to the noncommercial end user
-dnl license agreement which is downloadable along with this program.
+dnl Yices is free software: you can redistribute it and/or modify
+dnl it under the terms of the GNU General Public License as published by
+dnl the Free Software Foundation, either version 3 of the License, or
+dnl (at your option) any later version.
+dnl
+dnl Yices is distributed in the hope that it will be useful,
+dnl but WITHOUT ANY WARRANTY; without even the implied warranty of
+dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+dnl GNU General Public License for more details.
+dnl
+dnl You should have received a copy of the GNU General Public License
+dnl along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+dnl
 dnl========================================================================
 
 dnl

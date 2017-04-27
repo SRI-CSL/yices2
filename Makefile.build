@@ -1,9 +1,22 @@
 # -*-makefile-gmake-*- (emacs mode)
 #########################################################################
-#  The Yices SMT Solver. Copyright 2014 SRI International.              #
-#                                                                       #
-#  This program may only be used subject to the noncommercial end user  #
-#  license agreement which is downloadable along with this program.     #
+#
+#  This file is part of the Yices SMT Solver.
+#  Copyright (C) 2017 SRI International.
+# 
+#  Yices is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Yices is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+#
 #########################################################################
 
 
@@ -349,7 +362,8 @@ tarfile: $(distributions) doc
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(dist_dir)/* $(bindist_dir)
-	cp etc/LICENSE etc/NOTICES $(bindist_dir)
+	cp etc/NOTICES $(bindist_dir)
+	cp LICENSE.txt $(bindist_dir)/LICENSE
 	$(MKREADME) $(dist_dir) etc/README.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
@@ -374,7 +388,8 @@ static-tarfile: $(distributions) doc
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
-	cp etc/LICENSE etc/NOTICES $(bindist_dir)
+	cp etc/NOTICES $(bindist_dir)
+	cp LICENSE.txt $(bindist_dir)/LICENSE
 	$(MKREADME) $(static_dist_dir) etc/README.static.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
@@ -512,7 +527,8 @@ source-distribution: $(distributions) doc
 	$(MKDIR_P) $(srcdist_dir)/configs
 	$(MKDIR_P) $(srcdist_dir)/etc
 	cp etc/README.source $(srcdist_dir)/README
-	cp etc/LICENSE etc/NOTICES $(srcdist_dir)
+	cp etc/NOTICES $(srcdist_dir)
+	cp LICENSE.txt $(srcdist_dir)/LICENSE
 	cp etc/* $(srcdist_dir)/etc
 	$(MKDIR_P) $(srcdist_dir)/src
 	rsync -R `find src/ -name "Makefile" -or -name "*.c" -or -name "*.h" -or -name "*.txt"` $(srcdist_dir)
