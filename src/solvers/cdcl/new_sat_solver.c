@@ -1991,7 +1991,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
   solver->keep_lbd = 4;
-  solver->reduce_fraction = 16; // each reduce removes half the learned clauses
+  solver->reduce_fraction = 5; // each reduce removes half the learned clauses
 
   init_stats(&solver->stats);
 
