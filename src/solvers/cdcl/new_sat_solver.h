@@ -391,7 +391,7 @@ typedef struct watch_s {
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
  * where l is either pos(x) or neg(x) and x is an eliminated variable.
  * 
- * If we have a model M, that doesn't give a value to x, we extend the assignemnt
+ * If we have a model M that doesn't give a value to x, we extend the assignemnt
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
  * Otherwise, we set l := true (to force C_1 \/ l .... C_k \/ l to all be true in the
  * extended model. For this to work, we must process the variables in reverse order of 
@@ -477,6 +477,50 @@ typedef struct {
  * Initial size of level_index
  */
 #define DEFAULT_NLEVELS 100
+
+
+
+/*******************
+ *  CLAUSE STACK   *
+ ******************/
+
+/*
+ * Experimental data structure to store clauses in a stack,
+ * organized by decision levels.
+ *
+ * Clauses are stored in array data using the same format as clause_pool.
+ * A clause is identified by an index i (which is a multiple of four)
+ *   data[i] = clause length
+ *   data[i+1] = auxiliary data (clause LDB)
+ *   data[i+2,... i+n+2] = array of n literals = the clause
+ * The first literal (in data[i+2]) is true.
+ * The other literals in data[i+3 ... i+n+2] are all false.
+ *
+ * The stack is organize in levels:
+ * - level[i] = index of the first clause learned at decision level i
+ * - nelvels = number of levels
+ *
+ * Rest of the stack:
+ * - capacity = full size of array data
+ * - top = index in array data where the next clause will be stored
+ */
+typedef struct {
+  uint32_t *data;
+  uint32_t top;
+  uint32_t capacity; // size of array data
+  uint32_t *level;
+  uint32_t nlevels; // size of array level
+} clause_stack_t;
+
+
+/*
+ * Initial and maximal capacity
+ * DEFAULT_NLEVELS is 100.
+ */
+#define DEF_CLAUSE_STACK_CAPACITY 16384
+#define MAX_CLAUSE_STACK_CAPACITY (MAX_ARRAY32_SIZE & ~3)
+
+
 
 
 /******************************
@@ -567,6 +611,7 @@ typedef struct solver_stats_s {
  * - propagated from a binary clause
  * - propagated from a non-binary clause
  * + another one for variables not assigned
+ * + another one for variables propagated from a stacked clause.
  *
  * If preprocessing is enabled, we also use this tag to keep track of
  * eliminated variables:
@@ -579,6 +624,7 @@ typedef enum antecedent_tag {
   ATAG_DECISION,
   ATAG_BINARY,
   ATAG_CLAUSE,
+  ATAG_STACKED,
   ATAG_PURE,
   ATAG_ELIM,
 } antecedent_tag_t;
@@ -670,6 +716,11 @@ typedef struct sat_solver_s {
   uint32_t units;             // Number of unit clauses
   uint32_t binaries;          // Number of binary clauses
   clause_pool_t pool;         // Pool for non-binary/non-unit clauses
+
+  /*
+   * Clause stack (experimental)
+   */
+  clause_stack_t stash;
 
   /*
    * Conflict data
