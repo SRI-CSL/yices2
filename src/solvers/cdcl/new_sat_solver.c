@@ -1467,6 +1467,9 @@ static void extend_stack(sol_stack_t *s, uint32_t nvar) {
 
 /*
  * Extend the level_index array by 50%
+ *
+ * (since nlevels <= number of variables <= UINT32/4, we know
+ *  that nlevels + (nlevels>>1) can't overflow).
  */
 static void increase_stack_levels(sol_stack_t *s) {
   uint32_t n;
@@ -1507,6 +1510,151 @@ static void push_literal(sol_stack_t *s, literal_t l) {
   s->top = i + 1;
 }
 
+
+
+/*******************
+ *  CLAUSE STACK   *
+ ******************/
+
+/*
+ * Initialize the stack
+ */
+static void init_clause_stack(clause_stack_t *s) {
+  s->data = (uint32_t *) safe_malloc(DEF_CLAUSE_STACK_CAPACITY * sizeof(uint32_t));
+  s->top = 0;
+  s->capacity = DEF_CLAUSE_STACK_CAPACITY;
+  s->level = (uint32_t *) safe_malloc(DEFAULT_NLEVELS * sizeof(uint32_t));
+  s->level[0] = 0;
+  s->nlevels = DEFAULT_NLEVELS;
+}
+
+
+/*
+ * Extend the level array by 50%
+ */
+static void increase_clause_stack_levels(clause_stack_t *s) {
+  uint32_t n;
+
+  n = s->nlevels;
+  n += n>>1;
+  s->level = (uint32_t *) safe_realloc(s->level, n * sizeof(uint32_t));
+  s->nlevels = n;
+}
+
+/*
+ * Free memory
+ */
+static void delete_clause_stack(clause_stack_t *s) {
+  safe_free(s->data);
+  safe_free(s->level);
+  s->data = NULL;
+  s->level = NULL;
+}
+
+/*
+ * Empty the stack
+ */
+static void reset_clause_stack(clause_stack_t *s) {
+  s->top = 0;
+  assert(s->level[0] == 0);
+}
+
+
+/*
+ * Capacity increase:
+ * - about 50% larger than the current cap
+ * - rounded up to the next multiple of four
+ */
+static inline uint32_t clause_stack_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + 8) & ~3;
+}
+
+/*
+ * Increase the stack size until we have enough room for n elements
+ */
+static void resize_clause_stack(clause_stack_t *s, uint32_t n) {
+  uint32_t min_cap, cap, increase;
+
+  min_cap = s->top + n;
+  if (min_cap < n || min_cap >= MAX_CLAUSE_STACK_CAPACITY) {
+    // can't make the stack that large
+    out_of_memory();
+  }
+
+  cap = s->capacity;
+  do {
+    increase = clause_stack_cap_increase(cap);
+    cap += increase;
+    if (cap < increase) {
+      // arithmetic overflow
+      cap = MAX_CLAUSE_STACK_CAPACITY;
+    }
+  } while (cap < min_cap);
+
+  s->data = (uint32_t *) safe_realloc(s->data, cap * sizeof(uint32_t));
+  s->capacity = cap;
+}
+
+/*
+ * Make room to push n integers on top of the stack
+ */
+static cidx_t clause_stack_alloc(clause_stack_t *s, uint32_t n) {
+  cidx_t i;
+
+  i = s->top;
+  n = (n + 3) & ~3; // round up to a multiple of four
+  if (i + n >= s->capacity) {
+    resize_clause_stack(s, n);
+  }
+  s->top = i+n;
+
+  return i;
+}
+
+
+/*
+ * Add a clause to the stack and return the clause idx.
+ * - n = size of the clause
+ * - a = literal array
+ */
+static cidx_t push_clause(clause_stack_t *s, uint32_t n, const literal_t *a) {
+  uint32_t i, cidx;
+  uint32_t *p;
+
+  cidx = clause_stack_alloc(s, n+2);
+  s->data[cidx] = n;
+  s->data[cidx + 1] = 0;
+  p = s->data + cidx + 2;
+  for (i=0; i<n; i++) {
+    p[i] = a[i];
+  }
+  return cidx;
+}
+
+
+/*
+ * READ STACKED CLAUSES
+ */
+#ifndef NDEBUG
+static inline bool good_stacked_clause_idx(const clause_stack_t *s, cidx_t idx) {
+  return ((idx & 3) == 0) && idx < s->top;
+}
+#endif
+
+static inline uint32_t stacked_clause_length(const clause_stack_t *s, cidx_t idx) {
+  assert(good_stacked_clause_idx(s, idx));
+  return s->data[idx];
+}
+
+static inline literal_t *stacked_clause_literals(const clause_stack_t *s, cidx_t idx) {
+  assert(good_stacked_clause_idx(s, idx));
+  return s->data + idx + 2;
+}
+
+static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s, cidx_t idx) {
+  assert(good_stacked_clause_idx(s, idx));
+  return s->data[idx + 2];
+}
 
 
 /*******************
@@ -1922,6 +2070,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->binaries = 0;
   init_clause_pool(&solver->pool);
 
+  init_clause_stack(&solver->stash);
+
   solver->conflict_tag = CTAG_NONE;
 
   solver->prng = PRNG_SEED;
@@ -1930,7 +2080,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
   solver->keep_lbd = 4;
-  solver->reduce_fraction = 5; // each reduce removes half the learned clauses
+  solver->reduce_fraction = 28; // each reduce removes 28/32 of the learned clauses
 
   init_stats(&solver->stats);
 
@@ -1990,6 +2140,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
 
   delete_heap(&solver->heap);
   delete_stack(&solver->stack);
+  delete_clause_stack(&solver->stash);
   delete_clause_pool(&solver->pool);
 
   safe_free(solver->cidx_array);
@@ -2029,6 +2180,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   solver->units = 0;
   solver->binaries = 0;
   reset_clause_pool(&solver->pool);
+
+  reset_clause_stack(&solver->stash);
 
   solver->conflict_tag = CTAG_NONE;
 
@@ -2325,6 +2478,10 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
     increase_stack_levels(&solver->stack);
   }
   solver->stack.level_index[k] = solver->stack.top;
+  if (solver->stash.nlevels <= k) {
+    increase_clause_stack_levels(&solver->stash);
+  }
+  solver->stash.level[k] = solver->stash.top;
 
   push_literal(&solver->stack, l);
 
@@ -2399,6 +2556,22 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
   fflush(stdout);
 #endif
 }
+
+
+/*
+ * Literal l implied by stacked clause cidx
+ */
+static void stacked_clause_propagation(sat_solver_t *solver, literal_t l, cidx_t cidx) {
+  implied_literal(solver, l, ATAG_STACKED, cidx);
+
+#if TRACE
+  printf("\n---> DPLL:   Implied literal %"PRIu32", by stacked clause %"PRIu32", decision level = %"PRIu32"\n", l, cidx, solver->decision_level);
+  fflush(stdout);
+#endif
+}
+
+
+
 
 
 
@@ -2778,7 +2951,7 @@ static void restore_clause_antecedent(sat_solver_t *solver, cidx_t cidx, cidx_t 
 /*
  * Move clause from src_idx to dst_idx
  * - requires dst_idx < src_idx
- * - thie copies header + literals
+ * - this copies header + literals
  * - n = length of the source clause
  */
 static void clause_pool_move_clause(clause_pool_t *pool, cidx_t dst_idx, cidx_t src_idx, uint32_t n) {
@@ -4732,7 +4905,7 @@ static void pp_add_resolvent(sat_solver_t *solver, uint32_t c1, uint32_t c2, lit
 
 /*
  * Mark x as an eliminated variable:
- * - we also give it a value to make sure pos(x) or neg(x) don't get
+ * - we also give it a value to make sure pos(x) and neg(x) don't get
  *   added to the queue of pure_literals.
  */
 static void pp_mark_eliminated_variable(sat_solver_t *solver, bvar_t x) {
@@ -5326,9 +5499,12 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
     assert(var_is_unassigned(solver, x));
     heap_insert(&solver->heap, x);
   }
-
   solver->stack.top = i;
   solver->stack.prop_ptr = i;
+
+  // same thing for the clause stack
+  solver->stash.top = solver->stash.level[back_level];
+
   solver->decision_level = back_level;
 }
 
@@ -5471,6 +5647,26 @@ static uint32_t process_clause(sat_solver_t *solver, cidx_t cidx, uint32_t i0) {
   return toresolve;
 }
 
+/*
+ * Stacked clause cidx
+ * - process literals at indexes 1 to n
+ * - the first literal is the implied literal
+ * - return the number of literals to resolve.
+ */
+static uint32_t process_stacked_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *lit;
+  uint32_t i, n, toresolve;
+
+  toresolve = 0;
+  n = stacked_clause_length(&solver->stash, cidx);
+  lit = stacked_clause_literals(&solver->stash, cidx);
+  assert(n >= 2);
+  for (i=1; i<n; i++) {
+    toresolve += process_literal(solver, lit[i]);
+  }
+  return toresolve;
+}
+
 
 /*
  * Build learned clause and find UIP
@@ -5521,14 +5717,24 @@ static void analyze_conflict(sat_solver_t *solver) {
 	unresolved --;
 	x = var_of(b);
 	unmark_variable(solver, x);
-	if (solver->ante_tag[x] == ATAG_BINARY) {
+	switch (solver->ante_tag[x]) {
+	case ATAG_BINARY:
 	  // solver->ante_data[x] = antecedent literal
 	  unresolved += process_literal(solver, solver->ante_data[x]);
-	} else {
-	  assert(solver->ante_tag[x] == ATAG_CLAUSE);
+	  break;
+
+	case ATAG_CLAUSE:
 	  assert(first_literal_of_clause(&solver->pool, solver->ante_data[x]) == b);
 	  // solver->ante_data[x] = antecedent clause
 	  unresolved += process_clause(solver, solver->ante_data[x], 1);
+	  break;
+
+	default:
+	  assert(solver->ante_tag[x] == ATAG_STACKED);
+	  assert(first_literal_of_stacked_clause(&solver->stash, solver->ante_data[x]) == b);
+	  // solver->ante_data[x] = antecedent stacked clause
+	  unresolved += process_stacked_clause(solver, solver->ante_data[x]);
+	  break;
 	}
       }
     }
@@ -5585,14 +5791,26 @@ static bvar_t predecessor(sat_solver_t *solver, bvar_t x, uint32_t i) {
   literal_t *lit;
   literal_t l;
 
-  if (solver->ante_tag[x] == ATAG_BINARY) {
+  switch (solver->ante_tag[x]) {
+  case ATAG_BINARY:
     assert(i == 0);
     l = solver->ante_data[x];
-  } else {
+    break;
+
+  case ATAG_CLAUSE:
     assert(i < clause_length(&solver->pool, solver->ante_data[x]) - 1);
     lit = clause_literals(&solver->pool, solver->ante_data[x]);
     l = lit[i + 1];
+    break;
+
+  default:
+    assert(solver->ante_tag[x] == ATAG_STACKED);
+    assert(i < stacked_clause_length(&solver->stash, solver->ante_data[x]) - 1);
+    lit = stacked_clause_literals(&solver->stash, solver->ante_data[x]);
+    l = lit[i + 1];
+    break;
   }
+
   return var_of(l);
 }
 
@@ -5834,8 +6052,13 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    cidx = add_learned_clause(solver, n, solver->buffer.data);
-    clause_propagation(solver, l, cidx);
+    if (true) {
+      cidx = add_learned_clause(solver, n, solver->buffer.data);
+      clause_propagation(solver, l, cidx);
+    } else {
+      cidx = push_clause(&solver->stash, n, solver->buffer.data);
+      stacked_clause_propagation(solver, l, cidx);
+    }
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
     binary_clause_propagation(solver, l, solver->buffer.data[1]);
