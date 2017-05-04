@@ -395,9 +395,18 @@ static bool model;
 static bool check;
 static bool preprocess;
 static bool seed_given;
+static uint32_t seed_value;
 static bool stats;
 static bool data;
-static uint32_t seed_value;
+
+static bool keep_lbd_given;
+static bool subsume_skip_given;
+static bool var_elim_skip_given;
+static bool res_clause_limit_given;
+static uint32_t keep_lbd;
+static uint32_t subsume_skip;
+static uint32_t var_elim_skip;
+static uint32_t res_clause_limit;
 
 enum {
   version_flag,
@@ -408,6 +417,10 @@ enum {
   preprocess_flag,
   seed_opt,
   stats_flag,
+  keep_lbd_opt,
+  subsume_skip_opt,
+  var_elim_skip_opt,
+  res_clause_limit_opt,
   data_flag,
 };
 
@@ -422,6 +435,10 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "preprocess", 'p', FLAG_OPTION, preprocess_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
+  { "keep-lbd", '\0', MANDATORY_INT, keep_lbd_opt },
+  { "subsume-skip", '\0', MANDATORY_INT, subsume_skip_opt },
+  { "var-elim-skip", '\0', MANDATORY_INT, var_elim_skip_opt },
+  { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
   { "data", '\0', FLAG_OPTION, data_flag },
 };
 
@@ -485,6 +502,11 @@ static void parse_command_line(int argc, char *argv[]) {
   preprocess = false;
   data = false;
 
+  keep_lbd_given = false;
+  subsume_skip_given = false;
+  var_elim_skip_given = false;
+  res_clause_limit_given = false;
+
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
   for (;;) {
@@ -536,6 +558,42 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case stats_flag:
 	stats = true;
+	break;
+
+      case keep_lbd_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "keep-lbd can't be negative\n");
+	  goto bad_usage;
+	}
+	keep_lbd_given = true;
+	keep_lbd = elem.i_value;
+	break;
+
+      case subsume_skip_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "subsume-skip can't be negative\n");
+	  goto bad_usage;
+	}
+	subsume_skip_given = true;
+	subsume_skip = elem.i_value;
+	break;
+
+      case var_elim_skip_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "var-elim-skip can't be negative\n");
+	  goto bad_usage;
+	}
+	var_elim_skip_given = true;
+	var_elim_skip = elem.i_value;
+	break;
+
+      case res_clause_limit_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "res-clause-limit can't be negative\n");
+	  goto bad_usage;
+	}
+	res_clause_limit_given = true;
+	res_clause_limit = elem.i_value;
 	break;
 
       case data_flag:
