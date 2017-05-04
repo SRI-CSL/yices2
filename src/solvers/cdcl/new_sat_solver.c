@@ -5754,7 +5754,7 @@ static void analyze_conflict(sat_solver_t *solver) {
  * - it's redundant if it's implied by other literals in the learned clause
  * - we assume that all these literals are marked.
  *
- * To check this, we explore the implication grapsh recursively from l.
+ * To check this, we explore the implication graph recursively from l.
  * Variables already visited are marked in solver->map:
  * - solver->map[x] == NOT_SEEN means x has not been seen yet
  * - solver->map[x] == IMPLIED means x is 'implied by marked literals'
@@ -5777,11 +5777,19 @@ enum {
 static uint32_t num_predecessors(sat_solver_t *solver, bvar_t x) {
   uint32_t n;
 
-  if (solver->ante_tag[x] == ATAG_BINARY) {
+  switch (solver->ante_tag[x]) {
+  case ATAG_BINARY:
     n = 1;
-  } else {
-    assert(solver->ante_tag[x] == ATAG_CLAUSE);
+    break;
+
+  case ATAG_CLAUSE:
     n = clause_length(&solver->pool, solver->ante_data[x]) - 1;
+    break;
+
+  default:
+    assert(solver->ante_tag[x] == ATAG_STACKED);
+    n = stacked_clause_length(&solver->stash, solver->ante_data[x]) - 1;
+    break;
   }
   return n;
 }
@@ -5814,6 +5822,22 @@ static bvar_t predecessor(sat_solver_t *solver, bvar_t x, uint32_t i) {
   return var_of(l);
 }
 
+// auxiliary function: check whether x is already explored and IMPLIED or
+// trivially implied by marked literals
+static inline bool var_is_implied(const sat_solver_t *solver, bvar_t x) {
+  return variable_is_marked(solver, x) ||
+    solver->ante_tag[x] == ATAG_UNIT ||
+    tag_map_read(&solver->map, x) == IMPLIED;
+}
+
+// check whether x is already explored and NOT_IMPLIED
+// or whether x is a decision variable (can't be implied by marked literals)
+static inline bool var_is_not_implied(const sat_solver_t *solver, bvar_t x) {
+  assert(!variable_is_marked(solver, x));
+  return solver->ante_tag[x] == ATAG_DECISION || tag_map_read(&solver->map, x) == NOT_IMPLIED;
+}
+
+
 static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
   gstack_t *gstack;
   tag_map_t *map;
@@ -5824,10 +5848,10 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
   x = var_of(l);
   map = &solver->map;
 
-  if (variable_is_marked(solver, x) || solver->ante_tag[x] == ATAG_UNIT || tag_map_read(map, x) == IMPLIED) {
+  if (var_is_implied(solver, x)) {
     return true;
   }
-  if (solver->ante_tag[x] == ATAG_DECISION || tag_map_read(map, x) == NOT_IMPLIED) {
+  if (var_is_not_implied(solver, x)) {
     return false;
   }
 
@@ -5844,10 +5868,10 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
     } else {
       y = predecessor(solver, x, top->index);
       top->index ++;
-      if (variable_is_marked(solver, y) || solver->ante_tag[y] == ATAG_UNIT || tag_map_read(map, y) == IMPLIED) {
+      if (var_is_implied(solver, y)) {
 	continue;
       }
-      if (solver->ante_tag[y] == ATAG_DECISION || tag_map_read(map, y) == NOT_IMPLIED) {
+      if (var_is_not_implied(solver, y)) {
 	goto not_implied;
       }
       gstack_push_var(gstack, y, 0);
@@ -5864,12 +5888,26 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
   return false;
 }
 
+// check whether literals a[1 ... n-1] are all implied by marked literals
+static bool array_implied_by_marked_literals(sat_solver_t *solver, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=1; i<n; i++) {
+    if (! implied_by_marked_literals(solver, a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// check whether l is implied by other literals in the learned clause
+// (l is in the learned clause, so it is marked).
 static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
   literal_t *lit;
   bvar_t x;
   antecedent_tag_t atag;
   cidx_t cidx;
-  uint32_t i, n;
+  uint32_t n;
 
   x = var_of(l);
   assert(var_is_assigned(solver, x) && variable_is_marked(solver, x));
@@ -5886,12 +5924,15 @@ static bool literal_is_redundant(sat_solver_t *solver, literal_t l) {
     n = clause_length(&solver->pool, cidx);
     lit = clause_literals(&solver->pool, cidx);
     assert(lit[0] == not(l));
-    for (i=1; i<n; i++) {
-      if (! implied_by_marked_literals(solver, lit[i])) {
-	return false;
-      }
-    }
-    return true;
+    return array_implied_by_marked_literals(solver, lit, n);
+
+  case ATAG_STACKED:
+    // ante_data[x] = stacked clause that implies not(l)
+    cidx = solver->ante_data[x];
+    n = stacked_clause_length(&solver->stash, cidx);
+    lit = stacked_clause_literals(&solver->stash, cidx);
+    assert(lit[0] == not(l));
+    return array_implied_by_marked_literals(solver, lit, n);
 
   default:
     assert(atag == ATAG_DECISION);
