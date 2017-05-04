@@ -71,8 +71,8 @@ extern "C" {
  ********************/
 
 #define __YICES_VERSION            2
-#define __YICES_VERSION_MAJOR      5
-#define __YICES_VERSION_PATCHLEVEL 2
+#define __YICES_VERSION_MAJOR      6
+#define __YICES_VERSION_PATCHLEVEL 0
 
 
 /*
