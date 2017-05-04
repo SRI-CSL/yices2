@@ -1700,6 +1700,11 @@ static cidx_t push_clause(clause_stack_t *s, uint32_t n, const literal_t *a) {
 static inline bool good_stacked_clause_idx(const clause_stack_t *s, cidx_t idx) {
   return ((idx & 3) == 0) && idx < s->top;
 }
+
+static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s, cidx_t idx) {
+  assert(good_stacked_clause_idx(s, idx));
+  return s->data[idx + 2];
+}
 #endif
 
 static inline uint32_t stacked_clause_length(const clause_stack_t *s, cidx_t idx) {
@@ -1712,10 +1717,6 @@ static inline literal_t *stacked_clause_literals(const clause_stack_t *s, cidx_t
   return s->data + idx + 2;
 }
 
-static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s, cidx_t idx) {
-  assert(good_stacked_clause_idx(s, idx));
-  return s->data[idx + 2];
-}
 
 
 /*******************
@@ -2140,7 +2141,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
-  solver->keep_lbd = 4;
+  solver->keep_lbd = KEEP_LBD;
   solver->reduce_fraction = 28; // each reduce removes 28/32 of the learned clauses
 
   init_stats(&solver->stats);
