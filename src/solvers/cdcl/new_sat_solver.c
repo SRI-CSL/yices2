@@ -5612,7 +5612,7 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
   solver->stack.prop_ptr = i;
 
   // same thing for the clause stack
-  solver->stash.top = solver->stash.level[back_level];
+  solver->stash.top = solver->stash.level[back_level + 1];
 
   solver->decision_level = back_level;
 }
