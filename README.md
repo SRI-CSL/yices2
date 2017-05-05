@@ -109,4 +109,4 @@ doc/sphinx). You can also do:
 ```
 make epub
 ```
-and you'll have the doc in `build/epub/Yices.ebup`.
+and you'll have the doc in `build/epub/Yices.epub`.
