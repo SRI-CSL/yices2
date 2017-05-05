@@ -5,9 +5,8 @@ and examples.
 
 Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian Mason
 at the Computer Science Laboratory, SRI International. To contact us,
-report a bug, or to get more information about Yices, please visit our
+or to get more information about Yices, please visit our
 [website](http://yices.csl.sri.com).
-
 
 ## Prerequisites
 
@@ -110,3 +109,29 @@ doc/sphinx). You can also do:
 make epub
 ```
 and you'll have the doc in `build/epub/Yices.epub`.
+
+## Getting Help and Reporting bugs
+
+For further questions about Yices, please contact us via the Yices
+mailing lists yices-help@csl.sri.com. This mailing list is moderated,
+but you do not need to register to post to it. You can register to
+this mailing list if you are interested in helping others.
+
+Please submit bug reports through GitHub issues. Please include enough
+information in your bug report to enable us to reproduce and fix the
+problem. This is an example of a good report:
+
+> I am experiencing a segmentation fault from Yices. The following
+> is a small test case that causes the crash. I am using Yices 2.4.1 on
+> x86_64 statically linked against GMP on Ubuntu 12.04.
+
+This is an example of a poor bug report:
+
+> I have just downloaded Yices. After I compile my code and link it
+> with Yices, there is a segmentation fault when I run the executable.
+> Can you help?
+
+Please try to include answers to the following questions:
+* Which version of Yices are you using?
+* On which hardware and OS?
+* How can we reproduce the bug? If possible, include an input file or program fragment.
