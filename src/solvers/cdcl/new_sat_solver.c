@@ -30,7 +30,6 @@
 
 
 
-
 #if DEBUG
 
 /*
@@ -257,11 +256,13 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  *     min(MIN_REDUCE_THRESHOLD, number of problem clauses/4)
  * - after every reduction, the reduce_threhsold is updated to
  *    reduce_threshold * REDUCE_FACTOR
+ * - each deletion round removes a fraction of the clauses equal
+ *   to REDUCE_FRACTION/32 (approximately).
  */
 #define KEEP_LBD 4
 #define MIN_REDUCE_THRESHOLD 1000
 #define REDUCE_FACTOR 1.05
-
+#define REDUCE_FRACTION 28
 
 /*
  * Parameters to control preprocessing
@@ -1700,11 +1701,6 @@ static cidx_t push_clause(clause_stack_t *s, uint32_t n, const literal_t *a) {
 static inline bool good_stacked_clause_idx(const clause_stack_t *s, cidx_t idx) {
   return ((idx & 3) == 0) && idx < s->top;
 }
-
-static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s, cidx_t idx) {
-  assert(good_stacked_clause_idx(s, idx));
-  return s->data[idx + 2];
-}
 #endif
 
 static inline uint32_t stacked_clause_length(const clause_stack_t *s, cidx_t idx) {
@@ -1716,6 +1712,21 @@ static inline literal_t *stacked_clause_literals(const clause_stack_t *s, cidx_t
   assert(good_stacked_clause_idx(s, idx));
   return s->data + idx + 2;
 }
+
+
+#if DEBUG
+static inline cidx_t next_stacked_clause(const clause_stack_t *s, cidx_t idx) {
+  return idx + full_length(stacked_clause_length(s, idx)); // length + 2 rounded up to a multiple of four
+}
+#endif
+
+#if DEBUG || !defined(NDEBUG)
+static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s, cidx_t idx) {
+  assert(good_stacked_clause_idx(s, idx));
+  return s->data[idx + 2];
+}
+#endif
+
 
 
 
@@ -2142,7 +2153,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
 
   solver->keep_lbd = KEEP_LBD;
-  solver->reduce_fraction = 28; // each reduce removes 28/32 of the learned clauses
+  solver->reduce_fraction = REDUCE_FRACTION;
 
   init_stats(&solver->stats);
 
@@ -2325,6 +2336,14 @@ void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
   solver->keep_lbd = threshold;
 }
 
+/*
+ * Reduce fraction for clause deletion. f must be between 0 and 32.
+ * Each call to reduce_learned_clause_set removes a fraction (f/32) of the clauses
+ */
+void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f) {
+  assert(f <= 32);
+  solver->reduce_fraction = f;
+}
 
 /*
  * PREPROCESSING PARAMETERS
@@ -2667,7 +2686,7 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
 static void stacked_clause_propagation(sat_solver_t *solver, literal_t l, cidx_t cidx) {
   implied_literal(solver, l, ATAG_STACKED, cidx);
 
-#if TRACE
+#if TRACE || 1
   printf("\n---> DPLL:   Implied literal %"PRIu32", by stacked clause %"PRIu32", decision level = %"PRIu32"\n", l, cidx, solver->decision_level);
   fflush(stdout);
 #endif
@@ -3264,7 +3283,7 @@ static void sort_learned_clauses(sat_solver_t *solver, uint32_t n) {
 
 
 /*
- * Delete half the learned clauses (Minisat-style)
+ * Delete a fraction of the learned clauses (Minisat-style)
  */
 static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n, n0;
@@ -6203,7 +6222,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (true) {
+    if (false) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
@@ -7120,6 +7139,28 @@ static uint32_t num_false_literals_in_clause(const sat_solver_t *solver, cidx_t 
 }
 
 /*
+ * Same thing for a stacked clause cidx
+ */
+static uint32_t num_false_literals_in_stacked_clause(const sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n, cnt;
+  literal_t *lit;
+
+  assert(good_stacked_clause_idx(&solver->stash, cidx));
+
+  n = stacked_clause_length(&solver->stash, cidx);
+  lit = stacked_clause_literals(&solver->stash, cidx);
+  cnt = 0;
+  for (i=0; i<n; i++) {
+    if (lit_is_false(solver, lit[i])) {
+      cnt ++;
+    }
+  }
+
+  return cnt;
+}
+
+
+/*
  * Check that no propagation was missed (for the clause pool)
  * - this is called when there's no conflict reported
  */
@@ -7258,6 +7299,62 @@ static void check_sound_propagation(const sat_solver_t *solver) {
   }
 }
 
+
+/*
+ * Check the stacked clauses:
+ * - if an assigned literal l has stack clause cidx as antecedent then
+ *   l must be first in the clause
+ */
+static void check_stacked_clause_antecedents(const sat_solver_t *solver) {
+  uint32_t i;
+  literal_t l;
+  cidx_t cidx;
+
+  for (i=0; i<solver->stack.top; i++) {
+    l = solver->stack.lit[i];
+    if (solver->ante_tag[var_of(l)] == ATAG_STACKED) {
+      cidx = solver->ante_data[var_of(l)];
+      if (first_literal_of_stacked_clause(&solver->stash, cidx) != l) {
+	fprintf(stderr, "*** BUG: implied literal %"PRIu32" is not first in stacked clause %"PRIu32" ****\n", l, cidx);
+	fflush(stderr);
+      }
+    }
+  }
+}
+
+/*
+ * Check the stacked clauses (continued)
+ * - for every stacked clause cidx:
+ *   its first literal must be assigned and true
+ * - all the other literals must be false
+ */
+static void check_stacked_clauses(const sat_solver_t *solver) {
+  cidx_t cidx;
+  uint32_t f, n;
+  literal_t l;
+
+  for (cidx = 0;
+       cidx < solver->stash.top;
+       cidx = next_stacked_clause(&solver->stash, cidx)) {
+    l = first_literal_of_stacked_clause(&solver->stash, cidx);
+    if (solver->ante_tag[var_of(l)] != ATAG_STACKED ||
+	solver->ante_data[var_of(l)] != cidx) {
+      fprintf(stderr, "*** BUG: bad antecedent for literal %"PRIu32" (first in stacked clause %"PRIu32") ****\n", l, cidx);
+      fflush(stderr);
+    }
+    if (!lit_is_true(solver, l)) {
+      fprintf(stderr, "*** BUG: literal %"PRIu32" (first in stacked clause %"PRIu32") is not true ****\n", l, cidx);
+      fflush(stderr);
+    }
+    n = stacked_clause_length(&solver->stash, cidx);
+    f = num_false_literals_in_stacked_clause(solver, cidx);
+    if (f != n-1) {
+      fprintf(stderr, "*** BUG: stacked clause %"PRIu32" has %"PRIu32" false literals (out of %"PRIu32") ***\n", cidx, f, n);
+      fflush(stderr);
+    }
+  }
+}
+
 /*
  * Full check
  */
@@ -7266,6 +7363,8 @@ static void check_propagation(const sat_solver_t *solver) {
   check_pool_propagation(solver);
   check_clause_antecedents(solver);
   check_sound_propagation(solver);
+  check_stacked_clause_antecedents(solver);
+  check_stacked_clauses(solver);
 }
 
 

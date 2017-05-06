@@ -917,6 +917,12 @@ extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
  */
 extern void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold);
 
+/*
+ * Reduce fraction for clause deletion. f must be between 0 and 32.
+ * Each call to reduce_learned_clause_set removes a fraction (f/32) of the clauses
+ */
+extern void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f);
+
 
 /*
  * PREPROCESSING PARAMETERS
