@@ -2697,7 +2697,7 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
 static void stacked_clause_propagation(sat_solver_t *solver, literal_t l, cidx_t cidx) {
   implied_literal(solver, l, ATAG_STACKED, cidx);
 
-#if TRACE || 1
+#if TRACE
   printf("\n---> DPLL:   Implied literal %"PRIu32", by stacked clause %"PRIu32", decision level = %"PRIu32"\n", l, cidx, solver->decision_level);
   fflush(stdout);
 #endif
@@ -6233,7 +6233,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (false) {
+    if (d <= 20) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
