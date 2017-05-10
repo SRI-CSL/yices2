@@ -739,6 +739,7 @@ typedef struct sat_solver_s {
   uint32_t randomness;        // 0x1000000 * random_factor
   float cla_inc;              // Clause activity increment
   float inv_cla_decay;        // Inverse of clause decay (1/0.999)
+  uint32_t stack_threshold;   // Experimental
   uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
   uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
   uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
@@ -850,7 +851,7 @@ extern void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp);
 /*
  * Set the prng seed
  */
-extern void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
+extern void nsat_set_seed(sat_solver_t *solver, uint32_t seed);
 
 /*
  * Set the verbosity level
@@ -859,7 +860,7 @@ extern void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
  * - level >= 1 --> print statistics about preprocessing
  * - level >= 2 --> print statistics at every restart
  */
-extern void nsat_solver_set_verbosity(sat_solver_t *solver, uint32_t level);
+extern void nsat_set_verbosity(sat_solver_t *solver, uint32_t level);
 
 /*
  * Deletion: free memory
