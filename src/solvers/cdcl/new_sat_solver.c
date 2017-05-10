@@ -265,6 +265,13 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define REDUCE_FRACTION 28
 
 /*
+ * Stacking of learned clauses
+ * - clauses of LBD higher than this threshold are not stored in the
+ *   data set but in the stack (of temporary clauses).
+ */
+#define STACK_THRESHOLD 10
+
+/*
  * Parameters to control preprocessing
  *
  * - subsumption checks can be expensive. To reduce the cost,
@@ -2151,7 +2158,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
-
+  solver->stack_threshold = STACK_THRESHOLD;
   solver->keep_lbd = KEEP_LBD;
   solver->reduce_fraction = REDUCE_FRACTION;
 
@@ -2183,14 +2190,14 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 /*
  * Set the prng seed
  */
-void nsat_solver_set_seed(sat_solver_t *solver, uint32_t seed) {
+void nsat_set_seed(sat_solver_t *solver, uint32_t seed) {
   solver->prng = seed;
 }
 
 /*
  * Set the verbosity level
  */
-void nsat_solver_set_verbosity(sat_solver_t *solver, uint32_t level) {
+void nsat_set_verbosity(sat_solver_t *solver, uint32_t level) {
   solver->verbosity = level;
 }
 
@@ -2343,6 +2350,16 @@ void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
 void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f) {
   assert(f <= 32);
   solver->reduce_fraction = f;
+}
+
+
+/*
+ * Stack clause threshold: learned clauses of LBD greater than threshold are
+ * treated as temporary clauses (not stored in the clause database).
+ */
+void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
+  assert(f <= 32);
+  solver->stack_threshold = f;
 }
 
 /*
@@ -6222,7 +6239,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (d <= 20) {
+    if (d <= solver->stack_threshold) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {

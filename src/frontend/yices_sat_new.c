@@ -292,10 +292,14 @@ static bool stats;
 static bool data;
 
 static bool keep_lbd_given;
+static bool reduce_fraction_given;
+static bool stack_threshold_given;
 static bool subsume_skip_given;
 static bool var_elim_skip_given;
 static bool res_clause_limit_given;
 static uint32_t keep_lbd;
+static uint32_t reduce_fraction;
+static uint32_t stack_threshold;
 static uint32_t subsume_skip;
 static uint32_t var_elim_skip;
 static uint32_t res_clause_limit;
@@ -309,6 +313,8 @@ enum {
   seed_opt,
   stats_flag,
   keep_lbd_opt,
+  reduce_fraction_opt,
+  stack_threshold_opt,
   subsume_skip_opt,
   var_elim_skip_opt,
   res_clause_limit_opt,
@@ -326,6 +332,8 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
   { "keep-lbd", '\0', MANDATORY_INT, keep_lbd_opt },
+  { "reduce-fraction", '\0', MANDATORY_INT, reduce_fraction_opt },
+  { "stack-threshold", '\0', MANDATORY_INT, stack_threshold_opt },
   { "subsume-skip", '\0', MANDATORY_INT, subsume_skip_opt },
   { "var-elim-skip", '\0', MANDATORY_INT, var_elim_skip_opt },
   { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
@@ -391,6 +399,8 @@ static void parse_command_line(int argc, char *argv[]) {
   data = false;
 
   keep_lbd_given = false;
+  reduce_fraction_given = false;
+  stack_threshold_given = false;
   subsume_skip_given = false;
   var_elim_skip_given = false;
   res_clause_limit_given = false;
@@ -453,6 +463,24 @@ static void parse_command_line(int argc, char *argv[]) {
 	keep_lbd = elem.i_value;
 	break;
 
+      case reduce_fraction_opt:
+	if (elem.i_value < 0 || elem.i_value > 32) {
+	  fprintf(stderr, "reduce-fraction must be between 0 and 32\n");
+	  goto bad_usage;
+	}
+	reduce_fraction_given = true;
+	reduce_fraction = elem.i_value;
+	break;
+
+      case stack_threshold_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "stack-threshold can't be negative\n");
+	  goto bad_usage;
+	}
+	stack_threshold_given = true;
+	stack_threshold = elem.i_value;
+	break;
+
       case subsume_skip_opt:
 	if (elem.i_value < 0) {
 	  fprintf(stderr, "subsume-skip can't be negative\n");
@@ -488,7 +516,7 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_error:
       cmdline_print_error(&parser, &elem);
-      goto bad_usage;
+      goto bad_usage;      
     }
   }
 
@@ -655,11 +683,28 @@ int main(int argc, char* argv[]) {
     }
 
     if (seed_given) {
-      nsat_solver_set_seed(&solver, seed_value);
+      nsat_set_seed(&solver, seed_value);
     }
-
+    if (keep_lbd_given) {
+      nsat_set_keep_lbd(&solver, keep_lbd);
+    }
+    if (reduce_fraction_given) {
+      nsat_set_reduce_fraction(&solver, reduce_fraction);
+    }
+    if (stack_threshold_given) {
+      nsat_set_stack_threshold(&solver, stack_threshold);
+    }
+    if (subsume_skip_given) {
+      nsat_set_subsume_skip(&solver, subsume_skip);
+    }
+    if (var_elim_skip_given) {
+      nsat_set_var_elim_skip(&solver, var_elim_skip);
+    }
+    if (res_clause_limit_given) {
+      nsat_set_res_clause_limit(&solver, res_clause_limit);
+    }
     verb = verbose ? 2 : stats ? 1 : 0;
-    nsat_solver_set_verbosity(&solver, verb);
+    nsat_set_verbosity(&solver, verb);
 
     init_handler();
     nsat_set_randomness(&solver, 0);          // overwrite the default
