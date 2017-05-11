@@ -2358,7 +2358,6 @@ void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f) {
  * treated as temporary clauses (not stored in the clause database).
  */
 void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
-  assert(f <= 32);
   solver->stack_threshold = f;
 }
 

@@ -516,7 +516,7 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_error:
       cmdline_print_error(&parser, &elem);
-      goto bad_usage;      
+      goto bad_usage;
     }
   }
 

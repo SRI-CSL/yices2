@@ -926,6 +926,13 @@ extern void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f);
 
 
 /*
+ * Stack clause threshold: learned clauses of LBD greater than threshold are
+ * treated as temporary clauses (not stored in the clause database).
+ */
+extern void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f);
+
+
+/*
  * PREPROCESSING PARAMETERS
  */
 
