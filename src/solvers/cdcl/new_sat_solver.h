@@ -201,11 +201,15 @@ typedef struct queue_s {
 
 
 
-/****************************************************************
- *  STACK FOR DEPTH-FIRST EXPLORATION OF THE IMPLICATION GRAPH  *
- ***************************************************************/
+/**********************************************
+ *  STACK FOR DEPTH-FIRST EXPLORATION GRAPHS  *
+ *********************************************/
 
 /*
+ * This is used in two places.
+ *
+ * 1) Minimization of the learned clauses after a conflict
+ *
  * The implication graph is formed by the true literals.
  * There's an edge in this graph from l0 to l1 if l1 is implied by
  * a clause that contains l0:
@@ -220,9 +224,19 @@ typedef struct queue_s {
  * If l1 is implied by a binary clause { l1, ~l0 } then it has one antecedent 
  * (of index 0). If l1 is implied by a clause with n literals then if has
  * n-1 antecedents, indexed from 0 to n-2.
+ *
+ * 2) Search for strongly connected components in a the binary implication
+ * graph.
+ *
+ * This graph is formed by the binary clauses in the problem. Given a binary
+ * clause {l0, l1}, there's an edge from ~l0 to l1 and from ~l1 to l0. To
+ * explore this graph, we use the watch vectors: watch[l0] contains all the
+ * clauses of the form {l0, l1} (i.e., the successors of ~l0 in the binary
+ * implication graph). To enumerate the successors of ~l0, we store an index
+ * i in the vector watch[l0].
  */
 typedef struct gstack_elem_s {
-  bvar_t var;
+  uint32_t vertex;
   uint32_t index;
 } gstack_elem_t;
 

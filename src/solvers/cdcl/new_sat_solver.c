@@ -587,7 +587,7 @@ static void delete_gstack(gstack_t *gstack) {
 /*
  * Push pair (x, n) on the stack
  */
-static void gstack_push_var(gstack_t *gstack, bvar_t x, uint32_t n) {
+static void gstack_push_vertex(gstack_t *gstack, uint32_t x, uint32_t n) {
   uint32_t i;
 
   i = gstack->top;
@@ -595,7 +595,7 @@ static void gstack_push_var(gstack_t *gstack, bvar_t x, uint32_t n) {
     extend_gstack(gstack);
   }
   assert(i < gstack->size);
-  gstack->data[i].var = x;
+  gstack->data[i].vertex = x;
   gstack->data[i].index = n;
   gstack->top = i+1;
 }
@@ -6013,11 +6013,11 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
 
   gstack = &solver->gstack;
   assert(gstack_is_empty(gstack));
-  gstack_push_var(gstack, x, 0);
+  gstack_push_vertex(gstack, x, 0);
 
   do {
     top = gstack_top(gstack);
-    x = top->var;
+    x = top->vertex;
     if (top->index == num_predecessors(solver, x)) {
       tag_map_write(map, x, IMPLIED);
       gstack_pop(gstack);
@@ -6030,7 +6030,7 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
       if (var_is_not_implied(solver, y)) {
 	goto not_implied;
       }
-      gstack_push_var(gstack, y, 0);
+      gstack_push_vertex(gstack, y, 0);
     }
   } while (! gstack_is_empty(gstack));
 
@@ -6038,7 +6038,7 @@ static bool implied_by_marked_literals(sat_solver_t *solver, literal_t l) {
 
  not_implied:
   for (i=0; i<gstack->top; i++) {
-    tag_map_write(map, gstack->data[i].var, NOT_IMPLIED);
+    tag_map_write(map, gstack->data[i].vertex, NOT_IMPLIED);
   }
   reset_gstack(gstack);
   return false;
