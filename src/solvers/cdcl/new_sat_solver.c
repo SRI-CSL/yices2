@@ -385,6 +385,16 @@ static void vector_push(vector_t *v, uint32_t x) {
 }
 
 /*
+ * Remove the last element and return it
+ * - v must not be empty
+ */
+static uint32_t vector_pop(vector_t *v) {
+  assert(v->size > 0);
+  v->size --;
+  return v->data[v->size];
+}
+
+/*
  * Reset: empty the buffer
  */
 static inline void reset_vector(vector_t *v) {
@@ -2194,6 +2204,11 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_vector(&solver->cvector);
   solver->scan_index = 0;
 
+  init_vector(&solver->vertex_stack);
+  init_gstack(&solver->dfs_stack);
+  solver->label = NULL;
+  solver->visit = NULL;
+
   solver->data = NULL;
 }
 
@@ -2253,6 +2268,15 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_queue(&solver->cqueue);
   delete_vector(&solver->cvector);
 
+  delete_vector(&solver->vertex_stack);
+  delete_gstack(&solver->dfs_stack);
+  if (solver->label != NULL) {
+    safe_free(solver->label);
+    safe_free(solver->visit);
+    solver->label = NULL;
+    solver->visit = NULL;
+  }
+
   close_datafile(solver);
 }
 
@@ -2301,6 +2325,15 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_elim_heap(&solver->elim);
   reset_queue(&solver->cqueue);
   reset_vector(&solver->cvector);
+
+  reset_vector(&solver->vertex_stack);
+  reset_gstack(&solver->dfs_stack);
+  if (solver->label != NULL) {
+    safe_free(solver->label);
+    safe_free(solver->visit);
+    solver->label = NULL;
+    solver->visit = NULL;
+  }
 
   reset_datafile(solver);
 }
@@ -3578,6 +3611,173 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 	    solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
 	    solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
+}
+
+
+/*******************************
+ *  BINARY IMPLICATION GRAPH   *
+ ******************************/
+
+/*
+ * The binary implication graph is defined by the binary clauses.
+ * Its vertices are literals. A binary clause {l0, l1} defines two
+ * edges in the graph: ~l0 --> l1 and ~l1 --> l0.
+ *
+ * If there's a circuit in this graph: l0 --> l1 --> .... --> l_n --> l0
+ * then all the literals on the circuit are equivalent. We can reduce the
+ * problem by replacing l1, ..., l_n by l0.
+ */
+
+/*
+ * Convert l to the original dimacs index:
+ * - dimacs(pos(x)) = x
+ * - dimacs(neg(x)) = -x
+ */
+static int32_t dimacs(uint32_t l) {
+  int32_t x;
+  x = var_of(l);
+  return is_pos(l) ? x : - x;
+}
+
+/*
+ * Process a strongly-connected component
+ * - l = root of the component C
+ * - the elements of C are stored in solver->vertex_stack, above l
+ */
+static void process_scc(sat_solver_t *solver, literal_t l) {
+  literal_t l0;
+
+  l0 = vector_pop(&solver->vertex_stack);
+  solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
+  if (l0 == l) return;
+
+  fprintf(stderr, "SCC: { %"PRId32" ", dimacs(l0));
+  for (;;) {
+    l0 = vector_pop(&solver->vertex_stack);
+    solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
+    if (l0 == l) break;
+    fprintf(stderr, "%"PRId32" ", dimacs(l0));
+  }
+
+  fprintf(stderr, " %"PRId32" }\n", dimacs(l));
+}
+
+/*
+ * Get the next successor of l0 in the implication graph:
+ * - i = index in the watch vector of ~l0 to scan from
+ * - if there's a binary clause {~l0, l1} at some index k >= i, then
+ *   we return true, store l1 in *succesor,  and store k+1 in *i.
+ * - otherwise, the function returns false.
+ */
+static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i, literal_t *successor) {
+  uint32_t k, idx, n;
+  watch_t *w;
+
+  w = solver->watch[not(l0)];
+  if (w != NULL) {
+    n = w->size;
+    k = *i;
+    assert(k <= n);
+    while (k < n) {
+      idx = w->data[k];
+      if (idx_is_literal(idx)) {
+	*i = k+1;
+	*successor = idx2lit(idx);
+	return true;
+      }
+      k += 2;
+    }
+  }
+
+  return false;
+}
+
+/*
+ * Compute strongly-connected components. Explore the graph starting from literal l.
+ * - visit stores the visit index of a literal: visit[l1] = k means that l' is reachable
+ *   from l and that l1 is the k-th vertex visited.
+ * - label stores the smallest index of a reachable literal: label[l1] = index of a
+ *   vertex l2 reachable from l1 and with visit[l2] <= visit[l1]
+ * - for vertices that have been fully explored, we set label[l] = UINT32_MAX (cf.
+ *   process_scc).
+ */
+static void dfs_explore(sat_solver_t *solver, literal_t l) {
+  gstack_elem_t *e;
+  uint32_t k;
+  literal_t x, y;
+
+  assert(solver->visit[l] == 0 &&
+	 gstack_is_empty(&solver->dfs_stack) &&
+	 solver->vertex_stack.size == 0);
+
+  k = 1;
+  solver->visit[l] = k;
+  solver->label[l] = k;
+  gstack_push_vertex(&solver->dfs_stack, l, 0);
+  vector_push(&solver->vertex_stack, l);
+
+  for (;;) {
+    e = gstack_top(&solver->dfs_stack);
+    x = e->vertex;
+    if (next_successor(solver, x, &e->index, &y)) {
+      // x --> y in the implication graph
+      if (solver->visit[y] == 0) {
+	// y not visited yet
+	k ++;
+	solver->visit[y] = k;
+	solver->label[y] = k;
+	gstack_push_vertex(&solver->dfs_stack, y, 0);
+	vector_push(&solver->vertex_stack, y);
+      } else if (solver->label[y] < solver->label[x]) {
+	// y has a successor visited before x on the dfs stack
+	solver->label[x] = solver->label[y];
+      }
+
+    } else {
+      // all successors of x have been explored
+      assert(solver->label[x] <= solver->visit[x]);
+      if (solver->label[x] == solver->visit[x]) {
+	// x is the root of its SCC
+	process_scc(solver, x);
+      }
+      // pop x
+      gstack_pop(&solver->dfs_stack);
+      if (gstack_is_empty(&solver->dfs_stack)) {
+	break; // all done
+      }
+      // update label of the predecessor of x
+      y = gstack_top(&solver->dfs_stack)->vertex;
+      if (solver->label[x] < solver->label[y]) {
+	solver->label[y] = solver->label[x];
+      }
+    }
+  }
+}
+
+/*
+ * Compute all SCCs
+ */
+static void compute_sccs(sat_solver_t *solver) {
+  uint32_t i, n;
+
+  assert(solver->label == NULL && solver->visit == NULL);
+
+  n = solver->nliterals;
+  solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  solver->visit = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  for (i=0; i<n; i++) {
+    solver->visit[i] = 0;
+  }
+  for (i=2; i<n; i++) {
+    if (solver->visit[i] == 0) {
+      dfs_explore(solver, i);
+    }
+  }
+
+  safe_free(solver->label);
+  safe_free(solver->visit);
+  solver->label = NULL;
+  solver->visit = NULL;
 }
 
 
@@ -6621,7 +6821,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       return STAT_UNSAT;
     }
     
-  }  else {
+  } else {
     // One round of propagation + removal of true clauses
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag != CTAG_NONE) {
@@ -6639,6 +6839,9 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
   }
 
+  fprintf(stderr, "\nStart search: computing SCCs \n");
+  compute_sccs(solver); // test
+  fprintf(stderr, "Done\n\n");
 
   /*
    * Counter for report status
@@ -6689,6 +6892,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     if (solver->decision_level == 0 &&
 	level0_literals(solver) > solver->simplify_bottom &&
 	solver->stats.propagations >= solver->simplify_props + solver->simplify_next) {
+
       nsat_simplify_clause_database(solver);
       solver->simplify_bottom = solver->stack.top;
       solver->simplify_props = solver->stats.propagations;

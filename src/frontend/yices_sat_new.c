@@ -735,7 +735,7 @@ static void print_model(void) {
   bval_t val;
 
   if (nsat_status(&solver) == STAT_SAT) {
-    for (v = 0; v<nvars; v++) {
+    for (v = 1; v<=nvars; v++) {
       val = var_value(&solver, v);
       switch (val) {
       case BVAL_FALSE:

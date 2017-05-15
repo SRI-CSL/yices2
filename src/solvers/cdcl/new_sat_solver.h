@@ -201,9 +201,9 @@ typedef struct queue_s {
 
 
 
-/**********************************************
- *  STACK FOR DEPTH-FIRST EXPLORATION GRAPHS  *
- *********************************************/
+/*********************************************
+ *  STACK FOR DEPTH-FIRST GRAPH EXPLORATION  *
+ ********************************************/
 
 /*
  * This is used in two places.
@@ -642,6 +642,7 @@ typedef enum antecedent_tag {
   ATAG_BINARY,
   ATAG_CLAUSE,
   ATAG_STACKED,
+
   ATAG_PURE,
   ATAG_ELIM,
 } antecedent_tag_t;
@@ -828,6 +829,15 @@ typedef struct sat_solver_s {
   queue_t cqueue;
   vector_t cvector;
   uint32_t scan_index;
+
+
+  /*
+   * Data structures to compute SCC in the binary implication graph.
+   */
+  vector_t vertex_stack;
+  gstack_t dfs_stack;
+  uint32_t *label;
+  uint32_t *visit;
 
   /*
    * File for data collection (used only when macro DATA is non-zero)
