@@ -3647,8 +3647,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
     if (l0 == l) break;
     fprintf(stderr, "%"PRId32" ", dimacs(l0));
   }
-
-  fprintf(stderr, " %"PRId32" }\n", dimacs(l));
+  fprintf(stderr, "%"PRId32" }\n", dimacs(l));
 }
 
 /*
