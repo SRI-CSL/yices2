@@ -6409,6 +6409,10 @@ static void update_blocking_ema(sat_solver_t *solver) {
   solver->blocking_count ++;
 }
 
+static uint32_t average_lbd(const sat_solver_t* solver) {
+  return solver->slow_ema >> 32;
+}
+
 /*
  * Resolve a conflict and add a learned clause
  * - solver->decision_level must be positive
@@ -6437,7 +6441,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (d <= solver->stack_threshold) {
+    if (d <= average_lbd(solver)/2) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
