@@ -1,0 +1,16 @@
+language: c
+
+compiler:
+  - clang
+  - gcc
+
+
+# command to install dependencies
+install:
+  - sudo apt-get update
+  - sudo apt-get install  -y libgmp-dev
+  - git clone
+
+#tests
+script:
+  - ./.travis/build.sh
