@@ -16,6 +16,8 @@ autoconf
 make
 sudo make install
 
+sudo updatedb
+locate libpoly.so.0
 yices-smt --version
 
 make check
