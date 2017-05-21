@@ -15,6 +15,9 @@ autoconf
 ./configure --enable-mcsat
 make
 sudo make install
+
+yices-smt --version
+
 make check
 RETURN="$?"
 
