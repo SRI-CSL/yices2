@@ -8,7 +8,7 @@ compiler:
 # command to install dependencies
 install:
   - sudo apt-get update
-  - sudo apt-get install  -y libgmp-dev
+  - sudo apt-get install  -y libgmp-dev gperf
 
 #tests
 script:
