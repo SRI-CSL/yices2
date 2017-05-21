@@ -23,9 +23,11 @@ sudo make install
 
 which yices-smt
 ldd /usr/local/bin/yices-smt
-yices-smt --version
 
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
+
+yices-smt --version
+
 
 make check
 RETURN="$?"
