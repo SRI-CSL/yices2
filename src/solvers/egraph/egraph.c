@@ -3256,9 +3256,16 @@ eterm_t egraph_get_tuple_in_class(egraph_t *egraph, eterm_t t) {
  * - if there is one return t
  * - otherwise, create a fresh term t (variable + BOOL type)
  *   and construct the atom <t, v>
- * - if v already has a non-egraph atom, attached,
- *   create a fresh v', assert v' == v in the core then
+ * - if v already has a non-egraph atom attached,
+ *   then we create a fresh v', assert v' == v in the core then
  *   attach t to v'
+ *
+ * BUG FIX: 2017/05/16: We also create a fresh v' and assert v' == v
+ * if the variable v is already assigned. This makes sure that the
+ * egraph will be notified that v' is true or false on the next call
+ * to propagate, and turn that into t==true or t==false.
+ * 
+ * 
  * If a new term is created, it is activated.
  */
 eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
@@ -3271,16 +3278,21 @@ eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
   assert(core != NULL);
 
   atom = bvar_atom(core, v);
-  if (atom != NULL) {
-    if (atom_tag(atom) == EGRAPH_ATM_TAG) {
-      return ((atom_t *) atom)->eterm;
-    } else {
-      aux = v;
-      v = create_boolean_variable(core);
-      // assert aux <=> v
-      add_binary_clause(core, pos_lit(v), neg_lit(aux));
-      add_binary_clause(core, neg_lit(v), pos_lit(aux));
-    }
+  if (atom != NULL && atom_tag(atom) == EGRAPH_ATM_TAG) {
+    return ((atom_t *) atom)->eterm;
+  } 
+
+  if (atom != NULL || bvar_is_assigned(core, v)) {
+    /*
+     * Either v is attached for an atom outisde the egraph
+     * or v is already assigned. In this case, we replace v by a fresh
+     * variable and assert aux == v in the core.
+     */
+    aux = v;
+    v = create_boolean_variable(core);
+    // assert aux <=> v
+    add_binary_clause(core, pos_lit(v), neg_lit(aux));
+    add_binary_clause(core, neg_lit(v), pos_lit(aux));
   }
 
   // create fresh t + new atom  <t, v>
