@@ -22,6 +22,7 @@ make
 sudo make install
 
 which yices-smt
+ldd /usr/local/bin/yices-smt
 yices-smt --version
 
 make check
