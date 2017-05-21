@@ -19,6 +19,7 @@ sudo make install
 sudo updatedb
 locate libpoly.so.0
 sudo ldconfig -n /usr/local/lib/
+ls -la  /usr/local/lib/
 yices-smt --version
 
 make check
