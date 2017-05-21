@@ -9,6 +9,11 @@ cmake ..
 make
 sudo make install
 
+sudo updatedb
+locate libpoly.so.0
+sudo ldconfig -n /usr/local/lib/
+ls -la  /usr/local/lib/
+
 #now build yices
 cd ../..
 autoconf
@@ -16,10 +21,7 @@ autoconf
 make
 sudo make install
 
-sudo updatedb
-locate libpoly.so.0
-sudo ldconfig -n /usr/local/lib/
-ls -la  /usr/local/lib/
+which yices-smt
 yices-smt --version
 
 make check
