@@ -13,6 +13,7 @@ sudo make install
 cd ../..
 autoconf
 ./configure --enable-mcsat
+make
 sudo make install
 make check
 RETURN="$?"
