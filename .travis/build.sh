@@ -9,7 +9,8 @@ cmake ..
 make
 sudo make install
 
-
+#now build yices
+cd ../..
 autoconf
 ./configure --enable-mcsat
 make check
