@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ianamason/yices2.svg?branch=master)](https://travis-ci.org/ianamason/yices2)
+
 # Yices2
 
 This distribution includes the source of Yices, documentation, tests,
