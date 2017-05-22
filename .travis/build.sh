@@ -20,8 +20,8 @@ cd ../..
 autoconf
 ./configure --enable-mcsat
 
-make MODE=gcov
-sudo make install
+sudo make MODE=gcov 
+sudo make MODE=gcov install
 
 #thse do not solve the mystery
 which yices-smt
@@ -34,7 +34,7 @@ export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 yices-smt --version
 
 
-make check
+make MODE=gcov check
 RETURN="$?"
 
 
