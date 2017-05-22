@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/ianamason/yices2.svg?branch=master)](https://travis-ci.org/ianamason/yices2)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 
 # Yices2
 
