@@ -7,7 +7,7 @@
 This distribution includes the source of Yices, documentation, tests,
 and examples.
 
-Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian Mason
+Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian A. Mason
 at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
 [website](http://yices.csl.sri.com).
