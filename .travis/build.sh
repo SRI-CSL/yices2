@@ -20,7 +20,7 @@ cd ../..
 autoconf
 ./configure --enable-mcsat
 
-make mode=gcov
+make MODE=gcov
 sudo make install
 
 #thse do not solve the mystery
