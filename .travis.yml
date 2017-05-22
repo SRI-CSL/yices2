@@ -11,7 +11,7 @@ install:
   - sudo apt-get install  -y libgmp-dev gperf
   - sudo apt-get install -y python-pip
   - pip --version
-  - pip install cpp-coveralls
+  - sudo pip install cpp-coveralls
   
 #tests
 script:
