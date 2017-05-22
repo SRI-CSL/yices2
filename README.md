@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/SRI-CSL/yices2.svg?branch=master)](https://travis-ci.org/SRI-CSL/yices2)
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 
 # Yices 2
 
