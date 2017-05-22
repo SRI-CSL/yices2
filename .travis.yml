@@ -17,6 +17,4 @@ script:
   - ./.travis/build.sh
 
 after_success:
-  - coveralls -r . -b . --gcov-options '\-lp';
-
-
+  - coveralls -b build/x86_64-unknown-linux-gnu-gcov/obj  -r src --gcov-options '\-lp';
