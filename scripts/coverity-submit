@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ -z $1 ];
+then
+    echo "We need the coverity token: e.g. "
+    echo  "./coverity-submit tHiSiSnOtMyKeY"
+    exit 1
+else
+   COVERITY_TOKEN=$1
+fi
+
+rm yices2.tgz
+tar czvf yices2.tgz cov-int
+curl --form token=${COVERITY_TOKEN} \
+  --form email=iam@csl.sri.com \
+  --form file=@yices2.tgz \
+  --form version="2.6.0" \
+  --form description="Yices2 master" \
+  https://scan.coverity.com/builds?project=SRI-CSL%2Fyices2
