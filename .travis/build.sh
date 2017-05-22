@@ -20,10 +20,9 @@ cd ../..
 autoconf
 ./configure --enable-mcsat
 
-sudo make MODE=gcov 
-sudo make MODE=gcov install
+make MODE=gcov 
 
-#thse do not solve the mystery
+#these do not solve the mystery
 which yices-smt
 ldd /usr/local/bin/yices-smt
 
@@ -35,6 +34,8 @@ yices-smt --version
 
 
 make MODE=gcov check
+
+
 RETURN="$?"
 
 
