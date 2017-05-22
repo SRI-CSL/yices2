@@ -9,7 +9,15 @@ compiler:
 install:
   - sudo apt-get update
   - sudo apt-get install  -y libgmp-dev gperf
-
+  - sudo apt-get install -y python-pip
+  - pip --version
+  - pip install cpp-coveralls
+  
 #tests
 script:
   - ./.travis/build.sh
+
+after_success:
+  - coveralls --exclude lib --exclude tests --gcov-options '\-lp'
+
+

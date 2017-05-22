@@ -19,9 +19,11 @@ ls -la  /usr/local/lib/
 cd ../..
 autoconf
 ./configure --enable-mcsat
-make
+
+make mode=gcov
 sudo make install
 
+#thse do not solve the mystery
 which yices-smt
 ldd /usr/local/bin/yices-smt
 
