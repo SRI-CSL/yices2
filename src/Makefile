@@ -677,7 +677,7 @@ CFLAGS := $(CFLAGS) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage -g -O0
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
