@@ -1309,7 +1309,7 @@ void bvlogic_buffer_repeat_concat(bvlogic_buffer_t *b, uint32_t n) {
 
   assert(n > 0);
   p = b->bitsize;
-  np = n * p;
+  np = (uint64_t) n * p;
   if (np >= BVLOGIC_BUFFER_MAX_SIZE) {
     out_of_memory();
   }

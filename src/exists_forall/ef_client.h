@@ -55,10 +55,13 @@ extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
 		     smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer);
 
+
 /*
  * Code to indicate why ef_get_model returned NULL 
  */
-extern const char *const efmodelcode2error[];
+#define NUM_EFMODEL_ERROR_CODES 3
+
+extern const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES];
 
 /*
  * Model from the ef client; if there is no model, code  will indicate the reason.

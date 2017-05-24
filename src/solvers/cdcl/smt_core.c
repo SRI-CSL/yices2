@@ -4451,7 +4451,7 @@ void remove_irrelevant_learned_clauses(smt_core_t *s) {
   if (n == 0) return;
 
   p = n - n/TAIL_RATIO;
-  coeff = (HEAD_ACTIVITY - TAIL_ACTIVITY)/n;
+  coeff = (float) (HEAD_ACTIVITY - TAIL_ACTIVITY)/n;
 
   for (i=0; i<n; i++) {
     cl = v[i];

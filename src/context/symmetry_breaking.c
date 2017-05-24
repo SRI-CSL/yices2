@@ -327,6 +327,7 @@ static void push_poly_vars(int_queue_t *queue, int_hset_t *cache, polynomial_t *
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 
@@ -342,6 +343,7 @@ static void push_bvpoly64_vars(int_queue_t *queue, int_hset_t *cache, bvpoly64_t
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 
@@ -357,6 +359,7 @@ static void push_bvpoly_vars(int_queue_t *queue, int_hset_t *cache, bvpoly_t *p)
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 

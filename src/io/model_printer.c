@@ -196,7 +196,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
        */
       c = model_find_term_value(model, t);
       name = term_name(terms, t);
-      assert(name != NULL);
+      assert(name != NULL && c != null_value);
       if (object_is_function(&model->vtbl, c)) {
         fun = vtbl_function(&model->vtbl, c);
         if (fun->name == NULL || strcmp(name, fun->name) != 0) {

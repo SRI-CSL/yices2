@@ -3157,7 +3157,7 @@ static void convert_composite_to_map(egraph_t *egraph, function_type_t *f, map_t
   if (n <= 10) {
     a = aux;
   } else {
-    a = safe_malloc(n * sizeof(particle_t *));
+    a = safe_malloc(n * sizeof(particle_t));
   }
 
   for (i=0; i<n; i++) {

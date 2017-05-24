@@ -4053,6 +4053,7 @@ void smt2_get_info(const char *name) {
 /*
  * Attempt to convert value to a parameter value:
  * - if this can't be done, store PARAM_ERROR in param_val
+ * - avalue can be negative here.
  */
 static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   smt2_globals_t *g;
@@ -4060,6 +4061,11 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   char* symbol;
   
   g = &__smt2_globals;
+
+  if (avalue < 0) {
+    param_val->tag = PARAM_VAL_ERROR;
+    return;
+  }
 
   switch (aval_tag(g->avtbl, avalue)) {    
   case ATTR_RATIONAL:

@@ -2016,7 +2016,7 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 
   tbl = term_manager_get_terms(mngr);
 
-  d = term_degree(tbl, t) * n;
+  d = (uint64_t) term_degree(tbl, t) * n;
   if (d > ((uint64_t) YICES_MAX_DEGREE)) {
     error.code = DEGREE_OVERFLOW;
     error.badval = UINT32_MAX;

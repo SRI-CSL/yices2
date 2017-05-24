@@ -2809,41 +2809,43 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
     p = prod_node(d);
     if ((h & p->hash) == h) {
       k1 = pprod_get_index(p, n1);
-      e = p->prod[k1].exp;
-      if (k1 >= 0 && e >= 2) {
-        /*
-         * p contains n1^e with e >= 2
-         * If e is 2t+1: n1^e ---> n1 * n^t
-         * If e is 2t:   n1^e ---> n^t
-         */
-        if ((e & 1) == 0) {
-          p->prod[k1].exp = 0;
-          bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
-        } else {
-          p->prod[k1].exp = 1;
-        }
+      if (k1 >= 0) {
+	e = p->prod[k1].exp;
+	if (e >= 2) {
+	  /*
+	   * p contains n1^e with e >= 2
+	   * If e is 2t+1: n1^e ---> n1 * n^t
+	   * If e is 2t:   n1^e ---> n^t
+	   */
+	  if ((e & 1) == 0) {
+	    p->prod[k1].exp = 0;
+	    bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+	  } else {
+	    p->prod[k1].exp = 1;
+	  }
 
-        e >>= 1;
-        k = pprod_get_index(p, n);
-        if (k >= 0) {
-          p->prod[k].exp += e;
-          cleanup_prod(p);
-        } else {
-          bvc_dag_add_dependency(dag, node_of_occ(n), i);
-          if (p->prod[k1].exp == 0) {
-            // store n^e at index k1
-            p->prod[k1].var = n;
-            p->prod[k1].exp = e;
-            cleanup_prod(p);
-          } else {
-            p = mk_prod_times_occ_power(dag, p, n, e);
-            dag->desc[i] = &p->header;
-          }
-        }
+	  e >>= 1;
+	  k = pprod_get_index(p, n);
+	  if (k >= 0) {
+	    p->prod[k].exp += e;
+	    cleanup_prod(p);
+	  } else {
+	    bvc_dag_add_dependency(dag, node_of_occ(n), i);
+	    if (p->prod[k1].exp == 0) {
+	      // store n^e at index k1
+	      p->prod[k1].var = n;
+	      p->prod[k1].exp = e;
+	      cleanup_prod(p);
+	    } else {
+	      p = mk_prod_times_occ_power(dag, p, n, e);
+	      dag->desc[i] = &p->header;
+	    }
+	  }
 
-        if (prod_node_is_elementary(dag, p)) {
-          bvc_dag_move_to_elementary_list(dag, i);
-        }
+	  if (prod_node_is_elementary(dag, p)) {
+	    bvc_dag_move_to_elementary_list(dag, i);
+	  }
+	}
       }
 
     }

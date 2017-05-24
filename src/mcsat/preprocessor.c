@@ -103,6 +103,7 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   {
     assert(n == 3);
     term_t type = super_type(pre->terms->types, term_type(terms, children[1]), term_type(terms, children[1]));
+    assert(type != NULL_TYPE);
     return mk_ite(tm, children[0], children[1], children[2], type);
   }
   case EQ_TERM:            // equality

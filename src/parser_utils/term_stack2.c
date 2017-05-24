@@ -4466,7 +4466,7 @@ static void eval_mk_bv_extract(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     report_yices_error(stack);
   }
 
-  if (i == 0 && j == size-1) {
+  if (j == 0 && i == size-1) {
     // (bv-extract 0 size-1 bv) = bv
     copy_result_and_pop_frame(stack, f+2);
   } else {

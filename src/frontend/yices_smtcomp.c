@@ -147,6 +147,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
+  "theory not supported by MCSAT",
 };
 
 
@@ -788,12 +789,7 @@ static void print_internalization_code(int32_t code) {
     //    printf("Assertions simplify to false\n\n");
   } else if (code < 0) {
     printf("unknown\n");
-    code = - code;
-    if (code <= BVSOLVER_EXCEPTION) {
-      printf("Internalization error: %s\n\n", code2error[code]);
-    } else {
-      printf("%s\n\n", code2error[code]);
-    }
+    printf("Internalization error: %s\n\n", code2error[-code]);
   }
   fflush(stdout);
 }
