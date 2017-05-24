@@ -12,6 +12,91 @@ at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
 [website](http://yices.csl.sri.com).
 
+## Simple Examples
+
+Yices is a solver for [Satisfiability Modulo
+Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
+(SMT) problems. Below are a few typical small examples that illustrate 
+the use of Yices using the [SMT2 language](http://smtlib.cs.uiowa.edu/language.shtml).
+
+#### Linear Real Arithmetic
+
+```smt2
+;; QF_LRA = Quantifier-Free Linear Real Arithemtic
+(set-logic QF_LRA)
+;; Declare variables x, y
+(declare-fun x () Real)
+(declare-fun y () Real)
+;; Find solution to (x + y > 0), ((x < 0) || (y < 0))
+(assert (> (+ x y) 0))
+(assert (or (< x 0) (< y 0)))
+;; Run a satisfiability check
+(check-sat)
+;; Print the model
+(get-model)
+```
+
+Running Yices on the above problem gives a solution
+```
+> yices-smt2 lra.smt2
+sat
+(= x 2)
+(= y (- 1))
+```
+
+#### Bit-Vectors
+
+```smt2
+;; QF_BV = Quantifier-Free Bit-Vectors
+(set-logic QF_BV)
+;; Declare variables
+(declare-fun x () (_ BitVec 32))
+(declare-fun y () (_ BitVec 32))
+;; Find solution to (signed) x > 0, y > 0, x + y < x
+(assert (bvsgt x #x00000000))
+(assert (bvsgt y #x00000000))
+(assert (bvslt (bvadd x y) x))
+;; Check
+(check-sat)
+;; Get the model
+(get-model)
+```
+
+Running Yices on the above problem gives
+
+```
+> yices-smt2 bv.smt2
+sat
+(= x #b01000000000000000000000000000000)
+(= y #b01000000000000000000000000000000)
+```
+
+#### Non-Linear Arithmetic
+
+```smt2
+;; QF_NRA = Quantifier-Free Nonlinear Real Arithemtic
+(set-logic QF_NRA)
+;; Declare variables
+(declare-fun x () Real)
+(declare-fun y () Real)
+;; Find solution to x^2 + y^2 = 1, x = 2*y, x > 0
+(assert (= (+ (* x x) (* y y)) 1))
+(assert (= x (* 2 y)))
+(assert (> x 0))
+;; Check
+(check-sat)
+;; Get the model
+(get-model)
+```
+
+Running Yices on the above problem gives
+
+```
+sat
+(= x 0.894427)
+(= y 0.447214)
+```
+
 ## Prerequisites
 
 To build Yices from the source, you need:
