@@ -1055,7 +1055,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
       if (prev_app_f < 0) {
         // Arithmetic stuffs
-        switch (app_f) {
+        switch (prev_app_f) {
         case APP_REP_IDIV_ID:
           vtbl_set_zero_idiv(values, f_value);
           break;
