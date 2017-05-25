@@ -3,12 +3,17 @@ language: c
 compiler:
   - gcc
 
+sudo: required
+
+dist: trusty
 
 # command to install dependencies
 install:
   - sudo apt-get update
-  - sudo apt-get install  -y libgmp-dev gperf
+  - sudo apt-get install -y libgmp-dev gperf
   - sudo apt-get install -y python-pip
+  - sudo apt-get install -y lcov
+  - gem install coveralls-lcov
   - pip --version
   - sudo pip install cpp-coveralls
   
@@ -16,7 +21,7 @@ install:
 script:
   - ./.travis/build.sh
 
+#   - coveralls -r . -b src --gcov-options '\-lp'
 after_success:
-  - coveralls -r . -b src --gcov-options '\-lp'
-
-
+  - lcov --directory build --base-directory src --capture --output-file coverage.info
+  - coveralls-lcov coverage.info
