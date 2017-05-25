@@ -6831,9 +6831,11 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
   }
 
-  fprintf(stderr, "\nStart search: computing SCCs \n");
-  compute_sccs(solver); // test
-  fprintf(stderr, "Done\n\n");
+  if (false) {
+    fprintf(stderr, "\nStart search: computing SCCs \n");
+    compute_sccs(solver); // test
+    fprintf(stderr, "Done\n\n");
+  }
 
   /*
    * Counter for report status
