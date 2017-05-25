@@ -977,7 +977,7 @@ bool uf_plugin_build_model_compare(void *data, variable_t t1_var, variable_t t2_
   term_t t1 = variable_db_get_term(ctx->var_db, t1_var);
   term_t t2 = variable_db_get_term(ctx->var_db, t2_var);
   int32_t t1_app = app_reps_get_uf(ctx->terms, t1);
-  int32_t t2_app = app_reps_get_uf(ctx->terms, t1);
+  int32_t t2_app = app_reps_get_uf(ctx->terms, t2);
   if (t1_app == t2_app) {
     return t1 < t2;
   }
