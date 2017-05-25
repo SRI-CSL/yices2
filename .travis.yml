@@ -14,14 +14,11 @@ install:
   - sudo apt-get install -y python-pip
   - sudo apt-get install -y lcov
   - gem install coveralls-lcov
-  - pip --version
-  - sudo pip install cpp-coveralls
-  
+
 #tests
 script:
   - ./.travis/build.sh
 
-#   - coveralls -r . -b src --gcov-options '\-lp'
 after_success:
   - lcov --directory build --base-directory src --capture --output-file coverage.info
   - coveralls-lcov coverage.info
