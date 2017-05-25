@@ -1387,12 +1387,13 @@ void presburger_eliminate(presburger_t *pres){
     //apply dejan's lemma to obtain a solution
     solution = presburger_solve(pres, y, &cooper, &value_of_solution);
 
-
     //eliminate y in favor of the above solution
     presburger_subst(pres, y, solution);
     
     delete_cooper(&cooper);
-    
+
+    // BD: memory leak
+    free_polynomial(solution);
   }
 }
 
