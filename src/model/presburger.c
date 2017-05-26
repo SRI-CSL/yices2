@@ -942,42 +942,47 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
   uint32_t nterms;
   monomial_t *mono;   
   
-  //first determine the factor by which we need to multiply by.
   
-  if (has_coefficient(constraint, y, &coeff)){
+  if (has_coefficient(constraint, y, &coeff)) {
+
+    //first determine the factor by which we need to multiply.
     q_init(&factor);
     q_set(&factor, lcm);
     q_div(&factor, coeff);
     //keep it positive
-    if (q_is_neg(&factor)){ q_neg(&factor); }
-  }
-
-  nterms = constraint->nterms;
-  mono = constraint->mono;
-  
-  for(i = 0; i < nterms; i++){
-    aux = &mono[i].coeff;
-    if (mono[i].var == y){
-      if (q_is_neg(aux)){
-	q_set_minus_one(aux);
-      } else {
-	q_set_one(aux);
-      }
-    } else {
-      q_mul(aux, &factor);
+    if (q_is_neg(&factor)) { 
+      q_neg(&factor);
     }
-  }
 
-  //if it is a divibility constraint the divisor needs to be scaled too.
-  divisor = constraint->divisor;
-  if (divisor != NULL){
-
-    assert((constraint->tag == PRES_POS_DIVIDES) || (constraint->tag == PRES_NEG_DIVIDES));
-
-    q_mul(divisor, &factor);
-  }
+    nterms = constraint->nterms;
+    mono = constraint->mono;
   
-  q_clear(&factor);
+    for(i = 0; i < nterms; i++){
+      aux = &mono[i].coeff;
+      if (mono[i].var == y){
+	if (q_is_neg(aux)){
+	  q_set_minus_one(aux);
+	} else {
+	  q_set_one(aux);
+	}
+      } else {
+	q_mul(aux, &factor);
+      }
+    }
+
+    //if it is a divibility constraint the divisor needs to be scaled too.
+    divisor = constraint->divisor;
+    if (divisor != NULL) {
+
+      assert((constraint->tag == PRES_POS_DIVIDES) || (constraint->tag == PRES_NEG_DIVIDES));
+
+      q_mul(divisor, &factor);
+    }
+  
+    q_clear(&factor);
+
+  }
+
 }
 
 /* convert all the contraints in pres to the form where the the coeff of
