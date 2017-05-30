@@ -2964,7 +2964,7 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
  * Convert term t to a power product:
  * - t must be a term (not a term index) present in the table
  */
-pprod_t *pprod_for_term(term_table_t *table, term_t t) {
+pprod_t *pprod_for_term(const term_table_t *table, term_t t) {
   pprod_t *r;
   int32_t i;
 
@@ -2983,7 +2983,7 @@ pprod_t *pprod_for_term(term_table_t *table, term_t t) {
 /*
  * Degree of x where x = main variable of a polynomial
  */
-static uint32_t main_var_degree(term_table_t *table, int32_t x) {
+static uint32_t main_var_degree(const term_table_t *table, int32_t x) {
   uint32_t d;
 
   d = 1;
@@ -3005,7 +3005,7 @@ static uint32_t main_var_degree(term_table_t *table, int32_t x) {
  * Degree of term t
  * - t must be a good term of arithmetic or bitvector type
  */
-uint32_t term_degree(term_table_t *table, term_t t) {
+uint32_t term_degree(const term_table_t *table, term_t t) {
   uint32_t d;
   int32_t i;
 
@@ -3039,6 +3039,51 @@ uint32_t term_degree(term_table_t *table, term_t t) {
   }
 
   return d;
+}
+
+
+/*
+ * Check whether x has degree 0 or 1 (i.e., x is not a power product)
+ */
+static bool not_pprod(const term_table_t *table, int32_t x) {
+  assert(is_pos_term(x) && good_term(table, x));
+  return table->kind[index_of(x)] != POWER_PRODUCT;
+}
+
+/*
+ * Check whether t is a linear polynomial:
+ * - t must be a good term of arithmetic or bitvector type.
+ * - returns true if t has tag ARITH_POLY/BV64_POLY or BV_POLY
+ *   and if no monomial of t is a power product.
+ * - this implies that t has degree 1.
+ */
+bool is_linear_poly(const term_table_t *table, term_t t) {
+  int32_t i;
+  bool result;
+
+  assert(is_pos_term(t) && good_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+
+  result = false;
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case ARITH_POLY:
+    result = not_pprod(table, polynomial_main_var(table->desc[i].ptr));
+    break;
+
+  case BV64_POLY:
+    result = not_pprod(table, bvpoly64_main_var(table->desc[i].ptr));
+    break;
+
+  case BV_POLY:
+    result = not_pprod(table, bvpoly_main_var(table->desc[i].ptr));
+    break;
+
+  default:
+    break;
+  }
+
+  return result;
 }
 
 
@@ -3116,7 +3161,7 @@ pprod_t **pprods_for_bvpoly(term_table_t *table, const bvpoly_t *p) {
  * Good term: valid descriptor + polarity = 0 unless
  * t is a Boolean term.
  */
-bool good_term(term_table_t *table, term_t t) {
+bool good_term(const term_table_t *table, term_t t) {
   return good_term_idx(table, index_of(t)) &&
     (is_pos_term(t) || type_for_idx(table, index_of(t)) == bool_id);
 }
@@ -3171,8 +3216,8 @@ static bool var_is_int(void *aux, int32_t x) {
 /*
  * Check whether b stores an integer polynomial
  */
-bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b) {
-  return rba_buffer_is_int(b, table, var_is_int);
+bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b) {
+  return rba_buffer_is_int(b, (void*) table, var_is_int);
 }
 
 
@@ -3185,7 +3230,7 @@ bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b) {
  * Check whether t is an arithmetic literal (i.e., arithmetic atom
  * or the negation of an arithmetic atom).
  */
-bool is_arithmetic_literal(term_table_t *table, term_t t) {
+bool is_arithmetic_literal(const term_table_t *table, term_t t) {
   switch (term_kind(table, t)) {
   case ARITH_EQ_ATOM:
   case ARITH_GE_ATOM:
@@ -3200,7 +3245,7 @@ bool is_arithmetic_literal(term_table_t *table, term_t t) {
 /*
  * Test whether t is a bitvector literal
  */
-bool is_bitvector_literal(term_table_t *table, term_t t) {
+bool is_bitvector_literal(const term_table_t *table, term_t t) {
   switch (term_kind(table, t)) {
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
@@ -3225,7 +3270,7 @@ bool is_bitvector_literal(term_table_t *table, term_t t) {
  * should not be a problem in practice unless people use deeply nested
  * tuples of tuples of tuples ...
  */
-bool is_constant_tuple(term_table_t *table, term_t t) {
+bool is_constant_tuple(const term_table_t *table, term_t t) {
   composite_term_t *tup;
   term_kind_t tag;
   uint32_t i, n;
@@ -3258,7 +3303,7 @@ bool is_constant_tuple(term_table_t *table, term_t t) {
  * Generic version: return true if t is an atomic constant
  * or a constant tuple.
  */
-bool is_constant_term(term_table_t *table, term_t t) {
+bool is_constant_term(const term_table_t *table, term_t t) {
   return is_const_term(table, t) ||
     (term_kind(table, t) == TUPLE_TERM && is_constant_tuple(table, t));
 }

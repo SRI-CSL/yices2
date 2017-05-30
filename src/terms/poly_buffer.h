@@ -18,7 +18,7 @@
 
 /*
  * Buffer for polynomial construction in an arithmetic solver.
- * (Simpler than arith_buffers/Supports only linear arithmetic).
+ * (Supports only linear arithmetic).
  *
  * The buffer may be normalized or not.
  * - once the buffer is normalized, the monomials are sorted, all coefficients

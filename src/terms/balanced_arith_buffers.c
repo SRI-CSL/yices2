@@ -50,7 +50,7 @@
  * following function is a heuristic that attempts to determine when
  * tree traversal is cheaper than linear scan.
  */
-static bool rba_tree_is_small(rba_buffer_t *b) {
+static bool rba_tree_is_small(const rba_buffer_t *b) {
   uint32_t n, p;
 
   n = b->nterms;
@@ -63,7 +63,7 @@ static bool rba_tree_is_small(rba_buffer_t *b) {
  * Left-most and right-most leaves of the subtree rooted at i
  * - special case: return null if i is null
  */
-static uint32_t leftmost_leaf(rba_buffer_t *b, uint32_t i) {
+static uint32_t leftmost_leaf(const rba_buffer_t *b, uint32_t i) {
   uint32_t j;
 
   for (;;) {
@@ -75,7 +75,7 @@ static uint32_t leftmost_leaf(rba_buffer_t *b, uint32_t i) {
   return i;
 }
 
-static uint32_t rightmost_leaf(rba_buffer_t *b, uint32_t i) {
+static uint32_t rightmost_leaf(const rba_buffer_t *b, uint32_t i) {
   uint32_t j;
 
   for (;;) {
@@ -91,7 +91,7 @@ static uint32_t rightmost_leaf(rba_buffer_t *b, uint32_t i) {
 /*
  * Index of the main monomial (or null if the tree is empty)
  */
-static inline uint32_t rba_main_idx(rba_buffer_t *b) {
+static inline uint32_t rba_main_idx(const rba_buffer_t *b) {
   return rightmost_leaf(b, b->root);
 }
 
@@ -99,7 +99,7 @@ static inline uint32_t rba_main_idx(rba_buffer_t *b) {
 /*
  * Index of the smallest monomial (or null if the tree is empty)
  */
-static inline uint32_t rba_smallest_idx(rba_buffer_t *b) {
+static inline uint32_t rba_smallest_idx(const rba_buffer_t *b) {
   return leftmost_leaf(b, b->root);
 }
 
@@ -684,14 +684,14 @@ void rba_delete_node(rba_buffer_t *b, uint32_t i) {
 /*
  * Root monomial
  */
-static inline mono_t *root_mono(rba_buffer_t *b) {
+static inline mono_t *root_mono(const rba_buffer_t *b) {
   return b->mono + b->root;
 }
 
 /*
  * Check whether b is a constant
  */
-bool rba_buffer_is_constant(rba_buffer_t *b) {
+bool rba_buffer_is_constant(const rba_buffer_t *b) {
   return b->nterms == 0 || (b->nterms == 1 && root_mono(b)->prod == empty_pp);
 }
 
@@ -699,7 +699,7 @@ bool rba_buffer_is_constant(rba_buffer_t *b) {
  * Check whether b is constant and nonzero
  * - b must be normalized
  */
-bool rba_buffer_is_nonzero(rba_buffer_t *b) {
+bool rba_buffer_is_nonzero(const rba_buffer_t *b) {
   return b->nterms == 1 && root_mono(b)->prod == empty_pp;
 }
 
@@ -708,25 +708,25 @@ bool rba_buffer_is_nonzero(rba_buffer_t *b) {
  * Check whether b is constant and positive, negative, etc.
  * - b must be normalized
  */
-bool rba_buffer_is_pos(rba_buffer_t *b) {
+bool rba_buffer_is_pos(const rba_buffer_t *b) {
   mono_t *r;
   r = root_mono(b);
   return b->nterms == 1 && r->prod == empty_pp && q_is_pos(&r->coeff);
 }
 
-bool rba_buffer_is_neg(rba_buffer_t *b) {
+bool rba_buffer_is_neg(const rba_buffer_t *b) {
   mono_t *r;
   r = root_mono(b);
   return b->nterms == 1 && r->prod == empty_pp && q_is_neg(&r->coeff);
 }
 
-bool rba_buffer_is_nonneg(rba_buffer_t *b) {
+bool rba_buffer_is_nonneg(const rba_buffer_t *b) {
   mono_t *r;
   r = root_mono(b);
   return b->nterms == 1 && r->prod == empty_pp && q_is_nonneg(&r->coeff);
 }
 
-bool rba_buffer_is_nonpos(rba_buffer_t *b) {
+bool rba_buffer_is_nonpos(const rba_buffer_t *b) {
   mono_t *r;
   r = root_mono(b);
   return b->nterms == 1 && r->prod == empty_pp && q_is_nonpos(&r->coeff);
@@ -737,7 +737,7 @@ bool rba_buffer_is_nonpos(rba_buffer_t *b) {
  * Check whether b is of the form 1 * X for a non-null power-product X
  * If so return X in *r
  */
-bool rba_buffer_is_product(rba_buffer_t *b, pprod_t **r) {
+bool rba_buffer_is_product(const rba_buffer_t *b, pprod_t **r) {
   mono_t *root;
 
   if (b->nterms == 1) {
@@ -757,7 +757,7 @@ bool rba_buffer_is_product(rba_buffer_t *b, pprod_t **r) {
  * for a non-zero rational a and two products X and Y.
  * If so return X in *r1 and Y in *r2
  */
-bool rba_buffer_is_equality(rba_buffer_t *b, pprod_t **r1, pprod_t **r2) {
+bool rba_buffer_is_equality(const rba_buffer_t *b, pprod_t **r1, pprod_t **r2) {
   uint32_t i, j;
   mono_t *p, *q;
   pprod_t *x, *y;
@@ -792,7 +792,7 @@ bool rba_buffer_is_equality(rba_buffer_t *b, pprod_t **r1, pprod_t **r2) {
 /*
  * Main monomial of b
  */
-mono_t *rba_buffer_main_mono(rba_buffer_t *b) {
+mono_t *rba_buffer_main_mono(const rba_buffer_t *b) {
   assert(b->nterms > 0);
   return b->mono +  rba_main_idx(b);
 }
@@ -801,7 +801,7 @@ mono_t *rba_buffer_main_mono(rba_buffer_t *b) {
 /*
  * Main term
  */
-pprod_t *rba_buffer_main_term(rba_buffer_t *b) {
+pprod_t *rba_buffer_main_term(const rba_buffer_t *b) {
   return rba_buffer_main_mono(b)->prod;
 }
 
@@ -810,7 +810,7 @@ pprod_t *rba_buffer_main_term(rba_buffer_t *b) {
  * Get degree of polynomial in buffer b.
  * - returns 0 if b is zero
  */
-uint32_t rba_buffer_degree(rba_buffer_t *b) {
+uint32_t rba_buffer_degree(const rba_buffer_t *b) {
   return (b->nterms == 0) ? 0 : pprod_degree(rba_buffer_main_term(b));
 }
 
@@ -821,7 +821,7 @@ uint32_t rba_buffer_degree(rba_buffer_t *b) {
  */
 
 // return max(d, degree of x in subtree of root i)
-static uint32_t tree_var_degree(rba_buffer_t *b, int32_t x, uint32_t i, uint32_t d) {
+static uint32_t tree_var_degree(const rba_buffer_t *b, int32_t x, uint32_t i, uint32_t d) {
   uint32_t e;
 
   if (i != rba_null) {
@@ -836,7 +836,7 @@ static uint32_t tree_var_degree(rba_buffer_t *b, int32_t x, uint32_t i, uint32_t
   return d;
 }
 
-uint32_t rba_buffer_var_degree(rba_buffer_t *b, int32_t x) {
+uint32_t rba_buffer_var_degree(const rba_buffer_t *b, int32_t x) {
   uint32_t i, n, d, e;
 
   if (rba_tree_is_small(b)) {
@@ -861,7 +861,7 @@ uint32_t rba_buffer_var_degree(rba_buffer_t *b, int32_t x) {
  * Collect the two monomials of b into *m[0] and *m[1]
  * - b must have exactly two monomials
  */
-void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]) {
+void rba_buffer_monomial_pair(const rba_buffer_t *b, mono_t *m[2]) {
   uint32_t x, i, j;
 
   assert(b->nterms == 2);
@@ -902,7 +902,7 @@ mono_t *rba_buffer_get_mono(rba_buffer_t *b, pprod_t *r) {
  * Get the constant monomial of b
  * - return NULL if b does not have a constant monomial
  */
-mono_t *rba_buffer_get_constant_mono(rba_buffer_t *b) {
+mono_t *rba_buffer_get_constant_mono(const rba_buffer_t *b) {
   mono_t *p;
   uint32_t i;
 

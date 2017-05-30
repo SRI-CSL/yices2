@@ -51,11 +51,16 @@
  * - the monomials are sorted
  * - mono[nterms].var contains the end-marker max_idx
  *
- * By default, the monomials are ordered in increasing
- * variable index. This is sufficient for linear polynomials.
+ * Normalization
+ * -------------
+ * By default, normalization sorts the monomials in increasing
+ * variable index and remove all monomials with zero coefficients.
+ * This is sufficient for linear polynomials.
  *
- * It's also possible to use another ordering, defined by
- * a variable comparison function.
+ * It's also possible to use another ordering, defined by a variable
+ * comparison function. This ordering must ensure that the constant
+ * term if any is stored in mono[0] (with var = const_idx). It must
+ * also ensure that the end marker is last.
  */
 
 // monomial
@@ -276,6 +281,9 @@ extern void monarray_gcd(monomial_t *p, rational_t *gcd);
  *
  * Function monarray_pair_common_part computes r.
  * Function monarray_pair_common_gcd computes a (if p and q are integer
+ * polynomials).
+ *
+ * Warning: p and q must be sorted in increasing variable order (i.e., linear
  * polynomials).
  */
 

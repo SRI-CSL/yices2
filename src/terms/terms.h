@@ -146,6 +146,14 @@
  *    - is_int x: true if x is an integer
  *    - real division: (/ x y)
  *
+ * All polynomials p are normalized in deg-lex order:
+ * If i < j then p->mono[i] has lower degree than p->mono[j],
+ * or they have the same degree and p->mono[i].var precedes
+ * p->mono[j].var in the lexicographic order. In particular,
+ * 1) p->mono[0] contains that constant term of p if any
+ * 2) if p is a linear polynomial, then we have
+ *    p->mono[i].var < p->mono[j].var when i < j.
+ *
  * Every term is an index t in a global term table,
  * where 0 <= t <= 2^30. There are two term occurrences
  * t+ and t- associated with term t.  The two occurrences
@@ -709,7 +717,7 @@ extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
 /*
  * Check whether b stores an integer polynomial
  */
-extern bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b);
+extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
 
 
 
@@ -1032,7 +1040,7 @@ static inline term_t bool2term(bool tt) {
  * - t must be a term (not a term index) present in the table
  * - t must have arithmetic or bitvector type
  */
-extern pprod_t *pprod_for_term(term_table_t *table, term_t t);
+extern pprod_t *pprod_for_term(const term_table_t *table, term_t t);
 
 
 /*
@@ -1044,8 +1052,16 @@ extern pprod_t *pprod_for_term(term_table_t *table, term_t t);
  * - if t is a polynomial --> degree of that polynomial
  * - otherwise --> 1
  */
-extern uint32_t term_degree(term_table_t *table, term_t t);
+extern uint32_t term_degree(const term_table_t *table, term_t t);
 
+/*
+ * Check whether t is a linear polynomial:
+ * - t must be a good term of arithmetic or bitvector type.
+ * - returns true if t has tag ARITH_POLY/BV64_POLY or BV_POLY
+ *   and if no monomial of t is a power product.
+ * - this implies that t has degree 1.
+ */
+extern bool is_linear_poly(const term_table_t *table, term_t t);
 
 /*
  * Convert all indices in polynomial p to power products
@@ -1099,87 +1115,87 @@ static inline void term_table_reset_pbuffer(term_table_t *table) {
 /*
  * From a term index i
  */
-static inline bool valid_term_idx(term_table_t *table, int32_t i) {
+static inline bool valid_term_idx(const term_table_t *table, int32_t i) {
   return 0 <= i && i < table->nelems;
 }
 
-static inline bool live_term_idx(term_table_t *table, int32_t i) {
+static inline bool live_term_idx(const term_table_t *table, int32_t i) {
   return valid_term_idx(table, i) && table->kind[i] != UNUSED_TERM;
 }
 
-static inline bool good_term_idx(term_table_t *table, int32_t i) {
+static inline bool good_term_idx(const term_table_t *table, int32_t i) {
   return valid_term_idx(table, i) && table->kind[i] > RESERVED_TERM;
 }
 
-static inline type_t type_for_idx(term_table_t *table, int32_t i) {
+static inline type_t type_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return table->type[i];
 }
 
-static inline term_kind_t kind_for_idx(term_table_t *table, int32_t i) {
+static inline term_kind_t kind_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return table->kind[i];
 }
 
 // descriptor converted to an appropriate type
-static inline int32_t integer_value_for_idx(term_table_t *table, int32_t i) {
+static inline int32_t integer_value_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return table->desc[i].integer;
 }
 
-static inline composite_term_t *composite_for_idx(term_table_t *table, int32_t i) {
+static inline composite_term_t *composite_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (composite_term_t *) table->desc[i].ptr;
 }
 
-static inline select_term_t *select_for_idx(term_table_t *table, int32_t i) {
+static inline select_term_t *select_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return &table->desc[i].select;
 }
 
-static inline root_atom_t *root_atom_for_idx(term_table_t *table, int32_t i) {
+static inline root_atom_t *root_atom_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (root_atom_t *) table->desc[i].ptr;
 }
 
-static inline pprod_t *pprod_for_idx(term_table_t *table, int32_t i) {
+static inline pprod_t *pprod_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (pprod_t *) table->desc[i].ptr;
 }
 
-static inline rational_t *rational_for_idx(term_table_t *table, int32_t i) {
+static inline rational_t *rational_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return &table->desc[i].rational;
 }
 
-static inline polynomial_t *polynomial_for_idx(term_table_t *table, int32_t i) {
+static inline polynomial_t *polynomial_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (polynomial_t *) table->desc[i].ptr;
 }
 
-static inline bvconst64_term_t *bvconst64_for_idx(term_table_t *table, int32_t i) {
+static inline bvconst64_term_t *bvconst64_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (bvconst64_term_t *) table->desc[i].ptr;
 }
 
-static inline bvconst_term_t *bvconst_for_idx(term_table_t *table, int32_t i) {
+static inline bvconst_term_t *bvconst_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (bvconst_term_t *) table->desc[i].ptr;
 }
 
-static inline bvpoly64_t *bvpoly64_for_idx(term_table_t *table, int32_t i) {
+static inline bvpoly64_t *bvpoly64_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (bvpoly64_t *) table->desc[i].ptr;
 }
 
-static inline bvpoly_t *bvpoly_for_idx(term_table_t *table, int32_t i) {
+static inline bvpoly_t *bvpoly_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (bvpoly_t *) table->desc[i].ptr;
 }
 
 
 // bitsize of bitvector terms
-static inline uint32_t bitsize_for_idx(term_table_t *table, int32_t i) {
+static inline uint32_t bitsize_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return bv_type_size(table->types, table->type[i]);
 }
@@ -1189,71 +1205,71 @@ static inline uint32_t bitsize_for_idx(term_table_t *table, int32_t i) {
 /*
  * Access components using term occurrence t
  */
-static inline bool live_term(term_table_t *table, term_t t) {
+static inline bool live_term(const term_table_t *table, term_t t) {
   return live_term_idx(table, index_of(t));
 }
 
 // good_term means good_term_index
 // and polarity = 0 (unless t is Boolean)
-extern bool good_term(term_table_t *table, term_t t);
+extern bool good_term(const term_table_t *table, term_t t);
 
-static inline bool bad_term(term_table_t *table, term_t t) {
+static inline bool bad_term(const term_table_t *table, term_t t) {
   return ! good_term(table, t);
 }
 
-static inline term_kind_t term_kind(term_table_t *table, term_t t) {
+static inline term_kind_t term_kind(const term_table_t *table, term_t t) {
   return kind_for_idx(table, index_of(t));
 }
 
-static inline type_t term_type(term_table_t *table, term_t t) {
+static inline type_t term_type(const term_table_t *table, term_t t) {
   return type_for_idx(table, index_of(t));
 }
 
-static inline type_kind_t term_type_kind(term_table_t *table, term_t t) {
+static inline type_kind_t term_type_kind(const term_table_t *table, term_t t) {
   return type_kind(table->types, term_type(table, t));
 }
 
 
 // Checks on the type of t
-static inline bool is_arithmetic_term(term_table_t *table, term_t t) {
+static inline bool is_arithmetic_term(const term_table_t *table, term_t t) {
   return is_arithmetic_type(term_type(table, t));
 }
 
-static inline bool is_boolean_term(term_table_t *table, term_t t) {
+static inline bool is_boolean_term(const term_table_t *table, term_t t) {
   return is_boolean_type(term_type(table, t));
 }
 
-static inline bool is_real_term(term_table_t *table, term_t t) {
+static inline bool is_real_term(const term_table_t *table, term_t t) {
   return is_real_type(term_type(table, t));
 }
 
-static inline bool is_integer_term(term_table_t *table, term_t t) {
+static inline bool is_integer_term(const term_table_t *table, term_t t) {
   return is_integer_type(term_type(table, t));
 }
 
-static inline bool is_bitvector_term(term_table_t *table, term_t t) {
+static inline bool is_bitvector_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == BITVECTOR_TYPE;
 }
 
-static inline bool is_scalar_term(term_table_t *table, term_t t) {
+static inline bool is_scalar_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == SCALAR_TYPE;
 }
 
-static inline bool is_utype_term(term_table_t *table, term_t t) {
+static inline bool is_utype_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == UNINTERPRETED_TYPE;
 }
 
-static inline bool is_function_term(term_table_t *table, term_t t) {
+static inline bool is_function_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == FUNCTION_TYPE;
 }
 
-static inline bool is_tuple_term(term_table_t *table, term_t t) {
+static inline bool is_tuple_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == TUPLE_TYPE;
 }
 
 
 // Bitsize of term t
-static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
+static inline uint32_t term_bitsize(const term_table_t *table, term_t t) {
   return bitsize_for_idx(table, index_of(t));
 }
 
@@ -1263,7 +1279,7 @@ static inline bool is_ite_kind(term_kind_t tag) {
   return tag == ITE_TERM || tag == ITE_SPECIAL;
 }
 
-static inline bool is_ite_term(term_table_t *table, term_t t) {
+static inline bool is_ite_term(const term_table_t *table, term_t t) {
   return is_ite_kind(term_kind(table, t));
 }
 
@@ -1273,7 +1289,7 @@ static inline bool is_const_kind(term_kind_t tag) {
   return CONSTANT_TERM <= tag && tag <= BV_CONSTANT;
 }
 
-static inline bool is_const_term(term_table_t *table, term_t t) {
+static inline bool is_const_term(const term_table_t *table, term_t t) {
   return is_const_kind(term_kind(table, t));
 }
 
@@ -1284,8 +1300,8 @@ static inline bool is_const_term(term_table_t *table, term_t t) {
  *   two arithmetic terms
  * - bitvector literals: bv-eq, bv-ge, bv-sga
  */
-extern bool is_arithmetic_literal(term_table_t *table, term_t t);
-extern bool is_bitvector_literal(term_table_t *table, term_t t);
+extern bool is_arithmetic_literal(const term_table_t *table, term_t t);
+extern bool is_bitvector_literal(const term_table_t *table, term_t t);
 
 
 
@@ -1297,14 +1313,14 @@ extern bool is_bitvector_literal(term_table_t *table, term_t t);
  * Check whether t is a constant tuple
  * - t must be a tuple term
  */
-extern bool is_constant_tuple(term_table_t *table, term_t t);
+extern bool is_constant_tuple(const term_table_t *table, term_t t);
 
 
 /*
  * Generic version: return true if t is an atomic constant
  * or a constant tuple.
  */
-extern bool is_constant_term(term_table_t *table, term_t t);
+extern bool is_constant_term(const term_table_t *table, term_t t);
 
 
 /*
@@ -1325,61 +1341,61 @@ extern term_t find_constant_term(term_table_t *table, type_t tau, int32_t index)
  * should be used with care. They return a pointer that may become
  * invalid if new terms are added to the table.
  */
-static inline int32_t constant_term_index(term_table_t *table, term_t t) {
+static inline int32_t constant_term_index(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == CONSTANT_TERM);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline int32_t variable_term_index(term_table_t *table, term_t t) {
+static inline int32_t variable_term_index(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == VARIABLE);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *composite_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *composite_term_desc(const term_table_t *table, term_t t) {
   return composite_for_idx(table, index_of(t));
 }
 
-static inline select_term_t *select_term_desc(term_table_t *table, term_t t) {
+static inline select_term_t *select_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == SELECT_TERM);
   return select_for_idx(table, index_of(t));
 }
 
-static inline select_term_t *bit_term_desc(term_table_t *table, term_t t) {
+static inline select_term_t *bit_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BIT_TERM);
   return select_for_idx(table, index_of(t));
 }
 
-static inline pprod_t *pprod_term_desc(term_table_t *table, term_t t) {
+static inline pprod_t *pprod_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == POWER_PRODUCT);
   return pprod_for_idx(table, index_of(t));
 }
 
-static inline rational_t *rational_term_desc(term_table_t *table, term_t t) {
+static inline rational_t *rational_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_CONSTANT);
   return rational_for_idx(table, index_of(t));
 }
 
-static inline polynomial_t *poly_term_desc(term_table_t *table, term_t t) {
+static inline polynomial_t *poly_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_POLY);
   return polynomial_for_idx(table, index_of(t));
 }
 
-static inline bvconst64_term_t *bvconst64_term_desc(term_table_t *table, term_t t) {
+static inline bvconst64_term_t *bvconst64_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV64_CONSTANT);
   return bvconst64_for_idx(table, index_of(t));
 }
 
-static inline bvconst_term_t *bvconst_term_desc(term_table_t *table, term_t t) {
+static inline bvconst_term_t *bvconst_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_CONSTANT);
   return bvconst_for_idx(table, index_of(t));
 }
 
-static inline bvpoly64_t *bvpoly64_term_desc(term_table_t *table, term_t t) {
+static inline bvpoly64_t *bvpoly64_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV64_POLY);
   return bvpoly64_for_idx(table, index_of(t));
 }
 
-static inline bvpoly_t *bvpoly_term_desc(term_table_t *table, term_t t) {
+static inline bvpoly_t *bvpoly_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_POLY);
   return bvpoly_for_idx(table, index_of(t));
 }
@@ -1389,59 +1405,59 @@ static inline bvpoly_t *bvpoly_term_desc(term_table_t *table, term_t t) {
  * Subcomponents of a term t
  */
 // arity of a composite term
-static inline uint32_t composite_term_arity(term_table_t *table, term_t t) {
+static inline uint32_t composite_term_arity(const term_table_t *table, term_t t) {
   return composite_term_desc(table, t)->arity;
 }
 
 // i-th argument of term t (t must be a composite term)
-static inline term_t composite_term_arg(term_table_t *table, term_t t, uint32_t i) {
+static inline term_t composite_term_arg(const term_table_t *table, term_t t, uint32_t i) {
   assert(i < composite_term_arity(table, t));
   return composite_term_desc(table, t)->arg[i];
 }
 
 // argument of a unary term t
-static inline term_t unary_term_arg(term_table_t *table, term_t t) {
+static inline term_t unary_term_arg(const term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
 // index of a select term t
-static inline uint32_t select_term_index(term_table_t *table, term_t t) {
+static inline uint32_t select_term_index(const term_table_t *table, term_t t) {
   return select_term_desc(table, t)->idx;
 }
 
 // argument of select term t
-static inline term_t select_term_arg(term_table_t *table, term_t t) {
+static inline term_t select_term_arg(const term_table_t *table, term_t t) {
   return select_term_desc(table, t)->arg;
 }
 
 // index of a bit select term t
-static inline uint32_t bit_term_index(term_table_t *table, term_t t) {
+static inline uint32_t bit_term_index(const term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->idx;
 }
 
 // argument of select term t
-static inline term_t bit_term_arg(term_table_t *table, term_t t) {
+static inline term_t bit_term_arg(const term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->arg;
 }
 
 // argument of arith eq and arith ge atoms
-static inline term_t arith_atom_arg(term_table_t *table, term_t t) {
+static inline term_t arith_atom_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_EQ_ATOM ||
          term_kind(table, t) == ARITH_GE_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline term_t arith_eq_arg(term_table_t *table, term_t t) {
+static inline term_t arith_eq_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_EQ_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
+static inline term_t arith_ge_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_GE_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline root_atom_t *arith_root_atom_desc(term_table_t *table, term_t t) {
+static inline root_atom_t *arith_root_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_ROOT_ATOM);
   return root_atom_for_idx(table, index_of(t));
 }
@@ -1449,22 +1465,22 @@ static inline root_atom_t *arith_root_atom_desc(term_table_t *table, term_t t) {
 /*
  * Other unary terms
  */
-static inline term_t arith_is_int_arg(term_table_t *table, term_t t) {
+static inline term_t arith_is_int_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_IS_INT_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline term_t arith_floor_arg(term_table_t *table, term_t t) {
+static inline term_t arith_floor_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_FLOOR);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline term_t arith_ceil_arg(term_table_t *table, term_t t) {
+static inline term_t arith_ceil_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_CEIL);
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline term_t arith_abs_arg(term_table_t *table, term_t t) {
+static inline term_t arith_abs_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_ABS);
   return integer_value_for_idx(table, index_of(t));
 }
@@ -1474,137 +1490,137 @@ static inline term_t arith_abs_arg(term_table_t *table, term_t t) {
  * All the following functions are equivalent to composite_term_desc, but,
  * when debugging is enabled, they also check that the term kind is consistent.
  */
-static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *ite_term_desc(const term_table_t *table, term_t t) {
   assert(is_ite_kind(term_kind(table, t)));
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *app_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *app_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == APP_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *update_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *update_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == UPDATE_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *tuple_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *tuple_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == TUPLE_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *eq_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *eq_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == EQ_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *distinct_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *distinct_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == DISTINCT_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *forall_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *forall_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == FORALL_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *lambda_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *lambda_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == LAMBDA_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *or_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *or_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == OR_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *xor_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *xor_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == XOR_TERM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_bineq_atom_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *arith_bineq_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_BINEQ_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_rdiv_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *arith_rdiv_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_RDIV);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_idiv_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *arith_idiv_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_IDIV);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_mod_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *arith_mod_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_MOD);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *arith_divides_atom_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *arith_divides_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_DIVIDES_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvarray_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvarray_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_ARRAY);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvdiv_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvdiv_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_DIV);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvrem_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvrem_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_REM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvsdiv_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvsdiv_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SDIV);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvsrem_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvsrem_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SREM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvsmod_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvsmod_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SMOD);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvshl_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvshl_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SHL);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvlshr_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvlshr_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_LSHR);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvashr_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvashr_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_ASHR);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bveq_atom_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bveq_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_EQ_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvge_atom_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvge_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_GE_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline composite_term_t *bvsge_atom_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *bvsge_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == BV_SGE_ATOM);
   return composite_for_idx(table, index_of(t));
 }
@@ -1618,17 +1634,17 @@ static inline special_term_t *special_desc(composite_term_t *p) {
   return (special_term_t *) (((char *) p) - offsetof(special_term_t, body));
 }
 
-static inline special_term_t *special_for_idx(term_table_t *table, int32_t i) {
+static inline special_term_t *special_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return special_desc(table->desc[i].ptr);
 }
 
-static inline composite_term_t *ite_special_term_desc(term_table_t *table, term_t t) {
+static inline composite_term_t *ite_special_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ITE_SPECIAL);
   return composite_for_idx(table, index_of(t));
 }
 
-static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
+static inline special_term_t *ite_special_desc(const term_table_t *table, term_t t) {
   return special_desc(ite_special_term_desc(table, t));
 }
 
@@ -1678,7 +1694,7 @@ static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
 /*
  * Test whether i is marked
  */
-static inline bool term_idx_is_marked(term_table_t *table, int32_t i) {
+static inline bool term_idx_is_marked(const term_table_t *table, int32_t i) {
   assert(valid_term_idx(table, i));
   return tst_bit(table->mark, i);
 }

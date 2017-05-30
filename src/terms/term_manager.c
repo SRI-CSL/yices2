@@ -1568,7 +1568,7 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
  */
 
 /*
- * PUSH IF INSIDE INTEGER POLYNOMIALS
+ * PUSH IF INSIDE INTEGER LINEAR POLYNOMIALS
  *
  * If t and e are polynomials with integer variables, we try to
  * rewrite (ite c t e)  to r + a * (ite c t' e')  where:
@@ -1576,6 +1576,9 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
  *   a = gcd of coefficients of (t - r) and (e - r).
  *   t' = (t - r)/a
  *   e' = (e - r)/a
+ *
+ * The code assumes that t and e are linear polynomials (i.e.,
+ * the monomials are sorted in increasing variable order).
  */
 
 /*
@@ -1725,7 +1728,7 @@ static term_t mk_mul_term_const(term_manager_t *manager, term_t t, rational_t *c
 
 /*
  * Attempt to rewrite (ite c t e) to (r + a * (ite c t' e'))
- * - t and e must be distinct integer polynomials
+ * - t and e must be distinct integer linear polynomials
  * - if r is null and a is one, it builds (ite c t e)
  * - if r is null and a is more than one, it builds a * (ite t' e')
  */
@@ -1739,6 +1742,7 @@ static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_
   tbl = manager->terms;
 
   assert(is_integer_term(tbl, t) && is_integer_term(tbl, e));
+  assert(is_linear_poly(tbl, t) && is_linear_poly(tbl, e));
 
   p = poly_term_desc(tbl, t);  // then part
   q = poly_term_desc(tbl, e);  // else part
@@ -2041,8 +2045,8 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
   // rewriting of arithmetic if-then-elses
   if (manager->simplify_ite && is_arithmetic_type(tau)) {
     if (is_integer_type(tau) && 
-	term_kind(manager->terms, t) == ARITH_POLY && 
-	term_kind(manager->terms, e) == ARITH_POLY) {
+	is_linear_poly(manager->terms, t) &&
+	is_linear_poly(manager->terms, e)) {
       return mk_integer_polynomial_ite(manager, c, t, e);
     }
 
