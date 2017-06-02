@@ -126,7 +126,7 @@ static void print_rba_buffer(FILE *f, rba_buffer_t *b) {
 /*
  * Test basic operations
  */
-static void test_buffer_pred(char *s, rba_buffer_t *b, bool (*f)(rba_buffer_t *)) {
+static void test_buffer_pred(char *s, rba_buffer_t *b, bool (*f)(const rba_buffer_t *)) {
   printf("  test %s: ", s);
   if (f(b)) {
     printf("yes\n");
