@@ -522,13 +522,6 @@ extern void bit_blaster_make_bvneg(bit_blaster_t *blaster, literal_t *a, literal
 extern void bit_blaster_make_bvmul(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n);
 
 
-
-/*
- * Variant implementation of bvmul
- */
-extern void bit_blaster_make_bvmul2(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n);
-
-
 /*
  * UNSIGNED DIVISION
  * - a and b must be literal arrays of size n
@@ -547,12 +540,6 @@ extern void bit_blaster_make_bvmul2(bit_blaster_t *blaster, literal_t *a, litera
  */
 extern void bit_blaster_make_udivision(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                        literal_t *q, literal_t *r, uint32_t n);
-
-
-// Variant implementation
-extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b,
-                                        literal_t *q, literal_t *r, uint32_t n);
-
 
 
 
@@ -582,13 +569,6 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  */
 extern void bit_blaster_make_sdivision(bit_blaster_t *blaster, literal_t *a, literal_t *b,
                                        literal_t *q, literal_t *r, uint32_t n);
-
-
-// Variant implementation
-extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b,
-                                        literal_t *q, literal_t *r, uint32_t n);
-
-
 
 
 /*

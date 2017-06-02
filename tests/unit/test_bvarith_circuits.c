@@ -503,51 +503,6 @@ static void test_bvmul_const(uint32_t n, literal_t *a, literal_t *b) {
 
 
 
-/*
- * Test (bvmul a b): size n
- * - use variant implementation
- */
-static void test_bvmul2(uint32_t n, literal_t *a, literal_t *b) {
-  literal_t *u;
-
-  printf("a = ");
-  print_bitvector(n, a);
-  printf("\n");
-  printf("b = ");
-  print_bitvector(n, b);
-  printf("\n");
-
-  u = remap_table_fresh_array(&remap, n);
-  int_array_incref(u);
-
-  bit_blaster_make_bvmul2(&blaster, a, b, u, n);
-  printf("(bvmul a b) = ");
-  print_pseudo_vector(n, u);
-  printf("\n\n");
-
-  remap_table_free_array(u);
-}
-
-// constant input
-static void test_bvmul2_const(uint32_t n, literal_t *a, literal_t *b) {
-  literal_t *u;
-
-  u = remap_table_fresh_array(&remap, n);
-  int_array_incref(u);
-
-  bit_blaster_make_bvmul2(&blaster, a, b, u, n);
-  printf("(bvmul ");
-  print_litarray_as_uint32(n, a);
-  printf(" " );
-  print_litarray_as_uint32(n, b);
-  printf(") = ");
-  print_pseudo_vector_as_uint32(n, u);
-  printf("\n");
-
-  remap_table_free_array(u);
-}
-
-
 
 /*
  * Basic tests: one 4-bit input
@@ -811,27 +766,12 @@ static void all_bvmul_tests(void) {
 }
 
 
-static void all_bvmul2_tests(void) {
-  printf("\n"
-	 "*****************\n"
-	 "*  BVMUL2 TESTS *\n"
-	 "*****************\n\n");
-
-  init();
-  truth_table_test4var(test_bvmul2_const);
-  base_test4var(test_bvmul2);
-  random_tests4var(100, test_bvmul2);
-  cleanup();
-}
-
-
 
 int main(void) {
   all_bvneg_tests();
   all_bvadd_tests();
   all_bvsub_tests();
   all_bvmul_tests();
-  all_bvmul2_tests();
 
   return 0;
 }
