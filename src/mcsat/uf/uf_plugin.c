@@ -36,6 +36,7 @@
 #include "model/models.h"
 
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "yices.h"
 
 typedef struct {
@@ -79,6 +80,9 @@ typedef struct {
   /** Feasible sets for uninterpreted terms */
   uf_feasible_set_db_t* feasible;
 
+  /** The term manager (no ITE simplification) */
+  term_manager_t tm;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -116,6 +120,10 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
+
+  // Term manager
+  init_term_manager(&uf->tm, uf->ctx->terms);
+  uf->tm.simplify_ite = false;
 }
 
 static
@@ -131,6 +139,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
+  delete_term_manager(&uf->tm);
 }
 
 static
@@ -523,7 +532,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
       ivector_push(&uf->conflict, opposite_term(fy));
     }
   } else {
-    term_t fx_eq_fy = yices_eq(fx, fy);
+    term_t fx_eq_fy = mk_eq(&uf->tm, fx, fy);
     ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
   }
 
@@ -552,7 +561,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
         ivector_push(&uf->conflict, opposite_term(y));
       }
     } else {
-      term_t x_eq_y = yices_eq(x, y);
+      term_t x_eq_y = mk_eq(&uf->tm, x, y);
       // Don't add trivially true facts
       if (x_eq_y != bool2term(true)) {
         ivector_push(&uf->conflict, x_eq_y);
