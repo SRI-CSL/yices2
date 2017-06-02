@@ -322,6 +322,10 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
 
     term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
 
+    if (ctx_trace_enabled(map->nra->ctx, "nra::explain::projection")) {
+      ctx_trace_printf(map->nra->ctx, "p_term = "); ctx_trace_term(map->nra->ctx, p_term);
+    }
+
     switch (r) {
     case ROOT_ATOM_LT:
       root_atom = mk_arith_term_lt0(tm, p_term);
@@ -329,9 +333,10 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
     case ROOT_ATOM_LEQ:
       root_atom = mk_arith_term_leq0(tm, p_term);
       break;
-    case ROOT_ATOM_EQ:
+    case ROOT_ATOM_EQ: {
       root_atom = mk_arith_term_eq0(tm, p_term);
       break;
+    }
     case ROOT_ATOM_NEQ:
       root_atom = mk_arith_term_neq0(tm, p_term);
       break;

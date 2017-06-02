@@ -203,7 +203,7 @@ extern bool arith_term_is_nonpos(term_table_t *tbl, term_t t, bool check_ite);
  * - return true if the checks succeed and determine that t < 0
  * - return false otherwise
  */
-extern bool arith_term_is_negative(term_table_t *tbl, term_t t);
+extern bool arith_term_is_negative(term_table_t *tbl, term_t t, bool check_ite);
 
 
 /*
@@ -211,7 +211,7 @@ extern bool arith_term_is_negative(term_table_t *tbl, term_t t);
  * - return true if the checks succeed and determine that t != 0
  * - return false otherwise
  */
-extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t);
+extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite);
 
 
 

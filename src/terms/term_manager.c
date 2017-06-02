@@ -2122,7 +2122,7 @@ static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) 
  *   (ite c 0 y) == 0  -->  c provided y != 0
  *   (ite c x 0) == 0  --> ~c provided x != 0
  */
-static term_t check_arith_eq0_simplifies(term_table_t *tbl, term_t t) {
+static term_t check_arith_eq0_simplifies(term_table_t *tbl, term_t t, bool check_ite) {
   composite_term_t *d;
   term_t x, y;
 
@@ -2133,10 +2133,10 @@ static term_t check_arith_eq0_simplifies(term_table_t *tbl, term_t t) {
     d = ite_term_desc(tbl, t);
     x = d->arg[1];
     y = d->arg[2];
-    if (x == zero_term && arith_term_is_nonzero(tbl, y)) {
+    if (x == zero_term && arith_term_is_nonzero(tbl, y, check_ite)) {
       return d->arg[0];
     }
-    if (y == zero_term && arith_term_is_nonzero(tbl, x)) {
+    if (y == zero_term && arith_term_is_nonzero(tbl, x, check_ite)) {
       return opposite_term(d->arg[0]);
     }
   }
@@ -2183,12 +2183,12 @@ static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) 
 
   assert(is_arithmetic_term(tbl, t));
 
-  if (arith_term_is_nonzero(tbl, t)) {
+  if (arith_term_is_nonzero(tbl, t, simplify_ite)) {
     return false_term;
   }
 
   if (simplify_ite) {
-    aux = check_arith_eq0_simplifies(tbl, t);
+    aux = check_arith_eq0_simplifies(tbl, t, simplify_ite);
     if (aux != NULL_TERM) {
       return aux;
     }
@@ -2224,7 +2224,7 @@ term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b) {
  * return NULL_TERM if these simplifications don't work.
  * return the result otherwise
  */
-static term_t check_arithge_simplifies(term_table_t *tbl, term_t t) {
+static term_t check_arithge_simplifies(term_table_t *tbl, term_t t, bool check_ite) {
   composite_term_t *d;
   term_t x, y;
 
@@ -2236,11 +2236,11 @@ static term_t check_arithge_simplifies(term_table_t *tbl, term_t t) {
     y = d->arg[2];
 
     if (arith_term_is_nonneg(tbl, x, true) &&
-        arith_term_is_negative(tbl, y)) {
+        arith_term_is_negative(tbl, y, check_ite)) {
       return d->arg[0];
     }
 
-    if (arith_term_is_negative(tbl, x) &&
+    if (arith_term_is_negative(tbl, x, check_ite) &&
         arith_term_is_nonneg(tbl, y, true)) {
       return opposite_term(d->arg[0]);
     }
@@ -2264,7 +2264,7 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t, bool simplify_ite) 
   }
 
   if (simplify_ite) {
-    aux = check_arithge_simplifies(tbl, t);
+    aux = check_arithge_simplifies(tbl, t, simplify_ite);
     if (aux != NULL_TERM) {
       return aux;
     }
