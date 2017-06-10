@@ -1,0 +1,8 @@
+#!/bin/bash
+
+#
+# Setup environment variables to run the Visual
+# Studio 2013 command-line tools from Cygwin
+#
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2017/Community"
+export PATH=${vsbase}/VC/Tools/MSVC/14.10.25017/bin/HostX86/x86:${vsbase}/Common7/IDE:${PATH}
