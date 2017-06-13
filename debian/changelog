@@ -1,0 +1,5 @@
+yices2 (2.6.0-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #XXXXXX)
+
+ -- Ian A. Mason <iam@csl.sri.com>  Thu, 25 May 2017 14:42:07 +0000
