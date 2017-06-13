@@ -452,10 +452,6 @@ install-default: $(build_dir) $(dist_dir)
 	$(INSTALL) $(dist_dir)/lib/* $(DESTDIR)$(libdir)
 
 
-ifeq ($(DESTDIR),)
-#
-# DESTDIR is empty, we create symbolic links and run ldconfig as part of install
-#
 install-darwin: install-default
 	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
 
@@ -468,15 +464,6 @@ install-linux install-unix: install-default
 # on FreeBSD: the library file is libyices.so.X.Y and ldconfig does not take -n
 install-freebsd: install-default
 	$(LDCONFIG) -m $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
-
-else
-#
-# DESTDIR is non-empty: skip the symbolic links and ldconfig
-#
-install-darwin install-solaris install-linux install-unix install-freebsd: install-default
-
-endif
-
 
 #
 # cygwin and mingw install: copy the DLLs in $(bindir)

@@ -1,0 +1,50 @@
+.TH YICES "1" "June 2017" "Yices 2.6.0" "User Commands"
+.SH NAME
+yices-smt \- the Yices SMT solver for the SMTLIB 1.2
+.SH SYNOPSIS
+.B yices-smt
+[\fIoptions\fR] \fIfilename\fR
+.SH DESCRIPTION
+.SS "Option summary:"
+.TP
+\fB\-\-version\fR, \fB\-V\fR
+Show version and exit
+.TP
+\fB\-\-help\fR, \fB\-h\fR
+Print this message and exit
+.TP
+\fB\-\-model\fR, \fB\-m\fR
+Show a model (some variables may be eliminated)
+.TP
+\fB\-\-full\-model\fR, \fB\-f\fR
+Show a model that includes all variables
+.TP
+\fB\-\-verbose\fR, \fB\-v\fR
+Print statistics during the search
+.TP
+\fB\-\-stats\fR, \fB\-s\fR
+Show search statistics
+.TP
+\fB\-\-timeout=\fR<int>, \fB\-t\fR <int>
+Give a timeout in seconds (default: no timeout)
+.PP
+For bug reporting and other information, please see http://yices.csl.sri.com/
+.SH COPYRIGHT
+Copyright SRI International.
+Linked with GMP 5.1.3
+.br
+Copyright Free Software Foundation, Inc.
+Build date: 2017\-06\-08
+Platform: x86_64\-unknown\-linux\-gnu (release)
+.SH "SEE ALSO"
+The full documentation for
+.B Yices
+is maintained as a Texinfo manual.  If the
+.B info
+and
+.B Yices
+programs are properly installed at your site, the command
+.IP
+.B info Yices
+.PP
+should give you access to the complete manual.

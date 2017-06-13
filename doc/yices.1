@@ -1,0 +1,78 @@
+.TH YICES "1" "June 2017" "Yices 2.6.0" "User Commands"
+.SH NAME
+yices-smt \- the Yices SMT solver for the Yices language
+.SH SYNOPSIS
+.B yices
+[\fIoptions\fR] \fIfilename\fR
+.SH OPTIONS
+.TP
+\fB\-\-version\fR, \fB\-V\fR
+Display version and exit
+.TP
+\fB\-\-help\fR, \fB\-h\fR
+Display this information
+.TP
+\fB\-\-verbosity=\fR<level>
+Set verbosity level (default = 0)
+.IP
+\fB\-v\fR <level>
+.TP
+\fB\-\-logic=\fR<name>
+Configure for the given logic
+<name> must be an SMT\-LIB logic code (e.g., QF_UFLIA)
+.IP
+or 'NONE' for propositional logic
+.TP
+\fB\-\-arith\-solver=\fR<solver>
+Select the arithmetic solver
+<solver> may be either 'simplex' or 'floyd\-warshall' or 'auto'
+.TP
+\fB\-\-mode=\fR<mode>
+Select the usage mode
+<mode> maybe 'one\-shot' or 'multi\-checks' or 'interactive'
+.IP
+or 'push\-pop' or 'ef'
+.PP
+The mode are as follows:
+.IP
+one\-shot: only one call to (check) is allowed
+.IP
+no assertions are allowed after (check)
+(push) and (pop) are not supported
+.IP
+multi\-checks: several calls (check) are allowed
+.IP
+adding assertions after check is allowed
+(push) and (pop) are not supported
+.IP
+push\-pop: like multi\-check but with support for (push) and (pop)
+.IP
+interactive: like push\-pop. In addition, Yices restores the context
+.IP
+to a clean state if (check) is interrupted
+.IP
+ef: enable the exist\-forall solver
+.IP
+In this mode, (ef\-solve) can be used
+This is like one\-shot in that only one call to (ef\-solve) is allowed
+.PP
+For reporting bugs and other information, please see http://yices.csl.sri.com/
+.SH COPYRIGHT
+Copyright SRI International.
+Linked with GMP 5.1.3
+.br
+Copyright Free Software Foundation, Inc.
+Build date: 2017\-06\-08
+Platform: x86_64\-unknown\-linux\-gnu (release)
+.SH "SEE ALSO"
+The full documentation for
+.B Yices
+is maintained as a Texinfo manual.  If the
+.B info
+and
+.B Yices
+programs are properly installed at your site, the command
+.IP
+.B info Yices
+.PP
+should give you access to the complete manual.
