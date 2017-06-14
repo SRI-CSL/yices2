@@ -17,6 +17,9 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)"
 
+override_dh_auto_test:
+	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" check
+
 override_dh_auto_install:
 	$(MAKE) DESTDIR=$$(pwd)/debian/tmp/ prefix=/usr install
 
