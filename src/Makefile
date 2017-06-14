@@ -52,7 +52,6 @@ conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
 include $(conf)
 
-
 #
 # Build subdirectories
 # --------------------
