@@ -14,6 +14,9 @@ override_dh_auto_configure:
 	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \
 	  debian/yices2-dev.install.in > debian/yices2-dev.install
 
+override_dh_auto_build:
+	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)"
+
 override_dh_auto_install:
 	$(MAKE) DESTDIR=$$(pwd)/debian/tmp/ prefix=/usr install
 
