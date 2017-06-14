@@ -29,7 +29,7 @@ Depends: yices2,  libyices2.6 (= ${binary:Version}), ${misc:Depends}, libgmp-dev
 Description: C library for manipulating multivariate polynomials
  Used by the SMT solver yices2.
  .
- This package contains development headers for libpoly.
+ This package contains development headers for yices2.
 
 
 Package: yices2-dbg
