@@ -15,7 +15,7 @@ override_dh_auto_configure:
 	  debian/yices2-dev.install.in > debian/yices2-dev.install
 
 override_dh_auto_build:
-	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)"
+	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" STRIP=echo
 
 override_dh_auto_test:
 	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" check
