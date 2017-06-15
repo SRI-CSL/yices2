@@ -1952,11 +1952,11 @@ static bool aval_is_rational(attr_vtbl_t *avtbl, aval_t v, rational_t *result) {
 
 /*
  * For (set-info :smt-lib-version X.Y)
- * - check whether v is either 2.0 or 2.5
+ * - check whether v is either 2.0 or 2.5 or 2.6
  * - return false if it's not
  * - return true if it is
  *
- * - set *version to 2500 or 2000 if v is either 2.5 or 2.0
+ * - set *version to 100 * v (i.e., 2.5 --> 2500)
  */
 static bool aval_is_known_version(attr_vtbl_t *avtbl, aval_t v, uint32_t *version) {
   rational_t aux;
@@ -1973,6 +1973,10 @@ static bool aval_is_known_version(attr_vtbl_t *avtbl, aval_t v, uint32_t *versio
     } else if (q_cmp_int32(&aux, 5, 2) == 0) {
       // version 2.5
       *version = 2500;
+      ok = true;
+    } else if (q_cmp_int32(&aux, 13, 5) == 0) {
+      // version 2.6
+      *version = 2600;
       ok = true;
     }
     q_clear(&aux);
@@ -4602,9 +4606,9 @@ void smt2_set_info(const char *name, aval_t value) {
     if (g->smtlib_version != 0) {
       print_error("can't set :smt-lib-version twice");
     } else if (aval_is_known_version(g->avtbl, value, &version)) {
-      assert(version == 2000 || version == 2500);
+      assert(version == 2000 || version == 2500 || version == 2600);
       g->smtlib_version = version;
-      if (version == 2500) {
+      if (version >= 2500) {
 	smt2_lexer_activate_two_dot_five();
       }
       report_success();
