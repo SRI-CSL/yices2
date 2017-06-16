@@ -1,4 +1,4 @@
-yices2 (2.6.0-4) jessie; urgency=medium
+yices2 (2.6.0-4) trusty; urgency=medium
 
   * Initial release. (Closes: #864786)
 
