@@ -3,7 +3,7 @@ Maintainer: Ian A. Mason <iam@csl.sri.com>
 Section: misc
 Priority: optional
 Standards-Version: 3.9.6
-Build-Depends: gperf, libgmp-dev,  libpoly0 (>= 1.3), debhelper (>= 9), dh-autoreconf (>= 9)
+Build-Depends: debhelper (>= 9), dh-autoreconf (>= 9), gperf, libgmp-dev, libpoly-dev
 Homepage: http://yices.csl.sri.com/
 
 
@@ -19,7 +19,7 @@ Description:  Yices SMT Solver API Library
 
 Package: yices2
 Architecture: any
-Depends:  gperf, libgmp-dev,  libpoly0 (>= 1.3), ${shlibs:Depends}, ${misc:Depends}
+Depends:  gperf, libgmp-dev,  libpoly-dev (>= 1.3), ${shlibs:Depends}, ${misc:Depends}
 Description: Yices SMT Solver
  .
  The package contains several variants of the Yices 2 SMT
