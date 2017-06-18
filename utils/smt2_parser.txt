@@ -61,8 +61,10 @@ enum smt2_token {
   SMT2_TK_ASSERT,
   SMT2_TK_CHECK_SAT,
   SMT2_TK_DECLARE_SORT,
+  SMT2_TK_DECLARE_CONST,
   SMT2_TK_DECLARE_FUN,
   SMT2_TK_DEFINE_SORT,
+  SMT2_TK_DEFINE_CONST,
   SMT2_TK_DEFINE_FUN,
   SMT2_TK_EXIT,
   SMT2_TK_GET_ASSERTIONS,
@@ -115,6 +117,8 @@ Grammar (SMT-LIB 2.0, December 21 2010)
             | ( get-value ( <term>+ ) )
             | ( declare-sort <symbol> <numeral> )
             | ( define-sort <symbol> ( <symbol>* ) <sort> )
+	    | ( declare-const <symbol> <sort> )
+	    | ( define-const <symbol> <sotr> <term> )
             | ( declare-fun <symbol> ( <sort>* ) <sort> )
             | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
             | ( assert <term> )
@@ -309,6 +313,8 @@ c1           check-sat          c2
              assert             c7
              declare-sort       c8
              define-sort        c9
+	     declare-const	c14
+	     define-cons        c15
              declare-fun        c10
              define-fun         c11
              get-value          c12
@@ -359,6 +365,8 @@ c12b         )                  c2
 
 
 c13          <string>           c2
+
+c14	     <symbol>           c9c
 
 
 
@@ -570,6 +578,8 @@ c1           check-sat          next; goto r0
              assert             next; push r0; goto t0
              declare-sort       next; goto c8
              define-sort        next; goto c9
+	     declare-const      next; goto c14
+	     define-const       next; goto c15
              declare-fun        next; goto c10
              define-fun         next; goto c11
              get-value          next; goto c12
@@ -622,6 +632,11 @@ c12b         )                  next; goto r0
 // after '(echo'
 c13          <string>           next; goto r0
 
+// after '(declare-const'
+c14          <symbol>           next; push r0; goto s0
+
+// after '(define-const'
+c15          <symbol>           next; push r0; push t0; goto s0
 
 // attribute value
 a0           <numeral>          next; return

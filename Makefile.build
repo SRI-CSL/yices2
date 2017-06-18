@@ -451,7 +451,6 @@ install-default: $(build_dir) $(dist_dir)
 	$(INSTALL) $(dist_dir)/bin/* $(DESTDIR)$(bindir)
 	$(INSTALL) $(dist_dir)/lib/* $(DESTDIR)$(libdir)
 
-
 install-darwin: install-default
 	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
 
