@@ -97,7 +97,32 @@ sat
 (= y 0.447214)
 ```
 
-## Prerequisites
+## Installing Prebuilt Binaries
+
+Currently you can install Yices either using Homebrew or Aptitude.
+
+#### Homebrew
+
+Installing on Darwin using homebrew can be achieved via:
+```
+brew install yices
+```
+though currently this only installs the version without mcsat enabled.
+
+#### Aptitude
+
+To install Yices on Ubuntu or Debian, do the following:
+```
+sudo add-apt-repository ppa:sri-csl/formal-methods
+sudo apt-get update
+sudo apt-get install yices-dev
+```
+This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
+
+
+## Building From Source
+
+#### Prerequisites
 
 To build Yices from the source, you need:
 
@@ -123,7 +148,7 @@ sudo easy_install -U Sphinx
 Sphinx 1.3.x or better is needed.
 
 
-## Quick Instalation
+#### Quick Installation
 
 Do this:
 
@@ -140,7 +165,7 @@ the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 
-## Support for Non-Linear Arithmetic
+#### Support for Non-Linear Arithmetic
 
 Yices supports non-linear real and integer arithmetic, but this is not
 enabled by default. If you want non-linear arithmetic, follow these
@@ -163,7 +188,7 @@ sudo make install
   `./configure --help` to see what's there.
 
 
-## Windows Builds
+#### Windows Builds
 
 We recommend compiling using Cygwin. If you want a version that works
 natively on Windows (i.e., does not depend on the Cygwin DLLs), you
@@ -171,7 +196,7 @@ can compile from Cygwin using the MinGW cross-compilers. This is
 explained in doc/COMPILING.
 
 
-## Documentation
+#### Documentation
 
 To build the manual from the source, type
 ```
