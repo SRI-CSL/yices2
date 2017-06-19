@@ -107,7 +107,9 @@ Installing on Darwin using homebrew can be achieved via:
 ```
 brew install yices
 ```
-though currently this only installs the version without mcsat enabled.
+though currently this only installs the version without mcsat enabled,
+for more about mcsat see [below](#support-for-non-linear-arithmetic).
+
 
 #### Aptitude
 
