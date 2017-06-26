@@ -4370,17 +4370,17 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
       if (! check_atom_propagation(egraph, t)) {
         // conflict
 
-	/*
-	 * HACK/BUG FIX: this fixes a bug reported by Dorus Peelen.
-	 *
-	 * Before returning false, we must merge the atoms of v1 and v2
-	 * otherwise the backtracking will fail; it will call undo_thvar_equality,
-	 * and that function requires the lists of atoms of v1 and v2 to be merged.
-	 */
-	v1 = egraph->classes.thvar[c1];
-	v2 = egraph->classes.thvar[c2];
+        /*
+         * HACK/BUG FIX: this fixes a bug reported by Dorus Peelen.
+         *
+         * Before returning false, we must merge the atoms of v1 and v2
+         * otherwise the backtracking will fail; it will call undo_thvar_equality,
+         * and that function requires the lists of atoms of v1 and v2 to be merged.
+         */
+        v1 = egraph->classes.thvar[c1];
+        v2 = egraph->classes.thvar[c2];
         assert(v1 != null_thvar && v2 != null_thvar);
-	fixup_atom_lists(egraph, v1, v2);
+        fixup_atom_lists(egraph, v1, v2);
         return false;
       }
     } while (t != t2);
@@ -4407,9 +4407,9 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     if (v2 != null_thvar) {
       v1 = egraph->classes.thvar[c1];
       if (v1 != null_thvar) {
-	propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
+        propagate_thvar_equality(egraph, c1, v1, c2, v2, i);
       } else {
-	egraph->classes.thvar[c1] = v2;
+        egraph->classes.thvar[c1] = v2;
       }
     }
   }
@@ -4999,7 +4999,7 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
 
     x = egraph_term_thvar(egraph, t);
     assert(x == egraph_term_base_thvar(egraph, t) ||
-	   (x == null_thvar && egraph_term_base_thvar(egraph, t) == const_bvar)); // special case: cf. assert_pred_axiom
+           (x == null_thvar && egraph_term_base_thvar(egraph, t) == const_bvar)); // special case: cf. assert_pred_axiom
 
     if (x != null_thvar && egraph_term_type(egraph, t) == ETYPE_BOOL) {
       // remove atom if there's one
@@ -5188,7 +5188,7 @@ bool egraph_propagate(egraph_t *egraph) {
        */
       conflict = &egraph->expl_vector;
       for (i=0; i<conflict->size; i++) {
-	conflict->data[i] = not(conflict->data[i]);
+        conflict->data[i] = not(conflict->data[i]);
       }
       ivector_push(conflict, null_literal); // end marker
       record_theory_conflict(egraph->core, conflict->data);
@@ -5206,9 +5206,9 @@ bool egraph_propagate(egraph_t *egraph) {
     // go through all the satellite solvers
     for (i=0; i<NUM_SATELLITES; i++) {
       if (egraph->ctrl[i] != NULL) {
-	if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
-	  return false;
-	}
+        if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
+          return false;
+        }
       }
     }
 
@@ -6045,9 +6045,9 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   egraph->stats.interface_eqs += i;
 
   if (i == 1) {
-    tprintf(egraph->core->trace, 3, "(final check: 1 interface lemma)\n");
+    trace_printf(egraph->core->trace, 3, "(final check: 1 interface lemma)\n");
   } else {
-    tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
+    trace_printf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
   }
 
   c = FCHECK_SAT; // default value
@@ -6118,9 +6118,9 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     c = FCHECK_CONTINUE;
 
     if (i == 1) {
-      tprintf(egraph->core->trace, 3, "(final check: 1 interface lemma)\n");
+      trace_printf(egraph->core->trace, 3, "(final check: 1 interface lemma)\n");
     } else {
-      tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
+      trace_printf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
     }
 
 #if TRACE_FCHECK
@@ -6150,7 +6150,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
           printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
           fflush(stdout);
 #endif
-	  tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" array lemmas)\n", i);
+          trace_printf(egraph->core->trace, 3, "(final check: %"PRIu32" array lemmas)\n", i);
           c = FCHECK_CONTINUE;
         }
       }
@@ -6548,7 +6548,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
     a = (atom_t *) atom;
     assert(a->boolvar == var_of(l));
     assert(literal_is_assigned(egraph->core, l) &&
-	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
+           bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
     id = i32_of_expl(expl);    // id := edge that triggered the propagation
     u = mk_occ(a->eterm, sign_of(l));
 #if 0
@@ -7248,7 +7248,7 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
       l = particle_label(pstore, x);
       if (is_pos_label(l)) {
         v = egraph->mdl.value[class_of(l)];
-	assert(! object_is_unknown(vtbl, v));
+        assert(! object_is_unknown(vtbl, v));
       } else if (l == false_label) {
         v  = vtbl_mk_false(vtbl);
       } else {
@@ -7625,7 +7625,7 @@ static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, clas
      * the bool_constant_class. So the value[c] must be true.
      */
     assert(c == bool_constant_class &&
-	   bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
+           bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
     v = vtbl_mk_true(vtbl);
     break;
 
@@ -7664,7 +7664,7 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
   for (i=0; i<n; i++) {
     c = v->data[i];
     assert(egraph->mdl.value[c] == null_value &&
-	   egraph_class_is_root_class(egraph, c));
+           egraph_class_is_root_class(egraph, c));
     egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
   }
 }

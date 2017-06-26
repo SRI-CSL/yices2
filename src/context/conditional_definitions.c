@@ -1106,8 +1106,8 @@ static void add_le_atom(context_t *ctx, term_t t, term_t u) {
   pretty_print_term_full(stdout, NULL, ctx->terms, a);
 #endif
 
-  tputs(ctx->trace, 5, "Adding atom\n");
-  tpp_term(ctx->trace, 5, ctx->terms, a);
+  trace_puts(ctx->trace, 5, "Adding atom\n");
+  trace_pp_term(ctx->trace, 5, ctx->terms, a);
 }
 
 

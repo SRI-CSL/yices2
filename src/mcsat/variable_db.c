@@ -107,7 +107,7 @@ void variable_db_remove_variable(variable_db_t* var_db, variable_t x) {
   assert(t != NULL_TERM);
 
   if (trace_enabled(var_db->tracer, "mcsat::gc")) {
-    trace_printf(var_db->tracer, "removing variable [%d]: ", x);
+    mcsat_trace_printf(var_db->tracer, "removing variable [%d]: ", x);
     trace_term_ln(var_db->tracer, var_db->terms, t);
   }
 

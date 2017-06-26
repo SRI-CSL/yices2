@@ -645,7 +645,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
   sampling_ctx = get_forall_context(solver);
   ucode = assert_formula(sampling_ctx, cnstr->assumption);
   while (ucode == CTX_NO_ERROR) {
-    tprintf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
+    trace_printf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
     status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, nvars, value, NULL);
     switch (status) {
     case STATUS_SAT:
@@ -1024,19 +1024,19 @@ static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t 
   switch (status) {
   case STATUS_SAT:
   case STATUS_UNKNOWN:
-    tprintf(solver->trace, 4, "(EF: candidate rejected: failed constraint %"PRIu32")\n", i);
+    trace_printf(solver->trace, 4, "(EF: candidate rejected: failed constraint %"PRIu32")\n", i);
     break;
 
   case STATUS_UNSAT:
-    tprintf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
+    trace_printf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
     break;
 
   case STATUS_INTERRUPTED:
-    tprintf(solver->trace, 4, "(EF: candidate check was interrupted)\n");
+    trace_printf(solver->trace, 4, "(EF: candidate check was interrupted)\n");
     break;
 
   default:
-    tprintf(solver->trace, 4, "(EF: error in candidate check for constraint %"PRIu32")\n", i);
+    trace_printf(solver->trace, 4, "(EF: error in candidate check for constraint %"PRIu32")\n", i);
     break;
   }
 }
@@ -1074,7 +1074,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 
   i = solver->scan_idx;
   do {
-    tprintf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
+    trace_printf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
     status = ef_solver_test_exists_model(solver, i);
     trace_candidate_check(solver, i, status);
 
@@ -1141,11 +1141,11 @@ static void ef_solver_search(ef_solver_t *solver) {
 
   assert(max > 0);
 
-  tprintf(solver->trace, 2,
-	  "(EF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars)\n",
-	  ef_prob_num_constraints(solver->prob),
-	  ef_prob_num_evars(solver->prob),
-	  ef_prob_num_uvars(solver->prob));
+  trace_printf(solver->trace, 2,
+	       "(EF search: %"PRIu32" constraints, %"PRIu32" exists vars, %"PRIu32" forall vars)\n",
+	       ef_prob_num_constraints(solver->prob),
+	       ef_prob_num_evars(solver->prob),
+	       ef_prob_num_uvars(solver->prob));
 #if EF_VERBOSE
   printf("\nConditions on the exists variables:\n");
   yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
@@ -1154,7 +1154,7 @@ static void ef_solver_search(ef_solver_t *solver) {
   ef_solver_start(solver);
   while (solver->status == EF_STATUS_SEARCHING && i < max) {
 
-    tprintf(solver->trace, 3, "(EF Iteration %"PRIu32", scan_idx = %"PRIu32")\n", i, solver->scan_idx);
+    trace_printf(solver->trace, 3, "(EF Iteration %"PRIu32", scan_idx = %"PRIu32")\n", i, solver->scan_idx);
 
     stat = ef_solver_check_exists(solver);
     switch (stat) {
@@ -1169,17 +1169,17 @@ static void ef_solver_search(ef_solver_t *solver) {
       print_ef_solution(stdout, solver);
       printf("\n");
 #endif
-      tputs(solver->trace, 4, "(EF: Found candidate model)\n");
+      trace_puts(solver->trace, 4, "(EF: Found candidate model)\n");
       ef_solver_check_exists_model(solver);
       break;
 
     case STATUS_UNSAT:
-      tputs(solver->trace, 4, "(EF: No candidate model)\n");
+      trace_puts(solver->trace, 4, "(EF: No candidate model)\n");
       solver->status = EF_STATUS_UNSAT;
       break;
 
     case STATUS_INTERRUPTED:
-      tputs(solver->trace, 4, "(EF: Interrupted)\n");
+      trace_puts(solver->trace, 4, "(EF: Interrupted)\n");
       solver->status = EF_STATUS_INTERRUPTED;
       break;
 
@@ -1206,7 +1206,7 @@ static void ef_solver_search(ef_solver_t *solver) {
 
   solver->iters = i;
 
-  tputs(solver->trace, 3, "(EF: done)\n\n");
+  trace_puts(solver->trace, 3, "(EF: done)\n\n");
 }
 
 

@@ -111,7 +111,7 @@ extern void delete_trace(tracer_t *tracer);
  * - if tracer is NULL, they do nothing
  * - otherwise, they print stuff to tracer->file provided
  *   tracer->vlevel >= level
- * - both tprintf and tputs call fflush
+ * - both trace_printf and trace_puts call fflush
  *
  * - if the output fails then tracer->print_failed is set to true
  *   and tracer->err_code is set to errno
@@ -123,7 +123,7 @@ extern void delete_trace(tracer_t *tracer);
  * - fmt = a format string as in printf
  * - rest = stuff to print (as in prinf too)
  */
-extern void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...)
+extern void trace_printf(tracer_t *tracer, uint32_t level, const char *format, ...)
   __attribute__ ((format (printf, 3, 4)));
 
 
@@ -131,13 +131,13 @@ extern void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...)
  * Print string s if tracer->vlevel >= level
  * (same as fputs)
  */
-extern void tputs(tracer_t *tracer, uint32_t level, const char *s);
+extern void trace_puts(tracer_t *tracer, uint32_t level, const char *s);
 
 
 /*
  * Newline
  */
-extern void tnewline(tracer_t *trace, uint32_t level);
+extern void trace_newline(tracer_t *trace, uint32_t level);
 
 
 /*
@@ -151,14 +151,14 @@ extern void tnewline(tracer_t *trace, uint32_t level);
  * - tbl = corresponding term table
  * - use the default printing area
  */
-extern void tpp_term(tracer_t *trace, uint32_t level, term_table_t *tbl, term_t t);
+extern void trace_pp_term(tracer_t *trace, uint32_t level, term_table_t *tbl, term_t t);
 
 /*
  * Pretty printing of type tau + newline
  * - tbl = corresponding type table
  * - use the default printing area
  */
-extern void tpp_type(tracer_t *traced, uint32_t level, type_table_t *tbl, type_t tau);
+extern void trace_pp_type(tracer_t *traced, uint32_t level, type_table_t *tbl, type_t tau);
 
 
 #endif /* __TRACER_H */

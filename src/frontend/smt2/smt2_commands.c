@@ -2435,7 +2435,7 @@ static smt_status_t check_context_with_timeout(smt2_globals_t *g, const param_t 
    * Attempt to cleanly recover from interrupt
    */
   if (stat == STATUS_INTERRUPTED) {
-    tprintf(g->tracer, 2, "(check_sat: interrupted)\n");
+    trace_printf(g->tracer, 2, "(check_sat: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
@@ -2683,7 +2683,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
      */
     if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
 	!has_uf(g->assertions.data, g->assertions.size)) {
-      tprintf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
+      trace_printf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
@@ -3539,9 +3539,9 @@ bool smt2_active(void) {
  */
 static void tprint_calls(const char *cmd, uint32_t calls) {
   if (calls == 1) {
-    tprintf(__smt2_globals.tracer, 12, "\n(%s: 1 call)\n", cmd);
+    trace_printf(__smt2_globals.tracer, 12, "\n(%s: 1 call)\n", cmd);
   } else {
-    tprintf(__smt2_globals.tracer, 12, "\n(%s: %"PRIu32" calls)\n", cmd, calls);
+    trace_printf(__smt2_globals.tracer, 12, "\n(%s: %"PRIu32" calls)\n", cmd, calls);
   }
 }
 
@@ -4649,7 +4649,7 @@ void smt2_set_logic(const char *name) {
   }
 
   if (! logic_is_official(code)) {
-    tprintf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
+    trace_printf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
