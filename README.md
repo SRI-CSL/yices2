@@ -117,7 +117,7 @@ To install Yices on Ubuntu or Debian, do the following:
 ```
 sudo add-apt-repository ppa:sri-csl/formal-methods
 sudo apt-get update
-sudo apt-get install yices-dev
+sudo apt-get install yices2-dev
 ```
 This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
 
