@@ -214,10 +214,14 @@ CPPFLAGS := -I../../src -I../../src/include $(CPPFLAGS)
 # More CPPFLAGS for compiling static objects
 #
 ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-  STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-else
-  STATIC_CPPFLAGS := $(CPPFLAGS)
+  STATIC_CPP_GMP := -I$(STATIC_GMP_INCLUDE_DIR)
 endif
+
+ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
+  STATIC_CPP_LIBPOLY := -I$(STATIC_LIBPOLY_INCLUDE_DIR)
+endif
+
+STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 
 #
 # These are not needed for the tests -DNOYICES_DLL is already
@@ -240,7 +244,8 @@ endif
 #
 # Also, we want $(STATIC_GMP) last in this list
 #
-STATIC_LIBS := $(subst -lgmp,,$(LIBS)) $(STATIC_GMP) 
+NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
+STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 
 
 # Dependency file
