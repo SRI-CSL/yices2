@@ -1,7 +1,7 @@
 /*
  * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
+ * This program may only be used subject to the non-commercial end user
  * license agreement which is downloadable along with this program.
  */
 
@@ -318,7 +318,7 @@ typedef struct clause_s {
  *     learned <= size <= capacity
  *     available = capacity - size
  *     padding = number of padding cells
- *     learned, size, capacity, available, padding are all mutiple of four.
+ *     learned, size, capacity, available, padding are all multiple of four.
  * - counters: number of clauses/literals
  */
 typedef struct clause_pool_s {
@@ -408,7 +408,7 @@ typedef struct watch_s {
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
  * where l is either pos(x) or neg(x) and x is an eliminated variable.
  * 
- * If we have a model M that doesn't give a value to x, we extend the assignemnt
+ * If we have a model M that doesn't give a value to x, we extend the assignment
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
  * Otherwise, we set l := true (to force C_1 \/ l .... C_k \/ l to all be true in the
  * extended model. For this to work, we must process the variables in reverse order of 
@@ -515,7 +515,7 @@ typedef struct {
  *
  * The stack is organize in levels:
  * - level[i] = index of the first clause learned at decision level i
- * - nelvels = number of levels
+ * - nlevels = number of levels
  *
  * Rest of the stack:
  * - capacity = full size of array data
@@ -597,7 +597,7 @@ typedef struct solver_stats_s {
   uint64_t conflicts;                // number of conflicts/backtracking
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
-  uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learne_clause)
+  uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learned_clauses)
 
   uint32_t starts;                   // 1 + number of restarts
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
@@ -650,7 +650,7 @@ typedef enum antecedent_tag {
 
 /*
  * Conflict tag:  when a clause is false, we store it for conflict analysis
- * and bactracking. The conflict tag records the type of clauses that's false.
+ * and backtracking. The conflict tag records the type of clauses that's false.
  * There are two cases: binary clause + non-binary clause
  * + another tag for no conflict.
  * 
@@ -804,7 +804,7 @@ typedef struct sat_solver_s {
    *   visit is larger than subsume_skip  we skip clause cl. The subsumption check would
    *   be too expensive. This parameter is 3000 by default.
    *
-   * - var_elim_skip controls which variables we try to elimiate. It's 10 by default.
+   * - var_elim_skip controls which variables we try to eliminate. It's 10 by default.
    *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
    *
    * - res_clause_limit: if eliminating a variable x would create a clause of size
@@ -879,7 +879,7 @@ extern void nsat_set_seed(sat_solver_t *solver, uint32_t seed);
 
 /*
  * Set the verbosity level
- * - this determines how much stuff is printed (on stderr) durint the search.
+ * - this determines how much stuff is printed (on stderr) during the search.
  * - level == 0 --> print nothing (this is the default)
  * - level >= 1 --> print statistics about preprocessing
  * - level >= 2 --> print statistics at every restart
@@ -928,10 +928,10 @@ extern void nsat_set_var_decay_factor(sat_solver_t *solver, double factor);
 extern void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor);
 
 /*
- * Randomness: the paramenter is approximately the ratio of random
+ * Randomness: the parameter is approximately the ratio of random
  * decisions.
  * - randomness = 0: no random decisions
- * - randomness = 1.0: all decicsions are random
+ * - randomness = 1.0: all decisions are random
  */
 extern void nsat_set_randomness(sat_solver_t *solver, float randomness);
 
@@ -941,7 +941,7 @@ extern void nsat_set_randomness(sat_solver_t *solver, float randomness);
 extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
 
 /*
- * LBD threshold for clause deletion. Clauses of ldb <= keep_lbd are not deleted.
+ * LBD threshold for clause deletion. Clauses of lbd <= keep_lbd are not deleted.
  */
 extern void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold);
 
@@ -989,7 +989,7 @@ extern void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit);
 
 /*
  * A clause is an array of literals (integers between 0 and nlits - 1)
- * - a clause is simplified if it satisfies the following conidtions:
+ * - a clause is simplified if it satisfies the following conditions:
  *   1) it doesn't contain assigned literals (including the reserved 
  *      literals 0 and 1)
  *   2) it doesn't include duplicates or complementary literals

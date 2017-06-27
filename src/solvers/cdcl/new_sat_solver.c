@@ -93,7 +93,7 @@ static void reset_datafile(sat_solver_t *solver) {
 
 /*
  * Write data after a conflict
- * - lbd = ldb of the learned clause
+ * - lbd = lbd of the learned clause
  *
  * When this is called:
  * - solver->conflict_tag = either CTAG_CLAUSE or CTAG_BINARY
@@ -279,7 +279,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  *   require visiting more than subsume_skip clauses. 
  *
  * - for variable elimination, we only consider variables that have
- *   few positive or few negative occcurrences. If x has too many
+ *   few positive or few negative occurrences. If x has too many
  *   positive and negative occurrence, it's not likely that we'll be
  *   able to eliminate x anyway.
  *
@@ -757,7 +757,7 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
   do {
     increase = pool_cap_increase(cap);
     cap += increase;
-    if (cap < increase) { // arithmetic overfow
+    if (cap < increase) { // arithmetic overflow
       cap = MAX_CLAUSE_POOL_CAPACITY;
     }
   } while (cap < min_cap);
@@ -1045,7 +1045,7 @@ static inline bool is_padding_start(const clause_pool_t *pool, uint32_t i) {
 }
 
 /*
- * Check whehter is is the start of a clause
+ * Check whether i is the start of a clause
  */
 static inline bool is_clause_start(const clause_pool_t *pool, uint32_t i) {
   return !is_padding_start(pool, i);
@@ -2080,7 +2080,7 @@ static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
 
 
 /*********************************
- *  SAT SOLVER INIITIALIZATION   *
+ *  SAT SOLVER INITIALIZATION   *
  ********************************/
 
 /*
@@ -2363,10 +2363,10 @@ void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor) {
 }
 
 /*
- * Randomness: the paramenter is approximately the ratio of random
+ * Randomness: the parameter is approximately the ratio of random
  * decisions.
  * - randomness = 0: no random decisions
- * - randomness = 1.0: all decicsions are random
+ * - randomness = 1.0: all decisions are random
  */
 void nsat_set_randomness(sat_solver_t *solver, float randomness) {
   assert(0.0F <= randomness && randomness <= 1.0F);
@@ -2381,7 +2381,7 @@ void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed) {
 }
 
 /*
- * LBD threshold for clause deletion. Clauses of ldb <= keep_lbd are not deleted.
+ * LBD threshold for clause deletion. Clauses of lbd <= keep_lbd are not deleted.
  */
 void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
   solver->keep_lbd = threshold;
@@ -2685,7 +2685,7 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
 
 
 /*
- * Propagated literal: tag = antecedent tag, data = antedecent data
+ * Propagated literal: tag = antecedent tag, data = antecedent data
  */
 static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t tag, uint32_t data) {
   bvar_t v;
@@ -2984,7 +2984,7 @@ static cidx_t add_learned_clause(sat_solver_t *solver, uint32_t n, const literal
  *
  * Since backtracking does not clear solver->level[x], we compute the
  * LBD of a learned clause even if some of its literals are not
- * currenlty assigned.  If a literal l in the clause is not currently
+ * currently assigned.  If a literal l in the clause is not currently
  * assigned, then solver->level[var_of(l)] is the decision level of l,
  * at the last time l was assigned.
  */
@@ -3665,7 +3665,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
  * Get the next successor of l0 in the implication graph:
  * - i = index in the watch vector of ~l0 to scan from
  * - if there's a binary clause {~l0, l1} at some index k >= i, then
- *   we return true, store l1 in *succesor,  and store k+1 in *i.
+ *   we return true, store l1 in *successor,  and store k+1 in *i.
  * - otherwise, the function returns false.
  */
 static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i, literal_t *successor) {
@@ -3855,7 +3855,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
  * - cidx is an integer stored in a watch vector.
  * - it can be a placeholder for a clause that was removed from the watch vector
  *   (then cidx is not  a multiple of four).
- * - otherwsise, cidx is a multpile of four, we check whether cidx
+ * - otherwise, cidx is a multiple of four, we check whether cidx
  *   is the start of a clause (it can also be the start of a padding block)
  */
 static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
@@ -3936,7 +3936,7 @@ static cidx_t clause_queue_pop(sat_solver_t *solver) {
 
 
 /*
- * HEURISITIC/HEAP FOR VARIABLE ELIMINATION
+ * HEURISTIC/HEAP FOR VARIABLE ELIMINATION
  */
 
 /*
@@ -4041,7 +4041,7 @@ static void elim_heap_move_down(sat_solver_t *solver, uint32_t i) {
 
   x = heap->data[i];
 
-  j = i<<1; // j = left child of i. (this can't oveflow since heap->size < 2^32/4)
+  j = i<<1; // j = left child of i. (this can't overflow since heap->size < 2^32/4)
 
   while (j < heap->size) {
     // y = smallest of the two children of i
@@ -4311,7 +4311,7 @@ static void pp_collect_garbage(sat_solver_t *solver) {
 /*
  * Heuristic for garbage collection:
  * - at least 10000 cells wasted in the clause database
- * - at leat 12.5% of waster cells
+ * - at least 12.5% of waster cells
  */
 static void pp_try_gc(sat_solver_t *solver) {
   if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 3) {
@@ -4680,7 +4680,7 @@ static void pp_remove_literal(uint32_t n, uint32_t k, literal_t *a) {
 /*
  * Remove clause cidx from watch[l]
  * - cidx must occur in the watch vector
- * - we mark cidx as a dead cluase by replacing it with cidx + 2
+ * - we mark cidx as a dead clause by replacing it with cidx + 2
  */
 static void pp_remove_clause_from_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
   watch_t *w;
@@ -5396,7 +5396,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
 
 /*
- * Add variables ot the elimination heap.
+ * Add variables to the elimination heap.
  */
 static void collect_elimination_candidates(sat_solver_t *solver) {
   uint32_t i, n;
@@ -6347,7 +6347,7 @@ static void simplify_learned_clause(sat_solver_t *solver) {
 
 
 /*
- * Prepare for bracktracking:
+ * Prepare for backtracking:
  * - search for a literal of second highest decision level in
  *   the learned clause.
  * - solver->buffer contains the learned clause.
@@ -6452,7 +6452,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (d <= average_lbd(solver)/2) {
+    if (d <= UINT32_MAX) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
@@ -6621,7 +6621,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
 
  * Before we use 'blocking_ema', we want to make sure we have at least
  * 5000 samples in there. We count these samples in solver->blocking_count.
- * To avoid restarting everytime, we also keep track of the number of
+ * To avoid restarting every time, we also keep track of the number of
  * samples used from which fast_ema is computed (in solver->fast_count).
  * We wait until fast_count >= 50 before restarting.
  *
