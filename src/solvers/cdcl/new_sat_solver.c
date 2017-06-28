@@ -954,6 +954,18 @@ static inline literal_t second_literal_of_clause(const clause_pool_t *pool, cidx
 
 
 /*
+ * Watched literal that's not equal to l
+ */
+static literal_t other_watched_literal_of_clause(const clause_pool_t *pool, cidx_t cidx, literal_t l) {
+  literal_t l0, l1;
+  l0 = first_literal_of_clause(pool, cidx);
+  l1 = second_literal_of_clause(pool, cidx);
+  assert(l0 == l || l1 == l);
+  return l0 ^ l1 ^ l;
+}
+
+
+/*
  * CLAUSE ACTIVITY
  */
 static inline void set_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float act) {
@@ -3672,6 +3684,10 @@ static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i
 	*i = k+1;
 	*successor = idx2lit(idx);
 	return true;
+      } else if (clause_length(&solver->pool, idx) == 2) {
+	*i = k+2;
+	*successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
+	return true;
       }
       k += 2;
     }
@@ -3682,8 +3698,8 @@ static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i
 
 /*
  * Compute strongly-connected components. Explore the graph starting from literal l.
- * - visit stores the visit index of a literal: visit[l1] = k means that l' is reachable
- *   from l and that l1 is the k-th vertex visited.
+ * - visit stores the visit index of a literal: visit[l1] = k means that l1 is reachable
+ *   from l and is the k-th vertex visited (where k>=1).
  * - label stores the smallest index of a reachable literal: label[l1] = index of a
  *   vertex l2 reachable from l1 and with visit[l2] <= visit[l1]
  * - for vertices that have been fully explored, we set label[l] = UINT32_MAX (cf.
@@ -6409,9 +6425,12 @@ static void update_blocking_ema(sat_solver_t *solver) {
   solver->blocking_count ++;
 }
 
+#if 0
+// not used
 static uint32_t average_lbd(const sat_solver_t* solver) {
   return solver->slow_ema >> 32;
 }
+#endif
 
 /*
  * Resolve a conflict and add a learned clause
@@ -6740,10 +6759,10 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
 
   if ((count & 0x3F) == 0) {
     fprintf(stderr, "\n");
-    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n");
-    fprintf(stderr, "|     EMAS      | Conf.     Del.    |  Binary   |      Original     |          Learned          |\n");
-    fprintf(stderr, "| Slow    Fast  |         Threshold |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
-    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n");
+    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n");
+    fprintf(stderr, "|     EMAS      | Conf.     Del.    |  Units  | Binary   |      Original     |          Learned          |\n");
+    fprintf(stderr, "| Slow    Fast  |         Threshold |         | Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
+    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n");
   }
 
   lits_per_clause = 0.0;
@@ -6752,10 +6771,10 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
   }
   slow = ((double) solver->slow_ema)/4.3e9;
   fast = ((double) solver->fast_ema)/4.3e9;
-  fprintf(stderr, "| %6.2f %6.2f | %7"PRIu64"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
+  fprintf(stderr, "| %6.2f %6.2f | %7"PRIu64"  %8"PRIu32" | %7"PRIu32" | %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
 	  slow, fast,
 	  solver->stats.conflicts, solver->reduce_threshold,
-	  solver->binaries,
+	  solver->units, solver->binaries,
 	  solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
 	  solver->pool.num_learned_clauses, solver->pool.num_learned_literals, lits_per_clause);
   fflush(stderr);
@@ -6778,7 +6797,7 @@ static void show_start_search_stats(sat_solver_t *solver) {
  * Number of literals assigned at level 0
  * - this is used to decide whether to call simplify_clause_database
  */
-static uint32_t level0_literals(sat_solver_t *solver) {
+static uint32_t level0_literals(const sat_solver_t *solver) {
   uint32_t n;
 
   n = solver->stack.top;
@@ -6790,10 +6809,20 @@ static uint32_t level0_literals(sat_solver_t *solver) {
 
 
 /*
+ * Heuristic to trigger a call to simplify_clause_database
+ */
+static bool need_simplify(const sat_solver_t *solver) {
+  return level0_literals(solver) > solver->simplify_bottom &&
+    solver->stats.propagations >= solver->simplify_props + solver->simplify_next;
+}
+
+
+/*
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver) {
   uint32_t i;
+  bool simplify;
 
   //  open_stat_file();
 
@@ -6831,7 +6860,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
   }
 
-  if (false) {
+  if (true) {
     fprintf(stderr, "\nStart search: computing SCCs \n");
     compute_sccs(solver); // test
     fprintf(stderr, "Done\n\n");
@@ -6871,11 +6900,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
     
-    // restart
+    // restart and maybe simplify
+    simplify = need_simplify(solver);
     if (solver->decision_level > 0) {
-      if (level0_literals(solver) > solver->simplify_bottom &&
-	  solver->stats.propagations >= solver->simplify_props + solver->simplify_next) {
-	// force full restart to call simplify
+      if (simplify) { // force full restart to call simplify
 	backtrack(solver, 0);
       } else {
 	partial_restart(solver);
@@ -6883,19 +6911,24 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
 
     // call simplify
-    if (solver->decision_level == 0 &&
-	level0_literals(solver) > solver->simplify_bottom &&
-	solver->stats.propagations >= solver->simplify_props + solver->simplify_next) {
-
+    if (simplify) {
+      assert(solver->decision_level == 0);
       nsat_simplify_clause_database(solver);
+
       solver->simplify_bottom = solver->stack.top;
       solver->simplify_props = solver->stats.propagations;
       solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;      
+
+      if (true) {
+	fprintf(stderr, "\nSimplify: computing SCCs \n");
+	compute_sccs(solver); // test
+	fprintf(stderr, "Done\n\n");
+      }
     }
   }
 
   if (solver->verbosity >= 2) {
-    fprintf(stderr, "-------------------------------------------------------------------------------------------------\n\n");
+    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n\n");
   }
 
   if (solver->status == STAT_SAT) {
