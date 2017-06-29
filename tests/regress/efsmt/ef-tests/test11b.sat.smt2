@@ -3,7 +3,7 @@
 
 (set-option :yices-ef-max-iters 2048)
 (set-option :yices-ef-gen-mode projection)
-(set-option :yices-ef-flatten-iff False)
+(set-option :yices-ef-flatten-iff false)
 
 (declare-fun y0 () Bool)
 (declare-fun y1 () Bool)

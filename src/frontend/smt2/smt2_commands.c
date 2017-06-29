@@ -4056,6 +4056,7 @@ void smt2_get_info(const char *name) {
 
 /*
  * Attempt to convert value to a parameter value:
+ * - value is an attribute value (SMT2 style)
  * - if this can't be done, store PARAM_ERROR in param_val
  * - avalue can be negative here.
  */
@@ -4081,9 +4082,10 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   case ATTR_SYMBOL:
     symbol = aval_symbol(g->avtbl, avalue);
     // We use the SMT2 conventions here: True/False are capitalized
-    if (strcmp(symbol, "True") == 0) {
+    // NO THEY ARE NOT
+    if (strcmp(symbol, "true") == 0) {
       param_val->tag = PARAM_VAL_TRUE;
-    } else if (strcmp(symbol, "False") == 0) {
+    } else if (strcmp(symbol, "false") == 0) {
       param_val->tag = PARAM_VAL_FALSE;
     } else {
       param_val->tag = PARAM_VAL_SYMBOL;
@@ -4110,10 +4112,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   branch_t b;
   ef_gen_option_t g;
   char* reason;
-  context_t *context; 
-    
-  //keep track of those we punt on
-  bool unsupported;
+  context_t *context;
+  bool unsupported;   //keep track of those we punt on
 
   unsupported = false;  
   reason = NULL;
