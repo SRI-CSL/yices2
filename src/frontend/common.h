@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2017 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -197,35 +208,6 @@ extern bool param_val_to_branching(const char *name, const param_val_t *v, branc
  */
 extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
 
-
-
-/*
- * Preprocessing and simplification options
- * - each boolean flag corresponds to a preprocessing option defined in 
- *   context_types.h. This is not complete. There are more options.
- */
-typedef struct ctx_param_s {
-  bool var_elim;
-  bool arith_elim;
-  bool bvarith_elim;
-  bool flatten_or;
-  bool eq_abstraction;
-  bool keep_ite;
-  bool splx_eager_lemmas;
-  bool splx_periodic_icheck;
-} ctx_param_t;
-
-
-/*
- * Copy the context's parameters into ctx_parameters
- */
-extern void save_ctx_params(ctx_param_t *ctx_parameters, context_t *context);
-
-/*
- * Store some defaults for both ctx_parameters and parameters based on the logic, architecture, and mode
- */
-extern void default_ctx_params(ctx_param_t *ctx_parameters, param_t *parameters,
-			       smt_logic_t logic, context_arch_t arch, context_mode_t mode);
 
 
 #endif /* __FRONTEND_COMMON_H */

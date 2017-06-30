@@ -41,7 +41,6 @@
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 #include "context/context.h"
-#include "frontend/common.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -67,14 +66,6 @@
 #include "utils/memsize.h"
 
 
-
-/*
- * Parameters for preprocessing and simplifications
- * - these parameters are stored in the context but
- *   we want to keep a copy when the exists forall solver is used (since then
- *   context is NULL).
- */
-static ctx_param_t ctx_parameters;
 
 
 /*
@@ -727,12 +718,8 @@ static const char *error_behavior = "immediate-exit";
 static bool done;         // set to true on exit
 static attr_vtbl_t avtbl; // attribute values
 
-
-// exported globals
+// exported
 smt2_globals_t __smt2_globals;
-
-// search parameters
-static param_t parameters;
 
 
 
@@ -2382,7 +2369,7 @@ static void init_smt2_context(smt2_globals_t *g) {
  */
 static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
-  yices_default_params_for_context(g->ctx, &parameters);
+  yices_default_params_for_context(g->ctx, &g->parameters);
 }
 
 
@@ -2702,11 +2689,11 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
     init_search_parameters(g);
     if (g->random_seed != 0) {
-      parameters.random_seed = g->random_seed;
+      g->parameters.random_seed = g->random_seed;
     }
 
-    //    status = check_context(g->ctx, &parameters);
-    status = check_context_with_timeout(g, &parameters);
+    //    status = check_context(g->ctx, &g->parameters);
+    status = check_context_with_timeout(g, &g->parameters);
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
@@ -2856,10 +2843,10 @@ static void ctx_check_sat(smt2_globals_t *g) {
   case STATUS_IDLE:
     // change the seed if needed
     if (g->random_seed != 0) {
-      parameters.random_seed = g->random_seed;
+      g->parameters.random_seed = g->random_seed;
     }
-    //    stat = check_context(g->ctx, &parameters);
-    stat = check_context_with_timeout(g, &parameters);
+    //    stat = check_context(g->ctx, &g->parameters);
+    stat = check_context_with_timeout(g, &g->parameters);
     show_status(stat);
     break;
 
@@ -3344,10 +3331,6 @@ static void explain_unknown_status(smt2_globals_t *g) {
  * Initialize g to defaults
  */
 static void init_smt2_globals(smt2_globals_t *g) {
-
-  init_ef_client(&g->ef_client_globals);
-  init_mcsat_options(&g->mcsat_options);
-
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
@@ -3355,6 +3338,9 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
+  init_mcsat_options(&g->mcsat_options);
+  g->efmode = false;
+  init_ef_client(&g->ef_client);
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -3369,6 +3355,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->produce_assignments = false;
   g->random_seed = 0;  // 0 means any seed is good
   g->verbosity = 0;
+  init_ctx_params(&g->ctx_parameters);
+  init_params_to_defaults(&g->parameters);
   g->timeout = 0;
   g->timeout_initialized = false;
   g->interrupted = false;
@@ -3428,7 +3416,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     g->model = NULL;
   }
   if (g->efmode) {
-    delete_ef_client(&g->ef_client_globals);
+    delete_ef_client(&g->ef_client);
   }
   delete_ivector(&g->assertions);
 
@@ -3697,193 +3685,192 @@ static bool is_yices_option(const char *name, const char **option) {
 /*
  * Shows the value of the yices option, and returns true, if supported.
  * If not supported it simply returns false.
- *
  */
-static bool yices_get_option(yices_param_t p, ef_param_t *ef_params) {
+static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
   bool supported;
 
   supported = true;
   
   switch (p) {
   case PARAM_VAR_ELIM:
-    print_boolean_value(ctx_parameters.var_elim);
+    print_boolean_value(g->ctx_parameters.var_elim);
     break;
 
   case PARAM_ARITH_ELIM:
-    print_boolean_value(ctx_parameters.arith_elim);
+    print_boolean_value(g->ctx_parameters.arith_elim);
     break;
 
   case PARAM_BVARITH_ELIM:
-    print_boolean_value(ctx_parameters.bvarith_elim);
+    print_boolean_value(g->ctx_parameters.bvarith_elim);
     break;
 
   case PARAM_FLATTEN:
     // this activates both flatten or and flatten diseq.
-    print_boolean_value(ctx_parameters.flatten_or);
+    print_boolean_value(g->ctx_parameters.flatten_or);
     break;
 
   case PARAM_LEARN_EQ:
-    print_boolean_value(ctx_parameters.eq_abstraction);
+    print_boolean_value(g->ctx_parameters.eq_abstraction);
     break;
 
   case PARAM_KEEP_ITE:
-    print_boolean_value(ctx_parameters.keep_ite);
+    print_boolean_value(g->ctx_parameters.keep_ite);
     break;
     
   case PARAM_FAST_RESTARTS:
-    print_boolean_value(parameters.fast_restart);
+    print_boolean_value(g->parameters.fast_restart);
     break;
 
   case PARAM_C_THRESHOLD:
-    print_uint32_value(parameters.c_threshold);
+    print_uint32_value(g->parameters.c_threshold);
     break;
 
   case PARAM_C_FACTOR:
-    print_float_value(parameters.c_factor);
+    print_float_value(g->parameters.c_factor);
     break;
 
   case PARAM_D_THRESHOLD:
-    print_uint32_value(parameters.d_threshold);
+    print_uint32_value(g->parameters.d_threshold);
     break;
 
   case PARAM_D_FACTOR:
-    print_float_value(parameters.c_factor);
+    print_float_value(g->parameters.c_factor);
     break;
 
   case PARAM_R_THRESHOLD:
-    print_uint32_value(parameters.r_threshold);
+    print_uint32_value(g->parameters.r_threshold);
     break;
 
   case PARAM_R_FRACTION:
-    print_float_value(parameters.r_fraction);
+    print_float_value(g->parameters.r_fraction);
     break;
 
   case PARAM_R_FACTOR:
-    print_float_value(parameters.r_factor);
+    print_float_value(g->parameters.r_factor);
     break;
 
   case PARAM_VAR_DECAY:
-    print_float_value(parameters.var_decay);
+    print_float_value(g->parameters.var_decay);
     break;
 
   case PARAM_RANDOMNESS:
-    print_float_value(parameters.randomness);
+    print_float_value(g->parameters.randomness);
     break;
 
   case PARAM_RANDOM_SEED:
-    print_uint32_value(parameters.random_seed);
+    print_uint32_value(g->parameters.random_seed);
     break;
 
   case PARAM_BRANCHING:
-    print_string_value(branching2string[parameters.branching]);
+    print_string_value(branching2string[g->parameters.branching]);
     break;
 
   case PARAM_CLAUSE_DECAY:
-    print_float_value(parameters.clause_decay);
+    print_float_value(g->parameters.clause_decay);
     break;
 
   case PARAM_CACHE_TCLAUSES:
-    print_boolean_value(parameters.cache_tclauses);
+    print_boolean_value(g->parameters.cache_tclauses);
     break;
 
   case PARAM_TCLAUSE_SIZE:
-    print_uint32_value(parameters.tclause_size);
+    print_uint32_value(g->parameters.tclause_size);
     break;
 
   case PARAM_DYN_ACK:
-    print_boolean_value(parameters.use_dyn_ack);
+    print_boolean_value(g->parameters.use_dyn_ack);
     break;
 
   case PARAM_DYN_BOOL_ACK:
-    print_boolean_value(parameters.use_bool_dyn_ack);
+    print_boolean_value(g->parameters.use_bool_dyn_ack);
     break;
 
   case PARAM_OPTIMISTIC_FCHECK:
-    print_boolean_value(parameters.use_optimistic_fcheck);
+    print_boolean_value(g->parameters.use_optimistic_fcheck);
     break;
 
   case PARAM_MAX_ACK:
-    print_uint32_value(parameters.max_ackermann);
+    print_uint32_value(g->parameters.max_ackermann);
     break;
 
   case PARAM_MAX_BOOL_ACK:
-    print_uint32_value(parameters.max_boolackermann);
+    print_uint32_value(g->parameters.max_boolackermann);
     break;
 
   case PARAM_AUX_EQ_QUOTA:
-    print_uint32_value(parameters.aux_eq_quota);
+    print_uint32_value(g->parameters.aux_eq_quota);
     break;
 
   case PARAM_AUX_EQ_RATIO:
-    print_float_value(parameters.aux_eq_ratio);
+    print_float_value(g->parameters.aux_eq_ratio);
     break;
 
   case PARAM_DYN_ACK_THRESHOLD:
-    print_uint32_value((uint32_t) parameters.dyn_ack_threshold);
+    print_uint32_value((uint32_t) g->parameters.dyn_ack_threshold);
     break;
 
   case PARAM_DYN_BOOL_ACK_THRESHOLD:
-    print_uint32_value((uint32_t) parameters.dyn_bool_ack_threshold);
+    print_uint32_value((uint32_t) g->parameters.dyn_bool_ack_threshold);
     break;
 
   case PARAM_MAX_INTERFACE_EQS:
-    print_uint32_value(parameters.max_interface_eqs);
+    print_uint32_value(g->parameters.max_interface_eqs);
     break;
 
   case PARAM_EAGER_LEMMAS:
-    print_boolean_value(ctx_parameters.splx_eager_lemmas);
+    print_boolean_value(g->ctx_parameters.splx_eager_lemmas);
     break;
 
   case PARAM_ICHECK:
-    print_boolean_value(ctx_parameters.splx_periodic_icheck);
+    print_boolean_value(g->ctx_parameters.splx_periodic_icheck);
     break;
 
   case PARAM_SIMPLEX_PROP:
-    print_boolean_value(parameters.use_simplex_prop);
+    print_boolean_value(g->parameters.use_simplex_prop);
     break;
 
   case PARAM_SIMPLEX_ADJUST:
-    print_boolean_value(parameters.adjust_simplex_model);
+    print_boolean_value(g->parameters.adjust_simplex_model);
     break;
 
   case PARAM_PROP_THRESHOLD:
-    print_uint32_value(parameters.max_prop_row_size);
+    print_uint32_value(g->parameters.max_prop_row_size);
     break;
 
   case PARAM_BLAND_THRESHOLD:
-    print_uint32_value(parameters.bland_threshold);
+    print_uint32_value(g->parameters.bland_threshold);
     break;
 
   case PARAM_ICHECK_PERIOD:
-    print_uint32_value(parameters.integer_check_period);
+    print_uint32_value(g->parameters.integer_check_period);
     break;
 
   case PARAM_MAX_UPDATE_CONFLICTS:
-    print_uint32_value(parameters.max_update_conflicts);
+    print_uint32_value(g->parameters.max_update_conflicts);
     break;
 
   case PARAM_MAX_EXTENSIONALITY:
-    print_uint32_value(parameters.max_extensionality);
+    print_uint32_value(g->parameters.max_extensionality);
     break;
 
   case PARAM_EF_FLATTEN_IFF:
-    print_boolean_value(ef_params->flatten_iff);
+    print_boolean_value(g->ef_client.ef_parameters.flatten_iff);
     break;
 
   case PARAM_EF_FLATTEN_ITE:
-    print_boolean_value(ef_params->flatten_ite);
+    print_boolean_value(g->ef_client.ef_parameters.flatten_ite);
     break;
 
   case PARAM_EF_GEN_MODE:
-    print_string_value(efgen2string[ef_params->gen_mode]);
+    print_string_value(efgen2string[g->ef_client.ef_parameters.gen_mode]);
     break;
 
   case PARAM_EF_MAX_SAMPLES:
-    print_uint32_value(ef_params->max_samples);
+    print_uint32_value(g->ef_client.ef_parameters.max_samples);
     break;
 
   case PARAM_EF_MAX_ITERS:
-    print_uint32_value(ef_params->max_iters);
+    print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
   case PARAM_UNKNOWN:
@@ -3963,7 +3950,7 @@ void smt2_get_option(const char *name) {
       p = find_param(yices_option);
       if (p != PARAM_UNKNOWN) {
 	assert(0 <= p && p < NUM_PARAMETERS);
-	if (! yices_get_option(p, &g->ef_client_globals.ef_parameters)) {
+	if (! yices_get_option(g, p)) {
 	  unsupported_option();
 	}
       } else {
@@ -4105,12 +4092,12 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   }
 }
 
-static void yices_set_option(const char *param, const param_val_t *val, ef_param_t *ef_params, mcsat_options_t* mcsat_options) {
+static void yices_set_option(smt2_globals_t *g, const char *param, const param_val_t *val) {
   bool tt;
   int32_t n;
   double x;
   branch_t b;
-  ef_gen_option_t g;
+  ef_gen_option_t gen;
   char* reason;
   context_t *context;
   bool unsupported;   //keep track of those we punt on
@@ -4121,8 +4108,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.var_elim = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.var_elim = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_variable_elimination(context);
@@ -4135,8 +4122,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_ARITH_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.arith_elim = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.arith_elim = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_arith_elimination(context);
@@ -4149,8 +4136,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_BVARITH_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.bvarith_elim = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.bvarith_elim = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_bvarith_elimination(context);
@@ -4163,8 +4150,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_FLATTEN:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.flatten_or = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.flatten_or = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_diseq_and_or_flattening(context);
@@ -4177,8 +4164,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_LEARN_EQ:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.eq_abstraction = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.eq_abstraction = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_eq_abstraction(context);
@@ -4191,8 +4178,8 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_KEEP_ITE:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.keep_ite = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.keep_ite = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_keep_ite(context);
@@ -4205,158 +4192,158 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_FAST_RESTARTS:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.fast_restart = tt;
+      g->parameters.fast_restart = tt;
     }
     break;
 
   case PARAM_C_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.c_threshold = n;
+      g->parameters.c_threshold = n;
     }
     break;
 
   case PARAM_C_FACTOR:
     if (param_val_to_factor(param, val, &x, &reason)) {
-      parameters.c_factor = x;
+      g->parameters.c_factor = x;
     }
     break;
 
   case PARAM_D_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.d_threshold = n;
+      g->parameters.d_threshold = n;
     }
     break;
 
   case PARAM_D_FACTOR:
     if (param_val_to_factor(param, val, &x, &reason)) {
-      parameters.d_factor = x;
+      g->parameters.d_factor = x;
     }
     break;
 
   case PARAM_R_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.r_threshold = n;
+      g->parameters.r_threshold = n;
     }
     break;
 
   case PARAM_R_FRACTION:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      parameters.r_fraction = x;
+      g->parameters.r_fraction = x;
     }
     break;
 
   case PARAM_R_FACTOR:
     if (param_val_to_factor(param, val, &x, &reason)) {
-      parameters.r_factor = x;
+      g->parameters.r_factor = x;
     }
     break;
 
   case PARAM_VAR_DECAY:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      parameters.var_decay = x;
+      g->parameters.var_decay = x;
     }
     break;
 
   case PARAM_RANDOMNESS:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      parameters.randomness = x;
+      g->parameters.randomness = x;
     }
     break;
 
   case PARAM_RANDOM_SEED:
     if (param_val_to_int32(param, val, &n, &reason)) {
-      parameters.random_seed = (uint32_t) n;
+      g->parameters.random_seed = (uint32_t) n;
     }
     break;
 
   case PARAM_BRANCHING:
     if (param_val_to_branching(param, val, &b, &reason)) {
-      parameters.branching = b;
+      g->parameters.branching = b;
     }
     break;
 
   case PARAM_CLAUSE_DECAY:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      parameters.clause_decay = x;
+      g->parameters.clause_decay = x;
     }
     break;
 
   case PARAM_CACHE_TCLAUSES:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.cache_tclauses = tt;
+      g->parameters.cache_tclauses = tt;
     }
     break;
 
   case PARAM_TCLAUSE_SIZE:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.tclause_size = n;
+      g->parameters.tclause_size = n;
     }
     break;
 
   case PARAM_DYN_ACK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_dyn_ack = tt;
+      g->parameters.use_dyn_ack = tt;
     }
     break;
 
   case PARAM_DYN_BOOL_ACK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_bool_dyn_ack = tt;
+      g->parameters.use_bool_dyn_ack = tt;
     }
     break;
 
   case PARAM_OPTIMISTIC_FCHECK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_optimistic_fcheck = tt;
+      g->parameters.use_optimistic_fcheck = tt;
     }
     break;
 
   case PARAM_MAX_ACK:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_ackermann = n;
+      g->parameters.max_ackermann = n;
     }
     break;
 
   case PARAM_MAX_BOOL_ACK:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_boolackermann = n;
+      g->parameters.max_boolackermann = n;
     }
     break;
 
   case PARAM_AUX_EQ_QUOTA:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.aux_eq_quota = n;
+      g->parameters.aux_eq_quota = n;
     }
     break;
 
   case PARAM_AUX_EQ_RATIO:
     if (param_val_to_posfloat(param, val, &x, &reason)) {
-      parameters.aux_eq_ratio = x;
+      g->parameters.aux_eq_ratio = x;
     }
     break;
 
   case PARAM_DYN_ACK_THRESHOLD:
     if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_ack_threshold = (uint16_t) n;
+      g->parameters.dyn_ack_threshold = (uint16_t) n;
     }
     break;
 
   case PARAM_DYN_BOOL_ACK_THRESHOLD:
     if (param_val_to_pos16(param, val, &n, &reason)) {
-      parameters.dyn_bool_ack_threshold = (uint16_t) n;
+      g->parameters.dyn_bool_ack_threshold = (uint16_t) n;
     }
     break;
 
   case PARAM_MAX_INTERFACE_EQS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_interface_eqs = n;
+      g->parameters.max_interface_eqs = n;
     }
     break;
 
   case PARAM_EAGER_LEMMAS:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_eager_lemmas = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters.splx_eager_lemmas = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_splx_eager_lemmas(context);
@@ -4369,32 +4356,32 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_SIMPLEX_PROP:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.use_simplex_prop = tt;
+      g->parameters.use_simplex_prop = tt;
     }
     break;
 
   case PARAM_SIMPLEX_ADJUST:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      parameters.adjust_simplex_model = tt;
+      g->parameters.adjust_simplex_model = tt;
     }
     break;
 
   case PARAM_PROP_THRESHOLD:
     if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      parameters.max_prop_row_size = n;
+      g->parameters.max_prop_row_size = n;
     }
     break;
 
   case PARAM_BLAND_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.bland_threshold = n;
+      g->parameters.bland_threshold = n;
     }
     break;
 
   case PARAM_ICHECK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ctx_parameters.splx_periodic_icheck = tt;
-      context = __smt2_globals.ctx;
+      g->ctx_parameters. splx_periodic_icheck = tt;
+      context = g->ctx;
       if (context != NULL) {
 	if (tt) {
 	  enable_splx_periodic_icheck(context);
@@ -4407,61 +4394,61 @@ static void yices_set_option(const char *param, const param_val_t *val, ef_param
 
   case PARAM_ICHECK_PERIOD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.integer_check_period = n;
+      g->parameters.integer_check_period = n;
     }
     break;
 
   case PARAM_MAX_UPDATE_CONFLICTS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_update_conflicts = n;
+      g->parameters.max_update_conflicts = n;
     }
     break;
 
   case PARAM_MAX_EXTENSIONALITY:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.max_extensionality = n;
+      g->parameters.max_extensionality = n;
     }
     break;
 
   case PARAM_EF_FLATTEN_IFF:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_params->flatten_iff = tt;
+      g->ef_client.ef_parameters.flatten_iff = tt;
     }
     break;
 
   case PARAM_EF_FLATTEN_ITE:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      ef_params->flatten_ite = tt;
+      g->ef_client.ef_parameters.flatten_ite = tt;
     }
     break;
 
   case PARAM_EF_GEN_MODE:
-    if (param_val_to_genmode(param, val, &g, &reason)) {
-      ef_params->gen_mode = g;
+    if (param_val_to_genmode(param, val, &gen, &reason)) {
+      g->ef_client.ef_parameters.gen_mode = gen;
     }
     break;
 
   case PARAM_EF_MAX_SAMPLES:
     if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      ef_params->max_samples = n;
+      g->ef_client.ef_parameters.max_samples = n;
     }
     break;
 
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      ef_params->max_iters = n;
+      g->ef_client.ef_parameters.max_iters = n;
     }
     break;
 
   case PARAM_MCSAT_NRA_MGCD:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      mcsat_options->nra_mgcd = tt;
+      g->mcsat_options.nra_mgcd = tt;
     }
     break;
 
   case PARAM_MCSAT_NRA_NLSAT:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      mcsat_options->nra_nlsat = tt;
+      g->mcsat_options.nra_nlsat = tt;
     }
     break;
 
@@ -4567,7 +4554,7 @@ void smt2_set_option(const char *name, aval_t value) {
     // may be a Yices option
     if (is_yices_option(name, &yices_option)) {
       aval2param_val(value, &param_val);
-      yices_set_option(yices_option, &param_val, &g->ef_client_globals.ef_parameters, &g->mcsat_options);
+      yices_set_option(g, yices_option, &param_val);
     } else {
       unsupported_option();
       flush_out();
@@ -4631,6 +4618,7 @@ void smt2_set_info(const char *name, aval_t value) {
  */
 void smt2_set_logic(const char *name) {
   smt_logic_t code;
+  context_arch_t arch;
 
   if (__smt2_globals.logic_code != SMT_UNKNOWN) {
     print_error("the logic is already set");
@@ -4659,7 +4647,8 @@ void smt2_set_logic(const char *name) {
   }
 
   // for logics that require mcsat: check that we're in benchamrk mode
-  if (arch_for_logic(code) == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
+  arch = arch_for_logic(code);
+  if (arch == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
     print_error("the mcsat solver can't be used in incremental mode");
     return;
   }
@@ -4673,7 +4662,7 @@ void smt2_set_logic(const char *name) {
     }
     // N.B. efmode is a submode of benchmark_mode (sanity check ahead)
     if (! __smt2_globals.benchmark_mode) {
-      print_error("exists forall mode not allowed in incremental mode");
+      print_error("the exists/forall solver does not work in incremental mode");
       return;
     }
   }
@@ -4689,10 +4678,12 @@ void smt2_set_logic(const char *name) {
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
     init_search_parameters(&__smt2_globals);
-    save_ctx_params(&ctx_parameters, __smt2_globals.ctx);
+    save_ctx_params(&__smt2_globals.ctx_parameters, __smt2_globals.ctx);
   } else {
-    // in benchmark_mode (or exists/forall) set the search parameters
-    default_ctx_params(&ctx_parameters, &parameters, code, arch_for_logic(code), CTX_MODE_ONECHECK);
+    // in benchmark mode (or exists/forall) set the parameters to defaults for the logic
+    // the context is not initialized yet
+    default_ctx_params(&__smt2_globals.ctx_parameters, code, arch, CTX_MODE_ONECHECK);
+    yices_set_default_params(&__smt2_globals.parameters, code, arch, CTX_MODE_ONECHECK);
   }
 
   report_success();
@@ -4827,7 +4818,7 @@ void smt2_assert(term_t t) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (g->benchmark_mode) {
-	if (g->efmode && g->ef_client_globals.efdone) {
+	if (g->efmode && g->ef_client.efdone) {
 	  print_error("more assertions are not allowed after solving");
 	} else if (g->frozen) {
 	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
@@ -4847,11 +4838,11 @@ void smt2_assert(term_t t) {
 
 static void efsolve_cmd(smt2_globals_t *g) {
   ef_client_t *efc;
-  efc = &g->ef_client_globals;
+  efc = &g->ef_client;
 
   if (g->efmode) {
 
-    ef_solve(efc, &g->assertions, &parameters, g->logic_code, arch_for_logic(g->logic_code), g->tracer);
+    ef_solve(efc, &g->assertions, &g->parameters, g->logic_code, arch_for_logic(g->logic_code), g->tracer);
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
@@ -5075,7 +5066,7 @@ void smt2_get_model(void) {
   if (check_logic()) {
     code = 0;
     if (__smt2_globals.efmode) {      
-      mdl = ef_get_model(&__smt2_globals.ef_client_globals, &code);
+      mdl = ef_get_model(&__smt2_globals.ef_client, &code);
     } else {      
       mdl = get_model(&__smt2_globals);
     }

@@ -67,6 +67,7 @@
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 #include "context/context.h"
+#include "context/context_parameters.h"
 #include "context/dump_context.h"
 #include "exists_forall/ef_client.h"
 #include "frontend/common.h"
@@ -2986,8 +2987,8 @@ static void init_yices_tstack(tstack_t *stack) {
  *********/
 
 /*
- * This is a separate function so that we can invoke yices via foreign
- * a function call in LISP.
+ * This is a separate function so that we can invoke yices as a foreign
+ * function call in LISP.
  */
 int yices_main(int argc, char *argv[]) {
   int32_t code;
@@ -3035,7 +3036,6 @@ int yices_main(int argc, char *argv[]) {
 
   init_ef_client(&ef_client_globals);
   
-
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
     print_version(stderr);
@@ -3044,7 +3044,8 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params(&ctx_parameters, &parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
+    default_ctx_params(&ctx_parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
+    yices_set_default_params(&parameters, logic_code, arch, CTX_MODE_ONECHECK);
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }
