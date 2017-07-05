@@ -1,75 +1,98 @@
-.TH YICES "1" "June 2017" "Yices 2.6.0" "User Commands"
+.TH YICES 1 "June 2017" "Yices 2.6.0" "User Commands"
 .SH NAME
 yices \- the Yices SMT solver for the Yices language
 .SH SYNOPSIS
 .B yices
-[\fIoptions\fR] \fIfilename\fR
+[
+.IR options
+]
+[
+.IR file
+]
+.SH DESCRIPTION
+Runs the Yices SMT solver. The input must be in the Yices specification
+language. If no
+.IR file
+is given, Yices reads commands from standard input.
 .SH OPTIONS
 .TP
-\fB\-\-version\fR, \fB\-V\fR
-Display version and exit
+.B \-\-version,  \-V
+Display version and exit.
 .TP
-\fB\-\-help\fR, \fB\-h\fR
-Display this information
+.B \-\-help,  \-h
+Display a short help summary.
 .TP
-\fB\-\-verbosity=\fR<level>
-Set verbosity level (default = 0)
-.IP
-\fB\-v\fR <level>
+.BI \-\-verbosity= level, \& " "  \-v  "" " " level
+Set the verbosity level (default = 0).
 .TP
-\fB\-\-logic=\fR<name>
-Configure for the given logic
-<name> must be an SMT\-LIB logic code (e.g., QF_UFLIA)
+.BI \-\-logic= name
+Configure Yices for a specific logic.
 .IP
-or 'NONE' for propositional logic
+The
+.I name
+must be either an SMT\-LIB logic name (e.g., QF_UFLIA)
+or the special symbol NONE to select propositional logic.
 .TP
-\fB\-\-arith\-solver=\fR<solver>
-Select the arithmetic solver
-<solver> may be either 'simplex' or 'floyd\-warshall' or 'auto'
+.BI \-\-arith\-solver= solver
+Select the arithmetic solver.
+.IP
+The
+.I solver
+may be either
+.I simplex
+or
+.I floyd\-warshall
+or \fIauto\fR.
+This option is ignored unless the logic is either QF_RDL or QF_IDL.
 .TP
-\fB\-\-mode=\fR<mode>
-Select the usage mode
-<mode> maybe 'one\-shot' or 'multi\-checks' or 'interactive'
+.BI \-\-mode= mode
+Select the usage mode.
 .IP
-or 'push\-pop' or 'ef'
-.PP
-The mode are as follows:
+The
+.I mode
+maybe \fIone\-shot\fR or \fImulti\-checks\fR or \fIinteractive\fR
+or \fIpush\-pop\fR or \fIef\fR.
+.RS
+.IP \(bu 4
+.I one\-shot:
+only one call to (check) is allowed.
+No assertions are allowed after (check).
+Commands (push) and (pop) are not supported.
+.IP \(bu 4
+.I multi\-checks:
+several calls (check) are allowed.
+Adding assertions after check is allowed.
+Commands (push) and (pop) are not supported.
+.IP \(bu 4
+.I push\-pop:
+like
+.I multi\-check
+but with support for (push) and (pop).
+.IP \(bu 4
+.I interactive:
+like
+.I push\-pop.
+In addition, Yices restores the context
+to a clean state if (check) is interrupted.
+.IP \(bu 4
+.I ef:
+enable the exist\-forall solver, that is, command (ef\-solve) can be used.
+This is like
+.I one\-shot
+in that only one call to (ef\-solve) is allowed.
+.RE
 .IP
-one\-shot: only one call to (check) is allowed
-.IP
-no assertions are allowed after (check)
-(push) and (pop) are not supported
-.IP
-multi\-checks: several calls (check) are allowed
-.IP
-adding assertions after check is allowed
-(push) and (pop) are not supported
-.IP
-push\-pop: like multi\-check but with support for (push) and (pop)
-.IP
-interactive: like push\-pop. In addition, Yices restores the context
-.IP
-to a clean state if (check) is interrupted
-.IP
-ef: enable the exist\-forall solver
-.IP
-In this mode, (ef\-solve) can be used
-This is like one\-shot in that only one call to (ef\-solve) is allowed
-.PP
-For reporting bugs and other information, please see http://yices.csl.sri.com/
-.SH COPYRIGHT
-Copyright SRI International.
-Linked with GMP 5.1.3
-.br
-Copyright Free Software Foundation, Inc.
-Build date: 2017\-06\-08
-Platform: x86_64\-unknown\-linux\-gnu (release)
+The default mode is \fIpush\-pop\fR.
+.
 .SH SEE ALSO
-.BR yices (1),
 .BR yices-sat (1),
 .BR yices-smt (1),
 .BR yices-smt2 (1)
+.PP
+To report bugs and to get the full documentation, please visit http://yices.csl.sri.com.
+.
 .SH AUTHORS
 .PP
-Bruno Dutertre  bruno@csl.sri.com,
-Dejan Jovanovic  dejan@csl.sri.com
+Copyright (C) SRI International, 2017.
+.PP
+Yices was developed by Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.
