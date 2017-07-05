@@ -77,7 +77,7 @@ We can now build a more complex term by using constructors such as
 
 .. only:: format_html
 
-   The resulting term ``f`` is the formula :raw-html:`<em>x &ge; 0 &#x2227; y &ge; 0 &#x2227; x+y=100</em>`.
+   The resulting term ``f`` is the formula :raw-html:`<em>x &#x2265; 0 &#x2227; y &#x2265; 0 &#x2227; x+y=100</em>`.
 
 .. only:: not format_html
 

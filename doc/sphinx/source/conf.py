@@ -290,6 +290,10 @@ texinfo_documents = [
 
 epub_author = u'Bruno Dutertre'
 
+epub_theme = 'epub'
+
+epub_show_urls = 'inline'
+
 epub_theme_options = { 'footer' : 'false', 'relbar1' : 'false' }
 
 epub_exclude_files = ['search.html', '_static/basic.css', '_static/default.css', '_static/example1.c',

@@ -30,7 +30,7 @@ cp $apple $buildir/META-INF/ || { echo "Error: can't copy to $buildir/META-INF" 
 cd $buildir 2> /dev/null || { echo "Failed to cd to $buildir" ; exit 1 ; }
 
 echo "Cleaning up the html files"
-for x in *.html ; do
+for x in *.xhtml ; do
     sed -e 's/role=".*"//g' $x > $x.tmp
     mv $x.tmp $x
 done
