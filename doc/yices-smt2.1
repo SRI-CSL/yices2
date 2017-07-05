@@ -1,53 +1,65 @@
-.TH YICES "1" "June 2017" "Yices 2.6.0" "User Commands"
+.TH YICES-SMT2 1 "June 2017" "Yices 2.6.0" "User Commands"
 .SH NAME
-yices-smt2 \- the Yices SMT solver for the SMTLIB 2.0 language
+yices-smt2 \- the Yices SMT solver for the SMT-LIB 2 language
 .SH SYNOPSIS
 .B yices-smt2
-[\fIoption\fR] \fIfilename\fR
+[
+.I option
+]
+[
+.I file
+]
 .SH DESCRIPTION
+Runs the Yices SMT solver on an input problem written in SMT-LIB 2 language.
+If no
+.I file
+is given, the problem is read from standard input.
+.P
+The SMT-LIB language and logical theories are documented at http://smtlib.cs.uiowa.edu.
+.
+.SH OPTIONS
+.TP
+.B \-\-version,  \-V
+Display version and exit.
+.TP
+.B \-\-help,  \-h
+Display a short help summary.
+.TP
+.BI \-\-verbosity= level, \& " "  \-v  "" " " level
+Set the verbosity level (default = 0).
+.TP
+.BI \-\-timeout= timeout, \& "" \-t "" " " timeout
+Give a
+.I timeout
+in seconds. There is no timeout by default.
+.TP
+.B \-\-stats,  \-s
+Print a statistics summary before exiting.
+.TP
+.B \-\-incremental
+Enable support for the push/pop commands.
+.TP
+.B \-\-interactive
+Run in interactive mode.
 .IP
-or yices\-smt2 [option]
-.SS "Option summary:"
-.TP
-\fB\-\-version\fR, \fB\-V\fR
-Show version and exit
-.TP
-\fB\-\-help\fR, \fB\-h\fR
-Print this message and exit
-.TP
-\fB\-\-verbosity=\fR<level>
-Set verbosity level (default = 0)
-.IP
-\fB\-v\fR <level>
-.TP
-\fB\-\-timeout=\fR<timeout>
-Set a timeout in seconds (default = no timeout)
-.IP
-\fB\-t\fR <timeout>
-.TP
-\fB\-\-stats\fR, \fB\-s\fR
-Print statistics once all commands have been processed
-.TP
-\fB\-\-incremental\fR
-Enable support for push/pop
-.TP
-\fB\-\-interactive\fR
-Run in interactive mode (ignored if a filename is given)
-.PP
-For bug reports and other information, please see http://yices.csl.sri.com/
-.SH COPYRIGHT
-Copyright SRI International.
-Linked with GMP 5.1.3
-.br
-Copyright Free Software Foundation, Inc.
-Build date: 2017\-06\-08
-Platform: x86_64\-unknown\-linux\-gnu (release)
+This option is ignored if an input
+.I file
+is given on the command line. Otherwise,
+.B yices-smt2
+prints a prompt before every command. This also sets the SMT-LIB option
+.I :print-success
+to true.
+.
 .SH SEE ALSO
 .BR yices (1),
 .BR yices-sat (1),
 .BR yices-smt (1),
-.BR yices-smt2 (1)
+.PP
+To report bugs and to get the full documentation, please visit http://yices.csl.sri.com.
+.
 .SH AUTHORS
 .PP
-Bruno Dutertre  bruno@csl.sri.com,
-Dejan Jovanovic  dejan@csl.sri.com
+Copyright (C) SRI International, 2017.
+.PP
+Yices is developed at SRI's Computer Science Laboratory. The main developers
+are Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.

@@ -1,37 +1,43 @@
-.TH YICES "1" "June 2017" "Yices 2.6.0. Copyright SRI International." "User Commands"
+.TH YICES-SAT 1 "June 2017" "Yices 2.6.0" "User Commands"
 .SH NAME
-yices-sat \- the Yices sat solver
+yices-sat \- the Yices Sat solver
 .SH SYNOPSIS
 .B yices-sat
-[\fIoptions\fR] \fIfilename\fR
+[
+.I options
+]
+.I file
 .SH DESCRIPTION
-.SS "Option summary:"
+Runs the Yices SAT solver on an input file in the DIMACS format.
+.
+.SH OPTIONS
 .TP
-\fB\-\-version\fR, \fB\-V\fR
-Show version and exit
+.B \-\-version,  \-V
+Display version and exit.
 .TP
-\fB\-\-help\fR, \fB\-h\fR
-Print this message and exit
+.B \-\-help,  \-h
+Display a short help summary.
 .TP
-\fB\-\-model\fR, \fB\-m\fR
-Show a model if the problem is satisfiable
 .TP
-\fB\-\-verbose\fR, \fB\-v\fR
-Print statistics during the search
+.B \-\-model,  \-m
+Print a model on stdout if the problem is satisfiable.
 .TP
-\fB\-\-stats\fR
-Print statistics at the end of the search
-.PP
-For bug reporting and other information, please see http://yices.csl.sri.com/
-.PP
-Build date: 2017\-06\-08
-Platform: x86_64\-unknown\-linux\-gnu (release)
+.B \-\-verbose,  \-v
+Print statistics and other data during the search.
+.TP
+.B \-\-stats
+Print a statistics summary at the end of the search.
+.
 .SH SEE ALSO
 .BR yices (1),
-.BR yices-sat (1),
 .BR yices-smt (1),
 .BR yices-smt2 (1)
+.PP
+For bug reporting and other information, please visit http://yices.csl.sri.com.
+.
 .SH AUTHORS
 .PP
-Bruno Dutertre  bruno@csl.sri.com,
-Dejan Jovanovic  dejan@csl.sri.com
+Copyright (C) SRI International, 2017.
+.PP
+Yices is developed at SRI's Computer Science Laboratory. The main developers
+are Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.
