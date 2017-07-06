@@ -873,11 +873,6 @@ typedef struct sat_solver_s {
 extern void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp);
 
 /*
- * Set the prng seed
- */
-extern void nsat_set_seed(sat_solver_t *solver, uint32_t seed);
-
-/*
  * Set the verbosity level
  * - this determines how much stuff is printed (on stderr) during the search.
  * - level == 0 --> print nothing (this is the default)

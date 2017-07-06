@@ -809,9 +809,8 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);
     }
-
     if (seed_given) {
-      nsat_set_seed(&solver, seed_value);
+      nsat_set_random_seed(&solver, seed_value);
     }
     if (keep_lbd_given) {
       nsat_set_keep_lbd(&solver, keep_lbd);
