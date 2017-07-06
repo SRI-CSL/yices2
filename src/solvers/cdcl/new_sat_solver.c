@@ -2215,13 +2215,6 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
 
 /*
- * Set the prng seed
- */
-void nsat_set_seed(sat_solver_t *solver, uint32_t seed) {
-  solver->prng = seed;
-}
-
-/*
  * Set the verbosity level
  */
 void nsat_set_verbosity(sat_solver_t *solver, uint32_t level) {
