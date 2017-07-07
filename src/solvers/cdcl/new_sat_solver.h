@@ -631,6 +631,10 @@ typedef struct solver_stats_s {
  * eliminated variables:
  * - pure literals
  * - variables eliminated by resolution
+ *
+ * We also support variable elimnation by substitution. If variable x
+ * is mapped to a literal l then we set ante_tag[x] = ATAG_SUBST and
+ * ante_data[x] = l.
  */
 typedef enum antecedent_tag {
   ATAG_NONE,
@@ -642,8 +646,10 @@ typedef enum antecedent_tag {
 
   ATAG_PURE,
   ATAG_ELIM,
+  ATAG_SUBST,
 } antecedent_tag_t;
 
+#define NUM_ATAGS (ATAG_SUBST+1)
 
 /*
  * Conflict tag:  when a clause is false, we store it for conflict analysis
@@ -755,7 +761,9 @@ typedef struct sat_solver_s {
   uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
   uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
   uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
-  uint32_t simplify_bottom;   // stack pointer after the last call to simplify_clause_database
+  
+  uint32_t simplify_assigned; // number of literals assingnd at level0 after the last call to simplify_clause_database
+  uint32_t simplify_binaries; // number of binary clauses after the last call to simplify_clause_database
   uint64_t simplify_props;    // value of the propagation counter at this point
   uint64_t simplify_next;     // number of propagations before simplify is called again
 
