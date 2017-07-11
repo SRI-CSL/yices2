@@ -2098,6 +2098,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->starts = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
+  stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
   stat->pp_clauses_deleted = 0;
@@ -2913,6 +2914,7 @@ static inline bool var_is_eliminated(const sat_solver_t *solver, bvar_t x) {
   return solver->ante_tag[x] >= ATAG_PURE;
 }
 
+
 /*
  * Check whether variable x is active (i.e., not assigned at level 0) and not eliminated
  */
@@ -2924,6 +2926,10 @@ static bool var_is_active(const sat_solver_t *solver, bvar_t x) {
 /*
  * Same thing for literal l
  */
+static inline bool lit_is_eliminated(const sat_solver_t *solver, literal_t l) {
+  return var_is_eliminated(solver, var_of(l));
+}
+
 static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
   return var_is_active(solver, var_of(l));
 }
@@ -2936,7 +2942,7 @@ static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
  * - if l is neg(x) then subst(l) is not(ante_data[x])
  * In both cases, subst(l) is ante_data[x] ^ sign_of(l)
  */
-#if 0
+#ifndef NDEBUG
 static inline literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
   assert(l < solver->nliterals && solver->ante_tag[var_of(l)] == ATAG_SUBST);
   return solver->ante_data[var_of(l)] ^ sign_of(l);
@@ -2966,9 +2972,11 @@ static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
 #if 0
 static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   bvar_t x;
+
   x = var_of(l1);
   assert(! var_is_eliminated(solver, x));
 
+  solver->stats.subst_vars ++;
   solver->ante_tag[x] = ATAG_SUBST;
   solver->ante_data[x] = l2 ^ sign_of(l1);
 }
@@ -3294,7 +3302,10 @@ static void restore_watch_vectors(sat_solver_t *solver, cidx_t cidx) {
 }
 
 /*
- * Garbage collection
+ * Garbage collection:
+ * - this removes dead clauses from the pool and from the watch vectors
+ * - base_index = either 0 to go through all clauses
+ *   or solver->pool.learned to cleanup only the learned clauses.
  */
 static void collect_garbage(sat_solver_t *solver, cidx_t base_index) {
   check_clause_pool_counters(&solver->pool);      // DEBUG
@@ -3459,6 +3470,9 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 /*
  * Cleanup watch vector w:
  * - remove all the assigned (true) literals from w
+ * - note: this does not check for dead clauses
+ * - after clauses are deleted from the pool, we must call 'collect_garbage'
+ *   to do a full cleanup and restore the watch vectors.
  */
 static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
   uint32_t i, j, k, n;
@@ -3566,7 +3580,11 @@ static uint32_t count_binary_clauses(sat_solver_t *solver) {
 /*
  * Simplify the clause that starts at cidx:
  * - remove all literals that are false at the base level
- * - return true if the clause is true
+ * - delete the clause if it is true
+ * - if the clause cidx is reduced to a binary clause { l0, l1 }
+ *   then delete cidx and add { l0, l1 } as a binary clause
+ *
+ * - return true if the clause is deleted
  * - return false otherwise
  */
 static bool simplify_clause(sat_solver_t *solver, cidx_t cidx) {
@@ -3593,15 +3611,24 @@ static bool simplify_clause(sat_solver_t *solver, cidx_t cidx) {
       break;
 
     case BVAL_TRUE:
+      // the clause is true
+      clause_pool_delete_clause(&solver->pool, cidx);
       return true;
     }
   }
 
   assert(j >= 2);
+
+  if (j == 2) {
+    // convert to a binary clause
+    add_binary_clause(solver, a[0], a[1]); // must be done first
+    clause_pool_delete_clause(&solver->pool, cidx);
+    return true;
+  }
+
   if (j < n) {
     clause_pool_shrink_clause(&solver->pool, cidx, j);
   }
-
   return false;
 }
 
@@ -3649,14 +3676,11 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
 
   simplify_binary_clauses(solver);
 
-  d = 0; // count true clauses
+  d = 0; // count deleted clauses
   cidx = clause_pool_first_clause(&solver->pool);
   // Note: pool.size may change within the loop if clauses are deleted
   while (cidx < solver->pool.size) {
-    if (simplify_clause(solver, cidx)) {
-      d ++;
-      clause_pool_delete_clause(&solver->pool, cidx);
-    }
+    d += simplify_clause(solver, cidx);
     cidx = clause_pool_next_clause(&solver->pool, cidx);
   }
 
@@ -3721,6 +3745,9 @@ static void show_scc(FILE *f, const sat_solver_t *solver, literal_t l) {
   l0 = v->data[i];
   if (l0 != l) {
     // interesting SCC: not reduced to { l }
+    if (solver->label[not(l)] == UINT32_MAX) {
+      fprintf(f, "dual ");
+    }
     fprintf(f, "SCC: { %"PRId32" ", dimacs(l0));
     do {
       assert(i > 0);
@@ -3728,7 +3755,7 @@ static void show_scc(FILE *f, const sat_solver_t *solver, literal_t l) {
       l0 = v->data[i];
       fprintf(f, "%"PRId32" ", dimacs(l0));
     } while (l0 != l);
-    fprintf(f, " }\n");
+    fprintf(f, "}\n");
   }
 }
 
@@ -3743,23 +3770,39 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
   literal_t l0;
   bool unsat;
 
-  l0 = vector_pop(&solver->vertex_stack);
-  solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
-  if (l0 == l) return;
+  assert(solver->label[l] < UINT32_MAX);
+  //  show_scc(stderr, solver, l);
 
-  unsat = false;
-  for (;;) {
-    l0 = vector_pop(&solver->vertex_stack);
-    solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
-    if (l0 == not(l)) {
-      unsat = true; // unsat SCC
-      add_empty_clause(solver);
+  if (solver->label[not(l)] == UINT32_MAX) {
+    /*
+     * This SCC is of the form { l_0 ..., l }. The complementary SCC {
+     * not(l_0) ... not(l) } has been processed before.  We mark l0,
+     * ..., l as fully explored and remove C from the
+     * vertex_stack.
+     */
+    do {
+      l0 = vector_pop(&solver->vertex_stack);
+      solver->label[l0] = UINT32_MAX; // fully explored mark
+    } while (l0 != l);
+
+  } else {
+    /*
+     * We check for inconsistency and store substitutions
+     */
+    unsat = false;
+    do {
+      l0 = vector_pop(&solver->vertex_stack);
+      solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
+      if (l0 == not(l)) {
+	unsat = true;
+	add_empty_clause(solver);
+      }
+    } while (l0 != l);
+
+    if (unsat) {
+      fprintf(stderr, "found inconsistent SCC\n");
+      show_scc(stderr, solver, l);
     }
-    if (l0 == l) break;
-  }
-  if (unsat) {
-    fprintf(stderr, "found inconsistent SCC\n");
-    show_scc(stderr, solver, l);
   }
 }
 
@@ -3810,6 +3853,8 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
   gstack_elem_t *e;
   uint32_t k;
   literal_t x, y;
+
+  //  fprintf(stderr, "dfs: root = %"PRId32"\n", dimacs(l));
 
   assert(solver->visit[l] == 0 &&
          gstack_is_empty(&solver->dfs_stack) &&
@@ -3868,18 +3913,25 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
  * Compute all SCCs
  */
 static void compute_sccs(sat_solver_t *solver) {
-  uint32_t i, n;
+  uint32_t i, n, subst_count;
 
   assert(solver->label == NULL && solver->visit == NULL);
+
+  if (solver->verbosity >= 2) {
+    fprintf(stderr, "Starting SCC computation\n");
+  }
+
+  subst_count = solver->stats.subst_vars;
 
   n = solver->nliterals;
   solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   solver->visit = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   for (i=0; i<n; i++) {
     solver->visit[i] = 0;
+    solver->label[i] = 0;
   }
   for (i=2; i<n; i++) {
-    if (lit_is_active(solver, i) && solver->visit[i] == 0) {
+    if (lit_is_active(solver, i) && solver->label[i] == 0) {
       dfs_explore(solver, i);
       if (solver->has_empty_clause) break; // UNSAT detected
     }
@@ -3889,6 +3941,10 @@ static void compute_sccs(sat_solver_t *solver) {
   safe_free(solver->visit);
   solver->label = NULL;
   solver->visit = NULL;
+
+  if (solver->verbosity >= 2) {
+    fprintf(stderr, "Done SCC computation\n\n");
+  }
 }
 
 
@@ -6947,11 +7003,10 @@ static uint32_t level0_literals(const sat_solver_t *solver) {
 /*
  * Heuristic to trigger a call to simplify_clause_database:
  * - we call simplify when there's more literals assigned at level 0
- *   or more binary clauses 
+ *   (or more binary clauses)
  */
 static bool need_simplify(const sat_solver_t *solver) {
-  return (solver->binaries > solver->simplify_binaries ||
-	  level0_literals(solver) > solver->simplify_assigned)
+  return level0_literals(solver) > solver->simplify_assigned
     && solver->stats.propagations >= solver->simplify_props + solver->simplify_next;
 }
 
