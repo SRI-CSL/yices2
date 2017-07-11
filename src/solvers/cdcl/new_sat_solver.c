@@ -2937,9 +2937,11 @@ static bool var_is_active(const sat_solver_t *solver, bvar_t x) {
 /*
  * Same thing for literal l
  */
+#if 0
 static inline bool lit_is_eliminated(const sat_solver_t *solver, literal_t l) {
   return var_is_eliminated(solver, var_of(l));
 }
+#endif
 
 static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
   return var_is_active(solver, var_of(l));
@@ -3924,7 +3926,8 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
  * Compute all SCCs
  */
 static void compute_sccs(sat_solver_t *solver) {
-  uint32_t i, n, subst_count;
+  uint32_t i, n;
+  //  uint32_t subst_count
 
   assert(solver->label == NULL && solver->visit == NULL);
 
@@ -3932,7 +3935,7 @@ static void compute_sccs(sat_solver_t *solver) {
     fprintf(stderr, "Starting SCC computation\n");
   }
 
-  subst_count = solver->stats.subst_vars;
+  //  subst_count = solver->stats.subst_vars;
 
   n = solver->nliterals;
   solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
