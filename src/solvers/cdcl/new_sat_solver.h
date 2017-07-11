@@ -603,6 +603,9 @@ typedef struct solver_stats_s {
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
 
+  // Substitutions
+  uint32_t subst_vars;               // number of variables eliminated by substitution
+
   // Preprocessing statistics
   uint32_t pp_pure_lits;             // number of pure literals removed
   uint32_t pp_unit_lits;             // number of unit literals removed
