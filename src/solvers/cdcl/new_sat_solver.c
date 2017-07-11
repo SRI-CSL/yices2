@@ -4137,7 +4137,7 @@ static uint64_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
   return ((uint64_t) solver->occ[pos(x)]) * solver->occ[neg(x)];
 }
 
-#if 0
+#if 1
 /*
  * Number of occurrences of x
  */
@@ -4168,7 +4168,7 @@ static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
 }
 #endif
 
-#if 1
+#if 0
 /*
  * Simpler heuristic
  */
