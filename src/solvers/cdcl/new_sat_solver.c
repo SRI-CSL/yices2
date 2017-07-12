@@ -2109,6 +2109,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->starts = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
+  stat->subst_calls = 0;
   stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
@@ -2579,7 +2580,7 @@ static inline bool idx_is_literal(uint32_t k) {
 }
 
 /*
- * Add clause index in the watch vector for literal l
+ * Add a clause index to the watch vector for literal l
  * - l1 = blocker
  */
 static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t cidx, literal_t l1) {
@@ -2588,7 +2589,7 @@ static inline void add_clause_watch(sat_solver_t *solver, literal_t l, cidx_t ci
 }
 
 /*
- * Add literal l1 in the watch vector for l
+ * Add literal l1 to the watch vector for l
  */
 static inline void add_literal_watch(sat_solver_t *solver, literal_t l, literal_t l1) {
   assert(l < solver->nliterals);
@@ -2937,11 +2938,9 @@ static bool var_is_active(const sat_solver_t *solver, bvar_t x) {
 /*
  * Same thing for literal l
  */
-#if 0
 static inline bool lit_is_eliminated(const sat_solver_t *solver, literal_t l) {
   return var_is_eliminated(solver, var_of(l));
 }
-#endif
 
 static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
   return var_is_active(solver, var_of(l));
@@ -2956,11 +2955,26 @@ static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
  * In both cases, subst(l) is ante_data[x] ^ sign_of(l)
  */
 #ifndef NDEBUG
-static inline literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
+static inline literal_t base_subst(const sat_solver_t *solver, literal_t l) {
   assert(l < solver->nliterals && solver->ante_tag[var_of(l)] == ATAG_SUBST);
   return solver->ante_data[var_of(l)] ^ sign_of(l);
 }
 #endif
+
+/*
+ * Substitution for l:
+ * - if l is not replaced by anything, return l
+ * - otherwise return subst[l]
+ */
+static literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+
+  if (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
+    l = solver->ante_data[var_of(l)] ^ sign_of(l);
+    assert(solver->ante_tag[var_of(l)] != ATAG_SUBST);
+  }
+  return l;
+}
 
 /*
  * Full substitution: follow the substitution chain
@@ -2968,6 +2982,8 @@ static inline literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
  * - otherwise, replace l by subst(l) and iterate
  */
 static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+
   while (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
     l = solver->ante_data[var_of(l)] ^ sign_of(l);
   }
@@ -2982,7 +2998,6 @@ static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
 /*
  * Store subst[l1] := l2
  */
-#if 0
 static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   bvar_t x;
 
@@ -2993,7 +3008,6 @@ static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   solver->ante_tag[x] = ATAG_SUBST;
   solver->ante_data[x] = l2 ^ sign_of(l1);
 }
-#endif
 
 
 /**********************************
@@ -3319,11 +3333,16 @@ static void restore_watch_vectors(sat_solver_t *solver, cidx_t cidx) {
  * - this removes dead clauses from the pool and from the watch vectors
  * - base_index = either 0 to go through all clauses
  *   or solver->pool.learned to cleanup only the learned clauses.
+ *
+ * Flag 'watches_ready' means that the watch vectors don't contain
+ * any clause idx. So we can skip the prepare_watch_vectors step.
  */
-static void collect_garbage(sat_solver_t *solver, cidx_t base_index) {
+static void collect_garbage(sat_solver_t *solver, cidx_t base_index, bool watches_ready) {
   check_clause_pool_counters(&solver->pool);      // DEBUG
   mark_antecedent_clauses(solver, base_index);
-  prepare_watch_vectors(solver, base_index);
+  if (! watches_ready) {
+    prepare_watch_vectors(solver, base_index);
+  }
   compact_clause_pool(solver, base_index);
   check_clause_pool_learned_index(&solver->pool); // DEBUG
   check_clause_pool_counters(&solver->pool);      // DEBUG
@@ -3463,7 +3482,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   free_cidx_array(solver);
 
-  collect_garbage(solver, solver->pool.learned);
+  collect_garbage(solver, solver->pool.learned, false);
   solver->stats.reduce_calls ++;
 
   check_watch_vectors(solver);
@@ -3483,8 +3502,8 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 /*
  * Cleanup watch vector w:
  * - remove all the assigned (true) literals from w
- * - note: this does not check for dead clauses
- * - after clauses are deleted from the pool, we must call 'collect_garbage'
+ * - also remove all the clause indices
+ * - after clauses are deleted from the pool, we call 'collect_garbage'
  *   to do a full cleanup and restore the watch vectors.
  */
 static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
@@ -3500,9 +3519,9 @@ static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
   while (i < n) {
     k = w->data[i];
     if (idx_is_clause(k)) {
-      w->data[j] = k;
-      w->data[j+1] = w->data[i+1];
-      j += 2;
+      //      w->data[j] = k;
+      //      w->data[j+1] = w->data[i+1];
+      //      j += 2;
       i += 2;
     } else {
       if (lit_is_unassigned(solver, idx2lit(k))) {
@@ -3649,10 +3668,10 @@ static bool simplify_clause(sat_solver_t *solver, cidx_t cidx) {
 /*
  * Remove dead antecedents (of literals assigned at level 0)
  * - if l is implied at level 0 by a clause cidx,
- *   then cidx will be deleted by nsat_simplify_clause_databae.
+ *   then cidx will be deleted by simplify_clause_database.
  *   so l ends up with a dead antecedent.
- * - to fix this, we change the ante_tag of all literals
- *   implied by a clause to ATAG_UNIT
+ * - to fix this, we force the ante_tag of all variables
+ *   assigned at level 0 to ATAG_UNIT.
  */
 static void remove_dead_antecedents(sat_solver_t *solver) {
   uint32_t i, n;
@@ -3671,10 +3690,10 @@ static void remove_dead_antecedents(sat_solver_t *solver) {
 
 /*
  * Simplify all the clauses
- * - remove all false literals
- * - remove all true clauses
+ * - this does basic simplifications: remove all false literals
+ *   and remove all true clauses.
  */
-static void nsat_simplify_clause_database(sat_solver_t *solver) {
+static void simplify_clause_database(sat_solver_t *solver) {
   cidx_t cidx;
   uint32_t d;
 
@@ -3697,10 +3716,10 @@ static void nsat_simplify_clause_database(sat_solver_t *solver) {
     cidx = clause_pool_next_clause(&solver->pool, cidx);
   }
 
-  if (d > 0) {
+  if (true || d > 0) {
     solver->stats.prob_clauses_deleted += d;
     remove_dead_antecedents(solver);
-    collect_garbage(solver, 0);
+    collect_garbage(solver, 0, true);
   }
 
   solver->binaries = count_binary_clauses(solver);
@@ -3784,7 +3803,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
   bool unsat;
 
   assert(solver->label[l] < UINT32_MAX);
-  //  show_scc(stderr, solver, l);
+  show_scc(stderr, solver, l);
 
   if (solver->label[not(l)] == UINT32_MAX) {
     /*
@@ -3800,17 +3819,22 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
 
   } else {
     /*
-     * We check for inconsistency and store substitutions
+     * We check for inconsistency and store the substitution
      */
     unsat = false;
-    do {
+    for (;;) {
       l0 = vector_pop(&solver->vertex_stack);
       solver->label[l0] = UINT32_MAX; // mark l0 as fully explored/SCC known
-      if (l0 == not(l)) {
+      if (lit_is_eliminated(solver, l0)) {
+	assert(base_subst(solver, l0) == not(l));
 	unsat = true;
 	add_empty_clause(solver);
+	break;
       }
-    } while (l0 != l);
+      if (l0 == l) break;
+      // record substitution: subst[l0] := l
+      set_lit_subst(solver, l0, l);
+    }
 
     if (unsat) {
       fprintf(stderr, "found inconsistent SCC\n");
@@ -3923,19 +3947,18 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
 }
 
 /*
- * Compute all SCCs
+ * Compute all SCCs and build/extend the variable substitution
+ * - sets solver->has_empty_clause to true if an SCC
+ *   contains complementary literals.
  */
 static void compute_sccs(sat_solver_t *solver) {
   uint32_t i, n;
-  //  uint32_t subst_count
 
   assert(solver->label == NULL && solver->visit == NULL);
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 1) {
     fprintf(stderr, "Starting SCC computation\n");
   }
-
-  //  subst_count = solver->stats.subst_vars;
 
   n = solver->nliterals;
   solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
@@ -3956,10 +3979,308 @@ static void compute_sccs(sat_solver_t *solver) {
   solver->label = NULL;
   solver->visit = NULL;
 
-  if (solver->verbosity >= 2) {
+  if (solver->verbosity >= 1) {
     fprintf(stderr, "Done SCC computation\n\n");
   }
 }
+
+
+
+/*************************************
+ *  APPLY THE VARIABLE SUBSTITUTION  *
+ ************************************/
+
+/*
+ * Trick to detect duplicates and complementary literals in a clause:
+ * - when literal l is added to a clause, we temporarily set its
+ *   truth value to false.
+ * - so the next occurrence of l is ignored and an occurrence of not(l)
+ *   makes the clause true.
+ */
+// this make l false and not l true (temporarily)
+static void mark_false_lit(sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+  assert(lit_is_unassigned(solver, l));
+
+  solver->value[l] = BVAL_FALSE;
+  solver->value[not(l)] = BVAL_TRUE;
+}
+
+// remove the mark on l: we restore the preferred polarity to FALSE
+static void clear_false_lit(sat_solver_t *solver, literal_t l) {
+  bvar_t x;
+
+  assert(l < solver->nliterals);
+  assert(solver->value[l] == BVAL_FALSE);
+
+  x = var_of(l);
+  solver->value[pos(x)] = BVAL_UNDEF_FALSE;
+  solver->value[neg(x)] = BVAL_UNDEF_TRUE;
+}
+
+// remove the marks on a[0 ... n-1]
+static void clear_false_lits(sat_solver_t *solver, uint32_t n, const literal_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    clear_false_lit(solver, a[i]);
+  }
+}
+
+/*
+ * Simplify the clause that starts at cidx and apply the substitution.
+ * Return true if the clause is deleted.
+ */
+static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, j, n;
+  literal_t *a;
+  literal_t l;
+
+  assert(solver->decision_level == 0 && good_clause_idx(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+
+  j = 0;
+  for (i=0; i<n; i++) {
+    l = lit_subst(solver, a[i]);
+    switch (lit_value(solver, l)) {
+    case BVAL_FALSE:
+      break;
+
+    case BVAL_UNDEF_FALSE:
+    case BVAL_UNDEF_TRUE:
+      a[j] = l;
+      j ++;
+      mark_false_lit(solver, l);
+      break;
+
+    case BVAL_TRUE:
+      // the clause is true
+      goto done;
+    }
+  }
+
+ done:
+  /*
+   * a[0 ... j-1]: literals after substitution.
+   * If i < n, the clause is true and must be deleted.
+   * Otherwise, we keep the clause a[0 ... j-1].
+   * We change representation if j == 1 or j == 2.
+   */
+  clear_false_lits(solver, j, a);
+
+  if (i < n) { // dead clause
+    clause_pool_delete_clause(&solver->pool, cidx);
+    return true;
+  }
+
+  assert(j >= 1);
+
+  if (j == 1) {
+    add_unit_clause(solver, a[0]);
+    clause_pool_delete_clause(&solver->pool, cidx);
+    return true;
+  }
+
+  if (j == 2) {
+    add_binary_clause(solver, a[0], a[1]);
+    clause_pool_delete_clause(&solver->pool, cidx);
+    return true;
+  }
+
+  if (j < n) {
+    clause_pool_shrink_clause(&solver->pool, cidx, j);
+  }
+  return false;
+}
+
+
+/*
+ * Scan the watch vector w of l0 and apply the substitution to all the
+ * literals of w. Also remove all the assigned literals from w and all
+ * the clause ids.
+ *
+ * This assumes that l0 is not changed by the substitution.
+ *
+ * The binary clauses that contain l0 are then of the form
+ *  { l0, subst[l_1] }, ...., { l0, subst[l_k] } where
+ * l_1, ..., l_k occur in w.
+ *
+ * We return true if subst[l_i] = l0 for some i (i.e, l0 becomes a unit
+ * literal).
+ */
+static bool subst_in_watch_vector(sat_solver_t *solver, watch_t *w, literal_t l0) {
+  uint32_t i, j, k, n;
+  literal_t l;
+  bool unit_found;
+
+  assert(solver->decision_level == 0);
+  assert(l0 < solver->nliterals);
+  assert(w != NULL && solver->watch[l0] == w);
+
+  unit_found = false;
+  n = w->size;
+  i = 0;
+  j = 0;
+  while (i < n) {
+    k = w->data[i];
+    if (idx_is_clause(k)) {
+      //      w->data[j] = k;
+      //      w->data[j+1] = w->data[i+1];
+      //      j += 2;
+      i += 2;
+    } else {
+      l = idx2lit(k);
+      i++;
+      if (lit_is_unassigned(solver, l)) {
+	l = lit_subst(solver, l);
+	if (l == l0) {
+	  unit_found = true;
+	} else if (l != not(l0)) {
+	  // keep l in the watch vector
+	  w->data[j] = lit2idx(l);
+	  j ++;
+	}
+      }
+    }
+  }
+
+  w->size = j;
+
+  return unit_found;
+}
+
+
+/*
+ * Scan watch vector w and move all binary clauses to watch[l0]
+ * - w is watch vector of a literal l and subst[l] is l0
+ *
+ * Return true if l0 becomes unit literal.
+ */
+static bool subst_and_migrate_watch_vector(sat_solver_t *solver, watch_t *w, literal_t l0) {
+  uint32_t i, k, n;
+  literal_t l;
+  bool unit_found;
+
+  assert(solver->decision_level == 0);
+  assert(l0 < solver->nliterals);
+  assert(w != NULL);
+
+  unit_found = false;
+  n = w->size;
+  i = 0;
+  while (i < n) {
+    k = w->data[i];
+    if (idx_is_clause(k)) {
+      //      w->data[j] = k;
+      //      w->data[j+1] = w->data[i+1];
+      //      j += 2;
+      i += 2;
+    } else {
+      l = idx2lit(k);
+      i++;
+      if (lit_is_unassigned(solver, l)) {
+	l = lit_subst(solver, l);
+	if (l == l0) {
+	  unit_found = true;
+	} else if (l != not(l0)) {
+	  // add l to watch[l0]
+	  add_literal_watch(solver, l0, l);
+	}
+      }
+    }
+  }
+
+  return unit_found;
+}
+
+/*
+ * Process all watch vectors
+ */
+static void apply_subst_to_watch_vectors(sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+  literal_t l0;
+  bool unit;
+
+  assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      if (lit_is_unassigned(solver, i)) {
+	l0 = lit_subst(solver, i);
+	assert(lit_is_unassigned(solver, l0));
+	if (i == l0) {
+	  unit = subst_in_watch_vector(solver, w, l0);
+	} else {
+	  unit = subst_and_migrate_watch_vector(solver, w, l0);
+	  safe_free(w);
+	  solver->watch[i] = NULL;
+	}
+	if (unit) {
+	  add_unit_clause(solver, l0);
+	}
+      } else {
+	// i is either true or false: its watch vector is useless
+	// (because all Boolean propagations have been done)
+	safe_free(w);
+	solver->watch[i] = NULL;
+      }
+    }
+  }
+}
+
+
+/*
+ * Apply the substitution to all clauses
+ */
+static void apply_substitution(sat_solver_t *solver) {
+  cidx_t cidx;
+  uint32_t d;
+
+  assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
+
+  apply_subst_to_watch_vectors(solver);
+
+  d = 0; // count deleted clauses
+  cidx = clause_pool_first_clause(&solver->pool);
+  while (cidx < solver->pool.size) {
+    d += subst_and_simplify_clause(solver, cidx);
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+
+  solver->stats.prob_clauses_deleted += d;
+  remove_dead_antecedents(solver);
+  collect_garbage(solver, 0, true);
+
+  solver->binaries = count_binary_clauses(solver);
+  solver->stats.subst_calls ++;
+
+  check_watch_vectors(solver);
+}
+
+
+/*
+ * Compute SCCs and apply the substitution if any
+ */
+static void try_scc_simplification(sat_solver_t *solver) {
+  uint32_t subst_count;
+
+  subst_count = solver->stats.subst_vars;
+  compute_sccs(solver);
+  if (solver->has_empty_clause) return;
+
+  if (solver->stats.subst_vars > subst_count) {
+    apply_substitution(solver);
+  } else {
+    // basic stuff only
+    simplify_clause_database(solver);
+  }
+}
+
 
 
 
@@ -7059,7 +7380,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       return STAT_UNSAT;
     }
     if (solver->units > 0) {
-      nsat_simplify_clause_database(solver);
+      simplify_clause_database(solver);
       solver->simplify_assigned = solver->stack.top;
       solver->simplify_binaries = solver->binaries;
       solver->simplify_props = solver->stats.propagations;
@@ -7070,13 +7391,19 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
   }
 
-  if (true) {
-    compute_sccs(solver); // test
-    if (solver->has_empty_clause) {
-      solver->status = STAT_UNSAT;
-      return STAT_UNSAT;
-    }
+  // Test variable substitution
+  try_scc_simplification(solver);
+  if (solver->has_empty_clause) {
+    solver->status = STAT_UNSAT;
+    return STAT_UNSAT;
   }
+  nsat_boolean_propagation(solver);
+  if (solver->conflict_tag != CTAG_NONE) {
+    solver->status = STAT_UNSAT;
+    return STAT_UNSAT;
+  }
+  // end of test
+
 
   /*
    * Counter for report status
@@ -7092,7 +7419,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   solver->fast_count = 0;
   solver->blocking_count = 0;
   solver->stats.starts = 0;
-
 
   /*
    * Reduce strategy: as in minisat
@@ -7125,14 +7451,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     // call simplify
     if (simplify) {
       assert(solver->decision_level == 0);
-      nsat_simplify_clause_database(solver);
-      if (true) {
-        compute_sccs(solver); // test
-	if (solver->has_empty_clause) {
-	  solver->status = STAT_UNSAT;
-	  break;
-	}
-      }
+      simplify_clause_database(solver);
 
       solver->simplify_assigned = solver->stack.top;
       solver->simplify_binaries = solver->binaries;
