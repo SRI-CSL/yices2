@@ -3803,7 +3803,10 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
   bool unsat;
 
   assert(solver->label[l] < UINT32_MAX);
-  show_scc(stderr, solver, l);
+
+  if (solver->verbosity >= 4) {
+    show_scc(stderr, solver, l);
+  }
 
   if (solver->label[not(l)] == UINT32_MAX) {
     /*
@@ -3956,7 +3959,7 @@ static void compute_sccs(sat_solver_t *solver) {
 
   assert(solver->label == NULL && solver->visit == NULL);
 
-  if (solver->verbosity >= 1) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "Starting SCC computation\n");
   }
 
@@ -3979,7 +3982,7 @@ static void compute_sccs(sat_solver_t *solver) {
   solver->label = NULL;
   solver->visit = NULL;
 
-  if (solver->verbosity >= 1) {
+  if (solver->verbosity >= 2) {
     fprintf(stderr, "Done SCC computation\n\n");
   }
 }
@@ -4458,7 +4461,7 @@ static uint64_t pp_elim_cost(const sat_solver_t *solver, bvar_t x) {
   return ((uint64_t) solver->occ[pos(x)]) * solver->occ[neg(x)];
 }
 
-#if 1
+
 /*
  * Number of occurrences of x
  */
@@ -4487,16 +4490,17 @@ static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
   if (cy < oy && cx >= ox) return false;    // y cheap, x not cheap
   return cx < cy;
 }
-#endif
 
-#if 0
+
 /*
- * Simpler heuristic
+ * Simpler heuristic: not used
  */
-static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
-  return pp_elim_cost(solver, x) < pp_elim_cost(solver, y);
-}
-#endif
+/*
+ * static bool elim_lt(const sat_solver_t *solver, bvar_t x, bvar_t y) {
+ *   return pp_elim_cost(solver, x) < pp_elim_cost(solver, y);
+ * }
+ */
+
 
 /*
  * Move the variable at position i up the tree
@@ -7132,7 +7136,6 @@ static void init_restart(sat_solver_t *solver) {
   solver->blocking_count = 0;
 }
 
-
 /*
  * Check for restart
  */
@@ -7170,9 +7173,9 @@ static bool need_restart(sat_solver_t *solver) {
 
 /*
  * As in Minisat, we use a geometric progression
- * - we keep a reduce_threshold
- * - when the numnber of learned clause is bigger than the threshold,
- *   we call reduce
+ * - we keep a reduce_threshold.
+ * - when the number of learned clauses is bigger than the threshold,
+ *   we call reduce.
  * - after every call to reduce, we increase reduce_threshold by REDUCE_FACTOR (5%)
  */
 
@@ -7180,10 +7183,11 @@ static bool need_restart(sat_solver_t *solver) {
  * Initialize the reduce threshold
  */
 static void init_reduce(sat_solver_t *solver) {
-  solver->reduce_threshold = solver->pool.num_prob_clauses/4;
-  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
-    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
-  }
+  // solver->reduce_threshold = solver->pool.num_prob_clauses/4;
+  //  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
+  //    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
+  //  }
+  solver->reduce_threshold = 2000;
 }
 
 /*
@@ -7410,7 +7414,7 @@ static void report_status(sat_solver_t *solver, uint32_t count) {
   fprintf(stderr, "| %6.2f %6.2f | %7"PRIu64"  %8"PRIu32" | %7"PRIu32" | %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
           slow, fast,
           solver->stats.conflicts, solver->reduce_threshold,
-          solver->units, solver->binaries,
+          level0_literals(solver), solver->binaries,
           solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
           solver->pool.num_learned_clauses, solver->pool.num_learned_literals, lits_per_clause);
   fflush(stderr);
@@ -7484,7 +7488,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     return STAT_UNSAT;
   }
   // end of test
-
 
   // main loop
   i = 0; // counter to report status
