@@ -7077,6 +7077,182 @@ static void extend_assignment(sat_solver_t *solver) {
 
 
 
+/*****************
+ *  HEURISTICS   *
+ ****************/
+
+/*
+ * WHEN TO RESTART
+ */
+
+/*
+ * Glucose-style restart condition:
+ * 1) solver->blocking_ema is a moving average of the trail size
+ *    after each conflict.
+ * 2) solver->fast_ema is an estimate of the quality of the recently
+ *    learned clauses.
+ * 3) solver->slow_ema is an estimate of the average quality of all
+ *    learned clauses.
+ *
+ * Intuition:
+ * - if the current trail size is larger than blocking_ema, we may
+ *   be close to finding a satisfying assignment so we don't want to
+ *   restart.
+ * - if solver->fast_ema is larger than solver->slow_ema then recent
+ *   learned clauses don't seem too good. We want to restart.
+ *
+ * To make this more precise: we use two magic constants:
+ * - K_0 = 1/1.4 (approximately)
+ * - K   = 0.8   (approximately)
+ * Larger than average trail_size is 'trail_size * K_0 > blocking_ema'
+ * Worse than average learned clauses is 'fast_ema * K > slow_ema'
+
+ * Before we use 'blocking_ema', we want to make sure we have at least
+ * 5000 samples in there. We count these samples in solver->blocking_count.
+ * To avoid restarting every time, we also keep track of the number of
+ * samples from which fast_ema is computed (in solver->fast_count).
+ * We wait until fast_count >= 50 before restarting.
+ *
+ * For our fixed point implementation, we use 
+ *   K_0 = (1 - 1/2^2 - 1/2^5 - 1/2^8) = 0.71484375
+ *   K   = (1 - 1/2^3 - 1/2^4 - 1/2^6) = 0.796875
+ *
+ * The Glucose original uses moving average/long-term average
+ * instead of exponential moving averages. (cf. Biere & Froehlich).
+ */
+
+/*
+ * Initialize the restart counters
+ */
+static void init_restart(sat_solver_t *solver) {
+  solver->slow_ema = 0;
+  solver->fast_ema = 0;
+  solver->blocking_ema = 0;
+  solver->fast_count = 0;
+  solver->blocking_count = 0;
+}
+
+
+/*
+ * Check for restart
+ */
+static void glucose_blocking(sat_solver_t *solver) {
+  uint64_t aux;
+
+  if (solver->blocking_count >= 5000) {
+    aux = ((uint64_t) solver->stack.top) << 32;  // trail size
+    aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size 
+    if (aux > solver->blocking_ema) {
+      solver->fast_count = 0; // delay the next restart
+    }
+  }
+}
+
+static bool need_restart(sat_solver_t *solver) {
+  uint64_t aux;
+
+  if (solver->fast_count >= 50) {
+    aux = solver->fast_ema;
+    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
+    if (aux > solver->slow_ema) {
+      solver->fast_count = 0;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * WHEN TO REDUCE
+ */
+
+/*
+ * As in Minisat, we use a geometric progression
+ * - we keep a reduce_threshold
+ * - when the numnber of learned clause is bigger than the threshold,
+ *   we call reduce
+ * - after every call to reduce, we increase reduce_threshold by REDUCE_FACTOR (5%)
+ */
+
+/*
+ * Initialize the reduce threshold
+ */
+static void init_reduce(sat_solver_t *solver) {
+  solver->reduce_threshold = solver->pool.num_prob_clauses/4;
+  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
+    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
+  }
+}
+
+/*
+ * Check to trigger call to reduce_learned_clause_set
+ */
+static inline bool need_reduce(const sat_solver_t *solver) {
+  return solver->pool.num_learned_clauses > solver->reduce_threshold;
+}
+
+/*
+ * Update counters after a call to reduce
+ */
+static void done_reduce(sat_solver_t *solver) {
+  solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
+}
+
+
+/*
+ * WHEN TO SIMPLIFY
+ */
+
+/*
+ * Number of literals assigned at level 0
+ * - this is used to decide whether to call simplify_clause_database
+ */
+static uint32_t level0_literals(const sat_solver_t *solver) {
+  uint32_t n;
+
+  n = solver->stack.top;
+  if (solver->decision_level > 0) {
+    n = solver->stack.level_index[1];
+  }
+  return n;
+}
+
+
+/*
+ * Initialize counters
+ */
+static void init_simplify(sat_solver_t *solver) {
+  solver->simplify_assigned = 0;
+  solver->simplify_binaries = 0;
+  solver->simplify_props = 0;
+  solver->simplify_next = 0;    // number of propagations before next call to simplify_clause_database
+}
+
+/*
+ * Heuristic to trigger a call to simplify_clause_database:
+ * - we call simplify when there's more literals assigned at level 0
+ *   (or more binary clauses)
+ */
+static bool need_simplify(const sat_solver_t *solver) {
+  return level0_literals(solver) > solver->simplify_assigned
+    && solver->stats.propagations >= solver->simplify_props + solver->simplify_next;
+}
+
+
+/*
+ * Update counters after simplify
+ */
+static void done_simplify(sat_solver_t *solver) {
+  solver->simplify_assigned = solver->stack.top;
+  solver->simplify_binaries = solver->binaries;
+  solver->simplify_props = solver->stats.propagations;
+  solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;
+}
+
+
+
 
 /*****************************
  *  MAIN SOLVING PROCEDURES  *
@@ -7131,72 +7307,6 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
   return 0;
 }
 
-
-/*
- * Glucose-style restart condition:
- * 1) solver->blocking_ema is a moving average of the trail size
- *    after each conflict.
- * 2) solver->fast_ema is an estimate of the quality of the recently
- *    learned clauses.
- * 3) solver->slow_ema is an estimate of the average quality of all
- *    learned clauses.
- *
- * Intuition:
- * - if the current trail size is larger than blocking_ema, we may
- *   be close to finding a satisfying assignment so we don't want to
- *   restart.
- * - if solver->fast_ema is larger than solver->slow_ema then recent
- *   learned clauses don't seem too good. We want to restart.
- *
- * To make this more precise: we use two magic constants:
- * - K_0 = 1/1.4 (approximately)
- * - K   = 0.8   (approximately)
- * Larger than average trail_size is 'trail_size * K_0 > blocking_ema'
- * Worse than average learned clauses is 'fast_ema * K > slow_ema'
-
- * Before we use 'blocking_ema', we want to make sure we have at least
- * 5000 samples in there. We count these samples in solver->blocking_count.
- * To avoid restarting every time, we also keep track of the number of
- * samples from which fast_ema is computed (in solver->fast_count).
- * We wait until fast_count >= 50 before restarting.
- *
- * For our fixed point implementation, we use 
- *   K_0 = (1 - 1/2^2 - 1/2^5 - 1/2^8) = 0.71484375
- *   K   = (1 - 1/2^3 - 1/2^4 - 1/2^6) = 0.796875
- *
- * The Glucose original uses moving average/long-term average
- * instead of exponential moving averages. (cf. Biere & Froehlich).
- */
-static void glucose_blocking(sat_solver_t *solver) {
-  uint64_t aux;
-
-  if (solver->blocking_count >= 5000) {
-    aux = ((uint64_t) solver->stack.top) << 32;  // trail size
-    aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size 
-    if (aux > solver->blocking_ema) {
-      solver->fast_count = 0; // delay the next restart
-    }
-  }
-}
-
-static bool glucose_restart(sat_solver_t *solver) {
-  uint64_t aux;
-
-  if (solver->fast_count >= 50) {
-
-    aux = solver->fast_ema;
-    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
-    if (aux > solver->slow_ema) {
-      solver->fast_count = 0;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
-
 /*
  * Preferred literal when x is selected as decision variable.
  * - we pick l := pos(x) then check whether value[l] is 0b00 or 0b01
@@ -7243,15 +7353,14 @@ static void sat_search(sat_solver_t *solver) {
       // No conflict
 
       // Check for restarts
-      if (glucose_restart(solver)) {
+      if (need_restart(solver)) {
         break;
       }
       // Garbage collection
-      if (solver->pool.num_learned_clauses > solver->reduce_threshold) {
+      if (need_reduce(solver)) {
         nsat_reduce_learned_clause_set(solver);
         check_watch_vectors(solver);
-        solver->reduce_threshold = (uint32_t) (solver->reduce_threshold * REDUCE_FACTOR);
-        //      solver->reduce_threshold += 300; // Glucose
+	done_reduce(solver);
       }
 
       x = nsat_select_decision_variable(solver);
@@ -7320,31 +7429,6 @@ static void show_start_search_stats(sat_solver_t *solver) {
   fprintf(stderr, "deleted pb. clauses  : %"PRIu64"\n\n", solver->stats.prob_clauses_deleted);
 }
 
-/*
- * Number of literals assigned at level 0
- * - this is used to decide whether to call simplify_clause_database
- */
-static uint32_t level0_literals(const sat_solver_t *solver) {
-  uint32_t n;
-
-  n = solver->stack.top;
-  if (solver->decision_level > 0) {
-    n = solver->stack.level_index[1];
-  }
-  return n;
-}
-
-
-/*
- * Heuristic to trigger a call to simplify_clause_database:
- * - we call simplify when there's more literals assigned at level 0
- *   (or more binary clauses)
- */
-static bool need_simplify(const sat_solver_t *solver) {
-  return level0_literals(solver) > solver->simplify_assigned
-    && solver->stats.propagations >= solver->simplify_props + solver->simplify_next;
-}
-
 
 /*
  * Solving procedure
@@ -7360,11 +7444,11 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     return STAT_UNSAT;
   }
 
-  solver->simplify_assigned = 0;
-  solver->simplify_binaries = 0;
-  solver->simplify_props = 0;
-  solver->simplify_next = 0;    // number of propagations before next call to simplify_clause_database
+  init_simplify(solver);
+  init_reduce(solver);
+  init_restart(solver);
 
+  // preprocessing
   if (solver->preprocess) {
     nsat_preprocess(solver);
     if (solver->has_empty_clause) {
@@ -7381,10 +7465,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
     if (solver->units > 0) {
       simplify_clause_database(solver);
-      solver->simplify_assigned = solver->stack.top;
-      solver->simplify_binaries = solver->binaries;
-      solver->simplify_props = solver->stats.propagations;
-      solver->simplify_next = solver->pool.num_prob_literals; 
+      done_simplify(solver);
     }
     if (solver->verbosity >= 1) {
       show_start_search_stats(solver);
@@ -7405,30 +7486,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   // end of test
 
 
-  /*
-   * Counter for report status
-   */
-  i = 0;
-
-  /*
-   * Glucose-style EMA for restarts
-   */
-  solver->slow_ema = 0;
-  solver->fast_ema = 0;
-  solver->blocking_ema = 0;
-  solver->fast_count = 0;
-  solver->blocking_count = 0;
-  solver->stats.starts = 0;
-
-  /*
-   * Reduce strategy: as in minisat
-   */
-   solver->reduce_threshold = solver->pool.num_prob_clauses/4;
-   if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
-     solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
-   }
-   //   solver->reduce_threshold = 2000; // Glucose
-
+  // main loop
+  i = 0; // counter to report status
   for (;;) {
     if (solver->verbosity >= 2) {
       report_status(solver, i);
@@ -7448,15 +7507,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       }
     }
 
-    // call simplify
     if (simplify) {
       assert(solver->decision_level == 0);
       simplify_clause_database(solver);
-
-      solver->simplify_assigned = solver->stack.top;
-      solver->simplify_binaries = solver->binaries;
-      solver->simplify_props = solver->stats.propagations;
-      solver->simplify_next = solver->pool.num_prob_literals + solver->pool.num_learned_literals;
+      done_simplify(solver);
     }
   }
 
@@ -7464,6 +7518,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n\n");
   }
 
+  // Done
   if (solver->status == STAT_SAT) {
     extend_assignment(solver);
   }
