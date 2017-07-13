@@ -3938,8 +3938,9 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
   }
 }
 
+
 /*
- * Compute all SCCs and build/extend the variable substitution
+ * Compute all SCCs and build/extend the variable substitution.
  * - sets solver->has_empty_clause to true if an SCC
  *   contains complementary literals.
  */
@@ -4252,25 +4253,6 @@ static void apply_substitution(sat_solver_t *solver) {
   solver->stats.subst_calls ++;
 
   check_watch_vectors(solver);
-}
-
-
-/*
- * Compute SCCs and apply the substitution if any
- */
-static void try_scc_simplification(sat_solver_t *solver) {
-  uint32_t subst_count;
-
-  subst_count = solver->stats.subst_vars;
-  compute_sccs(solver);
-  if (solver->has_empty_clause) return;
-
-  if (solver->stats.subst_vars > subst_count) {
-    apply_substitution(solver);
-  } else {
-    // basic stuff only
-    simplify_clause_database(solver);
-  }
 }
 
 
@@ -6969,6 +6951,46 @@ static void resolve_conflict(sat_solver_t *solver) {
 
 
 
+
+/*****************************************************
+ *  VARIABLE SUBSTITUTION + DATABASE SIMPLIFICATION  *
+ ****************************************************/
+
+/*
+ * Compute SCCs and apply the substitution if any + perform one
+ * round of propagation.
+ *
+ * - sets solver->has_empty_clause to true if a conflict is detected.
+ */
+static void try_scc_simplification(sat_solver_t *solver) {
+  uint32_t subst_count, units;
+
+  assert(solver->decision_level == 0);
+
+  subst_count = solver->stats.subst_vars;
+  units = solver->units ++;
+
+  compute_sccs(solver);
+  if (solver->has_empty_clause) return;
+
+  if (solver->stats.subst_vars > subst_count) {
+    // substitution extended
+    apply_substitution(solver);
+    if (solver->units > units) {
+      nsat_boolean_propagation(solver);
+      if (solver->conflict_tag != CTAG_NONE) {
+	add_empty_clause(solver);
+      }
+    }
+  } else {
+    // basic stuff only
+    simplify_clause_database(solver);
+  }
+}
+
+
+
+
 /*************************************************
  *  RECOVER TRUTH VALUE OF ELIMINATED VARIABLES  *
  ************************************************/
@@ -7172,11 +7194,11 @@ static bool need_restart(sat_solver_t *solver) {
  * Initialize the reduce threshold
  */
 static void init_reduce(sat_solver_t *solver) {
-  // solver->reduce_threshold = solver->pool.num_prob_clauses/4;
-  //  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
-  //    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
-  //  }
-  solver->reduce_threshold = 2000;
+  solver->reduce_threshold = solver->pool.num_prob_clauses/4;
+  if (solver->reduce_threshold < MIN_REDUCE_THRESHOLD) {
+    solver->reduce_threshold = MIN_REDUCE_THRESHOLD;
+  }
+  //  solver->reduce_threshold = 2000;
 }
 
 /*
@@ -7344,12 +7366,9 @@ static void sat_search(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
-
-      // Check for restarts
       if (need_restart(solver)) {
         break;
       }
-      // Garbage collection
       if (need_reduce(solver)) {
         nsat_reduce_learned_clause_set(solver);
         check_watch_vectors(solver);
@@ -7441,16 +7460,16 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   init_reduce(solver);
   init_restart(solver);
 
-  // preprocessing
   if (solver->preprocess) {
+    // preprocessing
     nsat_preprocess(solver);
     if (solver->has_empty_clause) {
       solver->status = STAT_UNSAT;
       return STAT_UNSAT;
     }
-    
+
   } else {
-    // One round of propagation + removal of true clauses
+    // one round of propagation + removal of true clauses
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag != CTAG_NONE) {
       solver->status = STAT_UNSAT;
@@ -7468,11 +7487,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   // Test variable substitution
   try_scc_simplification(solver);
   if (solver->has_empty_clause) {
-    solver->status = STAT_UNSAT;
-    return STAT_UNSAT;
-  }
-  nsat_boolean_propagation(solver);
-  if (solver->conflict_tag != CTAG_NONE) {
     solver->status = STAT_UNSAT;
     return STAT_UNSAT;
   }
