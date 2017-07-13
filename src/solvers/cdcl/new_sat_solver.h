@@ -762,6 +762,7 @@ typedef struct sat_solver_s {
   float cla_inc;              // Clause activity increment
   float inv_cla_decay;        // Inverse of clause decay (1/0.999)
   uint32_t stack_threshold;   // Experimental
+
   uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
   uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
   uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
