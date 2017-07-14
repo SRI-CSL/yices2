@@ -6071,7 +6071,11 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
-  smt_clear(ctx->core);
+  if (ctx->mcsat == NULL) {
+    smt_clear(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
+  }
 }
 
 

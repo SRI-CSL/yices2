@@ -728,10 +728,6 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
   }
 }
 
-void mcsat_push(mcsat_solver_t* mcsat) {
-  assert(false);
-}
-
 static
 void mcsat_pop_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
@@ -754,8 +750,37 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
   ivector_reset(unassigned);
 }
 
-void mcsat_pop(mcsat_solver_t* mcsat) {
+static
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
+
+void mcsat_push(mcsat_solver_t* mcsat) {
+
+  // External push:
+  // - variables and terms
+  // - assertions
+  // - internal push
+
+  assert(mcsat->status == STATUS_IDLE); // We must have clear before
+
   assert(false);
+}
+
+
+void mcsat_pop(mcsat_solver_t* mcsat) {
+
+  // External pop:
+  // - internal pop
+  // - assertions
+  // - variables and terms
+
+  assert(false);
+}
+
+void mcsat_clear(mcsat_solver_t* mcsat) {
+  // Clear to be ready for more assertions:
+  // - Pop internal to base level
+  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+  mcsat->status = STATUS_IDLE;
 }
 
 /**
