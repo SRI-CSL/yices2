@@ -1183,7 +1183,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
   init_ivector(&unassigned, 0);
 
-  top_level = 0;
+  top_level = mcsat->trail->decision_level_base;
   for (i = 0; i < lemma->size; ++ i) {
 
     // Get the variables for the disjunct
@@ -1399,9 +1399,9 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   // UIP conflict resolution
-  assert(conflict_level == 0 || conflict_get_top_level_vars_count(&conflict) == 1);
+  assert(conflict_level <= mcsat->trail->decision_level_base || conflict_get_top_level_vars_count(&conflict) == 1);
 
-  if (conflict_level == 0) {
+  if (conflict_level <= mcsat->trail->decision_level_base) {
     mcsat->status = STATUS_UNSAT;
   } else {
     // We should still be in conflict, so back out

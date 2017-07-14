@@ -212,7 +212,7 @@ void trail_pop_propagation(mcsat_trail_t* trail) {
 }
 
 void trail_pop(mcsat_trail_t* trail) {
-  assert(trail->decision_level > trail->decision_level_base);
+  assert(trail->decision_level >= trail->decision_level_base);
   while (trail_get_assignment_type(trail, trail_back(trail)) != DECISION) {
     trail_pop_propagation(trail);
   };
