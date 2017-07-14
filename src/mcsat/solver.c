@@ -755,14 +755,12 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
-  // External push:
-  // - variables and terms
-  // - assertions
-  // - internal push
-
   assert(mcsat->status == STATUS_IDLE); // We must have clear before
 
-  assert(false);
+  // Regular push for the internal data structures
+  mcsat_push_internal(mcsat);
+  // Push and set the base level on the trail
+  trail_new_base_level(mcsat->trail);
 }
 
 
@@ -1517,7 +1515,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       } else {
         // Decided, we can continue with the search
         (*mcsat->solver_stats.decisions)++;
-        // If plugin decided on another variable, put it back
+        // If plugin decided to cheat by deciding on another variable, put it back
         if (!trail_has_value(mcsat->trail, var)) {
           var_queue_insert(&mcsat->var_queue, var);
         }

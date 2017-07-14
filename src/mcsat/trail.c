@@ -74,8 +74,16 @@ void trail_print(const mcsat_trail_t* trail, FILE* out) {
     }
     var = trail->elements.data[i];
     var_type = trail_get_assignment_type(trail, var);
+
     if (var_type == DECISION) {
       fprintf(out, "\n");
+    } else if (i > 0) {
+      variable_t prev_var = trail->elements.data[i-1];
+      uint32_t l = trail_get_level(trail, prev_var);
+      uint32_t l_end = trail_get_level(trail, var);
+      for (; l < l_end; ++ l) {
+        fprintf(out, "\n ----------- PUSH -------------- \n");
+      }
     }
 
     variable_db_print_variable(trail->var_db, var, out);
@@ -100,6 +108,12 @@ void trail_new_decision(mcsat_trail_t* trail) {
   assert(trail_is_consistent(trail));
   trail->decision_level ++;
   ivector_push(&trail->level_sizes, trail->elements.size);
+}
+
+void trail_new_base_level(mcsat_trail_t* trail) {
+  assert(trail->decision_level == trail->decision_level_base);
+  trail_new_decision(trail);
+  trail->decision_level_base = trail->decision_level;
 }
 
 static inline
@@ -198,7 +212,7 @@ void trail_pop_propagation(mcsat_trail_t* trail) {
 }
 
 void trail_pop(mcsat_trail_t* trail) {
-  assert(trail->decision_level > 0);
+  assert(trail->decision_level > trail->decision_level_base);
   while (trail_get_assignment_type(trail, trail_back(trail)) != DECISION) {
     trail_pop_propagation(trail);
   };
