@@ -2110,6 +2110,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
   stat->subst_calls = 0;
+  stat->scc_calls = 0;
   stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
@@ -3519,9 +3520,6 @@ static void cleanup_watch_vector(sat_solver_t *solver, watch_t *w) {
   while (i < n) {
     k = w->data[i];
     if (idx_is_clause(k)) {
-      //      w->data[j] = k;
-      //      w->data[j+1] = w->data[i+1];
-      //      j += 2;
       i += 2;
     } else {
       if (lit_is_unassigned(solver, idx2lit(k))) {
@@ -4033,7 +4031,11 @@ static void clear_false_lits(sat_solver_t *solver, uint32_t n, const literal_t *
 
 /*
  * Simplify the clause that starts at cidx and apply the substitution.
- * Return true if the clause is deleted.
+ * - if the clause becomes empty: set solver->has_empty_clause to true
+ * - if the clause simplifies to a unit clause: add a unit literal
+ *
+ * - delete the clause if it is true or if it reduces to a clause
+ *   of length <= 2.
  */
 static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
   uint32_t i, j, n;
@@ -4070,25 +4072,24 @@ static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
    * a[0 ... j-1]: literals after substitution.
    * If i < n, the clause is true and must be deleted.
    * Otherwise, we keep the clause a[0 ... j-1].
-   * We change representation if j == 1 or j == 2.
+   * We change representation if j <= 2.
    */
   clear_false_lits(solver, j, a);
 
-  if (i < n) { // dead clause
+  if (i < n) { // true clause
     clause_pool_delete_clause(&solver->pool, cidx);
     return true;
   }
 
-  assert(j >= 1);
-
-  if (j == 1) {
-    add_unit_clause(solver, a[0]);
-    clause_pool_delete_clause(&solver->pool, cidx);
-    return true;
-  }
-
-  if (j == 2) {
-    add_binary_clause(solver, a[0], a[1]);
+  if (j <= 2) {
+    // reduced to a small clause
+    if (j == 0) {
+      add_empty_clause(solver);
+    } else if (j == 1) {
+      add_unit_clause(solver, a[0]);      
+    } else {
+      add_binary_clause(solver, a[0], a[1]);
+    }
     clause_pool_delete_clause(&solver->pool, cidx);
     return true;
   }
@@ -4101,112 +4102,96 @@ static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
 
 
 /*
- * Scan the watch vector w of l0 and apply the substitution to all the
- * literals of w. Also remove all the assigned literals from w and all
- * the clause ids.
- *
- * This assumes that l0 is not changed by the substitution.
- *
- * The binary clauses that contain l0 are then of the form
- *  { l0, subst[l_1] }, ...., { l0, subst[l_k] } where
- * l_1, ..., l_k occur in w.
- *
- * We return true if subst[l_i] = l0 for some i (i.e, l0 becomes a unit
- * literal).
+ * Apply the substitution to binary clause { l0, l1 }
  */
-static bool subst_in_watch_vector(sat_solver_t *solver, watch_t *w, literal_t l0) {
-  uint32_t i, j, k, n;
+static void subst_and_simplify_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1) {
+  literal_t a[2];
   literal_t l;
-  bool unit_found;
+  uint32_t i, j;
 
-  assert(solver->decision_level == 0);
-  assert(l0 < solver->nliterals);
-  assert(w != NULL && solver->watch[l0] == w);
+  a[0] = l0;
+  a[1] = l1;
 
-  unit_found = false;
-  n = w->size;
-  i = 0;
   j = 0;
-  while (i < n) {
-    k = w->data[i];
-    if (idx_is_clause(k)) {
-      //      w->data[j] = k;
-      //      w->data[j+1] = w->data[i+1];
-      //      j += 2;
-      i += 2;
-    } else {
-      l = idx2lit(k);
-      i++;
-      if (lit_is_unassigned(solver, l)) {
-	l = lit_subst(solver, l);
-	if (l == l0) {
-	  unit_found = true;
-	} else if (l != not(l0)) {
-	  // keep l in the watch vector
-	  w->data[j] = lit2idx(l);
-	  j ++;
-	}
-      }
+  for (i=0; i<2; i++) {
+    l = lit_subst(solver, a[i]);
+    switch(lit_value(solver, l)) {
+    case BVAL_FALSE:
+      break;
+
+    case BVAL_UNDEF_TRUE:
+    case BVAL_UNDEF_FALSE:
+      a[j] = l;
+      j ++;
+      break;
+
+    case BVAL_TRUE:
+      return;
     }
   }
 
-  w->size = j;
+  if (j == 0) {
+    add_empty_clause(solver);
 
-  return unit_found;
+  } else if (j == 1) {
+    assert(lit_is_unassigned(solver, a[0]));
+    add_unit_clause(solver, a[0]);
+
+  } else {
+    assert(lit_is_unassigned(solver, a[0]));
+    assert(lit_is_unassigned(solver, a[1]));
+
+    if (a[0] == a[1]) {
+      add_unit_clause(solver, a[0]);
+    } else if (a[0] != not(a[1])) {
+      add_binary_clause(solver, a[0], a[1]);
+    }
+  }
 }
 
 
+
 /*
- * Scan watch vector w and move all binary clauses to watch[l0]
- * - w is watch vector of a literal l and subst[l] is l0
- *
- * Return true if l0 becomes unit literal.
+ * Scan vector w = watch[l0] where l0 is unassigned
+ * - collect the binary clauses implicitly stored in w and add them to v
+ *   then reset w
+ * - to avoid duplicate clauses in v, we collect only the clauses of the
+ *   form {l0 , l} with l > l0. We also ignore { l0, l} if l is true.
  */
-static bool subst_and_migrate_watch_vector(sat_solver_t *solver, watch_t *w, literal_t l0) {
+static void collect_binary_clauses_of_watch(sat_solver_t *solver, watch_t *w, literal_t l0, vector_t *v) {
   uint32_t i, k, n;
   literal_t l;
-  bool unit_found;
 
-  assert(solver->decision_level == 0);
-  assert(l0 < solver->nliterals);
-  assert(w != NULL);
+  assert(lit_is_unassigned(solver, l0) && solver->watch[l0] == w);
 
-  unit_found = false;
   n = w->size;
   i = 0;
-  while (i < n) {
+  while (i<n) {
     k = w->data[i];
-    if (idx_is_clause(k)) {
-      //      w->data[j] = k;
-      //      w->data[j+1] = w->data[i+1];
-      //      j += 2;
-      i += 2;
-    } else {
+    if (idx_is_literal(k)) {
+      i ++;
       l = idx2lit(k);
-      i++;
-      if (lit_is_unassigned(solver, l)) {
-	l = lit_subst(solver, l);
-	if (l == l0) {
-	  unit_found = true;
-	} else if (l != not(l0)) {
-	  // add l to watch[l0]
-	  add_literal_watch(solver, l0, l);
-	}
+      assert(! lit_is_false(solver, l));
+      if (l > l0 && lit_is_unassigned(solver, l)) {
+	vector_push(v, l0);
+	vector_push(v, l);
       }
+    } else {
+      i += 2;
     }
   }
 
-  return unit_found;
+  w->size = 0;
 }
 
 /*
- * Process all watch vectors
+ * Scan all the watch vectors:
+ * - add all the binary clauses to vector v
+ * - reset all watch vectors
  */
-static void apply_subst_to_watch_vectors(sat_solver_t *solver) {
+static void collect_binary_clauses_and_reset_watches(sat_solver_t *solver, vector_t *v) {
   uint32_t i, n;
   watch_t *w;
-  literal_t l0;
-  bool unit;
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
 
@@ -4214,29 +4199,38 @@ static void apply_subst_to_watch_vectors(sat_solver_t *solver) {
   for (i=2; i<n; i++) {
     w = solver->watch[i];
     if (w != NULL) {
-      if (lit_is_unassigned(solver, i)) {
-	l0 = lit_subst(solver, i);
-	assert(lit_is_unassigned(solver, l0));
-	if (i == l0) {
-	  unit = subst_in_watch_vector(solver, w, l0);
-	} else {
-	  unit = subst_and_migrate_watch_vector(solver, w, l0);
-	  safe_free(w);
-	  solver->watch[i] = NULL;
-	}
-	if (unit) {
-	  add_unit_clause(solver, l0);
-	}
-      } else {
-	// i is either true or false: its watch vector is useless
-	// (because all Boolean propagations have been done)
+      if (lit_is_assigned(solver, i)) {
+	/*
+	 * Since boolean propagation is done, all binary
+	 * clauses of w are true at level 0.
+	 */
 	safe_free(w);
 	solver->watch[i] = NULL;
+      } else {
+	collect_binary_clauses_of_watch(solver, w, i, v);
       }
     }
   }
 }
 
+/*
+ * Apply the substitution to all the binary clauses
+ * - first, collect all binary clauses in an vector v and
+ *   empty the watch vectors.
+ * - then process all the clauses of v
+ */
+static void apply_subst_to_binary_clauses(sat_solver_t *solver) {
+  vector_t aux;
+  uint32_t i, n;
+
+  init_vector(&aux);
+  collect_binary_clauses_and_reset_watches(solver, &aux);
+  n = aux.size;
+  for (i=0; i<n; i += 2) {
+    subst_and_simplify_binary_clause(solver, aux.data[i], aux.data[i+1]);
+  }
+  delete_vector(&aux);
+}
 
 /*
  * Apply the substitution to all clauses
@@ -4247,7 +4241,7 @@ static void apply_substitution(sat_solver_t *solver) {
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
 
-  apply_subst_to_watch_vectors(solver);
+  apply_subst_to_binary_clauses(solver);
 
   d = 0; // count deleted clauses
   cidx = clause_pool_first_clause(&solver->pool);
@@ -6978,21 +6972,23 @@ static void try_scc_simplification(sat_solver_t *solver) {
 
   assert(solver->decision_level == 0);
 
+  solver->stats.scc_calls ++;
   subst_count = solver->stats.subst_vars;
-  units = solver->units ++;
+  units = solver->units;
 
   compute_sccs(solver);
   if (solver->has_empty_clause) return;
 
   if (solver->stats.subst_vars > subst_count) {
-    // substitution extended
     apply_substitution(solver);
     if (solver->units > units) {
       nsat_boolean_propagation(solver);
       if (solver->conflict_tag != CTAG_NONE) {
 	add_empty_clause(solver);
+	return;
       }
     }
+    simplify_clause_database(solver);
   } else {
     // basic stuff only
     simplify_clause_database(solver);
@@ -7526,8 +7522,13 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
     if (simplify) {
       assert(solver->decision_level == 0);
-      simplify_clause_database(solver);
+      //      simplify_clause_database(solver);
+      try_scc_simplification(solver);
       done_simplify(solver);
+      if (solver->has_empty_clause) {
+	solver->status = STAT_UNSAT;
+	return STAT_UNSAT;
+      }
     }
   }
 
