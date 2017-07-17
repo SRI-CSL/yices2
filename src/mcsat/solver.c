@@ -771,6 +771,16 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   // - assertions
   // - variables and terms
 
+  // Backtrack trail
+  uint32_t new_base_level = trail_pop_base_level(mcsat->trail);
+
+  // Backtrack solver
+  mcsat_backtrack_to(mcsat, new_base_level);
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::incremental")) {
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
+
   assert(false);
 }
 
@@ -967,8 +977,18 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
 static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
   while (mcsat->trail->decision_level > level) {
+
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::incremental")) {
+      trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+    }
+
     // Pop the trail
     trail_pop(mcsat->trail);
+
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::incremental")) {
+      trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+    }
+
     // Pop the plugins
     mcsat_pop_internal(mcsat);
   }
