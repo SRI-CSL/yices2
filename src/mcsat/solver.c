@@ -225,6 +225,10 @@ struct mcsat_solver_s {
     // Random decision seed
     double random_decision_seed;
   } heuristic_params;
+
+  /** Scope holder for backtracking int variables */
+  scope_holder_t scope;
+
 };
 
 static
@@ -667,6 +671,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   statistics_construct(&mcsat->stats);
   mcsat_stats_init(mcsat);
 
+  // Scope for backtracking
+  scope_holder_construct(&mcsat->scope);
+
   // Construct the plugins
   mcsat_add_plugins(mcsat);
 }
@@ -698,6 +705,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
   statistics_destruct(&mcsat->stats);
+  scope_holder_destruct(&mcsat->scope);
 }
 
 mcsat_solver_t* mcsat_new(context_t* ctx) {
@@ -720,6 +728,7 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
   plugin_t* plugin;
 
+  // Push the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
     if (plugin->push) {
@@ -753,14 +762,23 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
 static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
 
+static
+void mcsat_gc(mcsat_solver_t* mcsat);
+
 void mcsat_push(mcsat_solver_t* mcsat) {
 
   assert(mcsat->status == STATUS_IDLE); // We must have clear before
 
+  // Internal stuff push
+  scope_holder_push(&mcsat->scope,
+      &mcsat->assertion_vars.size,
+      NULL);
   // Regular push for the internal data structures
   mcsat_push_internal(mcsat);
   // Push and set the base level on the trail
   trail_new_base_level(mcsat->trail);
+  // Push the preprocessor
+  preprocessor_push(&mcsat->preprocessor);
 }
 
 
@@ -777,9 +795,19 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   // Backtrack solver
   mcsat_backtrack_to(mcsat, new_base_level);
 
-  if (trace_enabled(mcsat->ctx->trace, "mcsat::incremental")) {
-    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
-  }
+  // Internal stuff pop
+  uint32_t assertion_vars_size = 0;
+  scope_holder_pop(&mcsat->scope,
+      &assertion_vars_size,
+      NULL);
+  ivector_shrink(&mcsat->assertion_vars, assertion_vars_size);
+
+  // Pop the preprocessor
+  preprocessor_pop(&mcsat->preprocessor);
+
+  // Garbage collect
+  mcsat_gc(mcsat);
+  (*mcsat->solver_stats.gc_calls) ++;
 
   assert(false);
 }
