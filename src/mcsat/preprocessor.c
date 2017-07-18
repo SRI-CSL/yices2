@@ -45,6 +45,7 @@ void preprocessor_destruct(preprocessor_t* pre) {
   delete_int_hmap(&pre->preprocess_map);
   delete_ivector(&pre->preprocess_map_list);
   delete_term_manager(&pre->tm);
+  scope_holder_destruct(&pre->scope);
 }
 
 static
