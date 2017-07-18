@@ -197,7 +197,14 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 
   // Variable to the watch list manager
   assert(variable_db_has_variable(bp->ctx->var_db, term));
-  bcp_watch_manager_new_variable_notify(&bp->wlm, variable_db_get_variable(bp->ctx->var_db, term));
+  variable_t term_var = variable_db_get_variable(bp->ctx->var_db, term);
+  bcp_watch_manager_new_variable_notify(&bp->wlm, term_var);
+
+  // If constant true, then propagate it's true
+  if (term == true_term) {
+    prop->add_at_level(prop, term_var, &mcsat_value_true, bp->ctx->trail->decision_level_base);
+  }
+
 }
 
 static
