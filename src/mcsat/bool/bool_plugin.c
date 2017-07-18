@@ -803,6 +803,7 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
 void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  clause_db_t* db = &bp->clause_db;
 
   uint32_t i;
   variable_t var;
@@ -819,7 +820,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     // Mark all the variables in half of lemmas as used
     for (i = 0; i < bp->lemmas.size / 2; ++ i) {
       clause_ref = bp->lemmas.data[i];
-      assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
+      assert(clause_db_is_clause(db, clause_ref, true));
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
@@ -895,6 +896,23 @@ void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
 }
 
 static
+void bool_plugin_remove_stale_clauses(bool_plugin_t* bp) {
+  uint32_t i, to_keep;
+  clause_ref_t clause_ref;
+  clause_db_t* db = &bp->clause_db;
+  uint32_t base_level = bp->ctx->trail->decision_level_base;
+  for (i = 0, to_keep = 0; i < bp->lemmas.size; ++ i) {
+    clause_ref = bp->lemmas.data[i];
+    assert(clause_db_is_clause(db, clause_ref, true));
+    // Keep the lemma if it's at the right level
+    if (clause_db_get_tag(db, clause_ref)->level <= base_level) {
+      bp->lemmas.data[to_keep++] = clause_ref;
+    }
+  }
+  ivector_shrink(&bp->lemmas, to_keep);
+}
+
+static
 void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
 
@@ -913,6 +931,11 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   case MCSAT_SOLVER_CONFLICT:
     // Decay the scores each conflict
     bool_plugin_decay_clause_scores(bp);
+    break;
+  case MCSAT_SOLVER_POP:
+    // Remove all learnt clauses above base level, regular clauses will be
+    // removed trhough garbage collection
+    bool_plugin_remove_stale_clauses(bp);
     break;
   default:
     assert(false);
