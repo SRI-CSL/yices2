@@ -194,6 +194,7 @@ void trail_pop_decision(mcsat_trail_t* trail) {
 void trail_add_propagation(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* value, uint32_t id, uint32_t level) {
   assert(x >= 0);
   assert(!trail_has_value(trail, x));
+  assert(level >= trail->decision_level_base);
   // Set the value
   trail_set_value(trail, x, value, id, PROPAGATION, level);
   // Push the element
