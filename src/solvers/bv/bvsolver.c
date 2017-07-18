@@ -756,7 +756,7 @@ static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     bv_queue_push(&solver->select_queue, x);
   }
 
-  assert(bvvar_in_select_queue(solver, x));
+  //  assert(bvvar_in_select_queue(solver, x));
 
   return tmp;
 }
@@ -4817,41 +4817,33 @@ static literal_t bool_const_ite(literal_t c, bool x, bool y) {
 static thvar_t create_ite_const64(bv_solver_t *solver, uint32_t n, literal_t c, uint64_t x, uint64_t y) {
   ivector_t *v;
   uint32_t i;
-  thvar_t r;
 
   assert(1 <= n && n <= 64 && x == norm64(x, n) && y == norm64(y, n) &&  x != y);
   assert(c != true_literal && c != false_literal);
 
   v = &solver->aux_vector;
-  assert(v->size == 0);
+  ivector_reset(v);
   for (i=0; i<n; i++) {
     ivector_push(v, bool_const_ite(c, tst_bit64(x, i), tst_bit64(y, i)));
   }
   assert(v->size == n && !bvarray_is_constant(v->data, n));
-  r = get_bvarray(&solver->vtbl, n, v->data);
-  ivector_reset(v);
-
-  return r;
+  return get_bvarray(&solver->vtbl, n, v->data);
 }
 
 static thvar_t create_ite_const(bv_solver_t *solver, uint32_t n, literal_t c, const uint32_t *x, const uint32_t *y) {
   ivector_t *v;
   uint32_t i;
-  thvar_t r;
 
   assert(n > 64 && bvconst_is_normalized(x, n) && bvconst_is_normalized(y, n));
   assert(c != true_literal && c != false_literal);
 
   v = &solver->aux_vector;
-  assert(v->size == 0);
+  ivector_reset(v);
   for (i=0; i<n; i++) {
     ivector_push(v, bool_const_ite(c, bvconst_tst_bit(x, i), bvconst_tst_bit(y, i)));
   }
   assert(v->size == n && !bvarray_is_constant(v->data, n));
-  r = get_bvarray(&solver->vtbl, n, v->data);
-  ivector_reset(v);
-
-  return r;  
+  return get_bvarray(&solver->vtbl, n, v->data);
 }
 
 
@@ -4893,7 +4885,7 @@ static literal_t try_bool_ite(literal_t c, literal_t x, literal_t y) {
 
 /*
  * Try to convert (ite c x y) to a bitarray
- * - c is literal other than true_literal and false_literal
+ * - c is a literal other than true_literal and false_literal
  * - x is a bitvector constant of n bits
  * - y is a bitarray of n bits
  *
@@ -4910,7 +4902,7 @@ static thvar_t try_ite_const64(bv_solver_t *solver, uint32_t n, literal_t c, uin
 
   r = null_thvar;
   v = &solver->aux_vector;  
-  assert(v->size == 0);
+  ivector_reset(v);
   for (i=0; i<n; i++) {
     l = bool2literal(tst_bit64(x, i));  // i-th bit of x converted to a literal
     l = try_bool_ite(c, l, y[i]);       // l = boolean (ite c x[i] y[i])
@@ -4923,7 +4915,6 @@ static thvar_t try_ite_const64(bv_solver_t *solver, uint32_t n, literal_t c, uin
   r = bv_solver_create_bvarray(solver, v->data, n);
   
  done:
-  ivector_reset(v);
   return r;
 }
 
@@ -4938,7 +4929,7 @@ static thvar_t try_ite_const(bv_solver_t *solver, uint32_t n, literal_t c, const
 
   r = null_thvar;
   v = &solver->aux_vector;  
-  assert(v->size == 0);
+  ivector_reset(v);
   for (i=0; i<n; i++) {
     l = bool2literal(bvconst_tst_bit(x, i));   // i-th bit of x, converted to a literal
     l = try_bool_ite(c, l, y[i]);              // l = boolean (ite c x[i] y[i])
@@ -4950,7 +4941,6 @@ static thvar_t try_ite_const(bv_solver_t *solver, uint32_t n, literal_t c, const
   r = bv_solver_create_bvarray(solver, v->data, n);
   
  done:
-  ivector_reset(v);
   return r;
 }
 
@@ -4970,7 +4960,7 @@ static thvar_t try_ite_bitarrays(bv_solver_t *solver, uint32_t n, literal_t c, c
 
   r = null_thvar;
   v = &solver->aux_vector;  
-  assert(v->size == 0);
+  ivector_reset(v);
   for (i=0; i<n; i++) {
     l = try_bool_ite(c, x[i], y[i]);
     if (l == null_literal) goto done;
@@ -4981,7 +4971,6 @@ static thvar_t try_ite_bitarrays(bv_solver_t *solver, uint32_t n, literal_t c, c
   r = get_bvarray(&solver->vtbl, n, v->data);
   
  done:
-  ivector_reset(v);
   return r;
 }
 
@@ -6556,9 +6545,9 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id, ivector_t *v) {
   eterm_t t1, t2;
 
+  assert(v->size == 0);
   t1 = bvvar_get_eterm(&solver->vtbl, x1);
   t2 = bvvar_get_eterm(&solver->vtbl, x2);
-  ivector_reset(v);
   egraph_explain_term_eq(solver->egraph, t1, t2, id, v);
 }
 
@@ -6602,6 +6591,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   uint32_t j, n;
 
   v = &solver->aux_vector;
+  ivector_reset(v);
   y1 = mtbl_get_root(&solver->mtbl, x1);
   y2 = mtbl_get_root(&solver->mtbl, x2);
 
