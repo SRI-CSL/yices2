@@ -4138,8 +4138,6 @@ static void subst_and_simplify_binary_clause(sat_solver_t *solver, literal_t l0,
   }
 }
 
-
-
 /*
  * Scan vector w = watch[l0] where l0 is unassigned
  * - collect the binary clauses implicitly stored in w and add them to v
@@ -4217,6 +4215,7 @@ static void apply_subst_to_binary_clauses(sat_solver_t *solver) {
   n = aux.size;
   for (i=0; i<n; i += 2) {
     subst_and_simplify_binary_clause(solver, aux.data[i], aux.data[i+1]);
+    if (solver->has_empty_clause) break;
   }
   delete_vector(&aux);
 }
@@ -4231,11 +4230,13 @@ static void apply_substitution(sat_solver_t *solver) {
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
 
   apply_subst_to_binary_clauses(solver);
+  if (solver->has_empty_clause) return;
 
   d = 0; // count deleted clauses
   cidx = clause_pool_first_clause(&solver->pool);
   while (cidx < solver->pool.size) {
     d += subst_and_simplify_clause(solver, cidx);
+    if (solver->has_empty_clause) return;
     cidx = clause_pool_next_clause(&solver->pool, cidx);
   }
 
@@ -6970,17 +6971,18 @@ static void try_scc_simplification(sat_solver_t *solver) {
 
   if (solver->stats.subst_vars > subst_count) {
     apply_substitution(solver);
+    if (solver->has_empty_clause) {
+      fprintf(stderr, "empty clause after substitution\n");
+      return;
+    }
     if (solver->units > units) {
       nsat_boolean_propagation(solver);
       if (solver->conflict_tag != CTAG_NONE) {
 	add_empty_clause(solver);
+	fprintf(stderr, "empty clause after substitution and propagation\n");
 	return;
       }
     }
-    simplify_clause_database(solver);
-  } else {
-    // basic stuff only
-    simplify_clause_database(solver);
   }
 }
 
@@ -7247,7 +7249,7 @@ static void init_simplify(sat_solver_t *solver) {
  *   (or more binary clauses)
  */
 static bool need_simplify(const sat_solver_t *solver) {
-  return level0_literals(solver) > solver->simplify_assigned
+  return (level0_literals(solver) > solver->simplify_assigned || solver->binaries > solver->simplify_binaries)
     && solver->stats.propagations >= solver->simplify_props + solver->simplify_next;
 }
 
@@ -7511,8 +7513,12 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
     if (simplify) {
       assert(solver->decision_level == 0);
-      //      simplify_clause_database(solver);
-      try_scc_simplification(solver);
+      if (solver->binaries> solver->simplify_binaries) {
+	try_scc_simplification(solver);
+      }
+      if (solver->units > solver->simplify_assigned) {
+	simplify_clause_database(solver);
+      }
       done_simplify(solver);
       if (solver->has_empty_clause) {
 	solver->status = STAT_UNSAT;
