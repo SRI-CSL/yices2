@@ -719,6 +719,19 @@ smt_status_t mcsat_status(const mcsat_solver_t* mcsat) {
   return mcsat->status;
 }
 
+static
+void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
+  uint32_t i;
+  plugin_t* plugin;
+
+  for (i = 0; i < mcsat->plugins_count; ++ i) {
+    plugin = mcsat->plugins[i].plugin;
+    if (plugin->event_notify) {
+      plugin->event_notify(plugin, kind);
+    }
+  }
+}
+
 void mcsat_reset(mcsat_solver_t* mcsat) {
 
 }
@@ -805,11 +818,15 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   // Pop the preprocessor
   preprocessor_pop(&mcsat->preprocessor);
 
+  // Notify all the plugins that we just popped
+  mcsat_notify_plugins(mcsat, MCSAT_SOLVER_POP);
+
   // Garbage collect
   mcsat_gc(mcsat);
   (*mcsat->solver_stats.gc_calls) ++;
 
-  assert(false);
+  // Set the status back to idle
+  mcsat->status = STATUS_IDLE;
 }
 
 void mcsat_clear(mcsat_solver_t* mcsat) {
@@ -1019,19 +1036,6 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
 
     // Pop the plugins
     mcsat_pop_internal(mcsat);
-  }
-}
-
-static
-void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
-  uint32_t i;
-  plugin_t* plugin;
-
-  for (i = 0; i < mcsat->plugins_count; ++ i) {
-    plugin = mcsat->plugins[i].plugin;
-    if (plugin->event_notify) {
-      plugin->event_notify(plugin, kind);
-    }
   }
 }
 

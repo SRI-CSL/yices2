@@ -1416,6 +1416,9 @@ void nra_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   case MCSAT_SOLVER_CONFLICT:
     // Decay the scores each conflict
     break;
+  case MCSAT_SOLVER_POP:
+    // Not much to do
+    break;
   default:
     assert(false);
   }
