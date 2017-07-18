@@ -756,7 +756,7 @@ static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     bv_queue_push(&solver->select_queue, x);
   }
 
-  //  assert(bvvar_in_select_queue(solver, x));
+  assert(bvvar_is_bitblasted(&solver->vtbl, x) || bvvar_in_select_queue(solver, x));
 
   return tmp;
 }
@@ -899,7 +899,7 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 
 /*
  * Scan the variables
- * - if x == y in the merge table then mark both x and y
+ * - if x == y is in the merge table then mark both x and y
  * - also if x has an eterm, mark x
  */
 static void bv_solver_mark_merged_vars(bv_solver_t *solver) {
@@ -1293,7 +1293,7 @@ static bool bv_solver_make_shared_pseudo_maps(bv_solver_t *solver) {
 /*
  * Return the pseudo-map of x
  * - replace x by its root in the merge table
- * - allocated a fresh pseudo map if x doesn't have one already
+ * - allocate a fresh pseudo map if x doesn't have one already
  */
 static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
   bv_vartable_t *vtbl;
