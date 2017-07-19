@@ -7527,7 +7527,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       if (solver->binaries> solver->simplify_binaries) {
 	try_scc_simplification(solver);
       }
-      if (solver->units > solver->simplify_assigned) {
+      if (level0_literals(solver) > solver->simplify_assigned) {
 	simplify_clause_database(solver);
       }
       done_simplify(solver);
