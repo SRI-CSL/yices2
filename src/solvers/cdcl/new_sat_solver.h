@@ -764,14 +764,16 @@ typedef struct sat_solver_s {
   float inv_cla_decay;        // Inverse of clause decay (1/0.999)
   uint32_t stack_threshold;   // Experimental
 
-  uint32_t reduce_threshold;  // Number of learned clause before deleting learned clauses
+  uint64_t reduce_next;       // Number of conflicts before the next call to reduce
+  uint32_t reduce_inc;        // Increment to reduce_threshold
+  uint32_t reduce_inc2;       // Increment to reduce_inc
   uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
   uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
   
-  uint32_t simplify_assigned; // number of literals assingnd at level0 after the last call to simplify_clause_database
-  uint32_t simplify_binaries; // number of binary clauses after the last call to simplify_clause_database
-  uint64_t simplify_props;    // value of the propagation counter at this point
-  uint64_t simplify_next;     // number of propagations before simplify is called again
+  uint32_t simplify_assigned;  // Number of literals assigned at level0 after the last call to simplify_clause_database
+  uint32_t simplify_binaries;  // Number of binary clauses after the last call to simplify_clause_database
+  uint64_t simplify_next;      // Number of conflicts before the next call to simplify
+  uint64_t simplify_next_inc;  // Increment for simplify_next
 
   /*
    * Exponential moving averages for restarts
