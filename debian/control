@@ -2,8 +2,8 @@ Source: yices2
 Maintainer: Ian A. Mason <iam@csl.sri.com>
 Section: misc
 Priority: optional
-Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9), dh-autoreconf (>= 9), gperf, libgmp-dev, libpoly-dev
+Standards-Version: 3.9.8
+Build-Depends: debhelper (>= 10), dh-autoreconf (>= 10), gperf, libgmp-dev, libpoly-dev
 Homepage: http://yices.csl.sri.com/
 
 
