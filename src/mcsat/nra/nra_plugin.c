@@ -1387,12 +1387,17 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   // The feasibility sets keep everything, we just gc the constraints,
-  // the watchlists and the unit information. The lp_data mappings stays the
-  // same as we never erase real variables)
-
+  // the watchlists and the unit information. 
+  
   // The constraint database
   poly_constraint_db_gc_sweep(nra->constraint_db, gc_vars);
 
+  // The lp_data mappings:
+  // - lpdata.lp_to_mcsat_var_map (values)
+  // - lpdata.mcsat_to_lp_var_map (keys)
+  gc_info_sweep_int_hmap_values(gc_vars, &nra->lp_data.lp_to_mcsat_var_map);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->lp_data.mcsat_to_lp_var_map);
+  
   // Unit information (constraint_unit_info, constraint_unit_var)
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_info);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_var);
