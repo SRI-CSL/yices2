@@ -1389,7 +1389,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   // Analyze while at least one variable at conflict level
   while (true) {
 
-    if (conflict_level == 0) {
+    if (conflict_level == mcsat->trail->decision_level_base) {
       // Resolved all the way
       break;
     }

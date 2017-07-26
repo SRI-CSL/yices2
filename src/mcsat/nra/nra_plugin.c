@@ -439,7 +439,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
       mcsat_value_t mcsat_value;
       mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
-      prop->add(prop, t_var, &mcsat_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
       mcsat_value_destruct(&mcsat_value);
       lp_value_destruct(&lp_value);
       lp_rational_destruct(&rat_value);
@@ -519,7 +519,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           lp_feasibility_set_pick_value(feasible, &x_value);
           mcsat_value_t value;
           mcsat_value_construct_lp_value(&value, &x_value);
-          prop->add(prop, x, &value);
+          prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
           mcsat_value_destruct(&value);
           lp_value_destruct(&x_value);
         }
@@ -643,7 +643,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
         nra_plugin_set_unit_info(nra, constraint_var, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         // Evaluate the constraint and propagate (if not assigned already)
         if (trail_is_consistent(trail) && !trail_has_value(trail, constraint_var)) {
-          uint32_t constraint_level = 0;
+          uint32_t constraint_level = trail->decision_level_base;
           const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
           const mcsat_value_t* constraint_value = poly_constraint_evaluate(constraint, var_list, nra, &constraint_level);
           // Propagate
