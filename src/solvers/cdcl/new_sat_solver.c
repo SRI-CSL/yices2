@@ -6981,7 +6981,8 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (d <= average_lbd(solver) * 400) {
+    if (solver->stats.conflicts <= 50 ||
+	d <= average_lbd(solver) * 400) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
