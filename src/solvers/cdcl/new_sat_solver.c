@@ -7356,7 +7356,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
     rnd = random_uint32(solver) & VAR_RANDOM_MASK;
     if (rnd < solver->randomness) {
       x = random_uint(solver, solver->nvars);
-      if (var_is_unassigned(solver, x)) {
+      if (var_is_active(solver, x)) {
         assert(x > 0);
         solver->stats.random_decisions ++;
         return x;
@@ -7369,7 +7369,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
    */
   while (! heap_is_empty(&solver->heap)) {
     x = heap_get_top(&solver->heap);
-    if (var_is_unassigned(solver, x)) {
+    if (var_is_active(solver, x)) {
       assert(x > 0);
       return x;
     }
@@ -7380,7 +7380,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
    */
   x = solver->heap.vmax;
   while (x < solver->heap.size) {
-    if (var_is_unassigned(solver, x)) {
+    if (var_is_active(solver, x)) {
       solver->heap.vmax = x+1;
       return x;
     }
