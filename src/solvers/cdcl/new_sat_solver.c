@@ -3744,14 +3744,10 @@ static void remove_dead_antecedents(sat_solver_t *solver) {
  *   and remove all true clauses.
  */
 static void simplify_clause_database(sat_solver_t *solver) {
-  uint32_t binaries, units;
   cidx_t cidx;
   uint32_t d;
 
   assert(solver->decision_level == 0 && solver->stack.top == solver->stack.prop_ptr);
-
-  units = solver->units;
-  binaries = solver->binaries;
 
   if (solver->verbosity >= 4) {
     fprintf(stderr, "\nc Simplify clause database\n");
@@ -7025,14 +7021,13 @@ static void resolve_conflict(sat_solver_t *solver) {
  * - sets solver->has_empty_clause to true if a conflict is detected.
  */
 static void try_scc_simplification(sat_solver_t *solver) {
-  uint32_t subst_count, units, binaries;
+  uint32_t subst_count, units;
 
   assert(solver->decision_level == 0);
 
   solver->stats.scc_calls ++;
   subst_count = solver->stats.subst_vars;
   units = solver->units;
-  binaries = solver->binaries;
 
   compute_sccs(solver);
   if (solver->has_empty_clause) return;
