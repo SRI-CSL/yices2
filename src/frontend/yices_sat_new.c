@@ -699,15 +699,15 @@ static void print_results(void) {
 
   switch (result) {
   case STAT_UNSAT:
-    printf("unsat\n\n");
+    printf("s UNSATISFIABLE\n");
     break;
 
   case STAT_SAT:
-    printf("sat\n\n");
+    printf("s SATISFIABLE\n");
     break;
 
   default:
-    printf("unkown\n\n");
+    printf("s UNKOWN\n");
     break;
   }
 }
@@ -737,25 +737,25 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
  *
  */
 static void print_model(void) {
-  int v;
-  bval_t val;
+  int v, k, l;
 
   if (nsat_status(&solver) == STAT_SAT) {
-    for (v = 1; v<=nvars; v++) {
-      val = var_value(&solver, v);
-      switch (val) {
-      case BVAL_FALSE:
-        printf("-%"PRIu32" ", v);
-        break;
-      case BVAL_TRUE:
-        printf("%"PRIu32" ", v);
-        break;
-      case BVAL_UNDEF_FALSE:
-      case BVAL_UNDEF_TRUE:
-        break;
+    // for formatting: 10 literals per line
+    // use the prefix 'v ' after each line break
+    k = 0;
+    for (v=1; v<=nvars; v++) {
+      if (var_is_assigned(&solver, v)) {
+	l = var_is_true(&solver, v) ? v : -v;
+	if (k == 0) printf("v");
+	printf(" %d", l);
+	k ++;
+	if (k >= 10) {
+	  printf("\n");
+	  k = 0;
+	}
       }
     }
-    printf("0\n");
+    printf("\nv 0\n");
   }
 }
 
