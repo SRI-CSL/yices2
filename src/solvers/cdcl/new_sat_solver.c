@@ -103,7 +103,7 @@ static void reset_datafile(sat_solver_t *solver) {
  * - solver->decision_level = the conflict level
  * - solver->backtrack_level = where to backtrack
  * - solver->stats.conflicts = number of conflicts (including this one)
- * - solver->blocking_ema, slow_ema, high_ema have been updated
+ * - solver->blocking_ema, slow_ema, fast_ema have been updated
  *
  * Data exported:
  * - stats.conflicts
@@ -262,7 +262,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define KEEP_LBD 4
 #define MIN_REDUCE_NEXT 1000
 #define REDUCE_FACTOR 1.05
-#define REDUCE_FRACTION 24
+#define REDUCE_FRACTION 16
 
 /*
  * Stacking of learned clauses
@@ -2033,14 +2033,14 @@ static inline void decay_var_activities(var_heap_t *heap) {
  * Cleanup the heap: remove variables until the top var is unassigned
  * or until the heap is empty
  */
-static void cleanup_heap(sat_solver_t *sol) {
+static void cleanup_heap(sat_solver_t *solver) {
   var_heap_t *heap;
   bvar_t x;
 
-  heap = &sol->heap;
+  heap = &solver->heap;
   while (! heap_is_empty(heap)) {
     x = heap->heap[1];
-    if (var_is_unassigned(sol, x)) {
+    if (var_is_unassigned(solver, x) && solver->ante_tag[x] < ATAG_PURE) {
       break;
     }
     assert(x >= 0 && heap->heap_last > 0);
@@ -2751,6 +2751,7 @@ static void stacked_clause_propagation(sat_solver_t *solver, literal_t l, cidx_t
 
 
 
+
 /***********************
  *  OCCURRENCE COUNTS  *
  **********************/
@@ -2778,6 +2779,7 @@ static void increase_occurrence_counts(sat_solver_t *solver, uint32_t n, const l
  */
 static void add_empty_clause(sat_solver_t *solver) {
   solver->has_empty_clause = true;
+  solver->status = STAT_UNSAT;
 }
 
 
@@ -2921,7 +2923,6 @@ static inline bool var_is_eliminated(const sat_solver_t *solver, bvar_t x) {
  * Check whether variable x is active (i.e., not assigned at level 0) and not eliminated
  */
 static bool var_is_active(const sat_solver_t *solver, bvar_t x) {
-  assert(solver->decision_level == 0);
   return var_is_unassigned(solver, x) & ! var_is_eliminated(solver, x);
 }
 
@@ -3340,6 +3341,66 @@ static void collect_garbage(sat_solver_t *solver, cidx_t base_index, bool watche
 }
 
 
+/*************
+ *  REPORTS  *
+ ************/
+
+/*
+ * Number of active variables (i.e., not assigned and not removed by
+ * substitution).
+ */
+static uint32_t num_active_vars(const sat_solver_t *solver) {
+  uint32_t c, i, n;
+
+  c = 0;
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    c += var_is_active(solver, i);
+  }
+  return c;
+}
+
+
+/*
+ * Statistics produced:
+ * - a four-character string identify the operation
+ * - number of conflicts
+ * - number of restarts
+ * - average level after conflict resolution (level_ema)
+ * - number of active variables
+ * - binary and problem clauses
+ * - average glue score for learned clauses (slow_ema)
+ * - average size of learned clauses
+ * - number of learned clauses
+ */
+static void report(sat_solver_t *solver, const char *code) {
+  double lits_per_clause, slow, lev;
+  uint32_t vars;
+
+  if (solver->verbosity >= 2) {
+    lits_per_clause = 0.0;
+    if (solver->pool.num_learned_clauses > 0) {
+      lits_per_clause = ((double) solver->pool.num_learned_literals) / solver->pool.num_learned_clauses;
+    }
+    slow = ((double) solver->slow_ema)/4.3e9;
+    lev = ((double) solver->level_ema)/4.3e9;
+
+    if (solver->decision_level == 0) {
+      vars = num_active_vars(solver);
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f | %6"PRIu32" %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev,
+	      vars, solver->binaries, solver->pool.num_prob_clauses,
+	      solver->pool.num_learned_clauses, slow, lits_per_clause);
+    } else {
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f |        %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev,
+	      solver->binaries, solver->pool.num_prob_clauses,
+	      solver->pool.num_learned_clauses, slow, lits_per_clause);
+    }
+  }
+}
+
+
 /*********************************
  *  DELETION OF LEARNED CLAUSES  *
  ********************************/
@@ -3448,8 +3509,8 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   cidx_t *a;
 
   if (solver->verbosity >= 4) {
-    fprintf(stderr, "\nReduce learned clause set\n");
-    fprintf(stderr, "  on entry: %"PRIu32" clauses, %"PRIu32" literals\n", 
+    fprintf(stderr, "\nc Reduce learned clause set\n");
+    fprintf(stderr, "c  on entry: %"PRIu32" clauses, %"PRIu32" literals\n",
             solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
   n = collect_learned_clauses(solver);
@@ -3459,7 +3520,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   check_candidate_clauses_to_delete(solver, a, n); // DEBUG
 
   if (solver->verbosity >= 4) {
-    fprintf(stderr, "  possible deletion: %"PRIu32" clauses\n", n);
+    fprintf(stderr, "c  possible deletion: %"PRIu32" clauses\n", n);
   }
 
   // a contains the clauses that can be deleted
@@ -3478,13 +3539,11 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
   check_watch_vectors(solver);
 
   if (solver->verbosity >= 4) {
-    fprintf(stderr, "  on exit: %"PRIu32" clauses, %"PRIu32" literals\n\n", 
+    fprintf(stderr, "c  on exit: %"PRIu32" clauses, %"PRIu32" literals\n",
             solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
 
-  if (solver->verbosity >= 1) {
-    fprintf(stderr, "\nReduce: removed %"PRIu32" learned clauses, left %"PRIu32"\n", n0, solver->pool.num_learned_clauses);
-  }
+  report(solver, "red");
 }
 
 
@@ -3695,8 +3754,8 @@ static void simplify_clause_database(sat_solver_t *solver) {
   binaries = solver->binaries;
 
   if (solver->verbosity >= 4) {
-    fprintf(stderr, "\nSimplify clause database\n");
-    fprintf(stderr, "  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n",
+    fprintf(stderr, "\nc Simplify clause database\n");
+    fprintf(stderr, "c  on entry: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n",
             solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
             solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
@@ -3721,15 +3780,12 @@ static void simplify_clause_database(sat_solver_t *solver) {
   check_watch_vectors(solver);
 
   if (solver->verbosity >= 4) {
-    fprintf(stderr, "  on exit: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
+    fprintf(stderr, "c  on exit: prob: %"PRIu32" cls/%"PRIu32" lits, learned: %"PRIu32" cls/%"PRIu32" lits\n\n", 
             solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
             solver->pool.num_learned_clauses, solver->pool.num_learned_literals);
   }
 
-  if (solver->verbosity >= 1) {
-    fprintf(stderr, "\nSimplify: %"PRIu32" units, %"PRIu32" bins: deleted %"PRIu32" clauses, left %"PRIu32" prob clauses, %"PRIu32" learned clauses, %"PRIu32" bin clauses\n",
-	    units, binaries, d, solver->pool.num_prob_clauses, solver->pool.num_learned_clauses, solver->binaries);
-  }
+  report(solver, "simp");
 }
 
 
@@ -3775,6 +3831,7 @@ static void show_scc(FILE *f, const sat_solver_t *solver, literal_t l) {
   l0 = v->data[i];
   if (l0 != l) {
     // interesting SCC: not reduced to { l }
+    fprintf(f, "c ");
     if (solver->label[not(l)] == UINT32_MAX) {
       fprintf(f, "dual ");
     }
@@ -3869,7 +3926,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
     } while (l0 != l);
 
     if (unsat) {
-      fprintf(stderr, "found inconsistent SCC\n");
+      fprintf(stderr, "c found inconsistent SCC\n");
       show_scc(stderr, solver, l);
     }
   }
@@ -3989,10 +4046,6 @@ static void compute_sccs(sat_solver_t *solver) {
 
   assert(solver->label == NULL && solver->visit == NULL);
 
-  if (solver->verbosity >= 2) {
-    fprintf(stderr, "Starting SCC computation\n");
-  }
-
   n = solver->nliterals;
   solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   solver->visit = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
@@ -4011,10 +4064,6 @@ static void compute_sccs(sat_solver_t *solver) {
   safe_free(solver->visit);
   solver->label = NULL;
   solver->visit = NULL;
-
-  if (solver->verbosity >= 2) {
-    fprintf(stderr, "Done SCC computation\n");
-  }
 }
 
 
@@ -4262,6 +4311,7 @@ static void apply_subst_to_binary_clauses(sat_solver_t *solver) {
   delete_vector(&aux);
 }
 
+
 /*
  * Apply the substitution to all clauses
  */
@@ -4300,78 +4350,27 @@ static void apply_substitution(sat_solver_t *solver) {
  ******************/
 
 /*
- * Number of active variables (i.e., not assigned and not removed by
- * substitution).
- */
-static uint32_t num_active_vars(const sat_solver_t *solver) {
-  uint32_t c, i, n;
-
-  c = 0;
-  n = solver->nvars;
-  for (i=0; i<n; i++) {
-    c += var_is_active(solver, i);
-  }
-  return c;
-}
-
-
-/*
- * Statistics before preprocessing
- */
-static void show_occurrence_counts(sat_solver_t *solver) {
-  uint32_t i, n, pp, nn;
-  uint32_t unused, pure, pospure, elims, maybes;
-
-  unused = 0;
-  pure = 0;
-  pospure = 0;
-  elims = 0;
-  maybes = 0;
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    pp = solver->occ[pos(i)];
-    nn = solver->occ[neg(i)]; 
-    if (pp == 0 && nn == 0) {
-      unused ++;
-    } else if (pp == 0 || nn == 0) {
-      if (pp > 0) pospure ++;
-      pure ++;
-    } else if (pp == 1 || nn == 1 || (pp == 2 && nn == 2)) {
-      elims ++;
-    } else if (pp <= 10 || nn <= 10) {
-      maybes ++;
-    }
-  }
-
-  fprintf(stderr, "Before preprocessing\n");
-  fprintf(stderr, "unused vars          : %"PRIu32"\n", unused);
-  fprintf(stderr, "pure literals        : %"PRIu32" (%"PRIu32" positive)\n", pure, pospure);
-  fprintf(stderr, "cheap elims          : %"PRIu32"\n", elims);
-  fprintf(stderr, "maybe elims          : %"PRIu32"\n", maybes);
-  fprintf(stderr, "others               : %"PRIu32"\n\n", solver->nvars - (unused + pure + elims + maybes));
-}
-
-
-/*
  * Statistics after preprocessing
  */
 static void show_preprocessing_stats(sat_solver_t *solver, double time) {
-  fprintf(stderr, "\nAfter preprocessing\n");
-  fprintf(stderr, "unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
-  fprintf(stderr, "pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
-  fprintf(stderr, "deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
-  fprintf(stderr, "subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
-  fprintf(stderr, "strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
-  fprintf(stderr, "unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
-  fprintf(stderr, "cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
-  fprintf(stderr, "less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
-  fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
-  fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
-  fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
-  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n\n", solver->pool.num_prob_clauses);
-  fprintf(stderr, "Preprocessing time   : %.4f\n\n", time);
+  fprintf(stderr, "c\n"
+	          "c After preprocessing\n");
+  fprintf(stderr, "c  unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
+  fprintf(stderr, "c  pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
+  fprintf(stderr, "c  deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
+  fprintf(stderr, "c  subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
+  fprintf(stderr, "c  strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
+  fprintf(stderr, "c  unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
+  fprintf(stderr, "c  cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
+  fprintf(stderr, "c  less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
+  fprintf(stderr, "c  nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
+  fprintf(stderr, "c  nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
+  fprintf(stderr, "c  nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
+  fprintf(stderr, "c  nb. of big clauses   : %"PRIu32"\n", solver->pool.num_prob_clauses);
+  fprintf(stderr, "c\n"
+	          "c Preprocessing time    : %.4f\nc\n", time);
   if (solver->has_empty_clause) {
-    fprintf(stderr, "found unsat by preprocessing\n\n");
+    fprintf(stderr, "c\nc found unsat by preprocessing\nc\n");
   }
 }
 
@@ -6123,9 +6122,9 @@ static void prepare_for_search(sat_solver_t *solver) {
  *   in the watch vectors; other clauses have two watch literals.
  */
 static void nsat_preprocess(sat_solver_t *solver) {
-  if (solver->verbosity >= 2) fprintf(stderr, "Prepare heap\n");
+  if (solver->verbosity >= 4) fprintf(stderr, "c Elim unit/pure literals\n");
   prepare_elim_heap(&solver->elim, solver->nvars);
-  if (solver->verbosity >= 2) fprintf(stderr, "Elim unit/pure literals\n");
+  if (solver->verbosity >= 4) fprintf(stderr, "c Elim unit/pure literals\n");
 
   collect_unit_and_pure_literals(solver);
   if (pp_empty_queue(solver)) {
@@ -6133,13 +6132,13 @@ static void nsat_preprocess(sat_solver_t *solver) {
     collect_elimination_candidates(solver);
     assert(solver->scan_index == 0);
     do {
-      if (solver->verbosity >= 2) fprintf(stderr, "Elimination\n");
+      if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
       process_elimination_candidates(solver);
-      if (solver->verbosity >= 2) fprintf(stderr, "Subsumption\n");
+      if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
       if (solver->has_empty_clause || !pp_subsumption(solver)) break;
     } while (!elim_heap_is_empty(solver));
   }
-  if (solver->verbosity >= 2) fprintf(stderr, "Done\n\n");
+  if (solver->verbosity >= 4) fprintf(stderr, "c Done\nc\n");
 
   reset_clause_queue(solver);
   reset_elim_heap(&solver->elim);
@@ -6343,6 +6342,19 @@ static void nsat_boolean_propagation(sat_solver_t *solver) {
 }
 
 
+/*
+ * Level-0 propagation: boolean propagation + set status to UNSAT
+ * and add the empty clause if a conflict is detected.
+ */
+static void level0_propagation(sat_solver_t *solver) {
+  assert(solver->decision_level == 0);
+  nsat_boolean_propagation(solver);
+  if (solver->conflict_tag != CTAG_NONE) {
+    add_empty_clause(solver);
+  }
+}
+
+
 /******************
  *  BACKTRACKING  *
  *****************/
@@ -6419,33 +6431,43 @@ static bool level_has_lower_activity(sat_solver_t *solver, double ax, uint32_t k
  * - find the unassigned variable of highest activity
  * - keep all the decision levels that have at least one variable
  *   with activity higher than that.
+ * - do nothing if the decision_level is 0
  */
 static void partial_restart(sat_solver_t *solver) {
   double ax;
   bvar_t x;
   uint32_t i, n;
 
-  assert(solver->decision_level > 0);
-  cleanup_heap(solver);
+  if (solver->decision_level > 0) {
+    cleanup_heap(solver);
 
-  if (heap_is_empty(&solver->heap)) {
-    // full restart
-    backtrack(solver, 0);
-  } else {
-    x = solver->heap.heap[1];
-    assert(var_is_unassigned(solver, x));
-    ax = solver->heap.activity[x];
+    if (heap_is_empty(&solver->heap)) {
+      // full restart
+      backtrack(solver, 0);
+    } else {
+      x = solver->heap.heap[1];
+      assert(var_is_unassigned(solver, x));
+      ax = solver->heap.activity[x];
 
-    n = solver->decision_level;
-    for (i=1; i<=n; i++) {
-      if (level_has_lower_activity(solver, ax, i)) {
-        backtrack(solver, i-1);
-        break;
+      n = solver->decision_level;
+      for (i=1; i<=n; i++) {
+	if (level_has_lower_activity(solver, ax, i)) {
+	  backtrack(solver, i-1);
+	  break;
+	}
       }
     }
   }
 }
 
+/*
+ * Full restart: backtrack to level 0
+ */
+static void full_restart(sat_solver_t *solver) {
+  if (solver->decision_level > 0) {
+    backtrack(solver, 0);
+  }
+}
 
 
 /*******************************************************
@@ -6913,7 +6935,10 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
  * - as in the paper by Biere & Froehlich, we use
  *    k = 5  for the 'fast' ema
  *    k = 14 for the 'slow' ema
- * 
+ *
+ * Update: experimental change (07/28/2017): use k=16 for the slow ema
+ * (same as cadical).
+ *
  * For blocking restarts, we use another exponential moving average:
  *     blocking_ema_{t+1} = 2^(32 - k) t + (1 - 2^k) blocking_ema_t
  * where k=12 and t = number of assigned variables (a.k.a., trail size).
@@ -6925,8 +6950,8 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
  * variables.
  */
 static void update_emas(sat_solver_t *solver, uint32_t x) {
-  solver->slow_ema -= solver->slow_ema >> 14;
-  solver->slow_ema += ((uint64_t) x) << 18;  
+  solver->slow_ema -= solver->slow_ema >> 16;
+  solver->slow_ema += ((uint64_t) x) << 16;
   solver->fast_ema -= solver->fast_ema >> 5;
   solver->fast_ema += ((uint64_t) x) << 27;
   solver->fast_count ++;
@@ -6935,12 +6960,11 @@ static void update_emas(sat_solver_t *solver, uint32_t x) {
 static void update_blocking_ema(sat_solver_t *solver) {
   solver->blocking_ema -= solver->blocking_ema >> 12;
   solver->blocking_ema += ((uint64_t) solver->stack.top) << 20;
+  solver->level_ema -= solver->level_ema >> 16;
+  solver->level_ema += ((uint64_t) solver->decision_level) << 16;
   solver->blocking_count ++;
 }
 
-static uint32_t average_lbd(const sat_solver_t* solver) {
-  return solver->slow_ema >> 32;
-}
 
 /*
  * Resolve a conflict and add a learned clause
@@ -6951,7 +6975,6 @@ static void resolve_conflict(sat_solver_t *solver) {
   literal_t l;
   cidx_t cidx;
 
-  update_blocking_ema(solver);
   analyze_conflict(solver);
   simplify_learned_clause(solver);
   prepare_to_backtrack(solver);
@@ -6967,11 +6990,12 @@ static void resolve_conflict(sat_solver_t *solver) {
   backtrack(solver, solver->backtrack_level);
   solver->conflict_tag = CTAG_NONE;
 
+  update_blocking_ema(solver);
+
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (solver->stats.conflicts <= 50 ||
-	d <= average_lbd(solver) * 400) {
+    if (true) {
       cidx = add_learned_clause(solver, n, solver->buffer.data);
       clause_propagation(solver, l, cidx);
     } else {
@@ -7013,22 +7037,18 @@ static void try_scc_simplification(sat_solver_t *solver) {
   compute_sccs(solver);
   if (solver->has_empty_clause) return;
 
-  if (solver->verbosity >= 1) {
-    fprintf(stderr, "\nSCC simplify: %"PRIu32" binary clauses, removed %"PRIu32" variables\n",
-	    binaries, solver->stats.subst_vars - subst_count);
-  }
+  report(solver, "scc");
 
   if (solver->stats.subst_vars > subst_count) {
     apply_substitution(solver);
     if (solver->has_empty_clause) {
-      fprintf(stderr, "empty clause after substitution\n");
+      fprintf(stderr, "c empty clause after substitution\n");
       return;
     }
     if (solver->units > units) {
-      nsat_boolean_propagation(solver);
-      if (solver->conflict_tag != CTAG_NONE) {
-	add_empty_clause(solver);
-	fprintf(stderr, "empty clause after substitution and propagation\n");
+      level0_propagation(solver);
+      if (solver->has_empty_clause) {
+	fprintf(stderr, "c empty clause after substitution and propagation\n");
 	return;
       }
     }
@@ -7181,6 +7201,11 @@ static void extend_assignment(sat_solver_t *solver) {
  *
  * The Glucose original uses moving average/long-term average
  * instead of exponential moving averages. (cf. Biere & Froehlich).
+ *
+ * Updates: 2017/07/28: much more frequent restarts
+ * - ignored fast_count
+ * - don't use the blocking heuristic to delay restarts.
+ * - changed K to (1 - 1/2^4 - 1/2^5) = 0.90625
  */
 
 /*
@@ -7190,6 +7215,8 @@ static void init_restart(sat_solver_t *solver) {
   solver->slow_ema = 0;
   solver->fast_ema = 0;
   solver->blocking_ema = 0;
+  solver->level_ema = 0;
+  solver->restart_next = 6;
   solver->fast_count = 0;
   solver->blocking_count = 0;
 }
@@ -7203,7 +7230,7 @@ static void glucose_blocking(sat_solver_t *solver) {
   if (solver->blocking_count >= 5000) {
     aux = ((uint64_t) solver->stack.top) << 32;  // trail size
     aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size 
-    if (aux > solver->blocking_ema) {
+    if (false && aux > solver->blocking_ema) {
       solver->fast_count = 0; // delay the next restart
     }
   }
@@ -7212,11 +7239,12 @@ static void glucose_blocking(sat_solver_t *solver) {
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
 
-  if (solver->fast_count >= 50) {
+  if (solver->stats.conflicts >= solver->restart_next &&
+      solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
     aux = solver->fast_ema;
-    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
-    if (aux > solver->slow_ema) {
-      solver->fast_count = 0;
+    //    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
+    aux -= (aux >> 4) + (aux >> 5);    // approximately 0.9 * fast_ema
+    if (aux >= solver->slow_ema) {
       return true;
     }
   }
@@ -7224,6 +7252,9 @@ static bool need_restart(sat_solver_t *solver) {
   return false;
 }
 
+static void done_restart(sat_solver_t *solver) {
+  solver->restart_next = solver->stats.conflicts + 10;
+}
 
 /*
  * WHEN TO REDUCE
@@ -7255,9 +7286,9 @@ static void init_reduce(sat_solver_t *solver) {
     solver->reduce_next = MIN_REDUCE_NEXT;
   }
 #else
-  solver->reduce_next = 60000;
-  solver->reduce_inc = 10000;
-  solver->reduce_inc2 = 500;
+  solver->reduce_next = 2000;
+  solver->reduce_inc = 2000;
+  solver->reduce_inc2 = 300;
 #endif
 }
 
@@ -7280,7 +7311,7 @@ static void done_reduce(sat_solver_t *solver) {
   solver->reduce_next = (uint32_t) (solver->reduce_next * REDUCE_FACTOR);
 #else
   solver->reduce_inc += solver->reduce_inc2;
-  solver->reduce_next += solver->reduce_inc;
+  solver->reduce_next = solver->stats.conflicts + solver->reduce_inc;
   if (solver->reduce_inc2 > 0) {
     solver->reduce_inc2 --;
   }
@@ -7306,7 +7337,6 @@ static uint32_t level0_literals(const sat_solver_t *solver) {
   return n;
 }
 
-
 /*
  * Initialize counters
  */
@@ -7323,7 +7353,8 @@ static void init_simplify(sat_solver_t *solver) {
  *   (or more binary clauses)
  */
 static bool need_simplify(const sat_solver_t *solver) {
-  return (level0_literals(solver) > solver->simplify_assigned || solver->binaries > solver->simplify_binaries + 100)
+  return (level0_literals(solver) > solver->simplify_assigned ||
+	  solver->binaries > solver->simplify_binaries + 100)
     && solver->stats.conflicts >= solver->simplify_next;
 }
 
@@ -7469,47 +7500,35 @@ static void sat_search(sat_solver_t *solver) {
   }
 }
 
-
 /*
- * Progress status
+ * Simplify: call try_scc_simplification, then simplify clause database
+ * - add empty clause and set status to UNSAT if there's a conflict.
  */
-static void report_status(sat_solver_t *solver, uint32_t count) {
-  double lits_per_clause, slow, fast;
-
-  if ((count & 0x3F) == 0) {
-    fprintf(stderr, "\n");
-    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n");
-    fprintf(stderr, "|     EMAS      | Conf.     Del.    |  Units  | Binary   |      Original     |          Learned          |\n");
-    fprintf(stderr, "| Slow    Fast  |         Threshold |         | Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
-    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n");
+static void nsat_simplify(sat_solver_t *solver) {
+  if (solver->binaries > solver->simplify_binaries) {
+    try_scc_simplification(solver);
+    if (solver->has_empty_clause) return;
   }
-
-  lits_per_clause = 0.0;
-  if (solver->pool.num_learned_clauses > 0) {
-    lits_per_clause = ((double) solver->pool.num_learned_literals) / solver->pool.num_learned_clauses;
+  if (level0_literals(solver) > solver->simplify_assigned) {
+    simplify_clause_database(solver);
   }
-  slow = ((double) solver->slow_ema)/4.3e9;
-  fast = ((double) solver->fast_ema)/4.3e9;
-  fprintf(stderr, "| %6.2f %6.2f | %7"PRIu64"  %8"PRIu64" | %7"PRIu32" | %8"PRIu32" | %8"PRIu32" %8"PRIu32" | %8"PRIu32" %8"PRIu32" %7.1f |\n",
-          slow, fast,
-          solver->stats.conflicts, solver->reduce_next,
-          level0_literals(solver), solver->binaries,
-          solver->pool.num_prob_clauses, solver->pool.num_prob_literals,
-          solver->pool.num_learned_clauses, solver->pool.num_learned_literals, lits_per_clause);
-  fflush(stderr);
 }
 
 
 /*
- * Statistics: initial numbers of clauses
+ * Preprocessing: call nsat_preprocess and print statistics
  */
-static void show_start_search_stats(sat_solver_t *solver) {
-  fprintf(stderr, "After simplification\n");
-  fprintf(stderr, "nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
-  fprintf(stderr, "nb. of unit clauses  : %"PRIu32"\n", solver->units);
-  fprintf(stderr, "nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
-  fprintf(stderr, "nb. of big clauses   : %"PRIu32"\n", solver->pool.num_prob_clauses);
-  fprintf(stderr, "deleted pb. clauses  : %"PRIu64"\n\n", solver->stats.prob_clauses_deleted);
+static void nsat_do_preprocess(sat_solver_t *solver) {
+  double start, end;
+
+  if (solver->verbosity >= 1) {
+    start = get_cpu_time();
+    nsat_preprocess(solver);
+    end = get_cpu_time();
+    show_preprocessing_stats(solver, time_diff(end, start));
+  } else {
+    nsat_preprocess(solver);
+  }
 }
 
 
@@ -7517,116 +7536,51 @@ static void show_start_search_stats(sat_solver_t *solver) {
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver) {
-  double start, end;
-  uint32_t i;
-  bool simplify;
 
   //  open_stat_file();
 
-  if (solver->has_empty_clause) {
-    solver->status = STAT_UNSAT;
-    return STAT_UNSAT;
-  }
+  if (solver->has_empty_clause) goto done;
 
   init_simplify(solver);
   init_reduce(solver);
   init_restart(solver);
 
   if (solver->preprocess) {
-    start = 0.0; // stop GCC warning
-    if (solver->verbosity >= 1) {
-      start = get_cpu_time();
-      show_occurrence_counts(solver);
-    }
-
-    // preprocessing
-    nsat_preprocess(solver);
-    if (solver->has_empty_clause) {
-      solver->status = STAT_UNSAT;
-      return STAT_UNSAT;
-    }
-    // variable substitution
-    if (solver->binaries > 0) {
-      try_scc_simplification(solver);
-      if (solver->has_empty_clause) {
-	solver->status = STAT_UNSAT;
-	return STAT_UNSAT;
-      }
-    }
-    // remove true clauses
-    if (solver->units > 0) {
-      if (solver->verbosity >= 2) {
-	fprintf(stderr, "Removing true clauses\n");
-      }
-      simplify_clause_database(solver);
-      if (solver->verbosity >= 2) {
-	fprintf(stderr, "Done\n");
-      }
-    }
+    // preprocess + one round of simplification
+    nsat_do_preprocess(solver);
+    if (solver->has_empty_clause) goto done;
+    nsat_simplify(solver);
     done_simplify(solver);
-    if (solver->verbosity >= 1) {
-      end = get_cpu_time();
-      show_preprocessing_stats(solver, time_diff(end, start));
-    }
-
   } else {
-    // one round of propagation + removal of true clauses
-    nsat_boolean_propagation(solver);
-    if (solver->conflict_tag != CTAG_NONE) {
-      solver->status = STAT_UNSAT;
-      return STAT_UNSAT;
-    }
-    if (solver->units > 0) {
-      simplify_clause_database(solver);
-      done_simplify(solver);
-    }
-    if (solver->verbosity >= 1) {
-      show_start_search_stats(solver);
-    }
+    // one round of propagation + one round of simplification
+    level0_propagation(solver);
+    if (solver->has_empty_clause) goto done;
+    nsat_simplify(solver);
+    done_simplify(solver);
   }
 
   // main loop
-  i = 0; // counter to report status
   for (;;) {
-    if (solver->verbosity >= 2) {
-      report_status(solver, i);
-      i ++;
-    }
     solver->stats.starts ++;
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
-    
-    // restart and maybe simplify
-    simplify = need_simplify(solver);
-    if (solver->decision_level > 0) {
-      if (simplify) { // force full restart to call simplify
-        backtrack(solver, 0);
-      } else {
-        partial_restart(solver);
-      }
-    }
 
-    if (simplify) {
-      assert(solver->decision_level == 0);
-      if (solver->binaries > solver->simplify_binaries) {
-	try_scc_simplification(solver);
-      }
-      if (level0_literals(solver) > solver->simplify_assigned) {
-	simplify_clause_database(solver);
-      }
+    if (need_simplify(solver)) {
+      full_restart(solver);
+      done_restart(solver);
+      nsat_simplify(solver);
       done_simplify(solver);
-      if (solver->has_empty_clause) {
-	solver->status = STAT_UNSAT;
-	return STAT_UNSAT;
-      }
+    } else {
+      partial_restart(solver);
+      done_restart(solver);
     }
   }
 
-  if (solver->verbosity >= 2) {
-    fprintf(stderr, "----------------------------------------------------------------------------------------------------------\n\n");
-  }
+ done:
+  assert(solver->status == STAT_UNSAT || solver->status == STAT_SAT);
 
-  // Done
+  report(solver, "end");
+  
   if (solver->status == STAT_SAT) {
     extend_assignment(solver);
   }
