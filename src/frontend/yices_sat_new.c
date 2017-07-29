@@ -657,22 +657,24 @@ static void parse_command_line(int argc, char *argv[]) {
 static void show_stats(sat_solver_t *solver) {
   solver_stats_t *stat = &solver->stats;
 
-  fprintf(stderr, "starts                  : %"PRIu32"\n", stat->starts);
-  fprintf(stderr, "simplify db             : %"PRIu32"\n", stat->simplify_calls);
-  fprintf(stderr, "reduce db               : %"PRIu32"\n", stat->reduce_calls);
-  fprintf(stderr, "scc calls               : %"PRIu32"\n", stat->scc_calls);
-  fprintf(stderr, "apply subst calls       : %"PRIu32"\n", stat->subst_calls);
-  fprintf(stderr, "substituted vars        : %"PRIu32"\n", stat->subst_vars);
-  fprintf(stderr, "decisions               : %"PRIu64"\n", stat->decisions);
-  fprintf(stderr, "random decisions        : %"PRIu64"\n", stat->random_decisions);
-  fprintf(stderr, "propagations            : %"PRIu64"\n", stat->propagations);
-  fprintf(stderr, "conflicts               : %"PRIu64"\n", stat->conflicts);
-  fprintf(stderr, "lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
-  fprintf(stderr, "lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
-  fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
-  fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
-  fprintf(stderr, "deleted learned clauses : %"PRIu64"\n\n", stat->learned_clauses_deleted);
-  fprintf(stderr, "\n");
+  fprintf(stderr, "c\n");
+  fprintf(stderr, "c Statistics\n");
+  fprintf(stderr, "c  starts                  : %"PRIu32"\n", stat->starts);
+  fprintf(stderr, "c  simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  fprintf(stderr, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  fprintf(stderr, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
+  fprintf(stderr, "c  apply subst calls       : %"PRIu32"\n", stat->subst_calls);
+  fprintf(stderr, "c  substituted vars        : %"PRIu32"\n", stat->subst_vars);
+  fprintf(stderr, "c  decisions               : %"PRIu64"\n", stat->decisions);
+  fprintf(stderr, "c  random decisions        : %"PRIu64"\n", stat->random_decisions);
+  fprintf(stderr, "c  propagations            : %"PRIu64"\n", stat->propagations);
+  fprintf(stderr, "c  conflicts               : %"PRIu64"\n", stat->conflicts);
+  fprintf(stderr, "c  lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
+  fprintf(stderr, "c  lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
+  fprintf(stderr, "c  subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  fprintf(stderr, "c  deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  fprintf(stderr, "c  deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  fprintf(stderr, "c\n");
 }
 
 static void print_results(void) {
@@ -685,14 +687,14 @@ static void print_results(void) {
 
   if (verbose || stats) {
     show_stats(&solver);
-    fprintf(stderr, "Search time             : %.4f s\n", search_time);
+    fprintf(stderr, "c Search time              : %.4f s\n", search_time);
     mem_used = mem_size() / (1024 * 1024);
     if (mem_used > 0) {
-      fprintf(stderr, "Memory used             : %.2f MB\n", mem_used);
+      fprintf(stderr, "c Memory used              : %.2f MB\n", mem_used);
     }
     speed = solver.stats.propagations/search_time;
-    fprintf(stderr, "Speed                   : %.2f prop/s\n", speed);
-    fprintf(stderr, "\n\n");
+    fprintf(stderr, "c Speed                    : %.2f prop/s\n", speed);
+    fprintf(stderr, "c\n");
   }
 
   switch (result) {
@@ -715,11 +717,12 @@ static void print_results(void) {
  * Print initial size
  */
 void print_solver_size(FILE *f, sat_solver_t *sol) {
-  fprintf(f, "nb. of vars          : %"PRIu32"\n", sol->nvars);
-  fprintf(f, "nb. of unit clauses  : %"PRIu32"\n", sol->units);
-  fprintf(f, "nb. of bin clauses   : %"PRIu32"\n", sol->binaries);
-  fprintf(f, "nb. of big clauses   : %"PRIu32"\n", sol->pool.num_prob_clauses);
-  fprintf(f, "nb. of assignments   : %"PRIu32"\n\n", sol->stack.top);
+  fprintf(f, "c  vars                 : %"PRIu32"\n", sol->nvars);
+  fprintf(f, "c  unit clauses         : %"PRIu32"\n", sol->units);
+  fprintf(f, "c  binary clauses       : %"PRIu32"\n", sol->binaries);
+  fprintf(f, "c  other clauses        : %"PRIu32"\n", sol->pool.num_prob_clauses);
+  fprintf(f, "c  assignments          : %"PRIu32"\n", sol->stack.top);
+  fprintf(f, "c\n");
 }
 
 
@@ -809,7 +812,7 @@ int main(int argc, char* argv[]) {
   } else {
     if (verbose || stats) {
       construction_time = get_cpu_time();
-      fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
+      fprintf(stderr, "c\nc Construction time     : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);
     }
     if (seed_given) {
@@ -838,7 +841,7 @@ int main(int argc, char* argv[]) {
 
     init_handler();
     nsat_set_randomness(&solver, 0);          // overwrite the default
-    nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
+    //    nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
 
     if (data) {
       nsat_open_datafile(&solver, "xxxx.data");

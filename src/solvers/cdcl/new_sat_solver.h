@@ -785,6 +785,8 @@ typedef struct sat_solver_s {
   uint64_t slow_ema;
   uint64_t fast_ema;
   uint64_t blocking_ema;
+  uint64_t level_ema;
+  uint64_t restart_next;
   uint32_t fast_count;
   uint32_t blocking_count;
 
