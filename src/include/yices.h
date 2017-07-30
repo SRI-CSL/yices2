@@ -103,6 +103,13 @@ __YICES_DLLSPEC__ extern const char *yices_build_mode;
 __YICES_DLLSPEC__ extern const char *yices_build_date;
 
 
+/*
+ * Check whether the library was compiled with MCSAT support (i.e.,
+ * it can deal with nonlinear arithmetic).
+ * - return 1 if yes, 0 if no
+ */
+__YICES_DLLSPEC__ extern int32_t yices_has_mcsat(void);
+
 
 /***************************************
  *  GLOBAL INITIALIZATION AND CLEANUP  *
@@ -3287,7 +3294,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
 /*
  * Value of arithmetic term t. The value can be returned as an integer, a
  * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
+ * mpz_t and mpq_t representations, or as a libpoly algebraic number.
  *
  * Error codes:
  * If t is not an arithmetic term:
@@ -3307,6 +3314,22 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
 #endif
 
+
+
+/*
+ * Conversion to an algebraic number.
+ *
+ * t must be an arithmetic term.
+ *
+ * Error codes:
+ * - if t's value is rational:
+ *    code = EVAL_CONVERSION_FAILED
+ * - if yices is compiled without support for MCSAT
+ *    code = EVAL_NOT_SUPPORTED
+ */
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
+#endif
 
 /*
  * Value of bitvector term t in mdl
@@ -3373,6 +3396,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *
  *   YVAL_BOOL       Boolean constant
  *   YVAL_RATIONAL   Rational (or integer) constant
+ *   YVAL_ALGEBRAIC  Algebraic number
  *   YVAL_BV         Bitvector constant
  *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
  *
@@ -3430,7 +3454,7 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
  *
  * The function returns 0 it t's value can be computed, -1 otherwise.
  * If t's value can be compute, the corresponding node descriptor is
- * returned in *val.
+ * returned in *val.
  *
  * Error codes are as in all evaluation functions.
  * If t is not valid:
@@ -3517,13 +3541,28 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t 
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
 
-// Rational value converted to a floating point number
+// Value converted to a floating point number
 __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
 
 // GMP values
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+#endif
+
+/*
+ * Export an algebraic number
+ * - v->tag must be YVAL_ALGEBRAIC
+ * - return a copy of the algebraic number in *a
+ *
+ * Error reports:
+ * - if v is not an algebraic number:
+ *    code = YVAL_INVALID_OP
+ * - if MCSAT is not supported by the yices library
+ *    code = YVAL_NOT_SUPPORTED
+ */
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a);
 #endif
 
 /*

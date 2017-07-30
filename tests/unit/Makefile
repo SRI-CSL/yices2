@@ -85,6 +85,13 @@ libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 
 
+#
+# Whether we have support for mcsat
+#
+ifeq ($(ENABLE_MCSAT),yes)
+  CPPFLAGS+=-DHAVE_MCSAT
+endif
+
 
 #
 # OS-dependent compilation flags

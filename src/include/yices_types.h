@@ -205,6 +205,7 @@ typedef enum term_constructor {
  *  YVAL_UNKNOWN    (special marker)
  *  YVAL_BOOL       Boolean constant
  *  YVAL_RATIONAL   Rational constant
+ *  YVAL_ALGEBRAIC  Algebraic number
  *  YVAL_BV         Bitvector constant
  *  YVAL_SCALAR     Constant of uninterpreted or scalar type
  *
@@ -237,6 +238,7 @@ typedef enum yval_tag {
   YVAL_UNKNOWN,
   YVAL_BOOL,
   YVAL_RATIONAL,
+  YVAL_ALGEBRAIC,
   YVAL_BV,
   YVAL_SCALAR,
   YVAL_TUPLE,
@@ -421,6 +423,7 @@ typedef enum error_code {
   EVAL_FAILED,
   EVAL_CONVERSION_FAILED,
   EVAL_NO_IMPLICANT,
+  EVAL_NOT_SUPPORTED,
 
   /*
    * Error codes for model construction
@@ -429,13 +432,14 @@ typedef enum error_code {
   MDL_CONSTANT_REQUIRED,
   MDL_DUPLICATE_VAR,
   MDL_FTYPE_NOT_ALLOWED,
-  MDL_CONSTRUCTION_FAILED,  
+  MDL_CONSTRUCTION_FAILED,
 
   /*
    * Error codes in DAG/node queries
    */
   YVAL_INVALID_OP = 800,
   YVAL_OVERFLOW,
+  YVAL_NOT_SUPPORTED,
 
   /*
    * Error codes for model generalization

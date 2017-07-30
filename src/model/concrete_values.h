@@ -891,6 +891,11 @@ static inline rational_t *vtbl_rational(value_table_t *table, value_t v) {
   return &table->desc[v].rational;
 }
 
+static inline void *vtbl_algebraic_number(value_table_t *table, value_t v) {
+  assert(object_is_algebraic(table, v));
+  return table->desc[v].ptr;
+}
+
 static inline value_bv_t *vtbl_bitvector(value_table_t *table, value_t v) {
   assert(object_is_bitvector(table, v));
   return (value_bv_t *) table->desc[v].ptr;

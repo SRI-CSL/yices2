@@ -97,6 +97,15 @@
 #include "utils/sparse_arrays.h"
 #include "utils/string_utils.h"
 
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#else
+// We need a definition for (lp_algebraic_number_t *)
+typedef void lp_algebraic_number_t;
+#endif
+
+
+
 #include "yices.h"
 
 
@@ -979,7 +988,6 @@ void yices_reset_tables(void) {
 }
 
 
-
 /*
  * Install a call back function that will be invoked
  * if Yices runs out of memory.
@@ -988,6 +996,20 @@ void yices_reset_tables(void) {
 EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
   __out_of_mem_callback = callback;
 }
+
+
+/*
+ * Test support for MCSAT
+ */
+#if HAVE_MCSAT
+EXPORTED int32_t yices_has_mcsat(void) {
+  return 1;
+}
+#else
+EXPORTED int32_t yices_has_mcsat(void) {
+  return 0;
+}
+#endif
 
 
 /***********************
@@ -7841,8 +7863,8 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
 
 /*
  * Value of arithmetic term t: it can be returned as an integer, a
- * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
+ * rational (pair num/den), converted to a double, using the GMP
+ * mpz_t and mpq_t representations, or as a libpoly algebraic number.
  *
  * Error codes:
  * If t is not an arithmetic term:
@@ -7852,46 +7874,84 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
  *   code = EVAL_OVERFLOW
  */
 
+typedef enum arithval_tag {
+  ARITHVAL_ERROR,
+  ARITHVAL_RATIONAL,
+  ARITHVAL_ALGEBRAIC,
+} arithval_tag_t;
+
+/*
+ * Tagged union to represent pointers to either rational or algebraic numbers.
+ * The flag can ERROR/RATIONAL/ALGEBRAIC
+ */
+typedef struct arithval_struct_s {
+  arithval_tag_t tag;
+  union {
+    rational_t *q;
+    lp_algebraic_number_t *p;
+  } val;
+} arithval_struct_t;
+
 
 /*
  * Auxiliary function: return the rational value of t
- * - return NULL and set the error code if the value can't be computed
+ * - store the result in *r
+ * - if there's an error, set r->tag to ERROR and store an error report
  */
-static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
+static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) {
   value_table_t *vtbl;
   value_t v;
 
+  r->tag = ARITHVAL_ERROR;
+  r->val.q = NULL;
+
   if (! check_good_term(&manager, t) ||
       ! check_arith_term(&manager, t)) {
-    return NULL;
+    return;
   }
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
-    return NULL;
+    return;
   }
 
   vtbl = model_get_vtbl(mdl);
-  if (! object_is_rational(vtbl, v)) {
+  if (object_is_rational(vtbl, v)) {
+    r->tag = ARITHVAL_RATIONAL;
+    r->val.q = vtbl_rational(vtbl, v);
+  } else if (object_is_algebraic(vtbl, v)) {
+    r->tag = ARITHVAL_ALGEBRAIC;
+    r->val.p = vtbl_algebraic_number(vtbl, v);
+  } else {
+    // should not happen since t is an arithmetic term
     error.code = INTERNAL_EXCEPTION;
-    return NULL;
   }
-
-  return vtbl_rational(vtbl, v);
 }
 
+/*
+ * Check whether r->tag is RATIONAL, if not report an error: CONVERSION_FAILED
+ */
+static bool arithval_is_rational(const arithval_struct_t *r) {
+  bool result;
+
+  result = r->tag == ARITHVAL_RATIONAL;
+  if (r->tag == ARITHVAL_ALGEBRAIC) {
+    error.code = EVAL_CONVERSION_FAILED;
+  }
+  return result;
+}
 
 // return the value as a 32bit integer
 EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get32(q, val)) {
+  if (! q_get32(aux.val.q, val)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7901,14 +7961,14 @@ EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
 
 // return the value as a 64bit integer
 EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get64(q, val)) {
+  if (! q_get64(aux.val.q, val)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7918,14 +7978,14 @@ EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
 
 // return the value as a pair num/den (both 32bit integers)
 EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get_int32(q, num, den)) {
+  if (! q_get_int32(aux.val.q, num, den)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7935,14 +7995,14 @@ EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num
 
 // pair num/den (64bit integers)
 EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get_int64(q, num, den)) {
+  if (! q_get_int64(aux.val.q, num, den)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7952,28 +8012,35 @@ EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num
 
 // convert to a floating point number
 EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
+  yices_get_arith_value(mdl, t, &aux);
+  if (aux.tag == ARITHVAL_RATIONAL) {
+    *val = q_get_double(aux.val.q);
+    return 0;
   }
 
-  *val = q_get_double(q);
-  return 0;
+#if HAVE_MCSAT
+  if (aux.tag == ARITHVAL_ALGEBRAIC) {
+    *val = lp_algebraic_number_to_double(aux.val.p);
+    return 0;
+  }
+#endif
+
+  return -1;
 }
 
 
 // convert to a GMP integer
 EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (!q_get_mpz(q, val)) {
+  if (!q_get_mpz(aux.val.q, val)) {
     // the value is not an integer (maybe we should use a better error code
     // in this case?)
     error.code = EVAL_OVERFLOW;
@@ -7985,18 +8052,46 @@ EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
 
 // convert to a GMP rational
 EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
-  q_get_mpq(q, val);
+
+  q_get_mpq(aux.val.q, val);
 
   return 0;
 }
 
 
+/*
+ * Algebraic number
+ */
+EXPORTED int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a) {
+#if HAVE_MCSAT
+  arithval_struct_t aux;
+
+  yices_get_arith_value(mdl, t, &aux);
+  if (aux.tag == ARITHVAL_ALGEBRAIC) {
+    lp_algebraic_number_construct_copy(a, aux.val.p);
+    return 0;
+  }
+
+  // TODO: convert rational to algebraic (no direct way to do this in libpoly)
+  if (aux.tag == ARITHVAL_RATIONAL) {
+    error.code = EVAL_CONVERSION_FAILED;
+    return -1;
+  }
+
+  return -1;
+
+#else
+  // NO SUPPORT FOT MCSAT
+  error.code = EVAL_NOT_SUPPORTED;
+  return -1;
+#endif
+}
 
 /*
  * Value of bitvector term t in mdl
@@ -8440,18 +8535,6 @@ EXPORTED int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t
   return 0;
 }
 
-EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  *val = q_get_double(q);
-  return 0;
-}
-
 EXPORTED int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
   rational_t *q;
 
@@ -8481,6 +8564,19 @@ EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
 }
 
 
+// Conversion to double
+EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
+  rational_t *q;
+
+  q = yices_val_get_rational(mdl, v);
+  if (q == NULL) {
+    return -1;
+  }
+
+  *val = q_get_double(q);
+  return 0;
+}
+
 /*
  * Value of a bitvector node
  */
@@ -8502,6 +8598,34 @@ EXPORTED int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) 
   error.code = YVAL_INVALID_OP;
   return -1;
 }
+
+/*
+ * Algebraic number
+ */
+EXPORTED int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a) {
+#if HAVE_MCSAT
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_ALGEBRAIC) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_algebraic(vtbl, id)) {
+      lp_algebraic_number_construct_copy(a, vtbl_algebraic_number(vtbl, id));
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+
+#else
+  // NO SUPPORT FOT MCSAT
+  error.code = YVAL_NOT_SUPPORTED;
+  return -1;
+#endif
+}
+
 
 
 /*
