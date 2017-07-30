@@ -8566,15 +8566,30 @@ EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
 
 // Conversion to double
 EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
-  rational_t *q;
+  value_table_t *vtbl;
+  value_t id;
 
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
+  vtbl = model_get_vtbl(mdl);
+  id = v->node_id;
+
+  if (v->node_tag == YVAL_RATIONAL) {
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      *val = q_get_double(vtbl_rational(vtbl, id));
+      return 0;
+    }
   }
 
-  *val = q_get_double(q);
-  return 0;
+#if HAVE_MCSAT
+  if (v->node_tag == YVAL_ALGEBRAIC) {
+    if (good_object(vtbl, id) && object_is_algebraic(vtbl, id)) {
+      *val = lp_algebraic_number_to_double(vtbl_algebraic_number(vtbl, id));
+      return 0;
+    }
+  }
+#endif
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
 }
 
 /*
