@@ -105,7 +105,7 @@ Currently you can install Yices either using Homebrew or Aptitude.
 
 Installing on Darwin using homebrew can be achieved via:
 ```
-brew install yices
+brew install homebrew/science/yices
 ```
 though currently this only installs the version without mcsat enabled,
 for more about mcsat see [below](#support-for-non-linear-arithmetic).
