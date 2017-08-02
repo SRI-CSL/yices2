@@ -264,12 +264,20 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define REDUCE_FACTOR 1.05
 #define REDUCE_FRACTION 16
 
+#define REDUCE_INTERVAL 2000
+#define REDUCE_DELTA    300
+
 /*
  * Stacking of learned clauses
  * - clauses of LBD higher than this threshold are not stored in the
  *   data set but in the stack (of temporary clauses).
  */
 #define STACK_THRESHOLD 10
+
+/*
+ * Minimal Number of conflicts between two restarts
+ */
+#define RESTART_INTERVAL 10
 
 /*
  * Parameters to control preprocessing
@@ -290,6 +298,14 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define SUBSUME_SKIP 3000
 #define VAR_ELIM_SKIP 10
 #define RES_CLAUSE_LIMIT 20
+
+/*
+ * Parameters to control simplify
+ */
+#define SIMPLIFY_INTERVAL 100
+#define SIMPLIFY_BIN_DELTA 100
+
+
 
 
 /**********
@@ -2136,6 +2152,27 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_var_elims = 0;
 }
 
+/*
+ * Search parameters
+ */
+static void init_params(solver_param_t *params) {
+  params->seed = PRNG_SEED;
+  params->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
+  params->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
+  params->stack_threshold = STACK_THRESHOLD;
+  params->keep_lbd = KEEP_LBD;
+  params->reduce_fraction = REDUCE_FRACTION;
+  params->reduce_interval = REDUCE_INTERVAL;
+  params->reduce_delta = REDUCE_DELTA;
+  params->restart_interval = RESTART_INTERVAL;
+
+  params->var_elim_skip = VAR_ELIM_SKIP;
+  params->subsume_skip = SUBSUME_SKIP;
+  params->res_clause_limit = RES_CLAUSE_LIMIT;
+
+  params->simplify_interval = SIMPLIFY_INTERVAL;
+  params->simplify_bin_delta = SIMPLIFY_BIN_DELTA;
+}
 
 /*
  * Initialization:
@@ -2204,13 +2241,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
   solver->conflict_tag = CTAG_NONE;
 
-  solver->prng = PRNG_SEED;
-  solver->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
-  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
-  solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
-  solver->stack_threshold = STACK_THRESHOLD;
-  solver->keep_lbd = KEEP_LBD;
-  solver->reduce_fraction = REDUCE_FRACTION;
+  init_params(&solver->params);
 
   init_stats(&solver->stats);
 
@@ -2222,10 +2253,6 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_tag_map(&solver->map, 0); // use default size
 
   init_clause_vector(&solver->saved_clauses);
-
-  solver->var_elim_skip = VAR_ELIM_SKIP;
-  solver->subsume_skip = SUBSUME_SKIP;
-  solver->res_clause_limit = RES_CLAUSE_LIMIT;
 
   init_queue(&solver->lqueue);
   init_elim_heap(&solver->elim);
@@ -2326,11 +2353,6 @@ void reset_nsat_solver(sat_solver_t *solver) {
 
   solver->conflict_tag = CTAG_NONE;
 
-  solver->prng = PRNG_SEED;
-  solver->randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
-  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
-  solver->inv_cla_decay = ((float) 1)/CLAUSE_DECAY_FACTOR;
-
   init_stats(&solver->stats);
 
   safe_free(solver->cidx_array);
@@ -2381,7 +2403,7 @@ void nsat_set_var_decay_factor(sat_solver_t *solver, double factor) {
  */
 void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor) {
   assert(0.0F < factor && factor < 1.0F);
-  solver->inv_cla_decay = 1/factor;
+  solver->params.inv_cla_decay = 1/factor;
 }
 
 /*
@@ -2392,21 +2414,21 @@ void nsat_set_clause_decay_factor(sat_solver_t *solver, float factor) {
  */
 void nsat_set_randomness(sat_solver_t *solver, float randomness) {
   assert(0.0F <= randomness && randomness <= 1.0F);
-  solver->randomness = (uint32_t)(randomness * VAR_RANDOM_SCALE);
+  solver->params.randomness = (uint32_t)(randomness * VAR_RANDOM_SCALE);
 }
 
 /*
  * Set the prng seed
  */
 void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed) {
-  solver->prng = seed;
+  solver->params.seed = seed;
 }
 
 /*
  * LBD threshold for clause deletion. Clauses of lbd <= keep_lbd are not deleted.
  */
 void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
-  solver->keep_lbd = threshold;
+  solver->params.keep_lbd = threshold;
 }
 
 /*
@@ -2415,16 +2437,36 @@ void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold) {
  */
 void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f) {
   assert(f <= 32);
-  solver->reduce_fraction = f;
+  solver->params.reduce_fraction = f;
 }
 
+/*
+ * Interval between two calls to reduce (number of conflicts)
+ */
+void nsat_set_reduce_interval(sat_solver_t *solver, uint32_t n) {
+  solver->params.reduce_interval = n;
+}
+
+/*
+ * Adjustment to the reduce interval (check init_reduce and done_reduce).
+ */
+void nsat_set_reduce_delta(sat_solver_t *solver, uint32_t d) {
+  solver->params.reduce_delta = d;
+}
+
+/*
+ * Minimal number of conflicts between two calls to restart
+ */
+void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n) {
+  solver->params.restart_interval = n;
+}
 
 /*
  * Stack clause threshold: learned clauses of LBD greater than threshold are
  * treated as temporary clauses (not stored in the clause database).
  */
 void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
-  solver->stack_threshold = f;
+  solver->params.stack_threshold = f;
 }
 
 /*
@@ -2436,7 +2478,7 @@ void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
  * would require visiting more than subsume_skip clauses.
  */
 void nsat_set_subsume_skip(sat_solver_t *solver, uint32_t limit) {
-  solver->subsume_skip = limit;  
+  solver->params.subsume_skip = limit;
 }
 
 /*
@@ -2444,7 +2486,7 @@ void nsat_set_subsume_skip(sat_solver_t *solver, uint32_t limit) {
  * we don't try to eliminate x.
  */
 void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit) {
-  solver->var_elim_skip = limit;
+  solver->params.var_elim_skip = limit;
 }
 
 /*
@@ -2452,10 +2494,20 @@ void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit) {
  * res_clause_limit, we keep x.
  */
 void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit) {
-  solver->res_clause_limit = limit;
+  solver->params.res_clause_limit = limit;
 }
 
 
+/*
+ * Simplify parameters
+ */
+void nsat_set_simplify_interval(sat_solver_t *solver, uint32_t n) {
+  solver->params.simplify_interval = n;
+}
+
+void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d) {
+  solver->params.simplify_bin_delta = d;
+}
 
 
 
@@ -3048,7 +3100,7 @@ static void increase_clause_activity(sat_solver_t *solver, cidx_t cidx) {
  * Decay
  */
 static inline void decay_clause_activities(sat_solver_t *solver) {
-  solver->cla_inc *= solver->inv_cla_decay;
+  solver->cla_inc *= solver->params.inv_cla_decay;
 }
 
 /*
@@ -3455,7 +3507,7 @@ static bool clause_is_locked(const sat_solver_t *solver, cidx_t cidx) {
 static bool clause_is_precious(sat_solver_t *solver, cidx_t cidx) {
   uint32_t n, k;
 
-  k = solver->keep_lbd;
+  k = solver->params.keep_lbd;
   n = clause_length(&solver->pool, cidx);
   return n <= k || clause_lbd_le(solver, n, clause_literals(&solver->pool, cidx), k);
 }
@@ -3536,7 +3588,7 @@ static void nsat_reduce_learned_clause_set(sat_solver_t *solver) {
 
   // a contains the clauses that can be deleted
   // less useful clauses (i.e., low-activity clauses) occur first
-  n0 = solver->reduce_fraction * (n/32);
+  n0 = solver->params.reduce_fraction * (n/32);
   for (i=0; i<n0; i++) {
     clause_pool_delete_clause(&solver->pool, a[i]);
     solver->stats.learned_clauses_deleted ++;
@@ -3716,6 +3768,7 @@ static bool simplify_clause(sat_solver_t *solver, cidx_t cidx) {
     // convert to a binary clause
     add_binary_clause(solver, a[0], a[1]); // must be done first
     clause_pool_delete_clause(&solver->pool, cidx);
+    solver->simplify_new_bins ++;
     return true;
   }
 
@@ -4087,24 +4140,36 @@ static void compute_sccs(sat_solver_t *solver) {
  *   makes the clause true.
  */
 // this make l false and not l true (temporarily)
+// preserve the preferred polarity in bits 3-2 of solver->value[l]
 static void mark_false_lit(sat_solver_t *solver, literal_t l) {
+  uint8_t v;
+
   assert(l < solver->nliterals);
   assert(lit_is_unassigned(solver, l));
 
-  solver->value[l] = BVAL_FALSE;
-  solver->value[not(l)] = BVAL_TRUE;
+  v = solver->value[l];
+  solver->value[l] = (v<<2) | BVAL_FALSE;
+  v = solver->value[not(l)];
+  solver->value[not(l)] = (v<<2) | BVAL_TRUE;
 }
 
-// remove the mark on l: we restore the preferred polarity to FALSE
+// remove the mark on l and restore the preferred polarity
 static void clear_false_lit(sat_solver_t *solver, literal_t l) {
   bvar_t x;
+  uint8_t v;
 
   assert(l < solver->nliterals);
-  assert(solver->value[l] == BVAL_FALSE);
+  assert((solver->value[l] & 3) == BVAL_FALSE);
 
   x = var_of(l);
-  solver->value[pos(x)] = BVAL_UNDEF_FALSE;
-  solver->value[neg(x)] = BVAL_UNDEF_TRUE;
+  v = solver->value[pos(x)];
+  solver->value[pos(x)] = v >> 2;
+  v  = solver->value[neg(x)];
+  solver->value[neg(x)] = v >> 2;
+
+  assert(solver->value[pos(x)] < 2 &&
+	 solver->value[neg(x)] < 2 &&
+	 (solver->value[pos(x)] ^ solver->value[neg(x)]) == 1);
 }
 
 // remove the marks on a[0 ... n-1]
@@ -4137,7 +4202,7 @@ static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
   j = 0;
   for (i=0; i<n; i++) {
     l = lit_subst(solver, a[i]);
-    switch (lit_value(solver, l)) {
+    switch (solver->value[l] & 3) {
     case BVAL_FALSE:
       break;
 
@@ -4173,9 +4238,11 @@ static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
     if (j == 0) {
       add_empty_clause(solver);
     } else if (j == 1) {
-      add_unit_clause(solver, a[0]);      
+      add_unit_clause(solver, a[0]);
+      solver->simplify_new_units ++;
     } else {
       add_binary_clause(solver, a[0], a[1]);
+      solver->simplify_new_bins ++;
     }
     clause_pool_delete_clause(&solver->pool, cidx);
     return true;
@@ -4480,7 +4547,8 @@ static cidx_t clause_queue_pop(sat_solver_t *solver) {
  */
 static bool pp_elim_candidate(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->occ[pos(x)] < solver->var_elim_skip || solver->occ[neg(x)] < solver->var_elim_skip;
+  return solver->occ[pos(x)] < solver->params.var_elim_skip
+    || solver->occ[neg(x)] < solver->params.var_elim_skip;
 }
 
 /*
@@ -5399,7 +5467,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[key];
   if (w != NULL) {
     m = w->size;
-    if (m < solver->subsume_skip) {
+    if (m < solver->params.subsume_skip) {
       for (i=0; i<m; i++) {
         k = w->data[i];
         if (k >= start && k != cidx && clause_is_live(&solver->pool, k)) {
@@ -5417,7 +5485,7 @@ static bool pp_clause_subsumption(sat_solver_t *solver, uint32_t cidx, uint32_t 
   w = solver->watch[not(key)];
   if (w != NULL) {
     m = w->size;
-    if (m < solver->subsume_skip) {
+    if (m < solver->params.subsume_skip) {
       for (i=0; i<m; i++) {
         k = w->data[i];
         if (k >= start && clause_is_live(&solver->pool, k)) {
@@ -5920,7 +5988,7 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
         assert(idx_is_clause(c2));
         if (clause_is_live(&solver->pool, c2)) {
           new_n += non_trivial_resolvent(solver, c1, c2, pos(x), &len);
-          if (new_n > n || len > solver->res_clause_limit) return false;
+          if (new_n > n || len > solver->params.res_clause_limit) return false;
         }
       }
     }
@@ -7222,7 +7290,7 @@ static void init_restart(sat_solver_t *solver) {
   solver->fast_ema = 0;
   solver->blocking_ema = 0;
   solver->level_ema = 0;
-  solver->restart_next = 6;
+  solver->restart_next = solver->params.restart_interval;
   solver->fast_count = 0;
   solver->blocking_count = 0;
 }
@@ -7259,7 +7327,7 @@ static bool need_restart(sat_solver_t *solver) {
 }
 
 static void done_restart(sat_solver_t *solver) {
-  solver->restart_next = solver->stats.conflicts + 10;
+  solver->restart_next = solver->stats.conflicts + solver->params.restart_interval;
 }
 
 /*
@@ -7292,9 +7360,9 @@ static void init_reduce(sat_solver_t *solver) {
     solver->reduce_next = MIN_REDUCE_NEXT;
   }
 #else
-  solver->reduce_next = 2000;
-  solver->reduce_inc = 2000;
-  solver->reduce_inc2 = 300;
+  solver->reduce_next = solver->params.reduce_interval;
+  solver->reduce_inc = solver->params.reduce_interval;
+  solver->reduce_inc2 = solver->params.reduce_delta;
 #endif
 }
 
@@ -7350,7 +7418,6 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_assigned = 0;
   solver->simplify_binaries = 0;
   solver->simplify_next = 0;
-  solver->simplify_next_inc = 100;
 }
 
 /*
@@ -7360,7 +7427,7 @@ static void init_simplify(sat_solver_t *solver) {
  */
 static bool need_simplify(const sat_solver_t *solver) {
   return (level0_literals(solver) > solver->simplify_assigned ||
-	  solver->binaries > solver->simplify_binaries + 100)
+	  solver->binaries > solver->simplify_binaries + solver->params.simplify_bin_delta)
     && solver->stats.conflicts >= solver->simplify_next;
 }
 
@@ -7369,9 +7436,19 @@ static bool need_simplify(const sat_solver_t *solver) {
  * Update counters after simplify
  */
 static void done_simplify(sat_solver_t *solver) {
+  /*
+   * new_bins = number of binary clauses produced in this
+   *            simplification round
+   * these clauses have not been seen by the SCC construction.
+   * Some of the new clauses may have been deleted.
+   */
+  if (solver->simplify_new_bins > solver->binaries) {
+    solver->simplify_binaries = solver->binaries;
+  } else {
+    solver->simplify_binaries = solver->binaries - solver->simplify_new_bins;
+  }
   solver->simplify_assigned = solver->stack.top;
-  solver->simplify_binaries = solver->binaries;
-  solver->simplify_next = solver->stats.conflicts + solver->simplify_next_inc;
+  solver->simplify_next = solver->stats.conflicts + solver->params.simplify_interval;
 }
 
 
@@ -7389,9 +7466,9 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
   uint32_t rnd;
   bvar_t x;
 
-  if (solver->randomness > 0) {
+  if (solver->params.randomness > 0) {
     rnd = random_uint32(solver) & VAR_RANDOM_MASK;
-    if (rnd < solver->randomness) {
+    if (rnd < solver->params.randomness) {
       x = random_uint(solver, solver->nvars);
       if (var_is_active(solver, x)) {
         assert(x > 0);
@@ -7511,6 +7588,8 @@ static void sat_search(sat_solver_t *solver) {
  * - add empty clause and set status to UNSAT if there's a conflict.
  */
 static void nsat_simplify(sat_solver_t *solver) {
+  solver->simplify_new_units = 0;
+  solver->simplify_new_bins = 0;
   if (solver->binaries > solver->simplify_binaries) {
     try_scc_simplification(solver);
     if (solver->has_empty_clause) return;
@@ -7546,6 +7625,9 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   //  open_stat_file();
 
   if (solver->has_empty_clause) goto done;
+
+  solver->prng = solver->params.seed;
+  solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
 
   init_simplify(solver);
   init_reduce(solver);
