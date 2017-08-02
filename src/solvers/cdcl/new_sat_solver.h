@@ -617,6 +617,50 @@ typedef struct solver_stats_s {
 } solver_stats_t;
 
 
+/**************************
+ *  HEURISTIC PARAMETERS  *
+ *************************/
+
+typedef struct solver_param_s {
+  /*
+   * Search/restart/reduce heuristics
+   */
+  uint32_t seed;               // Seed for the pseudo-random number generator
+  uint32_t randomness;         // 0x1000000 * random_factor
+  float inv_cla_decay;         // Inverse of clause decay (1/0.999)
+  uint32_t stack_threshold;    // Experimental
+  uint32_t keep_lbd;           // Clauses of LBD no more than this are preserved during reduce
+  uint32_t reduce_fraction;    // Fraction of learned clauses to delete (scaled by 32)
+  uint32_t reduce_interval;    // Number of conflicts between two calls to reduce
+  uint32_t reduce_delta;       // Adjustment to reduce_interval
+  uint32_t restart_interval;   // Minimal number of conflicts between two restarts
+
+  /*
+   * Heuristics/parameters for preprocessing
+   * (these have no effect if the 'preprocess' flag is false)
+   *
+   * - subsume_skip: when checking whether a clause cl can subsume something,
+   *   we visit clauses that share a variable with cl. It the number of clauses to
+   *   visit is larger than subsume_skip  we skip clause cl. The subsumption check would
+   *   be too expensive. This parameter is 3000 by default.
+   *
+   * - var_elim_skip controls which variables we try to eliminate. It's 10 by default.
+   *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
+   *
+   * - res_clause_limit: if eliminating a variable x would create a clause of size
+   *   larger than res_clause_limit, we keep x. Default value = 20.
+   */
+  uint32_t subsume_skip;
+  uint32_t var_elim_skip;
+  uint32_t res_clause_limit;
+
+  /*
+   * Simplify heuristics
+   */
+  uint32_t simplify_interval;   // Minimal number of conflicts between two calls to simplify
+  uint32_t simplify_bin_delta;  // Number of new binary clauses between two SCC computations
+} solver_param_t;
+
 
 /**********************
  *  ANTECEDENT TAGS   *
@@ -756,24 +800,26 @@ typedef struct sat_solver_s {
   cidx_t conflict_index;
 
   /*
-   * Heuristics/parameters for search
+   * Parameters
    */
-  uint32_t prng;              // State of the pseudo-random number generator
-  uint32_t randomness;        // 0x1000000 * random_factor
-  float cla_inc;              // Clause activity increment
-  float inv_cla_decay;        // Inverse of clause decay (1/0.999)
-  uint32_t stack_threshold;   // Experimental
+  solver_param_t params;
 
-  uint64_t reduce_next;       // Number of conflicts before the next call to reduce
-  uint32_t reduce_inc;        // Increment to reduce_threshold
-  uint32_t reduce_inc2;       // Increment to reduce_inc
-  uint32_t reduce_fraction;   // Fraction of learned clauses to delete (scaled by 32)
-  uint32_t keep_lbd;          // Keep all clauses of LBD no more than this
+  /*
+   * Counters/variables used by the search heuristics
+   */
+  float cla_inc;               // Clause activity increment
+
+  uint32_t prng;               // State of the pseudo-random number generator
+
+  uint64_t reduce_next;        // Number of conflicts before the next call to reduce
+  uint32_t reduce_inc;         // Increment to reduce_threshold
+  uint32_t reduce_inc2;        // Increment to reduce_inc
   
   uint32_t simplify_assigned;  // Number of literals assigned at level0 after the last call to simplify_clause_database
   uint32_t simplify_binaries;  // Number of binary clauses after the last call to simplify_clause_database
+  uint32_t simplify_new_bins;  // Number of binary clauses created by simplification
+  uint32_t simplify_new_units; // number of unit clauses create by simplification
   uint64_t simplify_next;      // Number of conflicts before the next call to simplify
-  uint64_t simplify_next_inc;  // Increment for simplify_next
 
   /*
    * Exponential moving averages for restarts
@@ -809,25 +855,6 @@ typedef struct sat_solver_s {
    * Saved clauses
    */
   clause_vector_t saved_clauses;
-
-  /*
-   * Heuristics/parameters for preprocessing
-   * (these have no effect if the 'preprocess' flag is false)
-   *
-   * - subsume_skip: when checking whether a clause cl can subsume something,
-   *   we visit clauses that share a variable with cl. It the number of clauses to
-   *   visit is larger than subsume_skip  we skip clause cl. The subsumption check would
-   *   be too expensive. This parameter is 3000 by default.
-   *
-   * - var_elim_skip controls which variables we try to elimiate. It's 10 by default.
-   *   x is not considered if it has more than var_elim_skip positive and negative occurrences.
-   *
-   * - res_clause_limit: if eliminating a variable x would create a clause of size
-   *   larger than res_clause_limit, we keep x. Default value = 20.
-   */
-  uint32_t subsume_skip;
-  uint32_t var_elim_skip;
-  uint32_t res_clause_limit;
 
   /*
    * Data structures used during preprocessing:
@@ -951,7 +978,13 @@ extern void nsat_set_randomness(sat_solver_t *solver, float randomness);
 extern void nsat_set_random_seed(sat_solver_t *solver, uint32_t seed);
 
 /*
- * LBD threshold for clause deletion. Clauses of ldb <= keep_lbd are not deleted.
+ * Stack clause threshold: learned clauses of LBD greater than threshold are
+ * treated as temporary clauses (not stored in the clause database).
+ */
+extern void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f);
+
+/*
+ * LBD threshold for clause deletion. Clauses of lbd <= keep_lbd are not deleted.
  */
 extern void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold);
 
@@ -961,13 +994,21 @@ extern void nsat_set_keep_lbd(sat_solver_t *solver, uint32_t threshold);
  */
 extern void nsat_set_reduce_fraction(sat_solver_t *solver, uint32_t f);
 
+/*
+ * Interval between two calls to reduce (number of conflicts)
+ */
+extern void nsat_set_reduce_interval(sat_solver_t *solver, uint32_t n);
 
 /*
- * Stack clause threshold: learned clauses of LBD greater than threshold are
- * treated as temporary clauses (not stored in the clause database).
+ * Adjustment to the reduce interval (check init_reduce and done_reduce).
  */
-extern void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f);
+extern void nsat_set_reduce_delta(sat_solver_t *solver, uint32_t d);
 
+
+/*
+ * Minimal number of conflicts between two calls to restart
+ */
+extern void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n);
 
 /*
  * PREPROCESSING PARAMETERS
