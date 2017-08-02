@@ -1033,6 +1033,20 @@ extern void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit);
 extern void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit);
 
 
+/*
+ * SIMPLIFY PARAMETERS
+ */
+
+/*
+ * Minimal number of conflicts between two calls to simplify
+ */
+extern void nsat_set_simplify_interval(sat_solver_t *solver, uint32_t n);
+
+/*
+ * Number of new binary clauses before two SCC computations
+ */
+extern void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d);
+
 
 /*********************
  *  CLAUSE ADDITION  *
