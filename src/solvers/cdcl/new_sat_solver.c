@@ -2499,7 +2499,7 @@ void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit) {
 
 
 /*
- * Simplify parameters
+ * SIMPLIFY PARAMETERS
  */
 void nsat_set_simplify_interval(sat_solver_t *solver, uint32_t n) {
   solver->params.simplify_interval = n;
