@@ -591,7 +591,7 @@ static void print_results(void) {
     break;
 
   default:
-    printf("s UNKOWN\n");
+    printf("s UNKNOWN\n");
     break;
   }
 }
