@@ -115,7 +115,7 @@ for more about mcsat see [below](#support-for-non-linear-arithmetic).
 
 To install Yices on Ubuntu or Debian, do the following:
 ```
-sudo add-apt-repository ppa:sri-csl/formal-methods
+sudo add-apt-repository ppa:sri-csl/tools
 sudo apt-get update
 sudo apt-get install yices2-dev
 ```
