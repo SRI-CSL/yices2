@@ -8371,7 +8371,7 @@ EXPORTED uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
   uint32_t n;
 
   n = 0;
-  if (v->node_tag == YVAL_BV) {
+  if (v->node_tag == YVAL_TUPLE) {
     vtbl = model_get_vtbl(mdl);
     id = v->node_id;
     if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
@@ -8394,7 +8394,7 @@ EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
   uint32_t n;
 
   n = 0;
-  if (v->node_tag == YVAL_BV) {
+  if (v->node_tag == YVAL_MAPPING) {
     vtbl = model_get_vtbl(mdl);
     id = v->node_id;
     if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
