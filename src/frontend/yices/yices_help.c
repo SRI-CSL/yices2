@@ -610,7 +610,7 @@ static const help_record_t help_data[] = {
   { HBITVECTOR,
     "(bv-neg [expr])",
     "Bitvector opposite",
-    "   (bv-neg [expr]) is the opposite of {expr] in 2s complement representation\n",
+    "   (bv-neg [expr]) is the opposite of [expr] in 2s complement representation\n",
     NULL },
 
   // bv-pow: index 62
