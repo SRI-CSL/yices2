@@ -1,0 +1,9 @@
+config.log
+config.status
+configs/make.include.x86_64-linux-gnu
+src/api/yices_release_version.c
+src/frontend/smt1/smt_hash_keywords.h
+src/frontend/smt2/smt2_hash_keywords.h
+src/frontend/smt2/smt2_hash_symbols.h
+src/frontend/smt2/smt2_hash_tokens.h
+src/frontend/yices/yices_hash_keywords.h
