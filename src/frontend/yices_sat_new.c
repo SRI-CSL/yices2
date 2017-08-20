@@ -399,18 +399,35 @@ static uint32_t seed_value;
 static bool stats;
 static bool data;
 
+static bool var_decay_given;
+static bool clause_decay_given;
+static bool randomness_given;
+static bool stack_threshold_given;
 static bool keep_lbd_given;
 static bool reduce_fraction_given;
-static bool stack_threshold_given;
+static bool reduce_interval_given;
+static bool reduce_delta_given;
+static bool restart_interval_given;
 static bool subsume_skip_given;
 static bool var_elim_skip_given;
 static bool res_clause_limit_given;
+static bool simplify_interval_given;
+static bool simplify_bin_delta_given;
+
+static double var_decay;
+static double clause_decay;
+static double randomness;
+static uint32_t stack_threshold;
 static uint32_t keep_lbd;
 static uint32_t reduce_fraction;
-static uint32_t stack_threshold;
+static uint32_t reduce_interval;
+static uint32_t reduce_delta;
+static uint32_t restart_interval;
 static uint32_t subsume_skip;
 static uint32_t var_elim_skip;
 static uint32_t res_clause_limit;
+static uint32_t simplify_interval;
+static uint32_t simplify_bin_delta;
 
 enum {
   version_flag,
@@ -421,12 +438,21 @@ enum {
   preprocess_flag,
   seed_opt,
   stats_flag,
+
+  var_decay_opt,
+  clause_decay_opt,
+  randomness_opt,
+  stack_threshold_opt,
   keep_lbd_opt,
   reduce_fraction_opt,
-  stack_threshold_opt,
+  reduce_interval_opt,
+  reduce_delta_opt,
+  restart_interval_opt,
   subsume_skip_opt,
   var_elim_skip_opt,
   res_clause_limit_opt,
+  simplify_interval_opt,
+  simplify_bin_delta_opt,
   data_flag,
 };
 
@@ -441,12 +467,22 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "preprocess", 'p', FLAG_OPTION, preprocess_flag },
   { "seed", 's', MANDATORY_INT, seed_opt },
   { "stats", '\0', FLAG_OPTION, stats_flag },
+
+  { "var-decay", '\0', MANDATORY_FLOAT, var_decay_opt },
+  { "clause-decay", '\0', MANDATORY_FLOAT, clause_decay_opt },
+  { "randomness", '\0', MANDATORY_FLOAT, randomness_opt },
+  { "stack-threshold", '\0', MANDATORY_INT, stack_threshold_opt },
   { "keep-lbd", '\0', MANDATORY_INT, keep_lbd_opt },
   { "reduce-fraction", '\0', MANDATORY_INT, reduce_fraction_opt },
-  { "stack-threshold", '\0', MANDATORY_INT, stack_threshold_opt },
+  { "reduce-interval", '\0', MANDATORY_INT, reduce_interval_opt },
+  { "reduce-delta", '\0', MANDATORY_INT, reduce_delta_opt },
+  { "restart-interval", '\0', MANDATORY_INT, restart_interval_opt },
   { "subsume-skip", '\0', MANDATORY_INT, subsume_skip_opt },
   { "var-elim-skip", '\0', MANDATORY_INT, var_elim_skip_opt },
   { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
+  { "simplify-interval", '\0', MANDATORY_INT,  simplify_interval_opt },
+  { "simplify-bin-delta", '\0', MANDATORY_INT, simplify_bin_delta_opt },
+
   { "data", '\0', FLAG_OPTION, data_flag },
 };
 
@@ -510,12 +546,20 @@ static void parse_command_line(int argc, char *argv[]) {
   preprocess = false;
   data = false;
 
+  var_decay_given = false;
+  clause_decay_given = false;
+  randomness_given = false;
+  stack_threshold_given = false;
   keep_lbd_given = false;
   reduce_fraction_given = false;
-  stack_threshold_given = false;
+  reduce_interval_given = false;
+  reduce_delta_given = false;
+  restart_interval_given = false;
   subsume_skip_given = false;
   var_elim_skip_given = false;
   res_clause_limit_given = false;
+  simplify_interval_given = false;
+  simplify_bin_delta_given = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -570,9 +614,45 @@ static void parse_command_line(int argc, char *argv[]) {
 	stats = true;
 	break;
 
+      case var_decay_opt:
+	if (elem.d_value < 0 || elem.d_value > 1) {
+	  fprintf(stderr, "var-decay must be between 0 and 1.\n");
+	  goto bad_usage;
+	}
+	var_decay_given = true;
+	var_decay = elem.d_value;
+	break;
+
+      case clause_decay_opt:
+	if (elem.d_value < 0 || elem.d_value > 1) {
+	  fprintf(stderr, "clause-decay must be between 0 and 1.\n");
+	  goto bad_usage;
+	}
+	clause_decay_given = true;
+	clause_decay = elem.d_value;
+	break;
+
+      case randomness_opt:
+	if (elem.d_value < 0 || elem.d_value > 1) {
+	  fprintf(stderr, "randomness must be between 0 and 1.\n");
+	  goto bad_usage;
+	}
+	randomness_given = true;
+	randomness = elem.d_value;
+	break;
+
+      case stack_threshold_opt:
+	if (elem.i_value < 0) {
+	  fprintf(stderr, "stack-threshold can't be negative.\n");
+	  goto bad_usage;
+	}
+	stack_threshold_given = true;
+	stack_threshold = elem.i_value;
+	break;
+
       case keep_lbd_opt:
 	if (elem.i_value < 0) {
-	  fprintf(stderr, "keep-lbd can't be negative\n");
+	  fprintf(stderr, "keep-lbd can't be negative.\n");
 	  goto bad_usage;
 	}
 	keep_lbd_given = true;
@@ -581,25 +661,43 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case reduce_fraction_opt:
 	if (elem.i_value < 0 || elem.i_value > 32) {
-	  fprintf(stderr, "reduce-fraction must be between 0 and 32\n");
+	  fprintf(stderr, "reduce-fraction must be between 0 and 32.\n");
 	  goto bad_usage;
 	}
 	reduce_fraction_given = true;
 	reduce_fraction = elem.i_value;
 	break;
 
-      case stack_threshold_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "stack-threshold can't be negative\n");
+      case reduce_interval_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "reduce-interval must be positive.\n");
 	  goto bad_usage;
 	}
-	stack_threshold_given = true;
-	stack_threshold = elem.i_value;
+	reduce_interval_given = true;
+	reduce_interval = elem.i_value;
+	break;
+
+      case reduce_delta_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "reduce-deltal must be positive.\n");
+	  goto bad_usage;
+	}
+	reduce_delta_given = true;
+	reduce_delta = elem.i_value;
+	break;
+
+      case restart_interval_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "restart-interval must be positive.\n");
+	  goto bad_usage;
+	}
+	restart_interval_given = true;
+	restart_interval = elem.i_value;
 	break;
 
       case subsume_skip_opt:
 	if (elem.i_value < 0) {
-	  fprintf(stderr, "subsume-skip can't be negative\n");
+	  fprintf(stderr, "subsume-skip can't be negative.\n");
 	  goto bad_usage;
 	}
 	subsume_skip_given = true;
@@ -622,6 +720,24 @@ static void parse_command_line(int argc, char *argv[]) {
 	}
 	res_clause_limit_given = true;
 	res_clause_limit = elem.i_value;
+	break;
+
+      case simplify_interval_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "simplify-interval must be positive.\n");
+	  goto bad_usage;
+	}
+	simplify_interval_given = true;
+	simplify_interval = elem.i_value;
+	break;
+
+      case simplify_bin_delta_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "simplify-bin-delta must be positive.\n");
+	  goto bad_usage;
+	}
+	simplify_bin_delta_given = true;
+	simplify_bin_delta = elem.i_value;
 	break;
 
       case data_flag:
@@ -815,8 +931,22 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "c\nc Construction time     : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);
     }
+    nsat_set_randomness(&solver, 0);          // overwrite the default
+
     if (seed_given) {
       nsat_set_random_seed(&solver, seed_value);
+    }
+    if (var_decay_given) {
+      nsat_set_var_decay_factor(&solver, var_decay);
+    }
+    if (clause_decay_given) {
+      nsat_set_clause_decay_factor(&solver, clause_decay);
+    }
+    if (randomness_given) {
+      nsat_set_randomness(&solver, randomness);
+    }
+    if (stack_threshold_given) {
+      nsat_set_stack_threshold(&solver, stack_threshold);
     }
     if (keep_lbd_given) {
       nsat_set_keep_lbd(&solver, keep_lbd);
@@ -824,8 +954,14 @@ int main(int argc, char* argv[]) {
     if (reduce_fraction_given) {
       nsat_set_reduce_fraction(&solver, reduce_fraction);
     }
-    if (stack_threshold_given) {
-      nsat_set_stack_threshold(&solver, stack_threshold);
+    if (reduce_interval_given) {
+      nsat_set_reduce_interval(&solver, reduce_interval);
+    }
+    if (reduce_delta_given) {
+      nsat_set_reduce_delta(&solver, reduce_delta);
+    }
+    if (restart_interval_given) {
+      nsat_set_restart_interval(&solver, restart_interval);
     }
     if (subsume_skip_given) {
       nsat_set_subsume_skip(&solver, subsume_skip);
@@ -836,11 +972,16 @@ int main(int argc, char* argv[]) {
     if (res_clause_limit_given) {
       nsat_set_res_clause_limit(&solver, res_clause_limit);
     }
+    if (simplify_interval_given) {
+      nsat_set_simplify_interval(&solver, simplify_interval);
+    }
+    if (simplify_bin_delta_given) {
+      nsat_set_simplify_bin_delta(&solver, simplify_bin_delta);
+    }
     verb = verbose ? 2 : stats ? 1 : 0;
     nsat_set_verbosity(&solver, verb);
 
     init_handler();
-    nsat_set_randomness(&solver, 0);          // overwrite the default
     //    nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
 
     if (data) {
