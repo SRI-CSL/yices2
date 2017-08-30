@@ -185,7 +185,8 @@ autoconf
 make
 sudo make install
 ```
-3 You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
+
+3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
   find the libpoly library. Other options may be useful too.  Try
   `./configure --help` to see what's there.
 
