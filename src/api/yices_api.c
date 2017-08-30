@@ -56,6 +56,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "api/context_config.h"
 #include "api/search_parameters.h"
@@ -769,6 +770,21 @@ static void delete_parsing_objects(void) {
   assert(lexer == NULL && tstack == NULL);
 }
 
+/************************
+ *  File IO Utilities   *
+ ***********************/
+
+static FILE *fd_2_tmp_fp(int fd) {
+  int tmp_fd;
+
+  tmp_fd = dup(fd);
+
+  if (tmp_fd < 0) {
+    return NULL;
+  }
+
+  return fdopen(tmp_fd, "a");
+}
 
 
 /************************
@@ -966,6 +982,25 @@ EXPORTED void yices_clear_error(void) {
  */
 EXPORTED int32_t yices_print_error(FILE *f) {
   return print_error(f);
+}
+
+
+EXPORTED int32_t yices_print_error_fd(int fd) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = print_error(tmp_fp);
+
+  fclose(tmp_fp);
+
+  return retval;
 }
 
 
@@ -1680,13 +1715,13 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a
   return true;
 }
 
-// Check whether a[0 ... n-1] are all valid bitvectors 
+// Check whether a[0 ... n-1] are all valid bitvectors
 static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
 
   tbl = term_manager_get_terms(mngr);
- 
+
   for (i=0; i<n; i++) {
     if (! is_bitvector_term(tbl, a[i])) {
       error.code = BITVECTOR_REQUIRED;
@@ -1699,7 +1734,7 @@ static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t 
 
 
 // Check whether a[0 ... n-1] all have the same type (n must be positive)
-// this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector 
+// this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector
 // operators
 static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
@@ -2982,7 +3017,7 @@ EXPORTED term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v
 
   aux[0] = arg1;
   aux[1] = arg2;
-  return yices_update(fun, 2, aux, new_v);  
+  return yices_update(fun, 2, aux, new_v);
 }
 
 EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v) {
@@ -2991,7 +3026,7 @@ EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3,
   aux[0] = arg1;
   aux[1] = arg2;
   aux[2] = arg3;
-  return yices_update(fun, 3, aux, new_v);  
+  return yices_update(fun, 3, aux, new_v);
 }
 
 
@@ -4256,7 +4291,7 @@ EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
     return mk_bvsum64(n, t);
   } else {
     return mk_bvsum(n, t);
-  }  
+  }
 }
 
 
@@ -4322,7 +4357,7 @@ EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
   } else {
     return mk_bvproduct(n, t);
   }
-  
+
 }
 
 
@@ -5346,6 +5381,24 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   return code;
 }
 
+EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_type(tmp_fp, tau, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
+
+
 
 /*
  * Pretty print term t
@@ -5386,6 +5439,23 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   return code;
 }
 
+EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_term(tmp_fp, t, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
 
 /*
  * Pretty print terms a[0 ... n-1]
@@ -5432,6 +5502,24 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint
   delete_yices_pp(&printer, false);
 
   return code;
+}
+
+EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_term_array(tmp_fp, n, a, width, height, offset,  horiz);
+
+  fclose(tmp_fp);
+
+  return retval;
 }
 
 
@@ -5607,7 +5695,7 @@ EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
  * Number of children of type tau
  * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
  * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
- * - if tau is any other type, returns 0 
+ * - if tau is any other type, returns 0
  *
  * - returns -1 if tau is not a valid type
  *
@@ -5684,7 +5772,7 @@ EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
     return -1;
   }
 
-  v->size = 0;  
+  v->size = 0;
   if (is_tuple_type(&types, tau)) {
     tup = tuple_type_desc(&types, tau);
     n = tup->nelem;
@@ -6982,7 +7070,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   case CTX_ARCH_EGFUNSPLX:
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
-    enable_splx_eqprop(ctx);    
+    enable_splx_eqprop(ctx);
     enable_assert_ite_bounds(ctx);
     enable_ite_flattening(ctx);
     break;
@@ -7476,7 +7564,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->c_factor = 1.05;
     params->d_factor = 1.05;
 #else
-    // HACK: try Luby restart, period = 10 
+    // HACK: try Luby restart, period = 10
     // This didn't work.
     params->fast_restart = true;
     params->c_factor = 0.0;
@@ -7682,10 +7770,42 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
+/*
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL){
+    return -1;
+  }
+
+  retval = ******
+
+  fclose(tmp_fp);
+
+  return retval;
+*/
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
 
+EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
+  FILE *tmp_fp;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  model_print_full(tmp_fp, mdl);
+
+  fclose(tmp_fp);
+
+  return 0;
+}
 
 /*
  * Pretty print mdl
@@ -7722,6 +7842,23 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
   return code;
 }
 
+EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_model(tmp_fp, mdl, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
 
 /*
  * Convert mdl to a string
@@ -7748,7 +7885,7 @@ EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t heig
   str = yices_pp_get_string(&printer, &len);
   delete_yices_pp(&printer, false);
 
-  return str;  
+  return str;
 }
 
 
@@ -8403,7 +8540,7 @@ EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
     }
   }
 
-  return n;  
+  return n;
 }
 
 /*
@@ -8466,7 +8603,7 @@ static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
       return vtbl_rational(vtbl, id);
     }
   }
-  
+
   error.code = YVAL_INVALID_OP;
   return NULL;
 }

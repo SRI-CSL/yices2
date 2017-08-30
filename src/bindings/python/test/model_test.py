@@ -51,7 +51,7 @@ class TestModels(unittest.TestCase):
     bool_t = yices.bool_type()
     int_t = yices.int_type()
     real_t = yices.real_type()
-    
+
 
   def tearDown(self):
     #yices.exit()
@@ -113,8 +113,8 @@ class TestModels(unittest.TestCase):
     yices.get_int64_value(mdl, i2, i64v2)
     self.assertEqual(i64v1.value, 4)
     self.assertEqual(i64v2.value, 3)
-    yices.print_model(yices.stdout, mdl)
-    yices.pp_model(yices.stdout, mdl, 80, 100, 0)
+    yices.print_model_fd(1, mdl)
+    yices.pp_model_fd(1, mdl, 80, 100, 0)
     mdlstr = yices.model_to_string(mdl, 80, 100, 0)
     self.assertEqual(mdlstr, '(= i1 4)\n(= i2 3)')
     alg1 = yices.lp_algebraic_number_t()
@@ -184,13 +184,13 @@ class TestModels(unittest.TestCase):
     mpz2 = yices.mpz(gmpz2)
     self.assertEqual(yices.term_to_string(mpz1, 200, 10, 0), '987654321987654321987654322')
     self.assertEqual(yices.term_to_string(mpz2, 200, 10, 0), '987654321987654321987654321')
-    yices.pp_term(yices.stdout, mpz1, 100, 10, 0)
+    yices.pp_term_fd(1, mpz1, 100, 10, 0)
     alg1 = yices.lp_algebraic_number_t()
     #yices.get_algebraic_number_value(mdl, i1, alg1)
     with self.assertRaisesRegexp(yices.YicesException,
                                  'could not convert value \(in model\) to a term'):
       yices.get_algebraic_number_value(mdl, i1, alg1)
-    
+
   def test_mpq_models(self):
     r1 = define_const('r1', real_t)
     r2 = define_const('r2', real_t)
@@ -240,7 +240,7 @@ class TestModels(unittest.TestCase):
     yices.get_value(mdl, x, yv1)
     alg2 = yices.lp_algebraic_number_t()
     yices.val_get_algebraic_number(mdl, yv1, alg2)
-    
+
   def test_bv_models(self):
     bv_t = yices.bv_type(3)
     bv1 = define_const('bv1', bv_t)
@@ -302,10 +302,11 @@ class TestModels(unittest.TestCase):
     yices.val_get_int32(mdl, yvarr[1], ival1)
     self.assertEqual(ival1.value, 1)
 
+  # bus error
   def test_function_models(self):
     funtype = yices.function_type3(int_t, bool_t, real_t, real_t)
     ftystr = yices.type_to_string(funtype, 100, 80, 0)
-    yices.pp_type(yices.stdout, funtype, 100, 80, 0)
+    yices.pp_type_fd(1, funtype, 100, 80, 0)
     self.assertEqual(ftystr, '(-> int bool real real)')
     fun1 = define_const('fun1', funtype)
     b1 = define_const('b1', bool_t)
@@ -385,8 +386,12 @@ class TestModels(unittest.TestCase):
     self.assertEqual(b_arr[0], yices.int32(1463))
     self.assertEqual(b_arr[1], yices.true())
     self.assertEqual(b_arr[2], yices.int32(-579))
-    yices.pp_term_array(yices.stdout, 3, b_arr, 100, 10, 0, 0)
-    yices.generalize_model(mdl, fmla, 1, a_arr)
+    yices.pp_term_array_fd(1, 3, b_arr, 100, 10, 0, 0)
+    tvec3 = yices.term_vector_t()
+    yices.init_term_vector(tvec3)
+    yices.generalize_model(mdl, fmla, 1, a_arr, 0, tvec3)
+    yices.delete_term_vector(tvec3)
+
 
   def test_scalar_models(self):
     scalar_t = yices.new_scalar_type(10)
@@ -471,7 +476,7 @@ class TestModels(unittest.TestCase):
     self.assertEqual(yices.term_to_string(mpq1, 200, 10, 0), '4')
     with self.assertRaisesRegexp(yices.YicesException, 'invalid operation on yval'):
       yices.val_get_bv(mdl, yv1, bval1)
-    
+
   def test_model_from_map(self):
     bv_t = yices.bv_type(8)
     i1 = define_const('i1', int_t)
@@ -517,4 +522,3 @@ class TestModels(unittest.TestCase):
     yices.init_term_vector(tvec3)
     a_arr = yices.term_t(i1)
     yices.generalize_model_array(mdl, 2, fmls, 1, a_arr, 0, tvec3)
-    

@@ -45,11 +45,11 @@ class TestContext(unittest.TestCase):
       yices.assert_formula(ctx, bvar1)
     bv_t = yices.bv_type(3)
     bvvar1 = yices.new_uninterpreted_term(bv_t)
-    yices.set_term_name(bvvar1, 'x')    
+    yices.set_term_name(bvvar1, 'x')
     bvvar2 = yices.new_uninterpreted_term(bv_t)
-    yices.set_term_name(bvvar2, 'y')    
+    yices.set_term_name(bvvar2, 'y')
     bvvar3 = yices.new_uninterpreted_term(bv_t)
-    yices.set_term_name(bvvar3, 'z')    
+    yices.set_term_name(bvvar3, 'z')
     fmla1 = yices.parse_term('(= x (bv-add y z))')
     fmla2 = yices.parse_term('(bv-gt y 0b000)')
     fmla3 = yices.parse_term('(bv-gt z 0b000)')
@@ -68,8 +68,7 @@ class TestContext(unittest.TestCase):
       yices.set_param(param, "dyn-ack", "bar")
     yices.free_param_record(param)
     yices.free_context(ctx)
-    
+
 
 if __name__ == '__main__':
   unittest.main()
-

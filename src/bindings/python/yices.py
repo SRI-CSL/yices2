@@ -28,13 +28,6 @@ def catch_error(errval):
     return decorator
 
 
-# Get standard file descriptors for, e.g.,  pp calls
-libc = cdll['libc.so.6']
-stdin = c_void_p.in_dll(libc, "stdin")
-stdout = c_void_p.in_dll(libc, "stdout")
-stderr = c_void_p.in_dll(libc, "stderr")
-
-
 if sys.platform == 'darwin':
     libext = ".dylib" #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
 else:
@@ -91,7 +84,7 @@ class yval_vector_t(Structure):
 class yval_array(Array):
     _type_ = yval_t
     _length_ = 2
-    
+
 # gmp support - note that gmp is included in the libyices.so file
 
 class mpz_t(Structure):
@@ -138,7 +131,7 @@ YVAL_SCALAR = 5
 YVAL_TUPLE = 6
 YVAL_FUNCTION = 7
 YVAL_MAPPING = 8
-    
+
 # From yices.h
 
 # int32_t yices_has_mcsat(void)
@@ -156,16 +149,16 @@ def init():
 libyices.yices_exit.restype = None
 def exit():
     libyices.yices_exit()
-    
+
 # void yices_reset(void)
 libyices.yices_reset.restype = None
 def reset():
     libyices.yices_exit()
-    
+
 # void yices_free_string(char*)
 # No API for this - the functions which return a C string (e.g., yices_error_string)
 # all call yices_free_string as soon as they cast it to a Python string
-    
+
 # void yices_set_out_of_mem_callback(void (*callback)(void))
 # libyices.yices_set_out_of_mem_callback.restype = None
 # CBFUNC = CFUNCTYPE(None)
@@ -185,16 +178,17 @@ def error_report():
 libyices.yices_clear_error.restype = None
 def clear_error():
     libyices.yices_clear_error()
-    
-# int32_t yices_print_error(FILE *f)
-libyices.yices_print_error.restype = c_int32
-libyices.yices_print_error.argtypes = [c_void_p]
-def print_error(fd):
-    return libyices.yices_print_error(fd)
+
+# int32_t yices_print_error_fd(int fd)
+libyices.yices_print_error_fd.restype = c_int32
+libyices.yices_print_error_fd.argtypes = [c_int]
+def print_error_fd(fd):
+    return libyices.yices_print_error_fd(fd)
 
 # char *yices_error_string(void)
 # NOTE: restype is c_void_p in order not to trigger the automatic cast, which loses the pointer
 libyices.yices_error_string.restype = c_void_p
+libyices.yices_free_string.argtypes = [c_void_p]
 def error_string():
     cstrptr = libyices.yices_error_string()
     errstr = cast(cstrptr, c_char_p).value
@@ -206,7 +200,7 @@ libyices.yices_init_term_vector.restype = None
 libyices.yices_init_term_vector.argtypes = [POINTER(term_vector_t)]
 def init_term_vector(v):
     libyices.yices_init_term_vector(pointer(v))
-    
+
 # void yices_init_type_vector(type_vector_t *v)
 libyices.yices_init_type_vector.restype = None
 libyices.yices_init_type_vector.argtypes = [POINTER(type_vector_t)]
@@ -1810,8 +1804,7 @@ def num_posref_types():
     return libyices.yices_num_posref_types()
 
 # void yices_garbage_collect(const term_t t[], uint32_t nt, const type_t tau[], uint32_t ntau, int32_t keep_named)
-libyices.yices_garbage_collect.argtypes = [POINTER(term_t), c_uint32,
-                                           POINTER(type_t), c_uint32, c_int32]
+libyices.yices_garbage_collect.argtypes = [POINTER(term_t), c_uint32, POINTER(type_t), c_uint32, c_int32]
 @catch_error(-1)
 def garbage_collect(t, nt, tau, ntau, keep_named):
     return libyices.yices_garbage_collect(t, nt, tau, ntau, keep_named)
@@ -1975,7 +1968,7 @@ libyices.yices_free_model.argtypes = [model_t]
 @catch_error(-1)
 def free_model(mdl):
     libyices.yices_free_model(mdl)
-    
+
 # model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 libyices.yices_model_from_map.restype = model_t
 libyices.yices_model_from_map.argtypes = [c_uint32, POINTER(term_t), POINTER(term_t)]
@@ -2006,16 +1999,14 @@ def get_int64_value(mdl, t, val):
 
 # int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den)
 libyices.yices_get_rational32_value.restype = c_int32
-libyices.yices_get_rational32_value.argtypes = [model_t, term_t,
-                                                POINTER(c_int32), POINTER(c_uint32)]
+libyices.yices_get_rational32_value.argtypes = [model_t, term_t,  POINTER(c_int32), POINTER(c_uint32)]
 @catch_error(-1)
 def get_rational32_value(mdl, t, num, den):
     return libyices.yices_get_rational32_value(mdl, t, num, den)
 
 # int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den)
 libyices.yices_get_rational64_value.restype = c_int32
-libyices.yices_get_rational64_value.argtypes = [model_t, term_t,
-                                                POINTER(c_int64), POINTER(c_uint64)]
+libyices.yices_get_rational64_value.argtypes = [model_t, term_t, POINTER(c_int64), POINTER(c_uint64)]
 @catch_error(-1)
 def get_rational64_value(mdl, t, num, den):
     return libyices.yices_get_rational64_value(mdl, t, num, den)
@@ -2173,16 +2164,14 @@ def val_get_int64(mdl, v, val):
 
 # int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den)
 libyices.yices_val_get_rational32.restype = c_int32
-libyices.yices_val_get_rational32.argtypes = [model_t, POINTER(yval_t),
-                                              POINTER(c_int32), POINTER(c_uint32)]
+libyices.yices_val_get_rational32.argtypes = [model_t, POINTER(yval_t), POINTER(c_int32), POINTER(c_uint32)]
 @catch_error(-1)
 def val_get_rational32(mdl, v, num, den):
     return libyices.yices_val_get_rational32(mdl, pointer(v), num, den)
 
 # int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den)
 libyices.yices_val_get_rational64.restype = c_int32
-libyices.yices_val_get_rational64.argtypes = [model_t, POINTER(yval_t),
-                                              POINTER(c_int64), POINTER(c_uint64)]
+libyices.yices_val_get_rational64.argtypes = [model_t, POINTER(yval_t), POINTER(c_int64), POINTER(c_uint64)]
 @catch_error(-1)
 def val_get_rational64(mdl, v, num, den):
     return libyices.yices_val_get_rational64(mdl, pointer(v), num, den)
@@ -2238,16 +2227,14 @@ def val_expand_tuple(mdl, v, child):
 
 # int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v)
 libyices.yices_val_expand_function.restype = c_int32
-libyices.yices_val_expand_function.argtypes = [model_t, POINTER(yval_t),
-                                               POINTER(yval_t), POINTER(yval_vector_t)]
+libyices.yices_val_expand_function.argtypes = [model_t, POINTER(yval_t), POINTER(yval_t), POINTER(yval_vector_t)]
 @catch_error(-1)
 def val_expand_function(mdl, f, df, v):
     return libyices.yices_val_expand_function(mdl, pointer(f), pointer(df), pointer(v))
 
 # int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *m, yval_t tup[], yval_t *val)
 libyices.yices_val_expand_mapping.restype = c_int32
-libyices.yices_val_expand_mapping.argtypes = [model_t, POINTER(yval_t),
-                                              POINTER(yval_t), POINTER(yval_t)]
+libyices.yices_val_expand_mapping.argtypes = [model_t, POINTER(yval_t), POINTER(yval_t), POINTER(yval_t)]
 @catch_error(-1)
 def val_expand_mapping(mdl, m, tup, val):
     return libyices.yices_val_expand_mapping(mdl, pointer(m), tup, pointer(val))
@@ -2268,80 +2255,75 @@ def get_value_as_term(mdl, t):
 
 # int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[])
 libyices.yices_term_array_value.restype = c_int32
-libyices.yices_term_array_value.argtypes = [model_t, c_uint32,
-                                            POINTER(term_t), POINTER(term_t)]
+libyices.yices_term_array_value.argtypes = [model_t, c_uint32, POINTER(term_t), POINTER(term_t)]
 @catch_error(-1)
 def term_array_value(mdl, n, a, b):
     return libyices.yices_term_array_value(mdl, n, a, b)
 
 # int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v)
 libyices.yices_implicant_for_formula.restype = c_int32
-libyices.yices_implicant_for_formula.argtypes = [model_t, term_t,
-                                                 POINTER(term_vector_t)]
+libyices.yices_implicant_for_formula.argtypes = [model_t, term_t, POINTER(term_vector_t)]
 @catch_error(-1)
 def implicant_for_formula(mdl, t, v):
     return libyices.yices_implicant_for_formula(mdl, t, v)
 
 # int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v)
 libyices.yices_implicant_for_formulas.restype = c_int32
-libyices.yices_implicant_for_formulas.argtypes = [model_t, c_uint32, POINTER(term_t),
-                                                  POINTER(term_vector_t)]
+libyices.yices_implicant_for_formulas.argtypes = [model_t, c_uint32, POINTER(term_t), POINTER(term_vector_t)]
 @catch_error(-1)
 def implicant_for_formulas(mdl, n, a, v):
     return libyices.yices_implicant_for_formulas(mdl, n, a, v)
 
 # int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 libyices.yices_generalize_model.restype = c_int32
-libyices.yices_generalize_model.argtypes = [model_t, term_t, c_uint32, POINTER(term_t)]
+libyices.yices_generalize_model.argtypes = [model_t, term_t, c_uint32, POINTER(term_t), yices_gen_mode_t, POINTER(term_vector_t)]
 @catch_error(-1)
-def generalize_model(mdl, t, nelims, elim):
-    return libyices.yices_generalize_model(mdl, t, nelims, elim)
+def generalize_model(mdl, t, nelims, elim, mode, v):
+    return libyices.yices_generalize_model(mdl, t, nelims, elim, mode, v)
 
 # int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
 libyices.yices_generalize_model_array.restype = c_int32
-libyices.yices_generalize_model_array.argtypes = [model_t, c_uint32, POINTER(term_t),
-                                                  c_uint32, POINTER(term_t), yices_gen_mode_t,
-                                                  POINTER(term_vector_t)]
+libyices.yices_generalize_model_array.argtypes = [model_t, c_uint32, POINTER(term_t), c_uint32, POINTER(term_t), yices_gen_mode_t, POINTER(term_vector_t)]
 @catch_error(-1)
 def generalize_model_array(mdl, n, a, nelims, elim, mode, v):
     return libyices.yices_generalize_model_array(mdl, n, a, nelims, elim, mode, v)
 
-# int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset)
-libyices.yices_pp_type.restype = c_int32
-libyices.yices_pp_type.argtypes = [c_void_p, type_t, c_uint32, c_uint32, c_uint32]
+# int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset)
+libyices.yices_pp_type_fd.restype = c_int32
+libyices.yices_pp_type_fd.argtypes = [c_int, type_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
-def pp_type(f, tau, width, height, offset):
-    return libyices.yices_pp_type(f, tau, width, height, offset)
+def pp_type_fd(fd, tau, width, height, offset):
+    return libyices.yices_pp_type_fd(fd, tau, width, height, offset)
 
-# int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset)
-libyices.yices_pp_term.restype = c_int32
-libyices.yices_pp_term.argtypes = [c_void_p, term_t, c_uint32, c_uint32, c_uint32]
+# int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset)
+libyices.yices_pp_term_fd.restype = c_int32
+libyices.yices_pp_term_fd.argtypes = [c_int, term_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
-def pp_term(f, t, width, height, offset):
-    return libyices.yices_pp_term(f, t, width, height, offset)
+def pp_term_fd(fd, t, width, height, offset):
+    return libyices.yices_pp_term_fd(fd, t, width, height, offset)
 
-# int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
-#                             uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz)
-libyices.yices_pp_term_array.restype = c_int32
-libyices.yices_pp_term_array.argtypes = [c_void_p, c_uint32, POINTER(term_t),
-                                         c_uint32, c_uint32, c_uint32, c_int32]
+# int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
+#                                uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz)
+libyices.yices_pp_term_array_fd.restype = c_int32
+libyices.yices_pp_term_array_fd.argtypes = [c_int, c_uint32, POINTER(term_t), c_uint32, c_uint32, c_uint32, c_int32]
 @catch_error(-1)
-def pp_term_array(f, n, a, width, height, offset, horiz):
-    return libyices.yices_pp_term_array(f, n, a, width, height, offset, horiz)
+def pp_term_array_fd(fd, n, a, width, height, offset, horiz):
+    return libyices.yices_pp_term_array_fd(fd, n, a, width, height, offset, horiz)
 
-# void yices_print_model(FILE *f, model_t *mdl)
-libyices.yices_print_model.argtypes = [c_void_p, model_t]
+# void yices_print_model_fd(int fd, model_t *mdl)
+libyices.yices_print_model_fd.restype = c_int32
+libyices.yices_print_model_fd.argtypes = [c_int, model_t]
 @catch_error(-1)
-def print_model(f, mdl):
-    libyices.yices_print_model(f, mdl)
+def print_model_fd(fd, mdl):
+    return libyices.yices_print_model_fd(fd, mdl)
 
-# int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset)
-libyices.yices_pp_model.restype = c_int32
-libyices.yices_pp_model.argtypes = [c_void_p, model_t,
-                                    c_uint32, c_uint32, c_uint32]
+
+# int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset)
+libyices.yices_pp_model_fd.restype = c_int32
+libyices.yices_pp_model_fd.argtypes = [c_int, model_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
-def pp_model(f, mdl, width, height, offset):
-    return libyices.yices_pp_model(f, mdl, width, height, offset)
+def pp_model_fd(fd, mdl, width, height, offset):
+    return libyices.yices_pp_model_fd(fd, mdl, width, height, offset)
 
 # char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset)
 # NOTE: restype is c_void_p in order not to trigger the automatic cast, which loses the pointer
@@ -2423,4 +2405,3 @@ def set_mpq(mpq, num, den):
     else:
         raise TypeError('set_mpq: num and den should both be strings or integers')
     libyices.__gmpq_canonicalize(byref(mpq))
-    
