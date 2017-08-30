@@ -7770,23 +7770,6 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
-/*
-  FILE *tmp_fp;
-  int32_t retval;
-
-
-  tmp_fp = fd_2_tmp_fp(fd);
-
-  if (tmp_fp == NULL){
-    return -1;
-  }
-
-  retval = ******
-
-  fclose(tmp_fp);
-
-  return retval;
-*/
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
