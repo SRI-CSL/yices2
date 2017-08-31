@@ -35,7 +35,7 @@ if sys.platform == 'darwin':
 elif sys.platform == 'cygwin':
     lib = "cygyices.dll"
 elif sys.platform == 'linux2':
-    lib = "libyice.so"
+    lib = "libyices.so"
 else:
     raise YicesException("Unsupported Platform: {0}".format(sys.platform))
 
