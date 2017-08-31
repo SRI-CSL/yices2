@@ -28,12 +28,18 @@ def catch_error(errval):
     return decorator
 
 
-if sys.platform == 'darwin':
-    libext = ".dylib" #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
-else:
-    libext = ".so"  #set LD_LIBRARY_PATH to point to the directory with libyices.so
+lib = "libyice.so"
 
-libyices = CDLL('libyices%s' % libext)
+if sys.platform == 'darwin':
+    lib = "libyices.dylib" #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
+elif sys.platform == 'cygwin':
+    lib = "cygyices.dll"
+elif sys.platform == 'linux2':
+    lib = "libyice.so"
+else:
+    raise YicesException("Unsupported Platform: {0}".format(sys.platform))
+
+libyices = CDLL(lib)
 
 # From yices_types.h
 
