@@ -199,7 +199,7 @@ max-nested-blocks=5
 [FORMAT]
 
 # Maximum number of characters on a single line.
-max-line-length=100
+max-line-length=200
 
 # Regexp for a line that is allowed to be longer than the limit.
 ignore-long-lines=^\s*(# )?<?https?://\S+>?$
@@ -215,7 +215,7 @@ single-line-if-stmt=no
 no-space-check=trailing-comma,dict-separator
 
 # Maximum number of lines in a module
-max-module-lines=1000
+max-module-lines=3000
 
 # String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1
 # tab).
@@ -342,7 +342,7 @@ exclude-protected=_asdict,_fields,_replace,_source,_make
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=5
+max-args=7
 
 # Argument names that match this expression will be ignored. Default to name
 # with leading underscore
@@ -367,7 +367,7 @@ max-parents=7
 max-attributes=7
 
 # Minimum number of public methods for a class (see R0903).
-min-public-methods=2
+min-public-methods=0
 
 # Maximum number of public methods for a class (see R0904).
 max-public-methods=20

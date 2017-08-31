@@ -1,13 +1,31 @@
 '''
 The Yices2 Python API.
+
 Basically implements all the external symbols of Yices2 - see yices.h
 '''
 from __future__ import with_statement
-import os
 import sys
 from functools import wraps
-from ctypes import *
-#import gmpy2
+from ctypes import (
+    Array,
+    byref,
+    CDLL,
+    cast,
+    c_char_p,
+    c_double,
+    c_int,
+    c_uint,
+    c_int32,
+    c_uint32,
+    c_int64,
+    c_uint64,
+    c_ulong,
+    c_size_t,
+    c_void_p,
+    pointer,
+    POINTER,
+    Structure
+    )
 
 
 class YicesException(Exception):
@@ -19,7 +37,7 @@ def catch_error(errval):
         @wraps(yices_fun)
         def wrapper(*args, **kwargs):
             result = yices_fun(*args, **kwargs)
-            if (result == errval and error_code() != 0L):
+            if result == errval and error_code() != 0L:
                 errstr = error_string()
                 clear_error()
                 raise YicesException(errstr)
@@ -31,7 +49,8 @@ def catch_error(errval):
 lib = "libyice.so"
 
 if sys.platform == 'darwin':
-    lib = "libyices.dylib" #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
+    #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
+    lib = "libyices.dylib"
 elif sys.platform == 'cygwin':
     lib = "cygyices.dll"
 elif sys.platform == 'linux2':
@@ -59,6 +78,7 @@ yval_tag_t = c_uint
 yices_gen_mode_t = c_void_p
 
 class error_report_t(Structure):
+    """The cause of an API error is stored in an error_report structure."""
     _fields_ = [("code", error_code_t), # 8
                 ("line", c_uint32),  # 4
                 ("column", c_uint32), # 4
@@ -69,25 +89,30 @@ class error_report_t(Structure):
                 ("badval", c_int64)] # 8
 
 class yval_t(Structure):
+    """The type of a node descriptor."""
     _fields_ = [("node_id", c_int32),
                 ("node_tag", yval_tag_t)]
 
 class term_vector_t(Structure):
+    """A resizable array of terms."""
     _fields_ = [("capacity", c_uint32),
                 ("size", c_uint32),
                 ("data", POINTER(term_t))]
 
 class type_vector_t(Structure):
+    """A resizable array of types."""
     _fields_ = [("capacity", c_uint32),
                 ("size", c_uint32),
                 ("data", POINTER(type_t))]
 
 class yval_vector_t(Structure):
+    """A resizable array of node descriptors."""
     _fields_ = [("capacity", c_uint32),
                 ("size", c_uint32),
                 ("data", POINTER(yval_t))]
 
 class yval_array(Array):
+    """An array of node descriptors."""
     _type_ = yval_t
     _length_ = 2
 
@@ -143,23 +168,32 @@ YVAL_MAPPING = 8
 # int32_t yices_has_mcsat(void)
 libyices.yices_has_mcsat.restype = c_int32
 def has_mcsat():
+    """Returns 1 if the yices library has mcsat support, 0 otherwise."""
     return libyices.yices_has_mcsat()
+
+########################################
+#  GLOBAL INITIALIZATION AND CLEANUP   #
+########################################
 
 
 # void yices_init(void)
 libyices.yices_init.restype = None
 def init():
+    """This function must be called before anything else to initialize internal data structures."""
     libyices.yices_init()
 
 # void yices_exit(void)
 libyices.yices_exit.restype = None
 def exit():
+    """Delete all internal data structures and objects - this must be called to avoid memory leaks."""
     libyices.yices_exit()
 
 # void yices_reset(void)
 libyices.yices_reset.restype = None
 def reset():
-    libyices.yices_exit()
+    """A full reset of all internal data structures (terms, types, symbol tables, contexts, models, ...)."""
+    libyices.yices_reset()
+#iam: copy and paste error???    libyices.yices_exit()
 
 # void yices_free_string(char*)
 # No API for this - the functions which return a C string (e.g., yices_error_string)
@@ -170,25 +204,35 @@ def reset():
 # CBFUNC = CFUNCTYPE(None)
 # libyices.yices_set_out_of_mem_callback.argtypes = [c_void_p]
 
+
+#######################
+#  ERROR REPORTING    #
+#######################
+
+
 # error_code_t yices_error_code(void)
 libyices.yices_error_code.restype = error_code_t
 def error_code():
+    """Get the last error code."""
     return libyices.yices_error_code()
 
 # error_report_t *yices_error_report(void)
 libyices.yices_error_report.restype = POINTER(error_report_t)
 def error_report():
+    """Get the last error report."""
     return libyices.yices_error_report().contents
 
 # void yices_clear_error(void)
 libyices.yices_clear_error.restype = None
 def clear_error():
+    """Clear the error report."""
     libyices.yices_clear_error()
 
 # int32_t yices_print_error_fd(int fd)
 libyices.yices_print_error_fd.restype = c_int32
 libyices.yices_print_error_fd.argtypes = [c_int]
 def print_error_fd(fd):
+    """Print an error message on file descriptor fd."""
     return libyices.yices_print_error_fd(fd)
 
 # char *yices_error_string(void)
@@ -196,60 +240,79 @@ def print_error_fd(fd):
 libyices.yices_error_string.restype = c_void_p
 libyices.yices_free_string.argtypes = [c_void_p]
 def error_string():
+    """Build a string from the current error code + error report structure."""
     cstrptr = libyices.yices_error_string()
     errstr = cast(cstrptr, c_char_p).value
     libyices.yices_free_string(cstrptr)
     return errstr
 
+#################################
+#   VECTORS OF TERMS AND TYPES  #
+#################################
+
+
 # void yices_init_term_vector(term_vector_t *v)
 libyices.yices_init_term_vector.restype = None
 libyices.yices_init_term_vector.argtypes = [POINTER(term_vector_t)]
 def init_term_vector(v):
+    """Before calling any function that fills in a term_vector the vector object must be initialized via init_term_vector."""
     libyices.yices_init_term_vector(pointer(v))
 
 # void yices_init_type_vector(type_vector_t *v)
 libyices.yices_init_type_vector.restype = None
 libyices.yices_init_type_vector.argtypes = [POINTER(type_vector_t)]
 def init_type_vector(v):
+    """Before calling any function that fills in a type_vector the vector object must be initialized via init_type_vector."""
     libyices.yices_init_type_vector(pointer(v))
 
 # void yices_delete_term_vector(term_vector_t *v)
 libyices.yices_delete_term_vector.restype = None
 libyices.yices_delete_term_vector.argtypes = [POINTER(term_vector_t)]
 def delete_term_vector(v):
+    """To prevent memory leaks, a term_vector must be deleted when no longer needed."""
     libyices.yices_delete_term_vector(pointer(v))
 
 # void yices_delete_type_vector(type_vector_t *v)
 libyices.yices_delete_type_vector.restype = None
 libyices.yices_delete_type_vector.argtypes = [POINTER(type_vector_t)]
 def delete_type_vector(v):
+    """To prevent memory leaks, a type_vector must be deleted when no longer needed."""
     libyices.yices_delete_type_vector(pointer(v))
 
 # void yices_reset_term_vector(term_vector_t *v)
 libyices.yices_reset_term_vector.restype = None
 libyices.yices_reset_term_vector.argtypes = [POINTER(term_vector_t)]
 def reset_term_vector(v):
+    """Reset: empty the vector (reset size to 0)."""
     libyices.yices_reset_term_vector(pointer(v))
 
 # void yices_reset_type_vector(type_vector_t *v)
 libyices.yices_reset_type_vector.restype = None
 libyices.yices_reset_type_vector.argtypes = [POINTER(type_vector_t)]
 def reset_type_vector(v):
+    """Reset: empty the vector (reset size to 0)."""
     libyices.yices_reset_type_vector(pointer(v))
+
+#######################
+#  TYPE CONSTRUCTORS  #
+#######################
 
 # type_t yices_bool_type(void)
 libyices.yices_bool_type.restype = type_t
 def bool_type():
+    """Returns the built-in bool type."""
     return libyices.yices_bool_type()
 
 # type_t yices_int_type(void)
 libyices.yices_int_type.restype = type_t
 def int_type():
+    """Returns the built-in int type."""
     return libyices.yices_int_type()
 
 # type_t yices_real_type(void)
 libyices.yices_real_type.restype = type_t
 def real_type():
+    """Returns the built-in real type."""
     return libyices.yices_real_type()
 
 # type_t yices_bv_type(uint32_t size)
@@ -257,6 +320,7 @@ libyices.yices_bv_type.restype = type_t
 libyices.yices_bv_type.argtypes = [c_uint32]
 @catch_error(-1)
 def bv_type(size):
+    """Returns the type of bitvectors of given size (number of bits), size > 0."""
     return libyices.yices_bv_type(size)
 
 # type_t yices_new_scalar_type(uint32_t card)
@@ -264,18 +328,21 @@ libyices.yices_new_scalar_type.restype = type_t
 libyices.yices_new_scalar_type.argtypes = [c_uint32]
 @catch_error(-1)
 def new_scalar_type(card):
+    """New scalar type of given cardinality, card > 0."""
     return libyices.yices_new_scalar_type(card)
 
 # type_t yices_new_uninterpreted_type(void)
 libyices.yices_new_uninterpreted_type.restype = type_t
 def new_uninterpreted_type():
+    """New uninterpreted type, no error report."""
     return libyices.yices_new_uninterpreted_type()
 
-tuple# type_t yices_tuple_type(uint32_t n, const type_t tau[])
+# type_t yices_tuple_type(uint32_t n, const type_t tau[])
 libyices.yices_tuple_type.restype = type_t
 libyices.yices_tuple_type.argtypes = [c_uint32, POINTER(type_t)]
 @catch_error(-1)
 def tuple_type(n, tau):
+    """Tuple type tau[0] x ... x tau[n-1], requires n> 0 and tau[0] ... tau[n-1] to be well defined types."""
     return libyices.yices_tuple_type(n, tau)
 
 # type_t yices_tuple_type1(type_t tau1)
@@ -283,6 +350,7 @@ libyices.yices_tuple_type1.restype = type_t
 libyices.yices_tuple_type1.argtypes = [type_t]
 @catch_error(-1)
 def tuple_type1(tau):
+    """For convenience: returns a unary tuple type, tau must be a valid type."""
     return libyices.yices_tuple_type1(tau)
 
 # type_t yices_tuple_type2(type_t tau1, type_t tau2)
@@ -290,6 +358,7 @@ libyices.yices_tuple_type2.restype = type_t
 libyices.yices_tuple_type2.argtypes = [type_t, type_t]
 @catch_error(-1)
 def tuple_type2(tau1, tau2):
+    """For convenience: returns a binary tuple type, tau1, tau2 must be a valid types."""
     return libyices.yices_tuple_type2(tau1, tau2)
 
 # type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3)
@@ -297,6 +366,7 @@ libyices.yices_tuple_type3.restype = type_t
 libyices.yices_tuple_type3.argtypes = [type_t, type_t, type_t]
 @catch_error(-1)
 def tuple_type3(tau1, tau2, tau3):
+    """For convenience: returns a ternary tuple type, tau1, tau2, tau3 must be a valid types."""
     return libyices.yices_tuple_type3(tau1, tau2, tau3)
 
 # type_t yices_function_type(uint32_t n, const type_t dom[], type_t range)
@@ -304,6 +374,7 @@ libyices.yices_function_type.restype = type_t
 libyices.yices_function_type.argtypes = [c_uint32, POINTER(type_t), type_t]
 @catch_error(-1)
 def function_type(n, dom, ran):
+    """Function type: dom[0] ... dom[n-1] -> ran, requires n>0, and dom[0] ... dom[n-1] and ran to be well defined."""
     return libyices.yices_function_type(n, dom, ran)
 
 # type_t yices_function_type1(type_t tau1, type_t range)
@@ -311,6 +382,7 @@ libyices.yices_function_type1.restype = type_t
 libyices.yices_function_type1.argtypes = [type_t, type_t]
 @catch_error(-1)
 def function_type1(tau1, ran):
+    """For convenience: returns the function type tau1 -> ran, tau1, ran must be a valid types."""
     return libyices.yices_function_type1(tau1, ran)
 
 # type_t yices_function_type2(type_t tau1, type_t tau2, type_t range)
@@ -318,6 +390,7 @@ libyices.yices_function_type2.restype = type_t
 libyices.yices_function_type2.argtypes = [type_t, type_t, type_t]
 @catch_error(-1)
 def function_type2(tau1, tau2, ran):
+    """For convenience: returns the function type tau1, tau2 -> ran, tau1, tau2, ran must be a valid types."""
     return libyices.yices_function_type2(tau1, tau2, ran)
 
 # type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range)
@@ -325,13 +398,19 @@ libyices.yices_function_type3.restype = type_t
 libyices.yices_function_type3.argtypes = [type_t, type_t, type_t, type_t]
 @catch_error(-1)
 def function_type3(tau1, tau2, tau3, ran):
+    """For convenience: returns the function type tau1, tau2, tau3 -> ran, tau1, tau2, tau3, ran must be a valid types."""
     return libyices.yices_function_type3(tau1, tau2, tau3, ran)
+
+#########################
+#   TYPE EXPLORATION    #
+#########################
 
 # int32_t yices_type_is_bool(type_t tau)
 libyices.yices_type_is_bool.restype = c_int32
 libyices.yices_type_is_bool.argtypes = [type_t]
 @catch_error(0)
 def type_is_bool(tau):
+    """Returns 1 if tau is the built-in bool type, 0 otherwise."""
     return libyices.yices_type_is_bool(tau)
 
 # int32_t yices_type_is_int(type_t tau)
@@ -339,6 +418,7 @@ libyices.yices_type_is_int.restype = c_int32
 libyices.yices_type_is_int.argtypes = [type_t]
 @catch_error(0)
 def type_is_int(tau):
+    """Returns 1 if tau is the built-in int type, 0 otherwise."""
     return libyices.yices_type_is_int(tau)
 
 # int32_t yices_type_is_real(type_t tau)
@@ -346,6 +426,7 @@ libyices.yices_type_is_real.restype = c_int32
 libyices.yices_type_is_real.argtypes = [type_t]
 @catch_error(0)
 def type_is_real(tau):
+    """Returns 1 if tau is the built-in real type, 0 otherwise."""
     return libyices.yices_type_is_real(tau)
 
 # int32_t yices_type_is_arithmetic(type_t tau)
@@ -353,6 +434,7 @@ libyices.yices_type_is_arithmetic.restype = c_int32
 libyices.yices_type_is_arithmetic.argtypes = [type_t]
 @catch_error(0)
 def type_is_arithmetic(tau):
+    """Returns 1 if tau is either the int or real type, 0 otherwise."""
     return libyices.yices_type_is_arithmetic(tau)
 
 # int32_t yices_type_is_bitvector(type_t tau)
@@ -360,6 +442,7 @@ libyices.yices_type_is_bitvector.restype = c_int32
 libyices.yices_type_is_bitvector.argtypes = [type_t]
 @catch_error(0)
 def type_is_bitvector(tau):
+    """Returns 1 if tau is a bitvector type, 0 otherwise."""
     return libyices.yices_type_is_bitvector(tau)
 
 # int32_t yices_type_is_tuple(type_t tau)
@@ -367,6 +450,7 @@ libyices.yices_type_is_tuple.restype = c_int32
 libyices.yices_type_is_tuple.argtypes = [type_t]
 @catch_error(0)
 def type_is_tuple(tau):
+    """Returns 1 if tau is a tuple type, 0 otherwise."""
     return libyices.yices_type_is_tuple(tau)
 
 # int32_t yices_type_is_function(type_t tau)
@@ -374,6 +458,7 @@ libyices.yices_type_is_function.restype = c_int32
 libyices.yices_type_is_function.argtypes = [type_t]
 @catch_error(0)
 def type_is_function(tau):
+    """Returns 1 if tau is a function type, 0 otherwise."""
     return libyices.yices_type_is_function(tau)
 
 # int32_t yices_type_is_scalar(type_t tau)
@@ -381,6 +466,7 @@ libyices.yices_type_is_scalar.restype = c_int32
 libyices.yices_type_is_scalar.argtypes = [type_t]
 @catch_error(0)
 def type_is_scalar(tau):
+    """Returns 1 if tau is a scalar type, 0 otherwise."""
     return libyices.yices_type_is_scalar(tau)
 
 # int32_t yices_type_is_uninterpreted(type_t tau)
@@ -388,6 +474,7 @@ libyices.yices_type_is_uninterpreted.restype = c_int32
 libyices.yices_type_is_uninterpreted.argtypes = [type_t]
 @catch_error(0)
 def type_is_uninterpreted(tau):
+    """Returns 1 if tau is a uninterpreted type, 0 otherwise."""
     return libyices.yices_type_is_uninterpreted(tau)
 
 # int32_t yices_test_subtype(type_t tau, type_t sigma)
@@ -395,6 +482,7 @@ libyices.yices_test_subtype.restype = c_int32
 libyices.yices_test_subtype.argtypes = [type_t, type_t]
 @catch_error(0)
 def test_subtype(tau, sigma):
+    """Returns 1 if tau is a subtype of sigma, 0 otherwise."""
     return libyices.yices_test_subtype(tau, sigma)
 
 # uint32_t yices_bvtype_size(type_t tau)
@@ -402,6 +490,7 @@ libyices.yices_bvtype_size.restype = c_uint32
 libyices.yices_bvtype_size.argtypes = [type_t]
 @catch_error(0)
 def bvtype_size(tau):
+    """Returns the number of bits for type tau, or 0 if there's and error."""
     return libyices.yices_bvtype_size(tau)
 
 # uint32_t yices_scalar_type_card(type_t tau)
@@ -409,6 +498,7 @@ libyices.yices_scalar_type_card.restype = c_uint32
 libyices.yices_scalar_type_card.argtypes = [type_t]
 @catch_error(0)
 def scalar_type_card(tau):
+    """Returns the cardinality of teh scalar tau, or 0 if there's and error."""
     return libyices.yices_scalar_type_card(tau)
 
 # int32_t yices_type_num_children(type_t tau)
@@ -416,6 +506,12 @@ libyices.yices_type_num_children.restype = c_int32
 libyices.yices_type_num_children.argtypes = [type_t]
 @catch_error(-1)
 def type_num_children(tau):
+    """Returns the number of children of type tau.
+
+     - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
+     - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
+     - if tau is any other type, returns 0
+    """
     return libyices.yices_type_num_children(tau)
 
 # type_t yices_type_child(type_t tau, int32_t i)
@@ -423,6 +519,7 @@ libyices.yices_type_child.restype = type_t
 libyices.yices_type_child.argtypes = [type_t, c_int32]
 @catch_error(-1)
 def type_child(tau, i):
+    """Returns the i-th child of type tau."""
     return libyices.yices_type_child(tau, i)
 
 # int32_t yices_type_children(type_t tau, type_vector_t *v)
@@ -430,16 +527,24 @@ libyices.yices_type_children.restype = c_int32
 libyices.yices_type_children.argtypes = [type_t, POINTER(type_vector_t)]
 @catch_error(-1)
 def type_children(tau, v):
+    """Collect all the children of type tau in vector v."""
     return libyices.yices_type_children(tau, v)
+
+
+########################
+#  TERM CONSTRUCTORS   #
+########################
 
 # term_t yices_true(void)
 libyices.yices_true.restype = term_t
 def true():
+    """Returns the true term."""
     return libyices.yices_true()
 
 # term_t yices_false(void)
 libyices.yices_false.restype = term_t
 def false():
+    """Returns the false term."""
     return libyices.yices_false()
 
 # term_t yices_constant(type_t tau, int32_t index)
@@ -447,6 +552,7 @@ libyices.yices_constant.restype = term_t
 libyices.yices_constant.argtypes = [type_t, c_int32]
 @catch_error(-1)
 def constant(tau, index):
+    """Returns the constant of type tau and id = index."""
     return libyices.yices_constant(tau, index)
 
 # term_t yices_new_uninterpreted_term(type_t tau)
@@ -454,6 +560,7 @@ libyices.yices_new_uninterpreted_term.restype = term_t
 libyices.yices_new_uninterpreted_term.argtypes = [type_t]
 @catch_error(-1)
 def new_uninterpreted_term(tau):
+    """Returns an uninterpreted term of type tau."""
     return libyices.yices_new_uninterpreted_term(tau)
 
 # term_t yices_new_variable(type_t tau)
@@ -461,6 +568,7 @@ libyices.yices_new_variable.restype = term_t
 libyices.yices_new_variable.argtypes = [type_t]
 @catch_error(-1)
 def new_variable(tau):
+    """Returns a newly created  variable of type tau."""
     return libyices.yices_new_variable(tau)
 
 # term_t yices_application(term_t fun, uint32_t n, const term_t arg[])
@@ -468,6 +576,7 @@ libyices.yices_application.restype = term_t
 libyices.yices_application.argtypes = [term_t, c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def application(fun, n, arg):
+    """Returns the application of an uninterpreted function to n arguments."""
     return libyices.yices_application(fun, n, arg)
 
 # term_t yices_application1(term_t fun, term_t arg1)
@@ -475,6 +584,7 @@ libyices.yices_application1.restype = term_t
 libyices.yices_application1.argtypes = [term_t, term_t]
 @catch_error(-1)
 def application1(fun, arg1):
+    """Returns the application of unary fun to arg1."""
     return libyices.yices_application1(fun, arg1)
 
 # term_t yices_application2(term_t fun, term_t arg1, term_t arg2)
@@ -482,6 +592,7 @@ libyices.yices_application2.restype = term_t
 libyices.yices_application2.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def application2(fun, arg1, arg2):
+    """Returns the application of binary fun to arg1 and arg2."""
     return libyices.yices_application2(fun, arg1, arg2)
 
 # term_t yices_application3(term_t fun, term_t arg1, term_t arg2, term_t arg3)
@@ -489,6 +600,7 @@ libyices.yices_application3.restype = term_t
 libyices.yices_application3.argtypes = [term_t, term_t, term_t, term_t]
 @catch_error(-1)
 def application3(fun, arg1, arg2, arg3):
+    """Returns the application of ternary fun to arg1, arg2 and arg3."""
     return libyices.yices_application3(fun, arg1, arg2, arg3)
 
 # term_t yices_ite(term_t cond, term_t then_term, term_t else_term)
@@ -496,6 +608,7 @@ libyices.yices_ite.restype = term_t
 libyices.yices_ite.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def ite(cond, then_term, else_term):
+    """Returns the if-then-else of the given cond and terms."""
     return libyices.yices_ite(cond, then_term, else_term)
 
 # term_t yices_eq(term_t left, term_t right)
@@ -503,6 +616,7 @@ libyices.yices_eq.restype = term_t
 libyices.yices_eq.argtypes = [term_t, term_t]
 @catch_error(-1)
 def eq(left, right):
+    """Returns the equality term of left and right."""
     return libyices.yices_eq(left, right)
 
 # term_t yices_neq(term_t left, term_t right)
@@ -510,6 +624,7 @@ libyices.yices_neq.restype = term_t
 libyices.yices_neq.argtypes = [term_t, term_t]
 @catch_error(-1)
 def neq(left, right):
+    """Returns the inequality term of left and right."""
     return libyices.yices_neq(left, right)
 
 # term_t yices_not(term_t arg)
@@ -517,6 +632,7 @@ libyices.yices_not.restype = term_t
 libyices.yices_not.argtypes = [term_t]
 @catch_error(-1)
 def not_(arg):
+    """Returns the negation term of arg."""
     return libyices.yices_not(arg)
 
 # term_t yices_or(uint32_t n, term_t arg[])
@@ -524,6 +640,7 @@ libyices.yices_or.restype = term_t
 libyices.yices_or.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def or_(n, arg):
+    """Returns (or  arg[0] ... arg[n-1])."""
     return libyices.yices_or(n, arg)
 
 # term_t yices_and(uint32_t n, term_t arg[])
@@ -531,6 +648,7 @@ libyices.yices_and.restype = term_t
 libyices.yices_and.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def and_(n, arg):
+    """Returns (and  arg[0] ... arg[n-1])."""
     return libyices.yices_and(n, arg)
 
 # term_t yices_xor(uint32_t n, term_t arg[])
@@ -538,6 +656,7 @@ libyices.yices_xor.restype = term_t
 libyices.yices_xor.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def xor(n, arg):
+    """Returns (and  arg[0] ... arg[n-1])."""
     return libyices.yices_xor(n, arg)
 
 # term_t yices_or2(term_t t1, term_t t2)
@@ -545,6 +664,7 @@ libyices.yices_or2.restype = term_t
 libyices.yices_or2.argtypes = [term_t, term_t]
 @catch_error(-1)
 def or2(t1, t2):
+    """Returns (or t1 t2)."""
     return libyices.yices_or2(t1, t2)
 
 # term_t yices_and2(term_t t1, term_t t2)
@@ -552,6 +672,7 @@ libyices.yices_and2.restype = term_t
 libyices.yices_and2.argtypes = [term_t, term_t]
 @catch_error(-1)
 def and2(t1, t2):
+    """Returns (and t1 t2)."""
     return libyices.yices_and2(t1, t2)
 
 # term_t yices_xor2(term_t t1, term_t t2)
@@ -559,6 +680,7 @@ libyices.yices_xor2.restype = term_t
 libyices.yices_xor2.argtypes = [term_t, term_t]
 @catch_error(-1)
 def xor2(t1, t2):
+    """Returns (xor t1 t2)."""
     return libyices.yices_xor2(t1, t2)
 
 # term_t yices_or3(term_t t1, term_t t2, term_t t3)
@@ -566,6 +688,7 @@ libyices.yices_or3.restype = term_t
 libyices.yices_or3.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def or3(t1, t2, t3):
+    """Returns (or t1 t2 t3)."""
     return libyices.yices_or3(t1, t2, t3)
 
 # term_t yices_and3(term_t t1, term_t t2, term_t t3)
@@ -573,6 +696,7 @@ libyices.yices_and3.restype = term_t
 libyices.yices_and3.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def and3(t1, t2, t3):
+    """Returns (and t1 t2 t3)."""
     return libyices.yices_and3(t1, t2, t3)
 
 # term_t yices_xor3(term_t t1, term_t t2, term_t t3)
@@ -580,6 +704,7 @@ libyices.yices_xor3.restype = term_t
 libyices.yices_xor3.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def xor3(t1, t2, t3):
+    """Returns (xor t1 t2 t3)."""
     return libyices.yices_xor3(t1, t2, t3)
 
 # term_t yices_iff(term_t left, term_t right)
@@ -587,6 +712,7 @@ libyices.yices_iff.restype = term_t
 libyices.yices_iff.argtypes = [term_t, term_t]
 @catch_error(-1)
 def iff(left, right):
+    """Returns (iff left right)."""
     return libyices.yices_iff(left, right)
 
 # term_t yices_implies(term_t left, term_t right)
@@ -594,6 +720,7 @@ libyices.yices_implies.restype = term_t
 libyices.yices_implies.argtypes = [term_t, term_t]
 @catch_error(-1)
 def implies(left, right):
+    """Returns (implies left right)."""
     return libyices.yices_implies(left, right)
 
 # term_t yices_tuple(uint32_t n, const term_t arg[])
@@ -601,6 +728,7 @@ libyices.yices_tuple.restype = term_t
 libyices.yices_tuple.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def tuple(n, arg):
+    """Returns (tuple  arg[0] ... arg[n-1])."""
     return libyices.yices_tuple(n, arg)
 
 # term_t yices_pair(term_t arg1, term_t arg2)
@@ -608,6 +736,7 @@ libyices.yices_pair.restype = term_t
 libyices.yices_pair.argtypes = [term_t, term_t]
 @catch_error(-1)
 def pair(arg1, arg2):
+    """Returns (tuple arg1 arg2)."""
     return libyices.yices_pair(arg1, arg2)
 
 # term_t yices_triple(term_t arg1, term_t arg2, term_t arg3)
@@ -615,6 +744,7 @@ libyices.yices_triple.restype = term_t
 libyices.yices_triple.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def triple(arg1, arg2, arg3):
+    """Returns (tuple arg1 arg2 arg3)."""
     return libyices.yices_triple(arg1, arg2, arg3)
 
 # term_t yices_select(uint32_t index, term_t tuple)
@@ -622,6 +752,7 @@ libyices.yices_select.restype = term_t
 libyices.yices_select.argtypes = [c_uint32, term_t]
 @catch_error(-1)
 def select(index, tup):
+    """Tuple projection, returns the index-th component of the tuple."""
     return libyices.yices_select(index, tup)
 
 # term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v)
@@ -629,6 +760,7 @@ libyices.yices_tuple_update.restype = term_t
 libyices.yices_tuple_update.argtypes = [term_t, c_uint32, term_t]
 @catch_error(-1)
 def tuple_update(tup, index, new_v):
+    """Tuple update, replaces the index-th component of tuple by new_v."""
     return libyices.yices_tuple_update(tup, index, new_v)
 
 # term_t yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v)
@@ -636,6 +768,7 @@ libyices.yices_update.restype = term_t
 libyices.yices_update.argtypes = [term_t, c_uint32, POINTER(term_t), term_t]
 @catch_error(-1)
 def update(fun, n, arg, new_v):
+    """Function update."""
     return libyices.yices_update(fun, n, arg, new_v)
 
 # term_t yices_update1(term_t fun, term_t arg1, term_t new_v)
@@ -643,6 +776,7 @@ libyices.yices_update1.restype = term_t
 libyices.yices_update1.argtypes = [term_t, term_t, term_t]
 @catch_error(-1)
 def update1(fun, arg1, new_v):
+    """Variant of update for n = 1."""
     return libyices.yices_update1(fun, arg1, new_v)
 
 # term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v)
@@ -650,6 +784,7 @@ libyices.yices_update2.restype = term_t
 libyices.yices_update2.argtypes = [term_t, term_t, term_t, term_t]
 @catch_error(-1)
 def update2(fun, arg1, arg2, new_v):
+    """Variant of update for n = 2."""
     return libyices.yices_update2(fun, arg1, arg2, new_v)
 
 # term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v)
@@ -657,6 +792,7 @@ libyices.yices_update3.restype = term_t
 libyices.yices_update3.argtypes = [term_t, term_t, term_t, term_t, term_t]
 @catch_error(-1)
 def update3(fun, arg1, arg2, arg3, new_v):
+    """Variant of update for n = 3."""
     return libyices.yices_update3(fun, arg1, arg2, arg3, new_v)
 
 # term_t yices_distinct(uint32_t n, term_t arg[])
@@ -664,6 +800,7 @@ libyices.yices_distinct.restype = term_t
 libyices.yices_distinct.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def distinct(n, arg):
+    """Returns (distinct arg[0] ... arg[n-1])."""
     return libyices.yices_distinct(n, arg)
 
 # term_t yices_forall(uint32_t n, term_t var[], term_t body)
@@ -671,6 +808,7 @@ libyices.yices_forall.restype = term_t
 libyices.yices_forall.argtypes = [c_uint32, POINTER(term_t), term_t]
 @catch_error(-1)
 def forall(n, var, body):
+    """Returns  (forall (var[0] ... var[n-1]) body)."""
     return libyices.yices_forall(n, var, body)
 
 # term_t yices_exists(uint32_t n, term_t var[], term_t body)
@@ -678,6 +816,7 @@ libyices.yices_exists.restype = term_t
 libyices.yices_exists.argtypes = [c_uint32, POINTER(term_t), term_t]
 @catch_error(-1)
 def exists(n, var, body):
+    """Returns  (exists (var[0] ... var[n-1]) body)."""
     return libyices.yices_exists(n, var, body)
 
 # term_t yices_lambda(uint32_t n, const term_t var[], term_t body)
@@ -685,7 +824,13 @@ libyices.yices_lambda.restype = term_t
 libyices.yices_lambda.argtypes = [c_uint32, POINTER(term_t), term_t]
 @catch_error(-1)
 def lambda_(n, var, body):
+    """Returns  (lambda (var[0] ... var[n-1]) body)."""
     return libyices.yices_lambda(n, var, body)
+
+
+###################################
+#  ARITHMETIC TERM CONSTRUCTORS   #
+###################################
 
 # term_t yices_zero(void)
 libyices.yices_zero.restype = term_t
@@ -981,6 +1126,13 @@ libyices.yices_arith_lt0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_lt0_atom(t):
     return libyices.yices_arith_lt0_atom(t)
+
+
+###################################
+#   BITVECTOR TERM CONSTRUCTORS   #
+###################################
+
+
 
 # term_t yices_bvconst_uint32(uint32_t n, uint32_t x)
 libyices.yices_bvconst_uint32.restype = term_t
@@ -1458,11 +1610,17 @@ libyices.yices_bvslt_atom.argtypes = [term_t, term_t]
 def bvslt_atom(t1, t2):
     return libyices.yices_bvslt_atom(t1, t2)
 
+
+################
+#  PARSING     #
+################
+
 # type_t yices_parse_type(const char *s)
 libyices.yices_parse_type.restype = type_t
 libyices.yices_parse_type.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_type(s):
+    """Returns the result of parsing s as a Yices type."""
     return libyices.yices_parse_type(s)
 
 # term_t yices_parse_term(const char *s)
@@ -1470,13 +1628,20 @@ libyices.yices_parse_term.restype = term_t
 libyices.yices_parse_term.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_term(s):
+    """Returns the result of parsing s as a Yices term."""
     return libyices.yices_parse_term(s)
+
+
+#####################
+#  SUBSTITUTIONS    #
+#####################
 
 # term_t yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t)
 libyices.yices_subst_term.restype = term_t
 libyices.yices_subst_term.argtypes = [c_uint32, POINTER(term_t), POINTER(term_t), term_t]
 @catch_error(-1)
 def subst_term(n, var, smap, t):
+    """Returns the result of applying the substitution defined by arrays var and smap to a term t."""
     return libyices.yices_subst_term(n, var, smap, t)
 
 # int32_t yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[])
@@ -1484,9 +1649,14 @@ libyices.yices_subst_term_array.restype = c_int32
 libyices.yices_subst_term_array.argtypes = [c_uint32, POINTER(term_t), POINTER(term_t), c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def subst_term_array(n, var, smap, m, t):
+    """Returns the result of applying the substitution to m terms in parallel."""
     return libyices.yices_subst_term_array(n, var, smap, m, t)
 
-# int32_t yices_set_type_name(type_t tau, const char *name)
+##############
+#  NAMES     #
+##############
+
+ # int32_t yices_set_type_name(type_t tau, const char *name)
 libyices.yices_set_type_name.restype = c_int32
 libyices.yices_set_type_name.argtypes = [type_t, c_char_p]
 @catch_error(-1)
@@ -1553,6 +1723,11 @@ libyices.yices_get_term_name.argtypes = [term_t]
 @catch_error(-1)
 def get_term_name(t):
     return libyices.yices_get_term_name(t)
+
+
+########################
+#   TERM EXPLORATION   #
+########################
 
 # type_t yices_type_of_term(term_t t)
 libyices.yices_type_of_term.restype = type_t
@@ -1757,6 +1932,11 @@ libyices.yices_product_component.argtypes = [term_t, c_int32, POINTER(term_t), P
 def product_component(t, i, term, exp):
     return libyices.yices_product_component(t, i, pointer(term), pointer(exp))
 
+##########################
+#  GARBAGE COLLECTION    #
+##########################
+
+
 # uint32_t yices_num_terms(void)
 libyices.yices_num_terms.restype = c_uint32
 @catch_error(-1)
@@ -1815,6 +1995,11 @@ libyices.yices_garbage_collect.argtypes = [POINTER(term_t), c_uint32, POINTER(ty
 def garbage_collect(t, nt, tau, ntau, keep_named):
     return libyices.yices_garbage_collect(t, nt, tau, ntau, keep_named)
 
+
+#############################
+#  CONTEXT CONFIGURATION    #
+#############################
+
 # ctx_config_t *yices_new_config(void)
 libyices.yices_new_config.restype = ctx_config_t
 @catch_error(-1)
@@ -1840,6 +2025,10 @@ libyices.yices_default_config_for_logic.argtypes = [ctx_config_t, c_char_p]
 @catch_error(-1)
 def default_config_for_logic(config, logic):
     return libyices.yices_default_config_for_logic(config, logic)
+
+#################
+#   CONTEXTS    #
+#################
 
 # context_t *yices_new_context(const ctx_config_t *config)
 libyices.yices_new_context.restype = context_t
@@ -1959,6 +2148,12 @@ libyices.yices_free_param_record.argtypes = [param_t]
 def free_param_record(param):
     libyices.yices_free_param_record(param)
 
+
+################
+#   MODELS     #
+################
+
+
 # model_t *yices_get_model(context_t *ctx, int32_t keep_subst)
 libyices.yices_get_model.restype = model_t
 libyices.yices_get_model.argtypes = [context_t, c_int32]
@@ -1981,6 +2176,12 @@ libyices.yices_model_from_map.argtypes = [c_uint32, POINTER(term_t), POINTER(ter
 @catch_error(-1)
 def model_from_map(n, var, mp):
     return libyices.yices_model_from_map(n, var, mp)
+
+
+########################
+#  VALUES IN A MODEL  #
+########################
+
 
 # int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val)
 libyices.yices_get_bool_value.restype = c_int32
@@ -2005,7 +2206,7 @@ def get_int64_value(mdl, t, val):
 
 # int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den)
 libyices.yices_get_rational32_value.restype = c_int32
-libyices.yices_get_rational32_value.argtypes = [model_t, term_t,  POINTER(c_int32), POINTER(c_uint32)]
+libyices.yices_get_rational32_value.argtypes = [model_t, term_t, POINTER(c_int32), POINTER(c_uint32)]
 @catch_error(-1)
 def get_rational32_value(mdl, t, num, den):
     return libyices.yices_get_rational32_value(mdl, t, num, den)
@@ -2294,6 +2495,11 @@ libyices.yices_generalize_model_array.argtypes = [model_t, c_uint32, POINTER(ter
 def generalize_model_array(mdl, n, a, nelims, elim, mode, v):
     return libyices.yices_generalize_model_array(mdl, n, a, nelims, elim, mode, v)
 
+########################
+#  PRETTY PRINTING     #
+########################
+
+
 # int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset)
 libyices.yices_pp_type_fd.restype = c_int32
 libyices.yices_pp_type_fd.argtypes = [c_int, type_t, c_uint32, c_uint32, c_uint32]
@@ -2360,44 +2566,50 @@ libyices.yices_model_to_string.restype = c_void_p
 libyices.yices_model_to_string.argtypes = [model_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def model_to_string(mdl, width, height, offset):
+    """Converts a model to a string using the pretty printer."""
     cstrptr = libyices.yices_model_to_string(mdl, width, height, offset)
     mdlstr = cast(cstrptr, c_char_p).value
     libyices.yices_free_string(cstrptr)
     return mdlstr
 
+
+#############################
+# Gnu  Multi Precision      #
+#############################
+
 # gmp support functions - note that gmp is included in the libyices.so file
 
 def new_mpz(val=None):
-    new_mpz = mpz_t()
-    libyices.__gmpz_init(byref(new_mpz))
+    new_mpz_ = mpz_t()
+    libyices.__gmpz_init(byref(new_mpz_))
     if val:
-        set_mpz(new_mpz, val)
-    return new_mpz
+        set_mpz(new_mpz_, val)
+    return new_mpz_
 
 def new_mpq(num=None, den=None):
-    new_mpq = mpq_t()
-    libyices.__gmpq_init(byref(new_mpq))
+    new_mpq_ = mpq_t()
+    libyices.__gmpq_init(byref(new_mpq_))
     if num:
         if den is None:
             raise TypeError('new_mpq: num and den must be given together')
-        set_mpq(new_mpq, num, den)
-    return new_mpq
+        set_mpq(new_mpq_, num, den)
+    return new_mpq_
 
-def set_mpz(mpz, val):
+def set_mpz(vmpz, val):
     if isinstance(val, basestring):
-        ret = libyices.__gmpz_set_str(byref(mpz), val, 0)
+        ret = libyices.__gmpz_set_str(byref(vmpz), val, 0)
         if ret == -1:
             raise TypeError('set_mpz: val is an invalid integer string: '
                             'should be decimal or start with 0x (hex), 0b (binary), or 0 (octal)')
     elif isinstance(val, (int, long)):
-        libyices.__gmpz_set_si(byref(mpz), val)
+        libyices.__gmpz_set_si(byref(vmpz), val)
     else:
         raise TypeError('set_mpz: val should be a string or integer')
 
-def set_mpq(mpq, num, den):
+def set_mpq(vmpq, num, den):
     if isinstance(num, basestring):
         if isinstance(den, basestring):
-            ret = libyices.__gmpq_set_str(byref(mpq), num +'/'+ den, 0)
+            ret = libyices.__gmpq_set_str(byref(vmpq), num +'/'+ den, 0)
             if ret == -1:
                 raise TypeError('set_mpq: num or den is an invalid integer string: '
                                 'should be decimal or start with 0x (hex), 0b (binary), or 0 (octal)')
@@ -2405,9 +2617,9 @@ def set_mpq(mpq, num, den):
             raise TypeError('set_mpq: num and den should both be strings or integers')
     elif isinstance(num, (int, long)):
         if isinstance(den, (int, long)):
-            libyices.__gmpq_set_si(byref(mpq), num, den)
+            libyices.__gmpq_set_si(byref(vmpq), num, den)
         else:
             raise TypeError('set_mpq: num and den should both be strings or integers')
     else:
         raise TypeError('set_mpq: num and den should both be strings or integers')
-    libyices.__gmpq_canonicalize(byref(mpq))
+    libyices.__gmpq_canonicalize(byref(vmpq))
