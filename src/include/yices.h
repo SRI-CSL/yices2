@@ -393,7 +393,7 @@ __YICES_DLLSPEC__ extern type_t yices_tuple_type3(type_t tau1, type_t tau2, type
  * Requires n>0, and dom[0] ... dom[n-1] and range to be well defined
  *
  * Error report
- * if n ==0,
+ * if n == 0,
  *   code = POS_INT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
@@ -2329,6 +2329,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *    YICES_BV_SGE_ATOM          signed bitvector comparison (t1 >= t2)
  *
  *    YICES_ARITH_GE_ATOM        arithmetic comparison (t1 >= t2)
+ *    YICES_ARITH_ROOT_ATOM      nonlinear arithmetic constraint
  *
  *   if t is a projection
  *

@@ -40,6 +40,15 @@ The following functions give access to the error report.
    variable *errno* and functions such as *perror* and relatives can
    be used for diagnostic.
 
+
+.. c:function:: int32_t yices_print_error(int fd)
+
+   This is a variant of the previous function that writes to file
+   descriptor *fd* instead of an output stream. The file must be open
+   and writable. All output will be appended at the end of the file.
+
+   The function returns -1 if there's an error or 0 otherwise.
+
 .. c:function:: char* yices_error_string(void)
 
    This function builds an error message from the current error

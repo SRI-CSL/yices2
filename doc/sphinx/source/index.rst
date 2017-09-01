@@ -23,6 +23,7 @@ API Reference
    :maxdepth: 2
 
    version-data
+   mcsat-support
    global-initialization
    out-of-memory
    hard-limits

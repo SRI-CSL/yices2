@@ -390,6 +390,21 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
 
 
 /*
+ * First and second child of a root atom
+ *
+ * Internally, a root atom is of the form  (x r root(k, p)) for root index k
+ * - where both x and p are terms
+ * - r is an binary comparison (i.e., ==, <, <=, >=, >, !=)
+ * - k is an index
+ *
+ * We return x as first child and p as second child
+ */
+static term_t arith_root_atom_child(const root_atom_t *a, uint32_t i) {
+  assert(a != NULL && i < 2);
+  return (i == 0) ? a->x : a->p;
+}
+
+/*
  * i-th child of term t:
  * - t must be valid term in table
  * - t must be a composite term
@@ -421,6 +436,14 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
     case ARITH_ABS:
       assert(i == 0);
       result = unary_term_arg(table, t);
+      break;
+
+    case ARITH_ROOT_ATOM:
+      // internally, these are terms of the form x r p for root index k
+      // to be uniform, we report them as binary operators
+      // x is the first child
+      // p is the second child
+      result = arith_root_atom_child(arith_root_atom_desc(table, t), i);
       break;
 
     default:
