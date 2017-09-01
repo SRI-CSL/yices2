@@ -2707,6 +2707,17 @@ libyices.yices_pp_type_fd.restype = c_int32
 libyices.yices_pp_type_fd.argtypes = [c_int, type_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def pp_type_fd(fd, tau, width, height, offset):
+    """Pretty print the type tau to the file descriptor fd, returning 0 on success, -1 on failure.
+
+                     <----------- width ------------->
+                      _______________________________
+    <---- offset --->|                               |   ^
+                     |                               |   |
+                     |                               | Height
+                     |                               |   |
+                     |                               |   v
+                      -------------------------------
+    """
     return libyices.yices_pp_type_fd(fd, tau, width, height, offset)
 
 # int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset)
@@ -2714,6 +2725,17 @@ libyices.yices_pp_term_fd.restype = c_int32
 libyices.yices_pp_term_fd.argtypes = [c_int, term_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def pp_term_fd(fd, t, width, height, offset):
+    """Pretty print the term t to the file descriptor fd, returning 0 on success, -1 on failure.
+
+                     <----------- width ------------->
+                      _______________________________
+    <---- offset --->|                               |   ^
+                     |                               |   |
+                     |                               | Height
+                     |                               |   |
+                     |                               |   v
+                      -------------------------------
+    """
     return libyices.yices_pp_term_fd(fd, t, width, height, offset)
 
 # int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
@@ -2722,6 +2744,7 @@ libyices.yices_pp_term_array_fd.restype = c_int32
 libyices.yices_pp_term_array_fd.argtypes = [c_int, c_uint32, POINTER(term_t), c_uint32, c_uint32, c_uint32, c_int32]
 @catch_error(-1)
 def pp_term_array_fd(fd, n, a, width, height, offset, horiz):
+    """Pretty print an array of terms."""
     return libyices.yices_pp_term_array_fd(fd, n, a, width, height, offset, horiz)
 
 # void yices_print_model_fd(int fd, model_t *mdl)
@@ -2729,6 +2752,7 @@ libyices.yices_print_model_fd.restype = c_int32
 libyices.yices_print_model_fd.argtypes = [c_int, model_t]
 @catch_error(-1)
 def print_model_fd(fd, mdl):
+    """Print a model."""
     return libyices.yices_print_model_fd(fd, mdl)
 
 
@@ -2737,6 +2761,7 @@ libyices.yices_pp_model_fd.restype = c_int32
 libyices.yices_pp_model_fd.argtypes = [c_int, model_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def pp_model_fd(fd, mdl, width, height, offset):
+    """Pretty print an model."""
     return libyices.yices_pp_model_fd(fd, mdl, width, height, offset)
 
 # char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset)
@@ -2745,6 +2770,7 @@ libyices.yices_type_to_string.restype = c_void_p
 libyices.yices_type_to_string.argtypes = [type_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def type_to_string(tau, width, height, offset):
+    """Convert a type tau to a string using the pretty printer."""
     cstrptr = libyices.yices_type_to_string(tau, width, height, offset)
     typestr = cast(cstrptr, c_char_p).value
     libyices.yices_free_string(cstrptr)
@@ -2756,6 +2782,7 @@ libyices.yices_term_to_string.restype = c_void_p
 libyices.yices_term_to_string.argtypes = [term_t, c_uint32, c_uint32, c_uint32]
 @catch_error(-1)
 def term_to_string(t, width, height, offset):
+    """Convert a term t to a string using the pretty printer."""
     cstrptr = libyices.yices_term_to_string(t, width, height, offset)
     termstr = cast(cstrptr, c_char_p).value
     libyices.yices_free_string(cstrptr)
