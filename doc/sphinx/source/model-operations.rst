@@ -344,6 +344,61 @@ Atomic Values
    header file :file:`gmp.h` is included before :file:`yices.h`.
 
 
+.. c:function:: int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a)
+
+   Value as an algebraic number.
+
+   This function stores *t*'s value in the structure *\*a*.  The type `lp_algebraic_number_t` is defined in the `libpoly
+   <https://github.com/SRI-CSL/libpoly>`_ library, and represents an
+   algebraic number.
+
+   This function fails if *t*'s value cannot be computed, or if it is not an algebraic number.
+   It will also fail if the Yices library was compiled without support for MCSAT (cf. :ref:`mcsat_support`).
+
+   **Error report**
+
+   - If MCSAT is not supported:
+
+     -- error code: :c:enum:`EVAL_NOT_SUPPORTED`
+
+   - If *t* is not an arithmetic term:
+
+     -- error code: :c:enum:`ARITH_TERM_REQUIRED`
+
+   - If *t* is an arithmetic term and has a rational value (i.e., not
+     an algebraic number):
+
+     -- error code: :c:enum:`EVAL_CONVERSION_FAILED`
+
+   **Note**
+   
+   This function is not declared unless you include the libpoly header 
+   :file:`algebraic_number.h` before :file:`yices.h` in your code::
+
+         #include <poly/algebraic_number.h>
+         #include <yices.h>
+
+
+   **Example**
+
+   The following code fragment prints the value of a term *t*, using
+   libpoly's functions. This works if *t* has an algebraic value in model *mdl*::
+
+     static void show_algebraic_value(model_t *mdl, term_t t) {
+       lp_algebraic_number_t n;
+       int32_t code;
+
+       code = yices_get_algebraic_number_value(mdl, t, &n);
+       if (code < 0) {
+         yices_print_error(stderr);
+       } else {
+         lp_algebraic_number_print(&n, stdout);
+         fflush(stdout);
+         lp_algebraic_number_destruct(&n);
+       }
+     }
+   
+
 .. c:function:: int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[])
 
    Value of a bitvector term.
@@ -451,7 +506,9 @@ Leaf nodes represent atomic values. They can have the following tags:
 
    - :c:enum:`YVAL_BOOL`: Boolean value
 
-   - :c:enum:`YVAL_RATIONAL`: Rational or integer constants
+   - :c:enum:`YVAL_RATIONAL`: Rational or integer constant
+
+   - :c:enum:`YVAL_ALGEBRAIC`: Algebraic number
 
    - :c:enum:`YVAL_BV`: Bitvector constant
 
@@ -697,10 +754,11 @@ the children of non-leaf nodes.
    Node value as a floating-point number.
 
    This function checks whether node *\*v* has tag
-   :c:enum:`YVAL_RATIONAL`. If so it converts the node's value to a
-   double-precision floating point number and stores it in *\*val*.
-   The function returns 0 in this case, If *\*v* has a different tag,
-   the function returns -1 and leaves *\*double* unchanged.
+   :c:enum:`YVAL_RATIONAL` or :c:enum:`YVAL_ALGEBRAIC`. If so it
+   converts the node's value to a double-precision floating point
+   number and stores it in *\*val*.  The function returns 0 in this
+   case, If *\*v* has a different tag, the function returns -1 and
+   leaves *\*val* unchanged.
 
    **Error report**
 
@@ -758,6 +816,37 @@ the children of non-leaf nodes.
 
    This function is not declared unless you include :file:`gmp.h`
    before :file:`yices.h` in your code.
+
+
+.. c:function:: int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a)
+
+   Node value as an algebraic number.
+
+   This function checks whether node *v* has tag :c:enum:`YVAL_ALGEBRAIC`. If so,
+   it copies the node's value in the structure *\*a* and returns 0. Otherwise,
+   it leaves the structure unchanged and returns -1.
+
+   This function fails if the Yices library was compiled without
+   support for MCSAT (cf. :ref:`mcsat_support`).
+
+   **Error report**
+
+   - If MCSAT is not supported:
+
+     -- error code: :c:enum:`YVAL_NOT_SUPPORTED`
+
+   - If MCSAT is supported but the node does not have tag :c:enum:`YVAL_ALGEBRAIC`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   **Note**
+   
+   This function is not declared unless you include the libpoly header 
+   :file:`algebraic_number.h` before :file:`yices.h` in your code::
+
+         #include <poly/algebraic_number.h>
+         #include <yices.h>
+
 
 
 .. c:function:: int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[])
