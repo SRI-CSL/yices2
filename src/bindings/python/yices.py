@@ -1661,25 +1661,29 @@ libyices.yices_set_type_name.restype = c_int32
 libyices.yices_set_type_name.argtypes = [type_t, c_char_p]
 @catch_error(-1)
 def set_type_name(tau, name):
+    """Attaches the name to the type tau, for subsequent retrieval."""
     return libyices.yices_set_type_name(tau, name)
 
 # int32_t yices_set_term_name(term_t t, const char *name)
 libyices.yices_set_term_name.restype = c_int32
 libyices.yices_set_term_name.argtypes = [type_t, c_char_p]
 @catch_error(-1)
-def set_term_name(tau, name):
-    return libyices.yices_set_term_name(tau, name)
+def set_term_name(t, name):
+    """Attaches the name to the term t, for subsequent retrieval."""
+    return libyices.yices_set_term_name(t, name)
 
 # void yices_remove_type_name(const char *name)
 libyices.yices_remove_type_name.argtypes = [c_char_p]
 @catch_error(-1)
 def remove_type_name(name):
+    """Removes the name from its attachment to the type."""
     libyices.yices_remove_type_name(name)
 
 # void yices_remove_term_name(const char *name)
 libyices.yices_remove_term_name.argtypes = [c_char_p]
 @catch_error(-1)
 def remove_term_name(name):
+    """Removes the name from its attachment to the term."""
     libyices.yices_remove_term_name(name)
 
 # type_t yices_get_type_by_name(const char *name)
@@ -1687,6 +1691,7 @@ libyices.yices_get_type_by_name.restype = type_t
 libyices.yices_get_type_by_name.argtypes = [c_char_p]
 @catch_error(-1)
 def get_type_by_name(name):
+    """Retrieves the type named by name."""
     return libyices.yices_get_type_by_name(name)
 
 # term_t yices_get_term_by_name(const char *name)
@@ -1694,6 +1699,7 @@ libyices.yices_get_term_by_name.restype = term_t
 libyices.yices_get_term_by_name.argtypes = [c_char_p]
 @catch_error(-1)
 def get_term_by_name(name):
+    """Retrieves the term named by name."""
     return libyices.yices_get_term_by_name(name)
 
 # int32_t yices_clear_type_name(type_t tau)
@@ -1701,6 +1707,7 @@ libyices.yices_clear_type_name.restype = c_int32
 libyices.yices_clear_type_name.argtypes = [type_t]
 @catch_error(-1)
 def clear_type_name(tau):
+    """Removes any name attached to the type tau."""
     return libyices.yices_clear_type_name(tau)
 
 # int32_t yices_clear_term_name(term_t t)
@@ -1708,6 +1715,7 @@ libyices.yices_clear_term_name.restype = c_int32
 libyices.yices_clear_term_name.argtypes = [term_t]
 @catch_error(-1)
 def clear_term_name(t):
+    """Removes any name attached to the term tau."""
     return libyices.yices_clear_term_name(t)
 
 # const char *yices_get_type_name(type_t tau)
@@ -1715,6 +1723,7 @@ libyices.yices_get_type_name.restype = c_char_p
 libyices.yices_get_type_name.argtypes = [type_t]
 @catch_error(-1)
 def get_type_name(tau):
+    """Retrieves the name attached to the type tau."""
     return libyices.yices_get_type_name(tau)
 
 # const char *yices_get_term_name(term_t t)
@@ -1722,6 +1731,7 @@ libyices.yices_get_term_name.restype = c_char_p
 libyices.yices_get_term_name.argtypes = [term_t]
 @catch_error(-1)
 def get_term_name(t):
+    """Retrieves the name attached to the term t."""
     return libyices.yices_get_term_name(t)
 
 
@@ -1734,6 +1744,7 @@ libyices.yices_type_of_term.restype = type_t
 libyices.yices_type_of_term.argtypes = [term_t]
 @catch_error(-1)
 def type_of_term(t):
+    """Returns the type of the term t, or NULL_TYPE if t is not a valid term."""
     return libyices.yices_type_of_term(t)
 
 # int32_t yices_term_is_bool(term_t t)
@@ -1741,6 +1752,7 @@ libyices.yices_term_is_bool.restype = c_int32
 libyices.yices_term_is_bool.argtypes = [term_t]
 @catch_error(0)
 def term_is_bool(t):
+    """Returns 1 if t has type bool, 0 otherwise."""
     return libyices.yices_term_is_bool(t)
 
 # int32_t yices_term_is_int(term_t t)
@@ -1748,6 +1760,7 @@ libyices.yices_term_is_int.restype = c_int32
 libyices.yices_term_is_int.argtypes = [term_t]
 @catch_error(0)
 def term_is_int(t):
+    """Returns 1 if t has type int, 0 otherwise."""
     return libyices.yices_term_is_int(t)
 
 # int32_t yices_term_is_real(term_t t)
@@ -1755,6 +1768,7 @@ libyices.yices_term_is_real.restype = c_int32
 libyices.yices_term_is_real.argtypes = [term_t]
 @catch_error(0)
 def term_is_real(t):
+    """Returns 1 if t has type real, 0 otherwise."""
     return libyices.yices_term_is_real(t)
 
 # int32_t yices_term_is_arithmetic(term_t t)
@@ -1762,6 +1776,7 @@ libyices.yices_term_is_arithmetic.restype = c_int32
 libyices.yices_term_is_arithmetic.argtypes = [term_t]
 @catch_error(0)
 def term_is_arithmetic(t):
+    """Returns 1 if t has type real or int, 0 otherwise."""
     return libyices.yices_term_is_arithmetic(t)
 
 # int32_t yices_term_is_bitvector(term_t t)
@@ -1769,6 +1784,7 @@ libyices.yices_term_is_bitvector.restype = c_int32
 libyices.yices_term_is_bitvector.argtypes = [term_t]
 @catch_error(0)
 def term_is_bitvector(t):
+    """Returns 1 if t is a bitvector, 0 otherwise."""
     return libyices.yices_term_is_bitvector(t)
 
 # int32_t yices_term_is_tuple(term_t t)
@@ -1776,6 +1792,7 @@ libyices.yices_term_is_tuple.restype = c_int32
 libyices.yices_term_is_tuple.argtypes = [term_t]
 @catch_error(0)
 def term_is_tuple(t):
+    """Returns 1 if t is a tuple, 0 otherwise."""
     return libyices.yices_term_is_tuple(t)
 
 # int32_t yices_term_is_function(term_t t)
@@ -1783,6 +1800,7 @@ libyices.yices_term_is_function.restype = c_int32
 libyices.yices_term_is_function.argtypes = [term_t]
 @catch_error(0)
 def term_is_function(t):
+    """Returns 1 if t is a function, 0 otherwise."""
     return libyices.yices_term_is_function(t)
 
 # int32_t yices_term_is_scalar(term_t t)
@@ -1790,6 +1808,7 @@ libyices.yices_term_is_scalar.restype = c_int32
 libyices.yices_term_is_scalar.argtypes = [term_t]
 @catch_error(0)
 def term_is_scalar(t):
+    """Returns 1 if t is a scalar, 0 otherwise."""
     return libyices.yices_term_is_scalar(t)
 
 # uint32_t yices_term_bitsize(term_t t)
@@ -1797,6 +1816,7 @@ libyices.yices_term_bitsize.restype = c_uint32
 libyices.yices_term_bitsize.argtypes = [term_t]
 @catch_error(0)
 def term_bitsize(t):
+    """Returns the bitsize of the bitvector t, 0 if tehre is an error."""
     return libyices.yices_term_bitsize(t)
 
 # int32_t yices_term_is_ground(term_t t)
@@ -1804,6 +1824,7 @@ libyices.yices_term_is_ground.restype = c_int32
 libyices.yices_term_is_ground.argtypes = [term_t]
 @catch_error(0)
 def term_is_ground(t):
+    """Returns 1 if t is ground (i.e. has no free variables), 0 otherwise."""
     return libyices.yices_term_is_ground(t)
 
 # int32_t yices_term_is_atomic(term_t t)
@@ -1811,6 +1832,7 @@ libyices.yices_term_is_atomic.restype = c_int32
 libyices.yices_term_is_atomic.argtypes = [term_t]
 @catch_error(0)
 def term_is_atomic(t):
+    """Returns 1 if t is atomic (i.e. has no subterms), 0 otherwise."""
     return libyices.yices_term_is_atomic(t)
 
 # int32_t yices_term_is_composite(term_t t)
@@ -1825,6 +1847,7 @@ libyices.yices_term_is_projection.restype = c_int32
 libyices.yices_term_is_projection.argtypes = [term_t]
 @catch_error(0)
 def term_is_projection(t):
+    """Returns 1 if t is a projection (i.e. is of the form (select i t) or (bit i t)), 0 otherwise."""
     return libyices.yices_term_is_projection(t)
 
 # int32_t yices_term_is_sum(term_t t)
@@ -1832,6 +1855,7 @@ libyices.yices_term_is_sum.restype = c_int32
 libyices.yices_term_is_sum.argtypes = [term_t]
 @catch_error(0)
 def term_is_sum(t):
+    """Returns 1 if t is a sum (i.e. is of the form (a_0 t_0 + ... + a_n t_n) where the a_i are rational, and t_i are arithmetic), 0 otherwise."""
     return libyices.yices_term_is_sum(t)
 
 # int32_t yices_term_is_bvsum(term_t t)
@@ -1839,6 +1863,7 @@ libyices.yices_term_is_bvsum.restype = c_int32
 libyices.yices_term_is_bvsum.argtypes = [term_t]
 @catch_error(-1)
 def term_is_bvsum(t):
+    """Returns 1 if t is a bvsum (i.e. is of the form (a_0 t_0 + ... + a_n t_n) where the a_i are bitvector constants, and t_i are bitvectors), 0 otherwise."""
     return libyices.yices_term_is_bvsum(t)
 
 # int32_t yices_term_is_product(term_t t)
@@ -1846,6 +1871,7 @@ libyices.yices_term_is_product.restype = c_int32
 libyices.yices_term_is_product.argtypes = [term_t]
 @catch_error(-1)
 def term_is_product(t):
+    """Returns 1 if t is a product (i.e. is of the form (t_0^d_0 x ... x t_n ^d_n) where the p_i are positive exponents, and t_i are ALL arithmetic or ALL bitvector), 0 otherwise."""
     return libyices.yices_term_is_product(t)
 
 # term_constructor_t yices_term_constructor(term_t t)
@@ -1853,6 +1879,7 @@ libyices.yices_term_constructor.restype = term_constructor_t
 libyices.yices_term_constructor.argtypes = [term_t]
 @catch_error(-1)
 def term_constructor(t):
+    """Returns the constructor of the composite term t, or a negative number otherwise."""
     return libyices.yices_term_constructor(t)
 
 # int32_t yices_term_num_children(term_t t)
@@ -1860,6 +1887,14 @@ libyices.yices_term_num_children.restype = c_int32
 libyices.yices_term_num_children.argtypes = [term_t]
 @catch_error(-1)
 def term_num_children(t):
+    """Returns the number of children of the composite term t, or a -1 if there is an error.
+
+       - for atomic terms, returns 0
+       - for composite terms, returns the number of children
+       - for projections, returns 1
+       - for sums, returns the number of summands
+       - for products, returns the number of factors
+    """
     return libyices.yices_term_num_children(t)
 
 # term_t yices_term_child(term_t t, int32_t i)
@@ -1867,6 +1902,7 @@ libyices.yices_term_child.restype = term_t
 libyices.yices_term_child.argtypes = [term_t, c_int32]
 @catch_error(-1)
 def term_child(t, i):
+    """Returns the i-th child of the composite term t, or a NULL_TERM if there is an error."""
     return libyices.yices_term_child(t, i)
 
 # int32_t yices_proj_index(term_t t)
@@ -1874,6 +1910,7 @@ libyices.yices_proj_index.restype = c_int32
 libyices.yices_proj_index.argtypes = [term_t]
 @catch_error(-1)
 def proj_index(t):
+    """Returns the index of the projection t."""
     return libyices.yices_proj_index(t)
 
 # term_t yices_proj_arg(term_t t)
@@ -1881,6 +1918,7 @@ libyices.yices_proj_arg.restype = term_t
 libyices.yices_proj_arg.argtypes = [term_t]
 @catch_error(-1)
 def proj_arg(t):
+    """Returns the argument of the projection t."""
     return libyices.yices_proj_arg(t)
 
 # int32_t yices_bool_const_value(term_t t, int32_t *val)
@@ -1888,6 +1926,7 @@ libyices.yices_bool_const_value.restype = c_int32
 libyices.yices_bool_const_value.argtypes = [term_t, POINTER(c_int32)]
 @catch_error(-1)
 def bool_const_value(t, val):
+    """Stores the value of the constant bool term t in val, returning 0 if successful, -1 otherwise."""
     return libyices.yices_bool_const_value(t, val)
 
 # int32_t yices_bv_const_value(term_t t, int32_t val[])
@@ -1895,6 +1934,7 @@ libyices.yices_bv_const_value.restype = c_int32
 libyices.yices_bv_const_value.argtypes = [term_t, POINTER(c_int32)]
 @catch_error(-1)
 def bv_const_value(t, val):
+    """Stores the value of the constant bitvector term t in val, returning 0 if successful, -1 otherwise."""
     return libyices.yices_bv_const_value(t, val)
 
 # int32_t yices_scalar_const_value(term_t t, int32_t *val)
@@ -1902,6 +1942,7 @@ libyices.yices_scalar_const_value.restype = c_int32
 libyices.yices_scalar_const_value.argtypes = [term_t, POINTER(c_int32)]
 @catch_error(-1)
 def scalar_const_value(t, val):
+    """Stores the value of the constant scalar term t in val, returning 0 if successful, -1 otherwise."""
     return libyices.yices_scalar_const_value(t, val)
 
 # int32_t yices_rational_const_value(term_t t, mpq_t q)
@@ -1909,6 +1950,7 @@ libyices.yices_rational_const_value.restype = c_int32
 libyices.yices_rational_const_value.argtypes = [term_t, POINTER(mpq_t)]
 @catch_error(-1)
 def rational_const_value(t, q):
+    """Stores the value of the constant rational term t in val, returning 0 if successful, -1 otherwise."""
     return libyices.yices_rational_const_value(t, q)
 
 # int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
@@ -1916,6 +1958,7 @@ libyices.yices_sum_component.restype = c_int32
 libyices.yices_sum_component.argtypes = [term_t, c_int32, POINTER(mpq_t), POINTER(term_t)]
 @catch_error(-1)
 def sum_component(t, i, coeff, term):
+    """Stores the coefficient and the term t in the passed in arguments, returning 0 if successful, -1 otherwise."""
     return libyices.yices_sum_component(t, i, byref(coeff), byref(term))
 
 # int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
@@ -1923,6 +1966,7 @@ libyices.yices_bvsum_component.restype = c_int32
 libyices.yices_bvsum_component.argtypes = [term_t, c_int32, POINTER(c_int32), POINTER(term_t)]
 @catch_error(-1)
 def bvsum_component(t, i, val, term):
+    """Stores the coefficient and the term t in the passed in arguments, returning 0 if successful, -1 otherwise."""
     return libyices.yices_bvsum_component(t, i, byref(val), pointer(term))
 
 # int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp)
@@ -1930,6 +1974,7 @@ libyices.yices_product_component.restype = c_int32
 libyices.yices_product_component.argtypes = [term_t, c_int32, POINTER(term_t), POINTER(c_int32)]
 @catch_error(-1)
 def product_component(t, i, term, exp):
+    """Stores the exponent and the term t in the passed in arguments, returning 0 if successful, -1 otherwise."""
     return libyices.yices_product_component(t, i, pointer(term), pointer(exp))
 
 ##########################
