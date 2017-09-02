@@ -20,10 +20,12 @@ it might be better to maintain the exact matching with yices.h
 iam: What about constants like NULL_TERM?
 iam: If we remove the gmp stuff how do we maniuplate the mpz and mpq thingies?
 
+iam: need to isolate and load the gmp stuff into a separate language binding.
 '''
 from __future__ import with_statement
 import sys
 from functools import wraps
+
 from ctypes import (
     Array,
     byref,
@@ -45,6 +47,7 @@ from ctypes import (
     Structure
     )
 
+from ctypes.util import find_library
 
 class YicesException(Exception):
     """Base class for exceptions from Yices."""
@@ -63,20 +66,29 @@ def catch_error(errval):
         return wrapper
     return decorator
 
+libyicespath = find_library("yices")
+libyices = None
 
-lib = "libyice.so"
 
-if sys.platform == 'darwin':
-    #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
-    lib = "libyices.dylib"
-elif sys.platform == 'cygwin':
-    lib = "cygyices.dll"
-elif sys.platform == 'linux2':
-    lib = "libyices.so"
+if libyicespath is not None:
+    sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
+    libyices = CDLL(libyicespath)
 else:
-    raise YicesException("Unsupported Platform: {0}".format(sys.platform))
+    raise YicesException("Yices dynamic library not found.")
 
-libyices = CDLL(lib)
+#lib = "libyice.so"
+#
+#if sys.platform == 'darwin':
+#    #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
+#    lib = "libyices.dylib"
+#elif sys.platform == 'cygwin':
+#    lib = "cygyices.dll"
+#elif sys.platform == 'linux2':
+#    lib = "libyices.so"
+#else:
+#    raise YicesException("Unsupported Platform: {0}".format(sys.platform))
+#
+#libyices = CDLL(lib)
 
 # From yices_types.h
 
