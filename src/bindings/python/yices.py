@@ -76,20 +76,6 @@ if libyicespath is not None:
 else:
     raise YicesException("Yices dynamic library not found.")
 
-#lib = "libyice.so"
-#
-#if sys.platform == 'darwin':
-#    #set DYLD_LIBRARY_PATH to point to the directory with libyices.dylib
-#    lib = "libyices.dylib"
-#elif sys.platform == 'cygwin':
-#    lib = "cygyices.dll"
-#elif sys.platform == 'linux2':
-#    lib = "libyices.so"
-#else:
-#    raise YicesException("Unsupported Platform: {0}".format(sys.platform))
-#
-#libyices = CDLL(lib)
-
 # From yices_types.h
 
 error_code_t = c_uint32 # an enum type, in yices_types.h
@@ -865,18 +851,21 @@ def lambda_(n, var, body):
 # term_t yices_zero(void)
 libyices.yices_zero.restype = term_t
 def zero():
+    """Returns the yices term for zero."""
     return libyices.yices_zero()
 
 # term_t yices_int32(int32_t val)
 libyices.yices_int32.restype = term_t
 libyices.yices_int32.argtypes = [c_int32]
 def int32(val):
+    """Returns a constant term for the given 32 bit int."""
     return libyices.yices_int32(val)
 
 # term_t yices_int64(int64_t val)
 libyices.yices_int64.restype = term_t
 libyices.yices_int64.argtypes = [c_int64]
 def int64(val):
+    """Returns a constant term for the given 64 bit int."""
     return libyices.yices_int64(val)
 
 # term_t yices_rational32(int32_t num, uint32_t den)
@@ -884,6 +873,16 @@ libyices.yices_rational32.restype = term_t
 libyices.yices_rational32.argtypes = [c_int32, c_int32]
 @catch_error(-1)
 def rational32(num, den):
+    """Returns a constant rational term from the given 32 bit numerator and denominator.
+
+    rational32(num, den):
+    - den must be non-zero
+    - common factors are removed
+
+    Error report:
+    if den is zero
+    code = DIVISION_BY_ZERO
+    """
     return libyices.yices_rational32(num, den)
 
 # term_t yices_rational64(int64_t num, uint64_t den)
@@ -891,25 +890,53 @@ libyices.yices_rational64.restype = term_t
 libyices.yices_rational64.argtypes = [c_int64, c_int64]
 @catch_error(-1)
 def rational64(num, den):
+    """Returns a constant rational term from the given 64 bit numerator and denominator.
+
+    rational32(num, den):
+    - den must be non-zero
+    - common factors are removed
+
+    Error report:
+    if den is zero
+    code = DIVISION_BY_ZERO
+    """
     return libyices.yices_rational64(num, den)
 
 # term_t yices_mpz(const mpz_t z)
 libyices.yices_mpz.restype = term_t
 libyices.yices_mpz.argtypes = [POINTER(mpz_t)]
 def mpz(z):
+    """Returns the constant term from the given GMP integer."""
     return libyices.yices_mpz(z)
 
 # term_t yices_mpq(const mpq_t q)
 libyices.yices_mpq.restype = term_t
 libyices.yices_mpq.argtypes = [POINTER(mpq_t)]
 def mpq(q):
+    """Returns the constant term from the given GMP rational, which must be canonicalized."""
     return libyices.yices_mpq(q)
+
 
 # term_t yices_parse_rational(const char *s)
 libyices.yices_parse_rational.restype = term_t
 libyices.yices_parse_rational.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_rational(s):
+    """Converts a string to a rational or integer term.
+
+    The string format is
+        <optional_sign> <numerator>/<denominator>
+     or <optional_sign> <numerator>
+
+    where <optional_sign> is + or - or nothing
+    <numerator> and <denominator> are sequences of
+    decimal digits.
+
+    Error report:
+      code = INVALID_RATIONAL_FORMAT if s is not in this format
+      code = DIVISION_BY_ZERO if the denominator is zero
+
+    """
     return libyices.yices_parse_rational(s)
 
 # term_t yices_parse_float(const char *s)
@@ -917,6 +944,19 @@ libyices.yices_parse_float.restype = term_t
 libyices.yices_parse_float.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_float(s):
+    """Converts a string in  floating point format to a rational constant term.
+
+    The string must be in one of the following formats:
+      <optional sign> <integer part> . <fractional part>
+      <optional sign> <integer part> <exp> <optional sign> <integer>
+      <optional sign> <integer part> . <fractional part> <exp> <optional sign> <integer>
+
+    where <optional sign> is + or - or nothing
+          <exp> is either 'e' or 'E'
+
+    Error report:
+    code = INVALID_FLOAT_FORMAT
+    """
     return libyices.yices_parse_float(s)
 
 # term_t yices_add(term_t t1, term_t t2)     // t1 + t2
@@ -924,6 +964,7 @@ libyices.yices_add.restype = term_t
 libyices.yices_add.argtypes = [term_t, term_t]
 @catch_error(-1)
 def add(t1, t2):
+    """Returns the term (t1 + t2) from the given terms, or NULL_TERM if there's an error."""
     return libyices.yices_add(t1, t2)
 
 # term_t yices_sub(term_t t1, term_t t2)     // t1 - t2
@@ -931,6 +972,7 @@ libyices.yices_sub.restype = term_t
 libyices.yices_sub.argtypes = [term_t, term_t]
 @catch_error(-1)
 def sub(t1, t2):
+    """Returns the term (t1 - t2) from the given terms, or NULL_TERM if there's an error."""
     return libyices.yices_sub(t1, t2)
 
 # term_t yices_neg(term_t t1)                // -t1
@@ -938,6 +980,7 @@ libyices.yices_neg.restype = term_t
 libyices.yices_neg.argtypes = [term_t]
 @catch_error(-1)
 def neg(t1):
+    """Returns the term (- t1) from the given term t1, or NULL_TERM if there's an error."""
     return libyices.yices_neg(t1)
 
 # term_t yices_mul(term_t t1, term_t t2)     // t1 * t2
@@ -945,6 +988,7 @@ libyices.yices_mul.restype = term_t
 libyices.yices_mul.argtypes = [term_t, term_t]
 @catch_error(-1)
 def mul(t1, t2):
+    """Returns the term (t1 * t2) from the given terms, or NULL_TERM if there's an error."""
     return libyices.yices_mul(t1, t2)
 
 # term_t yices_square(term_t t1)             // t1 * t1
@@ -952,6 +996,7 @@ libyices.yices_square.restype = term_t
 libyices.yices_square.argtypes = [term_t]
 @catch_error(-1)
 def square(t1):
+    """Returns the term (t1 * t1) from the given term t1, or NULL_TERM if there's an error."""
     return libyices.yices_square(t1)
 
 # term_t yices_power(term_t t1, uint32_t d)  // t1 ^ d
@@ -959,6 +1004,7 @@ libyices.yices_power.restype = term_t
 libyices.yices_power.argtypes = [term_t, c_uint32]
 @catch_error(-1)
 def power(t1, d):
+    """Returns the term (t1 ^ d) from the given terms, or NULL_TERM if there's an error."""
     return libyices.yices_power(t1, d)
 
 # term_t yices_sum(uint32_t n, const term_t t[])
@@ -966,6 +1012,7 @@ libyices.yices_sum.restype = term_t
 libyices.yices_sum.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def sum(n, t):
+    """Returns the term (t[0] + ... + t[n-1]) from the given term array t of length n, or NULL_TERM if there's an error."""
     return libyices.yices_sum(n, t)
 
 # term_t yices_product(uint32_t n, const term_t t[])
@@ -973,6 +1020,7 @@ libyices.yices_product.restype = term_t
 libyices.yices_product.argtypes = [c_uint32, POINTER(term_t)]
 @catch_error(-1)
 def product(n, t):
+    """Returns the term (t[0] * ... * t[n-1]) from the given arithmetic term array t of length n, or NULL_TERM if there's an error."""
     return libyices.yices_product(n, t)
 
 # term_t yices_division(term_t t1, term_t t2)
@@ -980,6 +1028,24 @@ libyices.yices_division.restype = term_t
 libyices.yices_division.argtypes = [term_t, term_t]
 @catch_error(-1)
 def division(t1, t2):
+    """Returns the term (t1 / t2) from the given terms, or NULL_TERM if there's an error.
+
+    division(t1, t2):
+    t1 and t2 must be arithmetic terms
+
+    NOTE: Until Yices 2.5.0, t2 was required to be a non-zero constant.
+    This is no longer the case: t2 can be any arithmetic term.
+
+    Return NULL_TERM if there's an error
+
+    Error report:
+    if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+    if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2
+    """
     return libyices.yices_division(t1, t2)
 
 # term_t yices_idiv(term_t t1, term_t t2)
@@ -987,6 +1053,33 @@ libyices.yices_idiv.restype = term_t
 libyices.yices_idiv.argtypes = [term_t, term_t]
 @catch_error(-1)
 def idiv(t1, t2):
+    """Returns the interger division of t1 by t1.
+
+    idiv(t1, t2):
+    t1 and t2 must arithmetic terms
+
+    The semantics is as defined in SMT-LIB 2.0 (theory Ints),
+    except that t1 and t2 are not required to be integer.
+
+    NOTE: Until Yices 2.5.0, t2 was required to be a non-zero constant.
+    This is no longer the case: t2 can be any arithmetic term.
+
+    The functions (div t1 t2) and (mod t1 t2) satisfy the following
+    constraints:
+       t1 = (div t1 t2) t2 + (mod t1 t2)
+       0 <= (mod t1 t2) < (abs t2)
+       (div t1 t2) is an integer
+
+    The functions return NULL_TERM if there's an error.
+
+    Error report:
+    if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+    if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2
+    """
     return libyices.yices_idiv(t1, t2)
 
 # term_t yices_imod(term_t t1, term_t t2)
@@ -994,6 +1087,33 @@ libyices.yices_imod.restype = term_t
 libyices.yices_imod.argtypes = [term_t, term_t]
 @catch_error(-1)
 def imod(t1, t2):
+    """Returns the interger modulus of t1 by t1.
+
+    imod(t1, t2):
+    t1 and t2 must arithmetic terms
+
+    The semantics is as defined in SMT-LIB 2.0 (theory Ints),
+    except that t1 and t2 are not required to be integer.
+
+    NOTE: Until Yices 2.5.0, t2 was required to be a non-zero constant.
+    This is no longer the case: t2 can be any arithmetic term.
+
+    The functions (div t1 t2) and (mod t1 t2) satisfy the following
+    constraints:
+       t1 = (div t1 t2) t2 + (mod t1 t2)
+       0 <= (mod t1 t2) < (abs t2)
+       (div t1 t2) is an integer
+
+    The functions return NULL_TERM if there's an error.
+
+    Error report:
+    if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+    if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2
+    """
     return libyices.yices_imod(t1, t2)
 
 # term_t yices_divides_atom(term_t t1, term_t t2)
@@ -1001,6 +1121,29 @@ libyices.yices_divides_atom.restype = term_t
 libyices.yices_divides_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def divides_atom(t1, t2):
+    """Contructs a divisibility test term.
+
+    divides_atom(t1, t2):
+    t1 must be an arihtmetic constant.
+    t2 must be an arithmetic term.
+
+    This function constructs the atom (divides t1 t2).
+    The semantics is
+      (divides t1 t2) IFF (there is an integer k such that t2 = k t1)
+
+    The functions return NULL_TERM if there's an error.
+
+    Error report:
+    if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+    if t1 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1
+    if t2 is not an arithmetic constant
+       code = ARITHCONSTANT_REQUIRED
+       term1 = t2
+    """
     return libyices.yices_divides_atom(t1, t2)
 
 # term_t yices_is_int_atom(term_t t)
