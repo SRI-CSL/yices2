@@ -184,6 +184,8 @@ class TestModels(unittest.TestCase):
         mpz2 = yices.mpz(gmpz2)
         self.assertEqual(yices.term_to_string(mpz1, 200, 10, 0), '987654321987654321987654322')
         self.assertEqual(yices.term_to_string(mpz2, 200, 10, 0), '987654321987654321987654321')
+        if not yices.has_mcsat():
+            return
         yices.pp_term_fd(1, mpz1, 100, 10, 0)
         alg1 = yices.lp_algebraic_number_t()
         #yices.get_algebraic_number_value(mdl, i1, alg1)
@@ -220,6 +222,8 @@ class TestModels(unittest.TestCase):
         self.assertEqual(yices.term_to_string(mpq2, 200, 10, 0), '987654321987654321987654321/3456666334217777794')
 
     def test_algebraic_numbers(self):
+        if not yices.has_mcsat():
+            return
         # Need a different context
         cfg = yices.new_config()
         yices.default_config_for_logic(cfg, "QF_NRA")
