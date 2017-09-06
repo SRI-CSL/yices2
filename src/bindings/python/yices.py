@@ -49,6 +49,30 @@ from ctypes import (
 
 from ctypes.util import find_library
 
+
+def main():
+    """The only console entry point; currently just used for information."""
+    sys.stdout.write('\nUsing yices library loaded from {0}.\n'.format(libyicespath))
+
+
+############################################################
+# Feeping Creaturism:                                      #
+#                                                          #
+# this is the all important version number used by pip.    #
+#                                                          #
+#                                                          #
+############################################################
+
+"""
+Version History:
+
+1.0.0    -  yet to be published
+
+"""
+
+yices_version = '1.0.0'
+
+
 class YicesException(Exception):
     """Base class for exceptions from Yices."""
     pass

@@ -1,6 +1,8 @@
 import unittest
 from .. import yices
 
+
+
 class TestError(unittest.TestCase):
 
     def setUp(self):
