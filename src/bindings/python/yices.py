@@ -100,6 +100,16 @@ if libyicespath is not None:
 else:
     raise YicesException("Yices dynamic library not found.")
 
+libgmppath = find_library("gmp")
+libgmp = None
+
+
+if libgmppath is not None:
+    sys.stderr.write('\nLoading gmp library from {0}.\n'.format(libgmppath))
+    libgmp = CDLL(libgmppath)
+else:
+    raise YicesException("Gmp dynamic library not found.")
+
 # From yices_types.h
 
 error_code_t = c_uint32 # an enum type, in yices_types.h
@@ -2985,18 +2995,17 @@ def model_to_string(mdl, width, height, offset):
 # Gnu  Multi Precision      #
 #############################
 
-# gmp support functions - note that gmp is included in the libyices.so file
 
 def new_mpz(val=None):
     new_mpz_ = mpz_t()
-    libyices.__gmpz_init(byref(new_mpz_))
+    libgmp.__gmpz_init(byref(new_mpz_))
     if val:
         set_mpz(new_mpz_, val)
     return new_mpz_
 
 def new_mpq(num=None, den=None):
     new_mpq_ = mpq_t()
-    libyices.__gmpq_init(byref(new_mpq_))
+    libgmp.__gmpq_init(byref(new_mpq_))
     if num:
         if den is None:
             raise TypeError('new_mpq: num and den must be given together')
@@ -3005,19 +3014,19 @@ def new_mpq(num=None, den=None):
 
 def set_mpz(vmpz, val):
     if isinstance(val, basestring):
-        ret = libyices.__gmpz_set_str(byref(vmpz), val, 0)
+        ret = libgmp.__gmpz_set_str(byref(vmpz), val, 0)
         if ret == -1:
             raise TypeError('set_mpz: val is an invalid integer string: '
                             'should be decimal or start with 0x (hex), 0b (binary), or 0 (octal)')
     elif isinstance(val, (int, long)):
-        libyices.__gmpz_set_si(byref(vmpz), val)
+        libgmp.__gmpz_set_si(byref(vmpz), val)
     else:
         raise TypeError('set_mpz: val should be a string or integer')
 
 def set_mpq(vmpq, num, den):
     if isinstance(num, basestring):
         if isinstance(den, basestring):
-            ret = libyices.__gmpq_set_str(byref(vmpq), num +'/'+ den, 0)
+            ret = libgmp.__gmpq_set_str(byref(vmpq), num +'/'+ den, 0)
             if ret == -1:
                 raise TypeError('set_mpq: num or den is an invalid integer string: '
                                 'should be decimal or start with 0x (hex), 0b (binary), or 0 (octal)')
@@ -3025,9 +3034,9 @@ def set_mpq(vmpq, num, den):
             raise TypeError('set_mpq: num and den should both be strings or integers')
     elif isinstance(num, (int, long)):
         if isinstance(den, (int, long)):
-            libyices.__gmpq_set_si(byref(vmpq), num, den)
+            libgmp.__gmpq_set_si(byref(vmpq), num, den)
         else:
             raise TypeError('set_mpq: num and den should both be strings or integers')
     else:
         raise TypeError('set_mpq: num and den should both be strings or integers')
-    libyices.__gmpq_canonicalize(byref(vmpq))
+    libgmp.__gmpq_canonicalize(byref(vmpq))
