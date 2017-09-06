@@ -35,23 +35,28 @@ setup(
         ],
     },
 
-    license='MIT',
+    license='GPLv3',
 
-    #FIXME: need to fix these (these are wllvm's)
     classifiers=[
         'Development Status :: 4 - Beta',
         'Natural Language :: English',
         'Intended Audience :: Science/Research',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Compilers',
-        'License :: OSI Approved :: GPL-3.0',
-        'Operating System :: OS Independent',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
+        'Operating System :: Microsoft :: Windows',
         'Operating System :: MacOS',
         'Operating System :: POSIX :: Linux',
         'Operating System :: POSIX :: BSD',
+        'Programming Language :: C',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Topic :: Scientific/Engineering :: Mathematics',
+        'Topic :: Software Development :: Libraries :: Python Modules',
     ],
 )
