@@ -21,6 +21,10 @@ iam: What about constants like NULL_TERM?
 iam: If we remove the gmp stuff how do we maniuplate the mpz and mpq thingies?
 
 iam: need to isolate and load the gmp stuff into a separate language binding.
+
+bd: take care of pointer() vs. byref(). Be consistent about it.
+    update the docstrings: some functions return bitvector values
+    in an array of integers.
 '''
 from __future__ import with_statement
 import sys
@@ -2166,7 +2170,8 @@ libyices.yices_sum_component.argtypes = [term_t, c_int32, POINTER(mpq_t), POINTE
 @catch_error(-1)
 def sum_component(t, i, coeff, term):
     """Stores the coefficient and the term t in the passed in arguments, returning 0 if successful, -1 otherwise."""
-    return libyices.yices_sum_component(t, i, byref(coeff), byref(term))
+    #  return libyices.yices_sum_component(t, i, byref(coeff), byref(term))
+    return libyices.yices_sum_component(t, i, pointer(coeff), pointer(term))
 
 # int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
 libyices.yices_bvsum_component.restype = c_int32
@@ -2174,7 +2179,7 @@ libyices.yices_bvsum_component.argtypes = [term_t, c_int32, POINTER(c_int32), PO
 @catch_error(-1)
 def bvsum_component(t, i, val, term):
     """Stores the coefficient and the term t in the passed in arguments, returning 0 if successful, -1 otherwise."""
-    return libyices.yices_bvsum_component(t, i, byref(val), pointer(term))
+    return libyices.yices_bvsum_component(t, i, val, pointer(term))
 
 # int32_t yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp)
 libyices.yices_product_component.restype = c_int32
