@@ -18,13 +18,15 @@ it might be better to maintain the exact matching with yices.h
 
 
 iam: What about constants like NULL_TERM?
-iam: If we remove the gmp stuff how do we maniuplate the mpz and mpq thingies?
+
+iam: If we remove the gmp stuff how do we manipulate the mpz and mpq thingies?
 
 iam: need to isolate and load the gmp stuff into a separate language binding.
 
 bd: take care of pointer() vs. byref(). Be consistent about it.
     update the docstrings: some functions return bitvector values
     in an array of integers.
+
 '''
 from __future__ import with_statement
 import sys
@@ -104,15 +106,32 @@ if libyicespath is not None:
 else:
     raise YicesException("Yices dynamic library not found.")
 
+
+#we are lazy about attempting to load gmp. The user must try
+#to call a routine that needs gmp, otherwise we do not load it.
 libgmppath = find_library("gmp")
 libgmp = None
+libgmpFailed = None
 
 
-if libgmppath is not None:
-    sys.stderr.write('\nLoading gmp library from {0}.\n'.format(libgmppath))
+def hasGMP():
+    global libgmpFailed, libgmp, libgmppath
+    if libgmpFailed is True:
+        return False
+    if libgmp is not None:
+        return True
+    if libgmppath is None:
+        libgmpFailed = True
+        return False
     libgmp = CDLL(libgmppath)
-else:
-    raise YicesException("Gmp dynamic library not found.")
+    if libgmp is not None:
+        sys.stderr.write('\nLoading gmp library from {0}.\n'.format(libgmppath))
+        libgmpFailed = False
+        return True
+    else:
+        libgmpFailed = True
+        return False
+
 
 # From yices_types.h
 
@@ -3002,6 +3021,8 @@ def model_to_string(mdl, width, height, offset):
 
 
 def new_mpz(val=None):
+    if not hasGMP():
+        return None
     new_mpz_ = mpz_t()
     libgmp.__gmpz_init(byref(new_mpz_))
     if val:
@@ -3009,6 +3030,8 @@ def new_mpz(val=None):
     return new_mpz_
 
 def new_mpq(num=None, den=None):
+    if not hasGMP():
+        return None
     new_mpq_ = mpq_t()
     libgmp.__gmpq_init(byref(new_mpq_))
     if num:
@@ -3018,6 +3041,8 @@ def new_mpq(num=None, den=None):
     return new_mpq_
 
 def set_mpz(vmpz, val):
+    if not hasGMP():
+        return None
     if isinstance(val, basestring):
         ret = libgmp.__gmpz_set_str(byref(vmpz), val, 0)
         if ret == -1:
@@ -3029,6 +3054,8 @@ def set_mpz(vmpz, val):
         raise TypeError('set_mpz: val should be a string or integer')
 
 def set_mpq(vmpq, num, den):
+    if not hasGMP():
+        return None
     if isinstance(num, basestring):
         if isinstance(den, basestring):
             ret = libgmp.__gmpq_set_str(byref(vmpq), num +'/'+ den, 0)
