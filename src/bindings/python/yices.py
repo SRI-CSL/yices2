@@ -1208,6 +1208,25 @@ libyices.yices_is_int_atom.restype = term_t
 libyices.yices_is_int_atom.argtypes = [term_t]
 @catch_error(-1)
 def is_int_atom(t):
+    """Constructs an integral test term.
+
+    is_int_atom(t):
+     - t must be an arithmetic term.
+
+     This function constructs the atom (is-int t) as defined in
+     SMT-LIB 2: (is-int t) is true iff t is an integer. Also, we have
+     (is-int t) iff (divides 1 t).
+
+     The function returns NULL_TERM if there's an error.
+
+     Error report:
+     if t is not valid
+        code = INVALID_TERM
+        term1 = t
+     if t is not an arithmetic term
+        code = ARITHTERM_REQUIRED
+        term1 = t
+    """
     return libyices.yices_is_int_atom(t)
 
 # term_t yices_abs(term_t t)
@@ -1215,6 +1234,16 @@ libyices.yices_abs.restype = term_t
 libyices.yices_abs.argtypes = [term_t]
 @catch_error(-1)
 def abs(t):
+    """Constructs the absolute value of the arithmetic term.
+
+     Error report:
+     if t is not valid
+        code = INVALID_TERM
+        term1 = t
+     if t is not an arithmetic term
+        code = ARITHTERM_REQUIRED
+        term1 = t
+    """
     return libyices.yices_abs(t)
 
 # term_t yices_floor(term_t t)
@@ -1222,6 +1251,21 @@ libyices.yices_floor.restype = term_t
 libyices.yices_floor.argtypes = [term_t]
 @catch_error(-1)
 def floor(t):
+    """
+    Constructs the floor of the arithmetic term.
+
+    floor(t) is the largest integer that's less than or equal to t
+    ceiling t is the smallest integer that's greater than or equal to t
+    The function return NULL_TERM if there's an error.
+
+     Error report:
+     if t is not valid
+        code = INVALID_TERM
+        term1 = t
+     if t is not an arithmetic term
+        code = ARITHTERM_REQUIRED
+        term1 = t
+    """
     return libyices.yices_floor(t)
 
 # term_t yices_ceil(term_t t)
@@ -1229,6 +1273,19 @@ libyices.yices_ceil.restype = term_t
 libyices.yices_ceil.argtypes = [term_t]
 @catch_error(-1)
 def ceil(t):
+    """
+    Constructs the ceiling  of the arithmetic term.
+
+    The function return NULL_TERM if there's an error.
+
+     Error report:
+     if t is not valid
+        code = INVALID_TERM
+        term1 = t
+     if t is not an arithmetic term
+        code = ARITHTERM_REQUIRED
+        term1 = t
+    """
     return libyices.yices_ceil(t)
 
 # term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[])
@@ -1236,6 +1293,25 @@ libyices.yices_poly_int32.restype = term_t
 libyices.yices_poly_int32.argtypes = [c_uint32, POINTER(c_int32), POINTER(term_t)]
 @catch_error(-1)
 def poly_int32(n, a, t):
+    """Constructs a polynomial with 32 bit integer coefficients.
+
+    poly_int32(n, a, t):
+    - a and t must both be arrays of size n
+
+    constructs the term a_0 t_0 + ... + a_{n-1} t_{n-1}
+    given n constant coefficients a_0, ..., a_{n-1} and
+          n arithmetic terms t_0, ..., t_{n-1}.
+
+    If there's an error, the functions return NULL_TERM (-1).
+
+    Error reports:
+    if t[i] is not valid
+      code = INVALID_TERM
+      term1 = t[i]
+    if t[i] is not an arithmetic term
+      code = ARITHTERM_REQUIRED
+      term1 = t[i]
+    """
     return libyices.yices_poly_int32(n, a, t)
 
 # term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[])
@@ -1243,6 +1319,24 @@ libyices.yices_poly_int64.restype = term_t
 libyices.yices_poly_int64.argtypes = [c_uint32, POINTER(c_int64), POINTER(term_t)]
 @catch_error(-1)
 def poly_int64(n, a, t):
+    """Constructs a polynomial with 64 bit integer coefficients.
+
+    poly_int64(n, a, t):
+    - a and t must both be arrays of size n
+    construct the term a_0 t_0 + ... + a_{n-1} t_{n-1}
+    given n constant coefficients a_0, ..., a_{n-1} and
+          n arithmetic terms t_0, ..., t_{n-1}.
+
+    If there's an error, the functions return NULL_TERM (-1).
+
+    Error reports:
+    if t[i] is not valid
+      code = INVALID_TERM
+      term1 = t[i]
+    if t[i] is not an arithmetic term
+      code = ARITHTERM_REQUIRED
+      term1 = t[i]
+    """
     return libyices.yices_poly_int64(n, a, t)
 
 # term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[])
@@ -1250,6 +1344,16 @@ libyices.yices_poly_rational32.restype = term_t
 libyices.yices_poly_rational32.argtypes = [c_uint32, POINTER(c_int32), POINTER(c_int32), POINTER(term_t)]
 @catch_error(-1)
 def poly_rational32(n, num, den, t):
+    """Constructs a polynomial with rational 32 bit coefficients
+
+    poly_rational32(n, num, den, t):
+     - den, num, and t must be arrays of size n
+     - the coefficient a_i is num[i]/den[i]
+
+     Error report:
+     if den[i] is 0
+       code = DIVISION_BY_ZERO
+    """
     return libyices.yices_poly_rational32(n, num, den, t)
 
 # term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[])
@@ -1257,6 +1361,16 @@ libyices.yices_poly_rational64.restype = term_t
 libyices.yices_poly_rational64.argtypes = [c_uint32, POINTER(c_int64), POINTER(c_int64), POINTER(term_t)]
 @catch_error(-1)
 def poly_rational64(n, num, den, t):
+    """Constructs a polynomial with rational 64 bit coefficients
+
+    poly_rational64(n, num, den, t):
+     - den, num, and t must be arrays of size n
+     - the coefficient a_i is num[i]/den[i]
+
+     Error report:
+     if den[i] is 0
+       code = DIVISION_BY_ZERO
+    """
     return libyices.yices_poly_rational64(n, num, den, t)
 
 # term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[])
@@ -1264,6 +1378,8 @@ libyices.yices_poly_mpz.restype = term_t
 libyices.yices_poly_mpz.argtypes = [c_uint32, POINTER(mpz_t), POINTER(term_t)]
 @catch_error(-1)
 def poly_mpz(n, z, t):
+    """Constructs a polynomial with GMP integer coefficients.
+    """
     return libyices.yices_poly_mpz(n, z, t)
 
 # term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[])
@@ -1271,6 +1387,11 @@ libyices.yices_poly_mpq.restype = term_t
 libyices.yices_poly_mpq.argtypes = [c_uint32, POINTER(mpq_t), POINTER(term_t)]
 @catch_error(-1)
 def poly_mpq(n, q, t):
+    """Constructs a polynomial with GMP rational coefficients.
+
+    poly_mpq(n, q, t):
+    the rationals q[0 ... n-1] must all be canonicalized.
+    """
     return libyices.yices_poly_mpq(n, q, t)
 
 # term_t yices_arith_eq_atom(term_t t1, term_t t2)   // t1 == t2
