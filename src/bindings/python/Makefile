@@ -1,6 +1,9 @@
 #iam's makefile; maybe migrate some targets to the main Makefile when done.
 
-all:
+all: help
+
+
+help:
 	@echo ''
 	@echo 'Here are the targets:'
 	@echo ''

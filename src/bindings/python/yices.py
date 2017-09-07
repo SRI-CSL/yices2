@@ -68,13 +68,13 @@ def main():
 #                                                          #
 #                                                          #
 ############################################################
-
-"""
-Version History:
-
-1.0.0    -  yet to be published
-
-"""
+#                                                          #
+# Version History:                                         #
+#                                                          #
+# 1.0.0    -  yet to be published                          #
+#                                                          #
+#                                                          #
+############################################################
 
 yices_version = '1.0.0'
 
@@ -84,9 +84,12 @@ class YicesException(Exception):
     pass
 
 def catch_error(errval):
+    """catches any error."""
     def decorator(yices_fun):
+        """yices api function decorator."""
         @wraps(yices_fun)
         def wrapper(*args, **kwargs):
+            """yices api function wrapper."""
             result = yices_fun(*args, **kwargs)
             if result == errval and error_code() != 0L:
                 errstr = error_string()
@@ -1394,11 +1397,25 @@ def poly_mpq(n, q, t):
     """
     return libyices.yices_poly_mpq(n, q, t)
 
+#
+# ARITHMETIC ATOMS
+#
+
 # term_t yices_arith_eq_atom(term_t t1, term_t t2)   // t1 == t2
 libyices.yices_arith_eq_atom.restype = term_t
 libyices.yices_arith_eq_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_eq_atom(t1, t2):
+    """Creates the term (t1 == t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_eq_atom(t1, t2)
 
 # term_t yices_arith_neq_atom(term_t t1, term_t t2)  // t1 != t2
@@ -1406,6 +1423,16 @@ libyices.yices_arith_neq_atom.restype = term_t
 libyices.yices_arith_neq_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_neq_atom(t1, t2):
+    """Creates the term (t1 != t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_neq_atom(t1, t2)
 
 # term_t yices_arith_geq_atom(term_t t1, term_t t2)  // t1 >= t2
@@ -1413,6 +1440,16 @@ libyices.yices_arith_geq_atom.restype = term_t
 libyices.yices_arith_geq_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_geq_atom(t1, t2):
+    """Creates the term (t1 >= t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_geq_atom(t1, t2)
 
 # term_t yices_arith_leq_atom(term_t t1, term_t t2)  // t1 <= t2
@@ -1420,6 +1457,16 @@ libyices.yices_arith_leq_atom.restype = term_t
 libyices.yices_arith_leq_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_leq_atom(t1, t2):
+    """Creates the term (t1 <= t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_leq_atom(t1, t2)
 
 # term_t yices_arith_gt_atom(term_t t1, term_t t2)   // t1 > t2
@@ -1427,6 +1474,16 @@ libyices.yices_arith_gt_atom.restype = term_t
 libyices.yices_arith_gt_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_gt_atom(t1, t2):
+    """Creates the term (t1 > t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_gt_atom(t1, t2)
 
 # term_t yices_arith_lt_atom(term_t t1, term_t t2)   // t1 < t2
@@ -1434,6 +1491,16 @@ libyices.yices_arith_lt_atom.restype = term_t
 libyices.yices_arith_lt_atom.argtypes = [term_t, term_t]
 @catch_error(-1)
 def arith_lt_atom(t1, t2):
+    """Creates the term (t1 < t2), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+    Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not an arithmetic term
+       code = ARITHTERM_REQUIRED
+       term1 = t1 or t2.
+    """
     return libyices.yices_arith_lt_atom(t1, t2)
 
 # term_t yices_arith_eq0_atom(term_t t)   // t == 0
@@ -1441,6 +1508,16 @@ libyices.yices_arith_eq0_atom.restype = term_t
 libyices.yices_arith_eq0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_eq0_atom(t):
+    """Creates the term (t == 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_eq0_atom(t)
 
 # term_t yices_arith_neq0_atom(term_t t)  // t != 0
@@ -1448,6 +1525,16 @@ libyices.yices_arith_neq0_atom.restype = term_t
 libyices.yices_arith_neq0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_neq0_atom(t):
+    """Creates the term (t != 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_neq0_atom(t)
 
 # term_t yices_arith_geq0_atom(term_t t)  // t >= 0
@@ -1455,6 +1542,16 @@ libyices.yices_arith_geq0_atom.restype = term_t
 libyices.yices_arith_geq0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_geq0_atom(t):
+    """Creates the term (t >= 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_geq0_atom(t)
 
 # term_t yices_arith_leq0_atom(term_t t)  // t <= 0
@@ -1462,6 +1559,16 @@ libyices.yices_arith_leq0_atom.restype = term_t
 libyices.yices_arith_leq0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_leq0_atom(t):
+    """Creates the term (t <= 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_leq0_atom(t)
 
 # term_t yices_arith_gt0_atom(term_t t)   // t > 0
@@ -1469,6 +1576,16 @@ libyices.yices_arith_gt0_atom.restype = term_t
 libyices.yices_arith_gt0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_gt0_atom(t):
+    """Creates the term (t > 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_gt0_atom(t)
 
 # term_t yices_arith_lt0_atom(term_t t)   // t < 0
@@ -1476,6 +1593,16 @@ libyices.yices_arith_lt0_atom.restype = term_t
 libyices.yices_arith_lt0_atom.argtypes = [term_t]
 @catch_error(-1)
 def arith_lt0_atom(t):
+    """Creates the term (t < 0), or NULL_TERM if there's an error (NULL_TERM = -1).
+
+     Error report:
+     if t is not valid:
+       code = INVALID_TERM
+       term1 = t
+     if t is not an arithmetic term
+       code = ARITH_TERM_REQUIRED
+       term1 = t
+    """
     return libyices.yices_arith_lt0_atom(t)
 
 
@@ -1490,6 +1617,26 @@ libyices.yices_bvconst_uint32.restype = term_t
 libyices.yices_bvconst_uint32.argtypes = [c_uint32, c_uint32]
 @catch_error(-1)
 def bvconst_uint32(n, x):
+    """Conversion of an integer to a bitvector constant, returns NULL_TERM (-1) if there's an error.
+
+    bvconst_uint32(n, x):
+     - n = number of bits
+     - x = value
+     The low-order bit of x is bit 0 of the constant.
+
+     - if n is less than 32, then the value of x is truncated to
+       n bits (i.e., only the n least significant bits of x are considered)
+     - if n is more than 32, then the value of x is zero-extended to
+       n bits.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_uint32(n, x)
 
 # term_t yices_bvconst_uint64(uint32_t n, uint64_t x)
@@ -1497,6 +1644,25 @@ libyices.yices_bvconst_uint64.restype = term_t
 libyices.yices_bvconst_uint64.argtypes = [c_uint32, c_uint64]
 @catch_error(-1)
 def bvconst_uint64(n, x):
+    """Conversion of an integer to a bitvector constant, returns NULL_TERM (-1) if there's an error.
+
+    bvconst_uint64(n, x):
+     - n = number of bits
+     - x = value
+     The low-order bit of x is bit 0 of the constant.
+     - if n is less than 64, then the value of x is truncated to
+       n bits (i.e., only the n least significant bits of x are considered)
+     - if n is more than 64, then the value of x is zero-extended to
+       n bits.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_uint64(n, x)
 
 # term_t yices_bvconst_int32(uint32_t n, int32_t x)
@@ -1504,6 +1670,25 @@ libyices.yices_bvconst_int32.restype = term_t
 libyices.yices_bvconst_int32.argtypes = [c_uint32, c_int32]
 @catch_error(-1)
 def bvconst_int32(n, x):
+    """Conversion of an integer to a bitvector constant, returns NULL_TERM (-1) if there's an error.
+
+    bvconst_int32(n, x):
+     - n = number of bits
+     - x = value
+     The low-order bit of x is bit 0 of the constant.
+     - if n is less than 32, then the value of x is truncated to
+       n bits (i.e., only the n least significant bits of x are considered)
+     - if n is more than 32, then the value of x is sign-extended to
+       n bits.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_int32(n, x)
 
 # term_t yices_bvconst_int64(uint32_t n, int64_t x)
@@ -1511,6 +1696,25 @@ libyices.yices_bvconst_int64.restype = term_t
 libyices.yices_bvconst_int64.argtypes = [c_uint32, c_int64]
 @catch_error(-1)
 def bvconst_int64(n, x):
+    """Conversion of an integer to a bitvector constant, returns NULL_TERM (-1) if there's an error.
+
+    bvconst_int64(n, x):
+     - n = number of bits
+     - x = value
+     The low-order bit of x is bit 0 of the constant.
+     - if n is less than 64, then the value of x is truncated to
+       n bits (i.e., only the n least significant bits of x are considered)
+     - if n is more than 64, then the value of x is sign-extended to
+       n bits.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_int64(n, x)
 
 # term_t yices_bvconst_mpz(uint32_t n, const mpz_t x)
@@ -1518,13 +1722,43 @@ libyices.yices_bvconst_mpz.restype = term_t
 libyices.yices_bvconst_mpz.argtypes = [c_uint32, mpz_t]
 @catch_error(-1)
 def bvconst_mpz(n, x):
+    """Conversion of an integer to a bitvector constant, returns NULL_TERM (-1) if there's an error.
+
+    bvconst_mpz(n, x):
+     - n = number of bits
+     - x = value
+     The low-order bit of x is bit 0 of the constant.
+     - x is interpreted as a signed number in 2-s complement
+     - if x has fewer than n bits (in 2's complement), then the value is sign-extended
+     - if x has more than n bits (in 2's complement) then the value is truncated
+       (to n least significant bits).
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_mpz(n, x)
+
 
 # term_t yices_bvconst_zero(uint32_t n)
 libyices.yices_bvconst_zero.restype = term_t
 libyices.yices_bvconst_zero.argtypes = [c_uint32]
 @catch_error(-1)
 def bvconst_zero(n):
+    """Set all bits to 0.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_zero(n)
 
 # term_t yices_bvconst_one(uint32_t n)
@@ -1532,6 +1766,16 @@ libyices.yices_bvconst_one.restype = term_t
 libyices.yices_bvconst_one.argtypes = [c_uint32]
 @catch_error(-1)
 def bvconst_one(n):
+    """Set low-order bit to 1, all the other bits to 0.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_one(n)
 
 # term_t yices_bvconst_minus_one(uint32_t n)
@@ -1539,6 +1783,16 @@ libyices.yices_bvconst_minus_one.restype = term_t
 libyices.yices_bvconst_minus_one.argtypes = [c_uint32]
 @catch_error(-1)
 def bvconst_minus_one(n):
+    """Set all bits to 1.
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_minus_one(n)
 
 # term_t yices_bvconst_from_array(uint32_t n, const int32_t a[])
@@ -1546,6 +1800,20 @@ libyices.yices_bvconst_from_array.restype = term_t
 libyices.yices_bvconst_from_array.argtypes = [c_uint32, POINTER(c_int32)]
 @catch_error(-1)
 def bvconst_from_array(n, a):
+    """Construction from an integer array.
+
+    bvconst_from_array(n, a):
+     bit i of the constant is 0 if a[i] == 0
+     bit i of the constant is 1 if a[i] != 0
+
+     Error report:
+     if n = 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if n > YICES_MAX_BVSIZE
+        code = MAX_BVSIZE_EXCEEDED
+        badval = n.
+    """
     return libyices.yices_bvconst_from_array(n, a)
 
 # term_t yices_parse_bvbin(const char *s)
@@ -1553,6 +1821,20 @@ libyices.yices_parse_bvbin.restype = term_t
 libyices.yices_parse_bvbin.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_bvbin(s):
+    """Constructs a bitvector by parsing from a string of characters '0' and '1'.
+
+    parse_bvbin(s):
+     First character = high-order bit
+     Last character = low-order bit
+     The constant has n bits if the strings has n characters.
+
+     Error report:
+     if the format is incorrect:
+       code = INVALID_BVBIN_FORMAT
+     if the string has more than YICES_MAX_BVSIZE digits
+       code = MAX_BVSIZE_EXCEEDED
+       badval = n.
+    """
     return libyices.yices_parse_bvbin(s)
 
 # term_t yices_parse_bvhex(const char *s)
@@ -1560,13 +1842,52 @@ libyices.yices_parse_bvhex.restype = term_t
 libyices.yices_parse_bvhex.argtypes = [c_char_p]
 @catch_error(-1)
 def parse_bvhex(s):
+    """Constructs a bitvector by parsing from a hexadecimal string.
+
+    parse_bvhex(s):
+     All characters must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
+     - First character = 4 high-order bits
+     - Last character = 4 low-order bits
+     The constant has 4n bits if s has n characters.
+
+     Error report:
+     if the format is incorrect:
+       code = INVALID_BVHEX_FORMAT
+     if the result would have more than YICES_MAX_BVSIZE digits
+       code = MAX_BVSIZE_EXCEEDED
+       badval = 4n.
+    """
     return libyices.yices_parse_bvhex(s)
+
+#
+# BIT-VECTOR ARITHMETIC
+#
+
 
 # term_t yices_bvadd(term_t t1, term_t t2)     // addition (t1 + t2)
 libyices.yices_bvadd.restype = term_t
 libyices.yices_bvadd.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvadd(t1, t2):
+    """Constructs the bitvector term (t1 + t2), returning return NULL_TERM (-1) if there's an error.
+
+    bvadd(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+    """
     return libyices.yices_bvadd(t1, t2)
 
 # term_t yices_bvsub(term_t t1, term_t t2)     // subtraction (t1 - t2)
@@ -1574,6 +1895,25 @@ libyices.yices_bvsub.restype = term_t
 libyices.yices_bvsub.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvsub(t1, t2):
+    """Constructs the bitvector term (t1 - t2), returning return NULL_TERM (-1) if there's an error.
+
+    bvsub(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+    """
     return libyices.yices_bvsub(t1, t2)
 
 # term_t yices_bvneg(term_t t1)                // negation (- t1)
@@ -1581,6 +1921,17 @@ libyices.yices_bvneg.restype = term_t
 libyices.yices_bvneg.argtypes = [term_t]
 @catch_error(-1)
 def bvneg(t1):
+    """Constructs the bitvector term (- t1), returning return NULL_TERM (-1) if there's an error.
+
+    bvneg(t1):
+     Error reports
+     if t1 is not valid
+       code = INVALID_TERM
+       term1 = t1
+     if t1 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1.
+    """
     return libyices.yices_bvneg(t1)
 
 # term_t yices_bvmul(term_t t1, term_t t2)     // multiplication (t1 * t2)
@@ -1588,6 +1939,28 @@ libyices.yices_bvmul.restype = term_t
 libyices.yices_bvmul.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvmul(t1, t2):
+    """Constructs the bitvector term (t1 * t2), returning return NULL_TERM (-1) if there's an error.
+
+    bvmul(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+
+     If the degree is too large
+       code = DEGREE_OVERFLOW.
+    """
     return libyices.yices_bvmul(t1, t2)
 
 # term_t yices_bvsquare(term_t t1)             // square (t1 * t1)
@@ -1595,6 +1968,23 @@ libyices.yices_bvsquare.restype = term_t
 libyices.yices_bvsquare.argtypes = [term_t]
 @catch_error(-1)
 def bvsquare(t1):
+    """Constructs the bitvector term (t1 * t1), returning return NULL_TERM (-1) if there's an error.
+
+    bvsquare(t1):
+    The argument must be a bitvector term.
+
+     Error reports
+     Error reports
+     if t1 is not valid
+       code = INVALID_TERM
+       term1 = t1
+     if t1 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1.
+
+     if the degree is too large
+       code = DEGREE_OVERFLOW.
+    """
     return libyices.yices_bvsquare(t1)
 
 # term_t yices_bvpower(term_t t1, uint32_t d)  // exponentiation (t1 ^ d)
@@ -1602,6 +1992,21 @@ libyices.yices_bvpower.restype = term_t
 libyices.yices_bvpower.argtypes = [term_t, c_uint32]
 @catch_error(-1)
 def bvpower(t1, d):
+    """Constructs the bitvector term (t1 ^ d), returning return NULL_TERM (-1) if there's an error.
+
+    bvpower(t1, d):
+    t1 must be a bitvector term.
+
+    Error reports
+    if t1 is not valid
+      code = INVALID_TERM
+      term1 = t1 or t2
+    if t1 is not a bitvector term
+      code = BITVECTOR_REQUIRED
+      term1 = t1
+    if the degree is too large
+       code = DEGREE_OVERFLOW.
+    """
     return libyices.yices_bvpower(t1, d)
 
 # term_t yices_bvdiv(term_t t1, term_t t2)   // unsigned div
@@ -1609,6 +2014,39 @@ libyices.yices_bvdiv.restype = term_t
 libyices.yices_bvdiv.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvdiv(t1, t2):
+    """Constructs the unsigned division bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvdiv(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2
+
+     In case of division by 0, Yices uses the following conventions:
+
+       (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
+                           (i.e., 0b111....1)
+
+       (bvrem  x 0b00...0) is x
+
+       (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+                           and  0b111111 (i.e., -1) if x's sign bit is 0
+
+       (bvsrem x 0b00...0) is x
+
+       (bvsmod x 0b00...0) is x.
+    """
     return libyices.yices_bvdiv(t1, t2)
 
 # term_t yices_bvrem(term_t t1, term_t t2)   // unsigned rem
@@ -1616,6 +2054,39 @@ libyices.yices_bvrem.restype = term_t
 libyices.yices_bvrem.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvrem(t1, t2):
+    """Constructs the unsigned remainder bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvrem(t1, t2:
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2
+
+     In case of division by 0, Yices uses the following conventions:
+
+       (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
+                           (i.e., 0b111....1)
+
+       (bvrem  x 0b00...0) is x
+
+       (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+                           and  0b111111 (i.e., -1) if x's sign bit is 0
+
+       (bvsrem x 0b00...0) is x
+
+       (bvsmod x 0b00...0) is x.
+    """
     return libyices.yices_bvrem(t1, t2)
 
 # term_t yices_bvsdiv(term_t t1, term_t t2)  // signed div
@@ -1623,6 +2094,39 @@ libyices.yices_bvsdiv.restype = term_t
 libyices.yices_bvsdiv.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvsdiv(t1, t2):
+    """Constructs the signed division bitvector term (), returning return NULL_TERM (-1) if there's an error.
+
+    bvsdiv(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2
+
+     In case of division by 0, Yices uses the following conventions:
+
+       (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
+                           (i.e., 0b111....1)
+
+       (bvrem  x 0b00...0) is x
+
+       (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+                           and  0b111111 (i.e., -1) if x's sign bit is 0
+
+       (bvsrem x 0b00...0) is x
+
+       (bvsmod x 0b00...0) is x.
+    """
     return libyices.yices_bvsdiv(t1, t2)
 
 # term_t yices_bvsrem(term_t t1, term_t t2)  // signed rem
@@ -1630,6 +2134,39 @@ libyices.yices_bvsrem.restype = term_t
 libyices.yices_bvsrem.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvsrem(t1, t2):
+    """Constructs the signed remainder bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvsrem(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2
+
+     In case of division by 0, Yices uses the following conventions:
+
+       (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
+                           (i.e., 0b111....1)
+
+       (bvrem  x 0b00...0) is x
+
+       (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+                           and  0b111111 (i.e., -1) if x's sign bit is 0
+
+       (bvsrem x 0b00...0) is x
+
+       (bvsmod x 0b00...0) is x.
+    """
     return libyices.yices_bvsrem(t1, t2)
 
 # term_t yices_bvsmod(term_t t1, term_t t2)  // signed mod
@@ -1637,6 +2174,39 @@ libyices.yices_bvsmod.restype = term_t
 libyices.yices_bvsmod.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvsmod(t1, t2):
+    """Constructs the signed modulus bitvector term (), returning return NULL_TERM (-1) if there's an error.
+
+    bvsmod(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2
+
+     In case of division by 0, Yices uses the following conventions:
+
+       (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
+                           (i.e., 0b111....1)
+
+       (bvrem  x 0b00...0) is x
+
+       (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+                           and  0b111111 (i.e., -1) if x's sign bit is 0
+
+       (bvsrem x 0b00...0) is x
+
+       (bvsmod x 0b00...0) is x.
+    """
     return libyices.yices_bvsmod(t1, t2)
 
 # term_t yices_bvnot(term_t t1)              // bitwise not
@@ -1644,6 +2214,20 @@ libyices.yices_bvnot.restype = term_t
 libyices.yices_bvnot.argtypes = [term_t]
 @catch_error(-1)
 def bvnot(t1):
+    """Constructs the bitwise not bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvnot(t1):
+    The argument must be a bitvector term.
+
+     Error reports
+     Error reports
+     if t1 is not valid
+       code = INVALID_TERM
+       term1 = t1
+     if t1 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1.
+    """
     return libyices.yices_bvnot(t1)
 
 # term_t yices_bvnand(term_t t1, term_t t2)  // bitwise not and
@@ -1651,6 +2235,25 @@ libyices.yices_bvnand.restype = term_t
 libyices.yices_bvnand.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvnand(t1, t2):
+    """Constructs the bitwise not and bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvnand(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+    """
     return libyices.yices_bvnand(t1, t2)
 
 # term_t yices_bvnor(term_t t1, term_t t2)   // bitwise not or
@@ -1658,6 +2261,25 @@ libyices.yices_bvnor.restype = term_t
 libyices.yices_bvnor.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvnor(t1, t2):
+    """Constructs the  bitwise not or bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvnor(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+    """
     return libyices.yices_bvnor(t1, t2)
 
 # term_t yices_bvxnor(term_t t1, term_t t2)  // bitwise not xor
@@ -1665,14 +2287,297 @@ libyices.yices_bvxnor.restype = term_t
 libyices.yices_bvxnor.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvxnor(t1, t2):
+    """Constructs the bitwise not xor bitvector term, returning return NULL_TERM (-1) if there's an error.
+
+    bvxnor(t1, t2):
+    Both arguments must be bitvector terms of the same size.
+
+     Error reports
+     if t1 or t2 is not valid
+       code = INVALID_TERM
+       term1 = t1 or t2
+     if t1 or t2 is not a bitvector term
+       code = BITVECTOR_REQUIRED
+       term1 = t1 or t2
+     if t1 and t2 do not have the same bitvector type
+       code = INCOMPATIBLE_TYPES
+       term1 = t1
+       type1 = type of t1
+       term2 = t2
+       type2 = type of t2.
+    """
     return libyices.yices_bvxnor(t1, t2)
+
+# term_t yices_bvand(uint32_t n, const term_t t[])
+libyices.yices_bvand.restype = term_t
+libyices.yices_bvand.argtypes = [c_uint32, POINTER(term_t)]
+@catch_error(-1)
+def bvand(n, t):
+    """Constructs the bitwise and bitvector and/or/xor, returning the  NULL_TERM if there's an error.
+
+     The general form takes an array t[0 ...n-1] as argument (n must be positive).
+     - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
+     - special forms are provided for convenience for n=2 and 3.
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvand(n, t)
+
+# term_t yices_bvor(uint32_t n, const term_t t[])
+libyices.yices_bvor.restype = term_t
+libyices.yices_bvor.argtypes = [c_uint32, POINTER(term_t)]
+@catch_error(-1)
+def bvor(n, t):
+    """Constructs the bitvector or, returning the  NULL_TERM if there's an error.
+
+     The general form takes an array t[0 ...n-1] as argument (n must be positive).
+     - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
+     - special forms are provided for convenience for n=2 and 3.
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvor(n, t)
+
+# term_t yices_bvxor(uint32_t n, const term_t t[])
+libyices.yices_bvxor.restype = term_t
+libyices.yices_bvxor.argtypes = [c_uint32, POINTER(term_t)]
+@catch_error(-1)
+def bvxor(n, t):
+    """Constructs the bitvector xor, returning the  NULL_TERM if there's an error.
+
+     The general form takes an array t[0 ...n-1] as argument (n must be positive).
+     - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
+     - special forms are provided for convenience for n=2 and 3.
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvxor(n, t)
+
+# term_t yices_bvand2(term_t t1, term_t t2)
+libyices.yices_bvand2.restype = term_t
+libyices.yices_bvand2.argtypes = [term_t, term_t]
+@catch_error(-1)
+def bvand2(t1, t2):
+    """Constructs the bitvector and, returning the  NULL_TERM if there's an error.
+
+    bvand2(t1, t2):
+     - t1 and t2 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvand2(t1, t2)
+
+# term_t yices_bvor2(term_t t1, term_t t2)
+libyices.yices_bvor2.restype = term_t
+libyices.yices_bvor2.argtypes = [term_t, term_t]
+@catch_error(-1)
+def bvor2(t1, t2):
+    """Constructs the bitvector or, returning the  NULL_TERM if there's an error.
+
+    bvor2(t1, t2):
+     - t1 and t2 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvor2(t1, t2)
+
+# term_t yices_bvxor2(term_t t1, term_t t2)
+libyices.yices_bvxor2.restype = term_t
+libyices.yices_bvxor2.argtypes = [term_t, term_t]
+@catch_error(-1)
+def bvxor2(t1, t2):
+    """Constructs the bitvector and/or/xor, returning the  NULL_TERM if there's an error.
+
+     bvxor2(t1, t2):
+     - t1 and t2 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvxor2(t1, t2)
+
+# term_t yices_bvand3(term_t t1, term_t t2, term_t t3)
+libyices.yices_bvand3.restype = term_t
+libyices.yices_bvand3.argtypes = [term_t, term_t, term_t]
+@catch_error(-1)
+def bvand3(t1, t2, t3):
+    """Constructs the bitvector and, returning the  NULL_TERM if there's an error.
+
+     bvand3(t1, t2, t3):
+     - t1, t2, t3 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvand3(t1, t2, t3)
+
+# term_t yices_bvor3(term_t t1, term_t t2, term_t t3)
+libyices.yices_bvor3.restype = term_t
+libyices.yices_bvor3.argtypes = [term_t, term_t, term_t]
+@catch_error(-1)
+def bvor3(t1, t2, t3):
+    """Constructs the bitvector or, returning the  NULL_TERM if there's an error.
+
+     bvor3(t1, t2, t3):
+     - t1, t2, t3 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvor3(t1, t2, t3)
+
+# term_t yices_bvxor3(term_t t1, term_t t2, term_t t3)
+libyices.yices_bvxor3.restype = term_t
+libyices.yices_bvxor3.argtypes = [term_t, term_t, term_t]
+@catch_error(-1)
+def bvxor3(t1, t2, t3):
+    """Constructs the bitvector xor, returning the  NULL_TERM if there's an error.
+
+     bvxor3(t1, t2, t3):
+     - t1, t2, t3 must be bitvector terms of the same type (i.e., the same number of bits).
+
+     Error reports:
+     if n == 0
+        code = POS_INT_REQUIRED
+        badval = n
+     if t[i] is not valid
+        code = INVALID_TERM
+        term1 = t[i]
+     if t[i] is not a bitvector term
+        code = BITVECTOR_REQUIRED
+        badval = n
+     if t[0] and t[i] don't have the same bitvector type
+        code = INCOMPATIBLE_TYPES
+        term1 = t[0]
+        type1 = type of t[0]
+        term2 = t[i]
+        type2 = type of t[i].
+    """
+    return libyices.yices_bvxor3(t1, t2, t3)
 
 # term_t yices_bvshl(term_t t1, term_t t2)   // shift t1 left by k bits where k = value of t2
 libyices.yices_bvshl.restype = term_t
 libyices.yices_bvshl.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvshl(t1, t2):
-    return libyices.yices_bvshl(t1, t2)
+   return libyices.yices_bvshl(t1, t2)
 
 # term_t yices_bvlshr(term_t t1, term_t t2)  // logical shift t1 right by k bits, where k = value of t2
 libyices.yices_bvlshr.restype = term_t
@@ -1687,69 +2592,6 @@ libyices.yices_bvashr.argtypes = [term_t, term_t]
 @catch_error(-1)
 def bvashr(t1, t2):
     return libyices.yices_bvashr(t1, t2)
-
-# term_t yices_bvand(uint32_t n, const term_t t[])
-libyices.yices_bvand.restype = term_t
-libyices.yices_bvand.argtypes = [c_uint32, POINTER(term_t)]
-@catch_error(-1)
-def bvand(n, t):
-    return libyices.yices_bvand(n, t)
-
-# term_t yices_bvor(uint32_t n, const term_t t[])
-libyices.yices_bvor.restype = term_t
-libyices.yices_bvor.argtypes = [c_uint32, POINTER(term_t)]
-@catch_error(-1)
-def bvor(n, t):
-    return libyices.yices_bvor(n, t)
-
-# term_t yices_bvxor(uint32_t n, const term_t t[])
-libyices.yices_bvxor.restype = term_t
-libyices.yices_bvxor.argtypes = [c_uint32, POINTER(term_t)]
-@catch_error(-1)
-def bvxor(n, t):
-    return libyices.yices_bvxor(n, t)
-
-# term_t yices_bvand2(term_t t1, term_t t2)
-libyices.yices_bvand2.restype = term_t
-libyices.yices_bvand2.argtypes = [term_t, term_t]
-@catch_error(-1)
-def bvand2(t1, t2):
-    return libyices.yices_bvand2(t1, t2)
-
-# term_t yices_bvor2(term_t t1, term_t t2)
-libyices.yices_bvor2.restype = term_t
-libyices.yices_bvor2.argtypes = [term_t, term_t]
-@catch_error(-1)
-def bvor2(t1, t2):
-    return libyices.yices_bvor2(t1, t2)
-
-# term_t yices_bvxor2(term_t t1, term_t t2)
-libyices.yices_bvxor2.restype = term_t
-libyices.yices_bvxor2.argtypes = [term_t, term_t]
-@catch_error(-1)
-def bvxor2(t1, t2):
-    return libyices.yices_bvxor2(t1, t2)
-
-# term_t yices_bvand3(term_t t1, term_t t2, term_t t3)
-libyices.yices_bvand3.restype = term_t
-libyices.yices_bvand3.argtypes = [term_t, term_t, term_t]
-@catch_error(-1)
-def bvand3(t1, t2, t3):
-    return libyices.yices_bvand3(t1, t2, t3)
-
-# term_t yices_bvor3(term_t t1, term_t t2, term_t t3)
-libyices.yices_bvor3.restype = term_t
-libyices.yices_bvor3.argtypes = [term_t, term_t, term_t]
-@catch_error(-1)
-def bvor3(t1, t2, t3):
-    return libyices.yices_bvor3(t1, t2, t3)
-
-# term_t yices_bvxor3(term_t t1, term_t t2, term_t t3)
-libyices.yices_bvxor3.restype = term_t
-libyices.yices_bvxor3.argtypes = [term_t, term_t, term_t]
-@catch_error(-1)
-def bvxor3(t1, t2, t3):
-    return libyices.yices_bvxor3(t1, t2, t3)
 
 # term_t yices_bvsum(uint32_t n, const term_t t[])
 libyices.yices_bvsum.restype = term_t
