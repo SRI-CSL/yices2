@@ -102,7 +102,6 @@ def catch_error(errval):
 libyicespath = find_library("yices")
 libyices = None
 
-
 if libyicespath is not None:
     sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
     libyices = CDLL(libyicespath)
@@ -193,7 +192,7 @@ class yval_array(Array):
     _type_ = yval_t
     _length_ = 2
 
-# gmp support - note that gmp is included in the libyices.so file
+# gmp types
 
 class mpz_t(Structure):
     """Replica of the GMP mpz_t struct, it must be kept upto date with gmp.h."""
@@ -247,11 +246,35 @@ YVAL_MAPPING = 8
 
 # From yices.h
 
+
+###########################
+#  VERSION AND RELATIVES  #
+###########################
+
+# const char *yices_version
+version = c_char_p.in_dll(libyices, "yices_version").value
+"""libyices version as in '2.5.3'"""
+
+# const char *yices_build_arch
+build_arch = c_char_p.in_dll(libyices, "yices_build_arch").value
+"""libyices build architecture as in 'x86_64-pc-linux-gnu'"""
+
+# const char *yices_build_mode
+build_mode = c_char_p.in_dll(libyices, "yices_build_mode").value
+"""libyices build mode (typically either 'release' or 'debug'"""
+
+# const char *yices_build_date
+build_date = c_char_p.in_dll(libyices, "yices_build_date").value
+"""libyices build date as in '2017-09-08'"""
+
 # int32_t yices_has_mcsat(void)
 libyices.yices_has_mcsat.restype = c_int32
 def has_mcsat():
     """Returns 1 if the yices library has mcsat support, 0 otherwise."""
     return libyices.yices_has_mcsat()
+
+
+
 
 ########################################
 #  GLOBAL INITIALIZATION AND CLEANUP   #
@@ -327,6 +350,7 @@ def error_string():
     errstr = cast(cstrptr, c_char_p).value
     libyices.yices_free_string(cstrptr)
     return errstr
+
 
 #################################
 #   VECTORS OF TERMS AND TYPES  #
