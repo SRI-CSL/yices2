@@ -1,6 +1,6 @@
 import unittest
 from .. import yices
-from ctypes import *
+from ctypes import (  c_int32, c_int64, pointer  )
 #import gmpy2
 
 class TestTerms(unittest.TestCase):

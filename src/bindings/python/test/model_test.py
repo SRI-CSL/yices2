@@ -1,6 +1,6 @@
 import unittest
 from .. import yices
-from ctypes import *
+from ctypes import ( c_int, c_int32, c_uint32, c_int64, c_uint64, c_double )
 
 
 def define_type(name, ytype=None):

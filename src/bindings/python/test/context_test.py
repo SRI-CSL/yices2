@@ -1,6 +1,5 @@
 import unittest
 from .. import yices
-from ctypes import *
 
 class TestContext(unittest.TestCase):
 

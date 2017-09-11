@@ -38,14 +38,15 @@ setup(
 
     license='GPLv3',
 
+    #FIXME: pypi rejects the license and windows strings. Find ones that work.
     classifiers=[
         'Development Status :: 4 - Beta',
         'Natural Language :: English',
         'Intended Audience :: Science/Research',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Compilers',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
-        'Operating System :: Microsoft :: Windows',
+#        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
+#        'Operating System :: Microsoft :: Windows',
         'Operating System :: MacOS',
         'Operating System :: POSIX :: Linux',
         'Operating System :: POSIX :: BSD',

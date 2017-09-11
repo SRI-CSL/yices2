@@ -1,4 +1,4 @@
-'''
+"""
 The Yices2 Python API.
 
 Basically implements all the external symbols of Yices2 - see yices.h
@@ -19,6 +19,8 @@ it might be better to maintain the exact matching with yices.h
 
 iam: What about constants like NULL_TERM?
 
+iam: I am wondering how we make arrays that we pass in?
+
 iam: If we remove the gmp stuff how do we manipulate the mpz and mpq thingies?
 
 iam: need to isolate and load the gmp stuff into a separate language binding.
@@ -27,7 +29,7 @@ bd: take care of pointer() vs. byref(). Be consistent about it.
     update the docstrings: some functions return bitvector values
     in an array of integers.
 
-'''
+"""
 from __future__ import with_statement
 import sys
 from functools import wraps
@@ -58,7 +60,13 @@ from ctypes.util import find_library
 
 def main():
     """The only console entry point; currently just used for information."""
-    sys.stdout.write('\nUsing yices library loaded from {0}.\n'.format(libyicespath))
+    loadYices()
+    sys.stdout.write('Python Yices Bindings. Version {0}\n'.format(yices_version));
+    sys.stdout.write('Yices library loaded from {0}\n'.format(libyicespath))
+    sys.stdout.write('Version: {0}\nArchitecture: {1}\nBuild mode: {2}\nBuild date: {3}\nMCSat support: {4}\n'.format(version, build_arch, build_mode, build_date, has_mcsat()));
+
+
+
 
 
 ############################################################
@@ -102,11 +110,16 @@ def catch_error(errval):
 libyicespath = find_library("yices")
 libyices = None
 
-if libyicespath is not None:
-    sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
-    libyices = CDLL(libyicespath)
-else:
-    raise YicesException("Yices dynamic library not found.")
+def loadYices():
+    global libyicespath, libyices
+    if libyicespath is not None:
+        #sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
+        libyices = CDLL(libyicespath)
+    else:
+        raise YicesException("Yices dynamic library not found.")
+
+
+loadYices()
 
 
 #we are lazy about attempting to load gmp. The user must try
@@ -1049,6 +1062,10 @@ def parse_float(s):
     """
     return libyices.yices_parse_float(s)
 
+#
+# ARITHMETIC OPERATIONS
+#
+
 # term_t yices_add(term_t t1, term_t t2)     // t1 + t2
 libyices.yices_add.restype = term_t
 libyices.yices_add.argtypes = [term_t, term_t]
@@ -1320,6 +1337,10 @@ def ceil(t):
         term1 = t
     """
     return libyices.yices_ceil(t)
+
+#
+# POLYNOMIALS
+#
 
 # term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[])
 libyices.yices_poly_int32.restype = term_t
@@ -4048,6 +4069,10 @@ def stop_search(ctx):
     """Interupts the search."""
     libyices.yices_stop_search(ctx)
 
+#
+# SEARCH PARAMETERS
+#
+
 # param_t *yices_new_param_record(void)
 libyices.yices_new_param_record.restype = param_t
 @catch_error(-1)
@@ -4134,6 +4159,11 @@ def model_from_map(n, var, mp):
 ########################
 #  VALUES IN A MODEL  #
 ########################
+
+
+#
+# EVALUATION FOR SIMPLE TYPES
+#
 
 
 # int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val)
@@ -4233,6 +4263,11 @@ libyices.yices_get_scalar_value.argtypes = [model_t, term_t, POINTER(c_int32)]
 def get_scalar_value(mdl, t, val):
     """Places the value of the scalar term into val, returns 0 on success, and -1 on failure."""
     return libyices.yices_get_scalar_value(mdl, t, val)
+
+
+#
+# GENERIC FORM: VALUE DESCRIPTORS AND NODES
+#
 
 # void yices_init_yval_vector(yval_vector_t *v)
 libyices.yices_init_yval_vector.argtypes = [POINTER(yval_vector_t)]
@@ -4453,6 +4488,11 @@ def val_expand_mapping(mdl, m, tup, val):
     """
     return libyices.yices_val_expand_mapping(mdl, pointer(m), tup, pointer(val))
 
+
+#
+# CHECK THE VALUE OF BOOLEAN FORMULAS
+#
+
 # int32_t yices_formula_true_in_model(model_t *mdl, term_t f)
 libyices.yices_formula_true_in_model.restype = c_int32
 libyices.yices_formula_true_in_model.argtypes = [model_t, term_t]
@@ -4460,6 +4500,32 @@ libyices.yices_formula_true_in_model.argtypes = [model_t, term_t]
 def formula_true_in_model(mdl, f):
     """Checks whether the formula f is true in the model, returns 1 if f is true, 0 if f is false, and -1 otherwise."""
     return libyices.yices_formula_true_in_model(mdl, f)
+
+
+# int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[])
+libyices.yices_formulas_true_in_model.restype = c_int32
+libyices.yices_formulas_true_in_model.argtypes = [model_t, c_int32, POINTER(term_t)]
+@catch_error(-1)
+def formulas_true_in_model(mdl, n, f):
+    """Checks whether the array of formulas of length n are all true in the model.
+
+    formulas_true_in_model(mdl, n, f):
+     - the returned value is as in the previous function:
+         1 if all f[i] are true
+         0 if one f[i] is false (and f[0 ... i-1] are all true)
+        -1 if one f[i] can't be evaluated (and f[0 ... i-1] are all true)
+
+     Error codes:
+     - same as yices_get_bool_value
+
+     NOTE: if n>1, it's more efficient to call this function once than to
+     call formula_true_in_mode n times.
+    """
+    return libyices.yices_formula_true_in_model(mdl, n, f)
+
+#
+# CONVERSION OF VALUES TO CONSTANT TERMS
+#
 
 # term_t yices_get_value_as_term(model_t *mdl, term_t t)
 libyices.yices_get_value_as_term.restype = term_t
@@ -4477,6 +4543,11 @@ def term_array_value(mdl, n, a, b):
     """Converts the array of terms of length n into and array on n values in the model mdl, returning 0 if successful, and -1 otherwise."""
     return libyices.yices_term_array_value(mdl, n, a, b)
 
+#
+# IMPLICANTS
+#
+
+
 # int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v)
 libyices.yices_implicant_for_formula.restype = c_int32
 libyices.yices_implicant_for_formula.argtypes = [model_t, term_t, POINTER(term_vector_t)]
@@ -4492,6 +4563,11 @@ libyices.yices_implicant_for_formulas.argtypes = [model_t, c_uint32, POINTER(ter
 def implicant_for_formulas(mdl, n, a, v):
     """Compute an implicant for an array of formulas in the model mdl and store it in v, returning 0 if successful, and -1 otherwise."""
     return libyices.yices_implicant_for_formulas(mdl, n, a, v)
+
+
+#
+# MODEL GENERALIZATION
+#
 
 # int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 libyices.yices_generalize_model.restype = c_int32
