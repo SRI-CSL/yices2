@@ -42,7 +42,7 @@ def assert_formula(formula, ctx):
 class TestModels(unittest.TestCase):
 
     def setUp(self):
-        yices.init()
+        yices.yices_init()
         self.cfg = yices.new_config()
         self.ctx = yices.new_context(self.cfg)
         self.param = yices.new_param_record()

@@ -6,7 +6,7 @@ from .. import yices
 class TestError(unittest.TestCase):
 
     def setUp(self):
-        yices.init()
+        yices.yices_init()
 
     def tearDown(self):
         #yices.exit()

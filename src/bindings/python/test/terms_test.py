@@ -6,7 +6,7 @@ from ctypes import (  c_int32, c_int64, pointer  )
 class TestTerms(unittest.TestCase):
 
     def setUp(self):
-        yices.init()
+        yices.yices_init()
 
     def tearDown(self):
         #yices.exit()

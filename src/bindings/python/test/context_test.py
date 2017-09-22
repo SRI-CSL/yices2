@@ -1,10 +1,11 @@
 import unittest
+
 from .. import yices
 
 class TestContext(unittest.TestCase):
 
     def setUp(self):
-        yices.init()
+        yices.yices_init()
 
     def tearDown(self):
         pass

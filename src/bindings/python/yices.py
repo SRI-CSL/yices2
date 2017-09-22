@@ -31,7 +31,9 @@ bd: take care of pointer() vs. byref(). Be consistent about it.
 
 """
 from __future__ import with_statement
+
 import sys
+
 from functools import wraps
 
 from ctypes import (
@@ -168,14 +170,14 @@ yices_gen_mode_t = c_void_p
 
 class error_report_t(Structure):
     """The cause of an API error is stored in an error_report structure."""
-    _fields_ = [("code", error_code_t), # 8
-                ("line", c_uint32),  # 4
-                ("column", c_uint32), # 4
-                ("term1", term_t),
-                ("type1", type_t),
-                ("term2", term_t),
-                ("type2", type_t),
-                ("badval", c_int64)] # 8
+    _fields_ = [("code", error_code_t),  # 8
+                ("line", c_uint32),      # 4
+                ("column", c_uint32),    # 4
+                ("term1", term_t),       # 4
+                ("type1", type_t),       # 4
+                ("term2", term_t),       # 4
+                ("type2", type_t),       # 4
+                ("badval", c_int64)]     # 8
 
 class yval_t(Structure):
     """The type of a node descriptor."""
@@ -296,7 +298,7 @@ def has_mcsat():
 
 # void yices_init(void)
 libyices.yices_init.restype = None
-def init():
+def yices_init():
     """This function must be called before anything else to initialize internal data structures."""
     libyices.yices_init()
 
@@ -308,7 +310,7 @@ def yices_exit():
 
 # void yices_reset(void)
 libyices.yices_reset.restype = None
-def reset():
+def yices_reset():
     """A full reset of all internal data structures (terms, types, symbol tables, contexts, models, ...)."""
     libyices.yices_reset()
 #iam: copy and paste error???    libyices.yices_exit()
