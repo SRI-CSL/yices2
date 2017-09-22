@@ -29,6 +29,8 @@ yices_init()
 
 int_t = int_type()
 
+
+#seems logical to make the terms in a grid.
 X = [None] * 9
 
 for i in range(9):
@@ -36,12 +38,15 @@ for i in range(9):
     for j in range(9):
         X[i][j] = new_uninterpreted_term(int_t)
 
+#not real happy about the indexing going from 0 to 8, but
+#isolating access via V could make it easier to go
+from 1 to 9
+def V(i,j):
+    return X[i][j]
 
 
-config = new_config()
-context = new_context(config)
 
-
+#make the constants that we will need
 C = {}
 for i in range(1, 10):
     C[i] = int32(i)
@@ -49,9 +54,9 @@ for i in range(1, 10):
 one = C[1]
 nine = C[9]
 
-def V(i,j):
-    return X[i][j]
 
+config = new_config()
+context = new_context(config)
 
 # x is between 1 and 9
 def between_1_and_9(x):
@@ -62,8 +67,7 @@ for i in range(9):
         assert_formula(context, between_1_and_9(V(i,j)))
 
 
-
-
+#weird python and ctype magic
 def all_distinct(x):
     n = len(x)
     A = term_t * n
