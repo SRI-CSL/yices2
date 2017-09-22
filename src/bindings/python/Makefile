@@ -57,7 +57,13 @@ endif
 
 lint: check_lint
 # for detecting just errors:
-	@ $(PYLINT) -E  yices.py test/*.py
+	@ $(PYLINT) -E  yices.py test/*.py sudoku/sudoku.py
+
+#	@ $(PYLINT) --rcfile=.pylintrc yices.py test/*.py
+
+sudoku: check_lint
+# for detecting just errors:
+	@ $(PYLINT) -E  sudoku/sudoku.py
 
 #	@ $(PYLINT) --rcfile=.pylintrc yices.py test/*.py
 

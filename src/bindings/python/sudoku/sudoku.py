@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-
+"""
+#this way is a bit long winded
 from yices import (yices_init,
                    yices_exit,
                    int_type,
@@ -13,6 +14,7 @@ from yices import (yices_init,
                    new_uninterpreted_term,
                    new_config,
                    new_context,
+                   default_config_for_logic,
                    assert_formula,
                    check_context,
                    get_model,
@@ -20,7 +22,10 @@ from yices import (yices_init,
                    free_context,
                    free_config
 )
+"""
 
+#this way we could use the yices_ prefixes everywhere and feel safe.
+from yices import *
 
 from ctypes import ( c_int32 )
 
@@ -39,8 +44,7 @@ for i in range(9):
         X[i][j] = new_uninterpreted_term(int_t)
 
 #not real happy about the indexing going from 0 to 8, but
-#isolating access via V could make it easier to go
-from 1 to 9
+#isolating access via V could make it easier to go from 1 to 9
 def V(i,j):
     return X[i][j]
 
@@ -57,6 +61,11 @@ nine = C[9]
 
 config = new_config()
 context = new_context(config)
+#BD: this does not speed it up (if anything it is epsilon slower)
+# should I be doing something like
+# set_config(config, "arith-fragment", "LIA")
+default_config_for_logic(context, "QF_LIA")
+
 
 # x is between 1 and 9
 def between_1_and_9(x):
@@ -159,14 +168,14 @@ smt_stat = check_context(context, None)
 if smt_stat != 3:
     print 'No solution: smt_stat = {0}\n'.format(smt_stat)
 else:
+    #print model
     model = get_model(context, 1)
     val = c_int32()
     for i in range(9):
         for j in range(9):
             get_int32_value(model, V(i,j), val)
-            print 'V({0}, {1}) = {2}\n'.format(i, j, val.value)
+            print 'V({0}, {1}) = {2}'.format(i, j, val.value)
 
-#print model
 
 print 'Cleaning up\n'
 
