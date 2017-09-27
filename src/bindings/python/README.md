@@ -10,7 +10,7 @@ the python language bindings by simply installing the pip package:
 pip install yices
 ```
 
-The python API is very closely tied to the yices C API, see [yices.h](http://yices.csl.sri.com//blob/master/src/include/yices.h).
+The python API is very closely tied to the yices C API, see [yices.h](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h).
 
 ## Examples of Usage
 
