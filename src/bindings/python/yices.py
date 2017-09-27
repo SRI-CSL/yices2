@@ -82,8 +82,8 @@ def main():
 # pip      -  lib      -  release date   -  notes                     #
 #                                                                     #
 # 1.0.0    -  2.5.3    -  9/11/2017      -  birth                     #
-# 1.0.1    -  2.5.3    -  9/29/2017      -  uniform API version       #
-#                                                                     #
+# 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version       #
+# 1.0.2    -  2.5.3    -  9/27/2017      -  library version check     #
 #                                                                     #
 #######################################################################
 
@@ -92,10 +92,11 @@ def main():
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.1'
+yices_python_version = '1.0.2'
 
 #
-# 1.0.1 needs yices_has_mcsat (anything else Sam? BD?)
+# 1.0.1 needs yices_has_mcsat
+#
 yices_recommended_version = '2.5.3'
 
 
@@ -184,8 +185,13 @@ def checkYices():
         if lv_major == rv_major and lv_minor == rv_minor and lv_revision < rv_revision:
             return False
         return True
+    complaint = """
+    This Python package requires Yices C library version {0} or better.
+    Your version is {1}.
+    Please upgrade: http://yices.csl.sri.com/.
+    """
     if not _versionCheck():
-            raise YicesException("The recommended Yices dynamic library version is {0}, yours is {1}.".format(yices_recommended_version, yices_version))
+            raise YicesException(complaint.format(yices_recommended_version, yices_version))
 
 
 checkYices()
