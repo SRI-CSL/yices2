@@ -13,8 +13,7 @@ class TestError(unittest.TestCase):
         yices_exit()
 
     def test_error(self):
-        # Simple yices_reset test causes segmentation fault on Linux
-        #yices_reset()
+        yices_reset()
 
         # First with no error
         errcode = yices_error_code()

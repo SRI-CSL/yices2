@@ -191,7 +191,7 @@ def checkYices():
     Please upgrade: http://yices.csl.sri.com/.
     """
     if not _versionCheck():
-            raise YicesException(complaint.format(yices_recommended_version, yices_version))
+        raise YicesException(complaint.format(yices_recommended_version, yices_version))
 
 
 checkYices()
@@ -328,7 +328,7 @@ class lp_algebraic_number_t(Structure):
                 ("sgn_at_a", c_int),
                 ("sgn_at_b", c_int)]
 
-# yval node_tag values
+# yval node_tag values N.B. these are from yval_tag_t
 YVAL_UNKNOWN = 0
 YVAL_BOOL = 1
 YVAL_RATIONAL = 2
@@ -338,6 +338,12 @@ YVAL_SCALAR = 5
 YVAL_TUPLE = 6
 YVAL_FUNCTION = 7
 YVAL_MAPPING = 8
+
+#iam: what other enums do we want.
+#from yices_types.h:
+#smt_status_t
+#term_constructor_t
+#yices_gen_mode_t
 
 # From yices.h
 

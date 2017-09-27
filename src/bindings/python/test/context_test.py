@@ -1,44 +1,7 @@
 import unittest
 
-#need to figure out why the
 from ..yices import *
-#causes problems  (SOLVED?!?)
 
-"""
-from ..yices import (
-    yices_init,
-    yices_exit,
-    yices_new_config,
-    yices_set_config,
-    yices_default_config_for_logic,
-    yices_free_config,
-    yices_new_context,
-    yices_free_context,
-    yices_context_status,
-    yices_push,
-    yices_pop,
-    yices_reset_context,
-    yices_context_enable_option,
-    yices_context_disable_option,
-    make_term_array,
-    yices_bool_type,
-    yices_bv_type,
-    yices_new_variable,
-    yices_new_uninterpreted_term,
-    yices_set_term_name,
-    yices_assert_formula,
-    yices_assert_formulas,
-    yices_parse_term,
-    yices_check_context,
-    yices_assert_blocking_clause,
-    yices_stop_search,
-    yices_new_param_record,
-    yices_free_param_record,
-    yices_default_params_for_context,
-    yices_set_param,
-    YicesException
-)
-"""
 
 class TestContext(unittest.TestCase):
 

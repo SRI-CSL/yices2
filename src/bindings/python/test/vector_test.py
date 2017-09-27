@@ -19,15 +19,6 @@ from ..yices import (
     )
 
 
-# MYSTERY:
-#
-# from ..yices import *
-#
-# causes the  error:
-#
-# E       TypeError: test_subtype() takes exactly 2 arguments (0 given)
-#
-
 class TestVector(unittest.TestCase):
 
     def setUp(self):
@@ -48,7 +39,6 @@ class TestVector(unittest.TestCase):
         yices_init_type_vector(type_v)
         yices_reset_type_vector(type_v)
         yices_delete_type_vector(type_v)
-        #yices_type_children(ty, type_v)
 
     def test_yval_vector(self):
         yval_v = yval_vector_t()
