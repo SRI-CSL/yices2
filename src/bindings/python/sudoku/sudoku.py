@@ -1,46 +1,17 @@
 #!/usr/bin/env python
 
-"""
-#this way is a bit long winded
-from yices import (yices_init,
-                   yices_exit,
-                   yices_int_type,
-                   yices_int32,
-                   term_t,
-                   type_t,
-                   make_term_array,
-                   make_type_array,
-                   yices_distinct,
-                   yices_and2,
-                   yices_arith_eq_atom,
-                   yices_arith_leq_atom,
-                   yices_new_uninterpreted_term,
-                   yices_new_config,
-                   yices_new_context,
-                   yices_default_config_for_logic,
-                   yices_assert_formula,
-                   yices_check_context,
-                   yices_get_model,
-                   yices_get_int32_value,
-                   yices_free_context,
-                   yices_free_config
-)
-"""
-
-#this way we could use the yices_ prefixes everywhere and feel safe.
 from yices import *
 
 from ctypes import ( c_int32 )
 
-
 yices_init()
+
 
 int_t = yices_int_type()
 
 
 #seems logical to make the terms in a grid.
 X = [None] * 9
-
 for i in range(9):
     X[i] = [None] * 9
     for j in range(9):
