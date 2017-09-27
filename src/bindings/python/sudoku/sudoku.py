@@ -144,7 +144,7 @@ else:
         for j in range(9):
             yices_get_int32_value(model, V(i,j), val)
             print 'V({0}, {1}) = {2}'.format(i, j, val.value)
-
+    yices_free_model(model)
 
 print 'Cleaning up\n'
 
