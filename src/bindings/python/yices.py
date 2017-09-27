@@ -61,31 +61,42 @@ from ctypes.util import find_library
 def main():
     """The only console entry point; currently just used for information."""
     loadYices()
-    sys.stdout.write('Python Yices Bindings. Version {0}\n'.format(yices_version));
+    sys.stdout.write('Python Yices Bindings. Version {0}\n'.format(yices_python_version));
     sys.stdout.write('Yices library loaded from {0}\n'.format(libyicespath))
-    sys.stdout.write('Version: {0}\nArchitecture: {1}\nBuild mode: {2}\nBuild date: {3}\nMCSat support: {4}\n'.format(version, build_arch, build_mode, build_date, yices_has_mcsat()));
+    sys.stdout.write('Version: {0}\nArchitecture: {1}\nBuild mode: {2}\nBuild date: {3}\nMCSat support: {4}\n'.format(yices_version, yices_build_arch, yices_build_mode, yices_build_date, yices_has_mcsat()));
 
 
 
 
 
-############################################################
-# Feeping Creaturism:                                      #
-#                                                          #
-# this is the all important version number used by pip.    #
-#                                                          #
-#                                                          #
-############################################################
-#                                                          #
-# Version History:                                         #
-#                                                          #
-# 1.0.0    -  9/11/2017      birth                         #
-# 1.0.1    -  9/29/2017      uniform API version           #
-#                                                          #
-#                                                          #
-############################################################
+#######################################################################
+# Feeping Creaturism:                                                 #
+#                                                                     #
+# this is the all important version number used by pip.               #
+#                                                                     #
+#                                                                     #
+#######################################################################
+#                                                                     #
+# Version History:                                                    #
+#                                                                     #
+# pip      -  lib      -  release date   -  notes                     #
+#                                                                     #
+# 1.0.0    -  2.5.3    -  9/11/2017      -  birth                     #
+# 1.0.1    -  2.5.3    -  9/29/2017      -  uniform API version       #
+#                                                                     #
+#                                                                     #
+#######################################################################
 
-yices_version = '1.0.1'
+#
+# when the dust settles we can synch this with the library, but
+# while the bindings are moving so fast we should keep them separate.
+#
+#
+yices_python_version = '1.0.1'
+
+#
+# 1.0.1 needs yices_has_mcsat (anything else Sam? BD?)
+yices_recommended_version = '2.5.3'
 
 
 class YicesException(Exception):
@@ -111,8 +122,19 @@ def catch_error(errval):
 libyicespath = find_library("yices")
 libyices = None
 
+
+
+#########################################
+#                                       #
+#  Start of LOADING ZONE                #
+#                                       #
+#########################################
+
+
+
 def loadYices():
     global libyicespath, libyices
+
     if libyicespath is not None:
         #sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
         libyices = CDLL(libyicespath)
@@ -120,7 +142,61 @@ def loadYices():
         raise YicesException("Yices dynamic library not found.")
 
 
+
 loadYices()
+
+###########################
+#  VERSION AND RELATIVES  #
+###########################
+
+# const char *yices_version
+yices_version = c_char_p.in_dll(libyices, "yices_version").value
+"""libyices version as in '2.5.3'"""
+
+# const char *yices_build_arch
+yices_build_arch = c_char_p.in_dll(libyices, "yices_build_arch").value
+"""libyices build architecture as in 'x86_64-pc-linux-gnu'"""
+
+# const char *yices_build_mode
+yices_build_mode = c_char_p.in_dll(libyices, "yices_build_mode").value
+"""libyices build mode (typically either 'release' or 'debug'"""
+
+# const char *yices_build_date
+yices_build_date = c_char_p.in_dll(libyices, "yices_build_date").value
+"""libyices build date as in '2017-09-08'"""
+
+# int32_t yices_has_mcsat(void)
+libyices.yices_has_mcsat.restype = c_int32
+def yices_has_mcsat():
+    """Returns 1 if the yices library has mcsat support, 0 otherwise."""
+    return libyices.yices_has_mcsat()
+
+
+def checkYices():
+    """Checks that the library is not too stale to work with these bindings."""
+    def _versionCheck():
+        (lv_major, lv_minor, lv_revision) = [ int(x) for x in yices_version.split('.') ]
+        (rv_major, rv_minor, rv_revision) = [ int(x) for x in yices_recommended_version.split('.') ]
+        if lv_major < rv_major:
+            return False
+        if lv_major == rv_major and lv_minor < rv_minor:
+            return False
+        if lv_major == rv_major and lv_minor == rv_minor and lv_revision < rv_revision:
+            return False
+        return True
+    if not _versionCheck():
+            raise YicesException("The recommended Yices dynamic library version is {0}, yours is {1}.".format(yices_recommended_version, yices_version))
+
+
+checkYices()
+
+
+#########################################
+#                                       #
+#  End of LOADING ZONE                  #
+#                                       #
+#########################################
+
 
 #we are lazy about attempting to load gmp. The user must try
 #to call a routine that needs gmp, otherwise we do not load it.
@@ -258,35 +334,6 @@ YVAL_FUNCTION = 7
 YVAL_MAPPING = 8
 
 # From yices.h
-
-
-###########################
-#  VERSION AND RELATIVES  #
-###########################
-
-# const char *yices_version
-version = c_char_p.in_dll(libyices, "yices_version").value
-"""libyices version as in '2.5.3'"""
-
-# const char *yices_build_arch
-build_arch = c_char_p.in_dll(libyices, "yices_build_arch").value
-"""libyices build architecture as in 'x86_64-pc-linux-gnu'"""
-
-# const char *yices_build_mode
-build_mode = c_char_p.in_dll(libyices, "yices_build_mode").value
-"""libyices build mode (typically either 'release' or 'debug'"""
-
-# const char *yices_build_date
-build_date = c_char_p.in_dll(libyices, "yices_build_date").value
-"""libyices build date as in '2017-09-08'"""
-
-# int32_t yices_has_mcsat(void)
-libyices.yices_has_mcsat.restype = c_int32
-def yices_has_mcsat():
-    """Returns 1 if the yices library has mcsat support, 0 otherwise."""
-    return libyices.yices_has_mcsat()
-
-
 
 
 ########################################

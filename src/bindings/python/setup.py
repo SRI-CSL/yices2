@@ -14,11 +14,11 @@ here = path.abspath(path.dirname(__file__))
 long_description = "This is the long description."
 
 # use the in house version number so we stay in synch with ourselves.
-from yices import yices_version
+from yices import yices_python_version
 
 setup(
     name='yices',
-    version=yices_version,
+    version=yices_python_version,
     description='Python Bindings for the Yices SMT Solver',
     long_description=long_description,
     url='https://github.com/SRI-CSL/yices2',
