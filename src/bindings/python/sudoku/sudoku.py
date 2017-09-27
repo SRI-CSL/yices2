@@ -4,23 +4,26 @@
 #this way is a bit long winded
 from yices import (yices_init,
                    yices_exit,
-                   int_type,
-                   int32,
+                   yices_int_type,
+                   yices_int32,
                    term_t,
-                   distinct,
-                   and2,
-                   arith_eq_atom,
-                   arith_leq_atom,
-                   new_uninterpreted_term,
-                   new_config,
-                   new_context,
-                   default_config_for_logic,
-                   assert_formula,
-                   check_context,
-                   get_model,
-                   get_int32_value,
-                   free_context,
-                   free_config
+                   type_t,
+                   make_term_array,
+                   make_type_array,
+                   yices_distinct,
+                   yices_and2,
+                   yices_arith_eq_atom,
+                   yices_arith_leq_atom,
+                   yices_new_uninterpreted_term,
+                   yices_new_config,
+                   yices_new_context,
+                   yices_default_config_for_logic,
+                   yices_assert_formula,
+                   yices_check_context,
+                   yices_get_model,
+                   yices_get_int32_value,
+                   yices_free_context,
+                   yices_free_config
 )
 """
 
@@ -32,7 +35,7 @@ from ctypes import ( c_int32 )
 
 yices_init()
 
-int_t = int_type()
+int_t = yices_int_type()
 
 
 #seems logical to make the terms in a grid.
@@ -41,7 +44,7 @@ X = [None] * 9
 for i in range(9):
     X[i] = [None] * 9
     for j in range(9):
-        X[i][j] = new_uninterpreted_term(int_t)
+        X[i][j] = yices_new_uninterpreted_term(int_t)
 
 #not real happy about the indexing going from 0 to 8, but
 #isolating access via V could make it easier to go from 1 to 9
@@ -53,50 +56,45 @@ def V(i,j):
 #make the constants that we will need
 C = {}
 for i in range(1, 10):
-    C[i] = int32(i)
+    C[i] = yices_int32(i)
 
 one = C[1]
 nine = C[9]
 
 
-config = new_config()
-context = new_context(config)
-#BD: this does not speed it up (if anything it is epsilon slower)
-# should I be doing something like
-# set_config(config, "arith-fragment", "LIA")
-default_config_for_logic(context, "QF_LIA")
+config = yices_new_config()
+yices_default_config_for_logic(config, "QF_LIA")
+context = yices_new_context(config)
+
 
 
 # x is between 1 and 9
 def between_1_and_9(x):
-    return and2(arith_leq_atom(one, x), arith_leq_atom(x, nine))
+    return yices_and2(yices_arith_leq_atom(one, x), yices_arith_leq_atom(x, nine))
 
 for i in range(9):
     for j in range(9):
-        assert_formula(context, between_1_and_9(V(i,j)))
+        yices_assert_formula(context, between_1_and_9(V(i,j)))
 
 
-#weird python and ctype magic
 def all_distinct(x):
     n = len(x)
-    A = term_t * n
-    a = A(*x)
-    return distinct(n, a)
-
+    a = make_term_array(x)
+    return yices_distinct(n, a)
 
 # All elements in a row must be distinct
 for i in range(9):
-    assert_formula(context, all_distinct([V(i,j) for j in range(9)]))  #I.e.  all_distinct(X[i])
+    yices_assert_formula(context, all_distinct([V(i,j) for j in range(9)]))  #I.e.  all_distinct(X[i])
 
 
 # All elements in a column must be distinct
 for i in range(9):
-    assert_formula(context, all_distinct([V(j,i) for j in range(9)]))
+    yices_assert_formula(context, all_distinct([V(j,i) for j in range(9)]))
 
 # All elements in each 3x3 square must be distinct
 for k in range(3):
     for l in range(3):
-        assert_formula(context, all_distinct([V(i + 3 * l, j + 3 * k) for i in range(3) for j in range(3)]))
+        yices_assert_formula(context, all_distinct([V(i + 3 * l, j + 3 * k) for i in range(3) for j in range(3)]))
 
 
 #initial conditions (part of the UI)
@@ -105,7 +103,7 @@ def set_value(context, position, value):
     assert 1 <= row and row <= 9
     assert 1 <= column and column <= 9
     assert 1 <= value and value <= 9
-    assert_formula(context, arith_eq_atom(V(row - 1, column - 1), C[value]))
+    yices_assert_formula(context, yices_arith_eq_atom(V(row - 1, column - 1), C[value]))
 
 
 #
@@ -163,24 +161,24 @@ set_value(context, (9, 7), 2)
 
 #check sat
 
-smt_stat = check_context(context, None)
+smt_stat = yices_check_context(context, None)
 
 if smt_stat != 3:
     print 'No solution: smt_stat = {0}\n'.format(smt_stat)
 else:
     #print model
-    model = get_model(context, 1)
+    model = yices_get_model(context, 1)
     val = c_int32()
     for i in range(9):
         for j in range(9):
-            get_int32_value(model, V(i,j), val)
+            yices_get_int32_value(model, V(i,j), val)
             print 'V({0}, {1}) = {2}'.format(i, j, val.value)
 
 
 print 'Cleaning up\n'
 
-free_context(context)
-free_config(config)
+yices_free_context(context)
+yices_free_config(config)
 
 
 yices_exit()

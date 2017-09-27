@@ -65,6 +65,10 @@ sudoku: check_lint
 # for detecting just errors:
 	@ $(PYLINT) -E  sudoku/sudoku.py
 
+gui: check_lint
+# for detecting just errors:
+	@ $(PYLINT) -E  gui/*.py
+
 #	@ $(PYLINT) --rcfile=.pylintrc yices.py test/*.py
 
 lint_all: check_lint

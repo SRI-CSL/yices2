@@ -1,49 +1,57 @@
 import unittest
-"""
+
+
 from ..yices import (
     yices_init,
     yices_exit,
     term_vector_t,
-    init_term_vector,
-    delete_term_vector,
-    reset_term_vector,
+    yices_init_term_vector,
+    yices_delete_term_vector,
+    yices_reset_term_vector,
     type_vector_t,
-    init_type_vector,
-    delete_type_vector,
-    reset_type_vector,
+    yices_init_type_vector,
+    yices_delete_type_vector,
+    yices_reset_type_vector,
     yval_vector_t,
-    init_yval_vector,
-    delete_yval_vector,
-    reset_yval_vector
+    yices_init_yval_vector,
+    yices_delete_yval_vector,
+    yices_reset_yval_vector
     )
-"""
 
-from .. import yices as ys
+
+# MYSTERY:
+#
+# from ..yices import *
+#
+# causes the  error:
+#
+# E       TypeError: test_subtype() takes exactly 2 arguments (0 given)
+#
 
 class TestVector(unittest.TestCase):
 
     def setUp(self):
-        ys.yices_init()
+        yices_init()
 
     def tearDown(self):
-        ys.yices_exit()
+        yices_exit()
         pass
 
     def test_term_vector(self):
-        term_v = ys.term_vector_t()
-        ys.init_term_vector(term_v)
-        ys.delete_term_vector(term_v)
-        ys.reset_term_vector(term_v)
+        term_v = term_vector_t()
+        yices_init_term_vector(term_v)
+        yices_delete_term_vector(term_v)
+        yices_reset_term_vector(term_v)
 
     def test_type_vector(self):
-        type_v = ys.type_vector_t()
-        ys.init_type_vector(type_v)
-        ys.reset_type_vector(type_v)
-        ys.delete_type_vector(type_v)
-        #yices.type_children(ty, type_v)
+        type_v = type_vector_t()
+        yices_init_type_vector(type_v)
+        yices_reset_type_vector(type_v)
+        yices_delete_type_vector(type_v)
+        #yices_type_children(ty, type_v)
 
     def test_yval_vector(self):
-        yval_v = ys.yval_vector_t()
-        ys.init_yval_vector(yval_v)
-        ys.reset_yval_vector(yval_v)
-        ys.delete_yval_vector(yval_v)
+        yval_v = yval_vector_t()
+        yices_init_yval_vector(yval_v)
+        yices_reset_yval_vector(yval_v)
+        yices_delete_yval_vector(yval_v)
