@@ -28,5 +28,5 @@ the power of the API over the more sedate yices specification language.
 ### The SudokuSolver 
 
 In the repository [SudokuSolver](https://github.com/SRI-CSL/SudokuSolver) there is a GUI that allows you to 
-enter an arbitrary sudoku pazzle and solve it.
+enter an arbitrary sudoku puzzle and solve it, and enter a partial puzzle and count the number of solutions it has.
 
