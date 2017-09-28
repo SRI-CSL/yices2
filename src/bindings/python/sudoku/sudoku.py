@@ -134,7 +134,7 @@ set_value(context, (9, 7), 2)
 
 smt_stat = yices_check_context(context, None)
 
-if smt_stat != 3:
+if smt_stat != STATUS_SAT:
     print 'No solution: smt_stat = {0}\n'.format(smt_stat)
 else:
     #print model

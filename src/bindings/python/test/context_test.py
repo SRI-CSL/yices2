@@ -18,13 +18,9 @@ class TestContext(unittest.TestCase):
         # Invalid name
         with self.assertRaisesRegexp(YicesException, 'invalid parameter'):
             yices_set_config(cfg, "baz", "bar")
-        # err = yices_error_code()
-        # self.assertEqual(err, 501L)
         # Invalid value
         with self.assertRaisesRegexp(YicesException, 'value not valid for parameter'):
             yices_set_config(cfg, "mode", "bar")
-        # err = yices_error_code()
-        # self.assertEqual(err, 502L)
         yices_default_config_for_logic(cfg, "QF_UFNIRA")
         yices_free_config(cfg)
 
@@ -57,7 +53,7 @@ class TestContext(unittest.TestCase):
         yices_assert_formula(ctx, fmla1)
         yices_assert_formulas(ctx, 3, make_term_array([fmla1, fmla2, fmla3]))
         smt_stat = yices_check_context(ctx, None)
-        self.assertEqual(smt_stat, 3) # STATUS_SAT
+        self.assertEqual(smt_stat, STATUS_SAT)
         yices_assert_blocking_clause(ctx)
         yices_stop_search(ctx)
         param = yices_new_param_record()

@@ -69,30 +69,31 @@ def main():
 
 
 
-#######################################################################
-# Feeping Creaturism:                                                 #
-#                                                                     #
-# this is the all important version number used by pip.               #
-#                                                                     #
-#                                                                     #
-#######################################################################
-#                                                                     #
-# Version History:                                                    #
-#                                                                     #
-# pip      -  lib      -  release date   -  notes                     #
-#                                                                     #
-# 1.0.0    -  2.5.3    -  9/11/2017      -  birth                     #
-# 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version       #
-# 1.0.2    -  2.5.3    -  9/27/2017      -  library version check     #
-#                                                                     #
-#######################################################################
+########################################################################################
+# Feeping Creaturism:                                                                  #
+#                                                                                      #
+# this is the all important version number used by pip.                                #
+#                                                                                      #
+#                                                                                      #
+########################################################################################
+#                                                                                      #
+# Version History:                                                                     #
+#                                                                                      #
+# pip      -  lib      -  release date   -  notes                                      #
+#                                                                                      #
+# 1.0.0    -  2.5.3    -  9/11/2017      -  birth                                      #
+# 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version                        #
+# 1.0.2    -  2.5.3    -  9/27/2017      -  library version check                      #
+# 1.0.3    -  2.5.3    -  9/28/2017      -  STATUS_SAT et al + Linux install fix.      #
+#                                                                                      #
+########################################################################################
 
 #
 # when the dust settles we can synch this with the library, but
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.2'
+yices_python_version = '1.0.3'
 
 #
 # 1.0.1 needs yices_has_mcsat
@@ -328,7 +329,11 @@ class lp_algebraic_number_t(Structure):
                 ("sgn_at_a", c_int),
                 ("sgn_at_b", c_int)]
 
-# yval node_tag values N.B. these are from yval_tag_t
+
+
+#from yices_types.h:
+
+#yval_tag_t:  yval node_tag values
 YVAL_UNKNOWN = 0
 YVAL_BOOL = 1
 YVAL_RATIONAL = 2
@@ -339,11 +344,66 @@ YVAL_TUPLE = 6
 YVAL_FUNCTION = 7
 YVAL_MAPPING = 8
 
-#iam: what other enums do we want.
-#from yices_types.h:
+
 #smt_status_t
+STATUS_IDLE = 0
+STATUS_SEARCHING = 1
+STATUS_UNKNOWN = 2
+STATUS_SAT = 3
+STATUS_UNSAT = 4
+STATUS_INTERRUPTED = 5
+STATUS_ERROR = 6
+
 #term_constructor_t
+YICES_CONSTRUCTOR_ERROR = -1
+YICES_BOOL_CONSTANT = 0
+YICES_ARITH_CONSTANT = 1
+YICES_BV_CONSTANT = 2
+YICES_SCALAR_CONSTANT = 3
+YICES_VARIABLE = 4
+YICES_UNINTERPRETED_TERM = 5
+YICES_ITE_TERM = 6
+YICES_APP_TERM = 7
+YICES_UPDATE_TERM = 8
+YICES_TUPLE_TERM = 9
+YICES_EQ_TERM = 10
+YICES_DISTINCT_TERM = 11
+YICES_FORALL_TERM = 12
+YICES_LAMBDA_TERM = 13
+YICES_NOT_TERM = 14
+YICES_OR_TERM = 15
+YICES_XOR_TERM = 16
+YICES_BV_ARRAY = 17
+YICES_BV_DIV = 18
+YICES_BV_REM = 19
+YICES_BV_SDIV = 20
+YICES_BV_SREM = 21
+YICES_BV_SMOD = 22
+YICES_BV_SHL = 23
+YICES_BV_LSHR = 24
+YICES_BV_ASHR = 25
+YICES_BV_GE_ATOM = 26
+YICES_BV_SGE_ATOM = 27
+YICES_ARITH_GE_ATOM = 28
+YICES_ARITH_ROOT_ATOM = 29
+YICES_ABS = 30
+YICES_CEIL = 31
+YICES_FLOOR = 32
+YICES_RDIV = 33
+YICES_IDIV = 34
+YICES_IMOD = 35
+YICES_IS_INT_ATOM = 36
+YICES_DIVIDES_ATOM = 37
+YICES_SELECT_TERM = 38
+YICES_BIT_TERM = 39
+YICES_BV_SUM = 40
+YICES_ARITH_SUM = 41
+YICES_POWER_PRODUCT = 42
+
 #yices_gen_mode_t
+YICES_GEN_DEFAULT = 0
+YICES_GEN_BY_SUBST = 1
+YICES_GEN_BY_PROJ = 2
 
 # From yices.h
 
