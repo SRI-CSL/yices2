@@ -38,6 +38,7 @@ since we do not have to return an error code like the C API.
 """
 from __future__ import with_statement
 
+import os
 import sys
 
 from functools import wraps
@@ -93,6 +94,9 @@ def main():
 # 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version                        #
 # 1.0.2    -  2.5.3    -  9/27/2017      -  library version check                      #
 # 1.0.3    -  2.5.3    -  9/28/2017      -  STATUS_SAT et al + Linux install fix.      #
+# 1.0.4    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery.                   #
+# 1.0.5    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, II.               #
+# 1.0.6    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, III.              #
 #                                                                                      #
 ########################################################################################
 
@@ -101,7 +105,7 @@ def main():
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.3'
+yices_python_version = '1.0.6'
 
 #
 # 1.0.1 needs yices_has_mcsat
@@ -140,16 +144,44 @@ libyices = None
 #                                       #
 #########################################
 
-
+#
+# Loading the library is complicated by misbehaviour on Linux
+# So we manually have to go through the LD_LIBRARY_PATH
+#
+def _loadYicesFromPath(path, library):
+    global libyices
+    try:
+        if path is not None:
+            libyices = CDLL(os.path.join(path, library))
+        else:
+            libyices = CDLL(library)
+        return True
+    except:
+        return False
 
 def loadYices():
     global libyicespath, libyices
 
+    error_msg = "Yices dynamic library not found."
+
     if libyicespath is not None:
-        #sys.stderr.write('\nLoading yices library from {0}.\n'.format(libyicespath))
-        libyices = CDLL(libyicespath)
-    else:
-        raise YicesException("Yices dynamic library not found.")
+        #try first without hackery
+        if _loadYicesFromPath(None, libyicespath):
+            return
+        #on linux we see if the LD_LIBRARY_PATH can help
+        ld_library_path = os.environ.get('LD_LIBRARY_PATH')
+        if ld_library_path is not None:
+            paths = ld_library_path.split(':')
+            for path in paths:
+                if _loadYicesFromPath(path, libyicespath):
+                    return
+        #try the default install location for yices on linux
+        #(sudo pip install vs pip install means we often miss the user's LD_LIBRARY_PATH)
+        if _loadYicesFromPath('/usr/local/lib', libyicespath):
+            return
+        error_msg = "Yices dynamic library {0} not found. LD_LIBRARY_PATH was {1}".format(libyicespath, ld_library_path)
+    # else we failed
+    raise YicesException(error_msg)
 
 
 

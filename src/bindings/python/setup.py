@@ -45,8 +45,8 @@ setup(
         'Intended Audience :: Science/Research',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Compilers',
-#        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
-#        'Operating System :: Microsoft :: Windows',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Operating System :: Microsoft :: Windows',
         'Operating System :: MacOS',
         'Operating System :: POSIX :: Linux',
         'Operating System :: POSIX :: BSD',
@@ -61,4 +61,7 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
+
+    py_modules=['yices'],
+
 )
