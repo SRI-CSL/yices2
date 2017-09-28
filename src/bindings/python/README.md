@@ -22,7 +22,8 @@ of tests that use many of the API routines.
 ### The sudoku.py script
 
 In the directory [sudoku](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python/sudoku) there is a 
-yices script `sudoku.ys` and a translation `sudoku.py` that sole the same puzzle.
+yices script `sudoku.ys` and a translation `sudoku.py` that solve the same puzzle. The python version illustrates
+the power of the API over the more sedate yices specification language.
 
 ### The SudokuSolver 
 
