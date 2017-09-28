@@ -27,6 +27,14 @@ bd: take care of pointer() vs. byref(). Be consistent about it.
     update the docstrings: some functions return bitvector values
     in an array of integers.
 
+iam: we should beef up the Yices exception so that it contains a copy of the
+error report.
+
+iam: we should hide all ctype crap from the user. Any array passed in to a
+python routine should be a python array. We can use the make_* routines
+locally. we should also return values, not place them in "references" or "arrays"
+since we do not have to return an error code like the C API.
+
 """
 from __future__ import with_statement
 
