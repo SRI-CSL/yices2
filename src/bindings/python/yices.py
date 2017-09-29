@@ -97,6 +97,7 @@ def main():
 # 1.0.4    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery.                   #
 # 1.0.5    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, II.               #
 # 1.0.6    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, III.              #
+# 1.0.7    -  2.5.4    -  9/29/2017      -  patch level version bump for PPA goodness  #
 #                                                                                      #
 ########################################################################################
 
@@ -105,12 +106,13 @@ def main():
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.6'
+yices_python_version = '1.0.7'
 
 #
 # 1.0.1 needs yices_has_mcsat
+# 1.0.1-7 needs the _fd api additions that appear in 2.5.4
 #
-yices_recommended_version = '2.5.3'
+yices_recommended_version = '2.5.4'
 
 
 class YicesException(Exception):
@@ -150,8 +152,8 @@ libyices = None
 # really help anyway, since we would probably be getting the sudo
 # version not the user's version. Probably the real issue is that
 # on Linux yices installs in /usr/local/lib but the ctype loading probably
-# expects ii to be in some x86_64 archified directory. HOWEVER, if find_library
-# can find the name correctly, you would expect the it could also load the
+# expects it to be in some x86_64 archified directory. HOWEVER, if find_library
+# can find the name correctly, you would expect that it could also load the
 # puppy correctly.
 #
 def _loadYicesFromPath(path, library):
