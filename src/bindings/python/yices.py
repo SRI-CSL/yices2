@@ -146,7 +146,13 @@ libyices = None
 
 #
 # Loading the library is complicated by misbehaviour on Linux
-# So we manually have to go through the LD_LIBRARY_PATH
+# So we manually have to go through the LD_LIBRARY_PATH, which may not
+# really help anyway, since we would probably be getting the sudo
+# version not the user's version. Probably the real issue is that
+# on Linux yices installs in /usr/local/lib but the ctype loading probably
+# expects ii to be in some x86_64 archified directory. HOWEVER, if find_library
+# can find the name correctly, you would expect the it could also load the
+# puppy correctly.
 #
 def _loadYicesFromPath(path, library):
     global libyices
@@ -168,15 +174,14 @@ def loadYices():
         #try first without hackery
         if _loadYicesFromPath(None, libyicespath):
             return
-        #on linux we see if the LD_LIBRARY_PATH can help
+        #on linux we see if the LD_LIBRARY_PATH can help  (may not really help)
         ld_library_path = os.environ.get('LD_LIBRARY_PATH')
         if ld_library_path is not None:
             paths = ld_library_path.split(':')
             for path in paths:
                 if _loadYicesFromPath(path, libyicespath):
                     return
-        #try the default install location for yices on linux
-        #(sudo pip install vs pip install means we often miss the user's LD_LIBRARY_PATH)
+        #try the default install location for yices on linux (this may be the real win)
         if _loadYicesFromPath('/usr/local/lib', libyicespath):
             return
         error_msg = "Yices dynamic library {0} not found. LD_LIBRARY_PATH was {1}".format(libyicespath, ld_library_path)
