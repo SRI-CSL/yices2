@@ -6,7 +6,9 @@
 
 Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
-(SMT) problems.
+(SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
+We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
+and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
@@ -15,10 +17,6 @@ Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian A. Mason
 at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
 [website](http://yices.csl.sri.com).
-
-Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
-We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
 
 ## Simple Examples
 
