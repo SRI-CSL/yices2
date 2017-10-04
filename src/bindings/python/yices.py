@@ -107,7 +107,7 @@ def yices_python_info_main():
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.7'
+yices_python_version = '1.0.8'
 
 #
 # 1.0.1 needs yices_has_mcsat
@@ -4424,6 +4424,7 @@ def yices_get_model(ctx, keep_subst):
     The function returns NULL if the status isn't SAT or STATUS_UNKNOWN
     and sets an error report (code = CTX_INVALID_OPERATION).
     """
+    #FIXME: ask Sam why we are doing @catch_error(-1) rather than @catch_error(0)or @catch_error(None)
     mdl = libyices.yices_get_model(ctx, keep_subst)
     if mdl is None:
         raise YicesException('Model not available - result of check_context should yield context_status of 2 (STATUS_SAT) or 3 (STATUS_UNKNOWN)')
