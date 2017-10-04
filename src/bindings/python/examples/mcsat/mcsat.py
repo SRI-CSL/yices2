@@ -31,8 +31,9 @@ def make_context():
 def show_algebraic_value(model, term):
     alg = lp_algebraic_number_t()
     yices_get_algebraic_number_value(model, term, alg)
-    lp_algebraic_number_print(alg, 1)  # 1 is stdout
-    lp_algebraic_number_destruct(alg)
+    # FIXME: libpoly python API is not part of yices.py
+    #lp_algebraic_number_print(alg, 1)  # 1 is stdout
+    #lp_algebraic_number_destruct(alg)
 
 
 def test_mcsat():
@@ -55,10 +56,10 @@ def test_mcsat():
     print "Model:\n"
     yices_pp_model_fd(1, model, 80, 20, 0)
 
-    # FIXME: libpoly python API is not part of yices.py
-    #    print "algebraic value of x = "
-    #    show_algebraic_value(model, x)
-    #    print "\n"
+
+    print "algebraic value of x = "
+    show_algebraic_value(model, x)
+    print "\n"
 
     print "Test succeeded\n"
 
