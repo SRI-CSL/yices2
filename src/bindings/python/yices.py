@@ -1243,7 +1243,7 @@ libyices.yices_rational64.argtypes = [c_int64, c_int64]
 def yices_rational64(num, den):
     """Returns a constant rational term from the given 64 bit numerator and denominator.
 
-    rational32(num, den):
+    rational64(num, den):
     - den must be non-zero
     - common factors are removed
 
