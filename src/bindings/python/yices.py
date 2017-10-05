@@ -67,7 +67,7 @@ from ctypes import (
 from ctypes.util import find_library
 
 
-def main():
+def yices_python_info_main():
     """The only console entry point; currently just used for information."""
     loadYices()
     sys.stdout.write('Python Yices Bindings. Version {0}\n'.format(yices_python_version));
@@ -78,35 +78,36 @@ def main():
 
 
 
-########################################################################################
-# Feeping Creaturism:                                                                  #
-#                                                                                      #
-# this is the all important version number used by pip.                                #
-#                                                                                      #
-#                                                                                      #
-########################################################################################
-#                                                                                      #
-# Version History:                                                                     #
-#                                                                                      #
-# pip      -  lib      -  release date   -  notes                                      #
-#                                                                                      #
-# 1.0.0    -  2.5.3    -  9/11/2017      -  birth                                      #
-# 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version                        #
-# 1.0.2    -  2.5.3    -  9/27/2017      -  library version check                      #
-# 1.0.3    -  2.5.3    -  9/28/2017      -  STATUS_SAT et al + Linux install fix.      #
-# 1.0.4    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery.                   #
-# 1.0.5    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, II.               #
-# 1.0.6    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, III.              #
-# 1.0.7    -  2.5.4    -  9/29/2017      -  patch level version bump for PPA goodness  #
-#                                                                                      #
-########################################################################################
+################################################################################################
+# Feeping Creaturism:                                                                          #
+#                                                                                              #
+# this is the all important version number used by pip.                                        #
+#                                                                                              #
+#                                                                                              #
+################################################################################################
+#                                                                                              #
+# Version History:                                                                             #
+#                                                                                              #
+# pip      -  lib      -  release date   -  notes                                              #
+#                                                                                              #
+# 1.0.0    -  2.5.3    -  9/11/2017      -  birth                                              #
+# 1.0.1    -  2.5.3    -  9/27/2017      -  uniform API version                                #
+# 1.0.2    -  2.5.3    -  9/27/2017      -  library version check                              #
+# 1.0.3    -  2.5.3    -  9/28/2017      -  STATUS_SAT et al + Linux install fix.              #
+# 1.0.4    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery.                           #
+# 1.0.5    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, II.                       #
+# 1.0.6    -  2.5.3    -  9/28/2017      -  LD_LIBRARY_PATH hackery, III.                      #
+# 1.0.7    -  2.5.4    -  9/29/2017      -  patch level version bump for PPA goodness          #
+# 1.0.8    -  2.5.4    -  10/4/2017      -  improving the user experience  (less SIGSEGVs)     #
+#                                                                                              #
+################################################################################################
 
 #
 # when the dust settles we can synch this with the library, but
 # while the bindings are moving so fast we should keep them separate.
 #
 #
-yices_python_version = '1.0.7'
+yices_python_version = '1.0.8'
 
 #
 # 1.0.1 needs yices_has_mcsat
@@ -114,6 +115,11 @@ yices_python_version = '1.0.7'
 #
 yices_recommended_version = '2.5.4'
 
+#iam: 10/4/2017 try to make the user experience a little more pythony.
+#BD suggests doing this in the loadYices routine; he might be right
+#but this is more nannyish because the dolt could still call yices_exit
+#then go on to try and do stuff.
+__yices_library_inited__ = False
 
 class YicesException(Exception):
     """Base class for exceptions from Yices."""
@@ -126,7 +132,10 @@ def catch_error(errval):
         @wraps(yices_fun)
         def wrapper(*args, **kwargs):
             """yices api function wrapper."""
-            result = yices_fun(*args, **kwargs)
+            errstr = "You must initialize by calling yices_init()"
+            result = yices_fun(*args, **kwargs) if __yices_library_inited__ else None
+            if not  __yices_library_inited__ :
+                raise YicesException(errstr)
             if result == errval and yices_error_code() != 0L:
                 errstr = yices_error_string()
                 yices_clear_error()
@@ -134,6 +143,22 @@ def catch_error(errval):
             return result
         return wrapper
     return decorator
+
+def catch_uninitialized():
+    """catches a call to an uninitialized yices library (catch_error also does this)."""
+    def decorator(yices_fun):
+        """yices api function decorator."""
+        @wraps(yices_fun)
+        def wrapper(*args, **kwargs):
+            """yices api function wrapper."""
+            errstr = "You must initialize by calling yices_init()"
+            result = yices_fun(*args, **kwargs) if __yices_library_inited__ else None
+            if not  __yices_library_inited__ :
+                raise YicesException(errstr)
+            return result
+        return wrapper
+    return decorator
+
 
 libyicespath = find_library("yices")
 libyices = None
@@ -464,20 +489,25 @@ YICES_GEN_BY_PROJ = 2
 libyices.yices_init.restype = None
 def yices_init():
     """This function must be called before anything else to initialize internal data structures."""
+    global __yices_library_inited__
+    __yices_library_inited__ = True
     libyices.yices_init()
 
 # void yices_exit(void)
 libyices.yices_exit.restype = None
+@catch_uninitialized()
 def yices_exit():
     """Delete all internal data structures and objects - this must be called to avoid memory leaks."""
     libyices.yices_exit()
+    __yices_library_inited__ = False
 
 # void yices_reset(void)
 libyices.yices_reset.restype = None
+@catch_uninitialized()
 def yices_reset():
     """A full reset of all internal data structures (terms, types, symbol tables, contexts, models, ...)."""
     libyices.yices_reset()
-#iam: copy and paste error???    libyices.yices_exit()
+
 
 # void yices_free_string(char*)
 # No API for this - the functions which return a C string (e.g., yices_error_string)
@@ -496,18 +526,21 @@ def yices_reset():
 
 # error_code_t yices_error_code(void)
 libyices.yices_error_code.restype = error_code_t
+@catch_uninitialized()
 def yices_error_code():
     """Get the last error code."""
     return libyices.yices_error_code()
 
 # error_report_t *yices_error_report(void)
 libyices.yices_error_report.restype = POINTER(error_report_t)
+@catch_uninitialized()
 def yices_error_report():
     """Get the last error report."""
     return libyices.yices_error_report().contents
 
 # void yices_clear_error(void)
 libyices.yices_clear_error.restype = None
+@catch_uninitialized()
 def yices_clear_error():
     """Clear the error report."""
     libyices.yices_clear_error()
@@ -515,6 +548,7 @@ def yices_clear_error():
 # int32_t yices_print_error_fd(int fd)
 libyices.yices_print_error_fd.restype = c_int32
 libyices.yices_print_error_fd.argtypes = [c_int]
+@catch_uninitialized()
 def yices_print_error_fd(fd):
     """Print an error message on file descriptor fd."""
     return libyices.yices_print_error_fd(fd)
@@ -523,6 +557,7 @@ def yices_print_error_fd(fd):
 # NOTE: restype is c_void_p in order not to trigger the automatic cast, which loses the pointer
 libyices.yices_error_string.restype = c_void_p
 libyices.yices_free_string.argtypes = [c_void_p]
+@catch_uninitialized()
 def yices_error_string():
     """Build a string from the current error code + error report structure."""
     cstrptr = libyices.yices_error_string()
@@ -621,6 +656,7 @@ def make_empty_yval_array(n):
 # void yices_init_term_vector(term_vector_t *v)
 libyices.yices_init_term_vector.restype = None
 libyices.yices_init_term_vector.argtypes = [POINTER(term_vector_t)]
+@catch_uninitialized()
 def yices_init_term_vector(v):
     """Before calling any function that fills in a term_vector the vector object must be initialized via init_term_vector."""
     libyices.yices_init_term_vector(pointer(v))
@@ -628,6 +664,7 @@ def yices_init_term_vector(v):
 # void yices_init_type_vector(type_vector_t *v)
 libyices.yices_init_type_vector.restype = None
 libyices.yices_init_type_vector.argtypes = [POINTER(type_vector_t)]
+@catch_uninitialized()
 def yices_init_type_vector(v):
     """Before calling any function that fills in a type_vector the vector object must be initialized via init_type_vector."""
     libyices.yices_init_type_vector(pointer(v))
@@ -635,6 +672,7 @@ def yices_init_type_vector(v):
 # void yices_delete_term_vector(term_vector_t *v)
 libyices.yices_delete_term_vector.restype = None
 libyices.yices_delete_term_vector.argtypes = [POINTER(term_vector_t)]
+@catch_uninitialized()
 def yices_delete_term_vector(v):
     """To prevent memory leaks, a term_vector must be deleted when no longer needed."""
     libyices.yices_delete_term_vector(pointer(v))
@@ -642,6 +680,7 @@ def yices_delete_term_vector(v):
 # void yices_delete_type_vector(type_vector_t *v)
 libyices.yices_delete_type_vector.restype = None
 libyices.yices_delete_type_vector.argtypes = [POINTER(type_vector_t)]
+@catch_uninitialized()
 def yices_delete_type_vector(v):
     """To prevent memory leaks, a type_vector must be deleted when no longer needed."""
     libyices.yices_delete_type_vector(pointer(v))
@@ -649,6 +688,7 @@ def yices_delete_type_vector(v):
 # void yices_reset_term_vector(term_vector_t *v)
 libyices.yices_reset_term_vector.restype = None
 libyices.yices_reset_term_vector.argtypes = [POINTER(term_vector_t)]
+@catch_uninitialized()
 def yices_reset_term_vector(v):
     """Reset: empty the vector (reset size to 0)."""
     libyices.yices_reset_term_vector(pointer(v))
@@ -656,6 +696,7 @@ def yices_reset_term_vector(v):
 # void yices_reset_type_vector(type_vector_t *v)
 libyices.yices_reset_type_vector.restype = None
 libyices.yices_reset_type_vector.argtypes = [POINTER(type_vector_t)]
+@catch_uninitialized()
 def yices_reset_type_vector(v):
     """Reset: empty the vector (reset size to 0)."""
     libyices.yices_reset_type_vector(pointer(v))
@@ -666,18 +707,21 @@ def yices_reset_type_vector(v):
 
 # type_t yices_bool_type(void)
 libyices.yices_bool_type.restype = type_t
+@catch_uninitialized()
 def yices_bool_type():
     """Returns the built-in bool type."""
     return libyices.yices_bool_type()
 
 # type_t yices_int_type(void)
 libyices.yices_int_type.restype = type_t
+@catch_uninitialized()
 def yices_int_type():
     """Returns the built-in int type."""
     return libyices.yices_int_type()
 
 # type_t yices_real_type(void)
 libyices.yices_real_type.restype = type_t
+@catch_uninitialized()
 def yices_real_type():
     """Returns the built-in real type."""
     return libyices.yices_real_type()
@@ -700,6 +744,7 @@ def yices_new_scalar_type(card):
 
 # type_t yices_new_uninterpreted_type(void)
 libyices.yices_new_uninterpreted_type.restype = type_t
+@catch_uninitialized()
 def yices_new_uninterpreted_type():
     """New uninterpreted type, no error report."""
     return libyices.yices_new_uninterpreted_type()
@@ -904,12 +949,14 @@ def yices_type_children(tau, v):
 
 # term_t yices_true(void)
 libyices.yices_true.restype = term_t
+@catch_uninitialized()
 def yices_true():
     """Returns the true term."""
     return libyices.yices_true()
 
 # term_t yices_false(void)
 libyices.yices_false.restype = term_t
+@catch_uninitialized()
 def yices_false():
     """Returns the false term."""
     return libyices.yices_false()
@@ -1201,6 +1248,7 @@ def yices_lambda(n, var, body):
 
 # term_t yices_zero(void)
 libyices.yices_zero.restype = term_t
+@catch_uninitialized()
 def yices_zero():
     """Returns the yices term for zero."""
     return libyices.yices_zero()
@@ -1208,6 +1256,7 @@ def yices_zero():
 # term_t yices_int32(int32_t val)
 libyices.yices_int32.restype = term_t
 libyices.yices_int32.argtypes = [c_int32]
+@catch_uninitialized()
 def yices_int32(val):
     """Returns a constant term for the given 32 bit int."""
     return libyices.yices_int32(val)
@@ -1215,6 +1264,7 @@ def yices_int32(val):
 # term_t yices_int64(int64_t val)
 libyices.yices_int64.restype = term_t
 libyices.yices_int64.argtypes = [c_int64]
+@catch_uninitialized()
 def yices_int64(val):
     """Returns a constant term for the given 64 bit int."""
     return libyices.yices_int64(val)
@@ -1256,6 +1306,7 @@ def yices_rational64(num, den):
 # term_t yices_mpz(const mpz_t z)
 libyices.yices_mpz.restype = term_t
 libyices.yices_mpz.argtypes = [POINTER(mpz_t)]
+@catch_uninitialized()
 def yices_mpz(z):
     """Returns the constant term from the given GMP integer."""
     return libyices.yices_mpz(z)
@@ -1263,6 +1314,7 @@ def yices_mpz(z):
 # term_t yices_mpq(const mpq_t q)
 libyices.yices_mpq.restype = term_t
 libyices.yices_mpq.argtypes = [POINTER(mpq_t)]
+@catch_uninitialized()
 def yices_mpq(q):
     """Returns the constant term from the given GMP rational, which must be canonicalized."""
     return libyices.yices_mpq(q)
@@ -4372,6 +4424,7 @@ def yices_get_model(ctx, keep_subst):
     The function returns NULL if the status isn't SAT or STATUS_UNKNOWN
     and sets an error report (code = CTX_INVALID_OPERATION).
     """
+    #FIXME: ask Sam why we are doing @catch_error(-1) rather than @catch_error(0)or @catch_error(None)
     mdl = libyices.yices_get_model(ctx, keep_subst)
     if mdl is None:
         raise YicesException('Model not available - result of check_context should yield context_status of 2 (STATUS_SAT) or 3 (STATUS_UNKNOWN)')
@@ -4951,6 +5004,7 @@ def yices_model_to_string(mdl, width, height, offset):
 #############################
 
 
+@catch_uninitialized()
 def yices_new_mpz(val=None):
     """Creates a new mpz object, or None if there is an error."""
     if not hasGMP():
@@ -4961,6 +5015,7 @@ def yices_new_mpz(val=None):
         yices_set_mpz(new_mpz_, val)
     return new_mpz_
 
+@catch_uninitialized()
 def yices_new_mpq(num=None, den=None):
     """Creates a new mpq object, or None if there is an error."""
     if not hasGMP():
@@ -4973,6 +5028,7 @@ def yices_new_mpq(num=None, den=None):
         yices_set_mpq(new_mpq_, num, den)
     return new_mpq_
 
+@catch_uninitialized()
 def yices_set_mpz(vmpz, val):
     """Sets the value of an existing mpz object."""
     if not hasGMP():
@@ -4987,6 +5043,7 @@ def yices_set_mpz(vmpz, val):
     else:
         raise TypeError('set_mpz: val should be a string or integer')
 
+@catch_uninitialized()
 def yices_set_mpq(vmpq, num, den):
     """Sets the value of an existing mpz object."""
     if not hasGMP():

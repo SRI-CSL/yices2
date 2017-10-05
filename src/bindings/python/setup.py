@@ -32,7 +32,7 @@ setup(
 
     entry_points = {
         'console_scripts': [
-            'yices_python_info = yices:main',
+            'yices_python_info = yices:yices_python_info_main',
         ],
     },
 

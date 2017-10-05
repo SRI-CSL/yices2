@@ -19,21 +19,29 @@ The python API is very closely tied to the yices C API, see [yices.h](https://gi
 The directory [test](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python/test) contains a random collection
 of tests that use many of the API routines.
 
-### The sudoku.py script
+### The examples
 
-In the directory [sudoku](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python/sudoku) there is a 
+#### The sudoku example
+
+In the directory [sudoku](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python/examples/sudoku) there is a
 yices script `sudoku.ys` and a translation `sudoku.py` that solve the same puzzle. The python version illustrates
 the power of the API over the more sedate yices specification language.
 
-### The SudokuSolver 
+#### The mcsat example
 
-In the repository [SudokuSolver](https://github.com/SRI-CSL/SudokuSolver) there is a GUI that allows you to 
+In the directory [mcsat](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python/examples/mcsat) there is a
+C program `mcsat.c` and a translation `mcsat.py` that demonstrate simple uses of yices' non-linear capabilites.
+
+
+### The SudokuSolver
+
+In the repository [SudokuSolver](https://github.com/SRI-CSL/SudokuSolver) there is a GUI that allows you to
 enter an arbitrary sudoku puzzle and solve it, and enter a partial puzzle and count the number of solutions it has.
 
 
 ## Information
 
-The pip package also installs a binary `yices_python_info` which when executed prints the basic information about the installed 
+The pip package also installs a binary `yices_python_info` which when executed prints the basic information about the installed
 yices system:
 
 ```
