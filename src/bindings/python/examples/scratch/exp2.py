@@ -200,6 +200,9 @@ def main():
     
     solution = solver.iterate()
 
+
+    if solution is not None:
+        yices_free_model(solution)
     
     yices_exit()
 
