@@ -74,7 +74,7 @@ class Solver(object):
         #  x is in the given range
         def in_range(x, rng):
             n = len(rng)
-            t = make_empty_term_array(n);
+            t = make_empty_term_array(n)
             for i in xrange(n):
                 t[i] = yices_eq(x, rng[i])
             return yices_or(n, t)
