@@ -114,6 +114,9 @@ class Solver(object):
         if model is not None:
             print 'Iteration: {0}\n'.format(iteration)
             yices_pp_model_fd(1, model, 80, 20, 0)
+
+        return model
+    
             
 def main():
 
@@ -195,7 +198,7 @@ def main():
     solver = Solver(C, F, d)
 
     
-    solver.iterate()
+    solution = solver.iterate()
 
     
     yices_exit()
