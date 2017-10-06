@@ -37,7 +37,7 @@ from ylib import *
 class Solver(object):
 
 
-    def __init__(self, C, F, delta, e):
+    def __init__(self, C, F, delta):
         """ Initializes the solver.
         
             - C is a boolean yices term
@@ -45,10 +45,16 @@ class Solver(object):
             - delta is a yices double constant
 
         """
+
+        self.DEBUG = False
+        
+        
+        
         self.C = C
         self.F = F
         self.delta = delta
-        self.e = e
+
+        print 'C = {0}\nF={1}\ndelta = {2}'.format(term_to_string(self.C), term_to_string(self.F), term_to_string(self.delta))
 
         
     def solve(self, Phi):
@@ -65,11 +71,11 @@ class Solver(object):
         smt_stat = yices_check_context(context, None)
 
         if smt_stat != STATUS_SAT:
-            fmla = term_to_string(Phi)
-            print 'The term:\n{0}\n has NO solutions: smt_stat = {1}\n'.format(fmla, status2string(smt_stat))
+            if self.DEBUG:
+                print 'The term:\n{0}\n has NO solutions: smt_stat = {1}\n'.format(term_to_string(Phi), status2string(smt_stat))
         else:
             model = yices_get_model(context, 1)
-            if True:
+            if self.DEBUG:
                 print "Model:\n"
                 yices_pp_model_fd(1, model, 80, 20, 0)
 
@@ -78,21 +84,37 @@ class Solver(object):
 
 
     def iterate(self):
-        print '1, 2, 3, 4...'
-        model = self.solve(self.C)
+        iteration = 0
+
+        model = None
         bound = None
         double_val = c_double()
-        yval_val = yval_t()
 
-        if model is not None:
-            #HERE
-            #BD: works with e
-            bound =  yices_get_value(model, self.e, yval_val)
-            #does not work with F
-            #bound =  yices_get_value(model, self.F, yval_val)
-            print 'Bound (node tag = {0})\n'.format(yval_val.node_tag)
         
-    
+        def makeConstraint(model):
+            if model is None:
+                return self.C
+            else:
+                bound = yices_get_double_value(model, self.F, double_val)
+                b = yices_parse_float('{0}'.format(bound))
+                if self.DEBUG:
+                    print 'Bound = {0}\n'.format(double_val.value)
+                return yices_and2(self.C, yices_arith_lt_atom(self.F, b))
+
+        while True:
+            phi = makeConstraint(model)
+            next_model = self.solve(phi)
+            if next_model is not None:
+                if model is not None:
+                    yices_free_model(model)
+                model = next_model
+                iteration += 1
+            else:
+                break
+        if model is not None:
+            print 'Iteration: {0}\n'.format(iteration)
+            yices_pp_model_fd(1, model, 80, 20, 0)
+            
 def main():
 
     (ok, pk, pd) = parse_k_and_d()
@@ -167,9 +189,10 @@ def main():
     f[2] = e
 
     F = yices_sum(3, f)
-    
 
-    solver = Solver(C, f, d, e)
+
+
+    solver = Solver(C, F, d)
 
     
     solver.iterate()
