@@ -2,6 +2,55 @@
 
 from yices import *
 
+#iam: work in progress (this is no longer needed, but may one day be useful)
+def yices_evalute_term(model, term):
+    yval = yval_t()
+    try: 
+        yices_get_value(model, term, yval)
+        print 'yices_evalute_term: term is of type {0}'.format(node_tag2string(yval.node_tag))
+        tag = yval.node_tag
+        if tag == YVAL_UNKNOWN:
+            return None
+        elif tag == YVAL_BOOL:
+            i32 = c_int32()
+            yices_val_get_bool(model, yval, i32)
+            return True if i32.value else False
+        elif tag == YVAL_RATIONAL:
+            i64 = c_int64()
+            #iam: does 32 => 64? (i.e. do I need the disjuncton?)
+            if yices_val_is_int64(model, yval) or yices_val_is_int32(model, yval):
+                yices_val_get_int64(model, yval, i64)
+                return i64.val
+            #elif yices_val_is_rational32(model, yval):
+            #    pass
+            #elif yices_val_is_rational64(model, yval):
+            #    pass
+            else:
+                double_val = c_double()
+                yices_val_get_double(model, yval, double_val)
+                return double_val.value
+        elif tag == YVAL_ALGEBRAIC:
+            pass
+        elif tag == YVAL_BV:
+            pass
+        elif tag == YVAL_SCALAR:
+            pass
+        elif tag == YVAL_TUPLE:
+            pass
+        elif tag == YVAL_FUNCTION:
+            pass
+        elif tag == YVAL_MAPPING:
+            pass
+        else:
+            pass
+        return None
+    except YicesException as e:
+        print 'yices_evalute_term: ', e
+        return None
+
+
+
+
 
 def term_to_string(term):
     """Convert a term to a string."""
@@ -73,3 +122,22 @@ def status2string(status):
         return __status2string[status]
     else:
         return 'Unknown status'
+
+
+__node_tag2string = {
+    YVAL_UNKNOWN: 'YVAL_UNKNOWN',
+    YVAL_BOOL: 'YVAL_BOOL',
+    YVAL_RATIONAL: 'YVAL_RATIONAL',
+    YVAL_ALGEBRAIC: 'YVAL_ALGEBRAIC',
+    YVAL_BV: 'YVAL_BV',
+    YVAL_SCALAR: 'YVAL_SCALAR',
+    YVAL_TUPLE: 'YVAL_TUPLE',
+    YVAL_FUNCTION: 'YVAL_FUNCTION',
+    YVAL_MAPPING: 'YVAL_MAPPING',
+    }
+
+def node_tag2string(node_tag):
+    if node_tag in __node_tag2string:
+        return __node_tag2string[node_tag]
+    else:
+        return 'Unknown node_tag'

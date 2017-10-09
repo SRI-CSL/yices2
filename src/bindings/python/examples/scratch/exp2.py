@@ -95,11 +95,12 @@ class Solver(object):
             if model is None:
                 return self.C
             else:
-                bound = yices_get_double_value(model, self.F, double_val)
-                b = yices_parse_float('{0}'.format(bound))
+                value = yices_get_value_as_term(model, self.F)
                 if self.DEBUG:
-                    print 'Bound = {0}\n'.format(double_val.value)
-                return yices_and2(self.C, yices_arith_lt_atom(self.F, b))
+                    double_val = c_double()
+                    yices_get_double_value(model, self.F, double_val)
+                    print 'Bound = {0}   (i.e. {1})\n'.format(term_to_string(value), double_val.value)
+                return yices_and2(self.C, yices_arith_lt_atom(self.F, value))
 
         while True:
             phi = makeConstraint(model)

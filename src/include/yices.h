@@ -3462,6 +3462,7 @@ __YICES_DLLSPEC__ extern void yices_delete_yval_vector(yval_vector_t *v);
 __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
 
 
+
 /*
  * Value of term t as a node descriptor.
  *
