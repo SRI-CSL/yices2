@@ -2,7 +2,7 @@
 
 """
 
-In this example we implement BD's suggestion:
+In this example we use the iterative constraint solver suggested  by BD:
 
     Let x be a vector of integer and real variables. Suppose we want to
     solve a set of constraints C[x] while minimizing the value of F[x].
@@ -19,10 +19,14 @@ In this example we implement BD's suggestion:
 
     for some suitable delta.
 
-We do it parametrically in order to decouple the algorithm actual from 
-the particular choice of C and F that we use in this example.
+In the example we do here 
 
-    
+    C is the conjuction of 
+     -  b is in bit_range (2, 3, 4, 5, 6, 7, 8)
+     -  t is in time_range (10, 20, 30, 40)
+     -  e * t = k * b,   where k comes in from the command line
+     -  e < d,   where d comes in from the command line
+
 
 """
 
@@ -30,134 +34,27 @@ the particular choice of C and F that we use in this example.
 
 import sys
 
-from yices import *
-
 from ylib import *
 
-class Solver(object):
-
-
-    def __init__(self, C, F, delta):
-        """ Initializes the solver.
-        
-            - C is a boolean yices term
-            - F is a real valued yices term
-            - delta is a yices double constant
-
-        """
-
-        self.DEBUG = False
-        
-        
-        
-        self.C = C
-        self.F = F
-        self.delta = delta
-
-        print 'C = {0}\nF={1}\ndelta = {2}'.format(term_to_string(self.C), term_to_string(self.F), term_to_string(self.delta))
-
-        
-    def solve(self, Phi):
-        """ Attempts to solve the constraint Phi. 
-
-        Returns either None or a model that satisfies Phi.
-        """
-        model = None
-        context = make_context()
-
-        yices_assert_formula(context, Phi)
-
-
-        smt_stat = yices_check_context(context, None)
-
-        if smt_stat != STATUS_SAT:
-            if self.DEBUG:
-                print 'The term:\n{0}\n has NO solutions: smt_stat = {1}\n'.format(term_to_string(Phi), status2string(smt_stat))
-        else:
-            model = yices_get_model(context, 1)
-            if self.DEBUG:
-                print "Model:\n"
-                yices_pp_model_fd(1, model, 80, 20, 0)
-
-        yices_free_context(context)
-        return model
-
-
-    def iterate(self):
-        iteration = 0
-
-        model = None
-        bound = None
-        double_val = c_double()
-
-        
-        def makeConstraint(model):
-            if model is None:
-                return self.C
-            else:
-                value = yices_get_value_as_term(model, self.F)
-                if self.DEBUG:
-                    double_val = c_double()
-                    yices_get_double_value(model, self.F, double_val)
-                    print 'Bound = {0}   (i.e. {1})\n'.format(term_to_string(value), double_val.value)
-                return yices_and2(self.C, yices_arith_lt_atom(self.F, value))
-
-        while True:
-            phi = makeConstraint(model)
-            next_model = self.solve(phi)
-            if next_model is not None:
-                if model is not None:
-                    yices_free_model(model)
-                model = next_model
-                iteration += 1
-            else:
-                break
-        if model is not None:
-            print 'Iteration: {0}\n'.format(iteration)
-            yices_pp_model_fd(1, model, 80, 20, 0)
-
-        return model
-    
+from solver import Solver
             
-def main():
-
-    (ok, pk, pd) = parse_k_and_d()
-
-    if not ok:
-        print 'Try ./exp2.py 2 0.4'
-        return 1
-
-    yices_init()
-
-    #Need to make C, F, and delta.
-
-    k =  yices_parse_float(pk)
-    d =  yices_parse_float(pd)
-
-    #just make e, b and t for now
-    int_t = yices_int_type()
-    real_t = yices_real_type()
-        
-    b =  declare_var('b', int_t)
-    t =  declare_var('t', int_t)
-    e =  declare_var('e', real_t)
 
 
+def make_C(b, t, e, k, d):
+    """ Construct the boolean constraint C.
+    
+     C is the conjuction of 
+    
+     b is in bit_range
+     t is in time_range
+     e * t = k * b
+     e < d
+    """
     BITRANGE = (2, 3, 4, 5, 6, 7, 8)
-
     TRANGE = (10, 20, 30, 40)
-
     brange = [ yices_int32(i) for i in BITRANGE ]
     trange = [ yices_int32(i) for i in TRANGE ]
     
-    # C is the conjuction of 
-    #
-    # b is in bit_range
-    # t is in time_range
-    # e * t = k * b
-    # e < d
-    #
-    #
     #  x is in the given range
     def in_range(x, rng):
         n = len(rng)
@@ -176,16 +73,26 @@ def main():
 
     C = yices_and(4, c)
 
-    #
-    #  f is the value we want to minimize.
-    #  It is the sum of:
-    #
-    #  100 * t
-    #  144 / b
-    #  e
-    #
-    #
-    #
+    return C
+
+    
+def make_F(b, t, e, k, d):
+    """Construct F the real valued term we want to minimize.
+
+      F is the sum of:
+    
+      100 * t
+      144 / b
+      e
+    
+    This is designed so that we want to make t as small as possible, 
+    then make b as small as possible, finally using e to break any ties.
+
+    Other measures are certainly possible, for example we may want to
+    maximize b above all, so the term would have to be adjusted so 
+    that the b term dominated.
+
+    """
     f = make_empty_term_array(3)
 
     f[0] = yices_mul(yices_int32(100), t)
@@ -193,6 +100,40 @@ def main():
     f[2] = e
 
     F = yices_sum(3, f)
+    return F
+
+
+
+
+def main():
+
+    (ok, pk, pd) = parse_k_and_d()
+
+    if not ok:
+        print 'Try, for example, ./exp2.py 2 0.4'
+        return 1
+
+    yices_init()
+
+    #Need to make C, F, and delta.
+
+    k =  yices_parse_float(pk)
+    d =  yices_parse_float(pd)
+
+    #name the types we need 
+    int_t = yices_int_type()
+    real_t = yices_real_type()
+        
+    #just make e, b and t for now
+    b =  declare_var('b', int_t)
+    t =  declare_var('t', int_t)
+    e =  declare_var('e', real_t)
+
+    # construct the constraint set as a boolean term
+    C = make_C(b, t, e, k, d)
+
+    # construct the measure we want to minimize
+    F = make_F(b, t, e, k, d)
 
 
 
