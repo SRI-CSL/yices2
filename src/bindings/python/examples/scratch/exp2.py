@@ -86,7 +86,7 @@ def make_F(b, t, e, k, d):
       e
     
     This is designed so that we want to make t as small as possible, 
-    then make b as small as possible, finally using e to break any ties.
+    then make b as big as possible, finally using e to break any ties.
 
     Other measures are certainly possible, for example we may want to
     maximize b above all, so the term would have to be adjusted so 
