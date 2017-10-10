@@ -39,6 +39,7 @@ class Solver(object):
         """
 
         self.DEBUG = False
+        self.VERBOSE = True
         
         
         
@@ -46,7 +47,9 @@ class Solver(object):
         self.F = F
         self.delta = delta
 
-        print 'C = {0}\nF={1}\ndelta = {2}'.format(term_to_string(self.C), term_to_string(self.F), term_to_string(self.delta))
+        if self.DEBUG:
+            strings = ( term_to_string(x) for x in (self.C, self.F, self.delta))
+            print 'C = {0}\nF = {1}\ndelta = {2}'.format(*strings)
 
         
     def solve(self, Phi):
@@ -88,10 +91,10 @@ class Solver(object):
                 return self.C
             else:
                 value = yices_get_value_as_term(model, self.F)
-                if self.DEBUG:
+                if self.VERBOSE:
                     double_val = c_double()
                     yices_get_double_value(model, self.F, double_val)
-                    print 'Bound = {0}   (i.e. {1})\n'.format(term_to_string(value), double_val.value)
+                    print 'Iteration {0}: Bound = {1}\n'.format(iteration, double_val.value)
                 return yices_and2(self.C, yices_arith_lt_atom(self.F, value))
 
         while True:
