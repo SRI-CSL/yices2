@@ -97,7 +97,7 @@ fi
 #
 # Get GMP version
 #
-tmp=` $yices --version | awk '/GMP/ { printf "%s", $4 }' `
+tmp=` $yices --version | awk '/GMP/ { print $4 }' | tr -d '\015' `
 case $tmp in
   *.*.* )
     gmp_version=$tmp
@@ -112,7 +112,7 @@ esac
 #
 # Get Yices version
 #
-tmp=` $yices --version | awk '/Yices/ { printf "%s", $2 }'`
+tmp=` $yices --version | awk '/Yices/ { print $2 }' | tr -d '\015' `
 case $tmp in
   *.*.* )
     yices_version=$tmp
@@ -184,7 +184,6 @@ esac
 # To make sure this command works, we remove any ',' from the os_version.
 #
 clean_os_version=` echo $os_version | sed -e 's/,/ /g' `
-
 
 #
 # Apply the substitution
