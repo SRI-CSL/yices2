@@ -435,7 +435,7 @@ The following parameters control this algorithm.
   |                        |             | (see below).                                    |
   +------------------------+-------------+-------------------------------------------------+
   | ef-max-samples         | Integer     | Limit on the number of samples used in the      |
-  |                        |             | exists/forall solver's initializatio            |
+  |                        |             | exists/forall solver's initialization           |
   +------------------------+-------------+-------------------------------------------------+
   | ef-flatten-iff         | Boolean     | Preprocessing option                            |
   +------------------------+-------------+-------------------------------------------------+
