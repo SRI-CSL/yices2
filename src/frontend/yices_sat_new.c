@@ -22,6 +22,8 @@
 #include <ctype.h>
 #include <signal.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <math.h>
 
 #include "io/reader.h"
 #include "solvers/cdcl/new_sat_solver.h"
@@ -770,27 +772,169 @@ static void parse_command_line(int argc, char *argv[]) {
 /*
  * STATISTICS AND RESULTS
  */
+
+/*
+ * printf/fprintf are not safe to use in a signal handler
+ * so we use write to 1 (stdout) or 2 (stderr) instead.
+ */
+static void do_write(int fd, const char *buffer, uint32_t n) {
+  uint32_t i;
+  ssize_t w;
+
+  i = 0;
+  while (n > 0) {
+    do {
+      w = write(fd, buffer + i, n);
+    } while (w < 0 && errno == EAGAIN);
+    if (w < 0) break; // write ERROR. We can't do much about it.
+    i += (uint32_t) w;
+    n -= (uint32_t) w;
+  }
+}
+
+/*
+ * Reverse b[0 ... n-1]
+ */
+static void reverse(char *b, uint32_t n) {
+  uint32_t i, j;
+  char c;
+
+  assert(n > 0);
+  i = 0;
+  j = n-1;
+  while (i < j) {
+    c =  b[i]; b[i] = b[j]; b[j] = c;
+    i ++;
+    j --;
+  }
+}
+
+/*
+ * Store digits of x in b  then return the number of digits.
+ * - b must be large enough to store all the digits
+ *   (2^64 - 1 has 20 digits).
+ */
+static uint32_t digits_of_uint(char *b, uint64_t x) {
+  uint32_t n, d;
+
+  n = 0;
+  do {
+    d = x % 10;
+    x = x/10;
+    b[n] = (char) (d + '0');
+    n ++;
+  } while (x > 0);
+
+  reverse(b, n);
+
+  return n;
+}
+
+// print nd digits for x. padd with '0' if needed
+// x must be less than 10^d
+static void digits_of_frac(char *b, uint64_t x, uint32_t nd) {
+  uint32_t i, d;
+
+  for (i=0; i<nd; i++) {
+    d = x % 10;
+    x = x/10;
+    b[i] = (char) (d + '0');
+  }
+  reverse(b, nd);
+}
+
+static double scale[5] = { 1.0, 10.0, 100.0, 1000.0, 10000.0 };
+
+// for a floating point x, d = number of digits after the '.'
+// d must be between 0 and 4, x must be non-negative
+static uint32_t digits_of_float(char *b, double x, uint32_t d) {
+  double f;
+  uint64_t p;
+  uint32_t n;
+
+  assert(0 <= d && d <= 4);
+
+  p = (uint64_t) x;       // integral part
+  f = (x - p) * scale[d]; // fractional part * 10^d
+
+  if (d == 0) {
+    if (f > 0.5) p ++;
+    n = digits_of_uint(b, p);
+  } else {
+    n = digits_of_uint(b, p);
+    b[n] = '.';
+    n ++;
+    p = (uint64_t) f;
+    if (f - p > 0.5) p ++;
+    digits_of_frac(b + n, p, d);
+    n += d;
+  }
+
+  return n;
+}
+
+static char buffer[1000];
+
+static void writeln(int fd) {
+  buffer[0] = '\n';
+  do_write(fd, buffer, 1);
+}
+
+static void write_line(int fd, const char* s) {
+  uint32_t n;
+
+  n = strlen(s);
+  assert(n < 999);
+  memcpy(buffer, s, n);
+  buffer[n] = '\n';
+  do_write(fd, buffer, n+1);
+}
+
+static void write_line_and_uint(int fd, const char *s, uint64_t x) {
+  uint32_t n;
+
+  n = strlen(s);
+  memcpy(buffer, s, n);
+  n += digits_of_uint(buffer + n, x);
+  buffer[n] = '\n';
+  do_write(fd, buffer, n+1);
+}
+
+// print something equivalent to printf("%s %.<d>f %s\n", s, x, unit)
+static void write_line_and_float(int fd, const char *s, double x, uint32_t d, const char *unit) {
+  uint32_t n, p;
+
+  n = strlen(s);
+  memcpy(buffer, s, n);
+  n += digits_of_float(buffer + n, x, d);
+  p = strlen(unit);
+  memcpy(buffer + n, unit, p);
+  buffer[n+p] = '\n';
+  do_write(fd, buffer, n+p+1);
+}
+
+
 static void show_stats(sat_solver_t *solver) {
   solver_stats_t *stat = &solver->stats;
 
-  fprintf(stderr, "c\n");
-  fprintf(stderr, "c Statistics\n");
-  fprintf(stderr, "c  starts                  : %"PRIu32"\n", stat->starts);
-  fprintf(stderr, "c  simplify db             : %"PRIu32"\n", stat->simplify_calls);
-  fprintf(stderr, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
-  fprintf(stderr, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
-  fprintf(stderr, "c  apply subst calls       : %"PRIu32"\n", stat->subst_calls);
-  fprintf(stderr, "c  substituted vars        : %"PRIu32"\n", stat->subst_vars);
-  fprintf(stderr, "c  decisions               : %"PRIu64"\n", stat->decisions);
-  fprintf(stderr, "c  random decisions        : %"PRIu64"\n", stat->random_decisions);
-  fprintf(stderr, "c  propagations            : %"PRIu64"\n", stat->propagations);
-  fprintf(stderr, "c  conflicts               : %"PRIu64"\n", stat->conflicts);
-  fprintf(stderr, "c  lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
-  fprintf(stderr, "c  lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
-  fprintf(stderr, "c  subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
-  fprintf(stderr, "c  deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
-  fprintf(stderr, "c  deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  fprintf(stderr, "c\n");
+  write_line(2, "c");
+  write_line(2, "c Statistics");
+  write_line_and_uint(2, "c  starts                  : ", stat->starts);
+  write_line_and_uint(2, "c  simplify db             : ", stat->simplify_calls);
+  write_line_and_uint(2, "c  reduce db               : ", stat->reduce_calls);
+  write_line_and_uint(2, "c  scc calls               : ", stat->scc_calls);
+  write_line_and_uint(2, "c  apply subst calls       : ", stat->subst_calls);
+  write_line_and_uint(2, "c  substituted vars        : ", stat->subst_vars);
+  write_line_and_uint(2, "c  decisions               : ", stat->decisions);
+  write_line_and_uint(2, "c  random decisions        : ", stat->random_decisions);
+  write_line_and_uint(2, "c  propagations            : ", stat->propagations);
+  write_line_and_uint(2, "c  conflicts               : ", stat->conflicts);
+  write_line_and_uint(2, "c  lits in pb. clauses     : ", solver->pool.num_prob_literals);
+  write_line_and_uint(2, "c  lits in learned clauses : ", solver->pool.num_learned_literals);
+  write_line_and_uint(2, "c  subsumed lits.          : ", stat->subsumed_literals);
+  write_line_and_uint(2, "c  deleted pb. clauses     : ", stat->prob_clauses_deleted);
+  write_line_and_uint(2, "c  deleted learned clauses : ", stat->learned_clauses_deleted);
+  write_line(2, "c");
 }
 
 static void print_results(void) {
@@ -803,27 +947,35 @@ static void print_results(void) {
 
   if (verbose || stats) {
     show_stats(&solver);
-    fprintf(stderr, "c Search time              : %.4f s\n", search_time);
+    //    fprintf(stderr, "c Search time              : %.4f s\n", search_time);
+    write_line_and_float(2, "c Search time              : ", search_time, 4, " s");
     mem_used = mem_size() / (1024 * 1024);
     if (mem_used > 0) {
-      fprintf(stderr, "c Memory used              : %.2f MB\n", mem_used);
+      //      fprintf(stderr, "c Memory used              : %.2f MB\n", mem_used);
+      write_line_and_float(2, "c Memory used              : ", mem_used, 2, " MB");
     }
     speed = solver.stats.propagations/search_time;
-    fprintf(stderr, "c Speed                    : %.2f prop/s\n", speed);
-    fprintf(stderr, "c\n");
+    //    fprintf(stderr, "c Speed                    : %.2f prop/s\n", speed);
+    write_line_and_float(2, "c Speed                    : ", speed, 2, " prop/s");
+
+    //    fprintf(stderr, "c\n");
+    write_line(2, "c");
   }
 
   switch (result) {
   case STAT_UNSAT:
-    printf("s UNSATISFIABLE\n");
+    //    printf("s UNSATISFIABLE\n");
+    write_line(1, "s UNSATISFIABLE");
     break;
 
   case STAT_SAT:
-    printf("s SATISFIABLE\n");
+    //    printf("s SATISFIABLE\n");
+    write_line(1, "s SATISTIBLE");
     break;
 
   default:
-    printf("s UNKNOWN\n");
+    //    printf("s UNKNOWN\n");
+    write_line(1, "s UNKNOWN");
     break;
   }
 }
@@ -892,9 +1044,10 @@ static void do_check(const char* filename) {
  * Signal handler: call print_results
  */
 static void handler(int signum) {
-  fprintf(stderr, "Interrupted by signal %d\n\n", signum);
+  write_line_and_uint(2, "Interrupted by signal ", signum);
+  writeln(2);
   print_results();
-  exit(YICES_EXIT_INTERRUPTED);
+  _exit(YICES_EXIT_INTERRUPTED);
 }
 
 
