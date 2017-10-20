@@ -149,14 +149,20 @@ executables, library, and include files.
 \subsubsection{Debian Package}
 
 For Ubuntu or Debian (or any other Linux distribution that uses
-\texttt{apt}), we provide APT packages. To install, them you must
+\texttt{apt}), we provide APT packages. To install them, you must
 first add our PPA to your list of repositories then install package
-\texttt{yices2-dev}:
+\texttt{yices2}:
 \begin{small}
 \begin{verbatim}
   sudo add-apt-repository ppa:sri-csl/formal-methods
   sudo apt-get update
-  sudo apt-get insall yices2-dev
+  sudo apt-get install yices2
+\end{verbatim}
+\end{small}
+You can also install the library and development files as follows:
+\begin{small}
+\begin{verbatim}
+  sudo apt-get install yices2-dev libyices2.5
 \end{verbatim}
 \end{small}
 
