@@ -821,6 +821,7 @@ static void show_stats(sat_solver_t *solver) {
   write_line(2, "c");
 }
 
+
 static void print_results(void) {
   solver_status_t result;
   double mem_used;
@@ -831,34 +832,29 @@ static void print_results(void) {
 
   if (verbose) {
     show_stats(&solver);
-    //    fprintf(stderr, "c Search time              : %.4f s\n", search_time);
     write_line_and_float(2, "c Search time              : ", search_time, 4, " s");
     mem_used = mem_size() / (1024 * 1024);
     if (mem_used > 0) {
-      //      fprintf(stderr, "c Memory used              : %.2f MB\n", mem_used);
       write_line_and_float(2, "c Memory used              : ", mem_used, 2, " MB");
     }
-    speed = solver.stats.propagations/search_time;
-    //    fprintf(stderr, "c Speed                    : %.2f prop/s\n", speed);
-    write_line_and_float(2, "c Speed                    : ", speed, 2, " prop/s");
-
-    //    fprintf(stderr, "c\n");
+    if (search_time > 0.0001) {
+      // if search_time is close to 0, this speed is meaningless.
+      speed = solver.stats.propagations/search_time;
+      write_line_and_float(2, "c Speed                    : ", speed, 2, " prop/s");
+    }
     write_line(2, "c");
   }
 
   switch (result) {
   case STAT_UNSAT:
-    //    printf("s UNSATISFIABLE\n");
     write_line(1, "s UNSATISFIABLE");
     break;
 
   case STAT_SAT:
-    //    printf("s SATISFIABLE\n");
     write_line(1, "s SATISTIBLE");
     break;
 
   default:
-    //    printf("s UNKNOWN\n");
     write_line(1, "s UNKNOWN");
     break;
   }
@@ -918,7 +914,7 @@ static void print_model(void) {
  * Signal handler: call print_results
  */
 static void handler(int signum) {
-  write_line_and_uint(2, "Interrupted by signal ", signum);
+  write_line_and_uint(2, "c Interrupted by signal ", signum);
   writeln(2);
   print_results();
   _exit(YICES_EXIT_INTERRUPTED);
@@ -1009,7 +1005,6 @@ int main(int argc, char* argv[]) {
     nsat_set_verbosity(&solver, verb);
 
     init_handler();
-    //    nsat_set_var_decay_factor(&solver, 0.94); // the default is 0.95
 
     if (data) {
       nsat_open_datafile(&solver, "xxxx.data");
