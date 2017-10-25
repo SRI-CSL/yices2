@@ -125,42 +125,37 @@ double mem_size(void) {
  * checked.
  */
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static unsigned long get_pages(void) {
   pid_t pid;
-  FILE *proc_file;
-  unsigned long pages;
   char buffer[30];
+  int f;
+  unsigned long pages;
+  ssize_t code;
 
+  pages = 0;
   pid = getpid();
   sprintf(buffer, "/proc/%u/statm", (unsigned) pid);
-  proc_file = fopen(buffer, "r");
-  if (proc_file == NULL) {
-    return 0;
+  f = open(buffer, O_RDONLY);
+  if (f < 0) goto done;
+  code = read(f, buffer, 20);
+  if (code == 20) {
+    pages = atol(buffer);
   }
-
-  /*
-   * In some versions of glibc, fscanf is declared with attribute
-   * warn_unused_result. In such cases, we get a compilation warning,
-   * even though the code is safe. I've changed the code a bit to
-   * avoid this warning.
-   */
-  pages = 0;
-  //  fscanf(proc_file, "%lu", &pages); // if this fails, pages will remain 0
-  if (fscanf(proc_file, "%lu", &pages) != 1) {
-    pages = 0;
-  }
-
-  fclose(proc_file);
-
+  close(f);
+ done:
   return pages;
 }
 
 double mem_size(void) {
   return (double)(getpagesize() * get_pages());
 }
+
 
 #elif defined(FREEBSD)
 
