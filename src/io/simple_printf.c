@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -155,6 +156,22 @@ void print_buffer_append_array(print_buffer_t *b, char a[], uint32_t n) {
   b->idx = i + n;
 }
 
+// append c n times
+static void print_buffer_append_chars(print_buffer_t *b, char c, uint32_t n) {
+  uint32_t i, j, max;
+
+  assert(b->idx <= PRINT_BUFFER_SIZE);
+
+  i = b->idx;
+  max = PRINT_BUFFER_SIZE - i;
+  if (n > max) n = max;
+  for (j=0; j<n; j++) {
+    b->data[i + j] = c;
+  }
+  b->idx = i + n;
+}
+
+
 void print_buffer_append_uint64(print_buffer_t *b, uint64_t x) {
   uint32_t n;
 
@@ -191,16 +208,46 @@ void print_buffer_append_int32(print_buffer_t *b, int32_t x) {
  * Constraints: d must be between 0 and 4.
  */
 void print_buffer_append_float(print_buffer_t *b, double x, uint32_t d) {
-  uint32_t n;;
+  uint32_t n;
 
-  if (x < 0.0) {
-    print_buffer_append_char(b, '-');
-    x = - x;
+  switch (fpclassify(x)) {
+  case FP_ZERO:
+  case FP_SUBNORMAL:
+    // ignore the sign and treat subnormals like 0.0
+    print_buffer_append_char(b, '0');
+    if (d > 0) {
+      print_buffer_append_char(b, '.');
+      print_buffer_append_chars(b, '0', d);
+    }
+    break;
+
+  case FP_NORMAL:
+    if (signbit(x)) {
+      print_buffer_append_char(b, '-');
+      x = - x;
+    }
+    if (x > 1e19) {
+      // too big
+      print_buffer_append_array(b, ">1e19", 5);
+    } else {
+      n = digits_of_float(b->aux, x, d);
+      print_buffer_append_array(b, b->aux, n);
+    }
+    break;
+
+  case FP_INFINITE:
+    if (signbit(x)) {
+      print_buffer_append_array(b, "-inf", 4);
+    } else {
+      print_buffer_append_array(b, "+inf", 4);
+    }
+    break;
+
+  case FP_NAN:
+    print_buffer_append_array(b, "nan", 3);
+    break;
   }
-  n = digits_of_float(b->aux, x, d);
-  print_buffer_append_array(b, b->aux, n);
 }
-
 
 
 /*

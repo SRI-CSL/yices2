@@ -151,7 +151,7 @@ static unsigned long get_pages(void) {
 
   pages = 0;
   pid = getpid();
-  sprintf(buffer, "/proc/%u/statm", (unsigned) pid);
+  sprintf(buffer, "/proc/%u/statm", (unsigned) pid); // Not sure this is safe?
   f = open(buffer, O_RDONLY);
   if (f < 0) goto done;
   code = read(f, buffer, 20);
