@@ -123,6 +123,10 @@ sudo apt-get update
 sudo apt-get install yices2-dev
 ```
 This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
+To install just the executables, replace the last step above by:
+```
+sudo apt-get install yices2
+```
 
 
 ## Building From Source
