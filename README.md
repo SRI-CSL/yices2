@@ -111,7 +111,7 @@ Installing on Darwin using homebrew can be achieved via:
 ```
 brew install SRI-CSL/sri-csl/yices2
 ```
-This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
+This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
 #### Aptitude
@@ -120,12 +120,12 @@ To install Yices on Ubuntu or Debian, do the following:
 ```
 sudo add-apt-repository ppa:sri-csl/formal-methods
 sudo apt-get update
-sudo apt-get install yices2-dev
-```
-This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
-To install just the executables, replace the last step above by:
-```
 sudo apt-get install yices2
+```
+This will install the executables. If you also need the Yices library and header files, replace
+the last step with:
+```
+sudo apt-get install yices2-dev
 ```
 
 
