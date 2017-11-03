@@ -25,6 +25,7 @@ def make_context():
     yices_set_config(cfg, 'mode', 'one-shot')
     ctx = yices_new_context(cfg)
     yices_free_config(cfg)
+    assert ctx is not None
     return ctx
 
 
@@ -41,7 +42,6 @@ def test_mcsat():
     p = yices_parse_term('(= (* x x) 2)')
     s = term_to_string(p)
     print 'Assertion: {0}\n'.format(s)
-
     ctx = make_context()
     yices_assert_formula(ctx, p)
 
