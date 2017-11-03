@@ -57,9 +57,9 @@ def test_mcsat():
     yices_pp_model_fd(1, model, 80, 20, 0)
 
 
-    print "algebraic value of x = "
-    show_algebraic_value(model, x)
-    print "\n"
+    #print "algebraic value of x = "
+    #show_algebraic_value(model, x)
+    #print "\n"
 
     print "Test succeeded\n"
 
