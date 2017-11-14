@@ -235,7 +235,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
  * - return true if term t should be printed in the assignments (i.e., t has a name)
  */
 static bool term_to_print(void *aux, term_t t) {
-  return term_kind(aux, t) == UNINTERPRETED_TERM && term_name(aux, t) != NULL;
+  return is_pos_term(t) && term_kind(aux, t) == UNINTERPRETED_TERM && term_name(aux, t) != NULL;
 }
 
 
@@ -489,10 +489,38 @@ void model_print_full(FILE *f, model_t *model) {
   if (model->has_alias && model->alias_map != NULL) {
     init_evaluator(&eval, model);
 
+    /*
+     * We use two passes to find all relevant terms:
+     * 1) in the first pass, we compute the value of all terms
+     *    in the model's alias table.
+     * 2) in the second pass, we collect all terms that have
+     *    received a value in the first pass.
+     *
+     * This is necessary in situations like this:
+     *   (assert (= x  (.. y ..)))
+     * and y does not occur anywhere else.
+     * During model construction, we store [x --> (... y ...)]
+     * in the model's alias table (so x is known to be relevant).
+     * When we compute x's value in phase 1, we also assign a value
+     * to y so y is relevant, and its value must be printed.
+     *
+     * The second pass makes sure that y is found.
+     */
+
     // collect all terms that have a name
     init_ivector(&v, 0);
     model_collect_terms(model, true, model->terms, term_to_print, &v);
 
+    // compute their values
+    eval_terms_in_model(&eval, v.data, v.size);
+
+    // second pass: collect all uninterpreted terms that
+    // have a value in model or in the evaluator.
+    ivector_reset(&v);
+    model_collect_terms(model, false, model->terms, term_to_print, &v);
+    evaluator_collect_cached_terms(&eval, model->terms, term_to_print, &v);
+
+    // print all terms in v
     n = v.size;
     a = v.data;
     eval_print_bool_assignments(f, &eval, a, n);

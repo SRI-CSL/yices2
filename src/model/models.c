@@ -249,7 +249,6 @@ void model_collect_terms(model_t *model, bool all, void *aux, model_filter_t f, 
       r = int_hmap_next_record(hmap, r);
     }
   }
-
 }
 
 
