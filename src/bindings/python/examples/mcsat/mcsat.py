@@ -2,31 +2,8 @@
 
 from yices import *
 
+from yiceslib import (term_to_string, declare_real_var, declare_integer_var, make_context)
 
-def term_to_string(term):
-    """Convert a term to a string."""
-    return yices_term_to_string(term, 80, 20, 0)
-
-def declare_var(name):
-    """Creates a real variable."""
-    try:
-        x = yices_new_uninterpreted_term(yices_real_type())
-        yices_set_term_name(x, name)
-        return x
-    except YicesException as e:
-        print 'declare_var: ', e
-        return None
-
-
-def make_context():
-    """Create a QF_NRA, non-linear real arithmetic, context."""
-    cfg = yices_new_config()
-    yices_default_config_for_logic(cfg, 'QF_NRA')
-    yices_set_config(cfg, 'mode', 'one-shot')
-    ctx = yices_new_context(cfg)
-    yices_free_config(cfg)
-    assert ctx is not None
-    return ctx
 
 
 def show_algebraic_value(model, term):
@@ -38,7 +15,7 @@ def show_algebraic_value(model, term):
 
 
 def test_mcsat():
-    x = declare_var('x');
+    x = declare_real_var('x');
     p = yices_parse_term('(= (* x x) 2)')
     s = term_to_string(p)
     print 'Assertion: {0}\n'.format(s)
