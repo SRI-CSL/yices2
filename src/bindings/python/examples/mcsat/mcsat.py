@@ -21,7 +21,6 @@ def test_mcsat():
     print 'Assertion: {0}\n'.format(s)
     ctx = make_context()
     yices_assert_formula(ctx, p)
-
     status = yices_check_context(ctx, None)
     if status != STATUS_SAT:
         print 'Test failed: status = {0} != STATUS_SAT\n'.format(status)
