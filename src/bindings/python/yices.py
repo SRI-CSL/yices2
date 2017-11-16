@@ -4222,6 +4222,7 @@ libyices.yices_free_config.argtypes = [ctx_config_t]
 @catch_error(-1)
 def yices_free_config(config):
     """Frees the context descriptor."""
+    assert(config is not None)
     libyices.yices_free_config(config)
 
 # int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value)
@@ -4230,6 +4231,7 @@ libyices.yices_set_config.argtypes = [ctx_config_t, c_char_p, c_char_p]
 @catch_error(-1)
 def yices_set_config(config, name, value):
     """Sets the value of name in the context configuration, returns 0 on success, -1 on failure."""
+    assert(config is not None)
     return libyices.yices_set_config(config, name, value)
 
 # int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic)
@@ -4238,6 +4240,7 @@ libyices.yices_default_config_for_logic.argtypes = [ctx_config_t, c_char_p]
 @catch_error(-1)
 def yices_default_config_for_logic(config, logic):
     """Sets the logic of the context configuration, returns 0 on success, -1 on failure."""
+    assert(config is not None)
     return libyices.yices_default_config_for_logic(config, logic)
 
 #################
