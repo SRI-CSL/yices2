@@ -84,8 +84,8 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
 
 
 const char * const efmodelcode2error[NUM_EFMODEL_ERROR_CODES] = {
-  "No error.\n"
-  "No model, did not find a solution.\n"
+  "No error.\n",
+  "No model, did not find a solution.\n",
   "Can't build a model. Call the exists forall solver first.\n"
 };
 
