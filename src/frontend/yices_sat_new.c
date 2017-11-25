@@ -851,7 +851,7 @@ static void print_results(void) {
     break;
 
   case STAT_SAT:
-    write_line(1, "s SATISTIBLE");
+    write_line(1, "s SATISFIABLE");
     break;
 
   default:
