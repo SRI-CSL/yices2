@@ -7636,8 +7636,9 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     done_simplify(solver);
   }
 
-  // main loop
-  for (;;) {
+  // main loop: simplification may detect unsat
+  // and set has_empty_clause to true
+  while (! solver->has_empty_clause) {
     solver->stats.starts ++;
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
