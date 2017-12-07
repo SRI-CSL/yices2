@@ -161,13 +161,13 @@ struct mcsat_solver_s {
 
   /**
    * Array of owners for each term kind. If there are more than one, they
-   * continue at indices mod MCSAT_MAX_PLUGINS.
+   * continue at indices mod NUM_TERM_KINDS.
    */
   uint32_t kind_owners[NUM_TERM_KINDS * MCSAT_MAX_PLUGINS];
 
   /**
    * Array of owners for each type. If there are more than one, they
-   * continue at indices mod MCSAT_MAX_PLUGINS.
+   * continue at indices mod NUM_TYPE_KINDS.
    */
   uint32_t type_owners[NUM_TYPE_KINDS * MCSAT_MAX_PLUGINS];
 
