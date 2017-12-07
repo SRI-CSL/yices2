@@ -1394,8 +1394,8 @@ static const uint8_t smt2_key[NUM_SMT2_SYMBOLS] = {
   SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_EXTRACT
   SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_REPEAT
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVCOMP
-  SMT2_KEY_UNKNOWN,      // SMT2_SYM_BVREDOR (should not occur)
-  SMT2_KEY_UNKNOWN,      // SMT2_SYM_BVREDAND (should not occur)
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVREDOR (should not occur)
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVREDAND (should not occur)
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVNOT
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVAND
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVOR
