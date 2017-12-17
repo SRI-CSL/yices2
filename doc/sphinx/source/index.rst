@@ -12,6 +12,8 @@ Basics
 .. toctree::
    :maxdepth: 1
 
+   install-binaries
+   install-sources
    overview
    basic-usage
 
