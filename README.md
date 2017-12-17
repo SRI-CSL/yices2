@@ -151,10 +151,10 @@ To build the on-line documentation, you need to install the Sphinx
 python pacakge. The simplest method is:
 
 ```
-sudo easy_install -U Sphinx
+sudo pip install sphinx
 ```
 
-Sphinx 1.3.x or better is needed.
+Sphinx 1.4.x or better is needed.
 
 
 #### Quick Installation
