@@ -9768,7 +9768,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
     /*
      * Theory propagation
      * - propagation may strengthen bounds on integer variables,
-     *   which may detect a conflict or require a new call to
+     *   which may cause a conflict or require a new call to
      *   make_feasible.
      */
     if (simplex_option_enabled(solver, SIMPLEX_PROPAGATION)) {

@@ -73,6 +73,7 @@ extern void print_bv_solver_dag(FILE *f, bv_solver_t *solver);
  */
 extern void print_bv_solver_var(FILE *f, bv_solver_t *solver, thvar_t x);
 extern void print_bv_solver_vardef(FILE *f, bv_solver_t *solver, thvar_t x);
+extern void print_bv_solver_var_litarray(FILE* f, bv_solver_t *solver, thvar_t x);
 
 extern void print_bv_solver_atom(FILE *f, bv_solver_t *solver, int32_t id);
 extern void print_bv_solver_atomdef(FILE *f, bv_solver_t *solver, int32_t id);
