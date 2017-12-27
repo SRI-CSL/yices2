@@ -6921,9 +6921,12 @@ void bv_solver_start_search(bv_solver_t *solver) {
   feasible = bv_solver_bitblast(solver);
   if (! feasible) {
     add_empty_clause(solver->core);
+    return;
   }
 
-  propagate_strong_equalities(solver);
+  if (solver->egraph != NULL) {
+    propagate_strong_equalities(solver);
+  }
 }
 
 
