@@ -170,7 +170,7 @@ $(build_dir):
 $(dyn_objdir):
 	$(MKDIR_P) $(dyn_objdir)
 
-$(dyn_objsubdirs): $(dyn_objdir)
+$(dyn_objsubdirs):
 	$(MKDIR_P) $@
 
 $(dyn_libdir):
@@ -182,7 +182,7 @@ $(dyn_bindir):
 $(static_objdir):
 	$(MKDIR_P) $(static_objdir)
 
-$(static_objsubdirs): $(static_objdir)
+$(static_objsubdirs):
 	$(MKDIR_P) $@
 
 $(static_libdir):
@@ -198,10 +198,11 @@ $(static_distdir):
 	$(MKDIR_P) $(static_distdir)
 
 
-build_subdirs: $(build_dir) $(dyn_objsubdirs) $(dyn_libdir) $(dyn_bindir) \
-	 $(static_objsubdirs) $(static_libdir) $(static_bindir)
+build_subdirs: $(build_dir) $(dyn_objsubdirs) $(dyn_libdir) $(dyn_bindir)
 
-.PHONY: build_subdirs
+static_build_subdirs: $(build_dir) $(static_objsubdirs) $(static_libdir) $(static_bindir)
+
+.PHONY: build_subdirs static_build_subdirs
 
 
 
@@ -214,7 +215,7 @@ obj: build_subdirs version
 	@ echo "=== Building objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) obj
 
-static-obj: build_subdirs version
+static-obj: static_build_subdirs version
 	@ echo "=== Building static objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-obj
 
@@ -222,7 +223,7 @@ lib: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 
-static-lib: build_subdirs version
+static-lib: static_build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 
@@ -230,7 +231,7 @@ bin: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
 
-static-bin: build_subdirs version
+static-bin: static_build_subdirs version
 	@ echo "=== Building static binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 
@@ -258,7 +259,7 @@ test: build_subdirs version
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all
 
-static-test: build_subdirs version
+static-test: static_build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 	@ echo "=== Building tests ==="
@@ -277,7 +278,7 @@ regress: build_subdirs version
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin 
 
 
-static-regress: build_subdirs version
+static-regress: static_build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
@@ -352,7 +353,7 @@ dist: build_subdirs version $(dist_dir)
 	@ echo "=== Preparing binary distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) dist
 
-static-dist: build_subdirs version $(static_dist_dir)
+static-dist: static_build_subdirs version $(static_dist_dir)
 	@ echo "=== Preparing static binary distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
 
