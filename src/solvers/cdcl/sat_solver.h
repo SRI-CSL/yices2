@@ -28,7 +28,6 @@
 #include <stddef.h>
 #include <assert.h>
 
-#include "solvers/cdcl/sat_solver_base_types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
 #include "utils/stable_sort.h"
