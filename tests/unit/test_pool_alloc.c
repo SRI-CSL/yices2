@@ -246,7 +246,6 @@ static int32_t build_instance(char *filename) {
 
   return 0;
 }
->>>>>>> 6c1c8cf... New sat solver progres + test for it.
 
 
 /*
