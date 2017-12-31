@@ -185,7 +185,7 @@ typedef struct vector_s {
  *
  * If head = tail, the queue is empty.
  * If head < tail, the queue's content is data[head ... tail - 1]
- * If head > tail, the queue's content is data[head, ... size - 1] 
+ * If head > tail, the queue's content is data[head, ... size - 1]
  * plus data[0 ... tail-1].
  */
 typedef struct queue_s {
@@ -216,12 +216,12 @@ typedef struct queue_s {
  * - either l1 is implied by the clause { l1, ~l0 }
  * - or l1 is implied by a clause of the form { l1, ... ~l0, ... }
  *
- * To explore this graph backward, we use a stack. Each element of 
+ * To explore this graph backward, we use a stack. Each element of
  * the stack contains a boolean variable var + an index i.
  * - the var is an assigned variable and represents a literal l1 in the graph
  * - the index i is the index of the next antecedents of l1 to explore.
  *
- * If l1 is implied by a binary clause { l1, ~l0 } then it has one antecedent 
+ * If l1 is implied by a binary clause { l1, ~l0 } then it has one antecedent
  * (of index 0). If l1 is implied by a clause with n literals then if has
  * n-1 antecedents, indexed from 0 to n-2.
  *
@@ -290,10 +290,10 @@ typedef struct gstack_s {
  * introduces gaps in the data array.  To deal with these gaps, we add
  * padding blocks. A padding block at index i is a block of unused
  * elements in the array.  Its length is a multiple of four.  The
- * first two elements of a padding block are as follows: 
+ * first two elements of a padding block are as follows:
  * - data[i] = 0
  * - data[i+1] = length of the padding block.
- * This distinguishes padding blocks from clauses since a clause starts with 
+ * This distinguishes padding blocks from clauses since a clause starts with
  * data[i] >= 2.
  *
  * Some operations require marking clauses. We do this by setting the high-order
@@ -304,8 +304,8 @@ typedef struct gstack_s {
 // clause structure
 typedef struct clause_s {
   uint32_t len;
-  union { 
-    uint32_t d; 
+  union {
+    uint32_t d;
     float f;
   } aux;
   literal_t c[0]; // real size is equal to len
@@ -407,11 +407,11 @@ typedef struct watch_s {
  * of the clauses to recover the truth value of eliminated variables.
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
  * where l is either pos(x) or neg(x) and x is an eliminated variable.
- * 
+ *
  * If we have a model M that doesn't give a value to x, we extend the assignment
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
  * Otherwise, we set l := true (to force C_1 \/ l .... C_k \/ l to all be true in the
- * extended model. For this to work, we must process the variables in reverse order of 
+ * extended model. For this to work, we must process the variables in reverse order of
  * elimination, so that C_1 ... C_k have a value in M when we process x.
  *
  * The saved clauses are stored in a vector and are organized in blocks.
@@ -453,7 +453,7 @@ typedef struct clause_vector_s {
  * For every i in [0 ... size-1], data[i] is a variable
  * - data[0] is always equal to 0 (it's used as a marker)
  * - for i>0 data[i] = a candidate variable for elimination
- * 
+ *
  * For every variable x,
  * - elim_idx[x] = i iff data[i] = x
  * - elim_idx[x] = -1 if x is not stored in the heap
@@ -541,7 +541,7 @@ typedef struct {
 
 
 /******************************
- *  HEAP/VARIABLE ACTIVITIES  *  
+ *  HEAP/VARIABLE ACTIVITIES  *
  *****************************/
 
 /*
@@ -708,7 +708,7 @@ typedef enum antecedent_tag {
  * and backtracking. The conflict tag records the type of clauses that's false.
  * There are two cases: binary clause + non-binary clause
  * + another tag for no conflict.
- * 
+ *
  * For a binary clause conflict, the clause is stored in conflict_buffer.
  * For a non-binary clause, the clause index is stored in conflict_idx.
  */
@@ -753,7 +753,7 @@ typedef struct sat_solver_s {
   bool preprocess;             // True if preprocessing is enabled
 
   uint32_t verbosity;          // Verbosity level: 0 means quiet
-  
+
   /*
    * Variables and literals
    */
@@ -817,7 +817,7 @@ typedef struct sat_solver_s {
   uint64_t reduce_next;        // Number of conflicts before the next call to reduce
   uint32_t reduce_inc;         // Increment to reduce_threshold
   uint32_t reduce_inc2;        // Increment to reduce_inc
-  
+
   uint32_t simplify_assigned;  // Number of literals assigned at level0 after the last call to simplify_clause_database
   uint32_t simplify_binaries;  // Number of binary clauses after the last call to simplify_clause_database
   uint32_t simplify_new_bins;  // Number of binary clauses created by simplification
@@ -938,7 +938,7 @@ extern void reset_nsat_solver(sat_solver_t *solver);
 
 /*
  * Add n fresh variables:
- * - they are indexed from nv, ..., nv + n-1 where nv = number of 
+ * - they are indexed from nv, ..., nv + n-1 where nv = number of
  *   variables in solver (on entry to this function).
  */
 extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
@@ -1058,7 +1058,7 @@ extern void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d);
 /*
  * A clause is an array of literals (integers between 0 and nlits - 1)
  * - a clause is simplified if it satisfies the following conditions:
- *   1) it doesn't contain assigned literals (including the reserved 
+ *   1) it doesn't contain assigned literals (including the reserved
  *      literals 0 and 1)
  *   2) it doesn't include duplicates or complementary literals
  *

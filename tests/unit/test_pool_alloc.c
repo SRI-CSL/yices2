@@ -202,7 +202,7 @@ static int32_t build_instance(char *filename) {
     if (strlen(s) == MAX_LINE-1) {
       finish_line(f);
     }
-    l ++;    
+    l ++;
   }
 
   /* read problem size */
@@ -258,12 +258,12 @@ static void print_statistics(FILE *f) {
   fprintf(f, "nb. of clauses       : %"PRIu32"\n", nclauses);
   fprintf(f, "clause pool\n");
   fprintf(f, "    prob clauses     : %"PRIu32"\n", pool.num_prob_clauses);
-  fprintf(f, "    prob literals    : %"PRIu32"\n", pool.num_prob_literals); 
+  fprintf(f, "    prob literals    : %"PRIu32"\n", pool.num_prob_literals);
   fprintf(f, "    learned clauses  : %"PRIu32"\n", pool.num_learned_clauses);
   fprintf(f, "    learned literals : %"PRIu32"\n", pool.num_learned_literals);
   fprintf(f, "pool size            : %"PRIu32"\n", pool.size);
   fprintf(f, "pool capacity        : %"PRIu32"\n", pool.capacity);
-  fprintf(f, "first learned clause : %"PRIu32"\n", pool.learned);  
+  fprintf(f, "first learned clause : %"PRIu32"\n", pool.learned);
 }
 
 
@@ -282,6 +282,6 @@ int main(int argc, char *argv[]) {
   memory_size = mem_size() / (1024 * 1024);
   print_statistics(stdout);
   delete_clause_pool(&pool);
-  
+
   return 0;
 }

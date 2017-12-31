@@ -45,7 +45,7 @@
  *
  * Each clause starts at an index that's a multiple of 4. This ensures
  * that header + two watched literals are in the same cache line
- * (CHECK THIS). 
+ * (CHECK THIS).
  *
  * If a clause starts at index i, the next clause starts
  * at index j = ((i + data[i] + 2 + 3) & ~3). That's i + length of the
@@ -55,10 +55,10 @@
  * introduces gaps in the data array.  To deal with these gaps, we add
  * padding blocks. A padding block at index i is a block of unused
  * elements in the array.  Its length is a multiple of four.  The
- * first two elements of a padding block are as follows: 
+ * first two elements of a padding block are as follows:
  * - data[i] = 0
  * - data[i+1] = length of the padding block.
- * This distinguishes padding blocks from clauses since a clause starts with 
+ * This distinguishes padding blocks from clauses since a clause starts with
  * data[i] >= 2.
  */
 
@@ -132,7 +132,7 @@ extern void delete_clause_pool(clause_pool_t *pool);
  * Add a problem or learned clause:
  * - n = number of literals
  * - a[0 ... n-1] = literals
- * 
+ *
  * These function update the statistics and return the start index of the new clause.
  * - the clause's auxiliary data is initialized to 0
  */
@@ -169,7 +169,7 @@ static inline bool good_clause_idx(clause_pool_t *pool, cidx_t idx) {
 
 static inline bool is_problem_clause_idx(clause_pool_t *pool, cidx_t idx) {
   assert(good_clause_idx(pool, idx) && pool->learned > 0);
-  return  idx < pool->learned;  
+  return  idx < pool->learned;
 }
 
 static inline bool is_learned_clause_idx(clause_pool_t *pool, cidx_t idx) {

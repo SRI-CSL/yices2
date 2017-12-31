@@ -200,5 +200,5 @@ int main(int argc, char *argv[]) {
   ok = print_all_data(f);
   fclose(f);
 
-  return ok ? EXIT_SUCCESS : EXIT_FAILURE;  
+  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
