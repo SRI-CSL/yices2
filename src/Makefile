@@ -798,22 +798,24 @@ $(static_objdir)/%.d: %.c
 	rm -f $@.$$$$
 
 
-need_static_deps := $(findstring static,$(MAKECMDGOALS))
-
 ifneq ($(MAKECMDGOALS),clean)
 
-include $(dep)
-include $(bin_dep)
-include $(version_dep)
+static_goals := $(filter static-%,$(MAKECMDGOALS))
+dyn_goals := $(filter-out static-%,$(MAKECMDGOALS))
 
-ifeq ($(need_static_deps),static)
-include $(static_dep)
-include $(static_bin_dep)
-include $(static_version_dep)
+ifneq ($(dyn_goals),)
+ include $(dep)
+ include $(bin_dep)
+ include $(version_dep)
+endif
+
+ifneq ($(static_goals),)
+ include $(static_dep)
+ include $(static_bin_dep)
+ include $(static_version_dep)
 endif
 
 endif
-
 
 #
 # Gperf generated tables
@@ -1022,14 +1024,14 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
+$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_LIBS)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif

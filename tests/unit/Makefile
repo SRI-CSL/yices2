@@ -268,8 +268,36 @@ $(static_objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
-include $(dep)
-include $(static_dep)
+#
+# Dependency files
+#
+$(objdir)/%.d: %.c
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
+
+$(static_objdir)/%.d: %.c
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
+
+
+static_goals := $(filter %-static,$(MAKECMDGOALS))
+dyn_goals := $(filter-out %-static,$(MAKECMDGOALS))
+
+ifneq ($(dyn_goals),)
+ include $(dep)
+ include $(bin_dep)
+ include $(version_dep)
+endif
+
+ifneq ($(static_goals),)
+ include $(static_dep)
+ include $(static_bin_dep)
+ include $(static_version_dep)
+endif
 
 
 # Objects

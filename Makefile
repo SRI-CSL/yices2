@@ -282,7 +282,6 @@ checkgmake:
 	$@
 
 
-
 .PHONY: checkgmake show-config doc all bin lib obj dist \
         static-bin static-lib static-obj static-dist install \
-        test static-test
+        test static-test default
