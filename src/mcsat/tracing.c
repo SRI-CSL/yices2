@@ -31,11 +31,11 @@ void term_print_to_file(FILE* out, term_table_t* terms, term_t t) {
 }
 
 void trace_term_ln(tracer_t* tracer, term_table_t* terms, term_t t) {
-  tpp_term(tracer, 0, terms, t);
+  trace_pp_term(tracer, 0, terms, t);
 }
 
 void ctx_trace_term(plugin_context_t* ctx, term_t t) {
-  tpp_term(ctx->tracer, 0, ctx->terms, t);
+  trace_pp_term(ctx->tracer, 0, ctx->terms, t);
 }
 
 const char* kind_to_string(term_kind_t t) {
@@ -86,7 +86,7 @@ const char* type_to_string(type_kind_t kind) {
   }
 }
 
-void trace_printf(tracer_t* tracer, const char* format, ...) {
+void mcsat_trace_printf(tracer_t* tracer, const char* format, ...) {
   va_list p;
   int code;
 

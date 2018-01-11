@@ -118,7 +118,7 @@ bool tracing_tag(tracer_t *tracer, const char *tag) {
 /*
  * Print a message
  */
-void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...) {
+void trace_printf(tracer_t *tracer, uint32_t level, const char *format, ...) {
   va_list p;
   int code;
 
@@ -136,7 +136,7 @@ void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...) {
   }
 }
 
-void tputs(tracer_t *tracer, uint32_t level, const char *s) {
+void trace_puts(tracer_t *tracer, uint32_t level, const char *s) {
   int code;
 
   if (tracer != NULL && level <= tracer->vlevel && !tracer->print_failed) {
@@ -149,7 +149,7 @@ void tputs(tracer_t *tracer, uint32_t level, const char *s) {
 }
 
 // newline if tracer->vlevel >= level
-void tnewline(tracer_t *tracer, uint32_t level) {
+void trace_newline(tracer_t *tracer, uint32_t level) {
   int code;
 
   if (tracer != NULL && level <= tracer->vlevel && !tracer->print_failed) {
@@ -165,7 +165,7 @@ void tnewline(tracer_t *tracer, uint32_t level) {
 /*
  * Pretty print term t + newline
  */
-void tpp_term(tracer_t *tracer, uint32_t level, term_table_t *tbl, term_t t) {
+void trace_pp_term(tracer_t *tracer, uint32_t level, term_table_t *tbl, term_t t) {
   yices_pp_t *pp;
 
   if (tracer != NULL && level <= tracer->vlevel && !tracer->print_failed) {
@@ -183,7 +183,7 @@ void tpp_term(tracer_t *tracer, uint32_t level, term_table_t *tbl, term_t t) {
 /*
  * Pretty print type tau + newline
  */
-void tpp_type(tracer_t *tracer, uint32_t level, type_table_t *tbl, type_t tau) {
+void trace_pp_type(tracer_t *tracer, uint32_t level, type_table_t *tbl, type_t tau) {
   yices_pp_t *pp;
 
   if (tracer != NULL && level <= tracer->vlevel && !tracer->print_failed) {

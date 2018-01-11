@@ -282,7 +282,7 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
   assert(disjunct >= 0);
 
   if (trace_enabled(conflict->tracer, "mcsat::conflict")) {
-    trace_printf(conflict->tracer, "adding to conflict: ");
+    mcsat_trace_printf(conflict->tracer, "adding to conflict: ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct);
   }
 
@@ -355,7 +355,7 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
 void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
 
   if (trace_enabled(conflict->tracer, "mcsat::conflict")) {
-    trace_printf(conflict->tracer, "removing from conflict: ");
+    mcsat_trace_printf(conflict->tracer, "removing from conflict: ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct);
   }
 
@@ -417,9 +417,9 @@ void conflict_recompute_level_info(conflict_t* conflict) {
   }
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
-    trace_printf(conflict->tracer, "old = \n");
+    mcsat_trace_printf(conflict->tracer, "old = \n");
     conflict_print(conflict, trace_out(conflict->tracer));
-    trace_printf(conflict->tracer, "new = \n");
+    mcsat_trace_printf(conflict->tracer, "new = \n");
     conflict_print(&new_conflict, trace_out(conflict->tracer));
   }
 
@@ -435,7 +435,7 @@ void conflict_recompute_level_info(conflict_t* conflict) {
 void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons) {
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
-    trace_printf(conflict->tracer, "conflict = \n");
+    mcsat_trace_printf(conflict->tracer, "conflict = \n");
     conflict_print(conflict, trace_out(conflict->tracer));
   }
 
@@ -478,16 +478,16 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   for (i = 0; i < disjuncts.size; ++ i) {
     conflict_remove_disjunct(conflict, disjuncts.data[i]);
     if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
-      trace_printf(conflict->tracer, "resolving ");
+      mcsat_trace_printf(conflict->tracer, "resolving ");
       variable_db_print_variable(conflict->var_db, var, conflict->tracer->file);
-      trace_printf(conflict->tracer, " with ");
+      mcsat_trace_printf(conflict->tracer, " with ");
       trace_term_ln(conflict->tracer, conflict->terms, substitution);
-      trace_printf(conflict->tracer, "in :\n");
+      mcsat_trace_printf(conflict->tracer, "in :\n");
       trace_term_ln(conflict->tracer, conflict->terms, disjuncts.data[i]);
     }
     disjuncts.data[i] = conflict_disjunct_substitute(conflict, disjuncts.data[i], var, substitution);
     if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
-      trace_printf(conflict->tracer, "resolvent ");
+      mcsat_trace_printf(conflict->tracer, "resolvent ");
       trace_term_ln(conflict->tracer, conflict->terms, disjuncts.data[i]);
     }
   }
@@ -509,7 +509,7 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   delete_ivector(&disjuncts);
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
-    trace_printf(conflict->tracer, "conflict = \n");
+    mcsat_trace_printf(conflict->tracer, "conflict = \n");
     conflict_print(conflict, trace_out(conflict->tracer));
   }
 

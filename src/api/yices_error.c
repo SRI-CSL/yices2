@@ -959,6 +959,10 @@ char *error_string(void) {
     nchar = snprintf(buffer, BUFFER_SIZE, "output error");
     break;
 
+  case MCSAT_ERROR_UNSUPPORTED_THEORY:
+    nchar = snprintf(buffer, BUFFER_SIZE, "mcsat: unsupported theory\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     nchar = snprintf(buffer, BUFFER_SIZE, "internal error");

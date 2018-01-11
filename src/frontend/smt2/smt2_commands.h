@@ -53,7 +53,9 @@
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
 #include "frontend/smt2/smt2_expressions.h"
+#include "frontend/common.h"
 
+#include "context/context_parameters.h"
 #include "exists_forall/ef_client.h"
 #include "mcsat/options.h"
 
@@ -350,15 +352,13 @@ typedef struct smt2_globals_s {
   // logic name
   char *logic_name;
 
-  // set to true to use the mcsat solver
-  bool mcsat;
-  // options for the mcsat solver
-  mcsat_options_t mcsat_options;
+  // mcsat
+  bool mcsat;                      // set to true to use the mcsat solver
+  mcsat_options_t mcsat_options;   // options for the mcsat solver
 
-  // exists_forall fields
-  // true indicates we will be using the exists_forall solver
-  bool efmode;
-  ef_client_t ef_client_globals;
+  // exists/forall solver
+  bool efmode;                     // true to use the exists_forall solver
+  ef_client_t ef_client;
   
   // output/diagnostic channels
   FILE *out;                  // default = stdout
@@ -381,6 +381,10 @@ typedef struct smt2_globals_s {
   bool produce_assignments;   // default = false
   uint32_t random_seed;       // default = 0
   uint32_t verbosity;         // default = 0
+
+  // yices options
+  ctx_param_t ctx_parameters;  // preprocessing options
+  param_t parameters;          // search options
 
   // timeout
   uint32_t timeout;           // default = 0 (no timeout)

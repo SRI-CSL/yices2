@@ -5,89 +5,7 @@
 Overview
 ========
 
-This section explains how to install Yices, and how to compile and
-link your code with the Yices library.
-
-Installation
-------------
-
-Yices 2 can be downloaded at http://yices.csl.sri.com. You can either get a source
-distribution, or a binary distribution for Linux, Mac OS X, or Windows.
-
-Installing from the Source
-..........................
-
-Compiling Yices from the source requires the `GNU Multiple
-Precision <http://gmplib.org>`_ library (GMP) and the `gperf
-<http://www.gnu.org/software/gperf>`_ utility.
-Assuming you have both, then building and installing
-Yices is straightforward:
-
-.. code-block:: sh
-
-   ./configure
-   make -j
-   sudo make install
-
-This installs the binaries in :file:`/usr/local/bin`, the header files
-in :file:`/usr/local/include`, and the library in
-:file:`/usr/local/lib`. You can change the installation location by
-giving the option ``--prefix=<directory>`` to the
-``configure`` script.
-
-For a detailed explanation of the build process and options, check the
-file :file:`doc/COMPILING` included in the distribution.
-
-
-MCSAT and Nonlinear Arithmetic
-..............................
-
-Yices now includes a solver for nonlinear arithmetic based on the
-Model Constructing Satisfiability Calculus (MCSAT). This solver
-depends on an external library for manipulating polynomials. If you
-need nonlinear arithmetic and want to compile Yices from the source,
-you must install this library first. Get it from our `GitHub
-repository <https://github.com/SRI-CSL/libpoly>`_ and follow the build
-instructions there.  Make sure to get the latest libpoly release
-(v0.1.3).
-
-Once you have installed libpoly, you can compile Yices with MCSAT
-support as follows:
-
-.. code-block:: sh
-
-   ./configure --enable-mcsat
-   make -j
-   sudo make install
-
-You may need to set CPPFLAGS and LDFLAGS if the libpoly library is not
-in a standard location.
-
-
-
-Binary Distribution
-...................
-
-The binary distributions contain pre-compiled binaries and
-libraries. These distributions are self-contained. The binaries and
-libraries are linked statically against GMP and libpoly. They include
-support for nonlinear arithmetic and MCSAT.
-
-The binary distributions for Linux and Mac OS X include a shell script
-to install the binaries, headers, and library in
-:file:`/usr/local`. You can run this script as follows:
-
-.. code-block:: sh
-
-   sudo ./install-yices
-
-If you want a different installation directory, type
-
-.. code-block:: sh
-
-   ./install-yices <directory>
-
-(use *sudo* if necessary).
+This section how to compile and link your code with the Yices library.
 
 
 Headers and Compilation
@@ -116,6 +34,14 @@ the GMP header *before* you include ``yices.h`` as in::
   #include <gmp.h>
   #include <yices.h>
 
+Similarly, some functions return algebraic numbers and use data structures 
+defined in the libpoly library. To use these functions, you must include the
+libpoly header ``poly/algebraic_number.h`` *before* ``yices.h``::
+
+  #include <poly/algebraic_number.h>
+  #include <yices.h>
+
+
 .. note:: Yices requires the C99 header ``stdint.h``.
    This header may not be available on old versions of Microsoft's Visual
    Studio. If it is missing, open-source versions of ``stdint.h`` can be 
@@ -126,6 +52,7 @@ the GMP header *before* you include ``yices.h`` as in::
 
    A copy of the latter file is included in the Yices distributions (in
    :file:`etc/pstdint.h`).
+
 
 
 Minimal Example

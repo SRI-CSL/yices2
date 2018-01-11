@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2017 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -72,9 +83,9 @@ void build_ef_problem(ef_client_t *efc, ivector_t *assertions) {
 }
 
 
-const char * const efmodelcode2error[] = {
-  "No error.\n"
-  "No model, did not find a solution.\n"
+const char * const efmodelcode2error[NUM_EFMODEL_ERROR_CODES] = {
+  "No error.\n",
+  "No model, did not find a solution.\n",
   "Can't build a model. Call the exists forall solver first.\n"
 };
 

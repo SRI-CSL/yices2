@@ -462,7 +462,7 @@ value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n) {
     x = maker->bvs.data[i].count;
     while (x < max) {
       bvconstant_copy64(&maker->aux, n, (uint64_t) x);
-      if (vtbl_test_bvconstant(maker->vtbl, &maker->aux)) break;
+      if (! vtbl_test_bvconstant(maker->vtbl, &maker->aux)) break;
       x ++;
     }
     if (x < max) {

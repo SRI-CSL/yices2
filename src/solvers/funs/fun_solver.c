@@ -1815,9 +1815,9 @@ static bool update_conflicts(fun_solver_t *solver) {
  done:
   if (num_updates > 0) {
     if (num_updates == 1) {
-      tprintf(solver->core->trace, 5, "(array solver: 1 update lemma)\n");
+      trace_printf(solver->core->trace, 5, "(array solver: 1 update lemma)\n");
     } else {
-      tprintf(solver->core->trace, 5, "(array solver: %"PRIu32" update lemmas)\n", num_updates);
+      trace_printf(solver->core->trace, 5, "(array solver: %"PRIu32" update lemmas)\n", num_updates);
     }
 #if TRACE
     printf("---> ARRAY SOLVER: update axioms in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
@@ -3157,7 +3157,7 @@ static void convert_composite_to_map(egraph_t *egraph, function_type_t *f, map_t
   if (n <= 10) {
     a = aux;
   } else {
-    a = safe_malloc(n * sizeof(particle_t *));
+    a = safe_malloc(n * sizeof(particle_t));
   }
 
   for (i=0; i<n; i++) {

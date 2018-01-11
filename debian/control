@@ -1,0 +1,50 @@
+Source: yices2
+Maintainer: Ian A. Mason <iam@csl.sri.com>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.8
+Build-Depends: debhelper (>= 10), dh-autoreconf (>= 10), gperf, libgmp-dev, libpoly-dev, dh-exec
+Homepage: http://yices.csl.sri.com/
+
+
+Package: libyices2.5
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
+Description:  Yices SMT Solver API Library
+ SRI International's Satisfiability Modulo Theory Solver.
+ .
+ A library to use the Yices API.
+
+
+Package: yices2
+Architecture: any
+Depends:  gperf, libgmp-dev,  libpoly-dev (>= 1.4), ${shlibs:Depends}, ${misc:Depends}
+Description: Yices SMT Solver
+ SRI International's Satisfiability Modulo Theory Solver.
+ .
+ The package contains several variants of the Yices 2 SMT
+ solver that support different input languages, including
+ SMT-LIB and the Yices language.
+
+Package: yices2-dev
+Section: libdevel
+Architecture: any
+Depends: yices2,  libyices2.5 (= ${binary:Version}), ${misc:Depends}, libgmp-dev
+Description: Yices SMT Solver API Support
+ SRI International's Satisfiability Modulo Theory Solver.
+ .
+ Development headers for the Yices API.
+
+
+Package: yices2-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: yices2, libyices2.5 (= ${binary:Version}), ${misc:Depends}
+Provides: yices2-dbg
+Description: Yices SMT Solver
+ SRI International's Satisfiability Modulo Theory Solver.
+ .
+ Debugging symbols for Yices 2.

@@ -138,6 +138,7 @@ Yices Terms
       YICES_BV_GE_ATOM,
       YICES_BV_SGE_ATOM,
       YICES_ARITH_GE_ATOM,
+      YICES_ARITH_ROOT_ATOM,
       YICES_ABS,
       YICES_CEIL,
       YICES_FLOOR,
@@ -281,6 +282,10 @@ Yices Terms
    .. c:enum:: YICES_ARITH_GE_ATOM
 
       Arithmetic inequality (greater than or equal to)
+
+   .. c:enum:: YICES_ARITH_ROOT_ATOM
+
+      Nonlinear arithmetic atom.
 
    .. c:enum:: YICES_ABS
 
@@ -506,6 +511,7 @@ Models
         YVAL_UNKNOWN,
 	YVAL_BOOL,
 	YVAL_RATIONAL,
+	YVAL_ALGEBRAIC,
 	YVAL_BV,
 	YVAL_SCALAR,
 	YVAL_TUPLE,
@@ -527,6 +533,10 @@ Models
 
       Rational constants
 
+   .. c:enum:: YVAL_ALGEBRAIC
+
+      Algebraic numbers
+
    .. c:enum:: YVAL_BV
 
       Bitvector constants
@@ -547,9 +557,12 @@ Models
 
       Mappings of the form [tuple |->| value] used to represent functions 
 
-   The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`, :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
-   and :c:enum:`YVAL_SCALAR` are attached to leaf nodes in the DAG. The non-leaf nodes have
-   tags :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and :c:enum:`YVAL_MAPPING`.
+   The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`,
+   :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
+   :c:enum:`YVAL_ALGEBRAIC` and :c:enum:`YVAL_SCALAR` are attached to
+   leaf nodes in the DAG. The non-leaf nodes have tags
+   :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and
+   :c:enum:`YVAL_MAPPING`.
 
    The nodes with tag :c:enum:`YVAL_MAPPING` are auxiliary nodes that
    occur in the definition of functions.  In a model, all function
@@ -1049,6 +1062,10 @@ Error Reports
       Error reported by :c:func:`yices_implicant_for_formula` and variants
       when the input formula is false in the model.
 
+   .. c:enum:: EVAL_NOT_SUPPORTED
+
+      Reported by function :c:func:`yices_get_algebraic_number_value`
+      when the library is compiled without MCSAT support.
 
    .. c:enum:: MDL_UNINT_REQUIRED
 
@@ -1095,6 +1112,16 @@ Error Reports
 
       The value of a leaf node does not fit in the given input variable.
 
+   .. c:enum:: YVAL_NOT_SUPPORTED
+
+      Reported by function :c:func:`yices_val_get_algebraic_number`
+      when the library is compiled without MCSAT support.
+
+   .. c:enum:: MCSAT_ERROR_UNSUPPORTED_THEORY
+
+      A formula asserted in the MCSAT solver is not in a theory that this
+      solver can process.
+
    .. c:enum:: OUTPUT_ERROR
 
       Error when attempting to write to a stream. This error can be reported
@@ -1110,9 +1137,7 @@ Error Reports
 
       Catch-all code for any other error.
 
-      If you ever see this error code, please send a bug report at
-
-      yices-bugs@csl.sri.com.
+      If you ever see this error code, please report a bug at https://github.com/SRI-CSL/yices2
 
    A few more error codes are defined in :file:`yices_types.h`. They
    are related to type macros that Yices uses to support the SMT-LIB 2

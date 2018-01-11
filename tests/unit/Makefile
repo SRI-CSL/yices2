@@ -85,6 +85,13 @@ libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 
 
+#
+# Whether we have support for mcsat
+#
+ifeq ($(ENABLE_MCSAT),yes)
+  CPPFLAGS+=-DHAVE_MCSAT
+endif
+
 
 #
 # OS-dependent compilation flags
@@ -214,10 +221,14 @@ CPPFLAGS := -I../../src -I../../src/include $(CPPFLAGS)
 # More CPPFLAGS for compiling static objects
 #
 ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-  STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-else
-  STATIC_CPPFLAGS := $(CPPFLAGS)
+  STATIC_CPP_GMP := -I$(STATIC_GMP_INCLUDE_DIR)
 endif
+
+ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
+  STATIC_CPP_LIBPOLY := -I$(STATIC_LIBPOLY_INCLUDE_DIR)
+endif
+
+STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 
 #
 # These are not needed for the tests -DNOYICES_DLL is already
@@ -240,7 +251,8 @@ endif
 #
 # Also, we want $(STATIC_GMP) last in this list
 #
-STATIC_LIBS := $(subst -lgmp,,$(LIBS)) $(STATIC_GMP) 
+NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
+STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 
 
 # Dependency file
@@ -256,8 +268,36 @@ $(static_objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
-include $(dep)
-include $(static_dep)
+#
+# Dependency files
+#
+$(objdir)/%.d: %.c
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
+
+$(static_objdir)/%.d: %.c
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
+
+
+static_goals := $(filter %-static,$(MAKECMDGOALS))
+dyn_goals := $(filter-out %-static,$(MAKECMDGOALS))
+
+ifneq ($(dyn_goals),)
+ include $(dep)
+ include $(bin_dep)
+ include $(version_dep)
+endif
+
+ifneq ($(static_goals),)
+ include $(static_dep)
+ include $(static_bin_dep)
+ include $(static_version_dep)
+endif
 
 
 # Objects

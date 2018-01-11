@@ -557,6 +557,28 @@ void monarray_gcd(monomial_t *p, rational_t *gcd) {
  */
 
 /*
+ * For debugging: check that a monomial array p is sorted
+ * - the array must be terminated by the end marker
+ */
+#ifndef NDEBUG
+static bool sorted_monarray(const monomial_t *p) {
+  int32_t v;
+
+  v = -1;
+  while (p->var < max_idx) {
+    assert(p->var >= 0);
+    if (p->var <= v) {
+      return false;
+    }
+    v = p->var;
+    p ++;
+  }
+
+  return true;
+}
+#endif
+
+/*
  * Extract the common part of p and q:
  * - p and q must both be normalized
  * - the set of variables x_1, ..., x_k such that
@@ -565,6 +587,8 @@ void monarray_gcd(monomial_t *p, rational_t *gcd) {
  */
 void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v) {
   int32_t x, y;
+
+  assert(sorted_monarray(p) && sorted_monarray(q));
 
   x = p->var;
   y = q->var;
@@ -614,6 +638,8 @@ static void aux_gcd(rational_t *a, rational_t *b) {
  */
 void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *factor) {
   int32_t x, y;
+
+  assert(sorted_monarray(p) && sorted_monarray(q));
 
   q_clear(factor);
   x = p->var;

@@ -209,9 +209,19 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = c9;
       goto loop;
 
+    case declare_const_next_goto_c14:
+      tstack_push_op(tstack, SMT2_DECLARE_FUN, &loc);
+      state = c14;
+      goto loop;
+
     case declare_fun_next_goto_c10:
       tstack_push_op(tstack, SMT2_DECLARE_FUN, &loc);
       state = c10;
+      goto loop;
+
+    case define_const_next_goto_c15:
+      tstack_push_op(tstack, SMT2_DEFINE_FUN, &loc);
+      state = c11;
       goto loop;
 
     case define_fun_next_goto_c11:
@@ -372,6 +382,21 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       // string argument to echo
       tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
       state = r0;
+      goto loop;
+
+    case symbol_next_push_r0_goto_s0:
+      // <symbol> in (declare-const <symbol> <sort> )
+      tstack_push_free_fun_name(tstack, tkval(lex), tklen(lex), &loc);
+      parser_push_state(stack, r0);
+      state = s0;
+      goto loop;
+
+    case symbol_next_push_r0_push_t0_goto_s0:
+      // <symbol> in (define-const <symbol> <sort> <term> )
+      tstack_push_free_fun_name(tstack, tkval(lex), tklen(lex), &loc);
+      parser_push_state(stack, r0);
+      parser_push_state(stack, t0);
+      state = s0;
       goto loop;
 
     case next_goto_r0:
@@ -676,7 +701,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = t5a;
       goto loop;
 
-    case symbol_next_push_r0_goto_s0:
+    case asymbol_next_push_r0_goto_s0:
       // in (as <symbol> <sort> )
       tstack_push_op(tstack, SMT2_SORTED_TERM, &saved_loc);
       tstack_push_qual_term_name(tstack, tkval(lex), tklen(lex), &loc);

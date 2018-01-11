@@ -98,17 +98,17 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.construct           = ite_plugin_construct;
   plugin->plugin_interface.destruct            = ite_plugin_destruct;
   plugin->plugin_interface.new_term_notify     = ite_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = 0;
-  plugin->plugin_interface.event_notify        = 0;
-  plugin->plugin_interface.propagate           = 0;
-  plugin->plugin_interface.decide              = 0;
-  plugin->plugin_interface.get_conflict        = 0;
-  plugin->plugin_interface.explain_propagation = 0;
-  plugin->plugin_interface.explain_evaluation  = 0;
-  plugin->plugin_interface.push                = 0;
-  plugin->plugin_interface.pop                 = 0;
-  plugin->plugin_interface.gc_mark             = 0;
-  plugin->plugin_interface.gc_sweep            = 0;
+  plugin->plugin_interface.new_lemma_notify    = NULL;
+  plugin->plugin_interface.event_notify        = NULL;
+  plugin->plugin_interface.propagate           = NULL;
+  plugin->plugin_interface.decide              = NULL;
+  plugin->plugin_interface.get_conflict        = NULL;
+  plugin->plugin_interface.explain_propagation = NULL;
+  plugin->plugin_interface.explain_evaluation  = NULL;
+  plugin->plugin_interface.push                = NULL;
+  plugin->plugin_interface.pop                 = NULL;
+  plugin->plugin_interface.gc_mark             = NULL;
+  plugin->plugin_interface.gc_sweep            = NULL;
   plugin->plugin_interface.set_exception_handler = ite_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;

@@ -60,8 +60,10 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "assert",                // SMT2_TK_ASSERT
   "check-sat",             // SMT2_TK_CHECK_SAT
   "declare-sort",          // SMT2_TK_DECLARE_SORT
+  "declare-const",         // SMT2_TK_DECLARE_CONST
   "declare-fun",           // SMT2_TK_DECLARE_FUN
   "define-sort",           // SMT2_TK_DEFINE_SORT
+  "define-const",          // SMT2_TK_DEFINE_CONST
   "define-fun",            // SMT2_TK_DEFINE_FUN
   "exit",                  // SMT2_TK_EXIT
   "get-assertions",        // SMT2_TK_GET_ASSERTIONS
@@ -551,9 +553,6 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
  *
  * Gratuitous change to the escape sequence:
  * - replace "" inside the string by "
- * - note that this means that we can't have an empty string ""
- *   (so the example on page 22 of 'The SMT-LIB Standard Version 2.5'
- *   is wrong).
  */
 static smt2_token_t smt2_read_string_var(lexer_t *lex) {
   reader_t *rd;

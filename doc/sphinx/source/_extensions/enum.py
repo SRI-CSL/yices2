@@ -89,7 +89,7 @@ class CEnumDirective(Directive):
 
     if not noindex:
         index_text = _('%s (C enum)') % name
-        index_node = addnodes.index(entries=[('single', index_text, target_name, '')])
+        index_node = addnodes.index(entries=[('single', index_text, target_name, '', None)])
         resultnodes.append(index_node)
 
     node = addnodes.desc()

@@ -852,6 +852,10 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
   sprintf(filename, "conflict_%u.m", count);
 
   FILE* out = fopen(filename, "w");
+  if (out == NULL) {
+    fprintf(stderr, "Can't open %s.", filename);
+    return;
+  }
 
   // Variables in the conflict
   int_mset_t core_vars;

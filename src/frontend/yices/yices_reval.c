@@ -33,6 +33,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 #include <inttypes.h>
 
 
@@ -67,6 +68,7 @@
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 #include "context/context.h"
+#include "context/context_parameters.h"
 #include "context/dump_context.h"
 #include "exists_forall/ef_client.h"
 #include "frontend/common.h"
@@ -570,6 +572,45 @@ static void process_command_line(int argc, char *argv[]) {
  *  SIGNAL HANDLER  *
  *******************/
 
+static const char signum_msg[24] = "\nInterrupted by signal ";
+static char signum_buffer[100];
+
+/*
+ * Write signal number of file 2 (assumed to be stderr): we can't use
+ * fprintf because it's not safe in a signal handler.
+ */
+static void write_signum(int signum) {
+  ssize_t w;
+  uint32_t i, n;
+
+  memcpy(signum_buffer, signum_msg, sizeof(signum_msg));
+
+  // force signum to be at most two digits
+  signum = signum % 100;
+  n = sizeof(signum_msg);
+  if (signum > 10) {
+    signum_buffer[n] = (char)('0' + signum/10);
+    signum_buffer[n + 1] = (char)('0' + signum % 10);
+    signum_buffer[n + 2] = '\n';
+    n += 3;
+  } else {
+    signum_buffer[n] = (char)('0' + signum);
+    signum_buffer[n + 1] = '\n';
+    n += 2;
+  }
+
+  // write to file 2
+  i = 0;
+  do {
+    do {
+      w = write(2, signum_buffer + i, n);
+    } while (w < 0 && errno == EAGAIN);
+    if (w < 0) break; // write error, we can't do much about it.
+    i += (uint32_t) w;
+    n -= (uint32_t) w;
+  } while (n > 0);
+}
+
 /*
  * On SIGINT: call stop_search if the context is SEARCHING
  *
@@ -584,8 +625,7 @@ static void sigint_handler(int signum) {
 
   assert(context != NULL);
   if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
+    write_signum(signum);
   }
   if (context_status(context) == STATUS_SEARCHING) {
     context_stop_search(context);
@@ -595,7 +635,7 @@ static void sigint_handler(int signum) {
   saved_handler = signal(SIGINT, sigint_handler);
   if (saved_handler == SIG_ERR) {
     perror("Yices: failed to install SIG_INT handler: ");
-    exit(YICES_EXIT_INTERNAL_ERROR);
+    _exit(YICES_EXIT_INTERNAL_ERROR);
   }
 #endif
 }
@@ -606,10 +646,9 @@ static void sigint_handler(int signum) {
  */
 static void default_handler(int signum) {
   if (verbosity > 0) {
-    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
-    fflush(stderr);
+    write_signum(signum);
   }
-  exit(YICES_EXIT_INTERRUPTED);
+  _exit(YICES_EXIT_INTERRUPTED);
 }
 
 
@@ -2986,8 +3025,8 @@ static void init_yices_tstack(tstack_t *stack) {
  *********/
 
 /*
- * This is a separate function so that we can invoke yices via foreign
- * a function call in LISP.
+ * This is a separate function so that we can invoke yices as a foreign
+ * function call in LISP.
  */
 int yices_main(int argc, char *argv[]) {
   int32_t code;
@@ -3035,7 +3074,6 @@ int yices_main(int argc, char *argv[]) {
 
   init_ef_client(&ef_client_globals);
   
-
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
     print_version(stderr);
@@ -3044,7 +3082,8 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     context = NULL;
     model = NULL;
-    default_ctx_params(&ctx_parameters, &parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
+    default_ctx_params(&ctx_parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
+    yices_set_default_params(&parameters, logic_code, arch, CTX_MODE_ONECHECK);
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }

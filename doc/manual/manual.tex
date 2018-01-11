@@ -43,7 +43,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6}}
+Version 2.5.4}}
 \end{titlepage}
 
 \maketitle
@@ -59,10 +59,11 @@ Version 2.6}}
 
 This  manual   is  an  introduction   to  the  logic,   language,  and
 architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
-International's Computer Science Laboratory.  Since version 2.6, Yices
-is released under the GNU General Public Licence version 3 (reproduced
-in  Appendix~\ref{license}).  Previous  versions  were released  under
-different terms, and were free-of-charge for noncommercial use.
+International's  Computer Science  Laboratory.   Since version  2.5.3,
+Yices  is released  under the  GNU  General Public  Licence version  3
+(reproduced  in   Appendix~\ref{license}).   Previous   versions  were
+released   under  different   terms,  and   were  free-of-charge   for
+noncommercial use.
 
 To discuss alternative license terms, please contact us at
 \texttt{fm-license@csl.sri.com}.
@@ -70,10 +71,16 @@ To discuss alternative license terms, please contact us at
 
 \section{Download and Installation}
 
-The    latest   version    of   Yices~2    can   be    downloaded   at
-\url{http://yices.csl.sri.com}.  We  provide pre-compiled binaries for
+The latest stable version of Yices~2 can be downloaded at
+\url{http://yices.csl.sri.com}.  We provide pre-compiled binaries for
 the platforms and operating systems listed in Table~\ref{versions}. We
-also provide source code.
+also provide source code there. For MacOS and Linux, you can also
+install Yices~2 using package managers (i.e., homebrew for the Mac and
+aptitude for Debian/Ubuntu).
+
+For the latest developments, you can clone our Git repository
+\url{https://github.com/SRI-CSL/yices2}. 
+
 
 \subsection{Binary Distributions}
 
@@ -97,12 +104,12 @@ Windows (32 and 64 bits) & \\
 \label{versions}
 \end{table}
 
-
-To download  Yices~2, go to  \url{http://yices.csl.sri.com} and select
-the distribution  that you want to  install.  Untar or  unzip the file
-and follow the  instructions in the included README  file.  The binary
-distributions are  self-contained and  do not require  installation of
-third-party libraries.
+To download stable Yices~2 binaries, go to
+\url{http://yices.csl.sri.com} and select the distribution that you
+want to install.  Untar or unzip the file and follow the instructions
+in the included README file.  The binary distributions are
+self-contained and do not require installation of third-party
+libraries.
 
 To complete installation on Linux or Mac~OS~X, the binary
 distributions include a shell script called \texttt{install-yices}. By
@@ -125,6 +132,39 @@ To install Yices in a different location, you can type
 \end{verbatim}
 \end{small}
 (use \texttt{sudo} if necessary).
+
+
+\subsubsection{Homebrew Package}
+
+If you use homebrew on Mac OS~X, you can easily install Yices as follows:
+\begin{small}
+\begin{verbatim}
+   brew install SRI-CSL/sri-csl/yices
+\end{verbatim}
+\end{small}
+(you may need \texttt{sudo}). This will install the Yices~2
+executables, library, and include files.
+
+
+\subsubsection{Debian Package}
+
+For Ubuntu or Debian (or any other Linux distribution that uses
+\texttt{apt}), we provide APT packages. To install them, you must
+first add our PPA to your list of repositories then install package
+\texttt{yices2}:
+\begin{small}
+\begin{verbatim}
+  sudo add-apt-repository ppa:sri-csl/formal-methods
+  sudo apt-get update
+  sudo apt-get install yices2
+\end{verbatim}
+\end{small}
+You can also install the library and development files as follows:
+\begin{small}
+\begin{verbatim}
+  sudo apt-get install yices2-dev libyices2.5
+\end{verbatim}
+\end{small}
 
 
 \subsection{Source Distribution}
@@ -207,9 +247,9 @@ location.
 
 \section{Content of the Distributions}
 
-The binary distributions include the Yices executables, the Yices
-library and header files, and examples and documentation.  Four
-solvers are currently included:
+The binary distributions and packages include the Yices executables,
+the Yices library and header files, and examples and documentation.
+Four solvers are currently included:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -380,9 +420,12 @@ SMT-LIB.
 
 \section{Getting Help and Reporting Bugs}
 
-The Yices  website provides the  latest release and  information about
-Yices.  For bug  reports and questions about Yices,  please contact us
-via the Yices mailing lists:
+The Yices website provides the latest release and information about
+Yices.  The easiest (and preferred) way to report a bug or ask a
+question about Yices is to post an issue on our GitHub repository
+(\url{https://github.com/SRI-CSL/yices2}).
+
+Alternatively, you can contact us via the Yices mailing lists:
 \begin{itemize}
 \item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
   questions about Yices usage or installation.
@@ -391,25 +434,27 @@ via the Yices mailing lists:
   post to it. You can register to this mailing list if you are
   interested in helping others.
 
-\item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
-
-  Please include enough information in your bug report to enable us to
-  reproduce and fix the problem. Figure~\ref{good-report} shows what a
-  good bug report looks like. This example is an edited version of
-  real bug report that we actually received (with private information
-  removed). Figure~\ref{bad-report} shows an example of poor bug
-  report. This example is fictitious but representative of what we
-  sometimes receive on our mailing list.
-
-  Please try to use Figure~\ref{good-report} as a template and include
-  answers to the following questions:
-    \begin{itemize}
-    \item Which version of Yices are you using?
-    \item On which hardware and OS?
-    \item How can we reproduce the bug? If at all possible send an input file
-      or program fragment.
-    \end{itemize}
+\item To report a bug, you can send an e-mail to \texttt{yices-bugs@csl.sri.com}.
 \end{itemize}
+
+If you report a bug, please include enough information in your report
+to enable us to reproduce and fix the
+problem. Figure~\ref{good-report} shows what a good bug report looks
+like. This example is an edited version of real bug report that we
+actually received (with private information
+removed). Figure~\ref{bad-report} shows an example of poor bug
+report. This example is fictitious but representative of what we
+sometimes receive on our mailing list.
+
+Please try to use Figure~\ref{good-report} as a template and include
+answers to the following questions:
+\begin{itemize}
+\item Which version of Yices are you using?
+\item On which hardware and OS?
+\item How can we reproduce the bug? If at all possible send an input file
+or program fragment.
+\end{itemize}
+
 
 \begin{figure}
 \begin{center}

@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2017 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -71,8 +82,8 @@ extern "C" {
  ********************/
 
 #define __YICES_VERSION            2
-#define __YICES_VERSION_MAJOR      6
-#define __YICES_VERSION_PATCHLEVEL 0
+#define __YICES_VERSION_MAJOR      5
+#define __YICES_VERSION_PATCHLEVEL 4
 
 
 /*
@@ -91,6 +102,13 @@ __YICES_DLLSPEC__ extern const char *yices_build_arch;
 __YICES_DLLSPEC__ extern const char *yices_build_mode;
 __YICES_DLLSPEC__ extern const char *yices_build_date;
 
+
+/*
+ * Check whether the library was compiled with MCSAT support (i.e.,
+ * it can deal with nonlinear arithmetic).
+ * - return 1 if yes, 0 if no
+ */
+__YICES_DLLSPEC__ extern int32_t yices_has_mcsat(void);
 
 
 /***************************************
@@ -172,7 +190,7 @@ __YICES_DLLSPEC__ extern void yices_free_string(char *s);
  * unusable at this point and nothing can be done to recover cleanly.
  * Evan a call to yices_exit() may cause a seg fault. The callback
  * should not try to cleanup anything, or call any function from the API.
- * 
+ *
  * A plausible use of this callback feature is to implement an
  * exception mechanism using setjmp/longjmp.
  */
@@ -225,6 +243,18 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
  * If there's an error, errno, perror, and friends can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
+
+/*
+ * Print an error message on file descriptor fd.  This converts the current error
+ * code + error report structure into an error message.
+ * - fd must be an open file descriptor (writable)
+ *
+ * Return -1 if there's an error while writing to fd.
+ * Return 0 otherwise.
+ *
+ * If there's an error, errno, perror, and friends can be used for diagnostic.
+ */
+ __YICES_DLLSPEC__ extern int32_t yices_print_error_fd(int fd);
 
 
 /*
@@ -363,7 +393,7 @@ __YICES_DLLSPEC__ extern type_t yices_tuple_type3(type_t tau1, type_t tau2, type
  * Requires n>0, and dom[0] ... dom[n-1] and range to be well defined
  *
  * Error report
- * if n ==0,
+ * if n == 0,
  *   code = POS_INT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
@@ -465,7 +495,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_scalar_type_card(type_t tau);
  * Number of children of type tau
  * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
  * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
- * - if tau is any other type, returns 0 
+ * - if tau is any other type, returns 0
  *
  * - returns -1 if tau is not a valid type
  *
@@ -1138,8 +1168,8 @@ __YICES_DLLSPEC__ extern term_t yices_imod(term_t t1, term_t t2);
  * t1 must be an arihtmetic constant.
  * t2 must be an arithmetic term.
  *
- * This function constructs the atom (divides t1 t2). 
- * The semantics is 
+ * This function constructs the atom (divides t1 t2).
+ * The semantics is
  *   (divides t1 t2) IFF (there is an integer k such that t2 = k * t1)
  *
  * The functions return NULL_TERM if there's an error.
@@ -1325,26 +1355,26 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  * The low-order bit of x is bit 0 of the constant.
  *
  * For yices_bvconst_uint32:
- * - if n is less than 32, then the value of x is truncated to 
- *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is less than 32, then the value of x is truncated to
+ *   n bits (i.e., only the n least significant bits of x are considered)
  * - if n is more than 32, then the value of x is zero-extended to
  *   n bits.
  *
  * For yices_bvconst_uint64:
- * - if n is less than 64, then the value of x is truncated to 
- *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is less than 64, then the value of x is truncated to
+ *   n bits (i.e., only the n least significant bits of x are considered)
  * - if n is more than 64, then the value of x is zero-extended to
  *   n bits.
  *
  * For yices_bvconst_int32:
- * - if n is less than 32, then the value of x is truncated to 
- *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is less than 32, then the value of x is truncated to
+ *   n bits (i.e., only the n least significant bits of x are considered)
  * - if n is more than 32, then the value of x is sign-extended to
  *   n bits.
  *
  * For yices_bvconst_int64:
- * - if n is less than 64, then the value of x is truncated to 
- *   n bits (i.e., only the n least significant bits of x are considered) 
+ * - if n is less than 64, then the value of x is truncated to
+ *   n bits (i.e., only the n least significant bits of x are considered)
  * - if n is more than 64, then the value of x is sign-extended to
  *   n bits.
  *
@@ -1509,7 +1539,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
 
 
 /*
- * Bitvector and/or/xor 
+ * Bitvector and/or/xor
  *
  * The general form takes an array t[0 ...n-1] as argument (n must be positive).
  * - all t[i]s must be bitvector term of the same type (i.e., the same number of bits).
@@ -1577,7 +1607,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvsum(uint32_t n, const term_t t[]);
 
 /*
  * Product of n bitvector terms t[0] ... t[n-1]
- * 
+ *
  * - n must be positive
  * - all t[i]s must be bitvector terms of the same type (same number of bits)
  *
@@ -1693,7 +1723,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconcat2(term_t t1, term_t t2);
   * NOTE: t[0] is the high-order part of the result, and t[n-1] is the low-order
   * part. For example, if n=3, t[0] is 0b000, t[1] is 0b111, and t[2] is 0b01, then
   * the function constructs 0b00011101.
-  * 
+  *
   * Error reports:
   * if n == 0
   *    code = POS_INT_REQUIRED
@@ -1703,7 +1733,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconcat2(term_t t1, term_t t2);
   *    term1 = t[i]
   * if t[i] is not a bitvector term
   *    code = BITVECTOR_REQUIRED
-  *    term1 = t[i]  
+  *    term1 = t[i]
   * if the size of the result would be more than YICES_MAX_BVSIZE
   *    code = MAX_BVSIZE_EXCEEDED
   *    badval = sum of the size of t[i]s
@@ -1824,7 +1854,7 @@ __YICES_DLLSPEC__ extern term_t yices_redcomp(term_t t1, term_t t2);
  * a bitvector term of n bits
  * - arg[0] = low-order bit of the result
  * - arg[n-1] = high-order bit
- * 
+ *
  * Error report:
  * if n == 0
  *    code = POS_INT_REQUIRED
@@ -2149,7 +2179,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  * - projection terms are of the form
  *    (constructor, index, child)
  *
- * - a sum is a term of the form 
+ * - a sum is a term of the form
  *      a_0 t_0 + ... + a_n t_n
  *   where a_0 ... a_n are rational coefficients (constant)
  *   and t_0 ... t_n are arithmetic terms
@@ -2227,7 +2257,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  *     (bvsge  t1 t2)    signed comparison: (t1 >= t2)
  *
  *   arithmetic atom:
- *     (ge t1 t2)   t1 >= t2 
+ *     (ge t1 t2)   t1 >= t2
  *
  *
  * Projection terms:
@@ -2299,7 +2329,8 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *    YICES_BV_SGE_ATOM          signed bitvector comparison (t1 >= t2)
  *
  *    YICES_ARITH_GE_ATOM        arithmetic comparison (t1 >= t2)
- *  
+ *    YICES_ARITH_ROOT_ATOM      nonlinear arithmetic constraint
+ *
  *   if t is a projection
  *
  *    YICES_SELECT_TERM          tuple projection
@@ -2398,7 +2429,7 @@ __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
  * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
  * - for a bitvector sum, each component is a pair (bvconstant, term)
- * - if the term in the pair is NULL_TERM then the component consists of 
+ * - if the term in the pair is NULL_TERM then the component consists of
  *   only the constant
  * - the number of bits in the bvconstant is the same as in t
  *
@@ -2781,7 +2812,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *
  * For every QF logic listed above, Yices also recognizes the full logic (i.e.,
  * with quantifiers). This is for future extension. Yices does not include support
- * for quantifiers yet. For example, Yices recognizes AUFLIRA as a valid logic name 
+ * for quantifiers yet. For example, Yices recognizes AUFLIRA as a valid logic name
  * (arrays + uninterpreted functions + mixed linear arithmetic), but this logic is
  * not currently supported.
  *
@@ -3276,7 +3307,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
 /*
  * Value of arithmetic term t. The value can be returned as an integer, a
  * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
+ * mpz_t and mpq_t representations, or as a libpoly algebraic number.
  *
  * Error codes:
  * If t is not an arithmetic term:
@@ -3296,6 +3327,22 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
 #endif
 
+
+
+/*
+ * Conversion to an algebraic number.
+ *
+ * t must be an arithmetic term.
+ *
+ * Error codes:
+ * - if t's value is rational:
+ *    code = EVAL_CONVERSION_FAILED
+ * - if yices is compiled without support for MCSAT
+ *    code = EVAL_NOT_SUPPORTED
+ */
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
+#endif
 
 /*
  * Value of bitvector term t in mdl
@@ -3362,6 +3409,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *
  *   YVAL_BOOL       Boolean constant
  *   YVAL_RATIONAL   Rational (or integer) constant
+ *   YVAL_ALGEBRAIC  Algebraic number
  *   YVAL_BV         Bitvector constant
  *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
  *
@@ -3383,7 +3431,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  * leaf node in this case.
  *
  * All functions used in the model have a simple form. They are defined
- * by a finite list of mappings and a default value. Each mapping specifies the 
+ * by a finite list of mappings and a default value. Each mapping specifies the
  * value of the function at a single point in its domain. For example, we could
  * have a function f of type [int, int -> int] defined by the clauses:
  *    f(0, 0) = 0
@@ -3414,12 +3462,13 @@ __YICES_DLLSPEC__ extern void yices_delete_yval_vector(yval_vector_t *v);
 __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
 
 
+
 /*
  * Value of term t as a node descriptor.
  *
  * The function returns 0 it t's value can be computed, -1 otherwise.
  * If t's value can be compute, the corresponding node descriptor is
- * returned in *val.
+ * returned in *val.
  *
  * Error codes are as in all evaluation functions.
  * If t is not valid:
@@ -3506,13 +3555,28 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_int64(model_t *mdl, const yval_t 
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
 
-// Rational value converted to a floating point number
+// Value converted to a floating point number
 __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
 
 // GMP values
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+#endif
+
+/*
+ * Export an algebraic number
+ * - v->tag must be YVAL_ALGEBRAIC
+ * - return a copy of the algebraic number in *a
+ *
+ * Error reports:
+ * - if v is not an algebraic number:
+ *    code = YVAL_INVALID_OP
+ * - if MCSAT is not supported by the yices library
+ *    code = YVAL_NOT_SUPPORTED
+ */
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a);
 #endif
 
 /*
@@ -3535,7 +3599,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_scalar(model_t *mdl, const yval_t
 
 /*
  * Expand a tuple node:
- * - child must be an array large enough to store all children of v (i.e., 
+ * - child must be an array large enough to store all children of v (i.e.,
  *   at least n elements where n = yices_val_tuple_arity(mdl, v))
  * - the children nodes of v are stored in child[0 ... n-1]
  *
@@ -3728,7 +3792,7 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
 /*
  * Given a model mdl for a formula F(X, Y). The following generalization functions
  * eliminate variables Y from F(X, Y) in a way that is guided by the model.
- * 
+ *
  * The result is a formula G(X) such that:
  * 1) mdl satisfies G(X)
  * 2) G(X) implies (exists Y. F(X, Y))
@@ -3910,6 +3974,23 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 /*
+ * Analogous variants of the above that use file descriptors rather than file pointers.
+ *
+ * In the case of yices_print_model_fd we return 0 if successful, -1 if there is a problem converting
+ * the file descriptor into a FILE* object.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
+                                                        uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+
+
+__YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
+
+__YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+/*
  * Convert type tau or term t to a string using the pretty printer.
  * - width, height, offset define the print area as above.
  *
@@ -3946,4 +4027,3 @@ __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t widt
 
 
 #endif /* __YICES_H */
-

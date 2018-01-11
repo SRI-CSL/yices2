@@ -1921,7 +1921,7 @@ static bool dsolver_should_stop(dsolver_t *solver) {
 
   case DSOLVER_SEARCHING:
     // to estimate the cost, we use max_coeff_size and max_column_size
-    tmp = solver->max_coeff_size * solver->max_column_size;
+    tmp = (uint64_t) solver->max_coeff_size * solver->max_column_size;
     if (tmp > (uint64_t) 64000) {
 #if 0
       printf("stopped dsolver: coeff size = %"PRIu32", column size = %"PRIu32", reduce_ops = %"PRIu32"\n",

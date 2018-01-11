@@ -2587,19 +2587,19 @@ static void add_eq_or_diseq_axiom(simplex_solver_t *solver, bool tt) {
     // Add the clause (or (not (p >= 0)) (not (p <= 0)))
     l = simplify_eq_atom(solver, &l1, &l2);
     if (l == null_literal) {
-        // l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
-        add_binary_clause(solver->core, not(l1), not(l2));
+      // l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
+      add_binary_clause(solver->core, not(l1), not(l2));
 
 #if TRACE
-        printf("---> adding clause: ");
-        print_binary_clause(stdout, not(l1), not(l2));
-        printf("\n");
-	if (var_of(l1) != const_bvar) {
-	  print_simplex_atomdef(stdout, solver, var_of(l1));
-	}
-	if (var_of(l2) != const_bvar) {
-	  print_simplex_atomdef(stdout, solver, var_of(l2));
-	}
+      printf("---> adding clause: ");
+      print_binary_clause(stdout, not(l1), not(l2));
+      printf("\n");
+      if (var_of(l1) != const_bvar) {
+	print_simplex_atomdef(stdout, solver, var_of(l1));
+      }
+      if (var_of(l2) != const_bvar) {
+	print_simplex_atomdef(stdout, solver, var_of(l2));
+      }
 #endif
 
     } else if (l == true_literal) {
@@ -3366,8 +3366,8 @@ static void simplex_init_tableau(simplex_solver_t *solver) {
   solver->tableau_ready = true;
   solver->matrix_ready = false;
 
-  tprintf(solver->core->trace, 12, "(initial tableau: %"PRIu32" rows, %"PRIu32" variables, %"PRIu32" atoms)\n",
-	  solver->stats.num_rows, solver->vtbl.nvars, solver->atbl.natoms);
+  trace_printf(solver->core->trace, 12, "(initial tableau: %"PRIu32" rows, %"PRIu32" variables, %"PRIu32" atoms)\n",
+	       solver->stats.num_rows, solver->vtbl.nvars, solver->atbl.natoms);
 }
 
 
@@ -4207,7 +4207,7 @@ static bool simplex_check_feasibility(simplex_solver_t *solver) {
     if (tracing(solver->core->trace, 15)) {
       loops ++;
       if ((loops & 0xFFF) == 0) {
-	tputs(solver->core->trace, 15, ".");
+	trace_puts(solver->core->trace, 15, ".");
       }
     }
 
@@ -4274,7 +4274,7 @@ static bool simplex_check_feasibility(simplex_solver_t *solver) {
         if (repeats > bthreshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
-	  tputs(solver->core->trace, 15, "b");
+	  trace_puts(solver->core->trace, 15, "b");
         }
       }
     }
@@ -4290,7 +4290,7 @@ static bool simplex_check_feasibility(simplex_solver_t *solver) {
 
   if (tracing(solver->core->trace, 15)) {
     if (loops > 0xFFF || solver->use_blands_rule) {
-      tnewline(solver->core->trace, 15);
+      trace_newline(solver->core->trace, 15);
     }
   }
 
@@ -8299,7 +8299,7 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
   feasible = int_constraint_is_feasible(checker, &v);
   if (!feasible) {
     build_integrality_conflict(solver, v.data, v.size);
-    tprintf(solver->core->trace, 10, "(unsat by integrality test)\n");
+    trace_printf(solver->core->trace, 10, "(unsat by integrality test)\n");
     solver->stats.num_itest_conflicts ++;
 
   } else {
@@ -8319,7 +8319,7 @@ static bool process_integrality_constraint(simplex_solver_t *solver, int_constra
 	feasible = simplex_integer_derived_bounds(solver, x, p, q, &v);
 	if (!feasible) {
 	  solver->stats.num_itest_bound_conflicts ++;
-	  tprintf(solver->core->trace, 10, "(unsat by integer bound strengthening)\n");
+	  trace_printf(solver->core->trace, 10, "(unsat by integer bound strengthening)\n");
 	  goto done;
 	}
       }
@@ -8786,18 +8786,18 @@ static bool intfeas_wrapper(simplex_solver_t *solver, const char *name, bool (*f
   nbounds = solver->bstack.top;
   solver->recheck = false;
   if (! f(solver)) {
-    tprintf(solver->core->trace, 10, "(unsat by %s)\n", name);
+    trace_printf(solver->core->trace, 10, "(unsat by %s)\n", name);
     solver->stats.num_bound_conflicts ++;
     return false;
   } else {
-    tprintf(solver->core->trace, 10, "(%s: %"PRIu32" new bounds)\n", name, solver->bstack.top - nbounds);
+    trace_printf(solver->core->trace, 10, "(%s: %"PRIu32" new bounds)\n", name, solver->bstack.top - nbounds);
     if (solver->recheck) {
       /*
        * Strengthened bounds require rechecking feasibility
        */
       simplex_fix_nonbasic_assignment(solver);
       if (! simplex_make_feasible(solver) ) {
-	tprintf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
+	trace_printf(solver->core->trace, 10, "(infeasible after bound strengthening)\n");
 	solver->stats.num_bound_recheck_conflicts ++;
 	return false;
       }
@@ -8877,7 +8877,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
   solver->stats.num_make_intfeasible ++;
 
-  tprintf(solver->core->trace, 10, "(testing integer feasibility)\n");
+  trace_printf(solver->core->trace, 10, "(testing integer feasibility)\n");
 
 #if TRACE_INTFEAS
   printf("\nMAKE INTEGER FEASIBLE %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
@@ -8906,7 +8906,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    */
   if (underconstrained(solver)) {
     if (simplex_try_naive_integer_search(solver)) {
-      tprintf(solver->core->trace, 10, "(feasible by naive search)\n");
+      trace_printf(solver->core->trace, 10, "(feasible by naive search)\n");
       return true;
     }
   }
@@ -8941,9 +8941,9 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * Create a branch atom or add gomory cuts
    */
   x = select_branch_variable(solver, v, &bb_score);
-  tprintf(solver->core->trace, 10,
-	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
-	  v->size, x, bb_score);
+  trace_printf(solver->core->trace, 10,
+	       "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
+	       v->size, x, bb_score);
   create_branch_atom(solver, x);
 
 #if TRACE_INTFEAS
@@ -9768,7 +9768,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
     /*
      * Theory propagation
      * - propagation may strengthen bounds on integer variables,
-     *   which may detect a conflict or require a new call to
+     *   which may cause a conflict or require a new call to
      *   make_feasible.
      */
     if (simplex_option_enabled(solver, SIMPLEX_PROPAGATION)) {
@@ -10927,7 +10927,7 @@ static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
   if (q != NULL) {
     n = q->nterms;
     return (n == 1 && q->mono[0].var != const_idx) // q is b.y
-        || (n == 2 && q->mono[0].var == const_idx);  // q is a + b.y
+      || (n == 2 && q->mono[0].var == const_idx);  // q is a + b.y
   }
   return false;
 }
@@ -12868,7 +12868,7 @@ static void check_assignment(simplex_solver_t *solver) {
   check_all_bounds_satisfied(solver);
   check_all_equations_satisfied(solver);
   check_all_assertions_satisfied(solver);
- }
+}
 
 
 /*

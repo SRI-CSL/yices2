@@ -104,12 +104,13 @@ static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
+    // DJ: We're passing true for simplify_ite?
     if (arith_term_is_nonneg(terms, x, true) &&
-        arith_term_is_negative(terms, y)) {
+        arith_term_is_negative(terms, y, true)) {
       return d->arg[0];
     }
 
-    if (arith_term_is_negative(terms, x) &&
+    if (arith_term_is_negative(terms, x, true) &&
         arith_term_is_nonneg(terms, y, true)) {
       return opposite_term(d->arg[0]);
     }
@@ -135,11 +136,11 @@ static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
     x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
     y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
 
-    if (x == zero_term && arith_term_is_nonzero(terms, y)) {
+    if (x == zero_term && arith_term_is_nonzero(terms, y, true)) {
       return d->arg[0];
     }
 
-    if (y == zero_term && arith_term_is_nonzero(terms, x)) {
+    if (y == zero_term && arith_term_is_nonzero(terms, x, true)) {
       return opposite_term(d->arg[0]);
     }
   }

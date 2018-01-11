@@ -102,7 +102,8 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
   {
     assert(n == 3);
-    term_t type = super_type(pre->terms->types, term_type(terms, children[1]), term_type(terms, children[1]));
+    term_t type = super_type(pre->terms->types, term_type(terms, children[1]), term_type(terms, children[2]));
+    assert(type != NULL_TYPE);
     return mk_ite(tm, children[0], children[1], children[2], type);
   }
   case EQ_TERM:            // equality
@@ -169,7 +170,7 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
     ivector_push(out, eq);
 
     if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
-      trace_printf(pre->tracer, "adding lemma = ");
+      mcsat_trace_printf(pre->tracer, "adding lemma = ");
       trace_term_ln(pre->tracer, terms, eq);
     }
 
@@ -202,7 +203,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     term_t current = ivector_last(&pre_stack);
 
     if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
-      trace_printf(pre->tracer, "current = ");
+      mcsat_trace_printf(pre->tracer, "current = ");
       trace_term_ln(pre->tracer, terms, current);
     }
 
@@ -544,7 +545,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       preprocessor_set(pre, current, current_pre);
       ivector_pop(&pre_stack);
       if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
-        trace_printf(pre->tracer, "current_pre = ");
+        mcsat_trace_printf(pre->tracer, "current_pre = ");
         trace_term_ln(pre->tracer, terms, current_pre);
       }
     }
@@ -554,7 +555,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
   // Return the result
   t_pre = preprocessor_get(pre, t);
   if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
-    trace_printf(pre->tracer, "t_pre = ");
+    mcsat_trace_printf(pre->tracer, "t_pre = ");
     trace_term_ln(pre->tracer, terms, t_pre);
   }
 

@@ -1,0 +1,99 @@
+.TH YICES 1 "June 2017" "Yices 2.6.0" "User Commands"
+.SH NAME
+yices \- the Yices SMT solver for the Yices language
+.SH SYNOPSIS
+.B yices
+[
+.I options
+]
+[
+.I file
+]
+.SH DESCRIPTION
+Runs the Yices SMT solver. The input must be in the Yices specification
+language. If no
+.I file
+is given, Yices reads commands from standard input.
+.SH OPTIONS
+.TP
+.B \-\-version,  \-V
+Display version and exit.
+.TP
+.B \-\-help,  \-h
+Display a short help summary.
+.TP
+.BI \-\-verbosity= level, \& " "  \-v  "" " " level
+Set the verbosity level (default = 0).
+.TP
+.BI \-\-logic= name
+Configure Yices for a specific logic.
+.IP
+The
+.I name
+must be either an SMT\-LIB logic name (e.g., QF_UFLIA)
+or the special symbol NONE to select propositional logic.
+.TP
+.BI \-\-arith\-solver= solver
+Select the arithmetic solver.
+.IP
+The
+.I solver
+may be either
+.I simplex
+or
+.I floyd\-warshall
+or \fIauto\fR.
+This option is ignored unless the logic is either QF_RDL or QF_IDL.
+.TP
+.BI \-\-mode= mode
+Select the usage mode.
+.IP
+The
+.I mode
+maybe \fIone\-shot\fR or \fImulti\-checks\fR or \fIinteractive\fR
+or \fIpush\-pop\fR or \fIef\fR.
+.RS
+.IP \(bu 4
+.I one\-shot:
+only one call to (check) is allowed.
+No assertions are allowed after (check).
+Commands (push) and (pop) are not supported.
+.IP \(bu 4
+.I multi\-checks:
+several calls (check) are allowed.
+Adding assertions after check is allowed.
+Commands (push) and (pop) are not supported.
+.IP \(bu 4
+.I push\-pop:
+like
+.I multi\-check
+but with support for (push) and (pop).
+.IP \(bu 4
+.I interactive:
+like
+.I push\-pop.
+In addition, Yices restores the context
+to a clean state if (check) is interrupted.
+.IP \(bu 4
+.I ef:
+enable the exist\-forall solver, that is, command (ef\-solve) can be used.
+This is like
+.I one\-shot
+in that only one call to (ef\-solve) is allowed.
+.RE
+.IP
+The default mode is \fIpush\-pop\fR.
+.
+.SH SEE ALSO
+.BR yices-sat (1),
+.BR yices-smt (1),
+.BR yices-smt2 (1)
+.PP
+To report bugs and to get the full documentation, please visit http://yices.csl.sri.com.
+.
+.SH AUTHORS
+.PP
+Copyright (C) SRI International, 2017.
+.PP
+Yices is developed at SRI's Computer Science Laboratory. The main developers
+are Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.

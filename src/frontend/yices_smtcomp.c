@@ -31,6 +31,8 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <unistd.h>
 #include <gmp.h>
 
 #include "api/context_config.h"
@@ -147,6 +149,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
+  "theory not supported by MCSAT",
 };
 
 
@@ -788,12 +791,7 @@ static void print_internalization_code(int32_t code) {
     //    printf("Assertions simplify to false\n\n");
   } else if (code < 0) {
     printf("unknown\n");
-    code = - code;
-    if (code <= BVSOLVER_EXCEPTION) {
-      printf("Internalization error: %s\n\n", code2error[code]);
-    } else {
-      printf("%s\n\n", code2error[code]);
-    }
+    printf("Internalization error: %s\n\n", code2error[-code]);
   }
   fflush(stdout);
 }
@@ -851,6 +849,45 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
  *  TIMEOUT AND INTERRUPTS  *
  ***************************/
 
+static const char signum_msg[24] = "\nInterrupted by signal ";
+static char signum_buffer[100];
+
+/*
+ * Write signal number to file 2 (assumed to be stderr): we can't use
+ * fprintf because it's not safe in a signal handler.
+ */
+static void write_signum(int signum) {
+  ssize_t w;
+  uint32_t i, n;
+
+  memcpy(signum_buffer, signum_msg, sizeof(signum_msg));
+
+  // force signum to be at most two digits
+  signum = signum % 100;
+  n = sizeof(signum_msg);
+  if (signum > 10) {
+    signum_buffer[n] = (char)('0' + signum/10);
+    signum_buffer[n + 1] = (char)('0' + signum % 10);
+    signum_buffer[n + 2] = '\n';
+    n += 3;
+  } else {
+    signum_buffer[n] = (char)('0' + signum);
+    signum_buffer[n + 1] = '\n';
+    n += 2;
+  }
+
+  // write to file 2
+  i = 0;
+  do {
+    do {
+      w = write(2, signum_buffer + i, n);
+    } while (w < 0 && errno == EAGAIN);
+    if (w < 0) break; // write error, we can't do much about it.
+    i += (uint32_t) w;
+    n -= (uint32_t) w;
+  } while (n > 0);
+}
+
 /*
  * Signal handler: call print_results then exit
  */
@@ -858,8 +895,8 @@ static void handler(int signum) {
   if (context_exists) {
     print_results();
   }
-  fprintf(stderr, "Interrupted by signal %d\n\n", signum);
-  exit(YICES_EXIT_INTERRUPTED);
+  write_signum(signum);
+  _exit(YICES_EXIT_INTERRUPTED);
 }
 
 

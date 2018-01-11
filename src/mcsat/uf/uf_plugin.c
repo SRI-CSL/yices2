@@ -36,6 +36,7 @@
 #include "model/models.h"
 
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "yices.h"
 
 typedef struct {
@@ -79,6 +80,9 @@ typedef struct {
   /** Feasible sets for uninterpreted terms */
   uf_feasible_set_db_t* feasible;
 
+  /** The term manager (no ITE simplification) */
+  term_manager_t tm;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -116,6 +120,10 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
+
+  // Term manager
+  init_term_manager(&uf->tm, uf->ctx->terms);
+  uf->tm.simplify_ite = false;
 }
 
 static
@@ -131,6 +139,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
+  delete_term_manager(&uf->tm);
 }
 
 static
@@ -523,7 +532,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
       ivector_push(&uf->conflict, opposite_term(fy));
     }
   } else {
-    term_t fx_eq_fy = yices_eq(fx, fy);
+    term_t fx_eq_fy = mk_eq(&uf->tm, fx, fy);
     ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
   }
 
@@ -552,7 +561,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
         ivector_push(&uf->conflict, opposite_term(y));
       }
     } else {
-      term_t x_eq_y = yices_eq(x, y);
+      term_t x_eq_y = mk_eq(&uf->tm, x, y);
       // Don't add trivially true facts
       if (x_eq_y != bool2term(true)) {
         ivector_push(&uf->conflict, x_eq_y);
@@ -977,7 +986,7 @@ bool uf_plugin_build_model_compare(void *data, variable_t t1_var, variable_t t2_
   term_t t1 = variable_db_get_term(ctx->var_db, t1_var);
   term_t t2 = variable_db_get_term(ctx->var_db, t2_var);
   int32_t t1_app = app_reps_get_uf(ctx->terms, t1);
-  int32_t t2_app = app_reps_get_uf(ctx->terms, t1);
+  int32_t t2_app = app_reps_get_uf(ctx->terms, t2);
   if (t1_app == t2_app) {
     return t1 < t2;
   }
@@ -1055,7 +1064,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
       if (prev_app_f < 0) {
         // Arithmetic stuffs
-        switch (app_f) {
+        switch (prev_app_f) {
         case APP_REP_IDIV_ID:
           vtbl_set_zero_idiv(values, f_value);
           break;

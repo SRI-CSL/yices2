@@ -1250,7 +1250,7 @@ bool arith_term_is_nonpos(term_table_t *tbl, term_t t, bool check_ite) {
  * - return true if the checks succeed and determine that t < 0
  * - return false otherwise
  */
-bool arith_term_is_negative(term_table_t *tbl, term_t t) {
+bool arith_term_is_negative(term_table_t *tbl, term_t t, bool check_ite) {
   assert(is_arithmetic_term(tbl, t));
 
   switch (term_kind(tbl, t)) {
@@ -1258,7 +1258,7 @@ bool arith_term_is_negative(term_table_t *tbl, term_t t) {
     return q_is_neg(rational_term_desc(tbl, t));
 
   case ITE_SPECIAL:
-    return term_has_negative_finite_domain(tbl, t);
+    return check_ite && term_has_negative_finite_domain(tbl, t);
 
   case ARITH_POLY:
     return polynomial_is_neg(poly_term_desc(tbl, t));
@@ -1274,7 +1274,7 @@ bool arith_term_is_negative(term_table_t *tbl, term_t t) {
  * - return true if the checks succeed and determine that t != 0
  * - return false otherwise
  */
-bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
+bool arith_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite) {
   assert(is_arithmetic_term(tbl, t));
 
   switch (term_kind(tbl, t)) {
@@ -1282,7 +1282,7 @@ bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
     return t != zero_term;
 
   case ITE_SPECIAL:
-    return term_has_nonzero_finite_domain(tbl, t);
+    return check_ite && term_has_nonzero_finite_domain(tbl, t);
 
   case ARITH_POLY:
     return polynomial_is_nonzero(poly_term_desc(tbl, t));

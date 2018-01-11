@@ -105,37 +105,6 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 
 /*
- * For debugging: check that the arith solver agrees that x has type tau
- */
-#ifndef NDEBUG
-static bool arithvar_has_right_type(context_t *ctx, thvar_t x, type_t tau) {
-  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
-    return is_integer_type(tau);
-  } else {
-    return is_real_type(tau);
-  }
-}
-#endif
-
-
-/*
- * Convert arithmetic variable x to an egraph term
- * - tau = type of x (int or real)
- */
-static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
-  eterm_t u;
-
-  assert(arithvar_has_right_type(ctx, x, tau));
-
-  u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
-  if (u == null_eterm) {
-    u = egraph_thvar2term(ctx->egraph, x, tau);
-  }
-
-  return pos_occ(u);
-}
-
-/*
  * Type of arithmetic variable x
  */
 static type_t type_of_arithvar(context_t *ctx, thvar_t x) {
@@ -149,6 +118,22 @@ static type_t type_of_arithvar(context_t *ctx, thvar_t x) {
   return tau;
 }
 
+
+/*
+ * Convert arithmetic variable x to an egraph term
+ */
+static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x) {
+  eterm_t u;
+  type_t tau;
+
+  u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
+  if (u == null_eterm) {
+    tau = type_of_arithvar(ctx, x);
+    u = egraph_thvar2term(ctx->egraph, x, tau);
+  }
+
+  return pos_occ(u);
+}
 
 /*
  * Convert bit-vector variable x to an egraph term
@@ -176,7 +161,7 @@ static occ_t translate_bvvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
  */
 static occ_t translate_thvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
   if (is_arithmetic_type(tau)) {
-    return translate_arithvar_to_eterm(ctx, x, tau);
+    return translate_arithvar_to_eterm(ctx, x);
   } else if (is_bv_type(ctx->types, tau)) {
     return translate_bvvar_to_eterm(ctx, x, tau);
   } else {
@@ -210,7 +195,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
 
     case INT_TYPE:
     case REAL_TYPE:
-      u = translate_arithvar_to_eterm(ctx, code2thvar(x), tau);
+      u = translate_arithvar_to_eterm(ctx, code2thvar(x));
       break;
 
     case BITVECTOR_TYPE:
@@ -627,19 +612,13 @@ static occ_t map_tuple_to_eterm(context_t *ctx, composite_term_t *tuple, type_t 
  */
 static occ_t map_arith_constant_to_eterm(context_t *ctx, rational_t *q) {
   thvar_t x;
-  type_t tau;
 
   if (! context_has_arith_solver(ctx)) {
     longjmp(ctx->env, ARITH_NOT_SUPPORTED);
   }
 
   x = ctx->arith.create_const(ctx->arith_solver, q);
-  tau = real_type(ctx->types);
-  if (q_is_integer(q)) {
-    tau = int_type(ctx->types);
-  }
-
-  return translate_arithvar_to_eterm(ctx, x, tau);
+  return translate_arithvar_to_eterm(ctx, x);
 }
 
 static occ_t map_bvconst64_to_eterm(context_t *ctx, bvconst64_term_t *c) {
@@ -2496,18 +2475,18 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       case ARITH_FLOOR:
 	assert(is_integer_type(tau));
 	x = map_floor_to_arith(ctx, arith_floor_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_CEIL:
 	assert(is_integer_type(tau));
 	x = map_ceil_to_arith(ctx, arith_ceil_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_ABS:
 	x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ITE_TERM:
@@ -2522,18 +2501,18 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       case ARITH_RDIV:
 	assert(is_real_type(tau));
 	x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, type_of_arithvar(ctx, x));
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_IDIV:
 	assert(is_integer_type(tau));
 	x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau); // (div t u) has type int
+	u = translate_arithvar_to_eterm(ctx, x); // (div t u) has type int
 	break;
 
       case ARITH_MOD:
 	x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 	
       case TUPLE_TERM:
@@ -5206,7 +5185,7 @@ static void init_solvers(context_t *ctx) {
   } else if (solvers == 0) {
     /*
      * Boolean solver only. If arch if AUTO_IDL or AUTO_RDL, the
-     * theory solver will be changed lated by create_auto_idl_solver
+     * theory solver will be changed later by create_auto_idl_solver
      * or create_auto_rdl_solver.
      */
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
@@ -5215,10 +5194,10 @@ static void init_solvers(context_t *ctx) {
     /*
      * MCsat solver only, we create the core, but never use it.
      */
-    assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
+    assert(ctx->egraph == NULL && ctx->arith_solver == NULL &&
+	   ctx->bv_solver == NULL && ctx->fun_solver == NULL);
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
   }
-
 
   /*
    * Optimization: if the arch is NOSOLVERS or BV then we set bool_only in the core

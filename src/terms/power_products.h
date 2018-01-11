@@ -264,7 +264,7 @@ extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
  * conventions.
  * - p = NULL denotes the empty product
  * - a tagged pointer x denotes the product (x^1)
- * - other wise, p is a pointer to an actual pprod_t structure
+ * - otherwise, p is a pointer to an actual pprod_t structure
  *   that must be normalized
  */
 

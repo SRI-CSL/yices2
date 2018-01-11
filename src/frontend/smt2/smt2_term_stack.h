@@ -97,7 +97,9 @@ extern void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, l
  *    (define-sort  <symbol> ...)
  *    (declare-sort <symbol> ...)
  *    (define-fun   <symbol> ...)
- *    (declare-fun  <symbol> ...)
+ *    (declare-fun   <symbol> ...)
+ *    (define-const <symbol> ...)
+ *    (declare-const <symbol> ...)
  */
 // symbol in a sort declaration/definition
 extern void tstack_push_free_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);

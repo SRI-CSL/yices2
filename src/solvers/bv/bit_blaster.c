@@ -1373,16 +1373,15 @@ void bit_blaster_half_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_
  */
 void bit_blaster_full_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x, literal_t y) {
 #if 0
-  literal_t d, e, f, g, t;
+  literal_t e, f, g;
 
-  d = bit_blaster_make_and2(s, a, b);
-  e = bit_blaster_make_and2(s, not(a), not(b));
-  t = bit_blaster_make_and2(s, not(d), not(e)); // t = (xor a b)
+  bit_blaster_xor3_gate(s, a, b, c, x);     // x = (xor (xor a b) c)
 
-  f = bit_blaster_make_and2(s, t, c);
-  g = bit_blaster_make_and2(s, not(t), not(c));
-  bit_blaster_or2_gate(s, f, g, not(x));  // ~x = (or g f) <=> x = (xor t c)
-  bit_blaster_or2_gate(s, d, f, y);
+  e = bit_blaster_make_and2(s, a, b);
+  f = bit_blaster_make_and2(s, a, c);
+  g = bit_blaster_make_and2(s, b, c);
+  bit_blaster_or3_gate(s, e, f, g, y);  // y = (or (and a b) (and a c) (and b c))
+
 #else
   bit_blaster_xor3_gate(s, a, b, c, x);
   bit_blaster_maj3(s, a, b, c, y);

@@ -21,7 +21,7 @@
 
 typedef enum state_s {
   c0, c1, c3, c4, c5, c6, c6a, c8, c9, c9a, c9b,
-  c10, c10a, c10b, c11, c11a, c11b, c11d, c11f, c12, c12b, c13,
+  c10, c10a, c10b, c11, c11a, c11b, c11d, c11f, c12, c12b, c13, c14, c15,
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
   t0, t1, t2, t2a, t2b, t2d, t2e, 
@@ -64,6 +64,8 @@ enum actions {
   assert_next_push_r0_goto_t0,
   declare_sort_next_goto_c8,
   define_sort_next_goto_c9,
+  declare_const_next_goto_c14,
+  define_const_next_goto_c15,
   declare_fun_next_goto_c10,
   define_fun_next_goto_c11,
   get_value_next_goto_c12,
@@ -96,6 +98,8 @@ enum actions {
   next_goto_r0,
   push_c12b_goto_t0,
   string_next_goto_r0,
+  symbol_next_push_r0_goto_s0,
+  symbol_next_push_r0_push_t0_goto_s0,
 
   // attribute values + s-expressions
   numeral_next_return,
@@ -159,7 +163,7 @@ enum actions {
 
   // (as ...
   next_goto_t5a,
-  symbol_next_push_r0_goto_s0,
+  asymbol_next_push_r0_goto_s0,
   next_goto_t5b,
   symbol_next_goto_t5c,
   numeral_next_goto_t5d,
@@ -221,6 +225,8 @@ static triple_t triples[] = {
   { c1, SMT2_TK_ASSERT, "assert_next_push_r0_goto_t0" },
   { c1, SMT2_TK_DECLARE_SORT, "declare_sort_next_goto_c8" },
   { c1, SMT2_TK_DEFINE_SORT, "define_sort_next_goto_c9" },
+  { c1, SMT2_TK_DECLARE_CONST, "declare_const_next_goto_c14" },
+  { c1, SMT2_TK_DEFINE_CONST, "define_const_next_goto_c15" },
   { c1, SMT2_TK_DECLARE_FUN, "declare_fun_next_goto_c10" },
   { c1, SMT2_TK_DEFINE_FUN, "define_fun_next_goto_c11" },
   { c1, SMT2_TK_GET_VALUE, "get_value_next_goto_c12" },
@@ -250,9 +256,6 @@ static triple_t triples[] = {
 
   { c8, SMT2_TK_SYMBOL, "symbol_next_goto_c3" },
   { c8, SMT2_TK_QSYMBOL, "symbol_next_goto_c3" },
-  { c8, SMT2_TK_GET_MODEL, "symbol_next_goto_c3" },
-  { c8, SMT2_TK_ECHO, "symbol_next_goto_c3" },
-  { c8, SMT2_TK_RESET, "symbol_next_goto_c3" },
   { c8, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c9, SMT2_TK_SYMBOL, "symbol_next_goto_c9a" },
@@ -315,6 +318,14 @@ static triple_t triples[] = {
   { c12b, DEFAULT_TOKEN, "push_c12b_goto_t0" },
 
   { c13, SMT2_TK_STRING, "string_next_goto_r0" },
+
+  { c14, SMT2_TK_SYMBOL, "symbol_next_push_r0_goto_s0" },
+  { c14, SMT2_TK_QSYMBOL, "symbol_next_push_r0_goto_s0" },
+  { c14, DEFAULT_TOKEN, "error_symbol_expected" },
+
+  { c15, SMT2_TK_SYMBOL, "symbol_next_push_r0_push_t0_goto_s0" },
+  { c15, SMT2_TK_QSYMBOL, "symbol_next_push_r0_push_t0_goto_s0" },
+  { c15, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { a0, SMT2_TK_NUMERAL, "numeral_next_return" },
   { a0, SMT2_TK_DECIMAL, "decimal_next_return" },
@@ -478,11 +489,11 @@ static triple_t triples[] = {
   { t4g, DEFAULT_TOKEN, "push_t4g_goto_t0" },
 
   { t5, SMT2_TK_LP, "next_goto_t5a" },
-  { t5, SMT2_TK_SYMBOL, "symbol_next_push_r0_goto_s0" },
-  { t5, SMT2_TK_QSYMBOL, "symbol_next_push_r0_goto_s0" },
-  { t5, SMT2_TK_GET_MODEL, "symbol_next_push_r0_goto_s0" },
-  { t5, SMT2_TK_ECHO, "symbol_next_push_r0_goto_s0" },
-  { t5, SMT2_TK_RESET, "symbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_SYMBOL, "asymbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_QSYMBOL, "asymbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_GET_MODEL, "asymbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_ECHO, "asymbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_RESET, "asymbol_next_push_r0_goto_s0" },
 
   { t5a, SMT2_TK_UNDERSCORE, "next_goto_t5b" },
   { t5a, DEFAULT_TOKEN, "error_underscore_expected" },

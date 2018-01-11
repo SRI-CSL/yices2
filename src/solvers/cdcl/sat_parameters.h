@@ -31,8 +31,7 @@
  * and for recording clause activity.
  */
 #define VAR_DECAY_FACTOR         0.95
-#define CLAUSE_DECAY_FACTOR      0.999
-#define VAR_RANDOM_FACTOR        0.02
+#define CLAUSE_DECAY_FACTOR      0.999F
 
 #define VAR_ACTIVITY_THRESHOLD        (1e100)
 #define INV_VAR_ACTIVITY_THRESHOLD    (1e-100)
@@ -42,6 +41,21 @@
 
 #define INIT_VAR_ACTIVITY_INCREMENT     1.0
 #define INIT_CLAUSE_ACTIVITY_INCREMENT  1.0
+
+/*
+ * Default random_factor = 2% of decisions are random (more or less)
+ * - the heuristic generates a random 24 bit integer
+ * - if that number is <= random_factor * 2^24, then a random variable
+ *   is chosen
+ * - so we store random_factor * 2^24 = random_factor * 0x1000000 in
+ *   the randomness field of a sat solver.
+ */
+#define VAR_RANDOM_FACTOR 0.02F
+
+// mask to extract 24 bits out of an unsigned 32bit integer
+#define VAR_RANDOM_MASK  ((uint32_t)0xFFFFFF)
+#define VAR_RANDOM_SCALE (VAR_RANDOM_MASK+1)
+
 
 /*
  * Minimal number of conflicts between two successive calls to

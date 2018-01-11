@@ -182,7 +182,7 @@ extern void rba_delete_node(rba_buffer_t *b, uint32_t i);
 /*
  * Number of terms
  */
-static inline uint32_t rba_buffer_num_terms(rba_buffer_t *b) {
+static inline uint32_t rba_buffer_num_terms(const rba_buffer_t *b) {
   return b->nterms;
 }
 
@@ -190,7 +190,7 @@ static inline uint32_t rba_buffer_num_terms(rba_buffer_t *b) {
 /*
  * Check whether b is zero
  */
-static inline bool rba_buffer_is_zero(rba_buffer_t *b) {
+static inline bool rba_buffer_is_zero(const rba_buffer_t *b) {
   return b->nterms == 0;
 }
 
@@ -199,23 +199,23 @@ static inline bool rba_buffer_is_zero(rba_buffer_t *b) {
 /*
  * Check whether b is constant
  */
-extern bool rba_buffer_is_constant(rba_buffer_t *b);
+extern bool rba_buffer_is_constant(const rba_buffer_t *b);
 
 
 /*
  * Check whether b is constant and nonzero
  * - b must be normalized
  */
-extern bool rba_buffer_is_nonzero(rba_buffer_t *b);
+extern bool rba_buffer_is_nonzero(const rba_buffer_t *b);
 
 
 /*
  * Check whether b is constant and positive, negative, etc.
  */
-extern bool rba_buffer_is_pos(rba_buffer_t *b);
-extern bool rba_buffer_is_neg(rba_buffer_t *b);
-extern bool rba_buffer_is_nonneg(rba_buffer_t *b);
-extern bool rba_buffer_is_nonpos(rba_buffer_t *b);
+extern bool rba_buffer_is_pos(const rba_buffer_t *b);
+extern bool rba_buffer_is_neg(const rba_buffer_t *b);
+extern bool rba_buffer_is_nonneg(const rba_buffer_t *b);
+extern bool rba_buffer_is_nonpos(const rba_buffer_t *b);
 
 
 /*
@@ -223,14 +223,14 @@ extern bool rba_buffer_is_nonpos(rba_buffer_t *b);
  * for a non-zero rational a and two products X and Y.
  * If so return X in *r1 and Y in *r2
  */
-extern bool rba_buffer_is_equality(rba_buffer_t *b, pprod_t **r1, pprod_t **r2);
+extern bool rba_buffer_is_equality(const rba_buffer_t *b, pprod_t **r1, pprod_t **r2);
 
 
 /*
  * Check whether b is of the form 1 * X for a non-null power-product X
  * If so return X in *r
  */
-extern bool rba_buffer_is_product(rba_buffer_t *b, pprod_t **r);
+extern bool rba_buffer_is_product(const rba_buffer_t *b, pprod_t **r);
 
 
 /*
@@ -238,7 +238,7 @@ extern bool rba_buffer_is_product(rba_buffer_t *b, pprod_t **r);
  * - b must be normalized
  * - returns 0 if b is zero
  */
-extern uint32_t rba_buffer_degree(rba_buffer_t *b);
+extern uint32_t rba_buffer_degree(const rba_buffer_t *b);
 
 
 /*
@@ -246,27 +246,27 @@ extern uint32_t rba_buffer_degree(rba_buffer_t *b);
  * - return largest d such that x^d occurs in b
  * - return 0 if x does not occur in b
  */
-extern uint32_t rba_buffer_var_degree(rba_buffer_t *b, int32_t x);
+extern uint32_t rba_buffer_var_degree(const rba_buffer_t *b, int32_t x);
 
 
 /*
  * Main term = maximal power product of b in the deg-lex ordering.
  * - b must be non-zero
  */
-extern pprod_t *rba_buffer_main_term(rba_buffer_t *b);
+extern pprod_t *rba_buffer_main_term(const rba_buffer_t *b);
 
 
 /*
  * Main monomial = monomial whose pp is the main term
  * - b must be non-zero
  */
-extern mono_t *rba_buffer_main_mono(rba_buffer_t *b);
+extern mono_t *rba_buffer_main_mono(const rba_buffer_t *b);
 
 
 /*
  * Root monomial: b must be non-zero
  */
-static inline mono_t *rba_buffer_root_mono(rba_buffer_t *b) {
+static inline mono_t *rba_buffer_root_mono(const rba_buffer_t *b) {
   assert(b->nterms > 0);
   return b->mono + b->root;
 }
@@ -277,7 +277,7 @@ static inline mono_t *rba_buffer_root_mono(rba_buffer_t *b) {
  *  m[0] --> fist monomial in lex order
  *  m[1] --> second monomial in lex order
  */
-extern void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]);
+extern void rba_buffer_monomial_pair(const rba_buffer_t *b, mono_t *m[2]);
 
 
 /*
@@ -291,7 +291,7 @@ extern mono_t *rba_buffer_get_mono(rba_buffer_t *b, pprod_t *r);
  * Get the constant monomial of b
  * - return NULL if b does not have a constant monomial
  */
-extern mono_t *rba_buffer_get_constant_mono(rba_buffer_t *b);
+extern mono_t *rba_buffer_get_constant_mono(const rba_buffer_t *b);
 
 
 /*

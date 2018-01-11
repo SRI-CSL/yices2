@@ -52,7 +52,6 @@ conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
 include $(conf)
 
-
 #
 # Build subdirectories
 # --------------------
@@ -280,6 +279,8 @@ core_src_c := \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
 	utils/tuple_hash_map.c \
+	utils/uint_array_sort.c \
+	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c
 
@@ -336,6 +337,7 @@ no_mcsat_src_c := \
 # + old stuff not needed anymore (except for tests)
 #
 extra_src_c := \
+	context/context_parameters.c \
 	context/context_printer.c \
 	context/dump_context.c \
 	context/internalization_printer.c \
@@ -362,7 +364,9 @@ extra_src_c := \
 	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
 	solvers/bv/dimacs_printer.c \
+	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
@@ -406,6 +410,7 @@ src_c := $(base_src_c) $(extra_src_c)
 bin_src_c := \
 	frontend/yices_main.c \
 	frontend/yices_sat.c \
+	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
 	frontend/yices_smtcomp.c \
@@ -678,7 +683,7 @@ CFLAGS := $(CFLAGS) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage -g -O0
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
@@ -740,16 +745,14 @@ endif
 # More CPPFLAGS for compiling static objects
 #
 ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-  STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-else
-  STATIC_CPPFLAGS := $(CPPFLAGS)
+  STATIC_CPP_GMP := -I$(STATIC_GMP_INCLUDE_DIR)
 endif
 
 ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
-  STATIC_CPPFLAGS := -I$(STATIC_LIBPOLY_INCLUDE_DIR) $(CPPFLAGS)
-else
-  STATIC_CPPFLAGS := $(CPPFLAGS)
+  STATIC_CPP_LIBPOLY := -I$(STATIC_LIBPOLY_INCLUDE_DIR)
 endif
+
+STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 
 ifeq ($(POSIXOS),cygwin)
   STATIC_CPPFLAGS += -DNOYICES_DLL
@@ -796,22 +799,24 @@ $(static_objdir)/%.d: %.c
 	rm -f $@.$$$$
 
 
-need_static_deps := $(findstring static,$(MAKECMDGOALS))
-
 ifneq ($(MAKECMDGOALS),clean)
 
-include $(dep)
-include $(bin_dep)
-include $(version_dep)
+static_goals := $(filter static-%,$(MAKECMDGOALS))
+dyn_goals := $(filter-out static-%,$(MAKECMDGOALS))
 
-ifeq ($(need_static_deps),static)
-include $(static_dep)
-include $(static_bin_dep)
-include $(static_version_dep)
+ifneq ($(dyn_goals),)
+ include $(dep)
+ include $(bin_dep)
+ include $(version_dep)
+endif
+
+ifneq ($(static_goals),)
+ include $(static_dep)
+ include $(static_bin_dep)
+ include $(static_version_dep)
 endif
 
 endif
-
 
 #
 # Gperf generated tables
@@ -885,6 +890,15 @@ $(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices)
 $(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
+$(bindir)/yices_sat_new$(EXEEXT): $(objdir)/frontend/yices_sat_new.o $(libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $< $(libyices) $(NOGMP_LIBS)
+
+$(static_bindir)/yices_sat_new$(EXEEXT): $(static_objdir)/frontend/yices_sat_new.o $(static_libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
 
 # for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
@@ -1011,14 +1025,14 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
+$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_LIBS)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif

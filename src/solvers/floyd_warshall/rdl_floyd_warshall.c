@@ -301,7 +301,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
 
   // extend the data array if it's too small
   if (n > matrix->size) {
-    new_size = n * n;
+    new_size = (uint64_t) n * n;
     if (n >= MAX_RDL_MATRIX_DIMENSION || new_size >= (SIZE_MAX/sizeof(rdl_cell_t))) {
       out_of_memory();
     }

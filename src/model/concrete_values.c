@@ -672,11 +672,11 @@ static map_hset_t *get_hset1(value_table_t *table) {
 static map_hset_t *get_hset2(value_table_t *table) {
   map_hset_t *set;
 
-  set = table->hset1;
+  set = table->hset2;
   if (set == NULL) {
     set = (map_hset_t *) safe_malloc(sizeof(map_hset_t));
     init_map_hset(set);
-    table->hset1 = set;
+    table->hset2 = set;
   }
   return set;
 }

@@ -18,7 +18,7 @@
 					<folderInfo id="0.2076748749." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.base.546659354" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="cdt.managedbuild.target.gnu.platform.base.924570099" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
-							<builder arguments="MODE=debug" command="make" id="cdt.managedbuild.target.gnu.builder.base.1358458241" incrementalBuildTarget="bin" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="cdt.managedbuild.target.gnu.builder.base">
+							<builder arguments="MODE=debug" command="make" id="cdt.managedbuild.target.gnu.builder.base.1358458241" incrementalBuildTarget="" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="cdt.managedbuild.target.gnu.builder.base">
 								<outputEntries>
 									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name=""/>
 								</outputEntries>
@@ -129,14 +129,14 @@
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
-		<configuration configurationName="Default">
-			<resource resourceType="PROJECT" workspacePath="/mices"/>
-		</configuration>
-		<configuration configurationName="devel"/>
 		<configuration configurationName="debug">
 			<resource resourceType="FOLDER" workspacePath="/yices2/build"/>
 		</configuration>
 		<configuration configurationName="release"/>
+		<configuration configurationName="devel"/>
+		<configuration configurationName="Default">
+			<resource resourceType="PROJECT" workspacePath="/mices"/>
+		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>

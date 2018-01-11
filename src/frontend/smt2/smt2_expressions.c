@@ -73,8 +73,10 @@ void push_smt2_token(etk_queue_t *queue, smt2_token_t tk, const char *str, uint3
   case SMT2_TK_ASSERT:
   case SMT2_TK_CHECK_SAT:
   case SMT2_TK_DECLARE_SORT:
+  case SMT2_TK_DECLARE_CONST:
   case SMT2_TK_DECLARE_FUN:
   case SMT2_TK_DEFINE_SORT:
+  case SMT2_TK_DEFINE_CONST:
   case SMT2_TK_DEFINE_FUN:
   case SMT2_TK_EXIT:
   case SMT2_TK_GET_ASSERTIONS:
@@ -149,8 +151,10 @@ static void pp_smt2_token(yices_pp_t *printer, etoken_t *token) {
   case SMT2_TK_ASSERT:
   case SMT2_TK_CHECK_SAT:
   case SMT2_TK_DECLARE_SORT:
+  case SMT2_TK_DECLARE_CONST:
   case SMT2_TK_DECLARE_FUN:
   case SMT2_TK_DEFINE_SORT:
+  case SMT2_TK_DEFINE_CONST:
   case SMT2_TK_DEFINE_FUN:
   case SMT2_TK_EXIT:
   case SMT2_TK_GET_ASSERTIONS:

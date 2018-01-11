@@ -327,6 +327,7 @@ static void push_poly_vars(int_queue_t *queue, int_hset_t *cache, polynomial_t *
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 
@@ -342,6 +343,7 @@ static void push_bvpoly64_vars(int_queue_t *queue, int_hset_t *cache, bvpoly64_t
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 
@@ -357,6 +359,7 @@ static void push_bvpoly_vars(int_queue_t *queue, int_hset_t *cache, bvpoly_t *p)
   }
   while (i<n) {
     push_term(queue, cache, p->mono[i].var);
+    i ++;
   }
 }
 
@@ -1651,8 +1654,8 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
     printf("Adding symmetry-breaking constraint\n");
     pretty_print_term_full(stdout, NULL, terms, make_aux_eq(terms, t, c[0]));
 #endif
-    tputs(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
-    tpp_term(ctx->trace, 5, terms, make_aux_eq(terms, t, c[0]));
+    trace_puts(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
+    trace_pp_term(ctx->trace, 5, terms, make_aux_eq(terms, t, c[0]));
 
   } else {
     v = &breaker->aux;
@@ -1682,8 +1685,8 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
       printf("Adding symmetry breaking constraint\n");
       pretty_print_term_full(stdout, NULL, terms, or);
 #endif
-      tputs(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
-      tpp_term(ctx->trace, 5, terms, or);
+      trace_puts(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
+      trace_pp_term(ctx->trace, 5, terms, or);
     }
 
     ivector_reset(v);

@@ -1406,6 +1406,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       }
 
       // it the result v is unknown we quit now
+      assert(v >= 0); // Coverity thinks v can be negative.
       if (object_is_unknown(eval->vtbl, v)) {
         longjmp(eval->env, MDL_EVAL_FAILED);
       }
@@ -1420,8 +1421,6 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
   return v;
 }
-
-
 
 
 /*
@@ -1447,3 +1446,37 @@ value_t eval_in_model(evaluator_t *eval, term_t t) {
   return v;
 }
 
+
+/*
+ * Compute the values of terms a[0 ... n-1]
+ * - don't return anything
+ * - the value of a[i] can be queried by using eval_in_model(eval, a[i]) later
+ *   (this reads the value from eval->cache so that's cheap).
+ */
+void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    (void) eval_in_model(eval, a[i]);
+  }
+}
+
+/*
+ * Cached-term collector:
+ * - call f(aux, t) for every t that's stored in eval->cache
+ *   if f(aux, t) returns true, add t to v
+ * - f must not have side effects
+ */
+void evaluator_collect_cached_terms(evaluator_t *eval, void *aux, model_filter_t f, ivector_t *v) {
+  int_hmap_t *cache;
+  int_hmap_pair_t *r;
+
+  cache = &eval->cache;
+  r = int_hmap_first_record(cache);
+  while (r != NULL) {
+    if (f(aux, r->key)) {
+      ivector_push(v, r->key);
+    }
+    r = int_hmap_next_record(cache, r);
+  }
+}

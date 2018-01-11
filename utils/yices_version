@@ -48,8 +48,12 @@ fi
 yices=$dist/bin/yices
 test -x $yices || yices=$dist/bin/yices.exe
 
+#
+# NOTE: we use { printf "%s", $2 } instead of { print $2 }
+# because the latter produces an extra '\n' on cygwin.
+#
 if test -x $yices ; then
-   tmp=` $yices --version | awk '/Yices/ { print $2 }'`
+   tmp=` $yices --version | awk '/Yices/ { printf "%s", $2 }'`
    case $tmp in
      *.*.* )
        echo $tmp

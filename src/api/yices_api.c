@@ -56,6 +56,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "api/context_config.h"
 #include "api/search_parameters.h"
@@ -96,6 +97,15 @@
 #include "utils/refcount_strings.h"
 #include "utils/sparse_arrays.h"
 #include "utils/string_utils.h"
+
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#else
+// We need a definition for (lp_algebraic_number_t *)
+typedef void lp_algebraic_number_t;
+#endif
+
+
 
 #include "yices.h"
 
@@ -760,6 +770,21 @@ static void delete_parsing_objects(void) {
   assert(lexer == NULL && tstack == NULL);
 }
 
+/************************
+ *  File IO Utilities   *
+ ***********************/
+
+static FILE *fd_2_tmp_fp(int fd) {
+  int tmp_fd;
+
+  tmp_fd = dup(fd);
+
+  if (tmp_fd < 0) {
+    return NULL;
+  }
+
+  return fdopen(tmp_fd, "a");
+}
 
 
 /************************
@@ -960,6 +985,25 @@ EXPORTED int32_t yices_print_error(FILE *f) {
 }
 
 
+EXPORTED int32_t yices_print_error_fd(int fd) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = print_error(tmp_fp);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
+
+
 /*
  * Build an error string
  */
@@ -979,7 +1023,6 @@ void yices_reset_tables(void) {
 }
 
 
-
 /*
  * Install a call back function that will be invoked
  * if Yices runs out of memory.
@@ -988,6 +1031,20 @@ void yices_reset_tables(void) {
 EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
   __out_of_mem_callback = callback;
 }
+
+
+/*
+ * Test support for MCSAT
+ */
+#if HAVE_MCSAT
+EXPORTED int32_t yices_has_mcsat(void) {
+  return 1;
+}
+#else
+EXPORTED int32_t yices_has_mcsat(void) {
+  return 0;
+}
+#endif
 
 
 /***********************
@@ -1658,13 +1715,13 @@ static bool check_boolean_args(term_manager_t *mngr, uint32_t n, const term_t *a
   return true;
 }
 
-// Check whether a[0 ... n-1] are all valid bitvectors 
+// Check whether a[0 ... n-1] are all valid bitvectors
 static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
   uint32_t i;
 
   tbl = term_manager_get_terms(mngr);
- 
+
   for (i=0; i<n; i++) {
     if (! is_bitvector_term(tbl, a[i])) {
       error.code = BITVECTOR_REQUIRED;
@@ -1677,7 +1734,7 @@ static bool check_bitvector_args(term_manager_t *mngr, uint32_t n, const term_t 
 
 
 // Check whether a[0 ... n-1] all have the same type (n must be positive)
-// this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector 
+// this is used for (bv-and a[0] .... a[n-1]) and other associative bit-vector
 // operators
 static bool check_same_type(term_manager_t *mngr, uint32_t n, const term_t *a) {
   term_table_t *tbl;
@@ -2016,7 +2073,7 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 
   tbl = term_manager_get_terms(mngr);
 
-  d = term_degree(tbl, t) * n;
+  d = (uint64_t) term_degree(tbl, t) * n;
   if (d > ((uint64_t) YICES_MAX_DEGREE)) {
     error.code = DEGREE_OVERFLOW;
     error.badval = UINT32_MAX;
@@ -2960,7 +3017,7 @@ EXPORTED term_t yices_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v
 
   aux[0] = arg1;
   aux[1] = arg2;
-  return yices_update(fun, 2, aux, new_v);  
+  return yices_update(fun, 2, aux, new_v);
 }
 
 EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3, term_t new_v) {
@@ -2969,7 +3026,7 @@ EXPORTED term_t yices_update3(term_t fun, term_t arg1, term_t arg2, term_t arg3,
   aux[0] = arg1;
   aux[1] = arg2;
   aux[2] = arg3;
-  return yices_update(fun, 3, aux, new_v);  
+  return yices_update(fun, 3, aux, new_v);
 }
 
 
@@ -4234,7 +4291,7 @@ EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
     return mk_bvsum64(n, t);
   } else {
     return mk_bvsum(n, t);
-  }  
+  }
 }
 
 
@@ -4300,7 +4357,7 @@ EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
   } else {
     return mk_bvproduct(n, t);
   }
-  
+
 }
 
 
@@ -5324,6 +5381,24 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   return code;
 }
 
+EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_type(tmp_fp, tau, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
+
+
 
 /*
  * Pretty print term t
@@ -5364,6 +5439,23 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   return code;
 }
 
+EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_term(tmp_fp, t, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
 
 /*
  * Pretty print terms a[0 ... n-1]
@@ -5410,6 +5502,24 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint
   delete_yices_pp(&printer, false);
 
   return code;
+}
+
+EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_term_array(tmp_fp, n, a, width, height, offset,  horiz);
+
+  fclose(tmp_fp);
+
+  return retval;
 }
 
 
@@ -5585,7 +5695,7 @@ EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
  * Number of children of type tau
  * - if tau is a tuple type (tuple tau_1 ... tau_n), returns n
  * - if tau is a function type (-> tau_1 ... tau_n sigma), returns n+1
- * - if tau is any other type, returns 0 
+ * - if tau is any other type, returns 0
  *
  * - returns -1 if tau is not a valid type
  *
@@ -5662,7 +5772,7 @@ EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
     return -1;
   }
 
-  v->size = 0;  
+  v->size = 0;
   if (is_tuple_type(&types, tau)) {
     tup = tuple_type_desc(&types, tau);
     n = tup->nelem;
@@ -6960,7 +7070,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
   case CTX_ARCH_EGFUNSPLX:
     enable_splx_eager_lemmas(ctx);
     enable_diseq_and_or_flattening(ctx);
-    enable_splx_eqprop(ctx);    
+    enable_splx_eqprop(ctx);
     enable_assert_ite_bounds(ctx);
     enable_ite_flattening(ctx);
     break;
@@ -7454,7 +7564,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     params->c_factor = 1.05;
     params->d_factor = 1.05;
 #else
-    // HACK: try Luby restart, period = 10 
+    // HACK: try Luby restart, period = 10
     // This didn't work.
     params->fast_restart = true;
     params->c_factor = 0.0;
@@ -7664,6 +7774,21 @@ EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
 
+EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
+  FILE *tmp_fp;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  model_print_full(tmp_fp, mdl);
+
+  fclose(tmp_fp);
+
+  return 0;
+}
 
 /*
  * Pretty print mdl
@@ -7700,6 +7825,23 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
   return code;
 }
 
+EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t retval;
+
+
+  tmp_fp = fd_2_tmp_fp(fd);
+
+  if (tmp_fp == NULL) {
+    return -1;
+  }
+
+  retval = yices_pp_model(tmp_fp, mdl, width, height, offset);
+
+  fclose(tmp_fp);
+
+  return retval;
+}
 
 /*
  * Convert mdl to a string
@@ -7726,7 +7868,7 @@ EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t heig
   str = yices_pp_get_string(&printer, &len);
   delete_yices_pp(&printer, false);
 
-  return str;  
+  return str;
 }
 
 
@@ -7841,8 +7983,8 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
 
 /*
  * Value of arithmetic term t: it can be returned as an integer, a
- * rational (pair num/den), converted to a double, or using the GMP
- * mpz_t and mpq_t representations.
+ * rational (pair num/den), converted to a double, using the GMP
+ * mpz_t and mpq_t representations, or as a libpoly algebraic number.
  *
  * Error codes:
  * If t is not an arithmetic term:
@@ -7852,46 +7994,84 @@ EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
  *   code = EVAL_OVERFLOW
  */
 
+typedef enum arithval_tag {
+  ARITHVAL_ERROR,
+  ARITHVAL_RATIONAL,
+  ARITHVAL_ALGEBRAIC,
+} arithval_tag_t;
+
+/*
+ * Tagged union to represent pointers to either rational or algebraic numbers.
+ * The flag can ERROR/RATIONAL/ALGEBRAIC
+ */
+typedef struct arithval_struct_s {
+  arithval_tag_t tag;
+  union {
+    rational_t *q;
+    lp_algebraic_number_t *p;
+  } val;
+} arithval_struct_t;
+
 
 /*
  * Auxiliary function: return the rational value of t
- * - return NULL and set the error code if the value can't be computed
+ * - store the result in *r
+ * - if there's an error, set r->tag to ERROR and store an error report
  */
-static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
+static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) {
   value_table_t *vtbl;
   value_t v;
 
+  r->tag = ARITHVAL_ERROR;
+  r->val.q = NULL;
+
   if (! check_good_term(&manager, t) ||
       ! check_arith_term(&manager, t)) {
-    return NULL;
+    return;
   }
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
     error.code = yices_eval_error(v);
-    return NULL;
+    return;
   }
 
   vtbl = model_get_vtbl(mdl);
-  if (! object_is_rational(vtbl, v)) {
+  if (object_is_rational(vtbl, v)) {
+    r->tag = ARITHVAL_RATIONAL;
+    r->val.q = vtbl_rational(vtbl, v);
+  } else if (object_is_algebraic(vtbl, v)) {
+    r->tag = ARITHVAL_ALGEBRAIC;
+    r->val.p = vtbl_algebraic_number(vtbl, v);
+  } else {
+    // should not happen since t is an arithmetic term
     error.code = INTERNAL_EXCEPTION;
-    return NULL;
   }
-
-  return vtbl_rational(vtbl, v);
 }
 
+/*
+ * Check whether r->tag is RATIONAL, if not report an error: CONVERSION_FAILED
+ */
+static bool arithval_is_rational(const arithval_struct_t *r) {
+  bool result;
+
+  result = r->tag == ARITHVAL_RATIONAL;
+  if (r->tag == ARITHVAL_ALGEBRAIC) {
+    error.code = EVAL_CONVERSION_FAILED;
+  }
+  return result;
+}
 
 // return the value as a 32bit integer
 EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get32(q, val)) {
+  if (! q_get32(aux.val.q, val)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7901,14 +8081,14 @@ EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
 
 // return the value as a 64bit integer
 EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get64(q, val)) {
+  if (! q_get64(aux.val.q, val)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7918,14 +8098,14 @@ EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
 
 // return the value as a pair num/den (both 32bit integers)
 EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get_int32(q, num, den)) {
+  if (! q_get_int32(aux.val.q, num, den)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7935,14 +8115,14 @@ EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num
 
 // pair num/den (64bit integers)
 EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (! q_get_int64(q, num, den)) {
+  if (! q_get_int64(aux.val.q, num, den)) {
     error.code = EVAL_OVERFLOW;
     return -1;
   }
@@ -7952,28 +8132,35 @@ EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num
 
 // convert to a floating point number
 EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
-    return -1;
+  yices_get_arith_value(mdl, t, &aux);
+  if (aux.tag == ARITHVAL_RATIONAL) {
+    *val = q_get_double(aux.val.q);
+    return 0;
   }
 
-  *val = q_get_double(q);
-  return 0;
+#if HAVE_MCSAT
+  if (aux.tag == ARITHVAL_ALGEBRAIC) {
+    *val = lp_algebraic_number_to_double(aux.val.p);
+    return 0;
+  }
+#endif
+
+  return -1;
 }
 
 
 // convert to a GMP integer
 EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
 
-  if (!q_get_mpz(q, val)) {
+  if (!q_get_mpz(aux.val.q, val)) {
     // the value is not an integer (maybe we should use a better error code
     // in this case?)
     error.code = EVAL_OVERFLOW;
@@ -7985,18 +8172,46 @@ EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
 
 // convert to a GMP rational
 EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
-  rational_t *q;
+  arithval_struct_t aux;
 
-  q = yices_get_arith_value(mdl, t);
-  if (q == NULL) {
+  yices_get_arith_value(mdl, t, &aux);
+  if (! arithval_is_rational(&aux)) {
     return -1;
   }
-  q_get_mpq(q, val);
+
+  q_get_mpq(aux.val.q, val);
 
   return 0;
 }
 
 
+/*
+ * Algebraic number
+ */
+EXPORTED int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a) {
+#if HAVE_MCSAT
+  arithval_struct_t aux;
+
+  yices_get_arith_value(mdl, t, &aux);
+  if (aux.tag == ARITHVAL_ALGEBRAIC) {
+    lp_algebraic_number_construct_copy(a, aux.val.p);
+    return 0;
+  }
+
+  // TODO: convert rational to algebraic (no direct way to do this in libpoly)
+  if (aux.tag == ARITHVAL_RATIONAL) {
+    error.code = EVAL_CONVERSION_FAILED;
+    return -1;
+  }
+
+  return -1;
+
+#else
+  // NO SUPPORT FOT MCSAT
+  error.code = EVAL_NOT_SUPPORTED;
+  return -1;
+#endif
+}
 
 /*
  * Value of bitvector term t in mdl
@@ -8276,7 +8491,7 @@ EXPORTED uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
   uint32_t n;
 
   n = 0;
-  if (v->node_tag == YVAL_BV) {
+  if (v->node_tag == YVAL_TUPLE) {
     vtbl = model_get_vtbl(mdl);
     id = v->node_id;
     if (good_object(vtbl, id) && object_is_tuple(vtbl, id)) {
@@ -8299,7 +8514,7 @@ EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
   uint32_t n;
 
   n = 0;
-  if (v->node_tag == YVAL_BV) {
+  if (v->node_tag == YVAL_MAPPING) {
     vtbl = model_get_vtbl(mdl);
     id = v->node_id;
     if (good_object(vtbl, id) && object_is_map(vtbl, id)) {
@@ -8308,7 +8523,7 @@ EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
     }
   }
 
-  return n;  
+  return n;
 }
 
 /*
@@ -8371,7 +8586,7 @@ static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
       return vtbl_rational(vtbl, id);
     }
   }
-  
+
   error.code = YVAL_INVALID_OP;
   return NULL;
 }
@@ -8440,18 +8655,6 @@ EXPORTED int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t
   return 0;
 }
 
-EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
-  rational_t *q;
-
-  q = yices_val_get_rational(mdl, v);
-  if (q == NULL) {
-    return -1;
-  }
-
-  *val = q_get_double(q);
-  return 0;
-}
-
 EXPORTED int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
   rational_t *q;
 
@@ -8481,6 +8684,34 @@ EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
 }
 
 
+// Conversion to double
+EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
+  value_table_t *vtbl;
+  value_t id;
+
+  vtbl = model_get_vtbl(mdl);
+  id = v->node_id;
+
+  if (v->node_tag == YVAL_RATIONAL) {
+    if (good_object(vtbl, id) && object_is_rational(vtbl, id)) {
+      *val = q_get_double(vtbl_rational(vtbl, id));
+      return 0;
+    }
+  }
+
+#if HAVE_MCSAT
+  if (v->node_tag == YVAL_ALGEBRAIC) {
+    if (good_object(vtbl, id) && object_is_algebraic(vtbl, id)) {
+      *val = lp_algebraic_number_to_double(vtbl_algebraic_number(vtbl, id));
+      return 0;
+    }
+  }
+#endif
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+}
+
 /*
  * Value of a bitvector node
  */
@@ -8502,6 +8733,34 @@ EXPORTED int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) 
   error.code = YVAL_INVALID_OP;
   return -1;
 }
+
+/*
+ * Algebraic number
+ */
+EXPORTED int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a) {
+#if HAVE_MCSAT
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_ALGEBRAIC) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) && object_is_algebraic(vtbl, id)) {
+      lp_algebraic_number_construct_copy(a, vtbl_algebraic_number(vtbl, id));
+      return 0;
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return -1;
+
+#else
+  // NO SUPPORT FOT MCSAT
+  error.code = YVAL_NOT_SUPPORTED;
+  return -1;
+#endif
+}
+
 
 
 /*
