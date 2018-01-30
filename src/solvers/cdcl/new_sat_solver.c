@@ -40,7 +40,6 @@
 #define DATA  0
 
 
-
 #if DEBUG
 
 /*
@@ -2211,6 +2210,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->preprocess = pp;
 
   solver->verbosity = 0;
+  solver->reports = 0;
 
   solver->nvars = 1;
   solver->nliterals = 2;
@@ -3451,6 +3451,15 @@ static void report(sat_solver_t *solver, const char *code) {
   uint32_t vars;
 
   if (solver->verbosity >= 2) {
+    if (solver->reports == 0) {
+      fprintf(stderr, "c\n");
+      fprintf(stderr, "c                        level |                   prob.  |   learned  lbd\n");
+      fprintf(stderr, "c        confl.  starts   ema  |   vars     bins  clauses |   clauses  ema   lits/cls\n");
+      fprintf(stderr, "c\n");
+    }
+    solver->reports ++;
+    solver->reports &= 31;
+
     lits_per_clause = 0.0;
     if (solver->pool.num_learned_clauses > 0) {
       lits_per_clause = ((double) solver->pool.num_learned_literals) / solver->pool.num_learned_clauses;
