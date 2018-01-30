@@ -2095,7 +2095,7 @@ __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
  * Get the base name of a term or type
  *
  * The functions return NULL if the  term or type has no name,
- * of if the term or type is not valid. The error report is set
+ * or if the term or type is not valid. The error report is set
  * to INVALID_TERM or INVALID_TYPE in such cases.
  */
 __YICES_DLLSPEC__ extern const char *yices_get_type_name(type_t tau);
