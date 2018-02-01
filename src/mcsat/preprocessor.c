@@ -237,6 +237,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     case REAL_TYPE:
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
+    case BITVECTOR_TYPE:
       break;
     default:
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
@@ -279,6 +280,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     case ITE_TERM:           // if-then-else
     case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
     case EQ_TERM:            // equality
+    case BV_EQ_ATOM:         // equality on bitvectors
+      {
+        return t;
+      }
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
     case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)

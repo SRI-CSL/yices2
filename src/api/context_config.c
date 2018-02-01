@@ -660,5 +660,5 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
  * mcsat doesn't support arrays/quantifiers/bitvectors
  */
 bool logic_is_supported_by_mcsat(smt_logic_t code) {
-  return !(logic_has_arrays(code) || logic_has_bv(code) || logic_has_quantifiers(code));
+  return !(logic_has_arrays(code) || logic_has_quantifiers(code));
 }
