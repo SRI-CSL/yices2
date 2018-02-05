@@ -21,6 +21,7 @@
 
 #include "model/models.h"
 
+#include "utils/int_array_sort2.h"
 #include "terms/terms.h"
 #include "yices.h"
 
@@ -77,6 +78,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, BV_POLY);
   ctx->request_term_notification_by_kind(ctx, BV64_POLY);
   ctx->request_term_notification_by_kind(ctx, BIT_TERM);
+  ctx->request_term_notification_by_kind(ctx, BV_CONSTANT);
+  ctx->request_term_notification_by_kind(ctx, BV64_CONSTANT);
 
   // Types
   ctx->request_term_notification_by_type(ctx, BITVECTOR_TYPE);
@@ -132,58 +135,40 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   }
 }
 
-static
-void bv_plugin_new_eq(bv_plugin_t* bv, term_t eq_term, trail_token_t* prop) {
 
-  variable_db_t* var_db = bv->ctx->var_db;
-  term_table_t* terms = bv->ctx->terms;
+static
+void bv_watch_composite(bv_plugin_t* bv, term_t t, trail_token_t* prop) {
+
+  variable_db_t* var_db      = bv->ctx->var_db;
+  term_table_t* terms        = bv->ctx->terms;
   const mcsat_trail_t* trail = bv->ctx->trail;
 
-  // Variable of the eq term
-  variable_t eq_term_var = variable_db_get_variable(var_db, eq_term);
-  composite_term_t* eq_desc = bveq_atom_desc(terms, eq_term);
+  // Variable for the whole term
+  variable_t term_var = variable_db_get_variable(var_db, t);
+    
+  // Variables for the subterms
+  composite_term_t* composite_term = composite_term_desc(terms, t);
 
-  term_t lhs_term = eq_desc->arg[0];
-  term_t rhs_term = eq_desc->arg[1];
-  variable_t lhs_term_var = variable_db_get_variable(var_db, lhs_term);
-  variable_t rhs_term_var = variable_db_get_variable(var_db, rhs_term);
-
+  uint32_t arity = composite_term->arity;
+  
   // Setup the variable list
-  variable_t vars[3];
-  vars[0] = eq_term_var;
-  vars[1] = lhs_term_var;
-  vars[2] = rhs_term_var;
+  variable_t vars[arity+1];
+  vars[0] = term_var;
+  for(uint32_t i = 0; i < arity; i++){
+    vars[i+1] = variable_db_get_variable(var_db, composite_term->arg[i]);
+  }
 
   // Sort variables by trail index
-  int_array_sort2(vars, 3, (void*) trail, bv_plugin_trail_variable_compare);
+  int_array_sort2(vars, arity+1, (void*) trail, bv_plugin_trail_variable_compare);
 
   // Make the variable list
-  variable_list_ref_t var_list = watch_list_manager_new_list(&bv->wlm, vars, 3, eq_term_var);
+  variable_list_ref_t var_list = watch_list_manager_new_list(&bv->wlm, vars, arity+1, term_var);
 
   // Add first two variables to watch list
   watch_list_manager_add_to_watch(&bv->wlm, var_list, vars[0]);
   watch_list_manager_add_to_watch(&bv->wlm, var_list, vars[1]);
-
-  // If both assigned, propagate
-  if (trail_has_value(trail, lhs_term_var) && trail_has_value(trail, rhs_term_var)) {
-    const mcsat_value_t* lhs_value = trail_get_value(trail, lhs_term_var);
-    const mcsat_value_t* rhs_value = trail_get_value(trail, rhs_term_var);
-    int lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
-
-    uint32_t lhs_level = trail_get_level(trail, lhs_term_var);
-    uint32_t rhs_level = trail_get_level(trail, rhs_term_var);
-    uint32_t level = lhs_level > rhs_level ? lhs_level : rhs_level;
-
-    assert (!trail_has_value(trail, eq_term_var));
-    if (lhs_eq_rhs) {
-      prop->add_at_level(prop, eq_term_var, &mcsat_value_true, level);
-    } else {
-      prop->add_at_level(prop, eq_term_var, &mcsat_value_false, level);
-    }
-  }
+  
 }
-
-
 
 static
 void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
@@ -197,7 +182,12 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   term_kind_t t_kind = term_kind(bv->ctx->terms, t);
 
   switch (t_kind) {
-  case BV_ARRAY:
+  case BV_ARRAY: {
+    if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
+      ctx_trace_printf(bv->ctx, "BV_ARRAY");
+    }
+    break;
+  }
   case BV_DIV:
   case BV_REM:
   case BV_SDIV:
@@ -206,16 +196,14 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   case BV_SHL:
   case BV_LSHR:
   case BV_ASHR:
-    break;
-  case BV_EQ_ATOM: {
-    bv_plugin_new_eq(bv,t,prop);
-    break;
-  }
+  case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
   case SELECT_TERM:
-  case BIT_TERM:
-    assert(false);
+  case BIT_TERM: {
+    bv_watch_composite(bv,t,prop);
+    break;
+  }
   default:
     // Noting for now
     break;
@@ -444,10 +432,28 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     trail_print(bv->ctx->trail, stderr);
   }
 
-  /* (void) bv; */
+  assert(!trail_has_value(bv->ctx->trail, x));
 
-  // TODO
-  assert(false);
+  mcsat_value_t v;
+  bvconstant_t b;
+  uint32_t bitsize;
+
+    
+  /* if (trail_has_cached_value(bv->ctx->trail, x)) { */
+  /*   // Use the cached value if exists */
+  /*   v = *trail_get_cached_value(bv->ctx->trail, x); */
+  /* } else { */
+  bitsize = term_bitsize(bv->ctx->terms, variable_db_get_term(bv->ctx->var_db,x));
+  init_bvconstant(&b);
+  bvconstant_set_all_zero(&b, bitsize);
+  mcsat_value_construct_bv_value(&v, &b);
+  /* } */
+
+  decide->add(decide, x, &v);
+
+  // Remove temps
+  mcsat_value_destruct(&v);  // Really? does decide->add make a copy?
+  delete_bvconstant(&b);
 }
 
 static

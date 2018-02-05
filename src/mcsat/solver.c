@@ -784,6 +784,10 @@ void mcsat_get_kind_owners(mcsat_solver_t* mcsat, term_t t, int_mset_t* owners) 
   uint32_t i, plugin_i;
   i = term_kind(mcsat->terms, t);
   plugin_i = mcsat->kind_owners[i];
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::get_kind_owner")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "get_kind_owner: ");
+    trace_term_ln(mcsat->ctx->trace, mcsat->terms, t);
+  }
   assert(plugin_i != MCSAT_MAX_PLUGINS || i == UNINTERPRETED_TERM || i == CONSTANT_TERM);
   while (plugin_i != MCSAT_MAX_PLUGINS) {
     int_mset_add(owners, plugin_i);

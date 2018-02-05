@@ -23,6 +23,7 @@
 #include <poly/value.h>
 
 #include "terms/rationals.h"
+#include "terms/bv_constants.h"
 #include "model/concrete_values.h"
 
 typedef enum {
@@ -33,7 +34,9 @@ typedef enum {
   /** A rational */
   VALUE_RATIONAL,
   /** A value from the libpoly library */
-  VALUE_LIBPOLY
+  VALUE_LIBPOLY,
+  /** A bitvector value (no optimisation when less than 64 bits) */
+  VALUE_BV
 } mcsat_value_type_t;
 
 typedef struct value_s {
@@ -42,6 +45,7 @@ typedef struct value_s {
     bool b;
     rational_t q;
     lp_value_t lp_value;
+    bvconstant_t bv_value;
   };
 } mcsat_value_t;
 
@@ -65,6 +69,9 @@ void mcsat_value_construct_rational(mcsat_value_t *value, const rational_t *q);
 
 /** Construct a value from the libpoly value */
 void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_value);
+
+/** Construct a bv value */
+void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv_value);
 
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);

@@ -47,6 +47,12 @@ void mcsat_value_construct_lp_value(mcsat_value_t* value, const lp_value_t* lp_v
   lp_value_construct_copy(&value->lp_value, lp_value);
 }
 
+void mcsat_value_construct_bv_value(mcsat_value_t* value, const bvconstant_t* bvvalue) {
+  value->type = VALUE_BV;
+  init_bvconstant(&value->bv_value);
+  bvconstant_copy(&value->bv_value, bvvalue->bitsize, bvvalue->data);
+}
+
 void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from) {
   value->type = from->type;
   switch (value->type) {
@@ -61,6 +67,9 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
     break;
   case VALUE_LIBPOLY:
     lp_value_construct_copy(&value->lp_value, &from->lp_value);
+    break;
+  case VALUE_BV:
+    bvconstant_copy(&value->bv_value, from->bv_value.bitsize, from->bv_value.data);
     break;
   default:
     assert(false);
@@ -78,6 +87,9 @@ void mcsat_value_destruct(mcsat_value_t* value) {
     break;
   case VALUE_LIBPOLY:
     lp_value_destruct(&value->lp_value);
+    break;
+  case VALUE_BV:
+    delete_bvconstant(&value->bv_value);
     break;
   default:
     assert(false);
@@ -108,6 +120,9 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
     break;
   case VALUE_LIBPOLY:
     lp_value_print(&value->lp_value, out);
+    break;
+  case VALUE_BV:
+    bvconst_print(out, value->bv_value.data, value->bv_value.bitsize);
     break;
   default:
     assert(false);
@@ -151,6 +166,10 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
       mpq_clear(v2_mpq);
       return cmp == 0;
     }
+  case VALUE_BV: {
+    assert(v1->bv_value.bitsize == v2->bv_value.bitsize);
+    bvconst_eq(v1->bv_value.data, v2->bv_value.data, v1->bv_value.bitsize);
+  }
   default:
     assert(false);
     return false;
@@ -176,6 +195,10 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
   case VALUE_LIBPOLY:
     return lp_value_hash(&v->lp_value);
+  case VALUE_BV: {
+    bvconst_normalize(v->bv_value.data, v->bv_value.bitsize);
+    return bvconst_hash(v->bv_value.data, v->bv_value.bitsize);
+  }
   default:
     assert(false);
     return 0;
@@ -213,6 +236,9 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
     } else {
       value = vtbl_mk_algebraic(vtbl, &mcsat_value->lp_value.value.a);
     }
+    break;
+  case VALUE_BV:
+    value = vtbl_mk_bv_from_bv(vtbl, mcsat_value->bv_value.bitsize, mcsat_value->bv_value.data);
     break;
   default:
     assert(false);
