@@ -67,6 +67,7 @@
 #include "api/yval.h"
 
 #include "context/context.h"
+#include "context/context_statistics.h"
 
 #include "frontend/yices/yices_parser.h"
 
@@ -97,6 +98,7 @@
 #include "utils/refcount_strings.h"
 #include "utils/sparse_arrays.h"
 #include "utils/string_utils.h"
+
 
 #ifdef HAVE_MCSAT
 #include <poly/algebraic_number.h>
@@ -9426,3 +9428,23 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
     cleanup_fvar_collector(fvars);
   }
 }
+
+
+/*
+ * Prints presearch statistics in ctx
+ * - f = output file
+ *
+ */
+EXPORTED extern void yices_get_presearch_stats(FILE *f, context_t *ctx) {
+	  yices_print_presearch_stats(f, ctx);
+}
+
+/*
+ * Collects statistics in ctx
+ *
+ */
+EXPORTED extern bool yices_get_statistics(context_t *ctx, all_stats_t *st) {
+  return yices_collect_statistics(ctx, st);
+}
+
+

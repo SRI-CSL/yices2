@@ -103,6 +103,8 @@ __YICES_DLLSPEC__ extern const char *yices_build_mode;
 __YICES_DLLSPEC__ extern const char *yices_build_date;
 
 
+
+
 /*
  * Check whether the library was compiled with MCSAT support (i.e.,
  * it can deal with nonlinear arithmetic).
@@ -4019,6 +4021,20 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  * when no longer needed by calling yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Prints presearch statistics in ctx
+ * - f = output file
+ *
+ */
+__YICES_DLLSPEC__ extern void yices_get_presearch_stats(FILE *f, context_t *ctx);
+
+/*
+ * Collects statistics in ctx
+ *
+ */
+__YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, all_stats_t *st);
 
 
 #ifdef __cplusplus

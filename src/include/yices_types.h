@@ -608,4 +608,79 @@ typedef struct error_report_s {
   int64_t badval;
 } error_report_t;
 
+
+typedef struct all_stats_s {
+// Core
+  uint32_t restarts;         // number of restarts
+  uint32_t simplify_calls;   // number of calls to simplify_clause_database
+  uint32_t reduce_calls;     // number of calls to reduce_learned_clause_set
+  uint32_t remove_calls;     // number of calls to remove_irrelevant_learned_clauses
+
+  uint64_t decisions;        // number of decisions
+  uint64_t random_decisions; // number of random decisions
+  uint64_t propagations;     // number of boolean propagations
+  uint64_t conflicts;        // number of conflicts/backtrackings
+
+  uint32_t th_props;         // number of theory propagation
+  uint32_t th_prop_lemmas;   // number of propagation/explanation turned into clauses
+  uint32_t th_conflicts;     // number of calls to record_conflict
+  uint32_t th_conflict_lemmas;  // number of theory conflicts turned into clauses
+
+  uint64_t prob_literals;     // number of literals in problem clauses
+  uint64_t learned_literals;  // number of literals in learned clauses
+
+  uint64_t prob_clauses_deleted;     // number of problem clauses deleted
+  uint64_t learned_clauses_deleted;  // number of learned clauses deleted
+  uint64_t bin_clauses_deleted;      // number of binary clauses deleted
+
+  uint64_t literals_before_simpl;
+  uint64_t subsumed_literals;
+
+  uint32_t boolean_variables;
+  uint32_t atoms;
+
+// Egraph
+  uint32_t egraph_app_reductions;
+
+  uint32_t egraph_eq_props;         // equalities propagated by satellite solvers (simplex)
+  uint32_t egraph_th_props;         // propagations from egraph to core
+  uint32_t egraph_th_conflicts;     // conflicts detected by egraph
+  uint32_t egraph_nd_lemmas;        // number of non-distinct lemmas
+
+  // counters related to ackermann clauses
+  uint32_t egraph_aux_eqs;          // number of equality terms created
+  uint32_t egraph_boolack_lemmas;   // number of boolean ackermann instances created
+  uint32_t egraph_ack_lemmas;       // number of non-boolean ackermann instances created
+
+  // statistics on interface equalities
+  uint32_t egraph_final_checks;     // number of calls to final check
+  uint32_t egraph_interface_eqs;    // number of interface equalities generated
+
+  uint32_t egraph_terms;
+
+// Array/function
+  // initial size
+  uint32_t num_init_vars;
+  uint32_t num_init_edges;
+
+  // number of axioms generated
+  uint32_t num_update_axiom1;
+  uint32_t num_update_axiom2;
+  uint32_t num_extensionality_axiom;
+
+// Bit-vectors
+  uint32_t bv_variables;
+  uint32_t bv_atoms;
+  uint32_t bv_eq_atoms;
+  uint32_t bv_dyn_eq_atoms;
+  uint32_t bv_ge_atoms;
+  uint32_t bv_sge_atoms;
+  uint32_t bv_equiv_lemmas;
+  uint32_t bv_equiv_conflicts;
+  uint32_t bv_semi_equiv_lemmas;
+  uint32_t bv_interface_lemmas;
+
+} all_stats_t;
+
+
 #endif  /* YICES_TYPES_H */

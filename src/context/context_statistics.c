@@ -221,6 +221,107 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
   }
 }
 
+/*
+ * Statistics in the smt_core
+ */
+static void collect_stats(dpll_stats_t *stat, all_stats_t* st) {
+  st->restarts = stat->restarts;
+  st->simplify_calls = stat->simplify_calls;
+  st->reduce_calls = stat->reduce_calls;
+  st->remove_calls = stat->remove_calls;
+  st->decisions = stat->decisions;
+  st->random_decisions = stat->random_decisions;
+  st->propagations = stat->propagations;
+  st->conflicts = stat->conflicts;
+  st->th_props = stat->th_props;
+  st->th_prop_lemmas = stat->th_prop_lemmas;
+  st->th_conflicts = stat->th_conflicts;
+  st->th_conflict_lemmas = stat->th_conflict_lemmas;
+
+  st->prob_literals = stat->prob_literals;
+  st->learned_literals = stat->learned_literals;
+  st->literals_before_simpl = stat->literals_before_simpl;
+  st->subsumed_literals = stat->subsumed_literals;
+  st->prob_clauses_deleted = stat->prob_clauses_deleted;
+  st->learned_clauses_deleted = stat->learned_clauses_deleted;
+  st->bin_clauses_deleted = stat->bin_clauses_deleted;
+}
+
+/*
+ * Egraph statistics
+ */
+static void collect_egraph_stats(egraph_stats_t *stat, all_stats_t* st) {
+	st->egraph_eq_props = stat->eq_props;
+	st->egraph_app_reductions = stat->app_reductions;
+	st->egraph_th_props = stat->th_props;
+	st->egraph_th_conflicts = stat->th_conflicts;
+	st->egraph_nd_lemmas = stat->nd_lemmas;
+	st->egraph_aux_eqs = stat->aux_eqs;
+	st->egraph_boolack_lemmas = stat->boolack_lemmas;
+	st->egraph_ack_lemmas = stat->ack_lemmas;
+	st->egraph_final_checks = stat->final_checks;
+	st->egraph_interface_eqs = stat->interface_eqs;
+}
+
+/*
+ * Array/function solver statistics
+ */
+static void collect_funsolver_stats(fun_solver_stats_t *stat, all_stats_t* st) {
+    st->num_init_vars = stat->num_init_vars;
+    st->num_init_edges = stat->num_init_edges;
+    st->num_update_axiom1 = stat->num_update_axiom1;
+    st->num_update_axiom2 = stat->num_update_axiom2;
+    st->num_extensionality_axiom = stat->num_extensionality_axiom;
+}
+
+/*
+ * Bitvector solver statistics
+ */
+static void collect_bvsolver_stats(bv_solver_t *solver, all_stats_t* st) {
+    st->bv_variables = bv_solver_num_vars(solver);
+	st->bv_atoms = bv_solver_num_atoms(solver);
+	st->bv_eq_atoms = bv_solver_num_eq_atoms(solver);
+	st->bv_dyn_eq_atoms = solver->stats.on_the_fly_atoms;
+	st->bv_ge_atoms = bv_solver_num_ge_atoms(solver);
+	st->bv_sge_atoms = bv_solver_num_sge_atoms(solver);
+	st->bv_equiv_lemmas = solver->stats.equiv_lemmas;
+	st->bv_equiv_conflicts = solver->stats.equiv_conflicts;
+	st->bv_semi_equiv_lemmas = solver->stats.half_equiv_lemmas;
+	st->bv_interface_lemmas = solver->stats.interface_lemmas;
+}
+
+bool yices_collect_statistics(context_t *ctx, all_stats_t* st) {
+  smt_core_t *core;
+  egraph_t *egraph;
+  fun_solver_t *fsolver;
+
+  core = ctx->core;
+  egraph = ctx->egraph;
+
+  collect_stats(&core->stats, st);
+  st->boolean_variables = core->nvars;
+  st->atoms = core->atoms.natoms;
+
+
+  if (egraph != NULL) {
+	collect_egraph_stats(&egraph->stats, st);
+	st->egraph_terms = egraph->terms.nterms;
+
+    if (context_has_fun_solver(ctx)) {
+      fsolver = ctx->fun_solver;
+      collect_funsolver_stats(&fsolver->stats, st);
+    }
+  }
+
+  if (context_has_bv_solver(ctx)) {
+    collect_bvsolver_stats(ctx->bv_solver, st);
+  }
+
+  if (context_has_simplex_solver(ctx)) {
+	  return false;
+  }
+  return true;
+}
 
 void yices_dump_context(FILE *f, context_t *ctx) {
   // NOT IMPLEMENTED
