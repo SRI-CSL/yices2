@@ -609,7 +609,7 @@ typedef struct error_report_s {
 } error_report_t;
 
 
-typedef struct all_stats_s {
+typedef struct stats_s {
 // Core
   uint32_t restarts;         // number of restarts
   uint32_t simplify_calls;   // number of calls to simplify_clause_database
@@ -680,7 +680,7 @@ typedef struct all_stats_s {
   uint32_t bv_semi_equiv_lemmas;
   uint32_t bv_interface_lemmas;
 
-} all_stats_t;
+} stats_t;
 
 
 #endif  /* YICES_TYPES_H */

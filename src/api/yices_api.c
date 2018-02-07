@@ -9443,7 +9443,7 @@ EXPORTED extern void yices_get_presearch_stats(FILE *f, context_t *ctx) {
  * Collects statistics in ctx
  *
  */
-EXPORTED extern bool yices_get_statistics(context_t *ctx, all_stats_t *st) {
+EXPORTED extern bool yices_get_statistics(context_t *ctx, stats_t *st) {
   return yices_collect_statistics(ctx, st);
 }
 

@@ -37,10 +37,10 @@ extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);
 extern void yices_dump_context(FILE *f, context_t *ctx);
 
-extern all_stats_t;
+extern stats_t;
 
 
-extern bool yices_collect_statistics(context_t *ctx, all_stats_t* stat);
+extern bool yices_collect_statistics(context_t *ctx, stats_t* stat);
 
 
 #endif /* __CONTEXT_STATISTICS_H */

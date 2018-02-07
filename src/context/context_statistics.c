@@ -224,7 +224,7 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
 /*
  * Statistics in the smt_core
  */
-static void collect_stats(dpll_stats_t *stat, all_stats_t* st) {
+static void collect_stats(dpll_stats_t *stat, stats_t* st) {
   st->restarts = stat->restarts;
   st->simplify_calls = stat->simplify_calls;
   st->reduce_calls = stat->reduce_calls;
@@ -250,7 +250,7 @@ static void collect_stats(dpll_stats_t *stat, all_stats_t* st) {
 /*
  * Egraph statistics
  */
-static void collect_egraph_stats(egraph_stats_t *stat, all_stats_t* st) {
+static void collect_egraph_stats(egraph_stats_t *stat, stats_t* st) {
 	st->egraph_eq_props = stat->eq_props;
 	st->egraph_app_reductions = stat->app_reductions;
 	st->egraph_th_props = stat->th_props;
@@ -266,7 +266,7 @@ static void collect_egraph_stats(egraph_stats_t *stat, all_stats_t* st) {
 /*
  * Array/function solver statistics
  */
-static void collect_funsolver_stats(fun_solver_stats_t *stat, all_stats_t* st) {
+static void collect_funsolver_stats(fun_solver_stats_t *stat, stats_t* st) {
     st->num_init_vars = stat->num_init_vars;
     st->num_init_edges = stat->num_init_edges;
     st->num_update_axiom1 = stat->num_update_axiom1;
@@ -277,7 +277,7 @@ static void collect_funsolver_stats(fun_solver_stats_t *stat, all_stats_t* st) {
 /*
  * Bitvector solver statistics
  */
-static void collect_bvsolver_stats(bv_solver_t *solver, all_stats_t* st) {
+static void collect_bvsolver_stats(bv_solver_t *solver, stats_t* st) {
     st->bv_variables = bv_solver_num_vars(solver);
 	st->bv_atoms = bv_solver_num_atoms(solver);
 	st->bv_eq_atoms = bv_solver_num_eq_atoms(solver);
@@ -290,7 +290,7 @@ static void collect_bvsolver_stats(bv_solver_t *solver, all_stats_t* st) {
 	st->bv_interface_lemmas = solver->stats.interface_lemmas;
 }
 
-bool yices_collect_statistics(context_t *ctx, all_stats_t* st) {
+bool yices_collect_statistics(context_t *ctx, stats_t* st) {
   smt_core_t *core;
   egraph_t *egraph;
   fun_solver_t *fsolver;

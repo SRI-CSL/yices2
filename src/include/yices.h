@@ -4034,7 +4034,7 @@ __YICES_DLLSPEC__ extern void yices_get_presearch_stats(FILE *f, context_t *ctx)
  * Collects statistics in ctx
  *
  */
-__YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, all_stats_t *st);
+__YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, stats_t *st);
 
 
 #ifdef __cplusplus
