@@ -4024,11 +4024,11 @@ __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t widt
 
 
 /*
- * Prints presearch statistics in ctx
- * - f = output file
+ * Collects presearch statistics in ctx
  *
  */
-__YICES_DLLSPEC__ extern void yices_get_presearch_stats(FILE *f, context_t *ctx);
+__YICES_DLLSPEC__ extern bool yices_get_presearch_stats(context_t *ctx, stats_t *st);
+
 
 /*
  * Collects statistics in ctx

@@ -290,6 +290,32 @@ static void collect_bvsolver_stats(bv_solver_t *solver, stats_t* st) {
 	st->bv_interface_lemmas = solver->stats.interface_lemmas;
 }
 
+bool yices_collect_presearch_stats(context_t *ctx, stats_t* st) {
+  smt_core_t *core;
+  egraph_t *egraph;
+
+  core = ctx->core;
+  egraph = ctx->egraph;
+
+  st->pre_boolean_variables = core->nvars;
+  st->pre_atoms = core->atoms.natoms;
+
+
+  if (egraph != NULL) {
+	st->pre_egraph_terms = egraph->terms.nterms;
+	st->pre_egraph_app_reductions = egraph->stats.app_reductions;
+  }
+
+  if (context_has_simplex_solver(ctx)) {
+	  return false;
+  } else if (context_has_idl_solver(ctx)) {
+	  return false;
+  } else if (context_has_rdl_solver(ctx)) {
+	  return false;
+  }
+  return true;
+}
+
 bool yices_collect_statistics(context_t *ctx, stats_t* st) {
   smt_core_t *core;
   egraph_t *egraph;

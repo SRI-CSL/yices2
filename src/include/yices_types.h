@@ -610,6 +610,14 @@ typedef struct error_report_s {
 
 
 typedef struct stats_s {
+
+// Presearch stats
+  uint32_t pre_boolean_variables;
+  uint32_t pre_atoms;
+  uint32_t pre_egraph_terms;
+  uint32_t pre_egraph_app_reductions;
+
+
 // Core
   uint32_t restarts;         // number of restarts
   uint32_t simplify_calls;   // number of calls to simplify_clause_database

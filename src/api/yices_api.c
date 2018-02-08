@@ -9431,12 +9431,11 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
 
 
 /*
- * Prints presearch statistics in ctx
- * - f = output file
+ * Collects presearch statistics in ctx
  *
  */
-EXPORTED extern void yices_get_presearch_stats(FILE *f, context_t *ctx) {
-	  yices_print_presearch_stats(f, ctx);
+EXPORTED extern bool yices_get_presearch_stats(context_t *ctx, stats_t *st) {
+	yices_collect_presearch_stats(ctx, st);
 }
 
 /*

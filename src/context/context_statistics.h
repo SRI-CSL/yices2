@@ -40,6 +40,7 @@ extern void yices_dump_context(FILE *f, context_t *ctx);
 extern stats_t;
 
 
+extern bool yices_collect_presearch_stats(context_t *ctx, stats_t* stat);
 extern bool yices_collect_statistics(context_t *ctx, stats_t* stat);
 
 
