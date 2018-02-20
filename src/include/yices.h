@@ -3251,6 +3251,29 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
 
+/*
+ * Collect all the uninterpreted terms that have a value in model
+ * - these terms are returned in vector v
+ * - v must be an initialized term_vector
+ *
+ * If the model was produced from a context (i.e., returned by
+ * yices_get_model(context_t ctx, ...))  then vector v will contain
+ * all unintepreted terms that occurred in the asserted formulas.
+ * Warning: formula simplification may remove some uninterpreted terms.
+ *
+ * Trivial example:
+ *
+ *   (assert (and (> y 0) (= x x)))
+ *
+ * is simplified to
+ *
+ *   (assert (> y 0))
+ *
+ * then variable 'x' does not occur in the simplified assertions and will
+ * not be included in vector 'v'.
+ */
+__YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v);
+
 
 
 /***********************

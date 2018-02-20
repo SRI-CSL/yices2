@@ -7911,6 +7911,13 @@ EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const ter
 }
 
 
+/*
+ * Export the list of uninterpreted terms that have a value in mdl.
+ * - the variables are stored in term_vector v
+ */
+EXPORTED void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v) {
+  model_get_relevant_vars(mdl, (ivector_t *) v);
+}
 
 
 /************************
