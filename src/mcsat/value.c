@@ -94,6 +94,7 @@ void mcsat_value_destruct(mcsat_value_t* value) {
   default:
     assert(false);
   }
+  value->type = VALUE_NONE;
 }
 
 void mcsat_value_assign(mcsat_value_t* value, const mcsat_value_t* from) {
@@ -168,7 +169,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
     }
   case VALUE_BV: {
     assert(v1->bv_value.bitsize == v2->bv_value.bitsize);
-    bvconst_eq(v1->bv_value.data, v2->bv_value.data, v1->bv_value.bitsize);
+    return bvconst_eq(v1->bv_value.data, v2->bv_value.data, v1->bv_value.bitsize);
   }
   default:
     assert(false);
