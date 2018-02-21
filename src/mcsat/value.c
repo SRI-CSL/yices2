@@ -94,7 +94,6 @@ void mcsat_value_destruct(mcsat_value_t* value) {
   default:
     assert(false);
   }
-  value->type = VALUE_NONE;
 }
 
 void mcsat_value_assign(mcsat_value_t* value, const mcsat_value_t* from) {
