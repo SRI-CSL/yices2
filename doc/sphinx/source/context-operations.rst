@@ -831,6 +831,7 @@ record is no longer needed, it can be deleted by
    The record is allocated internally by Yices. It must be freed when
    no-longer used by calling :c:func:`yices_free_param_record`.
 
+
 .. c:function:: int32_t yices_set_param(param_t* p, const char* name, const char* value)
 
    Sets a search parameter.
@@ -865,6 +866,15 @@ record is no longer needed, it can be deleted by
 
      -- error code: :c:enum:`CTX_INVALID_PARAMETER_VALUE`      
 
+
+.. c:function:: void yices_default_params_for_context(context_t *ctx, param_t *p)
+
+   Set all the parameters in record *p* to values appropriate for
+   context *ctx*.  The parameter settings depend on the logic
+   supported by *ctx* and are based on extensive empirical evaluation
+   on benchmarks in the same logic.
+
+		
 
 .. c:function:: void yices_free_param_record(param_t* param)
 
