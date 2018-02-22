@@ -12,6 +12,7 @@
 #endif
 
 #include "bv_plugin.h"
+#include "bv_bdd.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -24,8 +25,6 @@
 #include "utils/int_array_sort2.h"
 #include "terms/terms.h"
 #include "yices.h"
-
-#include <cudd.h>
 
 typedef struct {
 
@@ -50,6 +49,9 @@ typedef struct {
   /** Exception handler */
   jmp_buf* exception;
 
+  /** BDD manager */
+  bdd_manager_t bdd_manager;
+
 } bv_plugin_t;
 
 static
@@ -59,13 +61,14 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv->ctx = ctx;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
-
+    
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
   }
 
   watch_list_manager_construct(&bv->wlm, bv->ctx->var_db);
-
+  bdd_manager_construct(&bv->bdd_manager);  
+  
   // Terms
   ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
   ctx->request_term_notification_by_kind(ctx, BV_DIV);
@@ -102,6 +105,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
 
   watch_list_manager_destruct(&bv->wlm);
   scope_holder_destruct(&bv->scope);
+  bdd_manager_destruct(&bv->bdd_manager);
 }
 
 static
