@@ -3252,7 +3252,7 @@ __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t 
 
 
 /*
- * Collect all the uninterpreted terms that have a value in model
+ * Collect all the uninterpreted terms that have a value in model mdl.
  * - these terms are returned in vector v
  * - v must be an initialized term_vector
  *
