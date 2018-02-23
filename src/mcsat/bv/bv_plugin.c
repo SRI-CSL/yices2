@@ -13,6 +13,7 @@
 
 #include "bv_plugin.h"
 #include "bv_bdd.h"
+#include "bv_feasible_set_db.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -49,8 +50,8 @@ typedef struct {
   /** Exception handler */
   jmp_buf* exception;
 
-  /** BDD manager */
-  bdd_manager_t bdd_manager;
+  /** Feasible set database */
+  bv_feasible_set_db_t* feasible;
 
 } bv_plugin_t;
 
@@ -61,13 +62,13 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv->ctx = ctx;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
-    
+  bv->feasible = bv_feasible_set_db_new(ctx->terms, ctx->var_db, ctx->trail);
+ 
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
   }
 
   watch_list_manager_construct(&bv->wlm, bv->ctx->var_db);
-  bdd_manager_construct(&bv->bdd_manager);  
   
   // Terms
   ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
@@ -105,7 +106,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
 
   watch_list_manager_destruct(&bv->wlm);
   scope_holder_destruct(&bv->scope);
-  bdd_manager_destruct(&bv->bdd_manager);
+  bv_feasible_set_db_delete(bv->feasible);
 }
 
 static
