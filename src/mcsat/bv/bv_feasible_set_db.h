@@ -16,7 +16,9 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#pragma once
+#ifndef BV_FEASIBLE_SET_DB_H_
+#define BV_FEASIBLE_SET_DB_H_
+
 
 #include <stdio.h>
 #include <cudd.h>
@@ -36,38 +38,40 @@ bv_feasible_set_db_t* bv_feasible_set_db_new(term_table_t* terms, variable_db_t*
 /** Delete the database */
 void bv_feasible_set_db_delete(bv_feasible_set_db_t* db);
 
+/* Enter a new variable in the database, with domain 1 */
+void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize);
+
 /** Mark that x should be different from given value. */
-bool bv_feasible_set_db_set_disequal(bv_feasible_set_db_t* db, variable_t x, uint32_t v, variable_t reason);
+bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db, variable_t x, term_t reason, bvconstant_t* v);
 
-/** Mark that x should be equal to the given value. */
-bool bv_feasible_set_db_set_equal(bv_feasible_set_db_t* db, variable_t x, uint32_t v, variable_t reason);
+/* /\** Get a feasible value. *\/ */
+/* uint32_t bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x); */
 
-/** Get a feasible value. */
-uint32_t bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x);
+/* /\** Push the context *\/ */
+/* void bv_feasible_set_db_push(bv_feasible_set_db_t* db); */
 
-/** Push the context */
-void bv_feasible_set_db_push(bv_feasible_set_db_t* db);
+/* /\** Pop the context *\/ */
+/* void bv_feasible_set_db_pop(bv_feasible_set_db_t* db); */
 
-/** Pop the context */
-void bv_feasible_set_db_pop(bv_feasible_set_db_t* db);
+/* /\** Get the reason for a conflict on x. Outputs conjunction of terms to the vector. *\/ */
+/* void bv_feasible_set_db_get_conflict(bv_feasible_set_db_t* db, variable_t x, ivector_t* conflict); */
 
-/** Get the reason for a conflict on x. Outputs conjunction of terms to the vector. */
-void bv_feasible_set_db_get_conflict(bv_feasible_set_db_t* db, variable_t x, ivector_t* conflict);
+/* /\** Get the reason for a propagation on x. *\/ */
+/* variable_t bv_feasible_set_db_get_eq_reason(bv_feasible_set_db_t* db, variable_t x); */
 
-/** Get the reason for a propagation on x. */
-variable_t bv_feasible_set_db_get_eq_reason(bv_feasible_set_db_t* db, variable_t x);
+/* /\** Return any fixed variables *\/ */
+/* variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db); */
 
-/** Return any fixed variables */
-variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db);
+/* /\** Print the feasible set database *\/ */
+/* void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out); */
 
-/** Print the feasible set database */
-void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out);
+/* /\** Print the feasible sets of given variable *\/ */
+/* void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out); */
 
-/** Print the feasible sets of given variable */
-void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out);
+/* /\** Marks all the top level reasons *\/ */
+/* void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars); */
 
-/** Marks all the top level reasons */
-void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars);
+/* /\** Marks all the top level reasons *\/ */
+/* void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars); */
 
-/** Marks all the top level reasons */
-void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars);
+#endif /* BV_FEASIBLE_SET_DB_H_ */

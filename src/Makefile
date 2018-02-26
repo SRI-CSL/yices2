@@ -318,6 +318,7 @@ mcsat_src_c := \
 	mcsat/ite/ite_plugin.c \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd.c \
+	mcsat/bv/bv_domain.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \

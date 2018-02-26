@@ -11,8 +11,6 @@
 #endif
 #endif
 
-/* #include "bv_bdd.h" */
-
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
@@ -31,13 +29,16 @@
 typedef struct varWnodes_s {
 
   /* Variable */
-  const variable_t* var;
+  variable_t var;
 
   /* bitsize of the variable */
   uint32_t bitsize;
 
   /* The array of BDD nodes for the variable's bits, of length bitsize */
   DdNode** bitnodes;
+
+  /* The BDD manager */
+  DdManager* manager;
 
 } varWnodes_t;
 
@@ -64,18 +65,12 @@ typedef struct bdds_s {
 
 /* Must be called only once during a run for a given variable */
 
-varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t* var, DdManager* manager){
+varWnodes_t* varWnodes_create(uint32_t bitsize, variable_t var, DdManager* manager){
 
   varWnodes_t* vn = safe_malloc(sizeof(varWnodes_t));
   vn->var         = var;
   vn->bitsize     = bitsize;
-
-  /* /\* Initialising the domain to True, can be changed later. *\/ */
-  /* vn->domain   = Cudd_ReadOne(manager); */
-  /* Cudd_Ref(vn->domain); */
-
-  /* /\* The set of constraints that have restricted the domain must be initialised to the empty set *\/   */
-  /* init_ivector(&vn->constraints, 42); */
+  vn->manager     = manager;
 
   /* Creating the BDD nodes corresponding to the variable's bits.
      These will never change. */
@@ -93,8 +88,15 @@ void varWnodes_free(varWnodes_t* vn){
   safe_free(vn);
 }
 
+variable_t bv_varWnodes_getvar(const varWnodes_t* vn){
+  return vn->var;
+}
 
-bdds_t* bdds_create(uint32_t bitsize, varWnodes_t* vn){
+DdManager* bv_varWnodes_manager(const varWnodes_t* vn){
+  return vn->manager;
+}
+
+bdds_t* bdds_create(uint32_t bitsize, const varWnodes_t* vn){
   bdds_t* bdds  = safe_malloc(sizeof(bdds_t));
   bdds->bitsize = bitsize;
   bdds->input   = vn;
@@ -109,7 +111,16 @@ void bdds_free(bdds_t* bdds){
 }
 
 
-void bdds_clear(bdds_t* bdds, DdManager* manager){
+void bdds_print(bdds_t* bdds, variable_db_t* var_db, FILE* f){
+  fprintf(f, "Bitvector function of arity %u with input ", (unsigned) bdds->bitsize);
+  variable_db_print_variable(var_db, bdds->input->var, f);
+  for(uint32_t i = 0; i < bdds->bitsize; i++){
+    Cudd_PrintDebug(bdds->input->manager, bdds->data[i], 0, 3);
+  }
+}
+
+void bdds_clear(bdds_t* bdds){
+  DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
   DdNode** data      = bdds->data;
   for(uint32_t i = 0; i < bitsize; i++){
@@ -118,9 +129,10 @@ void bdds_clear(bdds_t* bdds, DdManager* manager){
   }
 }
 
-void bdds_cst(bdds_t* bdds, const bvconstant_t* cst, DdManager* manager){
+void bdds_cst(bdds_t* bdds, const bvconstant_t* cst){
 
   assert(bdds->bitsize == cst->bitsize);
+  DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
   DdNode** data      = bdds->data;
   
@@ -147,7 +159,7 @@ void bdds_id(bdds_t* bdds){
   }
 }
 
-void bdds_complement(bdds_t* bdds, DdManager* manager){
+void bdds_complement(bdds_t* bdds){
 
   uint32_t bitsize   = bdds->bitsize;
   DdNode** data      = bdds->data;
@@ -160,10 +172,12 @@ void bdds_complement(bdds_t* bdds, DdManager* manager){
   }
 }
 
-void bdds_and(bdds_t* bdds, const bdds_t* a, DdManager* manager){
+void bdds_and(bdds_t* bdds, const bdds_t* a){
 
-  assert(bdds->bitsize == a->bitsize);
+  DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
+  assert(manager == a->input->manager);
+  assert(bitsize == a->bitsize);
   DdNode** data1     = bdds->data;
   DdNode** data2     = a->data;
   DdNode* previous;
@@ -176,10 +190,12 @@ void bdds_and(bdds_t* bdds, const bdds_t* a, DdManager* manager){
   }
 }
 
-void bdds_or(bdds_t* bdds, const bdds_t* a, DdManager* manager){
+void bdds_or(bdds_t* bdds, const bdds_t* a){
 
-  assert(bdds->bitsize == a->bitsize);
+  DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
+  assert(manager == a->input->manager);
+  assert(bitsize == a->bitsize);
   DdNode** data1     = bdds->data;
   DdNode** data2     = a->data;
   DdNode* previous;
@@ -192,10 +208,12 @@ void bdds_or(bdds_t* bdds, const bdds_t* a, DdManager* manager){
   }
 }
 
-void bdds_xor(bdds_t* bdds, const bdds_t* a, DdManager* manager){
+void bdds_xor(bdds_t* bdds, const bdds_t* a){
 
-  assert(bdds->bitsize == a->bitsize);
+  DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
+  assert(manager == a->input->manager);
+  assert(bitsize == a->bitsize);
   DdNode** data1     = bdds->data;
   DdNode** data2     = a->data;
   DdNode* previous;
@@ -209,6 +227,9 @@ void bdds_xor(bdds_t* bdds, const bdds_t* a, DdManager* manager){
 }
 
 void bdds_concat(bdds_t* bdds, const bdds_t* a, const bdds_t* b){
+
+  assert(bdds->input->manager == a->input->manager);
+  assert(bdds->input->manager == b->input->manager);
   uint32_t bitsize1  = a->bitsize;
   uint32_t bitsize2  = b->bitsize;
   DdNode** data1     = a->data;
@@ -226,3 +247,4 @@ void bdds_concat(bdds_t* bdds, const bdds_t* a, const bdds_t* b){
     data[i+bitsize1] = data2[i];
   }
 }
+

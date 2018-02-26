@@ -24,25 +24,31 @@ typedef struct bdds_s bdds_t;
 
 
 /* Creating and destructing var with nodes */
-extern varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t* var, DdManager* manager);
+extern varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t var, DdManager* manager);
 extern void varWnodes_free(varWnodes_t* vn);
-  
+
+extern variable_t bv_varWnodes_getvar(const varWnodes_t* vn);
+extern DdManager* bv_varWnodes_manager(const varWnodes_t* vn);
+
 /* Creating a function from bitvectors to bitvectors,
    defined nowhere (every output bit is NULL) */
-extern bdds_t* bdds_create(uint32_t bitsize, varWnodes_t* vn);
+extern bdds_t* bdds_create(uint32_t bitsize, const varWnodes_t* vn);
 
 /* Clearing such a function, setting every output bit to NULL (undefined function) */
-extern void bdds_clear(bdds_t* bdds, DdManager* manager);
+extern void bdds_clear(bdds_t* bdds);
 
 /* Destructing a function from bitvectors to bitvectors
    Requires the function to be cleared */
 extern void bdds_free(bdds_t* bdds);
 
+/* Printing */
+extern void bdds_print(bdds_t* bdds);
+
 /* Now we program functions from bitvectors to bitvectors */
 
 /* The constant function;
    Assumes that the function bdds is previously cleared */
-extern void bdds_cst(bdds_t* bdds, const bvconstant_t* cst, DdManager* manager);
+extern void bdds_cst(bdds_t* bdds, const bvconstant_t* cst);
 
 /* The identity function.
    Assumes that the function bdds is previously cleared
@@ -53,10 +59,10 @@ extern void bdds_id(bdds_t* bdds);
  * Bitwise operations: bdds and a must be of same bitsize.
  * - result is in bv
  */
-extern void bdds_complement(bdds_t* bdds, DdManager* manager);
-extern void bdds_and(bdds_t* bdds, const bdds_t* a, DdManager* manager);
-extern void bdds_or (bdds_t* bdds, const bdds_t* a, DdManager* manager);
-extern void bdds_xor(bdds_t* bdds, const bdds_t* a, DdManager* manager);
+extern void bdds_complement(bdds_t* bdds);
+extern void bdds_and(bdds_t* bdds, const bdds_t* a);
+extern void bdds_or (bdds_t* bdds, const bdds_t* a);
+extern void bdds_xor(bdds_t* bdds, const bdds_t* a);
 
 /*
  * Concatenation: bdds[0...n-1] = a[0.. n-1] and bdds[n ... n+m-1] = b[0...m-1]

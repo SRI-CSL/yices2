@@ -24,6 +24,7 @@
 
 #include "mcsat/bv/bv_feasible_set_db.h"
 #include "mcsat/bv/bv_bdd.h"
+#include "mcsat/bv/bv_domain.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
 
@@ -40,21 +41,21 @@
 typedef struct {
 
   /** Current domain. */
-  DdNode* domain;
+  bv_domain_t* domain;
 
   /** Previous version of this (next element in list). 0 if end of list. */
   uint32_t prev;
 
-  /** Reason for latest update. */
-  variable_t reason;
+  /** Reason for latest update. NULL if initial*/
+  term_t* reason;
   /** BDD of reason (was computed once, so this is cached). */
   bdds_t* reason_bdd;
   
-  /* The following is kept so that the code below compiles */
-  /** Is it an equality */
-  bool eq;
-  /** The value (x != value) or (x = value) */
-  uint32_t value;
+  /* /\* The following is kept so that the code below compiles *\/ */
+  /* /\** Is it an equality *\/ */
+  /* bool eq; */
+  /* /\** The value (x != value) or (x = value) *\/ */
+  /* uint32_t value; */
 } bv_feasible_list_element_t;
 
 
@@ -120,14 +121,15 @@ void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE
   uint32_t index = bv_feasible_set_db_get_index(db, var);
   while (index != 0) {
     bv_feasible_list_element_t* current = db->memory + index;
-    fprintf(out, "\t%d\n", current->value);
+    /* fprintf(out, "\t%d\n", current->value); */
+    bv_domain_print(current->domain);
     fprintf(out, "\t\tDue to ");
-    term_t reason_term = variable_db_get_term(db->var_db, current->reason);
-    term_print_to_file(out, db->terms, reason_term);
-    if (term_type_kind(db->terms, reason_term) == BOOL_TYPE) {
-      // Otherwise it's a term evaluation, always true
-      fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->trail, current->reason) ? "true" : "false");
-    }
+    /* term_t reason_term = variable_db_get_term(db->var_db, current->reason); */
+    term_print_to_file(out, db->terms, current->reason[0]);
+    /* if (term_type_kind(db->terms, reason) == BOOL_TYPE) { */
+    /*   // Otherwise it's a term evaluation, always true */
+    /*   fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->trail, current->reason) ? "true" : "false"); */
+    /* } */
     index = current->prev;
   }
 }
@@ -189,47 +191,25 @@ void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
   safe_free(db);
 }
 
-uint32_t bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x) {
+bv_domain_t* bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x) {
   uint32_t index = bv_feasible_set_db_get_index(db, x);
 
-  // If no constraints, just return 0
+  // If no constraints, just return NULL
   if (index == 0) {
-    return 0;
+    return NULL;
   }
 
-  // Check if top one is equality
   bv_feasible_list_element_t* current = db->memory + index;
-  if (current->eq) {
-    return current->value;
-  }
-
-  // Just dis-equalities, pick the smallest available one
-  ivector_t disequal_values;
-  init_ivector(&disequal_values, 0);
-
-  while (index != 0) {
-    current = db->memory + index;
-    assert(!current->eq);
-    ivector_push(&disequal_values, current->value);
-    index = current->prev;
-  }
-
-  int_array_sort(disequal_values.data, disequal_values.size);
-
-  uint32_t value = 0;
-  uint32_t i = 0;
-  while (i < disequal_values.size && value == disequal_values.data[i]) {
-    value ++;
-    i ++;
-  }
-
-  delete_ivector(&disequal_values);
-
-  return value;
+  return current->domain;
 }
 
 static
-void bv_feasible_set_new_element(bv_feasible_set_db_t* db, variable_t x, bool eq, uint32_t value, variable_t reason) {
+void bv_feasible_set_new_element(bv_feasible_set_db_t* db,
+                                 variable_t x,
+                                 bv_domain_t* domain,
+                                 term_t* reason,
+                                 bdds_t* reason_bdd) {
+    
   // Allocate a new one
   uint32_t old_index = bv_feasible_set_db_get_index(db, x);
   uint32_t new_index = db->memory_size;
@@ -241,10 +221,10 @@ void bv_feasible_set_new_element(bv_feasible_set_db_t* db, variable_t x, bool eq
   db->memory_size ++;
   // Setup the element
   bv_feasible_list_element_t* new_element = db->memory + new_index;
-  new_element->eq = eq;
-  new_element->reason = reason;
-  new_element->value = value;
-  new_element->prev = old_index;
+  new_element->domain     = domain;
+  new_element->reason     = reason;
+  new_element->reason_bdd = reason_bdd;
+  new_element->prev       = old_index;
   // Add to map
   int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x);
   if (find == NULL) {
@@ -255,275 +235,241 @@ void bv_feasible_set_new_element(bv_feasible_set_db_t* db, variable_t x, bool eq
   // Add to updates list
   ivector_push(&db->updates, x);
 
-  // If fixed, put into the fixed array
-  if (eq) {
-    ivector_push(&db->fixed_variables, x);
-  }
+  /* // If fixed, put into the fixed array */
+  /* if (eq) { */
+  /*   ivector_push(&db->fixed_variables, x); */
+  /* } */
 }
 
-bool bv_feasible_set_db_set_disequal(bv_feasible_set_db_t* db, variable_t x, uint32_t v, variable_t reason) {
+void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize) {
+  bv_domain_t* domain = bv_domain_create(bitsize, x, db->manager);
+  bv_feasible_set_new_element(db, x, domain, NULL, NULL);
+}
+
+bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db,
+                                   variable_t x,
+                                   term_t reason,
+                                   bvconstant_t* v) {
+
   uint32_t index = bv_feasible_set_db_get_index(db, x);
+  bv_feasible_list_element_t* current = db->memory + index;
 
-  bool conflict = false;
+  const varWnodes_t* varWnodes  = bv_domain_getvar(current->domain);
+  bdds_t* reason_bdds     = bdds_create(v->bitsize, varWnodes);
+  bv_domain_t* new_domain = bv_domain_update(reason_bdds, reason, v, current->domain);
 
-  while (index != 0) {
-    bv_feasible_list_element_t* current = db->memory + index;
-    if (current->eq) {
-      // We're set to be equal already
-      if (v == current->value) {
-        conflict = true;
-        break;
-      } else {
-        // No new information
-        return true;
-      }
-    } else {
-      // We know this already
-      if (v == current->value) {
-        return true;
-      }
-    }
-    index = current->prev;
+  // No new information, the BDD version of the reason is freed
+  if (new_domain == current->domain) {
+    bdds_free(reason_bdds);
+    return false;
   }
-
-  // New information, record it
-  bv_feasible_set_new_element(db, x, false, v, reason);
-
-  return !conflict;
-}
-
-bool bv_feasible_set_db_set_equal(bv_feasible_set_db_t* db, variable_t x, uint32_t v, variable_t reason) {
-  uint32_t index = bv_feasible_set_db_get_index(db, x);
-
-  bool conflict = false;
-
-  while (index != 0) {
-    bv_feasible_list_element_t* current = db->memory + index;
-    if (current->eq) {
-      // We're set to be equal already
-      if (v == current->value) {
-        // No new information
-        return true;
-      } else {
-        // We have a conflict
-        conflict = true;
-        break;
-      }
-    } else {
-      // Just check for conflicts
-      if (v == current->value) {
-        conflict = true;
-        break;
-      }
-    }
-    index = current->prev;
-  }
-
-  // New information, record it
-  bv_feasible_set_new_element(db, x, true, v, reason);
-
-  return !conflict;
-}
-
-void bv_feasible_set_db_push(bv_feasible_set_db_t* db) {
-  scope_holder_push(&db->scope,
-     &db->updates.size,
-     &db->fixed_variables.size,
-     &db->fixed_variables_i,
-     NULL
-  );
-}
-
-void bv_feasible_set_db_pop(bv_feasible_set_db_t* db) {
-
-  uint32_t old_updates_size;
-  uint32_t old_fixed_variable_size;
-
-  scope_holder_pop(&db->scope,
-      &old_updates_size,
-      &old_fixed_variable_size,
-      &db->fixed_variables_i,
-      NULL
-  );
-
-  // Undo fixed variables
-  ivector_shrink(&db->fixed_variables, old_fixed_variable_size);
-
-  // Undo updates
-  while (db->updates.size > old_updates_size) {
-    // The variable that was updated
-    variable_t x = ivector_last(&db->updates);
-    ivector_pop(&db->updates);
-    // Remove the element
-    db->memory_size --;
-    bv_feasible_list_element_t* element = db->memory + db->memory_size;
-    uint32_t prev = element->prev;
-    // Redirect map to the previous one
-    int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x);
-    assert(find != NULL);
-    assert(find->val == db->memory_size);
-    find->val = prev;
-  }
-
-}
-
-variable_t bv_feasible_set_db_get_eq_reason(bv_feasible_set_db_t* db, variable_t x) {
-
-  // Go back from the top reason for x and gather the indices
-  uint32_t index = bv_feasible_set_db_get_index(db, x);
-  assert(index);
-
-  assert(index);
-  while (index) {
-    bv_feasible_list_element_t* current = db->memory + index;
-    if (current->eq) {
-      return current->reason;
-    }
-    index = current->prev;
-  }
-
-  assert(false);
-  return variable_null;
-}
-
-void bv_feasible_set_db_get_conflict(bv_feasible_set_db_t* db, variable_t x, ivector_t* conflict) {
-  // Go back from the top reason for x and gather the indices
-  uint32_t index = bv_feasible_set_db_get_index(db, x);
-  assert(index);
-
-  // Conflict is always between top one and one some below
-  bv_feasible_list_element_t* first = db->memory + index;
-
-  bv_feasible_list_element_t* current = NULL;
-
-  index = first->prev;
-  assert(index);
-  while (index) {
-
-    current = db->memory + index;
-
-    if (first->eq && current->eq) {
-      // Second equality must be in conflict.
-      // We have x = y && x = z, implying different values on x
-      // Conflict is x = y && x = z && y != z
-      assert(first->value != current->value);
-
-      variable_t x_eq_y_var = first->reason;
-      variable_t x_eq_z_var = current->reason;
-      assert(trail_get_boolean_value(db->trail, x_eq_y_var));
-      assert(trail_get_boolean_value(db->trail, x_eq_z_var));
-      term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var);
-      term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var);
-      composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y);
-      composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z);
-
-      term_t x_term = variable_db_get_term(db->var_db, x);
-      term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
-      term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
-
-      ivector_push(conflict, x_eq_y);
-      ivector_push(conflict, x_eq_z);
-      ivector_push(conflict, opposite_term(y_eq_z));
-
-      return;
-    }
-
-    if (first->eq && !current->eq) {
-      if (first->value == current->value) {
-        // We have x = y && x != z, the conflict being
-        // x = y && x != z && y = z
-
-        variable_t x_eq_y_var = first->reason;
-        variable_t x_eq_z_var = current->reason;
-        assert(trail_get_boolean_value(db->trail, x_eq_y_var));
-        assert(!trail_get_boolean_value(db->trail, x_eq_z_var));
-        term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var);
-        term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var);
-        composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y);
-        composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z);
-
-        term_t x_term = variable_db_get_term(db->var_db, x);
-        term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
-        term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-        term_t y_eq_z = yices_eq(y_term, z_term);
-
-        ivector_push(conflict, x_eq_y);
-        ivector_push(conflict, opposite_term(x_eq_z));
-        ivector_push(conflict, y_eq_z);
-
-        return;
-      }
-    }
-
-    if (!first->eq && current->eq) {
-      // Equality: must be in conflict
-      assert(first->value == current->value);
-
-      // We have x != y && x = z, the conflict being
-      // x != y && x = z && y = z
-
-      variable_t x_eq_y_var = first->reason;
-      variable_t x_eq_z_var = current->reason;
-      assert(!trail_get_boolean_value(db->trail, x_eq_y_var));
-      assert(trail_get_boolean_value(db->trail, x_eq_z_var));
-      term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var);
-      term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var);
-      composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y);
-      composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z);
-
-      term_t x_term = variable_db_get_term(db->var_db, x);
-      term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
-      term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
-
-      ivector_push(conflict, opposite_term(x_eq_y));
-      ivector_push(conflict, x_eq_z);
-      ivector_push(conflict, y_eq_z);
-
-      return;
-    }
-
-    index = db->memory[index].prev;
-  }
-
-  assert(false);
-}
-
-void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars) {
-
-  assert(db->trail->decision_level == 0);
-
-  if (gc_vars->level == 0) {
-    // We keep all the reasons (start from 1, 0 is not used)
-    uint32_t element_i;
-    for (element_i = 1; element_i < db->memory_size; ++ element_i) {
-      bv_feasible_list_element_t* element = db->memory + element_i;
-      gc_info_mark(gc_vars, element->reason);
-    }
-  }
-}
-
-void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars) {
-  // We relocatre all reasons
-  uint32_t element_i;
-  for (element_i = 1; element_i < db->memory_size; ++ element_i) {
-    bv_feasible_list_element_t* element = db->memory + element_i;
-    variable_t x = element->reason;
-    x = gc_info_get_reloc(gc_vars, x);
-    assert(x != variable_null);
-    element->reason = x;
-  }
+  
+  // Otherwise, new information, we record it
+  bv_feasible_set_new_element(db, x, new_domain, &reason, reason_bdds);
+  
+  return false;
 }
 
 
+/* void bv_feasible_set_db_push(bv_feasible_set_db_t* db) { */
+/*   scope_holder_push(&db->scope, */
+/*      &db->updates.size, */
+/*      &db->fixed_variables.size, */
+/*      &db->fixed_variables_i, */
+/*      NULL */
+/*   ); */
+/* } */
 
-variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db) {
-  for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) {
-    variable_t var = db->fixed_variables.data[db->fixed_variables_i];
-    if (!trail_has_value(db->trail, var)) {
-      return var;
-    }
-  }
-  return variable_null;
-}
+/* void bv_feasible_set_db_pop(bv_feasible_set_db_t* db) { */
+
+/*   uint32_t old_updates_size; */
+/*   uint32_t old_fixed_variable_size; */
+
+/*   scope_holder_pop(&db->scope, */
+/*       &old_updates_size, */
+/*       &old_fixed_variable_size, */
+/*       &db->fixed_variables_i, */
+/*       NULL */
+/*   ); */
+
+/*   // Undo fixed variables */
+/*   ivector_shrink(&db->fixed_variables, old_fixed_variable_size); */
+
+/*   // Undo updates */
+/*   while (db->updates.size > old_updates_size) { */
+/*     // The variable that was updated */
+/*     variable_t x = ivector_last(&db->updates); */
+/*     ivector_pop(&db->updates); */
+/*     // Remove the element */
+/*     db->memory_size --; */
+/*     bv_feasible_list_element_t* element = db->memory + db->memory_size; */
+/*     uint32_t prev = element->prev; */
+/*     // Redirect map to the previous one */
+/*     int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x); */
+/*     assert(find != NULL); */
+/*     assert(find->val == db->memory_size); */
+/*     find->val = prev; */
+/*   } */
+
+/* } */
+
+/* variable_t bv_feasible_set_db_get_eq_reason(bv_feasible_set_db_t* db, variable_t x) { */
+
+/*   // Go back from the top reason for x and gather the indices */
+/*   uint32_t index = bv_feasible_set_db_get_index(db, x); */
+/*   assert(index); */
+
+/*   assert(index); */
+/*   while (index) { */
+/*     bv_feasible_list_element_t* current = db->memory + index; */
+/*     if (current->eq) { */
+/*       return current->reason; */
+/*     } */
+/*     index = current->prev; */
+/*   } */
+
+/*   assert(false); */
+/*   return variable_null; */
+/* } */
+
+/* void bv_feasible_set_db_get_conflict(bv_feasible_set_db_t* db, variable_t x, ivector_t* conflict) { */
+/*   // Go back from the top reason for x and gather the indices */
+/*   uint32_t index = bv_feasible_set_db_get_index(db, x); */
+/*   assert(index); */
+
+/*   // Conflict is always between top one and one some below */
+/*   bv_feasible_list_element_t* first = db->memory + index; */
+
+/*   bv_feasible_list_element_t* current = NULL; */
+
+/*   index = first->prev; */
+/*   assert(index); */
+/*   while (index) { */
+
+/*     current = db->memory + index; */
+
+/*     if (first->eq && current->eq) { */
+/*       // Second equality must be in conflict. */
+/*       // We have x = y && x = z, implying different values on x */
+/*       // Conflict is x = y && x = z && y != z */
+/*       assert(first->value != current->value); */
+
+/*       variable_t x_eq_y_var = first->reason; */
+/*       variable_t x_eq_z_var = current->reason; */
+/*       assert(trail_get_boolean_value(db->trail, x_eq_y_var)); */
+/*       assert(trail_get_boolean_value(db->trail, x_eq_z_var)); */
+/*       term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
+/*       term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
+/*       composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
+/*       composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+
+/*       term_t x_term = variable_db_get_term(db->var_db, x); */
+/*       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
+/*       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
+/*       term_t y_eq_z = yices_eq(y_term, z_term); */
+
+/*       ivector_push(conflict, x_eq_y); */
+/*       ivector_push(conflict, x_eq_z); */
+/*       ivector_push(conflict, opposite_term(y_eq_z)); */
+
+/*       return; */
+/*     } */
+
+/*     if (first->eq && !current->eq) { */
+/*       if (first->value == current->value) { */
+/*         // We have x = y && x != z, the conflict being */
+/*         // x = y && x != z && y = z */
+
+/*         variable_t x_eq_y_var = first->reason; */
+/*         variable_t x_eq_z_var = current->reason; */
+/*         assert(trail_get_boolean_value(db->trail, x_eq_y_var)); */
+/*         assert(!trail_get_boolean_value(db->trail, x_eq_z_var)); */
+/*         term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
+/*         term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
+/*         composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
+/*         composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+
+/*         term_t x_term = variable_db_get_term(db->var_db, x); */
+/*         term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
+/*         term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
+/*         term_t y_eq_z = yices_eq(y_term, z_term); */
+
+/*         ivector_push(conflict, x_eq_y); */
+/*         ivector_push(conflict, opposite_term(x_eq_z)); */
+/*         ivector_push(conflict, y_eq_z); */
+
+/*         return; */
+/*       } */
+/*     } */
+
+/*     if (!first->eq && current->eq) { */
+/*       // Equality: must be in conflict */
+/*       assert(first->value == current->value); */
+
+/*       // We have x != y && x = z, the conflict being */
+/*       // x != y && x = z && y = z */
+
+/*       variable_t x_eq_y_var = first->reason; */
+/*       variable_t x_eq_z_var = current->reason; */
+/*       assert(!trail_get_boolean_value(db->trail, x_eq_y_var)); */
+/*       assert(trail_get_boolean_value(db->trail, x_eq_z_var)); */
+/*       term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
+/*       term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
+/*       composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
+/*       composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+
+/*       term_t x_term = variable_db_get_term(db->var_db, x); */
+/*       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
+/*       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
+/*       term_t y_eq_z = yices_eq(y_term, z_term); */
+
+/*       ivector_push(conflict, opposite_term(x_eq_y)); */
+/*       ivector_push(conflict, x_eq_z); */
+/*       ivector_push(conflict, y_eq_z); */
+
+/*       return; */
+/*     } */
+
+/*     index = db->memory[index].prev; */
+/*   } */
+
+/*   assert(false); */
+/* } */
+
+/* void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars) { */
+
+/*   assert(db->trail->decision_level == 0); */
+
+/*   if (gc_vars->level == 0) { */
+/*     // We keep all the reasons (start from 1, 0 is not used) */
+/*     uint32_t element_i; */
+/*     for (element_i = 1; element_i < db->memory_size; ++ element_i) { */
+/*       bv_feasible_list_element_t* element = db->memory + element_i; */
+/*       gc_info_mark(gc_vars, element->reason); */
+/*     } */
+/*   } */
+/* } */
+
+/* void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars) { */
+/*   // We relocatre all reasons */
+/*   uint32_t element_i; */
+/*   for (element_i = 1; element_i < db->memory_size; ++ element_i) { */
+/*     bv_feasible_list_element_t* element = db->memory + element_i; */
+/*     variable_t x = element->reason; */
+/*     x = gc_info_get_reloc(gc_vars, x); */
+/*     assert(x != variable_null); */
+/*     element->reason = x; */
+/*   } */
+/* } */
+
+
+
+/* variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db) { */
+/*   for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) { */
+/*     variable_t var = db->fixed_variables.data[db->fixed_variables_i]; */
+/*     if (!trail_has_value(db->trail, var)) { */
+/*       return var; */
+/*     } */
+/*   } */
+/*   return variable_null; */
+/* } */
