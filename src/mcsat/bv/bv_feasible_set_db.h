@@ -25,6 +25,7 @@
 
 #include "mcsat/variable_db.h"
 #include "mcsat/mcsat_types.h"
+#include "mcsat/value.h"
 
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct bv_feasible_set_db_struct bv_feasible_set_db_t;
@@ -33,16 +34,20 @@ typedef struct bv_feasible_set_db_struct bv_feasible_set_db_t;
 DdManager* bv_feasible_manager(bv_feasible_set_db_t* db);
 
 /** Create a new database */
-bv_feasible_set_db_t* bv_feasible_set_db_new(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail);
+bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx);
 
 /** Delete the database */
 void bv_feasible_set_db_delete(bv_feasible_set_db_t* db);
 
-/* Enter a new variable in the database, with domain 1 */
+void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var);
+void bv_feasible_set_db_print(bv_feasible_set_db_t* db);
+
+
+/** Enter a new variable in the database, with domain 1 */
 void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize);
 
-/** Mark that x should be different from given value. */
-bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db, variable_t x, term_t reason, bvconstant_t* v);
+/** Update domain with new constraint */
+bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db, variable_t x, term_t reason, const mcsat_value_t* v);
 
 /* /\** Get a feasible value. *\/ */
 /* uint32_t bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x); */

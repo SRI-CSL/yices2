@@ -40,6 +40,9 @@ typedef struct varWnodes_s {
   /* The BDD manager */
   DdManager* manager;
 
+  /* Plugin context */
+  plugin_context_t* ctx;
+  
 } varWnodes_t;
 
 
@@ -65,13 +68,21 @@ typedef struct bdds_s {
 
 /* Must be called only once during a run for a given variable */
 
-varWnodes_t* varWnodes_create(uint32_t bitsize, variable_t var, DdManager* manager){
+varWnodes_t* varWnodes_create(uint32_t bitsize, variable_t var,
+                              DdManager* manager, plugin_context_t* ctx){
+
+  if (ctx_trace_enabled(ctx, "bv_plugin")) {
+    ctx_trace_printf(ctx, "bv_varWnodes_create(...) on variable ");
+    variable_db_print_variable(ctx->var_db, var,ctx_trace_out(ctx));
+    ctx_trace_printf(ctx, "\n");
+  }
 
   varWnodes_t* vn = safe_malloc(sizeof(varWnodes_t));
   vn->var         = var;
   vn->bitsize     = bitsize;
   vn->manager     = manager;
-
+  vn->ctx         = ctx;
+  
   /* Creating the BDD nodes corresponding to the variable's bits.
      These will never change. */
   vn->bitnodes  = (DdNode**) safe_malloc(bitsize * sizeof(DdNode*));
@@ -101,6 +112,10 @@ bdds_t* bdds_create(uint32_t bitsize, const varWnodes_t* vn){
   bdds->bitsize = bitsize;
   bdds->input   = vn;
   bdds->data    = (DdNode**) safe_malloc(bitsize * sizeof(DdNode*));
+  DdNode** data = bdds->data;
+  for(uint32_t i = 0; i < bitsize; i++){
+    data[i] = NULL;
+  }
   return bdds;
 }
 
@@ -111,7 +126,9 @@ void bdds_free(bdds_t* bdds){
 }
 
 
-void bdds_print(bdds_t* bdds, variable_db_t* var_db, FILE* f){
+void bdds_print(bdds_t* bdds){
+  FILE* f = ctx_trace_out(bdds->input->ctx);
+  variable_db_t* var_db = bdds->input->ctx->var_db;
   fprintf(f, "Bitvector function of arity %u with input ", (unsigned) bdds->bitsize);
   variable_db_print_variable(var_db, bdds->input->var, f);
   for(uint32_t i = 0; i < bdds->bitsize; i++){
@@ -124,8 +141,10 @@ void bdds_clear(bdds_t* bdds){
   uint32_t bitsize   = bdds->bitsize;
   DdNode** data      = bdds->data;
   for(uint32_t i = 0; i < bitsize; i++){
-    Cudd_RecursiveDeref(manager,data[i]);
-    data[i] = NULL;
+    if (data[i] != NULL){
+      Cudd_RecursiveDeref(manager,data[i]);
+      data[i] = NULL;
+    }
   }
 }
 

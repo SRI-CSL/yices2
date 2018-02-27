@@ -42,9 +42,10 @@ const varWnodes_t* bv_domain_getvar(bv_domain_t* domain){
   return domain->varWnodes;
 }
 
-bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var, DdManager* manager){
+bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var,
+                              DdManager* manager, plugin_context_t* ctx){
   bv_domain_t* bvdom = safe_malloc(sizeof(bv_domain_t));
-  bvdom->varWnodes   = varWnodes_create(bitsize, var, manager);
+  bvdom->varWnodes   = varWnodes_create(bitsize, var, manager, ctx);
   /* Initialising the domain to True, can be changed later. */
   bvdom->domain      = Cudd_ReadOne(manager);
   Cudd_Ref(bvdom->domain);
@@ -65,7 +66,7 @@ void bv_domain_print(bv_domain_t* bvdom){
 
 
 
-bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, bvconstant_t* v, bv_domain_t* domain){
+bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* v, bv_domain_t* domain){
 
   /* TODO. So far the update has no effect */
   return domain;

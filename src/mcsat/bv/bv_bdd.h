@@ -24,7 +24,8 @@ typedef struct bdds_s bdds_t;
 
 
 /* Creating and destructing var with nodes */
-extern varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t var, DdManager* manager);
+extern varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t var,
+                                     DdManager* manager, plugin_context_t* ctx);
 extern void varWnodes_free(varWnodes_t* vn);
 
 extern variable_t bv_varWnodes_getvar(const varWnodes_t* vn);

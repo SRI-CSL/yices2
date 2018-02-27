@@ -62,8 +62,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv->ctx = ctx;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
-  bv->feasible = bv_feasible_set_db_new(ctx->terms, ctx->var_db, ctx->trail);
- 
+  bv->feasible = bv_feasible_set_db_new(ctx);
+
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
   }
@@ -207,7 +207,8 @@ void bv_watch_composite(bv_plugin_t* bv, term_t t, trail_token_t* prop) {
 
 static
 void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
-  bv_plugin_t* bv = (bv_plugin_t*) plugin;
+  bv_plugin_t* bv       = (bv_plugin_t*) plugin;
+  variable_db_t* var_db = bv->ctx->var_db;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")
       || ctx_trace_enabled(bv->ctx, "bv_plugin")) {
@@ -217,6 +218,12 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
   term_kind_t t_kind = term_kind(bv->ctx->terms, t);
 
+  variable_t var;
+  if (is_bitvector_term(bv->ctx->terms, t)) {
+    var = variable_db_get_variable(var_db, t);
+    bv_feasible_set_db_set_init(bv->feasible, var, term_bitsize(bv->ctx->terms, t));
+  }
+  
   switch (t_kind) {
   case BV_ARRAY: {
     if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
@@ -465,6 +472,17 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
         if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
           ctx_trace_printf(bv->ctx, "We should update the feasibility set for ");
           ctx_trace_term(bv->ctx, variable_db_get_term(var_db, var_list[0]));
+          ctx_trace_printf(bv->ctx, "Used to be ");
+          bv_feasible_set_db_print_var(bv->feasible, var_list[0]);
+        }
+
+        const mcsat_value_t* bv_value = trail_get_value(trail, bv_constraint);
+
+        bv_feasible_set_db_set_update(bv->feasible, var_list[0], bv_constraint, bv_value);
+
+        if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
+          ctx_trace_printf(bv->ctx, "is now ");
+          bv_feasible_set_db_print_var(bv->feasible, var_list[0]);
         }
 
         /* // Check if equality is true or false and add to feasibility db */

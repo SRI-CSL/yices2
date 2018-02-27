@@ -18,7 +18,8 @@
 typedef struct bv_domain_s bv_domain_t;
 
 /* Creating and destructing var with nodes */
-extern bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var, DdManager* manager);
+extern bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var,
+                                     DdManager* manager, plugin_context_t* ctx);
 extern void         bv_domain_free(bv_domain_t* bvdom);
 extern void         bv_domain_print(bv_domain_t* bvdom);
 
@@ -34,7 +35,7 @@ extern const varWnodes_t* bv_domain_getvar(bv_domain_t* bvdom);
  so the output pointer is the conjunction of the old domain with bdds.
  */
 
-extern bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, bvconstant_t* v, bv_domain_t* domain);
+extern bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* v, bv_domain_t* domain);
 
 #endif /* BV_BDD_H_ */
 

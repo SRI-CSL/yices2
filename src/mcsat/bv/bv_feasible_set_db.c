@@ -27,6 +27,7 @@
 #include "mcsat/bv/bv_domain.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
+#include "mcsat/value.h"
 
 #include "utils/int_array_sort.h"
 
@@ -51,11 +52,6 @@ typedef struct {
   /** BDD of reason (was computed once, so this is cached). */
   bdds_t* reason_bdd;
   
-  /* /\* The following is kept so that the code below compiles *\/ */
-  /* /\** Is it an equality *\/ */
-  /* bool eq; */
-  /* /\** The value (x != value) or (x = value) *\/ */
-  /* uint32_t value; */
 } bv_feasible_list_element_t;
 
 
@@ -89,14 +85,9 @@ struct bv_feasible_set_db_struct {
   /** Scope for push/pop */
   scope_holder_t scope;
 
-  /** Trail */
-  const mcsat_trail_t* trail;
+  /** The plugin context */
+  plugin_context_t* ctx;
 
-  /** Variable database */
-  variable_db_t* var_db;
-
-  /** Terms */
-  term_table_t* terms;
 };
 
 
@@ -114,48 +105,58 @@ uint32_t bv_feasible_set_db_get_index(bv_feasible_set_db_t* db, variable_t x) {
   }
 }
 
-void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out) {
+void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var) {
+  FILE* out = ctx_trace_out(db->ctx);
   fprintf(out, "Feasible sets of ");
-  variable_db_print_variable(db->var_db, var, out);
+  variable_db_print_variable(db->ctx->var_db, var, out);
   fprintf(out, " :\n");
   uint32_t index = bv_feasible_set_db_get_index(db, var);
   while (index != 0) {
     bv_feasible_list_element_t* current = db->memory + index;
     /* fprintf(out, "\t%d\n", current->value); */
     bv_domain_print(current->domain);
-    fprintf(out, "\t\tDue to ");
-    /* term_t reason_term = variable_db_get_term(db->var_db, current->reason); */
-    term_print_to_file(out, db->terms, current->reason[0]);
-    /* if (term_type_kind(db->terms, reason) == BOOL_TYPE) { */
-    /*   // Otherwise it's a term evaluation, always true */
-    /*   fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->trail, current->reason) ? "true" : "false"); */
-    /* } */
+    if (current->reason != NULL){
+      fprintf(out, "\t\tDue to ");
+      term_print_to_file(out, db->ctx->terms, current->reason[0]);
+      /* if (term_type_kind(db->terms, reason) == BOOL_TYPE) { */
+      /*   // Otherwise it's a term evaluation, always true */
+      /*   fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->trail, current->reason) ? "true" : "false"); */
+      /* } */
+    }
     index = current->prev;
   }
 }
 
-void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out) {
+void bv_feasible_set_db_print(bv_feasible_set_db_t* db) {
+
+  FILE* out = ctx_trace_out(db->ctx);
+  
   int_hmap_pair_t* it;
   for (it = int_hmap_first_record(&db->var_to_eq_set_map); it != NULL; it = int_hmap_next_record(&db->var_to_eq_set_map, it)) {
 
     variable_t var = it->key;
     fprintf(out, "Feasible sets of ");
-    variable_db_print_variable(db->var_db, var, out);
+    variable_db_print_variable(db->ctx->var_db, var, out);
     fprintf(out, " :\n");
-    if (trail_has_value(db->trail, var)) {
+    if (trail_has_value(db->ctx->trail, var)) {
       fprintf(out, "\tassigned to: ");
-      const mcsat_value_t* var_value = trail_get_value(db->trail, var);
+      const mcsat_value_t* var_value = trail_get_value(db->ctx->trail, var);
       mcsat_value_print(var_value, out);
       fprintf(out, "\n");
     }
 
-    bv_feasible_set_db_print_var(db, var, out);
+    bv_feasible_set_db_print_var(db, var);
   }
 }
 
 #define INITIAL_DB_SIZE 100
 
-bv_feasible_set_db_t* bv_feasible_set_db_new(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail) {
+bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx) {
+
+  if (ctx_trace_enabled(ctx, "bv_plugin")) {
+    ctx_trace_printf(ctx, "bv_feasible_set_db_new(...)\n");
+  }
+
   bv_feasible_set_db_t* db = safe_malloc(sizeof(bv_feasible_set_db_t));
 
   db->manager = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
@@ -172,15 +173,17 @@ bv_feasible_set_db_t* bv_feasible_set_db_new(term_table_t* terms, variable_db_t*
 
   scope_holder_construct(&db->scope);
 
-  db->trail = trail;
-  db->var_db = var_db;
-  db->terms = terms;
+  db->ctx = ctx;
 
   return db;
 }
 
 void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
-  // Delete
+
+  if (ctx_trace_enabled(db->ctx, "bv_plugin")) {
+    ctx_trace_printf(db->ctx, "bv_feasible_set_db_delete(...)\n");
+  }
+
   Cudd_Quit(db->manager);
   delete_int_hmap(&db->var_to_eq_set_map);
   delete_ivector(&db->updates);
@@ -242,24 +245,50 @@ void bv_feasible_set_new_element(bv_feasible_set_db_t* db,
 }
 
 void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize) {
-  bv_domain_t* domain = bv_domain_create(bitsize, x, db->manager);
+
+  uint32_t index = bv_feasible_set_db_get_index(db, x);
+
+  if (index != 0) assert(false);
+  if (ctx_trace_enabled(db->ctx, "bv_plugin")) {
+    ctx_trace_printf(db->ctx, "bv_feasible_set_db_init for variable ");
+    variable_db_print_variable(db->ctx->var_db, x,ctx_trace_out(db->ctx));
+    ctx_trace_printf(db->ctx, "\n");
+  }
+
+  bv_domain_t* domain = bv_domain_create(bitsize, x, db->manager, db->ctx);
   bv_feasible_set_new_element(db, x, domain, NULL, NULL);
 }
 
 bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db,
                                    variable_t x,
                                    term_t reason,
-                                   bvconstant_t* v) {
+                                   const mcsat_value_t* v) {
 
   uint32_t index = bv_feasible_set_db_get_index(db, x);
   bv_feasible_list_element_t* current = db->memory + index;
 
   const varWnodes_t* varWnodes  = bv_domain_getvar(current->domain);
-  bdds_t* reason_bdds     = bdds_create(v->bitsize, varWnodes);
+  uint32_t bitsize;
+
+  switch (v->type) {
+  case VALUE_BV: {
+    bitsize = v->bv_value.bitsize;
+    break;
+  }
+  case VALUE_BOOLEAN: {
+    bitsize = 1;
+    break;
+  }
+  default:
+    assert(false);
+  }
+
+  bdds_t* reason_bdds     = bdds_create(bitsize, varWnodes);
   bv_domain_t* new_domain = bv_domain_update(reason_bdds, reason, v, current->domain);
 
   // No new information, the BDD version of the reason is freed
   if (new_domain == current->domain) {
+    bdds_clear(reason_bdds);
     bdds_free(reason_bdds);
     return false;
   }
