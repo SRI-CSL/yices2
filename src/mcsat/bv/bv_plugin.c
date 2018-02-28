@@ -616,10 +616,7 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   bvconstant_t b;
   uint32_t bitsize;
 
-
-
   assert(!trail_has_value(bv->ctx->trail, x));
-
     
   /* if (trail_has_cached_value(bv->ctx->trail, x)) { */
   /*   // Use the cached value if exists */

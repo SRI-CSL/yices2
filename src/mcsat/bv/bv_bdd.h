@@ -29,6 +29,7 @@ extern varWnodes_t* varWnodes_create(uint32_t bitsize, const variable_t var,
 extern void varWnodes_free(varWnodes_t* vn);
 
 extern variable_t bv_varWnodes_getvar(const varWnodes_t* vn);
+extern plugin_context_t* bv_varWnodes_getctx(const varWnodes_t* vn);
 extern DdManager* bv_varWnodes_manager(const varWnodes_t* vn);
 
 /* Creating a function from bitvectors to bitvectors,
@@ -45,11 +46,16 @@ extern void bdds_free(bdds_t* bdds);
 /* Printing */
 extern void bdds_print(bdds_t* bdds);
 
+/* Get the function's input */
+const varWnodes_t* bv_bdds_getvarWnodes(const bdds_t* bdds);
+/* Get the function's arity */
+uint32_t bv_bdds_bitsize(const bdds_t* bdds);
+  
 /* Now we program functions from bitvectors to bitvectors */
 
 /* The constant function;
    Assumes that the function bdds is previously cleared */
-extern void bdds_cst(bdds_t* bdds, const bvconstant_t* cst);
+extern void bdds_cst(bdds_t* bdds, bvconstant_t cst);
 
 /* The identity function.
    Assumes that the function bdds is previously cleared
@@ -58,12 +64,18 @@ extern void bdds_id(bdds_t* bdds);
 
 /*
  * Bitwise operations: bdds and a must be of same bitsize.
- * - result is in bv
+ * - result is in bdds
  */
 extern void bdds_complement(bdds_t* bdds);
 extern void bdds_and(bdds_t* bdds, const bdds_t* a);
 extern void bdds_or (bdds_t* bdds, const bdds_t* a);
 extern void bdds_xor(bdds_t* bdds, const bdds_t* a);
+
+/*
+ * Equality between a and b (result is in bdds, of bitsize 1)
+ */
+
+extern void bdds_eq(bdds_t* bdds, const bdds_t* a, const bdds_t* b);
 
 /*
  * Concatenation: bdds[0...n-1] = a[0.. n-1] and bdds[n ... n+m-1] = b[0...m-1]

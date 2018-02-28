@@ -103,6 +103,10 @@ variable_t bv_varWnodes_getvar(const varWnodes_t* vn){
   return vn->var;
 }
 
+plugin_context_t* bv_varWnodes_getctx(const varWnodes_t* vn){
+  return vn->ctx;
+}
+
 DdManager* bv_varWnodes_manager(const varWnodes_t* vn){
   return vn->manager;
 }
@@ -148,9 +152,17 @@ void bdds_clear(bdds_t* bdds){
   }
 }
 
-void bdds_cst(bdds_t* bdds, const bvconstant_t* cst){
+const varWnodes_t* bv_bdds_getvarWnodes(const bdds_t* bdds){
+  return bdds->input;
+}
 
-  assert(bdds->bitsize == cst->bitsize);
+uint32_t bv_bdds_bitsize(const bdds_t* bdds){
+  return bdds->bitsize;
+}
+
+void bdds_cst(bdds_t* bdds, bvconstant_t cst){
+
+  assert(bdds->bitsize == cst.bitsize);
   DdManager* manager = bdds->input->manager;
   uint32_t bitsize   = bdds->bitsize;
   DdNode** data      = bdds->data;
@@ -159,7 +171,7 @@ void bdds_cst(bdds_t* bdds, const bvconstant_t* cst){
   
   for(uint32_t i = 0; i < bitsize; i++){
     assert(data[i] == NULL);
-    b = bvconst_tst_bit(cst->data, i);
+    b = bvconst_tst_bit(cst.data, i);
     data[i] = b ? Cudd_ReadOne(manager) : Cudd_ReadLogicZero(manager);
     Cudd_Ref(data[i]);
   }
@@ -185,7 +197,7 @@ void bdds_complement(bdds_t* bdds){
   DdNode* previous;
   
   for(uint32_t i = 0; i < bitsize; i++){
-    previous = data[i];    
+    previous = data[i];
     data[i] = Cudd_Not(data[i]);
     assert(data[i] != previous);
   }
@@ -242,6 +254,36 @@ void bdds_xor(bdds_t* bdds, const bdds_t* a){
     data1[i] = Cudd_bddXor(manager,data2[i],previous);
     Cudd_Ref(data1[i]);
     Cudd_RecursiveDeref(manager,previous);
+  }
+}
+
+void bdds_eq(bdds_t* bdds, const bdds_t* a, const bdds_t* b){
+
+  DdManager* manager = bdds->input->manager;
+  uint32_t bitsize   = a->bitsize;
+  DdNode** data      = bdds->data;
+  DdNode** data1     = a->data;
+  DdNode** data2     = b->data;
+  assert(manager == a->input->manager);
+  assert(manager == b->input->manager);
+  assert(bdds->bitsize == 1);
+  assert(data[0] == NULL);
+  assert(bitsize == b->bitsize);
+
+  data[0] = Cudd_ReadOne(manager);
+  Cudd_Ref(data[0]);
+
+  DdNode* tmp;
+  DdNode* previous;
+  
+  for(uint32_t i = 0; i < bitsize; i++){
+    tmp = Cudd_bddXor(manager,data1[i],data2[i]);
+    Cudd_Ref(tmp);
+    previous = data[0];
+    data[0] = Cudd_bddAnd(manager,Cudd_Not(tmp),previous);
+    Cudd_Ref(data[0]);
+    Cudd_RecursiveDeref(manager,previous);
+    Cudd_RecursiveDeref(manager,tmp);
   }
 }
 

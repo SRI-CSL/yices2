@@ -65,9 +65,75 @@ void bv_domain_print(bv_domain_t* bvdom){
 }
 
 
+static
+void bv_domain_eval(bdds_t* result, term_t t){
+  const varWnodes_t* varWnodes = bv_bdds_getvarWnodes(result);
+  plugin_context_t* ctx      = bv_varWnodes_getctx(varWnodes);
+  /* variable_db_t* var_db      = ctx->var_db; */
+  /* const mcsat_trail_t* trail = ctx->trail; */
+  term_table_t* terms        = ctx->terms;
+  /* term_kind_t t_kind         = term_kind(terms, t); */
+  /* /\* uint32_t bitsize           = term_bitsize(terms, t); *\/ */
+  /* /\* composite_term_t* composite_term = composite_term_desc(ctx->terms, t); *\/ */
+  /* /\* uint32_t arity             = composite_term->arity; *\/ */
+
+  /* switch (t_kind) { */
+  /* case BV_ARRAY: */
+  /* case BV_DIV: */
+  /* case BV_REM: */
+  /* case BV_SDIV: */
+  /* case BV_SREM: */
+  /* case BV_SMOD: */
+  /* case BV_SHL: */
+  /* case BV_LSHR: */
+  /* case BV_ASHR: */
+  /* case SELECT_TERM: */
+  /* case BIT_TERM: */
+  /* case BV_EQ_ATOM: */
+  /* case BV_GE_ATOM: */
+  /* case BV_SGE_ATOM: */
+  /* default: */
+  /*   break; */
+  /* } */
+
+  uint32_t bitsize = bv_bdds_bitsize(result);
+  bvconstant_t b;
+  init_bvconstant(&b);
+  bvconstant_set_all_zero(&b, bitsize);
+  bdds_cst(result, b);
+  delete_bvconstant(&b);
+
+}
+
 
 bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* v, bv_domain_t* domain){
 
+  const varWnodes_t* varWnodes = bv_bdds_getvarWnodes(bdds);
+  
+  switch (v->type) {
+  case VALUE_BV: {
+    uint32_t bitsize = v->bv_value.bitsize;
+    bdds_t* t_bdds = bdds_create(bitsize, varWnodes);
+    bdds_t* v_bdds = bdds_create(bitsize, varWnodes);
+    bv_domain_eval(t_bdds, reason);
+    bdds_cst(v_bdds, v->bv_value);
+    bdds_eq(bdds, t_bdds, v_bdds);
+    bdds_clear(t_bdds);
+    bdds_free(t_bdds);
+    bdds_clear(v_bdds);
+    bdds_free(v_bdds);
+    break;
+  }
+  case VALUE_BOOLEAN: {
+    bv_domain_eval(bdds, reason);
+    if (!(v->b))
+      bdds_complement(bdds);
+    break;
+  }
+  default:
+    assert(false);
+  }
+  
   /* TODO. So far the update has no effect */
   return domain;
 }

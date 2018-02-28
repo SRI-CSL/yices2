@@ -268,22 +268,7 @@ bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db,
   bv_feasible_list_element_t* current = db->memory + index;
 
   const varWnodes_t* varWnodes  = bv_domain_getvar(current->domain);
-  uint32_t bitsize;
-
-  switch (v->type) {
-  case VALUE_BV: {
-    bitsize = v->bv_value.bitsize;
-    break;
-  }
-  case VALUE_BOOLEAN: {
-    bitsize = 1;
-    break;
-  }
-  default:
-    assert(false);
-  }
-
-  bdds_t* reason_bdds     = bdds_create(bitsize, varWnodes);
+  bdds_t* reason_bdds     = bdds_create(1, varWnodes);
   bv_domain_t* new_domain = bv_domain_update(reason_bdds, reason, v, current->domain);
 
   // No new information, the BDD version of the reason is freed
