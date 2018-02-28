@@ -29,41 +29,35 @@
 
 typedef struct bv_domain_s {
 
-  /* Variable */
-  varWnodes_t* varWnodes;
-
   /* The domain */
-  DdNode* domain;
+  bdds_t* domain;
 
 } bv_domain_t;
 
 
-const varWnodes_t* bv_domain_getvar(bv_domain_t* domain){
-  return domain->varWnodes;
+varWnodes_t* bv_domain_getvar(bv_domain_t* bvdom){
+  return bv_bdds_getvarWnodes(bvdom->domain);
 }
 
-bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var,
-                              DdManager* manager, plugin_context_t* ctx){
-  bv_domain_t* bvdom = safe_malloc(sizeof(bv_domain_t));
-  bvdom->varWnodes   = varWnodes_create(bitsize, var, manager, ctx);
+bv_domain_t* bv_domain_init(uint32_t bitsize, variable_t var,
+                            DdManager* manager, plugin_context_t* ctx){
+  bv_domain_t* bvdom     = safe_malloc(sizeof(bv_domain_t));
+  varWnodes_t* varWnodes = varWnodes_create(bitsize, var, manager, ctx);
+  bvdom->domain          = bdds_create(1, varWnodes);
   /* Initialising the domain to True, can be changed later. */
-  bvdom->domain      = Cudd_ReadOne(manager);
-  Cudd_Ref(bvdom->domain);
+  bv_bdds_one(bvdom->domain);
   return bvdom;
 }
 
 void bv_domain_free(bv_domain_t* bvdom){
-  varWnodes_free(bvdom->varWnodes);
-  DdManager* manager = bv_varWnodes_manager(bvdom->varWnodes);
-  Cudd_RecursiveDeref(manager,bvdom->domain);
+  bdds_clear(bvdom->domain);
+  bdds_free(bvdom->domain);
   safe_free(bvdom);
 }
 
 void bv_domain_print(bv_domain_t* bvdom){
-  DdManager* manager = bv_varWnodes_manager(bvdom->varWnodes);
-  Cudd_PrintDebug(manager, bvdom->domain, 0, 3);
+  bdds_print(bvdom->domain);
 }
-
 
 static
 void bv_domain_eval(bdds_t* result, term_t t){
@@ -72,43 +66,45 @@ void bv_domain_eval(bdds_t* result, term_t t){
   /* variable_db_t* var_db      = ctx->var_db; */
   /* const mcsat_trail_t* trail = ctx->trail; */
   term_table_t* terms        = ctx->terms;
-  /* term_kind_t t_kind         = term_kind(terms, t); */
-  /* /\* uint32_t bitsize           = term_bitsize(terms, t); *\/ */
-  /* /\* composite_term_t* composite_term = composite_term_desc(ctx->terms, t); *\/ */
-  /* /\* uint32_t arity             = composite_term->arity; *\/ */
 
-  /* switch (t_kind) { */
-  /* case BV_ARRAY: */
-  /* case BV_DIV: */
-  /* case BV_REM: */
-  /* case BV_SDIV: */
-  /* case BV_SREM: */
-  /* case BV_SMOD: */
-  /* case BV_SHL: */
-  /* case BV_LSHR: */
-  /* case BV_ASHR: */
-  /* case SELECT_TERM: */
-  /* case BIT_TERM: */
-  /* case BV_EQ_ATOM: */
-  /* case BV_GE_ATOM: */
-  /* case BV_SGE_ATOM: */
-  /* default: */
-  /*   break; */
-  /* } */
+  if (ctx_trace_enabled(ctx, "bv_plugin")) {
+    ctx_trace_printf(ctx, "bv_domain_eval(...), evaluating, as a bdd array, unit term ");
+    ctx_trace_term(ctx, t);
+  }
+  term_kind_t t_kind         = term_kind(terms, t);
+  /* uint32_t bitsize           = term_bitsize(terms, t); */
+  /* composite_term_t* composite_term = composite_term_desc(ctx->terms, t); */
+  /* uint32_t arity             = composite_term->arity; */
 
-  uint32_t bitsize = bv_bdds_bitsize(result);
-  bvconstant_t b;
-  init_bvconstant(&b);
-  bvconstant_set_all_zero(&b, bitsize);
-  bdds_cst(result, b);
-  delete_bvconstant(&b);
+  switch (t_kind) {
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case SELECT_TERM:
+  case BIT_TERM:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+  default:
+    break;
+  }
+
+  /* For now, we output the BDD [1,...,1] */
+  bv_bdds_one(result);
 
 }
 
 
-bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* v, bv_domain_t* domain){
+bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* v, bv_domain_t* bvdom){
 
-  const varWnodes_t* varWnodes = bv_bdds_getvarWnodes(bdds);
+  varWnodes_t* varWnodes = bv_bdds_getvarWnodes(bdds);
+  assert(varWnodes == bv_bdds_getvarWnodes(bvdom->domain));
   
   switch (v->type) {
   case VALUE_BV: {
@@ -133,8 +129,22 @@ bv_domain_t* bv_domain_update(bdds_t* bdds, term_t reason, const mcsat_value_t* 
   default:
     assert(false);
   }
+
+  bdds_t* tmp = bdds_create(1, varWnodes);
+  bv_bdds_one(tmp);
+  bdds_and(tmp, bdds);
+  bdds_and(tmp, bvdom->domain);
   
-  /* TODO. So far the update has no effect */
-  return domain;
+  /* if (bv_bdds_eq(tmp, bvdom->domain)){  Not sure test is ok */
+  if (true){
+    bdds_clear(tmp);
+    bdds_free(tmp);
+    return bvdom;
+  }
+
+  bv_domain_t* result = safe_malloc(sizeof(bv_domain_t));
+  result->domain      = tmp;
+  return result;  
+  
 }
 

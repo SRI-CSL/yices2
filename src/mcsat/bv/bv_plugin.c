@@ -478,7 +478,8 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
 
         const mcsat_value_t* bv_value = trail_get_value(trail, bv_constraint);
 
-        bv_feasible_set_db_set_update(bv->feasible, var_list[0], bv_constraint, bv_value);
+        term_t t = variable_db_get_term(var_db, bv_constraint);
+        bv_feasible_set_db_set_update(bv->feasible, var_list[0], t, bv_value);
 
         if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
           ctx_trace_printf(bv->ctx, "is now ");

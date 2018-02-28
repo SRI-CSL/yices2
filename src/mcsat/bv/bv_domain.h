@@ -18,12 +18,12 @@
 typedef struct bv_domain_s bv_domain_t;
 
 /* Creating and destructing var with nodes */
-extern bv_domain_t* bv_domain_create(uint32_t bitsize, variable_t var,
-                                     DdManager* manager, plugin_context_t* ctx);
+extern bv_domain_t* bv_domain_init(uint32_t bitsize, variable_t var,
+                                   DdManager* manager, plugin_context_t* ctx);
 extern void         bv_domain_free(bv_domain_t* bvdom);
 extern void         bv_domain_print(bv_domain_t* bvdom);
 
-extern const varWnodes_t* bv_domain_getvar(bv_domain_t* bvdom);
+extern varWnodes_t* bv_domain_getvar(bv_domain_t* bvdom);
 
 /*
  * Updating a domain,

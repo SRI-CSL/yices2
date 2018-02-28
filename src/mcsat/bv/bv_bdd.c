@@ -54,7 +54,7 @@ typedef struct varWnodes_s {
 typedef struct bdds_s {
 
   /* Input variable */
-  const varWnodes_t* input;
+  varWnodes_t* input;
   
   /* bitsize of the output */
   uint32_t bitsize;
@@ -111,7 +111,7 @@ DdManager* bv_varWnodes_manager(const varWnodes_t* vn){
   return vn->manager;
 }
 
-bdds_t* bdds_create(uint32_t bitsize, const varWnodes_t* vn){
+bdds_t* bdds_create(uint32_t bitsize, varWnodes_t* vn){
   bdds_t* bdds  = safe_malloc(sizeof(bdds_t));
   bdds->bitsize = bitsize;
   bdds->input   = vn;
@@ -128,7 +128,6 @@ void bdds_free(bdds_t* bdds){
   safe_free(bdds->data);
   safe_free(bdds);
 }
-
 
 void bdds_print(bdds_t* bdds){
   FILE* f = ctx_trace_out(bdds->input->ctx);
@@ -152,13 +151,44 @@ void bdds_clear(bdds_t* bdds){
   }
 }
 
-const varWnodes_t* bv_bdds_getvarWnodes(const bdds_t* bdds){
+varWnodes_t* bv_bdds_getvarWnodes(bdds_t* bdds){
   return bdds->input;
 }
 
 uint32_t bv_bdds_bitsize(const bdds_t* bdds){
   return bdds->bitsize;
 }
+
+bool bv_bdds_eq(const bdds_t* a, const bdds_t* b){
+
+  uint32_t bitsize   = a->bitsize;
+  assert(bitsize == b->bitsize);
+  DdNode** data1     = a->data;
+  DdNode** data2     = b->data;
+
+  bool result = true;
+  
+  for(uint32_t i = 0; i < bitsize; i++){
+    result = result && (data1[i] == data2[i]);
+  }
+
+  return result;
+}
+
+
+
+void bv_bdds_one(bdds_t* bdds){
+  DdManager* manager = bdds->input->manager;
+  uint32_t bitsize   = bdds->bitsize;
+  DdNode** data      = bdds->data;
+  for(uint32_t i = 0; i < bitsize; i++){
+    assert(data[i] == NULL);
+    data[i] = Cudd_ReadOne(manager);
+    Cudd_Ref(data[i]);
+  }
+}
+
+
 
 void bdds_cst(bdds_t* bdds, bvconstant_t cst){
 

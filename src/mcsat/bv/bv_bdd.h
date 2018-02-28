@@ -47,11 +47,17 @@ extern void bdds_free(bdds_t* bdds);
 extern void bdds_print(bdds_t* bdds);
 
 /* Get the function's input */
-const varWnodes_t* bv_bdds_getvarWnodes(const bdds_t* bdds);
+varWnodes_t* bv_bdds_getvarWnodes(bdds_t* bdds);
 /* Get the function's arity */
 uint32_t bv_bdds_bitsize(const bdds_t* bdds);
-  
+
+/* Compare two functions (every bit is a pointer to the same BDD) */
+bool bv_bdds_eq(const bdds_t* a, const bdds_t* b);
+
 /* Now we program functions from bitvectors to bitvectors */
+
+/* The constant function [1,...,1] */
+extern void bv_bdds_one(bdds_t* bdds);
 
 /* The constant function;
    Assumes that the function bdds is previously cleared */

@@ -255,7 +255,7 @@ void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_
     ctx_trace_printf(db->ctx, "\n");
   }
 
-  bv_domain_t* domain = bv_domain_create(bitsize, x, db->manager, db->ctx);
+  bv_domain_t* domain = bv_domain_init(bitsize, x, db->manager, db->ctx);
   bv_feasible_set_new_element(db, x, domain, NULL, NULL);
 }
 
