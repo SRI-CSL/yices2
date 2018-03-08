@@ -35,7 +35,7 @@ typedef enum {
   VALUE_RATIONAL,
   /** A value from the libpoly library */
   VALUE_LIBPOLY,
-  /** A bitvector value (no optimisation when less than 64 bits) */
+  /** A bitvector value */
   VALUE_BV
 } mcsat_value_type_t;
 

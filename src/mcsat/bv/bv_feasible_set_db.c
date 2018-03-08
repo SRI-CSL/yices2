@@ -55,7 +55,6 @@ typedef struct {
 } bv_feasible_list_element_t;
 
 
-
 struct bv_feasible_set_db_struct {
 
   /** BDD manager */
@@ -90,8 +89,7 @@ struct bv_feasible_set_db_struct {
 
 };
 
-
-DdManager* bv_feasible_manager(bv_feasible_set_db_t* db){
+DdManager* bv_feasible_set_db_get_bdd_manager(bv_feasible_set_db_t* db){
   return db->manager;
 }
 
@@ -105,8 +103,7 @@ uint32_t bv_feasible_set_db_get_index(bv_feasible_set_db_t* db, variable_t x) {
   }
 }
 
-void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var) {
-  FILE* out = ctx_trace_out(db->ctx);
+void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out) {
   fprintf(out, "Feasible sets of ");
   variable_db_print_variable(db->ctx->var_db, var, out);
   fprintf(out, " :\n");
@@ -127,10 +124,8 @@ void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var) {
   }
 }
 
-void bv_feasible_set_db_print(bv_feasible_set_db_t* db) {
+void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out) {
 
-  FILE* out = ctx_trace_out(db->ctx);
-  
   int_hmap_pair_t* it;
   for (it = int_hmap_first_record(&db->var_to_eq_set_map); it != NULL; it = int_hmap_next_record(&db->var_to_eq_set_map, it)) {
 
@@ -145,7 +140,7 @@ void bv_feasible_set_db_print(bv_feasible_set_db_t* db) {
       fprintf(out, "\n");
     }
 
-    bv_feasible_set_db_print_var(db, var);
+    bv_feasible_set_db_print_var(db, var, out);
   }
 }
 

@@ -5,12 +5,10 @@
  * license agreement which is downloadable along with this program.
  */
  
-#ifndef BV_PLUGIN_H_
-#define BV_PLUGIN_H_
+#pragma once
 
 #include "mcsat/plugin.h"
 
 /** Allocate a new BV plugin and setup the plugin-interface method */
 plugin_t* bv_plugin_allocator(void);
 
-#endif /* BV_PLUGIN_H_ */

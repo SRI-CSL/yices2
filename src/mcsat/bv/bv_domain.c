@@ -24,9 +24,7 @@
 
 #include <cudd.h>
 
-/* Datastructure for a BV variable and its domain (varies during a run).
-*/
-
+/** Datastructure for a BV variable and its domain (varies during a run). */
 typedef struct bv_domain_s {
 
   /* The domain */

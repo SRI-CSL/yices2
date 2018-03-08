@@ -20,7 +20,8 @@
 
 #include <cudd.h>
 
-/* Datastructure for a BV variable together with some BDD information:
+/**
+ * Datastructure for a BV variable together with some BDD information:
    First, its bitsize,
    second, the array of pointers to the BDD nodes representing its bits
    (this will be fixed throughout a run).

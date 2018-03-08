@@ -120,7 +120,7 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   // We compare variables based on the trail level, unassigned to the front,
   // then assigned ones by decreasing level
 
-  // Literals with no value
+  // Variables with no value
   t1_has_value = trail_has_value(trail, t1);
   t2_has_value = trail_has_value(trail, t2);
   if (!t1_has_value && !t2_has_value) {
@@ -138,7 +138,7 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
     return false;
   }
 
-  // Both literals have a value, sort by decreasing level
+  // Both variables have a value, sort by decreasing level
   t1_level = trail_get_level(trail, t1);
   t2_level = trail_get_level(trail, t2);
   if (t1_level != t2_level) {
@@ -149,11 +149,12 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   }
 }
 
-/* Setting up a watchlist for term t and its list of arguments.
-   Must be at least one argument, i.e. arity >= 1. */
-
+/**
+ * Set up a watchlist for term t and its list of arguments.
+ * @requires at least one argument, i.e. arity >= 1.
+ */
 static
-void bv_watch(bv_plugin_t* bv, term_t t, term_t* args, uint32_t arity, trail_token_t* prop) {
+void bv_plugin_setup_watch(bv_plugin_t* bv, term_t t, term_t* args, uint32_t arity, trail_token_t* prop) {
 
   variable_db_t* var_db      = bv->ctx->var_db;
   const mcsat_trail_t* trail = bv->ctx->trail;
@@ -187,21 +188,21 @@ void bv_watch(bv_plugin_t* bv, term_t t, term_t* args, uint32_t arity, trail_tok
     variable_db_print_variable(var_db, vars[1],ctx_trace_out(bv->ctx));
     ctx_trace_printf(bv->ctx, "\n");
   }
-  // Add first two variables to watch list
+
+  // Add the first two variables to the watch list
   watch_list_manager_add_to_watch(&bv->wlm, var_list, vars[0]);
   watch_list_manager_add_to_watch(&bv->wlm, var_list, vars[1]);
-
 }
 
 
 static
-void bv_watch_composite(bv_plugin_t* bv, term_t t, trail_token_t* prop) {
+void bv_plugin_setup_watch_composite(bv_plugin_t* bv, term_t t, trail_token_t* prop) {
 
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_watch_composite(...)\n");
   }
   composite_term_t* composite_term = composite_term_desc(bv->ctx->terms, t);
-  bv_watch(bv, t, composite_term->arg, composite_term->arity, prop);
+  bv_plugin_setup_watch(bv, t, composite_term->arg, composite_term->arity, prop);
   
 }
 
@@ -210,20 +211,22 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   bv_plugin_t* bv       = (bv_plugin_t*) plugin;
   variable_db_t* var_db = bv->ctx->var_db;
 
-  if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")
-      || ctx_trace_enabled(bv->ctx, "bv_plugin")) {
+  if (ctx_trace_enabled(bv->ctx, "mcsat::new_term") || ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_new_term_notify: ");
     ctx_trace_term(bv->ctx, t);
   }
 
   term_kind_t t_kind = term_kind(bv->ctx->terms, t);
 
-  variable_t var;
+  // Setup a variable for bit-vector terms we're responsible for assigning
+  variable_t var = variable_null;
   if (is_bitvector_term(bv->ctx->terms, t)) {
     var = variable_db_get_variable(var_db, t);
     bv_feasible_set_db_set_init(bv->feasible, var, term_bitsize(bv->ctx->terms, t));
   }
   
+  // TODO(DJ): Not sure if we should to intermediate terms, or just start with atoms
+
   switch (t_kind) {
   case BV_ARRAY: {
     if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
@@ -244,7 +247,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   case BV_SGE_ATOM:
   case SELECT_TERM:
   case BIT_TERM: {
-    bv_watch_composite(bv,t,prop);
+    bv_plugin_setup_watch_composite(bv, t, prop);
     break;
   }
   case BV_POLY:
@@ -256,49 +259,56 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
 }
 
+/** Evaluate a composite BV term t. */
 static
-void bv_plugin_evaluate(mcsat_value_t* v, bv_plugin_t* bv, term_t t) {
-  variable_db_t* var_db      = bv->ctx->var_db;
+void bv_plugin_evaluate_composite(mcsat_value_t* v, bv_plugin_t* bv, term_t t) {
+
+  // MCSAT context stuff
+  variable_db_t* var_db = bv->ctx->var_db;
   const mcsat_trail_t* trail = bv->ctx->trail;
-  term_table_t* terms        = bv->ctx->terms;
-  term_kind_t t_kind         = term_kind(terms, t);
-  uint32_t bitsize           = term_bitsize(terms, t);
-  composite_term_t* composite_term = composite_term_desc(bv->ctx->terms, t);
-  uint32_t arity             = composite_term->arity;
+  term_table_t* terms = bv->ctx->terms;
+
+  // Term information
+  term_kind_t t_kind = term_kind(terms, t);
+  uint32_t t_bitsize = term_bitsize(terms, t);
+  composite_term_t* t_composite = composite_term_desc(bv->ctx->terms, t);
+  uint32_t t_arity = t_composite->arity;
 
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "Evaluating ");
     ctx_trace_term(bv->ctx, t);
   }
 
-  const bvconstant_t* args[arity];
+  // Evaluate all arguments
+  const bvconstant_t* args[t_arity];
   variable_t var;
-  for (uint32_t arg_index = 0; arg_index < arity; arg_index++) {
+  for (uint32_t i = 0; i < t_arity; i++) {
 
-    var = variable_db_get_variable(var_db, composite_term->arg[arg_index]);
-    const mcsat_value_t* vi = trail_get_value(trail,var);
-    assert(vi->type == VALUE_BV);
-    args[arg_index] = &vi->bv_value;
+    var = variable_db_get_variable(var_db, t_composite->arg[i]);
+    const mcsat_value_t* value_i = trail_get_value(trail,var);
+    assert(value_i->type == VALUE_BV);
+    args[i] = &value_i->bv_value;
 
     if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
       ctx_trace_printf(bv->ctx, "Argument ");
       variable_db_print_variable(var_db, var, ctx_trace_out(bv->ctx));
       ctx_trace_printf(bv->ctx, " evaluates to ");
-      bvconst_print(ctx_trace_out(bv->ctx), vi->bv_value.data, vi->bv_value.bitsize);
+      bvconst_print(ctx_trace_out(bv->ctx), value_i->bv_value.data, value_i->bv_value.bitsize);
       ctx_trace_printf(bv->ctx, "\n");
     }
   }
 
-  /* To produce bv value */
+  // To produce bv value
   bvconstant_t b;
   init_bvconstant(&b);
-  bvconstant_set_all_zero(&b, bitsize);
+  bvconstant_set_all_zero(&b, t_bitsize);
 
-  /* To produce bool value */
+  /// To produce bool value
   bool bo;
   
   switch (t_kind) {
   case BV_ARRAY:
+    assert(false);
     break;
   case BV_DIV:
     bvconst_udiv2(b.data, args[0]->bitsize, args[0]->data, args[1]->data);
@@ -347,11 +357,14 @@ void bv_plugin_evaluate(mcsat_value_t* v, bv_plugin_t* bv, term_t t) {
     break;
   case SELECT_TERM:
     assert(false);
+    break;
   case BIT_TERM:
     /* bvconst_extract(&b, args[0]->data, uint32_t l, uint32_t h); */
     assert(false);
+    break;
   default:
     // Noting for now
+    assert(false);
     break;
   }
 
@@ -451,7 +464,7 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
         }
 
         mcsat_value_t v;
-        bv_plugin_evaluate(&v, bv, variable_db_get_term(var_db, var_list[0]));
+        bv_plugin_evaluate_composite(&v, bv, variable_db_get_term(var_db, var_list[0]));
           
         // Assign the value to the bv_constraint if it doesn't have a value
         if (!trail_has_value(trail, bv_constraint)) {
@@ -463,8 +476,10 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
             if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
               ctx_trace_printf(bv->ctx, "evaluation conflict, as bv_constraint was assigned\n");
               mcsat_value_print(bv_value, ctx_trace_out(bv->ctx));
+            } else {
+              assert(false);
             }
-            /* TODO: Do something about it */
+            // TODO: Do something about it
           }
         }
       } else {
@@ -473,8 +488,10 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
           ctx_trace_printf(bv->ctx, "We should update the feasibility set for ");
           ctx_trace_term(bv->ctx, variable_db_get_term(var_db, var_list[0]));
           ctx_trace_printf(bv->ctx, "Used to be ");
-          bv_feasible_set_db_print_var(bv->feasible, var_list[0]);
+          bv_feasible_set_db_print_var(bv->feasible, var_list[0], ctx_trace_out(bv->ctx));
         }
+
+        // TODO(DJ): We should compute feasibility here?
 
         const mcsat_value_t* bv_value = trail_get_value(trail, bv_constraint);
 
@@ -483,7 +500,7 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t var, trail_token_t* pro
 
         if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
           ctx_trace_printf(bv->ctx, "is now ");
-          bv_feasible_set_db_print_var(bv->feasible, var_list[0]);
+          bv_feasible_set_db_print_var(bv->feasible, var_list[0], ctx_trace_out(bv->ctx));
         }
 
         /* // Check if equality is true or false and add to feasibility db */
@@ -619,15 +636,19 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(!trail_has_value(bv->ctx->trail, x));
     
-  /* if (trail_has_cached_value(bv->ctx->trail, x)) { */
-  /*   // Use the cached value if exists */
-  /*   v = *trail_get_cached_value(bv->ctx->trail, x); */
-  /* } else { */
+  if (trail_has_cached_value(bv->ctx->trail, x)) {
+    // Use the cached value if exists
+    v = *trail_get_cached_value(bv->ctx->trail, x);
+    // Check that this value works
+    assert(false);
+  }
+
+  // Construct a new value
   bitsize = term_bitsize(bv->ctx->terms, variable_db_get_term(bv->ctx->var_db,x));
   init_bvconstant(&b);
   bvconstant_set_all_zero(&b, bitsize);
   mcsat_value_construct_bv_value(&v, &b);
-  /* } */
+
 
   if (ctx_trace_enabled(bv->ctx, "bv_plugin")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_decide: ");
@@ -638,10 +659,11 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     trail_print(bv->ctx->trail, stderr);
   }
 
+  // Add decision to solver
   decide->add(decide, x, &v);
 
   // Remove temps
-  mcsat_value_destruct(&v);  // Really? does decide->add make a copy?
+  mcsat_value_destruct(&v);  // DJ: Decide makes a copy (const* in signature)
   delete_bvconstant(&b);
 }
 
@@ -748,8 +770,8 @@ plugin_t* bv_plugin_allocator(void) {
   plugin->plugin_interface.push                  = bv_plugin_push;
   plugin->plugin_interface.pop                   = bv_plugin_pop;
   plugin->plugin_interface.build_model           = bv_plugin_build_model;
-  plugin->plugin_interface.gc_mark               = bv_plugin_gc_mark;
-  plugin->plugin_interface.gc_sweep              = bv_plugin_gc_sweep;
+  plugin->plugin_interface.gc_mark               = NULL;
+  plugin->plugin_interface.gc_sweep              = NULL;
   plugin->plugin_interface.set_exception_handler = bv_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;

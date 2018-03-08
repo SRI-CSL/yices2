@@ -5,8 +5,7 @@
  * license agreement which is downloadable along with this program.
  */
  
-#ifndef BV_BDD_H_
-#define BV_BDD_H_
+#pragma once
 
 #include "mcsat/plugin.h"
 #include <cudd.h>
@@ -88,6 +87,3 @@ extern void bdds_eq(bdds_t* bdds, const bdds_t* a, const bdds_t* b);
  */
 extern void bdds_concat(bdds_t* bdds, const bdds_t* a, const bdds_t* b);
 
-
-
-#endif /* BV_BDD_H_ */

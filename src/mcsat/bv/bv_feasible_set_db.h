@@ -16,9 +16,7 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#ifndef BV_FEASIBLE_SET_DB_H_
-#define BV_FEASIBLE_SET_DB_H_
-
+#pragma once
 
 #include <stdio.h>
 #include <cudd.h>
@@ -30,18 +28,20 @@
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct bv_feasible_set_db_struct bv_feasible_set_db_t;
 
-/** Get the BDD manager */
-DdManager* bv_feasible_manager(bv_feasible_set_db_t* db);
+/** Get the BDD manager of the DB */
+DdManager* bv_feasible_set_db_get_bdd_manager(bv_feasible_set_db_t* db);
 
-/** Create a new database */
+/** Create a new feasible set database */
 bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx);
 
 /** Delete the database */
 void bv_feasible_set_db_delete(bv_feasible_set_db_t* db);
 
-void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var);
-void bv_feasible_set_db_print(bv_feasible_set_db_t* db);
+/** Print feasibility information for a given variable */
+void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out);
 
+/** Print all feasibility information */
+void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out);
 
 /** Enter a new variable in the database, with domain 1 */
 void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize);
@@ -78,5 +78,3 @@ bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db, variable_t x, term_
 
 /* /\** Marks all the top level reasons *\/ */
 /* void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars); */
-
-#endif /* BV_FEASIBLE_SET_DB_H_ */
