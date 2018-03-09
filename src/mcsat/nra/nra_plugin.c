@@ -16,12 +16,6 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include <poly/polynomial.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_db.h>
@@ -256,11 +250,17 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
   assert(!is_neg_term(t));
 
+  term_kind_t t_kind = term_kind(terms, t);
+
+  // Only process power terms if they are real ones
+  if (t_kind == POWER_PRODUCT && !is_arithmetic_term(terms, t)) {
+    return;
+  }
+
   // The variable
   variable_t t_var = variable_db_get_variable(nra->ctx->var_db, t);
 
   // Check for div and mod
-  term_kind_t t_kind = term_kind(terms, t);
   if (t_kind == ARITH_MOD) {
     // Just make sure that the div is registered
     composite_term_t* mod = arith_mod_term_desc(terms, t);

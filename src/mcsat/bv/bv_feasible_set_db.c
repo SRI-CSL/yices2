@@ -15,53 +15,37 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
 
-#include "mcsat/bv/bv_feasible_set_db.h"
-#include "mcsat/bv/bv_bdd.h"
-#include "mcsat/bv/bv_domain.h"
+#include "bv_feasible_set_db.h"
+#include "bv_bdd_manager.h"
+
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
-#include "mcsat/value.h"
-
-#include "utils/int_array_sort.h"
-
-#include "yices.h"
-
-#include <cudd.h>
+#include "utils/int_array_sort2.h"
 
 /**
  * Element in the list. Each element contains a pointer to the previous
- * version, the reason for the update/
+ * version, the reason for the update (reason) and it's feasible set, and
+ * the new feasible set.
  */
 typedef struct {
-
-  /** Current domain. */
-  bv_domain_t* domain;
-
-  /** Previous version of this (next element in list). 0 if end of list. */
+  /** Next element */
   uint32_t prev;
+  /** Reasons for the update, if one then constraint, otherwise disjunction */
+  variable_t* reasons;
+  /** Size of the reasons */
+  uint32_t reasons_size;
+  /** The new total feasible set (i.e. feasible set of all asserted constraints) */
+  bdd_t feasible_set;
+  /** The feasible set of the reason (feasible = feasible intersect this) */
+  bdd_t reason_feasible_set;
 
-  /** Reason for latest update. NULL if initial*/
-  term_t* reason;
-  /** BDD of reason (was computed once, so this is cached). */
-  bdds_t* reason_bdd;
-  
-} bv_feasible_list_element_t;
-
+} feasibility_list_element_t;
 
 struct bv_feasible_set_db_struct {
 
-  /** BDD manager */
-  DdManager* manager;
-  
   /** Elements of the lists */
-  bv_feasible_list_element_t* memory;
+  feasibility_list_element_t* memory;
 
   /** The currently occupied memory size */
   uint32_t memory_size;
@@ -70,13 +54,19 @@ struct bv_feasible_set_db_struct {
   uint32_t memory_capacity;
 
   /** Map from variables to the first element (current feasible set) */
-  int_hmap_t var_to_eq_set_map;
+  int_hmap_t var_to_feasible_set_map;
 
   /** Variables that were updated, so we can backtrack */
   ivector_t updates;
 
+  /** Size of the updates array, so that we can backtrack */
+  uint32_t updates_size;
+
   /** All variables that were fixed */
   ivector_t fixed_variables;
+
+  /** Size of the fixed variables array, for backtracking */
+  uint32_t fixed_variable_size;
 
   /** Index into the fixed variables */
   uint32_t fixed_variables_i;
@@ -84,18 +74,17 @@ struct bv_feasible_set_db_struct {
   /** Scope for push/pop */
   scope_holder_t scope;
 
-  /** The plugin context */
+  /** Plugin context */
   plugin_context_t* ctx;
+
+  /** BDD Manager */
+  bv_bdd_manager_t* bddm;
 
 };
 
-DdManager* bv_feasible_set_db_get_bdd_manager(bv_feasible_set_db_t* db){
-  return db->manager;
-}
-
 static
-uint32_t bv_feasible_set_db_get_index(bv_feasible_set_db_t* db, variable_t x) {
-  int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x);
+uint32_t bv_feasible_set_db_get_index(const bv_feasible_set_db_t* db, variable_t x) {
+  int_hmap_pair_t* find = int_hmap_find((int_hmap_t*) &db->var_to_feasible_set_map, x);
   if (find == NULL) {
     return 0;
   } else {
@@ -103,31 +92,40 @@ uint32_t bv_feasible_set_db_get_index(bv_feasible_set_db_t* db, variable_t x) {
   }
 }
 
-void bv_feasible_set_db_print_var(bv_feasible_set_db_t* db, variable_t var, FILE* out) {
+void bv_feasible_set_db_print_var(const bv_feasible_set_db_t* db, variable_t var, FILE* out) {
+
+  const variable_db_t* var_db = db->ctx->var_db;
+  uint32_t bitsize = variable_db_get_bitsize(var_db, var);
+
   fprintf(out, "Feasible sets of ");
-  variable_db_print_variable(db->ctx->var_db, var, out);
+  variable_db_print_variable(var_db, var, out);
   fprintf(out, " :\n");
   uint32_t index = bv_feasible_set_db_get_index(db, var);
   while (index != 0) {
-    bv_feasible_list_element_t* current = db->memory + index;
-    /* fprintf(out, "\t%d\n", current->value); */
-    bv_domain_print(current->domain);
-    if (current->reason != NULL){
+    feasibility_list_element_t* current = db->memory + index;
+    fprintf(out, "\t");
+    bv_bdd_manager_bdd_print(db->bddm, current->feasible_set, bitsize, out);
+    fprintf(out, "\n\t\t");
+    bv_bdd_manager_bdd_print(db->bddm, current->reason_feasible_set, bitsize, out);
+    fprintf(out, "\n");
+    if (current->reasons_size > 1) {
+      fprintf(out, "\t\tDue to lemma\n");
+    } else {
       fprintf(out, "\t\tDue to ");
-      term_print_to_file(out, db->ctx->terms, current->reason[0]);
-      /* if (term_type_kind(db->terms, reason) == BOOL_TYPE) { */
-      /*   // Otherwise it's a term evaluation, always true */
-      /*   fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->trail, current->reason) ? "true" : "false"); */
-      /* } */
+      variable_db_print_variable(var_db, current->reasons[0], out);
+      if (variable_db_is_boolean(var_db, current->reasons[0]) == BOOL_TYPE) {
+        // Otherwise it's a term evaluation, always true
+        fprintf(out, " assigned to %s\n", trail_get_boolean_value(db->ctx->trail, current->reasons[0]) ? "true" : "false");
+      }
     }
     index = current->prev;
   }
 }
 
-void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out) {
+void bv_feasible_set_db_print(const bv_feasible_set_db_t* db, FILE* out) {
 
-  int_hmap_pair_t* it;
-  for (it = int_hmap_first_record(&db->var_to_eq_set_map); it != NULL; it = int_hmap_next_record(&db->var_to_eq_set_map, it)) {
+  int_hmap_pair_t* it = int_hmap_first_record((int_hmap_t*)&db->var_to_feasible_set_map);
+  for (; it != NULL; it = int_hmap_next_record((int_hmap_t*)&db->var_to_feasible_set_map, it)) {
 
     variable_t var = it->key;
     fprintf(out, "Feasible sets of ");
@@ -140,47 +138,57 @@ void bv_feasible_set_db_print(bv_feasible_set_db_t* db, FILE* out) {
       fprintf(out, "\n");
     }
 
-    bv_feasible_set_db_print_var(db, var, out);
+    uint32_t var_bitsize = variable_db_get_bitsize(db->ctx->var_db, var);
+
+    uint32_t index = it->val;
+    while (index != 0) {
+      feasibility_list_element_t* current = db->memory + index;
+      fprintf(out, "\t");
+      bv_bdd_manager_bdd_print(db->bddm, db->memory[index].feasible_set, var_bitsize, out);
+      fprintf(out, "\n\t\t");
+      bv_bdd_manager_bdd_print(db->bddm, db->memory[index].reason_feasible_set, var_bitsize, out);
+      fprintf(out, "\n");
+      index = current->prev;
+    }
   }
 }
 
 #define INITIAL_DB_SIZE 100
 
-bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx) {
-
-  if (ctx_trace_enabled(ctx, "bv_plugin")) {
-    ctx_trace_printf(ctx, "bv_feasible_set_db_new(...)\n");
-  }
+bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx, bv_bdd_manager_t* bddm) {
 
   bv_feasible_set_db_t* db = safe_malloc(sizeof(bv_feasible_set_db_t));
 
-  db->manager = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
-
   db->memory_size = 1; // 0 is special null ref
   db->memory_capacity = INITIAL_DB_SIZE;
-  db->memory = safe_malloc(sizeof(bv_feasible_list_element_t)*db->memory_capacity);
+  db->memory = safe_malloc(sizeof(feasibility_list_element_t)*db->memory_capacity);
+  db->fixed_variable_size = 0;
+  db->fixed_variables_i = 0;
+  db->updates_size = 0;
+  db->ctx = ctx;
+  db->bddm = bddm;
 
-  init_int_hmap(&db->var_to_eq_set_map, 0);
+  init_int_hmap(&db->var_to_feasible_set_map, 0);
   init_ivector(&db->updates, 0);
   init_ivector(&db->fixed_variables, 0);
-
-  db->fixed_variables_i = 0;
-
   scope_holder_construct(&db->scope);
-
-  db->ctx = ctx;
 
   return db;
 }
 
 void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
-
-  if (ctx_trace_enabled(db->ctx, "bv_plugin")) {
-    ctx_trace_printf(db->ctx, "bv_feasible_set_db_delete(...)\n");
+  // Delete the feasible sets
+  uint32_t i;
+  // Start from 1, 0 is special.
+  for (i = 1; i < db->memory_size; ++ i) {
+    safe_free(db->memory[i].reasons);
+    bdd_t s1 = db->memory[i].feasible_set;
+    bdd_t s2 = db->memory[i].reason_feasible_set;
+    bv_bdd_manager_bdd_detach(db->bddm, s1);
+    bv_bdd_manager_bdd_detach(db->bddm, s2);
   }
-
-  Cudd_Quit(db->manager);
-  delete_int_hmap(&db->var_to_eq_set_map);
+  // Delete the other stuff
+  delete_int_hmap(&db->var_to_feasible_set_map);
   delete_ivector(&db->updates);
   delete_ivector(&db->fixed_variables);
   scope_holder_destruct(&db->scope);
@@ -189,296 +197,359 @@ void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
   safe_free(db);
 }
 
-bv_domain_t* bv_feasible_set_db_get(bv_feasible_set_db_t* db, variable_t x) {
+bdd_t bv_feasible_set_db_get(const bv_feasible_set_db_t* db, variable_t x) {
   uint32_t index = bv_feasible_set_db_get_index(db, x);
-
-  // If no constraints, just return NULL
   if (index == 0) {
-    return NULL;
+    return bdd_null;
+  } else {
+    return db->memory[index].feasible_set;
   }
-
-  bv_feasible_list_element_t* current = db->memory + index;
-  return current->domain;
 }
 
-static
-void bv_feasible_set_new_element(bv_feasible_set_db_t* db,
-                                 variable_t x,
-                                 bv_domain_t* domain,
-                                 term_t* reason,
-                                 bdds_t* reason_bdd) {
-    
+bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new_set, variable_t* cstr_list, uint32_t cstr_count) {
+
+  assert(db->updates_size == db->updates.size);
+  bv_bdd_manager_t* bddm = db->bddm;
+  bool feasible = true;
+  uint32_t x_bitsize = variable_db_get_bitsize(db->ctx->var_db, x);
+
+  if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
+    fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_update\n");
+    bv_feasible_set_db_print(db, ctx_trace_out(db->ctx));
+  }
+
+  // The one we're adding
+  bdd_t intersect = new_set;
+  // Intersect if something to intersect with
+  bdd_t old_set = bv_feasible_set_db_get(db, x);
+
+  // Old and new set are managed outside
+  if (old_set.bdd != NULL) {
+    if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
+      ctx_trace_printf(db->ctx, "bv_feasible_set_db_update()\n");
+      ctx_trace_printf(db->ctx, "old_set = ");
+      bv_bdd_manager_bdd_print(bddm, old_set, x_bitsize, ctx_trace_out(db->ctx));
+      ctx_trace_printf(db->ctx, "\nnew_set = ");
+      bv_bdd_manager_bdd_print(bddm, new_set, x_bitsize, ctx_trace_out(db->ctx));
+      ctx_trace_printf(db->ctx, "\n");
+    }
+    // Intersect with the precious one
+    assert(!bv_bdd_manager_bdd_is_empty(bddm, old_set));
+    intersect = bv_bdd_manager_bdd_intersect(bddm, old_set, new_set);
+    // If new set is the same, nothing to do
+    if (bdd_eq(intersect, old_set)) {
+      // Old set stays
+      bv_bdd_manager_bdd_detach(bddm, intersect);
+      return true;
+    }
+  }
+
+  // Are we feasible
+  feasible = !bv_bdd_manager_bdd_is_empty(bddm, intersect);
+
+  // Get the previous
+  uint32_t prev = bv_feasible_set_db_get_index(db, x);
+
   // Allocate a new one
-  uint32_t old_index = bv_feasible_set_db_get_index(db, x);
   uint32_t new_index = db->memory_size;
   // Allocate new element
   if (db->memory_size == db->memory_capacity) {
     db->memory_capacity = db->memory_capacity + db->memory_capacity/2;
-    db->memory = safe_realloc(db->memory, db->memory_capacity*sizeof(bv_feasible_list_element_t));
+    db->memory = safe_realloc(db->memory, db->memory_capacity*sizeof(feasibility_list_element_t));
   }
   db->memory_size ++;
   // Setup the element
-  bv_feasible_list_element_t* new_element = db->memory + new_index;
-  new_element->domain     = domain;
-  new_element->reason     = reason;
-  new_element->reason_bdd = reason_bdd;
-  new_element->prev       = old_index;
+  feasibility_list_element_t* new_element = db->memory + new_index;
+  new_element->feasible_set = intersect; // Intersect attached already
+  new_element->reason_feasible_set = new_set;
+  bv_bdd_manager_bdd_attach(bddm, new_set); // One more reference
+  new_element->prev = prev;
+  // Reasons
+  new_element->reasons_size = cstr_count;
+  new_element->reasons = safe_malloc(sizeof(variable_t)*cstr_count);
+  uint32_t i;
+  for (i = 0; i < cstr_count; ++ i) {
+    new_element->reasons[i] = cstr_list[i];
+  }
   // Add to map
-  int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x);
+  int_hmap_pair_t* find = int_hmap_find(&db->var_to_feasible_set_map, x);
   if (find == NULL) {
-    int_hmap_add(&db->var_to_eq_set_map, x, new_index);
+    int_hmap_add(&db->var_to_feasible_set_map, x, new_index);
   } else {
     find->val = new_index;
   }
   // Add to updates list
   ivector_push(&db->updates, x);
+  db->updates_size ++;
+  assert(db->updates_size == db->updates.size);
 
-  /* // If fixed, put into the fixed array */
-  /* if (eq) { */
-  /*   ivector_push(&db->fixed_variables, x); */
-  /* } */
-}
-
-void bv_feasible_set_db_set_init(bv_feasible_set_db_t* db, variable_t x, uint32_t bitsize) {
-
-  uint32_t index = bv_feasible_set_db_get_index(db, x);
-
-  if (index != 0) assert(false);
-  if (ctx_trace_enabled(db->ctx, "bv_plugin")) {
-    ctx_trace_printf(db->ctx, "bv_feasible_set_db_init for variable ");
-    variable_db_print_variable(db->ctx->var_db, x,ctx_trace_out(db->ctx));
-    ctx_trace_printf(db->ctx, "\n");
+  // If fixed, put into the fixed array
+  if (bv_bdd_manager_bdd_is_point(bddm, new_set, x_bitsize)) {
+    ivector_push(&db->fixed_variables, x);
+    db->fixed_variable_size ++;
   }
 
-  bv_domain_t* domain = bv_domain_init(bitsize, x, db->manager, db->ctx);
-  bv_feasible_set_new_element(db, x, domain, NULL, NULL);
+  // Return whether we're feasible
+  return feasible;
 }
 
-bool bv_feasible_set_db_set_update(bv_feasible_set_db_t* db,
-                                   variable_t x,
-                                   term_t reason,
-                                   const mcsat_value_t* v) {
+void bv_feasible_set_db_push(bv_feasible_set_db_t* db) {
+  scope_holder_push(&db->scope,
+     &db->updates_size,
+     &db->fixed_variable_size,
+     &db->fixed_variables_i,
+     NULL
+  );
+}
 
-  uint32_t index = bv_feasible_set_db_get_index(db, x);
-  bv_feasible_list_element_t* current = db->memory + index;
+void bv_feasible_set_db_pop(bv_feasible_set_db_t* db) {
 
-  const varWnodes_t* varWnodes  = bv_domain_getvar(current->domain);
-  bdds_t* reason_bdds     = bdds_create(1, varWnodes);
-  bv_domain_t* new_domain = bv_domain_update(reason_bdds, reason, v, current->domain);
-
-  // No new information, the BDD version of the reason is freed
-  if (new_domain == current->domain) {
-    bdds_clear(reason_bdds);
-    bdds_free(reason_bdds);
-    return false;
+  if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
+    fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_pop");
+    bv_feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
-  
-  // Otherwise, new information, we record it
-  bv_feasible_set_new_element(db, x, new_domain, &reason, reason_bdds);
-  
-  return false;
+
+  bv_bdd_manager_t* bddm = db->bddm;
+
+  scope_holder_pop(&db->scope,
+      &db->updates_size,
+      &db->fixed_variable_size,
+      &db->fixed_variables_i,
+      NULL
+  );
+
+  // Undo fixed variables
+  ivector_shrink(&db->fixed_variables, db->fixed_variable_size);
+
+  // Undo updates
+  while (db->updates.size > db->updates_size) {
+    // The variable that was updated
+    variable_t x = ivector_last(&db->updates);
+    ivector_pop(&db->updates);
+    // Remove the element
+    db->memory_size --;
+    feasibility_list_element_t* element = db->memory + db->memory_size;
+    uint32_t prev = element->prev;
+    // Release the BDDs
+    bdd_t s1 = element->feasible_set;
+    bdd_t s2 = element->reason_feasible_set;
+    bv_bdd_manager_bdd_detach(bddm, s1);
+    bv_bdd_manager_bdd_detach(bddm, s2);
+    safe_free(element->reasons);
+    // Redirect map to the previous one
+    int_hmap_pair_t* find = int_hmap_find(&db->var_to_feasible_set_map, x);
+    assert(find != NULL);
+    assert(find->val == db->memory_size);
+    find->val = prev;
+  }
+
+  if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
+    bv_feasible_set_db_print(db, ctx_trace_out(db->ctx));
+  }
 }
 
+static
+void feasible_set_get_conflict_reason_indices(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_indices) {
+  // Go back from the top reason for x and gather the indices
+  uint32_t reason_index = bv_feasible_set_db_get_index(db, x);
+  assert(reason_index);
+  while (reason_index) {
+    assert(reason_index);
+    ivector_push(reasons_indices, reason_index);
+    reason_index = db->memory[reason_index].prev;
+  }
+}
 
-/* void bv_feasible_set_db_push(bv_feasible_set_db_t* db) { */
-/*   scope_holder_push(&db->scope, */
-/*      &db->updates.size, */
-/*      &db->fixed_variables.size, */
-/*      &db->fixed_variables_i, */
-/*      NULL */
-/*   ); */
-/* } */
+static
+void feasible_set_quickxplain(const bv_feasible_set_db_t* db, bdd_t current, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
 
-/* void bv_feasible_set_db_pop(bv_feasible_set_db_t* db) { */
+  uint32_t i;
+  bv_bdd_manager_t* bddm = db->bddm;
 
-/*   uint32_t old_updates_size; */
-/*   uint32_t old_fixed_variable_size; */
+  if (bv_bdd_manager_bdd_is_empty(bddm, current)) {
+    // Core already unsat, done
+    return;
+  }
 
-/*   scope_holder_pop(&db->scope, */
-/*       &old_updates_size, */
-/*       &old_fixed_variable_size, */
-/*       &db->fixed_variables_i, */
-/*       NULL */
-/*   ); */
+  assert(begin < end);
+  if (begin + 1 == end) {
+    // Only one left, we keep it, since the core is still sat
+    ivector_push(out, reasons->data[begin]);
+    return;
+  }
 
-/*   // Undo fixed variables */
-/*   ivector_shrink(&db->fixed_variables, old_fixed_variable_size); */
+  // Split: how many in first half?
+  uint32_t n = (end - begin) / 2;
 
-/*   // Undo updates */
-/*   while (db->updates.size > old_updates_size) { */
-/*     // The variable that was updated */
-/*     variable_t x = ivector_last(&db->updates); */
-/*     ivector_pop(&db->updates); */
-/*     // Remove the element */
-/*     db->memory_size --; */
-/*     bv_feasible_list_element_t* element = db->memory + db->memory_size; */
-/*     uint32_t prev = element->prev; */
-/*     // Redirect map to the previous one */
-/*     int_hmap_pair_t* find = int_hmap_find(&db->var_to_eq_set_map, x); */
-/*     assert(find != NULL); */
-/*     assert(find->val == db->memory_size); */
-/*     find->val = prev; */
-/*   } */
+  // Assert first half and minimize the second
+  bdd_t feasible_A = current;
+  for (i = begin; i < begin + n; ++ i) {
+    bdd_t feasible_i = db->memory[reasons->data[i]].reason_feasible_set;
+    bdd_t intersect = bv_bdd_manager_bdd_intersect(bddm, feasible_A, feasible_i);
+    bdd_swap(&intersect, &feasible_A);
+    bv_bdd_manager_bdd_detach(bddm, intersect);
+  }
+  uint32_t old_out_size = out->size;
+  feasible_set_quickxplain(db, feasible_A, reasons, begin + n, end, out);
+  bv_bdd_manager_bdd_detach(bddm, feasible_A);
 
-/* } */
+  // Now, assert the minimized second half, and minimize the first half
+  bdd_t feasible_B = current; // TODO: check if you need to attach/detach
+  for (i = old_out_size; i < out->size; ++ i) {
+    bdd_t feasible_i = db->memory[out->data[i]].reason_feasible_set;
+    bdd_t intersect = bv_bdd_manager_bdd_intersect(bddm, feasible_B, feasible_i);
+    bdd_swap(&intersect, &feasible_B);
+    bv_bdd_manager_bdd_detach(bddm, intersect);
+  }
+  feasible_set_quickxplain(db, feasible_B, reasons, begin, begin + n, out);
+}
 
-/* variable_t bv_feasible_set_db_get_eq_reason(bv_feasible_set_db_t* db, variable_t x) { */
+/** Compare variables for picking the best explanation */
+static
+bool compare_reasons(void *bv_feasible_set_db_ptr, int32_t r1, int32_t r2) {
 
-/*   // Go back from the top reason for x and gather the indices */
-/*   uint32_t index = bv_feasible_set_db_get_index(db, x); */
-/*   assert(index); */
+  // TODO: think which constraints are better than others
 
-/*   assert(index); */
-/*   while (index) { */
-/*     bv_feasible_list_element_t* current = db->memory + index; */
-/*     if (current->eq) { */
-/*       return current->reason; */
-/*     } */
-/*     index = current->prev; */
-/*   } */
+  uint32_t i;
 
-/*   assert(false); */
-/*   return variable_null; */
-/* } */
+  bv_feasible_set_db_t* db = (bv_feasible_set_db_t*) bv_feasible_set_db_ptr;
+  const mcsat_trail_t* trail = db->ctx->trail;
 
-/* void bv_feasible_set_db_get_conflict(bv_feasible_set_db_t* db, variable_t x, ivector_t* conflict) { */
-/*   // Go back from the top reason for x and gather the indices */
-/*   uint32_t index = bv_feasible_set_db_get_index(db, x); */
-/*   assert(index); */
+  // Get max degree and max level of the reasons of first constraint
+  uint32_t r1_level = 0;
+  for (i = 0; i < db->memory[r1].reasons_size; ++ i) {
+    variable_t r1_i_var = db->memory[r1].reasons[i];
+    if (trail_has_value(trail, r1_i_var)) {
+      uint32_t r1_i_level = trail_get_level(trail, r1_i_var);
+      if (r1_i_level > r1_level) {
+        r1_level = r1_i_level;
+      }
+    }
+  }
 
-/*   // Conflict is always between top one and one some below */
-/*   bv_feasible_list_element_t* first = db->memory + index; */
+  // Get max degree and max level of the reasons of second constraint
+  uint32_t r2_level = 0;
+  for (i = 0; i < db->memory[r2].reasons_size; ++ i) {
+    variable_t r2_i_var = db->memory[r2].reasons[i];
+    if (trail_has_value(trail, r2_i_var)) {
+      uint32_t r2_i_level = trail_get_level(trail, r2_i_var);
+      if (r2_i_level > r2_level) {
+        r2_level = r2_i_level;
+      }
+    }
+  }
 
-/*   bv_feasible_list_element_t* current = NULL; */
+  // Pick lower level, break ties by index
+  if (r1_level == r2_level) {
+    return r1 < r2;
+  } else {
+    return r1_level < r2_level;
+  }
+}
 
-/*   index = first->prev; */
-/*   assert(index); */
-/*   while (index) { */
+static
+void print_conflict_reasons(FILE* out, const bv_feasible_set_db_t* db, const ivector_t* reason_indices) {
+  uint32_t i, j;
+  variable_db_t* var_db = db->ctx->var_db;
+  for (i = 0; i < reason_indices->size; ++ i) {
+    fprintf(out, "[%d]: ", i);
+    uint32_t r_i = reason_indices->data[i];
+    uint32_t r_i_size = db->memory[r_i].reasons_size;
+    for (j = 0; j < r_i_size; ++ j) {
+      if (j) fprintf(out, ", ");
+      variable_t r_i_var = db->memory[r_i].reasons[j];
+      variable_db_print_variable(var_db, r_i_var, out);
+    }
+    fprintf(out, "\n");
+  }
+}
 
-/*     current = db->memory + index; */
+static
+void feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivector_t* reasons_indices) {
 
-/*     if (first->eq && current->eq) { */
-/*       // Second equality must be in conflict. */
-/*       // We have x = y && x = z, implying different values on x */
-/*       // Conflict is x = y && x = z && y != z */
-/*       assert(first->value != current->value); */
+  // The set we're trying to make empty
+  bdd_t S = bdd_null;
 
-/*       variable_t x_eq_y_var = first->reason; */
-/*       variable_t x_eq_z_var = current->reason; */
-/*       assert(trail_get_boolean_value(db->trail, x_eq_y_var)); */
-/*       assert(trail_get_boolean_value(db->trail, x_eq_z_var)); */
-/*       term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
-/*       term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
-/*       composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
-/*       composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+  // Sort variables by degree and trail level decreasing
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, compare_reasons);
 
-/*       term_t x_term = variable_db_get_term(db->var_db, x); */
-/*       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
-/*       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
-/*       term_t y_eq_z = yices_eq(y_term, z_term); */
+  if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: before\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, reasons_indices);
+  }
 
-/*       ivector_push(conflict, x_eq_y); */
-/*       ivector_push(conflict, x_eq_z); */
-/*       ivector_push(conflict, opposite_term(y_eq_z)); */
+  // Minimize the core
+  ivector_t out;
+  init_ivector(&out, 0);
+  feasible_set_quickxplain(db, S, reasons_indices, 0, reasons_indices->size, &out);
+  ivector_swap(reasons_indices, &out);
+  delete_ivector(&out);
 
-/*       return; */
-/*     } */
+  // Sort again for consistency
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, compare_reasons);
 
-/*     if (first->eq && !current->eq) { */
-/*       if (first->value == current->value) { */
-/*         // We have x = y && x != z, the conflict being */
-/*         // x = y && x != z && y = z */
+  if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
+    ctx_trace_printf(db->ctx, "filtering: after\n");
+    print_conflict_reasons(ctx_trace_out(db->ctx), db, reasons_indices);
+  }
 
-/*         variable_t x_eq_y_var = first->reason; */
-/*         variable_t x_eq_z_var = current->reason; */
-/*         assert(trail_get_boolean_value(db->trail, x_eq_y_var)); */
-/*         assert(!trail_get_boolean_value(db->trail, x_eq_z_var)); */
-/*         term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
-/*         term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
-/*         composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
-/*         composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+}
 
-/*         term_t x_term = variable_db_get_term(db->var_db, x); */
-/*         term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
-/*         term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
-/*         term_t y_eq_z = yices_eq(y_term, z_term); */
+void bv_feasible_set_db_get_conflict_reasons(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
-/*         ivector_push(conflict, x_eq_y); */
-/*         ivector_push(conflict, opposite_term(x_eq_z)); */
-/*         ivector_push(conflict, y_eq_z); */
+  ivector_t reasons_indices;
+  init_ivector(&reasons_indices, 0);
 
-/*         return; */
-/*       } */
-/*     } */
+  // Get the indices of the set refinements
+  feasible_set_get_conflict_reason_indices(db, x, &reasons_indices);
 
-/*     if (!first->eq && current->eq) { */
-/*       // Equality: must be in conflict */
-/*       assert(first->value == current->value); */
+  // Do a first pass filter from the back
+  feasible_set_filter_reason_indices(db, &reasons_indices);
 
-/*       // We have x != y && x = z, the conflict being */
-/*       // x != y && x = z && y = z */
+  // Return the conjunctive reasons
+  uint32_t i;
+  for (i = 0; i < reasons_indices.size; ++ i) {
+    uint32_t set_index = reasons_indices.data[i];
+    feasibility_list_element_t* element = db->memory + set_index;
+    if (element->reasons_size == 1) {
+      variable_t reason = element->reasons[0];
+      assert(variable_db_is_boolean(db->ctx->var_db, reason));
+      ivector_push(reasons_out, reason);
+    } else {
+      uint32_t j;
+      for (j = 0; j < element->reasons_size; ++j) {
+        variable_t reason = element->reasons[j];
+        assert(variable_db_is_boolean(db->ctx->var_db, reason));
+        ivector_push(lemma_reasons, reason);
+      }
+    }
+  }
 
-/*       variable_t x_eq_y_var = first->reason; */
-/*       variable_t x_eq_z_var = current->reason; */
-/*       assert(!trail_get_boolean_value(db->trail, x_eq_y_var)); */
-/*       assert(trail_get_boolean_value(db->trail, x_eq_z_var)); */
-/*       term_t x_eq_y = variable_db_get_term(db->var_db, x_eq_y_var); */
-/*       term_t x_eq_z = variable_db_get_term(db->var_db, x_eq_z_var); */
-/*       composite_term_t* x_eq_y_desc = eq_term_desc(db->terms, x_eq_y); */
-/*       composite_term_t* x_eq_z_desc = eq_term_desc(db->terms, x_eq_z); */
+  delete_ivector(&reasons_indices);
+}
 
-/*       term_t x_term = variable_db_get_term(db->var_db, x); */
-/*       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0]; */
-/*       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0]; */
-/*       term_t y_eq_z = yices_eq(y_term, z_term); */
+void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars) {
 
-/*       ivector_push(conflict, opposite_term(x_eq_y)); */
-/*       ivector_push(conflict, x_eq_z); */
-/*       ivector_push(conflict, y_eq_z); */
+  assert(db->ctx->trail->decision_level == 0);
 
-/*       return; */
-/*     } */
+  if (gc_vars->level == 0) {
+    // We keep all the reasons (start from 1, 0 is not used)
+    uint32_t element_i, reason_i;
+    for (element_i = 1; element_i < db->memory_size; ++ element_i) {
+      feasibility_list_element_t* element = db->memory + element_i;
+      for (reason_i = 0; reason_i < element->reasons_size; ++ reason_i) {
+        gc_info_mark(gc_vars, element->reasons[reason_i]);
+      }
+    }
+  }
+}
 
-/*     index = db->memory[index].prev; */
-/*   } */
-
-/*   assert(false); */
-/* } */
-
-/* void bv_feasible_set_db_gc_mark(bv_feasible_set_db_t* db, gc_info_t* gc_vars) { */
-
-/*   assert(db->trail->decision_level == 0); */
-
-/*   if (gc_vars->level == 0) { */
-/*     // We keep all the reasons (start from 1, 0 is not used) */
-/*     uint32_t element_i; */
-/*     for (element_i = 1; element_i < db->memory_size; ++ element_i) { */
-/*       bv_feasible_list_element_t* element = db->memory + element_i; */
-/*       gc_info_mark(gc_vars, element->reason); */
-/*     } */
-/*   } */
-/* } */
-
-/* void bv_feasible_set_db_gc_sweep(bv_feasible_set_db_t* db, const gc_info_t* gc_vars) { */
-/*   // We relocatre all reasons */
-/*   uint32_t element_i; */
-/*   for (element_i = 1; element_i < db->memory_size; ++ element_i) { */
-/*     bv_feasible_list_element_t* element = db->memory + element_i; */
-/*     variable_t x = element->reason; */
-/*     x = gc_info_get_reloc(gc_vars, x); */
-/*     assert(x != variable_null); */
-/*     element->reason = x; */
-/*   } */
-/* } */
-
-
-
-/* variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db) { */
-/*   for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) { */
-/*     variable_t var = db->fixed_variables.data[db->fixed_variables_i]; */
-/*     if (!trail_has_value(db->trail, var)) { */
-/*       return var; */
-/*     } */
-/*   } */
-/*   return variable_null; */
-/* } */
+variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db) {
+  for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) {
+    variable_t var = db->fixed_variables.data[db->fixed_variables_i];
+    if (!trail_has_value(db->ctx->trail, var)) {
+      return var;
+    }
+  }
+  return variable_null;
+}

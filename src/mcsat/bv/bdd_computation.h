@@ -1,0 +1,117 @@
+/*
+ * The Yices SMT Solver. Copyright 2015 SRI International.
+ *
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
+ */
+ 
+#pragma once
+
+#include <stdio.h>
+#include <cudd.h>
+
+#include "terms/terms.h"
+#include "utils/pointer_vectors.h"
+
+typedef DdNode BDD;
+
+typedef struct {
+  DdManager* cudd;
+  int* tmp_inputs;
+  char* tmp_model;
+  size_t tmp_alloc_size;
+} CUDD;
+
+/** Construct and allocate cudd */
+CUDD* bdds_new();
+
+/** Destruct and delete cudd */
+void bdds_delete(CUDD* cudd);
+
+/**
+ * Given the term and BDDs of all the children compute the BDDs into
+ * the output. The out_bdds should be initialized to NULL.
+ */
+void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
+    const pvector_t* children_bdds, BDD** out_bdds);
+
+/** Initialize: set all to NULL */
+void bdds_init(BDD** a, uint32_t n);
+
+/** Dereference all non-NULL bdds in a and set them to NULL */
+void bdds_clear(CUDD* cudd, BDD** a, uint32_t n);
+
+/** Attach extra reference all bdds in a */
+void bdds_attach(BDD** a, uint32_t n);
+
+/** Compare the two BDD vectors */
+bool bdds_eq(BDD** a, BDD** b, uint32_t n);
+
+/** Print the BDDs to stdout */
+void bdds_print(CUDD* cudd, BDD** a, uint32_t n, FILE* out);
+
+/** Check if the BDD is a point of given size (only one solution) */
+bool bdds_is_point(CUDD* cudd, BDD* a, uint32_t size);
+
+/**
+ * Check if the constant satisfies the constraint C(x). The variables in x
+ * should be the same size as x_value.
+ */
+bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* x_value);
+
+/** Get a constant that satisfies the constraint C(x) */
+void bdds_get_model(CUDD* cudd, BDD** x, BDD* C_x, bvconstant_t* out);
+
+/** Make a new variable */
+void bdds_mk_variable(CUDD* cudd, BDD** out, uint32_t n);
+
+/** Make a constant 0...0 BDD */
+void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n);
+
+/** Make a constant 1...1 BDD */
+void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n);
+
+/** Make a constant BDD */
+void bdds_mk_constant(CUDD* cudd, BDD** out, uint32_t n, const bvconstant_t* c);
+
+/** Negate the BDDs a */
+void bdds_mk_neg(CUDD* cudd, BDD** out, BDD** a, uint32_t n);
+
+/** Boolean and of the BDDs in a and b. */
+void bdds_mk_and(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n);
+
+/** Boolean or of the BDDs in a and b. */
+void bdds_mk_or(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n);
+
+/** Division of the BDDs in a and b. */
+void bdds_mk_div(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Remainder of the BDDs in a and b. */
+void bdds_mk_rem(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Signed division of BDDs in a and b. */
+void bdds_mk_sdiv(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Signed remainder of BDDs in a and b (rounding to 0). */
+void bdds_mk_srem(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Signed remainder of BDDs in a and b (rounding to -infinity). */
+void bdds_mk_smod(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Left shift of BDDs in a and b (padding 0) */
+void bdds_mk_shl(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Logical shift right of BDDs in a and b (padding with 0) */
+void bdds_mk_lshr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Arithmetic shift right (padding with sign bit) */
+void bdds_mk_ashr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Equality circuit of BDDs in a and b, out is of n 1. */
+void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n);
+
+/** Unsigned comparison circuit of BDDs in a and b, out is of n 1. */
+void bdds_ge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Signed comparison circuit of BDDs in a and b, out is of n 1. */
+void bdds_sge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);

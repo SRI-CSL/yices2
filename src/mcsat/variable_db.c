@@ -16,12 +16,6 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/variable_db.h"
 
 #include "io/term_printer.h"
@@ -121,12 +115,12 @@ void variable_db_remove_variable(variable_db_t* var_db, variable_t x) {
   assert(variable_db_get_variable_if_exists(var_db, t) == variable_null);
 }
 
-variable_t variable_db_get_variable_if_exists(variable_db_t* var_db, term_t term) {
+variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_t term) {
   int_hmap_pair_t* find;
 
   assert(is_pos_term(term));
 
-  find = int_hmap_find(&var_db->term_to_variable_map, term);
+  find = int_hmap_find((int_hmap_t*) &var_db->term_to_variable_map, term);
   if (find != NULL) {
     return find->val;
   } else {
@@ -157,6 +151,17 @@ void variable_db_print_variable(const variable_db_t* var_db, variable_t x, FILE*
   delete_yices_pp(&printer, false);
 }
 
+void variable_db_print_variables(const variable_db_t* var_db, const variable_t* x, FILE* out) {
+  bool first = true;
+  while (*x != variable_null) {
+    if (first) { first = false; }
+    else { fprintf(out, " "); }
+    variable_db_print_variable(var_db, *x, out);
+    x ++;
+  }
+}
+
+
 void variable_db_print(const variable_db_t* var_db, FILE* out) {
   uint32_t i;
   term_t t;
@@ -181,6 +186,15 @@ bool variable_db_is_real(const variable_db_t* var_db, variable_t x) {
 
 bool variable_db_is_int(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == INT_TYPE;
+}
+
+bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x) {
+  return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == BITVECTOR_TYPE;
+}
+
+uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {
+  assert(variable_db_is_bitvector(var_db, x));
+  return term_bitsize(var_db->terms, variable_db_get_term(var_db, x));
 }
 
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x) {

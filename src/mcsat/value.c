@@ -69,6 +69,7 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
     lp_value_construct_copy(&value->lp_value, &from->lp_value);
     break;
   case VALUE_BV:
+    init_bvconstant(&value->bv_value);
     bvconstant_copy(&value->bv_value, from->bv_value.bitsize, from->bv_value.data);
     break;
   default:

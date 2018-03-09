@@ -86,6 +86,30 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return arith_mod_term_desc(terms, t);
   case DISTINCT_TERM:
     return distinct_term_desc(terms, t);
+  case BV_ARRAY:
+    return bvarray_term_desc(terms, t);
+  case BV_DIV:
+    return bvdiv_term_desc(terms, t);
+  case BV_REM:
+    return bvrem_term_desc(terms, t);
+  case BV_SDIV:
+    return bvsdiv_term_desc(terms, t);
+  case BV_SREM:
+    return bvsrem_term_desc(terms, t);
+  case BV_SMOD:
+    return bvsmod_term_desc(terms, t);
+  case BV_SHL:
+    return bvshl_term_desc(terms, t);
+  case BV_LSHR:
+    return bvlshr_term_desc(terms, t);
+  case BV_ASHR:
+    return bvashr_term_desc(terms, t);
+  case BV_EQ_ATOM:
+    return bveq_atom_desc(terms, t);
+  case BV_GE_ATOM:
+    return bvge_atom_desc(terms, t);
+  case BV_SGE_ATOM:
+    return bvsge_atom_desc(terms, t);
   default:
     assert(false);
     return NULL;
@@ -129,6 +153,42 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     assert(n == 2);
     return mk_arith_mod(tm, children[0], children[1]);
+  case BV_ARRAY:
+    assert(n > 1);
+    return mk_bvarray(tm, n, children);
+  case BV_DIV:
+    assert(n == 2);
+    return mk_bvdiv(tm, children[0], children[1]);
+  case BV_REM:
+    assert(n == 2);
+    return mk_bvrem(tm, children[0], children[1]);
+  case BV_SDIV:
+    assert(n == 2);
+    return mk_bvsdiv(tm, children[0], children[1]);
+  case BV_SREM:
+    assert(n == 2);
+    return mk_bvsrem(tm, children[0], children[1]);
+  case BV_SMOD:
+    assert(n == 2);
+    return mk_bvsmod(tm, children[0], children[1]);
+  case BV_SHL:
+    assert(n == 2);
+    return mk_bvshl(tm, children[0], children[1]);
+  case BV_LSHR:
+    assert(n == 2);
+    return mk_bvlshr(tm, children[0], children[1]);
+  case BV_ASHR:
+    assert(n == 2);
+    return mk_bvashr(tm, children[0], children[1]);
+  case BV_EQ_ATOM:
+    assert(n == 2);
+    return mk_bveq(tm, children[0], children[1]);
+  case BV_GE_ATOM:
+    assert(n == 2);
+    return mk_bvge(tm, children[0], children[1]);
+  case BV_SGE_ATOM:
+    assert(n == 2);
+    return mk_bvsge(tm, children[0], children[1]);
   default:
     assert(false);
     return NULL_TERM;
@@ -248,6 +308,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
     switch(current_kind) {
     case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
+    case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
+    case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
     case ARITH_CONSTANT:   // rational constant
     case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
       current_pre = current;
@@ -280,13 +342,21 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     case ITE_TERM:           // if-then-else
     case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
     case EQ_TERM:            // equality
-    case BV_EQ_ATOM:         // equality on bitvectors
-      {
-        return t;
-      }
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
     case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
       bool children_done = true;
@@ -329,6 +399,102 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       break;
     }
 
+    case BIT_TERM: // bit-select current = child[i]
+    {
+      uint32_t index = bit_term_index(terms, current);
+      term_t arg = bit_term_arg(terms, current);
+      term_t arg_pre = preprocessor_get(pre, arg);
+      if (arg_pre == NULL_TERM) {
+        ivector_push(&pre_stack, arg);
+      } else {
+        if (arg_pre == arg) {
+          current_pre = current;
+        } else {
+          current_pre = bit_term(terms, index, arg);
+        }
+      }
+      break;
+    }
+    case BV_POLY:  // polynomial with generic bitvector coefficients
+    {
+      bvpoly_t* p = bvpoly_term_desc(terms, current);
+
+      bool children_done = true;
+      bool children_same = true;
+
+      n = p->nterms;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        term_t x_pre = (x == const_idx ? const_idx : preprocessor_get(pre, x));
+
+        if (x_pre != const_idx) {
+          if (x_pre == NULL_TERM) {
+            children_done = false;
+            ivector_push(&pre_stack, x);
+          } else if (x_pre != x) {
+            children_same = false;
+          }
+        }
+
+        if (children_done) { ivector_push(&children, x_pre); }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_bvarith_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+    case BV64_POLY: // polynomial with 64bit coefficients
+    {
+      bvpoly64_t* p = bvpoly64_term_desc(terms, current);
+
+      bool children_done = true;
+      bool children_same = true;
+
+      n = p->nterms;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        term_t x_pre = (x == const_idx ? const_idx : preprocessor_get(pre, x));
+
+        if (x_pre != const_idx) {
+          if (x_pre == NULL_TERM) {
+            children_done = false;
+            ivector_push(&pre_stack, x);
+          } else if (x_pre != x) {
+            children_same = false;
+          }
+        }
+
+        if (children_done) { ivector_push(&children, x_pre); }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_bvarith64_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
 
     case POWER_PRODUCT:    // power products: (t1^d1 * ... * t_n^d_n)
     {
@@ -536,9 +702,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
       break;
     }
-
-
-      break;
 
     default:
       // UNSUPPORTED TERM/THEORY
