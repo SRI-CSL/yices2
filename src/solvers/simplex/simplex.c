@@ -6585,7 +6585,8 @@ static void lcm_in_column(simplex_solver_t *solver, rational_t *lcm, thvar_t x) 
       assert(q_is_nonzero(&inv_a));
       q_inv(&inv_a);
       if (q_is_zero(lcm)) {
-	q_set(lcm, &inv_a);
+	// lcm must be positive
+	q_set_abs(lcm, &inv_a);
       } else {
 	q_generalized_lcm(lcm, &inv_a);
       }
