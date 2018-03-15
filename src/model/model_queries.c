@@ -53,6 +53,29 @@ value_t model_get_term_value(model_t *mdl, term_t t) {
 
 
 /*
+ * Get the value of t in mdl
+ * - it computes t's value in mdl (cf. model_eval.h).
+ * - t1 and t2 must be valid terms
+ *
+ * Returns a negative number if the relation can't be computed
+ *    -1  means that the value is not known
+ *    other values are evaluation errors defined in model_eval.h
+ *
+ * Returns an index in mdl->vtbl otherwise (concrete value).
+ */
+value_t model_get_eterm_value(context_t *ctx, model_t *mdl, term_t t1, term_t t2) {
+  evaluator_t evaluator;
+  value_t v;
+
+  init_evaluator(&evaluator, mdl);
+  v = eval_eterm_in_model(ctx, &evaluator, t1, t2);
+  delete_evaluator(&evaluator);
+
+  return v;
+}
+
+
+/*
  * Check whether f is true in mdl
  * - f must be a Boolean term
  * - this returns false if the evaluation fails and stores the error code in *code
@@ -67,7 +90,7 @@ bool formula_holds_in_model(model_t *mdl, term_t f, int32_t *code) {
   v = model_get_term_value(mdl, f);
   if (v < 0) {
     // evaluation error
-    *code = v;    
+    *code = v;
   } else {
     *code = 0;
     answer = is_true(model_get_vtbl(mdl), v);
@@ -160,8 +183,62 @@ bool formulas_hold_in_model(model_t *mdl, uint32_t n, const term_t a[], int32_t 
   }
   delete_evaluator(&evaluator);
 
-  return answer;    
+  return answer;
 }
 
 
+
+/*
+ * Filter used below:
+ * - aux is a term table
+ * - t is relevant if it's uninterpreted and has a name
+ */
+static bool term_is_relevant(void *aux, term_t t) {
+  return is_pos_term(t) && term_kind(aux, t) == UNINTERPRETED_TERM && term_name(aux, t) != NULL;
+}
+
+/*
+ * Get a list of all variables that have a value in the model
+ * - these variables are store into vector *v
+ */
+void model_get_relevant_vars(model_t *mdl, ivector_t *v) {
+  evaluator_t eval;
+
+  ivector_reset(v);
+  if (mdl->has_alias && mdl->alias_map != NULL) {
+    init_evaluator(&eval, mdl);
+
+    /*
+     * We use two passes to find all relevant terms:
+     * 1) in the first pass, we compute the value of all terms
+     *    in the model's alias table.
+     * 2) in the second pass, we collect all terms that have
+     *    received a value in the first pass.
+     *
+     * This is necessary in situations like this:
+     *   (assert (= x  (.. y ..)))
+     * and y does not occur anywhere else.
+     * During model construction, we store [x --> (... y ...)]
+     * in the model's alias table (so x is known to be relevant).
+     * When we compute x's value in phase 1, we also assign a value
+     * to y so y is relevant, and its value must be printed.
+     *
+     * The second pass makes sure that y is found.
+     */
+    model_collect_terms(mdl, true, mdl->terms, term_is_relevant, v);
+
+    // compute their values
+    eval_terms_in_model(&eval, v->data, v->size);
+
+    // second pass: collect all uninterpreted terms that
+    // have a value in model or in the evaluator.
+    ivector_reset(v);
+    model_collect_terms(mdl, false, mdl->terms, term_is_relevant, v);
+    evaluator_collect_cached_terms(&eval, mdl->terms, term_is_relevant, v);
+    delete_evaluator(&eval);
+
+  } else {
+    model_collect_terms(mdl, false, mdl->terms, term_is_relevant, v);
+  }
+}
 

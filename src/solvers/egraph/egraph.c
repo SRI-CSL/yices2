@@ -37,6 +37,7 @@
 #include "utils/memalloc.h"
 #include "utils/ptr_partitions.h"
 
+#include "model/models.h"
 
 #define TRACE 0
 #define TRACE_FCHECK 0
@@ -5573,6 +5574,42 @@ static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, 
 }
 
 
+bool classes_mergeable(FILE *f, egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, class_t c2) {
+  uint32_t msk;
+  composite_t *cmp;
+  thvar_t x1, x2;
+
+  if (egraph_opposite_occ(egraph, t1, t2)) {
+	fprintf(f, " cannot due to 1");
+    return false;
+  }
+
+  assert(c1 != c2);
+
+  msk = egraph->classes.dmask[c1] & egraph->classes.dmask[c2];
+  if (msk != 0) {
+	fprintf(f, " cannot due to 2");
+    return false;
+  }
+
+  cmp = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
+  if (cmp != NULL && egraph_occ_is_false(egraph, pos_occ(cmp->id))) {
+	fprintf(f, " cannot due to 3");
+    return false;
+  }
+
+  x1 = egraph_class_thvar(egraph, c1);
+  x2 = egraph_class_thvar(egraph, c2);
+
+  if (x1 != null_thvar && x2 != null_thvar &&
+      diseq_in_model(egraph, egraph_class_type(egraph, c1), x1, x2)) {
+	fprintf(f, " cannot due to 4");
+    return false;
+  }
+
+  return true;
+}
+
 /*
  * Propagate equality v1 == v2 during reconciliation
  * - id = edge that caused merging of c1 and c2
@@ -7489,6 +7526,41 @@ static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, com
 
 
 /*
+ * Convert composite p to a mapping object
+ * - we construct the mapping object (v[0] ... v[n-1] |-> r)
+ *   where v[i] = value of a[i]
+ *            r = value of class of p
+ */
+static value_t egraph_any_composite_value(egraph_t *egraph, value_table_t *vtbl, composite_t *p) {
+  value_t *aux;
+  value_t v;
+  uint32_t i, n;
+
+//  assert(composite_kind(p) == COMPOSITE_APPLY);
+  n = composite_arity(p);
+  assert(n >= 2);
+
+  aux = alloc_istack_array(&egraph->istack, n);
+
+  // values of a[0] ... a[n-1]
+  // they should all be defined
+  for (i=0; i<n; i++) {
+    aux[i] = egraph_get_value(egraph, vtbl, composite_child(p, i));
+  }
+
+  // value of f
+  v = egraph_get_value(egraph, vtbl, pos_occ(p->id));
+
+  // build the mapping object [aux[0] ... aux[n-1] -> v]
+  v = vtbl_mk_map(vtbl, n, aux, v);
+
+  free_istack_array(&egraph->istack, aux);
+
+  return v;
+}
+
+
+/*
  * Build a mapping from the composite terms in c's parent vector
  * - tau = type of class c
  */
@@ -7674,6 +7746,7 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
 
 
 
+
 /*
  * Rank of a class c
  */
@@ -7760,7 +7833,7 @@ static void egraph_collect_root_classes(egraph_t *egraph) {
 /*
  * Build a model: the model maps egraph classes to objects built in vtbl
  */
-void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
+void egraph_build_model(model_t *model, egraph_t *egraph, value_table_t *vtbl) {
   uint32_t i, n;
   pstore_t *pstore;
   fresh_val_maker_t *fval;

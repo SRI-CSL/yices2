@@ -26,6 +26,8 @@
 #include "model/model_eval.h"
 #include "terms/bv64_constants.h"
 
+#include "context/context_types.h"
+#include "context/internalization_codes.h"
 
 /*
  * Wrapper for q_clear to avoid compilation warnings
@@ -1423,6 +1425,74 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 }
 
 
+static eterm_t subs_eterm(context_t *ctx, evaluator_t *eval, term_t t) {
+  term_t r;
+  int32_t x;
+
+  /*
+   * Get the root of t in the substitution table
+   */
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+	/*
+	 * r is mapped to some object x in egraph/core/or theory solvers
+	 */
+
+	/*
+	 * Convert x to a concrete value
+	 */
+	x = intern_tbl_map_of_root(&ctx->intern, r);
+	if (code_is_eterm(x)) {
+		return code2eterm(x);
+	}
+  }
+
+  longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
+  return -1;
+}
+
+
+/*
+ * Compute the value v of relation between terms t1 and t2 in the model
+ * - raise an exception if the relation can't be evaluated
+ */
+static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t2) {
+  value_t v = null_value;
+
+  if (term_type(eval->terms, t1) != term_type(eval->terms, t2))
+  {
+	longjmp(eval->env, MDL_EVAL_FAILED);
+  }
+
+  eterm_t e1 = subs_eterm(ctx, eval, t1);
+  eterm_t e2 = subs_eterm(ctx, eval, t2);
+
+  if (good_eterm(eval->model, e1) && good_eterm(eval->model, e2))
+  {
+	  v = eval->model->atoms[e1][e2].value;
+	  if (v == null_value)
+		  v = vtbl_mk_unknown(eval->vtbl);
+
+//	  fputs("e1: ", stdout);
+//	  print_eterm_id(stdout, e1);
+//	  fputs(" e2: ", stdout);
+//	  print_eterm_id(stdout, e2);
+//	  fputs(" value: ", stdout);
+//	  vtbl_print_object(stdout, eval->vtbl, v);
+//	  fputc('\n', stdout);
+  }
+  else
+  {
+	  longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
+  }
+
+  if (v == null_value) {
+	longjmp(eval->env, MDL_EVAL_FAILED);
+  }
+
+  return v;
+}
+
 /*
  * Compute the value of t in the model
  * - t must be a valid term
@@ -1438,6 +1508,28 @@ value_t eval_in_model(evaluator_t *eval, term_t t) {
   v = setjmp(eval->env);
   if (v == 0) {
     v = eval_term(eval, t);
+  } else {
+    assert(v < 0); // error code after longjmp
+    reset_istack(&eval->stack);
+  }
+
+  return v;
+}
+
+
+/*
+ * Compute the value of relation between t1 and t2 in the model
+ * - t1 and t2 must be valid terms
+ * - return a negative code if there's an error
+ * - otherwise, return the id of a concrete object of eval->model.vtbl
+ *
+ */
+value_t eval_eterm_in_model(context_t *ctx, evaluator_t *eval, term_t t1, term_t t2) {
+  value_t v;
+
+  v = setjmp(eval->env);
+  if (v == 0) {
+    v = eval_eterm(ctx, eval, t1, t2);
   } else {
     assert(v < 0); // error code after longjmp
     reset_istack(&eval->stack);

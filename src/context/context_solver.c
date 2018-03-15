@@ -35,8 +35,6 @@
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
-
-
 /*
  * TRACE FUNCTIONS
  */
@@ -571,6 +569,29 @@ smt_status_t precheck_context(context_t *ctx) {
  */
 
 /*
+ * Value of eterm e in ctx->core
+ */
+static value_t eterm_bvar_value(smt_core_t *core, value_table_t *vtbl, bvar_t x) {
+  value_t v;
+
+  v = null_value; // prevent GCC warning
+  switch (bvar_value(core, x)) {
+  case VAL_FALSE:
+    v = vtbl_mk_false(vtbl);
+    break;
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
+    v = vtbl_mk_unknown(vtbl);
+    break;
+  case VAL_TRUE:
+    v = vtbl_mk_true(vtbl);
+    break;
+  }
+  return v;
+}
+
+
+/*
  * Value of literal l in ctx->core
  */
 static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
@@ -677,7 +698,6 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
         assert(context_has_egraph(ctx));
         v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
       }
-
     } else {
       // x refers to a literal or a theory variable
       tau = term_type(ctx->terms, r);
@@ -747,6 +767,129 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 }
 
 
+/*
+ * Good eterm: valid index in model_atoms
+ */
+bool good_eterm(const model_t *model, eterm_t e) {
+  return (e < model->natoms) && (e >= 0);
+}
+
+static inline void set_model_atom_eq(model_atom_t **tbl, occ_t o1, occ_t o2, value_t v, composite_t *c) {
+  if (!is_pos_occ(o1))
+  {
+	  print_composite(stdout, c);
+	  fputc('\n', stdout);
+	  print_occurrence(stdout, o1);
+	  fputc('\n', stdout);
+  }
+  assert(is_pos_occ(o1));
+  assert(is_pos_occ(o2));
+
+  eterm_t c1, c2;
+  c1 = term_of_occ(o1);
+  c2 = term_of_occ(o2);
+
+  if (tbl[c1][c2].value != null_value)
+	  assert (tbl[c1][c2].value == v);
+
+  tbl[c1][c2].value = v;
+  tbl[c2][c1].value = v;
+}
+
+
+static inline void set_model_atom_apply(model_atom_t **tbl, eterm_t c1, value_t v) {
+  assert (tbl[c1][c1].value == null_value);
+  tbl[c1][c1].value = v;
+}
+
+
+/*
+ * Build table for egraph atoms
+ * - attach value mapping from terms in egraph with other terms (for ==/!=) or itself (for apply) in model
+ */
+static void build_egraph_atoms(context_t *ctx, model_t *model) {
+//  return;
+
+  value_table_t *vtbl;
+  vtbl = model_get_vtbl(model);
+
+  egraph_t *egraph = ctx->egraph;
+
+  uint32_t i, j, k, l, n;
+  n = egraph->terms.nterms;
+
+  model_atom_t **tbl;
+  value_t v = null_value;
+
+  fprintf(stdout, "%d x %d\n", n, n);
+  /*
+   * Allocate and initialize the model atoms
+   */
+  tbl = (model_atom_t **) safe_malloc(n * sizeof(model_atom_t *));
+
+  for (i=0; i<n; i++) {
+	tbl[i] = (model_atom_t *) safe_malloc(n * sizeof(model_atom_t));
+	for (j=0; j<n; j++)
+		tbl[i][j].value = null_value;
+  }
+
+  thvar_t x;
+  composite_t *c;
+  composite_kind_t kind;
+  occ_t o1, o2;
+
+  for (i=0; i<n; i++) {
+	c = egraph_term_body(egraph, i);
+	if (composite_body(c)) {
+	  x = egraph_term_base_thvar(egraph, i);
+	  if (x != null_thvar) {
+		  if (egraph_term_type(egraph, i) == ETYPE_BOOL) {
+			v = eterm_bvar_value(egraph->core, vtbl, x);
+			kind = composite_kind(c);
+
+			switch(kind) {
+			case COMPOSITE_EQ:
+				o1 = composite_child(c, 0);
+				o2 = composite_child(c, 1);
+				set_model_atom_eq(tbl, o1, o2, v, c);
+				break;
+			case COMPOSITE_DISTINCT:
+				if (!is_true(vtbl, v)) {
+					fputs("invalid value: ", stdout);
+					print_eterm(stdout, egraph, i);
+					fprintf(stdout, "value: %"PRId32, v);
+					fputc('\n', stdout);
+					assert (0);
+				}
+				j = composite_arity(c);
+				for (k = 0; k < j - 1; k++)
+				{
+					o1 = composite_child(c, k);
+					for (l = k+1; l < j; l++)
+					{
+						o2 = composite_child(c, l);
+						set_model_atom_eq(tbl, o1, o2, vtbl_mk_false(vtbl), c);
+					}
+				}
+				break;
+			case COMPOSITE_APPLY:
+				set_model_atom_apply(tbl, i, v);
+				break;
+			default:
+				fputs("invalid composite: ", stdout);
+				print_eterm(stdout, egraph, i);
+				fprintf(stdout, "kind: %"PRId32, k);
+				fputc('\n', stdout);
+				assert (0);
+				break;
+			}
+		}
+	  }
+	}
+  }
+  model->atoms = tbl;
+  model->natoms = n;
+}
 
 
 /*
@@ -777,7 +920,7 @@ void context_build_model(model_t *model, context_t *ctx) {
    * Construct the egraph model
    */
   if (context_has_egraph(ctx)) {
-    egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    egraph_build_model(model, ctx->egraph, model_get_vtbl(model));
   }
 
   /*
@@ -794,9 +937,16 @@ void context_build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-	build_term_value(ctx, model, t);
+        build_term_value(ctx, model, t);
       }
     }
+  }
+
+  /*
+   * Extract the egraph atoms model
+   */
+  if (context_has_egraph(ctx)) {
+    build_egraph_atoms(ctx, model);
   }
 
   /*

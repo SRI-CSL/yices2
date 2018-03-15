@@ -50,6 +50,8 @@ static void dump_egraph(FILE *f, egraph_t *egraph) {
 #ifndef DEBUG
   fprintf(f, "\n--- Egraph Classes ---\n");
   print_egraph_root_classes(f, egraph);
+//  fprintf(f, "\n--- Egraph Mergeable Classes ---\n");
+//  print_egraph_mergeable_classes(f, egraph);
 #endif
 }
 
@@ -119,18 +121,18 @@ void dump_context(FILE *f, context_t *context) {
   assert(context != NULL);
 
 #ifndef NDEBUG
-  fprintf(f, "--- All terms ---\n");
-  pp_term_table(f, __yices_globals.terms);
-  fputc('\n', f);
-
-  fprintf(f, "--- Substitutions ---\n");
-  print_context_intern_subst(f, context);
-
-  fprintf(f, "\n--- Internalization ---\n");
-  print_context_intern_mapping(f, context);
-
-  fprintf(f, "\n--- Gates ---\n");
-  print_gate_table(f, &context->gate_manager.htbl);
+//  fprintf(f, "--- All terms ---\n");
+//  pp_term_table(f, __yices_globals.terms);
+//  fputc('\n', f);
+//
+//  fprintf(f, "--- Substitutions ---\n");
+//  print_context_intern_subst(f, context);
+//
+//  fprintf(f, "\n--- Internalization ---\n");
+//  print_context_intern_mapping(f, context);
+//
+//  fprintf(f, "\n--- Gates ---\n");
+//  print_gate_table(f, &context->gate_manager.htbl);
 #endif
 
   if (context_has_egraph(context)) {
@@ -152,9 +154,9 @@ void dump_context(FILE *f, context_t *context) {
     dump_bv_solver(f, context->bv_solver);
   }
 
-  fprintf(f, "--- Clauses ---\n");
-  print_clauses(f, context->core);
-  fprintf(f, "\n");
+//  fprintf(f, "--- Clauses ---\n");
+//  print_clauses(f, context->core);
+//  fprintf(f, "\n");
 
 #if 0
   fprintf(f, "--- Auxiliary vectors ---\n");

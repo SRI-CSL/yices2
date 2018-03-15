@@ -493,5 +493,4 @@ static inline void *tagged_bv_atom(void *atm) {
 
 
 
-
 #endif /* EGRAPH_BASE_TYPES */

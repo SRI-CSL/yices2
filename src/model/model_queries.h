@@ -71,5 +71,11 @@ extern bool formula_holds_in_model(model_t *mdl, term_t f, int32_t *code);
 extern bool formulas_hold_in_model(model_t *mdl, uint32_t n, const term_t a[], int32_t *code);
 
 
+/*
+ * Get a list of all variables that have a value in the model
+ * - the variables are added to vector *v
+ */
+extern void model_get_relevant_vars(model_t *mdl, ivector_t *v);
+
 
 #endif /* __MODEL_QUERIES_H */

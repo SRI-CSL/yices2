@@ -586,7 +586,7 @@ static inline void egraph_reset_app_partition(egraph_t *egraph) {
  * Build a model: map classes to concrete values
  * - vtbl = table where the concrete values must be constructed
  */
-extern void egraph_build_model(egraph_t *egraph, value_table_t *vtbl);
+extern void egraph_build_model(model_t *model, egraph_t *egraph, value_table_t *vtbl);
 
 
 /*

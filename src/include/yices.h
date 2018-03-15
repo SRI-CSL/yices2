@@ -103,8 +103,6 @@ __YICES_DLLSPEC__ extern const char *yices_build_mode;
 __YICES_DLLSPEC__ extern const char *yices_build_date;
 
 
-
-
 /*
  * Check whether the library was compiled with MCSAT support (i.e.,
  * it can deal with nonlinear arithmetic).
@@ -3253,6 +3251,29 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
 
+/*
+ * Collect all the uninterpreted terms that have a value in model mdl.
+ * - these terms are returned in vector v
+ * - v must be an initialized term_vector
+ *
+ * If the model was produced from a context (i.e., returned by
+ * yices_get_model(context_t ctx, ...))  then vector v will contain
+ * all unintepreted terms that occurred in the asserted formulas.
+ * Warning: formula simplification may remove some uninterpreted terms.
+ *
+ * Trivial example:
+ *
+ *   (assert (and (> y 0) (= x x)))
+ *
+ * is simplified to
+ *
+ *   (assert (> y 0))
+ *
+ * then variable 'x' does not occur in the simplified assertions and will
+ * not be included in vector 'v'.
+ */
+__YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v);
+
 
 
 /***********************
@@ -4036,6 +4057,27 @@ __YICES_DLLSPEC__ extern bool yices_get_presearch_stats(context_t *ctx, stats_t 
  */
 __YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, stats_t *st);
 
+
+/*
+ * Dump context
+ *
+ */
+__YICES_DLLSPEC__ extern void y2_dump_context(context_t *ctx);
+
+/*
+ * Relation between egraph terms t1 and t2: returned as an integer val
+ * - val = 1 means t1 is equal to t2 in mdl
+ * - val = 0 means t1 is not equal to t2 in mdl
+ * - val = -1 means relation is don't care in mdl
+ *
+ * Error codes:
+ * If types of t1 and t2 are not identical
+ *   code = TYPE_MISMATCH
+ * If t1/t2 is not an egraph term
+ *   code = INVALID_TERM
+ * + the other evaluation error codes above.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_eterm_relation(context_t *ctx, model_t *mdl, term_t t1, term_t t2, int32_t *val);
 
 #ifdef __cplusplus
 } /* close extern "C" { */

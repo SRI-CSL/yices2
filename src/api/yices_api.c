@@ -68,6 +68,7 @@
 
 #include "context/context.h"
 #include "context/context_statistics.h"
+#include "context/dump_context.h"
 
 #include "frontend/yices/yices_parser.h"
 
@@ -98,7 +99,6 @@
 #include "utils/refcount_strings.h"
 #include "utils/sparse_arrays.h"
 #include "utils/string_utils.h"
-
 
 #ifdef HAVE_MCSAT
 #include <poly/algebraic_number.h>
@@ -7913,6 +7913,13 @@ EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const ter
 }
 
 
+/*
+ * Export the list of uninterpreted terms that have a value in mdl.
+ * - the variables are stored in term_vector v
+ */
+EXPORTED void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v) {
+  model_get_relevant_vars(mdl, (ivector_t *) v);
+}
 
 
 /************************
@@ -9444,6 +9451,61 @@ EXPORTED extern bool yices_get_presearch_stats(context_t *ctx, stats_t *st) {
  */
 EXPORTED extern bool yices_get_statistics(context_t *ctx, stats_t *st) {
   return yices_collect_statistics(ctx, st);
+}
+
+/*
+ * Dump context
+ *
+ */
+EXPORTED extern void y2_dump_context(context_t *ctx) {
+	dump_context(stdout, ctx);
+}
+
+/*
+ * Relation between egraph terms t1 and t2: returned as an integer val
+ * - val = 1 means t1 is equal to t2 in mdl
+ * - val = 0 means t1 is not equal to t2 in mdl
+ * - val = -1 means relation is don't care in mdl
+ *
+ * Error codes:
+ * If types of t1 and t2 are not identical
+ *   code = TYPE_MISMATCH
+ * If t1/t2 is not an egraph term
+ *   code = INVALID_TERM
+ * + the other evaluation error codes above.
+ */
+EXPORTED extern int32_t yices_get_eterm_relation(context_t *ctx, model_t *mdl, term_t t1, term_t t2, int32_t *val) {
+  value_table_t *vtbl;
+  value_t v;
+
+  if (! check_good_term(&manager, t1)) {
+	return -1;
+  }
+  if (! check_good_term(&manager, t1)) {
+	return -1;
+  }
+
+  v = model_get_eterm_value(ctx, mdl, t1, t2);
+
+  if (v < 0) {
+	error.code = yices_eval_error(v);
+	return -1;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+  if (object_is_unknown(vtbl, v)) {
+	*val = (int32_t) -1;
+  }
+  else if (object_is_boolean(vtbl, v)) {
+	*val = boolobj_value(vtbl, v);
+  }
+  else
+  {
+	  error.code = INTERNAL_EXCEPTION;
+	  return -1;
+  }
+
+  return 0;
 }
 
 
