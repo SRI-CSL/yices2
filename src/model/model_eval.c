@@ -1425,7 +1425,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 }
 
 
-static eterm_t subs_eterm(context_t *ctx, evaluator_t *eval, term_t t) {
+static occ_t subs_occ(context_t *ctx, evaluator_t *eval, term_t t) {
   term_t r;
   int32_t x;
 
@@ -1443,7 +1443,7 @@ static eterm_t subs_eterm(context_t *ctx, evaluator_t *eval, term_t t) {
 	 */
 	x = intern_tbl_map_of_root(&ctx->intern, r);
 	if (code_is_eterm(x)) {
-		return code2eterm(x);
+		return code2occ(x);
 	}
   }
 
@@ -1460,37 +1460,117 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
   value_t v = null_value;
 
   if (term_type(eval->terms, t1) != term_type(eval->terms, t2))
-  {
-	longjmp(eval->env, MDL_EVAL_FAILED);
+    longjmp(eval->env, MDL_EVAL_FAILED);
+
+  occ_t o1, o2;
+  o1 = subs_occ(ctx, eval, t1);
+  o2 = subs_occ(ctx, eval, t2);
+  eterm_t e1, e2;
+  e1 = term_of_occ(o1);
+  e2 = term_of_occ(o2);
+
+  // put smaller index on the left
+  if (e1 > e2) {
+    eterm_t aux_e;
+    aux_e = e1; e1 = e2; e2 = aux_e;
+    occ_t aux_o;
+    aux_o = o1; o1 = o2; o2 = aux_o;
   }
 
-  eterm_t e1 = subs_eterm(ctx, eval, t1);
-  eterm_t e2 = subs_eterm(ctx, eval, t2);
+  fputs("searching for: eq ", stdout);
+  print_occurrence(stdout, o1);
+  fputc(' ', stdout);
+  print_occurrence(stdout, o2);
+  fputc('\n', stdout);
 
-  if (good_eterm(eval->model, e1) && good_eterm(eval->model, e2))
-  {
-	  v = eval->model->atoms[e1][e2].value;
+  if (good_eterm(eval->model, e1) && good_eterm(eval->model, e2)) {
+	  model_t * model = eval->model;
+	  model_atom_t *tbl = model->atoms;
+
+	  composite_t *c;
+	  composite_kind_t kind;
+    occ_t oc1, oc2;
+	  eterm_t ec1, ec2;
+
+	  uint32_t i, j, j1, j2, n, arity;
+	  n = model->natoms;
+	  for (i = 0; i < n; i++) {
+		  if (tbl[i].is_valid) {
+			  c = tbl[i].body;
+//			  fputc('\t', stdout);
+//			  print_composite(stdout, c);
+//			  fputc('\n', stdout);
+			  kind = composite_kind(c);
+				switch(kind) {
+				case COMPOSITE_EQ:
+				  oc1 = composite_child(c, 0);
+          oc2 = composite_child(c, 1);
+          ec1 = term_of_occ(oc1);
+          ec2 = term_of_occ(oc2);
+          if ((e1 == ec1) && (e2 == ec2)) {
+            value_table_t *vtbl = eval->vtbl;
+            bool ps1 = (is_pos_occ(o1) == is_pos_occ(oc1));
+            bool ps2 = (is_pos_occ(o2) == is_pos_occ(oc2));
+            bool polarity = ps1 ^ ps2;
+            v = tbl[i].value;
+            assert(v >= 0 && (v == vtbl->true_value || v == vtbl->false_value));
+            if (polarity)
+              v = vtbl_mk_not(vtbl, v);
+            return v;
+          }
+					break;
+				case COMPOSITE_DISTINCT:
+          arity = composite_arity(c);
+          bool found_e1 = false;
+          bool found_e2 = false;
+          for (j = 0; j < arity; j++) {
+            oc1 = composite_child(c, j);
+            ec1 = term_of_occ(oc1);
+            if (e1 == ec1) {
+              j1 = j;
+              found_e1 = true;
+              if (found_e2)
+                break;
+            }
+            else if (e2 == ec1) {
+              j2 = j;
+              found_e2 = true;
+              if (found_e1)
+                break;
+            }
+          }
+          if (found_e1 && found_e2) {
+            oc1 = composite_child(c, j1);
+            oc2 = composite_child(c, j2);
+            ec1 = term_of_occ(oc1);
+            ec2 = term_of_occ(oc2);
+            assert ((e1 == ec1) && (e2 == ec2));
+
+            value_table_t *vtbl = eval->vtbl;
+            bool ps1 = (is_pos_occ(o1) == is_pos_occ(oc1));
+            bool ps2 = (is_pos_occ(o2) == is_pos_occ(oc2));
+            bool polarity = ps1 ^ ps2;
+            v = tbl[i].value;
+            assert(v >= 0 && v == vtbl->true_value);
+            if (!polarity)
+              v = vtbl_mk_not(vtbl, v);
+            return v;
+          }
+          break;
+				case COMPOSITE_APPLY:
+					break;
+				default:
+					break;
+				}
+		  }
+	  }
+
 	  if (v == null_value)
 		  v = vtbl_mk_unknown(eval->vtbl);
-
-//	  fputs("e1: ", stdout);
-//	  print_eterm_id(stdout, e1);
-//	  fputs(" e2: ", stdout);
-//	  print_eterm_id(stdout, e2);
-//	  fputs(" value: ", stdout);
-//	  vtbl_print_object(stdout, eval->vtbl, v);
-//	  fputc('\n', stdout);
+	  return v;
   }
   else
-  {
 	  longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
-  }
-
-  if (v == null_value) {
-	longjmp(eval->env, MDL_EVAL_FAILED);
-  }
-
-  return v;
 }
 
 /*

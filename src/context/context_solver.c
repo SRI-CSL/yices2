@@ -774,34 +774,6 @@ bool good_eterm(const model_t *model, eterm_t e) {
   return (e < model->natoms) && (e >= 0);
 }
 
-static inline void set_model_atom_eq(model_atom_t **tbl, occ_t o1, occ_t o2, value_t v, composite_t *c) {
-  if (!is_pos_occ(o1))
-  {
-	  print_composite(stdout, c);
-	  fputc('\n', stdout);
-	  print_occurrence(stdout, o1);
-	  fputc('\n', stdout);
-  }
-  assert(is_pos_occ(o1));
-  assert(is_pos_occ(o2));
-
-  eterm_t c1, c2;
-  c1 = term_of_occ(o1);
-  c2 = term_of_occ(o2);
-
-  if (tbl[c1][c2].value != null_value)
-	  assert (tbl[c1][c2].value == v);
-
-  tbl[c1][c2].value = v;
-  tbl[c2][c1].value = v;
-}
-
-
-static inline void set_model_atom_apply(model_atom_t **tbl, eterm_t c1, value_t v) {
-  assert (tbl[c1][c1].value == null_value);
-  tbl[c1][c1].value = v;
-}
-
 
 /*
  * Build table for egraph atoms
@@ -818,74 +790,72 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
   uint32_t i, j, k, l, n;
   n = egraph->terms.nterms;
 
-  model_atom_t **tbl;
-  value_t v = null_value;
 
-  fprintf(stdout, "%d x %d\n", n, n);
   /*
    * Allocate and initialize the model atoms
    */
-  tbl = (model_atom_t **) safe_malloc(n * sizeof(model_atom_t *));
-
-  for (i=0; i<n; i++) {
-	tbl[i] = (model_atom_t *) safe_malloc(n * sizeof(model_atom_t));
-	for (j=0; j<n; j++)
-		tbl[i][j].value = null_value;
-  }
+  model_atom_t *tbl = (model_atom_t *) safe_malloc(n * sizeof(model_atom_t));
+  arena_t *a = &model->arena;
 
   thvar_t x;
   composite_t *c;
   composite_kind_t kind;
-  occ_t o1, o2;
 
   for (i=0; i<n; i++) {
-	c = egraph_term_body(egraph, i);
-	if (composite_body(c)) {
-	  x = egraph_term_base_thvar(egraph, i);
-	  if (x != null_thvar) {
-		  if (egraph_term_type(egraph, i) == ETYPE_BOOL) {
-			v = eterm_bvar_value(egraph->core, vtbl, x);
-			kind = composite_kind(c);
+    tbl[i].value = null_value;
+    tbl[i].is_valid = false;
 
-			switch(kind) {
-			case COMPOSITE_EQ:
-				o1 = composite_child(c, 0);
-				o2 = composite_child(c, 1);
-				set_model_atom_eq(tbl, o1, o2, v, c);
-				break;
-			case COMPOSITE_DISTINCT:
-				if (!is_true(vtbl, v)) {
-					fputs("invalid value: ", stdout);
-					print_eterm(stdout, egraph, i);
-					fprintf(stdout, "value: %"PRId32, v);
-					fputc('\n', stdout);
-					assert (0);
-				}
-				j = composite_arity(c);
-				for (k = 0; k < j - 1; k++)
-				{
-					o1 = composite_child(c, k);
-					for (l = k+1; l < j; l++)
-					{
-						o2 = composite_child(c, l);
-						set_model_atom_eq(tbl, o1, o2, vtbl_mk_false(vtbl), c);
-					}
-				}
-				break;
-			case COMPOSITE_APPLY:
-				set_model_atom_apply(tbl, i, v);
-				break;
-			default:
-				fputs("invalid composite: ", stdout);
-				print_eterm(stdout, egraph, i);
-				fprintf(stdout, "kind: %"PRId32, k);
-				fputc('\n', stdout);
-				assert (0);
-				break;
-			}
-		}
-	  }
-	}
+    c = egraph_term_body(egraph, i);
+    if (composite_body(c)) {
+      x = egraph_term_base_thvar(egraph, i);
+      if (x != null_thvar) {
+        if (egraph_term_type(egraph, i) == ETYPE_BOOL) {
+          tbl[i].value = eterm_bvar_value(egraph->core, vtbl, x);
+          kind = composite_kind(c);
+          switch(kind) {
+          case COMPOSITE_EQ:
+            tbl[i].body = arena_eq_composite(a, composite_child(c, 0), composite_child(c, 1));
+            tbl[i].is_valid = true;
+
+            if (!is_unknown(vtbl, tbl[i].value)) {
+              print_composite(stdout, c);
+              fputc(' ', stdout);
+              vtbl_print_object(stdout, vtbl, tbl[i].value);
+              fputc('\n', stdout);
+            }
+            break;
+          case COMPOSITE_DISTINCT:
+            if (!is_true(vtbl, tbl[i].value)) {
+              fputs("invalid value: ", stdout);
+              print_eterm(stdout, egraph, i);
+              fprintf(stdout, "value: %"PRId32, tbl[i].value);
+              fputc('\n', stdout);
+              assert (0);
+            }
+            tbl[i].body = arena_distinct_composite(a, composite_arity(c), c->child);
+            tbl[i].is_valid = true;
+
+            if (!is_unknown(vtbl, tbl[i].value)) {
+              print_composite(stdout, c);
+              fputc(' ', stdout);
+              vtbl_print_object(stdout, vtbl, tbl[i].value);
+              fputc('\n', stdout);
+            }
+            break;
+          case COMPOSITE_APPLY:
+            tbl[i].body = arena_apply_composite(a, c->child[0], (composite_arity(c) - 1), &c->child[1]);
+            break;
+          default:
+            fputs("invalid composite: ", stdout);
+            print_eterm(stdout, egraph, i);
+            fprintf(stdout, "kind: %"PRId32, k);
+            fputc('\n', stdout);
+            assert (0);
+            break;
+          }
+        }
+      }
+    }
   }
   model->atoms = tbl;
   model->natoms = n;

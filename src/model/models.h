@@ -49,6 +49,8 @@
 
 typedef struct model_atom_s {
 	value_t value;
+	composite_t *body;
+	bool is_valid;
 } model_atom_t;
 
 
@@ -71,8 +73,9 @@ struct model_s {
   term_table_t *terms;
   bool has_alias;
 
-  model_atom_t **atoms;
+  model_atom_t *atoms;
   uint32_t natoms;
+  arena_t arena;
 };
 
 

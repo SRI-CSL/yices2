@@ -45,8 +45,8 @@
 static void dump_egraph(FILE *f, egraph_t *egraph) {
   fprintf(f, "\n--- Egraph Variables ---\n");
   print_egraph_terms(f, egraph);
-  fprintf(f, "\n--- Egraph Atoms ---\n");
-  print_egraph_atoms(f, egraph);
+//  fprintf(f, "\n--- Egraph Atoms ---\n");
+//  print_egraph_atoms(f, egraph);
 #ifndef DEBUG
   fprintf(f, "\n--- Egraph Classes ---\n");
   print_egraph_root_classes(f, egraph);
