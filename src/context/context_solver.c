@@ -774,6 +774,26 @@ bool good_eterm(const model_t *model, eterm_t e) {
   return (e < model->natoms) && (e >= 0);
 }
 
+void rootify_composite(egraph_t *egraph, composite_t *c) {
+  uint32_t i, n;
+  n = composite_arity(c);
+
+  occ_t child, root;
+  eterm_t term;
+  class_t class;
+
+  for (i = 0; i < n; i++)
+  {
+    child = composite_child(c, i);
+    term = term_of_occ(child);
+    class = egraph_term_class(egraph, term);
+    root = egraph_class_root(egraph, class);
+
+    if (is_neg_occ(child))
+      root = opposite_occ(root);
+    c->child[i] = root;
+  }
+}
 
 /*
  * Build table for egraph atoms
@@ -800,10 +820,14 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
   thvar_t x;
   composite_t *c;
   composite_kind_t kind;
+  occ_t root;
 
   for (i=0; i<n; i++) {
     tbl[i].value = null_value;
     tbl[i].is_valid = false;
+    root = egraph_class_root(egraph, egraph_term_class(egraph, i));
+    tbl[i].root = root;
+    tbl[i].root_class = egraph_term_class(egraph, term_of_occ(root));
 
     c = egraph_term_body(egraph, i);
     if (composite_body(c)) {
@@ -815,14 +839,15 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
           switch(kind) {
           case COMPOSITE_EQ:
             tbl[i].body = arena_eq_composite(a, composite_child(c, 0), composite_child(c, 1));
+            rootify_composite(egraph, tbl[i].body);
             tbl[i].is_valid = true;
 
-            if (!is_unknown(vtbl, tbl[i].value)) {
-              print_composite(stdout, c);
-              fputc(' ', stdout);
-              vtbl_print_object(stdout, vtbl, tbl[i].value);
-              fputc('\n', stdout);
-            }
+//            if (!is_unknown(vtbl, tbl[i].value)) {
+//              print_composite(stdout, c);
+//              fputc(' ', stdout);
+//              vtbl_print_object(stdout, vtbl, tbl[i].value);
+//              fputc('\n', stdout);
+//            }
             break;
           case COMPOSITE_DISTINCT:
             if (!is_true(vtbl, tbl[i].value)) {
@@ -833,17 +858,26 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
               assert (0);
             }
             tbl[i].body = arena_distinct_composite(a, composite_arity(c), c->child);
+            rootify_composite(egraph, tbl[i].body);
             tbl[i].is_valid = true;
 
-            if (!is_unknown(vtbl, tbl[i].value)) {
-              print_composite(stdout, c);
-              fputc(' ', stdout);
-              vtbl_print_object(stdout, vtbl, tbl[i].value);
-              fputc('\n', stdout);
-            }
+//            if (!is_unknown(vtbl, tbl[i].value)) {
+//              print_composite(stdout, c);
+//              fputc(' ', stdout);
+//              vtbl_print_object(stdout, vtbl, tbl[i].value);
+//              fputc('\n', stdout);
+//            }
             break;
           case COMPOSITE_APPLY:
             tbl[i].body = arena_apply_composite(a, c->child[0], (composite_arity(c) - 1), &c->child[1]);
+            rootify_composite(egraph, tbl[i].body);
+
+//            if (!is_unknown(vtbl, tbl[i].value)) {
+//              print_composite(stdout, c);
+//              fputc(' ', stdout);
+//              vtbl_print_object(stdout, vtbl, tbl[i].value);
+//              fputc('\n', stdout);
+//            }
             break;
           default:
             fputs("invalid composite: ", stdout);
@@ -857,6 +891,18 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
       }
     }
   }
+
+//  for (i = 0; i < n; i++)
+//  {
+//    if (tbl[i].is_valid)
+//    {
+//      print_composite(stdout, tbl[i].body);
+//      fputc(' ', stdout);
+//      vtbl_print_object(stdout, vtbl, tbl[i].value);
+//      fputc('\n', stdout);
+//    }
+//  }
+
   model->atoms = tbl;
   model->natoms = n;
 }

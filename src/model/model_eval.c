@@ -1245,20 +1245,20 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_IS_INT_ATOM:
-	v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
-	break;
+        v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
+        break;
 
-      case ARITH_FLOOR:
-	v = eval_arith_floor(eval, arith_floor_arg(terms, t));
-	break;
+            case ARITH_FLOOR:
+        v = eval_arith_floor(eval, arith_floor_arg(terms, t));
+        break;
 
-      case ARITH_CEIL:
-	v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
-	break;
+            case ARITH_CEIL:
+        v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
+        break;
 
-      case ARITH_ABS:
-	v = eval_arith_abs(eval, arith_abs_arg(terms, t));
-	break;
+            case ARITH_ABS:
+        v = eval_arith_abs(eval, arith_abs_arg(terms, t));
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -1309,20 +1309,20 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_RDIV:
-	v = eval_arith_rdiv(eval, arith_rdiv_term_desc(terms, t));
-	break;
+        v = eval_arith_rdiv(eval, arith_rdiv_term_desc(terms, t));
+        break;
 
-      case ARITH_IDIV:
-	v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));
-	break;
+            case ARITH_IDIV:
+        v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));
+        break;
 
-      case ARITH_MOD:
-	v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
-	break;
+            case ARITH_MOD:
+        v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
+        break;
 
-      case ARITH_DIVIDES_ATOM:
-	v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
-	break;
+            case ARITH_DIVIDES_ATOM:
+        v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
+        break;
 
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
@@ -1457,35 +1457,54 @@ static occ_t subs_occ(context_t *ctx, evaluator_t *eval, term_t t) {
  * - raise an exception if the relation can't be evaluated
  */
 static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t2) {
+  value_table_t *vtbl = eval->vtbl;
   value_t v = null_value;
 
   if (term_type(eval->terms, t1) != term_type(eval->terms, t2))
     longjmp(eval->env, MDL_EVAL_FAILED);
 
-  occ_t o1, o2;
-  o1 = subs_occ(ctx, eval, t1);
-  o2 = subs_occ(ctx, eval, t2);
-  eterm_t e1, e2;
-  e1 = term_of_occ(o1);
-  e2 = term_of_occ(o2);
+  occ_t o1_orig, o2_orig;
+  o1_orig = subs_occ(ctx, eval, t1);
+  o2_orig = subs_occ(ctx, eval, t2);
+  eterm_t e1_orig, e2_orig;
+  e1_orig = term_of_occ(o1_orig);
+  e2_orig = term_of_occ(o2_orig);
 
   // put smaller index on the left
-  if (e1 > e2) {
+  if (e1_orig > e2_orig) {
     eterm_t aux_e;
-    aux_e = e1; e1 = e2; e2 = aux_e;
+    aux_e = e1_orig; e1_orig = e2_orig; e2_orig = aux_e;
     occ_t aux_o;
-    aux_o = o1; o1 = o2; o2 = aux_o;
+    aux_o = o1_orig; o1_orig = o2_orig; o2_orig = aux_o;
   }
 
-  fputs("searching for: eq ", stdout);
-  print_occurrence(stdout, o1);
-  fputc(' ', stdout);
-  print_occurrence(stdout, o2);
-  fputc('\n', stdout);
+//  fputs("searching for: eq ", stdout);
+//  print_occurrence(stdout, o1_orig);
+//  fputc(' ', stdout);
+//  print_occurrence(stdout, o2_orig);
 
-  if (good_eterm(eval->model, e1) && good_eterm(eval->model, e2)) {
-	  model_t * model = eval->model;
+  if (good_eterm(eval->model, e1_orig) && good_eterm(eval->model, e2_orig)) {
+    model_t * model = eval->model;
 	  model_atom_t *tbl = model->atoms;
+
+    occ_t o1, o2;
+	  o1 = tbl[e1_orig].root;
+    o2 = tbl[e2_orig].root;
+
+    if (is_neg_occ(o1_orig))
+      o1 = opposite_occ(o1);
+    if (is_neg_occ(o2_orig))
+      o2 = opposite_occ(o2);
+
+    eterm_t e1, e2;
+    e1 = term_of_occ(o1);
+    e2 = term_of_occ(o2);
+
+//    fputs(" i.e. ", stdout);
+//    print_occurrence(stdout, o1);
+//    fputc(' ', stdout);
+//    print_occurrence(stdout, o2);
+//    fputs(" -> ", stdout);
 
 	  composite_t *c;
 	  composite_kind_t kind;
@@ -1497,9 +1516,6 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
 	  for (i = 0; i < n; i++) {
 		  if (tbl[i].is_valid) {
 			  c = tbl[i].body;
-//			  fputc('\t', stdout);
-//			  print_composite(stdout, c);
-//			  fputc('\n', stdout);
 			  kind = composite_kind(c);
 				switch(kind) {
 				case COMPOSITE_EQ:
@@ -1508,7 +1524,6 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
           ec1 = term_of_occ(oc1);
           ec2 = term_of_occ(oc2);
           if ((e1 == ec1) && (e2 == ec2)) {
-            value_table_t *vtbl = eval->vtbl;
             bool ps1 = (is_pos_occ(o1) == is_pos_occ(oc1));
             bool ps2 = (is_pos_occ(o2) == is_pos_occ(oc2));
             bool polarity = ps1 ^ ps2;
@@ -1516,6 +1531,10 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
             assert(v >= 0 && (v == vtbl->true_value || v == vtbl->false_value));
             if (polarity)
               v = vtbl_mk_not(vtbl, v);
+
+//            vtbl_print_object(stdout, vtbl, v);
+//            fputc('\n', stdout);
+
             return v;
           }
 					break;
@@ -1546,7 +1565,6 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
             ec2 = term_of_occ(oc2);
             assert ((e1 == ec1) && (e2 == ec2));
 
-            value_table_t *vtbl = eval->vtbl;
             bool ps1 = (is_pos_occ(o1) == is_pos_occ(oc1));
             bool ps2 = (is_pos_occ(o2) == is_pos_occ(oc2));
             bool polarity = ps1 ^ ps2;
@@ -1554,6 +1572,10 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
             assert(v >= 0 && v == vtbl->true_value);
             if (!polarity)
               v = vtbl_mk_not(vtbl, v);
+
+//            vtbl_print_object(stdout, vtbl, v);
+//            fputc('\n', stdout);
+
             return v;
           }
           break;
@@ -1566,7 +1588,12 @@ static value_t eval_eterm(context_t *ctx, evaluator_t *eval, term_t t1, term_t t
 	  }
 
 	  if (v == null_value)
-		  v = vtbl_mk_unknown(eval->vtbl);
+	  {
+	    v = vtbl_mk_unknown(vtbl);
+
+//      vtbl_print_object(stdout, vtbl, v);
+//      fputc('\n', stdout);
+	  }
 	  return v;
   }
   else

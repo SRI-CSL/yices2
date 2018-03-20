@@ -51,8 +51,10 @@ typedef struct model_atom_s {
 	value_t value;
 	composite_t *body;
 	bool is_valid;
-} model_atom_t;
 
+  occ_t root;
+  class_t root_class;
+} model_atom_t;
 
 /*
  * Model structure:
