@@ -216,7 +216,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
 
 
 /*
- * Internalization error for term t 
+ * Internalization error for term t
  * - t can't be processed because there's no egraph
  * - the error code depends on t's type
  */
@@ -229,7 +229,7 @@ static int32_t uf_error_code(context_t *ctx, term_t t) {
   case UNINTERPRETED_TYPE:
     code = UTYPE_NOT_SUPPORTED;
     break;
-      
+
   case SCALAR_TYPE:
     code = SCALAR_NOT_SUPPORTED;
     break;
@@ -465,8 +465,8 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
      * - we also need a cutoff since the number of branches grows
      *   exponentially.
      */
-    if (is_pos_term(x) && 
-	is_ite_term(ctx->terms, x) && 
+    if (is_pos_term(x) &&
+	is_ite_term(ctx->terms, x) &&
 	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
 	term_is_not_shared(&ctx->sharing, x)) {
       /*
@@ -664,7 +664,7 @@ static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
 static void context_store_diff_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
   p->nterms = 2;
   p->mono[0].var = 1;
-  q_set_one(&p->mono[0].coeff);       // coeff of x = 1 
+  q_set_one(&p->mono[0].coeff);       // coeff of x = 1
   p->mono[1].var = 2;
   q_set_minus_one(&p->mono[1].coeff); // coeff of y = -1
   p->mono[2].var = max_idx; // end marker
@@ -814,8 +814,8 @@ static void context_store_divmod_eq(polynomial_t *p, thvar_t *map, thvar_t x, th
 
 /*
  * Bound on x = (mod y k) assuming x and k are integer:
- * - the bound is x <= |k| - 1 (i.e., |k| - 1 - x >= 0) 
- *   so we construct |k| - 1 - x 
+ * - the bound is x <= |k| - 1 (i.e., |k| - 1 - x >= 0)
+ *   so we construct |k| - 1 - x
  */
 static void context_store_integer_mod_bound(polynomial_t *p, thvar_t *map, thvar_t x, const rational_t *k) {
   p->nterms = 2;
@@ -864,7 +864,7 @@ static void assert_floor_axioms(context_t *ctx, thvar_t x, thvar_t y) {
   assert(ctx->arith.arith_var_is_int(ctx->arith_solver, x));
 
   p = context_get_aux_poly(ctx, 4);
-  
+
   // assert (y - x >= 0)
   context_store_diff_poly(p, map, y, x);
   ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
@@ -943,7 +943,7 @@ static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const ration
   polynomial_t *p;
   thvar_t map[3];
 
-  p = context_get_aux_poly(ctx, 4);  
+  p = context_get_aux_poly(ctx, 4);
 
   // assert k*x <= y (i.e., y - k*x >= 0)
   context_store_div_lower_bound(p, map, y, x, k);
@@ -954,12 +954,12 @@ static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const ration
     // assert y <= k*x + |k| - 1 (i.e., - y + k x + |k| - 1 >= 0)
     context_store_integer_div_upper_bound(p, map, y, x, k);
     ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
-    
+
   } else {
     // assert y < k*x + |k| (i.e., y - k*x - |k| < 0) or (not (y - k*x - |k| >= 0))
     context_store_rational_div_upper_bound(p, map, y, x, k);
     ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
-  }  
+  }
 }
 
 
@@ -1104,7 +1104,7 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
   while (ite_flattener_is_nonempty(&flattener)) {
     if (ite_flattener_last_lit_false(&flattener)) {
       // dead branch
-      ite_flattener_next_branch(&flattener);      
+      ite_flattener_next_branch(&flattener);
       continue;
     }
     assert(ite_flattener_branch_is_live(&flattener));
@@ -1119,8 +1119,8 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
      * Heuristics: don't push the term if x is already internalized or if it's
      * shared.
      */
-    if (is_pos_term(x) && 
-	is_ite_term(ctx->terms, x) && 
+    if (is_pos_term(x) &&
+	is_ite_term(ctx->terms, x) &&
 	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
 	term_is_not_shared(&ctx->sharing, x)) {
       ite = ite_term_desc(ctx->terms, x);
@@ -1307,9 +1307,9 @@ static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
 
 
 /*
- * Auxiliary function: return y := (floor x) 
+ * Auxiliary function: return y := (floor x)
  * - check the divmod table first.
- *   If there's a record for (floor x), return the corresponding variable. 
+ *   If there's a record for (floor x), return the corresponding variable.
  * - Otherwise, create a fresh integer variable y,
  *   assert the axioms for y = (floor x)
  *   add a record to the divmod table and return y.
@@ -1447,7 +1447,7 @@ static thvar_t map_idiv_to_arith(context_t *ctx, composite_term_t *div) {
   if (is_non_zero_rational(ctx->terms, div->arg[1], &k)) { // k := value of t2
     assert(q_is_nonzero(&k));
     x = internalize_to_arith(ctx, div->arg[0]); // t1
-    y = get_div(ctx, x, &k);    
+    y = get_div(ctx, x, &k);
 
   } else {
     // division by a non-constant or by zero: not supported by default
@@ -1494,7 +1494,7 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
   }
 
   q_clear(&k);
-  
+
   return r;
 }
 
@@ -2514,7 +2514,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 	x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
 	u = translate_arithvar_to_eterm(ctx, x);
 	break;
-	
+
       case TUPLE_TERM:
         u = map_tuple_to_eterm(ctx, tuple_term_desc(terms, r), tau);
         break;
@@ -2693,6 +2693,8 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
     case UNINTERPRETED_TERM:
       x = ctx->arith.create_var(ctx->arith_solver, is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      //      printf("mapping: %s --> i!%d\n", term_name(ctx->terms, r), (int) x);
+      //      fflush(stdout);
       break;
 
     case ARITH_FLOOR:
@@ -2708,7 +2710,7 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
     case ARITH_ABS:
       x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
-      break;      
+      break;
 
     case ITE_TERM:
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
@@ -2733,17 +2735,17 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 
     case ARITH_RDIV:
       x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ARITH_IDIV:
       x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ARITH_MOD:
       x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case SELECT_TERM:
@@ -4045,7 +4047,7 @@ static void assert_toplevel_arith_divides(context_t *ctx, composite_term_t *divi
   thvar_t map[2];
   thvar_t x, y;
   term_t d;
-  
+
   assert(divides->arity == 2);
 
   d = divides->arg[0];
@@ -4405,7 +4407,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   case EQ_TERM:
     assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
     break;
-    
+
   case ARITH_IS_INT_ATOM:
     assert_toplevel_arith_is_int(ctx, arith_is_int_arg(terms, t), tt);
     break;
@@ -4421,7 +4423,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   case ARITH_BINEQ_ATOM:
     assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
     break;
- 
+
   case ARITH_DIVIDES_ATOM:
     assert_toplevel_arith_divides(ctx, arith_divides_atom_desc(terms, t), tt);
     break;
@@ -5965,7 +5967,7 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
 	context_process_candidate_subst(ctx);
       }
       break;
-      
+
     default:
       /*
        * Process the candidate variable substitutions if any
