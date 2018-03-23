@@ -1157,6 +1157,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
     printf("Integer arithmetic\n");
     printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
     printf(" branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
+    printf(" Gomory cuts             : %"PRIu32"\n", stat->num_gomory_cuts);
     printf("bound strengthening\n");
     printf(" conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
     printf(" recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);

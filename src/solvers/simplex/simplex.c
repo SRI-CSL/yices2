@@ -8450,16 +8450,18 @@ static bool simplex_integrality_check(simplex_solver_t *solver) {
 /*
  * When we create atoms on the fly for an existing variable,
  * we reset the prop_ptr so that we can propagate the new atom if necessary.
- * - we reset the pointer to what's saved for the current base_level in the trail stack.
+ * - we reset the pointer to what's saved for the current decision level in the undo stack
  */
 static void reset_prop_ptr(simplex_solver_t *solver) {
-  if (solver->base_level == 0) {
-    assert(solver->trail_stack.top == 0);
-    solver->bstack.prop_ptr = 0;
-  } else {
-    assert(solver->trail_stack.top > 0);
-    solver->bstack.prop_ptr = arith_trail_top(&solver->trail_stack)->bound_ptr;
-  }
+  assert(solver->stack.top == solver->decision_level + 1);
+  solver->bstack.prop_ptr = solver->stack.data[solver->decision_level].n_bounds;
+  /* if (solver->base_level == 0) { */
+  /*   assert(solver->trail_stack.top == 0); */
+  /*   solver->bstack.prop_ptr = 0; */
+  /* } else { */
+  /*   assert(solver->trail_stack.top > 0); */
+  /*   solver->bstack.prop_ptr = arith_trail_top(&solver->trail_stack)->bound_ptr; */
+  /* } */
 }
 
 /*

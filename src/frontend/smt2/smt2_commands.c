@@ -1613,6 +1613,7 @@ static void show_simplex_stats(simplex_solver_t *solver) {
       simplex_num_dioph_checks(solver) > 0) {
     print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
     print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
+    print_out(" :simplex-gomory-cuts %"PRIu32"\n", simplex_num_gomory_cuts(solver));
     // bound strenthening
     print_out(" :simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
     print_out(" :simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
