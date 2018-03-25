@@ -9010,7 +9010,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 	       "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
 	       v->size, x, bb_score);
 
-  if (solver->stats.num_gomory_cuts < 100) {
+  if (false && solver->stats.num_gomory_cuts < 100) {
     n = try_gomory_cuts(solver, v, 100);
     solver->stats.num_gomory_cuts += n;
     trace_printf(solver->core->trace, 3, "(Gomory cuts: %"PRIu32" cuts created)\n", n);
