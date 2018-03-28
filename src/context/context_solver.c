@@ -35,6 +35,10 @@
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
+#include "solvers/cdcl/smt_core.h"
+
+#define TRACE 0
+
 /*
  * TRACE FUNCTIONS
  */
@@ -1023,3 +1027,98 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 
   return v;
 }
+
+/*
+ * Enables unsat core
+ */
+extern void context_enable_unsat_core(context_t *ctx) {
+  smt_core_t *core = ctx->core;
+  enable_unsat_core(core);
+}
+
+/*
+ * Computes unsat core
+ * - returns 0 when t is not present in unsat core
+ * - returns 1 when t is present in unsat core
+ * - returns -1 when unable to determine
+ */
+extern int32_t derive_unsat_core(context_t *ctx) {
+  smt_core_t *core = ctx->core;
+  derive_conflict_core(core);
+  return core->core_status;
+}
+
+/*
+ * Checks whether term t is in unsat core.
+ * - returns 0 when t is not present in unsat core
+ * - returns 1 when t is present in unsat core
+ * - returns -1 when unable to determine
+ */
+int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
+  smt_core_t *core = ctx->core;
+  ivector_t *conflict_core;
+  intern_tbl_t *tbl;
+  term_table_t *terms;
+  type_table_t *types;
+  bvar_t x;
+  uint32_t i, n;
+  int32_t code;
+
+#if TRACE
+  printf("term: ");
+  print_term_id(stdout, r);
+#endif
+
+  if (core->core_status == core_ready) {
+    conflict_core = &core->conflict_core;
+    tbl = &ctx->intern;
+    terms = tbl->terms;
+
+    if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
+      if (intern_tbl_root_is_mapped(tbl, r)) {
+        code = intern_tbl_map_of_root(tbl, r);
+        if (code_is_var(code)) {
+          x = code2bvar(code);
+
+#if TRACE
+          printf(", var: ");
+          print_bvar(stdout, x);
+#endif
+
+          n = conflict_core->size;
+          for (i = 0; i < n; i++) {
+
+//          fputs("\nrhs: ", stdout);
+//          print_bvar(stdout, conflict_core->data[i]);
+
+            if (x == conflict_core->data[i])
+            {
+#if TRACE
+              printf(", matched\n");
+              fflush(stdout);
+#endif
+              return 1;
+            }
+          }
+#if TRACE
+          printf(", not matched\n");
+          fflush(stdout);
+#endif
+        } else {
+#if TRACE
+          printf(", invalid\n");
+          fflush(stdout);
+#endif
+        }
+        return 0;
+      }
+    }
+  }
+#if TRACE
+  printf(", fail\n");
+  fflush(stdout);
+#endif
+  return -1;
+}
+
+

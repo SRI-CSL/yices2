@@ -4079,6 +4079,40 @@ __YICES_DLLSPEC__ extern void y2_dump_context(context_t *ctx);
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_eterm_relation(context_t *ctx, model_t *mdl, term_t t1, term_t t2, int32_t *val);
 
+
+/*
+ * Enables the unsat core.
+ */
+__YICES_DLLSPEC__ extern void y2_enable_unsat_core(context_t *ctx);
+
+/*
+ * Computes the unsat core.
+ * - return 0 for successful derivation
+ * - return -1 in case of an error
+ *
+ * Error codes:
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t y2_derive_unsat_core(context_t *ctx);
+
+/*
+ * Checks whether a boolean term is in unsat core or not: returned as an integer val
+ * - val = 0 means t is not present
+ * - val = 1 means t is present
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t y2_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val);
+
 #ifdef __cplusplus
 } /* close extern "C" { */
 #endif

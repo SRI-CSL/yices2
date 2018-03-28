@@ -64,6 +64,13 @@
 // EXPERIMENTAL
 #include "scratch/booleq_table.h"
 
+// Unsat core computation status
+enum {
+  core_init = 0,  // unsat core not computed
+  core_ready = 1,  // unsat core ready
+  core_fail = -1,  // unsat core computation failed
+};
+
 
 /***********
  * CLAUSES *
@@ -979,6 +986,12 @@ typedef struct smt_core_s {
   clause_t *false_clause;
   uint32_t th_conflict_size;  // number of literals in theory conflicts
 
+  /* Unsat core data */
+  bool unsat_core_enabled;      // true means unsat core enabled (also means no simplification of theory clauses)
+  ivector_t conflict_core;    // complete trace of reason for unsatisfiability, traced till root literals
+  ivector_t conflict_root;    // reason for unsatisfiability, collected root literals
+  int32_t core_status;        // status of conflict_core
+
   /* Auxiliary buffers for conflict resolution */
   ivector_t buffer;
   ivector_t buffer2;
@@ -997,6 +1010,8 @@ typedef struct smt_core_s {
   antecedent_t *antecedent;
   uint32_t *level;
   byte_t *mark;        // bitvector: for conflict resolution
+
+  antecedent_t *full_antecedent;                // Full antecedant for unsat core tracking
 
   /* Literal-indexed arrays (of size lsize) */
   literal_t **bin;   // array of literal vectors
@@ -1218,6 +1233,13 @@ static inline void disable_theory_cache(smt_core_t *s) {
   s->th_cache_enabled = false;
 }
 
+/*
+ * Activate unsat core data and initialize core
+ */
+static inline void enable_unsat_core(smt_core_t *s) {
+  s->unsat_core_enabled = true;
+}
+
 
 /*
  * Read the current decision level
@@ -1421,6 +1443,14 @@ static inline void *get_bvar_atom(smt_core_t *s, bvar_t x) {
 static inline antecedent_t get_bvar_antecedent(smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
   return s->antecedent[x];
+}
+
+/*
+ * Full antecedent of x
+ */
+static inline antecedent_t get_bvar_full_antecedent(smt_core_t *s, bvar_t x) {
+  assert(0 <= x && x < s->nvars);
+  return s->full_antecedent[x];
 }
 
 
@@ -1914,5 +1944,6 @@ extern void delete_free_bool_vars(free_bool_vars_t *fv);
  */
 extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
 
+extern void derive_conflict_core(smt_core_t *s);
 
 #endif /* __SMT_CORE_H */

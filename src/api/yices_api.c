@@ -9508,4 +9508,76 @@ EXPORTED extern int32_t yices_get_eterm_relation(context_t *ctx, model_t *mdl, t
   return 0;
 }
 
+/*
+ * Enables the unsat core.
+ */
+EXPORTED extern void y2_enable_unsat_core(context_t *ctx) {
+  context_enable_unsat_core(ctx);
+}
+
+/*
+ * Computes the unsat core.
+ * - return 0 for successful derivation
+ * - return -1 in case of an error
+ *
+ * Error codes:
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t y2_derive_unsat_core(context_t *ctx) {
+
+  if (yices_context_status(ctx) != STATUS_UNSAT) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  if (ctx->core->unsat_core_enabled == false) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  int32_t v = derive_unsat_core(ctx);
+  if (v < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Checks whether a boolean term is in unsat core or not: returned as an integer val
+ * - val = 0 means t is not present in unsat core
+ * - val = 1 means t is present in unsat core
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t y2_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val) {
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  if (yices_context_status(ctx) != STATUS_UNSAT) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  *val = check_term_in_unsat_core(ctx, t);
+  if (val < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
 

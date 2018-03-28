@@ -38,6 +38,9 @@
 #include "api/yices_globals.h"
 #endif
 
+#include "context/context_types.h"
+#include "context/internalization_codes.h"
+
 /*
  * Dump: print all internal tables
  * + the egraph/core and theory solvers
@@ -114,28 +117,101 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
 }
 
 
+
+/*
+ * Print relations between a term, it's eterm and root eterm.
+ */
+static void print_term_in_egraph(FILE *f, context_t *ctx, term_t t) {
+  egraph_t * egraph = ctx->egraph;
+
+  term_t r;
+  int32_t x;
+
+  /*
+   * Get the root of t in the substitution table
+   */
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+    /*
+     * r is mapped to some object x in egraph/core/or theory solvers
+     */
+
+    /*
+     * Convert x to a concrete value
+     */
+    x = intern_tbl_map_of_root(&ctx->intern, r);
+
+    occ_t o_orig;
+    if (code_is_eterm(x)) {
+      o_orig = code2occ(x);
+    }
+    class_t c_orig = egraph_class(egraph, o_orig);
+
+    occ_t o = egraph_class_root(egraph, c_orig);
+    class_t c = egraph_class(egraph, o);
+
+    if (!egraph_class_is_bool(egraph, c)) {
+      print_class_id(f, c);
+      fputs("\t\t", stdout);
+
+      print_class_id(f, c_orig);
+      fputs("\t\t", stdout);
+
+      print_occurrence(f, o);
+      fputs("\t\t", stdout);
+
+      print_occurrence(f, o_orig);
+      fputs("\t\t", stdout);
+
+      print_term(f, ctx->terms, t);
+      fputc('\n', stdout);
+    }
+  }
+  else {
+//    fputc('-', stdout);
+//    fputs("\t\t", stdout);
+//    fputc('-', stdout);
+//    fputs("\t\t", stdout);
+//    fputc('-', stdout);
+//    fputs("\t\t", stdout);
+//    fputc('-', stdout);
+//    fputs("\t\t", stdout);
+  }
+//  print_term(f, ctx->terms, t);
+//  fputc('\n', stdout);
+}
+
+/*
+ * Print relations between terms, eterms and root eterms.
+ */
+static void print_terms_in_egraph(FILE *f, context_t *ctx) {
+  term_table_t *tbl = __yices_globals.terms;
+
+  uint32_t i, n;
+  term_t t;
+  term_kind_t kind;
+
+  fprintf(f, "--- All terms (with egraph relations) ---\n");
+  n = tbl->nelems;
+  for (i=0; i<n; i++) {
+    kind = tbl->kind[i];
+    if (kind != UNUSED_TERM && kind != RESERVED_TERM) {
+      t = pos_term(i);
+      print_term_in_egraph(f, ctx, t);
+    }
+  }
+  fputc('\n', f);
+}
+
+
 /*
  * TOP LEVEL
  */
 void dump_context(FILE *f, context_t *context) {
   assert(context != NULL);
 
-#ifndef NDEBUG
-//  fprintf(f, "--- All terms ---\n");
-//  pp_term_table(f, __yices_globals.terms);
-//  fputc('\n', f);
-//
-//  fprintf(f, "--- Substitutions ---\n");
-//  print_context_intern_subst(f, context);
-//
-//  fprintf(f, "\n--- Internalization ---\n");
-//  print_context_intern_mapping(f, context);
-//
-//  fprintf(f, "\n--- Gates ---\n");
-//  print_gate_table(f, &context->gate_manager.htbl);
-#endif
-
   if (context_has_egraph(context)) {
+    print_terms_in_egraph(f, context);
     dump_egraph(f, context->egraph);
   }
 
@@ -153,6 +229,23 @@ void dump_context(FILE *f, context_t *context) {
   if (context_has_bv_solver(context)) {
     dump_bv_solver(f, context->bv_solver);
   }
+
+  print_smt_core(f, context->core);
+
+#ifndef NDEBUG
+//  fprintf(f, "--- All terms ---\n");
+//  pp_term_table(f, __yices_globals.terms);
+//  fputc('\n', f);
+
+  fprintf(f, "--- Substitutions ---\n");
+  print_context_intern_subst(f, context);
+
+  fprintf(f, "\n--- Internalization ---\n");
+  print_context_intern_mapping(f, context);
+
+  fprintf(f, "\n--- Gates ---\n");
+  print_gate_table(f, &context->gate_manager.htbl);
+#endif
 
 //  fprintf(f, "--- Clauses ---\n");
 //  print_clauses(f, context->core);

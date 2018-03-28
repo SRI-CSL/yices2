@@ -4452,9 +4452,9 @@ void egraph_start_search(egraph_t *egraph) {
 #if TRACE
   fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
           egraph->decision_level, egraph->core->stats.decisions);
-  fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
-  print_egraph_terms(stdout, egraph);
-  fprintf(stdout, "\n");
+//  fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
+//  print_egraph_terms(stdout, egraph);
+//  fprintf(stdout, "\n");
 #endif
 
   assert(egraph->core != NULL && egraph->decision_level == egraph->base_level);
@@ -4473,9 +4473,9 @@ void egraph_start_search(egraph_t *egraph) {
   }
 
 #if TRACE
-  printf("\n=== EGRAPH TERMS ===\n");
-  print_egraph_terms(stdout, egraph);
-  printf("\n");
+//  printf("\n=== EGRAPH TERMS ===\n");
+//  print_egraph_terms(stdout, egraph);
+//  printf("\n");
 #endif
 
   egraph->presearch = false;
@@ -4558,6 +4558,10 @@ void egraph_push(egraph_t *egraph) {
   // increase base level and decision level
   egraph->base_level ++;
   egraph_open_decision_level(egraph);
+
+#if TRACE
+  printf("\n*** EGRAPH PUSH ****\n");
+#endif
 
 #if 0
   printf("\n*** EGRAPH PUSH EXIT ****\n");
@@ -5111,6 +5115,10 @@ void egraph_pop(egraph_t *egraph) {
     }
   }
 
+#if TRACE
+  printf("\n*** EGRAPH POP ****\n");
+#endif
+
 #if 0
   printf("\n*** EGRAPH POP: EXIT ****\n");
   print_egraph_root_classes_details(stdout, egraph);
@@ -5144,7 +5152,7 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
-#if 0
+#if TRACE
       printf("---> EGRAPH CONFLICT on ");
       print_occurrence(stdout, e->lhs);
       printf(" == ");
@@ -6110,7 +6118,8 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   printf("---> EGRAPH: final check (experimental)\n\n");
   print_egraph_terms(stdout, egraph);
   printf("\n\n");
-  print_egraph_root_classes_details(stdout, egraph);
+  print_egraph_root_classes(stdout, egraph);
+//  print_egraph_root_classes_details(stdout, egraph);
   fflush(stdout);
 #endif
 

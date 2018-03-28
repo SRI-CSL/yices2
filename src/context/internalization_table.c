@@ -64,6 +64,7 @@
 #include "context/internalization_table.h"
 #include "utils/memalloc.h"
 
+#define TRACE 0
 
 /*
  * Initialization:
@@ -400,6 +401,13 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
 
   assert(intern_tbl_map_of_root(tbl, r) == x &&
          intern_tbl_is_root(tbl, r) && !intern_tbl_root_is_free(tbl, r));
+
+#if TRACE
+//  printf("---> ");
+  print_term_intern(stdout, tbl, r);
+  printf("\n");
+  fflush(stdout);
+#endif
 }
 
 
