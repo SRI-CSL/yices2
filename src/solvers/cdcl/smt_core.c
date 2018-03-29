@@ -2874,8 +2874,6 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
 
 
 static void add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
-  clause_t *cl;
-  uint32_t i, j, k, q;
   literal_t l0, l1;
   bvar_t v;
 
@@ -2890,34 +2888,8 @@ static void add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
     s->full_antecedent[v] = mk_literal_antecedent(l1);
   }
   else {
-    clause_t *cl;
-
-    // find literal of second highest level in b[0 ... n-1]
-    j = 1;
-    k = s->level[var_of(b[1])];
-    for (i=2; i<m; i++) {
-      q = s->level[var_of(b[i])];
-      if (q > k) {
-        k = q;
-        j = i;
-      }
-    }
-
-    // swap b[1] and b[j]
-    l1 = b[j]; b[j] = b[1]; b[1] = l1;
-
     // create the new clause with l0 and l1 as watched literals
-    cl = new_learned_clause(m, b);
-    add_clause_to_vector(&s->learned_clauses, cl);
-    increase_clause_activity(s, cl);
-
-    // add cl at the start of watch[l0] and watch[l1]
-    s->watch[l0] = cons(0, cl, s->watch[l0]);
-    s->watch[l1] = cons(1, cl, s->watch[l1]);
-
-    s->nb_clauses ++;
-    s->stats.learned_literals += m;
-
+    clause_t *cl = new_learned_clause(m, b);
     s->full_antecedent[v] = mk_clause0_antecedent(cl);
   }
 
@@ -3139,13 +3111,11 @@ static void try_cache_theory_conflict(smt_core_t *s, uint32_t n, literal_t *a) {
 
   // remove literals false at the base level
   // Don't do the below simplification when tracking unsat cores
-  if (!s->unsat_core_enabled) {
-    for (i=0; i<n; i++) {
-      l = a[i];
-      assert(literal_value(s, l) == VAL_FALSE && d_level(s, l) <= s->decision_level);
-      if (d_level(s, l) > s->base_level) {
-        ivector_push(v, l);
-      }
+  for (i=0; i<n; i++) {
+    l = a[i];
+    assert(literal_value(s, l) == VAL_FALSE && d_level(s, l) <= s->decision_level);
+    if (s->unsat_core_enabled || d_level(s, l) > s->base_level) {
+      ivector_push(v, l);
     }
   }
 
@@ -3759,7 +3729,7 @@ void derive_conflict_core(smt_core_t *s) {
 }
 
 static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
-  uint32_t i, j;
+  uint32_t i, j, k, q;
   literal_t l, b;
   bvar_t x;
   literal_t *c;
@@ -3887,8 +3857,8 @@ static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
 
   ivector_t buffer_full;
   uint32_t m, n;
-  int32_t * base;
-  int32_t * buf;
+  literal_t *base;
+  literal_t *buf;
 
   m = buffer2.size;
   n = buffer->size;
@@ -3909,15 +3879,30 @@ static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
 
   delete_ivector(&buffer2);
 
+  m = buffer_full.size;
+  base = buffer_full.data;
+
+  // find literal of second highest level in b[0 ... n-1]
+  j = 1;
+  k = s->level[var_of(base[1])];
+  for (i=2; i<m; i++) {
+    q = s->level[var_of(base[i])];
+    if (q > k) {
+      k = q;
+      j = i;
+    }
+  }
+
+  // swap base[1] and base[j]
+  l = base[j]; base[j] = base[1]; base[1] = l;
+
 
 #if TRACE
-  int32_t *full = buffer_full.data;
-  m = buffer_full.size;
-
   printf("---> DPLL:   Buffer2: {");
   for (i=0; i<m; i++) {
     printf(" ");
-    print_literal(stdout, full[i]);
+    print_literal(stdout, base[i]);
+    printf(" d%d", s->level[var_of(base[i])]);
   }
   printf(" }\n");
   fflush(stdout);
@@ -3932,7 +3917,7 @@ static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
   /*
    * Add the full antecedent
    */
-  add_full_antecedent(s, buffer_full.size, buffer_full.data);
+  add_full_antecedent(s, m, base);
 
   delete_ivector(&buffer_full);
 }
