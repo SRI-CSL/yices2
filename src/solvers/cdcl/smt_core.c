@@ -2889,37 +2889,244 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
 }
 
 
-static void add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
+/*
+ * Add an array of literals a as a new learned clause, after conflict resolution,
+ * and update the full_antecedent for unsat core tracking.
+ * - m must be at least 1
+ * - all literals must be assigned to false
+ * - b[0] must be the implied literal: all other literals must have
+ *   a lower assignment level than b[0].
+ */
+static antecedent_t add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
   literal_t l0, l1;
   bvar_t v;
+  antecedent_t a;
 
   l0 = b[0];
   v = var_of(l0);
 
   if (m == 1) {
-    s->full_antecedent[v] = mk_literal_antecedent(null_literal);
+    a = mk_literal_antecedent(null_literal);
+    s->nb_unit_clauses ++;
   }
   else if (m == 2) {
     l1 = b[1];
-    s->full_antecedent[v] = mk_literal_antecedent(l1);
+    direct_binary_clause(s, l0, l1);
+    a = mk_literal_antecedent(l1);
   }
   else {
+    l1 = b[1];
+
     // create the new clause with l0 and l1 as watched literals
     clause_t *cl;
-    cl = new_clause(m, b);
-    add_clause_to_vector(&s->buffer_clauses, cl);
-    s->full_antecedent[v] = mk_clause0_antecedent(cl);
+
+    cl = new_learned_clause(m, b);
+    add_clause_to_vector(&s->learned_clauses, cl);
+    increase_clause_activity(s, cl);
+
+    // add cl at the start of watch[l0] and watch[l1]
+    s->watch[l0] = cons(0, cl, s->watch[l0]);
+    s->watch[l1] = cons(1, cl, s->watch[l1]);
+
+    s->nb_clauses ++;
+    s->stats.learned_literals += m;
+
+//    cl = new_clause(m, b);
+//    add_clause_to_vector(&s->buffer_clauses, cl);
+
+    a = mk_clause0_antecedent(cl);
   }
+  s->full_antecedent[v] = a;
 
 #if TRACE
   printf("---> DPLL:   Updating antecedent ");
   print_literal(stdout, l0);
-  print_antecedents(stdout, s, l0, s->full_antecedent[v]);
+  print_antecedents(stdout, s, l0, a);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
   fflush(stdout);
 #endif
+
+  return a;
 }
 
+
+/*
+ * Same as add_learned_clause, but with no addition of clauses.
+ * A learned clause should be added after calling this function using add_full_antecedent.
+ * - n (m) must be at least 1
+ * - all literals must be assigned to false
+ * - a[0] (b[0]) must be the implied literal: all other literals must have
+ *   a lower assignment level than a[0] (b[0]).
+ * - backtrack to the decision_level where a[0] is implied, then
+ *   add a[0] to the propagation queue
+ */
+static void add_learned_clause_core(smt_core_t *s, uint32_t n, literal_t *a) {
+  clause_t *cl;
+  uint32_t i, j, k, q;
+  literal_t l0, l1;
+
+#if TRACE
+  printf("---> DPLL:   Learned clause: {");
+  for (i=0; i<n; i++) {
+    printf(" ");
+    print_literal(stdout, a[i]);
+  }
+  printf(" }\n\n");
+  fflush(stdout);
+#endif
+
+  l0 = a[0];
+
+  if (n == 1) {
+
+    backtrack_to_base_level(s);
+    if (literal_value(s, l0) == VAL_FALSE) {
+      // conflict (the whole thing is unsat)
+      s->inconsistent = true;
+      s->conflict = s->conflict_buffer;
+      s->conflict_buffer[0] = l0;
+      s->conflict_buffer[1] = end_clause;
+    } else {
+#if TRACE
+      printf("---> DPLL:   Add learned unit clause: { ");
+      print_literal(stdout, l0);
+      printf(" }\n");
+      fflush(stdout);
+#endif
+      assign_literal(s, l0);
+      s->nb_unit_clauses ++;
+    }
+
+  } else if (n == 2) {
+
+    l1 = a[1];
+    k = s->level[var_of(l1)];
+    assert(k < s->level[var_of(l0)]);
+
+//    direct_binary_clause(s, l0, l1);
+    backtrack_to_level(s, k);
+    implied_literal(s, l0, mk_literal_antecedent(l1));
+
+  } else {
+
+    // EXPERIMENTAL
+    //    if (s->etable != NULL) {
+    //      test_eq_clause(s, "after simplification", n, a);
+    //    }
+
+    // find literal of second highest level in a[0 ... n-1]
+    j = 1;
+    k = s->level[var_of(a[1])];
+    for (i=2; i<n; i++) {
+      q = s->level[var_of(a[i])];
+      if (q > k) {
+        k = q;
+        j = i;
+      }
+    }
+
+    // swap a[1] and a[j]
+    l1 = a[j]; a[j] = a[1]; a[1] = l1;
+
+    // create the new clause with l0 and l1 as watched literals
+    cl = new_clause(n, a);
+    add_clause_to_vector(&s->buffer_clauses, cl);
+
+//    cl = new_learned_clause(n, a);
+//    add_clause_to_vector(&s->learned_clauses, cl);
+//    increase_clause_activity(s, cl);
+//
+//    // add cl at the start of watch[l0] and watch[l1]
+//    s->watch[l0] = cons(0, cl, s->watch[l0]);
+//    s->watch[l1] = cons(1, cl, s->watch[l1]);
+//
+//    s->nb_clauses ++;
+//    s->stats.learned_literals += n;
+
+    // backtrack and assert l0
+    assert(k < s->level[var_of(l0)]);
+    backtrack_to_level(s, k);
+
+    implied_literal(s, l0, mk_clause0_antecedent(cl));
+  }
+}
+
+//static void add_learned_clause_core(smt_core_t *s, uint32_t n, literal_t *a, uint32_t m, literal_t *b) {
+//  clause_t *cl;
+//  uint32_t i, j, k, q;
+//  literal_t l0, l1;
+//  antecedent_t ant = add_full_antecedent(s, m, b);
+//
+//#if TRACE
+//  printf("---> DPLL:   Learned clause: {");
+//  for (i=0; i<n; i++) {
+//    printf(" ");
+//    print_literal(stdout, a[i]);
+//  }
+//  printf(" }\n\n");
+//  fflush(stdout);
+//#endif
+//
+//  l0 = a[0];
+//  assert(l0 == b[0]);
+//
+//  if (n == 1) {
+//
+//    backtrack_to_base_level(s);
+//    if (literal_value(s, l0) == VAL_FALSE) {
+//      // conflict (the whole thing is unsat)
+//      s->inconsistent = true;
+//      s->conflict = s->conflict_buffer;
+//      s->conflict_buffer[0] = l0;
+//      s->conflict_buffer[1] = end_clause;
+//    } else {
+//#if TRACE
+//      printf("---> DPLL:   Add learned unit clause: { ");
+//      print_literal(stdout, l0);
+//      printf(" }\n");
+//      fflush(stdout);
+//#endif
+//      implied_literal(s, l0, ant);
+//      s->antecedent[var_of(l0)] = mk_literal_antecedent(null_literal);
+//    }
+//
+//  } else if (n == 2) {
+//
+//    l1 = a[1];
+//    k = s->level[var_of(l1)];
+//    assert(k < s->level[var_of(l0)]);
+//
+//    backtrack_to_level(s, k);
+//    implied_literal(s, l0, ant);
+//    s->antecedent[var_of(l0)] = mk_literal_antecedent(l1);
+//
+//  } else {
+//
+//    // find literal of second highest level in a[0 ... n-1]
+//    j = 1;
+//    k = s->level[var_of(a[1])];
+//    for (i=2; i<n; i++) {
+//      q = s->level[var_of(a[i])];
+//      if (q > k) {
+//        k = q;
+//        j = i;
+//      }
+//    }
+//
+//    // swap a[1] and a[j]
+//    l1 = a[j]; a[j] = a[1]; a[1] = l1;
+//
+//    // create the new clause with l0 and l1 as watched literals
+//    cl = new_clause(n, a);
+//    add_clause_to_vector(&s->buffer_clauses, cl);
+//
+//    // backtrack and assert l0
+//    assert(k < s->level[var_of(l0)]);
+//    backtrack_to_level(s, k);
+//    implied_literal(s, l0, ant);
+//    s->antecedent[var_of(l0)] = mk_clause0_antecedent(cl);
+//  }
+//}
 
 /*
  * Add an array of literals a as a new learned clause, after conflict resolution.
@@ -3942,7 +4149,7 @@ static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
    * Add the learned clause: this causes backtracking
    * and assert the implied literal
    */
-  add_learned_clause(s, s->buffer.size, s->buffer.data);
+  add_learned_clause_core(s, s->buffer.size, s->buffer.data);
 
   /*
    * Add the full antecedent
