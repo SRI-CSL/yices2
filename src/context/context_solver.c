@@ -702,6 +702,7 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
         assert(context_has_egraph(ctx));
         v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
       }
+
     } else {
       // x refers to a literal or a theory variable
       tau = term_type(ctx->terms, r);
@@ -940,7 +941,7 @@ void context_build_model(model_t *model, context_t *ctx) {
    * Construct the egraph model
    */
   if (context_has_egraph(ctx)) {
-    egraph_build_model(model, ctx->egraph, model_get_vtbl(model));
+    egraph_build_model(ctx->egraph, model_get_vtbl(model));
   }
 
   /*

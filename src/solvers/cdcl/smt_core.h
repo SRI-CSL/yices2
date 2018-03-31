@@ -1002,6 +1002,7 @@ typedef struct smt_core_s {
   /* Clause database */
   clause_t **problem_clauses;
   clause_t **learned_clauses;
+  clause_t **buffer_clauses;    // Clause storage (used in conflict resolution for unsat core, not in solving)
 
   ivector_t binary_clauses;  // Keeps a copy of binary clauses added at base_levels>0
 

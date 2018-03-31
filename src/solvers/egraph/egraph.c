@@ -1064,12 +1064,12 @@ static bool equal_atom_lists(atom_t *atom1, atom_t *atom2) {
  * Aliases for swap_next_atoms
  */
 static inline void merge_atom_lists(atom_t *atom1, atom_t *atom2) {
-  assert(disjoint_atom_lists(atom1, atom2));
+//  assert(disjoint_atom_lists(atom1, atom2));
   swap_next_atoms(atom1, atom2);
 }
 
 static inline void split_atom_lists(atom_t *atom1, atom_t *atom2) {
-  assert(equal_atom_lists(atom1, atom2));
+//  assert(equal_atom_lists(atom1, atom2));
   swap_next_atoms(atom1, atom2);
 }
 
@@ -7755,7 +7755,6 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
 
 
 
-
 /*
  * Rank of a class c
  */
@@ -7842,7 +7841,7 @@ static void egraph_collect_root_classes(egraph_t *egraph) {
 /*
  * Build a model: the model maps egraph classes to objects built in vtbl
  */
-void egraph_build_model(model_t *model, egraph_t *egraph, value_table_t *vtbl) {
+void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   uint32_t i, n;
   pstore_t *pstore;
   fresh_val_maker_t *fval;

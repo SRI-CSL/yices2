@@ -29,6 +29,7 @@
 #include "utils/int_array_sort.h"
 #include "utils/memalloc.h"
 
+
 #define TRACE 0
 #define DEBUG 0
 
@@ -1536,6 +1537,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   // clause database: all empty
   s->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   s->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
+  s->buffer_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   init_ivector(&s->binary_clauses, 0);
 
 
@@ -1630,6 +1632,13 @@ void delete_smt_core(smt_core_t *s) {
   }
   delete_clause_vector(cl);
 
+  cl = s->buffer_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_clause(cl[i]);
+  }
+  delete_clause_vector(cl);
+
   delete_ivector(&s->binary_clauses);
 
   // var-indexed arrays
@@ -1682,6 +1691,13 @@ void reset_smt_core(smt_core_t *s) {
   n = get_cv_size(cl);
   for (i=0; i<n; i++) {
     delete_learned_clause(cl[i]);
+  }
+  reset_clause_vector(cl);
+
+  cl = s->buffer_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_clause(cl[i]);
   }
   reset_clause_vector(cl);
 
@@ -2889,7 +2905,9 @@ static void add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
   }
   else {
     // create the new clause with l0 and l1 as watched literals
-    clause_t *cl = new_learned_clause(m, b);
+    clause_t *cl;
+    cl = new_clause(m, b);
+    add_clause_to_vector(&s->buffer_clauses, cl);
     s->full_antecedent[v] = mk_clause0_antecedent(cl);
   }
 
@@ -3571,7 +3589,7 @@ do {                                          \
 //} while(0)
 
 
-static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
+static void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks) {
   bvar_t x;
   antecedent_t a;
   uint32_t i, j;
@@ -3585,6 +3603,15 @@ static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
     l = not(l);
 
   x = var_of(l);
+
+  if (l != null_literal && !int_hmap_find(marks, x)) {
+    assert(l >= 0);
+    int_hmap_add(marks, x, x);
+  } else {
+    return;
+  }
+
+
   ivector_push(&s->conflict_core, x);
 
 #if TRACE
@@ -3623,7 +3650,7 @@ static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
       if (i == j)
         assert(l1 == l);
       else
-        add_root_antecedants(s, l1, true);
+        add_root_antecedants(s, l1, true, marks);
       i ++;
       l1 = cl->cl[i];
     }
@@ -3638,7 +3665,7 @@ static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
       if (i == j)
         assert(l1 == l);
       else
-        add_root_antecedants(s, l1, true);
+        add_root_antecedants(s, l1, true, marks);
       i ++;
       l1 = cl->cl[i];
     }
@@ -3646,7 +3673,7 @@ static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
 
   case literal_tag:
     l1 = literal_antecedent(a);
-    add_root_antecedants(s, l1, true);
+    add_root_antecedants(s, l1, true, marks);
     break;
 
   case generic_tag:
@@ -3659,7 +3686,7 @@ static bool add_root_antecedants(smt_core_t *s, literal_t l, bool polarity) {
 
     for (i=0; i < buffer.size; i++) {
         l1 = buffer.data[i];
-        add_root_antecedants(s, l1, false);
+        add_root_antecedants(s, l1, false, marks);
     }
 
     delete_ivector(&buffer);
@@ -3700,13 +3727,16 @@ void derive_conflict_core(smt_core_t *s) {
 #endif
     assert(0);
   } else {
+    int_hmap_t marks;
+    init_int_hmap(&marks, 0);
+
     while (l >= 0) {
       // Got literal l
 #if TRACE
       fputs("head\t", stdout);
 #endif
 //      ivector_push(&s->conflict_core, var_of(l));
-      add_root_antecedants(s, l, true);
+      add_root_antecedants(s, l, true, &marks);
 #if TRACE
       ivector_remove_duplicates(&s->conflict_core);
       ivector_remove_duplicates(&s->conflict_root);
@@ -3716,9 +3746,8 @@ void derive_conflict_core(smt_core_t *s) {
       i ++;
       l = s->conflict[i];
     }
+    delete_int_hmap(&marks);
   }
-  ivector_remove_duplicates(&s->conflict_core);
-  ivector_remove_duplicates(&s->conflict_root);
   s->core_status = core_ready;
 
 #if TRACE
@@ -3845,6 +3874,7 @@ static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
 #endif
   }
 
+  delete_ivector(&queue);
   delete_int_hmap(&marks);
 
 #if 0
@@ -3963,6 +3993,7 @@ static void resolve_conflict(smt_core_t *s) {
 #if DEBUG
   check_marks(s);
 #endif
+
 
   /*
    * buffer stores the new clause (built by resolution)
@@ -6379,11 +6410,11 @@ void smt_partial_restart(smt_core_t *s) {
        */
       n = s->decision_level;
       for (i=s->base_level+1; i<=n; i++) {
-        k = s->stack.level_index[i];
-        x = var_of(s->stack.lit[k]);  // decision variable for level i
-        assert(bvar_is_assigned(s, x) &&
-        s->level[x] == i &&
-        s->antecedent[x] == mk_literal_antecedent(null_literal));
+	k = s->stack.level_index[i];
+	x = var_of(s->stack.lit[k]);  // decision variable for level i
+	assert(bvar_is_assigned(s, x) &&
+	       s->level[x] == i &&
+	       s->antecedent[x] == mk_literal_antecedent(null_literal));
 
 	if (s->heap.activity[x] < ax) {
 	  partial_restart(s, i - 1);

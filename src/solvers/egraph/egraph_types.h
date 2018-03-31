@@ -1182,18 +1182,6 @@ typedef struct fun_egraph_interface_s {
  *  MODEL  *
  **********/
 
-//typedef struct egraph_value_s {
-//  value_t class;
-//  value_t value;
-//
-//} value_class_t;
-//
-//typedef struct class_rel_s {
-//  uint32_t size;
-//  uint32_t size;
-//  value_t *data;
-//} class_rel_t;
-
 /*
  * Auxiliary structures used in model construction. We now use a
  * global fresh_value_maker to construct fresh values. For this to
