@@ -2937,6 +2937,7 @@ static antecedent_t add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b)
     a = mk_clause0_antecedent(cl);
   }
   s->full_antecedent[v] = a;
+  s->antecedent[v] = a;
 
 #if TRACE
   printf("---> DPLL:   Updating antecedent ");
