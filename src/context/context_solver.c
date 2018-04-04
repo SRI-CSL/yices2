@@ -856,10 +856,12 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
             break;
           case COMPOSITE_DISTINCT:
             if (!is_true(vtbl, tbl[i].value)) {
+#if TRACE
               fputs("invalid value: ", stdout);
               print_eterm(stdout, egraph, i);
               fprintf(stdout, "value: %"PRId32, tbl[i].value);
               fputc('\n', stdout);
+#endif
               assert (0);
             }
             tbl[i].body = arena_distinct_composite(a, composite_arity(c), c->child);
@@ -885,10 +887,12 @@ static void build_egraph_atoms(context_t *ctx, model_t *model) {
 //            }
             break;
           default:
+#if TRACE
             fputs("invalid composite: ", stdout);
             print_eterm(stdout, egraph, i);
             fprintf(stdout, "kind: %"PRId32, k);
             fputc('\n', stdout);
+#endif
             assert (0);
             break;
           }
@@ -1046,6 +1050,7 @@ extern void context_enable_unsat_core(context_t *ctx) {
 extern int32_t derive_unsat_core(context_t *ctx) {
   smt_core_t *core = ctx->core;
   derive_conflict_core(core);
+  print_conflict_core(stdout, core);
   return core->core_status;
 }
 
@@ -1060,7 +1065,6 @@ int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
   ivector_t *conflict_core;
   intern_tbl_t *tbl;
   term_table_t *terms;
-  type_table_t *types;
   bvar_t x;
   uint32_t i, n;
   int32_t code;
@@ -1122,4 +1126,207 @@ int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
   return -1;
 }
 
+/*
+ * Categorize term t in unsat core.
+ * - returns 0 means t is not assigned
+ * - returns 1 means t = true  is decided
+ * - returns 2 means t = true  is implied
+ * - returns 3 means t = false is decided
+ * - returns 4 means t = false is implied
+ * - returns -1 means unable to determine
+ */
+int32_t categorize_term_in_unsat_core(context_t *ctx, term_t r) {
+  smt_core_t *core = ctx->core;
+  intern_tbl_t *tbl;
+  term_table_t *terms;
+  bvar_t x;
+  uint32_t i, n;
+  int32_t code;
+
+#if TRACE
+  printf("term: ");
+  print_term_id(stdout, r);
+#endif
+
+  tbl = &ctx->intern;
+  terms = tbl->terms;
+
+  if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
+    if (intern_tbl_root_is_mapped(tbl, r)) {
+      code = intern_tbl_map_of_root(tbl, r);
+      int32_t val = -2;
+      if (code_is_var(code)) {
+        x = code2bvar(code);
+
+#if TRACE
+        printf(", var: ");
+        print_bvar(stdout, x);
+#endif
+        literal_t l = pos_lit(x);
+        bval_t v = literal_value(core, l);
+
+        if (bval_is_def(v)) {
+          bool value = bval2bool(v);
+          antecedent_t a = core->full_antecedent[x];
+          bool isDecided = (a == mk_literal_antecedent(null_literal));
+
+//#if TRACE
+//          print_antecedents(stdout, core, l, a);
+//#endif
+
+          if (value == true)
+            val = isDecided ? 1 : 2;
+          else
+            val = isDecided ? 3 : 4;
+        }
+        else
+          val = 0;
+
+#if TRACE
+        switch(val) {
+        case  0:  printf(" unassigned\n");  break;
+        case  1:  printf(" decided true\n");  break;
+        case  2:  printf(" implied true\n");  break;
+        case  3:  printf(" decided false\n");  break;
+        case  4:  printf(" implied false\n");  break;
+        default:
+          assert(0);
+        }
+        fflush(stdout);
+#endif
+      } else {
+#if TRACE
+        printf(" invalid\n");
+        fflush(stdout);
+#endif
+        val = -1;
+      }
+      return val;
+    }
+  }
+#if TRACE
+  printf(" fail\n");
+  fflush(stdout);
+#endif
+  return -1;
+}
+
+bool trace_implication(context_t *ctx, term_t r) {
+  smt_core_t *core = ctx->core;
+  intern_tbl_t *tbl;
+  term_table_t *terms;
+  bvar_t x;
+  uint32_t i, m, n;
+  int32_t code;
+
+#if TRACE
+  printf("term: ");
+  print_term_id(stdout, r);
+#endif
+
+  tbl = &ctx->intern;
+  terms = tbl->terms;
+
+  if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
+    if (intern_tbl_root_is_mapped(tbl, r)) {
+      code = intern_tbl_map_of_root(tbl, r);
+      if (code_is_var(code)) {
+        x = code2bvar(code);
+
+#if TRACE
+        printf(", var: ");
+        print_bvar(stdout, x);
+#endif
+
+        literal_t l = pos_lit(x);
+        bool polarity = (literal_value(core, l) == VAL_FALSE);
+
+        int_hmap_t marks;
+        init_int_hmap(&marks, 0);
+
+        core->core_status = core_fail;
+        ivector_reset(&core->conflict_core);
+        ivector_reset(&core->conflict_root);
+        add_root_antecedants(core, l, polarity, &marks);
+
+        core->core_status = core_ready;
+        delete_int_hmap(&marks);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/*
+ * Checks whether term t is in unsat root.
+ * - returns 0 when t is not present in unsat core
+ * - returns 1 when t is present in unsat core
+ * - returns -1 when unable to determine
+ */
+int32_t check_term_in_root(context_t *ctx, term_t r) {
+  smt_core_t *core = ctx->core;
+  ivector_t *conflict_root;
+  intern_tbl_t *tbl;
+  term_table_t *terms;
+  bvar_t x;
+  uint32_t i, n;
+  int32_t code;
+
+#if TRACE
+  printf("term: ");
+  print_term_id(stdout, r);
+#endif
+
+  if (core->core_status == core_ready) {
+    conflict_root = &core->conflict_core;
+    tbl = &ctx->intern;
+    terms = tbl->terms;
+
+    if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
+      if (intern_tbl_root_is_mapped(tbl, r)) {
+        code = intern_tbl_map_of_root(tbl, r);
+        if (code_is_var(code)) {
+          x = code2bvar(code);
+
+#if TRACE
+          printf(", var: ");
+          print_bvar(stdout, x);
+#endif
+
+          n = conflict_root->size;
+          for (i = 0; i < n; i++) {
+
+//          fputs("\nrhs: ", stdout);
+//          print_bvar(stdout, conflict_core->data[i]);
+
+            if (x == conflict_root->data[i])
+            {
+#if TRACE
+              printf(", matched\n");
+              fflush(stdout);
+#endif
+              return 1;
+            }
+          }
+#if TRACE
+          printf(", not matched\n");
+          fflush(stdout);
+#endif
+        } else {
+#if TRACE
+          printf(", invalid\n");
+          fflush(stdout);
+#endif
+        }
+        return 0;
+      }
+    }
+  }
+#if TRACE
+  printf(", fail\n");
+  fflush(stdout);
+#endif
+  return -1;
+}
 

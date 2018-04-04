@@ -9458,7 +9458,7 @@ EXPORTED extern bool yices_get_statistics(context_t *ctx, stats_t *st) {
  *
  */
 EXPORTED extern void y2_dump_context(context_t *ctx) {
-	dump_context(stdout, ctx);
+//	dump_context(stdout, ctx);
 }
 
 /*
@@ -9574,6 +9574,92 @@ EXPORTED extern int32_t y2_term_in_unsat_core(context_t *ctx, term_t t, int32_t 
   }
 
   *val = check_term_in_unsat_core(ctx, t);
+  if (val < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Checks whether a boolean term is assigned (decideed/implied) or not: returned as an integer val
+ * - val = 0 means t is not assigned
+ * - val = 1 means t = true  is decided
+ * - val = 2 means t = true  is implied
+ * - val = 3 means t = false is decided
+ * - val = 4 means t = false is implied
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t y2_categorize_core_term(context_t *ctx, term_t t, int32_t *val) {
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  *val = categorize_term_in_unsat_core(ctx, t);
+  if (val < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Traces backwards to collect all root antecedents of t, all terms not a root antecedent are deleted from v
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t y2_trace_implication(context_t *ctx, term_t t) {
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  bool status = trace_implication(ctx, t);
+  if (!status) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Checks whether a boolean term is present as implication root or not: returned as an integer val
+ * - val = 0 means t is not present in unsat core
+ * - val = 1 means t is present in unsat core
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t y2_term_in_implication_root(context_t *ctx, term_t t, int32_t *val) {
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  *val = check_term_in_root(ctx, t);
   if (val < 0) {
     error.code = INTERNAL_EXCEPTION;
     return -1;

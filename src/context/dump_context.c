@@ -34,9 +34,7 @@
 #include "solvers/floyd_warshall/rdl_fw_printer.h"
 #include "solvers/simplex/simplex_printer.h"
 
-#ifndef NDEBUG
 #include "api/yices_globals.h"
-#endif
 
 #include "context/context_types.h"
 #include "context/internalization_codes.h"

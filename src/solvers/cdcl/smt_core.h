@@ -1947,4 +1947,6 @@ extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
 
 extern void derive_conflict_core(smt_core_t *s);
 
+extern void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks);
+
 #endif /* __SMT_CORE_H */

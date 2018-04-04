@@ -228,16 +228,16 @@ static void collect_stats(dpll_stats_t *stat, stats_t* st) {
   st->restarts = stat->restarts;
   st->simplify_calls = stat->simplify_calls;
   st->reduce_calls = stat->reduce_calls;
-  st->remove_calls = stat->remove_calls;
   st->decisions = stat->decisions;
   st->random_decisions = stat->random_decisions;
-  st->propagations = stat->propagations;
   st->conflicts = stat->conflicts;
+
+  st->remove_calls = stat->remove_calls;
+  st->propagations = stat->propagations;
   st->th_props = stat->th_props;
   st->th_prop_lemmas = stat->th_prop_lemmas;
   st->th_conflicts = stat->th_conflicts;
   st->th_conflict_lemmas = stat->th_conflict_lemmas;
-
   st->prob_literals = stat->prob_literals;
   st->learned_literals = stat->learned_literals;
   st->literals_before_simpl = stat->literals_before_simpl;
@@ -252,15 +252,16 @@ static void collect_stats(dpll_stats_t *stat, stats_t* st) {
  */
 static void collect_egraph_stats(egraph_stats_t *stat, stats_t* st) {
 	st->egraph_eq_props = stat->eq_props;
+  st->egraph_th_props = stat->th_props;
+  st->egraph_th_conflicts = stat->th_conflicts;
+  st->egraph_final_checks = stat->final_checks;
+  st->egraph_interface_eqs = stat->interface_eqs;
+
 	st->egraph_app_reductions = stat->app_reductions;
-	st->egraph_th_props = stat->th_props;
-	st->egraph_th_conflicts = stat->th_conflicts;
 	st->egraph_nd_lemmas = stat->nd_lemmas;
 	st->egraph_aux_eqs = stat->aux_eqs;
 	st->egraph_boolack_lemmas = stat->boolack_lemmas;
 	st->egraph_ack_lemmas = stat->ack_lemmas;
-	st->egraph_final_checks = stat->final_checks;
-	st->egraph_interface_eqs = stat->interface_eqs;
 }
 
 /*

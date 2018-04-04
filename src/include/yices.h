@@ -4113,6 +4113,53 @@ __YICES_DLLSPEC__ extern int32_t y2_derive_unsat_core(context_t *ctx);
  */
 __YICES_DLLSPEC__ extern int32_t y2_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val);
 
+/*
+ * Checks whether a boolean term is in unsat core or not: returned as an integer val
+ * - val = 0 means t is not assigned
+ * - val = 1 means t = true  is decided
+ * - val = 2 means t = true  is implied
+ * - val = 3 means t = false is decided
+ * - val = 4 means t = false is implied
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t y2_categorize_core_term(context_t *ctx, term_t t, int32_t *val);
+
+/*
+ * Traces backwards to collect all root antecedents of t, all terms not a root antecedent are deleted from v
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t y2_trace_implication(context_t *ctx, term_t t);
+
+/*
+ * Checks whether a boolean term is present as implication root or not: returned as an integer val
+ * - val = 0 means t is not present in unsat core
+ * - val = 1 means t is present in unsat core
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t y2_term_in_implication_root(context_t *ctx, term_t t, int32_t *val);
+
 #ifdef __cplusplus
 } /* close extern "C" { */
 #endif

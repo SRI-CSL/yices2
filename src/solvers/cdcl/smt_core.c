@@ -2484,8 +2484,8 @@ void record_theory_conflict(smt_core_t *s, literal_t *a) {
     }
   }
   printf("}\n");
-#endif
   fflush(stdout);
+#endif
 
 #if DEBUG
   check_theory_conflict(s, a);
@@ -2938,6 +2938,31 @@ static antecedent_t add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b)
   }
   s->full_antecedent[v] = a;
   s->antecedent[v] = a;
+
+//  {
+//    FILE *conflictFile = fopen("conflict.txt", "a");
+//
+//    ivector_t tmp;
+//    init_ivector(&tmp, m);
+//    ivector_copy(&tmp, b, m);
+//
+//    int32_t i, j;
+//    literal_t aux;
+//    for (i = 2; i < m; i++) {
+//      for (j = (i + 1); j < m; j++) {
+//        if (b[i] > b[j]) {
+//          aux = b[j]; b[j] = b[i]; b[i] = aux;
+//        }
+//      }
+//    }
+//    for (i = 0; i < m; i++) {
+//      print_literal(conflictFile, b[i]);
+//      fputc(' ', conflictFile);
+//    }
+//    fputc('\n', conflictFile);
+//    fclose(conflictFile);
+//    delete_ivector(&tmp);
+//  }
 
 #if TRACE
   printf("---> DPLL:   Updating antecedent ");
@@ -3441,6 +3466,7 @@ static void explain_full_antecedent(smt_core_t *s, literal_t l, antecedent_t a) 
 #endif
 }
 
+#if TRACE
 /*
  * Print antecedent of literal l
  */
@@ -3455,13 +3481,13 @@ void print_antecedents(FILE *f, smt_core_t *s, literal_t l, antecedent_t a) {
   case clause1_tag:
     cl = clause_antecedent(a);
     fputs(" clause antecedent ", f);
-    print_clause(stdout, cl);
+    print_clause(f, cl);
     break;
 
   case literal_tag:
     l1 = literal_antecedent(a);
     fputs(", literal antecedent ", f);
-    print_literal(stdout, l1);
+    print_literal(f, l1);
     break;
 
   case generic_tag:
@@ -3479,7 +3505,7 @@ void print_antecedents(FILE *f, smt_core_t *s, literal_t l, antecedent_t a) {
     break;
   }
 }
-
+#endif
 
 
 /*
@@ -3797,7 +3823,7 @@ do {                                          \
 //} while(0)
 
 
-static void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks) {
+void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks) {
   bvar_t x;
   antecedent_t a;
   uint32_t i, j;
