@@ -207,6 +207,7 @@ core_src_c := \
 	terms/extended_rationals.c \
 	terms/free_var_collector.c \
 	terms/full_subst.c \
+	terms/int_rational_hash_maps.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
 	terms/poly_buffer.c \
@@ -905,7 +906,7 @@ $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
 	   -o $@ $< $(libyices) $(LIBS)
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
-	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
 
