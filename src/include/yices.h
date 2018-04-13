@@ -463,6 +463,18 @@ __YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 
 
 /*
+ * Check whether tau and sigma are compatible
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns 0 and
+ * sets the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+__YICES_DLLSPEC__ extern int32_t yices_compatible_types(type_t tau, type_t sigma);
+
+
+/*
  * Number of bits for type tau
  * - returns 0 if there's an error
  *
