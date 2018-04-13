@@ -221,7 +221,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case define_const_next_goto_c15:
       tstack_push_op(tstack, SMT2_DEFINE_FUN, &loc);
-      state = c11;
+      state = c15;
       goto loop;
 
     case define_fun_next_goto_c11:

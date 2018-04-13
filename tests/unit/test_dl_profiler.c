@@ -204,8 +204,8 @@ static int32_t test_dl_profiling(smt_benchmark_t *bench) {
     printf("  %"PRIu32" variables\n", profile->num_vars);
     printf("  %"PRIu32" atoms\n", profile->num_atoms);
     printf("  %"PRIu32" equalities\n", profile->num_eqs);
-    printf("  sum const = ");
-    q_print(stdout, &profile->sum_const);
+    printf("  path bound = ");
+    q_print(stdout, &profile->path_bound);
     printf("\n");
   } else {
     printf("no profile data\n");

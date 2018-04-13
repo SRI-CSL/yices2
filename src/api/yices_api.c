@@ -5649,13 +5649,29 @@ EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
  * - return 0 for false, 1 for true
  *
  * If tau or sigma is not a valid type, the function returns false
- * and set the error report:
+ * and sets the error report:
  *   code = INVALID_TYPE
  *   type1 = tau or sigma
  */
 EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
   return check_good_type(&types, tau) && check_good_type(&types, sigma) && is_subtype(&types, tau, sigma);
 }
+
+
+/*
+ * Check whether tau and sigma are compatible
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns 0 and
+ * sets the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+EXPORTED int32_t yices_compatible_types(type_t tau, type_t sigma) {
+  return check_good_type(&types, tau) && check_good_type(&types, sigma)
+    && compatible_types(&types, tau, sigma);
+}
+
 
 /*
  * Number of bits for type tau

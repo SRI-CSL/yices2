@@ -20,6 +20,8 @@
  * ASSERTION CONTEXT
  */
 
+#include <inttypes.h>
+
 #include "context/context.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
@@ -41,7 +43,6 @@
 #if TRACE
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "io/term_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
@@ -1829,8 +1830,14 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
     assert(v->size == 0);
     flatten_or_term(ctx, v, or);
 
-    // make a copy of v
+    // try easy simplification
     n = v->size;
+    if (disjunct_is_true(ctx, v->data, n)) {
+      ivector_reset(v);
+      return true_literal;
+    }
+
+    // make a copy of v
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       a[i] = v->data[i];
@@ -1847,6 +1854,10 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
   } else {
     // no flattening
     n = or->arity;
+    if (disjunct_is_true(ctx, or->arg, n)) {
+      return true_literal;
+    }
+
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       l = internalize_to_literal(ctx, or->arg[i]);
@@ -4190,8 +4201,14 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
       assert(v->size == 0);
       flatten_or_term(ctx, v, or);
 
-      // make a copy of v
+      // if v contains a true_term, ignore the clause
       n = v->size;
+      if (disjunct_is_true(ctx, v->data, n)) {
+	ivector_reset(v);
+	return;
+      }
+
+      // make a copy of v
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = v->data[i];
@@ -4208,6 +4225,10 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
        * No flattening
        */
       n = or->arity;
+      if (disjunct_is_true(ctx, or->arg, n)) {
+	return;
+      }
+
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = internalize_to_literal(ctx, or->arg[i]);
@@ -4978,19 +4999,19 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
  */
 static void create_auto_idl_solver(context_t *ctx) {
   dl_data_t *profile;
-  int32_t sum_const;
+  int32_t bound;
   double atom_density;
 
   assert(ctx->dl_profile != NULL);
   profile = ctx->dl_profile;
 
-  if (q_is_smallint(&profile->sum_const)) {
-    sum_const = q_get_smallint(&profile->sum_const);
+  if (q_is_smallint(&profile->path_bound)) {
+    bound = q_get_smallint(&profile->path_bound);
   } else {
-    sum_const = INT32_MAX;
+    bound = INT32_MAX;
   }
 
-  if (sum_const >= 1073741824) {
+  if (bound >= 1073741824) {
     // simplex required because of arithmetic overflow
     create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
@@ -5330,6 +5351,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->marks = NULL;
   ctx->cache = NULL;
   ctx->small_cache = NULL;
+  ctx->edge_map = NULL;
   ctx->eq_cache = NULL;
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
@@ -5584,6 +5606,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       flatten_assertion(ctx, a[i]);
     }
 
+    trace_printf(ctx->trace, 6, "(done flattening)\n");
+
     /*
      * At this point, the assertions are stored into the vectors
      * top_eqs, top_atoms, top_formulas, and top_interns
@@ -5629,6 +5653,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       /*
        * Difference logic, we must process the subst_eqs first
        */
+      trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
 	context_process_candidate_subst(ctx);
       }
@@ -5641,6 +5666,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * Simplex, like EG, may add aux_atoms so we must process
        * subst_eqs last here.
        */
+      trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
 	process_conditional_definitions(ctx);
@@ -5685,6 +5711,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_interns;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" existing terms)\n", n);
       i = 0;
       do {
         assert_toplevel_intern(ctx, v->data[i]);
@@ -5702,6 +5729,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_eqs;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level equalities)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5719,6 +5747,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_atoms;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level atoms)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5736,6 +5765,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v =  &ctx->top_formulas;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level formulas)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
