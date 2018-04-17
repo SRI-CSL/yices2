@@ -30,9 +30,12 @@
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
+#include "solvers/cdcl/smt_core.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
 #include "utils/memalloc.h"
+#include "utils/cputime.h"
+
 
 #include "mcsat/solver.h"
 
@@ -3176,6 +3179,7 @@ static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
  * - t must be a root in the internalization table
  */
 static void assert_toplevel_intern(context_t *ctx, term_t t) {
+  TIME_START();
   int32_t code;
   bool tt;
 
@@ -3188,6 +3192,7 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
   code = intern_tbl_map_of_root(&ctx->intern, t);
 
   assert_internalization_code(ctx, code, tt);
+  TIME_END(ctx->stats.assert_toplevel_intern);
 }
 
 
@@ -4364,6 +4369,7 @@ static void assert_toplevel_bvsge(context_t *ctx, composite_term_t *sge, bool tt
  * - t must be a root in the internalization table and must be mapped to true
  */
 static void assert_toplevel_formula(context_t *ctx, term_t t) {
+  TIME_START();
   term_table_t *terms;
   int32_t code;
   bool tt;
@@ -4470,9 +4476,11 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     goto abort;
   }
 
+  TIME_END(ctx->stats.assert_toplevel_formula);
   return;
 
  abort:
+  TIME_END(ctx->stats.assert_toplevel_formula);
   longjmp(ctx->env, code);
 }
 
@@ -5252,6 +5260,29 @@ static inline bool valid_arch(context_arch_t arch) {
 
 
 /*
+ * Initialize a context statistics record
+ */
+void init_context_statistics(ctx_stats_t *stat) {
+  stat->base_bool_propagate = 0;
+  stat->base_th_propagate = 0;
+  stat->flatten_assertion = 0;
+  stat->preprocess_assertion = 0;
+  stat->assert_toplevel_formula = 0;
+  stat->assert_toplevel_intern = 0;
+
+  stat->nassert_rounds = 0;
+  stat->nassert = 0;
+}
+
+/*
+ * Reset a context statistics record
+ */
+void reset_context_statistics(ctx_stats_t *stat) {
+  init_context_statistics(stat);
+}
+
+
+/*
  * Initialize ctx for the given mode and architecture
  * - terms = term table for that context
  * - qflag = true means quantifiers allowed
@@ -5323,6 +5354,11 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_istack(&ctx->istack);
   init_sharing_map(&ctx->sharing, &ctx->intern);
   init_objstore(&ctx->cstore, sizeof(conditional_t), 32);
+
+  /*
+   * Initialize ctx statistics
+   */
+  init_context_statistics(&ctx->stats);
 
   ctx->subst = NULL;
   ctx->marks = NULL;
@@ -5477,6 +5513,11 @@ void reset_context(context_t *ctx) {
   context_free_dl_profile(ctx);
 
   q_clear(&ctx->aux);
+
+  /*
+   * Reset ctx statistics
+   */
+  reset_context_statistics(&ctx->stats);
 }
 
 
@@ -5556,6 +5597,9 @@ static void context_build_sharing_data(context_t *ctx) {
  *   a negative error code otherwise.
  */
 static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+  ctx->stats.nassert_rounds++;
+  ctx->stats.nassert += n;
+
   ivector_t *v;
   uint32_t i;
   int code;
@@ -5590,6 +5634,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      *   substitutions.
      */
 
+    TIME_START();
     switch (ctx->arch) {
     case CTX_ARCH_EG:
       /*
@@ -5673,6 +5718,11 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      * Notify the core + solver(s)
      */
     internalization_start(ctx->core);
+
+    TIME_END(ctx->stats.preprocess_assertion);
+    ctx->core->tstats.boolean_propagation = 0;
+    ctx->core->tstats.theory_propagation = 0;
+
 
     /*
      * Assert top_eqs, top_atoms, top_formulas, top_interns
@@ -5759,6 +5809,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   }
 
  done:
+  ctx->stats.base_bool_propagate += ctx->core->tstats.boolean_propagation;
+  ctx->stats.base_th_propagate += ctx->core->tstats.theory_propagation;
   return code;
 }
 

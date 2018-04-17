@@ -9457,8 +9457,8 @@ EXPORTED extern bool yices_get_statistics(context_t *ctx, stats_t *st) {
  * Dump context
  *
  */
-EXPORTED extern void y2_dump_context(context_t *ctx) {
-//	dump_context(stdout, ctx);
+EXPORTED extern void y2_dump_context(FILE *f, context_t *ctx) {
+//	dump_context(f, ctx);
 }
 
 /*

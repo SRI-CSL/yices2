@@ -4062,7 +4062,7 @@ __YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, stats_t *st);
  * Dump context
  *
  */
-__YICES_DLLSPEC__ extern void y2_dump_context(context_t *ctx);
+__YICES_DLLSPEC__ extern void y2_dump_context(FILE *f, context_t *ctx);
 
 /*
  * Relation between egraph terms t1 and t2: returned as an integer val

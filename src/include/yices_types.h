@@ -688,6 +688,49 @@ typedef struct stats_s {
   uint32_t bv_semi_equiv_lemmas;
   uint32_t bv_interface_lemmas;
 
+// Time stats
+  long long smt_restart;
+  long long delete_irrelevant_variables;
+  long long simplify_clause_database;
+  long long reduce_clause_database;
+  long long add_all_lemmas;
+  long long resolve_conflict;
+  long long theory_propagation;
+  long long boolean_propagation;
+  long long select_unassigned_literal;
+  long long decide_literal;
+
+  // Time adding assertions
+  long long base_bool_propagate;
+  long long base_th_propagate;
+  long long flatten_assertion;
+  long long preprocess_assertion;
+  long long assert_toplevel_formula;
+  long long assert_toplevel_intern;
+
+  uint32_t nassert_rounds;  // Count of number of assertion rounds (context_process_assertions)
+  uint32_t nassert;         // Total number of assertions
+  uint32_t nassert_atom;    // number of atoms asserted
+
+  // Time (egraph propagation)
+  long long propagate;
+    long long internal_propagation;
+      long long reactivate_dynamic_terms;
+      long long process_equality;
+        long long inconsistent_edge;
+        long long invert_branch;
+        long long remove_parents;
+        long long assign_new_label;
+        long long collect_eqterms;
+        long long reprocess_parents;
+        long long check_false_eq;
+        long long atom_propagation;
+        long long propagate_boolean_equality;
+
+  // statistics on propagation
+  uint32_t nprocess_eq;                // number of equalities processed
+  uint32_t nprocess_eq_redundant;      // number of equalities processed found to be redundant
+
 } stats_t;
 
 

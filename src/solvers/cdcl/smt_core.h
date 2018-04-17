@@ -808,6 +808,22 @@ typedef struct dpll_stats_s {
   uint64_t subsumed_literals;
 } dpll_stats_t;
 
+typedef struct dpll_detail_stats_s {
+  // Time stats (in us)
+  long long boolean_propagation;
+  long long theory_propagation;
+  long long resolve_conflict;
+  long long smt_restart;
+  long long select_unassigned_literal;
+  long long decide_literal;
+  long long add_all_lemmas;
+  long long delete_irrelevant_variables;
+  long long simplify_clause_database;
+  long long reduce_clause_database;
+
+  uint32_t nassert_atom;                // number of atoms asserted
+
+} dpll_detail_stats_t;
 
 
 /*********************
@@ -1029,6 +1045,9 @@ typedef struct smt_core_s {
 
   /* Statistics */
   dpll_stats_t stats;
+
+  /* Time Statistics */
+  dpll_detail_stats_t tstats;
 
   /* Atom table */
   atom_table_t atoms;

@@ -616,6 +616,19 @@ typedef struct dl_data_s {
 
 
 
+typedef struct ctx_stats_s {
+  // Time adding assertions (in us)
+  long long base_bool_propagate;
+  long long base_th_propagate;
+  long long flatten_assertion;
+  long long preprocess_assertion;
+  long long assert_toplevel_formula;
+  long long assert_toplevel_intern;
+
+  uint32_t nassert_rounds;  // Count of number of assertion rounds (context_process_assertions)
+  uint32_t nassert;         // Total number of assertions
+} ctx_stats_t;
+
 
 
 /**************
@@ -709,6 +722,9 @@ struct context_s {
 
   // options for the mcsat solver
   mcsat_options_t mcsat_options;
+
+  // statistics
+  ctx_stats_t stats;
 };
 
 

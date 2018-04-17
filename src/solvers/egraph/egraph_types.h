@@ -1275,6 +1275,33 @@ typedef struct egraph_stats_s {
 
 } egraph_stats_t;
 
+// detailed statistics
+typedef struct egraph_detail_stats_s {
+
+  // statistics on time (in us)
+  long long propagate;
+    long long internal_propagation;
+      long long reactivate_dynamic_terms;
+      long long process_equality;
+        long long inconsistent_edge;
+        long long invert_branch;
+        long long remove_parents;
+        long long assign_new_label;
+        long long collect_eqterms;
+        long long reprocess_parents;
+        long long check_false_eq;
+        long long atom_propagation;
+        long long propagate_boolean_equality;
+
+  // statistics on propagation
+  uint32_t nprocess_eq;                // number of equalities processed
+  uint32_t nprocess_eq_redundant;      // number of equalities processed found to be redundant
+  uint32_t nmerge;                     // number of merging (eq c1 c2)
+  uint32_t nparents_c1;                // number of parents of c1 (when merging (eq c1 c2))
+  uint32_t nparents_c2;                // number of parents of c2 (when merging (eq c1 c2))
+
+} egraph_detail_stats_t;
+
 
 
 /**************
@@ -1475,6 +1502,11 @@ struct egraph_s {
    * Model structure
    */
   egraph_model_t mdl;
+
+  /*
+   * Time statistics
+   */
+  egraph_detail_stats_t tstats;
 };
 
 

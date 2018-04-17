@@ -61,6 +61,7 @@
 #include "utils/bit_tricks.h"
 #include "utils/int_vectors.h"
 #include "utils/memalloc.h"
+#include "utils/cputime.h"
 
 
 #if 0
@@ -1373,6 +1374,8 @@ void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *d, ivec
  * Assumes t1 and t2 are not in the same class.
  */
 bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, ivector_t *v) {
+  TIME_START();
+
   occ_t aux;
   class_t c1, c2;
   uint32_t msk;
@@ -1421,6 +1424,7 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
     goto conflict;
   }
 
+  TIME_END(egraph->tstats.inconsistent_edge);
   return false;
 
  conflict:
@@ -1428,6 +1432,7 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
   enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
   build_explanation_vector(egraph, v);
 
+  TIME_END(egraph->tstats.inconsistent_edge);
   return true;
 }
 

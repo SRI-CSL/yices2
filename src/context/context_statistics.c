@@ -37,6 +37,21 @@
  */
 
 /*
+ * Context statistics
+ */
+static void show_context_stats(FILE *f, ctx_stats_t *stat) {
+  fprintf(f, "Assertions (time)\n");
+  fprintf(f, " base_bool_propagate     : %7.1f\n", stat->base_bool_propagate);
+  fprintf(f, " base_th_propagate       : %7.1f\n", stat->base_th_propagate);
+  fprintf(f, " flatten_assertion       : %7.1f\n", stat->flatten_assertion);
+  fprintf(f, " preprocess_assertion    : %7.1f\n", stat->preprocess_assertion);
+  fprintf(f, " assert_toplevel_formula : %7.1f\n", stat->assert_toplevel_formula);
+  fprintf(f, " assert_toplevel_intern  : %7.1f\n", stat->assert_toplevel_intern);
+  fprintf(f, "No. of assert rounds     : %"PRIu32"\n", stat->nassert_rounds);
+  fprintf(f, "No. of asserts           : %"PRIu32"\n", stat->nassert);
+}
+
+/*
  * Statistics in the smt_core
  */
 static void show_stats(FILE *f, dpll_stats_t *stat) {
@@ -64,6 +79,25 @@ static void show_stats(FILE *f, dpll_stats_t *stat) {
 }
 
 /*
+ * Detailed statistics in the smt_core
+ */
+static void show_detail_stats(FILE *f, dpll_detail_stats_t *stat) {
+  fprintf(f, "Core (time)\n");
+  fprintf(f, " boolean_propagation         : %7.1f\n", stat->boolean_propagation);
+  fprintf(f, " theory_propagation          : %7.1f\n", stat->theory_propagation);
+  fprintf(f, " resolve_conflict            : %7.1f\n", stat->resolve_conflict);
+  fprintf(f, " smt_restart                 : %7.1f\n", stat->smt_restart);
+  fprintf(f, " select_unassigned_literal   : %7.1f\n", stat->select_unassigned_literal);
+  fprintf(f, " decide_literal              : %7.1f\n", stat->decide_literal);
+  fprintf(f, " add_all_lemmas              : %7.1f\n", stat->add_all_lemmas);
+  fprintf(f, " delete_irrelevant_variables : %7.1f\n", stat->delete_irrelevant_variables);
+  fprintf(f, " simplify_clause_database    : %7.1f\n", stat->simplify_clause_database);
+  fprintf(f, " reduce_clause_database      : %7.1f\n", stat->reduce_clause_database);
+
+  fprintf(f, "No. of atoms asserted        : %"PRIu32"\n", stat->nassert_atom);
+}
+
+/*
  * Egraph statistics
  */
 static void show_egraph_stats(FILE *f, egraph_stats_t *stat) {
@@ -78,6 +112,29 @@ static void show_egraph_stats(FILE *f, egraph_stats_t *stat) {
   fprintf(f, " other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
   fprintf(f, " final checks            : %"PRIu32"\n", stat->final_checks);
   fprintf(f, " interface equalities    : %"PRIu32"\n", stat->interface_eqs);
+}
+
+/*
+ * Egraph detailed statistics
+ */
+static void show_egraph_detail_stats(FILE *f, egraph_detail_stats_t *stat) {
+  fprintf(f, "Egraph (time)\n");
+  fprintf(f, " propagate                     : %7.1f\n", stat->propagate);
+  fprintf(f, "  internal_propagation         : %7.1f\n", stat->internal_propagation);
+  fprintf(f, "   reactivate_dynamic_terms    : %7.1f\n", stat->reactivate_dynamic_terms);
+  fprintf(f, "   process_equality            : %7.1f\n", stat->process_equality);
+  fprintf(f, "    inconsistent_edge          : %7.1f\n", stat->inconsistent_edge);
+  fprintf(f, "    invert_branch              : %7.1f\n", stat->invert_branch);
+  fprintf(f, "    remove_parents             : %7.1f\n", stat->remove_parents);
+  fprintf(f, "    assign_new_label           : %7.1f\n", stat->assign_new_label);
+  fprintf(f, "    collect_eqterms            : %7.1f\n", stat->collect_eqterms);
+  fprintf(f, "    reprocess_parents          : %7.1f\n", stat->reprocess_parents);
+  fprintf(f, "    check_false_eq             : %7.1f\n", stat->check_false_eq);
+  fprintf(f, "    atom_propagation           : %7.1f\n", stat->atom_propagation);
+  fprintf(f, "    propagate_boolean_equality : %7.1f\n", stat->propagate_boolean_equality);
+
+  fprintf(f, "No. of processed eq.           : %"PRIu32"\n", stat->nprocess_eq);
+  fprintf(f, "No. of processed eq. redundant : %"PRIu32"\n", stat->nprocess_eq_redundant);
 }
 
 /*
@@ -195,6 +252,7 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
   core = ctx->core;
   egraph = ctx->egraph;
 
+  show_detail_stats(f, &core->tstats);
   show_stats(f, &core->stats);
   fprintf(f, " boolean variables       : %"PRIu32"\n", core->nvars);
   fprintf(f, " atoms                   : %"PRIu32"\n", core->atoms.natoms);
@@ -219,6 +277,21 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
   if (context_has_bv_solver(ctx)) {
     show_bvsolver_stats(f, ctx->bv_solver);
   }
+}
+
+/*
+ * Context statistics
+ */
+static void collect_context_stats(ctx_stats_t *stat, stats_t* st) {
+  st->base_bool_propagate = stat->base_bool_propagate;
+  st->base_th_propagate = stat->base_th_propagate;
+  st->flatten_assertion = stat->flatten_assertion;
+  st->preprocess_assertion = stat->preprocess_assertion;
+  st->assert_toplevel_formula = stat->assert_toplevel_formula;
+  st->assert_toplevel_intern = stat->assert_toplevel_intern;
+
+  st->nassert_rounds = stat->nassert_rounds;
+  st->nassert = stat->nassert;
 }
 
 /*
@@ -248,6 +321,24 @@ static void collect_stats(dpll_stats_t *stat, stats_t* st) {
 }
 
 /*
+ * Detailed statistics in the smt_core
+ */
+static void collect_detail_stats(dpll_detail_stats_t *stat, stats_t* st) {
+  st->boolean_propagation = stat->boolean_propagation;
+  st->theory_propagation = stat->theory_propagation;
+  st->resolve_conflict = stat->resolve_conflict;
+  st->smt_restart = stat->smt_restart;
+  st->select_unassigned_literal = stat->select_unassigned_literal;
+  st->decide_literal = stat->decide_literal;
+  st->add_all_lemmas = stat->add_all_lemmas;
+  st->delete_irrelevant_variables = stat->delete_irrelevant_variables;
+  st->simplify_clause_database = stat->simplify_clause_database;
+  st->reduce_clause_database = stat->reduce_clause_database;
+
+  st->nassert_atom = stat->nassert_atom;
+}
+
+/*
  * Egraph statistics
  */
 static void collect_egraph_stats(egraph_stats_t *stat, stats_t* st) {
@@ -262,6 +353,28 @@ static void collect_egraph_stats(egraph_stats_t *stat, stats_t* st) {
 	st->egraph_aux_eqs = stat->aux_eqs;
 	st->egraph_boolack_lemmas = stat->boolack_lemmas;
 	st->egraph_ack_lemmas = stat->ack_lemmas;
+}
+
+/*
+ * Egraph detailed statistics
+ */
+static void collect_egraph_detail_stats(egraph_detail_stats_t *stat, stats_t* st) {
+  st->propagate = stat->propagate;
+  st->internal_propagation = stat->internal_propagation;
+  st->reactivate_dynamic_terms = stat->reactivate_dynamic_terms;
+  st->process_equality = stat->process_equality;
+  st->inconsistent_edge = stat->inconsistent_edge;
+  st->invert_branch = stat->invert_branch;
+  st->remove_parents = stat->remove_parents;
+  st->assign_new_label = stat->assign_new_label;
+  st->collect_eqterms = stat->collect_eqterms;
+  st->reprocess_parents = stat->reprocess_parents;
+  st->check_false_eq = stat->check_false_eq;
+  st->atom_propagation = stat->atom_propagation;
+  st->propagate_boolean_equality = stat->propagate_boolean_equality;
+
+  st->nprocess_eq = stat->nprocess_eq;
+  st->nprocess_eq_redundant = stat->nprocess_eq_redundant;
 }
 
 /*
@@ -325,15 +438,18 @@ bool yices_collect_statistics(context_t *ctx, stats_t* st) {
   core = ctx->core;
   egraph = ctx->egraph;
 
-  collect_stats(&core->stats, st);
   st->boolean_variables = core->nvars;
   st->atoms = core->atoms.natoms;
 
+  collect_context_stats(&ctx->stats, st);
+  collect_stats(&core->stats, st);
+  collect_detail_stats(&core->tstats, st);
+
 
   if (egraph != NULL) {
-	collect_egraph_stats(&egraph->stats, st);
-	st->egraph_terms = egraph->terms.nterms;
-
+    st->egraph_terms = egraph->terms.nterms;
+    collect_egraph_stats(&egraph->stats, st);
+    collect_egraph_detail_stats(&egraph->tstats, st);
     if (context_has_fun_solver(ctx)) {
       fsolver = ctx->fun_solver;
       collect_funsolver_stats(&fsolver->stats, st);

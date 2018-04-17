@@ -33,7 +33,7 @@
 #include "terms/poly_buffer_terms.h"
 #include "terms/rba_buffer_terms.h"
 #include "terms/term_utils.h"
-
+#include "utils/cputime.h"
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
@@ -1299,6 +1299,7 @@ static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
  * contradiction is detected.
  */
 void flatten_assertion(context_t *ctx, term_t f) {
+  TIME_START();
   intern_tbl_t *intern;
   int_queue_t *queue;
   term_table_t *terms;
@@ -1495,9 +1496,11 @@ void flatten_assertion(context_t *ctx, term_t f) {
 
   } while (! int_queue_is_empty(queue));
 
+  TIME_END(ctx->stats.flatten_assertion);
   return;
 
  abort:
+  TIME_END(ctx->stats.flatten_assertion);
   assert(exception != 0);
   longjmp(ctx->env, exception);
 }

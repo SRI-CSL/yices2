@@ -209,7 +209,7 @@ void dump_context(FILE *f, context_t *context) {
   assert(context != NULL);
 
   if (context_has_egraph(context)) {
-    print_terms_in_egraph(f, context);
+//    print_terms_in_egraph(f, context);
     dump_egraph(f, context->egraph);
   }
 
