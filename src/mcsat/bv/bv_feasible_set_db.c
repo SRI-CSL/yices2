@@ -242,6 +242,10 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
       bv_bdd_manager_bdd_detach(bddm, intersect);
       return true;
     }
+  } else {
+    // intersect = new_set, we need to increase reference count for
+    // the intersect
+    bv_bdd_manager_bdd_attach(bddm, intersect);
   }
 
   // Are we feasible

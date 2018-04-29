@@ -21,11 +21,9 @@ CUDD* bdds_new() {
 }
 
 void bdds_delete(CUDD* cudd) {
-//  int leaks = Cudd_CheckZeroRef(cudd->cudd);
-//  if (leaks > 0) {
-//    fprintf(stderr, "CUDD: %d leaks\n", leaks);
-//  }
-//  assert(leaks == 0);
+  int leaks = Cudd_CheckZeroRef(cudd->cudd);
+  (void) leaks;
+  assert(leaks == 0);
   Cudd_Quit(cudd->cudd);
   safe_free(cudd->tmp_inputs);
   safe_free(cudd->tmp_model);
@@ -264,9 +262,15 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
       t1 = (BDD**) children_bdds->data[1];
       bdds_mk_ashr(cudd, out_bdds, t0, t1, t_bitsize);
       break;
-    case BV_ARRAY:
-      assert(false);
+    case BV_ARRAY: {
+      assert(children_bdds->size == t_bitsize);
+      for (uint32_t i = 0; i < children_bdds->size; ++ i) {
+        assert(out_bdds[i] == NULL);
+        out_bdds[i] = ((BDD**) children_bdds->data[i])[0];
+        Cudd_Ref(out_bdds[i]);
+      }
       break;
+    }
     case BIT_TERM: {
       assert(t_bitsize == 1);
       assert(children_bdds->size == 1);
@@ -274,6 +278,7 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
       uint32_t select_idx = desc->idx;
       BDD** child_bdds = ((BDD**)children_bdds->data[0]);
       BDD* bit_bdd = child_bdds[select_idx];
+      assert(out_bdds[0] == NULL);
       out_bdds[0] = bit_bdd;
       Cudd_Ref(out_bdds[0]);
       break;

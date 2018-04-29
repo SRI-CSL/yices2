@@ -836,11 +836,23 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_get_conflict(...)\n");
+    ctx_trace_printf(bv->ctx, "bv_plugin_get_conflict: ");
+    ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, bv->conflict_variable));
   }
+
+  assert(false);
+
+  // Compute the conflict
+  ivector_t core, lemma_reasons;
+  init_ivector(&core, 0);
+  init_ivector(&lemma_reasons, 0);
+  bv_feasible_set_db_get_conflict_reasons(bv->feasible, bv->conflict_variable, &core, &lemma_reasons);
 
   ivector_swap(conflict, &bv->conflict);
   ivector_reset(&bv->conflict);
+
+  delete_ivector(&core);
+  delete_ivector(&lemma_reasons);
 }
 
 static
