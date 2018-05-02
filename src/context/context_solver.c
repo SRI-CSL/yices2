@@ -1250,7 +1250,7 @@ bool trace_implication(context_t *ctx, term_t r) {
         core->core_status = core_fail;
         ivector_reset(&core->conflict_core);
         ivector_reset(&core->conflict_root);
-        add_root_antecedants(core, l, polarity, &marks);
+        add_root_antecedants(core, l, polarity, &marks, false);
 
         core->core_status = core_ready;
         delete_int_hmap(&marks);

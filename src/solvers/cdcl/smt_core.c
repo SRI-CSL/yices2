@@ -3865,7 +3865,7 @@ do {                                          \
 //} while(0)
 
 
-void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks) {
+void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks, bool isTop) {
   bvar_t x;
   antecedent_t a;
   uint32_t i, j;
@@ -3911,6 +3911,10 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
     return false;
   }
 
+  if (isTop) {
+    ivector_push(&s->conflict_root, x);
+  }
+
 #if TRACE
   print_antecedents(stdout, s, l, a);
   fputc('\n', stdout);
@@ -3926,7 +3930,7 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
       if (i == j)
         assert(l1 == l);
       else
-        add_root_antecedants(s, l1, true, marks);
+        add_root_antecedants(s, l1, true, marks, false);
       i ++;
       l1 = cl->cl[i];
     }
@@ -3941,7 +3945,7 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
       if (i == j)
         assert(l1 == l);
       else
-        add_root_antecedants(s, l1, true, marks);
+        add_root_antecedants(s, l1, true, marks, false);
       i ++;
       l1 = cl->cl[i];
     }
@@ -3949,7 +3953,7 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
 
   case literal_tag:
     l1 = literal_antecedent(a);
-    add_root_antecedants(s, l1, true, marks);
+    add_root_antecedants(s, l1, true, marks, false);
     break;
 
   case generic_tag:
@@ -3962,7 +3966,7 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
 
     for (i=0; i < buffer.size; i++) {
         l1 = buffer.data[i];
-        add_root_antecedants(s, l1, false, marks);
+        add_root_antecedants(s, l1, false, marks, false);
     }
 
     delete_ivector(&buffer);
@@ -4012,7 +4016,7 @@ void derive_conflict_core(smt_core_t *s) {
       fputs("head\t", stdout);
 #endif
 //      ivector_push(&s->conflict_core, var_of(l));
-      add_root_antecedants(s, l, true, &marks);
+      add_root_antecedants(s, l, true, &marks, true);
 #if TRACE
       ivector_remove_duplicates(&s->conflict_core);
       ivector_remove_duplicates(&s->conflict_root);
