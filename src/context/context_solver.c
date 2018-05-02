@@ -1077,7 +1077,8 @@ int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
 #endif
 
   if (core->core_status == core_ready) {
-    conflict_core = &core->conflict_core;
+//    conflict_core = &core->conflict_core;
+    conflict_core = &core->conflict_root;
     tbl = &ctx->intern;
     terms = tbl->terms;
 
