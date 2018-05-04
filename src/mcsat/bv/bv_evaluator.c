@@ -191,6 +191,17 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
 
   term_kind_t t_kind = term_kind(terms, t);
   switch (t_kind) {
+  case CONSTANT_TERM:
+    init_bvconstant(out_value);
+    bvconstant_set_bitsize(out_value, 1);
+    if (t == true_term) {
+      bvconst_set_bit(out_value->data, 0);
+    } else if (t == false_term) {
+      // Nothing
+    } else {
+      assert(false); // Bool constants only
+    }
+    break;
   case BV_CONSTANT: {
     bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
     init_bvconstant(out_value);
@@ -346,7 +357,26 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
     return result;
   }
 
-  assert(t_kind == BV_EQ_ATOM || t_kind == BV_GE_ATOM || t_kind == BV_SGE_ATOM);
+  if (t_kind == CONSTANT_TERM) {
+    assert(t == true_term || t == false_term);
+    return t == true_term;
+  }
+
+  if (t_kind == OR_TERM) {
+    *level = 0;
+    bool value = false;
+    composite_term_t* t_comp = or_term_desc(terms, t);
+    for (uint32_t i = 0; i < t_comp->arity; ++ i) {
+      term_t t_i = t_comp->arg[i];
+      term_t t_i_pos = unsigned_term(t_i);
+      uint32_t level_i = 0;
+      bool value_i = bv_evaluator_run_atom(eval, t_i_pos, &level_i);
+      if (level_i > *level) { *level = level_i; }
+      if (t_i_pos != t_i) { value_i = !value_i; }
+      if (value_i) value = true;
+    }
+    return value;
+  }
 
   // Get children value
   composite_term_t* atom_desc = composite_term_desc(terms, t);
@@ -362,6 +392,7 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
   // Compute the actual value
   bool result;
   switch (t_kind) {
+  case EQ_TERM: // Boolean equality
   case BV_EQ_ATOM:
     result = bvconst_eq(lhs.data, rhs.data, lhs.width);
     break;

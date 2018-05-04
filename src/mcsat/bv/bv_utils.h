@@ -68,6 +68,8 @@ bool bv_term_has_children(term_table_t* terms, term_t t) {
     case BV_SHL:
     case BV_LSHR:
     case BV_ASHR:
+    case EQ_TERM: // Boolean
+    case OR_TERM: // Boolean
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
@@ -86,35 +88,37 @@ bool bv_term_has_children(term_table_t* terms, term_t t) {
 static inline
 bv_term_type_t bv_term_kind_get_type(term_kind_t kind) {
   switch (kind) {
-    case BV_CONSTANT:
-    case BV64_CONSTANT:
-      return BV_TERM_CONSTANT;
-    case BV_ARRAY:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-      return BV_TERM_COMPOSITE;
-    case BIT_TERM:
-      return BV_TERM_BITSELECT;
-    case BV_POLY:
-    case BV64_POLY:
-    case POWER_PRODUCT:
-      return BV_TERM_POLY;
-    default:
-      return BV_TERM_VARIABLE;
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT:
+    return BV_TERM_CONSTANT;
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case EQ_TERM:
+  case OR_TERM:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    return BV_TERM_COMPOSITE;
+  case BIT_TERM:
+    return BV_TERM_BITSELECT;
+  case BV_POLY:
+  case BV64_POLY:
+  case POWER_PRODUCT:
+    return BV_TERM_POLY;
+  default:
+    return BV_TERM_VARIABLE;
   }
 }
 
-static inline
-bv_term_type_t bv_term_get_type(term_table_t* terms, term_t t) {
+static inline bv_term_type_t bv_term_get_type(term_table_t* terms, term_t t) {
   if (is_neg_term(t)) {
     return BV_TERM_COMPOSITE;
   } else {
@@ -156,6 +160,11 @@ void mcsat_value_construct_from_bv(mcsat_value_t* t_value, term_table_t* terms, 
     bvconstant_copy64(&t_bvconst, t_desc->bitsize, t_desc->value);
     mcsat_value_construct_bv_value(t_value, &t_bvconst);
     delete_bvconstant(&t_bvconst);
+  } else if (t_kind == CONSTANT_TERM) {
+    assert(t == true_term || t == false_term);
+    mcsat_value_construct_bool(t_value, t == true_term);
+  } else {
+    assert(false);
   }
 }
 
@@ -207,6 +216,19 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
       for (uint32_t i = 0; i < t_arity; ++ i) {
         bool bit_i = bvconst_tst_bit(children_values[i]->data, 0);
         bvconst_assign_bit(out_value->data, i, bit_i);
+      }
+      break;
+    }
+    case OR_TERM: {
+      composite_term_t* t_composite = or_term_desc(terms, t);
+      uint32_t t_arity = t_composite->arity;
+      bvconst_clr_bit(out_value->data, 0);
+      for (uint32_t i = 0; i < t_arity; ++i) {
+        bool bit_i = bvconst_tst_bit(children_values[i]->data, 0);
+        if (bit_i) {
+          bvconst_set_bit(out_value->data, 0);
+          break;
+        }
       }
       break;
     }

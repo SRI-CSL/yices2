@@ -274,10 +274,12 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
 
   term_kind_t kind = term_kind(terms, t);
   switch (kind) {
+  case CONSTANT_TERM: // Boolean variables
   case BV_CONSTANT:
   case BV64_CONSTANT:
     // Ignore, no variables here
     break;
+  case EQ_TERM: // Boolean equalities
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM: {
@@ -293,6 +295,15 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     for (uint32_t i = 0; i < concat_desc->arity; ++ i) {
       term_t t_i = concat_desc->arg[i];
+      term_t t_i_pos = unsigned_term(t_i);
+      bv_plugin_get_term_variables(bv, t_i_pos, vars_out);
+    }
+    break;
+  }
+  case OR_TERM: {
+    composite_term_t* t_comp = or_term_desc(terms, t);
+    for (uint32_t i = 0; i < t_comp->arity; ++ i) {
+      term_t t_i = t_comp->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
       bv_plugin_get_term_variables(bv, t_i_pos, vars_out);
     }

@@ -168,6 +168,19 @@ void bdds_mk_ashr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
   assert(false);
 }
 
+void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* children_bdds) {
+  uint32_t n = children_bdds->size;
+  out[0] = Cudd_ReadLogicZero(cudd->cudd);
+  Cudd_Ref(out[0]);
+  for (uint32_t i = 0; i < n; i ++ ) {
+    BDD* tmp = out[0];
+    BDD** child_i = (BDD**) children_bdds->data[i];
+    out[0] = Cudd_bddOr(cudd->cudd, tmp, child_i[0]);
+    Cudd_Ref(out[0]);
+    Cudd_IterDerefBdd(cudd->cudd, tmp);
+  }
+}
+
 void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
 
   DEBUG_PRINT(a, n);
@@ -292,6 +305,13 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
     case POWER_PRODUCT:
       assert(false);
       break;
+    case OR_TERM: {
+      composite_term_t* t_comp = or_term_desc(terms, t);
+      assert(children_bdds->size == t_comp->arity);
+      bdds_mk_bool_or(cudd, out_bdds, children_bdds);
+      break;
+    }
+    case EQ_TERM: // Boolean equality
     case BV_EQ_ATOM: {
       assert(children_bdds->size == 2);
       composite_term_t* comp = composite_term_desc(terms, t);

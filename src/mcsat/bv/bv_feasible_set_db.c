@@ -18,6 +18,7 @@
 
 #include "bv_feasible_set_db.h"
 #include "bv_bdd_manager.h"
+#include "bv_utils.h"
 
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
@@ -211,7 +212,10 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   assert(db->updates_size == db->updates.size);
   bv_bdd_manager_t* bddm = db->bddm;
   bool feasible = true;
-  uint32_t x_bitsize = variable_db_get_bitsize(db->ctx->var_db, x);
+  term_table_t* terms = db->ctx->terms;
+  variable_db_t* var_db = db->ctx->var_db;
+  term_t x_term = variable_db_get_term(var_db, x);
+  uint32_t x_bitsize = bv_term_bitsize(terms, x_term);
 
   if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
     fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_update\n");

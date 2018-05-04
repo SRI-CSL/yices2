@@ -331,16 +331,19 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
     } else {
       term_kind_t t_kind = term_kind(terms, t);
       switch (t_kind) {
+      case OR_TERM: // Boolean
+      case EQ_TERM: // Boolean equality
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
       case BV_SGE_ATOM: {
         // Boolean atoms, 2 children are bitvectors
-        composite_term_t* atom_comp = composite_term_desc(terms, t);
-        assert(atom_comp->arity == 2);
         assert(bitsize == 1);
-        uint32_t child_bitsize = bv_term_bitsize(terms, atom_comp->arg[0]);
-        bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[0], child_bitsize);
-        bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[1], child_bitsize);
+        composite_term_t* atom_comp = composite_term_desc(terms, t);
+        for (uint32_t i = 0; i < atom_comp->arity; ++ i) {
+          uint32_t child_bitsize = bv_term_bitsize(terms, atom_comp->arg[0]);
+          bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[0], child_bitsize);
+          bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[1], child_bitsize);
+        }
         break;
       }
       case BV_ARRAY:
@@ -400,6 +403,15 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
         }
         break;
       }
+      case CONSTANT_TERM:
+        if (t == true_term) {
+          bvconst_set_bit(t_info->value.data, 0);
+        } else if (t == false_term) {
+          bvconst_set_bit(t_info->value.data, 0);
+        } else {
+          assert(false); // Only Boolean constants
+        }
+        break;
       case BV_CONSTANT: {
         // Set the value
         bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
@@ -493,6 +505,8 @@ bool bv_bdd_manager_recompute_timestamps(bv_bdd_manager_t* bddm, term_t t, uint3
   } else {
     term_kind_t t_kind = term_kind(terms, t);
     switch (t_kind) {
+    case OR_TERM: // Boolean OR
+    case EQ_TERM: // Boolean equality
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
@@ -567,6 +581,7 @@ bool bv_bdd_manager_recompute_timestamps(bv_bdd_manager_t* bddm, term_t t, uint3
       }
       break;
     }
+    case CONSTANT_TERM:
     case BV_CONSTANT:
     case BV64_CONSTANT:
       // Nothing to do, always constant
@@ -638,6 +653,8 @@ void bv_bdd_manager_compute_value(bv_bdd_manager_t* bddm, term_t t) {
   } else {
     term_kind_t t_kind = term_kind(terms, t);
     switch (t_kind) {
+    case OR_TERM:
+    case EQ_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
@@ -759,6 +776,8 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
 
     // First, get all the children BDDs
     switch (t_kind) {
+    case OR_TERM:
+    case EQ_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
