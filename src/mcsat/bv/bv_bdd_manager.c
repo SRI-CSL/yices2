@@ -340,9 +340,8 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
         assert(bitsize == 1);
         composite_term_t* atom_comp = composite_term_desc(terms, t);
         for (uint32_t i = 0; i < atom_comp->arity; ++ i) {
-          uint32_t child_bitsize = bv_term_bitsize(terms, atom_comp->arg[0]);
-          bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[0], child_bitsize);
-          bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[1], child_bitsize);
+          uint32_t child_bitsize = bv_term_bitsize(terms, atom_comp->arg[i]);
+          bv_bdd_manager_ensure_term_data(bddm, atom_comp->arg[i], child_bitsize);
         }
         break;
       }
