@@ -1043,7 +1043,7 @@ bdd_t bv_bdd_manager_bdd_intersect(bv_bdd_manager_t* bddm, bdd_t bdd1, bdd_t bdd
   assert(bdd1.bdd != NULL);
   assert(bdd2.bdd != NULL);
   bdd_t bdd = { NULL };
-  bdds_mk_and(bddm->cudd, (BDD**) &bdd.bdd, (BDD**) &bdd1.bdd, (BDD**) bdd2.bdd, 1);
+  bdds_mk_and(bddm->cudd, (BDD**) &bdd.bdd, (BDD**) &bdd1.bdd, (BDD**) &bdd2.bdd, 1);
   return bdd;
 }
 

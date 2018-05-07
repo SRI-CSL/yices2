@@ -11,6 +11,18 @@
 //#define DEBUG_PRINT(x, n) fprintf(stderr, #x" = "); bdds_print(cudd, x, n, stderr); fprintf(stderr, "\n");
 #define DEBUG_PRINT(x, n)
 
+static inline
+void bdds_reverse(BDD** bdds, uint32_t n) {
+  assert(n > 0);
+  BDD** p = bdds;
+  BDD** q = bdds + n - 1;
+  BDD* tmp;
+  while (p < q) {
+    tmp = *p; *p = *q; *q = tmp;
+    p ++; q --;
+  }
+}
+
 CUDD* bdds_new() {
   CUDD* cudd = (CUDD*) safe_malloc(sizeof(CUDD));
   cudd->cudd = Cudd_Init(0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
@@ -182,31 +194,10 @@ void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* children_bdds) {
 }
 
 void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
-
-  DEBUG_PRINT(a, n);
-  DEBUG_PRINT(b, n);
-
+  assert(n > 0);
   assert(out[0] == NULL);
-  out[0] = Cudd_ReadOne(cudd->cudd);
+  out[0] = Cudd_Xeqy(cudd->cudd, n, a, b);
   Cudd_Ref(out[0]);
-
-  for(uint32_t i = 0; i < n; ++ i) {
-    BDD* tmp1 = Cudd_bddXor(cudd->cudd, a[i], b[i]);
-    DEBUG_PRINT(&tmp1, 1);
-    tmp1 = Cudd_Not(tmp1);
-    DEBUG_PRINT(&tmp1, 1);
-    Cudd_Ref(tmp1);
-
-    BDD* tmp2 = out[0];
-    out[0] = Cudd_bddAnd(cudd->cudd, tmp1, tmp2);
-    DEBUG_PRINT(out, 1);
-    Cudd_Ref(out[0]);
-
-    Cudd_IterDerefBdd(cudd->cudd, tmp1);
-    Cudd_IterDerefBdd(cudd->cudd, tmp2);
-  }
-
-  DEBUG_PRINT(out, 1);
 }
 
 void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
@@ -350,12 +341,30 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
   }
 }
 
-void bdds_ge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
-  assert(false);
+void bdds_ge(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  assert(n > 0);
+  assert(out[0] == NULL);
+  // Reverse to satisfy CUDD
+  bdds_reverse(a, n);
+  bdds_reverse(b, n);
+  // a < b
+  out[0] = Cudd_Xgty(cudd->cudd, n, NULL, b, a);
+  // a >= b
+  out[0] = Cudd_Not(out[0]);
+  Cudd_Ref(out[0]);
+  // Undo reversal
+  bdds_reverse(a, n);
+  bdds_reverse(b, n);
 }
 
-void bdds_sge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
-  assert(false);
+void bdds_sge(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  // signed comparison, just invert the first bits
+  assert(n > 0);
+  a[n-1] = Cudd_Not(a[n-1]);
+  b[n-1] = Cudd_Not(b[n-1]);
+  bdds_ge(cudd, out, a, b, n);
+  a[n-1] = Cudd_Not(a[n-1]);
+  b[n-1] = Cudd_Not(b[n-1]);
 }
 
 bool bdds_is_point(CUDD* cudd, BDD* a, uint32_t size) {
