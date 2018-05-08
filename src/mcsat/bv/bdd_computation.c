@@ -8,6 +8,8 @@
 #include "bdd_computation.h"
 #include "bv_utils.h"
 
+#include "terms/bv64_constants.h"
+
 //#define DEBUG_PRINT(x, n) fprintf(stderr, #x" = "); bdds_print(cudd, x, n, stderr); fprintf(stderr, "\n");
 #define DEBUG_PRINT(x, n)
 
@@ -23,12 +25,23 @@ void bdds_reverse(BDD** bdds, uint32_t n) {
   }
 }
 
+static inline
+void bdds_swap(BDD** a, BDD** b, uint32_t n) {
+  BDD* tmp;
+  for (uint32_t i = 0; i < n; ++ i) {
+    assert(a[i] != NULL);
+    assert(b[i] != NULL);
+    tmp = a[i]; a[i] = b[i]; b[i] = tmp;
+  }
+}
+
 CUDD* bdds_new() {
   CUDD* cudd = (CUDD*) safe_malloc(sizeof(CUDD));
   cudd->cudd = Cudd_Init(0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
   cudd->tmp_alloc_size = 0;
   cudd->tmp_inputs = NULL;
   cudd->tmp_model = NULL;
+  init_pvector(&cudd->reserve, 0);
   return cudd;
 }
 
@@ -39,6 +52,23 @@ void bdds_delete(CUDD* cudd) {
   Cudd_Quit(cudd->cudd);
   safe_free(cudd->tmp_inputs);
   safe_free(cudd->tmp_model);
+  assert(cudd->reserve.size == 0);
+  delete_pvector(&cudd->reserve);
+}
+
+BDD** bdds_allocate_reserve(CUDD* cudd, uint32_t n) {
+  assert(cudd->reserve.size == 0);
+  for (uint32_t i = 0; i < n; ++ i) {
+    pvector_push(&cudd->reserve, NULL);
+  }
+  return (BDD**) cudd->reserve.data;
+}
+
+void bdds_remove_reserve(CUDD* cudd, uint32_t n) {
+  for (uint32_t i = 0; i < n; ++ i) {
+    assert(cudd->reserve.data[i] == NULL);
+  }
+  pvector_reset(&cudd->reserve);
 }
 
 void bdds_init(BDD** a, uint32_t n) {
@@ -109,7 +139,29 @@ void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n) {
 void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
-    out[i] = Cudd_ReadOne(cudd->cudd);
+    if (i) {
+      out[i] = Cudd_ReadLogicZero(cudd->cudd);
+    } else {
+      out[i] = Cudd_ReadOne(cudd->cudd);
+    }
+    Cudd_Ref(out[i]);
+  }
+}
+
+void bdds_mk_constant_64(CUDD* cudd, BDD** out, uint32_t n, uint64_t c) {
+  for(uint32_t i = 0; i < n; ++ i) {
+    assert(out[i] == NULL);
+    bool bit_i = tst_bit64(c, i);
+    out[i] = bit_i ? Cudd_ReadOne(cudd->cudd) : Cudd_ReadLogicZero(cudd->cudd);
+    Cudd_Ref(out[i]);
+  }
+}
+
+void bdds_mk_constant_raw(CUDD* cudd, BDD** out, uint32_t n, const uint32_t* c) {
+  for(uint32_t i = 0; i < n; ++ i) {
+    assert(out[i] == NULL);
+    bool bit_i = bvconst_tst_bit(c, i);
+    out[i] = bit_i ? Cudd_ReadOne(cudd->cudd) : Cudd_ReadLogicZero(cudd->cudd);
     Cudd_Ref(out[i]);
   }
 }
@@ -200,6 +252,50 @@ void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   Cudd_Ref(out[0]);
 }
 
+/** out += cond*a << shift (out must be allocated) */
+void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n, uint32_t shift) {
+
+  BDD* carry = Cudd_ReadLogicZero(cudd->cudd);
+  Cudd_Ref(carry);
+
+  for (uint32_t i = shift, j = 0; i < n; ++ i, ++ j) {
+    // What we are adding (with condition if there)
+    BDD* to_add = cond == NULL ? a[j] : Cudd_bddAnd(cudd->cudd, cond, a[j]);
+    Cudd_Ref(to_add);
+    // Sum up the bits
+    BDD* sum1 = Cudd_bddXor(cudd->cudd, out[i], to_add);
+    Cudd_Ref(sum1);
+    BDD* sum2 = Cudd_bddXor(cudd->cudd, sum1, carry);
+    Cudd_Ref(sum2);
+    // Compute carry
+    BDD* carry1 = Cudd_bddAnd(cudd->cudd, out[i], to_add);
+    Cudd_Ref(carry1);
+    BDD* carry2 = Cudd_bddAnd(cudd->cudd, sum1, carry);
+    Cudd_Ref(carry2);
+    Cudd_IterDerefBdd(cudd->cudd, carry);
+    carry = Cudd_bddOr(cudd->cudd, carry1, carry2);
+    Cudd_Ref(carry);
+    // Save to output
+    Cudd_IterDerefBdd(cudd->cudd, out[i]);
+    out[i] = sum2; // Don't deref sum2, it's in out now
+    // Remove temps
+    Cudd_IterDerefBdd(cudd->cudd, to_add);
+    Cudd_IterDerefBdd(cudd->cudd, sum1);
+    Cudd_IterDerefBdd(cudd->cudd, carry1);
+    Cudd_IterDerefBdd(cudd->cudd, carry2);
+  }
+
+  Cudd_IterDerefBdd(cudd->cudd, carry);
+}
+
+/** Multiplication with repeated addition (we index over bits of b) */
+void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  bdds_mk_zero(cudd, out, n);
+  for(uint32_t k = 0; k < n; ++ k) {
+    bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
+  }
+}
+
 void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
     const pvector_t* children_bdds, BDD** out_bdds) {
 
@@ -287,15 +383,78 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
       Cudd_Ref(out_bdds[0]);
       break;
     }
-    case BV_POLY:
-      assert(false);
+    case BV_POLY: {
+      uint32_t tmp_size = 2*t_bitsize;
+      BDD** tmp = bdds_allocate_reserve(cudd, tmp_size);
+      BDD** const_bdds = tmp;
+      BDD** mult_bdds = tmp + t_bitsize;
+      bdds_mk_zero(cudd, out_bdds, t_bitsize);
+      bvpoly_t* p = bvpoly_term_desc(terms, t);
+      for (uint32_t i = 0, child_i = 0; i < p->nterms; ++ i) {
+        uint32_t* c = p->mono[i].coeff;
+        bdds_mk_constant_raw(cudd, const_bdds, t_bitsize, c);
+        if (p->mono[i].var == const_idx) {
+          // Just constant: out += c
+          bdds_mk_plus_in_place(cudd, out_bdds, const_bdds, NULL, t_bitsize, 0);
+          bdds_clear(cudd, const_bdds, t_bitsize);
+          continue;
+        } else {
+          // Non constant: out += c*x
+          BDD** child_bdds = ((BDD**)children_bdds->data[child_i]);
+          bdds_mk_mult(cudd, mult_bdds, child_bdds, const_bdds, t_bitsize);
+          bdds_mk_plus_in_place(cudd, out_bdds, mult_bdds, NULL, t_bitsize, 0);
+          bdds_clear(cudd, const_bdds, t_bitsize);
+          bdds_clear(cudd, mult_bdds, t_bitsize);
+          ++ child_i;
+        }
+      }
+      bdds_remove_reserve(cudd, tmp_size);
       break;
-    case BV64_POLY:
-      assert(false);
+    }
+    case BV64_POLY: {
+      uint32_t tmp_size = 2*t_bitsize;
+      BDD** tmp = bdds_allocate_reserve(cudd, tmp_size);
+      BDD** const_bdds = tmp;
+      BDD** mult_bdds = tmp + t_bitsize;
+      bdds_mk_zero(cudd, out_bdds, t_bitsize);
+      bvpoly64_t* p = bvpoly64_term_desc(terms, t);
+      for (uint32_t i = 0, child_i = 0; i < p->nterms; ++ i) {
+        uint64_t c = p->mono[i].coeff;
+        bdds_mk_constant_64(cudd, const_bdds, t_bitsize, c);
+        if (p->mono[i].var == const_idx) {
+          // Just constant: out += c
+          bdds_mk_plus_in_place(cudd, out_bdds, const_bdds, NULL, t_bitsize, 0);
+          bdds_clear(cudd, const_bdds, t_bitsize);
+          continue;
+        } else {
+          // Non constant: out += c*x
+          BDD** child_bdds = ((BDD**)children_bdds->data[child_i]);
+          bdds_mk_mult(cudd, mult_bdds, child_bdds, const_bdds, t_bitsize);
+          bdds_mk_plus_in_place(cudd, out_bdds, mult_bdds, NULL, t_bitsize, 0);
+          bdds_clear(cudd, const_bdds, t_bitsize);
+          bdds_clear(cudd, mult_bdds, t_bitsize);
+          ++ child_i;
+        }
+      }
+      bdds_remove_reserve(cudd, tmp_size);
       break;
-    case POWER_PRODUCT:
-      assert(false);
+    }
+    case POWER_PRODUCT: {
+      BDD** mult_bdds = bdds_allocate_reserve(cudd, t_bitsize);
+      bdds_mk_one(cudd, out_bdds, t_bitsize);
+      pprod_t* t_pprod = pprod_term_desc(terms, t);
+      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
+        uint32_t exp = t_pprod->prod[i].exp;
+        BDD** child_bdds = ((BDD**)children_bdds->data[i]);
+        for (uint32_t d = 0; d < exp; ++ d) {
+          bdds_mk_mult(cudd, mult_bdds, out_bdds, child_bdds, t_bitsize);
+          bdds_swap(mult_bdds, out_bdds, t_bitsize);
+          bdds_clear(cudd, mult_bdds, t_bitsize);
+        }
+      }
+      bdds_remove_reserve(cudd, t_bitsize);
       break;
+    }
     case OR_TERM: {
       composite_term_t* t_comp = or_term_desc(terms, t);
       assert(children_bdds->size == t_comp->arity);

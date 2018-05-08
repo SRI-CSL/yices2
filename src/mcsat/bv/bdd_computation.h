@@ -20,6 +20,7 @@ typedef struct {
   int* tmp_inputs;
   char* tmp_model;
   size_t tmp_alloc_size;
+  pvector_t reserve;
 } CUDD;
 
 /** Construct and allocate cudd */
@@ -68,7 +69,7 @@ void bdds_mk_variable(CUDD* cudd, BDD** out, uint32_t n);
 /** Make a constant 0...0 BDD */
 void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n);
 
-/** Make a constant 1...1 BDD */
+/** Make a constant 0...01 BDD */
 void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n);
 
 /** Make a constant BDD */

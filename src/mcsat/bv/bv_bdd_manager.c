@@ -824,9 +824,15 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
       }
       break;
     }
-    case POWER_PRODUCT:
-      assert(false);
+    case POWER_PRODUCT: {
+      pprod_t* t_pprod = pprod_term_desc(terms, t);
+      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
+        t_i = t_pprod->prod[i].var;
+        bdds_i = bv_bdd_manager_get_bdds(bddm, t_i);
+        pvector_push(&children_bdds, bdds_i);
+      }
       break;
+    }
     default:
       // Shouldn't be here
       assert(false);
