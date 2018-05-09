@@ -220,16 +220,94 @@ void bdds_mk_smod(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
   assert(false);
 }
 
-void bdds_mk_shl(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
-  assert(false);
+void bdds_mk_shl(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  BDD** shift_const = bdds_allocate_reserve(cudd, n);
+  BDD* b_eq_shift_const = NULL;
+
+  bdds_mk_zero(cudd, out, n);
+
+  for (uint32_t shift = 0; shift < n; ++ shift) {
+
+    bdds_mk_constant_64(cudd, shift_const, n, shift);
+    bdds_mk_eq(cudd, &b_eq_shift_const, b, shift_const, n);
+
+    for (uint32_t i = 0; i < n; ++ i) {
+      BDD* shifted_a_i = i < shift ? Cudd_ReadLogicZero(cudd->cudd) : a[i-shift];
+      Cudd_Ref(shifted_a_i);
+
+      BDD* else_case = out[i];
+      out[i]  = Cudd_bddIte(cudd->cudd, b_eq_shift_const, shifted_a_i, else_case);
+      Cudd_Ref(out[i]);
+
+      Cudd_IterDerefBdd(cudd->cudd, shifted_a_i);
+      Cudd_IterDerefBdd(cudd->cudd, else_case);
+    }
+
+    bdds_clear(cudd, shift_const, n);
+    bdds_clear(cudd, &b_eq_shift_const, 1);
+  }
+
+  bdds_remove_reserve(cudd, n);
 }
 
-void bdds_mk_lshr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
-  assert(false);
+void bdds_mk_lshr(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  BDD** shift_const = bdds_allocate_reserve(cudd, n);
+  BDD* b_eq_shift_const = NULL;
+
+  bdds_mk_zero(cudd, out, n);
+
+  for (uint32_t shift = 0; shift < n; ++ shift) {
+
+    bdds_mk_constant_64(cudd, shift_const, n, shift);
+    bdds_mk_eq(cudd, &b_eq_shift_const, b, shift_const, n);
+
+    for (uint32_t i = 0; i < n; ++ i) {
+      BDD* shifted_a_i = i + shift >= n ? Cudd_ReadLogicZero(cudd->cudd) : a[i+shift];
+      Cudd_Ref(shifted_a_i);
+
+      BDD* else_case = out[i];
+      out[i]  = Cudd_bddIte(cudd->cudd, b_eq_shift_const, shifted_a_i, else_case);
+      Cudd_Ref(out[i]);
+
+      Cudd_IterDerefBdd(cudd->cudd, shifted_a_i);
+      Cudd_IterDerefBdd(cudd->cudd, else_case);
+    }
+
+    bdds_clear(cudd, shift_const, n);
+    bdds_clear(cudd, &b_eq_shift_const, 1);
+  }
+
+  bdds_remove_reserve(cudd, n);
 }
 
-void bdds_mk_ashr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
-  assert(false);
+void bdds_mk_ashr(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  BDD** shift_const = bdds_allocate_reserve(cudd, n);
+  BDD* b_eq_shift_const = NULL;
+
+  bdds_mk_zero(cudd, out, n);
+
+  for (uint32_t shift = 0; shift < n; ++ shift) {
+
+    bdds_mk_constant_64(cudd, shift_const, n, shift);
+    bdds_mk_eq(cudd, &b_eq_shift_const, b, shift_const, n);
+
+    for (uint32_t i = 0; i < n; ++ i) {
+      BDD* shifted_a_i = i + shift >= n ? a[n-1] : a[i+shift];
+      Cudd_Ref(shifted_a_i);
+
+      BDD* else_case = out[i];
+      out[i]  = Cudd_bddIte(cudd->cudd, b_eq_shift_const, shifted_a_i, else_case);
+      Cudd_Ref(out[i]);
+
+      Cudd_IterDerefBdd(cudd->cudd, shifted_a_i);
+      Cudd_IterDerefBdd(cudd->cudd, else_case);
+    }
+
+    bdds_clear(cudd, shift_const, n);
+    bdds_clear(cudd, &b_eq_shift_const, 1);
+  }
+
+  bdds_remove_reserve(cudd, n);
 }
 
 void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* children_bdds) {
