@@ -15,12 +15,15 @@
 
 typedef DdNode BDD;
 
+#define BDDS_RESERVE_MAX 2
+
 typedef struct {
   DdManager* cudd;
   int* tmp_inputs;
   char* tmp_model;
   size_t tmp_alloc_size;
-  pvector_t reserve;
+  pvector_t reserve[BDDS_RESERVE_MAX];
+  uint32_t reserve_i;
 } CUDD;
 
 /** Construct and allocate cudd */
@@ -112,7 +115,7 @@ void bdds_mk_ashr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
 void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n);
 
 /** Unsigned comparison circuit of BDDs in a and b, out is of n 1. */
-void bdds_ge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+void bdds_mk_ge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
 
 /** Signed comparison circuit of BDDs in a and b, out is of n 1. */
-void bdds_sge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+void bdds_mk_sge(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);

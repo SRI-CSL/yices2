@@ -7,7 +7,7 @@
 
 (assert (= c #b10000111))
 (assert (= s #b00011011))
-(assert (= (bvurem c x) s))
+(assert (= (bvurem x c) s))
 
 (check-sat)
 (get-model)
