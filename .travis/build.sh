@@ -2,10 +2,18 @@
 # Make sure we exit if there is a failure
 set -e
 
-#build and install libpoly (Dejan when will this be a ubuntu package?)
+# Build and install libpoly
 git clone https://github.com/SRI-CSL/libpoly.git
 cd libpoly/build
 cmake ..
+make
+sudo make install
+
+# Build and install CUDD
+git clone https://github.com/ivmai/cudd.git
+cd cudd
+git checkout tags/cudd-3.0.0
+./configure --enable-shared
 make
 sudo make install
 
