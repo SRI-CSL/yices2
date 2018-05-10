@@ -1448,12 +1448,12 @@ static inline double get_bvar_activity(smt_core_t *s, bvar_t x) {
 /*
  * Check whether variable x is assigned
  */
-static inline bool bvar_is_assigned(smt_core_t *s, bvar_t x) {
+static inline bool bvar_is_assigned(const smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
   return bval_is_def(s->value[x]);
 }
 
-static inline bool bvar_is_unassigned(smt_core_t *s, bvar_t x) {
+static inline bool bvar_is_unassigned(const smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
   return bval_is_undef(s->value[x]);
 }
@@ -1461,11 +1461,11 @@ static inline bool bvar_is_unassigned(smt_core_t *s, bvar_t x) {
 /*
  * Same thing for literal l
  */
-static inline bool literal_is_assigned(smt_core_t *s, literal_t l) {
+static inline bool literal_is_assigned(const smt_core_t *s, literal_t l) {
   return bvar_is_assigned(s, var_of(l));
 }
 
-static inline bool literal_is_unassigned(smt_core_t *s, literal_t l) {
+static inline bool literal_is_unassigned(const smt_core_t *s, literal_t l) {
   return bvar_is_unassigned(s, var_of(l));
 }
 
@@ -1474,7 +1474,7 @@ static inline bool literal_is_unassigned(smt_core_t *s, literal_t l) {
  * Read the value assigned to variable x at the current decision level.
  * This can be used to build a model if s->status is SAT (or UNKNOWN).
  */
-static inline bval_t bvar_value(smt_core_t *s, bvar_t x) {
+static inline bval_t bvar_value(const smt_core_t *s, bvar_t x) {
   assert(0 <= x &&  x < s->nvars);
   return s->value[x];
 }
@@ -1485,7 +1485,7 @@ static inline bval_t bvar_value(smt_core_t *s, bvar_t x) {
  * - if x is not assigned at the base level, this returns the
  *   preferred value (either VAL_UNDEF_FALSE or VAL_UNDEF_TRUE)
  */
-static inline bval_t bvar_base_value(smt_core_t *s, bvar_t x) {
+static inline bval_t bvar_base_value(const smt_core_t *s, bvar_t x) {
   bval_t v;
   assert(0 <= x && x < s->nvars);
   v = s->value[x];
@@ -1501,7 +1501,7 @@ static inline bval_t bvar_base_value(smt_core_t *s, bvar_t x) {
  * - if x is assigned, polarity = current value (0 means true, 1 means false)
  * - if x is unassigned, polarity = preferred value
  */
-static inline uint32_t bvar_polarity(smt_core_t *s, bvar_t x) {
+static inline uint32_t bvar_polarity(const smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
   return (uint32_t) (s->value[x] & 1);
 }
@@ -1514,7 +1514,7 @@ static inline uint32_t bvar_polarity(smt_core_t *s, bvar_t x) {
  *   if sign_of(l) = 1, val(l) = opposite of val(x)
  * - returns VAL_UNDEF_TRUE or VAL_UNDEF_FALSE if no value is assigned.
  */
-static inline bval_t literal_value(smt_core_t *s, literal_t l) {
+static inline bval_t literal_value(const smt_core_t *s, literal_t l) {
   assert(0 <= l && l < (int32_t) s->nlits);
   return s->value[var_of(l)] ^ sign_of_lit(l);
 }
@@ -1523,7 +1523,7 @@ static inline bval_t literal_value(smt_core_t *s, literal_t l) {
  * Read the value assigned to a literal l at the base level
  * - returns VAL_UNDEF_FALSE or VAL_UNDEF_TRUE if l is not assigned at that level
  */
-static inline bval_t literal_base_value(smt_core_t *s, literal_t l) {
+static inline bval_t literal_base_value(const smt_core_t *s, literal_t l) {
   assert(0 <= l && l < s->nlits);
   return bvar_base_value(s, var_of(l)) ^ sign_of_lit(l);
 }
@@ -1877,6 +1877,42 @@ static inline bool all_variables_assigned(smt_core_t *s) {
  * least three literals) are true in the current assignment.
  */
 extern bool all_clauses_true(smt_core_t *s);
+
+
+/****************************
+ * UNCONSTRAINED VARIABLES  *
+ ***************************/
+
+/*
+ * Record to store the set of unconstrained variables:
+ * - nvars = total number of variables
+ * - free = array of booleans
+ * - free[x] true means that x is unconstrained (i.e., does not occur
+ *   in any clause)
+ */
+typedef struct free_bool_vars_s {
+  uint8_t *free;
+  uint32_t nvars;
+} free_bool_vars_t;
+
+/*
+ * Initialized fv structure:
+ * - n = number of variables
+ */
+extern void init_free_bool_vars(free_bool_vars_t *fv, uint32_t n);
+
+/*
+ * Delete fv
+ */
+extern void delete_free_bool_vars(free_bool_vars_t *fv);
+
+/*
+ * Collect all the free variables in a solver s
+ * - store them in fv
+ * - fv must be initialized and large enough to store
+ *   all the variables of s
+ */
+extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
 
 
 #endif /* __SMT_CORE_H */

@@ -207,6 +207,7 @@ core_src_c := \
 	terms/extended_rationals.c \
 	terms/free_var_collector.c \
 	terms/full_subst.c \
+	terms/int_rational_hash_maps.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
 	terms/poly_buffer.c \
@@ -279,6 +280,8 @@ core_src_c := \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
 	utils/tuple_hash_map.c \
+	utils/uint_array_sort.c \
+	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c
 
@@ -361,7 +364,9 @@ extra_src_c := \
 	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
 	solvers/bv/dimacs_printer.c \
+	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
@@ -405,6 +410,7 @@ src_c := $(base_src_c) $(extra_src_c)
 bin_src_c := \
 	frontend/yices_main.c \
 	frontend/yices_sat.c \
+	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
 	frontend/yices_smtcomp.c \
@@ -793,22 +799,24 @@ $(static_objdir)/%.d: %.c
 	rm -f $@.$$$$
 
 
-need_static_deps := $(findstring static,$(MAKECMDGOALS))
-
 ifneq ($(MAKECMDGOALS),clean)
 
-include $(dep)
-include $(bin_dep)
-include $(version_dep)
+static_goals := $(filter static-%,$(MAKECMDGOALS))
+dyn_goals := $(filter-out static-%,$(MAKECMDGOALS))
 
-ifeq ($(need_static_deps),static)
-include $(static_dep)
-include $(static_bin_dep)
-include $(static_version_dep)
+ifneq ($(dyn_goals),)
+ include $(dep)
+ include $(bin_dep)
+ include $(version_dep)
+endif
+
+ifneq ($(static_goals),)
+ include $(static_dep)
+ include $(static_bin_dep)
+ include $(static_version_dep)
 endif
 
 endif
-
 
 #
 # Gperf generated tables
@@ -883,13 +891,22 @@ $(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(sta
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
 
+$(bindir)/yices_sat_new$(EXEEXT): $(objdir)/frontend/yices_sat_new.o $(libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $< $(libyices) $(NOGMP_LIBS)
+
+$(static_bindir)/yices_sat_new$(EXEEXT): $(static_objdir)/frontend/yices_sat_new.o $(static_libyices)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
+
 # for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
-	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
 
@@ -1008,14 +1025,14 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
+$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
 	-Wl,-install_name,$(libyices_install_name) \
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_LIBS)
+	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
 ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif

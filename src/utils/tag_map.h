@@ -79,17 +79,27 @@ extern void clear_tag_map(tag_map_t *map);
 /*
  * Get the value mapped to x
  */
-static inline uint8_t tag_map_read(tag_map_t *map, uint32_t x) {
+static inline uint8_t tag_map_read(const tag_map_t *map, uint32_t x) {
   return (x < map->size) ? map->map[x] : 0;
 }
+
+
+/*
+ * Cardinality: number of x whose value is non-zero
+ */
+static inline uint32_t tag_map_size(const tag_map_t *map) {
+  return map->marked.size;
+}
+
 
 /*
  * Direct access if x is known to be between 0 and map->size
  */
-static inline uint8_t tag_map_get(tag_map_t *map, uint32_t x) {
+static inline uint8_t tag_map_get(const tag_map_t *map, uint32_t x) {
   assert(x < map->size);
   return map->map[x];
 }
+
 
 /*
  * Overwrite: assumes that x is already in the map->marked vector

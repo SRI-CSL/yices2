@@ -5861,6 +5861,9 @@ static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, t
   for (i=1; i<n; i++) {
     t2 = eg->eterm_of_var(solver, v[i]);
     if (!egraph_reconcile_pair(egraph, pos_occ(t1), pos_occ(t2))) {
+#if 0
+      printf("Reconciliation failed for class with %"PRIu32" elements, at element %"PRIu32"\n", n, i);
+#endif
       return false;
     }
   }

@@ -6035,6 +6035,129 @@ void collect_decision_literals(smt_core_t *s, ivector_t *v) {
 }
 
 
+/****************************
+ * UNCONSTRAINED VARIABLES  *
+ ***************************/
+
+/*
+ * Initialized fv structure:
+ * - n = number of variables
+ */
+void init_free_bool_vars(free_bool_vars_t *fv, uint32_t n) {
+  fv->free = safe_malloc(n *  sizeof(uint8_t));
+  fv->nvars = n;
+}
+
+/*
+ * Delete fv
+ */
+void delete_free_bool_vars(free_bool_vars_t *fv) {
+  safe_free(fv->free);
+  fv->free = NULL;
+}
+
+/*
+ * Mark var_of(l) as not free in fv
+ */
+static inline void mark_lit_not_free(free_bool_vars_t *fv, literal_t l) {
+  bvar_t x;
+
+  x = var_of(l);
+  assert(0 <= x && x < fv->nvars);
+  fv->free[x] = false;
+}
+
+/*
+ * Collect all the vars occurring in a unit clause
+ */
+static void collect_vars_in_unit_clauses(free_bool_vars_t *fv, const smt_core_t *s) {
+  uint32_t i, n;
+  literal_t l;
+
+  n = s->stack.top;
+  if (s->decision_level >= 1) {
+    n = s->stack.level_index[1];
+  }
+  for (i=0; i<n; i++) {
+    l = s->stack.lit[i];
+    assert(literal_is_assigned(s, l));
+    mark_lit_not_free(fv, l);
+  }
+}
+
+/*
+ * Collect all vars in the binary clauses
+ * - mark then as constrained
+ */
+static void collect_vars_in_binary_clauses(free_bool_vars_t *fv, const smt_core_t *s) {
+  literal_t l0, l, *v;
+
+  for (l0=0; l0 < s->nlits; l0++) {
+    v = s->bin[l0];
+    if (v != NULL) {
+      for (;;) {
+	l = *v ++;
+	if (l < 0) break;
+	mark_lit_not_free(fv, l);
+      }
+    }
+  }
+}
+
+/*
+ * Collect all vars in clause cl
+ */
+static void collect_vars_in_clause(free_bool_vars_t *fv, const clause_t *cl) {
+  uint32_t i;
+  literal_t l;
+
+  i = 0;
+  for (;;) {
+    l = cl->cl[i];
+    if (l < 0) break;
+    mark_lit_not_free(fv, l);
+    i ++;
+  }
+}
+
+/*
+ * Collect the variables that occur in a problem clause
+ */
+static void collect_vars_in_problem_clauses(free_bool_vars_t *fv, const smt_core_t *s) {
+  uint32_t i, n;
+  clause_t **v;
+
+  v = s->problem_clauses;
+  n = get_cv_size(v);
+  for (i=0; i<n; i++) {
+    collect_vars_in_clause(fv, v[i]);
+  }
+}
+
+/*
+ * Collect all the free variables in a solver s
+ * - store them in fv
+ * - fv must be initialized and large enough to store
+ *   all the variables of s
+ */
+void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s) {
+  uint32_t i, n;
+
+  assert(s->nvars <= fv->nvars);
+
+  n = fv->nvars;
+  for (i=0; i<n; i++) {
+    fv->free[i] = true;
+  }
+
+  mark_lit_not_free(fv, true_literal);
+  collect_vars_in_unit_clauses(fv, s);
+  collect_vars_in_binary_clauses(fv, s);
+  collect_vars_in_problem_clauses(fv, s);
+}
+
+
+
 
 
 /*************************

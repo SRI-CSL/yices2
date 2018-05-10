@@ -1,27 +1,25 @@
 #!/usr/bin/make -f
 
-export DH_VERBOSE = 1
+#export DH_VERBOSE = 1
 
 %:
 	dh $@ --with autoreconf
 
 override_dh_auto_configure:
-	dh_auto_configure -- --prefix=/usr --host=$(DEB_HOST_MULTIARCH) --enable-mcsat 
-	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \
-	  debian/libyices2.6.install.in > debian/libyices2.6.install
-	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \
-	  debian/yices2.install.in > debian/yices2.install
-	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \
-	  debian/yices2-dev.install.in > debian/yices2-dev.install
+	dh_auto_configure -- --prefix=/usr --host=$(DEB_HOST_MULTIARCH) --enable-mcsat
 
 override_dh_auto_build:
-	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" STRIP=echo ARCH=$(DEB_HOST_MULTIARCH)
+	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" STRIP=echo ARCH=$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_test:
-	$(MAKE) CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" ARCH=$(DEB_HOST_MULTIARCH)  check
+	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" ARCH=$(DEB_HOST_MULTIARCH)  check
 
 override_dh_auto_install:
 	$(MAKE) DESTDIR=$$(pwd)/debian/tmp/ prefix=/usr ARCH=$(DEB_HOST_MULTIARCH) install
+
+override_dh_clean:
+	rm -rf build
+	dh_clean
 
 override_dh_auto_clean:
 	@echo "overriding auto clean"

@@ -29,6 +29,7 @@
 #include "model/models.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_stack.h"
+#include "utils/int_vectors.h"
 
 
 /*
@@ -101,6 +102,23 @@ extern void reset_evaluator(evaluator_t *eval);
  * or reset_evaluator.
  */
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
+
+/*
+ * Compute the values of terms a[0 ... n-1]
+ * - don't return anything
+ * - the value of a[i] can be queried by using eval_in_model(eval, a[i]) later
+ *   (this reads the value from eval->cache so that's cheap).
+ */
+extern void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n);
+
+/*
+ * Cached-term collector:
+ * - call f(aux, t) for every t that's stored in eval->cache
+ *   if f(aux, t) returns true, add t to v
+ * - f must not have side effects
+ */
+// model_filter_t is defined in models.h
+extern void evaluator_collect_cached_terms(evaluator_t *eval, void *aux, model_filter_t f, ivector_t *v);
 
 
 #endif /* __MODEL_EVAL_H */

@@ -136,6 +136,7 @@ static inline bool true_preferred(bval_t val) {
 }
 
 
+
 /*
  * Problem status
  */

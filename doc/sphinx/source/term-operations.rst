@@ -2556,6 +2556,7 @@ The following table lists the constructors of composite terms.
      :c:enum:`YICES_BV_GE_ATOM`       (bv-ge t1 t2)
      :c:enum:`YICES_BV_SGE_ATOM`      (bv-sge t1 t2)
      :c:enum:`YICES_ARITH_GE_ATOM`    (>= t1 t2)
+     :c:enum:`YICES_ARITH_ROOT_ATOM`  see below
      :c:enum:`YICES_ABS`              (abs t)
      :c:enum:`YICES_CEIL`             (ceil t)
      :c:enum:`YICES_FLOOR`            (floor t)
@@ -2586,6 +2587,19 @@ In the construct *(bv-array t1 ... tn)*, the *n* children are
 Boolean terms listed in little-endian form. The first child *t1* is
 the least significant bit and the last child *tn* is the most
 significant bit.
+
+**Arithmetic Root Atoms**
+
+Arithmetic root atoms are used internally by the MCSAT solver.
+Such a term represents an atomic constraint of the form::
+
+   x r (k-th root of p)
+
+where *x* and *p* are both arithmetic terms, *r* denotes a relational
+operator (e.g., |<=| or >), and *k* is an integer index.
+The term *p* is always a polynomial. This term is treated like a composite
+term of two children. The first child is *x* and the second child is *p*.
+
 
 Projection Terms
 ................

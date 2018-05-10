@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <errno.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <gmp.h>
 
@@ -1615,18 +1617,59 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
  * TIMEOUT/INTERRUPTS
  */
 
+static const char signum_msg[24] = "\nInterrupted by signal ";
+static char signum_buffer[100];
+
+/*
+ * Write signal number to file 2 (assumed to be stderr): we can't use
+ * fprintf because it's not safe in a signal handler.
+ */
+static void write_signum(int signum) {
+  ssize_t w;
+  uint32_t i, n;
+
+  memcpy(signum_buffer, signum_msg, sizeof(signum_msg));
+
+  // force signum to be at most two digits
+  signum = signum % 100;
+  n = sizeof(signum_msg);
+  if (signum > 10) {
+    signum_buffer[n] = (char)('0' + signum/10);
+    signum_buffer[n + 1] = (char)('0' + signum % 10);
+    signum_buffer[n + 2] = '\n';
+    n += 3;
+  } else {
+    signum_buffer[n] = (char)('0' + signum);
+    signum_buffer[n + 1] = '\n';
+    n += 2;
+  }
+
+  // write to file 2
+  i = 0;
+  do {
+    do {
+      w = write(2, signum_buffer + i, n);
+    } while (w < 0 && errno == EAGAIN);
+    if (w < 0) break; // write error, we can't do much about it.
+    i += (uint32_t) w;
+    n -= (uint32_t) w;
+  } while (n > 0);
+}
+
 /*
  * Signal handler: call print_results then exit
  */
 static void handler(int signum) {
-  printf("Interrupted by signal %d\n\n", signum);
+  write_signum(signum);
   if (context_exists) {
+    // TODO: Fix this.
+    // dump_the_context and print_result can deadlock
     if (dump_context || dump_internalization) {
       dump_the_context(&context, &bench, "yices_exit.dmp");
     }
     print_results();
   }
-  exit(YICES_EXIT_INTERRUPTED);
+  _exit(YICES_EXIT_INTERRUPTED);
 }
 
 

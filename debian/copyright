@@ -1,4 +1,8 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: yices2
+Upstream-Contact: Bruno Dutertre <bruno@csl.sri.com>
+Source: https://github.com/SRI-CSL/yices2
+
 
 Files: *
 Copyright: 2017 SRI International

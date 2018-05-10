@@ -225,6 +225,20 @@ and set the error report (error code: :c:enum:`INVALID_TYPE`).
    *sigma* is not a valid type, the function returns false and sets
    the error report.
 
+.. c:function:: int32_t yices_compatible_types(type_t tau, type_t sigma)
+
+   Checks whether *tau* and *sigma* are compatible.
+
+   The function returns 1 for true and 0 for false. If *tau* or
+   *sigma* is not a valid type, the function returns false and sets
+   the error report.
+
+   Two types are compatible if they have a common supertype. For
+   example, *real* and *int* are compatible because their common
+   supertype is *real*. Consult the `manual
+   <http://yices.csl.sri.com/papers/manual.pdf>`_ for more details.
+
+
 
 
 Access to Type Components

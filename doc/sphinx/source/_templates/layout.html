@@ -1,5 +1,6 @@
 {%- extends "!layout.html" %}
 
+{%- set html5_doctype = "true" %}
 {%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
 {%- set home = "http://yices.csl.sri.com" %}
 {%- set logowidth = 175 %}
@@ -21,7 +22,7 @@
 {%- block sidebarlogo %}
 {%- if logo %}
 <p class="logo"><a href="{{ home }}">
-    <img class="logo" witdh="{{ logowidth }}" height="{{ logoheight }}" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
+    <img class="logo" width="{{ logowidth }}" height="{{ logoheight }}" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
 </a></p>
 {%- endif %}
 {%- endblock %}

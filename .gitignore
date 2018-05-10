@@ -14,3 +14,4 @@
 *.fig.bak
 *.gcda
 *.gcno
+*.pyc

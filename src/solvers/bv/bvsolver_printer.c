@@ -375,6 +375,27 @@ void print_bv_solver_vardef(FILE *f, bv_solver_t *solver, thvar_t x) {
   fputc('\n', f);
 }
 
+/*
+ * Print the literal array attached to x
+ */
+void print_bv_solver_var_litarray(FILE *f, bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  literal_t *map;
+
+  vtbl = &solver->vtbl;
+  print_bv_vardef(f, vtbl, x);
+  fputc('\n', f);
+
+  map = bvvar_get_map(vtbl, x);
+  if (map != NULL) {
+    assert(solver->remap != NULL);
+    fputs("              lit array: ", f);
+    print_pseudo_litarray(f, solver->remap, map, bvvar_bitsize(vtbl, x));
+    fputc('\n', f);
+  } else {
+    fputs("              lit array: NULL\n", f);
+  }
+}
 
 
 /*

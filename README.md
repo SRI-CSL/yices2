@@ -4,7 +4,13 @@
 
 # Yices 2
 
-This distribution includes the source of Yices, documentation, tests,
+Yices 2 is a solver for [Satisfiability Modulo
+Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
+(SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
+We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
+and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
+
+This repository includes the source of Yices 2, documentation, tests,
 and examples.
 
 Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian A. Mason
@@ -14,9 +20,7 @@ or to get more information about Yices, please visit our
 
 ## Simple Examples
 
-Yices is a solver for [Satisfiability Modulo
-Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
-(SMT) problems. Below are a few typical small examples that illustrate 
+Here are a few typical small examples that illustrate 
 the use of Yices using the [SMT2 language](http://smtlib.cs.uiowa.edu/language.shtml).
 
 #### Linear Real Arithmetic
@@ -105,10 +109,9 @@ Currently you can install Yices either using Homebrew or Aptitude.
 
 Installing on Darwin using homebrew can be achieved via:
 ```
-brew install yices
+brew install SRI-CSL/sri-csl/yices2
 ```
-though currently this only installs the version without mcsat enabled,
-for more about mcsat see [below](#support-for-non-linear-arithmetic).
+This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
 #### Aptitude
@@ -117,9 +120,13 @@ To install Yices on Ubuntu or Debian, do the following:
 ```
 sudo add-apt-repository ppa:sri-csl/formal-methods
 sudo apt-get update
+sudo apt-get install yices2
+```
+This will install the executables. If you also need the Yices library and header files, replace
+the last step with:
+```
 sudo apt-get install yices2-dev
 ```
-This will install the full mcsat enabled version of Yices (as well as the headers and dynamic library).
 
 
 ## Building From Source
@@ -144,10 +151,10 @@ To build the on-line documentation, you need to install the Sphinx
 python pacakge. The simplest method is:
 
 ```
-sudo easy_install -U Sphinx
+sudo pip install sphinx
 ```
 
-Sphinx 1.3.x or better is needed.
+Sphinx 1.4.x or better is needed.
 
 
 #### Quick Installation
@@ -185,7 +192,8 @@ autoconf
 make
 sudo make install
 ```
-3 You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
+
+3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
   find the libpoly library. Other options may be useful too.  Try
   `./configure --help` to see what's there.
 

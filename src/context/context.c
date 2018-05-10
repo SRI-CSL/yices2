@@ -20,6 +20,8 @@
  * ASSERTION CONTEXT
  */
 
+#include <inttypes.h>
+
 #include "context/context.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
@@ -41,7 +43,6 @@
 #if TRACE
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "io/term_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
@@ -105,37 +106,6 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 
 /*
- * For debugging: check that the arith solver agrees that x has type tau
- */
-#ifndef NDEBUG
-static bool arithvar_has_right_type(context_t *ctx, thvar_t x, type_t tau) {
-  if (ctx->arith.arith_var_is_int(ctx->arith_solver, x)) {
-    return is_integer_type(tau);
-  } else {
-    return is_real_type(tau);
-  }
-}
-#endif
-
-
-/*
- * Convert arithmetic variable x to an egraph term
- * - tau = type of x (int or real)
- */
-static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
-  eterm_t u;
-
-  assert(arithvar_has_right_type(ctx, x, tau));
-
-  u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
-  if (u == null_eterm) {
-    u = egraph_thvar2term(ctx->egraph, x, tau);
-  }
-
-  return pos_occ(u);
-}
-
-/*
  * Type of arithmetic variable x
  */
 static type_t type_of_arithvar(context_t *ctx, thvar_t x) {
@@ -149,6 +119,22 @@ static type_t type_of_arithvar(context_t *ctx, thvar_t x) {
   return tau;
 }
 
+
+/*
+ * Convert arithmetic variable x to an egraph term
+ */
+static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x) {
+  eterm_t u;
+  type_t tau;
+
+  u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
+  if (u == null_eterm) {
+    tau = type_of_arithvar(ctx, x);
+    u = egraph_thvar2term(ctx->egraph, x, tau);
+  }
+
+  return pos_occ(u);
+}
 
 /*
  * Convert bit-vector variable x to an egraph term
@@ -176,7 +162,7 @@ static occ_t translate_bvvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
  */
 static occ_t translate_thvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
   if (is_arithmetic_type(tau)) {
-    return translate_arithvar_to_eterm(ctx, x, tau);
+    return translate_arithvar_to_eterm(ctx, x);
   } else if (is_bv_type(ctx->types, tau)) {
     return translate_bvvar_to_eterm(ctx, x, tau);
   } else {
@@ -210,7 +196,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
 
     case INT_TYPE:
     case REAL_TYPE:
-      u = translate_arithvar_to_eterm(ctx, code2thvar(x), tau);
+      u = translate_arithvar_to_eterm(ctx, code2thvar(x));
       break;
 
     case BITVECTOR_TYPE:
@@ -627,19 +613,13 @@ static occ_t map_tuple_to_eterm(context_t *ctx, composite_term_t *tuple, type_t 
  */
 static occ_t map_arith_constant_to_eterm(context_t *ctx, rational_t *q) {
   thvar_t x;
-  type_t tau;
 
   if (! context_has_arith_solver(ctx)) {
     longjmp(ctx->env, ARITH_NOT_SUPPORTED);
   }
 
   x = ctx->arith.create_const(ctx->arith_solver, q);
-  tau = real_type(ctx->types);
-  if (q_is_integer(q)) {
-    tau = int_type(ctx->types);
-  }
-
-  return translate_arithvar_to_eterm(ctx, x, tau);
+  return translate_arithvar_to_eterm(ctx, x);
 }
 
 static occ_t map_bvconst64_to_eterm(context_t *ctx, bvconst64_term_t *c) {
@@ -1850,8 +1830,14 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
     assert(v->size == 0);
     flatten_or_term(ctx, v, or);
 
-    // make a copy of v
+    // try easy simplification
     n = v->size;
+    if (disjunct_is_true(ctx, v->data, n)) {
+      ivector_reset(v);
+      return true_literal;
+    }
+
+    // make a copy of v
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       a[i] = v->data[i];
@@ -1868,6 +1854,10 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
   } else {
     // no flattening
     n = or->arity;
+    if (disjunct_is_true(ctx, or->arg, n)) {
+      return true_literal;
+    }
+
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       l = internalize_to_literal(ctx, or->arg[i]);
@@ -2496,18 +2486,18 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       case ARITH_FLOOR:
 	assert(is_integer_type(tau));
 	x = map_floor_to_arith(ctx, arith_floor_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_CEIL:
 	assert(is_integer_type(tau));
 	x = map_ceil_to_arith(ctx, arith_ceil_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_ABS:
 	x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ITE_TERM:
@@ -2522,18 +2512,18 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       case ARITH_RDIV:
 	assert(is_real_type(tau));
 	x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, type_of_arithvar(ctx, x));
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 
       case ARITH_IDIV:
 	assert(is_integer_type(tau));
 	x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau); // (div t u) has type int
+	u = translate_arithvar_to_eterm(ctx, x); // (div t u) has type int
 	break;
 
       case ARITH_MOD:
 	x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x, tau);
+	u = translate_arithvar_to_eterm(ctx, x);
 	break;
 	
       case TUPLE_TERM:
@@ -4209,8 +4199,14 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
       assert(v->size == 0);
       flatten_or_term(ctx, v, or);
 
-      // make a copy of v
+      // if v contains a true_term, ignore the clause
       n = v->size;
+      if (disjunct_is_true(ctx, v->data, n)) {
+	ivector_reset(v);
+	return;
+      }
+
+      // make a copy of v
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = v->data[i];
@@ -4227,6 +4223,10 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
        * No flattening
        */
       n = or->arity;
+      if (disjunct_is_true(ctx, or->arg, n)) {
+	return;
+      }
+
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = internalize_to_literal(ctx, or->arg[i]);
@@ -4997,19 +4997,19 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
  */
 static void create_auto_idl_solver(context_t *ctx) {
   dl_data_t *profile;
-  int32_t sum_const;
+  int32_t bound;
   double atom_density;
 
   assert(ctx->dl_profile != NULL);
   profile = ctx->dl_profile;
 
-  if (q_is_smallint(&profile->sum_const)) {
-    sum_const = q_get_smallint(&profile->sum_const);
+  if (q_is_smallint(&profile->path_bound)) {
+    bound = q_get_smallint(&profile->path_bound);
   } else {
-    sum_const = INT32_MAX;
+    bound = INT32_MAX;
   }
 
-  if (sum_const >= 1073741824) {
+  if (bound >= 1073741824) {
     // simplex required because of arithmetic overflow
     create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
@@ -5206,7 +5206,7 @@ static void init_solvers(context_t *ctx) {
   } else if (solvers == 0) {
     /*
      * Boolean solver only. If arch if AUTO_IDL or AUTO_RDL, the
-     * theory solver will be changed lated by create_auto_idl_solver
+     * theory solver will be changed later by create_auto_idl_solver
      * or create_auto_rdl_solver.
      */
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
@@ -5215,10 +5215,10 @@ static void init_solvers(context_t *ctx) {
     /*
      * MCsat solver only, we create the core, but never use it.
      */
-    assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
+    assert(ctx->egraph == NULL && ctx->arith_solver == NULL &&
+	   ctx->bv_solver == NULL && ctx->fun_solver == NULL);
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
   }
-
 
   /*
    * Optimization: if the arch is NOSOLVERS or BV then we set bool_only in the core
@@ -5349,6 +5349,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->marks = NULL;
   ctx->cache = NULL;
   ctx->small_cache = NULL;
+  ctx->edge_map = NULL;
   ctx->eq_cache = NULL;
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
@@ -5603,6 +5604,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       flatten_assertion(ctx, a[i]);
     }
 
+    trace_printf(ctx->trace, 6, "(done flattening)\n");
+
     /*
      * At this point, the assertions are stored into the vectors
      * top_eqs, top_atoms, top_formulas, and top_interns
@@ -5648,6 +5651,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       /*
        * Difference logic, we must process the subst_eqs first
        */
+      trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
 	context_process_candidate_subst(ctx);
       }
@@ -5660,6 +5664,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * Simplex, like EG, may add aux_atoms so we must process
        * subst_eqs last here.
        */
+      trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
 	process_conditional_definitions(ctx);
@@ -5704,6 +5709,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_interns;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" existing terms)\n", n);
       i = 0;
       do {
         assert_toplevel_intern(ctx, v->data[i]);
@@ -5721,6 +5727,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_eqs;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level equalities)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5738,6 +5745,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_atoms;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level atoms)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5755,6 +5763,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v =  &ctx->top_formulas;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level formulas)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);

@@ -1829,7 +1829,12 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
 
   if (simplex_option_enabled(solver, SIMPLEX_EAGER_LEMMAS)) {
     atom_vector = arith_var_atom_vector(&solver->vtbl, x);
-    if (atom_vector != NULL) {
+    /*
+     * If we have N atoms on variable x, then this code is O(N^2).
+     * To limit the cost, we stop generating lemmas when N gets too large
+     * (i.e., more than 50).
+     */
+    if (atom_vector != NULL && iv_size(atom_vector) <= 50) {
       atbl = &solver->atbl;
       atom = arith_atom(atbl, id);
       assert(var_of_atom(atom) == x);
@@ -3260,6 +3265,9 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
 #if TRACE_INIT
   printf("\n**** SIMPLIFYING THE MATRIX ****\n\n");
   print_simplex_matrix(stdout, solver);
+  printf("==== Simplex variables ====\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n\n");
 #endif
 
   /*
@@ -6585,7 +6593,8 @@ static void lcm_in_column(simplex_solver_t *solver, rational_t *lcm, thvar_t x) 
       assert(q_is_nonzero(&inv_a));
       q_inv(&inv_a);
       if (q_is_zero(lcm)) {
-	q_set(lcm, &inv_a);
+	// make sure lcm is positive
+	q_set_abs(lcm, &inv_a);
       } else {
 	q_generalized_lcm(lcm, &inv_a);
       }
@@ -9768,7 +9777,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
     /*
      * Theory propagation
      * - propagation may strengthen bounds on integer variables,
-     *   which may detect a conflict or require a new call to
+     *   which may cause a conflict or require a new call to
      *   make_feasible.
      */
     if (simplex_option_enabled(solver, SIMPLEX_PROPAGATION)) {

@@ -553,9 +553,6 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
  *
  * Gratuitous change to the escape sequence:
  * - replace "" inside the string by "
- * - note that this means that we can't have an empty string ""
- *   (so the example on page 22 of 'The SMT-LIB Standard Version 2.5'
- *   is wrong).
  */
 static smt2_token_t smt2_read_string_var(lexer_t *lex) {
   reader_t *rd;

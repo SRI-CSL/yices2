@@ -161,13 +161,13 @@ struct mcsat_solver_s {
 
   /**
    * Array of owners for each term kind. If there are more than one, they
-   * continue at indices mod MCSAT_MAX_PLUGINS.
+   * continue at indices mod NUM_TERM_KINDS.
    */
   uint32_t kind_owners[NUM_TERM_KINDS * MCSAT_MAX_PLUGINS];
 
   /**
    * Array of owners for each type. If there are more than one, they
-   * continue at indices mod MCSAT_MAX_PLUGINS.
+   * continue at indices mod NUM_TYPE_KINDS.
    */
   uint32_t type_owners[NUM_TYPE_KINDS * MCSAT_MAX_PLUGINS];
 
@@ -417,7 +417,7 @@ void mcsat_plugin_term_notification_by_kind(plugin_context_t* self, term_kind_t 
 
   mctx = (mcsat_plugin_context_t*) self;
   assert(mctx->plugin_i != MCSAT_MAX_PLUGINS);
-  for (i = kind; mctx->mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {}
+  for (i = kind; mctx->mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TERM_KINDS) {}
   mctx->mcsat->kind_owners[i] = mctx->plugin_i;
 }
 
@@ -427,7 +427,7 @@ void mcsat_plugin_term_notification_by_type(plugin_context_t* self, type_kind_t 
 
   mctx = (mcsat_plugin_context_t*) self;
   assert(mctx->plugin_i != MCSAT_MAX_PLUGINS);
-  for (i = kind; mctx->mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {}
+  for (i = kind; mctx->mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TYPE_KINDS) {}
   mctx->mcsat->type_owners[i] = mctx->plugin_i;
 }
 
@@ -847,7 +847,7 @@ void mcsat_get_type_owners(mcsat_solver_t* mcsat, term_t t, int_mset_t* owners) 
   assert(plugin_i != MCSAT_MAX_PLUGINS);
   do  {
     int_mset_add(owners, plugin_i);
-    i += MCSAT_MAX_PLUGINS;
+    i += NUM_TYPE_KINDS;
     plugin_i = mcsat->type_owners[i];
   } while (plugin_i != MCSAT_MAX_PLUGINS);
 }
@@ -863,7 +863,7 @@ void mcsat_get_kind_owners(mcsat_solver_t* mcsat, term_t t, int_mset_t* owners) 
   assert(plugin_i != MCSAT_MAX_PLUGINS || i == UNINTERPRETED_TERM || i == CONSTANT_TERM);
   while (plugin_i != MCSAT_MAX_PLUGINS) {
     int_mset_add(owners, plugin_i);
-    i += MCSAT_MAX_PLUGINS;
+    i += NUM_TERM_KINDS;
     plugin_i = mcsat->kind_owners[i];
   };
 }

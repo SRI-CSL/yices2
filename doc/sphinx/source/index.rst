@@ -12,6 +12,8 @@ Basics
 .. toctree::
    :maxdepth: 1
 
+   install-binaries
+   install-sources
    overview
    basic-usage
 
@@ -23,6 +25,7 @@ API Reference
    :maxdepth: 2
 
    version-data
+   mcsat-support
    global-initialization
    out-of-memory
    hard-limits

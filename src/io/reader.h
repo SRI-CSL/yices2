@@ -75,7 +75,7 @@ struct reader_s {
 
 /*
  * Initialize reader for file of the given name
- * - return -1 if the file could not be open
+ * - return -1 if the file cannot be opened
  *   or 0 otherwise
  * - if the file was not open, any subsequent attempt
  *   to read will return EOF
