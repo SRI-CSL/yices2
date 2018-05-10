@@ -3,36 +3,36 @@
 set -e
 
 # Build and install libpoly
+pushd .
 git clone https://github.com/SRI-CSL/libpoly.git
 cd libpoly/build
 cmake ..
 make
 sudo make install
+popd
 
 # Build and install CUDD
+pushd .
 git clone https://github.com/ivmai/cudd.git
 cd cudd
 git checkout tags/cudd-3.0.0
 ./configure --enable-shared
 make
 sudo make install
+popd
 
-#now build yices
-cd ../..
+# Build yices
 autoconf
 ./configure --enable-mcsat
 
 make MODE=gcov 
 
-#this is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
+# This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
 make MODE=gcov check
 
-
 RETURN="$?"
-
-
 if [ "${RETURN}" != "0" ]; then
     echo "Building and checking yices2 failed!"
     exit 1
