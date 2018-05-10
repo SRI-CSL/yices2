@@ -214,7 +214,7 @@ void bdds_mk_constant(CUDD* cudd, BDD** out, uint32_t n, const bvconstant_t* c) 
   }
 }
 
-void bdds_mk_neg(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
+void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
     out[i] = Cudd_Not(a[i]);
@@ -725,7 +725,7 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
     // Negation
     assert(children_bdds->size == 1);
     t0 = (BDD**) children_bdds->data[0];
-    bdds_mk_neg(cudd, out_bdds, t0, t_bitsize);
+    bdds_mk_not(cudd, out_bdds, t0, t_bitsize);
   } else {
     term_kind_t kind = term_kind(terms, t);
     switch (kind) {
