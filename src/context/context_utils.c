@@ -676,6 +676,37 @@ void context_factor_disjunction(context_t *ctx, term_t t, ivector_t *v) {
  */
 
 /*
+ * Map to compute a bound on the length path:
+ * - allocate and initialize the table if needed
+ */
+int_rat_hmap_t *context_get_edge_map(context_t *ctx) {
+  int_rat_hmap_t *tmp;
+
+  tmp = ctx->edge_map;
+  if (tmp == NULL) {
+    tmp = (int_rat_hmap_t *) safe_malloc(sizeof(int_rat_hmap_t));
+    init_int_rat_hmap(tmp, 0);
+    ctx->edge_map = tmp;
+  }
+
+  return tmp;
+}
+
+/*
+ * Delete the map
+ */
+void context_free_edge_map(context_t *ctx) {
+  int_rat_hmap_t *tmp;
+
+  tmp = ctx->edge_map;
+  if (tmp != NULL) {
+    delete_int_rat_hmap(tmp);
+    ctx->edge_map = NULL;
+  }
+}
+
+
+/*
  * Difference-logic profile:
  * - allocate and initialize the structure if it does not exist
  */
@@ -685,7 +716,7 @@ dl_data_t *context_get_dl_profile(context_t *ctx) {
   tmp = ctx->dl_profile;
   if (tmp == NULL) {
     tmp = (dl_data_t *) safe_malloc(sizeof(dl_data_t));
-    q_init(&tmp->sum_const);
+    q_init(&tmp->path_bound);
     tmp->num_vars = 0;
     tmp->num_atoms = 0;
     tmp->num_eqs = 0;
@@ -704,7 +735,7 @@ void context_free_dl_profile(context_t *ctx) {
 
   tmp = ctx->dl_profile;
   if (tmp != NULL) {
-    q_clear(&tmp->sum_const);
+    q_clear(&tmp->path_bound);
     safe_free(tmp);
     ctx->dl_profile = NULL;
   }
@@ -740,6 +771,21 @@ bool term_is_false(context_t *ctx, term_t t) {
 
   return intern_tbl_root_is_mapped(&ctx->intern, t) &&
     intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
+}
+
+
+/*
+ * Check whether (or a[0] ...  a[n-1]) is true by checking whether
+ * one of the a[i] is internalized to a true term
+ */
+bool disjunct_is_true(context_t *ctx, term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (term_is_true(ctx, a[i])) return true;
+  }
+
+  return false;
 }
 
 

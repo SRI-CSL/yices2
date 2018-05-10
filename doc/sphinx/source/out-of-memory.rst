@@ -21,7 +21,7 @@ and can do something less brutal than killing the process.
 
 To install an out-of-memory callback, use the following function:
 
-.. c:function:: void yices_set_out_of_memory_callback(void (*callback)(void))
+.. c:function:: void yices_set_out_of_mem_callback(void (*callback)(void))
 
    The unique argument is a pointer to the callback function. This
    function takes no argument and returns nothing.

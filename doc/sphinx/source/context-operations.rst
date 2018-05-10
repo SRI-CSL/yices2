@@ -131,7 +131,7 @@ available:
     real Floyd-Warshall (RFW)      real difference logic
     bitvector                      bitvector theory
    ============================= =============================
-   
+
 
 A configuration selects a subset of these solvers. Not all
 combinations make sense. For example, there can be only one arithmetic
@@ -302,7 +302,7 @@ not *unknown*), it takes precedence over solver type and the four
 solver-selection parameters listed in the previous table. If the logic
 involves nonlinear arithmetic, then MCSat is automatically selected.
 Otherwise, DPLL(T) is selected and the solver combination is
-determined by the logic.  
+determined by the logic.
 
 The special logic name *NONE* means no theory solvers. If this logic
 is chosen, the context is configured to deal with purely Boolean
@@ -384,7 +384,7 @@ parameters and logic.
    - if the *logic* is not recognized
 
      -- error code: :c:enum:`CTX_UNKNOWN_LOGIC`
- 
+
    - if the *logic* is known but not supported
 
      -- error code: :c:enum:`CTX_LOGIC_NOT_SUPPORTED`
@@ -474,7 +474,7 @@ The current options include:
 
    If *eager-arith-lemmas* is enabled, the Simplex solver will eagerly generate lemmas such
    as (x |ge| 1) |implies| (x |ge| 0), that is, lemmas that involve two atoms that contain
-   the same variable. See [DdM2006]_ for more details. 
+   the same variable. See [DdM2006]_ for more details.
 
    The *flatten* option converts a term such as (or (or a b) (or b c d)) to (or a b c d).
 
@@ -507,14 +507,14 @@ The current options include:
    **Error report**
 
    - if the option is not recognized:
- 
+
      -- error code: :c:enum:`CTX_UNKNOWN_PARAMETER`
 
 
 .. c:function:: int32_t yices_context_disable_option(context_t* ctx, const char* option)
 
    Disables a preprocessing option.
- 
+
    The parameters and error conditions are the same as for :c:func:`yices_context_enable_option`.
 
 
@@ -556,7 +556,7 @@ assert formulas, check satisfiability, and query the context's status.
 
    These codes are defined in :file:`yices_types.h` (see :c:type:`smt_status_t`).
 
-  
+
 .. c:function:: int32_t yices_assert_formula(context_t* ctx, term_t t)
 
    Asserts a formula.
@@ -602,11 +602,11 @@ assert formulas, check satisfiability, and query the context's status.
 
    - if *ctx*'s mode is *one-shot* and *ctx*'s state is neither :c:enum:`STATUS_IDLE` nor :c:enum:`STATUS_UNSAT`
 
-     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED` 
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
    Other error codes are possible if *t* is outside the logic supported by the context.
    See :ref:`error_types`.
-   
+
 
 .. c:function:: int32_t yices_assert_formulas(context_t* ctx, uint32_t n, const term_t t[])
 
@@ -639,7 +639,7 @@ assert formulas, check satisfiability, and query the context's status.
    **Parameters**
 
    - *ctx* is a context
- 
+
    - *params* is an optional pointer to a search-parameter structure
 
    The *params* data structure can be used to control the heuristics
@@ -664,7 +664,7 @@ assert formulas, check satisfiability, and query the context's status.
 
      - :c:enum:`STATUS_SAT`: the context is satisfiable.
 
-     - :c:enum:`STATUS_UNKNOWN`: the solver can't prove whether the context is 
+     - :c:enum:`STATUS_UNKNOWN`: the solver can't prove whether the context is
        satisfiable or not.
 
      - :c:enum:`STATUS_INTERRUPTED`: the search was interrupted by a
@@ -676,12 +676,12 @@ assert formulas, check satisfiability, and query the context's status.
        then the function returns :c:enum:`STATUS_INTERRUPTED` but the context's state is
        restored to what it was before the call to :c:func:`yices_check_context`, and the
        internal status flag is reset to  :c:enum:`STATUS_IDLE`.
-       
+
    - If *ctx* is in another state, the function
      returns :c:enum:`STATUS_ERROR`.
 
    **Error report**
- 
+
    - if *ctx*'s states is wrong:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
@@ -701,15 +701,15 @@ assert formulas, check satisfiability, and query the context's status.
              :c:enum:`STATUS_INTERRUPTED`. The only way to recover is
              then to call :c:func:`yices_reset_context` or
              :c:func:`yices_pop` (assuming the context supports push and pop).
-               
-  
+
+
 .. c:function:: void yices_reset_context(context_t* ctx)
 
    Resets a context.
 
    This function removes all the assertions stored in *ctx* and resets
    the context's state to :c:enum:`STATUS_IDLE`.
-   
+
 
 .. c:function:: int32_t yices_assert_blocking_clause(context_t* ctx)
 
@@ -724,7 +724,7 @@ assert formulas, check satisfiability, and query the context's status.
      added, the next call to :c:func:`yices_check_context` will either
      produce a different truth assignment (hence a different model) or
      return :c:enum:`STATUS_UNSAT`.
-    
+
      After adding the clause, the context's state is updated to either
      :c:enum:`STATUS_IDLE` (if the clause is not empty) or to
      :c:enum:`STATUS_UNSAT` if the blocking clause is empty.
@@ -786,7 +786,7 @@ be removed by :c:func:`yices_pop`.
      :c:enum:`STATUS_SEARCHING`, or :c:enum:`STATUS_INTERRUPTED`:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
-    
+
 .. c:function:: int32_t yices_pop(context_t* ctx)
 
    Backtracks.
@@ -831,6 +831,7 @@ record is no longer needed, it can be deleted by
    The record is allocated internally by Yices. It must be freed when
    no-longer used by calling :c:func:`yices_free_param_record`.
 
+
 .. c:function:: int32_t yices_set_param(param_t* p, const char* name, const char* value)
 
    Sets a search parameter.
@@ -863,7 +864,16 @@ record is no longer needed, it can be deleted by
 
    - if *value* is not valid for the parameter *name*
 
-     -- error code: :c:enum:`CTX_INVALID_PARAMETER_VALUE`      
+     -- error code: :c:enum:`CTX_INVALID_PARAMETER_VALUE`
+
+
+.. c:function:: void yices_default_params_for_context(context_t *ctx, param_t *p)
+
+   Set all the parameters in record *p* to values appropriate for
+   context *ctx*.  The parameter settings depend on the logic
+   supported by *ctx* and are based on empirical evaluation on
+   benchmarks in the same logic.
+
 
 
 .. c:function:: void yices_free_param_record(param_t* param)
@@ -873,4 +883,4 @@ record is no longer needed, it can be deleted by
    *param* must be a record returned by :c:func:`yices_new_param_record`.
 
    This function frees the memory allocated to this record.
-   
+

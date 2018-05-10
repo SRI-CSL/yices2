@@ -463,6 +463,18 @@ __YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 
 
 /*
+ * Check whether tau and sigma are compatible
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns 0 and
+ * sets the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+__YICES_DLLSPEC__ extern int32_t yices_compatible_types(type_t tau, type_t sigma);
+
+
+/*
  * Number of bits for type tau
  * - returns 0 if there's an error
  *
@@ -2095,7 +2107,7 @@ __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
  * Get the base name of a term or type
  *
  * The functions return NULL if the  term or type has no name,
- * of if the term or type is not valid. The error report is set
+ * or if the term or type is not valid. The error report is set
  * to INVALID_TERM or INVALID_TYPE in such cases.
  */
 __YICES_DLLSPEC__ extern const char *yices_get_type_name(type_t tau);
@@ -3250,6 +3262,29 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
+
+/*
+ * Collect all the uninterpreted terms that have a value in model mdl.
+ * - these terms are returned in vector v
+ * - v must be an initialized term_vector
+ *
+ * If the model was produced from a context (i.e., returned by
+ * yices_get_model(context_t ctx, ...))  then vector v will contain
+ * all unintepreted terms that occurred in the asserted formulas.
+ * Warning: formula simplification may remove some uninterpreted terms.
+ *
+ * Trivial example:
+ *
+ *   (assert (and (> y 0) (= x x)))
+ *
+ * is simplified to
+ *
+ *   (assert (> y 0))
+ *
+ * then variable 'x' does not occur in the simplified assertions and will
+ * not be included in vector 'v'.
+ */
+__YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v);
 
 
 

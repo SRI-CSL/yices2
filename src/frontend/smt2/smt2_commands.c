@@ -4646,7 +4646,7 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
-  // for logics that require mcsat: check that we're in benchamrk mode
+  // for logics that require mcsat: check that we're in benchmark mode
   arch = arch_for_logic(code);
   if (arch == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
     print_error("the mcsat solver can't be used in incremental mode");

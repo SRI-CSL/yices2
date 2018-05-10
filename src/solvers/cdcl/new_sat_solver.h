@@ -764,6 +764,7 @@ typedef struct sat_solver_s {
   bool preprocess;             // True if preprocessing is enabled
 
   uint32_t verbosity;          // Verbosity level: 0 means quiet
+  uint32_t reports;            // Counter
 
   /*
    * Variables and literals

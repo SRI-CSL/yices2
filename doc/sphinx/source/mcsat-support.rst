@@ -24,7 +24,7 @@ as follows::
 
 It is important to include ``poly/algebraic_number.h`` *before* ``yices.h``.
 
-File :file:`examples/example_mcsat.c` included in the distribution, 
+File :file:`examples/example_mcsat.c` included in the distribution
 shows how to use these functions and how to solve a simple problem in
 non-linear arithmetic.
 
