@@ -21,6 +21,7 @@
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
 #include "io/tracer.h"
+#include "mcsat/utils/scope_holder.h"
 
 #include <setjmp.h>
 
@@ -38,14 +39,23 @@ typedef struct {
   /** Map from terms to their preprocessed version */
   int_hmap_t preprocess_map;
 
+  /** List of terms in the preprocess map (for backtracking) */
+  ivector_t preprocess_map_list;
+
   /** Purification map, term to its variable */
   int_hmap_t purification_map;
+
+  /** List of term in the purification map (for backtracking) */
+  ivector_t purification_map_list;
 
   /** Tracer */
   tracer_t* tracer;
 
   /** Exception handler */
   jmp_buf* exception;
+
+  /** Scope for backtracking */
+  scope_holder_t scope;
 
 } preprocessor_t;
 
@@ -63,5 +73,12 @@ void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
 
 /** Set the exception handler */
 void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler);
+
+/** Push the preprocessor */
+void preprocessor_push(preprocessor_t* pre);
+
+/** Pop the preprocessor */
+void preprocessor_pop(preprocessor_t* pre);
+
 
 #endif

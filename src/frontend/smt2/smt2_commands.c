@@ -2339,7 +2339,6 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   if (arch == CTX_ARCH_MCSAT) {
     // MCSAT requires ONE_CHECK for now
-    mode = CTX_MODE_ONECHECK;
     iflag = false;
     qflag = false;
   }
@@ -4643,13 +4642,6 @@ void smt2_set_logic(const char *name) {
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
     print_error("logic %s is not supported by the mscat solver", name);
-    return;
-  }
-
-  // for logics that require mcsat: check that we're in benchmark mode
-  arch = arch_for_logic(code);
-  if (arch == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
-    print_error("the mcsat solver can't be used in incremental mode");
     return;
   }
   

@@ -655,7 +655,7 @@ variable_t feasible_set_db_get_cheap_unassigned(feasible_set_db_t* db, lp_value_
 
 void feasible_set_db_gc_mark(feasible_set_db_t* db, gc_info_t* gc_vars) {
 
-  assert(db->ctx->trail->decision_level == 0);
+  assert(db->ctx->trail->decision_level == db->ctx->trail->decision_level_base);
 
   if (gc_vars->level == 0) {
     // We keep all the reasons (start from 1, 0 is not used)
