@@ -5,8 +5,8 @@
  * license agreement which is downloadable along with this program.
  */
 
-#include <mcsat/bv/bdd_computation.h>
-#include <mcsat/bv/bv_feasible_set_db.h>
+#include "bdd_computation.h"
+#include "bv_feasible_set_db.h"
 #include "bv_plugin.h"
 #include "bv_bdd_manager.h"
 #include "bv_evaluator.h"
@@ -22,6 +22,7 @@
 #include "model/models.h"
 
 #include "utils/int_array_sort2.h"
+#include "utils/int_hash_sets.h"
 #include "terms/terms.h"
 #include "yices.h"
 
@@ -75,6 +76,9 @@ typedef struct {
   /** Size of processed (for backtracking) */
   uint32_t processed_variables_size;
 
+  /** Cache for term traversals */
+  int_hset_t visited_cache;
+
   struct {
     uint32_t* conflicts;
     uint32_t* propagations;
@@ -110,6 +114,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   init_ivector(&bv->processed_variables, 0);
   bv->processed_variables_size = 0;
+
+  init_int_hset(&bv->visited_cache, 0);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
@@ -159,6 +165,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
   bv_bdd_manager_delete(bv->bddm);
   bv_evaluator_destruct(&bv->evaluator);
   delete_ivector(&bv->processed_variables);
+  delete_int_hset(&bv->visited_cache);
 }
 
 static inline
@@ -261,6 +268,11 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
 
   assert(is_pos_term(t));
 
+  // SKip if already visited
+  if (int_hset_member(&bv->visited_cache, t)) {
+    return;
+  }
+
   // The term table
   term_table_t* terms = bv->ctx->terms;
 
@@ -279,7 +291,15 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
   case BV64_CONSTANT:
     // Ignore, no variables here
     break;
-  case EQ_TERM: // Boolean equalities
+  case EQ_TERM: {
+      composite_term_t* atom_comp = composite_term_desc(terms, t);
+      assert(atom_comp->arity == 2);
+      term_t t0 = atom_comp->arg[0], t0_pos = unsigned_term(t0);
+      term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
+      bv_plugin_get_term_variables(bv, t0_pos, vars_out);
+      bv_plugin_get_term_variables(bv, t1_pos, vars_out);
+      break;
+  }
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM: {
@@ -354,6 +374,9 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
     assert(is_pos_term(t));
     int_mset_add(vars_out, variable_db_get_variable(var_db, t));
   }
+
+  // Mark as visited
+  int_hset_add(&bv->visited_cache, t);
 }
 
 void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out) {
@@ -362,6 +385,8 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
 
   term_t t_pos = unsigned_term(t);
   term_kind_t t_pos_kind = term_kind(terms, t_pos);
+
+  int_hset_reset(&bv->visited_cache);
 
   switch (t_pos_kind) {
   case BV_EQ_ATOM:
@@ -400,6 +425,9 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
     // We get here only with variables, or foreign terms.
     break;
   }
+
+  // Reset the cache
+  int_hset_reset(&bv->visited_cache);
 }
 
 void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable) {

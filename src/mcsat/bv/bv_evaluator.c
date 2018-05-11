@@ -24,15 +24,95 @@
 
 void bv_evaluator_construct(bv_evaluator_t* evaluator, const plugin_context_t* ctx) {
   evaluator->ctx = ctx;
+
+  init_pvector(&evaluator->value_cache, 0);
+  init_int_hmap(&evaluator->term_values, 0);
+  init_int_hmap(&evaluator->atom_values, 0);
+  init_int_hmap(&evaluator->level_map, 0);
 }
 
 void bv_evaluator_destruct(bv_evaluator_t* evaluator) {
+  delete_pvector(&evaluator->value_cache);
+  delete_int_hmap(&evaluator->term_values);
+  delete_int_hmap(&evaluator->atom_values);
+  delete_int_hmap(&evaluator->level_map);
+}
+
+static inline
+void bv_evaluator_clear_cache(bv_evaluator_t* evaluator) {
+  for (uint32_t i = 0; i < evaluator->value_cache.size; ++ i) {
+    bvconstant_t* value = evaluator->value_cache.data[i];
+    delete_bvconstant(value);
+    safe_free(value);
+  }
+  pvector_reset(&evaluator->value_cache);
+  int_hmap_reset(&evaluator->term_values);
+  int_hmap_reset(&evaluator->atom_values);
+  int_hmap_reset(&evaluator->level_map);
+}
+
+/** Returns true if in cache */
+static inline
+bool bv_evaluator_get_atom_cache(bv_evaluator_t* evaluator, term_t t, bool* value, uint32_t* level) {
+  assert(is_pos_term(t));
+  int_hmap_pair_t* find_level = int_hmap_find(&evaluator->level_map, t);
+  if (find_level == NULL) {
+    return false;
+  } else {
+    *level = find_level->val;
+    int_hmap_pair_t* find_val = int_hmap_find(&evaluator->atom_values, t);
+    assert(find_val != NULL);
+    *value = find_val->val;
+    return true;
+  }
+}
+
+/** Returns true if in cache */
+static inline
+void bv_evaluator_set_atom_cache(bv_evaluator_t* evaluator, term_t t, bool value, uint32_t level) {
+  assert(is_pos_term(t));
+  assert(int_hmap_find(&evaluator->level_map, t) == NULL);
+  assert(int_hmap_find(&evaluator->atom_values, t) == NULL);
+  int_hmap_add(&evaluator->level_map, t, level);
+  int_hmap_add(&evaluator->atom_values, t, value);
+}
+
+/** Returns true if in cache */
+static inline
+bool bv_evaluator_get_term_cache(bv_evaluator_t* evaluator, term_t t, bvconstant_t* value, uint32_t* level) {
+  assert(is_pos_term(t));
+  int_hmap_pair_t* find_level = int_hmap_find(&evaluator->level_map, t);
+  if (find_level == NULL) {
+    return false;
+  } else {
+    *level = find_level->val;
+    int_hmap_pair_t* find_val = int_hmap_find(&evaluator->term_values, t);
+    assert(find_val != NULL);
+    bvconstant_t* cached_value = evaluator->value_cache.data[find_val->val];
+    init_bvconstant(value);
+    bvconstant_copy(value, cached_value->bitsize, cached_value->data);
+    return true;
+  }
+}
+
+/** Returns true if in cache */
+static inline
+void bv_evaluator_set_term_cache(bv_evaluator_t* evaluator, term_t t, bvconstant_t* value, uint32_t level) {
+  assert(is_pos_term(t));
+  assert(int_hmap_find(&evaluator->level_map, t) == NULL);
+  assert(int_hmap_find(&evaluator->term_values, t) == NULL);
+  int_hmap_add(&evaluator->level_map, t, level);
+  bvconstant_t* value_copy = safe_malloc(sizeof(bvconstant_t));
+  init_bvconstant(value_copy);
+  bvconstant_copy(value_copy, value->bitsize, value->data);
+  int_hmap_add(&evaluator->term_values, t, evaluator->value_cache.size);
+  pvector_push(&evaluator->value_cache, value_copy);
 }
 
 // Forward declarations
 
 static
-bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level);
+bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level);
 
 static
 void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
@@ -185,6 +265,13 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
     ctx_trace_term(eval->ctx, t);
   }
 
+  assert(is_pos_term(t));
+
+  // Check if cached
+  if (bv_evaluator_get_term_cache(eval, t, out_value, eval_level)) {
+    return;
+  }
+
   term_table_t* terms = eval->ctx->terms;
   const variable_db_t* var_db = eval->ctx->var_db;
   const mcsat_trail_t* trail = eval->ctx->trail;
@@ -331,10 +418,12 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
     bvconst_print(ctx_trace_out(eval->ctx), out_value->data, out_value->bitsize);
     ctx_trace_printf(eval->ctx, "\n");
   }
-}
+
+  bv_evaluator_set_term_cache(eval, t, out_value, *eval_level);
+ }
 
 static
-bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
+bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level) {
 
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
     ctx_trace_printf(eval->ctx, "Evaluating: ");
@@ -343,6 +432,12 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
 
   assert(is_pos_term(t));
 
+  // Check if cached
+  bool atom_value;
+  if (bv_evaluator_get_atom_cache(eval, t, &atom_value, eval_level)) {
+    return atom_value;
+  }
+
   term_table_t* terms = eval->ctx->terms;
   term_kind_t t_kind = term_kind(terms, t);
 
@@ -350,61 +445,84 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
     select_term_t* desc = bit_term_desc(terms, t);
     term_t child = desc->arg;
     bvconstant_t value;
-    bv_evaluator_run_term(eval, child, &value, level);
+    bv_evaluator_run_term(eval, child, &value, eval_level);
     uint32_t bit_index = desc->idx;
-    bool result = bvconst_tst_bit(value.data, bit_index);
+    atom_value = bvconst_tst_bit(value.data, bit_index);
     delete_bvconstant(&value);
-    return result;
+    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+    return atom_value;
   }
 
   if (t_kind == CONSTANT_TERM) {
     assert(t == true_term || t == false_term);
-    return t == true_term;
+    *eval_level = 0;
+    atom_value = (t == true_term);
+    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+    return atom_value;
   }
 
   if (t_kind == OR_TERM) {
-    *level = 0;
-    bool value = false;
+    *eval_level = 0;
+    atom_value = false;
     composite_term_t* t_comp = or_term_desc(terms, t);
     for (uint32_t i = 0; i < t_comp->arity; ++ i) {
       term_t t_i = t_comp->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
       uint32_t level_i = 0;
       bool value_i = bv_evaluator_run_atom(eval, t_i_pos, &level_i);
-      if (level_i > *level) { *level = level_i; }
+      if (level_i > *eval_level) { *eval_level = level_i; }
       if (t_i_pos != t_i) { value_i = !value_i; }
-      if (value_i) value = true;
+      if (value_i) atom_value = true;
     }
-    return value;
+    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+    return atom_value;
   }
 
   // Get children value
   composite_term_t* atom_desc = composite_term_desc(terms, t);
   assert(atom_desc->arity == 2);
+  term_t t_lhs = atom_desc->arg[0];
+  term_t t_rhs = atom_desc->arg[1];
+
+  if (t_kind == EQ_TERM && is_boolean_term(terms, t_lhs)) {
+    term_t t_lhs_pos = unsigned_term(t_lhs);
+    term_t t_rhs_pos = unsigned_term(t_rhs);
+    uint32_t t_lhs_level = 0;
+    uint32_t t_rhs_level = 0;
+    bool t_value_lhs = bv_evaluator_run_atom(eval, t_lhs_pos, &t_lhs_level);
+    bool t_value_rhs = bv_evaluator_run_atom(eval, t_rhs_pos, &t_rhs_level);
+    if (t_lhs_level > t_rhs_level) { *eval_level = t_lhs_level; }
+    else { *eval_level = t_rhs_level; }
+    if (t_lhs_pos != t_lhs) { t_value_lhs = !t_value_lhs; }
+    if (t_rhs_pos != t_rhs) { t_value_rhs = !t_value_rhs; }
+    atom_value = (t_value_lhs == t_value_rhs);
+    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+    return atom_value;
+  }
+
   bvconstant_t lhs, rhs;
   uint32_t lhs_level = 0, rhs_level = 0;
-  bv_evaluator_run_term(eval, atom_desc->arg[0], &lhs, &lhs_level);
-  bv_evaluator_run_term(eval, atom_desc->arg[1], &rhs, &rhs_level);
+  bv_evaluator_run_term(eval, t_lhs, &lhs, &lhs_level);
+  bv_evaluator_run_term(eval, t_rhs, &rhs, &rhs_level);
 
   // Output level is max of two levels
-  *level = lhs_level > rhs_level ? lhs_level : rhs_level;
+  *eval_level = lhs_level > rhs_level ? lhs_level : rhs_level;
 
   // Compute the actual value
-  bool result;
   switch (t_kind) {
   case EQ_TERM: // Boolean equality
   case BV_EQ_ATOM:
-    result = bvconst_eq(lhs.data, rhs.data, lhs.width);
+    atom_value = bvconst_eq(lhs.data, rhs.data, lhs.width);
     break;
   case BV_GE_ATOM:
-    result = bvconst_ge(lhs.data, rhs.data, lhs.bitsize);
+    atom_value = bvconst_ge(lhs.data, rhs.data, lhs.bitsize);
     break;
   case BV_SGE_ATOM:
-    result = bvconst_sge(lhs.data, rhs.data, lhs.bitsize);
+    atom_value = bvconst_sge(lhs.data, rhs.data, lhs.bitsize);
     break;
   default:
     // We're evaluating atoms shouldn't be here
-    result = false;
+    atom_value = false;
     assert(false);
     break;
   }
@@ -415,16 +533,19 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* level) {
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
     ctx_trace_printf(eval->ctx, "Term ");
     ctx_trace_term(eval->ctx, t);
-    ctx_trace_printf(eval->ctx, " evaluates to %s", (result ? "true" : "false"));
+    ctx_trace_printf(eval->ctx, " evaluates to %s", (atom_value ? "true" : "false"));
     ctx_trace_printf(eval->ctx, "\n");
   }
 
-  return result;
+  bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+  return atom_value;
 }
 
 const mcsat_value_t* bv_evaluator_run(bv_evaluator_t* evaluator, variable_t cstr, uint32_t* cstr_eval_level) {
   const variable_db_t* var_db = evaluator->ctx->var_db;
   term_t cstr_term = variable_db_get_term(var_db, cstr);
+  bv_evaluator_clear_cache(evaluator);
   bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
   return result ? &mcsat_value_true : &mcsat_value_false;
+  bv_evaluator_clear_cache(evaluator);
 }

@@ -30,7 +30,17 @@ typedef struct bv_evaluator_t {
   /** The context for evaluation */
   const plugin_context_t* ctx;
 
-  // TODO: if not efficient, do some smart caching et. al.
+  /** Cached values (pointers to bvconstant_t) */
+  pvector_t value_cache;
+
+  /** Map from terms to values (indices in the bvconst array) */
+  int_hmap_t term_values;
+
+  /** Map from atoms to vales */
+  int_hmap_t atom_values;
+
+  /** Map from terms/atoms to levels */
+  int_hmap_t level_map;
 
 } bv_evaluator_t;
 
