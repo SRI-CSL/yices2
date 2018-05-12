@@ -367,7 +367,11 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
         uint32_t eval_level_i = 0;
         bv_evaluator_run_term(eval, t_i, &t_i_value, &eval_level_i);
         if (eval_level_i > *eval_level) { *eval_level = eval_level_i; }
-        uint64_t t_i_64_value = bvconst_get64(t_i_value.data);
+        assert(t_i_value.bitsize <= 64);
+        uint64_t t_i_64_value = t_i_value.data[0];
+        if (t_i_value.bitsize > 32) {
+          t_i_64_value += ((uint64_t) t_i_value.data[1]) << 32;
+        }
         sum += p->mono[p_i].coeff * t_i_64_value;
         delete_bvconstant(&t_i_value);
       }
