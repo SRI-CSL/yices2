@@ -265,7 +265,10 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
           sum += p->mono[p_i].coeff;
         } else {
           bvconstant_t* t_i_value = (bvconstant_t*) children_values[child_i ++];
-          uint64_t t_i_64_value = bvconst_get64(t_i_value->data);
+          uint64_t t_i_64_value = t_i_value->data[0];
+          if (t_i_value->bitsize > 32) {
+            t_i_64_value += ((uint64_t) t_i_value->data[1]) << 32;
+          }
           sum += p->mono[p_i].coeff * t_i_64_value;
         }
       }

@@ -277,6 +277,7 @@ bool bv_bdd_manager_has_term(const bv_bdd_manager_t* bddm, term_t term) {
 uint32_t bv_bdd_manager_allocate_term_info(bv_bdd_manager_t* bddm, term_t t, uint32_t bitsize) {
 
   assert(int_hmap_find(&bddm->term_to_info_index, t) == NULL);
+  assert(bv_term_bitsize(bddm->ctx->terms, t) == bitsize);
 
   // Add the reference for t
   uint32_t t_info_index = bddm->term_info_size;
