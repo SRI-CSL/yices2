@@ -346,7 +346,10 @@ void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {
   // CNF marks only the clauses that are definitions of the variables to keep
   for (; i < gc_vars->marked.size; ++ i) {
     var = gc_vars->marked.data[i];
-    if(cnf_is_converted(cnf, var)) {
+    if (trace_enabled(cnf->ctx->tracer, "mcsat::gc")) {
+      ctx_trace_term(cnf->ctx, variable_db_get_term(cnf->ctx->var_db, var));
+    }
+    if (cnf_is_converted(cnf, var)) {
       int_lset_iterator_construct(&it, &cnf->converted, var);
       while (!int_lset_iterator_done(&it)) {
         clause_ref = *int_lset_iterator_get(&it);

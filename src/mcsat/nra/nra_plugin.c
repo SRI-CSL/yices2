@@ -1496,8 +1496,6 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
         ctx_trace_printf(nra->ctx, "\n");
       }
 
-
-
       lp_feasibility_set_add(lemma_feasible, constraint_feasible);
       lp_feasibility_set_delete(constraint_feasible);
     }

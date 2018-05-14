@@ -784,6 +784,11 @@ void mcsat_push(mcsat_solver_t* mcsat) {
 
   assert(mcsat->status == STATUS_IDLE); // We must have clear before
 
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat::push start\n");
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
+
   // Internal stuff push
   scope_holder_push(&mcsat->scope,
       &mcsat->assertion_vars.size,
@@ -794,6 +799,12 @@ void mcsat_push(mcsat_solver_t* mcsat) {
   trail_new_base_level(mcsat->trail);
   // Push the preprocessor
   preprocessor_push(&mcsat->preprocessor);
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat::pop end\n");
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
+
 }
 
 
@@ -803,6 +814,11 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   // - internal pop
   // - assertions
   // - variables and terms
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat::pop start\n");
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
 
   // Backtrack trail
   uint32_t new_base_level = trail_pop_base_level(mcsat->trail);
@@ -829,6 +845,11 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   // Set the status back to idle
   mcsat->status = STATUS_IDLE;
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat::pop end\n");
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
 }
 
 void mcsat_clear(mcsat_solver_t* mcsat) {
@@ -951,6 +972,10 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
     var = mcsat->assertion_vars.data[i];
     assert(variable_db_is_variable(mcsat->var_db, var, true));
     gc_info_mark(&gc_vars, var);
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
+      trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
+    }
   }
 
   // Mark the trail variables as needed
@@ -1168,6 +1193,11 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 
   // Do propagation
   mcsat_propagate(mcsat);
+
+  // Maybe we're already UNSAT
+  if (!trail_is_consistent(mcsat->trail)) {
+    mcsat->status = STATUS_UNSAT;
+  }
 }
 
 /**
@@ -1658,7 +1688,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   // Initialize the Luby sequence with interval 10
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
-
 
   for (;;) {
 

@@ -630,7 +630,7 @@ void bool_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
             break;
           } else {
             // Literal is false, see if at level 0, to push to back
-            if (literal_get_level(clause->literals[k], trail) == trail->decision_level_base) {
+            if (literal_get_level(clause->literals[k], trail) == 0) {
               clause->size --;
               clause_swap_literals(clause, k, clause->size);
               -- k;
@@ -786,7 +786,6 @@ void bool_plugin_pop(plugin_t* plugin) {
     propagated_var = ivector_pop2(&bp->propagated);
     bool_plugin_set_reason_ref(bp, propagated_var, clause_ref_null);
   }
-
 }
 
 /**
