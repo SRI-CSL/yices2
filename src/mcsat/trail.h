@@ -107,6 +107,12 @@ bool trail_is_consistent(const mcsat_trail_t* trail) {
   return !trail->inconsistent;
 }
 
+/** Set the trail inconsistent */
+static inline
+void trail_set_inconsistent(mcsat_trail_t* trail) {
+  trail->inconsistent = true;
+}
+
 /** Get the trail element at given position */
 static inline
 variable_t trail_at(const mcsat_trail_t* trail, uint32_t i) {

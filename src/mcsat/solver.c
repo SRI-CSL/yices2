@@ -123,8 +123,11 @@ struct mcsat_solver_s {
   /** Size of the input table at entry to solve() */
   uint32_t terms_size_on_solver_entry;
 
-  /** The status */
+  /** The status (real status is in trail, this is for context integration) */
   smt_status_t status;
+
+  /** Number of inconsistent push calls */
+  uint32_t inconsistent_push_calls;
 
   /** Notifications for new variables */
   solver_new_variable_notify_t var_db_notify;
@@ -613,6 +616,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
   mcsat->status = STATUS_IDLE;
+  mcsat->inconsistent_push_calls = 0;
 
   // The new variable listener
   mcsat->var_db_notify.mcsat = mcsat;
@@ -789,6 +793,11 @@ void mcsat_push(mcsat_solver_t* mcsat) {
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
 
+  if (!trail_is_consistent(mcsat->trail)) {
+    mcsat->inconsistent_push_calls ++;
+    return;
+  }
+
   // Internal stuff push
   scope_holder_push(&mcsat->scope,
       &mcsat->assertion_vars.size,
@@ -818,6 +827,12 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::pop start\n");
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
+  }
+
+  if (mcsat->inconsistent_push_calls > 0) {
+    mcsat->inconsistent_push_calls --;
+    mcsat->status = STATUS_IDLE;
+    return;
   }
 
   // Backtrack trail
@@ -1149,7 +1164,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   }
 
   // If we're unsat, no more assertions
-  if (mcsat->status == STATUS_UNSAT) {
+  if (!trail_is_consistent(mcsat->trail)) {
     return;
   }
 
@@ -1174,7 +1189,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
     } else {
       // If negative already, we're inconsistent
       if (!trail_get_boolean_value(mcsat->trail, f_pos_var)) {
-        mcsat->status = STATUS_UNSAT;
+        trail_set_inconsistent(mcsat->trail);
         return;
       }
     }
@@ -1185,7 +1200,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
     } else {
       // If positive already, we're inconsistent
       if (trail_get_boolean_value(mcsat->trail, f_pos_var)) {
-        mcsat->status = STATUS_UNSAT;
+        trail_set_inconsistent(mcsat->trail);
         return;
       }
     }
@@ -1193,11 +1208,6 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 
   // Do propagation
   mcsat_propagate(mcsat);
-
-  // Maybe we're already UNSAT
-  if (!trail_is_consistent(mcsat->trail)) {
-    mcsat->status = STATUS_UNSAT;
-  }
 }
 
 /**
@@ -1674,7 +1684,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   luby_t luby;
 
   // If we're already unsat, just return
-  if (mcsat->status == STATUS_UNSAT) {
+  if (!trail_is_consistent(mcsat->trail)) {
+    mcsat->status = STATUS_UNSAT;
     return;
   }
 
